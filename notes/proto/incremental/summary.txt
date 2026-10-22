@@ -1,0 +1,65 @@
+NOT CLEAN 1 zi_H zoom8_hole 0.99999496444901 1 0 1 0.24988176954370236
+
+== K=1
+zi_H       default    total   459 class  31 coreCov  67 layer   353 | evals  213894 tris   20743 claimed 115 budget 0 | IoU 1 holes 0 spill 0 par 1.000(85234) minCov 1 dev 0.250
+zi_H       out4       total   330 class  25 coreCov  65 layer   233 | evals  143680 tris   12746 claimed 10 budget 0 | IoU 1 holes 0 spill 0 par 1.000(3062) minCov 1 dev 0.250
+zi_H       out16      total   248 class  23 coreCov  62 layer   155 | evals  100659 tris    8689 claimed 4 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+zi_H       zoom8_hole total  2498 class  31 coreCov  61 layer  2401 | evals 1723109 tris   45810 claimed 1250 budget 0 | IoU 0.99999496444901 holes 1 spill 0 par 1.000(180498) minCov 0 dev 0.250
+zi_H       zoom8_rim  total  1357 class  36 coreCov  33 layer  1280 | evals 1078282 tris    3238 claimed 2848 budget 0 | IoU 1 holes 0 spill 0 par 1.000(129877) minCov 1 dev 0.249
+log_H      default    total   184 class  42 coreCov  75 layer    62 | evals   51491 tris    4155 claimed 48 budget 0 | IoU 1 holes 0 spill 0 par 1.000(112479) minCov 1 dev 0.250
+log_H      out4       total   168 class  23 coreCov  54 layer    88 | evals   64026 tris   10879 claimed 14 budget 0 | IoU 1 holes 0 spill 0 par 1.000(15851) minCov 1 dev 0.250
+log_H      out16      total   256 class  42 coreCov  58 layer   153 | evals   80055 tris   14857 claimed 4 budget 0 | IoU 1 holes 0 spill 0 par 1.000(2076) minCov 1 dev 0.250
+exp_H      default    total  1031 class  33 coreCov  36 layer   958 | evals  648698 tris   39169 claimed 1540 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+exp_H      out4       total   807 class  34 coreCov  50 layer   716 | evals  494064 tris   41841 claimed 1176 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+exp_H      out16      total   813 class  36 coreCov  97 layer   676 | evals  415194 tris   40887 claimed 861 budget 0 | IoU 1 holes 0 spill 0 par - minCov 2 dev 0.250
+einv_disc  default    total  1008 class  37 coreCov  78 layer   886 | evals  701968 tris   13058 claimed 616 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+einv_disc  out4       total  1313 class  34 coreCov  75 layer  1198 | evals 1056367 tris   16111 claimed 354 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+einv_disc  out16      total  2070 class  28 coreCov  66 layer  1972 | evals 1859831 tris   19059 claimed 215 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+exp_strip  default    total   110 class  30 coreCov  25 layer    51 | evals   54408 tris    4057 claimed 670 budget 0 | IoU 1 holes 0 spill 0 par 1.000(140545) minCov 1 dev 0.243
+exp_strip  out4       total   133 class  19 coreCov  28 layer    82 | evals   63272 tris    6073 claimed 550 budget 0 | IoU 1 holes 0 spill 0 par 1.000(109815) minCov 1 dev 0.248
+exp_strip  out16      total   148 class  22 coreCov  30 layer    91 | evals   70414 tris    8187 claimed 450 budget 0 | IoU 1 holes 0 spill 0 par 1.000(103045) minCov 1 dev 0.249
+cayley_H   default    total   123 class  46 coreCov  67 layer     5 | evals   15734 tris     785 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par 1.000(99694) minCov 1 dev 0.182
+cayley_H   out4       total    81 class  24 coreCov  49 layer     2 | evals   15373 tris     695 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par 1.000(4768) minCov 1 dev 0.045
+cayley_H   out16      total    77 class  18 coreCov  55 layer     1 | evals   14405 tris     585 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par 1.000(127) minCov 1 dev 0.011
+cayley_H   zoom64_w1  total   176 class  42 coreCov   0 layer   131 | evals  128193 tris    1044 claimed 4428 budget 0 | IoU 1 holes 0 spill 0 par 1.000(169) minCov 1 dev 0.086
+
+== K=3
+zi_H       default    total   634 class  33 coreCov  68 layer   525 | evals  273661 tris   35814 claimed 115 budget 0 | IoU 1 holes 0 spill 0 par 1.000(85234) minCov 3 dev 0.250
+zi_H       out4       total   398 class  37 coreCov  72 layer   281 | evals  162055 tris   16881 claimed 10 budget 0 | IoU 1 holes 0 spill 0 par 1.000(3062) minCov 3 dev 0.250
+zi_H       out16      total   309 class  28 coreCov  72 layer   202 | evals  104521 tris    9793 claimed 4 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+zi_H       zoom8_hole total  2896 class  43 coreCov 112 layer  2736 | evals 1881665 tris   74559 claimed 1250 budget 0 | IoU 1 holes 0 spill 0 par 1.000(180499) minCov 3 dev 0.250
+zi_H       zoom8_rim  total  1545 class  35 coreCov  23 layer  1482 | evals 1157525 tris   15288 claimed 2848 budget 0 | IoU 1 holes 0 spill 0 par 1.000(129877) minCov 3 dev 0.250
+log_H      default    total   182 class  37 coreCov  72 layer    68 | evals   51491 tris    4155 claimed 48 budget 0 | IoU 1 holes 0 spill 0 par 1.000(112479) minCov 1 dev 0.250
+log_H      out4       total   200 class  35 coreCov  56 layer   104 | evals   64026 tris   10882 claimed 14 budget 0 | IoU 1 holes 0 spill 0 par 1.000(15851) minCov 1 dev 0.250
+log_H      out16      total   210 class  26 coreCov  51 layer   129 | evals   80055 tris   14857 claimed 4 budget 0 | IoU 1 holes 0 spill 0 par 1.000(2076) minCov 1 dev 0.250
+exp_H      default    total  1458 class  32 coreCov  34 layer  1387 | evals  726294 tris  101420 claimed 1540 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+exp_H      out4       total  1042 class  27 coreCov  37 layer   972 | evals  544417 tris   71935 claimed 1176 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+exp_H      out16      total   833 class  32 coreCov  38 layer   758 | evals  454388 tris   58148 claimed 861 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+einv_disc  default    total  3799 class  44 coreCov  62 layer  3687 | evals 3779430 tris   40599 claimed 617 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+einv_disc  out4       total  3601 class  33 coreCov  84 layer  3479 | evals 3543831 tris   44531 claimed 354 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+einv_disc  out16      total  4081 class  29 coreCov  80 layer  3965 | evals 4000061 tris   48932 claimed 215 budget 5069 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+exp_strip  default    total   103 class  19 coreCov  21 layer    56 | evals   54408 tris    4057 claimed 670 budget 0 | IoU 1 holes 0 spill 0 par 1.000(140545) minCov 1 dev 0.243
+exp_strip  out4       total   107 class  14 coreCov  26 layer    63 | evals   63254 tris    6073 claimed 550 budget 0 | IoU 1 holes 0 spill 0 par 1.000(109815) minCov 1 dev 0.248
+exp_strip  out16      total   109 class  12 coreCov  24 layer    70 | evals   70414 tris    8187 claimed 450 budget 0 | IoU 1 holes 0 spill 0 par 1.000(103045) minCov 1 dev 0.249
+cayley_H   default    total   111 class  30 coreCov  73 layer     4 | evals   15734 tris     785 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par 1.000(99694) minCov 1 dev 0.182
+cayley_H   out4       total    81 class  16 coreCov  55 layer     4 | evals   15373 tris     695 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par 1.000(4768) minCov 1 dev 0.045
+cayley_H   out16      total    83 class  19 coreCov  59 layer     1 | evals   14405 tris     585 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par 1.000(127) minCov 1 dev 0.011
+cayley_H   zoom64_w1  total   138 class  34 coreCov   0 layer   101 | evals  128193 tris    1044 claimed 4428 budget 0 | IoU 1 holes 0 spill 0 par 1.000(169) minCov 1 dev 0.086
+
+== K=1_sphere
+zi_H       sphere     total   824 class  29 coreCov  74 layer   702 | evals  416893 tris   51636 claimed 270 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+log_H      sphere     total   318 class  47 coreCov  83 layer   164 | evals   87196 tris   14700 claimed 168 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+exp_H      sphere     total  1555 class  27 coreCov  90 layer  1417 | evals  804108 tris   86496 claimed 1070 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+einv_disc  sphere     total   675 class  36 coreCov 104 layer   514 | evals  389574 tris   13722 claimed 408 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+exp_strip  sphere     total    82 class  17 coreCov  47 layer     1 | evals    8371 tris     204 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.000
+cayley_H   sphere     total   110 class  19 coreCov  67 layer    11 | evals   20409 tris    2034 claimed 56 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.245
+
+== K=3_sphere
+zi_H       sphere     total  1061 class  39 coreCov  79 layer   921 | evals  540383 tris   81940 claimed 270 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+log_H      sphere     total   313 class  35 coreCov  83 layer   176 | evals   87196 tris   14700 claimed 168 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.250
+exp_H      sphere     total  2526 class  43 coreCov  74 layer  2389 | evals 1174173 tris  242399 claimed 1070 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+einv_disc  sphere     total  2170 class  35 coreCov 107 layer  2001 | evals 1545062 tris   63290 claimed 408 budget 0 | IoU 1 holes 0 spill 0 par - minCov 3 dev 0.250
+exp_strip  sphere     total    95 class  18 coreCov  57 layer     1 | evals    8371 tris     204 claimed 0 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.000
+cayley_H   sphere     total   122 class  23 coreCov  73 layer    10 | evals   20409 tris    2034 claimed 56 budget 0 | IoU 1 holes 0 spill 0 par - minCov 1 dev 0.245
+
+scored runs: 88 not clean: 1

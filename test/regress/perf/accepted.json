@@ -1,0 +1,140 @@
+{
+ "_doc": "Deliberate, documented exceptions to the perf gate, accepted by the user on 2026-10-21 ('accept the documented GPU-memory exceptions (and the z^i 30%-opacity Retina zoom at the 14 ms line)'). A FAIL on a listed metric becomes ACCEPTED only while the value stays at or below 'max' (same unit as the metric); above 'max' it still FAILS. Add an entry only with the user's consent and a reason. Second consent (2026-10-21): the hard essential-singularity chains e^{z+1/z} and exp(exp z); example 9 is NOT excepted (to be fixed by inverse support for rational formulas).",
+ "metrics": {
+  "phase.default.gpu_live_bytes": {
+   "max": 3460000,
+   "date": "2026-10-21",
+   "reason": "U-b (user decision: left = X, right = Y): Phase scenes now also draw the images on the right pane, which the old Phase view left empty. Same footprint as the Image view (2.63 MiB, itself below the reference's Image view); two real leaks were fixed, the rest is the map cache of the visible image."
+  },
+  "phase.default.gpu_live_end_bytes": {
+   "max": 1760000,
+   "date": "2026-10-21",
+   "reason": "as phase.default.gpu_live_bytes"
+  },
+  "phase.default.gpu_peak_bytes": {
+   "max": 3460000,
+   "date": "2026-10-21",
+   "reason": "as phase.default.gpu_live_bytes"
+  },
+  "phase.default.gpu_peak_end_bytes": {
+   "max": 3460000,
+   "date": "2026-10-21",
+   "reason": "as phase.default.gpu_live_bytes"
+  },
+  "examples.0.gpu_peak_bytes": {
+   "max": 3460000,
+   "date": "2026-10-21",
+   "reason": "as phase.default.gpu_live_bytes (examples load in sequence; the peak carries the previous example's right-pane image)"
+  },
+  "examples.9.gpu_live_bytes": {
+   "max": 3800000,
+   "date": "2026-10-21",
+   "reason": "U-b: this Phase example now also shows its image on the right pane (2.88 MiB)"
+  },
+  "examples.9.gpu_peak_bytes": {
+   "max": 3800000,
+   "date": "2026-10-21",
+   "reason": "as examples.9.gpu_live_bytes"
+  },
+  "examples.10.gpu_peak_bytes": {
+   "max": 3800000,
+   "date": "2026-10-21",
+   "reason": "U-b: the peak carries the previous Phase example's right-pane image"
+  },
+  "examples.11.gpu_live_bytes": {
+   "max": 320000,
+   "date": "2026-10-21",
+   "reason": "U-b: right-pane image in a Phase example (235-240 KiB)"
+  },
+  "examples.12.gpu_live_bytes": {
+   "max": 5200000,
+   "date": "2026-10-21",
+   "reason": "U-b: the d/dz example's Phase view now also shows the images on the right pane (3.37 MiB)"
+  },
+  "examples.12.gpu_peak_bytes": {
+   "max": 5200000,
+   "date": "2026-10-21",
+   "reason": "as examples.12.gpu_live_bytes (3.91 MiB)"
+  },
+  "image.ziH.a30.dpr2.zoomR.in.frame_p95_ms": {
+   "max": 15.5,
+   "date": "2026-10-21",
+   "reason": "The heaviest exact scene (z^i of H, alpha 0.3, dpr 2) sits at the 14 ms headroom line (12.3-14.7 ms across runs); still inside the user's 60 fps rule (16.7 ms). Sharp motion frames were chosen over half resolution."
+  },
+  "image.ziH.a30.dpr2.zoomR.out.frame_p95_ms": {
+   "max": 15.5,
+   "date": "2026-10-21",
+   "reason": "as image.ziH.a30.dpr2.zoomR.in.frame_p95_ms"
+  },
+  "image.ziH.a30.dpr2.zoomR.in.latency_p95_ms": {
+   "max": 43.0,
+   "date": "2026-10-21",
+   "reason": "as image.ziH.a30.dpr2.zoomR.in.frame_p95_ms (29-41 ms across runs, at the 40 ms line)"
+  },
+  "image.ziH.a30.dpr2.zoomR.out.latency_p95_ms": {
+   "max": 43.0,
+   "date": "2026-10-21",
+   "reason": "as image.ziH.a30.dpr2.zoomR.in.latency_p95_ms"
+  },
+  "image.custom_e_z1z.m240.gpu_live_bytes": {
+   "max": 8800000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. The custom formula e^{z+1/z} cannot be inverted (z occurs twice), so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.custom_e_z1z.m240.gpu_live_end_bytes": {
+   "max": 8800000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. The custom formula e^{z+1/z} cannot be inverted (z occurs twice), so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.custom_e_z1z.m240.gpu_peak_bytes": {
+   "max": 8800000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. The custom formula e^{z+1/z} cannot be inverted (z occurs twice), so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.custom_e_z1z.m240.gpu_peak_end_bytes": {
+   "max": 8800000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. The custom formula e^{z+1/z} cannot be inverted (z occurs twice), so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.custom_e_z1z.m240.zoomR.in.settle_ms": {
+   "max": 3200,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. The custom formula e^{z+1/z} cannot be inverted (z occurs twice), so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.custom_e_z1z.m240.zoomR.out.settle_ms": {
+   "max": 3200,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. The custom formula e^{z+1/z} cannot be inverted (z occurs twice), so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.expexp_H.m240.gpu_live_bytes": {
+   "max": 11200000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. exp(exp z) of the upper half-plane has an outer family with an unbounded range, so it goes forward by rule, so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.expexp_H.m240.gpu_live_end_bytes": {
+   "max": 11200000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. exp(exp z) of the upper half-plane has an outer family with an unbounded range, so it goes forward by rule, so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.expexp_H.m240.gpu_peak_bytes": {
+   "max": 11200000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. exp(exp z) of the upper half-plane has an outer family with an unbounded range, so it goes forward by rule, so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.expexp_H.m240.gpu_peak_end_bytes": {
+   "max": 11200000,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. exp(exp z) of the upper half-plane has an outer family with an unbounded range, so it goes forward by rule, so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.expexp_H.m240.zoomR.in.settle_ms": {
+   "max": 1900,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. exp(exp z) of the upper half-plane has an outer family with an unbounded range, so it goes forward by rule, so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  },
+  "image.expexp_H.m240.zoomR.out.settle_ms": {
+   "max": 1900,
+   "date": "2026-10-21",
+   "reason": "User consent 2026-10-21: 'Accept documented exceptions for the hard essential-singularity chains (e^{z+1/z}, exp(exp z))'. exp(exp z) of the upper half-plane has an outer family with an unbounded range, so it goes forward by rule, so P5's SphereMesh draws it exactly (essential singularities at 0 and infinity); the reference drew it with the old mesh and its defects. Cost: the pre-mapped mesh's GPU memory and the time to rebuild it after a zoom (the old image stays on screen meanwhile)."
+  }
+ }
+}

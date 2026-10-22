@@ -1,0 +1,6277 @@
+{
+ "meta": {
+  "suite": "cmw-image-quality",
+  "version": 1,
+  "date": "2026-10-19T19:57:13.508Z",
+  "browser": "Chrome/155.0.8059.80",
+  "viewport": {
+   "width": 1440,
+   "height": 900,
+   "dpr": 1
+  },
+  "base_url": "http://localhost:8793",
+  "app_sha1": "04aa240d19580a606c70ec271a002c37d21aa66f",
+  "band_px": 2.5,
+  "parity_min_cell_px": 3,
+  "parity_min_edge_px": 1.5,
+  "golden_thr": 8,
+  "stable_ms": 1500,
+  "wall_s": 75.7,
+  "reevaluated": "2026-10-19T20:09:10.868Z",
+  "accepted": "2026-10-19T20:09:10.924Z",
+  "partial_updates": [
+   {
+    "date": "2026-10-20T02:58:25.232Z",
+    "runs": [
+     "zi_H.mask",
+     "zi_H.pattern",
+     "zi_H.polar",
+     "zi_H.mask85",
+     "zi_H.mask20",
+     "zi_H_out4.mask",
+     "zi_H_out4.pattern",
+     "zi_H_out4.polar",
+     "zi_H_out16.mask",
+     "zi_H_out16.pattern",
+     "expH.mask",
+     "expH.pattern",
+     "expH.mask85",
+     "expH.mask20",
+     "expH_out16.mask",
+     "expH_out16.pattern",
+     "e1z_disc.mask",
+     "e1z_disc.pattern",
+     "e1z_disc.mask85",
+     "e1z_disc.mask20",
+     "e1z_disc_out16.mask",
+     "e1z_disc_out16.pattern",
+     "e1z_custom.mask",
+     "e1z_custom.pattern",
+     "e1z_custom.mask85",
+     "exp_far_disc.mask",
+     "exp_far_disc.pattern",
+     "ez2_disc.mask",
+     "ez2_disc.pattern",
+     "healed_cut.mask",
+     "healed_cut.pattern"
+    ],
+    "app_sha1": "8ace468295cff6eb973b8e744e72317cff34eff1"
+   }
+  ]
+ },
+ "runs": {
+  "logH.mask": {
+   "id": "logH.mask",
+   "scene": "logH",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "log of the upper half-plane, default zoom",
+   "truth": "0 < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 123000,
+    "n_out": 84460,
+    "n_band": 4100,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 820
+   },
+   "view": {
+    "cx": -0.18,
+    "cy": 1.570796327,
+    "s": 97,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      947.46,
+      487.36724369910496
+     ],
+     "x1": [
+      1044.46,
+      487.36724369910496
+     ],
+     "y1": [
+      947.46,
+      390.36724369910496
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 630,
+   "settled": true,
+   "render_sha1": "af3fd7d01279a96aabc51d409e9a989ae2fba1a7",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 1485
+    }
+   ],
+   "view_verified": true
+  },
+  "logH.pattern": {
+   "id": "logH.pattern",
+   "scene": "logH",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "log of the upper half-plane, default zoom",
+   "truth": "0 < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 123000,
+    "n_out": 84460,
+    "n_band": 4100,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 820,
+    "parity_acc": 1,
+    "parity_n": 112116,
+    "parity_excl": 0.088488,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.088488
+   },
+   "view": {
+    "cx": -0.18,
+    "cy": 1.570796327,
+    "s": 97,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      947.46,
+      487.36724369910496
+     ],
+     "x1": [
+      1044.46,
+      487.36724369910496
+     ],
+     "y1": [
+      947.46,
+      390.36724369910496
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "4f5d3b27580d8c04a404384ae4fad42802461a91",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 1485
+    }
+   ],
+   "view_verified": true
+  },
+  "logH_out4.mask": {
+   "id": "logH_out4.mask",
+   "scene": "logH_out4",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "log of the upper half-plane, zoomed out 4x",
+   "truth": "0 < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.728049,
+    "hole": 0.271951,
+    "spill": 0,
+    "bnd_err_px": 9.790244,
+    "bnd_p95_px": 36.591811,
+    "annot": 0.000771,
+    "n_in": 29520,
+    "n_out": 177940,
+    "n_band": 4100,
+    "n_hole": 8028,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 820
+   },
+   "view": {
+    "cx": -0.18,
+    "cy": 1.570796327,
+    "s": 24.25,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      934.365,
+      373.09181092477627
+     ],
+     "x1": [
+      958.615,
+      373.09181092477627
+     ],
+     "y1": [
+      934.365,
+      348.84181092477627
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 617,
+   "settled": true,
+   "render_sha1": "6bd309e4f731d2dfdaf838152684461e7dd29aa5",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 1485
+    }
+   ],
+   "view_verified": true
+  },
+  "logH_out4.pattern": {
+   "id": "logH_out4.pattern",
+   "scene": "logH_out4",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "log of the upper half-plane, zoomed out 4x",
+   "truth": "0 < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.721985,
+    "hole": 0.278015,
+    "spill": 0,
+    "bnd_err_px": 10.008537,
+    "bnd_p95_px": 36.591811,
+    "annot": 0.000771,
+    "n_in": 29520,
+    "n_out": 177940,
+    "n_band": 4100,
+    "n_hole": 8207,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 820,
+    "parity_acc": 0.982606,
+    "parity_n": 10406,
+    "parity_excl": 0.511753,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.379299,
+    "parity_excl_edge": 0.132454
+   },
+   "view": {
+    "cx": -0.18,
+    "cy": 1.570796327,
+    "s": 24.25,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      934.365,
+      373.09181092477627
+     ],
+     "x1": [
+      958.615,
+      373.09181092477627
+     ],
+     "y1": [
+      934.365,
+      348.84181092477627
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "87260ebfd8dba6bb1ab475b632c4a3422670c00d",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 1485
+    }
+   ],
+   "view_verified": true
+  },
+  "logH_out16.mask": {
+   "id": "logH_out16.mask",
+   "scene": "logH_out16",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "log of the upper half-plane, zoomed out 16x",
+   "truth": "0 < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.182404,
+    "hole": 0.817596,
+    "spill": 0,
+    "bnd_err_px": 5.723171,
+    "bnd_p95_px": 9.022953,
+    "annot": 0.00027,
+    "n_in": 5740,
+    "n_out": 201720,
+    "n_band": 4100,
+    "n_hole": 4693,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 820
+   },
+   "view": {
+    "cx": -0.18,
+    "cy": 1.570796327,
+    "s": 6.0625,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      931.09125,
+      344.52295273119404
+     ],
+     "x1": [
+      937.15375,
+      344.52295273119404
+     ],
+     "y1": [
+      931.09125,
+      338.46045273119404
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 616,
+   "settled": true,
+   "render_sha1": "09b27d0c17dd2649e11ac97609482bdc4b734288",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 1485
+    }
+   ],
+   "view_verified": true
+  },
+  "logH_out16.pattern": {
+   "id": "logH_out16.pattern",
+   "scene": "logH_out16",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "log of the upper half-plane, zoomed out 16x",
+   "truth": "0 < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.179617,
+    "hole": 0.820383,
+    "spill": 0,
+    "bnd_err_px": 5.742683,
+    "bnd_p95_px": 9.022953,
+    "annot": 0.00027,
+    "n_in": 5740,
+    "n_out": 201720,
+    "n_band": 4100,
+    "n_hole": 4709,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 820,
+    "parity_acc": 0.935691,
+    "parity_n": 311,
+    "parity_excl": 0.698351,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.505335,
+    "parity_excl_edge": 0.193016
+   },
+   "view": {
+    "cx": -0.18,
+    "cy": 1.570796327,
+    "s": 6.0625,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      931.09125,
+      344.52295273119404
+     ],
+     "x1": [
+      937.15375,
+      344.52295273119404
+     ],
+     "y1": [
+      931.09125,
+      338.46045273119404
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "1abf1e5fab5f3ce11fc93927e3ea2c88ed669957",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 1485
+    }
+   ],
+   "view_verified": true
+  },
+  "exp_strip.mask": {
+   "id": "exp_strip.mask",
+   "scene": "exp_strip",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "exp of the strip |Im z| < pi/2",
+   "truth": "Re w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 145512,
+    "n_out": 62952,
+    "n_band": 3096,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 619.2
+   },
+   "view": {
+    "cx": 2,
+    "cy": 0,
+    "s": 40,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      850,
+      335
+     ],
+     "x1": [
+      890,
+      335
+     ],
+     "y1": [
+      850,
+      295
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 609,
+   "settled": true,
+   "render_sha1": "4a15f7664b0a6d4b5ff5a746ab9e01b495708bc5",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3000,
+     "segs": 5492,
+     "fixR": 39774
+    }
+   ],
+   "view_verified": true
+  },
+  "exp_strip.pattern": {
+   "id": "exp_strip.pattern",
+   "scene": "exp_strip",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "exp of the strip |Im z| < pi/2",
+   "truth": "Re w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 145512,
+    "n_out": 62952,
+    "n_band": 3096,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 619.2,
+    "parity_acc": 1,
+    "parity_n": 140316,
+    "parity_excl": 0.035708,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.035708
+   },
+   "view": {
+    "cx": 2,
+    "cy": 0,
+    "s": 40,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      850,
+      335
+     ],
+     "x1": [
+      890,
+      335
+     ],
+     "y1": [
+      850,
+      295
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "4d6217678d01fa5d12a5e297dc6626e28c42fc7a",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3000,
+     "segs": 5492,
+     "fixR": 39774
+    }
+   ],
+   "view_verified": true
+  },
+  "cayley_H.mask": {
+   "id": "cayley_H.mask",
+   "scene": "cayley_H",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "Cayley map (z - i)/(z + i) of the upper half-plane",
+   "truth": "|w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 110396,
+    "n_out": 95184,
+    "n_band": 5980,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1196
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 616,
+   "settled": true,
+   "render_sha1": "5f46837058568855cda2487294d5109d0e930cfc",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 9781
+    }
+   ],
+   "view_verified": true
+  },
+  "cayley_H.pattern": {
+   "id": "cayley_H.pattern",
+   "scene": "cayley_H",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "Cayley map (z - i)/(z + i) of the upper half-plane",
+   "truth": "|w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.999991,
+    "hole": 0.000009,
+    "spill": 0,
+    "bnd_err_px": 0.000836,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 110396,
+    "n_out": 95184,
+    "n_band": 5980,
+    "n_hole": 1,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1196,
+    "parity_acc": 1,
+    "parity_n": 99488,
+    "parity_excl": 0.0988,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.013959,
+    "parity_excl_edge": 0.084841
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "fd8f79fd042a334944f01ec377c113b441fec57b",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 9781
+    }
+   ],
+   "view_verified": true
+  },
+  "cayley_H_zoom1.mask": {
+   "id": "cayley_H_zoom1.mask",
+   "scene": "cayley_H_zoom1",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "Cayley of the upper half-plane, 64x zoom on w = 1 (the image of infinity)",
+   "truth": "|w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.772444,
+    "hole": 0.227466,
+    "spill": 0,
+    "bnd_err_px": 45.825581,
+    "bnd_p95_px": 191.498736,
+    "annot": 0.000196,
+    "n_in": 103954,
+    "n_out": 105026,
+    "n_band": 2580,
+    "n_hole": 23646,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 516
+   },
+   "view": {
+    "cx": 1,
+    "cy": 0,
+    "s": 12160,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      -11230,
+      335
+     ],
+     "x1": [
+      930,
+      335
+     ],
+     "y1": [
+      -11230,
+      -11825
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 612,
+   "settled": true,
+   "render_sha1": "1676aa4a9d7d79dd54cd8250988f33a9b60754fc",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 9781
+    }
+   ],
+   "view_verified": true
+  },
+  "cayley_H_zoom1.pattern": {
+   "id": "cayley_H_zoom1.pattern",
+   "scene": "cayley_H_zoom1",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "Cayley of the upper half-plane, 64x zoom on w = 1 (the image of infinity)",
+   "truth": "|w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.711565,
+    "hole": 0.288368,
+    "spill": 0,
+    "bnd_err_px": 58.094961,
+    "bnd_p95_px": 193.118932,
+    "annot": 0.000115,
+    "n_in": 103954,
+    "n_out": 105026,
+    "n_band": 2580,
+    "n_hole": 29977,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 516,
+    "parity_acc": 0.584507,
+    "parity_n": 142,
+    "parity_excl": 0.99808,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.911579,
+    "parity_excl_edge": 0.086501
+   },
+   "view": {
+    "cx": 1,
+    "cy": 0,
+    "s": 12160,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      -11230,
+      335
+     ],
+     "x1": [
+      930,
+      335
+     ],
+     "y1": [
+      -11230,
+      -11825
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 613,
+   "settled": true,
+   "render_sha1": "b1f659037066341bfd14a768fc6e10332e5eedb4",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 9781
+    }
+   ],
+   "view_verified": true
+  },
+  "recip_ext.mask": {
+   "id": "recip_ext.mask",
+   "scene": "recip_ext",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "1/z of the exterior |z| > 1",
+   "truth": "0 < |w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0.000015,
+    "n_in": 98928,
+    "n_out": 106972,
+    "n_band": 5660,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1132
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 180,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1110,
+      335
+     ],
+     "y1": [
+      930,
+      155
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "c338b034ddd2a493f22afb5a6b5502b790423207",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 7380,
+     "segs": 401,
+     "fixR": 16718
+    }
+   ],
+   "view_verified": true
+  },
+  "recip_ext.pattern": {
+   "id": "recip_ext.pattern",
+   "scene": "recip_ext",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "1/z of the exterior |z| > 1",
+   "truth": "0 < |w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.99999,
+    "hole": 0.00001,
+    "spill": 0,
+    "bnd_err_px": 0.000883,
+    "bnd_p95_px": 0,
+    "annot": 0.00001,
+    "n_in": 98928,
+    "n_out": 106972,
+    "n_band": 5660,
+    "n_hole": 1,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1132,
+    "parity_acc": 1,
+    "parity_n": 84948,
+    "parity_excl": 0.141289,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.016952,
+    "parity_excl_edge": 0.124337
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 180,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1110,
+      335
+     ],
+     "y1": [
+      930,
+      155
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "9d2692f2977be47597437b37f8e19ae0be21585a",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 7380,
+     "segs": 401,
+     "fixR": 16718
+    }
+   ],
+   "view_verified": true
+  },
+  "recip_ext_zoom0.mask": {
+   "id": "recip_ext_zoom0.mask",
+   "scene": "recip_ext_zoom0",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "1/z of |z| > 1, 128x zoom on w = 0 (the image of infinity)",
+   "truth": "0 < |w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.805281,
+    "hole": 0.194532,
+    "spill": 0,
+    "bnd_err_px": 100.370732,
+    "bnd_p95_px": 241.992768,
+    "annot": 0.000964,
+    "n_in": 211544,
+    "n_out": 0,
+    "n_band": 16,
+    "n_hole": 41152,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 3.2
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 23040,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      23970,
+      335
+     ],
+     "y1": [
+      930,
+      -22705
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 613,
+   "settled": true,
+   "render_sha1": "766f27ae6d1e41ef9a307e58e231219531c4a5fb",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 7380,
+     "segs": 401,
+     "fixR": 16718
+    }
+   ],
+   "view_verified": true
+  },
+  "recip_ext_zoom0.pattern": {
+   "id": "recip_ext_zoom0.pattern",
+   "scene": "recip_ext_zoom0",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "1/z of |z| > 1, 128x zoom on w = 0 (the image of infinity)",
+   "truth": "0 < |w| < 1",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.753214,
+    "hole": 0.246625,
+    "spill": 0,
+    "bnd_err_px": 127.24878,
+    "bnd_p95_px": 245.748856,
+    "annot": 0.000652,
+    "n_in": 211544,
+    "n_out": 0,
+    "n_band": 16,
+    "n_hole": 52172,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 3.2,
+    "parity_acc": 0.856618,
+    "parity_n": 544,
+    "parity_excl": 0.996584,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.870492,
+    "parity_excl_edge": 0.126091
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 23040,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      23970,
+      335
+     ],
+     "y1": [
+      930,
+      -22705
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 613,
+   "settled": true,
+   "render_sha1": "8bee037f4fe0f4ba1421e962788812d1843b41a3",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 7380,
+     "segs": 401,
+     "fixR": 16718
+    }
+   ],
+   "view_verified": true
+  },
+  "sq_Q1.mask": {
+   "id": "sq_Q1.mask",
+   "scene": "sq_Q1",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "z^2 of the first quadrant",
+   "truth": "Im w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 153750,
+    "n_out": 55350,
+    "n_band": 2460,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 492
+   },
+   "view": {
+    "cx": 0,
+    "cy": 2,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      455
+     ],
+     "x1": [
+      990,
+      455
+     ],
+     "y1": [
+      930,
+      395
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "7350435dae29251b9a6ee97257f2f0d637ff5baf",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3275,
+     "segs": 1144,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "sq_Q1.pattern": {
+   "id": "sq_Q1.pattern",
+   "scene": "sq_Q1",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "z^2 of the first quadrant",
+   "truth": "Im w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 153750,
+    "n_out": 55350,
+    "n_band": 2460,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 492,
+    "parity_acc": 1,
+    "parity_n": 145872,
+    "parity_excl": 0.051239,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.051239
+   },
+   "view": {
+    "cx": 0,
+    "cy": 2,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      455
+     ],
+     "x1": [
+      990,
+      455
+     ],
+     "y1": [
+      930,
+      395
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "4d14cfed4ca8271e003c1e67c08dc3dfaaf649b4",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3275,
+     "segs": 1144,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "sqrt_slit.mask": {
+   "id": "sqrt_slit.mask",
+   "scene": "sqrt_slit",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "principal sqrt of the slit plane (formula |z| > 0, cut 180 deg)",
+   "truth": "Re w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 166152,
+    "n_out": 42312,
+    "n_band": 3096,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 619.2
+   },
+   "view": {
+    "cx": 1,
+    "cy": 0,
+    "s": 120,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      810,
+      335
+     ],
+     "x1": [
+      930,
+      335
+     ],
+     "y1": [
+      810,
+      215
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "4a9515fafb9c73f12b55b7192e795486d8dedce6",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 8040,
+     "segs": null,
+     "fixR": 3709
+    }
+   ],
+   "view_verified": true
+  },
+  "sqrt_slit.pattern": {
+   "id": "sqrt_slit.pattern",
+   "scene": "sqrt_slit",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "principal sqrt of the slit plane (formula |z| > 0, cut 180 deg)",
+   "truth": "Re w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 166152,
+    "n_out": 42312,
+    "n_band": 3096,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 619.2,
+    "parity_acc": 0.999991,
+    "parity_n": 110394,
+    "parity_excl": 0.335584,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.335584
+   },
+   "view": {
+    "cx": 1,
+    "cy": 0,
+    "s": 120,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      810,
+      335
+     ],
+     "x1": [
+      930,
+      335
+     ],
+     "y1": [
+      810,
+      215
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "88ae66e4d0a576c45055d69afbcf20aa47c009e4",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 8040,
+     "segs": null,
+     "fixR": 3709
+    }
+   ],
+   "view_verified": true
+  },
+  "sqrt_slit_out16.mask": {
+   "id": "sqrt_slit_out16.mask",
+   "scene": "sqrt_slit_out16",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "principal sqrt of the slit plane, zoomed out 16x",
+   "truth": "Re w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.605882,
+    "hole": 0.394103,
+    "spill": 0,
+    "bnd_err_px": 82.761628,
+    "bnd_p95_px": 208,
+    "annot": 0.000019,
+    "n_in": 108360,
+    "n_out": 100620,
+    "n_band": 2580,
+    "n_hole": 42705,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 516
+   },
+   "view": {
+    "cx": 1,
+    "cy": 0,
+    "s": 7.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      922.5,
+      335
+     ],
+     "x1": [
+      930,
+      335
+     ],
+     "y1": [
+      922.5,
+      327.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "87e750496bb334558437a1c2ac06ffac6e983d20",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 8040,
+     "segs": null,
+     "fixR": 3709
+    }
+   ],
+   "view_verified": true
+  },
+  "sqrt_slit_out16.pattern": {
+   "id": "sqrt_slit_out16.pattern",
+   "scene": "sqrt_slit_out16",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "principal sqrt of the slit plane, zoomed out 16x",
+   "truth": "Re w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.605539,
+    "hole": 0.394454,
+    "spill": 0,
+    "bnd_err_px": 82.835271,
+    "bnd_p95_px": 208,
+    "annot": 0.00001,
+    "n_in": 108360,
+    "n_out": 100620,
+    "n_band": 2580,
+    "n_hole": 42743,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 516,
+    "parity_acc": 1,
+    "parity_n": 0,
+    "parity_excl": 1,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.999817,
+    "parity_excl_edge": 0.000183
+   },
+   "view": {
+    "cx": 1,
+    "cy": 0,
+    "s": 7.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      922.5,
+      335
+     ],
+     "x1": [
+      930,
+      335
+     ],
+     "y1": [
+      922.5,
+      327.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "7d48d323dcf2ab27c63d466f530dfb8fdb36470c",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 8040,
+     "segs": null,
+     "fixR": 3709
+    }
+   ],
+   "view_verified": true
+  },
+  "sin_halfstrip.mask": {
+   "id": "sin_halfstrip.mask",
+   "scene": "sin_halfstrip",
+   "variant": "mask",
+   "group": "unbounded",
+   "golden": false,
+   "note": "sin of the half-strip |Re z| < pi/2, Im z > 0",
+   "truth": "Im w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 145550,
+    "n_out": 63550,
+    "n_band": 2460,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 492
+   },
+   "view": {
+    "cx": 0,
+    "cy": 2,
+    "s": 50,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      435
+     ],
+     "x1": [
+      980,
+      435
+     ],
+     "y1": [
+      930,
+      385
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "25489ac780de5aa9bd5c7354ea2fcfdba01793e5",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3798,
+     "segs": 3612,
+     "fixR": 10612
+    }
+   ],
+   "view_verified": true
+  },
+  "sin_halfstrip.pattern": {
+   "id": "sin_halfstrip.pattern",
+   "scene": "sin_halfstrip",
+   "variant": "pattern",
+   "group": "unbounded",
+   "golden": false,
+   "note": "sin of the half-strip |Re z| < pi/2, Im z > 0",
+   "truth": "Im w > 0",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 145550,
+    "n_out": 63550,
+    "n_band": 2460,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 492,
+    "parity_acc": 1,
+    "parity_n": 135386,
+    "parity_excl": 0.069832,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.069832
+   },
+   "view": {
+    "cx": 0,
+    "cy": 2,
+    "s": 50,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      435
+     ],
+     "x1": [
+      980,
+      435
+     ],
+     "y1": [
+      930,
+      385
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "b90710a4864ea87fd80db28c84a6ee4092aabcde",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3798,
+     "segs": 3612,
+     "fixR": 10612
+    }
+   ],
+   "view_verified": true
+  },
+  "disc_cube.mask": {
+   "id": "disc_cube.mask",
+   "scene": "disc_cube",
+   "variant": "mask",
+   "group": "bounded",
+   "golden": true,
+   "note": "disc |z - (0.6+0.3i)| < 0.8 (contains 0) under z^3: overlapping sheets",
+   "truth": "some cube root of w in the disc",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.999966,
+    "hole": 0.000034,
+    "spill": 0,
+    "bnd_err_px": 0.002194,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 87084,
+    "n_out": 117640,
+    "n_band": 6836,
+    "n_hole": 3,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1367.2,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0.15,
+    "cy": 1,
+    "s": 74.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      918.825,
+      409.5
+     ],
+     "x1": [
+      993.325,
+      409.5
+     ],
+     "y1": [
+      918.825,
+      335
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 611,
+   "settled": true,
+   "render_sha1": "7aa6fc44c4d2ff3ba2e6c2344bc4761b0767e699",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 641,
+     "fixR": 26
+    }
+   ],
+   "view_verified": true
+  },
+  "disc_cube.pattern": {
+   "id": "disc_cube.pattern",
+   "scene": "disc_cube",
+   "variant": "pattern",
+   "group": "bounded",
+   "golden": true,
+   "note": "disc |z - (0.6+0.3i)| < 0.8 (contains 0) under z^3: overlapping sheets",
+   "truth": "some cube root of w in the disc",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.999966,
+    "hole": 0.000034,
+    "spill": 0,
+    "bnd_err_px": 0.002194,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 87084,
+    "n_out": 117640,
+    "n_band": 6836,
+    "n_hole": 3,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1367.2,
+    "parity_acc": 1,
+    "parity_n": 77570,
+    "parity_excl": 0.10922,
+    "parity_excl_multi": 0.009175,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.100045,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0.15,
+    "cy": 1,
+    "s": 74.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      918.825,
+      409.5
+     ],
+     "x1": [
+      993.325,
+      409.5
+     ],
+     "y1": [
+      918.825,
+      335
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 610,
+   "settled": true,
+   "render_sha1": "bd69ee89c105c39d96ba44729ea90a51d7c4c3dc",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 641,
+     "fixR": 26
+    }
+   ],
+   "view_verified": true
+  },
+  "joukowski.mask": {
+   "id": "joukowski.mask",
+   "scene": "joukowski",
+   "variant": "mask",
+   "group": "bounded",
+   "golden": true,
+   "note": "the Joukowski airfoil example: exterior of a circle through 1 under (z + 1/z)/2",
+   "truth": "w +- sqrt(w^2 - 1) outside the circle (the exterior of the airfoil)",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.999976,
+    "hole": 0.000024,
+    "spill": 0,
+    "bnd_err_px": 0.009094,
+    "bnd_p95_px": 0,
+    "annot": 0.000005,
+    "n_in": 205362,
+    "n_out": 3449,
+    "n_band": 2749,
+    "n_hole": 5,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 549.8,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 117,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1047,
+      335
+     ],
+     "y1": [
+      930,
+      218
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "35e950e4fdeb39c5918797dcf356591a434c23b0",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 7078,
+     "segs": 526,
+     "fixR": 4
+    }
+   ],
+   "view_verified": true
+  },
+  "joukowski.pattern": {
+   "id": "joukowski.pattern",
+   "scene": "joukowski",
+   "variant": "pattern",
+   "group": "bounded",
+   "golden": true,
+   "note": "the Joukowski airfoil example: exterior of a circle through 1 under (z + 1/z)/2",
+   "truth": "w +- sqrt(w^2 - 1) outside the circle (the exterior of the airfoil)",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 0.999981,
+    "hole": 0.000019,
+    "spill": 0,
+    "bnd_err_px": 0.007275,
+    "bnd_p95_px": 0,
+    "annot": 0.000005,
+    "n_in": 205362,
+    "n_out": 3449,
+    "n_band": 2749,
+    "n_hole": 4,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 549.8,
+    "parity_acc": 0.999994,
+    "parity_n": 166240,
+    "parity_excl": 0.190483,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.190483,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 117,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1047,
+      335
+     ],
+     "y1": [
+      930,
+      218
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "7d6bc5692d333454350d0e680a10fdd8f3a965a1",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 7078,
+     "segs": 526,
+     "fixR": 4
+    }
+   ],
+   "view_verified": true
+  },
+  "annulus_log.mask": {
+   "id": "annulus_log.mask",
+   "scene": "annulus_log",
+   "variant": "mask",
+   "group": "bounded",
+   "golden": true,
+   "note": "principal log of the annulus 0.5 < |z| < 2 (a rectangle)",
+   "truth": "log 0.5 < Re w < log 2, -pi < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0.001272,
+    "n_in": 42112,
+    "n_out": 163928,
+    "n_band": 5520,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1104,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 72,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1002,
+      335
+     ],
+     "y1": [
+      930,
+      263
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "df77764fc7ea81c47c95634ef959c51567a972bf",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5544,
+     "segs": 1168,
+     "fixR": 2852
+    }
+   ],
+   "view_verified": true
+  },
+  "annulus_log.pattern": {
+   "id": "annulus_log.pattern",
+   "scene": "annulus_log",
+   "variant": "pattern",
+   "group": "bounded",
+   "golden": true,
+   "note": "principal log of the annulus 0.5 < |z| < 2 (a rectangle)",
+   "truth": "log 0.5 < Re w < log 2, -pi < Im w < pi",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0.001272,
+    "n_in": 42112,
+    "n_out": 163928,
+    "n_band": 5520,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1104,
+    "parity_acc": 1,
+    "parity_n": 35100,
+    "parity_excl": 0.166508,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.166508,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 72,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.5,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1002,
+      335
+     ],
+     "y1": [
+      930,
+      263
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 608,
+   "settled": true,
+   "render_sha1": "9bbe5d5c08c12b0fed1c082830566b17c51cce93",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5544,
+     "segs": 1168,
+     "fixR": 2852
+    }
+   ],
+   "view_verified": true
+  },
+  "poly_mobius.mask": {
+   "id": "poly_mobius.mask",
+   "scene": "poly_mobius",
+   "variant": "mask",
+   "group": "bounded",
+   "golden": true,
+   "note": "a pentagon in the upper half-plane under the Cayley map",
+   "truth": "inverse Cayley of w in the pentagon",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 46982,
+    "n_out": 159577,
+    "n_band": 5001,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1000.2,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 200,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1130,
+      335
+     ],
+     "y1": [
+      930,
+      135
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 610,
+   "settled": true,
+   "render_sha1": "5add693ae8b606a7a7edcdc96ea5af518f55e6e0",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3310,
+     "segs": 741,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "poly_mobius.pattern": {
+   "id": "poly_mobius.pattern",
+   "scene": "poly_mobius",
+   "variant": "pattern",
+   "group": "bounded",
+   "golden": true,
+   "note": "a pentagon in the upper half-plane under the Cayley map",
+   "truth": "inverse Cayley of w in the pentagon",
+   "ok": true,
+   "problems": [],
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 46982,
+    "n_out": 159577,
+    "n_band": 5001,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1000.2,
+    "parity_acc": 1,
+    "parity_n": 36105,
+    "parity_excl": 0.231514,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.231514,
+    "golden_diff": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 200,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1130,
+      335
+     ],
+     "y1": [
+      930,
+      135
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "31db9bbc25880f3a6e963b37db0fe483764364b2",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 3310,
+     "segs": 741,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H.mask": {
+   "id": "zi_H.mask",
+   "scene": "zi_H",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.995047,
+    "hole": 0.004953,
+    "spill": 0,
+    "bnd_err_px": 0.436979,
+    "bnd_p95_px": 11.891887,
+    "annot": 0.001281,
+    "n_in": 110028,
+    "n_out": 95296,
+    "n_band": 6236,
+    "n_hole": 545,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1247.2,
+    "n_annot_hole": 263,
+    "opacity_min": 0.149338,
+    "opacity_p01": 1,
+    "opacity_mean": 0.997744,
+    "opacity_lt99": 0.00539,
+    "n_opacity": 110028,
+    "color_off": 0.006907,
+    "color_err_mean": 0.672015,
+    "color_err_p99": 0,
+    "n_color": 110028,
+    "hole_leak": 0,
+    "hole_leak_px": 112,
+    "hole_leak_frac": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 924,
+   "settled": true,
+   "render_sha1": "18b99b114abedc882ca302018cd5f732c545d4c8",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H.pattern": {
+   "id": "zi_H.pattern",
+   "scene": "zi_H",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.994629,
+    "hole": 0.005371,
+    "spill": 0,
+    "bnd_err_px": 0.473861,
+    "bnd_p95_px": 12.144722,
+    "annot": 0.001227,
+    "n_in": 110028,
+    "n_out": 95296,
+    "n_band": 6236,
+    "n_hole": 591,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1247.2,
+    "n_annot_hole": 252,
+    "color_off": 0.006226,
+    "color_err_mean": 0.673259,
+    "color_err_p99": 0.9684,
+    "n_color": 110028,
+    "hole_leak": 0,
+    "hole_leak_px": 112,
+    "hole_leak_frac": 0,
+    "parity_acc": 0.640588,
+    "parity_exp": 82168,
+    "parity_excl_tie": 0.000539,
+    "parity_n": 81586,
+    "parity_excl": 0.254493,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.040096,
+    "parity_excl_edge": 0.213858
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 611,
+   "settled": true,
+   "render_sha1": "0c8d70a35ae656659de5991fb8e51063dc03492a",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H.polar": {
+   "id": "zi_H.polar",
+   "scene": "zi_H",
+   "variant": "polar",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "polar",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.994856,
+    "hole": 0.005144,
+    "spill": 0,
+    "bnd_err_px": 0.453817,
+    "bnd_p95_px": 11.953658,
+    "annot": 0.001257,
+    "n_in": 110028,
+    "n_out": 95296,
+    "n_band": 6236,
+    "n_hole": 566,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1247.2,
+    "n_annot_hole": 258,
+    "color_off": 0.005953,
+    "color_err_mean": 0.373102,
+    "color_err_p99": 0.691438,
+    "n_color": 110028,
+    "hole_leak": 0,
+    "hole_leak_px": 112,
+    "hole_leak_frac": 0,
+    "parity_acc": 0.948493,
+    "parity_exp": 95664,
+    "parity_excl_tie": 0.000502,
+    "polar_front_disc_px": 12,
+    "parity_n": 95113,
+    "parity_excl": 0.131087,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.130584
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 617,
+   "settled": true,
+   "render_sha1": "36777ea886e1fc4aa25c188ab092289ece042416",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H.mask85": {
+   "id": "zi_H.mask85",
+   "scene": "zi_H",
+   "variant": "mask85",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.85,
+   "strict": true,
+   "metrics": {
+    "iou": 0.994756,
+    "hole": 0.005244,
+    "spill": 0,
+    "bnd_err_px": 0.462636,
+    "bnd_p95_px": 11.953658,
+    "annot": 0.001266,
+    "n_in": 110028,
+    "n_out": 95296,
+    "n_band": 6236,
+    "n_hole": 577,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1247.2,
+    "n_annot_hole": 260,
+    "opacity_min": 0.128372,
+    "opacity_p01": 0.850662,
+    "opacity_mean": 0.935364,
+    "opacity_lt99": 0.982713,
+    "n_opacity": 110028,
+    "color_off": 0.39101,
+    "color_err_mean": 15.897229,
+    "color_err_p99": 36.30427,
+    "n_color": 110028,
+    "hole_leak": 0,
+    "hole_leak_px": 112,
+    "hole_leak_frac": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 618,
+   "settled": true,
+   "render_sha1": "b4a6a4b5d6100aeba94761fb8d32ec2318afd57b",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H.mask20": {
+   "id": "zi_H.mask20",
+   "scene": "zi_H",
+   "variant": "mask20",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane: the annulus e^-pi < |w| < 1, the hole must stay empty",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.2,
+   "strict": true,
+   "metrics": {
+    "iou": 0.00917,
+    "hole": 0.99083,
+    "spill": 0,
+    "bnd_err_px": 87.411001,
+    "bnd_p95_px": 86.363616,
+    "annot": 0.003784,
+    "n_in": 110028,
+    "n_out": 95296,
+    "n_band": 6236,
+    "n_hole": 109019,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1247.2,
+    "n_annot_hole": 777,
+    "opacity_min": 0.029902,
+    "opacity_p01": 0.200206,
+    "opacity_mean": 0.326663,
+    "opacity_lt99": 0.991966,
+    "n_opacity": 110028,
+    "color_off": 1,
+    "color_err_mean": 164.490592,
+    "color_err_p99": 194.424793,
+    "n_color": 110028,
+    "hole_leak": 0,
+    "hole_leak_px": 112,
+    "hole_leak_frac": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 190,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      1120,
+      335
+     ],
+     "y1": [
+      930,
+      145
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 613,
+   "settled": true,
+   "render_sha1": "8dbc7a851f6ebeaf9fbb44e5741628e08e4c05df",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H_out4.mask": {
+   "id": "zi_H_out4.mask",
+   "scene": "zi_H_out4",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane, zoomed out 4x",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.993976,
+    "hole": 0.006024,
+    "spill": 0,
+    "bnd_err_px": 0.092683,
+    "bnd_p95_px": 4.158334,
+    "annot": 0.000076,
+    "n_in": 6308,
+    "n_out": 203700,
+    "n_band": 1552,
+    "n_hole": 38,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 310.4,
+    "n_annot_hole": 16,
+    "opacity_min": 0.149338,
+    "opacity_p01": 1,
+    "opacity_mean": 0.996741,
+    "opacity_lt99": 0.008085,
+    "n_opacity": 6308,
+    "color_off": 0.00967,
+    "color_err_mean": 0.934775,
+    "color_err_p99": 0,
+    "n_color": 6308,
+    "hole_leak": 0,
+    "hole_leak_px": 0,
+    "hole_leak_frac": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 47.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      977.5,
+      335
+     ],
+     "y1": [
+      930,
+      287.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 610,
+   "settled": true,
+   "render_sha1": "f08b3db4ac38bb4750ea3a5f470b7cf64880a7d4",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H_out4.pattern": {
+   "id": "zi_H_out4.pattern",
+   "scene": "zi_H_out4",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane, zoomed out 4x",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.993342,
+    "hole": 0.006658,
+    "spill": 0,
+    "bnd_err_px": 0.102439,
+    "bnd_p95_px": 4.436094,
+    "annot": 0.000071,
+    "n_in": 6308,
+    "n_out": 203700,
+    "n_band": 1552,
+    "n_hole": 42,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 310.4,
+    "n_annot_hole": 15,
+    "color_off": 0.008402,
+    "color_err_mean": 0.926384,
+    "color_err_p99": 0.9684,
+    "n_color": 6308,
+    "hole_leak": 0,
+    "hole_leak_px": 0,
+    "hole_leak_frac": 0,
+    "parity_acc": 0.526128,
+    "parity_exp": 3410,
+    "parity_excl_tie": 0.000479,
+    "parity_n": 3368,
+    "parity_excl": 0.462496,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.250718,
+    "parity_excl_edge": 0.211299
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 47.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      977.5,
+      335
+     ],
+     "y1": [
+      930,
+      287.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 619,
+   "settled": true,
+   "render_sha1": "6195a8c2b7458c9886e5f620d69164b5b9fbbdd6",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H_out4.polar": {
+   "id": "zi_H_out4.polar",
+   "scene": "zi_H_out4",
+   "variant": "polar",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane, zoomed out 4x",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "polar",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.9935,
+    "hole": 0.0065,
+    "spill": 0,
+    "bnd_err_px": 0.1,
+    "bnd_p95_px": 4.296991,
+    "annot": 0.000076,
+    "n_in": 6308,
+    "n_out": 203700,
+    "n_band": 1552,
+    "n_hole": 41,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 310.4,
+    "n_annot_hole": 16,
+    "color_off": 0.007768,
+    "color_err_mean": 0.588785,
+    "color_err_p99": 0.9684,
+    "n_color": 6308,
+    "hole_leak": 0,
+    "hole_leak_px": 0,
+    "hole_leak_frac": 0,
+    "parity_acc": 0.969279,
+    "parity_exp": 3519,
+    "parity_excl_tie": 0.000479,
+    "polar_front_disc_px": 0,
+    "parity_n": 3483,
+    "parity_excl": 0.444232,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.017871,
+    "parity_excl_edge": 0.425882
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 47.5,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      977.5,
+      335
+     ],
+     "y1": [
+      930,
+      287.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "689a3a8778d450eecb3bab50df218a5667a01fdc",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H_out16.mask": {
+   "id": "zi_H_out16.mask",
+   "scene": "zi_H_out16",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane, zoomed out 16x",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0.001691,
+    "n_in": 244,
+    "n_out": 210912,
+    "n_band": 404,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 80.8,
+    "n_annot_hole": 0,
+    "opacity_min": 0.766795,
+    "opacity_p01": 1,
+    "opacity_mean": 0.998641,
+    "opacity_lt99": 0.008197,
+    "n_opacity": 244,
+    "color_off": 0.008197,
+    "color_err_mean": 0.330449,
+    "color_err_p99": 0,
+    "n_color": 244,
+    "hole_leak": 0,
+    "hole_leak_px": 0,
+    "hole_leak_frac": 0
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 11.875,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      941.875,
+      335
+     ],
+     "y1": [
+      930,
+      323.125
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 618,
+   "settled": true,
+   "render_sha1": "7d5115a030a9ddfd4259d43a23d9e8989b2ed161",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "zi_H_out16.pattern": {
+   "id": "zi_H_out16.pattern",
+   "scene": "zi_H_out16",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "z^i of the upper half-plane, zoomed out 16x",
+   "truth": "e^-pi < |w| < 1 (the disc |w| < e^-pi stays empty)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.995902,
+    "hole": 0.004098,
+    "spill": 0,
+    "bnd_err_px": 0.002439,
+    "bnd_p95_px": 0,
+    "annot": 0.001691,
+    "n_in": 244,
+    "n_out": 210912,
+    "n_band": 404,
+    "n_hole": 1,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 80.8,
+    "n_annot_hole": 0,
+    "color_off": 0.004098,
+    "color_err_mean": 0.692242,
+    "color_err_p99": 1.142314,
+    "n_color": 244,
+    "hole_leak": 0,
+    "hole_leak_px": 0,
+    "hole_leak_frac": 0,
+    "parity_acc": 0.336957,
+    "parity_exp": 93,
+    "parity_excl_tie": 0,
+    "parity_n": 92,
+    "parity_excl": 0.621399,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.481481,
+    "parity_excl_edge": 0.139918
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 11.875,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      941.875,
+      335
+     ],
+     "y1": [
+      930,
+      323.125
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 611,
+   "settled": true,
+   "render_sha1": "64f078c20bb4c0ba80d955f960170dfcd11697d8",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 4626
+    }
+   ],
+   "view_verified": true
+  },
+  "expH.mask": {
+   "id": "expH.mask",
+   "scene": "expH",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "exp of the upper half-plane: every w != 0, infinitely many sheets",
+   "truth": "w != 0 (every w != 0 has infinitely many preimages Log w + 2 pi i m in H)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 210732,
+    "n_out": 0,
+    "n_band": 828,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 165.6,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 210732,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 210732
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 611,
+   "settled": true,
+   "render_sha1": "cc365492c46b2226c4b88ff5406bf10033a15e7a",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 19076
+    }
+   ],
+   "view_verified": true
+  },
+  "expH.pattern": {
+   "id": "expH.pattern",
+   "scene": "expH",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "exp of the upper half-plane: every w != 0, infinitely many sheets",
+   "truth": "w != 0 (every w != 0 has infinitely many preimages Log w + 2 pi i m in H)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 210732,
+    "n_out": 0,
+    "n_band": 828,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 165.6,
+    "n_annot_hole": 0,
+    "color_off": 0,
+    "color_err_mean": 0.009254,
+    "color_err_p99": 0.438462,
+    "n_color": 210732,
+    "parity_acc": 0.310804,
+    "parity_exp": 201497,
+    "parity_excl_tie": 0,
+    "parity_n": 201497,
+    "parity_excl": 0.043823,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.000057,
+    "parity_excl_edge": 0.043766
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "7ce4a72f17b3d4f4a1bda2d11ea4a62bc48f2478",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 19076
+    }
+   ],
+   "view_verified": true
+  },
+  "expH.mask85": {
+   "id": "expH.mask85",
+   "scene": "expH",
+   "variant": "mask85",
+   "group": "infinite",
+   "golden": false,
+   "note": "exp of the upper half-plane: every w != 0, infinitely many sheets",
+   "truth": "w != 0 (every w != 0 has infinitely many preimages Log w + 2 pi i m in H)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.85,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 210732,
+    "n_out": 0,
+    "n_band": 828,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 165.6,
+    "n_annot_hole": 0,
+    "opacity_min": 0.996734,
+    "opacity_p01": 0.996734,
+    "opacity_mean": 0.999386,
+    "opacity_lt99": 0,
+    "n_opacity": 210732,
+    "color_off": 0,
+    "color_err_mean": 0.18794,
+    "color_err_p99": 1,
+    "n_color": 210732
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 612,
+   "settled": true,
+   "render_sha1": "e32c3391cca254378d97e4b03661cba202f40f6a",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 19076
+    }
+   ],
+   "view_verified": true
+  },
+  "expH.mask20": {
+   "id": "expH.mask20",
+   "scene": "expH",
+   "variant": "mask20",
+   "group": "infinite",
+   "golden": false,
+   "note": "exp of the upper half-plane: every w != 0, infinitely many sheets",
+   "truth": "w != 0 (every w != 0 has infinitely many preimages Log w + 2 pi i m in H)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.2,
+   "strict": true,
+   "metrics": {
+    "iou": 0.814978,
+    "hole": 0.185022,
+    "spill": 0,
+    "bnd_err_px": 95.097561,
+    "bnd_p95_px": 286.381738,
+    "annot": 0.003569,
+    "n_in": 210732,
+    "n_out": 0,
+    "n_band": 828,
+    "n_hole": 38990,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 165.6,
+    "n_annot_hole": 752,
+    "opacity_min": 0.489948,
+    "opacity_p01": 0.489948,
+    "opacity_mean": 0.580393,
+    "opacity_lt99": 0.996431,
+    "n_opacity": 210732,
+    "color_off": 1,
+    "color_err_mean": 102.233727,
+    "color_err_p99": 123.991935,
+    "n_color": 210732
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "113c5c0b9a601b5c48b1e5ba583a951bac3e266f",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 19076
+    }
+   ],
+   "view_verified": true
+  },
+  "expH_out16.mask": {
+   "id": "expH_out16.mask",
+   "scene": "expH_out16",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "exp of the upper half-plane, zoomed out 16x",
+   "truth": "w != 0 (every w != 0 has infinitely many preimages Log w + 2 pi i m in H)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 210732,
+    "n_out": 0,
+    "n_band": 828,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 165.6,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 210732,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 210732
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 3.75,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      933.75,
+      335
+     ],
+     "y1": [
+      930,
+      331.25
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 616,
+   "settled": true,
+   "render_sha1": "5e01298a94660fa97e0479e3dca08a4eff232497",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 19076
+    }
+   ],
+   "view_verified": true
+  },
+  "expH_out16.pattern": {
+   "id": "expH_out16.pattern",
+   "scene": "expH_out16",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "exp of the upper half-plane, zoomed out 16x",
+   "truth": "w != 0 (every w != 0 has infinitely many preimages Log w + 2 pi i m in H)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 210732,
+    "n_out": 0,
+    "n_band": 828,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 165.6,
+    "n_annot_hole": 0,
+    "color_off": 0,
+    "color_err_mean": 0.009505,
+    "color_err_p99": 0.426401,
+    "n_color": 210732,
+    "parity_acc": 0.372948,
+    "parity_exp": 200320,
+    "parity_excl_tie": 0,
+    "parity_n": 200320,
+    "parity_excl": 0.049409,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.000057,
+    "parity_excl_edge": 0.049352
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 3.75,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      933.75,
+      335
+     ],
+     "y1": [
+      930,
+      331.25
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -3.3,
+     "y1": 5.3
+    }
+   },
+   "settle_ms": 624,
+   "settled": true,
+   "render_sha1": "e8d17dbef119d1c64df623ecf80b794bbdbcfacd",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5280,
+     "segs": 977,
+     "fixR": 19076
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_disc.mask": {
+   "id": "e1z_disc.mask",
+   "scene": "e1z_disc",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 209126,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 209126
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "c8f2caa98fd9982d387e60f020198146eab06344",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_disc.pattern": {
+   "id": "e1z_disc.pattern",
+   "scene": "e1z_disc",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "color_off": 0,
+    "color_err_mean": 0.23475,
+    "color_err_p99": 1.414214,
+    "n_color": 209126,
+    "parity_acc": 0.5,
+    "parity_exp": 196500,
+    "parity_excl_tie": 0.004849,
+    "parity_n": 196500,
+    "parity_excl": 0.060375,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.055526
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 618,
+   "settled": true,
+   "render_sha1": "ad0378cdd9eec95459b18c9968ec3ed0b37d0d68",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_disc.mask85": {
+   "id": "e1z_disc.mask85",
+   "scene": "e1z_disc",
+   "variant": "mask85",
+   "group": "infinite",
+   "golden": false,
+   "note": "e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.85,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 209126,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 209126
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 613,
+   "settled": true,
+   "render_sha1": "c8f2caa98fd9982d387e60f020198146eab06344",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_disc.mask20": {
+   "id": "e1z_disc.mask20",
+   "scene": "e1z_disc",
+   "variant": "mask20",
+   "group": "infinite",
+   "golden": false,
+   "note": "e^{1/z} (chain [1/z, exp]) of the unit disc: every w != 0",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.2,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "opacity_min": 0.987275,
+    "opacity_p01": 0.987275,
+    "opacity_mean": 0.987332,
+    "opacity_lt99": 0.995496,
+    "n_opacity": 209126,
+    "color_off": 0,
+    "color_err_mean": 3.464102,
+    "color_err_p99": 3.464102,
+    "n_color": 209126
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "52121a9abb4b1782cd264a6e9a6585a70192aa4d",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_disc_out16.mask": {
+   "id": "e1z_disc_out16.mask",
+   "scene": "e1z_disc_out16",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "e^{1/z} of the unit disc, zoomed out 16x",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.999943,
+    "hole": 0.000057,
+    "spill": 0,
+    "bnd_err_px": 0.029268,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 211418,
+    "n_out": 0,
+    "n_band": 142,
+    "n_hole": 12,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 28.4,
+    "n_annot_hole": 0,
+    "opacity_min": 0.006363,
+    "opacity_p01": 1,
+    "opacity_mean": 0.999942,
+    "opacity_lt99": 0.000076,
+    "n_opacity": 211418,
+    "color_off": 0.000066,
+    "color_err_mean": 0.014202,
+    "color_err_p99": 0,
+    "n_color": 211418
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 3.75,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      933.75,
+      335
+     ],
+     "y1": [
+      930,
+      331.25
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 617,
+   "settled": true,
+   "render_sha1": "360032349ec3c27d948748e3a9f968457fb8da24",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_disc_out16.pattern": {
+   "id": "e1z_disc_out16.pattern",
+   "scene": "e1z_disc_out16",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "e^{1/z} of the unit disc, zoomed out 16x",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.999943,
+    "hole": 0.000057,
+    "spill": 0,
+    "bnd_err_px": 0.029268,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 211418,
+    "n_out": 0,
+    "n_band": 142,
+    "n_hole": 12,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 28.4,
+    "n_annot_hole": 0,
+    "color_off": 0.000057,
+    "color_err_mean": 0.009861,
+    "color_err_p99": 0,
+    "n_color": 211418,
+    "parity_acc": 0.5,
+    "parity_exp": 206948,
+    "parity_excl_tie": 0.004863,
+    "parity_n": 206948,
+    "parity_excl": 0.021087,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.000066,
+    "parity_excl_edge": 0.016158
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 3.75,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      933.75,
+      335
+     ],
+     "y1": [
+      930,
+      331.25
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 614,
+   "settled": true,
+   "render_sha1": "6d8d3a571da10052e60e18d756bdc6cd088f4d67",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_custom.mask": {
+   "id": "e1z_custom.mask",
+   "scene": "e1z_custom",
+   "variant": "mask",
+   "group": "infinite",
+   "golden": false,
+   "note": "custom formula e^{1/z} of the unit disc",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 209126,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 209126
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 620,
+   "settled": true,
+   "render_sha1": "c8f2caa98fd9982d387e60f020198146eab06344",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_custom.pattern": {
+   "id": "e1z_custom.pattern",
+   "scene": "e1z_custom",
+   "variant": "pattern",
+   "group": "infinite",
+   "golden": false,
+   "note": "custom formula e^{1/z} of the unit disc",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "color_off": 0,
+    "color_err_mean": 0.23475,
+    "color_err_p99": 1.414214,
+    "n_color": 209126,
+    "parity_acc": 0.5,
+    "parity_exp": 196500,
+    "parity_excl_tie": 0.004849,
+    "parity_n": 196500,
+    "parity_excl": 0.060375,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.055526
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 619,
+   "settled": true,
+   "render_sha1": "ad0378cdd9eec95459b18c9968ec3ed0b37d0d68",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "e1z_custom.mask85": {
+   "id": "e1z_custom.mask85",
+   "scene": "e1z_custom",
+   "variant": "mask85",
+   "group": "infinite",
+   "golden": false,
+   "note": "custom formula e^{1/z} of the unit disc",
+   "truth": "w != 0 (e^{1/z} of |z| < 1: every w != 0 infinitely often, near the essential singularity 0)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 0.85,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 209126,
+    "n_out": 0,
+    "n_band": 2434,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 486.8,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 209126,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 209126
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -1.7083333333333333,
+     "x1": 1.7083333333333333,
+     "y0": -2.15,
+     "y1": 2.15
+    }
+   },
+   "settle_ms": 619,
+   "settled": true,
+   "render_sha1": "c8f2caa98fd9982d387e60f020198146eab06344",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 801,
+     "fixR": 3406
+    }
+   ],
+   "view_verified": true
+  },
+  "exp_far_disc.mask": {
+   "id": "exp_far_disc.mask",
+   "scene": "exp_far_disc",
+   "variant": "mask",
+   "group": "bounded_far",
+   "golden": false,
+   "note": "exp of |z - 60i| < 1 with the left view zoomed out to +-80 x +-100 (members m = 9, 10)",
+   "truth": "exp of |z - 60i| < 1: w inside iff some Log w + 2 pi i m lies in the disc (m = 9 or 10)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 16651,
+    "n_out": 192191,
+    "n_band": 2718,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 543.6,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 16651,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 16651
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -80,
+     "x1": 80,
+     "y0": -100.6829268292683,
+     "y1": 100.6829268292683
+    }
+   },
+   "settle_ms": 616,
+   "settled": true,
+   "render_sha1": "066673cd65a44408d8a463596c4ccd37742ad971",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 160,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "exp_far_disc.pattern": {
+   "id": "exp_far_disc.pattern",
+   "scene": "exp_far_disc",
+   "variant": "pattern",
+   "group": "bounded_far",
+   "golden": false,
+   "note": "exp of |z - 60i| < 1 with the left view zoomed out to +-80 x +-100 (members m = 9, 10)",
+   "truth": "exp of |z - 60i| < 1: w inside iff some Log w + 2 pi i m lies in the disc (m = 9 or 10)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 16651,
+    "n_out": 192191,
+    "n_band": 2718,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 543.6,
+    "n_annot_hole": 0,
+    "color_off": 0,
+    "color_err_mean": 0.055985,
+    "color_err_p99": 0.624538,
+    "n_color": 16651,
+    "parity_acc": 1,
+    "parity_exp": 11502,
+    "parity_excl_tie": 0,
+    "parity_n": 11502,
+    "parity_excl": 0.309231,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.309231
+   },
+   "view": {
+    "cx": 0,
+    "cy": 0,
+    "s": 60,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.2,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      930,
+      335
+     ],
+     "x1": [
+      990,
+      335
+     ],
+     "y1": [
+      930,
+      275
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -80,
+     "x1": 80,
+     "y0": -100.6829268292683,
+     "y1": 100.6829268292683
+    }
+   },
+   "settle_ms": 610,
+   "settled": true,
+   "render_sha1": "30854b536c12a8b56c93ce86cf357bac6603d7c3",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 160,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "ez2_disc.mask": {
+   "id": "ez2_disc.mask",
+   "scene": "ez2_disc",
+   "variant": "mask",
+   "group": "bounded_far",
+   "golden": false,
+   "note": "custom e^{z^2} of |z - (3+3i)| < 0.3, default left view; right view fitted to the image",
+   "truth": "e^{z^2} of |z - (3+3i)| < 0.3: some square root of Log w + 2 pi i m lies in the disc",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 100237,
+    "n_out": 104455,
+    "n_band": 6868,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1373.6,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 100237,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 100237
+   },
+   "view": {
+    "cx": 3.3,
+    "cy": -3.15,
+    "s": 22,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.05,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      857.4,
+      265.7
+     ],
+     "x1": [
+      879.4,
+      265.7
+     ],
+     "y1": [
+      857.4,
+      243.7
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -4.3,
+     "y1": 4.3
+    }
+   },
+   "settle_ms": 616,
+   "settled": true,
+   "render_sha1": "9ed85baf0ce423cf157fe480b261347547356a02",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 160,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "ez2_disc.pattern": {
+   "id": "ez2_disc.pattern",
+   "scene": "ez2_disc",
+   "variant": "pattern",
+   "group": "bounded_far",
+   "golden": false,
+   "note": "custom e^{z^2} of |z - (3+3i)| < 0.3, default left view; right view fitted to the image",
+   "truth": "e^{z^2} of |z - (3+3i)| < 0.3: some square root of Log w + 2 pi i m lies in the disc",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0,
+    "n_in": 100237,
+    "n_out": 104455,
+    "n_band": 6868,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 1373.6,
+    "n_annot_hole": 0,
+    "color_off": 0,
+    "color_err_mean": 0.020045,
+    "color_err_p99": 0.519845,
+    "n_color": 100237,
+    "parity_acc": 1,
+    "parity_exp": 88928,
+    "parity_excl_tie": 0,
+    "parity_n": 88928,
+    "parity_excl": 0.112823,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0.000379,
+    "parity_excl_edge": 0.112444
+   },
+   "view": {
+    "cx": 3.3,
+    "cy": -3.15,
+    "s": 22,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.05,
+   "sdf": "edt",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      857.4,
+      265.7
+     ],
+     "x1": [
+      879.4,
+      265.7
+     ],
+     "y1": [
+      857.4,
+      243.7
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -3.4166666666666665,
+     "x1": 3.4166666666666665,
+     "y0": -4.3,
+     "y1": 4.3
+    }
+   },
+   "settle_ms": 609,
+   "settled": true,
+   "render_sha1": "c5e95968fdc698eae620ac260a2f204cab1444b4",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 160,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "healed_cut.mask": {
+   "id": "healed_cut.mask",
+   "scene": "healed_cut",
+   "variant": "mask",
+   "group": "bounded_cut",
+   "golden": false,
+   "note": "[log, exp] of |z + 1| < 0.6: a cut that a later step heals; the cut runs through pixel centres (0.5 px offset)",
+   "truth": "the disc |w + 1| < 0.6 itself (exp(log z) = z)",
+   "ok": true,
+   "problems": [],
+   "classifier": "mask",
+   "parity_mode": null,
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 1,
+    "hole": 0,
+    "spill": 0,
+    "bnd_err_px": 0,
+    "bnd_p95_px": 0,
+    "annot": 0.001068,
+    "n_in": 24052,
+    "n_out": 184688,
+    "n_band": 2820,
+    "n_hole": 0,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 564,
+    "n_annot_hole": 0,
+    "opacity_min": 1,
+    "opacity_p01": 1,
+    "opacity_mean": 1,
+    "opacity_lt99": 0,
+    "n_opacity": 23927,
+    "color_off": 0,
+    "color_err_mean": 0,
+    "color_err_p99": 0,
+    "n_color": 23927
+   },
+   "view": {
+    "cx": -1,
+    "cy": 0.003333333333,
+    "s": 150,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      1080,
+      335.5
+     ],
+     "x1": [
+      1230,
+      335.5
+     ],
+     "y1": [
+      1080,
+      185.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -2.3666666666666667,
+     "x1": 0.3666666666666667,
+     "y0": -1.72,
+     "y1": 1.72
+    }
+   },
+   "settle_ms": 612,
+   "settled": true,
+   "render_sha1": "60715121c6e6640ddc1075a8ce6d38a994d9103d",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 601,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  },
+  "healed_cut.pattern": {
+   "id": "healed_cut.pattern",
+   "scene": "healed_cut",
+   "variant": "pattern",
+   "group": "bounded_cut",
+   "golden": false,
+   "note": "[log, exp] of |z + 1| < 0.6: a cut that a later step heals; the cut runs through pixel centres (0.5 px offset)",
+   "truth": "the disc |w + 1| < 0.6 itself (exp(log z) = z)",
+   "ok": true,
+   "problems": [],
+   "classifier": "pattern",
+   "parity_mode": "front",
+   "alpha": 1,
+   "strict": true,
+   "metrics": {
+    "iou": 0.999457,
+    "hole": 0.00054,
+    "spill": 0,
+    "bnd_err_px": 0.02305,
+    "bnd_p95_px": 0,
+    "annot": 0.001126,
+    "n_in": 24052,
+    "n_out": 184688,
+    "n_band": 2820,
+    "n_hole": 13,
+    "n_spill": 0,
+    "n_unknown": 0,
+    "bnd_len_px": 564,
+    "n_annot_hole": 0,
+    "color_off": 0.000543,
+    "color_err_mean": 0.062043,
+    "color_err_p99": 0.519845,
+    "n_color": 23940,
+    "parity_acc": 1,
+    "parity_exp": 16756,
+    "parity_excl_tie": 0,
+    "parity_n": 16756,
+    "parity_excl": 0.299703,
+    "parity_excl_multi": 0,
+    "parity_excl_small": 0,
+    "parity_excl_edge": 0.299703
+   },
+   "view": {
+    "cx": -1,
+    "cy": 0.003333333333,
+    "s": 150,
+    "w": 410,
+    "h": 516,
+    "dpr": 1
+   },
+   "cell": 0.1,
+   "sdf": "analytic",
+   "capture": {
+    "geo": {
+     "w": 410,
+     "h": 516,
+     "rect": [
+      725,
+      77,
+      410,
+      516
+     ],
+     "dpr": 1,
+     "o": [
+      1080,
+      335.5
+     ],
+     "x1": [
+      1230,
+      335.5
+     ],
+     "y1": [
+      1080,
+      185.5
+     ]
+    },
+    "colors": {
+     "--plane": "#FCFDFD",
+     "--c1": "#3B6FD4",
+     "--c1-alt": "#8CABE5",
+     "--c1-edge": "#093B9B",
+     "--grid-minor": "#E2EEF2",
+     "--grid-medium": "#D3E6ED",
+     "--grid-major": "#B5D4E0",
+     "--axis": "#2E3D47",
+     "--halo": "#FCFDFD",
+     "--cut": "#CC3311",
+     "--ink": "#121A20"
+    },
+    "clipWin": {
+     "x0": -2.3666666666666667,
+     "x1": 0.3666666666666667,
+     "y0": -1.72,
+     "y1": 1.72
+    }
+   },
+   "settle_ms": 615,
+   "settled": true,
+   "render_sha1": "574275efafd7c9b74a78e5a1b26ee5ba7d96685b",
+   "gpu": [
+    {
+     "id": "s1",
+     "tris": 5836,
+     "segs": 601,
+     "fixR": null
+    }
+   ],
+   "view_verified": true
+  }
+ }
+}

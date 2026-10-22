@@ -1,0 +1,33 @@
+global.CX = require('../src/cx.js');
+global.Expr = require('../src/parse.js');
+const Funcs = require('../src/funcs.js');
+const C = CX.C;
+const show = (label, st) => {
+  const b = Funcs.build(st);
+  if (b.error) { console.log(label, 'ERROR', b.error); return b; }
+  const P = b.props;
+  const on = Object.keys(P).filter(k => P[k] === true);
+  console.log(label, 'props:', on.join(','), 'deg', P.deg, 'exact', P.degExact, '| f(0.3+0.7i)=', CX.fmt(b.f(C(0.3,0.7)),8), 'f(2)=', CX.fmt(b.f(C(2,0)),8), 'tex', b.tex({s:'z',p:4}).s);
+  return b;
+};
+show('mobius a=d=1e-8', {type:'mobius', params:{a:'1e-8', b:'0', c:'0', d:'1e-8'}});
+show('mobius a=1e-8,b=0,c=1e-8,d=1e-8... (z/(z+1))', {type:'mobius', params:{a:'1e-8', b:'0', c:'1e-8', d:'1e-8'}});
+show('pown 2^32', {type:'pown', params:{n: 4294967296}});
+show('pown 2^31', {type:'pown', params:{n: 2147483648}});
+show('pown 2^32+1', {type:'pown', params:{n: 4294967297}});
+show('pown 1e300', {type:'pown', params:{n: 1e300}});
+show('root n=1000', {type:'root', params:{n: 1000, cut:180, k:0}});
+show('root n=2^32', {type:'root', params:{n: 4294967296, cut:180, k:5}});
+show('custom z^{4096}', {type:'custom', params:{expr:'z^{4096}', cut:180}});
+show('custom z^{4097}', {type:'custom', params:{expr:'z^{4097}', cut:180}});
+show('custom z^{2147483648}', {type:'custom', params:{expr:'z^{2147483648}', cut:180}});
+show('custom (z^{64})^{64}', {type:'custom', params:{expr:'(z^{64})^{64}', cut:180}});
+show('custom (z^{4096})^{4096}', {type:'custom', params:{expr:'(z^{4096})^{4096}', cut:180}});
+show('custom 1e-12 z', {type:'custom', params:{expr:'0.000000000001z+1', cut:180}});
+show('custom (z+1)^2-(z^2+2z)', {type:'custom', params:{expr:'(z+1)^2-z^2-2z', cut:180}});
+show('custom z^2 - z^2 + z', {type:'custom', params:{expr:'z^2-z^2+z', cut:180}});
+show('poly 1e12', {type:'poly', params:{co:'1e12, 0, 0'}});
+show('rational p=(z-1)^3? q=(z-1)^4', {type:'rational', params:{p:'1,-1', q:'1,-4,6,-4,1'}});
+show('rational p=z-1, q=(z-1)^2', {type:'rational', params:{p:'1,-1', q:'1,-2,1'}});
+show('rational p=z^2-1, q=z-1', {type:'rational', params:{p:'1,0,-1', q:'1,-1'}});
+show('rational p=(z-1)^5 q=(z-1)^6', {type:'rational', params:{p:'1,-5,10,-10,5,-1', q:'1,-6,15,-20,15,-6,1'}});

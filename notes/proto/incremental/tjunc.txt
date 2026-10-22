@@ -1,0 +1,6 @@
+zi_H         triangles 89751 edges 138328 open edges 7412 T-junctions 0 
+log_H out16  triangles 85641 edges 129097 open edges 1271 T-junctions 0 
+exp_H        triangles 85220 edges 138207 open edges 20763 T-junctions 0 
+einv         triangles 96568 edges 146076 open edges 2448 T-junctions 0 
+cayley 64x   triangles 1027 edges 1610 open edges 139 T-junctions 0 
+sqrt out4    triangles 150296 edges 229496 open edges 8104 T-junctions 0 

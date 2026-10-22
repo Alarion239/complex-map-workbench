@@ -1,0 +1,3 @@
+expH         alpha 0.2 K 16 B 16: interior px 23561; rev1 opacity min 0.832 mean 0.854 (max step between 5-deg sectors 0.032) | rev2 opacity min 1.000 mean 1.000
+zi_H         alpha 0.2 K 16 B 16: interior px 12169; rev1 opacity min 1.000 mean 1.000 (max step between 5-deg sectors 0.000) | rev2 opacity min 1.000 mean 1.000
+e1z_disc     alpha 0.2 K 16 B 16: interior px 23561; rev1 opacity min 0.972 mean 0.998 (max step between 5-deg sectors 0.002) | rev2 opacity min 1.000 mean 1.000

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deformation figure</title>
+<style>
+  :root { --bg: #E3E8EA; --paper: #FFFFFF; --ink: #121A20; --muted: #56646E; --line: #D2DADE; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 0 0 20px; max-width: 70ch; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; }
+  figure { margin: 0; background: var(--paper); border: 1px solid var(--line); padding: 16px; flex: 1 1 340px; max-width: 100%; }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  h2 { font-size: 15px; margin: 28px 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Deformation as one picture</h1>
+  <p>Prototype for backlog item 2 (notes/ui-design/morph-figure.md), revision 2. Article figures at single-column width (3.4 in), then the on-screen form at t = 0.55. Made by morph-figure.js using the app's own homotopies (src/funcs.js). Paths, labels and captions are chosen by the rules of morph-figure.md 4–5, not by hand; out/selection-log.txt says which paths were kept or dropped and why.</p>
+  <div class="row">
+    <figure><img src="out/morph-cayley.svg" alt="Cayley map of the upper half-plane: deformation figure"><figcaption>Cayley map of the upper half-plane</figcaption></figure>
+    <figure><img src="out/morph-square.svg" alt="z squared of a quarter disc: deformation figure"><figcaption>z² of a quarter disc</figcaption></figure>
+    <figure><img src="out/morph-exp.svg" alt="exp of a rectangle: deformation figure"><figcaption>exp of a rectangle in the strip</figcaption></figure>
+  </div>
+  <h2>On screen (right panel, transport open, t = 0.55)</h2>
+  <div class="row">
+    <figure><img src="out/screen-cayley-t055.svg" alt="Right panel mockup during the Cayley deformation"><figcaption>Cayley</figcaption></figure>
+    <figure><img src="out/screen-square-t055.svg" alt="Right panel mockup during the z squared deformation"><figcaption>z²</figcaption></figure>
+  </div>
+</main>
+</body>
+</html>

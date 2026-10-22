@@ -1,0 +1,11 @@
+const { build, CX, C } = require('./layer.js');
+const W = 410, H = 516;
+const boxOf = (v) => ({ x0: v.cx - W / 2 / v.s, x1: v.cx + W / 2 / v.s, y0: v.cy - H / 2 / v.s, y1: v.cy + H / 2 / v.s });
+const r = Funcs.build({ type: 'recip', params: {} }).f, e = Funcs.build({ type: 'exp', params: {} }).f;
+const F = (z) => e(r(z));
+const hist = {}, trace = [], fracHist = {};
+const res = build({ F, shape: { kind: 'disc', c: [0, 0], r: 1 }, srcWin: boxOf({ cx: 0, cy: 0, s: 110 }), view: { cx: 0, cy: 0, s: 40, W, H }, K: 1, hist, trace, maxEval: 4e6, fracHist, defer: process.argv[2] !== 'nodefer', deferFrac: +(process.argv[3] ?? 0.8), deferMax: +(process.argv[4] ?? 2) });
+console.log(res.st);
+console.log(Object.entries(hist).sort((a, b) => b[1] - a[1]).slice(0, 14));
+const by = {}; for (const t of trace) by[t.why + ' key' + t.key] = (by[t.why + ' key' + t.key] || 0) + 1; console.log(Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 20));
+console.log('fracHist', fracHist, 'ms', res.ms.toFixed(0));

@@ -1,0 +1,11 @@
+const L = require('./layer.js');
+const C = L.C, CX = L.CX;
+const W = 410, H = 516;
+const boxOf = (v) => ({ x0: v.cx - W / 2 / v.s, x1: v.cx + W / 2 / v.s, y0: v.cy - H / 2 / v.s, y1: v.cy + H / 2 / v.s });
+const F = Funcs.build({ type: 'root', params: { n: 2, cut: 180, k: 0 } }).f;
+const res = L.build({ F, shape: { kind: 'formula', expr: '|z|>0' }, srcWin: boxOf({ cx: 0, cy: 0, s: 70 }), view: { cx: 1, cy: 0, s: 30, W, H }, K: 1, injective: true });
+console.log('B1', res.B1);
+const near = (z, x, y) => Math.abs(z.re - x) < 1e-6 && Math.abs(z.im - y) < 1e-6;
+const pts = [[-11.953096556543903, 0], [-12.662675661926833, 0.003749202390352319], [-13.372254767309762, 0.007498404780704638]];
+for (const t of res.out) if (t.z.every(Boolean) && t.z.some((z) => pts.some(([x, y]) => near(z, x, y)))) console.log('tri ch', t.ch, 'key', t.key, t.z.map((z) => z.re.toFixed(6) + ',' + z.im.toExponential(4)).join(' | '));
+for (const t of res.coreTris) if (t.z.some((z) => pts.some(([x, y]) => near(z, x, y)))) console.log('core', t.z.map((z) => z.re.toFixed(6) + ',' + z.im.toExponential(4)).join(' | '));

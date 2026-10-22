@@ -1,0 +1,47 @@
+{
+  "_doc": "Gate of the image-quality suite (read by test/regress/compare_quality.py; explained in test/regress/quality/README.md). 'better' is the direction of an improvement; a change in the other direction larger than 'tol' FAILS, a change in the good direction larger than 'tol' is reported as IMPROVED. 'min_n': parity is gated only when both runs scored at least this many pixels. golden_diff is absolute: it must stay at or below 'max'. 'info' metrics are reported, never gated.",
+  "gated": {
+    "iou": { "better": "higher", "tol": 0.002 },
+    "hole": { "better": "lower", "tol": 0.001 },
+    "spill": { "better": "lower", "tol": 0.001 },
+    "parity_acc": { "better": "higher", "tol": 0.002, "min_n": 1000, "n_key": "parity_n" },
+    "opacity_min": { "better": "higher", "tol": 0.01 },
+    "hole_leak": { "better": "lower", "tol": 0 },
+    "color_off": { "better": "lower", "tol": 0.001 }
+  },
+  "golden_diff": { "max": 0.005 },
+  "info": {
+    "bnd_err_px": { "better": "lower", "tol": 0.05 },
+    "bnd_p95_px": { "better": "lower", "tol": 0.5 },
+    "parity_excl": { "better": "lower", "tol": 0.002 },
+    "annot": { "better": "lower", "tol": 0.002 },
+    "settle_ms": { "better": "lower", "tol": 500 },
+    "opacity_p01": { "better": "higher", "tol": 0.01 },
+    "opacity_mean": { "better": "higher", "tol": 0.005 },
+    "opacity_lt99": { "better": "lower", "tol": 0.002 },
+    "color_err_mean": { "better": "lower", "tol": 0.5 },
+    "color_err_p99": { "better": "lower", "tol": 2 },
+    "parity_excl_tie": { "better": "lower", "tol": 0.002 }
+  },
+  "overrides": {
+    "_doc": "per run id (e.g. \"logH_out4.pattern\") or scene name: {\"<metric>\": {\"tol\": ...}} to loosen or tighten one metric deliberately"
+  },
+  "_doc_p0": "Added for SPEC 12.4 (phase P0). The runs of the new scenes are scored in STRICT mode (metrics.js): a stroke-coloured pixel inside the true image (outside the boundary bands and the annotation band of truth.annotSdf) is a hole, opacity and colour are taken over every interior pixel, and a metric with nothing to score is null, never a perfect 1. opacity_min: mask-type runs, the least fill opacity of an interior pixel. color_off: the share of interior pixels farther than 6 RGB units from the expected opaque fill colour (c0; the c0 - c0-alt segment for checker and polar). hole_leak: zi_H*, fill pixels (on mask-type runs also a translucent fill) deeper than the band inside |w| < e^-pi (a count: any new leaked pixel fails). All are gated like the metrics above once the run has a baseline; a gated metric that becomes null fails. A run without a baseline entry is reported as NEW and is not compared, but it FAILS when it did not render (ok false). 'targets' are the absolute thresholds the spec sets (12.4 for the new scenes; 11 P2 for every unbounded scene): compare_quality.py reports them as MET / NOT MET (a run that a rule names without a value for the metric is NOT MET) and fails on NOT MET only with --enforce-targets (from the phase that must meet them).",
+  "targets": {
+    "_doc": "rules: 'runs' is a comma-separated list of run-id globs (fnmatch); every other key is a metric with 'min' and/or 'max'; 'note' is printed with the rule. A metric that a run does not report is skipped.",
+    "rules": [
+      { "runs": "zi_H*,expH*,e1z_disc*,e1z_custom*,exp_far_disc*,ez2_disc*,healed_cut*", "iou": { "min": 0.999 }, "hole": { "max": 0.001 }, "spill": { "max": 0.001 }, "note": "SPEC 11 P2 / 12.4: the exact-image scenes" },
+      { "runs": "zi_H*,expH*,e1z_disc*,e1z_custom*,exp_far_disc*,ez2_disc*,healed_cut*", "color_off": { "max": 0.001 }, "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha" },
+      { "runs": "logH*,exp_strip*,cayley_H*,recip_ext*,sq_Q1*,sqrt_slit.*,sin_halfstrip*", "iou": { "min": 0.999 }, "hole": { "max": 0.001 }, "spill": { "max": 0.001 }, "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)" },
+      { "runs": "zi_H*", "hole_leak": { "max": 0 }, "note": "SPEC 12.4 (a): the z^i hole stays empty" },
+      { "runs": "zi_H.polar,zi_H_out4.polar", "parity_acc": { "min": 0.999 }, "note": "SPEC 12.4 (a): the polar parity of every sheet" },
+      { "runs": "zi_H.mask85,expH.mask85,e1z_disc.mask85,e1z_custom.mask85", "opacity_min": { "min": 0.99 }, "note": "SPEC 12.4 mask85" },
+      { "runs": "zi_H.mask20,expH.mask20,e1z_disc.mask20", "opacity_min": { "min": 0.99 }, "note": "SPEC 12.4 mask20 (12.1 (g) names e^{1/z} too)" },
+      { "runs": "healed_cut.mask", "opacity_min": { "min": 0.99 }, "note": "SPEC 15 M5: no crack where a later step heals a cut" },
+      { "runs": "atanh_D*,atan_D*,cube_far_deep*", "iou": { "min": 0.999 }, "hole": { "max": 0.001 }, "spill": { "max": 0.001 }, "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)" },
+      { "runs": "atanh_D*.mask85", "opacity_min": { "min": 0.845 }, "note": "P2 review: one sheet at alpha 0.85 everywhere, no half-covered band where float32 tanh w is +-1" },
+      { "runs": "cube_far_deep.pattern", "parity_acc": { "min": 0.999 }, "color_off": { "max": 0.001 }, "note": "P2 review: checker colours in range and cell edges kept at a deep zoom" },
+      { "runs": "zi_H_polar85.*", "parity_acc": { "min": 0.999 }, "cell_err_p99": { "max": 2 }, "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)" }
+    ]
+  }
+}

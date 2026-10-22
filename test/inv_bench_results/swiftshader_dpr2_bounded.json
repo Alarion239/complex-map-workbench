@@ -1,0 +1,104 @@
+{
+ "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+ "backend": "swiftshader",
+ "date": "2026-10-20T04:27:15.888Z",
+ "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+ "scenes": {
+  "disc_cube": {
+   "name": "disc_cube",
+   "prepMs": 0.1,
+   "N": [
+    3
+   ],
+   "inner": -1,
+   "stopOp": -1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 2,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 98.2,
+     "firstDrawMs": 1167.3,
+     "totalMs": 1265.5,
+     "passMs": 110.817,
+     "frame1Ms": 158.9,
+     "frame0Ms": 21.1
+    }
+   ],
+   "compile": {
+    "flat.B5": {
+     "compileMs": 10.2,
+     "linkMs": 0.5,
+     "srcLen": 45425,
+     "error": null
+    }
+   }
+  },
+  "joukowski": {
+   "name": "joukowski",
+   "prepMs": 0.1,
+   "N": [
+    2
+   ],
+   "inner": -1,
+   "stopOp": -1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 2,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 119.2,
+     "firstDrawMs": 640.3,
+     "totalMs": 759.5,
+     "passMs": 64.967,
+     "frame1Ms": 87.5,
+     "frame0Ms": 17.9
+    }
+   ],
+   "compile": {
+    "flat.B5": {
+     "compileMs": 10.4,
+     "linkMs": 1.1,
+     "srcLen": 45157,
+     "error": null
+    }
+   }
+  },
+  "annulus_log": {
+   "name": "annulus_log",
+   "prepMs": 0.1,
+   "N": [
+    1
+   ],
+   "inner": -1,
+   "stopOp": -1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 2,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 108.7,
+     "firstDrawMs": 602.6,
+     "totalMs": 711.3,
+     "passMs": 26.183,
+     "frame1Ms": 59,
+     "frame0Ms": 15.2
+    }
+   ],
+   "compile": {
+    "flat.B5": {
+     "compileMs": 7,
+     "linkMs": 0.3,
+     "srcLen": 44960,
+     "error": null
+    }
+   }
+  }
+ }
+}

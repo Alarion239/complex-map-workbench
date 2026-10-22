@@ -1,0 +1,8 @@
+disc_cube.mask         golden_diff 0.000 % (0 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 93374 dropped 2
+disc_cube.pattern      golden_diff 0.000 % (0 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 93374 dropped 2
+joukowski.mask         golden_diff 0.000 % (0 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 113248 dropped 0
+joukowski.pattern      golden_diff 0.000 % (0 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 113248 dropped 0
+annulus_log.mask       golden_diff 0.011 % (24 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 88520 dropped 184
+annulus_log.pattern    golden_diff 0.010 % (22 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 88520 dropped 184
+poly_mobius.mask       golden_diff 0.000 % (0 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 52960 dropped 0
+poly_mobius.pattern    golden_diff 0.000 % (0 px)   unblurred > 8/255 away from strokes: 0 px   coverage disagreements away from strokes: 0   fwd drawn 52960 dropped 0

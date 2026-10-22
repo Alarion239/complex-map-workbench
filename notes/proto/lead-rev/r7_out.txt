@@ -1,0 +1,7 @@
+exp(H)                         prepare 0.008 ms  ok true  budgets 17  ranges clip
+z^i(H)                         prepare 0.017 ms  ok true  budgets 17  ranges clip
+exp∘exp disc r=1 at 3          prepare 2.291 ms  ok true  budgets 4x13  ranges clip,box
+e^{z^2} disc r=0.3 at 3+3i     prepare 0.074 ms  ok true  budgets 2x5  ranges box
+e^{1/z^2} disc at 0.6+0.5i     prepare 0.081 ms  ok true  budgets 2x4  ranges box
+tan∘exp rect [0,3]x[-1,1]      prepare 1.904 ms  ok true  budgets 4x10  ranges clip,box
+sin∘exp polygon                prepare 0.124 ms  ok true  budgets 4x5  ranges clip,box

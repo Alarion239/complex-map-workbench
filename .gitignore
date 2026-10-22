@@ -1,0 +1,15 @@
+# build output (python3 build.py)
+dist/
+# headless-Chrome harness copies, browser profiles and screenshots
+test/*_cdp/
+test/cdp_kit/q/
+**/shots/
+**/chprof*/
+# regression-suite run artefacts (baselines and goldens are tracked)
+test/regress/perf/results/
+test/regress/perf/ref_root/
+test/regress/quality/out/
+test/regress/tmp/
+*.bak*
+.DS_Store
+node_modules/

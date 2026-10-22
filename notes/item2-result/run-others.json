@@ -1,0 +1,276 @@
+{
+ "pass": true,
+ "fails": [],
+ "results": {
+  "square": {
+   "open": {
+    "open": true,
+    "T": 0,
+    "playing": true,
+    "on": true
+   },
+   "selMs": 1,
+   "screen": {
+    "n": 25,
+    "budget": 25,
+    "nCands": 77,
+    "kinds": {
+     "corner": 13,
+     "node": 12
+    }
+   },
+   "endErr": 2.304975095616667e-16,
+   "minHeadStart": 7.15,
+   "dropped": {
+    "fixed": 2,
+    "hidden along an axis or an edge": 11,
+    "start dots crowd": 18,
+    "its head lies on a path": 9,
+    "heads crowd": 2,
+    "its head lands on a start dot": 5,
+    "a path runs over its start dot": 2,
+    "over the budget": 3
+   },
+   "square-single": {
+    "n": 20,
+    "budget": 20,
+    "labelled": [
+     7.654042494670958e-17,
+     1.25
+    ],
+    "caption": "The sector $0^\\circ<\\arg(z)<90^\\circ,\\ |z|<1.5$ (grey) and its image under $F(z)=z^{2}$ (checkerboard), joined by the homotopy $H_t(z)=z^{1+t}$ (principal branch), $0\\le t\\le 1$. Arrows are the paths $t\\mapsto H_t(z)$ of 15 boundary points and 5 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $0.2$ in the $z$-plane, carried by the map.",
+    "dropped": {
+     "fixed": 4,
+     "hidden along an axis or an edge": 9,
+     "it runs over a start dot": 2,
+     "start dots crowd": 16,
+     "its head lies on a path": 9,
+     "its head lands on a start dot": 6,
+     "heads crowd": 1,
+     "a path runs over its start dot": 1,
+     "over the budget": 8
+    }
+   },
+   "square-double": {
+    "n": 40,
+    "budget": 40,
+    "labelled": [
+     9.184850993605148e-17,
+     1.5
+    ],
+    "caption": "The sector $0^\\circ<\\arg(z)<90^\\circ,\\ |z|<1.5$ (grey) and its image under $F(z)=z^{2}$ (checkerboard), joined by the homotopy $H_t(z)=z^{1+t}$ (principal branch), $0\\le t\\le 1$. Arrows are the paths $t\\mapsto H_t(z)$ of 26 boundary points and 14 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $0.2$ in the $z$-plane, carried by the map.",
+    "dropped": {
+     "fixed": 2,
+     "hidden along an axis or an edge": 23,
+     "it runs over a start dot": 20,
+     "start dots crowd": 34,
+     "its head lies on a path": 42,
+     "its head lands on a start dot": 11,
+     "heads crowd": 4,
+     "a path runs over its start dot": 19,
+     "over the budget": 50
+    }
+   },
+   "logs": []
+  },
+  "exp": {
+   "open": {
+    "open": true,
+    "T": 0,
+    "playing": true,
+    "on": true
+   },
+   "selMs": 2,
+   "screen": {
+    "n": 25,
+    "budget": 25,
+    "nCands": 215,
+    "kinds": {
+     "corner": 14,
+     "node": 11
+    }
+   },
+   "endErr": 0,
+   "minHeadStart": 6.36,
+   "dropped": {
+    "hidden along an axis or an edge": 17,
+    "start dots crowd": 17,
+    "its head lies on a path": 16,
+    "it runs over a start dot": 32,
+    "heads crowd": 23,
+    "runs alongside a kept path": 11,
+    "a path runs over its start dot": 25,
+    "a head lies on it": 18,
+    "its head lands on a start dot": 9,
+    "crosses more than 2 kept paths": 1,
+    "over the budget": 21
+   },
+   "exp-single": {
+    "n": 20,
+    "budget": 20,
+    "labelled": [
+     1,
+     3.141592653589793
+    ],
+    "caption": "The rectangle $-1<\\operatorname{Re}z<1,\\ 0<\\operatorname{Im}z<3.142$ (grey) and its image under $F(z)=e^{z}$ (checkerboard), joined by the homotopy $H_t(z)=(e^{tz}-1)/t+t$ for $0<t\\le 1$, $H_0(z)=z$, $0\\le t\\le 1$. Arrows are the paths $t\\mapsto H_t(z)$ of 11 boundary points and 9 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $0.2$ in the $z$-plane, carried by the map.",
+    "dropped": {
+     "hidden along an axis or an edge": 17,
+     "start dots crowd": 42,
+     "it runs over a start dot": 26,
+     "heads crowd": 22,
+     "a path runs over its start dot": 23,
+     "runs alongside a kept path": 9,
+     "a head lies on it": 13,
+     "its head lands on a start dot": 14,
+     "its head lies on a path": 25,
+     "over the budget": 4
+    }
+   },
+   "exp-double": {
+    "n": 40,
+    "budget": 40,
+    "labelled": [
+     1,
+     3.141592653589793
+    ],
+    "caption": "The rectangle $-1<\\operatorname{Re}z<1,\\ 0<\\operatorname{Im}z<3.142$ (grey) and its image under $F(z)=e^{z}$ (checkerboard), joined by the homotopy $H_t(z)=(e^{tz}-1)/t+t$ for $0<t\\le 1$, $H_0(z)=z$, $0\\le t\\le 1$. Arrows are the paths $t\\mapsto H_t(z)$ of 21 boundary points and 19 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $0.2$ in the $z$-plane, carried by the map.",
+    "dropped": {
+     "hidden along an axis or an edge": 25,
+     "start dots crowd": 28,
+     "its head lies on a path": 42,
+     "it runs over a start dot": 37,
+     "a path runs over its start dot": 31,
+     "heads crowd": 20,
+     "a head lies on it": 24,
+     "runs alongside a kept path": 13,
+     "its head lands on a start dot": 7,
+     "crosses more than 2 kept paths": 1,
+     "over the budget": 11
+    }
+   },
+   "logs": []
+  },
+  "ex-strip": {
+   "open": {
+    "open": true,
+    "T": 0,
+    "playing": true,
+    "on": true
+   },
+   "selMs": 1,
+   "screen": {
+    "n": 9,
+    "budget": 25,
+    "nCands": 57,
+    "kinds": {
+     "edge": 4,
+     "node": 5
+    }
+   },
+   "endErr": 0,
+   "minHeadStart": 25.54,
+   "dropped": {
+    "hidden along an axis or an edge": 9,
+    "leaves the panel": 10,
+    "heads crowd": 21,
+    "start dots crowd": 3,
+    "its head lies on a path": 2,
+    "its head lands on a start dot": 1,
+    "a head lies on it": 1,
+    "a path runs over its start dot": 1
+   },
+   "ex-strip-single": {
+    "n": 10,
+    "budget": 20,
+    "labelled": null,
+    "caption": "The set $\\left|\\operatorname{Im} z\\right| < \\frac{\\pi}{2}$ and the line $\\operatorname{Im}z=0.8$ (grey) and its image under $F(z)=\\frac{e^{z}-1}{e^{z}+1}$ (checkerboard), joined by the homotopies of the steps in turn: for $0\\le t\\le 1$, the homotopy $H^{(1)}_{t-0}(z)=(e^{tz}-1)/t+t$ for $0<t\\le 1$, $H^{(1)}_0(z)=z$ of $f_{1}$; for $1\\le t\\le 2$, the elliptic M\\\"obius transformations $H^{(2)}_{t-1}$ that fix $p=i$ and $q=-i$, with $H^{(2)}_{t-1}'(p)=e^{-\\pi i t/2}$ of $f_{2}$. Arrows are the paths $t\\mapsto H_t(z)$ of 4 boundary points and 6 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $1$ in the $z$-plane, carried by the map. Dashed boundaries do not belong to the sets.",
+    "dropped": {
+     "hidden along an axis or an edge": 8,
+     "leaves the panel": 7,
+     "heads crowd": 16,
+     "start dots crowd": 2,
+     "its head lies on a path": 5,
+     "a head lies on it": 4,
+     "its head lands on a start dot": 3,
+     "a path runs over its start dot": 3
+    }
+   },
+   "ex-strip-double": {
+    "n": 10,
+    "budget": 40,
+    "labelled": null,
+    "caption": "The set $\\left|\\operatorname{Im} z\\right| < \\frac{\\pi}{2}$ and the line $\\operatorname{Im}z=0.8$ (grey) and its image under $F(z)=\\frac{e^{z}-1}{e^{z}+1}$ (checkerboard), joined by the homotopies of the steps in turn: for $0\\le t\\le 1$, the homotopy $H^{(1)}_{t-0}(z)=(e^{tz}-1)/t+t$ for $0<t\\le 1$, $H^{(1)}_0(z)=z$ of $f_{1}$; for $1\\le t\\le 2$, the elliptic M\\\"obius transformations $H^{(2)}_{t-1}$ that fix $p=i$ and $q=-i$, with $H^{(2)}_{t-1}'(p)=e^{-\\pi i t/2}$ of $f_{2}$. Arrows are the paths $t\\mapsto H_t(z)$ of 5 boundary points and 5 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $1$ in the $z$-plane, carried by the map. Dashed boundaries do not belong to the sets.",
+    "dropped": {
+     "hidden along an axis or an edge": 20,
+     "leaves the panel": 26,
+     "heads crowd": 38,
+     "a head lies on it": 11,
+     "its head lands on a start dot": 2,
+     "it runs over a start dot": 7,
+     "a path runs over its start dot": 14,
+     "its head lies on a path": 22
+    }
+   },
+   "logs": []
+  },
+  "ex-jouk": {
+   "open": {
+    "open": true,
+    "T": 0,
+    "playing": true,
+    "on": true
+   },
+   "selMs": 2,
+   "screen": {
+    "n": 12,
+    "budget": 25,
+    "nCands": 94,
+    "kinds": {
+     "edge": 2,
+     "node": 10
+    }
+   },
+   "endErr": 0,
+   "minHeadStart": 16.74,
+   "dropped": {
+    "fixed": 2,
+    "hidden along an axis or an edge": 14,
+    "heads crowd": 58,
+    "its head lands on a start dot": 3,
+    "a head lies on it": 2,
+    "a path runs over its start dot": 3
+   },
+   "ex-jouk-single": {
+    "n": 17,
+    "budget": 20,
+    "labelled": null,
+    "caption": "The complement of the disc $|z-(-0.12+0.1i)|<1.124$ and the circle $|z-(-0.12+0.1i)|=1.124$ (grey) and its image under $F(z)=\\frac{1}{2}\\left(z+\\frac{1}{z}\\right)$ (checkerboard), joined by the straight-line homotopy $H_t(z)=(1-t)z+t\\,f_{1}(z)$, $0\\le t\\le 1$. Arrows are the paths $t\\mapsto H_t(z)$ of 3 boundary points and 14 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $0.5$ in the $z$-plane, carried by the map. Dashed boundaries do not belong to the sets.",
+    "dropped": {
+     "fixed": 1,
+     "hidden along an axis or an edge": 13,
+     "heads crowd": 60,
+     "start dots crowd": 23,
+     "a path runs over its start dot": 9,
+     "a head lies on it": 4,
+     "its head lands on a start dot": 7
+    }
+   },
+   "ex-jouk-double": {
+    "n": 13,
+    "budget": 40,
+    "labelled": null,
+    "caption": "The complement of the disc $|z-(-0.12+0.1i)|<1.124$ and the circle $|z-(-0.12+0.1i)|=1.124$ (grey) and its image under $F(z)=\\frac{1}{2}\\left(z+\\frac{1}{z}\\right)$ (checkerboard), joined by the straight-line homotopy $H_t(z)=(1-t)z+t\\,f_{1}(z)$, $0\\le t\\le 1$. Arrows are the paths $t\\mapsto H_t(z)$ of 3 boundary points and 10 interior points, from $z$ (dot) to $F(z)$. Regions are shaded by a checkerboard of cell $0.5$ in the $z$-plane, carried by the map. Dashed boundaries do not belong to the sets.",
+    "dropped": {
+     "fixed": 1,
+     "hidden along an axis or an edge": 15,
+     "heads crowd": 29,
+     "a path runs over its start dot": 2,
+     "its head lands on a start dot": 2,
+     "a head lies on it": 2,
+     "its head lies on a path": 4
+    }
+   },
+   "logs": []
+  }
+ }
+}

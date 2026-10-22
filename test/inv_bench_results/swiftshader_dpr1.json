@@ -1,0 +1,511 @@
+{
+ "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+ "backend": "swiftshader",
+ "date": "2026-10-20T04:26:30.575Z",
+ "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+ "scenes": {
+  "zi_H": {
+   "name": "zi_H",
+   "prepMs": 0.5,
+   "N": [
+    17
+   ],
+   "inner": 0,
+   "stopOp": 0,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 156.1,
+     "firstDrawMs": 887.7,
+     "totalMs": 1043.8,
+     "passMs": 29.217,
+     "frame1Ms": 47,
+     "frame0Ms": 12.8
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 8.6,
+     "firstDrawMs": 912.3,
+     "totalMs": 920.9,
+     "passMs": 37.717,
+     "frame1Ms": 56.9,
+     "frame0Ms": 13.3
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 22.3,
+     "linkMs": 2.1,
+     "srcLen": 46849,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 141.8,
+     "linkMs": 0.3,
+     "srcLen": 46849,
+     "error": null
+    }
+   }
+  },
+  "expH": {
+   "name": "expH",
+   "prepMs": 0,
+   "N": [
+    17
+   ],
+   "inner": 0,
+   "stopOp": 0,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 124,
+     "firstDrawMs": 640,
+     "totalMs": 764,
+     "passMs": 24.683,
+     "frame1Ms": 42.7,
+     "frame0Ms": 12.8
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 8.1,
+     "firstDrawMs": 698.3,
+     "totalMs": 706.4,
+     "passMs": 38.7,
+     "frame1Ms": 58.1,
+     "frame0Ms": 12.6
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 7.4,
+     "linkMs": 0.3,
+     "srcLen": 46713,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 121.8,
+     "linkMs": 0.3,
+     "srcLen": 46717,
+     "error": null
+    }
+   }
+  },
+  "e1z_disc": {
+   "name": "e1z_disc",
+   "prepMs": 0.1,
+   "N": [
+    1,
+    17
+   ],
+   "inner": 1,
+   "stopOp": 1,
+   "mob": true,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 147.6,
+     "firstDrawMs": 829.6,
+     "totalMs": 977.2,
+     "passMs": 52.767,
+     "frame1Ms": 100.9,
+     "frame0Ms": 14.4
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 9.5,
+     "firstDrawMs": 1183,
+     "totalMs": 1192.5,
+     "passMs": 56.85,
+     "frame1Ms": 101.8,
+     "frame0Ms": 16.1
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 8.2,
+     "linkMs": 0.3,
+     "srcLen": 47122,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 143.3,
+     "linkMs": 0.3,
+     "srcLen": 47124,
+     "error": null
+    }
+   }
+  },
+  "sin_halfstrip": {
+   "name": "sin_halfstrip",
+   "prepMs": 0.4,
+   "N": [
+    4
+   ],
+   "inner": 0,
+   "stopOp": 0,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 149.5,
+     "firstDrawMs": 751,
+     "totalMs": 900.5,
+     "passMs": 35.55,
+     "frame1Ms": 56.4,
+     "frame0Ms": 15.8
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 8.6,
+     "firstDrawMs": 800.5,
+     "totalMs": 809.1,
+     "passMs": 36.067,
+     "frame1Ms": 58.2,
+     "frame0Ms": 15
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 8.1,
+     "linkMs": 0.3,
+     "srcLen": 47272,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 145.9,
+     "linkMs": 0.3,
+     "srcLen": 47272,
+     "error": null
+    }
+   }
+  },
+  "expexp_disc": {
+   "name": "expexp_disc",
+   "prepMs": 0.4,
+   "N": [
+    1,
+    4,
+    4
+   ],
+   "inner": 1,
+   "stopOp": 1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 215.2,
+     "firstDrawMs": 1107,
+     "totalMs": 1322.2,
+     "passMs": 54.667,
+     "frame1Ms": 75.7,
+     "frame0Ms": 14.7
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 13.2,
+     "firstDrawMs": 1166.5,
+     "totalMs": 1179.7,
+     "passMs": 56.583,
+     "frame1Ms": 77.5,
+     "frame0Ms": 14.7
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 8.5,
+     "linkMs": 0.4,
+     "srcLen": 49196,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 213.9,
+     "linkMs": 0.4,
+     "srcLen": 49196,
+     "error": null
+    }
+   }
+  },
+  "poly40_exp": {
+   "name": "poly40_exp",
+   "prepMs": 0.2,
+   "N": [
+    4
+   ],
+   "inner": 0,
+   "stopOp": 0,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 130.3,
+     "firstDrawMs": 787.9,
+     "totalMs": 918.2,
+     "passMs": 30.467,
+     "frame1Ms": 46.4,
+     "frame0Ms": 17.9
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 11.1,
+     "firstDrawMs": 732.2,
+     "totalMs": 743.3,
+     "passMs": 25.983,
+     "frame1Ms": 43.9,
+     "frame0Ms": 16.2
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 9.8,
+     "linkMs": 0.5,
+     "srcLen": 46719,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 125,
+     "linkMs": 0.2,
+     "srcLen": 46719,
+     "error": null
+    }
+   }
+  },
+  "formula_strip_exp": {
+   "name": "formula_strip_exp",
+   "prepMs": 0.1,
+   "N": [
+    4
+   ],
+   "inner": 0,
+   "stopOp": 0,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 148.2,
+     "firstDrawMs": 741.9,
+     "totalMs": 890.1,
+     "passMs": 27.267,
+     "frame1Ms": 48.8,
+     "frame0Ms": 15.5
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 12.2,
+     "firstDrawMs": 755.7,
+     "totalMs": 767.9,
+     "passMs": 25.133,
+     "frame1Ms": 44,
+     "frame0Ms": 15.3
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 8.1,
+     "linkMs": 2.7,
+     "srcLen": 47010,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 138.2,
+     "linkMs": 0.4,
+     "srcLen": 47010,
+     "error": null
+    }
+   }
+  },
+  "disc_cube": {
+   "name": "disc_cube",
+   "prepMs": 0.1,
+   "N": [
+    3
+   ],
+   "inner": -1,
+   "stopOp": -1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 111.9,
+     "firstDrawMs": 457.3,
+     "totalMs": 569.2,
+     "passMs": 16.2,
+     "frame1Ms": 39.5,
+     "frame0Ms": 14.9
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 10.1,
+     "firstDrawMs": 456.7,
+     "totalMs": 466.8,
+     "passMs": 17.3,
+     "frame1Ms": 36.2,
+     "frame0Ms": 13.2
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 6.8,
+     "linkMs": 0.3,
+     "srcLen": 45427,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 86.6,
+     "linkMs": 0.3,
+     "srcLen": 45427,
+     "error": null
+    }
+   }
+  },
+  "joukowski": {
+   "name": "joukowski",
+   "prepMs": 0.1,
+   "N": [
+    2
+   ],
+   "inner": -1,
+   "stopOp": -1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 91.2,
+     "firstDrawMs": 438.9,
+     "totalMs": 530.1,
+     "passMs": 12.9,
+     "frame1Ms": 30.4,
+     "frame0Ms": 14.1
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 10,
+     "firstDrawMs": 435,
+     "totalMs": 445,
+     "passMs": 15.1,
+     "frame1Ms": 33.8,
+     "frame0Ms": 13.1
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 6.9,
+     "linkMs": 0.2,
+     "srcLen": 45159,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 99.7,
+     "linkMs": 0.4,
+     "srcLen": 45159,
+     "error": null
+    }
+   }
+  },
+  "annulus_log": {
+   "name": "annulus_log",
+   "prepMs": 0,
+   "N": [
+    1
+   ],
+   "inner": -1,
+   "stopOp": -1,
+   "mob": false,
+   "rows": [
+    {
+     "dpr": 1,
+     "alpha": 1,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 111.4,
+     "firstDrawMs": 482.7,
+     "totalMs": 594.1,
+     "passMs": 5.883,
+     "frame1Ms": 23.7,
+     "frame0Ms": 14.2
+    },
+    {
+     "dpr": 1,
+     "alpha": 0.85,
+     "view": "flat",
+     "result": "drawn",
+     "readyMs": 9.5,
+     "firstDrawMs": 483,
+     "totalMs": 492.5,
+     "passMs": 6.833,
+     "frame1Ms": 23.7,
+     "frame0Ms": 12.8
+    }
+   ],
+   "compile": {
+    "flat.B3": {
+     "compileMs": 6.4,
+     "linkMs": 0.3,
+     "srcLen": 44962,
+     "error": null
+    },
+    "flat.B5": {
+     "compileMs": 80.7,
+     "linkMs": 0.2,
+     "srcLen": 44962,
+     "error": null
+    }
+   }
+  }
+ }
+}

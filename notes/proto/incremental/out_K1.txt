@@ -1,0 +1,72 @@
+zi_H         default     ms   434.4 (class 30.8)  evals   213894  layer tris   20743  core subtris  69008  claimed 115(+0) cert 4313 outer 852 collar 21 | popped 29436 cull 0 cap 0 sat 5143/4679 drop sub 0 floor 9 out 230 apexStop 17 budget 0 maxKey 993.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (85234) minCov 1 dev px max 0.250 p99 0.244 p50 0.091 zi-hole-covered 0
+zi_H         out4        ms   332.5 (class 24.1)  evals   143680  layer tris   12746  core subtris  70688  claimed 10(+0) cert 4418 outer 852 collar 21 | popped 28809 cull 0 cap 0 sat 6184/4720 drop sub 0 floor 8 out 4 apexStop 14 budget 0 maxKey 993.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (3062) minCov 1 dev px max 0.250 p99 0.232 p50 0.153 zi-hole-covered 0
+zi_H         out16       ms   245.3 (class 24.2)  evals   100659  layer tris    8689  core subtris  70800  claimed 4(+1) cert 4425 outer 852 collar 21 | popped 22851 cull 0 cap 5 sat 3669/3091 drop sub 0 floor 6 out 4 apexStop 10 budget 0 maxKey 993.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.238 p50 0.104 zi-hole-covered 0
+zi_H         zoom8_hole  ms    2299 (class 29.3)  evals  1723109  layer tris   45811  core subtris  50848  claimed 1250(+0) cert 3178 outer 852 collar 21 | popped 163607 cull 52203 cap 0 sat 8228/47365 drop sub 0 floor 47 out 136 apexStop 12 budget 0 maxKey 993.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (180499) minCov 1 dev px max 0.250 p99 0.234 p50 0.076 zi-hole-covered 0
+zi_H         zoom8_rim   ms  1161.2 (class 34.6)  evals  1078282  layer tris    3238  core subtris  25280  claimed 2848(+0) cert 1580 outer 852 collar 21 | popped 77022 cull 37360 cap 0 sat 770/31186 drop sub 0 floor 19 out 269 apexStop 4 budget 0 maxKey 997.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (129877) minCov 1 dev px max 0.249 p99 0.246 p50 0.136 zi-hole-covered 0
+log_H        default     ms   173.3 (class 27.5)  evals    51491  layer tris    4155  core subtris  70080  claimed 48(+0) cert 4380 outer 852 collar 21 | popped 8721 cull 2405 cap 0 sat 0/0 drop sub 0 floor 0 out 3 apexStop 0 budget 0 maxKey 24
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (112479) minCov 1 dev px max 0.250 p99 0.245 p50 0.128
+log_H        out4        ms   162.8 (class 21.9)  evals    64026  layer tris   10879  core subtris  70624  claimed 14(+0) cert 4414 outer 852 collar 21 | popped 12973 cull 576 cap 0 sat 3/0 drop sub 0 floor 0 out 4 apexStop 0 budget 0 maxKey 78
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (15851) minCov 1 dev px max 0.250 p99 0.247 p50 0.105
+log_H        out16       ms   253.2 (class 22.2)  evals    80055  layer tris   14857  core subtris  70784  claimed 4(+0) cert 4424 outer 852 collar 21 | popped 17719 cull 1170 cap 0 sat 0/0 drop sub 0 floor 0 out 4 apexStop 0 budget 0 maxKey 252
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (2076) minCov 1 dev px max 0.250 p99 0.230 p50 0.098
+exp_H        default     ms  1006.2 (class 26.6)  evals   648698  layer tris   39170  core subtris  46224  claimed 1540(+1) cert 2889 outer 852 collar 21 | popped 85101 cull 6848 cap 9 sat 20276/12365 drop sub 0 floor 0 out 1 apexStop 1 budget 0 maxKey 4.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.247 p50 0.131
+exp_H        out4        ms   779.5 (class 22.1)  evals   494064  layer tris   41841  core subtris  52048  claimed 1176(+1) cert 3253 outer 852 collar 21 | popped 74923 cull 4642 cap 9 sat 15302/8239 drop sub 0 floor 0 out 1 apexStop 0 budget 0 maxKey 4
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.247 p50 0.131
+exp_H        out16       ms   743.2 (class 31.9)  evals   415194  layer tris   40887  core subtris  57104  claimed 861(+2) cert 3569 outer 852 collar 21 | popped 68487 cull 4373 cap 9 sat 13027/5319 drop sub 0 floor 0 out 1 apexStop 0 budget 0 maxKey 4
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 2 dev px max 0.250 p99 0.249 p50 0.123
+einv_disc    default     ms   894.6 (class 32.8)  evals   701968  layer tris   13058  core subtris  83520  claimed 616(+0) cert 5220 outer 0 collar 0 | popped 31224 cull 3075 cap 1 sat 6563/7838 drop sub 19 floor 0 out 0 apexStop 0 budget 0 maxKey 7.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.245 p50 0.137
+einv_disc    out4        ms  1312.3 (class 39.4)  evals  1056367  layer tris   16111  core subtris  87712  claimed 354(+0) cert 5482 outer 0 collar 0 | popped 46412 cull 3751 cap 1 sat 11552/12420 drop sub 7 floor 0 out 0 apexStop 2 budget 0 maxKey 8
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.247 p50 0.141
+einv_disc    out16       ms  2003.6 (class 34.7)  evals  1859831  layer tris   19059  core subtris  89936  claimed 215(+0) cert 5621 outer 0 collar 0 | popped 73316 cull 6220 cap 1 sat 20085/22724 drop sub 4 floor 0 out 0 apexStop 2 budget 0 maxKey 9
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.247 p50 0.138
+exp_strip    default     ms   109.7 (class 12.2)  evals    54408  layer tris    4057  core subtris  32480  claimed 670(+0) cert 2030 outer 300 collar 10 | popped 5440 cull 1230 cap 4 sat 2/428 drop sub 0 floor 0 out 2 apexStop 0 budget 0 maxKey 5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (140545) minCov 1 dev px max 0.243 p99 0.236 p50 0.155
+exp_strip    out4        ms   136.3 (class 27.6)  evals    63272  layer tris    6073  core subtris  34400  claimed 550(+0) cert 2150 outer 300 collar 10 | popped 7518 cull 1187 cap 4 sat 0/581 drop sub 0 floor 0 out 2 apexStop 0 budget 0 maxKey 15
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (109815) minCov 1 dev px max 0.248 p99 0.245 p50 0.116
+exp_strip    out16       ms   145.1 (class 13)  evals    70414  layer tris    8187  core subtris  36000  claimed 450(+0) cert 2250 outer 300 collar 10 | popped 10074 cull 1200 cap 4 sat 0/602 drop sub 0 floor 0 out 2 apexStop 0 budget 0 maxKey 5.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (103045) minCov 1 dev px max 0.249 p99 0.246 p50 0.107
+cayley_H     default     ms      88 (class 23)  evals    15734  layer tris     785  core subtris  70848  claimed 0(+0) cert 4428 outer 852 collar 21 | popped 353 cull 0 cap 17 sat 0/0 drop sub 0 floor 0 out 4 apexStop 0 budget 0 maxKey 5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (99694) minCov 1 dev px max 0.182 p99 0.174 p50 0.016
+cayley_H     out4        ms    87.3 (class 22.8)  evals    15373  layer tris     695  core subtris  70848  claimed 0(+0) cert 4428 outer 852 collar 21 | popped 207 cull 0 cap 18 sat 0/0 drop sub 0 floor 0 out 3 apexStop 0 budget 0 maxKey 5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (4768) minCov 1 dev px max 0.045 p99 0.043 p50 0.005
+cayley_H     out16       ms    73.2 (class 19.7)  evals    14405  layer tris     585  core subtris  70848  claimed 0(+0) cert 4428 outer 852 collar 21 | popped 55 cull 0 cap 18 sat 0/0 drop sub 0 floor 0 out 3 apexStop 0 budget 0 maxKey 5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (127) minCov 1 dev px max 0.011 p99 0.011 p50 0.001
+cayley_H     zoom64_w1   ms   128.9 (class 38.5)  evals   128193  layer tris    1044  core subtris      0  claimed 4428(+0) cert 0 outer 852 collar 21 | popped 10301 cull 6358 cap 17 sat 0/0 drop sub 0 floor 9 out 359 apexStop 0 budget 0 maxKey 49.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (169) minCov 1 dev px max 0.086 p99 0.085 p50 0.028
+sq_Q1        default     ms    91.2 (class 16.7)  evals    36225  layer tris       0  core subtris  24336  claimed 1286(+0) cert 1521 outer 468 collar 14 | popped 1306 cull 1301 cap 0 sat 0/3 drop sub 0 floor 0 out 2 apexStop 0 budget 0 maxKey 2
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (146268) minCov 1 dev px max 0 p99 0 p50 0
+sq_Q1        out4        ms    84.7 (class 17.6)  evals    30633  layer tris     127  core subtris  31760  claimed 822(+0) cert 1985 outer 468 collar 14 | popped 1308 cull 1037 cap 0 sat 0/65 drop sub 0 floor 0 out 2 apexStop 0 budget 0 maxKey 2.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (103873) minCov 1 dev px max 0 p99 0 p50 0
+sq_Q1        out16       ms   116.9 (class 23.9)  evals    47144  layer tris    4036  core subtris  36912  claimed 500(+0) cert 2307 outer 468 collar 14 | popped 5454 cull 1398 cap 0 sat 0/186 drop sub 0 floor 5 out 236 apexStop 0 budget 0 maxKey 50
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (83073) minCov 1 dev px max 0.250 p99 0.249 p50 0.139
+sin_hs       default     ms    97.6 (class 23.5)  evals    49008  layer tris    1432  core subtris  41760  claimed 960(+0) cert 2610 outer 228 collar 7 | popped 2741 cull 1357 cap 0 sat 0/387 drop sub 0 floor 0 out 3 apexStop 0 budget 0 maxKey 4
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (135470) minCov 1 dev px max 0.185 p99 0.185 p50 0.086
+sin_hs       out4        ms   159.4 (class 34.6)  evals    63609  layer tris    6050  core subtris  45024  claimed 756(+0) cert 2814 outer 228 collar 7 | popped 7013 cull 1318 cap 0 sat 0/480 drop sub 0 floor 0 out 3 apexStop 0 budget 0 maxKey 4
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (105762) minCov 1 dev px max 0.249 p99 0.247 p50 0.127
+sin_hs       out16       ms   201.9 (class 13.3)  evals    79636  layer tris    8977  core subtris  48032  claimed 568(+0) cert 3002 outer 228 collar 7 | popped 11439 cull 1473 cap 0 sat 0/679 drop sub 0 floor 0 out 3 apexStop 0 budget 0 maxKey 4
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (98150) minCov 1 dev px max 0.250 p99 0.246 p50 0.115
+recip_ext    default     ms     118 (class 22.3)  evals    21260  layer tris    1176  core subtris  94848  claimed 0(+0) cert 5928 outer 1452 collar 32 | popped 416 cull 0 cap 32 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 3.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (84914) minCov 1 dev px max 0.000 p99 0.000 p50 0.000
+recip_ext    out4        ms    96.6 (class 22.2)  evals    20748  layer tris    1048  core subtris  94848  claimed 0(+0) cert 5928 outer 1452 collar 32 | popped 160 cull 0 cap 32 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 1.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (3453) minCov 1 dev px max 0.000 p99 0.000 p50 0.000
+recip_ext    out16       ms    92.7 (class 22.7)  evals    18588  layer tris     920  core subtris  94848  claimed 0(+0) cert 5928 outer 1452 collar 32 | popped 32 cull 0 cap 32 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 0.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (30) minCov 1 dev px max 0 p99 0 p50 0
+recip_ext    zoom128_w0  ms   217.3 (class 30.6)  evals   185664  layer tris    1682  core subtris      0  claimed 5928(+0) cert 0 outer 1452 collar 32 | popped 17198 cull 10425 cap 32 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 10.5
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (548) minCov 1 dev px max 0.000 p99 0.000 p50 0.000
+sqrt_slit    default     ms   292.7 (class 28.6)  evals   113494  layer tris    6650  core subtris 104512  claimed 56(+0) cert 6532 outer 1452 collar 32 | popped 22656 cull 2741 cap 0 sat 2/0 drop sub 3698 floor 0 out 0 apexStop 0 budget 0 maxKey 14
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (110798) minCov 1 dev px max 0.245 p99 0.211 p50 0.001
+sqrt_slit    out4        ms   633.4 (class 34)  evals   256611  layer tris   45768  core subtris 104528  claimed 55(+0) cert 6533 outer 1452 collar 32 | popped 62669 cull 1280 cap 0 sat 28/0 drop sub 3708 floor 0 out 0 apexStop 0 budget 0 maxKey 13
+                         IoU 1 hole 0 (0) spill 0 (0) parity 1 (1325) minCov 1 dev px max 0.250 p99 0.245 p50 0.105
+sqrt_slit    out16       ms   474.3 (class 27.7)  evals   191643  layer tris   29088  core subtris 104576  claimed 52(+0) cert 6536 outer 1452 collar 32 | popped 46354 cull 1292 cap 0 sat 3/0 drop sub 3713 floor 0 out 0 apexStop 0 budget 0 maxKey 17
+                         IoU 1 hole 0 (0) spill 0 (0) parity - (0) minCov 1 dev px max 0.250 p99 0.247 p50 0.099
+disc_cube    default     ms   125.7 (class 31.8)  evals    17745  layer tris       0  core subtris  93376  claimed 0(+0) cert 5836 outer 0 collar 0 | popped 0 cull 0 cap 0 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 0
+annulus_log  default     ms   155.9 (class 36.5)  evals    34119  layer tris    1396  core subtris  87968  claimed 69(+23) cert 5498 outer 0 collar 0 | popped 4173 cull 0 cap 0 sat 23/0 drop sub 1001 floor 0 out 0 apexStop 0 budget 0 maxKey 8.5
+poly_mobius  default     ms    81.1 (class 30.4)  evals    10121  layer tris       0  core subtris  52960  claimed 0(+0) cert 3310 outer 0 collar 0 | popped 0 cull 0 cap 0 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 0
+joukowski    default     ms   156.8 (class 41.9)  evals    17698  layer tris       0  core subtris  90016  claimed 0(+0) cert 5626 outer 1452 collar 32 | popped 32 cull 32 cap 0 sat 0/0 drop sub 0 floor 0 out 0 apexStop 0 budget 0 maxKey 0.5

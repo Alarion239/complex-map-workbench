@@ -1,0 +1,22 @@
+offset 0 px  [log, exp] disc at -1              rev1 : interior px 23784, coverage < 0.99:   0, min 1.000; exterior px 184368, spill 0
+offset 0 px  [root 2, z^2] disc at -1           rev1 : interior px 23784, coverage < 0.99:   0, min 1.000; exterior px 184368, spill 0
+offset 0 px  [root 3, z^3] disc at -1           rev1 : interior px 23784, coverage < 0.99:   0, min 1.000; exterior px 184368, spill 0
+offset 0 px  [log, exp] disc at -1              merge: interior px 23784, coverage < 0.99:   0, min 1.000; exterior px 184368, spill 0
+offset 0 px  [root 2, z^2] disc at -1           merge: interior px 23784, coverage < 0.99:   0, min 1.000; exterior px 184368, spill 0
+offset 0 px  [root 3, z^3] disc at -1           merge: interior px 23784, coverage < 0.99:   0, min 1.000; exterior px 184368, spill 0
+offset 0.25 px  [log, exp] disc at -1              rev1 : interior px 23788, coverage < 0.99: 174, min 0.750; exterior px 184386, spill 0
+offset 0.25 px  [root 2, z^2] disc at -1           rev1 : interior px 23788, coverage < 0.99: 174, min 0.750; exterior px 184386, spill 0
+offset 0.25 px  [root 3, z^3] disc at -1           rev1 : interior px 23788, coverage < 0.99: 174, min 0.750; exterior px 184386, spill 0
+offset 0.25 px  [log, exp] disc at -1              merge: interior px 23788, coverage < 0.99:   0, min 1.000; exterior px 184386, spill 0
+offset 0.25 px  [root 2, z^2] disc at -1           merge: interior px 23788, coverage < 0.99:   0, min 1.000; exterior px 184386, spill 0
+offset 0.25 px  [root 3, z^3] disc at -1           merge: interior px 23788, coverage < 0.99:   0, min 1.000; exterior px 184386, spill 0
+offset 0.5 px  [log, exp] disc at -1              rev1 : interior px 23770, coverage < 0.99: 174, min 0.500; exterior px 184410, spill 0
+offset 0.5 px  [root 2, z^2] disc at -1           rev1 : interior px 23770, coverage < 0.99: 174, min 0.500; exterior px 184410, spill 0
+offset 0.5 px  [root 3, z^3] disc at -1           rev1 : interior px 23770, coverage < 0.99: 174, min 0.500; exterior px 184410, spill 0
+offset 0.5 px  [log, exp] disc at -1              merge: interior px 23770, coverage < 0.99:   0, min 1.000; exterior px 184410, spill 0
+offset 0.5 px  [root 2, z^2] disc at -1           merge: interior px 23770, coverage < 0.99:   0, min 1.000; exterior px 184410, spill 0
+offset 0.5 px  [root 3, z^3] disc at -1           merge: interior px 23770, coverage < 0.99:   0, min 1.000; exterior px 184410, spill 0
+control  log(H) strip                       rev1 : interior px 75440, coverage < 0.99:   0, min 1.000; exterior px 132840, spill 0
+control  log(H) strip                       merge: interior px 75440, coverage < 0.99:   0, min 1.000; exterior px 132840, spill 0
+control  z^i(H) annulus                     rev1 : interior px 110712, coverage < 0.99:   0, min 1.000; exterior px 95864, spill 0
+control  z^i(H) annulus                     merge: interior px 110712, coverage < 0.99:   0, min 1.000; exterior px 95864, spill 0
