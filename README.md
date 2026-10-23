@@ -10,8 +10,10 @@ see what they do:
   e^−π < |w| < 1; log of the half-plane reaches the window edges at any zoom), with a sphere-mesh fallback for maps
   that cannot be inverted.
 - **Phase** and **Landscape**: full-width phase portraits and 3D landscapes of the chain.
-- **Deformation**: a toggle that morphs every view along natural homotopies from z to F(z), with live paths
-  t ↦ H_t(z).
+- **Deformation**: a toggle that morphs every view along natural homotopies from z to F(z) (analytic at every
+  moment, on F's own branches), one step after another or all at once, with live paths t ↦ H_t(z) that can be
+  switched off.
+- **Zeros and poles**: a step a·∏(z − z_k)/∏(z − p_j) whose zeros (dots) and poles (crosses) you drag in the plane.
 - Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves,
   guarantees (analytic, injective, …) that are only lit when they are proven, LaTeX and article-grade figure export.
 

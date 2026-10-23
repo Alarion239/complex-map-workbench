@@ -53,6 +53,9 @@ section('(a) round trips');
   add('ijouk', { branch: 'exterior' }); add('ijouk', { branch: 'interior' });
   add('poly', { co: '2, 1-i, 3' }); add('poly', { co: '1+i, 0, 0, -2' }); add('poly', { co: '0.5, -1' }); add('poly', { co: '1, 0, 4' }); add('poly', { co: '2, 0, 0, 0, 0, 1-i' });
   add('rational', { p: '1, -i', q: '1, i' }); add('rational', { p: '1, 0, 1', q: '1, 0' }); add('rational', { p: '1, 2, 0', q: '1, 0, -3' }); add('rational', { p: '2, 1', q: '3' });
+  // zeros and poles (degree <= 2 exact: MOB, AFF, QUAD, RAT2)
+  add('zp', {}); add('zp', { a: '2i', zeros: '1+i', poles: '-0.5' }); add('zp', { a: '1', zeros: '', poles: '0.3-i' }); add('zp', { a: '-1', zeros: '1, i', poles: '' });
+  add('zp', { a: '0.5', zeros: '1+i, -2', poles: '0.25i, 3' }); add('zp', { a: '1', zeros: '0, 0', poles: '' }); add('zp', { a: '3', zeros: '0.5', poles: '' });
   const CUSTOM = [['e^{1/z}', 180], ['z^{i}', 180], ['\\sqrt{z}+1', 180], ['2^{z}', 180], ['\\log(z-1)', 90], ['\\cot z', 180], ['\\frac{1}{z^2}', 180],
     ['\\sin(2z+1)', 180], ['\\overline{z}^2', 180], ['(z+1)^{1.5}', 60], ['\\sqrt[3]{z}', -90], ['\\arcsin(z)/2', 180], ['\\operatorname{artanh}(z)', 180],
     ['3-\\frac{2}{z+i}', 180], ['i^{z}', 180], ['\\sec(z)', 180], ['(1+i)z^{0.7}', 150], ['e^{z^2}', 180], ['\\log(\\log z)', 180], ['\\csc z', 180], ['\\coth(z)', 180],

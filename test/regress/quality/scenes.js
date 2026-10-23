@@ -373,6 +373,22 @@ BASE.rat9 = {
 };
 // the Joukowski airfoil (scene joukowski: the catalog step) written as the custom formula (z + 1/z)/2 (RAT2 then AFF)
 BASE.jouk_custom = Object.assign({}, BASE.joukowski, { steps: [{ type: 'custom', params: { expr: '\\frac{z+\\frac{1}{z}}{2}', cut: 180 } }] });
+// the zeros-and-poles step (notes/ui-design/zeros-poles.md): zeros +-1 and the pole 0, f(z) = (z^2 - 1)/z = z - 1/z,
+// of the disc |z - 1.2i| < 0.8 (0 outside it). The roots of z^2 - wz - 1 = 0 have product -1, and both lie in the disc
+// for some w: the map folds the disc onto itself (two sheets, RAT2 in the inverse renderer), so part of the image of
+// the boundary circle runs inside the image (srcSdf excludes its stroke band).
+const ZPD = { c: [0, 1.2], r: 0.8 };
+BASE.zp_disc = {
+  shapes: [{ kind: 'disc', c: ZPD.c, r: ZPD.r }], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' } }],
+  srcView: { cx: 0, cy: 1.2, s: 110 },
+  truth: {
+    desc: 'a root of z^2 - wz - 1 = 0 in the disc |z - 1.2i| < 0.8',
+    pre: (w) => { const s = csqrt(add(mul(w, w), C(4))); return [mul(add(w, s), C(0.5)), mul(sub(w, s), C(0.5))]; },
+    region: (z) => Math.hypot(z.re - ZPD.c[0], z.im - ZPD.c[1]) < ZPD.r,
+    dF: (z) => abs(add(C(1), div(C(1), mul(z, z)))),
+    srcSdf: (z) => ZPD.r - Math.hypot(z.re - ZPD.c[0], z.im - ZPD.c[1]),
+  },
+};
 const scene = (base, name, group, rightView, note, variants) => Object.assign({ name, base, group, rightView, note }, BASE[base], variants ? { variants } : {});
 const LOGH_VIEW = { cx: -0.18, cy: PI / 2, s: 97 };   // the app's auto-fit of this scene (rounded)
 
@@ -421,6 +437,8 @@ const SCENES = [
   scene('rat9', 'rat9', 'rational', { cx: 1.4, cy: 0, s: 110 }, 'example 9: custom (z^2-1)/(z^2+1) of the square |Re z|, |Im z| < 1.5 (poles +-i inside): the hole around w = 1 stays empty', ['mask', 'pattern']),
   scene('rat9', 'rat9_out8', 'rational', { cx: 0, cy: 0, s: 110 / 8 }, 'example 9 zoomed out 8x: the image covers a neighbourhood of infinity, filled to the view edges', ['mask', 'pattern']),
   scene('jouk_custom', 'jouk_custom', 'rational', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil as the custom formula (z + 1/z)/2: the same image as the catalog step', ['mask', 'pattern']),
+  // the zeros-and-poles step: (z^2 - 1)/z by its zeros +-1 and pole 0 (RAT2, two sheets over a fold)
+  scene('zp_disc', 'zp_disc', 'rational', { cx: 0, cy: 2.19, s: 250 }, 'zeros-and-poles step, zeros +-1 and pole 0: (z^2-1)/z of the disc |z - 1.2i| < 0.8 (folded onto itself)', ['mask', 'pattern']),
 ];
 
 // display settings shared by every scene: no coordinate net, unit circle, view outline or region outline; alpha 1

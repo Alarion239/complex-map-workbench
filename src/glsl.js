@@ -52,6 +52,9 @@ float cx_abs(vec2 z) {
   float m = max(abs(z.x), abs(z.y));
   if (m > 1e-18 && m < 1e18) return length(z);
   if (m == 0.0 || !(m < 3.0e38)) return m;
+  // large: scale by 2^-100 and back (exact); 1/m itself is subnormal above 8.5e37 and the GPU flushes it to 0, so
+  // |z| came out 0 there (a cosh path's 1.5e38, then z^1.365, drew at the origin instead of at infinity)
+  if (m >= 1e18) return length(z * 7.888609052210118e-31) * 1.2676506002282294e30;
   return m * length(z * (1.0 / m));
 }
 bool cfin(vec2 w) {
@@ -220,7 +223,34 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
   return cx_mob(m1, m0, m3, m2, u);
 }
-`;
+` + natLib();
+
+  // Natural paths (funcs.js): the small-argument series of the odd functions (a (1 + c3 a^2 + ... + c13 a^12) for
+  // |a| < 0.1, as Funcs' serS) and log(1 + v) (8 terms for |v| < 0.1, float32 accurate), so the first frames of a
+  // zoom path (t ~ 1e-5) do not cancel
+  function natLib() {
+    const lit = (x) => { const v = String(Math.fround(x)); return /[.eE]/.test(v) ? v.replace(/e\+?/, 'e') : v + '.0'; };
+    const SER = {
+      sin: ['csin', [-1 / 6, 1 / 120, -1 / 5040, 1 / 362880, -1 / 39916800, 1 / 6227020800]],
+      sinh: ['csinh', [1 / 6, 1 / 120, 1 / 5040, 1 / 362880, 1 / 39916800, 1 / 6227020800]],
+      tan: ['ctan', [1 / 3, 2 / 15, 17 / 315, 62 / 2835, 1382 / 155925, 21844 / 6081075]],
+      tanh: ['ctanh', [-1 / 3, 2 / 15, -17 / 315, 62 / 2835, -1382 / 155925, 21844 / 6081075]],
+      asin: ['casin', [1 / 6, 3 / 40, 15 / 336, 105 / 3456, 945 / 42240, 10395 / 599040]],
+      asinh: ['casinh', [-1 / 6, 3 / 40, -15 / 336, 105 / 3456, -945 / 42240, 10395 / 599040]],
+      atan: ['catan', [-1 / 3, 1 / 5, -1 / 7, 1 / 9, -1 / 11, 1 / 13]],
+      atanh: ['catanh', [1 / 3, 1 / 5, 1 / 7, 1 / 9, 1 / 11, 1 / 13]],
+    };
+    let out = '';
+    for (const [nm, [bi, c]] of Object.entries(SER)) {
+      out += `vec2 cx_${nm}S(vec2 a) {\n  if (dot(a, a) >= 0.01) return ${bi}(a);\n  vec2 a2 = cmul(a, a);\n  vec2 s = vec2(${lit(c[5])}, 0.0);\n`;
+      for (let i = 4; i >= 0; i--) out += `  s = vec2(${lit(c[i])}, 0.0) + cmul(a2, s);\n`;
+      out += '  return a + cmul(a, cmul(a2, s));\n}\n';
+    }
+    out += 'vec2 cx_log1p(vec2 v) {\n  if (dot(v, v) >= 0.01) return clog(vec2(1.0, 0.0) + v, CX_PI, 0.0);\n  vec2 s = vec2(-0.125, 0.0);\n';
+    for (let k = 7; k >= 1; k--) out += `  s = vec2(${lit((k % 2 ? 1 : -1) / k)}, 0.0) + cmul(v, s);\n`;
+    out += '  return cmul(v, s);\n}\n';
+    return out;
+  }
 
   // ---- CPU-side precomputation ----
   // Mirror of CX.mobPath: returns {mode, lam, M, P, Q} or null (degenerate). mode 1: parabolic, M = N.
@@ -405,13 +435,174 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     return g(ast);
   }
 
+  // ---- natural paths (Funcs: ZOOM, joukHom, ratPath, genericZoomNat): h bodies in z and t, mirroring the CPU ----
+  // nat: the built step's descriptor {kind, fn | n | dp, dq}; returns {h, write(put, b)} or null (no GPU path: the
+  // straight line). Data that depend on the parameters (zeros, the zoom centre) are uniforms, filled from b.natData;
+  // a flag cell .x = 0 (no data: a constant, a zero leading coefficient) falls back to the straight line, like the CPU.
+  const ASH1 = Math.log(1 + Math.SQRT2), SQ2 = Math.SQRT2;
+  const ZOOM_GL = {
+    sin: 'return cx_sinS(z * t) / t;', sinh: 'return cx_sinhS(z * t) / t;', tan: 'return cx_tanS(z * t) / t;', tanh: 'return cx_tanhS(z * t) / t;',
+    arcsin: 'return cx_asinS(z * t) / t;', arsinh: 'return cx_asinhS(z * t) / t;', arctan: 'return cx_atanS(z * t) / t;', artanh: 'return cx_atanhS(z * t) / t;',
+    cos: 'return vec2((1.0 - t) * CX_HALF_PI, 0.0) + cmul(vec2(cos(CX_PI * t), sin(CX_PI * t)), cx_sinS((z - vec2(CX_HALF_PI, 0.0)) * t) / t);',
+    arccos: 'return vec2(t * CX_HALF_PI, 0.0) + cmul(vec2(cos(CX_PI * t), sin(CX_PI * t)), cx_asinS(z * t) / t);',
+  };
+  const NAT_NMAX = 24; // the zoom path's shifted-form coefficients as uniforms up to this degree (Funcs.ZP_MAX)
+  function natPlan(P, nat, A, extra = {}) {
+    if (!nat) return null;
+    const T0 = 'if (t <= 0.0) return z;\n  ';
+    switch (nat.kind) {
+      case 'zoom': {
+        if (ZOOM_GL[nat.fn]) return { h: T0 + ZOOM_GL[nat.fn], write() {} };
+        if (nat.fn === 'cosh') {
+          return {
+            h: `${T0}const float P = ${flt(ASH1)}, Q = ${flt(SQ2)};
+  vec2 h = (z - vec2(P, 0.0)) * (0.5 * t);
+  return cmul(csinh(vec2(P, 0.0) + h), cx_sinhS(h)) * (2.0 / t) + vec2((1.0 - t) * P + t * Q, 0.0);`,
+            write() {},
+          };
+        }
+        if (nat.fn === 'arcosh') {
+          return {
+            h: `${T0}const float P = ${flt(ASH1)}, Q = ${flt(SQ2)};
+  vec2 d = (z - vec2(Q, 0.0)) * t, x = vec2(Q, 0.0) + d;
+  vec2 s = cmul(csqrtp(x - vec2(1.0, 0.0)), csqrtp(x + vec2(1.0, 0.0)));
+  vec2 den = s + vec2(1.0, 0.0);
+  vec2 v = cx_abs(den) > 1e-3 ? cmul(d, vec2(1.0, 0.0) + cdiv(x + vec2(Q, 0.0), den)) * (1.0 / (1.0 + Q)) : (x + s) * (1.0 / (1.0 + Q)) - vec2(1.0, 0.0);
+  return cx_log1p(v) / t + vec2((1.0 - t) * Q + t * P, 0.0);`,
+            write() {},
+          };
+        }
+        return null;
+      }
+      case 'jouk': {
+        // inside the unit disk the branch arg Cz in (pi/2, 3pi/2): tanh((1 + t) artanh z - i pi t/2) (Funcs joukHom);
+        // c J (nat.scaled): times c^t, lc = log c a uniform
+        const J = 'vec2 J = dot(z, z) < 1.0 ? cx_tanhS(cx_atanhS(z) * (1.0 + t) - vec2(0.0, CX_HALF_PI * t)) : cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 + t)));';
+        if (!nat.scaled) return { h: `${T0}${J}\n  return J;`, write() {} };
+        const lc = A.cell();
+        return { h: `${T0}${J}\n  return cmul(cexp(${lc.v} * t), J);`, write(put, b) { const d = Funcs.natData(b); putC(put, lc, d && d.lc ? d.lc : C(0, 0)); } };
+      }
+      // the Moebius one-parameter group (degree 1, however entered): the path slots of the affine and Moebius steps
+      case 'mob': {
+        const path = pathSlots(A);
+        return { h: pathHom(P, path), write(put, b) { const d = Funcs.natData(b); path.write(put, d && d.m ? mobPathData(d.m) : null); } };
+      }
+      // a (z - c)^n: (1 - t) c + a^t (z - c)^{1+(n-1)t}, principal (Funcs powPath)
+      case 'pow': {
+        const c = A.cell(), la = A.cell(), n = A.cell();
+        return {
+          h: `${T0}return ${c.v} * (1.0 - t) + cmul(cexp(${la.v} * t), cpowr(z - ${c.v}, 1.0 + (${n.x} - 1.0) * t, CX_PI, 0.0));`,
+          write(put, b) { const d = Funcs.natData(b); putC(put, c, d ? d.c : C(0, 0)); putC(put, la, d ? d.la : C(0, 0)); put(n.c, d ? d.n : 1, 0); },
+        };
+      }
+      // any other analytic formula: f inlined at p + t(z - p) (Funcs genericZoomNat); below t0 (>= 1e-3) the blend
+      // z + (t/t0)(H_t0(z) - z), as the CPU
+      case 'gzoom': {
+        const p = A.cell(), fp = A.cell(), ll = A.cell(), g = A.cell();
+        const H = (tt) => `${p.v} * (1.0 - ${tt}) + ${fp.v} * ${tt} + cmul(cexp(${ll.v} * (${tt} - 1.0)), ${P}_f(${p.v} + (z - ${p.v}) * ${tt}) - ${fp.v}) / ${tt}`;
+        return {
+          h: `${T0}float t0 = ${g.x};\n  if (t < t0) { vec2 h0 = ${H('t0')};\n    return z + (h0 - z) * (t / t0); }\n  return ${H('t')};`,
+          write(put, b) { const d = Funcs.natData(b); for (const [cell, k] of [[p, 'p'], [fp, 'fp'], [ll, 'll']]) putC(put, cell, d ? d[k] : C(0, 0)); put(g.c, d && d.t0 ? d.t0 : 1e-3, 0); },
+        };
+      }
+      case 'ijouk': {
+        const sg = extra.sg;
+        return { h: `${T0}return cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 - 0.5 * t) - vec2(0.0, ${sg.x} < 0.0 ? CX_HALF_PI * t : 0.0)));`, write() {} };
+      }
+      case 'exp': return { h: 'if (t < 1e-6) return z;\n  return cx_expm1(z * t) * (1.0 / t) + vec2(t, 0.0);', write() {} };
+      case 'log': {
+        const c = extra.cut;
+        return {
+          h: `if (t <= 0.0) return z;
+  float u = 1.0 - t;
+  if (u < 1e-6) return clog(z, ${c}, 0.0);
+  if (z.x == 0.0 && z.y == 0.0) return vec2(u - 1.0 / u, 0.0);
+  return cx_expm1(clog(z, ${c}, 0.0) * u) * (1.0 / u) + vec2(u, 0.0);`,
+          write() {},
+        };
+      }
+      case 'ratzoom': {
+        const M = Math.max(nat.dp, nat.dq), dp = nat.dp, dq = nat.dq;
+        // flag.x: data present, flag.y: rN (the shifted form's radius); q0 = Q(p)
+        const flag = A.cell(), p = A.cell(), fp = A.cell(), ll = A.cell(), q0 = A.cell();
+        // P and Q: the step's own coefficient cells when it has them with these very values (extra.shared: the poly
+        // step, Q = 1; a rational step with a non-constant denominator), so the path adds no uniforms per coefficient,
+        // and the far form is P_f itself; otherwise cells of its own (the zeros-and-poles step, a custom formula)
+        const sh = extra.shared || null;
+        const Pc = sh ? sh.P : Array.from({ length: dp + 1 }, () => A.cell());
+        const Qc = sh ? sh.Q : Array.from({ length: dq + 1 }, () => A.cell());
+        // Near p: up to degree NAT_NMAX the Taylor coefficients N of the shifted form (exact to float32 rounding,
+        // computed once in double); above it, so that a polynomial of a thousand terms needs no second thousand
+        // uniforms, the same quantity as divided differences, u N(e) = u (q0 P[p,x] − p0 Q[p,x]) / n1 with
+        // P[p,x] = (P(x) − P(p))/(x − p) by synthetic division (no cancellation at x = p either); kn = q0/n1, p0 = P(p)
+        // (0 at an exact zero), the remainder of the division dropped as the CPU drops it
+        const useN = M <= NAT_NMAX;
+        const Nc = useN ? Array.from({ length: M }, () => A.cell()) : [];
+        const kn = useN ? null : A.cell(), p0 = useN || !Qc ? null : A.cell();
+        const horner = (cs, nm, at) => `vec2 ${nm} = vec2(0.0);\n` + cs.map((c) => `  ${nm} = cmul(${nm}, ${at}) + ${c.v};`).join('\n');
+        // the quotient of the polynomial with coefficients cs (highest first) by (x - p), at x: a loop over the
+        // uniform array when the cells are consecutive (the step's own coefficients), else unrolled
+        const quot = (cs, nm) => {
+          const n = cs.length - 1;
+          if (n < 1) return `vec2 ${nm} = vec2(0.0);`;
+          const c0 = cs[0].c;
+          if (cs.every((c, i) => c.c === c0 + i) && n > 8) {
+            return `vec2 ${nm} = vec2(0.0), ${nm}b = vec2(0.0);
+  for (int k = 0; k < ${n}; k++) {
+    int ci = ${c0} + k;
+    vec4 s = uChain[ci >> 1];
+    ${nm}b = cmul(${nm}b, ${p.v}) + ((ci & 1) == 0 ? s.xy : s.zw);
+    ${nm} = cmul(${nm}, x) + ${nm}b;
+  }`;
+          }
+          return `vec2 ${nm} = vec2(0.0), ${nm}b = vec2(0.0);\n` + cs.slice(0, n).map((c) => `  ${nm}b = cmul(${nm}b, ${p.v}) + ${c.v}; ${nm} = cmul(${nm}, x) + ${nm}b;`).join('\n');
+        };
+        const near = useN
+          ? `${horner(Nc, 'n', 'e')}
+    return c + cmul(cexp(${ll.v} * t), cdiv(cmul(cmul(u, n), ${q0.v}), q));`
+          : `${quot(Pc, 'dP')}
+    ${Qc ? `${quot(Qc, 'dQ')}\n    vec2 dd = cmul(${q0.v}, dP) - cmul(${p0.v}, dQ);` : 'vec2 dd = dP;'}
+    return c + cmul(cexp(${ll.v} * t), cdiv(cmul(cmul(u, dd), ${kn.v}), q));`;
+        const far = sh ? `${P}_f(x)` : Qc ? 'cdiv(pp, q)' : 'pp';
+        const h = `${T0}if (${flag.x} < 0.5) { ${LIN(P)} }
+  vec2 u = z - ${p.v}, e = u * t, x = ${p.v} + e;
+  vec2 c = ${p.v} * (1.0 - t) + ${fp.v} * t;
+  ${Qc ? horner(Qc, 'q', 'x') : 'vec2 q = vec2(1.0, 0.0);'}
+  if (cx_abs(e) < ${flag.y}) {
+    ${near}
+  }
+  ${sh ? '' : horner(Pc, 'pp', 'x')}
+  return c + cmul(cexp(${ll.v} * (t - 1.0)), ${far} - ${fp.v}) / t;`;
+        return {
+          h,
+          write(put, b) {
+            const d = Funcs.natData(b);
+            const ok = !!d && d.N && d.N.length === M && d.P.length === dp + 1 && d.Q.length === dq + 1;
+            put(flag.c, ok ? 1 : 0, ok ? Math.min(d.rN, 3e38) : 0);
+            for (const [c, v] of [[p, ok ? d.p : C(0, 0)], [fp, ok ? d.fp : C(0, 0)], [ll, ok ? d.ll : C(0, 0)], [q0, ok ? d.q0 : C(0, 0)]]) putC(put, c, v);
+            Nc.forEach((c, k) => putC(put, c, ok ? d.N[k] : C(0, 0)));
+            if (kn) putC(put, kn, ok ? CX.div(d.q0, d.n1) : C(0, 0));
+            if (p0) putC(put, p0, ok ? d.p0 : C(0, 0));
+            if (sh) return; // the step writes its coefficients itself
+            Pc.forEach((c, k) => putC(put, c, ok ? d.P[k] : C(0, 0)));
+            if (Qc) Qc.forEach((c, k) => putC(put, c, ok ? d.Q[k] : C(0, 0)));
+          },
+        };
+      }
+    }
+    return null;
+  }
+
   // ---- per-step code generation ----
   // Returns {sig, f, h, write(put)}: f is the body of vec2 P_f(vec2 z), h of vec2 P_h(vec2 z, float t).
   function stepPlan(P, b, A) {
     const v = b.vals;
     const type = b.def.id;
     const trig = { sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh', arcsin: 'casin', arccos: 'cacos', arctan: 'catan', arsinh: 'casinh', arcosh: 'cacosh', artanh: 'catanh' };
-    if (trig[type]) return { sig: [type], f: `return ${trig[type]}(z);`, h: LIN(P), write() {} };
+    if (trig[type]) {
+      const np = natPlan(P, b.nat, A);
+      return { sig: [type], f: `return ${trig[type]}(z);`, h: np ? np.h : LIN(P), write() {} };
+    }
     switch (type) {
       case 'mul': {
         const c = A.cell(), path = pathSlots(A);
@@ -512,22 +703,25 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const cut = A.cell();
         return {
           sig: [type], f: `return clog(z, ${cut.x}, ${cut.y});`,
-          h: `float u = 1.0 - t;
+          h: `if (t <= 0.0) return z;
+  float u = 1.0 - t;
   if (u < 1e-6) return clog(z, ${cut.x}, ${cut.y});
   if (z.x == 0.0 && z.y == 0.0) return vec2(u - 1.0 / u, 0.0);
   return cx_expm1(clog(z, ${cut.x}, ${cut.y}) * u) * (1.0 / u) + vec2(u, 0.0);`,
           write(put) { put(cut.c, v.cut * DEG, v.k); },
         };
       }
-      case 'joukowski':
-        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: LIN(P), write() {} };
+      case 'joukowski': {
+        const np = natPlan(P, b.nat, A);
+        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: np ? np.h : LIN(P), write() {} };
+      }
       case 'ijouk': {
         const sg = A.cell();
         // interior branch z - s equals 1/(z + s) since (z - s)(z + s) = 1; the latter avoids cancellation
         return {
           sig: [type],
           f: `vec2 e = z + cmul(csqrtp(z - vec2(1.0, 0.0)), csqrtp(z + vec2(1.0, 0.0)));\n  return ${sg.x} > 0.0 ? e : cinv(e);`,
-          h: LIN(P), write(put) { put(sg.c, v.branch === 'interior' ? -1 : 1, 0); },
+          h: (natPlan(P, b.nat, A, { sg }) || { h: LIN(P) }).h, write(put) { put(sg.c, v.branch === 'interior' ? -1 : 1, 0); },
         };
       }
       case 'conj':
@@ -537,9 +731,38 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const cells = lists.map((co) => co.map(() => A.cell()));
         const horner = (cs, nm) => `vec2 ${nm} = vec2(0.0);\n` + cs.map((c) => `  ${nm} = cmul(${nm}, z) + ${c.v};`).join('\n');
         const f = type === 'poly' ? `${horner(cells[0], 'p')}\n  return p;` : `${horner(cells[0], 'p')}\n  ${horner(cells[1], 'q')}\n  return cdiv(p, q);`;
+        // the zoom path reads P and Q from these cells when they hold exactly its P and Q (a constant denominator
+        // divides the numerator there, so a rational step with one keeps cells of its own)
+        const shared = type === 'poly' ? { P: cells[0], Q: null } : lists[1].length > 1 ? { P: cells[0], Q: cells[1] } : null;
+        const np = natPlan(P, b.nat, A, { shared });
         return {
-          sig: [type, ...lists.map((l) => l.length)], f, h: LIN(P),
-          write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); },
+          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P),
+          write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); if (np) np.write(put, b); },
+        };
+      }
+      case 'zp': {
+        // a ∏ (z − ζ_k)/(z − p_k) × the unpaired factors, as Funcs evaluates it (no overflow of either product alone);
+        // the values are uniforms, so dragging a zero or a pole never recompiles (the counts are the signature)
+        const zp = b.zp, nz = zp.zeros.length, np = zp.poles.length, deg = Math.max(nz, np);
+        const a = A.cell(), zc = zp.zeros.map(() => A.cell()), pc = zp.poles.map(() => A.cell());
+        let f = `if (${a.v} == vec2(0.0)) return vec2(0.0);\n  `; // a = 0: the constant 0, the poles too (removable)
+        for (const c of pc) f += `if (z == ${c.v}) return vec2(cx_inf());\n  `;
+        f += `vec2 w = ${a.v};\n`;
+        for (let i = 0; i < deg; i++) {
+          if (i < nz && i < np) f += `  w = cmul(w, cdiv(z - ${zc[i].v}, z - ${pc[i].v}));\n`;
+          else if (i < nz) f += `  w = cmul(w, z - ${zc[i].v});\n`;
+          else f += `  w = cdiv(w, z - ${pc[i].v});\n`;
+        }
+        f += '  return w;';
+        const np2 = natPlan(P, b.nat, A);
+        return {
+          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P),
+          write(put) {
+            putC(put, a, zp.a);
+            zc.forEach((c, i) => putC(put, c, zp.zeros[i]));
+            pc.forEach((c, i) => putC(put, c, zp.poles[i]));
+            if (np2) np2.write(put, b);
+          },
         };
       }
       case 'custom': {
@@ -548,9 +771,10 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const TH = cut.x;
         const writers = [], lines = [];
         const res = genCustom(ast, P, A, TH, writers, lines);
+        const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, String(v.expr)], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: LIN(P),
-          write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); },
+          sig: [type, String(v.expr), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P),
+          write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
     }
@@ -774,6 +998,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     for (const { P, k } of maps) src += `  if (i == ${k}) return ${P}_h(z, t);\n`;
     for (const k of dks) src += `  if (i == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
+    // all at once (mode 3): every step's homotopy at the same t, H_t = h_{b,t} o ... o h_{a+1,t}, through chainHom (so
+    // the step functions are not inlined a second time; a d/dz gives NaN there, an off or failed step the identity)
+    src += `vec2 chainHomAll(vec2 z, int a, int b, float t) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, t);\n  }\n  return z;\n}\n`;
     src += `bool chainIsDeriv(int k) {\n  return ${dks.length ? dks.map((k) => `k == ${k}`).join(' || ') : 'false'};\n}\n`;
     // the maps in (a, b] applied to a point (no d/dz inside)
     const raw = dks.length ? 'cxs0_raw' : 'chainRange';

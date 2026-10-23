@@ -72,6 +72,8 @@ const FWD = {
   // (z^2 - 1)/(z^2 + 1) and (z + 1/z)/2, written out in real arithmetic
   rat9: (x, y) => { const a = x * x - y * y, b = 2 * x * y, d = (a + 1) * (a + 1) + b * b; return [((a - 1) * (a + 1) + b * b) / d, (b * (a + 1) - (a - 1) * b) / d]; },
   jouk_custom: (x, y) => { const d = x * x + y * y; return [(x + x / d) / 2, (y - y / d) / 2]; },
+  // the zeros-and-poles step with zeros +-1 and pole 0: (z^2 - 1)/z = z - 1/z
+  zp_disc: (x, y) => { const d = x * x + y * y; return [x - x / d, y + y / d]; },
 };
 function fatanh(x, y) {
   // (1 + z)/(1 - z) = ((1 + x) + iy)((1 - x) + iy) / |1 - z|^2 = (1 - x^2 - y^2 + 2iy) / ((1 - x)^2 + y^2)
@@ -161,6 +163,9 @@ SAMPLERS.jouk_custom = (put, s, R) => { const L = 2 * R + 2; quad(put, -L, -L, 2
   // F' = (1 - 1/z^2)/2, the circle keeps |z| >= JR - |JC| > 0.97
   (xc, yc, r) => { const m = Math.max(0.97, Math.hypot(xc, yc) - r); return (1 + 1 / (m * m)) / 2; },
   (xc, yc, r) => (Math.hypot(xc, yc) - r - 1) / 2 > 1.05 * R || Math.hypot(xc - JC[0], yc - JC[1]) + r < JR); };
+// the disc |z - 1.2i| < 0.8 keeps |z| >= 0.4: |F'| = |1 + 1/z^2| <= 1 + 1/(|zc| - r)^2 on a cell
+SAMPLERS.zp_disc = (put, s) => quad(put, -0.8, 0.4, 1.6, s, (x, y) => Math.hypot(x, y - 1.2) < 0.8,
+  (xc, yc, r) => { const m = Math.max(0.4, Math.hypot(xc, yc) - r); return 1 + 1 / (m * m); }, () => false);
 function grid(put, cx, cy, r, st) {
   for (let y = cy - r + st / 2; y < cy + r; y += st) for (let x = cx - r + st / 2; x < cx + r; x += st) if ((x - cx) ** 2 + (y - cy) ** 2 < r * r) put(x, y);
 }
@@ -169,7 +174,7 @@ const RAND_BOX = {
   zi_H: [-5, 5, 1e-3, 5], expH: [-4, 3, 1e-3, 20], e1z_disc: [-1, 1, -1, 1], e1z_custom: [-1, 1, -1, 1],
   exp_far_disc: [-1, 1, 59, 61], ez2_disc: [2.7, 3.3, 2.7, 3.3], healed_cut: [-1.6, -0.4, -0.6, 0.6],
   atanh_D: [-1, 1, -1, 1], atan_D: [-1, 1, -1, 1], cube_far_deep: [2.5, 3.5, 2.5, 3.5],
-  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4],
+  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2],
 };
 
 
@@ -203,6 +208,11 @@ MEMBERS.rat9 = (w) => {
 MEMBERS.jouk_custom = (w) => {
   const [a, b] = csq(w.re - 1, w.im), [c, e] = csq(w.re + 1, w.im), s = [a * c - b * e, a * e + b * c];
   return [{ re: w.re + s[0], im: w.im + s[1] }, { re: w.re - s[0], im: w.im - s[1] }].filter((z) => Math.hypot(z.re - JC[0], z.im - JC[1]) > JR);
+};
+// z^2 - wz - 1 = 0: z = (w +- sqrt(w^2 + 4))/2, in the disc
+MEMBERS.zp_disc = (w) => {
+  const [a, b] = csq(w.re * w.re - w.im * w.im + 4, 2 * w.re * w.im);
+  return [{ re: (w.re + a) / 2, im: (w.im + b) / 2 }, { re: (w.re - a) / 2, im: (w.im - b) / 2 }].filter((z) => Math.hypot(z.re, z.im - 1.2) < 0.8);
 };
 // the w-plane scenes: the member is carried as u = w, as their truth does (the self-test paints a mask there)
 MEMBERS.atanh_D = (w) => (Math.abs(w.im) < PI / 4 ? [{ re: w.re, im: w.im }] : []);

@@ -41,7 +41,9 @@
       { "runs": "atanh_D*,atan_D*,cube_far_deep*", "iou": { "min": 0.999 }, "hole": { "max": 0.001 }, "spill": { "max": 0.001 }, "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)" },
       { "runs": "atanh_D*.mask85", "opacity_min": { "min": 0.845 }, "note": "P2 review: one sheet at alpha 0.85 everywhere, no half-covered band where float32 tanh w is +-1" },
       { "runs": "cube_far_deep.pattern", "parity_acc": { "min": 0.999 }, "color_off": { "max": 0.001 }, "note": "P2 review: checker colours in range and cell edges kept at a deep zoom" },
-      { "runs": "zi_H_polar85.*", "parity_acc": { "min": 0.999 }, "cell_err_p99": { "max": 2 }, "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)" }
+      { "runs": "zi_H_polar85.*", "parity_acc": { "min": 0.999 }, "cell_err_p99": { "max": 2 }, "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)" },
+      { "runs": "zp_disc.*", "iou": { "min": 0.999 }, "hole": { "max": 0.001 }, "spill": { "max": 0.001 }, "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)" },
+      { "runs": "zp_disc.pattern", "parity_acc": { "min": 0.999 }, "note": "zeros-and-poles step: the checker of both sheets" }
     ]
   }
 }

@@ -59,7 +59,8 @@ precision highp sampler2D;
 #define TAU 6.283185307179586
 `;
   // The map of a draw (uMode): 0 stages a..b (chainRange), 1 the natural homotopy of step uHi at uT, 2 the straight
-  // line from stage a to stage b at uT. s is the point of the source plane: stage a for mode 0, else stage uBase
+  // line from stage a to stage b at uT, 3 the natural homotopies of the steps in (a, b] all at once at uT
+  // (chainHomAll: H_t = h_{b,t} o ... o h_{a+1,t}; never across a d/dz). s is the point of the source plane: stage a for mode 0, else stage uBase
   // (map.base; 0, the z-plane, by default).
   // A chain with d/dz steps (GLChain's chainStage / chainIsDeriv): stage maps G_k are functions of z, a d/dz step
   // has no homotopy of its own, so mode 1 at a d/dz step mixes G_(hi-1)(s) and G_hi(s), and mode 2 takes G_b(s)
@@ -68,6 +69,7 @@ precision highp sampler2D;
 vec2 mapPoint(vec2 s) {
   if (uMode == 1) { vec2 z = chainRange(s, uBase, uHi - 1); return chainHom(uHi, z, uT); }
   if (uMode == 2) { vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT); }
+  if (uMode == 3) return chainHomAll(chainRange(s, uBase, uA), uA, uB, uT);
   return chainRange(s, uA, uB);
 }
 `;
@@ -87,6 +89,7 @@ vec2 mapPoint(vec2 s) {
     vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
     return mix(z0, z1, uT);
   }
+  if (uMode == 3) return chainHomAll(chainRange(s, uBase, uA), uA, uB, uT);
   return chainRange(s, uA, uB);
 }
 `;
@@ -2331,7 +2334,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -2463,7 +2466,7 @@ float wabs(vec2 w) {
     while (p < a.length && p < b.length && a[p] === b[p]) p++;
     const mode = map.mode || 0;
     if (mode === 1 && (map.hi || 0) > p) return { mode: 0, a: map.base || 0, b: (map.hi || 0) - 1 };
-    if (mode === 2 && (map.b || 0) > p) return { mode: 0, a: map.base || 0, b: map.a || 0 };
+    if ((mode === 2 || mode === 3) && (map.b || 0) > p) return { mode: 0, a: map.base || 0, b: map.a || 0 };
     return map;
   }
   const LIVE = (sig) => sig !== 'off' && sig !== 'err' && sig !== 'unsupported';

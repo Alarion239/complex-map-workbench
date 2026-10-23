@@ -60,6 +60,8 @@
     check: svgI('<path d="M3.5 8.5l3 3 6-7"/>'),
     download: svgI('<path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/>'),
     sphere: svgI('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
+    // the deformation's paths t -> H_t(z): a start dot, a curved path and its arrowhead
+    paths: svgI('<circle cx="3.25" cy="12.25" r="1.4" fill="currentColor" stroke="none"/><path d="M3.25 12.25C4.5 7 8.5 4.25 13 4.25"/><path d="M10.25 2.25L13 4.25l-2.25 2.6"/>'),
   };
   // right-plane mode icons (14px)
   const msvg = (inner) => `<svg class="mic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -213,7 +215,7 @@
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
       alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
-      patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, hom: 'natural', height: 'log', outline: true,
+      patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
       // w-plane targets, drawn in the right plane in Image mode; their preimages show in the left plane in every
       // mode (none by default); the optional Riemann sphere view of the left plane; Landscape: all sheets of a
@@ -265,6 +267,7 @@
     const keep = new Set(S.shapes.map((x) => x.id));
     for (const id of [...gpu.keys()]) if (!keep.has(id)) dropShapeGPU(id);
     if (selected && !keep.has(selected) && !S.targets.some((x) => x.id === selected)) selected = null;
+    zpSel = null; zpHover = null;
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     S.focus = f;
     dismissUndoToast();
@@ -387,7 +390,11 @@
     if (!DC_STYLES.some((p) => p[0] === st.dc)) st.dc = d0.dc;
     if (st.solo !== 'L' && st.solo !== 'R') st.solo = null;
     // enumerated settings: an unknown value (another build, a damaged save) falls back to the default
-    if (!['natural', 'linear'].includes(st.hom)) st.hom = d0.hom;
+    // the straight-line homotopy is gone (2026-10-22): every save deforms along the natural paths; homAll: the steps
+    // deform all at once (one t for every step) instead of one after another
+    delete st.hom;
+    st.homAll = st.homAll === true;
+    if ('morphPaths' in st) st.morphPaths = st.morphPaths !== false;
     if (!['log', 'abs', 're', 'im'].includes(st.height)) st.height = d0.height;
     if ('sectors' in st && ![8, 12, 16, 24].includes(st.sectors)) delete st.sectors;
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
@@ -792,8 +799,16 @@
     return { steps: activeSteps() };
   }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
+  // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
+  // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
+  // morphLen: the end of the transport's time, m steps one after another, or 1.
+  const allAtOnce = () => !!S.homAll && morphRange().steps.length > 1 && !morphRange().steps.some((k) => isDeriv(k));
+  const morphLen = () => (allAtOnce() ? 1 : morphRange().steps.length);
+  // the primes of a point's label under the deformation: the steps begun (all of them at once for t > 0)
+  const morphPrimes = () => (allAtOnce() ? (morph.T > 0 ? morphRange().steps.length : 0) : Math.ceil(morph.T)) + (S.focus > 0 ? S.focus - 1 : 0);
   const lerpF = (F0, F1, t) => (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); };
-  // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none)
+  // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
+  // or a formula that is not recognisably a catalog map, funcs.js)
   function homF(k, t) {
     const b = built[k - 1];
     if (b && b.hom) return b.hom(t);
@@ -806,16 +821,19 @@
   function morphState(rel) {
     const { steps } = morphRange();
     const m = steps.length;
-    const T = Math.max(0, Math.min(m, morph.T));
     const base = S.focus > 0 ? S.focus - 1 : 0;
     const end = S.focus > 0 ? S.focus : nSteps();
     const pb = rel ? leftStage() : 0;
     const src = (k) => rangeF(pb, k);
     const tag = (map) => { if (pb) map.base = pb; return map; };
-    if (S.hom === 'linear' || m === 0) {
-      const t = m ? T / m : 0;
-      return { map: tag({ mode: 2, a: base, b: end, t }), F: lerpF(src(base), src(end), t), label: m ? `t = ${t.toFixed(2)}` : 'no active steps', key: `lin|${pb}|${base}|${end}|${t}` };
+    if (m === 0) return { map: tag({ mode: 0, a: pb, b: base }), F: src(base), label: 'no active steps', key: `none|${pb}|${base}` };
+    if (allAtOnce()) {
+      const t = Math.max(0, Math.min(1, morph.T));
+      const F0 = src(base), Hs = steps.map((k) => homF(k, t));
+      const F = (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
+      return { map: tag({ mode: 3, a: base, b: end, t }), F, label: `all steps · t = ${t.toFixed(2)}`, key: `all|${pb}|${base}|${end}|${t}` };
     }
+    const T = Math.max(0, Math.min(m, morph.T));
     const j = Math.min(m - 1, Math.floor(T));
     const t = T - j;
     const k = steps[j];
@@ -1065,7 +1083,7 @@
   function homEnds(m) {
     const base = m.base || 0;
     if (m.mode === 1) { const k = m.hi || 0; return [{ mode: 0, a: base, b: Math.max(base, k - 1) }, { mode: 0, a: base, b: k }]; }
-    if (m.mode === 2) return [{ mode: 0, a: base, b: m.a || 0 }, { mode: 0, a: base, b: m.b || 0 }];
+    if (m.mode === 2 || m.mode === 3) return [{ mode: 0, a: base, b: m.a || 0 }, { mode: 0, a: base, b: m.b || 0 }];
     return null;
   }
   // the content of a mesh (everything but the view); with win false, without the meshing window (the stand-in rule)
@@ -1476,6 +1494,11 @@
       return (z) => Ht(Fp(z));
     }
     if (mode === 2) return lerpF(rangeF(pb, map.a || 0), rangeF(pb, map.b || 0), map.t || 0);
+    if (mode === 3) {
+      const F0 = rangeF(pb, map.a || 0), t = map.t || 0, Hs = [];
+      for (let k = (map.a || 0) + 1; k <= (map.b || 0); k++) if (stepActive(k)) Hs.push(isDeriv(k) ? () => C(NaN, NaN) : homF(k, t));
+      return (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
+    }
     return rangeF(map.a || 0, map.b || 0);
   }
   // Per segment of r.lineRes (createLines order): the arc length of the curve under F at the segment start and the
@@ -1521,6 +1544,14 @@
       if (t === 1) return { mode: 0, a: base, b: k };
       if (t === 0) return { mode: 0, a: base, b: Math.max(base, k - 1) };
     } else if (mode === 2) {
+      if (t === 0) return { mode: 0, a: base, b: map.a || 0 };
+      if (t === 1) return { mode: 0, a: base, b: map.b || 0 };
+    } else if (mode === 3) {
+      // all at once: exact at its ends when every step's homotopy is (Inverse.homExact)
+      for (let k = (map.a || 0) + 1; k <= (map.b || 0); k++) {
+        const st = S.steps[k - 1];
+        if (stepActive(k) && (isDeriv(k) || !(typeof Inverse !== 'undefined' && Inverse.homExact(st)))) return map;
+      }
       if (t === 0) return { mode: 0, a: base, b: map.a || 0 };
       if (t === 1) return { mode: 0, a: base, b: map.b || 0 };
     }
@@ -2292,6 +2323,17 @@
       }
     }
     const sc = thin ? 0.66 : 1;
+    // a zeros-and-poles step: its handles draw them in its input plane (drawZpHandles); elsewhere (a figure, the
+    // thumbnails) its zeros are dots in the zero ink beside the pole crosses
+    if (b.def && b.def.id === 'zp') {
+      if (editable && !figMode && lFlat()) { ctx.restore(); return handles; }
+      for (const z of b.zp.zeros) {
+        if (!CX.isFin(z)) continue;
+        const [x, y] = pane.w2s(z);
+        ctx.fillStyle = TH.zero; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.5 * sc;
+        ctx.beginPath(); ctx.arc(x, y, 4 * sc, 0, TAU); ctx.stroke(); ctx.fill();
+      }
+    }
     for (const p of b.poles) {
       if (!CX.isFin(p)) continue;
       const [x, y] = pane.w2s(p);
@@ -2428,6 +2470,255 @@
       ctx.beginPath(); ctx.arc(hd.x, hd.y, hot ? 7 : 6, 0, TAU); ctx.fill(); ctx.stroke();
       chip(ctx, hd.x + 14, hd.y, `θ ${CX.fmtNum(hd.deg, 1).replace('-', '−')}°`, TH.cut, TH.cut);
     }
+  }
+  // ---- zeros and poles of a 'zp' step, dragged in its input plane (notes/ui-design/zeros-poles.md) ----
+  // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
+  // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
+  const ZP_KINDS = ['zeros', 'poles'];
+  const zpSym = (kind, i) => (kind === 'zeros' ? 'ζ' : 'p') + sub(i + 1);
+  // (the marks are drawn with every overlay frame: a field's text is parsed once)
+  const zpParsed = new Map();
+  const zpParse = (s) => {
+    if (zpParsed.has(s)) return zpParsed.get(s);
+    let v = null;
+    try { v = Expr.constValue(s); if (!CX.isFin(v)) v = null; } catch (e) { v = null; }
+    if (zpParsed.size > 512) zpParsed.clear();
+    zpParsed.set(s, v);
+    return v;
+  };
+  const zpSame = (a, k, kind, i) => !!a && a.k === k && a.kind === kind && a.i === i;
+  const zpItems = (st, kind) => Funcs.splitList(st.params[kind]);
+  // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
+  // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
+  function zpStep() {
+    if (!S || !paneL || solo() === 'R' || !lFlat()) return null;
+    const j = leftStage(), st = S.steps[j];
+    if (!st || st.type !== 'zp' || st.on === false) return null;
+    const items = {};
+    for (const kind of ZP_KINDS) items[kind] = zpItems(st, kind).map(zpParse);
+    return { k: j + 1, st, items };
+  }
+  // (a finger gets a larger target)
+  // (handles on one spot, a zero snapped onto a pole: a press takes the one not selected, so repeated clicks cycle)
+  function zpHit(x, y, r = 11) {
+    const near = zpHandlesL.map((hd) => ({ hd, d: Math.hypot(hd.x - x, hd.y - y) })).filter((q) => q.d < r).sort((a, b) => a.d - b.d);
+    if (!near.length) return null;
+    const tie = near.filter((q) => q.d - near[0].d < 1);
+    const i = tie.findIndex((q) => zpSame(zpSel, q.hd.k, q.hd.kind, q.hd.i));
+    return i >= 0 ? tie[(i + 1) % tie.length].hd : near[0].hd;
+  }
+  function drawZpHandles(pane) {
+    const zs = zpStep();
+    if (!zs) return;
+    const ctx = pane.octx;
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (const kind of ZP_KINDS) zs.items[kind].forEach((z, i) => {
+      if (!z) return;
+      const dr = drag && drag.mode === 'zp' && zpSame(drag, zs.k, kind, i) ? drag : null;
+      let [x, y] = pane.w2s(z);
+      // dragged off the plane: shown faded at the edge where the pointer is, with what a release does
+      if (dr && dr.off) { x = Math.max(12, Math.min(pane.w - 12, dr.x)); y = Math.max(12, Math.min(pane.h - 12, dr.y)); }
+      zpHandlesL.push({ x, y, k: zs.k, kind, i });
+      if (x < -16 || y < -16 || x > pane.w + 16 || y > pane.h + 16) return;
+      const hot = !!dr || zpSame(zpHover, zs.k, kind, i), sel = zpSame(zpSel, zs.k, kind, i);
+      const col = kind === 'zeros' ? TH.zero : TH.pole, r = hot ? 6 : 5;
+      ctx.globalAlpha = dr && dr.off ? 0.45 : 1;
+      if (kind === 'zeros') {
+        ctx.fillStyle = col; ctx.strokeStyle = TH.halo; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.fill();
+        ctx.fillStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, 1.75, 0, TAU); ctx.fill();
+      } else {
+        const cross = () => { ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke(); };
+        ctx.strokeStyle = TH.halo; ctx.lineWidth = 6; cross();
+        ctx.strokeStyle = col; ctx.lineWidth = 2.5; cross();
+      }
+      if (hot || sel) { ctx.strokeStyle = col; ctx.lineWidth = sel ? 1.5 : 1; ctx.beginPath(); ctx.arc(x, y, 10.5, 0, TAU); ctx.stroke(); }
+      const t = zpSym(kind, i);
+      // (no label where handles crowd: closer than 18 px to one drawn before, unless it is held or selected)
+      const crowd = !hot && !sel && zpHandlesL.slice(0, -1).some((q) => Math.hypot(q.x - x, q.y - y) < 18);
+      ctx.font = `italic 500 13px ${TH.math}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      if (!crowd) {
+        ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(t, x + 9, y - 8);
+        ctx.fillStyle = kind === 'zeros' ? TH.ink : TH.pole; ctx.fillText(t, x + 9, y - 8);
+      }
+      if (dr && dr.off) {
+        ctx.globalAlpha = 1;
+        const msg = `Release to remove ${t}`;
+        ctx.font = `11px ${TH.mono}`;
+        const cw = ctx.measureText(msg).width + 12;
+        chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
+      }
+    });
+    ctx.restore();
+  }
+  // a dragged value: to the decade below a pixel (never more than a pixel off; a snapped value stays as snapped)
+  function zpRound(pane, z) {
+    const q = Math.pow(10, Math.floor(Math.log10(1 / pane.view.s)));
+    const r = (x) => +(Math.round(x / q) * q).toPrecision(12);
+    return C(r(z.re), r(z.im));
+  }
+  function zpWrite(st, kind, list) { st.params[kind] = list.join(', '); }
+  // the card fields of step k (its card and its compact popover) show the values of the step (a field being typed in
+  // keeps its text)
+  function syncZpFields(k) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return;
+    const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
+    // (two columns while every value fits one, as zpFields lays them out)
+    const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
+    for (const el of document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], .card-pop[data-k="${k}"] input[data-zp]`)) {
+      const row = el.closest('.zp-item');
+      if (row) row.classList.toggle('wide1', wide);
+      if (document.activeElement === el) continue;
+      const [kind, i] = el.dataset.zp.split(':');
+      const v = lists[kind][+i];
+      if (v != null && el.value !== v) { el.value = v; el.classList.remove('bad'); }
+    }
+  }
+  // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
+  function refreshZpCard(k) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return;
+    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p'], [`.card-pop[data-k="${k}"] .params`, 'pp']]) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const top = el.scrollTop;
+      el.innerHTML = '';
+      el.append(zpFields(st, k, pre));
+      el.scrollTop = top;
+    }
+  }
+  function zpSet(k, kind, i, v) {
+    const st = S.steps[k - 1];
+    if (!st) return;
+    const list = zpItems(st, kind);
+    if (i >= list.length) return;
+    const item = Funcs.zpItem(v);
+    if (list[i] === item) return;
+    list[i] = item;
+    zpWrite(st, kind, list);
+    chainChanged(false);
+    syncZpFields(k);
+  }
+  // a free spot for a new zero or pole: the grid node nearest the centre of X's view (a 1-2-5 step of at least
+  // 40 px) that is at least 22 px from every zero and pole, nearest first
+  function zpFreeSpot(k) {
+    const st = S.steps[k - 1];
+    paneL.setView(leftView());
+    const v = leftView(), d0 = Math.pow(10, Math.floor(Math.log10(40 / v.s)));
+    const step = [1, 2, 5, 10].map((m) => m * d0).find((x) => x * v.s >= 40) || 10 * d0;
+    const have = ZP_KINDS.flatMap((kind) => zpItems(st, kind).map(zpParse)).filter(Boolean);
+    const cx = Math.round(v.cx / step), cy = Math.round(v.cy / step), cands = [];
+    for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) cands.push([cx + i, cy + j]);
+    const r = (x) => +(x * step).toPrecision(12);
+    cands.sort((p, q) => Math.hypot(p[0] * step - v.cx, p[1] * step - v.cy) - Math.hypot(q[0] * step - v.cx, q[1] * step - v.cy));
+    for (const [i, j] of cands) {
+      const z = C(r(i), r(j));
+      if (have.every((q) => CX.abs(CX.sub(q, z)) * v.s > 22)) return z;
+    }
+    return zpRound(paneL, C(v.cx, v.cy));
+  }
+  // add a zero or a pole to step k (at v, else a free spot): its index. Not committed (the caller commits).
+  function zpAdd(k, kind, v) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return -1;
+    const list = zpItems(st, kind);
+    if (list.length >= Funcs.ZP_MAX) { toast(`At most ${Funcs.ZP_MAX} ${kind} (degree ${Funcs.ZP_MAX}, as Write by zeros and poles allows).`); return -1; }
+    const z = v || zpFreeSpot(k);
+    list.push(Funcs.zpItem(z));
+    zpWrite(st, kind, list);
+    zpSel = { k, kind, i: list.length - 1 };
+    if (selected) { selected = null; buildShapeList(); }
+    chainChanged(false);
+    refreshZpCard(k);
+    return list.length - 1;
+  }
+  // the card's + buttons: a new zero or pole in view; the step is focused so that its input plane shows it
+  function zpAddFromCard(k, kind) {
+    if (!zpStep() || zpStep().k !== k) setFocus(k);
+    const i = zpAdd(k, kind);
+    if (i < 0) return;
+    commit();
+    requestRender('OL');
+    const inp = document.querySelector(`#pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
+    if (inp) inp.scrollIntoView({ block: 'nearest' });
+  }
+  function zpRemove(k, kind, i) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return;
+    const list = zpItems(st, kind);
+    if (i < 0 || i >= list.length) return;
+    list.splice(i, 1);
+    zpWrite(st, kind, list);
+    if (zpSame(zpSel, k, kind, i)) zpSel = null;
+    else if (zpSel && zpSel.k === k && zpSel.kind === kind && zpSel.i > i) zpSel.i--;
+    zpHover = null;
+    chainChanged(false);
+    refreshZpCard(k);
+    commit();
+    requestRender('OL');
+  }
+  // the parameter fields of a 'zp' card: a, the + zero / + pole buttons, then one field per zero and per pole
+  function zpFields(st, k, pre) {
+    const d = Funcs.DEFS.zp;
+    const frag = document.createDocumentFragment();
+    frag.append(paramField(st, k, d.params[0], pre));
+    const n = { zeros: zpItems(st, 'zeros').length, poles: zpItems(st, 'poles').length }, MAX = Funcs.ZP_MAX;
+    const addBtn = (kind) => {
+      const full = n[kind] >= MAX, one = kind === 'zeros' ? 'zero' : 'pole';
+      const b = h('button', { class: 'zp-add ' + kind, type: 'button',
+        'data-tip': full ? `At most ${MAX} ${kind}` : kind === 'zeros' ? 'Add a zero (or Shift-click in the input plane)' : 'Add a pole (or Shift-⌘-click in the input plane)',
+        'aria-label': `Add a ${one} to f${sub(k)} (${n[kind]} now)`,
+        onclick: (e) => { e.stopPropagation(); zpAddFromCard(k, kind); } },
+      h('span', { class: 'zp-mark', 'aria-hidden': 'true' }), one, h('span', { class: 'zp-n', 'aria-hidden': 'true' }, String(n[kind])));
+      if (full) b.disabled = true;
+      return b;
+    };
+    frag.append(h('div', { class: 'pf zp-adds' }, addBtn('zeros'), addBtn('poles')));
+    // two columns while every value fits one (8 characters), else one per row at full width
+    const wide = ZP_KINDS.some((kind) => zpItems(st, kind).some((raw) => raw.length > 8));
+    for (const kind of ZP_KINDS) zpItems(st, kind).forEach((raw, i) => { const el = zpItemField(st, k, kind, i, raw, pre); if (wide) el.classList.add('wide1'); frag.append(el); });
+    return frag;
+  }
+  function zpItemField(st, k, kind, i, raw, pre) {
+    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i), what = kind === 'zeros' ? 'zero' : 'pole';
+    const input = h('input', { class: 'inp', id, value: raw, spellcheck: 'false', autocomplete: 'off' });
+    input.dataset.zp = `${kind}:${i}`;
+    // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)
+    const fields = () => [...input.closest('.params').querySelectorAll(`input[data-zp^="${kind}:"]`)];
+    input.addEventListener('input', () => {
+      input.classList.toggle('bad', !zpParse(input.value));
+      st.params[kind] = fields().map((el) => el.value.trim()).filter((x) => x).join(', ');
+      chainChanged(false);
+      requestRender('OL');
+    });
+    // (a field emptied, or holding a list '0.5, 0.5i': the card again, one field per item, so fields and handles
+    // keep their indices)
+    input.addEventListener('change', () => {
+      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      commit();
+    });
+    input.addEventListener('paste', () => setTimeout(() => { if (Funcs.splitList(input.value).filter((x) => x.trim()).length > 1) { input.blur(); } }, 0));
+    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': `Remove ${sym}`, 'aria-label': `Remove ${what} ${i + 1} of f${sub(k)}`, html: ICONS.close,
+      onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
+    const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': `${kind === 'zeros' ? 'Zero' : 'Pole'} ${sym}: drag it in the input plane` }, sym);
+    return h('div', { class: 'pf zp-item' }, lab, h('div', { class: 'pair' }, input, del));
+  }
+  // "Write by zeros and poles" (a polynomial, rational or rational custom step) and back ("Write by coefficients")
+  function convertZp(k, to) {
+    const st = S.steps[k - 1];
+    if (!st) return null;
+    let r;
+    try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
+    if (!r || r.error || !r.step) { toast(((r && r.error) || 'This step cannot be rewritten.').replace(/\.?$/, '.')); return null; }
+    S.steps[k - 1] = { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false };
+    zpSel = null;
+    chainChanged(true);
+    setFocus(k);
+    commit();
+    undoToast(to ? `f${sub(k)} is now given by its zeros and poles (${r.note}): drag them in its input plane.` : `f${sub(k)} is now given by its coefficients.`);
+    return cardButton(k);
   }
   function drawHandles(pane, list) {
     const s = (list || S.shapes).find((x) => x.id === selected);
@@ -2606,6 +2897,9 @@
   let paneL, paneR;
   let cutHandlesL = [];
   let hoverCut = 0;
+  // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
+  // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
+  let zpHandlesL = [], zpHover = null, zpSel = null;
   let gaugeInfo = null;
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
@@ -2731,11 +3025,14 @@
     gaugeInfo = null;
     const sphL = !lFlat(); // the sphere and landscape views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
+    zpHandlesL = [];
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
+      drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
-      if (probe) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
+      if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
     }
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
     if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
@@ -3480,7 +3777,7 @@
       ctx.fillStyle = shapeInk(s).edge; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, TAU); ctx.stroke(); ctx.fill();
       // (under the deformation the primes count the steps begun, as on the merged plane: z₀′ for 0 < t <= 1)
-      labels.push({ x: q[0], y: q[1], text: pointLabel(s, idx, hom && imageMode ? Math.ceil(morph.T) + (S.focus > 0 ? S.focus - 1 : 0) : o.stage) });
+      labels.push({ x: q[0], y: q[1], text: pointLabel(s, idx, hom && imageMode ? morphPrimes() : o.stage) });
     }
     // the w-plane's point targets on the w-globe (P3b), marked and labelled as in Y Plane
     if (o.targetPts) {
@@ -4088,8 +4385,8 @@
     return r < 1.5 && r > 1 / 1.5 && Math.abs(v.cx - a.cx) * v.s <= 0.3 * pane.w && Math.abs(v.cy - a.cy) * v.s <= 0.3 * pane.h;
   }
   function mfScreenKey(pane) {
-    const m = morphRange().steps.length;
-    const key = JSON.stringify([chainSig[nSteps()], S.focus, S.hom, m, S.shapes.filter((s) => s.visible !== false)]);
+    const m = morphLen();
+    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, m, S.shapes.filter((s) => s.visible !== false)]);
     const v = pane.view, vkey = [v.cx, v.cy, v.s, pane.w, pane.h].join('|');
     return { key, vkey, m };
   }
@@ -4214,7 +4511,7 @@
   function drawMorphPaths(pane, sel, F, P = (w) => pane.w2s(w)) {
     if (!sel || !sel.kept.length) return;
     const ctx = pane.ctx;
-    const T = morph.T, atEnd = T >= (sel.Tend || morphRange().steps.length) - 1e-9;
+    const T = morph.T, atEnd = T >= (sel.Tend || morphLen()) - 1e-9;
     const HL = MF_SCREEN_HL, HW = 2.3;
     const items = sel.kept.map((k) => {
       let ss = k.s, l = ss.map((q) => P(q.w));
@@ -4492,18 +4789,16 @@
   // whole homotopy, and the caption says once, at sentence level, which part is shown (stop)
   function morphHomSegs(Tend) {
     const { steps } = morphRange();
-    const m = steps.length;
-    const upTo = Tend < m - 1e-9;
+    const m = steps.length, all = allAtOnce();
+    const upTo = Tend < (all ? 1 : m) - 1e-9;
     const stop = upTo ? [{ t: ', shown for ' }, { m: `0\\le t\\le ${CX.fmtNum(Tend, 2)}` }] : [];
     const range = (t1) => [{ t: ', ' }, { m: `0\\le t\\le ${t1}` }];
-    if (S.hom === 'linear') {
-      const Fn = S.focus === 0 ? 'F' : `f_{${S.focus}}`;
-      const stopL = upTo ? [{ t: ', shown for ' }, { m: `0\\le t\\le ${CX.fmtNum(Tend / m, 2)}` }] : [];
-      return { segs: [{ t: 'the straight-line homotopy ' }, { m: `H_t(z)=(1-t)\\,${S.focus > 1 ? `w_{${S.focus - 1}}` : 'z'}+t\\,${Fn}(${S.focus > 1 ? `w_{${S.focus - 1}}` : 'z'})` }, ...range(1)], stop: stopL, mobius: false, linear: true };
-    }
-    const phrase = (k) => {
-      const b = built[k - 1], v = k === 1 ? 'z' : `w_{${k - 1}}`;
-      const r = b && b.homTex ? b.homTex(v) : null;
+    // (several steps: f_k, p_k, ... name step k's map and centre; all at once, every H^{(k)}_t acts on u, since its input
+    // there is H^{(k-1)}_t(z), not w_{k-1})
+    const phrase = (k, names) => {
+      const b = built[k - 1], v = all && m > 1 ? 'u' : k === 1 ? 'z' : `w_{${k - 1}}`;
+      const o = names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : undefined;
+      const r = b && b.homTex ? b.homTex(v, o) : null;
       if (r) return r;
       return { tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,${m === 1 && S.focus === 0 ? 'F' : `f_{${k}}`}(${v})$`, segment: true };
     };
@@ -4513,6 +4808,17 @@
       const own = /\\le\s*1|\\le t|t\\le|t</.test(r.tex);
       return { segs: [...texSegs(r.tex), ...(own ? [] : range(1))], stop, mobius: !!r.mobius, segment: !!r.segment };
     }
+    // several steps all at once: H_t = H^{(n)}_t o ... o H^{(1)}_t, 0 <= t <= 1, each step's own homotopy at the same t
+    if (all) {
+      const own = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/H_\{?([t0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));
+      const comp = steps.map((k) => `H^{(${k})}_t`).reverse().join('\\circ ');
+      const segs = [{ t: 'the homotopy ' }, { m: `H_t=${comp}` }, { t: ', ' }, { m: '0\\le t\\le 1' }, { t: ', that deforms every step at once: ' }];
+      steps.forEach((k, i) => {
+        if (i) segs.push({ t: '; ' });
+        segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...own(k, phrase(k, true).tex));
+      });
+      return { segs, stop, mobius: false };
+    }
     // several steps: H_t runs the steps in turn, 0 <= t <= m; step k's own homotopy is H^{(k)}_s in its own time s,
     // H_t = H^{(k)}_{t-k+1} on k-1 <= t <= k
     const local = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : {
@@ -4521,7 +4827,7 @@
     const segs = [{ t: 'the homotopy ' }, { m: `H_t` }, { t: ', ' }, { m: `0\\le t\\le ${m}` }, { t: ', that runs the steps in turn (' }, { m: 'H_t=H^{(k)}_{t-k+1}' }, { t: ' on ' }, { m: 'k-1\\le t\\le k' }, { t: '): ' }];
     steps.forEach((k, i) => {
       if (i) segs.push({ t: '; ' });
-      segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...local(k, phrase(k).tex));
+      segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...local(k, phrase(k, true).tex));
     });
     return { segs, stop, mobius: false };
   }
@@ -4549,7 +4855,7 @@
       : (lineShapes.length ? (dashed ? ' (dashed outline)' : ' (outlined)') : pts.length ? ' (dots)' : '') + (nSets > 1 ? ',' : '');
     const head = opt.both ? [{ t: nSets > 1 ? 'the sets of (a)' : 'the set of (a)' }] : S.focus > 1 ? [{ t: 'The image of ' }, ...setSegs, { t: ` after ${S.focus - 1 === 1 ? 'the first step' : `${S.focus - 1} steps`}` }] : cap1(setSegs);
     const its = nSets > 1 ? 'their image' : 'its image';
-    const endName = Tend < morphRange().steps.length - 1e-9 ? [{ t: `${its} under ` }, { m: `H_{${CX.fmtNum(Tend, 2)}}` }] : [{ t: `${its} under ` }, { m: mapM }];
+    const endName = Tend < morphLen() - 1e-9 ? [{ t: `${its} under ` }, { m: `H_{${CX.fmtNum(Tend, 2)}}` }] : [{ t: `${its} under ` }, { m: mapM }];
     out.push(...head, { t: `${mark} and ` }, ...endName, { t: ` (${patWord}), joined by ` }, ...hom.segs, ...hom.stop, { t: '.' });
     const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
     const ni = sel.kept.filter((k) => k.sp.kind === 'node').length;
@@ -4561,11 +4867,11 @@
     if (np) parts.push(num(np, 'marked point', 'marked points'));
     if (sel.kept.length) {
       let clause = '';
-      if (hom.mobius || hom.linear || hom.segment) {
+      if (hom.mobius || hom.segment) {
         const kinds = new Set(sel.kept.map((k) => morphPathShape(k.sp.z, Tend)));
         if (!kinds.has('other')) clause = kinds.size === 2 ? '; each is an arc of a circle or a segment' : kinds.has('arc') ? '; each is an arc of a circle' : '; each is a segment';
       }
-      out.push({ t: ' Arrows are the paths ' }, { m: 't\\mapsto H_t(z)' }, { t: ` of ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]}, from ` }, { m: 'z' }, { t: ' (dot) to ' }, { m: Tend < morphRange().steps.length - 1e-9 ? `H_{${CX.fmtNum(Tend, 2)}}(z)` : 'F(z)' }, { t: `${clause}.` });
+      out.push({ t: ' Arrows are the paths ' }, { m: 't\\mapsto H_t(z)' }, { t: ` of ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]}, from ` }, { m: 'z' }, { t: ' (dot) to ' }, { m: Tend < morphLen() - 1e-9 ? `H_{${CX.fmtNum(Tend, 2)}}(z)` : 'F(z)' }, { t: `${clause}.` });
       if (sel.kept.some((k) => k.meet)) out.push({ t: ' Arrows that meet show points with the same image.' });
     }
     out.push(...patternSegs(Fname));
@@ -4588,7 +4894,7 @@
     paper(pane);
     const ms = morphState(false);
     const X = morphX();
-    const m = morphRange().steps.length;
+    const m = morphLen();
     const base = S.focus > 0 ? S.focus - 1 : 0, end = S.focus > 0 ? S.focus : nSteps();
     if (GLR.ok) {
       // the tint is X itself (z-plane): at a focused step the start is the image of X at stage base, outlined instead
@@ -4647,13 +4953,13 @@
         ctx.globalAlpha = 1;
       }
     }
-    drawPoints(pane, ms.F, { primes: Math.ceil(morph.T) + (S.focus > 0 ? S.focus - 1 : 0) });
+    drawPoints(pane, ms.F, { primes: morphPrimes() });
     drawRulers(pane, 'R');
   }
   // the transport's readout and scrubber follow the time in every view
   function syncTransport() {
     const lab = $('morphLabel');
-    if (lab) lab.textContent = `t = ${morph.T.toFixed(2)} / ${morphRange().steps.length}`;
+    if (lab) lab.textContent = `t = ${morph.T.toFixed(2)} / ${morphLen()}`;
     const sl = $('morphRange');
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
@@ -5865,7 +6171,7 @@
     if (morph.playing && morph.open) {
       const dt = morph.last ? Math.min(0.1, (ts - morph.last) / 1000) : 0;
       morph.last = ts;
-      const m = morphRange().steps.length;
+      const m = morphLen();
       // per step: eased motion, a short hold at each step boundary, a longer one at the end
       if (!m) { morph.playing = false; setPlayIcon(); }
       else if (morph.hold > 0) morph.hold -= dt;
@@ -6049,7 +6355,7 @@
       // (withT)
       const base = S.focus > 0 ? S.focus - 1 : 0;
       const end = S.focus > 0 ? S.focus : nSteps();
-      const m = morphRange().steps.length;
+      const m = morphLen();
       const xs = [], ys = [], bx = [], by = [];
       stageSamples(stageF(end), xs, ys);
       if (withT && morph.T > 0 && morph.T < m) stageSamples(morphAt(morph.T), xs, ys);
@@ -6418,23 +6724,57 @@
       d.replaceChildren();
       const f = d;
 
-      // the deformation transport (spec 6.11), in every view: play, the scrubber with a tick per step, t, speed,
-      // the path and Loop; × closes it and the view returns to t = end
-      const m = morphRange().steps.length;
+      // the deformation transport (spec 6.11), in every view: play, the scrubber with a tick per step (one for all
+      // steps at once), t, speed, the order of the steps (two or more), Loop and the Paths toggle (P); × closes it
+      // and the view returns to t = end
+      const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
       const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? 'Pause' : 'Play', 'aria-label': morph.playing ? 'Pause' : 'Play', html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
       const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': 'Deformation time',
         oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
       const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
-      morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
+      if (allAtOnce()) {
+        const ks = morphRange().steps;
+        ticks.append(h('span', { class: 'ttick', style: 'left:50%', html: `<i>f</i>${sub(ks[0])}, …, <i>f</i>${sub(ks[ks.length - 1])} at once` }));
+      } else morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
+      // the order of the steps (two or more): one after another (t in [0, m]) or all at once (t in [0, 1])
+      let order = null;
+      if (nSt > 1) {
+        order = selectEl('homOrderSel', allAtOnce() ? 'all' : 'steps', [['steps', 'One after another'], ['all', 'All at once']], (v) => setHomAll(v === 'all'), 'Deformation: the steps one after another or all at once');
+        if (hasD) { order.disabled = true; order.value = 'steps'; order.dataset.tip = 'd/dz is not a map: its step deforms on its own, so the steps run one after another'; }
+      }
       f.append(play, h('div', { class: 'tscrub' }, rng, ticks), h('span', { class: 'tread mono', id: 'morphLabel' }, `t = ${morph.T.toFixed(2)} / ${m}`),
         seg('speedSeg', String(S.morphSecs), [['3.2', '0.5×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, 'Speed'),
-        selectEl('homSel', S.hom, [['natural', 'Natural path'], ['linear', 'Straight line']], (v) => { S.hom = v; scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save(); }, 'Homotopy'),
+        ...(order ? [order] : []),
         checkEl('loopChk', S.loop !== false, 'Loop', (v) => { S.loop = v; save(); }),
-        // (the paths t -> H_t(z) are drawn in the merged deformation plane)
-        ...(side === 'R' ? [checkEl('pathsChk', S.morphPaths !== false, 'Paths', (v) => { S.morphPaths = v; requestRender('R'); drawLegend(); save(); })] : []),
+        // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
+        ...(side === 'R' ? [pathsToggle(hasD)] : []),
         h('button', { class: 'icon-btn tclose', 'data-tip': 'Deformation off  M', 'aria-label': 'Turn the deformation off', html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
     }
+  }
+  // the Paths toggle of the deformation (key P while the deformation shows in X → Y; the palette): the live paths
+  // t -> H_t(z) on the merged plane and globe, remembered in the saved state, and the figure's default
+  // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
+  function pathsToggle(hasD = morphHasDeriv()) {
+    const on = S.morphPaths !== false;
+    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': `${on ? 'Hide' : 'Show'} the paths t ↦ H_t(z)  P`, html: `${ICONS.paths}<span>Paths</span>`, onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
+    if (hasD) { b.disabled = true; b.dataset.tip = 'd/dz is not a map, so there are no paths t ↦ H_t(z) to draw'; }
+    return b;
+  }
+  function setMorphPaths(on) {
+    S.morphPaths = !!on;
+    const b = $('pathsBtn');
+    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = `${on ? 'Hide' : 'Show'} the paths t ↦ H_t(z)  P`; }
+    requestRender('R'); drawLegend(); save();
+  }
+  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
+  function setHomAll(all) {
+    const before = morphLen();
+    S.homAll = !!all;
+    const after = morphLen();
+    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
+    else if (!morph.open) morph.T = after;
+    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
   }
   const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: 'Reset camera', 'aria-label': 'Reset camera', html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
@@ -6488,7 +6828,7 @@
   // view is put aside while the deformation shows and restored when it closes; the deformation's own view is kept
   // between openings for the same chain, focus and path, and fitted to X and its images the first time.
   const defMem = { y: null, d: null, dkey: '' };
-  const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, S.hom, S.shapes.filter((s) => s.visible !== false).length]);
+  const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]);
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
   function openTransport() {
     if (!morphRange().steps.length) { toast('Add a function to the chain to see its deformation.'); return; }
@@ -6511,7 +6851,7 @@
     if (typeof cancelTweens === 'function') cancelTweens();
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
     morph.open = false; morph.playing = false; morph.seg = null;
-    morph.T = morphRange().steps.length;
+    morph.T = morphLen();
     if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
     applyLayout();
     if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
@@ -6740,7 +7080,7 @@
     morph.playing = !morph.playing;
     morph.last = 0;
     if (!morph.playing) { scheduleFix(); requestRender('R'); }
-    if (morph.playing && morph.T >= morphRange().steps.length) morph.T = 0;
+    if (morph.playing && morph.T >= morphLen()) morph.T = 0;
     morph.seg = null; morph.hold = 0;
     setPlayIcon();
     requestRender('R');
@@ -6836,7 +7176,7 @@
   }
   function addShape(s, target) {
     (target ? S.targets : S.shapes).push(s);
-    selected = s.id;
+    selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }
@@ -7020,7 +7360,7 @@
           items.push({ label: `Integrate ${fnText()} along it`, run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } }, 'sep');
         }
         if (kindType(s) === 'area') items.push({ label: s.complement ? 'Use the set itself' : 'Use complement', run: () => { s.complement = !s.complement; changed(); commit(); } });
-        items.push({ label: 'Duplicate', run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; changed(); commit(); } });
+        items.push({ label: 'Duplicate', run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null; changed(); commit(); } });
         items.push({ label: 'Color', kids: [...TH.c.map((cc, i) => ({ label: `Preset ${i + 1}`, swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: 'Custom color…', run: () => pickColor(s) }] });
         items.push({ label: 'Bring forward', disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
         items.push({ label: 'Send backward', disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
@@ -7034,7 +7374,7 @@
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
-      onclick: () => { selected = selected === s.id ? null : s.id; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R'); },
+      onclick: () => { selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R'); },
       onpointerenter: () => { hoverShape = s.id; requestRender('L', 'R'); },
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
@@ -7283,7 +7623,7 @@
       last = s;
     }
     if (!last) return;
-    selected = last.id;
+    selected = last.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }
@@ -7436,6 +7776,10 @@
       { label: 'Insert d/dz after it', disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) },
     ];
     if (d.presets) items.push({ label: 'Presets', kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
+    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
+    const bk = built[k - 1];
+    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: 'Write by zeros and poles', disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
+    if (st.type === 'zp') items.push({ label: 'Write by coefficients', disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
     items.push('sep', { label: 'Remove', icon: 'trash', danger: true, run: () => removeStep(k) });
     openMenu(anchor, items);
   }
@@ -7476,8 +7820,9 @@
     const canvas = h('canvas');
     const ftex = h('div', { class: 'ftex' });
     const btag = h('span', { class: 'btag' });
-    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : ''), onclick: stop });
-    for (const q of d.params) params.append(paramField(st, k, q));
+    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : ''), onclick: stop });
+    if (st.type === 'zp' && Funcs.DEFS.zp) params.append(zpFields(st, k, 'p'));
+    else for (const q of d.params) params.append(paramField(st, k, q));
     const errEl = h('div', { class: 'err-msg' });
     const note = h('div', { class: 'note' });
     const chips = h('div', { class: 'pchips' });
@@ -7492,9 +7837,10 @@
     const st = S.steps[k - 1], d = defOf(st);
     const card = document.querySelector(`#pipeline .card[data-k="${k}"]`);
     if (!card || !d.params.length) return;
-    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') });
-    for (const q of d.params) params.append(paramField(st, k, q, 'pp'));
-    const pop = h('div', { class: 'pop card-pop', role: 'dialog', 'aria-label': `Parameters of f${sub(k)}` },
+    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
+    if (st.type === 'zp' && Funcs.DEFS.zp) params.append(zpFields(st, k, 'pp'));
+    else for (const q of d.params) params.append(paramField(st, k, q, 'pp'));
+    const pop = h('div', { class: 'pop card-pop', 'data-k': k, role: 'dialog', 'aria-label': `Parameters of f${sub(k)}` },
       h('div', { class: 'pop-title', html: `<span class="idx">${fsub(k)}</span> ${d.label}` }), params);
     $('popHost').append(pop);
     popEl = pop;
@@ -7730,7 +8076,8 @@
         TeX.set(c.ftex, `w_{${k}}=${tx}`);
         setText(c.btag, branchTag(st, b));
         c.btag.hidden = !c.btag.textContent;
-        setText(c.note, [b.branchNote, b.cuts.some((x) => x.editable) ? 'Drag the seam in the input plane' : null].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + (b.branchNote || b.cuts.some((x) => x.editable) ? '.' : ''));
+        const drags = b.cuts.some((x) => x.editable) ? 'Drag the seam in the input plane' : st.type === 'zp' ? 'Drag the zeros and poles in the input plane' : null;
+        setText(c.note, [b.branchNote, drags].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + (b.branchNote || drags ? '.' : ''));
         // property chips are built once and then only toggled (a scrub calls this on every tick); a d/dz card shows
         // what the chain so far guarantees after differentiating (the fold of Funcs.composeProps)
         if (c.chips.childElementCount !== CHIP_DEFS.length) { c.chips.innerHTML = ''; for (const [, ab] of CHIP_DEFS) c.chips.append(h('span', { class: 'pchip' }, ab)); }
@@ -7907,6 +8254,7 @@
     conj: ['Reflection in the real axis; not analytic', 'conjugate reflection bar conj'],
     poly: ['Coefficients from the highest degree down', 'polynomial'],
     rational: ['Quotient of two polynomials', 'rational p/q'],
+    zp: ['Drag its zeros and poles in the input plane', 'zeros poles roots factored polynomial rational drag place'],
     custom: ['Any formula in LaTeX or plain text', 'custom formula latex expression'],
     deriv: ['Derivative of the chain so far: w = (previous stage)′', 'derivative differentiate prime d/dz dz derivative of the chain'],
   };
@@ -8024,6 +8372,8 @@
         ['Y: Plane', () => { setMain('xy'); setView('R', 'plane'); }, S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
         ['Y: Sphere', () => { setMain('xy'); setView('R', 'sphere'); }, S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
         [morph.open ? 'Deformation off' : 'Deformation on (play the homotopy)', () => toggleTransport(), 'M', 'morph deformation homotopy animate animation merge'],
+        [S.morphPaths !== false ? 'Deformation: hide the paths t ↦ H_t(z)' : 'Deformation: show the paths t ↦ H_t(z)', () => setMorphPaths(!(S.morphPaths !== false)), morphOn() && S.view.main === 'xy' ? 'P' : '', 'paths trajectories arrows homotopy deformation lines'],
+        [S.homAll ? 'Deformation: the steps one after another' : 'Deformation: all steps at once', () => setHomAll(!S.homAll), '', 'deformation order steps simultaneous together sequence homotopy at once'],
         ['Integrate along the selected curve', () => integrateSelected(), '', 'contour line integral integrate residue residues winding number argument principle cauchy'],
         ['Show the roots: a target at 0', () => { if (S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', 'roots zeros poles solve solutions equation preimages target'],
         ...(Funcs.DEFS.deriv ? [['Derivative of the chain: add d/dz', () => addStep('deriv', null, S.focus > 0 ? S.focus : S.steps.length), '', 'derivative prime differentiate d/dz']] : []),
@@ -8691,7 +9041,7 @@
     const hm = morphOn() && (panels.includes('L') ? lPaintsF() : true);
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
-      const m = morphRange().steps.length, hom = morphHomSegs(m);
+      const m = morphLen(), hom = morphHomSegs(m);
       return [{ t: ' Shown at ' }, { m: `t=${morph.T.toFixed(2)}` }, { t: ', where ' }, { m: 'H_t' }, { t: ' deforms the identity (' }, { m: 't=0' }, { t: ') into ' }, { m: mapF }, { t: ' (' }, { m: `t=${m}` }, { t: ') along ' }, ...hom.segs, { t: '.' }];
     };
     const planeName = leftStage() === 0 ? [{ t: 'the ' }, { m: 'z' }, { t: '-plane' }] : [{ t: 'the ' }, { m: lv }, { t: '-plane, the input of ' }, { m: Fname }];
@@ -8844,7 +9194,7 @@
     const alive = opt.alive || (() => true);
     const panels = opt.panels, W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
     const isMorph = !!opt.morph && morphOn() && rImage() && !morphHasDeriv();
-    const mEnd = morphRange().steps.length, Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;
+    const mEnd = morphLen(), Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;
     const TICK = 8 * PT, LAB = 9 * PT, CAP = 9 * PT;
     const black = '#000', frameW = 0.75, tickW = 0.6;
     // margins (px): left room for tick numbers and the rotated axis title; bottom for numbers and the title
@@ -8908,13 +9258,15 @@
         const P = (w) => [x + (w.re - b.x0) / (b.x1 - b.x0) * pw, y + (b.y1 - w.im) / (b.y1 - b.y0) * r.ph];
         // chosen in slices (the dialog stays live; a newer option cancels it), and kept for the same chain, shapes,
         // panel and time, so the Caption switch or a repeated build reuses it
-        const fkey = JSON.stringify([chainSig[nSteps()], S.focus, S.hom, S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
+        const fkey = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
         if (mfFigCache.key === fkey) mSel = mfFigCache.sel;
         else {
           mSel = await runGenSliced(morphPathsGen(P, { x, y, w: pw, h: r.ph }, b, opt.widthIn, Tend, { headL: MF.headL }), alive);
           if (!mSel || !alive()) return null;
           mfFigCache.key = fkey; mfFigCache.sel = mSel;
         }
+        // Paths off (the figure's Paths row): X's outline and the image only, no arrows (and no arrow sentence)
+        if (opt.paths === false) mSel = Object.assign({}, mSel, { kept: [], labelled: null });
         const lay = morphFigureLayers(mSel, P, { x, y, w: pw, h: r.ph, wx0: b.x0, wx1: b.x1, wy0: b.y0, wy1: b.y1 }, `mfclip${i}`);
         mSel.labelled = lay.labelled;
         body += lay.svg;
@@ -9031,7 +9383,9 @@
   }
   // ---- the export dialog: panels, width, caption, format, a live preview ----
   let lastFigure = null;   // the last figure the dialog built (a test hook reads it)
-  const figOpt = { panels: 'both', width: 7, caption: true, format: 'pdf', mpanels: 'R', upTo: false };
+  // paths: the deformation figure's arrows t -> H_t(z) (null: as on screen, the Paths toggle)
+  const figOpt = { panels: 'both', width: 7, caption: true, format: 'pdf', mpanels: 'R', upTo: false, paths: null };
+  const figPaths = () => (figOpt.paths == null ? S.morphPaths !== false : !!figOpt.paths);
   function openFigureDialog() {
     if (document.querySelector('.modal-bg')) return;
     const opener = document.activeElement;
@@ -9046,6 +9400,7 @@
     // The figure follows the view (merged-views.md): X → Y the two-panel figure (or one of its panels), the
     // deformation the morph figure, Phase and Landscape their one wide panel
     const morphFig = S.view.main === 'xy' && morphOn() && rImage() && !morphHasDeriv();
+    figOpt.paths = null; // (the figure's Paths start as on screen each time the dialog opens)
     // (X → Y with the deformation on the globe, or over a d/dz step: the one merged panel as on screen, H_t at t)
     const mergedOne = S.view.main === 'xy' && morphOn() && !morphFig;
     const oneFig = S.view.main !== 'xy' || mergedOne;
@@ -9057,7 +9412,7 @@
       const my = ++token;
       preview.classList.add('busy');
       try {
-        const f = await buildFigure({ panels: panelsOf(), widthIn: figOpt.width, caption: figOpt.caption, morph: morphFig, upTo: figOpt.upTo, alive: () => my === token && bg.isConnected });
+        const f = await buildFigure({ panels: panelsOf(), widthIn: figOpt.width, caption: figOpt.caption, morph: morphFig, upTo: figOpt.upTo, paths: figPaths(), alive: () => my === token && bg.isConnected });
         lastFigure = f;
         if (my !== token || !f) return;
         fig = f;
@@ -9102,6 +9457,7 @@
         h('div', { class: 'fig-opts' },
           ...(oneFig ? [] : [morphFig ? row('Panels', seg('figPanels', pk, [['R', 'Deformation'], ['both', 'Both'], ['L', 'Left']], (v) => set('mpanels', v), 'Panels')) : row('Panels', figPanelsSeg())]),
           ...(morphFig ? [row('Time', seg('figTime', figOpt.upTo ? 'now' : 'end', [['end', 'Whole'], ['now', 'Up to t']], (v) => set('upTo', v === 'now'), 'Time'))] : []),
+          ...(morphFig ? [row('Paths', seg('figPaths', figPaths() ? 'on' : 'off', [['on', 'Arrows'], ['off', 'None']], (v) => set('paths', v === 'on'), 'Paths'))] : []),
           row('Width', seg('figWidth', String(figOpt.width), [['3.4', 'Single column'], ['7', 'Double column']], (v) => set('width', +v), 'Width')),
           row('Caption', seg('figCap', figOpt.caption ? 'in' : 'out', [['in', 'In the figure'], ['out', 'LaTeX only']], (v) => set('caption', v === 'in'), 'Caption')),
           row('Format', seg('figFmt', figOpt.format, [['pdf', 'PDF'], ['svg', 'SVG'], ['png', 'PNG']], (v) => set('format', v), 'Format')),
@@ -9342,7 +9698,7 @@
         if (touches.size === 2) {
           endHold();
           // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step
-          if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle') && drag.moved))) onUp(pane, side, e);
+          if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
           drag = null; draft = draft && draft.kind === 'polygon' ? draft : null; return;
         }
@@ -9350,7 +9706,7 @@
       onDown(pane, side, e);
       // (on the right: the Phase portrait, the image plane and the globe, whose hold probes w like a mouse hover)
       const probeable = side === 'L' ? !lLand() : true;
-      if (e.pointerType === 'touch' && drag && probeable && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle') {
+      if (e.pointerType === 'touch' && drag && probeable && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && drag.mode !== 'zp') {
         const d0 = drag, [x0, y0] = evXY(pane, e);
         endHold();
         hold = { id: e.pointerId, x: x0, y: y0, ev: e, t: setTimeout(() => {
@@ -9397,7 +9753,7 @@
     const up = (e) => { if (hold && e.pointerId === hold.id) endHold(); touches.delete(e.pointerId); onUp(pane, side, e); };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { probe = null; hoverCut = 0; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
@@ -9498,8 +9854,8 @@
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
     // P4: shapes are drawn in the z-plane; at focus k >= 2 a drawing tool does not draw over X (nothing jumps)
     else if (leftStage() > 0 && tool !== 'select' && !drag) c = 'not-allowed';
-    else if (drag && (drag.mode === 'panL')) c = 'grabbing';
-    else if (hoverCut) c = 'pointer';
+    else if (drag && (drag.mode === 'panL' || drag.mode === 'zp')) c = 'grabbing';
+    else if (hoverCut || zpHover) c = 'pointer';
     else if (leftStage() > 0) c = 'grab';
     else c = tool === 'select' ? 'default' : 'crosshair';
     pane.ocanvas.style.cursor = c;
@@ -9541,6 +9897,27 @@
     pane.setView(leftView());
     const z = pane.s2w(x, y);
     if (panBtn) { drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane }; setCursor(pane, side); return; }
+    // the zeros and poles of a zeros-and-poles step acting here: a press drags one (and selects it: Delete removes it);
+    // Shift-click adds a zero, Shift-⌘ (Ctrl) click a pole, and the press goes on dragging it
+    if (zpStep()) {
+      // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
+      const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
+      const onSel = !!selSh && Region.handlesOf(selSh).some(([, hz]) => { const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; });
+      const zh = onSel ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);
+      if (zh) {
+        zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
+        if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        drag = { mode: 'zp', k: zh.k, kind: zh.kind, i: zh.i, x0: x, y0: y, x, y, moved: false, off: false };
+        setCursor(pane, side); requestRender('OL');
+        return;
+      }
+      if (e.shiftKey && !e.altKey && e.button === 0) {
+        const kind = e.metaKey || e.ctrlKey ? 'poles' : 'zeros', k = zpStep().k;
+        const i = zpAdd(k, kind, zpRound(pane, snapZ(pane, z)));
+        if (i >= 0) { drag = { mode: 'zp', k, kind, i, x0: x, y0: y, x, y, moved: true, off: false, added: true }; setCursor(pane, side); requestRender('OL'); return; }
+      }
+      if (zpSel) { zpSel = null; requestRender('OL'); }
+    }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
       if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p }; return; }
@@ -9595,7 +9972,7 @@
       try { if (Region.hitTest(s, z, tol, win)) { hit = s; break; } } catch (e) { /* a damaged formula never hits */ }
     }
     if (hit) {
-      if (selected !== hit.id) { selected = hit.id; buildShapeList(); requestRender('L', 'R'); }
+      if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'move', shape: hit, z0: z, moved: false, target };
       requestRender(ov);
       return true;
@@ -9877,7 +10254,7 @@
     }
     if (!hit) for (const s of vis) if (GL3.globeInside(s, g.P)) { hit = s; break; }
     if (hit) {
-      if (selected !== hit.id) { selected = hit.id; buildShapeList(); requestRender('L', 'R'); }
+      if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'gmove', shape: hit, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(hit)), moved: false, target, side, x, y };
       requestRender('O' + side);
       return;
@@ -10118,6 +10495,18 @@
         setCut(drag.step, Math.atan2(z.im - drag.p.im, z.re - drag.p.re) / DEG, S.snap);
         return;
       }
+      // a zero or a pole follows the pointer (snapped like the shape handles); off the plane it waits at the edge, and
+      // a release there removes it
+      if (drag.mode === 'zp') {
+        drag.x = x; drag.y = y;
+        if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 3) return;
+        drag.moved = true;
+        const off = x < -4 || y < -4 || x > pane.w + 4 || y > pane.h + 4;
+        if (off !== drag.off) { drag.off = off; requestRender('OL'); }
+        if (!off) zpSet(drag.k, drag.kind, drag.i, zpRound(pane, snapZ(pane, z)));
+        else requestRender('OL');
+        return;
+      }
       if (drag.mode === 'handle') {
         Region.setHandle(drag.shape, drag.key, snapZ(pane, z));
         drag.moved = true;
@@ -10186,6 +10575,8 @@
     if (side === 'L') {
       const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
       if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); }
+      const zh = zpHit(x, y);
+      if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
     if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }
@@ -10322,6 +10713,17 @@
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
+    // a zero or a pole: released off the plane it is removed; one undo step per gesture (an added one included)
+    if (d.mode === 'zp') {
+      if (d.off) { zpRemove(d.k, d.kind, d.i); return; }
+      if (d.moved) {
+        if (rightAuto && autoFit()) fitRight(true);
+        scheduleFix();
+        commit();
+      }
+      requestRender('L', 'R', 'T', 'OL');
+      return;
+    }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
       if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
@@ -10627,7 +11029,7 @@
       [`${k('C')} ${k('A')} ${k('F')}`, 'Circle, arc, freehand'], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, 'Disc, rectangle, polygon, lasso'],
       [`${k('H')} ${k('N')} ${k('K')}`, 'Half-plane, annulus, sector'], [k('T'), 'Type a region formula'],
       [`${k(mod.trim() + ' K')}`, 'Command palette'], [k('+'), 'Add a function'],
-      [`${k('1')} ${k('2')} ${k('3')}`, 'View: X → Y, Phase, Landscape'], [k('M'), 'Deformation on or off, in every view'],
+      [`${k('1')} ${k('2')} ${k('3')}`, 'View: X → Y, Phase, Landscape'], [k('M'), 'Deformation on or off, in every view'], [k('P'), 'Deformation: paths on or off (in X → Y; else the Point tool)'],
       [`${k('⇧ 1')} ${k('⇧ 2')}`, 'Plane, Sphere of X (in Phase: of the portrait)'], [`${k('⇧ 3')} ${k('⇧ 4')}`, 'Plane, Sphere of Y'], [k('Z'), 'Fit both planes'],
       [`${k('[')} ${k(']')}`, 'Hide or show the side panels'], [k('?'), 'This guide'],
       [k('Delete'), 'Remove the selected shape'], [k('Esc'), 'Cancel a drawing or close a popover'],
@@ -10643,10 +11045,11 @@
       <p><b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.</p>
       <h3>Branch cuts</h3>
       <p>Logarithms, roots and complex powers cut along a ray from 0. Focus the step and drag the seam's handle in the input plane; it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number picks the branch.</p>
+      <p><i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else focus the step): drag them, Shift-click to add a zero, Shift-⌘-click (Shift-Ctrl) to add a pole, and drag one off the plane or select it and press Delete to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.</p>
       <h3>Views</h3>
       <p>The switch in the middle of the top bar picks the view (${k('1')} ${k('2')} ${k('3')}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch (${k('⇧ 1')} ${k('⇧ 2')} for the left pane, ${k('⇧ 3')} ${k('⇧ 4')} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.</p>
       <h3>Deformation</h3>
-      <p><b>Deformation</b> in the top bar (${k('M')}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. The transport under the panel scrubs <i>t</i> and sets the speed and the path (each step's natural path, or a straight line); turning it off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.</p>
+      <p><b>Deformation</b> in the top bar (${k('M')}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> (${k('P')}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.</p>
       <h3>Preimages and roots</h3>
       <p>Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.</p>
       <h3>Inverses and derivatives</h3>
@@ -11438,10 +11841,14 @@
       }
       if (e.key === '[') setPanels(!S.hideLeft, S.hideRight);
       if (e.key === ']') setPanels(S.hideLeft, !S.hideRight);
+      if ((e.key === 'Delete' || e.key === 'Backspace') && zpSel && zpStep() && zpStep().k === zpSel.k) { e.preventDefault(); zpRemove(zpSel.k, zpSel.kind, zpSel.i); return; }
+      if (e.key === 'Escape' && zpSel) { zpSel = null; requestRender('OL'); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
       if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
+      // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
+      if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
       if (e.key === 'z' || e.key === 'Z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
       const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
       if (tl) { e.preventDefault(); setTool(tl[0]); }
@@ -11485,6 +11892,8 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(); requestRender('L', 'R', 'T'); });
   }
   // TEMP-DEBUG-HOOK (removed before publishing)
+  // the zeros and poles of the step acting on X: handles in page coordinates, the selection, the step's parameters
+  window.__cmwZp = () => { const r = paneL.ocanvas.getBoundingClientRect(), zs = zpStep(); return { k: zs ? zs.k : 0, sel: zpSel, params: zs ? Object.assign({}, zs.st.params) : null, handles: zpHandlesL.map((q) => ({ kind: q.kind, i: q.i, x: r.left + q.x, y: r.top + q.y })), pane: { left: r.left, top: r.top, w: paneL.w, h: paneL.h }, glKey: (() => { try { return String(GLChain.build(S.steps, built).key).length + ':' + String(GLChain.build(S.steps, built).key).slice(-80); } catch (e) { return null; } })() }; };
   window.__cmwTime = (n = 5) => {
     const t = (f, pane) => { f(); pane.ctx.getImageData(0, 0, 1, 1); const t0 = performance.now(); for (let i = 0; i < n; i++) { f(); pane.ctx.getImageData(0, 0, 1, 1); } return +((performance.now() - t0) / n).toFixed(2); };
     // (a merged view shows one pane: the hidden one is not timed)
@@ -11565,7 +11974,7 @@
   window.__cmwShapes = () => JSON.parse(JSON.stringify({ shapes: S.shapes, targets: S.targets, selected }, noRuntime));
   window.__cmwGlobeXY = (side, x, y) => { const gc = globeCam(side); if (!gc) return null; const P = Number.isFinite(x) ? Region.Globe.lift(x, y) : [0, 0, 1]; return gScreen(gc, P); };
   window.__cmwGlobeSnap = (side, x, y, role) => { const gc = globeCam(side), g = pickGlobe(side === 'L' ? paneL : paneR, camOf(side), x, y); const r = g && gc ? globeSnap(gc, side, g, role) : null; gSnapMark = null; return r ? { z: r.z && [r.z.re, r.z.im], snapped: !!r.snapped, g: g.z && [g.z.re, g.z.im], R: gc.R } : null; };
-  window.__cmwSelect = (id) => { selected = id; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); };
+  window.__cmwSelect = (id) => { selected = id; if (id) zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); };
   window.__cmwGlobeHandles = (side) => { const gc = globeCam(side); const s = (side === 'R' ? S.targets : S.shapes).find((x) => x.id === selected); return s && gc ? globeHandles(s, gc).map(([k, P]) => [k, gScreen(gc, P)]) : []; };
   window.__cmwSphereWL = (x, y) => { const w = pickSphere(paneL, camOf('L'), x, y); return w ? [w.re, w.im] : null; };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
@@ -11585,7 +11994,7 @@
   // item 2 (the deformation picture): open/close and scrub the transport; the screen's path selection
   window.__cmwMorph = (o) => { if (o && o.open != null) { if (o.open) openTransport(); else closeTransport(); } if (o && o.T != null) { morph.T = o.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R'); } if (o && o.playing != null) { morph.playing = !!o.playing; setPlayIcon(); requestRender('R'); } return { open: morph.open, T: morph.T, playing: morph.playing, on: morphOn() }; };
   window.__cmwMorphSel = async (o) => { if (!morphOn()) return null; const t0 = performance.now(); const sel = await morphSelScreenNow(paneR, !!(o && o.force)); const wall = performance.now() - t0; if (!sel) return null; const end = S.focus > 0 ? S.focus : nSteps(); const base = S.focus > 0 ? S.focus - 1 : 0; return { ms: sel.ms, wall, budget: sel.budget, n: sel.kept.length, nCands: sel.nCands, kept: sel.kept.map((k) => { const w = stageF(end)(k.sp.z), w0 = stageF(base)(k.sp.z), a = k.s[0].w, b = k.s[k.s.length - 1].w; return { z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], path: k.l, F: [w.re, w.im], W0: [w0.re, w0.im], Ws: [a.re, a.im], We: [b.re, b.im], meet: !!k.meet }; }), log: sel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) }; };
-  window.__cmwMorphSelSync = () => { const pane = paneR, m = morphRange().steps.length, t = performance.now(); const sel = morphPathsFor((w) => pane.w2s(w), { x: 0, y: 0, w: pane.w, h: pane.h }, pane.box(), pane.w / 96, m, { footPx: 8, headCrowd: 12, headL: MF_SCREEN_HL, nogo: mfNogo(pane) }); return { wall: performance.now() - t, ms: sel.ms, n: sel.kept.length, nc: sel.nCands }; };
+  window.__cmwMorphSelSync = () => { const pane = paneR, m = morphLen(), t = performance.now(); const sel = morphPathsFor((w) => pane.w2s(w), { x: 0, y: 0, w: pane.w, h: pane.h }, pane.box(), pane.w / 96, m, { footPx: 8, headCrowd: 12, headL: MF_SCREEN_HL, nogo: mfNogo(pane) }); return { wall: performance.now() - t, ms: sel.ms, n: sel.kept.length, nc: sel.nCands }; };
   window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null });
   window.__cmwLastFigure = () => lastFigure;
   window.__cmwPrepareExport = (panels, alive) => prepareExport(panels || ['L', 'R'], alive);

@@ -316,6 +316,22 @@ const Inverse = (() => {
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
         return INEL(`rational map of degree ${P.deg}${P.degExact ? '' : ' (not known exactly)'}`);
       }
+      case 'zp': {
+        // a zeros-and-poles step: coprime by construction (coincident pairs cancelled in Funcs), exact degree
+        const { P: p, Q: q } = b.zp;
+        if (q.length === 1) {
+          const r = polyOps(p.map((c) => div(c, q[0])), b.f);
+          return r.ok ? r : INEL(`${r.reason} (the exact renderer inverts degree ≤ 2)`);
+        }
+        if (P.mobius) {
+          const two = (co) => (co.length === 1 ? [ZERO, co[0]] : co);
+          const [a, bb] = two(p), [c, d] = two(q), m = [a, bb, c, d];
+          if (CX.mobDetZero(m) || CX.mobRel(m) < CX.MOB_EPS) return INEL('Möbius map too close to degenerate');
+          return OK([opMob(m)]);
+        }
+        if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
+        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 2)`);
+      }
       case 'custom': {
         let ast;
         try { ast = Expr.parse(v.expr); } catch (e) { return INEL(e.message); }
@@ -2416,7 +2432,7 @@ const Inverse = (() => {
   // may be drawn as the mode-0 map of the stage it equals
   const HOM_EXACT = new Set(['mul', 'add', 'affine', 'recip', 'mobius', 'blaschke', 'pown', 'root', 'powa', 'exp', 'log',
     'sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh', 'arcsin', 'arccos', 'arctan', 'arsinh', 'arcosh', 'artanh',
-    'joukowski', 'ijouk', 'conj', 'poly', 'rational', 'custom']);
+    'joukowski', 'ijouk', 'conj', 'poly', 'rational', 'zp', 'custom']);
   const homExact = (step) => !!step && HOM_EXACT.has(step.type);
 
   return {

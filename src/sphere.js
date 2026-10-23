@@ -83,6 +83,13 @@ const SphereMesh = (() => {
       case 'powa': { const a = v.alpha; return !a ? und : a.re > 0 ? inf : a.re < 0 ? fin(C(0, 0)) : und; }
       case 'exp': case 'sin': case 'cos': case 'tan': case 'sinh': case 'cosh': case 'tanh': case 'arctan': case 'artanh': return und;
       case 'arcsin': case 'arccos': case 'arsinh': case 'arcosh': return inf;
+      case 'zp': {
+        // a ∏(z − ζ)/∏(z − p): ∞ when there are more zeros, a when as many, 0 when fewer (a constant: its value)
+        const zp = b.zp;
+        if (!zp || (b.props && b.props.constant)) break;
+        const nz = zp.zeros.length, np = zp.poles.length;
+        return nz > np ? inf : nz === np ? fin(zp.a) : fin(C(0, 0));
+      }
     }
     return probeStep(b.f, null);
   }

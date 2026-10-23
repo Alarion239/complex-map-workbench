@@ -58,3 +58,28 @@ with P3 and shown to the user as a mockup before they are built.
     UTF-8 charset, viewport; the downloads capability falls back to normal browser downloads). Exclude junk: headless
     Chrome profiles, CDP daemon copies, screenshots/out renders, results logs, and the milestone-* source snapshots.
     Do it after the deformation and export rounds pass their gates.
+
+12. **Guided tour** (user, 2026-10-22): "make a guided tutorial of what is possible. Highlight patches and write
+    comments. Remember that the tutorial was already shown if it was and make it as a suggestion on opening, no forced.
+    Make it appear on the press of the help button. We have so many functions that I think we should teach people."
+    Plan: spotlight steps with callouts (and Try-it checks) in chapters; a non-blocking first-open suggestion
+    remembered in localStorage; the help button opens the tour with a chapter menu; the tour runs on its own example
+    and restores the user's work. Engine + content in src/tour.js (notes/tour/), wired into app.js after the
+    deformation round, then gated with the rest.
+
+13. **Sound** (user, 2026-10-22: "I am curious whether it is possible some sound effects? Togglable."). Investigated:
+    feasible in the artifact frame and on GitHub Pages (a click inside the frame starts Web Audio), synthesised, about
+    10 KB, off by default. Design + playable prototype in notes/sound/ (README, DESIGN.md, prototype.html). Stage 1:
+    interface + mathematical-event sounds + controls; Stage 2: "hear the function" (Shepard tone for arg F, loops make
+    the winding audible, listen along a curve, keyboard probe). The user listened ("I like the sound ... otherwise really nice"), reported snaps while moving (being fixed in
+    the prototype), and chose BOTH STAGES (2026-10-22).
+
+14. **Russian localization** (user, 2026-10-22: "Can you add russian localization if system language is russian?").
+    Defaults chosen (to confirm with the user): Russian when the browser's first preferred language is Russian, else
+    English; a Language setting (Auto, English, Русский) in the More menu and the palette, stored on the device only;
+    exported captions and LaTeX follow the interface, with a caption-language switch in the export dialog; Russian
+    notation (tg, ctg, sh, ch, th, arctg) in the Russian interface, the parser accepting both spellings (CONFIRMED by
+    the user, 2026-10-22: notes/i18n/USER-DECISIONS.md); letter
+    shortcuts working on the Russian keyboard layout (e.code). Phase 1 (design, glossary, string inventory,
+    translation, reviews; no src changes) runs now in notes/i18n/ with a prototype copy in work/xl; phase 2 builds it
+    into the merged export/sound/tour round (work/xr), then the full gate.

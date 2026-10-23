@@ -139,3 +139,10 @@ The review of the build (19 confirmed findings) was worked through; `test/mv_vie
   X's split pane does; the phone transport keeps its three rows.
 
 Screenshots of these fixes: `merged-views-shots/review-*.png`.
+
+## Natural paths, Paths toggle, all at once (2026-10-22, later)
+
+The transport's path select (Natural path / Straight line) is gone: every step deforms along its natural path. The
+Paths check became a labelled toggle button (key P, palette, figure row), and two or more steps can deform all at
+once. See `natural-paths.md`.
+

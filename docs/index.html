@@ -550,6 +550,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .tdock select.sel { height: 24px; }
 .tdock .check { min-height: 24px; gap: 6px; font: var(--t-label); padding: 0 4px; }
 .tdock > .tclose { margin-left: auto; width: 28px; height: 28px; }
+.tdock > .phbtn { height: 24px; padding: 0 8px; gap: 5px; }
 @container pane (max-width: 559px) {
   .tdock > .tscrub { order: 9; flex-basis: 100%; }
   .tdock > .tclose { margin-left: auto; }
@@ -726,6 +727,32 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   background: var(--surface); border: 1px solid var(--error); box-shadow: var(--shadow-3);
   font: 400 11.5px/16px var(--f-ui); color: var(--error);
 }
+/* zeros and poles: a, the + zero / + pole buttons, then one field per zero (ζ, a dot) and per pole (p, a cross),
+   marked as their handles are in the input plane */
+.pf.zp-adds { display: flex; gap: 4px; }
+.zp-add {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: 1 1 0; min-width: 0; height: 22px; padding: 0 6px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); font: var(--t-label); color: var(--ink); white-space: nowrap;
+}
+.zp-add:hover { border-color: var(--ink-2); }
+.zp-add:active { background: var(--well); }
+.zp-add:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.zp-mark { position: relative; flex: 0 0 9px; width: 9px; height: 9px; }
+.zp-add.zeros .zp-mark { border-radius: 50%; background: var(--zero); }
+.zp-add.poles .zp-mark::before, .zp-add.poles .zp-mark::after { content: ""; position: absolute; left: -1px; right: -1px; top: 3.5px; height: 2px; border-radius: 1px; background: var(--pole); rotate: 45deg; }
+.zp-add.poles .zp-mark::after { rotate: -45deg; }
+.pf.zp-item .pair > .inp { padding-right: 20px; }
+.pf.zp-item.wide1 { grid-column: 1 / -1; }
+.zp-n { font: 400 10.5px/1 var(--f-mono); color: var(--muted); }
+.zp-add:disabled { opacity: 0.5; cursor: default; }
+.zp-add:disabled:hover { border-color: var(--line-strong); }
+.icon-btn.zp-del { position: absolute; right: 1px; top: 50%; translate: 0 -50%; width: 18px; height: 18px; color: var(--muted); }
+.icon-btn.zp-del svg { width: 12px; height: 12px; }
+.icon-btn.zp-del:hover { color: var(--error); background: var(--error-soft); }
+.card .icon-btn.zp-del:focus-visible { outline-offset: -2px; }
+.pl.zp-sym { font-style: italic; }
+.pl.zp-sym.zeros { color: var(--ink); }
+.pl.zp-sym.poles { color: var(--pole); }
 .params.matrix2 { position: relative; margin: 0 8px; padding: 0 7px 2px; }
 .params.matrix2::before, .params.matrix2::after { content: ""; position: absolute; top: 0; height: 50px; width: 3px; border: 1px solid var(--ink-2); pointer-events: none; }
 .params.matrix2::before { left: 0; border-right: 0; }
@@ -3518,6 +3545,409 @@ const Funcs = (() => {
     return `1${s < 0 ? '-' : '+'}${num}t`;
   }
 
+  // ---- natural paths (notes/ui-design/natural-paths.md) ----
+  // Every natural path H_t is analytic in z for each t (off its cut), H_0 = id and H_1 = f exactly (the ends are the
+  // identity and the map itself), and injective where f is. GLChain mirrors each one (glsl.js natPlan), with the same
+  // small-argument series, so CPU and GPU agree. Zoom paths: f seen through a magnifier about a point p,
+  //   H_t(z) = (1 − t) p + t f(p) + f′(p)^{t−1} (f(p + t(z − p)) − f(p)) / t,
+  // so H_t → z as t → 0 (only the linear part at p is seen) and H_1 = f; the zeros, poles and cuts of f fly in from
+  // infinity, radially about p, and none of them ever meet (they are images of distinct points under one similarity).
+  const ends = (f, H) => (t) => (t <= 0 ? (z) => z : t >= 1 ? f : H(t));
+  const HPI = PI / 2, ASH1 = Math.log(1 + Math.SQRT2), SQ2 = Math.SQRT2;
+  // odd Taylor series a (1 + c3 a² + c5 a⁴ + …) for |a| < 0.1 (relative error < 1e-16): the inverse functions and
+  // sin, tan, ... at the tiny arguments of the first frames, where their log / exp forms cancel
+  const SER = {
+    sin: [-1 / 6, 1 / 120, -1 / 5040, 1 / 362880, -1 / 39916800, 1 / 6227020800],
+    sinh: [1 / 6, 1 / 120, 1 / 5040, 1 / 362880, 1 / 39916800, 1 / 6227020800],
+    tan: [1 / 3, 2 / 15, 17 / 315, 62 / 2835, 1382 / 155925, 21844 / 6081075],
+    tanh: [-1 / 3, 2 / 15, -17 / 315, 62 / 2835, -1382 / 155925, 21844 / 6081075],
+    asin: [1 / 6, 3 / 40, 15 / 336, 105 / 3456, 945 / 42240, 10395 / 599040],
+    asinh: [-1 / 6, 3 / 40, -15 / 336, 105 / 3456, -945 / 42240, 10395 / 599040],
+    atan: [-1 / 3, 1 / 5, -1 / 7, 1 / 9, -1 / 11, 1 / 13],
+    atanh: [1 / 3, 1 / 5, 1 / 7, 1 / 9, 1 / 11, 1 / 13],
+  };
+  const FN = { sin: CX.sin, sinh: CX.sinh, tan: CX.tan, tanh: CX.tanh, asin: CX.asin, asinh: CX.asinh, atan: CX.atan, atanh: CX.atanh };
+  function serS(name, a) {
+    if (a.re * a.re + a.im * a.im >= 0.01) return FN[name](a);
+    const c = SER[name], a2 = CX.mul(a, a);
+    let s = C(c[5], 0);
+    for (let i = 4; i >= 0; i--) s = CX.add(C(c[i], 0), CX.mul(a2, s));
+    return CX.add(a, CX.mul(a, CX.mul(a2, s)));
+  }
+  // log(1 + v), principal, without the cancellation of 1 + v for small v
+  function log1pS(v) {
+    if (v.re * v.re + v.im * v.im >= 0.01) return CX.log(CX.add(C(1, 0), v));
+    let s = C(0, 0);
+    for (let k = 14; k >= 1; k--) s = CX.add(C((k % 2 ? 1 : -1) / k, 0), CX.mul(v, s));
+    return CX.mul(v, s);
+  }
+  const sc = CX.scale;
+  // the zoom paths of the trigonometric functions and their inverses (p = 0 unless noted; f′(p) = 1 except arccos)
+  const ZOOM = {
+    sin: (t) => (z) => sc(serS('sin', sc(z, t)), 1 / t),
+    sinh: (t) => (z) => sc(serS('sinh', sc(z, t)), 1 / t),
+    tan: (t) => (z) => sc(serS('tan', sc(z, t)), 1 / t),
+    tanh: (t) => (z) => sc(serS('tanh', sc(z, t)), 1 / t),
+    // cos about p = π/2, where cos′ = −1 (cos(π/2 + e) = −sin e; principal (−1)^{t−1} = −e^{iπt}):
+    // H_t = (1 − t)π/2 + e^{iπt} sin(t(z − π/2))/t. Its critical points π/2 ± π/(2t), … stay outside the strip
+    // 0 < Re z < π (the strip arccos maps onto) for every t < 1, so that strip never folds
+    cos: (t) => (z) => CX.add(C((1 - t) * HPI, 0), CX.mul(C(Math.cos(PI * t), Math.sin(PI * t)), sc(serS('sin', sc(CX.sub(z, C(HPI, 0)), t)), 1 / t))),
+    // cosh about p = arsinh 1 (cosh′ p = 1, cosh p = √2): cosh(p + e) − cosh p = 2 sinh(p + e/2) sinh(e/2)
+    cosh: (t) => (z) => {
+      const h = sc(CX.sub(z, C(ASH1, 0)), t / 2);
+      return CX.add(sc(CX.mul(CX.sinh(CX.add(C(ASH1, 0), h)), serS('sinh', h)), 2 / t), C((1 - t) * ASH1 + t * SQ2, 0));
+    },
+    arcsin: (t) => (z) => sc(serS('asin', sc(z, t)), 1 / t),
+    arsinh: (t) => (z) => sc(serS('asinh', sc(z, t)), 1 / t),
+    arctan: (t) => (z) => sc(serS('atan', sc(z, t)), 1 / t),
+    artanh: (t) => (z) => sc(serS('atanh', sc(z, t)), 1 / t),
+    // arccos about 0, where arccos′ = −1: H_t = tπ/2 + e^{iπt} arcsin(tz)/t (the principal (−1)^{t−1} = e^{iπ(t−1)})
+    arccos: (t) => (z) => CX.add(C(t * HPI, 0), CX.mul(C(Math.cos(PI * t), Math.sin(PI * t)), sc(serS('asin', sc(z, t)), 1 / t))),
+    // arcosh about q = √2 (arcosh′ √2 = 1, arcosh √2 = p): arcosh(q + d) − p = log(1 + v),
+    // v = d (1 + (x + √2)/(s(x) + 1)) / (1 + √2), s(x) = √(x − 1) √(x + 1), x = q + d (s(√2) = 1, no cancellation)
+    arcosh: (t) => (z) => {
+      const d = sc(CX.sub(z, C(SQ2, 0)), t), x = CX.add(C(SQ2, 0), d);
+      const s = CX.mul(CX.sqrt(CX.sub(x, C(1, 0))), CX.sqrt(CX.add(x, C(1, 0))));
+      const den = CX.add(s, C(1, 0));
+      const v = CX.abs(den) > 1e-3 ? sc(CX.mul(d, CX.add(C(1, 0), CX.div(CX.add(x, C(SQ2, 0)), den))), 1 / (1 + SQ2)) : CX.sub(sc(CX.add(x, s), 1 / (1 + SQ2)), C(1, 0));
+      return CX.add(sc(log1pS(v), 1 / t), C((1 - t) * SQ2 + t * ASH1, 0));
+    },
+  };
+  const ZOOM_TEX = {
+    sin: (v) => `the zoom homotopy $H_t(${v})=\\sin(t${v})/t$`,
+    sinh: (v) => `the zoom homotopy $H_t(${v})=\\sinh(t${v})/t$`,
+    tan: (v) => `the zoom homotopy $H_t(${v})=\\tan(t${v})/t$`,
+    tanh: (v) => `the zoom homotopy $H_t(${v})=\\tanh(t${v})/t$`,
+    cos: (v) => `the zoom homotopy $H_t(${v})=(1-t)\\pi/2+e^{\\pi i t}\\sin\\bigl(t(${v}-\\pi/2)\\bigr)/t$ about $\\pi/2$, where $\\cos'=-1$ (principal power, so it turns by $\\pi$; the strip $0<\\operatorname{Re}${v}<\\pi$ never folds)`,
+    cosh: (v, o) => { const p = nmOf(o).p; return `the zoom homotopy $H_t(${v})=\\bigl(\\cosh(${p}+t(${v}-${p}))-\\sqrt2\\bigr)/t+(1-t)${p}+t\\sqrt2$ about $${p}=\\operatorname{arsinh}1$, where $\\cosh'=1$`; },
+    arcsin: (v) => `the zoom homotopy $H_t(${v})=\\arcsin(t${v})/t$ (principal branch)`,
+    arsinh: (v) => `the zoom homotopy $H_t(${v})=\\operatorname{arsinh}(t${v})/t$ (principal branch)`,
+    arctan: (v) => `the zoom homotopy $H_t(${v})=\\arctan(t${v})/t$ (principal branch)`,
+    artanh: (v) => `the zoom homotopy $H_t(${v})=\\operatorname{artanh}(t${v})/t$ (principal branch)`,
+    arccos: (v) => `the zoom homotopy $H_t(${v})=t\\pi/2+e^{\\pi i t}\\arcsin(t${v})/t$ (principal branch)`,
+    arcosh: (v, o) => { const p = nmOf(o).p; return `the zoom homotopy $H_t(${v})=\\bigl(\\operatorname{arcosh}(\\sqrt2+t(${v}-\\sqrt2))-${p}\\bigr)/t+(1-t)\\sqrt2+t${p}$ about $\\sqrt2$, $${p}=\\operatorname{arcosh}\\sqrt2$ (principal branch)`; },
+  };
+  // Joukowski J = coth ∘ 2 ∘ arcoth (J = C⁻¹((Cz)²) with the Cayley map C(z) = (z − 1)/(z + 1), since C⁻¹(e^x) = −coth(x/2)):
+  // H_t(z) = coth((1 + t) arcoth z), arcoth z = artanh(1/z), principal: the power homotopy u^{1+t} of u = Cz, cut on
+  // [−1, 1]; the unit circle closes onto [−1, 1] as a lens of two circular arcs through ±1. The inverse Joukowski map
+  // runs it backwards: coth((1 − t/2) arcoth z), and the interior branch turns by −πt/2 inside the coth (the
+  // elliptic rotation u → −u of the Cayley plane, which is z → 1/z) so that H_1 = 1/(exterior) = tanh(arcoth(z)/2).
+  const arcothS = (z) => serS('atanh', CX.inv(z));
+  const cothX = (w) => CX.inv(serS('tanh', w));
+  // Inside the unit disk (Cz in the left half-plane) the branch arg Cz ∈ (π/2, 3π/2) instead of the principal one, so
+  // the path is continuous and injective on the disk too (J is): with arcoth z = artanh z − iπ/2 there and
+  // coth(x − iπ/2) = tanh x, H_t(z) = tanh((1 + t) artanh z − iπt/2) for |z| < 1. One branch arg Cz ∈ (−π/2, 3π/2)
+  // in all: its cut is the lower unit semicircle (between the disk and the exterior); the upper one closes onto [−1, 1].
+  const joukHom = (t) => (z) => (z.re * z.re + z.im * z.im < 1 ? serS('tanh', CX.sub(sc(serS('atanh', z), 1 + t), C(0, HPI * t))) : cothX(sc(arcothS(z), 1 + t)));
+  const ijoukHom = (sg) => (t) => (z) => cothX(CX.sub(sc(arcothS(z), 1 - t / 2), C(0, sg < 0 ? HPI * t : 0)));
+  // names in a caption phrase: o = {f, p, c, a} (all at once and in turn, several steps: f_k, p_k, ..., so that one
+  // sentence never gives one letter two meanings)
+  const nmOf = (o = {}) => ({ f: o.f || 'f', p: o.p || 'p', c: o.c || 'c', a: o.a || 'a' });
+  // the Joukowski path as words (J_t; c·J: c^t J_t)
+  const joukWords = (v) => `$C^{-1}\\bigl((C${vTex(v)})^{1+t}\\bigr)$ with $C(${v})=\\frac{${v}-1}{${v}+1}$ and $\\arg C${vTex(v)}\\in(-\\pi/2,3\\pi/2)$: $\\coth\\bigl((1+t)\\operatorname{arcoth}${vTex(v)}\\bigr)$ outside the unit circle, $\\tanh\\bigl((1+t)\\operatorname{artanh}${vTex(v)}-\\pi i t/2\\bigr)$ inside (cut on the lower unit semicircle; the upper one closes onto $[-1,1]$)`;
+  const joukTex = (v = 'z') => ({ tex: `the homotopy $H_t(${v})=${joukWords(v)}`.replace(`=$C^{-1}`, `=C^{-1}`) });
+  // the candidate centres of a zoom path: zeros by modulus, ties by argument
+  function rootsOrder(roots) {
+    const r = roots.slice();
+    r.sort((p, q) => {
+      const a = CX.abs(p), b = CX.abs(q);
+      if (Math.abs(a - b) > 1e-9 * Math.max(1, a, b)) return a - b;
+      return Math.atan2(p.im, p.re) - Math.atan2(q.im, q.re);
+    });
+    return r;
+  }
+  // A rational map P/Q (Q = [1]: a polynomial) by the zoom path about p. Near p (|e| < rN, e = t(z − p)) in the form
+  //   H_t(z) = (1 − t) p + t f(p) + λ^t u N(e) Q(p) / Q(p + e),  u = z − p, λ = f′(p),
+  // N(e) = (P(p + e) Q(p) − P(p) Q(p + e)) / (e (P′Q − PQ′)(p)) (N(0) = 1) by its Taylor coefficients at p, computed
+  // once in double, so a tiny t never cancels; farther out (where those terms would cancel) directly,
+  //   H_t(z) = (1 − t) p + t f(p) + λ^{t−1} (P(x)/Q(x) − f(p)) / t,  x = p + e.
+  // rN = 1/(4 max_j |N_j|^{1/j}): the shifted terms shrink geometrically there. H_t is injective on every region
+  // star-shaped about p where f is injective (p + t(R − p) ⊂ R), and the poles and critical points of H_t are
+  // p + (q − p)/t for those q of f: they fly in from infinity along the rays from p and never meet.
+  // The centre p: opts.cands first, in their order (the zeros-and-poles step passes its zeros as listed, exactly, so the
+  // centre is ζ₁ and moves with it, and never jumps while another zero is dragged; f(p) = 0 exactly then);
+  // otherwise the simple zeros by modulus, then 0, 1, −1, 2, −2, ½, −½, i, −i. For real coefficients (and no opts.cands)
+  // a real centre with f′(p) > 0 comes first, then any real one: the path then commutes with conjugation.
+  const FALLBACK = [C(0, 0), C(1, 0), C(-1, 0), C(2, 0), C(-2, 0), C(0.5, 0), C(-0.5, 0), C(0, 1), C(0, -1), C(1, 1), C(-1, -1)];
+  function ratZoomData(P, Q, opts = {}) {
+    P = CX.polyTrim(P); Q = CX.polyTrim(Q);
+    const dp = P.length - 1, dq = Q.length - 1;
+    if ((dp === 0 && CX.isZero(P[0])) || Math.max(dp, dq) < 1 || (dq === 0 && CX.isZero(Q[0]))) return null;
+    const M = Math.max(dp, dq);
+    const sP = P.reduce((m, c) => Math.max(m, CX.abs(c)), 0), sQ = Q.reduce((m, c) => Math.max(m, CX.abs(c)), 0);
+    const real = !opts.cands && P.every((c) => c.im === 0) && Q.every((c) => c.im === 0);
+    let cands;
+    if (opts.cands) cands = opts.cands.map((p) => ({ p, zero: !!opts.zeros }));
+    else {
+      let zs = dp >= 1 ? rootsOrder(CX.polyRoots(P)).filter(CX.isFin) : [];
+      if (real) zs = zs.map((r) => (Math.abs(r.im) <= 1e-9 * (1 + Math.abs(r.re)) ? C(r.re, 0) : r));
+      cands = zs.map((p) => ({ p, zero: false }));
+    }
+    cands.push(...FALLBACK.map((p) => ({ p, zero: false })));
+    const at = ({ p, zero }) => {
+      const tp = taylorAt(P, p).t, tq = taylorAt(Q, p).t;
+      if (zero) tp[0] = C(0, 0);
+      const q0 = tq[0];
+      if (!(CX.abs(q0) > 1e-6 * sQ * Math.max(1, Math.pow(CX.abs(p), dq)))) return null;
+      const n = [];
+      for (let j = 0; j <= M; j++) n.push(CX.sub(CX.mul(j <= dp ? tp[j] : C(0, 0), q0), CX.mul(tp[0], j <= dq ? tq[j] : C(0, 0))));
+      const n1 = n[1];
+      if (!(CX.abs(n1) > 1e-9 * Math.max(1e-300, sP * sQ) * Math.max(1, Math.pow(CX.abs(p), M)))) return null;
+      const lam = CX.div(n1, CX.mul(q0, q0));
+      if (!CX.isFin(lam) || CX.isZero(lam)) return null;
+      // coefficients highest first for Horner
+      const N = []; for (let j = M; j >= 1; j--) N.push(CX.div(n[j], n1));
+      let mx = 0;
+      for (let j = 2; j <= M; j++) mx = Math.max(mx, Math.pow(CX.abs(CX.div(n[j], n1)), 1 / (j - 1)));
+      const rN = mx > 0 ? 0.25 / mx : Infinity;
+      // (n1 and p0 = P(p), 0 at an exact zero: for the GPU's divided-difference form of the same N above degree 24)
+      return { p, fp: CX.div(tp[0], q0), ll: CX.log(lam), lam, N, rN, P, Q, q0, n1, p0: tp[0], zero };
+    };
+    if (real) {
+      for (const pass of [0, 1]) {
+        for (const c of cands) {
+          if (c.p.im !== 0) continue;
+          const d = at(c);
+          // (a real centre where f(p)/f′(p) is huge, as for 0.001z² + 1000 at 1, would cancel in the GPU's
+          // float32 far form: then the zeros, f(p) = 0, come first after all)
+          if (d && (pass || d.lam.re > 0) && CX.abs(d.fp) <= 100 * CX.abs(d.lam) * (1 + CX.abs(d.p))) return d;
+        }
+      }
+    }
+    for (const c of cands) { const d = at(c); if (d) return d; }
+    return null;
+  }
+  function ratZoomAt(d, t, z) {
+    const u = CX.sub(z, d.p), e = sc(u, t), x = CX.add(d.p, e);
+    const c = CX.add(sc(d.p, 1 - t), sc(d.fp, t)), Qx = CX.polyEval(d.Q, x);
+    if (CX.abs(e) < d.rN) return CX.add(c, CX.mul(CX.exp(sc(d.ll, t)), CX.div(CX.mul(CX.mul(u, CX.polyEval(d.N, e)), d.q0), Qx)));
+    return CX.add(c, sc(CX.mul(CX.exp(sc(d.ll, t - 1)), CX.sub(CX.div(CX.polyEval(d.P, x), Qx), d.fp)), 1 / t));
+  }
+  const vTex = (v) => (v.length > 1 ? `(${v})` : v);
+  // the zoom path's caption (opts.zp: the zeros-and-poles step, whose centre is c, p naming its poles)
+  function zoomTex(d, poly, opts = {}) {
+    return (v = 'z', o) => {
+      const n = nmOf(o), p = opts.zp ? n.c : n.p, f = n.f;
+      const where = d.zero ? `, a zero of $${f}$` : '';
+      const fly = poly ? `the critical points of $${f}$ fly in from infinity along the rays from $${p}$` : `the poles and critical points of $${f}$ fly in from infinity along the rays from $${p}$ (each $q$ at $${p}+(q-${p})/t$) and never meet`;
+      return { tex: `the zoom homotopy $H_t(${v})=(1-t)${p}+t${f}(${p})+${f}'(${p})^{t-1}\\bigl(${f}(${p}+t(${v}-${p}))-${f}(${p})\\bigr)/t$ about $${p}=${CX.tex(d.p, 3)}$${where} (principal power): ${fly}` };
+    };
+  }
+  // a (z − c)^n (n ≥ 2) from its coefficients (highest first): {a, c, n} or null
+  function monomialOf(P) {
+    const n = P.length - 1;
+    if (n < 2 || CX.isZero(P[0])) return null;
+    const a = P[0], c = CX.neg(CX.div(P[1], CX.scale(a, n)));
+    let bin = 1, pw = C(1, 0), err = 0, sc0 = 0;
+    for (let k = 0; k <= n; k++) {
+      const ex = CX.scale(CX.mul(a, pw), bin);
+      err = Math.max(err, CX.abs(CX.sub(P[k], ex))); sc0 = Math.max(sc0, CX.abs(ex), CX.abs(P[k]));
+      pw = CX.mul(pw, CX.neg(c)); bin = (bin * (n - k)) / (k + 1);
+    }
+    return err <= 1e-12 * sc0 ? { a, c, n } : null;
+  }
+  // the power path of a (z − c)^n, as the z^n step: H_t(z) = (1 − t) c + a^t (z − c)^{1+(n−1)t} (principal a^t and power)
+  function powPath({ a, c, n }, f) {
+    const la = CX.log(a), one = CX.eq(a, C(1, 0), 0), c0 = CX.isZero(c);
+    return {
+      hom: ends(f, (t) => (z) => CX.add(sc(c, 1 - t), CX.mul(CX.exp(sc(la, t)), CX.pow(CX.sub(z, c), C(1 + (n - 1) * t, 0), PI, 0)))),
+      nat: { kind: 'pow' }, natData: { la, c, n },
+      homTex: (v = 'z', o) => {
+        const nm = nmOf(o), base = c0 ? v : `(${v}-${nm.c})`;
+        const lead = c0 ? '' : `(1-t)${nm.c}+`;
+        const parts = [one ? '' : `$${nm.a}=${CX.tex(a, 3)}$`, c0 ? '' : `$${nm.c}=${CX.tex(c, 3)}$`].filter(Boolean).join(', ');
+        return { tex: `the power homotopy $H_t(${v})=${lead}${one ? '' : `${nm.a}^t`}${base}^{${expoTex(n)}}$${parts ? ', ' + parts : ''} (principal branch)` };
+      },
+    };
+  }
+  // c J(z) = c (z² + 1)/(2z) from P/Q (dp = 2, dq = 1): c or null
+  function joukOf(P, Q) {
+    const s = Math.max(...P.map(CX.abs), ...Q.map(CX.abs));
+    if (CX.abs(Q[1]) > 1e-14 * s || CX.abs(P[1]) > 1e-12 * s || CX.abs(CX.sub(P[0], P[2])) > 1e-12 * s) return null;
+    return CX.div(CX.add(P[0], P[2]), Q[0]);
+  }
+  // The natural path of a rational map P/Q (coefficients, highest first; Q constant: a polynomial), by what it is, so that
+  // equal maps deform alike however they were entered: degree 1, the Möbius one-parameter group (as the affine and
+  // Möbius steps); a (z − c)^n, the power path (as z^n); c J, the Joukowski path times c^t; otherwise the zoom path.
+  // {hom, homTex, nat, natData} or null (a constant). opts: ratZoomData's, and mono ({a, c, n}: known exactly)
+  function ratPath(P, Q, f, opts = {}) {
+    P = CX.polyTrim(P); Q = CX.polyTrim(Q);
+    if ((Q.length === 1 && CX.isZero(Q[0])) || (P.length === 1 && CX.isZero(P[0]))) return null;
+    if (Q.length === 1) { P = P.map((c) => CX.div(c, Q[0])); Q = [C(1, 0)]; }
+    const dp = P.length - 1, dq = Q.length - 1;
+    if (dp === 0 && dq === 0) return null;
+    if (dp <= 1 && dq <= 1) {
+      const m = [dp ? P[0] : C(0, 0), P[dp], dq ? Q[0] : C(0, 0), Q[dq]];
+      const h = mobHom(m);
+      if (!h) return null;
+      return { hom: ends(f, h), homTex: (v = 'z') => mobHomTex(m, v), nat: { kind: 'mob' }, natData: { m } };
+    }
+    if (dq === 0) {
+      const mo = opts.mono || monomialOf(P);
+      if (mo) return powPath(mo, f);
+    }
+    const cj = dp === 2 && dq === 1 ? joukOf(P, Q) : null;
+    if (cj && CX.isFin(cj) && !CX.isZero(cj)) {
+      const lc = CX.log(cj), one = CX.eq(cj, C(1, 0), 1e-15);
+      return {
+        hom: ends(f, (t) => { const J = joukHom(t), k = CX.exp(sc(lc, t)); return (z) => CX.mul(k, J(z)); }),
+        nat: { kind: 'jouk', scaled: true }, natData: { lc },
+        homTex: one ? joukTex : (v = 'z', o) => ({ tex: `the homotopy $H_t(${v})=${nmOf(o).c}^tJ_t(${v})$, $${nmOf(o).c}=${CX.tex(cj, 3)}$ (principal power), where $J_t(${v})=${joukWords(v).slice(1)}` }),
+      };
+    }
+    const d = ratZoomData(P, Q, opts);
+    if (!d) return null;
+    return { hom: ends(f, (t) => (z) => ratZoomAt(d, t, z)), nat: { kind: 'ratzoom', dp, dq }, natData: d, homTex: zoomTex(d, dq === 0, opts) };
+  }
+  // a rational map given by numerator and denominator (kept for callers): ratPath
+  const rationalNat = (P, Q, f) => ratPath(P, Q, f);
+  const polyNat = (co, f) => ratPath(co, [C(1, 0)], f);
+  // the exponential's zoom path about 0 (exp′ 0 = 1) and the logarithm's, the reverse family
+  const expHom = (t) => {
+    if (t < 1e-6) return (z) => z;
+    return (z) => CX.add(CX.scale(CX.sub(CX.exp(CX.scale(z, t)), C(1, 0)), 1 / t), C(t, 0));
+  };
+  const expHomTex = (v = 'z') => ({ tex: `the zoom homotopy $H_t(${v})=(e^{t${v}}-1)/t+t$ for $0<t\\le 1$, $H_0(${v})=${v}$` });
+  const logHom = (th, k) => (t) => {
+    if (t <= 0) return (z) => z;
+    const u = 1 - t;
+    if (u < 1e-6) return (z) => CX.log(z, th, k);
+    return (z) => CX.add(CX.scale(CX.sub(CX.powReal(z, u, th, k), C(1, 0)), 1 / u), C(u, 0));
+  };
+  const logHomTex = (cut, k) => (v = 'z') => ({ tex: `the homotopy $H_t(${v})=(${v}^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $H_1(${v})=\\log ${v}$ (${branchWords(cut, k)})` });
+  // The zoom path of any other analytic formula, about a point p where f is analytic with f′(p) ≠ 0 (f′ from Expr.diff):
+  //   H_t(z) = (1 − t) p + t f(p) + f′(p)^{t−1} (f(p + t(z − p)) − f(p)) / t   (principal power),
+  // and below t₀ ≥ 10⁻³ (where f(x) − f(p) would cancel in float32 on the GPU) the blend z + (t/t₀)(H_{t₀}(z) − z),
+  // still analytic in z. p: the first of 0, 1, −1, 2, … with no cut through it; a real map (f(z̄) = conj f(z) at
+  // probes) gets a real centre, f′(p) > 0 first, so that the path commutes with conjugation. GLChain inlines f there.
+  const GZ_T0 = 1e-3;
+  // The multivalued pieces of a formula, as {kind, w} with w its operand compiled: the logarithm, roots and non-integer
+  // powers on the formula's cut θ ('theta'), the inverse trigonometric and hyperbolic functions on their principal cuts.
+  // A zoom centre must lie off every one of these cuts, not only where f is analytic: where two cuts cancel
+  // (√(z−1)·√(z+1) on (1, ∞) with the cut at 0°) f is analytic, but f(p + t(z − p)) for a tiny t is decided by
+  // which side of each cut a point within float32 rounding of p falls, and the GPU then puts the factors on
+  // different sides (−√3 for √3: H_t off by 2√3/t).
+  const FIXED_CUT = { asin: 'real', acos: 'real', atanh: 'real', acosh: 'acosh', atan: 'imag', asinh: 'imag' };
+  function cutOperands(ast, theta) {
+    const out = [];
+    const walk = (n) => {
+      if (!n || !Expr.depends(n)) return;
+      let kind = null;
+      if (n.t === 'pow') {
+        if (!Expr.depends(n.b)) {
+          const v = Expr.compile(n.b)(C(0, 0));
+          if (!(v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096)) kind = 'theta';
+        } else if (Expr.depends(n.a)) kind = 'theta';
+      } else if (n.t === 'root') kind = 'theta';
+      else if (n.t === 'call') kind = n.f === 'log' || n.f === 'sqrt' ? 'theta' : FIXED_CUT[n.f] || null;
+      if (kind) out.push({ kind, w: Expr.compile(n.a, { theta }) });
+      for (const k of ['a', 'b', 'n']) if (n[k]) walk(n[k]);
+    };
+    walk(ast);
+    return out;
+  }
+  // p is at least 10⁻³ (in angle, or relative to 1 + |w|) away from every cut of cutOperands, and off the branch points
+  function offCuts(ops, theta, p) {
+    for (const { kind, w } of ops) {
+      const v = w(p);
+      if (!CX.isFin(v)) return false;
+      const r = CX.abs(v), x = v.re, y = v.im;
+      if (kind === 'theta') {
+        const d = Math.abs((((Math.atan2(y, x) - theta) % (2 * PI)) + 2 * PI) % (2 * PI));
+        if (!(r > 0) || Math.min(d, 2 * PI - d) < 1e-3) return false;
+        continue;
+      }
+      const ax = Math.abs(x), ay = Math.abs(y);
+      const dist = kind === 'real' ? (ax >= 1 ? ay : Math.hypot(ax - 1, y))
+        : kind === 'imag' ? (ay >= 1 ? ax : Math.hypot(x, ay - 1))
+          : (x <= 1 ? ay : Math.hypot(x - 1, y)); // acosh: (−∞, 1]
+      if (!(dist >= 1e-3 * (1 + r))) return false;
+    }
+    return true;
+  }
+  function genericZoomNat(ast, f, cut) {
+    let df, ops;
+    try { df = Expr.compile(Expr.diff(ast, { theta: cut * DEG }), { theta: cut * DEG }); ops = cutOperands(ast, cut * DEG); } catch (e) { return null; }
+    const probes = [C(0.37, 0.81), C(-1.3, 0.6), C(2.1, 1.7), C(0.45, -2.2)];
+    const real = probes.every((q) => { const a = f(CX.conj(q)), b = f(q); return CX.isFin(a) && CX.isFin(b) && CX.abs(CX.sub(a, CX.conj(b))) <= 1e-9 * (1 + CX.abs(b)); });
+    const at = (p) => {
+      if (!offCuts(ops, cut * DEG, p)) return null;
+      let fp = f(p), lam = df(p);
+      if (!CX.isFin(fp) || !CX.isFin(lam) || !(CX.abs(lam) > 1e-6) || !(CX.abs(lam) < 1e6) || CX.abs(fp) > 1e12) return null;
+      // analytic about p (no cut through it): f(p + u) ≈ f(p) + λu around a small circle
+      const dl = 1e-4 * (1 + CX.abs(p));
+      for (let k = 0; k < 8; k++) {
+        const u = C(Math.cos((k * PI) / 4) * dl, Math.sin((k * PI) / 4) * dl), w = f(CX.add(p, u));
+        if (!CX.isFin(w) || CX.abs(CX.sub(CX.sub(w, fp), CX.mul(lam, u))) > 0.1 * CX.abs(lam) * dl) return null;
+      }
+      if (real && p.im === 0) { fp = C(fp.re, 0); lam = C(lam.re, 0); }
+      return { p, fp, lam };
+    };
+    let d = null;
+    if (real) {
+      for (const pass of [0, 1]) {
+        for (const p of FALLBACK) {
+          if (p.im !== 0) continue;
+          const r = at(p);
+          if (r && (pass || r.lam.re > 0)) { d = r; break; }
+        }
+        if (d) break;
+      }
+    }
+    if (!d) for (const p of FALLBACK) { d = at(p); if (d) break; }
+    if (!d) return null;
+    const { p, fp } = d, ll = CX.log(d.lam), al = CX.abs(d.lam);
+    // t₀: from where the GPU's float32 f(x) − f(p) (and x = p + t(z − p)) keeps H_t within 10⁻⁴(1 + |p|):
+    // ε₃₂ (|f(p)| + |λ||p|) |λ|^{t−1}/t; none below ½ (z^{1/4096}: f(p)/λ = 4096 cancels too much): the straight line
+    const err = (t) => 6e-8 * (CX.abs(fp) + al * CX.abs(p)) * Math.pow(al, t - 1) / t, tol = 1e-4 * (1 + CX.abs(p));
+    let t0 = GZ_T0;
+    while (t0 < 0.5 && err(t0) > tol) t0 *= 1.25;
+    if (err(t0) > tol) return null;
+    const Ht = (t) => (z) => CX.add(CX.add(sc(p, 1 - t), sc(fp, t)), sc(CX.mul(CX.exp(sc(ll, t - 1)), CX.sub(f(CX.add(p, sc(CX.sub(z, p), t))), fp)), 1 / t));
+    const H = (t) => {
+      if (t >= t0) return Ht(t);
+      const h0 = Ht(t0), s = t / t0;
+      return (z) => CX.add(z, sc(CX.sub(h0(z), z), s));
+    };
+    return {
+      hom: ends(f, H), nat: { kind: 'gzoom' }, natData: { p, fp, ll, t0 },
+      homTex: (v = 'z', o) => {
+        const { f: F, p: q } = nmOf(o);
+        return { tex: `the zoom homotopy $H_t(${v})=(1-t)${q}+t${F}(${q})+${F}'(${q})^{t-1}\\bigl(${F}(${q}+t(${v}-${q}))-${F}(${q})\\bigr)/t$ about $${q}=${CX.tex(p, 3)}$ (principal power; below $t=${CX.texNum(t0, 2)}$, linear in $t$): the singularities and cuts of $${F}$ fly in from infinity along the rays from $${q}$` };
+      },
+    };
+  }
+  // A custom formula's natural path: a catalog map applied to z itself (its own path), e^z, log z (on the formula's
+  // cut, sheet 0), a rational expression (ratPath: by what it is, as the catalog steps), and otherwise, when analytic,
+  // the generic zoom path. null: not analytic, or a constant (the straight line). {hom, homTex, nat, natData}
+  const CUSTOM_ZOOM = { sin: 'sin', cos: 'cos', tan: 'tan', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh', asin: 'arcsin', acos: 'arccos', atan: 'arctan', asinh: 'arsinh', acosh: 'arcosh', atanh: 'artanh' };
+  function customNat(ast, f, cut, analytic) {
+    const isZ = (n) => !!n && n.t === 'var' && n.n === 'z';
+    if (ast.t === 'call' && isZ(ast.a) && CUSTOM_ZOOM[ast.f]) {
+      const id = CUSTOM_ZOOM[ast.f];
+      return { hom: ends(f, ZOOM[id]), homTex: (v = 'z', o) => ({ tex: ZOOM_TEX[id](v, o) }), nat: { kind: 'zoom', fn: id } };
+    }
+    if ((ast.t === 'call' && ast.f === 'exp' && isZ(ast.a)) || (ast.t === 'pow' && ast.a.t === 'num' && ast.a.v.re === Math.E && ast.a.v.im === 0 && isZ(ast.b))) {
+      return { hom: ends(f, expHom), homTex: expHomTex, nat: { kind: 'exp' } };
+    }
+    if (ast.t === 'call' && ast.f === 'log' && isZ(ast.a)) return { hom: ends(f, logHom(cut * DEG, 0)), homTex: logHomTex(cut, 0), nat: { kind: 'log' } };
+    const pq = ratOf(ast);
+    if (pq) return ratPath(pq[0], pq[1], f);
+    return analytic ? genericZoomNat(ast, f, cut) : null;
+  }
+  // A map given by its zeros and poles, f(z) = a ∏ (z − ζ_k) / ∏ (z − p_j) (the step that drags them): ratPath of the
+  // expanded numerator and denominator, with the exact zeros as the zoom centres in their listed order (so the centre
+  // is ζ₁ itself, f(c) = 0 exactly, and it moves continuously with ζ₁ and stays put while the others are dragged), and
+  // the power path when every zero is the same point and there is no pole. null: a = 0, or a constant.
+  function zerosPolesNat(a, zeros, poles, f) {
+    if (!CX.isFin(a) || CX.isZero(a) || (!zeros.length && !poles.length)) return null;
+    const expand = (rs) => rs.reduce((co, r) => polyMul(co, [C(1, 0), CX.neg(r)]), [C(1, 0)]);
+    const same = zeros.length >= 2 && !poles.length && zeros.every((z) => z.re === zeros[0].re && z.im === zeros[0].im);
+    return ratPath(expand(zeros).map((c) => CX.mul(c, a)), expand(poles), f, { cands: zeros, zeros: true, zp: true, mono: same ? { a, c: zeros[0], n: zeros.length } : null });
+  }
+  // the data GLChain writes for a natural path (null: the straight line)
+  function natData(b) { return b && b.natData ? b.natData : null; }
+
   // ---- parameter helpers ----
   const cutParams = [
     { key: 'cut', label: 'cut angle', type: 'angle', def: 180 },
@@ -3539,6 +3969,120 @@ const Funcs = (() => {
     if (!co.length) throw new Error('Enter at least one coefficient');
     return co;
   }
+  // ---- zeros and poles (the 'zp' step) ----
+  // a list of complex values as typed (commas outside brackets; empty items dropped): the raw item strings
+  function splitList(str) {
+    const parts = [];
+    let depth = 0, cur = '';
+    for (const ch of String(str ?? '')) {
+      if ('([{'.includes(ch)) depth++;
+      if (')]}'.includes(ch)) depth--;
+      if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
+    }
+    parts.push(cur);
+    return parts.map((s) => s.trim()).filter((s) => s.length);
+  }
+  // at most 24 zeros and 24 poles (degree 24, as Write by zeros and poles allows; past it a drag misses 60 fps)
+  const ZP_MAX = 24;
+  function parseCxList(str) {
+    return splitList(str).map((s, i) => {
+      let v;
+      try { v = Expr.constValue(s); } catch (e) { throw new Error(`value ${i + 1}: ${e.message}`); }
+      if (!CX.isFin(v)) throw new Error(`value ${i + 1} is not a finite number`);
+      return v;
+    });
+  }
+  // a value as a list item: the exact shortest decimal, no spaces (parses back to exactly v)
+  const zpItem = (v) => CX.fmtExact(C(v.re === 0 ? 0 : v.re, v.im === 0 ? 0 : v.im)).replace(/\s+/g, '');
+  // a zero and a pole at exactly the same point cancel (a removable singularity, filled in): what is left
+  function zpCancel(zeros, poles) {
+    const zs = zeros.slice(), ps = [], gone = [];
+    for (const p of poles) {
+      const i = zs.findIndex((z) => z.re === p.re && z.im === p.im);
+      if (i >= 0) { gone.push(zs.splice(i, 1)[0]); } else ps.push(p);
+    }
+    return { zs, ps, gone };
+  }
+  // a ∏ (z − r) expanded (coefficients, highest degree first)
+  const zpExpand = (a, rs) => rs.reduce((co, r) => polyMul(co, [C(1, 0), CX.neg(r)]), [a]);
+  // the factored TeX: a ∏ (x − ζ_k)^{m} / ∏ (x − p_j)^{m} (equal values as powers, the factor x first)
+  function zpFactors(list, x) {
+    const groups = [];
+    for (const r of list) {
+      const g = groups.find((q) => q.r.re === r.re && q.r.im === r.im);
+      if (g) g.m++; else groups.push({ r, m: 1 });
+    }
+    groups.sort((p, q) => CX.isZero(q.r) - CX.isZero(p.r));
+    return groups.map(({ r, m }) => {
+      // x − r term by term: z − 1 − i, z + 0.5i (never z − (1 + i))
+      let t = x.s;
+      for (const part of [C(-r.re, 0), C(0, -r.im)]) {
+        if (CX.isZero(part)) continue;
+        const ps = CX.tex(part);
+        t += compoundTex(ps) ? `+${paren(ps)}` : ps.startsWith('-') ? ps : `+${ps}`;
+      }
+      const base = CX.isZero(r) ? x : { s: t, p: 0 };
+      return m === 1 ? base : powTex(base, m);
+    });
+  }
+  function zpProd(fs, alone) {
+    if (!fs.length) return null;
+    if (fs.length === 1 && alone) return fs[0];
+    return { s: fs.map((f) => (f.p >= 3 ? f.s : paren(f.s))).join(''), p: 3 };
+  }
+  function zpTex(a, zs, ps, x) {
+    if (!zs.length && !ps.length) { const s = CX.tex(a); return { s, p: compoundTex(s) ? 0 : 4 }; }
+    const num = zpProd(zpFactors(zs, x), true), den = zpProd(zpFactors(ps, x), true);
+    const body = den ? { s: `\\frac{${num ? num.s : '1'}}{${den.s}}`, p: 4 } : num;
+    return mulTex(a, body);
+  }
+  // Funcs.toZerosPoles(step): a polynomial or rational step (or a custom rational formula) as a 'zp' step, by the
+  // roots of its numerator and denominator (computed numerically, rounded to 12 digits where that keeps the map to
+  // 1e-9): {step, note} or {error}. Funcs.fromZerosPoles(step): a 'zp' step expanded into a polynomial or rational
+  // step (exact coefficients of the expansion): {step} or {error}.
+  function toZerosPoles(step) {
+    const b = build(step);
+    if (b.error) return { error: b.error };
+    let P, Q;
+    const v = b.vals, id = b.def.id;
+    if (id === 'poly') { P = CX.polyTrim(v.co); Q = [C(1, 0)]; }
+    else if (id === 'rational') { P = CX.polyTrim(v.p); Q = CX.polyTrim(v.q); }
+    else if (id === 'custom') {
+      let pq = null;
+      try { const ast = Expr.parse(v.expr); if (Expr.classify(ast).rational) pq = ratOf(ast); } catch (e) { pq = null; }
+      if (!pq) return { error: 'Only a polynomial or a rational formula can be written by its zeros and poles' };
+      [P, Q] = pq;
+    } else return { error: `${b.def.label} is not a polynomial or a rational map` };
+    if (P.every(CX.isZero)) return { error: 'The zero function has no zeros or poles to drag' };
+    if (P.length > ZP_MAX + 1 || Q.length > ZP_MAX + 1) return { error: `Degree above ${ZP_MAX}: too many zeros and poles to drag` };
+    const a = CX.div(P[0], Q[0]);
+    const clean = (r) => {
+      const s = 1e-12 * Math.max(1, CX.abs(r));
+      return C(Math.abs(r.re) < s ? 0 : +r.re.toPrecision(12), Math.abs(r.im) < s ? 0 : +r.im.toPrecision(12));
+    };
+    const roots = (co) => (co.length > 1 ? CX.polyRoots(co) : []);
+    const raw = [roots(P), roots(Q)];
+    if (!raw.every((l) => l.every(CX.isFin))) return { error: 'The roots could not be computed' };
+    const tidy = raw.map((l) => l.map(clean));
+    const ok = (zs, ps) => {
+      const f = (z) => { let n = a; for (const r of zs) n = CX.mul(n, CX.sub(z, r)); let d = C(1, 0); for (const r of ps) d = CX.mul(d, CX.sub(z, r)); return CX.div(n, d); };
+      return [C(0.37, -0.81), C(-1.3, 0.6), C(2.1, 1.7), C(-0.45, -2.2)].every((z) => { const g = b.f(z), h = f(z); return !CX.isFin(g) || CX.abs(CX.sub(g, h)) <= 1e-9 * (1 + CX.abs(g)); });
+    };
+    const [zs, ps] = ok(tidy[0], tidy[1]) ? tidy : raw;
+    const params = { a: zpItem(clean(a)), zeros: zs.map(zpItem).join(', '), poles: ps.map(zpItem).join(', ') };
+    if (!ok(zs, ps)) return { error: 'The zeros and poles found do not reproduce this map (its roots are too clustered)' };
+    return { step: { type: 'zp', params }, note: `${zs.length} zero${zs.length === 1 ? '' : 's'}, ${ps.length} pole${ps.length === 1 ? '' : 's'}` };
+  }
+  function fromZerosPoles(step) {
+    const b = build(step);
+    if (b.error) return { error: b.error };
+    if (b.def.id !== 'zp') return { error: 'Not a zeros-and-poles step' };
+    const { P, Q } = b.zp;
+    const co = (l) => l.map(fmtC).join(', ');
+    if (Q.length === 1) return { step: { type: 'poly', params: { co: co(P.map((c) => CX.div(c, Q[0]))) } } };
+    return { step: { type: 'rational', params: { p: co(P), q: co(Q) } } };
+  }
+
   function polyTex(co, a) {
     co = CX.polyTrim(co);
     const n = co.length - 1;
@@ -3850,6 +4394,12 @@ const Funcs = (() => {
           else ast = div(polyAst(polySub(polyMul(polyDer(p), q), polyMul(p, polyDer(q)))), sq(polyAst(q)));
           break;
         }
+        case 'zp': {
+          const { P, Q } = b.zp;
+          if (Q.length === 1) ast = polyAst(polyDer(P));
+          else ast = div(polyAst(CX.polyTrim(polySub(polyMul(polyDer(P), Q), polyMul(P, polyDer(Q))))), sq(polyAst(Q)));
+          break;
+        }
         case 'custom': {
           cut = v.cut;
           const src = Expr.parse(v.expr);
@@ -4109,12 +4659,7 @@ const Funcs = (() => {
     params: [],
     build() {
       return {
-        f: CX.exp,
-        hom: (t) => {
-          if (t < 1e-6) return (z) => z;
-          return (z) => CX.add(CX.scale(CX.sub(CX.exp(CX.scale(z, t)), C(1, 0)), 1 / t), C(t, 0));
-        },
-        homTex: (v = 'z') => ({ tex: `the homotopy $H_t(${v})=(e^{t${v}}-1)/t+t$ for $0<t\\le 1$, $H_0(${v})=${v}$` }),
+        f: CX.exp, hom: expHom, homTex: expHomTex,
         tex: (a) => ({ s: `e^{${a.s}}`, p: 3 }),
         props: props({ analytic: true, entire: true }),
         inverse: { type: 'log', params: { cut: 180, k: 0 } },
@@ -4127,13 +4672,7 @@ const Funcs = (() => {
     build({ cut, k }) {
       const th = cut * DEG;
       return {
-        f: (z) => CX.log(z, th, k),
-        hom: (t) => {
-          const u = 1 - t;
-          if (u < 1e-6) return (z) => CX.log(z, th, k);
-          return (z) => CX.add(CX.scale(CX.sub(CX.powReal(z, u, th, k), C(1, 0)), 1 / u), C(u, 0));
-        },
-        homTex: (v = 'z') => ({ tex: `the homotopy $H_t(${v})=(${v}^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $H_1(${v})=\\log ${v}$ (${branchWords(cut, k)})` }),
+        f: (z) => CX.log(z, th, k), hom: logHom(th, k), homTex: logHomTex(cut, k),
         tex: (a) => fn('\\log', a),
         props: props({ analytic: true, injective: true }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
@@ -4158,7 +4697,7 @@ const Funcs = (() => {
       id, group: 'Trigonometric', label, menuTex: `${tx} z`, params: [],
       build() {
         const r = {
-          f: F, hom: linHom(F), tex: (a) => fn(tx, a),
+          f: F, hom: ends(F, ZOOM[id]), homTex: (v = 'z', o) => ({ tex: ZOOM_TEX[id](v, o) }), nat: { kind: 'zoom', fn: id }, tex: (a) => fn(tx, a),
           props: props({ analytic: true, entire }),
           inverse: { type: invId, params: {} },
         };
@@ -4184,7 +4723,7 @@ const Funcs = (() => {
       id, group: 'Inverse trigonometric', label, menuTex: `${tx} z`, params: [],
       build() {
         return {
-          f: F, hom: linHom(F), tex: (a) => fn(tx, a),
+          f: F, hom: ends(F, ZOOM[id]), homTex: (v = 'z', o) => ({ tex: ZOOM_TEX[id](v, o) }), nat: { kind: 'zoom', fn: id }, tex: (a) => fn(tx, a),
           props: props({ analytic: true, injective: true }),
           cuts, domain: dom, branchNote: 'principal branch',
           inverse: { type: invId, params: {} },
@@ -4199,7 +4738,7 @@ const Funcs = (() => {
     build() {
       const f = (z) => CX.scale(CX.add(z, CX.inv(z)), 0.5);
       return {
-        f, hom: linHom(f),
+        f, hom: ends(f, joukHom), nat: { kind: 'jouk' }, homTex: joukTex,
         tex: (a) => ({ s: `\\frac{1}{2}\\left(${a.s}+\\frac{1}{${a.s}}\\right)`, p: 1 }),
         props: props({ analytic: true, rational: true, proper: true, deg: 2, degExact: true }),
         poles: [C(0, 0)], domain: (v) => `${v}\\neq 0`,
@@ -4214,7 +4753,8 @@ const Funcs = (() => {
       const sg = branch === 'interior' ? -1 : 1;
       const f = (z) => CX.ijouk(z, sg);   // z + sg s, the interior branch as 1 / (z + s) (no cancellation)
       return {
-        f, hom: linHom(f),
+        f, hom: ends(f, ijoukHom(sg)), nat: { kind: 'ijouk' },
+        homTex: (v = 'z') => ({ tex: sg > 0 ? `the homotopy $H_t(${v})=\\coth\\bigl((1-t/2)\\operatorname{arcoth}${vTex(v)}\\bigr)$, that is $C^{-1}\\bigl((C${vTex(v)})^{1-t/2}\\bigr)$ with $C(${v})=\\frac{${v}-1}{${v}+1}$ (principal branch)` : `the homotopy $H_t(${v})=\\coth\\bigl((1-t/2)\\operatorname{arcoth}${vTex(v)}-\\pi i t/2\\bigr)$, that is $C^{-1}\\bigl(e^{\\pi i t}(C${vTex(v)})^{1-t/2}\\bigr)$ with $C(${v})=\\frac{${v}-1}{${v}+1}$ (principal branch)` }),
         // exactly what is evaluated: z ± √(z−1)·√(z+1) with principal roots (not √(z²−1), which differs on Re z < 0)
         tex: (a) => ({ s: `${a.s}${sg > 0 ? '+' : '-'}\\sqrt{${a.s}-1}\\,\\sqrt{${a.s}+1}`, p: 0 }),
         props: props({ analytic: true, injective: true }),
@@ -4246,8 +4786,11 @@ const Funcs = (() => {
       const c = CX.polyTrim(co);
       const d = c.length - 1;
       const P = d === 0 ? CONSTANT : props({ analytic: true, entire: true, rational: true, polynomial: true, proper: true, injective: d === 1, mobius: d === 1, deg: d, degExact: true });
+      const f = (z) => CX.polyEval(c, z);
+      const nat = d >= 1 ? polyNat(c, f) : null;
       return {
-        f: (z) => CX.polyEval(c, z), hom: linHom((z) => CX.polyEval(c, z)),
+        f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (a constant has no natural path)`, segment: true }),
+        nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
         tex: (a) => polyTex(c, a), props: P,
         ...polyInverse(c),
       };
@@ -4283,11 +4826,60 @@ const Funcs = (() => {
           if (deg === 0) P.constant = true;
         }
       }
+      const nat = P.constant ? null : rationalNat(p, q, f);
       return {
-        f, hom: linHom(f),
+        f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (this map has no natural path)`, segment: true }),
+        nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
         tex: (a) => ({ s: `\\frac{${polyTex(p, a).s}}{${polyTex(q, a).s}}`, p: 4 }),
         props: P, poles, domain: dq > 0 ? (v) => `q(${v})\\neq 0` : null,
         ...rationalInverse(p, q, P),
+      };
+    },
+  });
+  // f(z) = a ∏ (z − ζ_k) / ∏ (z − p_j), the zeros and poles dragged in the input plane (notes/ui-design/zeros-poles.md).
+  // Given as points, the numerator and denominator are coprime unless a zero and a pole coincide exactly (they cancel:
+  // a removable singularity, filled in), so the degree max(#zeros, #poles) is exact.
+  def({
+    id: 'zp', group: 'Polynomial & custom', label: 'Zeros and poles', menuTex: 'a\\frac{\\prod(z-\\zeta_k)}{\\prod(z-p_j)}',
+    params: [{ key: 'a', label: 'a', type: 'cx', def: '1' }, { key: 'zeros', label: 'zeros', type: 'cxlist', def: '1, -1' }, { key: 'poles', label: 'poles', type: 'cxlist', def: '0' }],
+    build({ a, zeros, poles }) {
+      if (zeros.length > ZP_MAX || poles.length > ZP_MAX) throw new Error(`At most ${ZP_MAX} zeros and ${ZP_MAX} poles`);
+      const { zs, ps, gone } = zpCancel(zeros, poles);
+      const nz = zs.length, np = ps.length, deg = Math.max(nz, np);
+      const aZero = CX.isZero(a);
+      const P = zpExpand(a, zs), Q = zpExpand(C(1, 0), ps);
+      // evaluated as a ∏ ((z − ζ_k)/(z − p_k)) × the unpaired factors (no overflow of either product alone); ∞ at a pole
+      // (a = 0: the constant 0 everywhere, the poles included: 0 · ∏/∏ has only removable singularities)
+      const f = aZero ? () => C(0, 0) : (z) => {
+        for (const p of ps) if (p.re === z.re && p.im === z.im) return C(Infinity, Infinity);
+        let w = a;
+        for (let i = 0; i < deg; i++) {
+          if (i < nz && i < np) w = CX.mul(w, CX.div(CX.sub(z, zs[i]), CX.sub(z, ps[i])));
+          else if (i < nz) w = CX.mul(w, CX.sub(z, zs[i]));
+          else w = CX.div(w, CX.sub(z, ps[i]));
+        }
+        return w;
+      };
+      let Pr;
+      if (aZero || deg === 0) Pr = props({ analytic: true, rational: true, deg: 0, degExact: true, constant: true, entire: aZero || !np, polynomial: aZero || !np });
+      else if (!np) Pr = props({ analytic: true, entire: true, rational: true, polynomial: true, proper: true, injective: nz === 1, mobius: nz === 1, deg: nz, degExact: true });
+      else Pr = props({ analytic: true, rational: true, deg, degExact: true, proper: nz > np, injective: deg === 1, mobius: deg === 1 });
+      const nat = Pr.constant ? null : zerosPolesNat(a, zs, ps, f);
+      // the caption names the zeros as the card does (ζ, p) and the zoom centre c (ratPath with the zp options)
+      const homTex = nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (a constant has no natural path)`, segment: true });
+      const domain = np && !aZero ? (v) => (np <= 3 ? `${v}\\notin\\{${[...new Set(ps.map((p) => CX.tex(p)))].join(',')}\\}` : `${v}\\neq p_j`) : null;
+      const inv = Pr.constant ? { inverse: null, inverseNote: NOTE_CONST } : np ? rationalInverse(P, Q, Pr) : polyInverse(P);
+      const notes = [];
+      if (gone.length) notes.push(`${gone.length === 1 ? 'A zero and a pole cancel' : `${gone.length} zero–pole pairs cancel`} at ${[...new Set(gone.map((g) => CX.fmt(g, 4)))].join(', ')}`);
+      if (aZero) notes.push(np ? 'a = 0 makes the map the constant 0 (the poles too: they are removable)' : 'a = 0 makes the map constant');
+      return {
+        f, hom: nat ? nat.hom : linHom(f), homTex,
+        nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
+        tex: (x) => (aZero ? { s: '0', p: 4 } : zpTex(a, zs, ps, x)),
+        props: Pr, poles: aZero ? [] : ps.slice(), domain,
+        zp: { a, zeros: zs, poles: ps, gone, P, Q },
+        branchNote: notes.length ? notes.join('; ') : null,
+        ...inv,
       };
     },
   });
@@ -4325,8 +4917,12 @@ const Funcs = (() => {
           }
         }
       }
+      let nat = null;
+      try { nat = cls.dep && !P.constant ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
       return {
-        f, hom: linHom(f),
+        f, hom: nat ? nat.hom : linHom(f),
+        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (${cls.dep && !P.constant ? 'this formula is not analytic, so it has no natural path' : 'a constant has no natural path'})`, segment: true }),
+        nat: nat ? nat.nat : null, natData: nat ? nat.natData || null : null,
         tex: (a) => Expr.toTex(ast, a),
         props: P,
         usesCut: cls.branch,
@@ -4398,6 +4994,7 @@ const Funcs = (() => {
           }
           case 'angle': { const x = Number(raw); if (!Number.isFinite(x)) throw new Error(`${q.label} must be a number`); v[q.key] = x; break; }
           case 'coeffs': try { v[q.key] = parseCoeffs(raw); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
+          case 'cxlist': try { v[q.key] = parseCxList(raw); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
           default: v[q.key] = raw;
         }
       }
@@ -4716,7 +5313,7 @@ const Funcs = (() => {
   }
 
   return {
-    DEFS, GROUPS, PROP_KEYS, defaults, build, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
+    DEFS, GROUPS, PROP_KEYS, defaults, build, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
     stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval,
   };
 })();
@@ -5039,6 +5636,22 @@ const Inverse = (() => {
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
         return INEL(`rational map of degree ${P.deg}${P.degExact ? '' : ' (not known exactly)'}`);
+      }
+      case 'zp': {
+        // a zeros-and-poles step: coprime by construction (coincident pairs cancelled in Funcs), exact degree
+        const { P: p, Q: q } = b.zp;
+        if (q.length === 1) {
+          const r = polyOps(p.map((c) => div(c, q[0])), b.f);
+          return r.ok ? r : INEL(`${r.reason} (the exact renderer inverts degree ≤ 2)`);
+        }
+        if (P.mobius) {
+          const two = (co) => (co.length === 1 ? [ZERO, co[0]] : co);
+          const [a, bb] = two(p), [c, d] = two(q), m = [a, bb, c, d];
+          if (CX.mobDetZero(m) || CX.mobRel(m) < CX.MOB_EPS) return INEL('Möbius map too close to degenerate');
+          return OK([opMob(m)]);
+        }
+        if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
+        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 2)`);
       }
       case 'custom': {
         let ast;
@@ -7140,7 +7753,7 @@ const Inverse = (() => {
   // may be drawn as the mode-0 map of the stage it equals
   const HOM_EXACT = new Set(['mul', 'add', 'affine', 'recip', 'mobius', 'blaschke', 'pown', 'root', 'powa', 'exp', 'log',
     'sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh', 'arcsin', 'arccos', 'arctan', 'arsinh', 'arcosh', 'artanh',
-    'joukowski', 'ijouk', 'conj', 'poly', 'rational', 'custom']);
+    'joukowski', 'ijouk', 'conj', 'poly', 'rational', 'zp', 'custom']);
   const homExact = (step) => !!step && HOM_EXACT.has(step.type);
 
   return {
@@ -7872,6 +8485,9 @@ float cx_abs(vec2 z) {
   float m = max(abs(z.x), abs(z.y));
   if (m > 1e-18 && m < 1e18) return length(z);
   if (m == 0.0 || !(m < 3.0e38)) return m;
+  // large: scale by 2^-100 and back (exact); 1/m itself is subnormal above 8.5e37 and the GPU flushes it to 0, so
+  // |z| came out 0 there (a cosh path's 1.5e38, then z^1.365, drew at the origin instead of at infinity)
+  if (m >= 1e18) return length(z * 7.888609052210118e-31) * 1.2676506002282294e30;
   return m * length(z * (1.0 / m));
 }
 bool cfin(vec2 w) {
@@ -8040,7 +8656,34 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   cx_mobmat(t, p0, p1, p2, p3, p4, p5, m0, m1, m2, m3);
   return cx_mob(m1, m0, m3, m2, u);
 }
-`;
+` + natLib();
+
+  // Natural paths (funcs.js): the small-argument series of the odd functions (a (1 + c3 a^2 + ... + c13 a^12) for
+  // |a| < 0.1, as Funcs' serS) and log(1 + v) (8 terms for |v| < 0.1, float32 accurate), so the first frames of a
+  // zoom path (t ~ 1e-5) do not cancel
+  function natLib() {
+    const lit = (x) => { const v = String(Math.fround(x)); return /[.eE]/.test(v) ? v.replace(/e\+?/, 'e') : v + '.0'; };
+    const SER = {
+      sin: ['csin', [-1 / 6, 1 / 120, -1 / 5040, 1 / 362880, -1 / 39916800, 1 / 6227020800]],
+      sinh: ['csinh', [1 / 6, 1 / 120, 1 / 5040, 1 / 362880, 1 / 39916800, 1 / 6227020800]],
+      tan: ['ctan', [1 / 3, 2 / 15, 17 / 315, 62 / 2835, 1382 / 155925, 21844 / 6081075]],
+      tanh: ['ctanh', [-1 / 3, 2 / 15, -17 / 315, 62 / 2835, -1382 / 155925, 21844 / 6081075]],
+      asin: ['casin', [1 / 6, 3 / 40, 15 / 336, 105 / 3456, 945 / 42240, 10395 / 599040]],
+      asinh: ['casinh', [-1 / 6, 3 / 40, -15 / 336, 105 / 3456, -945 / 42240, 10395 / 599040]],
+      atan: ['catan', [-1 / 3, 1 / 5, -1 / 7, 1 / 9, -1 / 11, 1 / 13]],
+      atanh: ['catanh', [1 / 3, 1 / 5, 1 / 7, 1 / 9, 1 / 11, 1 / 13]],
+    };
+    let out = '';
+    for (const [nm, [bi, c]] of Object.entries(SER)) {
+      out += `vec2 cx_${nm}S(vec2 a) {\n  if (dot(a, a) >= 0.01) return ${bi}(a);\n  vec2 a2 = cmul(a, a);\n  vec2 s = vec2(${lit(c[5])}, 0.0);\n`;
+      for (let i = 4; i >= 0; i--) out += `  s = vec2(${lit(c[i])}, 0.0) + cmul(a2, s);\n`;
+      out += '  return a + cmul(a, cmul(a2, s));\n}\n';
+    }
+    out += 'vec2 cx_log1p(vec2 v) {\n  if (dot(v, v) >= 0.01) return clog(vec2(1.0, 0.0) + v, CX_PI, 0.0);\n  vec2 s = vec2(-0.125, 0.0);\n';
+    for (let k = 7; k >= 1; k--) out += `  s = vec2(${lit((k % 2 ? 1 : -1) / k)}, 0.0) + cmul(v, s);\n`;
+    out += '  return cmul(v, s);\n}\n';
+    return out;
+  }
 
   // ---- CPU-side precomputation ----
   // Mirror of CX.mobPath: returns {mode, lam, M, P, Q} or null (degenerate). mode 1: parabolic, M = N.
@@ -8225,13 +8868,174 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     return g(ast);
   }
 
+  // ---- natural paths (Funcs: ZOOM, joukHom, ratPath, genericZoomNat): h bodies in z and t, mirroring the CPU ----
+  // nat: the built step's descriptor {kind, fn | n | dp, dq}; returns {h, write(put, b)} or null (no GPU path: the
+  // straight line). Data that depend on the parameters (zeros, the zoom centre) are uniforms, filled from b.natData;
+  // a flag cell .x = 0 (no data: a constant, a zero leading coefficient) falls back to the straight line, like the CPU.
+  const ASH1 = Math.log(1 + Math.SQRT2), SQ2 = Math.SQRT2;
+  const ZOOM_GL = {
+    sin: 'return cx_sinS(z * t) / t;', sinh: 'return cx_sinhS(z * t) / t;', tan: 'return cx_tanS(z * t) / t;', tanh: 'return cx_tanhS(z * t) / t;',
+    arcsin: 'return cx_asinS(z * t) / t;', arsinh: 'return cx_asinhS(z * t) / t;', arctan: 'return cx_atanS(z * t) / t;', artanh: 'return cx_atanhS(z * t) / t;',
+    cos: 'return vec2((1.0 - t) * CX_HALF_PI, 0.0) + cmul(vec2(cos(CX_PI * t), sin(CX_PI * t)), cx_sinS((z - vec2(CX_HALF_PI, 0.0)) * t) / t);',
+    arccos: 'return vec2(t * CX_HALF_PI, 0.0) + cmul(vec2(cos(CX_PI * t), sin(CX_PI * t)), cx_asinS(z * t) / t);',
+  };
+  const NAT_NMAX = 24; // the zoom path's shifted-form coefficients as uniforms up to this degree (Funcs.ZP_MAX)
+  function natPlan(P, nat, A, extra = {}) {
+    if (!nat) return null;
+    const T0 = 'if (t <= 0.0) return z;\n  ';
+    switch (nat.kind) {
+      case 'zoom': {
+        if (ZOOM_GL[nat.fn]) return { h: T0 + ZOOM_GL[nat.fn], write() {} };
+        if (nat.fn === 'cosh') {
+          return {
+            h: `${T0}const float P = ${flt(ASH1)}, Q = ${flt(SQ2)};
+  vec2 h = (z - vec2(P, 0.0)) * (0.5 * t);
+  return cmul(csinh(vec2(P, 0.0) + h), cx_sinhS(h)) * (2.0 / t) + vec2((1.0 - t) * P + t * Q, 0.0);`,
+            write() {},
+          };
+        }
+        if (nat.fn === 'arcosh') {
+          return {
+            h: `${T0}const float P = ${flt(ASH1)}, Q = ${flt(SQ2)};
+  vec2 d = (z - vec2(Q, 0.0)) * t, x = vec2(Q, 0.0) + d;
+  vec2 s = cmul(csqrtp(x - vec2(1.0, 0.0)), csqrtp(x + vec2(1.0, 0.0)));
+  vec2 den = s + vec2(1.0, 0.0);
+  vec2 v = cx_abs(den) > 1e-3 ? cmul(d, vec2(1.0, 0.0) + cdiv(x + vec2(Q, 0.0), den)) * (1.0 / (1.0 + Q)) : (x + s) * (1.0 / (1.0 + Q)) - vec2(1.0, 0.0);
+  return cx_log1p(v) / t + vec2((1.0 - t) * Q + t * P, 0.0);`,
+            write() {},
+          };
+        }
+        return null;
+      }
+      case 'jouk': {
+        // inside the unit disk the branch arg Cz in (pi/2, 3pi/2): tanh((1 + t) artanh z - i pi t/2) (Funcs joukHom);
+        // c J (nat.scaled): times c^t, lc = log c a uniform
+        const J = 'vec2 J = dot(z, z) < 1.0 ? cx_tanhS(cx_atanhS(z) * (1.0 + t) - vec2(0.0, CX_HALF_PI * t)) : cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 + t)));';
+        if (!nat.scaled) return { h: `${T0}${J}\n  return J;`, write() {} };
+        const lc = A.cell();
+        return { h: `${T0}${J}\n  return cmul(cexp(${lc.v} * t), J);`, write(put, b) { const d = Funcs.natData(b); putC(put, lc, d && d.lc ? d.lc : C(0, 0)); } };
+      }
+      // the Moebius one-parameter group (degree 1, however entered): the path slots of the affine and Moebius steps
+      case 'mob': {
+        const path = pathSlots(A);
+        return { h: pathHom(P, path), write(put, b) { const d = Funcs.natData(b); path.write(put, d && d.m ? mobPathData(d.m) : null); } };
+      }
+      // a (z - c)^n: (1 - t) c + a^t (z - c)^{1+(n-1)t}, principal (Funcs powPath)
+      case 'pow': {
+        const c = A.cell(), la = A.cell(), n = A.cell();
+        return {
+          h: `${T0}return ${c.v} * (1.0 - t) + cmul(cexp(${la.v} * t), cpowr(z - ${c.v}, 1.0 + (${n.x} - 1.0) * t, CX_PI, 0.0));`,
+          write(put, b) { const d = Funcs.natData(b); putC(put, c, d ? d.c : C(0, 0)); putC(put, la, d ? d.la : C(0, 0)); put(n.c, d ? d.n : 1, 0); },
+        };
+      }
+      // any other analytic formula: f inlined at p + t(z - p) (Funcs genericZoomNat); below t0 (>= 1e-3) the blend
+      // z + (t/t0)(H_t0(z) - z), as the CPU
+      case 'gzoom': {
+        const p = A.cell(), fp = A.cell(), ll = A.cell(), g = A.cell();
+        const H = (tt) => `${p.v} * (1.0 - ${tt}) + ${fp.v} * ${tt} + cmul(cexp(${ll.v} * (${tt} - 1.0)), ${P}_f(${p.v} + (z - ${p.v}) * ${tt}) - ${fp.v}) / ${tt}`;
+        return {
+          h: `${T0}float t0 = ${g.x};\n  if (t < t0) { vec2 h0 = ${H('t0')};\n    return z + (h0 - z) * (t / t0); }\n  return ${H('t')};`,
+          write(put, b) { const d = Funcs.natData(b); for (const [cell, k] of [[p, 'p'], [fp, 'fp'], [ll, 'll']]) putC(put, cell, d ? d[k] : C(0, 0)); put(g.c, d && d.t0 ? d.t0 : 1e-3, 0); },
+        };
+      }
+      case 'ijouk': {
+        const sg = extra.sg;
+        return { h: `${T0}return cinv(cx_tanhS(cx_atanhS(cinv(z)) * (1.0 - 0.5 * t) - vec2(0.0, ${sg.x} < 0.0 ? CX_HALF_PI * t : 0.0)));`, write() {} };
+      }
+      case 'exp': return { h: 'if (t < 1e-6) return z;\n  return cx_expm1(z * t) * (1.0 / t) + vec2(t, 0.0);', write() {} };
+      case 'log': {
+        const c = extra.cut;
+        return {
+          h: `if (t <= 0.0) return z;
+  float u = 1.0 - t;
+  if (u < 1e-6) return clog(z, ${c}, 0.0);
+  if (z.x == 0.0 && z.y == 0.0) return vec2(u - 1.0 / u, 0.0);
+  return cx_expm1(clog(z, ${c}, 0.0) * u) * (1.0 / u) + vec2(u, 0.0);`,
+          write() {},
+        };
+      }
+      case 'ratzoom': {
+        const M = Math.max(nat.dp, nat.dq), dp = nat.dp, dq = nat.dq;
+        // flag.x: data present, flag.y: rN (the shifted form's radius); q0 = Q(p)
+        const flag = A.cell(), p = A.cell(), fp = A.cell(), ll = A.cell(), q0 = A.cell();
+        // P and Q: the step's own coefficient cells when it has them with these very values (extra.shared: the poly
+        // step, Q = 1; a rational step with a non-constant denominator), so the path adds no uniforms per coefficient,
+        // and the far form is P_f itself; otherwise cells of its own (the zeros-and-poles step, a custom formula)
+        const sh = extra.shared || null;
+        const Pc = sh ? sh.P : Array.from({ length: dp + 1 }, () => A.cell());
+        const Qc = sh ? sh.Q : Array.from({ length: dq + 1 }, () => A.cell());
+        // Near p: up to degree NAT_NMAX the Taylor coefficients N of the shifted form (exact to float32 rounding,
+        // computed once in double); above it, so that a polynomial of a thousand terms needs no second thousand
+        // uniforms, the same quantity as divided differences, u N(e) = u (q0 P[p,x] − p0 Q[p,x]) / n1 with
+        // P[p,x] = (P(x) − P(p))/(x − p) by synthetic division (no cancellation at x = p either); kn = q0/n1, p0 = P(p)
+        // (0 at an exact zero), the remainder of the division dropped as the CPU drops it
+        const useN = M <= NAT_NMAX;
+        const Nc = useN ? Array.from({ length: M }, () => A.cell()) : [];
+        const kn = useN ? null : A.cell(), p0 = useN || !Qc ? null : A.cell();
+        const horner = (cs, nm, at) => `vec2 ${nm} = vec2(0.0);\n` + cs.map((c) => `  ${nm} = cmul(${nm}, ${at}) + ${c.v};`).join('\n');
+        // the quotient of the polynomial with coefficients cs (highest first) by (x - p), at x: a loop over the
+        // uniform array when the cells are consecutive (the step's own coefficients), else unrolled
+        const quot = (cs, nm) => {
+          const n = cs.length - 1;
+          if (n < 1) return `vec2 ${nm} = vec2(0.0);`;
+          const c0 = cs[0].c;
+          if (cs.every((c, i) => c.c === c0 + i) && n > 8) {
+            return `vec2 ${nm} = vec2(0.0), ${nm}b = vec2(0.0);
+  for (int k = 0; k < ${n}; k++) {
+    int ci = ${c0} + k;
+    vec4 s = uChain[ci >> 1];
+    ${nm}b = cmul(${nm}b, ${p.v}) + ((ci & 1) == 0 ? s.xy : s.zw);
+    ${nm} = cmul(${nm}, x) + ${nm}b;
+  }`;
+          }
+          return `vec2 ${nm} = vec2(0.0), ${nm}b = vec2(0.0);\n` + cs.slice(0, n).map((c) => `  ${nm}b = cmul(${nm}b, ${p.v}) + ${c.v}; ${nm} = cmul(${nm}, x) + ${nm}b;`).join('\n');
+        };
+        const near = useN
+          ? `${horner(Nc, 'n', 'e')}
+    return c + cmul(cexp(${ll.v} * t), cdiv(cmul(cmul(u, n), ${q0.v}), q));`
+          : `${quot(Pc, 'dP')}
+    ${Qc ? `${quot(Qc, 'dQ')}\n    vec2 dd = cmul(${q0.v}, dP) - cmul(${p0.v}, dQ);` : 'vec2 dd = dP;'}
+    return c + cmul(cexp(${ll.v} * t), cdiv(cmul(cmul(u, dd), ${kn.v}), q));`;
+        const far = sh ? `${P}_f(x)` : Qc ? 'cdiv(pp, q)' : 'pp';
+        const h = `${T0}if (${flag.x} < 0.5) { ${LIN(P)} }
+  vec2 u = z - ${p.v}, e = u * t, x = ${p.v} + e;
+  vec2 c = ${p.v} * (1.0 - t) + ${fp.v} * t;
+  ${Qc ? horner(Qc, 'q', 'x') : 'vec2 q = vec2(1.0, 0.0);'}
+  if (cx_abs(e) < ${flag.y}) {
+    ${near}
+  }
+  ${sh ? '' : horner(Pc, 'pp', 'x')}
+  return c + cmul(cexp(${ll.v} * (t - 1.0)), ${far} - ${fp.v}) / t;`;
+        return {
+          h,
+          write(put, b) {
+            const d = Funcs.natData(b);
+            const ok = !!d && d.N && d.N.length === M && d.P.length === dp + 1 && d.Q.length === dq + 1;
+            put(flag.c, ok ? 1 : 0, ok ? Math.min(d.rN, 3e38) : 0);
+            for (const [c, v] of [[p, ok ? d.p : C(0, 0)], [fp, ok ? d.fp : C(0, 0)], [ll, ok ? d.ll : C(0, 0)], [q0, ok ? d.q0 : C(0, 0)]]) putC(put, c, v);
+            Nc.forEach((c, k) => putC(put, c, ok ? d.N[k] : C(0, 0)));
+            if (kn) putC(put, kn, ok ? CX.div(d.q0, d.n1) : C(0, 0));
+            if (p0) putC(put, p0, ok ? d.p0 : C(0, 0));
+            if (sh) return; // the step writes its coefficients itself
+            Pc.forEach((c, k) => putC(put, c, ok ? d.P[k] : C(0, 0)));
+            if (Qc) Qc.forEach((c, k) => putC(put, c, ok ? d.Q[k] : C(0, 0)));
+          },
+        };
+      }
+    }
+    return null;
+  }
+
   // ---- per-step code generation ----
   // Returns {sig, f, h, write(put)}: f is the body of vec2 P_f(vec2 z), h of vec2 P_h(vec2 z, float t).
   function stepPlan(P, b, A) {
     const v = b.vals;
     const type = b.def.id;
     const trig = { sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh', arcsin: 'casin', arccos: 'cacos', arctan: 'catan', arsinh: 'casinh', arcosh: 'cacosh', artanh: 'catanh' };
-    if (trig[type]) return { sig: [type], f: `return ${trig[type]}(z);`, h: LIN(P), write() {} };
+    if (trig[type]) {
+      const np = natPlan(P, b.nat, A);
+      return { sig: [type], f: `return ${trig[type]}(z);`, h: np ? np.h : LIN(P), write() {} };
+    }
     switch (type) {
       case 'mul': {
         const c = A.cell(), path = pathSlots(A);
@@ -8332,22 +9136,25 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const cut = A.cell();
         return {
           sig: [type], f: `return clog(z, ${cut.x}, ${cut.y});`,
-          h: `float u = 1.0 - t;
+          h: `if (t <= 0.0) return z;
+  float u = 1.0 - t;
   if (u < 1e-6) return clog(z, ${cut.x}, ${cut.y});
   if (z.x == 0.0 && z.y == 0.0) return vec2(u - 1.0 / u, 0.0);
   return cx_expm1(clog(z, ${cut.x}, ${cut.y}) * u) * (1.0 / u) + vec2(u, 0.0);`,
           write(put) { put(cut.c, v.cut * DEG, v.k); },
         };
       }
-      case 'joukowski':
-        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: LIN(P), write() {} };
+      case 'joukowski': {
+        const np = natPlan(P, b.nat, A);
+        return { sig: [type], f: 'return (z + cinv(z)) * 0.5;', h: np ? np.h : LIN(P), write() {} };
+      }
       case 'ijouk': {
         const sg = A.cell();
         // interior branch z - s equals 1/(z + s) since (z - s)(z + s) = 1; the latter avoids cancellation
         return {
           sig: [type],
           f: `vec2 e = z + cmul(csqrtp(z - vec2(1.0, 0.0)), csqrtp(z + vec2(1.0, 0.0)));\n  return ${sg.x} > 0.0 ? e : cinv(e);`,
-          h: LIN(P), write(put) { put(sg.c, v.branch === 'interior' ? -1 : 1, 0); },
+          h: (natPlan(P, b.nat, A, { sg }) || { h: LIN(P) }).h, write(put) { put(sg.c, v.branch === 'interior' ? -1 : 1, 0); },
         };
       }
       case 'conj':
@@ -8357,9 +9164,38 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const cells = lists.map((co) => co.map(() => A.cell()));
         const horner = (cs, nm) => `vec2 ${nm} = vec2(0.0);\n` + cs.map((c) => `  ${nm} = cmul(${nm}, z) + ${c.v};`).join('\n');
         const f = type === 'poly' ? `${horner(cells[0], 'p')}\n  return p;` : `${horner(cells[0], 'p')}\n  ${horner(cells[1], 'q')}\n  return cdiv(p, q);`;
+        // the zoom path reads P and Q from these cells when they hold exactly its P and Q (a constant denominator
+        // divides the numerator there, so a rational step with one keeps cells of its own)
+        const shared = type === 'poly' ? { P: cells[0], Q: null } : lists[1].length > 1 ? { P: cells[0], Q: cells[1] } : null;
+        const np = natPlan(P, b.nat, A, { shared });
         return {
-          sig: [type, ...lists.map((l) => l.length)], f, h: LIN(P),
-          write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); },
+          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P),
+          write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); if (np) np.write(put, b); },
+        };
+      }
+      case 'zp': {
+        // a ∏ (z − ζ_k)/(z − p_k) × the unpaired factors, as Funcs evaluates it (no overflow of either product alone);
+        // the values are uniforms, so dragging a zero or a pole never recompiles (the counts are the signature)
+        const zp = b.zp, nz = zp.zeros.length, np = zp.poles.length, deg = Math.max(nz, np);
+        const a = A.cell(), zc = zp.zeros.map(() => A.cell()), pc = zp.poles.map(() => A.cell());
+        let f = `if (${a.v} == vec2(0.0)) return vec2(0.0);\n  `; // a = 0: the constant 0, the poles too (removable)
+        for (const c of pc) f += `if (z == ${c.v}) return vec2(cx_inf());\n  `;
+        f += `vec2 w = ${a.v};\n`;
+        for (let i = 0; i < deg; i++) {
+          if (i < nz && i < np) f += `  w = cmul(w, cdiv(z - ${zc[i].v}, z - ${pc[i].v}));\n`;
+          else if (i < nz) f += `  w = cmul(w, z - ${zc[i].v});\n`;
+          else f += `  w = cdiv(w, z - ${pc[i].v});\n`;
+        }
+        f += '  return w;';
+        const np2 = natPlan(P, b.nat, A);
+        return {
+          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P),
+          write(put) {
+            putC(put, a, zp.a);
+            zc.forEach((c, i) => putC(put, c, zp.zeros[i]));
+            pc.forEach((c, i) => putC(put, c, zp.poles[i]));
+            if (np2) np2.write(put, b);
+          },
         };
       }
       case 'custom': {
@@ -8368,9 +9204,10 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const TH = cut.x;
         const writers = [], lines = [];
         const res = genCustom(ast, P, A, TH, writers, lines);
+        const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, String(v.expr)], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: LIN(P),
-          write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); },
+          sig: [type, String(v.expr), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P),
+          write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
     }
@@ -8594,6 +9431,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     for (const { P, k } of maps) src += `  if (i == ${k}) return ${P}_h(z, t);\n`;
     for (const k of dks) src += `  if (i == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
+    // all at once (mode 3): every step's homotopy at the same t, H_t = h_{b,t} o ... o h_{a+1,t}, through chainHom (so
+    // the step functions are not inlined a second time; a d/dz gives NaN there, an off or failed step the identity)
+    src += `vec2 chainHomAll(vec2 z, int a, int b, float t) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, t);\n  }\n  return z;\n}\n`;
     src += `bool chainIsDeriv(int k) {\n  return ${dks.length ? dks.map((k) => `k == ${k}`).join(' || ') : 'false'};\n}\n`;
     // the maps in (a, b] applied to a point (no d/dz inside)
     const raw = dks.length ? 'cxs0_raw' : 'chainRange';
@@ -12539,6 +13379,13 @@ const SphereMesh = (() => {
       case 'powa': { const a = v.alpha; return !a ? und : a.re > 0 ? inf : a.re < 0 ? fin(C(0, 0)) : und; }
       case 'exp': case 'sin': case 'cos': case 'tan': case 'sinh': case 'cosh': case 'tanh': case 'arctan': case 'artanh': return und;
       case 'arcsin': case 'arccos': case 'arsinh': case 'arcosh': return inf;
+      case 'zp': {
+        // a ∏(z − ζ)/∏(z − p): ∞ when there are more zeros, a when as many, 0 when fewer (a constant: its value)
+        const zp = b.zp;
+        if (!zp || (b.props && b.props.constant)) break;
+        const nz = zp.zeros.length, np = zp.poles.length;
+        return nz > np ? inf : nz === np ? fin(zp.a) : fin(C(0, 0));
+      }
     }
     return probeStep(b.f, null);
   }
@@ -13871,7 +14718,8 @@ precision highp sampler2D;
 #define TAU 6.283185307179586
 `;
   // The map of a draw (uMode): 0 stages a..b (chainRange), 1 the natural homotopy of step uHi at uT, 2 the straight
-  // line from stage a to stage b at uT. s is the point of the source plane: stage a for mode 0, else stage uBase
+  // line from stage a to stage b at uT, 3 the natural homotopies of the steps in (a, b] all at once at uT
+  // (chainHomAll: H_t = h_{b,t} o ... o h_{a+1,t}; never across a d/dz). s is the point of the source plane: stage a for mode 0, else stage uBase
   // (map.base; 0, the z-plane, by default).
   // A chain with d/dz steps (GLChain's chainStage / chainIsDeriv): stage maps G_k are functions of z, a d/dz step
   // has no homotopy of its own, so mode 1 at a d/dz step mixes G_(hi-1)(s) and G_hi(s), and mode 2 takes G_b(s)
@@ -13880,6 +14728,7 @@ precision highp sampler2D;
 vec2 mapPoint(vec2 s) {
   if (uMode == 1) { vec2 z = chainRange(s, uBase, uHi - 1); return chainHom(uHi, z, uT); }
   if (uMode == 2) { vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT); }
+  if (uMode == 3) return chainHomAll(chainRange(s, uBase, uA), uA, uB, uT);
   return chainRange(s, uA, uB);
 }
 `;
@@ -13899,6 +14748,7 @@ vec2 mapPoint(vec2 s) {
     vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
     return mix(z0, z1, uT);
   }
+  if (uMode == 3) return chainHomAll(chainRange(s, uBase, uA), uA, uB, uT);
   return chainRange(s, uA, uB);
 }
 `;
@@ -16143,7 +16993,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -16275,7 +17125,7 @@ float wabs(vec2 w) {
     while (p < a.length && p < b.length && a[p] === b[p]) p++;
     const mode = map.mode || 0;
     if (mode === 1 && (map.hi || 0) > p) return { mode: 0, a: map.base || 0, b: (map.hi || 0) - 1 };
-    if (mode === 2 && (map.b || 0) > p) return { mode: 0, a: map.base || 0, b: map.a || 0 };
+    if ((mode === 2 || mode === 3) && (map.b || 0) > p) return { mode: 0, a: map.base || 0, b: map.a || 0 };
     return map;
   }
   const LIVE = (sig) => sig !== 'off' && sig !== 'err' && sig !== 'unsupported';
@@ -19306,6 +20156,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     check: svgI('<path d="M3.5 8.5l3 3 6-7"/>'),
     download: svgI('<path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/>'),
     sphere: svgI('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
+    // the deformation's paths t -> H_t(z): a start dot, a curved path and its arrowhead
+    paths: svgI('<circle cx="3.25" cy="12.25" r="1.4" fill="currentColor" stroke="none"/><path d="M3.25 12.25C4.5 7 8.5 4.25 13 4.25"/><path d="M10.25 2.25L13 4.25l-2.25 2.6"/>'),
   };
   // right-plane mode icons (14px)
   const msvg = (inner) => `<svg class="mic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -19459,7 +20311,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
       alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
-      patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, hom: 'natural', height: 'log', outline: true,
+      patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
       // w-plane targets, drawn in the right plane in Image mode; their preimages show in the left plane in every
       // mode (none by default); the optional Riemann sphere view of the left plane; Landscape: all sheets of a
@@ -19511,6 +20363,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const keep = new Set(S.shapes.map((x) => x.id));
     for (const id of [...gpu.keys()]) if (!keep.has(id)) dropShapeGPU(id);
     if (selected && !keep.has(selected) && !S.targets.some((x) => x.id === selected)) selected = null;
+    zpSel = null; zpHover = null;
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     S.focus = f;
     dismissUndoToast();
@@ -19633,7 +20486,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     if (!DC_STYLES.some((p) => p[0] === st.dc)) st.dc = d0.dc;
     if (st.solo !== 'L' && st.solo !== 'R') st.solo = null;
     // enumerated settings: an unknown value (another build, a damaged save) falls back to the default
-    if (!['natural', 'linear'].includes(st.hom)) st.hom = d0.hom;
+    // the straight-line homotopy is gone (2026-10-22): every save deforms along the natural paths; homAll: the steps
+    // deform all at once (one t for every step) instead of one after another
+    delete st.hom;
+    st.homAll = st.homAll === true;
+    if ('morphPaths' in st) st.morphPaths = st.morphPaths !== false;
     if (!['log', 'abs', 're', 'im'].includes(st.height)) st.height = d0.height;
     if ('sectors' in st && ![8, 12, 16, 24].includes(st.sectors)) delete st.sectors;
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
@@ -20038,8 +20895,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     return { steps: activeSteps() };
   }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
+  // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
+  // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
+  // morphLen: the end of the transport's time, m steps one after another, or 1.
+  const allAtOnce = () => !!S.homAll && morphRange().steps.length > 1 && !morphRange().steps.some((k) => isDeriv(k));
+  const morphLen = () => (allAtOnce() ? 1 : morphRange().steps.length);
+  // the primes of a point's label under the deformation: the steps begun (all of them at once for t > 0)
+  const morphPrimes = () => (allAtOnce() ? (morph.T > 0 ? morphRange().steps.length : 0) : Math.ceil(morph.T)) + (S.focus > 0 ? S.focus - 1 : 0);
   const lerpF = (F0, F1, t) => (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); };
-  // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none)
+  // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
+  // or a formula that is not recognisably a catalog map, funcs.js)
   function homF(k, t) {
     const b = built[k - 1];
     if (b && b.hom) return b.hom(t);
@@ -20052,16 +20917,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   function morphState(rel) {
     const { steps } = morphRange();
     const m = steps.length;
-    const T = Math.max(0, Math.min(m, morph.T));
     const base = S.focus > 0 ? S.focus - 1 : 0;
     const end = S.focus > 0 ? S.focus : nSteps();
     const pb = rel ? leftStage() : 0;
     const src = (k) => rangeF(pb, k);
     const tag = (map) => { if (pb) map.base = pb; return map; };
-    if (S.hom === 'linear' || m === 0) {
-      const t = m ? T / m : 0;
-      return { map: tag({ mode: 2, a: base, b: end, t }), F: lerpF(src(base), src(end), t), label: m ? `t = ${t.toFixed(2)}` : 'no active steps', key: `lin|${pb}|${base}|${end}|${t}` };
+    if (m === 0) return { map: tag({ mode: 0, a: pb, b: base }), F: src(base), label: 'no active steps', key: `none|${pb}|${base}` };
+    if (allAtOnce()) {
+      const t = Math.max(0, Math.min(1, morph.T));
+      const F0 = src(base), Hs = steps.map((k) => homF(k, t));
+      const F = (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
+      return { map: tag({ mode: 3, a: base, b: end, t }), F, label: `all steps · t = ${t.toFixed(2)}`, key: `all|${pb}|${base}|${end}|${t}` };
     }
+    const T = Math.max(0, Math.min(m, morph.T));
     const j = Math.min(m - 1, Math.floor(T));
     const t = T - j;
     const k = steps[j];
@@ -20311,7 +21179,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   function homEnds(m) {
     const base = m.base || 0;
     if (m.mode === 1) { const k = m.hi || 0; return [{ mode: 0, a: base, b: Math.max(base, k - 1) }, { mode: 0, a: base, b: k }]; }
-    if (m.mode === 2) return [{ mode: 0, a: base, b: m.a || 0 }, { mode: 0, a: base, b: m.b || 0 }];
+    if (m.mode === 2 || m.mode === 3) return [{ mode: 0, a: base, b: m.a || 0 }, { mode: 0, a: base, b: m.b || 0 }];
     return null;
   }
   // the content of a mesh (everything but the view); with win false, without the meshing window (the stand-in rule)
@@ -20722,6 +21590,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       return (z) => Ht(Fp(z));
     }
     if (mode === 2) return lerpF(rangeF(pb, map.a || 0), rangeF(pb, map.b || 0), map.t || 0);
+    if (mode === 3) {
+      const F0 = rangeF(pb, map.a || 0), t = map.t || 0, Hs = [];
+      for (let k = (map.a || 0) + 1; k <= (map.b || 0); k++) if (stepActive(k)) Hs.push(isDeriv(k) ? () => C(NaN, NaN) : homF(k, t));
+      return (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
+    }
     return rangeF(map.a || 0, map.b || 0);
   }
   // Per segment of r.lineRes (createLines order): the arc length of the curve under F at the segment start and the
@@ -20767,6 +21640,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       if (t === 1) return { mode: 0, a: base, b: k };
       if (t === 0) return { mode: 0, a: base, b: Math.max(base, k - 1) };
     } else if (mode === 2) {
+      if (t === 0) return { mode: 0, a: base, b: map.a || 0 };
+      if (t === 1) return { mode: 0, a: base, b: map.b || 0 };
+    } else if (mode === 3) {
+      // all at once: exact at its ends when every step's homotopy is (Inverse.homExact)
+      for (let k = (map.a || 0) + 1; k <= (map.b || 0); k++) {
+        const st = S.steps[k - 1];
+        if (stepActive(k) && (isDeriv(k) || !(typeof Inverse !== 'undefined' && Inverse.homExact(st)))) return map;
+      }
       if (t === 0) return { mode: 0, a: base, b: map.a || 0 };
       if (t === 1) return { mode: 0, a: base, b: map.b || 0 };
     }
@@ -21538,6 +22419,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       }
     }
     const sc = thin ? 0.66 : 1;
+    // a zeros-and-poles step: its handles draw them in its input plane (drawZpHandles); elsewhere (a figure, the
+    // thumbnails) its zeros are dots in the zero ink beside the pole crosses
+    if (b.def && b.def.id === 'zp') {
+      if (editable && !figMode && lFlat()) { ctx.restore(); return handles; }
+      for (const z of b.zp.zeros) {
+        if (!CX.isFin(z)) continue;
+        const [x, y] = pane.w2s(z);
+        ctx.fillStyle = TH.zero; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.5 * sc;
+        ctx.beginPath(); ctx.arc(x, y, 4 * sc, 0, TAU); ctx.stroke(); ctx.fill();
+      }
+    }
     for (const p of b.poles) {
       if (!CX.isFin(p)) continue;
       const [x, y] = pane.w2s(p);
@@ -21674,6 +22566,255 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       ctx.beginPath(); ctx.arc(hd.x, hd.y, hot ? 7 : 6, 0, TAU); ctx.fill(); ctx.stroke();
       chip(ctx, hd.x + 14, hd.y, `θ ${CX.fmtNum(hd.deg, 1).replace('-', '−')}°`, TH.cut, TH.cut);
     }
+  }
+  // ---- zeros and poles of a 'zp' step, dragged in its input plane (notes/ui-design/zeros-poles.md) ----
+  // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
+  // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
+  const ZP_KINDS = ['zeros', 'poles'];
+  const zpSym = (kind, i) => (kind === 'zeros' ? 'ζ' : 'p') + sub(i + 1);
+  // (the marks are drawn with every overlay frame: a field's text is parsed once)
+  const zpParsed = new Map();
+  const zpParse = (s) => {
+    if (zpParsed.has(s)) return zpParsed.get(s);
+    let v = null;
+    try { v = Expr.constValue(s); if (!CX.isFin(v)) v = null; } catch (e) { v = null; }
+    if (zpParsed.size > 512) zpParsed.clear();
+    zpParsed.set(s, v);
+    return v;
+  };
+  const zpSame = (a, k, kind, i) => !!a && a.k === k && a.kind === kind && a.i === i;
+  const zpItems = (st, kind) => Funcs.splitList(st.params[kind]);
+  // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
+  // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
+  function zpStep() {
+    if (!S || !paneL || solo() === 'R' || !lFlat()) return null;
+    const j = leftStage(), st = S.steps[j];
+    if (!st || st.type !== 'zp' || st.on === false) return null;
+    const items = {};
+    for (const kind of ZP_KINDS) items[kind] = zpItems(st, kind).map(zpParse);
+    return { k: j + 1, st, items };
+  }
+  // (a finger gets a larger target)
+  // (handles on one spot, a zero snapped onto a pole: a press takes the one not selected, so repeated clicks cycle)
+  function zpHit(x, y, r = 11) {
+    const near = zpHandlesL.map((hd) => ({ hd, d: Math.hypot(hd.x - x, hd.y - y) })).filter((q) => q.d < r).sort((a, b) => a.d - b.d);
+    if (!near.length) return null;
+    const tie = near.filter((q) => q.d - near[0].d < 1);
+    const i = tie.findIndex((q) => zpSame(zpSel, q.hd.k, q.hd.kind, q.hd.i));
+    return i >= 0 ? tie[(i + 1) % tie.length].hd : near[0].hd;
+  }
+  function drawZpHandles(pane) {
+    const zs = zpStep();
+    if (!zs) return;
+    const ctx = pane.octx;
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (const kind of ZP_KINDS) zs.items[kind].forEach((z, i) => {
+      if (!z) return;
+      const dr = drag && drag.mode === 'zp' && zpSame(drag, zs.k, kind, i) ? drag : null;
+      let [x, y] = pane.w2s(z);
+      // dragged off the plane: shown faded at the edge where the pointer is, with what a release does
+      if (dr && dr.off) { x = Math.max(12, Math.min(pane.w - 12, dr.x)); y = Math.max(12, Math.min(pane.h - 12, dr.y)); }
+      zpHandlesL.push({ x, y, k: zs.k, kind, i });
+      if (x < -16 || y < -16 || x > pane.w + 16 || y > pane.h + 16) return;
+      const hot = !!dr || zpSame(zpHover, zs.k, kind, i), sel = zpSame(zpSel, zs.k, kind, i);
+      const col = kind === 'zeros' ? TH.zero : TH.pole, r = hot ? 6 : 5;
+      ctx.globalAlpha = dr && dr.off ? 0.45 : 1;
+      if (kind === 'zeros') {
+        ctx.fillStyle = col; ctx.strokeStyle = TH.halo; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.fill();
+        ctx.fillStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, 1.75, 0, TAU); ctx.fill();
+      } else {
+        const cross = () => { ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke(); };
+        ctx.strokeStyle = TH.halo; ctx.lineWidth = 6; cross();
+        ctx.strokeStyle = col; ctx.lineWidth = 2.5; cross();
+      }
+      if (hot || sel) { ctx.strokeStyle = col; ctx.lineWidth = sel ? 1.5 : 1; ctx.beginPath(); ctx.arc(x, y, 10.5, 0, TAU); ctx.stroke(); }
+      const t = zpSym(kind, i);
+      // (no label where handles crowd: closer than 18 px to one drawn before, unless it is held or selected)
+      const crowd = !hot && !sel && zpHandlesL.slice(0, -1).some((q) => Math.hypot(q.x - x, q.y - y) < 18);
+      ctx.font = `italic 500 13px ${TH.math}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      if (!crowd) {
+        ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(t, x + 9, y - 8);
+        ctx.fillStyle = kind === 'zeros' ? TH.ink : TH.pole; ctx.fillText(t, x + 9, y - 8);
+      }
+      if (dr && dr.off) {
+        ctx.globalAlpha = 1;
+        const msg = `Release to remove ${t}`;
+        ctx.font = `11px ${TH.mono}`;
+        const cw = ctx.measureText(msg).width + 12;
+        chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
+      }
+    });
+    ctx.restore();
+  }
+  // a dragged value: to the decade below a pixel (never more than a pixel off; a snapped value stays as snapped)
+  function zpRound(pane, z) {
+    const q = Math.pow(10, Math.floor(Math.log10(1 / pane.view.s)));
+    const r = (x) => +(Math.round(x / q) * q).toPrecision(12);
+    return C(r(z.re), r(z.im));
+  }
+  function zpWrite(st, kind, list) { st.params[kind] = list.join(', '); }
+  // the card fields of step k (its card and its compact popover) show the values of the step (a field being typed in
+  // keeps its text)
+  function syncZpFields(k) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return;
+    const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
+    // (two columns while every value fits one, as zpFields lays them out)
+    const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
+    for (const el of document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], .card-pop[data-k="${k}"] input[data-zp]`)) {
+      const row = el.closest('.zp-item');
+      if (row) row.classList.toggle('wide1', wide);
+      if (document.activeElement === el) continue;
+      const [kind, i] = el.dataset.zp.split(':');
+      const v = lists[kind][+i];
+      if (v != null && el.value !== v) { el.value = v; el.classList.remove('bad'); }
+    }
+  }
+  // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
+  function refreshZpCard(k) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return;
+    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p'], [`.card-pop[data-k="${k}"] .params`, 'pp']]) {
+      const el = document.querySelector(sel);
+      if (!el) continue;
+      const top = el.scrollTop;
+      el.innerHTML = '';
+      el.append(zpFields(st, k, pre));
+      el.scrollTop = top;
+    }
+  }
+  function zpSet(k, kind, i, v) {
+    const st = S.steps[k - 1];
+    if (!st) return;
+    const list = zpItems(st, kind);
+    if (i >= list.length) return;
+    const item = Funcs.zpItem(v);
+    if (list[i] === item) return;
+    list[i] = item;
+    zpWrite(st, kind, list);
+    chainChanged(false);
+    syncZpFields(k);
+  }
+  // a free spot for a new zero or pole: the grid node nearest the centre of X's view (a 1-2-5 step of at least
+  // 40 px) that is at least 22 px from every zero and pole, nearest first
+  function zpFreeSpot(k) {
+    const st = S.steps[k - 1];
+    paneL.setView(leftView());
+    const v = leftView(), d0 = Math.pow(10, Math.floor(Math.log10(40 / v.s)));
+    const step = [1, 2, 5, 10].map((m) => m * d0).find((x) => x * v.s >= 40) || 10 * d0;
+    const have = ZP_KINDS.flatMap((kind) => zpItems(st, kind).map(zpParse)).filter(Boolean);
+    const cx = Math.round(v.cx / step), cy = Math.round(v.cy / step), cands = [];
+    for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) cands.push([cx + i, cy + j]);
+    const r = (x) => +(x * step).toPrecision(12);
+    cands.sort((p, q) => Math.hypot(p[0] * step - v.cx, p[1] * step - v.cy) - Math.hypot(q[0] * step - v.cx, q[1] * step - v.cy));
+    for (const [i, j] of cands) {
+      const z = C(r(i), r(j));
+      if (have.every((q) => CX.abs(CX.sub(q, z)) * v.s > 22)) return z;
+    }
+    return zpRound(paneL, C(v.cx, v.cy));
+  }
+  // add a zero or a pole to step k (at v, else a free spot): its index. Not committed (the caller commits).
+  function zpAdd(k, kind, v) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return -1;
+    const list = zpItems(st, kind);
+    if (list.length >= Funcs.ZP_MAX) { toast(`At most ${Funcs.ZP_MAX} ${kind} (degree ${Funcs.ZP_MAX}, as Write by zeros and poles allows).`); return -1; }
+    const z = v || zpFreeSpot(k);
+    list.push(Funcs.zpItem(z));
+    zpWrite(st, kind, list);
+    zpSel = { k, kind, i: list.length - 1 };
+    if (selected) { selected = null; buildShapeList(); }
+    chainChanged(false);
+    refreshZpCard(k);
+    return list.length - 1;
+  }
+  // the card's + buttons: a new zero or pole in view; the step is focused so that its input plane shows it
+  function zpAddFromCard(k, kind) {
+    if (!zpStep() || zpStep().k !== k) setFocus(k);
+    const i = zpAdd(k, kind);
+    if (i < 0) return;
+    commit();
+    requestRender('OL');
+    const inp = document.querySelector(`#pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
+    if (inp) inp.scrollIntoView({ block: 'nearest' });
+  }
+  function zpRemove(k, kind, i) {
+    const st = S.steps[k - 1];
+    if (!st || st.type !== 'zp') return;
+    const list = zpItems(st, kind);
+    if (i < 0 || i >= list.length) return;
+    list.splice(i, 1);
+    zpWrite(st, kind, list);
+    if (zpSame(zpSel, k, kind, i)) zpSel = null;
+    else if (zpSel && zpSel.k === k && zpSel.kind === kind && zpSel.i > i) zpSel.i--;
+    zpHover = null;
+    chainChanged(false);
+    refreshZpCard(k);
+    commit();
+    requestRender('OL');
+  }
+  // the parameter fields of a 'zp' card: a, the + zero / + pole buttons, then one field per zero and per pole
+  function zpFields(st, k, pre) {
+    const d = Funcs.DEFS.zp;
+    const frag = document.createDocumentFragment();
+    frag.append(paramField(st, k, d.params[0], pre));
+    const n = { zeros: zpItems(st, 'zeros').length, poles: zpItems(st, 'poles').length }, MAX = Funcs.ZP_MAX;
+    const addBtn = (kind) => {
+      const full = n[kind] >= MAX, one = kind === 'zeros' ? 'zero' : 'pole';
+      const b = h('button', { class: 'zp-add ' + kind, type: 'button',
+        'data-tip': full ? `At most ${MAX} ${kind}` : kind === 'zeros' ? 'Add a zero (or Shift-click in the input plane)' : 'Add a pole (or Shift-⌘-click in the input plane)',
+        'aria-label': `Add a ${one} to f${sub(k)} (${n[kind]} now)`,
+        onclick: (e) => { e.stopPropagation(); zpAddFromCard(k, kind); } },
+      h('span', { class: 'zp-mark', 'aria-hidden': 'true' }), one, h('span', { class: 'zp-n', 'aria-hidden': 'true' }, String(n[kind])));
+      if (full) b.disabled = true;
+      return b;
+    };
+    frag.append(h('div', { class: 'pf zp-adds' }, addBtn('zeros'), addBtn('poles')));
+    // two columns while every value fits one (8 characters), else one per row at full width
+    const wide = ZP_KINDS.some((kind) => zpItems(st, kind).some((raw) => raw.length > 8));
+    for (const kind of ZP_KINDS) zpItems(st, kind).forEach((raw, i) => { const el = zpItemField(st, k, kind, i, raw, pre); if (wide) el.classList.add('wide1'); frag.append(el); });
+    return frag;
+  }
+  function zpItemField(st, k, kind, i, raw, pre) {
+    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i), what = kind === 'zeros' ? 'zero' : 'pole';
+    const input = h('input', { class: 'inp', id, value: raw, spellcheck: 'false', autocomplete: 'off' });
+    input.dataset.zp = `${kind}:${i}`;
+    // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)
+    const fields = () => [...input.closest('.params').querySelectorAll(`input[data-zp^="${kind}:"]`)];
+    input.addEventListener('input', () => {
+      input.classList.toggle('bad', !zpParse(input.value));
+      st.params[kind] = fields().map((el) => el.value.trim()).filter((x) => x).join(', ');
+      chainChanged(false);
+      requestRender('OL');
+    });
+    // (a field emptied, or holding a list '0.5, 0.5i': the card again, one field per item, so fields and handles
+    // keep their indices)
+    input.addEventListener('change', () => {
+      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      commit();
+    });
+    input.addEventListener('paste', () => setTimeout(() => { if (Funcs.splitList(input.value).filter((x) => x.trim()).length > 1) { input.blur(); } }, 0));
+    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': `Remove ${sym}`, 'aria-label': `Remove ${what} ${i + 1} of f${sub(k)}`, html: ICONS.close,
+      onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
+    const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': `${kind === 'zeros' ? 'Zero' : 'Pole'} ${sym}: drag it in the input plane` }, sym);
+    return h('div', { class: 'pf zp-item' }, lab, h('div', { class: 'pair' }, input, del));
+  }
+  // "Write by zeros and poles" (a polynomial, rational or rational custom step) and back ("Write by coefficients")
+  function convertZp(k, to) {
+    const st = S.steps[k - 1];
+    if (!st) return null;
+    let r;
+    try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
+    if (!r || r.error || !r.step) { toast(((r && r.error) || 'This step cannot be rewritten.').replace(/\.?$/, '.')); return null; }
+    S.steps[k - 1] = { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false };
+    zpSel = null;
+    chainChanged(true);
+    setFocus(k);
+    commit();
+    undoToast(to ? `f${sub(k)} is now given by its zeros and poles (${r.note}): drag them in its input plane.` : `f${sub(k)} is now given by its coefficients.`);
+    return cardButton(k);
   }
   function drawHandles(pane, list) {
     const s = (list || S.shapes).find((x) => x.id === selected);
@@ -21852,6 +22993,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   let paneL, paneR;
   let cutHandlesL = [];
   let hoverCut = 0;
+  // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
+  // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
+  let zpHandlesL = [], zpHover = null, zpSel = null;
   let gaugeInfo = null;
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
@@ -21977,11 +23121,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     gaugeInfo = null;
     const sphL = !lFlat(); // the sphere and landscape views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
+    zpHandlesL = [];
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
+      drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
-      if (probe) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
+      if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
     }
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
     if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
@@ -22726,7 +23873,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       ctx.fillStyle = shapeInk(s).edge; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(q[0], q[1], 4, 0, TAU); ctx.stroke(); ctx.fill();
       // (under the deformation the primes count the steps begun, as on the merged plane: z₀′ for 0 < t <= 1)
-      labels.push({ x: q[0], y: q[1], text: pointLabel(s, idx, hom && imageMode ? Math.ceil(morph.T) + (S.focus > 0 ? S.focus - 1 : 0) : o.stage) });
+      labels.push({ x: q[0], y: q[1], text: pointLabel(s, idx, hom && imageMode ? morphPrimes() : o.stage) });
     }
     // the w-plane's point targets on the w-globe (P3b), marked and labelled as in Y Plane
     if (o.targetPts) {
@@ -23334,8 +24481,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     return r < 1.5 && r > 1 / 1.5 && Math.abs(v.cx - a.cx) * v.s <= 0.3 * pane.w && Math.abs(v.cy - a.cy) * v.s <= 0.3 * pane.h;
   }
   function mfScreenKey(pane) {
-    const m = morphRange().steps.length;
-    const key = JSON.stringify([chainSig[nSteps()], S.focus, S.hom, m, S.shapes.filter((s) => s.visible !== false)]);
+    const m = morphLen();
+    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, m, S.shapes.filter((s) => s.visible !== false)]);
     const v = pane.view, vkey = [v.cx, v.cy, v.s, pane.w, pane.h].join('|');
     return { key, vkey, m };
   }
@@ -23460,7 +24607,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   function drawMorphPaths(pane, sel, F, P = (w) => pane.w2s(w)) {
     if (!sel || !sel.kept.length) return;
     const ctx = pane.ctx;
-    const T = morph.T, atEnd = T >= (sel.Tend || morphRange().steps.length) - 1e-9;
+    const T = morph.T, atEnd = T >= (sel.Tend || morphLen()) - 1e-9;
     const HL = MF_SCREEN_HL, HW = 2.3;
     const items = sel.kept.map((k) => {
       let ss = k.s, l = ss.map((q) => P(q.w));
@@ -23738,18 +24885,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   // whole homotopy, and the caption says once, at sentence level, which part is shown (stop)
   function morphHomSegs(Tend) {
     const { steps } = morphRange();
-    const m = steps.length;
-    const upTo = Tend < m - 1e-9;
+    const m = steps.length, all = allAtOnce();
+    const upTo = Tend < (all ? 1 : m) - 1e-9;
     const stop = upTo ? [{ t: ', shown for ' }, { m: `0\\le t\\le ${CX.fmtNum(Tend, 2)}` }] : [];
     const range = (t1) => [{ t: ', ' }, { m: `0\\le t\\le ${t1}` }];
-    if (S.hom === 'linear') {
-      const Fn = S.focus === 0 ? 'F' : `f_{${S.focus}}`;
-      const stopL = upTo ? [{ t: ', shown for ' }, { m: `0\\le t\\le ${CX.fmtNum(Tend / m, 2)}` }] : [];
-      return { segs: [{ t: 'the straight-line homotopy ' }, { m: `H_t(z)=(1-t)\\,${S.focus > 1 ? `w_{${S.focus - 1}}` : 'z'}+t\\,${Fn}(${S.focus > 1 ? `w_{${S.focus - 1}}` : 'z'})` }, ...range(1)], stop: stopL, mobius: false, linear: true };
-    }
-    const phrase = (k) => {
-      const b = built[k - 1], v = k === 1 ? 'z' : `w_{${k - 1}}`;
-      const r = b && b.homTex ? b.homTex(v) : null;
+    // (several steps: f_k, p_k, ... name step k's map and centre; all at once, every H^{(k)}_t acts on u, since its input
+    // there is H^{(k-1)}_t(z), not w_{k-1})
+    const phrase = (k, names) => {
+      const b = built[k - 1], v = all && m > 1 ? 'u' : k === 1 ? 'z' : `w_{${k - 1}}`;
+      const o = names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : undefined;
+      const r = b && b.homTex ? b.homTex(v, o) : null;
       if (r) return r;
       return { tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,${m === 1 && S.focus === 0 ? 'F' : `f_{${k}}`}(${v})$`, segment: true };
     };
@@ -23759,6 +24904,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       const own = /\\le\s*1|\\le t|t\\le|t</.test(r.tex);
       return { segs: [...texSegs(r.tex), ...(own ? [] : range(1))], stop, mobius: !!r.mobius, segment: !!r.segment };
     }
+    // several steps all at once: H_t = H^{(n)}_t o ... o H^{(1)}_t, 0 <= t <= 1, each step's own homotopy at the same t
+    if (all) {
+      const own = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/H_\{?([t0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));
+      const comp = steps.map((k) => `H^{(${k})}_t`).reverse().join('\\circ ');
+      const segs = [{ t: 'the homotopy ' }, { m: `H_t=${comp}` }, { t: ', ' }, { m: '0\\le t\\le 1' }, { t: ', that deforms every step at once: ' }];
+      steps.forEach((k, i) => {
+        if (i) segs.push({ t: '; ' });
+        segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...own(k, phrase(k, true).tex));
+      });
+      return { segs, stop, mobius: false };
+    }
     // several steps: H_t runs the steps in turn, 0 <= t <= m; step k's own homotopy is H^{(k)}_s in its own time s,
     // H_t = H^{(k)}_{t-k+1} on k-1 <= t <= k
     const local = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : {
@@ -23767,7 +24923,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const segs = [{ t: 'the homotopy ' }, { m: `H_t` }, { t: ', ' }, { m: `0\\le t\\le ${m}` }, { t: ', that runs the steps in turn (' }, { m: 'H_t=H^{(k)}_{t-k+1}' }, { t: ' on ' }, { m: 'k-1\\le t\\le k' }, { t: '): ' }];
     steps.forEach((k, i) => {
       if (i) segs.push({ t: '; ' });
-      segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...local(k, phrase(k).tex));
+      segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...local(k, phrase(k, true).tex));
     });
     return { segs, stop, mobius: false };
   }
@@ -23795,7 +24951,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       : (lineShapes.length ? (dashed ? ' (dashed outline)' : ' (outlined)') : pts.length ? ' (dots)' : '') + (nSets > 1 ? ',' : '');
     const head = opt.both ? [{ t: nSets > 1 ? 'the sets of (a)' : 'the set of (a)' }] : S.focus > 1 ? [{ t: 'The image of ' }, ...setSegs, { t: ` after ${S.focus - 1 === 1 ? 'the first step' : `${S.focus - 1} steps`}` }] : cap1(setSegs);
     const its = nSets > 1 ? 'their image' : 'its image';
-    const endName = Tend < morphRange().steps.length - 1e-9 ? [{ t: `${its} under ` }, { m: `H_{${CX.fmtNum(Tend, 2)}}` }] : [{ t: `${its} under ` }, { m: mapM }];
+    const endName = Tend < morphLen() - 1e-9 ? [{ t: `${its} under ` }, { m: `H_{${CX.fmtNum(Tend, 2)}}` }] : [{ t: `${its} under ` }, { m: mapM }];
     out.push(...head, { t: `${mark} and ` }, ...endName, { t: ` (${patWord}), joined by ` }, ...hom.segs, ...hom.stop, { t: '.' });
     const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
     const ni = sel.kept.filter((k) => k.sp.kind === 'node').length;
@@ -23807,11 +24963,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     if (np) parts.push(num(np, 'marked point', 'marked points'));
     if (sel.kept.length) {
       let clause = '';
-      if (hom.mobius || hom.linear || hom.segment) {
+      if (hom.mobius || hom.segment) {
         const kinds = new Set(sel.kept.map((k) => morphPathShape(k.sp.z, Tend)));
         if (!kinds.has('other')) clause = kinds.size === 2 ? '; each is an arc of a circle or a segment' : kinds.has('arc') ? '; each is an arc of a circle' : '; each is a segment';
       }
-      out.push({ t: ' Arrows are the paths ' }, { m: 't\\mapsto H_t(z)' }, { t: ` of ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]}, from ` }, { m: 'z' }, { t: ' (dot) to ' }, { m: Tend < morphRange().steps.length - 1e-9 ? `H_{${CX.fmtNum(Tend, 2)}}(z)` : 'F(z)' }, { t: `${clause}.` });
+      out.push({ t: ' Arrows are the paths ' }, { m: 't\\mapsto H_t(z)' }, { t: ` of ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]}, from ` }, { m: 'z' }, { t: ' (dot) to ' }, { m: Tend < morphLen() - 1e-9 ? `H_{${CX.fmtNum(Tend, 2)}}(z)` : 'F(z)' }, { t: `${clause}.` });
       if (sel.kept.some((k) => k.meet)) out.push({ t: ' Arrows that meet show points with the same image.' });
     }
     out.push(...patternSegs(Fname));
@@ -23834,7 +24990,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     paper(pane);
     const ms = morphState(false);
     const X = morphX();
-    const m = morphRange().steps.length;
+    const m = morphLen();
     const base = S.focus > 0 ? S.focus - 1 : 0, end = S.focus > 0 ? S.focus : nSteps();
     if (GLR.ok) {
       // the tint is X itself (z-plane): at a focused step the start is the image of X at stage base, outlined instead
@@ -23893,13 +25049,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         ctx.globalAlpha = 1;
       }
     }
-    drawPoints(pane, ms.F, { primes: Math.ceil(morph.T) + (S.focus > 0 ? S.focus - 1 : 0) });
+    drawPoints(pane, ms.F, { primes: morphPrimes() });
     drawRulers(pane, 'R');
   }
   // the transport's readout and scrubber follow the time in every view
   function syncTransport() {
     const lab = $('morphLabel');
-    if (lab) lab.textContent = `t = ${morph.T.toFixed(2)} / ${morphRange().steps.length}`;
+    if (lab) lab.textContent = `t = ${morph.T.toFixed(2)} / ${morphLen()}`;
     const sl = $('morphRange');
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
@@ -25111,7 +26267,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     if (morph.playing && morph.open) {
       const dt = morph.last ? Math.min(0.1, (ts - morph.last) / 1000) : 0;
       morph.last = ts;
-      const m = morphRange().steps.length;
+      const m = morphLen();
       // per step: eased motion, a short hold at each step boundary, a longer one at the end
       if (!m) { morph.playing = false; setPlayIcon(); }
       else if (morph.hold > 0) morph.hold -= dt;
@@ -25295,7 +26451,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       // (withT)
       const base = S.focus > 0 ? S.focus - 1 : 0;
       const end = S.focus > 0 ? S.focus : nSteps();
-      const m = morphRange().steps.length;
+      const m = morphLen();
       const xs = [], ys = [], bx = [], by = [];
       stageSamples(stageF(end), xs, ys);
       if (withT && morph.T > 0 && morph.T < m) stageSamples(morphAt(morph.T), xs, ys);
@@ -25664,23 +26820,57 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       d.replaceChildren();
       const f = d;
 
-      // the deformation transport (spec 6.11), in every view: play, the scrubber with a tick per step, t, speed,
-      // the path and Loop; × closes it and the view returns to t = end
-      const m = morphRange().steps.length;
+      // the deformation transport (spec 6.11), in every view: play, the scrubber with a tick per step (one for all
+      // steps at once), t, speed, the order of the steps (two or more), Loop and the Paths toggle (P); × closes it
+      // and the view returns to t = end
+      const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
       const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? 'Pause' : 'Play', 'aria-label': morph.playing ? 'Pause' : 'Play', html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
       const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': 'Deformation time',
         oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
       const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
-      morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
+      if (allAtOnce()) {
+        const ks = morphRange().steps;
+        ticks.append(h('span', { class: 'ttick', style: 'left:50%', html: `<i>f</i>${sub(ks[0])}, …, <i>f</i>${sub(ks[ks.length - 1])} at once` }));
+      } else morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
+      // the order of the steps (two or more): one after another (t in [0, m]) or all at once (t in [0, 1])
+      let order = null;
+      if (nSt > 1) {
+        order = selectEl('homOrderSel', allAtOnce() ? 'all' : 'steps', [['steps', 'One after another'], ['all', 'All at once']], (v) => setHomAll(v === 'all'), 'Deformation: the steps one after another or all at once');
+        if (hasD) { order.disabled = true; order.value = 'steps'; order.dataset.tip = 'd/dz is not a map: its step deforms on its own, so the steps run one after another'; }
+      }
       f.append(play, h('div', { class: 'tscrub' }, rng, ticks), h('span', { class: 'tread mono', id: 'morphLabel' }, `t = ${morph.T.toFixed(2)} / ${m}`),
         seg('speedSeg', String(S.morphSecs), [['3.2', '0.5×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, 'Speed'),
-        selectEl('homSel', S.hom, [['natural', 'Natural path'], ['linear', 'Straight line']], (v) => { S.hom = v; scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save(); }, 'Homotopy'),
+        ...(order ? [order] : []),
         checkEl('loopChk', S.loop !== false, 'Loop', (v) => { S.loop = v; save(); }),
-        // (the paths t -> H_t(z) are drawn in the merged deformation plane)
-        ...(side === 'R' ? [checkEl('pathsChk', S.morphPaths !== false, 'Paths', (v) => { S.morphPaths = v; requestRender('R'); drawLegend(); save(); })] : []),
+        // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
+        ...(side === 'R' ? [pathsToggle(hasD)] : []),
         h('button', { class: 'icon-btn tclose', 'data-tip': 'Deformation off  M', 'aria-label': 'Turn the deformation off', html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
     }
+  }
+  // the Paths toggle of the deformation (key P while the deformation shows in X → Y; the palette): the live paths
+  // t -> H_t(z) on the merged plane and globe, remembered in the saved state, and the figure's default
+  // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
+  function pathsToggle(hasD = morphHasDeriv()) {
+    const on = S.morphPaths !== false;
+    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': `${on ? 'Hide' : 'Show'} the paths t ↦ H_t(z)  P`, html: `${ICONS.paths}<span>Paths</span>`, onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
+    if (hasD) { b.disabled = true; b.dataset.tip = 'd/dz is not a map, so there are no paths t ↦ H_t(z) to draw'; }
+    return b;
+  }
+  function setMorphPaths(on) {
+    S.morphPaths = !!on;
+    const b = $('pathsBtn');
+    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = `${on ? 'Hide' : 'Show'} the paths t ↦ H_t(z)  P`; }
+    requestRender('R'); drawLegend(); save();
+  }
+  // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
+  function setHomAll(all) {
+    const before = morphLen();
+    S.homAll = !!all;
+    const after = morphLen();
+    if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
+    else if (!morph.open) morph.T = after;
+    buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
   }
   const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: 'Reset camera', 'aria-label': 'Reset camera', html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
@@ -25734,7 +26924,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   // view is put aside while the deformation shows and restored when it closes; the deformation's own view is kept
   // between openings for the same chain, focus and path, and fitted to X and its images the first time.
   const defMem = { y: null, d: null, dkey: '' };
-  const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, S.hom, S.shapes.filter((s) => s.visible !== false).length]);
+  const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]);
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
   function openTransport() {
     if (!morphRange().steps.length) { toast('Add a function to the chain to see its deformation.'); return; }
@@ -25757,7 +26947,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     if (typeof cancelTweens === 'function') cancelTweens();
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
     morph.open = false; morph.playing = false; morph.seg = null;
-    morph.T = morphRange().steps.length;
+    morph.T = morphLen();
     if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
     applyLayout();
     if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
@@ -25986,7 +27176,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     morph.playing = !morph.playing;
     morph.last = 0;
     if (!morph.playing) { scheduleFix(); requestRender('R'); }
-    if (morph.playing && morph.T >= morphRange().steps.length) morph.T = 0;
+    if (morph.playing && morph.T >= morphLen()) morph.T = 0;
     morph.seg = null; morph.hold = 0;
     setPlayIcon();
     requestRender('R');
@@ -26082,7 +27272,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   }
   function addShape(s, target) {
     (target ? S.targets : S.shapes).push(s);
-    selected = s.id;
+    selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }
@@ -26266,7 +27456,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
           items.push({ label: `Integrate ${fnText()} along it`, run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } }, 'sep');
         }
         if (kindType(s) === 'area') items.push({ label: s.complement ? 'Use the set itself' : 'Use complement', run: () => { s.complement = !s.complement; changed(); commit(); } });
-        items.push({ label: 'Duplicate', run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; changed(); commit(); } });
+        items.push({ label: 'Duplicate', run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null; changed(); commit(); } });
         items.push({ label: 'Color', kids: [...TH.c.map((cc, i) => ({ label: `Preset ${i + 1}`, swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: 'Custom color…', run: () => pickColor(s) }] });
         items.push({ label: 'Bring forward', disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
         items.push({ label: 'Send backward', disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
@@ -26280,7 +27470,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
-      onclick: () => { selected = selected === s.id ? null : s.id; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R'); },
+      onclick: () => { selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R'); },
       onpointerenter: () => { hoverShape = s.id; requestRender('L', 'R'); },
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
@@ -26529,7 +27719,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       last = s;
     }
     if (!last) return;
-    selected = last.id;
+    selected = last.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }
@@ -26682,6 +27872,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       { label: 'Insert d/dz after it', disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) },
     ];
     if (d.presets) items.push({ label: 'Presets', kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
+    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
+    const bk = built[k - 1];
+    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: 'Write by zeros and poles', disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
+    if (st.type === 'zp') items.push({ label: 'Write by coefficients', disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
     items.push('sep', { label: 'Remove', icon: 'trash', danger: true, run: () => removeStep(k) });
     openMenu(anchor, items);
   }
@@ -26722,8 +27916,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const canvas = h('canvas');
     const ftex = h('div', { class: 'ftex' });
     const btag = h('span', { class: 'btag' });
-    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : ''), onclick: stop });
-    for (const q of d.params) params.append(paramField(st, k, q));
+    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : ''), onclick: stop });
+    if (st.type === 'zp' && Funcs.DEFS.zp) params.append(zpFields(st, k, 'p'));
+    else for (const q of d.params) params.append(paramField(st, k, q));
     const errEl = h('div', { class: 'err-msg' });
     const note = h('div', { class: 'note' });
     const chips = h('div', { class: 'pchips' });
@@ -26738,9 +27933,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const st = S.steps[k - 1], d = defOf(st);
     const card = document.querySelector(`#pipeline .card[data-k="${k}"]`);
     if (!card || !d.params.length) return;
-    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') });
-    for (const q of d.params) params.append(paramField(st, k, q, 'pp'));
-    const pop = h('div', { class: 'pop card-pop', role: 'dialog', 'aria-label': `Parameters of f${sub(k)}` },
+    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
+    if (st.type === 'zp' && Funcs.DEFS.zp) params.append(zpFields(st, k, 'pp'));
+    else for (const q of d.params) params.append(paramField(st, k, q, 'pp'));
+    const pop = h('div', { class: 'pop card-pop', 'data-k': k, role: 'dialog', 'aria-label': `Parameters of f${sub(k)}` },
       h('div', { class: 'pop-title', html: `<span class="idx">${fsub(k)}</span> ${d.label}` }), params);
     $('popHost').append(pop);
     popEl = pop;
@@ -26976,7 +28172,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         TeX.set(c.ftex, `w_{${k}}=${tx}`);
         setText(c.btag, branchTag(st, b));
         c.btag.hidden = !c.btag.textContent;
-        setText(c.note, [b.branchNote, b.cuts.some((x) => x.editable) ? 'Drag the seam in the input plane' : null].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + (b.branchNote || b.cuts.some((x) => x.editable) ? '.' : ''));
+        const drags = b.cuts.some((x) => x.editable) ? 'Drag the seam in the input plane' : st.type === 'zp' ? 'Drag the zeros and poles in the input plane' : null;
+        setText(c.note, [b.branchNote, drags].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + (b.branchNote || drags ? '.' : ''));
         // property chips are built once and then only toggled (a scrub calls this on every tick); a d/dz card shows
         // what the chain so far guarantees after differentiating (the fold of Funcs.composeProps)
         if (c.chips.childElementCount !== CHIP_DEFS.length) { c.chips.innerHTML = ''; for (const [, ab] of CHIP_DEFS) c.chips.append(h('span', { class: 'pchip' }, ab)); }
@@ -27153,6 +28350,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     conj: ['Reflection in the real axis; not analytic', 'conjugate reflection bar conj'],
     poly: ['Coefficients from the highest degree down', 'polynomial'],
     rational: ['Quotient of two polynomials', 'rational p/q'],
+    zp: ['Drag its zeros and poles in the input plane', 'zeros poles roots factored polynomial rational drag place'],
     custom: ['Any formula in LaTeX or plain text', 'custom formula latex expression'],
     deriv: ['Derivative of the chain so far: w = (previous stage)′', 'derivative differentiate prime d/dz dz derivative of the chain'],
   };
@@ -27270,6 +28468,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         ['Y: Plane', () => { setMain('xy'); setView('R', 'plane'); }, S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
         ['Y: Sphere', () => { setMain('xy'); setView('R', 'sphere'); }, S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
         [morph.open ? 'Deformation off' : 'Deformation on (play the homotopy)', () => toggleTransport(), 'M', 'morph deformation homotopy animate animation merge'],
+        [S.morphPaths !== false ? 'Deformation: hide the paths t ↦ H_t(z)' : 'Deformation: show the paths t ↦ H_t(z)', () => setMorphPaths(!(S.morphPaths !== false)), morphOn() && S.view.main === 'xy' ? 'P' : '', 'paths trajectories arrows homotopy deformation lines'],
+        [S.homAll ? 'Deformation: the steps one after another' : 'Deformation: all steps at once', () => setHomAll(!S.homAll), '', 'deformation order steps simultaneous together sequence homotopy at once'],
         ['Integrate along the selected curve', () => integrateSelected(), '', 'contour line integral integrate residue residues winding number argument principle cauchy'],
         ['Show the roots: a target at 0', () => { if (S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', 'roots zeros poles solve solutions equation preimages target'],
         ...(Funcs.DEFS.deriv ? [['Derivative of the chain: add d/dz', () => addStep('deriv', null, S.focus > 0 ? S.focus : S.steps.length), '', 'derivative prime differentiate d/dz']] : []),
@@ -27937,7 +29137,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const hm = morphOn() && (panels.includes('L') ? lPaintsF() : true);
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
-      const m = morphRange().steps.length, hom = morphHomSegs(m);
+      const m = morphLen(), hom = morphHomSegs(m);
       return [{ t: ' Shown at ' }, { m: `t=${morph.T.toFixed(2)}` }, { t: ', where ' }, { m: 'H_t' }, { t: ' deforms the identity (' }, { m: 't=0' }, { t: ') into ' }, { m: mapF }, { t: ' (' }, { m: `t=${m}` }, { t: ') along ' }, ...hom.segs, { t: '.' }];
     };
     const planeName = leftStage() === 0 ? [{ t: 'the ' }, { m: 'z' }, { t: '-plane' }] : [{ t: 'the ' }, { m: lv }, { t: '-plane, the input of ' }, { m: Fname }];
@@ -28090,7 +29290,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const alive = opt.alive || (() => true);
     const panels = opt.panels, W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
     const isMorph = !!opt.morph && morphOn() && rImage() && !morphHasDeriv();
-    const mEnd = morphRange().steps.length, Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;
+    const mEnd = morphLen(), Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;
     const TICK = 8 * PT, LAB = 9 * PT, CAP = 9 * PT;
     const black = '#000', frameW = 0.75, tickW = 0.6;
     // margins (px): left room for tick numbers and the rotated axis title; bottom for numbers and the title
@@ -28154,13 +29354,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         const P = (w) => [x + (w.re - b.x0) / (b.x1 - b.x0) * pw, y + (b.y1 - w.im) / (b.y1 - b.y0) * r.ph];
         // chosen in slices (the dialog stays live; a newer option cancels it), and kept for the same chain, shapes,
         // panel and time, so the Caption switch or a repeated build reuses it
-        const fkey = JSON.stringify([chainSig[nSteps()], S.focus, S.hom, S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
+        const fkey = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
         if (mfFigCache.key === fkey) mSel = mfFigCache.sel;
         else {
           mSel = await runGenSliced(morphPathsGen(P, { x, y, w: pw, h: r.ph }, b, opt.widthIn, Tend, { headL: MF.headL }), alive);
           if (!mSel || !alive()) return null;
           mfFigCache.key = fkey; mfFigCache.sel = mSel;
         }
+        // Paths off (the figure's Paths row): X's outline and the image only, no arrows (and no arrow sentence)
+        if (opt.paths === false) mSel = Object.assign({}, mSel, { kept: [], labelled: null });
         const lay = morphFigureLayers(mSel, P, { x, y, w: pw, h: r.ph, wx0: b.x0, wx1: b.x1, wy0: b.y0, wy1: b.y1 }, `mfclip${i}`);
         mSel.labelled = lay.labelled;
         body += lay.svg;
@@ -28277,7 +29479,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
   }
   // ---- the export dialog: panels, width, caption, format, a live preview ----
   let lastFigure = null;   // the last figure the dialog built (a test hook reads it)
-  const figOpt = { panels: 'both', width: 7, caption: true, format: 'pdf', mpanels: 'R', upTo: false };
+  // paths: the deformation figure's arrows t -> H_t(z) (null: as on screen, the Paths toggle)
+  const figOpt = { panels: 'both', width: 7, caption: true, format: 'pdf', mpanels: 'R', upTo: false, paths: null };
+  const figPaths = () => (figOpt.paths == null ? S.morphPaths !== false : !!figOpt.paths);
   function openFigureDialog() {
     if (document.querySelector('.modal-bg')) return;
     const opener = document.activeElement;
@@ -28292,6 +29496,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     // The figure follows the view (merged-views.md): X → Y the two-panel figure (or one of its panels), the
     // deformation the morph figure, Phase and Landscape their one wide panel
     const morphFig = S.view.main === 'xy' && morphOn() && rImage() && !morphHasDeriv();
+    figOpt.paths = null; // (the figure's Paths start as on screen each time the dialog opens)
     // (X → Y with the deformation on the globe, or over a d/dz step: the one merged panel as on screen, H_t at t)
     const mergedOne = S.view.main === 'xy' && morphOn() && !morphFig;
     const oneFig = S.view.main !== 'xy' || mergedOne;
@@ -28303,7 +29508,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       const my = ++token;
       preview.classList.add('busy');
       try {
-        const f = await buildFigure({ panels: panelsOf(), widthIn: figOpt.width, caption: figOpt.caption, morph: morphFig, upTo: figOpt.upTo, alive: () => my === token && bg.isConnected });
+        const f = await buildFigure({ panels: panelsOf(), widthIn: figOpt.width, caption: figOpt.caption, morph: morphFig, upTo: figOpt.upTo, paths: figPaths(), alive: () => my === token && bg.isConnected });
         lastFigure = f;
         if (my !== token || !f) return;
         fig = f;
@@ -28348,6 +29553,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         h('div', { class: 'fig-opts' },
           ...(oneFig ? [] : [morphFig ? row('Panels', seg('figPanels', pk, [['R', 'Deformation'], ['both', 'Both'], ['L', 'Left']], (v) => set('mpanels', v), 'Panels')) : row('Panels', figPanelsSeg())]),
           ...(morphFig ? [row('Time', seg('figTime', figOpt.upTo ? 'now' : 'end', [['end', 'Whole'], ['now', 'Up to t']], (v) => set('upTo', v === 'now'), 'Time'))] : []),
+          ...(morphFig ? [row('Paths', seg('figPaths', figPaths() ? 'on' : 'off', [['on', 'Arrows'], ['off', 'None']], (v) => set('paths', v === 'on'), 'Paths'))] : []),
           row('Width', seg('figWidth', String(figOpt.width), [['3.4', 'Single column'], ['7', 'Double column']], (v) => set('width', +v), 'Width')),
           row('Caption', seg('figCap', figOpt.caption ? 'in' : 'out', [['in', 'In the figure'], ['out', 'LaTeX only']], (v) => set('caption', v === 'in'), 'Caption')),
           row('Format', seg('figFmt', figOpt.format, [['pdf', 'PDF'], ['svg', 'SVG'], ['png', 'PNG']], (v) => set('format', v), 'Format')),
@@ -28588,7 +29794,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         if (touches.size === 2) {
           endHold();
           // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step
-          if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle') && drag.moved))) onUp(pane, side, e);
+          if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
           drag = null; draft = draft && draft.kind === 'polygon' ? draft : null; return;
         }
@@ -28596,7 +29802,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       onDown(pane, side, e);
       // (on the right: the Phase portrait, the image plane and the globe, whose hold probes w like a mouse hover)
       const probeable = side === 'L' ? !lLand() : true;
-      if (e.pointerType === 'touch' && drag && probeable && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle') {
+      if (e.pointerType === 'touch' && drag && probeable && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && drag.mode !== 'zp') {
         const d0 = drag, [x0, y0] = evXY(pane, e);
         endHold();
         hold = { id: e.pointerId, x: x0, y: y0, ev: e, t: setTimeout(() => {
@@ -28643,7 +29849,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     const up = (e) => { if (hold && e.pointerId === hold.id) endHold(); touches.delete(e.pointerId); onUp(pane, side, e); };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { probe = null; hoverCut = 0; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
@@ -28744,8 +29950,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
     // P4: shapes are drawn in the z-plane; at focus k >= 2 a drawing tool does not draw over X (nothing jumps)
     else if (leftStage() > 0 && tool !== 'select' && !drag) c = 'not-allowed';
-    else if (drag && (drag.mode === 'panL')) c = 'grabbing';
-    else if (hoverCut) c = 'pointer';
+    else if (drag && (drag.mode === 'panL' || drag.mode === 'zp')) c = 'grabbing';
+    else if (hoverCut || zpHover) c = 'pointer';
     else if (leftStage() > 0) c = 'grab';
     else c = tool === 'select' ? 'default' : 'crosshair';
     pane.ocanvas.style.cursor = c;
@@ -28787,6 +29993,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     pane.setView(leftView());
     const z = pane.s2w(x, y);
     if (panBtn) { drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane }; setCursor(pane, side); return; }
+    // the zeros and poles of a zeros-and-poles step acting here: a press drags one (and selects it: Delete removes it);
+    // Shift-click adds a zero, Shift-⌘ (Ctrl) click a pole, and the press goes on dragging it
+    if (zpStep()) {
+      // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
+      const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
+      const onSel = !!selSh && Region.handlesOf(selSh).some(([, hz]) => { const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; });
+      const zh = onSel ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);
+      if (zh) {
+        zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
+        if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        drag = { mode: 'zp', k: zh.k, kind: zh.kind, i: zh.i, x0: x, y0: y, x, y, moved: false, off: false };
+        setCursor(pane, side); requestRender('OL');
+        return;
+      }
+      if (e.shiftKey && !e.altKey && e.button === 0) {
+        const kind = e.metaKey || e.ctrlKey ? 'poles' : 'zeros', k = zpStep().k;
+        const i = zpAdd(k, kind, zpRound(pane, snapZ(pane, z)));
+        if (i >= 0) { drag = { mode: 'zp', k, kind, i, x0: x, y0: y, x, y, moved: true, off: false, added: true }; setCursor(pane, side); requestRender('OL'); return; }
+      }
+      if (zpSel) { zpSel = null; requestRender('OL'); }
+    }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
       if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p }; return; }
@@ -28841,7 +30068,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       try { if (Region.hitTest(s, z, tol, win)) { hit = s; break; } } catch (e) { /* a damaged formula never hits */ }
     }
     if (hit) {
-      if (selected !== hit.id) { selected = hit.id; buildShapeList(); requestRender('L', 'R'); }
+      if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'move', shape: hit, z0: z, moved: false, target };
       requestRender(ov);
       return true;
@@ -29123,7 +30350,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     }
     if (!hit) for (const s of vis) if (GL3.globeInside(s, g.P)) { hit = s; break; }
     if (hit) {
-      if (selected !== hit.id) { selected = hit.id; buildShapeList(); requestRender('L', 'R'); }
+      if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'gmove', shape: hit, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(hit)), moved: false, target, side, x, y };
       requestRender('O' + side);
       return;
@@ -29364,6 +30591,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
         setCut(drag.step, Math.atan2(z.im - drag.p.im, z.re - drag.p.re) / DEG, S.snap);
         return;
       }
+      // a zero or a pole follows the pointer (snapped like the shape handles); off the plane it waits at the edge, and
+      // a release there removes it
+      if (drag.mode === 'zp') {
+        drag.x = x; drag.y = y;
+        if (!drag.moved && Math.hypot(x - drag.x0, y - drag.y0) < 3) return;
+        drag.moved = true;
+        const off = x < -4 || y < -4 || x > pane.w + 4 || y > pane.h + 4;
+        if (off !== drag.off) { drag.off = off; requestRender('OL'); }
+        if (!off) zpSet(drag.k, drag.kind, drag.i, zpRound(pane, snapZ(pane, z)));
+        else requestRender('OL');
+        return;
+      }
       if (drag.mode === 'handle') {
         Region.setHandle(drag.shape, drag.key, snapZ(pane, z));
         drag.moved = true;
@@ -29432,6 +30671,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     if (side === 'L') {
       const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
       if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); }
+      const zh = zpHit(x, y);
+      if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
     if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }
@@ -29568,6 +30809,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
+    // a zero or a pole: released off the plane it is removed; one undo step per gesture (an added one included)
+    if (d.mode === 'zp') {
+      if (d.off) { zpRemove(d.k, d.kind, d.i); return; }
+      if (d.moved) {
+        if (rightAuto && autoFit()) fitRight(true);
+        scheduleFix();
+        commit();
+      }
+      requestRender('L', 'R', 'T', 'OL');
+      return;
+    }
     if (d.mode === 'cut' || d.mode === 'handle' || d.mode === 'move') {
       if (rightAuto && autoFit()) fitRight(true);
       scheduleFix();
@@ -29873,7 +31125,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       [`${k('C')} ${k('A')} ${k('F')}`, 'Circle, arc, freehand'], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, 'Disc, rectangle, polygon, lasso'],
       [`${k('H')} ${k('N')} ${k('K')}`, 'Half-plane, annulus, sector'], [k('T'), 'Type a region formula'],
       [`${k(mod.trim() + ' K')}`, 'Command palette'], [k('+'), 'Add a function'],
-      [`${k('1')} ${k('2')} ${k('3')}`, 'View: X → Y, Phase, Landscape'], [k('M'), 'Deformation on or off, in every view'],
+      [`${k('1')} ${k('2')} ${k('3')}`, 'View: X → Y, Phase, Landscape'], [k('M'), 'Deformation on or off, in every view'], [k('P'), 'Deformation: paths on or off (in X → Y; else the Point tool)'],
       [`${k('⇧ 1')} ${k('⇧ 2')}`, 'Plane, Sphere of X (in Phase: of the portrait)'], [`${k('⇧ 3')} ${k('⇧ 4')}`, 'Plane, Sphere of Y'], [k('Z'), 'Fit both planes'],
       [`${k('[')} ${k(']')}`, 'Hide or show the side panels'], [k('?'), 'This guide'],
       [k('Delete'), 'Remove the selected shape'], [k('Esc'), 'Cancel a drawing or close a popover'],
@@ -29889,10 +31141,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       <p><b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.</p>
       <h3>Branch cuts</h3>
       <p>Logarithms, roots and complex powers cut along a ray from 0. Focus the step and drag the seam's handle in the input plane; it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number picks the branch.</p>
+      <p><i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else focus the step): drag them, Shift-click to add a zero, Shift-⌘-click (Shift-Ctrl) to add a pole, and drag one off the plane or select it and press Delete to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.</p>
       <h3>Views</h3>
       <p>The switch in the middle of the top bar picks the view (${k('1')} ${k('2')} ${k('3')}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch (${k('⇧ 1')} ${k('⇧ 2')} for the left pane, ${k('⇧ 3')} ${k('⇧ 4')} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.</p>
       <h3>Deformation</h3>
-      <p><b>Deformation</b> in the top bar (${k('M')}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. The transport under the panel scrubs <i>t</i> and sets the speed and the path (each step's natural path, or a straight line); turning it off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.</p>
+      <p><b>Deformation</b> in the top bar (${k('M')}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> (${k('P')}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.</p>
       <h3>Preimages and roots</h3>
       <p>Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.</p>
       <h3>Inverses and derivatives</h3>
@@ -30684,10 +31937,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
       }
       if (e.key === '[') setPanels(!S.hideLeft, S.hideRight);
       if (e.key === ']') setPanels(S.hideLeft, !S.hideRight);
+      if ((e.key === 'Delete' || e.key === 'Backspace') && zpSel && zpStep() && zpStep().k === zpSel.k) { e.preventDefault(); zpRemove(zpSel.k, zpSel.kind, zpSel.i); return; }
+      if (e.key === 'Escape' && zpSel) { zpSel = null; requestRender('OL'); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
       if (e.key === '?') { openGuide(); return; }
       if (e.key === '+' || e.key === '=') { e.preventDefault(); openPalette(null, undefined, { fnOnly: true }); return; }
       if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
+      // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
+      if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
       if (e.key === 'z' || e.key === 'Z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
       const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
       if (tl) { e.preventDefault(); setTool(tl[0]); }

@@ -108,7 +108,7 @@
   const seg = (opts, on, id) => `<div class="seg small" ${id ? `id="${id}"` : ''} role="radiogroup">${opts.map((o) => `<button data-v="${o}" role="radio" class="${o === on ? 'on' : ''}" aria-checked="${o === on}">${o}</button>`).join('')}</div>`;
   if (mode === 'morph') {
     $('rightFoot').className = 'options transport';
-    $('rightFoot').innerHTML = `<button class="icon-btn play" aria-label="Play">${I.play}</button><div class="tscrub"><input type="range" min="0" max="2" step="0.001" value="1.37"><div class="tticks"><span class="ttick" style="left:25%"><i>f</i><sub>1</sub></span><span class="ttick" style="left:75%"><i>f</i><sub>2</sub></span></div></div><span class="tread mono">t = 1.37 / 2</span>${seg(['0.5×', '1×', '2×'], '1×')}<select class="sel"><option>Natural path</option><option>Straight line</option></select>`;
+    $('rightFoot').innerHTML = `<button class="icon-btn play" aria-label="Play">${I.play}</button><div class="tscrub"><input type="range" min="0" max="2" step="0.001" value="1.37"><div class="tticks"><span class="ttick" style="left:25%"><i>f</i><sub>1</sub></span><span class="ttick" style="left:75%"><i>f</i><sub>2</sub></span></div></div><span class="tread mono">t = 1.37 / 2</span>${seg(['0.5×', '1×', '2×'], '1×')}<select class="sel"><option>One after another</option><option>All at once</option></select>`;
   } else if (mode === 'image') {
     $('rightFoot').innerHTML = '<label class="check"><input type="checkbox" checked><span>View outline</span></label>';
   } else {

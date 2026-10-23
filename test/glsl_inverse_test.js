@@ -55,7 +55,8 @@ window.__invTestRun = async (opts = {}) => {
     ['3-\\frac{2}{z+i}', 180], ['i^{z}', 180], ['\\sec(z)', 180], ['(1+i)z^{0.7}', 150], ['e^{z^2}', 180], ['\\log(\\log z)', 180], ['\\csc z', 180], ['\\coth(z)', 180],
     ['z^{17.5}', 180], ['-\\tanh(z)', 180], ['\\cosh(z/2)', 180], ['\\arctan z', 180], ['\\operatorname{arcosh} z', 180], ['\\arccos(z)', 180], ['\\operatorname{arsinh}(z)', 180],
     ['\\exp(z)-1', 180], ['\\sinh(z)', 180], ['\\sqrt[2.5]{z}', 180], ['z', 180], ['(2-z)^{-1}', 180]];
-  const TYPES = Object.keys(Funcs.DEFS).filter((t) => t !== 'deriv' && t !== 'custom');
+  // (the zeros-and-poles step, 2026-10-22, has its own chains below: the random catalog chains keep their sequence)
+  const TYPES = Object.keys(Funcs.DEFS).filter((t) => t !== 'deriv' && t !== 'custom' && t !== 'zp');
   const chains = [];
   for (const [e, cut] of CUSTOM) chains.push({ name: `custom ${e}`, steps: [St('custom', { expr: e, cut })] });
   for (const t of TYPES) chains.push({ name: `default ${t}`, steps: [St(t)] });
@@ -90,6 +91,15 @@ window.__invTestRun = async (opts = {}) => {
       chains.push({ name: `rand-rational#${i} ${steps.map((x) => x.type === 'custom' ? x.params.expr : x.type).join(' > ')}`, steps });
       made++;
     }
+  }
+  // the zeros-and-poles step at degree <= 2 (MOB, AFF, QUAD, RAT2), alone and inside chains (no random draws)
+  if (Funcs.DEFS.zp && opts.zp !== false) {
+    const ZPS = [{}, { a: '2i', zeros: '1+i', poles: '-0.5' }, { a: '1', zeros: '', poles: '0.3-i' }, { a: '-1', zeros: '1, i', poles: '' },
+      { a: '0.5', zeros: '1+i, -2', poles: '0.25i, 3' }, { a: '1', zeros: '0, 0', poles: '' }, { a: '1.5-0.5i', zeros: '-0.4+0.9i, 1.2', poles: '0.1' }];
+    ZPS.forEach((p, i) => chains.push({ name: `zp#${i} ${JSON.stringify(p)}`, steps: [St('zp', p)] }));
+    chains.push({ name: 'zp > exp', steps: [St('zp', ZPS[1]), St('exp')] });
+    chains.push({ name: 'mobius > zp', steps: [St('mobius'), St('zp', ZPS[4])] });
+    chains.push({ name: 'zp > zp', steps: [St('zp', ZPS[0]), St('zp', ZPS[3])] });
   }
   // ---- shapes ----
   const SH = [];
