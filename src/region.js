@@ -6,6 +6,8 @@ const Region = (() => {
   const TAU = 2 * Math.PI;
   const P = (a) => C(a[0], a[1]);
   const fmt = (z) => CX.tex(z, 3);
+  // [a,b]; in Russian a semicolon when an endpoint has a decimal comma: [0{,}5;\\,1] (GLOSSARY 2.3)
+  const iv = (a, b) => `[${a}${I18N.lang === 'ru' && /\{,\}/.test(a + b) ? ';\\,' : ','}${b}]`;
   // (a rational multiple of pi with a small denominator, exactly as stored, is written symbolically: pi, 3pi/2)
   const gcd = (a, b) => (b ? gcd(b, a % b) : a);
   const num = (x) => {
@@ -18,7 +20,9 @@ const Region = (() => {
         }
       }
     }
-    return CX.fmtNum(x, 3);
+    // the decimal comma of Russian print, as CX.tex writes it (0{,}5; also the mantissa of 1{,}5×10⁻⁴)
+    const s = CX.fmtNum(x, 3);
+    return I18N.lang === 'ru' ? s.replace(/^-?[\d.]+/, (m) => I18N.texNum(m)) : s;
   };
   // the normal form of a line or half-plane whose direction b - a is a unit vector (one stored from a cap on a globe,
   // panels.md 9.3: a on the edge nearest 0, b = a - iB/|B|): the left side is Re(conj(n) z) > t with n = i(b - a) and
@@ -151,57 +155,57 @@ const Region = (() => {
   // ---------- shape kinds ----------
   const K = {};
   K.point = {
-    type: 'point', label: 'Point',
+    type: 'point', label: $t('Point'),
     handles: (s) => [['p', P(s.p)]],
     points: (s) => [P(s.p)],
     tex: (s) => `${fmt(P(s.p))}`,
   };
   K.segment = {
-    type: 'curve', label: 'Segment',
+    type: 'curve', label: $t('Segment'),
     handles: (s) => [['a', P(s.a)], ['b', P(s.b)]],
     curves: (s) => [seg(P(s.a), P(s.b))],
     tex: (s) => `[${fmt(P(s.a))},\\ ${fmt(P(s.b))}]`,
   };
   K.line = {
-    type: 'curve', label: 'Line',
+    type: 'curve', label: $t('Line'),
     handles: (s) => [['a', P(s.a)], ['b', P(s.b)]],
     curves: (s, win, o) => {
       const a = P(s.a), d = CX.sub(P(s.b), a);
       const c = longOf(a, d, win, -Infinity, o);
       return c ? [c] : [];
     },
-    tex: (s) => normalTex(s, '=') || `\\text{line through } ${fmt(P(s.a))},\\ ${fmt(P(s.b))}`,
+    tex: (s) => normalTex(s, '=') || $t('\\text{line through } %{a},\\ %{b}', { a: fmt(P(s.a)), b: fmt(P(s.b)) }),
   };
   K.ray = {
-    type: 'curve', label: 'Ray',
+    type: 'curve', label: $t('Ray'),
     handles: (s) => [['a', P(s.a)], ['b', P(s.b)]],
     curves: (s, win, o) => {
       const a = P(s.a), d = CX.sub(P(s.b), a);
       const c = longOf(a, d, win, 0, o);
       return c ? [c] : [];
     },
-    tex: (s) => `\\text{ray from } ${fmt(P(s.a))} \\text{ through } ${fmt(P(s.b))}`,
+    tex: (s) => $t('\\text{ray from } %{a} \\text{ through } %{b}', { a: fmt(P(s.a)), b: fmt(P(s.b)) }),
   };
   K.circle = {
-    type: 'curve', label: 'Circle',
+    type: 'curve', label: $t('Circle'),
     handles: (s) => [['c', P(s.c)], ['r', C(s.c[0] + s.r, s.c[1])]],
     curves: (s) => [circ(P(s.c), s.r)],
     tex: (s) => `|${zMinus(P(s.c))}|=${num(s.r)}`,
   };
   K.arc = {
-    type: 'curve', label: 'Arc',
+    type: 'curve', label: $t('Arc'),
     handles: (s) => [['a', P(s.a)], ['m', P(s.m)], ['b', P(s.b)]],
     curves: (s) => [arc3(P(s.a), P(s.m), P(s.b))],
-    tex: (s) => `\\text{arc } ${fmt(P(s.a))} \\to ${fmt(P(s.m))} \\to ${fmt(P(s.b))}`,
+    tex: (s) => $t('\\text{arc } %{a} \\to %{m} \\to %{b}', { a: fmt(P(s.a)), m: fmt(P(s.m)), b: fmt(P(s.b)) }),
   };
   K.curve = {
-    type: 'curve', label: 'Freehand curve',
+    type: 'curve', label: $t('Freehand curve'),
     handles: () => [],
     curves: (s) => { const c = poly(s.pts.map(P), false); return c ? [c] : []; },
-    tex: (s) => `\\text{curve, ${s.pts.length} points}`,
+    tex: (s) => $tn('\\text{curve, %{n} points}', '\\text{curve, %{n} points}', s.pts.length),
   };
   K.cgrid = {
-    type: 'curve', label: 'Cartesian grid',
+    type: 'curve', label: $t('Cartesian grid'),
     handles: (s) => [['a', P(s.a)], ['b', P(s.b)]],
     curves: (s) => {
       const a = P(s.a), b = P(s.b), n = Math.max(1, Math.min(60, s.n | 0));
@@ -213,10 +217,10 @@ const Region = (() => {
       }
       return out;
     },
-    tex: (s) => `\\text{grid } [${num(Math.min(s.a[0], s.b[0]))},${num(Math.max(s.a[0], s.b[0]))}]\\times[${num(Math.min(s.a[1], s.b[1]))},${num(Math.max(s.a[1], s.b[1]))}]`,
+    tex: (s) => $t('\\text{grid } %{x}\\times%{y}', { x: iv(num(Math.min(s.a[0], s.b[0])), num(Math.max(s.a[0], s.b[0]))), y: iv(num(Math.min(s.a[1], s.b[1])), num(Math.max(s.a[1], s.b[1]))) }),
   };
   K.pgrid = {
-    type: 'curve', label: 'Polar grid',
+    type: 'curve', label: $t('Polar grid'),
     handles: (s) => [['c', P(s.c)], ['r', C(s.c[0] + s.r, s.c[1])]],
     curves: (s) => {
       const c = P(s.c), out = [];
@@ -228,11 +232,11 @@ const Region = (() => {
       }
       return out;
     },
-    tex: (s) => `\\text{polar grid}, |${zMinus(P(s.c))}|\\le ${num(s.r)}`,
+    tex: (s) => $t('\\text{polar grid}, |%{c}|\\le %{r}', { c: zMinus(P(s.c)), r: num(s.r) }),
   };
   // ----- areas -----
   K.disc = {
-    type: 'area', label: 'Disc',
+    type: 'area', label: $t('Disc'),
     handles: (s) => [['c', P(s.c)], ['r', C(s.c[0] + s.r, s.c[1])]],
     level: (s) => { const c = P(s.c), r = s.r; return (z) => r - Math.hypot(z.re - c.re, z.im - c.im); },
     bbox: (s) => ({ x0: s.c[0] - s.r, x1: s.c[0] + s.r, y0: s.c[1] - s.r, y1: s.c[1] + s.r }),
@@ -240,7 +244,7 @@ const Region = (() => {
     tex: (s) => `|${zMinus(P(s.c))}|<${num(s.r)}`,
   };
   K.rect = {
-    type: 'area', label: 'Rectangle',
+    type: 'area', label: $t('Rectangle'),
     handles: (s) => [['a', P(s.a)], ['b', P(s.b)]],
     level: (s) => {
       const x0 = Math.min(s.a[0], s.b[0]), x1 = Math.max(s.a[0], s.b[0]), y0 = Math.min(s.a[1], s.b[1]), y1 = Math.max(s.a[1], s.b[1]);
@@ -258,15 +262,15 @@ const Region = (() => {
     tex: (s) => `${num(Math.min(s.a[0], s.b[0]))}<\\operatorname{Re}z<${num(Math.max(s.a[0], s.b[0]))},\\ ${num(Math.min(s.a[1], s.b[1]))}<\\operatorname{Im}z<${num(Math.max(s.a[1], s.b[1]))}`,
   };
   K.polygon = {
-    type: 'area', label: 'Polygon',
+    type: 'area', label: $t('Polygon'),
     handles: (s) => (s.pts.length <= 40 ? s.pts.map((p, i) => ['v' + i, P(p)]) : []),
     level: (s) => polyLevel(s.pts.map(P)),
     bbox: (s) => ({ x0: Math.min(...s.pts.map((p) => p[0])), x1: Math.max(...s.pts.map((p) => p[0])), y0: Math.min(...s.pts.map((p) => p[1])), y1: Math.max(...s.pts.map((p) => p[1])) }),
     boundary: (s) => { const c = poly(s.pts.map(P), true); return c ? [c] : []; },
-    tex: (s) => `\\text{polygon, ${s.pts.length} vertices}`,
+    tex: (s) => $tn('\\text{polygon, %{n} vertices}', '\\text{polygon, %{n} vertices}', s.pts.length),
   };
   K.halfplane = {
-    type: 'area', label: 'Half-plane',
+    type: 'area', label: $t('Half-plane'),
     handles: (s) => [['a', P(s.a)], ['b', P(s.b)]],
     level: (s) => {
       const a = P(s.a), d = CX.sub(P(s.b), a), L = CX.abs(d) || 1;
@@ -281,7 +285,7 @@ const Region = (() => {
     tex: (s) => normalTex(s, '>') || `\\operatorname{Im}\\frac{z-(${fmt(P(s.a))})}{${fmt(CX.sub(P(s.b), P(s.a)))}}>0`,
   };
   K.annulus = {
-    type: 'area', label: 'Annulus',
+    type: 'area', label: $t('Annulus'),
     handles: (s) => [['c', P(s.c)], ['r1', C(s.c[0] + s.r1, s.c[1])], ['r2', C(s.c[0] + s.r2, s.c[1])]],
     level: (s) => { const c = P(s.c), r1 = Math.min(s.r1, s.r2), r2 = Math.max(s.r1, s.r2); return (z) => { const d = Math.hypot(z.re - c.re, z.im - c.im); return Math.min(d - r1, r2 - d); }; },
     bbox: (s) => { const r = Math.max(s.r1, s.r2); return { x0: s.c[0] - r, x1: s.c[0] + r, y0: s.c[1] - r, y1: s.c[1] + r }; },
@@ -289,7 +293,7 @@ const Region = (() => {
     tex: (s) => `${num(Math.min(s.r1, s.r2))}<|${zMinus(P(s.c))}|<${num(Math.max(s.r1, s.r2))}`,
   };
   K.sector = {
-    type: 'area', label: 'Sector',
+    type: 'area', label: $t('Sector'),
     handles: (s) => {
       const c = P(s.c), R = s.r > 0 ? s.r : 1.5;
       const at = (t, rr) => C(c.re + rr * Math.cos(t * DEG), c.im + rr * Math.sin(t * DEG));
@@ -330,12 +334,12 @@ const Region = (() => {
     },
   };
   K.formula = {
-    type: 'area', label: 'Formula',
+    type: 'area', label: $t('Formula'),
     handles: () => [],
     level: (s) => Expr.compileLevel(Expr.parse(s.expr, { allowRel: true })),
     bbox: () => null,
     boundary: null,
-    tex: (s) => { try { return Expr.toTex(Expr.parse(s.expr, { allowRel: true })).s; } catch (e) { return '\\text{invalid}'; } },
+    tex: (s) => { try { return Expr.toTex(Expr.parse(s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
   };
 
   // A curve formula (an equation: Re z^2 = 1, |\sin z| = 1, Im(1/z) = 1 and z\bar z = 1 or ...): the curve of
@@ -348,7 +352,7 @@ const Region = (() => {
     const src = String(s.expr);
     let d = curveDescs.get(src);
     if (d) { curveDescs.delete(src); curveDescs.set(src, d); return d; }
-    if (typeof Curves === 'undefined') throw new Error('Curve formulas are not available in this build');
+    if (typeof Curves === 'undefined') throw new Error($t('Curve formulas are not available in this build'));
     d = Curves.fromFormula(src);
     curveDescs.set(src, d);
     while (curveDescs.size > 32) curveDescs.delete(curveDescs.keys().next().value);
@@ -393,10 +397,10 @@ const Region = (() => {
     return cs;
   }
   K.fcurve = {
-    type: 'curve', label: 'Curve formula',
+    type: 'curve', label: $t('Curve formula'),
     handles: () => [],
     curves: fcurveCurves,
-    tex: (s) => { try { return Expr.toTex(Expr.parse(s.expr, { allowRel: true })).s; } catch (e) { return '\\text{invalid}'; } },
+    tex: (s) => { try { return Expr.toTex(Expr.parse(s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
   };
 
   // ---------- shape API ----------

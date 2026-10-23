@@ -1,0 +1,14 @@
+% Demo (M2): a Times document (newtx). Left: the figure with Computer Modern outline labels (the default).
+% Right: the overlay, whose labels are set by this document in Times.
+\documentclass[10pt,twocolumn]{article}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage[textwidth=510pt,columnsep=18pt]{geometry}
+\usepackage{graphicx,tikz,contour}
+\graphicspath{{../out/}}
+\def\cmwdir{../out/}
+\begin{document}
+\noindent In a Times document the default outline labels are Computer Modern (Fig.~\ref{fig:a}), which a careful reader notices next to Times text: compare the digits $0,1,2$ here. The overlay (Fig.~\ref{fig:b}) sets every label in the document's own font and size, at the cost of one \verb|\input| and the \verb|tikz| and \verb|contour| packages.
+\begin{figure}[h]\centering\includegraphics{cayley}\caption{Outline labels (Computer Modern), at natural size in this 246\,pt column.}\label{fig:a}\end{figure}
+\begin{figure}[h]\centering\input{cayley-overlay.tex}\caption{The overlay: labels in newtx Times.}\label{fig:b}\end{figure}
+\end{document}

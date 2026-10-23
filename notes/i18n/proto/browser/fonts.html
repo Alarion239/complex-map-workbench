@@ -1,0 +1,40 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=IBM+Plex+Sans:wdth,wght@85..100,400..700&family=Noto+Sans:wdth,wght@62.5..100,400..700&family=Golos+Text:wght@400..700&family=Ubuntu+Sans:wdth,wght@75..100,400..700&family=IBM+Plex+Mono:wght@400;500;700&family=JetBrains+Mono:wght@400..700&family=PT+Mono&family=Martian+Mono:wdth,wght@75..112.5,400..700&family=Roboto+Mono:wght@400..700&display=block">
+<style>
+body{margin:16px;font:13px/18px system-ui;background:#F1F4F5;color:#121A20}
+.row{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #D2DADE}
+.n{font:11px/14px system-ui;color:#56646E}
+.s1{font-weight:500;font-size:12px}.s2{font-weight:400;font-size:13px}.s3{font-weight:600;font-size:13px}.s4{font-weight:600;font-size:11px;font-stretch:semi-condensed;text-transform:none}
+.m{font-size:11.5px}
+h3{font:600 13px system-ui;margin:14px 0 4px}
+</style></head><body>
+<h3>UI: Archivo for Latin, the candidate for Cyrillic (label 12/500, body 13/400, heading 13/600, caption 11/600 semi-condensed)</h3>
+<div id="ui"></div>
+<h3>Mono: B612 Mono for Latin and digits, the candidate for Cyrillic (readout 11.5/400)</h3>
+<div id="mono"></div>
+<h3>STIX Two Text (has Cyrillic): italic 15/500, regular 13</h3>
+<div style="font:italic 500 15px/20px 'STIX Two Text'">z-плоскость: область определения F · Образ полосы при отображении w = tg z</div>
+<div style="font:400 13px/18px 'STIX Two Text'">Отображение конформно и однолистно; гомотопия H<sub>t</sub>(z), главная ветвь</div>
+<script>
+const UI = ['Roboto Flex', 'IBM Plex Sans', 'Noto Sans', 'Golos Text', 'Ubuntu Sans'];
+const MONO = ['IBM Plex Mono', 'JetBrains Mono', 'PT Mono', 'Martian Mono', 'Roboto Mono'];
+const T = 'Region tools · Инструменты областей; Fit view · Вписать в окно';
+const ui = document.getElementById('ui'), mono = document.getElementById('mono');
+for (const f of UI) ui.insertAdjacentHTML('beforeend', `<div class="row"><div class="n">${f}</div><div style="font-family:Archivo,'${f}'"><div class="s1">${T}</div><div class="s2">Pattern carried by the map · Узор, переносимый отображением · Непрозрачность 0.85</div><div class="s3">Function chain · Цепочка функций · Гарантии</div><div class="s4">GUARANTEED · Гарантировано · Шаг 2 из 3</div></div></div>`);
+for (const f of MONO) mono.insertAdjacentHTML('beforeend', `<div class="row"><div class="n">${f}</div><div class="m" style="font-family:'B612 Mono','${f}'">z = 0.512 + 1.250i · 2 мин · ×1 · |F′| = 0.5 · шаг 3 · 2 / div · 2 / дел.</div></div>`);
+window.measure = async () => {
+  await document.fonts.ready;
+  const c = document.createElement('canvas').getContext('2d');
+  const m = (font, s) => { c.font = font; const r = c.measureText(s); return { asc: +r.actualBoundingBoxAscent.toFixed(2), w: +r.width.toFixed(2) }; };
+  const out = {};
+  for (const f of ['Archivo', ...UI]) {
+    await document.fonts.load(`400 100px "${f}"`, 'xхHН');
+    out[f] = { x: m(`400 100px "${f}"`, 'x').asc, cyr_x: m(`400 100px "${f}"`, 'х').asc, H: m(`400 100px "${f}"`, 'H').asc, n_w: m(`400 100px "${f}"`, 'nonoeaes').w, cyr_w: m(`400 100px "${f}"`, 'попоеаес').w, stem: null };
+  }
+  for (const f of ['B612 Mono', ...MONO]) {
+    await document.fonts.load(`400 100px "${f}"`, 'xхHН0');
+    out[f] = { x: m(`400 100px "${f}"`, 'x').asc, H: m(`400 100px "${f}"`, 'H').asc, adv: m(`400 100px "${f}"`, '0').w };
+  }
+  return out;
+};
+</script></body></html>

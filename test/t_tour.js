@@ -61,7 +61,7 @@ const ids = new Set(steps.map((s) => `${s.ch}/${s.id}`));
 for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x', 'basics/y', 'basics/preimages',
   'views/phase', 'views/land', 'views/sphere', 'views/patterns', 'deform/toggle', 'deform/paths', 'deform/order',
   'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'analysis/zp', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
-  'export/figure', 'export/formula-tex', 'keys/palette', 'keys/help'])
+  'export/figure', 'export/formula-tex', 'keys/palette', 'keys/sound', 'keys/help', 'views/key', 'analysis/cauchy'])
   ok(`covers ${id}`, ids.has(id));
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
 const EVENTS_USED = new Set();
@@ -138,7 +138,8 @@ mem = {};
 ok('probe: outside then inside ticks', pio({ pane: 'R', w: [2, 0] }, mem) === false && pio({ pane: 'R', w: [0.5, 0] }, mem) === true);
 ok('scenes: every step type has params', Object.values(T.SCENES).every((sc) => sc.steps.every((st) => typeof st.type === 'string' && st.params && typeof st.params === 'object')));
 check('the zeros-and-poles scene needs the zp step', [T.SCENES.zp.needs, T.SCENES.zp.steps[0].type], ['zp', 'zp']);
-check('the scene a step shows: its chapter scene, or the last scene action before it', [T.sceneAt(CH[3], 0), T.sceneAt(CH[3], 1), T.sceneAt(CH[3], 2), T.sceneAt(CH[3], 4)], ['roots', 'zp', 'residueZp', 'residueZp']);
+const ixA = (id) => CH[3].steps.findIndex((s) => s.id === id);
+check('the scene a step shows: its chapter scene, or the last scene action before it', ['targets', 'cauchy', 'zp', 'integral', 'domain'].map((id) => T.sceneAt(CH[3], ixA(id))), ['roots', 'roots', 'zp', 'residueZp', 'residueZp']);
 
 // ---- copy markup
 check('parse', T.parseCopy('Press {M} or $e^{z^2}$ **now**.'), [{ t: 'text', v: 'Press ' }, { t: 'kbd', v: 'M' }, { t: 'text', v: ' or ' }, { t: 'tex', v: 'e^{z^2}' }, { t: 'text', v: ' ' }, { t: 'b', v: 'now' }, { t: 'text', v: '.' }]);
@@ -151,7 +152,11 @@ check('tex frac', T.texPlain('F(z)=\\frac{e^z-1}{e^z+1}'), 'F(z) = (eᶻ-1)/(e�
 check('tex power', T.texPlain('z^3-1'), 'z³-1');
 check('tex sub', T.texPlain('f_2\\circ f_1'), 'f₂∘ f₁');
 check('tex neq pm', T.texPlain('z\\neq\\pm i'), 'z ≠ ±i');
-check('tex oint', T.texPlain('\\oint=2\\pi i\\operatorname{Res}_i F=\\pi'), '∮ = 2π iResᵢ F = π');
+check('tex oint', T.texPlain('\\oint=2\\pi i\\operatorname{Res}_i F=\\pi'), '∮ = 2π i Resᵢ F = π');
+// two names written together keep a space (the screen-reader line read "Imlog z"; Russian «ImLn z»)
+check('tex names apart', T.texPlain('\\operatorname{Im}\\log z'), 'Im log z');
+check('tex names apart (Russian notation)', T.texPlain('\\operatorname{Im}\\operatorname{Ln} z'), 'Im Ln z');
+check('tex name before a bracket or a subscript', T.texPlain('\\sin(z)+\\operatorname{Res}_i F'), 'sin(z)+Resᵢ F');
 check('tex prime', T.texPlain("|F'(z)|"), "|F'(z)|");
 check('tex set braces', T.texPlain('z\\notin\\{i,-i\\}'), 'z∉{i,-i}');
 check('tex inverse', T.texPlain('f^{-1}'), 'f⁻¹');
@@ -334,12 +339,22 @@ check('seek skips absent steps forward', T.seek(0, 2, 1, (ci, si) => ci === 0 &&
 check('seek skips absent steps backward across a chapter', T.seek(1, -1, -1, (ci, si) => ci === 0 && si === basics.steps.length - 1), { ci: 0, si: basics.steps.length - 2 });
 check('seek: a whole chapter absent', T.seek(4, 0, 1, (ci) => ci === 4), { ci: 5, si: 0 });
 Tour.init({ has: (f) => f !== 'zp' });
-check('without zp the integral and its domain fall back to the typed residue scene', [T.sceneAt(CH[ai], 2), T.pickScene(['residueZp', 'residue'])], ['residue', 'residue']);
+check('without zp the integral and its domain fall back to the typed residue scene', [T.sceneAt(CH[ai], CH[ai].steps.findIndex((s) => s.id === 'integral')), T.pickScene(['residueZp', 'residue'])], ['residue', 'residue']);
 // without a way to put the user's work back, only the steps that change nothing are shown
 const noScene = steps.filter((s, k) => { const ci = CH.findIndex((c) => c.id === s.ch), si = CH[ci].steps.findIndex((x) => x.id === s.id); return !T.absent(ci, si, false); }).map((s) => `${s.ch}/${s.id}`);
-check('no scenes: only the steps that borrow nothing', noScene, ['export/figure', 'keys/palette', 'keys/help']);
+check('no scenes: only the steps that borrow nothing', noScene, ['export/figure', 'keys/palette', 'keys/sound', 'keys/help']);
+Tour.init({ has: (f) => f !== 'sound' });
+ok('the Sound step is absent without the Sound control', T.absent(CH.length - 1, CH[CH.length - 1].steps.findIndex((s) => s.id === 'sound')));
 Tour.init({});
 
+// ---- review fixes: the copy of a control found in the ⋯ menu; layout-only steps; place()'s near miss is not 'side'
+check('copyFor: the ⋯ menu fallback says "in this menu" first', [T.copyFor({ body: 'b', narrow: 'n', touch: 't' }, null, { coarse: true, narrow: true, menu: true }), T.copyFor({ body: 'b', touch: 't' }, null, { coarse: true, menu: true })], ['n', 't']);
+ok('views/key is a wide-screen step', stepOf('views', 'key').wide === true);
+ok('basics/shapes asks its Try it on wide screens only', stepOf('basics', 'shapes').tryWide === true);
+{
+  const q = T.place({ l: 700, t: 38, r: 1142, b: 618 }, { w: 320, h: 288 }, { w: 1440, h: 900 }, { prefer: 'bottom', others: [{ l: 262, t: 38, r: 700, b: 618 }] });
+  check('place: a card 6 px too tall for the room below sits at the bottom edge, over the rim only', [q.mode, q.y + 288 <= 900 - 12, q.y >= 618 - 0.12 * 288], ['edge', true, true]);
+}
 // ---- the module without a DOM
 ok('no DOM: suggest is a no-op', Tour.suggest() === false);
 ok('API surface', ['init', 'start', 'stop', 'next', 'back', 'suggest', 'dismissSuggestion', 'isSeen', 'isActive', 'current', 'openHelpMenu', 'closeHelpMenu', 'chapters', 'reset'].every((k) => typeof Tour[k] === 'function'));

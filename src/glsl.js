@@ -1166,7 +1166,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
           case 'or': { const a = lv(n.a), b = lv(n.b); return `max(${a}, ${b})`; }
           case 'not': return `(-(${lv(n.a)}))`;
         }
-        throw new Error('Combine comparisons with and / or / not');
+        throw new Error($t('Combine comparisons with and / or / not'));
       }
       if (!Expr.hasBool(levelAst)) return fallback;
       const res = lv(levelAst);

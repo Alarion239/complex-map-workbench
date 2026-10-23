@@ -1,4 +1,24 @@
 'use strict';
+// The interface strings: $t, $tx, $tn and I18N come from i18n.js, first in the build. A node test that loads cx.js
+// without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
+// (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
+if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof globalThis.$t !== 'function') {
+  if (typeof require === 'function') require('./i18n.js');
+  else {
+    const fill = (s, p) => {
+      if (!p) return s;
+      const tex = /[$\\]/.test(s);
+      return s.replace(/%\{([A-Za-z_][A-Za-z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (m, a, b) => {
+        const k = a || (!tex && b);
+        return k && Object.prototype.hasOwnProperty.call(p, k) ? String(p[k]) : m;
+      });
+    };
+    const $t = (s, p) => fill(s, p), $tx = (c, s, p) => fill(s, p);
+    const $tn = (one, many, n, p) => fill(n === 1 ? one : many, Object.assign({ n: String(n) }, p));
+    const I18N = { lang: 'en', t: $t, tx: $tx, tn: $tn, fill, num: (n) => String(n), fnName: (n) => n, notation: (s) => s, texNum: (x) => String(x) };
+    Object.assign(globalThis, { I18N, $t, $tx, $tn });
+  }
+}
 // Complex arithmetic. Numbers are plain {re, im} objects.
 const CX = (() => {
   const TAU = 2 * Math.PI;
@@ -339,6 +359,8 @@ const CX = (() => {
   // EXACT: constants are written so they parse back to the same double (used when copying LaTeX)
   let EXACT = false;
   function setTexExact(on) { EXACT = !!on; }
+  // the decimal comma of Russian print (0{,}5, I18N.texNum); copied LaTeX (EXACT) and English keep the point
+  const dec = (s) => (I18N.lang === 'ru' ? I18N.texNum(s) : s);
   function texNum(x, digits = 4) {
     if (!Number.isFinite(x)) return x > 0 ? '\\infty' : (x < 0 ? '-\\infty' : '\\text{NaN}');
     if (EXACT) {
@@ -349,8 +371,8 @@ const CX = (() => {
     }
     if (Math.abs(x) < 1e-12) return '0';
     const ax = Math.abs(x);
-    if (ax >= 1e5 || ax < 1e-4) { const [m, e] = sci(x, Math.max(1, digits - 2)); return `${m}\\times 10^{${e}}`; }
-    return fixed(x, digits);
+    if (ax >= 1e5 || ax < 1e-4) { const [m, e] = sci(x, Math.max(1, digits - 2)); return `${dec(m)}\\times 10^{${e}}`; }
+    return dec(fixed(x, digits));
   }
   // LaTeX for a complex constant; wrap: whether to parenthesise sums
   function tex(a, digits = 4) {

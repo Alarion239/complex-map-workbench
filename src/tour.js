@@ -4,6 +4,12 @@
 // suggestion, the help menu, persistence, CSS) lives here. A step whose anchor is missing is skipped, so the tour keeps
 // working while the UI evolves.
 const Tour = (() => {
+  // the interface language (src/i18n.js, notes/i18n/DESIGN.md): $t(english, params). Run alone (the node tests), the
+  // tour keeps its English: the same placeholder rule, %{name} always and {name} only in a template without TeX
+  const I18 = typeof globalThis !== 'undefined' && globalThis.I18N ? globalThis.I18N : null;
+  const $t = I18 ? I18.t : (s, p) => (p ? s.replace(/%\{(\w+)\}|\{(\w+)\}/g, (m, a, b) => { const k = a || (!/[$\\]/.test(s) && b); return k && k in p ? String(p[k]) : m; }) : s);
+  // Russian notation (tg, sh, ln) where the tour sets TeX; English unchanged
+  const notation = (tex) => (I18 ? I18.notation(tex) : tex);
   const VERSION = 1;          // content version; a chapter whose `rev` is newer than what a user saw is marked New
   const SUGGEST_MAX = 3;      // an ignored suggestion comes back on at most this many openings
 
@@ -83,14 +89,16 @@ const Tour = (() => {
           touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.' },
         { id: 'y', anchor: 'paneR', title: 'Y: the image', place: 'left',
           body: 'Y shows the image under $F(z)=(e^z-1)/(e^z+1)$: the strip becomes the unit disc. $F$ is conformal there: grid lines still cross at right angles, and tiny squares map to near-squares.' },
-        { id: 'preimages', anchor: 'panes', title: 'Preimages', place: 'bottom',
+        // (Y lit with X beside it: the callout sits below Y, not over X where the preimage marks appear)
+        { id: 'preimages', anchor: 'paneR', also: ['paneL'], title: 'Preimages', place: 'bottom',
           body: 'Hover a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart, as $F$ has period $2\\pi i$.',
           touch: 'Touch and hold a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.',
           try: { text: 'Hover inside the disc, then outside it.', touch: 'Touch and hold inside the disc, then outside it.', on: 'probe', test: probeInOut } },
         { id: 'draw', anchor: ['tools', 'toolsRail'], also: ['paneL'], title: 'Draw a shape', place: 'right',
           body: 'Pick a tool and drag in X to add a shape. The same tools in Y add a target in $w$ instead.',
           try: { text: 'Choose Disc, then drag in X.', on: 'shape-added' } },
-        { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', place: 'right', before: [['tool', 'select']],
+        // (tryWide: on a phone the list and X are a screen apart, so the drag is not asked for there)
+        { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', place: 'right', before: [['tool', 'select']], tryWide: true,
           body: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select {V}, drag a shape or a handle and the image follows; {mod}{Z} undoes.',
           touch: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select, drag a shape or a handle and the image follows.',
           try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved' } },
@@ -116,11 +124,14 @@ const Tour = (() => {
           touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each in one wide panel.',
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', place: 'bottom', before: [['view', 'phase'], ['surface', 'L', 'plane']],
-          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are level sets of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
+          body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
         { id: 'land', anchor: 'panes', title: 'Landscape', place: 'bottom', before: [['view', 'land']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.' },
         { id: 'sphere', anchor: 'surfaceL', also: ['panes'], title: 'The Riemann sphere', place: 'bottom', before: [['view', 'phase'], ['surface', 'L', 'sphere']],
           body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.' },
+        // (wide: Y's options hold the Phase key only on a wide screen; on a phone the step is left out from the start)
+        { id: 'key', anchor: 'phaseKey', also: ['paneR'], title: 'Phase key', place: 'left', wide: true, before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
+          body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.' },
         { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', place: 'bottom', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }]],
           body: 'The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F\'(z)|$: blue shrinks, amber grows.',
           try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch' } },
@@ -146,10 +157,12 @@ const Tour = (() => {
     {
       id: 'analysis', title: 'Analysis', time: '1½ min', rev: 1, scene: 'roots',
       steps: [
-        { id: 'targets', anchor: 'panes', title: 'Targets and preimages', place: 'bottom', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
+        { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', place: 'bottom', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
           body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.' },
+        { id: 'cauchy', anchor: ['phaseStyle', 'panes'], also: ['panes'], title: 'Cauchy integral', place: 'top', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
+          body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. Select another closed curve to use it instead.' },
         { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', place: 'top', before: [['scene', 'zp']],
-          body: 'This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow.',
+          body: 'This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow. The axes button beside $a$, as beside every complex parameter, picks a value on a small Argand diagram.',
           try: { text: 'Drag a zero or a pole.', on: 'zp-moved' } },
         { id: 'integral', anchor: 'paneL', title: 'Integrals', place: 'right', before: [['scene', ['residueZp', 'residue']], ['view', 'xy']],
           body: 'Right-click the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
@@ -170,7 +183,8 @@ const Tour = (() => {
           try: { text: 'Drag the red cut.', on: 'cut-moved' } },
         { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', place: 'top',
           body: '$f^{-1}$ on a card replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.' },
-        { id: 'deriv', anchor: 'chain', also: ['paneL'], title: 'The derivative as a step', place: 'top', before: [['scene', 'deriv'], ['view', 'xy']],
+        // (X lit with the chain: the callout sits over Y, which is not lit, beside X)
+        { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', place: 'right', before: [['scene', 'deriv'], ['view', 'xy']],
           body: 'A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.' },
         { id: 'sheets', anchor: ['sheets', 'panes'], also: ['panes'], title: 'All sheets', place: 'bottom', before: [['scene', 'logSheets'], ['view', 'land']], wait: 120,
           body: 'In Landscape, All sheets draws the whole Riemann surface of a multivalued map: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$ instead of jumping at the cut.' },
@@ -193,6 +207,10 @@ const Tour = (() => {
           body: 'Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step.',
           narrow: 'Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step.',
           try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Add function or command.', on: 'palette-opened' } },
+        { id: 'sound', anchor: ['soundBtn', 'soundBar', 'moreBtn'], needs: 'sound', title: 'Sound', place: 'bottom',
+          body: 'Sound stays off until you turn it on here or with {Shift}{M}. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.',
+          narrow: 'Sound stays off until you turn it on, in this menu. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.',
+          touch: 'Sound stays off until you turn it on here. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.' },
         { id: 'help', anchor: ['helpBtn', 'moreBtn'], title: 'Help is here', place: 'bottom',
           body: 'This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.',
           narrow: 'Help, in this menu, opens the tour by chapter and the reference guide.' },
@@ -260,9 +278,13 @@ const Tour = (() => {
     let s = String(src);
     const grp = '\\{((?:[^{}]|\\{[^{}]*\\})*)\\}';
     for (let k = 0; k < 3; k++) s = s.replace(new RegExp('\\\\[dt]?frac' + grp + grp, 'g'), (m, a, b) => `${/^\w+$/.test(a) ? a : '(' + a + ')'}/${/^\w+$/.test(b) ? b : '(' + b + ')'}`);
-    s = s.replace(/\\operatorname\{(\w+)\}/g, '$1').replace(/\\(Re|Im|arg|log|sin|cos|exp)\b/g, '$1');
-    const WORDS = { pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉' };
-    s = s.replace(/\\([a-zA-Z]+)/g, (m, w) => (WORDS[w] != null ? WORDS[w] : w));
+    // a name (Im, log, an \operatorname) is set off by U+0003 marks, so two names written together keep a space
+    // between them (\operatorname{Im}\log z: "Im log z", not "Imlog z"); the marks are resolved once the names are read
+    s = s.replace(/\\operatorname\{(\w+)\}/g, '\u0003$1\u0003').replace(/\\(Re|Im|arg|log|sin|cos|exp)\b/g, '\u0003$1\u0003');
+    const WORDS = { pi: 'π', infty: '∞', neq: '≠', ne: '≠', pm: '±', mapsto: '↦', circ: '∘', oint: '∮', int: '∫', cdot: '·', le: '≤', leq: '≤', ge: '≥', geq: '≥', to: '→', gamma: 'γ', zeta: 'ζ', theta: 'θ', alpha: 'α', in: '∈', notin: '∉' };
+    s = s.replace(/\\([a-zA-Z]+)/g, (m, w) => (WORDS[w] != null ? WORDS[w] : '\u0003' + w + '\u0003'));
+    // a name's mark becomes a space between two letters (Im|log, i|Res), else nothing (sin|(z), log| z, Res|_i)
+    s = s.replace(/\u0003+/g, (m, at, all) => (/\p{L}/u.test(all[at - 1] || '') && /\p{L}/u.test(all[at + m.length] || '') ? ' ' : ''));
     // escaped braces are set braces (kept); the others only group
     s = s.replace(/\\\{/g, '\u0001').replace(/\\\}/g, '\u0002');
     s = s.replace(/\\[,;!:]/g, ' ').replace(/\\ /g, ' ');
@@ -337,6 +359,16 @@ const Tour = (() => {
       for (const side of order) if (s2[side]) cands.push({ mode: 'side', side, x: s2[side].x, y: s2[side].y, caret: null });
     }
     for (const c of cands) if (over(c.x, c.y, lit) === 0) return fin(c);
+    // 2b. below or above the hole, short of room by a little: at the viewport's edge there, over the hole's rim only
+    // (Preimages at 900 px: under Y, over Y's bottom margin, not inside Y over its disc)
+    for (const side of order) {
+      let y = null;
+      if (side === 'bottom') { const v = vp.h - card.h - M; if (v < hole.b + GAP && v > hole.b - 0.12 * card.h) y = v; }
+      else if (side === 'top') { const v = M; if (v + card.h > hole.t - GAP && v + card.h < hole.t + 0.12 * card.h) y = v; }
+      if (y == null) continue;
+      const x = clamp(hx - card.w / 2, M, vp.w - card.w - M);
+      if (over(x, y, lit) <= 0.12 * card.w * card.h && over(x, y, others) === 0) return fin({ mode: 'edge', side, x, y, caret: null });
+    }
     // 3. no room beside it (a panel as wide as the stage): inside the hole, in the corner with the fewest controls
     if (hole.r - hole.l >= card.w + 32 && hole.b - hole.t >= card.h + 32) {
       const avoid = (typeof opt.avoid === 'function' ? opt.avoid() : opt.avoid) || [];
@@ -415,6 +447,7 @@ const Tour = (() => {
   // this page's id: the stash and its heartbeat name the page whose tour holds them, so another tab never takes them
   const PAGE = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   const BEAT_MS = 2000, BEAT_STALE = 6000;
+  let lastToast = null, recheckT = 0;
   function load() { try { rec = normRec(JSON.parse(localStorage.getItem(sk(KEY)) || 'null')); } catch (e) { rec = normRec(null); } return rec; }
   function save() { try { localStorage.setItem(sk(KEY), JSON.stringify(rec)); } catch (e) { /* storage unavailable: the tour still runs */ } }
   const call = (name, ...a) => { try { return typeof api[name] === 'function' ? api[name](...a) : undefined; } catch (e) { warn(name, e); return false; } };
@@ -433,16 +466,20 @@ const Tour = (() => {
   const coarse = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
   const phone = () => narrow() || coarse();
   // where the tour lives: the help button, or the ⋯ menu that holds it on a phone
-  const helpWhere = () => (anchorEl('helpBtn') ? 'Help' : anchorEl('moreBtn') ? '⋯ › Help' : 'Help');
+  const helpWhere = () => (anchorEl('helpBtn') ? $t('Help') : anchorEl('moreBtn') ? $t('⋯ › Help') : $t('Help'));
   // the copy a step shows here: by the scene shown, on a touch screen, below 640 px, else its body
   function copyFor(step, scene, o = {}) {
     const isCoarse = o.coarse != null ? o.coarse : coarse(), isNarrow = o.narrow != null ? o.narrow : narrow();
-    if (step.byScene && scene != null && step.byScene[scene]) return step.byScene[scene];
-    if (isCoarse && step.touch) return step.touch;
-    if ((isNarrow || isCoarse) && step.narrow) return step.narrow;
-    return step.body;
+    if (step.byScene && scene != null && step.byScene[scene]) return $t(step.byScene[scene]);
+    // the anchor found was the ⋯ menu (the control itself lives in it here): the copy that says "in this menu"
+    if (o.menu && step.narrow) return $t(step.narrow);
+    if (isCoarse && step.touch) return $t(step.touch);
+    if ((isNarrow || isCoarse) && step.narrow) return $t(step.narrow);
+    return $t(step.body);
   }
-  const tryFor = (t, o = {}) => ((o.coarse != null ? o.coarse : coarse()) && t.touch ? t.touch : t.text);
+  const tryFor = (t, o = {}) => $t((o.coarse != null ? o.coarse : coarse()) && t.touch ? t.touch : t.text);
+  // a step's Try it here (tryWide: not below 640 px, where what it asks for is off-screen)
+  const tryOf = (step) => (step.try && !(step.tryWide && narrow()) ? step.try : null);
 
   function el(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -466,9 +503,10 @@ const Tour = (() => {
       else if (t.t === 'kbd') frag.append(el('span', { class: 'kbd' }, t.v === 'mod' ? modKey() : t.v));
       else {
         let m = null;
-        try { m = api.tex ? api.tex(t.v) : null; } catch (e) { m = null; }
-        if (!(m && m.nodeType)) m = el('span', { class: 'tour-math' }, texPlain(t.v));
-        if (m.setAttribute && !m.getAttribute('aria-label')) m.setAttribute('aria-label', texPlain(t.v));
+        const tex = notation(t.v);
+        try { m = api.tex ? api.tex(tex) : null; } catch (e) { m = null; }
+        if (!(m && m.nodeType)) m = el('span', { class: 'tour-math' }, texPlain(tex));
+        if (m.setAttribute && !m.getAttribute('aria-label')) m.setAttribute('aria-label', texPlain(tex));
         // punctuation right after a formula stays on its line
         const nx = toks[i + 1], pm = nx && nx.t === 'text' ? /^[.,;:!?)]+/.exec(nx.v) : null;
         if (pm) { frag.append(el('span', { class: 'tour-nb' }, m, pm[0])); nx.v = nx.v.slice(pm[0].length); }
@@ -685,15 +723,15 @@ const Tour = (() => {
     const root = el('div', { class: 'tour-root', 'data-tour': 'root' }, svg, live);
     const bar = el('i');
     const chap = el('span', { class: 'tour-chap' });
-    const x = el('button', { class: 'icon-btn tour-x', type: 'button', 'aria-label': 'End the tour', title: 'End the tour  Esc' });
+    const x = el('button', { class: 'icon-btn tour-x', type: 'button', 'aria-label': $t('End the tour'), title: $t('End the tour') + '  Esc' });
     x.innerHTML = ICON_X;
     const title = el('h2', { class: 'tour-title', id: 'tourTitle' });
     const body = el('p', { class: 'tour-body', id: 'tourBody' });
     const tryBox = el('div', { class: 'tour-try', hidden: true });
     const count = el('span', { class: 'tour-count' });
-    const back = el('button', { class: 'btn ghost', type: 'button' }, 'Back');
-    const done = el('button', { class: 'btn ghost', type: 'button', hidden: true }, 'Done');
-    const next = el('button', { class: 'btn primary', type: 'button' }, 'Next');
+    const back = el('button', { class: 'btn ghost', type: 'button' }, $t('Back'));
+    const done = el('button', { class: 'btn ghost', type: 'button', hidden: true }, $t('Done'));
+    const next = el('button', { class: 'btn primary', type: 'button' }, $t('Next'));
     const caret = el('span', { class: 'tour-caret', 'aria-hidden': 'true' });
     const card = el('div', { class: 'tour-card entering', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'tourTitle', 'aria-describedby': 'tourBody', tabindex: '-1', 'data-tour': 'card' },
       el('div', { class: 'tour-bar', 'aria-hidden': 'true' }, bar), caret,
@@ -718,16 +756,19 @@ const Tour = (() => {
     let snap = null;
     try { snap = api.snapshot(); } catch (e) { warn('snapshot', e); snap = null; }
     if (snap == null) { if (paused) call('sandbox', false); warn('no scenes', 'snapshot() gave nothing'); return null; }
-    const stashed = writeStash(snap);
+    const stashed = writeStash(snap, paused);
     if (!paused && !stashed) { warn('no scenes', 'the autosave is not paused and the backup could not be stored'); return null; }
     return { snap, paused, stashed };
   }
   // the backup: only the persisted part of the snapshot (snap.state when it has one: the undo history stays in memory),
   // checked by reading it back. Its heartbeat (LIVE) tells other pages that this one is using it
   const stashOf = (snap) => (snap && typeof snap === 'object' && 'state' in snap ? { state: snap.state } : snap);
-  function writeStash(snap) {
+  // (paused: the app's autosave is held, so the saved copy is the user's work, as savedMark() fingerprints it now)
+  function writeStash(snap, paused) {
+    let mark = null;
+    try { mark = fn('savedMark') ? api.savedMark() : null; } catch (e) { mark = null; }
     try {
-      const v = JSON.stringify({ page: PAGE, snap: stashOf(snap) });
+      const v = JSON.stringify({ page: PAGE, snap: stashOf(snap), paused: !!paused, mark });
       localStorage.setItem(sk(STASH), v);
       if (localStorage.getItem(sk(STASH)) !== v) return false;
       beat();
@@ -735,6 +776,10 @@ const Tour = (() => {
     } catch (e) { warn('stash', e); try { localStorage.removeItem(sk(STASH)); } catch (x) { /* */ } return false; }
   }
   function beat() { try { localStorage.setItem(sk(LIVE), JSON.stringify({ page: PAGE, t: Date.now() })); } catch (e) { /* */ } }
+  // this page is going away (a reload, a closed tab): its heartbeat goes with it, so the next page recovers at once
+  function unbeat() {
+    try { const live = JSON.parse(localStorage.getItem(sk(LIVE)) || 'null'); if (live && live.page === PAGE) localStorage.removeItem(sk(LIVE)); } catch (e) { /* */ }
+  }
   function dropStash() { try { localStorage.removeItem(sk(STASH)); localStorage.removeItem(sk(LIVE)); } catch (e) { /* */ } }
 
   // Synchronous up to the new run (a second start in the same tick finds it and takes it over, never a fresh snapshot
@@ -742,6 +787,9 @@ const Tour = (() => {
   function start(opt = {}) {
     if (!doc()) return Promise.resolve(false);
     if (!inited) init(api);
+    // a "Your work is back" toast from the tour that just ended would sit over this one's controls
+    if (lastToast && lastToast.isConnected) lastToast.remove();
+    lastToast = null;
     hideSuggest(false);
     closeMenu(false);
     const ci = chapterIndex(opt.chapter);
@@ -761,7 +809,7 @@ const Tour = (() => {
       // nothing of this chapter can be shown here
       if (lend) giveBack(lend, true);
       if (prev) call('onTour', false);
-      call('toast', 'The tour is not available in this build.');
+      call('toast', $t('The tour is not available in this build.'));
       return Promise.resolve(false);
     }
     r.si = first.si;
@@ -817,6 +865,11 @@ const Tour = (() => {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); go(-1); }
     };
     document.addEventListener('keydown', onKey, true);
+    const onHide = () => { if (run === r && r.lend && r.lend.stashed) unbeat(); };
+    const onShow = (e) => { if (e.persisted && run === r && r.lend && r.lend.stashed) beat(); };
+    addEventListener('pagehide', onHide);
+    addEventListener('pageshow', onShow);
+    r.offs.push(() => removeEventListener('pagehide', onHide), () => removeEventListener('pageshow', onShow));
     const onMove = () => track();
     addEventListener('resize', onMove);
     addEventListener('scroll', onMove, true);
@@ -858,7 +911,7 @@ const Tour = (() => {
     const sel = ':is(button, [href], input, select, textarea, summary, [tabindex]):not([tabindex="-1"]):not([disabled]):not([hidden])';
     const inCard = [...ui.card.querySelectorAll(sel)].filter((x) => x.offsetParent !== null || x === document.activeElement);
     // during a Try it the lit element stays reachable from the keyboard
-    const lit = run.step && run.step.try && run.el ? [...run.el.querySelectorAll(sel)].filter(visible) : [];
+    const lit = run.step && tryOf(run.step) && run.el ? [...run.el.querySelectorAll(sel)].filter(visible) : [];
     const ring = inCard.concat(lit);
     if (!ring.length) return;
     const i = ring.indexOf(document.activeElement);
@@ -898,6 +951,7 @@ const Tour = (() => {
   function absent(ci, si, scenes) {
     const ch = CHAPTERS[ci], st = ch.steps[si], k = sceneAt(ch, si), sc = k != null ? SCENES[k] : null;
     if (scenes === false && (k != null || (st.before || []).some((a) => CHANGES.has(a[0])))) return true;
+    if (st.wide && narrow()) return true;
     return [].concat(st.needs || [], (sc && sc.needs) || []).some(featureOff);
   }
 
@@ -980,19 +1034,11 @@ const Tour = (() => {
       return;
     }
     r.step = step; r.el = target;
-    // bring the anchor into view (on a phone: in the half the sheet leaves free)
-    if (target) {
-      // mostly cut off by a scrolling panel (a section low in a side panel, the add card at the end of a long chain)
-      const sb = seenBox(target), b = sb.full;
-      const fw = Math.min(b.width, innerWidth * 0.5), fh = Math.min(b.height, innerHeight * 0.5);
-      const hidden = fw > 0 && fh > 0 && Math.min(sb.r - sb.l, fw) * Math.min(sb.b - sb.t, fh) < 0.6 * fw * fh;
-      if (hidden || b.top < 0 || b.bottom > innerHeight || (narrow() && b.bottom > innerHeight * 0.58 && b.height < innerHeight * 0.5)) {
-        target.scrollIntoView({ block: narrow() ? 'start' : 'center', inline: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
-        await sleep(reduced() ? 30 : 380);
-        if (stale()) return;
-        if (narrow()) scrollBy({ top: -64, behavior: 'auto' });
-      }
-    }
+    // the copy of a control that lives in the ⋯ menu here says "in this menu"
+    r.inMenu = !!target && [].concat(step.anchor).length > 1 && target === anchorEl('moreBtn') && anchorEl([].concat(step.anchor)[0]) !== target;
+    // bring the lit area into view: between the top bar and what is fixed at the bottom (a phone's tool bar, and the
+    // sheet the callout becomes), measured again once the scroll has ended
+    if (target) { await reveal(target, step); if (stale()) return; }
     r.ui.card.removeAttribute('aria-busy');
     fill(r, ch, step);
     layout(true);
@@ -1001,31 +1047,106 @@ const Tour = (() => {
     try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ }
   }
 
+  // the band of the viewport that nothing fixed covers: below the top bar, above a bottom bar and (on a phone) the sheet
+  function fixedEdge(y, fromTop) {
+    let best = null;
+    const xs = [innerWidth * 0.25, innerWidth * 0.5, innerWidth * 0.75];
+    for (const x of xs) {
+      for (const e of document.elementsFromPoint(x, y)) {
+        if (e.closest('[data-tour]')) continue;
+        let a = e;
+        for (; a && a !== document.body && a !== document.documentElement; a = a.parentElement) { const p = getComputedStyle(a).position; if (p === 'fixed' || p === 'sticky') break; }
+        if (!a || a === document.body || a === document.documentElement) break;
+        const q = a.getBoundingClientRect();
+        if (q.width < innerWidth * 0.4) break;
+        best = fromTop ? Math.max(best == null ? 0 : best, q.bottom) : Math.min(best == null ? innerHeight : best, q.top);
+        break;
+      }
+    }
+    return best;
+  }
+  function freeBand() {
+    const top = fixedEdge(2, true) || 0, bar = fixedEdge(innerHeight - 3, false);
+    let bot = bar == null ? innerHeight : bar;
+    if (narrow()) bot = Math.min(bot, innerHeight * 0.58);
+    return { top, bot: Math.max(top + 80, bot) };
+  }
+  function scrollWin(y) {
+    return new Promise((res) => {
+      if (Math.abs(y - scrollY) < 1) { res(); return; }
+      if (reduced()) { scrollTo({ top: y, behavior: 'auto' }); res(); return; }
+      let done = false;
+      const fin = () => { if (done) return; done = true; removeEventListener('scrollend', fin); res(); };
+      addEventListener('scrollend', fin);
+      setTimeout(fin, 700);
+      scrollTo({ top: y, behavior: 'smooth' });
+    });
+  }
+  const inFixed = (e) => { for (let a = e; a && a !== document.body && a !== document.documentElement; a = a.parentElement) { const p = getComputedStyle(a).position; if (p === 'fixed' || p === 'sticky') return true; } return false; };
+  async function reveal(target, step) {
+    // a control in the top bar or a fixed tool bar is always in view; scrolling would only move the page under it
+    if (inFixed(target)) return;
+    const also = [].concat(step.also || []).map((a) => anchorEl(a)).filter((e) => e && e !== target && !inFixed(e));
+    for (let pass = 0; pass < 2; pass++) {
+      // mostly cut off by a scrolling panel (a section low in a side panel, the add card at the end of a long chain):
+      // that panel scrolls first
+      const sb = seenBox(target), b0 = sb.full;
+      const fw = Math.min(b0.width, innerWidth * 0.5), fh = Math.min(b0.height, innerHeight * 0.5);
+      const clipped = fw > 0 && fh > 0 && Math.min(sb.r - sb.l, fw) * Math.min(sb.b - sb.t, fh) < 0.6 * fw * fh;
+      if (clipped) { target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' }); await frames(1); }
+      // the lit area: the anchor, and its second lit element when both can be brought in
+      let b = target.getBoundingClientRect();
+      const box = { top: b.top, bottom: b.bottom };
+      for (const e of also) { const q = e.getBoundingClientRect(); box.top = Math.min(box.top, q.top); box.bottom = Math.max(box.bottom, q.bottom); }
+      const band = freeBand(), room = band.bot - band.top - 16;
+      let delta = 0;
+      if (box.bottom - box.top <= room) {
+        // it fits: wholly inside the band
+        if (box.top < band.top + 2) delta = box.top - band.top - 8;
+        else if (box.bottom > band.bot - 2) delta = box.bottom - band.bot + 8;
+      } else if (also.length && narrow()) {
+        // two lit areas that cannot both fit (X and Y on a phone): their middle in the middle of the band
+        delta = (box.top + box.bottom) / 2 - (band.top + band.bot) / 2;
+      } else if (b.bottom - b.top <= room) {
+        if (b.top < band.top + 2) delta = b.top - band.top - 8;
+        else if (b.bottom > band.bot - 2) delta = b.bottom - band.bot + 8;
+      } else if (b.top < band.top - 2 || b.top > band.top + 0.4 * room) delta = b.top - band.top - 8;
+      if (Math.abs(delta) < 2) return;
+      const maxY = Math.max(0, document.documentElement.scrollHeight - innerHeight);
+      const y = Math.max(0, Math.min(maxY, scrollY + delta));
+      if (Math.abs(y - scrollY) < 1) return;
+      await scrollWin(y);
+      await frames(1);
+      if (!run) return;
+    }
+  }
+
   function fill(r, ch, step) {
     const ui = r.ui;
     // the count leaves out the steps this run found missing
     const shown = ch.steps.filter((s, i) => s === step || !(r.skipped.has(skipKey(r.ci, i)) || r.absent.has(skipKey(r.ci, i))));
     const k = shown.indexOf(step) + 1, total = shown.length;
-    ui.chap.textContent = ch.title;
-    ui.title.textContent = step.title;
+    ui.chap.textContent = $t(ch.title);
+    ui.title.textContent = $t(step.title);
     ui.body.textContent = '';
-    ui.body.append(richText(copyFor(step, r.scene)));
-    r.countText = `${k} of ${total}`;
+    ui.body.append(richText(copyFor(step, r.scene, { menu: r.inMenu })));
+    r.countText = $t('{k} of {total}', { k, total });
     ui.bar.style.width = `${(100 * k / Math.max(1, total)).toFixed(1)}%`;
     ui.tryBox.textContent = '';
     ui.tryBox.classList.remove('done');
-    ui.tryBox.hidden = !step.try;
-    if (step.try) {
+    const tr = tryOf(step);
+    ui.tryBox.hidden = !tr;
+    if (tr) {
       const tick = el('span', { class: 'tour-tick', 'aria-hidden': 'true' });
       tick.innerHTML = ICON_CHECK;
-      const txt = el('span', null, el('b', null, 'Try it'), ' ');
-      txt.append(richText(tryFor(step.try)));
+      const txt = el('span', null, el('b', null, $t('Try it')), ' ');
+      txt.append(richText(tryFor(tr)));
       ui.tryBox.append(tick, txt);
     }
     const nx = seek(r.ci, r.si + 1, 1, isAbsent);
     const nextCh = nx && nx.ci !== r.ci ? CHAPTERS[nx.ci] : null;
     const last = !nx;
-    ui.next.textContent = step.anchor == null && r.ci === 0 && r.si === 0 ? 'Start' : last ? 'Finish' : nextCh ? `Next: ${nextCh.title}` : 'Next';
+    ui.next.textContent = step.anchor == null && r.ci === 0 && r.si === 0 ? $t('Start') : last ? $t('Finish') : nextCh ? $t('Next: {chapter}', { chapter: $t(nextCh.title) }) : $t('Next');
     ui.next.classList.remove('ready');
     ui.done.hidden = !nextCh;
     // at a chapter's end the footer holds Back, Done and "Next: <chapter>"; the full progress line says the rest
@@ -1035,7 +1156,8 @@ const Tour = (() => {
   }
   function announce(r, ch, step) {
     const k = r.countText;
-    r.ui.live.textContent = `${ch.title}, step ${k}. ${step.title}. ${plainCopy(copyFor(step, r.scene), modKey())}${step.try ? ' Try it: ' + plainCopy(tryFor(step.try), modKey()) : ''}`;
+    const tr = tryOf(step);
+    r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k, title: $t(step.title) }) + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }), modKey()) + (tr ? $t(' Try it: ') + plainCopy(tryFor(tr), modKey()) : '');
   }
 
   function holesFor(step, target) {
@@ -1102,7 +1224,7 @@ const Tour = (() => {
   }
 
   function armTry(r, step) {
-    const t = step.try;
+    const t = tryOf(step);
     if (!t || !t.on || typeof api.on !== 'function') return;
     // mem: what this showing of the step has seen so far (the preimages Try it wants a point inside and one outside);
     // count: how many times the event must come (Paths twice, so it ends switched on)
@@ -1115,7 +1237,7 @@ const Tour = (() => {
       fired = true;
       r.ui.tryBox.classList.add('done');
       r.ui.next.classList.add('ready');
-      r.ui.live.textContent = 'Done.';
+      r.ui.live.textContent = $t('Done.');
       if (t.advance) setTimeout(() => { if (run === r && r.step === step) go(1); }, reduced() ? 300 : 700);
     };
     for (const ev of [].concat(t.on)) {
@@ -1150,9 +1272,9 @@ const Tour = (() => {
     call('onTour', false);
     if (!opt.silent) {
       const where = helpWhere();
-      call('toast', !back ? 'Your work could not be put back here, but it is safe: reload the page to get it back.'
-        : !r.lend ? `The tour stays under ${where}.`
-          : opt.finished && r.ci === CHAPTERS.length - 1 ? `Tour finished. Your work is back, and the tour stays under ${where}.` : `Your work is back. The tour stays under ${where}.`);
+      lastToast = call('toast', !back ? $t('Your work could not be put back here, but it is safe: reload the page to get it back.')
+        : !r.lend ? $t('The tour stays under {where}.', { where })
+          : opt.finished && r.ci === CHAPTERS.length - 1 ? $t('Tour finished. Your work is back, and the tour stays under {where}.', { where }) : $t('Your work is back. The tour stays under {where}.', { where }));
       const to = r.opener && r.opener.isConnected ? r.opener : anchorEl(['helpBtn', 'moreBtn']);
       try { if (to) to.focus({ preventScroll: true }); } catch (e) { /* */ }
     }
@@ -1180,30 +1302,30 @@ const Tour = (() => {
     rec.shown += 1; save();
     // a returning user (saved work) is not "new here"
     const returning = call('hasWork') === true;
-    const title = returning ? 'Take the 2-minute tour' : 'New here? Take a 2-minute tour';
-    const close = el('button', { class: 'icon-btn small tour-sg-x', type: 'button', 'aria-label': 'Dismiss the tour suggestion' });
+    const title = returning ? $t('Take the 2-minute tour') : $t('New here? Take a 2-minute tour');
+    const close = el('button', { class: 'icon-btn small tour-sg-x', type: 'button', 'aria-label': $t('Dismiss the tour suggestion') });
     close.innerHTML = ICON_X;
-    const startB = el('button', { class: 'btn primary', type: 'button' }, 'Start the tour');
-    const later = el('button', { class: 'btn ghost', type: 'button' }, 'Not now');
+    const startB = el('button', { class: 'btn primary', type: 'button' }, $t('Start the tour'));
+    const later = el('button', { class: 'btn ghost', type: 'button' }, $t('Not now'));
     const markWrap = el('span', { class: 'tour-sg-mark', 'aria-hidden': 'true' });
     markWrap.innerHTML = mark();
     // the compact form: once the user starts working, the card shrinks to a pill under Help (it no longer covers the
     // composite map), until Start, × or the next opening
     const pill = el('button', { class: 'btn ghost tour-sg-pill', type: 'button', 'aria-label': title });
-    pill.innerHTML = `${ICON_PLAY}<span>Take the tour</span><span class="tour-time">2 min</span>`;
-    const box = el('section', { class: 'tour-suggest', role: 'region', 'aria-label': 'Tour suggestion', 'data-tour': 'suggest' },
+    pill.innerHTML = `${ICON_PLAY}<span>${$t('Take the tour')}</span><span class="tour-time">${$t('2 min')}</span>`;
+    const box = el('section', { class: 'tour-suggest', role: 'region', 'aria-label': $t('Tour suggestion'), 'data-tour': 'suggest' },
       el('span', { class: 'tour-caret', 'aria-hidden': 'true' }),
       el('div', { class: 'tour-sg-row' }, markWrap,
         el('div', { class: 'tour-sg-text' },
           el('h2', { class: 'tour-sg-title' }, title),
-          el('p', { class: 'tour-sg-body' }, 'Draw a region, send it through a chain of functions and watch its image. About two minutes, and your work is kept.'),
+          el('p', { class: 'tour-sg-body' }, $t('Draw a region, send it through a chain of functions and watch its image. About two minutes, and your work is kept.')),
           el('div', { class: 'tour-sg-acts' }, startB, later)),
         close),
       pill);
     const go1 = () => { hideSuggest(true); start({ chapter: 'basics', opener: anchorEl(['helpBtn', 'moreBtn']) }); };
     startB.addEventListener('click', go1);
     pill.addEventListener('click', go1);
-    const dismiss = () => { rec.outcome = 'dismissed'; rec.v = Math.max(rec.v, VERSION); save(); hideSuggest(true); call('toast', `The tour is under ${helpWhere()} whenever you want it.`); };
+    const dismiss = () => { rec.outcome = 'dismissed'; rec.v = Math.max(rec.v, VERSION); save(); hideSuggest(true); call('toast', $t('The tour is under {helpWhere} whenever you want it.', { helpWhere: helpWhere() })); };
     later.addEventListener('click', dismiss);
     close.addEventListener('click', dismiss);
     box.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); hideSuggest(true); } });
@@ -1215,9 +1337,33 @@ const Tour = (() => {
       positionSuggest();
     };
     document.addEventListener('pointerdown', onDown, true);
+    // the keyboard: the card is the next Tab stop after Help (and Shift+Tab goes back to Help); Escape on the page
+    // hides it for this session, unless a menu, a dialog, a field or something of the app's takes that Escape
+    const onKeySg = (e) => {
+      if (!sugg || sugg.box !== box || e.altKey || e.ctrlKey || e.metaKey) return;
+      const help = anchorEl(['helpBtn', 'moreBtn']), a = document.activeElement;
+      if (e.key === 'Tab') {
+        const fs = [...box.querySelectorAll('button')].filter(visible);
+        if (!fs.length || !help) return;
+        if (!e.shiftKey && a === help) { e.preventDefault(); fs[0].focus(); }
+        else if (e.shiftKey && a === fs[0]) { e.preventDefault(); help.focus(); }
+        else if (!e.shiftKey && a === fs[fs.length - 1]) {
+          const all = [...document.querySelectorAll('button, [href], input, select, textarea, [tabindex]')].filter((x) => !x.disabled && x.tabIndex >= 0 && !box.contains(x) && !x.closest('[data-tour]') && visible(x));
+          const i = all.indexOf(help);
+          if (i >= 0 && all[i + 1]) { e.preventDefault(); all[i + 1].focus(); }
+        }
+        return;
+      }
+      if (e.key === 'Escape' && !box.contains(a)) {
+        if (run || appLayerOpen() || appBusy()) return;
+        if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+        hideSuggest(true);
+      }
+    };
+    document.addEventListener('keydown', onKeySg, true);
     document.body.append(box);
-    sugg = { box, off: () => document.removeEventListener('pointerdown', onDown, true) };
-    say(`Tour suggestion: ${title}. Start the tour or Not now. The tour stays under ${helpWhere()}.`);
+    sugg = { box, off: () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKeySg, true); } };
+    say($t('Tour suggestion: {title}. Start the tour or Not now.', { title }) + (anchorEl('helpBtn') ? ' ' + $t('Tab from Help reaches it; Escape hides it.') : '') + ' ' + $t('The tour stays under {where}.', { where: helpWhere() }));
     positionSuggest();
     addEventListener('resize', positionSuggest);
     call('onSuggest', true);
@@ -1268,28 +1414,29 @@ const Tour = (() => {
       items.push(b);
       return b;
     };
-    const head = el('div', { class: 'menu-head', role: 'presentation' }, 'Guided tour');
+    const head = el('div', { class: 'menu-head', role: 'presentation' }, $t('Guided tour'));
     const kids = [head];
     const resume = rec.last && CHAPTERS.find((c) => c.id === rec.last.ch);
     if (resume && !(rec.last.i === 0 && rec.last.ch === 'basics')) {
       const st = resume.steps[Math.min(rec.last.i, resume.steps.length - 1)];
-      kids.push(mi('tour-continue', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">Continue the tour<span class="tour-sub">${esc(resume.title)}: ${esc(st.title)}</span></span>`,
+      kids.push(mi('tour-continue', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Continue the tour'))}<span class="tour-sub">${esc($t(resume.title))}: ${esc($t(st.title))}</span></span>`,
         () => start({ chapter: resume.id, step: rec.last.i, opener: anchor })));
     } else {
-      kids.push(mi('', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">Take the tour</span><span class="mi-key">2 min</span>`, () => start({ chapter: 'basics', opener: anchor })));
+      kids.push(mi('', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Take the tour'))}</span><span class="mi-key">${esc($t('2 min'))}</span>`, () => start({ chapter: 'basics', opener: anchor })));
     }
     kids.push(el('div', { class: 'msep', role: 'separator' }));
     CHAPTERS.forEach((c, i) => {
       const done = chapterDone(rec, c), fresh = chapterNew(rec, c);
-      kids.push(mi('', `<span class="tour-num">${i + 1}</span><span class="mi-label">${esc(c.title)}${fresh ? ' <span class="tour-new">New</span>' : ''}</span>${done ? `<span class="tour-done" aria-label="done">${ICON_CHECK}</span>` : ''}<span class="tour-time">${esc(c.time)}</span>`,
-        () => start({ chapter: c.id, opener: anchor }), { 'aria-label': `${c.title}, ${c.time}${done ? ', done' : ''}` }));
+      const title = $t(c.title), time = $t(c.time);
+      kids.push(mi('', `<span class="tour-num">${i + 1}</span><span class="mi-label">${esc(title)}${fresh ? ` <span class="tour-new">${esc($t('New'))}</span>` : ''}</span>${done ? `<span class="tour-done" aria-label="${esc($t('done'))}">${ICON_CHECK}</span>` : ''}<span class="tour-time">${esc(time)}</span>`,
+        () => start({ chapter: c.id, opener: anchor }), { 'aria-label': `${title}, ${time}${done ? $t(', done') : ''}` }));
     });
     kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
     const keys = !phone();
-    kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">Reference guide</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
-    if (keys) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">Keyboard shortcuts</span>`, () => call('openGuide', 'keys')));
-    const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': 'Help', 'data-tour': 'menu' }, ...kids);
+    kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
+    if (keys) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
+    const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': $t('Help'), 'data-tour': 'menu' }, ...kids);
     const host = document.getElementById('popHost') || document.body;
     host.append(pop);
     // below the anchor, right-aligned to it, kept on screen. On a phone the help button sits in the ⋯ menu, which
@@ -1339,18 +1486,34 @@ const Tour = (() => {
   }
   // A tour cut short by a reload or a crash: put the user's work back before anything else. Another page's live tour
   // (its heartbeat is fresh) keeps its stash; the stash goes only once restore() has taken it.
+  // A fresh heartbeat of another page: that page may still be touring (another tab), or it just went away without
+  // saying so (a crash); look again once its heartbeat would be stale, never give up for the session.
+  // A backup written while the app's autosave was paused (paused, with the saved copy's fingerprint, mark) holds
+  // nothing the saved copy lacks: the saved copy is that work, or newer work saved since (after a reload, or in
+  // another tab). Such a backup is dropped, never restored over the saved copy.
   function recoverStash() {
+    clearTimeout(recheckT); recheckT = 0;
+    if (run) return;
     let raw = null;
     try { raw = localStorage.getItem(sk(STASH)); } catch (e) { warn('storage', e); return; }
     if (!raw) return;
     try {
       const live = JSON.parse(localStorage.getItem(sk(LIVE)) || 'null');
-      if (live && live.page !== PAGE && Date.now() - live.t < BEAT_STALE) return;
+      if (live && live.page !== PAGE && Date.now() - live.t < BEAT_STALE) {
+        recheckT = setTimeout(recoverStash, Math.max(500, BEAT_STALE - (Date.now() - live.t) + 250));
+        return;
+      }
     } catch (e) { /* malformed heartbeat: recover */ }
     let st;
     try { st = JSON.parse(raw); } catch (e) { warn('stash', e); dropStash(); return; }
+    if (st && typeof st === 'object' && st.page === PAGE) return;   // this page's own (a restore that failed): kept
     const snap = st && typeof st === 'object' && 'page' in st && 'snap' in st ? st.snap : st;
     if (snap == null) { dropStash(); return; }
+    if (st && st.paused === true && st.mark != null && fn('savedMark')) {
+      let now = null;
+      try { now = api.savedMark(); } catch (e) { now = null; }
+      if (now != null) { dropStash(); return; }
+    }
     if (!fn('restore')) return;
     let ok = false;
     try { ok = api.restore(snap, { fromStash: true }) !== false; } catch (e) { warn('restore', e); ok = false; }

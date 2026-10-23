@@ -1,0 +1,16 @@
+% which Russian notation macros does babel-russian define? (\meaning of each, in each language)
+\newcommand\probe[1]{\texttt{\string#1}: \ifdefined#1\texttt{\meaning#1}\else undefined\fi\par}
+\newcommand\probeall{\probe\tg\probe\ctg\probe\cot\probe\sh\probe\ch\probe\th\probe\cth\probe\arctg\probe\arcctg\probe\arsh\probe\arch\probe\arth\probe\cosec\probe\lg\probe\Re\probe\Im}
+\begin{document}
+\section*{main language}\probeall
+\selectlanguage{english}\section*{english}\probeall
+\selectlanguage{russian}\section*{russian again}\probeall
+\typeout{RESULT-BEGIN}
+\begingroup\selectlanguage{russian}%
+\typeout{ru tg=\meaning\tg}\typeout{ru ctg=\meaning\ctg}\typeout{ru sh=\meaning\sh}\typeout{ru ch=\meaning\ch}\typeout{ru th=\meaning\th}\typeout{ru cth=\meaning\cth}\typeout{ru arctg=\meaning\arctg}\typeout{ru arcctg=\meaning\arcctg}\typeout{ru arsh=\meaning\arsh}\typeout{ru arch=\meaning\arch}\typeout{ru arth=\meaning\arth}\typeout{ru cosec=\meaning\cosec}\typeout{ru Re=\meaning\Re}\typeout{ru Im=\meaning\Im}
+\endgroup
+\begingroup\selectlanguage{english}%
+\typeout{en tg=\meaning\tg}\typeout{en sh=\meaning\sh}\typeout{en th=\meaning\th}\typeout{en ch=\meaning\ch}
+\endgroup
+\typeout{RESULT-END}
+\end{document}

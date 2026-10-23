@@ -1,0 +1,106 @@
+[
+ {
+  "id": "eng-1",
+  "severity": "high",
+  "title": "Russian users see the English interface first: the page paints before init translates it",
+  "detail": "applyPage and applyStatic run in init() at DOMContentLoaded. The 2.7 MB page is parsed progressively, so the browser paints the English static markup (header, Draw, Shapes, Display, the chain bar) before the scripts at the end arrive and run. With a Russian browser and a throttled network (400 ms latency, ~500 KB/s, cold cache), first paint was at 856 ms and DOMContentLoaded at 7026 ms: about 6 s of English (\"Examples\", \"Add function or command\", \"Region from a formula\", \"Function chain\"), html lang empty. Even on the local fast load first paint (100 ms) came before DOMContentLoaded (118 ms), so one English frame paints. PHASE2B.md says the first paint comes after init; that holds only for a fast local load.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/fonts.js; screenshot work/xb/test/engrev_cdp/shots/engrev_slow_early.png (Russian browser, 1.9 s after navigation: English UI, html lang=\"\"); measurements: slow first-paint 856 ms, dcl 7026 ms; fast first-paint 100 ms, dcl 118 ms",
+  "fix": "Decide the language and mark the page before the body is painted: a tiny inline script in <head> (same resolve rule: ?lang, the stored cmw-lang setting, ?ns, navigator.languages[0]) that sets <html lang=ru data-lang=ru>, adds the Cyrillic font link, and hides #app (e.g. :root[data-lang=ru]:not(.i18n-ready) #app { visibility: hidden }) until applyStatic has run and sets .i18n-ready. English does nothing, so English stays byte-identical in behaviour."
+ },
+ {
+  "id": "eng-2",
+  "severity": "medium",
+  "title": "The Cyrillic fonts are requested only at DOMContentLoaded, so Russian text swaps font seconds later",
+  "detail": "applyPage injects the Roboto Flex / JetBrains Mono stylesheet from init(). Until it arrives, Cyrillic renders in the fallback (Archivo has no Cyrillic, so Helvetica Neue/Arial), then swaps (display=swap). Cold cache, unthrottled: the stylesheet finished at 3159 ms and Roboto Flex was in use at 3198 ms, about 3 s of fallback after first paint. Throttled: 8287 ms. Shifts are small (a 0.0012 layout shift at the swap; header widths 99 -> 98.6 px, view switch 242.8 -> 241 px), and the first big layout shift is larger in Russian (0.0876) than in English (0.0703). With Google Fonts blocked nothing overflows (checked at 390, 900, 1024 px), so this is a visible font flash, not breakage.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/fonts.js (fast: fontsCss responseEnd 3159 ms, ft 3198 ms, CLS ru 0.0908 vs en 0.0723); work/xb/test/engrev_cdp/cmd/fontblock.js (no extra clipping with fonts blocked)",
+  "fix": "Start the font request in <head> for Russian (the inline head script of eng-1 adds the link, or a <link rel=preload> for the css2 URL), so it loads in parallel with the page instead of after it."
+ },
+ {
+  "id": "eng-3",
+  "severity": "medium",
+  "title": "The language menu items carry no lang attribute",
+  "detail": "The globe menu (and the More menu route to it) lists \"English\" and \"Русский\" as menuitemradio buttons with no lang. In the English interface a screen reader reads \"Русский\" with the English voice (garbled or spelled out); in Russian it reads \"English\" with the Russian voice. WCAG 3.1.2 Language of Parts; a language picker is the standard case. The same holds for the palette rows \"Language: Русский\" / \"Язык: English\".",
+  "evidence": "work/xb/test/engrev_cdp/cmd/globe.js: deskOpen.pop.items[*].lang = null at 1440, 900 and 390 px; app.js langItems() (line ~8346) and the palette rows (line ~8452)",
+  "fix": "Give the items their own language: an item option (e.g. it.lang) that openMenu passes to the button as lang=\"en\" / lang=\"ru\" (for \"Авто (Русский)\" put lang on an inner span around the name). Same for the palette row labels."
+ },
+ {
+  "id": "eng-4",
+  "severity": "medium",
+  "title": "Decimal comma in the mono face reads as \"0, 5\" or \"0. 5\" on rulers and chips",
+  "detail": "Russian readouts, ruler ticks and the scale chip use B612 Mono. A monospace comma takes a full cell, so 0,5 shows as \"0, 5\" (chip) and, at the 9-10 px ruler size, as \"−0. 5\" (looks like a point and a space, or two list items). The decimal comma was chosen to read naturally; in this face it reads as a separator. English \"0.5\" has the same cell but the point does not suggest a list.",
+  "evidence": "work/xb/test/engrev_cdp/shots/engrev_chip.png (scale chip \"0, 5 / дел.\" at 4x); work/xb/test/engrev_cdp/shots/engrev_tick2.png (w-plane ruler \"−0, 5\" at 8x); 900 px, Russian, example 1",
+  "fix": "In Russian, set the comma inside numbers narrower: wrap it (DOM: <span class=dc>,</span> with margin-right:-0.35em or letter-spacing; canvas rulers: draw the parts with a measured negative gap), or set numeric readouts in a proportional face with tabular figures. Check the ruler tick labels and the chip at 1x."
+ },
+ {
+  "id": "eng-5",
+  "severity": "low",
+  "title": "Focus is lost after a language switch",
+  "detail": "Switching reloads the page. After the reload focus is on <body>, not on the globe (or the More button) the user used. A keyboard or screen reader user starts again at the top of the page with no word about what happened.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/switch.js: afterKbdSwitch.active = \"BODY\" (globe focused, Enter, ArrowDown, Enter); sessBlocked.active = \"BODY\"",
+  "fix": "Stash the opener in the cmw-switch record (\"langBtn\" or \"hdrMoreBtn\"/palette) and focus it after the reload ({preventScroll: true}); optionally announce «Язык: Русский» in the existing live region."
+ },
+ {
+  "id": "eng-6",
+  "severity": "low",
+  "title": "The globe's label goes stale when a choice does not reload",
+  "detail": "When the new setting resolves to the language already shown (Auto (Русский) -> Русский, or Auto (English) -> English), setPref writes it and does not reload. The globe's aria-label and its More-menu label are set only at init, so they keep saying «Язык: Авто» while the setting is now «Русский» (until the next reload). The menu itself shows the right radio on the next open.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/globe.js: afterPickRu = { pref: 'ru', btn.label: 'Язык: Авто', btn.txt: 'Язык: Авто' }; app.js lines ~12556-12561",
+  "fix": "Move the label update into a function and call it from langItems' run (and the palette rows) after setPref returns { reload: false }."
+ },
+ {
+  "id": "eng-7",
+  "severity": "low",
+  "title": "The language menu has no name, the globe has no aria-expanded, and focus opens on the first item",
+  "detail": "openMenu builds the top-level menu with role=menu and no aria-label/aria-labelledby, so it is announced as an unnamed menu. #langBtn has aria-haspopup=menu but never aria-expanded (helpBtn has one). Focus goes to the first item («Авто …»), not the checked one, which is the usual pattern for a radio menu.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/globe.js: deskOpen.pop.label = null, labelledby = null; btn.expanded = null while open",
+  "fix": "Pass a label for the language menu (aria-labelledby=langBtn or aria-label «Язык»); set aria-expanded on the opener while its menu is open; focus the aria-checked=true item when a radio menu opens."
+ },
+ {
+  "id": "eng-8",
+  "severity": "low",
+  "title": "With session storage blocked, a switch drops the undo history without saying so",
+  "detail": "The switch checks that the work and the setting were written to localStorage, but the undo stash goes to sessionStorage inside a silent catch. If sessionStorage throws (some sandboxed frames, or a large history over quota), the language changes and undo is empty after the reload, with no note. The work itself is kept.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/switch.js: sessBlocked = { lang: 'ru', undoBefore: true, undoAfter: false, toasts: [] }; app.js I18N.onSwitch (line ~12358). Blocked localStorage and a full work key are handled well: no reload, setting rolled back, toast shown (blocked, quotaWork).",
+  "fix": "If the stash write fails and the history has more than one entry, either show a short toast after the reload («История отмены не сохранилась при смене языка») or ask before switching."
+ },
+ {
+  "id": "eng-9",
+  "severity": "low",
+  "title": "Screen-reader announcements mix the decimal point and the decimal comma",
+  "detail": "The sound probe's live region (sndLive) formats some numbers with I18N.num (comma) and others raw or with CX.fmt (point): 'Probe at the centre, z = {z}. Steps of {st}' passes st raw and z through CX.fmt; 'No order within {st0}' and 'Zeros minus poles within {st0}: none.' pass st0 raw, while 'Zeros within {st0}' uses I18N.num. One Russian sentence can read «… в точке 0.5+1i. Зонд на 0,125 правее».",
+  "evidence": "app.js sndKeyStart (line ~12100), sndKey (lines ~12143, 12150, 12151); sndFmt = CX.fmt (cx.js fmt keeps the point for inputs)",
+  "fix": "Use I18N.num for st/st0 and a screen-only complex formatter (CX.fmt then the comma in Russian) for spoken values."
+ },
+ {
+  "id": "eng-10",
+  "severity": "low",
+  "title": "Shape rows expose raw TeX as their title, in Russian with 0{,}8 and \\operatorname",
+  "detail": "updateShapeList sets r.d.title = tex. The tooltip and the accessible description show TeX source, e.g. \\left|\\operatorname{Im} z\\right| < \\frac{\\pi}{2} and, in Russian, \\operatorname{Im}z=0{,}8 and -1{,}5<\\operatorname{Re}z<1{,}5. English has the raw TeX too (pre-existing), but the Russian print braces {,} make it harder to read.",
+  "evidence": "placeholder walk work/xb/test/engrev_cdp/cmd/phwalk.js (q/5.out, ph entries @title on span.d: states start, example 5, 7, 8); app.js updateShapeList line ~7456",
+  "fix": "Give the title (or an aria-label) a plain-text form of the formula (the tour's texPlain-style rendering, with the screen decimal comma), or drop the title since MathJax already renders it."
+ },
+ {
+  "id": "eng-11",
+  "severity": "low",
+  "title": "The Russian guide does not say the letter keys work in the Russian layout",
+  "detail": "Shortcuts go through I18N.keyOf (e.code), so on ЙЦУКЕН М (V), З (P), Ь (M), Я (Z), Х ([) all work, and typing in text fields is untouched (checked: ь toggles the deformation, «ью» typed into the formula field, Ctrl+Л opens the palette, Shift+Ь in the palette search types «Ь» without toggling sound, «.» on the slash key opens the palette, Х folds the left panel). But the guide and tooltips list Latin letters only, and nothing tells a Russian user they need not switch layouts.",
+  "evidence": "work/xb/test/engrev_cdp/cmd/keys.js (all pass); no table entry contains «раскладк» (1973 entries searched)",
+  "fix": "Add one line to the Russian guide's keys section: «Буквенные клавиши работают и в русской раскладке: важна клавиша, а не буква (V — М, P — З, M — Ь)»."
+ },
+ {
+  "id": "eng-12",
+  "severity": "low",
+  "title": "On ?ns= and ?lang= pages the Auto item names the wrong language",
+  "detail": "langItems labels Auto with I18N._detect(navigator) only. Under ?ns= (forced English) on a Russian browser the menu says «Auto (Русский)» while the page is English; under ?lang=ru on an English browser it says «Авто (English)» while the page is Russian. Test and debug pages only.",
+  "evidence": "app.js langItems() line ~8347; detection matrix work/xb/test/engrev_cdp/cmd/detect.js (ru-RU + ?ns= -> en; en-US + ?lang=ru -> ru)",
+  "fix": "Label Auto with I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator }) (what Auto would actually pick)."
+ },
+ {
+  "id": "eng-13",
+  "severity": "low",
+  "title": "Stale entries in the Russian table",
+  "detail": "Some entries have English keys that no call site uses any more, so their renamed placeholders are never filled: 'Drag to draw {a} {lab}' (ru uses {tool}), 'The image{s} of {list} under {wmap}.' ({list_gen}), '{n}{ or more} pole{s}: …' ({andMore}), '{Zero|Pole} {i} of …' ({orMore}), '{cap1} (left) and {its image} …' ({list}). One plural object sits under a non-plural key ('<div class=\"ch\">{choice}{nz} root{choice} of …'): $tn can never find it and $t would return its 'other' form with a raw {n}. None is reachable now (the walk found no raw placeholder), but they hide real misses from the strict check.",
+  "evidence": "node script scratchpad plur.js over src/i18n_ru.js: 51 plural entries, all with one/few/many/other and the count in every form; 24 placeholder mismatches, all in the orphan keys above",
+  "fix": "Have make_ru_table.py drop (or report) entries whose key has no call site, and reject object values under keys without the plural separator."
+ }
+]

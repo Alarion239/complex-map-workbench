@@ -13,3 +13,10 @@ test/regress/tmp/
 *.bak*
 .DS_Store
 node_modules/
+
+# LaTeX build artefacts and run logs in notes
+notes/**/*.log
+notes/**/*.aux
+notes/**/*.fls
+notes/**/*.fdb_latexmk
+notes/**/*.synctex.gz

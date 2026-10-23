@@ -1,0 +1,66 @@
+[
+ {
+  "id": "verify-1",
+  "severity": "high",
+  "title": "math-1: the Russian list rule breaks saved work when the language is switched",
+  "detail": "The math-1 fix makes list parsing depend on the interface language. In Russian a comma between two digits is refused; in English ';' is not a separator. The saved work keeps the raw text, so a switch rebuilds it under the other rule. Seen in the app: a chain made in English with zeros '1,0.5' and polynomial coefficients '1,0,1' builds in English. After switching to Russian through the globe, both steps fail («нули: Дробную часть отделяйте точкой (0.5) или разделяйте значения точкой с запятой…», the same for «коэффициенты») and the chain drops to the identity (all lamps on, «степень 1»). The other way also fails: a Russian list '0,5; -1' gives «value 2: Unexpected ';'» in English (node probe). A switch is meant to keep the work. The ledger names only the typing cost («1,0,1» gets the hint), not this.",
+  "evidence": "work/xb/test/vfy2b_cdp/cmd/f_switch.js (load a state with steps zp {zeros:'1,0.5'} and poly {co:'1,0,1'}, then pick Русский): en cards build, ru cards show the two errors. Node probe: Funcs.parseCxList('0,5; -1') in English -> ERR value 2: Unexpected ';'. Code: src/funcs.js listParts/listComma (lines 493-500), RU_LIST() = I18N.lang === 'ru'.",
+  "fix": "Make the stored text language-neutral. For example: refuse 'digit,digit' only when the user types it in the field (an input-time check), and parse saved params with one rule that both languages accept (';' always a separator; ',' a separator; a decimal comma only inside a ';' list). Or rewrite the param into a canonical form ('0.5, -1') when the field is accepted. Then check: an English list '1,0,1' and a Russian list '0,5; -1' survive a switch in both directions."
+ },
+ {
+  "id": "verify-2",
+  "severity": "medium",
+  "title": "english-6: the perf gate's new failure (example 13 first frame) is still open",
+  "detail": "The ledger rejects english-6 because the GPU byte failures were noise. But its own run found a new FAIL in English: examples.13.first_frame_ms 21.0 -> 85.2 ms, and a 3-rep rerun 43.1 -> 78.7 ms (it passed only the limit). The ledger says the cause is not found. The rules ask for no cost for English users and 60 fps. This is not fixed and not soundly rejected. I did not rerun perf (time box).",
+  "evidence": "notes/i18n/ledger-2b.json english-6; notes/i18n/PHASE2B.md 'Perf' of the review round and 'What is left'.",
+  "fix": "Profile example 13's first frame in English in both builds (CPU profile of __cmwExample(13) to the second frame). Then a full paired perf run on a quiet machine. Candidates to rule out first: the new caption/notation calls in app.js that run when the all-sheets landscape opens."
+ },
+ {
+  "id": "verify-3",
+  "severity": "low",
+  "title": "english-3 and english-4: the English load cost is deferred, not rejected",
+  "detail": "english-3 is marked rejected, but the ledger agrees the extra script is real and names the remedy (tables in a <script type=application/json> read only in Russian). english-4 is marked fixed because the total is now reported: +485,717 B raw, +147,983 B gzip for every English reader. Both costs remain. The rule says no cost for English users. This is a lead decision that is still open.",
+  "evidence": "notes/i18n/ledger-2b.json english-3, english-4; dist/complex-map-workbench.html is 2,740,575 B (xb) against 2,255,552 B (xb-base).",
+  "fix": "Lead: decide. Either move i18n_ru.js and cyr.js data into non-executed JSON blocks read only in Russian, and cut the bold glyph face to «Рис.» and digits, or record the cost as accepted in USER-DECISIONS.md."
+ },
+ {
+  "id": "verify-4",
+  "severity": "low",
+  "title": "english-2: the merge resolution is confirmed, the post-merge Russian walk is not done",
+  "detail": "A trial git merge-file of xr into xb (base xb-base) gives 2 conflicts in app.js (Shapes heading, shape count) and 1 in figure.js (save toast). In each, xb's side is xr's line wrapped in $t, so taking xb's side is right. page.html, parse.js, funcs.js, tour.js, sound.js and calc.js merge clean. But xr's newer English strings arrive unwrapped through the clean hunks. The ledger leaves the Russian walk on the merged build to later.",
+  "evidence": "git merge-file -p xb/src/F xb-base/src/F xr/src/F, run 2026-10-23 (xr src last changed 23:15).",
+  "fix": "After the merge: run make_ru_table.py --strict, test/i18n_walk_cmd.js at 1440 and 390 px, and test/i18n_cmd.js on the merged build; wrap and translate what they find."
+ },
+ {
+  "id": "verify-5",
+  "severity": "low",
+  "title": "ui-1 / math-10: «Re z>0,5<|z|» is still read silently as two conditions",
+  "detail": "The ledger fixed the common cases («|z| < 0,5», «Re z > 0,5», «z^0,5 < 1», «|z|<1,5»: all now give the hint; checked). A chain such as «Re z>0,5<|z|» is still accepted in Russian as Re z>0 and 5<|z|, with no note. The ledger says it cannot be told from «Re z<1,0<Im z». Refusing it is not possible, but a non-blocking note is.",
+  "evidence": "Node probe (src/parse.js, Russian): Expr.parse('Re z>0,5<|z|', {allowRel:true}) -> OK, classifyRelation -> dim; '|z| < 0,5' -> «Дробную часть отделяйте точкой: 0.5, а не 0,5 (запятая разделяет условия)».",
+  "fix": "In Russian, when a comma between two digits splits a region formula that still classifies, show a short warning under the field («Запятая между цифрами разделяет условия; дробную часть отделяйте точкой»). English unchanged."
+ },
+ {
+  "id": "verify-6",
+  "severity": "low",
+  "title": "ui-6 / math-18: a misplaced «и» is reported as «and»",
+  "detail": "Plain «и», «или», «не» now parse (checked: «|z|<1 и Re z>0», «Re z>0 или Im z<1», «не |z| < 1»). But when the word is out of place the Russian message names the internal English word: «и |z|<1» gives «Здесь не ожидалось «and»», and a bare «или» gives «…«or»». The user typed Russian and sees English.",
+  "evidence": "Node probe, Russian: Expr.parse('и |z|<1', {allowRel:true}) -> «Здесь не ожидалось «and»»; Expr.parse('или') -> «Здесь не ожидалось «or»». In English the same input says «Unexpected 'и'».",
+  "fix": "Keep the source spelling on the token and use it in the 'Unexpected' message («Здесь не ожидалось «и»»)."
+ },
+ {
+  "id": "verify-7",
+  "severity": "low",
+  "title": "eng-3: the palette's language rows still have no lang",
+  "detail": "Fixed in the globe menu (checked: English lang=en, Русский lang=ru, «Авто (Русский)» has an inner span lang=ru). The ledger's own note says the palette rows («Язык: English», «Language: Русский») still have none, so the item is only half done although it is marked fixed.",
+  "evidence": "notes/i18n/ledger-2b.json eng-3; work/xb/test/vfy2b_cdp/cmd/e_lang.js (menu items).",
+  "fix": "Let a palette row carry a lang for its name (a span around the name, as in the menu)."
+ },
+ {
+  "id": "verify-8",
+  "severity": "low",
+  "title": "eng-10: the plain-text tooltip writes π/2 as «(π)/2»",
+  "detail": "Russian shape rows now have a plain-text title (checked: «Im z = 0,8»). The fraction \\frac{\\pi}{2} comes out with needless brackets: «|Im z| < (π)/2» (example 1). It is the tooltip and the accessible description.",
+  "evidence": "work/xb/test/vfy2b_cdp/cmd/g_misc.js, titles: ['|Im z| < (π)/2', 'Im z = 0,8', '0'].",
+  "fix": "In the plain-text form, drop the brackets around a single symbol or number in a fraction (π/2, 1/2)."
+ }
+]

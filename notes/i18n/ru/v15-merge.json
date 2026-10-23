@@ -1,0 +1,4 @@
+{
+  "_about": "v15 merge of the desktop redesign, the plane menu and the shared numbers (work/xva): the strings the merge itself adds. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md (menu items: perfective infinitive; инспектор in running text). Read by tools/make_ru_table.py (v15-*.json, after phase2b*).",
+  "v15m.edit_in_inspector": { "en": "Edit {f} in the Inspector", "ru": "Изменить %{f} в инспекторе", "note": "planemenu.js, the object group on a cut handle: selects step f_k and opens it in the Inspector (the temporary one over the stage when the panel is hidden). f is fₖ (HTML)." }
+}

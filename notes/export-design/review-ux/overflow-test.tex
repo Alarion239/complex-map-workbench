@@ -1,0 +1,16 @@
+\documentclass{article}
+\usepackage{graphicx,amsmath,amssymb,float}
+\begin{document}
+\noindent\textbf{Problem 3.} Text before.
+\begin{figure}[H]
+  \centering
+  \includegraphics{homework.pdf}
+  \caption{natural}
+\end{figure}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\ifdim\linewidth<469.75pt \linewidth\else 469.75pt\fi]{homework.pdf}
+  \caption{guarded}
+\end{figure}
+Text after. \the\linewidth
+\end{document}

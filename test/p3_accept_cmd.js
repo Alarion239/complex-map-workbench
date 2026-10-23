@@ -288,24 +288,27 @@ ok('(h) no main-thread task over 50 ms while preparing and cancelling', (R.hc.lo
 ok('(h) the export completes when not cancelled', R.hc.fullOk, R.hc);
 
 // the dialog: options toggled while a figure is being made (each change cancels the one in progress): the last one
-// wins, and no main-thread task over 50 ms meanwhile (after the first preview, whose caption typesetting is MathJax's)
-await ev(`document.getElementById('exportBtn').click(); 1`); await sleep(300);
-await ev(`(() => { const b = [...document.querySelectorAll('button, [role=menuitem]')].find((x) => /Figure for an article/.test(x.textContent)); if (b) b.click(); return !!b; })()`);
-const waitPreview = async () => { for (let i = 0; i < 100; i++) { const r = await ev(`(() => { const p = document.querySelector('.fig-preview'); return !!(p && !p.classList.contains('busy') && p.querySelector('img')); })()`); if (r) return true; await sleep(100); } return false; };
-R.dlgFirst = await waitPreview();
+// wins, and no main-thread task over 50 ms meanwhile (after the first preview, whose caption typesetting is MathJax's).
+// (v14: the Export figure dialog of the export redesign, notes/export-design/AS-BUILT.md. The old dialog's width
+// switch, 3.4 in / 7 in, is now Columns, 1 / 2, in the Article preset.)
+const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
+await key('e', 4);
+R.dlgFirst = await dlgReady();
+await clickSel('#xfFor button[data-v="article"]'); await dlgReady();
+await clickSel('#xfCols button[data-v="2"]'); R.dlgFirst = R.dlgFirst && await dlgReady();
 R.dlg = await ev(`await (async () => {
   const long = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); });
   try { po.observe({ type: 'longtask' }); } catch (e) {}
-  const btn = (v) => document.querySelector('#figWidth > button[data-v="' + v + '"]');
-  const seq = ['3.4', '7', '3.4', '7', '3.4'];
+  const btn = (v) => document.querySelector('#xfCols button[data-v="' + v + '"]');
+  const seq = ['1', '2', '1', '2', '1'];
   for (const v of seq) { btn(v).click(); await new Promise((r) => setTimeout(r, 15)); }
-  for (let i = 0; i < 100; i++) { const p = document.querySelector('.fig-preview'); if (p && !p.classList.contains('busy')) break; await new Promise((r) => setTimeout(r, 50)); }
+  for (let i = 0; i < 200; i++) { const d = __cmwFig.dialog(); if (d && d.fig && !d.building) break; await new Promise((r) => setTimeout(r, 50)); }
   await new Promise((r) => setTimeout(r, 100));
   po.disconnect();
-  const note = (document.querySelector('.fig-note') || {}).textContent || '';
-  return { long, note: note.slice(0, 40), last: /Single column/.test(note) };
+  const d = __cmwFig.dialog(), on = document.querySelector('#xfCols [aria-checked="true"]');
+  return { long, cols: d && d.fig ? d.fig.cols : null, checked: on ? on.dataset.v : null, last: !!(d && d.fig && String(d.fig.cols) === '1' && on && on.dataset.v === '1') };
 })()`, 60000);
-await ev(`(() => { const b = [...document.querySelectorAll('.modal .btn')].find((x) => x.textContent === 'Close'); if (b) b.click(); return 1; })()`);
+await key('Escape'); await sleep(300);
 ok('(h) the dialog: the last option wins', R.dlgFirst && R.dlg.last, R.dlg);
 ok('(h) the dialog: no main-thread task over 50 ms while options change', (R.dlg.long || [null]).every((d) => d !== null && d <= 50), R.dlg);
 

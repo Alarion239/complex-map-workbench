@@ -1,0 +1,180 @@
+{
+ "_about": "Phase 2b: Russian for new or restructured strings of the phase-2b call sites (figure.js, tour.js, sound.js, page.html; app.js may add its own). id -> {en, ru, plural?, en_plural?, ctx?, note}. en is the $t key (the English source); a plural is keyed on en_plural [one, many]; ctx gives $tx's context. Russian follows notes/i18n/GLOSSARY.md; placeholders are %{name} in templates with TeX. Read by work/xb/tools/make_ru_table.py (they win over the other tables).",
+ "p2b.tour.take_tour": {
+  "en": "Take the tour",
+  "ru": "Начать обзор",
+  "note": "tour.js: the suggestion pill and the help menu item (was inside markup: tour.icon_play_take_tour)."
+ },
+ "p2b.tour.continue_tour": {
+  "en": "Continue the tour",
+  "ru": "Продолжить обзор",
+  "note": "tour.js help menu (was inside markup: tour.icon_play_continue_tour)."
+ },
+ "p2b.tour.new": {
+  "en": "New",
+  "ru": "Новое",
+  "note": "tour.js help menu badge (GLOSSARY 1.13)."
+ },
+ "p2b.tour.reference_guide": {
+  "en": "Reference guide",
+  "ru": "Руководство",
+  "note": "tour.js help menu (was inside markup: tour.icon_book_reference_guide)."
+ },
+ "p2b.tour.keyboard_shortcuts": {
+  "en": "Keyboard shortcuts",
+  "ru": "Сочетания клавиш",
+  "note": "tour.js help menu (was inside markup)."
+ },
+ "p2b.tour.suggestion_say": {
+  "en": "Tour suggestion: {title}. Start the tour or Not now.",
+  "ru": "Предложение пройти обзор: {title}. Кнопки «Начать обзор» и «Не сейчас».",
+  "note": "tour.js screen-reader line, first sentence (tour.tour_suggestion_title_start split in three)."
+ },
+ "p2b.tour.suggestion_tab": {
+  "en": "Tab from Help reaches it; Escape hides it.",
+  "ru": "Клавиша Tab после кнопки «Справка» переходит к нему, Escape скрывает его.",
+  "note": "tour.js screen-reader line, middle sentence: «его» is the suggestion (предложение)."
+ },
+ "p2b.tour.phase_body": {
+  "en": "Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.",
+  "ru": "Каждая точка $z$ окрашена по $\\arg F(z)$ (здесь $F(z)=(z^2-1)/(z^2+1)$), а полосы яркости ограничены линиями уровня $|F|$. Все цвета сходятся в нулях $\\pm1$ и полюсах $\\pm i$: вокруг нуля они идут в одну сторону, вокруг полюса — в другую.",
+  "note": "English source fixed (README: bands bounded by level curves); Russian as tour.each_z_coloured_by."
+ },
+ "p2b.tour.cauchy_body": {
+  "en": "The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. Select another closed curve to use it instead.",
+  "ru": "Стиль «Интеграл Коши» строит фазовый портрет интеграла $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ по замкнутой кривой $\\gamma$ — здесь это единичная окружность. Внутри он равен $F(z)=z^3-1$, снаружи — $0$; три нуля функции $F$ лежат на самой окружности $\\gamma$. Чтобы взять другую замкнутую кривую, выделите её.",
+  "note": "English source fixed (README: the zeros of z^3-1 lie on gamma); Russian as tour.phase_style_cauchy_plots."
+ },
+ "p2b.fig.phase_head": {
+  "en": "Phase portrait of %{map} on $%{box}$",
+  "ru": "Фазовый портрет функции %{map} на $%{box}$",
+  "note": "figure.js captionFor (export.extra.fig_phase_head with the window as math)."
+ },
+ "p2b.fig.enhanced": {
+  "en": ": the color shows $\\arg %{f}$ (key at right), %{lv}, and the shading steps in $|%{f}|$ by factors of $e^{2\\pi/%{n}}\\approx %{x}$; the white line is $|%{f}|=1$.",
+  "ru": ": цвет показывает $\\arg %{f}$ (шкала справа), %{lv}, а затенение меняется ступенями: от ступени к ступени $|%{f}|$ растёт в $e^{2\\pi/%{n}}\\approx %{x}$ раза; белая линия — $|%{f}|=1$.",
+  "note": "export.color_shows_f_key_4 plus the white line |F| = 1 that the current figure.js states."
+ },
+ "p2b.fig.land_head": {
+  "en": "Landscape of %{map}%{over}: the height is $%{ht}$",
+  "ru": "Рельеф функции %{map}%{over}: высота равна $%{ht}$",
+  "note": "export.extra.fig_land_head with the height as math."
+ },
+ "p2b.fig.frame_item": {
+  "en": "(%{letter}) $t=%{t}$",
+  "ru": "$t=%{t}$ (\\textit{%{letter}})",
+  "note": "Filmstrip caption list item; the letter is Cyrillic in Russian (а, б, в, г), italic as in the figure (GLOSSARY 1.11)."
+ },
+ "p2b.fig.left_right_one": {
+  "en": "Left: %{list}. Right: its image under %{wmap}.",
+  "ru": "Слева — %{list}, справа — образ при отображении %{wmap}.",
+  "note": "Homework caption, two panels, one shape (export.extra.fig_left_right single). list: nominative."
+ },
+ "p2b.fig.left_right_many": {
+  "en": "Left: %{list}. Right: their images under %{wmap}.",
+  "ru": "Слева — %{list}, справа — образы при отображении %{wmap}.",
+  "note": "Homework caption, two panels, several shapes (export.extra.fig_left_right several)."
+ },
+ "p2b.fig.left_only": {
+  "en": "%{cap1} in the $%{lvar}$-plane.",
+  "ru": "%{cap1} в~плоскости~$%{lvar}$.",
+  "note": "Left panel only (export.extra.fig_left_only). cap1: the nominative list with a capital."
+ },
+ "p2b.fig.image_of": {
+  "en": "The image of %{list} under %{map}.%{pat}",
+  "ru": "Образ %{list} при отображении %{map}.%{pat}",
+  "note": "Right panel only, one shape (export.extra.fig_images_of single). list: the GENITIVE list (A.capParts().shapeListGen)."
+ },
+ "p2b.fig.images_of": {
+  "en": "The images of %{list} under %{map}.%{pat}",
+  "ru": "Образы %{list} при отображении %{map}.%{pat}",
+  "note": "Right panel only, several shapes (export.extra.fig_images_of several). list: the genitive list."
+ },
+ "p2b.fig.two_panels_one": {
+  "en": "(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}",
+  "ru": "\\textit{а}~--- %{head} в~плоскости~$%{lvar}$; \\textit{б}~--- образ при отображении %{map}.%{pat}",
+  "note": "Article caption, two panels (export.extra.fig_two_panels single). head: English the list with a capital, Russian the nominative list in lower case."
+ },
+ "p2b.fig.two_panels_many": {
+  "en": "(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}",
+  "ru": "\\textit{а}~--- %{head} в~плоскости~$%{lvar}$; \\textit{б}~--- образы при отображении %{map}.%{pat}",
+  "note": "Article caption, two panels, several shapes (export.extra.fig_two_panels several)."
+ },
+ "p2b.fig.left_only_plane": {
+  "en": "The $%{lvar}$-plane.",
+  "ru": "Плоскость~$%{lvar}$.",
+  "note": "export.extra.fig_left_only_plane."
+ },
+ "p2b.fig.preamble_homework": {
+  "en": "% Preamble: \\usepackage{graphicx,amsmath,amssymb,float}",
+  "ru": "% Преамбула (pdfLaTeX): \\usepackage[T2A]{fontenc}\\usepackage[russian]{babel}\\usepackage{graphicx,amsmath,amssymb,float}; в XeLaTeX и LuaLaTeX вместо fontenc — \\usepackage{fontspec}\\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf]",
+  "note": "Replaces export.extra.preamble_homework, whose Russian had %{fontenc} and %{babel} (a placeholder rename that would print % in the copied LaTeX)."
+ },
+ "p2b.fig.preamble_english_main": {
+  "en": "% English main document: \\usepackage[T2A,T1]{fontenc}\\usepackage[russian,english]{babel}, and the caption inside \\foreignlanguage{russian}{...}",
+  "ru": "% Если основной язык документа английский: \\usepackage[T2A,T1]{fontenc}\\usepackage[russian,english]{babel}, а подпись — внутри \\foreignlanguage{russian}{…}",
+  "note": "export.extra.preamble_english_main (it had no English source and %{fontenc}). Written only for a Russian caption, so the English text is never shown."
+ },
+ "p2b.fig.pt": {
+  "en": "{x} pt",
+  "ru": "{x} пт",
+  "note": "A size in points in the export dialog (the size menu and button). No-break space before the unit (GLOSSARY 3.8)."
+ },
+ "p2b.fig.paste_width": {
+  "en": "Paste a width between 50 pt and 2000 pt, such as 469.75pt, 6.5in or 16.5cm.",
+  "ru": "Вставьте ширину от 50 до 2000 пт, например 469.75pt, 6.5in или 16.5cm.",
+  "note": "Toast. The examples are typed values: they keep the point."
+ },
+ "p2b.fig.interface_language": {
+  "en": "Interface language",
+  "ru": "Как в интерфейсе",
+  "note": "Caption-language switch, first option (then English, Русский: endonyms). Shown only when the interface is not English."
+ },
+ "p2b.fig.caption_language": {
+  "en": "Caption language",
+  "ru": "Язык подписи",
+  "note": "aria-label of the caption-language switch (GLOSSARY 1.11)."
+ },
+ "p2b.fig.hint": {
+  "en": "{label}, {pt} pt text · Fit column",
+  "ru": "{label}, текст {pt} пт · по ширине колонки",
+  "note": "The preview's hint line."
+ },
+ "p2b.fig.paste_linewidth_menu": {
+  "en": "Paste \\the\\linewidth…",
+  "ru": "Вставить \\the\\linewidth…",
+  "note": "Size menu item (opens a field)."
+ },
+ "p2b.fig.exact": {
+  "en": "exact",
+  "ru": "точно",
+  "note": "Key column of the size menu, beside «Вставить \\the\\linewidth…»."
+ },
+ "p2b.fig.vector": {
+  "ctx": "format",
+  "en": "vector",
+  "ru": "вектор",
+  "note": "Key column of More formats (PDF, SVG)."
+ },
+ "p2b.fig.image": {
+  "ctx": "format",
+  "en": "image",
+  "ru": "растр",
+  "note": "Key column of More formats (PNG): a raster image, never «образ»."
+ },
+ "p2b.fig.two_panels_plane": {
+  "en": "(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}",
+  "ru": "\\textit{а}~--- плоскость~%{lvar}; \\textit{б}~--- её образ при отображении %{map}.%{pat}",
+  "note": "export.extra.fig_two_panels_plane, with the variable outside math as in the English source (the key test keeps the $ count); «её» is the plane."
+ },
+ "p2b.fig.slides_comment": {
+  "en": "% %{n}.pdf is made for \\textwidth = %{w}pt (%{size}); shrunk only on a narrower frame. Preamble: \\usepackage{graphicx}",
+  "ru": "% Файл %{n}.pdf рассчитан на \\textwidth = %{w}pt (%{size}); на более узком слайде он уменьшается. Преамбула (pdfLaTeX): \\usepackage[T2A]{fontenc}\\usepackage[russian]{babel}\\usepackage{graphicx}; в XeLaTeX и LuaLaTeX вместо fontenc — \\usepackage{fontspec}\\setsansfont{cmunss.otf}[BoldFont=cmunsx.otf,ItalicFont=cmunsi.otf]",
+  "note": "export.n_pdf_made_for_2 plus the XeLaTeX line: Beamer sets text in sans serif, so XeLaTeX needs a Cyrillic sans (CMU Sans Serif files; tested 2026-10-22: 0 missing characters)."
+ },
+ "p2b.sound.events_note": {
+  "en": "Things you start: the deformation, a closed loop’s winding, listening along a curve",
+  "ru": "То, что вы запускаете: деформация, число оборотов замкнутой петли, прослушивание вдоль кривой",
+  "note": "page.html #sndPop: the walker looks up the text node, where &rsquo; is already the character ’ (the inventory kept the entity)."
+ }
+}

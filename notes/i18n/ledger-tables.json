@@ -1,0 +1,482 @@
+[
+ {
+  "n": "mathematician-1",
+  "status": "already",
+  "where": "chrome.json chrome.list_sound_but_not",
+  "note": "«exp после ln даёт z» is in place. copy-25 refined the wording this round. The English error is reported in README."
+ },
+ {
+  "n": "mathematician-2",
+  "status": "already",
+  "where": "guide-tour.json tour.phase_style_cauchy_plots",
+  "note": "The zeros are said to lie on γ itself. The English error is reported in README."
+ },
+ {
+  "n": "mathematician-3",
+  "status": "not-mine",
+  "where": "proto/i18n.js (notation); math.json export.drawn_as_level_sets",
+  "note": "A code fix in proto. Checked: notation() now keeps \\log_2. The table keeps \\log_2, and GLOSSARY 2.2 says so."
+ },
+ {
+  "n": "mathematician-4",
+  "status": "applied",
+  "where": "proto/ru.json (the sample table)",
+  "note": "«неравенство» everywhere; «сравнение» row in 1.15. Round 4 (verifier, 2026-10-22): The sample table had «цепочки сравнений»; it now says «… запятые, двойные неравенства и переменные <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>.», as the guide. ru_full.json rebuilt."
+ },
+ {
+  "n": "mathematician-5",
+  "status": "already",
+  "where": "math.json export.solid_paths_t_h; GLOSSARY 1.11, 1.15",
+  "note": "«точечные», «штриховая»; «пунктирная» avoided."
+ },
+ {
+  "n": "mathematician-6",
+  "status": "already",
+  "where": "math.json export.shown_at_t_2, export.deformation_h_t_choice, export.extra.hom_def; GLOSSARY 1.15",
+  "note": "«непрерывно деформирует … в …»."
+ },
+ {
+  "n": "mathematician-7",
+  "status": "already",
+  "where": "math.json export.extra.fig_two_panels, fig_left_right, fig_images_of, fig_two_panels_plane, fig_left_only(_plane), fig_right_only_plane, fig_the_map",
+  "note": "Templates in place. They need the genitive of the shape phrases ({list_gen}); those were missing and are added this round (export.extra.shape_*, see i18n-1)."
+ },
+ {
+  "n": "mathematician-8",
+  "status": "already",
+  "where": "math.json export.if_your_l_narrower, export.n_pdf_made_for_2",
+  "note": "Cyrillic packages are in the Russian comments. This round adds the homework snippet line (i18n-21)."
+ },
+ {
+  "n": "mathematician-9",
+  "status": "already",
+  "where": "math.json export.labels_x_x_pt, export.snippet_includes_figure_at, export.n_pdf_made_for_3, export.if_your_l_narrower; GLOSSARY 1.11, 1.15",
+  "note": "«надписи» for labels, «подпись» for the caption."
+ },
+ {
+  "n": "mathematician-10",
+  "status": "already",
+  "where": "math.json export.figure_2; GLOSSARY 1.11",
+  "note": "«На рисунке»."
+ },
+ {
+  "n": "mathematician-11",
+  "status": "already",
+  "where": "guide-tour.json tour.each_z_coloured_by",
+  "note": "«полосы яркости ограничены линиями уровня |F|»."
+ },
+ {
+  "n": "mathematician-12",
+  "status": "not-mine",
+  "where": "proto/i18n.js (RU_OP, RU_PLAIN)",
+  "note": "A code fix in proto. Checked: \\operatorname{arcoth} now becomes arcth. The tables keep the English operator names by design (DESIGN 5)."
+ },
+ {
+  "n": "mathematician-13",
+  "status": "applied",
+  "where": "math_src/fixes_r2.py math.grid_math_min_math; GLOSSARY 2.3; math_src/tr1.py, tr4.py (DEC)",
+  "note": "Round 4 (verifier): the grid template has one separator slot per bracket pair (%{xSep}, %{ySep}) from I18N.texSep, and its own names for the x and y ranges. GLOSSARY 2.3 now names texInterval and texSep; the notes on export.hyperbolic_m_bius_transformations, export.x_pt, export.color_shows_f_key_4 (tr4 DEC) cite texNum/texSep, not texDecimal."
+ },
+ {
+  "n": "mathematician-14",
+  "status": "already",
+  "where": "chrome.json chrome.agrees_on_d_with; GLOSSARY 1.10",
+  "note": "«где P и Q — многочлены»."
+ },
+ {
+  "n": "mathematician-15",
+  "status": "already",
+  "where": "chrome.json chrome.exp_opens_strip_im, chrome.first_quadrant_opens_onto",
+  "note": "«на» for onto."
+ },
+ {
+  "n": "mathematician-16",
+  "status": "already",
+  "where": "chrome.json chrome.analytic_injective_biholomorphism_d; GLOSSARY 1.10",
+  "note": "«поэтому … причём F′ ≠ 0»."
+ },
+ {
+  "n": "mathematician-17",
+  "status": "already",
+  "where": "math.json export.w_k_w_k",
+  "note": "«шаг {k} отключён»."
+ },
+ {
+  "n": "mathematician-18",
+  "status": "already",
+  "where": "chrome.json chrome.right_click_circle_around",
+  "note": "«не возвращается к начальному значению — разность равна 2πi · Res = π»."
+ },
+ {
+  "n": "mathematician-19",
+  "status": "already",
+  "where": "chrome.json chrome.conformal_on_injective_on",
+  "note": "«однолистно в любой горизонтальной полосе ширины 2π»."
+ },
+ {
+  "n": "mathematician-20",
+  "status": "already",
+  "where": "math.json export.color_shows_f_key; GLOSSARY §4 #18",
+  "note": "«проведены линии уровня»."
+ },
+ {
+  "n": "mathematician-21",
+  "status": "already",
+  "where": "guide-tour.json guide.deformation_top_bar_x, tour.landscape_all_sheets_draws; chrome.json chrome.landscape_with_all_sheets",
+  "note": "«приходят из бесконечности», «не терпит скачка на разрезе»."
+ },
+ {
+  "n": "mathematician-22",
+  "status": "already",
+  "where": "math.json export.order_r_mult",
+  "note": "Nominative «(порядок …)», as sound.order_p_mult."
+ },
+ {
+  "n": "mathematician-23",
+  "status": "already",
+  "where": "math.json export.brightness_increases_with, export.by_factors, export.here_chain_built_step",
+  "note": "Each ends in U+00A0."
+ },
+ {
+  "n": "mathematician-24",
+  "status": "already",
+  "where": "chrome.json chrome.open_guide, chrome.guide",
+  "note": "«Открыть руководство». The header button stays «Справка»: in work/xt it opens a menu with the guide and the tour."
+ },
+ {
+  "n": "mathematician-25",
+  "status": "already",
+  "where": "chrome.json chrome.integrate_along_selected_curve, chrome.select_closed_curve_or, chrome.cauchy_style_select_closed",
+  "note": "«выделенной», «Выделите»."
+ },
+ {
+  "n": "mathematician-26",
+  "status": "already",
+  "where": "guide-tour.json tour.pattern_painted_on_x, guide.sound_top_bar_x; chrome.json chrome.circle_through_1_becomes; math.json math.m_bius, math.what_not_holomorphic_has, math.formula_undefined_for_every, export.typesetter_still_loading_try, export.figure_at_printed_size",
+  "note": "All eight points are in place."
+ },
+ {
+  "n": "mathematician-27",
+  "status": "already",
+  "where": "GLOSSARY 1.10, 1.11, 1.15, §4 #18, 2.5",
+  "note": "All rows are in. DESIGN.md line 136 and GLOSSARY 2.5 now agree (checked, DESIGN not edited)."
+ },
+ {
+  "n": "copy-1",
+  "status": "already",
+  "where": "chrome.json chrome.unbounded_drawn_about_200",
+  "note": "«не ограничена»."
+ },
+ {
+  "n": "copy-2",
+  "status": "already",
+  "where": "chrome.json sound.extra.list_zeros, sound.extra.list_poles",
+  "note": "split exact / atLeast with «не менее» and {andMore}."
+ },
+ {
+  "n": "copy-3",
+  "status": "already",
+  "where": "guide-tour.json tour.plays_homotopy_h_t, guide.deformation_top_bar_x, tour.sound_stays_off_until(_2,_3); chrome.json sound.curve_cannot_be_played, sound.more_turns_than_can; GLOSSARY §4 #20, 1.15",
+  "note": "«воспроизводит», «звучит», «озвучить»."
+ },
+ {
+  "n": "copy-4",
+  "status": "already",
+  "where": "guide-tour.json tour.try, tour.try_2",
+  "note": "«Задание», « Задание. ». GLOSSARY 1.13 row added this round."
+ },
+ {
+  "n": "copy-5",
+  "status": "already",
+  "where": "chrome.json sound.more",
+  "note": "« и другие». check_chrome.py flags the edge space; that is intended."
+ },
+ {
+  "n": "copy-6",
+  "status": "already",
+  "where": "chrome.json chrome.select_closed_curve_or, chrome.cauchy_style_select_closed, chrome.integrate_along_selected_curve",
+  "note": "«выделите», «интеграл Коши по этому контуру»."
+ },
+ {
+  "n": "copy-7",
+  "status": "already",
+  "where": "chrome.json sound.no_order_within_st0",
+  "note": "«в круге … на его границе»."
+ },
+ {
+  "n": "copy-8",
+  "status": "already",
+  "where": "math.json export.snippet_keeps_figure_under",
+  "note": "«если ширина страницы меньше ширины рисунка»."
+ },
+ {
+  "n": "copy-9",
+  "status": "already",
+  "where": "chrome.json sound.double_tick_stepping_down, sound.noise_band_passed_at",
+  "note": "«3,2 кГц, затем 2,0 кГц»; «1,9 кГц; Q 1,4; 25 мс»."
+ },
+ {
+  "n": "copy-10",
+  "status": "already",
+  "where": "guide-tour.json tour.cards_apply_order_f(_2), guide.add_step_with_x",
+  "note": "«сделать этот шаг текущим»; «карточкой «Добавить функцию» или кнопкой вставки между карточками»."
+ },
+ {
+  "n": "copy-11",
+  "status": "applied",
+  "where": "guide-tour.json tour.x_y_shows_two, tour.x_y_shows_two_2; GLOSSARY 1.15",
+  "note": "«изображают саму функцию F над X, каждый вид — на одной широкой панели»."
+ },
+ {
+  "n": "copy-12",
+  "status": "applied",
+  "where": "guide-tour.json tour.tour_suggestion, tour.dismiss_tour_suggestion, tour.tour_suggestion_title_start; GLOSSARY 1.13",
+  "note": "«Предложение пройти обзор»."
+ },
+ {
+  "n": "copy-13",
+  "status": "applied",
+  "where": "math_src/fixes_r2.py FIX export.ink",
+  "note": "«Оттенки серого», ru_short «Ч/б» only if the control overflows. Round 4 (verifier, 2026-10-22): The export.ink note now matches the fix: «Оттенки серого», ru_short «Ч/б» only if the control overflows."
+ },
+ {
+  "n": "copy-14",
+  "status": "already",
+  "where": "math.json export.extra.fig_two_panels",
+  "note": "Already «\\textit{а}~--- …; \\textit{б}~--- …» (mathematician-7). One template serves screen and LaTeX: segsOf() maps \\textit to italic and ~ to U+00A0."
+ },
+ {
+  "n": "copy-15",
+  "status": "already",
+  "where": "math.json math.m_bius",
+  "note": "No ru_short; «Дробно-линейная» fits the card."
+ },
+ {
+  "n": "copy-16",
+  "status": "applied",
+  "where": "guide-tour.json guide.switch_middle_top_bar; chrome.json chrome.drag_orbit_pinch_zoom; GLOSSARY 3.9",
+  "note": "«перетаскиванием с нажатым Пробелом»; «Перетаскивание вращает, двумя пальцами — масштаб»."
+ },
+ {
+  "n": "copy-17",
+  "status": "applied",
+  "where": "chrome.json sound.two_wooden_d4_knocks, sound.soft_wooden_a5_knock, sound.felt_thump_a4_a3, sound.three_quiet_glass_ticks",
+  "note": "The no-break space now follows «с» instead of preceding it."
+ },
+ {
+  "n": "copy-18",
+  "status": "applied",
+  "where": "proto/ru.json; ru/chrome.json chrome.draft note",
+  "note": "ru_short «Макс» dropped. «Максимум» fits the mesh-quality stops at 390 and 1440 px (headless Chrome, work/xl). Round 4 (verifier, 2026-10-22): \"Max\" is «Максимум» in the sample table too; the chrome.draft note's short set ends with «Максимум»."
+ },
+ {
+  "n": "copy-19",
+  "status": "applied",
+  "where": "guide-tour.json guide.select_move_shapes",
+  "note": "«Выделение и перемещение фигур». Not «Выбор …»: shapes are «выделить» (GLOSSARY 1.8, 1.15); «Выбор» is the tool."
+ },
+ {
+  "n": "copy-20",
+  "status": "applied",
+  "where": "guide-tour.json guide.d_dz_step_too, guide.f_1_on_card, tour.d_dz_step_differentiates; GLOSSARY 1.15",
+  "note": "«всю цепочку перед ним»."
+ },
+ {
+  "n": "copy-21",
+  "status": "applied",
+  "where": "guide-tour.json guide.deformation_top_bar_x",
+  "note": "«Элементы управления воспроизведением под панелью позволяют перемещать t, задавать скорость…» (keeps «под панелью» of the English, so not «Панель воспроизведения под видом»); «деформируются по прямолинейной гомотопии»; «Если какой-то шаг сделан текущим»."
+ },
+ {
+  "n": "copy-22",
+  "status": "applied",
+  "where": "guide-tour.json tour.worked_examples_from_joukowski, tour.each_shape_listed_with(_2), tour.pick_tool_drag_x, tour.choose_disc_then_drag, tour.x_shows_your_shapes",
+  "note": "Applied as proposed. tour.landscape_all_sheets_draws keeps «а не терпит скачка на разрезе» (mathematician-21), which already removes «прыгает»."
+ },
+ {
+  "n": "copy-23",
+  "status": "applied",
+  "where": "guide-tour.json tour.extra_work_not_back",
+  "note": "«но она не потеряна: перезагрузите страницу»."
+ },
+ {
+  "n": "copy-24",
+  "status": "applied",
+  "where": "guide-tour.json guide.sound_top_bar_x",
+  "note": "«настройки громкости и состава звуков». This paragraph is from work/xs, so the work/xl base does not show it."
+ },
+ {
+  "n": "copy-25",
+  "status": "applied",
+  "where": "chrome.json chrome.fh_vanishes_blows_up, chrome.step_constant_so_f, chrome.list_sound_but_not, chrome.circles_through_1_airfoils; guide-tour.json guide.right_click_curve_or",
+  "note": "Applied, with one part rejected. The guide says «строит фазовый портрет интеграла Коши», as the tour does. Rejected: «разрыв равен» in chrome.right_click_circle_around. The running integral is continuous (mathematician-18), so «разность» stays; the comma join was already fixed."
+ },
+ {
+  "n": "copy-26",
+  "status": "applied",
+  "where": "ru/chrome.json chrome.as_target",
+  "note": "Present tense «Добавляет». Target form is «Добавляет в плоскость w: {what}.», not «Добавляет цель:», which clashes in number with «2 окружности». export.typesetter_still_loading_try was already done. Round 4 (verifier, 2026-10-22): The note names the present tense and the ids that exist: chrome.extra.adds_what split.shape and split.target."
+ },
+ {
+  "n": "copy-27",
+  "status": "applied",
+  "where": "math_src/fixes_r2.py export.so_phase_lines_modulus",
+  "note": "«образуют сетку из почти квадратных клеток»."
+ },
+ {
+  "n": "copy-28",
+  "status": "applied",
+  "where": "chrome.json sound.shift_m_turns_sound (prose «Shift + M»), sound.sound_shift_m and sound.sound_is_on_turn (notes); GLOSSARY 3.9",
+  "note": "Prose writes «Shift + M». Tooltip suffixes keep the keycap form «(Shift+M)», like «Отменить  ⌘Z»; glossary 3.9 now says so."
+ },
+ {
+  "n": "copy-29",
+  "status": "already",
+  "where": "(none)",
+  "note": "Verdict only; nothing to change."
+ },
+ {
+  "n": "i18n-1",
+  "status": "applied",
+  "where": "chrome.json chrome.extra.dc_* (9), chrome.extra.tip_no_draw_deformation, chrome.extra.tip_draw_in_plane, chrome.extra.image_after_adding; math_src/fixes_r2.py export.extra.shape_* (21, nominative and genitive), list_and, pat_* (8), shown_for, after_first_step, fig_morph_two_panels(_plane), power_homotopy",
+  "note": "Table side only: Russian added for the strings it names. Already present: drag_to_draw, loxodromic, all_at_once, in_turn, set_of_a, image_after_steps, where_defined, on_domain. The extractor rerun, the browser gate and the tour toasts (tour.js is in work/xt) are not mine."
+ },
+ {
+  "n": "i18n-2",
+  "status": "rejected by user decision; test part kept",
+  "where": "work/xl/src/page.html",
+  "note": "See ledger-eng i18n-2 (the user kept the globe button)."
+ },
+ {
+  "n": "i18n-3",
+  "status": "applied",
+  "where": "work/xl/src/app.js",
+  "note": "Code: see ledger-eng i18n-3. Table: the toast has its Russian (chrome.extra.language_cannot_change)."
+ },
+ {
+  "n": "i18n-4",
+  "status": "applied",
+  "where": "ru/ph.py; ru/fixes_r4.py; ru/math_src/build.py; ru/check_chrome.py; ru/chrome.json, ru/math.json",
+  "note": "Round 4 (verifier): templates with TeX write %{name} in ru, ru_short, plural forms and split values (673 %{ in the tables: chrome 3, math 670; the tour's key chips stay, tour.js fills them). Non-identifier and reused labels got one identifier per value; each such entry has en_key (the phase-2 English template, which renders exactly en) and ph (what each renamed slot stands for). Example export.shown_at_t_2: $t=%{t}$ … %{map} ($t=%{tEnd}$); это %{hom}. build.py and check_chrome.py fail on a bare {name} in a TeX template and on an en_key that does not give en back: 0 problems."
+ },
+ {
+  "n": "i18n-5",
+  "status": "applied",
+  "where": "ru/fixes_r4.py PLURALS; ru/chrome.json; ru/math_src/build.py; math_src/fixes_r2.py export.extra.set_of_a",
+  "note": "Round 4 (verifier): all 34 plural entries carry en_plural [one, many] with the count as {n} (split entries: one pair per variant, e.g. sound.extra.list_zeros exact and atLeast); counts renamed to {n} in the Russian forms. export.extra.set_of_a is now a split (single, several) chosen by nSets > 1, not a plural. The old ledger line \"all plural blocks carry their count\" missed that entry."
+ },
+ {
+  "n": "i18n-6",
+  "status": "applied",
+  "where": "GLOSSARY 3.9",
+  "note": "Adds ⌘E, ⇧M and the sound keys Z, O, D, L to the physical-key note. The code and DESIGN §7 are not mine. The sound.shift_m_turns_sound note already asks for keyOf."
+ },
+ {
+  "n": "i18n-7",
+  "status": "applied",
+  "where": "GLOSSARY 2.3",
+  "note": "The comma is a number format. Never in TeX dimensions, the snippet body or the preamble. The texDecimal code is not mine."
+ },
+ {
+  "n": "i18n-8",
+  "status": "applied",
+  "where": "GLOSSARY 1.4",
+  "note": "Res is kept: Шабат and ЛШ write res and СТ write выч, but Res is common in Russian courses and needs no Cyrillic in math. The tables already write Ln for all sheets. Added Russian messages for lg and arcctg; Ln to be accepted. arcoth → arcth in proto is done (checked; not mine). Round 4 (verifier, 2026-10-22): The mechanism now follows the glossary: Res stays (ledger-eng i18n-8)."
+ },
+ {
+  "n": "i18n-9",
+  "status": "not-mine",
+  "where": "figure build code",
+  "note": "Caption language through the async build."
+ },
+ {
+  "n": "i18n-10",
+  "status": "not-mine",
+  "where": "app.js, tour.js",
+  "note": "Code. Table side: tour.help_2/3/4 are «Справка» and «⋯ › Справка», as the buttons."
+ },
+ {
+  "n": "i18n-11",
+  "status": "applied",
+  "where": "GLOSSARY 3.6",
+  "note": "The no-break rules also hold for captions the app sets. The tables already carry U+00A0 (math build typo()). CMU Latin glyphs are not mine."
+ },
+ {
+  "n": "i18n-12",
+  "status": "applied",
+  "where": "chrome.json chrome.left_view; GLOSSARY 3.12",
+  "note": "Measured in headless Chrome: the legend label has about 106 px. «видимая часть слева» was 109 px and was cut. Now «образ левого вида», 97 px, which is exact: the dashed outline is the image of the left view. «Растяжение |F′|» (79 px) and «образ разреза» (76 px) fit. The font race is not mine."
+ },
+ {
+  "n": "i18n-13",
+  "status": "applied",
+  "where": "GLOSSARY 3.12",
+  "note": "The glossary already asked for one face. It now records that per-character fallback is not good enough. CSS not mine."
+ },
+ {
+  "n": "i18n-14",
+  "status": "applied",
+  "where": "ru/chrome.json chrome.extra.arcctg_not_available, arccot_not_available, acot_not_available, lg_not_available, use_decimal_point, language_cannot_change",
+  "note": "Round 4 (verifier): Russian for the new English messages, keyed on the exact English: «Функции arcctg здесь нет.», «lg — десятичный логарифм; здесь его нет. Натуральный логарифм: ln z.», «Дробную часть отделяйте точкой: 0.5, а не 0,5 (запятая разделяет условия)», «Язык не удалось переключить: браузер блокирует хранилище сайта, а перезагрузка стёрла бы вашу работу.»"
+ },
+ {
+  "n": "i18n-15",
+  "status": "not-mine",
+  "where": "proto/browser",
+  "note": "Pseudo-localization."
+ },
+ {
+  "n": "i18n-16",
+  "status": "not-mine",
+  "where": "work/xl/tools/make_ru_table.py",
+  "note": "The converter and contexts."
+ },
+ {
+  "n": "i18n-17",
+  "status": "applied",
+  "where": "inventory.json; ru/chrome.json (chrome.export removed)",
+  "note": "Round 4: see ledger-eng i18n-17. chrome.export left chrome.json; math.circle_2 and export.amsart left math.json with the inventory."
+ },
+ {
+  "n": "i18n-18",
+  "status": "not-mine",
+  "where": "work/xl/build.py",
+  "note": "Shipping the table separately."
+ },
+ {
+  "n": "i18n-19",
+  "status": "not-mine",
+  "where": "proto/i18n.js",
+  "note": "Robustness."
+ },
+ {
+  "n": "i18n-20",
+  "status": "not-mine",
+  "where": "proto/i18n.js, page",
+  "note": "Code."
+ },
+ {
+  "n": "i18n-21",
+  "status": "applied",
+  "where": "math_src/fixes_r2.py export.extra.preamble_homework, export.extra.preamble_english_main; GLOSSARY 1.11",
+  "note": "The homework snippet had no Russian preamble line; it does now. For an English main document: [T2A,T1] fontenc, babel [russian,english] and \\foreignlanguage (pdfLaTeX test: 0 errors). Frame titles were already translated (export.phase_portrait_3, landscape_2, deformation_h_t, map_2_2, map_3). PDF Subject is not mine."
+ },
+ {
+  "n": "i18n-22",
+  "status": "not-mine",
+  "where": "export dialog, texSpeech, node tests",
+  "note": "Code and plan."
+ },
+ {
+  "n": "lead-1",
+  "status": "not-mine",
+  "where": "proto caption composer",
+  "note": "Glyph set for operator names."
+ },
+ {
+  "n": "lead-2",
+  "status": "not-mine",
+  "where": "proto caption demo",
+  "note": "The demo is not in the tables. No table string writes «[−1; 1]», and math.grid_math_min_math writes «,»."
+ }
+]

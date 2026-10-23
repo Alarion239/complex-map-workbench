@@ -83,3 +83,50 @@ with P3 and shown to the user as a mockup before they are built.
     shortcuts working on the Russian keyboard layout (e.code). Phase 1 (design, glossary, string inventory,
     translation, reviews; no src changes) runs now in notes/i18n/ with a prototype copy in work/xl; phase 2 builds it
     into the merged export/sound/tour round (work/xr), then the full gate.
+
+15. **No "No shapes yet" banner** (user, 2026-10-22: "Please stop showing 'no shapes yet,' it is just a banner that
+    prohibits normal work."). Being removed in the v14 round (work/xr, last fix pass).
+
+16. **Function chain redesign** (user, 2026-10-22): "it makes sense to redesign individual visualizations for each of
+    the functions in the chain to match the view that is currently open. However, I want bigger buttons for adding
+    poles and zeros in the rational function regime AND I would like to be add them directly on the map by right
+    clicking and selecting an option. I think it is not as important what the exact formula is inside of the small
+    subfunction card — it does not fit either way. The type is enough. It is just quite bad controls for Function
+    chain. I like the idea, but I think there is not enough space to be comfortable setting them."
+
+17. **Guarantees take too much space** (user, 2026-10-22): "we use too much space on guarantees, which are only
+    important for the final function (and not really THAT important for visualization, I would not mind just removing
+    or shrinking this functionality a lot)."
+
+18. **Constructions and shared parameters** (user, 2026-10-22): "What I would appreciate is ability to parametrize
+    lines by some shared number that I can later change in one place/draw lines through points/circles through three
+    points. Please research how this would be possible to implement. I think maybe we sacrifice the right panel?"
+
+19. **Phone view** (user, 2026-10-22): "look into the phone view: right now there are too many elements and different
+    menus to scroll around. It should be more easy for phones."
+
+Items 16-19: design and research first (notes/ui-redesign-2/, mockups for the user), built after v14 (export, sound,
+tour, Russian) is gated.
+
+20. **Guided tour polish** (user, 2026-10-23: "I love the guide. I am sure it will be changed with the tweaked UI, but
+    please make sure that it highlights exactly the right area & that it is always on the foreground (even when
+    command-K is opened) and that the buttons are easy to press and that they always fit inside the box").
+    Requirements for every chapter and step, at every width (360-1440 px), light and dark, English and Russian:
+    the spotlight matches its target exactly (and follows it on resize, scroll and layout changes); the tour's
+    callout stays on top of every app layer (the ⌘K palette, menus, dialogs, sheets, tooltips) without hiding what
+    the step asks the user to use; buttons are large enough to press easily (44 px on touch) and always inside the
+    callout. Built in work/xvt (engine), merged into v15, and checked by an automated audit of every step.
+
+21. **Sound follows the deformation** (user, 2026-10-23: "During deformation, sounds must also follow the
+    deformation. Now they only change during deformation if I move my mouse"). The pointer tier must re-evaluate
+    H_t at the still pointer every frame while the deformation plays or is scrubbed (and, generally, whenever the
+    function under a still pointer changes: dragging a zero or pole, editing a step, a shared number's slider or Play
+    in v15), click-free and within the per-event budget. Built in work/xvs, merged into v15.
+
+22. **Export, round 3** (user, 2026-10-23): "Allow export of the deformation plots as deformations. Now they are
+    exported as deformations only for Plane-shape figure. Also allow for png, svg, and video exports (video for
+    deformations). In case of png provide latex-copiable snippet. Write the formula for F in displaystyle, since it
+    might be too complicated to fit inline." So: the deformation figures (filmstrip, paths) for every view that shows
+    the deformation (X -> Y on the plane and on the sphere, Phase, Landscape); PNG, SVG and video as first-class
+    formats (video for the deformation); a copyable LaTeX snippet for PNG; F set in display style in captions and
+    snippets. Built in work/xve, merged into v15.

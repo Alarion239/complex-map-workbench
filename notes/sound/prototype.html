@@ -1,0 +1,1987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workbench Sound Prototype</title>
+<style>
+/* Tokens: a subset of the app's "Calibrated bench" (src/page.html). No web fonts: this file has no external dependencies. */
+:root {
+  color-scheme: light;
+  --bg: #E3E8EA; --panel: #F1F4F5; --surface: #FFFFFF; --surface-2: #F7F9FA; --well: #E9EEF0; --overlay: #FFFFFFEB;
+  --ink: #121A20; --ink-2: #3E4C56; --muted: #56646E; --faint: #8A969E; --line: #D2DADE; --line-strong: #B3BEC4;
+  --accent: #0A6A87; --accent-hover: #075A73; --accent-soft: #DDEFF4; --accent-ink: #FFFFFF;
+  --good: #1B7A47; --good-soft: #DFF1E6; --warn: #8F5408; --warn-soft: #FAEDD7; --error: #B4231A; --error-soft: #FBE5E2;
+  --plane: #FCFDFD; --axis: #2E3D47; --cut: #CC3311; --pole: #A0153E; --zero: #121A20; --halo: #FCFDFD;
+  --shadow-1: 0 1px 2px #121A201A; --shadow-3: 0 10px 28px #121A2029, 0 2px 6px #121A2014;
+  --f-ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --f-math: "STIX Two Text", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
+  --r-3: 4px; --r-4: 6px;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #12191E; --panel: #172026; --surface: #1D282F; --surface-2: #23303A; --well: #121A1F; --overlay: #1D282FEB;
+    --ink: #E3EAEE; --ink-2: #B4C1C9; --muted: #91A1AB; --faint: #5E6E78; --line: #26333B; --line-strong: #36474F;
+    --accent: #52B7D3; --accent-hover: #78C9E0; --accent-soft: #12313B; --accent-ink: #061216;
+    --good: #4BC28A; --good-soft: #112A1F; --warn: #E3A23E; --warn-soft: #2D2211; --error: #FF7262; --error-soft: #35181A;
+    --plane: #0D1317; --axis: #94A8B3; --cut: #FF6B3D; --pole: #FF5A85; --zero: #E3EAEE; --halo: #0D1317;
+    --shadow-1: 0 1px 2px #0000004D; --shadow-3: 0 10px 28px #00000066, 0 2px 6px #00000040;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12191E; --panel: #172026; --surface: #1D282F; --surface-2: #23303A; --well: #121A1F; --overlay: #1D282FEB;
+  --ink: #E3EAEE; --ink-2: #B4C1C9; --muted: #91A1AB; --faint: #5E6E78; --line: #26333B; --line-strong: #36474F;
+  --accent: #52B7D3; --accent-hover: #78C9E0; --accent-soft: #12313B; --accent-ink: #061216;
+  --good: #4BC28A; --good-soft: #112A1F; --warn: #E3A23E; --warn-soft: #2D2211; --error: #FF7262; --error-soft: #35181A;
+  --plane: #0D1317; --axis: #94A8B3; --cut: #FF6B3D; --pole: #FF5A85; --zero: #E3EAEE; --halo: #0D1317;
+  --shadow-1: 0 1px 2px #0000004D; --shadow-3: 0 10px 28px #00000066, 0 2px 6px #00000040;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 400 13px/18px var(--f-ui); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px;
+  background: var(--panel); border-bottom: 1px solid var(--line); }
+.top h1 { margin: 0; font: 640 14.5px/20px var(--f-ui); letter-spacing: 0.01em; white-space: nowrap; }
+.top h1 small { font: 400 12px/16px var(--f-ui); color: var(--muted); margin-left: 8px; }
+.top .spacer { flex: 1; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; height: 32px; min-width: 32px; padding: 0 6px; gap: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--r-3); color: var(--ink-2); cursor: pointer; }
+.icon-btn:hover { background: var(--well); color: var(--ink); }
+.icon-btn[aria-pressed="true"] { color: var(--accent); }
+.icon-btn svg { width: 18px; height: 18px; }
+.sound-ctl { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--r-4); background: var(--surface); }
+.sound-ctl .icon-btn { height: 30px; border-radius: 0; }
+.sound-ctl .icon-btn:first-child { border-radius: 5px 0 0 5px; padding: 0 8px 0 7px; }
+.sound-ctl .icon-btn:last-child { border-radius: 0 5px 5px 0; border-left: 1px solid var(--line); min-width: 24px; padding: 0 3px; }
+.sound-ctl .lbl { font: 500 12px/16px var(--f-ui); }
+.tbtn[aria-pressed="true"].stop { border-color: var(--accent); color: var(--accent); }
+.sound-ctl .caret svg { width: 12px; height: 12px; }
+.kbd { font: 400 10px/12px var(--f-mono); color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 1px 4px; }
+
+/* the sound popover (the proposed app control) */
+.pop { position: fixed; top: 52px; right: 16px; z-index: 30; width: 320px; max-width: calc(100vw - 32px); padding: 12px 14px 10px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); }
+.pop[hidden] { display: none; }
+.pop h2 { margin: 0 0 8px; font: 600 13px/18px var(--f-ui); }
+.prow { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.prow > span:first-child { flex: 1; font: 500 12px/16px var(--f-ui); }
+.switch { position: relative; width: 34px; height: 20px; flex: none; appearance: none; -webkit-appearance: none; margin: 0;
+  background: var(--line-strong); border-radius: 10px; cursor: pointer; transition: background 120ms var(--ease-out); }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 2px #0003; transition: transform 120ms var(--ease-out); }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(14px); }
+input[type=range] { accent-color: var(--accent); }
+.prow input[type=range] { width: 150px; }
+.prow output { width: 38px; text-align: right; font: 400 11.5px/16px var(--f-mono); color: var(--ink-2); }
+.tiers { margin: 6px 0 4px; padding: 6px 0 0; border: 0; border-top: 1px solid var(--line); }
+.tiers legend { padding: 0; font: 600 11px/14px var(--f-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px; }
+.chk { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
+.chk input { margin: 2px 0 0; accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
+.chk b { display: block; font: 500 12.5px/16px var(--f-ui); }
+.chk small { display: block; font: 400 11.5px/15px var(--f-ui); color: var(--muted); }
+.offnote { margin: 4px 0 2px; font: 500 11.5px/15px var(--f-ui); color: var(--ink-2); }
+.offnote[hidden] { display: none; }
+.chk.sub { padding: 2px 0 6px 24px; }
+.fine { margin: 6px 0 0; font: 400 11px/15px var(--f-ui); color: var(--muted); }
+.fine.mono { font: 400 10.5px/14px var(--f-mono); }
+
+/* layout */
+main { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, 1fr); gap: 16px; padding: 16px; max-width: 1560px; margin: 0 auto; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-4); padding: 14px 16px 16px; min-width: 0; }
+.card > h2, .card-h h2 { margin: 0; font: 600 13px/18px var(--f-ui); }
+.card-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 10px; }
+.card-h .grow { flex: 1; }
+.lede { margin: 2px 0 10px; color: var(--ink-2); max-width: 92ch; }
+.lab { grid-column: 1 / -1; }
+@media (max-width: 1080px) { main { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { main { padding: 12px 16px; gap: 12px; } .top h1 small { display: none; } .card { padding: 12px; } }
+
+/* segmented controls */
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--r-4); background: var(--surface); padding: 2px; gap: 2px; }
+.seg button { border: 0; background: transparent; border-radius: var(--r-3); padding: 3px 9px; min-height: 26px; cursor: pointer; color: var(--ink-2);
+  font: italic 500 14px/18px var(--f-math); }
+.seg button.ui { font: 500 12px/16px var(--f-ui); }
+.seg button:hover { background: var(--well); color: var(--ink); }
+.seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); }
+.tbtn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--r-3); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); font: 500 12px/16px var(--f-ui); color: var(--ink-2); }
+.tbtn:hover { border-color: var(--line-strong); color: var(--ink); }
+.tbtn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tbtn.primary:hover { background: var(--accent-hover); }
+.tbtn:disabled { opacity: 0.5; cursor: default; }
+.tbtn svg { width: 14px; height: 14px; }
+
+/* the stage */
+.stage { position: relative; width: 100%; aspect-ratio: 3 / 2; border: 1px solid var(--line-strong); border-radius: var(--r-3); overflow: hidden; background: var(--plane); }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#ov { cursor: crosshair; touch-action: none; }
+#ov:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.stage .fnlabel { position: absolute; left: 10px; top: 8px; padding: 2px 8px; border-radius: var(--r-3); background: var(--overlay);
+  font: italic 500 15px/20px var(--f-math); pointer-events: none; box-shadow: var(--shadow-1); }
+.stage .hint { position: absolute; right: 10px; bottom: 8px; padding: 3px 8px; border-radius: var(--r-3); background: var(--overlay);
+  font: 400 11.5px/15px var(--f-ui); color: var(--ink-2); pointer-events: none; max-width: 60%; text-align: right; box-shadow: var(--shadow-1); }
+.readouts { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 8px; min-height: 26px; }
+.chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 8px; border-radius: var(--r-3); background: var(--surface);
+  border: 1px solid var(--line); font: 400 11.5px/16px var(--f-mono); color: var(--ink); white-space: nowrap; }
+.chip .k { font: italic 500 13px/16px var(--f-math); color: var(--muted); }
+.chip .sw { width: 10px; height: 10px; border-radius: 2px; align-self: center; box-shadow: inset 0 0 0 1px #0002; }
+.lbody { display: grid; grid-template-columns: minmax(0, 1fr) 214px; gap: 12px; align-items: start; }
+.side { display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 760px) { .lbody { grid-template-columns: minmax(0, 1fr); } .side { display: grid; grid-template-columns: 120px minmax(0, 1fr); } .side .result { grid-column: 1 / -1; } }
+.mini { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); padding: 6px 8px; position: relative; min-width: 0; }
+.mini h3 { margin: 0 0 2px; font: 600 11px/14px var(--f-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.mini canvas { display: block; width: 100%; }
+#dial { aspect-ratio: 1; max-width: 168px; margin: 0 auto; }
+#spec { height: 84px; }
+.mini p { margin: 4px 0 0; font: 400 11px/15px var(--f-ui); color: var(--muted); }
+.result .big { font: 600 13px/18px var(--f-ui); margin: 2px 0 2px; }
+.result .eq { font: italic 500 14px/20px var(--f-math); color: var(--ink); }
+.result .eq .ok { font: 600 12px/16px var(--f-ui); font-style: normal; color: var(--good); margin-left: 6px; }
+.result .eq .bad { font: 600 12px/16px var(--f-ui); font-style: normal; color: var(--warn); margin-left: 6px; }
+.result .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+/* the board */
+.banner { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; padding: 7px 10px; border-radius: var(--r-3); background: var(--warn-soft); color: var(--warn);
+  font: 500 12px/16px var(--f-ui); }
+.banner[hidden] { display: none; }
+.group { margin-top: 12px; }
+.group h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; font: 600 11px/14px var(--f-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.group h3 span { text-transform: none; letter-spacing: 0; font: 400 11px/14px var(--f-ui); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 6px; }
+.snd { display: flex; flex-direction: column; align-items: stretch; gap: 3px; text-align: left; padding: 7px 8px 6px; min-height: 76px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); }
+.snd:hover { border-color: var(--line-strong); }
+.snd.playing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.snd b { font: 500 12px/16px var(--f-ui); color: var(--ink); }
+.snd small { font: 400 11px/14px var(--f-ui); color: var(--muted); }
+.snd canvas { width: 100%; height: 26px; display: block; margin-top: auto; }
+.scrub { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-top: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); }
+.scrub label { font: 500 12px/16px var(--f-ui); white-space: nowrap; }
+.scrub input { flex: 1; min-width: 60px; }
+.scrub output { font: 400 11.5px/16px var(--f-mono); width: 64px; text-align: right; }
+
+/* the lab */
+.lab details > summary { cursor: pointer; font: 600 13px/18px var(--f-ui); }
+.lab table { width: 100%; border-collapse: collapse; margin-top: 10px; font: 400 11.5px/16px var(--f-mono); }
+.lab th { text-align: left; font: 600 11px/14px var(--f-ui); color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 8px; border-bottom: 1px solid var(--line-strong); }
+.lab td { padding: 3px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.lab td.name { font: 500 12px/16px var(--f-ui); }
+.lab td.v-ok { color: var(--good); font-weight: 700; }
+.lab td.v-bad { color: var(--error); font-weight: 700; }
+.lab .tw { overflow-x: auto; }
+.lab p { color: var(--ink-2); max-width: 100ch; }
+</style>
+</head>
+<body>
+<header class="top">
+  <svg viewBox="0 0 28 28" width="22" height="22" aria-hidden="true">
+    <rect x="1.5" y="1.5" width="25" height="25" rx="2" fill="var(--plane)" stroke="var(--ink)" stroke-width="1.25"/>
+    <g fill="none" stroke-width="1.15" stroke-linecap="round"><g stroke="var(--ink)"><path d="M6.51 25.62Q27.83 14 6.51 2.38"/><path d="M15.78 25.62Q25.76 14 15.78 2.38"/></g>
+    <g stroke="var(--accent)"><path d="M21.49 25.62Q0.17 14 21.49 2.38"/><path d="M12.22 25.62Q2.24 14 12.22 2.38"/></g></g>
+    <circle cx="14" cy="14" r="1.4" fill="var(--ink)"/>
+  </svg>
+  <h1>Sound<small>a prototype for Complex Map Workbench</small></h1>
+  <div class="spacer"></div>
+  <div class="sound-ctl">
+    <button class="icon-btn" id="sndBtn" aria-pressed="false" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M"><span id="sndIcon"></span><span class="lbl" id="sndLbl">Sound</span></button>
+    <button class="icon-btn caret" id="sndMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+</header>
+
+<div class="pop" id="sndPop" role="dialog" aria-label="Sound settings" hidden>
+  <label class="prow"><span><b style="font: 600 13px/18px var(--f-ui)">Sound</b></span><input type="checkbox" class="switch" id="pOn" role="switch"></label>
+  <label class="prow vol"><span>Volume</span><input type="range" id="pVol" min="0" max="100" step="1" aria-describedby="pVolOut"><output id="pVolOut">70 %</output></label>
+  <fieldset class="tiers">
+    <legend>Play</legend>
+    <p class="offnote" id="pOffNote">Sound is off: these take effect when it is on.</p>
+    <label class="chk"><input type="checkbox" id="pUi"><span><b>Interface</b><small>Steps, toggles, views, export, errors: controls you operate</small></span></label>
+    <label class="chk sub"><input type="checkbox" id="pSnap"><span><b>Snap ticks</b><small>A tick when a drawn point settles on the grid</small></span></label>
+    <label class="chk"><input type="checkbox" id="pEv"><span><b>Mathematical events</b><small>Things you start: the deformation, a closed loop's winding, listening along a curve</small></span></label>
+    <label class="chk"><input type="checkbox" id="pSo"><span><b>Hear the function under the pointer</b><small>A continuous tone: arg <i>F</i> as pitch class, |<i>F</i>| as register and loudness; cuts, zeros and poles, contours, turns</small></span></label>
+  </fieldset>
+  <p class="fine" id="pIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
+  <p class="fine">Shift+M turns sound on or off; Esc stops any playback. Saved on this device only, never in shared work.</p>
+  <p class="fine mono" id="pState">Audio engine: not started</p>
+</div>
+
+<main>
+  <section class="card listen" aria-labelledby="hListen">
+    <div class="card-h">
+      <h2 id="hListen">Hear the function</h2>
+      <div class="seg" id="fnSeg" role="radiogroup" aria-label="Function"></div>
+      <span class="grow"></span>
+      <div class="seg" id="modeSeg" role="radiogroup" aria-label="Listen to">
+        <button class="ui" role="radio" data-mode="phase" aria-checked="true" title="arg F as a Shepard tone: one turn of the argument is one seamless pitch cycle">Phase</button>
+        <button class="ui" role="radio" data-mode="height" aria-checked="false" title="log |F| as pitch (the landscape probe), with a tick at each contour">Height</button>
+      </div>
+      <button class="tbtn" id="hearBtn" aria-pressed="false" title="Hear F under the pointer and along loops (the Hear the function tier)">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 10V7a6 6 0 0 1 12 0v3" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="1.5" y="9" width="3" height="5" rx="1" fill="currentColor"/><rect x="11.5" y="9" width="3" height="5" rx="1" fill="currentColor"/></svg>
+        Hear <i style="font-family:var(--f-math);font-size:14px">F</i></button>
+    </div>
+    <p class="lede" id="lede">The 12 colour sectors are the 12 pitch classes: as the argument of <i>F</i> turns once, the tone climbs one seamless octave cycle (a Shepard tone), so it can rise forever; positive real <i>F</i> sounds D. |<i>F</i>| moves the register a little and the loudness: softer near zeros. Turn on Hear <i>F</i>, then hover to listen; drag a closed loop to hear its winding number.</p>
+    <div class="lbody"><div>
+    <div class="stage" id="stage">
+      <canvas id="pc" aria-hidden="true"></canvas>
+      <canvas id="ov" tabindex="0" role="application" aria-roledescription="phase portrait" aria-label="Phase portrait. Arrow keys move the probe in steps of 0.1, Shift for 0.02; Z and Shift+Z jump to the next or previous zero or pole; O tells the order here; Enter starts and closes a loop; L listens along it; Esc stops."></canvas>
+      <div class="fnlabel" id="fnLabel"></div>
+      <div class="hint" id="hint">Hover to listen · drag a loop</div>
+    </div>
+    <div class="readouts" id="readouts" aria-hidden="true"></div>
+    </div>
+    <div class="side">
+      <div class="mini"><h3>Phase wheel = pitch class</h3><canvas id="dial" width="240" height="240" aria-hidden="true"></canvas></div>
+      <div class="mini"><h3>Shepard partials</h3><canvas id="spec" aria-hidden="true"></canvas>
+        <p>Partials an octave apart under a fixed envelope. One turn of arg <i>F</i> moves each up an octave, into the next one's place.</p></div>
+      <div class="mini result" id="result">
+        <h3>Winding</h3>
+        <div id="resBody"><p>Drag a closed loop in the plane (or press Enter on the plane, move with the arrows, Enter again). The change of arg <i>F</i> along it, in turns, is the number of zeros minus poles inside.</p></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="card board" id="board" aria-labelledby="hBoard">
+    <div class="card-h"><h2 id="hBoard">Sound board</h2></div>
+    <p class="banner" id="offBanner">Sound is off. Turn it on with the Sound button at the top right, or press Shift+M.</p>
+    <p class="lede" style="margin-bottom:0">Every sound is synthesised in the page (no audio files). Interface sounds are dry and small; the mathematics rings. Waveforms are rendered silently, offline.</p>
+    <div class="group"><h3>Interface <span>short, dry, low</span></h3><div class="grid" id="gUi"></div></div>
+    <div class="group"><h3>Mathematical events <span>things you start; bells and glass, a small room</span></h3><div class="grid" id="gEv"></div>
+      <div class="scrub"><label for="tScrub">Deformation <i style="font-family:var(--f-math)">t</i></label><input type="range" id="tScrub" min="0" max="1000" step="1" value="0"><output id="tOut">t = 0.00</output>
+        <button class="tbtn" id="tPlay" title="Play the deformation from t = 0 to 1">Play</button></div>
+    </div>
+    <div class="group"><h3>Hear the function under the pointer <span>opt-in; cues driven by the pointer</span></h3><div class="grid" id="gSo"></div></div>
+  </section>
+
+  <section class="card lab" aria-labelledby="hLab">
+    <details id="labDet" open>
+      <summary id="hLab">Measurements: every sound rendered offline (no output), at volume 100 %</summary>
+      <p>Every cue goes through its stereo panner at the centre, as in use. "LUFS-M" is the loudest 400 ms momentary loudness (BS.1770 K-weighting); "phone" is the same through a 4th-order high-pass at 550 Hz (a phone speaker); targets: detents −40 ± 2, keys −32 ± 2, events −30 ± 2, export and error −29 ± 1, phone loss ≤ 5 dB. Peak is in dBFS before the safety clipper (linear below −6 dBFS, ceiling −1.6 dBFS), so a peak under −6 dBFS means the clipper never touches the sound. "Start" is the largest sample in the first 0.25 ms after the onset as a fraction of the peak (an abrupt start would be near 1); "end" is the last sample before the source stops (exactly 0 means no step). "HF" is the energy above 14 kHz relative to the total: a click spreads energy up there.</p>
+      <div class="tw"><table id="labTable"><thead><tr><th>Sound</th><th>Tier</th><th>Length</th><th>Peak</th><th>LUFS-M</th><th>Phone</th><th>Start</th><th>End</th><th>HF &gt; 14 kHz</th><th>Verdict</th></tr></thead><tbody></tbody></table></div>
+      <div class="tw"><table id="shepTable"><thead><tr><th>Sonification check</th><th>Expected</th><th>Measured from the audio</th><th>Detail</th><th>Verdict</th></tr></thead><tbody></tbody></table></div>
+    </details>
+  </section>
+</main>
+<div class="sr" id="live" aria-live="polite"></div>
+
+<script>
+'use strict';
+// =====================================================================================================================
+// Sound: the proposed src/sound.js. Web Audio synthesis only (no assets).
+//   Revision 3 (click-free, DESIGN §7): the continuous voices are rendered sample by sample in an AudioWorklet (from a
+//   Blob URL, else a data: URL); where neither is allowed, native nodes with anchored, append-only automation. No
+//   cancelAndHoldAtTime anywhere: it was the source of the snaps heard while moving. An independent check (DESIGN §7.6)
+//   then found two more snaps, both from stopping things while the pointer moves: Esc / hush stepped the bus back to 1
+//   under a hover voice the moving pointer had re-gated, and stopping "Listen along" cut its buffer mid-waveform. Both
+//   now fade on raised cosines; the voices' gate and duck start with zero slope.
+//   Off by default. The AudioContext is never created at load: only after the user turns sound on, inside a gesture,
+//   or (when "on" was remembered) inside the first activation gesture in this frame. Nothing is ever queued while the
+//   context is not running (one sound is allowed inside an active gesture, so "toggle on" is heard). Hidden tab:
+//   silent and suspended. Preferences are per device (localStorage), never part of the saved or shared work.
+// Tiers are split by WHAT TRIGGERS a cue, not by topic:
+//   ui      Interface: a control the user operated (snap ticks are a separate switch, off by default)
+//   events  Mathematical events: a deliberate action with mathematical content (deformation play / scrub, a loop
+//           closed and its winding, listen along a curve)
+//   sonify  Hear the function under the pointer (opt-in): the live voices and every cue driven by pointer position
+//           (branch cut, zero/pole order, contour, turn bells, preimages collide)
+// API: Sound.play(name, {pan, order, k, t, dir, pc, w, n, at, force, tier}) · Sound.turn({dir, pc, pan}) (count-bearing,
+//      queued, never dropped silently) · Sound.tick({k, pan}) (contour, queued) · Sound.voice() · Sound.heightVoice()
+//      Sound.curve(phi, lnAbs, dur, {bells, cuts, pc}) · Sound.hush() (Esc: stop everything now, setting unchanged)
+//      Sound.set({on, vol, ui, snap, events, sonify}) · Sound.toggle() · Sound.prefs() · Sound.subscribe(fn)
+//      Sound.state() · Sound.render(fn, dur) (offline, for tests) · Sound.CATALOG
+// =====================================================================================================================
+const Sound = (() => {
+  const KEY = 'cmw-sound';
+  const TIERS = ['ui', 'events', 'sonify'];
+  const DEFAULTS = { on: false, vol: 0.7, ui: true, snap: false, events: true, sonify: false };
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  // storage: a sandboxed frame without allow-same-origin throws on the mere access; then nothing is remembered
+  let store = null;
+  try { store = window.localStorage; store.getItem(KEY); } catch (e) { store = null; }
+  const P = Object.assign({}, DEFAULTS);
+  try {
+    const s = store && JSON.parse(store.getItem(KEY) || 'null');
+    if (s && typeof s === 'object') for (const k in DEFAULTS) if (typeof s[k] === typeof DEFAULTS[k]) P[k] = s[k];
+  } catch (e) { /* corrupt: defaults */ }
+  const save = () => { try { if (store) store.setItem(KEY, JSON.stringify(P)); } catch (e) { /* not remembered */ } };
+
+  let ctx = null, G = null, hidden = document.visibilityState === 'hidden', activated = false, idleTimer = 0, lastGesture = -1e9, graceUsed = false;
+  const subs = new Set();
+  const state = () => ({ ...P, supported: !!AC, remembered: !!store, audio: ctx ? ctx.state : 'none', rate: ctx ? ctx.sampleRate : 0,
+    latency: ctx ? (ctx.baseLatency || 0) + (ctx.outputLatency || 0) : 0, hidden, engine: G ? G.engine : 'none' });
+  // (tests) prefer.worklet = false: the native-node voices in a live context too
+  const prefer = { worklet: true };
+  const emit = () => { const s = state(); for (const f of subs) { try { f(s); } catch (e) { /* a subscriber's bug is not ours */ } } };
+  // a click or key in this page load (our own listeners), and the browser agrees the frame is activated: only then is a
+  // context created or resumed. (Chrome keeps a frame's sticky activation across a reload; a remembered "on" still
+  // waits for a gesture on the new page.)
+  const mayStart = () => activated && (navigator.userActivation ? navigator.userActivation.hasBeenActive : true);
+  const inGesture = () => (navigator.userActivation ? navigator.userActivation.isActive : performance.now() - lastGesture < 1000);
+
+  // ---------------------------------------------------------------- graph
+  // voices → (stereo panner, always) → tier (dry, and a send to a small synthetic room) → bus (hush) → master (volume)
+  // → safety soft clip → speakers
+  function graph(c, vol, opts = {}) {
+    const master = c.createGain(); master.gain.value = vol;
+    if (opts.noClip) master.connect(c.destination);
+    else { const clip = c.createWaveShaper(); clip.curve = SOFTCLIP; clip.oversample = '2x'; master.connect(clip); clip.connect(c.destination); }
+    const bus = c.createGain(); bus.connect(master);
+    const room = c.createConvolver(); room.buffer = roomIR(c);
+    // normalize = true scales this IR to about −12 dB; wet 2.0 puts the tail of a bell ~15–18 dB under its direct
+    // sound (keys ≥ 28 dB): audible as a short dark ring, not as an effect
+    const wet = c.createGain(); wet.gain.value = 2.0; room.connect(wet); wet.connect(bus);
+    const tier = {};
+    for (const k of TIERS) {
+      const dry = c.createGain(), send = c.createGain(), on = opts.allOn || P[k] ? 1 : 0;
+      dry.gain.value = on; send.gain.value = on; dry.connect(bus); send.connect(room);
+      tier[k] = { dry, wet: send };
+    }
+    // the audition bus (a settings preview, the sound board): always open, still behind the master switch
+    const ad = c.createGain(), aw = c.createGain(); ad.connect(bus); aw.connect(room);
+    const aud = { dry: ad, wet: aw };
+    const g = { c, master, bus, tier, noise: noiseBuf(c), active: new Set(), worklet: false, engine: 'loading', offline: false, flush: [] };
+    g.audition = { c, master, bus, tier: { ui: aud, events: aud, sonify: aud }, noise: g.noise, active: g.active };
+    return g;
+  }
+  // linear below 0.5 (−6 dBFS), a tanh knee above, never beyond 0.834 (−1.6 dBFS)
+  // raised-cosine fades (zero slope at both ends) for the hush and for stopping "listen along"
+  const FADE_DN = (() => { const n = 64, a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = 0.5 + 0.5 * Math.cos(Math.PI * i / (n - 1)); return a; })();
+  const FADE_UP = FADE_DN.slice().reverse();
+  const SOFTCLIP = (() => { const n = 4097, a = new Float32Array(n); for (let i = 0; i < n; i++) { const x = 2 * i / (n - 1) - 1, m = Math.abs(x); a[i] = m < 0.5 ? x : Math.sign(x) * (0.5 + 0.39 * Math.tanh((m - 0.5) / 0.39)); } return a; })();
+  function prng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function noiseBuf(c) { const n = c.sampleRate, b = c.createBuffer(1, n, n), d = b.getChannelData(0), r = prng(11); for (let i = 0; i < n; i++) d[i] = 2 * r() - 1; return b; }
+  // a dark, short room (T60 0.75 s, 6 ms pre-delay), darker as it decays, faded out at its end
+  function roomIR(c) {
+    const fs = c.sampleRate, n = Math.round(fs * 0.9), b = c.createBuffer(2, n, fs);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch), r = prng(101 + ch);
+      let lp = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / fs, u = t - 0.006;
+        const env = u < 0 ? 0 : Math.exp(-6.9 * u / 0.75) * Math.min(1, u / 0.004) * Math.min(1, (n - i) / (0.03 * fs));
+        lp += (2 * r() - 1 - lp) * (0.12 + 0.55 * Math.exp(-t / 0.07));
+        d[i] = lp * env;
+      }
+    }
+    return b;
+  }
+
+  // ---------------------------------------------------------------- primitives
+  // attack (linear), exponential decay to −60 dB in t60, then a linear ramp to exactly 0: clickless at both ends
+  function env(p, t, peak, att, t60, hold = 0) {
+    p.setValueAtTime(0, t);
+    p.linearRampToValueAtTime(peak, t + att);
+    if (hold) p.setValueAtTime(peak, t + att + hold);
+    p.exponentialRampToValueAtTime(peak * 1e-3, t + att + hold + t60);
+    p.linearRampToValueAtTime(0, t + att + hold + t60 + 0.01);
+    return t + att + hold + t60 + 0.02;
+  }
+  const track = (G, src) => { G.active.add(src); src.onended = () => G.active.delete(src); };
+  // a cue's output: ALWAYS through an equal-power panner (so pan 0 and pan 0.001 have the same level; cues capped at
+  // ±0.4, about −6 dB in the far ear), dry into its tier, a send into the room. Without StereoPanner: mono at −3 dB,
+  // the panner's centre level.
+  function out(G, T, pan = 0, wet = 0, cap = 0.4) {
+    const c = G.c, inp = c.createGain();
+    let node = inp;
+    if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = clamp(pan || 0, -cap, cap); inp.connect(p); node = p; inp.panner = p; }
+    else inp.gain.value = Math.SQRT1_2;
+    node.connect(G.tier[T].dry);
+    if (wet) { const s = c.createGain(); s.gain.value = wet; node.connect(s); s.connect(G.tier[T].wet); }
+    return inp;
+  }
+  function tone(G, dest, t, f, amp, o = {}) {
+    const c = G.c, osc = c.createOscillator(), g = c.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(f, t);
+    if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t + (o.glide || 0.06));
+    const end = env(g.gain, t, amp, o.att || 0.003, o.t60 || 0.15, o.hold || 0);
+    let node = osc;
+    if (o.lp) {
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = o.lpQ || 0.4;
+      lp.frequency.setValueAtTime(o.lp, t); if (o.lp1) lp.frequency.exponentialRampToValueAtTime(o.lp1, t + (o.lpT || 0.3));
+      osc.connect(lp); node = lp;
+    }
+    node.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(end); track(G, osc);
+    return end;
+  }
+  let noiseOff = 0;
+  // band-passed noise; f1: the band sweeps exponentially to f1 over `sweep` s
+  function burst(G, dest, t, fc, q, amp, t60, o = {}) {
+    const c = G.c, src = c.createBufferSource(), bp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = G.noise; bp.type = 'bandpass'; bp.Q.value = q;
+    bp.frequency.setValueAtTime(fc, t); if (o.f1) bp.frequency.exponentialRampToValueAtTime(o.f1, t + o.sweep);
+    lp.type = 'lowpass'; lp.frequency.value = Math.min(6500, 1.9 * Math.max(fc, o.f1 || 0)); lp.Q.value = 0.5;
+    const end = env(g.gain, t, amp, o.att || 0.0008, t60, o.hold || 0);
+    src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(dest);
+    noiseOff = (noiseOff + 0.1373) % 0.85;
+    src.start(t, noiseOff); src.stop(end); track(G, src);
+    return end;
+  }
+  // UI "key": a sine with a breath of 2nd and 3rd harmonic that die sooner
+  function key(G, d, t, f, amp, t60 = 0.13) {
+    return Math.max(tone(G, d, t, f, amp, { t60 }), tone(G, d, t, 2 * f, amp * 0.16, { t60: t60 * 0.55 }), tone(G, d, t, 3 * f, amp * 0.05, { t60: t60 * 0.35 }));
+  }
+  // glass/bell: inharmonic partials 1, 2.76, 5.40 (a struck bar) with shorter decays up the series; partials above
+  // 0.45·fs are left out (16 and 22.05 kHz contexts: Bluetooth hands-free, some Android devices)
+  function bell(G, d, t, f, amp, t60 = 0.6) {
+    const ny = 0.45 * G.c.sampleRate;
+    let e = tone(G, d, t, f, amp, { t60, att: 0.002 });
+    if (2.756 * f < ny) e = Math.max(e, tone(G, d, t, 2.756 * f, amp * 0.24, { t60: t60 * 0.45, att: 0.002 }));
+    if (5.404 * f < ny) e = Math.max(e, tone(G, d, t, 5.404 * f, amp * 0.06, { t60: t60 * 0.2, att: 0.002 }));
+    return e;
+  }
+  // wood: a lowpassed triangle, short
+  const wood = (G, d, t, f, amp, t60 = 0.09, lp = 1100) => tone(G, d, t, f, amp, { type: 'triangle', lp, t60, att: 0.003 });
+
+  // the palette: D major pentatonic around D4 (D E F♯ A B). While a live Shepard voice sounds, pitched events/sonify
+  // cues are transposed by XF to the voice's current chroma (≤ ±6 semitones), so they form a consonance with it.
+  let XF = 1;
+  const D4 = 293.665, st0 = (n) => D4 * Math.pow(2, n / 12), st = (n) => XF * st0(n);
+  const PENTA = [0, 2, 4, 7, 9], penta0 = (k) => st0(12 + 12 * Math.floor(k / 5) + PENTA[((k % 5) + 5) % 5]), penta = (k) => XF * penta0(k);
+  // the Height scale: one contour of |F| = one pentatonic step; |F| = 1 is D5; A3 … A6 (clamped beyond)
+  const HMIN = -7, HMAX = 8;
+  const hNote = (u) => { const uc = clamp(u, HMIN, HMAX), j = Math.min(HMAX - 1, Math.floor(uc)), a = uc - j; return penta0(j) * Math.pow(penta0(j + 1) / penta0(j), a); };
+
+  // ---------------------------------------------------------------- the catalog
+  // tier, minimum gap between two starts (ms), label, what it means, the recipe; make(G, t, o) returns the end time
+  const CATALOG = {
+    // Interface: dry, small, wood and plastic
+    snap: { tier: 'ui', gap: 125, label: 'Snap', what: 'The pointer settled on a grid point (separate switch, off by default)', recipe: 'noise band-passed at 1.9 kHz, Q 1.4, 25 ms',
+      make: (G, t, o) => burst(G, out(G, 'ui', o.pan, 0), t, 1900, 1.4, 0.48, 0.025) },
+    toggleOn: { tier: 'ui', gap: 60, label: 'Toggle on', what: 'A switch or option turned on', recipe: 'key A5',
+      make: (G, t, o) => key(G, out(G, 'ui', o.pan, 0.04), t, st0(19), 0.20) },
+    toggleOff: { tier: 'ui', gap: 60, label: 'Toggle off', what: 'A switch or option turned off', recipe: 'key E5, shorter',
+      make: (G, t, o) => key(G, out(G, 'ui', o.pan, 0.04), t, st0(14), 0.21, 0.1) },
+    stepAdd: { tier: 'ui', gap: 80, label: 'Add a step', what: 'A function joined the chain', recipe: 'keys D5 then A5, 55 ms apart',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.05); return Math.max(key(G, d, t, st0(12), 0.16), key(G, d, t + 0.055, st0(19), 0.18)); } },
+    stepRemove: { tier: 'ui', gap: 80, label: 'Remove a step', what: 'A function left the chain', recipe: 'keys A5 then D5',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.05); return Math.max(key(G, d, t, st0(19), 0.17), key(G, d, t + 0.055, st0(12), 0.15, 0.11)); } },
+    view: { tier: 'ui', gap: 80, label: 'Switch view', what: 'X → Y, Phase, Landscape: a degree of the scale each', recipe: 'soft tick and key D5 / F♯5 / A5',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.03), i = clamp(o.k | 0, 0, 3); return Math.max(burst(G, d, t, 2200, 1.2, 0.2, 0.02), key(G, d, t + 0.004, st0([12, 16, 19, 21][i]), 0.24, 0.09)); } },
+    exportDone: { tier: 'ui', gap: 300, label: 'Export ready', what: 'A figure or file is ready', recipe: 'a swish (noise swept 1 → 3 kHz, 120 ms), then key A5: "written"',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.03); return Math.max(burst(G, d, t, 1000, 2.2, 0.24, 0.06, { f1: 3000, sweep: 0.12, att: 0.05, hold: 0.04 }), key(G, d, t + 0.13, st0(19), 0.25, 0.16)); } },
+    error: { tier: 'ui', gap: 250, label: 'Error', what: 'Something could not be done (with the message)', recipe: 'two wooden D4 knocks with a 1.2 kHz body and a D5 overtone (survives phone speakers)',
+      make: (G, t, o) => {
+        const d = out(G, 'ui', o.pan, 0.03); let e = t;
+        for (const [u, a] of [[0, 1], [0.075, 0.85]]) e = Math.max(e, wood(G, d, t + u, st0(0), 0.18 * a, 0.09, 2000), burst(G, d, t + u, 1200, 3, 0.5 * a, 0.05), tone(G, d, t + u, st0(12), 0.22 * a, { t60: 0.09, att: 0.002 }));
+        return e; } },
+    edge: { tier: 'ui', gap: 150, label: 'Edge', what: 'The keyboard probe reached the edge of the view', recipe: 'a soft wooden A5 knock with a 1.5 kHz contact',
+      make: (G, t, o) => Math.max(wood(G, out(G, 'ui', o.pan, 0.02), t, st0(19), 0.16, 0.07, 2600), burst(G, out(G, 'ui', o.pan, 0), t, 1500, 2, 0.14, 0.015)) },
+
+    // Mathematical events: deliberate actions; bells and glass, a small room
+    morphStart: { tier: 'events', gap: 200, label: 'Deformation plays', what: 'H_t starts from t = 0 (once per play you start; never on loop repeats)', recipe: 'D5 + A5 swell (triangles), low-pass opening 700 Hz → 3.5 kHz over 0.3 s',
+      make: (G, t, o) => { const d = out(G, 'events', o.pan, 0.15); return Math.max(tone(G, d, t, st(12), 0.075, { type: 'triangle', att: 0.09, t60: 0.5, lp: 700, lp1: 3500, lpT: 0.3, lpQ: 0.7 }), tone(G, d, t, st(19), 0.06, { type: 'triangle', att: 0.11, t60: 0.5, lp: 700, lp1: 3500, lpT: 0.3, lpQ: 0.7 })); } },
+    morphTick: { tier: 'events', gap: 40, label: 'Deformation scrub', what: 'A detent every 0.05 of t; landmarks t = 0, ¼, ½, ¾, 1 are pitched D5 F♯5 A5 B5 D6', recipe: 'tick; landmarks add a key; the ends ring',
+      make: (G, t, o) => {
+        const d = out(G, 'events', o.pan, 0.04), u = clamp(+o.t || 0, 0, 1), q = Math.round(u * 4), mark = Math.abs(u * 4 - q) < 1e-6, ends = mark && (q === 0 || q === 4);
+        let e = burst(G, d, t, 1500 * Math.pow(2, u), 1.6, 0.45, 0.02);
+        if (mark) e = Math.max(e, tone(G, d, t, st([12, 16, 19, 21, 24][q]), ends ? 0.10 : 0.06, { t60: ends ? 0.25 : 0.08, att: 0.002 }));
+        return e; } },
+    morphEnd: { tier: 'events', gap: 300, label: 'Deformation arrives', what: 'H_t reached t = 1 (once per play you start)', recipe: 'glass D6 and F♯6',
+      make: (G, t, o) => { const d = out(G, 'events', o.pan, 0.2); return Math.max(bell(G, d, t, st(24), 0.075, 0.8), bell(G, d, t + 0.03, st(28), 0.055, 0.8)); } },
+    loopDone: { tier: 'events', gap: 200, label: 'Loop closed', what: 'Its winding number W as |W| pings, rising for W > 0, falling for W < 0; W = 0 a single soft knock', recipe: 'glass pings on the pentatonic, 125 ms apart, the first accented; > 8: a flourish',
+      make: (G, t, o) => {
+        const d = out(G, 'events', o.pan, 0.2), w = o.w | 0, n = Math.min(8, Math.abs(w));
+        if (!w) return Math.max(wood(G, d, t, st(19), 0.15, 0.1, 2600), burst(G, d, t, 1500, 2, 0.1, 0.012));
+        let e = t;
+        for (let j = 0; j < n; j++) e = Math.max(e, bell(G, d, t + 0.125 * j, penta(w > 0 ? 5 + j : 5 - j), j ? 0.08 : 0.113, 0.35));
+        if (Math.abs(w) > 8) e = Math.max(e, many(G, d, t + 0.125 * n, w > 0 ? 1 : -1));
+        return e; } },
+
+    // Hear the function under the pointer (opt-in): pointer-driven cues
+    cut: { tier: 'sonify', gap: 120, label: 'Branch cut', what: 'The probe crossed a branch cut: F jumps there', recipe: 'a double tick stepping down, 3.2 then 2.0 kHz',
+      make: (G, t, o) => { const d = out(G, o.tier || 'sonify', o.pan, 0.05); return Math.max(burst(G, d, t, 3200, 2.2, 0.52, 0.022), burst(G, d, t + 0.024, 2000, 2.2, 0.52, 0.03)); } },
+    zero: { tier: 'sonify', gap: 250, label: 'Zero', what: 'The probe reached a zero; one ping per order (found by the argument principle on a small circle)', recipe: 'bell D6 × m; 110 ms apart (150 ms for m ≥ 3); the first +3 dB',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.2), m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.11; let e = t; for (let j = 0; j < m; j++) e = Math.max(e, bell(G, d, t + sp * j, st(24), j ? 0.092 : 0.13, 0.45)); return e; } },
+    pole: { tier: 'sonify', gap: 250, label: 'Pole', what: 'The probe reached a pole; one thump per order', recipe: 'felt thump A4 → A3 with its octave at −6 dB and a 1.5 kHz felt contact, × m',
+      make: (G, t, o) => {
+        const d = out(G, 'sonify', o.pan, 0.12), m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.12; let e = t;
+        for (let j = 0; j < m; j++) { const u = t + sp * j, a = j ? 1 : 1.41; e = Math.max(e, tone(G, d, u, st(7), 0.15 * a, { f1: st(-5), glide: 0.05, t60: 0.16, att: 0.003 }), tone(G, d, u, st(19), 0.125 * a, { f1: st(7), glide: 0.05, t60: 0.12, att: 0.003 }), burst(G, d, u, 1500, 2, 0.38 * a, 0.03)); }
+        return e; } },
+    dense: { tier: 'sonify', gap: 600, label: 'Many zeros or poles', what: 'More than two zeros/poles entered within 300 ms (a cluster): one quiet cue, then 600 ms of silence for them', recipe: 'three quiet glass ticks D6 E6 F♯6, 40 ms apart',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.15); let e = t; for (let j = 0; j < 3; j++) e = Math.max(e, bell(G, d, t + 0.04 * j, penta(5 + j), 0.03, 0.2)); return e; } },
+    contour: { tier: 'sonify', gap: 0, label: 'Contour', what: 'The probe crossed a level line of |F| (Height): the tone\'s own note, an octave up', recipe: 'organ tick on the level\'s step of the Height scale, one octave up',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.03), f = 2 * hNote(clamp(o.k | 0, HMIN, HMAX)); return Math.max(tone(G, d, t, f, 0.10, { t60: 0.07, att: 0.002 }), tone(G, d, t, 2 * f, 0.05, { t60: 0.05, att: 0.002 }), tone(G, d, t, 3 * f, 0.03, { t60: 0.04, att: 0.002 }), burst(G, d, t, Math.min(5000, Math.max(1500, 2 * f)), 2, 0.09, 0.012)); } },
+    turn: { tier: 'sonify', gap: 0, label: 'One full turn', what: 'arg F completed a turn and is "home": the loop\'s starting pitch class, two octaves above the tone; approached from below (up) or above (down)', recipe: 'a grace note a fifth below (up) or a fourth above (down), then glass on the home pitch class at 1.7–3.4 kHz',
+      make: (G, t, o) => {
+        const d = out(G, o.tier || 'sonify', o.pan, 0.2), up = (o.dir || 1) > 0;
+        let f = SH.fLo * Math.pow(2, ((o.pc || 0) % 1 + 1) % 1); while (f < 1700) f *= 2;
+        const g = up ? f * 2 / 3 : f * 4 / 3;
+        return Math.max(bell(G, d, t, g, 0.045, 0.12), bell(G, d, t + 0.045, f, 0.105, 0.5)); } },
+    turnMany: { tier: 'sonify', gap: 0, label: 'Many turns', what: 'More turns than can be counted live (> 8 queued): the count is shown, announced and played back exactly', recipe: 'a quick run of five glass notes, up or down',
+      make: (G, t, o) => many(G, out(G, o.tier || 'sonify', o.pan, 0.2), t, (o.dir || 1) > 0 ? 1 : -1) },
+    collide: { tier: 'sonify', gap: 300, label: 'Preimages collide', what: 'w crossed a critical value: two preimages merged (a preimage of multiplicity ≥ 2), never a count change at the view\'s edge', recipe: 'two glass tones a whole tone apart gliding into one',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.15), f = st(19); return Math.max(tone(G, d, t, f * Math.pow(2, 2 / 12), 0.08, { f1: f, glide: 0.18, t60: 0.5, att: 0.01 }), tone(G, d, t, f / Math.pow(2, 2 / 12), 0.08, { f1: f, glide: 0.18, t60: 0.5, att: 0.01 })); } },
+  };
+  function many(G, d, t, dir) { let e = t; for (let j = 0; j < 5; j++) e = Math.max(e, bell(G, d, t + 0.035 * j, penta(dir > 0 ? 5 + j : 9 - j), 0.035, 0.18)); return e; }
+
+  // ---------------------------------------------------------------- lifecycle
+  // Click-free scheduling (revision 3; DESIGN §7). Revision 2 clicked while the pointer moved: its ramp() was
+  // cancelAndHoldAtTime(t) + linearRampToValueAtTime(v, t + d), per partial, per pointer event. When the previous ramp
+  // had already ended at t (about every other event), there was nothing to cancel, so no anchor was inserted (as the
+  // spec says) and the new ramp started from the previous event, in the past: the value jumped (offline, exactly on the
+  // render clock: by up to 75 % of the ramp's range; live: up to 130 snaps a second, as loud as the voice). Now:
+  //   1. the continuous voices are rendered in an AudioWorklet from per-sample-smoothed controls (a late message only
+  //      adds latency); without one, native nodes with anchored, append-only automation in the future (Lane);
+  //   2. every other param (volume, tiers, bus, duck, pan) only ever gets target curves started at now + LEAD (follow);
+  //   3. a one-shot starts at now + LEAD, so its anchored attack never begins in the past.
+  // LEAD: measured in Chrome with 256-frame callbacks, a step at currentTime + 6 ms still landed up to 2 ms late; at
+  // ≥ 10 ms never (0 of 352): twice the callback period, at least 12 ms.
+  let LEAD = 0.012;
+  const volGain = (v) => v * v;   // a squared taper is close to perceptual: 0.7 → −6.2 dB, 0.5 → −12 dB, 0.1 → −40 dB
+  function applyGains(fast) {
+    if (!G) return;
+    const t = ctx.currentTime;
+    follow(ctx, G.master.gain, P.on && !hidden ? volGain(P.vol) : 0, fast ? 0.004 : 0.03, t);
+    for (const k of TIERS) { follow(ctx, G.tier[k].dry.gain, P[k] ? 1 : 0, 0.03, t); follow(ctx, G.tier[k].wet.gain, P[k] ? 1 : 0, 0.03, t); }
+  }
+  // create or resume, only in or after an activation gesture in this frame
+  function ensure() {
+    if (!AC || !P.on || hidden || !mayStart()) return false;
+    if (!ctx || ctx.state === 'closed') {
+      try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* not iOS 16.4+ */ }
+      try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = null; return false; }
+      ctx.onstatechange = () => { if (ctx.state === 'running') graceUsed = false; emit(); };
+      LEAD = Math.max(0.012, 2 * (ctx.baseLatency || 0.005));
+      G = graph(ctx, 0);
+      // the voices' worklet loads in the background; until it is there (or where it is refused) voices use native nodes
+      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; g.engine = ok ? 'worklet' : 'nodes'; emit(); }); } else G.engine = 'nodes';
+      applyGains(true);
+    }
+    if (ctx.state !== 'running') ctx.resume().then(emit, () => {});
+    emit();
+    return true;
+  }
+  // may a sound be scheduled now? Only on a running clock: a suspended or iOS-"interrupted" context would release a
+  // backlog as a burst on resume. The one exception: a single sound inside an active gesture (the "on" confirmation).
+  function canSchedule(grace) {
+    if (ctx && ctx.state === 'running') return true;
+    if (!ensure()) return false;
+    if (ctx.state === 'running') return true;
+    if (grace && !graceUsed && inGesture()) { graceUsed = true; return true; }
+    return false;
+  }
+  // activation events (HTML: keydown, mousedown/pointerdown for a mouse, pointerup/touchend for touch, click)
+  const onActivate = (e) => { if (e.type === 'keydown' && e.key === 'Escape') return; activated = true; lastGesture = performance.now(); if (P.on && !hidden && (!ctx || ctx.state !== 'running')) ensure(); };
+  for (const ev of ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click']) window.addEventListener(ev, onActivate, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => {
+    hidden = document.visibilityState === 'hidden';
+    if (ctx) {
+      if (hidden) { applyGains(true); hush(); setTimeout(() => { if (hidden && ctx.state === 'running') ctx.suspend().then(emit, () => {}); }, 60); }
+      else if (P.on && mayStart()) { ctx.resume().then(emit, () => {}); applyGains(); }
+    }
+    emit();
+  });
+  window.addEventListener('pagehide', () => { if (ctx && ctx.state === 'running') { hush(); ctx.suspend().then(emit, () => {}); } });
+  // an idle engine sleeps (no audio device kept awake); the next request wakes it
+  function touchIdle(ms = 30000) {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { if (ctx && ctx.state === 'running' && !liveVoices.size && !G.active.size) ctx.suspend().then(emit, () => {}); }, ms);
+  }
+
+  // ---------------------------------------------------------------- one-shots
+  const lastStart = new Map(), recent = [], zpTry = [];
+  let zpQuietUntil = 0;
+  function play(name, o = {}) {
+    const d = CATALOG[name];
+    if (!d || !AC || !P.on || hidden) return false;
+    const tier = o.tier || d.tier;
+    if (!o.audition && (!P[tier] || (name === 'snap' && !P.snap))) return false;
+    if (!canSchedule(!!o.grace)) return false;
+    const now = performance.now(), sched = !!o.force || o.at > 0;
+    // zeros and poles are never forced: a shared gap, and a cluster (≥ 3 entries in 300 ms: sin(1/z), z⁵⁰ − 1,
+    // Blaschke products) becomes one quiet "dense" cue followed by 600 ms of silence for them
+    if ((name === 'zero' || name === 'pole') && !o.audition) {
+      while (zpTry.length && now - zpTry[0] > 300) zpTry.shift();
+      zpTry.push(now);
+      if (now < zpQuietUntil) return false;
+      if (zpTry.length >= 3) { zpQuietUntil = now + 600; return play('dense', { pan: o.pan }); }
+      if (now - (lastStart.get('zp') || -1e9) < d.gap) return false;
+      lastStart.set('zp', now);
+    } else if (!o.force && now - (lastStart.get(name) || -1e9) < d.gap) return false;
+    // a storm guard for decorative one-shots: at most 14 a second. Scheduled and forced (count-bearing) cues neither
+    // count against it nor are refused by it.
+    while (recent.length && now - recent[0] > 1000) recent.shift();
+    if (!sched && recent.length >= 14 && name !== 'error') return false;
+    lastStart.set(name, now); if (!sched) recent.push(now);
+    const t = ctx.currentTime + LEAD + (o.at || 0);
+    const ch = tier !== 'ui' && !o.audition ? liveChroma(t) : null;
+    XF = ch == null ? 1 : Math.pow(2, ch - Math.round(ch));
+    let end;
+    try { end = d.make(o.audition ? G.audition : G, t, o); } finally { XF = 1; }
+    // the live voices give way: −6 dB for the cue's first 250 ms
+    for (const v of liveVoices) v.duck(t, Math.min(0.25, end - t));
+    touchIdle();
+    return true;
+  }
+  // count-bearing cues are never dropped silently: they queue on the audio clock (turn bells ≤ 8/s; contour ticks
+  // ≤ 12/s). Beyond 8 queued bells one "many turns" flourish plays and the exact count is shown, announced and played
+  // back; contour ticks beyond 0.5 s of backlog coalesce (the Height tone itself is the staircase, one step a contour).
+  const Q = { turn: { next: 0, gap: 0.125, cap: 8, many: 0 }, contour: { next: 0, gap: 0.083, cap: 6, many: 0 } };
+  function queued(name, o) {
+    if (!AC || !P.on || hidden || !P[o.tier || 'sonify'] || !canSchedule(false)) return false;
+    const q = Q[name], now = ctx.currentTime, at = Math.max(now, q.next);
+    if (at - now > q.cap * q.gap) {
+      if (name === 'turn' && q.many < q.next) { q.many = q.next; play('turnMany', Object.assign({}, o, { at: q.next - now, force: true })); q.next += 0.25; }
+      return 'coalesced';
+    }
+    q.next = at + q.gap;
+    return play(name, Object.assign({}, o, { at: at - now, force: true }));
+  }
+
+  // ---------------------------------------------------------------- sonification voices
+  // Shepard: N partials an octave apart, f = fLo · 2^pos, pos ∈ [0, N); a bell over pos (centre c, σ) fixes the timbre.
+  // arg F in turns moves every pos by the same amount, so one turn moves each partial into its upper neighbour's place:
+  // pitch class = arg F, seamlessly. fLo = D1, so arg F = 0 (F positive real) sounds D, the palette's tonic.
+  // The bell is a Gaussian times a taper that is exactly 0, with zero slope, at both band edges (sin² over the outer
+  // half octave, where the Gaussian is already below −52 dB): a partial leaving the top re-enters at the bottom at
+  // exactly zero gain, so the wrap is inaudible by construction.
+  // ln|F| moves the bell a little (±0.3 octave: "register", log F on the pitch helix) and the loudness from 60 % to
+  // 100 %; the chroma climb, which carries the winding number, stays dominant.
+  const SH = { N: 9, fLo: 36.70810, sigma: 0.95, c0: 4.1, swing: 0.3, amp: 0.028, edge: 0.5 };
+  const lnc = (x) => Number.isFinite(x) ? x : (x > 0 ? 50 : -50);
+  const shG = (pos, c) => { const d = (pos - c) / SH.sigma; return Math.exp(-0.5 * d * d); };
+  const shTaper = (p) => { if (p <= 0 || p >= SH.N) return 0; const e = Math.min(p, SH.N - p); if (e >= SH.edge) return 1; const s = Math.sin(0.5 * Math.PI * e / SH.edge); return s * s; };
+  const shBell = (pos, c) => shG(pos, c) * shTaper(pos);
+  // partials fade out between 0.40 and 0.45 · fs (16 and 22.05 kHz contexts) instead of being cut
+  const nyq = (f, fs) => { const r = f / fs; return r <= 0.40 ? 1 : r >= 0.45 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.40) / 0.05); };
+  const shCentre = (lnAbs) => SH.c0 + SH.swing * Math.tanh(lnc(lnAbs) / 2.5);
+  const shLoud = (lnAbs) => 0.6 + 0.4 / (1 + Math.exp(-1.3 * (lnc(lnAbs) + 1)));
+  const liveVoices = new Set(), Gl = () => G;
+  let chromaVoice = null;
+  const liveChroma = (t) => (chromaVoice && chromaVoice.sounding() ? chromaVoice.chroma(t) : null);
+  // the Height voice's organ: harmonics 1–4 at 1/n, normalised to a peak of 1 (as createPeriodicWave does)
+  const ORGAN = [1, 1 / 2, 1 / 3, 1 / 4];
+  const ORGAN_NORM = (() => { let m = 0; for (let i = 0; i < 4096; i++) { const a = 2 * Math.PI * i / 4096; let s = 0; for (let n = 0; n < 4; n++) s += ORGAN[n] * Math.sin((n + 1) * a); m = Math.max(m, Math.abs(s)); } return 1 / m; })();
+
+  // ---- the voices' AudioWorklet: every sample computed from per-sample-smoothed controls. Commands are time-stamped
+  // ({at} in seconds of the context's clock) and applied at that sample, or on arrival if late: lateness adds latency,
+  // never a step. Chroma moves by linear slews (deltas, so whole turns never matter); centre, loudness and pan by
+  // one-pole smoothers; gate and duck by two cascaded one-poles (τ/2 each), so an onset or a fade starts with zero
+  // slope (no corner in the envelope); each partial is a phase accumulator, continuous through any change.
+  const WORKLET_SRC = `'use strict';
+const N = ${SH.N}, FLO = ${SH.fLo}, ISIG = ${1 / SH.sigma}, EDGE = ${SH.edge}, AMP = ${SH.amp};
+const ORG = [${ORGAN.join(', ')}], ONORM = ${ORGAN_NORM};
+const TL = 4096, SINT = new Float32Array(TL + 1); for (let i = 0; i <= TL; i++) SINT[i] = Math.sin(2 * Math.PI * i / TL);
+const sin1 = (p) => { const x = p * TL, i = x | 0; return SINT[i] + (SINT[i + 1] - SINT[i]) * (x - i); };
+const GD = 8, GL = 8192, GT = new Float32Array(GL + 2); for (let i = 0; i <= GL + 1; i++) { const d = -GD + 2 * GD * i / GL; GT[i] = Math.exp(-0.5 * d * d); }
+const gauss = (d) => { if (d <= -GD || d >= GD) return 0; const x = (d + GD) * (GL / (2 * GD)), i = x | 0; return GT[i] + (GT[i + 1] - GT[i]) * (x - i); };
+const taper = (p) => { if (p <= 0 || p >= N) return 0; const e = p < N - p ? p : N - p; if (e >= EDGE) return 1; const s = Math.sin(0.5 * Math.PI * e / EDGE); return s * s; };
+const P2 = new Float64Array(N); for (let k = 0; k < N; k++) P2[k] = Math.pow(2, k);
+class Voice extends AudioWorkletProcessor {
+  constructor(o) {
+    super();
+    const p = (o && o.processorOptions) || {};
+    this.kind = p.kind || 'shepard'; this.q = []; this.fs = sampleRate;
+    this.s = 0; this.sFrom = 0; this.sTo = 0; this.sLen = 0; this.sPos = 0; this.fresh = true;
+    this.c = ${SH.c0}; this.cT = this.c; this.ld = 1; this.ldT = 1; this.pan = 0; this.panT = 0;
+    this.g = 0; this.g1 = 0; this.gT = 0; this.gA = this.coef(0.01); this.dk = 1; this.dk1 = 1; this.dkT = 1; this.dkA = this.coef(0.005); this.dkEnd = -1;
+    this.aCL = this.coef(0.02); this.aPan = this.coef(0.03); this.aAmp = this.coef(0.012);
+    this.ph = new Float64Array(N); this.end = -1;
+    this.amp = 0; this.ampT = 0;   // height: organ level
+    for (const c of p.cmds || []) this.push(c);
+    this.port.onmessage = (e) => { for (const c of e.data) this.push(c); };
+  }
+  coef(tau) { return tau > 0 ? 1 - Math.exp(-1 / (tau * this.fs)) : 1; }
+  quiet() { return this.g < 1e-4 && this.g1 < 1e-4; }
+  push(c) { c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
+  apply(c, frame) {
+    if (c.snap != null) {
+      // a new start (the first set, a new function): the nearest equivalent of the chroma (whole turns are inaudible);
+      // instant only while silent, otherwise a 12 ms glide
+      let d = c.snap - this.s; d -= Math.round(d); this.sTo = this.s + d;
+      if (this.quiet() || this.fresh) { this.s = this.sTo; this.sLen = 0; } else { this.sFrom = this.s; this.sLen = Math.round(0.012 * this.fs); this.sPos = 0; }
+    }
+    if (c.ds != null) { this.sFrom = this.s; this.sTo += c.ds; this.sLen = Math.max(1, Math.round(c.dur * this.fs)); this.sPos = 0; }
+    if (c.lf != null) {
+      // the Height voice: s is log2 of the frequency, slewed linearly (in pitch) to the target
+      if (this.fresh || this.quiet()) { this.s = this.sTo = c.lf; this.sLen = 0; } else { this.sFrom = this.s; this.sTo = c.lf; this.sLen = Math.max(1, Math.round((c.dur || 0.008) * this.fs)); this.sPos = 0; }
+    }
+    if (c.cc != null) { this.cT = c.cc; this.ldT = c.loud; if (this.fresh || this.quiet()) { this.c = this.cT; this.ld = this.ldT; } }
+    if (c.pan != null) { this.panT = c.pan; if (this.fresh) this.pan = c.pan; }
+    if (c.amp != null) { this.ampT = c.amp; if (this.fresh || this.quiet()) this.amp = c.amp; }
+    if (c.gate != null) { this.gT = c.gate; this.gA = this.coef(c.tau / 2); }
+    if (c.duck != null) { this.dkT = 0.5; this.dkA = this.coef(0.005); this.dkEnd = frame + Math.round(c.duck * this.fs); }
+    if (c.stop) { this.gT = 0; this.gA = this.coef((c.tau || 0.05) / 2); this.end = frame + Math.round(0.5 * this.fs); }
+    this.fresh = false;
+  }
+  process(_, outputs) {
+    const out = outputs[0], L = out[0], R = out[1] || out[0], n = L.length, f0 = currentFrame, fs = this.fs, inv = 1 / fs, ph = this.ph;
+    const height = this.kind === 'height';
+    for (let i = 0; i < n; i++) {
+      const fr = f0 + i;
+      while (this.q.length && this.q[0].f <= fr) this.apply(this.q.shift(), fr);
+      if (this.dkEnd >= 0 && fr >= this.dkEnd) { this.dkT = 1; this.dkA = this.coef(0.04); this.dkEnd = -1; }
+      if (this.sLen > 0) { this.sPos++; if (this.sPos >= this.sLen) { this.s = this.sTo; this.sLen = 0; } else this.s = this.sFrom + (this.sTo - this.sFrom) * (this.sPos / this.sLen); }
+      this.c += (this.cT - this.c) * this.aCL; this.ld += (this.ldT - this.ld) * this.aCL; this.pan += (this.panT - this.pan) * this.aPan;
+      this.g1 += (this.gT - this.g1) * this.gA; this.g += (this.g1 - this.g) * this.gA;
+      this.dk1 += (this.dkT - this.dk1) * this.dkA; this.dk += (this.dk1 - this.dk) * this.dkA; this.amp += (this.ampT - this.amp) * this.aAmp;
+      let y = 0;
+      if (this.g > 1e-6 || this.g1 > 1e-6 || this.gT > 0) {
+        if (height) {
+          // s is log2 of the frequency here
+          const f = Math.pow(2, this.s); let p = ph[0] + f * inv; p -= Math.floor(p); ph[0] = p;
+          let acc = 0; for (let h = 0; h < 4; h++) { const fh = f * (h + 1); if (fh < 0.45 * fs) { let q = p * (h + 1); q -= Math.floor(q); acc += ORG[h] * sin1(q); } }
+          y = acc * ONORM * this.amp * this.g * this.dk;
+        } else {
+          const si = Math.floor(this.s), u = this.s - si, b = FLO * Math.pow(2, u);
+          let acc = 0;
+          for (let k = 0; k < N; k++) {
+            let kk = (k + si) % N; if (kk < 0) kk += N;
+            const pos = kk + u, f = b * P2[kk];
+            let p = ph[k] + f * inv; if (p >= 1) p -= Math.floor(p); ph[k] = p;
+            let gk = gauss((pos - this.c) * ISIG);
+            if (gk < 1e-9) continue;
+            gk *= taper(pos);
+            const r = f * inv; if (r > 0.40) gk *= r >= 0.45 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.40) / 0.05);
+            acc += gk * sin1(p);
+          }
+          y = acc * AMP * this.ld * this.g * this.dk;
+        }
+      }
+      // the equal-power pan law of a StereoPannerNode for a mono input (−3 dB each side at the centre)
+      const th = (this.pan + 1) * Math.PI / 4;
+      L[i] = y * Math.cos(th); if (R !== L) R[i] = y * Math.sin(th);
+    }
+    return this.end < 0 || f0 < this.end;
+  }
+}
+registerProcessor('cmw-voice', Voice);`;
+  let workletURL = null;
+  const workletURLs = () => {
+    const u = [];
+    try { if (!workletURL) workletURL = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'text/javascript' })); u.push(workletURL); } catch (e) { /* no Blob URLs */ }
+    u.push('data:text/javascript;charset=utf-8,' + encodeURIComponent(WORKLET_SRC));
+    return u;
+  };
+  // load the voices' worklet into a context: a Blob URL, else a data: URL; false where neither is allowed (a CSP
+  // without blob:/data: for scripts, no AudioWorklet): the voices then use native nodes (anchored automation)
+  let workletRefused = false;   // refused once (a CSP): not asked again in this page
+  async function loadWorklet(c) {
+    if (workletRefused || !c.audioWorklet || typeof AudioWorkletNode === 'undefined') return false;
+    for (const u of workletURLs()) { try { await c.audioWorklet.addModule(u); return true; } catch (e) { /* refused: next */ } }
+    workletRefused = true;
+    return false;
+  }
+
+  // the voice's chroma as the main thread plans it: segments {t0, t1, s0, s1} on the context's clock (the worklet and
+  // the node timeline both follow the same plan; only the cue transposition and the display read it)
+  function Plan() {
+    let segs = [], sEnd = null;
+    const at = (t) => {
+      if (sEnd === null) return 0;
+      for (let i = segs.length - 1; i >= 0; i--) { const g = segs[i]; if (t >= g.t0) return t >= g.t1 || g.t1 <= g.t0 ? g.s1 : g.s0 + (g.s1 - g.s0) * (t - g.t0) / (g.t1 - g.t0); }
+      return segs.length ? segs[0].s0 : sEnd;
+    };
+    return {
+      at, end: () => sEnd, empty: () => sEnd === null,
+      start(t, s) { segs = [{ t0: t, t1: t, s0: s, s1: s }]; sEnd = s; },
+      // replan from t (the worklet: a new slew from where the voice is) or append at the end (the node timeline)
+      replan(t, s1, t1) { const s0 = at(t); segs = segs.filter((g) => g.t1 > t - 0.5 && g.t0 < t); segs.push({ t0: t, t1, s0, s1 }); sEnd = s1; return s0; },
+      append(t0, t1, s1) { const s0 = sEnd; segs.push({ t0, t1, s0, s1 }); if (segs.length > 64) segs.splice(0, segs.length - 64); sEnd = s1; return s0; },
+      reset() { segs = []; sEnd = null; },
+    };
+  }
+
+  // a voice's output: stereo already panned (the worklet) → its tier, dry and a small send to the room
+  function outStereo(G, T, wet) {
+    const c = G.c, inp = c.createGain();
+    inp.connect(G.tier[T].dry);
+    if (wet) { const s = c.createGain(); s.gain.value = wet; inp.connect(s); s.connect(G.tier[T].wet); }
+    return inp;
+  }
+
+  // the main-thread side shared by both voices and both back ends: dt from the event clock, the backlog rule (never
+  // reversed; whole turns beyond one dropped, since they sound identical; played at ≤ ~3 turns/s)
+  function ShepardVoice(G, T = 'sonify') {
+    const c = G.c, plan = Plan(), worklet = !!G.worklet && (G.offline || prefer.worklet);
+    let off = 0, last = -1, lastWall = 0, dead = false, on = false, centre = SH.c0, loud = 1;
+    const be = worklet ? WorkletBackend(G, T, 'shepard', 0.08) : NodeShepard(G, T);
+    const v = {
+      engine: worklet ? 'worklet' : 'nodes',
+      // ph: arg F in turns, unwrapped along the probe's path; lnAbs = ln |F|; jump: F jumped (a cut); returns the whole
+      // turns dropped
+      set(ph, lnAbs, pn = 0, t, jump = false) {
+        if (dead) return 0;
+        const explicit = t != null; if (!explicit) t = c.currentTime;
+        const wall = performance.now();
+        const dt = explicit ? (last < 0 ? 0.02 : clamp(t - last, 0.008, 0.05)) : (last < 0 ? 0.02 : clamp((wall - lastWall) / 1000, 0.008, 0.05));
+        last = t; lastWall = wall;
+        centre = shCentre(lnAbs); loud = shLoud(lnAbs);
+        let dropped = 0;
+        if (plan.empty()) {
+          off = Math.floor(ph); const f = ph - off;
+          plan.start(t, f);
+          be.start(t, f, centre, loud, clamp(pn, -0.3, 0.3), explicit);
+          return 0;
+        }
+        const cur = be.from(plan, t, explicit);
+        let back = ph - off - cur;
+        if (Math.abs(back) > 1) { const w = Math.sign(back) * (Math.ceil(Math.abs(back)) - 1); off += w; back -= w; dropped = w; }
+        // the backlog with its true sign: the frame interval plus 0.3 s per turn (≈ 3 turns/s at most); a jump (a branch
+        // cut) as a 12 ms glide. (The worklet replans from where the voice is; the node timeline only appends, so there
+        // a move ends one frame interval after now + LEAD, or later when 0.3 s per turn needs longer: no queue builds up.)
+        const slow = jump ? 0 : 0.3 * Math.abs(back), dur = jump ? 0.012 : dt + slow;
+        be.move(plan, t, cur, cur + back, dur, centre, loud, clamp(pn, -0.3, 0.3), explicit, jump ? 0.012 : dt, slow);
+        return dropped;
+      },
+      gate(g, t, tau) { if (dead) return; on = !!g; if (on) chromaVoice = v; be.gate(on ? 1 : 0, t, tau != null ? tau : on ? 0.02 : 0.08); },
+      duck: (t, hold) => { if (!dead && hold > 0) be.duck(t, hold); },
+      sounding: () => on && !dead && !plan.empty(),
+      chroma: (t = c.currentTime) => { const s = plan.at(t); return s - Math.floor(s); },
+      silence() { v.gate(false, undefined, 0.01); plan.reset(); last = -1; },
+      reset() { plan.reset(); last = -1; },
+      partials: () => { const s = plan.at(c.currentTime), u = s - Math.floor(s); return Array.from({ length: SH.N }, (_, k) => ({ pos: k + u, amp: loud * shBell(k + u, centre) })); },
+      centre: () => centre,
+      stop(t) { if (dead) return; on = false; be.stop(t); dead = true; liveVoices.delete(v); if (chromaVoice === v) chromaVoice = null; if (G === Gl()) touchIdle(); },
+    };
+    liveVoices.add(v);
+    return v;
+  }
+  // the landscape probe: an organ tone (harmonics 1–4 at 1/n, so it survives phone speakers) on the Height scale:
+  // u = ln|F| / (2π/S), one contour of the drawn lines = one pentatonic step, |F| = 1 on D5, A3 … A6
+  const HV = { amp: 0.042 };
+  function HeightVoice(G, T = 'sonify') {
+    const c = G.c, worklet = !!G.worklet && (G.offline || prefer.worklet), be = worklet ? WorkletBackend(G, T, 'height', 0.06) : NodeHeight(G, T);
+    let dead = false, last = -1, lastWall = 0, loud = 1, on = false, started = false;
+    const v = {
+      engine: worklet ? 'worklet' : 'nodes',
+      set(lnAbs, pn = 0, t, sectors = 12) {
+        if (dead) return;
+        const explicit = t != null; if (!explicit) t = c.currentTime;
+        const wall = performance.now();
+        const dt = explicit ? (last < 0 ? 0 : clamp(t - last, 0.008, 0.05)) : (last < 0 ? 0 : clamp((wall - lastWall) / 1000, 0.008, 0.05));
+        last = t; lastWall = wall;
+        const f = hNote(lnc(lnAbs) / (2 * Math.PI / sectors));
+        loud = Math.min(1.5, Math.pow(587.33 / f, 0.35));   // a tilt: low notes a little louder (small speakers)
+        if (!started) { started = true; be.start(t, Math.log2(f), 0, HV.amp * loud, clamp(pn, -0.3, 0.3), explicit); return; }
+        be.moveH(t, Math.log2(f), Math.max(dt, 0.008), HV.amp * loud, clamp(pn, -0.3, 0.3), explicit);
+      },
+      gate(g, t, tau) { if (!dead) { on = !!g; be.gate(on ? 1 : 0, t, tau != null ? tau : on ? 0.02 : 0.08); } },
+      duck: (t, hold) => { if (!dead && hold > 0) be.duck(t, hold); },
+      sounding: () => on && !dead, chroma: () => null,
+      silence() { v.gate(false, undefined, 0.01); }, reset() { last = -1; },
+      stop(t) { if (dead) return; on = false; be.stop(t); dead = true; liveVoices.delete(v); if (G === Gl()) touchIdle(); },
+    };
+    liveVoices.add(v);
+    return v;
+  }
+
+  // ---- back end 1: the AudioWorklet (one node per voice; in an offline render the node is built when rendering starts,
+  // with every command in its options, so renders are exact and deterministic)
+  function WorkletBackend(G, T, kind, wet) {
+    const c = G.c, o = outStereo(G, T, wet), pend = [];
+    let node = null, stopT = null;
+    const make = () => {
+      node = new AudioWorkletNode(c, 'cmw-voice', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { kind, cmds: pend.splice(0) } });
+      node.connect(o);
+    };
+    const post = (cmd) => { if (node) node.port.postMessage([cmd]); else pend.push(cmd); };
+    if (G.offline) G.flush.push(make); else make();
+    const now = (t) => (t != null ? t : c.currentTime);
+    return {
+      start(t, s, cc, loud, pan) { post(kind === 'height' ? { at: t, lf: s, amp: loud, pan } : { at: t, snap: s, cc, loud, pan }); },
+      from: (plan, t) => plan.at(t),
+      move(plan, t, cur, s1, dur, cc, loud, pan) { const s0 = plan.end(); plan.replan(t, s1, t + dur); post({ at: t, ds: s1 - s0, dur, cc, loud, pan }); },
+      moveH(t, lf, dur, amp, pan) { post({ at: t, lf, dur, amp, pan }); },
+      gate(g, t, tau) { post({ at: now(t), gate: g, tau }); },
+      duck(t, hold) { post({ at: now(t), duck: hold }); },
+      stop(t) { post({ at: now(t), stop: 1, tau: 0.05 }); stopT = now(t); if (!G.offline) setTimeout(() => { try { o.disconnect(); } catch (e) { /* gone */ } }, 800 + Math.max(0, stopT - c.currentTime) * 1000); },
+    };
+  }
+
+  // ---- back end 2: native nodes with anchored, append-only automation (no AudioWorklet here). Every param that moves
+  // continuously is a Lane: its own timeline (end time, end value); a move starts at max(now + LEAD, end), anchored with
+  // setValueAtTime(end value) when there is a gap, and is never cancelled. Gate, duck and pan only get target curves.
+  function Lane(p, v0) { p.value = v0; return { p, end: 0, v: v0 }; }
+  function laneTo(L, v, T0, T1) {
+    if (T0 > L.end + 1e-7) L.p.setValueAtTime(L.v, T0);
+    if (T1 > T0 + 1e-7) L.p.linearRampToValueAtTime(v, T1); else L.p.setValueAtTime(v, T0);
+    L.end = Math.max(T0, T1); L.v = v;
+  }
+  function laneSet(L, v, T) { L.p.setValueAtTime(v, T); L.end = T; L.v = v; }
+  const leadOf = (c) => (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext ? 0 : LEAD);
+  // a target curve from wherever the param is, starting no earlier than now + LEAD (only for params that never get
+  // linear ramps: cancelScheduledValues then removes only future targets, and a target starts from the running value)
+  function follow(c, p, v, tau, t = 0) {
+    const T = Math.max(t || 0, c.currentTime + leadOf(c));
+    p.cancelScheduledValues(T);
+    if (tau > 0) p.setTargetAtTime(v, T, tau); else p.setValueAtTime(v, T);
+    return T;
+  }
+  function nodeCommon(G, T, wet) {
+    const c = G.c, o = out(G, T, 0, wet, 0.3), vg = c.createGain(), dk = c.createGain();
+    vg.gain.value = 0; vg.connect(dk); dk.connect(o);
+    let stopped = false;
+    return {
+      c, o, vg, dk,
+      pan(pn, t) { if (o.panner) follow(c, o.panner.pan, pn, 0.03, t); },
+      gate(g, t, tau) { if (!stopped) follow(c, vg.gain, g, tau, t); },
+      duck(t, hold) { const T0 = follow(c, dk.gain, 0.5, 0.01, t); dk.gain.setTargetAtTime(1, T0 + hold, 0.08); },
+      stop(t, srcs) { const T0 = follow(c, vg.gain, 0, 0.05, t); stopped = true; for (const s of srcs) s.stop(T0 + 0.5); },
+    };
+  }
+  function NodeShepard(G, T) {
+    const cm = nodeCommon(G, T, 0.08), c = cm.c, N = SH.N, osc = [], det = [], gl = [];
+    for (let k = 0; k < N; k++) {
+      const os = c.createOscillator(), g = c.createGain();
+      os.frequency.value = SH.fLo; os.connect(g); g.connect(cm.vg); os.start();
+      osc.push(os); det.push(Lane(os.detune, 1200 * k)); gl.push(Lane(g.gain, 0));
+    }
+    let end = 0, cE = SH.c0, lE = 1, want = null, timer = 0;
+    const gainOf = (pos, cc, l) => SH.amp * l * shBell(pos, cc) * nyq(SH.fLo * Math.pow(2, pos), c.sampleRate);
+    // one segment from (T0, sE) to (T1, s1): each partial follows k + s (mod N), a breakpoint every 1/16 turn so the gain
+    // follows the bell, and an exact split where a partial wraps (its gain is 0 there; the detune jumps there)
+    function segment(T0, T1, sE, s1, c1, l1) {
+      const m = Math.max(1, Math.ceil(Math.abs(s1 - sE) * 16));
+      for (let k = 0; k < N; k++) {
+        let tp = T0, sp = sE;
+        for (let j = 1; j <= m; j++) {
+          const a = j / m, tj = T0 + (T1 - T0) * a, sj = sE + (s1 - sE) * a, cj = cE + (c1 - cE) * a, lj = lE + (l1 - lE) * a;
+          const p0 = k + sp, p1 = k + sj, w0 = Math.floor(p0 / N), w1 = Math.floor(p1 / N);
+          if (w0 !== w1) {
+            const up = w1 > w0, edge = (up ? w1 : w0) * N, tc = tp + (tj - tp) * ((edge - p0) / (p1 - p0));
+            laneTo(det[k], 1200 * (up ? N : 0), tp, tc); laneTo(gl[k], 0, tp, tc);
+            laneSet(det[k], 1200 * (up ? 0 : N), tc);
+            tp = tc;
+          }
+          const pos = p1 - N * w1;
+          laneTo(det[k], 1200 * pos, tp, tj); laneTo(gl[k], gainOf(pos, cj, lj), tp, tj);
+          tp = tj; sp = sj;
+        }
+      }
+      end = T1; cE = c1; lE = l1;
+    }
+    const be = {
+      start(t, s, cc, loud, pan, explicit) {
+        const T0 = explicit ? t : c.currentTime + LEAD;
+        for (let k = 0; k < N; k++) { const pos = k + s; laneSet(det[k], 1200 * pos, T0); laneSet(gl[k], gainOf(pos, cc, loud), T0); }
+        end = T0; cE = cc; lE = loud; cm.pan(pan, T0);
+      },
+      // the node timeline cannot be replanned: a move starts where the queue ends (≤ 20 ms ahead of now + LEAD; more is
+      // held and sent when the queue drains, the newest target only)
+      from: (plan) => plan.end(),
+      move(plan, t, cur, s1, dur, cc, loud, pan, explicit, dt, slow) {
+        if (explicit) { const T0 = Math.max(t, end), T1 = Math.max(T0 + slow, t + dt, T0 + 0.004); segment(T0, T1, plan.end(), s1, cc, loud); plan.append(T0, T1, s1); cm.pan(pan, T0); return; }
+        want = { s1, dt, slow, cc, loud, pan, plan }; be.pump();
+      },
+      pump() {
+        if (!want) return;
+        const now = c.currentTime + LEAD, ahead = end - now;
+        if (ahead > 0.02) { clearTimeout(timer); timer = setTimeout(be.pump, (ahead - 0.015) * 1000); return; }
+        const w = want; want = null;
+        const T0 = Math.max(now, end), T1 = Math.max(T0 + w.slow, now + w.dt, T0 + 0.004);
+        segment(T0, T1, w.plan.end(), w.s1, w.cc, w.loud); w.plan.append(T0, T1, w.s1); cm.pan(w.pan, T0);
+      },
+      gate: cm.gate, duck: cm.duck,
+      stop(t) { clearTimeout(timer); want = null; cm.stop(t, osc); },
+    };
+    return be;
+  }
+  function NodeHeight(G, T) {
+    const cm = nodeCommon(G, T, 0.06), c = cm.c, os = c.createOscillator(), lg = c.createGain();
+    os.setPeriodicWave(c.createPeriodicWave(new Float32Array([0, 0, 0, 0, 0]), new Float32Array([0, ...ORGAN])));
+    os.frequency.value = 440; os.connect(lg); lg.connect(cm.vg); os.start();
+    const det = Lane(os.detune, 0), amp = Lane(lg.gain, 0);
+    const cents = (lf) => 1200 * (lf - Math.log2(440));
+    let want = null, timer = 0;
+    const be = {
+      start(t, lf, _c, a, pan, explicit) { const T0 = explicit ? t : c.currentTime + LEAD; laneSet(det, cents(lf), T0); laneSet(amp, a, T0); cm.pan(pan, T0); },
+      moveH(t, lf, dur, a, pan, explicit) {
+        if (explicit) { const T0 = Math.max(t, det.end); laneTo(det, cents(lf), T0, T0 + dur); laneTo(amp, a, T0, T0 + dur); cm.pan(pan, T0); return; }
+        want = { lf, dur, a, pan }; be.pump();
+      },
+      pump() {
+        if (!want) return;
+        const now = c.currentTime + LEAD, ahead = det.end - now;
+        if (ahead > 0.02) { clearTimeout(timer); timer = setTimeout(be.pump, (ahead - 0.015) * 1000); return; }
+        const w = want; want = null; const T0 = Math.max(now, det.end), T1 = Math.max(now + w.dur, T0 + 0.004);
+        laneTo(det, cents(w.lf), T0, T1); laneTo(amp, w.a, T0, T1); cm.pan(w.pan, T0);
+      },
+      gate: cm.gate, duck: cm.duck,
+      stop(t) { clearTimeout(timer); want = null; cm.stop(t, [os]); },
+    };
+    return be;
+  }
+  function liveVoice(kind) {
+    if (!P.on || !P.sonify || hidden || !AC) return null;
+    if (!canSchedule(false)) return null;
+    clearTimeout(idleTimer);
+    return kind === 'height' ? HeightVoice(G) : ShepardVoice(G);
+  }
+
+  // "listen along a curve": the arg (turns, unwrapped) and ln|F| sampled uniformly in time over dur seconds, synthesised
+  // sample by sample with integrated phases (exact and phase-continuous), as one buffer
+  function curveBuffer(c, phi, lnAbs, dur) {
+    const fs = c.sampleRate, n = Math.ceil(dur * fs), M = phi.length, b = c.createBuffer(1, n, fs), y = b.getChannelData(0);
+    const ph = new Float64Array(SH.N), fade = Math.round(0.03 * fs);
+    for (let i = 0; i < n; i++) {
+      const u = (i / (n - 1)) * (M - 1), j = Math.min(M - 2, Math.floor(u)), a = u - j;
+      const f = phi[j] + (phi[j + 1] - phi[j]) * a, la = lnAbs[j] + (lnAbs[j + 1] - lnAbs[j]) * a;
+      const cen = shCentre(la), ld = shLoud(la), e = Math.min(1, i / fade, (n - 1 - i) / fade);
+      let s = 0;
+      for (let k = 0; k < SH.N; k++) {
+        let p = k + f; p -= SH.N * Math.floor(p / SH.N);
+        const fk = SH.fLo * Math.pow(2, p);
+        ph[k] += 2 * Math.PI * fk / fs;
+        if (ph[k] > 1e6) ph[k] %= 2 * Math.PI;
+        const g = shBell(p, cen) * nyq(fk, fs);
+        if (g > 1e-5) s += g * Math.sin(ph[k]);
+      }
+      y[i] = SH.amp * ld * e * s;
+    }
+    return b;
+  }
+  // a deliberate action (a button, a key): the Mathematical events tier. Its bells (on the curve's starting pitch class)
+  // and cut ticks go through the same tier, scheduled on the audio clock at least 100 ms apart. Returns
+  // {t0, dur, stop()} or null.
+  function curve(phi, lnAbs, dur, opts = {}) {
+    if (!P.on || !P.events || hidden || !AC) return null;
+    if (!canSchedule(false)) return null;
+    const src = ctx.createBufferSource(), fade = ctx.createGain(); src.buffer = curveBuffer(ctx, phi, lnAbs, dur);
+    src.connect(fade); fade.connect(out(G, 'events', 0, 0.1)); track(G, src);
+    const t0 = ctx.currentTime + Math.max(0.03, LEAD + 0.01);
+    src.start(t0);
+    let next = 0;
+    for (const b of opts.bells || []) { const at = Math.max(0.025 + b.t, next); next = at + 0.1; play('turn', { dir: b.dir, pc: opts.pc, at, force: true, tier: 'events' }); }
+    for (const tt of opts.cuts || []) play('cut', { at: 0.025 + tt, force: true, tier: 'events' });
+    clearTimeout(idleTimer); src.onended = () => { G.active.delete(src); touchIdle(); };
+    // stop: a 12 ms raised-cosine fade from now + LEAD (no corner, no step), then the source: never cut mid-waveform
+    let stopped = false;
+    return { t0, dur, now: () => ctx.currentTime, stop() { if (stopped) return; stopped = true; try { const T = ctx.currentTime + LEAD; fade.gain.setValueCurveAtTime(FADE_DN, T, 0.012); src.stop(T + 0.02); } catch (e) { /* ended */ } } };
+  }
+  // Esc, hidden, off: everything stops now, queues are emptied, live voices are gated off; the setting is unchanged.
+  // The bus goes down on a 12 ms raised cosine, every scheduled source is stopped inside the silent window that
+  // follows, and the bus comes back on a 30 ms raised cosine 50 ms after the start: no step (revision 3 stepped it
+  // back to 1, a snap under a hover voice that a still-moving pointer had re-gated) and no corner (a target curve
+  // starts with a corner, heard as a tick at the stop). DESIGN §7.6. A hush during a hush joins its silent window, or
+  // (in its return) starts a new one after it: value curves never overlap.
+  function hush() {
+    if (!ctx || !G) return;
+    const now = ctx.currentTime + LEAD, at = G.hushAt == null ? -1 : G.hushAt;
+    let t = at;
+    if (!(now <= at + 0.035)) {
+      t = Math.max(now, at + 0.081);
+      try { G.bus.gain.setValueCurveAtTime(FADE_DN, t, 0.012); G.bus.gain.setValueCurveAtTime(FADE_UP, t + 0.05, 0.03); }
+      catch (e) { t = follow(ctx, G.bus.gain, 0, 0.004); G.bus.gain.setTargetAtTime(1, t + 0.05, 0.015); }
+      G.hushAt = t;
+    }
+    const off = Math.max(now, t + 0.013);
+    for (const s of G.active) { try { s.stop(off); } catch (e) { /* not started */ } }
+    // the voices fade now (τ 4 ms, zero slope at the start), in command order: pointer events handled after this one
+    // (bunched behind a busy main thread) re-gate the voice after it, never before a fade-out stamped at now + LEAD
+    // (that order gave a 10 ms blip: the voice swelling, then cut)
+    for (const v of liveVoices) v.gate(false, undefined, 0.004);
+    Q.turn.next = Q.contour.next = 0;
+  }
+
+  // ---------------------------------------------------------------- settings
+  function set(o, opts = {}) {
+    const was = P.on;
+    for (const k in o) if (k in DEFAULTS && typeof o[k] === typeof DEFAULTS[k]) P[k] = k === 'vol' ? clamp(o[k], 0, 1) : o[k];
+    save();
+    if (P.on && !was) { activated = true; lastGesture = performance.now(); ensure(); applyGains(true); if (!opts.quiet) play('toggleOn', { force: true, grace: true }); }
+    else if (!P.on && was && ctx) {
+      // off is immediate and silent: the icon and aria-pressed confirm it
+      hush(); for (const v of [...liveVoices]) v.stop();
+      follow(ctx, G.master.gain, 0, 0.003);
+      setTimeout(() => { if (!P.on && ctx && ctx.state === 'running') ctx.suspend().then(emit, () => {}); }, 60);
+    } else applyGains();
+    emit();
+  }
+
+  // offline rendering, for tests and waveform thumbnails (no output device, no activation needed)
+  // opts.nodes: the native-node voices (the fallback where no AudioWorklet is allowed)
+  async function render(fn, dur, opts = {}) {
+    const rate = opts.rate || 48000, c = new OfflineAudioContext(2, Math.ceil(dur * rate), rate), g = graph(c, opts.vol != null ? opts.vol : 1, { allOn: true, noClip: opts.noClip });
+    g.offline = true; g.worklet = !opts.nodes && await loadWorklet(c); g.engine = g.worklet ? 'worklet' : 'nodes';
+    fn(g, 0.01, c);
+    for (const f of g.flush) f();
+    return c.startRendering();
+  }
+
+  return {
+    play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush,
+    set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
+    voice: () => liveVoice('phase'), heightVoice: () => liveVoice('height'), curve, curveBuffer, render, graph, CATALOG, SH, HV, ShepardVoice, HeightVoice,
+    shG, shBell, shCentre, shLoud, hNote, loadWorklet, prefer, lead: () => LEAD, debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
+  };
+})();
+// =====================================================================================================================
+// The demo: a phase portrait computed in JS, the probe, loops, the winding number
+// =====================================================================================================================
+const TAU = 2 * Math.PI, DEG = Math.PI / 180;
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const fmt = (x, d = 3) => (Math.abs(x) < 0.5 * Math.pow(10, -d) ? 0 : x).toFixed(d).replace('-', '−');
+const fmtC = (u, v, d = 3) => (!Number.isFinite(u) || !Number.isFinite(v)) ? '∞' : `${fmt(u, d)} ${v < 0 ? '−' : '+'} ${fmt(Math.abs(v), d)}i`;
+const fmtX = (a, b) => (b === 0 ? fmt(a, 0) : a === 0 ? (b === 1 ? 'i' : b === -1 ? '−i' : fmt(b, 0) + 'i') : `${fmt(a, 0)} ${b < 0 ? '−' : '+'} ${Math.abs(b) === 1 ? '' : fmt(Math.abs(b), 0)}i`);
+
+// rational functions by their zeros and poles (with multiplicity), exactly; plus e^z and the principal √z
+function rational(zeros, poles) {
+  const f = (x, y) => {
+    let u = 1, v = 0;
+    for (const [a, b, m] of zeros) for (let j = 0; j < m; j++) { const p = x - a, q = y - b, nu = u * p - v * q; v = u * q + v * p; u = nu; }
+    for (const [a, b, m] of poles) for (let j = 0; j < m; j++) { const p = x - a, q = y - b, d = p * p + q * q; if (d === 0) return [Infinity, Infinity]; const nu = (u * p + v * q) / d; v = (v * p - u * q) / d; u = nu; }
+    return [u, v];
+  };
+  // |F'/F| = |Σ m/(z − a) − Σ m/(z − p)| (the logarithmic derivative), the per-unit change of both ln|F| and arg F
+  const ld = (x, y) => {
+    let u = 0, v = 0;
+    for (const [a, b, m] of zeros) { const p = x - a, q = y - b, d = p * p + q * q; u += m * p / d; v -= m * q / d; }
+    for (const [a, b, m] of poles) { const p = x - a, q = y - b, d = p * p + q * q; u -= m * p / d; v += m * q / d; }
+    return Math.hypot(u, v);
+  };
+  return { f, ld };
+}
+const FNS = [
+  { id: 'z', label: 'z', tex: 'F(z) = z', ...rational([[0, 0, 1]], []), zeros: [[0, 0, 1]], poles: [], half: 2.4, hint: 'One simple zero: a loop around it climbs one cycle' },
+  { id: 'sq', label: 'z² − 1', tex: 'F(z) = z² − 1', ...rational([[1, 0, 1], [-1, 0, 1]], []), zeros: [[1, 0, 1], [-1, 0, 1]], poles: [], half: 2.4, hint: 'Two zeros: around both, two cycles up' },
+  { id: 'inv', label: '1/z', tex: 'F(z) = 1/z', ...rational([], [[0, 0, 1]]), zeros: [], poles: [[0, 0, 1]], half: 2.4, hint: 'A pole: a loop around it descends one cycle' },
+  { id: 'rat', label: '(z−1)(z+1)²/(z²+1)', tex: 'F(z) = (z − 1)(z + 1)² / (z² + 1)', ...rational([[1, 0, 1], [-1, 0, 2]], [[0, 1, 1], [0, -1, 1]]), zeros: [[1, 0, 1], [-1, 0, 2]], poles: [[0, 1, 1], [0, -1, 1]], half: 2.6, hint: 'A double zero at −1 (two pings), poles at ±i' },
+  { id: 'exp', label: 'eᶻ', tex: 'F(z) = eᶻ', f: (x, y) => { const r = Math.exp(x); return [r * Math.cos(y), r * Math.sin(y)]; }, ld: () => 1, zeros: [], poles: [], half: 7.2, hint: 'arg eᶻ = Im z: move up and the tone rises forever' },
+  { id: 'sqrt', label: '√z', tex: 'F(z) = √z (principal)', f: (x, y) => { const r = Math.hypot(x, y), u = Math.sqrt(0.5 * (r + x)), v = Math.sqrt(0.5 * Math.max(0, r - x)); return [u, y < 0 ? -v : v]; }, ld: (x, y) => 0.5 / Math.hypot(x, y), zeros: [], poles: [], branch: [0, 0], cut: true, half: 2.4, hint: 'A branch cut on the negative axis: crossing it, arg √z jumps by π' },
+];
+
+// exact tracking of arg F along a segment (the argument principle's tracker in src/calc.js, ported): bisect until each
+// piece turns by less than π/8 and F is nearly linear on it. NaN with why = 'zero' | 'pole' | 'jump' (a discontinuity:
+// a branch cut) | 'budget'.
+function argq(a, b) {
+  const sa = Math.max(Math.abs(a[0]), Math.abs(a[1])), sb = Math.max(Math.abs(b[0]), Math.abs(b[1]));
+  const ar = a[0] / sa, ai = a[1] / sa, br = b[0] / sb, bi = b[1] / sb;
+  return Math.atan2(ar * bi - ai * br, ar * br + ai * bi);
+}
+const fin = (g) => Number.isFinite(g[0]) && Number.isFinite(g[1]);
+const mag = (g) => Math.hypot(g[0], g[1]);
+function track(F, x0, y0, g0, x1, y1, g1, ctx, depth = 0) {
+  const xm = 0.5 * (x0 + x1), ym = 0.5 * (y0 + y1), gm = F(xm, ym);
+  ctx.evals++;
+  if (!fin(gm)) { ctx.why = 'pole'; ctx.at = [xm, ym]; return NaN; }
+  if (mag(gm) <= 1e-300) { ctx.why = 'zero'; ctx.at = [xm, ym]; return NaN; }
+  const d1 = argq(g0, gm), d2 = argq(gm, g1);
+  const lin = Math.hypot(gm[0] - 0.5 * (g0[0] + g1[0]), gm[1] - 0.5 * (g0[1] + g1[1])) <= 0.2 * Math.min(mag(g0), mag(g1));
+  if (Math.abs(d1) < Math.PI / 8 && Math.abs(d2) < Math.PI / 8 && lin) return d1 + d2;
+  if (depth >= 44 || ctx.evals > ctx.budget) { ctx.why = depth >= 44 ? 'jump' : 'budget'; ctx.at = [xm, ym]; return NaN; }
+  const a = track(F, x0, y0, g0, xm, ym, gm, ctx, depth + 1);
+  if (Number.isNaN(a)) return NaN;
+  return a + track(F, xm, ym, gm, x1, y1, g1, ctx, depth + 1);
+}
+// change of arg along a segment in radians: {d, exact, why, at}; a failed track falls back to the principal difference
+function segArg(F, x0, y0, g0, x1, y1, g1) {
+  if (!fin(g0) || !fin(g1) || mag(g0) === 0 || mag(g1) === 0) return { d: fin(g0) && fin(g1) && mag(g0) && mag(g1) ? argq(g0, g1) : 0, exact: false, why: 'end' };
+  const ctx = { evals: 0, budget: 6000 };
+  const d = track(F, x0, y0, g0, x1, y1, g1, ctx);
+  if (Number.isNaN(d)) return { d: argq(g0, g1), exact: false, why: ctx.why, at: ctx.at };
+  return { d, exact: true };
+}
+// winding number of a closed polygon around a point (for the ground truth N − P)
+function polyWinding(pts, a, b) {
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i], q = pts[(i + 1) % pts.length];
+    s += Math.atan2((p[0] - a) * (q[1] - b) - (p[1] - b) * (q[0] - a), (p[0] - a) * (q[0] - a) + (p[1] - b) * (q[1] - b));
+  }
+  return Math.round(s / TAU);
+}
+
+// ---------------------------------------------------------------- the OKLCH phase wheel (the app's LUT: h = 29° + arg)
+const LUT = (() => {
+  const W = 256, H = 32, d = new Uint8ClampedArray(W * H * 3);
+  const lin = (L, a, b) => { const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.2914855480 * b, l = l_ ** 3, m = m_ ** 3, s = s_ ** 3;
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s]; };
+  const enc = (x) => { x = clamp(x, 0, 1); return x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055; };
+  const inG = (c) => c.every((v) => v >= -1e-7 && v <= 1 + 1e-7);
+  const cmax = (L, h) => { const ca = Math.cos(h), sa = Math.sin(h); let lo = 0, hi = 0.37; for (let i = 0; i < 24; i++) { const m = 0.5 * (lo + hi); if (inG(lin(L, m * ca, m * sa))) lo = m; else hi = m; } return lo; };
+  for (let j = 0; j < H; j++) {
+    const L = 0.05 + 0.93 * j / (H - 1);
+    for (let i = 0; i < W; i++) {
+      const h = 29 * DEG + TAU * (i + 0.5) / W, C = Math.min(0.13, 0.97 * cmax(L, h)), c = lin(L, C * Math.cos(h), C * Math.sin(h)), o = 3 * (j * W + i);
+      d[o] = Math.round(enc(c[0]) * 255); d[o + 1] = Math.round(enc(c[1]) * 255); d[o + 2] = Math.round(enc(c[2]) * 255);
+    }
+  }
+  return { W, H, d };
+})();
+// colour of arg th at lightness L, into out[0..2] (bilinear in the LUT)
+function wheel(th, L, out) {
+  let u = (th / TAU) * LUT.W - 0.5; u -= LUT.W * Math.floor(u / LUT.W);
+  const v = clamp((clamp((L - 0.05) / 0.93, 0, 1)) * 31, 0, 31);
+  const i0 = Math.floor(u), i1 = (i0 + 1) % LUT.W, a = u - i0, j0 = Math.floor(v), j1 = Math.min(31, j0 + 1), b = v - j0, d = LUT.d, W = LUT.W;
+  for (let ch = 0; ch < 3; ch++) {
+    const p = d[3 * (j0 * W + i0) + ch], q = d[3 * (j0 * W + i1) + ch], r = d[3 * (j1 * W + i0) + ch], s = d[3 * (j1 * W + i1) + ch];
+    out[ch] = (p * (1 - a) + q * a) * (1 - b) + (r * (1 - a) + s * a) * b;
+  }
+  return out;
+}
+const cssWheel = (th, L = 0.75) => { const c = wheel(th, L, [0, 0, 0]); return `rgb(${c.map(Math.round).join(',')})`; };
+
+// ---------------------------------------------------------------- state
+const pc = $('pc'), ov = $('ov'), pctx = pc.getContext('2d'), octx = ov.getContext('2d');
+let fn = FNS[1], mode = 'phase', dpr = 1, W = 0, H = 0;
+const probe = { on: false, x: 0, y: 0, g: null, phi: 0, last: null, near: new Map(), src: 'pointer' };
+let loop = null;          // {pts, phi (turns since start), live, jumps, bells}
+let lastLoop = null;      // the closed loop and its result
+let voice = null, voiceKind = null, idleT = 0, sleepT = 0, play = null, anim = 0;
+const view = () => { const half = fn.half, s = W / (2 * half); return { s, x0: -half, y0: (H / 2) / s }; };
+const toZ = (px, py) => { const v = view(); return [v.x0 + px / v.s, v.y0 - py / v.s]; };
+const toS = (x, y) => { const v = view(); return [(x - v.x0) * v.s, (v.y0 - y) * v.s]; };
+
+function setFn(f) {
+  fn = f; loop = null; lastLoop = null; probe.last = null; probe.on = false; probe.near.clear();
+  if (voice) voice.reset();
+  for (const b of $('fnSeg').children) b.setAttribute('aria-checked', String(b.dataset.id === f.id));
+  $('fnLabel').textContent = f.tex;
+  $('hint').textContent = f.hint;
+  showResult(null);
+  renderPortrait(); draw();
+}
+
+// ---------------------------------------------------------------- the portrait (the app's enhanced "Tiles" style, with
+// analytic anti-aliasing: for analytic F both ln|F| and arg F change at |F'/F| per unit length)
+function sawAA(x, w) { w = Math.max(w, 1e-5); const G = (t) => { const f = t - Math.floor(t); return 0.5 * Math.floor(t) + 0.5 * f * f; }; return (G(x + 0.5 * w) - G(x - 0.5 * w)) / w; }
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function renderPortrait() {
+  if (!W || !H) return;
+  const w = pc.width, h = pc.height, img = pctx.createImageData(w, h), d = img.data, v = view(), px = 1 / (v.s * dpr), q = TAU / 12, col = [0, 0, 0];
+  for (let j = 0; j < h; j++) {
+    const y = v.y0 - (j + 0.5) * px;
+    for (let i = 0; i < w; i++) {
+      const x = v.x0 + (i + 0.5) * px, g = fn.f(x, y), o = 4 * (j * w + i);
+      if (!fin(g)) { d[o] = d[o + 1] = d[o + 2] = 245; d[o + 3] = 255; continue; }
+      const r = Math.hypot(g[0], g[1]), th = Math.atan2(g[1], g[0]), lr = Math.log(r), ld = fn.ld(x, y) * px;
+      const xm = lr / q, xp = th / q, fm = ld / q;
+      const dd = 1 - smooth(0.25, 0.6, fm);
+      const L = 0.62 + dd * (0.20 * (sawAA(xm, fm) - 0.5) + 0.07 * (sawAA(xp, fm) - 0.5));
+      wheel(th, L, col);
+      // the unit circle |F| = 1, as in the app
+      const iso = 1 - smooth(0.5 * 1.25 * dpr - 0.5, 0.5 * 1.25 * dpr + 0.6, Math.abs(lr) / Math.max(ld, 1e-30) );
+      const m = 0.6 * iso;
+      d[o] = col[0] + (255 - col[0]) * m; d[o + 1] = col[1] + (255 - col[1]) * m; d[o + 2] = col[2] + (255 - col[2]) * m; d[o + 3] = 255;
+    }
+  }
+  pctx.putImageData(img, 0, 0);
+}
+function resize() {
+  const r = ov.getBoundingClientRect();
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  for (const c of [pc, ov]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  const sp = $('spec'), sr = sp.getBoundingClientRect(); sp.width = Math.round(sr.width * dpr); sp.height = Math.round(sr.height * dpr);
+  renderPortrait(); draw();
+}
+
+// ---------------------------------------------------------------- overlay, dial, spectrum
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function draw() {
+  cancelAnimationFrame(anim);
+  anim = requestAnimationFrame(drawNow);
+}
+function drawNow() {
+  const c = octx; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  const ink = '#121A20', halo = 'rgba(252,253,253,0.9)';
+  // axes
+  const [ox, oy] = toS(0, 0);
+  c.lineWidth = 1; c.strokeStyle = 'rgba(18,26,32,0.35)';
+  c.beginPath(); c.moveTo(0, Math.round(oy) + 0.5); c.lineTo(W, Math.round(oy) + 0.5); c.moveTo(Math.round(ox) + 0.5, 0); c.lineTo(Math.round(ox) + 0.5, H); c.stroke();
+  c.fillStyle = 'rgba(18,26,32,0.62)'; c.font = '10px ' + css('--f-mono');
+  const step = fn.half > 4 ? 2 : 1;
+  for (let k = -Math.floor(fn.half); k <= Math.floor(fn.half); k += step) if (k) {
+    const [x] = toS(k, 0); c.fillRect(Math.round(x), Math.round(oy) - 3, 1, 7); c.fillText(String(k).replace('-', '−'), x + 3, oy + 12);
+    const [, y] = toS(0, k); if (y > 8 && y < H - 4) { c.fillRect(Math.round(ox) - 3, Math.round(y), 7, 1); c.fillText((k === 1 ? '' : k === -1 ? '−' : String(k).replace('-', '−')) + 'i', ox + 5, y + 4); }
+  }
+  // the cut of √z
+  if (fn.cut) {
+    c.save(); c.strokeStyle = css('--cut') || '#CC3311'; c.lineWidth = 2; c.setLineDash([6, 4]);
+    c.beginPath(); c.moveTo(0, oy); c.lineTo(ox, oy); c.stroke(); c.restore();
+  }
+  // zeros (rings, order as a label) and poles (crosses)
+  for (const [a, b, m] of fn.zeros) {
+    const [x, y] = toS(a, b);
+    c.beginPath(); c.arc(x, y, 5, 0, TAU); c.lineWidth = 4; c.strokeStyle = halo; c.stroke(); c.lineWidth = 1.6; c.strokeStyle = ink; c.stroke();
+    c.beginPath(); c.arc(x, y, 1.6, 0, TAU); c.fillStyle = ink; c.fill();
+    if (m > 1) label(c, `${m}`, x + 8, y - 7, ink, halo);
+  }
+  for (const [a, b, m] of fn.poles) {
+    const [x, y] = toS(a, b), r = 5;
+    c.lineCap = 'round';
+    for (const [lw, sc] of [[4.5, halo], [1.8, '#A0153E']]) { c.lineWidth = lw; c.strokeStyle = sc; c.beginPath(); c.moveTo(x - r, y - r); c.lineTo(x + r, y + r); c.moveTo(x + r, y - r); c.lineTo(x - r, y + r); c.stroke(); }
+    if (m > 1) label(c, `${m}`, x + 8, y - 7, ink, halo);
+  }
+  if (fn.branch) { const [x, y] = toS(fn.branch[0], fn.branch[1]); c.beginPath(); c.arc(x, y, 3.2, 0, TAU); c.fillStyle = ink; c.fill(); }
+  // the loop
+  const L = loop || lastLoop;
+  if (L && L.pts.length > 1) {
+    const sp = L.pts.map((p) => toS(p[0], p[1]));
+    for (const [lw, sc] of [[5, halo], [2, ink]]) {
+      c.lineWidth = lw; c.strokeStyle = sc; c.lineJoin = 'round'; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(sp[0][0], sp[0][1]); for (const p of sp) c.lineTo(p[0], p[1]); c.stroke();
+    }
+    if (!loop && lastLoop) { // the closing chord
+      c.save(); c.setLineDash([4, 4]); c.lineWidth = 2; c.strokeStyle = ink; c.beginPath(); c.moveTo(sp[sp.length - 1][0], sp[sp.length - 1][1]); c.lineTo(sp[0][0], sp[0][1]); c.stroke(); c.restore();
+      // direction arrow at the middle
+      const k = Math.floor(sp.length / 2), p = sp[k], q = sp[Math.min(sp.length - 1, k + 2)], ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
+      c.save(); c.translate(p[0], p[1]); c.rotate(ang); c.fillStyle = ink; c.beginPath(); c.moveTo(6, 0); c.lineTo(-4, -4.5); c.lineTo(-4, 4.5); c.closePath(); c.fill(); c.restore();
+    }
+    const [sx, sy] = sp[0]; c.beginPath(); c.arc(sx, sy, 3.5, 0, TAU); c.fillStyle = halo; c.fill(); c.lineWidth = 1.5; c.strokeStyle = ink; c.stroke();
+  }
+  // the playback dot or the probe
+  const pp = play ? play.at : probe.on ? [probe.x, probe.y] : null;
+  if (pp) {
+    const [x, y] = toS(pp[0], pp[1]);
+    c.beginPath(); c.arc(x, y, play ? 6 : 9, 0, TAU); c.lineWidth = 3.5; c.strokeStyle = halo; c.stroke(); c.lineWidth = 1.5; c.strokeStyle = ink; c.stroke();
+    if (play) { c.beginPath(); c.arc(x, y, 3, 0, TAU); c.fillStyle = ink; c.fill(); }
+  }
+  drawDial(); drawSpec();
+}
+function label(c, s, x, y, ink, halo) { c.font = '600 11px ' + css('--f-ui'); c.lineWidth = 3; c.strokeStyle = halo; c.strokeText(s, x, y); c.fillStyle = ink; c.fillText(s, x, y); }
+function currentPhi() { return play ? play.phi : probe.on && probe.g && fin(probe.g) ? probe.phi : null; }
+function drawDial() {
+  const cv = $('dial'), c = cv.getContext('2d'), S = cv.width, R = S * 0.355, r0 = S * 0.24, cx = S / 2, cy = S / 2;
+  c.clearRect(0, 0, S, S);
+  for (let i = 0; i < 120; i++) { const a0 = (i / 120) * TAU, a1 = ((i + 1.2) / 120) * TAU; c.beginPath(); c.arc(cx, cy, R, -a0, -a1, true); c.arc(cx, cy, r0, -a1, -a0, false); c.closePath(); c.fillStyle = cssWheel(a0 + 0.5 * TAU / 120); c.fill(); }
+  c.strokeStyle = css('--line-strong'); c.lineWidth = 1;
+  c.font = `500 ${Math.round(S * 0.075)}px ` + css('--f-ui'); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = css('--ink-2');
+  for (let k = 0; k < 12; k++) {
+    const a = k * TAU / 12;
+    c.beginPath(); c.moveTo(cx + r0 * Math.cos(a), cy - r0 * Math.sin(a)); c.lineTo(cx + R * Math.cos(a), cy - R * Math.sin(a)); c.strokeStyle = 'rgba(0,0,0,0.12)'; c.stroke();
+    if (k % 3 === 0) { const rr = R + S * 0.07; c.fillText(['0°', '90°', '180°', '270°'][k / 3], cx + rr * Math.cos(a), cy - rr * Math.sin(a)); }
+  }
+  const phi = currentPhi();
+  c.fillStyle = css('--ink');
+  if (phi != null) {
+    const a = (phi - Math.floor(phi)) * TAU;
+    c.lineWidth = S * 0.02; c.lineCap = 'round'; c.strokeStyle = css('--surface'); c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + (R + 2) * Math.cos(a), cy - (R + 2) * Math.sin(a)); c.stroke();
+    c.lineWidth = S * 0.01; c.strokeStyle = css('--ink'); c.stroke();
+    c.beginPath(); c.arc(cx, cy, S * 0.025, 0, TAU); c.fill();
+  }
+  const turns = play ? play.phi - play.phi0 : loop ? loop.phi : null;
+  if (turns != null) {
+    c.font = `600 ${Math.round(S * 0.085)}px ` + css('--f-mono'); c.fillStyle = css('--ink');
+    c.fillText((turns >= 0 ? '+' : '−') + Math.abs(turns).toFixed(2), cx, cy + S * 0.13);
+  }
+}
+function drawSpec() {
+  const cv = $('spec'), c = cv.getContext('2d'), w = cv.width, h = cv.height, N = Sound.SH.N, pad = 6 * dpr, base = h - 14 * dpr;
+  c.clearRect(0, 0, w, h);
+  const X = (p) => pad + (p / N) * (w - 2 * pad);
+  const phi = currentPhi(), la = play ? play.la : probe.on && probe.g ? Math.log(mag(probe.g)) : 0;
+  const cen = Sound.shCentre(la), ld = Sound.shLoud(la);
+  // the envelope
+  c.beginPath(); for (let i = 0; i <= 200; i++) { const p = (i / 200) * N, y = base - (base - 8 * dpr) * Sound.shG(p, cen) * (phi != null ? ld : 0.4); i ? c.lineTo(X(p), y) : c.moveTo(X(p), y); }
+  c.lineTo(X(N), base); c.lineTo(X(0), base); c.closePath(); c.fillStyle = 'rgba(10,106,135,0.10)'; c.fill();
+  c.strokeStyle = css('--accent'); c.lineWidth = dpr; c.setLineDash([3 * dpr, 3 * dpr]); c.stroke(); c.setLineDash([]);
+  // the partials
+  const f = phi != null ? phi - Math.floor(phi) : 0, col = phi != null ? cssWheel(f * TAU, 0.6) : css('--faint');
+  for (let k = 0; k < N; k++) {
+    const p = k + f, a = Sound.shG(p, cen) * (phi != null ? ld : 0.4), x = X(p);
+    c.strokeStyle = col; c.lineWidth = 2.5 * dpr; c.beginPath(); c.moveTo(x, base); c.lineTo(x, base - (base - 8 * dpr) * a); c.stroke();
+  }
+  c.fillStyle = css('--muted'); c.font = `${10 * dpr}px ` + css('--f-mono'); c.textAlign = 'center';
+  for (const [p, s] of [[0, '33'], [2, '131'], [4, '523'], [6, '2093'], [8, '8372 Hz']]) c.fillText(s, X(p), h - 2 * dpr);
+  c.strokeStyle = css('--line-strong'); c.lineWidth = dpr; c.beginPath(); c.moveTo(pad, base + 0.5); c.lineTo(w - pad, base + 0.5); c.stroke();
+}
+
+// ---------------------------------------------------------------- readouts
+function readouts() {
+  const el = $('readouts');
+  if (!probe.on && !play) { el.innerHTML = '<span class="chip"><span class="k">hover the plane</span></span>'; return; }
+  const [x, y] = play ? play.at : [probe.x, probe.y], g = play ? fn.f(x, y) : probe.g, phi = currentPhi();
+  const ok = fin(g), a = ok ? Math.atan2(g[1], g[0]) : NaN;
+  let s = `<span class="chip"><span class="k">z</span>${fmtC(x, y)}</span><span class="chip"><span class="k">F(z)</span>${ok ? `<span class="sw" style="background:${cssWheel(a)}"></span>` : ''}${fmtC(g[0], g[1])}</span>`;
+  if (ok) s += `<span class="chip"><span class="k">|F|</span>${mag(g) < 1e-3 || mag(g) > 1e4 ? mag(g).toExponential(2) : fmt(mag(g))}</span><span class="chip"><span class="k">arg F</span>${fmt(a / DEG, 1)}°</span>`;
+  if (ok && mode === 'height') s += `<span class="chip"><span class="k">ln|F|</span>${fmt(Math.log(mag(g)), 2)}</span>`;
+  if (loop) s += `<span class="chip"><span class="k">Δ arg F</span>${(loop.phi >= 0 ? '+' : '−') + Math.abs(loop.phi).toFixed(3)} turns</span>`;
+  el.innerHTML = s;
+}
+
+// ---------------------------------------------------------------- the probe
+// pan: the probe's x across the plane; the engine caps voices at ±0.3 and cues at ±0.4 (one earbud, one-sided loss)
+const panOf = (x) => { const [sx] = toS(x, 0); return clamp(0.4 * (2 * sx / W - 1), -0.4, 0.4); };
+function hearing() { return Sound.prefs().on && Sound.prefs().sonify; }
+function canListen() { return Sound.prefs().on && Sound.prefs().events; }
+function ensureVoice() {
+  if (!hearing()) { if (voice) { voice.stop(); voice = null; } return null; }
+  if (voice && voiceKind !== mode) { voice.stop(); voice = null; }
+  if (!voice) { voice = mode === 'height' ? Sound.heightVoice() : Sound.voice(); voiceKind = mode; }
+  return voice;
+}
+function probeTo(x, y, src = 'pointer') {
+  const g = fn.f(x, y);
+  let jump = false;
+  if (probe.on && probe.last && fin(g)) {
+    const r = segArg(fn.f, probe.last[0], probe.last[1], probe.g, x, y, g);
+    if (!r.exact && r.why === 'jump') { jump = true; Sound.play('cut', { pan: panOf(x) }); }
+    probe.phi += r.d / TAU;
+    if (loop && loop.live) { loop.phi += r.d / TAU; if (!r.exact && r.why === 'jump') loop.jumps++; turnBells(loop, panOf(x)); }
+    // contour ticks (the Height listening mode): |F| crossed the level line e^{kπ/6} (a tile edge of the portrait).
+    // Count-bearing: one tick per line crossed, queued by the engine, never dropped by a gap.
+    if (mode === 'height' && fin(probe.g) && hearing()) {
+      const q = TAU / 12, k0 = Math.floor(Math.log(mag(probe.g)) / q), k1 = Math.floor(Math.log(mag(g)) / q);
+      if (k0 !== k1 && Number.isFinite(k0) && Number.isFinite(k1)) {
+        const up = k1 > k0, n = Math.min(24, Math.abs(k1 - k0));
+        for (let j = 1; j <= n; j++) Sound.tick({ k: up ? k0 + j : k0 - j + 1, pan: panOf(x) });
+      }
+    }
+  } else if (fin(g)) probe.phi = Math.atan2(g[1], g[0]) / TAU;
+  probe.on = true; probe.x = x; probe.y = y; probe.g = g; probe.last = [x, y]; probe.src = src;
+  nearEvents(x, y);
+  const v = ensureVoice();
+  if (v && fin(g)) {
+    const la = Math.log(mag(g));
+    if (voiceKind === 'height') v.set(la, panOf(x), undefined, 12); else v.set(probe.phi, la, panOf(x), undefined, jump);
+    v.gate(true);
+    clearTimeout(idleT);
+    // stillness: the tone fades after 1.6 s without movement, so it never drones; unused for 6 s, it is released.
+    // Keyboard steps sound a 280 ms sample each, so the tone does not talk over the screen reader.
+    const still = src === 'key' && !loop ? 280 : 1600;
+    idleT = setTimeout(() => { if (voice && !loop) voice.gate(false, undefined, src === 'key' ? 0.04 : 0.35); }, still);
+    clearTimeout(sleepT); sleepT = setTimeout(releaseVoice, 6000);
+  }
+  readouts(); draw();
+  if (src === 'key') announceSoon();
+}
+function releaseVoice() { if (voice && !loop) { voice.stop(); voice = null; } }
+function probeOff() {
+  probe.on = false; probe.last = null; probe.near.clear();
+  if (voice) voice.gate(false);
+  clearTimeout(sleepT); sleepT = setTimeout(releaseVoice, 6000);
+  readouts(); draw();
+}
+// N − P inside the circle of radius r around (x, y), EXACTLY, by the argument principle (the tracker along a
+// 16-gon); null when the tracker fails on the circle (a branch cut, or F = 0 or ∞ on it). This is what the app would
+// use (Calc.argStep): no list of zeros is needed, and the order comes out exact for any m (a Newton step does not).
+function orderAt(x, y, r) {
+  const n = 16, p = (i) => [x + r * Math.cos(TAU * i / n), y + r * Math.sin(TAU * i / n)];
+  let tot = 0, q0 = p(0), g0 = fn.f(q0[0], q0[1]);
+  const gs = g0;
+  for (let i = 1; i <= n; i++) {
+    const q1 = p(i % n), g1 = i === n ? gs : fn.f(q1[0], q1[1]), s = segArg(fn.f, q0[0], q0[1], g0, q1[0], q1[1], g1);
+    if (!s.exact) return null;
+    tot += s.d; q0 = q1; g0 = g1;
+  }
+  return Math.round(tot / TAU);
+}
+// zero/pole proximity with hysteresis: enter when the 8 px circle holds a net order, leave when the 14 px circle no
+// longer does. Only evaluated where |F'/F| is large enough for a zero or pole to be that close.
+function nearEvents(x, y) {
+  if (!hearing()) { probe.near.clear(); return; }
+  const px = 1 / view().s, ld = fn.ld(x, y), was = probe.near.get('zp');
+  if (was) { if (!(ld > 1 / (14 * px)) || orderAt(x, y, 14 * px) !== was) probe.near.delete('zp'); return; }
+  if (!(ld > 1 / (8 * px))) return;
+  const m = orderAt(x, y, 8 * px);
+  if (m) { probe.near.set('zp', m); Sound.play(m > 0 ? 'zero' : 'pole', { order: Math.abs(m), pan: panOf(x) }); announce(`${m > 0 ? 'Zero' : 'Pole'} of order ${Math.abs(m)} here.`); }
+}
+// a bell each time the loop's arg completes a turn (hysteresis: a turn back must reach the previous integer). The
+// bell is the loop's starting pitch class ("home"); the engine queues bells at ≤ 8/s, so none is lost.
+function turnBells(L, pan) {
+  while (L.phi >= L.k + 1) { L.k++; Sound.turn({ dir: 1, pc: L.pc0, pan }); }
+  while (L.phi <= L.k - 1) { L.k--; Sound.turn({ dir: -1, pc: L.pc0, pan }); }
+}
+
+// ---------------------------------------------------------------- loops
+function startLoop(x, y) {
+  stopPlay();
+  lastLoop = null; if (resShown) showResult(null);
+  loop = { pts: [[x, y]], phi: 0, k: 0, live: true, jumps: 0, pc0: probe.phi - Math.floor(probe.phi) };
+  if (voice) voice.gate(true);
+}
+function addLoopPoint(x, y) {
+  if (!loop) return;
+  const [lx, ly] = loop.pts[loop.pts.length - 1], [a, b] = toS(lx, ly), [c, d] = toS(x, y);
+  if (Math.hypot(a - c, b - d) >= 2) loop.pts.push([x, y]);
+}
+function finishLoop() {
+  if (!loop) return;
+  const L = loop; loop = null;
+  if (L.pts.length < 6) { draw(); readouts(); return; }
+  // close with the chord back to the start, then recompute everything exactly from the polygon
+  const res = loopArg(L.pts);
+  lastLoop = { pts: L.pts, res };
+  showResult(lastLoop);
+  readouts(); draw();
+  // the first loop of a session plays itself back (not under reduced motion); later loops sound their winding as
+  // |W| pings (Mathematical events) and the Listen button plays them back
+  if (canListen() && res.ok !== false && !autoListened && !matchMedia('(prefers-reduced-motion: reduce)').matches) { autoListened = true; listen(); }
+  else if (res.jumps) Sound.play('cut', { tier: 'events' });
+  else if (!res.onCurve) Sound.play('loopDone', { w: res.W });
+}
+// exact arg change around the closed polygon; ground truth from the polygon's winding numbers around zeros and poles
+function loopArg(pts) {
+  let tot = 0, jumps = 0, onCurve = null;
+  const n = pts.length;
+  let g0 = fn.f(pts[0][0], pts[0][1]);
+  const g00 = g0;
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n], g1 = i === n - 1 ? g00 : fn.f(q[0], q[1]);
+    const r = segArg(fn.f, p[0], p[1], g0, q[0], q[1], g1);
+    if (!r.exact) { if (r.why === 'jump') jumps++; else onCurve = r.why; }
+    tot += r.d; g0 = g1;
+  }
+  const turns = tot / TAU, W = Math.round(turns);
+  let N = 0, Pp = 0; const inside = [];
+  for (const [a, b, m] of fn.zeros) { const w = polyWinding(pts, a, b); if (w) { N += w * m; inside.push({ kind: 'zero', a, b, m, w }); } }
+  for (const [a, b, m] of fn.poles) { const w = polyWinding(pts, a, b); if (w) { Pp += w * m; inside.push({ kind: 'pole', a, b, m, w }); } }
+  const ok = !jumps && !onCurve && Math.abs(turns - W) < 1e-6;
+  return { turns, W, N, P: Pp, inside, jumps, onCurve, ok: jumps || onCurve ? false : ok };
+}
+let resShown = false, autoListened = false;
+function showResult(L) {
+  const el = $('resBody');
+  resShown = !!L;
+  if (!L) { el.innerHTML = '<p>Drag a closed loop in the plane (or press Enter on the plane, move with the arrows, Enter again). The change of arg <i>F</i> along it, in turns, is the number of zeros minus poles inside.</p>'; return; }
+  const r = L.res;
+  if (r.jumps) {
+    el.innerHTML = `<p class="big">No winding number</p><p>The loop crosses the branch cut ${r.jumps === 1 ? 'once' : r.jumps + ' times'}: arg <i>F</i> jumps there, so <i>F</i>∘γ is not a closed curve. √<i>z</i> has no continuous branch around 0.</p>
+      <div class="acts"><button class="tbtn primary" id="listenBtn">${playIcon()} Listen along γ</button><button class="tbtn" id="clearBtn">Clear</button></div>`;
+  } else if (r.onCurve) {
+    el.innerHTML = `<p class="big">The loop passes through a ${r.onCurve}</p><p>The argument principle needs <i>F</i> finite and non-zero on γ.</p><div class="acts"><button class="tbtn" id="clearBtn">Clear</button></div>`;
+  } else {
+    const parts = r.inside.map((o) => `${o.kind === 'zero' ? 'zero' : 'pole'} ${fmtX(o.a, o.b)}${o.m > 1 ? ` (order ${o.m})` : ''}${o.w !== 1 ? ` ×${o.w}` : ''}`);
+    el.innerHTML = `<p class="big">Δ arg <i>F</i> = ${(r.turns >= 0 ? '+' : '−') + Math.abs(r.turns).toFixed(4)} turns: winding number ${String(r.W).replace('-', '−')}</p>
+      <p class="eq">N − P = ${r.N} − ${r.P} = ${String(r.N - r.P).replace('-', '−')}<span class="${r.N - r.P === r.W ? 'ok' : 'bad'}">${r.N - r.P === r.W ? 'agrees' : 'differs'}</span></p>
+      <p>${parts.length ? 'Inside: ' + parts.join(', ') + '.' : 'No zeros or poles inside.'} ${r.W > 0 ? 'Heard as ' + r.W + ' rising cycle' + (r.W > 1 ? 's' : '') + '.' : r.W < 0 ? 'Heard as ' + -r.W + ' falling cycle' + (r.W < -1 ? 's' : '') + '.' : 'The pitch returns without completing a cycle.'}</p>
+      <div class="acts"><button class="tbtn primary" id="listenBtn">${playIcon()} Listen along γ</button><button class="tbtn" id="clearBtn">Clear</button></div>`;
+    announce(`Winding number ${r.W}: ${r.N} zeros and ${r.P} poles inside, counted with multiplicity.`);
+  }
+  const lb = $('listenBtn'); if (lb) { lb.disabled = !canListen(); lb.title = canListen() ? 'Play F along the loop (L); Esc stops' : 'Turn sound on (Mathematical events) to listen'; lb.onclick = () => (play ? stopPlay(true) : listen()); }
+  const cb = $('clearBtn'); if (cb) cb.onclick = () => { stopPlay(); lastLoop = null; showResult(null); draw(); };
+}
+const playIcon = () => '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M4 2.5v9l7.5-4.5z" fill="currentColor"/></svg>';
+const stopIcon = () => '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1" fill="currentColor"/></svg>';
+function listenBtnState(on) { const lb = $('listenBtn'); if (!lb) return; lb.setAttribute('aria-pressed', String(on)); lb.classList.toggle('stop', on); lb.innerHTML = on ? `${stopIcon()} Stop` : `${playIcon()} Listen along γ`; }
+
+// sample the closed loop uniformly in arc length; arg tracked exactly between samples (and refined where it turns fast)
+function sampleLoop(pts) {
+  const ring = pts.concat([pts[0]]), seg = [];
+  let Ltot = 0;
+  for (let i = 0; i + 1 < ring.length; i++) { const l = Math.hypot(ring[i + 1][0] - ring[i][0], ring[i + 1][1] - ring[i][1]); seg.push(l); Ltot += l; }
+  const M = 900, zs = [];
+  let i = 0, acc = 0;
+  for (let j = 0; j < M; j++) {
+    const s = (j / (M - 1)) * Ltot;
+    while (i < seg.length - 1 && acc + seg[i] < s) { acc += seg[i]; i++; }
+    const a = seg[i] ? clamp((s - acc) / seg[i], 0, 1) : 0;
+    zs.push([ring[i][0] + (ring[i + 1][0] - ring[i][0]) * a, ring[i][1] + (ring[i + 1][1] - ring[i][1]) * a]);
+  }
+  const phi = new Float64Array(M), la = new Float64Array(M), cuts = [];
+  let g0 = fn.f(zs[0][0], zs[0][1]);
+  phi[0] = Math.atan2(g0[1], g0[0]) / TAU; la[0] = Math.log(mag(g0));
+  for (let j = 1; j < M; j++) {
+    const g1 = fn.f(zs[j][0], zs[j][1]), r = segArg(fn.f, zs[j - 1][0], zs[j - 1][1], g0, zs[j][0], zs[j][1], g1);
+    if (!r.exact && r.why === 'jump') cuts.push(j / (M - 1));
+    phi[j] = phi[j - 1] + r.d / TAU; la[j] = fin(g1) && mag(g1) > 0 ? Math.log(mag(g1)) : la[j - 1]; g0 = g1;
+  }
+  return { zs, phi, la, cuts };
+}
+function listen() {
+  if (!lastLoop || !canListen()) return;
+  stopPlay();
+  if (voice) voice.gate(false, undefined, 0.02);
+  const S = sampleLoop(lastLoop.pts), turns = S.phi[S.phi.length - 1] - S.phi[0];
+  const dur = clamp(2.2 + 1.0 * Math.abs(turns), 2.6, 7);
+  // bells where the arg completes a turn, with the drag's hysteresis
+  const bells = [], L = { phi: 0, k: 0 };
+  for (let j = 1; j < S.phi.length; j++) { L.phi = S.phi[j] - S.phi[0]; while (L.phi >= L.k + 1) { L.k++; bells.push({ t: (j / (S.phi.length - 1)) * dur, dir: 1 }); } while (L.phi <= L.k - 1) { L.k--; bells.push({ t: (j / (S.phi.length - 1)) * dur, dir: -1 }); } }
+  const h = Sound.curve(S.phi, S.la, dur, { bells, cuts: S.cuts.map((u) => u * dur), pc: S.phi[0] - Math.floor(S.phi[0]) });
+  if (!h) return;
+  play = { h, S, dur, phi: S.phi[0], phi0: S.phi[0], la: S.la[0], at: S.zs[0], from: null };
+  listenBtnState(true);
+  const tick = () => {
+    if (!play) return;
+    const u = clamp((h.now() - h.t0) / dur, 0, 1), x = u * (S.zs.length - 1), j = Math.min(S.zs.length - 2, Math.floor(x)), a = x - j;
+    play.at = [S.zs[j][0] + (S.zs[j + 1][0] - S.zs[j][0]) * a, S.zs[j][1] + (S.zs[j + 1][1] - S.zs[j][1]) * a];
+    play.phi = S.phi[j] + (S.phi[j + 1] - S.phi[j]) * a; play.la = S.la[j] + (S.la[j + 1] - S.la[j]) * a;
+    readouts(); drawNow();
+    if (u < 1) play.raf = requestAnimationFrame(tick); else setTimeout(() => { if (play && play.h === h) { play = null; listenBtnState(false); readouts(); draw(); } }, 400);
+  };
+  play.raf = requestAnimationFrame(tick);
+}
+function stopPlay(hushAll) { if (play) { cancelAnimationFrame(play.raf); play.h.stop(); play = null; listenBtnState(false); if (hushAll) Sound.hush(); readouts(); draw(); } }
+
+// ---------------------------------------------------------------- pointer and keyboard
+const evZ = (e) => { const r = ov.getBoundingClientRect(); return toZ(e.clientX - r.left, e.clientY - r.top); };
+ov.addEventListener('pointermove', (e) => {
+  if (play) { const p = [e.clientX, e.clientY]; if (!play.from) play.from = p; if (Math.hypot(p[0] - play.from[0], p[1] - play.from[1]) <= 4) return; stopPlay(true); }
+  const [x, y] = evZ(e);
+  probeTo(x, y);
+  if (loop && loop.live) addLoopPoint(x, y);
+});
+ov.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  ov.setPointerCapture(e.pointerId);
+  const [x, y] = evZ(e);
+  probeTo(x, y);
+  startLoop(x, y);
+  readouts(); draw();
+});
+ov.addEventListener('pointerup', () => finishLoop());
+ov.addEventListener('pointercancel', () => { loop = null; draw(); });
+ov.addEventListener('pointerleave', () => { if (!loop) probeOff(); });
+// keyboard: the probe without a mouse (and the way a screen-reader user explores the portrait by ear)
+// round steps in z (0.1, or 0.02 with Shift; 0.25 / 0.05 on a wide view), announced; an edge bump; landmarks
+const keyStep = () => (fn.half > 4 ? 0.25 : 0.1);
+function keyStart() { if (!probe.on) { probeTo(0, 0, 'key'); announce(`Probe at the centre, z = 0. Steps of ${keyStep()}; Shift for ${keyStep() / 5}.`); return true; } return false; }
+const landmarks = () => fn.zeros.map(([a, b, m]) => ({ a, b, m, kind: 'zero' })).concat(fn.poles.map(([a, b, m]) => ({ a, b, m, kind: 'pole' }))).sort((p, q) => p.a - q.a || p.b - q.b);
+let lmI = -1;
+ov.addEventListener('keydown', (e) => {
+  const v = view(), st = keyStep() / (e.shiftKey ? 5 : 1);
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
+  if (d) {
+    e.preventDefault();
+    if (keyStart()) return;
+    const x0 = probe.x + d[0] * st, y0 = probe.y + d[1] * st, x = clamp(x0, v.x0, -v.x0), y = clamp(y0, -v.y0, v.y0);
+    if (x !== x0 || y !== y0) { Sound.play('edge', { pan: panOf(x) }); announce('Edge of the view.'); if (x === probe.x && y === probe.y) return; }
+    probeTo(+x.toFixed(6), +y.toFixed(6), 'key');
+    if (loop && loop.live) loop.pts.push([probe.x, probe.y]);
+    return;
+  }
+  if (e.key === 'z' || e.key === 'Z') {
+    e.preventDefault();
+    const L = landmarks();
+    if (!L.length) { announce(fn.cut ? 'No zeros or poles; a branch point at 0 with its cut along the negative axis.' : 'No zeros or poles in this function.'); return; }
+    lmI = (lmI + (e.shiftKey ? -1 : 1) + L.length) % L.length;
+    const p = L[lmI], off = keyStep() / 2;
+    probeTo(p.a + off, p.b, 'key');
+    clearTimeout(annT);
+    announce(`${p.kind === 'zero' ? 'Zero' : 'Pole'} ${lmI + 1} of ${L.length}: order ${p.m} at ${fmtC(p.a, p.b, 2)}. The probe is ${off} to its right.`);
+    return;
+  }
+  if (e.key === 'o' || e.key === 'O') {
+    e.preventDefault(); keyStart();
+    const r = keyStep(), m = orderAt(probe.x, probe.y, r);
+    clearTimeout(annT);
+    if (m === null) announce(`No order within ${r}: F jumps or vanishes on that circle (a branch cut).`);
+    else if (!m) announce(`Zeros minus poles within ${r}: none.`);
+    else { announce(`${m > 0 ? 'Zero' : 'Pole'}${Math.abs(m) > 1 ? 's' : ''} within ${r}: net order ${Math.abs(m)}.`); Sound.play(m > 0 ? 'zero' : 'pole', { order: Math.abs(m), pan: panOf(probe.x), audition: !hearing() }); }
+    return;
+  }
+  if (e.key === 'Enter') { e.preventDefault(); if (loop) finishLoop(); else { keyStart(); startLoop(probe.x, probe.y); announce('Loop started. Move with the arrow keys; Enter closes it.'); draw(); } }
+  if (e.key === 'Escape') { if (loop) { loop = null; announce('Loop cancelled.'); draw(); } }
+  if ((e.key === 'l' || e.key === 'L') && lastLoop) listen();
+});
+ov.addEventListener('blur', () => { if (probe.src === 'key' && !loop) probeOff(); });
+let annT = 0;
+function announce(s) { $('live').textContent = s; }
+function announceSoon() {
+  clearTimeout(annT);
+  annT = setTimeout(() => {
+    const g = probe.g; if (!g) return;
+    announce(fin(g) ? `z ${fmtC(probe.x, probe.y, 2)}. Modulus ${fmt(mag(g), 2)}, argument ${fmt(Math.atan2(g[1], g[0]) / DEG, 0)} degrees.` : 'F is infinite here.');
+  }, 450);
+}
+
+// ---------------------------------------------------------------- controls
+for (const f of FNS) {
+  const b = document.createElement('button');
+  b.setAttribute('role', 'radio'); b.dataset.id = f.id; b.textContent = f.label; b.title = f.tex;
+  b.onclick = () => { setFn(f); Sound.play('view', { k: FNS.indexOf(f) % 4, pan: 0 }); };
+  $('fnSeg').append(b);
+}
+for (const b of $('modeSeg').children) b.onclick = () => {
+  mode = b.dataset.mode;
+  for (const x of $('modeSeg').children) x.setAttribute('aria-checked', String(x === b));
+  if (voice) { voice.stop(); voice = null; }
+  $('lede').hidden = false;
+  readouts(); draw();
+};
+$('hearBtn').onclick = () => {
+  const p = Sound.prefs(), on = !p.sonify;
+  Sound.set({ sonify: on });
+  if (p.on) Sound.play(on ? 'toggleOn' : 'toggleOff');
+  if (!on && voice) { voice.stop(); voice = null; }
+  announce(on ? 'Hear F on.' : 'Hear F off.');
+};
+
+// the header control and its popover
+const ICON_ON = '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 7h2.6L9 4v10l-3.4-3H3z" fill="currentColor"/><path d="M11.6 6.4a3.6 3.6 0 0 1 0 5.2M13.6 4.4a6.4 6.4 0 0 1 0 9.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+const ICON_OFF = '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 7h2.6L9 4v10l-3.4-3H3z" fill="currentColor"/><path d="M12 7l4 4M16 7l-4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+function sync(s) {
+  $('sndBtn').setAttribute('aria-pressed', String(s.on));
+  $('sndIcon').innerHTML = s.on ? ICON_ON : ICON_OFF;
+  $('pOn').checked = s.on; $('pVol').value = Math.round(s.vol * 100); $('pVolOut').textContent = Math.round(s.vol * 100) + ' %';
+  $('pUi').checked = s.ui; $('pSnap').checked = s.snap; $('pSnap').disabled = !s.ui; $('pEv').checked = s.events; $('pSo').checked = s.sonify;
+  $('pOffNote').hidden = s.on;
+  $('hearBtn').setAttribute('aria-pressed', String(s.sonify));
+  $('hearBtn').title = s.on ? 'Hear F under the pointer and along loops' : 'Hear F (sound is off: turn it on at the top right)';
+  $('offBanner').hidden = s.on;
+  $('board').toggleAttribute('data-off', !s.on);
+  const lat = s.latency ? ` · ${Math.round(s.latency * 1000)} ms` : '';
+  $('pState').textContent = !s.supported ? 'Audio engine: Web Audio is not available here' : s.audio === 'none' ? (s.on ? 'Audio engine: starts with your next click or key' : 'Audio engine: not started') : `Audio engine: ${s.audio}${s.rate ? ' · ' + s.rate / 1000 + ' kHz' : ''}${lat}${s.remembered ? '' : ' · settings not saved here'}`;
+  const lb = $('listenBtn'); if (lb) { lb.disabled = !(s.on && s.events); }
+  if (!(s.on && s.sonify) && voice) { voice.stop(); voice = null; }
+  if (EMBEDTEST) { const r = $('sndBtn').getBoundingClientRect(); parent.postMessage({ type: 'cmw-sound', state: s, btn: [r.left + r.width / 2, r.top + r.height / 2], ua: navigator.userActivation ? navigator.userActivation.hasBeenActive : null }, '*'); }
+}
+// (test only: the embedding test page drives a frame it cannot script, across origins)
+const EMBEDTEST = window.parent !== window && /[?&]embedtest=1/.test(location.search);
+// (only from the test host's origin; this hook is not part of what would ship)
+if (EMBEDTEST) window.addEventListener('message', (e) => { if (e.origin !== 'http://localhost:8871' && e.origin !== 'http://localhost:8872') return; if (e.data && e.data.cmd === 'on') Sound.set({ on: true }, { quiet: true }); if (e.data && e.data.cmd === 'report') sync(Sound.state()); });
+Sound.subscribe(sync); sync(Sound.state());
+$('sndBtn').onclick = () => Sound.toggle();
+const pop = $('sndPop');
+function openPop(on) {
+  pop.hidden = !on; $('sndMore').setAttribute('aria-expanded', String(on));
+  if (on) $('pOn').focus();
+}
+$('sndMore').onclick = () => openPop(pop.hidden);
+document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('.sound-ctl')) openPop(false); });
+pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { openPop(false); $('sndMore').focus(); } });
+$('pOn').onchange = (e) => Sound.set({ on: e.target.checked });
+$('pVol').oninput = (e) => Sound.set({ vol: +e.target.value / 100 });
+$('pVol').onchange = () => Sound.play('toggleOn', { force: true, audition: true });
+for (const [id, k] of [['pUi', 'ui'], ['pSnap', 'snap'], ['pEv', 'events'], ['pSo', 'sonify']]) $(id).onchange = (e) => { Sound.set({ [k]: e.target.checked }); Sound.play(e.target.checked ? 'toggleOn' : 'toggleOff'); };
+if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('pIos').hidden = false;
+document.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && t.type !== 'range' && t.type !== 'checkbox')) return;
+  if (e.shiftKey && (e.key === 'M' || e.key === 'm')) { e.preventDefault(); Sound.toggle(); announce(Sound.prefs().on ? 'Sound on.' : 'Sound off.'); }
+});
+// Esc: a panic key. Stops any playback, queued bell or tone now; the setting is unchanged.
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !loop) { stopPlay(); Sound.hush(); if (voice) voice.gate(false, undefined, 0.01); } });
+
+// ---------------------------------------------------------------- the board
+const BOARD = {
+  gUi: [['toggleOn'], ['toggleOff'], ['stepAdd'], ['stepRemove'], ['view', { k: 0 }, 'cycles X → Y, Phase, Landscape'], ['exportDone'], ['error'], ['edge'], ['snap']],
+  gEv: [['morphStart'], ['morphEnd'], ['loopDone', { w: 2 }, 'W = 2: two rising pings'], ['loopDone', { w: -1 }, 'W = −1: one falling ping']],
+  gSo: [['cut'], ['zero', { order: 1 }], ['zero', { order: 2 }, 'a double zero: two pings'], ['zero', { order: 4 }, 'order 4: four pings, slower, the first accented'], ['pole', { order: 1 }], ['dense'], ['contour', { k: 3 }, 'level 3: F♯6, the Height tone\'s note an octave up'], ['turn', { dir: 1, pc: 0 }, 'arg F gained a turn: home (here D) from below'], ['turn', { dir: -1, pc: 0 }, 'arg F lost a turn: home from above'], ['turnMany', { dir: 1 }], ['collide']],
+};
+const cards = [];
+for (const gid in BOARD) for (const [name, o = {}, note] of BOARD[gid]) {
+  const d = Sound.CATALOG[name], b = document.createElement('button');
+  b.className = 'snd'; b.type = 'button';
+  const title = name === 'zero' && o.order > 1 ? (o.order === 2 ? 'Double zero' : `Zero of order ${o.order}`) : name === 'turn' ? (o.dir > 0 ? 'Turn up' : 'Turn down') : name === 'loopDone' ? `Loop closed, W = ${String(o.w).replace('-', '−')}` : d.label;
+  b.innerHTML = `<b>${title}</b><small>${note || d.what}</small><canvas aria-hidden="true"></canvas>`;
+  b.title = 'Recipe: ' + d.recipe;
+  let vi = 0;
+  b.onclick = (e) => {
+    const r = b.getBoundingClientRect(), pan = clamp(0.6 * (2 * (r.left + r.width / 2) / innerWidth - 1), -0.6, 0.6);
+    const oo = Object.assign({}, o, { pan, force: true, audition: true });
+    if (name === 'view') { oo.k = vi; vi = (vi + 1) % 3; }
+    if (!Sound.prefs().on) { const s = $('sndBtn'); s.animate([{ boxShadow: '0 0 0 0 var(--accent)' }, { boxShadow: '0 0 0 4px var(--accent-soft)' }, { boxShadow: '0 0 0 0 var(--accent)' }], 500); return; }
+    if (Sound.play(name, oo)) { b.classList.add('playing'); setTimeout(() => b.classList.remove('playing'), 300); }
+  };
+  $(gid).append(b);
+  cards.push({ name, o, b, canvas: b.querySelector('canvas') });
+}
+// the deformation scrub: a detent every 0.05 of t; t = 0, ¼, ½, ¾, 1 are pitched D5 F♯5 A5 B5 D6; the ends ring
+let lastDet = 0;
+$('tScrub').oninput = (e) => {
+  const t = +e.target.value / 1000, det = Math.round(t * 20);
+  $('tOut').textContent = 't = ' + t.toFixed(2);
+  if (det !== lastDet) { lastDet = det; Sound.play('morphTick', { t: det / 20, force: det % 5 === 0, audition: true }); }
+};
+$('tPlay').onclick = () => {
+  if (!Sound.prefs().on) return;
+  const s = $('tScrub'), t0 = performance.now(), D = 2400;
+  Sound.play('morphStart', { force: true, audition: true });
+  lastDet = 0;
+  const step = () => {
+    const u = clamp((performance.now() - t0) / D, 0, 1), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    s.value = Math.round(e * 1000); $('tOut').textContent = 't = ' + e.toFixed(2);
+    // morphStart and morphEnd sound once per play the user starts; in the app's looping playback, never on repeats
+    if (u < 1) requestAnimationFrame(step); else Sound.play('morphEnd', { force: true, audition: true });
+  };
+  requestAnimationFrame(step);
+};
+
+// ---------------------------------------------------------------- the lab: offline renders and measurements
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const a = -TAU / len, wr = Math.cos(a), wi = Math.sin(a);
+    for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let j = 0; j < len / 2; j++) { const p = i + j, q = p + len / 2, xr = re[q] * cr - im[q] * ci, xi = re[q] * ci + im[q] * cr; re[q] = re[p] - xr; im[q] = im[p] - xi; re[p] += xr; im[p] += xi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } }
+  }
+}
+const dB = (x) => (x > 0 ? 20 * Math.log10(x) : -Infinity);
+// BS.1770: K-weighting at 48 kHz (pre-filter shelf + RLB high-pass); a phone: + a 4th-order Butterworth high-pass at
+// 550 Hz (RBJ biquads, Q 0.5412 and 1.3066)
+function biq(x, b, a) { const y = new Float64Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = b[0] * x[i] + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y; }
+const KW = [[[1.53512485958697, -2.69169618940638, 1.19839281085285], [1, -1.69065929318241, 0.73248077421585]], [[1, -2, 1], [1, -1.99004745483398, 0.99007225036621]]];
+function hpRBJ(f, q, fs) { const w = TAU * f / fs, al = Math.sin(w) / (2 * q), c = Math.cos(w), a0 = 1 + al; return [[(1 + c) / 2 / a0, -(1 + c) / a0, (1 + c) / 2 / a0], [1, -2 * c / a0, (1 - al) / a0]]; }
+const PHONE = [hpRBJ(550, 0.5412, 48000), hpRBJ(550, 1.3066, 48000)];
+function lufsM(buf, phone, from = 0, to = Infinity, integrated = false) {
+  const fs = buf.sampleRate, i0 = Math.round(from * fs), i1 = Math.min(buf.length, Math.round(Math.min(to, buf.length / fs) * fs));
+  const chans = [0, 1].map((c) => { let x = buf.getChannelData(Math.min(c, buf.numberOfChannels - 1)).slice(i0, i1); for (const [b, a] of KW.concat(phone ? PHONE : [])) x = biq(x, b, a); return x; });
+  const n = chans[0].length, p = new Float64Array(n + 1);
+  for (let i = 0; i < n; i++) p[i + 1] = p[i] + chans[0][i] * chans[0][i] + chans[1][i] * chans[1][i];
+  if (integrated) return -0.691 + 10 * Math.log10(p[n] / n + 1e-30);
+  const w = Math.round(0.4 * fs); let m = 0;
+  if (n < w) m = p[n] / w; else for (let i = 0; i + w <= n; i += 480) m = Math.max(m, (p[i + w] - p[i]) / w);
+  return -0.691 + 10 * Math.log10(m + 1e-30);
+}
+// energy in a 1/3-octave band around f (a single FFT over [from, to))
+function bandDb(buf, f, from, to) {
+  const fs = buf.sampleRate, i0 = Math.round(from * fs), n0 = Math.round((to - from) * fs); let N = 1; while (N < n0) N <<= 1;
+  const re = new Float64Array(N), im = new Float64Array(N), L = buf.getChannelData(0), R = buf.getChannelData(1);
+  for (let i = 0; i < n0; i++) re[i] = 0.5 * (L[i0 + i] + R[i0 + i]) * (0.5 - 0.5 * Math.cos(TAU * i / (n0 - 1)));
+  fft(re, im); let e = 0; const k0 = Math.floor(f * Math.pow(2, -1 / 6) / fs * N), k1 = Math.ceil(f * Math.pow(2, 1 / 6) / fs * N);
+  for (let k = k0; k <= k1; k++) e += re[k] * re[k] + im[k] * im[k];
+  return 10 * Math.log10(e + 1e-30);
+}
+function analyse(buf, onset, stopAt) {
+  const fs = buf.sampleRate, L = buf.getChannelData(0), R = buf.getChannelData(1), n = L.length;
+  let peak = 0, lastLoud = 0;
+  for (let i = 0; i < n; i++) { const a = Math.max(Math.abs(L[i]), Math.abs(R[i])); if (a > peak) peak = a; }
+  for (let i = 0; i < n; i++) if (Math.max(Math.abs(L[i]), Math.abs(R[i])) > peak * 1e-3) lastLoud = i;
+  const w = Math.round(0.05 * fs), hop = Math.round(0.005 * fs);
+  let rms = 0;
+  for (let i = 0; i + w <= n; i += hop) { let s = 0; for (let j = i; j < i + w; j++) s += 0.5 * (L[j] * L[j] + R[j] * R[j]); rms = Math.max(rms, Math.sqrt(s / w)); }
+  const o = Math.round(onset * fs);
+  let first = 0; for (let i = o; i < o + Math.round(0.00025 * fs); i++) first = Math.max(first, Math.abs(L[i]), Math.abs(R[i]));
+  // the dry signal at the scheduled stop (the last sample a source plays)
+  let end = 0; if (stopAt) { const s = Math.min(n - 1, Math.round(stopAt * fs)); end = Math.max(Math.abs(L[s - 1]), Math.abs(R[s - 1])); }
+  let N = 1; while (N < n) N <<= 1;
+  const re = new Float64Array(N), im = new Float64Array(N);
+  for (let i = 0; i < n; i++) re[i] = 0.5 * (L[i] + R[i]);
+  fft(re, im);
+  let tot = 0, hf = 0; const k14 = Math.round(14000 / fs * N);
+  for (let k = 1; k < N / 2; k++) { const e = re[k] * re[k] + im[k] * im[k]; tot += e; if (k >= k14) hf += e; }
+  return { peak, rms, len: (lastLoud - o) / fs, first: peak ? first / peak : 0, end, hf: tot ? 10 * Math.log10(Math.max(hf / tot, 1e-30)) : -300 };
+}
+// pitch class from audio: the magnitude-weighted circular mean of chroma (log2 f mod 1) over 80 Hz–5 kHz
+function chromaTrack(buf, win = 8192, hop = 1024) {
+  const fs = buf.sampleRate, x = buf.getChannelData(0), y = buf.numberOfChannels > 1 ? buf.getChannelData(1) : x, out = [];
+  const hann = new Float64Array(win); for (let i = 0; i < win; i++) hann[i] = 0.5 - 0.5 * Math.cos(TAU * i / (win - 1));
+  const lo = Math.ceil(80 / fs * win), hi = Math.floor(5000 / fs * win), re = new Float64Array(win), im = new Float64Array(win);
+  for (let s = 0; s + win <= x.length; s += hop) {
+    for (let i = 0; i < win; i++) { re[i] = 0.5 * (x[s + i] + y[s + i]) * hann[i]; im[i] = 0; }
+    fft(re, im);
+    let cr = 0, ci = 0, e = 0;
+    for (let k = lo; k <= hi; k++) { const m = re[k] * re[k] + im[k] * im[k], c = Math.log2(k * fs / win / Sound.SH.fLo); cr += m * Math.cos(TAU * c); ci += m * Math.sin(TAU * c); e += m; }
+    out.push({ t: (s + win / 2) / fs, c: Math.atan2(ci, cr) / TAU, e });
+  }
+  return out;
+}
+const unwrapTurns = (tr) => { const u = [tr[0].c]; for (let i = 1; i < tr.length; i++) { let d = tr[i].c - tr[i - 1].c; d -= Math.round(d); u.push(u[i - 1] + d); } return u; };
+const LAB = { rows: [], shep: [], waves: {} };
+async function runLab() {
+  const tb = $('labTable').tBodies[0];
+  for (const [name, d] of Object.entries(Sound.CATALOG)) {
+    const variants = name === 'zero' ? [{ order: 1 }, { order: 2 }, { order: 4 }] : name === 'pole' ? [{ order: 1 }] : name === 'turn' ? [{ dir: 1, pc: 0 }, { dir: -1, pc: 0 }, { dir: 1, pc: 0.99 }] : name === 'morphTick' ? [{ t: 0.05 }, { t: 0.5 }, { t: 1 }] : name === 'view' ? [{ k: 0 }] : name === 'contour' ? [{ k: -7 }, { k: 0 }, { k: 8 }] : name === 'loopDone' ? [{ w: 2 }, { w: 0 }] : [{}];
+    for (const o of variants) {
+      let endAt = 0;
+      const buf = await Sound.render((G, t) => { endAt = d.make(G, t, o); }, 2.2, { noClip: true });
+      const a = analyse(buf, 0.01, null);
+      const label = d.label + (o.order > 1 ? ` (order ${o.order})` : o.dir === -1 ? ' (down)' : o.dir === 1 ? ` (up${o.pc ? ', home C♯' : ''})` : o.t != null ? ` (t = ${o.t})` : o.k != null && name === 'contour' ? ` (level ${o.k})` : o.w != null ? ` (W = ${o.w})` : '');
+      // the dry voice alone, to read the sample at the scheduled stop (the room would hide a step)
+      const dry = await Sound.render((G, t) => { G.tier[d.tier].wet.gain.value = 0; endAt = d.make(G, t, o); }, 2.2, { noClip: true });
+      const ad = analyse(dry, 0.01, endAt);
+      const L = lufsM(buf, false), Lp = lufsM(buf, true);
+      const okLevel = a.peak < 0.5 && dB(a.peak) > -40 && L - Lp <= 5.5, okEdges = a.first < 0.35 && ad.end < 1e-6, okHf = a.hf < -40;
+      const row = { key: name + JSON.stringify(o), name: label, tier: d.tier, len: a.len, peak: dB(a.peak), rms: dB(a.rms), lufs: L, phone: Lp, first: a.first, end: ad.end, hf: a.hf, ok: okLevel && okEdges && okHf };
+      LAB.rows.push(row);
+      if (!LAB.waves[name + JSON.stringify(o)]) LAB.waves[name + JSON.stringify(o)] = buf;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="name">${label}</td><td>${{ ui: 'Interface', events: 'Events', sonify: 'Under the pointer' }[d.tier]}</td><td>${Math.round(row.len * 1000)} ms</td><td>${row.peak.toFixed(1)} dBFS</td><td>${row.lufs.toFixed(1)}</td><td>${row.phone.toFixed(1)} (${(row.phone - row.lufs).toFixed(1)})</td><td>${row.first.toFixed(3)}</td><td>${row.end === 0 ? '0' : row.end.toExponential(1)}</td><td>${row.hf < -200 ? '−∞' : row.hf.toFixed(0) + ' dB'}</td><td class="${row.ok ? 'v-ok' : 'v-bad'}">${row.ok ? 'ok' : 'check'}</td>`;
+      tb.append(tr);
+    }
+  }
+  drawWaves();
+  await shepChecks();
+  await voiceLevels();
+  LAB.done = true;
+}
+function drawWaves() {
+  for (const cd of cards) {
+    const k0 = cd.name + JSON.stringify(cd.o), buf = LAB.waves[k0] || LAB.waves[Object.keys(LAB.waves).find((k) => k.startsWith(cd.name + '{'))];
+    if (!buf) continue;
+    const cv = cd.canvas, r = cv.getBoundingClientRect(), w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    cv.width = w; cv.height = h;
+    const row = LAB.rows.find((r) => r.key === k0) || LAB.rows.find((r) => r.key.startsWith(cd.name + '{'));
+    const span = clamp((row ? row.len : 0.5) * 1.08 + 0.012, 0.08, 0.9);
+    const c = cv.getContext('2d'), x = buf.getChannelData(0), o = Math.round(0.01 * buf.sampleRate), n = Math.min(x.length - o, Math.round(span * buf.sampleRate)), per = n / w;
+    let mx = 0; for (let i = o; i < o + n; i++) mx = Math.max(mx, Math.abs(x[i]));
+    c.fillStyle = css('--accent');
+    for (let i = 0; i < w; i++) { let m = 0; for (let j = o + Math.floor(i * per); j < o + Math.floor((i + 1) * per); j++) m = Math.max(m, Math.abs(x[j])); const hh = Math.max(dpr * 0.5, (m / (mx || 1)) * (h / 2 - dpr)); c.fillRect(i, h / 2 - hh, 1, 2 * hh); }
+    c.fillStyle = css('--muted'); c.font = `${9 * dpr}px ` + css('--f-mono'); c.textAlign = 'right'; c.fillText(Math.round(span * 1000) + ' ms', w - 1, 9 * dpr);
+  }
+}
+async function shepChecks() {
+  const tb = $('shepTable').tBodies[0], add = (r) => { LAB.shep.push(r); const tr = document.createElement('tr'); tr.innerHTML = `<td class="name">${r.name}</td><td>${r.exp}</td><td>${r.got}</td><td>${r.det}</td><td class="${r.ok ? 'v-ok' : 'v-bad'}">${r.ok ? 'ok' : 'check'}</td>`; tb.append(tr); };
+  // 1, 2: the live voice driven like a hover (60 updates a second) through ±3 turns at 0.5 turn/s
+  for (const dir of [1, -1]) {
+    const T0 = 0.2, T1 = 6.2, rate = 0.5 * dir;
+    const buf = await Sound.render((G, t) => {
+      const v = Sound.ShepardVoice(G);
+      v.set(0, 0, 0, T0); v.gate(true, T0, 0.02);
+      for (let s = T0 + 1 / 60; s <= T1; s += 1 / 60) v.set(rate * (s - T0), 0, 0, s);
+      v.gate(false, T1, 0.05); v.stop(T1 + 0.4);
+    }, 6.8, { noClip: true });
+    // level flatness over the cycles (50 ms RMS between 0.5 s and 6 s)
+    const x = buf.getChannelData(0), fs = buf.sampleRate, w = Math.round(0.05 * fs), lv = [];
+    for (let i = Math.round(0.5 * fs); i + w < Math.round(6 * fs); i += w) { let s = 0; for (let j = i; j < i + w; j++) s += x[j] * x[j]; lv.push(10 * Math.log10(s / w)); }
+    const flat = Math.max(...lv) - Math.min(...lv);
+    // pitch class from the audio against the command (the smoothing lags by τ = 12 ms)
+    const tr = chromaTrack(buf).filter((f) => f.t > 0.6 && f.t < 5.9), u = unwrapTurns(tr);
+    let err = 0; for (let i = 0; i < tr.length; i++) { let d = u[i] - rate * (tr[i].t - T0 - 0.012); d -= Math.round(d); err = Math.max(err, Math.abs(d)); }
+    const total = u[u.length - 1] - u[0], want = rate * (tr[tr.length - 1].t - tr[0].t);
+    add({ name: `Shepard cycle ${dir > 0 ? 'rising' : 'falling'}, 3 turns (live voice)`, exp: `${dir > 0 ? '+' : '−'}${Math.abs(want).toFixed(2)} turns, level flat`, got: `${total >= 0 ? '+' : '−'}${Math.abs(total).toFixed(3)} turns`, det: `level ripple ${flat.toFixed(2)} dB · pitch-class error ≤ ${(err * 1200).toFixed(1)} cents`, ok: Math.abs(total - want) < 0.05 && flat < 1 && err * 1200 < 25 });
+  }
+  // 3–5: "listen along a loop" for three loops, the winding read back from the audio alone
+  const cases = [['sq', [0, 0], 2, 'circle |z| = 2 around both zeros of z² − 1', 2], ['inv', [0, 0], 1, 'circle |z| = 1 around the pole of 1/z', -1], ['rat', [0.5, 0.5], 0.75, 'circle around the zero 1 and the pole i', 0], ['rat', [-1, 0], 0.5, 'circle around the double zero −1', 2]];
+  const keep = fn;
+  for (const [id, c0, r, what, W] of cases) {
+    fn = FNS.find((f) => f.id === id);
+    const pts = []; for (let i = 0; i < 240; i++) { const a = TAU * i / 240; pts.push([c0[0] + r * Math.cos(a), c0[1] + r * Math.sin(a)]); }
+    const res = loopArg(pts), S = sampleLoop(pts), dur = clamp(2.2 + Math.abs(res.turns), 2.6, 7);
+    const buf = await Sound.render((G, t, c) => { const s = c.createBufferSource(); s.buffer = Sound.curveBuffer(c, S.phi, S.la, dur); s.connect(G.tier.sonify.dry); s.start(t); }, dur + 0.3, { noClip: true });
+    const tr = chromaTrack(buf).filter((f) => f.t > 0.01 && f.t < dur + 0.01 && f.e > 0), u = unwrapTurns(tr), got = u[u.length - 1] - u[0];
+    const at = (t) => { const x = clamp((t - 0.01) / dur, 0, 1) * (S.phi.length - 1), j = Math.min(S.phi.length - 2, Math.floor(x)); return S.phi[j] + (S.phi[j + 1] - S.phi[j]) * (x - j); };
+    const want = at(tr[tr.length - 1].t) - at(tr[0].t), cover = (tr[tr.length - 1].t - tr[0].t) / dur;
+    const a = analyse(buf, 0.01, null);
+    add({ name: `Listen along γ: ${what}`, exp: `W = ${String(W).replace('-', '−')} (exact track ${res.turns >= 0 ? '+' : '−'}${Math.abs(res.turns).toFixed(4)}); ${want >= 0 ? '+' : '−'}${Math.abs(want).toFixed(3)} over the analysed ${Math.round(cover * 100)} %`, got: `${got >= 0 ? '+' : '−'}${Math.abs(got).toFixed(3)} turns`, det: `error ${Math.abs(got - want).toFixed(3)} turn · peak ${dB(a.peak).toFixed(1)} dBFS · RMS ${dB(a.rms).toFixed(1)} dBFS · ${dur.toFixed(1)} s`, ok: Math.abs(got - want) < 0.03 && res.W === W && a.peak < 0.5 });
+  }
+  fn = keep;
+}
+
+// the balance: the continuous voices must sit UNDER the cues (targets: −33 ± 1 LUFS at |F| = 1, range ≤ 6 dB, phone
+// ≤ 8 dB), and the turn bell must stand ≥ 5 dB above the voice in its own band
+async function voiceLevels() {
+  const tb = $('shepTable').tBodies[0], add = (r) => { LAB.shep.push(r); const tr = document.createElement('tr'); tr.innerHTML = `<td class="name">${r.name}</td><td>${r.exp}</td><td>${r.got}</td><td>${r.det}</td><td class="${r.ok ? 'v-ok' : 'v-bad'}">${r.ok ? 'ok' : 'check'}</td>`; tb.append(tr); };
+  const shep = async (la, bell) => Sound.render((G, t) => {
+    const v = Sound.ShepardVoice(G); v.set(0, la, 0, 0.1); v.gate(true, 0.1, 0.02);
+    for (let s = 0.1 + 1 / 60; s <= 3.1; s += 1 / 60) v.set(0.5 * (s - 0.1), la, 0, s);
+    v.gate(false, 3.1, 0.05); v.stop(3.5);
+    if (bell) Sound.CATALOG.turn.make(G, 1.5, { dir: 1, pc: 0.7 });
+  }, 3.6, { noClip: true });
+  const L = {}, Lp = {};
+  for (const la of [-8, 0, 8]) { const b = await shep(la); L[la] = lufsM(b, false, 0.4, 3.0, true); Lp[la] = lufsM(b, true, 0.4, 3.0, true); }
+  const rng = Math.max(L[-8], L[0], L[8]) - Math.min(L[-8], L[0], L[8]), rngP = Math.max(Lp[-8], Lp[0], Lp[8]) - Math.min(Lp[-8], Lp[0], Lp[8]);
+  add({ name: 'Shepard voice: loudness (ln|F| = −8, 0, 8)', exp: '−33 ± 1 LUFS at |F| = 1; range ≤ 6 dB (phone ≤ 8)', got: `${L[0].toFixed(1)} LUFS`, det: `${L[-8].toFixed(1)} / ${L[0].toFixed(1)} / ${L[8].toFixed(1)} · range ${rng.toFixed(1)} dB · phone ${Lp[-8].toFixed(1)} / ${Lp[0].toFixed(1)} / ${Lp[8].toFixed(1)}, range ${rngP.toFixed(1)} dB`, ok: Math.abs(L[0] + 33) <= 1.2 && rng <= 6 && rngP <= 8 });
+  // the bell over the voice, in the bell's band, 150 ms after its onset (home pitch class 0.7 turn above D)
+  const vb = await shep(0, true), vo = await shep(0, false);
+  let f = Sound.SH.fLo * Math.pow(2, 0.7); while (f < 1700) f *= 2;
+  const withB = bandDb(vb, f, 1.56, 1.71), only = bandDb(vo, f, 1.56, 1.71);
+  const tb1 = await Sound.render((G, t) => Sound.CATALOG.turn.make(G, t, { dir: 1, pc: 0.7 }), 1.2, { noClip: true });
+  add({ name: 'Turn bell over the voice', exp: '≥ 5 dB above the voice in its band; bell alone ≈ −29 LUFS', got: `+${(withB - only).toFixed(1)} dB at ${Math.round(f)} Hz`, det: `bell alone ${lufsM(tb1, false).toFixed(1)} LUFS-M, phone ${lufsM(tb1, true).toFixed(1)}`, ok: withB - only >= 5 });
+  const hv = async (la) => Sound.render((G, t) => { const v = Sound.HeightVoice(G); v.set(la, 0, 0.1, 12); v.gate(true, 0.1, 0.02); v.set(la, 0, 0.2, 12); v.gate(false, 2.1, 0.05); v.stop(2.4); }, 2.5, { noClip: true });
+  const H = {}, Hp = {};
+  for (const u of [-7, 0, 8]) { const b = await hv(u * TAU / 12); H[u] = lufsM(b, false, 0.4, 2.0, true); Hp[u] = lufsM(b, true, 0.4, 2.0, true); }
+  add({ name: 'Height voice: loudness (contour level −7, 0, 8: A3, D5, A6)', exp: '≈ −33 LUFS; phone range ≤ 8 dB', got: `${H[0].toFixed(1)} LUFS`, det: `${H[-7].toFixed(1)} / ${H[0].toFixed(1)} / ${H[8].toFixed(1)} · phone ${Hp[-7].toFixed(1)} / ${Hp[0].toFixed(1)} / ${Hp[8].toFixed(1)}`, ok: Math.abs(H[0] + 33) <= 1.5 && Math.max(Hp[-7], Hp[0], Hp[8]) - Math.min(Hp[-7], Hp[0], Hp[8]) <= 8 });
+  // the Height tone and its tick: the tick is the tone's note an octave up, at every level
+  let worst = 0; for (let k = -7; k <= 8; k++) worst = Math.max(worst, Math.abs(1200 * Math.log2(2 * Sound.hNote(k) / (2 * Sound.hNote(k)))));
+  add({ name: 'Height: the tick against the tone at each level line', exp: 'an octave (0 cents off) at every level', got: `${worst.toFixed(1)} cents`, det: 'tone = Height scale at u = ln|F| / (2π/12); tick = the same note × 2', ok: worst < 0.5 });
+}
+
+// ---------------------------------------------------------------- start
+const qs = new URLSearchParams(location.search);
+if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+setFn(FNS.find((f) => f.id === qs.get('fn')) || FNS[1]);
+new ResizeObserver(() => resize()).observe($('stage'));
+resize(); readouts();
+setTimeout(() => runLab().catch((e) => { LAB.error = String(e && e.stack || e); console.error(e); }), 200);
+window.__snd = { Sound, LAB, probe: () => ({ ...probe }), loopState: () => ({ loop, lastLoop: lastLoop && lastLoop.res }), setFn: (id) => setFn(FNS.find((f) => f.id === id)), toS, toZ, voice: () => voice, playing: () => !!play };
+</script>
+</body>
+</html>

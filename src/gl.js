@@ -2352,8 +2352,8 @@ float wabs(vec2 w) {
   }
   // shader limits are reported in plain words in the pane (spec 8.6)
   function friendly(err) {
-    if (/uniform/i.test(err)) return 'This chain needs more shader parameters than this GPU allows. Remove or shorten a step.';
-    return 'The GPU could not compile this chain (' + String(err).split('\n')[0].slice(0, 90) + ').';
+    if (/uniform/i.test(err)) return $t('This chain needs more shader parameters than this GPU allows. Remove or shorten a step.');
+    return $t('The GPU could not compile this chain ({err}).', { err: String(err).split('\n')[0].slice(0, 90) });
   }
   let useClock = 0, pollT = 0;
   const PROG_KEEP = 3;   // chain versions kept per program (undo, redo and bypass toggles reuse them)

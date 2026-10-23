@@ -1,0 +1,23 @@
+\begin{document}
+% --- what the app would emit in Russian (operatorname form: works with or without babel-russian) ---
+\begin{figure}[h]
+  \centering
+  \rule{0.6\linewidth}{0.25\linewidth}
+  \caption{Образ полосы $0<\operatorname{Im} z<\pi$ при отображении $w=\operatorname{tg} z$.
+    Слева область $X$ в плоскости $z$, справа её образ в плоскости $w$.
+    Ветвь $\ln z$ с разрезом по лучу $\arg z=\pi$, лист~$0$.
+    Растяжение $|F'(z)|=0{,}5$; точка $p=1{,}25+0{,}5i$; отрезок $[-1,1]$.
+    Штриховые границы не принадлежат множествам.}
+\end{figure}
+% --- notation table: operatorname vs babel macros side by side ---
+\[
+\operatorname{tg} z,\ \tg z;\quad \operatorname{ctg} z,\ \ctg z;\quad \operatorname{sh} z,\ \sh z;\quad \operatorname{ch} z,\ \ch z;\quad
+\operatorname{th} z,\ \th z;\quad \operatorname{cth} z,\ \cth z
+\]
+\[
+\operatorname{arctg} z,\ \arctg z;\quad \operatorname{arcctg} z,\ \arcctg z;\quad \operatorname{arsh} z,\ \operatorname{arch} z,\ \operatorname{arth} z;\quad
+\operatorname{cosec} z,\ \cosec z;\quad \ln z,\ \operatorname{Ln} z,\ \operatorname{Re} z,\ \operatorname{Im} z,\ \arg z
+\]
+% --- decimal comma: plain, braced, icomma-like ---
+\[ 0,5 \quad 0{,}5 \quad f(0{,}5;\,1) \quad [0{,}5;\ 1] \]
+\end{document}

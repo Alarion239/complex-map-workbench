@@ -1,0 +1,108 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Cyrillic caption outlines</title>
+<style>body{margin:0;background:#fff;color:#000}#out{padding:16px}.note{font:12px system-ui;margin:12px 0 4px}</style>
+<script>
+window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false }, svg: { fontCache: 'local' }, startup: { typeset: false, ready() { MathJax.startup.defaultReady(); MathJax.startup.promise.then(() => { window.__mj = true; }); } } };
+</script>
+<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>
+</head><body><div id="out"></div>
+<script>
+// A Russian figure caption set as the figure composer would set it: math by MathJax (TeX fonts, paths), words from
+// the CMU glyph tables (paths), the same 1000-unit glyph space; no <text>, so the PDF needs no font.
+// The caption segments come from latex/gen_caption.js (made by the i18n module: notation, decimal comma, interval
+// separator, no-break spaces), the same caption that gen_ru_pdflatex.tex compiles.
+// Weight (review lead-1): MathJax's TeX glyphs are the CM outlines grown by about 6.5 units per side, so the table's
+// glyphs are stroked with face.stroke (13 units) to match the math beside them.
+const EM = 33.3;                   // px per em: 10 pt at 3.33 px/pt
+const s = EM / 1000;
+let F = {};                        // rm, bx, ti
+const SPACE = 333, LINE = 1.2 * EM;    // cmr10 interword space; babel-russian sets \frenchspacing
+const NB = ' ';
+function word(w, face, x, y, stroke = true) {
+  let d = '', cx = 0, prev = null;
+  for (const ch of w) {
+    if (ch === NB) { cx += (face.check && face.check[' ']) || SPACE; prev = null; continue; }   // a no-break space: never breaks
+    const g = face.glyphs[ch];
+    if (!g) return null;               // a character the table lacks: the caller falls back to MathJax \text
+    if (prev && face.kern[prev + ch]) cx += face.kern[prev + ch];
+    d += `<path d="${g[1]}" transform="translate(${(x + cx * s).toFixed(2)} ${y.toFixed(2)}) scale(${s} ${-s})"/>`;
+    cx += g[0]; prev = ch;
+  }
+  const sw = stroke && face.stroke ? ` stroke="currentColor" stroke-width="${face.stroke}" stroke-linejoin="miter"` : '';
+  return { svg: `<g fill="currentColor"${sw}>${d}</g>`, w: cx * s };
+}
+function math(tex, x, y) {
+  const svg = MathJax.tex2svg(tex, { display: false }).querySelector('svg');
+  const vb = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+  svg.setAttribute('x', x.toFixed(2)); svg.setAttribute('y', (y + vb[1] * s).toFixed(2));
+  svg.setAttribute('width', (vb[2] * s).toFixed(2)); svg.setAttribute('height', (vb[3] * s).toFixed(2));
+  svg.removeAttribute('style');
+  return { svg: new XMLSerializer().serializeToString(svg), w: vb[2] * s, texts: svg.querySelectorAll('text').length };
+}
+const faceOf = (it) => (it.bold ? F.bx : it.ital ? F.ti : F.rm);
+function caption(segs, W, opts = {}) {
+  // segs: {b} bold words, {i} italic words (panel letters), {t} words, {m} math; ragged right. Lines break only at
+  // ordinary spaces: U+00A0 glues (after one-letter words, before the dash, «Рис. 1»)
+  const items = [];
+  for (const g of segs) {
+    if (g.m != null) { items.push({ m: g.m }); continue; }
+    const txt = g.b ?? g.i ?? g.t;
+    for (const p of txt.split(/([ \t\n]+)/)) { if (!p) continue; items.push(/^[ \t\n]+$/.test(p) ? { sp: true } : { w: p, bold: g.b != null, ital: g.i != null }); }
+  }
+  let x = 0, y = EM, out = '', texts = 0;
+  const words = []; let cur = [];
+  for (const it of items) { if (it.sp) { if (cur.length) words.push(cur); cur = []; } else cur.push(it); }
+  if (cur.length) words.push(cur);
+  for (const wd of words) {
+    const parts = wd.map((it) => (it.m != null ? math(it.m, 0, 0) : word(it.w, faceOf(it), 0, 0, opts.stroke !== false)));
+    const ww = parts.reduce((a, p) => a + p.w, 0);
+    const sp = SPACE * s;
+    if (x > 0 && x + sp + ww > W) { x = 0; y += LINE; }
+    if (x > 0) x += sp;
+    for (let i = 0; i < wd.length; i++) {
+      const it = wd[i];
+      const p = it.m != null ? math(it.m, x, y) : word(it.w, faceOf(it), x, y, opts.stroke !== false);
+      out += p.svg; texts += p.texts || 0; x += p.w;
+    }
+  }
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${y + EM * 0.5}" viewBox="0 0 ${W} ${y + EM * 0.5}">${out}</svg>`, texts };
+}
+// dark-pixel ink of one SVG at a large size (the weight check: table glyphs against MathJax's)
+async function ink(svgStr, w, h) {
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+  await img.decode();
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+  const px = g.getImageData(0, 0, w, h).data; let sum = 0;
+  for (let i = 0; i < px.length; i += 4) sum += 255 - px[i];
+  return sum / 255;
+}
+async function weight() {
+  // the same Latin letters, set by MathJax (\mathrm, \operatorname) and from the table, with and without the stroke
+  const big = 10, out = {};
+  const wrap = (inner, W) => `<svg xmlns="http://www.w3.org/2000/svg" width="${W * big}" height="${EM * 1.4 * big}" viewBox="0 0 ${W} ${EM * 1.4}">${inner}</svg>`;
+  for (const txt of ['Im', 'tg', 'I0m1tg']) {
+    const mj = math(`\\mathrm{${txt}}`, 0, EM), tb = word(txt, F.rm, 0, EM, true), t0 = word(txt, F.rm, 0, EM, false);
+    const W = Math.ceil(Math.max(mj.w, tb.w) + 4);
+    const a = await ink(wrap(mj.svg, W), W * big, EM * 1.4 * big), b = await ink(wrap(tb.svg, W), W * big, EM * 1.4 * big), c = await ink(wrap(t0.svg, W), W * big, EM * 1.4 * big);
+    out[txt] = { mathjax: Math.round(a), tableStroked: Math.round(b), tableBare: Math.round(c), strokedOverMathjax: +(b / a).toFixed(3), bareOverMathjax: +(c / a).toFixed(3) };
+  }
+  return out;
+}
+window.run = async () => {
+  for (const k of ['rm', 'bx', 'ti']) F[k] = await (await fetch(`cyr_${k}.json`)).json();
+  const segs = await (await fetch('gen_caption_segs.json')).json();
+  for (let i = 0; i < 100 && !window.__mj; i++) await new Promise((r) => setTimeout(r, 100));
+  const W = 345 * 3.33;                 // the article text width (345 pt) at 3.33 px/pt
+  const c = caption(segs, W);
+  const before = caption(segs, W, { stroke: false });
+  const mixed = caption([{ t: 'Смешанные слова из одной таблицы: Круг-A, PDF-файл, LaTeX-код.' }], W);
+  const mjOnly = MathJax.tex2svg('\\text{Образ полосы}', { display: false }).querySelector('svg');
+  document.getElementById('out').innerHTML = c.svg
+    + '<div class="note">Mixed-script words, set from the table (Basic Latin added):</div>' + mixed.svg
+    + '<div class="note">Before (table glyphs not stroked: the math looks heavier):</div>' + before.svg
+    + '<div class="note">MathJax alone, \\text{Образ полосы}:</div>' + new XMLSerializer().serializeToString(mjOnly);
+  const all = c.svg + mixed.svg;
+  return { textsInCaption: (all.match(/<text/g) || []).length, mjOnlyTexts: mjOnly.querySelectorAll('text').length, bytes: c.svg.length, weight: await weight() };
+};
+</script></body></html>

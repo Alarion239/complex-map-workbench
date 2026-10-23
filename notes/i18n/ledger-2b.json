@@ -1,0 +1,347 @@
+[
+ {
+  "id": "ui-1",
+  "status": "fixed",
+  "note": "parse.js parseAnd, Russian only: when a comma between two digits leaves a comparison on one side and a bare number on the other, the parse stops with «Дробную часть отделяйте точкой: 0.5, а не 0,5 (запятая разделяет условия)». «|z| < 0,5», «Re z > 0,5» and «z^0,5 < 1» now get it (t_i18n.js checks). A comma list with no comparison (1,0,-1) parses as before (t_i18n_parse.js: 26424 pass); English messages are unchanged (t_i18n_english.js: 977 identical). Left: «Re z>0,5<|z|» still reads as two conditions; it cannot be told from «Re z<1,0<Im z». The chain case is answered in verify-5: «Re z>0,5<|z|» keeps its meaning and shows a warning under the field."
+ },
+ {
+  "id": "ui-2",
+  "status": "fixed",
+  "note": "app.js drawRulers: the tick text (and the mantissa of the ×10ⁿ form) goes through I18N.num. Russian rulers read −0,5, 0,5i (shot w1024-start). In English I18N.num is String(x): golden images identical."
+ },
+ {
+  "id": "ui-3",
+  "status": "fixed",
+  "note": "app.js paintLegend: in Russian the «клетка 0,5 в плоскости z» run is measured and narrowed to the chip when it is wider, so the plane name is never cut. With the narrow comma (ui-4) 0,5 already fits at 1024 and 1440. English draws as before."
+ },
+ {
+  "id": "ui-4",
+  "status": "fixed",
+  "note": "page.html: a font face «CMW Comma» (only U+002C, from a local proportional face: Helvetica Neue, Arial, Roboto, Segoe UI, DejaVu Sans) is first in the Russian --f-mono. Every decimal comma set in the mono face is narrow, in HTML and on the canvas (rulers, scale chip, legend, readouts, roots, 3D ticks); i18n.js loads it with the Cyrillic faces and redraws the canvas. English never names the face."
+ },
+ {
+  "id": "ui-5",
+  "status": "fixed",
+  "note": "app.js heightHtml and the Landscape height switch use I18N.fnName('log'): «рельеф функции ln|F|», «ln |F|». The figure caption already became \\ln through figure.js polish (checked)."
+ },
+ {
+  "id": "ui-6",
+  "status": "fixed",
+  "note": "parse.js: the plain words «и», «или», «не» read as and, or, not (Cyrillic was an error before, so no formula that parsed changes). The Russian 'Combine comparisons' message now names «и, или, не». The list's decimal comma gets the ui-1 hint."
+ },
+ {
+  "id": "ui-7",
+  "status": "fixed",
+  "note": "page.html, Russian below 390 px: the phone tool bar keeps five tools and Polygon moves into «Ещё» (shown there, and in the bar while it is the active tool). Cells are 59 px; «Прямо-угольник» fits (measured). i18n_cmd.js overflow at 360 passes."
+ },
+ {
+  "id": "ui-8",
+  "status": "fixed",
+  "note": "page.html, Russian: the calculation chip's heading lines wrap (max 232 px) and its notes may break anywhere. Example 10 at 1440: no clipped element (shot calc10)."
+ },
+ {
+  "id": "ui-9",
+  "status": "fixed",
+  "note": "page.html and app.js init, Russian at 1024-1199 px: the examples button says «Примеры» and the command field «Поиск» ($tx('field-short'), GLOSSARY 1.13). Measured at 1024 and 1100: nothing cut, no overflow."
+ },
+ {
+  "id": "ui-10",
+  "status": "fixed",
+  "note": "page.html, Russian: card names and the «По шагам» step names take up to two lines (13 px lines). «Функция Жуковского» is whole in both (shots card1440b, matrix1440). No abbreviations."
+ },
+ {
+  "id": "ui-11",
+  "status": "fixed",
+  "note": "Sphere hint shortened to «Перетаскивание вращает сферу и сдвигает фигуры; ∞ — северный полюс»; in Russian a readout that holds only a hint may take two lines (Landscape at 360, spheres at 1440: whole). Empty right pane: «Здесь появится образ» (135 of 161 px at 1024), since its button already says «Добавить функцию»."
+ },
+ {
+  "id": "ui-12",
+  "status": "fixed",
+  "note": "notes/i18n/ru/fixes_2b.py puts U+00A0 before every em dash (and ~ before LaTeX ---) in all Russian tables and tools/ru_extra.json (50 entries); math_src/build.py typo() does the same on a rebuild. t_i18n.js now fails on a plain space before «—»: 0 left."
+ },
+ {
+  "id": "ui-13",
+  "status": "fixed",
+  "note": "«; нули — ямы, полюсы — пики.» (phase2b-fixes.json)."
+ },
+ {
+  "id": "ui-14",
+  "status": "fixed",
+  "note": "fixes_2b.py: U+00A0 between a number or a %{slot} and its unit (см, мм, пт, дюйм, dpi, Гц, мс, мин); t_i18n.js lint: 0 left."
+ },
+ {
+  "id": "ui-15",
+  "status": "fixed",
+  "note": "figure.js facts line formats the label sizes with I18N.num: «надписи 10/10,95 пт»."
+ },
+ {
+  "id": "ui-16",
+  "status": "fixed",
+  "note": "page.html, Russian: the closed size button names the paper only; the width in points stays in the open list."
+ },
+ {
+  "id": "ui-17",
+  "status": "fixed",
+  "note": "'Guide' and 'Guide  ?' are «Руководство» (GLOSSARY 1.13)."
+ },
+ {
+  "id": "ui-18",
+  "status": "fixed",
+  "note": "The sound key list uses infinitives throughout: «Z — перейти к следующему нулю или полюсу, O — назвать порядок…, D — описать вид, Enter — нарисовать петлю, L — прослушать вдоль неё»."
+ },
+ {
+  "id": "ui-19",
+  "status": "fixed",
+  "note": "Guide, Views paragraph: флажок <b>«Все листы»</b>, «Кольцо», «Сектор», «Полярная сетка», «Круг», «Окружность» in quotes (tags unchanged)."
+ },
+ {
+  "id": "ui-20",
+  "status": "fixed",
+  "note": "«Вид: Рельеф» and «Вид: Фазовый портрет»."
+ },
+ {
+  "id": "ui-21",
+  "status": "rejected",
+  "note": "Not a defect: the reviewer's checked-and-clean record. Nothing to change."
+ },
+ {
+  "id": "math-1",
+  "status": "fixed",
+  "note": "funcs.js listParts/listComma, Russian only: a list with ';' is split on ';' and 0,5 inside an item is 0.5; without ';' a comma between two digits is refused with «Дробную часть отделяйте точкой (0.5) или разделяйте значения точкой с запятой (0,5; −1)», never read silently. English splits as before. Checked: '0,5, -1' refused, '0,5; -1' gives 0.5 and −1 (t_i18n.js). Cost: a Russian «1,0,1» with no spaces now gets the hint too. Revised in verify-1: the refusal now applies only to text typed in Russian; a saved list reads by one rule in both languages, so a switch keeps the work."
+ },
+ {
+  "id": "math-2",
+  "status": "fixed",
+  "note": "app.js buildFigureNow builds the caption inside I18N.using(opt.lang) and legacyMorph passes o.lang. The paths figures of examples 1 and 6 with the caption switch on English are now fully English (out/caps.json ex1-paths-en, ex6-paths-en)."
+ },
+ {
+  "id": "math-3",
+  "status": "fixed",
+  "note": "app.js shapePhrase strips the grid's leading \\text{…} name whatever its language: «полярная сетка в~$|z|\\le 2$», «декартова сетка на $[-1{,}5;\\,1{,}5]\\times[0;\\,2{,}4]$» (examples 2, 6, 8, paths). English output unchanged."
+ },
+ {
+  "id": "math-4",
+  "status": "fixed",
+  "note": "app.js shapePhrase builds the complemented shape in the genitive: «дополнение круга $|z-(-0{,}12+0{,}1i)|\\le 1{,}124$» (example 3, article and homework)."
+ },
+ {
+  "id": "math-5",
+  "status": "fixed",
+  "note": "Example 3 stores its label as 'trailing edge'; app.js exLabel and figure.js texLabel translate it where it is shown, in the language of the screen or the figure. Russian figure: \\text{задняя кромка}; English caption from the Russian interface: «the trailing edge $z=1$», labels \\text{trailing edge}. Saves made before this fix keep the Russian text (user data)."
+ },
+ {
+  "id": "math-6",
+  "status": "duplicate",
+  "note": "Same as ui-2 (ruler ticks)."
+ },
+ {
+  "id": "math-7",
+  "status": "duplicate",
+  "note": "Same as ui-5 (ln |F|)."
+ },
+ {
+  "id": "math-8",
+  "status": "fixed",
+  "note": "All-sheets landscape captions pass the map through I18N.notation(…, {multi: true}) (figure.js and app.js): «Рельеф функции $F(z)=\\operatorname{Ln} z$ …; показаны все листы». English unchanged."
+ },
+ {
+  "id": "math-9",
+  "status": "fixed",
+  "note": "Table: «\\textit{а}~--- плоскость~$%{lvar}$; …» (phase2b-fixes.json); t_i18n.js lists it as a designed difference from the English source."
+ },
+ {
+  "id": "math-10",
+  "status": "duplicate",
+  "note": "Same as ui-1 (decimal hint in region formulas)."
+ },
+ {
+  "id": "math-11",
+  "status": "duplicate",
+  "note": "Same as ui-4 (narrow comma in the mono face); its legend-chip part is ui-3."
+ },
+ {
+  "id": "math-12",
+  "status": "fixed",
+  "note": "latexDocument, Russian: \\usepackage{iftex} with T2A/inputenc under pdfTeX and fontspec + CMU (cmunrm.otf, bold, italic) otherwise, then babel. The exported document compiles with pdflatex, xelatex and lualatex: 0 errors, 0 missing characters."
+ },
+ {
+  "id": "math-13",
+  "status": "fixed",
+  "note": "latexDocument, Russian: decimals in the map, the steps and the domain conditions print as 0{,}5 (math strings only; the preamble is untouched). Checked with tg z then Möbius(1, −0.5, 0.25, 1): \\frac{\\operatorname{tg} z-0{,}5}{0{,}25\\,\\operatorname{tg} z+1}."
+ },
+ {
+  "id": "math-14",
+  "status": "fixed",
+  "note": "figure.js: Russian snippets write \\caption{\\foreignlanguage{russian}{…}} and the comment is shorter. All 14 Russian snippets of this round compile with pdflatex in an English-main ([T2A,T1], [russian,english]) and a Russian-main amsart document: 0 errors."
+ },
+ {
+  "id": "math-15",
+  "status": "fixed",
+  "note": "parse.js, Russian only: the suggestion list includes the Russian names («Неизвестная команда \\tgh. Возможно, \\tg или \\th.»), and \\arcth gets its own message. English suggestions unchanged."
+ },
+ {
+  "id": "math-16",
+  "status": "fixed",
+  "note": "parse.js: plain arsinh, arcosh, artanh parse in both languages (error path only, like tg). There is no arcoth function, so in Russian arcth and arcoth say «Функции arcth (arcoth) здесь нет: запишите arth(1/z)» (arcoth z = artanh(1/z) for the principal branches)."
+ },
+ {
+  "id": "math-17",
+  "status": "fixed",
+  "note": "app.js shapePhrase: a sector with no radius bound is «угол %{m}» / «угла %{m}» in Russian (contexts angle, gen-angle); example 2 reads «угол $0^\\circ\\le \\arg(z)\\le 90^\\circ$». English keeps 'sector'."
+ },
+ {
+  "id": "math-18",
+  "status": "duplicate",
+  "note": "Same as ui-6 (plain и, или, не)."
+ },
+ {
+  "id": "math-19",
+  "status": "fixed",
+  "note": "page.html, Russian: MathJax sets each Cyrillic letter as an SVG <text> in 'serif'; CSS now sets those in STIX Two Text (the app's math face, which has Cyrillic and Times-like metrics). Shot mjprobe."
+ },
+ {
+  "id": "math-20",
+  "status": "fixed",
+  "note": "(1) figure.js polish writes every em dash of a Russian LaTeX caption as ~---; (2) the paper name in the snippet comment is lower case mid-sentence («(поля 1 дюйм · Letter)»); (3) latexDocument lists the missing properties in lower case in Russian."
+ },
+ {
+  "id": "english-1",
+  "status": "fixed",
+  "note": "i18n.js keyOf: e.key is kept when Alt/Option/AltGr is held or the letter is Latin (å, ü, ł, ż, Ω with Option); only a non-Latin letter typed without Alt falls back to e.code. So AltGr+K no longer opens the palette, AltGr+Z no longer undoes, å no longer folds the panel. 8 checks in t_i18n.js; i18n_cmd.js ЙЦУКЕН checks pass."
+ },
+ {
+  "id": "english-2",
+  "status": "fixed",
+  "note": "xb now has xr's behaviour in the conflicting places, with the strings wrapped: no empty-plane note (syncEmptyState removed as in xr), no Shapes empty note, an empty count of '', and the save toast only when saveFile did not return false. A trial git merge-file (03:10) leaves 3 conflicts (app.js 2, figure.js 1); each is resolved by taking xb's side (PHASE2B.md, 'Merge with xr'). After the merge, re-run the Russian walk on the merged build."
+ },
+ {
+  "id": "english-3",
+  "status": "rejected",
+  "note": "Measured: evaluating i18n.js, i18n_ru.js and cyr.js with the math modules in English costs +0.05 ms (node, median of 15 runs, 0.39 → 0.44 ms); no table is parsed and no font or applyStatic runs. The rest of the reviewer's +8 ms is the browser scanning 486 KB more script (the table and the glyph tables are string literals). Moving them out of the script (a <script type=\"application/json\"> read only in Russian) would remove it; that is a build change for the lead. No frame cost."
+ },
+ {
+  "id": "english-4",
+  "status": "fixed",
+  "note": "The real total is now in PHASE2B.md: the published page is +485,717 B raw (+21.5 %) and +147,983 B gzip (+21.3 %): i18n_ru.js 69.4 KB, cyr.js 48.3 KB, i18n.js 10.9 KB gzip, plus the wrapping. The italic face is already cut to the panel letters; cutting the bold face to «Рис.» is left to the lead."
+ },
+ {
+  "id": "english-5",
+  "status": "fixed",
+  "note": "app.js: in English the canvas word-label test and the caption's word test are the base's Latin ones again (/\\s|[A-Za-z]{3,}/, /[A-Za-z]{2}|\\s/); any letter only outside English."
+ },
+ {
+  "id": "english-6",
+  "status": "rejected",
+  "note": "Not the build: the paired quick run's only failures are GPU byte counts that swap between the builds from run to run (isolated, the default scene is byte-identical). This round's paired quick run (03:03, against xb-base): no GPU byte metric failed (62 IMPROVED, most of them byte counts in the other direction, which shows the same noise). Its one FAIL was examples.13.first_frame_ms (21.0 -> 85.2 ms); a 3-rep paired rerun of the examples unit passed (43.1 -> 78.7 ms, limit 104 ms). The GL files equal the base; this slower first frame is not explained yet (PHASE2B.md, 'What is left'). Reading GPU bytes after a forced cleanup is a harness change, not done here. Closed by verify-2 (a CPU profile and a direct timing: no regression in our code)."
+ },
+ {
+  "id": "english-7",
+  "status": "rejected",
+  "note": "Causes outside i18n: curves_cmd's only failures are 404s for gl-helpers.html, which the kit opens and dist/ does not hold; p3_accept_cmd (h) looks for the old 'Figure for an article' dialog, removed by the export redesign (it fails on xb-base too; export_cmd.js covers it); sound_cmd's bell count is a timing flake (it passed in this round). Fixing those test files is outside this task."
+ },
+ {
+  "id": "eng-1",
+  "status": "fixed",
+  "note": "page.html: a small head script decides the language before the first paint (the same rule as I18N.resolve) and, in Russian, marks <html lang=ru data-lang=ru class=i18n-wait>, which hides #app until init() has translated the static text (I18N.reveal); the window 'load' event reveals it in any case. Checked at the first DOMContentLoaded listener: i18n-wait, #app hidden, font link present; after init: visible. English: nothing set."
+ },
+ {
+  "id": "eng-2",
+  "status": "fixed",
+  "note": "The head script adds the Roboto Flex / JetBrains Mono stylesheet at once, in parallel with the page; i18n.js applyPage reuses it and still redraws the canvas when the faces arrive."
+ },
+ {
+  "id": "eng-3",
+  "status": "fixed",
+  "note": "Language menu: English and Русский carry lang=en / lang=ru; in «Авто (…)» the name is a span with its own lang. The palette rows still have no lang on the name (the palette renders plain labels). The palette rows got their lang in verify-7."
+ },
+ {
+  "id": "eng-4",
+  "status": "duplicate",
+  "note": "Same as ui-4 (narrow comma in the mono face)."
+ },
+ {
+  "id": "eng-5",
+  "status": "fixed",
+  "note": "The switch stash marks that focus should return; after the reload focus goes to the globe, or to the More button where the globe is folded. Checked: keyboard switch → focus on #langBtn."
+ },
+ {
+  "id": "eng-6",
+  "status": "fixed",
+  "note": "app.js syncLangLabel runs after a choice that does not reload: Auto (English) → English gives aria-label «Language: English» at once (checked)."
+ },
+ {
+  "id": "eng-7",
+  "status": "fixed",
+  "note": "openMenu takes a menu label and a 'focus the checked item' flag from the item list; the language menu is «Язык», opens on the checked item, and #langBtn has aria-expanded true/false (checked). Other menus are unchanged."
+ },
+ {
+  "id": "eng-8",
+  "status": "fixed",
+  "note": "If the undo stash cannot be written, a marker goes to localStorage and after the reload a toast says «Историю отмены не удалось сохранить при смене языка.» (only when there was history to lose)."
+ },
+ {
+  "id": "eng-9",
+  "status": "fixed",
+  "note": "Sound announcements: spoken z values use the screen's decimal comma in Russian, the step sizes go through I18N.num, and a list of values is joined by «; »."
+ },
+ {
+  "id": "eng-10",
+  "status": "fixed",
+  "note": "Outside English the shape row's tooltip is the formula as plain text (Tour's texPlain, with spaces after operator names and the decimal comma): «Im z = 0,8». English keeps its TeX title (pre-existing). «(π)/2» is π/2 since verify-8."
+ },
+ {
+  "id": "eng-11",
+  "status": "fixed",
+  "note": "Russian guide, under the keys table: «Буквенные клавиши работают и в русской раскладке: важна клавиша, а не буква (V — М, P — З, M — Ь).» English has no such line."
+ },
+ {
+  "id": "eng-12",
+  "status": "fixed",
+  "note": "The Auto item names I18N._resolve({pref: 'auto', ns, nav}): under ?ns= it says Auto (English)."
+ },
+ {
+  "id": "eng-13",
+  "status": "fixed",
+  "note": "tools/make_ru_table.py drops a plural object under a key without the plural separator (1 entry) and lists entries whose placeholder key has no literal call site in tools/ru_report.json ('orphans', 192). They are not dropped: the tour and other code look keys up through variables, which the script cannot see."
+ },
+ {
+  "id": "verify-1",
+  "status": "fixed",
+  "note": "funcs.js: a saved list now reads by one rule in both languages. With a ';' outside brackets the items split on ';' and a comma between two digits is a decimal comma; without one, on commas, as before. The refusal of 'digit,digit' with no ';' now applies only to text typed into the field in the Russian interface: the card's coefficient fields and the zero and pole fields register what is typed (Funcs.typedList, a WeakMap per step); a saved or switched text is not in it. An undo carries the record to the restored step (Funcs.typedKeep in restore), so a refused text stays refused after an undo and builds again after the redo (v_undo.js). Checked in the browser (test/vc_cdp/cmd/v_all.js, v_typed.js, v_back.js): the verifier's chain (zeros '1,0.5', coefficients '1,0,1') builds in English and, after the switch through the globe, in Russian, with no error and the same lamps; a Russian list '0,5; -1' opens in English as 0.5 and -1, and lists typed in Russian ('0,5; 1', '0,25; −1') survive the switch to English through the globe. Typing '1,5' or '0,5' in Russian still gets the hint; '1,5; 2' and '1, 5' build. English change: a list with ';' (an error before) now reads like the Russian one. t_i18n.js has the cases in both directions; t_zp, t_funcs, t_i18n_english (977 identical) pass."
+ },
+ {
+  "id": "verify-2",
+  "status": "rejected (evidence)",
+  "note": "No cost in our code. (1) CPU profile of __cmwExample(13) to the second animation frame, English, after examples 0-12 as the harness loads them, 3 loads per build alternating (test/vc_cdp/cmd/v_prof.js): native time «(program)» (GPU process: shader compile and link) 189.5 ms in xb-base and 197.4 ms in xb, getProgramParameter 7.9 and 9.2 ms; every JavaScript function is under 3.6 ms in both, and no new code (notation, captions, $t) appears. (2) Direct timing, no profiler, 4 loads each alternating (v_time.js): call to first frame, median 46.9 ms xb-base, 42.2 ms xb. (3) The failing run had xb link 8 programs and xb-base 9 for this load; the first frame waits on what is still linking. (4) Paired quick run 04:12 against xb-base: examples.13.first_frame_ms 73.4 -> 77.2 ms with 8 programs in both (pass). Its 2 FAILs were noise: hover.default.input_p95_ms 1.79 -> 2.8 ms passed in a 5-rep paired rerun (median 2.0 -> 2.0 ms); examples.4.gpu_peak_bytes passed in a 3-rep paired rerun of the examples unit, where it swaps between 2,400,704 and 3,294,400 B in both builds (examples.13: 76.3 -> 73.9 ms). That rerun: PASS, 0 FAIL."
+ },
+ {
+  "id": "verify-3",
+  "status": "open (lead)",
+  "note": "Not mine to decide: the verifier asks the lead to choose. The numbers now: dist/complex-map-workbench.html is 2,744,248 B against 2,255,552 B for xb-base (+488,696 B, +21.7 %). The parts and the two remedies are in PHASE2B.md 'Size (english-4)'. Nothing recorded in USER-DECISIONS.md."
+ },
+ {
+  "id": "verify-4",
+  "status": "open (after the merge)",
+  "note": "Can only be closed on the merged build. A trial merge now (git merge-file, xb-base as the base, xr's src as of 23:15) gives the same 3 conflicts (app.js: the Shapes heading and the count; figure.js: the copy-again toast); xb's side is right in each. A static scan of the merged app.js and figure.js finds no new English sentence outside $t: xr's only new user strings are the two toasts, which xb already wraps. page.html (CSS only), tour.js, sound.js, calc.js, parse.js and funcs.js merge clean. Still to do after the real merge: make_ru_table.py --strict, test/i18n_walk_cmd.js at 1440 and 390 px, test/i18n_cmd.js. A Russian walk (i18n_walk_cmd.js, 1440 px, light) on the trial-merged build (built from the merge, served at /mtrial/) found 2 strings, both in xb itself, not from xr: the plain-text shape tooltip of eng-10 wrote «сетка [-1,5; 1,5]times[0; 2,4]» (examples 5 and 7 with the deformation). Fixed in app.js texTitle: × for \\times and a minus sign for '-' outside a Russian word."
+ },
+ {
+  "id": "verify-5",
+  "status": "fixed",
+  "note": "parse.js parseOnce: in Russian, a comma between two digits that still reads as two conditions (Re z>0,5<|z|, Re z<1,0<Im z) is kept, and a caller that passes opts.notes gets «Запятая между цифрами разделяет условия; дробную часть отделяйте точкой». app.js shows it under the region formula field (#formulaNote, also after a curve's note) and as the tip of a formula shape's field. Not a refusal: the meaning is unchanged. Checked in the browser (v_typed.js): «Re z>0,5<|z|» shows the note; «|z|<1, Re z>0» shows none; «|z| < 0,5» keeps its error. English never gets a note (commaHint is Russian only). New string in notes/i18n/ru/phase2b-fixes.json (fx.parse.digit_comma_note)."
+ },
+ {
+  "id": "verify-6",
+  "status": "fixed",
+  "note": "parse.js: the tokens of и, или, не keep their spelling (src), and the 'Unexpected' messages name it. Russian: «и |z|<1» -> «Здесь не ожидалось «и»», «или» -> «Здесь не ожидалось «или»» (node and browser). English messages are unchanged (t_i18n_english: 977 identical; 'and |z|<1' still says Unexpected 'and')."
+ },
+ {
+  "id": "verify-7",
+  "status": "fixed",
+  "note": "app.js paletteItems: the palette rows «Язык: English» and «Язык: Русский» (and 'Language: …' in English) set the name in a span with lang=en or lang=ru, as the menu does. The row's text and its search are unchanged. Checked in the browser in both languages (v_all.js)."
+ },
+ {
+  "id": "verify-8",
+  "status": "fixed",
+  "note": "app.js texTitle (the plain-text tooltip outside English): a fraction of two single symbols or numbers becomes a/b before Tour's reading, so example 1 reads «|Im z| < π/2» (browser, v_all.js). Larger fractions keep their brackets ((z−i)/(z+i)). tour.js is not changed, so English tour text is unchanged. texTitle also writes × for \\times and − for a minus (found by the walk, see verify-4)."
+ }
+]

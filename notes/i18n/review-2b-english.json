@@ -1,0 +1,58 @@
+[
+  {
+    "id": "english-1",
+    "severity": "medium",
+    "title": "English shortcuts now fire on AltGr, Option and non-ASCII keys, and one eats a typed letter in the formula field",
+    "detail": "app.js now reads letter keys through I18N.keyOf(e). For any single non-ASCII e.key, keyOf returns the US letter of the physical key (e.code), also when Alt is held. On Windows, AltGr is reported as Ctrl+Alt. So in the ENGLISH interface: (a) AltGr+K (Hungarian 'ł') typed in the formula field opens the palette and moves focus there, and the letter is lost. The Cmd/Ctrl+K branch runs before the text-field check. (b) AltGr+Z (Polish 'ż') outside a text field runs Undo, and AltGr+Y runs Redo. (c) On a Mac, Cmd+Option+K and Cmd+Option+Z (e.key 'Ω') open the palette and undo. (d) Latin letters on the bracket key now act as '[': Swedish 'å', German 'ü' and Italian 'è' toggle the left panel. None of these did anything in the base. The ЙЦУКЕН goal only needs non-Latin letters typed without Alt.",
+    "evidence": "work/xb/test/rv2be_cdp/evidence/keys.js, keys_result.json, keys2.js, keys2_result.json: CDP key events, English, base.html against test.html. Base: nothing happens. xb: AltGr+K in #formulaInput -> palette open, focus on palInput. AltGr+Z after loading example 2 -> undo (3 cards, Undo disabled, Redo enabled). 'å' (code BracketLeft) -> hideLeft true. Source: src/i18n.js keyOf; src/app.js 12576 and 12588 (the `mod && key === 'k'` branch has no textEntry guard).",
+    "fix": "In I18N.keyOf, return e.key unchanged when e.altKey is set (AltGr and Option compose characters). Use the e.code fallback only when e.key is a letter of a non-Latin script, for example /\\p{Script=Cyrillic}|\\p{Script=Greek}/u. Then Latin layouts (å, ü, ł, ż) behave as in the base and ЙЦУКЕН still works. Add these four cases to test/t_i18n.js."
+  },
+  {
+    "id": "english-2",
+    "severity": "medium",
+    "title": "The 3-way merge with xr has 4 conflicts; taking xb's side changes English",
+    "detail": "A trial `git merge-file` of xr's current src into xb (base xb-base, at 01:41) gives 3 conflicts in app.js and 1 in figure.js. page.html merges clean. In each conflict, xr changed English behaviour after the branch point, while xb only wrapped the old line in $t. The changes on xr's side: (1) it removed the empty-plane note «No shapes yet.» (the user asked for this on 2026-10-22); (2) it removed the Shapes panel's empty note; (3) the empty count is now ''; (4) in figure.js, the 'Saved … .png' toast shows only when saveFile did not return false. If the merger keeps xb's side, English brings back the text the user asked to remove, and the save toast regresses. xr's other new strings merge in unwrapped. For English that is fine, but they stay English in the Russian interface.",
+    "evidence": "work/xb/test/rv2be_cdp/evidence/trialmerge_conflicts.txt. Command: git merge-file -p xb/src/F xb-base/src/F xr/src/F, for app.js, figure.js and page.html. Lines changed by xr since xb-base: app.js 33, page.html 19, figure.js 240.",
+    "fix": "Resolve all 4 conflicts with xr's behaviour. Then wrap only the strings that remain: ', {hid} hidden', '{n} shape(s)' and 'Saved {name}.png …'. After the merge, run the English walk again against the merged xr build, not against xb-base."
+  },
+  {
+    "id": "english-3",
+    "severity": "low",
+    "title": "English page load costs about 8 ms more script time",
+    "detail": "The published page was wrapped with a charset and loaded in English. Run 1: 8 loads each. Run 2: 16 loads each, alternating with the base. Run 2 results: median ScriptDuration 75.1 ms in the base and 84.6 ms in xb, median paired difference +8.0 ms. DOMContentLoaded median 125.5 and 131.5 ms; minimum 103 and 112 ms. Run 1 gave +10 ms script. Both runs were on a loaded machine, but the gap is the same in both. Compiling the script costs only +1.7 ms (node vm.Script, median of 25: 17.2 against 19.0 ms), and the Russian table plus cyr.js account for 0.7 ms of that. So most of the cost is execution at startup. The source is not known yet. Candidates: the $t/fill calls while funcs.js builds the catalog, cyr.js and the i18n_ru.js define call. No table parse, font load or applyStatic runs in English (checked). There is no effect on frames or the 60 fps budget. It is a one-time cost at load, but the rule says English costs nothing.",
+    "evidence": "work/xb/test/rv2be_cdp/evidence/load_en.json and load2_en_raw.json (CDP Performance.getMetrics and navigation timing per load).",
+    "fix": "Profile init in English once (base against xb, a CPU profile of the first 300 ms). If $t is the cost, make the English path a bare return: `const t = lang === 'en' && !cur ? (s, p) => (p ? fill(s, p) : s) : …`. Also avoid fill's two regex passes when the template has no '{'. Then measure again on a quiet machine."
+  },
+  {
+    "id": "english-4",
+    "severity": "low",
+    "title": "Every English reader downloads 142 KB more (gzip); the note says 76 KB",
+    "detail": "complex-map-workbench.html went from 2,255,552 to 2,725,490 bytes. That is +469,938 B raw (+20.8 %), +142,352 B with gzip -9 (+20.5 %) and about +94.6 KB with brotli. The parts: i18n_ru.js 69.1 KB gzip, cyr.js 48.3 KB, i18n.js 10.5 KB, and the $t wrapping in the other files. The lead's decision (PHASE2A.md, 23:15) says 'about +76 KB gzip' for English readers. The same note mentions cyr.js's 48 KB, but the total was never stated. English never parses either table (checked: no JSON.parse of a string longer than 50 KB, no font link).",
+    "evidence": "wc -c and gzip -9c on a scratch build of xb-base (same build.py) and on work/xb/dist/complex-map-workbench.html (01:10 build; identical to a fresh build of xb/src).",
+    "fix": "Give the lead the real total (+142 KB gzip, +21 %). If it is too much, shrink cyr.js. The Italic face sets only the panel letters а–м, and Bold sets «Рис.» and digits, so both glyph sets can be cut to those characters."
+  },
+  {
+    "id": "english-5",
+    "severity": "low",
+    "title": "Point labels with two or more Greek or Cyrillic letters render differently in English",
+    "detail": "Two Latin-only tests became any-letter tests. (1) app.js 2287: a canvas point label is drawn as a 'word' when it matches /\\s|\\p{L}{3,}/u. The base used /\\s|[A-Za-z]{3,}/. (2) app.js 9080, the caption phrase: /\\p{L}{2}|\\s/u, where the base used /[A-Za-z]{2}|\\s/. So a point labelled 'αβ' now reads 'the αβ $z=…$' in the caption, where the base wrote '$αβ=…$'. figure.js now sets a label that contains Cyrillic as \\text{}, and sets Cyrillic in figures from CMU outlines, also in English. These are English output changes that are not on the allowed list. They are rare: only labels the user typed are affected. The change is arguably better, but it is a change.",
+    "evidence": "diff xb-base/src/app.js xb/src/app.js: the hunk @@ -2285 (word:) and the caption phrase (base line 9022, xb line 9080). figure.js: the label test adds /[\\u0400-\\u04ff]/; XD.tex routes text with Cyrillic to CYR.typeset. Check: /\\s|[A-Za-z]{3,}/.test('αβγ') is false; /\\s|\\p{L}{3,}/u.test('αβγ') is true.",
+    "fix": "Keep the base's Latin tests when I18N.lang is 'en'. Or have the lead accept this as an intended English change and list it with the three source fixes."
+  },
+  {
+    "id": "english-6",
+    "severity": "low",
+    "title": "Perf quick paired gate fails on GPU bytes only, and the default scene is identical when run alone",
+    "detail": "test/regress/perf/run.sh --paired --quick against xb-base gave FAIL 6, IMPROVED 10 and PASS 496. All 6 failures are GPU byte counts. examples.4.gpu_peak_bytes went from 2.29 to 3.14 MiB. image.default.m240 gpu_live, peak and peak_end went from 1.88 to 2.63 MiB. scrub.blaschke_phi live and peak went from 1.81 to 3.21 MiB and from 2.00 to 3.40 MiB. At the same time, examples.0 IMPROVED from 2.63 to 1.88 MiB, the mirror of the default-scene failure. The integrator's run 2 had the same pattern. A paired run of image.default.m240 alone (3 reps) gave identical bytes in both builds: 1,976,272 B. So the byte count depends on what an earlier unit left resident, not on the build. No time or frame metric failed. The run was on a loaded machine (my acceptance Chromes were running).",
+    "evidence": "work/xb/test/rv2be_cdp/evidence/perf_paired_quick.log and perf_isolated_default.txt; results/paired-20261023-014157*.json and paired-20261023-014841*.json in test/regress/perf/results.",
+    "fix": "Read GPU bytes after a forced cleanup (dropAllGPU, or a fresh page per unit), or make mem_bytes info-only in paired mode. Then run the full paired suite on a quiet machine. examples.4 and scrub.blaschke_phi were not isolated this round."
+  },
+  {
+    "id": "english-7",
+    "severity": "low",
+    "title": "Three acceptance files fail; the causes are outside the i18n work",
+    "detail": "I ran 11 browser acceptance files on xb. These 8 pass: tour_cmd (92/92), mv_views_cmd, zp_cmd, zpfix_cmd, deform_nat_cmd, p3b_accept_cmd, morphfig_cmd and p5_accept_cmd. Three fail. (1) curves_cmd fails only its three 'no page errors' checks. The errors are 404s for /gl-helpers.html and /favicon.ico: the kit opens gl-helpers.html, and dist/ has no such file. Every other curves check passes. (2) In sound_cmd, the check 'queue: 12 turns → 8 bells and one flourish' saw 9 bells in 2 of 3 xb runs and 8 in the third. The base gave 8 in both its runs. sound.js differs from the base only in its last 3 lines, which do nothing in English. The guard compares ctx.currentTime, which can move during a synchronous loop, so the result depends on machine load. (3) p3_accept_cmd fails its two '(h) the dialog' checks. They look for the 'Figure for an article' menu item and #figWidth, which the export redesign removed. Neither is in xb-base either, so this file did not pass on the base. One side note: the Russian table still carries the stale key 'Figure for an article'.",
+    "evidence": "work/xb/test/rv2be_cdp/evidence/acceptance/ (acc_xb_*.out, acc_base_sound_cmd*.out). The sound failure: {r: 9 true, then 3 'coalesced'; bells: 9; many: 1}. p3: TypeError on null.click in '(h) the dialog'.",
+    "fix": "curves: serve gl-helpers.html (from test/gl_make_test.py) next to dist, or ignore 404s in that check. sound: count the bells against a frozen clock in the test, or accept 8 or 9; then run it 5 times on each build on a quiet machine. p3_accept: mark (h) as superseded by export_cmd.js."
+  }
+]

@@ -1168,8 +1168,16 @@ async function main() {
   if (flag('list')) { for (const u of UNITS) console.log(u.id.padEnd(22), u.desc); return; }
   const t0 = Date.now();
   let server = null;
-  if (flag('serve') || !(await reachable(BASE + 'test.html'))) {
-    if (!flag('serve')) log(`${BASE}test.html is not reachable: serving dist/ myself`);
+  // a server at BASE that serves another tree's build (the main tree's 8793 while this runs from a work copy) would
+  // measure that build under this tree's name: then this tree's dist/ is served instead
+  const sameBuild = async (url) => {
+    try { const r = await fetch(url, { cache: 'no-store' }); const b = Buffer.from(await r.arrayBuffer()); return b.equals(fs.readFileSync(path.join(DIST, 'test.html'))); } catch (e) { return true; }
+  };
+  let other = false;
+  if (!flag('serve') && opt('base', '') === '' && (await reachable(BASE + 'test.html')) && !(await sameBuild(BASE + 'test.html'))) other = true;
+  if (flag('serve') || other || !(await reachable(BASE + 'test.html'))) {
+    if (other) log(`${BASE}test.html is not this tree's dist/test.html: serving ${DIST} myself`);
+    else if (!flag('serve')) log(`${BASE}test.html is not reachable: serving dist/ myself`);
     server = await serveDist();
     BASE = `http://127.0.0.1:${server.address().port}/`;
   }

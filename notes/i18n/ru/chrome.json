@@ -1,0 +1,4717 @@
+{
+ "_meta": {
+  "about": "Russian strings for areas chrome and sound (sound is provisional, from work/xs). Keys are inventory ids (notes/i18n/inventory.json); keys with \".extra.\" are visible strings missing from the inventory.",
+  "fields": {
+   "en": "source text from the inventory, unchanged",
+   "ru": "the translation; placeholders, HTML, LaTeX and key names kept",
+   "plural": "Intl.PluralRules(\"ru\") forms one/few/many/other when the sentence has a count (other = fractional numbers)",
+   "ru_short": "shorter variant for a label that risks overflowing",
+   "split": "the English string glues a word in a slot; Russian needs one key per value of that slot (each value may itself hold plural forms)",
+   "keep": "true when the text is not visible (CSS, ids, font stacks) or must not change (brand, key names, formula examples)",
+   "note": "what the implementer must know",
+   "missing_from_inventory": "true for .extra. keys; their en is the code template as written in the source (with ${...} shown as {...}), not an inventory text",
+   "en_key": "the English template the phase-2 call site writes when it differs from en: identifier names, %{name} in a template with TeX (review i18n-4). It renders exactly en. The table key is en_key.",
+   "ph": "for a renamed slot, what it stands for in en (\"{2}\", or a literal such as \",\" that English always fills in)",
+   "en_plural": "[one, many]: the English pair of a plural entry ($tn key one + U+0004 + many); per split variant when the entry splits (review i18n-5). The count is {n}.",
+   "ctx": "a $tx/$tn context, when two entries share one English text"
+  },
+  "generated": "2026-10-22",
+  "glossary": "notes/i18n/GLOSSARY.md"
+ },
+ "chrome.changes_are_not_being": {
+  "en": "Changes are not being saved: this browser blocks site storage.",
+  "ru": "Изменения не сохраняются: браузер блокирует хранилище сайта."
+ },
+ "chrome.no_active_steps": {
+  "en": "no active steps",
+  "ru": "нет активных шагов"
+ },
+ "chrome.all_steps_t_2": {
+  "en": "all steps · t = {2}",
+  "ru": "все шаги · t = {t}",
+  "note": "{2} is t.toFixed(2): format it with I18N.num() so Russian shows the decimal comma (0,50).",
+  "en_key": "all steps · t = {t}",
+  "ph": {
+   "t": "{2}"
+  }
+ },
+ "chrome.at_most_funcs_zp": {
+  "en": "At most {Funcs.ZP_MAX} {kind} (degree {Funcs.ZP_MAX}, as Write by zeros and poles allows).",
+  "ru": "Не более {zpMax} {kind} (степень {zpMax} — предел для задания нулями и полюсами).",
+  "split": {
+   "zeros": "Не более {zpMax} нулей (степень {zpMax} — предел для задания нулями и полюсами).",
+   "poles": "Не более {zpMax} полюсов (степень {zpMax} — предел для задания нулями и полюсами)."
+  },
+  "note": "{kind} is the raw id \"zeros\"/\"poles\" and needs the genitive plural. Split into two keys (see split); the count is the constant 24, so the form is fixed.",
+  "en_key": "At most {zpMax} {kind} (degree {zpMax}, as Write by zeros and poles allows).",
+  "ph": {
+   "zpMax": "{Funcs.ZP_MAX}"
+  }
+ },
+ "chrome.at_most_max_kind": {
+  "en": "At most {MAX} {kind}",
+  "ru": "Не более {n} {kind}",
+  "split": {
+   "zeros": {
+    "one": "Не более {n} нуля",
+    "few": "Не более {n} нулей",
+    "many": "Не более {n} нулей",
+    "other": "Не более {n} нуля"
+   },
+   "poles": {
+    "one": "Не более {n} полюса",
+    "few": "Не более {n} полюсов",
+    "many": "Не более {n} полюсов",
+    "other": "Не более {n} полюса"
+   }
+  },
+  "note": "{kind} is the raw id \"zeros\"/\"poles\". Split into two keys; after «не более» the noun is genitive: 1 нуля, 2 нулей, 5 нулей.",
+  "en_plural": {
+   "zeros": [
+    "At most {n} zeros",
+    "At most {n} zeros"
+   ],
+   "poles": [
+    "At most {n} poles",
+    "At most {n} poles"
+   ]
+  },
+  "en_key": "At most {n} {kind}",
+  "ph": {
+   "n": "{MAX}"
+  }
+ },
+ "chrome.add_zero_or_shift": {
+  "en": "Add a zero (or Shift-click in the input plane)",
+  "ru": "Добавить нуль (или Shift + щелчок в исходной плоскости)"
+ },
+ "chrome.add_pole_or_shift": {
+  "en": "Add a pole (or Shift-⌘-click in the input plane)",
+  "ru": "Добавить полюс (или Shift + ⌘ + щелчок в исходной плоскости)"
+ },
+ "chrome.add_one_f_k": {
+  "en": "Add a {one} to f{k} ({x} now)",
+  "ru": "Добавить {one} функции f{k} (сейчас: {x})",
+  "split": {
+   "zeros": "Добавить нуль функции f{k} (сейчас: {x})",
+   "poles": "Добавить полюс функции f{k} (сейчас: {x})"
+  },
+  "note": "{one} is the raw word \"zero\"/\"pole\": split into two keys so the noun is translated with the sentence."
+ },
+ "chrome.remove_sym": {
+  "en": "Remove {sym}",
+  "ru": "Удалить {sym}"
+ },
+ "chrome.remove_what_i_f": {
+  "en": "Remove {what} {i} of f{k}",
+  "ru": "Удалить {what} {i} функции f{k}",
+  "split": {
+   "zeros": "Удалить нуль {i} функции f{k}",
+   "poles": "Удалить полюс {i} функции f{k}"
+  },
+  "note": "{what} is \"zero\"/\"pole\". Split into two keys (DESIGN.md section 1 already has \"Remove zero {i} of {f}\"). No plural needed: {i} is an index."
+ },
+ "chrome.choice_sym_drag_input": {
+  "en": "{choice} {sym}: drag it in the input plane",
+  "ru": "{choice} {sym}: перетащите его в исходной плоскости",
+  "note": "{choice} is $t(\"Zero\") or $t(\"Pole\") = «Нуль»/«Полюс»; both are masculine, so «его» fits both."
+ },
+ "chrome.zero": {
+  "en": "Zero",
+  "ru": "Нуль"
+ },
+ "chrome.pole": {
+  "en": "Pole",
+  "ru": "Полюс"
+ },
+ "chrome.step_cannot_be_rewritten": {
+  "en": "This step cannot be rewritten.",
+  "ru": "Этот шаг нельзя записать в другом виде."
+ },
+ "chrome.f_k_now_given": {
+  "en": "f{k} is now given by its zeros and poles ({r.note}): drag them in its input plane.",
+  "ru": "Шаг f{k} теперь задан нулями и полюсами ({note}): перетаскивайте их в его исходной плоскости.",
+  "note": "{r.note} comes from funcs.js (math area) and must be translated there.",
+  "en_key": "f{k} is now given by its zeros and poles ({note}): drag them in its input plane.",
+  "ph": {
+   "note": "{r.note}"
+  }
+ },
+ "chrome.f_k_now_given_2": {
+  "en": "f{k} is now given by its coefficients.",
+  "ru": "Шаг f{k} теперь задан коэффициентами."
+ },
+ "chrome.no_shapes_yet": {
+  "en": "No shapes yet.",
+  "ru": "Фигур пока нет."
+ },
+ "chrome.evaluation_failed": {
+  "en": "Evaluation failed",
+  "ru": "Не удалось вычислить"
+ },
+ "chrome.add_function_map_region": {
+  "en": "Add a function to map the region",
+  "ru": "Добавьте функцию, чтобы отобразить область"
+ },
+ "chrome.add_function": {
+  "en": "Add function",
+  "ru": "Добавить функцию"
+ },
+ "chrome.pole_r_mult": {
+  "en": "pole ×{r.mult}",
+  "ru": "полюс ×{mult}",
+  "note": "Canvas label next to a pole of multiplicity > 1; \"×2\" stays, so no plural is needed.",
+  "en_key": "pole ×{mult}",
+  "ph": {
+   "mult": "{r.mult}"
+  }
+ },
+ "chrome.pole_2": {
+  "en": "pole",
+  "ru": "полюс",
+  "note": "Same literal is an identifier and a test literal: translate only the drawn label."
+ },
+ "chrome.fntext_d_dv_around": {
+  "en": "∮ {fnText} d{dv} around {name}",
+  "ru": "∮ {fnText} d{dv} по контуру {name}",
+  "note": "«по контуру {name}» keeps the shape name in the nominative (apposition), so names like «Окружность 1» need no case."
+ },
+ "chrome.integrate_fntext_along_name": {
+  "en": "Integrate {fnText} along {name}",
+  "ru": "Вычислить интеграл от {fnText} по кривой {name}",
+  "ru_short": "Интеграл по кривой {name}",
+  "note": "Menu label; «кривой» keeps {name} in the nominative."
+ },
+ "chrome.line_integral": {
+  "en": "Line integral",
+  "ru": "Интеграл по кривой"
+ },
+ "chrome.copy": {
+  "en": "Copy",
+  "ru": "Скопировать"
+ },
+ "chrome.copy_what": {
+  "en": "Copy {what}",
+  "ru": "Скопировать {what}",
+  "note": "{what} is \"the integral\" / \"the integral over 2πi\": translate those in the accusative («интеграл», «интеграл, делённый на 2πi»)."
+ },
+ "chrome.close_esc": {
+  "en": "Close  Esc",
+  "ru": "Закрыть  Esc"
+ },
+ "chrome.close": {
+  "en": "Close",
+  "ru": "Закрыть",
+  "note": "Test literal: tests must select by id or pin English."
+ },
+ "chrome.around": {
+  "en": "around",
+  "ru": "по контуру",
+  "note": "Title reads \"∮ {name}\" with this word between: «∮ по контуру Окружность 1»."
+ },
+ "chrome.along": {
+  "en": "along",
+  "ru": "по кривой"
+ },
+ "chrome.visible_part": {
+  "en": " <span class=\"int-part\">(visible part)</span>",
+  "ru": " <span class=\"int-part\">(видимая часть)</span>"
+ },
+ "chrome.counting_zeros_poles_inside": {
+  "en": "Counting zeros and poles inside…",
+  "ru": "Подсчёт нулей и полюсов внутри…"
+ },
+ "chrome.pole_3": {
+  "en": " pole",
+  "ru": " pole",
+  "keep": true,
+  "note": "Not visible text: this is the CSS class in class=\"sw pole\" (app.js 5855). Do not translate. The visible word is the separate literal \"pole\" (nm) on the same line: «полюс»."
+ },
+ "chrome.shown_more": {
+  "en": "and {shown} more",
+  "ru": "и ещё {n}",
+  "plural": {
+   "one": "и ещё {n}",
+   "few": "и ещё {n}",
+   "many": "и ещё {n}",
+   "other": "и ещё {n}"
+  },
+  "note": "No noun, so all forms are the same; still route it through $tn for safety.",
+  "en_plural": [
+   "and {n} more",
+   "and {n} more"
+  ],
+  "en_key": "and {n} more",
+  "ph": {
+   "n": "{shown}"
+  }
+ },
+ "chrome.search_stopped_early_there": {
+  "en": "The search stopped early; there may be more inside.",
+  "ru": "Поиск остановлен досрочно: внутри могут быть и другие нули или полюсы."
+ },
+ "chrome.counts_differ_fh_has": {
+  "en": "The counts differ: {Fh} has a branch cut or an essential singularity inside the curve, where the argument principle does not apply.",
+  "ru": "Числа не совпадают: внутри кривой у {Fh} есть разрез или существенно особая точка, и принцип аргумента неприменим."
+ },
+ "chrome.fh_vanishes_blows_up": {
+  "en": "{Fh} vanishes, blows up or jumps on the curve, so the argument principle does not apply.",
+  "ru": "На кривой функция {Fh} обращается в нуль или в бесконечность либо терпит разрыв, поэтому принцип аргумента неприменим."
+ },
+ "chrome.running_integral_fh_from": {
+  "en": "Running integral of {Fh} from 0 (○) to its value (●){choice}",
+  "ru": "Интеграл от {Fh} с переменным верхним пределом: от 0 (○) до полного значения (●){choice}",
+  "note": "{choice} is the next entry (dashed gap) or empty."
+ },
+ "chrome.dashed_gap_back_0": {
+  "en": "; the dashed gap back to 0 is ∮",
+  "ru": "; штриховая линия обратно к 0 — это ∮",
+  "note": "No-break space before «—»."
+ },
+ "chrome.draw_curve_or_region": {
+  "en": "Draw a curve or a region first: right-click a curve to integrate along it.",
+  "ru": "Сначала нарисуйте кривую или область: чтобы вычислить интеграл по кривой, щёлкните её правой кнопкой."
+ },
+ "chrome.draw_target_yhtml_plane": {
+  "en": "Draw a target in the {yHtml}-plane",
+  "ru": "Нарисуйте цель в плоскости {yHtml}"
+ },
+ "chrome.display_options": {
+  "en": "Display options",
+  "ru": "Настройки вида",
+  "note": "Glossary: \"display\" = «вид», never «отображение»."
+ },
+ "chrome.display_options_2": {
+  "en": "Display options",
+  "ru": "Настройки вида"
+ },
+ "chrome.display_options_3": {
+  "en": "Display options",
+  "ru": "Настройки вида"
+ },
+ "chrome.all_sheets_ms_k": {
+  "en": "All sheets ({ms.K} of {ms.total})",
+  "ru": "Все листы ({K} из {total})",
+  "en_key": "All sheets ({K} of {total})",
+  "ph": {
+   "K": "{ms.K}",
+   "total": "{ms.total}"
+  }
+ },
+ "chrome.all_sheets": {
+  "en": "All sheets",
+  "ru": "Все листы"
+ },
+ "chrome.ms_k_ms_total": {
+  "en": "{ms.K} of the {ms.total} surfaces are drawn (at most {ms.K}).",
+  "ru": "Показано поверхностей: {K} из {total} (не более {K}).",
+  "note": "Colon form avoids a plural on {ms.K}.",
+  "en_key": "{K} of the {total} surfaces are drawn (at most {K}).",
+  "ph": {
+   "K": "{ms.K}",
+   "total": "{ms.total}"
+  }
+ },
+ "chrome.all_sheets_height_now": {
+  "en": "All sheets: the height is now Im {fnText}, where the sheets come apart (a modulus height stacks them).",
+  "ru": "Все листы: высота теперь равна Im {fnText} — на ней листы расходятся (при высоте по модулю они накладываются друг на друга)."
+ },
+ "chrome.reset_camera": {
+  "en": "Reset camera",
+  "ru": "Сбросить камеру"
+ },
+ "chrome.reset_camera_2": {
+  "en": "Reset camera",
+  "ru": "Сбросить камеру"
+ },
+ "chrome.phase_colours_yhtml_plane": {
+  "en": "The phase colours of the {yHtml}-plane under the images",
+  "ru": "Цвета фазы плоскости {yHtml} под образами"
+ },
+ "chrome.pause": {
+  "en": "Pause",
+  "ru": "Пауза"
+ },
+ "chrome.play": {
+  "en": "Play",
+  "ru": "Воспроизвести",
+  "note": "Test literal (title): tests must select by id."
+ },
+ "chrome.pause_2": {
+  "en": "Pause",
+  "ru": "Пауза"
+ },
+ "chrome.play_2": {
+  "en": "Play",
+  "ru": "Воспроизвести"
+ },
+ "chrome.deformation_time": {
+  "en": "Deformation time",
+  "ru": "Время деформации"
+ },
+ "chrome.f_x_f_x": {
+  "en": "<i>f</i>{x}, …, <i>f</i>{x} at once",
+  "ru": "<i>f</i>{x}, …, <i>f</i>{x2} сразу",
+  "note": "The source has two different values under the same name {x} (first and last index). Rename them {x1}, {x2} when wrapping.",
+  "en_key": "<i>f</i>{x}, …, <i>f</i>{x2} at once",
+  "ph": {
+   "x2": "{x}"
+  }
+ },
+ "chrome.steps": {
+  "en": "steps",
+  "ru": "steps",
+  "keep": true,
+  "note": "Identifier: app.js 6743 sets order.value = \"steps\" (a <select> value). Not shown; do not translate."
+ },
+ "chrome.d_dz_not_map": {
+  "en": "d/dz is not a map: its step deforms on its own, so the steps run one after another",
+  "ru": "d/dz — не отображение: этот шаг деформируется отдельно, поэтому шаги идут по очереди"
+ },
+ "chrome.deformation_off_m": {
+  "en": "Deformation off  M",
+  "ru": "Выключить деформацию  M"
+ },
+ "chrome.turn_deformation_off": {
+  "en": "Turn the deformation off",
+  "ru": "Выключить деформацию"
+ },
+ "chrome.hide": {
+  "en": "Hide",
+  "ru": "Скрыть",
+  "note": "Test literal (paths button tip)."
+ },
+ "chrome.show": {
+  "en": "Show",
+  "ru": "Показать"
+ },
+ "chrome.icons_paths_paths": {
+  "en": "{ICONS.paths}<span>Paths</span>",
+  "ru": "{iconPaths}<span>Пути</span>",
+  "en_key": "{iconPaths}<span>Paths</span>",
+  "ph": {
+   "iconPaths": "{ICONS.paths}"
+  }
+ },
+ "chrome.d_dz_not_map_2": {
+  "en": "d/dz is not a map, so there are no paths t ↦ H_t(z) to draw",
+  "ru": "d/dz — не отображение, поэтому путей t ↦ H_t(z) нет"
+ },
+ "chrome.hide_2": {
+  "en": "Hide",
+  "ru": "Скрыть"
+ },
+ "chrome.show_2": {
+  "en": "Show",
+  "ru": "Показать"
+ },
+ "chrome.reset_camera_3": {
+  "en": "Reset camera",
+  "ru": "Сбросить камеру"
+ },
+ "chrome.reset_camera_4": {
+  "en": "Reset camera",
+  "ru": "Сбросить камеру"
+ },
+ "chrome.equatorial_plane_projection_ray": {
+  "en": "Equatorial plane and projection ray",
+  "ru": "Плоскость экватора и проектирующий луч"
+ },
+ "chrome.1_2_i_fh": {
+  "en": "(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {cp.name}: {Fh} inside, 0 outside",
+  "ru": "(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> по контуру {name}: {Fh} внутри, 0 снаружи",
+  "en_key": "(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside",
+  "ph": {
+   "name": "{cp.name}"
+  }
+ },
+ "chrome.select_closed_curve_or": {
+  "en": "Select a closed curve or a bounded region: its Cauchy integral is shown.",
+  "ru": "Выделите замкнутую кривую или ограниченную область — будет показан интеграл Коши по этому контуру.",
+  "note": "«выделить» for shapes (GLOSSARY 1.8); the integral is over the contour, not «её»."
+ },
+ "chrome.sheets_shown_on_each": {
+  "en": "Sheets shown on each side of the principal one",
+  "ru": "Сколько листов показывать по обе стороны от главного"
+ },
+ "chrome.sheets": {
+  "en": "sheets ±",
+  "ru": "листы ±",
+  "note": "Label before a number field (\"листы ± 2\")."
+ },
+ "chrome.scale": {
+  "en": "Scale",
+  "ru": "Масштаб"
+ },
+ "chrome.height_scale": {
+  "en": "Height scale",
+  "ru": "Масштаб высоты"
+ },
+ "chrome.add_function_chain_see": {
+  "en": "Add a function to the chain to see its deformation.",
+  "ru": "Добавьте функцию в цепочку, чтобы увидеть её деформацию."
+ },
+ "chrome.pause_3": {
+  "en": "Pause",
+  "ru": "Пауза"
+ },
+ "chrome.play_3": {
+  "en": "Play",
+  "ru": "Воспроизвести"
+ },
+ "chrome.scale_f": {
+  "en": "Scale |F′|",
+  "ru": "Растяжение |F′|",
+  "note": "Canvas legend of the Stretch pattern. Canvas text: needs document.fonts.load() for the Cyrillic face."
+ },
+ "chrome.pattern": {
+  "en": "Pattern",
+  "ru": "Узор"
+ },
+ "chrome.image_cut": {
+  "en": "image of a cut",
+  "ru": "образ разреза"
+ },
+ "chrome.left_view": {
+  "en": "left view",
+  "ru": "образ левого вида",
+  "note": "Canvas legend (app.js 7022): the dashed outline is the image of the left view under F, like «образ разреза» above it. Measured 97 px of the 106 px free (11px UI font); «видимая часть слева» (109 px) was cut. Never «вид слева» (a drawing term: the left side view)."
+ },
+ "chrome.snap_while_drawing": {
+  "en": "Snap while drawing",
+  "ru": "Привязка при рисовании"
+ },
+ "chrome.snap_while_drawing_2": {
+  "en": "Snap while drawing",
+  "ru": "Привязка при рисовании"
+ },
+ "chrome.target_deleted": {
+  "en": "Target deleted.",
+  "ru": "Цель удалена."
+ },
+ "chrome.shape_deleted": {
+  "en": "Shape deleted.",
+  "ru": "Фигура удалена."
+ },
+ "chrome.shapes_targets_cleared": {
+  "en": "Shapes and targets cleared.",
+  "ru": "Фигуры и цели удалены."
+ },
+ "chrome.shapes_cleared": {
+  "en": "Shapes cleared.",
+  "ru": "Фигуры удалены."
+ },
+ "chrome.targets_cleared": {
+  "en": "Targets cleared.",
+  "ru": "Цели удалены."
+ },
+ "chrome.nothing_clear": {
+  "en": "Nothing to clear",
+  "ru": "Нечего очищать"
+ },
+ "chrome.remove_all_shapes_targets": {
+  "en": "Remove all shapes and targets",
+  "ru": "Удалить все фигуры и цели"
+ },
+ "chrome.z_plane": {
+  "en": "<span><i>z</i>-plane</span>",
+  "ru": "<span>Плоскость <i>z</i></span>"
+ },
+ "chrome.no_shapes_yet_draw": {
+  "en": "No shapes yet. Draw one in the <i>z</i>-plane.",
+  "ru": "Фигур пока нет. Нарисуйте фигуру в плоскости <i>z</i>."
+ },
+ "chrome.out_plane": {
+  "en": "<span>{out}-plane</span>",
+  "ru": "<span>Плоскость {out}</span>"
+ },
+ "chrome.no_targets_yet_draw": {
+  "en": "No targets yet. Draw one in the {out}-plane.",
+  "ru": "Целей пока нет. Нарисуйте цель в плоскости {out}."
+ },
+ "chrome.show_3": {
+  "en": "Show",
+  "ru": "Показать"
+ },
+ "chrome.hide_3": {
+  "en": "Hide",
+  "ru": "Скрыть"
+ },
+ "chrome.show_4": {
+  "en": "Show",
+  "ru": "Показать"
+ },
+ "chrome.hide_4": {
+  "en": "Hide",
+  "ru": "Скрыть"
+ },
+ "chrome.more_actions_for_label": {
+  "en": "More actions for {label}",
+  "ru": "Другие действия: {label}",
+  "note": "Colon form keeps the shape name in the nominative."
+ },
+ "chrome.more": {
+  "en": "More",
+  "ru": "Ещё"
+ },
+ "chrome.integrate_fntext_along": {
+  "en": "Integrate {fnText} along it",
+  "ru": "Вычислить интеграл от {fnText} по этой кривой",
+  "ru_short": "Интеграл по этой кривой",
+  "note": "For a region the curve is its boundary; «по этой кривой» still reads right."
+ },
+ "chrome.use_set_itself": {
+  "en": "Use the set itself",
+  "ru": "Взять само множество"
+ },
+ "chrome.use_complement": {
+  "en": "Use complement",
+  "ru": "Взять дополнение"
+ },
+ "chrome.duplicate": {
+  "en": "Duplicate",
+  "ru": "Дублировать"
+ },
+ "chrome.color": {
+  "en": "Color",
+  "ru": "Цвет"
+ },
+ "chrome.preset_i": {
+  "en": "Preset {i}",
+  "ru": "Вариант {i}",
+  "note": "A preset colour in the Color submenu."
+ },
+ "chrome.custom_color": {
+  "en": "Custom color…",
+  "ru": "Другой цвет…"
+ },
+ "chrome.bring_forward": {
+  "en": "Bring forward",
+  "ru": "Переместить вперёд"
+ },
+ "chrome.send_backward": {
+  "en": "Send backward",
+  "ru": "Переместить назад"
+ },
+ "chrome.clear_targets": {
+  "en": "Clear targets",
+  "ru": "Очистить цели"
+ },
+ "chrome.clear_shapes": {
+  "en": "Clear shapes",
+  "ru": "Очистить фигуры"
+ },
+ "chrome.unbounded_drawn_about_200": {
+  "en": "Unbounded: drawn about 200 view-widths out, faded at the edge.",
+  "ru": "Фигура не ограничена: она рисуется примерно на 200 ширин вида и бледнеет к краю.",
+  "note": "«не ограничена»: short form, two words, one «н»."
+ },
+ "chrome.equation_has_no_points": {
+  "en": "This equation has no points in view",
+  "ru": "В видимой части у этого уравнения нет точек"
+ },
+ "chrome.line": {
+  "en": "a line",
+  "ru": "прямая",
+  "note": "From the NAME map (app.js 7611) joined into {plan.what}. Russian: nominative, used after a colon (see chrome.adds_plan_what_z). The other kinds (ray, segment, circle, arc, point, traced curve) need the same treatment: луч, отрезок, окружность, дуга, точка, кривая. The \" and \" join must become I18N.list()."
+ },
+ "chrome.lines": {
+  "en": "lines",
+  "ru": "прямые",
+  "plural": {
+   "one": "{n} прямая",
+   "few": "{n} прямые",
+   "many": "{n} прямых",
+   "other": "{n} прямой"
+  },
+  "note": "Code builds `${c} ${NAME[k][1]}`: replace with $tn so the count sits inside the form. Other kinds: луч/луча/лучей, отрезок/отрезка/отрезков, окружность/окружности/окружностей, дуга/дуги/дуг, точка/точки/точек, кривая/кривые/кривых.",
+  "en_plural": [
+   "{n} line",
+   "{n} lines"
+  ]
+ },
+ "chrome.use_z_or_w": {
+  "en": "Use z or w, not both: z adds a shape, w adds a target",
+  "ru": "Используйте z или w, но не обе переменные: z добавляет фигуру, w — цель"
+ },
+ "chrome.z_plane_2": {
+  "en": "z-plane",
+  "ru": "плоскость z",
+  "note": "The sibling template `w{k}-plane` (same line) becomes «плоскость w{k}»."
+ },
+ "chrome.insert_function_where": {
+  "en": "Insert a function {where}",
+  "ru": "Вставить функцию {where}",
+  "note": "{where} is \"at the start\" / \"after f{k}\": translate those as «в начало» / «после f{k}»."
+ },
+ "chrome.insert_function_where_2": {
+  "en": "Insert a function {where}",
+  "ru": "Вставить функцию {where}"
+ },
+ "chrome.region_show_whole_chain": {
+  "en": "Region: show the whole chain",
+  "ru": "Область: показать всю цепочку"
+ },
+ "chrome.show_whole_chain": {
+  "en": "Show the whole chain",
+  "ru": "Показать всю цепочку"
+ },
+ "chrome.region": {
+  "en": "Region",
+  "ru": "Область",
+  "note": "Test literal."
+ },
+ "chrome.add_function_2": {
+  "en": "Add a function  +",
+  "ru": "Добавить функцию  +"
+ },
+ "chrome.add_function_3": {
+  "en": "Add function",
+  "ru": "Добавить функцию"
+ },
+ "chrome.add_first_function": {
+  "en": "Add the first function",
+  "ru": "Добавить первую функцию"
+ },
+ "chrome.move_left": {
+  "en": "Move left",
+  "ru": "Сдвинуть влево"
+ },
+ "chrome.move_right": {
+  "en": "Move right",
+  "ru": "Сдвинуть вправо"
+ },
+ "chrome.duplicate_2": {
+  "en": "Duplicate",
+  "ru": "Дублировать"
+ },
+ "chrome.replace_with_derivative": {
+  "en": "Replace with derivative",
+  "ru": "Заменить производной"
+ },
+ "chrome.insert_d_dz_after": {
+  "en": "Insert d/dz after it",
+  "ru": "Вставить d/dz после него"
+ },
+ "chrome.presets": {
+  "en": "Presets",
+  "ru": "Готовые варианты"
+ },
+ "chrome.write_by_zeros_poles": {
+  "en": "Write by zeros and poles",
+  "ru": "Задать нулями и полюсами"
+ },
+ "chrome.write_by_coefficients": {
+  "en": "Write by coefficients",
+  "ru": "Задать коэффициентами"
+ },
+ "chrome.remove": {
+  "en": "Remove",
+  "ru": "Удалить"
+ },
+ "chrome.replace_with_inverse": {
+  "en": "Replace with the inverse",
+  "ru": "Заменить обратной"
+ },
+ "chrome.replace_with_inverse_function": {
+  "en": "Replace with the inverse function",
+  "ru": "Заменить обратной функцией"
+ },
+ "chrome.turn_step_back_on": {
+  "en": "Turn this step back on",
+  "ru": "Включить шаг снова"
+ },
+ "chrome.bypass_step": {
+  "en": "Bypass this step",
+  "ru": "Отключить шаг"
+ },
+ "chrome.bypass_step_2": {
+  "en": "Bypass this step",
+  "ru": "Отключить шаг"
+ },
+ "chrome.more_2": {
+  "en": "More",
+  "ru": "Ещё"
+ },
+ "chrome.more_actions_for_f": {
+  "en": "More actions for f{k}",
+  "ru": "Другие действия для шага f{k}"
+ },
+ "chrome.parameters_f_k": {
+  "en": "Parameters of f{k}",
+  "ru": "Параметры шага f{k}"
+ },
+ "chrome.drag_change": {
+  "en": "drag to change",
+  "ru": "перетащите, чтобы изменить",
+  "note": "Appended to a title after \" · \"."
+ },
+ "chrome.argand_diagram": {
+  "en": "Argand diagram",
+  "ru": "комплексная плоскость",
+  "note": "aria-roledescription. Glossary: «диаграмма Арганда» is rare in Russian books."
+ },
+ "chrome.complex_value_arrow_keys": {
+  "en": "Complex value. Arrow keys move the point, Shift for fine steps; Enter or Esc closes.",
+  "ru": "Комплексное число. Стрелки перемещают точку, с Shift — мелкими шагами; Enter или Esc закрывает."
+ },
+ "chrome.pick_complex_value": {
+  "en": "Pick a complex value",
+  "ru": "Выбрать комплексное число"
+ },
+ "chrome.drag_point_or_use": {
+  "en": "Drag the point, or use the arrow keys. Hold Shift for fine steps.",
+  "ru": "Перетащите точку или нажимайте клавиши со стрелками. Удерживайте Shift для мелких шагов."
+ },
+ "chrome.pick_on_argand_diagram": {
+  "en": "Pick on an Argand diagram",
+  "ru": "Выбрать на комплексной плоскости"
+ },
+ "chrome.pick_q_label_on": {
+  "en": "Pick {q.label} on an Argand diagram",
+  "ru": "Выбрать {label} на комплексной плоскости",
+  "note": "{q.label} is a parameter symbol (a, c, z₀): no case needed.",
+  "en_key": "Pick {label} on an Argand diagram",
+  "ph": {
+   "label": "{q.label}"
+  }
+ },
+ "chrome.removed_f_k_name": {
+  "en": "Removed f{k} ({name}).",
+  "ru": "Шаг f{k} удалён ({name})."
+ },
+ "chrome.replaced_f_k_with": {
+  "en": "Replaced f{k} with its inverse ({st}).",
+  "ru": "Шаг f{k} заменён обратной функцией ({st})."
+ },
+ "chrome.show_preimages": {
+  "en": "Show preimages",
+  "ru": "Показать прообразы"
+ },
+ "chrome.derivatives_are_not_available": {
+  "en": "Derivatives are not available in this build.",
+  "ru": "В этой сборке производные недоступны."
+ },
+ "chrome.f_k_has_no": {
+  "en": "f{k} has no derivative here.",
+  "ru": "Здесь у функции f{k} нет производной."
+ },
+ "chrome.replaced_f_k_with_2": {
+  "en": "Replaced f{k} with its derivative{choice}.",
+  "ru": "Шаг f{k} заменён производной{choice}.",
+  "note": "{choice} is \" (note)\" or empty; the note comes from funcs.js."
+ },
+ "chrome.add_curve": {
+  "en": "Add this curve",
+  "ru": "Добавить эту кривую",
+  "note": "Test literal."
+ },
+ "chrome.adds_plan_what_z": {
+  "en": "Adds {plan.what} in the z-plane",
+  "ru": "Добавляет в плоскость z: {what}",
+  "note": "Restructured with a colon so {plan.what} stays in the nominative («прямая», «2 окружности и луч»). Build plan.what with I18N.list().",
+  "en_key": "Adds {what} in the z-plane",
+  "ph": {
+   "what": "{plan.what}"
+  }
+ },
+ "chrome.add_region": {
+  "en": "Add this region",
+  "ru": "Добавить эту область"
+ },
+ "chrome.set_z_plane": {
+  "en": "A set in the z-plane",
+  "ru": "Множество в плоскости z"
+ },
+ "chrome.custom_formula": {
+  "en": "Custom formula",
+  "ru": "Своя формула",
+  "note": "Do not translate in code: the literal is also a palette group key and a test literal. Show it through the display map."
+ },
+ "chrome.adds_formula_as_step": {
+  "en": "Adds this formula as a step",
+  "ru": "Добавляет эту формулу как шаг"
+ },
+ "chrome.add_region_2": {
+  "en": "Add region",
+  "ru": "Добавить область"
+ },
+ "chrome.search_functions_or_type": {
+  "en": "Search functions, or type a formula in z",
+  "ru": "Найдите функцию или введите формулу от z",
+  "ru_short": "Функция или формула от z"
+ },
+ "chrome.search_functions_regions_examples": {
+  "en": "Search functions, regions, examples, commands",
+  "ru": "Поиск функций, областей, примеров и команд",
+  "ru_short": "Функции, области, примеры, команды",
+  "note": "Test literal (placeholder): tests must select by id."
+ },
+ "chrome.search": {
+  "en": "Search",
+  "ru": "Поиск"
+ },
+ "chrome.add_function_4": {
+  "en": "Add a function",
+  "ru": "Добавить функцию"
+ },
+ "chrome.command_palette": {
+  "en": "Command palette",
+  "ru": "Палитра команд"
+ },
+ "chrome.esc": {
+  "en": "Esc",
+  "ru": "Esc",
+  "keep": true,
+  "note": "Key name: unchanged."
+ },
+ "chrome.move": {
+  "en": " to move",
+  "ru": " выбрать",
+  "note": "Palette footer: \"↑↓ выбрать  Enter добавить  Shift Enter вставить перед  Esc закрыть\". Leading space kept."
+ },
+ "chrome.enter": {
+  "en": "Enter",
+  "ru": "Enter",
+  "keep": true,
+  "note": "Key name; also an identifier and a test literal. Unchanged."
+ },
+ "chrome.add": {
+  "en": " to add",
+  "ru": " добавить"
+ },
+ "chrome.shift_enter": {
+  "en": "Shift Enter",
+  "ru": "Shift Enter",
+  "keep": true,
+  "note": "Key names: unchanged."
+ },
+ "chrome.insert_before": {
+  "en": " to insert before",
+  "ru": " вставить перед"
+ },
+ "chrome.esc_2": {
+  "en": "Esc",
+  "ru": "Esc",
+  "keep": true,
+  "note": "Key name: unchanged."
+ },
+ "chrome.close_2": {
+  "en": " to close",
+  "ru": " закрыть"
+ },
+ "chrome.not_formula_yet_items": {
+  "en": "Not a formula yet: {items.parseErr}",
+  "ru": "Пока не формула: {parseErr}",
+  "en_key": "Not a formula yet: {parseErr}",
+  "ph": {
+   "parseErr": "{items.parseErr}"
+  }
+ },
+ "chrome.no_match_type_formula": {
+  "en": "No match. Type a formula in z, such as e^{z^2}, to add it as a step.",
+  "ru": "Ничего не найдено. Введите формулу от z, например e^{z^2}, чтобы добавить её как шаг."
+ },
+ "chrome.no_match_type_formula_2": {
+  "en": "No match. Type a formula in z to add it as a step, a set such as |z| < 1, or a curve such as Re z = 0.",
+  "ru": "Ничего не найдено. Введите формулу от z (она добавится как шаг), множество, например |z| < 1, или кривую, например Re z = 0."
+ },
+ "chrome.adds_shape_z_plane": {
+  "en": "Adds a shape to the z-plane",
+  "ru": "Добавляет фигуру в плоскость z"
+ },
+ "chrome.example": {
+  "en": "Example",
+  "ru": "Пример"
+ },
+ "chrome.guaranteed": {
+  "en": "guaranteed",
+  "ru": "гарантировано"
+ },
+ "chrome.not_guaranteed": {
+  "en": "not guaranteed",
+  "ru": "не гарантировано"
+ },
+ "chrome.guaranteed_2": {
+  "en": "guaranteed",
+  "ru": "гарантировано"
+ },
+ "chrome.not_guaranteed_2": {
+  "en": "not guaranteed",
+  "ru": "не гарантировано"
+ },
+ "chrome.copy_latex": {
+  "en": "Copy LaTeX",
+  "ru": "Скопировать LaTeX-код",
+  "note": "Test literal (tooltip)."
+ },
+ "chrome.copy_formula_as_latex": {
+  "en": "Copy the formula as LaTeX",
+  "ru": "Скопировать формулу как LaTeX-код"
+ },
+ "chrome.composite_map": {
+  "en": "Composite map",
+  "ru": "Композиция"
+ },
+ "chrome.hide_panel": {
+  "en": "Hide panel  ]",
+  "ru": "Скрыть панель  ]"
+ },
+ "chrome.hide_guarantees": {
+  "en": "Hide guarantees",
+  "ru": "Скрыть гарантии",
+  "note": "Test literal (aria-label)."
+ },
+ "chrome.expanded_formula_long_steps": {
+  "en": "The expanded formula is long; the steps below list it piece by piece.",
+  "ru": "Развёрнутая формула длинная; ниже она расписана по шагам."
+ },
+ "chrome.bypassed": {
+  "en": "bypassed",
+  "ru": "отключён",
+  "note": "Shown after a step name (\"f₂ отключён\"); a step is «шаг», masculine. Test literal."
+ },
+ "chrome.guaranteed_properties": {
+  "en": "Guaranteed properties",
+  "ru": "Гарантированные свойства"
+ },
+ "chrome.guarantees": {
+  "en": "Guarantees",
+  "ru": "Гарантии"
+ },
+ "chrome.lit_guaranteed_by_chain": {
+  "en": "Lit: guaranteed by the chain. Unlit: not implied by the steps (it may still hold).",
+  "ru": "Горит — гарантировано цепочкой. Не горит — из шагов не следует (но может выполняться).",
+  "note": "No-break space before each «—»."
+ },
+ "chrome.natural_domain_d": {
+  "en": "Natural domain <i>D</i>",
+  "ru": "Естественная область определения <i>D</i>",
+  "ru_short": "Область определения <i>D</i>"
+ },
+ "chrome.all_z_for_which": {
+  "en": "All <i>z</i> for which:",
+  "ru": "Все <i>z</i>, для которых:"
+ },
+ "chrome.w_k_value_after": {
+  "en": "<i>w</i><sub>k</sub> is the value after step <i>k</i>; <i>w</i><sub>0</sub> = <i>z</i>.",
+  "ru": "<i>w</i><sub>k</sub> — значение после шага <i>k</i>; <i>w</i><sub>0</sub> = <i>z</i>."
+ },
+ "chrome.step_by_step": {
+  "en": "Step by step",
+  "ru": "По шагам"
+ },
+ "chrome.step": {
+  "en": "step",
+  "ru": "шаг",
+  "note": "Column header; test literal."
+ },
+ "chrome.operator_not_map_row": {
+  "en": "An operator, not a map: its row shows what the chain through it guarantees",
+  "ru": "Оператор, а не отображение: в его строке — то, что гарантирует цепочка вместе с ним"
+ },
+ "chrome.how_these_are_decided": {
+  "en": "How these are decided",
+  "ru": "Как это определяется"
+ },
+ "chrome.property_listed_only_when": {
+  "en": "A property is listed only when every active step has it and composition preserves it on the natural domain. Compositions of analytic, entire, rational, polynomial, Möbius, injective and proper (into ℂ) maps keep that property.",
+  "ru": "Свойство указано, только если им обладает каждый активный шаг и композиция сохраняет его на естественной области определения. Композиция аналитических, целых, рациональных, дробно-линейных, инъективных и собственных (в ℂ) отображений, а также многочленов, сохраняет соответствующее свойство."
+ },
+ "chrome.each_step_judged_on": {
+  "en": "Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.",
+  "ru": "Каждый шаг оценивается на своей естественной области определения, вне разреза. Поэтому функция ln инъективна, а exp — нет; z ↦ 1/z — дробно-линейная функция, но не собственное отображение в ℂ, так как |1/z| остаётся ограниченным при z → ∞.",
+  "note": "Russian notation: log → ln (GLOSSARY 2.2)."
+ },
+ "chrome.list_sound_but_not": {
+  "en": "The list is sound but not complete. For example, exp followed by log returns z, yet neither step is rational, so \"rational\" is not claimed.",
+  "ru": "Список верен, но не полон. Например, exp после ln даёт z, но ни один из этих шагов не является рациональной функцией, поэтому «рациональная функция» не указана.",
+  "note": "exp(ln z) = z on ℂ minus the cut (every branch), yet neither step is rational. The other order is false: ln(e^z) = z − 2πik in the strip (2k−1)π < Im z < (2k+1)π. The English has the same error: fix it too («log followed by exp returns z»)."
+ },
+ "chrome.custom_formulas_are_classified": {
+  "en": "Custom formulas are classified from their expression tree: only z, constants, +, −, ×, ÷ and integer powers count as rational. A polynomial formula has its exact degree found numerically before \"proper\" is claimed.",
+  "ru": "Свои формулы классифицируются по дереву выражения: рациональными считаются только z, константы, +, −, ×, ÷ и целые степени. Прежде чем указать «собственное отображение», для формулы-многочлена численно находится её точная степень."
+ },
+ "chrome.chain_does_not_imply": {
+  "en": " The chain does not imply this; it may still hold.",
+  "ru": " Цепочка этого не гарантирует, но свойство может выполняться.",
+  "note": "Appended to a lamp tooltip; leading space kept."
+ },
+ "chrome.empty_canvas": {
+  "en": "Empty canvas",
+  "ru": "Пустой холст"
+ },
+ "chrome.no_shapes_no_functions": {
+  "en": "No shapes and no functions: start from scratch.",
+  "ru": "Ни фигур, ни функций: начните с нуля."
+ },
+ "chrome.strip_disk": {
+  "en": "Strip to disk",
+  "ru": "Полоса на круг"
+ },
+ "chrome.exp_opens_strip_im": {
+  "en": "exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.",
+  "ru": "exp отображает полосу |Im z| < π/2 на правую полуплоскость, а дробно-линейное отображение — эту полуплоскость на круг.",
+  "note": "«на» = onto, «в» = into (GLOSSARY 1.1)."
+ },
+ "chrome.quarter_plane_squared": {
+  "en": "Quarter plane squared",
+  "ru": "Квадрат первой четверти"
+ },
+ "chrome.first_quadrant_opens_onto": {
+  "en": "The first quadrant opens onto the upper half-plane; angles at 0 double.",
+  "ru": "Первая четверть отображается на верхнюю полуплоскость; углы в точке 0 удваиваются.",
+  "note": "«на» = onto (GLOSSARY 1.1)."
+ },
+ "chrome.joukowski_airfoil": {
+  "en": "Joukowski airfoil",
+  "ru": "Профиль Жуковского"
+ },
+ "chrome.circle_through_1_becomes": {
+  "en": "A circle through 1 becomes a wing with a sharp trailing edge.",
+  "ru": "Окружность, проходящая через 1, переходит в профиль крыла с острой задней кромкой.",
+  "note": "«профиль (крыла)», GLOSSARY 1.9 (Жуковский)."
+ },
+ "chrome.trailing_edge": {
+  "en": "trailing edge",
+  "ru": "задняя кромка",
+  "note": "Label of a marked point; it may appear in figures (Cyrillic via CMU outlines)."
+ },
+ "chrome.logarithm_annulus": {
+  "en": "Logarithm of an annulus",
+  "ru": "Логарифм кольца"
+ },
+ "chrome.w_z": {
+  "en": "w=\\log z",
+  "ru": "w=\\ln z",
+  "note": "TeX: Russian notation \\log → \\ln. I18N.notation() should produce this at TeX.set(); listed so the table is complete."
+ },
+ "chrome.annulus_becomes_rectangle_drag": {
+  "en": "The annulus becomes a rectangle. Drag the red cut to move the seam.",
+  "ru": "Кольцо переходит в прямоугольник. Перетащите красный разрез, чтобы сдвинуть линию разреза."
+ },
+ "chrome.disk_automorphism": {
+  "en": "Disk automorphism",
+  "ru": "Автоморфизм круга"
+ },
+ "chrome.m_bius_self_map": {
+  "en": "A Möbius self-map of the disk, played as a deformation.",
+  "ru": "Дробно-линейный автоморфизм круга, показанный как деформация."
+ },
+ "chrome.sine_half_strip": {
+  "en": "Sine of a half-strip",
+  "ru": "Синус полуполосы"
+ },
+ "chrome.half_strip_re_z": {
+  "en": "The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.",
+  "ru": "Полуполоса |Re z| < π/2, Im z > 0 отображается на верхнюю полуплоскость."
+ },
+ "chrome.square_root_sheets": {
+  "en": "Square root and its sheets",
+  "ru": "Квадратный корень и его листы"
+ },
+ "chrome.slit_plane_maps_onto": {
+  "en": "The slit plane maps onto a half-plane; change the sheet to flip it.",
+  "ru": "Плоскость с разрезом отображается на полуплоскость; смените лист — получится противоположная полуплоскость."
+ },
+ "chrome.cayley_then_cube": {
+  "en": "Cayley, then cube",
+  "ru": "Кэли, затем куб"
+ },
+ "chrome.half_plane_disk_then": {
+  "en": "Half-plane to disk, then the disk wraps around itself three times.",
+  "ru": "Полуплоскость переходит в круг, затем круг трижды накрывает сам себя."
+ },
+ "chrome.formula_latex": {
+  "en": "A formula in LaTeX",
+  "ru": "Формула в LaTeX",
+  "note": "Test literal (example name): tests must select by id."
+ },
+ "chrome.custom_step_shown_as": {
+  "en": "A custom step shown as a color plot: zeros at ±1, poles at ±i.",
+  "ru": "Свой шаг, показанный раскраской: нули в точках ±1, полюсы в точках ±i."
+ },
+ "chrome.roots_as_preimages": {
+  "en": "Roots as preimages",
+  "ru": "Корни как прообразы"
+ },
+ "chrome.target_0_w_plane": {
+  "en": "The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.",
+  "ru": "Прообраз цели 0 в плоскости w — три кубических корня из единицы, прообраз целевой окружности — кривые вокруг них."
+ },
+ "chrome.residue_by_integration": {
+  "en": "A residue by integration",
+  "ru": "Вычет через интеграл",
+  "note": "Test literal."
+ },
+ "chrome.right_click_circle_around": {
+  "en": "Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.",
+  "ru": "Щёлкните окружность правой кнопкой: при обходе полюса i интеграл с переменным верхним пределом не возвращается к начальному значению — разность равна 2πi · Res = π.",
+  "note": "The running integral is continuous; «разрыв» would say otherwise."
+ },
+ "chrome.derivative_chain": {
+  "en": "The derivative in the chain",
+  "ru": "Производная в цепочке",
+  "note": "Test literal."
+ },
+ "chrome.d_dz_step_differentiates": {
+  "en": "A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.",
+  "ru": "Шаг d/dz дифференцирует цепочку до этого места: критические точки ±1 функции z³ − 3z — нули её производной."
+ },
+ "chrome.every_sheet_logarithm": {
+  "en": "Every sheet of the logarithm",
+  "ru": "Все листы логарифма",
+  "note": "Test literal."
+ },
+ "chrome.w_z_2": {
+  "en": "w=\\log z",
+  "ru": "w=\\ln z",
+  "note": "The step is the principal logarithm, so \\ln; the blurb speaks of the multivalued Ln."
+ },
+ "chrome.landscape_with_all_sheets": {
+  "en": "Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.",
+  "ru": "Рельеф, все листы: Im Ln z поднимается по геликоиду вокруг 0, а не терпит скачка на разрезе.",
+  "note": "Ln: the multivalued logarithm (GLOSSARY 2.2). Typeset Ln and Im upright if this blurb is ever rendered as math."
+ },
+ "chrome.examples": {
+  "en": "Examples",
+  "ru": "Примеры"
+ },
+ "chrome.undo": {
+  "en": "Undo",
+  "ru": "Отменить",
+  "note": "Toast action button; test literal."
+ },
+ "chrome.ctrl_k": {
+  "en": "Ctrl K",
+  "ru": "Ctrl K",
+  "keep": true,
+  "note": "Key names: unchanged."
+ },
+ "chrome.mode_icons_morph_deformation": {
+  "en": "{MODE_ICONS.morph}<span>Deformation</span>",
+  "ru": "{iconMorph}<span>Деформация</span>",
+  "en_key": "{iconMorph}<span>Deformation</span>",
+  "ph": {
+   "iconMorph": "{MODE_ICONS.morph}"
+  }
+ },
+ "chrome.chain_cleared": {
+  "en": "Chain cleared.",
+  "ru": "Цепочка очищена."
+ },
+ "chrome.loaddropped_saved_choice_could": {
+  "en": "{loadDropped} saved {choice} could not be restored by this version and {choice} left out.",
+  "ru": "{n} сохранённых элементов не удалось восстановить в этой версии, они пропущены.",
+  "plural": {
+   "one": "{n} сохранённый элемент не удалось восстановить в этой версии, он пропущен.",
+   "few": "{n} сохранённых элемента не удалось восстановить в этой версии, они пропущены.",
+   "many": "{n} сохранённых элементов не удалось восстановить в этой версии, они пропущены.",
+   "other": "{n} сохранённых элемента не удалось восстановить в этой версии, они пропущены."
+  },
+  "note": "Replace the item/items and was/were pieces with one $tn() over the whole sentence; the source repeats {choice} for two different words. Both {choice} slots are dropped: the plural forms replace them.",
+  "en_plural": [
+   "{n} saved item could not be restored by this version and was left out.",
+   "{n} saved items could not be restored by this version and were left out."
+  ],
+  "en_key": "{n} saved {choice} could not be restored by this version and {choice2} left out.",
+  "ph": {
+   "choice2": "{choice}",
+   "n": "{loadDropped}"
+  }
+ },
+ "chrome.item": {
+  "en": "item",
+  "ru": "элемент",
+  "note": "Piece of chrome.loaddropped_saved_choice_could; obsolete once that sentence uses $tn()."
+ },
+ "chrome.items": {
+  "en": "items",
+  "ru": "элементы",
+  "note": "Piece; see chrome.loaddropped_saved_choice_could."
+ },
+ "chrome.was": {
+  "en": "was",
+  "ru": "был",
+  "note": "Piece; see chrome.loaddropped_saved_choice_could."
+ },
+ "chrome.were": {
+  "en": "were",
+  "ru": "были",
+  "note": "Piece; see chrome.loaddropped_saved_choice_could."
+ },
+ "chrome.saved_session_could_not": {
+  "en": "The saved session could not be restored, so the first example was loaded.",
+  "ru": "Сохранённый сеанс не удалось восстановить, поэтому загружен первый пример."
+ },
+ "chrome.ui_monospace_monospace": {
+  "en": "ui-monospace, monospace",
+  "ru": "ui-monospace, monospace",
+  "keep": true,
+  "note": "CSS font stack, not visible. Do not translate."
+ },
+ "chrome.system_ui_sans_serif": {
+  "en": "system-ui, sans-serif",
+  "ru": "system-ui, sans-serif",
+  "keep": true,
+  "note": "CSS font stack, not visible. Do not translate."
+ },
+ "chrome.georgia_serif": {
+  "en": "Georgia, serif",
+  "ru": "Georgia, serif",
+  "keep": true,
+  "note": "CSS font stack, not visible. Do not translate."
+ },
+ "chrome.release_remove_t": {
+  "en": "Release to remove {t}",
+  "ru": "Отпустите, чтобы удалить {t}",
+  "note": "{t} is the handle symbol (z₁, p₂). Canvas text drawn in TH.mono: in Russian draw it in TH.ui (B612 Mono has no Cyrillic)."
+ },
+ "chrome.graphics_card_was_reset": {
+  "en": "The graphics card was reset. Restoring the view…",
+  "ru": "Графический адаптер сброшен. Вид восстанавливается…"
+ },
+ "chrome.view_needs_webgl2_which": {
+  "en": "This view needs WebGL2, which this browser does not provide.",
+  "ru": "Для этого вида нужен WebGL2, а этот браузер его не поддерживает."
+ },
+ "chrome.target_preimages_show_x": {
+  "en": "Target preimages show in X → Y and Phase (1, 2)",
+  "ru": "Прообразы целей видны в видах X → Y и «Фаза» (1, 2)"
+ },
+ "chrome.sphere_view_plane_not": {
+  "en": "The sphere view of this plane is not available in this build.",
+  "ru": "Вид этой плоскости на сфере недоступен в этой сборке."
+ },
+ "chrome.landscape": {
+  "en": "the landscape",
+  "ru": "на рельефе",
+  "note": "Slot {where} of chrome.drawing_off_on_where; the Russian slot carries its preposition."
+ },
+ "chrome.riemann_sphere": {
+  "en": "the Riemann sphere",
+  "ru": "на сфере Римана",
+  "note": "Slot {where} of chrome.drawing_off_on_where; the Russian slot carries its preposition."
+ },
+ "chrome.drawing_off_on_where": {
+  "en": "Drawing is off on {where}; choose X → Y (1) to draw.",
+  "ru": "Рисовать {where} нельзя; чтобы рисовать, выберите X → Y (1).",
+  "note": "{where} = «на рельефе» / «на сфере Римана» (the preposition is inside the slot)."
+ },
+ "chrome.toolname_draws_plane_not": {
+  "en": "{toolName} draws in Plane, not on the sphere.",
+  "ru": "Инструмент «{toolName}» рисует только в режиме «Плоскость», не на сфере.",
+  "note": "«Инструмент «…»» keeps {toolName} in the nominative and avoids its gender."
+ },
+ "chrome.shapes_are_drawn_z": {
+  "en": "Shapes are drawn in the z-plane; choose Whole chain to draw.",
+  "ru": "Фигуры рисуются в плоскости z; чтобы рисовать, выберите «Вся цепочка»."
+ },
+ "chrome.drawing_off_deformation_press": {
+  "en": "Drawing is off in the deformation: press M to turn it off.",
+  "ru": "Во время деформации рисовать нельзя: нажмите M, чтобы выключить её."
+ },
+ "chrome.toolname_draws_plane_3": {
+  "en": "{toolName} draws in Plane (⇧3), not on the sphere.",
+  "ru": "Инструмент «{toolName}» рисует только в режиме «Плоскость» (⇧3), не на сфере."
+ },
+ "chrome.up_date": {
+  "en": "Up to date",
+  "ru": "Актуально"
+ },
+ "chrome.refining_near_cuts_poles": {
+  "en": "Refining near cuts and poles",
+  "ru": "Уточнение у разрезов и полюсов"
+ },
+ "chrome.webgl2_unavailable_so_regions": {
+  "en": "WebGL2 is unavailable, so regions cannot be drawn",
+  "ru": "WebGL2 недоступен, поэтому области не рисуются"
+ },
+ "chrome.webgl2_unavailable_so_regions_2": {
+  "en": "WebGL2 is unavailable, so regions cannot be drawn",
+  "ru": "WebGL2 недоступен, поэтому области не рисуются"
+ },
+ "chrome.cauchy_style_select_closed": {
+  "en": "Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.",
+  "ru": "Стиль «Интеграл Коши»: выделите замкнутую кривую или ограниченную область, чтобы увидеть интеграл Коши по этому контуру."
+ },
+ "chrome.finding_preimages": {
+  "en": "finding the preimages of",
+  "ru": "поиск прообразов точки",
+  "note": "Readout head; \" <i>w</i>\" and the value follow: «поиск прообразов точки w 1+2i»."
+ },
+ "chrome.flat_view": {
+  "en": " (flat view)",
+  "ru": " (плоский вид)"
+ },
+ "chrome.preimage_search_stopped_early": {
+  "en": "preimage search stopped early{where} for",
+  "ru": "поиск прообразов прерван{where} для точки",
+  "note": "Readout head; \" <i>w</i>\" and the value follow."
+ },
+ "chrome.at_least": {
+  "en": "at least ",
+  "ru": "не менее ",
+  "note": "Prefix of the untranslated template `{n} preimage{s}{where} of` (app.js 5244, missing from the inventory). «не менее» governs the genitive, so use the split forms in chrome.extra.n_preimages_of instead of gluing."
+ },
+ "chrome.curve_passes_through_singularity": {
+  "en": "The curve passes through a singularity of an earlier step",
+  "ru": "Кривая проходит через особую точку одного из предыдущих шагов"
+ },
+ "chrome.line_integrals_are_not": {
+  "en": "Line integrals are not available in this build",
+  "ru": "Интегралы по кривой недоступны в этой сборке"
+ },
+ "chrome.integral": {
+  "en": "the integral",
+  "ru": "интеграл",
+  "note": "Slot of chrome.copy_what (accusative = nominative)."
+ },
+ "chrome.integral_over_2_i": {
+  "en": "the integral over 2πi",
+  "ru": "интеграл, делённый на 2πi",
+  "note": "Slot of chrome.copy_what."
+ },
+ "chrome.winding_fh_about_0": {
+  "en": "winding of {Fh}∘<i>γ</i> about 0",
+  "ru": "число оборотов {Fh}∘<i>γ</i> вокруг 0"
+ },
+ "chrome.zeros_poles_found_inside": {
+  "en": "zeros − poles found inside",
+  "ru": "нули − полюсы, найденные внутри"
+ },
+ "chrome.zeros_poles_inside": {
+  "en": "zeros − poles inside",
+  "ru": "нули − полюсы внутри"
+ },
+ "chrome.wound_r_w": {
+  "en": " <span class=\"int-m\">wound {r.w}×</span>",
+  "ru": " <span class=\"int-m\">оборотов: {w}</span>",
+  "note": "Colon form avoids a plural on {r.w}.",
+  "en_key": " <span class=\"int-m\">wound {w}×</span>",
+  "ph": {
+   "w": "{r.w}"
+  }
+ },
+ "chrome.root_finding_not_available": {
+  "en": "<div class=\"cn\">Root finding is not available in this build.</div>",
+  "ru": "<div class=\"cn\">Поиск корней недоступен в этой сборке.</div>"
+ },
+ "chrome.solving_fxhtml_p_view": {
+  "en": "<div class=\"ch\">Solving {fxHtml} = <i>p</i> in view…</div>",
+  "ru": "<div class=\"ch\">Решение уравнения {fxHtml} = <i>p</i> в видимой части…</div>"
+ },
+ "chrome.flat_view_2": {
+  "en": "in the flat view",
+  "ru": "в плоском виде",
+  "note": "Slot {where}."
+ },
+ "chrome.view": {
+  "en": "in view",
+  "ru": "в видимой части",
+  "note": "Slot {where}. Glossary: \"in view\" = «в видимой части»."
+ },
+ "chrome.no_roots_fxhtml_val": {
+  "en": "<div class=\"ch\">No roots of {fxHtml} = {val} found {where}</div>",
+  "ru": "<div class=\"ch\">Корней уравнения {fxHtml} = {val} {where} не найдено</div>"
+ },
+ "chrome.choice_nz_root_choice": {
+  "en": "<div class=\"ch\">{choice}{nz} root{choice} of {fxHtml} = {val} {where}{choice}</div>",
+  "ru": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+  "plural": {
+   "one": "<div class=\"ch\">{n} корень уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "few": "<div class=\"ch\">{n} корня уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "many": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "other": "<div class=\"ch\">{n} корня уравнения {fxHtml} = {val} {where}{choice}</div>"
+  },
+  "split": {
+   "exact": {
+    "one": "<div class=\"ch\">{n} корень уравнения {fxHtml} = {val} {where}{choice}</div>",
+    "few": "<div class=\"ch\">{n} корня уравнения {fxHtml} = {val} {where}{choice}</div>",
+    "many": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+    "other": "<div class=\"ch\">{n} корня уравнения {fxHtml} = {val} {where}{choice}</div>"
+   },
+   "atLeast": {
+    "one": "<div class=\"ch\">Не менее {n} корня уравнения {fxHtml} = {val} {where}{choice}</div>",
+    "few": "<div class=\"ch\">Не менее {n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+    "many": "<div class=\"ch\">Не менее {n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+    "other": "<div class=\"ch\">Не менее {n} корня уравнения {fxHtml} = {val} {where}{choice}</div>"
+   }
+  },
+  "note": "Source glues three {choice} slots (at least / s / first n). Make two $tn keys (exact, atLeast: «не менее» takes the genitive); the trailing {choice} is chrome.first_sols_length. When the line starts with {nz}, it starts with a digit: fine in Russian.",
+  "en_plural": {
+   "exact": [
+    "<div class=\"ch\">{n} root of {fxHtml} = {val} {where}{choice}</div>",
+    "<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>"
+   ],
+   "atLeast": [
+    "<div class=\"ch\">at least {n} root of {fxHtml} = {val} {where}{choice}</div>",
+    "<div class=\"ch\">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>"
+   ]
+  },
+  "ph": {
+   "n": "{nz}"
+  }
+ },
+ "chrome.at_least_2": {
+  "en": "at least ",
+  "ru": "не менее ",
+  "note": "Obsolete once chrome.choice_nz_root_choice uses its atLeast forms."
+ },
+ "chrome.first_sols_length": {
+  "en": " (first {sols.length})",
+  "ru": " (первые {n})",
+  "plural": {
+   "one": " (первые {n})",
+   "few": " (первые {n})",
+   "many": " (первые {n})",
+   "other": " (первые {n})"
+  },
+  "note": "No noun: the same text for every count.",
+  "en_plural": [
+   " (first {n})",
+   " (first {n})"
+  ],
+  "en_key": " (first {n})",
+  "ph": {
+   "n": "{sols.length}"
+  }
+ },
+ "chrome.pole_choice_r_z": {
+  "en": "<div class=\"cl\"><span><span class=\"sw pole\" style=\"color:{TH.pole}\"></span>pole{choice}</span><span class=\"cv\">{r.z}</span></div>",
+  "ru": "<div class=\"cl\"><span><span class=\"sw pole\" style=\"color:{poleColor}\"></span>полюс{choice}</span><span class=\"cv\">{z}</span></div>",
+  "note": "Only the word «полюс» changes; keep the class \"sw pole\" (CSS).",
+  "en_key": "<div class=\"cl\"><span><span class=\"sw pole\" style=\"color:{poleColor}\"></span>pole{choice}</span><span class=\"cv\">{z}</span></div>",
+  "ph": {
+   "poleColor": "{TH.pole}",
+   "z": "{r.z}"
+  }
+ },
+ "chrome.search_stopped_early_there_2": {
+  "en": "<div class=\"cn\">The search stopped early; there may be more.</div>",
+  "ru": "<div class=\"cn\">Поиск остановлен досрочно: корней может быть больше.</div>"
+ },
+ "chrome.choice_d_more_outside": {
+  "en": "<div class=\"cn\">{choice}{d} more outside {choice}.</div>",
+  "ru": "<div class=\"cn\">Ещё {choice}{d} — вне {choice2}.</div>",
+  "note": "The two {choice} slots are different: rename them {upTo} («до ») and {place} («плоского вида» / «видимой части (уменьшите масштаб, чтобы их увидеть)»). Reads «Ещё до 3 — вне видимой части (…)». No noun, so no plural; the meaning (roots) is clear from the line above.",
+  "en_key": "<div class=\"cn\">{choice}{d} more outside {choice2}.</div>",
+  "ph": {
+   "choice2": "{choice}"
+  }
+ },
+ "chrome.up": {
+  "en": "Up to ",
+  "ru": "до ",
+  "note": "Slot {upTo} of chrome.choice_d_more_outside."
+ },
+ "chrome.flat_view_3": {
+  "en": "the flat view",
+  "ru": "плоского вида",
+  "note": "Slot {place} of chrome.choice_d_more_outside (genitive after «вне»)."
+ },
+ "chrome.view_zoom_out_see": {
+  "en": "the view (zoom out to see them)",
+  "ru": "видимой части (уменьшите масштаб, чтобы их увидеть)",
+  "note": "Slot {place}, genitive after «вне»."
+ },
+ "chrome.shown_more_2": {
+  "en": "<div class=\"cm\">and {shown} more</div>",
+  "ru": "<div class=\"cm\">и ещё {n}</div>",
+  "plural": {
+   "one": "<div class=\"cm\">и ещё {n}</div>",
+   "few": "<div class=\"cm\">и ещё {n}</div>",
+   "many": "<div class=\"cm\">и ещё {n}</div>",
+   "other": "<div class=\"cm\">и ещё {n}</div>"
+  },
+  "en_plural": [
+   "<div class=\"cm\">and {n} more</div>",
+   "<div class=\"cm\">and {n} more</div>"
+  ],
+  "en_key": "<div class=\"cm\">and {n} more</div>",
+  "ph": {
+   "n": "{shown}"
+  }
+ },
+ "chrome.w": {
+  "en": "the {w}",
+  "ru": "{w}",
+  "note": "Helper the(k, w) adds an English article and an \"s\" plural. In Russian, the() must call $tn with the noun forms given in chrome.target_area, chrome.target_curve, chrome.target and chrome.others_targets (accusative). This piece has no Russian text of its own."
+ },
+ "chrome.k_w_s": {
+  "en": "the {k} {w}s",
+  "ru": "{k} {w}",
+  "note": "See chrome.w: replace with $tn per noun."
+ },
+ "chrome.on_left_shaded_where": {
+  "en": "<div class=\"cn\">On the left: shaded where {fxHtml} lands in {na}, and drawn the curves it maps onto {nc}.</div>",
+  "ru": "<div class=\"cn\">Слева закрашено множество, где {fxHtml} попадает в {na}, и нарисованы кривые, которые отображаются на {nc}.</div>",
+  "note": "{na} and {nc} are accusative noun phrases from $tn: «целевую область» / «3 целевые области»; «целевую кривую» / «5 целевых кривых»."
+ },
+ "chrome.target_area": {
+  "en": "target area",
+  "ru": "целевую область",
+  "plural": {
+   "one": "{n} целевую область",
+   "few": "{n} целевые области",
+   "many": "{n} целевых областей",
+   "other": "{n} целевой области"
+  },
+  "note": "Accusative after «в». ru is the k = 1 form (no number, as English \"the target area\"); plural holds k > 1.",
+  "en_plural": [
+   "{n} target area",
+   "{n} target areas"
+  ]
+ },
+ "chrome.target_curve": {
+  "en": "target curve",
+  "ru": "целевую кривую",
+  "plural": {
+   "one": "{n} целевую кривую",
+   "few": "{n} целевые кривые",
+   "many": "{n} целевых кривых",
+   "other": "{n} целевой кривой"
+  },
+  "note": "Accusative after «на». ru is the k = 1 form; plural holds k > 1.",
+  "en_plural": [
+   "{n} target curve",
+   "{n} target curves"
+  ]
+ },
+ "chrome.drawn_on_left_curves": {
+  "en": "<div class=\"cn\">Drawn on the left: the curves {fxHtml} maps onto {nc}.</div>",
+  "ru": "<div class=\"cn\">Слева нарисованы кривые, которые {fxHtml} отображает на {nc}.</div>",
+  "note": "{nc} = the(nc, \"target\"): «цель» / «2 цели» / «5 целей» (accusative), forms in chrome.target and chrome.others_targets."
+ },
+ "chrome.shaded_on_left_where": {
+  "en": "<div class=\"cn\">Shaded on the left: where {fxHtml} lands in {choice}.</div>",
+  "ru": "<div class=\"cn\">Слева закрашено множество, где {fxHtml} попадает в {choice}.</div>",
+  "note": "{choice} = «цель» or chrome.others_targets with its count."
+ },
+ "chrome.target": {
+  "en": "the target",
+  "ru": "цель",
+  "note": "Accusative = nominative."
+ },
+ "chrome.others_targets": {
+  "en": "the {others} targets",
+  "ru": "{n} цели",
+  "plural": {
+   "one": "{n} цель",
+   "few": "{n} цели",
+   "many": "{n} целей",
+   "other": "{n} цели"
+  },
+  "note": "Accusative after «в»/«на».",
+  "en_plural": [
+   "the {n} target",
+   "the {n} targets"
+  ],
+  "en_key": "the {n} targets",
+  "ph": {
+   "n": "{others}"
+  }
+ },
+ "chrome.no_shapes": {
+  "en": "No shapes",
+  "ru": "Нет фигур"
+ },
+ "chrome.deforming": {
+  "en": ", deforming",
+  "ru": ", деформация",
+  "note": "paneTitles() derives the short title with a regex on English (/( of | over |, after )/ and /, deforming$/). Replace with explicit short strings: Russian short roles are given as ru_short on the role entries."
+ },
+ "chrome.all_sheets_2": {
+  "en": ", all sheets",
+  "ru": ", все листы"
+ },
+ "chrome.cauchy_integral_over_cp": {
+  "en": "Cauchy integral over {cp.name}",
+  "ru": "интеграл Коши по контуру {name}",
+  "ru_short": "интеграл Коши",
+  "en_key": "Cauchy integral over {name}",
+  "ph": {
+   "name": "{cp.name}"
+  }
+ },
+ "chrome.cauchy_integral": {
+  "en": "Cauchy integral",
+  "ru": "интеграл Коши"
+ },
+ "chrome.phase": {
+  "en": "phase of {of}",
+  "ru": "фаза функции {of}",
+  "ru_short": "фаза",
+  "note": "{of} is F, H_t or f_k(z) in HTML."
+ },
+ "chrome.domain": {
+  "en": "domain of {of}",
+  "ru": "область определения {of}",
+  "ru_short": "область определения",
+  "note": "Role of the left plane (\"domain of F\"). The glossary keeps «исходная плоскость» for the plane itself; the role names the function’s domain."
+ },
+ "chrome.choice_sphere": {
+  "en": "{choice}-sphere",
+  "ru": "сфера {choice}"
+ },
+ "chrome.drag_turn_at_north": {
+  "en": "Drag to turn; ∞ is at the north pole",
+  "ru": "Перетащите, чтобы повернуть; ∞ — северный полюс"
+ },
+ "chrome.drag_turn_shape_move": {
+  "en": "Drag to turn, a shape to move it; ∞ is at the north pole",
+  "ru": "Перетащите, чтобы повернуть, а фигуру — чтобы переместить её; ∞ — северный полюс"
+ },
+ "chrome.target_2": {
+  "en": "target ",
+  "ru": "целевую ",
+  "note": "Slot {tg}: «точку», «кривую», «область» are all feminine accusative, so «целевую » fits all three hints."
+ },
+ "chrome.click_place_tg_point": {
+  "en": "Click to place a {tg}point",
+  "ru": "Щёлкните, чтобы поставить {tg}точку"
+ },
+ "chrome.click_vertices": {
+  "en": "Click the vertices",
+  "ru": "Щёлкайте по вершинам"
+ },
+ "chrome.hold_draw_tg_curve": {
+  "en": "Hold and draw a {tg}curve",
+  "ru": "Нарисуйте {tg}кривую, удерживая кнопку"
+ },
+ "chrome.hold_draw_tg_region": {
+  "en": "Hold and draw a {tg}region",
+  "ru": "Нарисуйте {tg}область, удерживая кнопку"
+ },
+ "chrome.target_3": {
+  "en": "a target",
+  "ru": "цель:",
+  "note": "Piece of the untranslated template `Drag to draw ${a target | a | an} ${lab}` (app.js 6566, missing from the inventory; the article is chosen by a vowel regex on English). Russian: one template «Перетащите, чтобы нарисовать: {tool}» and «Перетащите, чтобы нарисовать цель: {tool}», with {tool} the lower-cased tool name in the nominative. See chrome.extra.drag_to_draw."
+ },
+ "chrome.g_space_or_middle": {
+  "en": "{g}; Space or the middle button turns",
+  "ru": "{g}; Пробел или средняя кнопка мыши — поворот"
+ },
+ "chrome.draw_x_y_1": {
+  "en": "Draw in X → Y (1)",
+  "ru": "Рисуйте в виде X → Y (1)",
+  "note": "Test literal."
+ },
+ "chrome.drag_orbit_pinch_zoom": {
+  "en": "Drag to orbit, pinch to zoom",
+  "ru": "Перетаскивание вращает, двумя пальцами — масштаб",
+  "note": "Gesture words (GLOSSARY 3.9): «двумя пальцами», never «щипок»."
+ },
+ "chrome.drag_orbit_shift_drag": {
+  "en": "Drag to orbit, Shift-drag to pan",
+  "ru": "Перетаскивание вращает, Shift + перетаскивание сдвигает вид"
+ },
+ "chrome.view_outline": {
+  "en": "View outline",
+  "ru": "Граница видимой части",
+  "ru_short": "Граница вида",
+  "note": "Not «контур» (reserved for a closed curve of integration)."
+ },
+ "chrome.phase_key": {
+  "en": "Phase key",
+  "ru": "Шкала фазы"
+ },
+ "chrome.equator": {
+  "en": "Equator",
+  "ru": "Экватор"
+ },
+ "chrome.one_after_another": {
+  "en": "One after another",
+  "ru": "По очереди"
+ },
+ "chrome.all_at_once": {
+  "en": "All at once",
+  "ru": "Все сразу",
+  "note": "Test literal."
+ },
+ "chrome.deformation_steps_one_after": {
+  "en": "Deformation: the steps one after another or all at once",
+  "ru": "Деформация: шаги по очереди или все сразу"
+ },
+ "chrome.speed": {
+  "en": "Speed",
+  "ru": "Скорость"
+ },
+ "chrome.loop": {
+  "en": "Loop",
+  "ru": "Повтор",
+  "note": "Not «петля» (reserved for the sound loop)."
+ },
+ "chrome.height": {
+  "en": "Height",
+  "ru": "Высота"
+ },
+ "chrome.tiles": {
+  "en": "Tiles",
+  "ru": "Плитки",
+  "note": "Test literal."
+ },
+ "chrome.phase_colours_with_modulus": {
+  "en": "Phase colours with modulus contours",
+  "ru": "Цвет фазы и линии уровня модуля"
+ },
+ "chrome.plain": {
+  "en": "Plain",
+  "ru": "Только фаза",
+  "ru_short": "Фаза",
+  "note": "Segment in the phase-style row; use the short form if the row overflows (the tooltip says «Только цвет фазы»)."
+ },
+ "chrome.phase_colours_only": {
+  "en": "Phase colours only",
+  "ru": "Только цвет фазы"
+ },
+ "chrome.plaster": {
+  "en": "Plaster",
+  "ru": "Гипс"
+ },
+ "chrome.relief_alone_lit": {
+  "en": "The relief alone, lit",
+  "ru": "Только рельеф, с освещением"
+ },
+ "chrome.colouring": {
+  "en": "Colouring",
+  "ru": "Раскраска"
+ },
+ "chrome.phase_style": {
+  "en": "Phase style",
+  "ru": "Стиль фазы"
+ },
+ "chrome.phase_sectors": {
+  "en": "Phase sectors",
+  "ru": "Секторы фазы"
+ },
+ "chrome.grid_step": {
+  "en": "Grid step",
+  "ru": "Шаг сетки"
+ },
+ "chrome.outlines": {
+  "en": "Outlines",
+  "ru": "Границы",
+  "note": "Outlines of the shapes on the relief; not «контуры» (reserved)."
+ },
+ "chrome.equator_2": {
+  "en": "Equator",
+  "ru": "Экватор"
+ },
+ "chrome.all_sheets_3": {
+  "en": "All sheets",
+  "ru": "Все листы"
+ },
+ "chrome.sheets_on_each_side": {
+  "en": "Sheets on each side",
+  "ru": "Листов с каждой стороны"
+ },
+ "chrome.unit_level": {
+  "en": "Unit level",
+  "ru": "Уровень 1"
+ },
+ "chrome.top": {
+  "en": "Top",
+  "ru": "Сверху",
+  "note": "Two-segment control «Сверху | Спереди»: no shorter Russian words; check at 360 px."
+ },
+ "chrome.front": {
+  "en": "Front",
+  "ru": "Спереди",
+  "note": "See chrome.top."
+ },
+ "chrome.view_2": {
+  "en": "View",
+  "ru": "Вид"
+ },
+ "chrome.key_yhtml_plane": {
+  "en": "Key in the {yHtml}-plane",
+  "ru": "Шкала цветов в плоскости {yHtml}",
+  "note": "Glossary: key = «шкала». The proto sample has «Цветовой ключ»; change it to follow the glossary."
+ },
+ "chrome.cells_sphere": {
+  "en": " cells of the sphere",
+  "ru": " клеток сферы",
+  "note": "Follows \"16 × 8\" (canvas run): genitive plural fits any product."
+ },
+ "chrome.cell": {
+  "en": "cell ",
+  "ru": "клетка ",
+  "note": "Canvas run: «клетка 0,5 в плоскости z». The number run uses the mono font; format with I18N.num()."
+ },
+ "chrome.x": {
+  "en": " in ",
+  "ru": " в плоскости ",
+  "note": "Canvas run between the cell size and the italic z."
+ },
+ "chrome.per_band": {
+  "en": "per band",
+  "ru": "на полосу яркости",
+  "ru_short": "на полосу",
+  "note": "Canvas legend under \"×1,69\", 11 px; check the width. The sibling word \"contours\" (app.js 7073) is missing from the inventory: «линии уровня»."
+ },
+ "chrome.height_fn": {
+  "en": "height |{Fn}|",
+  "ru": "высота |{Fn}|"
+ },
+ "chrome.height_re_fn": {
+  "en": "height Re {Fn}",
+  "ru": "высота Re {Fn}"
+ },
+ "chrome.height_im_fn": {
+  "en": "height Im {Fn}",
+  "ru": "высота Im {Fn}"
+ },
+ "chrome.height_log_fn": {
+  "en": "height log |{Fn}|",
+  "ru": "высота ln |{Fn}|",
+  "note": "Russian notation: natural log |F| is written ln |F| (GLOSSARY 2.2)."
+ },
+ "chrome.arg_fn": {
+  "en": "arg and |{Fn}|",
+  "ru": "arg и |{Fn}|"
+ },
+ "chrome.select": {
+  "en": "Select",
+  "ru": "Выбор",
+  "note": "Tool name; test literal."
+ },
+ "chrome.drag_shape_move_handles": {
+  "en": "Drag a shape to move it and its handles to reshape. Drag empty space to pan (on a sphere, to turn it).",
+  "ru": "Перетащите фигуру, чтобы переместить её, а маркеры — чтобы изменить форму. Перетаскивание пустого места сдвигает вид (на сфере — вращает её)."
+ },
+ "chrome.point": {
+  "en": "Point",
+  "ru": "Точка"
+ },
+ "chrome.click_place_point_images": {
+  "en": "Click to place a point; its images are labelled a′, a″, …",
+  "ru": "Щёлкните, чтобы поставить точку; её образы обозначаются a′, a″, …"
+ },
+ "chrome.segment": {
+  "en": "Segment",
+  "ru": "Отрезок"
+ },
+ "chrome.drag_from_one_end": {
+  "en": "Drag from one end to the other.",
+  "ru": "Перетащите от одного конца к другому."
+ },
+ "chrome.line_2": {
+  "en": "Line",
+  "ru": "Прямая"
+ },
+ "chrome.drag_through_two_points": {
+  "en": "Drag through two points; the line extends to infinity.",
+  "ru": "Перетащите от одной точки прямой к другой; прямая уходит в бесконечность."
+ },
+ "chrome.ray": {
+  "en": "Ray",
+  "ru": "Луч"
+ },
+ "chrome.drag_from_start_direction": {
+  "en": "Drag from the start in the direction of the ray.",
+  "ru": "Перетащите от начала луча в его направлении."
+ },
+ "chrome.circle": {
+  "en": "Circle",
+  "ru": "Окруж­ность",
+  "note": "Tool label: U+00AD soft hyphen at the morpheme break, so the 4-column grid wraps it (DESIGN 8.1). Invisible when not broken; screen readers ignore it."
+ },
+ "chrome.drag_from_center_outward": {
+  "en": "Drag from the center outward.",
+  "ru": "Перетащите от центра наружу."
+ },
+ "chrome.arc": {
+  "en": "Arc",
+  "ru": "Дуга"
+ },
+ "chrome.drag_between_ends_then": {
+  "en": "Drag between the ends, then move the middle handle to bend it.",
+  "ru": "Перетащите от одного конца к другому, затем сдвиньте средний маркер, чтобы изогнуть дугу."
+ },
+ "chrome.freehand": {
+  "en": "Freehand",
+  "ru": "От руки"
+ },
+ "chrome.hold_draw_open_curve": {
+  "en": "Hold and draw an open curve.",
+  "ru": "Нарисуйте незамкнутую кривую, удерживая кнопку."
+ },
+ "chrome.disc": {
+  "en": "Disc",
+  "ru": "Круг",
+  "note": "Not «Диск». «Круг» and «Окружность» are different tools on purpose."
+ },
+ "chrome.drag_from_center_outward_2": {
+  "en": "Drag from the center outward.",
+  "ru": "Перетащите от центра наружу."
+ },
+ "chrome.rectangle": {
+  "en": "Rectangle",
+  "ru": "Прямо­угольник",
+  "note": "Tool label: U+00AD soft hyphen at the morpheme break, so the 4-column grid wraps it (DESIGN 8.1). Invisible when not broken; screen readers ignore it."
+ },
+ "chrome.drag_between_opposite_corners": {
+  "en": "Drag between opposite corners.",
+  "ru": "Перетащите от одного угла к противоположному."
+ },
+ "chrome.polygon": {
+  "en": "Polygon",
+  "ru": "Много­угольник",
+  "note": "Tool label: U+00AD soft hyphen at the morpheme break, so the 4-column grid wraps it (DESIGN 8.1). Invisible when not broken; screen readers ignore it."
+ },
+ "chrome.click_vertices_click_first": {
+  "en": "Click the vertices; click the first one or press Enter to close.",
+  "ru": "Щёлкайте по вершинам; чтобы замкнуть, щёлкните первую вершину или нажмите Enter."
+ },
+ "chrome.lasso": {
+  "en": "Lasso",
+  "ru": "Лассо"
+ },
+ "chrome.hold_draw_closed_region": {
+  "en": "Hold and draw a closed region.",
+  "ru": "Нарисуйте замкнутую область, удерживая кнопку."
+ },
+ "chrome.drag_along_boundary_region": {
+  "en": "Drag along the boundary; the region is to the left of the arrow.",
+  "ru": "Перетащите вдоль границы; область лежит слева от стрелки."
+ },
+ "chrome.annulus": {
+  "en": "Annulus",
+  "ru": "Кольцо"
+ },
+ "chrome.drag_from_center_outer": {
+  "en": "Drag from the center to the outer radius.",
+  "ru": "Перетащите от центра до внешнего радиуса."
+ },
+ "chrome.sector": {
+  "en": "Sector",
+  "ru": "Сектор"
+ },
+ "chrome.drag_from_vertex_edit": {
+  "en": "Drag from the vertex; edit the angles in the shape list.",
+  "ru": "Перетащите от вершины; углы задаются в списке фигур."
+ },
+ "chrome.formula": {
+  "en": "Formula",
+  "ru": "Формула"
+ },
+ "chrome.type_set_such_as": {
+  "en": "Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.",
+  "ru": "Введите ниже множество, например |z − 1| < 2, или кривую, например Re z = 0."
+ },
+ "chrome.grid": {
+  "en": "Grid",
+  "ru": "Сетка"
+ },
+ "chrome.drag_rectangle_fill_with": {
+  "en": "Drag a rectangle to fill with grid lines.",
+  "ru": "Растяните прямоугольник — он заполнится линиями сетки."
+ },
+ "chrome.polar_grid": {
+  "en": "Polar grid",
+  "ru": "Полярная сетка"
+ },
+ "chrome.drag_from_center_set": {
+  "en": "Drag from the center to set the radius.",
+  "ru": "Перетащите от центра, чтобы задать радиус."
+ },
+ "chrome.point_s": {
+  "en": "Point {s}",
+  "ru": "Точка {s}"
+ },
+ "chrome.target_x_x": {
+  "en": "Target {x} {x}",
+  "ru": "Цель: {x} {x2}",
+  "note": "Two different values share {x}: rename {kind} (Region.KINDS label, lower-cased: «круг», «полуплоскость») and {n}. The colon keeps the kind in the nominative and avoids gender: «Цель: круг 1».",
+  "en_key": "Target {x} {x2}",
+  "ph": {
+   "x2": "{x}"
+  }
+ },
+ "chrome.not_tex": {
+  "en": "\\text{not }{tex}",
+  "ru": "\\text{не }%{tex}",
+  "note": "DESIGN.md 5: never Cyrillic inside on-screen TeX. Put «не» in HTML before the formula instead of \\text{не }.",
+  "en_key": "\\text{not }%{tex}"
+ },
+ "chrome.expected_number_like_1": {
+  "en": "Expected a number like 1+2i or e^{i\\pi/4}",
+  "ru": "Нужно число, например 1+2i или e^{i\\pi/4}",
+  "note": "Input fields keep the decimal point. If the user typed a decimal comma, GLOSSARY 2.3 suggests adding «Дробную часть отделяйте точкой: 0.5»."
+ },
+ "chrome.radius_must_be_0": {
+  "en": "The radius must be 0 (unbounded) or more",
+  "ru": "Радиус должен быть не меньше 0 (0 — без ограничения)"
+ },
+ "chrome.radius_must_be_positive": {
+  "en": "The radius must be positive",
+  "ru": "Радиус должен быть положительным"
+ },
+ "chrome.radii_must_be_0": {
+  "en": "Radii must be 0 or more",
+  "ru": "Радиусы должны быть не меньше 0"
+ },
+ "chrome.radii_must_be_0_2": {
+  "en": "Radii must be 0 or more",
+  "ru": "Радиусы должны быть не меньше 0"
+ },
+ "chrome.use_whole_number_from": {
+  "en": "Use a whole number from 1 to 60",
+  "ru": "Нужно целое число от 1 до 60"
+ },
+ "chrome.use_whole_number_from_2": {
+  "en": "Use a whole number from 1 to 60",
+  "ru": "Нужно целое число от 1 до 60"
+ },
+ "chrome.enter_number": {
+  "en": "Enter a number",
+  "ru": "Введите число"
+ },
+ "chrome.enter_number_2": {
+  "en": "Enter a number",
+  "ru": "Введите число"
+ },
+ "chrome.start": {
+  "en": "start <i>a</i>",
+  "ru": "начало <i>a</i>"
+ },
+ "chrome.end_b": {
+  "en": "end <i>b</i>",
+  "ru": "конец <i>b</i>"
+ },
+ "chrome.from": {
+  "en": "from <i>a</i>",
+  "ru": "от <i>a</i>"
+ },
+ "chrome.b": {
+  "en": "to <i>b</i>",
+  "ru": "до <i>b</i>"
+ },
+ "chrome.corner": {
+  "en": "corner <i>a</i>",
+  "ru": "угол <i>a</i>",
+  "note": "Corner of a rectangle (vertex), not an angle."
+ },
+ "chrome.corner_b": {
+  "en": "corner <i>b</i>",
+  "ru": "угол <i>b</i>"
+ },
+ "chrome.center_c": {
+  "en": "center <i>c</i>",
+  "ru": "центр <i>c</i>"
+ },
+ "chrome.radius_r": {
+  "en": "radius <i>r</i>",
+  "ru": "радиус <i>r</i>"
+ },
+ "chrome.center_c_2": {
+  "en": "center <i>c</i>",
+  "ru": "центр <i>c</i>"
+ },
+ "chrome.vertex_c": {
+  "en": "vertex <i>c</i>",
+  "ru": "вершина <i>c</i>"
+ },
+ "chrome.radius_0": {
+  "en": "radius (0 = ∞)",
+  "ru": "радиус (0 = ∞)"
+ },
+ "chrome.corner_2": {
+  "en": "corner <i>a</i>",
+  "ru": "угол <i>a</i>"
+ },
+ "chrome.corner_b_2": {
+  "en": "corner <i>b</i>",
+  "ru": "угол <i>b</i>"
+ },
+ "chrome.center_c_3": {
+  "en": "center <i>c</i>",
+  "ru": "центр <i>c</i>"
+ },
+ "chrome.radius_r_2": {
+  "en": "radius <i>r</i>",
+  "ru": "радиус <i>r</i>"
+ },
+ "chrome.use_complement_2": {
+  "en": "Use complement",
+  "ru": "Взять дополнение"
+ },
+ "chrome.less_than": {
+  "en": " less than ",
+  "ru": " меньше ",
+  "note": "texSpeech() builds a spoken name (aria) from TeX. Also missing from the inventory on the same lines: \" at most \" → « не больше », \" at least \" → « не меньше », \"$1 over $2\" → «$1 делённое на $2». It keeps \\pi, \\theta as the Latin words \"pi\", \"theta\": in Russian map them to «пи», «тета»."
+ },
+ "chrome.greater_than": {
+  "en": " greater than ",
+  "ru": " больше "
+ },
+ "chrome.absolute_1": {
+  "en": " absolute $1 ",
+  "ru": " модуль $1 "
+ },
+ "chrome.power_1": {
+  "en": " to the power $1 ",
+  "ru": " в степени $1 "
+ },
+ "chrome.x_2": {
+  "en": ", and ",
+  "ru": ", и ",
+  "note": "Replaces the comma between conditions: «Re z больше 0, и Im z меньше 1»."
+ },
+ "chrome.over": {
+  "en": " over ",
+  "ru": " делённое на "
+ },
+ "chrome.minus": {
+  "en": " minus ",
+  "ru": " минус "
+ },
+ "chrome.plus": {
+  "en": " plus ",
+  "ru": " плюс "
+ },
+ "chrome.nothing_curve_was_found": {
+  "en": "Nothing of this curve was found in view: it lies elsewhere, or it is too small or too thin to trace here.",
+  "ru": "В видимой части эта кривая не найдена: она лежит в другом месте или слишком мала либо тонка, чтобы её здесь проследить."
+ },
+ "chrome.ray_2": {
+  "en": "a ray",
+  "ru": "луч",
+  "note": "NAME map, count 1 (nominative, see chrome.adds_plan_what_z). Counted forms for $tn: {n} луч / {n} луча / {n} лучей."
+ },
+ "chrome.segment_2": {
+  "en": "a segment",
+  "ru": "отрезок",
+  "note": "Counted forms: {n} отрезок / {n} отрезка / {n} отрезков."
+ },
+ "chrome.circle_2": {
+  "en": "a circle",
+  "ru": "окружность",
+  "note": "Counted forms: {n} окружность / {n} окружности / {n} окружностей."
+ },
+ "chrome.arc_2": {
+  "en": "an arc",
+  "ru": "дуга",
+  "note": "Counted forms: {n} дуга / {n} дуги / {n} дуг."
+ },
+ "chrome.point_2": {
+  "en": "a point",
+  "ru": "точка",
+  "note": "Counted forms: {n} точка / {n} точки / {n} точек."
+ },
+ "chrome.traced_curve": {
+  "en": "a traced curve",
+  "ru": "кривая",
+  "note": "A curve traced from an equation. Counted forms in chrome.traced_curves."
+ },
+ "chrome.traced_curves": {
+  "en": "traced curves",
+  "ru": "кривые",
+  "plural": {
+   "one": "{n} кривая",
+   "few": "{n} кривые",
+   "many": "{n} кривых",
+   "other": "{n} кривой"
+  },
+  "note": "Code builds `${c} ${NAME[k][1]}`: use $tn so the count is inside the form.",
+  "en_plural": [
+   "{n} traced curve",
+   "{n} traced curves"
+  ]
+ },
+ "chrome.x_3": {
+  "en": " and ",
+  "ru": " и ",
+  "note": "Join of the NAME list: use I18N.list() («прямая, 2 окружности и луч»). Test literal."
+ },
+ "chrome.some_zeros_view": {
+  "en": " (some of the zeros in view)",
+  "ru": " (некоторые из нулей в видимой части)"
+ },
+ "chrome.zeros_view": {
+  "en": " (the zeros in view)",
+  "ru": " (нули в видимой части)"
+ },
+ "chrome.as_target": {
+  "en": " as a target",
+  "ru": " как цели",
+  "note": "Piece of `Adds ${plan.what}${as a target}.` (app.js 7656). Russian uses whole sentences: chrome.extra.adds_what split.shape «Добавляет: {what}.» and split.target «Добавляет в плоскость w: {what}.»"
+ },
+ "chrome.at_start": {
+  "en": "at the start",
+  "ru": "в начало",
+  "note": "Slot {where} of chrome.insert_function_where."
+ },
+ "chrome.after_f_k": {
+  "en": "after f{k}",
+  "ru": "после f{k}",
+  "note": "Slot {where}; {k} is an index, no plural needed."
+ },
+ "chrome.no_shapes_yet_2": {
+  "en": "No shapes yet",
+  "ru": "Фигур пока нет"
+ },
+ "chrome.hid_hidden": {
+  "en": ", {hid} hidden",
+  "ru": ", скрыто: {hid}",
+  "note": "Colon form avoids a plural on {hid}. The head `${n} shape${s}` on the same line is missing from the inventory: see chrome.extra.n_shapes."
+ },
+ "chrome.sheet_branch_index": {
+  "en": "Sheet (branch index)",
+  "ru": "Лист (номер ветви)"
+ },
+ "chrome.branch": {
+  "en": "Branch",
+  "ru": "Ветвь"
+ },
+ "chrome.coefficients_highest_degree_first": {
+  "en": "Coefficients aₙ, …, a₀, highest degree first",
+  "ru": "Коэффициенты aₙ, …, a₀, от старшей степени"
+ },
+ "chrome.numerator_coefficients_highest_degree": {
+  "en": "Numerator coefficients, highest degree first",
+  "ru": "Коэффициенты числителя, от старшей степени"
+ },
+ "chrome.denominator_coefficients_highest_degree": {
+  "en": "Denominator coefficients, highest degree first",
+  "ru": "Коэффициенты знаменателя, от старшей степени"
+ },
+ "chrome.enter_number_q_label": {
+  "en": "Enter a number; {q.label} stays {choice}",
+  "ru": "Введите число; сейчас {label} = {choice}",
+  "note": "Equation form avoids the gender of {q.label} (a symbol or a word such as «Ветвь»).",
+  "en_key": "Enter a number; {label} stays {choice}",
+  "ph": {
+   "label": "{q.label}"
+  }
+ },
+ "chrome.uses_choice_q_label": {
+  "en": "Uses {choice}: {q.label} must be a whole number{choice}",
+  "ru": "Используется {choice}: значение {label} должно быть целым числом{choice2}",
+  "note": "The two {choice} slots differ: rename {used} (the rounded value) and {min} (\" ≥ 2\" or empty).",
+  "en_key": "Uses {choice}: {label} must be a whole number{choice2}",
+  "ph": {
+   "choice2": "{choice}",
+   "label": "{q.label}"
+  }
+ },
+ "chrome.analytic": {
+  "en": "Analytic",
+  "ru": "Аналитическая функция",
+  "ru_short": "Аналитическая",
+  "note": "Chip name (CHIP_DEFS); test literal. Lamp labels are noun phrases (GLOSSARY 1.10)."
+ },
+ "chrome.entire": {
+  "en": "Entire",
+  "ru": "Целая функция",
+  "ru_short": "Целая",
+  "note": "Test literal."
+ },
+ "chrome.rational": {
+  "en": "Rational",
+  "ru": "Рациональная функция",
+  "ru_short": "Рациональная",
+  "note": "Test literal."
+ },
+ "chrome.polynomial": {
+  "en": "Polynomial",
+  "ru": "Многочлен",
+  "note": "Test literal."
+ },
+ "chrome.m_bius": {
+  "en": "Möbius",
+  "ru": "Дробно-линейная функция",
+  "ru_short": "Дробно-линейная",
+  "note": "Test literal."
+ },
+ "chrome.pr": {
+  "en": "Pr",
+  "ru": "С",
+  "note": "Chip letter of Proper. The other chip letters (A E R P M I) are single characters and were not inventoried. Russian chips (GLOSSARY 1.10): А Ц Р М ДЛ С И. Use a `lamp` context; the letters are Cyrillic."
+ },
+ "chrome.proper": {
+  "en": "Proper",
+  "ru": "Собственное отображение",
+  "ru_short": "Собственное",
+  "note": "Test literal."
+ },
+ "chrome.injective_homeomorphism_onto_image": {
+  "en": "Injective (a homeomorphism onto its image)",
+  "ru": "Инъективное отображение (гомеоморфизм на образ)",
+  "ru_short": "Гомеоморфизм на образ"
+ },
+ "chrome.cut_x": {
+  "en": "cut {x}°",
+  "ru": "разрез {x}°",
+  "note": "Format {x} with the decimal comma (I18N.num())."
+ },
+ "chrome.sheet_x_n": {
+  "en": ", sheet {x}/{n}",
+  "ru": ", лист {x}/{n}",
+  "note": "{x}/{n} is \"sheet x of n\" as a fraction: no plural needed."
+ },
+ "chrome.sheet_kk": {
+  "en": ", sheet {kk}",
+  "ru": ", лист {kk}"
+ },
+ "chrome.replace_with_inverse_2": {
+  "en": "Replace with the inverse",
+  "ru": "Заменить обратной"
+ },
+ "chrome.no_single_inverse_show": {
+  "en": "No single inverse: show why",
+  "ru": "Однозначной обратной нет: показать причину"
+ },
+ "chrome.replace_with_inverse_function_2": {
+  "en": "Replace with the inverse function",
+  "ru": "Заменить обратной функцией"
+ },
+ "chrome.why_step_has_no": {
+  "en": "Why this step has no single inverse",
+  "ru": "Почему у этого шага нет однозначной обратной"
+ },
+ "chrome.drag_seam_input_plane": {
+  "en": "Drag the seam in the input plane",
+  "ru": "Перетащите линию разреза в исходной плоскости"
+ },
+ "chrome.drag_zeros_poles_input": {
+  "en": "Drag the zeros and poles in the input plane",
+  "ru": "Перетащите нули и полюсы в исходной плоскости"
+ },
+ "chrome.not_guaranteed_3": {
+  "en": "not guaranteed",
+  "ru": "не гарантировано"
+ },
+ "chrome.st_takes_some_values": {
+  "en": "{st} takes some values more than once, so it has no single inverse.",
+  "ru": "{st} принимает некоторые значения более одного раза, поэтому однозначной обратной функции нет.",
+  "note": "{st} is the step label (Экспонента, Синус …): the present-tense verb has no gender, so any label fits."
+ },
+ "chrome.rotation_scaling_conformal_on": {
+  "en": "Rotation and scaling; conformal on ℂ",
+  "ru": "Поворот и растяжение; конформно на ℂ"
+ },
+ "chrome.scale_rotate_rotation_multiply": {
+  "en": "scale rotate rotation multiply dilation",
+  "ru": "scale rotate rotation multiply dilation поворот растяжение умножение масштаб",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.translation_conformal_on": {
+  "en": "Translation; conformal on ℂ",
+  "ru": "Сдвиг; конформно на ℂ"
+ },
+ "chrome.translate_shift_move": {
+  "en": "translate shift move",
+  "ru": "translate shift move сдвиг перенос",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.rotate_scale_shift_conformal": {
+  "en": "Rotate, scale and shift; conformal on ℂ",
+  "ru": "Поворот, растяжение и сдвиг; конформно на ℂ"
+ },
+ "chrome.linear_affine": {
+  "en": "linear affine",
+  "ru": "linear affine линейная аффинная",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.rotation_riemann_sphere_circles": {
+  "en": "A rotation of the Riemann sphere; circles to circles",
+  "ru": "Поворот сферы Римана; окружности переходят в окружности"
+ },
+ "chrome.inverse_reciprocal_inversion_1": {
+  "en": "inverse reciprocal inversion 1/z",
+  "ru": "inverse reciprocal inversion 1/z обратная инверсия",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.circles_circles_ad_bc": {
+  "en": "Circles to circles; ad − bc ≠ 0",
+  "ru": "Окружности переходят в окружности; ad − bc ≠ 0",
+  "note": "Test literal."
+ },
+ "chrome.mobius_m_bius_fractional": {
+  "en": "mobius möbius fractional linear cayley bilinear",
+  "ru": "mobius möbius fractional linear cayley bilinear мёбиус мебиус дробно-линейная кэли билинейная",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.automorphism_unit_disk": {
+  "en": "Automorphism of the unit disk",
+  "ru": "Автоморфизм единичного круга"
+ },
+ "chrome.disk_automorphism_blaschke": {
+  "en": "disk automorphism blaschke",
+  "ru": "disk automorphism blaschke автоморфизм круга бляшке",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.n_fold_cover_0": {
+  "en": "n-fold cover of ℂ ∖ {0}; angles multiply by n",
+  "ru": "n-листное накрытие ℂ ∖ {0}; углы умножаются на n",
+  "note": "{0} is set notation, not a placeholder: no param named \"0\" is passed."
+ },
+ "chrome.power_square_cube_z": {
+  "en": "power square cube z^2 z^3",
+  "ru": "power square cube z^2 z^3 степень квадрат куб",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.branch_n_th_root": {
+  "en": "Branch of the n-th root with a movable cut",
+  "ru": "Ветвь корня n-й степени с подвижным разрезом"
+ },
+ "chrome.sqrt_root_square_root": {
+  "en": "sqrt root square root cube root nth root",
+  "ru": "sqrt root square root cube root nth root корень квадратный кубический",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.z_on_chosen_branch": {
+  "en": "z^α on a chosen branch",
+  "ru": "z^α на выбранной ветви"
+ },
+ "chrome.complex_power_exponent": {
+  "en": "complex power exponent",
+  "ru": "complex power exponent комплексная степень показатель",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.conformal_on_injective_on": {
+  "en": "Conformal on ℂ; injective on strips of height 2π",
+  "ru": "Конформно на ℂ; однолистно в любой горизонтальной полосе ширины 2π",
+  "note": "Test literal."
+ },
+ "chrome.exponential_e_z": {
+  "en": "exponential e^z",
+  "ru": "exponential e^z экспонента",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.branch_logarithm_with_movable": {
+  "en": "Branch of the logarithm with a movable cut",
+  "ru": "Ветвь логарифма с подвижным разрезом"
+ },
+ "chrome.logarithm_ln_log": {
+  "en": "logarithm ln log",
+  "ru": "logarithm ln log логарифм",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.half_strip_half_plane": {
+  "en": "Half-strip to half-plane",
+  "ru": "Полуполоса на полуплоскость"
+ },
+ "chrome.half_strip_half_plane_2": {
+  "en": "Half-strip to half-plane",
+  "ru": "Полуполоса на полуплоскость"
+ },
+ "chrome.strip_slit_sphere": {
+  "en": "Strip to the slit sphere",
+  "ru": "Полоса на сферу с разрезом"
+ },
+ "chrome.rotated_sine": {
+  "en": "Rotated sine",
+  "ru": "Повёрнутый синус",
+  "note": "sh z = −i sin iz."
+ },
+ "chrome.hyperbolic_sine": {
+  "en": "hyperbolic sine",
+  "ru": "hyperbolic sine гиперболический синус sh",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.rotated_cosine": {
+  "en": "Rotated cosine",
+  "ru": "Повёрнутый косинус"
+ },
+ "chrome.hyperbolic_cosine": {
+  "en": "hyperbolic cosine",
+  "ru": "hyperbolic cosine гиперболический косинус ch",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.rotated_tangent": {
+  "en": "Rotated tangent",
+  "ru": "Повёрнутый тангенс"
+ },
+ "chrome.hyperbolic_tangent": {
+  "en": "hyperbolic tangent",
+  "ru": "hyperbolic tangent гиперболический тангенс th",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.principal_branch_cuts_on": {
+  "en": "Principal branch; cuts on the real axis beyond ±1",
+  "ru": "Главная ветвь; разрезы по лучам вещественной оси от ±1 до ∞"
+ },
+ "chrome.asin_inverse_sine": {
+  "en": "asin inverse sine",
+  "ru": "asin inverse sine арксинус",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.principal_branch_cuts_on_2": {
+  "en": "Principal branch; cuts on the real axis beyond ±1",
+  "ru": "Главная ветвь; разрезы по лучам вещественной оси от ±1 до ∞"
+ },
+ "chrome.acos_inverse_cosine": {
+  "en": "acos inverse cosine",
+  "ru": "acos inverse cosine арккосинус",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.principal_branch_cuts_on_3": {
+  "en": "Principal branch; cuts on the imaginary axis beyond ±i",
+  "ru": "Главная ветвь; разрезы по лучам мнимой оси от ±i до ∞"
+ },
+ "chrome.atan_inverse_tangent": {
+  "en": "atan inverse tangent",
+  "ru": "atan inverse tangent арктангенс arctg",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.principal_branch": {
+  "en": "Principal branch",
+  "ru": "Главная ветвь",
+  "note": "Test literal."
+ },
+ "chrome.principal_branch_2": {
+  "en": "Principal branch",
+  "ru": "Главная ветвь"
+ },
+ "chrome.principal_branch_3": {
+  "en": "Principal branch",
+  "ru": "Главная ветвь"
+ },
+ "chrome.circles_through_1_airfoils": {
+  "en": "Circles through ±1 to airfoils",
+  "ru": "Окружности, проходящие через ±1, переходят в профили крыла",
+  "note": "«профиль (крыла)», GLOSSARY 1.9; a subject is named."
+ },
+ "chrome.joukowski_joukowsky_airfoil": {
+  "en": "joukowski joukowsky airfoil",
+  "ru": "joukowski joukowsky airfoil жуковский профиль крыло",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.branch_inverse_joukowski_map": {
+  "en": "Branch of the inverse Joukowski map",
+  "ru": "Ветвь обратной к функции Жуковского"
+ },
+ "chrome.inverse_joukowski_joukowsky": {
+  "en": "inverse joukowski joukowsky",
+  "ru": "inverse joukowski joukowsky обратная жуковский",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.reflection_real_axis_not": {
+  "en": "Reflection in the real axis; not analytic",
+  "ru": "Симметрия относительно вещественной оси; функция не аналитична"
+ },
+ "chrome.conjugate_reflection_bar_conj": {
+  "en": "conjugate reflection bar conj",
+  "ru": "conjugate reflection bar conj сопряжение симметрия отражение черта",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.coefficients_from_highest_degree": {
+  "en": "Coefficients from the highest degree down",
+  "ru": "Коэффициенты от старшей степени к младшей"
+ },
+ "chrome.quotient_two_polynomials": {
+  "en": "Quotient of two polynomials",
+  "ru": "Отношение двух многочленов"
+ },
+ "chrome.rational_p_q": {
+  "en": "rational p/q",
+  "ru": "rational p/q рациональная дробь",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.drag_zeros_poles_input_2": {
+  "en": "Drag its zeros and poles in the input plane",
+  "ru": "Перетаскивайте её нули и полюсы в исходной плоскости"
+ },
+ "chrome.zeros_poles_roots_factored": {
+  "en": "zeros poles roots factored polynomial rational drag place",
+  "ru": "zeros poles roots factored polynomial rational drag place нули полюсы корни многочлен рациональная перетащить",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.any_formula_latex_or": {
+  "en": "Any formula in LaTeX or plain text",
+  "ru": "Любая формула в LaTeX или обычной записи"
+ },
+ "chrome.custom_formula_latex_expression": {
+  "en": "custom formula latex expression",
+  "ru": "custom formula latex expression своя формула выражение",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.derivative_chain_so_far": {
+  "en": "Derivative of the chain so far: w = (previous stage)′",
+  "ru": "Производная цепочки до этого места: w = (результат предыдущего шага)′"
+ },
+ "chrome.derivative_differentiate_prime_d": {
+  "en": "derivative differentiate prime d/dz dz derivative of the chain",
+  "ru": "derivative differentiate prime d/dz dz derivative of the chain производная дифференцировать штрих",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.curve_formulas": {
+  "en": "Curve formulas",
+  "ru": "Формулы кривых",
+  "note": "Identifier (group key): show through the display map; never change the literal in code."
+ },
+ "chrome.region_formulas": {
+  "en": "Region formulas",
+  "ru": "Формулы областей",
+  "note": "Identifier (group key): display map only."
+ },
+ "chrome.custom_formula_2": {
+  "en": "Custom formula",
+  "ru": "Своя формула",
+  "note": "Identifier (group key) and test literal: display map only."
+ },
+ "chrome.recently_used": {
+  "en": "Recently used",
+  "ru": "Недавние"
+ },
+ "chrome.calculus": {
+  "en": "Calculus",
+  "ru": "Анализ"
+ },
+ "chrome.region_formulas_2": {
+  "en": "Region formulas",
+  "ru": "Формулы областей",
+  "note": "Identifier: display map only."
+ },
+ "chrome.examples_2": {
+  "en": "Examples",
+  "ru": "Примеры"
+ },
+ "chrome.inverse": {
+  "en": "Inverse",
+  "ru": "Обратная",
+  "note": "Slot {what} of chrome.what_f_k_nm; test literal. Better: split that sentence (see there)."
+ },
+ "chrome.derivative": {
+  "en": "Derivative",
+  "ru": "Производная",
+  "note": "Slot {what} of chrome.what_f_k_nm."
+ },
+ "chrome.what_f_k_nm": {
+  "en": "{what} of f{k} ({nm})",
+  "ru": "{what} f{k} ({nm})",
+  "split": {
+   "Inverse": "Обратная к f{k} ({nm})",
+   "Derivative": "Производная f{k} ({nm})"
+  },
+  "note": "{what} is \"Inverse\"/\"Derivative\". Split into two keys so the noun governs correctly."
+ },
+ "chrome.what_f_k_nm_2": {
+  "en": "{what} of f{k} {nm}",
+  "ru": "{what} f{k} {nm}",
+  "split": {
+   "Inverse": "Обратная к f{k} {nm}",
+   "Derivative": "Производная f{k} {nm}"
+  },
+  "note": "Search text for score(): match both the English and the Russian label, so \"inverse\" and «обратная» both find it."
+ },
+ "chrome.steps_2": {
+  "en": "Steps",
+  "ru": "Шаги"
+ },
+ "chrome.x_y_x_y": {
+  "en": "x to y, x -> y, split, both planes, domain and image, shapes and images, planes",
+  "ru": "x to y, x -> y, split, both planes, domain and image, shapes and images, planes, обе плоскости, исходная плоскость и образ, фигуры и образы, плоскости",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.left_plane_domain_z": {
+  "en": "left plane, domain, z-plane, shapes, regions",
+  "ru": "left plane, domain, z-plane, shapes, regions, левая плоскость, исходная плоскость, плоскость z, фигуры, области",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.left_sphere_riemann_sphere": {
+  "en": "left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere",
+  "ru": "left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere, левая сфера, сфера Римана, бесконечность, сфера z, фазовая сфера",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.left_landscape_landscape_3d": {
+  "en": "left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets",
+  "ru": "left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, поверхность, риманова поверхность, рельеф модуля, высота, листы",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.phase_portrait_domain_colouring": {
+  "en": "phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase",
+  "ru": "phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase, фазовый портрет, раскраска области, раскраска, цвет, фаза, аргумент, модуль",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.right_plane_image_image": {
+  "en": "right plane, image, image plane, map, targets, preimages, w-plane",
+  "ru": "right plane, image, image plane, map, targets, preimages, w-plane, правая плоскость, образ, плоскость образов, отображение, цели, прообразы, плоскость w",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.right_sphere_riemann_sphere": {
+  "en": "right sphere, riemann sphere, globe, infinity, image sphere, w-sphere",
+  "ru": "right sphere, riemann sphere, globe, infinity, image sphere, w-sphere, правая сфера, сфера Римана, бесконечность, сфера образов, сфера w",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.view_x_y": {
+  "en": "View: X → Y",
+  "ru": "Вид: X → Y"
+ },
+ "chrome.view_phase_portrait": {
+  "en": "View: Phase portrait",
+  "ru": "Вид: фазовый портрет"
+ },
+ "chrome.view_landscape": {
+  "en": "View: Landscape",
+  "ru": "Вид: рельеф"
+ },
+ "chrome.phase_plane": {
+  "en": "Phase: Plane",
+  "ru": "Фаза: плоскость"
+ },
+ "chrome.x_plane": {
+  "en": "X: Plane",
+  "ru": "X: плоскость"
+ },
+ "chrome.phase_sphere": {
+  "en": "Phase: Sphere",
+  "ru": "Фаза: сфера"
+ },
+ "chrome.x_sphere": {
+  "en": "X: Sphere",
+  "ru": "X: сфера"
+ },
+ "chrome.y_plane": {
+  "en": "Y: Plane",
+  "ru": "Y: плоскость"
+ },
+ "chrome.y_sphere": {
+  "en": "Y: Sphere",
+  "ru": "Y: сфера"
+ },
+ "chrome.deformation_off": {
+  "en": "Deformation off",
+  "ru": "Выключить деформацию"
+ },
+ "chrome.deformation_on_play_homotopy": {
+  "en": "Deformation on (play the homotopy)",
+  "ru": "Включить деформацию (воспроизвести гомотопию)"
+ },
+ "chrome.morph_deformation_homotopy_animate": {
+  "en": "morph deformation homotopy animate animation merge",
+  "ru": "morph deformation homotopy animate animation merge деформация гомотопия анимация",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.deformation_hide_paths_t": {
+  "en": "Deformation: hide the paths t ↦ H_t(z)",
+  "ru": "Деформация: скрыть пути t ↦ H_t(z)"
+ },
+ "chrome.deformation_show_paths_t": {
+  "en": "Deformation: show the paths t ↦ H_t(z)",
+  "ru": "Деформация: показать пути t ↦ H_t(z)"
+ },
+ "chrome.paths_trajectories_arrows_homotopy": {
+  "en": "paths trajectories arrows homotopy deformation lines",
+  "ru": "paths trajectories arrows homotopy deformation lines пути траектории стрелки гомотопия деформация линии",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.deformation_steps_one_after_2": {
+  "en": "Deformation: the steps one after another",
+  "ru": "Деформация: шаги по очереди"
+ },
+ "chrome.deformation_all_steps_at": {
+  "en": "Deformation: all steps at once",
+  "ru": "Деформация: все шаги сразу"
+ },
+ "chrome.deformation_order_steps_simultaneous": {
+  "en": "deformation order steps simultaneous together sequence homotopy at once",
+  "ru": "deformation order steps simultaneous together sequence homotopy at once деформация порядок шаги одновременно вместе по очереди гомотопия сразу",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.integrate_along_selected_curve": {
+  "en": "Integrate along the selected curve",
+  "ru": "Вычислить интеграл по выделенной кривой"
+ },
+ "chrome.contour_line_integral_integrate": {
+  "en": "contour line integral integrate residue residues winding number argument principle cauchy",
+  "ru": "contour line integral integrate residue residues winding number argument principle cauchy контур интеграл вычет вычеты число оборотов принцип аргумента коши",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.show_roots_target_at": {
+  "en": "Show the roots: a target at 0",
+  "ru": "Показать корни: цель в точке 0"
+ },
+ "chrome.roots_zeros_poles_solve": {
+  "en": "roots zeros poles solve solutions equation preimages target",
+  "ru": "roots zeros poles solve solutions equation preimages target корни нули полюсы решить решения уравнение прообразы цель",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.derivative_chain_add_d": {
+  "en": "Derivative of the chain: add d/dz",
+  "ru": "Производная цепочки: добавить d/dz"
+ },
+ "chrome.derivative_prime_differentiate_d": {
+  "en": "derivative prime differentiate d/dz",
+  "ru": "derivative prime differentiate d/dz производная штрих дифференцировать",
+  "note": "Hidden search keywords: keep every English word and append the Russian ones (GLOSSARY 1.9). The ru value is the full English list plus the Russian words."
+ },
+ "chrome.fit_both_planes": {
+  "en": "Fit both planes",
+  "ru": "Вписать обе плоскости"
+ },
+ "chrome.unit_circle_on_or": {
+  "en": "Unit circle on or off",
+  "ru": "Единичная окружность: показать или скрыть"
+ },
+ "chrome.snap_while_drawing_on": {
+  "en": "Snap while drawing on or off",
+  "ru": "Привязка при рисовании: включить или выключить"
+ },
+ "chrome.switch_theme": {
+  "en": "Switch theme",
+  "ru": "Сменить тему"
+ },
+ "chrome.region_tools_panel": {
+  "en": "Region tools panel",
+  "ru": "Панель инструментов областей",
+  "ru_short": "Инструменты областей"
+ },
+ "chrome.guarantees_panel": {
+  "en": "Guarantees panel",
+  "ru": "Панель гарантий",
+  "ru_short": "Гарантии"
+ },
+ "chrome.view_3": {
+  "en": "View",
+  "ru": "Вид",
+  "note": "Palette group name."
+ },
+ "chrome.undo_2": {
+  "en": "Undo",
+  "ru": "Отменить",
+  "note": "Test literal."
+ },
+ "chrome.redo": {
+  "en": "Redo",
+  "ru": "Повторить"
+ },
+ "chrome.clear_chain": {
+  "en": "Clear the chain",
+  "ru": "Очистить цепочку"
+ },
+ "chrome.clear_all_shapes_targets": {
+  "en": "Clear all shapes and targets",
+  "ru": "Удалить все фигуры и цели"
+ },
+ "chrome.open_guide": {
+  "en": "Open the guide",
+  "ru": "Открыть руководство",
+  "note": "The guide document is «Руководство» (GLOSSARY 1.13). The header button chrome.guide stays «Справка»: in work/xt it opens the help menu (the guide and the tour)."
+ },
+ "chrome.actions": {
+  "en": "Actions",
+  "ru": "Действия"
+ },
+ "chrome.insert_at_start": {
+  "en": "Insert at the start",
+  "ru": "Вставить в начало"
+ },
+ "chrome.insert_after_f_at": {
+  "en": "Insert after f{at}",
+  "ru": "Вставить после f{at}"
+ },
+ "chrome.insert_after_f_s": {
+  "en": "Insert after f{S.focus}",
+  "ru": "Вставить после f{focus}",
+  "en_key": "Insert after f{focus}",
+  "ph": {
+   "focus": "{S.focus}"
+  }
+ },
+ "chrome.append_chain": {
+  "en": "Append to the chain",
+  "ru": "Добавить в конец цепочки"
+ },
+ "chrome.custom_formula_3": {
+  "en": "Custom formula",
+  "ru": "Своя формула",
+  "note": "Identifier and test literal: display map only."
+ },
+ "chrome.region_formulas_3": {
+  "en": "Region formulas",
+  "ru": "Формулы областей",
+  "note": "Identifier: display map only."
+ },
+ "chrome.curve_formulas_2": {
+  "en": "Curve formulas",
+  "ru": "Формулы кривых",
+  "note": "Identifier: display map only."
+ },
+ "chrome.pal_o_palstate_sel": {
+  "en": "pal-o{palState.sel}",
+  "ru": "pal-o{palState.sel}",
+  "keep": true,
+  "note": "Element id (aria-activedescendant), not visible. Do not translate."
+ },
+ "chrome.analytic_2": {
+  "en": "Analytic",
+  "ru": "Аналитическая функция",
+  "note": "Lamp label; test literal."
+ },
+ "chrome.holomorphic_at_every_point": {
+  "en": "Holomorphic at every point of its natural domain D.",
+  "ru": "Функция F голоморфна в каждой точке естественной области определения D."
+ },
+ "chrome.entire_2": {
+  "en": "Entire",
+  "ru": "Целая функция"
+ },
+ "chrome.d_f_holomorphic_everywhere": {
+  "en": "D = ℂ and F is holomorphic everywhere.",
+  "ru": "D = ℂ, и функция F голоморфна всюду."
+ },
+ "chrome.rational_2": {
+  "en": "Rational",
+  "ru": "Рациональная функция"
+ },
+ "chrome.agrees_on_d_with": {
+  "en": "Agrees on D with P(z)/Q(z) for polynomials P and Q.",
+  "ru": "Совпадает на D с P(z)/Q(z), где P и Q — многочлены.",
+  "note": "«где P и Q — многочлены» (some polynomials), as export.agrees_on_d_with; «для многочленов P и Q» reads as «for all»."
+ },
+ "chrome.polynomial_2": {
+  "en": "Polynomial",
+  "ru": "Многочлен"
+ },
+ "chrome.polynomial_z": {
+  "en": "A polynomial in z.",
+  "ru": "Многочлен от z."
+ },
+ "chrome.m_bius_2": {
+  "en": "Möbius",
+  "ru": "Дробно-линейная функция"
+ },
+ "chrome.f_z_az_b": {
+  "en": "F(z) = (az + b)/(cz + d) with ad − bc ≠ 0.",
+  "ru": "F(z) = (az + b)/(cz + d), ad − bc ≠ 0."
+ },
+ "chrome.proper_2": {
+  "en": "Proper",
+  "ru": "Собственное отображение"
+ },
+ "chrome.preimages_compact_sets_are": {
+  "en": "Preimages of compact sets in ℂ are compact in D, so |F(z)| → ∞ as z → ∂D or z → ∞.",
+  "ru": "Прообразы компактов в ℂ компактны в D, поэтому |F(z)| → ∞ при z → ∂D или z → ∞."
+ },
+ "chrome.homeomorphism_onto_image": {
+  "en": "Homeomorphism onto image",
+  "ru": "Гомеоморфизм на образ"
+ },
+ "chrome.injective_continuous_on_open": {
+  "en": "Injective and continuous on the open set D, so a homeomorphism D → F(D) by invariance of domain.",
+  "ru": "Отображение F инъективно и непрерывно на открытом множестве D, поэтому по теореме об инвариантности области оно — гомеоморфизм D → F(D)."
+ },
+ "chrome.conformal_onto_image": {
+  "en": "Conformal onto image",
+  "ru": "Конформное отображение на образ"
+ },
+ "chrome.analytic_injective_biholomorphism_d": {
+  "en": "Analytic and injective: a biholomorphism D → F(D), with F′ ≠ 0.",
+  "ru": "Функция F голоморфна и однолистна, поэтому задаёт биголоморфное отображение D → F(D), причём F′ ≠ 0.",
+  "note": "F′ ≠ 0 is a theorem for a univalent function (Шабат): «поэтому … причём», as export.holomorphic_injective_hence_biholomorphism."
+ },
+ "chrome.s_label": {
+  "en": "\\text{{s.label}}",
+  "ru": "\\text{{s.label}}",
+  "keep": true,
+  "note": "TeX wrapper, no words. A Cyrillic label inside \\text{} goes to cyrWord() in figures (DESIGN.md 5)."
+ },
+ "chrome.x_4": {
+  "en": ", and ",
+  "ru": " и ",
+  "note": "joinList(): Russian has no serial comma: «a, b и c». Use I18N.list()."
+ },
+ "chrome.x_5": {
+  "en": " and ",
+  "ru": " и ",
+  "note": "joinList(), two items. Test literal."
+ },
+ "chrome.non_badges_length": {
+  "en": "{nOn} of {BADGES.length}",
+  "ru": "{nOn} из {nBadges}",
+  "en_key": "{nOn} of {nBadges}",
+  "ph": {
+   "nBadges": "{BADGES.length}"
+  }
+ },
+ "chrome.step_i_has_error": {
+  "en": "Step {i} has an error and is skipped until fixed.",
+  "ru": "Шаг {i} содержит ошибку и пропускается, пока её не исправят."
+ },
+ "chrome.step_constant_so_f": {
+  "en": "A step is constant, so F is constant on D.",
+  "ru": "Один из шагов — постоянная функция, поэтому функция F постоянна на D."
+ },
+ "chrome.not_guaranteed_4": {
+  "en": "not guaranteed",
+  "ru": "не гарантировано"
+ },
+ "chrome.every_z_where_each": {
+  "en": "Every <i>z</i> where each step is defined.",
+  "ru": "Все <i>z</i>, в которых определён каждый шаг."
+ },
+ "chrome.complement_disc": {
+  "en": "complement of a disc",
+  "ru": "дополнение круга"
+ },
+ "chrome.critical_point": {
+  "en": "critical point",
+  "ru": "критическая точка"
+ },
+ "chrome.auto": {
+  "en": "Auto",
+  "ru": "Авто"
+ },
+ "chrome.light": {
+  "en": "Light",
+  "ru": "Светлая",
+  "note": "Agrees with «тема» (feminine)."
+ },
+ "chrome.dark": {
+  "en": "Dark",
+  "ru": "Тёмная"
+ },
+ "chrome.theme_name": {
+  "en": "Theme: {name}",
+  "ru": "Тема: {name}",
+  "note": "{name} = «Авто» / «Светлая» / «Тёмная»."
+ },
+ "chrome.theme_name_2": {
+  "en": "Theme: {name}",
+  "ru": "Тема: {name}"
+ },
+ "chrome.checker": {
+  "en": "Checker",
+  "ru": "Клетки",
+  "note": "Pattern tile; test literal."
+ },
+ "chrome.checkerboard_z_coordinates_shows": {
+  "en": "Checkerboard in z-coordinates: shows how squares are bent and scaled",
+  "ru": "Шахматная раскраска в координатах z: показывает, как изгибаются и растягиваются квадраты"
+ },
+ "chrome.checkerboard_log_z_arg": {
+  "en": "Checkerboard in log|z| and arg z: conformal maps keep these cells square",
+  "ru": "Шахматная раскраска в координатах ln |z| и arg z: конформные отображения сохраняют клетки квадратными",
+  "note": "Russian notation: log|z| → ln |z|."
+ },
+ "chrome.tiles_2": {
+  "en": "Tiles",
+  "ru": "Плитки"
+ },
+ "chrome.tiles_with_f_glyph": {
+  "en": "Tiles with an F glyph: shows rotation, scaling and reflection",
+  "ru": "Плитки с буквой F: показывают поворот, растяжение и отражение"
+ },
+ "chrome.grid_2": {
+  "en": "Grid",
+  "ru": "Сетка"
+ },
+ "chrome.cartesian_grid_lines_z": {
+  "en": "Cartesian grid lines of z carried by the map",
+  "ru": "Линии декартовой сетки в плоскости z, переносимые отображением"
+ },
+ "chrome.polar_grid_2": {
+  "en": "Polar grid",
+  "ru": "Полярная сетка",
+  "note": "Pattern tile: two-line caption may be needed (DESIGN.md 8.10)."
+ },
+ "chrome.circles_z_const_rays": {
+  "en": "Circles |z| = const and rays arg z = const carried by the map",
+  "ru": "Окружности |z| = const и лучи arg z = const, переносимые отображением"
+ },
+ "chrome.colored_by_argument_source": {
+  "en": "Colored by the argument of the source point z",
+  "ru": "Раскраска по arg z исходной точки z",
+  "note": "Tooltip of the \"Arg z\" pattern. Its tile label should read «arg z» in lower case (GLOSSARY 1.7: «Arg» is the multivalued argument)."
+ },
+ "chrome.stretch": {
+  "en": "Stretch",
+  "ru": "Растяжение"
+ },
+ "chrome.local_scale_factor_f": {
+  "en": "Local scale factor |F′(z)|: blue shrinks, amber grows",
+  "ru": "Коэффициент растяжения |F′(z)|: синий — сжатие, янтарный — растяжение"
+ },
+ "chrome.sphere_checker": {
+  "en": "Sphere checker",
+  "ru": "Клетки сферы"
+ },
+ "chrome.longitude_latitude_cells_riemann": {
+  "en": "Longitude and latitude cells of the Riemann sphere: {x} cells cover the plane and ∞",
+  "ru": "Клетки сферы Римана по долготе и широте: {n} клеток покрывают плоскость и ∞",
+  "plural": {
+   "one": "Клетки сферы Римана по долготе и широте: {n} клетка покрывает плоскость и ∞",
+   "few": "Клетки сферы Римана по долготе и широте: {n} клетки покрывают плоскость и ∞",
+   "many": "Клетки сферы Римана по долготе и широте: {n} клеток покрывают плоскость и ∞",
+   "other": "Клетки сферы Римана по долготе и широте: {n} клетки покрывают плоскость и ∞"
+  },
+  "note": "{x} = sphN()² / 2 (usually 128, the \"many\" form). Route through $tn anyway.",
+  "en_plural": [
+   "Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞",
+   "Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞"
+  ],
+  "en_key": "Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞",
+  "ph": {
+   "n": "{x}"
+  }
+ },
+ "chrome.solid": {
+  "en": "Solid",
+  "ru": "Заливка"
+ },
+ "chrome.flat_fill": {
+  "en": "Flat fill",
+  "ru": "Сплошная заливка",
+  "note": "Description of the Solid pattern (tooltip-like); its length is not critical."
+ },
+ "chrome.show_both_planes": {
+  "en": "Show both planes",
+  "ru": "Показать обе плоскости"
+ },
+ "chrome.expand_plane": {
+  "en": "Expand plane",
+  "ru": "Развернуть плоскость"
+ },
+ "chrome.plane": {
+  "en": "Plane",
+  "ru": "Плоскость",
+  "note": "Segment «Плоскость | Сфера»: about 1,8× the English width and no shorter word. Check at 360 px; the segment may need min-width: auto."
+ },
+ "chrome.sphere": {
+  "en": "Sphere",
+  "ru": "Сфера",
+  "note": "Test literal."
+ },
+ "chrome.plane_2": {
+  "en": "Plane",
+  "ru": "Плоскость",
+  "note": "See chrome.plane."
+ },
+ "chrome.sphere_2": {
+  "en": "Sphere",
+  "ru": "Сфера"
+ },
+ "chrome.phase_2": {
+  "en": "Phase",
+  "ru": "Фаза",
+  "note": "View tab; test literal."
+ },
+ "chrome.phase_3": {
+  "en": "Phase",
+  "ru": "Фаза"
+ },
+ "chrome.landscape_2": {
+  "en": "Landscape",
+  "ru": "Рельеф",
+  "note": "View tab; test literal."
+ },
+ "chrome.landscape_3": {
+  "en": "Landscape",
+  "ru": "Рельеф"
+ },
+ "chrome.phase_portrait_surface": {
+  "en": "Phase portrait surface",
+  "ru": "Поверхность фазового портрета"
+ },
+ "chrome.left_pane_surface": {
+  "en": "Left pane surface",
+  "ru": "Поверхность левой панели"
+ },
+ "chrome.x_y_shapes_their": {
+  "en": "X → Y: the shapes and their images  1",
+  "ru": "X → Y: фигуры и их образы  1"
+ },
+ "chrome.phase_portrait_f_2": {
+  "en": "Phase portrait of {F}  2",
+  "ru": "Фазовый портрет функции {F}  2"
+ },
+ "chrome.landscape_f_3": {
+  "en": "Landscape of {F}  3",
+  "ru": "Рельеф функции {F}  3"
+ },
+ "chrome.step_off_turn_on": {
+  "en": "This step is off: turn it on to deform",
+  "ru": "Этот шаг отключён: включите его, чтобы увидеть деформацию"
+ },
+ "chrome.add_function_deform": {
+  "en": "Add a function to deform",
+  "ru": "Добавьте функцию, чтобы увидеть деформацию"
+ },
+ "chrome.close_deformation_m": {
+  "en": "Close the deformation  M",
+  "ru": "Выключить деформацию  M"
+ },
+ "chrome.chain_needs_more_shader": {
+  "en": "This chain needs more shader parameters than this GPU allows. Remove or shorten a step.",
+  "ru": "Для этой цепочки нужно больше параметров шейдера, чем допускает видеокарта. Удалите или упростите один из шагов."
+ },
+ "chrome.gpu_could_not_compile": {
+  "en": "The GPU could not compile this chain (",
+  "ru": "Видеокарта не смогла скомпилировать эту цепочку (",
+  "note": "Piece: the GLSL message and \")\" follow. The compiler text stays English."
+ },
+ "chrome.complex_map_workbench": {
+  "en": "Complex Map Workbench",
+  "ru": "Complex Map Workbench",
+  "keep": true,
+  "note": "Product name: not translated or declined (GLOSSARY 3.11)."
+ },
+ "chrome.preview": {
+  "en": "Preview",
+  "ru": "Просмотр",
+  "note": "CSS content: \"Preview\" (page.html 972): move it into a variable or attribute so it can be translated."
+ },
+ "chrome.undo_z": {
+  "en": "Undo  ⌘Z",
+  "ru": "Отменить  ⌘Z",
+  "note": "page.html static text: translated by the walker (I18N.applyStatic)."
+ },
+ "chrome.undo_3": {
+  "en": "Undo",
+  "ru": "Отменить"
+ },
+ "chrome.redo_z": {
+  "en": "Redo  ⇧⌘Z",
+  "ru": "Повторить  ⇧⌘Z"
+ },
+ "chrome.redo_2": {
+  "en": "Redo",
+  "ru": "Повторить"
+ },
+ "chrome.view_4": {
+  "en": "View",
+  "ru": "Вид"
+ },
+ "chrome.deformation_m": {
+  "en": "Deformation  M",
+  "ru": "Деформация  M"
+ },
+ "chrome.deformation": {
+  "en": "Deformation",
+  "ru": "Деформация"
+ },
+ "chrome.add_function_command": {
+  "en": "Add function or command",
+  "ru": "Добавить функцию или команду",
+  "note": "aria-label: the full phrase. The visible button text (chrome.add_function_command_2) is shorter."
+ },
+ "chrome.region_tools": {
+  "en": "Region tools  [",
+  "ru": "Инструменты областей  ["
+ },
+ "chrome.show_hide_region_tools": {
+  "en": "Show or hide region tools",
+  "ru": "Показать или скрыть инструменты областей"
+ },
+ "chrome.guarantees_2": {
+  "en": "Guarantees  ]",
+  "ru": "Гарантии  ]"
+ },
+ "chrome.show_hide_guarantees": {
+  "en": "Show or hide guarantees",
+  "ru": "Показать или скрыть гарантии"
+ },
+ "chrome.export_images_latex": {
+  "en": "Export images or LaTeX",
+  "ru": "Экспорт изображений или LaTeX-кода"
+ },
+ "chrome.export_images_latex_2": {
+  "en": "Export images or LaTeX",
+  "ru": "Экспорт изображений или LaTeX-кода"
+ },
+ "chrome.theme_auto": {
+  "en": "Theme: Auto",
+  "ru": "Тема: Авто",
+  "note": "app.js rewrites it with chrome.theme_name."
+ },
+ "chrome.theme_auto_2": {
+  "en": "Theme: Auto",
+  "ru": "Тема: Авто"
+ },
+ "chrome.guide": {
+  "en": "Guide  ?",
+  "ru": "Справка  ?",
+  "note": "Header button: a noun, «Справка» (GLOSSARY 3.1). In work/xt it opens the help menu (Tour.openHelpMenu: the guide and the tour), so «Справка» is the menu; the guide itself is «Руководство»."
+ },
+ "chrome.guide_2": {
+  "en": "Guide",
+  "ru": "Справка"
+ },
+ "chrome.more_3": {
+  "en": "More",
+  "ru": "Ещё"
+ },
+ "chrome.more_4": {
+  "en": "More",
+  "ru": "Ещё"
+ },
+ "chrome.region_tools_2": {
+  "en": "Region tools",
+  "ru": "Инструменты областей"
+ },
+ "chrome.show_region_tools": {
+  "en": "Show region tools  [",
+  "ru": "Показать инструменты областей  ["
+ },
+ "chrome.show_region_tools_2": {
+  "en": "Show region tools",
+  "ru": "Показать инструменты областей"
+ },
+ "chrome.snap_while_drawing_both": {
+  "en": "Snap while drawing (both panes)",
+  "ru": "Привязка при рисовании (обе панели)"
+ },
+ "chrome.snap_while_drawing_3": {
+  "en": "Snap while drawing",
+  "ru": "Привязка при рисовании"
+ },
+ "chrome.hide_panel_2": {
+  "en": "Hide this panel  [",
+  "ru": "Скрыть эту панель  ["
+ },
+ "chrome.hide_region_tools": {
+  "en": "Hide region tools",
+  "ru": "Скрыть инструменты областей"
+ },
+ "chrome.drawing_tools": {
+  "en": "Drawing tools",
+  "ru": "Инструменты рисования"
+ },
+ "chrome.more_tools": {
+  "en": "More tools",
+  "ru": "Другие инструменты"
+ },
+ "chrome.z_1_2": {
+  "en": "|z-1| < 2",
+  "ru": "|z-1| < 2",
+  "keep": true,
+  "note": "Formula example in a placeholder: unchanged."
+ },
+ "chrome.region_formula": {
+  "en": "Region formula",
+  "ru": "Формула области"
+ },
+ "chrome.add_set_equation_adds": {
+  "en": "Add the set (an equation adds a curve): in z as a shape, in w as a target",
+  "ru": "Добавить множество (уравнение добавляет кривую): в плоскости z — как фигуру, в плоскости w — как цель"
+ },
+ "chrome.region_pattern": {
+  "en": "Region pattern",
+  "ru": "Узор области"
+ },
+ "chrome.pattern_cell_size": {
+  "en": "Pattern cell size",
+  "ru": "Размер клетки узора"
+ },
+ "chrome.fill_opacity": {
+  "en": "Fill opacity",
+  "ru": "Непрозрачность заливки"
+ },
+ "chrome.mesh_resolution": {
+  "en": "Mesh resolution",
+  "ru": "Детализация",
+  "note": "Glossary: mesh quality = «детализация»; never «сетка» (that is the grid). The proto table has «Детализация сетки»: change it."
+ },
+ "chrome.left_pane_surface_2": {
+  "en": "Left pane surface",
+  "ru": "Поверхность левой панели"
+ },
+ "chrome.up_date_2": {
+  "en": "Up to date",
+  "ru": "Актуально"
+ },
+ "chrome.domain_plane": {
+  "en": "Domain plane",
+  "ru": "Исходная плоскость"
+ },
+ "chrome.click_copy": {
+  "en": "Click to copy",
+  "ru": "Щёлкните, чтобы скопировать"
+ },
+ "chrome.paint_these_colours_w": {
+  "en": "Paint these colours in the w-plane on the right",
+  "ru": "Показать эти цвета в плоскости w справа"
+ },
+ "chrome.left_plane_view": {
+  "en": "Left plane view",
+  "ru": "Вид левой плоскости"
+ },
+ "chrome.zoom": {
+  "en": "Zoom in",
+  "ru": "Увеличить"
+ },
+ "chrome.zoom_2": {
+  "en": "Zoom in",
+  "ru": "Увеличить"
+ },
+ "chrome.zoom_out": {
+  "en": "Zoom out",
+  "ru": "Уменьшить"
+ },
+ "chrome.zoom_out_2": {
+  "en": "Zoom out",
+  "ru": "Уменьшить"
+ },
+ "chrome.fit_view_z": {
+  "en": "Fit view  Z",
+  "ru": "Вписать в окно  Z"
+ },
+ "chrome.fit_view": {
+  "en": "Fit view",
+  "ru": "Вписать в окно"
+ },
+ "chrome.expand_plane_2": {
+  "en": "Expand plane",
+  "ru": "Развернуть плоскость"
+ },
+ "chrome.expand_left_plane": {
+  "en": "Expand the left plane",
+  "ru": "Развернуть левую плоскость"
+ },
+ "chrome.deformation_2": {
+  "en": "Deformation",
+  "ru": "Деформация"
+ },
+ "chrome.drag_resize_double_click": {
+  "en": "Drag to resize; double-click to reset",
+  "ru": "Перетащите, чтобы изменить размер; двойной щелчок — исходный размер"
+ },
+ "chrome.right_pane_surface": {
+  "en": "Right pane surface",
+  "ru": "Поверхность правой панели"
+ },
+ "chrome.up_date_3": {
+  "en": "Up to date",
+  "ru": "Актуально"
+ },
+ "chrome.image_plane": {
+  "en": "Image plane",
+  "ru": "Плоскость образов"
+ },
+ "chrome.click_copy_2": {
+  "en": "Click to copy",
+  "ru": "Щёлкните, чтобы скопировать"
+ },
+ "chrome.readings": {
+  "en": "Readings",
+  "ru": "Показания"
+ },
+ "chrome.right_plane_view": {
+  "en": "Right plane view",
+  "ru": "Вид правой плоскости"
+ },
+ "chrome.zoom_3": {
+  "en": "Zoom in",
+  "ru": "Увеличить"
+ },
+ "chrome.zoom_4": {
+  "en": "Zoom in",
+  "ru": "Увеличить"
+ },
+ "chrome.zoom_out_3": {
+  "en": "Zoom out",
+  "ru": "Уменьшить"
+ },
+ "chrome.zoom_out_4": {
+  "en": "Zoom out",
+  "ru": "Уменьшить"
+ },
+ "chrome.fit_view_z_2": {
+  "en": "Fit view  Z",
+  "ru": "Вписать в окно  Z"
+ },
+ "chrome.fit_view_2": {
+  "en": "Fit view",
+  "ru": "Вписать в окно"
+ },
+ "chrome.expand_plane_3": {
+  "en": "Expand plane",
+  "ru": "Развернуть плоскость"
+ },
+ "chrome.expand_right_plane": {
+  "en": "Expand the right plane",
+  "ru": "Развернуть правую плоскость"
+ },
+ "chrome.deformation_3": {
+  "en": "Deformation",
+  "ru": "Деформация"
+ },
+ "chrome.drag_resize": {
+  "en": "Drag to resize",
+  "ru": "Перетащите, чтобы изменить размер"
+ },
+ "chrome.card_size": {
+  "en": "Card size",
+  "ru": "Размер карточек"
+ },
+ "chrome.guarantees_3": {
+  "en": "Guarantees",
+  "ru": "Гарантии"
+ },
+ "chrome.show_guarantees": {
+  "en": "Show guarantees  ]",
+  "ru": "Показать гарантии  ]"
+ },
+ "chrome.show_guarantees_2": {
+  "en": "Show guarantees",
+  "ru": "Показать гарантии"
+ },
+ "chrome.examples_3": {
+  "en": "Examples",
+  "ru": "Примеры"
+ },
+ "chrome.examples_4": {
+  "en": "Examples",
+  "ru": "Примеры"
+ },
+ "chrome.add_function_command_2": {
+  "en": "Add function or command",
+  "ru": "Функция или команда",
+  "note": "Visible text of the header command field. «Добавить функцию или команду» truncates at 768–1440 px (DESIGN.md 8.3); the glossary picks this short form."
+ },
+ "chrome.region_tools_panel_2": {
+  "en": "Region tools panel",
+  "ru": "Инструменты областей",
+  "note": "More menu (phone) row. «Панель инструментов областей» wraps (DESIGN.md 8.4), so the row uses the short form."
+ },
+ "chrome.guarantees_panel_2": {
+  "en": "Guarantees panel",
+  "ru": "Гарантии",
+  "note": "More menu row; short form per DESIGN.md 8.4."
+ },
+ "chrome.export_2": {
+  "en": "Export",
+  "ru": "Экспорт"
+ },
+ "chrome.theme": {
+  "en": "Theme:",
+  "ru": "Тема:"
+ },
+ "chrome.auto_2": {
+  "en": "Auto",
+  "ru": "Авто"
+ },
+ "chrome.guide_3": {
+  "en": "Guide",
+  "ru": "Справка"
+ },
+ "chrome.region_tools_3": {
+  "en": "Region tools",
+  "ru": "Инструменты областей"
+ },
+ "chrome.draw": {
+  "en": "Draw",
+  "ru": "Рисование"
+ },
+ "chrome.more_5": {
+  "en": "More",
+  "ru": "Ещё"
+ },
+ "chrome.done": {
+  "en": "Done",
+  "ru": "Готово"
+ },
+ "chrome.region_from_formula": {
+  "en": "Region from a formula",
+  "ru": "Область по формуле"
+ },
+ "chrome.add_2": {
+  "en": "Add",
+  "ru": "Добавить",
+  "note": "Button next to the formula field; «Добавить» is 8 letters against 3. If it does not fit, use an icon \"+\" with this text as aria-label."
+ },
+ "chrome.shapes": {
+  "en": "Shapes",
+  "ru": "Фигуры"
+ },
+ "chrome.clear": {
+  "en": "Clear",
+  "ru": "Очистить"
+ },
+ "chrome.display": {
+  "en": "Display",
+  "ru": "Вид",
+  "note": "GLOSSARY 1.8 and 1.15: display = «Вид», never «Отображение». The proto table has «Оформление»; align it with the glossary (or amend the glossary)."
+ },
+ "chrome.pattern_carried_by_map": {
+  "en": "Pattern carried by the map",
+  "ru": "Узор, переносимый отображением"
+ },
+ "chrome.cell_2": {
+  "en": "Cell",
+  "ru": "Клетка"
+ },
+ "chrome.unit_circle": {
+  "en": "Unit circle",
+  "ru": "Единичная окружность"
+ },
+ "chrome.grid_lines_on_regions": {
+  "en": "Grid lines on regions",
+  "ru": "Линии сетки на областях"
+ },
+ "chrome.orientation_chevrons": {
+  "en": "Orientation chevrons",
+  "ru": "Стрелки ориентации"
+ },
+ "chrome.opacity": {
+  "en": "Opacity",
+  "ru": "Непрозрачность",
+  "note": "Slider label, 14 letters against 7: check the row at 360 px. No shorter standard word («Прозрачность» would invert the meaning of the slider)."
+ },
+ "chrome.mesh_quality": {
+  "en": "Mesh quality",
+  "ru": "Детализация"
+ },
+ "chrome.draft": {
+  "en": "Draft",
+  "ru": "Черновая",
+  "ru_short": "Эскиз",
+  "note": "Mesh quality segment (5 segments). Glossary options: Черновая · Обычная · Высокая · Ультра · Максимум. If the row overflows at 360 px, use the ru_short set: Эскиз · Обычная · Высокая · Ультра · Максимум (GLOSSARY 3.10: no «Макс»)."
+ },
+ "chrome.normal": {
+  "en": "Normal",
+  "ru": "Обычная"
+ },
+ "chrome.fine": {
+  "en": "Fine",
+  "ru": "Высокая",
+  "note": "See chrome.draft for the length fallback."
+ },
+ "chrome.ultra": {
+  "en": "Ultra",
+  "ru": "Ультра"
+ },
+ "chrome.max": {
+  "en": "Max",
+  "ru": "Максимум",
+  "note": "«Максимум» in full (GLOSSARY 3.10: no «макс.»). It fits the mesh-quality stops at 390 and 1440 px (work/xl, headless Chrome, 2026-10-22: row scrollWidth = clientWidth)."
+ },
+ "chrome.fine_above_finish_refining": {
+  "en": "Fine and above finish refining after you stop dragging.",
+  "ru": "На уровнях «Высокая» и выше детализация уточняется, когда перетаскивание закончено."
+ },
+ "chrome.hover_probe_point": {
+  "en": "Hover to probe a point",
+  "ru": "Наведите указатель на точку"
+ },
+ "chrome.click_first_vertex_press": {
+  "en": "Click the first vertex or press Enter to close",
+  "ru": "Щёлкните первую вершину или нажмите Enter, чтобы замкнуть"
+ },
+ "chrome.click_first_vertex_press_2": {
+  "en": "Click the first vertex or press Enter to close",
+  "ru": "Щёлкните первую вершину или нажмите Enter, чтобы замкнуть"
+ },
+ "chrome.function_chain": {
+  "en": "Function chain",
+  "ru": "Цепочка функций",
+  "ru_short": "Цепочка",
+  "note": "Chain head at 768–1024 px: use the short form there (DESIGN.md 8.5)."
+ },
+ "chrome.cards": {
+  "en": "Cards",
+  "ru": "Обычные",
+  "note": "Segmented control \"Cards | Compact\" = card size: «Обычные | Компактные» (GLOSSARY 1.8)."
+ },
+ "chrome.compact": {
+  "en": "Compact",
+  "ru": "Компактные"
+ },
+ "chrome.whole_chain": {
+  "en": "Whole chain",
+  "ru": "Вся цепочка"
+ },
+ "chrome.clear_chain_2": {
+  "en": "Clear chain",
+  "ru": "Очистить цепочку",
+  "ru_short": "Очистить",
+  "note": "At compact widths DESIGN.md 8.5 turns this button into its icon."
+ },
+ "chrome.guarantees_4": {
+  "en": "Guarantees",
+  "ru": "Гарантии"
+ },
+ "chrome.wordmark": {
+  "en": "<span class=\"wm-pre\">Complex </span>Map Workbench",
+  "ru": "<span class=\"wm-pre\">Complex </span>Map Workbench",
+  "keep": true,
+  "note": "Brand: unchanged (data-i18n=\"no\" on the wordmark)."
+ },
+ "chrome.key_in_w_plane": {
+  "en": "Key in the <i>w</i>-plane",
+  "ru": "Шкала цветов в плоскости <i>w</i>",
+  "ru_short": "Шкала в плоскости <i>w</i>",
+  "note": "Needs data-i18n=\"html\" (inline math). Glossary: key = «шкала»; the proto table has «Цветовой ключ»."
+ },
+ "sound.stop_listening": {
+  "en": "Stop listening",
+  "ru": "Остановить прослушивание"
+ },
+ "sound.listen_along_s_id": {
+  "en": "Listen along {s.id}",
+  "ru": "Слушать вдоль кривой {name}",
+  "note": "Provisional (work/xs). «кривой» keeps the shape name {s.id} in the nominative.",
+  "en_key": "Listen along {name}",
+  "ph": {
+   "name": "{s.id}"
+  }
+ },
+ "sound.audio_engine_web_audio": {
+  "en": "Audio engine: Web Audio is not available here",
+  "ru": "Звук: Web Audio здесь недоступен",
+  "note": "Provisional (work/xs). Glossary: \"Audio engine:\" = «Звук:». This line has class \"mono\": in Russian set it in the UI font (B612 Mono has no Cyrillic)."
+ },
+ "sound.audio_engine_starts_with": {
+  "en": "Audio engine: starts with your next click or key",
+  "ru": "Звук: запустится при следующем щелчке или нажатии клавиши"
+ },
+ "sound.audio_engine_not_started": {
+  "en": "Audio engine: not started",
+  "ru": "Звук: ещё не запущен"
+ },
+ "sound.audio_engine_s_audio": {
+  "en": "Audio engine: {s.audio}{choice}{lat}{choice}{choice}",
+  "ru": "Звук: {audio}{choice}{lat}{choice2}{choice3}",
+  "note": "Provisional (work/xs). Three different values share {choice}: rename {rate}, {engine}, {saved}. {s.audio} is a technical state word from the engine (keep it, or map \"running\"/\"suspended\" to «работает»/«приостановлен»).",
+  "en_key": "Audio engine: {audio}{choice}{lat}{choice2}{choice3}",
+  "ph": {
+   "audio": "{s.audio}",
+   "choice2": "{choice}",
+   "choice3": "{choice}"
+  }
+ },
+ "sound.khz": {
+  "en": " kHz",
+  "ru": " кГц",
+  "note": "Provisional (work/xs). Format s.rate / 1000 with the decimal comma (44,1 кГц)."
+ },
+ "sound.settings_not_saved_here": {
+  "en": " · settings not saved here",
+  "ru": " · настройки здесь не сохраняются"
+ },
+ "sound.snap": {
+  "en": "Snap",
+  "ru": "Привязка",
+  "note": "Provisional (work/xs). Cue name in the \"What you hear\" list."
+ },
+ "sound.pointer_settled_on_grid": {
+  "en": "The pointer settled on a grid point (separate switch, off by default)",
+  "ru": "Указатель встал в узел сетки (отдельный переключатель, по умолчанию выключен)"
+ },
+ "sound.toggle_on": {
+  "en": "Toggle on",
+  "ru": "Включение"
+ },
+ "sound.switch_or_option_turned": {
+  "en": "A switch or option turned on",
+  "ru": "Переключатель или параметр включён"
+ },
+ "sound.toggle_off": {
+  "en": "Toggle off",
+  "ru": "Выключение"
+ },
+ "sound.switch_or_option_turned_2": {
+  "en": "A switch or option turned off",
+  "ru": "Переключатель или параметр выключен"
+ },
+ "sound.add_step": {
+  "en": "Add a step",
+  "ru": "Добавление шага"
+ },
+ "sound.function_joined_chain": {
+  "en": "A function joined the chain",
+  "ru": "Функция добавлена в цепочку"
+ },
+ "sound.remove_step": {
+  "en": "Remove a step",
+  "ru": "Удаление шага"
+ },
+ "sound.function_left_chain": {
+  "en": "A function left the chain",
+  "ru": "Функция удалена из цепочки"
+ },
+ "sound.switch_view": {
+  "en": "Switch view",
+  "ru": "Смена вида"
+ },
+ "sound.x_y_phase_landscape": {
+  "en": "X → Y, Phase, Landscape: a degree of the scale each",
+  "ru": "X → Y, «Фаза», «Рельеф»: у каждого вида своя ступень звукоряда"
+ },
+ "sound.export_ready": {
+  "en": "Export ready",
+  "ru": "Экспорт готов"
+ },
+ "sound.figure_or_file_ready": {
+  "en": "A figure or file is ready",
+  "ru": "Рисунок или файл готов"
+ },
+ "sound.error": {
+  "en": "Error",
+  "ru": "Ошибка"
+ },
+ "sound.something_could_not_be": {
+  "en": "Something could not be done (with the message)",
+  "ru": "Действие не удалось (вместе с сообщением об ошибке)"
+ },
+ "sound.edge": {
+  "en": "Edge",
+  "ru": "Край"
+ },
+ "sound.keyboard_probe_reached_edge": {
+  "en": "The keyboard probe reached the edge of the view",
+  "ru": "Указатель, управляемый с клавиатуры, дошёл до края видимой части"
+ },
+ "sound.deformation_plays": {
+  "en": "Deformation plays",
+  "ru": "Деформация запущена"
+ },
+ "sound.h_t_starts_from": {
+  "en": "H_t starts from t = 0 (once per play you start; never on loop repeats)",
+  "ru": "H_t стартует с t = 0 (один раз за каждый запуск; не при повторах)",
+  "note": "Provisional (work/xs). \"loop repeats\" is the repeat playback: «повтор», not «петля»."
+ },
+ "sound.deformation_scrub": {
+  "en": "Deformation scrub",
+  "ru": "Перемещение t"
+ },
+ "sound.detent_every_0_05": {
+  "en": "A detent every 0.05 of t; landmarks t = 0, ¼, ½, ¾, 1 are pitched D5 F♯5 A5 B5 D6",
+  "ru": "Щелчок через каждые 0,05 по t; опорные точки t = 0, ¼, ½, ¾, 1 звучат нотами D5 F♯5 A5 B5 D6"
+ },
+ "sound.deformation_arrives": {
+  "en": "Deformation arrives",
+  "ru": "Деформация завершена"
+ },
+ "sound.h_t_reached_t": {
+  "en": "H_t reached t = 1 (once per play you start)",
+  "ru": "H_t дошла до t = 1 (один раз за каждый запуск)",
+  "note": "Provisional (work/xs). H_t is «гомотопия» (feminine)."
+ },
+ "sound.loop_closed": {
+  "en": "Loop closed",
+  "ru": "Петля замкнута"
+ },
+ "sound.winding_number_w_as": {
+  "en": "Its winding number W as |W| pings, rising for W > 0, falling for W < 0; W = 0 a single soft knock",
+  "ru": "Её число оборотов W: |W| звонов, восходящих при W > 0 и нисходящих при W < 0; при W = 0 — один тихий стук",
+  "note": "Provisional (work/xs). «Её» refers to «петля» in the label above."
+ },
+ "sound.branch_cut": {
+  "en": "Branch cut",
+  "ru": "Разрез"
+ },
+ "sound.probe_crossed_branch_cut": {
+  "en": "The probe crossed a branch cut: F jumps there",
+  "ru": "Указатель пересёк разрез: здесь функция F терпит скачок"
+ },
+ "sound.probe_reached_zero_one": {
+  "en": "The probe reached a zero; one ping per order (found by the argument principle on a small circle)",
+  "ru": "Указатель попал в нуль; по одному звону на каждую единицу порядка (порядок находится по принципу аргумента на малой окружности)"
+ },
+ "sound.probe_reached_pole_one": {
+  "en": "The probe reached a pole; one thump per order",
+  "ru": "Указатель попал в полюс; по одному глухому удару на каждую единицу порядка"
+ },
+ "sound.many_zeros_or_poles": {
+  "en": "Many zeros or poles",
+  "ru": "Много нулей или полюсов"
+ },
+ "sound.more_than_two_zeros": {
+  "en": "More than two zeros/poles entered within 300 ms (a cluster): one quiet cue, then 600 ms of silence for them",
+  "ru": "Больше двух нулей или полюсов за 300 мс (скопление): один тихий сигнал, затем 600 мс тишины"
+ },
+ "sound.contour": {
+  "en": "Contour",
+  "ru": "Линия уровня",
+  "note": "Provisional (work/xs). Not «контур»: that word is reserved for a closed curve of integration (GLOSSARY 1.15)."
+ },
+ "sound.probe_crossed_level_line": {
+  "en": "The probe crossed a level line of |F| (Height): the tone's own note, an octave up",
+  "ru": "Указатель пересёк линию уровня |F| (по шкале «Высота»): собственная нота тона, октавой выше"
+ },
+ "sound.one_full_turn": {
+  "en": "One full turn",
+  "ru": "Полный оборот"
+ },
+ "sound.arg_f_completed_turn": {
+  "en": "arg F completed a turn and is \"home\": the loop's starting pitch class, two octaves above the tone; approached from below (up) or above (down)",
+  "ru": "arg F сделал полный оборот и вернулся «домой»: звуковысотный класс начала петли, на две октавы выше тона; подход снизу (вверх) или сверху (вниз)"
+ },
+ "sound.many_turns": {
+  "en": "Many turns",
+  "ru": "Много оборотов"
+ },
+ "sound.more_turns_than_can": {
+  "en": "More turns than can be counted live (> 8 queued): the count is shown, announced and played back exactly",
+  "ru": "Оборотов больше, чем можно сосчитать на ходу (в очереди больше 8): их число показывается, произносится и затем точно воспроизводится"
+ },
+ "sound.preimages_collide": {
+  "en": "Preimages collide",
+  "ru": "Прообразы сливаются"
+ },
+ "sound.w_crossed_critical_value": {
+  "en": "w crossed a critical value: two preimages merged (a preimage of multiplicity ≥ 2), never a count change at the view's edge",
+  "ru": "Точка w пересекла критическое значение: два прообраза слились (прообраз кратности ≥ 2); изменение числа прообразов на краю вида этот сигнал не вызывает"
+ },
+ "sound.sound_on_off": {
+  "en": "Sound on/off",
+  "ru": "Включить или выключить звук",
+  "note": "Provisional (work/xs). Palette command; shortcut chip ⇧M. No «вкл./выкл.» abbreviations (GLOSSARY 3.10)."
+ },
+ "sound.hear_function_on_off": {
+  "en": "Hear the function on/off",
+  "ru": "Слушать функцию: включить или выключить"
+ },
+ "sound.stop_sound": {
+  "en": "Stop sound",
+  "ru": "Остановить звук",
+  "note": "Provisional (work/xs). The command runs soundStop() (Esc): it stops playback, it does not mute. GLOSSARY 1.12 says «Выключить звук», which means \"turn sound off\"; amend the glossary."
+ },
+ "sound.sound_on": {
+  "en": "Sound on.",
+  "ru": "Звук включён."
+ },
+ "sound.sound_off": {
+  "en": "Sound off.",
+  "ru": "Звук выключен."
+ },
+ "sound.hear_function_on_hover": {
+  "en": "Hear the function on: hover a plane.",
+  "ru": "Прослушивание функции включено: наведите указатель на плоскость."
+ },
+ "sound.hear_function_off": {
+  "en": "Hear the function off.",
+  "ru": "Прослушивание функции выключено."
+ },
+ "sound.s_latency_ms": {
+  "en": " · {s.latency} ms",
+  "ru": " · {latency} мс",
+  "en_key": " · {latency} ms",
+  "ph": {
+   "latency": "{s.latency}"
+  }
+ },
+ "sound.no_winding_number_f": {
+  "en": "No winding number: F jumps, vanishes or is infinite on the loop.",
+  "ru": "Числа оборотов нет: на петле функция F терпит разрыв, обращается в нуль или в бесконечность."
+ },
+ "sound.winding_number_w_zeros": {
+  "en": "Winding number {W}: zeros minus poles inside, counted with multiplicity.",
+  "ru": "Число оборотов {W}: нули минус полюсы внутри, с учётом кратности."
+ },
+ "sound.curve_cannot_be_played": {
+  "en": "This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.",
+  "ru": "Эту кривую здесь нельзя озвучить: функция F слишком трудоёмка для вычисления либо обращается в нуль или в бесконечность в начале кривой.",
+  "note": "«проигрывать» also means «to lose»: use «воспроизвести», «звучит», «озвучить» (GLOSSARY 1.15)."
+ },
+ "sound.listening_along_loop_turns": {
+  "en": "Listening along the loop: {turns} turn{choice} of arg F. Esc stops.",
+  "ru": "Прослушивание вдоль петли: {n} оборотов arg F. Esc — остановить.",
+  "plural": {
+   "one": "Прослушивание вдоль петли: {n} оборот arg F. Esc — остановить.",
+   "few": "Прослушивание вдоль петли: {n} оборота arg F. Esc — остановить.",
+   "many": "Прослушивание вдоль петли: {n} оборотов arg F. Esc — остановить.",
+   "other": "Прослушивание вдоль петли: {n} оборота arg F. Esc — остановить."
+  },
+  "note": "Provisional (work/xs). Choose the form by |turns| (turns can be negative or 0: 0 → «оборотов»). Spoken by the screen reader. The English {choice} (the plural \"s\") is dropped: the plural forms replace it.",
+  "en_plural": [
+   "Listening along the loop: {n} turn of arg F. Esc stops.",
+   "Listening along the loop: {n} turns of arg F. Esc stops."
+  ],
+  "en_key": "Listening along the loop: {n} turn{choice} of arg F. Esc stops.",
+  "ph": {
+   "n": "{turns}"
+  }
+ },
+ "sound.listening_along_curve_esc": {
+  "en": "Listening along the curve. Esc stops.",
+  "ru": "Прослушивание вдоль кривой. Esc — остановить."
+ },
+ "sound.z_snd_kz_modulus": {
+  "en": "z {snd.kz}. Modulus {CX.abs}, argument {Math.atan2} degrees.",
+  "ru": "z {z}. Модуль {modulus}, аргумент {n} градусов.",
+  "plural": {
+   "one": "z {z}. Модуль {modulus}, аргумент {n} градус.",
+   "few": "z {z}. Модуль {modulus}, аргумент {n} градуса.",
+   "many": "z {z}. Модуль {modulus}, аргумент {n} градусов.",
+   "other": "z {z}. Модуль {modulus}, аргумент {n} градуса."
+  },
+  "note": "Provisional (work/xs). Spoken text: plural by the degree value (fractional → «градуса»). Numbers with the decimal comma so the Russian voice reads them.",
+  "en_plural": [
+   "z {z}. Modulus {modulus}, argument {n} degrees.",
+   "z {z}. Modulus {modulus}, argument {n} degrees."
+  ],
+  "en_key": "z {z}. Modulus {modulus}, argument {n} degrees.",
+  "ph": {
+   "modulus": "{CX.abs}",
+   "n": "{Math.atan2}",
+   "z": "{snd.kz}"
+  }
+ },
+ "sound.z_snd_kz_f": {
+  "en": "z {snd.kz}. F is infinite here.",
+  "ru": "z {z}. Здесь функция F обращается в бесконечность.",
+  "en_key": "z {z}. F is infinite here.",
+  "ph": {
+   "z": "{snd.kz}"
+  }
+ },
+ "sound.probe_at_centre_z": {
+  "en": "Probe at the centre, z = {snd.kz}. Steps of {st}; Shift for {x}.",
+  "ru": "Указатель в центре, z = {z}. Шаг {st}; с Shift — {x}.",
+  "en_key": "Probe at the centre, z = {z}. Steps of {st}; Shift for {x}.",
+  "ph": {
+   "z": "{snd.kz}"
+  }
+ },
+ "sound.edge_view": {
+  "en": "Edge of the view.",
+  "ru": "Край видимой части."
+ },
+ "sound.no_zeros_or_poles": {
+  "en": "No zeros or poles found in the view in the time allowed.",
+  "ru": "За отведённое время в видимой части не найдено ни нулей, ни полюсов."
+ },
+ "sound.no_zeros_or_poles_2": {
+  "en": "No zeros or poles in the view.",
+  "ru": "В видимой части нет ни нулей, ни полюсов."
+ },
+ "sound.or_more": {
+  "en": " or more",
+  "ru": " или больше",
+  "note": "Provisional (work/xs). Piece of uninventoried templates (sndKey \"Zero 1 of 3 or more\", list \"3 or more zeros\"). Russian «не менее» governs the genitive: use the forms in sound.extra.*."
+ },
+ "sound.no_order_within_st0": {
+  "en": "No order within {st0}: F jumps, vanishes or is infinite on that circle.",
+  "ru": "Порядок в круге радиуса {st0} не определён: на его границе функция F терпит разрыв, обращается в нуль или в бесконечность.",
+  "note": "«круг» (disc) and its «граница»: never «окружность» without an antecedent (GLOSSARY 1.1)."
+ },
+ "sound.zeros_minus_poles_within": {
+  "en": "Zeros minus poles within {st0}: none.",
+  "ru": "Нули минус полюсы в круге радиуса {st0}: 0.",
+  "note": "Provisional (work/xs). English \"none\" = net order 0; «0» reads unambiguously."
+ },
+ "sound.order_p_mult": {
+  "en": " (order {p.mult})",
+  "ru": " (порядок {mult})",
+  "note": "Provisional (work/xs). No noun after the number: no plural needed.",
+  "en_key": " (order {mult})",
+  "ph": {
+   "mult": "{p.mult}"
+  }
+ },
+ "sound.more": {
+  "en": ", and more",
+  "ru": " и другие",
+  "note": "Ends a list: no comma before «и» (leading space kept)."
+ },
+ "sound.no_w_s": {
+  "en": "no {w}s",
+  "ru": "нет {w}",
+  "split": {
+   "zero": "нулей нет",
+   "pole": "полюсов нет"
+  },
+  "note": "Provisional (work/xs). {w} is the raw word \"zero\"/\"pole\" + \"s\". Split into two keys."
+ },
+ "sound.fntext_view_zs_ps": {
+  "en": "{fnText} in this view: {zs}; {ps}{choice}.",
+  "ru": "{fnText} в видимой части: {zs}; {ps}{choice}.",
+  "note": "Provisional (work/xs). {zs}, {ps} come from list() (see sound.extra.list_zeros, sound.extra.list_poles); {choice} is sound.branch_cuts_from_cuts or empty."
+ },
+ "sound.branch_cuts_from_cuts": {
+  "en": "; branch cuts from {cuts} step{choice}, drawn in red",
+  "ru": "; разрезы от {n} шагов, показаны красным",
+  "plural": {
+   "one": "; разрезы от {n} шага, показаны красным",
+   "few": "; разрезы от {n} шагов, показаны красным",
+   "many": "; разрезы от {n} шагов, показаны красным",
+   "other": "; разрезы от {n} шага, показаны красным"
+  },
+  "note": "Provisional (work/xs). After «от» the genitive: 1 шага, 2 шагов, 5 шагов, 21 шага. The English {choice} (the plural \"s\") is dropped: the plural forms replace it.",
+  "en_plural": [
+   "; branch cuts from {n} step, drawn in red",
+   "; branch cuts from {n} steps, drawn in red"
+  ],
+  "en_key": "; branch cuts from {n} step{choice}, drawn in red",
+  "ph": {
+   "n": "{cuts}"
+  }
+ },
+ "sound.loop_needs_at_least": {
+  "en": "A loop needs at least three points.",
+  "ru": "Для петли нужно не меньше трёх точек."
+ },
+ "sound.loop_started_move_with": {
+  "en": "Loop started. Move with the arrow keys; Enter closes it.",
+  "ru": "Петля начата. Перемещайтесь клавишами со стрелками; Enter замыкает петлю."
+ },
+ "sound.no_loop_yet_enter": {
+  "en": "No loop yet: Enter starts one.",
+  "ru": "Петли пока нет: Enter начинает новую."
+ },
+ "sound.loop_cancelled": {
+  "en": "Loop cancelled.",
+  "ru": "Петля отменена."
+ },
+ "sound.noise_band_passed_at": {
+  "en": "noise band-passed at 1.9 kHz, Q 1.4, 25 ms",
+  "ru": "шум через полосовой фильтр: 1,9 кГц; Q 1,4; 25 мс",
+  "note": "Provisional (work/xs). Decimal commas: list items separated by «;» (GLOSSARY 2.3)."
+ },
+ "sound.key_a5": {
+  "en": "key A5",
+  "ru": "клавишный тон A5",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma. \"key\" = a short keyboard-like tone: «клавишный тон»."
+ },
+ "sound.key_e5_shorter": {
+  "en": "key E5, shorter",
+  "ru": "клавишный тон E5, короче",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.keys_d5_then_a5": {
+  "en": "keys D5 then A5, 55 ms apart",
+  "ru": "клавишные тоны D5, затем A5, с интервалом 55 мс",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.keys_a5_then_d5": {
+  "en": "keys A5 then D5",
+  "ru": "клавишные тоны A5, затем D5",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.soft_tick_key_d5": {
+  "en": "soft tick and key D5 / F♯5 / A5",
+  "ru": "тихий щелчок и клавишный тон D5 / F♯5 / A5",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.swish_noise_swept_1": {
+  "en": "a swish (noise swept 1 → 3 kHz, 120 ms), then key A5: \"written\"",
+  "ru": "шелест (шум, полоса скользит 1 → 3 кГц, 120 мс), затем клавишный тон A5: «записано»",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.two_wooden_d4_knocks": {
+  "en": "two wooden D4 knocks with a 1.2 kHz body and a D5 overtone (survives phone speakers)",
+  "ru": "два деревянных стука D4 с корпусом 1,2 кГц и обертоном D5 (слышны и в динамиках телефона)",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.soft_wooden_a5_knock": {
+  "en": "a soft wooden A5 knock with a 1.5 kHz contact",
+  "ru": "тихий деревянный стук A5 с контактом 1,5 кГц",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.d5_a5_swell_triangles": {
+  "en": "D5 + A5 swell (triangles), low-pass opening 700 Hz → 3.5 kHz over 0.3 s",
+  "ru": "нарастание D5 + A5 (треугольные волны), фильтр нижних частот открывается от 700 Гц до 3,5 кГц за 0,3 с",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.tick_landmarks_add_key": {
+  "en": "tick; landmarks add a key; the ends ring",
+  "ru": "щелчок; на опорных точках добавляется клавишный тон; концы звенят",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.glass_d6_f_6": {
+  "en": "glass D6 and F♯6",
+  "ru": "стекло D6 и F♯6",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.glass_pings_on_pentatonic": {
+  "en": "glass pings on the pentatonic, 125 ms apart, the first accented; > 8: a flourish",
+  "ru": "стеклянные звоны по пентатонике с интервалом 125 мс, первый с акцентом; больше 8 — пассаж",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.double_tick_stepping_down": {
+  "en": "a double tick stepping down, 3.2 then 2.0 kHz",
+  "ru": "двойной щелчок вниз: 3,2 кГц, затем 2,0 кГц",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.bell_d6_m_110": {
+  "en": "bell D6 × m; 110 ms apart (150 ms for m ≥ 3); the first +3 dB",
+  "ru": "колокольчик D6 × m; интервал 110 мс (150 мс при m ≥ 3); первый на +3 дБ",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.felt_thump_a4_a3": {
+  "en": "felt thump A4 → A3 with its octave at −6 dB and a 1.5 kHz felt contact, × m",
+  "ru": "глухой войлочный удар A4 → A3 с октавой на −6 дБ и войлочным контактом 1,5 кГц, × m",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.three_quiet_glass_ticks": {
+  "en": "three quiet glass ticks D6 E6 F♯6, 40 ms apart",
+  "ru": "три тихих стеклянных щелчка D6 E6 F♯6 с интервалом 40 мс",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.organ_tick_on_level": {
+  "en": "organ tick on the level's step of the Height scale, one octave up",
+  "ru": "органный щелчок на ступени уровня по шкале «Высота», октавой выше",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.grace_note_fifth_below": {
+  "en": "a grace note a fifth below (up) or a fourth above (down), then glass on the home pitch class at 1.7–3.4 kHz",
+  "ru": "форшлаг на квинту ниже (вверх) или на кварту выше (вниз), затем стекло на «домашнем» звуковысотном классе в диапазоне 1,7–3,4 кГц",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.quick_run_five_glass": {
+  "en": "a quick run of five glass notes, up or down",
+  "ru": "быстрый пассаж из пяти стеклянных нот вверх или вниз",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.two_glass_tones_whole": {
+  "en": "two glass tones a whole tone apart gliding into one",
+  "ru": "два стеклянных тона на расстоянии целого тона, сливающиеся в один",
+  "note": "Provisional (work/xs). Synthesis recipe shown in the sound settings. Note names stay in scientific pitch notation (D5, F♯5), as in Russian audio software; numbers take the decimal comma."
+ },
+ "sound.sound_shift_m": {
+  "en": "Sound (Shift+M)",
+  "ru": "Звук (Shift+M)",
+  "note": "Provisional (work/xs). Tooltip suffix: the key combination keeps the keycap form of the English (GLOSSARY 3.9); prose writes «Shift + M»."
+ },
+ "sound.sound_settings": {
+  "en": "Sound settings",
+  "ru": "Настройки звука"
+ },
+ "sound.sound_is_on_turn": {
+  "en": "Sound is on: turn it off (Shift+M)",
+  "ru": "Звук включён: выключить (Shift+M)",
+  "note": "Tooltip suffix: keycap form «(Shift+M)», as in English (GLOSSARY 3.9)."
+ },
+ "sound.volume": {
+  "en": "Volume",
+  "ru": "Громкость",
+  "note": "Provisional (work/xs). The output \"70 %\" keeps the no-break space."
+ },
+ "sound.what_you_hear": {
+  "en": "What you hear",
+  "ru": "Что слышно"
+ },
+ "sound.sound_is_off_these": {
+  "en": "Sound is off: these take effect when it is on.",
+  "ru": "Звук выключен: эти настройки подействуют, когда вы его включите."
+ },
+ "sound.interface": {
+  "en": "Interface",
+  "ru": "Интерфейс"
+ },
+ "sound.steps_toggles_views_export": {
+  "en": "Steps, toggles, views, export, errors: controls you operate",
+  "ru": "Шаги, переключатели, виды, экспорт, ошибки: то, чем вы управляете"
+ },
+ "sound.snap_ticks": {
+  "en": "Snap ticks",
+  "ru": "Щелчки привязки"
+ },
+ "sound.tick_when_drawn_point": {
+  "en": "A tick when a drawn point settles on the grid",
+  "ru": "Щелчок, когда нарисованная точка встаёт в узел сетки"
+ },
+ "sound.mathematical_events": {
+  "en": "Mathematical events",
+  "ru": "Математические события"
+ },
+ "sound.things_you_start_deformation": {
+  "en": "Things you start: the deformation, a closed loop&rsquo;s winding, listening along a curve",
+  "ru": "То, что вы запускаете: деформация, число оборотов замкнутой петли, прослушивание вдоль кривой",
+  "note": "Provisional (work/xs). The source has the entity &rsquo;; the Russian has no apostrophe."
+ },
+ "sound.hear_function_under_pointer": {
+  "en": "Hear the function under the pointer",
+  "ru": "Слушать функцию под указателем"
+ },
+ "sound.continuous_tone_arg": {
+  "en": "A continuous tone: arg",
+  "ru": "Непрерывный тон: arg",
+  "note": "Provisional (work/xs). Three text runs around <i>F</i>: «Непрерывный тон: arg <i>F</i> — звуковысотный класс, |<i>F</i>| — регистр и громкость; разрезы, нули и полюсы, линии уровня, обороты». Better: mark the <small> data-i18n=\"html\" and translate it as one string."
+ },
+ "sound.as_pitch_class": {
+  "en": "as pitch class, |",
+  "ru": "— звуковысотный класс, |",
+  "note": "Provisional (work/xs). Middle run; a no-break space before «—»."
+ },
+ "sound.as_register_loudness_cuts": {
+  "en": "| as register and loudness; cuts, zeros and poles, contours, turns",
+  "ru": "| — регистр и громкость; разрезы, нули и полюсы, линии уровня, обороты",
+  "note": "Provisional (work/xs). \"contours\" = level lines here: «линии уровня»."
+ },
+ "sound.on_iphone_ipad_ring": {
+  "en": "On iPhone and iPad, the ring/silent switch mutes these sounds.",
+  "ru": "На iPhone и iPad эти звуки отключает переключатель «Звонок/Бесшумно»."
+ },
+ "sound.shift_m_turns_sound": {
+  "en": "Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.",
+  "ru": "Shift + M включает и выключает звук; Esc останавливает воспроизведение. На активной плоскости: стрелки перемещают указатель, Z — к следующему нулю или полюсу, O — порядок в этой точке, D — описание вида, Enter — нарисовать петлю, L — прослушать вдоль неё.",
+  "note": "Provisional (work/xs). Key letters stay Latin. sndKey() matches k.toLowerCase() (z, o, d, l): it needs I18N.keyOf(e) too, or these keys fail on the Russian layout."
+ },
+ "sound.saved_on_device_only": {
+  "en": "Saved on this device only, never in your work or a shared link.",
+  "ru": "Хранится только на этом устройстве — не в работе и не в ссылке."
+ },
+ "chrome.extra.n_preimages_of": {
+  "en": "{n} preimage{s}{where} of",
+  "missing_from_inventory": true,
+  "ru": "{n} прообразов{where} точки",
+  "split": {
+   "exact": {
+    "one": "{n} прообраз{where} точки",
+    "few": "{n} прообраза{where} точки",
+    "many": "{n} прообразов{where} точки",
+    "other": "{n} прообраза{where} точки"
+   },
+   "atLeast": {
+    "one": "не менее {n} прообраза{where} точки",
+    "few": "не менее {n} прообразов{where} точки",
+    "many": "не менее {n} прообразов{where} точки",
+    "other": "не менее {n} прообраза{where} точки"
+   }
+  },
+  "note": "Not in inventory.json (found while translating). app.js 5244: `${at least }${n} preimage${s}${where} of` (readout head; \" <i>w</i>\" and the value follow). Two $tn keys:",
+  "en_plural": {
+   "exact": [
+    "{n} preimage{where} of",
+    "{n} preimages{where} of"
+   ],
+   "atLeast": [
+    "at least {n} preimage{where} of",
+    "at least {n} preimages{where} of"
+   ]
+  }
+ },
+ "chrome.extra.at": {
+  "en": "at",
+  "missing_from_inventory": true,
+  "ru": "в точке",
+  "note": "Not in inventory.json (found while translating). app.js 5239: readout head \"at\" (then \" <i>w</i>\" and the value): «в точке w 1+2i»."
+ },
+ "chrome.extra.drag_to_draw": {
+  "en": "Drag to draw {a} {lab}",
+  "missing_from_inventory": true,
+  "ru": "Перетащите, чтобы нарисовать: {tool}",
+  "split": {
+   "shape": "Перетащите, чтобы нарисовать: {tool}",
+   "target": "Перетащите, чтобы нарисовать цель: {tool}"
+  },
+  "note": "Not in inventory.json (found while translating). app.js 6567: `Drag to draw ${a target | a | an} ${lab}`; the article comes from a vowel regex on English. {tool} = the tool name lower-cased, nominative («круг», «полуплоскость»)."
+ },
+ "chrome.extra.adds_what": {
+  "en": "Adds {what}{as a target}.",
+  "missing_from_inventory": true,
+  "ru": "Добавляет: {what}.",
+  "split": {
+   "shape": "Добавляет: {what}.",
+   "target": "Добавляет в плоскость w: {what}."
+  },
+  "note": "Not in inventory.json (found while translating). app.js 7656: `Adds ${plan.what}${as a target}.` plus notes. Colon keeps {what} nominative («прямая и 2 окружности»). target: whatever is added in w is a target (GLOSSARY 1.1), so «в плоскость w» says it without number agreement."
+ },
+ "chrome.extra.n_shapes": {
+  "en": "{n} shape{s}",
+  "missing_from_inventory": true,
+  "ru": "{n} фигур",
+  "plural": {
+   "one": "{n} фигура",
+   "few": "{n} фигуры",
+   "many": "{n} фигур",
+   "other": "{n} фигуры"
+  },
+  "note": "Not in inventory.json (found while translating). app.js 7725 regionSummary: `${n} shape${s}`; followed by chrome.hid_hidden.",
+  "en_plural": [
+   "{n} shape",
+   "{n} shapes"
+  ]
+ },
+ "chrome.extra.contours": {
+  "en": "contours",
+  "missing_from_inventory": true,
+  "ru": "линии уровня",
+  "note": "Not in inventory.json (found while translating). app.js 7073: canvas legend word \"contours\" (3D relief)."
+ },
+ "chrome.extra.speech_at_most": {
+  "en": " at most ",
+  "missing_from_inventory": true,
+  "ru": " не больше ",
+  "note": "Not in inventory.json (found while translating). app.js 7549 texSpeech: \" at most \"."
+ },
+ "chrome.extra.speech_at_least": {
+  "en": " at least ",
+  "missing_from_inventory": true,
+  "ru": " не меньше ",
+  "note": "Not in inventory.json (found while translating). app.js 7549 texSpeech: \" at least \"."
+ },
+ "chrome.extra.speech_frac": {
+  "en": "$1 over $2",
+  "missing_from_inventory": true,
+  "ru": "$1 делённое на $2",
+  "note": "Not in inventory.json (found while translating). app.js 7548 texSpeech: \"$1 over $2\"."
+ },
+ "chrome.extra.speech_pi": {
+  "en": " pi ",
+  "missing_from_inventory": true,
+  "ru": " пи ",
+  "note": "Not in inventory.json (found while translating). texSpeech keeps \\pi as the Latin word \"pi\"; in Russian say «пи» (and \\theta → «тета»)."
+ },
+ "chrome.extra.role_landscape_of": {
+  "en": "landscape of {h}",
+  "missing_from_inventory": true,
+  "ru": "рельеф функции {h}",
+  "ru_short": "рельеф",
+  "note": "Not in inventory.json (found while translating). app.js 6474 paneTitles: `landscape of ${heightHtml(of)}`."
+ },
+ "chrome.extra.role_image_after_steps": {
+  "en": "image, after {n} step{s}",
+  "missing_from_inventory": true,
+  "ru": "образ после {n} шагов",
+  "plural": {
+   "one": "образ после {n} шага",
+   "few": "образ после {n} шагов",
+   "many": "образ после {n} шагов",
+   "other": "образ после {n} шага"
+  },
+  "ru_short": "образ",
+  "note": "Not in inventory.json (found while translating). app.js 6486 paneTitles: `image, after ${n} step${s}`. After «после» the genitive: 1 шага, 2 шагов, 21 шага.",
+  "en_plural": [
+   "image, after {n} step",
+   "image, after {n} steps"
+  ]
+ },
+ "chrome.extra.role_image": {
+  "en": "image",
+  "missing_from_inventory": true,
+  "ru": "образ",
+  "note": "Not in inventory.json (found while translating). app.js 6485–6488 paneTitles role \"image\"."
+ },
+ "chrome.extra.role_deformation": {
+  "en": "deformation",
+  "missing_from_inventory": true,
+  "ru": "деформация",
+  "note": "Not in inventory.json (found while translating). app.js 6484 paneTitles role \"deformation\"."
+ },
+ "chrome.extra.x_plane_title": {
+  "en": "{x}-plane",
+  "missing_from_inventory": true,
+  "ru": "плоскость {x}",
+  "note": "Not in inventory.json (found while translating). app.js 6471: `${wHtml(lk)}-plane` (pane title); the sphere variant `${x}-sphere` = «сфера {x}». The w-plane tag on line 7661 (`w{k}-plane`) is the same pattern."
+ },
+ "chrome.extra.chip_letters": {
+  "en": "A E R P M Pr I",
+  "missing_from_inventory": true,
+  "ru": "А Ц Р М ДЛ С И",
+  "note": "Not in inventory.json (found while translating). CHIP_DEFS letters A E R P M Pr I (app.js 8047), one key each with a `lamp` context: А (A), Ц (E), Р (R), М (P), ДЛ (M), С (Pr), И (I). GLOSSARY 1.10."
+ },
+ "chrome.extra.language": {
+  "en": "Language",
+  "missing_from_inventory": true,
+  "ru": "Язык",
+  "note": "Not in inventory.json (found while translating). New in the prototype (work/xl): the Language setting. Language names are endonyms in both interfaces."
+ },
+ "chrome.extra.language_name": {
+  "en": "Language: {name}",
+  "missing_from_inventory": true,
+  "ru": "Язык: {name}",
+  "note": "Not in inventory.json (found while translating). Button and palette label, e.g. «Язык: Авто», «Язык: English», «Язык: Русский»."
+ },
+ "chrome.extra.language_auto_name": {
+  "en": "Auto ({name})",
+  "missing_from_inventory": true,
+  "ru": "Авто ({name})",
+  "note": "Not in inventory.json (found while translating). Menu row: «Авто (Русский)»."
+ },
+ "chrome.extra.language_tip": {
+  "en": "(no English text yet: the English tooltip is still to be written)",
+  "missing_from_inventory": true,
+  "ru": "Авто — язык системы. Хранится только на этом устройстве.",
+  "note": "Not in inventory.json (found while translating). Tooltip of the Language setting (GLOSSARY 1.13)."
+ },
+ "sound.extra.sound": {
+  "en": "Sound",
+  "missing_from_inventory": true,
+  "ru": "Звук",
+  "note": "Not in inventory.json (found while translating). work/xs page.html: the Sound button text and aria-label \"Sound\", and the switch row label."
+ },
+ "sound.extra.landmark": {
+  "en": "{Zero|Pole} {i} of {n}{ or more}: order {m} at {z}. The probe is {off} to its right.",
+  "missing_from_inventory": true,
+  "ru": "Нуль {i} из {n}{orMore}: порядок {m}, в точке {z}. Указатель — на {off} правее.",
+  "split": {
+   "zero": "Нуль {i} из {n}{orMore}: порядок {m}, в точке {z}. Указатель — на {off} правее.",
+   "pole": "Полюс {i} из {n}{orMore}: порядок {m}, в точке {z}. Указатель — на {off} правее."
+  },
+  "note": "Not in inventory.json (found while translating). work/xs app.js sndKey (Z key): `${Zero|Pole} ${i} of ${n}${ or more}: order ${m} at ${z}. The probe is ${off} to its right.` {orMore} = « или больше»."
+ },
+ "sound.extra.net_order": {
+  "en": "{Zero|Pole}{s} within {st0}: net order {m}.",
+  "missing_from_inventory": true,
+  "ru": "Нули в круге радиуса {st0}: суммарный порядок {m}.",
+  "split": {
+   "zero": "Нуль в круге радиуса {st0}: порядок {m}.",
+   "zeros": "Нули в круге радиуса {st0}: суммарный порядок {m}.",
+   "pole": "Полюс в круге радиуса {st0}: порядок {m}.",
+   "poles": "Полюсы в круге радиуса {st0}: суммарный порядок {m}."
+  },
+  "note": "Not in inventory.json (found while translating). work/xs app.js sndKey (O key): `${Zero|Pole}${s} within ${st0}: net order ${m}.`"
+ },
+ "sound.extra.list_zeros": {
+  "en": "{n}{ or more} zero{s}: {items}{, and more}",
+  "missing_from_inventory": true,
+  "ru": "{n} нулей: {items}{andMore}",
+  "note": "Not in inventory.json (found while translating). work/xs app.js sndKey (D key) list(a, \"zero\"). Two $tn keys, like chrome.extra.n_preimages_of: split.exact when the search finished, split.atLeast when it was cut short (\"or more\"). {andMore} is sound.more (« и другие») or empty.",
+  "split": {
+   "exact": {
+    "one": "{n} нуль: {items}{andMore}",
+    "few": "{n} нуля: {items}{andMore}",
+    "many": "{n} нулей: {items}{andMore}",
+    "other": "{n} нуля: {items}{andMore}"
+   },
+   "atLeast": {
+    "one": "не менее {n} нуля: {items}{andMore}",
+    "few": "не менее {n} нулей: {items}{andMore}",
+    "many": "не менее {n} нулей: {items}{andMore}",
+    "other": "не менее {n} нуля: {items}{andMore}"
+   }
+  },
+  "en_plural": {
+   "exact": [
+    "{n} zero: {items}{andMore}",
+    "{n} zeros: {items}{andMore}"
+   ],
+   "atLeast": [
+    "{n} or more zero: {items}{andMore}",
+    "{n} or more zeros: {items}{andMore}"
+   ]
+  }
+ },
+ "sound.extra.list_poles": {
+  "en": "{n}{ or more} pole{s}: {items}{, and more}",
+  "missing_from_inventory": true,
+  "ru": "{n} полюсов: {items}{andMore}",
+  "note": "Not in inventory.json (found while translating). Same for poles. Two $tn keys, like chrome.extra.n_preimages_of: split.exact when the search finished, split.atLeast when it was cut short (\"or more\"). {andMore} is sound.more (« и другие») or empty.",
+  "split": {
+   "exact": {
+    "one": "{n} полюс: {items}{andMore}",
+    "few": "{n} полюса: {items}{andMore}",
+    "many": "{n} полюсов: {items}{andMore}",
+    "other": "{n} полюса: {items}{andMore}"
+   },
+   "atLeast": {
+    "one": "не менее {n} полюса: {items}{andMore}",
+    "few": "не менее {n} полюсов: {items}{andMore}",
+    "many": "не менее {n} полюсов: {items}{andMore}",
+    "other": "не менее {n} полюса: {items}{andMore}"
+   }
+  },
+  "en_plural": {
+   "exact": [
+    "{n} pole: {items}{andMore}",
+    "{n} poles: {items}{andMore}"
+   ],
+   "atLeast": [
+    "{n} or more pole: {items}{andMore}",
+    "{n} or more poles: {items}{andMore}"
+   ]
+  }
+ },
+ "chrome.extra.dc_tiles_tip": {
+  "en": "Conformal tiles: phase sectors and modulus contours form squares",
+  "missing_from_inventory": true,
+  "ru": "Конформные плитки: секторы фазы и линии уровня модуля образуют сетку из почти квадратных клеток",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7. Label «Плитки» is chrome.tiles."
+ },
+ "chrome.extra.dc_plain_tip": {
+  "en": "Phase only",
+  "missing_from_inventory": true,
+  "ru": "Только фаза",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7. Label «Только фаза» is chrome.plain; the tooltip repeats it, as in English."
+ },
+ "chrome.extra.dc_modulus": {
+  "en": "Modulus",
+  "missing_from_inventory": true,
+  "ru": "Модуль",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7."
+ },
+ "chrome.extra.dc_modulus_tip": {
+  "en": "Brightness from |F|: zeros black, poles white",
+  "missing_from_inventory": true,
+  "ru": "Яркость по |F|: нули чёрные, полюсы белые",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7."
+ },
+ "chrome.extra.dc_contours": {
+  "en": "Contours",
+  "missing_from_inventory": true,
+  "ru": "Линии уровня",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7. Never «контуры» (GLOSSARY 1.15)."
+ },
+ "chrome.extra.dc_contours_tip": {
+  "en": "Level lines of |F| and arg F",
+  "missing_from_inventory": true,
+  "ru": "Линии уровня |F| и arg F",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7."
+ },
+ "chrome.extra.dc_grid_tip": {
+  "en": "Pull-back of the Re/Im grid of the image",
+  "missing_from_inventory": true,
+  "ru": "Прообраз координатной сетки (Re, Im) плоскости образов",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7. Label «Сетка» is chrome.grid."
+ },
+ "chrome.extra.dc_cauchy": {
+  "en": "Cauchy",
+  "missing_from_inventory": true,
+  "ru": "Интеграл Коши",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7. Same name as tour.phase_style_cauchy_plots and the guide."
+ },
+ "chrome.extra.dc_cauchy_tip": {
+  "en": "The Cauchy integral over the selected closed curve: F inside, 0 outside",
+  "missing_from_inventory": true,
+  "ru": "Интеграл Коши по выделенной замкнутой кривой: внутри F, снаружи 0",
+  "note": "Not in inventory.json (review i18n-1). app.js 6555 DC_STYLES (phase styles: label, tooltip). GLOSSARY 1.7."
+ },
+ "chrome.extra.tip_no_draw_deformation": {
+  "en": "{base} · Turn off Deformation (M) to draw",
+  "missing_from_inventory": true,
+  "ru": "{base} · Чтобы рисовать, выключите деформацию (M)",
+  "note": "Not in inventory.json (review i18n-1). app.js 3014: tool tooltip suffix while the panes are merged by the deformation."
+ },
+ "chrome.extra.tip_draw_in_plane": {
+  "en": "{base} · Draw in Plane",
+  "missing_from_inventory": true,
+  "ru": "{base} · Рисуйте в режиме «Плоскость»",
+  "note": "Not in inventory.json (review i18n-1). app.js 3014: tool tooltip suffix on a globe for Annulus, Sector and Polar grid. «Плоскость» is the Plane · Sphere switch."
+ },
+ "chrome.extra.image_after_adding": {
+  "en": "Image after adding {f}",
+  "missing_from_inventory": true,
+  "ru": "Образ после добавления {f}",
+  "note": "Not in inventory.json (review i18n-1). app.js 8577: caption of the palette preview pane. {f} is f_k in HTML."
+ },
+ "chrome.extra.arcctg_not_available": {
+  "en": "arcctg is not available",
+  "ru": "Функции arcctg здесь нет.",
+  "file": "work/xl/src/parse.js",
+  "note": "Review i18n-8, i18n-14: typed arcctg, arccot or acot. No formula hint: arctg(1/z) is not arcctg z for Re z < 0 under the Russian convention arcctg x ∈ (0, π) (GLOSSARY 2.4).",
+  "missing_from_inventory": true
+ },
+ "chrome.extra.arccot_not_available": {
+  "en": "arccot is not available",
+  "ru": "Функции arcctg здесь нет.",
+  "file": "work/xl/src/parse.js",
+  "note": "As chrome.extra.arcctg_not_available (the Russian names the Russian spelling).",
+  "missing_from_inventory": true
+ },
+ "chrome.extra.acot_not_available": {
+  "en": "acot is not available",
+  "ru": "Функции arcctg здесь нет.",
+  "file": "work/xl/src/parse.js",
+  "note": "As chrome.extra.arcctg_not_available.",
+  "missing_from_inventory": true
+ },
+ "chrome.extra.lg_not_available": {
+  "en": "lg is the base-10 logarithm, which is not available; the natural logarithm is ln z",
+  "ru": "lg — десятичный логарифм; здесь его нет. Натуральный логарифм: ln z.",
+  "file": "work/xl/src/parse.js",
+  "note": "Review i18n-8, i18n-14 (GLOSSARY 2.4).",
+  "missing_from_inventory": true
+ },
+ "chrome.extra.use_decimal_point": {
+  "en": "Use a decimal point: 0.5, not 0,5 (a comma separates conditions)",
+  "ru": "Дробную часть отделяйте точкой: 0.5, а не 0,5 (запятая разделяет условия)",
+  "file": "work/xl/src/parse.js",
+  "note": "Review i18n-14. Shown when a formula has a decimal comma (z^0,5). The point is the formula language's (GLOSSARY 2.3).",
+  "missing_from_inventory": true
+ },
+ "chrome.extra.language_cannot_change": {
+  "en": "The language cannot change: this browser blocks site storage, and a reload would lose your work.",
+  "ru": "Язык не удалось переключить: браузер блокирует хранилище сайта, а перезагрузка стёрла бы вашу работу.",
+  "file": "work/xl/src/app.js",
+  "note": "Review i18n-3: toast when the switch cannot save the work.",
+  "missing_from_inventory": true
+ }
+}

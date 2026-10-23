@@ -91,7 +91,7 @@
       const key = (display ? 'D' : 'I') + tex;
       let html = cache.get(key);
       if (html === undefined) {
-        try { html = MathJax.tex2svg(tex, { display }).outerHTML; } catch (e) { html = null; }
+        try { html = MathJax.tex2svg(I18N.notation(tex), { display }).outerHTML; } catch (e) { html = null; }
         if (cache.size > 3000) cache.clear();
         cache.set(key, html);
       }
@@ -189,6 +189,7 @@
     return '#' + conv(Cc).map((c) => { c = Math.min(1, Math.max(0, c)); const s = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; return Math.round(s * 255).toString(16).padStart(2, '0'); }).join('');
   }
   function shapeInk(s) {
+    if (printInk) { const r = printInk(s); if (r) return r; }
     if (!s.color) return TH.c[(s.ci || 0) % 8];
     const key = s.color + TH.dark;
     let r = inkCache.get(key);
@@ -260,8 +261,9 @@
     save();
   }
   function restore(e) {
-    const o = JSON.parse(e.s);
+    const o = JSON.parse(e.s), was = S.steps;
     S.shapes = o.shapes; S.steps = o.steps; S.nextId = o.nextId;
+    Funcs.typedKeep(was, S.steps); // (Russian: a list text typed and refused stays refused after an undo: verify-1)
     S.targets = Array.isArray(o.targets) ? o.targets : [];
     // shapes that no longer exist give back their GPU meshes, lines and map caches
     const keep = new Set(S.shapes.map((x) => x.id));
@@ -282,10 +284,12 @@
   const noRuntime = (k, v) => (typeof k === 'string' && k[0] === '_' ? undefined : v);
   function writeState() {
     clearTimeout(saveT); saveT = 0;
-    if (!S) return;
+    if (!S || tourHold) return null;
     const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
     // run-time fields of shapes (s._err: a shape's current error) are not state
-    try { localStorage.setItem(LS_KEY, JSON.stringify(out, noRuntime)); } catch (e) { warnStorage(); }
+    // (returns what it wrote, false when storage refused it: the language switch reloads only on a written save)
+    let json;
+    try { json = JSON.stringify(out, noRuntime); localStorage.setItem(LS_KEY, json); return json; } catch (e) { warnStorage(); return false; }
   }
   function save() {
     clearTimeout(saveT);
@@ -295,7 +299,7 @@
     if (storageWarned) return;
     storageWarned = true;
     // wait for a toast that offers Undo, so this note never replaces it
-    const show = () => { const th = $('toastHost'); if (th && th.querySelector('.toast[data-undo]')) { setTimeout(show, 1500); return; } toast('Changes are not being saved: this browser blocks site storage.'); };
+    const show = () => { const th = $('toastHost'); if (th && th.querySelector('.toast[data-undo]')) { setTimeout(show, 1500); return; } toast($t('Changes are not being saved: this browser blocks site storage.')); };
     show();
   }
   let loadDropped = 0;
@@ -826,12 +830,12 @@
     const pb = rel ? leftStage() : 0;
     const src = (k) => rangeF(pb, k);
     const tag = (map) => { if (pb) map.base = pb; return map; };
-    if (m === 0) return { map: tag({ mode: 0, a: pb, b: base }), F: src(base), label: 'no active steps', key: `none|${pb}|${base}` };
+    if (m === 0) return { map: tag({ mode: 0, a: pb, b: base }), F: src(base), label: $t('no active steps'), key: `none|${pb}|${base}` };
     if (allAtOnce()) {
       const t = Math.max(0, Math.min(1, morph.T));
       const F0 = src(base), Hs = steps.map((k) => homF(k, t));
       const F = (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
-      return { map: tag({ mode: 3, a: base, b: end, t }), F, label: `all steps · t = ${t.toFixed(2)}`, key: `all|${pb}|${base}|${end}|${t}` };
+      return { map: tag({ mode: 3, a: base, b: end, t }), F, label: $t('all steps · t = {t}', { t: I18N.num(t.toFixed(2)) }), key: `all|${pb}|${base}|${end}|${t}` };
     }
     const T = Math.max(0, Math.min(m, morph.T));
     const j = Math.min(m - 1, Math.floor(T));
@@ -842,7 +846,7 @@
     let F;
     if (isDeriv(k)) F = lerpF(Fprev, src(k), t);
     else { const Ht = homF(k, t); F = (z) => Ht(Fprev(z)); }
-    return { map: tag({ mode: 1, hi: k, t }), F, label: `step ${k} · ${b && b.def ? b.def.label : ''} · t = ${t.toFixed(2)}`, key: `nat|${pb}|${k}|${t}` };
+    return { map: tag({ mode: 1, hi: k, t }), F, label: $t('step {k} · {name} · t = {t}', { k, name: b && b.def ? b.def.label : '', t: I18N.num(t.toFixed(2)) }), key: `nat|${pb}|${k}|${t}` };
   }
 
   // ---------------- fix-ups: refine triangles that straddle cuts or touch poles ----------------
@@ -1523,6 +1527,10 @@
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
   let hideStrokes = false;             // tests: the flat panes' shape strokes left out (the crack test reads the fill under them)
+  // the figure export's art layer (figure.js, artRender): fills only (no grid, axes, strokes, points, cuts, rulers,
+  // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
+  // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
+  let artMode = false, printInk = null, artLand = null;
   let offRender = false;               // renderOff (figure export) is drawing: no cost guard, no half resolution
   // a map spec that applies no live step: drawn without the chain, as today (GLR's isIdent)
   function isIdentMap(m) {
@@ -1954,7 +1962,7 @@
       }
     }
     GLR.begin(pane.pw, pane.ph);
-    if (GLR.drawGrid && !opt.noGrid) {
+    if (GLR.drawGrid && !opt.noGrid && !artMode) {
       GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit && !opt.thin && !opt.noUnit, unitAlpha: 0.55 });
     }
     if (opt.under) opt.under();
@@ -2069,7 +2077,7 @@
     // a bounded shape whose preparation waited (frame budget) is drawn inverse on the next frame
     if (live && prepDeferred) { prepDeferred = false; requestRender(role); }
     const halo = GLR.hexRGB(TH.halo);
-    for (const s of hideStrokes ? [] : list) {
+    for (const s of hideStrokes || artMode ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
       // the strokes that go with the fill drawn (a hold's own strokes while it stands in for the current mesh)
@@ -2104,8 +2112,25 @@
   const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   let figMode = false; // set while a figure is drawn: image points read F(z₀) rather than z₀″
   let figVec = false; // the figure draws the deformation's outline, paths and labels as vectors (the morph figure)
+  // a formula as plain text for a tooltip outside English (review eng-10): Tour's reading of TeX, the screen's comma
+  const texTitle = (tex) => {
+    try {
+      const p = typeof Tour !== 'undefined' && Tour._t && Tour._t.texPlain;
+      if (!p) return tex;
+      // (a fraction of two single symbols or numbers is π/2, not (π)/2: verify-8)
+      const one = '(\\\\(?:pi|infty|alpha|gamma|zeta|theta)|[A-Za-z0-9]+(?:\\.[0-9]+)?)';
+      const t = I18N.notation(tex).replace(new RegExp(`\\\\[dt]?frac\\{${one}\\}\\{${one}\\}`, 'g'), '$1/$2').replace(/\\times(?![A-Za-z])/g, ' × ').replace(/\\operatorname\{([^{}]+)\}\s*/g, '$1 ').replace(/\\(?:left|right)(?![A-Za-z])\.?/g, '').replace(/\\(?:text|mathrm|textrm)\{([^{}]*)\}/g, '$1')
+        .replace(/\\(?:overline|bar)\{([^{}]*)\}/g, (m, a) => (a.length === 1 ? a + '\u0304' : `conj(${a})`)).replace(/\\bar\s*([A-Za-z])/g, '$1\u0304');
+      // (× for \times, and a minus sign for '-' except in a Russian word such as «Лог-полярные»)
+      return p(t).replace(/(\d)\.(\d)/g, '$1,$2').replace(/-/g, (m, i, str) => (/[А-Яа-яЁё]/.test(str[i - 1] || '') && /[А-Яа-яЁё]/.test(str[i + 1] || '') ? m : '−'));
+    } catch (e) { return tex; }
+  };
+  // an example's word label ('trailing edge') is stored in English and translated where it is shown, so a caption in
+  // the other language and a save reopened in the other language read right (review math-5); a user's label is as typed
+  const EX_LABELS = new Set(['trailing edge']);
+  const exLabel = (l) => (l && EX_LABELS.has(l) ? $t(l) : l);
   function pointLabel(s, idx, primes) {
-    const base = s.label || 'abcdefghjkmnpqrstuv'[idx % 19] + (idx >= 19 ? Math.floor(idx / 19) : '');
+    const base = exLabel(s.label) || 'abcdefghjkmnpqrstuv'[idx % 19] + (idx >= 19 ? Math.floor(idx / 19) : '');
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (figMode && primes > 0) return `${S.focus === 0 && primes === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(primes)}`}(${base})`;
@@ -2259,6 +2284,7 @@
     ctx.restore();
   }
   function drawPoints(pane, F, opt = {}) {
+    if (artMode) return;
     const ctx = pane.ctx;
     let pi = 0;
     const labels = [];
@@ -2276,12 +2302,13 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, opt.thin ? 2.6 : 4, 0, TAU); ctx.stroke(); ctx.fill();
       if (!opt.thin && s.id === selected && opt.domain) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
-      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, opt.primes || 0), word:!!(s.label && /\s|[A-Za-z]{3,}/.test(s.label)) });
+      if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, opt.primes || 0), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
     }
     if (labels.length) placeLabels(ctx, pane, labels);
   }
   // branch cuts and poles of step k+1 live in the plane of stage k
   function drawCuts(pane, k, editable, thin) {
+    if (artMode) return [];
     const st = S.steps[k];
     const b = built[k];
     if (!st || st.on === false || !b || b.error) return [];
@@ -2347,6 +2374,7 @@
   }
   // images of the two banks of each ray cut, in the plane of stage R (dashed)
   function drawCutBanks(pane, R) {
+    if (artMode) return;
     const ctx = pane.ctx;
     ctx.save();
     ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.strokeStyle = TH.cut; ctx.globalAlpha = 0.7;
@@ -2379,6 +2407,7 @@
   }
   // image of the left viewport rectangle (where the left view lands)
   function drawFov(pane, F) {
+    if (artMode) return;
     const b = leftPaneBox();
     const ctx = pane.ctx;
     const corners = [C(b.x0, b.y0), C(b.x1, b.y0), C(b.x1, b.y1), C(b.x0, b.y1)];
@@ -2404,6 +2433,7 @@
   }
   // orientation chevrons: at mid-length of open curves and at angle 0 of closed boundaries
   function drawChevrons(pane, F) {
+    if (artMode) return;
     if (!S.chev) return;
     const ctx = pane.ctx;
     for (const s of S.shapes) {
@@ -2468,7 +2498,7 @@
       }
       ctx.fillStyle = TH.halo; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(hd.x, hd.y, hot ? 7 : 6, 0, TAU); ctx.fill(); ctx.stroke();
-      chip(ctx, hd.x + 14, hd.y, `θ ${CX.fmtNum(hd.deg, 1).replace('-', '−')}°`, TH.cut, TH.cut);
+      chip(ctx, hd.x + 14, hd.y, `θ ${I18N.num(CX.fmtNum(hd.deg, 1).replace('-', '−'))}°`, TH.cut, TH.cut);
     }
   }
   // ---- zeros and poles of a 'zp' step, dragged in its input plane (notes/ui-design/zeros-poles.md) ----
@@ -2544,7 +2574,7 @@
       }
       if (dr && dr.off) {
         ctx.globalAlpha = 1;
-        const msg = `Release to remove ${t}`;
+        const msg = $t('Release to remove {t}', { t });
         ctx.font = `11px ${TH.mono}`;
         const cw = ctx.measureText(msg).width + 12;
         chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
@@ -2624,7 +2654,7 @@
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return -1;
     const list = zpItems(st, kind);
-    if (list.length >= Funcs.ZP_MAX) { toast(`At most ${Funcs.ZP_MAX} ${kind} (degree ${Funcs.ZP_MAX}, as Write by zeros and poles allows).`); return -1; }
+    if (list.length >= Funcs.ZP_MAX) { sndError(); toast(kind === 'zeros' ? $t('At most {zpMax} zeros (degree {zpMax}, as Write by zeros and poles allows).', { zpMax: Funcs.ZP_MAX }) : $t('At most {zpMax} poles (degree {zpMax}, as Write by zeros and poles allows).', { zpMax: Funcs.ZP_MAX })); return -1; }
     const z = v || zpFreeSpot(k);
     list.push(Funcs.zpItem(z));
     zpWrite(st, kind, list);
@@ -2666,10 +2696,10 @@
     frag.append(paramField(st, k, d.params[0], pre));
     const n = { zeros: zpItems(st, 'zeros').length, poles: zpItems(st, 'poles').length }, MAX = Funcs.ZP_MAX;
     const addBtn = (kind) => {
-      const full = n[kind] >= MAX, one = kind === 'zeros' ? 'zero' : 'pole';
+      const full = n[kind] >= MAX, one = kind === 'zeros' ? $tx('zp', 'zero') : $tx('zp', 'pole');
       const b = h('button', { class: 'zp-add ' + kind, type: 'button',
-        'data-tip': full ? `At most ${MAX} ${kind}` : kind === 'zeros' ? 'Add a zero (or Shift-click in the input plane)' : 'Add a pole (or Shift-⌘-click in the input plane)',
-        'aria-label': `Add a ${one} to f${sub(k)} (${n[kind]} now)`,
+        'data-tip': full ? (kind === 'zeros' ? $tn('At most {n} zeros', 'At most {n} zeros', MAX) : $tn('At most {n} poles', 'At most {n} poles', MAX)) : kind === 'zeros' ? $t('Add a zero (or Shift-click in the input plane)') : $t('Add a pole (or Shift-⌘-click in the input plane)'),
+        'aria-label': kind === 'zeros' ? $t('Add a zero to f{k} ({x} now)', { k: sub(k), x: n[kind] }) : $t('Add a pole to f{k} ({x} now)', { k: sub(k), x: n[kind] }),
         onclick: (e) => { e.stopPropagation(); zpAddFromCard(k, kind); } },
       h('span', { class: 'zp-mark', 'aria-hidden': 'true' }), one, h('span', { class: 'zp-n', 'aria-hidden': 'true' }, String(n[kind])));
       if (full) b.disabled = true;
@@ -2690,6 +2720,7 @@
     input.addEventListener('input', () => {
       input.classList.toggle('bad', !zpParse(input.value));
       st.params[kind] = fields().map((el) => el.value.trim()).filter((x) => x).join(', ');
+      Funcs.typedList(st, kind, st.params[kind]);
       chainChanged(false);
       requestRender('OL');
     });
@@ -2700,9 +2731,9 @@
       commit();
     });
     input.addEventListener('paste', () => setTimeout(() => { if (Funcs.splitList(input.value).filter((x) => x.trim()).length > 1) { input.blur(); } }, 0));
-    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': `Remove ${sym}`, 'aria-label': `Remove ${what} ${i + 1} of f${sub(k)}`, html: ICONS.close,
+    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: i + 1, k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: i + 1, k: sub(k) }), html: ICONS.close,
       onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
-    const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': `${kind === 'zeros' ? 'Zero' : 'Pole'} ${sym}: drag it in the input plane` }, sym);
+    const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': kind === 'zeros' ? $t('Zero {sym}: drag it in the input plane', { sym }) : $t('Pole {sym}: drag it in the input plane', { sym }) }, sym);
     return h('div', { class: 'pf zp-item' }, lab, h('div', { class: 'pair' }, input, del));
   }
   // "Write by zeros and poles" (a polynomial, rational or rational custom step) and back ("Write by coefficients")
@@ -2711,13 +2742,13 @@
     if (!st) return null;
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
-    if (!r || r.error || !r.step) { toast(((r && r.error) || 'This step cannot be rewritten.').replace(/\.?$/, '.')); return null; }
+    if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
     S.steps[k - 1] = { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false };
     zpSel = null;
     chainChanged(true);
     setFocus(k);
     commit();
-    undoToast(to ? `f${sub(k)} is now given by its zeros and poles (${r.note}): drag them in its input plane.` : `f${sub(k)} is now given by its coefficients.`);
+    undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
     return cardButton(k);
   }
   function drawHandles(pane, list) {
@@ -2823,7 +2854,8 @@
       if (['segment', 'line', 'ray', 'halfplane', 'arc'].includes(s.kind)) { const d = CX.sub(P(s.b), P(s.a)); t = `${CX.fmtNum(CX.abs(d), 4)} ∠ ${CX.fmtNum(Math.atan2(d.im, d.re) / DEG, 2)}°`; }
       if (s.kind === 'sector') t = `θ ${CX.fmtNum(s.t1, 1)}° → ${CX.fmtNum(s.t2, 1)}°`;
       if (s.kind === 'annulus') t = `r₁ ${CX.fmtNum(s.r1, 3)}  r₂ ${CX.fmtNum(s.r2, 3)}`;
-      if (t) { const [x, y] = pane.w2s(draft.cursor); chip(ctx, x + 14, y + 14, t.replace(/-/g, '−')); }
+      // display only: the decimal comma in Russian (GLOSSARY 2.3)
+      if (t) { const [x, y] = pane.w2s(draft.cursor); chip(ctx, x + 14, y + 14, (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')).replace(/-/g, '−')); }
     }
     ctx.restore();
   }
@@ -2904,7 +2936,7 @@
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
   function noGL(pane) {
-    paneNote(pane, GLR.lost ? 'The graphics card was reset. Restoring the view…' : 'This view needs WebGL2, which this browser does not provide.');
+    paneNote(pane, GLR.lost ? $t('The graphics card was reset. Restoring the view…') : $t('This view needs WebGL2, which this browser does not provide.'));
   }
   // graph paper: the GL grid when available, otherwise 2D lines
   function paper(pane) {
@@ -2921,7 +2953,7 @@
     if (lLand()) {
       cutHandlesL = []; leftSphereInfo = null; render3D(pane);
       // the relief has no place for the target preimages (they show in X Plane and Sphere): said, not dropped silently
-      if (hasTargets() && GLR.ok) sphereCaption(pane, 'Target preimages show in X → Y and Phase (1, 2)');
+      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show in X → Y and Phase (1, 2)'));
       return;
     }
     // X Sphere: this plane on the Riemann sphere, with its shapes or (Phase) the phase portrait (orbit only; drawing on
@@ -2930,7 +2962,7 @@
       cutHandlesL = [];
       let info = null;
       if (typeof renderSphereLeft === 'function') info = renderSphereLeft(pane);
-      else { paper(pane); paneNote(pane, 'The sphere view of this plane is not available in this build.'); }
+      else { paper(pane); paneNote(pane, $t('The sphere view of this plane is not available in this build.')); }
       leftSphereInfo = info;
       // the targets' roots (solved over the flat view's window) are lifted to the globe; renderSphereLeft paints
       // the pulled-back target regions on it
@@ -2957,32 +2989,23 @@
   // probes, handles, drafts, gauges: the only things redrawn on hover
   // the one gesture that needs a word while it is in progress: an open polygon draft names how to close it
   // (a level-2 chip at the top centre of the pane it is drawn in; it goes with the draft)
-  // the left plane's 'No shapes yet.' note; it gives way to the draft chip (the right plane's does by CSS)
-  function syncEmptyState() {
-    const empty = $('emptyState'), cl = $('draftChipL');
-    if (!empty) return;
-    const show = !S.shapes.length && leftStage() === 0 && lFlat() && !hasTargets() && !(cl && !cl.hidden);
-    if (empty.hidden === show) empty.hidden = !show;
-    // an empty plane only suggests drawing (examples are in the header)
-    if (show && !empty.firstChild) empty.append(h('div', null, h('div', { class: 'lbl' }, 'No shapes yet.')));
-  }
+  // (an empty plane shows nothing over it, at the user's request of 2026-10-22)
   function updateDraftChips() {
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
     const cl = $('draftChipL'), cr = $('draftChipR');
     if (cl) { const on = poly && !draft.target; if (cl.hidden === on) cl.hidden = !on; }
     if (cr) { const on = poly && !!draft.target; if (cr.hidden === on) cr.hidden = !on; }
-    syncEmptyState();
     // P3b: the globes take drawing (panels.md 9). What still draws nothing says so: the landscape, a planar-centred
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane'), the z-globe at a focused stage (P4)
     const sc = $('sphereChipL');
     if (sc) {
       const drawing = tool !== 'select' && solo() !== 'R';
-      const where = lLand() ? 'the landscape' : 'the Riemann sphere';
+      const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       let msg = '';
-      if (drawing && lLand()) msg = `Drawing is off on ${where}; choose X → Y (1) to draw.`;
-      else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = `${toolName} draws in Plane, not on the sphere.`;
-      else if (drawing && lGlobe() && leftStage() > 0) msg = 'Shapes are drawn in the z-plane; choose Whole chain to draw.';
+      if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
+      else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
+      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('Shapes are drawn in the z-plane; choose Whole chain to draw.');
       const on = !!msg;
       if (sc.firstChild.textContent !== msg) sc.firstChild.textContent = msg;
       if (sc.hidden === on) sc.hidden = !on;
@@ -2992,7 +3015,7 @@
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       // (the merged deformation plane or globe draws nothing: said, merged-views review)
       const on = tool !== 'select' && solo() !== 'L' && (morphOn() || (rGlobe() && GLOBE_OFF.has(tool)));
-      const msg = !on ? '' : morphOn() ? 'Drawing is off in the deformation: press M to turn it off.' : `${toolName} draws in Plane (⇧3), not on the sphere.`;
+      const msg = !on ? '' : morphOn() ? $t('Drawing is off in the deformation: press M to turn it off.') : $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName });
       if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
       if (sr.hidden === on) sr.hidden = !on;
     }
@@ -3011,7 +3034,7 @@
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
-      b.dataset.tip = merged ? `${base} · Turn off Deformation (M) to draw` : g ? `${base} · Draw in Plane` : base;
+      b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
     }
   }
   function renderOverlays() {
@@ -3096,6 +3119,7 @@
     return (m <= 1 + 1e-9 ? 1 : m <= 2 + 1e-9 ? 2 : m <= 5 + 1e-9 ? 5 : 10) * p;
   }
   function drawRulers(pane, side, markersOnly) {
+    if (artMode) return;
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
@@ -3133,11 +3157,11 @@
           const sig = Math.min(15, Math.max(1, Math.floor(Math.log10(ax)) - em + 1));
           let [m, e] = x.toExponential(sig - 1).split('e');
           if (m.includes('.')) m = m.replace(/\.?0+$/, '');
-          return `${m}×10${String(+e).split('').map((d) => (d === '-' ? '⁻' : SUP[+d])).join('')}`.replace('-', '−');
+          return `${I18N.num(m)}×10${String(+e).split('').map((d) => (d === '-' ? '⁻' : SUP[+d])).join('')}`.replace('-', '−');
         }
         let t = x.toFixed(Math.min(Math.max(0, -em), 14));
         if (t.includes('.')) t = t.replace(/\.?0+$/, ''); // minimum decimals: 2, 1.5, 0.25
-        return t.replace('-', '−');
+        return I18N.num(t.replace('-', '−'));
       };
       // imaginary labels read 2i, i, −i, −0.5i (decided from the value, not the formatted text)
       const label = (val) => {
@@ -3215,7 +3239,7 @@
     const el = $(side === 'L' ? 'leftLed' : 'rightLed');
     if (!el) return;
     el.className = 'led ' + state;
-    el.setAttribute('data-tip', tip || { ok: 'Up to date', busy: 'Refining near cuts and poles', err: 'Evaluation failed' }[state]);
+    el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
   }
@@ -3235,7 +3259,7 @@
     setHairline(!!busy);
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
-    if (!GLR.ok) { setLed('L', 'err', 'WebGL2 is unavailable, so regions cannot be drawn'); setLed('R', 'err', 'WebGL2 is unavailable, so regions cannot be drawn'); return; }
+    if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
     setLed('L', busy ? 'busy' : 'ok');
     setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
   }
@@ -3250,7 +3274,7 @@
     const cz = !hv && S.dc === 'cauchy' && typeof cauchyPlot === 'function' ? cauchyPlot() : null;
     GLR.drawColorPlot({ map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz });
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
-    if (S.outline) {
+    if (S.outline && !artMode) {
       const map = stageMap(leftStage());
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point') continue;
@@ -3264,6 +3288,7 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     glStatusNote(pane);
+    if (artMode) return []; // the figure's art layer: no screen grid, axes, targets, cuts or points
     // major grid and axes in white over the colors
     const ctx = pane.ctx, b = pane.box(), st = Axes.niceStep(110 / pane.view.s);
     ctx.save();
@@ -3284,7 +3309,7 @@
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
     const handles = drawCuts(pane, k, true, false);
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0 });
-    if (cauchyIdle) paneNote(pane, 'Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.');
+    if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');
     return handles;
   }
@@ -3325,6 +3350,8 @@
   }
   // the landscape's domain: the left view box, aspect preserved (spec 6.9), trimmed to at most 2:1 about its centre
   function landBox() {
+    // (a figure's art: the window figure.js chose, snapped to round numbers; the screen never takes this path)
+    if (artMode && artLandBox) return artLandBox;
     const vb = leftPaneBox();
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
@@ -3391,17 +3418,21 @@
     }
     const info = GLR.drawLandscape({
       map: hv ? hv.map : focusMap(), box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel, sectors: S.sectors || 12,
-      cells, sheets, outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       colors: {
         floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
         shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
         minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), landBottom: GLR.hexRGB(TH.landBottom),
         cut: GLR.hexRGB(TH.cut), probe: GLR.hexRGB(TH.probe),
+        // the figure's art layer: a white plate with its contact shadow, no graph paper, no footprint (figure.js draws
+        // the footprint and the labels as vectors)
+        ...(artMode ? { floor: [1, 1, 1], box: [1, 1, 1], minor: [1, 1, 1], medium: [1, 1, 1], major: [1, 1, 1] } : {}),
       },
     });
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    if (info) draw3DLabels(pane, info, box);
+    if (info && artMode) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
+    else if (info) draw3DLabels(pane, info, box);
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     render3D.pick = info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
@@ -3507,7 +3538,7 @@
       return true;
     };
     const micro = `400 10px ${TH.mono}`, math12 = `500 12px ${TH.math}`;
-    const minus = (s) => s.replace(/-/g, '−');
+    const minus = (s) => I18N.num(s.replace(/-/g, '−'));   // tick labels: the decimal comma in Russian
     const ticks = (a0, a1) => { const st = Axes.niceStep((a1 - a0) / 4); const out = []; for (let k = Math.ceil(a0 / st - 1e-9); k * st <= a1 + 1e-9 * st; k++) out.push(+(k * st).toPrecision(10)); return out; };
     // the two floor edges facing the camera: y = sy·ay (carries Re z) and x = sx·ax (carries Im z)
     const sx = eye[0] < 0 ? -1 : 1, sy = eye[1] < 0 ? -1 : 1;
@@ -4791,7 +4822,7 @@
     const { steps } = morphRange();
     const m = steps.length, all = allAtOnce();
     const upTo = Tend < (all ? 1 : m) - 1e-9;
-    const stop = upTo ? [{ t: ', shown for ' }, { m: `0\\le t\\le ${CX.fmtNum(Tend, 2)}` }] : [];
+    const stop = upTo ? capT(', shown for %{r}', { r: { m: `0\\le t\\le ${I18N.texNum(CX.fmtNum(Tend, 2))}` } }) : [];
     const range = (t1) => [{ t: ', ' }, { m: `0\\le t\\le ${t1}` }];
     // (several steps: f_k, p_k, ... name step k's map and centre; all at once, every H^{(k)}_t acts on u, since its input
     // there is H^{(k-1)}_t(z), not w_{k-1})
@@ -4800,7 +4831,7 @@
       const o = names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : undefined;
       const r = b && b.homTex ? b.homTex(v, o) : null;
       if (r) return r;
-      return { tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,${m === 1 && S.focus === 0 ? 'F' : `f_{${k}}`}(${v})$`, segment: true };
+      return { tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v, F: m === 1 && S.focus === 0 ? 'F' : `f_{${k}}` }), segment: true };
     };
     if (m === 1) {
       const r = phrase(steps[0]);
@@ -4812,10 +4843,10 @@
     if (all) {
       const own = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/H_\{?([t0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));
       const comp = steps.map((k) => `H^{(${k})}_t`).reverse().join('\\circ ');
-      const segs = [{ t: 'the homotopy ' }, { m: `H_t=${comp}` }, { t: ', ' }, { m: '0\\le t\\le 1' }, { t: ', that deforms every step at once: ' }];
+      const segs = capT('the homotopy {H}, {range}, that deforms every step at once: ', { H: { m: `H_t=${comp}` }, range: { m: '0\\le t\\le 1' } });
       steps.forEach((k, i) => {
         if (i) segs.push({ t: '; ' });
-        segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...own(k, phrase(k, true).tex));
+        segs.push(...capT('for {f}, {phrase}', { f: { m: `f_{${k}}` }, phrase: own(k, phrase(k, true).tex) }));
       });
       return { segs, stop, mobius: false };
     }
@@ -4824,10 +4855,10 @@
     const local = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : {
       m: g.m.replace(/(?<![\\A-Za-z])t/g, 's').replace(/H_\{?([s0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`),
     }));
-    const segs = [{ t: 'the homotopy ' }, { m: `H_t` }, { t: ', ' }, { m: `0\\le t\\le ${m}` }, { t: ', that runs the steps in turn (' }, { m: 'H_t=H^{(k)}_{t-k+1}' }, { t: ' on ' }, { m: 'k-1\\le t\\le k' }, { t: '): ' }];
+    const segs = capT('the homotopy {H}, {range}, that runs the steps in turn ({def} on {interval}): ', { H: { m: `H_t` }, range: { m: `0\\le t\\le ${m}` }, def: { m: 'H_t=H^{(k)}_{t-k+1}' }, interval: { m: 'k-1\\le t\\le k' } });
     steps.forEach((k, i) => {
       if (i) segs.push({ t: '; ' });
-      segs.push({ t: 'for ' }, { m: `f_{${k}}` }, { t: ', ' }, ...local(k, phrase(k, true).tex));
+      segs.push(...capT('for {f}, {phrase}', { f: { m: `f_{${k}}` }, phrase: local(k, phrase(k, true).tex) }));
     });
     return { segs, stop, mobius: false };
   }
@@ -4843,39 +4874,42 @@
     const lv = S.focus > 1 ? `w_{${S.focus - 1}}` : 'z', Fname = S.focus === 0 ? 'F' : `f_{${S.focus}}`;
     const Ftex = S.focus === 0 ? compositeTexShort() : (built[S.focus - 1] && !built[S.focus - 1].error ? built[S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const mapM = Ftex ? `${Fname}(${lv})=${Ftex}` : Fname;
-    const patWord = { checker: 'checkerboard', polar: 'checkerboard', sphere: 'checkerboard', tiles: 'tiles', grid: 'lines', polargrid: 'lines' }[S.pattern] || 'coloured';
+    const patWord = { checker: $tx('pat', 'checkerboard'), polar: $tx('pat', 'checkerboard'), sphere: $tx('pat', 'checkerboard'), tiles: $tx('pat', 'tiles'), grid: $tx('pat', 'lines'), polargrid: $tx('pat', 'lines') }[S.pattern] || $tx('pat', 'coloured');
     const out = [];
     const hom = morphHomSegs(Tend);
     const nSets = lineShapes.length || pts.length;
-    const setSegs = shapeList.length ? shapeList : pts.length ? joinList(pts) : [{ t: 'the plane' }];
+    const setSegs = shapeList.length ? shapeList : pts.length ? joinList(pts) : capT('the plane', {});
+    // the same set in the genitive ("the image of ..."): Russian needs the case
+    let pg = 0;
+    const lineGen = joinList(lineShapes.map((s) => shapePhrase(s, 0, 'gen'))), ptsGen = joinList(vis.filter((s) => kindType(s) === 'point').map((s) => shapePhrase(s, pg++, 'gen')));
+    const setGen = lineGen.length ? lineGen : ptsGen.length ? ptsGen : capT('the plane', {}, 'gen');
     // how X is drawn: its outline over the image (its 7 % tint lies under the image and can be covered by it); points
     // are the start dots
     const dashed = vis.some((s) => kindType(s) === 'area' && Region.isOpen(s));
-    const mark = opt.both ? (lineShapes.length ? (dashed ? `, with ${nSets > 1 ? 'dashed outlines' : 'a dashed outline'},` : ', outlined,') : pts.length ? ' (dots)' : '')
-      : (lineShapes.length ? (dashed ? ' (dashed outline)' : ' (outlined)') : pts.length ? ' (dots)' : '') + (nSets > 1 ? ',' : '');
-    const head = opt.both ? [{ t: nSets > 1 ? 'the sets of (a)' : 'the set of (a)' }] : S.focus > 1 ? [{ t: 'The image of ' }, ...setSegs, { t: ` after ${S.focus - 1 === 1 ? 'the first step' : `${S.focus - 1} steps`}` }] : cap1(setSegs);
-    const its = nSets > 1 ? 'their image' : 'its image';
-    const endName = Tend < morphLen() - 1e-9 ? [{ t: `${its} under ` }, { m: `H_{${CX.fmtNum(Tend, 2)}}` }] : [{ t: `${its} under ` }, { m: mapM }];
-    out.push(...head, { t: `${mark} and ` }, ...endName, { t: ` (${patWord}), joined by ` }, ...hom.segs, ...hom.stop, { t: '.' });
+    const mark = opt.both ? (lineShapes.length ? (dashed ? (nSets > 1 ? $t(', with dashed outlines,') : $t(', with a dashed outline,')) : $t(', outlined,')) : pts.length ? $t(' (dots)') : '')
+      : (lineShapes.length ? (dashed ? $t(' (dashed outline)') : $t(' (outlined)')) : pts.length ? $t(' (dots)') : '') + (nSets > 1 ? $tx('serial', ',') : '');
+    const head = opt.both ? [{ t: nSets > 1 ? $t('the sets of (a)') : $t('the set of (a)') }] : S.focus > 1 ? (S.focus - 1 === 1 ? capT('The image of %{set} after the first step', { set: setGen }) : capT('The image of %{set} after %{n} steps', { set: setGen, n: String(S.focus - 1) })) : cap1(setSegs);
+    const its = nSets > 1 ? $t('their image') : $t('its image');
+    const endM = { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}` : mapM };
+    out.push(...capT('%{head}%{mark} and %{its} under %{end} (%{pat}), joined by %{hom}.', { head, mark, its, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
     const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
     const ni = sel.kept.filter((k) => k.sp.kind === 'node').length;
     const np = sel.kept.filter((k) => k.sp.kind === 'point').length;
-    const num = (n, one, many) => `${n} ${n === 1 ? one : many}`;
     const parts = [];
-    if (nb) parts.push(num(nb, 'boundary point', 'boundary points'));
-    if (ni) parts.push(num(ni, 'interior point', 'interior points'));
-    if (np) parts.push(num(np, 'marked point', 'marked points'));
+    if (nb) parts.push($tn('{n} boundary point', '{n} boundary points', nb));
+    if (ni) parts.push($tn('{n} interior point', '{n} interior points', ni));
+    if (np) parts.push($tn('{n} marked point', '{n} marked points', np));
     if (sel.kept.length) {
       let clause = '';
       if (hom.mobius || hom.segment) {
         const kinds = new Set(sel.kept.map((k) => morphPathShape(k.sp.z, Tend)));
-        if (!kinds.has('other')) clause = kinds.size === 2 ? '; each is an arc of a circle or a segment' : kinds.has('arc') ? '; each is an arc of a circle' : '; each is a segment';
+        if (!kinds.has('other')) clause = kinds.size === 2 ? $t('; each is an arc of a circle or a segment') : kinds.has('arc') ? $t('; each is an arc of a circle') : $t('; each is a segment');
       }
-      out.push({ t: ' Arrows are the paths ' }, { m: 't\\mapsto H_t(z)' }, { t: ` of ${parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]}, from ` }, { m: 'z' }, { t: ' (dot) to ' }, { m: Tend < morphLen() - 1e-9 ? `H_{${CX.fmtNum(Tend, 2)}}(z)` : 'F(z)' }, { t: `${clause}.` });
-      if (sel.kept.some((k) => k.meet)) out.push({ t: ' Arrows that meet show points with the same image.' });
+      out.push(...capT(' Arrows are the paths %{p} of %{parts}, from %{z} (dot) to %{end}%{clause}.', { p: { m: 't\\mapsto H_t(z)' }, parts: parts.length > 1 ? parts.slice(0, -1).join(', ') + $tx('list', ' and ') + parts[parts.length - 1] : parts[0], z: { m: 'z' }, end: { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}(z)` : 'F(z)' }, clause }));
+      if (sel.kept.some((k) => k.meet)) out.push({ t: $t(' Arrows that meet show points with the same image.') });
     }
     out.push(...patternSegs(Fname));
-    if (vis.some((s) => kindType(s) === 'area' && Region.isOpen(s))) out.push({ t: ' Dashed boundaries do not belong to the sets.' });
+    if (vis.some((s) => kindType(s) === 'area' && Region.isOpen(s))) out.push({ t: $t(' Dashed boundaries do not belong to the sets.') });
     return out.map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
   }
   // CPU homotopy at any time T (for trails)
@@ -4900,8 +4934,8 @@
       // the tint is X itself (z-plane): at a focused step the start is the image of X at stage base, outlined instead
       const tint = base === 0;
       const ghosts = () => {
-        if (tint) drawXTint(pane, X);
-        if (figMode) return;
+        if (tint && !artMode) drawXTint(pane, X);
+        if (figMode || artMode) return;
         for (const s of S.shapes) {
           if (s.visible === false || kindType(s) === 'point') continue;
           const r = shapeGPU(s);
@@ -4921,7 +4955,7 @@
     } else noGL(pane);
     // the morph figure draws the outline, the paths and their labels as vectors (buildFigure); a one-panel figure of
     // the merged plane (a d/dz step in the chain) draws them as on screen, with no screen-cached paths
-    if (figMode && figVec) return;
+    if ((figMode && figVec) || artMode) return;
     drawMorphOutline(pane, X, base > 0 ? stageF(base) : null);
     const paths = !figMode && S.morphPaths !== false && !morphHasDeriv();
     if (paths) {
@@ -4959,7 +4993,7 @@
   // the transport's readout and scrubber follow the time in every view
   function syncTransport() {
     const lab = $('morphLabel');
-    if (lab) lab.textContent = `t = ${morph.T.toFixed(2)} / ${morphLen()}`;
+    if (lab) lab.textContent = `t = ${I18N.num(morph.T.toFixed(2))} / ${morphLen()}`;
     const sl = $('morphRange');
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
@@ -5007,7 +5041,7 @@
     if (er) {
       const show = !S.steps.length && rImage();
       er.hidden = !show;
-      if (show && !er.firstChild) er.append(h('span', null, 'Add a function to map the region'), h('button', { class: 'btn primary small', onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) }, 'Add function'));
+      if (show && !er.firstChild) er.append(h('span', null, $t('Add a function to map the region')), h('button', { class: 'btn primary small', onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) }, $t('Add function')));
     }
     updateCalcChip();
   }
@@ -5234,14 +5268,15 @@
     const lr = $('leftReadout');
     if (!lr || lr.classList.contains('copied')) return;
     if (!hov.w) { if (!probe) lr.innerHTML = idleLeft(); return; }
+    sndCollide();
     // words in Archivo, the value in B612 Mono
     const head = (t) => `<span class="rp"><span class="rk"><span class="rw">${t}</span> <i>w</i></span> <span class="rv">${fmtCxHtml(hov.w)}</span></span>`;
-    if (!hasCalc('zerosPoles')) { lr.innerHTML = head('at'); return; }
-    if (!hov.list) { lr.innerHTML = head('finding the preimages of'); return; }
+    if (!hasCalc('zerosPoles')) { lr.innerHTML = head($tx('readout', 'at')); return; }
+    if (!hov.list) { lr.innerHTML = head($t('finding the preimages of')); return; }
     const n = hov.list.reduce((a, r) => a + (r.mult || 1), 0);
-    const where = !lFlat() ? ' (flat view)' : '';
+    const where = !lFlat() ? $t(' (flat view)') : '';
     // a search cut short (a costly map): a lower bound, or no count at all when it found nothing
-    let html = head(hov.list.partial && !n ? `preimage search stopped early${where} for` : `${hov.list.partial ? 'at least ' : ''}${n} preimage${n === 1 ? '' : 's'}${where} of`);
+    let html = head(hov.list.partial && !n ? $t('preimage search stopped early{where} for', { where }) : (hov.list.partial ? $tn('at least {n} preimage{where} of', 'at least {n} preimages{where} of', n, { where }) : $tn('{n} preimage{where} of', '{n} preimages{where} of', n, { where })));
     if (hov.list.length === 1) html += rk((leftStage() === 0 ? '<i>z</i>' : `<i>w</i>${sub(leftStage())}`) + (hov.list[0].mult > 1 ? ` ×${hov.list[0].mult}` : ''), cxShort(hov.list[0].z, rootScale()));
     lr.innerHTML = html;
     copyValue.L = hov.list.map((r) => CX.fmt(r.z, 6).replace(/\s/g, '')).join(', ');
@@ -5359,6 +5394,7 @@
   }
   // proj: z -> screen [x, y] or null (hidden); the flat plane by default, the globe in the sphere view
   function drawRoots(pane, proj) {
+    if (artMode) return;
     if (roots.sig !== rootsSig()) return;
     const ctx = pane.ctx, labels = [];
     let iz = 0;
@@ -5378,7 +5414,7 @@
           ctx.strokeStyle = TH.halo; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.stroke();
           ctx.strokeStyle = TH.pole; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU);
           ctx.moveTo(x - 3, y - 3); ctx.lineTo(x + 3, y + 3); ctx.moveTo(x + 3, y - 3); ctx.lineTo(x - 3, y + 3); ctx.stroke();
-          labels.push({ x, y, text: r.mult > 1 ? `pole ×${r.mult}` : 'pole', word: true });
+          labels.push({ x, y, text: r.mult > 1 ? $t('pole ×{mult}', { mult: r.mult }) : $t('pole'), word: true });
         } else {
           iz++;
           ctx.fillStyle = ink.edge; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.5;
@@ -5543,8 +5579,8 @@
   // ∫γ F dz along one shape's curves (components in turn, each starting where the last ended), with the running path
   function integrateGeom(g, F) {
     const it = { g, s: g.s, name: g.name, closed: g.closed, paths: [], value: C(0, 0), error: '', errBound: 0 };
-    if (g.bad) it.error = 'The curve passes through a singularity of an earlier step';
-    else if (!hasCalc('lineIntegral')) it.error = 'Line integrals are not available in this build';
+    if (g.bad) it.error = $t('The curve passes through a singularity of an earlier step');
+    else if (!hasCalc('lineIntegral')) it.error = $t('Line integrals are not available in this build');
     else {
       let acc = C(0, 0);
       for (const c of g.comps) {
@@ -5724,8 +5760,9 @@
       let closed = false;
       try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }
       const name = names.get(s.id) || Region.KINDS[s.kind].label;
-      return { label: closed ? `∮ ${fnText()} d${dv} around ${name}` : `Integrate ${fnText()} along ${name}`, run: () => openIntegralPop(s.id, cx, cy) };
+      return { label: closed ? $t('∮ {x} d{dv} around {name}', { x: fnText(), dv, name }) : $t('Integrate {x} along {name}', { x: fnText(), name }), run: () => openIntegralPop(s.id, cx, cy) };
     });
+    if (sndP.on && sndP.events && SND) for (const { s } of near) items.push({ label: snd.play ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play ? sndStopPlay(true) : sndListenShape(s)) });
     closePalette();
     const pop = openMenu(pane.ocanvas, items, 'ctx-menu');
     if (pop) {
@@ -5748,10 +5785,11 @@
     closePalette();
     const s = S.shapes.find((x) => x.id === id);
     if (!s) return null;
-    const pop = h('div', { class: 'pop int-pop', role: 'dialog', 'aria-label': 'Line integral' });
+    const pop = h('div', { class: 'pop int-pop', role: 'dialog', 'aria-label': $t('Line integral') });
     $('popHost').append(pop);
     popEl = pop;
     intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0 };
+    tourEmit('integral-opened', { shape: id });
     pop._onClose = () => {
       if (!intPop || intPop.el !== pop) return;
       clearTimeout(intPop.timer);
@@ -5821,54 +5859,54 @@
     const it = P.it, pop = P.el, Fh = fnHtml(), dv = leftStage() === 0 ? '<i>z</i>' : `<i>w</i>${sub(leftStage())}`;
     const tol = it.errBound || 0;
     const copyBtn = (text, what) => {
-      const b = h('button', { class: 'icon-btn small', 'data-tip': 'Copy', 'aria-label': `Copy ${what}`, html: ICONS.copy, disabled: text ? null : true });
+      const b = h('button', { class: 'icon-btn small', 'data-tip': $t('Copy'), 'aria-label': $t('Copy {what}', { what }), html: ICONS.copy, disabled: text ? null : true });
       b.addEventListener('click', () => { copyText(text); b.innerHTML = ICONS.check; b.classList.add('copied'); setTimeout(() => { b.innerHTML = ICONS.copy; b.classList.remove('copied'); }, 1200); });
       return b;
     };
     const row = (k, v, copy, cls) => h('div', { class: 'int-row' + (cls ? ' ' + cls : '') }, h('span', { class: 'int-k', html: k }), h('span', { class: 'int-v', html: v }), copy || h('span', { class: 'int-pad' }));
     const sym = it.closed ? '∮' : '∫';
     const part = it.g.comps.some((c) => c.part);
-    const close = h('button', { class: 'icon-btn small', 'data-tip': 'Close  Esc', 'aria-label': 'Close', html: ICONS.close, onclick: () => closePalette() });
-    const kids = [h('div', { class: 'pop-title' }, h('span', { class: 'int-title', html: `${sym} ${it.closed ? 'around' : 'along'} ${it.name.replace(/[&<>]/g, '')}${part ? ' <span class="int-part">(visible part)</span>' : ''}` }), h('span', { class: 'grow' }), close)];
+    const close = h('button', { class: 'icon-btn small', 'data-tip': $t('Close  Esc'), 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closePalette() });
+    const kids = [h('div', { class: 'pop-title' }, h('span', { class: 'int-title', html: (it.closed ? $t('{sym} around {name}{part}', { sym, name: it.name.replace(/[&<>]/g, ''), part: part ? $t(' <span class="int-part">(visible part)</span>') : '' }) : $t('{sym} along {name}{part}', { sym, name: it.name.replace(/[&<>]/g, ''), part: part ? $t(' <span class="int-part">(visible part)</span>') : '' })) }), h('span', { class: 'grow' }), close)];
     const body = h('div', { class: 'int-body' });
     if (it.error) body.append(h('div', { class: 'int-note err' }, it.error));
     else {
-      body.append(row(`${sym}<sub><i>γ</i></sub> ${Fh} d${dv}`, cxShort(it.value, tol * 1e8), copyBtn(cxCopy(it.value, tol), 'the integral')));
+      body.append(row(`${sym}<sub><i>γ</i></sub> ${Fh} d${dv}`, cxShort(it.value, tol * 1e8), copyBtn(cxCopy(it.value, tol), $t('the integral'))));
       if (it.closed) {
         const r = C(it.value.im / TAU, -it.value.re / TAU), rt = tol / TAU;
-        body.append(row(`(1/2π<i>i</i>) ∮ ${Fh} d${dv}`, cxShort(r, rt * 1e8), copyBtn(cxCopy(r, rt), 'the integral over 2πi')));
+        body.append(row(`(1/2π<i>i</i>) ∮ ${Fh} d${dv}`, cxShort(r, rt * 1e8), copyBtn(cxCopy(r, rt), $t('the integral over 2πi'))));
         const x = P.x, int = (n) => String(n).replace('-', '−');
-        if (!x) body.append(h('div', { class: 'int-note' }, 'Counting zeros and poles inside…'));
+        if (!x) body.append(h('div', { class: 'int-note' }, $t('Counting zeros and poles inside…')));
         else {
-          body.append(row(`winding of ${Fh}∘<i>γ</i> about 0`, x.ok ? int(x.wind) : '—', null));
+          body.append(row($t('winding of {Fh}∘<i>γ</i> about 0', { Fh }), x.ok ? int(x.wind) : '—', null));
           if (x.found) {
             const agree = x.ok && !x.partial && x.zeros - x.poles === x.wind;
-            body.append(row(x.partial ? 'zeros − poles found inside' : 'zeros − poles inside', `<span class="${agree ? 'ok' : ''}">${int(x.zeros)} − ${int(x.poles)} = ${int(x.zeros - x.poles)}</span>`, null));
+            body.append(row(x.partial ? $t('zeros − poles found inside') : $t('zeros − poles inside'), `<span class="${agree ? 'ok' : ''}">${int(x.zeros)} − ${int(x.poles)} = ${int(x.zeros - x.poles)}</span>`, null));
             const lst = h('div', { class: 'int-list' });
             let iz = 0, shown = 0;
             for (const r of x.list) {
               const pole = r.kind === 'pole';
               if (!pole) iz++;
               if (shown++ >= 6) continue;
-              const nm = pole ? 'pole' : (leftStage() === 0 ? `<i>z</i>${sub(iz)}` : `<i>r</i>${sub(iz)}`);
-              const extra = (r.mult > 1 ? ` <span class="int-m">×${r.mult}</span>` : '') + (Math.abs(r.w) !== 1 ? ` <span class="int-m">wound ${int(r.w)}×</span>` : '');
+              const nm = pole ? $t('pole') : (leftStage() === 0 ? `<i>z</i>${sub(iz)}` : `<i>r</i>${sub(iz)}`);
+              const extra = (r.mult > 1 ? ` <span class="int-m">×${r.mult}</span>` : '') + (Math.abs(r.w) !== 1 ? $t(' <span class="int-m">wound {w}×</span>', { w: int(r.w) }) : '');
               lst.append(h('div', { class: 'int-row sub' }, h('span', { class: 'int-k', html: `<span class="sw${pole ? ' pole' : ''}"></span>${nm}${extra}` }), h('span', { class: 'int-v', html: cxShort(r.z, Math.max(it.g.box.x1 - it.g.box.x0, it.g.box.y1 - it.g.box.y0)) })));
             }
-            if (shown > 6) lst.append(h('div', { class: 'int-note' }, `and ${shown - 6} more`));
+            if (shown > 6) lst.append(h('div', { class: 'int-note' }, $tn('and {n} more', 'and {n} more', shown - 6)));
             if (x.list.length) body.append(lst);
-            if (x.partial) body.append(h('div', { class: 'int-note' }, 'The search stopped early; there may be more inside.'));
-            else if (x.ok && x.zeros - x.poles !== x.wind) body.append(h('div', { class: 'int-note', html: `The counts differ: ${Fh} has a branch cut or an essential singularity inside the curve, where the argument principle does not apply.` }));
+            if (x.partial) body.append(h('div', { class: 'int-note' }, $t('The search stopped early; there may be more inside.')));
+            else if (x.ok && x.zeros - x.poles !== x.wind) body.append(h('div', { class: 'int-note', html: $t('The counts differ: {Fh} has a branch cut or an essential singularity inside the curve, where the argument principle does not apply.', { Fh }) }));
           }
-          if (!x.ok) body.append(h('div', { class: 'int-note', html: `${Fh} vanishes, blows up or jumps on the curve, so the argument principle does not apply.` }));
+          if (!x.ok) body.append(h('div', { class: 'int-note', html: $t('{Fh} vanishes, blows up or jumps on the curve, so the argument principle does not apply.', { Fh }) }));
         }
       }
     }
     // the running integral t ↦ ∫γ[0,t] F dz from 0: start ○, end ●, and for a closed curve the gap back to 0 (∮)
     const cv = h('canvas', { class: 'int-plot', width: 264 * 2, height: 128 * 2, 'aria-hidden': 'true' });
-    body.append(cv, h('div', { class: 'int-cap', html: `Running integral of ${Fh} from 0 (○) to its value (●)${it.closed && !it.error ? '; the dashed gap back to 0 is ∮' : ''}` }));
+    body.append(cv, h('div', { class: 'int-cap', html: $t('Running integral of {Fh} from 0 (○) to its value (●){choice}', { Fh, choice: it.closed && !it.error ? $t('; the dashed gap back to 0 is ∮') : '' }) }));
     kids.push(body);
     pop.replaceChildren(...kids);
-    pop.setAttribute('aria-label', `Line integral ${it.closed ? 'around' : 'along'} ${it.name}`);
+    pop.setAttribute('aria-label', it.closed ? $t('Line integral around {name}', { name: it.name }) : $t('Line integral along {name}', { name: it.name }));
     drawIntPlot(cv, it);
   }
   function drawIntPlot(cv, it) {
@@ -5916,7 +5954,7 @@
   function integrateSelected() {
     const s = S.shapes.find((x) => x.id === selected && x.visible !== false && kindType(x) !== 'point');
     const list = s ? [s] : S.shapes.filter((x) => x.visible !== false && kindType(x) !== 'point' && x.kind !== 'cgrid' && x.kind !== 'pgrid');
-    if (!list.length) { toast('Draw a curve or a region first: right-click a curve to integrate along it.'); return null; }
+    if (!list.length) { toast($t('Draw a curve or a region first: right-click a curve to integrate along it.')); return null; }
     const r = paneL.ocanvas.getBoundingClientRect();
     return openIntegralPop(list[0].id, r.left + r.width / 2, r.top + r.height / 2);
   }
@@ -5953,7 +5991,7 @@
   const cxShort = (w, scale = 0) => {
     if (!CX.isFin(w)) return '—';
     const tol = Math.max(1e-12 * Math.max(Math.abs(w.re), Math.abs(w.im)), 1e-8 * scale);
-    const f = (x) => CX.fmtNum(x, 4).replace('-', '−');
+    const f = (x) => I18N.num(CX.fmtNum(x, 4).replace('-', '−'));   // display only: copies use cxCopy
     let re = Math.abs(w.re) <= tol ? 0 : w.re, im = Math.abs(w.im) <= tol ? 0 : w.im;
     if (f(re) === '0') re = 0;
     if (f(Math.abs(im)) === '0') im = 0;
@@ -5978,12 +6016,12 @@
       const pts = S.targets.filter((s) => s.visible !== false && s.kind === 'point');
       const others = S.targets.filter((s) => s.visible !== false && s.kind !== 'point').length;
       const rows = [];
-      if (pts.length && !hasCalc('zerosPoles')) rows.push('<div class="cn">Root finding is not available in this build.</div>');
-      else if (pts.length && roots.sig !== rootsSig()) rows.push(`<div class="ch">Solving ${fxHtml()} = <i>p</i> in view…</div>`);
+      if (pts.length && !hasCalc('zerosPoles')) rows.push($t('<div class="cn">Root finding is not available in this build.</div>'));
+      else if (pts.length && roots.sig !== rootsSig()) rows.push($t('<div class="ch">Solving {x} = <i>p</i> in view…</div>', { x: fxHtml() }));
       else if (pts.length) {
         let iz = 0, shown = 0;
         // with the left plane on the sphere the solve still runs over the flat view's window
-        const where = !lFlat() ? 'in the flat view' : 'in view';
+        const where = !lFlat() ? $t('in the flat view') : $t('in view');
         const deg = focusDegree();
         roots.list.forEach((e, j) => {
           const s = S.targets.find((t) => t.id === e.s.id) || e.s, sols = e.sols;
@@ -5994,8 +6032,11 @@
           const partial = !!(sols.truncated || sols.incomplete);
           const val = s.p[0] === 0 && s.p[1] === 0 ? '0' : `<span class="cv">${cxShort(C(s.p[0], s.p[1]))}</span>`;
           // (a search cut short that found nothing gives no count at all)
-          if (sols.incomplete && !nz) rows.push(`<div class="ch">No roots of ${fxHtml()} = ${val} found ${where}</div>`);
-          else rows.push(`<div class="ch">${partial ? 'at least ' : ''}${nz} root${nz === 1 ? '' : 's'} of ${fxHtml()} = ${val} ${where}${sols.truncated ? ` (first ${sols.length})` : ''}</div>`);
+          if (sols.incomplete && !nz) rows.push($t('<div class="ch">No roots of {x} = {val} found {where}</div>', { x: fxHtml(), val, where }));
+          else {
+            const pr = { fxHtml: fxHtml(), val, where, choice: sols.truncated ? $tn(' (first {n})', ' (first {n})', sols.length) : '' };
+            rows.push(partial ? $tn('<div class="ch">at least {n} root of {fxHtml} = {val} {where}{choice}</div>', '<div class="ch">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>', nz, pr) : $tn('<div class="ch">{n} root of {fxHtml} = {val} {where}{choice}</div>', '<div class="ch">{n} roots of {fxHtml} = {val} {where}{choice}</div>', nz, pr));
+          }
           const ink = rootInk(s);
           for (const r of zs) {
             iz++;
@@ -6005,13 +6046,13 @@
           // poles like zeros: one row each, with the order and the place
           for (const r of ps) {
             if (shown++ >= 6) continue;
-            rows.push(`<div class="cl"><span><span class="sw pole" style="color:${TH.pole}"></span>pole${r.mult > 1 ? ` <span class="cm">×${r.mult}</span>` : ''}</span><span class="cv">${cxShort(r.z, rootScale())}</span></div>`);
+            rows.push($t('<div class="cl"><span><span class="sw pole" style="color:{poleColor}"></span>pole{choice}</span><span class="cv">{z}</span></div>', { poleColor: TH.pole, choice: r.mult > 1 ? ` <span class="cm">×${r.mult}</span>` : '', z: cxShort(r.z, rootScale()) }));
           }
-          if (sols.incomplete) rows.push('<div class="cn">The search stopped early; there may be more.</div>');
+          if (sols.incomplete) rows.push($t('<div class="cn">The search stopped early; there may be more.</div>'));
           // a rational F of degree d takes every value d times on the sphere (a polynomial, d times in ℂ)
-          else if (!partial && deg && nz < deg.d) rows.push(`<div class="cn">${deg.poly ? '' : 'Up to '}${deg.d - nz} more outside ${!lFlat() ? 'the flat view' : 'the view (zoom out to see them)'}.</div>`);
+          else if (!partial && deg && nz < deg.d) rows.push($t('<div class="cn">{choice}{d} more outside {choice2}.</div>', { choice: deg.poly ? '' : $t('Up to '), d: deg.d - nz, choice2: !lFlat() ? $t('the flat view') : $t('the view (zoom out to see them)') }));
         });
-        if (shown > 6) rows.push(`<div class="cm">and ${shown - 6} more</div>`);
+        if (shown > 6) rows.push($tn('<div class="cm">and {n} more</div>', '<div class="cm">and {n} more</div>', shown - 6));
         if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
       }
       if (others) {
@@ -6019,10 +6060,12 @@
         // areas are shaded on the left, curves drawn (their preimage curves)
         const vis = S.targets.filter((s) => s.visible !== false && s.kind !== 'point');
         const na = vis.filter((s) => kindType(s) === 'area').length, nc = vis.length - na;
-        const the = (k, w) => (k === 1 ? `the ${w}` : `the ${k} ${w}s`);
-        if (na && nc) rows.push(`<div class="cn">On the left: shaded where ${fxHtml()} lands in ${the(na, 'target area')}, and drawn the curves it maps onto ${the(nc, 'target curve')}.</div>`);
-        else if (nc) rows.push(`<div class="cn">Drawn on the left: the curves ${fxHtml()} maps onto ${the(nc, 'target')}.</div>`);
-        else rows.push(`<div class="cn">Shaded on the left: where ${fxHtml()} lands in ${others === 1 ? 'the target' : `the ${others} targets`}.</div>`);
+        const theArea = (k) => (k === 1 ? $t('the target area') : $tn('the {n} target area', 'the {n} target areas', k));
+        const theCurve = (k) => (k === 1 ? $t('the target curve') : $tn('the {n} target curve', 'the {n} target curves', k));
+        const theTarget = (k) => (k === 1 ? $t('the target') : $tn('the {n} target', 'the {n} targets', k));
+        if (na && nc) rows.push($t('<div class="cn">On the left: shaded where {fxHtml} lands in {na}, and drawn the curves it maps onto {nc}.</div>', { fxHtml: fxHtml(), na: theArea(na), nc: theCurve(nc) }));
+        else if (nc) rows.push($t('<div class="cn">Drawn on the left: the curves {fxHtml} maps onto {nc}.</div>', { fxHtml: fxHtml(), nc: theTarget(nc) }));
+        else rows.push($t('<div class="cn">Shaded on the left: where {fxHtml} lands in {choice}.</div>', { fxHtml: fxHtml(), choice: theTarget(others) }));
       }
       // over the w-globe the chip keeps to its headings, so the scene stays visible
       const compact = rGlobe();
@@ -6090,7 +6133,7 @@
       // above the real axis (the empty view is centered on 0) and cased in the plane color, so nothing strikes it
       const ctx = pane.ctx;
       ctx.font = `12px ${TH.ui}`; ctx.fillStyle = TH.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      haloText(ctx, 'No shapes', pane.w / 2, pane.h / 2 - 7, TH.plane);
+      haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
     }
     if (waiting || thumbNotFinal) { thumbNotFinal = false; thumbsWaiting = true; return; } // drawn with a stand-in: not final, not cached
     pane.sig = sig;
@@ -6180,7 +6223,7 @@
         if (morph.seg == null) { morph.seg = Math.max(0, Math.min(m - 1, Math.floor(morph.T))); morph.u = Math.max(0, Math.min(0.999, morph.T - morph.seg)); }
         const before = morph.seg;
         morph.u = (morph.u || 0) + dt / (S.morphSecs || 1.6);
-        if (morph.u >= 1) { morph.u = 0; morph.T = Math.min(m, before + 1); morph.seg = morph.T >= m ? null : before + 1; morph.hold = morph.T >= m ? 1.0 : 0.5; }
+        if (morph.u >= 1) { morph.u = 0; morph.T = Math.min(m, before + 1); morph.seg = morph.T >= m ? null : before + 1; morph.hold = morph.T >= m ? 1.0 : 0.5; if (morph.T >= m) sndMorphArrive(); }
         else { const u = morph.u; morph.T = Math.min(before + 0.9999, before + (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)); }
       }
       if (m && morph.hold <= 0 && morph.T >= m) {
@@ -6424,6 +6467,7 @@
     refreshIntPop();
     requestRender('L', 'R', 'P');
     save();
+    tourEmit('step-focused', { k });
   }
 
   // ---------------- pane titles & option strips ----------------
@@ -6455,37 +6499,38 @@
   }
   function fitRightTitle() { fitTitle('L'); fitTitle('R'); }
   // the words of the landscape's height (S.height)
-  const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `log|${Fh}|`);
+  const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
   // the pane titles (panels.md 2): X is the domain of the map in focus, Y its codomain
   function paneTitles() {
     const n = nSteps(), lk = leftStage(), rk = rightStage(), dk = focusDeriv();
     const Fh = fnHtml();
     // the role, with its short form for a narrow head (fitTitle): the words before the formula ("landscape",
     // "phase", "Cauchy integral", "image"), plus ", deforming"
-    const T = (t, role) => {
-      const m = /^(.*?)( of | over |, after )/.exec(role);
-      const short = m ? m[1] + (/, deforming$/.test(role) ? ', deforming' : '') : '';
+    // (sh: the short form, given with the role: the role is a translated sentence, so its words are not parsed)
+    const T = (t, role, sh) => {
+      const m = sh == null ? /^(.*?)( of | over |, after )/.exec(role) : null;
+      const short = sh != null ? sh : m ? m[1] + (/, deforming$/.test(role) ? ', deforming' : '') : '';
       return `<span class="ptitle">${t}</span><span class="prole">${short ? `<span class="rf">${role}</span><span class="rs">${short}</span>` : role}</span>`;
     };
     const surfL = lGlobe() ? 'sphere' : 'plane';
-    const xName = `${wHtml(lk)}-${surfL}`;
+    const xName = surfL === 'sphere' ? $t('{w}-sphere', { w: wHtml(lk) }) : $t('{w}-plane', { w: wHtml(lk) });
     // (the deformation paints H_t: the title names it, merged-views review)
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
-    let roleL;
-    if (lLand()) roleL = `landscape of ${heightHtml(of)}${S.sheets && !morphOn() && multiSheet() ? ', all sheets' : ''}`;
-    else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? `Cauchy integral over ${cp.name}` : 'Cauchy integral'; }
-    else if (lPhase()) roleL = `phase of ${of}`;
-    else roleL = `domain of ${of}`;
-    const left = T(xName, roleL + def);
+    let roleL, shortL;
+    if (lLand()) { roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: S.sheets && !morphOn() && multiSheet() ? $t(', all sheets') : '' }); shortL = $tx('role', 'landscape'); }
+    else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
+    else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
+    else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
+    const left = T(xName, roleL + def, def ? undefined : shortL);
     let right;
     // (the deformation keeps Y's surface: the arrow form on the plane, the w-sphere's own title on the globe)
     // (one title for the merged plane and the merged globe)
-    if (morphOn()) right = T(S.focus === 0 || dk ? `${wHtml(0)} → ${S.focus === 0 ? '<i>w</i>' : wHtml(rk)}` : `${wHtml(lk)} → ${wHtml(rk)}`, 'deformation');
-    else if (rGlobe()) right = T(`${S.focus === 0 ? '<i>w</i>' : wHtml(rk)}-sphere`, 'image');
-    else if (S.focus === 0) right = T(n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>', `image, after ${n} step${n === 1 ? '' : 's'}`);
-    else if (dk) right = T(`${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, 'image');
-    else right = T(`${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, 'image');
+    if (morphOn()) right = T(S.focus === 0 || dk ? `${wHtml(0)} → ${S.focus === 0 ? '<i>w</i>' : wHtml(rk)}` : `${wHtml(lk)} → ${wHtml(rk)}`, $tx('role', 'deformation'), '');
+    else if (rGlobe()) right = T($t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
+    else if (S.focus === 0) right = T(n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>', $tn('image, after {n} step', 'image, after {n} steps', n), $tx('role', 'image'));
+    else if (dk) right = T(`${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
+    else right = T(`${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
     return { left, right };
   }
   function updateFocusUI() {
@@ -6505,7 +6550,6 @@
     for (const c of document.querySelectorAll('.card')) c.classList.toggle('focus', +c.dataset.k === S.focus);
     $('viewAllBtn').setAttribute('aria-pressed', String(S.focus === 0));
     if (setupFormula.refresh) setupFormula.refresh();
-    syncEmptyState();
     syncSnapUnit();
     updateToolHint();
     updateLeds();
@@ -6552,33 +6596,33 @@
     inp.checked = !!checked;
     return h('label', { class: 'check' }, inp, h('span', null, label));
   }
-  const DC_STYLES = [['enhanced', 'Tiles', 'Conformal tiles: phase sectors and modulus contours form squares'], ['phase', 'Plain', 'Phase only'], ['classic', 'Modulus', 'Brightness from |F|: zeros black, poles white'], ['modulus', 'Contours', 'Level lines of |F| and arg F'], ['grid', 'Grid', 'Pull-back of the Re/Im grid of the image'], ['cauchy', 'Cauchy', 'The Cauchy integral over the selected closed curve: F inside, 0 outside']];
+  const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
   // the idle hint of a globe (panels.md 3, 9): on an editable globe a drawing tool's drag draws, so the hint names the
   // tool's gesture and how to turn; Select drags shapes and turns on empty space; a tool that does not draw here
   // (Annulus, Sector, Polar grid: the pane chip says so) and a globe that takes no drawing turn with a drag
   function globeHint(side) {
-    const TURN = 'Drag to turn; ∞ is at the north pole';
+    const TURN = $t('Drag to turn; ∞ is at the north pole');
     if (!globeEdit(side) || tool === 'formula' || GLOBE_OFF.has(tool)) return TURN;
-    if (tool === 'select') return 'Drag to turn, a shape to move it; ∞ is at the north pole';
+    if (tool === 'select') return $t('Drag to turn, a shape to move it; ∞ is at the north pole');
     const lab = ((TOOLS.find((t) => t[0] === tool) || [])[1] || '').toLowerCase();
-    const tg = side === 'R' ? 'target ' : '';
-    const g = tool === 'point' ? `Click to place a ${tg}point` : tool === 'polygon' ? 'Click the vertices'
-      : tool === 'curve' ? `Hold and draw a ${tg}curve` : tool === 'lasso' ? `Hold and draw a ${tg}region`
-        : `Drag to draw ${tg ? 'a target' : /^[aeiou]/.test(lab) ? 'an' : 'a'} ${lab}`;
-    return `${g}; Space or the middle button turns`;
+    const tg = side === 'R' ? $t('target ') : '';
+    const g = tool === 'point' ? $t('Click to place a {tg}point', { tg }) : tool === 'polygon' ? $t('Click the vertices')
+      : tool === 'curve' ? $t('Hold and draw a {tg}curve', { tg }) : tool === 'lasso' ? $t('Hold and draw a {tg}region', { tg })
+        : tg ? $t('Drag to draw a target {tool}', { tool: lab }) : /^[aeiou]/.test(lab) ? $t('Drag to draw an {tool}', { tool: lab }) : $t('Drag to draw a {tool}', { tool: lab });
+    return $t('{g}; Space or the middle button turns', { g });
   }
   // the idle left readout: the scale, or how to draw on or turn the globe, or orbit the landscape (which takes no
   // drawing, panels.md 9.1)
   const touchUI = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
   const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
-    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? 'Draw in X → Y (1)' : touchUI() ? 'Drag to orbit, pinch to zoom' : 'Drag to orbit, Shift-drag to pan'}</span>` : rk('', paneL ? scaleText(paneL) : ''));
+    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan')}</span>` : rk('', paneL ? scaleText(paneL) : ''));
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in Archivo)
   function idleRight() {
     const v = rGlobe() ? { hint: globeHint('R') }
-      : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: `Draw a target in the ${yHtml()}-plane` } : scaleText(paneR);
+      : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in the {x}-plane', { x: yHtml() }) } : scaleText(paneR);
     return v && v.hint ? `<span class="rhint">${v.hint}</span>` : rk('', v);
   }
-  function scaleText(pane) { return pane ? `${CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')} / div` : ''; }
+  function scaleText(pane) { return pane ? $t('{x} / div', { x: I18N.num(CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')) }) : ''; }
   // Mode options (spec 5.8): one 32px row. Controls that do not fit beside the view stack move, in order, behind
   // a sliders button into a popover; on a phone all of them do. The deformation transport always stays inline.
   const phoneMQ = matchMedia('(max-width: 767px)');
@@ -6619,7 +6663,7 @@
     const rest = ft.kids.slice(n);
     let b = null;
     if (rest.length) {
-      b = h('button', { class: 'icon-btn opts-btn', 'data-tip': 'Display options', 'aria-label': 'Display options', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
+      b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
     }
     const open = ft.pop && ft.pop.isConnected;
@@ -6632,7 +6676,7 @@
     if (!refresh && ft.pop && ft.pop.isConnected) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
     const rest = ft.kids.slice(ft.n);
-    const pop = h('div', { class: 'pop opts-pop', role: 'dialog', 'aria-label': 'Display options' }, ...rest);
+    const pop = h('div', { class: 'pop opts-pop', role: 'dialog', 'aria-label': $t('Display options') }, ...rest);
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -6670,14 +6714,14 @@
     const span = lab && lab.querySelector('span');
     if (!span) return lab;
     const capped = !!(S.sheets && ms && ms.total > ms.K);
-    span.textContent = capped ? `All sheets (${ms.K} of ${ms.total})` : 'All sheets';
-    if (capped) lab.dataset.tip = `${ms.K} of the ${ms.total} surfaces are drawn (at most ${ms.K}).`; else delete lab.dataset.tip;
+    span.textContent = capped ? $t('All sheets ({K} of {total})', { K: ms.K, total: ms.total }) : $t('All sheets');
+    if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
     return lab;
   }
   function setSheets(on) {
     S.sheets = !!on;
     // the sheets of a root share |F|: they separate in Re F and Im F
-    if (on && (S.height === 'log' || S.height === 'abs')) { S.height = 'im'; toast(`All sheets: the height is now Im ${fnText()}, where the sheets come apart (a modulus height stacks them).`); }
+    if (on && (S.height === 'log' || S.height === 'abs')) { S.height = 'im'; toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
@@ -6692,18 +6736,18 @@
     const ft = foot[side];
     ft.kids = []; ft.widths = null; ft.n = -1;
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length; ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
-    const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: 'Reset camera', 'aria-label': 'Reset camera', html: ICONS.orbit, onclick: () => tweenCam(c, d) });
+    const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
     const Fn = fnText();
     if (morphOn() && rImage()) {
       // (the merged deformation plane: no options of its own; the transport is docked under it)
     } else if (rImage()) {
-      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, 'View outline', (v) => { S.fov = v; requestRender('R'); drawLegend(); save(); }));
+      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { S.fov = v; requestRender('R'); drawLegend(); save(); }));
       // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
       // as a value in Y (its one switch, merged-views review)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, 'Phase key', (v) => { S.wKey = v; buildRightFoot(); drawLegend(); requestRender('R'); save(); }); kl.dataset.tip = `The phase colours of the ${yHtml()}-plane under the images`; f.append(kl); }
+      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { S.wKey = v; buildRightFoot(); drawLegend(); requestRender('R'); save(); }); kl.dataset.tip = $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
     } else if (rGlobe()) {
       f.append(
-        checkEl('eqChkR', S.view.R.eq, 'Equator', (v) => { S.view.R.eq = v; requestRender('R'); save(); }),
+        checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { S.view.R.eq = v; requestRender('R'); save(); }),
         resetCam(camS, CAMS));
       tipEq(f);
     }
@@ -6728,27 +6772,27 @@
       // steps at once), t, speed, the order of the steps (two or more), Loop and the Paths toggle (P); × closes it
       // and the view returns to t = end
       const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
-      const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? 'Pause' : 'Play', 'aria-label': morph.playing ? 'Pause' : 'Play', html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
-      const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': 'Deformation time',
-        oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
+      const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? $t('Pause') : $t('Play'), 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
+      const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': $t('Deformation time'),
+        oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; sndScrub(morph.T, v); morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
       const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
       if (allAtOnce()) {
         const ks = morphRange().steps;
-        ticks.append(h('span', { class: 'ttick', style: 'left:50%', html: `<i>f</i>${sub(ks[0])}, …, <i>f</i>${sub(ks[ks.length - 1])} at once` }));
+        ticks.append(h('span', { class: 'ttick', style: 'left:50%', html: $t('<i>f</i>{x}, …, <i>f</i>{x2} at once', { x: sub(ks[0]), x2: sub(ks[ks.length - 1]) }) }));
       } else morphRange().steps.forEach((k, i) => ticks.append(h('span', { class: 'ttick', style: `left:${(i + 0.5) / Math.max(1, m) * 100}%`, html: isDeriv(k) ? 'd/d<i>z</i>' : `<i>f</i>${sub(k)}` })));
       // the order of the steps (two or more): one after another (t in [0, m]) or all at once (t in [0, 1])
       let order = null;
       if (nSt > 1) {
-        order = selectEl('homOrderSel', allAtOnce() ? 'all' : 'steps', [['steps', 'One after another'], ['all', 'All at once']], (v) => setHomAll(v === 'all'), 'Deformation: the steps one after another or all at once');
-        if (hasD) { order.disabled = true; order.value = 'steps'; order.dataset.tip = 'd/dz is not a map: its step deforms on its own, so the steps run one after another'; }
+        order = selectEl('homOrderSel', allAtOnce() ? 'all' : 'steps', [['steps', $t('One after another')], ['all', $t('All at once')]], (v) => setHomAll(v === 'all'), $t('Deformation: the steps one after another or all at once'));
+        if (hasD) { order.disabled = true; order.value = 'steps'; order.dataset.tip = $t('d/dz is not a map: its step deforms on its own, so the steps run one after another'); }
       }
       f.append(play, h('div', { class: 'tscrub' }, rng, ticks), h('span', { class: 'tread mono', id: 'morphLabel' }, `t = ${morph.T.toFixed(2)} / ${m}`),
-        seg('speedSeg', String(S.morphSecs), [['3.2', '0.5×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, 'Speed'),
+        seg('speedSeg', String(S.morphSecs), [['3.2', '0.5×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed')),
         ...(order ? [order] : []),
-        checkEl('loopChk', S.loop !== false, 'Loop', (v) => { S.loop = v; save(); }),
+        checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); }),
         // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
         ...(side === 'R' ? [pathsToggle(hasD)] : []),
-        h('button', { class: 'icon-btn tclose', 'data-tip': 'Deformation off  M', 'aria-label': 'Turn the deformation off', html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
+        h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
     }
   }
@@ -6757,15 +6801,17 @@
   // (with a d/dz in the range no paths are drawn: the toggle is disabled and says why, as the order select)
   function pathsToggle(hasD = morphHasDeriv()) {
     const on = S.morphPaths !== false;
-    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': `${on ? 'Hide' : 'Show'} the paths t ↦ H_t(z)  P`, html: `${ICONS.paths}<span>Paths</span>`, onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
-    if (hasD) { b.disabled = true; b.dataset.tip = 'd/dz is not a map, so there are no paths t ↦ H_t(z) to draw'; }
+    const b = h('button', { class: 'phbtn tpaths', id: 'pathsBtn', type: 'button', 'aria-pressed': String(on && !hasD), 'data-tip': on ? $t('Hide the paths t ↦ H_t(z)  P') : $t('Show the paths t ↦ H_t(z)  P'), html: $t('{iconPaths}<span>Paths</span>', { iconPaths: ICONS.paths }), onclick: () => setMorphPaths(!(S.morphPaths !== false)) });
+    if (hasD) { b.disabled = true; b.dataset.tip = $t('d/dz is not a map, so there are no paths t ↦ H_t(z) to draw'); }
     return b;
   }
   function setMorphPaths(on) {
+    if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
     S.morphPaths = !!on;
     const b = $('pathsBtn');
-    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = `${on ? 'Hide' : 'Show'} the paths t ↦ H_t(z)  P`; }
+    if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = on ? $t('Hide the paths t ↦ H_t(z)  P') : $t('Show the paths t ↦ H_t(z)  P'); }
     requestRender('R'); drawLegend(); save();
+    tourEmit('paths-toggled', { on: !!on });
   }
   // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
   function setHomAll(all) {
@@ -6776,9 +6822,9 @@
     else if (!morph.open) morph.T = after;
     buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
   }
-  const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: 'Reset camera', 'aria-label': 'Reset camera', html: ICONS.orbit, onclick: () => tweenCam(c, d) });
+  const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
-  function tipEq(f) { const l = f.querySelector('label.check:has(> input[id^="eqChk"])'); if (l) l.dataset.tip = 'Equatorial plane and projection ray'; }
+  function tipEq(f) { const l = f.querySelector('label.check:has(> input[id^="eqChk"])'); if (l) l.dataset.tip = $t('Equatorial plane and projection ray'); }
   // X's strip (panels.md 4): the paint's part (Phase on: style, n, Δ, Outlines), then the surface's part (Sphere:
   // Equator, Reset camera; Landscape: height, sheets, scale, unit level, view, Reset camera). X Plane with Phase off
   // has none (the strip hides).
@@ -6789,38 +6835,38 @@
     if (lLand()) {
       const paint = !S.view.D.phase ? 'plaster' : landMaterial() === 'phase' ? 'phase' : 'tiles';
       f.append(
-        seg('heightSeg', S.height, [['log', `log |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { S.height = v; updateFocusUI(); requestRender('L'); save(); }, 'Height'),
-        seg('landPaint', paint, [['tiles', 'Tiles', 'Phase colours with modulus contours'], ['phase', 'Plain', 'Phase colours only'], ['plaster', 'Plaster', 'The relief alone, lit']], (v) => {
+        seg('heightSeg', S.height, [['log', `${I18N.fnName('log')} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { S.height = v; updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
+        seg('landPaint', paint, [['tiles', $t('Tiles'), $t('Phase colours with modulus contours')], ['phase', $t('Plain'), $t('Phase colours only')], ['plaster', $t('Plaster'), $t('The relief alone, lit')]], (v) => {
           S.view.D.phase = v !== 'plaster';
           if (v === 'phase') S.landPlain = S.dc !== 'phase';
           else if (v === 'tiles') { S.landPlain = false; if (S.dc === 'phase') S.dc = 'enhanced'; }
           buildRightFoot(); updateFocusUI(); paintChanged(); save();
-        }, 'Colouring'));
+        }, $t('Colouring')));
     }
     if (lPhase()) {
       const land = lLand();
-      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => { S.dc = v; S.landPlain = false; buildRightFoot(); updateFocusUI(); paintChanged(); save(); }, 'Phase style'));
+      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => { S.dc = v; S.landPlain = false; buildRightFoot(); updateFocusUI(); paintChanged(); save(); }, $t('Phase style')));
       if (S.dc === 'cauchy' && lColor()) {
         const cp = cauchyPlot(), Fh = fnHtml();
-        f.append(h('span', { class: 'foot-note', html: cp ? `(1/2π<i>i</i>) ∮ ${Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over ${cp.name}: ${Fh} inside, 0 outside` : 'Select a closed curve or a bounded region: its Cauchy integral is shown.' }));
+        f.append(h('span', { class: 'foot-note', html: cp ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name }) : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') }));
       }
-      f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { S.sectors = +v; paintChanged(); drawLegend(); save(); }, 'Phase sectors')));
-      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { S.dcGrid = +v; paintChanged(); save(); }, 'Grid step')));
-      if (lColor()) f.append(checkEl('outlineChk', S.outline, 'Outlines', (v) => { S.outline = v; requestRender('L'); save(); }));
+      f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { S.sectors = +v; paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { S.dcGrid = +v; paintChanged(); save(); }, $t('Grid step'))));
+      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { S.outline = v; requestRender('L'); save(); }));
     }
     if (lGlobe()) {
-      f.append(checkEl('eqChkL', xView().eq, 'Equator', (v) => { xView().eq = v; requestRender('L'); save(); }), resetCamBtn(camL, CAML));
+      f.append(checkEl('eqChkL', xView().eq, $t('Equator'), (v) => { xView().eq = v; requestRender('L'); save(); }), resetCamBtn(camL, CAML));
       tipEq(f);
     } else if (lLand()) {
       // All sheets: the whole covering surface of a multivalued map (a window of 2W + 1 sheets for log and
       // irrational powers)
       const ms = multiSheet();
       f.append(
-        ...(ms ? [sheetsLabel(checkEl('sheetsChk', S.sheets, 'All sheets', (v) => setSheets(v)), ms)] : []),
-        ...(ms && S.sheets && ms.infinite ? [h('div', { class: 'scrub', 'data-tip': 'Sheets shown on each side of the principal one' }, h('span', { class: 'pl' }, 'sheets ±'), selectEl('sheetWSel', String(S.sheetW || 2), [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], (v) => { S.sheetW = +v; const c = $('sheetsChk'); if (c) sheetsLabel(c.closest('label'), multiSheet()); requestRender('L'); save(); }, 'Sheets on each side'))] : []),
-        h('label', { class: 'fader-row compact' }, h('span', { class: 'fl' }, 'Scale'), h('input', { type: 'range', id: 'lscaleRange', min: 0.25, max: 2, step: 0.05, value: S.lscale || 1, 'aria-label': 'Height scale', oninput: (e) => { S.lscale = +e.target.value; requestRender('L'); save(); } })),
-        checkEl('unitLevelChk', S.unitLevel, 'Unit level', (v) => { S.unitLevel = v; requestRender('L'); save(); }),
-        seg('viewSeg', '', [['iso', '3/4'], ['top', 'Top'], ['front', 'Front']], (v) => tweenCam(cam, { iso: { yaw: -38 * DEG, pitch: 30 * DEG }, top: { yaw: -90 * DEG, pitch: 88 * DEG }, front: { yaw: -90 * DEG, pitch: 8 * DEG } }[v]), 'View'),
+        ...(ms ? [sheetsLabel(checkEl('sheetsChk', S.sheets, $t('All sheets'), (v) => setSheets(v)), ms)] : []),
+        ...(ms && S.sheets && ms.infinite ? [h('div', { class: 'scrub', 'data-tip': $t('Sheets shown on each side of the principal one') }, h('span', { class: 'pl' }, $t('sheets ±')), selectEl('sheetWSel', String(S.sheetW || 2), [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], (v) => { S.sheetW = +v; const c = $('sheetsChk'); if (c) sheetsLabel(c.closest('label'), multiSheet()); requestRender('L'); save(); }, $t('Sheets on each side')))] : []),
+        h('label', { class: 'fader-row compact' }, h('span', { class: 'fl' }, $t('Scale')), h('input', { type: 'range', id: 'lscaleRange', min: 0.25, max: 2, step: 0.05, value: S.lscale || 1, 'aria-label': $t('Height scale'), oninput: (e) => { S.lscale = +e.target.value; requestRender('L'); save(); } })),
+        checkEl('unitLevelChk', S.unitLevel, $t('Unit level'), (v) => { S.unitLevel = v; requestRender('L'); save(); }),
+        seg('viewSeg', '', [['iso', '3/4'], ['top', $t('Top')], ['front', $t('Front')]], (v) => tweenCam(cam, { iso: { yaw: -38 * DEG, pitch: 30 * DEG }, top: { yaw: -90 * DEG, pitch: 88 * DEG }, front: { yaw: -90 * DEG, pitch: 8 * DEG } }[v]), $t('View')),
         resetCamBtn(cam, CAM3));
     }
   }
@@ -6831,7 +6877,7 @@
   const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]);
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
   function openTransport() {
-    if (!morphRange().steps.length) { toast('Add a function to the chain to see its deformation.'); return; }
+    if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
     if (typeof cancelTweens === 'function') cancelTweens();
     defMem.y = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto };
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
@@ -6839,30 +6885,33 @@
     morph.open = true;
     morph.T = 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
     morph.playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (morph.playing) sndMorphStart();
     if (draft && draft.target) draft = null;
     setHoverW(null); rHover = null;
     // (X → Y: the panes merge into one plane, merged-views.md; the plane is fitted once its new width is known)
     applyLayout();
     if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R');
+    tourEmit('deformation-toggled', { on: true });
   }
   function closeTransport() {
     if (!morph.open) return;
     if (typeof cancelTweens === 'function') cancelTweens();
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
-    morph.open = false; morph.playing = false; morph.seg = null;
+    morph.open = false; morph.playing = false; morph.seg = null; snd.morphArm = false;
     morph.T = morphLen();
     if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
     applyLayout();
     if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
     updateFocusUI(); scheduleFix(); requestRender('L', 'R');
+    tourEmit('deformation-toggled', { on: false });
   }
   const toggleTransport = () => (morph.open ? closeTransport() : openTransport());
   function setPlayIcon() {
     const b = $('morphPlay');
     if (!b) return;
     b.innerHTML = morph.playing ? ICONS.pause : ICONS.play;
-    b.title = morph.playing ? 'Pause' : 'Play';
+    b.title = morph.playing ? $t('Pause') : $t('Play');
     b.setAttribute('aria-label', b.title);
   }
   // phase color as in the shaders (OKLCH wheel, arg 0 = red)
@@ -6913,7 +6962,7 @@
       const kc = $('wKeyChk');
       if (kc && kc.checked !== !!S.wKey) kc.checked = !!S.wKey;
       // (in Y's variable, P13)
-      const kl = ks && ks.querySelector('span'), kt = `Key in the ${yHtml()}-plane`;
+      const kl = ks && ks.querySelector('span'), kt = $t('Key in the {x}-plane', { x: yHtml() });
       if (kl && kl.innerHTML !== kt) kl.innerHTML = kt;
     }
     if (!want) return;
@@ -6964,7 +7013,7 @@
       ctx.font = `600 11px ${TH.ui}`; ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       if (S.pattern === 'stretch') {
         // the local scale ramp: blue shrinks, amber grows
-        ctx.fillText('Scale |F′|', 8, 13);
+        ctx.fillText($t('Scale |F′|'), 8, 13);
         const g = ctx.createLinearGradient(8, 0, 128, 0);
         g.addColorStop(0, TH.stretchShrink); g.addColorStop(0.5, TH.stretchMid); g.addColorStop(1, TH.stretchGrow);
         ctx.fillStyle = g; ctx.fillRect(8, 22, 120, 8);
@@ -6973,25 +7022,29 @@
         ctx.textAlign = 'left'; ctx.fillText('×⅛', 8, 40); ctx.textAlign = 'center'; ctx.fillText('1', 68, 40); ctx.textAlign = 'right'; ctx.fillText('×8', 128, 40);
         ctx.textAlign = 'left';
       } else {
-        ctx.fillText('Pattern', 8, 13);
+        ctx.fillText($t('Pattern'), 8, 13);
         // "cell 0.5 in z" as one run: words in Archivo, the number in B612 Mono, z in STIX italic
         let x = 8;
         const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
         if (S.pattern === 'sphere') {
           // the spherical checker has no cell size in z: its longitude x latitude cells of the Riemann sphere (SPEC 6.3)
           run(`${sphN()} × ${sphN() / 2}`, `11px ${TH.mono}`, TH.ink);
-          run(' cells of the sphere', `11px ${TH.ui}`, TH.muted);
+          run($t(' cells of the sphere'), `11px ${TH.ui}`, TH.muted);
         } else {
-          run('cell ', `11px ${TH.ui}`, TH.muted);
-          run(CX.fmtNum(patternCell(), 4).replace('-', '−'), `11px ${TH.mono}`, TH.ink);
-          run(' in ', `11px ${TH.ui}`, TH.muted);
-          run('z', `italic 500 12px ${TH.math}`, TH.muted);
+          // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
+          // the plane's name is never cut (review ui-3). English draws as before
+          const parts = [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
+          let k = 1;
+          if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
+          if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
+          for (const [t, f, c] of parts) run(t, f, c);
+          if (k < 1) ctx.restore();
         }
       }
       // only marks that this plane actually draws
       let y = 52;
       ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
-      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText('image of a cut', 30, y); y += 15; }
+      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; }
       // the merged deformation plane: what grey is (X, the start) and what the lines are (the paths t -> H_t(z)), in
       // the rows the view outline uses in X → Y (merged-views review: the chip's lower half was blank)
       if (morphOn()) {
@@ -7014,7 +7067,7 @@
         }
         return;
       }
-      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText('left view', 30, y); }
+      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('left view'), 30, y); }
       return;
     }
     // hue ring: arg increases counterclockwise from red at 1
@@ -7068,13 +7121,14 @@
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
       // words in Archivo, the factor in B612 Mono (spec 3)
       ctx.fillStyle = TH.muted; ctx.textAlign = 'left';
-      const word = (t, y) => { ctx.font = `11px ${TH.ui}`; ctx.fillText(t, sx, y); };
+      // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws as before
+      const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
-      if (kind === '3d') { word('contours', sy - 9); num('×1.69', sy + 19); }
-      else { num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`, sy - 9); word('per band', sy + 19); }
+      if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
+      else { num(I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`), sy - 9); word($t('per band'), sy + 19); }
     }
     const Fn = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
-    caption(kind === '3d' ? ({ abs: `height |${Fn}|`, re: `height Re ${Fn}`, im: `height Im ${Fn}` }[S.height] || `height log |${Fn}|`) : `arg and |${Fn}|`);
+    caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
   function togglePlay() {
     morph.playing = !morph.playing;
@@ -7082,6 +7136,7 @@
     if (!morph.playing) { scheduleFix(); requestRender('R'); }
     if (morph.playing && morph.T >= morphLen()) morph.T = 0;
     morph.seg = null; morph.hold = 0;
+    if (morph.playing) sndMorphStart(); else snd.morphArm = false;
     setPlayIcon();
     requestRender('R');
   }
@@ -7112,24 +7167,24 @@
     pgrid: tsvg('<g stroke-width="1"><circle cx="10" cy="10" r="3"/><circle cx="10" cy="10" r="6.5"/><path d="M10 3.5v13M3.5 10h13M5.4 5.4l9.2 9.2M14.6 5.4l-9.2 9.2"/></g>'),
   };
   const TOOLS = [
-    ['select', 'Select', 'V', 'Drag a shape to move it and its handles to reshape. Drag empty space to pan (on a sphere, to turn it).'],
-    ['point', 'Point', 'P', 'Click to place a point; its images are labelled a′, a″, …'],
-    ['segment', 'Segment', 'S', 'Drag from one end to the other.'],
-    ['line', 'Line', 'L', 'Drag through two points; the line extends to infinity.'],
-    ['ray', 'Ray', 'R', 'Drag from the start in the direction of the ray.'],
-    ['circle', 'Circle', 'C', 'Drag from the center outward.'],
-    ['arc', 'Arc', 'A', 'Drag between the ends, then move the middle handle to bend it.'],
-    ['curve', 'Freehand', 'F', 'Hold and draw an open curve.'],
-    ['disc', 'Disc', 'D', 'Drag from the center outward.'],
-    ['rect', 'Rectangle', 'B', 'Drag between opposite corners.'],
-    ['polygon', 'Polygon', 'G', 'Click the vertices; click the first one or press Enter to close.'],
-    ['lasso', 'Lasso', 'O', 'Hold and draw a closed region.'],
-    ['halfplane', 'Half-plane', 'H', 'Drag along the boundary; the region is to the left of the arrow.'],
-    ['annulus', 'Annulus', 'N', 'Drag from the center to the outer radius.'],
-    ['sector', 'Sector', 'K', 'Drag from the vertex; edit the angles in the shape list.'],
-    ['formula', 'Formula', 'T', 'Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.'],
-    ['cgrid', 'Grid', '', 'Drag a rectangle to fill with grid lines.'],
-    ['pgrid', 'Polar grid', '', 'Drag from the center to set the radius.'],
+    ['select', $t('Select'), 'V', $t('Drag a shape to move it and its handles to reshape. Drag empty space to pan (on a sphere, to turn it).')],
+    ['point', $t('Point'), 'P', $t('Click to place a point; its images are labelled a′, a″, …')],
+    ['segment', $t('Segment'), 'S', $t('Drag from one end to the other.')],
+    ['line', $t('Line'), 'L', $t('Drag through two points; the line extends to infinity.')],
+    ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray.')],
+    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward.')],
+    ['arc', $t('Arc'), 'A', $t('Drag between the ends, then move the middle handle to bend it.')],
+    ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
+    ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],
+    ['rect', $tx('tool', 'Rectangle'), 'B', $t('Drag between opposite corners.')],
+    ['polygon', $tx('tool', 'Polygon'), 'G', $t('Click the vertices; click the first one or press Enter to close.')],
+    ['lasso', $t('Lasso'), 'O', $t('Hold and draw a closed region.')],
+    ['halfplane', $tx('tool', 'Half-plane'), 'H', $t('Drag along the boundary; the region is to the left of the arrow.')],
+    ['annulus', $t('Annulus'), 'N', $t('Drag from the center to the outer radius.')],
+    ['sector', $t('Sector'), 'K', $t('Drag from the vertex; edit the angles in the shape list.')],
+    ['formula', $t('Formula'), 'T', $t('Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.')],
+    ['cgrid', $t('Grid'), '', $t('Drag a rectangle to fill with grid lines.')],
+    ['pgrid', $t('Polar grid'), '', $t('Drag from the center to set the radius.')],
   ];
   function buildTools() {
     const host = $('tools'), rail = $('railTools');
@@ -7142,7 +7197,7 @@
       if (rail) rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
-    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': 'Snap while drawing', 'aria-label': 'Snap while drawing', html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); } }));
+    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap while drawing'), 'aria-label': $t('Snap while drawing'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
   }
   function setTool(id) {
@@ -7179,6 +7234,7 @@
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
+    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z' });
   }
   function deleteShape(id) {
     const target = S.targets.some((s) => s.id === id);
@@ -7187,7 +7243,7 @@
     if (selected === id) selected = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
-    undoToast(target ? 'Target deleted.' : 'Shape deleted.');
+    undoToast(target ? $t('Target deleted.') : $t('Shape deleted.'));
   }
   // targets change only the preimages and the right plane's targets: no meshes, no refit
   function targetsChanged(structural) {
@@ -7206,13 +7262,13 @@
     const okey = sub ? sub.okey : focusKey(anchor);
     const ar = anchor.getBoundingClientRect(); // before closePalette detaches a submenu's parent item
     closePalette();
-    const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : null });
+    const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : items.menuLabel || null });
     pop._opener = opener;
     const add = (host, list) => {
       for (const it of list) {
         if (it === 'sep') { host.append(h('div', { class: 'msep', role: 'separator' })); continue; }
         const ic = it.swatch ? `<span class="swatch" style="--c0:${it.swatch.c0};--c1:${it.swatch.alt};--k:${it.swatch.edge}"></span>` : it.icon ? ICONS[it.icon] || '' : '';
-        const b = h('button', { class: 'mi' + (it.danger ? ' danger' : '') + (it.kids ? ' has-sub' : ''), role: 'menuitem', disabled: it.disabled || null, 'aria-haspopup': it.kids ? 'menu' : null,
+        const b = h('button', { class: 'mi' + (it.danger ? ' danger' : '') + (it.kids ? ' has-sub' : ''), role: it.radio ? 'menuitemradio' : 'menuitem', 'aria-checked': it.radio ? String(!!it.checked) : null, disabled: it.disabled || null, 'aria-haspopup': it.kids ? 'menu' : null,
           onclick: (e) => {
             e.stopPropagation();
             if (it.kids) { openMenu(b, it.kids, cls, { opener, okey, parent: items, label: it.label }); return; }
@@ -7220,7 +7276,8 @@
             const r = it.run();
             if (r instanceof Element && r.isConnected) r.focus({ preventScroll: true }); else focusBack(opener, okey);
           } },
-          h('span', { class: 'mi-ic', html: ic }), h('span', { class: 'mi-label' }, it.label), h('span', { class: 'mi-key' }, it.key || ''));
+          h('span', { class: 'mi-ic', html: ic }), it.labelEl || h('span', { class: 'mi-label' }, it.label), h('span', { class: 'mi-key' }, it.key || ''));
+        if (it.lang) b.lang = it.lang;
         host.append(b);
       }
     };
@@ -7235,7 +7292,7 @@
       pop.style.left = x + 'px';
       pop.style.top = Math.max(12, Math.min(window.innerHeight - ph - 12, ar.top - 4)) + 'px';
     } else placePop(pop, ar);
-    const first = pop.querySelector('.mi:not([disabled])');
+    const first = (items.focusChecked && pop.querySelector('.mi[aria-checked="true"]:not([disabled])')) || pop.querySelector('.mi:not([disabled])');
     if (first) first.focus();
     pop.addEventListener('keydown', (e) => {
       const its = [...pop.querySelectorAll('.mi:not([disabled])')];
@@ -7283,8 +7340,8 @@
     return `--c0:${ink.c0};--c1:${ink.alt};--k:${ink.edge}`;
   }
   function shapeName(s, counts) {
-    if (s.kind === 'point' && s.label) return s.label;
-    return `${Region.KINDS[s.kind].label} ${counts[s.kind]}`;
+    if (s.kind === 'point' && s.label) return exLabel(s.label);
+    return $t('{kind} {n}', { kind: Region.KINDS[s.kind].label, n: counts[s.kind] });
   }
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
@@ -7306,7 +7363,7 @@
     if (ds) shapesChanged(true);
     if (dt) targetsChanged(true);
     buildPipeline(); commit();
-    undoToast(ds && dt ? 'Shapes and targets cleared.' : ds ? 'Shapes cleared.' : 'Targets cleared.');
+    undoToast(ds && dt ? $t('Shapes and targets cleared.') : ds ? $t('Shapes cleared.') : $t('Targets cleared.'));
   }
   function buildShapeList() {
     const host = $('shapeList');
@@ -7319,24 +7376,23 @@
     if (cb) {
       const none = !S.shapes.length && !S.targets.length;
       cb.setAttribute('aria-disabled', String(none));
-      cb.title = none ? 'Nothing to clear' : 'Remove all shapes and targets';
+      cb.title = none ? $t('Nothing to clear') : $t('Remove all shapes and targets');
     }
     // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
-    // focused), each with its rows or an empty note of the same form
-    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: '<span><i>z</i>-plane</span>' }));
-    if (!S.shapes.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: 'No shapes yet. Draw one in the <i>z</i>-plane.' }))));
+    // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
+    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span><i>z</i>-plane</span>') }));
     const counts = {};
     S.shapes.forEach((s) => { counts[s.kind] = (counts[s.kind] || 0) + 1; host.append(shapeRow(s, shapeName(s, counts), false)); });
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     {
       const out = S.focus === 0 ? '<i>w</i>' : wHtml(rightStage());
-      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: `<span>${out}-plane</span>` }));
-      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: `No targets yet. Draw one in the ${out}-plane.` }))));
+      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>{out}-plane</span>', { out }) }));
+      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in the {out}-plane.', { out }) }))));
       const tc = {};
       S.targets.forEach((s, i) => {
         tc[s.kind] = (tc[s.kind] || 0) + 1;
         // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
-        const label = s.kind === 'point' ? `Point ${targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s))}` : `Target ${Region.KINDS[s.kind].label.toLowerCase()} ${tc[s.kind]}`;
+        const label = s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: Region.KINDS[s.kind].label.toLowerCase(), x2: tc[s.kind] });
         host.append(shapeRow(s, label, true, i));
       });
     }
@@ -7348,25 +7404,25 @@
     const hidden = s.visible === false;
     const sw = h('span', { class: 'swatch', 'data-kind': kindType(s), style: swatchStyle(s) });
     const d = h('span', { class: 'd' });
-    const eye = h('button', { class: 'icon-btn eye', 'aria-label': `${hidden ? 'Show' : 'Hide'} ${label}`, 'data-tip': hidden ? 'Show' : 'Hide', html: hidden ? ICONS.eyeOff : ICONS.eye,
+    const eye = h('button', { class: 'icon-btn eye', 'aria-label': `${hidden ? $t('Show') : $t('Hide')} ${label}`, 'data-tip': hidden ? $t('Show') : $t('Hide'), html: hidden ? ICONS.eyeOff : ICONS.eye,
       onclick: (e) => { e.stopPropagation(); s.visible = hidden; changed(); commit(); } });
-    const more = h('button', { class: 'icon-btn more', 'aria-label': `More actions for ${label}`, 'aria-haspopup': 'menu', 'data-tip': 'More', html: ICONS.more,
+    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
       onclick: (e) => {
         e.stopPropagation();
         const items = [];
         // a curve of the domain: its line integral (as a right click on the curve opens it)
         if (!target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid') {
           const anchor = e.currentTarget;
-          items.push({ label: `Integrate ${fnText()} along it`, run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } }, 'sep');
+          items.push({ label: $t('Integrate {x} along it', { x: fnText() }), run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } }, 'sep');
         }
-        if (kindType(s) === 'area') items.push({ label: s.complement ? 'Use the set itself' : 'Use complement', run: () => { s.complement = !s.complement; changed(); commit(); } });
-        items.push({ label: 'Duplicate', run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null; changed(); commit(); } });
-        items.push({ label: 'Color', kids: [...TH.c.map((cc, i) => ({ label: `Preset ${i + 1}`, swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: 'Custom color…', run: () => pickColor(s) }] });
-        items.push({ label: 'Bring forward', disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
-        items.push({ label: 'Send backward', disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
+        if (kindType(s) === 'area') items.push({ label: s.complement ? $t('Use the set itself') : $t('Use complement'), run: () => { s.complement = !s.complement; changed(); commit(); } });
+        items.push({ label: $t('Duplicate'), run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null; changed(); commit(); } });
+        items.push({ label: $t('Color'), kids: [...TH.c.map((cc, i) => ({ label: $t('Preset {x}', { x: i + 1 }), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom color…'), run: () => pickColor(s) }] });
+        items.push({ label: $t('Bring forward'), disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
+        items.push({ label: $t('Send backward'), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
         items.push('sep');
-        items.push({ label: target ? 'Clear targets' : 'Clear shapes', run: () => clearGroup(!target, target) });
-        items.push({ label: 'Delete', icon: 'trash', key: '⌫', danger: true, run: () => deleteShape(s.id) });
+        items.push({ label: target ? $t('Clear targets') : $t('Clear shapes'), run: () => clearGroup(!target, target) });
+        items.push({ label: $t('Delete'), icon: 'trash', key: '⌫', danger: true, run: () => deleteShape(s.id) });
         openMenu(e.currentTarget, items);
       } });
     const name = h('span', { class: 'k' }, label);
@@ -7406,11 +7462,11 @@
       r.sw.style.cssText = swatchStyle(s);
       let tex;
       try { tex = shapeTexOf(s); } catch (e) { tex = '\\text{?}'; }
-      if (s.complement) tex = `\\text{not }${tex}`;
+      if (s.complement) tex = $t('\\text{not }%{tex}', { tex });
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
       if (isTarget(s)) { const yv = S.focus === 0 ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
-      r.d.title = tex;
+      r.d.title = I18N.lang === 'en' ? tex : texTitle(tex);
       if (s._err) { r.d.innerHTML = ''; r.d.append(h('span', { class: 'err-msg' }, s._err)); } else TeX.set(r.d, tex);
     }
   }
@@ -7442,7 +7498,7 @@
       let start = JSON.stringify(s[key]);
       inp.addEventListener('focus', () => { start = JSON.stringify(s[key]); });
       inp.addEventListener('input', () => {
-        try { const v = Expr.constValue(inp.value); s[key] = [v.re, v.im]; showErr(f, inp, ''); shapesChanged(false); } catch (e) { showErr(f, inp, 'Expected a number like 1+2i or e^{i\\pi/4}'); }
+        try { const v = Expr.constValue(inp.value); s[key] = [v.re, v.im]; showErr(f, inp, ''); shapesChanged(false); } catch (e) { showErr(f, inp, $t('Expected a number like 1+2i or e^{i\\pi/4}')); }
       });
       inp.addEventListener('change', () => {
         if (inp.classList.contains('bad')) { inp.value = CX.fmt(C(s[key][0], s[key][1]), 6); showErr(f, inp, ''); return; }
@@ -7451,9 +7507,9 @@
       return f;
     };
     // positive radii, whole counts in range; an invalid value is shown but never applied
-    const LIMITS = { r: [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? 'The radius must be 0 (unbounded) or more' : 'The radius must be positive'],
-      r1: [0, Infinity, 'Radii must be 0 or more'], r2: [0, Infinity, 'Radii must be 0 or more'],
-      n: [1, 60, 'Use a whole number from 1 to 60'], nc: [1, 60, 'Use a whole number from 1 to 60'], nr: [1, 60, 'Use a whole number from 1 to 60'] };
+    const LIMITS = { r: [s.kind === 'sector' ? 0 : 1e-9, Infinity, s.kind === 'sector' ? $t('The radius must be 0 (unbounded) or more') : $t('The radius must be positive')],
+      r1: [0, Infinity, $t('Radii must be 0 or more')], r2: [0, Infinity, $t('Radii must be 0 or more')],
+      n: [1, 60, $t('Use a whole number from 1 to 60')], nc: [1, 60, $t('Use a whole number from 1 to 60')], nr: [1, 60, $t('Use a whole number from 1 to 60')] };
     const numField = (key, label, step = 'any') => {
       const inp = h('input', { class: 'inp mono', type: 'number', step, value: fmtNumIn(s[key]) });
       follow(inp, () => (s[key] != null ? fmtNumIn(s[key]) : null));
@@ -7462,14 +7518,14 @@
       let start = s[key];
       inp.addEventListener('focus', () => { start = s[key]; });
       const check = (v) => {
-        if (!Number.isFinite(v)) return 'Enter a number';
+        if (!Number.isFinite(v)) return $t('Enter a number');
         const lim = LIMITS[key];
         if (!lim) return '';
         if (step === 1 && !Number.isInteger(v)) return lim[2];
         return v < lim[0] || v > lim[1] ? lim[2] : '';
       };
       inp.addEventListener('input', () => {
-        const v = Number(inp.value), msg = inp.value.trim() === '' ? 'Enter a number' : check(v);
+        const v = Number(inp.value), msg = inp.value.trim() === '' ? $t('Enter a number') : check(v);
         showErr(f, inp, msg);
         if (!msg) { s[key] = v; shapesChanged(false); }
       });
@@ -7482,29 +7538,30 @@
     };
     switch (s.kind) {
       case 'point': box.append(ptField('p', target ? '<i>w</i>' : '<i>z</i>')); break;
-      case 'segment': case 'line': case 'ray': box.append(ptField('a', 'start <i>a</i>'), ptField('b', 'end <i>b</i>')); break;
-      case 'halfplane': box.append(ptField('a', 'from <i>a</i>'), ptField('b', 'to <i>b</i>')); break;
-      case 'rect': box.append(ptField('a', 'corner <i>a</i>'), ptField('b', 'corner <i>b</i>')); break;
-      case 'circle': case 'disc': box.append(ptField('c', 'center <i>c</i>'), numField('r', 'radius <i>r</i>')); break;
-      case 'annulus': box.append(ptField('c', 'center <i>c</i>'), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
-      case 'sector': box.append(ptField('c', 'vertex <i>c</i>'), numField('t1', '<i>θ</i>₁ (°)'), numField('t2', '<i>θ</i>₂ (°)'), numField('r', 'radius (0 = ∞)')); break;
-      case 'arc': box.append(ptField('a', 'start'), ptField('m', 'through'), ptField('b', 'end')); break;
-      case 'cgrid': box.append(ptField('a', 'corner <i>a</i>'), ptField('b', 'corner <i>b</i>'), numField('n', 'divisions', 1)); break;
-      case 'pgrid': box.append(ptField('c', 'center <i>c</i>'), numField('r', 'radius <i>r</i>'), numField('nc', 'circles', 1), numField('nr', 'rays', 1)); break;
+      case 'segment': case 'line': case 'ray': box.append(ptField('a', $t('start <i>a</i>')), ptField('b', $t('end <i>b</i>'))); break;
+      case 'halfplane': box.append(ptField('a', $t('from <i>a</i>')), ptField('b', $t('to <i>b</i>'))); break;
+      case 'rect': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>'))); break;
+      case 'circle': case 'disc': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>'))); break;
+      case 'annulus': box.append(ptField('c', $t('center <i>c</i>')), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
+      case 'sector': box.append(ptField('c', $t('vertex <i>c</i>')), numField('t1', '<i>θ</i>₁ (°)'), numField('t2', '<i>θ</i>₂ (°)'), numField('r', $t('radius (0 = ∞)'))); break;
+      case 'arc': box.append(ptField('a', $tx('arc', 'start')), ptField('m', $tx('arc', 'through')), ptField('b', $tx('arc', 'end'))); break;
+      case 'cgrid': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>')), numField('n', $t('divisions'), 1)); break;
+      case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
         const inp = h('input', { class: 'inp math-src', value: s.expr, spellcheck: 'false', autocomplete: 'off' });
         inp.addEventListener('input', () => {
-          try { Expr.compileLevel(Expr.parse(inp.value, { allowRel: true })); s.expr = inp.value; inp.classList.remove('bad'); shapesChanged(false); } catch (e) { inp.classList.add('bad'); }
+          // (Russian: a comma between digits read as two conditions keeps the set, with the warning as the tip: verify-5)
+          try { const warn = []; Expr.compileLevel(Expr.parse(inp.value, { allowRel: true, notes: warn })); s.expr = inp.value; inp.classList.remove('bad'); if (warn.length) inp.setAttribute('data-tip', warn.join(' ')); else inp.removeAttribute('data-tip'); shapesChanged(false); } catch (e) { inp.classList.add('bad'); }
         });
         inp.addEventListener('change', () => commit());
-        box.append(h('div', { class: 'field wide' }, lab('set'), inp));
+        box.append(h('div', { class: 'field wide' }, lab($tx('field', 'set')), inp));
         break;
       }
       case 'fcurve': {
         // the equation stays a curve while typed (an area or a refused equation keeps the last good one); the notes
         // are the curve engine's: the formula's own and this window's trace's (budget, touching zeros)
         const inp = h('input', { class: 'inp math-src', value: s.expr, spellcheck: 'false', autocomplete: 'off' });
-        const fld = h('div', { class: 'field wide' }, lab('equation'), inp);
+        const fld = h('div', { class: 'field wide' }, lab($tx('field', 'equation')), inp);
         const nt = h('div', { class: 'lbl note' });
         const notes = () => {
           let t = [];
@@ -7529,15 +7586,15 @@
       }
     }
     if (s.kind === 'point') {
-      const inp = h('input', { class: 'inp', value: s.label || '', placeholder: 'a', spellcheck: 'false' });
+      const inp = h('input', { class: 'inp', value: exLabel(s.label) || '', placeholder: 'a', spellcheck: 'false' });
       inp.addEventListener('input', () => { s.label = inp.value; requestRender('L', 'R'); });
       inp.addEventListener('change', () => { commit(); buildShapeList(); });
-      box.append(h('div', { class: 'field' }, lab('label'), inp));
+      box.append(h('div', { class: 'field' }, lab($tx('field', 'label')), inp));
     }
-    if (kindType(s) === 'area') box.append(checkEl('cmp_' + s.id, s.complement, 'Use complement', (v) => { s.complement = v; shapesChanged(true); commit(); }));
+    if (kindType(s) === 'area') box.append(checkEl('cmp_' + s.id, s.complement, $t('Use complement'), (v) => { s.complement = v; shapesChanged(true); commit(); }));
     let unb = false;
     try { unb = kindType(s) === 'area' && !Region.bboxOf(s); } catch (e) { unb = true; }
-    if (unb) box.append(h('div', { class: 'lbl note' }, 'Unbounded: drawn about 200 view-widths out, faded at the edge.'));
+    if (unb) box.append(h('div', { class: 'lbl note' }, $t('Unbounded: drawn about 200 view-widths out, faded at the edge.')));
     return box;
   }
 
@@ -7545,11 +7602,11 @@
   // a spoken name for a short set formula: |\Re z|<\frac{\pi}{2}, \Im z>0 → "absolute Re z less than pi over 2, and Im z greater than 0"
   function texSpeech(t) {
     let s = t;
-    for (let i = 0; i < 3; i++) s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1 over $2');
-    s = s.replace(/<=|\\leq?\b/g, ' at most ').replace(/>=|\\geq?\b/g, ' at least ').replace(/</g, ' less than ').replace(/>/g, ' greater than ')
-      .replace(/\|([^|]+)\|/g, ' absolute $1 ').replace(/\\(Re|Im|arg|pi|theta)\b/g, ' $1 ').replace(/\\[a-zA-Z]+/g, ' ')
-      .replace(/\^\{?([^{}\s]+)\}?/g, ' to the power $1 ').replace(/,/g, ', and ').replace(/[{}]/g, '').replace(/\//g, ' over ')
-      .replace(/-/g, ' minus ').replace(/\+/g, ' plus ');
+    for (let i = 0; i < 3; i++) s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, $tx('speech', '$1 over $2'));
+    s = s.replace(/<=|\\leq?\b/g, $tx('speech', ' at most ')).replace(/>=|\\geq?\b/g, $tx('speech', ' at least ')).replace(/</g, $t(' less than ')).replace(/>/g, $t(' greater than '))
+      .replace(/\|([^|]+)\|/g, $t(' absolute $1 ')).replace(/\\(Re|Im|arg|pi|theta)\b/g, ' $1 ').replace(/\\[a-zA-Z]+/g, ' ')
+      .replace(/\^\{?([^{}\s]+)\}?/g, $t(' to the power $1 ')).replace(/,/g, $tx('speech', ', and ')).replace(/[{}]/g, '').replace(/\//g, $tx('speech', ' over '))
+      .replace(/-/g, $t(' minus ')).replace(/\+/g, $t(' plus '));
     return s.replace(/\s+/g, ' ').replace(/\s,/g, ',').trim();
   }
   // example sets offered by the command palette's "Region formulas" group (the sidebar has no example chips, item 4)
@@ -7595,7 +7652,7 @@
           shapes.push({ kind: 'point', p: [p.re, p.im] });
         }
       }
-      if (!shapes.length) throw new Error(notes[0] && !desc.pieces.some((pc) => pc.kind === 'zeros') ? notes[0] : 'This equation has no points in view');
+      if (!shapes.length) throw new Error(notes[0] && !desc.pieces.some((pc) => pc.kind === 'zeros') ? notes[0] : $t('This equation has no points in view'));
       if (shapes.length === 1 && shapes[0].kind !== 'point') shapes[0].srcTex = desc.tex;
     } else {
       shapes = [{ kind: 'fcurve', expr: src }];
@@ -7603,14 +7660,19 @@
       if (win) {
         let tr = null;
         try { tr = Curves.trace(desc, win); } catch (e) { tr = null; }
-        if (tr && !tr.polys.length && !tr.points.length && !tr.notes.length) notes.push('Nothing of this curve was found in view: it lies elsewhere, or it is too small or too thin to trace here.');
+        if (tr && !tr.polys.length && !tr.points.length && !tr.notes.length) notes.push($t('Nothing of this curve was found in view: it lies elsewhere, or it is too small or too thin to trace here.'));
       }
     }
     const n = {};
     for (const sh of shapes) n[sh.kind] = (n[sh.kind] || 0) + 1;
-    const NAME = { line: ['a line', 'lines'], ray: ['a ray', 'rays'], segment: ['a segment', 'segments'], circle: ['a circle', 'circles'], arc: ['an arc', 'arcs'], point: ['a point', 'points'], fcurve: ['a traced curve', 'traced curves'] };
-    let what = Object.entries(n).map(([k, c]) => (c === 1 ? NAME[k][0] : `${c} ${NAME[k][1]}`)).join(' and ');
-    if (desc.pieces.some((pc) => pc.kind === 'zeros')) what += someZeros ? ' (some of the zeros in view)' : ' (the zeros in view)';
+    const NAME = {
+      line: (c) => (c === 1 ? $t('a line') : $tn('{n} line', '{n} lines', c)), ray: (c) => (c === 1 ? $t('a ray') : $tn('{n} ray', '{n} rays', c)),
+      segment: (c) => (c === 1 ? $t('a segment') : $tn('{n} segment', '{n} segments', c)), circle: (c) => (c === 1 ? $t('a circle') : $tn('{n} circle', '{n} circles', c)),
+      arc: (c) => (c === 1 ? $t('an arc') : $tn('{n} arc', '{n} arcs', c)), point: (c) => (c === 1 ? $t('a point') : $tn('{n} point', '{n} points', c)),
+      fcurve: (c) => (c === 1 ? $t('a traced curve') : $tn('{n} traced curve', '{n} traced curves', c)),
+    };
+    let what = Object.entries(n).map(([k, c]) => NAME[k](c)).join($t(' and '));
+    if (desc.pieces.some((pc) => pc.kind === 'zeros')) what += someZeros ? $t(' (some of the zeros in view)') : $t(' (the zeros in view)');
     return { desc, shapes, what, notes };
   }
   // the shapes of curvePlan(src), added as one undoable step (target: in the w-plane)
@@ -7647,18 +7709,19 @@
       if (!v) { prev.innerHTML = ''; prev.dataset.tex = ''; inp.classList.remove('bad'); return null; }
       try {
         const pl = plane();
-        if (pl === 'both') throw new Error('Use z or w, not both: z adds a shape, w adds a target');
-        const ast = Expr.parse(v, { allowRel: true });
+        if (pl === 'both') throw new Error($t('Use z or w, not both: z adds a shape, w adds a target'));
+        const warn = [];
+        const ast = Expr.parse(v, { allowRel: true, notes: warn });
         // an equation is a curve (Curves), inequalities an area (as before); anything else says why not
         const dm = typeof Curves !== 'undefined' ? Curves.dimOf(ast) : { dim: 'area' };
         if (dm.dim === 'curve') {
           plan = curvePlan(v, pl === 'w' ? targetWin() : viewBox(S.srcView));
-          setNote(`Adds ${plan.what}${pl === 'w' ? ' as a target' : ''}.${plan.notes.length ? ' ' + plan.notes.join(' ') : ''}`);
+          setNote((pl === 'w' ? $t('Adds {what} as a target.', { what: plan.what }) : $t('Adds {what}.', { what: plan.what })) + (plan.notes.length ? ' ' + plan.notes.join(' ') : '') + (warn.length ? ' ' + warn.join(' ') : ''));
         } else if (dm.dim === 'error') throw new Error(dm.error);
-        else Expr.compileLevel(ast);
+        else { Expr.compileLevel(ast); if (warn.length) setNote(warn.join(' ')); }
         inp.classList.remove('bad');
         TeX.set(prev, Expr.toTex(ast, pl === 'w' ? { s: 'w', p: 4 } : undefined).s);
-        tag.textContent = pl === 'w' ? `w${S.focus === 0 ? '' : sub(rightStage())}-plane` : 'z-plane';
+        tag.textContent = pl === 'w' ? `w${S.focus === 0 ? '' : sub(rightStage())}-plane` : $t('z-plane');
         return v;
       } catch (e) {
         plan = null;
@@ -7697,8 +7760,8 @@
   const wsub = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
   function connector(k) {
     // the arrow between stage k-1 and stage k; its + inserts a new step at that position
-    const where = k === 1 ? 'at the start' : `after f${sub(k - 1)}`;
-    const plus = h('button', { class: 'conn-add', 'data-tip': `Insert a function ${where}`, 'aria-label': `Insert a function ${where}`, html: ICONS.plus,
+    const where = k === 1 ? $t('at the start') : $t('after f{x}', { x: sub(k - 1) });
+    const plus = h('button', { class: 'conn-add', 'data-tip': $t('Insert a function {where}', { where }), 'aria-label': $t('Insert a function {where}', { where }), html: ICONS.plus,
       onclick: (e) => { e.stopPropagation(); openPalette(e.currentTarget, k - 1, { fnOnly: true }); } });
     const el = h('div', { class: 'conn', 'data-conn': k },
       h('span', { class: 'conn-var', html: wsub(k - 1) }),
@@ -7721,8 +7784,8 @@
   }
   function regionSummary() {
     const n = S.shapes.length, hid = S.shapes.filter((s) => s.visible === false).length;
-    if (!n) return 'No shapes yet';
-    return `${n} shape${n === 1 ? '' : 's'}${hid ? `, ${hid} hidden` : ''}`;
+    if (!n) return '';
+    return $tn('{n} shape', '{n} shapes', n) + (hid ? $t(', {hid} hidden', { hid }) : '');
   }
   function updateRegionCard() {
     const c0 = document.querySelector('#pipeline .region-card');
@@ -7738,9 +7801,9 @@
     thumbs.clear();
     cardRefs.length = 0;
     // region card (stage 0)
-    const c0 = h('div', { class: 'card region-card' + (S.focus === 0 ? ' focus' : ''), 'data-k': 0, tabindex: 0, role: 'button', 'aria-label': 'Region: show the whole chain', 'data-tip': 'Show the whole chain',
+    const c0 = h('div', { class: 'card region-card' + (S.focus === 0 ? ' focus' : ''), 'data-k': 0, tabindex: 0, role: 'button', 'aria-label': $t('Region: show the whole chain'), 'data-tip': $t('Show the whole chain'),
       onclick: () => setFocus(0), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFocus(0); } } },
-    h('div', { class: 'card-head' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'nm' }, 'Region')),
+    h('div', { class: 'card-head' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'nm' }, $t('Region'))),
     h('div', { class: 'thumb' }, h('canvas'), h('span', { class: 'thumb-var', html: '<i>z</i>' })),
     h('div', { class: 'note' }), h('div', { class: 'swatches' }));
     host.append(c0);
@@ -7755,8 +7818,8 @@
     });
     host.append(connector(S.steps.length + 1));
     host.lastChild.classList.add('conn-last');
-    host.append(h('button', { class: 'add-card', id: 'addStepBtn', 'data-tip': 'Add a function  +', onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
-      h('span', { html: ICONS.plus }), h('span', null, S.steps.length ? 'Add function' : 'Add the first function'), h('span', { class: 'kbd' }, '+')));
+    host.append(h('button', { class: 'add-card', id: 'addStepBtn', 'data-tip': $t('Add a function  +'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
+      h('span', { html: ICONS.plus }), h('span', null, S.steps.length ? $t('Add function') : $t('Add the first function')), h('span', { class: 'kbd' }, '+')));
     updateRegionCard();
     updateCards();
     updateFocusUI();
@@ -7769,18 +7832,18 @@
   function stepMenu(anchor, k) {
     const st = S.steps[k - 1], d = defOf(st);
     const items = [
-      { label: 'Move left', icon: 'chevL', disabled: k === 1, run: () => moveStep(k, -1) },
-      { label: 'Move right', icon: 'chevR', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
-      { label: 'Duplicate', icon: 'copy', run: () => duplicateStep(k) },
-      { label: 'Replace with derivative', disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
-      { label: 'Insert d/dz after it', disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) },
+      { label: $t('Move left'), icon: 'chevL', disabled: k === 1, run: () => moveStep(k, -1) },
+      { label: $t('Move right'), icon: 'chevR', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      { label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
+      { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
+      { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) },
     ];
-    if (d.presets) items.push({ label: 'Presets', kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
+    if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
     const bk = built[k - 1];
-    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: 'Write by zeros and poles', disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
-    if (st.type === 'zp') items.push({ label: 'Write by coefficients', disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
-    items.push('sep', { label: 'Remove', icon: 'trash', danger: true, run: () => removeStep(k) });
+    if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
+    if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
+    items.push('sep', { label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
     openMenu(anchor, items);
   }
   function cardClick(k) {
@@ -7791,12 +7854,12 @@
     const d = defOf(st);
     const stop = (e) => e.stopPropagation();
     const off = st.on === false;
-    const invBtn = h('button', { class: 'icon-btn txt', 'data-tip': 'Replace with the inverse', 'aria-label': 'Replace with the inverse function', html: '<i>f</i><sup>−1</sup>', onclick: (e) => { stop(e); inverseAction(k); } });
+    const invBtn = h('button', { class: 'icon-btn txt', 'data-tip': $t('Replace with the inverse'), 'aria-label': $t('Replace with the inverse function'), html: '<i>f</i><sup>−1</sup>', onclick: (e) => { stop(e); inverseAction(k); } });
     // a d/dz step differentiates the chain so far: no parameters, no inverse
     if (isDerivStep(st)) invBtn.hidden = true;
-    const byp = h('button', { class: 'icon-btn bypass', 'aria-pressed': String(off), 'data-tip': off ? 'Turn this step back on' : 'Bypass this step', 'aria-label': 'Bypass this step', html: ICONS.bypass,
-      onclick: (e) => { stop(e); st.on = st.on === false; chainChanged(true); commit(); if (st.on) startTransition(k); } });
-    const more = h('button', { class: 'icon-btn more', 'data-tip': 'More', 'aria-label': `More actions for f${sub(k)}`, 'aria-haspopup': 'menu', html: ICONS.more, onclick: (e) => { stop(e); stepMenu(e.currentTarget, k); } });
+    const byp = h('button', { class: 'icon-btn bypass', 'aria-pressed': String(off), 'data-tip': off ? $t('Turn this step back on') : $t('Bypass this step'), 'aria-label': $t('Bypass this step'), html: ICONS.bypass,
+      onclick: (e) => { stop(e); st.on = st.on === false; chainChanged(true); commit(); if (st.on) startTransition(k); sndToggleCue(st.on); } });
+    const more = h('button', { class: 'icon-btn more', 'data-tip': $t('More'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), 'aria-haspopup': 'menu', html: ICONS.more, onclick: (e) => { stop(e); stepMenu(e.currentTarget, k); } });
     // the card is a group; its name is the button that focuses the step, beside (not around) the other controls
     const root = h('div', { class: 'card', 'data-k': k, role: 'group', 'aria-label': `f${sub(k)}: ${d.label}`,
       onclick: () => cardClick(k),
@@ -7840,7 +7903,7 @@
     const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
     if (st.type === 'zp' && Funcs.DEFS.zp) params.append(zpFields(st, k, 'pp'));
     else for (const q of d.params) params.append(paramField(st, k, q, 'pp'));
-    const pop = h('div', { class: 'pop card-pop', 'data-k': k, role: 'dialog', 'aria-label': `Parameters of f${sub(k)}` },
+    const pop = h('div', { class: 'pop card-pop', 'data-k': k, role: 'dialog', 'aria-label': $t('Parameters of f{x}', { x: sub(k) }) },
       h('div', { class: 'pop-title', html: `<span class="idx">${fsub(k)}</span> ${d.label}` }), params);
     $('popHost').append(pop);
     popEl = pop;
@@ -7863,7 +7926,7 @@
   // dragging horizontally on a label changes a numeric field
   function scrubbable(label, input, step, isInt) {
     label.classList.add('scrub');
-    label.title = (label.title ? label.title + ' · ' : '') + 'drag to change';
+    label.title = (label.title ? label.title + ' · ' : '') + $t('drag to change');
     label.style.touchAction = 'pan-y'; // a sideways touch scrubs instead of scrolling the chain
     label.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
@@ -7910,10 +7973,10 @@
     try { v = Expr.constValue(input.value); } catch (e) { v = C(0, 0); }
     const R = Math.max(2, Axes.niceStep(Math.max(Math.abs(v.re), Math.abs(v.im)) * 1.6 || 2));
     const S2 = 200;
-    const cv = h('canvas', { width: S2 * 2, height: S2 * 2, style: `width:${S2}px;height:${S2}px`, tabindex: 0, role: 'application', 'aria-roledescription': 'Argand diagram',
-      'aria-label': 'Complex value. Arrow keys move the point, Shift for fine steps; Enter or Esc closes.' });
+    const cv = h('canvas', { width: S2 * 2, height: S2 * 2, style: `width:${S2}px;height:${S2}px`, tabindex: 0, role: 'application', 'aria-roledescription': $t('Argand diagram'),
+      'aria-label': $t('Complex value. Arrow keys move the point, Shift for fine steps; Enter or Esc closes.') });
     const read = h('div', { class: 'pad-read mono', 'aria-live': 'polite' });
-    const pad = h('div', { class: 'pop pad', role: 'dialog', 'aria-label': 'Pick a complex value' }, cv, read, h('div', { class: 'lbl' }, 'Drag the point, or use the arrow keys. Hold Shift for fine steps.'));
+    const pad = h('div', { class: 'pop pad', role: 'dialog', 'aria-label': $t('Pick a complex value') }, cv, read, h('div', { class: 'lbl' }, $t('Drag the point, or use the arrow keys. Hold Shift for fine steps.')));
     $('popHost').append(pad);
     padEl = pad;
     const ctx = cv.getContext('2d');
@@ -7932,8 +7995,8 @@
       ctx.beginPath(); ctx.moveTo(S2 / 2, S2 / 2); ctx.lineTo(px, py); ctx.stroke();
       ctx.fillStyle = TH.accent; ctx.beginPath(); ctx.arc(px, py, 5.5, 0, TAU); ctx.fill();
       ctx.strokeStyle = TH.plane; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = TH.label; ctx.font = `10px ${TH.mono}`; ctx.textAlign = 'right'; ctx.fillText(`±${CX.fmtNum(R, 3)}`, S2 - 4, S2 - 5);
-      read.textContent = `${CX.fmt(v, 4)}   |·| ${CX.fmtNum(CX.abs(v), 4)}   arg ${CX.fmtNum(Math.atan2(v.im, v.re) / DEG, 2)}°`;
+      ctx.fillStyle = TH.label; ctx.font = `10px ${TH.mono}`; ctx.textAlign = 'right'; ctx.fillText(`±${I18N.num(CX.fmtNum(R, 3))}`, S2 - 4, S2 - 5);
+      read.textContent = ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(`${CX.fmt(v, 4)}   |·| ${CX.fmtNum(CX.abs(v), 4)}   arg ${CX.fmtNum(Math.atan2(v.im, v.re) / DEG, 2)}°`);
     };
     draw();
     const set = (e) => {
@@ -7985,8 +8048,8 @@
     }, 0);
   }
   // short symbols for parameter labels (the full name is the tooltip)
-  const PSYM = { cut: ['θ', 'Cut angle, in degrees'], k: ['k', 'Sheet (branch index)'], branch: ['br', 'Branch'],
-    co: ['aₖ', 'Coefficients aₙ, …, a₀, highest degree first'], p: ['p', 'Numerator coefficients, highest degree first'], q: ['q', 'Denominator coefficients, highest degree first'] };
+  const PSYM = { cut: ['θ', $t('Cut angle, in degrees')], k: ['k', $t('Sheet (branch index)')], branch: ['br', $t('Branch')],
+    co: ['aₖ', $t('Coefficients aₙ, …, a₀, highest degree first')], p: ['p', $t('Numerator coefficients, highest degree first')], q: ['q', $t('Denominator coefficients, highest degree first')] };
   function paramField(st, k, q, pre = 'p') {
     const val = st.params[q.key] ?? q.def;
     const upd = (v) => { st.params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
@@ -8002,13 +8065,13 @@
       input.addEventListener('input', () => {
         if (unread()) {
           input.classList.add('bad'); input.setAttribute('aria-invalid', 'true');
-          input.setAttribute('data-tip', `Enter a number; ${q.label} stays ${st.params[q.key] ?? q.def}`);
+          input.setAttribute('data-tip', $t('Enter a number; {label} stays {choice}', { label: q.label, choice: st.params[q.key] ?? q.def }));
           return;
         }
         const v = Number(input.value);
         const okInt = q.type !== 'int' || (Number.isInteger(v) && (q.min == null || v >= q.min));
         input.classList.toggle('bad', !okInt); input.setAttribute('aria-invalid', String(!okInt));
-        if (!okInt) input.setAttribute('data-tip', `Uses ${Math.max(q.min ?? -Infinity, Math.round(v))}: ${q.label} must be a whole number${q.min != null ? ` ≥ ${q.min}` : ''}`); else input.removeAttribute('data-tip');
+        if (!okInt) input.setAttribute('data-tip', $t('Uses {choice}: {label} must be a whole number{choice2}', { choice: Math.max(q.min ?? -Infinity, Math.round(v)), label: q.label, choice2: q.min != null ? ` ≥ ${q.min}` : '' })); else input.removeAttribute('data-tip');
         upd(q.type === 'int' ? Math.round(v) : v);
       });
       input.addEventListener('change', () => {
@@ -8023,10 +8086,11 @@
       input = h('input', { class: 'inp', id, value: val, spellcheck: 'false', autocomplete: 'off' });
       input.addEventListener('input', () => {
         if (q.type === 'cx') { try { Expr.constValue(input.value); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
+        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(st, q.key, input.value);
         upd(input.value);
       });
       input.addEventListener('change', () => commit());
-      if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': 'Pick on an Argand diagram', 'aria-label': `Pick ${q.label} on an Argand diagram`, html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
+      if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
     const wide = q.type === 'expr' || q.type === 'coeffs';
@@ -8044,15 +8108,15 @@
       if (String(el.value) !== String(v)) el.value = v;
     }
   }
-  const CHIP_DEFS = [['analytic', 'A', 'Analytic'], ['entire', 'E', 'Entire'], ['rational', 'R', 'Rational'], ['polynomial', 'P', 'Polynomial'], ['mobius', 'M', 'Möbius'], ['proper', 'Pr', 'Proper'], ['injective', 'I', 'Injective (a homeomorphism onto its image)']];
+  const CHIP_DEFS = [['analytic', $tx('lamp', 'A'), $t('Analytic')], ['entire', $tx('lamp', 'E'), $t('Entire')], ['rational', $tx('lamp', 'R'), $tx('badge', 'Rational')], ['polynomial', $tx('lamp', 'P'), $t('Polynomial')], ['mobius', $tx('lamp', 'M'), $tx('badge', 'Möbius')], ['proper', $tx('lamp', 'Pr'), $t('Proper')], ['injective', $tx('lamp', 'I'), $t('Injective (a homeomorphism onto its image)')]];
   function branchTag(st, b) {
     if (st.params.cut == null || !b.cuts.some((c) => c.editable)) return '';
     let deg = ((+st.params.cut % 360) + 360) % 360;
     if (deg > 180) deg -= 360; // same convention as the θ field: (−180°, 180°]
-    let t = `cut ${String(+deg.toFixed(1)).replace('-', '−')}°`;
+    let t = $t('cut {x}°', { x: I18N.num(String(+deg.toFixed(1)).replace('-', '−')) });
     const kk = Math.round(+st.params.k || 0);
-    if (st.type === 'root') { const n = Math.max(2, Math.round(+st.params.n || 2)); t += `, sheet ${((kk % n) + n) % n}/${n}`; }
-    else if (kk) t += `, sheet ${kk}`;
+    if (st.type === 'root') { const n = Math.max(2, Math.round(+st.params.n || 2)); t += $t(', sheet {x}/{n}', { x: ((kk % n) + n) % n, n }); }
+    else if (kk) t += $t(', sheet {kk}', { kk });
     return t;
   }
   function updateCards() {
@@ -8069,14 +8133,14 @@
       setText(c.errEl, bad ? `f${sub(k)} (${b.def ? b.def.label : Funcs.DEFS[st.type].label}): ${b.error}` : '');
       // f⁻¹ always answers: the inverse when there is a single-valued one, otherwise why not (and the preimages)
       c.invBtn.disabled = !b || bad;
-      const invTip = b && b.inverse ? 'Replace with the inverse' : 'No single inverse: show why';
-      if (c.invBtn.dataset.tip !== invTip) { c.invBtn.dataset.tip = invTip; c.invBtn.setAttribute('aria-label', b && b.inverse ? 'Replace with the inverse function' : 'Why this step has no single inverse'); }
+      const invTip = b && b.inverse ? $t('Replace with the inverse') : $t('No single inverse: show why');
+      if (c.invBtn.dataset.tip !== invTip) { c.invBtn.dataset.tip = invTip; c.invBtn.setAttribute('aria-label', b && b.inverse ? $t('Replace with the inverse function') : $t('Why this step has no single inverse')); }
       if (b && !bad) {
         const tx = b.tex({ s: wvar(k - 1), p: 4 }).s;
         TeX.set(c.ftex, `w_{${k}}=${tx}`);
         setText(c.btag, branchTag(st, b));
         c.btag.hidden = !c.btag.textContent;
-        const drags = b.cuts.some((x) => x.editable) ? 'Drag the seam in the input plane' : st.type === 'zp' ? 'Drag the zeros and poles in the input plane' : null;
+        const drags = b.cuts.some((x) => x.editable) ? $t('Drag the seam in the input plane') : st.type === 'zp' ? $t('Drag the zeros and poles in the input plane') : null;
         setText(c.note, [b.branchNote, drags].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ') + (b.branchNote || drags ? '.' : ''));
         // property chips are built once and then only toggled (a scrub calls this on every tick); a d/dz card shows
         // what the chain so far guarantees after differentiating (the fold of Funcs.composeProps)
@@ -8086,7 +8150,7 @@
           const el = c.chips.children[j], on = !!pr[key];
           if (el.classList.contains('on') === on && el.dataset.tip) return;
           el.classList.toggle('on', on);
-          el.setAttribute('data-tip', `${title}: ${on ? 'guaranteed' : 'not guaranteed'}`);
+          el.setAttribute('data-tip', `${title}: ${on ? $t('guaranteed') : $t('not guaranteed')}`);
         });
       } else {
         c.ftex.innerHTML = ''; c.ftex.dataset.tex = '';
@@ -8120,6 +8184,7 @@
     commit();
     startTransition(at + 1);
     noteRecent(type);
+    soundCue('stepAdd');
     const card = document.querySelector(`#pipeline .card[data-k="${at + 1}"]`);
     if (card) card.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     return cardButton(at + 1);
@@ -8131,7 +8196,8 @@
     chainChanged(true);
     setFocus(S.focus);
     commit();
-    undoToast(`Removed f${sub(k)} (${name}).`);
+    soundCue('stepRemove');
+    undoToast($t('Removed f{x} ({name}).', { x: sub(k), name }));
   }
   function duplicateStep(k) {
     const st = S.steps[k - 1];
@@ -8160,7 +8226,7 @@
     chainChanged(true);
     setFocus(k);
     commit();
-    undoToast(`Replaced f${sub(k)} with its inverse (${defOf(st).label}).`);
+    undoToast($t('Replaced f{x} with its inverse ({x2}).', { x: sub(k), x2: defOf(st).label }));
   }
   // f⁻¹ on a card (and "Inverse of f_k" in the palette): the inverse step when the step has a single-valued one on
   // its branch; otherwise the reason, with the way to see every preimage instead
@@ -8168,8 +8234,8 @@
     const b = built[k - 1], st = S.steps[k - 1];
     if (!b || b.error || !st || isDerivStep(st, b)) return;
     if (b.inverse) { invertStep(k); return cardButton(k); }
-    const why = b.inverseNote || `${defOf(st).label} takes some values more than once, so it has no single inverse.`;
-    toast(why.replace(/\.?$/, '.'), 'Show preimages', () => {
+    const why = b.inverseNote || $t('{x} takes some values more than once, so it has no single inverse.', { x: defOf(st).label });
+    toast(why.replace(/\.?$/, '.'), $t('Show preimages'), () => {
       // a target point at 0 (unless there is one) shows every preimage of it in the left plane
       if (S.focus !== k) setFocus(k);
       if (!S.targets.some((t) => t.visible !== false && t.kind === 'point')) addShape(newShape('point', { p: [0, 0] }, true), true);
@@ -8218,10 +8284,10 @@
   function derivativeAction(k) {
     const st = S.steps[k - 1];
     if (!st) return null;
-    if (typeof Funcs.derivativeStep !== 'function') { toast('Derivatives are not available in this build.'); return null; }
+    if (typeof Funcs.derivativeStep !== 'function') { sndError(); toast($t('Derivatives are not available in this build.')); return null; }
     let r;
     try { r = Funcs.derivativeStep(st); } catch (e) { r = { error: e.message || String(e) }; }
-    if (!r || r.error || !r.step) { toast((r && r.error) || `f${sub(k)} has no derivative here.`); return null; }
+    if (!r || r.error || !r.step) { sndError(); toast((r && r.error) || $t('f{x} has no derivative here.', { x: sub(k) })); return null; }
     const type = Funcs.DEFS[r.step.type] ? r.step.type : 'custom';
     S.steps[k - 1] = { type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false };
     chainChanged(true);
@@ -8229,34 +8295,34 @@
     commit();
     // the math note, without its "Derivative of …" preamble (the toast already says so)
     const note = String(r.note || '').replace(/^Derivative of [^;:]*[;:]?\s*/, '').replace(/\.$/, '');
-    undoToast(`Replaced f${sub(k)} with its derivative${note ? ` (${note})` : ''}.`);
+    undoToast($t('Replaced f{k} with its derivative{choice}.', { k: sub(k), choice: note ? ` (${note})` : '' }));
     return cardButton(k);
   }
   // ---------------- command palette ----------------
   const FN_INFO = {
-    mul: ['Rotation and scaling; conformal on ℂ', 'scale rotate rotation multiply dilation'],
-    add: ['Translation; conformal on ℂ', 'translate shift move'],
-    affine: ['Rotate, scale and shift; conformal on ℂ', 'linear affine'],
-    recip: ['A rotation of the Riemann sphere; circles to circles', 'inverse reciprocal inversion 1/z'],
-    mobius: ['Circles to circles; ad − bc ≠ 0', 'mobius möbius fractional linear cayley bilinear'],
-    blaschke: ['Automorphism of the unit disk', 'disk automorphism blaschke'],
-    pown: ['n-fold cover of ℂ ∖ {0}; angles multiply by n', 'power square cube z^2 z^3'],
-    root: ['Branch of the n-th root with a movable cut', 'sqrt root square root cube root nth root'],
-    powa: ['z^α on a chosen branch', 'complex power exponent'],
-    exp: ['Conformal on ℂ; injective on strips of height 2π', 'exponential e^z'],
-    log: ['Branch of the logarithm with a movable cut', 'logarithm ln log'],
-    sin: ['Half-strip to half-plane', 'sine'], cos: ['Half-strip to half-plane', 'cosine'], tan: ['Strip to the slit sphere', 'tangent'],
-    sinh: ['Rotated sine', 'hyperbolic sine'], cosh: ['Rotated cosine', 'hyperbolic cosine'], tanh: ['Rotated tangent', 'hyperbolic tangent'],
-    arcsin: ['Principal branch; cuts on the real axis beyond ±1', 'asin inverse sine'], arccos: ['Principal branch; cuts on the real axis beyond ±1', 'acos inverse cosine'], arctan: ['Principal branch; cuts on the imaginary axis beyond ±i', 'atan inverse tangent'],
-    arsinh: ['Principal branch', 'asinh'], arcosh: ['Principal branch', 'acosh'], artanh: ['Principal branch', 'atanh'],
-    joukowski: ['Circles through ±1 to airfoils', 'joukowski joukowsky airfoil'],
-    ijouk: ['Branch of the inverse Joukowski map', 'inverse joukowski joukowsky'],
-    conj: ['Reflection in the real axis; not analytic', 'conjugate reflection bar conj'],
-    poly: ['Coefficients from the highest degree down', 'polynomial'],
-    rational: ['Quotient of two polynomials', 'rational p/q'],
-    zp: ['Drag its zeros and poles in the input plane', 'zeros poles roots factored polynomial rational drag place'],
-    custom: ['Any formula in LaTeX or plain text', 'custom formula latex expression'],
-    deriv: ['Derivative of the chain so far: w = (previous stage)′', 'derivative differentiate prime d/dz dz derivative of the chain'],
+    mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
+    add: [$t('Translation; conformal on ℂ'), $t('translate shift move')],
+    affine: [$t('Rotate, scale and shift; conformal on ℂ'), $t('linear affine')],
+    recip: [$t('A rotation of the Riemann sphere; circles to circles'), $t('inverse reciprocal inversion 1/z')],
+    mobius: [$t('Circles to circles; ad − bc ≠ 0'), $t('mobius möbius fractional linear cayley bilinear')],
+    blaschke: [$t('Automorphism of the unit disk'), $t('disk automorphism blaschke')],
+    pown: [$t('n-fold cover of ℂ ∖ {0}; angles multiply by n'), $t('power square cube z^2 z^3')],
+    root: [$t('Branch of the n-th root with a movable cut'), $t('sqrt root square root cube root nth root')],
+    powa: [$t('z^α on a chosen branch'), $t('complex power exponent')],
+    exp: [$t('Conformal on ℂ; injective on strips of height 2π'), $t('exponential e^z')],
+    log: [$t('Branch of the logarithm with a movable cut'), $t('logarithm ln log')],
+    sin: [$t('Half-strip to half-plane'), 'sine'], cos: [$t('Half-strip to half-plane'), 'cosine'], tan: [$t('Strip to the slit sphere'), 'tangent'],
+    sinh: [$t('Rotated sine'), $t('hyperbolic sine')], cosh: [$t('Rotated cosine'), $t('hyperbolic cosine')], tanh: [$t('Rotated tangent'), $t('hyperbolic tangent')],
+    arcsin: [$t('Principal branch; cuts on the real axis beyond ±1'), $t('asin inverse sine')], arccos: [$t('Principal branch; cuts on the real axis beyond ±1'), $t('acos inverse cosine')], arctan: [$t('Principal branch; cuts on the imaginary axis beyond ±i'), $t('atan inverse tangent')],
+    arsinh: [$t('Principal branch'), 'asinh'], arcosh: [$t('Principal branch'), 'acosh'], artanh: [$t('Principal branch'), 'atanh'],
+    joukowski: [$t('Circles through ±1 to airfoils'), $t('joukowski joukowsky airfoil')],
+    ijouk: [$t('Branch of the inverse Joukowski map'), $t('inverse joukowski joukowsky')],
+    conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
+    poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
+    rational: [$t('Quotient of two polynomials'), $t('rational p/q')],
+    zp: [$t('Drag its zeros and poles in the input plane'), $t('zeros poles roots factored polynomial rational drag place')],
+    custom: [$t('Any formula in LaTeX or plain text'), $t('custom formula latex expression')],
+    deriv: [$t('Derivative of the chain so far: w = (previous stage)′'), $t('derivative differentiate prime d/dz dz derivative of the chain')],
   };
   const RECENT_KEY = lsk('cmw-recent');
   function recentTypes() {
@@ -8284,11 +8350,41 @@
     if (palState) { clearTimeout(palState.pvTimer); palState = null; }
     if (back && back.isConnected && document.activeElement === document.body) back.focus({ preventScroll: true });
   }
+  // the English source of a translated label: the palette scores it too, so English names still find things
+  // (DESIGN.md 1). English never builds the map
+  let enRev = null;
+  const enOf = (s) => {
+    if (I18N.lang === 'en') return s;
+    if (!enRev) { enRev = new Map(); const tb = I18N._table(I18N.lang) || {}; for (const k in tb) if (typeof tb[k] === 'string') enRev.set(tb[k], k.slice(k.indexOf(I18N.CTX) + 1)); }
+    return enRev.get(s) || s;
+  };
+  // the Language setting's items: the globe button's menu, the More menu and the palette (Auto, English, Русский)
+  function langItems() {
+    // Auto names what it would pick here (a test page's ?ns= stays English: review eng-12); each name carries its own
+    // lang for a screen reader (eng-3); the menu is named and opens on the checked item (eng-7)
+    const pref = I18N.readPref(), autoRu = I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator }) === 'ru';
+    const auto = autoRu ? 'Русский' : 'English';
+    const mk = (v, label, lang, labelEl) => ({ label, lang, labelEl, radio: true, checked: pref === v, run: () => pickLang(v) });
+    const autoEl = h('span', { class: 'mi-label' }, ...I18N.parts('Auto ({name})', { name: h('span', { lang: autoRu ? 'ru' : 'en' }, auto) }));
+    const list = [mk('auto', $t('Auto ({name})', { name: auto }), null, autoEl), mk('en', 'English', 'en'), mk('ru', 'Русский', 'ru')];
+    list.menuLabel = $t('Language'); list.focusChecked = true;
+    return list;
+  }
+  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload: the globe's label follows (eng-6)
+  function pickLang(v) { const r = I18N.setPref(v); if (r && !r.reload) syncLangLabel(); return r; }
+  function syncLangLabel() {
+    const lb = $('langBtn');
+    if (!lb) return;
+    const pref = I18N.readPref(), nm = pref === 'ru' ? 'Русский' : pref === 'en' ? 'English' : $t('Auto');
+    lb.setAttribute('aria-label', $t('Language: {name}', { name: nm }));
+    const ll = lb.querySelector('.llabel'); if (ll) { ll.textContent = nm; if (pref === 'auto') ll.removeAttribute('lang'); else ll.setAttribute('lang', pref); }
+  }
   function paletteItems(q, fnOnly) {
     q = q.trim();
     const ql = q.toLowerCase();
     const items = [];
-    const score = (text) => {
+    const score = (text) => (I18N.lang === 'en' || !ql ? score1(text) : Math.max(score1(text), score1(enOf(text))));
+    const score1 = (text) => {
       if (!ql) return 1;
       const t = text.toLowerCase();
       if (t.startsWith(ql)) return 3;
@@ -8306,11 +8402,11 @@
           if (!fnOnly && dm.dim === 'curve') {
             // an equation: a curve in the z-plane (the app's own shapes when recognized exactly)
             const plan = curvePlan(q, viewBox(S.srcView));
-            items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: 'Add this curve', desc: `Adds ${plan.what} in the z-plane`, q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
-          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: 'Add this region', desc: 'A set in the z-plane', q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: q })); } }); }
+            items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: $t('Add this curve'), desc: $t('Adds {what} in the z-plane', { what: plan.what }), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
+          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: q })); } }); }
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
           const cb = Funcs.build({ type: 'custom', params: { expr: q, cut: 180 }, on: true });
-          items.push({ kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: 'Custom formula', desc: cb.error ? cb.error : 'Adds this formula as a step', props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) });
+          items.push({ kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Custom formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) });
         }
       } catch (e) { items.parseErr = e.message; } // shown when nothing else matches
     }
@@ -8318,7 +8414,7 @@
       const [desc] = FN_INFO[d.id] || [''];
       return { kind: 'fn', type: d.id, group, tex: d.menuTex, label: d.label, desc, sc, props: defaultProps(d.id), run: (at) => addStep(d.id, null, at) };
     };
-    if (!ql) for (const t of recentTypes()) items.push(fnItem(Funcs.DEFS[t], 'Recently used', 1));
+    if (!ql) for (const t of recentTypes()) items.push(fnItem(Funcs.DEFS[t], $t('Recently used'), 1));
     const fns = [];
     for (const g of Funcs.GROUPS) {
       for (const d of Object.values(Funcs.DEFS).filter((x) => x.group === g)) {
@@ -8340,15 +8436,16 @@
     items.push(...fns);
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
-      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: 'Add region', desc: '', run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: c })); } });
-      EX.forEach((ex, i) => { if (!exOk(ex)) return; if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: 'Examples', tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
+      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: c })); } });
+      EX.forEach((ex, i) => { if (!exOk(ex)) return; if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       S.steps.forEach((st, i) => {
         const k = i + 1, nm = defOf(st).label;
         if (isDerivStep(st, built[i])) return;
-        for (const [what, run] of [['Inverse', () => inverseAction(k)], ['Derivative', () => derivativeAction(k)]]) {
-          const label = `${what} of f${sub(k)} (${nm})`;
-          if (!ql || score(`${what} of f${k} ${nm}`) || score(label)) items.push({ kind: 'cmd', group: 'Steps', label, key: '', run });
+        for (const [inv, run] of [[true, () => inverseAction(k)], [false, () => derivativeAction(k)]]) {
+          const label = inv ? $t('Inverse of f{k} ({nm})', { k: sub(k), nm }) : $t('Derivative of f{k} ({nm})', { k: sub(k), nm });
+          const plain = inv ? $t('Inverse of f{k} {nm}', { k, nm }) : $t('Derivative of f{k} {nm}', { k, nm });
+          if (!ql || score(plain) || score(label)) items.push({ kind: 'cmd', group: $t('Steps'), label, key: '', run });
         }
       });
       // the views are also found by what they are for (roots, contour integrals, …)
@@ -8356,43 +8453,49 @@
       // (comma-separated phrases, each matched on its own: a query that starts a phrase scores 3, one that starts a
       // word 2, so multi-word aliases such as 'phase portrait' and 'domain colouring' are found)
       const VIEW_ALIAS = {
-        xy: 'x to y, x -> y, split, both planes, domain and image, shapes and images, planes',
-        lplane: 'left plane, domain, z-plane, shapes, regions', lsphere: 'left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere',
-        land: 'left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets',
-        phase: 'phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase',
-        rplane: 'right plane, image, image plane, map, targets, preimages, w-plane', rsphere: 'right sphere, riemann sphere, globe, infinity, image sphere, w-sphere',
+        xy: $t('x to y, x -> y, split, both planes, domain and image, shapes and images, planes'),
+        lplane: $t('left plane, domain, z-plane, shapes, regions'), lsphere: $t('left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere'),
+        land: $t('left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
+        phase: $t('phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase'),
+        rplane: $t('right plane, image, image plane, map, targets, preimages, w-plane'), rsphere: $t('right sphere, riemann sphere, globe, infinity, image sphere, w-sphere'),
       };
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
-        ['View: X → Y', () => setMain('xy'), '1', VIEW_ALIAS.xy],
-        ['View: Phase portrait', () => setMain('phase'), '2', VIEW_ALIAS.phase],
-        ['View: Landscape', () => setMain('land'), '3', VIEW_ALIAS.land],
-        [S.view.main === 'phase' ? 'Phase: Plane' : 'X: Plane', () => { if (lLand()) setMain('xy'); setView('L', 'plane'); }, lLand() ? '' : '⇧1', VIEW_ALIAS.lplane],
-        [S.view.main === 'phase' ? 'Phase: Sphere' : 'X: Sphere', () => { if (lLand()) setMain('xy'); setView('L', 'sphere'); }, lLand() ? '' : '⇧2', VIEW_ALIAS.lsphere],
-        ['Y: Plane', () => { setMain('xy'); setView('R', 'plane'); }, S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
-        ['Y: Sphere', () => { setMain('xy'); setView('R', 'sphere'); }, S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
-        [morph.open ? 'Deformation off' : 'Deformation on (play the homotopy)', () => toggleTransport(), 'M', 'morph deformation homotopy animate animation merge'],
-        [S.morphPaths !== false ? 'Deformation: hide the paths t ↦ H_t(z)' : 'Deformation: show the paths t ↦ H_t(z)', () => setMorphPaths(!(S.morphPaths !== false)), morphOn() && S.view.main === 'xy' ? 'P' : '', 'paths trajectories arrows homotopy deformation lines'],
-        [S.homAll ? 'Deformation: the steps one after another' : 'Deformation: all steps at once', () => setHomAll(!S.homAll), '', 'deformation order steps simultaneous together sequence homotopy at once'],
-        ['Integrate along the selected curve', () => integrateSelected(), '', 'contour line integral integrate residue residues winding number argument principle cauchy'],
-        ['Show the roots: a target at 0', () => { if (S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', 'roots zeros poles solve solutions equation preimages target'],
-        ...(Funcs.DEFS.deriv ? [['Derivative of the chain: add d/dz', () => addStep('deriv', null, S.focus > 0 ? S.focus : S.steps.length), '', 'derivative prime differentiate d/dz']] : []),
-        ['Fit both planes', () => $('leftFit').click() || $('rightFit').click(), 'Z'],
-        ['Unit circle on or off', () => $('unitChk').click(), ''],
-        ['Snap while drawing on or off', () => $('snapBtn').click(), ''],
-        ['Switch theme', () => $('themeBtn').click(), ''],
-        ['Region tools panel', () => setPanels(!S.hideLeft, S.hideRight), '['],
-        ['Guarantees panel', () => setPanels(S.hideLeft, !S.hideRight), ']'],
+        [$t('View: X → Y'), () => setMain('xy'), '1', VIEW_ALIAS.xy],
+        [$t('View: Phase portrait'), () => setMain('phase'), '2', VIEW_ALIAS.phase],
+        [$t('View: Landscape'), () => setMain('land'), '3', VIEW_ALIAS.land],
+        [S.view.main === 'phase' ? $t('Phase: Plane') : $t('X: Plane'), () => { if (lLand()) setMain('xy'); setView('L', 'plane'); }, lLand() ? '' : '⇧1', VIEW_ALIAS.lplane],
+        [S.view.main === 'phase' ? $t('Phase: Sphere') : $t('X: Sphere'), () => { if (lLand()) setMain('xy'); setView('L', 'sphere'); }, lLand() ? '' : '⇧2', VIEW_ALIAS.lsphere],
+        [$t('Y: Plane'), () => { setMain('xy'); setView('R', 'plane'); }, S.view.main === 'xy' ? '⇧3' : '', VIEW_ALIAS.rplane],
+        [$t('Y: Sphere'), () => { setMain('xy'); setView('R', 'sphere'); }, S.view.main === 'xy' ? '⇧4' : '', VIEW_ALIAS.rsphere],
+        [morph.open ? $t('Deformation off') : $t('Deformation on (play the homotopy)'), () => toggleTransport(), 'M', $t('morph deformation homotopy animate animation merge')],
+        [S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ H_t(z)') : $t('Deformation: show the paths t ↦ H_t(z)'), () => setMorphPaths(!(S.morphPaths !== false)), morphOn() && S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
+        [S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
+        [$t('Integrate along the selected curve'), () => integrateSelected(), '', $t('contour line integral integrate residue residues winding number argument principle cauchy')],
+        [$t('Show the roots: a target at 0'), () => { if (S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
+        ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, S.focus > 0 ? S.focus : S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
+        [$t('Fit both planes'), () => $('leftFit').click() || $('rightFit').click(), 'Z'],
+        [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
+        [$t('Snap while drawing on or off'), () => $('snapBtn').click(), ''],
+        [$t('Switch theme'), () => $('themeBtn').click(), ''],
+        [$t('Region tools panel'), () => setPanels(!S.hideLeft, S.hideRight), '['],
+        [$t('Guarantees panel'), () => setPanels(S.hideLeft, !S.hideRight), ']'],
+        // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
+        ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, russian, русский, english, английский'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, english, английский', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, russian, русский', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })]] : []),
       ];
-      for (const [label, run, key, alias] of view) if (!ql || score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: 'View', label, key, run });
+      for (const [label, run, key, alias, labelParts] of view) if (!ql || score(label) || (alias && aliasScore(alias) >= 2)) items.push(labelParts ? { kind: 'cmd', group: $t('View'), label, key, run, labelParts } : { kind: 'cmd', group: $t('View'), label, key, run });
       const acts = [
-        ['Undo', () => $('undoBtn').click(), '⌘Z'],
-        ['Redo', () => $('redoBtn').click(), '⇧⌘Z'],
-        ['Clear the chain', () => $('clearChain').click(), ''],
-        ['Clear all shapes and targets', () => $('clearShapes').click(), ''],
-        ['Open the guide', () => openGuide(), '?'],
+        [$t('Undo'), () => $('undoBtn').click(), '⌘Z'],
+        [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
+        [$t('Clear the chain'), () => $('clearChain').click(), ''],
+        [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
+        [$t('Open the guide'), () => openGuide(), '?'],
+        [$t('Sound on/off'), () => soundToggle(), '⇧M'],
+        [$t('Hear the function on/off'), () => soundHear(), ''],
+        [$t('Stop sound'), () => soundStop(), 'Esc'],
+        ...(typeof Tour !== 'undefined' ? Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']) : []),
       ];
-      for (const [label, run, key] of acts) if (!ql || score(label)) items.push({ kind: 'cmd', group: 'Actions', label, key, run });
+      for (const [label, run, key] of acts) if (!ql || score(label)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
     }
     return items;
   }
@@ -8403,18 +8506,19 @@
     closePalette();
     const explicit = at != null;
     const insertAt = explicit ? at : (S.focus > 0 ? S.focus : S.steps.length);
-    const ctxText = explicit ? (at === 0 ? 'Insert at the start' : `Insert after f${sub(at)}`) : (S.focus > 0 ? `Insert after f${sub(S.focus)}` : 'Append to the chain');
-    const input = h('input', { class: 'pal-input', id: 'palInput', placeholder: opt.fnOnly ? 'Search functions, or type a formula in z' : 'Search functions, regions, examples, commands', spellcheck: 'false', autocomplete: 'off', 'aria-label': 'Search', role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palList' });
+    const ctxText = explicit ? (at === 0 ? $t('Insert at the start') : $t('Insert after f{x}', { x: sub(at) })) : (S.focus > 0 ? $t('Insert after f{x}', { x: sub(S.focus) }) : $t('Append to the chain'));
+    const input = h('input', { class: 'pal-input', id: 'palInput', placeholder: opt.fnOnly ? $t('Search functions, or type a formula in z') : $t('Search functions, regions, examples, commands'), spellcheck: 'false', autocomplete: 'off', 'aria-label': $t('Search'), role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palList' });
     const list = h('div', { class: 'pal-list', role: 'listbox', id: 'palList' });
     const pvCanvas = h('canvas', { width: 368, height: 368 });
     const pvCap = h('div', { class: 'pal-cap' });
     const preview = h('div', { class: 'pal-preview', 'aria-hidden': 'true' }, pvCanvas, pvCap);
-    const pop = h('div', { class: 'pop palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': opt.fnOnly ? 'Add a function' : 'Command palette' },
+    const pop = h('div', { class: 'pop palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': opt.fnOnly ? $t('Add a function') : $t('Command palette') },
       h('div', { class: 'pal-head' }, h('span', { class: 'pal-icon', html: ICONS.search }), input, h('span', { class: 'pal-ctx', html: ctxText.replace(/f([₀-₉]+)/, (m, d) => `<i>f</i><sub>${[...d].map((c) => SUB.indexOf(c)).join('')}</sub>`) }), h('span', { class: 'kbd' }, 'Esc')),
       h('div', { class: 'pal-body' }, list, preview),
-      h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), ' to move'), h('span', null, h('span', { class: 'kbd' }, 'Enter'), ' to add'), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), ' to insert before'), h('span', null, h('span', { class: 'kbd' }, 'Esc'), ' to close')));
+      h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), $t(' to move')), h('span', null, h('span', { class: 'kbd' }, 'Enter'), $t(' to add')), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), $t(' to insert before')), h('span', null, h('span', { class: 'kbd' }, 'Esc'), $t(' to close'))));
     const opener = anchor || document.activeElement, okey = focusKey(opener);
     palState = { at: insertAt, before: explicit ? at : (S.focus > 0 ? S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0 };
+    tourEmit('palette-opened', {});
     const runItem = (it, before) => {
       const where = before ? palState.before : palState.at;
       closePalette();
@@ -8430,7 +8534,8 @@
       list.innerHTML = '';
       let group = null;
       items.forEach((it, i) => {
-        if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group)); }
+        // (four groups stay English as data: items.parseErr below looks for them)
+        if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group === 'Custom formula' ? $t('Custom formula') : group === 'Region formulas' ? $t('Region formulas') : group === 'Curve formulas' ? $t('Curve formulas') : group === 'Calculus' ? $t('Calculus') : group)); }
         const t = h('span', { class: 'pal-tex' });
         if (it.tex) TeX.set(t, it.tex);
         const props = h('span', { class: 'pal-props' });
@@ -8439,12 +8544,12 @@
         const row = h('div', { class: 'pal-item' + (i === palState.sel ? ' sel' : ''), role: 'option', id: `pal-o${i}`, 'aria-selected': String(i === palState.sel), 'data-i': i,
           onpointermove: () => { if (palState.sel !== i) { palState.sel = i; mark(false); } },
           onclick: (e) => runItem(it, e.shiftKey) },
-        t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, it.label), it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
+        t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, ...(it.labelParts ? it.labelParts() : [it.label])), it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
         list.append(row);
       });
       // a query that looks like a formula but does not parse gets the parser's message and its suggestions
-      if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas')) list.prepend(h('div', { class: 'pal-empty', role: 'presentation' }, h('span', { class: 'err' }, `Not a formula yet: ${items.parseErr}`)));
-      else if (!items.length) list.append(h('div', { class: 'pal-empty' }, opt.fnOnly ? 'No match. Type a formula in z, such as e^{z^2}, to add it as a step.' : 'No match. Type a formula in z to add it as a step, a set such as |z| < 1, or a curve such as Re z = 0.'));
+      if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas')) list.prepend(h('div', { class: 'pal-empty', role: 'presentation' }, h('span', { class: 'err' }, $t('Not a formula yet: {parseErr}', { parseErr: items.parseErr }))));
+      else if (!items.length) list.append(h('div', { class: 'pal-empty' }, opt.fnOnly ? $t('No match. Type a formula in z, such as e^{z^2}, to add it as a step.') : $t('No match. Type a formula in z to add it as a step, a set such as |z| < 1, or a curve such as Re z = 0.')));
       mark(false);
     };
     const mark = (scroll = true) => {
@@ -8499,11 +8604,11 @@
     const W = cv.width, Hh = cv.height;
     if (!it || (it.kind !== 'fn' && it.kind !== 'ex')) {
       ctx.fillStyle = TH.plane; ctx.fillRect(0, 0, W, Hh);
-      cap.textContent = it && it.kind === 'region' ? 'Adds a shape to the z-plane' : '';
+      cap.textContent = it && it.kind === 'region' ? $t('Adds a shape to the z-plane') : '';
       return;
     }
     if (it.kind === 'ex') {
-      cap.textContent = 'Example';
+      cap.textContent = $t('Example');
       const url = exThumbs.get(it.i);
       ctx.fillStyle = TH.plane; ctx.fillRect(0, 0, W, Hh);
       if (url) { const img = new Image(); img.onload = () => { const s = Math.min(W / img.width, Hh / img.height); ctx.drawImage(img, (W - img.width * s) / 2, (Hh - img.height * s) / 2, img.width * s, img.height * s); }; img.src = url; }
@@ -8574,19 +8679,19 @@
         ctx.fillStyle = j.ink.edge; ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fill();
       }
     }
-    cap.innerHTML = `Image after adding ${fsub((palState ? palState.at : S.steps.length) + 1)}`;
+    cap.innerHTML = $t('Image after adding {f}', { f: fsub((palState ? palState.at : S.steps.length) + 1) });
   }
 
   // ---------------- guarantees panel ----------------
   const BADGES = [
-    ['analytic', 'Analytic', 'Holomorphic at every point of its natural domain D.'],
-    ['entire', 'Entire', 'D = ℂ and F is holomorphic everywhere.'],
-    ['rational', 'Rational', 'Agrees on D with P(z)/Q(z) for polynomials P and Q.'],
-    ['polynomial', 'Polynomial', 'A polynomial in z.'],
-    ['mobius', 'Möbius', 'F(z) = (az + b)/(cz + d) with ad − bc ≠ 0.'],
-    ['proper', 'Proper', 'Preimages of compact sets in ℂ are compact in D, so |F(z)| → ∞ as z → ∂D or z → ∞.'],
-    ['homeo', 'Homeomorphism onto image', 'Injective and continuous on the open set D, so a homeomorphism D → F(D) by invariance of domain.'],
-    ['conformal', 'Conformal onto image', 'Analytic and injective: a biholomorphism D → F(D), with F′ ≠ 0.'],
+    ['analytic', $t('Analytic'), $t('Holomorphic at every point of its natural domain D.')],
+    ['entire', $t('Entire'), $t('D = ℂ and F is holomorphic everywhere.')],
+    ['rational', $tx('badge', 'Rational'), $t('Agrees on D with P(z)/Q(z) for polynomials P and Q.')],
+    ['polynomial', $t('Polynomial'), $t('A polynomial in z.')],
+    ['mobius', $tx('badge', 'Möbius'), $t('F(z) = (az + b)/(cz + d) with ad − bc ≠ 0.')],
+    ['proper', $t('Proper'), $t('Preimages of compact sets in ℂ are compact in D, so |F(z)| → ∞ as z → ∂D or z → ∞.')],
+    ['homeo', $t('Homeomorphism onto image'), $t('Injective and continuous on the open set D, so a homeomorphism D → F(D) by invariance of domain.')],
+    ['conformal', $t('Conformal onto image'), $t('Analytic and injective: a biholomorphism D → F(D), with F′ ≠ 0.')],
   ];
   // which matrix column backs each lamp
   const LAMP_COL = { analytic: 'analytic', entire: 'entire', rational: 'rational', polynomial: 'polynomial', mobius: 'mobius', proper: 'proper', homeo: 'injective', conformal: 'injective' };
@@ -8618,7 +8723,7 @@
     if (sig === PROPS.rail && rl.childElementCount === BADGES.length) return;
     PROPS.rail = sig;
     rl.innerHTML = '';
-    for (const [key, name] of BADGES) rl.append(h('span', { class: 'rl' + (words[key] ? ' on' : ''), 'data-tip': `${name}: ${words[key] ? 'guaranteed' : 'not guaranteed'}`, role: 'img', 'aria-label': `${name}: ${words[key] ? 'guaranteed' : 'not guaranteed'}` }));
+    for (const [key, name] of BADGES) rl.append(h('span', { class: 'rl' + (words[key] ? ' on' : ''), 'data-tip': `${name}: ${words[key] ? $t('guaranteed') : $t('not guaranteed')}`, role: 'img', 'aria-label': `${name}: ${words[key] ? $t('guaranteed') : $t('not guaranteed')}` }));
   }
   function renderProps() {
     const act = activeSteps();
@@ -8643,20 +8748,20 @@
     host.innerHTML = '';
     const E = PROPS.el = { chain: [], lamps: {}, dom: [], rows: [] };
     // 1. composite map
-    const copyBtn = h('button', { class: 'icon-btn', 'data-tip': 'Copy LaTeX', 'aria-label': 'Copy the formula as LaTeX', html: ICONS.copy });
+    const copyBtn = h('button', { class: 'icon-btn', 'data-tip': $t('Copy LaTeX'), 'aria-label': $t('Copy the formula as LaTeX'), html: ICONS.copy });
     copyBtn.addEventListener('click', () => { copyText(exactTexF()); copyBtn.innerHTML = ICONS.check; copyBtn.classList.add('copied'); setTimeout(() => { copyBtn.innerHTML = ICONS.copy; copyBtn.classList.remove('copied'); }, 1200); });
-    const sec1 = E.sec1 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, 'Composite map'), copyBtn,
-      h('button', { class: 'icon-btn', 'data-tip': 'Hide panel  ]', 'aria-label': 'Hide guarantees', onclick: () => setPanels(S.hideLeft, true), html: ICONS.chevR })));
+    const sec1 = E.sec1 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, $t('Composite map')), copyBtn,
+      h('button', { class: 'icon-btn', 'data-tip': $t('Hide panel  ]'), 'aria-label': $t('Hide guarantees'), onclick: () => setPanels(S.hideLeft, true), html: ICONS.chevR })));
     const fbox = h('div', { class: 'fbox well' });
     E.ftex = h('div', { class: 'ftex-main' });
-    E.flong = h('span', { class: 'lbl', hidden: true }, 'The expanded formula is long; the steps below list it piece by piece.');
+    E.flong = h('span', { class: 'lbl', hidden: true }, $t('The expanded formula is long; the steps below list it piece by piece.'));
     fbox.append(E.ftex, E.flong);
     if (S.steps.length) {
       const ol = h('ol', { class: 'chainlist' });
       S.steps.forEach((st, i) => {
         const k = i + 1, b = built[i];
         const li = h('li', { 'data-k': k, onpointerenter: () => hiStep(k, true), onpointerleave: () => hiStep(k, false) }, h('span', { class: 'idx', html: fsub(k) }));
-        if (st.on === false) li.append(h('span', { class: 'lbl' }, 'bypassed'));
+        if (st.on === false) li.append(h('span', { class: 'lbl' }, $t('bypassed')));
         else if (b.error) li.append(h('span', { class: 'err-msg' }, b.error));
         else { const t = h('span'); E.chain.push([k, t]); li.append(t); }
         ol.append(li);
@@ -8666,8 +8771,8 @@
     sec1.append(fbox);
     host.append(sec1);
     // 2. guarantees: warnings first, then the eight lamps in a fixed order
-    E.count = h('span', { class: 'count', 'data-tip': 'Guaranteed properties' });
-    const sec2 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, 'Guarantees'), E.count));
+    E.count = h('span', { class: 'count', 'data-tip': $t('Guaranteed properties') });
+    const sec2 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, $t('Guarantees')), E.count));
     E.warnEls = []; E.warnSig = null;
     const list = h('ul', { class: 'lamps' });
     for (const [key, name] of BADGES) {
@@ -8687,25 +8792,25 @@
       list.append(li);
     }
     E.lampList = list;
-    sec2.append(list, h('div', { class: 'lamp-key' }, 'Lit: guaranteed by the chain. Unlit: not implied by the steps (it may still hold).'));
+    sec2.append(list, h('div', { class: 'lamp-key' }, $t('Lit: guaranteed by the chain. Unlit: not implied by the steps (it may still hold).')));
     host.append(sec2);
     // 3. natural domain
-    const sec3 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow', html: 'Natural domain <i>D</i>' })));
+    const sec3 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow', html: $t('Natural domain <i>D</i>') })));
     const dom = h('div', { class: 'well domain' });
     const nConds = act.filter((k) => built[k - 1].domain).length;
     if (!nConds) { E.domLbl = h('div', { class: 'lbl' }); dom.append(E.domLbl); }
     else {
       const ul = h('ul', { class: 'domlist' });
       for (let i = 0; i < nConds; i++) { const li = h('li'); E.dom.push(li); ul.append(li); }
-      dom.append(h('div', { class: 'lbl', html: 'All <i>z</i> for which:' }), ul);
+      dom.append(h('div', { class: 'lbl', html: $t('All <i>z</i> for which:') }), ul);
     }
     sec3.append(dom);
-    if (nConds && act.length > 1) sec3.append(h('div', { class: 'foot', html: '<i>w</i><sub>k</sub> is the value after step <i>k</i>; <i>w</i><sub>0</sub> = <i>z</i>.' }));
+    if (nConds && act.length > 1) sec3.append(h('div', { class: 'foot', html: $t('<i>w</i><sub>k</sub> is the value after step <i>k</i>; <i>w</i><sub>0</sub> = <i>z</i>.') }));
     host.append(sec3);
     // 4. step by step: indicator matrix
-    const sec4 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, 'Step by step')));
+    const sec4 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, $t('Step by step'))));
     const tbl = h('table', { class: 'matrix' });
-    const head = h('tr', null, h('th', { class: 'stepcol' }, 'step'));
+    const head = h('tr', null, h('th', { class: 'stepcol' }, $t('step')));
     for (const [key, ab, t] of CHIP_DEFS) head.append(h('th', { 'data-col': key, 'data-tip': t, onpointerenter: () => hiCol(key, true), onpointerleave: () => hiCol(key, false) }, ab));
     tbl.append(h('thead', null, head));
     const body = h('tbody');
@@ -8714,7 +8819,7 @@
       const cells = CHIP_DEFS.map(([key]) => cell(key));
       E.rows.push([k, cells]);
       body.append(h('tr', { 'data-k': k, onpointerenter: () => hiStep(k, true), onpointerleave: () => hiStep(k, false) },
-        h('td', { class: 'stepcol' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'nm', 'data-tip': isDeriv(k) ? 'An operator, not a map: its row shows what the chain through it guarantees' : null }, built[k - 1].def.label)), ...cells));
+        h('td', { class: 'stepcol' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'nm', 'data-tip': isDeriv(k) ? $t('An operator, not a map: its row shows what the chain through it guarantees') : null }, built[k - 1].def.label)), ...cells));
     }
     const total = CHIP_DEFS.map(([key]) => cell(key));
     E.rows.push([0, total]);
@@ -8723,11 +8828,11 @@
     sec4.append(tbl);
     if (openLamp) for (const el of tbl.querySelectorAll(`[data-col="${LAMP_COL[openLamp]}"]`)) el.classList.add('hi-sel');
     sec4.append(h('details', { class: 'how' },
-      h('summary', null, 'How these are decided'),
-      h('p', null, 'A property is listed only when every active step has it and composition preserves it on the natural domain. Compositions of analytic, entire, rational, polynomial, Möbius, injective and proper (into ℂ) maps keep that property.'),
-      h('p', null, 'Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.'),
-      h('p', null, 'The list is sound but not complete. For example, exp followed by log returns z, yet neither step is rational, so "rational" is not claimed.'),
-      h('p', null, 'Custom formulas are classified from their expression tree: only z, constants, +, −, ×, ÷ and integer powers count as rational. A polynomial formula has its exact degree found numerically before "proper" is claimed.')));
+      h('summary', null, $t('How these are decided')),
+      h('p', null, $t('A property is listed only when every active step has it and composition preserves it on the natural domain. Compositions of analytic, entire, rational, polynomial, Möbius, injective and proper (into ℂ) maps keep that property.')),
+      h('p', null, $t('Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.')),
+      h('p', null, $t('The list is sound but not complete. For example, log followed by exp returns z, yet neither step is rational, so "rational" is not claimed.')),
+      h('p', null, $t('Custom formulas are classified from their expression tree: only z, constants, +, −, ×, ÷ and integer powers count as rational. A polynomial formula has its exact degree found numerically before "proper" is claimed.'))));
     host.append(sec4);
   }
   // the copied formula: constants that parse back exactly, and a note for every non-principal branch
@@ -8742,7 +8847,7 @@
         arg = b.tex(arg);
         const usesCut = b.cuts && b.cuts.some((c) => c.editable) || b.usesCut;
         const cut = st.params.cut, kk = Math.round(+st.params.k || 0);
-        if (usesCut && cut != null && (+cut !== 180 || kk)) notes.push(`f_{${k}}\\text{: cut }${CX.texNum(+cut)}^\\circ${kk ? `\\text{, sheet }${kk}` : ''}`);
+        if (usesCut && cut != null && (+cut !== 180 || kk)) notes.push($t('f_{%{k}}\\text{: cut }%{cut}^\\circ%{sheet}', { k, cut: CX.texNum(+cut), sheet: kk ? $t('\\text{, sheet }%{kk}', { kk }) : '' }));
       }
     } finally { CX.setTexExact(false); }
     return `F(z)=${arg.s}` + (notes.length ? `\\quad(${notes.join(',\\ ')})` : '');
@@ -8763,17 +8868,23 @@
       const url = URL.createObjectURL(blob), a = h('a', { href: url, download: filename });
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
-      toast(`Saved ${filename}.`);
-      return;
+      toast($t('Saved {filename}.', { filename }));
+      sndExportDone();
+      return true;
     }
-    if (!d) { toast('Saving files is not available in this view.'); return; }
+    // true only when the file was saved (or handed to the browser's download): a declined or refused save is false, so
+    // the export dialog never says "Saved" for it
+    if (!d) { sndError(); toast($t('Saving files is not available in this view.')); return false; }
     try {
       const r = await d.save({ filename, data });
-      if (r && r.status === 'saved') toast(`Saved ${filename}.`);
+      if (r && r.status === 'saved') { toast($t('Saved {filename}.', { filename })); sndExportDone(); return true; }
+      return false;
     } catch (e) {
       const code = e && e.code;
-      if (code === 'declined') return;
-      toast(code === 'rate_limited' ? 'Another save is still waiting for your answer.' : 'The file could not be saved in this view.');
+      if (code === 'declined') return false;
+      sndError();
+      toast(code === 'rate_limited' ? $t('Another save is still waiting for your answer.') : $t('The file could not be saved in this view.'));
+      return false;
     }
   }
   // ---- article figures ----
@@ -8793,7 +8904,7 @@
     let out = null;
     if (tex && MJ && typeof MJ.tex2svg === 'function') {
       try {
-        const node = MJ.tex2svg(tex, { display: false });
+        const node = MJ.tex2svg(I18N.notation(tex), { display: false });
         const svg = node && node.querySelector('svg');
         if (svg) {
           const ex = px * 0.431;
@@ -8839,8 +8950,8 @@
       for (const side of panels) {
         const real = side === 'L' ? paneL : paneR, v = side === 'L' ? leftView() : V.right;
         if (side === 'R' ? !rImage() || (morphOn() && !morphFig) : !(lPlain() && leftStage() > 0)) continue;
-        const k = dims.pw / effW(side), ph = dims.pw * real.h / effW(side);
-        panes.push({ role: side, map: stageMap(side === 'R' ? rightStage() : leftStage()), pane: { view: { cx: v.cx, cy: v.cy, s: v.s * k }, dpr: dims.dpr, pw: Math.max(1, Math.round(dims.pw * dims.dpr)), ph: Math.max(1, Math.round(ph * dims.dpr)) } });
+        const k = dims.pw / effW(side), ov = dims.views && dims.views[side], ph = ov ? ov.ph : dims.pw * real.h / effW(side);
+        panes.push({ role: side, map: stageMap(side === 'R' ? rightStage() : leftStage()), pane: { view: ov ? { cx: ov.cx, cy: ov.cy, s: ov.s } : { cx: v.cx, cy: v.cy, s: v.s * k }, dpr: dims.dpr, pw: Math.max(1, Math.round(dims.pw * dims.dpr)), ph: Math.max(1, Math.round(ph * dims.dpr)) } });
       }
       try { if (!(await smPrepareExport(panes, alive, dims.gen || 0))) return false; } catch (e) { console.error('SphereMesh export', e); }
     }
@@ -8960,46 +9071,78 @@
   }
   // ---- the caption, as segments: {t: text} and {m: TeX}; also as LaTeX source ----
   const texEsc = (s) => String(s).replace(/\\/g, '\\textbackslash{}').replace(/([#$%&_{}])/g, '\\$1').replace(/~/g, '\\textasciitilde{}').replace(/\^/g, '\\textasciicircum{}');
-  function shapePhrase(s, idx) {
+  // a caption sentence as segments: the template is translated whole (DESIGN.md 1) and its %{slots} hold segments,
+  // so the word order follows the language. cs 'gen': the genitive form ("the images of ...", Russian needs the case)
+  // (a plain-string value joins the text around it, as one segment)
+  const capT = (src, params, cs) => {
+    const out = [];
+    for (let x of I18N.parts(src, params, cs)) {
+      if (typeof x === 'string' || typeof x === 'number') { x = String(x); if (!x) continue; const l = out[out.length - 1]; if (l && l._s) l.t += x; else out.push({ t: x, _s: 1 }); } else out.push(...(Array.isArray(x) ? x : [x]));
+    }
+    return out.map((g) => (g._s ? { t: g.t } : g));
+  };
+  function shapePhrase(s, idx, cs) {
     let tex = '';
     try { tex = shapeTexOf(s); } catch (e) { tex = ''; }
+    // a drawn area is a closed set (Region.isOpen, spec 6.5: only open boundaries are drawn dashed), so its caption
+    // says so: the disc |z| <= 2, and its complement |z| > 2 is the open set. Typed formulas keep their own relations
+    if (tex && kindType(s) === 'area' && s.kind !== 'formula') tex = tex.replace(/</g, '\\le ').replace(/>/g, '\\ge ');
+    // inline maths as journals set it: plain bars and a slashed fraction, not \left|...\right| or a stacked \frac
+    if (tex) tex = inlineFrac(tex.replace(/\\left\|/g, '|').replace(/\\right\|/g, '|').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')).replace(/\\tfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2');
     const P = (a) => CX.tex(C(a[0], a[1]), 3);
-    const segs = (() => {
+    const M = (m) => ({ m });
+    // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга», math-4)
+    const phrase = (c) => {
+      const sp = (src, params) => capT(src, params, c);
       // a shape added from an equation, as recognized: by its equation
-      if (s.srcTex && tex === s.srcTex && s.kind !== 'point') return [{ t: `the ${Region.KINDS[s.kind].label.toLowerCase()} ` }, { m: tex }];
+      if (s.srcTex && tex === s.srcTex && s.kind !== 'point') {
+        switch (s.kind) {
+          case 'line': return sp('the line %{m}', { m: M(tex) });
+          case 'ray': return sp('the ray %{m}', { m: M(tex) });
+          case 'segment': return sp('the segment %{m}', { m: M(tex) });
+          case 'circle': return sp('the circle %{m}', { m: M(tex) });
+          case 'arc': return sp('the arc %{m}', { m: M(tex) });
+          case 'fcurve': return sp('the curve formula %{m}', { m: M(tex) });
+          default: return sp('the %{kind} %{m}', { kind: Region.KINDS[s.kind].label.toLowerCase(), m: M(tex) });
+        }
+      }
       switch (s.kind) {
         case 'point': {
           // (a label that is a word, "trailing edge", is set as text, not as a product of italic letters)
-          const lab = s.label ? (/[A-Za-z]{2}|\s/.test(s.label) ? `\\text{${texEsc(s.label)}}` : s.label.replace(/₀/g, '_0').replace(/₁/g, '_1').replace(/₂/g, '_2')) : 'abcdefghjkmnpqrstuv'[idx % 19];
-          return [{ t: 'the point ' }, { m: `${lab}=${P(s.p)}` }];
+          // a name that is a word: "the trailing edge $z=1$", not a symbol "$\\text{trailing edge}=1$"
+          if (s.label && (I18N.lang === 'en' ? /[A-Za-z]{2}|\s/ : /\p{L}{2}|\s/u).test(exLabel(s.label))) return sp('the %{label} %{m}', { label: String(exLabel(s.label)).trim(), m: M(`z=${P(s.p)}`) });
+          const lab = s.label ? s.label.replace(/₀/g, '_0').replace(/₁/g, '_1').replace(/₂/g, '_2') : 'abcdefghjkmnpqrstuv'[idx % 19];
+          return sp('the point %{m}', { m: M(`${lab}=${P(s.p)}`) });
         }
-        case 'segment': return [{ t: 'the segment ' }, { m: `[${P(s.a)},\\,${P(s.b)}]` }];
+        case 'segment': return sp('the segment %{m}', { m: M(`[${P(s.a)},\\,${P(s.b)}]`) });
         // (a line stored from a cap on a globe has a unit direction and is written by its equation, Region normalTex)
-        case 'line': return tex && !/^\\text\{line through/.test(tex) ? [{ t: 'the line ' }, { m: tex }] : [{ t: 'the line through ' }, { m: P(s.a) }, { t: ' and ' }, { m: P(s.b) }];
-        case 'ray': return [{ t: 'the ray from ' }, { m: P(s.a) }, { t: ' through ' }, { m: P(s.b) }];
-        case 'circle': return [{ t: 'the circle ' }, { m: tex }];
-        case 'arc': return [{ t: 'the arc from ' }, { m: P(s.a) }, { t: ' through ' }, { m: P(s.m) }, { t: ' to ' }, { m: P(s.b) }];
-        case 'curve': return [{ t: 'a freehand curve' }];
-        case 'disc': return [{ t: 'the disc ' }, { m: tex }];
-        case 'rect': return [{ t: 'the rectangle ' }, { m: tex }];
-        case 'polygon': return [{ t: `a polygon with ${s.pts.length} vertices` }];
-        case 'halfplane': return [{ t: 'the half-plane ' }, { m: tex }];
-        case 'annulus': return [{ t: 'the annulus ' }, { m: tex }];
-        case 'sector': return [{ t: 'the sector ' }, { m: tex }];
-        case 'formula': return [{ t: 'the set ' }, { m: tex }];
-        case 'fcurve': return [{ t: 'the curve ' }, { m: tex }];
-        case 'cgrid': return [{ t: 'a Cartesian grid on ' }, { m: tex.replace(/^\\text\{grid \}\s*/, '') }];
-        case 'pgrid': return [{ t: 'a polar grid in ' }, { m: tex.replace(/^\\text\{polar grid\},\s*/, '') }];
-        default: return [{ t: `a ${Region.KINDS[s.kind] ? Region.KINDS[s.kind].label.toLowerCase() : 'shape'}` }];
+        case 'line': return tex && !/^\\text\{line through/.test(tex) ? sp('the line %{m}', { m: M(tex) }) : sp('the line through %{a} and %{b}', { a: M(P(s.a)), b: M(P(s.b)) });
+        case 'ray': return sp('the ray from %{a} through %{b}', { a: M(P(s.a)), b: M(P(s.b)) });
+        case 'circle': return sp('the circle %{m}', { m: M(tex) });
+        case 'arc': return sp('the arc from %{a} through %{m} to %{b}', { a: M(P(s.a)), m: M(P(s.m)), b: M(P(s.b)) });
+        case 'curve': return sp('a freehand curve', {});
+        case 'disc': return sp('the disc %{m}', { m: M(tex) });
+        case 'rect': return sp('the rectangle %{m}', { m: M(tex) });
+        // (the genitive has no plural pair of its own: $tn takes no context; 'вершинами' is right for every n but 21, 31, ...)
+        case 'polygon': return [{ t: c === 'gen' ? $tx('gen', 'a polygon with {n} vertices', { n: s.pts.length }) : $tn('a polygon with {n} vertices', 'a polygon with {n} vertices', s.pts.length) }];
+        case 'halfplane': return sp('the half-plane %{m}', { m: M(tex) });
+        case 'annulus': return sp('the annulus %{m}', { m: M(tex) });
+        case 'sector': return capT('the sector %{m}', { m: M(tex) }, s.r > 0 ? c : c === 'gen' ? 'gen-angle' : 'angle');
+        case 'formula': return sp('the set %{m}', { m: M(tex) });
+        case 'fcurve': return sp('the curve %{m}', { m: M(tex) });
+        // (the grid's name is a translated \text{} at the front of its TeX: review math-3)
+        case 'cgrid': return sp('a Cartesian grid on %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\}\s*/, '')) });
+        case 'pgrid': return sp('a polar grid in %{m}', { m: M(tex.replace(/^\\text\{[^{}]*\},\s*/, '')) });
+        default: return Region.KINDS[s.kind] ? sp('a %{kind}', { kind: Region.KINDS[s.kind].label.toLowerCase() }) : sp('a shape', {});
       }
-    })();
-    if (s.complement && kindType(s) === 'area') return [{ t: 'the complement of ' }, ...segs];
-    return segs;
+    };
+    if (s.complement && kindType(s) === 'area') return capT('the complement of %{segs}', { segs: phrase('gen') }, cs);
+    return phrase(cs);
   }
   const joinList = (items) => { // [[segs], ...] -> segs joined with commas and "and"
     const out = [];
     items.forEach((it, i) => {
-      if (i) out.push({ t: i === items.length - 1 ? (items.length > 2 ? ', and ' : ' and ') : ', ' });
+      if (i) out.push({ t: i === items.length - 1 ? (items.length > 2 ? $tx('list', ', and ') : $tx('list', ' and ')) : ', ' });
       out.push(...it);
     });
     return out;
@@ -9013,18 +9156,18 @@
   }
   // the sentence on the image's shading (the pattern carried from the z-plane)
   function patternSegs(Fname) {
-    const cell = CX.fmtNum(patternCell(), 3);
-    return {
-      checker: [{ t: ' Regions are shaded by a checkerboard of cell ' }, { m: cell }, { t: ' in the ' }, { m: 'z' }, { t: '-plane, carried by the map.' }],
-      polar: [{ t: ' Regions are shaded by a log-polar checkerboard in the ' }, { m: 'z' }, { t: '-plane, whose cells stay square under conformal maps.' }],
-      tiles: [{ t: ' Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.' }],
-      grid: [{ t: ' Lines are the coordinate lines of the ' }, { m: 'z' }, { t: '-plane, spaced ' }, { m: cell }, { t: '.' }],
-      polargrid: [{ t: ' Lines are circles about 0 and rays from 0 in the ' }, { m: 'z' }, { t: '-plane.' }],
-      phase: [{ t: ' Regions are coloured by the argument of the source point.' }],
-      stretch: [{ t: ' The colour shows the local scale factor ' }, { m: `|${Fname}'|` }, { t: ' (bar).' }],
-      sphere: [{ t: ' Regions are shaded by a checkerboard of ' }, { m: String(sphN()) }, { t: ' longitude sectors and ' }, { m: String(sphN() / 2) }, { t: ' latitude bands of the Riemann sphere of the ' }, { m: 'z' }, { t: '-plane, carried by the map.' }],
-      solid: [],
-    }[S.pattern] || [];
+    const cell = { m: I18N.texNum(CX.fmtNum(patternCell(), 3)) }, z = { m: 'z' };
+    switch (S.pattern) {
+      case 'checker': return capT(' Regions are shaded by a checkerboard of squares of side %{cell} in the %{z}-plane, carried by the map.', { cell, z });
+      case 'polar': return capT(' Regions are shaded by a log-polar checkerboard in the %{z}-plane, whose cells stay square under conformal maps.', { z });
+      case 'tiles': return capT(' Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.', {});
+      case 'grid': return capT(' Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.', { z, cell });
+      case 'polargrid': return capT(' Lines are circles about 0 and rays from 0 in the %{z}-plane.', { z });
+      case 'phase': return capT(' Regions are coloured by the argument of the source point.', {});
+      case 'stretch': return capT(' The colour shows the local scale factor %{F} (bar).', { F: { m: `|${Fname}'|` } });
+      case 'sphere': return capT(' Regions are shaded by a checkerboard of %{n} longitude sectors and %{n2} latitude bands of the Riemann sphere of the %{z}-plane, carried by the map.', { n: { m: String(sphN()) }, n2: { m: String(sphN() / 2) }, z });
+      default: return [];
+    }
   }
   function figureCaption(panels) {
     const out = [];
@@ -9042,50 +9185,55 @@
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
       const m = morphLen(), hom = morphHomSegs(m);
-      return [{ t: ' Shown at ' }, { m: `t=${morph.T.toFixed(2)}` }, { t: ', where ' }, { m: 'H_t' }, { t: ' deforms the identity (' }, { m: 't=0' }, { t: ') into ' }, { m: mapF }, { t: ' (' }, { m: `t=${m}` }, { t: ') along ' }, ...hom.segs, { t: '.' }];
+      return capT(' Shown at %{t}, where %{H} deforms the identity (%{t0}) into %{map} (%{tm}) along %{hom}.', { t: { m: `t=${I18N.texNum(morph.T.toFixed(2))}` }, H: { m: 'H_t' }, t0: { m: 't=0' }, map: { m: mapF }, tm: { m: `t=${m}` }, hom: hom.segs });
     };
-    const planeName = leftStage() === 0 ? [{ t: 'the ' }, { m: 'z' }, { t: '-plane' }] : [{ t: 'the ' }, { m: lv }, { t: '-plane, the input of ' }, { m: Fname }];
+    // the plane of X in three cases (Russian: nominative, after «в»/«на», after «над»)
+    const planeName = (cs) => (leftStage() === 0 ? capT('the %{z}-plane', { z: { m: 'z' } }, cs) : capT('the %{w}-plane, the input of %{F}', { w: { m: lv }, F: { m: Fname } }, cs));
     const lab = (c) => (both ? [{ b: `(${c})` }, { t: ' ' }] : []);
     // (a): X, with its view (U-b): the shapes, or what X's paint shows of the map
     const phaseText = (onWhat) => {
-      const st = S.dc, r = [];
-      r.push({ t: 'The phase portrait of ' }, { m: mapM }, ...onWhat);
-      if (st === 'classic') r.push({ t: 'brightness increases with ' }, { m: `|${Fname}|` }, { t: ', so zeros are black and poles white.' });
-      else if (st === 'phase') r.push({ t: 'the colour shows ' }, { m: `\\arg ${Fname}` }, { t: ' (bar).' });
-      else if (st === 'modulus') r.push({ t: 'the colour shows ' }, { m: `\\arg ${Fname}` }, { t: ' (bar); lines are level curves of ' }, { m: `|${Fname}|` }, { t: ' and of ' }, { m: `\\arg ${Fname}` }, { t: '.' });
-      else if (st === 'grid') r.push({ t: 'the colour shows ' }, { m: `\\arg ${Fname}` }, { t: ' (bar); lines are the preimages of the coordinate lines of the image plane.' });
-      else if (st === 'cauchy') r.push({ t: 'the Cauchy integral ' }, { m: '\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta' }, { t: ' over the selected closed curve, which equals ' }, { m: 'F' }, { t: ' inside and ' }, { m: '0' }, { t: ' outside.' });
-      else r.push({ t: 'the colour shows ' }, { m: `\\arg ${Fname}` }, { t: ' (bar), and the shading steps in ' }, { m: `|${Fname}|` }, { t: ' by factors of ' }, { m: `e^{2\\pi/${S.sectors || 12}}\\approx ${CX.fmtNum(Math.exp(TAU / (S.sectors || 12)), 2)}` }, { t: ', so phase lines and modulus lines meet in near-squares where the map is conformal.' });
+      const st = S.dc, r = [], F = { m: `|${Fname}|` }, arg = { m: `\\arg ${Fname}` };
+      r.push(...capT('The phase portrait of %{map}', { map: { m: mapM } }), ...onWhat);
+      if (st === 'classic') r.push(...capT('brightness increases with %{F}, so zeros are black and poles white.', { F }));
+      else if (st === 'phase') r.push(...capT('the colour shows %{arg} (bar).', { arg }));
+      else if (st === 'modulus') r.push(...capT('the colour shows %{arg} (bar); lines are level curves of %{F} and of %{arg}.', { arg, F }));
+      else if (st === 'grid') r.push(...capT('the colour shows %{arg} (bar); lines are the preimages of the coordinate lines of the image plane.', { arg }));
+      else if (st === 'cauchy') r.push(...capT('the Cauchy integral %{I} over the selected closed curve, which equals %{F} inside and %{zero} outside.', { I: { m: '\\frac{1}{2\\pi i}\\oint_\\gamma \\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta' }, F: { m: 'F' }, zero: { m: '0' } }));
+      else r.push(...capT('the colour shows %{arg} (bar), and the shading steps in %{F} by factors of %{k}, so phase lines and modulus lines meet in near-squares where the map is conformal.', { arg, F, k: { m: `e^{2\\pi/${S.sectors || 12}}\\approx ${I18N.texNum(CX.fmtNum(Math.exp(TAU / (S.sectors || 12)), 2))}` } }));
       return r;
     };
+    const inf = { m: '\\infty' };
     if (panels.includes('L')) {
-      if (lColor()) push(...lab('a'), ...phaseText([{ t: ' on ' }, ...planeName, { t: ': ' }]));
-      else if (lGlobe() && lPhase()) push(...lab('a'), { t: 'The phase portrait of ' }, { m: mapM }, { t: ' on the Riemann sphere, with ' }, { m: '\\infty' }, { t: ' at the north pole.' });
+      if (lColor()) push(...lab('a'), ...phaseText([{ t: $tx('cap', ' on ') }, ...planeName('prep'), { t: ': ' }]));
+      else if (lGlobe() && lPhase()) push(...lab('a'), ...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
       else if (lLand()) {
         const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[S.height || 'log'];
-        push(...lab('a'), { t: 'The landscape of ' }, { m: mapM }, { t: ' over ' }, ...planeName, { t: ': the height is ' }, { m: ht }, ...(lPhase() ? [{ t: ' and the colour ' }, { m: `\\arg ${Fname}` }, { t: ' (bar)' }] : []), { t: S.sheets ? '; all sheets of the Riemann surface are shown.' : '; zeros are pits and poles are peaks.' });
-      } else if (vis.length) push(...lab('a'), ...cap1(shapeList), { t: ' in ' }, ...planeName, { t: lGlobe() ? ', on the Riemann sphere.' : '.' });
-      else push(...lab('a'), ...cap1(planeName), { t: '.' });
+        push(...lab('a'), ...capT('The landscape of %{map}', { map: { m: S.sheets ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), { t: S.sheets ? $t('; all sheets of the Riemann surface are shown.') : $t('; zeros are pits and poles are peaks.') });
+      } else if (vis.length) push(...lab('a'), ...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
+      else push(...lab('a'), ...cap1(planeName()), { t: '.' });
       if (both) push({ t: ' ' });
     }
-    // (b): Y, the images
+    // (b): Y, the images (the shape list in the genitive: "the images of ...")
+    let pg = 0;
+    const listGen = () => joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pg : 0, 'gen'); if (s.kind === 'point') pg++; return r; }));
     if (panels.includes('R') && hm) {
-      const r = [{ t: 'The deformation ' }, { m: 'H_t' }, ...(rGlobe() ? [{ t: ' on the Riemann sphere, with ' }, { m: '\\infty' }, { t: ' at the north pole' }] : [])];
-      if (vis.length) r.push({ t: ': the image of ' }, ...shapeList, { t: ' under ' }, { m: 'H_t' }, { t: ', over the set itself in grey.' });
+      const r = [...capT('The deformation %{H}', { H: { m: 'H_t' } }), ...(rGlobe() ? capT(' on the Riemann sphere, with %{inf} at the north pole', { inf }) : [])];
+      if (vis.length) r.push(...capT(': the image of %{list} under %{H}, over the set itself in grey.', { list: listGen(), H: { m: 'H_t' } }));
       else r.push({ t: '.' });
       push(...r);
     } else if (panels.includes('R')) {
       const r = [];
       const named = vis.length && (!panels.includes('L') || !lPlain() && !(lGlobe() && !lPhase()));
-      if (rGlobe()) r.push({ t: vis.length ? (named ? 'The images of ' : 'Their images under ') : 'The image under ' }, ...(named ? [...shapeList, { t: ' under ' }] : []), { m: mapM }, { t: ' on the Riemann sphere, with ' }, { m: '\\infty' }, { t: ' at the north pole.' });
-      else if (named) r.push({ t: 'The images of ' }, ...shapeList, { t: ' under ' }, { m: mapM }, { t: '.' });
-      else r.push({ t: vis.length ? 'Their images under ' : 'The map ' }, { m: mapM }, { t: '.' });
+      const map = { m: mapM };
+      if (rGlobe()) r.push(...(vis.length ? (named ? capT('The images of %{list} under %{map} on the Riemann sphere, with %{inf} at the north pole.', { list: listGen(), map, inf }) : capT('Their images under %{map} on the Riemann sphere, with %{inf} at the north pole.', { map, inf })) : capT('The image under %{map} on the Riemann sphere, with %{inf} at the north pole.', { map, inf })));
+      else if (named) r.push(...capT('The images of %{list} under %{map}.', { list: listGen(), map }));
+      else r.push(...(vis.length ? capT('Their images under %{map}.', { map }) : capT('The map %{map}.', { map })));
       push(...lab('b'), ...r);
     }
     // the shading (Image)
     if (panels.includes('R') && rImage() && vis.some((s) => kindType(s) === 'area')) push(...patternSegs(Fname));
 
-    if (vis.some((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s))) push({ t: ' Dashed boundaries do not belong to the sets.' });
+    if (vis.some((s) => kindType(s) === 'area' && Region.isOpen && Region.isOpen(s))) push({ t: $t(' Dashed boundaries do not belong to the sets.') });
     if (hm) push(...homDef());
     // the chain, when F has several steps
     const act = activeSteps();
@@ -9096,29 +9244,30 @@
         return [{ m: `f_{${j}}(${j === 1 ? 'z' : 'w'})=${b.tex({ s: j === 1 ? 'z' : 'w', p: 4 }).s}` }];
       });
       const hasD = act.some((j) => isDeriv(j));
-      push({ t: hasD ? ' Here the chain is built step by step from ' : ' Here ' }, ...(hasD ? [{ m: 'w_0=z' }, { t: ': ' }] : [{ m: `F=${act.slice().reverse().map((j) => `f_{${j}}`).join('\\circ ')}` }, { t: ' with ' }]), ...joinList(defs), { t: '.' });
+      push(...(hasD ? capT(' Here the chain is built step by step from %{w0}: %{defs}.', { w0: { m: 'w_0=z' }, defs: joinList(defs) }) : capT(' Here %{F} with %{defs}.', { F: { m: `F=${act.slice().reverse().map((j) => `f_{${j}}`).join('\\circ ')}` }, defs: joinList(defs) })));
     }
     // the natural domain and the guarantees
     const P = Funcs.composeProps(act.map((j) => built[j - 1].props));
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
     const conds = [];
     for (const j of act) { const b = built[j - 1]; if (b.domain) conds.push(b.domain(wvar(j - 1))); }
-    const deg = P.deg != null ? (P.degExact ? ` of degree ${P.deg}` : ` of degree at most ${P.deg}`) : '';
+    const deg = P.deg != null ? (P.degExact ? $t(' of degree {deg}', { deg: P.deg }) : $t(' of degree at most {deg}', { deg: P.deg })) : '';
     const props = [];
-    if (words.mobius) props.push([{ t: 'a Möbius transformation' }]);
-    else if (words.polynomial) props.push([{ t: `a polynomial${deg}` }]);
-    else if (words.rational) props.push([{ t: `rational${deg}` }]);
-    if (words.entire && !words.polynomial && !words.mobius) props.push([{ t: 'entire' }]);
-    else if (words.analytic && !words.entire && !words.rational && !words.polynomial && !words.mobius) props.push([{ t: 'analytic' }]);
-    if (words.proper) props.push([{ t: 'proper' }]);
-    if (words.conformal) props.push([{ t: 'conformal onto its image' }]);
-    else if (words.homeo) props.push([{ t: 'a homeomorphism onto its image' }]);
+    if (words.mobius) props.push([{ t: $tx('cap', 'a Möbius transformation') }]);
+    else if (words.polynomial) props.push([{ t: $tx('cap', 'a polynomial{deg}', { deg }) }]);
+    else if (words.rational) props.push([{ t: $tx('cap', 'rational{deg}', { deg }) }]);
+    if (words.entire && !words.polynomial && !words.mobius) props.push([{ t: $tx('cap', 'entire') }]);
+    else if (words.analytic && !words.entire && !words.rational && !words.polynomial && !words.mobius) props.push([{ t: $tx('cap', 'analytic') }]);
+    if (words.proper) props.push([{ t: $tx('cap', 'proper') }]);
+    if (words.conformal) props.push([{ t: $tx('cap', 'conformal onto its image') }]);
+    else if (words.homeo) props.push([{ t: $tx('cap', 'a homeomorphism onto its image') }]);
     if (act.length) {
       const generic = conds.filter((c) => /^\\text\{the formula is defined at/.test(c)), sets = conds.filter((c) => !generic.includes(c));
       conds.length = 0; conds.push(...sets);
-      const onD = !conds.length && generic.length ? [{ t: ' Where the formula is defined, ' }] : conds.length ? [{ t: ' On its natural domain ' }, { m: `D=\\{z : ${conds.join(',\\ ')}\\}` }, { t: (conds.some((c) => /w_\{/.test(c)) ? ' (with ' : '') }, ...(conds.some((c) => /w_\{/.test(c)) ? [{ m: 'w_k' }, { t: ' the value after step ' }, { m: 'k' }, { t: ')' }] : []), { t: ', ' }] : [{ t: ' ' }];
-      if (props.length) push(...onD, { m: 'F' }, { t: ' is ' }, ...joinList(props), { t: props.length > 1 ? '; these properties are guaranteed by the chain.' : '; this is guaranteed by the chain.' });
-      else push(...onD, { t: conds.length ? 'the chain guarantees none of the tracked properties.' : 'The chain guarantees none of the tracked properties.' });
+      const D = { m: `D=\\{z : ${conds.join(',\\ ')}\\}` };
+      const onD = !conds.length && generic.length ? capT(' Where the formula is defined, ', {}) : conds.length ? (conds.some((c) => /w_\{/.test(c)) ? capT(' On its natural domain %{D} (with %{wk} the value after step %{k}), ', { D, wk: { m: 'w_k' }, k: { m: 'k' } }) : capT(' On its natural domain %{D}, ', { D })) : [{ t: ' ' }];
+      if (props.length) push(...onD, ...(props.length > 1 ? capT('%{F} is %{props}; these properties are guaranteed by the chain.', { F: { m: 'F' }, props: joinList(props) }) : capT('%{F} is %{props}; this is guaranteed by the chain.', { F: { m: 'F' }, props: joinList(props) })));
+      else push(...onD, { t: conds.length ? $t('the chain guarantees none of the tracked properties.') : $t('The chain guarantees none of the tracked properties.') });
     }
     return out;
   }
@@ -9313,6 +9462,7 @@
     }
     let H = panelTop + PH + Math.max(...panels.map(mB)) + keyH + 6;
     let capSegs;
+    I18N.using(opt.lang || I18N.lang, () => { // (review math-2: the caption in the figure's language)
     if (isMorph && panels.includes('R')) {
       const keepT = morph.T;
       morph.T = Tend;
@@ -9321,10 +9471,11 @@
           const vis = S.shapes.filter((s) => s.visible !== false);
           let pi = 0;
           const list = joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pi : 0); if (s.kind === 'point') pi++; return r; }));
-          capSegs = [{ b: '(a)' }, { t: ' ' }, ...(list.length ? cap1(list) : [{ t: 'The plane' }]), { t: ' in the ' }, { m: 'z' }, { t: '-plane. ' }, { b: '(b)' }, { t: ' The deformation ' }, { m: String.raw`H_t,\ 0\le t\le ` + CX.fmtNum(Tend, 2) }, { t: ': ' }, ...morphCaption(mSel || { kept: [] }, Tend, { both: true })].map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
+          capSegs = [{ b: '(a)' }, { t: ' ' }, ...capT('%{set} in the %{z}-plane. ', { set: list.length ? cap1(list) : capT('The plane', {}), z: { m: 'z' } }), { b: '(b)' }, ...capT(' The deformation %{H}: ', { H: { m: String.raw`H_t,\ 0\le t\le ` + I18N.texNum(CX.fmtNum(Tend, 2)) } }), ...morphCaption(mSel || { kept: [] }, Tend, { both: true })].map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
         } else capSegs = morphCaption(mSel || { kept: [] }, Tend);
       } finally { morph.T = keepT; }
     } else capSegs = figureCaption(panels);
+    });
     let capMarkup = '';
     if (opt.caption) {
       const c = layoutCaption(capSegs, 0, H + 4, W, CAP, isMorph && panels.includes('R'));
@@ -9334,214 +9485,204 @@
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${(W / 96).toFixed(3)}in" height="${(H / 96).toFixed(3)}in" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${body}${capMarkup}</svg>`;
     return { svg, W, H, captionTex: captionLatex(capSegs), morph: mSel ? { kept: mSel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], meet: !!k.meet })), budget: mSel.budget, nCands: mSel.nCands, labelled: mSel.labelled ? [mSel.labelled.sp.z.re, mSel.labelled.sp.z.im] : null, log: mSel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) } : null };
   }
-  // ---- formats ----
-  function loadScript(src) {
-    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = () => res(); s.onerror = () => rej(new Error('load')); document.head.append(s); });
-  }
-  let pdfLibs = null;
-  function pdfLib() {
-    if (!pdfLibs) pdfLibs = (async () => {
-      if (!(window.jspdf && window.jspdf.jsPDF)) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-      if (!(window.svg2pdf && window.svg2pdf.svg2pdf)) await loadScript('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js');
-      return window.jspdf && window.svg2pdf ? { jsPDF: window.jspdf.jsPDF, svg2pdf: window.svg2pdf.svg2pdf } : null;
-    })().catch(() => { pdfLibs = null; return null; });
-    return pdfLibs;
-  }
-  async function figurePDF(fig) {
-    const lib = await pdfLib();
-    if (!lib) throw new Error('The PDF library could not be loaded');
-    const wpt = fig.W * 72 / 96, hpt = fig.H * 72 / 96;
-    const doc = new lib.jsPDF({ unit: 'pt', format: [wpt, hpt], orientation: wpt > hpt ? 'landscape' : 'portrait', compress: true });
-    const el = new DOMParser().parseFromString(fig.svg, 'image/svg+xml').documentElement;
-    // svg2pdf measures in the document: attach it out of sight while it converts
-    const host = h('div', { style: 'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden' });
-    host.append(el); document.body.append(host);
-    try { await lib.svg2pdf(el, doc, { x: 0, y: 0, width: wpt, height: hpt }); } finally { host.remove(); }
-    return doc.output('blob');
-  }
-  async function figurePNG(fig) {
-    const img = new Image();
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fig.svg);
-    await img.decode();
-    const k = FIG_DPI / 96;
-    const c = document.createElement('canvas');
-    c.width = Math.round(fig.W * k); c.height = Math.round(fig.H * k);
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0, c.width, c.height);
-    return await new Promise((res) => c.toBlob(res, 'image/png'));
-  }
-  function latexFigure(fig, filename) {
-    return [
-      '\\begin{figure}[t]',
-      '  \\centering',
-      `  \\includegraphics[width=\\linewidth]{${filename}}`,
-      `  \\caption{${fig.captionTex}}`,
-      '  \\label{fig:complex-map}',
-      '\\end{figure}',
-      '',
-    ].join('\n');
-  }
-  // ---- the export dialog: panels, width, caption, format, a live preview ----
-  let lastFigure = null;   // the last figure the dialog built (a test hook reads it)
-  // paths: the deformation figure's arrows t -> H_t(z) (null: as on screen, the Paths toggle)
-  const figOpt = { panels: 'both', width: 7, caption: true, format: 'pdf', mpanels: 'R', upTo: false, paths: null };
-  const figPaths = () => (figOpt.paths == null ? S.morphPaths !== false : !!figOpt.paths);
-  function openFigureDialog() {
-    if (document.querySelector('.modal-bg')) return;
-    const opener = document.activeElement;
-    const close = () => { token++; bg.remove(); document.removeEventListener('keydown', onKey, true); if (opener && opener.focus) opener.focus({ preventScroll: true }); };
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
-    document.addEventListener('keydown', onKey, true);
-    const bg = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === bg) close(); } });
-    const preview = h('div', { class: 'fig-preview' }, h('div', { class: 'fig-wait' }, 'Typesetting…'));
-    const note = h('div', { class: 'fig-note' });
-    // the deformation open (morph-figure.md 5): one panel by default, Both = (a) X and (b) the deformation; not over
-    // a d/dz step, which has no deformation
-    // The figure follows the view (merged-views.md): X → Y the two-panel figure (or one of its panels), the
-    // deformation the morph figure, Phase and Landscape their one wide panel
-    const morphFig = S.view.main === 'xy' && morphOn() && rImage() && !morphHasDeriv();
-    figOpt.paths = null; // (the figure's Paths start as on screen each time the dialog opens)
-    // (X → Y with the deformation on the globe, or over a d/dz step: the one merged panel as on screen, H_t at t)
-    const mergedOne = S.view.main === 'xy' && morphOn() && !morphFig;
-    const oneFig = S.view.main !== 'xy' || mergedOne;
-    const pk = morphFig ? figOpt.mpanels : figOpt.panels;
-    const panelsOf = () => { if (oneFig) return [mergedOne ? 'R' : 'L']; const v = morphFig ? figOpt.mpanels : figOpt.panels; return v === 'both' ? ['L', 'R'] : [v]; };
-    let fig = null, token = 0;
-    // any option change starts a new figure and cancels the one in progress (its alive() turns false); so does Close
-    const rebuild = async () => {
-      const my = ++token;
-      preview.classList.add('busy');
+  // ---- the figure export (src/figure.js; notes/export-design/AS-BUILT.md): the renderer and the state it reads ----
+  // artRender(side, o): one plane drawn off-screen in the art layer (fills only) for the exact world window o.box at
+  // o.wpt points wide (a globe or the landscape: the pane's picture at o.wpt x o.hpt), in the light theme on white
+  // paper, the fills in the print tones o.ink(s), at o.dpi; o.T: the deformation's time (paused). The theme, the
+  // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
+  // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
+  let artLandBox = null;
+  async function artRender(side, o) {
+    const alive = o.alive || (() => true);
+    const real = side === 'L' ? paneL : paneR, v = side === 'L' ? leftView() : V.right;
+    const wpx = o.wpt * 96 / 72, dpr = o.dpi / 96;
+    const hpx = o.box ? wpx * (o.box.y1 - o.box.y0) / (o.box.x1 - o.box.x0) : o.hpt ? o.hpt * 96 / 72 : wpx * real.h / effW(side);
+    const fv = o.box ? { cx: (o.box.x0 + o.box.x1) / 2, cy: (o.box.y0 + o.box.y1) / 2, s: wpx / (o.box.x1 - o.box.x0), ph: hpx } : null;
+    const atEnd = o.T == null || o.T >= morphLen() - 1e-9;
+    const gen = ++sm.exportGen;
+    try {
+      if (!(await prepareExport([side], alive, atEnd, { pw: wpx, dpr, gen, views: fv ? { [side]: fv } : null }))) return null;
+      const keep = { cx: v.cx, cy: v.cy, s: v.s, T: morph.T, playing: morph.playing };
+      const attr = document.documentElement.getAttribute('data-theme'), wasDark = TH.dark;
+      let cv;
       try {
-        const f = await buildFigure({ panels: panelsOf(), widthIn: figOpt.width, caption: figOpt.caption, morph: morphFig, upTo: figOpt.upTo, paths: figPaths(), alive: () => my === token && bg.isConnected });
-        lastFigure = f;
-        if (my !== token || !f) return;
-        fig = f;
-        preview.innerHTML = '';
-        const img = h('img', { alt: 'Preview of the exported figure', src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f.svg) });
-        preview.append(img);
-        note.textContent = `${figOpt.width === 7 ? 'Double column' : 'Single column'}: ${(f.W / 96).toFixed(2)} × ${(f.H / 96).toFixed(2)} in, text 8–9 pt, plots at ${FIG_DPI} dpi.` + (f.partial ? ' A forward image reached its mesh budget and is drawn with coarser triangles in places.' : '');
-      } catch (e) {
-        console.error(e);
-        if (my === token) { preview.innerHTML = ''; preview.append(h('div', { class: 'fig-wait' }, 'The figure could not be made.')); }
-      } finally { if (my === token) preview.classList.remove('busy'); }
-    };
-    const set = (k, v) => { figOpt[k] = v; if (k !== 'format') rebuild(); };
-    const fname = () => `complex-map-figure.${figOpt.format === 'png' ? 'png' : figOpt.format}`;
-    const save = async () => {
-      if (!fig) return;
-      try {
-        let data;
-        if (figOpt.format === 'svg') data = fig.svg;
-        else if (figOpt.format === 'png') data = await figurePNG(fig);
-        else data = await figurePDF(fig);
-        await saveFile(fname(), data);
-      } catch (e) { console.error(e); toast(figOpt.format === 'pdf' ? 'The PDF could not be made here; try SVG.' : 'The figure could not be saved.'); }
-    };
-    const copyLatex = () => {
-      if (!fig) return;
-      const name = figOpt.caption ? fname() : fname();
-      copyText(latexFigure(fig, name.replace(/\.svg$/, '.pdf')));
-      toast(figOpt.caption ? 'LaTeX figure copied. Export without the caption in the image to avoid printing it twice.' : 'LaTeX figure copied, with the caption.');
-    };
-    const row = (label, el) => h('div', { class: 'fig-row' }, h('span', { class: 'fig-l' }, label), el);
-    const figPanelsSeg = () => {
-      const sg = seg('figPanels', figOpt.panels, [['both', 'Both'], ['L', 'Left'], ['R', 'Right']], (v) => set('panels', v), 'Panels');
-      // with a d/dz step in range there is no deformation to export (morph-figure.md 3, M1)
-      if (morphOn() && morphHasDeriv()) { sg.dataset.tip = 'd/dz has no deformation: the panels show the current frame'; }
-      return sg;
-    };
-    const m = h('div', { class: 'modal fig-modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'figTitle' },
-      h('h2', { id: 'figTitle' }, 'Export figure'),
-      h('div', { class: 'fig-body' },
-        preview,
-        h('div', { class: 'fig-opts' },
-          ...(oneFig ? [] : [morphFig ? row('Panels', seg('figPanels', pk, [['R', 'Deformation'], ['both', 'Both'], ['L', 'Left']], (v) => set('mpanels', v), 'Panels')) : row('Panels', figPanelsSeg())]),
-          ...(morphFig ? [row('Time', seg('figTime', figOpt.upTo ? 'now' : 'end', [['end', 'Whole'], ['now', 'Up to t']], (v) => set('upTo', v === 'now'), 'Time'))] : []),
-          ...(morphFig ? [row('Paths', seg('figPaths', figPaths() ? 'on' : 'off', [['on', 'Arrows'], ['off', 'None']], (v) => set('paths', v === 'on'), 'Paths'))] : []),
-          row('Width', seg('figWidth', String(figOpt.width), [['3.4', 'Single column'], ['7', 'Double column']], (v) => set('width', +v), 'Width')),
-          row('Caption', seg('figCap', figOpt.caption ? 'in' : 'out', [['in', 'In the figure'], ['out', 'LaTeX only']], (v) => set('caption', v === 'in'), 'Caption')),
-          row('Format', seg('figFmt', figOpt.format, [['pdf', 'PDF'], ['svg', 'SVG'], ['png', 'PNG']], (v) => set('format', v), 'Format')),
-          note)),
-      h('div', { class: 'modal-foot' },
-        h('button', { class: 'btn', onclick: copyLatex }, 'Copy LaTeX figure'),
-        h('button', { class: 'btn', onclick: close }, 'Close'),
-        h('button', { class: 'btn primary', onclick: save }, 'Save figure')));
-    bg.append(m);
-    document.body.append(bg);
-    m.querySelector('.btn.primary').focus({ preventScroll: true });
-    setTimeout(rebuild, 30);
-    if (figOpt.format === 'pdf') pdfLib(); // fetched while the preview is typeset
+        if (fv) { const k = wpx / effW(side); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
+        if (o.T != null) { morph.T = o.T; morph.playing = false; }
+        if (wasDark) document.documentElement.setAttribute('data-theme', 'light');
+        readTheme();
+        TH.plane = '#ffffff'; TH.planeRGB = GLR.hexRGB('#ffffff');
+        artMode = true; printInk = o.ink || null; artLand = null; artLandBox = o.landBox || null;
+        cv = renderOff(side, wpx, hpx, dpr);
+      } finally {
+        artMode = false; printInk = null; artLandBox = null;
+        Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
+        morph.T = keep.T; morph.playing = keep.playing;
+        if (wasDark) { if (attr == null) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', attr); }
+        readTheme();
+        requestRender('L', 'R');
+      }
+      const land = artLand;
+      if (GLR.gpuDone) await GLR.gpuDone();
+      if (!alive()) return null;
+      const id = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, n = cv.width * cv.height, rgb = new Uint8Array(n * 3);
+      // flattened on white. An opaque pixel (nearly all of them) is copied: the formula gives the same bytes there, and
+      // the copy keeps this step short (the export dialog's preview: no main-thread task near 50 ms)
+      for (let i = 0; i < n; i++) {
+        const al = id[4 * i + 3];
+        if (al === 255) { rgb[3 * i] = id[4 * i]; rgb[3 * i + 1] = id[4 * i + 1]; rgb[3 * i + 2] = id[4 * i + 2]; continue; }
+        const a = al / 255; for (let c = 0; c < 3; c++) rgb[3 * i + c] = Math.round(id[4 * i + c] * a + 255 * (1 - a));
+      }
+      return { w: cv.width, h: cv.height, rgb, land };
+    } finally { smDropExport(gen); }
   }
+  // what the figure shows: the view's picture (merged-views.md: export follows the view)
+  function figViewKind() {
+    const main = S.view.main;
+    if (main === 'land' && lLand()) return 'land';
+    if (main === 'phase') return lColor() ? 'phase' : 'xyL';
+    if (morphOn()) return rImage() && !morphHasDeriv() ? 'morph' : 'xyR';
+    return 'xy';
+  }
+  const slugOf = (t) => String(t || '').normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  function figSceneName() {
+    // the file name comes from the English name in every language: an ASCII name that pdfLaTeX's \includegraphics takes
+    const ex = typeof currentExample === 'number' && EX[currentExample] ? enOf(EX[currentExample].name) : null;
+    const base = slugOf(ex) || slugOf(activeSteps().map((k) => S.steps[k - 1].type).slice(0, 2).join('-')) || 'plane';
+    const v = figViewKind();
+    return base + (v === 'phase' ? '-phase' : v === 'land' ? '-landscape' : v === 'morph' ? '-deformation' : '');
+  }
+  // the pieces of a caption, from the scene (figure.js writes the sentences)
+  // (o.letters: points named A, B, C... as the Homework figure names them)
+  function figCapParts(o = {}) {
+    const vis = S.shapes.filter((s) => s.visible !== false);
+    let pi = 0;
+    const shapeList = joinList(vis.map((s) => { const k = s.kind === 'point' ? pi : 0; const r = shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : s, k); if (s.kind === 'point') pi++; return r; }));
+    // the same list in the genitive ("the images of ..."): Russian needs the case, English is the same
+    let pg = 0;
+    const shapeListGen = joinList(vis.map((s) => { const k = s.kind === 'point' ? pg : 0; const r = shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : s, k, 'gen'); if (s.kind === 'point') pg++; return r; }));
+    const lv = panelVar('L'), Fname = S.focus === 0 ? 'F' : `f_{${S.focus}}`;
+    const Ftex = S.focus === 0 ? compositeTexShort() : (built[S.focus - 1] && !built[S.focus - 1].error ? built[S.focus - 1].tex({ s: lv, p: 4 }).s : null);
+    const formula = Ftex && Ftex.length < 240 ? inlineFrac(Ftex) : null;
+    // the deformation shown in one panel (Phase or Landscape of H_t): the picture is H_t at the current t
+    const hm = morphOn() && lPaintsF();
+    let hom = null;
+    if (morphOn()) { try { const m = morphLen(); hom = { T: morph.T, m, tex: captionLatex(morphHomSegs(m).segs) }; } catch (e) { hom = null; } }
+    return { shapeList, shapeListGen, nShapes: vis.length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
+      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: S.height, phase: lPhase(), dc: S.dc, sectors: S.sectors || 12, hm, hom, sheets: !!S.sheets };
+  }
+  const hueBytes = (t) => { // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
+    const deg = (((t * 360 - 180) % 360) + 360) % 360, f = deg / 30, i = Math.floor(f) % 12, u = f - Math.floor(f);
+    const a = GLR.hexRGB(WHEEL_STOPS[i]), b = GLR.hexRGB(WHEEL_STOPS[(i + 1) % 12]);
+    return a.map((x, j) => Math.round(255 * (x + (b[j] - x) * u)));
+  };
+  const viewBoxOf = (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return panelBox(side, effW(side), real.h > 20 ? real.h : other.h); };
+  Figure.attach({
+    h, openMenu, toast, copyText, saveFile, lsk,
+    soundDone: () => sndExportDone(), soundError: () => sndError(),
+    art: artRender,
+    state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
+    viewKind: figViewKind,
+    shapes: () => S.shapes.filter((s) => s.visible !== false),
+    F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
+    plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
+    homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
+    morphLen,
+    // L0: the z-plane's window (the shapes' own plane, also at a focused step)
+    screenBox: (side) => { if (side !== 'L0') return viewBoxOf(side); const v = S.srcView, w = effW('L'), hh = paneL.h > 20 ? paneL.h : paneR.h; return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s }; },
+    // a pane's view (centre, px per unit), for the export window of an unbounded set (independent of the pane's size)
+    viewOf: (side) => { const v = side === 'L0' ? S.srcView : side === 'L' ? leftView() : V.right; return { cx: v.cx, cy: v.cy, s: v.s }; },
+    landBox: () => landBox(),
+    paneAspect: (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return (real.h > 20 ? real.h : other.h) / effW(side); },
+    panelVar,
+    fname: () => (morphOn() ? 'H_t' : S.focus === 0 ? 'F' : `f_{${S.focus}}`),
+    formulaTex: () => figCapParts().formula,
+    formulaRaw: () => figCapParts().raw,
+    capParts: figCapParts,
+    segsTex: (segs) => captionLatex(segs),
+    sceneName: figSceneName,
+    sceneMeta: () => JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => ({ type: st.type, params: st.params, on: st.on !== false })), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)),
+    chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
+    legacyMorph: (o) => buildFigure({ panels: ['R'], widthIn: o.widthIn, caption: false, morph: true, paths: S.morphPaths !== false, alive: o.alive, lang: o.lang }),
+    hue: hueBytes,
+  });
   // what each lit lamp means, in LaTeX
   const BADGE_TEX = {
-    analytic: 'holomorphic at every point of its natural domain $D$',
-    entire: '$D = \\mathbb{C}$ and $F$ is holomorphic everywhere',
-    rational: 'agrees on $D$ with $P(z)/Q(z)$ for polynomials $P$ and $Q$',
-    polynomial: '$F$ is a polynomial in $z$',
-    mobius: '$F(z) = \\frac{az+b}{cz+d}$ with $ad - bc \\neq 0$',
-    proper: 'preimages of compact subsets of $\\mathbb{C}$ are compact in $D$, so $|F(z)| \\to \\infty$ as $z \\to \\partial D$ or $z \\to \\infty$',
-    homeo: 'injective and continuous on the open set $D$, hence a homeomorphism $D \\to F(D)$ by invariance of domain',
-    conformal: 'holomorphic and injective, hence a biholomorphism $D \\to F(D)$ with $F\' \\neq 0$',
+    analytic: $t('holomorphic at every point of its natural domain $D$'),
+    entire: $t('$D = \\mathbb{C}$ and $F$ is holomorphic everywhere'),
+    rational: $t('agrees on $D$ with $P(z)/Q(z)$ for polynomials $P$ and $Q$'),
+    polynomial: $t('$F$ is a polynomial in $z$'),
+    mobius: $t('$F(z) = \\frac{az+b}{cz+d}$ with $ad - bc \\neq 0$'),
+    proper: $t('preimages of compact subsets of $\\mathbb{C}$ are compact in $D$, so $|F(z)| \\to \\infty$ as $z \\to \\partial D$ or $z \\to \\infty$'),
+    homeo: $t('injective and continuous on the open set $D$, hence a homeomorphism $D \\to F(D)$ by invariance of domain'),
+    conformal: $t('holomorphic and injective, hence a biholomorphism $D \\to F(D)$ with $F\' \\neq 0$'),
   };
-  const BADGE_NAME_TEX = { mobius: 'M\\"obius' };
+  const BADGE_NAME_TEX = { mobius: $t('M\\"obius') };
   // a standalone LaTeX document: the composite map (constants that parse back exactly, non-principal branches
   // noted), every step, the natural domain, and the guaranteed properties (each implied by the chain)
   function latexDocument() {
     const act = activeSteps();
     const P = Funcs.composeProps(act.map((k) => built[k - 1].props));
     const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
-    const texF = exactTexF();
+    let texF = exactTexF();
     const rows = [], conds = [];
     CX.setTexExact(true);
     try {
       S.steps.forEach((st, i) => {
         const k = i + 1, b = built[i];
-        if (st.on === false) rows.push(`  w_{${k}} &= w_{${k - 1}} && \\text{(step ${k} bypassed)}`);
-        else if (b.error) rows.push(`  w_{${k}} &= w_{${k - 1}} && \\text{(step ${k} skipped: it has an error)}`);
+        if (st.on === false) rows.push($t('  w_{%{k}} &= w_{%{k2}} && \\text{(step %{k} bypassed)}', { k, k2: k - 1 }));
+        else if (b.error) rows.push($t('  w_{%{k}} &= w_{%{k2}} && \\text{(step %{k} skipped: it has an error)}', { k, k2: k - 1 }));
         else rows.push(`  w_{${k}} &= ${b.tex({ s: wvar(k - 1), p: 4 }).s} && \\text{(${(b.def ? b.def.label : st.type).replace(/[&%$#_{}~^\\]/g, '')})}`);
       });
       for (const k of act) { const b = built[k - 1]; if (b.domain) conds.push(b.domain(wvar(k - 1))); }
     } finally { CX.setTexExact(false); }
-    const deg = P.deg != null ? (P.degExact ? `, of degree ${P.deg}` : `, of degree at most ${P.deg}`) : '';
+    // (exact constants keep the point for copying; the Russian document prints them as 0{,}5, as its captions do)
+    if (I18N.lang === 'ru') { const dc = (t) => t.replace(/(\d)\.(\d)/g, '$1{,}$2'); texF = dc(texF); for (let i = 0; i < rows.length; i++) rows[i] = dc(rows[i]); for (let i = 0; i < conds.length; i++) conds[i] = dc(conds[i]); }
+    const deg = P.deg != null ? (P.degExact ? $t(', of degree {deg}', { deg: P.deg }) : $t(', of degree at most {deg}', { deg: P.deg })) : '';
     const lit = BADGES.filter(([k]) => words[k]), unlit = BADGES.filter(([k]) => !words[k]);
     const name = (k, n) => BADGE_NAME_TEX[k] || n;
     const out = [
-      '% Exported from Complex Map Workbench',
+      $t('% Exported from Complex Map Workbench'),
       '\\documentclass{article}',
+      // (Russian text needs Cyrillic fonts and hyphenation: DESIGN.md 5, tested with pdfLaTeX)
+      ...(I18N.lang === 'ru' ? ['\\usepackage{iftex}', '\\ifPDFTeX', '  \\usepackage[T2A]{fontenc}', '  \\usepackage[utf8]{inputenc}', '\\else', '  \\usepackage{fontspec}', '  \\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf,BoldItalicFont=cmunbi.otf]', '\\fi', '\\usepackage[russian]{babel}'] : []),
       '\\usepackage{amsmath,amssymb}',
       '\\begin{document}',
       '',
-      '\\section*{The map}',
+      $t('\\section*{The map}'),
       '\\[',
       `  ${texF}`,
       '\\]',
     ];
     if (S.steps.length) {
-      out.push('built step by step from $w_0 = z$, with $F(z) = w_{' + S.steps.length + '}$:', '\\begin{align*}', rows.join(' \\\\\n'), '\\end{align*}');
-    } else out.push('The chain is empty, so $F$ is the identity.');
-    out.push('', '\\section*{Natural domain}');
-    if (!conds.length) out.push(act.every((k) => built[k - 1].props.entire) ? '$D = \\mathbb{C}$.' : '$D$ is the set of $z$ at which every step is defined.');
-    else out.push('$D$ is the set of $z$ for which', '\\begin{itemize}', ...conds.map((c) => `  \\item $${c}$`), '\\end{itemize}', act.length > 1 ? 'where $w_k$ is the value after step $k$ and $w_0 = z$.' : '');
-    out.push('', '\\section*{Guaranteed properties}',
-      'Each property listed here is implied by the chain: every step has it and composition preserves it (a derivative step keeps the properties that differentiation preserves). The list is sound but not complete: a property that is not listed may still hold.');
+      out.push($t('built step by step from $w_0 = z$, with $F(z) = w_{%{n}}$:', { n: S.steps.length }), '\\begin{align*}', rows.join(' \\\\\n'), '\\end{align*}');
+    } else out.push($t('The chain is empty, so $F$ is the identity.'));
+    out.push('', $t('\\section*{Natural domain}'));
+    if (!conds.length) out.push(act.every((k) => built[k - 1].props.entire) ? '$D = \\mathbb{C}$.' : $t('$D$ is the set of $z$ at which every step is defined.'));
+    else out.push($t('$D$ is the set of $z$ for which'), '\\begin{itemize}', ...conds.map((c) => `  \\item $${c}$`), '\\end{itemize}', act.length > 1 ? $t('where $w_k$ is the value after step $k$ and $w_0 = z$.') : '');
+    out.push('', $t('\\section*{Guaranteed properties}'),
+      $t('Each property listed here is implied by the chain: every step has it and composition preserves it (a derivative step keeps the properties that differentiation preserves). The list is sound but not complete: a property that is not listed may still hold.'));
     if (lit.length) {
       out.push('\\begin{itemize}');
       for (const [k, n] of lit) out.push(`  \\item \\textbf{${name(k, n)}}${k === 'rational' || k === 'polynomial' ? deg : ''}: ${BADGE_TEX[k]}.`);
       out.push('\\end{itemize}');
-    } else out.push('', 'The chain guarantees none of the tracked properties.');
-    if (unlit.length) out.push('', `Not implied by the chain (they may still hold): ${unlit.map(([k, n]) => name(k, n).replace(/ onto image$/, ' onto its image')).join(', ')}.`);
+    } else out.push('', $t('The chain guarantees none of the tracked properties.'));
+    if (unlit.length) out.push('', $t('Not implied by the chain (they may still hold): {x}.', { x: unlit.map(([k, n]) => name(k, n).replace(/ onto image$/, ' onto its image')).map((x) => (I18N.lang === 'ru' ? x.replace(/^[А-ЯЁ]/, (c) => c.toLowerCase()) : x)).join(', ') }));
     out.push('', '\\end{document}', '');
-    return out.join('\n');
+    // Russian notation (tg, sh, ...) at the export boundary (DESIGN.md 6); English is unchanged
+    return I18N.notation(out.join('\n'));
   }
   function openExportMenu(anchor) {
     const items = [
-      { label: 'Figure for an article…', run: () => openFigureDialog() },
+      { label: $t('Export figure…'), key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
+      { label: $t('Copy figure again'), icon: 'copy', disabled: !Figure.settings().last, run: () => { Figure.again('copy').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
+      { label: $t('Save figure again'), save: true, disabled: !Figure.settings().last, run: () => { Figure.again('save').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
       'sep',
-      { label: 'Copy LaTeX with guarantees', icon: 'copy', run: () => { copyText(latexDocument()); toast('LaTeX copied: the map, its natural domain and its guarantees.'); } },
-      { label: 'Save LaTeX with guarantees (.txt)', run: () => saveFile('complex-map.txt', latexDocument()) },
+      { label: $t('Copy LaTeX with guarantees'), icon: 'copy', run: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); } },
+      { label: $t('Save LaTeX with guarantees (.txt)'), save: true, run: () => saveFile('complex-map.txt', latexDocument()) },
     ];
     // files cannot be offered in this view: only the copy remains
-    if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && /Save/.test(it.label)) it.disabled = true;
+    // (by a flag, not by the label: the label is translated)
+    if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
     openMenu(anchor, items);
   }
   function fillProps(act, P, words) {
@@ -9555,11 +9696,11 @@
     if (!long) TeX.set(E.ftex, PROPS.texF, true);
     for (const [k, t] of E.chain) TeX.set(t, `w_{${k}}=${built[k - 1].tex({ s: wvar(k - 1), p: 4 }).s}`);
     // count and warnings
-    const nOn = BADGES.filter(([k]) => words[k]).length, cnt = `${nOn} of ${BADGES.length}`;
+    const nOn = BADGES.filter(([k]) => words[k]).length, cnt = $t('{nOn} of {nBadges}', { nOn, nBadges: BADGES.length });
     if (E.count.textContent !== cnt) E.count.textContent = cnt;
     const warns = [];
-    S.steps.forEach((st, i) => { if (st.on !== false && built[i].error) warns.push(`Step ${i + 1} has an error and is skipped until fixed.`); });
-    if (P.constant) warns.push('A step is constant, so F is constant on D.');
+    S.steps.forEach((st, i) => { if (st.on !== false && built[i].error) warns.push($t('Step {x} has an error and is skipped until fixed.', { x: i + 1 })); });
+    if (P.constant) warns.push($t('A step is constant, so F is constant on D.'));
     const ws = warns.join('\n');
     if (E.warnSig !== ws) {
       E.warnSig = ws;
@@ -9571,21 +9712,21 @@
     for (const [key, name, desc] of BADGES) {
       const L = E.lamps[key], on = !!words[key];
       let q = '';
-      if (on && (key === 'rational' || key === 'polynomial') && P.deg != null) q = P.degExact ? `deg ${P.deg}` : `deg ≤ ${P.deg}`;
+      if (on && (key === 'rational' || key === 'polynomial') && P.deg != null) q = P.degExact ? $t('deg {n}', { n: P.deg }) : $t('deg ≤ {n}', { n: P.deg });
       if (L.q.textContent !== q) L.q.textContent = q;
       if (L.on === on) continue;
       const flash = L.on != null || (lastWords && lastWords[key] !== on);
       L.on = on;
       L.li.classList.toggle('on', on);
-      L.li.setAttribute('aria-label', `${name}: ${on ? 'guaranteed' : 'not guaranteed'}`);
-      L.desc.textContent = desc + (on ? '' : ' The chain does not imply this; it may still hold.');
+      L.li.setAttribute('aria-label', `${name}: ${on ? $t('guaranteed') : $t('not guaranteed')}`);
+      L.desc.textContent = desc + (on ? '' : $t(' The chain does not imply this; it may still hold.'));
       if (flash) { L.li.classList.remove('flash'); requestAnimationFrame(() => L.li.classList.add('flash')); }
     }
     lastWords = Object.fromEntries(BADGES.map(([k]) => [k, !!words[k]]));
     // natural domain
     if (E.domLbl) {
       const all = act.every((k) => built[k - 1].props.entire || built[k - 1].def.id === 'conj');
-      const t = all ? '<i>D</i> = ℂ' : 'Every <i>z</i> where each step is defined.';
+      const t = all ? '<i>D</i> = ℂ' : $t('Every <i>z</i> where each step is defined.');
       if (E.domLbl.dataset.v !== t) { E.domLbl.dataset.v = t; E.domLbl.innerHTML = t; }
     } else {
       let i = 0;
@@ -9599,7 +9740,7 @@
         const on = !!pr[key], td = cells[j];
         if (td.classList.contains(on ? 'y' : 'n')) return;
         td.classList.toggle('y', on); td.classList.toggle('n', !on);
-        td.firstChild.setAttribute('aria-label', on ? 'yes' : 'no');
+        td.firstChild.setAttribute('aria-label', on ? $t('yes') : $t('no'));
       });
     }
   }
@@ -9753,7 +9894,7 @@
     const up = (e) => { if (hold && e.pointerId === hold.id) endHold(); touches.delete(e.pointerId); onUp(pane, side, e); };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
@@ -10121,13 +10262,13 @@
   // the readout chip of a globe draft or edit: the set with its kind tag (panels.md 9.4: the kind change through ∞ is
   // visible as it happens), or the dimensions of other kinds
   function capSetHtml(s) {
-    const f = (x) => { const t = fmtR(x, 3); return (t.includes('.') && !t.includes('×') ? t.replace(/0+$/, '').replace(/\.$/, '') : t).replace(/^−0$/, '0'); };
+    const f = (x) => { const t = fmtR(x, 3); return (/[.,]/.test(t) && !t.includes('×') ? t.replace(/0+$/, '').replace(/[.,]$/, '') : t).replace(/^−0$/, '0'); };
     const zc = (c) => { const re = c[0], im = c[1]; if (Math.hypot(re, im) < 1e-12) return '<i>z</i>'; return `|<i>z</i> − (${fmtCxHtml(C(re, im), 3)})|`; };
     const tag = (t) => ` <span class="rk">[${t}]</span>`;
     if (s.kind === 'disc' || s.kind === 'circle') {
       const rel = s.kind === 'circle' ? '=' : s.complement ? '&gt;' : '&lt;';
       const lhs = Math.hypot(s.c[0], s.c[1]) < 1e-12 ? '|<i>z</i>|' : zc(s.c);
-      return `${lhs} ${rel} ${f(s.r)}${tag(s.kind === 'circle' ? 'circle' : s.complement ? 'complement of a disc' : 'disc')}`;
+      return `${lhs} ${rel} ${f(s.r)}${tag(s.kind === 'circle' ? 'circle' : s.complement ? $t('complement of a disc') : 'disc')}`;
     }
     if (s.kind === 'halfplane' || s.kind === 'line') {
       const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], l = Math.hypot(dx, dy) || 1, n = [-dy / l, dx / l], t = n[0] * s.a[0] + n[1] * s.a[1];
@@ -10525,6 +10666,7 @@
         const zz = snapZ(pane, z);
         const s = draft.shape;
         if (draft.kind === 'curve' || draft.kind === 'lasso') {
+          if (draft.kind === 'lasso' && !drag.target) sndMove(x, y, z, 'loop');
           const last = s.pts[s.pts.length - 1];
           const [lx, ly] = pane.w2sxy(last[0], last[1]);
           if (Math.hypot(lx - x, ly - y) >= 3) s.pts.push([z.re, z.im]);
@@ -10544,6 +10686,7 @@
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
       const z = pickLand(x, y);
+      sndMove(x, y, z, 'pointer');
       if (!z && !probe) return;
       probe = z;
       setReadouts(probe);
@@ -10566,6 +10709,7 @@
     if (side === 'L' && lGlobe()) {
       // the z-globe probes the point of the plane under the pointer (none off the globe)
       const z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
+      sndMove(x, y, z, 'pointer');
       if (!z && !probe) return;
       probe = z;
       setReadouts(probe);
@@ -10584,6 +10728,7 @@
       pane.setView(leftView());
       probe = pane.s2w(x, y);
       setReadouts(probe);
+      sndMove(x, y, probe, 'pointer');
       // the w-globe's probe ring and projection ray are drawn by GL with the globe
       requestRender('OL', 'OR', rGlobe() ? 'R' : null);
     } else {
@@ -10599,6 +10744,7 @@
       copyValue.R = w ? CX.fmt(w, 6).replace(/\s/g, '') : '';
       // (not while the plane shows a deformation: its points are no values of F)
       setHoverW(w && !morphOn() && !trans.k ? w : null);
+      if (w && tourL.probe) tourEmit('probe', { pane: 'R', w: [w.re, w.im] });
       requestRender('OL', 'OR');
     }
   }
@@ -10610,7 +10756,8 @@
     let t;
     if (ax === 0 || (ax >= 1e-3 && ax < 1e4)) t = x.toFixed(dp);
     else { const [m, e] = x.toExponential(2).split('e'); t = `${m}×10${String(+e).split('').map((d) => (d === '-' ? '⁻' : SUP[+d])).join('')}`; }
-    return t.replace('-', '−');
+    // display only (copied values use CX.fmt): the decimal comma in Russian (GLOSSARY 2.3)
+    return I18N.num(t.replace('-', '−'));
   }
   // fixed-width readout; a component that is rounding noise next to the other (9×10⁻¹⁷ + 1.5i) reads 0
   function fmtCxHtml(w, dp = 4) {
@@ -10633,7 +10780,7 @@
       legendNeedle = null; legendMod = null; requestRender('G');
       return;
     }
-    const degs = (a, dp) => fmtR(a / DEG, dp).replace(/0+$/, '').replace(/\.$/, '') + '°';
+    const degs = (a, dp) => fmtR(a / DEG, dp).replace(/0+$/, '').replace(/[.,]$/, '') + '°';
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
     // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
     // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
@@ -10664,12 +10811,12 @@
       // F' at the current probe (never a cached value from an earlier pointer position)
       const F = focusF(), hh = 1e-6 * Math.max(1, CX.abs(z));
       const d = CX.scale(CX.sub(F(C(z.re + hh, z.im)), F(C(z.re - hh, z.im))), 1 / (2 * hh));
-      const fd = CX.isFin(d) ? (CX.abs(d) < 1e-9 ? 'critical point' : `${fmtR(CX.abs(d))} ∠ ${fmtR(Math.atan2(d.im, d.re) / DEG).replace(/0+$/, '').replace(/\.$/, '')}°`) : '—';
+      const fd = CX.isFin(d) ? (CX.abs(d) < 1e-9 ? $t('critical point') : `${fmtR(CX.abs(d))} ∠ ${fmtR(Math.atan2(d.im, d.re) / DEG).replace(/0+$/, '').replace(/[.,]$/, '')}°`) : '—';
       let clamp = '';
       if (tool === 'select' && !morphOn() && CX.isFin(d) && paneL && paneR) {
         const rimg = CX.abs(d) * (10 / paneL.view.s) * V.right.s;
         const factor = rimg > 120 ? 120 / rimg : rimg < 3 && rimg > 0 ? 3 / rimg : 1;
-        if (factor !== 1) clamp = rk('gauge', '×' + CX.fmtNum(factor, 3));
+        if (factor !== 1) clamp = rk($t('gauge'), '×' + I18N.num(CX.fmtNum(factor, 3)));
       }
       ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`${fnHtml()}′`, fd) + clamp;
     } else {
@@ -10696,20 +10843,22 @@
     const el = $(side === 'L' ? 'leftReadout' : 'rightReadout');
     const v = copyValue[side];
     if (!v) return;
-    const done = () => { el.classList.add('copied'); el.innerHTML = rk('', 'Copied'); setTimeout(() => { el.classList.remove('copied'); setReadouts(probe); }, 900); };
+    const done = () => { el.classList.add('copied'); el.innerHTML = rk('', $t('Copied')); setTimeout(() => { el.classList.remove('copied'); setReadouts(probe); }, 900); };
     try { navigator.clipboard.writeText(v).then(done, done); } catch (e) { done(); }
   }
   function onUp(pane, side, e) {
     if (!drag) return;
     const d = drag;
     drag = null;
+    tourDragEnd(d);
     // a left-view change made during the press re-centres the meshing window now (gesture end)
     sourceViewChanged.flush();
     setCursor(pane, side);
     // a pan or an orbit that moved: the contextmenu that may follow its right-button release opens nothing
     if (/^(pan|orbit)/.test(d.mode)) lastPan = { t: performance.now(), moved: !!d.far };
+    if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved))) soundCue('snap');
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
-    if (d.mode === 'probe') { probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
@@ -10745,6 +10894,7 @@
         const span = Math.max(...hs.map((p) => CX.abs(CX.sub(p, hs[0]))));
         ok = span * pane.view.s > 4;
       }
+      if (kind === 'lasso' && !d.target) { if (ok) sndLoopDone(s.pts); else snd.loop = null; }
       if (ok) addShape(s, !!d.target); else requestRender('OL', 'OR');
     }
   }
@@ -10758,9 +10908,9 @@
 
   // ---------------- examples ----------------
   const EX = [
-    { name: 'Empty canvas', tex: '', blurb: 'No shapes and no functions: start from scratch.', view: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [] },
+    { name: $t('Empty canvas'), tex: '', blurb: $t('No shapes and no functions: start from scratch.'), view: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [] },
     {
-      name: 'Strip to disk', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: 'exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.', view: { cx: 0, cy: 0, s: 52 },
+      name: $t('Strip to disk'), tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
       shapes: [
         { kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' },
         { kind: 'line', a: [0, 0.8], b: [1, 0.8] },
@@ -10769,12 +10919,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: 'Quarter plane squared', tex: 'w=z^{2}', blurb: 'The first quadrant opens onto the upper half-plane; angles at 0 double.', view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: 'Joukowski airfoil', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: 'A circle through 1 becomes a wing with a sharp trailing edge.', view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -10783,54 +10933,54 @@
       steps: [{ type: 'joukowski', params: {} }],
     },
     {
-      name: 'Logarithm of an annulus', tex: 'w=\\log z', blurb: 'The annulus becomes a rectangle. Drag the red cut to move the seam.', view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Logarithm of an annulus'), tex: 'w=\\log z', blurb: $t('The annulus becomes a rectangle. Drag the red cut to move the seam.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }, { kind: 'circle', c: [0, 0], r: 1 }, { kind: 'segment', a: [0.5, 0.5], b: [1.5, 1.5] }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: 'Disk automorphism', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: 'A Möbius self-map of the disk, played as a deformation.', view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
       steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
     },
     {
-      name: 'Sine of a half-strip', tex: 'w=\\sin z', blurb: 'The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.', view: { cx: 0, cy: 1.25, s: 105 },
+      name: $t('Sine of a half-strip'), tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
       shapes: [{ kind: 'formula', expr: '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0' }, { kind: 'cgrid', a: [-1.5, 0], b: [1.5, 2.4], n: 6 }],
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: 'Square root and its sheets', tex: 'w=\\sqrt{z}', blurb: 'The slit plane maps onto a half-plane; change the sheet to flip it.', view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane; change the sheet to flip it.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: 'Cayley, then cube', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: 'Half-plane to disk, then the disk wraps around itself three times.', view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
     {
-      name: 'A formula in LaTeX', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: 'A custom step shown as a color plot: zeros at ±1, poles at ±i.', view: { cx: 0, cy: 0, s: 80 },
+      name: $t('A formula in LaTeX'), tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: 'Roots as preimages', tex: 'z^{3}-1=0', blurb: 'The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.', view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: 'A residue by integration', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: 'Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.', view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
     {
-      name: 'The derivative in the chain', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: 'A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.', view: { cx: 0, cy: 0, s: 80 },
+      name: $t('The derivative in the chain'), tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: 'Every sheet of the logarithm', tex: 'w=\\log z', blurb: 'Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.', view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Every sheet of the logarithm'), tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -10840,12 +10990,13 @@
   let currentExample = -1;
   // a first visit opens a worked example, not the empty canvas listed first
   const firstExample = () => Math.max(0, EX.findIndex((e) => e.shapes.length && e.steps.length));
-  function loadExample(i) {
-    const ex = EX[i];
+  function loadExample(i, spec) {
+    const ex = spec || EX[i];
     if (!ex) return;
-    currentExample = i;
+    // (a tour scene, spec, leaves the Examples label and currentExample alone)
+    if (!spec) currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
-    if (xl) xl.textContent = ex.name;
+    if (xl && !spec) xl.textContent = ex.name;
     S.shapes = []; S.steps = [];
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
@@ -10953,7 +11104,7 @@
       return { b, img, i };
     });
     closePalette();
-    const pop = h('div', { class: 'pop menu examples', role: 'menu', 'aria-label': 'Examples' }, ...items.map((x) => x.b));
+    const pop = h('div', { class: 'pop menu examples', role: 'menu', 'aria-label': $t('Examples') }, ...items.map((x) => x.b));
     $('popHost').append(pop);
     popEl = pop;
     placePop(pop, anchor);
@@ -10989,9 +11140,9 @@
     void getComputedStyle(body).color;
     body.classList.remove('no-trans');
     const b = $('themeBtn');
-    const name = { auto: 'Auto', light: 'Light', dark: 'Dark' }[t];
+    const name = { auto: $t('Auto'), light: $t('Light'), dark: $t('Dark') }[t];
     if (b) {
-      b.setAttribute('data-tip', `Theme: ${name}`); b.setAttribute('aria-label', `Theme: ${name}`); b.removeAttribute('title');
+      b.setAttribute('data-tip', $t('Theme: {name}', { name })); b.setAttribute('aria-label', $t('Theme: {name}', { name })); b.removeAttribute('title');
       const tl = b.querySelector('.tlabel'); if (tl) tl.textContent = name; // the markup already reads "Theme: "
     }
   }
@@ -11025,43 +11176,45 @@
     const m = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'guideTitle' });
     const k = (t) => t.split(' ').map((x) => `<span class="kbd">${x}</span>`).join(' ');
     const keys = [
-      [k('V'), 'Select and move shapes'], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, 'Point, segment, line, ray'],
-      [`${k('C')} ${k('A')} ${k('F')}`, 'Circle, arc, freehand'], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, 'Disc, rectangle, polygon, lasso'],
-      [`${k('H')} ${k('N')} ${k('K')}`, 'Half-plane, annulus, sector'], [k('T'), 'Type a region formula'],
-      [`${k(mod.trim() + ' K')}`, 'Command palette'], [k('+'), 'Add a function'],
-      [`${k('1')} ${k('2')} ${k('3')}`, 'View: X → Y, Phase, Landscape'], [k('M'), 'Deformation on or off, in every view'], [k('P'), 'Deformation: paths on or off (in X → Y; else the Point tool)'],
-      [`${k('⇧ 1')} ${k('⇧ 2')}`, 'Plane, Sphere of X (in Phase: of the portrait)'], [`${k('⇧ 3')} ${k('⇧ 4')}`, 'Plane, Sphere of Y'], [k('Z'), 'Fit both planes'],
-      [`${k('[')} ${k(']')}`, 'Hide or show the side panels'], [k('?'), 'This guide'],
-      [k('Delete'), 'Remove the selected shape'], [k('Esc'), 'Cancel a drawing or close a popover'],
-      [k('Enter'), 'Close a polygon'], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, 'Undo, redo'],
+      [k('V'), $t('Select and move shapes')], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, $t('Point, segment, line, ray')],
+      [`${k('C')} ${k('A')} ${k('F')}`, $t('Circle, arc, freehand')], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, $t('Disc, rectangle, polygon, lasso')],
+      [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
+      [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
+      [`${k('1')} ${k('2')} ${k('3')}`, $t('View: X → Y, Phase, Landscape')], [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
+      [`${k('⇧ 1')} ${k('⇧ 2')}`, $t('Plane, Sphere of X (in Phase: of the portrait)')], [`${k('⇧ 3')} ${k('⇧ 4')}`, $t('Plane, Sphere of Y')], [k('Z'), $t('Fit both planes')],
+      [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
+      [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
+      [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];
     m.innerHTML = `
-      <div class="modal-head"><svg viewBox="0 0 28 28" width="28" height="28" aria-hidden="true" class="mark">${(document.querySelector('header svg.mark') || { innerHTML: '' }).innerHTML}</svg><h2 id="guideTitle">Using the Workbench</h2></div>
-      <p>Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the input of the focused step (the domain), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.</p>
-      <h3>Regions</h3>
-      <p>Draw with the tools on the left, or type a set such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.</p>
-      <h3>Function chain</h3>
-      <p>Add a step with ${k('+')}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to focus it. <i>f</i><sup>−1</sup> replaces a step by its inverse, the jumper bypasses it, and the ⋯ menu moves, duplicates or removes it. Drag a card's header onto a connector to reorder.</p>
-      <p><b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.</p>
-      <h3>Branch cuts</h3>
-      <p>Logarithms, roots and complex powers cut along a ray from 0. Focus the step and drag the seam's handle in the input plane; it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number picks the branch.</p>
-      <p><i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else focus the step): drag them, Shift-click to add a zero, Shift-⌘-click (Shift-Ctrl) to add a pole, and drag one off the plane or select it and press Delete to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.</p>
-      <h3>Views</h3>
-      <p>The switch in the middle of the top bar picks the view (${k('1')} ${k('2')} ${k('3')}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch (${k('⇧ 1')} ${k('⇧ 2')} for the left pane, ${k('⇧ 3')} ${k('⇧ 4')} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.</p>
-      <h3>Deformation</h3>
-      <p><b>Deformation</b> in the top bar (${k('M')}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> (${k('P')}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.</p>
-      <h3>Preimages and roots</h3>
-      <p>Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.</p>
-      <h3>Inverses and derivatives</h3>
-      <p><i>f</i><sup>−1</sup> on a card replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the button says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the palette as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.</p>
-      <h3>Integrals</h3>
-      <p>Right-click a curve or a region's boundary (a long press on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.</p>
-      <h3>Guarantees</h3>
-      <p>The lamps on the right are lit only when every step has the property and composition preserves it, so a lit lamp is always true. An unlit lamp means the chain does not imply it, not that it fails.</p>
-      <h3>Keys</h3>
-      <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
+      <div class="modal-head"><svg viewBox="0 0 28 28" width="28" height="28" aria-hidden="true" class="mark">${(document.querySelector('header svg.mark') || { innerHTML: '' }).innerHTML}</svg><h2 id="guideTitle">${$t('Using the Workbench')}</h2></div>
+      <p>${$t(`Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the input of the focused step (the domain), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.`)}</p>
+      <h3>${$t(`Regions`)}</h3>
+      <p>${$t(`Draw with the tools on the left, or type a set such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.`)}</p>
+      <h3>${$t(`Function chain`)}</h3>
+      <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to focus it. <i>f</i><sup>−1</sup> replaces a step by its inverse, the jumper bypasses it, and the ⋯ menu moves, duplicates or removes it. Drag a card's header onto a connector to reorder.`, { x: k('+') })}</p>
+      <p>${$t(`<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.`)}</p>
+      <h3>${$t(`Branch cuts`)}</h3>
+      <p>${$t(`Logarithms, roots and complex powers cut along a ray from 0. Focus the step and drag the seam's handle in the input plane; it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number picks the branch.`)}</p>
+      <p>${$t(`<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else focus the step): drag them, Shift-click to add a zero, Shift-⌘-click (Shift-Ctrl) to add a pole, and drag one off the plane or select it and press Delete to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.`)}</p>
+      <h3>${$t(`Views`)}</h3>
+      <p>${$t(`The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`, { x: k('1'), x2: k('2'), x3: k('3'), x4: k('⇧ 1'), x5: k('⇧ 2'), x6: k('⇧ 3'), x7: k('⇧ 4') })}</p>
+      <h3>${$t(`Deformation`)}</h3>
+      <p>${$t(`<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.`, { x: k('M'), x2: k('P') })}</p>
+      <h3>${$t(`Preimages and roots`)}</h3>
+      <p>${$t(`Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.`)}</p>
+      <h3>${$t(`Inverses and derivatives`)}</h3>
+      <p>${$t(`<i>f</i><sup>−1</sup> on a card replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the button says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the palette as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.`)}</p>
+      <h3>${$t(`Integrals`)}</h3>
+      <p>${$t(`Right-click a curve or a region's boundary (a long press on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`)}</p>
+      <h3>${$t(`Sound`)}</h3>
+      <p>${$t(`<b>Sound</b> in the top bar ({x}) is off until you turn it on; the setting stays on this device. Its caret sets the volume and what you hear: the interface, mathematical events (the deformation, a closed loop's winding number), and <b>Hear the function under the pointer</b>, a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L') })}</p>
+      <h3>${$t(`Guarantees`)}</h3>
+      <p>${$t(`The lamps on the right are lit only when every step has the property and composition preserves it, so a lit lamp is always true. An unlit lamp means the chain does not imply it, not that it fails.`)}</p>
+      <h3>${$t(`Keys`)}</h3>
+      <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
-    m.append(h('div', { class: 'modal-foot' }, h('button', { class: 'btn primary', onclick: close }, 'Close')));
+    m.append(h('div', { class: 'modal-foot' }, h('button', { class: 'btn primary', onclick: close }, $t('Close'))));
     bg.append(m);
     document.body.append(bg);
     m.querySelector('.btn.primary').focus({ preventScroll: true });
@@ -11069,16 +11222,16 @@
 
   // ---------------- left-panel display controls ----------------
   const PATTERNS = [
-    ['checker', 'Checker', 'Checkerboard in z-coordinates: shows how squares are bent and scaled'],
-    ['polar', 'Log-polar', 'Checkerboard in log|z| and arg z: conformal maps keep these cells square'],
-    ['tiles', 'Tiles', 'Tiles with an F glyph: shows rotation, scaling and reflection'],
-    ['grid', 'Grid', 'Cartesian grid lines of z carried by the map'],
-    ['polargrid', 'Polar grid', 'Circles |z| = const and rays arg z = const carried by the map'],
-    ['phase', 'Arg z', 'Colored by the argument of the source point z'],
-    ['stretch', 'Stretch', 'Local scale factor |F′(z)|: blue shrinks, amber grows'],
+    ['checker', $t('Checker'), $t('Checkerboard in z-coordinates: shows how squares are bent and scaled')],
+    ['polar', $t('Log-polar'), $t('Checkerboard in log|z| and arg z: conformal maps keep these cells square')],
+    ['tiles', $t('Tiles'), $t('Tiles with an F glyph: shows rotation, scaling and reflection')],
+    ['grid', $t('Grid'), $t('Cartesian grid lines of z carried by the map')],
+    ['polargrid', $t('Polar grid'), $t('Circles |z| = const and rays arg z = const carried by the map')],
+    ['phase', $t('Arg z'), $t('Colored by the argument of the source point z')],
+    ['stretch', $t('Stretch'), $t('Local scale factor |F′(z)|: blue shrinks, amber grows')],
     // (the count follows the pattern size: sphN() longitude cells by sphN() / 2 latitude cells, 128 at size ×1)
-    ['sphere', 'Sphere checker', () => `Longitude and latitude cells of the Riemann sphere: ${sphN() * sphN() / 2} cells cover the plane and ∞`],
-    ['solid', 'Solid', 'Flat fill'],
+    ['sphere', $t('Sphere checker'), () => $tn('Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞', 'Longitude and latitude cells of the Riemann sphere: {n} cells cover the plane and ∞', sphN() * sphN() / 2)],
+    ['solid', $t('Solid'), $t('Flat fill')],
   ];
   // live swatches (spec 6.4) in the first shape color's tokens (c0, alt, edge): the accent stays for the selection
   // ring, Stretch uses the stretch tokens (no red) and Phase the OKLCH wheel of the Phase tab
@@ -11180,7 +11333,7 @@
     $('chevChk').checked = !!S.chev;
     $('unitChk').checked = S.unit !== false;
     $('alphaRange').value = S.alpha;
-    $('alphaVal').textContent = S.alpha.toFixed(2);
+    $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
     for (const r of document.querySelectorAll('input[type=range]')) paintFader(r);
   }
   // filled part of a fader track (CSS reads --fill)
@@ -11197,6 +11350,7 @@
       if (!hideL && S.hideLeft) hideR = true;
       else if (!hideR && S.hideRight) hideL = true;
     }
+    if (sndP.on && (!!hideL !== !!S.hideLeft || !!hideR !== !!S.hideRight)) sndToggleCue(!(hideL && hideR) && (!hideL && S.hideLeft || !hideR && S.hideRight));
     S.hideLeft = !!hideL; S.hideRight = !!hideR;
     // only a choice made where the panel docks is the user's preference; drawers are run-time state
     if (!isDrawer('L')) dockPref.L = S.hideLeft;
@@ -11235,7 +11389,7 @@
       const b = $(id);
       b.hidden = !!mg;
       b.setAttribute('aria-pressed', String(S.solo === w));
-      b.setAttribute('data-tip', S.solo === w ? 'Show both planes' : 'Expand plane'); b.removeAttribute('title');
+      b.setAttribute('data-tip', S.solo === w ? $t('Show both planes') : $t('Expand plane')); b.removeAttribute('title');
       b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
     }
     if (mg !== layoutMg || one !== layoutOne) { layoutMg = mg; layoutOne = one; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
@@ -11295,10 +11449,10 @@
   // and the Deformation toggle (M), which modifies the active view. The preimages and the integrals are parts of every
   // view.
   const SURF = {
-    L: [['plane', 'Plane', '⇧1'], ['sphere', 'Sphere', '⇧2']],
-    R: [['plane', 'Plane', '⇧3'], ['sphere', 'Sphere', '⇧4']],
+    L: [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']],
+    R: [['plane', $t('Plane'), '⇧3'], ['sphere', $t('Sphere'), '⇧4']],
   };
-  const MAINS = [['xy', 'X → Y', '1', '<i>X</i><span class="arr"> → </span><i>Y</i>'], ['phase', 'Phase', '2', 'Phase'], ['land', 'Landscape', '3', 'Landscape']];
+  const MAINS = [['xy', 'X → Y', '1', '<i>X</i><span class="arr"> → </span><i>Y</i>'], ['phase', $t('Phase'), '2', $t('Phase')], ['land', $t('Landscape'), '3', $t('Landscape')]];
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
@@ -11323,6 +11477,7 @@
   function setMain(main) {
     if (!Views.MAIN.includes(main) || S.view.main === main) return;
     const from = S.view.main;
+    soundCue('view', { k: Views.MAIN.indexOf(main) });
     if (main !== 'land' && (main === 'phase' ? S.view.P.surf : S.view.L.surf) === 'sphere') prestartGlobe();
     cancelTweens();
     viewMem[from] = { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left), leftAuto, camL: camKeys(camL) };
@@ -11338,6 +11493,7 @@
     applyLayout();
     buildShapeList();
     updateFocusUI(); scheduleFix(); requestRender('L', 'R', 'OL', 'OR'); save();
+    tourEmit('view-changed', { main });
   }
   // U-b's Phase toggle, kept for the test hooks: on, the Phase view on X's surface; off, X → Y on the phase panel's
   function setPhase(on) {
@@ -11369,13 +11525,13 @@
     setSeg($('rightTabs'), S.view.R.surf);
     // the landscape is its own surface: no Plane | Sphere in its head
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
-    if (lt) { const al = main === 'phase' ? 'Phase portrait surface' : 'Left pane surface'; if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
+    if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
     // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
     for (const b of lt ? lt.children : []) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
     // the view names the map in focus (P13)
     const vs = $('viewSwitch');
     if (vs) for (const b of vs.children) {
-      const F = fnText(), tip = { xy: `X → Y: the shapes and their images  1`, phase: `Phase portrait of ${F}  2`, land: `Landscape of ${F}  3` }[b.dataset.mode];
+      const F = fnText(), tip = { xy: $t(`X → Y: the shapes and their images  1`), phase: $t('Phase portrait of {F}  2', { F }), land: $t('Landscape of {F}  3', { F }) }[b.dataset.mode];
       if (b.dataset.tip !== tip) b.dataset.tip = tip;
     }
     // the Deformation toggle: pressed while the transport is open; with no active step it explains instead of acting
@@ -11384,7 +11540,7 @@
       const can = morphRange().steps.length > 0;
       mb.setAttribute('aria-pressed', String(!!morph.open));
       mb.setAttribute('aria-disabled', String(!can && !morph.open));
-      const tip = !can && !morph.open ? (S.focus > 0 ? 'This step is off: turn it on to deform' : 'Add a function to deform') : morph.open ? 'Close the deformation  M' : `Deformation of ${S.focus > 0 ? fnText() : 'F'}  M`;
+      const tip = !can && !morph.open ? (S.focus > 0 ? $t('This step is off: turn it on to deform') : $t('Add a function to deform')) : morph.open ? $t('Close the deformation  M') : $t('Deformation of {F}  M', { F: S.focus > 0 ? fnText() : 'F' });
       if (mb.dataset.tip !== tip) mb.dataset.tip = tip;
     }
   }
@@ -11574,7 +11730,7 @@
       const el = findByKey(lastFocus.key);
       if (el && el.getClientRects().length) el.focus({ preventScroll: true });
     });
-    for (const id of ['shapeList', 'pipeline', 'patternSeg', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools', 'emptyState']) {
+    for (const id of ['shapeList', 'pipeline', 'patternSeg', 'leftFoot', 'rightFoot', 'leftTabs', 'rightTabs', 'chainMode', 'propsPanel', 'tools']) {
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }
@@ -11600,7 +11756,7 @@
   // undoable action, undo or redo dismisses it
   function undoToast(msg) {
     const at = hi;
-    toast(msg, 'Undo', () => { if (hi === at) $('undoBtn').click(); }, true);
+    toast(msg, $t('Undo'), () => { if (hi === at) $('undoBtn').click(); }, true);
   }
   function dismissUndoToast() {
     const host = $('toastHost');
@@ -11616,10 +11772,650 @@
     let left = 5000, t0 = performance.now(), timer = setTimeout(() => t.remove(), left);
     t.addEventListener('pointerenter', () => { clearTimeout(timer); left -= performance.now() - t0; });
     t.addEventListener('pointerleave', () => { t0 = performance.now(); timer = setTimeout(() => t.remove(), Math.max(800, left)); });
+    return t;
+  }
+
+  // ---------------- sound (notes/sound/DESIGN.md §2 and §4.1; the engine is src/sound.js) ----------------
+  // Off by default, and free while off: every hook returns on one flag (sndP.on) before any work, and the engine
+  // creates nothing (no AudioContext) until the user turns sound on. The settings live in lsk('cmw-sound') (the
+  // engine's own key), never in S, a saved session or a shared link. Three tiers: Interface (controls you operate),
+  // Mathematical events (things you start), Hear the function under the pointer (opt-in: the probe below).
+  const SND = typeof Sound !== 'undefined' ? Sound : null;
+  let sndP = SND ? SND.prefs() : { on: false, vol: 0.7, ui: false, snap: false, events: false, sonify: false };
+  const snd = {
+    voice: null, kind: '', last: null, g: null, phi: 0, fKey: '', vKey: '', gestT: -1e9, near: 0, idleT: 0, sleepT: 0,
+    perEval: 0.002, loop: null, lastLoop: null, play: null, auto: false, morphArm: false, kz: null, kloop: null, lm: -1,
+    lms: null, lmKey: '', annT: 0, collide: '', tracker: false, ptrT: -1e9, kbd: false, px: null,
+  };
+  const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
+  const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
+  const sndClamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const sndOk = (w) => !!w && CX.isFin(w) && (w.re !== 0 || w.im !== 0);
+  function soundCue(name, o) { if (sndP.on && SND) SND.play(name, o || {}); }
+  // the "export ready" cue in one place: the save and copy successes call it (the export dialog is being rebuilt)
+  function sndExportDone() { soundCue('exportDone'); }
+  // with a toast that reports a failure, never instead of it
+  function sndError() { soundCue('error'); }
+  const sndToggleCue = (on) => soundCue(on ? 'toggleOn' : 'toggleOff');
+  // short messages only, through one polite region (the result panels are not live regions)
+  function sndSay(s) { const el = $('sndLive'); if (el) el.textContent = s; }
+  function soundToggle() { if (!SND) return; SND.toggle(); sndSay(SND.prefs().on ? $t('Sound on.') : $t('Sound off.')); }
+  // Hear the function under the pointer: from the palette it also turns sound on
+  function soundHear() {
+    if (!SND) return;
+    const on = !(sndP.on && sndP.sonify);
+    if (on && !sndP.on) SND.set({ on: true, sonify: true }); else { SND.set({ sonify: on }); sndToggleCue(on); }
+    sndSay(on ? $t('Hear the function on: hover a plane.') : $t('Hear the function off.'));
+  }
+  // Esc (after the dispatcher's own Esc handling) and "Stop sound": everything playing stops now; the setting stays
+  function soundStop() {
+    if (!SND || !sndP.on) return;
+    sndStopPlay(false);
+    SND.hush();
+    if (snd.voice) snd.voice.gate(false, undefined, 0.01);
+  }
+  function sndSync(s) {
+    sndP = s;
+    const on = !!s.on;
+    for (const id of ['soundBtn', 'soundPh']) {
+      const b = $(id);
+      if (!b) continue;
+      if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
+      const ic = b.querySelector('.snd-ic');
+      if (ic && ic.dataset.on !== String(on)) { ic.dataset.on = String(on); ic.innerHTML = on ? SND_ICON_ON : SND_ICON_OFF; }
+    }
+    const ph = $('soundPh'); if (ph && ph.hidden === on) ph.hidden = !on;
+    const top = $('top'); if (top) top.dataset.snd = on ? 'on' : 'off';
+    const set = (id, k, v) => { const e = $(id); if (e && e[k] !== v) e[k] = v; };
+    set('sndOn', 'checked', on); set('sndVol', 'value', String(Math.round(s.vol * 100)));
+    const vo = $('sndVolOut'); if (vo) vo.textContent = Math.round(s.vol * 100) + ' %';
+    set('sndUi', 'checked', !!s.ui); set('sndSnap', 'checked', !!s.snap); set('sndSnap', 'disabled', !s.ui);
+    set('sndEv', 'checked', !!s.events); set('sndSo', 'checked', !!s.sonify);
+    set('sndOffNote', 'hidden', on);
+    const st = $('sndState');
+    if (st) {
+      const lat = s.latency ? $t(' · {ms} ms', { ms: Math.round(s.latency * 1000) }) : '';
+      st.textContent = !s.supported ? $t('Audio engine: Web Audio is not available here')
+        : s.audio === 'none' ? (on ? $t('Audio engine: starts with your next click or key') : $t('Audio engine: not started'))
+          : $t('Audio engine: {audio}{choice}{lat}{choice2}{choice3}', { audio: $tx('audio', s.audio), choice: s.rate ? ' · ' + I18N.num(s.rate / 1000) + $t(' kHz') : '', lat, choice2: s.engine && s.engine !== 'none' ? ' · ' + $tx('audio', s.engine) : '', choice3: s.remembered ? '' : $t(' · settings not saved here') });
+    }
+    // the keyboard probe: the X plane takes the focus while sound is on
+    if (paneL) {
+      const cv = paneL.ocanvas;
+      if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown ArrowLeft ArrowRight Z O D Enter L'); }
+      else if (!on && cv.hasAttribute('tabindex')) { cv.removeAttribute('tabindex'); cv.removeAttribute('aria-keyshortcuts'); }
+    }
+    if (!(on && s.sonify)) sndVoiceOff(true);
+    if (!(on && s.events)) sndStopPlay(false);
+  }
+  function sndInit() {
+    if (!SND) { for (const id of ['soundBtn', 'soundMore']) { const b = $(id); if (b) b.hidden = true; } return; }
+    snd.tracker = !!(typeof Calc !== 'undefined' && Calc.argStep && Calc.orderAt);
+    SND.subscribe(sndSync); sndSync(SND.state());
+    $('soundBtn').addEventListener('click', soundToggle);
+    $('soundPh').addEventListener('click', soundToggle);
+    const pop = $('sndPop'), more = $('soundMore');
+    const openPop = (on) => {
+      pop.hidden = !on; more.setAttribute('aria-expanded', String(on));
+      if (!on) return;
+      // under its caret on a desktop; across the phone (CSS) when the caret sat in the More menu
+      const r = more.getBoundingClientRect();
+      if (r.width > 0 && window.innerWidth >= 768) { pop.style.top = Math.round(r.bottom + 6) + 'px'; pop.style.right = Math.max(12, Math.round(window.innerWidth - r.right)) + 'px'; }
+      else { pop.style.top = ''; pop.style.right = ''; }
+      $('sndOn').focus({ preventScroll: true });
+    };
+    more.addEventListener('click', () => openPop(pop.hidden));
+    document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('#soundMore'))) openPop(false); }, true);
+    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); openPop(false); more.focus(); } });
+    $('sndOn').addEventListener('change', (e) => { SND.set({ on: e.target.checked }); sndSay(e.target.checked ? $t('Sound on.') : $t('Sound off.')); });
+    $('sndVol').addEventListener('input', (e) => SND.set({ vol: +e.target.value / 100 }));
+    $('sndVol').addEventListener('change', () => SND.play('toggleOn', { force: true, audition: true }));
+    for (const [id, k] of [['sndUi', 'ui'], ['sndSnap', 'snap'], ['sndEv', 'events'], ['sndSo', 'sonify']]) $(id).addEventListener('change', (e) => { SND.set({ [k]: e.target.checked }); sndToggleCue(e.target.checked); });
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('sndIos').hidden = false;
+    // the keyboard probe on the X plane (focusable while sound is on), only when the plane got the focus from the
+    // keyboard: after a click in it, V, L, D, O, Z … stay the tool and fit shortcuts
+    paneL.ocanvas.addEventListener('pointerdown', () => { snd.ptrT = performance.now(); snd.kbd = false; }, true);
+    paneL.ocanvas.addEventListener('focus', () => { snd.kbd = performance.now() - snd.ptrT > 400; });
+    paneL.ocanvas.addEventListener('keydown', sndKey);
+    paneL.ocanvas.addEventListener('blur', () => { snd.kbd = false; if (snd.kz && !snd.kloop) { snd.kz = null; probe = null; setReadouts(null); sndRender(); sndVoiceOff(false); } });
+    // a wheel zoom moves the plane under a still pointer: probe-driven event cues wait 250 ms (pans, pinches, orbits
+    // and tweens are caught by the view key in sndHover)
+    for (const p of [paneL, paneR]) p.ocanvas.addEventListener('wheel', () => { if (sndP.on) snd.gestT = performance.now(); }, { passive: true });
+  }
+  const sndRender = () => requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null);
+
+  // ---- Mathematical events: the deformation ----
+  // the swell once per play the user starts, the arrival once per such play (never on loop repeats)
+  function sndMorphStart() { if (!sndP.on || !SND) return; snd.morphArm = true; SND.play('morphStart', {}); }
+  function sndMorphArrive() { if (!snd.morphArm) return; snd.morphArm = false; soundCue('morphEnd'); }
+  // scrubbing: a detent at each 0.05 of t / morphLen(); t = 0, ¼, ½, ¾, 1 are pitched and never dropped
+  function sndScrub(T0, T1) {
+    if (!sndP.on || !sndP.events || !SND) return;
+    const m = morphLen() || 1, d0 = Math.round(T0 / m * 20), d1 = Math.round(T1 / m * 20);
+    if (d1 !== d0) SND.play('morphTick', { t: d1 / 20, force: d1 % 5 === 0 });
+  }
+
+  // ---- Hear the function under the pointer ----
+  // the painted function at a point of the X plane (H_t while the deformation is open), as the readouts show it
+  const sndF = () => { const hv = homView(); return hv ? hv.F : focusF(); };
+  const sndFKey = () => `${chainSig[nSteps()]}|${S.focus}|${morph.open ? morph.T : '-'}|${S.view.main}|${S.homAll ? 1 : 0}`;
+  function sndVKey() {
+    if (lLand() || lGlobe()) { const c = camOf('L'); return c ? `${c.yaw}|${c.pitch}|${c.dist}|${c.tx}|${c.ty}` : ''; }
+    const v = leftView(); return `${v.cx}|${v.cy}|${v.s}`;
+  }
+  function sndVoice(kind) {
+    if (snd.voice && snd.kind !== kind) { snd.voice.stop(); snd.voice = null; }
+    if (!snd.voice) { snd.voice = kind === 'height' ? SND.heightVoice() : SND.voice(); snd.kind = kind; }
+    return snd.voice;
+  }
+  function sndVoiceOff(release) {
+    clearTimeout(snd.idleT);
+    if (snd.voice) {
+      if (release) { clearTimeout(snd.sleepT); snd.voice.stop(); snd.voice = null; }
+      else { snd.voice.gate(false); clearTimeout(snd.sleepT); snd.sleepT = setTimeout(() => { if (snd.voice && !snd.loop) { snd.voice.stop(); snd.voice = null; } }, 6000); }
+    }
+    snd.last = null; snd.near = 0;
+  }
+  // the hover paths of onMove: z under the pointer (x: its CSS px in the X pane); src 'pointer' | 'loop' | 'key'.
+  // A playback ("listen along") ends when the pointer moves more than 4 px.
+  function sndMove(x, y, z, src) {
+    if (!sndP.on) return;
+    const p = snd.play;
+    if (src !== 'key') snd.px = [x, y];
+    if (p && src !== 'key') { if (!p.from) p.from = [x, y]; if (Math.hypot(x - p.from[0], y - p.from[1]) <= 4) return; sndStopPlay(true); }
+    if (src === 'loop' && !snd.loop && sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
+    if (z) sndHover(z, x, src); else sndHoverOff();
+  }
+  function sndHoverOff() {
+    if (!sndP.on || !SND) return;
+    if (snd.loop && snd.loop.live && drag && drag.mode === 'draw') return;
+    snd.loop = null; snd.collide = '';
+    sndVoiceOff(false);
+  }
+  // The probe (DESIGN §2.4, §2.5): arg F tracked exactly along the pointer's segment (Calc.argStep), so the voice's
+  // pitch class never runs backwards and a loop's turns ring as bells; a branch cut is a tracker that cannot converge
+  // while F stays finite and non-zero. Within a per-event budget of calls of F (about 3 ms, from the measured cost of
+  // a call): when it runs out the voice holds and no cue fires. Event cues are suppressed during and 250 ms after a
+  // view gesture and while the deformation plays (the z under the pointer changes without the pointer moving).
+  function sndHover(z, px, src) {
+    if (!sndP.on || !sndP.sonify || !SND || !snd.tracker || !z) return;
+    const t0 = performance.now();
+    const F = sndF(), fk = sndFKey(), vk = sndVKey();
+    const pan = sndClamp(0.4 * (2 * px / Math.max(1, paneL.w) - 1), -0.4, 0.4);
+    if (vk !== snd.vKey) { if (snd.vKey) snd.gestT = t0; snd.vKey = vk; snd.last = null; }
+    if (fk !== snd.fKey) { snd.fKey = fk; snd.last = null; snd.near = 0; }
+    const quiet = t0 - snd.gestT < 250 || (morph.playing && morph.open) || !!snd.play;
+    const height = lLand();
+    let g = null;
+    try { g = F(z); } catch (e) { g = null; }
+    // the 3 ms hold twice: a count of calls from the measured cost of one call, and a wall-clock deadline checked
+    // inside the tracker (performance.now() may tick in 0.1 ms steps, too coarse to time one event's few calls)
+    const deadline = t0 + 3;
+    let jump = false, budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
+    if (snd.last && sndOk(g) && sndOk(snd.g)) {
+      const r = Calc.argStep(F, snd.last, snd.g, z, g, { budget, deadline });
+      const dt = performance.now() - t0;
+      // the cost of a call: total time over total calls, across events (decaying), so the clock's steps average out
+      if (r.evals >= 4) { const c = snd.cost || (snd.cost = { dt: 0, n: 0 }); c.dt = 0.95 * c.dt + dt; c.n = 0.95 * c.n + r.evals + 1; if (c.n > 200) snd.perEval = Math.max(2e-5, c.dt / c.n); }
+      budget -= r.evals;
+      // over budget: the voice holds where it is and nothing fires; the next event starts afresh
+      if (!r.exact && r.why === 'budget') { snd.last = null; return; }
+      if (!r.exact && r.why === 'jump') { jump = true; if (!quiet) SND.play('cut', { pan }); }
+      snd.phi += r.d / TAU;
+      if (snd.loop) { snd.loop.phi += r.d / TAU; if (jump) snd.loop.jumps++; sndTurnBells(snd.loop, pan); }
+      // Height: |F| crossed a drawn level line e^(2πk/S): one tick per line, queued by the engine, never dropped
+      if (height && !quiet) {
+        const q = TAU / (S.sectors || 12), k0 = Math.floor(Math.log(CX.abs(snd.g)) / q), k1 = Math.floor(Math.log(CX.abs(g)) / q);
+        if (k0 !== k1 && Number.isFinite(k0) && Number.isFinite(k1)) {
+          const up = k1 > k0, n = Math.min(24, Math.abs(k1 - k0));
+          for (let j = 1; j <= n; j++) SND.tick({ k: up ? k0 + j : k0 - j + 1, pan });
+        }
+      }
+    } else if (sndOk(g)) {
+      // a fresh start (a new function, a view change, a lost track): the nearest equivalent pitch class
+      const a = Math.atan2(g.im, g.re) / TAU;
+      snd.phi = a + Math.round(snd.phi - a);
+      if (snd.voice) snd.voice.reset();
+    }
+    snd.last = z; snd.g = g;
+    if (!sndOk(g)) return;   // F is 0 or ∞ here: the voice holds
+    if (!quiet && budget > 48 && performance.now() < deadline) sndNear(F, z, g, pan, budget, deadline); else if (quiet) snd.near = 0;
+    const v = sndVoice(height ? 'height' : 'phase');
+    if (!v) return;
+    const la = Math.log(CX.abs(g));
+    if (height) v.set(la, pan, undefined, S.sectors || 12); else v.set(snd.phi, la, pan, undefined, jump);
+    v.gate(true);
+    // stillness: the tone fades after 1.6 s without movement and is released after 6 s; a keyboard step sounds a
+    // 280 ms sample, so the tone does not talk over a screen reader
+    clearTimeout(snd.idleT);
+    const still = src === 'key' && !snd.kloop ? 280 : 1600;
+    snd.idleT = setTimeout(() => { if (snd.voice && !snd.loop) snd.voice.gate(false, undefined, src === 'key' ? 0.04 : 0.35); }, still);
+    clearTimeout(snd.sleepT);
+    snd.sleepT = setTimeout(() => { if (snd.voice && !snd.loop) { snd.voice.stop(); snd.voice = null; } }, 6000);
+  }
+  // a zero or a pole within 8 px, with its order by the argument principle on a 16-gon (Calc.orderAt): exact for any
+  // m, and a branch point gives none. Only tested where |F'/F| > 1/(8 px); held until the 14 px circle no longer
+  // gives the same order.
+  function sndNear(F, z, g, pan, budget, deadline) {
+    const px = 1 / Math.max(1e-300, leftView().s), hh = 0.5 * px;
+    let ld = 0;
+    try { const a = F(C(z.re + hh, z.im)), b = F(C(z.re - hh, z.im)); ld = CX.abs(CX.sub(a, b)) / (2 * hh) / CX.abs(g); } catch (e) { ld = 0; }
+    if (snd.near) { if (!(ld > 1 / (14 * px)) || Calc.orderAt(F, z, 14 * px, { budget, deadline }) !== snd.near) snd.near = 0; return; }
+    if (!(ld > 1 / (8 * px))) return;
+    const m = Calc.orderAt(F, z, 8 * px, { budget, deadline });
+    if (m) { snd.near = m; SND.play(m > 0 ? 'zero' : 'pole', { order: Math.abs(m), pan }); sndSay(m > 0 ? $t('Zero of order {m} here.', { m: Math.abs(m) }) : $t('Pole of order {m} here.', { m: Math.abs(m) })); }
+  }
+  // a bell each time a loop's arg completes a turn (a turn back must reach the previous integer); the loop's
+  // starting pitch class, queued by the engine at ≤ 8 a second, never lost
+  function sndTurnBells(L, pan) {
+    while (L.phi >= L.k + 1) { L.k++; SND.turn({ dir: 1, pc: L.pc0, pan }); }
+    while (L.phi <= L.k - 1) { L.k--; SND.turn({ dir: -1, pc: L.pc0, pan }); }
+  }
+  // the preimages of a hovered w collide (a preimage of multiplicity ≥ 2): never on a change of their count
+  function sndCollide() {
+    if (!sndP.on || !sndP.sonify || !SND) return;
+    const m = hov.list && hov.list.find((r) => r.mult >= 2);
+    const key = m ? `${m.z.re.toFixed(4)},${m.z.im.toFixed(4)}` : '';
+    if (key && key !== snd.collide) SND.play('collide', {});
+    snd.collide = key;
+  }
+
+  // ---- loops and "listen along a curve" ----
+  // a closed loop released (the Lasso, or Enter with the keyboard probe), in X plane coordinates [[x, y], …]: its
+  // winding number exactly (Calc.argPrinciple: zeros minus poles inside); the first loop of a page plays itself back,
+  // later loops sound |W| pings and wait for L or the curve's menu
+  function sndLoopDone(pts) {
+    snd.loop = null;
+    if (!sndP.on || !SND || !pts || pts.length < 3) return;
+    snd.lastLoop = { pts: pts.slice(), closed: true };
+    if (!sndP.events) return;
+    let r;
+    try { r = Calc.argPrinciple(sndF(), pts, 0, { budget: 120000 }); } catch (e) { r = { ok: false, turn: NaN, winding: 0 }; }
+    if (!Number.isFinite(r.turn)) { SND.play('cut', { tier: 'events' }); sndSay($t('No winding number: F jumps, vanishes or is infinite on the loop.')); return; }
+    const W = r.winding, say = $t('Winding number {W}: zeros minus poles inside, counted with multiplicity.', { W });
+    sndSay(say);
+    // (one message: a polite live region would read only the last of two)
+    if (!snd.auto && !matchMedia('(prefers-reduced-motion: reduce)').matches) { snd.auto = true; if (sndListen(pts, true, say)) return; }
+    SND.play('loopDone', { w: W });
+  }
+  // a curve sampled uniformly in arc length, arg tracked exactly between the samples; null when F is too costly here
+  function sndSample(F, pts, closed) {
+    const ring = closed ? pts.concat([pts[0]]) : pts, seg = [];
+    let Lt = 0;
+    for (let i = 0; i + 1 < ring.length; i++) { const l = Math.hypot(ring[i + 1][0] - ring[i][0], ring[i + 1][1] - ring[i][1]); seg.push(l); Lt += l; }
+    if (!(Lt > 0)) return null;
+    const M = 900, zs = [];
+    let i = 0, acc = 0;
+    for (let j = 0; j < M; j++) {
+      const s = (j / (M - 1)) * Lt;
+      while (i < seg.length - 1 && acc + seg[i] < s) { acc += seg[i]; i++; }
+      const a = seg[i] ? sndClamp((s - acc) / seg[i], 0, 1) : 0;
+      zs.push(C(ring[i][0] + (ring[i + 1][0] - ring[i][0]) * a, ring[i][1] + (ring[i + 1][1] - ring[i][1]) * a));
+    }
+    const phi = new Float64Array(M), la = new Float64Array(M), cuts = [], t0 = performance.now();
+    let g0 = F(zs[0]);
+    if (!sndOk(g0)) return null;
+    phi[0] = Math.atan2(g0.im, g0.re) / TAU; la[0] = Math.log(CX.abs(g0));
+    for (let j = 1; j < M; j++) {
+      const g1 = F(zs[j]), r = Calc.argStep(F, zs[j - 1], g0, zs[j], g1, { budget: 2000 });
+      if (!r.exact && r.why === 'jump') cuts.push(j / (M - 1));
+      phi[j] = phi[j - 1] + r.d / TAU; la[j] = sndOk(g1) ? Math.log(CX.abs(g1)) : la[j - 1];
+      g0 = g1;
+      if (performance.now() - t0 > 500) return null;
+    }
+    return { zs, phi, la, cuts };
+  }
+  // play F along a curve (Mathematical events): the probe travels the curve in X and its image in Y; Esc, L, the
+  // menu again, or a pointer move of more than 4 px stop it (on a 12 ms fade, never mid-waveform)
+  function sndListen(pts, closed, lead) {
+    if (!sndP.on || !sndP.events || !SND || !snd.tracker || !pts || pts.length < 2) return false;
+    sndStopPlay(false);
+    if (snd.voice) snd.voice.gate(false, undefined, 0.02);
+    const Sm = sndSample(sndF(), pts, closed);
+    if (!Sm) { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; }
+    const n = Sm.phi.length, turns = Sm.phi[n - 1] - Sm.phi[0], dur = sndClamp(2.2 + 1.0 * Math.abs(turns), 2.6, 7);
+    const bells = [], L = { phi: 0, k: 0 };
+    for (let j = 1; j < n; j++) {
+      L.phi = Sm.phi[j] - Sm.phi[0];
+      while (L.phi >= L.k + 1) { L.k++; bells.push({ t: (j / (n - 1)) * dur, dir: 1 }); }
+      while (L.phi <= L.k - 1) { L.k--; bells.push({ t: (j / (n - 1)) * dur, dir: -1 }); }
+    }
+    const h = SND.curve(Sm.phi, Sm.la, dur, { bells, cuts: Sm.cuts.map((u) => u * dur), pc: Sm.phi[0] - Math.floor(Sm.phi[0]) });
+    if (!h) return false;
+    // the pointer moving more than 4 px from where it was when the playback started ends it
+    const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null };
+    sndSay((lead ? lead + ' ' : '') + (closed && !Sm.cuts.length ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Math.round(turns)) : $t('Listening along the curve. Esc stops.')));
+    const tick = () => {
+      if (snd.play !== p) return;
+      const u = sndClamp((h.now() - h.t0) / dur, 0, 1), x = u * (p.zs.length - 1), j = Math.min(p.zs.length - 2, Math.floor(x)), a = x - j;
+      probe = C(p.zs[j].re + (p.zs[j + 1].re - p.zs[j].re) * a, p.zs[j].im + (p.zs[j + 1].im - p.zs[j].im) * a);
+      setReadouts(probe); sndRender();
+      if (u < 1) p.raf = requestAnimationFrame(tick);
+      else setTimeout(() => { if (snd.play === p) { snd.play = null; probe = null; setReadouts(null); sndRender(); } }, 400);
+    };
+    p.raf = requestAnimationFrame(tick);
+    return true;
+  }
+  function sndStopPlay(hushAll) {
+    const p = snd.play;
+    if (!p) return;
+    snd.play = null;
+    cancelAnimationFrame(p.raf);
+    p.h.stop();
+    if (hushAll) SND.hush();
+    probe = null; setReadouts(null); sndRender();
+  }
+  // the curve menu's "Listen along": the shape's longest piece, in the X plane's variable
+  function sndListenShape(s) {
+    let pieces = [];
+    try { pieces = curvePieces(s, false); } catch (e) { pieces = []; }
+    let best = null, bl = -1;
+    for (const c of pieces) {
+      if (!c.pts || c.pts.length < 2) continue;
+      let l = 0; for (let i = 1; i < c.pts.length; i++) l += Math.hypot(c.pts[i][0] - c.pts[i - 1][0], c.pts[i][1] - c.pts[i - 1][1]);
+      if (l > bl) { bl = l; best = c; }
+    }
+    if (!best) return;
+    let pts = best.pts;
+    const k = leftStage();
+    if (k > 0) { const G = rangeF(0, k); pts = pts.map(([x, y]) => { const w = G(C(x, y)); return [w.re, w.im]; }).filter((q) => Number.isFinite(q[0]) && Number.isFinite(q[1])); }
+    if (best.closed) snd.lastLoop = { pts, closed: true };
+    sndListen(pts, !!best.closed);
+  }
+
+  // ---- the keyboard probe (a focused X plane): arrows in round steps, Z / Shift+Z the next or previous zero or pole,
+  // O the order here, D describes the view, Enter starts and closes a loop, L listens, Esc cancels a loop ----
+  const sndStep = () => { const v = leftView(); return paneL.w / (2 * v.s) > 4 ? 0.25 : 0.1; };
+  // (spoken: the screen's decimal comma in Russian, review eng-9; English as before)
+  const sndFmt = (z, d = 2) => (I18N.lang === 'en' ? CX.fmt(z, d) : CX.fmt(z, d).replace(/(\d)\.(\d)/g, '$1,$2'));
+  function sndProbeTo(z) {
+    snd.kz = z; probe = z; setReadouts(probe); sndRender();
+    const v = leftView();
+    sndHover(z, paneL.w / 2 + (z.re - v.cx) * v.s, 'key');
+    clearTimeout(snd.annT);
+    snd.annT = setTimeout(() => {
+      if (!snd.kz) return;
+      const g = sndF()(snd.kz);
+      sndSay(CX.isFin(g) ? $tn('z {z}. Modulus {modulus}, argument {n} degrees.', 'z {z}. Modulus {modulus}, argument {n} degrees.', Math.round(Math.atan2(g.im, g.re) / DEG), { z: sndFmt(snd.kz), modulus: I18N.num(CX.fmtNum(CX.abs(g), 3)) }) : $t('z {z}. F is infinite here.', { z: sndFmt(snd.kz) }));
+    }, 450);
+  }
+  function sndKeyStart() {
+    if (snd.kz) return false;
+    const v = leftView(), st = sndStep();
+    sndProbeTo(C(Math.round(v.cx / st) * st, Math.round(v.cy / st) * st));
+    clearTimeout(snd.annT);
+    sndSay($t('Probe at the centre, z = {z}. Steps of {st}; Shift for {x}.', { z: sndFmt(snd.kz), st: I18N.num(st), x: I18N.num(+(st / 5).toFixed(3)) }));
+    return true;
+  }
+  // the zeros and poles of the painted function in the view (Calc.zerosPoles, time-bounded), cached per view
+  function sndLandmarks() {
+    const v = leftView(), hw = paneL.w / (2 * v.s), hh = paneL.h / (2 * v.s), key = sndFKey() + '|' + sndVKey();
+    if (snd.lms && snd.lmKey === key) return snd.lms;
+    let out = [];
+    try { out = zerosPolesTimed(sndF(), { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh }, { max: 24 }, 80); } catch (e) { out = []; }
+    const L = out.filter((r) => r && r.z && (r.kind === 'zero' || r.kind === 'pole')).sort((p, q) => p.z.re - q.z.re || p.z.im - q.z.im);
+    L.incomplete = !!out.incomplete;
+    snd.lms = L; snd.lmKey = key; snd.lm = -1;
+    return L;
+  }
+  function sndKey(e) {
+    if (!sndP.on || !SND || !snd.kbd || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key, done = () => { e.preventDefault(); e.stopPropagation(); };
+    const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+    const st0 = sndStep();
+    if (arrows[k]) {
+      done();
+      if (sndKeyStart()) return;
+      const v = leftView(), hw = paneL.w / (2 * v.s), hh = paneL.h / (2 * v.s), st = e.shiftKey ? st0 / 5 : st0, d = arrows[k];
+      const x0 = snd.kz.re + d[0] * st, y0 = snd.kz.im + d[1] * st;
+      const x = sndClamp(x0, v.cx - hw, v.cx + hw), y = sndClamp(y0, v.cy - hh, v.cy + hh);
+      if (x !== x0 || y !== y0) {
+        soundCue('edge', { pan: sndClamp(0.4 * (x - v.cx) / hw, -0.4, 0.4) }); sndSay($t('Edge of the view.'));
+        if (x === snd.kz.re && y === snd.kz.im) return;
+      }
+      sndProbeTo(C(+x.toFixed(6), +y.toFixed(6)));
+      if (snd.kloop) snd.kloop.push([snd.kz.re, snd.kz.im]);
+      return;
+    }
+    const kl = (I18N.keyOf(e) || '').toLowerCase();
+    if (kl === 'z') {
+      done();
+      const L = sndLandmarks();
+      if (!L.length) { sndSay(L.incomplete ? $t('No zeros or poles found in the view in the time allowed.') : $t('No zeros or poles in the view.')); return; }
+      snd.lm = (snd.lm + (e.shiftKey ? -1 : 1) + L.length) % L.length;
+      const p = L[snd.lm], off = st0 / 2;
+      sndProbeTo(C(p.z.re + off, p.z.im));
+      clearTimeout(snd.annT);
+      const lp = { i: snd.lm + 1, n: L.length, orMore: L.incomplete ? $t(' or more') : '', m: p.mult, z: sndFmt(p.z), off: I18N.num(off) };
+      sndSay(p.kind === 'zero' ? $t('Zero {i} of {n}{orMore}: order {m} at {z}. The probe is {off} to its right.', lp) : $t('Pole {i} of {n}{orMore}: order {m} at {z}. The probe is {off} to its right.', lp));
+      return;
+    }
+    if (kl === 'o') {
+      done(); sndKeyStart();
+      const m = Calc.orderAt(sndF(), snd.kz, st0, { budget: 40000 });
+      clearTimeout(snd.annT);
+      if (m === null) sndSay($t('No order within {st0}: F jumps, vanishes or is infinite on that circle.', { st0: I18N.num(st0) }));
+      else if (!m) sndSay($t('Zeros minus poles within {st0}: none.', { st0: I18N.num(st0) }));
+      else {
+        const np = { st0: I18N.num(st0), m: Math.abs(m) };
+        sndSay(m > 0 ? (Math.abs(m) > 1 ? $t('Zeros within {st0}: net order {m}.', np) : $t('Zero within {st0}: net order {m}.', np)) : (Math.abs(m) > 1 ? $t('Poles within {st0}: net order {m}.', np) : $t('Pole within {st0}: net order {m}.', np)));
+        const v = leftView();
+        SND.play(m > 0 ? 'zero' : 'pole', { order: Math.abs(m), pan: sndClamp(0.4 * (snd.kz.re - v.cx) * v.s / (paneL.w / 2), -0.4, 0.4), audition: !sndP.sonify });
+      }
+      return;
+    }
+    if (kl === 'd') {
+      done();
+      const L = sndLandmarks(), zs = L.filter((p) => p.kind === 'zero'), ps = L.filter((p) => p.kind === 'pole');
+      const list = (a, w) => {
+        if (!a.length) return w === 'zero' ? $t('no zeros') : $t('no poles');
+        const lp = { items: a.slice(0, 6).map((p) => sndFmt(p.z) + (p.mult > 1 ? $t(' (order {mult})', { mult: p.mult }) : '')).join(I18N.lang === 'ru' ? '; ' : ', '), andMore: a.length > 6 ? $t(', and more') : '' };
+        if (w === 'zero') return L.incomplete ? $tn('{n} or more zero: {items}{andMore}', '{n} or more zeros: {items}{andMore}', a.length, lp) : $tn('{n} zero: {items}{andMore}', '{n} zeros: {items}{andMore}', a.length, lp);
+        return L.incomplete ? $tn('{n} or more pole: {items}{andMore}', '{n} or more poles: {items}{andMore}', a.length, lp) : $tn('{n} pole: {items}{andMore}', '{n} poles: {items}{andMore}', a.length, lp);
+      };
+      const kmax = S.focus === 0 ? nSteps() : S.focus;
+      const cuts = built.filter((b, i) => i < kmax && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts && b.cuts.length).length;
+      sndSay($t('{fnText} in this view: {zs}; {ps}{choice}.', { fnText: fnText(), zs: list(zs, 'zero'), ps: list(ps, 'pole'), choice: cuts ? $tn('; branch cuts from {n} step, drawn in red', '; branch cuts from {n} steps, drawn in red', cuts) : '' }));
+      return;
+    }
+    if (k === 'Enter') {
+      done();
+      if (snd.kloop) { const pts = snd.kloop; snd.kloop = null; if (pts.length >= 3) sndLoopDone(pts); else { snd.loop = null; sndSay($t('A loop needs at least three points.')); } return; }
+      sndKeyStart();
+      snd.kloop = [[snd.kz.re, snd.kz.im]];
+      if (sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
+      sndSay($t('Loop started. Move with the arrow keys; Enter closes it.'));
+      return;
+    }
+    if (kl === 'l') {
+      done();
+      if (snd.play) { sndStopPlay(true); return; }
+      if (snd.lastLoop) sndListen(snd.lastLoop.pts, snd.lastLoop.closed); else sndSay($t('No loop yet: Enter starts one.'));
+      return;
+    }
+    if (k === 'Escape' && snd.kloop) { done(); snd.kloop = null; snd.loop = null; sndSay($t('Loop cancelled.')); }
+  }
+
+  // ---------------- guided tour (src/tour.js; notes/tour/INTEGRATION.md) ----------------
+  // The adapter the tour drives: where things are, the user's work (snapshot, restore, the paused autosave), the tour's
+  // scenes and looks, and the events that tick its Try its. tourWire() runs at the end of init().
+  const tourL = {};
+  let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
+  // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
+  const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
+  function tourEmit(ev, p) {
+    const fs = tourL[ev];
+    if (fs) for (const f of fs.slice()) { try { f(p); } catch (e) { console.warn('[tour] event', ev, e); } }
+  }
+  // the end of a drag in a pane (onUp): a shape or target moved or reshaped, a zero or pole dragged, a cut dragged
+  function tourDragEnd(d) {
+    if (!d) return;
+    const id = d.shape && typeof d.shape === 'object' ? d.shape.id : d.shape;
+    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourEmit('shape-moved', { id, plane: d.target ? 'w' : 'z' });
+    else if (d.mode === 'zp' && d.moved && !d.off) tourEmit('zp-moved', { kind: String(d.kind).replace(/s$/, ''), i: d.i });
+    else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
+  }
+  // the persisted state, as writeState saves it
+  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
+  function tourSnapshot() {
+    const xl = document.querySelector('#examplesBtn .exlabel');
+    return {
+      state: tourState(),
+      // what lives in memory only: the undo history, the panels as shown, the transport, the tool and selection, the
+      // planes' views and cameras, the views' memories and the Examples label
+      mem: {
+        hist: hist.map((e) => ({ s: e.s, focus: e.focus })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
+        morph: { open: morph.open, T: morph.T, playing: morph.playing }, tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
+        V: JSON.parse(JSON.stringify(V)), leftAuto, rightAuto, clipWin: Object.assign({}, clipWin),
+        viewMem: JSON.parse(JSON.stringify(viewMem)), defMem: JSON.parse(JSON.stringify(defMem)), cams: [cam, camL, camS].map(camKeys), cell: [cellBase, cellKey],
+      },
+    };
+  }
+  // put the user's work back in place (opt.fromStash: after a reload or a crash, from the persisted state only)
+  function tourRestore(sn, opt) {
+    if (!sn || !sn.state || typeof sn.state !== 'object') return false;
+    const m = opt && opt.fromStash ? null : sn.mem;
+    // this session's own state needs no migration; a stash is read as a reload reads the saved state
+    const st = m ? Object.assign(blankState(), JSON.parse(JSON.stringify(sn.state))) : sanitizeState(JSON.parse(JSON.stringify(sn.state)));
+    if (!st) return false;
+    cancelTweens(); closePad(); closePalette();
+    draft = null; drag = null; probe = null; zpSel = null; zpHover = null; selected = null; hoverShape = null;
+    rHover = null; setHoverW(null);
+    morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
+    defMem.y = null; defMem.d = null; defMem.dkey = '';
+    for (const k of Object.keys(viewMem)) delete viewMem[k];
+    S = st;
+    dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
+    if (m) { S.hideLeft = !!m.hideLeft; S.hideRight = !!m.hideRight; } else { if (isDrawer('R')) S.hideRight = true; if (isDrawer('L')) S.hideLeft = true; }
+    if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
+    dropAllGPU();
+    cauchyCache.key = '';
+    applyLayout();
+    S.srcView = Object.assign({}, S.srcView);
+    paneL.setView(S.srcView);
+    clipWin = m && m.clipWin ? Object.assign({}, m.clipWin) : S.clipWin ? Object.assign({}, S.clipWin) : viewBox(S.srcView);
+    rebuild(); buildShapeList(); buildPipeline(); buildDisplay();
+    setFocus(Math.min(S.focus || 0, S.steps.length));
+    const xl = document.querySelector('#examplesBtn .exlabel');
+    if (m) {
+      setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
+      if (m.morph.open && morphRange().steps.length) openTransport();
+      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
+      if (m.defMem) Object.assign(defMem, m.defMem);
+      if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; setPlayIcon(); syncTransport(); }
+      [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
+      hist = m.hist.map((e) => ({ s: e.s, focus: e.focus })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
+      currentExample = m.currentExample;
+      if (xl && m.exLabel != null) xl.textContent = m.exLabel;
+      if (m.selected && (S.shapes.some((s) => s.id === m.selected) || S.targets.some((s) => s.id === m.selected))) selected = m.selected;
+      if (m.cell) [cellBase, cellKey] = m.cell;
+    } else {
+      setTool('select');
+      if (S.rightView && autoFit()) { Object.assign(V.right, S.rightView); rightAuto = false; }
+      hist = [snap()]; hi = 0;
+    }
+    updateUndo();
+    buildShapeList(); buildRightFoot(); updateFocusUI(); drawLegend();
+    scheduleFix(); requestRender('L', 'R', 'T', 'OL', 'OR', 'P');
+    save();
+    return true;
+  }
+  // a scene of the tour, in the format of EX: loaded as an example is, without the Examples label or currentExample
+  function tourLoadScene(spec) {
+    if (!spec || !Array.isArray(spec.steps) || !spec.steps.every((st) => st && Funcs.DEFS[st.type])) return false;
+    loadExample(-1, Object.assign({ shapes: [], view: { cx: 0, cy: 0, s: 60 } }, spec));
+    return true;
+  }
+  // the display a scene's copy assumes (the Look keys of INTEGRATION.md); null: the app's default
+  function tourSetLook(lk) {
+    if (!lk || typeof lk !== 'object') return;
+    const d0 = blankState();
+    if ('pattern' in lk) S.pattern = PATTERNS.some((p) => p[0] === lk.pattern) ? lk.pattern : d0.pattern;
+    if ('alpha' in lk) S.alpha = isNum(lk.alpha) ? Math.max(0.2, Math.min(1, lk.alpha)) : d0.alpha;
+    if ('height' in lk) S.height = ['log', 'abs', 're', 'im'].includes(lk.height) ? lk.height : d0.height;
+    if ('sheets' in lk) S.sheets = !!lk.sheets;
+    if ('phaseStyle' in lk) { S.dc = DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc; S.landPlain = false; cauchyCache.key = ''; }
+    if ('paths' in lk) { S.morphPaths = lk.paths !== false; const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
+    if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
+    buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
+    requestRender('L', 'R', 'T');
+    save();
+  }
+  const tourApi = {
+    anchor: () => undefined,   // the tour's own map fits this markup (INTEGRATION.md, Anchors)
+    has: (f) => (f === 'sound' ? typeof Sound !== 'undefined' : f === 'zp' ? !!Funcs.DEFS.zp : true),
+    storageKey: lsk,
+    snapshot: tourSnapshot,
+    restore: tourRestore,
+    // on: write any pending save now, then pause the autosave; off: resume it (restore has put the work back)
+    sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; save(); } return true; },
+    loadScene: tourLoadScene,
+    setLook: tourSetLook,
+    setView: (main) => setMain(main),
+    setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
+    setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },
+    setTool: (id) => { if (TOOLS.some((t) => t[0] === id)) setTool(id); },
+    focusStep: (k) => { k = Math.max(0, Math.min(S.steps.length, k | 0)); if (k !== S.focus) setFocus(k); },
+    showPanel: (side) => { if (side === 'right' ? S.hideRight : S.hideLeft) setPanels(side === 'right' ? S.hideLeft : false, side === 'right' ? false : S.hideRight); },
+    on(ev, fn) { (tourL[ev] = tourL[ev] || []).push(fn); return () => { tourL[ev] = (tourL[ev] || []).filter((g) => g !== fn); }; },
+    tex: (src) => { const s = h('span'); TeX.set(s, src); return s; },
+    toast: (msg) => toast(msg),
+    // the saved copy's fingerprint (its length and a hash), or null when there is none: the tour's backup records it
+    savedMark: () => {
+      let raw = null;
+      try { raw = localStorage.getItem(LS_KEY); } catch (e) { return null; }
+      if (raw == null) return null;
+      let hsh = 2166136261;
+      for (let i = 0; i < raw.length; i++) { hsh ^= raw.charCodeAt(i); hsh = Math.imul(hsh, 16777619); }
+      return `${raw.length}:${(hsh >>> 0).toString(36)}`;
+    },
+    openGuide: (sec) => {
+      openGuide();
+      if (sec !== 'keys') return;
+      const k = [...document.querySelectorAll('.modal h3')].find((x) => x.textContent.trim() === 'Keys');
+      if (k) k.scrollIntoView({ block: 'start' });
+    },
+    // something Escape cancels in the app: a drawing, a drag, a selection (a shape, a zero or pole), the coordinate
+    // pad, the tools' More menu, an open overlay drawer
+    busy: () => !!(draft || drag || selected || zpSel || padEl || snd.play || snd.kloop || ($('toolMore') && $('toolMore').open) || (isDrawer('L') && !S.hideLeft) || (isDrawer('R') && !S.hideRight)),
+    // a menu, the palette, the coordinate pad or a dialog is open: Escape and Tab are theirs
+    layerOpen: () => !!(popEl || padEl || document.querySelector('#popHost > .pop, .modal-bg, [popover]:popover-open')),
+    hasWork: () => tourHadWork,
+    // a tour starts: the coordinate pad edits a card of the user's chain, which the tour's scenes replace
+    onTour: (on) => { if (on) closePad(); },
+  };
+  function tourWire() {
+    if (typeof Tour === 'undefined') return;
+    // the events the app sends from delegated listeners: a pattern swatch picked (click or arrow keys), t scrubbed
+    $('patternSeg').addEventListener('click', (e) => { if (e.target instanceof Element && e.target.closest('.pat')) tourEmit('pattern-changed', { id: S.pattern }); });
+    document.addEventListener('input', (e) => { if (e.target && e.target.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
+    Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
+    if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)
   }
 
   // ---------------- init ----------------
   function init() {
+    // i18n (notes/i18n/DESIGN.md 2): English does nothing here
+    I18N.applyPage();
+    I18N.applyStatic($('app'));
+    // the command field shows the short form (DESIGN.md 8.3); its aria-label keeps the whole phrase
+    // (and «Поиск» where the header is short of room: page.html, review ui-9)
+    if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function or command')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function or command'))); } }
+    I18N.reveal();
+    // the switch reloads only when the work was written and reads back (review i18n-3); while a tour holds the canvas
+    // the saved state is the user's own work, and the tour's scenes are never stashed as undo history
+    I18N.onSwitch(() => {
+      const held = typeof tourHold !== 'undefined' && !!tourHold;
+      const wrote = held ? null : writeState();
+      let ok = false;
+      try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
+      if (!ok) return false;
+      // the open panels come back too: the deformation (at its t, paused), the open lamp, the selected shape
+      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1 } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
+      return true;
+    }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
+    // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
+    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R', 'T'); });
     GLR.init();
     GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); requestRender('L', 'R', 'T'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
@@ -11679,13 +12475,13 @@
     if (kc) kc.addEventListener('change', () => { S.wKey = kc.checked; buildRightFoot(); requestRender('R'); save(); });
     // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
     const mb = $('morphBtn');
-    if (mb) { mb.innerHTML = `${MODE_ICONS.morph}<span>Deformation</span>`; mb.addEventListener('click', () => toggleTransport()); }
+    if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
     $('linesChk').addEventListener('change', (e) => { S.lines = e.target.checked; requestRender('L', 'R', 'T'); save(); });
     $('chevChk').addEventListener('change', (e) => { S.chev = e.target.checked; requestRender('L', 'R'); save(); });
     // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
-    $('snapBtn').addEventListener('click', () => { S.snap = !S.snap; syncSnapUnit(); save(); });
+    $('snapBtn').addEventListener('click', () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); });
     $('unitChk').addEventListener('change', (e) => { S.unit = e.target.checked; requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { S.alpha = +e.target.value; $('alphaVal').textContent = S.alpha.toFixed(2); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => { S.alpha = +e.target.value; $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
     $('meshRange').addEventListener('input', (e) => { showMeshVal(posToMesh(+e.target.value)); });
     $('patScale').addEventListener('input', (e) => { S.patternScale = 2 ** +e.target.value; cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
@@ -11785,12 +12581,13 @@
       $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
-    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; S.focus = 0; chainChanged(true); setFocus(0); commit(); undoToast('Chain cleared.'); });
+    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; S.focus = 0; chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => { if (hi > 0) { hi--; restore(hist[hi]); } });
     $('redoBtn').addEventListener('click', () => { if (hi < hist.length - 1) { hi++; restore(hist[hi]); } });
-    $('helpBtn').addEventListener('click', openGuide);
+    $('helpBtn').addEventListener('click', (e) => { if (typeof Tour !== 'undefined') Tour.openHelpMenu(e.currentTarget); else openGuide(); });
+    sndInit();
     $('exportBtn').addEventListener('click', (e) => openExportMenu(e.currentTarget));
     getDownloads(); // resolves the save capability early (no prompt until a save)
     $('examplesBtn').addEventListener('click', (e) => openGallery(e.currentTarget));
@@ -11800,14 +12597,36 @@
       const order = ['auto', 'light', 'dark'];
       curTheme = order[(order.indexOf(curTheme) + 1) % 3];
       setTheme(curTheme);
+      sndToggleCue(curTheme !== 'light');
     });
     setTheme(curTheme);
+    // the Language setting (device only): Auto, English, Русский; a choice that changes the language reloads. The
+    // globe button is page.html's; the menus and the palette reach the same items
+    const lb = $('langBtn');
+    if (lb) {
+      lb.setAttribute('aria-expanded', 'false');
+      lb.addEventListener('click', (e) => {
+        const pop = openMenu(e.currentTarget, langItems());
+        lb.setAttribute('aria-expanded', String(!!pop));
+        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { lb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
+      });
+      syncLangLabel();
+    }
+    // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
+    // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a
+    // Listen along does only that: the next Esc ends the tour
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const playing = !!snd.play;
+      soundStop();
+      if (playing && typeof Tour !== 'undefined' && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
     document.addEventListener('keydown', (e) => {
       // nothing reaches the app behind a modal dialog; a handled key, or one in a popover or menu, stays there
       if (e.defaultPrevented || document.querySelector('.modal-bg')) return;
       const t = e.target instanceof Element ? e.target : document.body;
-      const tag = t.tagName.toLowerCase(), mod = e.ctrlKey || e.metaKey, key = (e.key || '').toLowerCase();
-      if (t.closest('#popHost') && !(mod && key === 'k')) return;
+      const tag = t.tagName.toLowerCase(), mod = e.ctrlKey || e.metaKey, kk = I18N.keyOf(e) || '', key = kk.toLowerCase();
+      if (t.closest('#popHost') && !(mod && key === 'k') && !(e.shiftKey && !mod && !e.altKey && key === 'm')) return;
       // text fields keep their keys and native undo; a select keeps plain keys (type-ahead), not ⌘Z
       const textEntry = t.isContentEditable || tag === 'textarea' || (tag === 'input' && /^(|text|number|search|email|url|tel|password)$/.test((t.getAttribute('type') || '').toLowerCase()));
       const typing = textEntry || tag === 'select';
@@ -11817,16 +12636,19 @@
         return;
       }
       if (mod && key === 'y' && !textEntry) { e.preventDefault(); $('redoBtn').click(); return; }
+      if (mod && key === 'e' && !e.shiftKey && !e.altKey && !textEntry) { e.preventDefault(); Figure.open(); return; }
       if (mod && key === 'k') { e.preventDefault(); if (popEl) closePalette(); else openPalette(null); return; }
-      if (e.key === '/' && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
+      if ((e.key === '/' || I18N.isPaletteSlash(e)) && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
       if (typing) return;
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
         else if (closeDrawers()) { /* closed an overlay drawer */ } else if (draft) { draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.shiftKey && key === 'm') { e.preventDefault(); soundToggle(); return; }
       // views (merged-views.md): 1 X → Y, 2 Phase, 3 Landscape. One map for the surfaces in every view (merged-views
       // review): Shift 1, 2 Plane, Sphere of the left or only panel (X in X → Y, the portrait in Phase), Shift 3, 4 of
       // Y (X → Y). By e.code, so Shift 1 is not "!" and the digits work on any layout (AZERTY included); before every
@@ -11839,8 +12661,8 @@
         e.preventDefault();
         return;
       }
-      if (e.key === '[') setPanels(!S.hideLeft, S.hideRight);
-      if (e.key === ']') setPanels(S.hideLeft, !S.hideRight);
+      if (kk === '[') setPanels(!S.hideLeft, S.hideRight);
+      if (kk === ']') setPanels(S.hideLeft, !S.hideRight);
       if ((e.key === 'Delete' || e.key === 'Backspace') && zpSel && zpStep() && zpStep().k === zpSel.k) { e.preventDefault(); zpRemove(zpSel.k, zpSel.kind, zpSel.i); return; }
       if (e.key === 'Escape' && zpSel) { zpSel = null; requestRender('OL'); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
@@ -11849,7 +12671,7 @@
       if (key === 'm') { e.preventDefault(); toggleTransport(); return; }
       // P: the deformation's Paths while it shows in X → Y (drawing is off there), the Point tool otherwise
       if (key === 'p' && morphOn() && S.view.main === 'xy') { e.preventDefault(); if (!morphHasDeriv()) setMorphPaths(!(S.morphPaths !== false)); return; }
-      if (e.key === 'z' || e.key === 'Z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
+      if (key === 'z') { $('leftFit').click(); if (autoFit()) $('rightFit').click(); return; }
       const tl = TOOLS.find((x) => x[2] && x[2].toLowerCase() === key);
       if (tl) { e.preventDefault(); setTool(tl[0]); }
     });
@@ -11864,13 +12686,26 @@
         rebuild();
         buildShapeList();
         buildPipeline();
-        hist = [snap()]; hi = 0; updateUndo();
+        hist = [snap()]; hi = 0;
+        // after a language switch, the undo history comes back too (I18N.onSwitch above)
+        let swUi = null;
+        try { const k = lsk('cmw-switch'), st = JSON.parse(sessionStorage.getItem(k) || 'null'); sessionStorage.removeItem(k); if (st && st.hist && st.hist[st.hi] && Date.now() - st.at < 30000) { hist = st.hist; hi = st.hi; hist[hi] = snap(); swUi = st.ui || null; } } catch (e) { /* no stash */ }
+        // a switch whose undo stash could not be written (review eng-8): say so once, after the reload
+        try { const k = lsk('cmw-switch-lost'), at = Number(localStorage.getItem(k)); if (localStorage.getItem(k) != null) localStorage.removeItem(k); if (at && Date.now() - at < 30000) setTimeout(() => toast($t('The undo history could not be kept across the language change.')), 0); } catch (e) { /* no note */ }
+        updateUndo();
         setFocus(Math.min(S.focus || 0, S.steps.length));
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { delete S.deform; openTransport(); }
+        if (swUi) {
+          if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
+          if (swUi.lamp) openLamp = swUi.lamp;
+          if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
+          // focus returns to the control that switched (review eng-5): the globe, or the More button it folds into
+          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('langBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
+        }
         // the right plane reopens at the view the user left it at
         if (loaded.rightView && autoFit()) { Object.assign(V.right, loaded.rightView); rightAuto = false; requestRender('R'); }
-        if (loadDropped) toast(`${loadDropped} saved ${loadDropped === 1 ? 'item' : 'items'} could not be restored by this version and ${loadDropped === 1 ? 'was' : 'were'} left out.`);
+        if (loadDropped) toast($tn('{n} saved item could not be restored by this version and was left out.', '{n} saved items could not be restored by this version and were left out.', loadDropped));
       } catch (err) {
         // never a dead app on every reload: fall back to the first example
         console.warn('The saved session could not be restored', err);
@@ -11880,7 +12715,7 @@
         loadExample(firstExample());
         buildDisplay(); applyLayout();
         hist = [snap()]; hi = 0; updateUndo();
-        toast('The saved session could not be restored, so the first example was loaded.');
+        toast($t('The saved session could not be restored, so the first example was loaded.'));
       }
     } else {
       loadExample(firstExample());
@@ -11890,8 +12725,20 @@
     if (window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(() => TeX.onReady());
     // fonts may arrive late; redraw labels
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(); requestRender('L', 'R', 'T'); });
+    tourWire();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)
+  // the tour's adapter, and a tap on every call the tour makes into it (test/tour_cmd.js)
+  window.__tourApi = tourApi;
+  window.__tourTap = (() => {
+    const taps = [];
+    for (const k of Object.keys(tourApi)) {
+      const f = tourApi[k];
+      if (typeof f !== 'function' || /^(storageKey|anchor|has|tex|on|busy|hasWork)$/.test(k)) continue;
+      tourApi[k] = function (...a) { for (const t of taps) { try { t('call', k, a); } catch (e) { /* a test's tap */ } } return f.apply(this, a); };
+    }
+    return (f) => taps.push(f);
+  })();
   // the zeros and poles of the step acting on X: handles in page coordinates, the selection, the step's parameters
   window.__cmwZp = () => { const r = paneL.ocanvas.getBoundingClientRect(), zs = zpStep(); return { k: zs ? zs.k : 0, sel: zpSel, params: zs ? Object.assign({}, zs.st.params) : null, handles: zpHandlesL.map((q) => ({ kind: q.kind, i: q.i, x: r.left + q.x, y: r.top + q.y })), pane: { left: r.left, top: r.top, w: paneL.w, h: paneL.h }, glKey: (() => { try { return String(GLChain.build(S.steps, built).key).length + ':' + String(GLChain.build(S.steps, built).key).slice(-80); } catch (e) { return null; } })() }; };
   window.__cmwTime = (n = 5) => {
@@ -11996,11 +12843,14 @@
   window.__cmwMorphSel = async (o) => { if (!morphOn()) return null; const t0 = performance.now(); const sel = await morphSelScreenNow(paneR, !!(o && o.force)); const wall = performance.now() - t0; if (!sel) return null; const end = S.focus > 0 ? S.focus : nSteps(); const base = S.focus > 0 ? S.focus - 1 : 0; return { ms: sel.ms, wall, budget: sel.budget, n: sel.kept.length, nCands: sel.nCands, kept: sel.kept.map((k) => { const w = stageF(end)(k.sp.z), w0 = stageF(base)(k.sp.z), a = k.s[0].w, b = k.s[k.s.length - 1].w; return { z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], path: k.l, F: [w.re, w.im], W0: [w0.re, w0.im], Ws: [a.re, a.im], We: [b.re, b.im], meet: !!k.meet }; }), log: sel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) }; };
   window.__cmwMorphSelSync = () => { const pane = paneR, m = morphLen(), t = performance.now(); const sel = morphPathsFor((w) => pane.w2s(w), { x: 0, y: 0, w: pane.w, h: pane.h }, pane.box(), pane.w / 96, m, { footPx: 8, headCrowd: 12, headL: MF_SCREEN_HL, nogo: mfNogo(pane) }); return { wall: performance.now() - t, ms: sel.ms, n: sel.kept.length, nc: sel.nCands }; };
   window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null });
-  window.__cmwLastFigure = () => lastFigure;
+  window.__cmwLastFigure = () => Figure.last();
+  window.__cmwFig = Figure;
   window.__cmwPrepareExport = (panels, alive) => prepareExport(panels || ['L', 'R'], alive);
   window.__cmwRenderOff = (side, w, h, dpr) => renderOff(side, w, h, dpr).toDataURL('image/png');
   // client coordinates of plane point (re, im) in the left ('L') or right ('R') plane, as last drawn
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
+  // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
+  window.__cmwSound = (o) => { if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); return { voice: !!snd.voice, kind: snd.kind, engine: snd.voice ? snd.voice.engine : '', phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '' }; };
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

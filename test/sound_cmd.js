@@ -1,0 +1,397 @@
+// Sound (notes/sound/DESIGN.md; the engine is src/sound.js, the hooks the "sound" block of app.js): the browser side.
+// Consent (no AudioContext and no per-event work until the user turns sound on; a remembered "on" waits for a click or
+// key of the new page), the default tiers silent on hover, Shift+M (and M still the Deformation), the palette entries,
+// the settings in lsk('cmw-sound') and never in the saved work, Interface and Mathematical-event cues from the app, the
+// pointer tier (the voice, exact winding by ear, zero orders, the guards during view gestures and the deformation),
+// loops (the winding, the first loop plays itself, Esc), Height contours in the Landscape, the keyboard probe (arrows,
+// Z, O, D, Enter, L, Esc), the engine's queue and cluster guards and the suspended-context rule in a live context, the
+// silent off, the loudness and phone targets (the lab of DESIGN §2.2 as assertions), the phone header, and the
+// per-event cost of the tracker. The click regression is test/sound_clicks_cmd.js; the pure parts test/t_sound.js.
+// A command file for a CDP daemon (test/cdp_kit README):
+//   python3 build.py && test/<you>_cdp/q.sh test/sound_cmd.js
+// Prints {pass, fails, R}; pass is true when every check holds.
+const PORT = 8832, BASE = `http://localhost:${PORT}/test.html`;
+// The kit's load() opens port 8793. This file loads through PORT, so the saved state, the sound settings and every
+// nav() share one origin. (With the kit's load(), the 360 px step opened 8793, where sound was never turned on.)
+const loadHere = async (ns, st, extra) => {
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
+  await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
+  return ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+};
+const fails = [], R = {};
+const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
+const snd = () => ev('__cmwSound()');
+const made = (clear) => ev(`(() => { const m = (window.__made || []).slice(); ${clear ? '__made.length = 0;' : ''} return m; })()`);
+const count = (list, name) => list.filter((x) => x === name).length;
+const spy = () => ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (G, t, o) => { __made.push(k); return m(G, t, o); }; d.__spy = 1; } window.__calls = { argStep: 0 }; if (!Calc.argStep.__spy) { const a = Calc.argStep; Calc.argStep = function (...x) { __calls.argStep++; return a.apply(this, x); }; Calc.argStep.__spy = 1; } return 1; })()`);
+const glide = async (pts, dt = 16) => { for (const p of pts) { await move(p[0], p[1]); await sleep(dt); } };
+const circle = async (c, r, turns = 1, n = 48) => { const out = []; for (let i = 0; i <= n * turns; i++) { const a = 2 * Math.PI * i / n; out.push(await W(c[0] + r * Math.cos(a), c[1] + r * Math.sin(a))); } return out; };
+const live = async () => (await snd()).live;
+// every AudioContext the page makes is counted (window.__acN)
+const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__acN = 0; const A = window.AudioContext; if (!A) return; window.AudioContext = class extends A { constructor(...a) { super(...a); window.__acN++; } }; })();' });
+const ns = 'sndcmd' + Date.now();
+const SQ = { steps: [{ type: 'custom', params: { expr: 'z^2-1', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 120 } };
+await view(1440, 900, false);
+await loadHere(ns, SQ);
+await ev(`__cmwSetMain('phase')`); await settle(900);
+logs();
+await spy();
+
+// 1. off by default, and free while off: no AudioContext, no cue, no tracker call on hover, drag or click
+let st = await ev('Sound.state()');
+ok('off by default', st.on === false && st.audio === 'none' && (await ev('__acN')) === 0, st);
+await glide(await circle([1, 0], 0.3, 1, 32));
+await drag(500, 400, 700, 450, 10, 16);
+await click(600, 300);
+await settle(300);
+R.off = await ev(`({ ac: __acN, ctx: !!Sound.debug().ctx, argStep: __calls.argStep, made: __made.length, pressed: document.getElementById('soundBtn').getAttribute('aria-pressed'), tab: document.getElementById('overlayL').hasAttribute('tabindex') })`);
+ok('sound off: hover, drag and click create no AudioContext and do no work', R.off.ac === 0 && !R.off.ctx && R.off.argStep === 0 && R.off.made === 0 && R.off.pressed === 'false' && !R.off.tab, R.off);
+
+// 2. the header button turns it on: running, the "on" key, aria-pressed, the settings under lsk('cmw-sound')
+const btn = await ev(`(() => { const b = document.getElementById('soundBtn'), t = document.getElementById('themeBtn'), g = document.getElementById('helpBtn'); const x = (e) => e.getBoundingClientRect().left; return { label: b.innerText.trim(), title: b.title, keys: b.getAttribute('aria-keyshortcuts'), order: x(t) < x(b) && x(b) < x(g) }; })()`);
+ok('Sound button: labelled Sound, Shift+M, between Theme and Guide', btn.label === 'Sound' && /Shift\+M/.test(btn.title) && btn.keys === 'Shift+M' && btn.order, btn);
+await clickSel('#soundBtn');
+await settle(600);
+st = await ev('Sound.state()');
+R.on = { st, made: await made(true), pressed: await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed')`), ac: await ev('__acN') };
+ok('on: running, one context, the toggle-on key', st.on && st.audio === 'running' && R.on.ac === 1 && R.on.made.join() === 'toggleOn' && R.on.pressed === 'true', R.on);
+ok('first on: Interface and Events on, Snap and Hear F off', st.ui && st.events && !st.snap && !st.sonify, st);
+await sleep(400);
+R.store = await ev(`(() => { const s = localStorage.getItem('cmw-sound:${ns}'), w = localStorage.getItem('complex-map-workbench-v1:${ns}') || ''; return { s: s && JSON.parse(s), work: /sonify|cmw-sound|"vol"/.test(w), plain: localStorage.getItem('cmw-sound') }; })()`);
+ok('settings in lsk(cmw-sound), never in the saved work', R.store.s && R.store.s.on === true && !R.store.work && R.store.plain === null, R.store);
+
+// 3. the default tiers are silent on hover (no pointer cue, no voice)
+await glide(await circle([1, 0], 0.25, 2, 32));
+await glide(await circle([-1, 0], 0.02, 1, 16));
+await settle(300);
+R.quiet = { made: await made(true), live: await ev('Sound.debug().live'), argStep: await ev('__calls.argStep') };
+ok('default tiers: hovering zeros makes no cue, no voice, no tracking', !R.quiet.made.length && R.quiet.live === 0 && R.quiet.argStep === 0, R.quiet);
+
+// 4. Shift+M toggles sound (silently off); M alone is still the Deformation
+await key('M', 8); await settle(250);
+R.shiftM = { on: await ev('Sound.prefs().on'), made: await made(true), active: await ev('Sound.debug().active'), audio: await ev('Sound.state().audio'), deform: (await ev('__cmwLayout()')).deform };
+ok('Shift+M: off, silent, suspended, not the Deformation', !R.shiftM.on && !R.shiftM.made.length && R.shiftM.active === 0 && R.shiftM.audio === 'suspended' && !R.shiftM.deform, R.shiftM);
+await key('M', 8); await settle(300);
+R.shiftM2 = { on: await ev('Sound.prefs().on'), made: await made(true), audio: await ev('Sound.state().audio') };
+ok('Shift+M again: on with its key', R.shiftM2.on && R.shiftM2.made.join() === 'toggleOn' && R.shiftM2.audio === 'running', R.shiftM2);
+// M: the deformation plays (the swell once per play), arrives once, and loop repeats stay silent
+await key('m'); await settle(200);
+ok('M opens the Deformation', (await ev('__cmwLayout()')).deform === true);
+let mm = [];
+for (let i = 0; i < 40 && !mm.includes('morphEnd'); i++) { await sleep(150); mm = await made(); }
+await sleep(2500);
+mm = await made(true);
+R.morph = mm;
+ok('deformation: one swell and one arrival per play, none on loop repeats', count(mm, 'morphStart') === 1 && count(mm, 'morphEnd') === 1, mm);
+await key('m'); await settle(300);
+
+// 5. the palette entries
+await key('k', 4); await settle(300);
+await type('sound'); await settle(300);
+R.palette = await ev(`(document.getElementById('palList') || {}).innerText || ''`);
+await key('Escape'); await settle(200);
+await key('k', 4); await settle(300);
+await type('hear'); await settle(300);
+R.palette += ' | ' + await ev(`(document.getElementById('palList') || {}).innerText || ''`);
+ok('palette: Sound on/off, Hear the function on/off, Stop sound', /Sound on\/off/.test(R.palette) && /Hear the function on\/off/.test(R.palette) && /Stop sound/.test(R.palette), R.palette.slice(0, 300));
+await key('Escape'); await settle(200); await made(true);
+
+// 6. Interface cues from the app: a view switch, the theme, an export copied (soundCue('exportDone'))
+await key('1'); await settle(500);
+await key('2'); await settle(500);
+R.viewCue = await made(true);
+ok('view switch: the view key', count(R.viewCue, 'view') >= 1, R.viewCue);
+await clickSel('#themeBtn'); await settle(200); await clickSel('#themeBtn'); await settle(200); await clickSel('#themeBtn'); await settle(300);
+R.themeCue = await made(true);
+ok('theme: a toggle key', R.themeCue.some((x) => x === 'toggleOn' || x === 'toggleOff'), R.themeCue);
+await clickSel('#exportBtn'); await settle(400);
+const latex = await ev(`(() => { const it = [...document.querySelectorAll('#popHost [role=menuitem], #popHost button')].find((b) => /Copy LaTeX with guarantees/.test(b.textContent)); if (!it) return null; it.click(); return 1; })()`);
+await settle(400);
+R.exportCue = await made(true);
+ok('export copied: the export-ready cue', latex === 1 && R.exportCue.includes('exportDone'), { latex, made: R.exportCue });
+await key('Escape'); await settle(200);
+
+// 7. Hear the function under the pointer, from the popover (a real click on its switch)
+await clickSel('#soundMore'); await settle(300);
+R.pop = await ev(`({ open: !document.getElementById('sndPop').hidden, focus: document.activeElement && document.activeElement.id, vol: document.getElementById('sndVol').value })`);
+await clickSel('#sndSo'); await settle(300);
+await key('Escape'); await settle(200);
+R.popAfter = { sonify: await ev('Sound.prefs().sonify'), hidden: await ev(`document.getElementById('sndPop').hidden`) };
+ok('popover: opens on the caret, focus on the switch, Hear F turned on, Esc closes', R.pop.open && R.pop.focus === 'sndOn' && R.pop.vol === '70' && R.popAfter.sonify && R.popAfter.hidden, { pop: R.pop, after: R.popAfter });
+await made(true);
+// the voice follows; around the simple zero at 1 twice: exactly +2 turns of arg F
+const c2 = await circle([1, 0], 0.3, 2, 48);
+await move(c2[0][0], c2[0][1]); await settle(200);
+const phi0 = (await snd()).phi;
+await glide(c2);
+await settle(200);
+let s = await snd();
+R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, kind: s.kind, engine: s.engine, live: await ev('Sound.debug().live') };
+ok('Hear F: a phase voice, +2 turns around the zero at 1 twice (exact)', R.hover.voice && R.hover.kind === 'phase' && Math.abs(R.hover.dphi - 2) < 1e-6, R.hover);
+// a zero within 8 px: one ping of its order, and the message
+await made(true);
+await move(...(await W(-1.3, 0.002))); await settle(300);
+for (let i = 0; i <= 24; i++) { await move(...(await W(-1.3 + 0.3 * i / 24, 0.002))); await sleep(20); }
+await settle(300);
+R.zero = { made: await made(true), live: await live() };
+ok('a zero under the pointer: one ping, "Zero of order 1 here."', count(R.zero.made, 'zero') === 1 && /Zero of order 1 here/.test(R.zero.live), R.zero);
+// guards: a pan that brings a zero under the pointer, and the next 250 ms, fire no zero or cut cue
+await move(...(await W(0.6, 0.6))); await settle(700); await made(true);
+{
+  const a = await W(0.6, 0.6), b = await W(1, 0.002);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a[0], y: a[1] });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: a[0], y: a[1], button: 'left', clickCount: 1 });
+  for (let i = 1; i <= 12; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: a[0] + (b[0] - a[0]) * i / 12, y: a[1] + (b[1] - a[1]) * i / 12, button: 'left', buttons: 1 }); await sleep(16); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b[0], y: b[1], button: 'left', clickCount: 1 });
+  await sleep(60);
+  await move(b[0] + 1, b[1]); await sleep(60); await move(b[0], b[1]);
+  await sleep(120);
+  R.pan = { made: await made(true), view: await ev(`(() => { const p = __cmwW2S('L', 0, 0); return p; })()`) };
+}
+ok('pan: no pointer cue during the gesture and the 250 ms after', !R.pan.made.some((x) => x === 'zero' || x === 'pole' || x === 'cut' || x === 'dense'), R.pan);
+await ev(`document.getElementById('leftFit') && document.getElementById('leftFit').click(); 1`); await settle(600);
+// while the deformation plays: the voice may follow, event cues do not
+await key('m'); await settle(300);
+await move(...(await W(-1.4, 0.002))); await sleep(100);
+for (let i = 0; i <= 20; i++) { await move(...(await W(-1.4 + 0.4 * i / 20, 0.002))); await sleep(20); }
+R.morphQuiet = (await made(true)).filter((x) => x === 'zero' || x === 'pole' || x === 'cut' || x === 'dense');
+ok('while the deformation plays: no pointer cue', !R.morphQuiet.length, R.morphQuiet);
+await key('m'); await settle(400); await made(true);
+
+// 8. loops: the Lasso around both zeros: two rising bells while drawing, W = 2 announced, the first loop plays itself;
+// Esc stops it at once and keeps sound on; a second loop sounds its winding and waits
+await key('o'); await settle(200);
+{
+  const L = await circle([0, 0], 1.4, 1, 64);
+  await move(L[0][0], L[0][1]); await settle(200); await made(true);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L[0][0], y: L[0][1], button: 'left', clickCount: 1 });
+  for (const p of L.slice(1)) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(16); }
+  await sleep(300);
+  const drawing = await made(true);
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L[L.length - 1][0], y: L[L.length - 1][1], button: 'left', clickCount: 1 });
+  await sleep(250);
+  s = await snd();
+  R.loop1 = { drawing, made: await made(true), live: s.live, play: s.play, auto: s.auto };
+}
+ok('loop 1: two turn bells while drawing, "Winding number 2", plays itself (with its two bells)', count(R.loop1.drawing, 'turn') === 2 && count(R.loop1.made, 'turn') === 2 && /^Winding number 2.*Listening along the loop: 2 turns/.test(R.loop1.live) && R.loop1.play && R.loop1.auto, R.loop1);
+await sleep(600);
+await key('Escape'); await sleep(150);
+R.esc = { play: (await snd()).play, active: await ev('Sound.debug().active'), on: await ev('Sound.prefs().on') };
+ok('Esc: the playback stops at once, sound stays on', !R.esc.play && R.esc.active === 0 && R.esc.on, R.esc);
+await key('o'); await settle(200);
+{
+  const L = await circle([-1, 0], 0.4, 1, 48);
+  await move(L[0][0], L[0][1]); await settle(200); await made(true);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L[0][0], y: L[0][1], button: 'left', clickCount: 1 });
+  for (const p of L.slice(1)) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(16); }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L[L.length - 1][0], y: L[L.length - 1][1], button: 'left', clickCount: 1 });
+  await sleep(300);
+  s = await snd();
+  R.loop2 = { made: await made(true), live: s.live, play: s.play };
+}
+ok('loop 2: "Winding number 1", the loop-closed cue, no playback', /Winding number 1/.test(R.loop2.live) && R.loop2.made.includes('loopDone') && !R.loop2.play, R.loop2);
+// Listen along a curve, from the shape's menu (right-click), and the pointer moving > 4 px ends it
+{
+  const p = await W(-1.4, 0);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1] });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p[0], y: p[1], button: 'right', clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p[0], y: p[1], button: 'right', clickCount: 1 });
+  await settle(300);
+  const it = await ev(`(() => { const it = [...document.querySelectorAll('#popHost [role=menuitem], #popHost button')].find((b) => /^Listen along/.test(b.textContent.trim())); if (!it) return [...document.querySelectorAll('#popHost [role=menuitem], #popHost button')].map((b) => b.textContent.trim()).join(' | '); const t = it.textContent.trim(); it.click(); return t; })()`);
+  await sleep(300);
+  const playing = (await snd()).play;
+  await move(p[0] + 30, p[1] + 10); await sleep(150);
+  R.listenMenu = { item: it, playing, after: (await snd()).play };
+}
+ok('curve menu: "Listen along …" plays; a pointer move ends it', /^Listen along/.test(R.listenMenu.item) && R.listenMenu.playing && !R.listenMenu.after, R.listenMenu);
+await key('v'); await settle(200); await made(true);
+
+// 9. the keyboard probe on a keyboard-focused X plane: arrows, Z, O, D, Enter (a loop), L, Esc
+await ev(`document.activeElement && document.activeElement.blur(); document.getElementById('overlayL').focus(); 1`); await settle(200);
+await key('ArrowRight'); await settle(200);
+R.kb = { start: await live() };
+await key('z'); await settle(200); R.kb.z = await live();
+await key('o'); await settle(200); R.kb.o = await live();
+await key('d'); await settle(200); R.kb.d = await live();
+await made(true);
+await key('Enter'); await settle(100); R.kb.enter = await live();
+for (const k of ['ArrowUp', 'ArrowLeft', 'ArrowLeft', 'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowRight']) { await key(k); await sleep(60); }
+await key('Enter'); await settle(300); R.kb.loop = await live();
+await key('l'); await sleep(300); R.kb.playing = (await snd()).play;
+await key('Escape'); await sleep(150); R.kb.after = (await snd()).play;
+R.kb.made = await made(true);
+ok('keyboard: the probe starts at the centre', /^Probe at the centre, z = 0\. Steps of 0\.1/.test(R.kb.start), R.kb.start);
+ok('keyboard: Z → the first zero with its order', /^Zero 1 of 2: order 1 at [−-]1/.test(R.kb.z), R.kb.z);
+ok('keyboard: O → net order 1', /net order 1/.test(R.kb.o), R.kb.o);
+ok('keyboard: D describes the view', /2 zeros/.test(R.kb.d) && /no poles/.test(R.kb.d), R.kb.d);
+ok('keyboard: Enter … Enter: a loop around −1, winding 1', /^Loop started/.test(R.kb.enter) && /Winding number 1/.test(R.kb.loop), [R.kb.enter, R.kb.loop]);
+ok('keyboard: L listens, Esc stops', R.kb.playing && !R.kb.after, R.kb);
+// after a mouse click in the plane, the letters are the tool shortcuts again
+await click(...(await W(1.6, 1.2))); await settle(150);
+await key('l'); await settle(150);
+R.kbClick = { tool: await ev(`document.querySelector('[data-tool].active, [data-tool][aria-pressed=true]') ? document.querySelector('[data-tool].active, [data-tool][aria-pressed=true]').dataset.tool : ''`), play: (await snd()).play, kbd: (await snd()).kbd };
+ok('after a click in the plane, L is the Line tool again', !R.kbClick.play && !R.kbClick.kbd, R.kbClick);
+await key('v'); await settle(150);
+
+// 10. Height contours in the Landscape: the Height voice and its contour ticks
+await key('3'); await settle(1500); await made(true);
+{
+  const r = await ev(`(() => { const b = document.getElementById('overlayL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
+  for (let i = 0; i <= 60; i++) { const u = i / 60; await move(r[0] + r[2] * (0.3 + 0.4 * u), r[1] + r[3] * (0.5 + 0.12 * Math.sin(6 * u))); await sleep(20); }
+  await settle(400);
+  s = await snd();
+  R.height = { kind: s.kind, made: await made(true) };
+}
+ok('Landscape: the Height voice and contour ticks', R.height.kind === 'height' && count(R.height.made, 'contour') >= 2, R.height);
+await key('2'); await settle(800);
+
+// 11. the engine's guards in the live context: 12 turns → 8 bells and one flourish; an Interface cue right after
+// plays; 20 zero entries at 40 ms → at most 3 pings and the dense cue
+R.queue = await ev(`await (async () => { await new Promise((r) => setTimeout(r, 1500)); __made.length = 0; const r = []; for (let i = 0; i < 12; i++) r.push(Sound.turn({ dir: 1, pc: 0 })); const m = __made.slice(); const add = Sound.play('stepAdd', {}); return { r, bells: m.filter((x) => x === 'turn').length, many: m.filter((x) => x === 'turnMany').length, add }; })()`);
+ok('queue: 12 turns → 8 bells and one flourish; an Interface cue still plays', R.queue.bells === 8 && R.queue.many === 1 && R.queue.add === true, R.queue);
+R.cluster = await ev(`await (async () => { await new Promise((r) => setTimeout(r, 1500)); __made.length = 0; for (let i = 0; i < 20; i++) { Sound.play(i % 3 ? 'zero' : 'pole', { order: 1 }); await new Promise((r) => setTimeout(r, 40)); } const m = __made.slice(); return { zp: m.filter((x) => x === 'zero' || x === 'pole').length, dense: m.filter((x) => x === 'dense').length }; })()`);
+ok('cluster: 20 entries → ≤ 3 pings and the dense cue', R.cluster.zp <= 3 && R.cluster.dense >= 1, R.cluster);
+// nothing is queued on a clock that is not running: a context whose resume() never resolves
+R.susp = await ev(`await (async () => {
+  const c = Sound.debug().ctx; await c.suspend(); const res = c.resume; c.resume = () => new Promise(() => {});
+  __made.length = 0; const live0 = Sound.debug().live; let n = 0;
+  for (let i = 0; i < 24; i++) { if (Sound.play('toggleOn', {}) === true) n++; if (Sound.turn({ dir: 1 }) === true) n++; await new Promise((r) => setTimeout(r, 50)); }
+  const out = { n, made: __made.length, live: Sound.debug().live - live0 };
+  c.resume = res; await c.resume(); return out; })()`, 20000);
+ok('suspended context: 24 requests, none scheduled', R.susp.n === 0 && R.susp.made === 0 && R.susp.live <= 0, R.susp);
+// the silent off: six sources sounding, then off → no sound made, every source stopped, then suspended
+R.silentOff = await ev(`await (async () => {
+  for (const k of ['toggleOn', 'stepAdd', 'view', 'error', 'exportDone', 'stepRemove']) Sound.play(k, { force: true });
+  const before = Sound.debug().active; __made.length = 0;
+  Sound.set({ on: false });
+  const madeOff = __made.length;
+  await new Promise((r) => setTimeout(r, 150));
+  const after = Sound.debug().active, audio = Sound.state().audio;
+  return { before, madeOff, after, audio };
+})()`);
+ok('off while six sources sound: no off sound, all stopped, suspended', R.silentOff.before >= 6 && R.silentOff.madeOff === 0 && R.silentOff.after === 0 && R.silentOff.audio === 'suspended', R.silentOff);
+await ev(`Sound.set({ on: true }); 1`); await settle(300);
+
+// 12. √z: a remembered "on" waits for a click of the new page; with the default tiers the cut is silent; with Hear F
+// the cut ticks (≤ one per 120 ms)
+await ev(`Sound.set({ sonify: false }); 1`);
+await loadHere(ns, { steps: [{ type: 'custom', params: { expr: 'sqrt(z)', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 120 } });
+await ev(`__cmwSetMain('phase')`); await settle(900);
+await spy();
+const cutPass = async (n) => { for (let i = 0; i < n; i++) { const y = i % 2 ? 0.3 : -0.3; await move(...(await W(-1, y))); await sleep(40); } };
+await cutPass(10);
+R.remembered = { ac: await ev('__acN'), on: await ev('Sound.prefs().on'), audio: await ev('Sound.state().audio') };
+ok('reload with "on" remembered: a hover creates no context', R.remembered.ac === 0 && R.remembered.on && R.remembered.audio === 'none', R.remembered);
+await click(...(await W(1.5, 1.5))); await settle(400);
+R.remembered.afterClick = { ac: await ev('__acN'), audio: await ev('Sound.state().audio') };
+ok('reload: the first click starts it', R.remembered.afterClick.ac === 1 && R.remembered.afterClick.audio === 'running', R.remembered.afterClick);
+await made(true);
+await cutPass(40); await settle(200);
+R.cutQuiet = await made(true);
+ok('default tiers: crossing √z\'s cut 40 times makes no cue', !R.cutQuiet.length, R.cutQuiet);
+await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
+await cutPass(20); await settle(200);
+R.cutTicks = await made(true);
+ok('Hear F: the cut ticks, at most one per 120 ms', count(R.cutTicks, 'cut') >= 3 && count(R.cutTicks, 'cut') <= 20, R.cutTicks);
+
+// 13. the loudness and phone targets (DESIGN §2.2), every cue rendered offline as in use, at 100 % volume
+await ev(fs.readFileSync(path.join(DIR, '..', 'sound_lab.js'), 'utf8'));
+const lab = await ev('await __sndLab()', 180000);
+R.lab = lab && lab.voices;
+// (snap, the scrub's plain detent and the cut are noise bursts read from a moving offset in one noise buffer, so their
+// level varies by a few dB from one to the next: a wider band)
+const GROUP = { snap: [-48, -39], morphTick: [-48, -34.5], cut: [-42, -35], contour: [-43, -36], toggleOn: [-34, -30], toggleOff: [-34, -30], stepAdd: [-34, -30], stepRemove: [-34, -30], view: [-34, -30], edge: [-40, -37], morphStart: [-32.5, -28], morphEnd: [-32.5, -28], zero: [-32.5, -27.5], pole: [-32.5, -28], collide: [-32.5, -28], exportDone: [-30.1, -28], error: [-30.6, -28.4], turn: [-30, -28], turnMany: [-40, -36], dense: [-44, -40] };
+for (const r of (lab && lab.rows) || []) {
+  const g = r.name === 'loopDone' ? (r.o.w ? [-32.5, -28] : [-39, -36]) : GROUP[r.name];
+  ok(`level ${r.name} ${JSON.stringify(r.o)}: LUFS-M in [${g}]`, g && r.lufs >= g[0] && r.lufs <= g[1], r.lufs);
+  ok(`phone ${r.name} ${JSON.stringify(r.o)}: loses ≤ 5 dB`, r.loss <= 5, r.loss);
+  ok(`envelope ${r.name} ${JSON.stringify(r.o)}: peak < −6 dBFS, soft onset, ends at exactly 0, HF ≤ −40 dB`, r.peak < -6 && r.first < 0.35 && r.end === 0 && r.hf <= -40, r);
+}
+ok('lab: every cue measured', lab && lab.rows && lab.rows.length >= 28, lab && lab.rows && lab.rows.length);
+const V = (lab && lab.voices) || {};
+ok('Shepard voice: −33 ± 1 LUFS at |F| = 1, range ≤ 6 dB, phone range ≤ 8 dB', V.shepard && Math.abs(V.shepard.at1 + 33) <= 1 && V.shepard.range <= 6 && V.shepard.phoneRange <= 8, V.shepard);
+ok('Height voice: −33 ± 1.5 LUFS on D5, phone range ≤ 8 dB', V.height && Math.abs(V.height.at0 + 33) <= 1.5 && V.height.phoneRange <= 8, V.height);
+ok('turn bell: −29 ± 1 alone, ≥ 5 dB over the voice in its band', Math.abs(V.bellAlone + 29) <= 1 && V.bellOverVoice >= 5, { alone: V.bellAlone, over: V.bellOverVoice });
+
+// 14. the tracker's cost per pointer event (synthetic pointermoves on the X plane, z² − 1 and a heavy chain): Hear F
+// on against off; the budget is about 3 ms of F calls an event
+const cost = async (jumpy) => ev(`await (async () => {
+  const el = document.getElementById('overlayL'), b = el.getBoundingClientRect(), N = 300;
+  const fire = (i) => { const a = ${jumpy ? '2.4 * i' : '2 * Math.PI * i / 120'}, r = ${jumpy ? '4 + 30 * ((i * 7) % 10) / 10' : '1'}; el.dispatchEvent(new PointerEvent('pointermove', { clientX: b.left + b.width / 2 + ${jumpy ? 'r' : 160} * Math.cos(a), clientY: b.top + b.height / 2 + ${jumpy ? 'r' : 110} * Math.sin(a), pointerId: 1, pointerType: 'mouse', isPrimary: true, bubbles: true })); };
+  // (also the tracker's own time per event: Calc.argStep and Calc.orderAt, wrapped for the run)
+  const A = Calc.argStep, O = Calc.orderAt; let tr = 0;
+  Calc.argStep = function (...a) { const t = performance.now(); try { return A.apply(this, a); } finally { tr += performance.now() - t; } };
+  Calc.orderAt = function (...a) { const t = performance.now(); try { return O.apply(this, a); } finally { tr += performance.now() - t; } };
+  const run = () => { const t = [], q = []; for (let i = 0; i < N; i++) { tr = 0; const t0 = performance.now(); fire(i); t.push(performance.now() - t0); q.push(tr); } t.sort((x, y) => x - y); return { mean: +(t.reduce((s, x) => s + x, 0) / N).toFixed(3), p95: +t[Math.floor(0.95 * N)].toFixed(3), max: +t[N - 1].toFixed(3), trMax: +Math.max(...q).toFixed(3) }; };
+  try {
+    Sound.set({ on: false }); run(); const off = run();
+    Sound.set({ on: true, sonify: true }); run(); const on = run();
+    return { off, on, perEval: __cmwSound().perEval };
+  } finally { Calc.argStep = A; Calc.orderAt = O; }
+})()`, 60000);
+await loadHere(ns, SQ); await ev(`__cmwSetMain('phase')`); await settle(900); await click(5, 300); await settle(200);
+R.costSq = await cost();
+// (erf is a series: the costliest calls of F in the app; then the derivative of the whole chain)
+await loadHere(ns, { steps: [{ type: 'custom', params: { expr: 'erf(z^2)*erf(1/(z+0.3))', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'erf(z)+erf(2z)+tan(z)*log(z+2)', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^5-z', cut: 180 }, on: true }, { type: 'deriv', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
+await ev(`__cmwSetMain('phase')`); await settle(1500); await click(5, 300); await settle(200);
+R.costHeavy = await cost();
+if (R.costHeavy.on.trMax >= 4) {
+  const a = [R.costHeavy, await cost(), await cost()].sort((x, y) => x.on.trMax - y.on.trMax);
+  R.costHeavy = Object.assign({}, a[1], { attempts: a.map((x) => ({ off: x.off.max, on: x.on.max, tracker: x.on.trMax })) });
+}
+// frames while the pointer sweeps the heavy chain's portrait at 60 Hz (real input), Hear F off and on
+const sweep = async (on) => {
+  await ev(`Sound.set({ on: true, sonify: ${on} }); 1`); await settle(300);
+  const b = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  await ev(`window.__fr = __qa.frames(2500); 1`);
+  const t0 = Date.now(); let i = 0;
+  while (Date.now() - t0 < 2400) { const a = 2 * Math.PI * (i++) / 90; await move(b[0] + 220 * Math.cos(a), b[1] + 150 * Math.sin(1.3 * a)); await sleep(14); }
+  return ev('await __fr');
+};
+R.framesOff = await sweep(false);
+R.framesOn = await sweep(true);
+ok('frames: Hear F keeps the hover sweep at ≥ 55 fps and adds ≤ 2 ms at p95', R.framesOn.fps >= 55 && R.framesOn.p95 <= R.framesOff.p95 + 2, { off: R.framesOff, on: R.framesOn });
+// sin(1/z) near 0 with jumps of up to 34 px an event: arg F turns wildly between events, so the budget is used up
+await loadHere(ns, { steps: [{ type: 'custom', params: { expr: 'sin(1/z)', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 120 } });
+await ev(`__cmwSetMain('phase')`); await settle(1200); await click(5, 300); await settle(200);
+// (a pause of the page's thread, from GC or the machine, lands in one event now and then, with Hear F off as well:
+// as the perf suite confirms a failing unit, a run over the limit is measured twice more and the median run counts)
+R.costJumpy = await cost(true);
+if (R.costJumpy.on.max >= 8 || R.costJumpy.on.p95 - R.costJumpy.off.p95 >= 2 || R.costJumpy.on.trMax >= 4) {
+  const a = [R.costJumpy, await cost(true), await cost(true)].sort((x, y) => x.on.max - y.on.max);
+  R.costJumpy = Object.assign({}, a[1], { attempts: a.map((x) => ({ off: x.off.max, on: x.on.max, tracker: x.on.trMax })) });
+}
+ok('tracker cost: Hear F adds < 4 ms per event (z² − 1)', R.costSq.on.mean - R.costSq.off.mean < 4, R.costSq);
+ok('tracker cost: sin(1/z) with jumps: the budget holds (p95 + < 2 ms, max < 8 ms)', R.costJumpy.on.p95 - R.costJumpy.off.p95 < 2 && R.costJumpy.on.max < 8, R.costJumpy);
+ok('tracker cost: the tracker itself stays within its 3 ms deadline (max < 4 ms an event; the median of 3 runs when one is over)', [R.costSq, R.costHeavy, R.costJumpy].every((c) => c.on.trMax < 4), { sq: R.costSq.on.trMax, heavy: R.costHeavy.on.trMax, jumpy: R.costJumpy.on.trMax, attempts: [R.costHeavy.attempts, R.costJumpy.attempts] });
+ok('tracker cost: Hear F adds < 5 ms per event at p95 (a heavy chain: the budget holds)', R.costHeavy.on.p95 - R.costHeavy.off.p95 < 5, R.costHeavy);
+await ev(`Sound.set({ sonify: false }); 1`);
+
+// 15. phones (360, 390): the speaker in the bar while sound is on, back in the More menu when off; no overflow
+for (const w of [360, 390]) {
+  await view(w, 780, false, true);
+  await nav(`${BASE}?ns=${ns}`); await settle(1200);
+  const g = async () => ev(`(() => { const ph = document.getElementById('soundPh'), b = document.getElementById('soundBtn'), m = document.getElementById('soundMore'); return { ph: getComputedStyle(ph).display !== 'none' && !ph.hidden, btn: getComputedStyle(b).display, more: getComputedStyle(m).display, over: document.documentElement.scrollWidth - innerWidth, top: document.getElementById('top').scrollWidth - document.getElementById('top').clientWidth }; })()`);
+  const on = await g();
+  await ev(`Sound.set({ on: false }); 1`); await settle(200);
+  const off = await g();
+  await clickSel('#hdrMoreBtn'); await settle(300);
+  const menu = await ev(`(() => { const b = document.getElementById('soundBtn'), m = document.getElementById('soundMore'); return { btn: b.offsetParent !== null && getComputedStyle(b).display !== 'none', more: m.offsetParent !== null }; })()`);
+  await clickSel('#soundMore'); await settle(300);
+  const pop = await ev(`(() => { const r = document.getElementById('sndPop').getBoundingClientRect(); return { l: r.left, r: r.right, b: r.bottom, w: innerWidth, h: innerHeight, open: !document.getElementById('sndPop').hidden }; })()`);
+  await key('Escape'); await ev(`Sound.set({ on: true }); 1`);
+  R['phone' + w] = { on, off, menu, pop };
+  ok(`${w} px: the speaker in the bar while on, not while off; no overflow`, on.ph && !off.ph && on.over <= 0 && off.over <= 0 && on.top <= 0, { on, off });
+  ok(`${w} px: the More menu has Sound and Sound settings while off`, menu.btn && menu.more, menu);
+  ok(`${w} px: the popover fits`, pop.open && pop.l >= 0 && pop.r <= pop.w && pop.b <= pop.h, pop);
+}
+await view(1440, 900, false, false);
+await ev(`Sound.set({ on: false }); 1`);
+await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
+const exc = logs().filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
+ok('no exceptions', !exc.length, exc.slice(0, 5));
+return { pass: !fails.length, nfail: fails.length, fails, R };

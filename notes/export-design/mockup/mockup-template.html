@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export Dialog Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<style>
+/* The app's own tokens (src/page.html, section 2), verbatim subset */
+:root {
+  color-scheme: light;
+  --bg: #E3E8EA; --panel: #F1F4F5; --surface: #FFFFFF; --surface-2: #F7F9FA; --well: #E9EEF0;
+  --ink: #121A20; --ink-2: #3E4C56; --muted: #56646E; --faint: #8A969E; --line: #D2DADE; --line-strong: #B3BEC4;
+  --accent: #0A6A87; --accent-hover: #075A73; --accent-soft: #DDEFF4; --accent-ink: #FFFFFF;
+  --good: #1B7A47; --good-soft: #DFF1E6; --warn: #8F5408; --warn-soft: #FAEDD7;
+  --shadow-1: 0 1px 2px #121A201A; --shadow-3: 0 10px 28px #121A2029, 0 2px 6px #121A2014; --scrim: #121A205C;
+  --f-ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --f-math: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+  --t-caption: semi-condensed 600 11px/14px var(--f-ui); --t-label: 500 12px/16px var(--f-ui); --t-body: 400 13px/18px var(--f-ui);
+  --t-heading: 600 13px/18px var(--f-ui); --t-title: 600 19px/24px var(--f-ui); --t-readout: 400 11.5px/16px var(--f-mono);
+  --r-1: 2px; --r-2: 3px; --r-3: 4px; --r-4: 6px;
+  --t-fast: 80ms; --t-med: 160ms; --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --seg-on: var(--surface); --paper-shadow: 0 1px 2px #121A2024, 0 6px 22px #121A201F; --page-text: #D5D9DC;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #12191E; --panel: #172026; --surface: #1D282F; --surface-2: #23303A; --well: #121A1F;
+    --ink: #E3EAEE; --ink-2: #B4C1C9; --muted: #91A1AB; --faint: #5E6E78; --line: #26333B; --line-strong: #36474F;
+    --accent: #52B7D3; --accent-hover: #78C9E0; --accent-soft: #12313B; --accent-ink: #061216;
+    --good: #4BC28A; --good-soft: #112A1F; --warn: #E3A23E; --warn-soft: #2D2211;
+    --shadow-1: 0 1px 2px #00000066; --shadow-3: 0 12px 32px #00000080, 0 2px 6px #00000059; --scrim: #0000008C;
+    --seg-on: var(--surface-2); --paper-shadow: 0 1px 2px #00000080, 0 8px 26px #00000066; --page-text: #CDD2D6;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12191E; --panel: #172026; --surface: #1D282F; --surface-2: #23303A; --well: #121A1F;
+  --ink: #E3EAEE; --ink-2: #B4C1C9; --muted: #91A1AB; --faint: #5E6E78; --line: #26333B; --line-strong: #36474F;
+  --accent: #52B7D3; --accent-hover: #78C9E0; --accent-soft: #12313B; --accent-ink: #061216;
+  --good: #4BC28A; --good-soft: #112A1F; --warn: #E3A23E; --warn-soft: #2D2211;
+  --shadow-1: 0 1px 2px #00000066; --shadow-3: 0 12px 32px #00000080, 0 2px 6px #00000059; --scrim: #0000008C;
+  --seg-on: var(--surface-2); --paper-shadow: 0 1px 2px #00000080, 0 8px 26px #00000066; --page-text: #CDD2D6;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: var(--t-body); padding: 24px 16px 48px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.intro { max-width: 1180px; margin: 0 auto 18px; }
+.intro h1 { font: var(--t-title); margin: 0 0 4px; }
+.intro p { margin: 0; color: var(--muted); max-width: 90ch; }
+.state { max-width: 1180px; margin: 0 auto 28px; }
+.state > .lbl { font: var(--t-caption); color: var(--muted); letter-spacing: .02em; text-transform: uppercase; margin: 0 0 8px; }
+/* the app behind the dialog, under its scrim */
+.frame { position: relative; border-radius: var(--r-4); overflow: hidden; background: var(--bg); border: 1px solid var(--line); padding: 26px; }
+.frame::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, var(--panel) 0 240px, var(--bg) 240px 248px); opacity: .9; }
+.frame::after { content: ""; position: absolute; inset: 0; background: var(--scrim); }
+/* the dialog */
+.dlg { position: relative; z-index: 1; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); }
+.dhead { display: flex; align-items: center; gap: 12px; padding: 16px 20px 0; }
+.dhead h2 { font: var(--t-title); margin: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 12px; background: var(--well); border: 1px solid var(--line); font: var(--t-label); color: var(--ink-2); }
+.chip i { font-style: italic; font-family: var(--f-math); font-size: 13.5px; }
+.sp { flex: 1; }
+.x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-2); color: var(--ink-2); }
+.dbody { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 16px 20px 0; }
+/* preview: the page */
+.stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); height: 470px; overflow: hidden; }
+.stage-bar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; }
+.stage-bar .hint { font: var(--t-label); color: var(--muted); }
+.paper { position: absolute; background: #fff; box-shadow: var(--paper-shadow); transform-origin: 0 0; color: #111; }
+.paper .ln { height: 6px; border-radius: 3px; background: var(--page-text); margin: 0 0 7.3px; }
+.paper .ln.s { width: 62%; }
+.paper .cap { font: 400 12px/14.5px "STIX Two Text", "Latin Modern Roman", serif; color: #111; text-align: justify; hyphens: auto; }
+.paper .cap b { font-weight: 700; }
+.paper .cap i { font-style: italic; }
+.paper .tag { position: absolute; font: 500 10px/12px var(--f-ui); color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+.fig { display: block; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 2px 0; font: var(--t-readout); color: var(--muted); }
+.facts b { color: var(--ink-2); font-weight: 400; }
+/* controls */
+.ctl { display: grid; gap: 14px; align-content: start; }
+.row { display: grid; gap: 6px; }
+.row > .h { display: flex; align-items: baseline; gap: 8px; font: var(--t-heading); color: var(--ink); }
+.row > .h small { font: var(--t-label); color: var(--muted); }
+.seg { position: relative; display: flex; height: 28px; padding: 2px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-2); }
+.seg > button { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-1); font: var(--t-label); color: var(--muted); white-space: nowrap; }
+.seg > button[aria-checked="true"] { color: var(--ink); background: var(--seg-on); border-color: var(--line-strong); box-shadow: var(--shadow-1); }
+.seg.big { height: 54px; }
+.seg.big > button { flex-direction: column; gap: 3px; font-weight: 600; }
+.seg.big > button svg { width: 22px; height: 22px; flex: 0 0 22px; }
+.seg.big > button small { font: 400 10.5px/12px var(--f-ui); color: var(--muted); }
+.pair { display: grid; grid-template-columns: 1fr 92px; gap: 8px; }
+.select { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); font: var(--t-label); color: var(--ink); white-space: nowrap; overflow: hidden; }
+.select span { overflow: hidden; text-overflow: ellipsis; }
+.select .dim { color: var(--muted); }
+.select svg { margin-left: auto; flex: 0 0 auto; color: var(--muted); }
+.capbox { border: 1px solid var(--line-strong); border-radius: var(--r-2); background: var(--surface); }
+.capbox .src { font: 400 11px/16px ui-monospace, 'SF Mono', Menlo, Consolas, monospace; color: var(--ink-2); padding: 7px 9px; max-height: 64px; overflow: hidden; border-bottom: 1px solid var(--line); }
+.capbox .src em { font-style: normal; color: var(--accent); }
+.capbox .meta { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 9px; font: var(--t-label); color: var(--muted); }
+.link { font: var(--t-label); color: var(--accent); }
+.disc { display: flex; align-items: center; gap: 6px; font: var(--t-heading); color: var(--ink); padding-top: 2px; border-top: 1px solid var(--line); padding-top: 12px; }
+.disc small { font: var(--t-label); color: var(--muted); font-weight: 500; }
+.ft { display: grid; gap: 10px; }
+.ft .fr { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; font: var(--t-label); color: var(--ink-2); }
+.ft .seg { height: 24px; }
+.ft .btn { height: 24px; }
+.input { display: flex; align-items: center; height: 24px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-2); background: var(--surface); font: var(--t-readout); color: var(--ink); }
+.sw { display: inline-flex; align-items: center; gap: 8px; font: var(--t-label); color: var(--ink-2); }
+.sw .t { width: 26px; height: 16px; border-radius: 8px; background: var(--line-strong); position: relative; }
+.sw .t::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-1); }
+.sw.on .t { background: var(--accent); } .sw.on .t::after { left: 12px; }
+.dfoot { display: flex; align-items: center; gap: 8px; padding: 14px 20px 16px; margin-top: 14px; border-top: 1px solid var(--line); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; white-space: nowrap; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); font: var(--t-label); color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.split { display: inline-flex; }
+.split .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* round 2: the page is the hero; controls are four quiet rows; the footer names destinations */
+.dbody { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; padding: 16px 20px 0; }
+.stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); height: 500px; overflow: hidden; display: grid; place-items: center; }
+.stage-bar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; }
+.stage-bar .hint { font: var(--t-label); color: var(--muted); }
+.stage-bar .sp { flex: 1; }
+.ico { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: var(--r-2); background: var(--surface); border: 1px solid var(--line); font: var(--t-label); color: var(--ink-2); }
+.ico.on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.paper { position: relative; background: #fff; box-shadow: var(--paper-shadow); color: #111; }
+/* dummy text: hairline word segments at x-height, ragged last lines (not pills) */
+.txt { display: flex; flex-wrap: wrap; gap: 0 3.2px; margin: 0 0 6px; }
+.txt i { display: block; height: 1.3px; margin: 4.6px 0 5.1px; background: #BFC5C9; }
+.paper img { display: block; }
+.capimg { margin-top: 9px; position: relative; }
+.capimg .edit { position: absolute; right: -4px; top: -20px; font: 500 10px/14px var(--f-ui); color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+.capimg.editing { outline: 1.5px solid var(--accent); outline-offset: 3px; border-radius: 1px; }
+.facts { margin: 8px 2px 0; font: var(--t-label); color: var(--muted); }
+.facts b { color: var(--ink-2); font-weight: 500; }
+.facts .det { color: var(--accent); margin-left: 6px; }
+.dfoot { display: flex; align-items: center; gap: 8px; padding: 14px 20px 16px; margin-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.name { display: inline-flex; align-items: center; gap: 0; height: 28px; padding: 0 2px 0 8px; border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface-2); font: var(--t-readout); color: var(--ink); }
+.name .ext { color: var(--muted); padding-right: 6px; }
+.name svg { color: var(--muted); margin-left: 6px; }
+.btn.quiet { border-color: transparent; background: none; color: var(--ink-2); }
+.btn.dest { height: 32px; padding: 0 14px; font-weight: 600; }
+.btn.dest small { font-weight: 400; opacity: .8; margin-left: 2px; }
+.btn.done { background: var(--good); border-color: var(--good); color: #fff; }
+.hint2 { flex-basis: 100%; display: flex; gap: 10px; justify-content: flex-end; font: var(--t-label); color: var(--muted); }
+.hint2 b { color: var(--ink-2); font-weight: 500; }
+.menu { position: absolute; z-index: 5; min-width: 280px; padding: 4px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
+.menu .mi { display: grid; grid-template-columns: 1fr auto; gap: 1px 12px; padding: 6px 10px; border-radius: var(--r-2); font: var(--t-label); color: var(--ink); }
+.menu .mi small { grid-column: 1 / -1; font: 400 11px/14px var(--f-ui); color: var(--muted); }
+.menu .mi kbd { font: var(--t-readout); color: var(--muted); }
+.menu .mi.hl { background: var(--accent-soft); }
+.menu .mi.cur::before { content: "✓"; position: absolute; margin-left: -12px; color: var(--accent); }
+.menu .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+.menu .mh { padding: 6px 10px 2px; font: var(--t-caption); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.grey img { filter: grayscale(1); }
+/* the claude.ai side panel is 700-800 px: one column, Fit preview at 45vh, For and Ink on one line, sticky footer */
+@media (max-width: 900px) {
+  .dbody { grid-template-columns: 1fr; gap: 14px; }
+  .stage { height: 45vh; min-height: 260px; }
+  .ctl { grid-template-columns: 1fr 1fr; column-gap: 12px; grid-auto-flow: row dense; }
+  .frame { overflow: visible; }
+  .stage .paper { zoom: .7 !important; margin-top: 40px !important; }
+  .ctl .row.wide, .ctl .disc { grid-column: 1 / -1; }
+  .seg.big { height: 32px; } .seg.big > button { flex-direction: row; } .seg.big > button small, .seg.big > button svg { display: none; }
+  .dfoot { position: sticky; bottom: 0; background: var(--surface); z-index: 3; }
+  .frame { padding: 10px; }
+}
+</style>
+</head><body>
+<div class="intro">
+  <h1>Export figure, round 2</h1>
+  <p>The page is the preview: the real prototype figure (proto/out) on a mock page at <b>Fit column</b>, so label size can be compared with body text, and the caption on the paper is typeset from the same LaTeX that is copied. Four rows, then two buttons named by where the figure goes.</p>
+</div>
+<!--SECTIONS-->
+<section class="state" id="sA"><div class="lbl">A · Article · amsart 360 pt (default) · Fit column · the caption is edited on the paper</div>
+<div class="frame"><div class="dlg"><div class="dhead"><h2>Export figure</h2><span class="chip">X → Y · <i>F(z)=(z−i)/(z+i)</i></span><span class="sp"></span><button class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></button></div><div class="dbody"><div>
+<div class="stage"><div class="stage-bar"><span class="hint">amsart, 10 pt text · Fit column</span><span class="sp"></span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>See in grey</span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5l3.5 3.5" stroke="currentColor" stroke-width="1.5"/></svg>Loupe</span></div>
+<div class="paper" style="width:612px; padding:30px 40px 24px; zoom:.95; margin-top:30px">
+<div class="txt"><i style="width:14px;background:none"></i><i style="width:30px"></i><i style="width:18px"></i><i style="width:34px"></i><i style="width:10px"></i><i style="width:14px"></i><i style="width:48px"></i><i style="width:14px"></i><i style="width:30px"></i><i style="width:10px"></i><i style="width:48px"></i><i style="width:22px"></i><i style="width:10px"></i><i style="width:14px"></i><i style="width:34px"></i><i style="width:34px"></i><i style="width:14px"></i><i style="width:22px"></i><i style="width:14px"></i></div><div class="txt"><i style="width:34px"></i><i style="width:10px"></i><i style="width:14px"></i><i style="width:22px"></i><i style="width:10px"></i><i style="width:34px"></i><i style="width:10px"></i><i style="width:22px"></i><i style="width:10px"></i><i style="width:48px"></i><i style="width:18px"></i><i style="width:26px"></i><i style="width:34px"></i><i style="width:18px"></i><i style="width:48px"></i><i style="width:14px"></i><i style="width:26px"></i><i style="width:48px"></i><i style="width:18px"></i></div><div class="txt"><i style="width:22px"></i><i style="width:30px"></i><i style="width:14px"></i><i style="width:48px"></i><i style="width:14px"></i><i style="width:10px"></i><i style="width:22px"></i><i style="width:42px"></i><i style="width:48px"></i><i style="width:34px"></i><i style="width:30px"></i><i style="width:42px"></i><i style="width:42px"></i><i style="width:30px"></i><i style="width:26px"></i><i style="width:22px"></i></div><div class="txt"><i style="width:22px"></i><i style="width:14px"></i><i style="width:26px"></i><i style="width:48px"></i><i style="width:42px"></i><i style="width:30px"></i><i style="width:42px"></i><i style="width:26px"></i><i style="width:14px"></i><i style="width:14px"></i></div><div style="height:8px"></div>
+<img alt="Article figure" src="{{cayley-amsart.svg}}" style="width:4.981in; margin:4px auto 0">
+<div class="capimg editing" style="width:4.981in; margin:0 auto"><span class="edit">Click to edit · LaTeX source</span><img alt="caption" src="{{cap-amsart.svg}}" style="width:4.981in"></div>
+<div style="height:12px"></div><div class="txt"><i style="width:14px;background:none"></i><i style="width:34px"></i><i style="width:18px"></i><i style="width:30px"></i><i style="width:18px"></i><i style="width:42px"></i><i style="width:34px"></i><i style="width:10px"></i><i style="width:14px"></i><i style="width:48px"></i><i style="width:30px"></i><i style="width:30px"></i><i style="width:30px"></i><i style="width:42px"></i><i style="width:42px"></i><i style="width:14px"></i><i style="width:14px"></i></div><div class="txt"><i style="width:42px"></i><i style="width:14px"></i><i style="width:10px"></i><i style="width:26px"></i><i style="width:42px"></i><i style="width:26px"></i><i style="width:34px"></i><i style="width:30px"></i><i style="width:10px"></i><i style="width:42px"></i><i style="width:30px"></i><i style="width:18px"></i><i style="width:14px"></i><i style="width:42px"></i><i style="width:10px"></i><i style="width:22px"></i><i style="width:26px"></i><i style="width:18px"></i></div><div class="txt"><i style="width:34px"></i><i style="width:34px"></i><i style="width:42px"></i><i style="width:14px"></i><i style="width:18px"></i><i style="width:42px"></i><i style="width:34px"></i><i style="width:48px"></i><i style="width:26px"></i></div>
+</div></div>
+<div class="facts"><b>4.98 × 2.34 in</b> · labels match 10 pt text · PDF 70 KB<span class="det">Details</span></div>
+</div><div class="ctl"><div class="row"><div class="h">For</div><div class="seg big"><button aria-checked="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>Article<small>journal, arXiv</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 3.5h12v13H4z"/><path d="M6.5 7l1.5 1.5L11 5.5M6.5 12.5h7"/></svg>Homework<small>Overleaf, Docs</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="4" width="15" height="10" rx="1"/><path d="M10 14v3M7 17h6"/></svg>Slides<small>Beamer, Keynote</small></button></div></div><div class="row wide"><div class="h">Size</div><div class="pair"><div class="select"><span>amsart <span class="dim">· 360 pt</span></span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div><div class="select"><span>Text 10 pt</span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div></div></div><div class="row"><div class="h">Ink</div><div class="seg"><button aria-checked="true">Colour</button><button>B/W</button></div></div><div class="disc"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2l3 3-3 3" stroke="currentColor" fill="none" stroke-width="1.4"/></svg>Fine-tune <small>Crop · Axes · Panels · Points · Detail</small></div></div></div>
+<div class="dfoot" style="position:relative"><span class="name">cayley-halfplane<span class="ext">.pdf</span><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 10l1-3 5-5 2 2-5 5z" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></span><span class="sp"></span><button class="btn quiet">More formats <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></button><button class="btn dest">For Docs</button><button class="btn dest primary">For Overleaf</button></div></div></div></section>
+<section class="state" id="sB"><div class="lbl">B · Homework · Size menu (default-margin widths first) · after For Overleaf: the LaTeX is copied first, then the PDF is saved</div>
+<div class="frame"><div class="dlg"><div class="dhead"><h2>Export figure</h2><span class="chip">X → Y · <i>F(z)=(z−i)/(z+i)</i></span><span class="sp"></span><button class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></button></div><div class="dbody"><div>
+<div class="stage"><div class="stage-bar"><span class="hint">article, 11 pt · Fit column</span><span class="sp"></span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>See in grey</span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5l3.5 3.5" stroke="currentColor" stroke-width="1.5"/></svg>Loupe</span></div>
+<div class="paper" style="width:612px; padding:34px 72px 26px; zoom:1.05; margin-top:30px">
+<div style="font:700 14px/18px 'Latin Modern Roman','STIX Two Text',serif;margin-bottom:6px;color:#222">Problem 3.</div><div class="txt"><i style="width:14px;background:none"></i><i style="width:34px"></i><i style="width:48px"></i><i style="width:26px"></i><i style="width:34px"></i><i style="width:30px"></i><i style="width:34px"></i><i style="width:22px"></i><i style="width:18px"></i><i style="width:14px"></i><i style="width:18px"></i><i style="width:18px"></i><i style="width:22px"></i><i style="width:22px"></i><i style="width:10px"></i><i style="width:42px"></i></div><div class="txt"><i style="width:26px"></i><i style="width:26px"></i><i style="width:10px"></i><i style="width:18px"></i><i style="width:34px"></i><i style="width:48px"></i><i style="width:30px"></i><i style="width:30px"></i><i style="width:18px"></i><i style="width:48px"></i><i style="width:10px"></i><i style="width:42px"></i><i style="width:48px"></i><i style="width:34px"></i></div><div class="txt"><i style="width:34px"></i><i style="width:34px"></i><i style="width:14px"></i><i style="width:42px"></i><i style="width:34px"></i><i style="width:10px"></i><i style="width:22px"></i><i style="width:14px"></i><i style="width:22px"></i></div><div style="height:6px"></div>
+<img alt="Homework figure" src="{{cayley-hw.svg}}" style="width:4.981in; margin:0 auto">
+<div class="capimg" style="width:4.981in; margin:0 auto"><img alt="caption" src="{{cap-hw.svg}}" style="width:4.981in"></div>
+<div style="height:10px"></div><div class="txt"><i style="width:14px;background:none"></i><i style="width:18px"></i><i style="width:14px"></i><i style="width:30px"></i><i style="width:10px"></i><i style="width:14px"></i><i style="width:10px"></i><i style="width:18px"></i><i style="width:48px"></i><i style="width:14px"></i><i style="width:30px"></i><i style="width:10px"></i><i style="width:14px"></i><i style="width:22px"></i><i style="width:34px"></i><i style="width:18px"></i><i style="width:26px"></i><i style="width:30px"></i><i style="width:30px"></i></div><div class="txt"><i style="width:14px"></i><i style="width:14px"></i><i style="width:42px"></i><i style="width:42px"></i><i style="width:42px"></i><i style="width:42px"></i><i style="width:26px"></i><i style="width:14px"></i><i style="width:18px"></i></div>
+</div></div>
+<div class="facts"><b>4.98 × 1.49 in</b> · labels match 11 pt text · points A–E named · PDF 58 KB<span class="det">Details</span></div>
+</div><div class="ctl" style="position:relative"><div class="row"><div class="h">For</div><div class="seg big"><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>Article<small>journal, arXiv</small></button><button aria-checked="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 3.5h12v13H4z"/><path d="M6.5 7l1.5 1.5L11 5.5M6.5 12.5h7"/></svg>Homework<small>Overleaf, Docs</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="4" width="15" height="10" rx="1"/><path d="M10 14v3M7 17h6"/></svg>Slides<small>Beamer, Keynote</small></button></div></div><div class="row wide"><div class="h">Size</div><div class="pair"><div class="select"><span>article · 11 pt <span class="dim">· 360 pt</span></span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div><div class="select"><span>Text 11 pt</span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div></div></div><div class="row"><div class="h">Ink</div><div class="seg"><button aria-checked="true">Colour</button><button>B/W</button></div></div><div class="disc"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2l3 3-3 3" stroke="currentColor" fill="none" stroke-width="1.4"/></svg>Fine-tune <small>Crop · Axes · Panels · Points · Detail</small></div><div class="menu" style="right:0; top:118px; min-width:280px">
+<div class="mh">Overleaf’s default article</div>
+<div class="mi"><span>article · 10 pt</span><kbd>345 pt</kbd></div>
+<div class="mi hl"><span>✓ article · 11 pt</span><kbd>360 pt</kbd><small>Overleaf’s blank project at 11 pt · remembered</small></div>
+<div class="mi"><span>article · 12 pt</span><kbd>390 pt</kbd></div>
+<div class="sep"></div>
+<div class="mi"><span>1 in margins · Letter</span><kbd>469.75 pt</kbd></div>
+<div class="mi"><span>2.5 cm margins · A4</span><kbd>455.24 pt</kbd></div>
+<div class="sep"></div>
+<div class="mi"><span>Paste <span style="font-family:var(--f-mono)">\the\linewidth</span>…</span><kbd>exact</kbd><small>type it once in your document and paste the number it prints</small></div></div></div></div>
+<div class="dfoot" style="position:relative"><span class="name">cayley-halfplane<span class="ext">.pdf</span><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 10l1-3 5-5 2 2-5 5z" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></span><span class="sp"></span><button class="btn quiet">More formats <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></button><button class="btn dest">For Docs</button><button class="btn dest done">✓ Saved · LaTeX copied</button></div>
+<div class="hint2" style="padding:0 20px 14px"><span>First time only: <b>drop cayley-halfplane.pdf into Overleaf’s file tree, then paste.</b> The snippet keeps the figure under your solution and shrinks it only if your page is narrower.</span></div>
+</div></div></section>
+<section class="state" id="sC"><div class="lbl">C · Deformation · Article full width 510 pt · the print filmstrip · More formats</div>
+<div class="frame"><div class="dlg"><div class="dhead"><h2>Export figure</h2><span class="chip">Deformation · <i>H<sub>t</sub></i>, 0 ≤ <i>t</i> ≤ 1</span><span class="sp"></span><button class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></button></div><div class="dbody"><div>
+<div class="stage"><div class="stage-bar"><span class="hint">REVTeX full width (figure*) · Fit</span><span class="sp"></span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>See in grey</span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5l3.5 3.5" stroke="currentColor" stroke-width="1.5"/></svg>Loupe</span></div>
+<div class="paper" style="width:7.6in; padding:26px 0.27in 22px; zoom:.96; margin-top:30px">
+<div class="txt"><i style="width:14px;background:none"></i><i style="width:30px"></i><i style="width:26px"></i><i style="width:42px"></i><i style="width:18px"></i><i style="width:48px"></i><i style="width:10px"></i><i style="width:22px"></i><i style="width:48px"></i><i style="width:30px"></i><i style="width:18px"></i><i style="width:48px"></i><i style="width:10px"></i><i style="width:48px"></i><i style="width:26px"></i><i style="width:14px"></i><i style="width:26px"></i><i style="width:48px"></i><i style="width:30px"></i><i style="width:18px"></i><i style="width:30px"></i></div><div class="txt"><i style="width:48px"></i><i style="width:48px"></i><i style="width:48px"></i><i style="width:30px"></i><i style="width:22px"></i><i style="width:22px"></i><i style="width:22px"></i><i style="width:34px"></i><i style="width:22px"></i><i style="width:22px"></i><i style="width:48px"></i></div><div style="height:6px"></div>
+<img alt="Filmstrip" src="{{cayley-deformation.svg}}" style="width:7.057in">
+<div class="capimg"><img alt="caption" src="{{cap-film.svg}}" style="width:7.057in"></div>
+</div></div>
+<div class="facts"><b>7.06 × 2.25 in</b> · 4 frames, 3 tracked points · PDF 148 KB<span class="det">Details</span></div>
+</div><div class="ctl"><div class="row"><div class="h">For</div><div class="seg big"><button aria-checked="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>Article<small>journal, arXiv</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 3.5h12v13H4z"/><path d="M6.5 7l1.5 1.5L11 5.5M6.5 12.5h7"/></svg>Homework<small>Overleaf, Docs</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="4" width="15" height="10" rx="1"/><path d="M10 14v3M7 17h6"/></svg>Slides<small>Beamer, Keynote</small></button></div></div><div class="row wide"><div class="h">Deformation</div><div class="seg"><button aria-checked="true">Filmstrip</button><button>Paths</button></div></div><div class="row wide"><div class="h">Size</div><div class="pair"><div class="select"><span>Full width <span class="dim">· 510 pt</span></span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div><div class="select"><span>Text 10 pt</span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div></div></div><div class="row"><div class="h">Ink</div><div class="seg"><button aria-checked="true">Colour</button><button>B/W</button></div></div><div class="disc"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2l3 3-3 3" stroke="currentColor" fill="none" stroke-width="1.4"/></svg>Fine-tune <small>Crop · Axes · Panels · Points · Detail</small></div></div></div>
+<div class="dfoot" style="position:relative"><span class="name">cayley-deformation<span class="ext">.pdf</span><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 10l1-3 5-5 2 2-5 5z" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></span><span class="sp"></span><button class="btn quiet">More formats <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></button><button class="btn dest">For Docs</button><button class="btn dest primary">For Overleaf</button></div><div class="menu" style="right:214px; bottom:56px; min-width:290px">
+<div class="mh">This figure</div>
+<div class="mi"><span>PDF</span><kbd>vector · 148 KB</kbd></div>
+<div class="mi"><span>SVG</span><kbd>vector · 204 KB</kbd></div>
+<div class="mi"><span>PNG</span><kbd>300 · 600 dpi</kbd></div>
+<div class="mi"><span>Copy LaTeX only</span><kbd>⇧⌘C</kbd></div>
+<div class="sep"></div>
+<div class="mi"><span>All views (.zip)</span><kbd>PDFs + figures.tex</kbd><small>X → Y, Phase, Landscape and Deformation in this preset</small></div></div></div></div></section>
+<section class="state" id="sD"><div class="lbl">D · Phase view · Black &amp; white (contour portrait) · See in grey on · Fine-tune open</div>
+<div class="frame"><div class="dlg"><div class="dhead"><h2>Export figure</h2><span class="chip">Phase · <i>f(z)=(z³−1)/(z²+1)</i></span><span class="sp"></span><button class="x" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></button></div><div class="dbody"><div>
+<div class="stage"><div class="stage-bar"><span class="hint">REVTeX column, 10 pt · Fit</span><span class="sp"></span><span class="ico on"><svg width="14" height="14" viewBox="0 0 16 16"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8s-2.4 4.5-6.5 4.5S1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>See in grey</span><span class="ico"><svg width="14" height="14" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5l3.5 3.5" stroke="currentColor" stroke-width="1.5"/></svg>Loupe</span></div>
+<div class="paper grey" style="width:5.2in; padding:22px 0.45in 18px; zoom:1.05; margin-top:30px">
+<div style="display:grid; grid-template-columns:3.404in 1fr; gap:0.25in">
+<div><img alt="Phase B/W" src="{{phase-bw.svg}}" style="width:3.404in"><div class="capimg"><img alt="caption" src="{{cap-phasebw.svg}}" style="width:3.404in"></div></div>
+<div><div class="txt"><i style="width:14px;background:none"></i><i style="width:30px"></i></div><div class="txt"><i style="width:10px"></i><i style="width:26px"></i></div><div class="txt"><i style="width:26px"></i><i style="width:22px"></i></div><div class="txt"><i style="width:42px"></i></div><div class="txt"><i style="width:30px"></i><i style="width:14px"></i></div><div class="txt"><i style="width:14px"></i><i style="width:22px"></i></div><div class="txt"><i style="width:22px"></i><i style="width:30px"></i></div><div class="txt"><i style="width:42px"></i><i style="width:10px"></i></div><div class="txt"><i style="width:30px"></i><i style="width:14px"></i></div><div class="txt"><i style="width:34px"></i><i style="width:22px"></i></div><div class="txt"><i style="width:18px"></i><i style="width:34px"></i></div><div class="txt"><i style="width:14px"></i><i style="width:34px"></i></div><div class="txt"><i style="width:34px"></i><i style="width:14px"></i></div><div class="txt"><i style="width:18px"></i><i style="width:18px"></i><i style="width:10px"></i></div><div class="txt"><i style="width:42px"></i></div><div class="txt"><i style="width:42px"></i></div><div class="txt"><i style="width:18px"></i></div></div></div>
+</div></div>
+<div class="facts"><b>3.40 × 3.52 in</b> · gray only · PDF 38 KB<span class="det">Details</span></div>
+</div><div class="ctl"><div class="row"><div class="h">For</div><div class="seg big"><button aria-checked="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="2.5" width="13" height="15" rx="1"/><path d="M6 6h3.5M6 8.5h3.5M6 11h3.5M11 6h3M11 8.5h3M6 14h8"/></svg>Article<small>journal, arXiv</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 3.5h12v13H4z"/><path d="M6.5 7l1.5 1.5L11 5.5M6.5 12.5h7"/></svg>Homework<small>Overleaf, Docs</small></button><button><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2.5" y="4" width="15" height="10" rx="1"/><path d="M10 14v3M7 17h6"/></svg>Slides<small>Beamer, Keynote</small></button></div></div><div class="row wide"><div class="h">Size</div><div class="pair"><div class="select"><span>Column <span class="dim">· 246 pt · REVTeX</span></span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div><div class="select"><span>Text 10 pt</span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></div></div></div><div class="row"><div class="h">Ink</div><div class="seg"><button>Colour</button><button aria-checked="true">B/W</button></div></div><div class="disc"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.4"/></svg>Fine-tune</div><div class="ft">
+<div class="fr"><span>Crop</span><div class="seg"><button aria-checked="true">Features</button><button>Screen</button><button>Custom</button></div></div>
+<div class="fr"><span>Axes</span><div class="seg"><button aria-checked="true">Box</button><button>Cross</button><button>None</button></div></div>
+<div class="fr"><span>Points</span><div class="seg"><button aria-checked="true">Zeros, poles</button><button>Named</button></div></div>
+<div class="fr"><span>Labels</span><span class="sw"><span class="t"></span>Set by LaTeX (overlay)</span></div></div></div></div>
+<div class="dfoot" style="position:relative"><span class="name">phase-z3<span class="ext">.pdf</span><svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 10l1-3 5-5 2 2-5 5z" fill="none" stroke="currentColor" stroke-width="1.1"/></svg></span><span class="sp"></span><button class="btn quiet">More formats <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg></button><button class="btn dest">For Docs</button><button class="btn dest primary">For Overleaf</button></div></div></div></section>
+</body></html>

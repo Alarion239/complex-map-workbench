@@ -177,45 +177,46 @@ ok('focused unbounded source: readable frame and paths', fsel && fsel.n >= 8 && 
 await key('m'); await settle(300);
 await clickSel('#viewAllBtn'); await settle(400);
 
-// 5. export follows the view
+// 5. export follows the view (the Export figure dialog, notes/export-design/AS-BUILT.md): X → Y the two-panel figure,
+// the deformation its filmstrip (or the paths figure), Phase and Landscape their one panel
 const figDialog = async () => {
   await clickSel('#exportBtn'); await sleep(250);
-  await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu button, .pop.menu [role="menuitem"]')].find((x) => /Figure/.test(x.textContent)); if (b) b.click(); return !!b; })()`);
-  for (let i = 0; i < 80; i++) { await sleep(150); const f = await ev(`(() => { const p = document.querySelector('.fig-preview img'); return !!p && !document.querySelector('.fig-preview.busy'); })()`); if (f) break; }
-  const r = await ev(`(() => { const f = __cmwLastFigure(); const panels = [...document.querySelectorAll('#figPanels > button')].map((b) => b.textContent); return { panels, images: f ? (f.svg.match(/<image/g) || []).length : -1, morph: !!(f && f.morph), W: f && f.W, H: f && f.H, cap: f && f.captionTex }; })()`);
+  await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu button, .pop.menu [role="menuitem"]')].find((x) => /Export figure/.test(x.textContent)); if (b) b.click(); return !!b; })()`);
+  for (let i = 0; i < 120; i++) { await sleep(150); const f = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (f) break; }
+  const r = await ev(`(() => { const f = __cmwLastFigure(); const deform = [...document.querySelectorAll('#xfDeform > button')].map((b) => b.textContent); return { view: f && f.view, deform, panels: f && f.info && f.info.panels ? f.info.panels.join('') : '', images: f ? (f.svg.match(/<image/g) || []).length : -1, W: f && f.W, H: f && f.H, cap: f && f.captionTex }; })()`);
   await key('Escape'); await sleep(300);
   return r;
 };
 R.figXY = await figDialog();
-ok('X → Y exports the two-panel figure', R.figXY.panels.join() === 'Both,Left,Right' && R.figXY.images === 2 && !R.figXY.morph, R.figXY);
+ok('X → Y exports the two-panel figure', R.figXY.view === 'xy' && R.figXY.panels === 'LR' && R.figXY.images === 2 && R.figXY.deform.length === 0, R.figXY);
 await key('m'); await settle(900);
 R.figDef = await figDialog();
-ok('Deformation exports the morph figure (one plane with arrows)', R.figDef.panels[0] === 'Deformation' && R.figDef.morph && R.figDef.images === 1, R.figDef);
+ok('Deformation exports the filmstrip (or the paths figure)', R.figDef.view === 'morph' && R.figDef.deform.join() === 'Filmstrip,Paths' && R.figDef.images === 4, R.figDef);
 await key('m'); await settle(500);
 await key('2'); await settle(700);
 R.figPhase = await figDialog();
-ok('Phase exports one panel', R.figPhase.panels.length === 0 && R.figPhase.images === 1 && !R.figPhase.morph, R.figPhase);
+ok('Phase exports one panel (and its ring key)', R.figPhase.view === 'phase' && R.figPhase.images === 2 && R.figPhase.deform.length === 0, R.figPhase);
 await key('3'); await settle(900);
 R.figLand = await figDialog();
-ok('Landscape exports one panel', R.figLand.panels.length === 0 && R.figLand.images === 1, R.figLand);
+ok('Landscape exports one panel', R.figLand.view === 'land' && R.figLand.images === 1, R.figLand);
 // with the deformation on, the one panel is H_t and the caption says so (review: it named F under a picture of H_t)
 await key('m'); await settle(900); await ev('__cmwMorph({ T: 0.6 }); 1'); await settle(600);
 R.figLandDef = await figDialog();
-ok('Landscape + Deformation: caption of H_t', R.figLandDef.images === 1 && /landscape of \$H_t\$/.test(R.figLandDef.cap) && /\\log\|H_t\|/.test(R.figLandDef.cap) && /t=0\.60/.test(R.figLandDef.cap) && !/landscape of \$F/.test(R.figLandDef.cap), R.figLandDef.cap);
+ok('Landscape + Deformation: caption of H_t', R.figLandDef.images === 1 && /^Landscape of \$H_t\$/.test(R.figLandDef.cap) && /\\log\|H_t\|/.test(R.figLandDef.cap) && /t=0\.60/.test(R.figLandDef.cap) && !/andscape of \$F/.test(R.figLandDef.cap), R.figLandDef.cap);
 await key('2'); await settle(900);
 R.figPhaseDef = await figDialog();
-ok('Phase + Deformation: caption of H_t', R.figPhaseDef.images === 1 && /phase portrait of \$H_t\$/.test(R.figPhaseDef.cap) && /\\arg H_t/.test(R.figPhaseDef.cap) && !/portrait of \$F/.test(R.figPhaseDef.cap), R.figPhaseDef.cap);
+ok('Phase + Deformation: caption of H_t', R.figPhaseDef.images >= 1 && /^Phase portrait of \$H_t\$/.test(R.figPhaseDef.cap) && /\\arg H_t/.test(R.figPhaseDef.cap) && !/portrait of \$F/.test(R.figPhaseDef.cap), R.figPhaseDef.cap);
 // X → Y + Deformation on the globe: one panel of the globe of H_t, as on screen (review: the split figure, squashed)
 await key('1'); await settle(500); await key('4', 8); await settle(1200);
 R.figGlobeDef = await figDialog();
-ok('globe deformation exports one globe of H_t', R.figGlobeDef.panels.length === 0 && R.figGlobeDef.images === 1 && !R.figGlobeDef.morph && /^The deformation \$H_t\$ on the Riemann sphere/.test(R.figGlobeDef.cap), R.figGlobeDef);
+ok('globe deformation exports one globe of H_t', R.figGlobeDef.view === 'xyR' && R.figGlobeDef.panels === 'R' && R.figGlobeDef.images === 1 && /^The deformation \$H_t\$ on the Riemann sphere/.test(R.figGlobeDef.cap), R.figGlobeDef);
 await key('3', 8); await settle(500); await key('m'); await settle(600);
-// a chain with a d/dz step (no morph figure): the merged plane, one panel of H_t
+// a chain with a d/dz step (no deformation figure): the merged plane, one panel of H_t
 await ev(`__cmwExample(12); 1`); await settle(1200);
 await key('1'); await settle(500);
 await key('m'); await settle(900); await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(600);
 R.figDeriv = await figDialog();
-ok('d/dz chain deformation exports the merged panel of H_t', R.figDeriv.panels.length === 0 && R.figDeriv.images === 1 && /H_t/.test(R.figDeriv.cap), R.figDeriv);
+ok('d/dz chain deformation exports the merged panel of H_t', R.figDeriv.view === 'xyR' && R.figDeriv.images === 1 && /H_t/.test(R.figDeriv.cap), R.figDeriv);
 await key('m'); await settle(500);
 await ev(`__cmwExample(1); 1`); await settle(1200);
 await key('1'); await settle(500);

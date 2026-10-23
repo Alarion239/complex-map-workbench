@@ -1,9 +1,9 @@
 // Browser check of the guided tour's spotlight: every step of every chapter, at 1440 × 900 and 1024 × 700, lights its
 // anchor whole (the first lit area holds at least 90 % of the anchor's visible box). Catches a patch clipped to a dot
-// by an ancestor that cannot clip (display: contents) or a step lighting the wrong place. Drives
-// notes/tour/harness.html like test/tour_cmd.js; run with the kit copy: notes/tour/cdp/q.sh test/tour_lit_cmd.js
-const ROOT = DIR.replace(/\/notes\/tour\/cdp$/, '').replace(/\/test\/[^/]+$/, '');
-const U = 'file://' + ROOT + '/notes/tour/harness.html';
+// by an ancestor that cannot clip (display: contents) or a step lighting the wrong place. Drives the app
+// (dist/test.html) like test/tour_cmd.js; run with the kit copy: test/<you>_cdp/q.sh test/tour_lit_cmd.js
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -11,7 +11,7 @@ const seen = [];
 logs();   // the console from earlier commands of this daemon is not ours
 for (const [w, h] of [[1440, 900], [1024, 700]]) {
   await view(w, h, false, false);
-  await nav(U + `?ns=lit${w}&bare=1`); await settle(1500);
+  await nav(U + `?ns=lit${w}`); await settle(1500);
   await ev('Tour.dismissSuggestion()');
   await ev(`Tour.start({ chapter: 'basics' })`); await settle(1400);
   for (let k = 0; k < 60 && (await ev('Tour.isActive()')); k++) {

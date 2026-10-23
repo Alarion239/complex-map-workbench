@@ -3,6 +3,30 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<script>
+/* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
+   I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
+   Russian marks <html>, starts the Cyrillic faces' stylesheet now, and keeps #app hidden until init() has translated
+   the static text (I18N.reveal); English returns at once. */
+(function () {
+  try {
+    var q = new URLSearchParams(location.search), l = q.get('lang'), ns = q.get('ns') || '', p = null, n = '';
+    try { p = localStorage.getItem(ns ? 'cmw-lang:' + ns : 'cmw-lang'); } catch (e) { p = null; }
+    if (l !== 'en' && l !== 'ru' && l !== 'pseudo') {
+      if (p === 'en' || p === 'ru') l = p;
+      else if (ns) l = 'en';
+      else { n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); l = /^ru(-|$)/.test(n) ? 'ru' : 'en'; }
+    }
+    if (l === 'en') return;
+    var d = document.documentElement, k = document.createElement('link');
+    d.lang = 'ru'; d.setAttribute('data-lang', 'ru'); d.classList.add('i18n-wait');
+    k.id = 'i18n-fonts'; k.rel = 'stylesheet';
+    k.href = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
+    document.head.appendChild(k);
+    addEventListener('load', function () { d.classList.remove('i18n-wait'); });
+  } catch (e) { /* the page shows as before */ }
+})();
+</script>
 <style>
 /* Complex Map Workbench: "Calibrated bench" (notes/DESIGN_SPEC.md is the source of truth).
    Sections: 2 tokens, 3 type, 4 frame and breakpoints, 5 components, motion. */
@@ -190,6 +214,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .wordmark { order: 2; font: var(--t-wordmark); color: var(--ink); white-space: nowrap; margin-left: 2px; }
 .hdiv { order: 3; width: 1px; height: 20px; background: var(--line-strong); margin: 0 2px; }
 #examplesBtn { order: 4; }
+/* a full bar (a long example name at 1024px ran it past the edge): the search field gives way first, down to its own
+   minimum, then the Examples button, its name ending in an ellipsis */
+@media (min-width: 1024px) { #examplesBtn { flex-shrink: 1; min-width: 0; } #cmdBtn { flex-shrink: 1000; } }
 #undoBtn { order: 5; }
 #redoBtn { order: 6; }
 .top > .spacer { order: 7; flex: 1 1 auto; }
@@ -199,6 +226,50 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 #exportBtn { order: 11; }
 #themeBtn { order: 12; }
 #helpBtn { order: 13; }
+/* Sound (notes/sound/DESIGN.md §2.1): a split button between Theme and Guide, its settings popover, and on a phone
+   the speaker in the bar while sound is on (one tap silences it) */
+#soundBtn, #soundMore { order: 12; }
+/* the Language setting (notes/i18n/USER-DECISIONS.md): the globe, after Sound and before Help; app.js opens its menu
+   (Auto, English, Русский) */
+#langBtn { order: 12; }
+.top .snd-btn { display: inline-flex; align-items: center; gap: 5px; width: auto; padding: 0 6px 0 6px; border-radius: var(--r-2) 0 0 var(--r-2); font: var(--t-label); }
+.top .snd-caret { width: 17px; margin-left: -8px; border-radius: 0 var(--r-2) var(--r-2) 0; }
+.top .snd-caret::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 1px; background: var(--line); }
+.top .snd-caret .ic-slot svg { width: 11px; height: 11px; }
+.snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
+.top > .snd-ph { display: none; }
+/* room for it on tablets: below 1340 px the speaker drops its label (as the view switch and Deformation do below
+   1280); from 768 to 1023 the command field narrows and drops its ⌘K hint, and the wordmark hides from 900 too (the
+   bar overflowed there before, by 44 px at 900) */
+@media (min-width: 768px) and (max-width: 1339px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
+@media (min-width: 768px) and (max-width: 1023px) { .top .cmd-field { min-width: 112px; } .top .cmd-field .kbd { display: none; } .top > .wordmark { display: none; } }
+.snd-pop {
+  position: fixed; z-index: 45; top: 48px; right: 12px; width: 330px; max-width: calc(100vw - 32px); max-height: calc(100vh - 60px); overflow-y: auto;
+  padding: 10px 14px 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3);
+  color: var(--ink); font: var(--t-body); animation: pop-in var(--t-med) var(--ease-out);
+}
+.snd-row { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.snd-row > span:first-child { flex: 1 1 auto; font: var(--t-label); }
+.snd-main > span:first-child { font: var(--t-heading); }
+.snd-switch { position: relative; flex: none; width: 34px; height: 20px; margin: 0; appearance: none; -webkit-appearance: none; background: var(--line-strong); border-radius: 10px; cursor: pointer; transition: background-color var(--t-fast) var(--ease-out); }
+.snd-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-1); transition: transform var(--t-fast) var(--ease-out); }
+.snd-switch:checked { background: var(--accent); }
+.snd-switch:checked::after { transform: translateX(14px); }
+.snd-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.snd-row input[type=range] { width: 150px; min-width: 0; flex: 0 1 150px; accent-color: var(--accent); }
+.snd-row output { width: 40px; text-align: right; font: var(--t-readout); color: var(--ink-2); }
+.snd-tiers { margin: 6px 0 2px; padding: 6px 0 0; border: 0; border-top: 1px solid var(--line); min-width: 0; }
+.snd-tiers legend { padding: 0; margin-bottom: 2px; font: var(--t-caption); color: var(--muted); }
+.snd-chk { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; cursor: pointer; }
+.snd-chk input { flex: none; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--accent); }
+.snd-chk b { display: block; font: var(--t-label); color: var(--ink); }
+.snd-chk small { display: block; font: 400 11.5px/15px var(--f-ui); color: var(--muted); }
+.snd-chk small i { font-family: var(--f-math); }
+.snd-chk.sub { padding: 0 0 6px 24px; }
+.snd-offnote { margin: 4px 0 2px; font: var(--t-label); color: var(--ink-2); }
+.snd-fine { margin: 6px 0 0; font: 400 11px/15px var(--f-ui); color: var(--muted); }
+.snd-fine.mono { font: var(--t-micro); }
+.plot > canvas.overlay:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .hdr-more { order: 14; display: none !important; }
 /* the views (merged-views.md): the view switch and the Deformation toggle sit between the two spacers, in the middle
    of the bar; below 1280px they are icons (their tooltips name them) */
@@ -577,15 +648,6 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .hairline::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--accent); animation: hairline 900ms var(--ease-inout) infinite; }
 @keyframes hairline { from { transform: translateX(-100%); } to { transform: translateX(334%); } }
 
-.empty-state { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 40px 48px 56px; pointer-events: none; }
-.empty-state > div {
-  pointer-events: auto; display: grid; gap: 8px; justify-items: center; max-width: 300px; padding: 12px 16px;
-  text-align: center; font: var(--t-body); color: var(--muted);
-  background: color-mix(in srgb, var(--plane) 92%, transparent); border-radius: var(--r-3);
-}
-.empty-state b { font: var(--t-heading); color: var(--ink); }
-.empty-state .lbl { font: var(--t-body); color: var(--muted); text-wrap: pretty; }
-.empty-state .row { justify-content: center; gap: 4px; }
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
   display: flex; align-items: center; gap: 10px; height: 32px; max-width: calc(100% - 16px); padding: 0 4px 0 10px;
@@ -1361,20 +1423,107 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
   margin: 20px -24px -24px; padding: 12px 24px; background: var(--surface); border-top: 1px solid var(--line);
 }
 .modal h3 { margin: 20px 0 6px; font: var(--t-heading); color: var(--ink); }
-/* article figure export */
-.modal.fig-modal { width: min(1040px, calc(100vw - 24px)); }
-.fig-body { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 20px; align-items: start; }
-.fig-preview { position: relative; display: grid; place-items: center; min-height: 260px; max-height: min(66svh, 640px); overflow: auto; padding: 16px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-2); }
-.fig-preview > img { display: block; max-width: 100%; height: auto; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 2px 10px rgba(0, 0, 0, .08); }
-.fig-preview.busy > img { opacity: .55; transition: opacity var(--t-med) var(--ease-out); }
-.fig-wait { font: var(--t-label); color: var(--muted); }
-.fig-opts { display: grid; gap: 14px; }
-.fig-row { display: grid; gap: 6px; }
-.fig-l { font: var(--t-heading); color: var(--ink); }
-.fig-row .seg { width: 100%; }
-.fig-row .seg > button { flex: 1 1 0; }
-.fig-note { font: 400 12px/18px var(--f-ui); color: var(--muted); }
-@media (max-width: 760px) { .fig-body { grid-template-columns: 1fr; } }
+/* the figure export (src/figure.js; notes/export-design): the page is the preview, four quiet rows, two
+   destination buttons. The paper is always white; the dialog follows the theme. */
+.modal.xf { width: min(1120px, calc(100vw - 24px)); padding: 0; overflow: hidden; display: flex; flex-direction: column; --xf-paper-shadow: 0 1px 2px #121A2024, 0 6px 22px #121A201F; }
+/* the preview's images stay blank until their first picture (no broken-image icon or alt text while typesetting) */
+.xf-fig:not([src]), .xf-capimg:not([src]) { visibility: hidden; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .modal.xf { --xf-paper-shadow: 0 1px 2px #00000080, 0 8px 26px #00000066; } }
+:root[data-theme="dark"] .modal.xf { --xf-paper-shadow: 0 1px 2px #00000080, 0 8px 26px #00000066; }
+.xf-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px 0; }
+.xf-head h2 { margin: 0; font: var(--t-title); }
+.xf-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 12px; background: var(--well); border: 1px solid var(--line); font: var(--t-label); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.xf-chip i { font-family: var(--f-math); font-size: 13.5px; }
+.xf-sp { flex: 1 1 auto; }
+.xf-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-2); color: var(--ink-2); }
+.xf-body { display: grid; grid-template-columns: minmax(0, 1fr) 284px; gap: 20px; padding: 16px 20px 0; min-height: 0; overflow-y: auto; }
+.xf-left { min-width: 0; }
+.xf-stage { position: relative; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-3); overflow: hidden; }
+.xf-bar { position: absolute; top: 8px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; pointer-events: none; }
+.xf-bar > * { pointer-events: auto; }
+.xf-hint { font: var(--t-label); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.xf-ico { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: var(--r-2); background: var(--surface); border: 1px solid var(--line); font: var(--t-label); color: var(--ink-2); white-space: nowrap; cursor: pointer; }
+.xf-ico:hover { border-color: var(--line-strong); color: var(--ink); }
+.xf-ico.on { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.xf-scroll { height: min(60svh, 540px); overflow: auto; padding: 44px 12px 16px; display: grid; justify-items: center; align-items: start; }
+.xf-scroll.busy .xf-fig { opacity: .6; transition: opacity var(--t-med) var(--ease-out); }
+.xf-paper { position: relative; background: #fff; color: #111; box-shadow: var(--xf-paper-shadow); }
+.xf-paper.grey .xf-fig, .xf-paper.grey .xf-capimg { filter: grayscale(1); }
+.xf-fig { display: block; margin: 6px auto 0; background: #fff; }
+.xf-txt { display: flex; flex-wrap: nowrap; overflow: hidden; gap: 0 3.2px; margin: 0 0 calc(var(--lh, 16px) - 11px); }
+.xf-txt i { display: block; flex: 0 0 auto; height: 1.3px; margin: 4.6px 0 5.1px; background: #BFC5C9; }
+.xf-before { margin-bottom: 10px; } .xf-after { margin-top: 14px; }
+.xf-prob { font: 700 14px/18px "Latin Modern Roman", "STIX Two Text", var(--f-math); color: #222; margin: 0 0 6px; }
+.xf-cap { position: relative; margin: 9px auto 0; cursor: text; border-radius: 1px; outline-offset: 3px; }
+.xf-cap:hover, .xf-cap:focus-visible { outline: 1.5px dashed var(--accent); }
+.xf-cap.editing { outline: 1.5px solid var(--accent); }
+.xf-capimg { display: block; }
+.xf-edit { position: absolute; right: -4px; top: -20px; font: 500 10px/14px var(--f-ui); color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 1px 6px; white-space: nowrap; opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }
+.xf-cap:hover .xf-edit, .xf-cap:focus-visible .xf-edit, .xf-cap.editing .xf-edit { opacity: 1; }
+.xf-capsrc { display: block; box-sizing: border-box; min-height: 64px; padding: 6px 8px; font: 400 11.5px/16px var(--f-mono); color: #111; background: #FAFBFB; border: 0; resize: vertical; }
+.xf-capsrc:focus { outline: none; }
+.xf-link { font: var(--t-label); color: var(--accent); margin-top: 4px; }
+.xf-wait { position: absolute; left: 0; right: 0; top: 50%; text-align: center; font: var(--t-label); color: var(--muted); }
+.xf-loupe { position: absolute; width: 140px; height: 140px; border-radius: 70px; border: 2px solid var(--surface); box-shadow: var(--shadow-3); background-color: #fff; background-repeat: no-repeat; pointer-events: none; z-index: 4; }
+.xf-stage.loupe-on .xf-fig { cursor: none; touch-action: none; }
+.xf-facts { margin: 8px 2px 0; font: var(--t-label); color: var(--muted); }
+.xf-facts b { color: var(--ink-2); font-weight: 500; }
+.xf-ctl { display: grid; gap: 14px; align-content: start; padding-bottom: 4px; }
+.xf-row { display: grid; gap: 6px; }
+.xf-h { font: var(--t-heading); color: var(--ink); }
+.xf-seg { width: 100%; }
+.xf-seg > button { flex: 1 1 0; min-width: 0; }
+.xf-seg.big { height: auto; min-height: 56px; }
+.xf-seg.big > button { flex-direction: column; gap: 2px; font-weight: 600; padding: 5px 4px 6px; }
+.xf-seg.big > button svg { width: 22px; height: 22px; flex: 0 0 22px; }
+.xf-seg.big > button small { font: 400 10.5px/12px var(--f-ui); color: var(--muted); }
+.xf-cols { height: 30px; }
+.xf-cols > button { font-weight: 600; }
+.xf-pair { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; }
+.xf-select { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); font: var(--t-label); color: var(--ink); white-space: nowrap; overflow: hidden; min-width: 0; cursor: pointer; }
+.xf-select > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.xf-select .xf-dim { color: var(--muted); }
+.xf-caret { margin-left: auto; color: var(--muted); display: inline-flex; }
+select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
+.xf-custom { display: flex; align-items: center; gap: 8px; font: var(--t-label); color: var(--ink-2); }
+.xf-input[aria-invalid="true"] { border-color: var(--error); }
+.xf-input { height: 26px; width: 110px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-2); background: var(--surface); font: var(--t-readout); color: var(--ink); }
+.xf-ftwrap { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px; }
+.xf-disc { display: flex; align-items: center; gap: 6px; font: var(--t-heading); color: var(--ink); text-align: left; }
+.xf-disc small { font: var(--t-label); color: var(--muted); font-weight: 500; }
+.xf-chev { display: inline-flex; color: var(--muted); }
+.xf-ft { display: grid; gap: 10px; }
+.xf-fr { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 8px; font: var(--t-label); color: var(--ink-2); }
+.xf-fr .seg { height: 26px; }
+.xf-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 20px 16px; margin-top: 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.xf-name { display: inline-flex; align-items: center; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface-2); font: var(--t-readout); color: var(--ink); min-width: 0; }
+.xf-nameinp { width: 15ch; max-width: 100%; border: 0; background: none; font: inherit; color: inherit; padding: 0; min-width: 0; }
+.xf-nameinp:focus { outline: none; }
+.xf-name:focus-within { border-color: var(--accent); }
+.xf-ext { color: var(--muted); }
+.btn.quiet { border-color: transparent; background: none; color: var(--ink-2); }
+.btn.xf-dest { height: 34px; padding: 0 14px; font-weight: 600; }
+.btn.done { background: var(--good); border-color: var(--good); color: #fff; }
+.xf-after2 { flex-basis: 100%; text-align: right; font: var(--t-label); color: var(--muted); }
+@media (max-width: 900px) {
+  .xf-body { grid-template-columns: 1fr; gap: 14px; }
+  .xf-scroll { height: 45svh; min-height: 240px; }
+  .xf-ctl { grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  .xf-ctl .xf-row.wide, .xf-ctl .xf-ftwrap { grid-column: 1 / -1; }
+  .xf-seg.big { height: 32px; min-height: 0; } .xf-seg.big > button { flex-direction: row; padding: 0 4px; } .xf-seg.big > button small, .xf-seg.big > button svg { display: none; }
+  .xf-foot { position: sticky; bottom: 0; z-index: 3; }
+}
+@media (max-width: 560px) {
+  .modal.xf { width: calc(100vw - 24px); max-height: calc(100svh - 24px); border-radius: var(--r-3); }
+  .xf-head { padding: 12px 16px 0; } .xf-body { padding: 12px 16px 0; } .xf-foot { padding: 10px 16px 12px; }
+  .xf-ctl { grid-template-columns: 1fr; }
+  .xf-chip { display: none; }
+  .xf-scroll { height: 38svh; }
+  .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
+  .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
+  .xf-foot .xf-sp { display: none; }
+  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; }
+}
 .modal p, .modal li { max-width: 68ch; }
 .modal p + p { margin-top: 8px; }
 .modal ul, .modal ol { padding-left: 18px; margin: 4px 0 0; display: grid; gap: 4px; }
@@ -1433,6 +1582,43 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @keyframes drawer-r { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes drawer-l { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
 
+/* 768 to 1023: the bar ran past the right edge here (by 44 px at 900), and the Language button would have made it
+   wider. As on a phone, the secondary buttons (Examples, the command field, the panel toggles, Export, Theme, Sound,
+   Language, Help) fold into the More menu (notes/i18n/USER-DECISIONS.md, lead default 2026-10-22) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hdr-more { display: inline-grid !important; }
+  .top > .snd-ph:not([hidden]) { display: inline-grid; order: 13; flex-shrink: 0; }
+  .top[data-snd="on"] .hdr-menu > #soundBtn { display: none !important; }
+  .top .hdr-menu > .snd-btn .slbl { display: inline; flex: 1 1 auto; }
+  .top .hdr-menu > .snd-caret { margin-left: 0; }
+  .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
+  .top .hdr-menu > .snd-caret .ic-slot { display: none; }
+  .top > .vsw, .top > .defbtn, .top > .hdr-more { flex-shrink: 0; }
+  .hdr-menu:not(:popover-open) { display: none; }
+  .hdr-menu:popover-open {
+    position: fixed; inset: auto; top: calc(48px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
+    display: flex; flex-direction: column; width: 260px; margin: 0; padding: 4px;
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); color: var(--ink);
+    animation: pop-in var(--t-med) var(--ease-out); overflow-x: hidden;
+  }
+  .hdr-menu::backdrop { background: transparent; }
+  .top .hdr-menu > button:is(.btn, .icon-btn, .cmd-field) {
+    display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex: 0 0 auto; width: 100%; min-width: 0; max-width: none; height: 36px; margin: 0; padding: 0 8px;
+    background: transparent; border: 0; border-radius: var(--r-2); box-shadow: none;
+    font: var(--t-body); color: var(--ink); text-align: left;
+  }
+  .top .hdr-menu > button:is(.btn, .icon-btn, .cmd-field):is(:hover, :focus-visible) { background: var(--well); outline: none; }
+  .hdr-menu > button .ic-slot { color: var(--ink-2); }
+  .hdr-menu .mlabel { display: inline; flex: 1 1 auto; }
+  .hdr-menu .exlabel, .hdr-menu .cmd-field .kbd, .hdr-menu #examplesBtn .ic-slot { display: none; }
+  .hdr-menu #examplesBtn::before { content: ""; width: 16px; height: 16px; flex: 0 0 16px; }
+  .hdr-menu > #toggleLeft { border-top: 1px solid var(--line); border-radius: 0; margin-top: 4px; padding-top: 4px; height: 40px; }
+  .top .hdr-menu > #cmdBtn { margin: 0; }
+  .hdr-menu #cmdBtn .ic-slot, .hdr-menu #cmdBtn .ic-slot > svg { width: 16px; height: 16px; flex-basis: 16px; color: var(--ink-2); }
+  .hdr-menu #cmdBtn .cmd-text { color: var(--ink); }
+  .hdr-menu > [aria-pressed="true"]::after { content: ""; width: 8px; height: 4px; margin-right: 2px; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: translateY(-2px) rotate(-45deg); }
+}
+
 /* ---------- Phone (< 768): single column, 16px gutters, no horizontal page scroll ---------- */
 @media (max-width: 767px) {
   :root { --ruler: 14px; }
@@ -1456,6 +1642,12 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .top > .vsw > button { padding: 0 7px; }
   .top > .defbtn { padding: 0 7px; }
   .hdr-more { display: inline-grid !important; }
+  .top > .snd-ph:not([hidden]) { display: inline-grid; order: 13; flex-shrink: 0; }
+  .top[data-snd="on"] .hdr-menu > #soundBtn { display: none !important; }
+  .top .hdr-menu > .snd-btn .slbl { flex: 1 1 auto; }
+  .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
+  .top .hdr-menu > .snd-caret .ic-slot { display: none; }
+  .snd-pop { top: calc(48px + env(safe-area-inset-top, 0px)); left: 16px; right: 16px; width: auto; max-width: none; max-height: calc(100svh - 64px); }
   .top > .vsw, .top > .defbtn, .top > .hdr-more { flex-shrink: 0; }
   .hdr-menu:not(:popover-open) { display: none; }
   .hdr-menu:popover-open {
@@ -1630,6 +1822,80 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .top > .wordmark { display: none; }
   .top > .mark { margin-right: auto; }
 }
+/* i18n (notes/i18n/DESIGN.md 4), Russian only: Archivo and B612 Mono have no Cyrillic. I18N.applyPage() sets
+   data-lang="ru" and loads Roboto Flex and JetBrains Mono (Google Fonts serves them per unicode-range subset). Roboto
+   Flex comes first, so a mixed label ("Сохранить PDF", "Формула 1") is one face (review i18n-13); readouts keep B612
+   Mono for their digits and Cyrillic falls through to JetBrains Mono. English never matches these rules and loads
+   nothing new. */
+/* review ui-4: a monospace comma takes a whole cell, so 0,5 read as «0, 5». "CMW Comma" is the comma alone
+   (unicode-range) from a proportional system face, first in the Russian mono stack: on screen and on the canvas
+   (rulers, chips, legend, 3D ticks) a decimal comma is narrow. English never names this face, so never loads it */
+@font-face { font-family: "CMW Comma"; src: local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("DejaVu Sans"), local("Liberation Sans"); unicode-range: U+2C; }
+:root[data-lang="ru"] {
+  --f-ui: "Roboto Flex", "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "CMW Comma", "B612 Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+/* until init() has translated the static text (the head script above): no English frame in Russian (review eng-1) */
+:root.i18n-wait #app { visibility: hidden; }
+/* Russian overflow fixes (DESIGN.md 8): tool names wrap at their soft hyphens (8.1, 8.2); card and lamp names use
+   the semi-condensed width the tool labels already use (8.6, 8.7); pattern captions (8.10) and palette rows (8.11)
+   take two lines */
+:root[data-lang="ru"] .tools > .tool:not(.rail-tool) { height: 56px; }
+:root[data-lang="ru"] .tool > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
+:root[data-lang="ru"] .card .nm, :root[data-lang="ru"] .lampname { font-stretch: 87.5%; }
+/* phase 2b: «Конформное отображение на образ» is 3 px too wide for the guarantees panel, so a Russian lamp name may
+   take two lines; «Полу­плоскость» is 3 px too wide for a tool cell at 1024 px, so Russian tool labels are 11 px (as on
+   a phone) */
+:root[data-lang="ru"] .lampname { white-space: normal; text-overflow: clip; }
+:root[data-lang="ru"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
+/* the wordmark is the app's name, not interface text: it keeps Archivo in Russian too */
+:root[data-lang="ru"] .wordmark { font-family: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif; }
+/* «полярные» is 1.4 px wider than a 52 px swatch caption and was hyphenated to «поляр-…» */
+:root[data-lang="ru"] .pat > span { letter-spacing: -0.02em; }
+/* CSS-generated text: the empty formula preview's word */
+:root[data-lang="ru"] .texprev:empty::before { content: "Предпросмотр"; }
+:root[data-lang="ru"] .pat { white-space: normal; }
+:root[data-lang="ru"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="ru"] .pal-label { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* the export dialog: the fine-tune labels ("Обрезка", "Панели") need a wider column; "Текст 10 пт" a wider select;
+   the caption-language switch (shown only outside English) sizes its options by their labels; on a phone the preview
+   bar keeps its two buttons and drops the hint (the facts line under the paper says the same) */
+:root[data-lang="ru"] .xf-fr { grid-template-columns: 64px minmax(0, 1fr); }
+:root[data-lang="ru"] .xf-pair { grid-template-columns: minmax(0, 1fr) 112px; }
+:root[data-lang="ru"] #xfCapLang > button { flex: 1 1 auto; }
+@media (max-width: 560px) { :root[data-lang="ru"] .xf-hint { display: none; } }
+/* the tour's chapter list: Russian chapter names are longer; durations and the step count carry Cyrillic («1,5 мин»,
+   «4 из 10»), which stays out of mono (GLOSSARY 3.12) */
+:root[data-lang="ru"] .tour-menu .mi-label { white-space: normal; }
+:root[data-lang="ru"] .tour-time, :root[data-lang="ru"] .tour-count, :root[data-lang="ru"] .tour-menu .mi-key { font-family: var(--f-ui); }
+/* the sound popover's engine line is mono in English; its Russian words are not («Звук: ещё не запущен») */
+:root[data-lang="ru"] #sndState { font-family: var(--f-ui); }
+/* phase 2b review fixes (notes/i18n/ledger-2b.json), Russian only */
+/* ui-9: at 1024-1199 px the examples button says «Примеры» (not a cut example name) and the command field «Поиск» */
+.cmd-text .ct-s { display: none; }
+@media (min-width: 1024px) and (max-width: 1199px) {
+  :root[data-lang="ru"] .top #examplesBtn > .exlabel { display: none; }
+  :root[data-lang="ru"] .top #examplesBtn > .mlabel { display: inline; white-space: nowrap; }
+  :root[data-lang="ru"] .top #cmdBtn .ct-l { display: none; }
+  :root[data-lang="ru"] .top #cmdBtn .ct-s { display: inline; }
+}
+/* ui-7: below 390 px «Прямо-угольник» and «Много-угольник» ran into each other: the bar keeps five tools and Polygon
+   moves into «Ещё» (shown there, and in the bar while it is the active tool) */
+@media (max-width: 389px) { :root[data-lang="ru"] #secDraw:not(:has(.tool-more[open])) > .tools > .tool[data-tool="polygon"]:not(.on) { display: none; } }
+/* ui-8: the calculation chip's lines wrap instead of being cut */
+:root[data-lang="ru"] .calc-chip .ch { white-space: normal; max-width: 232px; text-wrap: pretty; }
+:root[data-lang="ru"] .calc-chip .cn { overflow-wrap: anywhere; }
+/* ui-10: step names take two lines in the chain cards and the «По шагам» table */
+:root[data-lang="ru"] .card .nm { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 13px; overflow-wrap: anywhere; }
+:root[data-lang="ru"] .matrix tr > td:first-child { white-space: normal; line-height: 13px; padding-top: 3px; padding-bottom: 3px; }
+:root[data-lang="ru"] .matrix td:first-child .nm { font-stretch: 87.5%; hyphens: auto; }
+/* ui-11: a hint alone in a readout may take a second line rather than be cut */
+:root[data-lang="ru"] .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 24px; white-space: normal; line-height: 16px; padding-top: 3px; padding-bottom: 3px; }
+/* math-19: MathJax has no Cyrillic glyphs and sets each such letter as an SVG <text> in "serif"; STIX Two Text (the
+   app's math face, Times metrics like that serif) has Cyrillic and matches the TeX letters around it */
+:root[data-lang="ru"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
+/* ui-16: the export size button names the paper; the width in points stays in the open list */
+:root[data-lang="ru"] #xfSize .xf-dim { display: none; }
 </style>
 
 <div id="app">
@@ -1643,7 +1909,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       </g>
       <circle cx="14" cy="14" r="1.4" fill="var(--ink)"/>
     </svg>
-    <h1 class="wordmark"><span class="wm-pre">Complex </span>Map Workbench</h1>
+    <h1 class="wordmark" data-i18n="no"><span class="wm-pre">Complex </span>Map Workbench</h1>
     <span class="hdiv" aria-hidden="true"></span>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
     <button class="icon-btn" id="redoBtn" title="Redo  ⇧⌘Z" aria-label="Redo"><span class="ic-slot" data-icon="redo"></span></button>
@@ -1662,8 +1928,13 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Guarantees  ]" aria-label="Show or hide guarantees" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Guarantees panel</span></button>
       <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span></button>
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
-      <button class="icon-btn" id="helpBtn" title="Guide  ?" aria-label="Guide" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="help"></span><span class="mlabel">Guide</span></button>
+      <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; off by default -->
+      <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
+      <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
+      <button class="icon-btn" id="langBtn" title="Language" aria-label="Language" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.75"/><path d="M2.25 8h11.5M8 2.25c-2.2 2.9-2.2 8.6 0 11.5M8 2.25c2.2 2.9 2.2 8.6 0 11.5"/></svg></span><span class="mlabel">Language: <span class="llabel">Auto</span></span></button>
+      <button class="icon-btn" id="helpBtn" title="Help  ?" aria-label="Help" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="help"></span><span class="mlabel">Help</span></button>
     </div>
+    <button class="icon-btn snd-ph" id="soundPh" aria-pressed="true" title="Sound is on: turn it off (Shift+M)" aria-label="Sound" aria-keyshortcuts="Shift+M" hidden><span class="ic-slot snd-ic"></span></button>
     <button class="icon-btn hdr-more" id="hdrMoreBtn" popovertarget="hdrMenu" title="More" aria-label="More"><span class="ic-slot" data-icon="more"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg></span></button>
   </header>
 
@@ -1733,13 +2004,12 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <canvas id="canvasL"></canvas><canvas id="overlayL" class="overlay" aria-label="Domain plane" role="img"></canvas>
               <div class="hairline" id="hairL" hidden></div>
               <button class="chip readout" id="leftReadout" title="Click to copy">Hover to probe a point</button>
-              <div class="legend-chip" id="leftLegend" hidden><canvas id="legendCanvasL" width="272" height="144"></canvas><label class="check key-sw" id="wKeyRow" data-tip="Paint these colours in the w-plane on the right"><input type="checkbox" id="wKeyChk"><span>Key in the <i>w</i>-plane</span></label></div>
+              <div class="legend-chip" id="leftLegend" hidden><canvas id="legendCanvasL" width="272" height="144"></canvas><label class="check key-sw" id="wKeyRow" data-tip="Paint these colours in the w-plane on the right"><input type="checkbox" id="wKeyChk"><span data-i18n="html">Key in the <i>w</i>-plane</span></label></div>
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
                 <div class="vgroup"><button class="vbtn" id="leftZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="leftZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
                 <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view"></button><button class="vbtn" id="leftSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the left plane"></button></div>
               </div>
-              <div class="empty-state" id="emptyState" hidden></div>
               <div class="empty-chip draft-chip" id="draftChipL" hidden><span>Click the first vertex or press Enter to close</span></div>
               <div class="empty-chip draft-chip note-chip" id="sphereChipL" hidden><span></span></div>
             </div>
@@ -1805,6 +2075,22 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     </aside>
   </main>
 </div>
+<div class="snd-pop" id="sndPop" role="dialog" aria-label="Sound settings" hidden>
+  <label class="snd-row snd-main"><span>Sound</span><input type="checkbox" class="snd-switch" id="sndOn" role="switch"></label>
+  <label class="snd-row"><span>Volume</span><input type="range" id="sndVol" min="0" max="100" step="1" aria-describedby="sndVolOut"><output id="sndVolOut">70 %</output></label>
+  <fieldset class="snd-tiers"><legend>What you hear</legend>
+    <p class="snd-offnote" id="sndOffNote">Sound is off: these take effect when it is on.</p>
+    <label class="snd-chk"><input type="checkbox" id="sndUi"><span><b>Interface</b><small>Steps, toggles, views, export, errors: controls you operate</small></span></label>
+    <label class="snd-chk sub"><input type="checkbox" id="sndSnap"><span><b>Snap ticks</b><small>A tick when a drawn point settles on the grid</small></span></label>
+    <label class="snd-chk"><input type="checkbox" id="sndEv"><span><b>Mathematical events</b><small>Things you start: the deformation, a closed loop&rsquo;s winding, listening along a curve</small></span></label>
+    <label class="snd-chk"><input type="checkbox" id="sndSo"><span><b>Hear the function under the pointer</b><small>A continuous tone: arg <i>F</i> as pitch class, |<i>F</i>| as register and loudness; cuts, zeros and poles, contours, turns</small></span></label>
+  </fieldset>
+  <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
+  <p class="snd-fine">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
+  <p class="snd-fine mono" id="sndState">Audio engine: not started</p>
+</div>
+<div id="sndLive" class="sr-only" aria-live="polite"></div>
 <div id="popHost"></div>
 <div id="toastHost" aria-live="polite"></div>
 <div id="tip" role="tooltip" hidden></div>

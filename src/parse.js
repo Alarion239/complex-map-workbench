@@ -35,7 +35,32 @@ const Expr = (() => {
     sqrt: 'sqrt', abs: 'f:abs', conj: 'f:conj', Re: 'f:re', Im: 'f:im', arg: 'f:arg', Arg: 'f:arg',
     pi: 'c:pi', theta: 'v:theta', and: 'and', or: 'or', not: 'not',
   };
-  const PLAIN_NAMES = Object.keys(PLAIN).sort((a, b) => b.length - a.length);
+  // Russian notation (notes/i18n/DESIGN.md 6), accepted in either language: tg, ctg, sh, ch, th, ... and Ln (the
+  // principal branch, as Log). Kept out of LATEX_CMDS and PLAIN so the English 'Try \\sin or \\sinh' suggestions
+  // stay as they are. Longest-first matching keeps theta and cosh whole; of these names only cosec starts with an
+  // existing name (cos), and cos e c was an error before, so no formula that parsed before parses differently.
+  // (GLOSSARY 2.1 also lists the plain arsinh, arcosh, artanh: review math-16; none is a prefix of another name)
+  const RU_NAMES = { arctg: 'f:atan', arsh: 'f:asinh', arch: 'f:acosh', arth: 'f:atanh', cosec: 'f:csc', ctg: 'f:cot', cth: 'f:coth', tg: 'f:tan', sh: 'f:sinh', ch: 'f:cosh', th: 'f:tanh', Ln: 'f:log', arsinh: 'f:asinh', arcosh: 'f:acosh', artanh: 'f:atanh' };
+  // tokenize(src, rel, ru): ru = false is the base tokenizer exactly. The Russian forms (these names, 0{,}5,
+  // \text{или}) only take effect where it stops with an error, and RU_USED records that one did, so a formula that
+  // fails anyway is re-read without them (parse below). In English it then gets the base's message, so English
+  // messages stay the same; in Russian it gets the message of the pass that read the Russian forms.
+  let RU_USED = false;
+  const ruName = (k) => (Object.prototype.hasOwnProperty.call(RU_NAMES, k) ? ((RU_USED = true), RU_NAMES[k]) : undefined);
+  const PLAIN_BASE = Object.keys(PLAIN).sort((a, b) => b.length - a.length);
+  const PLAIN_NAMES = Object.keys(PLAIN).concat(Object.keys(RU_NAMES)).sort((a, b) => b.length - a.length);
+  // names a reader may type that the app does not have: a specific message in Russian only (English messages stay)
+  const RU_ONLY = () => typeof I18N !== 'undefined' && I18N.lang === 'ru';
+  const UNSUPPORTED = {
+    arcctg: () => $t('arcctg (arccot) is not available: write arctg(1/z)'), arccot: () => $t('arccot is not available: write arctan(1/z)'),
+    acot: () => $t('acot is not available: write arctan(1/z)'), lg: () => $t('lg (the base-10 logarithm) is not available: write ln(z)/ln(10)'),
+    // arcoth z = artanh(1/z) for the principal branches (review math-16)
+    arcth: () => $t('arcth (arcoth) is not available: write arth(1/z)'), arcoth: () => $t('arcoth is not available: write artanh(1/z)'),
+  };
+  const UNSUPPORTED_NAMES = Object.keys(UNSUPPORTED).sort((a, b) => b.length - a.length);
+  // 0,5 typed for 0.5 (Russian readouts show a decimal comma): a specific message in Russian only
+  const commaHint = (src, pos) => (RU_ONLY() && src[pos] === ',' && /\d/.test(src[pos - 1] || '') && /\d/.test(src[pos + 1] || '')
+    ? $t('Use a decimal point: 0.5, not 0,5 (a comma separates conditions)') : null);
   const LETTERS = { z: 'v:z', w: 'v:z', x: 'v:x', y: 'v:y', r: 'v:r', i: 'c:i', e: 'c:e' };
 
   function tokFrom(spec, pos) {
@@ -49,7 +74,7 @@ const Expr = (() => {
 
   // rel: region formulas (parse with allowRel), where '=' (also '==' and the full-width '＝') is an equation; elsewhere
   // '=' stays an unexpected character
-  function tokenize(src, rel = false) {
+  function tokenize(src, rel = false, ru = true) {
     const toks = [];
     let i = 0;
     const n = src.length;
@@ -64,10 +89,10 @@ const Expr = (() => {
           if (nx === '}') { toks.push({ t: 'op', v: ')', pos: i }); i += 2; continue; }
           if (nx === '|') { toks.push({ t: 'op', v: '|', pos: i }); i += 2; continue; }
           if (',;:! '.includes(nx)) { i += 2; continue; }
-          throw new ParseError(`Unexpected '\\${nx ?? ''}'`, i);
+          throw new ParseError($t("Unexpected '\\%{x}'", { x: nx ?? '' }), i);
         }
         const name = m[1];
-        const spec = LATEX_CMDS[name];
+        const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
         if (!spec) {
           // suggest the nearest known commands ("Try \\sin or \\sinh")
           const dist = (a, b) => {
@@ -76,9 +101,11 @@ const Expr = (() => {
             for (let r = 1; r <= a.length; r++) for (let c = 1; c <= b.length; c++) d[r][c] = Math.min(d[r - 1][c] + 1, d[r][c - 1] + 1, d[r - 1][c - 1] + (a[r - 1] === b[c - 1] ? 0 : 1));
             return d[a.length][b.length];
           };
-          const near = Object.keys(LATEX_CMDS).filter((k) => typeof LATEX_CMDS[k] !== 'string' || !LATEX_CMDS[k].startsWith('skip'))
+          if (RU_ONLY() && Object.prototype.hasOwnProperty.call(UNSUPPORTED, name)) throw new ParseError(UNSUPPORTED[name](), i);
+          // in Russian the suggestions include the Russian names: \tgh -> \tg or \th (GLOSSARY 2.4, review math-15)
+          const near = (RU_ONLY() ? Object.keys(LATEX_CMDS).concat(Object.keys(RU_NAMES)) : Object.keys(LATEX_CMDS)).filter((k) => typeof LATEX_CMDS[k] !== 'string' || !LATEX_CMDS[k].startsWith('skip'))
             .map((k) => [k, dist(name, k)]).filter(([, dd]) => dd <= 2).sort((a, b) => a[1] - b[1] || a[0].length - b[0].length).slice(0, 2).map(([k]) => '\\' + k);
-          throw new ParseError(`Unknown command \\${name}.${near.length ? ` Try ${near.join(' or ')}.` : ''}`, i);
+          throw new ParseError($t('Unknown command \\%{name}.%{try}', { name, try: near.length ? $t(' Try {x}.', { x: near.join($t(' or ')) }) : '' }), i);
         }
         i += m[0].length;
         if (spec === 'skip') continue;
@@ -89,11 +116,14 @@ const Expr = (() => {
         }
         if (spec === 'name') {
           const mm = /^\s*\{\s*([A-Za-z]+)\s*\}/.exec(src.slice(i));
-          if (!mm) throw new ParseError(`\\${name} needs a name in braces`, i);
+          // \text{или}, \text{и}, \text{не}: or, and, not in a Russian formula (I18N.notation writes \text{или})
+          const rw = ru && !mm && /^\s*\{\s*(или|и|не)\s*\}/.exec(src.slice(i));
+          if (rw) { RU_USED = true; toks.push({ t: { 'или': 'or', 'и': 'and', 'не': 'not' }[rw[1]], pos: i, src: rw[1] }); i += rw[0].length; continue; }
+          if (!mm) throw new ParseError($t('\\%{name} needs a name in braces', { name }), i);
           i += mm[0].length;
           const inner = mm[1];
-          const s2 = LATEX_CMDS[inner] && LATEX_CMDS[inner].startsWith('f:') ? LATEX_CMDS[inner] : (PLAIN[inner] || LETTERS[inner]);
-          if (!s2) throw new ParseError(`Unknown name '${inner}'`, i);
+          const s2 = LATEX_CMDS[inner] && LATEX_CMDS[inner].startsWith('f:') ? LATEX_CMDS[inner] : (PLAIN[inner] || LETTERS[inner] || (ru ? ruName(inner) : undefined));
+          if (!s2) throw new ParseError((RU_ONLY() && Object.prototype.hasOwnProperty.call(UNSUPPORTED, inner) && UNSUPPORTED[inner]()) || $t("Unknown name '{x}'", { x: inner }), i);
           toks.push(tokFrom(s2, i));
           continue;
         }
@@ -103,11 +133,14 @@ const Expr = (() => {
       // a number, with an exponent only when [eE] is directly followed by digits (1e-12, 2.5E+3), so that
       // a bare e stays Euler's number (2e^{z}, 2e, e z)
       const num = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(src.slice(i));
+      // 0{,}5: the decimal comma of Russian TeX (I18N.texNum) reads as 0.5 (it was an error before)
+      const dc = ru && num && /^\d+$/.test(num[0]) && /^\{,\}(\d+)/.exec(src.slice(i + num[0].length));
+      if (dc) { RU_USED = true; const s = num[0] + '.' + dc[1]; toks.push({ t: 'num', v: parseFloat(s), s, pos: i }); i += num[0].length + dc[0].length; continue; }
       if (num) { toks.push({ t: 'num', v: parseFloat(num[0]), s: num[0], pos: i }); i += num[0].length; continue; }
       if (/[A-Za-z]/.test(ch)) {
         const rest = src.slice(i);
         let matched = null;
-        for (const nm of PLAIN_NAMES) {
+        for (const nm of (ru ? PLAIN_NAMES : PLAIN_BASE)) {
           if (rest.startsWith(nm)) { matched = nm; break; }
         }
         // lowercase re( / im( as functions
@@ -116,13 +149,15 @@ const Expr = (() => {
           if (mm) matched = mm[1];
         }
         if (matched) {
-          const spec = PLAIN[matched] || (matched === 're' ? 'f:re' : 'f:im');
+          const spec = PLAIN[matched] || (ru ? ruName(matched) : undefined) || (matched === 're' ? 'f:re' : 'f:im');
           toks.push(tokFrom(spec, i));
           i += matched.length;
           continue;
         }
         if (LETTERS[ch]) { toks.push(tokFrom(LETTERS[ch], i)); i++; continue; }
-        throw new ParseError(`Unknown symbol '${ch}'`, i);
+        const un = RU_ONLY() && UNSUPPORTED_NAMES.find((nm) => rest.startsWith(nm));
+        if (un) throw new ParseError(UNSUPPORTED[un](), i);
+        throw new ParseError($t("Unknown symbol '{x}'", { x: ch }), i);
       }
       const two = src.slice(i, i + 2);
       if (two === '**') { toks.push({ t: 'op', v: '^', pos: i }); i += 2; continue; }
@@ -130,7 +165,7 @@ const Expr = (() => {
       if (rel && (ch === '=' || ch === '＝')) {
         // '=<' and '=>' are almost always a typo for <= and >=
         const nx = src[i + 1];
-        if (nx === '<' || nx === '>') throw new ParseError(`'=${nx}' is not an operator: did you mean ${nx === '<' ? '≤ (<=)' : '≥ (>=)'}?`, i);
+        if (nx === '<' || nx === '>') throw new ParseError($t("'={nx}' is not an operator: did you mean {choice}?", { nx, choice: nx === '<' ? '≤ (<=)' : '≥ (>=)' }), i);
         toks.push({ t: 'op', v: '=', pos: i }); i += two === '==' ? 2 : 1; continue;
       }
       if (two === '&&') { toks.push({ t: 'and', pos: i }); i += 2; continue; }
@@ -141,22 +176,40 @@ const Expr = (() => {
       if (ch === '·' || ch === '×') { toks.push({ t: 'op', v: '*', pos: i }); i++; continue; }
       if (ch === '−') { toks.push({ t: 'op', v: '-', pos: i }); i++; continue; }
       if ('+-*/^()[]{}|,<>'.includes(ch)) { toks.push({ t: 'op', v: ch, pos: i }); i++; continue; }
-      throw new ParseError(`Unexpected '${ch}'`, i);
+      // the words и, или, не as and, or, not (the Russian interface shows them between conditions: review ui-6)
+      const rw = ru && /^(или|не|и)(?![А-Яа-яЁё])/.exec(src.slice(i));
+      if (rw) { RU_USED = true; toks.push({ t: { 'или': 'or', 'и': 'and', 'не': 'not' }[rw[1]], pos: i, src: rw[1] }); i += rw[0].length; continue; }
+      throw new ParseError($t("Unexpected '{x}'", { x: ch }), i);
     }
     toks.push({ t: 'eof', pos: n });
     return toks;
   }
 
-  function parse(src, { allowRel = false } = {}) {
-    if (!src || !src.trim()) throw new ParseError('Empty expression', 0);
-    const toks = tokenize(src, allowRel);
-    let p = 0, absDepth = 0;
+  function parse(src, opts) {
+    RU_USED = false;
+    try { return parseOnce(src, opts, true); } catch (e) {
+      if (!RU_USED || !(e instanceof ParseError)) throw withComma(e, src);
+      try { return parseOnce(src, opts, false); } catch (e2) { throw withComma(RU_ONLY() && e2 instanceof ParseError ? e : e2, src); }
+    }
+  }
+  // Russian only: any error in a formula with a decimal comma between digits (0,5) also says to use the point
+  // (GLOSSARY 2.3, phase 2b); English errors are returned as they are
+  function withComma(e, src) {
+    if (!RU_ONLY() || !(e instanceof ParseError) || !/\d,\d/.test(String(src))) return e;
+    const hint = $t('Use a decimal point: 0.5');
+    return e.message.includes(hint) ? e : new ParseError(e.message.replace(/[.\s]+$/, '') + '. ' + hint, e.pos);
+  }
+  function parseOnce(src, opts, ru = true) {
+    const { allowRel = false } = opts || {};
+    if (!src || !src.trim()) throw new ParseError($t('Empty expression'), 0);
+    const toks = tokenize(src, allowRel, ru);
+    let p = 0, absDepth = 0, digitComma = false;
     const peek = () => toks[p];
     const next = () => toks[p++];
     const isOp = (tk, v) => tk.t === 'op' && tk.v === v;
     const expect = (v) => {
       const tk = next();
-      if (!isOp(tk, v)) throw new ParseError(`Expected '${v}'`, tk.pos);
+      if (!isOp(tk, v)) throw new ParseError($t("Expected '{x}'", { x: v }), tk.pos);
     };
     const startsPrimary = (tk) => {
       if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj'].includes(tk.t)) return true;
@@ -169,9 +222,19 @@ const Expr = (() => {
       while (peek().t === 'or') { next(); a = { t: 'or', a, b: parseAnd() }; }
       return a;
     }
+    const hasCmp = (n) => !!n && (n.t === 'cmp' || ((n.t === 'and' || n.t === 'or') && (hasCmp(n.a) || hasCmp(n.b))) || (n.t === 'not' && hasCmp(n.a)));
     function parseAnd() {
       let a = parseNot();
-      while (peek().t === 'and' || (allowRel && isOp(peek(), ','))) { next(); a = { t: 'and', a, b: parseNot() }; }
+      while (peek().t === 'and' || (allowRel && isOp(peek(), ','))) {
+        const sep = next(), b = parseNot();
+        // Russian only (review ui-1): |z| < 0,5 is |z| < 0 and 5; a comma between digits that leaves a condition on one
+        // side and a bare number on the other was a decimal comma, and the message says to use the point (English
+        // keeps its messages; a list with no condition at all, 1,0,-1, parses as before)
+        const hint = sep.t === 'op' && commaHint(src, sep.pos);
+        if (hint && hasCmp(a) !== hasCmp(b)) throw new ParseError(hint, sep.pos);
+        if (hint) digitComma = true;
+        a = { t: 'and', a, b };
+      }
       return a;
     }
     function parseNot() {
@@ -285,11 +348,11 @@ const Expr = (() => {
           // \sin^{-1} z is arcsin z (as in most textbooks); \sin^2 z stays (\sin z)^2
           if (powAfter && isMinusOne(powAfter)) {
             if (INV_FN[f]) { f = INV_FN[f]; powAfter = null; }
-            else if (RECIP_FN.includes(f)) throw new ParseError(`\\${f}^{-1} is ambiguous: write \\left(\\${f} z\\right)^{-1} for the reciprocal`, tk.pos);
+            else if (RECIP_FN.includes(f)) throw new ParseError($t('\\%{f}^{-1} is ambiguous: write \\left(\\%{f} z\\right)^{-1} for the reciprocal', { f }), tk.pos);
           }
           let a;
           if (isOp(peek(), '(') || isOp(peek(), '{') || isOp(peek(), '[')) a = parsePrimary();
-          else if (peek().t === 'eof') throw new ParseError(`Missing argument for ${tk.v}`, tk.pos);
+          else if (peek().t === 'eof') throw new ParseError($t('Missing argument for {f}', { f: I18N.fnName(tk.v) }), tk.pos);
           else a = parseFuncArg();
           let node = { t: 'call', f, a };
           if (powAfter) node = { t: 'pow', a: node, b: powAfter };
@@ -304,25 +367,28 @@ const Expr = (() => {
             absDepth = saved;
             const t2 = next();
             // accept mismatched bracket kinds produced by \left( ... \right] etc.
-            if (!(t2.t === 'op' && (t2.v === close || t2.v === ')' || t2.v === ']' || t2.v === '}'))) throw new ParseError(`Expected '${close}'`, t2.pos);
+            if (!(t2.t === 'op' && (t2.v === close || t2.v === ')' || t2.v === ']' || t2.v === '}'))) throw new ParseError($t("Expected '{x}'", { x: close }), t2.pos);
             return e;
           }
           if (tk.v === '|') {
             absDepth++;
             const e = parseAdd();
             absDepth--;
-            if (!isOp(peek(), '|')) throw new ParseError(src.includes('||') ? "Expected '|'. To combine conditions, write 'or' instead of ||" : "Expected '|'", peek().pos);
+            if (!isOp(peek(), '|')) throw new ParseError(src.includes('||') ? $t("Expected '|'. To combine conditions, write 'or' instead of ||") : $t("Expected '|'"), peek().pos);
             expect('|');
             return { t: 'call', f: 'abs', a: e };
           }
-          throw new ParseError(`Unexpected '${tk.v}'`, tk.pos);
+          throw new ParseError(commaHint(src, tk.pos) || $t("Unexpected '{x}'", { x: tk.v }), tk.pos);
         }
-        case 'eof': throw new ParseError('Unexpected end of expression', tk.pos);
-        default: throw new ParseError(`Unexpected '${tk.t}'`, tk.pos);
+        case 'eof': throw new ParseError($t('Unexpected end of expression'), tk.pos);
+        default: throw new ParseError($t("Unexpected '{x}'", { x: tk.src || tk.t }), tk.pos);
       }
     }
     const ast = parseOr();
-    if (peek().t !== 'eof') throw new ParseError(`Unexpected '${peek().v ?? peek().t}'`, peek().pos);
+    if (peek().t !== 'eof') throw new ParseError(commaHint(src, peek().pos) || $t("Unexpected '{x}'", { x: peek().v ?? peek().src ?? peek().t }), peek().pos);
+    // Russian only (verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
+    // and 5<|z|) is kept, but a caller that passes opts.notes gets a warning to show under its field
+    if (digitComma && opts && Array.isArray(opts.notes)) opts.notes.push($t('A comma between digits separates conditions; write the decimal part with a point'));
     return ast;
   }
 
@@ -362,7 +428,7 @@ const Expr = (() => {
   };
   function compile(ast, { theta = Math.PI } = {}) {
     function build(n) {
-      if (isBool(n)) throw new ParseError('Comparisons are only allowed in region formulas', 0);
+      if (isBool(n)) throw new ParseError($t('Comparisons are only allowed in region formulas'), 0);
       if (!depends(n)) {
         // constants (\sqrt{2}, \log 2, i^{i}) always take their principal value, whatever the cut of the formula
         const f = theta === Math.PI ? buildRaw(n) : compile(n);
@@ -407,7 +473,7 @@ const Expr = (() => {
         case 'root': {
           const A = build(n.a), N = build(n.n);
           const nv = N(C(0, 0));
-          if (depends(n.n)) throw new ParseError('Root index must be a constant', 0);
+          if (depends(n.n)) throw new ParseError($t('Root index must be a constant'), 0);
           const s = CX.div(CX.ONE, nv);
           if (s.im === 0) return (z) => CX.powReal(A(z), s.re, theta);
           return (z) => CX.pow(A(z), s, theta);
@@ -417,18 +483,18 @@ const Expr = (() => {
           if (n.f === 'log') return (z) => CX.log(A(z), theta);
           if (n.f === 'sqrt') return (z) => CX.powReal(A(z), 0.5, theta);
           const F = FUN[n.f];
-          if (!F) throw new ParseError(`Unknown function ${n.f}`, 0);
+          if (!F) throw new ParseError($t('Unknown function {f}', { f: I18N.fnName(n.f) }), 0);
           return (z) => F(A(z));
         }
       }
-      throw new ParseError(`Cannot evaluate '${n.t}'`, 0);
+      throw new ParseError($t("Cannot evaluate '{x}'", { x: n.t }), 0);
     }
     return build(ast);
   }
 
   // Region formulas compile to a real "level" function, positive inside.
   function compileLevel(ast) {
-    if (!hasBool(ast)) throw new ParseError('A region needs a comparison, e.g. |z| < 1', 0);
+    if (!hasBool(ast)) throw new ParseError($t('A region needs a comparison, e.g. |z| < 1'), 0);
     const san = (v) => (Number.isNaN(v) ? -Infinity : v);
     function lv(n) {
       switch (n.t) {
@@ -442,7 +508,7 @@ const Expr = (() => {
         case 'or': { const a = lv(n.a), b = lv(n.b); return (z) => Math.max(a(z), b(z)); }
         case 'not': { const a = lv(n.a); return (z) => -a(z); }
       }
-      throw new ParseError('Combine comparisons with and / or / not', 0);
+      throw new ParseError($t('Combine comparisons with and / or / not'), 0);
     }
     return lv(ast);
   }
@@ -461,19 +527,19 @@ const Expr = (() => {
   //       'and' is one piece. Sides equal on a whole region (|Re z| = Re z) are refused (REL_MSG.region);
   //   {dim: 'none', error}                   no comparison at all;
   //   {dim: 'error', error}                  a set that is neither a curve nor an area (the messages say why).
-  const CURVE_NOT_AREA = 'An equation (=) describes a curve, not a filled region: use <, >, ≤ or ≥ for an area';
+  const CURVE_NOT_AREA = $t('An equation (=) describes a curve, not a filled region: use <, >, ≤ or ≥ for an area');
   const REL_MSG = {
-    none: 'A region needs a comparison, e.g. |z| < 1, or an equation for a curve, e.g. Re z = 0',
-    points: "Two equations that must both hold meet only at isolated points, not along a curve. To draw both curves, join them with 'or'.",
-    chain: "A chain like a = b = c asks for two equations at once, which meet only at isolated points. Write one equation, or join two with 'or'.",
-    mix: "'or' between an equation and an inequality mixes a curve with an area. Add them as two shapes, or use ',' (and) to keep the part of the curve where the inequality holds.",
-    not: "'not' of an equation is the whole plane minus a curve, which is not a curve. Put 'not' around inequalities only.",
-    complex: 'Both sides of an equation must be real numbers: here they are complex, and no curve was found where both their real and imaginary parts agree (a complex equation usually holds only at isolated points). Take Re, Im, |·| or arg of each side, e.g. Re z = 0, |z − 1| = 2 or arg z = π/4. For the isolated points where the sides agree, write |A − B| = 0 (for z³ = 1: |z^3 − 1| = 0).',
-    region: 'The two sides are equal on a whole region, not along a curve, so the equation does not describe a curve. Use < or > for an area.',
-    constant: 'This equation does not involve z, so it does not describe a curve.',
-    identity: 'The two sides are equal for every z, so the equation does not pick out a curve.',
-    undefined: 'The two sides are not finite anywhere, so the equation has no points.',
-    combine: 'Combine comparisons with and / or / not',
+    none: $t('A region needs a comparison, e.g. |z| < 1, or an equation for a curve, e.g. Re z = 0'),
+    points: $t("Two equations that must both hold meet only at isolated points, not along a curve. To draw both curves, join them with 'or'."),
+    chain: $t("A chain like a = b = c asks for two equations at once, which meet only at isolated points. Write one equation, or join two with 'or'."),
+    mix: $t("'or' between an equation and an inequality mixes a curve with an area. Add them as two shapes, or use ',' (and) to keep the part of the curve where the inequality holds."),
+    not: $t("'not' of an equation is the whole plane minus a curve, which is not a curve. Put 'not' around inequalities only."),
+    complex: $t('Both sides of an equation must be real numbers: here they are complex, and no curve was found where both their real and imaginary parts agree (a complex equation usually holds only at isolated points). Take Re, Im, |·| or arg of each side, e.g. Re z = 0, |z − 1| = 2 or arg z = π/4. For the isolated points where the sides agree, write |A − B| = 0 (for z³ = 1: |z^3 − 1| = 0).'),
+    region: $t('The two sides are equal on a whole region, not along a curve, so the equation does not describe a curve. Use < or > for an area.'),
+    constant: $t('This equation does not involve z, so it does not describe a curve.'),
+    identity: $t('The two sides are equal for every z, so the equation does not pick out a curve.'),
+    undefined: $t('The two sides are not finite anywhere, so the equation has no points.'),
+    combine: $t('Combine comparisons with and / or / not'),
   };
   // structural realness: {real: the value is real wherever it is defined, nonneg: and >= 0}
   function realOf(n) {
@@ -649,10 +715,10 @@ const Expr = (() => {
 
   function constValue(src) {
     const ast = parse(String(src));
-    if (hasBool(ast)) throw new ParseError('Expected a number', 0);
-    if (depends(ast)) throw new ParseError('Expected a constant (no z)', 0);
+    if (hasBool(ast)) throw new ParseError($t('Expected a number'), 0);
+    if (depends(ast)) throw new ParseError($t('Expected a constant (no z)'), 0);
     const v = compile(ast)(C(0, 0));
-    if (!CX.isFin(v)) throw new ParseError('Value is not finite', 0);
+    if (!CX.isFin(v)) throw new ParseError($t('Value is not finite'), 0);
     return v;
   }
 
@@ -867,7 +933,7 @@ const Expr = (() => {
     return fr ? N.div(lit(fr[1]), lit(fr[2])) : lit(s);
   }
   function numNode(v) {
-    if (!CX.isFin(v)) throw new Error('The result contains a value that is not finite');
+    if (!CX.isFin(v)) throw new Error($t('The result contains a value that is not finite'));
     if (v.im === 0) return realNode(v.re);
     const ai = Math.abs(v.im);
     const ip = ai === 1 ? N_I() : N.mul(realNode(ai), N_I());
@@ -986,11 +1052,11 @@ const Expr = (() => {
   // written as \sqrt when theta is 180° and as cos(arcsin u) etc. otherwise (the same function, independent of theta).
   function diff(ast, { theta = Math.PI } = {}) {
     const principal = theta === Math.PI;
-    const NH = (what) => new Error(`${what} is not holomorphic (it has no complex derivative), so this formula cannot be differentiated in z`);
+    const NH = (what) => new Error($t('{what} is not holomorphic (it has no complex derivative), so this formula cannot be differentiated in z', { what }));
     const { neg, add, sub, mul, div, pow, call } = N;
     const sq = (a) => pow(a, TWO());
     function D(n) {
-      if (isBool(n)) throw new Error('A comparison has no derivative');
+      if (isBool(n)) throw new Error($t('A comparison has no derivative'));
       if (!depends(n)) return lit('0');
       switch (n.t) {
         case 'var':
@@ -1007,7 +1073,7 @@ const Expr = (() => {
           const a = n.a, b = n.b;
           if (!depends(b)) {
             const v = constVal(b);
-            if (!CX.isFin(v)) throw new Error('The exponent is not a finite number');
+            if (!CX.isFin(v)) throw new Error($t('The exponent is not a finite number'));
             if (v.im === 0 && Number.isInteger(v.re)) return mul(mul(D(a), numNode(v)), pow(a, numNode(C(v.re - 1, 0))));
             const e1 = CX.sub(v, CX.ONE);
             return mul(mul(D(a), b), pow(a, niceConst(e1) ? numNode(e1) : sub(b, ONE())));
@@ -1020,7 +1086,7 @@ const Expr = (() => {
           return mul(n, add(mul(D(b), call('log', a)), div(mul(b, D(a)), a)));
         }
         case 'root':
-          if (depends(n.n)) throw new Error('Root index must be a constant');
+          if (depends(n.n)) throw new Error($t('Root index must be a constant'));
           return div(mul(D(n.a), n), mul(n.n, n.a));
         case 'call': {
           const a = n.a, Da = D(a);
@@ -1048,15 +1114,15 @@ const Expr = (() => {
             case 'acosh': return div(Da, principal ? mul(call('sqrt', sub(a, ONE())), call('sqrt', add(a, ONE()))) : call('sinh', n));
             case 'atanh': return div(Da, sub(ONE(), sq(a)));
             case 'abs': throw NH('|z|');
-            case 'conj': throw NH('Conjugation z̄');
+            case 'conj': throw NH($t('Conjugation z̄'));
             case 're': throw NH('Re z');
             case 'im': throw NH('Im z');
             case 'arg': throw NH('arg z');
           }
-          throw new Error(`No derivative known for ${n.f}`);
+          throw new Error($t('No derivative known for {f}', { f: I18N.fnName(n.f) }));
         }
       }
-      throw new Error(`Cannot differentiate '${n.t}'`);
+      throw new Error($t("Cannot differentiate '{x}'", { x: n.t }));
     }
     return simplify(simplify(D(ast)));
   }
@@ -1066,17 +1132,17 @@ const Expr = (() => {
   // or 'left' (g(f(z)) = z, as exp for log). The inverse uses principal branches (cut 180°). Throws an Error whose
   // message says why there is none.
   function invert(ast, { theta = Math.PI } = {}) {
-    if (hasBool(ast)) throw new Error('A comparison has no inverse');
-    for (const v of usesVars(ast)) if (v !== 'z') throw new Error('Re z, Im z, |z| and arg z lose information, so the formula has no inverse');
+    if (hasBool(ast)) throw new Error($t('A comparison has no inverse'));
+    for (const v of usesVars(ast)) if (v !== 'z') throw new Error($t('Re z, Im z, |z| and arg z lose information, so the formula has no inverse'));
     const count = (n) => (n.t === 'var' ? 1 : ['a', 'b', 'n'].reduce((s, k) => s + (n[k] ? count(n[k]) : 0), 0));
     const nz = count(ast);
-    const CONST = 'The formula is constant, so it has no inverse';
+    const CONST = $t('The formula is constant, so it has no inverse');
     if (!nz) throw new Error(CONST);
-    if (nz > 1) throw new Error(`z occurs ${nz} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w`);
+    if (nz > 1) throw new Error($tn('z occurs {n} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w', 'z occurs {n} times in the formula, so it cannot be solved for z one operation at a time; the Preimage view shows every solution of f(z) = w', nz));
     const principal = theta === Math.PI;
     const nonzero = (n) => { const v = constVal(n); if (!CX.isFin(v) || CX.isZero(v)) throw new Error(CONST); return v; };
-    const branchy = () => { if (!principal) throw new Error('A non-integer power with a cut other than 180° has no inverse here; set the cut to 180° or use the Preimage view'); };
-    const SPIRAL = 'A complex exponent winds around 0, so its inverse would need a spiral branch cut; use the Preimage view';
+    const branchy = () => { if (!principal) throw new Error($t('A non-integer power with a cut other than 180° has no inverse here; set the cut to 180° or use the Preimage view')); };
+    const SPIRAL = $t('A complex exponent winds around 0, so its inverse would need a spiral branch cut; use the Preimage view');
     const { neg, add, sub, mul, div, pow, call, root } = N;
     let w = N.z(), right = true, left = true, n = ast;
     const R = () => { left = false; }, L = () => { right = false; };
@@ -1137,14 +1203,14 @@ const Expr = (() => {
           if (n.f === 'sqrt') { w = pow(w, TWO()); L(); }
           else if (INV[n.f]) { w = call(INV[n.f][0], w); INV[n.f][1](); }
           else if (RECIP[n.f]) { w = call(RECIP[n.f], div(ONE(), w)); R(); }
-          else throw new Error('|·|, Re, Im and arg lose information, so the formula has no inverse');
+          else throw new Error($t('|·|, Re, Im and arg lose information, so the formula has no inverse'));
           n = n.a;
           break;
         }
-        default: throw new Error('This formula has no inverse');
+        default: throw new Error($t('This formula has no inverse'));
       }
     }
-    if (!right && !left) throw new Error('The formula combines a step that takes values several times with a branch cut, so no single-valued inverse undoes it; use the Preimage view');
+    if (!right && !left) throw new Error($t('The formula combines a step that takes values several times with a branch cut, so no single-valued inverse undoes it; use the Preimage view'));
     return { ast: simplify(w), kind: right && left ? 'both' : right ? 'right' : 'left' };
   }
 

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "math-1",
+    "severity": "high",
+    "title": "A decimal comma in a list field silently gives different zeros or coefficients",
+    "detail": "In the zeros, poles and coefficient list fields the comma separates items. A Russian user types the decimal comma out of habit, and the Russian screen itself shows 0,5. Funcs.build({type:'zp', params:{zeros:'0,5, -1'}}) in Russian gives zeros 0, 5 and -1, that is z(z-5)(z+1), with no message. '0,5; -1' (the separator the glossary uses for lists of decimals on screen) gives «нули: значение 2: Здесь не ожидалось «;»», with no decimal hint. The comma hint in parse.js only covers single formulas. The same applies to the rational and polynomial coefficient lists (Funcs.splitList splits on every comma).",
+    "evidence": "node probe in Russian: zeros '0,5, -1' -> tex z\\left(z-5\\right)\\left(z+1\\right); '0,5; -1' -> «Здесь не ожидалось «;»» (Funcs.splitList, src/funcs.js 'zp' params type cxlist)",
+    "fix": "In Russian, for list fields: accept ';' as the item separator. When the text has no ';' but has a comma between two digits, show a warning or the hint «Дробную часть отделяйте точкой: 0.5; значения разделяйте запятой или «;»». At least, never accept 'digit,digit' silently in Russian."
+  },
+  {
+    "id": "math-2",
+    "severity": "high",
+    "title": "The deformation's paths figure ignores the caption language",
+    "detail": "With the Russian interface and the dialog's caption switch on English (o.lang = 'en'), the paths figure (deform: 'paths') gets a fully Russian caption. figure.js figPaths passes lang: XD.lang to A.legacyMorph, but app.js 9561 legacyMorph calls buildFigure without it, so the caption is built in the interface language. Every other view gave the English caption exactly (35 of 38 compared captions identical).",
+    "evidence": "test/mathrev_cdp/out/caps-ru.json keys ex1-paths-en and ex6-paths-en vs out/caps-en.json ex1-paths and ex6-paths (English page): the RU>en caption begins «Множество $|\\operatorname{Im} z| < \\pi/2$ и прямая $\\operatorname{Im}z=0{,}8$ (штриховой контур)…»",
+    "fix": "app.js legacyMorph: wrap buildFigure in I18N.using(o.lang, ...) as the other caption builders do. Add the paths case to the English-caption equality test."
+  },
+  {
+    "id": "math-3",
+    "severity": "high",
+    "title": "Grid captions put the translated grid name inside the math",
+    "detail": "region.js translates the grid TeX ('\\\\text{polar grid}, |%{c}|\\\\le %{r}' -> '\\\\text{полярная сетка}, …'; the Cartesian grid likewise -> '\\\\text{сетка } …'). app.js 9100-9101 strips the prefix with the English regexes /^\\\\text\\{polar grid\\},\\s*/ and /^\\\\text\\{grid \\}\\s*/, which do not match in Russian. Result in every Russian caption with a grid (examples 2, 6, 8; the paths figure; spheres; Article, Homework): «полярная сетка в~$\\text{полярная сетка}, |z|\\le 2$» and «декартова сетка на $\\text{сетка } [-1{,}5;\\,1{,}5]\\times[0;\\,2{,}4]$». The English caption is right («a polar grid in $|z|\\le 2$»).",
+    "evidence": "test/mathrev_cdp/out_ru/ex2-a1.tex, ex6-a1.tex, ex8-a1.tex, ex6-paths.tex, sph-a1.tex; src/app.js 9100-9101; src/region.js 235",
+    "fix": "Do not strip by text. Let region.js give the bare set TeX (for example K.pgrid.setTex / K.cgrid.setTex without the name) and use it in shapePhrase, or strip with the translated prefix ($t('\\\\text{polar grid}, ') and $t('\\\\text{grid }'))."
+  },
+  {
+    "id": "math-4",
+    "severity": "high",
+    "title": "«дополнение круг»: the complement's object is in the wrong case",
+    "detail": "app.js 9105 builds 'the complement of %{segs}' with segs in the nominative. Russian «дополнение %{segs}» needs the genitive: the caption reads «дополнение круг $|z-(-0{,}12+0{,}1i)|\\le 1{,}124$» (Article) and «Слева~— дополнение круг …» (Homework). It must be «дополнение круга …». Note also that the set drawn is the open exterior |z−c| > r while the formula shown is the closed disc; that part is the same in English and reads correctly only with the genitive.",
+    "evidence": "test/mathrev_cdp/out_ru/ex3-a1.tex, ex3-hw.tex (example «Профиль Жуковского»); src/app.js 9105; table entry 'the complement of %{segs}' -> «дополнение %{segs}»",
+    "fix": "Build the inner phrase with shapePhrase(s, idx, 'gen') when s.complement is set (the 'gen' context exists: «дополнения %{segs}» is in the table for the outer genitive), so the caption reads «дополнение круга $…$»."
+  },
+  {
+    "id": "math-5",
+    "severity": "high",
+    "title": "English caption from the Russian interface contains «задняя кромка»",
+    "detail": "Example 3 stores its point label as $t('trailing edge') (app.js 10885), so it is saved in the interface language. With the Russian interface and the caption switch on English, the caption says «…, and the задняя кромка $z=1$ in the $z$-plane» and the figure labels say \\text{задняя кромка} and F(\\text{задняя кромка}). The same label stays Russian after switching the interface to English (the work is restored from the saved state).",
+    "evidence": "test/mathrev_cdp/out/caps-ru.json ex3-a1-en vs out/caps-en.json ex3-a1 (labels point-label:\\text{задняя кромка} vs \\text{trailing edge})",
+    "fix": "Store the English label (or a key such as label: 'trailing edge', labelKey: true) and translate at display and caption time with the figure's language (I18N.at(lang).t)."
+  },
+  {
+    "id": "math-6",
+    "severity": "medium",
+    "title": "The plane rulers keep the decimal point in Russian",
+    "detail": "drawRulers formats tick labels with x.toFixed(...) and never calls I18N.num, so the most visible numbers on screen read «1.5i», «0.5i», «−0.5i» in Russian, while readouts, the zoom pad and the exported figure ticks use the comma («0,5», «1{,}0»).",
+    "evidence": "src/app.js 3143-3163 (fmt and label in drawRulers); notes/i18n/shots-2b/final/ru-1440-light-06-example-card.png, right ruler at x≈712, y 120-560",
+    "fix": "Return I18N.num(t) from fmt (and the mantissa of the ×10ⁿ form). Measure the label width after the change, since the slot logic uses measureText."
+  },
+  {
+    "id": "math-7",
+    "severity": "medium",
+    "title": "Landscape shows «log |F|» in Russian",
+    "detail": "The glossary (2.2) says the natural log |F| becomes ln |F|. The landscape toolbar's height switch (app.js 6829 `log |${Fn}|`) and the pane title (app.js 6492 heightHtml `log|${Fh}|`) are hardcoded, so the Russian screen shows «рельеф функции log|F|» and a «log |F|» button, while the legend on the same screen says «высота ln |F|».",
+    "evidence": "notes/i18n/shots-2b/final/ru-1440-light-03-landscape.png (title at top left of the plane, the first button of the bottom toolbar, the legend at top right); src/app.js 6492, 6829",
+    "fix": "Use I18N.fnName('log') (or $t('log |{Fn}|')) in both places."
+  },
+  {
+    "id": "math-8",
+    "severity": "medium",
+    "title": "The all-sheets landscape caption writes ln z, not Ln z",
+    "detail": "For «Every sheet of the logarithm» the Russian caption is «Рельеф функции $F(z)=\\ln z$ … показаны все листы римановой поверхности». GLOSSARY 2.2 says the multivalued logarithm of the all-sheets captions is Ln (\\operatorname{Ln}), and that such call sites must pass {multi: true} to I18N.notation. figure.js polish() calls notation without multi, so \\log always becomes \\ln.",
+    "evidence": "test/mathrev_cdp/out_ru/ex13-a1.tex and ex13-hw.tex; src/figure.js 1421 (polish)",
+    "fix": "When the landscape caption says all sheets, apply I18N.notation(mapTex, 'ru', {multi: true}) to the map formula in that caption, or write \\operatorname{Ln} there in the Russian template."
+  },
+  {
+    "id": "math-9",
+    "severity": "medium",
+    "title": "Empty-canvas caption sets the variable as upright text: «плоскость~z»",
+    "detail": "The Russian entry for '(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}' is «\\textit{а}~--- плоскость~%{lvar}; …» without $…$, so z prints as an upright text letter. The sibling entry with {lvar} has «плоскость~$%{lvar}$». Every other caption has «в~плоскости~$z$».",
+    "evidence": "test/mathrev_cdp/out_ru/ex0-a1.tex: «\\textit{а}~--- плоскость~z; \\textit{б}~--- её образ…»; compiled with test/mathrev_cdp/tex/B_xelatex.tex, the PDF text reads «а — плоскость z; б — её образ…» with z upright (the PDF was deleted for disk space; rebuild from the .tex)",
+    "fix": "Table entry: «\\textit{а}~--- плоскость~$%{lvar}$; \\textit{б}~--- её образ при отображении %{map}.%{pat}»."
+  },
+  {
+    "id": "math-10",
+    "severity": "medium",
+    "title": "No decimal hint in region formulas, where a Russian user types 0,5 most",
+    "detail": "In the region field a comma separates conditions, so '|z|<1,5' parses as two conditions and fails in classifyRelation with «Соединяйте неравенства словами and / or / not». The comma hint is added only to parse errors, so this message gives no hint. 'Re z>0,5' gives the same message. (A case such as 'Re z>0,5<|z|' is even accepted, as Re z>0 and |z|>5.)",
+    "evidence": "node probe (Expr.parse with allowRel, then Expr.classifyRelation) in Russian: '|z|<1,5' -> error «Соединяйте неравенства словами and / or / not»; '|z-0,5|<1' -> «Ожидалось «|». Дробную часть отделяйте точкой: 0.5» (good)",
+    "fix": "In Russian, when classifyRelation fails (or a piece is a bare number) and the source has digit,digit, append «Дробную часть отделяйте точкой: 0.5». Consider a warning when a comma between digits splits a region formula even if it classifies."
+  },
+  {
+    "id": "math-11",
+    "severity": "medium",
+    "title": "Decimal comma in the monospace number font reads as a list: «0, 5»",
+    "detail": "Readouts, the roots panel, the pattern legend, the phase legend (×1,69) and the 3D tick labels set numbers in B612 Mono. A monospace comma takes a full cell, so «−0,5 + 0,866i» shows as «−0, 5 + 0, 866i» and «arg 77, 125°». A reader takes «0, 5» for two numbers. Also the pattern legend chip is fixed width: «клетка 0,5 в плоскости z» runs past it and the final z is cut off.",
+    "evidence": "notes/i18n/shots-2b/final/ru-1440-light-06b-roots.png (roots panel), ru-1440-light-06-example-card.png (pattern legend at x 990-1127, y 140-150, z clipped), ru-1440-light-03-landscape.png (3D tick «0, 1»); test/mathrev_cdp/shots/ru-mobius-dec.png (readout «z 0, 1333 + 0, 5833i |z| 0, 5984 arg 77, 125°»)",
+    "fix": "In Russian, set the comma of a formatted number narrow: wrap it in a span with negative letter-spacing (about −0.35em) in HTML, and on canvas draw the integer part, a comma in the UI font, then the fraction. Or use the proportional UI font with tabular figures for Russian numbers. Size the legend chip to its text."
+  },
+  {
+    "id": "math-12",
+    "severity": "medium",
+    "title": "«LaTeX-код с гарантиями» loses all Cyrillic in XeLaTeX",
+    "detail": "The Russian document has \\usepackage[T2A]{fontenc}\\usepackage[utf8]{inputenc}\\usepackage[russian]{babel}. pdflatex compiles it. xelatex exits 0 but logs «Missing character: There is no О … in font larm1440» for every Cyrillic letter, so all Russian text is missing from the PDF. The figure snippet's comment explains the XeLaTeX preamble; this document does not.",
+    "evidence": "test/mathrev_cdp/tex/doc_ru.tex (captured from the export menu), tex/docrux.log (Missing character lines), tex/docru.log (pdflatex: no errors)",
+    "fix": "Use \\usepackage{iftex} and \\ifPDFTeX \\usepackage[T2A]{fontenc}\\usepackage[utf8]{inputenc} \\else \\usepackage{fontspec}\\setmainfont{CMU Serif} \\fi before babel, or add the same comment the figure snippet has."
+  },
+  {
+    "id": "math-13",
+    "severity": "low",
+    "title": "The Russian LaTeX document prints decimals with a point",
+    "detail": "The screen shows the map as «tg z − 0,5 / 0,25 tg z + 1» and figure captions write 0{,}5, but «LaTeX-код с гарантиями» writes \\frac{\\operatorname{tg} z-0.5}{0.25\\,\\operatorname{tg} z+1} (CX.setTexExact(true) bypasses the comma). The parser reads 0{,}5 back in both languages, so the comma would not break paste-back.",
+    "evidence": "test/mathrev_cdp/tex/doc_ru.tex lines 10-15; test/mathrev_cdp/shots/ru-mobius-dec.png (composition panel shows 0,5)",
+    "fix": "In Russian, format exact constants with I18N.texNum (0{,}5) in latexDocument, the same as the captions."
+  },
+  {
+    "id": "math-14",
+    "severity": "low",
+    "title": "The figure snippet does not work in an English-main document as pasted",
+    "detail": "The snippet's comment tells the user to wrap the caption in \\foreignlanguage{russian}{…} when the document's main language is English. Pasted as is into [T2A,T1]{fontenc}+[russian,english]{babel}, pdflatex stops with «Command \\cyra unavailable in encoding T1» (144 errors for the 38 snippets). Writing \\foreignlanguage{russian}{…} into the caption costs nothing in a Russian-main document and makes the snippet paste-ready in both.",
+    "evidence": "test/mathrev_cdp/tex/C_engmain.tex and C.log; A_pdflatex (Russian main, pdflatex) and B_xelatex (fontspec + CMU) compile all 38 snippets with no errors and no missing characters",
+    "fix": "Emit \\caption{\\foreignlanguage{russian}{…}} in Russian snippets and shorten the comment."
+  },
+  {
+    "id": "math-15",
+    "severity": "low",
+    "title": "Unknown-command suggestions in Russian offer only English names",
+    "detail": "GLOSSARY 2.4 asks for «Неизвестная команда \\tgh. Возможно, \\tg или \\th.» The suggestion list is built from LATEX_CMDS only, so Russian gets «Неизвестная команда \\tgh. Возможно, \\ge или \\gt.» and «\\arcth … Возможно, \\arctan или \\arcosh.»",
+    "evidence": "node probe: Expr.parse('\\\\tgh z') and ('\\\\arcth z') in Russian; src/parse.js tokenizer 'near' list",
+    "fix": "In Russian only, add the RU_NAMES keys to the candidates for the suggestion (English stays as it is)."
+  },
+  {
+    "id": "math-16",
+    "severity": "low",
+    "title": "The parser does not read arcth, arcoth, or plain arsinh, arcosh, artanh",
+    "detail": "The app prints \\operatorname{arcth} (Russian) and \\operatorname{arcoth} (English) in homotopy captions, and \\operatorname{arsinh}, arcosh, artanh for the inverse hyperbolic steps. Typed as plain text, 'arsinh z' fails in both languages («Неизвестный символ «a»»), as do 'arcth z' and 'arcoth z'. GLOSSARY 2.1 lists arsinh, arcosh, artanh and arcth as accepted. (\\operatorname{arsinh} and the Russian arsh, arch, arth work.)",
+    "evidence": "node probe: Expr.parse('arsinh z'), ('arcth z'), ('arcoth z') in English and Russian; src/parse.js PLAIN has no arsinh, arcosh or artanh",
+    "fix": "Add arsinh, arcosh and artanh to PLAIN (no prefix conflict: longest first). arcoth and arcth only if acoth is added. Otherwise give a specific message."
+  },
+  {
+    "id": "math-17",
+    "severity": "low",
+    "title": "The quarter plane is called «сектор» though it is unbounded",
+    "detail": "GLOSSARY 1.1: an unbounded sector is «угол» in captions. The quarter-plane example (ex 2) caption says «сектор $0^\\circ\\le \\arg(z)\\le 90^\\circ$». It has no radius bound, so it should read «угол $0^\\circ\\le\\arg z\\le 90^\\circ$».",
+    "evidence": "test/mathrev_cdp/out_ru/ex2-a1.tex, ex2-hw.tex",
+    "fix": "In shapePhrase, for a sector with no radius bound use the 'the angle %{m}' template («угол %{m}») in Russian. English may keep 'sector'."
+  },
+  {
+    "id": "math-18",
+    "severity": "low",
+    "title": "The word «или» is not read in a region formula; only \\text{или} is",
+    "detail": "The Russian interface prints «или» between conditions, and the parser reads \\text{или} back. Typed as a word, 'Re z>0 или Im z<1' fails with «Здесь не ожидалось «и»». The error text advises «and / or / not».",
+    "evidence": "node probe: Expr.parse('Re z>0 или Im z<1', {allowRel: true}) in Russian",
+    "fix": "Accept the plain words «или», «и», «не» as or, and, not in Russian (they contain no Latin letters, so nothing parses differently). Then the message can say «или / и / не»."
+  },
+  {
+    "id": "math-19",
+    "severity": "low",
+    "title": "On screen, Cyrillic inside formulas falls back to a system serif",
+    "detail": "MathJax's TeX fonts have no Cyrillic. The domain panel («формула определена в точке z», «вне разрезов формулы») and other \\text{…} in formulas render in a browser fallback serif (Times-like). This does not match the TeX letters around it or the UI font. The exported figures avoid this with CMU outlines.",
+    "evidence": "test/mathrev_cdp/shots/ru-trig-1440.png, «Естественная область определения D» panel",
+    "fix": "Map MathJax's \\text font for Cyrillic to the UI font or to CMU Serif (mtextInheritFont, or a @font-face with a Cyrillic unicode-range) in the Russian interface."
+  },
+  {
+    "id": "math-20",
+    "severity": "low",
+    "title": "Small typography in Russian LaTeX output",
+    "detail": "(1) Article captions write «~---» and Homework captions write the Unicode «~—». Both compile, but one style is better. (2) The Homework comment reads «(Поля 1 дюйм · Letter)», with a capital in the middle of a sentence. (3) The LaTeX document lists missing properties with capitals in the middle of a sentence: «Из цепочки не следуют (но могут выполняться): Целая функция, Рациональная функция, …». Russian usage is lower case here.",
+    "evidence": "test/mathrev_cdp/out_ru/ex1-a1.tex vs ex1-hw.tex; ex1-hw.tex line 1; test/mathrev_cdp/tex/doc_ru.tex last paragraph",
+    "fix": "Use «~---» in all Russian TeX captions. Lower-case «поля» in the comment and the property names in the sentence (Russian table only)."
+  }
+]

@@ -1,0 +1,1071 @@
+{
+ "guide.using_workbench": {
+  "en": "Using the Workbench",
+  "ru": "Как работать с Complex Map Workbench",
+  "ru_short": "Руководство",
+  "note": "Modal heading (h2). Glossary 1.13. Wraps to two lines at 360 px; if that is unwanted, use ru_short."
+ },
+ "guide.build_region_z_plane": {
+  "en": "Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the input of the focused step (the domain), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.",
+  "ru": "Постройте область в плоскости <i>z</i>, пропустите её через цепочку функций <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, … и следите за всеми промежуточными образами. Левая панель всегда показывает <i>X</i> — исходную плоскость текущего шага, а правая — <i>Y</i>, плоскость его образов: слева фигуры, справа их образы.",
+  "note": "\"the input of the focused step (the domain)\" is rendered as «исходная плоскость текущего шага» (glossary 1.1); «область определения» would wrongly suggest the natural domain."
+ },
+ "guide.regions": {
+  "en": "Regions",
+  "ru": "Области"
+ },
+ "guide.draw_with_tools_on": {
+  "en": "Draw with the tools on the left, or type a set such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.",
+  "ru": "Рисуйте инструментами слева или введите множество, например <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> или <span class=\"chip ftag\" data-tex=\"0<\\operatorname{Im} z<\\pi\"></span>. В формулах можно использовать <i>and</i>, <i>or</i>, <i>not</i>, запятые, двойные неравенства и переменные <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Уравнение задаёт кривую: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> — прямая, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> — дуга; прямые, лучи, отрезки, окружности и дуги становятся фигурами с маркерами, а остальные кривые, например <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span>, строятся точно. Множество или кривая, заданные через <i>w</i>, — это цель в плоскости <i>w</i>. Неограниченные области триангулируются далеко за пределами видимой части, поэтому справа виден весь их образ; заливка бледнеет там, где кончается триангуляция. Узор нарисован в координатах <i>z</i> и переносится отображением, так что за каждой его клеткой можно проследить.",
+  "note": "The second chip uses \\operatorname{Im} instead of the English \\Im: with no macro defined, MathJax prints \\Im as the Fraktur ℑ (glossary 2.2 forbids it in Russian; the English chip shows ℑ today too, left as is). The keywords and, or, not stay Latin: they are what the parser reads (DESIGN.md 6 lists и/или/не as an optional switch; if it is turned on, write <i>и</i>, <i>или</i>, <i>не</i> (<i>and</i>, <i>or</i>, <i>not</i>)). \"every tile\" becomes «каждая клетка узора»: «плитка» is the name of one pattern (Tiles), and the default pattern is Checker («Клетки»)."
+ },
+ "guide.function_chain": {
+  "en": "Function chain",
+  "ru": "Цепочка функций"
+ },
+ "guide.add_step_with_x": {
+  "en": "Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in the palette to add it directly. Click a card to focus it. <i>f</i><sup>−1</sup> replaces a step by its inverse, the jumper bypasses it, and the ⋯ menu moves, duplicates or removes it. Drag a card's header onto a connector to reorder.",
+  "ru": "Добавить шаг можно клавишей {x}, карточкой «Добавить функцию» или кнопкой вставки между карточками; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в палитре команд, и она станет шагом. Нажмите на карточку шага, чтобы сделать его текущим. Кнопка <i>f</i><sup>−1</sup> заменяет шаг обратной функцией, перемычка отключает его, а меню ⋯ перемещает, дублирует или удаляет. Чтобы изменить порядок, перетащите карточку за заголовок на кнопку вставки.",
+  "note": "{x} = k('+'). Terms: перемычка, кнопка вставки между карточками, сделать шаг текущим (glossary 1.8). The add card is named by its label «Добавить функцию» (chrome.add_function_3)."
+ },
+ "guide.d_dz_step_too": {
+  "en": "<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.",
+  "ru": "<b>d/dz</b> — тоже шаг: он дифференцирует всю цепочку перед ним, так что [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] переводит <i>z</i> в <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), а два таких шага подряд дают вторую производную. Все виды показывают его как любой другой шаг; если он текущий, его левая плоскость — плоскость <i>z</i>."
+ },
+ "guide.branch_cuts": {
+  "en": "Branch cuts",
+  "ru": "Разрезы"
+ },
+ "guide.logarithms_roots_complex_powers": {
+  "en": "Logarithms, roots and complex powers cut along a ray from 0. Focus the step and drag the seam's handle in the input plane; it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number picks the branch.",
+  "ru": "У логарифмов, корней и комплексных степеней разрез идёт по лучу из 0. Сделайте шаг текущим и перетащите маркер линии разреза в исходной плоскости; с Shift он привязывается к углам, кратным 15°. Заштрихованная сторона — та, к которой относится разрез. Номер листа выбирает ветвь.",
+  "note": "\"snaps to 15°\" avoids «шаг 15°»: «шаг» is reserved for a step of the chain (glossary 1.15)."
+ },
+ "guide.zeros_poles_polynomial_amp": {
+  "en": "<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else focus the step): drag them, Shift-click to add a zero, Shift-⌘-click (Shift-Ctrl) to add a pole, and drag one off the plane or select it and press Delete to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.",
+  "ru": "<i>Нули и полюсы</i> (в группе «Многочлены и свои формулы») — это отображение <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Его нули (точки) и полюсы (крестики) — маркеры в его исходной плоскости (для первого шага это X, для остальных сделайте шаг текущим): перетаскивайте их; Shift + щелчок добавляет нуль, Shift + ⌘ + щелчок (Shift + Ctrl + щелчок) — полюс, а чтобы удалить нуль или полюс, перетащите его за пределы плоскости или выделите и нажмите Delete. Шаг с многочленом или рациональной функцией можно переписать в таком виде через его меню <b>⋯</b> — и обратно.",
+  "note": "The group name must match the Russian catalog group (glossary 1.9: «Многочлены и свои формулы»). The English &amp; disappears. Gesture style per glossary 3.9 («Shift + щелчок»)."
+ },
+ "guide.views": {
+  "en": "Views",
+  "ru": "Виды"
+ },
+ "guide.switch_middle_top_bar": {
+  "en": "The switch in the middle of the top bar picks the view ({x} {x} {x}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x} {x} for the left pane, {x} {x} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.",
+  "ru": "Переключатель в середине верхней панели выбирает вид ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> показывает две плоскости рядом: слева фигуры, справа их образы; у каждой панели свой переключатель <b>Плоскость · Сфера</b> ({x4} {x5} для левой, {x6} {x7} для правой). На правой плоскости у указателя виден индикатор производной. <b>Фаза</b> — одна широкая панель, где каждая точка <i>X</i> окрашена по arg <i>F</i>, с линиями уровня модуля, на плоскости или на сфере Римана; фигуры обведены. <b>Рельеф</b> — одна широкая панель, где над <i>X</i> строится поверхность |<i>F</i>| в цветах фазы или в стиле «Гипс»: нули — ямы, полюсы — пики; для отображения с разрезом флажок <b>«Все листы»</b> рисует всю его риманову поверхность вместо главной ветви с разрезом (лучше всего с высотой Re <i>F</i> или Im <i>F</i>). У каждого вида своя камера и своё положение плоскости. <b>Сфера</b> переносит панель на сферу Римана, ∞ — в северном полюсе. На ней рисуют так же, как на плоскости (слева фигуры, справа цели; Кольцо, Сектор и Полярная сетка рисуются только на плоскости): «Круг» на сфере — это шапочка, «Окружность» — её край; если край проходит через ∞, круг становится полуплоскостью, а окружность — прямой. Инструментом «Выбор» перетаскивайте фигуру, чтобы сдвинуть её (переходя через ∞, она меняет тип), а пустое место — чтобы вращать сферу; при любом инструменте сферу вращают средней кнопкой мыши, перетаскиванием с нажатым Пробелом или двумя пальцами. Флажок <b>Шкала фазы</b> в настройках правой плоскости вида <i>X</i> → <i>Y</i> подкладывает под образы цвета фазового портрета, так что по цвету портрета можно прочесть значение <i>w</i>.",
+  "note": "{x} are positional, same order as English: 1 2 3, then ⇧1 ⇧2 (left), ⇧3 ⇧4 (right). \"shapes are outlined\" is «фигуры обведены», never «контур» (reserved, glossary 1.15). \"a Disc or Circle is a cap … one whose rim passes ∞ becomes a half-plane or a line\" is made exact: the disc is the cap, the circle its rim; through ∞ the disc becomes a half-plane and the circle a line. Labels used: Плоскость · Сфера, Фаза, Рельеф, Гипс, Все листы, Выбор, Шкала фазы, Кольцо, Сектор, Полярная сетка, Круг, Окружность (glossary 1.6–1.8); they must match the chrome table.",
+  "en_key": "The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.",
+  "ph": {
+   "x2": "{x}",
+   "x3": "{x}",
+   "x4": "{x}",
+   "x5": "{x}",
+   "x6": "{x}",
+   "x7": "{x}"
+  }
+ },
+ "guide.deformation": {
+  "en": "Deformation",
+  "ru": "Деформация"
+ },
+ "guide.deformation_top_bar_x": {
+  "en": "<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.",
+  "ru": "Кнопка <b>Деформация</b> в верхней панели ({x}) воспроизводит гомотопию от <i>z</i> к <i>F</i>(<i>z</i>) шаг за шагом, во всех видах. В виде <i>X</i> → <i>Y</i> две панели сливаются в одну плоскость (в одну сферу, если правая панель в режиме «Сфера»): <i>X</i> серым цветом, движущийся образ <i>H</i><sub><i>t</i></sub>(<i>X</i>) и пути <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) равномерно расставленных точек. В видах «Фаза» и «Рельеф» раскрашивается <i>H</i><sub><i>t</i></sub>. Каждый шаг деформируется по своему естественному пути: отображение <i>H</i><sub><i>t</i></sub> аналитично при каждом <i>t</i>, начинается с тождественного и заканчивается отображением шага. Дробно-линейные отображения движутся по своим однопараметрическим группам, степени — по <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; для exp, sin, cos, tg, гиперболических функций, обратных к ним и рациональных функций используется гомотопия масштабирования, поэтому их нули, полюсы и разрезы приходят из бесконечности (sin(<i>tz</i>)/<i>t</i>); у многочлена нули включаются по одному; функция Жуковского стягивает единичную окружность в отрезок [−1, 1]. Формула, не подходящая ни под один из этих случаев, и постоянная деформируются по прямолинейной гомотопии. Элементы управления воспроизведением под панелью позволяют перемещать <i>t</i>, задавать скорость, а при двух шагах и более — порядок: по очереди (0 ≤ <i>t</i> ≤ <i>m</i>) или все сразу (0 ≤ <i>t</i> ≤ 1, все шаги при одном и том же <i>t</i>). Кнопка <b>Пути</b> ({x2}) показывает или скрывает пути. Если выключить деформацию, панели снова разделяются, а <i>t</i> возвращается в конец. Если какой-то шаг сделан текущим, деформируется только он.",
+  "note": "{x} = M, then P. \"tan\" is written tg (Russian notation, glossary 2.1). \"H_t is analytic\" gets the noun «отображение» (glossary 3.3). Terms: гомотопия масштабирования, прямолинейная гомотопия, по очереди / все сразу (glossary 1.5).",
+  "en_key": "<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.",
+  "ph": {
+   "x2": "{x}"
+  }
+ },
+ "guide.preimages_roots": {
+  "en": "Preimages and roots",
+  "ru": "Прообразы и корни"
+ },
+ "guide.hover_point_w_right": {
+  "en": "Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.",
+  "ru": "Наведите указатель на точку <i>w</i> правой панели (на плоскости или на сфере): левая плоскость отмечает все <i>z</i> в видимой части, для которых <i>F</i>(<i>z</i>) = <i>w</i>, а её показания сообщают их число. На плоскости инструменты рисования работают и в правой панели: всё, что вы рисуете там, — <i>цель</i> в плоскости <i>w</i>. Во всех видах левая плоскость закрашивает все <i>z</i>, для которых <i>F</i>(<i>z</i>) лежит в целевой области, и проводит кривые, на которых <i>F</i>(<i>z</i>) лежит на целевой кривой; целевая точка <i>p</i> отмечает решения уравнения <i>F</i>(<i>z</i>) = <i>p</i> как <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … с указанием кратности, а также полюсы функции <i>F</i> (цель в точке 0 показывает корни). Цели перечислены под фигурами; их можно изменить, скрыть или удалить."
+ },
+ "guide.inverses_derivatives": {
+  "en": "Inverses and derivatives",
+  "ru": "Обратные функции и производные"
+ },
+ "guide.f_1_on_card": {
+  "en": "<i>f</i><sup>−1</sup> on a card replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the button says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the palette as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.",
+  "ru": "Кнопка <i>f</i><sup>−1</sup> на карточке заменяет шаг обратной функцией на той же ветви. У шага, который принимает некоторые значения более одного раза (например, у многочлена степени 2 и выше), нет однозначной обратной: кнопка объясняет почему и предлагает вместо неё прообразы. Пункт <b>Заменить производной</b> в меню ⋯ заменяет отдельный шаг его производной <i>f</i>′ (а шаг d/dz дифференцирует всю цепочку перед ним); обе команды есть и в палитре — <b>Обратная к <i>f</i><sub><i>k</i></sub></b> и <b>Производная <i>f</i><sub><i>k</i></sub></b>, — и обе можно отменить.",
+  "note": "The palette labels quoted here must match chrome.inverse / chrome.derivative, which build \"{what} of f{k} ({name})\": in Russian they need two whole templates, «Обратная к f{k} ({name})» and «Производная f{k} ({name})», not a translated {what}. «Заменить производной» = glossary 1.8 (chrome.replace_with_derivative)."
+ },
+ "guide.integrals": {
+  "en": "Integrals",
+  "ru": "Интегралы"
+ },
+ "guide.right_click_curve_or": {
+  "en": "Right-click a curve or a region's boundary (a long press on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.",
+  "ru": "Щёлкните правой кнопкой мыши (на сенсорном экране — долгое нажатие) по кривой или по границе области на левой плоскости, по её образу на правой плоскости или по её обводке на фазовом портрете и выберите <b>Вычислить интеграл</b>: во всплывающем окне появятся ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> и график интеграла с переменным верхним пределом, начиная с 0; граница области обходится так, что область остаётся слева. Для замкнутой кривой добавляются (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, число оборотов <i>F</i>∘<i>γ</i> вокруг 0 и найденные внутри нули и полюсы: по принципу аргумента число оборотов равно числу нулей минус число полюсов. Пока окно открыто, кривая подсвечена и на ней показано направление обхода. Стиль <b>Интеграл Коши</b> строит фазовый портрет интеграла Коши по выделенной замкнутой кривой: внутри он равен <i>F</i>, снаружи 0.",
+  "note": "The menu item is \"Integrate {fnText} along it\" (chrome.integrate_fntext_along); the guide names it by its first words, so the Russian item must start «Вычислить интеграл» (glossary 1.8). \"outline on the phase portrait\" is «обводка», not «контур». Phase style label «Интеграл Коши» (glossary 1.7)."
+ },
+ "guide.guarantees": {
+  "en": "Guarantees",
+  "ru": "Гарантии"
+ },
+ "guide.lamps_on_right_are": {
+  "en": "The lamps on the right are lit only when every step has the property and composition preserves it, so a lit lamp is always true. An unlit lamp means the chain does not imply it, not that it fails.",
+  "ru": "Лампы справа горят, только если свойством обладает каждый шаг и композиция его сохраняет, поэтому горящая лампа никогда не ошибается. Если лампа не горит, это значит лишь, что свойство не следует из цепочки, а не что оно не выполняется."
+ },
+ "guide.keys": {
+  "en": "Keys",
+  "ru": "Клавиши"
+ },
+ "guide.keys_map_b": {
+  "en": "${keys.map(([a, b]) => `",
+  "ru": "${keys.map(([a, b]) => `",
+  "note": "Not a user string: a code fragment of the template literal that the inventory split on. Nothing to translate."
+ },
+ "guide.join": {
+  "en": "`).join('')}",
+  "ru": "`).join('')}",
+  "note": "Not a user string: a code fragment of the template literal. Nothing to translate."
+ },
+ "guide.close": {
+  "en": "Close",
+  "ru": "Закрыть",
+  "note": "Button. Test literal: tests run in English, no action."
+ },
+ "tour.strip_disk": {
+  "en": "Strip to disk",
+  "ru": "Полоса на круг"
+ },
+ "tour.rational_map": {
+  "en": "A rational map",
+  "ru": "Рациональная функция"
+ },
+ "tour.zeros_poles": {
+  "en": "Zeros and poles",
+  "ru": "Нули и полюсы",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.roots_as_preimages": {
+  "en": "Roots as preimages",
+  "ru": "Корни как прообразы"
+ },
+ "tour.residue_by_integration": {
+  "en": "A residue by integration",
+  "ru": "Вычет через интеграл",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.residue_by_integration_2": {
+  "en": "A residue by integration",
+  "ru": "Вычет через интеграл",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.logarithm_annulus": {
+  "en": "Logarithm of an annulus",
+  "ru": "Логарифм кольца"
+ },
+ "tour.derivative_chain": {
+  "en": "The derivative in the chain",
+  "ru": "Производная в цепочке",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.every_sheet_logarithm": {
+  "en": "Every sheet of the logarithm",
+  "ru": "Все листы логарифма",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.basics": {
+  "en": "Basics",
+  "ru": "Основы"
+ },
+ "tour.welcome_workbench": {
+  "en": "Welcome to the Workbench",
+  "ru": "Добро пожаловать в Complex Map Workbench",
+  "ru_short": "Добро пожаловать",
+  "note": "Title of the centred first card (380 px): the full form wraps to two lines. The brand is never declined (glossary 3.11)."
+ },
+ "tour.draw_set_z_plane": {
+  "en": "Draw a set in the $z$-plane, send it through a chain of functions and watch its image. This takes about two minutes, and your own work comes back when the tour ends.",
+  "ru": "Нарисуйте множество в плоскости $z$, пропустите его через цепочку функций и посмотрите на его образ. Это займёт около двух минут, а когда обзор закончится, ваша работа вернётся на место."
+ },
+ "tour.x_domain": {
+  "en": "X: the domain",
+  "ru": "X — исходная плоскость",
+  "note": "Glossary 3.2: the dash replaces the English colon in definitions."
+ },
+ "tour.x_shows_your_shapes": {
+  "en": "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.",
+  "ru": "X показывает ваши фигуры — здесь это полоса $|\\operatorname{Im} z|<\\pi/2$ с шахматной раскраской в координатах $z$. Прокрутка меняет масштаб, перетаскивание пустого места сдвигает вид, а клавиша {Z} вписывает обе плоскости в окно."
+ },
+ "tour.x_shows_your_shapes_2": {
+  "en": "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.",
+  "ru": "X показывает ваши фигуры — здесь это полоса $|\\operatorname{Im} z|<\\pi/2$ с шахматной раскраской в координатах $z$. Сводите и разводите пальцы, чтобы менять масштаб, и перетаскивайте пустое место, чтобы сдвигать вид."
+ },
+ "tour.y_image": {
+  "en": "Y: the image",
+  "ru": "Y — плоскость образов"
+ },
+ "tour.y_shows_image_under": {
+  "en": "Y shows the image under $F(z)=(e^z-1)/(e^z+1)$: the strip becomes the unit disc. $F$ is conformal there: grid lines still cross at right angles, and tiny squares map to near-squares.",
+  "ru": "Y показывает образ при отображении $F(z)=(e^z-1)/(e^z+1)$: полоса переходит в единичный круг. Здесь отображение $F$ конформно: линии сетки по-прежнему пересекаются под прямым углом, а малые квадраты переходят почти в квадраты.",
+  "note": "Glossary section 4, example 19."
+ },
+ "tour.preimages": {
+  "en": "Preimages",
+  "ru": "Прообразы"
+ },
+ "tour.hover_point_w_y": {
+  "en": "Hover a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart, as $F$ has period $2\\pi i$.",
+  "ru": "Наведите указатель на точку $w$ в Y: X отмечает все $z$ в видимой части, для которых $F(z)=w$. Внутри круга такая точка в полосе ровно одна, так как $F$ взаимно однозначно отображает полосу на круг. Вне круга их две, и они отличаются на $2\\pi i$: это период функции $F$.",
+  "note": "\"$2\\pi i$ apart\": the points differ by 2πi (their distance is 2π), so «отличаются на 2πi»."
+ },
+ "tour.touch_hold_point_w": {
+  "en": "Touch and hold a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.",
+  "ru": "Коснитесь точки $w$ в Y и удерживайте палец: X отмечает все $z$ в видимой части, для которых $F(z)=w$. Внутри круга такая точка в полосе ровно одна, так как $F$ взаимно однозначно отображает полосу на круг. Вне круга их две, и они отличаются на $2\\pi i$."
+ },
+ "tour.hover_inside_disc_then": {
+  "en": "Hover inside the disc, then outside it.",
+  "ru": "Наведите указатель на точку внутри круга, а затем вне его."
+ },
+ "tour.touch_hold_inside_disc": {
+  "en": "Touch and hold inside the disc, then outside it.",
+  "ru": "Коснитесь точки внутри круга и удерживайте палец, затем сделайте то же вне круга."
+ },
+ "tour.draw_shape": {
+  "en": "Draw a shape",
+  "ru": "Рисование фигур",
+  "note": "Tour titles are noun phrases (glossary 3.2)."
+ },
+ "tour.pick_tool_drag_x": {
+  "en": "Pick a tool and drag in X to add a shape. The same tools in Y add a target in $w$ instead.",
+  "ru": "Выберите инструмент и проведите в X, чтобы добавить фигуру. Те же инструменты в Y добавляют цель в плоскости $w$.",
+  "note": "«потяните» covers both a mouse drag and a finger drag."
+ },
+ "tour.choose_disc_then_drag": {
+  "en": "Choose Disc, then drag in X.",
+  "ru": "Выберите «Круг» и проведите в X.",
+  "note": "«Круг» = the Disc tool (glossary 1.8)."
+ },
+ "tour.your_shapes": {
+  "en": "Your shapes",
+  "ru": "Ваши фигуры"
+ },
+ "tour.each_shape_listed_with": {
+  "en": "Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select {V}, drag a shape or a handle and the image follows; {mod}{Z} undoes.",
+  "ru": "Каждая фигура есть в списке вместе со своим уравнением; значок глаза скрывает её, а в меню ⋯ всё остальное: дублировать, удалить, вычислить интеграл. Инструментом «Выбор» {V} перетащите фигуру или маркер — образ последует за ними; {mod}{Z} отменяет действие."
+ },
+ "tour.each_shape_listed_with_2": {
+  "en": "Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select, drag a shape or a handle and the image follows.",
+  "ru": "Каждая фигура есть в списке вместе со своим уравнением; значок глаза скрывает её, а в меню ⋯ всё остальное: дублировать, удалить, вычислить интеграл. Инструментом «Выбор» перетащите фигуру или маркер — образ последует за ними."
+ },
+ "tour.press_v_then_drag": {
+  "en": "Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.",
+  "ru": "Нажмите {V} и перетащите прямую $\\operatorname{Im} z=0{,}8$ вверх или вниз.",
+  "note": "Decimal comma 0{,}8 (glossary 2.3), as the shapes list shows it in Russian. If the decimalComma switch is turned off, write 0.8."
+ },
+ "tour.drag_line_im_z": {
+  "en": "Drag the line $\\operatorname{Im} z=0.8$ up or down.",
+  "ru": "Перетащите прямую $\\operatorname{Im} z=0{,}8$ вверх или вниз.",
+  "note": "Decimal comma, see tour.press_v_then_drag."
+ },
+ "tour.sets_from_formulas": {
+  "en": "Sets from formulas",
+  "ru": "Множества по формулам"
+ },
+ "tour.type_set_press_add": {
+  "en": "Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.",
+  "ru": "Введите множество, например $|z-1|<2$ или $0<\\operatorname{Im} z<\\pi$, и нажмите «Добавить». Уравнение вроде $|z|=1$ добавляет кривую, а формула от $w$ — цель.",
+  "note": "«Добавить» must match the Add button of the formula field (glossary 1.13)."
+ },
+ "tour.function_chain": {
+  "en": "The function chain",
+  "ru": "Цепочка функций"
+ },
+ "tour.cards_apply_order_f": {
+  "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to focus that step, and X and Y become its input and output.",
+  "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Нажмите на карточку, чтобы сделать этот шаг текущим: X и Y станут его входом и выходом."
+ },
+ "tour.cards_apply_order_f_2": {
+  "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to focus that step, and X and Y become its input and output.",
+  "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Коснитесь карточки, чтобы сделать этот шаг текущим: X и Y станут его входом и выходом."
+ },
+ "tour.click_card_f_1": {
+  "en": "Click the card $f_1$.",
+  "ru": "Нажмите на карточку $f_1$."
+ },
+ "tour.tap_card_f_1": {
+  "en": "Tap the card $f_1$.",
+  "ru": "Коснитесь карточки $f_1$."
+ },
+ "tour.add_function": {
+  "en": "Add a function",
+  "ru": "Добавление функции"
+ },
+ "tour.press_or_click_here": {
+  "en": "Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.",
+  "ru": "Нажмите {+} или эту кнопку, чтобы добавить шаг: выберите функцию из каталога или введите формулу, например $\\sin(z^2)$. Чтобы изменить порядок, перетащите карточку за заголовок."
+ },
+ "tour.tap_here_add_step": {
+  "en": "Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.",
+  "ru": "Коснитесь этой кнопки, чтобы добавить шаг: выберите функцию из каталога или введите формулу, например $\\sin(z^2)$. Чтобы изменить порядок, перетащите карточку за заголовок."
+ },
+ "tour.examples": {
+  "en": "Examples",
+  "ru": "Примеры"
+ },
+ "tour.worked_examples_from_joukowski": {
+  "en": "Worked examples, from the Joukowski airfoil to a residue found by integration. Open one whenever you want a starting point.",
+  "ru": "Разобранные примеры — от профиля Жуковского до вычета, найденного интегрированием. Откройте любой, когда понадобится отправная точка."
+ },
+ "tour.views": {
+  "en": "Views",
+  "ru": "Виды"
+ },
+ "tour.three_views": {
+  "en": "Three views",
+  "ru": "Три вида"
+ },
+ "tour.x_y_shows_two": {
+  "en": "X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.",
+  "ru": "X → Y показывает две плоскости рядом. «Фаза» и «Рельеф» изображают саму функцию $F$ над X, каждый вид — на одной широкой панели. Клавиши {1} {2} {3}."
+ },
+ "tour.x_y_shows_two_2": {
+  "en": "X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each in one wide panel.",
+  "ru": "X → Y показывает две плоскости. «Фаза» и «Рельеф» изображают саму функцию $F$ над X, каждый вид — на одной широкой панели."
+ },
+ "tour.choose_phase": {
+  "en": "Choose Phase.",
+  "ru": "Выберите вид «Фаза».",
+  "note": "The noun «вид» keeps the quoted label in the nominative."
+ },
+ "tour.phase_portrait": {
+  "en": "Phase portrait",
+  "ru": "Фазовый портрет"
+ },
+ "tour.each_z_coloured_by": {
+  "en": "Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are level sets of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.",
+  "ru": "Каждая точка $z$ окрашена по $\\arg F(z)$ (здесь $F(z)=(z^2-1)/(z^2+1)$), а полосы яркости ограничены линиями уровня $|F|$. Все цвета сходятся в нулях $\\pm1$ и полюсах $\\pm i$: вокруг нуля они идут в одну сторону, вокруг полюса — в другую.",
+  "note": "A level set of |F| is a curve; the bands lie between such curves (Шабат, «линия уровня»). The English is loose («bands are level sets»): suggest «bands bounded by level curves of |F|»."
+ },
+ "tour.landscape": {
+  "en": "Landscape",
+  "ru": "Рельеф",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.graph_f_over_x": {
+  "en": "The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel's options set the height and the colouring.",
+  "ru": "График $\\ln|F|$ над X: нули — ямы, полюсы — пики. Перетаскивайте, чтобы вращать; высоту и раскраску задают настройки панели.",
+  "note": "\\log is written \\ln (natural logarithm, glossary 2.2). I18N.notation() would make the same change; writing it here keeps the string exact."
+ },
+ "tour.riemann_sphere": {
+  "en": "The Riemann sphere",
+  "ru": "Сфера Римана"
+ },
+ "tour.sphere_wraps_plane_onto": {
+  "en": "Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.",
+  "ru": "Режим «Сфера» переносит плоскость на сферу Римана, $\\infty$ — в северном полюсе; здесь $F(\\infty)=1$, это ни нуль, ни полюс. На сфере тоже можно рисовать."
+ },
+ "tour.patterns": {
+  "en": "Patterns",
+  "ru": "Узоры"
+ },
+ "tour.pattern_painted_on_x": {
+  "en": "The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F'(z)|$: blue shrinks, amber grows.",
+  "ru": "Узор нанесён на X и переносится в Y отображением $F$. «Клетки» показывают, как квадраты изгибаются и меняют размер; «Лог-полярные клетки» при конформном отображении остаются квадратными; «Растяжение» закрашивает по $|F'(z)|$: синий — сжатие, янтарный — растяжение.",
+  "note": "Pattern labels «Клетки», «Лог-полярные клетки», «Растяжение» (glossary 1.7)."
+ },
+ "tour.choose_stretch": {
+  "en": "Choose Stretch.",
+  "ru": "Выберите узор «Растяжение»."
+ },
+ "tour.deformation": {
+  "en": "Deformation",
+  "ru": "Деформация",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.deformation_2": {
+  "en": "Deformation",
+  "ru": "Деформация",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.plays_homotopy_h_t": {
+  "en": "Plays a homotopy $H_t$ from the identity to $F$, step by step, in every view. In X → Y the two panes merge into one plane.",
+  "ru": "Эта кнопка воспроизводит гомотопию $H_t$ от тождественного отображения до $F$ — шаг за шагом, во всех видах. В виде X → Y две панели сливаются в одну плоскость.",
+  "note": "«проигрывать» also means «to lose» (GLOSSARY 1.15). The subject is named: «Эта кнопка»."
+ },
+ "tour.click_or_press_m": {
+  "en": "Click it, or press {M}.",
+  "ru": "Нажмите эту кнопку или клавишу {M}."
+ },
+ "tour.tap": {
+  "en": "Tap it.",
+  "ru": "Коснитесь этой кнопки."
+ },
+ "tour.play_scrub": {
+  "en": "Play and scrub",
+  "ru": "Воспроизведение и перемотка",
+  "ru_short": "Воспроизведение"
+ },
+ "tour.play_or_drag_t": {
+  "en": "Play, or drag $t$. Each step follows its natural path when it has one (the caption names it): $H_t$ is analytic for every $t$, so angles are kept wherever $H_t'\\neq0$.",
+  "ru": "Запустите воспроизведение или перетащите $t$. Каждый шаг движется по своему естественному пути, если он есть (его называет подпись): отображение $H_t$ аналитично при каждом $t$, поэтому углы сохраняются везде, где $H_t'\\neq0$."
+ },
+ "tour.drag_t": {
+  "en": "Drag $t$.",
+  "ru": "Перетащите $t$."
+ },
+ "tour.paths": {
+  "en": "Paths",
+  "ru": "Пути",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.paths_draws_t_h": {
+  "en": "Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.",
+  "ru": "Кнопка «Пути» рисует пути $t\\mapsto H_t(z)$ равномерно расставленных точек $z$ из X — от $z$ до $F(z)$. Клавиша {P}."
+ },
+ "tour.paths_draws_t_h_2": {
+  "en": "Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.",
+  "ru": "Кнопка «Пути» рисует пути $t\\mapsto H_t(z)$ равномерно расставленных точек $z$ из X — от $z$ до $F(z)$."
+ },
+ "tour.click_paths_twice_or": {
+  "en": "Click Paths twice, or press {P} twice.",
+  "ru": "Дважды нажмите кнопку «Пути» или клавишу {P}."
+ },
+ "tour.tap_paths_twice": {
+  "en": "Tap Paths twice.",
+  "ru": "Дважды коснитесь кнопки «Пути»."
+ },
+ "tour.all_steps_at_once": {
+  "en": "All steps at once",
+  "ru": "Все шаги сразу"
+ },
+ "tour.with_two_or_more": {
+  "en": "With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.",
+  "ru": "Если шагов два или больше, выберите «Все сразу»: все шаги деформируются при одном и том же $t$, так что $H_t=H^{(2)}_t\\circ H^{(1)}_t$, где $0\\le t\\le 1$.",
+  "note": "«Все сразу» must be the Russian label of chrome.all_at_once (glossary 1.5 «все шаги сразу»; the select item needs the short form)."
+ },
+ "tour.analysis": {
+  "en": "Analysis",
+  "ru": "Анализ"
+ },
+ "tour.targets_preimages": {
+  "en": "Targets and preimages",
+  "ru": "Цели и прообразы"
+ },
+ "tour.shapes_drawn_y_are": {
+  "en": "Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.",
+  "ru": "Фигуры, нарисованные в Y, — это цели в плоскости $w$, а X закрашивает их прообразы. Целевая точка $0$ отмечает корни уравнения $F(z)=0$, где $F(z)=z^3-1$, с учётом кратности — здесь это три кубических корня из единицы; прообраз окружности $|w|=0{,}6$ — три замкнутые кривые вокруг них.",
+  "note": "\"loops\" is «замкнутые кривые»: «петля» is reserved for the sound keyboard loop (glossary 1.15). Decimal comma 0{,}6."
+ },
+ "tour.zeros_poles_2": {
+  "en": "Zeros and poles",
+  "ru": "Нули и полюсы",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.step_built_from_zeros": {
+  "en": "This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow.",
+  "ru": "Этот шаг задан своими нулями и полюсами. Перетащите любой из них — и отображение, его образ и гарантии изменятся следом."
+ },
+ "tour.drag_zero_or_pole": {
+  "en": "Drag a zero or a pole.",
+  "ru": "Перетащите нуль или полюс."
+ },
+ "tour.integrals": {
+  "en": "Integrals",
+  "ru": "Интегралы"
+ },
+ "tour.right_click_circle_itself": {
+  "en": "Right-click the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
+  "ru": "Щёлкните правой кнопкой мыши по самой окружности и выберите $\\oint F\\,dz$: появятся интеграл, число оборотов, а также нули и полюсы внутри. Внутри окружности лежит полюс $i$ функции $1/(z^2+1)$, поэтому $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$."
+ },
+ "tour.touch_hold_circle_itself": {
+  "en": "Touch and hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
+  "ru": "Коснитесь самой окружности, удерживайте палец и выберите $\\oint F\\,dz$: появятся интеграл, число оборотов, а также нули и полюсы внутри. Внутри окружности лежит полюс $i$ функции $1/(z^2+1)$, поэтому $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$."
+ },
+ "tour.right_click_circle_then": {
+  "en": "Right-click the circle, then choose $\\oint$.",
+  "ru": "Щёлкните правой кнопкой мыши по окружности и выберите $\\oint$."
+ },
+ "tour.touch_hold_circle_then": {
+  "en": "Touch and hold the circle, then choose $\\oint$.",
+  "ru": "Коснитесь окружности, удерживайте палец и выберите $\\oint$."
+ },
+ "tour.natural_domain": {
+  "en": "Natural domain",
+  "ru": "Естественная область определения",
+  "ru_short": "Область определения",
+  "note": "Glossary 1.2: the short form is allowed on phones."
+ },
+ "tour.where_every_step_defined": {
+  "en": "Where every step is defined. For a typed formula the panel reads \"the formula is defined at $z$\": here that is every $z$ except the poles $\\pm i$.",
+  "ru": "Множество, где определены все шаги. Для введённой формулы панель пишет «формула определена в точке $z$»: здесь это все $z$, кроме полюсов $\\pm i$.",
+  "note": "The quoted words must match the Russian of math.formula_defined_at_v (\"\\text{the formula is defined at } {v}\"). If that string is translated differently, change the quote here."
+ },
+ "tour.guarantees": {
+  "en": "Guarantees",
+  "ru": "Гарантии"
+ },
+ "tour.lamp_lit_only_when": {
+  "en": "A lamp is lit only when every step has the property and composition keeps it, so a lit lamp is always true; unlit means only that the chain does not imply it. Step by step, below, shows which step brings which property.",
+  "ru": "Лампа горит, только если свойством обладает каждый шаг и композиция его сохраняет, поэтому горящая лампа никогда не ошибается; если лампа не горит, это значит лишь, что свойство не следует из цепочки. Раздел «По шагам» ниже показывает, какой шаг даёт какое свойство.",
+  "note": "«По шагам» = chrome.step_by_step (glossary 1.10)."
+ },
+ "tour.branches_inverses": {
+  "en": "Branches and inverses",
+  "ru": "Ветви и обратные функции",
+  "ru_short": "Ветви и обратные",
+  "note": "Also shown as «Далее: Ветви и обратные функции» in the 320 px card footer next to «Назад» and «Готово»; use ru_short there if it overflows."
+ },
+ "tour.branch_cuts": {
+  "en": "Branch cuts",
+  "ru": "Разрезы"
+ },
+ "tour.z_needs_cut_red": {
+  "en": "$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ on the card adds $2\\pi i k$.",
+  "ru": "Для $\\ln z$ нужен разрез: на красном луче в X значения логарифма меняются скачком на $2\\pi i$. Перетащите луч, чтобы сдвинуть линию разреза; лист $k$ на карточке прибавляет $2\\pi i k$.",
+  "note": "\\log z becomes \\ln z (glossary 2.2: a named branch is still ln)."
+ },
+ "tour.drag_red_cut": {
+  "en": "Drag the red cut.",
+  "ru": "Перетащите красный разрез."
+ },
+ "tour.inverses": {
+  "en": "Inverses",
+  "ru": "Обратные функции"
+ },
+ "tour.f_1_on_card": {
+  "en": "$f^{-1}$ on a card replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.",
+  "ru": "Кнопка $f^{-1}$ на карточке заменяет шаг обратной функцией, если у шага есть однозначная обратная, как $e^z$ для $\\ln z$. Если её нет, как у $z^2$, кнопка объясняет почему и предлагает вместо этого прообразы.",
+  "note": "\\log z becomes \\ln z (glossary 2.2)."
+ },
+ "tour.derivative_as_step": {
+  "en": "The derivative as a step",
+  "ru": "Производная как шаг"
+ },
+ "tour.d_dz_step_differentiates": {
+  "en": "A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.",
+  "ru": "Шаг $d/dz$ дифференцирует всю цепочку перед ним: здесь $F=3z^2-3$ — производная $z^3-3z$. Цель $0$ отмечает нули функции $F$ — точки $\\pm1$, критические точки многочлена $z^3-3z$.",
+  "note": "Adds the noun: «нули функции $F$» (glossary 3.3)."
+ },
+ "tour.all_sheets": {
+  "en": "All sheets",
+  "ru": "Все листы"
+ },
+ "tour.landscape_all_sheets_draws": {
+  "en": "In Landscape, All sheets draws the whole Riemann surface of a multivalued map: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$ instead of jumping at the cut.",
+  "ru": "В виде «Рельеф» режим «Все листы» рисует всю риманову поверхность многозначного отображения: $\\operatorname{Im}\\operatorname{Ln} z$ поднимается по геликоиду вокруг $0$, а не терпит скачка на разрезе.",
+  "note": "The multivalued logarithm is Ln (glossary 2.1, 2.2: \\operatorname{Ln}). I18N.notation() leaves it as is."
+ },
+ "tour.export_latex": {
+  "en": "Export and LaTeX",
+  "ru": "Экспорт и LaTeX"
+ },
+ "tour.figures_for_articles": {
+  "en": "Figures for articles",
+  "ru": "Рисунки для статей"
+ },
+ "tour.export_vector_figure_current": {
+  "en": "Export a vector figure of the current view, with a caption that states exactly what is drawn, or copy a LaTeX document with $F$, its natural domain and its guarantees.",
+  "ru": "Экспортируйте векторный рисунок текущего вида с подписью, которая точно говорит, что изображено, или скопируйте LaTeX-документ с формулой $F$, естественной областью определения и гарантиями."
+ },
+ "tour.formula_latex": {
+  "en": "The formula in LaTeX",
+  "ru": "Формула в LaTeX"
+ },
+ "tour.composite_map_f_closed": {
+  "en": "Composite map: $F$ in closed form; the copy button puts its LaTeX on the clipboard.",
+  "ru": "Раздел «Композиция»: $F$ в явном виде; кнопка копирования помещает LaTeX-код формулы в буфер обмена.",
+  "note": "«Композиция» = the panel heading chrome.composite_map (glossary 1.2); «LaTeX-код» (glossary 3.3)."
+ },
+ "tour.palette_keys": {
+  "en": "Palette and keys",
+  "ru": "Палитра и клавиши"
+ },
+ "tour.command_palette": {
+  "en": "Command palette",
+  "ru": "Палитра команд"
+ },
+ "tour.search_functions_region_formulas": {
+  "en": "Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step.",
+  "ru": "{mod}{K} открывает поиск по функциям, формулам областей, примерам и командам. Введите формулу, например $e^{z^2}$, чтобы добавить её как шаг."
+ },
+ "tour.press_mod_k": {
+  "en": "Press {mod}{K}.",
+  "ru": "Нажмите {mod}{K}.",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.open_then_add_function": {
+  "en": "Open ⋯, then Add function or command.",
+  "ru": "Откройте ⋯ и выберите «Функция или команда».",
+  "note": "Glossary 1.13 gives «Функция или команда» for \"Add function or command\". The prototype table (proto/ru.json) has «Добавить функцию или команду»; whichever the chrome table keeps, quote the same label here."
+ },
+ "tour.help_here": {
+  "en": "Help is here",
+  "ru": "Где найти справку"
+ },
+ "tour.button_opens_tour_by": {
+  "en": "This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.",
+  "ru": "Эта кнопка открывает обзор по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство."
+ },
+ "tour.end_tour": {
+  "en": "End the tour",
+  "ru": "Завершить обзор"
+ },
+ "tour.end_tour_esc": {
+  "en": "End the tour  Esc",
+  "ru": "Завершить обзор  Esc",
+  "note": "Two spaces before the key, as in English (glossary 3.1)."
+ },
+ "tour.back": {
+  "en": "Back",
+  "ru": "Назад"
+ },
+ "tour.done": {
+  "en": "Done",
+  "ru": "Готово"
+ },
+ "tour.next": {
+  "en": "Next",
+  "ru": "Далее"
+ },
+ "tour.try": {
+  "en": "Try it",
+  "ru": "Задание",
+  "note": "Bold label before the task line: «Задание» avoids two imperatives in a row («Попробуйте Нажмите …»)."
+ },
+ "tour.start": {
+  "en": "Start",
+  "ru": "Начать",
+  "note": "Test literal: tests run in English, no action."
+ },
+ "tour.finish": {
+  "en": "Finish",
+  "ru": "Завершить"
+ },
+ "tour.next_nextch_title": {
+  "en": "Next: {nextCh.title}",
+  "ru": "Далее: {nextCh.title}",
+  "note": "Nominative after the colon: no case problem. Longest: «Далее: Ветви и обратные функции» (31 chars, English 27); see tour.branches_inverses ru_short."
+ },
+ "tour.next_2": {
+  "en": "Next",
+  "ru": "Далее"
+ },
+ "tour.try_2": {
+  "en": " Try it: ",
+  "ru": " Задание. ",
+  "note": "Screen-reader text; keep the leading and trailing spaces. A full stop, not a colon: the task sentence starts with a capital."
+ },
+ "tour.done_2": {
+  "en": "Done.",
+  "ru": "Готово.",
+  "note": "Live-region text after a Try it is done."
+ },
+ "tour.dismiss_tour_suggestion": {
+  "en": "Dismiss the tour suggestion",
+  "ru": "Скрыть предложение пройти обзор"
+ },
+ "tour.start_tour": {
+  "en": "Start the tour",
+  "ru": "Начать обзор"
+ },
+ "tour.not_now": {
+  "en": "Not now",
+  "ru": "Не сейчас"
+ },
+ "tour.icon_play_take_tour": {
+  "en": "{ICON_PLAY}<span>Take the tour</span><span class=\"tour-time\">2 min</span>",
+  "ru": "{ICON_PLAY}<span>Начать обзор</span><span class=\"tour-time\">2 мин</span>",
+  "note": "No-break space in «2 мин» (glossary 3.6). .tour-time uses the mono font: in Russian, set it to the UI font (glossary 3.12)."
+ },
+ "tour.tour_suggestion": {
+  "en": "Tour suggestion",
+  "ru": "Предложение пройти обзор"
+ },
+ "tour.draw_region_send_through": {
+  "en": "Draw a region, send it through a chain of functions and watch its image. About two minutes, and your work is kept.",
+  "ru": "Нарисуйте область, пропустите её через цепочку функций и посмотрите на её образ. Это займёт около двух минут, а ваша работа сохранится."
+ },
+ "tour.tour_suggestion_title_start": {
+  "en": "Tour suggestion: {title}. Start the tour or Not now. The tour stays under {helpWhere}.",
+  "ru": "Предложение пройти обзор: {title}. Кнопки «Начать обзор» и «Не сейчас». Обзор всегда доступен в меню «{helpWhere}».",
+  "note": "{title} is the translated suggestion title, {helpWhere} the translated tour.help_2/3/4 («Справка» or «⋯ › Справка»): both stand in the nominative, so no case form is needed."
+ },
+ "tour.guided_tour": {
+  "en": "Guided tour",
+  "ru": "Обзор",
+  "note": "Menu header. Glossary 1.13: tour = «обзор»."
+ },
+ "tour.done_3": {
+  "en": ", done",
+  "ru": ", пройдена",
+  "note": "aria-label suffix after \"{chapter title}, {time}\": feminine, agreeing with «глава»."
+ },
+ "tour.help": {
+  "en": "Help",
+  "ru": "Справка"
+ },
+ "guide.ctrl": {
+  "en": "Ctrl ",
+  "ru": "Ctrl ",
+  "note": "Key name, kept with its trailing space (glossary 3.9)."
+ },
+ "guide.select_move_shapes": {
+  "en": "Select and move shapes",
+  "ru": "Выделение и перемещение фигур",
+  "note": "Keys list row: a noun phrase like its neighbours. Shapes are «выделить» (GLOSSARY 1.8); the tool itself is «Выбор»."
+ },
+ "guide.point_segment_line_ray": {
+  "en": "Point, segment, line, ray",
+  "ru": "Точка, отрезок, прямая, луч"
+ },
+ "guide.circle_arc_freehand": {
+  "en": "Circle, arc, freehand",
+  "ru": "Окружность, дуга, от руки"
+ },
+ "guide.disc_rectangle_polygon_lasso": {
+  "en": "Disc, rectangle, polygon, lasso",
+  "ru": "Круг, прямоугольник, многоугольник, лассо"
+ },
+ "guide.half_plane_annulus_sector": {
+  "en": "Half-plane, annulus, sector",
+  "ru": "Полуплоскость, кольцо, сектор"
+ },
+ "guide.type_region_formula": {
+  "en": "Type a region formula",
+  "ru": "Ввести формулу области"
+ },
+ "guide.command_palette": {
+  "en": "Command palette",
+  "ru": "Палитра команд"
+ },
+ "guide.add_function": {
+  "en": "Add a function",
+  "ru": "Добавить функцию"
+ },
+ "guide.view_x_y_phase": {
+  "en": "View: X → Y, Phase, Landscape",
+  "ru": "Вид: X → Y, Фаза, Рельеф"
+ },
+ "guide.deformation_on_or_off": {
+  "en": "Deformation on or off, in every view",
+  "ru": "Включить или выключить деформацию (в любом виде)"
+ },
+ "guide.plane_sphere_x_phase": {
+  "en": "Plane, Sphere of X (in Phase: of the portrait)",
+  "ru": "Плоскость, сфера для X (в виде «Фаза» — для портрета)"
+ },
+ "guide.plane_sphere_y": {
+  "en": "Plane, Sphere of Y",
+  "ru": "Плоскость, сфера для Y"
+ },
+ "guide.fit_both_planes": {
+  "en": "Fit both planes",
+  "ru": "Вписать обе плоскости"
+ },
+ "guide.hide_or_show_side": {
+  "en": "Hide or show the side panels",
+  "ru": "Скрыть или показать боковые панели"
+ },
+ "guide.guide": {
+  "en": "This guide",
+  "ru": "Это руководство"
+ },
+ "guide.delete": {
+  "en": "Delete",
+  "ru": "Delete",
+  "note": "Key name passed to k(): do not translate (also an identifier; glossary 3.9)."
+ },
+ "guide.remove_selected_shape": {
+  "en": "Remove the selected shape",
+  "ru": "Удалить выделенную фигуру"
+ },
+ "guide.esc": {
+  "en": "Esc",
+  "ru": "Esc",
+  "note": "Key name passed to k(): do not translate."
+ },
+ "guide.cancel_drawing_or_close": {
+  "en": "Cancel a drawing or close a popover",
+  "ru": "Отменить рисование или закрыть всплывающее окно"
+ },
+ "guide.enter": {
+  "en": "Enter",
+  "ru": "Enter",
+  "note": "Key name passed to k(): do not translate (also an identifier)."
+ },
+ "guide.close_polygon": {
+  "en": "Close a polygon",
+  "ru": "Замкнуть многоугольник"
+ },
+ "guide.undo_redo": {
+  "en": "Undo, redo",
+  "ru": "Отменить, повторить"
+ },
+ "tour.worked_examples_are_menu": {
+  "en": "Worked examples are in this menu, from the Joukowski airfoil to a residue found by integration.",
+  "ru": "В этом меню — разобранные примеры: от профиля Жуковского до вычета, найденного интегрированием."
+ },
+ "tour.where_every_step_defined_2": {
+  "en": "Where every step is defined: here every $z$ except the poles $\\pm i$, which the panel writes $z\\notin\\{i,-i\\}$.",
+  "ru": "Множество, где определены все шаги: здесь это все $z$, кроме полюсов $\\pm i$; на панели оно записано как $z\\notin\\{i,-i\\}$.",
+  "note": "Body for the zeros-and-poles scene (byScene.residueZp)."
+ },
+ "tour.export_menu_makes_vector": {
+  "en": "Export, in this menu, makes a vector figure with a caption that states exactly what is drawn, or a LaTeX document with $F$, its natural domain and its guarantees.",
+  "ru": "Пункт «Экспорт» в этом меню создаёт векторный рисунок с подписью, которая точно говорит, что изображено, или LaTeX-документ с формулой $F$, естественной областью определения и гарантиями."
+ },
+ "tour.search_menu_finds_functions": {
+  "en": "Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step.",
+  "ru": "Пункт «Поиск» в этом меню находит функции, формулы, примеры и команды. Введите формулу, например $e^{z^2}$, чтобы добавить её как шаг.",
+  "note": "«Поиск» = Search (glossary 1.13); it must match the label of that item in the phone ⋯ menu."
+ },
+ "tour.help_menu_opens_tour": {
+  "en": "Help, in this menu, opens the tour by chapter and the reference guide.",
+  "ru": "Пункт «Справка» в этом меню открывает обзор по главам и руководство."
+ },
+ "tour.ctrl": {
+  "en": "Ctrl",
+  "ru": "Ctrl",
+  "note": "Key name: do not translate. Test literal: tests run in English, no action."
+ },
+ "tour.help_2": {
+  "en": "Help",
+  "ru": "Справка",
+  "note": "helpWhere(): the value fills {helpWhere} / {where}."
+ },
+ "tour.help_3": {
+  "en": "⋯ › Help",
+  "ru": "⋯ › Справка",
+  "note": "helpWhere() on a phone."
+ },
+ "tour.help_4": {
+  "en": "Help",
+  "ru": "Справка",
+  "note": "helpWhere() fallback."
+ },
+ "tour.k_total": {
+  "en": "{k} of {total}",
+  "ru": "{k} из {total}",
+  "note": "No plural needed: «из» takes no counted noun («3 из 10», «21 из 25»). The count uses the mono readout font (--t-readout); in Russian, set .tour-count to the UI font or let «из» fall back (glossary 3.12: keep Cyrillic out of mono fields)."
+ },
+ "tour.take_2_minute_tour": {
+  "en": "Take the 2-minute tour",
+  "ru": "Обзор за две минуты",
+  "note": "Title for a returning user."
+ },
+ "tour.new_here_take_2": {
+  "en": "New here? Take a 2-minute tour",
+  "ru": "Впервые здесь? Обзор за две минуты"
+ },
+ "tour.icon_play_continue_tour": {
+  "en": "<span class=\"mi-ic\">{ICON_PLAY}</span><span class=\"mi-label\">Continue the tour<span class=\"tour-sub\">{resume.title}: {st.title}</span></span>",
+  "ru": "<span class=\"mi-ic\">{ICON_PLAY}</span><span class=\"mi-label\">Продолжить обзор<span class=\"tour-sub\">{resume.title}: {st.title}</span></span>",
+  "note": "Chapter title, colon, step title: both nominative, no case problem."
+ },
+ "tour.icon_play_take_tour_2": {
+  "en": "<span class=\"mi-ic\">{ICON_PLAY}</span><span class=\"mi-label\">Take the tour</span><span class=\"mi-key\">2 min</span>",
+  "ru": "<span class=\"mi-ic\">{ICON_PLAY}</span><span class=\"mi-label\">Начать обзор</span><span class=\"mi-key\">2 мин</span>",
+  "note": "No-break space in «2 мин». .mi-key is a key-chip style; check that it accepts Cyrillic in the UI font."
+ },
+ "tour.done_4": {
+  "en": "done",
+  "ru": "пройдена",
+  "note": "aria-label of the check mark next to a chapter: feminine (глава)."
+ },
+ "tour.new": {
+  "en": " <span class=\"tour-new\">New</span>",
+  "ru": " <span class=\"tour-new\">Новое</span>",
+  "note": "Badge (glossary 1.13)."
+ },
+ "tour.done_5": {
+  "en": "done",
+  "ru": "пройдена",
+  "note": "aria-label of the check mark next to a chapter: feminine (глава)."
+ },
+ "tour.icon_book_reference_guide": {
+  "en": "<span class=\"mi-ic\">{ICON_BOOK}</span><span class=\"mi-label\">Reference guide</span>{choice}",
+  "ru": "<span class=\"mi-ic\">{ICON_BOOK}</span><span class=\"mi-label\">Руководство</span>{choice}",
+  "note": "Glossary 1.13: Guide (reference) = «Руководство»."
+ },
+ "tour.icon_keys_keyboard_shortcuts": {
+  "en": "<span class=\"mi-ic\">{ICON_KEYS}</span><span class=\"mi-label\">Keyboard shortcuts</span>",
+  "ru": "<span class=\"mi-ic\">{ICON_KEYS}</span><span class=\"mi-label\">Сочетания клавиш</span>"
+ },
+ "guide.sound": {
+  "en": "Sound",
+  "ru": "Звук",
+  "provisional": true
+ },
+ "guide.sound_top_bar_x": {
+  "en": "<b>Sound</b> in the top bar ({x}) is off until you turn it on; the setting stays on this device. Its caret sets the volume and what you hear: the interface, mathematical events (the deformation, a closed loop's winding number), and <b>Hear the function under the pointer</b>, a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x} goes to the next zero or pole, {x} gives the order there, {x} describes the view, {x} draws a loop and {x} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
+  "ru": "Звук включается кнопкой <b>Звук</b> в верхней панели ({x}); до этого он выключен, а настройка хранится только на этом устройстве. Стрелка рядом с кнопкой открывает настройки громкости и состава звуков: интерфейс, математические события (деформация, число оборотов замкнутой петли) и <b>Слушать функцию под указателем</b> — тон, звуковысотный класс которого задаётся значением arg <i>F</i>, так что петля вокруг нуля порядка <i>m</i> даёт <i>m</i> восходящих циклов. {x2} останавливает всё, что звучит. С клавиатуры: перейдите клавишей Tab на левую плоскость; стрелки перемещают указатель, {x3} переходит к следующему нулю или полюсу, {x4} сообщает его порядок, {x5} описывает вид, {x6} рисует петлю, а {x7} включает прослушивание вдоль неё. Если программа чтения с экрана работает в режиме просмотра, пользуйтесь кнопкой: сочетание {x2} может не дойти до страницы.",
+  "note": "{x} are positional, same order as English: ⇧M, Esc, Z, O, D, Enter, L, ⇧M. \"browse mode\" is «режим просмотра», not NVDA's «режим обзора»: «обзор» is the tour. «петля» = the keyboard loop (glossary 1.12, 1.15). Provisional (work/xs).",
+  "provisional": true,
+  "en_key": "<b>Sound</b> in the top bar ({x}) is off until you turn it on; the setting stays on this device. Its caret sets the volume and what you hear: the interface, mathematical events (the deformation, a closed loop's winding number), and <b>Hear the function under the pointer</b>, a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
+  "ph": {
+   "x2": "{x}",
+   "x3": "{x}",
+   "x4": "{x}",
+   "x5": "{x}",
+   "x6": "{x}",
+   "x7": "{x}"
+  }
+ },
+ "guide.sound_on_or_off": {
+  "en": "Sound on or off",
+  "ru": "Включить или выключить звук",
+  "note": "Provisional (work/xs).",
+  "provisional": true
+ },
+ "tour.phase_key_among_options": {
+  "en": "Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.",
+  "ru": "Флажок «Шкала фазы» в настройках Y подкладывает под образы цвета фазы самой точки $w$, так что по цвету фазового портрета можно прочесть значение $w=F(z)$.",
+  "note": "Provisional (work/xt). «Шкала фазы» = chrome.phase_key (glossary 1.6).",
+  "provisional": true
+ },
+ "tour.phase_style_cauchy_plots": {
+  "en": "The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside, with its three zeros, and $0$ outside. Select another closed curve to use it instead.",
+  "ru": "Стиль «Интеграл Коши» строит фазовый портрет интеграла $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ по замкнутой кривой $\\gamma$ — здесь это единичная окружность. Внутри он равен $F(z)=z^3-1$, снаружи — $0$; три нуля функции $F$ лежат на самой окружности $\\gamma$. Чтобы взять другую замкнутую кривую, выделите её.",
+  "note": "Provisional (work/xt). The zeros of z³ − 1 are the cube roots of unity: they lie on γ (tour.js scene «roots», r = 1), not inside. The English has the same error: fix it too («…; its three zeros lie on γ itself», or move the scene to r = 1.2 and keep «with its three zeros»).",
+  "provisional": true
+ },
+ "tour.step_built_from_zeros_2": {
+  "en": "This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow. The axes button beside $a$, as beside every complex parameter, picks a value on a small Argand diagram.",
+  "ru": "Этот шаг задан своими нулями и полюсами. Перетащите любой из них — и отображение, его образ и гарантии изменятся следом. Кнопка с осями рядом с $a$, как и у любого комплексного параметра, позволяет выбрать значение на маленькой комплексной плоскости.",
+  "note": "Provisional (work/xt). Argand diagram = «комплексная плоскость» (glossary 1.8).",
+  "provisional": true
+ },
+ "tour.sound_stays_off_until": {
+  "en": "Sound stays off until you turn it on here or with {Shift}{M}. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.",
+  "ru": "Звук выключен, пока вы не включите его здесь или клавишами {Shift}{M}. Тогда тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов, а дополнительный тон, если его включить, передаёт $\\arg F$ высотой звука.",
+  "note": "Provisional (work/xt). Glossary example 20, with \"an optional tone\" made explicit.",
+  "provisional": true
+ },
+ "tour.sound_stays_off_until_2": {
+  "en": "Sound stays off until you turn it on here. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.",
+  "ru": "Звук выключен, пока вы не включите его здесь. Тогда тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов, а дополнительный тон, если его включить, передаёт $\\arg F$ высотой звука.",
+  "note": "Provisional (work/xt).",
+  "provisional": true
+ },
+ "tour.tour_c_title": {
+  "en": "Tour: {c.title}",
+  "ru": "Обзор: {c.title}",
+  "note": "Provisional (work/xt): palette entry; {c.title} is a chapter title, nominative.",
+  "provisional": true
+ },
+ "tour.sound_stays_off_until_3": {
+  "en": "Sound stays off until you turn it on, in this menu. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.",
+  "ru": "Звук выключен, пока вы не включите его в этом меню. Тогда тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов, а дополнительный тон, если его включить, передаёт $\\arg F$ высотой звука.",
+  "note": "Provisional (work/xt).",
+  "provisional": true
+ },
+ "tour.help_5": {
+  "en": "Help  ?",
+  "ru": "Справка  ?",
+  "note": "Provisional (work/xt): tooltip; two spaces before the key.",
+  "provisional": true
+ },
+ "guide.extra_deformation_paths_key": {
+  "en": "Deformation: paths on or off (in X → Y; else the Point tool)",
+  "ru": "Деформация: показать или скрыть пути (в виде X → Y; иначе — инструмент «Точка»)",
+  "note": "Not in the inventory: the keys table row for P (base app.js 11032, also in work/xs).",
+  "extra": true,
+  "file": "app.js:11032"
+ },
+ "tour.extra_time_2min": {
+  "en": "2 min",
+  "ru": "2 мин",
+  "note": "Not in the inventory: chapter time (Basics). No-break space.",
+  "extra": true,
+  "file": "tour.js:77"
+ },
+ "tour.extra_time_1min": {
+  "en": "1 min",
+  "ru": "1 мин",
+  "note": "Not in the inventory: chapter time (Views, Deformation, Branches). No-break space.",
+  "extra": true,
+  "file": "tour.js:112"
+ },
+ "tour.extra_time_1_5min": {
+  "en": "1½ min",
+  "ru": "1,5 мин",
+  "note": "Not in the inventory: chapter time (Analysis). Glossary 1.13 writes «1,5 мин».",
+  "extra": true,
+  "file": "tour.js:147"
+ },
+ "tour.extra_time_30s": {
+  "en": "30 s",
+  "ru": "30 с",
+  "note": "Not in the inventory: chapter time (Export, Palette and keys). No-break space.",
+  "extra": true,
+  "file": "tour.js:180"
+ },
+ "tour.extra_title_phase_key": {
+  "en": "Phase key",
+  "ru": "Шкала фазы",
+  "note": "Not in the tour inventory: step title of the provisional step \"key\". Same key as chrome.phase_key.",
+  "extra": true,
+  "file": "work/xt/src/tour.js:124"
+ },
+ "tour.extra_title_cauchy": {
+  "en": "Cauchy integral",
+  "ru": "Интеграл Коши",
+  "note": "Not in the tour inventory: step title of the provisional step \"cauchy\". Same key as chrome.cauchy_integral.",
+  "extra": true,
+  "file": "work/xt/src/tour.js:153"
+ },
+ "tour.extra_title_sound": {
+  "en": "Sound",
+  "ru": "Звук",
+  "note": "Not in the tour inventory: step title of the provisional step \"sound\". Same key as guide.sound.",
+  "extra": true,
+  "file": "work/xt/src/tour.js:200"
+ },
+ "tour.extra_not_available": {
+  "en": "The tour is not available in this build.",
+  "ru": "Обзор недоступен в этой сборке.",
+  "note": "Not in the inventory: toast.",
+  "extra": true,
+  "file": "tour.js:759"
+ },
+ "tour.extra_work_not_back": {
+  "en": "Your work could not be put back here, but it is safe: reload the page to get it back.",
+  "ru": "Не удалось вернуть вашу работу на место, но она не потеряна: перезагрузите страницу.",
+  "note": "Not in the inventory: toast.",
+  "extra": true,
+  "file": "tour.js:1148"
+ },
+ "tour.extra_stays_under": {
+  "en": "The tour stays under {where}.",
+  "ru": "Обзор всегда доступен в меню «{where}».",
+  "note": "Not in the inventory: toast. {where} = helpWhere(), translated.",
+  "extra": true,
+  "file": "tour.js:1149"
+ },
+ "tour.extra_finished_back": {
+  "en": "Tour finished. Your work is back, and the tour stays under {where}.",
+  "ru": "Обзор завершён. Ваша работа на месте, а обзор всегда доступен в меню «{where}».",
+  "note": "Not in the inventory: toast.",
+  "extra": true,
+  "file": "tour.js:1150"
+ },
+ "tour.extra_work_back": {
+  "en": "Your work is back. The tour stays under {where}.",
+  "ru": "Ваша работа на месте. Обзор всегда доступен в меню «{where}».",
+  "note": "Not in the inventory: toast.",
+  "extra": true,
+  "file": "tour.js:1150"
+ },
+ "tour.extra_under_whenever": {
+  "en": "The tour is under {helpWhere} whenever you want it.",
+  "ru": "Обзор можно открыть в любой момент в меню «{helpWhere}».",
+  "note": "Not in the inventory: toast after Not now.",
+  "extra": true,
+  "file": "tour.js:1201"
+ },
+ "tour.extra_announce_step": {
+  "en": "{chapter}, step {k}. {title}. ",
+  "ru": "{chapter}, шаг {k}. {title}. ",
+  "note": "Not in the inventory: announce() builds `${ch.title}, step ${k}. ${step.title}. ` for the live region; {k} is the translated tour.k_total («3 из 10»). Make it one template. No-break space in «шаг {k}».",
+  "extra": true,
+  "file": "tour.js:1033"
+ }
+}

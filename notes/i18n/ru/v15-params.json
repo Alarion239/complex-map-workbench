@@ -1,0 +1,418 @@
+{
+ "_about": "v15 shared numbers, links and scene files (src/params.js, the name scope in src/parse.js, the glue in src/app.js). id -> {en, ru, note}; en is the $t key. Russian follows notes/i18n/GLOSSARY.md: a shared number is «число», a slider «ползунок», a figure «рисунок» (a shape is «фигура»), a scene «сцена». Read by tools/make_ru_table.py (v15-*.json).",
+ "v15p.name.z": {
+  "en": "z is the variable of the map",
+  "ru": "z — переменная отображения",
+  "note": "params build (v15)"
+ },
+ "v15p.name.w": {
+  "en": "w is the variable of the image plane",
+  "ru": "w — переменная плоскости образов",
+  "note": "params build (v15)"
+ },
+ "v15p.name.xy": {
+  "en": "x and y are Re z and Im z",
+  "ru": "x и y — это Re z и Im z",
+  "note": "params build (v15)"
+ },
+ "v15p.name.r": {
+  "en": "r is |z| in region formulas: use ρ or R",
+  "ru": "r — это |z| в формулах областей: возьмите ρ или R",
+  "note": "params build (v15)"
+ },
+ "v15p.name.i": {
+  "en": "i is the imaginary unit",
+  "ru": "i — мнимая единица",
+  "note": "params build (v15)"
+ },
+ "v15p.name.e": {
+  "en": "e is Euler's number",
+  "ru": "e — число Эйлера",
+  "note": "params build (v15)"
+ },
+ "v15p.name.theta": {
+  "en": "θ is arg z in region formulas: use φ or t",
+  "ru": "θ — это arg z в формулах областей: возьмите φ или t",
+  "note": "params build (v15)"
+ },
+ "v15p.name.pi": {
+  "en": "π is the constant 3.14159…",
+  "ru": "π — постоянная 3,14159…",
+  "note": "params build (v15)"
+ },
+ "v15p.name.empty": {
+  "en": "Type a name: one letter, such as a or k, or a Greek letter",
+  "ru": "Введите имя: одну букву, например a или k, или греческую букву",
+  "note": "params build (v15)"
+ },
+ "v15p.name.latin": {
+  "en": "Use Latin letters for names",
+  "ru": "Используйте латинские буквы",
+  "note": "params build (v15)"
+ },
+ "v15p.name.form": {
+  "en": "A name is one letter, with an index if you like (a, k, a₁), or a Greek letter (α, ρ)",
+  "ru": "Имя — одна буква, можно с индексом (a, k, a₁), или греческая буква (α, ρ)",
+  "note": "params build (v15)"
+ },
+ "v15p.name.word": {
+  "en": "{f} is a function or a word: a name is one letter (a, k, a₁) or a Greek letter (α, ρ)",
+  "ru": "{f} — функция или слово; имя — одна буква (a, k, a₁) или греческая буква (α, ρ)",
+  "note": "params build (v15)"
+ },
+ "v15p.name.exists": {
+  "en": "{x} already exists",
+  "ru": "{x} уже есть",
+  "note": "params build (v15)"
+ },
+ "v15p.name.unknown_one": {
+  "en": "{x} is not defined yet: press Enter to add the number {x}",
+  "ru": "{x} ещё не задано: нажмите Enter, чтобы добавить число {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.name.unknown_many": {
+  "en": "One new name at a time: {x}",
+  "ru": "Новые имена — по одному: {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.num.real": {
+  "en": "A number here must be real",
+  "ru": "Здесь нужно действительное число",
+  "note": "params build (v15)"
+ },
+ "v15p.num.undef": {
+  "en": "{x} is not defined",
+  "ru": "{x} не задано",
+  "note": "params build (v15)"
+ },
+ "v15p.num.self": {
+  "en": "{x} would depend on itself",
+  "ru": "{x} зависело бы от самого себя",
+  "note": "params build (v15)"
+ },
+ "v15p.num.cycle": {
+  "en": "{x} would depend on itself: {path}",
+  "ru": "{x} зависело бы от самого себя: {path}",
+  "note": "params build (v15)"
+ },
+ "v15p.num.enter": {
+  "en": "Enter a number",
+  "ru": "Введите число",
+  "note": "params build (v15)"
+ },
+ "v15p.num.range": {
+  "en": "The range needs min < max",
+  "ru": "Минимум должен быть меньше максимума",
+  "note": "params build (v15)"
+ },
+ "v15p.num.step": {
+  "en": "The step must be positive",
+  "ru": "Шаг должен быть положительным",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.params": {
+  "en": "Parameters",
+  "ru": "Параметры",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.add_number": {
+  "en": "Add a number",
+  "ru": "Добавить число",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.empty": {
+  "en": "Shared numbers: type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.",
+  "ru": "Общие числа: введите новую букву в любую формулу, например <i>Re z = a</i>, или нажмите «+ Число».",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.number": {
+  "en": "Number",
+  "ru": "Число",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.new_name": {
+  "en": "Name of the new number",
+  "ru": "Имя нового числа",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.added": {
+  "en": "Added the number {x}",
+  "ru": "Добавлено число {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.name": {
+  "en": "Name",
+  "ru": "Имя",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.add": {
+  "en": "Add",
+  "ru": "Добавить",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.cancel": {
+  "en": "Cancel",
+  "ru": "Отмена",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.rename": {
+  "en": "Rename",
+  "ru": "Переименовать",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.rename_x": {
+  "en": "Rename {x}",
+  "ru": "Переименовать {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.value_x": {
+  "en": "Value of {x}",
+  "ru": "Значение {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.pause": {
+  "en": "Pause",
+  "ru": "Пауза",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.play_tip": {
+  "en": "Play: {x} runs between its ends",
+  "ru": "Воспроизвести: {x} пробегает свой диапазон",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.pause_x": {
+  "en": "Pause {x}",
+  "ru": "Пауза: {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.play_x": {
+  "en": "Play {x}",
+  "ru": "Воспроизвести {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.more": {
+  "en": "More",
+  "ru": "Ещё",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.more_x": {
+  "en": "More for {x}",
+  "ru": "Ещё для {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.by_formula": {
+  "en": "= {v}, by formula of {x}",
+  "ru": "= {v}, по формуле от {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.slider_label": {
+  "en": "{x} from {min} to {max}",
+  "ru": "{x} от {min} до {max}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.new_name_x": {
+  "en": "New name for {x}",
+  "ru": "Новое имя для {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.minimum": {
+  "en": "Minimum",
+  "ru": "Минимум",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.maximum": {
+  "en": "Maximum",
+  "ru": "Максимум",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.step": {
+  "en": "Step",
+  "ru": "Шаг",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.min": {
+  "en": "min",
+  "ru": "мин",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.max": {
+  "en": "max",
+  "ru": "макс",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.step_l": {
+  "en": "step",
+  "ru": "шаг",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.done": {
+  "en": "Done",
+  "ru": "Готово",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.delete_x": {
+  "en": "Delete {x}",
+  "ru": "Удалить {x}",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.ask_delete": {
+  "en": "Used by {list}. Delete {x} and write its value {v} into those formulas?",
+  "ru": "Используется в {list}. Удалить {x} и подставить в эти формулы значение {v}?",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.deleted_inlined": {
+  "en": "Deleted {x}; its value is in the formulas.",
+  "ru": "Число {x} удалено; его значение подставлено в формулы.",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.delete": {
+  "en": "Delete",
+  "ru": "Удалить",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.range_menu": {
+  "en": "Range…",
+  "ru": "Диапазон…",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.rename_menu": {
+  "en": "Rename…",
+  "ru": "Переименовать…",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.bounce": {
+  "en": "Play back and forth",
+  "ru": "Воспроизводить туда и обратно",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.loop": {
+  "en": "Play in a loop",
+  "ru": "Воспроизводить по кругу",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.make_free": {
+  "en": "Make free",
+  "ru": "Сделать свободным",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.deleted": {
+  "en": "Deleted {x}.",
+  "ru": "Число {x} удалено.",
+  "note": "params build (v15)"
+ },
+ "v15p.ui.a_target": {
+  "en": "a target",
+  "ru": "цель",
+  "note": "params build (v15)"
+ },
+ "v15p.link.no_figure": {
+  "en": "This link does not hold a figure.",
+  "ru": "В этой ссылке нет рисунка.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.damaged": {
+  "en": "This link is damaged.",
+  "ru": "Ссылка повреждена.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.no_zip": {
+  "en": "This browser cannot open compressed links.",
+  "ru": "Этот браузер не открывает сжатые ссылки.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.newer": {
+  "en": "This link was made by a newer version of the app.",
+  "ru": "Ссылка создана более новой версией приложения.",
+  "note": "params build (v15)"
+ },
+ "v15p.scene.not_json": {
+  "en": "This file is not a scene: it is not JSON.",
+  "ru": "Этот файл — не сцена: его не удалось прочитать.",
+  "note": "params build (v15)"
+ },
+ "v15p.scene.not_ours": {
+  "en": "This file is not a scene of this app.",
+  "ru": "Этот файл — не сцена этого приложения.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.failed": {
+  "en": "The link could not be made.",
+  "ru": "Не удалось создать ссылку.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.too_large": {
+  "en": "The figure is too large for a link: use Save scene.",
+  "ru": "Рисунок слишком велик для ссылки: сохраните сцену.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.copied_long": {
+  "en": "Link copied: {n} characters. Some apps cut long links; Save scene keeps any figure.",
+  "ru": "Ссылка скопирована (длина: {n}). Некоторые приложения обрезают длинные ссылки; файл сцены сохраняет любой рисунок.",
+  "note": "params build (v15)"
+ },
+ "v15p.link.copied": {
+  "en": "Link copied.",
+  "ru": "Ссылка скопирована.",
+  "note": "params build (v15)"
+ },
+ "v15p.scene.unreadable": {
+  "en": "This scene could not be read.",
+  "ru": "Не удалось прочитать сцену.",
+  "note": "params build (v15)"
+ },
+ "v15p.open.storage": {
+  "en": "The figure cannot open here: this browser blocks site storage.",
+  "ru": "Рисунок здесь не открыть: браузер запрещает хранилище сайта.",
+  "note": "params build (v15)"
+ },
+ "v15p.open.aria": {
+  "en": "Open the linked figure",
+  "ru": "Открыть рисунок из ссылки",
+  "note": "params build (v15)"
+ },
+ "v15p.open.ask": {
+  "en": "This link holds a figure. Open it in place of yours? Undo brings yours back.",
+  "ru": "В ссылке есть рисунок. Открыть его вместо вашего? Ваш вернёт отмена.",
+  "note": "params build (v15)"
+ },
+ "v15p.open.open": {
+  "en": "Open",
+  "ru": "Открыть",
+  "note": "params build (v15)"
+ },
+ "v15p.open.keep": {
+  "en": "Keep mine",
+  "ru": "Оставить мой",
+  "note": "params build (v15)"
+ },
+ "v15p.open.scene_done": {
+  "en": "Opened the scene.",
+  "ru": "Сцена открыта.",
+  "note": "params build (v15)"
+ },
+ "v15p.open.link_done": {
+  "en": "Opened the figure from the link.",
+  "ru": "Рисунок из ссылки открыт.",
+  "note": "params build (v15)"
+ },
+ "v15p.open.undo": {
+  "en": "Undo",
+  "ru": "Отменить",
+  "note": "params build (v15)"
+ },
+ "v15p.menu.copy_link": {
+  "en": "Copy link to this figure",
+  "ru": "Скопировать ссылку на этот рисунок",
+  "note": "params build (v15)"
+ },
+ "v15p.menu.save_scene": {
+  "en": "Save scene (.cmw.json)",
+  "ru": "Сохранить сцену в файл",
+  "note": "params build (v15)"
+ },
+ "v15p.menu.open_scene": {
+  "en": "Open scene…",
+  "ru": "Открыть сцену…",
+  "note": "params build (v15)"
+ }
+}

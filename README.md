@@ -14,8 +14,15 @@ see what they do:
   moment, on F's own branches), one step after another or all at once, with live paths t ↦ H_t(z) that can be
   switched off.
 - **Zeros and poles**: a step a·∏(z − z_k)/∏(z − p_j) whose zeros (dots) and poles (crosses) you drag in the plane.
-- Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves,
-  guarantees (analytic, injective, …) that are only lit when they are proven, LaTeX and article-grade figure export.
+- Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves, and
+  guarantees (analytic, injective, …) that are only lit when they are proven.
+- **Figure export** (⌘E): article-grade PDF, SVG and PNG for every view, with presets for articles (one or two
+  columns) and homework, black-and-white versions, LaTeX snippets for Overleaf, and images for Docs.
+- **Sound** (off until turned on): interface cues, and "hear the function": a Shepard tone follows arg F under the
+  pointer, so loops around zeros and poles make the winding audible.
+- **Guided tour** from the Help button, suggested once on first opening.
+- **Russian**: the interface follows the browser's language (or the globe button), with Russian notation
+  (tg, sh, ch, …) and Russian figure captions.
 
 ## Build
 

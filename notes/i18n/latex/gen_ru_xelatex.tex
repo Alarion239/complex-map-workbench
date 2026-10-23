@@ -1,0 +1,14 @@
+\documentclass{article}
+\usepackage{fontspec}
+\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf]
+\usepackage[russian]{babel}
+\usepackage{graphicx,amsmath,amssymb}
+\begin{document}
+% Преамбула (pdfLaTeX): \usepackage[T2A]{fontenc}\usepackage[russian]{babel}\usepackage{graphicx,amsmath,amssymb}
+% В XeLaTeX/LuaLaTeX вместо fontenc: \usepackage{fontspec}. В английском документе: \foreignlanguage{russian}{...}
+\begin{figure}[h]
+  \centering
+  \ifdim\linewidth<469.75pt\resizebox{\linewidth}{!}{\rule{469.75pt}{120pt}}\else\rule{469.75pt}{120pt}\fi
+  \caption{\textit{а}~--- полоса $0<\operatorname{Im} z<\pi$ в~плоскости $z$; \textit{б}~--- образ при отображении $w=\operatorname{tg} z$. Растяжение $|F'(z)|=0{,}5$ на отрезке $[-1,1]$ и~не больше $2$ на $[0{,}5;\,2]$. Ветвь $\ln z$ с~разрезом по лучу $\arg z=\pi$. Штриховые границы не принадлежат множествам.}
+\end{figure}
+\end{document}

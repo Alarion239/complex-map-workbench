@@ -1,0 +1,170 @@
+[
+ {
+  "id": "ui-1",
+  "severity": "high",
+  "title": "Region formula field: a decimal comma gets a misleading error and no hint",
+  "detail": "The user decision says a Russian parse error for 0,5 adds «Дробную часть отделяйте точкой: 0.5». In the region formula field (the most common place to type a radius) it does not. «|z| < 0,5», «Re z > 0,5» and «z^0,5 < 1» all give only «Соединяйте неравенства словами and / or / not». The comma is read as a separator of conditions, so the user is told to use and/or, which is wrong advice. Readouts, the scale chip and the legend show 0,5, so users will type it.",
+  "evidence": "test/rv2bui2_cdp/probe2.js (result: test/rv2bui2_cdp/probe2.result.json); src/parse.js:58-60 commaHint exists but the 'Combine comparisons' path (parse.js:489, :520) does not use it",
+  "fix": "In Russian, check for a comma between two digits before splitting conditions (or in the 'combine' error path) and show «Дробную часть отделяйте точкой: 0.5, а не 0,5 (запятая разделяет условия)». English unchanged."
+ },
+ {
+  "id": "ui-2",
+  "severity": "high",
+  "title": "Plane tick labels keep the decimal point while the rest of the screen uses the comma",
+  "detail": "In Russian, the 2D plane tick labels read «−0.5», «0.5», «1.5i», «−0.5i». Next to them the scale chip reads «0,5 / дел.», the legend «клетка 0,5», readouts and 3D ticks use the comma. One picture mixes both separators. GLOSSARY 0.5 and the lead's default put the comma in tick labels.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/w1024l-start.png (bottom axis −0.5, 0.5; chip 0,5 / дел.), work/xb/test/rv2bui2_cdp/shots/w768d-start.png (right axis 1.5i, 0.5i), work/xb/test/rv2bui2_cdp/shots/crop_axes_1024.png; src/view.js:133-160 put(label(...))",
+  "fix": "Format the grid tick labels with the same Russian number formatter as the scale chip (comma), Russian only. English labels and golden images stay as they are."
+ },
+ {
+  "id": "ui-3",
+  "severity": "high",
+  "title": "Right-plane legend cuts off the plane name: «клетка 0,5 в плоскости …»",
+  "detail": "The canvas legend of the right plane shows «клетка 0,5 в плоскости» and the «z» is cut at the legend's edge (1024 and 1440 px, light and dark). With an integer cell («клетка 1 в плоскости z», 768 px) it just fits, so any decimal cell size breaks it. The label loses its meaning: which plane is not shown.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/crop_legend_1024.png, work/xb/test/rv2bui2_cdp/shots/w1024l-start.png, work/xb/test/rv2bui2_cdp/shots/p1440d-ex3.png",
+  "fix": "Measure the Russian line and let the legend canvas grow in Russian, or shorten the label, e.g. «клетка 0,5 (плоскость z)» or put the plane on its own line. Check with 0,25 and 0,125 too."
+ },
+ {
+  "id": "ui-4",
+  "severity": "medium",
+  "title": "Decimal comma in the mono font reads as two numbers: «0, 5», «1, 00», «0, 1»",
+  "detail": "In B612 Mono the comma takes a full character cell, so 0,5 looks like «0, 5». A Russian reader sees a list of two numbers. Seen in the scale chip «0, 5 / дел.», the deformation readout «t = 1, 00 / 2», the 3D |F| axis tick «0, 1» (next to 10 and 1, it reads as the pair 0 and 1) and the legend «клетка 0, 5».",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/crop_axes_1024.png, work/xb/test/rv2bui2_cdp/shots/w360l-land.png (|F| axis 0, 1), work/xb/test/rv2bui2_cdp/shots/w360l-deformation.png (t = 1, 00 / 2)",
+  "fix": "Where a number with a decimal comma is set in the mono font, draw the comma narrow: in HTML wrap it in a span with negative letter-spacing (about −0.3em) or set it in the UI font; on canvas draw the comma with a reduced advance. Russian only."
+ },
+ {
+  "id": "ui-5",
+  "severity": "medium",
+  "title": "Landscape title says «log|F|»; Russian notation is ln",
+  "detail": "The Landscape pane header reads «рельеф функции log|F|». GLOSSARY 2.2: the English log |F| (natural) becomes ln |F| in Russian; the guide already writes «График ln|F| над X». The header builds the string itself, so I18N.notation does not touch it. The figure caption template at app.js:9176 writes \\log|F| the same way: check it is converted to \\ln.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/w360l-land.png; src/app.js:6492 heightHtml `log|${Fh}|`; src/app.js:9176",
+  "fix": "In Russian write «ln |F|» in heightHtml and \\ln|F| in the caption (through I18N.notation or a Russian branch)."
+ },
+ {
+  "id": "ui-6",
+  "severity": "medium",
+  "title": "The shape list shows formulas that the formula field rejects («не», «и», decimal comma)",
+  "detail": "The Joukowski example lists «Круг 1  не |z − (−0,12 + 0,1i)| < 1,124». Typing «не |z| < 1» gives «Здесь не ожидалось «н»», and «|z|<1 и Re z>0» gives «Здесь не ожидалось «и»». The parser accepts only \\text{не}, \\text{и}, \\text{или}, and the error hint says to use and / or / not. A user who copies what the list shows gets an error with no explanation.",
+  "evidence": "test/rv2bui2_cdp/probe2.js (result: test/rv2bui2_cdp/probe2.result.json); work/xb/test/rv2bui2_cdp/shots/p1440d-export.png (shape list); src/parse.js:114-116",
+  "fix": "Either accept plain «и», «или», «не» as and/or/not in Russian (they cannot clash with variable names), or show and/or/not in the list. For «0,12» in the list see ui-1: the field should at least explain the point."
+ },
+ {
+  "id": "ui-7",
+  "severity": "medium",
+  "title": "Phone 360 px: tool labels «Прямо-угольник» and «Много-угольник» run into each other",
+  "detail": "In the bottom tool bar at 360 px the second lines touch: «угольникугольник». At 390 px there is a small gap. The labels are wider than their buttons.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/crop_toolbar_360.png, work/xb/test/rv2bui2_cdp/shots/w360l-start.png",
+  "fix": "Keep each label inside its button (width of the button, centred, overflow-wrap inside the cell), or at ≤ 375 px move one of the two tools into «Ещё». Do not shrink the font (GLOSSARY 3.1)."
+ },
+ {
+  "id": "ui-8",
+  "severity": "medium",
+  "title": "Calculation chip text is cut without an ellipsis",
+  "detail": "The roots chip clips its lines with overflow:clip, so words disappear silently: «1 корень уравнения F(z) = 0,3395 + 0,2263i в видимой части» needs 369 px in a 246 px chip; «3 корня уравнения F(z) = 0 в видимой части» and «Слева нарисованы кривые, которые F(z) отображает на цель.» overflow by 3 to 4 px at 1440 px.",
+  "evidence": "test/rv2bui_cdp/walk-1440-l.json (clip: #calcChip div.ch, div.cn; states 'target point', 'example 10')",
+  "fix": "Let the chip lines wrap (white-space: normal) in Russian, or widen the chip; at least use an ellipsis with the full text in a tooltip."
+ },
+ {
+  "id": "ui-9",
+  "severity": "medium",
+  "title": "1024 px header: the examples button and the command field are cut to stubs",
+  "detail": "At 1024 px the examples button reads «Пол…» (needs 87 px, has 37) and the command field «Функция и…» (134 px, has 79). Neither stub says anything. English fits more at this width.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/w1024l-start.png; test/rv2bui2_cdp/narrow.json (#examplesBtn span.exlabel, #cmdBtn span.cmd-text)",
+  "fix": "At 1024-1100 px in Russian show the examples button as an icon plus caret (as at tablet width) and use a shorter placeholder for the command field, for example «Команда» or «Поиск»."
+ },
+ {
+  "id": "ui-10",
+  "severity": "medium",
+  "title": "Step names truncated in cards and in the «По шагам» table",
+  "detail": "The chain card title «Функция Жуков…» is cut even at 1440 px. In «По шагам» the step column (94 px) cuts most Russian names: «Функци…», «Дробно-линей…», «Автоморфизм…», «Корень n-й…», «Нули и пол…». Many English names fit there.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/p1440d-export.png (card f1, По шагам), test/rv2bui_cdp/walk-1440-l.json (#propsPanel td.stepcol)",
+  "fix": "Give the card and the step table short context forms ($tx('card', …)) or let the card title wrap to two lines; in the step table show f₁, f₂ with the full name in the tooltip. Avoid abbreviations (GLOSSARY 3.10)."
+ },
+ {
+  "id": "ui-11",
+  "severity": "medium",
+  "title": "Readout hints truncated: Landscape at 360 px, Sphere at 1440 px, empty right pane",
+  "detail": "«Перетаскивание вращает, двумя пальцами — ма…» (Landscape, 360 px, 337 of 308 px). «Перетащите, чтобы повернуть, а фигуру — чтобы переместить её; ∞ — северный полюс» is cut at 1440 px on both spheres (525 of 410 px). «Добавьте функцию, чтобы отобразить область» is cut in the empty right pane (284 of 237 px).",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/w360l-land.png; test/rv2bui_cdp/walk-1440-l.json (#leftReadout/#rightReadout span.rhint, #emptyRight span)",
+  "fix": "Shorten: «Поворот — перетаскиванием; масштаб — двумя пальцами» is still long, so better let the hint wrap to two lines on phones. Sphere: «Перетащите сферу, чтобы повернуть, фигуру — чтобы сдвинуть; ∞ — северный полюс» or split into two lines. Empty pane: «Добавьте функцию»."
+ },
+ {
+  "id": "ui-12",
+  "severity": "medium",
+  "title": "No-break space missing before the em dash in 37 strings",
+  "detail": "GLOSSARY 3.5 and 3.6: a no-break space before «—». 37 table entries use a plain space, so a line can start with a dash. Examples: «Слева — %{list}, справа — образ при отображении %{wmap}.», «(точка %{inf} — северный полюс)», «; нули — впадины, полюсы — пики.», «%{F} — %{props}; …», «Стрелки — пути %{p} …», «; каждый из них — отрезок», «Не более {zpMax} нулей (степень {zpMax} — предел …)». The LaTeX templates with ~--- are right.",
+  "evidence": "src/i18n_ru.js, lint rule 'emdash-space-before' (37 hits); script test/rv2bui_cdp/lint.py",
+  "fix": "Replace ' —' with '\\u00a0—' in the source tables (chrome.json, math.json, phase2b-*.json) and regenerate; add the rule to the table lint."
+ },
+ {
+  "id": "ui-13",
+  "severity": "low",
+  "title": "Inconsistent term for pits: «впадины» and «ямы»",
+  "detail": "GLOSSARY 1.6: pits / peaks = «ямы / пики». The guide says «нули — ямы, полюсы — пики», but the caption fragment '; zeros are pits and poles are peaks.' says «нули — впадины, полюсы — пики».",
+  "evidence": "src/i18n_ru.js keys '; zeros are pits and poles are peaks.' vs 'The graph of $\\\\log|F|$ over X: …'",
+  "fix": "Use «ямы» in the caption fragment."
+ },
+ {
+  "id": "ui-14",
+  "severity": "low",
+  "title": "No-break space missing between numbers and units",
+  "detail": "GLOSSARY 3.6 and 3.8: «8,9 см», «11 пт». These use a plain space: «Поля 2,5 см», «Поля 1 дюйм», «Статья Overleaf · 11 пт», «article · 10 пт», «{W} × {H} см, текст 8–9 пт», «от 50 до 2000 пт». In the export facts line a unit can wrap away from its number.",
+  "evidence": "src/i18n_ru.js, lint rule 'unit-no-nbsp' (14 hits)",
+  "fix": "Use U+00A0 between number and unit in these entries."
+ },
+ {
+  "id": "ui-15",
+  "severity": "low",
+  "title": "Export facts line keeps a decimal point: «надписи 10/10.95 пт»",
+  "detail": "With the Overleaf 11 pt preset the facts line reads «· надписи 10/10.95 пт, как в тексте 11 пт · …». Everything else in the dialog uses the comma («469,75 пт», «12,7 × 5,5 см»).",
+  "evidence": "test/rv2bui_cdp/walk-1440-l.json (div.xf-facts, transient)",
+  "fix": "Format the label size with the Russian number formatter: «10/10,95 пт»."
+ },
+ {
+  "id": "ui-16",
+  "severity": "low",
+  "title": "Export size menu item cut: «Поля 1 дюйм · Letter · 469,7…»",
+  "detail": "The size select in the export dialog is 128 px wide; «Поля 1 дюйм · Letter · 469,75 пт» needs 179 px and «Beamer 16:9 · 398,34 пт» 133 px, so the width figure is cut.",
+  "evidence": "test/rv2bui_cdp/walk-1440-l.json (#xfSize span, export control 1 and 2)",
+  "fix": "Let the select grow in Russian or drop the point size from the closed select (keep it in the open list)."
+ },
+ {
+  "id": "ui-17",
+  "severity": "low",
+  "title": "Guide and Help share one name, against the glossary",
+  "detail": "GLOSSARY 1.13: Help (menu) = «Справка», Guide (reference) = «Руководство». The tooltip keys 'Guide' and 'Guide  ?' are translated «Справка» / «Справка  ?», the same as 'Help'. The menu item itself says «Руководство», so the ? key's tooltip and the item it opens disagree.",
+  "evidence": "src/i18n_ru.js keys 'Guide', 'Guide  ?'",
+  "fix": "«Руководство» and «Руководство  ?» for the Guide keys."
+ },
+ {
+  "id": "ui-18",
+  "severity": "low",
+  "title": "Mixed forms in the sound popover's key list",
+  "detail": "«Z — к следующему нулю или полюсу, O — порядок в этой точке, D — описание вида, Enter — нарисовать петлю, L — прослушать вдоль неё»: a bare preposition phrase, two nouns, then two infinitives.",
+  "evidence": "work/xb/test/rv2bui2_cdp/shots/w360l-menu_soundMore.png",
+  "fix": "One form throughout: «Z — перейти к следующему нулю или полюсу, O — назвать порядок в этой точке, D — описать вид, Enter — нарисовать петлю, L — прослушать вдоль неё»."
+ },
+ {
+  "id": "ui-19",
+  "severity": "low",
+  "title": "Mode and tool names in prose not in quotes",
+  "detail": "GLOSSARY 3.5: a control name in prose goes in «». The view-switch guide paragraph has «для отображения с разрезом режим Все листы рисует …» and «Круг на сфере — это шапочка, Окружность — …», while the Landscape paragraph writes «Рельеф» and «Все листы» in quotes. The capital after the colon in «плоскости): Круг на сфере» also reads as an error without quotes.",
+  "evidence": "src/i18n_ru.js key 'The switch in the middle of the top bar picks the view ({x} {x2} {x3})…'",
+  "fix": "Write «Все листы», «Круг», «Окружность» in «»."
+ },
+ {
+  "id": "ui-20",
+  "severity": "low",
+  "title": "«Вид: рельеф» lower case, other view names capitalised",
+  "detail": "The palette row reads «Вид: рельеф», while «Вид: X → Y, Фаза, Рельеф» and the tab say «Рельеф».",
+  "evidence": "src/i18n_ru.js key 'View: Landscape'",
+  "fix": "«Вид: Рельеф» (and check «Вид: Фаза»)."
+ },
+ {
+  "id": "ui-21",
+  "severity": "low",
+  "title": "Checked and clean (for the record)",
+  "detail": "No English left: the full walk at 1440 px light (every view, example, card, tool, shape editor, menu, palette query, guide, export control, sound popover and all 7 tour chapters) found 0 English strings and no console errors. The table lint found no missing ё, no straight or English quotes, no «т. е.»-type abbreviations, no «Вы», no banned terms (диск, линия for line, кликнуть, пресет), and the 51 plural entries use correct one/few/many forms with the right cases (не менее 21 корня, после 2 шагов, с 1 вершиной). The More menu at 390 and 768 px fits. Tour steps, the guide and the sound popover read naturally.",
+  "evidence": "test/rv2bui_cdp/walk-1440-l.json (left: 0); lint output test/rv2bui_cdp/lint.out",
+  "fix": "None."
+ }
+]

@@ -1,0 +1,206 @@
+[
+ {
+  "n": "i18n-1",
+  "status": "applied",
+  "where": "DESIGN.md 12; proto/i18n.js ATTRS; proto/browser/behave.js",
+  "note": "Mechanism part applied: the walker now also translates aria-description and data-desc (the browser run found them English). DESIGN 12 sets the extractor sinks (caption-segment arrays, template literals, dataset.tip, aria-description, data-desc, toast, call('toast'), say, sndSay, fillText) and makes the gate a browser 'no English left' check. Not done here: re-running the extractor on inventory.json (the table owner's file; phase 2 step 6 re-runs it after the merge anyway)."
+ },
+ {
+  "n": "i18n-2",
+  "status": "rejected by user decision; test part kept",
+  "where": "work/xl/src/page.html (#langBtn); proto/browser/behave.js; DESIGN.md 3; README decision 2",
+  "note": "Rejected by user decision (USER-DECISIONS.md 2026-10-22: keep the globe button in both languages). The header shows the globe at 1024 px and up; on a phone it is a More-menu row; it is in the palette. At 768-1023 px the bar is already short (61 px past the edge at 900 px in English) and this base has no More menu there, so the globe folds away and the bar gets no wider; when that bar gets a More menu, the globe is a row in it. Test part kept: behave.js asserts the 1440 px English rendered DOM equals the base except #langBtn (named), and that at 768, 900 and 1000 px the globe is hidden and the bar is no wider than the base. Browser run: pass."
+ },
+ {
+  "n": "i18n-3",
+  "status": "applied",
+  "where": "work/xl/src/app.js writeState/onSwitch; proto/browser/behave.js",
+  "note": "setPref writes the setting and reads it back, then the app hook saves the work and reads it back; only then it reloads. Otherwise it rolls the setting back, shows a note and does not reload. While tourHold is set (xt), writeState is skipped (the stored state is the user's work) and hist is never stashed. Node: blocked, write-dropping and save-failing stores. Browser: blocked storage gives no reload and the note. The tour case runs only after the xt merge. Round 4 (verifier, 2026-10-22): writeState() returns the JSON it wrote, or false. The hook reloads only when localStorage.getItem(LS_KEY) equals that string, so an older save under the key no longer counts. New browser case: a store that keeps the old save and throws QuotaExceededError on the state key: no reload, still English, setting restored, the note shown (pass)."
+ },
+ {
+  "n": "i18n-4",
+  "status": "applied",
+  "where": "proto/i18n.js fill (unchanged); ru/ph.py, ru/fixes_r4.py, ru/math_src/build.py, ru/check_chrome.py; work/xl/tools/make_ru_table.py; DESIGN.md 1",
+  "note": "%{name} is always a placeholder; {name} is one only in a template with no TeX ($ or backslash). Non-identifiers ({2}, {alpha.re}) are never filled. I18N.names() lists placeholders for the extractor check. Tests: $H_t(%{v})=%{v}^{n}$ keeps ^{n}; e^{t} stays. Table part is not mine: every entry whose English has $ or a backslash and a placeholder (157 in ru/*.json, e.g. export.extra.fig_two_panels, math.grid_math_min_math) must write its placeholders as %{name}, and the 35 inventory placeholders {2}, {1}, {j}, {alpha.re} need identifier names (e.g. math.grid_math_min_math: \\text{сетка } [%{min}%{sep}%{max}]\\times[%{min}%{sep}%{max}]). Round 4 (verifier, 2026-10-22): Table side done now (see ledger-tables). The converter keys renamed entries on en_key and maps names back for the crutch."
+ },
+ {
+  "n": "i18n-5",
+  "status": "applied",
+  "where": "work/xl/tools/make_ru_table.py; ru/fixes_r4.py PLURALS",
+  "note": "Plural key = one + U+0004 + many. The test checks plural forms against the many source and requires {n} in all four Russian forms when the English plural has it. Exactly-1 sentences are an n === 1 branch in code; at-least counts are two keys (split.exact / split.atLeast). Table part not mine: each plural entry in ru/*.json needs its English pair (e.g. en_plural: ['{n} line', '{n} lines'] for chrome.lines) so the converter can key it. Round 4 (verifier, 2026-10-22): Table side done now: 34 entries carry en_plural (38 keys with split variants). make_ru_table.py emits plurals only under one + U+0004 + many and exits on a plural without its pair; no bare key holds a form object."
+ },
+ {
+  "n": "i18n-6",
+  "status": "applied",
+  "where": "DESIGN.md 7; proto/t_i18n.js; proto/browser/behave.js",
+  "note": "DESIGN 7 lists ⌘E, ⇧M and the sound keys Z O D L, with sndKey to route through I18N.keyOf. Node: keyOf for every letter with Shift and ⌘. Browser: every tool letter V P S L R C A F D B G O H N K T (T focuses the formula field, as in English), Ь (M), Ъ (]), Х ([), ⌘Я, ⇧⌘Я, ⌘Л fired with Cyrillic e.key and e.code: all pass. ⌘E, ⇧M and the sound keys exist only in xr/xs: test after the merge."
+ },
+ {
+  "n": "i18n-7",
+  "status": "applied",
+  "where": "proto/i18n.js texNum/texSep/texInterval (texDecimal removed); latex/gen_caption.js, latex/run_gen.sh; DESIGN.md 5",
+  "note": "No regex over finished TeX: numbers are formatted where made, dimensions by the English formatter. The test generates a Russian snippet with the module (\\ifdim\\linewidth<469.75pt stays) and compiles it: pdfLaTeX 0 errors, XeLaTeX 0 errors. Phase 2: CX.texNum and fmtNum take the caption language."
+ },
+ {
+  "n": "i18n-8",
+  "status": "applied",
+  "where": "proto/i18n.js RU_OP, RU_PLAIN; proto/t_i18n.js; DESIGN.md 6, 10; work/xl/src/parse.js",
+  "note": "arcoth was already mapped. Res -> res (upright \\operatorname{res}). Multivalued uses pass {multi: true}: \\log -> \\operatorname{Ln}, \\arg -> \\operatorname{Arg} in Russian, English unchanged. Parser: Ln accepted (principal branch, like Log); lg, arcctg, arccot, acot get specific messages in Russian only (English messages unchanged); acot as a function rejected for phase 1 (it needs evaluator, derivative, inverse and GLSL work). Not mine: GLOSSARY should record 'Res -> res' and that tour.js 176 / chrome.landscape_with_all_sheets are multivalued (the tables already say Ln there). Round 4 (verifier, 2026-10-22): Res is no longer mapped: it stays Res, as GLOSSARY 1.4 decided (tests now expect Res). The arc-cotangent messages lost their formula hint (arctg(1/z) is wrong for Re z < 0 under the Russian convention); see i18n-14."
+ },
+ {
+  "n": "i18n-9",
+  "status": "applied",
+  "where": "proto/i18n.js at(); proto/t_i18n.js; DESIGN.md 1",
+  "note": "I18N.at(lang) returns t, tx, tn, parts, notation, num, texNum, texInterval, list, quote, nbsp fixed to one language. The figure stores fig.lang and uses at(fig.lang) across awaits. Test: Russian UI, English caption after awaits: no Cyrillic, no tg; and the reverse. The SVG/PDF/snippet check of a real figure needs figure.js (xr): after the merge."
+ },
+ {
+  "n": "i18n-10",
+  "status": "applied",
+  "where": "work/xl/src/app.js (submenu back-nav, Save flag); proto/t_textmatch.js; DESIGN.md 1",
+  "note": "Fixed in the prototype: submenu back-navigation by item object, the Save items by a flag. Listed in DESIGN with fixes: figure.js 1199, latexDocument 'onto image' rewrite (app.js 9539), the word tests (app.js 2284, 8980; xr 2285, 9010: use /\\p{L}{2}|\\s/u), the palette scoring the English label (app.js 8332, 8342; xr 8330), tour.js helpWhere. The grep test t_textmatch.js lists 7 known sites and fails on new ones."
+ },
+ {
+  "n": "i18n-11",
+  "status": "applied",
+  "where": "proto/cyr/make_cyr_glyphs.py, cyr_rm.json, cyr_bx.json, cyr_ti.json (new); proto/i18n.js nbsp/nbspTeX; proto/cyr/cyrfig.html; DESIGN.md 5",
+  "note": "Basic Latin added to the Roman and Bold tables (168 glyphs; 27 and 25 KB gzip, fetched only for a Russian caption): 'Круг-A', 'PDF-файл', 'LaTeX-код' render from the table with 0 <text>. Italic Cyrillic table for the panel letters. I18N.nbsp(): no-break space after one-letter words, before the em dash, in 'Рис. 1'; the composer breaks only at ordinary spaces; ~ in LaTeX."
+ },
+ {
+  "n": "i18n-12",
+  "status": "applied",
+  "where": "proto/i18n.js applyPage/onFonts; work/xl/src/app.js init",
+  "note": "applyPage waits for the stylesheet's load, then document.fonts.load for the faces, then calls the app's onFonts hook (also on loadingdone); the app clears rulerCache, redraws the legend and renders. Open: the Russian legend strings were not measured against the fixed 272x144 legend canvas."
+ },
+ {
+  "n": "i18n-13",
+  "status": "applied",
+  "where": "work/xl/src/page.html :root[data-lang=\"ru\"]; shots-ru/ru_1440_light_fonts.png, ru_1440_dark_fonts.png",
+  "note": "Roboto Flex is first in --f-ui in Russian, so a mixed label is one face; B612 Mono stays first for values; English unchanged. Checked in light and dark at 1440 px. A dedicated 11-13 px mixed-label specimen was not made."
+ },
+ {
+  "n": "i18n-14",
+  "status": "applied",
+  "where": "work/xl/src/parse.js UNSUPPORTED; ru/chrome.json chrome.extra.*; proto/t_i18n.js",
+  "note": "In Russian the parser says 'Use a decimal point: 0.5, not 0,5' for z^0,5 and 0,5*z (English unchanged); numbers in one readout join with '; '; the screen and print switches are separate. Whether the screen keeps the comma is put to the user in README. Found: a region field reads |z|<0,5 as two conditions with no error (English too); left open. Round 4 (verifier, 2026-10-22): Messages: \"arcctg is not available\" (and arccot, acot), \"lg is the base-10 logarithm, which is not available; the natural logarithm is ln z\". Russian added for these, the decimal-point hint and the language toast; ru_full.json rebuilt; node test checks each message has its Russian."
+ },
+ {
+  "n": "i18n-15",
+  "status": "applied",
+  "where": "proto/i18n.js pseudoOf/observePseudo; proto/t_i18n.js; DESIGN.md 8",
+  "note": "Growth by length: +100 % up to 5 letters, +60 % up to 20, +35 % beyond; fillText, strokeText and measureText are lengthened in pseudo mode. The gate is the full Russian table over the width x theme matrix. The pseudo screenshots were not re-run this round."
+ },
+ {
+  "n": "i18n-16",
+  "status": "applied",
+  "where": "work/xl/tools/make_ru_table.py, tools/ru_collisions.json; DESIGN.md 12",
+  "note": "The converter groups by English text and writes every collision (14 today) with ids and kinds; ru_short becomes the 'short' context; --strict fails on any collision. Not mine: giving each colliding call site its $tx context (the list is in tools/ru_collisions.json)."
+ },
+ {
+  "n": "i18n-17",
+  "status": "applied",
+  "where": "notes/i18n/inventory.json; work/xl/tools/make_ru_table.py; work/xl/src/i18n_crutch.js; DESIGN.md 12",
+  "note": "Done by the lead this round (both ledgers had said not-mine). inventory.json: export (app.js:1306), circle (region.js:1552) and amsart (figure.js:463) are dropped (1796 entries). sheet, branch, zeros, poles and 13 other literals that are also identifiers carry \"display through a map; the key stays English\". Each doNotTranslate reason is copied onto its entry as a hazard (137 entries; matched by value and file:line). make_ru_table.py skips dropped ids and puts the display-map entries under the label context only. Not skipped: entries whose reason is only \"test/ uses this literal\" (Close, Undo, Play…): they are shown and must be translated; tests pin English with ?ns=."
+ },
+ {
+  "n": "i18n-18",
+  "status": "applied",
+  "where": "work/xl/build.py; proto/i18n.js ready; work/xl/src/app.js start; work/xl/src/i18n_crutch.js; DESIGN.md 9",
+  "note": "The build writes dist/i18n/ru.json and never inlines it unless --inline-i18n. Russian fetches it and init waits; English fetches nothing (browser check) and its page lost 195 KB. Not tested: the supporting-file fetch on claude.ai and GitHub Pages (needs a publish)."
+ },
+ {
+  "n": "i18n-19",
+  "status": "applied",
+  "where": "proto/i18n.js; proto/t_i18n.js",
+  "note": "parts() uses a plural entry's other form; tables are null-prototype objects and lookups use hasOwnProperty ('constructor' tested); misses are recorded only under ?lang= or ?i18n-debug, at most 500."
+ },
+ {
+  "n": "i18n-20",
+  "status": "applied",
+  "where": "proto/i18n.js applyPage, isPaletteSlash; work/xl/src/app.js (menu roles, palette key); proto/browser/behave.js",
+  "note": "English no longer touches <html lang>. The ЙЦУКЕН-PC '/' key (types '.') opens the palette; QWERTZ '-' on that key is untouched; '.' is no shortcut. Language items are menuitemradio with aria-checked. All checked in node and the browser."
+ },
+ {
+  "n": "i18n-21",
+  "status": "applied",
+  "where": "proto/i18n.js pdfText; latex/pdf_info_test.js; latex/gen_caption.js; DESIGN.md 5, 12",
+  "note": "PDF info strings: UTF-16BE with a BOM (I18N.pdfText); a Russian Subject reads back with pdfinfo. The snippet comment mentions \\foreignlanguage{russian}{...}. Not mine (tables): the beamer frame title ('Phase portrait of $F$') and the snippet comments need Russian entries; export.n_pdf_made_for_2 already has the slides preamble. Wiring into jsPDF is phase 2 (xr)."
+ },
+ {
+  "n": "i18n-22",
+  "status": "applied",
+  "where": "proto/i18n.js globals; DESIGN.md 12",
+  "note": "i18n.js sets globalThis.I18N, $t, $tx, $tn (tested). DESIGN 12: the caption-language switch shows only when the UI is not English (one switch); texSpeech gets its own Russian grammar on fnName (phase 2, with sound)."
+ },
+ {
+  "n": "lead-1",
+  "status": "applied",
+  "where": "proto/cyr/make_cyr_glyphs.py (stroke 13), cyr_*.json; proto/cyr/cyrfig.html; shots-ru/cyr_caption.png, cyr_caption_vs_pdflatex.png; DESIGN.md 5",
+  "note": "The composer never picks a bold set: Im and tg are MathJax's regular TeX-N glyphs. The cause is weight: MathJax's TeX glyphs are the CM outlines grown about 6.5 units per side (cmr10 'I' stem 89 units, MathJax 104; ink +22 to 31 %), while the CMU words are exact cmr10. So the words were lighter and upright operator names looked bold. Fix: the tables carry stroke 13 and the composer strokes each glyph. Measured ink of 'Im', 'tg', 'I0m1tg' from the table vs MathJax: 0.990, 1.001, 0.996 (before 0.77-0.80). Re-rendered and compared with pdfLaTeX of the same generated caption: one weight in both. English figures are unchanged."
+ },
+ {
+  "n": "lead-2",
+  "status": "applied",
+  "where": "latex/gen_caption.js; proto/cyr/cyrfig.html; latex/snippet_body.tex; latex/pdflatex_p-1.png, xelatex_p-1.png",
+  "note": "The demo was hand-written. It now renders a caption made by the module: texInterval(-1, 1) gives [-1,1] and texInterval(0.5, 2) gives [0{,}5;\\,2]. The hand-written LaTeX test had [-1;\\,1] too; fixed and recompiled (pdfLaTeX, XeLaTeX, LuaLaTeX snippets: 0 errors)."
+ },
+ {
+  "n": "mathematician-3",
+  "status": "already",
+  "where": "proto/i18n.js notation; proto/t_i18n.js",
+  "note": "\\log_2 stays \\log_2 (the regex skips '_'); tests for \\log_2|F| and the phase-bands formula pass. Also holds with {multi}."
+ },
+ {
+  "n": "mathematician-7",
+  "status": "applied",
+  "where": "proto/cyr/cyr_ti.json; proto/cyr/cyrfig.html; latex/gen_caption.js; proto/i18n.js nbsp/nbspTeX",
+  "note": "Table templates were already done (export.extra.fig_two_panels: \\textit{а}~--- ...). Mechanism added: italic Cyrillic outlines for \\textit{а}, U+00A0 <-> ~, line breaks only at ordinary spaces. The demo and the generated LaTeX both set «а — …; б — образ при отображении …». Not mine: those templates must use %{list}, %{lvar}, %{map}, %{pat} (see i18n-4)."
+ },
+ {
+  "n": "mathematician-8",
+  "status": "already",
+  "where": "DESIGN.md 5; ru/math.json export.if_your_l_narrower, export.n_pdf_made_for_2",
+  "note": "Both comments already carry the Cyrillic preamble, and DESIGN says they are emitted only for a Russian caption. Re-checked by compiling the generated Russian snippet with pdfLaTeX and XeLaTeX (0 errors)."
+ },
+ {
+  "n": "mathematician-12",
+  "status": "already",
+  "where": "proto/i18n.js RU_OP, RU_PLAIN; proto/t_i18n.js",
+  "note": "arcoth and arccoth map to arcth; the test expects \\operatorname{cth}\\bigl((1-t/2)\\operatorname{arcth}z\\bigr) and passes."
+ },
+ {
+  "n": "mathematician-13",
+  "status": "applied",
+  "where": "ru/math_src/fixes_r2.py math.grid_math_min_math; GLOSSARY 2.3; tr1.py, tr4.py notes",
+  "note": "The rule was already right in texDecimal; that regex is now replaced by texNum/texSep/texInterval (i18n-7), same rule, same tests. Not mine: math.grid_math_min_math still hard-codes ',' and uses {Math.min}; it should be \\text{сетка } [%{min}%{sep}%{max}]\\times[%{min}%{sep}%{max}] with sep from I18N.texSep(). Round 4 (verifier, 2026-10-22): Table part done: \\text{сетка } [%{xMin}%{xSep}%{xMax}]\\times[%{yMin}%{ySep}%{yMax}], one separator slot per bracket pair (texSep). The verifier's form reused min and max for both axes; the x and y ranges differ, so they have their own names."
+ },
+ {
+  "n": "mathematician-21",
+  "status": "applied",
+  "where": "proto/i18n.js notation {multi}; DESIGN.md 6",
+  "note": "Table wording was already applied (Im Ln z, «терпит скачка»). Mechanism: the English call site marks the multivalued formula with {multi: true}, so a generated \\log becomes \\operatorname{Ln} in Russian."
+ },
+ {
+  "n": "mathematician-22",
+  "status": "applied",
+  "where": "proto/i18n.js nbsp; proto/cyr/cyrfig.html",
+  "note": "The table fragments already end with U+00A0. The composer now treats U+00A0 as a space that never breaks (it treated it as a break before, since JS \\s matches it), and nbsp() adds them where a template does not."
+ },
+ {
+  "n": "mathematician-27",
+  "status": "already",
+  "where": "DESIGN.md 5; GLOSSARY.md 2.5",
+  "note": "DESIGN now says the same as GLOSSARY 2.5: babel-russian defines \\tg etc. when it loads russian (main or secondary), then in every language; undefined without it. Not re-tested this round."
+ },
+ {
+  "n": "copy-2",
+  "status": "already",
+  "where": "ru/chrome.json sound.extra.list_zeros, list_poles; DESIGN.md 1",
+  "note": "The tables already have split.exact / split.atLeast forms and sound.more is « и другие». DESIGN 1 now says such counts are two $tn keys. The converter does not yet turn 'split' entries into keys: it needs the English pair per variant (not mine, see i18n-5)."
+ },
+ {
+  "n": "copy-14",
+  "status": "applied",
+  "where": "proto/cyr/cyr_ti.json; proto/cyr/cyrfig.html; proto/i18n.js nbsp",
+  "note": "Table part was already applied (fig_two_panels uses \\textit{а}~---). Mechanism: italic а, б from CMU italic outlines in figures, a no-break space before the dash, and ~ in LaTeX. On-screen captions in HTML need <i>а</i> in phase 2."
+ }
+]

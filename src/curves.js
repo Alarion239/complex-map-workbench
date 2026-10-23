@@ -156,7 +156,7 @@ const Curves = (() => {
           try { k = holo ? { dim: 'error', error: Expr.REL_MSG.complex } : Expr.classifyRelation(e0); } catch (e) { k = { dim: 'error' }; }
           if (k.dim === 'curve') { const p = k.pieces[0]; return go(p.eq, restrict, p.real, p.dir, depth + 1); }
           if (k.dim === 'error' && k.error === Expr.REL_MSG.complex) {
-            notes.add('This equation holds only at isolated points (where the expression inside |·| is 0): they are shown as points.');
+            notes.add($t('This equation holds only at isolated points (where the expression inside |·| is 0): they are shown as points.'));
             out.push({ eq, restrict, real, dir, kind: 'zeros', E: a.a });
             return;
           }
@@ -169,7 +169,7 @@ const Curves = (() => {
         const E = argOf(iso.X);
         if (E && !affineOf(E)) {
           const v = iso.v.re;
-          if (!(v > -Math.PI && v <= Math.PI)) { notes.add('arg takes values in (−π, π] (arg z = π is the negative real axis), so this equation has no points.'); return; }
+          if (!(v > -Math.PI && v <= Math.PI)) { notes.add($t('arg takes values in (−π, π] (arg z = π is the negative real axis), so this equation has no points.')); return; }
           let cr = Math.cos(v), ci = -Math.sin(v);
           if (Math.abs(cr) < 1e-15) cr = 0;
           if (Math.abs(ci) < 1e-15) ci = 0;
@@ -263,8 +263,8 @@ const Curves = (() => {
   const pt = (z, scale = CX.abs(z)) => [snap(z.re, scale), snap(z.im, scale)];
   const fmtC = (z) => CX.fmt(z, 6);
   function circleShape(c, r) {
-    if (!(r >= 0) || !Number.isFinite(r)) return { shapes: [], note: 'The radius is negative, so the circle has no points.' };
-    if (r === 0) return { shapes: [{ kind: 'point', p: pt(c) }], note: `A circle of radius 0 is the single point ${fmtC(c)}.` };
+    if (!(r >= 0) || !Number.isFinite(r)) return { shapes: [], note: $t('The radius is negative, so the circle has no points.') };
+    if (r === 0) return { shapes: [{ kind: 'point', p: pt(c) }], note: $t('A circle of radius 0 is the single point {c}.', { c: fmtC(c) }) };
     return { shapes: [{ kind: 'circle', c: pt(c), r }] };
   }
   // the line a x + b y + c = 0 as Region's {kind: 'line'}: a = the point nearest 0, b = a + the unit direction
@@ -292,7 +292,7 @@ const Curves = (() => {
       if (argE) {
         const af = affineOf(argE);
         if (af && !CX.isZero(af.alpha)) {
-          if (!(v > -Math.PI && v <= Math.PI)) return { shapes: [], note: 'arg takes values in (−π, π] (arg z = π is the negative real axis), so this equation has no points.' };
+          if (!(v > -Math.PI && v <= Math.PI)) return { shapes: [], note: $t('arg takes values in (−π, π] (arg z = π is the negative real axis), so this equation has no points.') };
           // arg(alpha w) = v, w = z - c (anti: arg(alpha conj w) = v)
           const c = af.anti ? CX.conj(CX.neg(CX.div(af.beta, af.alpha))) : CX.neg(CX.div(af.beta, af.alpha));
           const phi = af.anti ? -(v - CX.arg(af.alpha)) : v - CX.arg(af.alpha);
@@ -1271,7 +1271,7 @@ const Curves = (() => {
     const ast = src !== null ? Expr.parse(src, { allowRel: true }) : input;
     const cls = Expr.classifyRelation(ast);
     if (cls.dim !== 'curve') {
-      const e = new CurveError(cls.dim === 'area' ? 'This formula is an area (it has no equation): add it as a region' : cls.error, 0);
+      const e = new CurveError(cls.dim === 'area' ? $t('This formula is an area (it has no equation): add it as a region') : cls.error, 0);
       e.dim = cls.dim;
       throw e;
     }
@@ -1298,7 +1298,7 @@ const Curves = (() => {
           pc.exact = items.map((it) => it.shape);
           pc.exactEnds = items.map((it) => it.ends);
           if (rec.note) notes.add(rec.note);
-          if (R && rec.shapes.length && !items.length) notes.add('No point of the curve satisfies the restriction.');
+          if (R && rec.shapes.length && !items.length) notes.add($t('No point of the curve satisfies the restriction.'));
         }
         pieces.push(pc);
       }
@@ -1353,10 +1353,10 @@ const Curves = (() => {
     return any ? new Float64Array(out) : pts;
   }
   const TRACE_NOTES = {
-    flat: 'The two sides agree on a whole region here; a region is not a curve, so it is left out.',
-    truncated: 'The curve is too complicated to trace completely here: parts of it may be missing.',
-    someZeros: 'Only some of the zeros are shown: here they crowd together (they pile up at a point) more closely than the view can separate, or there are more than could be found.',
-    touch: 'The two sides only touch (they meet without crossing), so this equation cannot be traced: write it so that the sides cross, e.g. Re z = 0 rather than (Re z)^2 = 0.',
+    flat: $t('The two sides agree on a whole region here; a region is not a curve, so it is left out.'),
+    truncated: $t('The curve is too complicated to trace completely here: parts of it may be missing.'),
+    someZeros: $t('Only some of the zeros are shown: here they crowd together (they pile up at a point) more closely than the view can separate, or there are more than could be found.'),
+    touch: $t('The two sides only touch (they meet without crossing), so this equation cannot be traced: write it so that the sides cross, e.g. Re z = 0 rather than (Re z)^2 = 0.'),
   };
   // Curves.trace(desc, win, o) -> {polys: [{pts: Float64Array, closed, ends, piece, exact, shape?}], points: [{p, piece}],
   // notes: [string] (about this window's trace)} (cached on desc per window and options)

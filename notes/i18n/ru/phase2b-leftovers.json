@@ -1,0 +1,182 @@
+{
+ "_about": "Phase 2b integration: the leftovers that the walk of the Russian interface found (strings still in English, the decimal-comma hint, the Language setting). id -> {en, ru, plural?, en_plural?, ctx?, note}, as in phase2b-ui.json. Russian follows notes/i18n/GLOSSARY.md. Read by work/xb/tools/make_ru_table.py; these win over the other tables.",
+ "lo.parse.decimal_point": {
+  "en": "Use a decimal point: 0.5",
+  "ru": "Дробную часть отделяйте точкой: 0.5",
+  "note": "parse.js withComma(): added after any Russian parse error when the formula has a comma between two digits (GLOSSARY 2.3, the lead's default). Not shown in English."
+ },
+ "lo.arc.start": {
+  "en": "start",
+  "ctx": "arc",
+  "ru": "начало",
+  "note": "app.js shapeEditor: the arc's first point field (GLOSSARY: lower-case field labels)."
+ },
+ "lo.arc.through": {
+  "en": "through",
+  "ctx": "arc",
+  "ru": "через точку",
+  "note": "app.js shapeEditor: the arc's middle point field (the arc passes through it)."
+ },
+ "lo.arc.end": {
+  "en": "end",
+  "ctx": "arc",
+  "ru": "конец",
+  "note": "app.js shapeEditor: the arc's last point field."
+ },
+ "lo.grid.divisions": {
+  "en": "divisions",
+  "ru": "делений",
+  "note": "app.js shapeEditor: the Cartesian grid's count field (a count label: «делений: 8»)."
+ },
+ "lo.grid.circles": {
+  "en": "circles",
+  "ru": "окружностей",
+  "note": "app.js shapeEditor: the polar grid's circle count."
+ },
+ "lo.grid.rays": {
+  "en": "rays",
+  "ru": "лучей",
+  "note": "app.js shapeEditor: the polar grid's ray count."
+ },
+ "lo.field.set": {
+  "en": "set",
+  "ctx": "field",
+  "ru": "множество",
+  "note": "app.js shapeEditor: the region formula field."
+ },
+ "lo.field.equation": {
+  "en": "equation",
+  "ctx": "field",
+  "ru": "уравнение",
+  "note": "app.js shapeEditor: the curve formula field."
+ },
+ "lo.field.label": {
+  "en": "label",
+  "ctx": "field",
+  "ru": "подпись",
+  "note": "app.js shapeEditor: a point's label field."
+ },
+ "lo.zp.zero": {
+  "en": "zero",
+  "ctx": "zp",
+  "ru": "нуль",
+  "note": "app.js: the Add-a-zero button of a zeros-and-poles card (GLOSSARY: always «нуль»)."
+ },
+ "lo.zp.pole": {
+  "en": "pole",
+  "ctx": "zp",
+  "ru": "полюс",
+  "note": "app.js: the Add-a-pole button of a zeros-and-poles card."
+ },
+ "lo.yes": {
+  "en": "yes",
+  "ru": "да",
+  "note": "app.js: the guarantees matrix, a lit cell's screen-reader label."
+ },
+ "lo.no": {
+  "en": "no",
+  "ru": "нет",
+  "note": "app.js: the guarantees matrix, an unlit cell's screen-reader label."
+ },
+ "lo.gauge": {
+  "en": "gauge",
+  "ru": "индикатор",
+  "note": "app.js right readout: the derivative gauge is drawn scaled by ×k (GLOSSARY: derivative gauge = индикатор производной)."
+ },
+ "lo.deg": {
+  "en": "deg {n}",
+  "ru": "степень {n}",
+  "note": "app.js: the Polynomial and Rational lamps' qualifier (GLOSSARY: degree = степень)."
+ },
+ "lo.deg_le": {
+  "en": "deg ≤ {n}",
+  "ru": "степень ≤ {n}",
+  "note": "app.js: the qualifier when the degree is an upper bound."
+ },
+ "lo.pattern.logpolar": {
+  "en": "Log-polar",
+  "ru": "Лог-полярные",
+  "note": "app.js PATTERNS: the swatch caption. GLOSSARY 1.7 has «Лог-полярные клетки»; the 62 px two-line caption cannot hold it («Лог-по-лярные…»), so the swatch says «Лог-полярные» (breaks after «Лог-») and its tooltip says the rest."
+ },
+ "lo.pattern.arg": {
+  "en": "Arg z",
+  "ru": "arg z",
+  "note": "app.js PATTERNS: lower case in Russian, «Arg z» is the multivalued argument (GLOSSARY 1.7)."
+ },
+ "lo.audio.running": {
+  "en": "running",
+  "ctx": "audio",
+  "ru": "работает",
+  "note": "app.js sound popover, the engine line: the AudioContext state («Звук: работает · 48 кГц · 5 мс»)."
+ },
+ "lo.audio.suspended": {
+  "en": "suspended",
+  "ctx": "audio",
+  "ru": "приостановлен",
+  "note": "AudioContext state."
+ },
+ "lo.audio.interrupted": {
+  "en": "interrupted",
+  "ctx": "audio",
+  "ru": "прерван",
+  "note": "AudioContext state (iOS)."
+ },
+ "lo.audio.closed": {
+  "en": "closed",
+  "ctx": "audio",
+  "ru": "закрыт",
+  "note": "AudioContext state."
+ },
+ "lo.audio.loading": {
+  "en": "loading",
+  "ctx": "audio",
+  "ru": "загрузка",
+  "note": "the voice engine while its worklet loads."
+ },
+ "lo.audio.worklet": {
+  "en": "worklet",
+  "ctx": "audio",
+  "ru": "AudioWorklet",
+  "note": "the voice engine: the AudioWorklet (a product name)."
+ },
+ "lo.audio.nodes": {
+  "en": "nodes",
+  "ctx": "audio",
+  "ru": "узлы Web Audio",
+  "note": "the voice engine: native Web Audio nodes."
+ },
+ "lo.delete": {
+  "en": "Delete",
+  "ru": "Удалить",
+  "note": "app.js: the shape menu's Delete item (the key chip ⌫ stays)."
+ },
+ "lo.copied": {
+  "en": "Copied",
+  "ru": "Скопировано",
+  "note": "app.js: a readout after Copy value."
+ },
+ "lo.badge.rational": {
+  "en": "Rational",
+  "ctx": "badge",
+  "ru": "Рациональная функция",
+  "note": "app.js: the guarantees lamp and chip name. The catalog label (funcs.js, the card) stays «Рациональная» (tools/ru_collisions.json)."
+ },
+ "lo.badge.mobius": {
+  "en": "Möbius",
+  "ctx": "badge",
+  "ru": "Дробно-линейная функция",
+  "note": "app.js: the guarantees lamp and chip name. The catalog label (funcs.js, the card) stays «Дробно-линейная», which fits the card."
+ },
+ "lo.field.cmd": {
+  "en": "Add function or command",
+  "ctx": "field",
+  "ru": "Функция или команда",
+  "note": "The visible text of the header command field (GLOSSARY: placeholder; DESIGN.md 8.3). Its aria-label keeps «Добавить функцию или команду»."
+ },
+ "lo.readout.at": {
+  "en": "at",
+  "ctx": "readout",
+  "ru": "в точке",
+  "note": "app.js hoverReadout: the left readout «в точке w 0,5 + 0,3i» while the right plane is hovered and the preimage search is off."
+ }
+}

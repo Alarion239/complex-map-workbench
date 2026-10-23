@@ -1,0 +1,87 @@
+cayley-amsart.pdf            ok   fonts: 0
+cayley-amsart.pdf            ok   images 2 ['image/index'], no smask
+cayley-amsart.pdf            ok   images not interpolated
+cayley-amsart.pdf            ok   ExtGState alpha values none
+cayley-amsart.pdf            ok   MediaBox 358.66 x 168.95 bp; target 360 pt = 358.66 bp
+cayley-amsart.pdf            ok   header %PDF-1.3
+cayley-art.pdf               ok   fonts: 0
+cayley-art.pdf               ok   images 2 ['image/index'], no smask
+cayley-art.pdf               ok   images not interpolated
+cayley-art.pdf               ok   ExtGState alpha values none
+cayley-art.pdf               info MediaBox 245.08 x 115.95 bp (art/overlay file)
+cayley-art.pdf               ok   header %PDF-1.3
+cayley-bw.pdf                ok   fonts: 0
+cayley-bw.pdf                ok   images 2 ['image/gray'], no smask
+cayley-bw.pdf                ok   images not interpolated
+cayley-bw.pdf                ok   ExtGState alpha values none
+cayley-bw.pdf                ok   MediaBox 245.08 x 115.95 bp; target 246 pt = 245.08 bp
+cayley-bw.pdf                ok   header %PDF-1.3
+cayley-deformation.pdf       ok   fonts: 0
+cayley-deformation.pdf       ok   images 4 ['image/index'], no smask
+cayley-deformation.pdf       ok   images not interpolated
+cayley-deformation.pdf       ok   ExtGState alpha values none
+cayley-deformation.pdf       ok   MediaBox 508.09 x 162.65 bp; target 510 pt = 508.09 bp
+cayley-deformation.pdf       ok   header %PDF-1.3
+cayley-hw.pdf                ok   fonts: 0
+cayley-hw.pdf                ok   images 2 ['image/index'], no smask
+cayley-hw.pdf                ok   images not interpolated
+cayley-hw.pdf                ok   ExtGState alpha values none
+cayley-hw.pdf                ok   MediaBox 358.66 x 107.55 bp; target 360 pt = 358.66 bp
+cayley-hw.pdf                ok   header %PDF-1.3
+cayley-wide.pdf              ok   fonts: 0
+cayley-wide.pdf              ok   images 3 ['image/index'], no smask
+cayley-wide.pdf              ok   images not interpolated
+cayley-wide.pdf              ok   ExtGState alpha values none
+cayley-wide.pdf              ok   MediaBox 508.09 x 136.99 bp; target 510 pt = 508.09 bp
+cayley-wide.pdf              ok   header %PDF-1.3
+cayley.pdf                   ok   fonts: 0
+cayley.pdf                   ok   images 2 ['image/index'], no smask
+cayley.pdf                   ok   images not interpolated
+cayley.pdf                   ok   ExtGState alpha values none
+cayley.pdf                   ok   MediaBox 245.08 x 115.95 bp; target 246 pt = 245.08 bp
+cayley.pdf                   ok   header %PDF-1.3
+phase-bw.pdf                 ok   fonts: 0
+phase-bw.pdf                 ok   images 1 ['image/gray'], no smask
+phase-bw.pdf                 ok   images not interpolated
+phase-bw.pdf                 ok   ExtGState alpha values none
+phase-bw.pdf                 ok   MediaBox 245.08 x 253.81 bp; target 246 pt = 245.08 bp
+phase-bw.pdf                 ok   header %PDF-1.3
+phase.pdf                    ok   fonts: 0
+phase.pdf                    ok   images 2 ['image/rgb'], no smask
+phase.pdf                    ok   images not interpolated
+phase.pdf                    ok   ExtGState alpha values none
+phase.pdf                    ok   MediaBox 245.08 x 195.81 bp; target 246 pt = 245.08 bp
+phase.pdf                    ok   header %PDF-1.3
+cayley-600dpi.png            ok   colour type 2 (RGB), chunks IHDR,pHYs,iTXt,IEND
+cayley-amsart-grey.png       ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-bw-600dpi.png         ok   colour type 0 (grey), chunks IHDR,pHYs,iTXt,IEND
+cayley-bw-grey.png           ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-deformation-grey.png  ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-grey.png              ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-hw-docs-300dpi.png    ok   colour type 2 (RGB), chunks IHDR,pHYs,iTXt,IEND
+cayley-hw-docs-grey.png      ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-hw-grey.png           ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-wide-300dpi.png       ok   colour type 2 (RGB), chunks IHDR,pHYs,iTXt,IEND
+cayley-wide-grey.png         ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+phase-bw-grey.png            ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+phase-grey.png               ok   colour type 0 (grey), chunks IHDR,pHYs,IEND
+cayley-amsart.svg            ok   16 ids, 0 duplicates, 0 nested <svg>, 86 KB
+cayley-bw.svg                ok   16 ids, 0 duplicates, 0 nested <svg>, 59 KB
+cayley-deformation.svg       ok   23 ids, 0 duplicates, 0 nested <svg>, 203 KB
+cayley-hw-docs.svg           ok   57 ids, 0 duplicates, 0 nested <svg>, 85 KB
+cayley-hw.svg                ok   24 ids, 0 duplicates, 0 nested <svg>, 62 KB
+cayley-wide.svg              ok   21 ids, 0 duplicates, 0 nested <svg>, 293 KB
+cayley.svg                   ok   16 ids, 0 duplicates, 0 nested <svg>, 52 KB
+phase-bw.svg                 ok   7 ids, 0 duplicates, 0 nested <svg>, 61 KB
+phase.svg                    ok   16 ids, 0 duplicates, 0 nested <svg>, 548 KB
+cayley-amsart                ok   22 typeset boxes, collisions: none
+cayley                       ok   22 typeset boxes, collisions: none
+cayley-bw                    ok   22 typeset boxes, collisions: none
+cayley-deformation           ok   25 typeset boxes, collisions: none
+cayley-hw                    ok   27 typeset boxes, collisions: none
+cayley-hw-docs               ok   51 typeset boxes, collisions: none
+cayley-wide                  ok   33 typeset boxes, collisions: none
+phase                        ok   16 typeset boxes, collisions: none
+phase-bw                     ok   11 typeset boxes, collisions: none
+
+0 failure(s)

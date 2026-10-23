@@ -1,0 +1,427 @@
+'use strict';
+// i18n.js: the interface language (notes/i18n/DESIGN.md). Loaded first, before cx.js, so every module may call $t().
+// English is the source language and the key: in English $t() returns its argument (after placeholder substitution),
+// and nothing else here runs, so English output stays byte-identical and costs no layout, no fetch and no font load.
+const I18N = (() => {
+  const LANGS = ['en', 'ru'];
+  const PREF = 'cmw-lang';                       // device setting: 'en' | 'ru' (absent = Auto)
+  const CTX = '\u0004';                          // gettext's msgctxt separator: key = ctx + CTX + source
+  const hasWin = typeof window !== 'undefined';
+  const hasOwn = (o, k) => o != null && Object.prototype.hasOwnProperty.call(o, k);
+  const qs = (() => { try { return new URLSearchParams(hasWin ? location.search : ''); } catch (e) { return new URLSearchParams(''); } })();
+  const NS = qs.get('ns') || '';
+  const lsk = (k) => (NS ? `${k}:${NS}` : k);    // the app's lsk(): test tabs (?ns=) keep their own setting
+  // lookup misses are recorded only in a test or debug run (?lang= or ?i18n-debug), and at most MISS_CAP of them
+  const DEBUG = qs.has('lang') || qs.has('i18n-debug');
+  const MISS_CAP = 500;
+
+  // ---------------- the language ----------------
+  // ?lang=en|ru|pseudo (tests and the pseudo-localization run only; the app never writes it into a link), then the
+  // device setting, then English under a test namespace (golden images stay English on a Russian machine), then
+  // the browser's first preferred language.
+  function detect(nav) {
+    const l = String((nav && ((nav.languages && nav.languages[0]) || nav.language)) || '').toLowerCase();
+    return /^ru(-|$)/.test(l) ? 'ru' : 'en';
+  }
+  function resolve({ param, pref, ns, nav }) {
+    if (param === 'en' || param === 'ru' || param === 'pseudo') return param;
+    if (pref === 'en' || pref === 'ru') return pref;
+    if (ns) return 'en';
+    return detect(nav);
+  }
+  let store = null;                               // tests replace localStorage here (I18N._store)
+  const ls = () => store || (hasWin ? window.localStorage : null);
+  function readPref() { try { const v = ls().getItem(lsk(PREF)); return v === 'en' || v === 'ru' ? v : 'auto'; } catch (e) { return 'auto'; } }
+  // true when the setting was written and reads back (storage can be blocked: a private window, a sandboxed frame)
+  function writePref(v) {
+    try {
+      const s = ls();
+      if (v === 'en' || v === 'ru') s.setItem(lsk(PREF), v); else s.removeItem(lsk(PREF));
+      return readPref() === (v === 'en' || v === 'ru' ? v : 'auto') && (v !== 'auto' || s.getItem(lsk(PREF)) === null);
+    } catch (e) { return false; }
+  }
+
+  let lang = resolve({ param: qs.get('lang'), pref: hasWin ? readPref() : 'auto', ns: NS, nav: hasWin ? navigator : null });
+  const tables = Object.create(null);             // lang -> {key: string | {one, few, many, other}}
+  const missing = new Set();
+  const miss = (k) => { if (DEBUG && missing.size < MISS_CAP) missing.add(k); };
+  // a table is a null-prototype object, so a key such as 'constructor' is never an inherited function
+  const own = (tb) => Object.assign(Object.create(null), tb);
+  // the Russian table: a separate file fetched only in Russian (DESIGN.md 9: i18n/ru.json next to the page), or,
+  // in a single-file build, inert JSON in the page (<script type="application/json" id="i18n-ru">)
+  function inline(l) {
+    try { const el = hasWin && document.getElementById('i18n-' + l); if (el) return JSON.parse(el.textContent); } catch (e) { /* bad JSON: English */ }
+    return null;
+  }
+  function table(l) {
+    if (tables[l]) return tables[l];
+    const tb = inline(l);
+    return (tables[l] = own(tb || {}));
+  }
+  function load(l, tb) { tables[l] = own(tb); }
+  // resolves when the interface table is in place; English resolves at once and fetches nothing
+  const TABLE_URL = (l) => `i18n/${l}.json`;
+  const ready = (() => {
+    if (lang === 'en' || lang === 'pseudo' || !hasWin) return Promise.resolve(true);
+    const tb = inline(lang);
+    if (tb) { tables[lang] = own(tb); return Promise.resolve(true); }
+    if (typeof fetch !== 'function') return Promise.resolve(false);
+    return fetch(TABLE_URL(lang)).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) tables[lang] = own(j); return !!j; }).catch(() => false);
+  })();
+
+  // ---------------- placeholders ----------------
+  // %{name} is always a placeholder. {name} is one only in a template without TeX (no $ and no backslash): TeX
+  // writes ^{n}, _{k}, e^{t} as groups, and a parameter with the same name must never fill them. Templates that
+  // contain math therefore write %{name} (DESIGN.md 1). A name is an identifier: {2} or {alpha.re} are never filled.
+  const PH_ANY = /%\{([A-Za-z_][A-Za-z0-9_]*)\}|\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+  const hasTeX = (s) => /[$\\]/.test(s);
+  // calls cb(match, name, at) for every placeholder the template has under this rule
+  function eachPh(s, cb) {
+    const tex = hasTeX(s);
+    s.replace(PH_ANY, (m, safe, plain, at) => { if (safe) cb(m, safe, at); else if (!tex) cb(m, plain, at); return m; });
+  }
+  function fill(s, p) {
+    if (!p) return s;
+    const tex = hasTeX(s);
+    return s.replace(PH_ANY, (m, safe, plain) => {
+      const k = safe || (!tex && plain);
+      return k && hasOwn(p, k) ? String(p[k]) : m;
+    });
+  }
+  // the placeholder names of a template (tests, the extractor check)
+  function names(s) { const out = []; eachPh(String(s), (m, k) => out.push(k)); return out; }
+
+  // ---------------- lookup ----------------
+  let cur = null;                                  // a language set for one synchronous call (I18N.using)
+  const L = () => cur || lang;
+  // PROTOTYPE hook (work/xl/src/i18n_crutch.js): strings the base code builds with values already in them; gone
+  // once every call site passes a template to $t()
+  let fallback = null;
+  // a table value as a string: a plural entry gives its 'other' form
+  const str = (v, src) => (typeof v === 'string' ? v : v && typeof v.other === 'string' ? v.other : src);
+  function look(l, key, src) {
+    if (l === 'en') return src;
+    if (l === 'pseudo') return pseudoOf(src);
+    const tb = table(l);
+    const v = hasOwn(tb, key) ? tb[key] : null;
+    if (v == null) { const f = fallback && fallback(key, l); if (f != null) return f; miss(key); return src; }
+    return v;
+  }
+  function tIn(l, src, params) {
+    if (l === 'en') return params ? fill(src, params) : src;
+    return fill(str(look(l, src, src), src), params);
+  }
+  // context: one English word, two Russian ones ("conformal" as a predicate of a map: "конформно")
+  function txIn(l, ctx, src, params) {
+    if (l === 'en') return params ? fill(src, params) : src;
+    return fill(str(look(l, ctx + CTX + src, src), src), params);
+  }
+  // plurals: tn('{n} shape', '{n} shapes', n). The key is one + CTX + many (gettext's msgid + msgid_plural), so two
+  // pairs that share a singular never collide. English picks by Intl's 'one'; Russian entries are
+  // {one, few, many, other} (1 фигура, 2 фигуры, 5 фигур, 1,5 фигуры) chosen by Intl.PluralRules('ru'). Every Russian
+  // form carries the count: 'one' also covers 21, 31 and 101. A sentence meant for exactly 1 is an n === 1 branch in
+  // the code, not a plural form.
+  const PR = {};
+  const rule = (l) => PR[l] || (PR[l] = new Intl.PluralRules(l === 'pseudo' ? 'ru' : l));
+  const pluralKey = (one, many) => one + CTX + many;
+  function tnIn(l, one, many, n, params) {
+    const p = Object.assign({ n: numIn(l, n) }, params);
+    const en = rule('en').select(n) === 'one' ? one : many;
+    if (l === 'en') return fill(en, p);
+    if (l === 'pseudo') return fill(pseudoOf(en), p);
+    const tb = table(l), key = pluralKey(one, many);
+    const v = hasOwn(tb, key) ? tb[key] : null;
+    if (v == null) { miss(key); return fill(en, p); }
+    if (typeof v === 'string') return fill(v, p);
+    return fill(v[rule(l).select(n)] || v.other, p);
+  }
+  // a sentence whose slots hold structured values (caption segments, DOM nodes): the translated template split into
+  // [text, value, text, ...], so word order follows the language and the values keep their type
+  function partsIn(l, src, params, ctx) {
+    const s = l === 'en' ? src : str(ctx ? look(l, ctx + CTX + src, src) : look(l, src, src), src);
+    const out = [];
+    let last = 0;
+    eachPh(s, (m, k, at) => {
+      if (!hasOwn(params, k)) return;
+      if (at > last) out.push(s.slice(last, at));
+      out.push(params[k]);
+      last = at + m.length;
+    });
+    if (last < s.length) out.push(s.slice(last));
+    return out;
+  }
+
+  // ---------------- numbers, lists, quotes ----------------
+  // GLOSSARY.md decision 5, two switches. On screen (readouts, ticks, text): a decimal comma in Russian. In print
+  // (captions, LaTeX): a decimal comma in Russian. Input fields and what a readout copies keep the point (the formula
+  // language's; a comma separates conditions there). With the comma on screen, a list of numbers is joined by '; '.
+  const DECIMAL_COMMA = true;                      // screen
+  const DECIMAL_COMMA_PRINT = true;                // captions and LaTeX
+  const numIn = (l, n) => (l === 'ru' && DECIMAL_COMMA ? String(n).replace('.', ',') : String(n));
+  const numsIn = (l, list) => list.map((x) => numIn(l, x)).join(l === 'ru' && DECIMAL_COMMA ? '; ' : ', ');
+  // TeX numbers are formatted where they are made, never by a regex over finished TeX (a snippet holds dimensions
+  // such as \ifdim\linewidth<469.75pt). texNum(0.5) -> 0{,}5 in Russian: the braces stop TeX's punctuation space.
+  // A value that is not a plain number (\pi, -\pi/2, a TeX string) passes through.
+  const NUM = /^[-−+]?(\d+\.?\d*|\.\d+)$/;
+  function texNumIn(l, x) {
+    const s = typeof x === 'number' ? String(x) : String(x);
+    if (!NUM.test(s)) return s;
+    return l === 'ru' && DECIMAL_COMMA_PRINT ? s.replace('.', '{,}') : s;
+  }
+  const fractional = (x) => NUM.test(String(x)) && /\./.test(String(x));
+  // the separator inside a bracket pair (GLOSSARY 2.3): in Russian a semicolon only when an endpoint is a decimal,
+  // [0{,}5;\,1]; otherwise the comma, as in Russian books: [-1, 1], (-\pi, \pi]
+  const texSepIn = (l, vals) => (l === 'ru' && DECIMAL_COMMA_PRINT && vals.some(fractional) ? ';\\,' : ',');
+  // an interval or a point: texInterval(-1, 1) -> [-1,1]; texInterval(0.5, 1) -> [0{,}5;\,1] in Russian
+  function texIntervalIn(l, a, b, br = '[]') { return br[0] + texNumIn(l, a) + texSepIn(l, [a, b]) + texNumIn(l, b) + br[1]; }
+  // "a, b and c" (en: serial comma as the app writes it) / "a, b и c"
+  function listIn(l, items, conj = 'and') {
+    const w = l === 'en' ? conj : tIn(l, conj);
+    if (items.length < 2) return items.join('');
+    if (items.length === 2) return `${items[0]} ${w} ${items[1]}`;
+    return `${items.slice(0, -1).join(', ')}${l === 'en' ? ',' : ''} ${w} ${items[items.length - 1]}`;
+  }
+  const quoteIn = (l, s) => (l === 'ru' ? `«${s}»` : `“${s}”`);
+  // Russian caption typography (GLOSSARY 3.6): a no-break space after a one-letter word, before an em dash, and
+  // between «Рис.» and its number. Text only: math and placeholders are not touched. English is unchanged.
+  const NB = ' ';
+  function nbspIn(l, s) {
+    if (l !== 'ru' || !s) return s;
+    return String(s)
+      .replace(/(^|[\s («„])([вксоуиаВКСОУИА]) +/g, `$1$2${NB}`)
+      .replace(/ +(—|---)/g, `${NB}$1`)
+      .replace(/(Рис\.|рис\.|№) *(?=\d)/g, `$1${NB}`);
+  }
+  // U+00A0 in a LaTeX caption is ~
+  const nbspTeX = (s) => String(s).replace(/ /g, '~');
+  // a PDF text string (the info dictionary: Title, Subject) that is not plain ASCII: UTF-16BE with a BOM, as a
+  // byte string (review i18n-21). jsPDF's setDocumentProperties takes PDFDocEncoding, which has no Cyrillic.
+  function pdfText(s) {
+    s = String(s);
+    if (/^[\x20-\x7e]*$/.test(s)) return s;
+    let out = '\xfe\xff';
+    for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); out += String.fromCharCode(c >> 8, c & 255); }
+    return out;
+  }
+
+  // ---------------- Russian mathematical notation ----------------
+  // the generators (parse.js FNTEX, funcs.js menuTex, captions) stay in the English notation; this one function
+  // rewrites TeX at the display and export boundary. \operatorname{tg} needs only amsmath (babel-russian's \tg is
+  // the same operator, but it has no \arsh, \arch, \arth, and it redefines \th): see DESIGN.md 6
+  const RU_TEX = [
+    ['tanh', 'th'], ['coth', 'cth'], ['sinh', 'sh'], ['cosh', 'ch'], ['tan', 'tg'], ['cot', 'ctg'], ['csc', 'cosec'],
+    ['arctan', 'arctg'], ['log', 'ln'],
+  ];
+  // Res stays Res in Russian (GLOSSARY 1.4, review i18n-8): not in these maps
+  const RU_OP = { arsinh: 'arsh', arcosh: 'arch', artanh: 'arth', arcoth: 'arcth', arccot: 'arcctg', arcsinh: 'arsh', arccosh: 'arch', arctanh: 'arth', arccoth: 'arcth' };
+  const RU_OP_RE = new RegExp(`\\\\operatorname\\{(${Object.keys(RU_OP).join('|')})\\}`, 'g');
+  // opts.multi: the formula means the multivalued function (all sheets): \log -> Ln, \arg -> Arg in Russian. The
+  // English source marks such a call site with notation(tex, lang, {multi: true}) (DESIGN.md 6); English is unchanged.
+  function notationIn(l, tex, opts) {
+    if (l !== 'ru' || !tex) return tex;
+    let s = tex;
+    const multi = !!(opts && opts.multi);
+    // whole commands only; \log_2 (a base) stays \log: only the natural logarithm becomes \ln (or Ln)
+    for (const [en, ru] of RU_TEX) {
+      const re = new RegExp(`\\\\${en}(?![A-Za-z${en === 'log' ? '_' : ''}])`, 'g');
+      s = s.replace(re, ru === 'ln' ? (multi ? '\\operatorname{Ln}' : '\\ln') : `\\operatorname{${ru}}`);
+    }
+    if (multi) s = s.replace(/\\arg(?![A-Za-z])/g, '\\operatorname{Arg}');
+    s = s.replace(RU_OP_RE, (m, k) => `\\operatorname{${RU_OP[k]}}`);
+    return s;
+  }
+  // plain-text function names (readouts, the palette, aria labels): sinh z -> sh z
+  const RU_PLAIN = { tan: 'tg', cot: 'ctg', sinh: 'sh', cosh: 'ch', tanh: 'th', coth: 'cth', csc: 'cosec', arctan: 'arctg', atan: 'arctg', arsinh: 'arsh', asinh: 'arsh', arcosh: 'arch', acosh: 'arch', artanh: 'arth', atanh: 'arth', arcoth: 'arcth', acoth: 'arcth', arccot: 'arcctg', acot: 'arcctg', log: 'ln' };
+  const fnNameIn = (l, en) => (l === 'ru' && hasOwn(RU_PLAIN, en) ? RU_PLAIN[en] : en);
+
+  // one language, fixed: the figure build stores its caption language (fig.lang) and calls I18N.at(fig.lang)
+  // across its awaits (MathJax, the CMU tables), so nothing after an await falls back to the interface language
+  function at(l) {
+    return {
+      lang: l,
+      t: (s, p) => tIn(l, s, p), tx: (c, s, p) => txIn(l, c, s, p), tn: (one, many, n, p) => tnIn(l, one, many, n, p),
+      parts: (s, p, c) => partsIn(l, s, p, c), num: (n) => numIn(l, n), nums: (a) => numsIn(l, a),
+      texNum: (x) => texNumIn(l, x), texSep: (v) => texSepIn(l, v), texInterval: (a, b, br) => texIntervalIn(l, a, b, br),
+      list: (a, c) => listIn(l, a, c), quote: (s) => quoteIn(l, s), nbsp: (s) => nbspIn(l, s),
+      notation: (tex, o) => notationIn(l, tex, o), fnName: (n) => fnNameIn(l, n),
+    };
+  }
+  // set the language for one synchronous call; async code (the figure build) uses at(lang) instead
+  function using(l, fn) { const prev = cur; cur = l; try { return fn(); } finally { cur = prev; } }
+
+  // ---------------- keys ----------------
+  // letter shortcuts work on any layout: e.key when it is ASCII (QWERTY, AZERTY, QWERTZ keep their own letters),
+  // else the US character of the physical key (e.code): ЙЦУКЕН's Я is Z, Х is [ and Ъ is ]
+  const CODE_PUNCT = { BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backquote: '`', Backslash: '\\', Minus: '-', Equal: '=' };
+  function keyOf(e) {
+    const k = (e && e.key) || '';
+    if (k.length !== 1 || /^[\x20-\x7e]$/.test(k)) return k;
+    const c = (e && e.code) || '';
+    const m = /^Key([A-Z])$/.exec(c);
+    if (m) return e.shiftKey ? m[1] : m[1].toLowerCase();
+    if (CODE_PUNCT[c] && !e.shiftKey) return CODE_PUNCT[c];
+    return k;
+  }
+  // the palette key '/': on ЙЦУКЕН-PC the key printed '/' types '.', and '.' is no shortcut, so that key opens the
+  // palette too. Only that combination: QWERTZ's '-' on the same key keeps its meaning.
+  const isPaletteSlash = (e) => !!e && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key === '/' || (e.key === '.' && e.code === 'Slash'));
+
+  // ---------------- static markup ----------------
+  // page.html stays English. In another language a walker translates it once at startup: text nodes, and the
+  // attributes below. "Label  K" (two spaces, then a key) translates the label and keeps the key. data-i18n="no"
+  // skips an element (the wordmark, kbd); data-i18n="html" translates the element's inner HTML as one key, for
+  // sentences with inline math ("Key in the <i>w</i>-plane").
+  // aria-description and data-desc carry the tool descriptions (found in the review's browser run)
+  const ATTRS = ['title', 'aria-label', 'placeholder', 'data-tip', 'aria-roledescription', 'alt', 'aria-description', 'data-desc'];
+  const SKIP = new Set(['SCRIPT', 'STYLE', 'svg', 'SVG', 'CANVAS', 'KBD', 'TEXTAREA', 'MJX-CONTAINER']);
+  const hasWords = (s) => /[A-Za-z]{2,}/.test(s);
+  function tAttr(v) {
+    const i = v.indexOf('  ');
+    return i > 0 ? t(v.slice(0, i)) + v.slice(i) : t(v);
+  }
+  function applyStatic(root) {
+    if (L() === 'en' || !root) return 0;
+    let n = 0;
+    const walk = (el) => {
+      if (SKIP.has(el.tagName) || el.closest && el.matches('[data-i18n="no"], .kbd, i, var, .math, .mono')) return;
+      for (const a of ATTRS) { const v = el.getAttribute && el.getAttribute(a); if (v && hasWords(v)) { el.setAttribute(a, tAttr(v)); n++; } }
+      if (el.dataset && el.dataset.i18n === 'html') { el.innerHTML = t(el.innerHTML.trim()); n++; return; }
+      for (const c of [...el.childNodes]) {
+        if (c.nodeType === 3) {
+          const s = c.data, k = s.trim();
+          if (k && hasWords(k)) { c.data = s.replace(k, t(k)); n++; }
+        } else if (c.nodeType === 1) walk(c);
+      }
+    };
+    walk(root);
+    return n;
+  }
+  // pseudo-localization (?lang=pseudo): Russian lengthens short labels most (Hide -> Скрыть, Fit view -> Вписать в
+  // окно), so the padding grows as the string shrinks: +100 % up to 5 letters, +60 % up to 20, +35 % beyond.
+  // Cyrillic, markers kept readable; placeholders, TeX commands, tags and entities untouched
+  const PAD = 'ЖщЫюЁфЭъяШ';
+  const MAP = { a: 'а', e: 'е', o: 'о', p: 'р', c: 'с', x: 'х', y: 'у', A: 'А', B: 'В', E: 'Е', H: 'Н', K: 'К', M: 'М', O: 'О', P: 'Р', C: 'С', T: 'Т', X: 'Х' };
+  const growth = (letters) => (letters <= 5 ? 1 : letters <= 20 ? 0.6 : 0.35);
+  function pseudoOf(s) {
+    if (!s || !hasWords(s)) return s;
+    let letters = 0;
+    const body = s.replace(/(<[^>]*>|&[a-z#0-9]+;|%?\{[A-Za-z_]\w*\}|\\[A-Za-z]+|\$[^$]*\$)|([A-Za-z])/g, (m, keep, ch) => {
+      if (keep) return keep;
+      letters++;
+      return MAP[ch] || ch;
+    });
+    const pad = Math.max(1, Math.round(letters * growth(letters)));
+    let p = '';
+    for (let i = 0; i < pad; i++) p += PAD[i % PAD.length];
+    return body.replace(/(\s*)$/, `·${p}$1`);
+  }
+
+  // the pseudo run also lengthens text the app sets later (textContent, innerHTML, setAttribute) and canvas text
+  // (fillText and measureText, so the legend and plot labels are measured too), so the screenshots show every
+  // string that is not yet a $t() call; never used in a real language
+  const SKIP_SEL = 'style, script, template, i, var, .math, .mono, .kbd, kbd, svg, canvas, textarea, mjx-container, [data-i18n="no"], .tex-fallback';
+  function observePseudo(root) {
+    if (!hasWin || L() !== 'pseudo') return;
+    const done = (s) => s.includes('·Ж');
+    const P2 = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+    if (P2 && !P2.__pseudo) {
+      const ps = (s) => (typeof s === 'string' && hasWords(s) && !done(s) ? pseudoOf(s) : s);
+      const ft = P2.fillText, mt = P2.measureText, st = P2.strokeText;
+      P2.fillText = function (s, ...a) { return ft.call(this, ps(s), ...a); };
+      P2.strokeText = function (s, ...a) { return st.call(this, ps(s), ...a); };
+      P2.measureText = function (s) { return mt.call(this, ps(s)); };
+      P2.__pseudo = true;
+    }
+    const fixText = (n) => {
+      const p = n.parentElement;
+      if (!p || p.closest(SKIP_SEL) || done(n.data) || !hasWords(n.data)) return;
+      const k = n.data.trim();
+      n.data = n.data.replace(k, pseudoOf(k));
+    };
+    const fixEl = (el) => {
+      if (el.closest(SKIP_SEL)) return;
+      for (const a of ATTRS) { const v = el.getAttribute(a); if (v && hasWords(v) && !done(v)) el.setAttribute(a, tAttr(v)); }
+      const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let n = tw.nextNode(); n; n = tw.nextNode()) fixText(n);
+      for (const c of el.querySelectorAll('[title],[aria-label],[data-tip],[placeholder]')) if (!c.closest(SKIP_SEL)) for (const a of ATTRS) { const v = c.getAttribute(a); if (v && hasWords(v) && !done(v)) c.setAttribute(a, tAttr(v)); }
+    };
+    fixEl(root);
+    new MutationObserver((ms) => {
+      for (const m of ms) {
+        if (m.type === 'characterData') fixText(m.target);
+        else if (m.type === 'attributes') { const v = m.target.getAttribute(m.attributeName); if (v && hasWords(v) && !done(v) && !m.target.closest(SKIP_SEL)) m.target.setAttribute(m.attributeName, tAttr(v)); }
+        else for (const n of m.addedNodes) { if (n.nodeType === 3) fixText(n); else if (n.nodeType === 1) fixEl(n); }
+      }
+    }).observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  }
+
+  // ---------------- the page in another language ----------------
+  // Russian sets <html lang>, the token override in page.html (:root[data-lang="ru"]), and loads the Cyrillic
+  // faces' stylesheet. English does none of this (it does not even touch <html lang>).
+  const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
+  const FACES = ['500 12px "Roboto Flex"', '600 13px "Roboto Flex"', '400 11px "JetBrains Mono"'];
+  let fontsHook = null;
+  // the app's redraw for canvas text (rulers, legend, plot labels): canvas text does not trigger a font load, and
+  // the @font-face rules exist only once the stylesheet has loaded
+  function onFonts(fn) { fontsHook = fn; }
+  function applyPage() {
+    if (!hasWin) return;
+    const l = L() === 'pseudo' ? 'ru' : L();
+    if (l === 'en') return;
+    document.documentElement.lang = l;
+    document.documentElement.dataset.lang = l;
+    if (document.getElementById('i18n-fonts')) return;
+    const ln = document.createElement('link');
+    ln.id = 'i18n-fonts'; ln.rel = 'stylesheet'; ln.href = FONT_CSS;
+    const fire = () => { try { if (fontsHook) fontsHook(); } catch (e) { /* a redraw error must not stop the page */ } };
+    ln.addEventListener('load', () => {
+      if (!document.fonts || !document.fonts.load) { fire(); return; }
+      Promise.all(FACES.map((f) => document.fonts.load(f, 'Жж').catch(() => []))).then(fire);
+    });
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', fire);
+    document.head.append(ln);
+  }
+
+  // ---------------- switching ----------------
+  // the app is built once with its strings; switching saves, keeps the session's undo history in sessionStorage
+  // (app.js: I18N.onSwitch), and reloads; the saved work and view come back as they were. The reload happens only
+  // when the setting and the work were both written and read back: with blocked storage it would lose the work and
+  // not even change the language, so the app shows a note instead (fail hook) and nothing reloads.
+  let beforeSwitch = null, switchFailed = null;
+  function onSwitch(save, fail) { beforeSwitch = save; switchFailed = fail || null; }
+  function setPref(v) {
+    const prev = readPref();
+    const next = v === 'auto' ? resolve({ param: null, pref: 'auto', ns: NS, nav: hasWin ? navigator : null }) : v;
+    if (next === lang) { writePref(v); return { ok: true, reload: false }; }
+    let saved = true;
+    if (!writePref(v)) saved = false;
+    else { try { if (beforeSwitch && beforeSwitch() === false) saved = false; } catch (e) { saved = false; } }
+    if (!saved) {
+      writePref(prev);
+      try { if (switchFailed) switchFailed('storage'); } catch (e) { /* the note is optional */ }
+      return { ok: false, reload: false, reason: 'storage' };
+    }
+    if (hasWin && !store) location.reload();
+    return { ok: true, reload: true };
+  }
+
+  const t = (s, p) => tIn(L(), s, p);
+  const api = {
+    get lang() { return L(); }, get uiLang() { return lang; }, LANGS, NS, DECIMAL_COMMA, DECIMAL_COMMA_PRINT, CTX, ready,
+    t, tx: (c, s, p) => txIn(L(), c, s, p), tn: (one, many, n, p) => tnIn(L(), one, many, n, p),
+    parts: (s, p, c) => partsIn(L(), s, p, c), using, at, fill, names, pluralKey,
+    list: (a, c) => listIn(L(), a, c), quote: (s) => quoteIn(L(), s), num: (n) => numIn(L(), n), nums: (a) => numsIn(L(), a),
+    texNum: (x, l = L()) => texNumIn(l, x), texSep: (v, l = L()) => texSepIn(l, v), texInterval: (a, b, br, l = L()) => texIntervalIn(l, a, b, br),
+    nbsp: (s, l = L()) => nbspIn(l, s), nbspTeX, pdfText,
+    notation: (tex, l = L(), o) => notationIn(l, tex, o), fnName: (n, l = L()) => fnNameIn(l, n), keyOf, isPaletteSlash,
+    applyStatic, applyPage, onFonts, observePseudo, pseudoOf, readPref, setPref, onSwitch, load, missing,
+    setFallback(fn) { fallback = fn; }, _table: table,
+    _resolve: resolve, _detect: detect, _setLang(l) { lang = l; }, _store(s) { store = s; }, _debug: DEBUG,
+  };
+  return api;
+})();
+// short global names: t is the homotopy time all over app.js, so the gettext call is $t (Vue's name). Set on
+// globalThis too, so node tests that load parse.js or funcs.js after this file see them (DESIGN.md 10)
+const $t = I18N.t, $tx = I18N.tx, $tn = I18N.tn;
+if (typeof globalThis !== 'undefined') Object.assign(globalThis, { I18N, $t, $tx, $tn });
+if (typeof module !== 'undefined') module.exports = I18N;

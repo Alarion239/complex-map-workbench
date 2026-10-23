@@ -1,0 +1,265 @@
+{
+  "_about": "Export round 3 (notes/export-design/ROUND3.md): the deformation in every view, the format row (PDF, PNG, SVG, Video), the PNG and SVG snippets, the display-style F, the video. id -> {en, ru, ctx?, note}. Russian follows notes/i18n/GLOSSARY.md (кадр, раскадровка, деформация, сфера Римана). Read by tools/make_ru_table.py (v15-*.json).",
+  "v15x.where": {
+    "en": ", where",
+    "ru": ", где",
+    "note": "figure.js displayF: F named in the caption, its formula displayed after this word (\\[ \\displaystyle F(z)=... \\])."
+  },
+  "v15x.here_hom": {
+    "en": " Here $H_t$ deforms the identity ($t=0$) into %{map} ($t=%{m}$) along %{hom}.",
+    "ru": " Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{m}$); это %{hom}.",
+    "note": "Film captions of Phase, Landscape and the phase sphere; worded as the one-frame caption."
+  },
+  "v15x.globe_paths": {
+    "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole: the image of %{list} under %{map} ($t=%{m}$) over its boundary at $t=0$ (gray).",
+    "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс): образ %{list} при отображении %{map} ($t=%{m}$) поверх его границы при $t=0$ (серая линия).",
+    "note": "The paths figure on the globe. %{list}: the shapes in the genitive."
+  },
+  "v15x.globe_arrows": {
+    "en": " Arrows are the paths $t\\mapsto H_t(z)$ of %{n} points, from $z$ (dot) to $%{F}(z)$.",
+    "ru": " Стрелки — пути $t\\mapsto H_t(z)$ выбранных точек (их %{n}): от $z$ (точка) до $%{F}(z)$.",
+    "note": "Paths figure on the globe; worded without a case after the number."
+  },
+  "v15x.globe_film": {
+    "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$), at %{ts}: the image of %{list} under $H_t$.",
+    "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) от тождественного отображения ($t=0$) до %{map} ($t=%{m}$) при %{ts}: образ %{list} при отображении $H_t$.",
+    "note": "Filmstrip on the globe."
+  },
+  "v15x.globe_solid": {
+    "en": " Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.",
+    "ru": " Сплошные линии — пути $t\\mapsto H_t(z)$ отмеченных точек до значения $t$ в кадре; точечные — оставшаяся часть каждого пути; серая — граница при $t=0$.",
+    "note": "As the plane's filmstrip sentence."
+  },
+  "v15x.globe_gray": {
+    "en": " Gray: the boundary at $t=0$.",
+    "ru": " Серая линия — граница при $t=0$.",
+    "note": ""
+  },
+  "v15x.phase_globe_film": {
+    "en": "Phase portraits of $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, at %{ts}: the color shows $\\arg H_t$ (key at right).",
+    "ru": "Фазовые портреты $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) при %{ts}: цвет показывает $\\arg H_t$ (шкала справа).",
+    "note": ""
+  },
+  "v15x.land_film": {
+    "en": "Landscapes of $H_t$%{over} at %{ts}: the height is $%{ht}$",
+    "ru": "Рельефы $H_t$%{over} при %{ts}: высота равна $%{ht}$",
+    "note": "%{over}: ' over [a,b]x[c,d]' (' над ...')."
+  },
+  "v15x.phase_film": {
+    "en": "Phase portraits of $H_t$ on $%{box}$ at %{ts}",
+    "ru": "Фазовые портреты $H_t$ на $%{box}$ при %{ts}",
+    "note": ""
+  },
+  "v15x.zp_marks": {
+    "en": " Zeros are dots and poles are open circles.",
+    "ru": " Нули отмечены точками, полюсы — кружками.",
+    "note": ""
+  },
+  "v15x.pre_svg": {
+    "en": "% Preamble: \\usepackage{graphicx,amsmath,amssymb,svg%{more}} (svg runs Inkscape: compile with --shell-escape; Overleaf does both)",
+    "ru": "% Преамбула (pdfLaTeX): \\usepackage[T2A]{fontenc}\\usepackage[russian]{babel}\\usepackage{graphicx,amsmath,amssymb,svg%{more}} (пакет svg вызывает Inkscape: компилируйте с --shell-escape; Overleaf делает это сам); в XeLaTeX и LuaLaTeX вместо fontenc — \\usepackage{fontspec}\\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf]",
+    "note": "The SVG snippet's preamble line; Russian adds the Cyrillic preamble as the other snippets do."
+  },
+  "v15x.pre": {
+    "en": "% Preamble: \\usepackage{graphicx,amsmath,amssymb%{more}}",
+    "ru": "% Преамбула (pdfLaTeX): \\usepackage[T2A]{fontenc}\\usepackage[russian]{babel}\\usepackage{graphicx,amsmath,amssymb%{more}}; в XeLaTeX и LuaLaTeX вместо fontenc — \\usepackage{fontspec}\\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf]",
+    "note": "Same text as the older '% Preamble: ...,float}' line when %{more} is ',float'."
+  },
+  "v15x.upload_png": {
+    "en": "% Upload %{file} (PNG, %{dpi} dpi) next to your .tex file (Overleaf: the file tree).",
+    "ru": "% Загрузите %{file} (PNG, %{dpi} dpi) в папку с .tex-файлом (в Overleaf — в дерево файлов).",
+    "note": ""
+  },
+  "v15x.upload": {
+    "en": "% Upload %{file} next to your .tex file (Overleaf: the file tree).",
+    "ru": "% Загрузите %{file} в папку с .tex-файлом (в Overleaf — в дерево файлов).",
+    "note": ""
+  },
+  "v15x.one_frame": {
+    "en": "One frame",
+    "ru": "Один кадр",
+    "note": "Deformation row: the frame at the current t."
+  },
+  "v15x.video": {
+    "en": "Video",
+    "ru": "Видео",
+    "note": "Format row and the video panel's heading."
+  },
+  "v15x.resolution": {
+    "en": "Resolution",
+    "ru": "Разрешение",
+    "note": "aria-label of the PNG dpi menu."
+  },
+  "v15x.format": {
+    "en": "Format",
+    "ru": "Формат",
+    "note": ""
+  },
+  "v15x.latex_snippet": {
+    "en": "LaTeX snippet",
+    "ru": "Фрагмент LaTeX",
+    "note": "aria-label of the code box."
+  },
+  "v15x.copy_latex": {
+    "en": "Copy LaTeX",
+    "ru": "Скопировать LaTeX",
+    "note": ""
+  },
+  "v15x.length": {
+    "en": "Length",
+    "ru": "Длительность",
+    "note": "aria-label of the video length menu."
+  },
+  "v15x.secs": {
+    "en": "{v} s",
+    "ru": "%{v} с",
+    "note": ""
+  },
+  "v15x.video_size": {
+    "en": "Video size",
+    "ru": "Размер видео",
+    "note": ""
+  },
+  "v15x.speed": {
+    "en": "Speed",
+    "ru": "Скорость",
+    "note": "Video row: frame rate and length."
+  },
+  "v15x.frame_rate": {
+    "en": "Frame rate",
+    "ru": "Частота кадров",
+    "note": ""
+  },
+  "v15x.ends": {
+    "en": "Ends",
+    "ru": "Повтор",
+    "note": "Video row: Once | Loop | Bounce."
+  },
+  "v15x.once": {
+    "en": "Once",
+    "ru": "Один раз",
+    "note": ""
+  },
+  "v15x.loop": {
+    "en": "Loop",
+    "ru": "Цикл",
+    "note": "Three runs from t = 0 to the end (a short word: three choices share 210 px)."
+  },
+  "v15x.bounce": {
+    "en": "Bounce",
+    "ru": "Маятник",
+    "note": "Back and forth (a short word: three choices share 210 px)."
+  },
+  "v15x.look": {
+    "en": "Look",
+    "ru": "Вид",
+    "note": ""
+  },
+  "v15x.light": {
+    "en": "Light",
+    "ru": "Как на экране",
+    "note": "Video look (ctx 'video look'): the screen's light theme.",
+    "ctx": "video look"
+  },
+  "v15x.print": {
+    "en": "Print",
+    "ru": "Для печати",
+    "note": "Video look (ctx 'video look'): the print tones on white.",
+    "ctx": "video look"
+  },
+  "v15x.tlabel": {
+    "en": "t label",
+    "ru": "Подпись t",
+    "note": ""
+  },
+  "v15x.save_video": {
+    "en": "Save video",
+    "ru": "Сохранить видео",
+    "note": ""
+  },
+  "v15x.cancel": {
+    "en": "Cancel",
+    "ru": "Отмена",
+    "note": ""
+  },
+  "v15x.making_video": {
+    "en": "Making the video",
+    "ru": "Создание видео",
+    "note": "aria-label of the progress bar."
+  },
+  "v15x.poster_alt": {
+    "en": "A frame of the video",
+    "ru": "Кадр видео",
+    "note": ""
+  },
+  "v15x.poster_hint": {
+    "en": "{w} × {h} · {fps} fps · {secs} s · this frame: t = {t}",
+    "ru": "%{w} × %{h} · %{fps} к/с · %{secs} с · этот кадр: t = %{t}",
+    "note": ""
+  },
+  "v15x.svg_note": {
+    "en": "SVG in LaTeX needs the svg package and Inkscape (Overleaf has both). Google Docs cannot place SVG: use PNG there.",
+    "ru": "Для SVG в LaTeX нужны пакет svg и Inkscape (в Overleaf есть оба). Google Документы не вставляют SVG: там используйте PNG.",
+    "note": ""
+  },
+  "v15x.png_note": {
+    "en": "PNG at {dpi} dpi: the snippet sets its printed width.",
+    "ru": "PNG с разрешением %{dpi} dpi: фрагмент задаёт его ширину при печати.",
+    "note": ""
+  },
+  "v15x.pdf_note": {
+    "en": "PDF: vector, no fonts, printed at its natural size.",
+    "ru": "PDF: векторный, без шрифтов, печатается в натуральную величину.",
+    "note": ""
+  },
+  "v15x.making_file": {
+    "en": "Making the file…",
+    "ru": "Создание файла…",
+    "note": ""
+  },
+  "v15x.preparing": {
+    "en": "Preparing…",
+    "ru": "Подготовка…",
+    "note": ""
+  },
+  "v15x.frame_of": {
+    "en": "Frame {i} of {n}",
+    "ru": "Кадр %{i} из %{n}",
+    "note": ""
+  },
+  "v15x.cancelled": {
+    "en": "The video was cancelled.",
+    "ru": "Создание видео отменено.",
+    "note": ""
+  },
+  "v15x.saving": {
+    "en": "Saving…",
+    "ru": "Сохранение…",
+    "note": ""
+  },
+  "v15x.saved": {
+    "en": "✓ Saved",
+    "ru": "✓ Сохранено",
+    "note": ""
+  },
+  "v15x.video_done": {
+    "en": "{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).",
+    "ru": "%{w} × %{h}, %{fps} к/с, %{secs} с, %{codec} (%{ext}).",
+    "note": ""
+  },
+  "v15x.no_webcodecs": {
+    "en": "This browser cannot encode video. Try a recent Chrome, Edge or Safari.",
+    "ru": "Этот браузер не умеет кодировать видео. Попробуйте свежую версию Chrome, Edge или Safari.",
+    "note": ""
+  },
+  "v15x.video_failed": {
+    "en": "The video could not be made here.",
+    "ru": "Здесь не удалось создать видео.",
+    "note": ""
+  },
+  "v15x.the_map_is": {
+    "en": " The map is",
+    "ru": " Отображение задаётся формулой",
+    "note": "figure.js displayF: a caption whose sentence naming F is long ends with F's displayed formula after these words."
+  }
+}

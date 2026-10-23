@@ -1,0 +1,248 @@
+{
+  "_about": "v15 desktop and tablet redesign (notes/ui-redesign-2/desktop/DESIGN.md; build notes notes/ui-redesign-2/build/desktop.md): the chain's cards, the F tile, the Inspector, the temporary Inspector, the header. id -> {en, ru, plural?, en_plural?, ctx?, note}. Russian follows notes/i18n/GLOSSARY.md. Read by tools/make_ru_table.py (v15-*.json, like phase2b*.json).",
+  "v15d.pictures": {
+    "en": "Pictures",
+    "ru": "Картинки",
+    "note": "page.html: the chain head's switch Pictures | Names (the cards show a picture or their name only)."
+  },
+  "v15d.names": {
+    "en": "Names",
+    "ru": "Названия",
+    "note": "page.html: the chain head's switch Pictures | Names."
+  },
+  "v15d.cards_show": {
+    "en": "Cards show",
+    "ru": "На карточках",
+    "note": "page.html: aria-label of the Pictures | Names switch."
+  },
+  "v15d.inspector": {
+    "en": "Inspector",
+    "ru": "Инспектор",
+    "note": "page.html: the right panel (was Guarantees), its rail label. The panel edits the selected step, F or the region."
+  },
+  "v15d.show_inspector_key": {
+    "en": "Show the Inspector  ]",
+    "ru": "Показать инспектор  ]",
+    "note": "page.html: the right rail's open button (tooltip with its key)."
+  },
+  "v15d.show_inspector": {
+    "en": "Show the Inspector",
+    "ru": "Показать инспектор",
+    "note": "page.html: aria-label of the right rail's open button."
+  },
+  "v15d.inspector_key": {
+    "en": "Inspector  ]",
+    "ru": "Инспектор  ]",
+    "note": "page.html: tooltip of the header's right panel toggle."
+  },
+  "v15d.show_hide_inspector": {
+    "en": "Show or hide the Inspector",
+    "ru": "Показать или скрыть инспектор",
+    "note": "page.html: aria-label of the header's right panel toggle."
+  },
+  "v15d.inspector_panel": {
+    "en": "Inspector panel",
+    "ru": "Панель инспектора",
+    "note": "page.html (the More menu below 1024 px) and the command palette: shows or hides the right panel (was Guarantees panel)."
+  },
+  "v15d.close_editor": {
+    "en": "Close the editor",
+    "ru": "Закрыть редактор",
+    "note": "inspector.js: the × of the temporary Inspector (the panel hidden, the editor over the stage's right edge)."
+  },
+  "v15d.editor_hidden": {
+    "en": "Editor (the panel is hidden)",
+    "ru": "Редактор (панель скрыта)",
+    "note": "inspector.js: the title bar of the temporary Inspector."
+  },
+  "v15d.editor": {
+    "en": "Editor",
+    "ru": "Редактор",
+    "note": "app.js: aria-label of the temporary Inspector (a dialog)."
+  },
+  "v15d.selection": {
+    "en": "Selection",
+    "ru": "Выбранное",
+    "note": "inspector.js: aria-label of the Inspector's upper section (the selected step, F or the region)."
+  },
+  "v15d.parameters": {
+    "en": "Parameters",
+    "ru": "Параметры",
+    "note": "inspector.js: the Inspector's lower section, where the shared numbers live (glossary: parameters = параметры)."
+  },
+  "v15d.zp_hint": {
+    "en": "Or right-click a plane. Marks snap to the ruler (Alt: free).",
+    "ru": "Или щёлкните правой кнопкой по плоскости. Метки привязываются к линейке (Alt — свободно).",
+    "note": "inspector.js: under Add zero / Add pole."
+  },
+  "v15d.add_zero": {
+    "en": "Add zero",
+    "ctx": "zp",
+    "ru": "Нуль",
+    "note": "inspector.js: the big button of a zeros-and-poles step (36 px; DESIGN.md 2.4: «Нуль» / «Полюс» with their marks at 264 px). The aria-label keeps the full phrase."
+  },
+  "v15d.add_pole": {
+    "en": "Add pole",
+    "ctx": "zp",
+    "ru": "Полюс",
+    "note": "inspector.js: the big button of a zeros-and-poles step (see Add zero)."
+  },
+  "v15d.more_tip": {
+    "en": "Inverse, bypass, move, duplicate, presets, remove",
+    "ru": "Обратная, отключить, сдвинуть, дублировать, готовые варианты, удалить",
+    "note": "inspector.js: tooltip of the step editor's ⋯ menu."
+  },
+  "v15d.whole_chain_l": {
+    "en": "Show the whole chain  L",
+    "ru": "Показать всю цепочку  L",
+    "note": "inspector.js: the lens in the step editor's head while the step is shown alone (L on a focused card)."
+  },
+  "v15d.alone_l": {
+    "en": "Show this step alone  L",
+    "ru": "Показать только этот шаг  L",
+    "note": "inspector.js: the lens in the step editor's head (Show alone: the planes show the step's input and output; was «сделать шаг текущим»)."
+  },
+  "v15d.alone": {
+    "en": "Show this step alone",
+    "ru": "Показать только этот шаг",
+    "note": "inspector.js: aria-label of the lens."
+  },
+  "v15d.whole_map": {
+    "en": "The whole map",
+    "ru": "Всё отображение",
+    "note": "inspector.js: the F editor's title (F, the whole chain)."
+  },
+  "v15d.no_guar_long": {
+    "en": "No guarantees: the chain implies none of these properties.",
+    "ru": "Гарантий нет: цепочка не влечёт ни одного из этих свойств.",
+    "note": "inspector.js: F selected, no lamp lit."
+  },
+  "v15d.not_implied": {
+    "en": "Not implied: {list}.",
+    "ru": "Не следует из шагов: {list}.",
+    "note": "inspector.js: F selected, one muted line after the lit guarantees; {list} is the unlit lamp names in lower case, comma separated."
+  },
+  "v15d.no_shapes_yet": {
+    "en": "No shapes yet.",
+    "ru": "Фигур пока нет.",
+    "note": "inspector.js: the region selected, no shapes."
+  },
+  "v15d.region_hint": {
+    "en": "Draw shapes in X with the tools on the left; the Shapes list edits them. Select a step in the chain to edit it here.",
+    "ru": "Рисуйте фигуры на плоскости X инструментами слева; список «Фигуры» их редактирует. Выберите шаг в цепочке, чтобы изменить его здесь.",
+    "note": "inspector.js: the region selected."
+  },
+  "v15d.shown_alone": {
+    "en": ", shown alone",
+    "ru": ", показан отдельно",
+    "note": "app.js: appended to a card's accessible name (f₂, Möbius, shown alone)."
+  },
+  "v15d.bypassed": {
+    "en": ", bypassed",
+    "ru": ", отключён",
+    "note": "app.js: appended to a card's accessible name (the step is bypassed; шаг is masculine)."
+  },
+  "v15d.error": {
+    "en": ", error: {msg}",
+    "ru": ", ошибка: {msg}",
+    "note": "app.js: appended to a card's accessible name."
+  },
+  "v15d.ftile_tip": {
+    "en": "F, the whole map: its formula and guarantees",
+    "ru": "F — всё отображение: формула и гарантии",
+    "note": "app.js: tooltip of the F tile at the end of the chain."
+  },
+  "v15d.no_guar": {
+    "en": "No guarantees",
+    "ru": "Гарантий нет",
+    "note": "app.js: the F tile when no lamp is lit."
+  },
+  "v15d.f_list": {
+    "en": "F: {list}",
+    "ru": "F: {list}",
+    "note": "app.js: the F tile's accessible name; {list} is the lit lamp names."
+  },
+  "v15d.f_none": {
+    "en": "F: no guarantees",
+    "ru": "F: гарантий нет",
+    "note": "app.js: the F tile's accessible name when nothing is lit."
+  },
+  "v15d.added_zero": {
+    "en": "Added a zero of f{k}",
+    "ru": "Добавлен нуль f{k}",
+    "note": "app.js: announced (aria-live) after Add zero; {k} is a subscript digit."
+  },
+  "v15d.added_pole": {
+    "en": "Added a pole of f{k}",
+    "ru": "Добавлен полюс f{k}",
+    "note": "app.js: announced (aria-live) after Add pole."
+  },
+  "v15d.card_mobius": {
+    "en": "Möbius",
+    "ctx": "card",
+    "ru": "Мёбиус",
+    "note": "app.js: the Möbius card's name (DESIGN.md 2.1 card name table: every word of a card name fits one line of the narrowest card; the catalog keeps «Дробно-линейная»)."
+  },
+  "v15d.card_ijouk": {
+    "en": "Inverse Joukowski",
+    "ctx": "card",
+    "ru": "Обратная Жуковского",
+    "note": "app.js: the card name of the inverse Joukowski step (short form of «Обратная к функции Жуковского»)."
+  },
+  "v15d.card_blaschke": {
+    "en": "Disk automorphism",
+    "ctx": "card",
+    "ru": "Автоморфизм круга",
+    "note": "app.js: the card name of the disk automorphism step."
+  },
+  "v15d.edit_selected": {
+    "en": "Edit the selected step",
+    "ru": "Изменить выбранный шаг",
+    "note": "page.html: the right rail's pencil (the panel hidden): opens the temporary Inspector."
+  },
+  "v15d.tour_chain": {
+    "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.",
+    "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Нажмите на карточку, чтобы выбрать шаг, и инспектор покажет его параметры. Двойное нажатие показывает только этот шаг: X и Y станут его входом и выходом.",
+    "note": "tour.js, the chain step (v15: a click selects, a double-click shows the step alone; glossary: шаг, инспектор)."
+  },
+  "v15d.tour_chain_touch": {
+    "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to select it, and the Inspector edits it; its lens shows that step alone, with X and Y as its input and output.",
+    "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Коснитесь карточки, чтобы выбрать шаг, и инспектор покажет его параметры; лупа в инспекторе показывает только этот шаг, и X и Y становятся его входом и выходом.",
+    "note": "tour.js, the chain step on touch."
+  },
+  "v15d.tour_guarantees": {
+    "en": "The F tile names what the chain guarantees. A property is listed only when every step has it and composition keeps it, so it is always true; one not listed is only not implied. Step by step shows which step brings which.",
+    "ru": "Плитка F называет то, что гарантирует цепочка. Свойство указано, только если им обладает каждый шаг и композиция его сохраняет, поэтому оно всегда верно; отсутствие свойства значит лишь, что оно не следует из шагов. Раздел «По шагам» показывает, какой шаг даёт какое свойство.",
+    "note": "tour.js, the guarantees step (v15: the F tile and the F Inspector replace the Guarantees panel; at most 240 characters in English)."
+  },
+  "v15d.tour_cut": {
+    "en": "$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.",
+    "ru": "Для $\\ln z$ нужен разрез: на красном луче в X значения логарифма меняются скачком на $2\\pi i$. Перетащите луч, чтобы сдвинуть линию разреза; лист $k$ в инспекторе прибавляет $2\\pi i k$.",
+    "note": "tour.js, the branch cut step (the sheet field is in the Inspector now)."
+  },
+  "v15d.tour_inverse": {
+    "en": "Replace with the inverse, in the step's ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.",
+    "ru": "Пункт «Заменить обратной» в меню ⋯ шага в инспекторе заменяет шаг обратной функцией, если у шага есть однозначная обратная, как $e^z$ для $\\ln z$. Если её нет, как у $z^2$, он объясняет почему и предлагает вместо этого прообразы.",
+    "note": "tour.js, the inverse step (f⁻¹ moved from the card to the Inspector's ⋯ menu); «Заменить обратной» is the menu item's own Russian."
+  },
+  "v15d.tour_formula_tex": {
+    "en": "With the F tile selected, the Inspector shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.",
+    "ru": "Когда выбрана плитка F, инспектор показывает $F$ в явном виде; кнопка копирования помещает LaTeX-код формулы в буфер обмена.",
+    "note": "tour.js, the LaTeX step (was the Composite map section)."
+  },
+  "v15d.tour_try_dbl": {
+    "en": "Double-click the card $f_1$.",
+    "ru": "Дважды нажмите на карточку $f_1$.",
+    "note": "tour.js, the chain step's Try it (Show alone is a double-click)."
+  },
+  "v15d.tour_try_dbltap": {
+    "en": "Double-tap the card $f_1$.",
+    "ru": "Дважды коснитесь карточки $f_1$.",
+    "note": "tour.js, the chain step's Try it on touch."
+  },
+  "v15d.alone_chip": {
+    "en": "{f} alone",
+    "ru": "только {f}",
+    "note": "app.js: the chip in X's head while a step is shown alone (f₃ alone ×); {f} is f with its index (HTML)."
+  }
+}

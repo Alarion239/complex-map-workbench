@@ -20,7 +20,7 @@ const Calc = (() => {
     }
     GX.push(x); GW.push(2 / ((1 - x * x) * dp * dp));
   }
-  const SING = 'The curve passes through a singularity';
+  const SING = $t('The curve passes through a singularity');
   const fin = (w) => !!w && Number.isFinite(w.re) && Number.isFinite(w.im);
   const absC = (w) => Math.hypot(w.re, w.im);
 
@@ -116,7 +116,7 @@ const Calc = (() => {
       // scale of the piece, by that over the piece's length
       const noise = 100 * Number.EPSILON * (absC(a) + L) / (w * L) * (l.m + r.m);
       if (err <= segTol * w || err <= 1e-15 * Math.max(absC(sum), scale) || err <= noise) { errSum += err; out.push(sum); return; }
-      if (evals > budget) { bad = 'The integral did not converge'; return; }
+      if (evals > budget) { bad = $t('The integral did not converge'); return; }
       // Within 1e-7 (relative) of a point the samples carry rounding noise of the parametrisation. An error that
       // stops shrinking there for two levels is a non-integrable singularity (or a pole closer to the curve than
       // the noise can resolve). An integrable one (z^{-1/2}, log z, a jump across a cut) keeps shrinking.
@@ -174,6 +174,7 @@ const Calc = (() => {
   }
   // Change of arg G along z0 -> z1 (values g0, g1 known): bisected until every piece turns by less than π/8 and G is
   // nearly linear on it (so no turn hides between samples). NaN when G vanishes, blows up or jumps on the segment.
+  const nowMs = () => (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
   function track(G, z0, g0, z1, g1, ctx, depth) {
     const zm = C(0.5 * (z0.re + z1.re), 0.5 * (z0.im + z1.im));
     const gm = G(zm);
@@ -182,6 +183,9 @@ const Calc = (() => {
     const d1 = argq(g0, gm), d2 = argq(gm, g1);
     const lin = Math.hypot(gm.re - 0.5 * (g0.re + g1.re), gm.im - 0.5 * (g0.im + g1.im)) <= 0.2 * Math.min(absC(g0), absC(g1));
     if (Math.abs(d1) < Math.PI / 8 && Math.abs(d2) < Math.PI / 8 && lin) return d1 + d2;
+    // a wall-clock deadline (ctx.deadline, a performance.now() time), checked again after every 16 calls: past it, the
+    // budget is spent
+    if (ctx.deadline && ctx.evals >= (ctx.nextT || 0)) { ctx.nextT = ctx.evals + 16; if (nowMs() > ctx.deadline) ctx.budget = 0; }
     if (depth >= 44 || ctx.evals > ctx.budget) { ctx.failAt = zm; return NaN; }
     const a = track(G, z0, g0, zm, gm, ctx, depth + 1);
     if (Number.isNaN(a)) return NaN;
@@ -218,6 +222,45 @@ const Calc = (() => {
     }
     return total;
   }
+  // ---- sound (notes/sound/DESIGN.md §2.4, §2.5): the probe's exact arg steps and the order at a point ----
+  // The change of arg F along the segment z0 → z1, tracked exactly (track() above). g0, g1: F there, or null to
+  // evaluate them. opts.budget: the most calls of F (default 6000). Returns { d, exact, why, evals }: d in radians;
+  // when the tracker fails, d is the principal difference and why says why: 'end' (F is 0 or not finite at an end),
+  // 'zero' or 'pole' (F vanishes or blows up on the segment), 'jump' (F stays finite and non-zero but does not
+  // converge: a branch cut), 'budget' (the work budget ran out).
+  // opts.deadline: a performance.now() time after which the work stops as if the budget had run out ('budget')
+  function argStep(F, z0, g0, z1, g1, opts = {}) {
+    if (!g0) g0 = F(z0);
+    if (!g1) g1 = F(z1);
+    const ok = (g) => fin(g) && absC(g) > 0;
+    if (!ok(g0) || !ok(g1)) return { d: ok(g0) && ok(g1) ? argq(g0, g1) : 0, exact: false, why: 'end', evals: 0 };
+    const ctx = { evals: 0, budget: opts.budget || 6000, tiny: opts.tiny != null ? opts.tiny : 1e-300, deadline: opts.deadline || 0 };
+    const d = track(F, z0, g0, z1, g1, ctx, 0);
+    if (!Number.isNaN(d)) return { d, exact: true, evals: ctx.evals };
+    let why = 'jump';
+    if (ctx.evals > ctx.budget) why = 'budget';
+    else if (ctx.failAt) { const g = F(ctx.failAt); why = !fin(g) ? 'pole' : absC(g) <= ctx.tiny ? 'zero' : 'jump'; }
+    return { d: argq(g0, g1), exact: false, why, at: ctx.failAt, evals: ctx.evals };
+  }
+  // N − P inside the circle |z − c| = r (zeros minus poles, with multiplicity) by the argument principle on a
+  // 16-gon, tracked exactly: an integer, or null when F vanishes, blows up or jumps on the circle (a branch point
+  // gives no order) or the budget (opts.budget calls of F, default 6000) runs out. Exact for any order m.
+  function orderAt(F, c, r, opts = {}) {
+    const n = opts.n || 16, budget = opts.budget || 6000;
+    const p = (i) => C(c.re + r * Math.cos(TAU * i / n), c.im + r * Math.sin(TAU * i / n));
+    let tot = 0, evals = 0, z0 = p(0), g0 = F(z0);
+    const gs = g0;
+    for (let i = 1; i <= n; i++) {
+      const z1 = i === n ? p(0) : p(i), g1 = i === n ? gs : F(z1);
+      if (evals >= budget || (opts.deadline && nowMs() > opts.deadline)) return null;
+      const s = argStep(F, z0, g0, z1, g1, { budget: budget - evals, deadline: opts.deadline });
+      evals += s.evals + 1;
+      if (!s.exact) return null;
+      tot += s.d; z0 = z1; g0 = g1;
+    }
+    const m = Math.round(tot / TAU);
+    return Math.abs(tot / TAU - m) < 1e-6 ? m || 0 : null;
+  }
   // winding number of F∘γ − p about 0 for the closed polygon γ: zeros minus poles of F − p inside, counted with
   // multiplicity, when F is meromorphic there. ok is false when F − p vanishes or is singular on γ, or jumps
   // (a branch cut crosses γ).
@@ -253,13 +296,13 @@ const Calc = (() => {
       mx = Math.max(mx, absC(w) * r);
       return true;
     };
-    for (let j = 0; j < N; j++) if (!add(j, N)) return { re: NaN, im: NaN, error: 'The circle passes through a singularity' };
+    for (let j = 0; j < N; j++) if (!add(j, N)) return { re: NaN, im: NaN, error: $t('The circle passes through a singularity') };
     for (;;) {
       const v = C(sr / N, si / N);
       if (prev && Math.hypot(v.re - prev.re, v.im - prev.im) <= (opts.tol || 1e-13) * Math.max(mx, 1e-300)) return v;
       if (N >= 65536) return Object.assign(v, { approx: true });
       prev = v;
-      for (let j = 1; j < 2 * N; j += 2) if (!add(j, 2 * N)) return { re: NaN, im: NaN, error: 'The circle passes through a singularity' };
+      for (let j = 1; j < 2 * N; j += 2) if (!add(j, 2 * N)) return { re: NaN, im: NaN, error: $t('The circle passes through a singularity') };
       N *= 2;
     }
   }
@@ -652,6 +695,6 @@ const Calc = (() => {
     return out;
   }
 
-  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, points };
+  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, points, argStep, orderAt };
 })();
 if (typeof module !== 'undefined') module.exports = Calc;

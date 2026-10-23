@@ -1,0 +1,36 @@
+# -*- coding: utf-8 -*-
+# Strings of the math and export areas that the inventory missed (found while reading the caption builders).
+# Keys are proposed ids; en is the English as the code builds it, with {placeholders} for its slots.
+NBSP = ' '
+EXTRA = {
+ 'export.extra.loxodromic': dict(file='funcs.js:101', en="the loxodromic Möbius transformations $H_t$ that {fixT}, with $H_t'(p)=e^{{k}}$", ru="семейство локсодромических дробно-линейных отображений $H_t$ {fixT}, где $H_t'(p)=e^{{k}}$", note='Homotopy phrase, nominative singular like its elliptic and hyperbolic siblings.'),
+ 'export.extra.straight_line_template': dict(file='app.js:4803', en='the straight-line homotopy $H_t({v})=(1-t){v}+t\\,{F}({v})$', ru='прямолинейная гомотопия $H_t({v})=(1-t){v}+t\\,{F}({v})$', note='morphHomSegs fallback phrase.'),
+ 'export.extra.all_at_once': dict(file='app.js:4817', en='the homotopy {H}, {range}, that deforms every step at once: ', ru='гомотопия {H}, {range}, деформирующая все шаги сразу: ', note='Then «для $f_1$ — {phrase}; для $f_2$ — {phrase}». Segments: {t: "the homotopy "}, {m}, {t: ", "}, {m}, {t: ", that deforms every step at once: "}.'),
+ 'export.extra.in_turn': dict(file='app.js:4829', en='the homotopy {H}, {range}, that runs the steps in turn ({def} on {interval}): ', ru='гомотопия {H}, {range}, которая выполняет шаги по очереди ({def} при {interval}): ', note='Segments " on " → « при », "): " → «): ».'),
+ 'export.extra.step_dash': dict(file='app.js:4820', en='for {f}, {phrase}', ru='для {f}' + NBSP + '— {phrase}', note='The ", " after $f_k$ becomes a dash; {phrase} is a nominative homotopy phrase.'),
+ 'export.extra.the_plane': dict(file='app.js:4846', en='the plane', ru='плоскость', note='Set name when no shapes are drawn; also «The plane» (app.js:9321) → «Плоскость».'),
+ 'export.extra.set_of_a': dict(file='app.js:4851', en='the set of (a)', ru='множество на рис.' + NBSP + 'а', plural=dict(one='множество на рис.' + NBSP + 'а', few='множества на рис.' + NBSP + 'а', many='множества на рис.' + NBSP + 'а', other='множества на рис.' + NBSP + 'а'), note='"the sets of (a)" → «множества на рис. а». Panel letter Cyrillic, italic in print.'),
+ 'export.extra.image_after_steps': dict(file='app.js:4851', en='The image of {set} after {n} steps', ru='Образ {set} после {n} шагов', plural=dict(one='Образ {set} после {n} шага', few='Образ {set} после {n} шагов', many='Образ {set} после {n} шагов', other='Образ {set} после {n} шага'), note='"after the first step" → «после первого шага». {set} in the genitive.'),
+ 'export.extra.with_mark': dict(file='app.js:4850', en=', with {x},', ru=' ({x})', note='No comma: « и » follows. Wraps export.dashed_outlines / export.dashed_outline.'),
+ 'export.extra.patword_checker': dict(file='app.js:4842', en='checkerboard', ru='клетки', note='patWord in « ({patWord}); их соединяет ».'),
+ 'export.extra.patword_tiles': dict(file='app.js:4842', en='tiles', ru='плитки', note='patWord.'),
+ 'export.extra.patword_lines': dict(file='app.js:4842', en='lines', ru='линии сетки', note='patWord.'),
+ 'export.extra.patword_coloured': dict(file='app.js:4842', en='coloured', ru='цвет', note='patWord.'),
+ 'export.extra.arrows_of_from': dict(file='app.js:4874', en=' of {parts}, from ', ru=' для {parts}, от ', note='Between export.arrows_are_paths + t ↦ H_t(z) and z (dot). {parts} uses the genitive plural forms on export.boundary_point etc.'),
+ 'export.extra.plane_name': dict(file='app.js:9045', en='the {z}-plane', ru='плоскость {z}', note='planeName. Needs three Russian forms: nominative «плоскость $z$», locative «плоскости $z$» (after « в », « на »), instrumental «плоскостью $z$» (after « над »).'),
+ 'export.extra.plane_name_input': dict(file='app.js:9045', en='the {w}-plane, the input of {F}', ru='плоскость {w}, исходная для {F}', note='Same three forms: «плоскости $w_1$, исходной для $f_2$», «плоскостью $w_1$, исходной для $f_2$». Not «аргумент» (GLOSSARY 1.1).'),
+ 'export.extra.hom_def': dict(file='app.js:9043', en=' Shown at {t}, where {H} deforms the identity ({t0}) into {map} ({t1}) along {hom}.', ru=' Показан момент {t}. Здесь {H} переводит тождественное отображение ({t0}) в {map} ({t1}); это {hom}.', note='app.js homDef() segments; same sentence as export.shown_at_t_2.'),
+ 'export.extra.prop_entire': dict(file='app.js:9111', en='entire', ru='целая функция', note='Property list after «$F$ — ».'),
+ 'export.extra.prop_analytic': dict(file='app.js:9112', en='analytic', ru='аналитическая функция', note='Property list after «$F$ — ».'),
+ 'export.extra.prop_proper': dict(file='app.js:9113', en='proper', ru='собственное отображение', note='Property list after «$F$ — ».'),
+ 'export.extra.on_domain': dict(file='app.js:9118', en=' On its natural domain {D}, ', ru=' В естественной области определения {D}: ', note='The (with $w_k$ the value after step $k$) aside: « (где $w_k$ — значение после шага $k$)».'),
+ 'export.extra.where_defined': dict(file='app.js:9118', en=' Where the formula is defined, ', ru=' Там, где формула определена, ', note='Followed by «$F$ — …».'),
+ 'export.extra.cut_note': dict(file='app.js:8745', en='\\text{: cut }', ru='\\text{: разрез }', note='Sibling of export.sheet_kk; Cyrillic in \\text goes through cyrWord().'),
+ 'export.extra.info_line': dict(file='app.js:9422', en='{width}: {W} × {H} in, text 8–9 pt, plots at {dpi} dpi.', ru='{width}: {W} × {H} см, текст 8–9 пт, графика {dpi} dpi.', note='W and H in centimetres, one decimal, decimal comma.'),
+ 'export.extra.fig_phase_head': dict(file='work/xr/src/figure.js:1218', en='Phase portrait of {map} on {box}', ru='Фазовый портрет функции {map} на {box}', note='{box} = $[x_0;x_1]\\times[y_0;y_1]$ with «;» when decimals use commas.'),
+ 'export.extra.fig_land_head': dict(file='work/xr/src/figure.js:1233', en='Landscape of {map}{over}: the height is {ht}', ru='Рельеф функции {map}{over}: высота равна {ht}', note='{over} is export.over_2.'),
+ 'export.extra.fig_left_right': dict(file='work/xr/src/figure.js:1263', en='{cap1} (left) and {its} under {wmap} (right).', ru='{cap1} (слева) и {its} при отображении {wmap} (справа).', note='{its}: «образ» / «их образы» (no gendered possessive).'),
+ 'export.extra.fig_images_of': dict(file='work/xr/src/figure.js:1267', en='The images of {list} under {wmap}.', ru='Образы {list} при отображении {wmap}.', note='Singular: «Образ {list} при отображении {wmap}.» {list} in the genitive.'),
+ 'export.extra.fig_two_panels': dict(file='work/xr/src/figure.js:1270', en='(a) {cap} in {plane}. (b) {its} under {map}.', ru='а)' + NBSP + '{cap} в {plane}; б)' + NBSP + '{its} при отображении {map}.', note='Russian books: «а — …; б — …» (GLOSSARY 1.11). {plane} locative.'),
+ 'export.extra.ink_bw': dict(file='work/xr/src/figure.js:1512', en='B/W', ru='Серая', note='Ink option next to «Цвет»; avoids the abbreviation «Ч/б».'),
+}

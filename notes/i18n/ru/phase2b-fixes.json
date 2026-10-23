@@ -1,0 +1,106 @@
+{
+ "_about": "Phase 2b review fixes (2026-10-23, notes/i18n/ledger-2b.json): new strings of the fixes and corrected Russian for existing keys. id -> {en, ru, ctx?, note}, as in phase2b-ui.json. Russian follows notes/i18n/GLOSSARY.md. Read by work/xb/tools/make_ru_table.py; these win over the other tables. The typography passes (no-break space before an em dash and between a number and its unit) are in fixes_2b.py.",
+ "fx.parse.list_comma": {
+  "en": "Use a decimal point: 0.5; separate the values with a comma and a space, or with ;",
+  "ru": "Дробную часть отделяйте точкой (0.5) или разделяйте значения точкой с запятой (0,5; −1)",
+  "note": "funcs.js listComma (review math-1): a zeros, poles or coefficients list with a comma between two digits and no «;». Russian only."
+ },
+ "fx.parse.arcth": {
+  "en": "arcth (arcoth) is not available: write arth(1/z)",
+  "ru": "Функции arcth (arcoth) здесь нет: запишите arth(1/z)",
+  "note": "parse.js UNSUPPORTED (review math-16). Russian only."
+ },
+ "fx.parse.arcoth": {
+  "en": "arcoth is not available: write artanh(1/z)",
+  "ru": "Функции arcoth здесь нет: запишите artanh(1/z)",
+  "note": "parse.js UNSUPPORTED (review math-16). Russian only."
+ },
+ "fx.parse.combine": {
+  "en": "Combine comparisons with and / or / not",
+  "ru": "Соединяйте неравенства словами и, или, не",
+  "note": "review ui-6, math-18: the parser now reads the plain words и, или, не, so the message names them."
+ },
+ "fx.switch.undo_lost": {
+  "en": "The undo history could not be kept across the language change.",
+  "ru": "Историю отмены не удалось сохранить при смене языка.",
+  "note": "app.js init (review eng-8): after a switch whose undo stash could not be written."
+ },
+ "fx.cap.angle": {
+  "en": "the sector %{m}",
+  "ctx": "angle",
+  "ru": "угол %{m}",
+  "note": "app.js shapePhrase (review math-17, GLOSSARY 1.1): a sector without a radius bound."
+ },
+ "fx.cap.gen_angle": {
+  "en": "the sector %{m}",
+  "ctx": "gen-angle",
+  "ru": "угла %{m}",
+  "note": "The same in the genitive."
+ },
+ "fx.snippet.engmain": {
+  "en": "% English main document: \\usepackage[T2A,T1]{fontenc}\\usepackage[russian,english]{babel}",
+  "ru": "% Если основной язык документа английский: \\usepackage[T2A,T1]{fontenc}\\usepackage[russian,english]{babel}",
+  "note": "figure.js latexIn (review math-14): the caption is now written inside \\foreignlanguage{russian}{…}, so the comment no longer asks for it."
+ },
+ "fx.guide.layout": {
+  "en": "Letter keys work in any keyboard layout: what counts is the key, not the letter it types.",
+  "ru": "Буквенные клавиши работают и в русской раскладке: важна клавиша, а не буква (V — М, P — З, M — Ь).",
+  "note": "app.js openGuide (review eng-11, GLOSSARY 3.9): under the keys table, outside English only."
+ },
+ "fx.cap.empty_two": {
+  "en": "(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}",
+  "ru": "\\textit{а}~--- плоскость~$%{lvar}$; \\textit{б}~--- её образ при отображении %{map}.%{pat}",
+  "note": "review math-9: the variable in math."
+ },
+ "fx.cap.pits": {
+  "en": "; zeros are pits and poles are peaks.",
+  "ru": "; нули — ямы, полюсы — пики.",
+  "note": "review ui-13 (GLOSSARY 1.6: ямы)."
+ },
+ "fx.guide.tip": {
+  "en": "Guide",
+  "ru": "Руководство",
+  "note": "review ui-17 (GLOSSARY 1.13: Guide = Руководство, Help = Справка)."
+ },
+ "fx.guide.tip_key": {
+  "en": "Guide  ?",
+  "ru": "Руководство  ?",
+  "note": "review ui-17."
+ },
+ "fx.pal.view_land": {
+  "en": "View: Landscape",
+  "ru": "Вид: Рельеф",
+  "note": "review ui-20: the view's name, as on its tab."
+ },
+ "fx.pal.view_phase": {
+  "en": "View: Phase portrait",
+  "ru": "Вид: Фазовый портрет",
+  "note": "review ui-20: capitalised like «Вид: Рельеф»."
+ },
+ "fx.hint.sphere_shape": {
+  "en": "Drag to turn, a shape to move it; ∞ is at the north pole",
+  "ru": "Перетаскивание вращает сферу и сдвигает фигуры; ∞ — северный полюс",
+  "note": "review ui-11: was 525 px in a 410 px readout."
+ },
+ "fx.hint.empty_right": {
+  "en": "Add a function to map the region",
+  "ru": "Здесь появится образ",
+  "note": "review ui-11: was 284 px in 237 px (161 px at 1024). The chip's own button says «Добавить функцию», so the text says what comes."
+ },
+ "fx.snd.keys": {
+  "en": "Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.",
+  "ru": "Shift + M включает и выключает звук; Esc останавливает воспроизведение. На активной плоскости: стрелки перемещают указатель, Z — перейти к следующему нулю или полюсу, O — назвать порядок в этой точке, D — описать вид, Enter — нарисовать петлю, L — прослушать вдоль неё.",
+  "note": "review ui-18: one form (infinitives) for every key."
+ },
+ "fx.cmd.short": {
+  "en": "Add function or command",
+  "ctx": "field-short",
+  "ru": "Поиск",
+  "note": "app.js init (review ui-9): the command field at 1024-1199 px, where «Функция или команда» was cut to «Функция и…». GLOSSARY 1.13: Search = Поиск."
+ },
+ "fx.parse.digit_comma_note": {
+  "en": "A comma between digits separates conditions; write the decimal part with a point",
+  "ru": "Запятая между цифрами разделяет условия; дробную часть отделяйте точкой",
+  "note": "parse.js parseOnce, shown under the region formula field by app.js setupFormula (review verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z|). Russian only."
+ }
+}

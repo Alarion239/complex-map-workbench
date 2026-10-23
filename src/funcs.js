@@ -40,7 +40,9 @@ const Funcs = (() => {
   // parameter text for an inverse: parses back to exactly c (never 1.0000e-5 rounded to 5 digits)
   const fmtC = (c) => CX.fmtExact(c);
   // angles in plain-text notes: one decimal at most, U+2212 minus
-  const fmtDeg = (x) => String(+x.toFixed(1)).replace('-', '−');
+  const fmtDeg = (x) => I18N.num(String(+x.toFixed(1)).replace('-', '−'));
+  // a half-open interval of angles, (a°, b°]; in Russian a semicolon when an end has a decimal comma (GLOSSARY 2.3)
+  const degIv = (a, b) => { const x = fmtDeg(a), y = fmtDeg(b); return `(${x}°${I18N.lang === 'ru' && /,/.test(x + y) ? '; ' : ', '}${y}°]`; };
 
   // ---- homotopies (t in [0,1] -> z => w), identity at t=0, the map at t=1 ----
   function mobHom(m) {
@@ -80,8 +82,8 @@ const Funcs = (() => {
       fixed = CX.abs(CX.sub(z1, z2)) < 1e-7 * (1 + CX.abs(z1)) ? [z1] : [z1, z2];
     }
     if (fixed.length === 1) {
-      if (fixed[0] === null) { const tc = CX.div(b, d); return { tex: `the translations $H_t(${v})=${v}+tc$, $c=${T(tc)}$`, mobius: true }; }
-      return { tex: `the parabolic Möbius transformations $H_t=F^t$ with fixed point $p=${T(fixed[0])}$`, mobius: true };
+      if (fixed[0] === null) { const tc = CX.div(b, d); return { tex: $t('the translations $H_t(%{v})=%{v}+tc$, $c=%{c}$', { v, c: T(tc) }), mobius: true }; }
+      return { tex: $t('the parabolic Möbius transformations $H_t=F^t$ with fixed point $p=%{p}$', { p: T(fixed[0]) }), mobius: true };
     }
     const p = fixed[0], q = fixed[1];
     // H_t'(p) along the path, unwrapped: log H_1'(p) = ln k + i theta
@@ -95,13 +97,13 @@ const Funcs = (() => {
       th += da; prev = an;
     }
     const lnk = Math.log(CX.abs(dAt(1)));
-    const fixT = `fix $p=${T(p)}$ and ${q ? `$q=${T(q)}$` : '$\\infty$'}`;
-    if (Math.abs(lnk) < 1e-9) return { tex: `the elliptic Möbius transformations $H_t$ that ${fixT}, with $H_t'(p)=e^{${piIt(th)}}$`, mobius: true };
-    if (Math.abs(th) < 1e-9) return { tex: `the hyperbolic Möbius transformations $H_t$ that ${fixT}, with $H_t'(p)=k^t$, $k=${CX.texNum(Math.exp(lnk), 4)}$`, mobius: true };
-    return { tex: `the loxodromic Möbius transformations $H_t$ that ${fixT}, with $H_t'(p)=e^{${CX.texNum(lnk, 3)}t${th < 0 ? '-' : '+'}${piIt(Math.abs(th))}}$`, mobius: true };
+    const fixT = $t('fix $p=%{p}$ and %{q}', { p: T(p), q: q ? `$q=${T(q)}$` : '$\\infty$' });
+    if (Math.abs(lnk) < 1e-9) return { tex: $t("the elliptic Möbius transformations $H_t$ that %{fixT}, with $H_t'(p)=e^{%{k}}$", { fixT, k: piIt(th) }), mobius: true };
+    if (Math.abs(th) < 1e-9) return { tex: $t("the hyperbolic Möbius transformations $H_t$ that %{fixT}, with $H_t'(p)=k^t$, $k=%{k}$", { fixT, k: CX.texNum(Math.exp(lnk), 4) }), mobius: true };
+    return { tex: $t("the loxodromic Möbius transformations $H_t$ that %{fixT}, with $H_t'(p)=e^{%{k}}$", { fixT, k: `${CX.texNum(lnk, 3)}t${th < 0 ? '-' : '+'}${piIt(Math.abs(th))}` }), mobius: true };
   }
   // the branch of a power homotopy, as words
-  const branchWords = (cut, k) => (Math.abs(cut - 180) < 1e-9 && !k ? 'principal branch' : `branch with the cut at $\\arg=${CX.texNum(cut, 2)}^\\circ$, sheet ${k}`);
+  const branchWords = (cut, k) => (Math.abs(cut - 180) < 1e-9 && !k ? $t('principal branch') : $t('branch with the cut at $\\arg=%{cut}^\\circ$, sheet %{k}', { cut: CX.texNum(cut, 2), k }));
   // z^{1 + (alpha - 1) t} with a real exponent: 1 + (n - 1) t written out
   function expoTex(al) {
     const s = al - 1;
@@ -179,18 +181,18 @@ const Funcs = (() => {
     },
   };
   const ZOOM_TEX = {
-    sin: (v) => `the zoom homotopy $H_t(${v})=\\sin(t${v})/t$`,
-    sinh: (v) => `the zoom homotopy $H_t(${v})=\\sinh(t${v})/t$`,
-    tan: (v) => `the zoom homotopy $H_t(${v})=\\tan(t${v})/t$`,
-    tanh: (v) => `the zoom homotopy $H_t(${v})=\\tanh(t${v})/t$`,
-    cos: (v) => `the zoom homotopy $H_t(${v})=(1-t)\\pi/2+e^{\\pi i t}\\sin\\bigl(t(${v}-\\pi/2)\\bigr)/t$ about $\\pi/2$, where $\\cos'=-1$ (principal power, so it turns by $\\pi$; the strip $0<\\operatorname{Re}${v}<\\pi$ never folds)`,
-    cosh: (v, o) => { const p = nmOf(o).p; return `the zoom homotopy $H_t(${v})=\\bigl(\\cosh(${p}+t(${v}-${p}))-\\sqrt2\\bigr)/t+(1-t)${p}+t\\sqrt2$ about $${p}=\\operatorname{arsinh}1$, where $\\cosh'=1$`; },
-    arcsin: (v) => `the zoom homotopy $H_t(${v})=\\arcsin(t${v})/t$ (principal branch)`,
-    arsinh: (v) => `the zoom homotopy $H_t(${v})=\\operatorname{arsinh}(t${v})/t$ (principal branch)`,
-    arctan: (v) => `the zoom homotopy $H_t(${v})=\\arctan(t${v})/t$ (principal branch)`,
-    artanh: (v) => `the zoom homotopy $H_t(${v})=\\operatorname{artanh}(t${v})/t$ (principal branch)`,
-    arccos: (v) => `the zoom homotopy $H_t(${v})=t\\pi/2+e^{\\pi i t}\\arcsin(t${v})/t$ (principal branch)`,
-    arcosh: (v, o) => { const p = nmOf(o).p; return `the zoom homotopy $H_t(${v})=\\bigl(\\operatorname{arcosh}(\\sqrt2+t(${v}-\\sqrt2))-${p}\\bigr)/t+(1-t)\\sqrt2+t${p}$ about $\\sqrt2$, $${p}=\\operatorname{arcosh}\\sqrt2$ (principal branch)`; },
+    sin: (v) => $t('the zoom homotopy $H_t(%{v})=\\sin(t%{v})/t$', { v }),
+    sinh: (v) => $t('the zoom homotopy $H_t(%{v})=\\sinh(t%{v})/t$', { v }),
+    tan: (v) => $t('the zoom homotopy $H_t(%{v})=\\tan(t%{v})/t$', { v }),
+    tanh: (v) => $t('the zoom homotopy $H_t(%{v})=\\tanh(t%{v})/t$', { v }),
+    cos: (v) => $t("the zoom homotopy $H_t(%{v})=(1-t)\\pi/2+e^{\\pi i t}\\sin\\bigl(t(%{v}-\\pi/2)\\bigr)/t$ about $\\pi/2$, where $\\cos'=-1$ (principal power, so it turns by $\\pi$; the strip $0<\\operatorname{Re}%{v}<\\pi$ never folds)", { v }),
+    cosh: (v, o) => { const p = nmOf(o).p; return $t("the zoom homotopy $H_t(%{v})=\\bigl(\\cosh(%{p}+t(%{v}-%{p}))-\\sqrt2\\bigr)/t+(1-t)%{p}+t\\sqrt2$ about $%{p}=\\operatorname{arsinh}1$, where $\\cosh'=1$", { v, p }); },
+    arcsin: (v) => $t('the zoom homotopy $H_t(%{v})=\\arcsin(t%{v})/t$ (principal branch)', { v }),
+    arsinh: (v) => $t('the zoom homotopy $H_t(%{v})=\\operatorname{arsinh}(t%{v})/t$ (principal branch)', { v }),
+    arctan: (v) => $t('the zoom homotopy $H_t(%{v})=\\arctan(t%{v})/t$ (principal branch)', { v }),
+    artanh: (v) => $t('the zoom homotopy $H_t(%{v})=\\operatorname{artanh}(t%{v})/t$ (principal branch)', { v }),
+    arccos: (v) => $t('the zoom homotopy $H_t(%{v})=t\\pi/2+e^{\\pi i t}\\arcsin(t%{v})/t$ (principal branch)', { v }),
+    arcosh: (v, o) => { const p = nmOf(o).p; return $t('the zoom homotopy $H_t(%{v})=\\bigl(\\operatorname{arcosh}(\\sqrt2+t(%{v}-\\sqrt2))-%{p}\\bigr)/t+(1-t)\\sqrt2+t%{p}$ about $\\sqrt2$, $%{p}=\\operatorname{arcosh}\\sqrt2$ (principal branch)', { v, p }); },
   };
   // Joukowski J = coth ∘ 2 ∘ arcoth (J = C⁻¹((Cz)²) with the Cayley map C(z) = (z − 1)/(z + 1), since C⁻¹(e^x) = −coth(x/2)):
   // H_t(z) = coth((1 + t) arcoth z), arcoth z = artanh(1/z), principal: the power homotopy u^{1+t} of u = Cz, cut on
@@ -209,8 +211,8 @@ const Funcs = (() => {
   // sentence never gives one letter two meanings)
   const nmOf = (o = {}) => ({ f: o.f || 'f', p: o.p || 'p', c: o.c || 'c', a: o.a || 'a' });
   // the Joukowski path as words (J_t; c·J: c^t J_t)
-  const joukWords = (v) => `$C^{-1}\\bigl((C${vTex(v)})^{1+t}\\bigr)$ with $C(${v})=\\frac{${v}-1}{${v}+1}$ and $\\arg C${vTex(v)}\\in(-\\pi/2,3\\pi/2)$: $\\coth\\bigl((1+t)\\operatorname{arcoth}${vTex(v)}\\bigr)$ outside the unit circle, $\\tanh\\bigl((1+t)\\operatorname{artanh}${vTex(v)}-\\pi i t/2\\bigr)$ inside (cut on the lower unit semicircle; the upper one closes onto $[-1,1]$)`;
-  const joukTex = (v = 'z') => ({ tex: `the homotopy $H_t(${v})=${joukWords(v)}`.replace(`=$C^{-1}`, `=C^{-1}`) });
+  const joukWords = (v) => $t('$C^{-1}\\bigl((C%{w})^{1+t}\\bigr)$ with $C(%{v})=\\frac{%{v}-1}{%{v}+1}$ and $\\arg C%{w}\\in(-\\pi/2,3\\pi/2)$: $\\coth\\bigl((1+t)\\operatorname{arcoth}%{w}\\bigr)$ outside the unit circle, $\\tanh\\bigl((1+t)\\operatorname{artanh}%{w}-\\pi i t/2\\bigr)$ inside (cut on the lower unit semicircle; the upper one closes onto $[-1,1]$)', { v, w: vTex(v) });
+  const joukTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{rest}', { v, rest: joukWords(v) }).replace(`=$C^{-1}`, `=C^{-1}`) });
   // the candidate centres of a zoom path: zeros by modulus, ties by argument
   function rootsOrder(roots) {
     const r = roots.slice();
@@ -293,9 +295,9 @@ const Funcs = (() => {
   function zoomTex(d, poly, opts = {}) {
     return (v = 'z', o) => {
       const n = nmOf(o), p = opts.zp ? n.c : n.p, f = n.f;
-      const where = d.zero ? `, a zero of $${f}$` : '';
-      const fly = poly ? `the critical points of $${f}$ fly in from infinity along the rays from $${p}$` : `the poles and critical points of $${f}$ fly in from infinity along the rays from $${p}$ (each $q$ at $${p}+(q-${p})/t$) and never meet`;
-      return { tex: `the zoom homotopy $H_t(${v})=(1-t)${p}+t${f}(${p})+${f}'(${p})^{t-1}\\bigl(${f}(${p}+t(${v}-${p}))-${f}(${p})\\bigr)/t$ about $${p}=${CX.tex(d.p, 3)}$${where} (principal power): ${fly}` };
+      const where = d.zero ? $t(', a zero of $%{f}$', { f }) : '';
+      const fly = poly ? $t('the critical points of $%{f}$ fly in from infinity along the rays from $%{p}$', { f, p }) : $t('the poles and critical points of $%{f}$ fly in from infinity along the rays from $%{p}$ (each $q$ at $%{p}+(q-%{p})/t$) and never meet', { f, p });
+      return { tex: $t("the zoom homotopy $H_t(%{v})=(1-t)%{p}+t%{f}(%{p})+%{f}'(%{p})^{t-1}\\bigl(%{f}(%{p}+t(%{v}-%{p}))-%{f}(%{p})\\bigr)/t$ about $%{p}=%{c}$%{where} (principal power): %{fly}", { v, p, f, c: CX.tex(d.p, 3), where, fly }) };
     };
   }
   // a (z − c)^n (n ≥ 2) from its coefficients (highest first): {a, c, n} or null
@@ -321,7 +323,7 @@ const Funcs = (() => {
         const nm = nmOf(o), base = c0 ? v : `(${v}-${nm.c})`;
         const lead = c0 ? '' : `(1-t)${nm.c}+`;
         const parts = [one ? '' : `$${nm.a}=${CX.tex(a, 3)}$`, c0 ? '' : `$${nm.c}=${CX.tex(c, 3)}$`].filter(Boolean).join(', ');
-        return { tex: `the power homotopy $H_t(${v})=${lead}${one ? '' : `${nm.a}^t`}${base}^{${expoTex(n)}}$${parts ? ', ' + parts : ''} (principal branch)` };
+        return { tex: $t('the power homotopy $H_t(%{v})=%{lead}%{at}%{base}^{%{e}}$%{parts} (principal branch)', { v, lead, at: one ? '' : `${nm.a}^t`, base, e: expoTex(n), parts: parts ? ', ' + parts : '' }) };
       },
     };
   }
@@ -357,7 +359,7 @@ const Funcs = (() => {
       return {
         hom: ends(f, (t) => { const J = joukHom(t), k = CX.exp(sc(lc, t)); return (z) => CX.mul(k, J(z)); }),
         nat: { kind: 'jouk', scaled: true }, natData: { lc },
-        homTex: one ? joukTex : (v = 'z', o) => ({ tex: `the homotopy $H_t(${v})=${nmOf(o).c}^tJ_t(${v})$, $${nmOf(o).c}=${CX.tex(cj, 3)}$ (principal power), where $J_t(${v})=${joukWords(v).slice(1)}` }),
+        homTex: one ? joukTex : (v = 'z', o) => ({ tex: $t('the homotopy $H_t(%{v})=%{o}^tJ_t(%{v})$, $%{o}=%{cj}$ (principal power), where $J_t(%{v})=%{rest}', { v, o: nmOf(o).c, cj: CX.tex(cj, 3), rest: joukWords(v).slice(1) }) }),
       };
     }
     const d = ratZoomData(P, Q, opts);
@@ -372,14 +374,14 @@ const Funcs = (() => {
     if (t < 1e-6) return (z) => z;
     return (z) => CX.add(CX.scale(CX.sub(CX.exp(CX.scale(z, t)), C(1, 0)), 1 / t), C(t, 0));
   };
-  const expHomTex = (v = 'z') => ({ tex: `the zoom homotopy $H_t(${v})=(e^{t${v}}-1)/t+t$ for $0<t\\le 1$, $H_0(${v})=${v}$` });
+  const expHomTex = (v = 'z') => ({ tex: $t('the zoom homotopy $H_t(%{v})=(e^{t%{v}}-1)/t+t$ for $0<t\\le 1$, $H_0(%{v})=%{v}$', { v }) });
   const logHom = (th, k) => (t) => {
     if (t <= 0) return (z) => z;
     const u = 1 - t;
     if (u < 1e-6) return (z) => CX.log(z, th, k);
     return (z) => CX.add(CX.scale(CX.sub(CX.powReal(z, u, th, k), C(1, 0)), 1 / u), C(u, 0));
   };
-  const logHomTex = (cut, k) => (v = 'z') => ({ tex: `the homotopy $H_t(${v})=(${v}^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $H_1(${v})=\\log ${v}$ (${branchWords(cut, k)})` });
+  const logHomTex = (cut, k) => (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=(%{v}^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $H_1(%{v})=\\log %{v}$ (%{cut})', { v, cut: branchWords(cut, k) }) });
   // The zoom path of any other analytic formula, about a point p where f is analytic with f′(p) ≠ 0 (f′ from Expr.diff):
   //   H_t(z) = (1 − t) p + t f(p) + f′(p)^{t−1} (f(p + t(z − p)) − f(p)) / t   (principal power),
   // and below t₀ ≥ 10⁻³ (where f(x) − f(p) would cancel in float32 on the GPU) the blend z + (t/t₀)(H_{t₀}(z) − z),
@@ -478,7 +480,7 @@ const Funcs = (() => {
       hom: ends(f, H), nat: { kind: 'gzoom' }, natData: { p, fp, ll, t0 },
       homTex: (v = 'z', o) => {
         const { f: F, p: q } = nmOf(o);
-        return { tex: `the zoom homotopy $H_t(${v})=(1-t)${q}+t${F}(${q})+${F}'(${q})^{t-1}\\bigl(${F}(${q}+t(${v}-${q}))-${F}(${q})\\bigr)/t$ about $${q}=${CX.tex(p, 3)}$ (principal power; below $t=${CX.texNum(t0, 2)}$, linear in $t$): the singularities and cuts of $${F}$ fly in from infinity along the rays from $${q}$` };
+        return { tex: $t("the zoom homotopy $H_t(%{v})=(1-t)%{q}+t%{F}(%{q})+%{F}'(%{q})^{t-1}\\bigl(%{F}(%{q}+t(%{v}-%{q}))-%{F}(%{q})\\bigr)/t$ about $%{q}=%{p}$ (principal power; below $t=%{t0}$, linear in $t$): the singularities and cuts of $%{F}$ fly in from infinity along the rays from $%{q}$", { v, q, F, p: CX.tex(p, 3), t0: CX.texNum(t0, 2) }) };
       },
     };
   }
@@ -515,45 +517,73 @@ const Funcs = (() => {
 
   // ---- parameter helpers ----
   const cutParams = [
-    { key: 'cut', label: 'cut angle', type: 'angle', def: 180 },
-    { key: 'k', label: 'sheet', type: 'int', def: 0 },
+    { key: 'cut', label: $t('cut angle'), type: 'angle', def: 180 },
+    { key: 'k', label: $t('sheet'), type: 'int', def: 0 },
   ];
-  function parseCoeffs(str) {
-    // split on commas outside brackets
-    const parts = [];
-    let depth = 0, cur = '';
-    for (const ch of String(str)) {
-      if ('([{'.includes(ch)) depth++;
-      if (')]}'.includes(ch)) depth--;
-      if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
-    }
-    parts.push(cur);
-    const trimmed = parts.map((s) => s.trim());
-    if (trimmed.length > 1 && trimmed.some((s) => !s.length)) throw new Error('A coefficient is missing between two commas');
-    const co = trimmed.filter((s) => s.length).map((s) => Expr.constValue(s));
-    if (!co.length) throw new Error('Enter at least one coefficient');
-    return co;
+  // a list field's items, read by one rule in both languages, so saved work survives a language switch (review
+  // math-1, verify-1; GLOSSARY 2.3: lists of decimals take «;»): with a ';' outside brackets the items are split on
+  // ';' and a comma between two digits is a decimal comma (0,5; -1 is 0.5 and -1); without one, on commas as before.
+  // Only text typed into the field in the Russian interface is checked further (typedList): there a comma between two
+  // digits with no ';' (0,5, -1) is refused with the hint, never read silently as two items.
+  const RU_LIST = () => typeof I18N !== 'undefined' && I18N.lang === 'ru';
+  // the list texts with a comma between two digits and no ';' that the user typed into a step's field in Russian
+  // (step -> {key: Set of texts}); a saved or switched text is not in it, so it is read by the common rule. An undo
+  // carries a step's set to the step restored at its place (typedKeep), so a refused text never comes back unchecked
+  const typedLists = new WeakMap();
+  const refusable = (s) => splitAt(s, ';').length < 2 && /\d,\d/.test(s);
+  function typedList(step, key, text) {
+    const s = String(text ?? '');
+    if (!RU_LIST() || !step || typeof step !== 'object' || !refusable(s)) return;
+    const m = typedLists.get(step) || {};
+    (m[key] = m[key] || new Set()).add(s);
+    typedLists.set(step, m);
   }
-  // ---- zeros and poles (the 'zp' step) ----
-  // a list of complex values as typed (commas outside brackets; empty items dropped): the raw item strings
-  function splitList(str) {
+  function typedKeep(from, to) {
+    if (!RU_LIST() || !Array.isArray(from) || !Array.isArray(to)) return;
+    from.forEach((a, i) => { const m = a && typedLists.get(a), b = to[i]; if (m && b && typeof b === 'object' && b.type === a.type) typedLists.set(b, m); });
+  }
+  const typedHere = (step, key, raw) => RU_LIST() && !!step && !!((typedLists.get(step) || {})[key] || { has: () => false }).has(String(raw ?? ''));
+  function splitAt(str, sep) {
     const parts = [];
     let depth = 0, cur = '';
     for (const ch of String(str ?? '')) {
       if ('([{'.includes(ch)) depth++;
       if (')]}'.includes(ch)) depth--;
-      if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
+      if (ch === sep && depth === 0) { parts.push(cur); cur = ''; } else cur += ch;
     }
     parts.push(cur);
-    return parts.map((s) => s.trim()).filter((s) => s.length);
+    return parts;
+  }
+  function listParts(str) {
+    const semi = splitAt(str, ';');
+    return semi.length > 1 ? semi.map((s) => s.replace(/(\d),(?=\d)/g, '$1.')) : splitAt(str, ',');
+  }
+  function listComma(str, typed) {
+    if (typed && refusable(String(str ?? ''))) throw new Error($t('Use a decimal point: 0.5; separate the values with a comma and a space, or with ;'));
+  }
+  function parseCoeffs(str, typed) {
+    // split on commas outside brackets (or on ';': listParts)
+    listComma(str, typed);
+    const parts = listParts(str);
+    const trimmed = parts.map((s) => s.trim());
+    if (trimmed.length > 1 && trimmed.some((s) => !s.length)) throw new Error($t('A coefficient is missing between two commas'));
+    const co = trimmed.filter((s) => s.length).map((s) => Expr.constValue(s));
+    if (!co.length) throw new Error($t('Enter at least one coefficient'));
+    return co;
+  }
+  // ---- zeros and poles (the 'zp' step) ----
+  // a list of complex values as typed (commas outside brackets; empty items dropped): the raw item strings
+  function splitList(str) {
+    return listParts(str).map((s) => s.trim()).filter((s) => s.length);
   }
   // at most 24 zeros and 24 poles (degree 24, as Write by zeros and poles allows; past it a drag misses 60 fps)
   const ZP_MAX = 24;
-  function parseCxList(str) {
+  function parseCxList(str, typed) {
+    listComma(str, typed);
     return splitList(str).map((s, i) => {
       let v;
-      try { v = Expr.constValue(s); } catch (e) { throw new Error(`value ${i + 1}: ${e.message}`); }
-      if (!CX.isFin(v)) throw new Error(`value ${i + 1} is not a finite number`);
+      try { v = Expr.constValue(s); } catch (e) { throw new Error($t('value {i}: {msg}', { i: i + 1, msg: e.message })); }
+      if (!CX.isFin(v)) throw new Error($t('value {i} is not a finite number', { i: i + 1 }));
       return v;
     });
   }
@@ -615,11 +645,11 @@ const Funcs = (() => {
     else if (id === 'custom') {
       let pq = null;
       try { const ast = Expr.parse(v.expr); if (Expr.classify(ast).rational) pq = ratOf(ast); } catch (e) { pq = null; }
-      if (!pq) return { error: 'Only a polynomial or a rational formula can be written by its zeros and poles' };
+      if (!pq) return { error: $t('Only a polynomial or a rational formula can be written by its zeros and poles') };
       [P, Q] = pq;
-    } else return { error: `${b.def.label} is not a polynomial or a rational map` };
-    if (P.every(CX.isZero)) return { error: 'The zero function has no zeros or poles to drag' };
-    if (P.length > ZP_MAX + 1 || Q.length > ZP_MAX + 1) return { error: `Degree above ${ZP_MAX}: too many zeros and poles to drag` };
+    } else return { error: $t('{label} is not a polynomial or a rational map', { label: b.def.label }) };
+    if (P.every(CX.isZero)) return { error: $t('The zero function has no zeros or poles to drag') };
+    if (P.length > ZP_MAX + 1 || Q.length > ZP_MAX + 1) return { error: $t('Degree above {max}: too many zeros and poles to drag', { max: ZP_MAX }) };
     const a = CX.div(P[0], Q[0]);
     const clean = (r) => {
       const s = 1e-12 * Math.max(1, CX.abs(r));
@@ -627,7 +657,7 @@ const Funcs = (() => {
     };
     const roots = (co) => (co.length > 1 ? CX.polyRoots(co) : []);
     const raw = [roots(P), roots(Q)];
-    if (!raw.every((l) => l.every(CX.isFin))) return { error: 'The roots could not be computed' };
+    if (!raw.every((l) => l.every(CX.isFin))) return { error: $t('The roots could not be computed') };
     const tidy = raw.map((l) => l.map(clean));
     const ok = (zs, ps) => {
       const f = (z) => { let n = a; for (const r of zs) n = CX.mul(n, CX.sub(z, r)); let d = C(1, 0); for (const r of ps) d = CX.mul(d, CX.sub(z, r)); return CX.div(n, d); };
@@ -635,13 +665,13 @@ const Funcs = (() => {
     };
     const [zs, ps] = ok(tidy[0], tidy[1]) ? tidy : raw;
     const params = { a: zpItem(clean(a)), zeros: zs.map(zpItem).join(', '), poles: ps.map(zpItem).join(', ') };
-    if (!ok(zs, ps)) return { error: 'The zeros and poles found do not reproduce this map (its roots are too clustered)' };
-    return { step: { type: 'zp', params }, note: `${zs.length} zero${zs.length === 1 ? '' : 's'}, ${ps.length} pole${ps.length === 1 ? '' : 's'}` };
+    if (!ok(zs, ps)) return { error: $t('The zeros and poles found do not reproduce this map (its roots are too clustered)') };
+    return { step: { type: 'zp', params }, note: `${$tn('{n} zero', '{n} zeros', zs.length)}, ${$tn('{n} pole', '{n} poles', ps.length)}` };
   }
   function fromZerosPoles(step) {
     const b = build(step);
     if (b.error) return { error: b.error };
-    if (b.def.id !== 'zp') return { error: 'Not a zeros-and-poles step' };
+    if (b.def.id !== 'zp') return { error: $t('Not a zeros-and-poles step') };
     const { P, Q } = b.zp;
     const co = (l) => l.map(fmtC).join(', ');
     if (Q.length === 1) return { step: { type: 'poly', params: { co: co(P.map((c) => CX.div(c, Q[0]))) } } };
@@ -747,9 +777,9 @@ const Funcs = (() => {
 
   // ---- inverses that are not a catalog entry, and why there is none ----
   const XN = Expr.N;
-  const NOTE_CONST = 'This map is constant, so it has no inverse';
-  const times = (d) => (d === 2 ? 'twice' : `${d} times`);
-  const NOTE_PRE = 'use the Preimage view to see every solution of f(z) = w';
+  const NOTE_CONST = $t('This map is constant, so it has no inverse');
+  const times = (d) => (d === 2 ? $t('twice') : $tn('{n} times', '{n} times', d));
+  const NOTE_PRE = $t('use the Preimage view to see every solution of f(z) = w');
   const texOf = (ast) => Expr.toTex(Expr.simplify(ast)).s;
   // a z^n + b inverts to the principal root ((w − b)/a)^{1/n}, a branch of the inverse like ⁿ√ for zⁿ
   function polyInverse(c) {
@@ -761,7 +791,7 @@ const Funcs = (() => {
       const r = d === 2 ? XN.call('sqrt', u) : XN.root(XN.real(d), u);
       return { inverse: { type: 'custom', params: { expr: texOf(r), cut: 180 } } };
     }
-    return { inverse: null, inverseNote: `A polynomial of degree ${d} takes most values ${times(d)}, so it has no single inverse; ${NOTE_PRE}` };
+    return { inverse: null, inverseNote: $t('A polynomial of degree {d} takes most values {times}, so it has no single inverse; {note}', { d, times: times(d), note: NOTE_PRE }) };
   }
   function rationalInverse(p, q, P) {
     if (P.constant) return { inverse: null, inverseNote: NOTE_CONST };
@@ -771,8 +801,8 @@ const Funcs = (() => {
       const m = [a, b, c, d];
       if (!CX.mobDetZero(m) && CX.mobRel(m) >= CX.MOB_EPS) return { inverse: { type: 'mobius', params: { a: fmtC(d), b: fmtC(CX.neg(b)), c: fmtC(CX.neg(c)), d: fmtC(a) } } };
     }
-    if (P.degExact && P.deg >= 2) return { inverse: null, inverseNote: `This rational map has degree ${P.deg}, so it takes most values ${times(P.deg)} and has no single inverse; ${NOTE_PRE}` };
-    return { inverse: null, inverseNote: `This rational map is not known to be one-to-one, so no inverse is offered; ${NOTE_PRE}` };
+    if (P.degExact && P.deg >= 2) return { inverse: null, inverseNote: $t('This rational map has degree {d}, so it takes most values {times} and has no single inverse; {note}', { d: P.deg, times: times(P.deg), note: NOTE_PRE }) };
+    return { inverse: null, inverseNote: $t('This rational map is not known to be one-to-one, so no inverse is offered; {note}', { note: NOTE_PRE }) };
   }
   function customInverse(ast, th) {
     try {
@@ -866,8 +896,8 @@ const Funcs = (() => {
     try {
       const expr = texOf(d.ast);
       const nb = build({ type: 'custom', params: { expr, cut: d.cut } });
-      if (nb.error) return { error: `The derivative could not be built: ${nb.error}` };
-      return { step: { type: 'custom', params: { expr, cut: d.cut } }, note: `Derivative of “${b.def.label}”${d.extra}` };
+      if (nb.error) return { error: $t('The derivative could not be built: {msg}', { msg: nb.error }) };
+      return { step: { type: 'custom', params: { expr, cut: d.cut } }, note: $t('Derivative of “{label}”{extra}', { label: b.def.label, extra: d.extra }) };
     } catch (e) {
       return { error: e.message };
     }
@@ -876,8 +906,8 @@ const Funcs = (() => {
   // nodes use: {ast, cut, extra} or {error}. The tree keeps exact numbers (no TeX round trip). opts.stable: a form
   // that evaluates without cancellation where the readable one cancels (for evaluation, not for display).
   function derivAst(b, opts = {}) {
-    if (!b || b.error || !b.def) return { error: b && b.error ? b.error : 'No step' };
-    if (b.op === 'deriv') return { error: 'd/dz is an operator on the chain, not a map of w; add a second d/dz for the second derivative' };
+    if (!b || b.error || !b.def) return { error: b && b.error ? b.error : $t('No step') };
+    if (b.op === 'deriv') return { error: $t('d/dz is an operator on the chain, not a map of w; add a second d/dz for the second derivative') };
     const v = b.vals, id = b.def.id;
     const { z, num, real, neg, add, sub, mul, div, pow, call, root } = XN;
     const sq = (a) => pow(a, real(2));
@@ -904,7 +934,7 @@ const Funcs = (() => {
         case 'root': {
           const n = Math.max(2, v.n);
           ast = div(mul(unitRootAst(v.k, n), n === 2 ? call('sqrt', z()) : root(real(n), z())), mul(real(n), z()));
-          cut = v.cut; extra = `; same cut (${fmtDeg(v.cut)}°) and sheet ${v.k}`;
+          cut = v.cut; extra = $t('; same cut ({cut}°) and sheet {k}', { cut: fmtDeg(v.cut), k: v.k });
           break;
         }
         case 'powa': {
@@ -920,11 +950,11 @@ const Funcs = (() => {
           const e1 = CX.sub(al, C(1, 0));
           const ex = Number.isInteger(e1.re) && e1.im === 0 ? real(e1.re) : CX.numExact(e1.re).length <= 10 && CX.numExact(e1.im).length <= 10 ? num(e1) : sub(num(al), one());
           ast = mul(factor, pow(z(), ex));
-          cut = v.cut; extra = `; same cut (${fmtDeg(v.cut)}°) and sheet ${v.k}`;
+          cut = v.cut; extra = $t('; same cut ({cut}°) and sheet {k}', { cut: fmtDeg(v.cut), k: v.k });
           break;
         }
         case 'exp': ast = call('exp', z()); break;
-        case 'log': ast = div(one(), z()); extra = '; the same on every sheet'; break;
+        case 'log': ast = div(one(), z()); extra = $t('; the same on every sheet'); break;
         case 'sin': ast = call('cos', z()); break;
         case 'cos': ast = neg(call('sin', z())); break;
         case 'tan': ast = div(one(), sq(call('cos', z()))); break;
@@ -934,12 +964,12 @@ const Funcs = (() => {
         case 'arcsin': case 'arccos': {
           const r = div(one(), call('sqrt', sub(one(), sq(z()))));
           ast = id === 'arcsin' ? r : neg(r);
-          extra = '; principal branch, like the original';
+          extra = $t('; principal branch, like the original');
           break;
         }
         case 'arctan': ast = div(one(), add(one(), sq(z()))); break;
-        case 'arsinh': ast = div(one(), call('sqrt', add(sq(z()), one()))); extra = '; principal branch, like the original'; break;
-        case 'arcosh': ast = div(one(), mul(call('sqrt', sub(z(), one())), call('sqrt', add(z(), one())))); extra = '; principal branch, like the original'; break;
+        case 'arsinh': ast = div(one(), call('sqrt', add(sq(z()), one()))); extra = $t('; principal branch, like the original'); break;
+        case 'arcosh': ast = div(one(), mul(call('sqrt', sub(z(), one())), call('sqrt', add(z(), one())))); extra = $t('; principal branch, like the original'); break;
         case 'artanh': ast = div(one(), sub(one(), sq(z()))); break;
         case 'joukowski': ast = sub(div(one(), real(2)), div(one(), mul(real(2), sq(z())))); break;
         case 'ijouk': {
@@ -948,10 +978,10 @@ const Funcs = (() => {
           // interior: 1 − z/s cancels for large |z| (it is ~1/(2z²)); since (z − s)(z + s) = 1 it equals −1/((z + s) s)
           if (v.branch === 'interior' && opts.stable) ast = neg(div(one(), mul(add(z(), s()), s())));
           else ast = v.branch === 'interior' ? sub(one(), t) : add(one(), t);
-          extra = '; same branch as the original';
+          extra = $t('; same branch as the original');
           break;
         }
-        case 'conj': return { error: 'Conjugation z̄ is not holomorphic, so it has no complex derivative' };
+        case 'conj': return { error: $t('Conjugation z̄ is not holomorphic, so it has no complex derivative') };
         case 'poly': ast = polyAst(polyDer(CX.polyTrim(v.co))); break;
         case 'rational': {
           const p = CX.polyTrim(v.p), q = CX.polyTrim(v.q);
@@ -979,10 +1009,10 @@ const Funcs = (() => {
               ast = div(polyAst(N), sq(polyAst(Q)));
             }
           } else ast = Expr.diff(src, { theta: cut * DEG });
-          if (b.usesCut) extra = `; same cut (${fmtDeg(cut)}°) as the original`;
+          if (b.usesCut) extra = $t('; same cut ({cut}°) as the original', { cut: fmtDeg(cut) });
           break;
         }
-        default: return { error: `No derivative is known for ${b.def.label}` };
+        default: return { error: $t('No derivative is known for {label}', { label: b.def.label }) };
       }
       return { ast, cut, extra };
     } catch (e) {
@@ -995,7 +1025,7 @@ const Funcs = (() => {
 
   // ---------------- Linear & Möbius ----------------
   def({
-    id: 'mul', group: 'Linear & Möbius', label: 'Multiply by c', menuTex: 'c\\,z',
+    id: 'mul', group: $t('Linear & Möbius'), label: $t('Multiply by c'), menuTex: 'c\\,z',
     params: [{ key: 'c', label: 'c', type: 'cx', def: '2' }],
     build({ c }) {
       const nz = !CX.isZero(c);
@@ -1011,13 +1041,13 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'add', group: 'Linear & Möbius', label: 'Translate by c', menuTex: 'z+c',
+    id: 'add', group: $t('Linear & Möbius'), label: $t('Translate by c'), menuTex: 'z+c',
     params: [{ key: 'c', label: 'c', type: 'cx', def: '1' }],
     build({ c }) {
       return {
         f: (z) => CX.add(z, c),
         hom: (t) => (z) => CX.add(z, CX.scale(c, t)),
-        homTex: (v = 'z') => ({ tex: `the translations $H_t(${v})=${v}+tc$, $c=${CX.tex(c, 3)}$`, mobius: true }),
+        homTex: (v = 'z') => ({ tex: $t('the translations $H_t(%{v})=%{v}+tc$, $c=%{c}$', { v, c: CX.tex(c, 3) }), mobius: true }),
         tex: (a) => addTex(a, c),
         props: props(ALL),
         inverse: { type: 'add', params: { c: fmtC(CX.neg(c)) } },
@@ -1025,7 +1055,7 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'affine', group: 'Linear & Möbius', label: 'Affine', menuTex: 'az+b',
+    id: 'affine', group: $t('Linear & Möbius'), label: $t('Affine'), menuTex: 'az+b',
     params: [{ key: 'a', label: 'a', type: 'cx', def: '1+i' }, { key: 'b', label: 'b', type: 'cx', def: '0' }],
     build({ a, b }) {
       const nz = !CX.isZero(a);
@@ -1041,7 +1071,7 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'recip', group: 'Linear & Möbius', label: 'Inversion', menuTex: '1/z',
+    id: 'recip', group: $t('Linear & Möbius'), label: $t('Inversion'), menuTex: '1/z',
     params: [],
     build() {
       return {
@@ -1057,7 +1087,7 @@ const Funcs = (() => {
     },
   });
   function mobiusBuild(a, b, c, d) {
-    if (CX.isZero(c) && CX.isZero(d)) throw new Error('Denominator is zero (c = d = 0)');
+    if (CX.isZero(c) && CX.isZero(d)) throw new Error($t('Denominator is zero (c = d = 0)'));
     const m = [a, b, c, d];
     const cz = CX.isZero(c);
     // ad − bc exactly 0: constant (away from the pole). Clearly nonzero against the scale of the entries
@@ -1086,33 +1116,33 @@ const Funcs = (() => {
       poles: pole ? [pole] : [],
       domain: pole ? (v) => `${v}\\neq ${CX.tex(pole)}` : null,
       inverse: !mob ? null : { type: 'mobius', params: { a: fmtC(d), b: fmtC(CX.neg(b)), c: fmtC(CX.neg(c)), d: fmtC(a) } },
-      inverseNote: mob ? null : degenerate ? 'ad − bc = 0 makes this map constant, so it has no inverse'
-        : 'ad − bc is too close to 0 to tell whether this map is invertible',
+      inverseNote: mob ? null : degenerate ? $t('ad − bc = 0 makes this map constant, so it has no inverse')
+        : $t('ad − bc is too close to 0 to tell whether this map is invertible'),
     };
   }
   def({
-    id: 'mobius', group: 'Linear & Möbius', label: 'Möbius', menuTex: '\\frac{az+b}{cz+d}',
+    id: 'mobius', group: $t('Linear & Möbius'), label: $t('Möbius'), menuTex: '\\frac{az+b}{cz+d}',
     params: [
       { key: 'a', label: 'a', type: 'cx', def: '1' }, { key: 'b', label: 'b', type: 'cx', def: '-i' },
       { key: 'c', label: 'c', type: 'cx', def: '1' }, { key: 'd', label: 'd', type: 'cx', def: 'i' },
     ],
     presets: [
-      { label: 'Cayley  (z−i)/(z+i)', params: { a: '1', b: '-i', c: '1', d: 'i' } },
-      { label: 'Inverse Cayley  i(1+z)/(1−z)', params: { a: 'i', b: 'i', c: '-1', d: '1' } },
-      { label: 'Half-plane → disk  (z−1)/(z+1)', params: { a: '1', b: '-1', c: '1', d: '1' } },
-      { label: 'Disk → right half-plane  (1+z)/(1−z)', params: { a: '1', b: '1', c: '-1', d: '1' } },
+      { label: $t('Cayley  (z−i)/(z+i)'), params: { a: '1', b: '-i', c: '1', d: 'i' } },
+      { label: $t('Inverse Cayley  i(1+z)/(1−z)'), params: { a: 'i', b: 'i', c: '-1', d: '1' } },
+      { label: $t('Half-plane → disk  (z−1)/(z+1)'), params: { a: '1', b: '-1', c: '1', d: '1' } },
+      { label: $t('Disk → right half-plane  (1+z)/(1−z)'), params: { a: '1', b: '1', c: '-1', d: '1' } },
     ],
     build({ a, b, c, d }) { return mobiusBuild(a, b, c, d); },
   });
   def({
-    id: 'blaschke', group: 'Linear & Möbius', label: 'Disk automorphism', menuTex: 'e^{i\\varphi}\\frac{z-a}{1-\\bar a z}',
+    id: 'blaschke', group: $t('Linear & Möbius'), label: $t('Disk automorphism'), menuTex: 'e^{i\\varphi}\\frac{z-a}{1-\\bar a z}',
     params: [{ key: 'a', label: 'a', type: 'cx', def: '0.5' }, { key: 'phi', label: 'φ', type: 'angle', def: 0 }],
     build({ a, phi }) {
       const e = C(Math.cos(phi * DEG), Math.sin(phi * DEG));
       const r = mobiusBuild(e, CX.neg(CX.mul(e, a)), CX.neg(CX.conj(a)), C(1, 0));
       const rot = Math.abs(phi) % 360 < 1e-12;
       const ra = CX.abs(a);
-      if (ra >= 1) r.branchNote = ra === 1 ? '|a| = 1 makes this map degenerate' : '|a| > 1: this map swaps the disk with its exterior, so it is not an automorphism of the disk';
+      if (ra >= 1) r.branchNote = ra === 1 ? $t('|a| = 1 makes this map degenerate') : $t('|a| > 1: this map swaps the disk with its exterior, so it is not an automorphism of the disk');
       r.tex = (x) => {
         const num = addTex(x, CX.neg(a));
         const ac = CX.conj(a);
@@ -1122,14 +1152,14 @@ const Funcs = (() => {
       };
       // the inverse is again a disk automorphism: a' = −e^{iφ} a, φ' = −φ
       if (r.inverse) r.inverse = { type: 'blaschke', params: { a: fmtC(CX.neg(CX.mul(e, a))), phi: phi === 0 ? 0 : -phi } };
-      else if (ra === 1) r.inverseNote = '|a| = 1 makes this map constant, so it has no inverse';
+      else if (ra === 1) r.inverseNote = $t('|a| = 1 makes this map constant, so it has no inverse');
       return r;
     },
   });
 
   // ---------------- Powers & roots ----------------
   def({
-    id: 'pown', group: 'Powers & roots', label: 'Integer power', menuTex: 'z^n',
+    id: 'pown', group: $t('Powers & roots'), label: $t('Integer power'), menuTex: 'z^n',
     // |n| <= 4096, like an integer exponent in a custom formula: z^n is computed exactly as labelled
     params: [{ key: 'n', label: 'n', type: 'int', def: 2, min: -4096, max: 4096 }],
     build({ n }) {
@@ -1139,10 +1169,10 @@ const Funcs = (() => {
       else if (n > 0) P = props({ analytic: true, entire: true, rational: true, polynomial: true, proper: true, injective: n === 1, mobius: n === 1, deg: n, degExact: true });
       else P = props({ analytic: true, rational: true, injective: n === -1, mobius: n === -1, deg: an, degExact: true });
       let hom, homTex;
-      if (n >= 0) { hom = powHom(C(n, 0), PI, 0); homTex = (v = 'z') => ({ tex: `the homotopy $H_t(${v})=${v}^{${expoTex(n)}}$ (principal branch)` }); }
+      if (n >= 0) { hom = powHom(C(n, 0), PI, 0); homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (principal branch)', { v, e: expoTex(n) }) }); }
       else {
         const h1 = powHom(C(an, 0), PI, 0), inv = mobHom([C(0, 0), C(1, 0), C(1, 0), C(0, 0)]);
-        homTex = (v = 'z') => ({ tex: `the homotopy $H_t(${v})=${v}^{${expoTex(1 + 2 * (an - 1))}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$` });
+        homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$', { v, e: expoTex(1 + 2 * (an - 1)) }) });
         hom = (t) => {
           if (t < 0.5) return h1(2 * t);
           const g = inv(2 * t - 1);
@@ -1154,7 +1184,7 @@ const Funcs = (() => {
       else if (n === 1 || n === -1) inverse = { type: 'pown', params: { n } };
       else if (n <= -2) inverse = { type: 'powa', params: { alpha: fmtC(C(1 / n, 0)), cut: 180, k: 0 } };
       return {
-        inverseNote: n === 0 ? 'z⁰ = 1 is constant, so it has no inverse' : null,
+        inverseNote: n === 0 ? $t('z⁰ = 1 is constant, so it has no inverse') : null,
         f: (z) => CX.ipow(z, n),
         hom, homTex, props: P,
         tex: (a) => (n === 1 ? a : n === 0 ? { s: '1', p: 4 } : n < 0 ? { s: `\\frac{1}{${an === 1 ? a.s : atom(a) + '^{' + an + '}'}}`, p: 4 } : powTex(a, n)),
@@ -1165,7 +1195,7 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'root', group: 'Powers & roots', label: 'n-th root', menuTex: '\\sqrt[n]{z}', hasCut: true,
+    id: 'root', group: $t('Powers & roots'), label: $t('n-th root'), menuTex: '\\sqrt[n]{z}', hasCut: true,
     params: [{ key: 'n', label: 'n', type: 'int', def: 2, min: 2 }, ...cutParams],
     build({ n, cut, k }) {
       n = Math.max(2, n);
@@ -1174,18 +1204,18 @@ const Funcs = (() => {
       return {
         f: (z) => CX.powReal(z, 1 / n, th, kk),
         hom: powHom(C(1 / n, 0), th, kk),
-        homTex: (v = 'z') => ({ tex: `the homotopy $H_t(${v})=${v}^{1-(${n - 1}/${n})t}$ (${branchWords(cut, kk)})` }),
+        homTex: (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{1-(%{m}/%{n})t}$ (%{cut})', { v, m: n - 1, n, cut: branchWords(cut, kk) }) }),
         tex: (a) => ({ s: n === 2 ? `\\sqrt{${a.s}}` : `\\sqrt[${n}]{${a.s}}`, p: 4 }),
         props: props({ analytic: true, injective: true }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
         domain: (v) => `\\arg ${v}\\neq ${CX.texNum(cut, 2)}^\\circ`,
-        branchNote: `sheet ${kk} of ${n}`,
+        branchNote: $t('sheet {k} of {n}', { k: kk, n }),
         inverse: { type: 'pown', params: { n } },
       };
     },
   });
   def({
-    id: 'powa', group: 'Powers & roots', label: 'Complex power', menuTex: 'z^{\\alpha}', hasCut: true,
+    id: 'powa', group: $t('Powers & roots'), label: $t('Complex power'), menuTex: 'z^{\\alpha}', hasCut: true,
     params: [{ key: 'alpha', label: 'α', type: 'cx', def: '1.5' }, ...cutParams],
     build({ alpha, cut, k }) {
       const th = cut * DEG;
@@ -1203,16 +1233,16 @@ const Funcs = (() => {
         inverse = { type: 'powa', params: { alpha: fmtC(C(1 / al, 0)), cut: +(X - 360 * k2).toFixed(9), k: k2 } };
       }
       return {
-        inverseNote: inverse ? null : a2 === 0 ? 'z⁰ = 1 is constant, so it has no inverse'
-          : 'A complex exponent winds around 0, so its inverse would need a spiral branch cut; use the Preimage view',
+        inverseNote: inverse ? null : a2 === 0 ? $t('z⁰ = 1 is constant, so it has no inverse')
+          : $t('A complex exponent winds around 0, so its inverse would need a spiral branch cut; use the Preimage view'),
         f: (z) => CX.pow(z, alpha, th, k),
         hom: powHom(alpha, th, k),
-        homTex: (v = 'z') => ({ tex: alpha.im === 0 ? `the homotopy $H_t(${v})=${v}^{${expoTex(alpha.re)}}$ (${branchWords(cut, k)})` : `the homotopy $H_t(${v})=${v}^{1+(\\alpha-1)t}$, $\\alpha=${CX.tex(alpha, 3)}$ (${branchWords(cut, k)})` }),
+        homTex: (v = 'z') => ({ tex: alpha.im === 0 ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (%{cut})', { v, e: expoTex(alpha.re), cut: branchWords(cut, k) }) : $t('the homotopy $H_t(%{v})=%{v}^{1+(\\alpha-1)t}$, $\\alpha=%{alpha}$ (%{cut})', { v, alpha: CX.tex(alpha, 3), cut: branchWords(cut, k) }) }),
         tex: (a) => powTex(a, CX.tex(alpha)),
         props: props({ analytic: true, injective: inj }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
         domain: (v) => `\\arg ${v}\\neq ${CX.texNum(cut, 2)}^\\circ`,
-        branchNote: `sheet ${k}`,
+        branchNote: $t('sheet {k}', { k }),
         inverse,
       };
     },
@@ -1220,7 +1250,7 @@ const Funcs = (() => {
 
   // ---------------- Exponential ----------------
   def({
-    id: 'exp', group: 'Exponential & log', label: 'Exponential', menuTex: 'e^{z}',
+    id: 'exp', group: $t('Exponential & log'), label: $t('Exponential'), menuTex: 'e^{z}',
     params: [],
     build() {
       return {
@@ -1232,7 +1262,7 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'log', group: 'Exponential & log', label: 'Logarithm', menuTex: '\\log z', hasCut: true,
+    id: 'log', group: $t('Exponential & log'), label: $t('Logarithm'), menuTex: '\\log z', hasCut: true,
     params: [...cutParams],
     build({ cut, k }) {
       const th = cut * DEG;
@@ -1242,7 +1272,7 @@ const Funcs = (() => {
         props: props({ analytic: true, injective: true }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
         domain: (v) => `\\arg ${v}\\neq ${CX.texNum(cut, 2)}^\\circ`,
-        branchNote: `Im ∈ (${fmtDeg(cut - 360 + 360 * k)}°, ${fmtDeg(cut + 360 * k)}°]`,
+        branchNote: `Im ∈ ${degIv(cut - 360 + 360 * k, cut + 360 * k)}`,
         inverse: { type: 'exp', params: {} },
       };
     },
@@ -1250,16 +1280,16 @@ const Funcs = (() => {
 
   // ---------------- Trigonometric ----------------
   const trig = [
-    ['sin', 'Sine', '\\sin', CX.sin, true, 'arcsin'],
-    ['cos', 'Cosine', '\\cos', CX.cos, true, 'arccos'],
-    ['tan', 'Tangent', '\\tan', CX.tan, false, 'arctan'],
-    ['sinh', 'Hyperbolic sine', '\\sinh', CX.sinh, true, 'arsinh'],
-    ['cosh', 'Hyperbolic cosine', '\\cosh', CX.cosh, true, 'arcosh'],
-    ['tanh', 'Hyperbolic tangent', '\\tanh', CX.tanh, false, 'artanh'],
+    ['sin', $t('Sine'), '\\sin', CX.sin, true, 'arcsin'],
+    ['cos', $t('Cosine'), '\\cos', CX.cos, true, 'arccos'],
+    ['tan', $t('Tangent'), '\\tan', CX.tan, false, 'arctan'],
+    ['sinh', $t('Hyperbolic sine'), '\\sinh', CX.sinh, true, 'arsinh'],
+    ['cosh', $t('Hyperbolic cosine'), '\\cosh', CX.cosh, true, 'arcosh'],
+    ['tanh', $t('Hyperbolic tangent'), '\\tanh', CX.tanh, false, 'artanh'],
   ];
   for (const [id, label, tx, F, entire, invId] of trig) {
     def({
-      id, group: 'Trigonometric', label, menuTex: `${tx} z`, params: [],
+      id, group: $t('Trigonometric'), label, menuTex: `${tx} z`, params: [],
       build() {
         const r = {
           f: F, hom: ends(F, ZOOM[id]), homTex: (v = 'z', o) => ({ tex: ZOOM_TEX[id](v, o) }), nat: { kind: 'zoom', fn: id }, tex: (a) => fn(tx, a),
@@ -1276,21 +1306,21 @@ const Funcs = (() => {
   const realCuts = [R(C(1, 0), 0), R(C(-1, 0), PI)];
   const imagCuts = [R(C(0, 1), PI / 2), R(C(0, -1), -PI / 2)];
   const itrig = [
-    ['arcsin', 'Arcsine', '\\arcsin', CX.asin, realCuts, 'sin', (v) => `${v}\\notin(-\\infty,-1]\\cup[1,\\infty)`],
-    ['arccos', 'Arccosine', '\\arccos', CX.acos, realCuts, 'cos', (v) => `${v}\\notin(-\\infty,-1]\\cup[1,\\infty)`],
-    ['arctan', 'Arctangent', '\\arctan', CX.atan, imagCuts, 'tan', (v) => `${v}\\notin i(-\\infty,-1]\\cup i[1,\\infty)`],
-    ['arsinh', 'Inverse sinh', '\\operatorname{arsinh}', CX.asinh, imagCuts, 'sinh', (v) => `${v}\\notin i(-\\infty,-1]\\cup i[1,\\infty)`],
-    ['arcosh', 'Inverse cosh', '\\operatorname{arcosh}', CX.acosh, [R(C(1, 0), PI)], 'cosh', (v) => `${v}\\notin(-\\infty,1]`],
-    ['artanh', 'Inverse tanh', '\\operatorname{artanh}', CX.atanh, realCuts, 'tanh', (v) => `${v}\\notin(-\\infty,-1]\\cup[1,\\infty)`],
+    ['arcsin', $t('Arcsine'), '\\arcsin', CX.asin, realCuts, 'sin', (v) => `${v}\\notin(-\\infty,-1]\\cup[1,\\infty)`],
+    ['arccos', $t('Arccosine'), '\\arccos', CX.acos, realCuts, 'cos', (v) => `${v}\\notin(-\\infty,-1]\\cup[1,\\infty)`],
+    ['arctan', $t('Arctangent'), '\\arctan', CX.atan, imagCuts, 'tan', (v) => `${v}\\notin i(-\\infty,-1]\\cup i[1,\\infty)`],
+    ['arsinh', $t('Inverse sinh'), '\\operatorname{arsinh}', CX.asinh, imagCuts, 'sinh', (v) => `${v}\\notin i(-\\infty,-1]\\cup i[1,\\infty)`],
+    ['arcosh', $t('Inverse cosh'), '\\operatorname{arcosh}', CX.acosh, [R(C(1, 0), PI)], 'cosh', (v) => `${v}\\notin(-\\infty,1]`],
+    ['artanh', $t('Inverse tanh'), '\\operatorname{artanh}', CX.atanh, realCuts, 'tanh', (v) => `${v}\\notin(-\\infty,-1]\\cup[1,\\infty)`],
   ];
   for (const [id, label, tx, F, cuts, invId, dom] of itrig) {
     def({
-      id, group: 'Inverse trigonometric', label, menuTex: `${tx} z`, params: [],
+      id, group: $t('Inverse trigonometric'), label, menuTex: `${tx} z`, params: [],
       build() {
         return {
           f: F, hom: ends(F, ZOOM[id]), homTex: (v = 'z', o) => ({ tex: ZOOM_TEX[id](v, o) }), nat: { kind: 'zoom', fn: id }, tex: (a) => fn(tx, a),
           props: props({ analytic: true, injective: true }),
-          cuts, domain: dom, branchNote: 'principal branch',
+          cuts, domain: dom, branchNote: $t('principal branch'),
           inverse: { type: invId, params: {} },
         };
       },
@@ -1299,7 +1329,7 @@ const Funcs = (() => {
 
   // ---------------- Special ----------------
   def({
-    id: 'joukowski', group: 'Special', label: 'Joukowski', menuTex: '\\tfrac12\\left(z+\\tfrac1z\\right)', params: [],
+    id: 'joukowski', group: $t('Special'), label: $t('Joukowski'), menuTex: '\\tfrac12\\left(z+\\tfrac1z\\right)', params: [],
     build() {
       const f = (z) => CX.scale(CX.add(z, CX.inv(z)), 0.5);
       return {
@@ -1312,30 +1342,30 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'ijouk', group: 'Special', label: 'Inverse Joukowski', menuTex: 'z\\pm\\sqrt{z^2-1}',
-    params: [{ key: 'branch', label: 'branch', type: 'choice', def: 'exterior', choices: [['exterior', '|w| > 1'], ['interior', '|w| < 1']] }],
+    id: 'ijouk', group: $t('Special'), label: $t('Inverse Joukowski'), menuTex: 'z\\pm\\sqrt{z^2-1}',
+    params: [{ key: 'branch', label: $t('branch'), type: 'choice', def: 'exterior', choices: [['exterior', '|w| > 1'], ['interior', '|w| < 1']] }],
     build({ branch }) {
       const sg = branch === 'interior' ? -1 : 1;
       const f = (z) => CX.ijouk(z, sg);   // z + sg s, the interior branch as 1 / (z + s) (no cancellation)
       return {
         f, hom: ends(f, ijoukHom(sg)), nat: { kind: 'ijouk' },
-        homTex: (v = 'z') => ({ tex: sg > 0 ? `the homotopy $H_t(${v})=\\coth\\bigl((1-t/2)\\operatorname{arcoth}${vTex(v)}\\bigr)$, that is $C^{-1}\\bigl((C${vTex(v)})^{1-t/2}\\bigr)$ with $C(${v})=\\frac{${v}-1}{${v}+1}$ (principal branch)` : `the homotopy $H_t(${v})=\\coth\\bigl((1-t/2)\\operatorname{arcoth}${vTex(v)}-\\pi i t/2\\bigr)$, that is $C^{-1}\\bigl(e^{\\pi i t}(C${vTex(v)})^{1-t/2}\\bigr)$ with $C(${v})=\\frac{${v}-1}{${v}+1}$ (principal branch)` }),
+        homTex: (v = 'z') => ({ tex: sg > 0 ? $t('the homotopy $H_t(%{v})=\\coth\\bigl((1-t/2)\\operatorname{arcoth}%{w}\\bigr)$, that is $C^{-1}\\bigl((C%{w})^{1-t/2}\\bigr)$ with $C(%{v})=\\frac{%{v}-1}{%{v}+1}$ (principal branch)', { v, w: vTex(v) }) : $t('the homotopy $H_t(%{v})=\\coth\\bigl((1-t/2)\\operatorname{arcoth}%{w}-\\pi i t/2\\bigr)$, that is $C^{-1}\\bigl(e^{\\pi i t}(C%{w})^{1-t/2}\\bigr)$ with $C(%{v})=\\frac{%{v}-1}{%{v}+1}$ (principal branch)', { v, w: vTex(v) }) }),
         // exactly what is evaluated: z ± √(z−1)·√(z+1) with principal roots (not √(z²−1), which differs on Re z < 0)
         tex: (a) => ({ s: `${a.s}${sg > 0 ? '+' : '-'}\\sqrt{${a.s}-1}\\,\\sqrt{${a.s}+1}`, p: 0 }),
         props: props({ analytic: true, injective: true }),
         cuts: [{ kind: 'seg', a: C(-1, 0), b: C(1, 0) }],
-        domain: (v) => `${v}\\notin[-1,1]`, branchNote: branch === 'interior' ? 'image in the unit disk' : 'image outside the unit disk',
+        domain: (v) => `${v}\\notin[-1,1]`, branchNote: branch === 'interior' ? $t('image in the unit disk') : $t('image outside the unit disk'),
         inverse: { type: 'joukowski', params: {} },
       };
     },
   });
   def({
-    id: 'conj', group: 'Special', label: 'Conjugation', menuTex: '\\bar z', params: [],
+    id: 'conj', group: $t('Special'), label: $t('Conjugation'), menuTex: '\\bar z', params: [],
     build() {
       return {
         f: CX.conj,
         hom: (t) => (z) => C(z.re, z.im * (1 - 2 * t)),
-        homTex: (v = 'z') => ({ tex: `the homotopy $H_t(${v})=\\operatorname{Re} ${v}+i(1-2t)\\operatorname{Im} ${v}$`, segment: true }),
+        homTex: (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=\\operatorname{Re} %{v}+i(1-2t)\\operatorname{Im} %{v}$', { v }), segment: true }),
         tex: (a) => ({ s: `\\overline{${a.s}}`, p: 4 }),
         props: props({ proper: true, injective: true }),
         inverse: { type: 'conj', params: {} },
@@ -1345,8 +1375,8 @@ const Funcs = (() => {
 
   // ---------------- Polynomial, rational, custom ----------------
   def({
-    id: 'poly', group: 'Polynomial & custom', label: 'Polynomial', menuTex: 'a_nz^n+\\dots+a_0',
-    params: [{ key: 'co', label: 'coefficients aₙ, …, a₀', type: 'coeffs', def: '1, 0, -1, 0' }],
+    id: 'poly', group: $t('Polynomial & custom'), label: $t('Polynomial'), menuTex: 'a_nz^n+\\dots+a_0',
+    params: [{ key: 'co', label: $t('coefficients aₙ, …, a₀'), type: 'coeffs', def: '1, 0, -1, 0' }],
     build({ co }) {
       const c = CX.polyTrim(co);
       const d = c.length - 1;
@@ -1354,7 +1384,7 @@ const Funcs = (() => {
       const f = (z) => CX.polyEval(c, z);
       const nat = d >= 1 ? polyNat(c, f) : null;
       return {
-        f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (a constant has no natural path)`, segment: true }),
+        f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (a constant has no natural path)', { v }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
         tex: (a) => polyTex(c, a), props: P,
         ...polyInverse(c),
@@ -1362,13 +1392,13 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'rational', group: 'Polynomial & custom', label: 'Rational', menuTex: '\\frac{p(z)}{q(z)}',
-    params: [{ key: 'p', label: 'numerator p: coefficients', type: 'coeffs', def: '1, 0, 1' }, { key: 'q', label: 'denominator q: coefficients', type: 'coeffs', def: '1, 0' }],
+    id: 'rational', group: $t('Polynomial & custom'), label: $t('Rational'), menuTex: '\\frac{p(z)}{q(z)}',
+    params: [{ key: 'p', label: $t('numerator p: coefficients'), type: 'coeffs', def: '1, 0, 1' }, { key: 'q', label: $t('denominator q: coefficients'), type: 'coeffs', def: '1, 0' }],
     build({ p, q }) {
       p = CX.polyTrim(p); q = CX.polyTrim(q);
       const dp = p.length - 1, dq = q.length - 1;
       const f = (z) => CX.div(CX.polyEval(p, z), CX.polyEval(q, z));
-      if (q.length === 1 && CX.isZero(q[0])) throw new Error('Denominator is zero');
+      if (q.length === 1 && CX.isZero(q[0])) throw new Error($t('Denominator is zero'));
       const pZero = p.length === 1 && CX.isZero(p[0]);
       let coprime = false, poles = [];
       if (dq === 0) coprime = true;
@@ -1393,7 +1423,7 @@ const Funcs = (() => {
       }
       const nat = P.constant ? null : rationalNat(p, q, f);
       return {
-        f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (this map has no natural path)`, segment: true }),
+        f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (this map has no natural path)', { v }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
         tex: (a) => ({ s: `\\frac{${polyTex(p, a).s}}{${polyTex(q, a).s}}`, p: 4 }),
         props: P, poles, domain: dq > 0 ? (v) => `q(${v})\\neq 0` : null,
@@ -1405,10 +1435,10 @@ const Funcs = (() => {
   // Given as points, the numerator and denominator are coprime unless a zero and a pole coincide exactly (they cancel:
   // a removable singularity, filled in), so the degree max(#zeros, #poles) is exact.
   def({
-    id: 'zp', group: 'Polynomial & custom', label: 'Zeros and poles', menuTex: 'a\\frac{\\prod(z-\\zeta_k)}{\\prod(z-p_j)}',
-    params: [{ key: 'a', label: 'a', type: 'cx', def: '1' }, { key: 'zeros', label: 'zeros', type: 'cxlist', def: '1, -1' }, { key: 'poles', label: 'poles', type: 'cxlist', def: '0' }],
+    id: 'zp', group: $t('Polynomial & custom'), label: $t('Zeros and poles'), menuTex: 'a\\frac{\\prod(z-\\zeta_k)}{\\prod(z-p_j)}',
+    params: [{ key: 'a', label: 'a', type: 'cx', def: '1' }, { key: 'zeros', label: $t('zeros'), type: 'cxlist', def: '1, -1' }, { key: 'poles', label: $t('poles'), type: 'cxlist', def: '0' }],
     build({ a, zeros, poles }) {
-      if (zeros.length > ZP_MAX || poles.length > ZP_MAX) throw new Error(`At most ${ZP_MAX} zeros and ${ZP_MAX} poles`);
+      if (zeros.length > ZP_MAX || poles.length > ZP_MAX) throw new Error($tn('At most {n} zeros and {n} poles', 'At most {n} zeros and {n} poles', ZP_MAX));
       const { zs, ps, gone } = zpCancel(zeros, poles);
       const nz = zs.length, np = ps.length, deg = Math.max(nz, np);
       const aZero = CX.isZero(a);
@@ -1431,12 +1461,12 @@ const Funcs = (() => {
       else Pr = props({ analytic: true, rational: true, deg, degExact: true, proper: nz > np, injective: deg === 1, mobius: deg === 1 });
       const nat = Pr.constant ? null : zerosPolesNat(a, zs, ps, f);
       // the caption names the zeros as the card does (ζ, p) and the zoom centre c (ratPath with the zp options)
-      const homTex = nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (a constant has no natural path)`, segment: true });
+      const homTex = nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (a constant has no natural path)', { v }), segment: true });
       const domain = np && !aZero ? (v) => (np <= 3 ? `${v}\\notin\\{${[...new Set(ps.map((p) => CX.tex(p)))].join(',')}\\}` : `${v}\\neq p_j`) : null;
       const inv = Pr.constant ? { inverse: null, inverseNote: NOTE_CONST } : np ? rationalInverse(P, Q, Pr) : polyInverse(P);
       const notes = [];
-      if (gone.length) notes.push(`${gone.length === 1 ? 'A zero and a pole cancel' : `${gone.length} zero–pole pairs cancel`} at ${[...new Set(gone.map((g) => CX.fmt(g, 4)))].join(', ')}`);
-      if (aZero) notes.push(np ? 'a = 0 makes the map the constant 0 (the poles too: they are removable)' : 'a = 0 makes the map constant');
+      if (gone.length) { const at = [...new Set(gone.map((g) => CX.fmt(g, 4)))].join(', '); notes.push(gone.length === 1 ? $t('A zero and a pole cancel at {at}', { at }) : $tn('{n} zero–pole pairs cancel at {at}', '{n} zero–pole pairs cancel at {at}', gone.length, { at })); }
+      if (aZero) notes.push(np ? $t('a = 0 makes the map the constant 0 (the poles too: they are removable)') : $t('a = 0 makes the map constant'));
       return {
         f, hom: nat ? nat.hom : linHom(f), homTex,
         nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
@@ -1449,19 +1479,19 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'custom', group: 'Polynomial & custom', label: 'Custom formula', menuTex: 'f(z)\\ \\text{(LaTeX)}',
-    params: [{ key: 'expr', label: 'f(z) =', type: 'expr', def: 'z^2+\\frac{1}{z}' }, { key: 'cut', label: 'cut angle for log, √, powers', type: 'angle', def: 180 }],
+    id: 'custom', group: $t('Polynomial & custom'), label: $t('Custom formula'), menuTex: 'f(z)\\ \\text{(LaTeX)}',
+    params: [{ key: 'expr', label: 'f(z) =', type: 'expr', def: 'z^2+\\frac{1}{z}' }, { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 }],
     hasCut: 'maybe',
     build({ expr, cut }) {
       const ast = Expr.parse(expr);
-      if (Expr.hasBool(ast)) throw new Error('A function cannot contain comparisons');
+      if (Expr.hasBool(ast)) throw new Error($t('A function cannot contain comparisons'));
       const vars = Expr.usesVars(ast);
-      for (const v of vars) if (v !== 'z') throw new Error(`Use z (or w) as the variable${v === 'x' || v === 'y' ? '; write Re z, Im z for real parts' : ''}`);
+      for (const v of vars) if (v !== 'z') throw new Error($t('Use z (or w) as the variable{hint}', { hint: v === 'x' || v === 'y' ? $t('; write Re z, Im z for real parts') : '' }));
       const th = cut * DEG;
       const f = Expr.compile(ast, { theta: th });
       // a formula that is undefined at every generic point (z/0, log 0, ...) is an error, not a map
       const probes = [C(0.37, -0.81), C(-1.3, 0.6), C(2.1, 1.7), C(-0.45, -2.2), C(0.9, 0.05)];
-      if (!probes.some((p) => CX.isFin(f(p)))) throw new Error('The formula is undefined for every z (check for a division by zero or a logarithm of 0)');
+      if (!probes.some((p) => CX.isFin(f(p)))) throw new Error($t('The formula is undefined for every z (check for a division by zero or a logarithm of 0)'));
       const cls = Expr.classify(ast);
       let P;
       if (!cls.dep) P = CONSTANT;
@@ -1486,13 +1516,13 @@ const Funcs = (() => {
       try { nat = cls.dep && !P.constant ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
       return {
         f, hom: nat ? nat.hom : linHom(f),
-        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: `the straight-line homotopy $H_t(${v})=(1-t)${v}+t\\,f(${v})$ (${cls.dep && !P.constant ? 'this formula is not analytic, so it has no natural path' : 'a constant has no natural path'})`, segment: true }),
+        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: cls.dep && !P.constant ? $t('this formula is not analytic, so it has no natural path') : $t('a constant has no natural path') }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData || null : null,
         tex: (a) => Expr.toTex(ast, a),
         props: P,
         usesCut: cls.branch,
-        domain: cls.branch ? (v) => `${v}\\ \\text{off the branch cuts of the formula}` : (cls.entire ? null : (v) => `\\text{the formula is defined at } ${v}`),
-        branchNote: cls.branch ? `log, √ and powers use arg ∈ (${fmtDeg(cut - 360)}°, ${fmtDeg(cut)}°]` : null,
+        domain: cls.branch ? (v) => $t('%{v}\\ \\text{off the branch cuts of the formula}', { v }) : (cls.entire ? null : (v) => $t('\\text{the formula is defined at } %{v}', { v })),
+        branchNote: cls.branch ? $t('log, √ and powers use arg ∈ {iv}', { iv: degIv(cut - 360, cut) }) : null,
         ...customInverse(ast, th),
       };
     },
@@ -1504,7 +1534,7 @@ const Funcs = (() => {
   const NAN_F = () => C(NaN, NaN);
   const plainVar = (s) => /^(?:z|w_\{?\d+\}?)$/.test(s);
   def({
-    id: 'deriv', group: 'Calculus', label: 'd/dz', menuTex: '\\frac{d}{dz}', params: [], op: 'deriv',
+    id: 'deriv', group: $t('Calculus'), label: 'd/dz', menuTex: '\\frac{d}{dz}', params: [], op: 'deriv',
     build() {
       return {
         op: 'deriv',
@@ -1513,12 +1543,12 @@ const Funcs = (() => {
         props: Object.assign(props(), { deriv: true }),
         cuts: [], poles: [], domain: null,
         inverse: null,
-        inverseNote: 'd/dz differentiates the chain so far; it is not a map of w, so it has no inverse',
+        inverseNote: $t('d/dz differentiates the chain so far; it is not a map of w, so it has no inverse'),
       };
     },
   });
 
-  const GROUPS = ['Linear & Möbius', 'Powers & roots', 'Exponential & log', 'Trigonometric', 'Inverse trigonometric', 'Special', 'Polynomial & custom', 'Calculus'];
+  const GROUPS = [$t('Linear & Möbius'), $t('Powers & roots'), $t('Exponential & log'), $t('Trigonometric'), $t('Inverse trigonometric'), $t('Special'), $t('Polynomial & custom'), $t('Calculus')];
 
   function defaults(type) {
     const d = DEFS[type];
@@ -1533,7 +1563,8 @@ const Funcs = (() => {
   // that the later steps are left out, marked .cut, and every later step passes it on unchanged (still longer than
   // the app's 700-character limit, so the app lists the steps one by one instead).
   const TEX_CAP = 6000;
-  const TEX_CUT_NOTE = '\\quad\\text{(truncated: the expanded formula is too long, so the later steps are left out)}';
+  const NOTATION = I18N.lang !== 'en';
+  const TEX_CUT_NOTE = $t('\\quad\\text{(truncated: the expanded formula is too long, so the later steps are left out)}');
   function capTex(tex) {
     return (a) => {
       if (a && a.cut) return a;
@@ -1544,7 +1575,7 @@ const Funcs = (() => {
   // Evaluate raw params and build. Returns built object or {error}.
   function build(step) {
     const d = DEFS[step.type];
-    if (!d) return { error: `Unknown function ${step.type}` };
+    if (!d) return { error: $t('Unknown function {f}', { f: step.type }) };
     const v = {};
     try {
       for (const q of d.params) {
@@ -1553,13 +1584,13 @@ const Funcs = (() => {
           case 'cx': try { v[q.key] = Expr.constValue(raw); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
           case 'int': {
             const x = Math.round(Number(raw));
-            if (!Number.isFinite(x)) throw new Error(`${q.label} must be an integer`);
+            if (!Number.isFinite(x)) throw new Error($t('{label} must be an integer', { label: q.label }));
             v[q.key] = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, x));
             break;
           }
-          case 'angle': { const x = Number(raw); if (!Number.isFinite(x)) throw new Error(`${q.label} must be a number`); v[q.key] = x; break; }
-          case 'coeffs': try { v[q.key] = parseCoeffs(raw); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
-          case 'cxlist': try { v[q.key] = parseCxList(raw); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
+          case 'angle': { const x = Number(raw); if (!Number.isFinite(x)) throw new Error($t('{label} must be a number', { label: q.label })); v[q.key] = x; break; }
+          case 'coeffs': try { v[q.key] = parseCoeffs(raw, typedHere(step, q.key, raw)); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
+          case 'cxlist': try { v[q.key] = parseCxList(raw, typedHere(step, q.key, raw)); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
           default: v[q.key] = raw;
         }
       }
@@ -1572,6 +1603,9 @@ const Funcs = (() => {
       }
       const b = d.build(v);
       if (typeof b.tex === 'function') b.tex = capTex(b.tex);
+      // homotopy captions in the Russian interface: Russian notation (tg, sh, ln, arcth) in their math, at call time
+      // (an English caption made under I18N.using('en') stays English). The generators stay English; English skips this.
+      if (NOTATION && typeof b.homTex === 'function') { const h = b.homTex; b.homTex = (...a) => { const r = h(...a); return r && typeof r.tex === 'string' ? Object.assign({}, r, { tex: I18N.notation(r.tex) }) : r; }; }
       b.def = d;
       b.vals = v;
       b.cuts = b.cuts || [];
@@ -1780,7 +1814,7 @@ const Funcs = (() => {
           return (c, w, S) => { const a = A(c, w, S); return [F(a[0]), F(a[1])]; };
         }
       }
-      throw new Error(`Cannot evaluate '${n.t}'`);
+      throw new Error($t("Cannot evaluate '{x}'", { x: n.t }));
     }
     const f = go(ast);
     return { f, nodes };
@@ -1878,7 +1912,7 @@ const Funcs = (() => {
   }
 
   return {
-    DEFS, GROUPS, PROP_KEYS, defaults, build, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
+    DEFS, GROUPS, PROP_KEYS, defaults, build, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
     stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval,
   };
 })();

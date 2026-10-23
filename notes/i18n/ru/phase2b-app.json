@@ -1,0 +1,1686 @@
+{
+ "_about": "Phase 2b (app.js): Russian for app.js call sites the phase-1 tables lack or that were restructured (splits, plurals, whole templates). Same format as chrome.json: en is the call-site template (the table key); plural entries carry en_plural [one, many] and plural {one, few, many, other}; file is app.js:line in work/xb. Written by the phase-2b app.js engineer, following GLOSSARY.md; needs the table owner review. Contexts are in ctx ($tx(ctx, en)).",
+ "zp.at_most_zeros_degree": {
+  "en": "At most {zpMax} zeros (degree {zpMax}, as Write by zeros and poles allows).",
+  "ru": "Не более {zpMax} нулей (степень {zpMax} — предел для задания нулями и полюсами).",
+  "note": "split of chrome.at_most_funcs_zp",
+  "file": "app.js:2637"
+ },
+ "zp.at_most_poles_degree": {
+  "en": "At most {zpMax} poles (degree {zpMax}, as Write by zeros and poles allows).",
+  "ru": "Не более {zpMax} полюсов (степень {zpMax} — предел для задания нулями и полюсами).",
+  "note": "split of chrome.at_most_funcs_zp",
+  "file": "app.js:2637"
+ },
+ "zp.at_most_n_zeros": {
+  "en": "At most {n} zeros",
+  "ru": "Не более {n} нулей",
+  "plural": {
+   "one": "Не более {n} нуля",
+   "few": "Не более {n} нулей",
+   "many": "Не более {n} нулей",
+   "other": "Не более {n} нуля"
+  },
+  "en_plural": [
+   "At most {n} zeros",
+   "At most {n} zeros"
+  ],
+  "note": "split of chrome.at_most_max_kind",
+  "file": "app.js:2637"
+ },
+ "zp.at_most_n_poles": {
+  "en": "At most {n} poles",
+  "ru": "Не более {n} полюсов",
+  "plural": {
+   "one": "Не более {n} полюса",
+   "few": "Не более {n} полюсов",
+   "many": "Не более {n} полюсов",
+   "other": "Не более {n} полюса"
+  },
+  "en_plural": [
+   "At most {n} poles",
+   "At most {n} poles"
+  ],
+  "note": "split of chrome.at_most_max_kind",
+  "file": "app.js:2637"
+ },
+ "zp.add_zero_to": {
+  "en": "Add a zero to f{k} ({x} now)",
+  "ru": "Добавить нуль функции f{k} (сейчас: {x})",
+  "note": "split of chrome.add_one_f_k",
+  "file": "app.js:2682"
+ },
+ "zp.add_pole_to": {
+  "en": "Add a pole to f{k} ({x} now)",
+  "ru": "Добавить полюс функции f{k} (сейчас: {x})",
+  "note": "split of chrome.add_one_f_k",
+  "file": "app.js:2682"
+ },
+ "zp.remove_zero_i": {
+  "en": "Remove zero {i} of f{k}",
+  "ru": "Удалить нуль {i} функции f{k}",
+  "note": "split of chrome.remove_what_i_f",
+  "file": "app.js:2713"
+ },
+ "zp.remove_pole_i": {
+  "en": "Remove pole {i} of f{k}",
+  "ru": "Удалить полюс {i} функции f{k}",
+  "note": "split of chrome.remove_what_i_f",
+  "file": "app.js:2713"
+ },
+ "zp.zero_sym_drag": {
+  "en": "Zero {sym}: drag it in the input plane",
+  "ru": "Нуль {sym}: перетащите его в исходной плоскости",
+  "file": "app.js:2715"
+ },
+ "zp.pole_sym_drag": {
+  "en": "Pole {sym}: drag it in the input plane",
+  "ru": "Полюс {sym}: перетащите его в исходной плоскости",
+  "file": "app.js:2715"
+ },
+ "hover.n_preimages_of": {
+  "en": "{n} preimages{where} of",
+  "ru": "{n} прообразов{where} точки",
+  "plural": {
+   "one": "{n} прообраз{where} точки",
+   "few": "{n} прообраза{where} точки",
+   "many": "{n} прообразов{where} точки",
+   "other": "{n} прообраза{where} точки"
+  },
+  "en_plural": [
+   "{n} preimage{where} of",
+   "{n} preimages{where} of"
+  ],
+  "note": "split exact of chrome.extra.n_preimages_of",
+  "file": "app.js:1"
+ },
+ "hover.at_least_n_preimages_of": {
+  "en": "at least {n} preimages{where} of",
+  "ru": "не менее {n} прообразов{where} точки",
+  "plural": {
+   "one": "не менее {n} прообраза{where} точки",
+   "few": "не менее {n} прообразов{where} точки",
+   "many": "не менее {n} прообразов{where} точки",
+   "other": "не менее {n} прообраза{where} точки"
+  },
+  "en_plural": [
+   "at least {n} preimage{where} of",
+   "at least {n} preimages{where} of"
+  ],
+  "note": "split atLeast of chrome.extra.n_preimages_of",
+  "file": "app.js:2615"
+ },
+ "int.sym_around_name": {
+  "en": "{sym} around {name}{part}",
+  "ru": "{sym} по контуру {name}{part}",
+  "note": "integral popover title; {sym} is ∮ or ∫, {name} the curve name, {part} the \"(visible part)\" note",
+  "file": "app.js:1"
+ },
+ "int.sym_along_name": {
+  "en": "{sym} along {name}{part}",
+  "ru": "{sym} по кривой {name}{part}",
+  "note": "integral popover title",
+  "file": "app.js:1"
+ },
+ "roots.n_roots_of": {
+  "en": "<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>",
+  "ru": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+  "plural": {
+   "one": "<div class=\"ch\">{n} корень уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "few": "<div class=\"ch\">{n} корня уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "many": "<div class=\"ch\">{n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "other": "<div class=\"ch\">{n} корня уравнения {fxHtml} = {val} {where}{choice}</div>"
+  },
+  "en_plural": [
+   "<div class=\"ch\">{n} root of {fxHtml} = {val} {where}{choice}</div>",
+   "<div class=\"ch\">{n} roots of {fxHtml} = {val} {where}{choice}</div>"
+  ],
+  "note": "split exact of chrome.choice_nz_root_choice",
+  "file": "app.js:6022"
+ },
+ "roots.at_least_n_roots_of": {
+  "en": "<div class=\"ch\">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>",
+  "ru": "<div class=\"ch\">Не менее {n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+  "plural": {
+   "one": "<div class=\"ch\">Не менее {n} корня уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "few": "<div class=\"ch\">Не менее {n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "many": "<div class=\"ch\">Не менее {n} корней уравнения {fxHtml} = {val} {where}{choice}</div>",
+   "other": "<div class=\"ch\">Не менее {n} корня уравнения {fxHtml} = {val} {where}{choice}</div>"
+  },
+  "en_plural": [
+   "<div class=\"ch\">at least {n} root of {fxHtml} = {val} {where}{choice}</div>",
+   "<div class=\"ch\">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>"
+  ],
+  "note": "split atLeast of chrome.choice_nz_root_choice",
+  "file": "app.js:6022"
+ },
+ "roots.the_target_area": {
+  "en": "the target area",
+  "ru": "целевую область",
+  "note": "accusative: \"попадает в целевую область\"",
+  "file": "app.js:6047"
+ },
+ "roots.the_target_curve": {
+  "en": "the target curve",
+  "ru": "целевую кривую",
+  "note": "accusative",
+  "file": "app.js:6048"
+ },
+ "roots.the_n_target_areas": {
+  "en": "the {n} target areas",
+  "ru": "{n} целевых областей",
+  "plural": {
+   "one": "{n} целевую область",
+   "few": "{n} целевые области",
+   "many": "{n} целевых областей",
+   "other": "{n} целевой области"
+  },
+  "en_plural": [
+   "the {n} target area",
+   "the {n} target areas"
+  ],
+  "note": "accusative after «в»",
+  "file": "app.js:6047"
+ },
+ "roots.the_n_target_curves": {
+  "en": "the {n} target curves",
+  "ru": "{n} целевых кривых",
+  "plural": {
+   "one": "{n} целевую кривую",
+   "few": "{n} целевые кривые",
+   "many": "{n} целевых кривых",
+   "other": "{n} целевой кривой"
+  },
+  "en_plural": [
+   "the {n} target curve",
+   "the {n} target curves"
+  ],
+  "note": "accusative after «на»",
+  "file": "app.js:6048"
+ },
+ "pane.w_sphere": {
+  "en": "{w}-sphere",
+  "ru": "сфера {w}",
+  "note": "pane title; {w} is the italic plane letter",
+  "file": "app.js:1"
+ },
+ "pane.w_plane": {
+  "en": "{w}-plane",
+  "ru": "плоскость {w}",
+  "note": "pane title",
+  "file": "app.js:1"
+ },
+ "pane.landscape_of": {
+  "en": "landscape of {h}{sheets}",
+  "ru": "рельеф функции {h}{sheets}",
+  "note": "pane role; {sheets} is \", all sheets\" or empty",
+  "file": "app.js:6505"
+ },
+ "pane.role_landscape": {
+  "en": "landscape",
+  "ru": "рельеф",
+  "note": "short pane role (narrow head)",
+  "file": "app.js:6505",
+  "ctx": "role"
+ },
+ "pane.role_phase": {
+  "en": "phase",
+  "ru": "фаза",
+  "note": "short pane role",
+  "file": "app.js:6507",
+  "ctx": "role"
+ },
+ "pane.role_domain": {
+  "en": "domain",
+  "ru": "область определения",
+  "note": "short pane role",
+  "file": "app.js:6508",
+  "ctx": "role"
+ },
+ "pane.role_deformation": {
+  "en": "deformation",
+  "ru": "деформация",
+  "note": "pane role",
+  "file": "app.js:6513",
+  "ctx": "role"
+ },
+ "pane.role_image": {
+  "en": "image",
+  "ru": "образ",
+  "note": "pane role",
+  "file": "app.js:6514",
+  "ctx": "role"
+ },
+ "pane.image_after_n_steps": {
+  "en": "image, after {n} steps",
+  "ru": "образ после {n} шагов",
+  "plural": {
+   "one": "образ после {n} шага",
+   "few": "образ после {n} шагов",
+   "many": "образ после {n} шагов",
+   "other": "образ после {n} шага"
+  },
+  "en_plural": [
+   "image, after {n} step",
+   "image, after {n} steps"
+  ],
+  "note": "pane role",
+  "file": "app.js:6515"
+ },
+ "hint.drag_to_draw_target": {
+  "en": "Drag to draw a target {tool}",
+  "ru": "Перетащите, чтобы нарисовать цель: {tool}",
+  "note": "split target of chrome.extra.drag_to_draw",
+  "file": "app.js:6596"
+ },
+ "legend.in": {
+  "en": " in ",
+  "ru": " в плоскости ",
+  "note": "legend: \"cell 0,5 in z\" -> «клетка 0,5 в плоскости z»",
+  "file": "app.js:7021",
+  "ctx": "legend"
+ },
+ "speech.frac": {
+  "en": "$1 over $2",
+  "ru": "$1 делённое на $2",
+  "note": "texSpeech: a fraction read aloud",
+  "file": "app.js:7584",
+  "ctx": "speech"
+ },
+ "speech.at_most": {
+  "en": " at most ",
+  "ru": " не больше ",
+  "note": "texSpeech",
+  "file": "app.js:7585",
+  "ctx": "speech"
+ },
+ "speech.at_least": {
+  "en": " at least ",
+  "ru": " не меньше ",
+  "note": "texSpeech",
+  "file": "app.js:7585",
+  "ctx": "speech"
+ },
+ "speech.and": {
+  "en": ", and ",
+  "ru": ", и ",
+  "note": "texSpeech: a comma between conditions",
+  "file": "app.js:7587",
+  "ctx": "speech"
+ },
+ "speech.over": {
+  "en": " over ",
+  "ru": " делённое на ",
+  "note": "texSpeech: a slash",
+  "file": "app.js:7587",
+  "ctx": "speech"
+ },
+ "curve.n_rays": {
+  "en": "{n} rays",
+  "ru": "{n} лучей",
+  "plural": {
+   "one": "{n} луч",
+   "few": "{n} луча",
+   "many": "{n} лучей",
+   "other": "{n} луча"
+  },
+  "en_plural": [
+   "{n} ray",
+   "{n} rays"
+  ],
+  "note": "curvePlan what, nominative (after «Добавляет:»)",
+  "file": "app.js:7648"
+ },
+ "curve.n_segments": {
+  "en": "{n} segments",
+  "ru": "{n} отрезков",
+  "plural": {
+   "one": "{n} отрезок",
+   "few": "{n} отрезка",
+   "many": "{n} отрезков",
+   "other": "{n} отрезка"
+  },
+  "en_plural": [
+   "{n} segment",
+   "{n} segments"
+  ],
+  "note": "curvePlan what, nominative (after «Добавляет:»)",
+  "file": "app.js:7649"
+ },
+ "curve.n_circles": {
+  "en": "{n} circles",
+  "ru": "{n} окружностей",
+  "plural": {
+   "one": "{n} окружность",
+   "few": "{n} окружности",
+   "many": "{n} окружностей",
+   "other": "{n} окружности"
+  },
+  "en_plural": [
+   "{n} circle",
+   "{n} circles"
+  ],
+  "note": "curvePlan what, nominative (after «Добавляет:»)",
+  "file": "app.js:7649"
+ },
+ "curve.n_arcs": {
+  "en": "{n} arcs",
+  "ru": "{n} дуг",
+  "plural": {
+   "one": "{n} дуга",
+   "few": "{n} дуги",
+   "many": "{n} дуг",
+   "other": "{n} дуги"
+  },
+  "en_plural": [
+   "{n} arc",
+   "{n} arcs"
+  ],
+  "note": "curvePlan what, nominative (after «Добавляет:»)",
+  "file": "app.js:7650"
+ },
+ "curve.n_points": {
+  "en": "{n} points",
+  "ru": "{n} точек",
+  "plural": {
+   "one": "{n} точка",
+   "few": "{n} точки",
+   "many": "{n} точек",
+   "other": "{n} точки"
+  },
+  "en_plural": [
+   "{n} point",
+   "{n} points"
+  ],
+  "note": "curvePlan what, nominative (after «Добавляет:»)",
+  "file": "app.js:7650"
+ },
+ "curve.adds_what": {
+  "en": "Adds {what}.",
+  "ru": "Добавляет: {what}.",
+  "note": "split shape of chrome.extra.adds_what",
+  "file": "app.js:7697"
+ },
+ "curve.adds_what_target": {
+  "en": "Adds {what} as a target.",
+  "ru": "Добавляет в плоскость w: {what}.",
+  "note": "split target of chrome.extra.adds_what",
+  "file": "app.js:7697"
+ },
+ "lamp.letter_A": {
+  "en": "A",
+  "ru": "А",
+  "note": "chip letter (GLOSSARY 1.10): аналитическая",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "lamp.letter_E": {
+  "en": "E",
+  "ru": "Ц",
+  "note": "chip letter (GLOSSARY 1.10): целая",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "lamp.letter_R": {
+  "en": "R",
+  "ru": "Р",
+  "note": "chip letter (GLOSSARY 1.10): рациональная",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "lamp.letter_P": {
+  "en": "P",
+  "ru": "М",
+  "note": "chip letter (GLOSSARY 1.10): многочлен",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "lamp.letter_M": {
+  "en": "M",
+  "ru": "ДЛ",
+  "note": "chip letter (GLOSSARY 1.10): дробно-линейная",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "lamp.letter_Pr": {
+  "en": "Pr",
+  "ru": "С",
+  "note": "chip letter (GLOSSARY 1.10): собственное",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "lamp.letter_I": {
+  "en": "I",
+  "ru": "И",
+  "note": "chip letter (GLOSSARY 1.10): инъективное (гомеоморфизм на образ)",
+  "file": "app.js:8088",
+  "ctx": "lamp"
+ },
+ "pal.inverse_of": {
+  "en": "Inverse of f{k} ({nm})",
+  "ru": "Обратная к f{k} ({nm})",
+  "note": "split Inverse of chrome.what_f_k_nm",
+  "file": "app.js:8208"
+ },
+ "pal.derivative_of": {
+  "en": "Derivative of f{k} ({nm})",
+  "ru": "Производная f{k} ({nm})",
+  "note": "split Derivative of chrome.what_f_k_nm",
+  "file": "app.js:8393"
+ },
+ "pal.inverse_of_plain": {
+  "en": "Inverse of f{k} {nm}",
+  "ru": "Обратная к f{k} {nm}",
+  "note": "split of chrome.what_f_k_nm_2 (search text)",
+  "file": "app.js:8208"
+ },
+ "pal.derivative_of_plain": {
+  "en": "Derivative of f{k} {nm}",
+  "ru": "Производная f{k} {nm}",
+  "note": "split of chrome.what_f_k_nm_2 (search text)",
+  "file": "app.js:8393"
+ },
+ "snd.latency_ms": {
+  "en": " · {ms} ms",
+  "ru": " · {ms} мс",
+  "note": "sound status: output latency",
+  "file": "app.js:459"
+ },
+ "snd.landmark_zero": {
+  "en": "Zero {i} of {n}{orMore}: order {m} at {z}. The probe is {off} to its right.",
+  "ru": "Нуль {i} из {n}{orMore}: порядок {m}, в точке {z}. Указатель — на {off} правее.",
+  "note": "split zero of sound.extra.landmark",
+  "file": "app.js:2715"
+ },
+ "snd.landmark_pole": {
+  "en": "Pole {i} of {n}{orMore}: order {m} at {z}. The probe is {off} to its right.",
+  "ru": "Полюс {i} из {n}{orMore}: порядок {m}, в точке {z}. Указатель — на {off} правее.",
+  "note": "split pole of sound.extra.landmark",
+  "file": "app.js:2715"
+ },
+ "snd.net_order_zero": {
+  "en": "Zero within {st0}: net order {m}.",
+  "ru": "Нуль в круге радиуса {st0}: порядок {m}.",
+  "note": "split zero of sound.extra.net_order",
+  "file": "app.js:12109"
+ },
+ "snd.net_order_zeros": {
+  "en": "Zeros within {st0}: net order {m}.",
+  "ru": "Нули в круге радиуса {st0}: суммарный порядок {m}.",
+  "note": "split zeros of sound.extra.net_order",
+  "file": "app.js:12109"
+ },
+ "snd.net_order_pole": {
+  "en": "Pole within {st0}: net order {m}.",
+  "ru": "Полюс в круге радиуса {st0}: порядок {m}.",
+  "note": "split pole of sound.extra.net_order",
+  "file": "app.js:12109"
+ },
+ "snd.net_order_poles": {
+  "en": "Poles within {st0}: net order {m}.",
+  "ru": "Полюсы в круге радиуса {st0}: суммарный порядок {m}.",
+  "note": "split poles of sound.extra.net_order",
+  "file": "app.js:12109"
+ },
+ "snd.list_zeros": {
+  "en": "{n} zeros: {items}{andMore}",
+  "ru": "{n} нулей: {items}{andMore}",
+  "plural": {
+   "one": "{n} нуль: {items}{andMore}",
+   "few": "{n} нуля: {items}{andMore}",
+   "many": "{n} нулей: {items}{andMore}",
+   "other": "{n} нуля: {items}{andMore}"
+  },
+  "en_plural": [
+   "{n} zero: {items}{andMore}",
+   "{n} zeros: {items}{andMore}"
+  ],
+  "note": "split exact of sound.extra.list_zeros",
+  "file": "app.js:1"
+ },
+ "snd.list_zeros_or_more": {
+  "en": "{n} or more zeros: {items}{andMore}",
+  "ru": "не менее {n} нулей: {items}{andMore}",
+  "plural": {
+   "one": "не менее {n} нуля: {items}{andMore}",
+   "few": "не менее {n} нулей: {items}{andMore}",
+   "many": "не менее {n} нулей: {items}{andMore}",
+   "other": "не менее {n} нуля: {items}{andMore}"
+  },
+  "en_plural": [
+   "{n} or more zero: {items}{andMore}",
+   "{n} or more zeros: {items}{andMore}"
+  ],
+  "note": "split atLeast of sound.extra.list_zeros",
+  "file": "app.js:1"
+ },
+ "snd.list_poles": {
+  "en": "{n} poles: {items}{andMore}",
+  "ru": "{n} полюсов: {items}{andMore}",
+  "plural": {
+   "one": "{n} полюс: {items}{andMore}",
+   "few": "{n} полюса: {items}{andMore}",
+   "many": "{n} полюсов: {items}{andMore}",
+   "other": "{n} полюса: {items}{andMore}"
+  },
+  "en_plural": [
+   "{n} pole: {items}{andMore}",
+   "{n} poles: {items}{andMore}"
+  ],
+  "note": "split exact of sound.extra.list_poles",
+  "file": "app.js:1"
+ },
+ "snd.list_poles_or_more": {
+  "en": "{n} or more poles: {items}{andMore}",
+  "ru": "не менее {n} полюсов: {items}{andMore}",
+  "plural": {
+   "one": "не менее {n} полюса: {items}{andMore}",
+   "few": "не менее {n} полюсов: {items}{andMore}",
+   "many": "не менее {n} полюсов: {items}{andMore}",
+   "other": "не менее {n} полюса: {items}{andMore}"
+  },
+  "en_plural": [
+   "{n} or more pole: {items}{andMore}",
+   "{n} or more poles: {items}{andMore}"
+  ],
+  "note": "split atLeast of sound.extra.list_poles",
+  "file": "app.js:1"
+ },
+ "snd.no_zeros": {
+  "en": "no zeros",
+  "ru": "нулей нет",
+  "note": "split zero of sound.no_w_s",
+  "file": "app.js:12119"
+ },
+ "snd.no_poles": {
+  "en": "no poles",
+  "ru": "полюсов нет",
+  "note": "split pole of sound.no_w_s",
+  "file": "app.js:12119"
+ },
+ "fig.note_cut": {
+  "en": "f_{%{k}}\\text{: cut }%{cut}^\\circ%{sheet}",
+  "ru": "f_{%{k}}\\text{: разрез }%{cut}^\\circ%{sheet}",
+  "note": "figure note of a branch cut; {sheet} is \", sheet k\"",
+  "file": "app.js:3597"
+ },
+ "guar.list_sound_not_complete": {
+  "en": "The list is sound but not complete. For example, log followed by exp returns z, yet neither step is rational, so \"rational\" is not claimed.",
+  "ru": "Список верен, но не полон. Например, exp после ln даёт z, но ни один из этих шагов не является рациональной функцией, поэтому «рациональная функция» не указана.",
+  "note": "English source fixed (README \"Two English errors to fix\"): exp followed by log -> log followed by exp. New English key; the Russian of chrome.list_sound_but_not was already right.",
+  "file": "app.js:8795"
+ },
+ "int.aria_around": {
+  "en": "Line integral around {name}",
+  "ru": "Интеграл по контуру {name}",
+  "note": "integral popover aria-label",
+  "file": "app.js:5893"
+ },
+ "int.aria_along": {
+  "en": "Line integral along {name}",
+  "ru": "Интеграл по кривой {name}",
+  "note": "integral popover aria-label",
+  "file": "app.js:5893"
+ },
+ "chip.per_div": {
+  "en": "{x} / div",
+  "ru": "{x} / дел.",
+  "note": "the scale chip: grid step per division (DESIGN.md 8, hotspot 14)",
+  "file": "app.js:1"
+ },
+ "morph.hide_paths_tip": {
+  "en": "Hide the paths t ↦ H_t(z)  P",
+  "ru": "Скрыть пути t ↦ H_t(z)  P",
+  "note": "Paths button tooltip (two spaces, then the key)",
+  "file": "app.js:6789"
+ },
+ "morph.show_paths_tip": {
+  "en": "Show the paths t ↦ H_t(z)  P",
+  "ru": "Показать пути t ↦ H_t(z)  P",
+  "note": "Paths button tooltip",
+  "file": "app.js:6789"
+ },
+ "param.cut_angle": {
+  "en": "Cut angle, in degrees",
+  "ru": "Угол разреза в градусах",
+  "note": "parameter label of θ",
+  "file": "app.js:8029"
+ },
+ "morph.deformation_of_m": {
+  "en": "Deformation of {F}  M",
+  "ru": "Деформация {F}  M",
+  "note": "Deformation button tooltip; {F} is F or the step formula",
+  "file": "app.js:11452"
+ },
+ "snd.zero_order_here": {
+  "en": "Zero of order {m} here.",
+  "ru": "Здесь нуль порядка {m}.",
+  "note": "sound: the probe reached a zero",
+  "file": "app.js:11915"
+ },
+ "snd.pole_order_here": {
+  "en": "Pole of order {m} here.",
+  "ru": "Здесь полюс порядка {m}.",
+  "note": "sound: the probe reached a pole",
+  "file": "app.js:11915"
+ },
+ "cap.shape_point": {
+  "en": "the point %{m}",
+  "ru": "точка %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_point split.nom)",
+  "file": "app.js:9068"
+ },
+ "cap.shape_point_gen": {
+  "en": "the point %{m}",
+  "ru": "точки %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_point split.gen)",
+  "file": "app.js:9068"
+ },
+ "cap.shape_segment": {
+  "en": "the segment %{m}",
+  "ru": "отрезок %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_segment split.nom)",
+  "file": "app.js:9055"
+ },
+ "cap.shape_segment_gen": {
+  "en": "the segment %{m}",
+  "ru": "отрезка %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_segment split.gen)",
+  "file": "app.js:9055"
+ },
+ "cap.shape_line": {
+  "en": "the line %{m}",
+  "ru": "прямая %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_line split.nom)",
+  "file": "app.js:9053"
+ },
+ "cap.shape_line_gen": {
+  "en": "the line %{m}",
+  "ru": "прямой %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_line split.gen)",
+  "file": "app.js:9053"
+ },
+ "cap.shape_line_through": {
+  "en": "the line through %{a} and %{b}",
+  "ru": "прямая через точки %{a} и %{b}",
+  "note": "shapePhrase, nominative (export.extra.shape_line_through split.nom)",
+  "file": "app.js:9072"
+ },
+ "cap.shape_line_through_gen": {
+  "en": "the line through %{a} and %{b}",
+  "ru": "прямой через точки %{a} и %{b}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_line_through split.gen)",
+  "file": "app.js:9072"
+ },
+ "cap.shape_ray": {
+  "en": "the ray from %{a} through %{b}",
+  "ru": "луч из точки %{a} через точку %{b}",
+  "note": "shapePhrase, nominative (export.extra.shape_ray split.nom)",
+  "file": "app.js:9073"
+ },
+ "cap.shape_ray_gen": {
+  "en": "the ray from %{a} through %{b}",
+  "ru": "луча из точки %{a} через точку %{b}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_ray split.gen)",
+  "file": "app.js:9073"
+ },
+ "cap.shape_circle": {
+  "en": "the circle %{m}",
+  "ru": "окружность %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_circle split.nom)",
+  "file": "app.js:9056"
+ },
+ "cap.shape_circle_gen": {
+  "en": "the circle %{m}",
+  "ru": "окружности %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_circle split.gen)",
+  "file": "app.js:9056"
+ },
+ "cap.shape_arc": {
+  "en": "the arc from %{a} through %{m} to %{b}",
+  "ru": "дуга от %{a} через %{m} до %{b}",
+  "note": "shapePhrase, nominative (export.extra.shape_arc split.nom)",
+  "file": "app.js:9075"
+ },
+ "cap.shape_arc_gen": {
+  "en": "the arc from %{a} through %{m} to %{b}",
+  "ru": "дуги от %{a} через %{m} до %{b}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_arc split.gen)",
+  "file": "app.js:9075"
+ },
+ "cap.shape_curve": {
+  "en": "a freehand curve",
+  "ru": "нарисованная от руки кривая",
+  "note": "shapePhrase, nominative (export.extra.shape_curve split.nom)",
+  "file": "app.js:9076"
+ },
+ "cap.shape_curve_gen": {
+  "en": "a freehand curve",
+  "ru": "нарисованной от руки кривой",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_curve split.gen)",
+  "file": "app.js:9076"
+ },
+ "cap.shape_disc": {
+  "en": "the disc %{m}",
+  "ru": "круг %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_disc split.nom)",
+  "file": "app.js:9077"
+ },
+ "cap.shape_disc_gen": {
+  "en": "the disc %{m}",
+  "ru": "круга %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_disc split.gen)",
+  "file": "app.js:9077"
+ },
+ "cap.shape_rect": {
+  "en": "the rectangle %{m}",
+  "ru": "прямоугольник %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_rect split.nom)",
+  "file": "app.js:9078"
+ },
+ "cap.shape_rect_gen": {
+  "en": "the rectangle %{m}",
+  "ru": "прямоугольника %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_rect split.gen)",
+  "file": "app.js:9078"
+ },
+ "cap.shape_halfplane": {
+  "en": "the half-plane %{m}",
+  "ru": "полуплоскость %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_halfplane split.nom)",
+  "file": "app.js:9081"
+ },
+ "cap.shape_halfplane_gen": {
+  "en": "the half-plane %{m}",
+  "ru": "полуплоскости %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_halfplane split.gen)",
+  "file": "app.js:9081"
+ },
+ "cap.shape_annulus": {
+  "en": "the annulus %{m}",
+  "ru": "кольцо %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_annulus split.nom)",
+  "file": "app.js:9082"
+ },
+ "cap.shape_annulus_gen": {
+  "en": "the annulus %{m}",
+  "ru": "кольца %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_annulus split.gen)",
+  "file": "app.js:9082"
+ },
+ "cap.shape_sector": {
+  "en": "the sector %{m}",
+  "ru": "сектор %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_sector split.nom)",
+  "file": "app.js:9083"
+ },
+ "cap.shape_sector_gen": {
+  "en": "the sector %{m}",
+  "ru": "сектора %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_sector split.gen)",
+  "file": "app.js:9083"
+ },
+ "cap.shape_set": {
+  "en": "the set %{m}",
+  "ru": "множество %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_set split.nom)",
+  "file": "app.js:9084"
+ },
+ "cap.shape_set_gen": {
+  "en": "the set %{m}",
+  "ru": "множества %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_set split.gen)",
+  "file": "app.js:9084"
+ },
+ "cap.shape_fcurve": {
+  "en": "the curve %{m}",
+  "ru": "кривая %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_fcurve split.nom)",
+  "file": "app.js:9058"
+ },
+ "cap.shape_fcurve_gen": {
+  "en": "the curve %{m}",
+  "ru": "кривой %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_fcurve split.gen)",
+  "file": "app.js:9058"
+ },
+ "cap.shape_cgrid": {
+  "en": "a Cartesian grid on %{m}",
+  "ru": "декартова сетка на %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_cgrid split.nom)",
+  "file": "app.js:9086"
+ },
+ "cap.shape_cgrid_gen": {
+  "en": "a Cartesian grid on %{m}",
+  "ru": "декартовой сетки на %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_cgrid split.gen)",
+  "file": "app.js:9086"
+ },
+ "cap.shape_pgrid": {
+  "en": "a polar grid in %{m}",
+  "ru": "полярная сетка в %{m}",
+  "note": "shapePhrase, nominative (export.extra.shape_pgrid split.nom)",
+  "file": "app.js:9087"
+ },
+ "cap.shape_pgrid_gen": {
+  "en": "a polar grid in %{m}",
+  "ru": "полярной сетки в %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_pgrid split.gen)",
+  "file": "app.js:9087"
+ },
+ "cap.shape_other": {
+  "en": "a %{kind}",
+  "ru": "%{kind}",
+  "note": "shapePhrase, nominative (export.extra.shape_other split.nom)",
+  "file": "app.js:9076"
+ },
+ "cap.shape_other_gen": {
+  "en": "a %{kind}",
+  "ru": "%{kind}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_other split.gen)",
+  "file": "app.js:9076"
+ },
+ "cap.shape_complement": {
+  "en": "the complement of %{segs}",
+  "ru": "дополнение %{segs}",
+  "note": "shapePhrase, nominative (export.extra.shape_complement split.nom)",
+  "file": "app.js:9091"
+ },
+ "cap.shape_complement_gen": {
+  "en": "the complement of %{segs}",
+  "ru": "дополнения %{segs}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive (export.extra.shape_complement split.gen)",
+  "file": "app.js:9091"
+ },
+ "cap.shape_the_ray_m": {
+  "en": "the ray %{m}",
+  "ru": "луч %{m}",
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9054"
+ },
+ "cap.shape_the_ray_m_gen": {
+  "en": "the ray %{m}",
+  "ru": "луча %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive",
+  "file": "app.js:9054"
+ },
+ "cap.shape_the_arc_m": {
+  "en": "the arc %{m}",
+  "ru": "дуга %{m}",
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9057"
+ },
+ "cap.shape_the_arc_m_gen": {
+  "en": "the arc %{m}",
+  "ru": "дуги %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive",
+  "file": "app.js:9057"
+ },
+ "cap.shape_the_curve_formula_m": {
+  "en": "the curve formula %{m}",
+  "ru": "кривая %{m}",
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9058"
+ },
+ "cap.shape_the_curve_formula_m_gen": {
+  "en": "the curve formula %{m}",
+  "ru": "кривой %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive",
+  "file": "app.js:9058"
+ },
+ "cap.shape_the_kind_m": {
+  "en": "the %{kind} %{m}",
+  "ru": "%{kind} %{m}",
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9053"
+ },
+ "cap.shape_the_kind_m_gen": {
+  "en": "the %{kind} %{m}",
+  "ru": "%{kind} %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive",
+  "file": "app.js:9053"
+ },
+ "cap.shape_the_label_m": {
+  "en": "the %{label} %{m}",
+  "ru": "%{label} %{m}",
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9053"
+ },
+ "cap.shape_the_label_m_gen": {
+  "en": "the %{label} %{m}",
+  "ru": "%{label} %{m}",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive",
+  "file": "app.js:9053"
+ },
+ "cap.shape_a_shape": {
+  "en": "a shape",
+  "ru": "фигура",
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9088"
+ },
+ "cap.shape_a_shape_gen": {
+  "en": "a shape",
+  "ru": "фигуры",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive",
+  "file": "app.js:9088"
+ },
+ "cap.shape_polygon": {
+  "en": "a polygon with {n} vertices",
+  "ru": "многоугольник с {n} вершинами",
+  "plural": {
+   "one": "многоугольник с {n} вершиной",
+   "few": "многоугольник с {n} вершинами",
+   "many": "многоугольник с {n} вершинами",
+   "other": "многоугольник с {n} вершинами"
+  },
+  "en_plural": [
+   "a polygon with {n} vertices",
+   "a polygon with {n} vertices"
+  ],
+  "note": "shapePhrase, nominative",
+  "file": "app.js:9080"
+ },
+ "cap.shape_polygon_gen": {
+  "en": "a polygon with {n} vertices",
+  "ru": "многоугольника с {n} вершинами",
+  "ctx": "gen",
+  "note": "shapePhrase, genitive: no plural pair ($tn takes no context), so «вершинами» for every n",
+  "file": "app.js:9080"
+ },
+ "cap.list_and_serial": {
+  "en": ", and ",
+  "ru": " и ",
+  "ctx": "list",
+  "note": "joinList: the last item of three or more (Russian has no serial comma)",
+  "file": "app.js:9097"
+ },
+ "cap.list_and": {
+  "en": " and ",
+  "ru": " и ",
+  "ctx": "list",
+  "note": "joinList: two items",
+  "file": "app.js:9097"
+ },
+ "hom.shown_for": {
+  "en": ", shown for %{r}",
+  "ru": ", показано при %{r}",
+  "note": "morphHomSegs: the deformation stopped before its end; {r} is 0 ≤ t ≤ T",
+  "file": "app.js:4812"
+ },
+ "cap.pat_checker": {
+  "en": " Regions are shaded by a checkerboard of squares of side %{cell} in the %{z}-plane, carried by the map.",
+  "ru": " Области раскрашены шахматной раскраской плоскости %{z} (квадраты со стороной %{cell}), перенесённой отображением.",
+  "note": "patternSegs (adapted from export.extra.pat_checker; the English is the current code's)",
+  "file": "app.js:9120"
+ },
+ "cap.pat_polar": {
+  "en": " Regions are shaded by a log-polar checkerboard in the %{z}-plane, whose cells stay square under conformal maps.",
+  "ru": " Области раскрашены лог-полярными клетками плоскости %{z}; при конформном отображении малые клетки остаются почти квадратными.",
+  "note": "patternSegs (adapted from export.extra.pat_polar; the English is the current code's)",
+  "file": "app.js:9121"
+ },
+ "cap.pat_tiles": {
+  "en": " Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.",
+  "ru": " Области покрыты плитками с буквой F; плитки показывают поворот, растяжение и отражение.",
+  "note": "patternSegs (adapted from export.extra.pat_tiles; the English is the current code's)",
+  "file": "app.js:9122"
+ },
+ "cap.pat_grid": {
+  "en": " Lines are the coordinate lines of the %{z}-plane, spaced %{cell}.",
+  "ru": " Линии — координатные линии плоскости %{z} с шагом %{cell}.",
+  "note": "patternSegs (adapted from export.extra.pat_grid; the English is the current code's)",
+  "file": "app.js:9123"
+ },
+ "cap.pat_polargrid": {
+  "en": " Lines are circles about 0 and rays from 0 in the %{z}-plane.",
+  "ru": " Линии — окружности с центром в точке 0 и лучи, выходящие из 0, в плоскости %{z}.",
+  "note": "patternSegs (adapted from export.extra.pat_polargrid; the English is the current code's)",
+  "file": "app.js:9124"
+ },
+ "cap.pat_phase": {
+  "en": " Regions are coloured by the argument of the source point.",
+  "ru": " Области окрашены по аргументу исходной точки.",
+  "note": "patternSegs (adapted from export.extra.pat_phase; the English is the current code's)",
+  "file": "app.js:9125"
+ },
+ "cap.pat_stretch": {
+  "en": " The colour shows the local scale factor %{F} (bar).",
+  "ru": " Цвет показывает коэффициент растяжения %{F} (шкала).",
+  "note": "patternSegs (adapted from export.extra.pat_stretch; the English is the current code's)",
+  "file": "app.js:9126"
+ },
+ "cap.pat_sphere": {
+  "en": " Regions are shaded by a checkerboard of %{n} longitude sectors and %{n2} latitude bands of the Riemann sphere of the %{z}-plane, carried by the map.",
+  "ru": " Области раскрашены в шахматном порядке: сфера Римана плоскости %{z} разбита на долготные секторы (%{n}) и широтные пояса (%{n2}); раскраска перенесена отображением.",
+  "note": "patternSegs (adapted from export.extra.pat_sphere; the English is the current code's)",
+  "file": "app.js:9127"
+ },
+ "latex.section_map": {
+  "en": "\\section*{The map}",
+  "ru": "\\section*{Отображение}",
+  "note": "LaTeX document export",
+  "file": "app.js:9591"
+ },
+ "latex.section_domain": {
+  "en": "\\section*{Natural domain}",
+  "ru": "\\section*{Естественная область определения}",
+  "note": "LaTeX document export",
+  "file": "app.js:9591"
+ },
+ "latex.section_guaranteed": {
+  "en": "\\section*{Guaranteed properties}",
+  "ru": "\\section*{Гарантированные свойства}",
+  "note": "LaTeX document export (GLOSSARY 1.10)",
+  "file": "app.js:9591"
+ },
+ "latex.built_step_by_step": {
+  "en": "built step by step from $w_0 = z$, with $F(z) = w_{%{n}}$:",
+  "ru": "строится по шагам из $w_0 = z$, причём $F(z) = w_{%{n}}$:",
+  "note": "LaTeX document export",
+  "file": "app.js:9597"
+ },
+ "cap.shown_at": {
+  "en": " Shown at %{t}, where %{H} deforms the identity (%{t0}) into %{map} (%{tm}) along %{hom}.",
+  "ru": " Показан кадр при %{t}. Здесь %{H} непрерывно деформирует тождественное отображение (%{t0}) в %{map} (%{tm}); это %{hom}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9147"
+ },
+ "cap.plane_z": {
+  "en": "the %{z}-plane",
+  "ru": "плоскость %{z}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9120"
+ },
+ "cap.plane_z_prep": {
+  "en": "the %{z}-plane",
+  "ru": "плоскости %{z}",
+  "ctx": "prep",
+  "note": "figureCaption (legacy figure path and test hook); context prep",
+  "file": "app.js:9120"
+ },
+ "cap.plane_z_ins": {
+  "en": "the %{z}-plane",
+  "ru": "плоскостью %{z}",
+  "ctx": "ins",
+  "note": "figureCaption (legacy figure path and test hook); context ins",
+  "file": "app.js:9120"
+ },
+ "cap.plane_w": {
+  "en": "the %{w}-plane, the input of %{F}",
+  "ru": "плоскость %{w}, исходная для %{F}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9150"
+ },
+ "cap.plane_w_prep": {
+  "en": "the %{w}-plane, the input of %{F}",
+  "ru": "плоскости %{w}, исходной для %{F}",
+  "ctx": "prep",
+  "note": "figureCaption (legacy figure path and test hook); context prep",
+  "file": "app.js:9150"
+ },
+ "cap.plane_w_ins": {
+  "en": "the %{w}-plane, the input of %{F}",
+  "ru": "плоскостью %{w}, исходной для %{F}",
+  "ctx": "ins",
+  "note": "figureCaption (legacy figure path and test hook); context ins",
+  "file": "app.js:9150"
+ },
+ "cap.phase_portrait_of": {
+  "en": "The phase portrait of %{map}",
+  "ru": "Фазовый портрет функции %{map}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9155"
+ },
+ "cap.brightness": {
+  "en": "brightness increases with %{F}, so zeros are black and poles white.",
+  "ru": "яркость растёт вместе с %{F}, поэтому нули чёрные, а полюсы белые.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9156"
+ },
+ "cap.colour_bar": {
+  "en": "the colour shows %{arg} (bar).",
+  "ru": "цвет показывает %{arg} (шкала).",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9157"
+ },
+ "cap.colour_level": {
+  "en": "the colour shows %{arg} (bar); lines are level curves of %{F} and of %{arg}.",
+  "ru": "цвет показывает %{arg} (шкала); проведены линии уровня %{F} и %{arg}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9158"
+ },
+ "cap.colour_grid": {
+  "en": "the colour shows %{arg} (bar); lines are the preimages of the coordinate lines of the image plane.",
+  "ru": "цвет показывает %{arg} (шкала); линии — прообразы координатных линий плоскости образов.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9158"
+ },
+ "cap.cauchy": {
+  "en": "the Cauchy integral %{I} over the selected closed curve, which equals %{F} inside and %{zero} outside.",
+  "ru": "интеграл Коши %{I} по выделенной замкнутой кривой; он равен %{F} внутри и %{zero} снаружи.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9160"
+ },
+ "cap.colour_steps": {
+  "en": "the colour shows %{arg} (bar), and the shading steps in %{F} by factors of %{k}, so phase lines and modulus lines meet in near-squares where the map is conformal.",
+  "ru": "цвет показывает %{arg} (шкала), а затенение меняется ступенями по %{F} с множителем %{k}, поэтому там, где отображение конформно, линии фазы и модуля образуют почти квадраты.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9161"
+ },
+ "cap.on": {
+  "en": " on ",
+  "ru": " на ",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:134"
+ },
+ "cap.over": {
+  "en": " over ",
+  "ru": " над ",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:533"
+ },
+ "cap.in": {
+  "en": " in ",
+  "ru": " в ",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:73"
+ },
+ "cap.phase_globe": {
+  "en": "The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.",
+  "ru": "Фазовый портрет функции %{map} на сфере Римана (точка %{inf} — северный полюс).",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9167"
+ },
+ "cap.landscape_of": {
+  "en": "The landscape of %{map}",
+  "ru": "Рельеф функции %{map}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9170"
+ },
+ "cap.height_is": {
+  "en": ": the height is %{h}",
+  "ru": ": высота — %{h}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9170"
+ },
+ "cap.and_colour": {
+  "en": " and the colour %{arg} (bar)",
+  "ru": ", цвет — %{arg} (шкала)",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9170"
+ },
+ "cap.all_sheets": {
+  "en": "; all sheets of the Riemann surface are shown.",
+  "ru": "; показаны все листы римановой поверхности.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9170"
+ },
+ "cap.pits_peaks": {
+  "en": "; zeros are pits and poles are peaks.",
+  "ru": "; нули — впадины, полюсы — пики.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9170"
+ },
+ "cap.on_sphere": {
+  "en": ", on the Riemann sphere.",
+  "ru": ", на сфере Римана.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9171"
+ },
+ "cap.deformation": {
+  "en": "The deformation %{H}",
+  "ru": "Деформация %{H}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9179"
+ },
+ "cap.on_sphere_north": {
+  "en": " on the Riemann sphere, with %{inf} at the north pole",
+  "ru": " на сфере Римана (точка %{inf} — северный полюс)",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9167"
+ },
+ "cap.image_under_grey": {
+  "en": ": the image of %{list} under %{H}, over the set itself in grey.",
+  "ru": ": образ %{list} при отображении %{H} поверх самого множества (серым).",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9180"
+ },
+ "cap.images_globe": {
+  "en": "The images of %{list} under %{map} on the Riemann sphere, with %{inf} at the north pole.",
+  "ru": "Образы %{list} при отображении %{map} на сфере Римана (точка %{inf} — северный полюс).",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9187"
+ },
+ "cap.their_images_globe": {
+  "en": "Their images under %{map} on the Riemann sphere, with %{inf} at the north pole.",
+  "ru": "Их образы при отображении %{map} на сфере Римана (точка %{inf} — северный полюс).",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9187"
+ },
+ "cap.image_globe": {
+  "en": "The image under %{map} on the Riemann sphere, with %{inf} at the north pole.",
+  "ru": "Образ при отображении %{map} на сфере Римана (точка %{inf} — северный полюс).",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9187"
+ },
+ "cap.images_of": {
+  "en": "The images of %{list} under %{map}.",
+  "ru": "Образы %{list} при отображении %{map}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9187"
+ },
+ "cap.their_images": {
+  "en": "Their images under %{map}.",
+  "ru": "Их образы при отображении %{map}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9189"
+ },
+ "cap.the_map": {
+  "en": "The map %{map}.",
+  "ru": "Отображение %{map}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9189"
+ },
+ "cap.dashed": {
+  "en": " Dashed boundaries do not belong to the sets.",
+  "ru": " Штриховые границы не принадлежат множествам.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:4896"
+ },
+ "cap.chain_step_by_step": {
+  "en": " Here the chain is built step by step from %{w0}: %{defs}.",
+  "ru": " Здесь цепочка строится по шагам из %{w0}: %{defs}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9206"
+ },
+ "cap.here_with": {
+  "en": " Here %{F} with %{defs}.",
+  "ru": " Здесь %{F}, где %{defs}.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9206"
+ },
+ "cap.of_degree": {
+  "en": " of degree {deg}",
+  "ru": " степени {deg}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9213"
+ },
+ "cap.of_degree_at_most": {
+  "en": " of degree at most {deg}",
+  "ru": " степени не выше {deg}",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9213"
+ },
+ "cap.prop_mobius": {
+  "en": "a Möbius transformation",
+  "ru": "дробно-линейное отображение",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:9215"
+ },
+ "cap.prop_polynomial": {
+  "en": "a polynomial{deg}",
+  "ru": "многочлен{deg}",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:9216"
+ },
+ "cap.prop_rational": {
+  "en": "rational{deg}",
+  "ru": "рациональная функция{deg}",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:9217"
+ },
+ "cap.prop_entire": {
+  "en": "entire",
+  "ru": "целая функция",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:962"
+ },
+ "cap.prop_analytic": {
+  "en": "analytic",
+  "ru": "аналитическая функция",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:8088"
+ },
+ "cap.prop_proper": {
+  "en": "proper",
+  "ru": "собственное отображение",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:8088"
+ },
+ "cap.prop_conformal": {
+  "en": "conformal onto its image",
+  "ru": "конформное отображение на свой образ",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:9221"
+ },
+ "cap.prop_homeo": {
+  "en": "a homeomorphism onto its image",
+  "ru": "гомеоморфизм на свой образ",
+  "ctx": "cap",
+  "note": "figureCaption (legacy figure path and test hook); context cap",
+  "file": "app.js:8088"
+ },
+ "cap.where_defined": {
+  "en": " Where the formula is defined, ",
+  "ru": " Там, где формула определена, ",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9227"
+ },
+ "cap.on_domain_wk": {
+  "en": " On its natural domain %{D} (with %{wk} the value after step %{k}), ",
+  "ru": " На естественной области определения %{D} (где %{wk} — значение после шага %{k}) ",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9227"
+ },
+ "cap.on_domain": {
+  "en": " On its natural domain %{D}, ",
+  "ru": " На естественной области определения %{D} ",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9227"
+ },
+ "cap.is_props_many": {
+  "en": "%{F} is %{props}; these properties are guaranteed by the chain.",
+  "ru": "%{F} — %{props}; эти свойства гарантирует цепочка.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9228"
+ },
+ "cap.is_props_one": {
+  "en": "%{F} is %{props}; this is guaranteed by the chain.",
+  "ru": "%{F} — %{props}; это гарантирует цепочка.",
+  "note": "figureCaption (legacy figure path and test hook)",
+  "file": "app.js:9228"
+ },
+ "mcap.pat_checker": {
+  "en": "checkerboard",
+  "ru": "клетки",
+  "ctx": "pat",
+  "note": "morphCaption; context pat",
+  "file": "app.js:4864"
+ },
+ "mcap.pat_tiles": {
+  "en": "tiles",
+  "ru": "плитки",
+  "ctx": "pat",
+  "note": "morphCaption; context pat",
+  "file": "app.js:514"
+ },
+ "mcap.pat_lines": {
+  "en": "lines",
+  "ru": "линии сетки",
+  "ctx": "pat",
+  "note": "morphCaption; context pat",
+  "file": "app.js:217"
+ },
+ "mcap.pat_coloured": {
+  "en": "coloured",
+  "ru": "цвет",
+  "ctx": "pat",
+  "note": "morphCaption; context pat",
+  "file": "app.js:496"
+ },
+ "mcap.the_plane": {
+  "en": "the plane",
+  "ru": "плоскость",
+  "note": "morphCaption",
+  "file": "app.js:477"
+ },
+ "mcap.the_plane_gen": {
+  "en": "the plane",
+  "ru": "плоскости",
+  "ctx": "gen",
+  "note": "morphCaption; context gen",
+  "file": "app.js:477"
+ },
+ "mcap.outlined_comma": {
+  "en": ", outlined,",
+  "ru": " (контур)",
+  "note": "morphCaption",
+  "file": "app.js:4876"
+ },
+ "mcap.dots": {
+  "en": " (dots)",
+  "ru": " (точки)",
+  "note": "morphCaption",
+  "file": "app.js:4876"
+ },
+ "mcap.dashed_outline": {
+  "en": " (dashed outline)",
+  "ru": " (штриховой контур)",
+  "note": "morphCaption",
+  "file": "app.js:4877"
+ },
+ "mcap.outlined": {
+  "en": " (outlined)",
+  "ru": " (контур)",
+  "note": "morphCaption",
+  "file": "app.js:4877"
+ },
+ "mcap.serial_comma": {
+  "en": ",",
+  "ru": "",
+  "ctx": "serial",
+  "note": "morphCaption; context serial",
+  "file": "app.js:7"
+ },
+ "mcap.sets_of_a": {
+  "en": "the sets of (a)",
+  "ru": "множества на рис. а",
+  "note": "morphCaption",
+  "file": "app.js:4878"
+ },
+ "mcap.set_of_a": {
+  "en": "the set of (a)",
+  "ru": "множество на рис. а",
+  "note": "morphCaption",
+  "file": "app.js:4854"
+ },
+ "mcap.image_after_first": {
+  "en": "The image of %{set} after the first step",
+  "ru": "Образ %{set} после первого шага",
+  "note": "morphCaption",
+  "file": "app.js:4878"
+ },
+ "mcap.image_after_n": {
+  "en": "The image of %{set} after %{n} steps",
+  "ru": "Образ %{set} после %{n} шагов",
+  "note": "morphCaption",
+  "file": "app.js:4878"
+ },
+ "mcap.sentence": {
+  "en": "%{head}%{mark} and %{its} under %{end} (%{pat}), joined by %{hom}.",
+  "ru": "%{head}%{mark} и %{its} при отображении %{end} (%{pat}); их соединяет %{hom}.",
+  "note": "morphCaption",
+  "file": "app.js:4881"
+ },
+ "mcap.its_image": {
+  "en": "its image",
+  "ru": "его образ",
+  "note": "morphCaption",
+  "file": "app.js:1660"
+ },
+ "mcap.their_image": {
+  "en": "their image",
+  "ru": "их образ",
+  "note": "morphCaption",
+  "file": "app.js:2758"
+ },
+ "mcap.arc_or_segment": {
+  "en": "; each is an arc of a circle or a segment",
+  "ru": "; каждый из них — дуга окружности или отрезок",
+  "note": "morphCaption",
+  "file": "app.js:4893"
+ },
+ "mcap.arc": {
+  "en": "; each is an arc of a circle",
+  "ru": "; каждый из них — дуга окружности",
+  "note": "morphCaption",
+  "file": "app.js:4893"
+ },
+ "mcap.segment": {
+  "en": "; each is a segment",
+  "ru": "; каждый из них — отрезок",
+  "note": "morphCaption",
+  "file": "app.js:4893"
+ },
+ "mcap.arrows": {
+  "en": " Arrows are the paths %{p} of %{parts}, from %{z} (dot) to %{end}%{clause}.",
+  "ru": " Стрелки — пути %{p} для %{parts}: от %{z} (точка) до %{end}%{clause}.",
+  "note": "morphCaption",
+  "file": "app.js:4895"
+ },
+ "mcap.arrows_meet": {
+  "en": " Arrows that meet show points with the same image.",
+  "ru": " Сходящиеся стрелки отмечают точки с одинаковым образом.",
+  "note": "morphCaption",
+  "file": "app.js:4896"
+ },
+ "mcap.n_boundary": {
+  "en": "{n} boundary points",
+  "ru": "{n} граничных точек",
+  "plural": {
+   "one": "{n} граничной точки",
+   "few": "{n} граничных точек",
+   "many": "{n} граничных точек",
+   "other": "{n} граничной точки"
+  },
+  "en_plural": [
+   "{n} boundary point",
+   "{n} boundary points"
+  ],
+  "note": "morphCaption: genitive after «для»",
+  "file": "app.js:4886"
+ },
+ "mcap.n_interior": {
+  "en": "{n} interior points",
+  "ru": "{n} внутренних точек",
+  "plural": {
+   "one": "{n} внутренней точки",
+   "few": "{n} внутренних точек",
+   "many": "{n} внутренних точек",
+   "other": "{n} внутренней точки"
+  },
+  "en_plural": [
+   "{n} interior point",
+   "{n} interior points"
+  ],
+  "note": "morphCaption: genitive after «для»",
+  "file": "app.js:4887"
+ },
+ "mcap.n_marked": {
+  "en": "{n} marked points",
+  "ru": "{n} отмеченных точек",
+  "plural": {
+   "one": "{n} отмеченной точки",
+   "few": "{n} отмеченных точек",
+   "many": "{n} отмеченных точек",
+   "other": "{n} отмеченной точки"
+  },
+  "en_plural": [
+   "{n} marked point",
+   "{n} marked points"
+  ],
+  "note": "morphCaption: genitive after «для»",
+  "file": "app.js:4888"
+ },
+ "bcap.set_in_plane": {
+  "en": "%{set} in the %{z}-plane. ",
+  "ru": "%{set} в плоскости %{z}. ",
+  "note": "buildFigure, both panels of the deformation: panel (a)",
+  "file": "app.js:180"
+ },
+ "bcap.the_plane": {
+  "en": "The plane",
+  "ru": "Плоскость",
+  "note": "buildFigure: no shapes",
+  "file": "app.js:9435"
+ },
+ "bcap.deformation": {
+  "en": " The deformation %{H}: ",
+  "ru": " Деформация %{H}: ",
+  "note": "buildFigure: panel (b)",
+  "file": "app.js:9435"
+ },
+ "guide.sound_fixed": {
+  "en": "<b>Sound</b> in the top bar ({x}) is off until you turn it on; the setting stays on this device. Its caret sets the volume and what you hear: the interface, mathematical events (the deformation, a closed loop's winding number), and <b>Hear the function under the pointer</b>, a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
+  "ru": "Звук включается кнопкой <b>Звук</b> в верхней панели ({x}); до этого он выключен, а настройка хранится только на этом устройстве. Стрелка рядом с кнопкой открывает настройки громкости и состава звуков: интерфейс, математические события (деформация, число оборотов замкнутой петли) и <b>Слушать функцию под указателем</b> — тон, звуковысотный класс которого задаётся значением arg <i>F</i>, так что петля вокруг нуля порядка <i>m</i> даёт <i>m</i> восходящих циклов. {x2} останавливает всё, что звучит. С клавиатуры: перейдите клавишей Tab на левую плоскость; стрелки перемещают указатель, {x3} переходит к следующему нулю или полюсу, {x4} сообщает его порядок, {x5} описывает вид, {x6} рисует петлю, а {x7} включает прослушивание вдоль неё. Если программа чтения с экрана работает в режиме просмотра, пользуйтесь кнопкой: сочетание {x} может не дойти до страницы.",
+  "note": "guide.sound_top_bar_x with its last key fixed: the second key is ⇧ M (x), not Esc (x2) (phase 2b integration: the Russian had the whole paragraph pasted twice and still named {x2}; repaired)",
+  "file": "app.js:11158"
+ },
+ "hint.drag_to_draw_a": {
+  "en": "Drag to draw a {tool}",
+  "ru": "Перетащите, чтобы нарисовать: {tool}",
+  "note": "split shape of chrome.extra.drag_to_draw; {tool} is the tool name in lower case",
+  "file": "app.js:6599"
+ },
+ "hint.drag_to_draw_an": {
+  "en": "Drag to draw an {tool}",
+  "ru": "Перетащите, чтобы нарисовать: {tool}",
+  "note": "split shape of chrome.extra.drag_to_draw (English article an)",
+  "file": "app.js:6599"
+ },
+ "mcap.with_dashed_outlines": {
+  "en": ", with dashed outlines,",
+  "ru": " (штриховые границы)",
+  "note": "morphCaption, both panels",
+  "file": "app.js:4876"
+ },
+ "mcap.with_dashed_outline": {
+  "en": ", with a dashed outline,",
+  "ru": " (штриховая граница)",
+  "note": "morphCaption, both panels",
+  "file": "app.js:4876"
+ },
+ "guar.mobius_tip": {
+  "en": "F(z) = (az + b)/(cz + d) with ad − bc ≠ 0.",
+  "ru": "F(z) = (az + b)/(cz + d), где ad − bc ≠ 0.",
+  "note": "lamp tooltip (GLOSSARY 1.10); «где» added",
+  "file": "app.js:8655"
+ },
+ "shape.default_name": {
+  "en": "{kind} {n}",
+  "ru": "{kind} {n}",
+  "note": "default shape name (\"Formula 1\"); {kind} is the region kind label (region.js)",
+  "file": "app.js:1"
+ },
+ "morph.step_label": {
+  "en": "step {k} · {name} · t = {t}",
+  "ru": "шаг {k} · {name} · t = {t}",
+  "note": "deformation state label (as \"all steps · t = {t}\")",
+  "file": "app.js:248"
+ }
+}
