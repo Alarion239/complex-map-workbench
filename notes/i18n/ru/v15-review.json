@@ -26,14 +26,14 @@
   "note": "Inspector hint under Add zero / Add pole on touch screens (design-9, russian-8; GLOSSARY 3.12)."
  },
  "v15r.mob_const": {
-  "en": "f{k} is constant, = {v}.",
-  "ru": "f%{k} — постоянная, равна %{v}.",
-  "note": "Inspector, a Möbius step with ad − bc = 0 and c = 0 (math-6). {k} is a subscript digit."
+  "en": "{f} is constant (= {v}).",
+  "ru": "%{f} постоянна (= %{v}).",
+  "note": "Inspector, a Möbius step with ad − bc = 0 and c = 0 (math-6, verify-3). {f} is f with the step's index (HTML), {v} a number."
  },
  "v15r.mob_const_rem": {
-  "en": "f{k} is constant, = {v}; z = {p} is removable.",
-  "ru": "f%{k} — постоянная, равна %{v}; особенность в точке z = %{p} устранимая.",
-  "note": "Inspector, a Möbius step with ad − bc = 0 (math-6): the point −d/c is a removable singularity."
+  "en": "{f} is constant (= {v}); {z} = {p} is a removable singularity.",
+  "ru": "%{f} постоянна (= %{v}); %{z} = %{p} — устранимая особая точка.",
+  "note": "Inspector, a Möbius step with ad − bc = 0 (math-6, verify-3): the point −d/c is a removable singularity. {f} and {z} are italic letters (HTML), {v} and {p} numbers."
  },
  "v15r.insert_after": {
   "en": "Insert a function after it",

@@ -31,6 +31,9 @@ await open('t1', { chapter: 'basics', step: 1 });
 let g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); return { side: document.querySelector('.tour-card').dataset.side, overlap: !(c.left >= p.right || c.right <= p.left || c.top >= p.bottom || c.bottom <= p.top), hole: document.querySelector('.tour-shade').getAttribute('d').split('Z')[1] }; })()`);
 check('X step: callout beside the pane, not over it', g.side === 'right' && !g.overlap, g);
 check('X step: a hole in the shade', g.hole && g.hole.length > 10, g.hole);
+// (review-phone phone-1: the phone's bar and fold buttons never show in a desktop callout)
+g = await ev(`[...document.querySelectorAll('.tour-card .tour-fold, .tour-card .tour-grow, .tour-card .tour-mback')].filter((b) => b.offsetParent !== null).map((b) => b.className)`);
+check('desktop: no fold, grow or bar Back button in the callout', Array.isArray(g) && g.length === 0, g);
 g = await ev(`({ role: document.querySelector('.tour-card').getAttribute('role'), live: document.querySelector('.tour-sr[aria-live]').textContent })`);
 check('the callout is a dialog and the step is read aloud', g.role === 'dialog' && /Basics, step 2 of 10\. X: the domain\. X shows your shapes/.test(g.live) && !/\\/.test(g.live), g);
 await snap('tour-x-light');
@@ -318,10 +321,18 @@ await view(1440, 900, false);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await nav(U + '?ns=t9'); await settle(1800); await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle(1600);
 const d0 = await ev(`document.querySelector('.tour-shade').getAttribute('d')`);
-await ev('Tour.next()'); await sleep(320);
-g = await ev(`({ tr: getComputedStyle(document.querySelector('.tour-card')).transitionDuration, d: document.querySelector('.tour-shade').getAttribute('d') })`);
+// (review verify-10: not a fixed 320 ms wait, which failed once under load while the step was still being placed: every
+// frame's shade path is recorded until it has changed and then held for two frames (at most 3 s). A jump shows at
+// most a few distinct paths; a 320 ms tween would show one per frame. The expression awaits the promise itself: in the
+// daemon's REPL mode a returned promise comes back as {})
+g = await ev(`await new Promise((res) => { const sh = () => document.querySelector('.tour-shade').getAttribute('d'), d0 = ${JSON.stringify(d0)}, seen = [], t0 = performance.now(); let last = null, same = 0;
+  Tour.next();
+  const tick = () => { const d = sh(); if (d !== last) { if (d !== d0) seen.push(d); last = d; same = 0; } else same++;
+    if ((last !== d0 && same >= 2) || performance.now() - t0 > 3000) res({ tr: getComputedStyle(document.querySelector('.tour-card')).transitionDuration, d: last, paths: seen.length, ms: Math.round(performance.now() - t0) });
+    else requestAnimationFrame(tick); };
+  requestAnimationFrame(tick); })`, 10000);
 const d1 = g.d; await sleep(300);
-check('reduced motion: no card transition, the cut-out jumps', /^0s(, 0s)*$/.test(g.tr) && d1 !== d0 && d1 === (await ev(`document.querySelector('.tour-shade').getAttribute('d')`)), g.tr);
+check('reduced motion: no card transition, the cut-out jumps', /^0s(, 0s)*$/.test(g.tr) && d1 !== d0 && g.paths <= 3 && d1 === (await ev(`document.querySelector('.tour-shade').getAttribute('d')`)), g);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 
 // 11. the palette lists the chapters ("Tour: …"); one starts its chapter, and the app gets the tour's calls
@@ -338,9 +349,10 @@ await ev(`document.querySelector('.tour-card .btn.primary').focus()`); await key
 
 // 12. phone: the callout is a sheet, the anchor scrolled into the free half, nothing scrolls sideways
 await open('t8', { chapter: 'basics', step: 1 }, 390, 844, false, true);
-g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); const cy = (p.top + p.bottom) / 2; return { sheet: document.querySelector('.tour-card').classList.contains('sheet'), cw: Math.round(c.width), overC: c.top < cy && c.bottom > cy, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
-// (v15: the phone shows one plane of nearly the whole screen, so the sheet sits at an edge, clear of its centre)
-check('phone: sheet, full width, clear of the pane\'s centre, no horizontal scroll', g.sheet && g.cw >= 390 - 32 && !g.overC && g.noHScroll, g);
+g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); const cy = (p.top + p.bottom) / 2; return { sheet: document.querySelector('.tour-card').classList.contains('sheet'), mini: document.querySelector('.tour-card').classList.contains('mini'), cw: Math.round(c.width), overC: c.top < cy && c.bottom > cy, overP: c.top < p.bottom && c.bottom > p.top, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
+// (v15: the phone shows one plane of nearly the whole screen, so the sheet sits at an edge, clear of its centre;
+// v15.1, notes/tour/PHONE.md: it never covers the lit plane, so here it is the one-line bar at the far edge)
+check('phone: sheet or bar, full width, clear of the lit pane, no horizontal scroll', (g.sheet || g.mini) && g.cw >= 390 - 32 && !g.overC && !(g.mini && g.overP) && g.noHScroll, g);
 await snap('tour-phone-x');
 await open('t8b', { chapter: 'basics', step: 4 }, 390, 844, true, true);
 g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, cardOnTop: !!(top && top.closest('.tour-card')) }; })()`);

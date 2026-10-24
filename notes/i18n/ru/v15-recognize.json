@@ -1,0 +1,43 @@
+{
+  "_about": "Formula recognition (notes/formula-recognition/DESIGN.md, work/xvr, 2026-10-24): a custom formula read as a chain of catalog steps. The Inspector's line under the step names the steps it was read as, in one short clause with catalog names that carry no parameter letters (review frperf-5); a formula of several steps deforms along their homotopies in turn. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md (естественный путь, гарантии, гомотопия, отрисовка). {chain} is a list of catalog labels (already translated) joined by ' → '. Read by tools/make_ru_table.py (v15-*.json).",
+  "rec.same": {
+    "en": "Same as {chain}",
+    "ru": "Совпадает с цепочкой %{chain}",
+    "note": "Inspector, the step's note line: the typed formula is this chain of catalog steps (it renders, deforms and reports as that chain). {chain}: labels joined by ' → '."
+  },
+  "rec.partly": {
+    "en": "Partly the same as {chain}",
+    "ru": "Частично совпадает с цепочкой %{chain}",
+    "note": "Inspector: only some parts are catalog steps; 'Custom formula' in the chain names the rest."
+  },
+  "rec.scaling": {
+    "en": "Scaling",
+    "ru": "Растяжение",
+    "note": "A chain label for 'Multiply by c' without the letter c (GLOSSARY: rotation, scaling = поворот, растяжение)."
+  },
+  "rec.translation": {
+    "en": "Translation",
+    "ru": "Сдвиг",
+    "note": "A chain label for 'Translate by c' without the letter c."
+  },
+  "rec.sqrt": {
+    "en": "Square root",
+    "ru": "Квадратный корень",
+    "note": "A chain label for 'n-th root' with n = 2."
+  },
+  "rec.root": {
+    "en": "Root",
+    "ru": "Корень",
+    "note": "A chain label for 'n-th root' with n > 2, without the letter n."
+  },
+  "rec.hom": {
+    "en": "the homotopy that runs its %{n} catalog steps in turn, each on an equal part of $0\\le t\\le 1$ ($u_j$: the point after step $j$): %{list}",
+    "ru": "гомотопия, которая по очереди выполняет шаги каталога, из которых составлена формула (всего %{n}), каждый на равной части отрезка $0\\le t\\le 1$ ($u_j$ — точка после шага $j$): %{list}",
+    "note": "Deformation caption of a formula read as several catalog steps; %{list} is each step's own homotopy phrase, joined by '; then '."
+  },
+  "rec.then": {
+    "en": "; then ",
+    "ru": "; затем ",
+    "note": "Joins the steps' homotopy phrases in rec.hom."
+  }
+}

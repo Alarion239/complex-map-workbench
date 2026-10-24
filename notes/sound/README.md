@@ -122,3 +122,18 @@ function under the pointer OFF (the user turns it on). Browsers allow audio only
 on the page, so the audio context is created on that first gesture and nothing plays before it. A user's own stored
 choice (lsk('cmw-sound')) always wins over the default; the default applies only when nothing is stored. Test pages
 under ?ns= keep sound off unless a test turns it on, so the quality and perf suites are unaffected.
+
+## The user's verdict on palette B (2026-10-24)
+
+"I like everything except for hearing the function. It still feels quite synthetic. Нет тембра" (no timbre). So:
+keep palette B as it was sent at 01:45 (copy: notes/sound/v2/board-sent-0145.html); change only "hear the function"
+(the continuous tone under the pointer and in the deformation), which needs a real, natural timbre.
+
+## The user on hearing the function (2026-10-24, later)
+
+"Wait, this sounds better, but I still think it is not the same. I am not really understanding how the audio version
+should sound: can you research it on the web. Maybe there is any research about using sound for math? Look at 2swap
+github. Maybe we don't need each point sound? Maybe it should be composite of a curve or a function? I don't really
+know. Maybe each point is fine. It just feels weird, maybe because of its weird non-natural sound and your new version
+resolves that. Just please see what is done and give me a few options to choose. Try to make them as nice and good
+as possible." -> research and an options board in notes/sound/hearf/.

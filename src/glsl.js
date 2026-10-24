@@ -184,7 +184,8 @@ vec2 cx_mob(vec2 a, vec2 b, vec2 c, vec2 d, vec2 z) {
 // Mobius map of a step: q = (mode, -, k), r = (alpha, beta). mode 0: (az+b)/(cz+d); mode 1 (nearly degenerate,
 // ad - bc tiny against the entries): k + (alpha z + beta)/(cz+d) with (a,b) = k(c,d) + (alpha,beta) split on the
 // CPU, which keeps the pole/zero pair accurate; mode 2 (degenerate): the constant k, but NaN (the CPU's 0/0) at
-// r.zw when r.x = 1.
+// r.zw when r.x = 1. An exactly degenerate map (ad - bc = 0) is constant on the CPU at its removable point too
+// (funcs.js mobiusBuild, review math-6), so it never sets r.x.
 vec2 cx_mobstep(vec2 z, vec4 ab, vec4 cd, vec4 q, vec4 r) {
   if (q.x > 1.5) return (r.x > 0.5 && z == r.zw) ? vec2(cx_nan()) : q.zw;
   if (q.x > 0.5) return q.zw + cx_mob(r.xy, r.zw, cd.xy, cd.zw, z);
@@ -293,9 +294,10 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const k = CX.scale(CX.add(CX.mul(a, CX.conj(c)), CX.mul(b, CX.conj(d))), 1 / n2);
     // below 1e-12 the CPU's own map is constant up to rounding (its pole and zero coincide to ~1e-16), except at
     // the pole itself, where it is 0/0. When that pole is a float32 point, alpha = (1, 0) and beta = pole make the
-    // GPU return NaN there too.
+    // GPU return NaN there too. An exactly degenerate map is the constant a/c everywhere on the CPU, its removable
+    // point included (funcs.js mobiusBuild), so it gets no NaN point.
     if (rel < 1e-12) {
-      const p = CX.isZero(c) ? null : CX.neg(CX.div(d, c));
+      const p = CX.isZero(c) || CX.mobDetZero(m) ? null : CX.neg(CX.div(d, c));
       const exact = p && Math.fround(p.re) === p.re && Math.fround(p.im) === p.im && !CX.isFin(CX.mobApply(m, p));
       return { mode: 2, k, alpha: C(exact ? 1 : 0, 0), beta: exact ? p : C(0, 0) };
     }

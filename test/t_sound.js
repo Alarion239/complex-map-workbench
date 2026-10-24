@@ -189,6 +189,35 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('v15 default: the first click creates the context', e.ctxs.length === 1 && e.ctx().state === 'running');
     check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
   }
+  // v15.1 the deformation scrub (notes/sound/AS-BUILT.md "Scrub"): slow → a soft detent at each 0.05 of t; fast → no
+  // detents, a soft band that follows the speed and fades when the drag stops; t = 0, ½, 1 soft keys at any speed
+  {
+    const e = makeEnv({ search: '' }); e.fire('pointerdown');
+    const S = e.Sound, ticks = () => e.made.filter((k) => k === 'morphTick').length, bands = () => e.ctx().sources.filter((s) => s.kind === 'buf' && s.loop);
+    let u = 0.1;
+    for (let i = 0; i < 20; i++) { e.advance(100); S.scrub(u, u + 0.01); u += 0.01; }
+    check('scrub slow (2 detents/s, 0.1 → 0.3): 4 detents, no band', ticks() === 4 && bands().length === 0, `${ticks()} ${bands().length}`);
+    e.advance(400); e.made.length = 0;
+    u = 0.05;
+    for (let i = 0; i < 40; i++) { e.advance(16); const u1 = Math.min(1, u + 0.025); S.scrub(u, u1); u = u1; }
+    const b = bands();
+    check('scrub fast (31 detents/s, 0.05 → 1): the first input is a step (one detent), then only the keys at ½ and 1', ticks() === 3, ticks());
+    check('scrub fast: one band, started', b.length === 1 && b[0].started != null && S.scrubState().band && S.scrubState().v > 10, JSON.stringify(S.scrubState()));
+    e.advance(30);
+    check('scrub fast: the band holds while the drag goes on (30 ms without input)', b[0].stopped == null && S.scrubState().band);
+    e.advance(70);
+    check('scrub fast: 70 ms after the last input the band fades, its stop 0.8 s ahead (never on a step)', b[0].stopped != null && b[0].stopped > e.ctx().currentTime + 0.7 && !S.scrubState().band, b[0].stopped);
+    e.advance(2000);
+    check('scrub fast: one band in all', bands().length === 1);
+    // back and forth across ½ quickly: one key per 250 ms at most
+    e.made.length = 0;
+    for (let i = 0; i < 30; i++) { e.advance(16); const a = 0.45 + 0.1 * (i % 2), z = 0.55 - 0.1 * (i % 2); S.scrub(a, z); }
+    check('scrub: the key at ½ at most once in 250 ms', ticks() <= 3, ticks());
+    // Mathematical events off: nothing
+    S.set({ events: false }); e.made.length = 0; e.advance(2000); const nb = bands().length;
+    for (let i = 0; i < 10; i++) { e.advance(100); S.scrub(0.1 + 0.05 * i, 0.15 + 0.05 * i); }
+    check('scrub: Mathematical events off, no detents and no band', ticks() === 0 && bands().length === nb);
+  }
   // a stored choice always wins over the default
   {
     const e = makeEnv({ search: '', store: { 'cmw-sound': JSON.stringify({ on: false, vol: 0.7, ui: true, snap: false, events: true, sonify: false }) } });

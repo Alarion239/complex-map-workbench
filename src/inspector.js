@@ -88,12 +88,14 @@ const Inspector = (() => {
       if (!form || !form.clientWidth || node.hidden) return true;
       const cs = getComputedStyle(form);
       const avail = form.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      const w = node.scrollWidth;
+      // (an inline node, a line of the F list, has no scrollWidth: its box's width)
+      const wOf = () => node.scrollWidth || node.getBoundingClientRect().width;
+      const w = wOf();
       if (w <= avail + 0.5) return true;
       if (minScale >= 1) return false;
       const f = Math.max(minScale, Math.floor((avail / w) * 100) / 100);
       node.style.fontSize = Math.round(f * 100) + '%';
-      return node.scrollWidth <= avail + 0.5;
+      return wOf() <= avail + 0.5;
     }
     // a formula in its well: the full form when it fits, else the alternative (alt), then smaller; decided once per
     // formula (a drag holds its formula, so drag frames never force a layout here). 1: the alternative is shown.
@@ -250,22 +252,24 @@ const Inspector = (() => {
         E.ftex.innerHTML = ''; E.ftex.dataset.tex = '';
         if (E.note.textContent) E.note.textContent = '';
       }
-      // a Möbius step: its determinant, with the indexed letters
+      // a Möbius step: its determinant, with the indexed letters in math italics and numbers with the true minus
       let dt = '';
       if (st.type === 'mobius' && !bad) {
         const [a, bb, c, d] = ['a', 'b', 'c', 'd'].map((x) => cxv(st.params[x]));
         if (a && bb && c && d) {
           const v = A.CX.sub(A.CX.mul(a, d), A.CX.mul(bb, c));
-          dt = `a${sub(k)}d${sub(k)} − b${sub(k)}c${sub(k)} = ${A.fmt(v)}`;
-          // (review math-6: a determinant 0 makes the step constant; its "pole" is removable)
+          const li = (x) => `<i>${x}</i>${sub(k)}`, num = (z) => A.fmt(z).replace(/-/g, '−');
+          dt = `${li('a')}${li('d')} − ${li('b')}${li('c')} = ${num(v)}`;
+          // (review math-6: a determinant 0 makes the step constant; its "pole" is a removable singularity.
+          // verify-3: "(= v)", the true minus, f and z in italics)
           if (A.CX.mobDetZero([a, bb, c, d])) {
             const cz = A.CX.isZero(c);
-            dt += '. ' + (cz ? $t('f{k} is constant, = {v}.', { k: sub(k), v: A.fmt(A.CX.div(bb, d)) })
-              : $t('f{k} is constant, = {v}; z = {p} is removable.', { k: sub(k), v: A.fmt(A.CX.div(a, c)), p: A.fmt(A.CX.neg(A.CX.div(d, c))) }));
+            dt += '. ' + (cz ? $t('{f} is constant (= {v}).', { f: li('f'), v: num(A.CX.div(bb, d)) })
+              : $t('{f} is constant (= {v}); {z} = {p} is a removable singularity.', { f: li('f'), z: '<i>z</i>', v: num(A.CX.div(a, c)), p: num(A.CX.neg(A.CX.div(d, c))) }));
           }
         }
       }
-      if (E.det.textContent !== dt) E.det.textContent = dt;
+      if (E.det.dataset.h !== dt) { E.det.dataset.h = dt; E.det.innerHTML = dt; }
     }
     // ---- F ----
     function buildF() {
@@ -348,7 +352,8 @@ const Inspector = (() => {
       for (const [k, t] of E.chain) {
         const li = t.parentNode;
         if (li) li.hidden = byW && k === last;
-        if (!(byW && k === last)) fitPick(t, `w_{${k}}=${built[k - 1].tex({ s: A.wvar(k - 1), p: 4 }).s}`, null, false);
+        // (review verify-9: in display style, at the size of F's line, when it fits; else in text style)
+        if (!(byW && k === last)) { const wt = `w_{${k}}=${built[k - 1].tex({ s: A.wvar(k - 1), p: 4 }).s}`; fitPick(t, `\\displaystyle ${wt}`, wt, false); }
       }
       const warns = [];
       S.steps.forEach((st, i) => { if (st.on !== false && built[i].error) warns.push($t('Step {x} has an error and is skipped until fixed.', { x: i + 1 })); });

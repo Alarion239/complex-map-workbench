@@ -81,6 +81,18 @@ const Params = (() => {
     return out;
   }
   const unknownIn = (src) => namesIn(src).filter((nm) => !find(nm));
+  // (review verify-7: a value or formula that fails because of a Cyrillic letter, a look-alike read as an unknown Latin
+  // name or a letter the parser cannot read, says so in the name field's words, not with a Latin name the user never
+  // typed; a look-alike of a known number still reads as that number)
+  function cyrMsg(src, msg) {
+    if (!msg) return msg;
+    const cy = String(src).match(/[А-Яа-яЁё]/g);
+    if (!cy) return msg;
+    let unk = [];
+    try { unk = unknownIn(src).map((n) => String(n).replace(/\d+$/, '')); } catch (e) { /* unreadable: the letter is the reason */ }
+    const c = cy.find((ch) => !LOOK[ch] || unk.includes(LOOK[ch]));
+    return c ? $t('The letter “{x}” is Cyrillic: names are written in Latin letters. Switch the keyboard layout.', { x: c }) : msg;
+  }
   // the value of a real constant formula (the names read as their values); throws a message
   function evalReal(src) {
     const v = Expr.constValue(String(src));
@@ -491,7 +503,7 @@ const Params = (() => {
     const apply = () => {
       const t = val.value.trim().replace(/(\d),(\d)/g, '$1.$2');
       if (!t) { val.value = valShow(p); showErr(''); return; }
-      const msg = set(nm, t);
+      const msg = cyrMsg(t, set(nm, t));
       showErr(msg);
       if (!msg && JSON.stringify(find(nm)) !== before) { commit(); before = JSON.stringify(find(nm)); }
     };

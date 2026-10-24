@@ -1,0 +1,13 @@
+{
+ "_about": "v15.1 guided tour on a phone (notes/tour/PHONE.md): the callout's one-line bar. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md. Read by tools/make_ru_table.py (v15-*.json).",
+ "v15tp.grow": {
+  "en": "Show the whole step",
+  "ru": "Показать шаг целиком",
+  "note": "aria-label of the collapsed callout's title button (a tap unfolds the step)"
+ },
+ "v15tp.fold": {
+  "en": "Collapse the step",
+  "ru": "Свернуть шаг",
+  "note": "aria-label and tooltip of the button that folds the unfolded step back into its bar"
+ }
+}

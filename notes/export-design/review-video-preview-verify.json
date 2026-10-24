@@ -1,0 +1,33 @@
+{
+  "verified": "2026-10-24, work/xvv/dist/test.html (built 01:38, after the review fixes). Headless Chrome, my own CDP kit in work/xvv/test/vpv_cdp on port 9034. The probes were written fresh; they do not reuse export_cmd.js section 5b. Phase, Example 1, 2 steps, t = 1.2.",
+  "still_wrong": [
+    {
+      "id": "vp-1/vp-2 residual",
+      "severity": "low",
+      "title": "If you pause and then change an option, the preview stays on the 960 px poster. At DPR 2 that is softer than the frames, and the note says it is the video's frames",
+      "detail": "In makePreview.start the fill draws a finished frame only when `!P.playing && (P.shown || o.autoplay)`. A restart from a paused state is not lazy and not autoplay, and P.shown is false at that point. So none of the new frames is ever shown. All of them are drawn and kept, but the user sees the poster until Play or a scrub. The poster is at most 960 px. At DPR 2 it is shown at 743 CSS px, which is 1486 device px: a 1.55x upscale, which is the softening vp-1 was about. The note reads 'Preview: the frames of the video itself, scaled to fit here and lightly compressed', but those frames are not what is on screen. It shows the same frame, so nothing jumps; it is only softer.",
+      "evidence": "Probe p4: DPR 2, 1440 px, 1920x1080, 2 s per step. Playing: id 1, pw 1486, shown. Pause, then Ends -> Bounce. The new run (id 2) starts after 164 ms. After 6 s plus 2.5 s, shown is still false (until(shown) = -1), the poster is visible, the canvas is hidden, ready = 121/121 and pw = 1486. The poster's naturalWidth is 960 at 743 CSS px. Screenshot: work/xvv/test/vpv_cdp/shots/vpv-dpr2-paused-restart.png (softer than vpv-dpr2-canvas.png).",
+      "fix": "When the run is not lazy, draw the frame at P.i once it is kept, even while paused. For example, in the fill: `if (!P.playing && (P.shown || o.autoplay || !q.lazy)) { P.drawn = -1; draw(P.i); }`. Reduced motion stays lazy and keeps the poster, as specified."
+    },
+    {
+      "id": "vp-3 residual",
+      "severity": "low",
+      "verdict": "PLAUSIBLE",
+      "title": "A screen-only change of sharpness (DPR changes, the window size does not) does not draw the frames again, although VIDEO-PREVIEW.md says it does",
+      "detail": "Only the window 'resize' event calls pv.resize. Nothing listens for a change of devicePixelRatio, such as matchMedia('(resolution: Xdppx)'). Browser zoom changes the CSS size, so zoom is covered. Dragging the window from a 1x monitor to a retina one changes only the DPR, and browsers do not reliably fire 'resize' for that. The frames then stay at the 1x size and are shown upscaled 2x. The design note says: 'A bigger window (or a sharper screen) draws the frames again at the new size.'",
+      "evidence": "Probe p4: dialog open at 1440 px, DPR 1, run id 3, pw 743. CDP setDeviceMetricsOverride to deviceScaleFactor 2 at the same width. After 1.2 s: id 3, pw 743, devicePixelRatio 2, 0 resize events. Caveat: in this emulation the matchMedia change event did not fire either, so this shows that the code path is missing. It does not prove what a real monitor move does.",
+      "fix": "Add a re-armed listener: `const mq = () => { const m = matchMedia(`(resolution: ${devicePixelRatio}dppx)`); m.addEventListener('change', () => { onResize(); mq(); }, { once: true }); }`. Remove it on close together with the resize listener. Or remove '(or a sharper screen)' from the note."
+    }
+  ],
+  "fixed": {
+    "vp-1": "DPR 2, default options: frames kept at 1486 x 836 (= 743 CSS px x 2) as WebP, 181 frames in 14 MB, 12 decoded. 29.8 fps, p95 17.9 ms, max 36 ms, no long task. Screenshot vpv-dpr2-canvas.png is sharp. 1920x1080, 60 fps, 6 s, Loop, Print at DPR 1: 721 frames at 743 x 418 (was 344 x 194). 59.7 fps, p95 17.4 ms, max 18.6 ms, no long task. The labels and the t label are legible (vpv-loop60-print.png). The note names the video's size.",
+    "vp-2": "Pause, Bounce, Play during the restart: the bar is cleared (max 0, no time, no aria-valuetext) and dimmed (opacity 0.55, .busy). The note says 'drawing the frames, 0 %'. The button switches to Pause and the new run plays. The other way (playing, Loop, Pause during the restart): the new run stays paused. A scrubber key during the restart does nothing and the wish is kept.",
+    "vp-3": "Opened at 760 px (pw 503), widened to 1440: a new run at pw 743, the canvas stayed in view, still playing. (The DPR-only case is listed above.)",
+    "vp-4": "The first picture after the poster is i 170 at t = 1.202, 39 ms after the poster at the screen's t = 1.2. Then i 171, 172, ... There is no jump to t = 0.",
+    "vp-5": "Russian, 390 px phone, reduced motion: 1 frame drawn, 0 shown, the poster visible, the button 'Воспроизвести', and the note ends with 'Нажмите «Воспроизвести», чтобы посмотреть.' Arrow Right: 5 frames drawn, the canvas shown, the note no longer asks for Play. Play: everything fills (97 of 121 after 1.5 s). scrollWidth is 390.",
+    "vp-6": "Playing, scrubber not focused: aria-valuetext changed 3 times in 3 s. Focused: changed once (on focus) and the value stayed still for 3 s. Right then pauses and steps from the frame in view (113 -> 114), with the text '3.8 s of 7.0 s, t = 1.00'.",
+    "vp-7": "Hidden page during a 721-frame fill: renders 142 -> 142 over 1.2 s, then on again (194) once shown. Closing while hidden leaves live 0 with renders frozen. deviceMemory 2: 121 frames at 743 x 418 (150 MB) are kept compressed. A coarse pointer gets the 64 MB budget (at 390 px, 25 MB, so plain). iOS Safari was not testable here, and VIDEO-PREVIEW.md lists that as open.",
+    "vp-8": "Closing stops it: live 0, with renders and draws frozen for 0.9 s. export_cmd.js section 5b adds the DPR 2 and 60 fps Loop cases and the assertion pw >= min(W, cssW*dpr)."
+  },
+  "count": 2
+}

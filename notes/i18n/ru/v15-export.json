@@ -449,8 +449,8 @@
   },
   "r3v.here": {
     "en": " Here",
-    "ru": " Здесь",
-    "note": "figure.js leadIn: the lead-in of a display when its sentence already has «где» (the homotopy's «…, где H'(p) = …»): the sentence ends and the display follows «Здесь». Never «где …, где» (review r3 verify, editor-13)."
+    "ru": " При этом",
+    "note": "figure.js leadIn: the lead-in of a display when its sentence already has «где» (the homotopy's «…, где H'(p) = …»): the sentence ends and the display follows. «При этом», not «Здесь»: the sentence before it starts with «Здесь $H_t$ …», and two «Здесь» in a row read badly (review r3 verify2, editor-13). Never «где …, где»."
   },
   "r3v.globe_paths": {
     "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).",

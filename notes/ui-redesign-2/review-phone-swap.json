@@ -1,0 +1,74 @@
+[
+  {
+    "id": "swap-1",
+    "severity": "high",
+    "title": "After a tour on a phone, X ends 3.3 times zoomed in and Y 3.3 times zoomed out, and this compounds with each tour",
+    "detail": "tourSnapshot() stores S.srcView and V as they are, so it stores the inset's shrunk view. tourRestore() writes those views back but never touches phone.js keep[]. keep[] still holds what the tour's own swaps left there (the 'x' and 'y' steps call Phone.swap via showPlane). tourRestore then calls Phone.swap() to return to m.phBig. grow() finds the restored view != keep.set, so it multiplies it by k.r. reconcile() then shrinks the other plane's already-shrunk view again. Case 1: the user starts with X large. X's large view gets s * 3.3 and Y's large view gets s / 3.3. Each tour multiplies again. Case 2: the user starts with Y large. The tour's own scene is wrong: on step 'x', X shows 2.19 units across instead of the scene's 7.23, because a stale keep.L.r is applied to the scene view. Also, tourState() (the stash used after a reload mid-tour) does not go through Phone.largeView, so it saves the shrunk inset view as the plane's view.",
+    "evidence": "390x844 touch, 3z, the user's own pan and zoom on both planes, X large. Before the tour: L u=4.9251, R u=12.027. Tour.start({chapter:'basics'}), next to 'x', next to 'y', Tour.stop(). After: L u=1.4932 (x0.3032), R u=39.668 (x3.2982), unchanged by 2 more swaps. Starting with Y large, step 'x' shows X at u=2.1923 at w=376, against u=7.2308 when the tour starts with X large. (scratchpad probe p_tour.js)",
+    "fix": "Make the tour work on large views. At tour start, snapshot with the large views (Phone.largeView for the inset, the same as writeState) and put the phone into a known state: grow the inset and clear keep[], for example with a new Phone.forget(). In tourRestore, after the views are assigned and before or instead of Phone.swap(), clear keep[] and set big directly (or swap first, then assign the views), then call reconcile() so the inset is shrunk once from its restored large view. Apply largeView in tourState() too."
+  },
+  {
+    "id": "swap-2",
+    "severity": "high",
+    "title": "Leaving the phone layout in Phase, Landscape or the Deformation makes the inset's view about 3.6 times larger on each phone and desktop round trip",
+    "detail": "leave() runs grow(side) only when !merged() and clears keep[] either way. In Phase or Landscape, X's X -> Y view is parked in viewMem.xy and is still the shrunk one. In the Deformation, Y's view is parked in defMem.y.v, also shrunk. On the desktop that shrunk view becomes the plane's large view, so its window is about 3.3 to 3.6 times wider. The next enter() then shrinks it again, because keep[] is empty. This is the user's compounding symptom on another path. It is reachable without unusual steps. Rotating an iPad mini switches layouts: 744 px portrait is the phone layout and 1133 px landscape is the desktop. A tablet split view or a narrowed browser window does the same. In the Phase case Y is auto, fits X's image, and grows along with X.",
+    "evidence": "Phase, X the inset: X u 4.9251 -> 17.713 (desktop) -> 16.244 (phone) -> 58.42 -> 53.58 -> 192.7 -> 176.7, and Y (auto) 17.66 -> 63.35 -> ... -> 689. Deformation, Y (manual) the inset: Y u 17.636 -> 63.43 -> 58.17 -> 209.2 -> 191.9 -> 690.0 -> 632.8, while X stays at 7.2308. The probe loops: phone -> Phase or Deformation -> view 1200x900 desktop -> X -> Y or Deformation off -> back to 390x844. (scratchpad probe p_merged.js, leaveInPhase and leaveInDeform)",
+    "fix": "In leave(), always restore the inset's large view, wherever that view is parked. Add an app hook such as A.setLargeView(side, v) that writes S.srcView/V.left when X -> Y is active and viewMem.xy (src or left) otherwise, and V.right, or defMem.y.v during the Deformation. Or, when merged, keep keep[] and grow when the merged view ends (see swap-5)."
+  },
+  {
+    "id": "swap-3",
+    "severity": "high",
+    "title": "A save during the Deformation stores the inset's shrunk view, so X zooms out 3.3 times on every reload",
+    "detail": "writeState asks Phone.largeView, and largeView() returns null whenever merged(). The Deformation is a merged view ('R'), but X's S.srcView is still X's X -> Y view, and while X is the inset it is shrunk. Autosave then writes the shrunk view. On reload X is large with that view, about 3.3 times wider. The next swap shrinks it again, and the next save during the Deformation keeps it. Autosave runs on every change, and phones reload discarded background tabs, so this happens without an explicit reload. Phase has the same gap for Y: V.right is Y's own view there and may be the shrunk inset view.",
+    "evidence": "3z, the user's pan and zoom on X. Each round: swap (Y large), Deformation on, wait for the autosave, reload, Deformation off. X u: 4.9251 -> 16.244 -> 53.577 -> 176.71, and Y (auto) 17.66 -> 58.17 -> 191.9 -> 632.8. (scratchpad probe p_more.js, reloadInDeform)",
+    "fix": "In largeView(), return null only when the side's held view is not its X -> Y view. For 'L', skip the merged() check when S.view.main === 'xy' (the Deformation keeps S.srcView). For 'R' in Phase or Landscape, V.right is Y's own view, so keep the normal path. During the Deformation, Y's X -> Y view is defMem.y.v, which the save does not write today."
+  },
+  {
+    "id": "swap-4",
+    "severity": "medium",
+    "title": "The first visit to Phase (or Landscape) with X as the inset starts 3.3 times zoomed out",
+    "detail": "setMain() copies the current S.srcView into a view that has not been seen before. On a phone with Y large, that copy is X's shrunk inset view, so the new full-width Phase plane frames 3.3 times more than X showed large. That view is then remembered in viewMem.phase and saved. The language switch below shows the same 3.3 times ending up as X's xy view after a reload.",
+    "evidence": "3z. With X large, the first Phase shows u=7.2308 at w=376. With Y large (X the inset), the first Phase shows u=23.849 at w=376, x3.2982. (scratchpad probe p_merged.js, phaseFirstVisit)",
+    "fix": "On a phone, use the large view (Phone.largeView('L') when non-null) as the starting copy for a view that has not been seen. Or grow the inset before a merged view starts and shrink it again when the view ends, together with swap-5."
+  },
+  {
+    "id": "swap-5",
+    "severity": "medium",
+    "title": "No reconcile when a merged view ends: the non-large plane keeps the wrong size side by side or in the inset until the next transition",
+    "detail": "reconcile() returns early while merged(), and nothing calls it when Phase, Landscape or the Deformation ends. The panes MutationObserver only calls syncPanes. Case (a): leave Phase for X -> Y while a split sheet is open, or in landscape. The non-large plane is shown side by side with its shrunk inset view, 3.3 times zoomed out, until the sheet closes or the phone is rotated back. Case (b): enter the phone layout in a merged view, for example by loading the page in Phase or by a language switch in Phase. keep[] stays empty, so after X -> Y the inset draws its large view at 116 px (3.3 times zoomed in) until the first swap.",
+    "evidence": "(a) X large, Y (manual) the inset, Phase, open Display, then X -> Y: Y side by side u=28.002 at w=181. The same split from a plain open shows u=8.4898 (x3.2982). Landscape: Y u=63.12 against 19.137 (x3.2982). (b) After a language switch in Phase and back to X -> Y, Y's inset shows u=3.6465 against its proper 12.027. (scratchpad probe p_more.js, sheetInPhase, rotateInPhase and langInPhase)",
+    "fix": "Call reconcile() when merged() changes, for example in the panes class observer when the merged state differs from the last one seen. Let reconcile() handle the first-ever entry, when the inset has no keep[] after a merged start."
+  },
+  {
+    "id": "swap-6",
+    "severity": "medium",
+    "title": "A language switch in Phase, Landscape or the Deformation loses which plane is large",
+    "detail": "After the reload, Phone.setBig(sp.big) calls swap(true). swap() returns at once while merged(), and the reload restores the merged view before Phone.init. So a user with Y large comes back with X large. Together with swap-4 and swap-5, X's xy view is then the 3.3 times view and the inset is wrong until a swap.",
+    "evidence": "3z, user views on both planes, Y large (big R), Phase, switch to Russian: Phone._state().big is 'L'. Back to X -> Y: L u=16.244 at w=376, against 4.9251 before. (scratchpad probe p_more.js, langInPhase)",
+    "fix": "In setBig(), when merged(), set big and call syncPanes() directly; no plane is the inset while merged. Leave the inset to the reconcile on unmerge from swap-5."
+  },
+  {
+    "id": "swap-7",
+    "severity": "medium",
+    "title": "Y's auto fit still zooms visibly after every swap when the region is unbounded in both directions",
+    "detail": "This does not compound, but it is a visible scale change on every swap, which is what the user complained about. sourceViewChanged.apply() takes the meshing window clipWin from paneL.box(). The inset's box is square (116x116), while the large plane is about 376 x 520, so the aspect test (> 0.15) re-clips after every swap and fitRight(true) tweens Y to the image of the new window. So Y large first fits the old window at the swap, then tweens again 0.2 to 0.5 s later. Y as the inset frames a region about 3 times larger than Y large. The strip examples are unaffected because the strip is bounded in height. Half-planes, sectors, disc complements and the whole plane are affected. v15 also had this, at x1.14 and x6.0, on top of the compounding.",
+    "evidence": "Re z > 0 under 3z, Y auto. Swap to Y large: Y u=25.87 at the tap, 14.85 one second later (x0.574). Swap back: Y inset u=25.83, then 44.99 (x1.742). This repeats on every swap, while X stays at 7.2308. (scratchpad probe p_auto.js, v15.1, and p_misc.js, autoAfterSwap)",
+    "fix": "While X is the inset, compute the meshing window from X's large view and the large pane's size (Phone.largeView('L') or keep.L.v with the big pane's w and h) instead of paneL.box(), so a swap does not move clipWin. Y's auto fit then frames the same region as the inset and as the large plane."
+  },
+  {
+    "id": "swap-8",
+    "severity": "low",
+    "title": "A swap during a Fit animation leaves the plane at a frame from the middle of the animation",
+    "detail": "A.setView() removes the running tween on that view. shrink() reads the current mid-tween frame and keeps it as the plane's large view, so the Fit is only half applied. The plane does not drift afterwards.",
+    "evidence": "3z, user pan and zoom on X (u=4.9251, centre 0.687,1.006). Fit X (a 260 ms tween), Phone.swap() 80 ms later, swap back: X u=5.5479, centre 0.690,0.334. The same Fit without a swap gives u=5.8858, centre 0.691,0.000. (scratchpad probe p_misc.js, fitMidSwap)",
+    "fix": "In shrink() (and grow()), land a running tween on that view first, as cancelTweens() does, and use its target as the large view."
+  },
+  {
+    "id": "swap-9",
+    "severity": "info",
+    "title": "What held up",
+    "detail": "No drift in: 40 fast swaps 40 ms apart with both planes manual; 40 swaps with e^z far out (X at cx=20, Y u=3.76e8) and with 1/z near 0 (X u=7.5e-7, Y u=5409), exact to the last digit; an iPad mini crossing the phone and desktop layouts (744x1133 <-> 1133x744) 6 times with Y large and both planes manual; a two-finger tap on the inset during a one-finger pan, which does not swap, so the pan is unaffected. Desktop: the app.js changes run only when Phone.isOn() (largeView returns null when off; the switch record's phone field is null when off), and getView and setView are used only by phone.js. The desktop reads in the probes keep the pixels-per-unit scale, as in v15.",
+    "evidence": "scratchpad probes p_misc.js (fastSwaps, ipadMini, midPan) and p_more.js (strong exp, strong recip). No console errors in any probe.",
+    "fix": "none"
+  }
+]

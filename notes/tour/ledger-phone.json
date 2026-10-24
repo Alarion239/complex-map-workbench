@@ -1,0 +1,73 @@
+[
+ {
+  "id": "phone-1",
+  "status": "fixed",
+  "root": "The hiding rule `.tour-grow, .tour-fold { display: none }` lost to the app's later `.icon-btn { display: inline-grid }` (same specificity).",
+  "fix": "src/tour.js CSS: `.tour-card .tour-grow, .tour-card .tour-fold, .tour-card .tour-mback { display: none }`; shown only by `.tour-card.mini .tour-grow`, `.tour-card.mini .tour-mback`, `.tour-card.over .tour-fold`.",
+  "evidence": "Re-run on the final build: 1440x900 mouse basics/1: fold, grow and bar Back offsetParent null, card 712,265 320x210 (spot check work/xvp/test/xvp4d_cdp/q/14.js); tour_cmd.js 95/95 incl. 'desktop: no fold, grow or bar Back button in the callout'; tour_phone_cmd work: foldBad 0 of 308 step views (portrait and landscape, EN and RU), work/xvp/test/xvp4_cdp/phone/final.json."
+ },
+ {
+  "id": "phone-2",
+  "status": "fixed",
+  "root": "Two causes: no step named the lens as work, and covered() skipped every open layer when it looked for what covers a part, so a part inside a sheet always read as covered by the plane under the sheet and was never lit.",
+  "fix": "basics/chain gets `try: { ..., work: ['lens'] }` and a new anchor `lens` (`#propsPanel .insp-step .ihead .alone-btn`, documented in INTEGRATION.md). try.work is used only with the touch text (coarse pointer), since only that text names the lens. covered() now ignores only the layers that do not hold the part. watchStep watches try.work parts. Also (this round): the audit (test/tour_audit_cmd.js) now counts try.work parts as lit on a touch screen; at 1440 touch it had flagged the lit lens as an extra hole (basics/chain, 2 step views).",
+  "evidence": "tour_phone_cmd tries, final build: 5 of 5 Try its done by touch with the tour open (basics/chain: tap f1 then the lens, both taps reach the app; Choose Phase; Choose Stretch; Draw; palette Search), work/xvp/test/xvp4_cdp/phone/final.json. Audit 1440 EN/RU mouse/touch: 0 failing step views after the audit fix (was 2 extraHole)."
+ },
+ {
+  "id": "phone-3",
+  "status": "fixed",
+  "root": "The chain bar was not hosted because of its scroll-fade mask, so its hole and ring were script-followed and the fixed shade took every touch outside the lit +.",
+  "fix": "A panel with a mask is now hosted: the mask is taken off (inline mask-image: none) while the tour draws in it and put back after. The chain bar's shade, ring and scroll are native; touches on its dimmed cards scroll it but press nothing. bringBack(): once the panel is still and no finger is down, an anchor scrolled wholly out of its panel is scrolled back into view.",
+  "evidence": "360x780 basics/add, final build (work/xvp/test/xvp4d_cdp/q/13.js): hosted 1, #pipeline position relative and mask none during the step; a fling from the lit + (+200 px) scrolled 302 to 239 and the + out of the bar; 1.2 s later the bar was back at 302 with the + lit; elementFromPoint on a dimmed card is the host shade and a swipe there scrolled the bar (302 to 360); after Tour.stop: position static, mask restored, no data-tour-host, no host SVG. Scroll rows basics/add: screen 0/0 at 390 and 360 (v15: 20/10.3 and 20/10.7), work/xvp/test/xvp4d_cdp/phone/after6s.json, work/xvp/test/xvp4b_cdp/phone/before5s.json."
+ },
+ {
+  "id": "phone-4",
+  "status": "fixed",
+  "root": "placeMini() took the full-width edge with the least overlap even when it covered the work area; in landscape the 52 px bar is taller than the 48 px header. Also the bar's place was reused within a step without checking it again (state dependent, edit/cards).",
+  "fix": "placeMini() keeps only places clear of the work area and the layers: top and bottom edges, a slim bar (no inner padding, 46 px) 1 px inside the edge, and bands right above or below a lit area; full width or the widest free stretch (at least 240 px). The previous place is kept only while still clear. Least overlap only when nothing is clear.",
+  "evidence": "tour_phone_cmd work, final build: 844x390 and 780x360 (notch 47 px left and right, 21 px below), EN and RU, walked with Next: 0 of 152 landscape step views over the work area (v15: 54); all sizes 0 of 308 (v15: 135, max 94416 px2, 288 px deep). work/xvp/test/xvp4_cdp/phone/final.json, work/xvp/test/xvp4c_cdp/phone/before4.json."
+ },
+ {
+  "id": "phone-5",
+  "status": "fixed",
+  "root": "The bar showed only the title, so a Try it's task and its completion were hidden.",
+  "fix": "On a Try it step the bar's button has a second line: a tick circle and the task's touch text (for example 'Choose Stretch.' / 'Выберите «Растяжение».'); the circle fills with the check when done, and Next gets the 'ready' ring as on the whole card.",
+  "evidence": "360x780 RU views/patterns bar: title 'Узоры', task line 'Выберите узор «Растяжение».' with its tick, '6/6', Back, 'Далее →' (shot work/xvp/test/xvp4d_cdp/shots/ru360_patterns.png); basics/preimages: 'Удерживайте палец…'. Tick turns done with the try box (code path shared with the try box)."
+ },
+ {
+  "id": "phone-6",
+  "status": "fixed",
+  "root": "Each run stored the panel's old position in its own host record; the old run's deferred drop reset the panel to static under the new run's drawing.",
+  "fix": "The panel's own style (position, mask) is recorded on the panel (data-tour-host) by the first drawing in it and restored only by the last one out (no svg.tour-host left in it).",
+  "evidence": "tour_phone_cmd race, final build: Tour.start basics/5 then basics/6, and views/5 twice, within 50 ms: panel position relative, ring offset 0 px in the frame after scrollTop += 80 (2 of 2), work/xvp/test/xvp4_cdp/phone/final.json."
+ },
+ {
+  "id": "phone-7",
+  "status": "fixed",
+  "root": "The bar's place was reused for the rest of the step (lastP) even after place() stopped asking for the bar, so a step whose sheet closed on rotation stayed collapsed.",
+  "fix": "The bar is reused only while place() still returns 'mini'; landscape place() returns 'mini' only with lit areas.",
+  "evidence": "tour_phone_cmd rotate, final build (390x844 to 844x390): views/5, edit/4, analysis/3 have nothing lit and show the whole card (mini false, e.g. 255,51 to 589,340); basics/1 shows a card clear of X (over 0). work/xvp/test/xvp4_cdp/phone/final.json."
+ },
+ {
+  "id": "phone-8",
+  "status": "fixed",
+  "root": "The bar was built from the full card's parts with short labels and no Back.",
+  "fix": "(a) the bar's Next keeps 'Next: <chapter>' while the title keeps 120 px, else 'Next →' with the full name as its label; (b) a 44 px icon Back (aria-label Back/Назад) in the bar; (c) the count is '5/6' in the bar (full count as its aria-label), and the title may take 2 lines when there is no task line; (d) the bar button's aria-label is title, the task, then 'Show the whole step'; (e) focus ring offset -3 px inside the bar. This round: 8 px between the bar's buttons (6 px failed the audit's btnGap in 40 step views at 390 touch), and the aria-label no longer gets a double full stop after a task that ends in one ('…«Растяжение».. Показать шаг целиком').",
+  "evidence": "Audit 390 EN/RU mouse/touch on the final build: 0 failing step views (before the gap fix: 40 btnGap); 360 RU bar buttons: grow 165x44, Back 44x44, Next 'Далее →' 85x44, all inside the bar; work rows: 0 buttons under 44 px or outside, 0 truncated titles, work/xvp/test/xvp4_cdp/phone/final.json."
+ },
+ {
+  "id": "phone-9",
+  "status": "partly fixed",
+  "root": "The strip reader took the target's edge where the panel clipped it (within 1.3 px of the strip end).",
+  "fix": "tour_phone_cmd.js: no reading within 6 px of the strip's (panel window's) ends; the ring read is the magenta nearest the green edge (within 40 CSS px), not the first along the strip; the page probe cuts the panel window by the viewport; every step whose anchor is in a scrolling panel is measured (13 steps), plus a fling started on the dimmed part; per-gesture stats and lost gestures are recorded (the run had crashed on a gesture whose anchor was gone). Engine, this round: a hosting panel gets overscroll-behavior: none (restored after): the rubber band had moved the content past the drawing's layer, an undimmed strip at the sheet's top and a constant 10.3 px at branches/inverse.",
+  "evidence": "Final build, 390 and 360: screen max/p95 0/0 for Shapes, Add, Phase key, Patterns, Inspector, Zeros and poles, Shared numbers, Order (v15: 8.7 to 39 / 7.7 to 15.7); Formula still reads a constant 8.33 in its two upward gestures, while a pixel dump of the same gesture (work/xvp/test/xvp4d_cdp/q/12.js, and q/15.js with the test's safe-area insets) has the ring 1 device px outside the green edge in every frame: a reader artefact, not explained in the time box; Inverse: every frame is an edge reading (dropped); Domain, Guarantees, Formula as TeX: the first drag closes the sheet (app, same in v15). Page frames 0 px everywhere. work/xvp/test/xvp4d_cdp/phone/after6s.json, work/xvp/test/xvp4b_cdp/phone/before5s.json. The shade's hole is drawn by the same SVG and path as the ring in a hosted panel, so no separate hole reading was added.",
+  "open": "basics/formula still reads a constant 8.33 px in its two upward gestures on a correct build (pixel dump: ring on the edge). The reader needs one more look before tour_phone_cmd can gate a build."
+ },
+ {
+  "id": "phone-10",
+  "status": "fixed",
+  "root": "The bar was used on phoneL() (narrow or .ph), which includes a narrow desktop window with a mouse.",
+  "fix": "The bar only on a coarse pointer (place() opt.mini: phone layout and (pointer: coarse)). Hosting stays on a narrow window (it only removes lag).",
+  "evidence": "Final build, 600x900, mouse, no touch: basics/1 card 12,716 to 588,888, mini false, no fold button (same as v15) (work/xvp/test/xvp4d_cdp/q/14.js)."
+ }
+]

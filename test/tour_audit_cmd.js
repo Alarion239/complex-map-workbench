@@ -121,13 +121,25 @@ const PROBE = String.raw`(() => {
       }
       return n > 0;
     };
-    for (const n of [].concat(st.also || [])) { const e = resolve(n); if (e && e !== a && !covered(e)) add(n, e); }
+    // (v15.1, review-phone phone-2: on a touch screen the parts a Try it's touch task names, try.work, are lit too: the
+    // lens in the Inspector once the card is tapped)
+    const tr = st.try && !(st.tryWide && innerWidth < 640) ? st.try : null;
+    const tw = tr && tr.work && tr.touch && matchMedia('(pointer: coarse)').matches ? tr.work : [];
+    for (const n of [].concat(st.also || [], tw)) { const e = resolve(n); if (e && e !== a && !covered(e)) add(n, e); }
     return out;
   }
   // the drawn holes (the shade's sub-paths after the first) and the inner mark: bounding boxes and arc radii
+  // (v15.1, a phone: a lit part inside a scrolling panel is drawn by an SVG inside that panel, svg.tour-host, and the
+  // shade over the page has a window over the panel's visible box: every path counts, and a window is no lit area)
   function paths(sel, skipFirst) {
-    const p = document.querySelector(sel); if (!p) return [];
-    const d = p.getAttribute('d') || ''; const out = [];
+    const out = [];
+    for (const p of document.querySelectorAll(sel)) pathsOf(p, skipFirst, out);
+    if (!/tour-shade/.test(sel)) return out;
+    const wins = [...document.querySelectorAll('svg.tour-host')].map((s) => { const H = s.parentElement, b = H.getBoundingClientRect(), l = b.left + H.clientLeft, t = b.top + H.clientTop; return { l: Math.max(0, l), t: Math.max(0, t), r: Math.min(innerWidth, l + H.clientWidth), b: Math.min(innerHeight, t + H.clientHeight) }; });
+    return out.filter((h) => !wins.some((w) => h.l >= w.l - 1 && h.t >= w.t - 1 && h.r <= w.r + 1 && h.b <= w.b + 1 && (h.r - h.l) * (h.b - h.t) >= 0.9 * (w.r - w.l) * (w.b - w.t)));
+  }
+  function pathsOf(p, skipFirst, out) {
+    const d = p.getAttribute('d') || '';
     // user units -> client px (a viewBox that differs from the SVG's box, a transform)
     const svg = p.ownerSVGElement, M = (svg && svg.getScreenCTM && svg.getScreenCTM()) || { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
     const X = (x, y) => M.a * x + M.c * y + M.e, Y = (x, y) => M.b * x + M.d * y + M.f;
@@ -146,7 +158,12 @@ const PROBE = String.raw`(() => {
         else if (cmd === 'Z' || cmd === 'z') { /* */ }
         else i++;
       }
-      if (Number.isFinite(l)) out.push({ l: X(l, t), t: Y(l, t), r: X(r, b), b: Y(r, b), rad: rad * Math.abs(M.a), zero: r - l < 0.5 || b - t < 0.5 });
+      // (a path drawn inside a panel, v15.1, is clipped by the panel: what shows is its part inside the panel's box)
+      const host = !!(svg && svg.classList.contains('tour-host'));
+      let q = { l: X(l, t), t: Y(l, t), r: X(r, b), b: Y(r, b) };
+      if (host && !skipFirst) { /* rings and marks: as drawn */ }
+      else if (host) { const H = svg.parentElement, hb = H.getBoundingClientRect(), hl = hb.left + H.clientLeft, ht = hb.top + H.clientTop; q = { l: Math.max(q.l, hl), t: Math.max(q.t, ht), r: Math.min(q.r, hl + H.clientWidth), b: Math.min(q.b, ht + H.clientHeight) }; }
+      if (Number.isFinite(l)) out.push({ l: q.l, t: q.t, r: q.r, b: q.b, rad: rad * Math.abs(M.a), zero: q.r - q.l < 0.5 || q.b - q.t < 0.5, host });
     }
     return out;
   }
@@ -245,8 +262,8 @@ const PROBE = String.raw`(() => {
       if (!Tour.isActive() || !card) return 'inactive';
       // (the engine's own flags are not trusted: only what is drawn, and the callout, holding still)
       const busy = card.getAttribute('aria-busy') === 'true';
-      const sh = document.querySelector('.tour-shade'), mk = document.querySelector('.tour-mark');
-      const sig = busy ? 'busy' + Math.random() : JSON.stringify([sh && sh.getAttribute('d'), mk && mk.getAttribute('d'), R(card.getBoundingClientRect()), Tour.current(), document.fonts && document.fonts.status]);
+      const dd = [...document.querySelectorAll('.tour-shade, .tour-mark')].map((e) => e.getAttribute('d'));
+      const sig = busy ? 'busy' + Math.random() : JSON.stringify([dd, R(card.getBoundingClientRect()), Tour.current(), document.fonts && document.fonts.status]);
       if (sig === last) { if (++same >= 6) return 'ok'; } else same = 0;
       last = sig;
     }
@@ -259,7 +276,9 @@ const PROBE = String.raw`(() => {
     const cuts = paths('.tour-rings mask path', false);
     const covered = cuts.some((h) => h.l <= b.left + 1 && h.t <= b.top + 1 && h.r >= b.right - 1 && h.b >= b.bottom - 1);
     if (covered) return true;
-    const rings = paths('.tour-glow', false).concat(paths('.tour-ring', false), paths('.tour-mark', false));
+    // (a ring drawn inside a panel of the app, v15.1, is painted under a layer that covers it: what shows there is the layer)
+    const under = (h) => { if (!h.host) return false; const x = Math.max(b.left + 1, Math.min(b.right - 1, (h.l + h.r) / 2)), y = Math.max(b.top + 1, Math.min(b.bottom - 1, (h.t + h.b) / 2)); const e = document.elementFromPoint(x, y); return !!e && L.contains(e); };
+    const rings = paths('.tour-glow', false).concat(paths('.tour-ring', false), paths('.tour-mark', false)).filter((h) => !under(h));
     return !rings.some((h) => h.l < b.right && h.r > b.left && h.t < b.bottom && h.b > b.top);
   }
   return { resolve, targets, spot, cardInfo, settle, paths, seen, frame, vis, ringsOff };

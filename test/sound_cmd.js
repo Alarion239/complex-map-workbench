@@ -299,7 +299,7 @@ const lab = await ev('await __sndLab()', 180000);
 R.lab = lab && lab.voices;
 // (snap, the scrub's plain detent and the cut are noise bursts read from a moving offset in one noise buffer, so their
 // level varies by a few dB from one to the next: a wider band)
-const GROUP = { snap: [-48, -39], morphTick: [-48, -34.5], cut: [-42, -35], contour: [-43, -36], toggleOn: [-34, -30], toggleOff: [-34, -30], stepAdd: [-34, -30], stepRemove: [-34, -30], view: [-34, -30], edge: [-40, -37], morphStart: [-32.5, -28], morphEnd: [-32.5, -28], zero: [-32.5, -27.5], pole: [-32.5, -28], collide: [-32.5, -28], exportDone: [-30.1, -28], error: [-30.6, -28.4], turn: [-30, -28], turnMany: [-40, -36], dense: [-44, -40] };
+const GROUP = { snap: [-48, -39], morphTick: [-48, -38], cut: [-42, -35], contour: [-43, -36], toggleOn: [-34, -30], toggleOff: [-34, -30], stepAdd: [-34, -30], stepRemove: [-34, -30], view: [-34, -30], edge: [-40, -37], morphStart: [-32.5, -28], morphEnd: [-32.5, -28], zero: [-32.5, -27.5], pole: [-32.5, -28], collide: [-32.5, -28], exportDone: [-30.1, -28], error: [-30.6, -28.4], turn: [-30, -28], turnMany: [-40, -36], dense: [-44, -40] };
 for (const r of (lab && lab.rows) || []) {
   const g = r.name === 'loopDone' ? (r.o.w ? [-32.5, -28] : [-39, -36]) : GROUP[r.name];
   ok(`level ${r.name} ${JSON.stringify(r.o)}: LUFS-M in [${g}]`, g && r.lufs >= g[0] && r.lufs <= g[1], r.lufs);

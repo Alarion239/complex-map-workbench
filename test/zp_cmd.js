@@ -91,7 +91,7 @@ ok('zero 1 drawn at 1', h0 && Math.hypot(h0.x - e0[0], h0.y - e0[1]) < 0.75, { h
 ok('pole 1 drawn at 0', p0 && Math.hypot(p0.x - e1[0], p0.y - e1[1]) < 0.75, { p0, e1 });
 // (v15: the step's editor is the Inspector's: #propsPanel .insp-step; Add zero / Add pole are its big buttons)
 const card = await ev(`(() => { const c = document.querySelector('#propsPanel .insp-step[data-k="1"]'); return { fields: [...c.querySelectorAll('input[data-zp]')].map((e) => [e.dataset.zp, e.value]), adds: [...c.querySelectorAll('.zp-add')].map((b) => b.textContent), syms: [...c.querySelectorAll('.zp-sym')].map((e) => e.textContent), tex: c.querySelector('.ftex').dataset.tex }; })()`);
-ok('Inspector: a field per zero and pole, Add zero / Add pole', JSON.stringify(card.fields) === JSON.stringify([['zeros:0', '1'], ['zeros:1', '-1'], ['poles:0', '0']]) && card.adds.join('|') === 'Add zero2|Add pole1' && card.syms.join('') === 'ζ₁ζ₂p₁', card);
+ok('Inspector: a field per zero and pole, Add zero / Add pole', JSON.stringify(card.fields) === JSON.stringify([['zeros:0', '1'], ['zeros:1', '−1'], ['poles:0', '0']]) && card.adds.join('|') === 'Add zero2|Add pole1' && card.syms.join('') === 'ζ₁ζ₂p₁', card);
 ok('card formula factored', /\\frac\{\\left\(z-1\\right\)\\left\(z\+1\\right\)\}\{z\}/.test(card.tex || ''), card.tex);
 let lamps = await ev('__qa.lamps()');
 ok('guarantees: rational of exact degree 2, not polynomial, not Möbius', /●rational\(deg 2\)/.test(lamps) && /○polynomial/.test(lamps) && /○mobius/.test(lamps), lamps);
@@ -117,7 +117,7 @@ z = await zp();
 ok('the zero moved (rounded below a pixel)', /^1\.2\d\d?\+0\.6[0-9]*i, -1$/.test(z.params.zeros) || /^1\.\d+\+0\.\d+i, -1$/.test(z.params.zeros), z.params);
 ok('the dragged zero is selected', z.sel && z.sel.kind === 'zeros' && z.sel.i === 0, z.sel);
 const fieldNow = await ev(`document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"]').value`);
-ok('Inspector field follows the drag', fieldNow === z.params.zeros.split(',')[0].trim(), fieldNow);
+ok('Inspector field follows the drag', fieldNow === z.params.zeros.split(',')[0].trim().replace(/-/g, '−'), fieldNow);   // (review verify-4: the field shows the true minus, the stored text the hyphen)
 await settle(900);
 ex = await ev(EXACT, 60000);
 ok('exact at rest after the drag', ex.n > 2000 && ex.rate < 0.002, ex);

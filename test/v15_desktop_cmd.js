@@ -91,6 +91,16 @@ let cd = await cards();
 ok('Deformation: cards at their own t', cd.kind === 'def' && cd.cards.filter((q) => q.k > 0).map((q) => +q.t.toFixed(2)).join() === '1,0.55,0' && cd.cards.every((q) => q.sig && !q.stale), cd.cards.map((q) => [q.k, q.t, !!q.sig]));
 ok('Deformation: t labels on the cards', (await ev(`[...document.querySelectorAll('#pipeline .card .tlab')].map((e) => e.textContent).join('|')`)) === 't = 1.00|t = 0.55|t = 0.00', await ev(`[...document.querySelectorAll('#pipeline .card .tlab')].map((e) => e.textContent).join('|')`));
 await shot('v15d-def-1440-light'); shots.push('v15d-def-1440-light');
+// review verify-1: while it plays (the real Play button), no card shows a t other than its current one; after the
+// pause the cards are redrawn and show their t again
+const LABS = `(() => { const C = __cmwCards(); return [...document.querySelectorAll('#pipeline .card')].map((c) => { const l = c.querySelector('.tlab'), q = C.cards.find((x) => x.k === +c.dataset.k); return { k: +c.dataset.k, vis: !!l && l.textContent !== '' && getComputedStyle(l).visibility !== 'hidden', txt: l ? l.textContent : '', now: q ? 't = ' + q.t.toFixed(2) : '', T: __cmwMorph().T }; }); })()`;
+await clickSel('#morphPlay');
+const playS = [];
+for (const ms of [250, 250]) { await sleep(ms); playS.push(await ev(LABS)); }
+ok('Deformation playing: no visible card t differs from the card\'s current t', (await ev('__cmwMorph().playing')) && playS.every((s) => s.every((c) => !c.vis || c.txt === c.now)), playS);
+await clickSel('#morphPlay'); await settle(1500);
+const labsAfter = await ev(LABS);
+ok('Deformation paused: the cards show their current t again', labsAfter.filter((c) => c.k > 0).every((c) => c.vis && c.txt === c.now), labsAfter);
 await ev('__cmwMorph({ open: false })'); await settle(500);
 await grab();
 
@@ -133,6 +143,21 @@ await clickSel('#propsPanel .insp-step[data-k="3"] input[data-zp="poles:1"] ~ .z
 await clickSel('#propsPanel .insp-step[data-k="3"] input[data-zp="zeros:2"] ~ .zp-del'); await settle(600);
 s3 = await ev('__qa.state()');
 ok('× removes them', s3.steps[2].params.zeros.split(',').length === 2 && s3.steps[2].params.poles.split(',').length === 1, s3.steps[2].params);
+// (review verify-4) a zero or pole field shows the true minus (U+2212) when it is not focused, as the Parameters'
+// value fields do; the stored text keeps the hyphen, and a field typed with a hyphen reads the same value
+{
+  const zf = `document.querySelector('#propsPanel .insp-step[data-k="3"] input[data-zp="zeros:1"]')`;
+  await ev(`(() => { const e = ${zf}; e.focus(); e.value = '-0.5-0.25i'; e.dispatchEvent(new Event('input')); e.blur(); e.dispatchEvent(new Event('change')); })()`); await settle(600);
+  const zv = await ev(`({ shown: ${zf}.value, stored: __qa.state().steps[2].params.zeros, others: [...document.querySelectorAll('#propsPanel input[data-zp]')].map((e) => e.value), bad: ${zf}.classList.contains('bad') })`);
+  ok('zero/pole fields: the true minus on screen, the hyphen in the stored text', zv.shown === '−0.5−0.25i' && /(^|, )-0\.5-0\.25i(,|$)/.test(zv.stored) && !/−/.test(zv.stored) && !zv.bad && zv.others.every((t) => !/-/.test(t)), zv);
+  // the step's own coefficient a₃ in the same block: the same form
+  const af = `document.querySelector('#propsPanel .insp-step[data-k="3"] input[data-pkey="a"]')`;
+  const a0 = await ev(`__qa.state().steps[2].params.a`);
+  await ev(`(() => { const e = ${af}; e.focus(); e.value = '-1.5'; e.dispatchEvent(new Event('input')); e.blur(); e.dispatchEvent(new Event('change')); })()`); await settle(600);
+  const av = await ev(`({ shown: ${af}.value, stored: __qa.state().steps[2].params.a, bad: ${af}.classList.contains('bad') })`);
+  ok('a coefficient field: the true minus on screen, the hyphen in the stored text', av.shown === '−1.5' && av.stored === '-1.5' && !av.bad, av);
+  await ev(`(() => { const e = ${af}; e.value = ${JSON.stringify(String(a0))}; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(400);
+}
 await shot('v15d-zp-1440-light'); shots.push('v15d-zp-1440-light');
 
 // 5. the F tile and the F Inspector
@@ -209,6 +234,18 @@ for (const dark of [false]) for (const [w, hgt] of [[1440, 900], [1280, 800], [1
   else if (w >= 1024) ok(`${w}: the Inspector docks at 264 px; the left panel is a rail`, L.rw && L.rw.w === 264 && L.lw.w === 36, { rw: L.rw, lw: L.lw });
   else ok(`${w}: the Inspector docks under the chain, 320 px, full width`, L.rw && L.rw.h === 320 && L.rw.y >= L.chain.y + L.chain.h && Math.abs(L.rw.w - L.chain.w) <= 2, { rw: L.rw, chain: L.chain });
   await shot(`v15d-xy-${w}-light`); shots.push(`v15d-xy-${w}-light`);
+  // (review verify-6) the header: nothing runs past the right edge, and every secondary action (Examples, the command
+  // field, both panel toggles, Export, Theme, Sound, Language, Help) is in the bar or in its More menu. Which of the two
+  // at 768 px (frame f6, or the More menu of the lead default) is the user's call; this check holds for either.
+  if (w <= 1024) {
+    const HD = await ev(`(() => { const top = document.querySelector('.top'), tr = top.getBoundingClientRect(), vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const ids = ['examplesBtn', 'cmdBtn', 'toggleLeft', 'toggleRight', 'exportBtn', 'themeBtn', 'soundBtn', 'langBtn', 'helpBtn'], more = document.getElementById('hdrMoreBtn'), menu = document.getElementById('hdrMenu');
+      const inMenu = (el) => !!el && !!menu && menu.contains(el);
+      return { over: Math.max(0, ...[...top.querySelectorAll('button')].filter(vis).filter((b) => !menu || !menu.contains(b)).map((b) => Math.round(b.getBoundingClientRect().right - Math.min(tr.right, innerWidth)))),
+        bar: ids.filter((id) => vis(document.getElementById(id)) && !(menu && menu.matches(':popover-open') && inMenu(document.getElementById(id)))), more: vis(more), menu: ids.filter((id) => inMenu(document.getElementById(id))), missing: ids.filter((id) => !document.getElementById(id)) }; })()`);
+    info['hdr' + w] = HD;
+    ok(`${w}: the header fits and every secondary action is in the bar or in More`, HD.over <= 0 && HD.missing.length === 0 && ['examplesBtn', 'cmdBtn', 'toggleLeft', 'toggleRight', 'exportBtn', 'themeBtn', 'soundBtn', 'langBtn', 'helpBtn'].every((id) => HD.bar.includes(id) || (HD.more && HD.menu.includes(id))), HD);
+  }
 }
 info.widths = Object.fromEntries(Object.entries(widths).map(([w, L]) => [w, { L: L.L, R: L.R, insp: L.insp, chain: L.chain }]));
 // Russian

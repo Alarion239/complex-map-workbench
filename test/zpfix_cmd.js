@@ -56,12 +56,12 @@ await load('zpfix3' + Date.now(), { shapes: [{ id: 's1', kind: 'disc', c: [0, 1.
 await settle(1200); await grab();
 await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"]'); e.value = '0.5, 0.5i'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(600);
 let fields = await ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] input[data-zp^="zeros:"]')].map((e) => [e.dataset.zp, e.value])`);
-ok('a list in one field: one field per item', JSON.stringify(fields) === JSON.stringify([['zeros:0', '0.5'], ['zeros:1', '0.5i'], ['zeros:2', '-1']]), fields);
+ok('a list in one field: one field per item', JSON.stringify(fields) === JSON.stringify([['zeros:0', '0.5'], ['zeros:1', '0.5i'], ['zeros:2', '−1']]), fields);
 h = await handle('zeros', 2);
 await drag(h.x, h.y, h.x + 20, h.y - 30, 8, 16); await settle(500);
 fields = await ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] input[data-zp^="zeros:"]')].map((e) => [e.dataset.zp, e.value])`);
 const z3 = await zp();
-ok('after a drag of zeta_3 its own field shows it', fields.length === 3 && fields[2][1] === Funcs_split(z3.params.zeros)[2] && fields[0][1] === '0.5', { fields, zeros: z3.params.zeros });
+ok('after a drag of zeta_3 its own field shows it', fields.length === 3 && fields[2][1] === Funcs_split(z3.params.zeros)[2].replace(/-/g, '−') && fields[0][1] === '0.5', { fields, zeros: z3.params.zeros });
 // long values: one item per row (the field shows the whole value)
 const wide = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:2"]'); return { wide: e.closest('.zp-item').classList.contains('wide1'), fits: e.scrollWidth <= e.clientWidth + 1 }; })()`);
 ok('a long dragged value: its field takes the full row and shows it whole', wide.wide && wide.fits, wide);

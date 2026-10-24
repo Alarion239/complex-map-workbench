@@ -1,0 +1,58 @@
+{
+  "_about": "Export: the video preview (notes/export-design/VIDEO-PREVIEW.md, work/xvv, 2026-10-24). With Format = Video the dialog plays the video as it will be saved, with play/pause, a scrubber and the time. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md (кадр; воспроизвести / пауза; отрисовка; «вы», imperative plural, a button name in «»). 'Play' and 'Pause' reuse the app's strings. Read by tools/make_ru_table.py (v15-*.json).",
+  "vpv.hint": {
+    "en": "{w} × {h} · {fps} fps · {secs} s",
+    "ru": "%{w} × %{h} · %{fps} к/с · %{secs} с",
+    "note": "The stage's top line with Format = Video: the video's size, frame rate and whole length. Replaces '... · this frame: t = {t}' (the bar under the picture now gives t)."
+  },
+  "vpv.canvas": {
+    "en": "The video, as it will be saved",
+    "ru": "Видео в том виде, в каком оно будет сохранено",
+    "note": "aria-label of the playing preview (role img)."
+  },
+  "vpv.seek": {
+    "en": "Position in the video",
+    "ru": "Позиция в видео",
+    "note": "aria-label of the scrubber (a range over the video's frames)."
+  },
+  "vpv.time": {
+    "en": "{a} / {b} s",
+    "ru": "%{a} / %{b} с",
+    "note": "The time under the preview: where the playhead is / the whole video, in seconds (one decimal)."
+  },
+  "vpv.valuetext": {
+    "en": "{a} s of {b} s, t = {t}",
+    "ru": "%{a} с из %{b} с, t = %{t}",
+    "note": "aria-valuetext of the scrubber: the time and the deformation's t of the frame in view."
+  },
+  "vpv.filling": {
+    "en": "Preview: drawing the frames, {p} %",
+    "ru": "Предпросмотр: отрисовка кадров, %{p} %",
+    "note": "The note under the preview while its frames are being drawn (by tens of per cent)."
+  },
+  "vpv.exact": {
+    "en": "Preview: the frames of the video itself",
+    "ru": "Предпросмотр: кадры самого видео",
+    "note": "Every frame drawn, kept at the video's own size."
+  },
+  "vpv.scaled": {
+    "en": "Preview: the frames of the video itself, scaled to fit here (the video is {w} × {h})",
+    "ru": "Предпросмотр: кадры самого видео, уменьшенные под это окно (само видео — %{w} × %{h})",
+    "note": "Every frame drawn, kept as it is: each is the video's exact frame, scaled down once to the size the dialog shows it at (device pixels). {w} × {h} is the video's own size, so nobody takes the preview's softness for the video's (review vp-1)."
+  },
+  "vpv.compressed": {
+    "en": "Preview: the frames of the video itself, lightly compressed",
+    "ru": "Предпросмотр: кадры самого видео, слегка сжатые",
+    "note": "A long timeline: each frame is kept at full size but compressed (WebP or JPEG, quality 0.92) so the frames fit in memory (review vp-1)."
+  },
+  "vpv.scaledCompressed": {
+    "en": "Preview: the frames of the video itself, scaled to fit here and lightly compressed (the video is {w} × {h})",
+    "ru": "Предпросмотр: кадры самого видео, уменьшенные под это окно и слегка сжатые (само видео — %{w} × %{h})",
+    "note": "Both: scaled to the size shown (device pixels) and compressed to fit in memory; {w} × {h} is the video's own size (review vp-1)."
+  },
+  "vpv.reduced": {
+    "en": "Paused: reduced motion is on. Press Play to watch.",
+    "ru": "Пауза: включено уменьшение движения. Нажмите «Воспроизвести», чтобы посмотреть.",
+    "note": "prefers-reduced-motion: the preview waits on the poster frame. «Воспроизвести» is the button's own label (the app's 'Play')."
+  }
+}

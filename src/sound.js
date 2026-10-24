@@ -149,6 +149,28 @@ const Sound = (() => {
     osc.start(t); osc.stop(end); track(G, osc);
     return end;
   }
+  // a C¹ envelope (no corner anywhere: a sin² rise to the peak, then a decay whose slope starts at 0, a cos² taper to
+  // exactly 0), as one value curve: for the scrub's detents and keys, which repeat while dragging (v15.1)
+  function softEnv(p, t, peak, rise, t60) {
+    const ts = rise / 2, dur = rise + t60 + ts, n = 256, a = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = dur * i / (n - 1), y = x - rise, z = (x - 0.8 * dur) / (0.2 * dur);
+      let v = x < rise ? Math.pow(Math.sin(0.5 * Math.PI * x / rise), 2) : Math.pow(10, -3 * (y - ts * (1 - Math.exp(-y / ts))) / t60);
+      if (z > 0) v *= Math.pow(Math.cos(0.5 * Math.PI * Math.min(1, z)), 2);
+      a[i] = peak * v;
+    }
+    a[n - 1] = 0;
+    p.value = 0; p.setValueCurveAtTime(a, t, dur);
+    return t + dur + 0.005;
+  }
+  function softTone(G, dest, t, f, amp, rise, t60) {
+    const c = G.c, osc = c.createOscillator(), g = c.createGain();
+    osc.frequency.setValueAtTime(f, t);
+    const end = softEnv(g.gain, t, amp, rise, t60);
+    osc.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(end); track(G, osc);
+    return end;
+  }
   let noiseOff = 0;
   // band-passed noise; f1: the band sweeps exponentially to f1 over `sweep` s
   function burst(G, dest, t, fc, q, amp, t60, o = {}) {
@@ -216,11 +238,19 @@ const Sound = (() => {
     // Mathematical events: deliberate actions; bells and glass, a small room
     morphStart: { tier: 'events', gap: 200, label: 'Deformation plays', what: 'H_t starts from t = 0 (once per play you start; never on loop repeats)', recipe: 'D5 + A5 swell (triangles), low-pass opening 700 Hz → 3.5 kHz over 0.3 s',
       make: (G, t, o) => { const d = out(G, 'events', o.pan, 0.15); return Math.max(tone(G, d, t, st(12), 0.075, { type: 'triangle', att: 0.09, t60: 0.5, lp: 700, lp1: 3500, lpT: 0.3, lpQ: 0.7 }), tone(G, d, t, st(19), 0.06, { type: 'triangle', att: 0.11, t60: 0.5, lp: 700, lp1: 3500, lpT: 0.3, lpQ: 0.7 })); } },
-    morphTick: { tier: 'events', gap: 40, label: 'Deformation scrub', what: 'A detent every 0.05 of t; landmarks t = 0, ¼, ½, ¾, 1 are pitched D5 F♯5 A5 B5 D6', recipe: 'tick; landmarks add a key; the ends ring',
+    // (v15.1: the v15 tick, a noise burst with a 0.8 ms attack, every 0.05 of t, made a 17-a-second rattle on a fast
+    // drag, which the user heard as "cracking". Now scrub() below decides: detents only while the drag is slow, o.g
+    // their weight; a fast drag is a soft continuous band instead. AS-BUILT.md "Scrub")
+    morphTick: { tier: 'events', gap: 40, label: 'Deformation scrub', what: 'Dragging t slowly: a soft detent every 0.05 of t; t = 0, ½, 1 are soft keys D5, A5, D6. Dragging fast: no detents, a soft band of noise that follows the speed', recipe: 'detent: a small wooden tock (sine 1.0 → 1.4 kHz over t with a bar partial, 3 ms sin² rise, no corner in its envelope, each one ±3 % in pitch and ±1.5 dB); landmark: a sine key, 8 ms rise',
       make: (G, t, o) => {
-        const d = out(G, 'events', o.pan, 0.04), u = clamp(+o.t || 0, 0, 1), q = Math.round(u * 4), mark = Math.abs(u * 4 - q) < 1e-6, ends = mark && (q === 0 || q === 4);
-        let e = burst(G, d, t, 1500 * Math.pow(2, u), 1.6, 0.45, 0.02);
-        if (mark) e = Math.max(e, tone(G, d, t, st([12, 16, 19, 21, 24][q]), ends ? 0.10 : 0.06, { t60: ends ? 0.25 : 0.08, att: 0.002 }));
+        const d = out(G, 'events', o.pan, 0.04), u = clamp(+o.t || 0, 0, 1), q = Math.round(u * 2), mark = Math.abs(u * 2 - q) < 1e-6, ends = mark && q !== 1;
+        const g = o.g == null ? 1 : clamp(+o.g, 0, 1), r1 = scrubRnd(), r2 = scrubRnd();
+        let e = t;
+        if (g > 0.02) {
+          const f = 1000 * Math.pow(2, 0.5 * u) * (1 + 0.06 * (r1 - 0.5)), a = 0.075 * g * Math.pow(10, 1.5 * (r2 - 0.5) / 10);
+          e = Math.max(softTone(G, d, t, f, a, 0.003, 0.04), softTone(G, d, t, 2.756 * f, 0.18 * a, 0.003, 0.018));
+        }
+        if (mark) e = Math.max(e, softTone(G, d, t, st([12, 19, 24][q]), ends ? 0.05 : 0.042, 0.008, ends ? 0.22 : 0.12), softTone(G, d, t, 2 * st([12, 19, 24][q]), ends ? 0.006 : 0.005, 0.008, 0.06));
         return e; } },
     morphEnd: { tier: 'events', gap: 300, label: 'Deformation arrives', what: 'H_t reached t = 1 (once per play you start)', recipe: 'glass D6 and F♯6',
       make: (G, t, o) => { const d = out(G, 'events', o.pan, 0.2); return Math.max(bell(G, d, t, st(24), 0.075, 0.8), bell(G, d, t + 0.03, st(28), 0.055, 0.8)); } },
@@ -259,6 +289,8 @@ const Sound = (() => {
       make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.15), f = st(19); return Math.max(tone(G, d, t, f * Math.pow(2, 2 / 12), 0.08, { f1: f, glide: 0.18, t60: 0.5, att: 0.01 }), tone(G, d, t, f / Math.pow(2, 2 / 12), 0.08, { f1: f, glide: 0.18, t60: 0.5, att: 0.01 })); } },
   };
   function many(G, d, t, dir) { let e = t; for (let j = 0; j < 5; j++) e = Math.max(e, bell(G, d, t + 0.035 * j, penta(dir > 0 ? 5 + j : 9 - j), 0.035, 0.18)); return e; }
+  // the detents' small variation (no two alike: a repeated identical sample is what makes a train sound mechanical)
+  const scrubRnd = prng(29);
 
   // ---------------------------------------------------------------- lifecycle
   // Click-free scheduling (revision 3; DESIGN §7). Revision 2 clicked while the pointer moved: its ramp() was
@@ -381,8 +413,77 @@ const Sound = (() => {
     return play(name, Object.assign({}, o, { at: at - now, force: true }));
   }
 
+  // ---------------------------------------------------------------- the deformation scrub (v15.1)
+  // scrub(u0, u1): the slider moved t / its length from u0 to u1 (every input event). The speed, in detents (0.05 of
+  // t) a second, is smoothed over 60 ms. Slow (≤ 3 a second): a soft detent at each 0.05 of t. Fast (≥ 6 a second):
+  // no detents; a soft band of noise whose level and brightness follow the speed, as a finger sliding on a fine-
+  // toothed surface sounds louder and brighter the faster it goes (Gaver's scraping). Between: a crossfade.
+  // t = 0, ½ and 1 play a soft key at any speed, each at most once in 250 ms. An input after 150 ms of rest (a click
+  // on the track, an arrow key) is a step: one detent, never speed. The band: looped noise → band-pass → low-pass →
+  // two gains → events tier; each swell is a new band that rises exponentially (0.2 s from −80 dB), and fades 70 ms
+  // after the last input or as soon as the drag slows to ≤ 3 detents a second, then is stopped (at −170 dB).
+  const SCR = { pn: -1e9, v: 0, tex: null, rel: 0, mark: [-1e9, -1e9, -1e9] }, SR1 = 3, SR2 = 6;
+  function scrub(u0, u1) {
+    u0 = clamp(+u0 || 0, 0, 1); u1 = clamp(+u1 || 0, 0, 1);
+    const now = performance.now(), dt = now - SCR.pn;
+    SCR.pn = now;
+    if (dt > 150) SCR.v = 0;
+    else if (dt > 0.5) SCR.v += (Math.abs(u1 - u0) * 20000 / dt - SCR.v) * (1 - Math.exp(-dt / 60));
+    if (!AC || !P.on || hidden || !P.events) return false;
+    const d0 = Math.round(u0 * 20), d1 = Math.round(u1 * 20), v = SCR.v;
+    let made = false;
+    if (d1 !== d0) {
+      const w = v <= SR1 ? 1 : v >= SR2 ? 0 : (SR2 - v) / (SR2 - SR1);
+      // the landmark crossed on the way from d0 to d1 (the one nearest d1)
+      let L = -1;
+      for (const m of [0, 10, 20]) if (d1 > d0 ? m > d0 && m <= d1 : m < d0 && m >= d1) if (L < 0 || Math.abs(m - d1) < Math.abs(L - d1)) L = m;
+      if (L >= 0 && now - SCR.mark[L / 10] >= 250) { SCR.mark[L / 10] = now; made = play('morphTick', { t: L / 20, g: L === d1 ? w : 0, force: true }); }
+      else if (w > 0.02) made = play('morphTick', { t: d1 / 20, g: w });
+    }
+    scrubBand(u1, v);
+    return made;
+  }
+  function scrubBand(u, v) {
+    const lv = v <= SR1 ? 0 : Math.pow(clamp((v - SR1) / 30, 0, 1), 0.6);
+    let x = SCR.tex;
+    if (x && x.G !== G) x = SCR.tex = null;
+    if (!lv) { if (x) bandRelease(x); return; }
+    if (!canSchedule(false)) return;
+    const c = ctx;
+    if (!x) {
+      // a new swell: g2 rises exponentially from −80 dB over 0.2 s (never faster than 20 dB in 50 ms, so even an
+      // onset is a swell, not an edge), g1 carries the level
+      const src = c.createBufferSource(), bp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g1 = c.createGain(), g2 = c.createGain(), T = c.currentTime + LEAD;
+      src.buffer = G.noise; src.loop = true;
+      bp.type = 'bandpass'; bp.Q.value = 0.8; bp.frequency.value = 650 * Math.pow(2, 0.8 * u);
+      lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 0.5;
+      g1.gain.value = 0; g2.gain.value = 0;
+      g2.gain.setValueAtTime(1e-4, T); g2.gain.exponentialRampToValueAtTime(1, T + 0.2);
+      src.connect(bp); bp.connect(lp); lp.connect(g1); g1.connect(g2); g2.connect(out(G, 'events', 0, 0.03));
+      noiseOff = (noiseOff + 0.1373) % 0.85;
+      src.start(T, noiseOff);
+      G.active.add(src);
+      x = SCR.tex = { G, src, bp, g1, g2 };
+      src.onended = () => { G.active.delete(src); if (SCR.tex === x) SCR.tex = null; };
+    }
+    follow(c, x.g1.gain, 0.09 * lv, 0.03);
+    follow(c, x.bp.frequency, 650 * Math.pow(2, 0.8 * u) * (1 + 0.5 * lv), 0.05);
+    clearTimeout(SCR.rel);
+    SCR.rel = setTimeout(() => { SCR.v = 0; bandRelease(x); }, 70);
+    touchIdle();
+  }
+  // the drag stopped or slowed: the band fades (both gains, τ 40 ms each) and is stopped 0.8 s later, at −170 dB
+  function bandRelease(x) {
+    if (SCR.tex === x) SCR.tex = null;
+    if (x.rel) return;
+    x.rel = true;
+    const c = x.G.c;
+    follow(c, x.g1.gain, 0, 0.04); follow(c, x.g2.gain, 0, 0.04);
+    try { x.src.stop(c.currentTime + LEAD + 0.8); } catch (e) { /* stopped */ }
+  }
+
   // ---------------------------------------------------------------- sonification voices
-  // Shepard: N partials an octave apart, f = fLo · 2^pos, pos ∈ [0, N); a bell over pos (centre c, σ) fixes the timbre.
+  // Shepard:N partials an octave apart, f = fLo · 2^pos, pos ∈ [0, N); a bell over pos (centre c, σ) fixes the timbre.
   // arg F in turns moves every pos by the same amount, so one turn moves each partial into its upper neighbour's place:
   // pitch class = arg F, seamlessly. fLo = D1, so arg F = 0 (F positive real) sounds D, the palette's tonic.
   // The bell is a Gaussian times a taper that is exactly 0, with zero slope, at both band edges (sin² over the outer
@@ -881,7 +982,7 @@ registerProcessor('cmw-voice', Voice);`;
   }
 
   return {
-    play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush,
+    play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush, scrub, scrubState: () => ({ v: SCR.v, band: !!SCR.tex }),
     set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
     voice: () => liveVoice('phase'), heightVoice: () => liveVoice('height'), curve, curveBuffer, render, graph, CATALOG, SH, HV, ShepardVoice, HeightVoice,
     shG, shBell, shCentre, shLoud, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),

@@ -56,7 +56,7 @@
   window.__sndLab = async (opts = {}) => {
     const rows = [];
     for (const [name, d] of Object.entries(Sound.CATALOG)) {
-      const variants = name === 'zero' ? [{ order: 1 }, { order: 2 }, { order: 4 }] : name === 'pole' ? [{ order: 1 }] : name === 'turn' ? [{ dir: 1, pc: 0 }, { dir: -1, pc: 0 }] : name === 'morphTick' ? [{ t: 0.05 }, { t: 0.5 }, { t: 1 }] : name === 'view' ? [{ k: 0 }] : name === 'contour' ? [{ k: -7 }, { k: 0 }, { k: 8 }] : name === 'loopDone' ? [{ w: 2 }, { w: 0 }] : [{}];
+      const variants = name === 'zero' ? [{ order: 1 }, { order: 2 }, { order: 4 }] : name === 'pole' ? [{ order: 1 }] : name === 'turn' ? [{ dir: 1, pc: 0 }, { dir: -1, pc: 0 }] : name === 'morphTick' ? [{ t: 0.05 }, { t: 0.5 }, { t: 1 }, { t: 0.5, g: 0 }] : name === 'view' ? [{ k: 0 }] : name === 'contour' ? [{ k: -7 }, { k: 0 }, { k: 8 }] : name === 'loopDone' ? [{ w: 2 }, { w: 0 }] : [{}];
       for (const o of variants) {
         let endAt = 0;
         const buf = await Sound.render((G, t) => { endAt = d.make(G, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });

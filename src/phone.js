@@ -122,7 +122,9 @@ const Phone = (() => {
     const p = matchMedia(MQP).matches, l = !p && matchMedia(MQL).matches;
     const want = p || l;
     if (want === on && l === land) return;
-    if (want && !on) enter(l); else if (!want && on) leave(); else { land = l; rootEl.classList.toggle('ph-land', l); close(true); A.resize(); }
+    // (a rotation: the panes are synced first, so a landscape layout's side-by-side panes get their inset back in
+    // portrait; review-phone-swap-verify verify-1)
+    if (want && !on) enter(l); else if (!want && on) leave(); else { land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); reconcile(); }
   }
   function enter(l) {
     on = true; land = l;
@@ -143,9 +145,12 @@ const Phone = (() => {
     A.showPanels(true);
     syncPanes(); syncTools(); syncNums(); syncSnap();
     A.resize();
+    reconcile();   // (v15.1: the inset shows its plane's own view, the desktop's or the saved one, at its size)
   }
   function leave() {
     close(true);
+    // (v15.1: the desktop gets each plane's large view back; no view is drawn small while merged or held)
+    for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
     rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph');
     $('panes').classList.remove('ph-big-L', 'ph-big-R', 'ph-one');
@@ -186,19 +191,87 @@ const Phone = (() => {
     if (t) t.click();
     setTimeout(syncPanes, 0);
   }
-  // the inset swaps with the large plane: the large one keeps its view, the new inset is fitted (its own view comes
-  // back when it is large again)
+  // The inset swaps with the large plane, and each plane keeps its own view (v15.1, build/phone-swap.md). A plane's
+  // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,
+  // the same region (its centre and its units per pane width) at the inset's size; the plane that comes back large
+  // shows exactly what it showed before. Nothing is fitted (v15 fitted the new inset: for an unbounded region the fit
+  // framed the part in its own window plus a margin, so every round trip multiplied the scale). A plane the app fits
+  // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
+  // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
+  // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
+  // parks, replaces or saves the views (hold), every plane holds its large view (review-phone-swap swap-1 to swap-6).
   const keep = { L: null, R: null };
-  function swap() {
+  let held = false;
+  const sameView = (a, b) => !!a && !!b && a.cx === b.cx && a.cy === b.cy && a.s === b.s;
+  // the plane that goes small: the same region at the inset's size (a: its large view, with the large pane's width)
+  function shrink(side, a) {
+    keep[side] = null;
+    if (a.auto) return;
+    const w = A.getView(side).w;
+    if (!(w > 0 && a.w > 0)) return;
+    const v = { cx: a.cx, cy: a.cy, s: a.s * w / a.w };
+    A.setView(side, v);
+    keep[side] = { v: { cx: a.cx, cy: a.cy, s: a.s }, set: v, r: a.w / w };
+  }
+  // the plane that comes back large: what it showed large (or, when its view changed while it was small, that view
+  // at the large size)
+  function grow(side) {
+    const k = keep[side]; keep[side] = null;
+    const c = A.getView(side, true);   // (a running Fit lands first: swap-8)
+    if (!k || c.auto) return;
+    A.setView(side, sameView(c, k.set) ? k.v : { cx: c.cx, cy: c.cy, s: c.s * k.r });
+  }
+  // a plane's large view (writeState saves it; null: the view the app holds is that one)
+  function largeView(side) {
+    const k = keep[side];
+    if (!on || side === big || !k || merged()) return null;
+    const c = A.getView(side);
+    if (c.auto) return null;
+    return sameView(c, k.set) ? Object.assign({}, k.v) : { cx: c.cx, cy: c.cy, s: c.s * k.r };
+  }
+  // the plane that is not the large one is drawn small only as the inset (X -> Y, no sheet, portrait); side by side
+  // (an open sheet, a landscape phone) it shows its large view, like the large plane. A merged view (Phase,
+  // Landscape, the Deformation) holds other views: nothing changes until it ends.
+  function reconcile() {
+    if (!on || held || merged()) return;
+    const ins = big === 'L' ? 'R' : 'L';
+    const small = !land && !rootEl.classList.contains('ph-split');
+    if (small && !keep[ins]) shrink(ins, Object.assign(A.getView(ins, true), { w: A.getView(big).w }));
+    else if (!small && keep[ins]) grow(ins);
+  }
+  // the app is about to park, replace or save the views (a view switch, the Deformation, a focus, an example, the
+  // tour): the inset gets its large view back now, and is drawn small again once the current task ends
+  function hold() {
+    if (!on || held) return;
+    held = true;
+    for (const side of ['L', 'R']) if (keep[side]) grow(side);
+    // (the layout first: the panes' classes and sizes may still be those of a merged view)
+    queueMicrotask(() => { held = false; if (!on) return; syncPanes(); A.resize(); reconcile(); });
+  }
+  // X's window at its large size while X is the inset: the app's meshing window, so a swap does not move it and Y's
+  // auto fit frames the same region in the inset and large (swap-7); null: X's pane box is that window
+  function largeBox() {
+    const v = largeView('L');
+    if (!v) return null;
+    const p = A.getView(big), hw = p.w / 2 / v.s, hh = p.h / 2 / v.s;
+    return hw > 0 && hh > 0 ? { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh } : null;
+  }
+  function swap(quiet) {
     if (merged() || rootEl.classList.contains('ph-split')) return;
-    const was = big;
-    big = big === 'L' ? 'R' : 'L';
-    keep[was] = A.getView(was);
+    const now = big === 'L' ? 'R' : 'L';
+    big = now;
     syncPanes();
     A.resize();
-    if (keep[big]) { A.setView(big, keep[big]); keep[big] = null; }
-    A.fit(was);
-    A.sound('swap');
+    grow(now);
+    reconcile();
+    if (quiet !== true) A.sound('swap');
+  }
+  // the large plane after a reload (the language switch) or a tour: a swap without its sound; while merged or held
+  // no plane is drawn small, so only the layout changes (swap-6)
+  function setBig(side) {
+    if (!on || (side !== 'L' && side !== 'R') || side === big) return;
+    if (merged() || held) { big = side; syncPanes(); A.resize(); return; }
+    swap(true);
   }
 
   // ---------------- the tool row ----------------
@@ -306,7 +379,7 @@ const Phone = (() => {
       if (split) {
         rootEl.classList.add('ph-notrans', 'ph-split');
         rootEl.classList.remove('ph-ride');
-        syncPanes(); A.resize();
+        syncPanes(); A.resize(); reconcile();
         void els.sheet.offsetHeight;
         rootEl.classList.remove('ph-notrans');
       }
@@ -339,7 +412,7 @@ const Phone = (() => {
     if (split) {
       // the chain bar rides down with the sheet: it starts where it stood above the sheet
       if (!land && !now) { rootEl.classList.add('ph-notrans', 'ph-ride'); void els.sheet.offsetHeight; rootEl.classList.remove('ph-notrans'); }
-      syncPanes(); A.resize();
+      syncPanes(); A.resize(); reconcile();
       if (!land && !now) requestAnimationFrame(() => rootEl.classList.remove('ph-ride'));
     }
     rootEl.classList.remove('ph-ride');
@@ -436,7 +509,7 @@ const Phone = (() => {
     sync();
   }
   return {
-    init, open, close, swap, isOn: () => on, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, sheet: () => kind, big: () => big, nums: () => nums,
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     // TEMP-DEBUG-HOOK

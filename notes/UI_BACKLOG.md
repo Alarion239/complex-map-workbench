@@ -135,3 +135,38 @@ tour, Russian) is gated.
     may be annoying for some. But by default include sounds for different events. And you can turn on the sound by
     default then, as the small clicks are fine." In v15: Sound on, Interface and Events on, Hear F off; the audio
     starts at the first click or key press; a stored choice wins; ?ns= test pages stay silent. notes/sound/README.md.
+
+24. **Tour on a real phone** (user, 2026-10-24: "On my phone, the guide is kind of jiggly when I scroll (the
+    selections) & the tour pop-up often blocks the area where I am supposed to work"). The spotlight lags and jitters
+    while scrolling on a real phone (momentum scrolling, the collapsing URL bar, the visual viewport), and the callout
+    covers the work area of Try-it steps. Fixed in work/xvp for patch v15.1.
+
+25. **Phone X/Y swap drifts the zoom** (user, 2026-10-24: "on phone, if I continuosly swap between X and Y (codomain
+    and domain), it will just constantly scale the view depending on whether the map is contraction or
+    anticontraction. It will just scale me to infinity or to 0, which is wrong: it should preserve approximately the
+    same scale"). Each plane must keep its own view through swaps (and sheet open/close, rotation, view switches);
+    repeated transitions must not drift. Fixed in work/xvq for patch v15.1.
+
+26. **Recognize LaTeX formulas as built-in functions** (user, 2026-10-24: "I think what would be nice if you could
+    pattern match latex functions to our implemented functions, at least partially, and optimize them using that.
+    If I LaTeX-write a function that is already optimized it would lag a lot currently."). A custom formula that is
+    (or composes) catalog functions should run on their exact, fast paths (inverse renderer, natural paths,
+    guarantees) with identical values and branches; partial recognition where only parts match. Built in work/xvr.
+    Also (user, 2026-10-24): "latex for z^{complex} is not the same as just formula for z^{complex}": LaTeX and plain
+    spellings must give the same function, branch, path and speed.
+
+27. **Animated video preview** (user, 2026-10-24: "When i export figure as movie, it does not show preview moving: it
+    is a still image that updates only on click."). The export dialog's Video preview should play the deformation.
+    Built in work/xvv for a v15 patch.
+
+28. **Beautiful deformation paths** (user, 2026-10-24: "Paths in the deformation images are kind of chaotic right now,
+    and look honestly horrible. I think there is a lot of work to be done to make them esthetically pleasing"). The
+    live paths t -> H_t(z) and the exported paths figure: seeds, spacing, smoothness, styling, clutter, escapes to
+    infinity. Designed (three directions, judged) and built in work/xvz for a v15 patch, with before/after images.
+
+29. **Sound, round 2** (user, 2026-10-24): "when I drag the time for deformation it makes cracking sounds. Is it
+    supposed to do them? I come to not really like the sounds. They are not as nice and quite mechanical when played
+    constantly. Maybe you can try making them more realistic and animated as well". The scrub ticks (one per 0.05
+    of t, by design) crackle when dragging fast: quick mitigation in v15.1 (work/xvk). Then a redesign of the whole
+    sound palette (natural, varied, responsive to gesture speed), prototyped as an A/B board for the user to
+    listen to before it is built (notes/sound/v2/).

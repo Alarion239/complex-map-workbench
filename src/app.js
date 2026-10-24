@@ -292,6 +292,13 @@
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
     const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
+    // (v15.1: the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
+    // build/phone-swap.md)
+    if (typeof Phone !== 'undefined' && Phone.largeView) {
+      const lv = Phone.largeView('L'), rv = Phone.largeView('R');
+      if (lv && leftStage() === 0) out.srcView = Object.assign({}, S.srcView, lv);
+      if (rv && out.rightView) out.rightView = rv;
+    }
     // run-time fields of shapes (s._err: a shape's current error) are not state
     // (returns what it wrote, false when storage refused it: the language switch reloads only on a written save)
     let json;
@@ -2544,6 +2551,11 @@
   };
   const zpSame = (a, k, kind, i) => !!a && a.k === k && a.kind === kind && a.i === i;
   const zpItems = (st, kind) => Funcs.splitList(st.params[kind]);
+  // (review verify-4, design-17 / math-14: a zero or pole field shows the true minus, U+2212, as the Parameters' value
+  // fields do; the stored text keeps the ASCII hyphen, so a field's text is read back through zpRaw)
+  const zpShow = (raw) => String(raw).replace(/-/g, '−');
+  const numShow = zpShow;
+  const zpRaw = (el) => el.value.replace(/−/g, '-');
   // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
   // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
   function zpStep() {
@@ -2623,20 +2635,20 @@
     const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
     // (two columns while every value fits one, as zpFields lays them out)
     const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
-    for (const el of document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], .card-pop[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`)) {
+    for (const el of document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`)) {
       const row = el.closest('.zp-item');
       if (row) row.classList.toggle('wide1', wide);
       if (document.activeElement === el) continue;
       const [kind, i] = el.dataset.zp.split(':');
       const v = lists[kind][+i];
-      if (v != null && el.value !== v) { el.value = v; el.classList.remove('bad'); }
+      if (v != null && el.value !== zpShow(v)) { el.value = zpShow(v); el.classList.remove('bad'); }
     }
   }
   // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
   function refreshZpCard(k) {
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return;
-    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p'], [`.card-pop[data-k="${k}"] .params`, 'pp']]) {
+    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p']]) {
       const el = document.querySelector(sel);
       if (!el) continue;
       const top = el.scrollTop;
@@ -2743,13 +2755,13 @@
   }
   function zpItemField(st, k, kind, i, raw, pre) {
     const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i), what = kind === 'zeros' ? 'zero' : 'pole';
-    const input = h('input', { class: 'inp', id, value: raw, spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+    const input = h('input', { class: 'inp', id, value: zpShow(raw), spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
     input.dataset.zp = `${kind}:${i}`;
     // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)
     const fields = () => [...input.closest('.params').querySelectorAll(`input[data-zp^="${kind}:"]`)];
     input.addEventListener('input', () => {
-      input.classList.toggle('bad', !zpParse(input.value));
-      st.params[kind] = fields().map((el) => el.value.trim()).filter((x) => x).join(', ');
+      input.classList.toggle('bad', !zpParse(zpRaw(input)));
+      st.params[kind] = fields().map((el) => zpRaw(el).trim()).filter((x) => x).join(', ');
       Funcs.typedList(st, kind, st.params[kind]);
       chainChanged(false);
       requestRender('OL');
@@ -2758,6 +2770,7 @@
     // keep their indices)
     input.addEventListener('change', () => {
       if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      else if (input.value !== zpShow(zpRaw(input))) input.value = zpShow(zpRaw(input));
       commit();
     });
     input.addEventListener('paste', () => setTimeout(() => { if (Funcs.splitList(input.value).filter((x) => x.trim()).length > 1) { input.blur(); } }, 0));
@@ -2970,6 +2983,9 @@
   let zpHandlesL = [], zpHover = null, zpSel = null;
   let gaugeInfo = null;
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
+  // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
+  // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
+  function phHold() { if (typeof Phone !== 'undefined' && Phone.hold) Phone.hold(); }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
   function noGL(pane) {
     paneNote(pane, GLR.lost ? $t('The graphics card was reset. Restoring the view…') : $t('This view needs WebGL2, which this browser does not provide.'));
@@ -6548,6 +6564,9 @@
       if (lPaintsF()) dirty.L = true;
       again = morph.playing;
       soundFunctionChanged('t');
+      // the cards are held while it plays (renderThumbs is debounced past every frame), so their t is not the main
+      // t: they show no t until they are redrawn after the pause (review verify-1, design-13)
+      if (morph.playing && cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
     }
     // camera tweens and inertia in 3D views
     for (let i = camTweens.length - 1; i >= 0; i--) {
@@ -6770,6 +6789,7 @@
     return shift + Math.abs(b.s / a.s - 1) * half <= px;
   }
   function setFocus(k) {
+    phHold();
     S.focus = k;
     if (k > 0) S.sel = k;   // (v15: showing a step alone selects it)
     leftAuto = true; rightAuto = true;
@@ -7200,6 +7220,7 @@
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
   function openTransport() {
     if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
+    phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
     defMem.y = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto };
     const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
@@ -7219,6 +7240,7 @@
   }
   function closeTransport() {
     if (!morph.open) return;
+    phHold();
     if (typeof cancelTweens === 'function') cancelTweens();
     defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
     morph.open = false; morph.playing = false; morph.seg = null; snd.morphArm = false;
@@ -8307,35 +8329,6 @@
     const names = BADGES.filter(([key]) => words[key]).map(([, n]) => n);
     t.setAttribute('aria-label', names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
   }
-  // compact mode: a card's parameters open in a popover above it
-  function openCardPop(k) {
-    closePalette();
-    const st = S.steps[k - 1], d = defOf(st);
-    const card = document.querySelector(`#pipeline .card[data-k="${k}"]`);
-    if (!card || !d.params.length) return;
-    const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
-    if (st.type === 'zp' && Funcs.DEFS.zp) params.append(zpFields(st, k, 'pp'));
-    else for (const q of d.params) params.append(paramField(st, k, q, 'pp'));
-    const pop = h('div', { class: 'pop card-pop', 'data-k': k, role: 'dialog', 'aria-label': $t('Parameters of f{x}', { x: sub(k) }) },
-      h('div', { class: 'pop-title', html: `<span class="idx">${fsub(k)}</span> ${d.label}` }), params);
-    $('popHost').append(pop);
-    popEl = pop;
-    const r = card.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    let y = r.top - ph - 6;
-    if (y < 8) y = r.bottom + 6;
-    pop.style.left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.left)) + 'px';
-    pop.style.top = Math.max(8, y) + 'px';
-    const back = card.querySelector('.nm'), bkey = focusKey(back);
-    pop.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      if (padEl) { closePad(); return; } // Esc closes the Argand pad first
-      closePalette(); focusBack(back, bkey);
-    });
-    const first = pop.querySelector('input,select');
-    if (first) first.focus({ preventScroll: true });
-    armOutside(card);
-  }
   // dragging horizontally on a label changes a numeric field
   function scrubbable(label, input, step, isInt) {
     label.classList.add('scrub');
@@ -8418,7 +8411,7 @@
       const st = e.shiftKey ? R / 400 : R / 40;
       v = C(Math.round(x * R / st) * st, Math.round(y * R / st) * st);
       v = C(+v.re.toPrecision(6), +v.im.toPrecision(6));
-      input.value = CX.fmt(v, 6).replace(/\s/g, '');
+      input.value = ((t) => (input.dataset.zp || input.dataset.num ? zpShow(t) : t))(CX.fmt(v, 6).replace(/\s/g, ''));
       input.dispatchEvent(new Event('input'));
       draw();
     };
@@ -8440,7 +8433,7 @@
         const st = e.shiftKey ? R / 400 : R / 40;
         const q = (x, dx) => +Math.max(-R, Math.min(R, Math.round(x / st) * st + dx * st)).toPrecision(6);
         v = C(q(v.re, d[0]), q(v.im, d[1]));
-        input.value = CX.fmt(v, 6).replace(/\s/g, '');
+        input.value = ((t) => (input.dataset.zp || input.dataset.num ? zpShow(t) : t))(CX.fmt(v, 6).replace(/\s/g, ''));
         input.dispatchEvent(new Event('input'));
         draw();
       } else if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); back(); }
@@ -8496,13 +8489,18 @@
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
     } else {
-      input = h('input', { class: 'inp', id, value: val, spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+      // (review verify-4: a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
+      // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
+      const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
+      const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
+      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+      if (num) input.dataset.num = '1';
       input.addEventListener('input', () => {
-        if (q.type === 'cx') { try { Expr.constValue(input.value); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
-        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(st, q.key, input.value);
-        upd(input.value);
+        if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
+        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(st, q.key, raw());
+        upd(raw());
       });
-      input.addEventListener('change', () => commit());
+      input.addEventListener('change', () => { if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
@@ -8518,7 +8516,8 @@
     const v = S.steps[k - 1] && S.steps[k - 1].params[key];
     for (const el of document.querySelectorAll(`[id$="${k}_${key}"][data-pkey="${key}"]`)) {
       if (el.id === `${from}${k}_${key}` || document.activeElement === el) continue;
-      if (String(el.value) !== String(v)) el.value = v;
+      const t = el.dataset.num ? numShow(v) : String(v);
+      if (String(el.value) !== t) el.value = t;
     }
   }
   const CHIP_DEFS = [['analytic', $tx('lamp', 'A'), $t('Analytic')], ['entire', $tx('lamp', 'E'), $t('Entire')], ['rational', $tx('lamp', 'R'), $tx('badge', 'Rational')], ['polynomial', $tx('lamp', 'P'), $t('Polynomial')], ['mobius', $tx('lamp', 'M'), $tx('badge', 'Möbius')], ['proper', $tx('lamp', 'Pr'), $t('Proper')], ['injective', $tx('lamp', 'I'), $t('Injective (a homeomorphism onto its image)')]];
@@ -9109,15 +9108,6 @@
   // formulas go through TeX.set, which skips unchanged nodes and, during a scrub or drag, waits for input to
   // pause (TeX.hush). A hidden panel costs nothing: only the rail lamps update, and the panel catches up when shown.
   const PROPS = { sig: null, stale: false, texF: '', rail: '', ro: null, el: null };
-  function renderRail(words) {
-    const rl = $('railLamps');
-    if (!rl) return;
-    const sig = BADGES.map(([k]) => (words[k] ? 1 : 0)).join('');
-    if (sig === PROPS.rail && rl.childElementCount === BADGES.length) return;
-    PROPS.rail = sig;
-    rl.innerHTML = '';
-    for (const [key, name] of BADGES) rl.append(h('span', { class: 'rl' + (words[key] ? ' on' : ''), 'data-tip': `${name}: ${words[key] ? $t('guaranteed') : $t('not guaranteed')}`, role: 'img', 'aria-label': `${name}: ${words[key] ? $t('guaranteed') : $t('not guaranteed')}` }));
-  }
   // ---- v15: the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
   // S.sel: the selected object, a step k (0: the region) or 'F'; null follows the step shown alone, else the last step.
   // Selecting is not focusing: the planes keep what they show; Show alone (S.focus) is its own action.
@@ -9265,97 +9255,6 @@
     PROPS.stale = false;
     try { inspector().render(); } catch (e) { console.error('Inspector', e); }
     placeTemp();
-  }
-  function buildProps(host, act) {
-    host.innerHTML = '';
-    const E = PROPS.el = { chain: [], lamps: {}, dom: [], rows: [] };
-    // 1. composite map
-    const copyBtn = h('button', { class: 'icon-btn', 'data-tip': $t('Copy LaTeX'), 'aria-label': $t('Copy the formula as LaTeX'), html: ICONS.copy });
-    copyBtn.addEventListener('click', () => { copyText(exactTexF()); copyBtn.innerHTML = ICONS.check; copyBtn.classList.add('copied'); setTimeout(() => { copyBtn.innerHTML = ICONS.copy; copyBtn.classList.remove('copied'); }, 1200); });
-    const sec1 = E.sec1 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, $t('Composite map')), copyBtn,
-      h('button', { class: 'icon-btn', 'data-tip': $t('Hide panel  ]'), 'aria-label': $t('Hide guarantees'), onclick: () => setPanels(S.hideLeft, true), html: ICONS.chevR })));
-    const fbox = h('div', { class: 'fbox well' });
-    E.ftex = h('div', { class: 'ftex-main' });
-    E.flong = h('span', { class: 'lbl', hidden: true }, $t('The expanded formula is long; the steps below list it piece by piece.'));
-    fbox.append(E.ftex, E.flong);
-    if (S.steps.length) {
-      const ol = h('ol', { class: 'chainlist' });
-      S.steps.forEach((st, i) => {
-        const k = i + 1, b = built[i];
-        const li = h('li', { 'data-k': k, onpointerenter: () => hiStep(k, true), onpointerleave: () => hiStep(k, false) }, h('span', { class: 'idx', html: fsub(k) }));
-        if (st.on === false) li.append(h('span', { class: 'lbl' }, $t('bypassed')));
-        else if (b.error) li.append(h('span', { class: 'err-msg' }, b.error));
-        else { const t = h('span'); E.chain.push([k, t]); li.append(t); }
-        ol.append(li);
-      });
-      fbox.append(ol);
-    }
-    sec1.append(fbox);
-    host.append(sec1);
-    // 2. guarantees: warnings first, then the eight lamps in a fixed order
-    E.count = h('span', { class: 'count', 'data-tip': $t('Guaranteed properties') });
-    const sec2 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, $t('Guarantees')), E.count));
-    E.warnEls = []; E.warnSig = null;
-    const list = h('ul', { class: 'lamps' });
-    for (const [key, name] of BADGES) {
-      const li = h('li', { class: 'lamp' + (openLamp === key ? ' open' : ''), 'data-lamp': key, tabindex: 0, role: 'button', 'aria-expanded': String(openLamp === key),
-        onpointerenter: () => hiCol(LAMP_COL[key], true), onpointerleave: () => hiCol(LAMP_COL[key], false) });
-      const q = h('span', { class: 'lampq' }), desc = h('div', { class: 'lampdesc' });
-      li.append(h('span', { class: 'lampmark', 'aria-hidden': 'true' }), h('span', { class: 'lampname' }, name), q, h('span', { class: 'lampchev', html: ICONS.chevR, 'aria-hidden': 'true' }), desc);
-      const toggle = () => {
-        openLamp = openLamp === key ? null : key;
-        for (const el of list.children) { const o = el.dataset.lamp === openLamp; el.classList.toggle('open', o); el.setAttribute('aria-expanded', String(o)); }
-        for (const el of host.querySelectorAll('.matrix .hi-sel')) el.classList.remove('hi-sel');
-        if (openLamp) for (const el of host.querySelectorAll(`.matrix [data-col="${LAMP_COL[openLamp]}"]`)) el.classList.add('hi-sel');
-      };
-      li.addEventListener('click', toggle);
-      li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
-      E.lamps[key] = { li, q, desc, on: null };
-      list.append(li);
-    }
-    E.lampList = list;
-    sec2.append(list, h('div', { class: 'lamp-key' }, $t('Lit: guaranteed by the chain. Unlit: not implied by the steps (it may still hold).')));
-    host.append(sec2);
-    // 3. natural domain
-    const sec3 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow', html: $t('Natural domain <i>D</i>') })));
-    const dom = h('div', { class: 'well domain' });
-    const nConds = act.filter((k) => built[k - 1].domain).length;
-    if (!nConds) { E.domLbl = h('div', { class: 'lbl' }); dom.append(E.domLbl); }
-    else {
-      const ul = h('ul', { class: 'domlist' });
-      for (let i = 0; i < nConds; i++) { const li = h('li'); E.dom.push(li); ul.append(li); }
-      dom.append(h('div', { class: 'lbl', html: $t('All <i>z</i> for which:') }), ul);
-    }
-    sec3.append(dom);
-    if (nConds && act.length > 1) sec3.append(h('div', { class: 'foot', html: $t('<i>w</i><sub>k</sub> is the value after step <i>k</i>; <i>w</i><sub>0</sub> = <i>z</i>.') }));
-    host.append(sec3);
-    // 4. step by step: indicator matrix
-    const sec4 = h('section', { class: 'psec' }, h('h2', null, h('span', { class: 'grow' }, $t('Step by step'))));
-    const tbl = h('table', { class: 'matrix' });
-    const head = h('tr', null, h('th', { class: 'stepcol' }, $t('step')));
-    for (const [key, ab, t] of CHIP_DEFS) head.append(h('th', { 'data-col': key, 'data-tip': t, onpointerenter: () => hiCol(key, true), onpointerleave: () => hiCol(key, false) }, ab));
-    tbl.append(h('thead', null, head));
-    const body = h('tbody');
-    const cell = (key) => h('td', { 'data-col': key, onpointerenter: () => hiCol(key, true), onpointerleave: () => hiCol(key, false) }, h('span', { class: 'sq', role: 'img' }));
-    for (const k of act) {
-      const cells = CHIP_DEFS.map(([key]) => cell(key));
-      E.rows.push([k, cells]);
-      body.append(h('tr', { 'data-k': k, onpointerenter: () => hiStep(k, true), onpointerleave: () => hiStep(k, false) },
-        h('td', { class: 'stepcol' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'nm', 'data-tip': isDeriv(k) ? $t('An operator, not a map: its row shows what the chain through it guarantees') : null }, built[k - 1].def.label)), ...cells));
-    }
-    const total = CHIP_DEFS.map(([key]) => cell(key));
-    E.rows.push([0, total]);
-    body.append(h('tr', { class: 'total' }, h('td', { class: 'stepcol', html: '<i>F</i>' }), ...total));
-    tbl.append(body);
-    sec4.append(tbl);
-    if (openLamp) for (const el of tbl.querySelectorAll(`[data-col="${LAMP_COL[openLamp]}"]`)) el.classList.add('hi-sel');
-    sec4.append(h('details', { class: 'how' },
-      h('summary', null, $t('How these are decided')),
-      h('p', null, $t('A property is listed only when every active step has it and composition preserves it on the natural domain. Compositions of analytic, entire, rational, polynomial, Möbius, injective and proper (into ℂ) maps keep that property.')),
-      h('p', null, $t('Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.')),
-      h('p', null, $t('The list is sound but not complete. For example, log followed by exp returns z, yet neither step is rational, so "rational" is not claimed.')),
-      h('p', null, $t('Custom formulas are classified from their expression tree: only z, constants, +, −, ×, ÷ and integer powers count as rational. A polynomial formula has its exact degree found numerically before "proper" is claimed.'))));
-    host.append(sec4);
   }
   // the copied formula: constants that parse back exactly, and a note for every non-principal branch
   function exactTexF() {
@@ -10092,11 +9991,17 @@
   // (o.letters: points named A, B, C... as the Homework figure names them)
   function figCapParts(o = {}) {
     const vis = S.shapes.filter((s) => s.visible !== false);
-    let pi = 0;
-    const shapeList = joinList(vis.map((s) => { const k = s.kind === 'point' ? pi : 0; const r = shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : s, k); if (s.kind === 'point') pi++; return r; }));
+    // (export review r3, verify2-new-1) o.skip: the points a globe figure cannot show (on the far side of the sphere)
+    // are left out of the list of what it shows; the caption says they are hidden. The other points keep their names.
+    const skipped = (s) => !!(o.skip && s.kind === 'point' && s.p && o.skip.some((z) => z.re === s.p[0] && z.im === s.p[1]));
+    const skipAll = vis.every(skipped);
+    const listOf = (gen) => {
+      let pk = 0;
+      return joinList(vis.map((s) => { const k = s.kind === 'point' ? pk : 0; if (s.kind === 'point') pk++; return !skipAll && skipped(s) ? null : shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : s, k, gen); }).filter((r) => r != null));
+    };
+    const shapeList = listOf();
     // the same list in the genitive ("the images of ..."): Russian needs the case, English is the same
-    let pg = 0;
-    const shapeListGen = joinList(vis.map((s) => { const k = s.kind === 'point' ? pg : 0; const r = shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : s, k, 'gen'); if (s.kind === 'point') pg++; return r; }));
+    const shapeListGen = listOf('gen');
     const lv = panelVar('L'), Fname = S.focus === 0 ? 'F' : `f_{${S.focus}}`;
     const Ftex = S.focus === 0 ? compositeTexShort() : (built[S.focus - 1] && !built[S.focus - 1].error ? built[S.focus - 1].tex({ s: lv, p: 4 }).s : null);
     const formula = Ftex && Ftex.length < 240 ? inlineFrac(Ftex) : null;
@@ -10240,65 +10145,6 @@
     // (by a flag, not by the label: the label is translated)
     if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
     openMenu(anchor, items);
-  }
-  function fillProps(act, P, words) {
-    const E = PROPS.el;
-    // composite formula and the chain list (TeX.set skips unchanged nodes)
-    let arg = { s: 'z', p: 4 };
-    for (const k of act) arg = built[k - 1].tex(arg);
-    PROPS.texF = `F(z)=${arg.s}`;
-    const long = arg.s.length >= 700;
-    E.flong.hidden = !long; E.ftex.hidden = long;
-    if (!long) TeX.set(E.ftex, PROPS.texF, true);
-    for (const [k, t] of E.chain) TeX.set(t, `w_{${k}}=${built[k - 1].tex({ s: wvar(k - 1), p: 4 }).s}`);
-    // count and warnings
-    const nOn = BADGES.filter(([k]) => words[k]).length, cnt = $t('{nOn} of {nBadges}', { nOn, nBadges: BADGES.length });
-    if (E.count.textContent !== cnt) E.count.textContent = cnt;
-    const warns = [];
-    S.steps.forEach((st, i) => { if (st.on !== false && built[i].error) warns.push($t('Step {x} has an error and is skipped until fixed.', { x: i + 1 })); });
-    if (P.constant) warns.push($t('A step is constant, so F is constant on D.'));
-    const ws = warns.join('\n');
-    if (E.warnSig !== ws) {
-      E.warnSig = ws;
-      for (const el of E.warnEls) el.remove();
-      E.warnEls = warns.map((w) => h('div', { class: 'warnrow', role: 'status' }, h('span', { class: 'wi', html: ICONS.warning }), h('div', null, w)));
-      E.lampList.before(...E.warnEls);
-    }
-    // lamps: state, qualifier, description; a lamp that changes flashes once
-    for (const [key, name, desc] of BADGES) {
-      const L = E.lamps[key], on = !!words[key];
-      let q = '';
-      if (on && (key === 'rational' || key === 'polynomial') && P.deg != null) q = P.degExact ? $t('deg {n}', { n: P.deg }) : $t('deg ≤ {n}', { n: P.deg });
-      if (L.q.textContent !== q) L.q.textContent = q;
-      if (L.on === on) continue;
-      const flash = L.on != null || (lastWords && lastWords[key] !== on);
-      L.on = on;
-      L.li.classList.toggle('on', on);
-      L.li.setAttribute('aria-label', `${name}: ${on ? $t('guaranteed') : $t('not guaranteed')}`);
-      L.desc.textContent = desc + (on ? '' : $t(' The chain does not imply this; it may still hold.'));
-      if (flash) { L.li.classList.remove('flash'); requestAnimationFrame(() => L.li.classList.add('flash')); }
-    }
-    lastWords = Object.fromEntries(BADGES.map(([k]) => [k, !!words[k]]));
-    // natural domain
-    if (E.domLbl) {
-      const all = act.every((k) => built[k - 1].props.entire || built[k - 1].def.id === 'conj');
-      const t = all ? '<i>D</i> = ℂ' : $t('Every <i>z</i> where each step is defined.');
-      if (E.domLbl.dataset.v !== t) { E.domLbl.dataset.v = t; E.domLbl.innerHTML = t; }
-    } else {
-      let i = 0;
-      for (const k of act) { const b = built[k - 1]; if (b.domain && E.dom[i]) TeX.set(E.dom[i++], b.domain(wvar(k - 1))); }
-    }
-    // matrix cells
-    for (const [k, cells] of E.rows) {
-      // a d/dz row: what the chain through it guarantees (the fold, as on its card); it has no map of its own
-      const pr = !k ? P : isDeriv(k) ? Funcs.composeProps(act.filter((j) => j <= k).map((j) => built[j - 1].props)) : built[k - 1].props;
-      CHIP_DEFS.forEach(([key], j) => {
-        const on = !!pr[key], td = cells[j];
-        if (td.classList.contains(on ? 'y' : 'n')) return;
-        td.classList.toggle('y', on); td.classList.toggle('n', !on);
-        td.firstChild.setAttribute('aria-label', on ? $t('yes') : $t('no'));
-      });
-    }
   }
   // highlight a step in the panel, the matrix and the chain at once
   function hiStep(k, on) {
@@ -10520,7 +10366,8 @@
       if (drag) { sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200); return; }
       sourceViewChanged.pending = false;
       if (leftStage() !== 0 || solo() === 'R') return;
-      const b = paneL.box();
+      // (v15.1: while X is a phone's inset, its window at its large size: review-phone-swap swap-7)
+      const b = (typeof Phone !== 'undefined' && Phone.largeBox && Phone.largeBox()) || paneL.box();
       // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
       // collapsed deep views far from 0 to zero width)
       const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
@@ -11583,6 +11430,7 @@
   // a first visit opens a worked example, not the empty canvas listed first
   const firstExample = () => Math.max(0, EX.findIndex((e) => e.shapes.length && e.steps.length));
   function loadExample(i, spec) {
+    phHold();
     const ex = spec || EX[i];
     if (!ex) return;
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
@@ -11785,7 +11633,7 @@
       <h3>${$t(`Regions`)}</h3>
       <p>${$t(`Draw with the tools on the left, or type a set such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.`)}</p>
       <h3>${$t(`Function chain`)}</h3>
-      <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients carry its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. Double-click a card, or press the lens in the Inspector, to show that step alone. Drag a card's header onto a connector to reorder.`, { x: k('+') })}</p>
+      <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. Double-click a card, or press the lens in the Inspector, to show that step alone. Drag a card's header onto a connector to reorder.`, { x: k('+') })}</p>
       <p>${$t(`Each card's picture follows the open view: card <i>k</i> shows <i>F</i><sub><i>k</i></sub>, the map up to its step, as an image in <i>X</i> → <i>Y</i>, a phase portrait in Phase and a relief in Landscape, so the last card is the main picture. The <b>F</b> tile closes the chain: see Guarantees.`)}</p>
       <h3>${$t(`Shared numbers`)}</h3>
       <p>${$t(`Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Parameters</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.`)}</p>
@@ -12083,6 +11931,7 @@
   const camKeys = (c) => ({ yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov });
   function setMain(main) {
     if (!Views.MAIN.includes(main) || S.view.main === main) return;
+    phHold();
     const from = S.view.main;
     soundCue('view', { k: Views.MAIN.indexOf(main) });
     if (main !== 'land' && (main === 'phase' ? S.view.P.surf : S.view.L.surf) === 'sphere') prestartGlobe();
@@ -12541,14 +12390,15 @@
   // the swell once per play the user starts, the arrival once per such play (never on loop repeats)
   function sndMorphStart() { if (!sndP.on || !SND) return; snd.morphArm = true; SND.play('morphStart', {}); if (!(morph.T > 0)) snd.run = null; }
   function sndMorphArrive() { if (!snd.morphArm) return; snd.morphArm = false; soundCue('morphEnd'); }
-  // scrubbing: a detent at each 0.05 of t / morphLen(); t = 0, ¼, ½, ¾, 1 are pitched and never dropped
+  // scrubbing (v15.1): Sound.scrub decides from the drag's speed: soft detents at each 0.05 of t / morphLen() while
+  // slow, a soft band that follows the speed while fast; t = 0, ½, 1 soft keys
   function sndScrub(T0, T1) {
     // (the slider's input sets morph.T right after this call: the tone follows H_t on the next frame; a person's step)
     snd.userT = performance.now();
     soundFunctionChanged('t');
     if (!sndP.on || !sndP.events || !SND) return;
-    const m = morphLen() || 1, d0 = Math.round(T0 / m * 20), d1 = Math.round(T1 / m * 20);
-    if (d1 !== d0) SND.play('morphTick', { t: d1 / 20, force: d1 % 5 === 0 });
+    const m = morphLen() || 1;
+    SND.scrub(T0 / m, T1 / m);
   }
 
   // ---- Hear the function under the pointer ----
@@ -13136,6 +12986,7 @@
   // the persisted state, as writeState saves it
   const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
   function tourSnapshot() {
+    phHold();
     const xl = document.querySelector('#examplesBtn .exlabel');
     return {
       state: tourState(),
@@ -13156,6 +13007,7 @@
   function tourRestore(sn, opt) {
     if (!sn || !sn.state || typeof sn.state !== 'object') return false;
     if (tourPhone()) Phone.close(true);
+    phHold();
     const m = opt && opt.fromStash ? null : sn.mem;
     // this session's own state needs no migration; a stash is read as a reload reads the saved state
     const st = m ? Object.assign(blankState(), JSON.parse(JSON.stringify(sn.state))) : sanitizeState(JSON.parse(JSON.stringify(sn.state)));
@@ -13191,7 +13043,7 @@
       if (xl && m.exLabel != null) xl.textContent = m.exLabel;
       if (m.selected && (S.shapes.some((s) => s.id === m.selected) || S.targets.some((s) => s.id === m.selected))) selected = m.selected;
       if (m.cell) [cellBase, cellKey] = m.cell;
-      if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.swap();
+      if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.setBig(m.phBig);
     } else {
       setTool('select');
       if (S.rightView && autoFit()) { Object.assign(V.right, S.rightView); rightAuto = false; }
@@ -13565,7 +13417,7 @@
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
       if (!ok) return false;
       // the open panels come back too: the deformation (at its t, paused), the open lamp, the selected shape
-      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: typeof Phone !== 'undefined' && Phone.isOn() && Phone.sheet() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()) } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
+      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: typeof Phone !== 'undefined' && Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
@@ -13873,7 +13725,11 @@
         // a switch whose undo stash could not be written (review eng-8): say so once, after the reload
         try { const k = lsk('cmw-switch-lost'), at = Number(localStorage.getItem(k)); if (localStorage.getItem(k) != null) localStorage.removeItem(k); if (at && Date.now() - at < 30000) setTimeout(() => toast($t('The undo history could not be kept across the language change.')), 0); } catch (e) { /* no note */ }
         updateUndo();
+        // (showing a step alone selects it; a saved selection of another step, or of F, stays: the language switch
+        // keeps the selection, review russian-6 and verify-8)
+        const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
+        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { S.sel = sel0; syncSel(); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { delete S.deform; openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
@@ -13890,7 +13746,7 @@
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
           if (swUi.lamp) openLamp = swUi.lamp;
-          if (swUi.phone && typeof swUi.phone.k === 'string') swPhone = swUi.phone;   // (review russian-6: the open sheet)
+          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
           if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
           // focus returns to the control that switched (review eng-5): the globe, or the More button it folds into
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('langBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
@@ -13924,8 +13780,21 @@
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
       showPanels: (ph) => { if (ph) { S.hideLeft = false; S.hideRight = false; } else { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
-      getView: (side) => (side === 'L' ? Object.assign({}, paneL.view) : rightAuto ? null : Object.assign({}, paneR.view)),
-      setView: (side, v) => { if (side === 'L') { paneL.setView(v); sourceViewChanged(); } else { rightAuto = false; paneR.setView(v); } requestRender('L', 'R', 'OL', 'OR'); },
+      // (v15.1, build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
+      // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
+      // (land: a running tween on that view ends at its target first, review-phone-swap swap-8)
+      getView: (side, land) => {
+        const v = side === 'L' ? leftView() : V.right, p = side === 'L' ? paneL : paneR;
+        if (land) for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; if (tw.view === v) { Object.assign(v, tw.to); tweens.splice(i, 1); if (tw.onDone) tw.onDone(); } }
+        return { cx: v.cx, cy: v.cy, s: v.s, w: p.w, h: p.h, auto: side === 'L' ? leftStage() > 0 && leftAuto : rightAuto };
+      },
+      setView: (side, v) => {
+        const t = side === 'L' ? leftView() : V.right;
+        for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].view === t) tweens.splice(i, 1);
+        t.cx = v.cx; t.cy = v.cy; t.s = v.s;
+        if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); } else rightAuto = false;
+        requestRender('L', 'R', 'OL', 'OR');
+      },
       fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
       renderInspector: () => renderProps(),
@@ -13940,7 +13809,9 @@
       openGuide: () => openGuide(),
     });
     // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
-    if (swPhone && typeof Phone !== 'undefined' && Phone.isOn()) { const sp = swPhone; swPhone = null; setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
+    // (v15.1: and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
+    // build/phone-swap.md)
+    if (swPhone && typeof Phone !== 'undefined' && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     tourWire();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)

@@ -4,8 +4,8 @@
 //      scrolls sideways, the top bar fits, and no element is clipped in Russian that is not clipped in English.
 //   2. No English left in the first screen and the header's menus at every width (test/i18n_scan.js). The full walk of
 //      every view, dialog and tour step is test/i18n_walk_cmd.js.
-//   3. The globe: in the bar at 1024 px and up, folded into More below; its menu Auto (resolved), English, Русский; the
-//      same rows in the palette ("язык", "language"). The tablet More menu holds the secondary buttons.
+//   3. The globe: in the bar at 768 px and up (v15.1, frame f6; before, folded into More below 1024); its menu Auto (resolved), English, Русский; the
+//      same rows in the palette ("язык", "language"). The secondary buttons are in the bar from 768 too.
 //   4. Switching round-trips: work, view, undo history and open panels come back, in both directions, through the UI.
 //   5. ЙЦУКЕН shortcuts through e.code; typing in a text field is never taken.
 //   6. Detection: a ru-RU browser gets Russian; ?ns= pages stay English; uk-UA stays English.
@@ -60,7 +60,7 @@ for (const dark of [false, true]) {
     }
   }
 }
-// ---- 3: the globe, the tablet More menu, the palette rows ----
+// ---- 3: the globe, the tablet bar, the palette rows ----
 await open('ru', 1440, false);
 check('globe in the bar at 1440', await ev(`(() => { const b = document.getElementById('langBtn'); const r = b.getBoundingClientRect(); return !!b.offsetParent && r.right <= innerWidth && r.top < 60; })()`));
 check('globe labelled', (await ev(`document.getElementById('langBtn').getAttribute('aria-label')`)) === 'Язык: Авто');
@@ -76,16 +76,18 @@ for (const q of ['язык', 'language']) {
   check(`palette "${q}": the three Language rows`, rows.length === 3, rows);
   await key('Escape'); await settle(200);
 }
+// (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the globe and the
+// secondary buttons are in the bar, inside the window, and the Language menu opens from the globe there)
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
-  const st = await ev(`(() => { const more = document.getElementById('hdrMoreBtn'), lb = document.getElementById('langBtn'); return { more: getComputedStyle(more).display !== 'none', langInBar: !!lb.offsetParent && !lb.closest('.hdr-menu:not(:popover-open)') && lb.getBoundingClientRect().width > 0 }; })()`);
-  check(`tablet ${w}: More shown, globe folded`, st.more && !st.langInBar, st);
-  await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(400);
-  const inMenu = await ev(`(() => { const m = document.getElementById('hdrMenu'); const r = m.getBoundingClientRect(); return { open: m.matches(':popover-open'), ids: [...m.children].filter((c) => c.offsetParent && c.getBoundingClientRect().width).map((c) => c.id), inside: r.right <= innerWidth && r.left >= 0 && r.bottom <= innerHeight }; })()`);
-  check(`tablet ${w}: More menu holds the globe and the secondary buttons, inside the window`, inMenu.open && inMenu.inside && ['langBtn', 'exportBtn', 'themeBtn', 'helpBtn', 'toggleLeft', 'toggleRight'].every((id) => inMenu.ids.includes(id)), inMenu);
+  const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+    const ids = ['examplesBtn', 'cmdBtn', 'toggleLeft', 'toggleRight', 'exportBtn', 'themeBtn', 'soundBtn', 'langBtn', 'helpBtn'];
+    const inBar = ids.filter((id) => { const e = document.getElementById(id), r = e && e.getBoundingClientRect(); return vis(e) && r.top < 60 && r.right <= innerWidth - 4 && r.left >= 0; });
+    return { more: vis(document.getElementById('hdrMoreBtn')), inBar, over: document.documentElement.scrollWidth - innerWidth }; })()`);
+  check(`tablet ${w}: no More button; the globe and the secondary buttons in the bar, inside the window`, !st.more && st.inBar.length === 9 && st.over <= 0, st);
   await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
   const lm = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('.mi').length, l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
-  check(`tablet ${w}: the Language menu opens from More, inside the window`, lm && lm.n === 3 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
+  check(`tablet ${w}: the Language menu opens from the globe in the bar, inside the window`, lm && lm.n === 3 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
   await key('Escape'); await settle(200);
 }
 for (const w of [1024, 1440]) {

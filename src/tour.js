@@ -118,7 +118,7 @@ const Tour = (() => {
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
           touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; the lens there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then the lens in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1 } },
+          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then the lens in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'] } },
         { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', place: 'top', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.' },
@@ -293,6 +293,8 @@ const Tour = (() => {
     rightOpts: '#rightFoot .opts-btn',
     // v15: the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
     // closes the chain; on a phone, the Sphere key in the plane's right column
+    // (v15.1) the selected step's lens (Show this step alone) in the Inspector's head: in a phone's sheet
+    lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
     fTile: '#pipeline .ftile', sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
   };
@@ -367,6 +369,7 @@ const Tour = (() => {
     // clear of every open layer (8 px apart)
     const free = (x, y) => !block.length || over(x, y, block, 8) === 0;
     const DOCK = { mode: 'dock', side: null, x: 0, y: 0, caret: null };
+    const MINI = { mode: 'mini', side: null, x: 0, y: 0, caret: null };
     if (vp.w < (opt.narrow || 640)) {
       // a sheet across the bottom or the top, or in a gap between lit areas
       const ys = [];
@@ -389,6 +392,9 @@ const Tour = (() => {
         if (o === 0) break;
       }
       if (!best) return DOCK;
+      // (v15.1, opt.mini: a phone keeps every lit area, the step's work area, clear; with no such place the callout
+      // collapses to a one-line bar, placeMini)
+      if (opt.mini && best.o > 0 && overArea(card, B.l, best.y, lit, 0) > 0) return MINI;
       return { mode: 'sheet', side: best.side, x: B.l, y: Math.round(best.y), caret: null };
     }
     const fl = [[B.l, B.t], [B.r - card.w, B.t], [B.l, B.b - card.h], [B.r - card.w, B.b - card.h]];
@@ -434,6 +440,8 @@ const Tour = (() => {
       for (const side of order) if (s2[side]) cands.push({ mode: 'side', side, x: s2[side].x, y: s2[side].y, caret: null });
     }
     for (const c of cands) if (over(c.x, c.y, lit) === 0 && free(c.x, c.y)) return fin(c);
+    // (v15.1, a phone in landscape: nothing beside the lit areas, so the bar; never over them)
+    if (opt.mini && lit.length) return MINI;
     // 2b. below or above the hole, short of room by a little: at the viewport's edge there, over the hole's rim only
     // (Preimages at 900 px: under Y, over Y's bottom margin, not inside Y over its disc)
     for (const side of order) {
@@ -499,6 +507,39 @@ const Tour = (() => {
       }
     }
     return { mode: 'dock', side: best.side, x: Math.round(Math.max(B.l, best.x)), y: Math.round(Math.max(B.t, best.y)), caret: null, over: best.o[1] };
+  }
+  // v15.1: the collapsed bar of a phone (place() returned 'mini'), covering none of the work area and no open layer
+  // (review-phone phone-4). Places tried: the top and the bottom edge, 2 px inside the safe area (a phone's header and
+  // tool row are 56 px), and in landscape, where the header is 48 px, a slim bar (opt.slimH, no inner padding) 1 px
+  // inside; then right below or above a lit area. In each, the bar runs full width or along the widest free stretch,
+  // at least opt.minW (the title, Back, the count and Next). Of the clear places: the one placed before (opt.prev)
+  // while it is still clear (no chasing), else the widest, at an edge, not slim, farther from the anchor. When none is
+  // clear: the full-width edge that covers the least of the work area and no layer, else null (the caller docks).
+  // opt: {safe, work, block, anchor, minW, slimH, prev}. Returns {mode: 'mini', side, x, y, w, h, slim, over}.
+  function placeMini(bar, vp, opt = {}) {
+    const sf = opt.safe || {}, work = (opt.work || []).filter(Boolean), block = (opt.block || []).filter(Boolean);
+    const x0 = 8 + (sf.l || 0), x1 = vp.w - 8 - (sf.r || 0), a = opt.anchor, ay = a ? (a.t + a.b) / 2 : vp.h / 2;
+    const top = sf.t || 0, bot = vp.h - (sf.b || 0);
+    const minW = Math.min(x1 - x0, opt.minW || 220);
+    const cands = [], fulls = [];
+    const band = (side, y0, h, slim, edge) => {
+      const y = Math.round(y0);
+      if (y < top || y + h > bot) return;
+      const far = Math.abs(y + h / 2 - ay);
+      if (edge && !slim) fulls.push({ side, y, x: x0, w: x1 - x0, h, slim, o: overArea({ w: x1 - x0, h }, x0, y, work, 0), k: overArea({ w: x1 - x0, h }, x0, y, block, 0), far });
+      // the free stretches of the band
+      const cut = work.concat(block).filter((q) => q.b > y && q.t < y + h && q.r > x0 && q.l < x1).map((q) => [Math.max(x0, q.l), Math.min(x1, q.r)]).sort((p, q) => p[0] - q[0]);
+      let x = x0;
+      for (const [l, r] of cut.concat([[x1, x1]])) { if (l - x >= minW) cands.push({ side, y, x: Math.round(x), w: Math.floor(l - x), h, slim, edge, far }); x = Math.max(x, r); }
+    };
+    band('top', top + 2, bar.h, false, true); band('bottom', bot - 2 - bar.h, bar.h, false, true);
+    if (opt.slimH) { band('top', top + 1, opt.slimH, true, true); band('bottom', bot - 1 - opt.slimH, opt.slimH, true, true); }
+    for (const q of work) { band('middle', q.b + 2, bar.h, false, false); band('middle', q.t - 2 - bar.h, bar.h, false, false); }
+    const pv = opt.prev;
+    const prev = pv && cands.find((c) => c.y === pv.y && c.h === pv.h && c.x <= pv.x + 0.5 && c.x + c.w >= pv.x + pv.w - 0.5);
+    let c = prev ? Object.assign({}, prev, { x: pv.x, w: pv.w }) : cands.sort((p, q) => q.w - p.w || (q.edge ? 1 : 0) - (p.edge ? 1 : 0) || (p.slim ? 1 : 0) - (q.slim ? 1 : 0) || q.far - p.far)[0];
+    if (!c) c = fulls.filter((q) => q.k === 0).sort((p, q) => p.o - q.o || q.far - p.far)[0];
+    return c ? { mode: 'mini', side: c.side, x: c.x, y: c.y, w: c.w, h: c.h, slim: !!c.slim, over: c.o || 0, caret: null } : null;
   }
   // The widest strip beside the open layers, left or right, from the screen's edge (8 px, and the safe area) to 8 px
   // short of the layers: the docked callout narrows into it rather than cover a layer (a dialog with side margins
@@ -799,6 +840,45 @@ const Tour = (() => {
 .tour-card.docked.tight .tour-in { padding: 0; }
 .tour-card.docked.tight .tour-dock { display: none; }
 .tour-dock { display: none; flex: 1 1 auto; min-width: 0; padding: 4px 0; font: 600 14px/20px var(--f-ui); color: var(--ink); }
+/* v15.1 (notes/tour/PHONE.md): on a phone the spotlight of a part inside a scrolling panel (a sheet, the chain) is
+   drawn inside that panel, so the panel's own scroll moves it in the same frame as the content (no script follows) */
+.tour-dim.tour-host { inset: auto; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; z-index: 2147482000; pointer-events: none; }
+/* (the rings fade while something they cannot follow natively moves: a fling of the page, a sliding layer) */
+.tour-rings { transition: opacity 160ms linear; }
+.tour-rings.moving { opacity: 0; transition: opacity 80ms linear; }
+.tour-card.mini { width: auto; max-width: none; right: auto; }
+/* v15.1: the one-line bar a phone's callout collapses to when no place keeps clear of the step's work area: the step's
+   title and, on a Try it step, its task (a tap shows the whole step), Back, the count and Next. (review-phone phone-1:
+   .tour-card first, so the app's .icon-btn (display: inline-grid) cannot show the fold button outside its case) */
+.tour-card .tour-grow, .tour-card .tour-fold, .tour-card .tour-mback { display: none; }
+.tour-card.mini .tour-bar { display: block; }
+.tour-card.mini .tour-in { flex-direction: row; align-items: center; gap: 8px; padding: 3px 3px 3px 4px; }
+/* (a phone in landscape: the header is 48 px; the bar fits in it with no inner padding) */
+.tour-card.mini.slim .tour-in { padding-top: 0; padding-bottom: 0; }
+.tour-card.mini .tour-head { flex: 1 1 auto; min-width: 0; margin: 0; }
+.tour-card.mini .tour-scroll, .tour-card.mini .tour-chap, .tour-card.mini .tour-x, .tour-card.mini .tour-caret, .tour-card.mini .tour-dock,
+.tour-card.mini .tour-fold, .tour-card.mini .tour-foot .btn.ghost { display: none !important; }
+.tour-card.mini .tour-grow { display: flex; }
+.tour-card.mini .tour-mback:not([hidden]) { display: inline-grid; place-items: center; flex: 0 0 auto; width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+/* (8 px between the bar's 44 px buttons, as on the whole card: POLISH.md, the audit's btnGap) */
+.tour-card.mini .tour-foot { flex: 0 0 auto; flex-wrap: nowrap; margin: 0; gap: 8px; }
+.tour-card.mini .tour-count { display: block; flex: 0 0 auto; }
+/* (review-phone phone-8e: the focus ring inside the bar's own border) */
+.tour-card.mini button:focus-visible { outline-offset: -3px; }
+.tour-grow { flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 0 6px; margin: 0; background: none; border: 0; border-radius: var(--r-2, 4px); color: var(--ink); text-align: left; cursor: pointer; }
+.tour-gs { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+/* the title: two lines when it is alone (360 px, Russian), one beside the task */
+.tour-gt { overflow: hidden; font: 600 14px/18px var(--f-ui); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
+.tour-card.has-task .tour-gt { display: block; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; line-height: 17px; }
+.tour-gk { display: flex; align-items: center; gap: 5px; min-width: 0; font: 400 12px/16px var(--f-ui); color: var(--ink-2); }
+.tour-gk[hidden] { display: none; }
+.tour-gk > span:last-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tour-gk .tour-tick { flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--accent); box-sizing: border-box; display: grid; place-items: center; }
+.tour-gk .tour-tick svg { width: 8px; height: 8px; opacity: 0; }
+.tour-gk.done .tour-tick { background: var(--accent); }
+.tour-gk.done .tour-tick svg { opacity: 1; color: var(--accent-ink); }
+.tour-grow > svg, .tour-fold svg, .tour-mback svg { flex: 0 0 16px; width: 16px; height: 16px; color: var(--accent); }
+.tour-card.over .tour-fold { display: inline-grid; place-items: center; flex: 0 0 auto; }
 .tour-card.nudge { animation: tour-nudge 320ms var(--ease-std); }
 @keyframes tour-nudge { 30% { translate: 0 -3px; } 60% { translate: 0 1px; } }
 .tour-bar { position: absolute; left: -1px; right: -1px; top: -1px; height: 3px; border-radius: var(--r-4, 6px) var(--r-4, 6px) 0 0; overflow: hidden; background: transparent; }
@@ -832,8 +912,9 @@ const Tour = (() => {
 .tour-count:empty { display: none; }
 .tour-foot .btn { height: auto; min-height: 36px; min-width: 36px; padding: 0 14px; white-space: nowrap; max-width: 100%; }
 .tour-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tour-card .tour-fold { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
 @media (pointer: coarse) {
-  .tour-card .tour-x { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  .tour-card .tour-x, .tour-card .tour-fold { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
   .tour-foot .btn { min-height: 44px; min-width: 44px; padding: 0 16px; }
   .tour-head { margin: -12px -14px 2px 0; }
 }
@@ -896,6 +977,9 @@ const Tour = (() => {
     document.head.append(el('style', { id: 'tourCSS' }, CSS));
   }
   const ICON_X = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+  const ICON_UP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>';
+  const ICON_LEFT = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>';
+  const ICON_DOWN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
   const ICON_CHECK = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
   const ICON_PLAY = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M5 3.5v9l7.5-4.5z"/></svg>';
   const ICON_BOOK = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2.5 3.5c2-.8 3.8-.6 5.5.7v9c-1.7-1.3-3.5-1.5-5.5-.7zM13.5 3.5c-2-.8-3.8-.6-5.5.7v9c1.7-1.3 3.5-1.5 5.5-.7z"/></svg>';
@@ -923,12 +1007,13 @@ const Tour = (() => {
   // (each SVG's viewBox is its own client box, so one unit is one CSS px at the same place: a classic scroll bar
   // narrows the fixed roots, never the drawing's scale)
   const boxOf = (g) => { const b = g.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? b : Object.assign({ left: 0, top: 0 }, vpSize(), { width: vpSize().w, height: vpSize().h }); };
-  function drawHoles(ui, holes, mark, layers) {
+  // (wins, v15.1: windows over the panels a phone's spotlight is drawn inside: open in the shade, with no ring)
+  function drawHoles(ui, holes, mark, layers, wins) {
     const sb = boxOf(ui.svg), rb = boxOf(ui.rsvg);
     const X = sb.left, Y = sb.top, W = sb.width, H = sb.height;
     ui.svg.setAttribute('viewBox', `${X} ${Y} ${W} ${H}`);
     ui.rsvg.setAttribute('viewBox', `${rb.left} ${rb.top} ${rb.width} ${rb.height}`);
-    ui.shade.setAttribute('d', `M${X} ${Y}H${X + W}V${Y + H}H${X}Z` + holes.map(rrPath).join(''));
+    ui.shade.setAttribute('d', `M${X} ${Y}H${X + W}V${Y + H}H${X}Z` + holes.map(rrPath).join('') + (wins || []).map(rrPath).join(''));
     ui.ring.setAttribute('d', holes.map((h) => rrPath(grow(h, 0.75))).join(''));
     ui.glow.setAttribute('d', holes.map((h) => rrPath(grow(h, 3.5))).join(''));
     // (mark: the anchor's own ring, or a list: the anchor's and the insets')
@@ -984,6 +1069,20 @@ const Tour = (() => {
     const dock = el('span', { class: 'tour-dock', 'aria-hidden': 'true' });
     const x = el('button', { class: 'icon-btn tour-x', type: 'button', 'aria-label': $t('End the tour'), title: $t('End the tour') + '  Esc' });
     x.innerHTML = ICON_X;
+    // (v15.1, a phone: the collapsed bar's title, a tap shows the whole step; the whole step over the work area folds back)
+    // (review-phone phone-5: on a Try it step the bar also shows the task, ticked when it is done)
+    const growT = el('span', { class: 'tour-gt' });
+    const growKT = el('span');
+    const growK = el('span', { class: 'tour-gk', hidden: true }, el('span', { class: 'tour-tick', 'aria-hidden': 'true' }), growKT);
+    growK.firstChild.innerHTML = ICON_CHECK;
+    const grow = el('button', { class: 'tour-grow', type: 'button', 'aria-expanded': 'false', 'aria-label': $t('Show the whole step') });
+    grow.innerHTML = ICON_UP;
+    grow.append(el('span', { class: 'tour-gs' }, growT, growK));
+    // (review-phone phone-8b: Back in the bar, as an icon)
+    const mback = el('button', { class: 'icon-btn tour-mback', type: 'button', 'aria-label': $t('Back'), title: $t('Back') });
+    mback.innerHTML = ICON_LEFT;
+    const fold = el('button', { class: 'icon-btn tour-fold', type: 'button', 'aria-label': $t('Collapse the step'), title: $t('Collapse the step') });
+    fold.innerHTML = ICON_DOWN;
     const title = el('h2', { class: 'tour-title', id: 'tourTitle' });
     const body = el('p', { class: 'tour-body', id: 'tourBody' });
     const tryBox = el('div', { class: 'tour-try', hidden: true });
@@ -992,16 +1091,17 @@ const Tour = (() => {
     const done = el('button', { class: 'btn ghost', type: 'button', hidden: true }, $t('Done'));
     const next = el('button', { class: 'btn primary', type: 'button' }, $t('Next'));
     const caret = el('span', { class: 'tour-caret', 'aria-hidden': 'true' });
-    const foot = el('div', { class: 'tour-foot' }, count, back, done, next);
+    const foot = el('div', { class: 'tour-foot' }, count, mback, back, done, next);
     const card = el('div', { class: 'tour-card entering', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'tourTitle', 'aria-describedby': 'tourBody', tabindex: '-1', 'data-tour': 'card' },
       el('div', { class: 'tour-bar', 'aria-hidden': 'true' }, bar), caret,
-      el('div', { class: 'tour-in' }, el('div', { class: 'tour-head' }, chap, dock, x), el('div', { class: 'tour-scroll' }, title, body, tryBox), foot));
+      el('div', { class: 'tour-in' }, el('div', { class: 'tour-head' }, grow, chap, dock, fold, x), el('div', { class: 'tour-scroll' }, title, body, tryBox), foot));
     top.append(card);
     // the safe-area insets, read from a probe (env() has no script API)
     const safeP = el('div', { 'aria-hidden': 'true', style: 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)' });
     top.append(safeP);
     document.body.append(root, top);
-    return { root, top, svg, rsvg, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, card, bar, chap, dock, x, title, body, tryBox, count, back, done, next, foot, caret, safeP, holes: null, raf: 0, anim: null, motion: 0, topSet: [] };
+    return { root, top, svg, rsvg, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, card, bar, chap, dock, x, grow, growT, growK, growKT, mback, fold, title, body, tryBox, count, back, done, next, foot, caret, safeP, holes: null, raf: 0, anim: null, motion: 0, topSet: [],
+      hosts: new Map(), hostOk: new Map(), work: [], expanded: false, lastP: null, moveT: 0 };
   }
   function safeArea(ui) {
     try { const cs = getComputedStyle(ui.safeP); return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; } catch (e) { return { t: 0, r: 0, b: 0, l: 0 }; }
@@ -1167,8 +1267,12 @@ const Tour = (() => {
     const ui = r.ui;
     ui.next.addEventListener('click', () => go(1));
     ui.back.addEventListener('click', () => go(-1));
+    ui.mback.addEventListener('click', () => { if (run === r) go(-1); });
     ui.done.addEventListener('click', () => stop({ finished: true }));
     ui.x.addEventListener('click', () => stop({}));
+    // (v15.1, a phone: the bar shows the whole step; the whole step, over the work area, folds back into the bar)
+    ui.grow.addEventListener('click', () => { if (run !== r) return; ui.expanded = true; ui.lastP = null; layout(false); try { ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } });
+    ui.fold.addEventListener('click', () => { if (run !== r) return; ui.expanded = false; ui.lastP = null; layout(false); try { ui.grow.focus({ preventScroll: true }); } catch (e) { /* */ } });
     ui.shade.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); });
     const onKey = (e) => {
       if (run !== r || e === fwdKey) return;
@@ -1196,9 +1300,24 @@ const Tour = (() => {
     };
     document.addEventListener('keydown', onKey, true);
     // a click elsewhere: the user has moved on, the focus is theirs (no return to the callout when the layers close)
-    const onDown = (e) => { if (run === r && !ui.card.contains(e.target)) { ui.refocus = null; ui.keyEl = null; } };
+    // (v15.1, a phone: a touch in the step's work area folds the whole step back into its bar, and the touch goes on to
+    // the app: the callout never stays over what the user is working on)
+    const onDown = (e) => {
+      if (run !== r || ui.card.contains(e.target)) return;
+      ui.refocus = null; ui.keyEl = null;
+      if (ui.expanded && phoneL() && inRects(e.clientX, e.clientY, ui.work)) { ui.expanded = false; ui.lastP = null; layout(false); }
+    };
     document.addEventListener('pointerdown', onDown, true);
     r.offs.push(() => document.removeEventListener('pointerdown', onDown, true));
+    // (review-phone phone-3: a finger on the screen; a lit part its panel's fling left out of sight comes back once the
+    // finger is off and the panel still)
+    const onTouch = (e) => {
+      if (run !== r) return;
+      ui.touching = e.touches ? e.touches.length : 0;
+      if (ui.touching) clearTimeout(ui.backT);
+      if (!ui.touching && ui.backH) { const H = ui.backH; clearTimeout(ui.backT); ui.backT = setTimeout(() => { if (run === r) bringBack(r, H); }, BACK_MS); }
+    };
+    for (const t of ['touchstart', 'touchend', 'touchcancel']) { document.addEventListener(t, onTouch, { capture: true, passive: true }); r.offs.push(() => document.removeEventListener(t, onTouch, { capture: true, passive: true })); }
     r.offs.push(() => { const h = document.querySelector(TOAST_SEL); if (h && ui.toastDy) { h.style.transform = ''; ui.toastDy = 0; } });
     const onHide = () => { if (run === r && r.lend && r.lend.stashed) unbeat(); };
     const onShow = (e) => { if (e.persisted && run === r && r.lend && r.lend.stashed) beat(); };
@@ -1210,11 +1329,31 @@ const Tour = (() => {
     // changing size; a MutationObserver catches layout changes that fire no event (a panel opening, the chain
     // growing, a menu or a dialog opening); and while anything moves (a transition, an animation, the shade's own
     // morph) the layout runs every frame until it has been still for a while
-    const onMove = () => { if (run === r) { layout(false); kick(12); } };
+    // (v15.1: a panel the spotlight is drawn inside scrolls with it natively: its frames need no script, and the
+    // callout is checked once the scroll has calmed. Anything else a phone's rings follow by script during a scroll
+    // fades them until it is still)
+    const onMove = (e) => {
+      if (run !== r) return;
+      if (e && e.type === 'scroll' && ui.hosts.has(e.target)) {
+        clearTimeout(ui.hostT); clearTimeout(ui.backT);
+        const H = e.target;
+        // (the callout is checked 140 ms after the scroll calms; the anchor is brought back only BACK_MS later, so the
+        // user can look round the panel, and nothing moves by itself right after a fling: review-phone-verify
+        // new-bringback)
+        ui.hostT = setTimeout(() => { if (run === r) { layout(false); kick(4); ui.backT = setTimeout(() => { if (run === r) bringBack(r, H); }, BACK_MS - 140); } }, 140);
+        return;
+      }
+      const was = ui.drawSig;
+      layout(false); kick(12);
+      if (e && e.type === 'scroll' && ui.drawSig !== was && phoneL()) moving(ui);
+    };
     addEventListener('resize', onMove);
     addEventListener('scroll', onMove, true);
     r.offs.push(() => document.removeEventListener('keydown', onKey, true), () => removeEventListener('resize', onMove), () => removeEventListener('scroll', onMove, true));
-    if (typeof visualViewport !== 'undefined' && visualViewport) { visualViewport.addEventListener('resize', onMove); r.offs.push(() => visualViewport.removeEventListener('resize', onMove)); }
+    r.offs.push(() => { clearTimeout(ui.hostT); clearTimeout(ui.backT); clearTimeout(ui.moveT); });
+    if (typeof visualViewport !== 'undefined' && visualViewport) {
+      for (const t of ['resize', 'scroll']) { visualViewport.addEventListener(t, onMove); r.offs.push(() => visualViewport.removeEventListener(t, onMove)); }
+    }
     const ours = (n) => { const e = n && (n.nodeType === 1 ? n : n.parentElement); return !e || !!e.closest('[data-tour="root"], [data-tour="top"], #tip'); };
     if (typeof ResizeObserver === 'function') {
       ui.ro = new ResizeObserver(() => { if (run === r) { layout(false); kick(12); } });
@@ -1226,7 +1365,17 @@ const Tour = (() => {
       mo.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
       r.offs.push(() => mo.disconnect());
     }
-    const onAnim = (e) => { if (run === r && !ours(e.target)) kick(45); };
+    const onAnim = (e) => {
+      if (run !== r || ours(e.target)) return;
+      kick(45);
+      // (v15.1, a phone: a lit part's panel slides or rides, on the compositor: the rings drawn over the page fade
+      // while it moves rather than trail it)
+      if (phoneL() && r.step && r.tgt && e.target instanceof Element && (e.type === 'animationstart' || /^(transform|translate|top|bottom|left|right|inset|margin)/.test(e.propertyName || ''))) {
+        let d = 0;
+        try { const cs = getComputedStyle(e.target); d = Math.max(...String(e.type === 'animationstart' ? cs.animationDuration : cs.transitionDuration).split(',').map((v) => ms(v.trim(), 0))); } catch (x) { d = 0; }
+        if (d > 0 && litParts(r.step, r.tgt).some((q) => e.target.contains(q.el))) moving(ui, Math.min(1200, d + 80));
+      }
+    };
     for (const t of ['transitionrun', 'animationstart']) { document.addEventListener(t, onAnim, true); r.offs.push(() => document.removeEventListener(t, onAnim, true)); }
     // a popover or a modal dialog of the app opening (the top layer): the callout goes above it at once
     const onToggle = (e) => {
@@ -1437,6 +1586,8 @@ const Tour = (() => {
       }
     }
     r.ui.card.removeAttribute('aria-busy');
+    // (v15.1: each step starts with its callout as placed, not as the user last unfolded it, and checks its panels anew)
+    r.ui.expanded = false; r.ui.lastP = null; r.ui.hostOk = new Map();
     fill(r, ch, step);
     watchStep(r);
     layout(true);
@@ -1571,13 +1722,15 @@ const Tour = (() => {
     const shown = ch.steps.filter((s, i) => s === step || !(r.skipped.has(skipKey(r.ci, i)) || r.absent.has(skipKey(r.ci, i))));
     const k = shown.indexOf(step) + 1, total = shown.length;
     ui.chap.textContent = $t(ch.title);
-    ui.title.textContent = $t(step.title);
+    ui.title.textContent = stepTitle(step);
     ui.body.textContent = '';
     ui.body.append(richText(copyFor(step, r.scene, { menu: r.inMenu })));
     r.countText = $t('{k} of {total}', { k, total });
+    r.countShort = `${k}/${total}`;
     ui.bar.style.width = `${(100 * k / Math.max(1, total)).toFixed(1)}%`;
     ui.tryBox.textContent = '';
     ui.tryBox.classList.remove('done');
+    ui.growK.classList.remove('done');
     const tr = tryOf(step);
     ui.tryBox.hidden = !tr;
     if (tr) {
@@ -1593,7 +1746,7 @@ const Tour = (() => {
     ui.next.textContent = step.anchor == null && r.ci === 0 && r.si === 0 ? $t('Start') : last ? $t('Finish') : nextCh ? $t('Next: {chapter}', { chapter: $t(nextCh.title) }) : $t('Next');
     ui.next.removeAttribute('aria-label');
     if (nextCh) { ui.next.dataset.full = ui.next.textContent; ui.next.dataset.short = $t('Next'); } else { delete ui.next.dataset.full; delete ui.next.dataset.short; }
-    ui.dock.textContent = $t(step.title);
+    ui.dock.textContent = stepTitle(step);
     ui.next.classList.remove('ready');
     ui.done.hidden = !nextCh;
     // at a chapter's end the footer holds Back, Done and "Next: <chapter>"; the full progress line says the rest
@@ -1604,21 +1757,31 @@ const Tour = (() => {
   function announce(r, ch, step) {
     const k = r.countText;
     const tr = tryOf(step);
-    r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k, title: $t(step.title) }) + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }), modKey()) + (tr ? $t(' Try it: ') + plainCopy(tryFor(tr), modKey()) : '');
+    r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k, title: stepTitle(step) }) + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }), modKey()) + (tr ? $t(' Try it: ') + plainCopy(tryFor(tr), modKey()) : '');
   }
 
   // The lit areas of a step: its anchor's parts and its `also` areas, each exactly its visible box (step.pad grows them
   // when a step asks), with its corner radii; an anchor inside a lit panel is the mark.
-  function holesFor(step, tgt) {
-    if (!tgt) return { holes: [], mark: null, insets: [] };
-    const pad = step.pad != null ? step.pad : 0;
+  // the lit parts: the anchor's, then its `also` areas and (v15.1) the areas its Try it names (try.work), each once
+  function litParts(step, tgt) {
     const parts = tgt.parts.slice();
-    for (const a of [].concat(step.also || [])) {
+    // (try.work names parts of the touch task: review-phone phone-2, the lens in the sheet the first tap opens)
+    const tr = tryOf(step), work = tr && tr.work && tr.touch && coarse() ? tr.work : [];
+    for (const a of [].concat(step.also || [], work)) {
       const t = anchorOf(a);
       if (t) for (const q of t.parts) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el)) parts.push(q);
     }
+    return parts;
+  }
+  function holesFor(step, tgt) {
+    if (!tgt) return { holes: [], mark: null, insets: [] };
+    const pad = step.pad != null ? step.pad : 0;
     // (a part clipped away has no hole: never an empty line where the anchor would be)
-    const rects = parts.map((q) => partRect(q, pad)).filter((q, i) => !q.hidden && (i === 0 || (q.r - q.l > 0.5 && q.b - q.t > 0.5)));
+    const rects = litParts(step, tgt).map((q) => partRect(q, pad)).filter((q, i) => !q.hidden && (i === 0 || (q.r - q.l > 0.5 && q.b - q.t > 0.5)));
+    return areasOf(rects, true);
+  }
+  // the lit areas of rects (the anchor's first when anchorFirst): merged, with their radii, the mark and the insets
+  function areasOf(rects, anchorFirst) {
     if (!rects.length) return { holes: [], mark: null, insets: [] };
     const { holes, mark } = litAreas(rects);
     // each hole takes the radii of the part whose box it is (the panel an anchor sits in), else of the part it overlaps most
@@ -1636,14 +1799,238 @@ const Tour = (() => {
     const area = (q) => Math.max(0, q.r - q.l) * Math.max(0, q.b - q.t);
     const insets = rects.slice(1).filter((q) => area(q) > 1 && holes.some((h) => q.l >= h.l - 0.5 && q.t >= h.t - 0.5 && q.r <= h.r + 0.5 && q.b <= h.b + 0.5 && area(h) > 1.3 * area(q)))
       .map((q) => ({ l: q.l, t: q.t, r: q.r, b: q.b, rad: q.rad }));
-    return { holes: holes.map((h) => Object.assign(h, { rad: match(h) })), mark: mark && Object.assign(mark, { rad: rects[0].rad }), insets };
+    return { holes: holes.map((h) => Object.assign(h, { rad: match(h) })), mark: anchorFirst && mark ? Object.assign(mark, { rad: rects[0].rad }) : null, insets };
+  }
+
+  // ---------------------------------------------------------------- v15.1: the spotlight inside a scrolling panel
+  // On a phone (notes/tour/PHONE.md) a panel that scrolls (a sheet, the chain bar) scrolls on the compositor: its
+  // content moves in a frame the page's script has not seen yet, so a spotlight drawn in fixed position over the page
+  // trails it by a frame or more during a touch scroll and its fling (the jiggle). There a lit part inside such a panel
+  // is drawn inside the panel: an SVG at the panel's content origin, above its content, so its shade and ring scroll
+  // with the content in the same frame, with no script. The fixed shade leaves a window over the panel's visible box,
+  // which does not move while the panel scrolls.
+  const phoneL = () => { try { return narrow() || document.documentElement.classList.contains('ph'); } catch (e) { return false; } };
+  // the panel that scrolls e (null: none, or e does not move with it: fixed or sticky on the way)
+  function scrollerOf(e) {
+    if (/^(fixed|sticky)$/.test(getComputedStyle(e).position)) return null;
+    for (let a = e.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if ((/(auto|scroll|overlay)/.test(cs.overflowY) && a.scrollHeight > a.clientHeight + 1) || (/(auto|scroll|overlay)/.test(cs.overflowX) && a.scrollWidth > a.clientWidth + 1)) return a;
+      if (/^(fixed|sticky)$/.test(cs.position)) return null;
+    }
+    return null;
+  }
+  // a static panel becomes the drawing's containing block (position: relative) only when no absolutely positioned
+  // element inside it is placed from a box outside it (it would move); once per panel and step
+  function canHost(ui, H) {
+    if (ui.hostOk.has(H)) return ui.hostOk.get(H);
+    const hs = getComputedStyle(H);
+    // (a panel that fades its own content with an opacity would fade the shade drawn in it too, and its background
+    // would show undimmed through the window: drawn over the page instead. A mask, the chain bar's scroll fades, is
+    // taken off while the panel hosts (review-phone phone-3): its edges are the shade's then)
+    let ok = !(parseFloat(hs.opacity) < 1);
+    if (ok && hs.position === 'static') {
+      for (const d of H.querySelectorAll('*')) {
+        const op = d.offsetParent;
+        if (!op || H.contains(op)) continue;
+        const cs = getComputedStyle(d);
+        // (an empty box that clips, the chain's listbox for screen readers, shows nothing wherever it moves)
+        if (cs.position === 'absolute' && !(d.offsetWidth === 0 && d.offsetHeight === 0 && /(hidden|clip)/.test(cs.overflowX + cs.overflowY))) { ok = false; break; }
+      }
+    }
+    ui.hostOk.set(H, ok);
+    return ok;
+  }
+  function hostSvg(ui, H) {
+    let h = ui.hosts.get(H);
+    if (h && h.svg.parentNode === H) return h;
+    if (h) dropHost(ui, H);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'tour-dim tour-host'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('data-tour', 'host');
+    svg.setAttribute('width', '1'); svg.setAttribute('height', '1');
+    const mk = (cls) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('class', cls); svg.append(p); return p; };
+    const shade = mk('tour-shade');
+    shade.setAttribute('fill-rule', 'evenodd');
+    const glow = mk('tour-glow'), ring = mk('tour-ring'), mark = mk('tour-mark');
+    // a touch on the dimmed part of the panel still scrolls it (nothing is prevented) but reaches none of its controls
+    const stopIt = (e) => { e.stopPropagation(); if (e.type === 'click' || e.type === 'contextmenu') e.preventDefault(); };
+    for (const t of ['pointerdown', 'pointerup', 'mousedown', 'click', 'dblclick', 'contextmenu']) shade.addEventListener(t, stopIt);
+    shade.addEventListener('touchstart', stopIt, { passive: true });
+    // (review-phone phone-6: the panel's own style is recorded on the panel by the first drawing in it, and put back by
+    // the last one out, so a run that starts while the last one's drawing fades out keeps the panel set up)
+    if (!H.querySelector(':scope > svg.tour-host') && !('tourHost' in H.dataset)) {
+      H.dataset.tourHost = JSON.stringify([H.style.position, H.style.maskImage, H.style.webkitMaskImage, H.style.overscrollBehavior]);
+      if (getComputedStyle(H).position === 'static') H.style.position = 'relative';
+      // (no rubber band at the panel's ends while it hosts: the bounce moves the content past its own edge, where the
+      // drawing's layer ends, and showed an undimmed strip at the panel's edge for a moment)
+      H.style.overscrollBehavior = 'none';
+      const hs = getComputedStyle(H), faded = (v) => v && v !== 'none';
+      if (faded(hs.maskImage) || faded(hs.webkitMaskImage)) { H.style.maskImage = 'none'; H.style.webkitMaskImage = 'none'; }
+    }
+    H.append(svg);
+    h = { H, svg, shade, glow, ring, mark, sig: '' };
+    ui.hosts.set(H, h);
+    return h;
+  }
+  function dropHost(ui, H) {
+    const h = ui.hosts.get(H);
+    if (!h) return;
+    h.svg.remove();
+    ui.hosts.delete(H);
+    if (H.querySelector(':scope > svg.tour-host') || !('tourHost' in H.dataset)) return;
+    try { const [pos, m, wm, ob] = JSON.parse(H.dataset.tourHost); H.style.position = pos; H.style.maskImage = m; H.style.webkitMaskImage = wm; H.style.overscrollBehavior = ob || ''; } catch (e) { /* */ }
+    delete H.dataset.tourHost;
+  }
+  // a hosted part's lit rect in its panel's content px (origin ox, oy in client px): its box cut only by what clips it
+  // inside the panel (the panel's own clip cuts the drawing natively)
+  function hostRect(q, H, pad, ox, oy) {
+    const full = partBox(q);
+    let l = full.left, t = full.top, rr = full.right, b = full.bottom;
+    for (let a = q.el.parentElement; a && a !== H; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if ((cs.overflowX === 'visible' && cs.overflowY === 'visible') || cs.display === 'contents') continue;
+      const z = a.getBoundingClientRect();
+      if (z.width === 0 && z.height === 0) continue;
+      l = Math.max(l, z.left); t = Math.max(t, z.top); rr = Math.min(rr, z.right); b = Math.min(b, z.bottom);
+    }
+    if (rr - l < 0.5 || b - t < 0.5) return null;
+    const cut = [t > full.top + 0.5, rr < full.right - 0.5, b < full.bottom - 0.5, l > full.left + 0.5];
+    const k = q.rect ? [0, 0, 0, 0] : radii(q.el);
+    const rad = [cut[0] || cut[3] ? 0 : k[0], cut[0] || cut[1] ? 0 : k[1], cut[2] || cut[1] ? 0 : k[2], cut[2] || cut[3] ? 0 : k[3]].map((x) => (x > 0 ? x + pad : 0));
+    return { l: l - pad - ox, t: t - pad - oy, r: rr + pad - ox, b: b + pad - oy, rad };
+  }
+  // A phone's drawing plan: null when no lit part is inside a panel that scrolls. Else { outer: { holes, marks } (the
+  // parts drawn over the page), wins (each panel's visible box: a window in the fixed shade, with no ring), inner: [{ h,
+  // holes, marks, ext, sig }] (in each panel's content px) }. A panel whose window would overlap a part drawn over the
+  // page is not used (the even-odd shade would dim their overlap twice).
+  function hostPlan(r, step, tgt) {
+    const ui = r.ui;
+    if (!tgt || !phoneL()) return null;
+    const parts = litParts(step, tgt);
+    const hs = parts.map((q) => { const H = scrollerOf(q.el); return H && canHost(ui, H) ? H : null; });
+    if (!hs.some(Boolean)) return null;
+    const pad = step.pad != null ? step.pad : 0, vp = vpSize();
+    const outerOf = (q, i) => { const pr = partRect(q, pad); return pr.hidden || (i > 0 && !(pr.r - pr.l > 0.5 && pr.b - pr.t > 0.5)) ? null : pr; };
+    const winOf = (H) => {
+      const b = H.getBoundingClientRect(), l = b.left + H.clientLeft, t = b.top + H.clientTop;
+      const s = seenBox(H, { left: l, top: t, right: l + H.clientWidth, bottom: t + H.clientHeight });
+      const w = { l: Math.max(0, s.l), t: Math.max(0, s.t), r: Math.min(vp.w, s.r), b: Math.min(vp.h, s.b), rad: [0, 0, 0, 0] };
+      return w.r - w.l >= 1 && w.b - w.t >= 1 ? w : null;
+    };
+    const outer = [], groups = new Map(), wins = new Map();
+    parts.forEach((q, i) => { if (hs[i]) { if (!groups.has(hs[i])) groups.set(hs[i], []); groups.get(hs[i]).push({ q, i }); } });
+    for (const H of groups.keys()) wins.set(H, winOf(H));
+    const ov = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+    parts.forEach((q, i) => { if (!hs[i]) { const pr = outerOf(q, i); if (pr) outer.push({ pr, i }); } });
+    for (const [H, list] of [...groups]) {
+      const w = wins.get(H);
+      if (w && !outer.some((o) => ov(o.pr, w) > 1)) continue;
+      // (no window, or it overlaps a part drawn over the page: this panel's parts are drawn over the page too)
+      groups.delete(H); wins.delete(H);
+      for (const { q, i } of list) { const pr = outerOf(q, i); if (pr) outer.push({ pr, i }); }
+    }
+    for (const H of [...ui.hosts.keys()]) if (!groups.has(H)) dropHost(ui, H);
+    if (!groups.size) return null;
+    outer.sort((a, b) => a.i - b.i);
+    const inner = [];
+    const qz = (h) => [h.l, h.t, h.r, h.b].map((v) => Math.round(v * 4) / 4).join(' ');
+    for (const [H, list] of groups) {
+      const h = hostSvg(ui, H), o = h.svg.getBoundingClientRect();
+      const a = areasOf(list.map(({ q }) => hostRect(q, H, pad, o.left, o.top)).filter(Boolean), list[0].i === 0);
+      const x = { h, H, holes: a.holes, marks: [a.mark, ...a.insets].filter(Boolean), ext: { w: H.scrollWidth, h: H.scrollHeight } };
+      x.sig = x.holes.map(qz).join(',') + '|' + x.holes.map((q) => q.rad.join(' ')).join(',') + '|' + x.marks.map(qz).join(',') + '|' + x.ext.w + 'x' + x.ext.h;
+      inner.push(x);
+    }
+    const out = areasOf(outer.map((o) => o.pr), !!outer.length && outer[0].i === 0);
+    return { outer: { holes: out.holes, marks: [out.mark, ...out.insets].filter(Boolean) }, wins: [...wins.values()], inner };
+  }
+  function drawHost(x) {
+    const { h, holes, marks, ext } = x;
+    // (well past the content's edges, an iOS overscroll included: the panel's own clip cuts the shade to its box)
+    const E = 4000;
+    h.shade.setAttribute('d', `M${-E} ${-E}H${ext.w + E}V${ext.h + E}H${-E}Z` + holes.map(rrPath).join(''));
+    h.ring.setAttribute('d', holes.map((q) => rrPath(grow(q, 0.75))).join(''));
+    h.glow.setAttribute('d', holes.map((q) => rrPath(grow(q, 3.5))).join(''));
+    h.mark.setAttribute('d', marks.map((m) => rrPath(grow(m, 0.75))).join(''));
+    h.sig = x.sig;
+  }
+  // the rings over the page fade while something moves that they can only follow by script (a fling of the page or
+  // of a panel not drawn in, a sliding sheet): a ring a frame behind its target is the jiggle
+  function moving(ui, ms0) {
+    ui.rsvg.classList.add('moving');
+    clearTimeout(ui.moveT);
+    ui.moveT = setTimeout(() => ui.rsvg.classList.remove('moving'), ms0 || 160);
+  }
+  // (review-phone phone-3) a panel the spotlight is drawn inside, scrolled until the step's anchor is wholly out of its
+  // visible box (a swipe from the lit + of the chain bar): once the panel is still and no finger is down, it scrolls
+  // back just far enough to show the anchor again
+  // a step's title starts with a capital letter: a key shared with a phrase used mid-sentence ('Cauchy integral',
+  // «интеграл Коши» in a pane's title) is capitalized here; review-phone-verify extra-ru-cauchy
+  const stepTitle = (st) => { const t = $t(st.title); return /^[а-яё]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t; };
+  const BACK_MS = 1800;   // (after the last scroll of the panel, or the finger's lift)
+  function bringBack(r, H) {
+    const ui = r.ui;
+    ui.backH = null;
+    if (!r.step || !r.tgt || !ui.hosts.has(H)) return;
+    const q = r.tgt.parts[0];
+    if (!q || !q.el || !H.contains(q.el)) return;
+    if (ui.touching) { ui.backH = H; return; }
+    const b = partBox(q), z = H.getBoundingClientRect();
+    const l = z.left + H.clientLeft, t = z.top + H.clientTop, rr = l + H.clientWidth, bb = t + H.clientHeight, m = 8;
+    const outX = b.right <= l + 1 || b.left >= rr - 1, outY = b.bottom <= t + 1 || b.top >= bb - 1;
+    if (!outX && !outY) return;
+    const dx = outX ? (b.left < l ? b.left - l - m : b.right - rr + m) : 0, dy = outY ? (b.top < t ? b.top - t - m : b.bottom - bb + m) : 0;
+    try { H.scrollBy({ left: dx, top: dy, behavior: reduced() ? 'auto' : 'smooth' }); } catch (e) { H.scrollLeft += dx; H.scrollTop += dy; }
+  }
+  // (v15.1) the visual viewport at the page's own scale (a phone's keyboard, its URL bar): what lies outside it counts
+  // as unsafe, so the callout stays in sight. Pinch-zoomed in, the page is the user's to pan: the callout is not chased.
+  function viewSafe(sf, vp) {
+    const v = typeof visualViewport !== 'undefined' ? visualViewport : null;
+    if (!v || !(v.scale <= 1.01)) return sf;
+    return { t: Math.max(sf.t || 0, v.offsetTop), l: Math.max(sf.l || 0, v.offsetLeft), b: Math.max(sf.b || 0, vp.h - v.offsetTop - v.height), r: Math.max(sf.r || 0, vp.w - v.offsetLeft - v.width) };
+  }
+  const inRects = (x, y, rs) => (rs || []).some((h) => x >= h.l && x <= h.r && y >= h.t && y <= h.b);
+  // the collapsed bar's text: the step's title and, on a Try it step, its task (review-phone phone-5) in its button, read
+  // out with the title (phone-8d); the count in short (phone-8c); Back as an icon (phone-8b); Next as on the whole step,
+  // "Next: <chapter>" (phone-8a), shortened by fitMini when the bar has no room for it
+  function miniText(ui, r, on) {
+    ui.grow.setAttribute('aria-expanded', 'false');
+    const tr = r.step ? tryOf(r.step) : null;
+    if (on) {
+      const task = tr ? plainCopy(tryFor(tr), modKey()) : '';
+      ui.growT.textContent = ui.title.textContent;
+      ui.growKT.textContent = task;
+      ui.growK.hidden = !tr;
+      ui.growK.classList.toggle('done', ui.tryBox.classList.contains('done'));
+      ui.card.classList.toggle('has-task', !!tr);
+      // (each part ends in one full stop: a task that ends in its own stop gets no second one)
+      const end = (t) => (/[.!?…]\s*$/.test(t) ? t.trim() : t + '.') + ' ';
+      ui.grow.setAttribute('aria-label', end(ui.title.textContent) + (tr ? end($t('Try it') + ': ' + task) : '') + $t('Show the whole step'));
+      ui.count.textContent = r.countShort || r.countText || '';
+      ui.count.setAttribute('aria-label', r.countText || '');
+      ui.mback.hidden = ui.back.hidden;
+      if (ui.next.dataset.full) { ui.next.textContent = ui.next.dataset.full; ui.next.removeAttribute('aria-label'); }
+    } else {
+      ui.card.classList.remove('has-task');
+      ui.count.removeAttribute('aria-label');
+      ui.count.textContent = ui.next.dataset.full ? '' : r.countText || '';
+    }
+  }
+  // the bar's Next: "Next: <chapter>" while the title keeps 120 px, else "Next →" (its full label its accessible name)
+  function fitMini(ui) {
+    const n = ui.next;
+    if (!n.dataset.full || ui.grow.offsetWidth >= 120) return false;
+    n.textContent = n.dataset.short + ' →'; n.setAttribute('aria-label', n.dataset.full);
+    return true;
   }
   // A second lit area the app itself covers (v15, a short desktop window: the chain under the Inspector) is not lit:
   // at its centre and four inner points the topmost element of the app, the tour and the open layers aside, is
   // another element. (The anchor is never dropped this way.)
   function covered(e) {
     if (!e || !e.isConnected || typeof document.elementsFromPoint !== 'function') return false;
-    const b = e.getBoundingClientRect(), vp = vpSize(), lay = layerEls();
+    // (a part inside an open layer, the lens in a phone's sheet, is covered only by what is above it in that layer)
+    const b = e.getBoundingClientRect(), vp = vpSize(), lay = layerEls().filter((k) => !k.contains(e));
     let n = 0;
     for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
       const x = b.left + fx * b.width, y = b.top + fy * b.height;
@@ -1677,7 +2064,8 @@ const Tour = (() => {
     ui.ro.disconnect(); ui.roSet = new Set();
     const els = [ui.card, document.documentElement];
     if (r.tgt) els.push(...r.tgt.parts.map((q) => q.el));
-    for (const a of [].concat((r.step && r.step.also) || [])) { const t = anchorOf(a); if (t) els.push(...t.parts.map((q) => q.el)); }
+    const tr = r.step ? tryOf(r.step) : null;
+    for (const a of [].concat((r.step && r.step.also) || [], (tr && tr.work) || [])) { const t = anchorOf(a); if (t) els.push(...t.parts.map((q) => q.el)); }
     watch(ui, els);
   }
   // "Next: <chapter>" shortens to "Next" (the full label stays its accessible name) when it would not fit the row
@@ -1708,19 +2096,31 @@ const Tour = (() => {
     const ui = r.ui, step = r.step;
     // the anchor went away while the step shows (a panel closed, the layout changed): another match, or a centred card
     if (r.el && !visible(r.el)) { const t = anchorOf(step.anchor); if (t) { r.tgt = t; r.el = t.el; } }
-    const { holes, mark, insets } = holesFor(step, r.el && visible(r.el) ? r.tgt : null);
+    const tgtNow = r.el && visible(r.el) ? r.tgt : null;
+    const { holes, mark, insets } = holesFor(step, tgtNow);
     const marks = [mark, ...(insets || [])].filter(Boolean);
     const layers = appLayers();
     watch(ui, layerEls());
-    const safe = safeArea(ui), vp = vpSize(), nar = narrow();
+    const safe0 = safeArea(ui), vp = vpSize(), nar = narrow();
     const card = ui.card;
     const block = layers.map((k) => ({ l: k.l, t: k.t, r: k.r, b: k.b }));
-    // the whole callout's size: measured afresh unless it is docked and nothing that sets it has changed since (no
-    // undocking and redocking in every frame while a layer stays open)
+    // v15.1, a phone: the parts inside a scrolling panel are drawn inside it (hostPlan). The step's work area is every
+    // lit area, and the whole visible box of a panel that holds one (the user scrolls it): the callout keeps clear of
+    // it, and a touch in it folds the whole step back into its bar. The visual viewport bounds the callout too.
+    const ph = phoneL();
+    const plan = hostPlan(r, step, tgtNow);
+    if (!plan) for (const H of [...ui.hosts.keys()]) dropHost(ui, H);
+    const wins = plan ? plan.wins : [];
+    if (plan) watch(ui, plan.inner.map((x) => x.H));
+    ui.work = holes.concat(wins).map((h) => ({ l: h.l, t: h.t, r: h.r, b: h.b }));
+    const safe = ph ? viewSafe(safe0, vp) : safe0;
+    // the whole callout's size: measured afresh unless it is docked (or a phone's bar) and nothing that sets it has
+    // changed since (no undocking and redocking in every frame while a layer stays open)
     const key = [r.seq, vp.w, vp.h, nar, ui.title.textContent.length, ui.body.childNodes.length].join(',');
     let size;
-    if (card.classList.contains('docked') && ui.full && ui.full.key === key) size = ui.full.size;
+    if ((card.classList.contains('docked') || card.classList.contains('mini')) && ui.full && ui.full.key === key) size = ui.full.size;
     else {
+      if (card.classList.contains('mini')) { card.classList.remove('mini', 'slim'); miniText(ui, r, false); }
       card.classList.toggle('sheet', nar);
       card.classList.remove('docked', 'tight');
       card.style.width = ''; card.style.minWidth = '';
@@ -1754,9 +2154,48 @@ const Tour = (() => {
     }
     // beside the anchor's area, clear of every lit area; the pointer aims at the anchor itself when it sits in a lit panel
     let p = place(holes[0] || null, size, vp, {
-      prefer: step.place, others: holes.slice(1), point: mark ? { x: (mark.l + mark.r) / 2, y: (mark.t + mark.b) / 2 } : null,
-      avoid: () => controlsIn(r.el), safe, block,
+      prefer: step.place, others: holes.slice(1).concat(wins), point: mark ? { x: (mark.l + mark.r) / 2, y: (mark.t + mark.b) / 2 } : null,
+      // (review-phone phone-10: the bar only on a touch screen; a narrow window with a mouse keeps v15's card)
+      avoid: () => controlsIn(r.el), safe, block, mini: ph && coarse() && !ui.expanded,
     });
+    // (a phone: the callout stays where it is, collapsed or whole, while it keeps as clear of the work area and the
+    // layers as when it was placed: it never chases a scroll, a fling or a sliding sheet)
+    const pkey = [r.seq, vp.w, vp.h, size.w, size.h, ui.expanded].join(',');
+    // (review-phone phone-7: the bar is kept only while place() still asks for it: nothing lit any more, the whole card)
+    const lp = ph && !stepChange && ui.lastP && ui.lastP.key === pkey && p.mode !== 'dock' ? ui.lastP : null;
+    const prevMini = lp && lp.p.mode === 'mini' && p.mode === 'mini' ? lp.p : null;
+    if (lp && !prevMini && lp.p.mode !== 'mini' && lp.p.mode !== 'dock' && overArea(size, lp.p.x, lp.p.y, ui.work, 0) <= lp.o + 1 && overArea(size, lp.p.x, lp.p.y, block, 8) === 0) p = lp.p;
+    else ui.lastP = ph && p.mode !== 'mini' ? { key: pkey, p, o: p.mode === 'dock' ? 0 : overArea(size, p.x, p.y, ui.work, 0) } : ui.lastP;
+    if (p.mode === 'mini') {
+      // the one-line bar at an edge: the step's title (and task), Back, the count and Next; it stays where it was while
+      // that is still clear (placeMini's prev), else moves (review-phone phone-4: never over the work area while a clear
+      // place exists; no room clear of an open layer: docked)
+      card.classList.remove('sheet', 'docked', 'tight');
+      card.style.minWidth = '';
+      card.classList.remove('slim');
+      card.classList.add('mini');
+      miniText(ui, r, true);
+      const full = vp.w - 16 - (safe.l || 0) - (safe.r || 0);
+      card.style.width = full + 'px';
+      const bar = { w: full, h: card.offsetHeight };
+      let pad = 6;
+      try { const cs = getComputedStyle(card.querySelector('.tour-in')); pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom); } catch (e) { /* */ }
+      const pm = placeMini(bar, vp, { safe, work: ui.work, block, anchor: holes[0], prev: prevMini, minW: Math.min(full, 240), slimH: bar.h - pad });
+      if (pm) {
+        p = pm; size = { w: pm.w, h: pm.h };
+        card.classList.toggle('slim', pm.slim);
+        card.style.width = pm.w + 'px';
+        fitMini(ui);
+        ui.lastP = { key: pkey, p: pm, o: 0 };
+      } else { card.classList.remove('mini', 'slim'); card.style.width = ''; miniText(ui, r, false); fitNext(ui); p = { mode: 'dock', side: null, x: 0, y: 0, caret: null }; }
+    } else if (card.classList.contains('mini')) {
+      // (unfolded: the whole step, at the size measured for it)
+      card.classList.remove('mini', 'slim');
+      card.style.width = '';
+      miniText(ui, r, false);
+      card.classList.toggle('sheet', nar && p.mode !== 'dock');
+      fitNext(ui);
+    }
     if (p.mode === 'dock') {
       card.classList.remove('sheet');
       card.classList.add('docked');
@@ -1778,27 +2217,34 @@ const Tour = (() => {
       card.style.width = ''; card.style.minWidth = '';
       card.classList.toggle('sheet', nar);
     }
+    // (the whole step over the work area, shown from the bar: a button folds it back)
+    card.classList.toggle('over', ph && p.mode !== 'mini' && p.mode !== 'dock' && ui.expanded && overArea(size, p.x, p.y, ui.work, 0) > 0);
     // the focus goes back to the callout when the layers it left for close (⌘K from Next, then Esc)
     refocus(ui, layers.length);
     card.dataset.side = p.mode === 'side' && p.caret != null ? p.side : '';
-    card.dataset.edge = p.mode === 'sheet' || p.mode === 'dock' ? p.side : '';
+    card.dataset.edge = p.mode === 'sheet' || p.mode === 'dock' || p.mode === 'mini' ? p.side : '';
     card.style.top = p.y + 'px';
-    card.style.left = nar && p.mode !== 'dock' ? '' : p.x + 'px';
+    card.style.left = nar && p.mode !== 'dock' && p.mode !== 'mini' ? '' : p.x + 'px';
     if (p.caret != null) card.style.setProperty('--caret', p.caret + 'px');
     // a toast (an Undo after a delete) moves clear of the callout, and the rings keep off it like off a layer
     const sheetL = 12 + (safe.l || 0);
-    const cr = nar && p.mode !== 'dock' ? { l: sheetL, t: p.y, r: vp.w - 12 - (safe.r || 0), b: p.y + size.h } : { l: p.x, t: p.y, r: p.x + size.w, b: p.y + size.h };
+    const cr = nar && p.mode !== 'dock' && p.mode !== 'mini' ? { l: sheetL, t: p.y, r: vp.w - 12 - (safe.r || 0), b: p.y + size.h } : { l: p.x, t: p.y, r: p.x + size.w, b: p.y + size.h };
     const toasts = guardToast(ui, cr, vp, safe);
     const masked = toasts.length ? layers.concat(toasts) : layers;
     const q = (h) => [h.l, h.t, h.r, h.b].map((v) => Math.round(v * 4) / 4);
-    const sig = JSON.stringify([holes.map(q), marks.map(q), block.map(q), toasts.map(q), holes.map((h) => h.rad)]) + [p.x, p.y, p.mode, p.side, size.w, size.h, vp.w, vp.h].join(',');
+    // (v15.1: with a plan, the fixed layer draws the parts outside the panels and a window over each panel; each panel
+    // draws its own parts, in its content px, which a scroll of the panel does not change)
+    const oHoles = plan ? plan.outer.holes : holes, oMarks = plan ? plan.outer.marks : marks;
+    const dsig = JSON.stringify([oHoles.map(q), oMarks.map(q), wins.map(q), oHoles.map((h) => h.rad)]) + (plan ? plan.inner.map((x) => x.sig).join(';') : '');
+    ui.drawSig = dsig;
+    const sig = dsig + JSON.stringify([block.map(q), toasts.map(q)]) + [p.x, p.y, p.mode, p.side, size.w, size.h, vp.w, vp.h].join(',');
     const changed = sig !== r.tracked;
     r.tracked = sig;
     if (stepChange) {
       const dur = reduced() ? 0 : ms(getComputedStyle(document.documentElement).getPropertyValue('--t-slow'), 240);
       // (no morph when the lit area stays where it is: the inner ring shows at once)
       const same = ui.holes && ui.holes.length === holes.length && ui.holes.every((h, i) => Math.max(Math.abs(h.l - holes[i].l), Math.abs(h.t - holes[i].t), Math.abs(h.r - holes[i].r), Math.abs(h.b - holes[i].b)) < 1);
-      ui.anim = dur && !same && ui.holes && ui.holes.length && holes.length ? { from: ui.holes.slice(), t0: performance.now(), dur } : null;
+      ui.anim = dur && !same && !plan && ui.holes && ui.holes.length && holes.length ? { from: ui.holes.slice(), t0: performance.now(), dur } : null;
       card.classList.add('entering');
       requestAnimationFrame(() => card.classList.remove('entering'));
     }
@@ -1810,7 +2256,9 @@ const Tour = (() => {
       if (u < 1) { drawHoles(ui, between(ui.anim.from, holes, u), null, masked); kick(2); return true; }
       ui.anim = null; ended = true;
     }
-    if (changed || ended || stepChange) { drawHoles(ui, holes, marks, masked); guardTip(r); }
+    if (changed || ended || stepChange) { drawHoles(ui, oHoles, oMarks, masked, wins); guardTip(r); }
+    if (plan) for (const x of plan.inner) if (stepChange || x.h.sig !== x.sig) drawHost(x);
+    ui.holes = holes;
     return changed;
   }
   // The focus and the app's layers: when the first layer opens with the focus in the callout (or a key from it just
@@ -1884,6 +2332,7 @@ const Tour = (() => {
       if (++hits < (t.count || 1)) return;
       fired = true;
       r.ui.tryBox.classList.add('done');
+      r.ui.growK.classList.add('done');
       r.ui.next.classList.add('ready');
       r.ui.live.textContent = $t('Done.');
       if (t.advance) setTimeout(() => { if (run === r && r.step === step) go(1); }, reduced() ? 300 : 700);
@@ -1912,9 +2361,9 @@ const Tour = (() => {
     save();
     const ui = r.ui;
     ui.card.classList.add('closing');
-    for (const g of [ui.svg, ui.rsvg]) { g.style.transition = reduced() ? '' : 'opacity 120ms linear'; g.style.opacity = '0'; }
+    for (const g of [ui.svg, ui.rsvg, ...[...ui.hosts.values()].map((h) => h.svg)]) { g.style.transition = reduced() ? '' : 'opacity 120ms linear'; g.style.opacity = '0'; }
     ui.raf = 0;
-    setTimeout(() => { ui.root.remove(); ui.top.remove(); }, reduced() ? 0 : 140);
+    setTimeout(() => { ui.root.remove(); ui.top.remove(); for (const H of [...ui.hosts.keys()]) dropHost(ui, H); }, reduced() ? 0 : 140);
     if (opt.keepWork) return;
     // the user's work comes back exactly as it was; the message says so only when it did
     const back = giveBack(r.lend, false);
@@ -2068,7 +2517,7 @@ const Tour = (() => {
     const resume = rec.last && CHAPTERS.find((c) => c.id === rec.last.ch);
     if (resume && !(rec.last.i === 0 && rec.last.ch === 'basics')) {
       const st = resume.steps[Math.min(rec.last.i, resume.steps.length - 1)];
-      kids.push(mi('tour-continue', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Continue the tour'))}<span class="tour-sub">${esc($t(resume.title))}: ${esc($t(st.title))}</span></span>`,
+      kids.push(mi('tour-continue', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Continue the tour'))}<span class="tour-sub">${esc($t(resume.title))}: ${esc(stepTitle(st))}</span></span>`,
         () => start({ chapter: resume.id, step: rec.last.i, opener: anchor })));
     } else {
       kids.push(mi('', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Take the tour'))}</span><span class="mi-key">${esc($t('2 min'))}</span>`, () => start({ chapter: 'basics', opener: anchor })));
@@ -2185,12 +2634,13 @@ const Tour = (() => {
       const a = run.el && run.el.isConnected ? run.el.getBoundingClientRect() : null;
       return { holes: run.ui.holes.map((h) => ({ l: h.l, t: h.t, r: h.r, b: h.b })), side: run.ui.card.dataset.side || null, edge: run.ui.card.dataset.edge || null,
         anchor: a ? { l: a.left, t: a.top, r: a.right, b: a.bottom } : null, scenes: run.scenes, scene: run.scene == null ? null : run.scene,
-        docked: run.ui.card.classList.contains('docked'), layers: appLayers().length, moving: !!run.ui.anim || run.ui.card.getAttribute('aria-busy') === 'true', skipped: skippedList() };
+        docked: run.ui.card.classList.contains('docked'), mini: run.ui.card.classList.contains('mini'), expanded: !!run.ui.expanded,
+        work: (run.ui.work || []).map((h) => ({ l: h.l, t: h.t, r: h.r, b: h.b })), hosted: run.ui.hosts.size, layers: appLayers().length, moving: !!run.ui.anim || run.ui.card.getAttribute('aria-busy') === 'true', skipped: skippedList() };
     },
     // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
     skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, place, placeDock, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, probeInOut, SUGGEST_MAX, KEY, STASH, LIVE, dockGutter, clippedAway },
+    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, place, placeDock, placeMini, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, probeInOut, SUGGEST_MAX, KEY, STASH, LIVE, dockGutter, clippedAway },
   };
   return Tour;
 })();

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "vp-1",
+    "severity": "medium",
+    "title": "The preview is softer than the video, and much softer on a retina screen or a long timeline: the 192 MB budget, not the display, sets the kept size",
+    "detail": "makePreview keeps every unique frame as an uncompressed RGBA ImageBitmap. The kept scale is min(cssW*dpr/W, sqrt(PV_BUDGET/(4*U*W*H))). With the default options (1920x1080, 30 fps, 3 s per step, Once, 2 steps, so 181 unique frames) the budget gives 687 x 386, whatever the screen. At DPR 2 the dialog shows that at 743 x 418 CSS px, which is 1486 x 836 device px: a 2.16x upscale. That is softer than the 960 px poster it replaces, so the picture visibly blurs when playback takes over. With 1920x1080, 60 fps, 6 s per step and Loop (721 unique frames), frames are kept at 344 x 194 and shown at 743 x 418. The t label and the tick numbers are unreadable blocks. A user could easily think the saved video will look like that. The note \"scaled to 344 x 194\" is accurate, but it does not tell anyone that the video itself is sharp. This cuts against the user's 'quality first' rule.",
+    "evidence": "Headless Chrome, Phase, Example 1, 2 steps. DPR 2, default options: state pw/ph = 687 x 386, canvas CSS 743 x 418, devicePixelRatio 2 (t3). DPR 1, 1920x1080/60 fps/6 s/Loop/Print: pw/ph = 344 x 194, n = 2793, total = 721; screenshot work/xvv/test/rvp_cdp/shots/t1-phase-1080-60-loop-print.png shows the labels as illegible blocks. All four views at DPR 1 with default options: 687 x 386 for a 743 px box (t2).",
+    "fix": "Keep frames at the shown device-pixel size and store them compressed. Options: (a) encode each scaled frame once to a WebP or JPEG Blob at about q 0.92 (roughly 60-150 KB at 1486 px) and decode a few frames ahead with createImageBitmap into a small ring of bitmaps; (b) encode the preview with the same VideoEncoder at display size and play it through a VideoDecoder or a <video> element. Either way the budget stops controlling sharpness. At the least, never keep frames below the poster's 960 px while the box is wider than that, and make the note say \"the video itself is W x H\" when frames are reduced."
+  },
+  {
+    "id": "vp-2",
+    "severity": "low",
+    "title": "During the restart after an option change, Play/Pause and the scrubber act on nothing: a Play click is lost, and the bar shows the old video",
+    "detail": "posterSoon() calls pv.stop(), which sets P.playing = false and run = null but does not call ui.playing(). The bar keeps showing the old video's length, scrubber and button label, and the note still says \"the frames of the video itself\". This lasts at least 150 ms plus the poster render, about 0.3-0.7 s. A Play click in that window goes through pvToggle -> pv.toggle -> play(), which returns at once because run is null; then pvWant = pv.state().playing = false. The new preview therefore starts paused and the click is silently lost. Clicking a button labelled 'Pause' in the window gives the opposite of what the label promised when no pause was in effect. Dragging the scrubber in the window also sets pvWant = false with no visible effect.",
+    "evidence": "t5 (390 px, Russian): Play, then Pause, then Ends -> Bounce. 40 ms later the state is {id: 0, n: 0, btn: 'Воспроизвести', seek: [146, 210, '4,9 с из 7,0 с ...']}, the old bar. Click Play. Once the new run has frames: {id: 2, playing: false, btn: 'Воспроизвести'}, so the click was dropped. t3 (rapid Ends changes): during the restart, btn = 'Pause' while live = 0 and n = 0.",
+    "fix": "While no run exists, make pvToggle and the scrubber change only the wish: pvWant = !pvWant, then ui.playing(pvWant). Pass the wish to the next start. Disable or dim the bar while .xf-pv.busy is set, and set the note to 'Preview: drawing the frames, 0 %' (or blank it) in posterSoon."
+  },
+  {
+    "id": "vp-3",
+    "severity": "low",
+    "title": "Resizing the window does not refresh the kept frames: a bigger dialog upscales them, and the note keeps the old size",
+    "detail": "onResize calls fitPv, which changes only the CSS size of the poster and the canvas. The run keeps the pw/ph it got at start from cssW. Widening the window, rotating a tablet or phone to landscape, or opening the dialog in a narrow window and then maximising it all show the small frames stretched. Nothing restarts the preview.",
+    "evidence": "t4: the dialog opened at 390 px, then the viewport was set to 1440 px. Afterwards: kept 687 x 386, CSS 743 x 418, same run id 1, note unchanged. At 390 px with DPR 1 (t5) frames are kept at 306 x 172, so the same resize would show 306 px stretched to 743 px.",
+    "fix": "In onResize, when the new cssW*dpr is clearly more than the kept pw (for example by more than 1.25x) and the budget allows it, call posterSoon(), or a lighter pv.restart that keeps the position and the play state."
+  },
+  {
+    "id": "vp-4",
+    "severity": "low",
+    "title": "Autoplay shows the poster at the screen's t, then within about 0.1 s jumps to t = 0",
+    "detail": "The poster is the frame at the screen's t (for example 1.20). With autoplay, pv.start is called with at: 0, and the first frame is drawn about 100 ms after the poster. The 'poster first' therefore reads as a flash of one frame, then a jump to a different picture (the opening hold at t = 0). It looks like a glitch rather than a deliberate start.",
+    "evidence": "t1: tPoster 210 ms, tStart 103 ms later at i = 5. t3: a screenshot right after the poster's src was set already shows the canvas at 't = 0.00', not the poster's t = 1.2.",
+    "fix": "Either start playback at the poster's index (at = the poster's frame, as the paused case already does) and loop from there, or hold the poster until frame 0 is ready and cross-fade, so the jump reads as intended."
+  },
+  {
+    "id": "vp-5",
+    "severity": "low",
+    "title": "Under reduced motion all frames are still drawn in the background, and the note keeps saying 'Press Play' after the user scrubs",
+    "detail": "With prefers-reduced-motion the preview waits on the poster, but start() still draws the whole timeline at once: up to 192 MB of bitmaps and seconds of main-thread work, for a preview the user may never play. Separately, pvNoteText adds 'Paused: reduced motion is on. Press Play to watch.' only while !shown. The note is refreshed only by ui.playing and ui.fill, so after a scrub (shown = true) the old note stays.",
+    "evidence": "t5: reduced motion at 390 px, Russian. After 1.5 s: renders 121 of 121 with draws 0. Arrow Right on the scrubber gives shown = true and canvas visible, and the note still ends with '... Нажмите «Воспроизвести», чтобы посмотреть.'",
+    "fix": "With reduced motion, draw only the frame in view, plus neighbours on demand when the user scrubs. Start the full fill on the first Play. Refresh pvNote in ui.tick when shown changes, or call pvNote.textContent = pvNoteText() from ui.shown."
+  },
+  {
+    "id": "vp-6",
+    "severity": "low",
+    "title": "The scrubber's aria-valuetext changes 30-60 times a second while the video plays, so a screen reader on the scrubber chatters",
+    "detail": "ui.tick runs on every new frame. It sets pvRange.value and aria-valuetext and rebuilds the t span with new nodes. Focus alone (Tab onto the scrubber) does not pause; only an 'input' event does. Many screen readers announce value changes on a focused slider, so a keyboard user who tabs past the scrubber while it plays hears a stream of '3.3 s of 7.0 s, t = ...'.",
+    "evidence": "Code: figure.js, the tick callback in the dialog wiring: pvRange.setAttribute('aria-valuetext', ...) is called from loop() on each frame change. pvRange has no focus handler.",
+    "fix": "While playing, update aria-valuetext only when the scrubber is not focused, or at most once a second. Alternatively, pause on focus of the scrubber (as many players do) and update the text only when paused or on seek. Reuse the t span's text node instead of replaceChildren with new elements each frame."
+  },
+  {
+    "id": "vp-7",
+    "severity": "low",
+    "title": "192 MB of RGBA bitmaps per dialog is risky on phones and tablets (iOS Safari), and the drawing keeps running in a hidden tab",
+    "detail": "PV_BUDGET is fixed at 192e6 bytes, whatever the device. On iOS and iPadOS, Safari's canvas/bitmap memory limits are low (a few hundred MB for the whole page), and ImageBitmaps share that pool with the app's own WebGL canvases. A 390 px phone at DPR 3 reaches the cap with the default options (687 x 386 x 181 frames, about 192 MB). This was not testable here (headless Chrome only). Separately, slot() falls back to breathe() when document.hidden, so a hidden tab keeps drawing frames back to back at full CPU until the fill ends.",
+    "evidence": "t4 (390 px, DPR 3, 1920x1080 Loop): pw/ph 687 x 386, total 181, so about 192 MB kept. Code: slot = document.hidden ? breathe() : rAF.",
+    "fix": "Scale the budget to the device: for example 64 MB when navigator.deviceMemory <= 4, or on touch or phone layouts. Compressed storage (vp-1) removes most of this. When document.hidden, pause the fill and resume it on visibilitychange instead of spinning."
+  },
+  {
+    "id": "vp-8",
+    "severity": "info",
+    "title": "Checked and fine: smooth playback, no long tasks, clean restart, nothing left running after close, matching frames",
+    "detail": "Phase (plane), Phase on the sphere, Landscape, X->Y on the globe and the X->Y plane all ran at 1920x1080 30 fps. Phase also ran at 1920x1080 60 fps Loop Print, at DPR 1 and DPR 2, at 1440 and 390 px, in light and dark, in English and Russian, and with reduced motion. Results: no longtask entries while filling and playing; animation-frame p95 17-18.6 ms, with single gaps up to 39 ms (DPR 2) and 50 ms (390 px, DPR 3), and no long task behind them. The playhead advances at the video's rate. Five rapid Ends changes coalesce into one restart (runs 1 -> 2, live 1, old renders stop). Closing the dialog, including during the 150 ms poster debounce, leaves live 0 with renders and draws frozen for the next 1-1.5 s. The 390 px layout has no horizontal scroll (scrollWidth 390), the Russian bar and the four-line note fit, and the Russian strings and decimal commas are correct. The 'matches the saved video' claim was not re-measured here; the builder's export_cmd.js section 5 covers it for Once, a Loop fade and a globe Bounce.",
+    "evidence": "Probes t1-t5 run with the CDP kit copied to work/xvv/test/rvp_cdp on port 9032. Screenshots are in work/xvv/test/rvp_cdp/shots/ (t1-phase-1080-60-loop-print, t2-*, t3-dpr2-*, t4-390-ru-dark, t4-resized-1440, t5-390-ru-reduced).",
+    "fix": "None needed. A test gap remains: section 5 tests only 1280x720 at 30 fps and DPR 1. Add one budget-limited case (60 fps Loop) and one DPR 2 case, and assert pw >= min(W, cssW*dpr) or whatever floor vp-1 settles on."
+  }
+]

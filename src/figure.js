@@ -2149,13 +2149,14 @@ const Figure = (() => {
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
   function captionFor(o, view, body) {
     const ru = capRu();
-    const c = A.capParts({ letters: !!PRESET[o.for].named });
+    const fi = body.info || {};
+    // (export review r3, verify2-new-1: a globe figure's points on the far side are not in its list of what it shows)
+    const c = A.capParts({ letters: !!PRESET[o.for].named, skip: (fi.globePaths || fi.film === 'globe') && fi.hidden && fi.hidden.length ? fi.hidden.map((x) => x.z) : null });
     // (round 3) F's formula is displayed, not inline: the caption names F (MAPTOK), and displayF sets
     // F(z) = ... as a displayed equation after the sentence that names F first
     const map = c.raw ? MAPTOK : c.mapTex ? `$${c.mapTex}$` : `$${c.Fname}$`;
     // Phase and Landscape of the deformation: the picture is H_t at the current t
     const hm = c.hm && (view === 'phase' || view === 'land' || view === 'xyL');
-    const fi = body.info || {};
     if (fi.film || fi.globePaths) {
       const ts = joinL(fi.ts ? fi.ts.map((t, k) => $t('(%{letter}) $t=%{t}$', { letter: ru ? RU_LETTERS[k] : String.fromCharCode(97 + k), t: fi.labs[k] })) : []);
       const along = homSentence(c, map);
@@ -2999,6 +3000,256 @@ const Figure = (() => {
     await videoFrame(plan, t, c.getContext('2d', { alpha: false }));
     return { box: plan.box, screen: scr, t, frame: c.toDataURL('image/png') };
   }
+  // ---- (2026-10-24, VIDEO-PREVIEW.md) the dialog plays the video as it will be saved ----
+  // Every picture the preview shows is a frame of the video: videoFrame on the video's own plan at the video's own size
+  // (the exact render makeVideo encodes), scaled down once to the size the dialog shows it at in device pixels (never
+  // below that, never above the video's size) and kept. A hold shows its kept frame again; a fade of Loop blends two kept
+  // frames, as makeVideo does. The frames are drawn one per animation frame, coarse to fine (every 16th first), so the
+  // motion shows at once and fills in; until a frame is drawn its nearest drawn neighbour stands in. The clock runs at
+  // the video's frame rate over its whole timeline (holds, Loop's three runs, Bounce's way back) and starts again at
+  // the end.
+  // Keeping (review vp-1, vp-7): when all the frames fit in pvRaw() bytes they are kept as they are (bitmaps, exact);
+  // else each is kept compressed (WebP, or JPEG where WebP cannot be encoded, quality 0.92) and a few frames around the
+  // playhead are decoded ahead (createImageBitmap, off the main thread). So the size of the kept frames follows the
+  // screen, not the length of the timeline. pvRaw() is smaller on a phone, a tablet or a device with 4 GB or less.
+  const pvRaw = () => {
+    let low = false;
+    try { low = (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4) || matchMedia('(pointer: coarse)').matches; } catch (e) { /* no matchMedia */ }
+    return low ? 64e6 : 192e6;
+  };
+  const PV_Q = 0.92;
+  // the compressed format: WebP where this browser can encode it (it says so by the type of what it returns), else JPEG
+  let pvMimeP = null;
+  const pvMime = () => pvMimeP || (pvMimeP = (async () => {
+    try {
+      const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(2, 2) : Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
+      c.getContext('2d').fillRect(0, 0, 1, 1);
+      const b = c.convertToBlob ? await c.convertToBlob({ type: 'image/webp', quality: PV_Q }) : await new Promise((r) => c.toBlob(r, 'image/webp', PV_Q));
+      return b && b.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+    } catch (e) { return 'image/jpeg'; }
+  })());
+  const pvStats = { renders: 0, live: 0, runs: 0, draws: 0, decodes: 0 }; // (tests: frames drawn, previews alive, starts, pictures shown, frames decoded)
+  // the width the frames are kept at: the shown width in device pixels, at most the video's
+  const pvKeptW = (W, cssW) => Math.max(16, Math.min(W, Math.round(cssW * Math.max(1, window.devicePixelRatio || 1))));
+  function makePreview(cv, ui) {
+    const g = cv.getContext('2d', { alpha: false });
+    let run = null, raf = 0, clock = 0, pos0 = 0;
+    const P = { playing: false, i: 0, shown: false, drawn: -1 };
+    const tkey = (t) => t.toFixed(9);
+    // the next slot for a frame's render: just after the screen's frame (so a render of 5-15 ms fits before the next
+    // one). A hidden page draws nothing: the fill waits until the page is shown again (review vp-7)
+    const shownAgain = (q) => new Promise((r) => {
+      if (!document.hidden) { r(); return; }
+      const f = () => { if (!document.hidden || q.dead) { document.removeEventListener('visibilitychange', f); q.unhide = null; r(); } };
+      q.unhide = f; document.addEventListener('visibilitychange', f);
+    });
+    const slot = async (q) => { await shownAgain(q); if (q.dead) return; await new Promise((r) => requestAnimationFrame(() => { breathe().then(r); })); };
+    const idle = () => new Promise((r) => setTimeout(r, 150));
+    const has = (q, u) => (q.raw ? !!q.bm[u] : !!(q.bl[u] || q.pend.has(u)));
+    // the frame kept for unique time u, else its nearest kept neighbour (while the frames fill in); -1 if none
+    const near = (q, u) => { if (has(q, u)) return u; for (let d = 1; d < q.U.length; d++) { if (u - d >= 0 && has(q, u - d)) return u - d; if (u + d < q.U.length && has(q, u + d)) return u + d; } return -1; };
+    // the unique times timeline index i needs (one; two for a fade)
+    const need = (q, i) => { const e = q.times[i]; return typeof e === 'number' ? [q.ui[i]] : [q.uOf.get(tkey(e.a)), q.uOf.get(tkey(e.b))]; };
+    // (compressed) decode u ahead; the decoded frames are a small cache, the ones near the playhead kept
+    function decode(q, u) {
+      if (q.raw || q.hot.has(u) || q.dec.has(u) || !q.bl[u]) return;
+      const p = createImageBitmap(q.bl[u]).then((b) => {
+        q.dec.delete(u);
+        if (q.dead) { if (b.close) b.close(); return; }
+        pvStats.decodes++; q.hot.set(u, b); trim(q);
+        if (!P.playing && P.shown && P.drawn !== P.i && run === q) draw(P.i);
+      }, (e) => { q.dec.delete(u); console.error(e); });
+      q.dec.set(u, p);
+    }
+    function trim(q) {
+      if (q.hot.size <= q.hotMax) return;
+      for (const [u, b] of q.hot) { if (q.hot.size <= q.hotMax) break; if (q.keep.has(u) || q.pend.has(u)) continue; q.hot.delete(u); if (b.close) b.close(); }
+    }
+    // (compressed) the frames for the next ~0.3 s from index i, decoded ahead, at most 4 at a time
+    function ahead(q, i) {
+      if (q.raw) return;
+      q.keep.clear();
+      const n = q.times.length, K = Math.min(q.hotMax - 2, Math.ceil(q.fps * 0.3));
+      for (let k = 0; k <= K && q.keep.size < q.hotMax - 1; k++) for (const u of need(q, (i + k) % n)) { const v = near(q, u); if (v >= 0) q.keep.add(v); }
+      for (const v of q.keep) { if (q.dec.size >= 4) break; decode(q, v); }
+    }
+    const get = (q, v) => {
+      if (q.raw) return q.bm[v];
+      const b = q.hot.get(v);
+      if (b) { q.hot.delete(v); q.hot.set(v, b); return b; } // (most recently used last)
+      decode(q, v); return null;
+    };
+    function draw(i) {
+      const q = run;
+      if (!q) return false;
+      const e = q.times[i], vs = need(q, i).map((u) => near(q, u));
+      if (vs.some((v) => v < 0)) return false;
+      if (!q.raw) for (const v of vs) q.keep.add(v);
+      const bs = vs.map((v) => get(q, v));
+      if (bs.some((b) => !b)) return false;
+      g.globalAlpha = 1; g.drawImage(bs[0], 0, 0, cv.width, cv.height);
+      if (bs.length > 1) { g.globalAlpha = e.k; g.drawImage(bs[1], 0, 0, cv.width, cv.height); g.globalAlpha = 1; }
+      pvStats.draws++; P.drawn = i;
+      if (!P.shown) { P.shown = true; ui.shown(true); }
+      return true;
+    }
+    const show = (i) => { P.i = i; P.drawn = -1; if (run) ahead(run, i); draw(i); ui.tick(i); };
+    function loop(now) {
+      raf = 0;
+      const q = run;
+      if (!q || !P.playing) return;
+      const i = Math.max(0, Math.floor(pos0 + (now - clock) * q.fps / 1000)) % q.times.length;
+      if (i !== P.i) { P.i = i; ui.tick(i); }
+      ahead(q, i);
+      if (P.drawn !== i || !P.shown) draw(i); // (a frame still decoding: the picture stays one frame longer)
+      raf = requestAnimationFrame(loop);
+    }
+    // (lazy, reduced motion: only the frame in view is drawn until Play; a seek draws its frame and neighbours)
+    function want(q, i) { const n = q.times.length; for (const k of [0, 1, -1, 2, -2]) for (const u of need(q, (i + k + n) % n)) q.urgent.push(u); if (q.wake) q.wake(); }
+    function fillAll(q) { if (!q.lazy) return; q.lazy = false; for (const u of q.full) q.order.push(u); if (q.wake) q.wake(); ui.fill(q.ready, q.U.length); }
+    function play() {
+      const q = run;
+      if (!q) return;
+      fillAll(q);
+      P.playing = true; pos0 = P.i; clock = performance.now();
+      if (!raf) raf = requestAnimationFrame(loop);
+      ui.playing(true);
+    }
+    function pause() { P.playing = false; if (raf) { cancelAnimationFrame(raf); raf = 0; } ui.playing(false); }
+    function seek(i) { const q = run; if (!q) return; i = Math.max(0, Math.min(q.times.length - 1, i | 0)); pos0 = i; clock = performance.now(); if (q.lazy) want(q, i); show(i); }
+    function stop() {
+      const q = run;
+      run = null;
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      P.playing = false;
+      if (q) {
+        q.dead = true;
+        for (const b of q.bm) if (b && b.close) b.close();
+        for (const b of q.hot.values()) if (b.close) b.close();
+        q.bm = []; q.bl = []; q.hot.clear();
+        if (q.wake) q.wake();
+        if (q.unhide) q.unhide(); // (a fill waiting for a hidden page ends)
+        pvStats.live--;
+      }
+    }
+    // start(plan, {cssW, autoplay, at, lazy, keep}): the frames of plan (from videoPlan, the poster's), shown cssW CSS px
+    // wide, from timeline index at; keep: a picture to hold in view until the first new frame (a restart on resize)
+    function start(plan, o) {
+      stop();
+      const times = plan.times, fps = plan.v.fps === 60 ? 60 : 30;
+      const U = [], uOf = new Map(), ui2 = new Int32Array(times.length);
+      const add = (t) => { const k = tkey(t); if (!uOf.has(k)) { uOf.set(k, U.length); U.push(t); } return uOf.get(k); };
+      times.forEach((e, i) => { if (typeof e === 'number') ui2[i] = add(e); else { add(e.a); add(e.b); ui2[i] = -1; } });
+      const pw = pvKeptW(plan.W, o.cssW), ph = Math.max(9, Math.round(plan.H * pw / plan.W));
+      const fb = 4 * pw * ph, budget = pvRaw(), raw = U.length * fb <= budget;
+      cv.width = pw; cv.height = ph;
+      const at = Math.max(0, Math.min(times.length - 1, o.at | 0));
+      const q = run = {
+        plan, times, fps, U, uOf, ui: ui2, raw, bm: raw ? new Array(U.length).fill(null) : [], bl: raw ? [] : new Array(U.length).fill(null),
+        hot: new Map(), dec: new Map(), pend: new Map(), keep: new Set(), hotMax: Math.max(6, Math.min(40, Math.floor(budget / 3 / fb))), bytes: 0,
+        mime: 'image/webp', ready: 0, pw, ph, dead: false, id: ++pvStats.runs, lazy: !!o.lazy, order: [], full: [], urgent: [], qpos: 0, wake: null, unhide: null, cssW: o.cssW,
+      };
+      pvStats.live++;
+      P.i = at; P.drawn = -1; P.shown = false;
+      if (o.keep) { g.drawImage(o.keep, 0, 0, pw, ph); P.shown = true; } else ui.shown(false);
+      ui.size(pw, ph, plan.W, plan.H, raw); ui.tick(at); ui.fill(0, U.length);
+      // the order: the frame in view, both ends, then every 16th, 8th, ... frame (lazy: the frame in view only)
+      const seen = new Uint8Array(U.length);
+      const put = (u) => { if (u >= 0 && u < U.length && !seen[u]) { seen[u] = 1; q.full.push(u); } };
+      for (const u of need(q, at)) put(u);
+      put(0); put(U.length - 1);
+      for (let st = 16; st >= 1; st >>= 1) for (let u = 0; u < U.length; u += st) put(u);
+      if (q.lazy) q.order = need(q, at).slice(); else { q.order = q.full; }
+      if (o.autoplay) play(); else ui.playing(false);
+      const nextU = () => {
+        while (q.urgent.length) { const u = q.urgent.shift(); if (!has(q, u)) return u; }
+        while (q.qpos < q.order.length) { const u = q.order[q.qpos++]; if (!has(q, u)) return u; }
+        return -1;
+      };
+      (async () => {
+        const big = document.createElement('canvas');
+        const bx = big.getContext('2d', { alpha: false });
+        const off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : null;
+        const sm = off || Object.assign(document.createElement('canvas'), { width: pw, height: ph });
+        const sx = sm.getContext('2d', { alpha: false });
+        const enc = (type) => (off ? off.convertToBlob({ type, quality: PV_Q }) : new Promise((r) => sm.toBlob(r, type, PV_Q)));
+        try {
+          if (!q.raw) q.mime = await pvMime();
+          while (!q.dead) {
+            const u = nextU();
+            if (u < 0) {
+              if (q.ready === U.length) break;
+              big.width = 1; big.height = 1; // (lazy: nothing to draw until a seek or Play)
+              await new Promise((r) => { q.wake = r; }); q.wake = null;
+              continue;
+            }
+            while (!q.dead && ui.blocked()) await idle(); // (a video being saved goes first)
+            if (q.dead) return;
+            await slot(q);
+            if (q.dead) return;
+            if (big.width !== plan.W || big.height !== plan.H) { big.width = plan.W; big.height = plan.H; }
+            if (!(await videoFrame(plan, U[u], bx)) || q.dead) return;
+            sx.globalAlpha = 1; sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high';
+            sx.drawImage(big, 0, 0, pw, ph);
+            if (q.raw) {
+              const bm = off ? off.transferToImageBitmap() : await createImageBitmap(sm);
+              if (q.dead) { if (bm.close) bm.close(); return; }
+              q.bm[u] = bm;
+            } else {
+              // (compressed: the encoding runs off the main thread, at most 3 at a time, while the next frame is drawn; the
+              // frame just drawn goes to the decoded cache too, kept there until its encoding is done)
+              while (!q.dead && q.pend.size >= 3) await Promise.race(q.pend.values());
+              if (q.dead) return;
+              const p = enc(q.mime).then((bl) => { q.pend.delete(u); if (q.dead) return; if (!bl) { console.error('preview: a frame could not be encoded'); return; } q.bl[u] = bl; q.bytes += bl.size; }, (e) => { q.pend.delete(u); console.error(e); });
+              q.pend.set(u, p);
+              const bm = off ? off.transferToImageBitmap() : await createImageBitmap(sm);
+              if (q.dead) { if (bm.close) bm.close(); return; }
+              const old = q.hot.get(u); if (old && old.close) old.close();
+              q.hot.set(u, bm); trim(q);
+            }
+            q.ready++; pvStats.renders++;
+            ui.fill(q.ready, U.length);
+            // (paused: the picture in view is redrawn when its own frame, or a nearer one, arrives; a run that is not
+            // lazy, such as a restart after an option changed while paused, shows its frames too, not the 960 px
+            // poster; review-video-preview-verify vp-1/vp-2 residual)
+            if (!P.playing && (P.shown || o.autoplay || !q.lazy)) { P.drawn = -1; draw(P.i); }
+          }
+        } catch (e) { console.error(e); } finally { big.width = 1; big.height = 1; if (!off) { sm.width = 1; sm.height = 1; } }
+      })();
+    }
+    // the dialog grew (or moved to a sharper screen): frames kept clearly smaller than the new size are drawn again at
+    // it, from the same position, playing or paused as before; the picture in view stays until the first new frame
+    // (review vp-3)
+    function resize(cssW) {
+      const q = run;
+      if (!q || pvKeptW(q.plan.W, cssW) <= q.pw * 1.25) return false;
+      let keep = null;
+      if (P.shown) { keep = document.createElement('canvas'); keep.width = cv.width; keep.height = cv.height; keep.getContext('2d').drawImage(cv, 0, 0); }
+      start(q.plan, { cssW, autoplay: P.playing, at: P.i, lazy: q.lazy, keep });
+      if (keep) { keep.width = 1; keep.height = 1; }
+      return true;
+    }
+    return {
+      start, stop, play, pause, seek, draw, resize,
+      toggle: () => (P.playing ? pause() : play()),
+      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
+      // (tests) the picture the preview shows at timeline index i, once its own frames are kept, as PNG data
+      frame: async (i) => {
+        const q = run;
+        if (!q) return null;
+        const e = q.times[i], us = need(q, i);
+        if (us.some((u) => !has(q, u))) return null;
+        const bs = await Promise.all(us.map((u) => (q.raw ? q.bm[u] : createImageBitmap(q.bl[u]))));
+        const c = document.createElement('canvas'); c.width = q.pw; c.height = q.ph;
+        const x = c.getContext('2d', { alpha: false });
+        x.drawImage(bs[0], 0, 0); if (bs.length > 1) { x.globalAlpha = e.k; x.drawImage(bs[1], 0, 0); }
+        if (!q.raw) for (const b of bs) if (b.close) b.close();
+        return c.toDataURL('image/png');
+      },
+      entry: (i) => (run ? run.times[i] : null),
+      tOf: (i) => { const e = run && run.times[i]; return e == null ? null : typeof e === 'number' ? e : e.k < 0.5 ? e.a : e.b; },
+    };
+  }
   // =====================================================================================================
   // 5. Remembered settings and the dialog
   // =====================================================================================================
@@ -3027,6 +3278,8 @@ const Figure = (() => {
     down: '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5l3 3 3-3" stroke="currentColor" fill="none" stroke-width="1.3"/></svg>',
     right: '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M3.5 2l3 3-3 3" stroke="currentColor" fill="none" stroke-width="1.4"/></svg>',
     close: '<svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5"/></svg>',
+    play: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>',
+    pause: '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1.5h2.5v9H2.5zM7 1.5h2.5v9H7z" fill="currentColor"/></svg>',
   };
   // hairline "words" of dummy text at the document's x-height (deterministic)
   const dummy = (lines, seed, indent) => {
@@ -3050,7 +3303,10 @@ const Figure = (() => {
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .xf-prog{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0}.xf-prog[hidden]{display:none}.xf-warn{color:var(--warn);margin-top:4px}.xf-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.xf-meter{flex:1 1 auto;height:6px;border-radius:3px;background:var(--well);border:1px solid var(--line);overflow:hidden}.xf-meter>i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s linear}.xf-progtxt{font:var(--t-readout);color:var(--ink-2);white-space:nowrap}
 .xf-poster{display:block;max-width:100%;max-height:100%;margin:auto;background:#fff;box-shadow:var(--xf-paper-shadow)}.xf-scroll.video{align-items:center}.xf-scroll.video .xf-paper{display:none}.xf-scroll:not(.video) .xf-poster{display:none}
-@media (max-width:560px){.xf-fmtrow{flex-wrap:wrap}.xf-video .xf-fr{grid-template-columns:1fr}}`;
+.xf-pv{display:flex;flex-direction:column;gap:6px;max-width:100%;margin:auto}.xf-scroll:not(.video) .xf-pv{display:none}.xf-pv .xf-poster{margin:0}.xf-pv.busy .xf-poster{opacity:.6;transition:opacity var(--t-med) var(--ease-out)}.xf-pv.busy .xf-pvbar{opacity:.55}
+.xf-pvcv{display:block;background:#fff;box-shadow:var(--xf-paper-shadow);cursor:pointer}.xf-pvbar{display:flex;align-items:center;gap:8px;min-width:0}.xf-pvbtn{flex:0 0 auto;width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border-radius:var(--r-2);background:var(--surface);border:1px solid var(--line);color:var(--ink);cursor:pointer}.xf-pvbtn:hover{border-color:var(--line-strong)}
+.xf-pvbtn:focus-visible,.xf-pvrange:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-pvrange{flex:1 1 auto;min-width:60px;margin:0;accent-color:var(--accent)}.xf-pvtime{font:var(--t-label);color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}.xf-pvt i{font-family:var(--f-math, serif)}.xf-pvnote{font:var(--t-label);color:var(--muted);min-height:16px;overflow-wrap:anywhere}
+@media (max-width:560px){.xf-fmtrow{flex-wrap:wrap}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
   const injectCSS = () => { if (document.getElementById('xfR3css')) return; const st = document.createElement('style'); st.id = 'xfR3css'; st.textContent = CSS3; document.head.append(st); };
   let dlg = null; // the open dialog's state (tests read it)
   let lastFig = null;
@@ -3063,7 +3319,7 @@ const Figure = (() => {
     let token = 0, fig = null, capEdited = null, closed = false;
     const st = { set, view, building: false };
     dlg = st;
-    const close = () => { closed = true; token++; bg.remove(); document.removeEventListener('keydown', onKey, true); dlg = null; if (opener && opener.focus) opener.focus({ preventScroll: true }); };
+    const close = () => { closed = true; token++; pv.stop(); bg.remove(); document.removeEventListener('keydown', onKey, true); dlg = null; if (opener && opener.focus) opener.focus({ preventScroll: true }); };
     const onKey = (e) => {
       if (e.key === 'Escape') { if (document.querySelector('#popHost .pop.menu')) return; e.preventDefault(); close(); return; }
       // Tab and Shift+Tab stay inside the dialog (aria-modal): from the last control to the first and back
@@ -3276,12 +3532,86 @@ const Figure = (() => {
     const changed = () => { saveSet(set); sync(); rebuild(); };
     // ---- (round 3) the format: what the destinations save, the LaTeX for it, the video panel and its poster ----
     const posterImg = h('img', { class: 'xf-poster', alt: $t('A frame of the video') });
-    scroll.append(posterImg);
-    let posterTok = 0, posterTimer = 0, extKnown = null;
-    const posterSoon = () => { clearTimeout(posterTimer); posterTimer = setTimeout(poster, 150); };
+    // (2026-10-24, VIDEO-PREVIEW.md) the video plays here as it will be saved: the poster first, then the frames as they
+    // are drawn; a play/pause button, a scrubber (arrows step one frame) and the time. Reduced motion: paused on the
+    // poster, with Play.
+    const num = (x, d) => (I18 ? I18.num(x.toFixed(d)) : x.toFixed(d));
+    const pvCv = h('canvas', { class: 'xf-pvcv', role: 'img', 'aria-label': $t('The video, as it will be saved'), hidden: true, onclick: () => pvToggle() });
+    const pvBtn = h('button', { type: 'button', class: 'xf-pvbtn', id: 'xfPvPlay', onclick: () => pvToggle() });
+    // (while no preview runs, between an option change and its new frames, the button and the scrubber change only the
+    // wish, which the next preview starts with: review vp-2)
+    const pvRange = h('input', { type: 'range', class: 'xf-pvrange', id: 'xfPvSeek', min: '0', max: '0', step: '1', value: '0', 'aria-label': $t('Position in the video'), oninput: () => { const v = +pvRange.value; pvWant = false; if (!pv.state().id) { pvBtnSet(false); return; } pv.pause(); pv.seek(v); } });
+    // (a key on the scrubber while it plays: from the frame in view, not from where the scrubber stood still)
+    pvRange.addEventListener('keydown', () => { const s = pv.state(); if (s.id && s.playing) pvRange.value = String(s.i); });
+    pvRange.addEventListener('focus', () => { const s = pv.state(); if (s.id) pvAria(s.i, true); });
+    const pvTt = document.createTextNode('');
+    const pvTime = h('span', { class: 'xf-pvtime', 'aria-hidden': 'true' }), pvT = h('span', { class: 'xf-pvtime xf-pvt', 'aria-hidden': 'true' }, h('i', null, 't'), pvTt);
+    const pvNote = h('div', { class: 'xf-pvnote', id: 'xfPvNote' });
+    const pvBar = h('div', { class: 'xf-pvbar', hidden: true }, pvBtn, pvRange, pvTime, pvT);
+    const pvBox = h('div', { class: 'xf-pv', id: 'xfPv' }, posterImg, pvCv, pvBar, pvNote);
+    scroll.append(pvBox);
+    const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+    let pvWant = !reduced(), pvSize = null, pvFill = [0, 0], pvAriaAt = 0;
+    // (what the frames are: the video's own, at the size shown here when that is smaller, and lightly compressed when
+    // the timeline is too long to keep them as they are; review vp-1)
+    const pvNoteText = () => {
+      if (!pvSize) return '';
+      const s = pv.state(), [r, n] = pvFill, [pw, , W, H, raw] = pvSize;
+      const what = r < n && !s.lazy ? $t('Preview: drawing the frames, {p} %', { p: Math.floor(100 * r / Math.max(1, n)) })
+        : raw ? (pw >= W ? $t('Preview: the frames of the video itself') : $t('Preview: the frames of the video itself, scaled to fit here (the video is {w} × {h})', { w: W, h: H }))
+          : pw >= W ? $t('Preview: the frames of the video itself, lightly compressed') : $t('Preview: the frames of the video itself, scaled to fit here and lightly compressed (the video is {w} × {h})', { w: W, h: H });
+      return !s.playing && !s.shown && reduced() ? `${what} · ${$t('Paused: reduced motion is on. Press Play to watch.')}` : what;
+    };
+    const pvBtnSet = (on) => { pvBtn.innerHTML = on ? ICON.pause : ICON.play; pvBtn.setAttribute('aria-label', on ? $t('Pause') : $t('Play')); pvBtn.title = on ? $t('Pause') : $t('Play'); };
+    // the scrubber's value and its text for a screen reader (review vp-6): while it plays, the scrubber with focus
+    // stands still (so a screen reader on it does not read out every frame), and its text changes at most once a second
+    const pvAria = (i, now) => {
+      const s = pv.state(), fps = s.fps || 30, t = pv.tOf(i), ms = performance.now();
+      if (s.playing && !now && (document.activeElement === pvRange || ms - pvAriaAt < 1000)) return;
+      pvAriaAt = ms;
+      pvRange.setAttribute('aria-valuetext', $t('{a} s of {b} s, t = {t}', { a: num(i / fps, 1), b: num(s.n / fps, 1), t: t == null ? '' : num(t, 2) }));
+    };
+    const pv = makePreview(pvCv, {
+      shown: (on) => { pvCv.hidden = !on; posterImg.hidden = on; pvNote.textContent = pvNoteText(); },
+      playing: (on) => { pvBtnSet(on); pvNote.textContent = pvNoteText(); const s = pv.state(); if (s.id) { pvRange.value = String(s.i); pvAria(s.i, true); } },
+      tick: (i) => {
+        const s = pv.state(), fps = s.fps || 30, t = pv.tOf(i);
+        pvTime.textContent = $t('{a} / {b} s', { a: num(i / fps, 1), b: num(s.n / fps, 1) });
+        pvTt.data = t == null ? '' : ` = ${num(t, 2)}`;
+        pvRange.max = String(Math.max(0, s.n - 1));
+        if (!(s.playing && document.activeElement === pvRange)) pvRange.value = String(i);
+        pvAria(i, !s.playing);
+      },
+      size: (pw, ph, W, H, raw) => { pvSize = [pw, ph, W, H, raw]; pvNote.textContent = pvNoteText(); },
+      fill: (r, n) => { const was = pvFill[0] < pvFill[1]; pvFill = [r, n]; if (r === 0 || r === n || was && Math.floor(10 * r / n) !== Math.floor(10 * (r - 1) / n)) pvNote.textContent = pvNoteText(); },
+      blocked: () => !!vRun,
+    });
+    // (the viewer's choice holds across option changes: paused stays paused)
+    const pvToggle = () => { if (!pv.state().id) { pvWant = !pvWant; pvBtnSet(pvWant); return; } pv.toggle(); pvWant = pv.state().playing; };
+    // (tests) the preview's state, the picture at a timeline index, the options the video would be made with
+    st.preview = { state: () => pv.state(), frame: (i) => pv.frame(i), entry: (i) => pv.entry(i), note: () => pvNote.textContent, opts: () => opts({ video: Object.assign({}, vset) }) };
+    // the picture's size: the stage's room at the video's aspect, the bar and the note under it (the poster and the
+    // canvas the same, so nothing moves when the frames take over)
+    const fitPv = (W, H) => {
+      const aw = Math.max(160, scroll.clientWidth - 24), ah = Math.max(120, scroll.clientHeight - 44 - 16 - 62);
+      const k = Math.min(aw / W, ah / H), w = Math.round(W * k), hh = Math.round(H * k);
+      for (const el of [posterImg, pvCv]) { el.style.width = `${w}px`; el.style.height = `${hh}px`; el.style.maxHeight = 'none'; }
+      pvBox.style.width = `${w}px`;
+      return w;
+    };
+    let posterTok = 0, posterTimer = 0, extKnown = null, pvWH = null, pvKey = null;
+    // (an option changed: the frames in view are stale; the preview stops, the poster dims until the new one is drawn)
+    // (the bar is dimmed and says nothing of the old video; the button shows the wish: review vp-2)
+    const posterSoon = () => {
+      clearTimeout(posterTimer); pv.stop(); pvCv.hidden = true; posterImg.hidden = false; pvBox.classList.add('busy');
+      pvBtnSet(pvWant); pvTime.textContent = ''; pvTt.data = ''; pvRange.max = '0'; pvRange.value = '0'; pvRange.removeAttribute('aria-valuetext');
+      pvNote.textContent = pvSize ? $t('Preview: drawing the frames, {p} %', { p: 0 }) : '';
+      posterTimer = setTimeout(poster, 150);
+    };
     async function poster() {
       if (fmtOf() !== 'video' || closed) return;
       const my = ++posterTok;
+      pvKey = JSON.stringify(vset);
       try {
         const plan = await videoPlan(opts({ video: vset, alive: () => my === posterTok && !closed }));
         if (!plan || my !== posterTok) return;
@@ -3291,12 +3621,20 @@ const Figure = (() => {
         const k = Math.min(1, 960 / plan.W), s2 = document.createElement('canvas');
         s2.width = Math.round(plan.W * k); s2.height = Math.round(plan.H * k);
         s2.getContext('2d').drawImage(c, 0, 0, s2.width, s2.height);
+        c.width = 1; c.height = 1;
         await breathe();
+        if (my !== posterTok || closed || fmtOf() !== 'video') return;
         posterImg.src = s2.toDataURL('image/png');
-        posterImg.style.maxHeight = `${Math.max(160, scroll.clientHeight - 64)}px`;
-        const fr0 = videoTimes(vset, plan.m).length;
-        hint.textContent = $t('{w} × {h} · {fps} fps · {secs} s · this frame: t = {t}', { w: plan.W, h: plan.H, fps: vset.fps, secs: I18 ? I18.num((fr0 / vset.fps).toFixed(1)) : (fr0 / vset.fps).toFixed(1), t: I18 ? I18.num(t.toFixed(2)) : t.toFixed(2) }) + (extKnown === 'webm' ? ' · WebM (VP9)' : '');
-        wait.hidden = true;
+        pvWH = [plan.W, plan.H];
+        const cssW = fitPv(plan.W, plan.H);
+        const fr0 = plan.times.length;
+        hint.textContent = $t('{w} × {h} · {fps} fps · {secs} s', { w: plan.W, h: plan.H, fps: vset.fps, secs: num(fr0 / vset.fps, 1) }) + (extKnown === 'webm' ? ' · WebM (VP9)' : '');
+        wait.hidden = true; pvBox.classList.remove('busy'); pvBar.hidden = false;
+        // the preview starts from the poster's frame, so the picture does not jump (review vp-4); paused with reduced
+        // motion, only that frame is drawn until Play (review vp-5)
+        let at = 0, best = Infinity;
+        plan.times.forEach((e, i) => { if (typeof e === 'number' && Math.abs(e - t) < best - 1e-12) { best = Math.abs(e - t); at = i; } });
+        pv.start(plan, { cssW, autoplay: pvWant, at, lazy: !pvWant && reduced() });
       } catch (e) { console.error(e); }
     }
     function updTex() {
@@ -3320,8 +3658,9 @@ const Figure = (() => {
       // (the extension of the file a video will be: .mp4, or .webm where only VP9 can be encoded; video-5)
       extEl.textContent = vid ? `.${extKnown || 'mp4'}` : `.${f}`;
       if (vid && !extKnown && canVideo) { const [w0, h0] = VIDEO_SIZES[vset.size] || VIDEO_SIZES['1920x1080']; pickEncoder(w0, h0, vset.fps === 60 ? 60 : 30).then((pk) => { if (!pk || closed) return; extKnown = pk.mux; if (fmtOf() === 'video') extEl.textContent = `.${extKnown}`; }); }
-      if (vid) { wait.hidden = !!posterImg.getAttribute('src'); posterSoon(); }
-      else { if (fig) wait.hidden = true; updTex(); if (fig) hint.textContent = st.hintText || hint.textContent; }
+      // (a preview of these very options keeps playing: after Save video or Cancel it is not drawn again)
+      if (vid) { wait.hidden = !!posterImg.getAttribute('src'); if (!(pv.state().id && pvKey === JSON.stringify(vset))) posterSoon(); }
+      else { clearTimeout(posterTimer); pv.stop(); if (fig) wait.hidden = true; updTex(); if (fig) hint.textContent = st.hintText || hint.textContent; }
     }
     sizeBtn.addEventListener('click', () => {
       const cur = sizeOf(optsOf(set)).id;
@@ -3489,9 +3828,15 @@ const Figure = (() => {
       finally { vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt(); }
     });
     let rz = 0;
-    const onResize = () => { clearTimeout(rz); rz = setTimeout(placePaper, 60); };
+    const onResize = () => { clearTimeout(rz); rz = setTimeout(() => { placePaper(); if (pvWH && fmtOf() === 'video') pv.resize(fitPv(pvWH[0], pvWH[1])); }, 60); }; // (bigger: sharper frames; review vp-3)
     window.addEventListener('resize', onResize);
-    const obs = new MutationObserver(() => { if (!bg.isConnected) { window.removeEventListener('resize', onResize); document.removeEventListener('visibilitychange', onVis); obs.disconnect(); } });
+    // (a sharper screen with the same window, such as a move to a retina monitor: devicePixelRatio changes and no
+    // 'resize' may come, so its media query is watched too, re-armed for each new ratio; review-video-preview-verify vp-3)
+    let dq = null;
+    const onDpr = () => { onResize(); armDpr(); };
+    const armDpr = () => { try { if (dq) dq.removeEventListener('change', onDpr); dq = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`); dq.addEventListener('change', onDpr); } catch (e) { dq = null; } };
+    armDpr();
+    const obs = new MutationObserver(() => { if (!bg.isConnected) { pv.stop(); window.removeEventListener('resize', onResize); if (dq) dq.removeEventListener('change', onDpr); document.removeEventListener('visibilitychange', onVis); obs.disconnect(); } });
     obs.observe(document.body, { childList: true });
     sync();
     olBtn.focus({ preventScroll: true });
@@ -3523,7 +3868,7 @@ const Figure = (() => {
   return {
     attach: (api) => { A = api; },
     build, pdf, png, svgBlob, greyProof, latex, captionSVG, copyImage, open, again,
-    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, defoOf: (v) => defoOf(v || (A && A.viewKind())), shortCaption,
+    makeVideo, videoCheck, videoScreenCheck, videoTimes, muxMP4, muxWebM, previewStats: () => Object.assign({}, pvStats), defoOf: (v) => defoOf(v || (A && A.viewKind())), shortCaption,
     settings: loadSet, saveSettings: saveSet, sizes: SIZES, presets: PRESET,
     dialog: () => dlg, last: () => lastFig, segsOf, plainOf, XD,
     geom: { senseAt, chevronAt, fitBox },

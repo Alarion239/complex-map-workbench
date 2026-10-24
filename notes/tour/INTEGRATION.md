@@ -219,6 +219,7 @@ once v15 is merged; `test/t_tour.js` of the v15 build reads both tables (the v14
 | `params` | the Inspector's Parameters (the shared numbers of `src/params.js`) | `#propsPanel .prm`, else `.insp-params` |
 | `fTile` | the F tile that closes the chain | `#pipeline .ftile` |
 | `sphereKey` | on a phone, the Sphere key in the plane's right column (the fallback of `surfaceL`) | the visible `.ph-col .ph-sph` |
+| `lens` | v15.1: the selected step's lens (Show this step alone) in the Inspector's head; on a phone, in the Editor sheet. Lit by `basics/chain`'s `try.work` (the parts a touch task names, lit and kept clear on a touch screen) | `#propsPanel .insp-step .ihead .alone-btn` |
 
 On a phone (below 768 px, `src/phone.js`): `tools` (`#secDraw`) is the tool row, `chain` (`.pipe-wrap`) the chain bar
 with the F tile and Deformation, `moreBtn` the ⋯ sheet (Guided tour, Reference guide, Search, Export). The Inspector's

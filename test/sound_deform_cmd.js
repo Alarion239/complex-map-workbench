@@ -149,7 +149,7 @@ await spy();
   let follows = 0; for (const [t, g] of steps) if (g && Math.abs(g[0] - (z0[0] - t)) < 1e-9 && Math.abs(g[1] - z0[1]) < 1e-12) follows++;
   R.scrub = { follows, sets: got.vset.length, made: got.made, live: s.live };
   ok('C scrub with a still pointer: H_t at the probe follows every step of the slider', follows === 40 && got.vset.length >= 38, R.scrub);
-  ok('C scrub: the detents (21 ticks, 5 pitched) and one zero ping on the way back, no cut', count(got.made, 'morphTick') >= 15 && count(got.made, 'zero') === 1 && !got.made.some((x) => /^(cut|dense)$/.test(x)), got.made);
+  ok('C scrub (v15.1: 15 detents a second is a fast drag: the band, no detents): the keys at ½ and 0 only, and one zero ping on the way back, no cut', count(got.made, 'morphTick') >= 2 && count(got.made, 'morphTick') <= 3 && count(got.made, 'zero') === 1 && !got.made.some((x) => /^(cut|dense)$/.test(x)), got.made);
   await key('m'); await settle(400);
 }
 

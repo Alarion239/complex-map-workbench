@@ -239,10 +239,16 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
 /* room for it on tablets: below 1340 px the speaker drops its label (as the view switch and Deformation do below
-   1280); from 768 to 1023 the command field narrows and drops its ⌘K hint, and the wordmark hides from 900 too (the
-   bar overflowed there before, by 44 px at 900) */
+   1280); from 768 to 1023 the wordmark hides (the bar overflowed there before, by 44 px at 900), and (v15.1, frame f6
+   of notes/ui-redesign-2/desktop, verify-6) the search is its icon alone, named by its aria-label and tooltip, and a
+   long example name gives way first, ending in an ellipsis, as from 1024 */
 @media (min-width: 768px) and (max-width: 1339px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
-@media (min-width: 768px) and (max-width: 1023px) { .top .cmd-field { min-width: 112px; } .top .cmd-field .kbd { display: none; } .top > .wordmark { display: none; } }
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root:not(.ph) .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; padding: 0 8px; }
+  :root:not(.ph) .top .cmd-field .cmd-text, .top .cmd-field .kbd { display: none; }
+  .top > .wordmark { display: none; }
+  #examplesBtn { flex-shrink: 1; min-width: 0; }
+}
 .snd-pop {
   position: fixed; z-index: 45; top: 48px; right: 12px; width: 330px; max-width: calc(100vw - 32px); max-height: calc(100vh - 60px); overflow-y: auto;
   padding: 10px 14px 10px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3);
@@ -1308,7 +1314,6 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .swatch-grid .swatch { width: 20px; height: 20px; cursor: pointer; }
 .swatch-grid .swatch.on { outline: 1.5px solid var(--accent); outline-offset: 1.5px; }
 /* compact-card parameter popover: a 32px title row (index tag + step name), then the card's parameter grid */
-.pop.card-pop { padding: 0; overflow: hidden; }
 .pop-title {
   display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 8px; min-width: 0;
   border-bottom: 1px solid var(--line); font: var(--t-heading); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1586,41 +1591,43 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @keyframes drawer-r { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes drawer-l { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* 768 to 1023: the bar ran past the right edge here (by 44 px at 900), and the Language button would have made it
-   wider. As on a phone, the secondary buttons (Examples, the command field, the panel toggles, Export, Theme, Sound,
-   Language, Help) fold into the More menu (notes/i18n/USER-DECISIONS.md, lead default 2026-10-22) */
+/* 768 to 1023 (v15.1, verify-6): the user's design, frame f6 (notes/ui-redesign-2/desktop/frames/f6-xy-768.html):
+   Examples, the search, the panel toggles, Export, Theme, Sound, Language and Help stay in the bar, as from 1024. It
+   fits in English and Russian: 52 px to spare at 768 (the two spacers), 306 px at 1023. Before, they folded into the
+   More menu here (the lead default of 2026-10-22, from when the bar ran past the edge). A landscape phone of this
+   width (:root.ph) keeps the More button; phone.js opens its sheet, and these rules keep the menu folded there. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .hdr-more { display: inline-grid !important; }
-  .top > .snd-ph:not([hidden]) { display: inline-grid; order: 13; flex-shrink: 0; }
-  .top[data-snd="on"] .hdr-menu > #soundBtn { display: none !important; }
-  .top .hdr-menu > .snd-btn .slbl { display: inline; flex: 1 1 auto; }
-  .top .hdr-menu > .snd-caret { margin-left: 0; }
-  .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
-  .top .hdr-menu > .snd-caret .ic-slot { display: none; }
-  .top > .vsw, .top > .defbtn, .top > .hdr-more { flex-shrink: 0; }
-  .hdr-menu:not(:popover-open) { display: none; }
-  .hdr-menu:popover-open {
+  :root.ph .hdr-more { display: inline-grid !important; }
+  :root.ph .top > .snd-ph:not([hidden]) { display: inline-grid; order: 13; flex-shrink: 0; }
+  :root.ph .top[data-snd="on"] .hdr-menu > #soundBtn { display: none !important; }
+  :root.ph .top .hdr-menu > .snd-btn .slbl { display: inline; flex: 1 1 auto; }
+  :root.ph .top .hdr-menu > .snd-caret { margin-left: 0; }
+  :root.ph .top .hdr-menu > .snd-caret::before { position: static; width: 16px; height: 16px; flex: 0 0 16px; background: none; }
+  :root.ph .top .hdr-menu > .snd-caret .ic-slot { display: none; }
+  :root.ph .top > .vsw, :root.ph .top > .defbtn, :root.ph .top > .hdr-more { flex-shrink: 0; }
+  :root.ph .hdr-menu:not(:popover-open) { display: none; }
+  :root.ph .hdr-menu:popover-open {
     position: fixed; inset: auto; top: calc(48px + env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: auto; bottom: auto;
     display: flex; flex-direction: column; width: 260px; margin: 0; padding: 4px;
     background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); color: var(--ink);
     animation: pop-in var(--t-med) var(--ease-out); overflow-x: hidden;
   }
-  .hdr-menu::backdrop { background: transparent; }
-  .top .hdr-menu > button:is(.btn, .icon-btn, .cmd-field) {
+  :root.ph .hdr-menu::backdrop { background: transparent; }
+  :root.ph .top .hdr-menu > button:is(.btn, .icon-btn, .cmd-field) {
     display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex: 0 0 auto; width: 100%; min-width: 0; max-width: none; height: 36px; margin: 0; padding: 0 8px;
     background: transparent; border: 0; border-radius: var(--r-2); box-shadow: none;
     font: var(--t-body); color: var(--ink); text-align: left;
   }
-  .top .hdr-menu > button:is(.btn, .icon-btn, .cmd-field):is(:hover, :focus-visible) { background: var(--well); outline: none; }
-  .hdr-menu > button .ic-slot { color: var(--ink-2); }
-  .hdr-menu .mlabel { display: inline; flex: 1 1 auto; }
-  .hdr-menu .exlabel, .hdr-menu .cmd-field .kbd, .hdr-menu #examplesBtn .ic-slot { display: none; }
-  .hdr-menu #examplesBtn::before { content: ""; width: 16px; height: 16px; flex: 0 0 16px; }
-  .hdr-menu > #toggleLeft { border-top: 1px solid var(--line); border-radius: 0; margin-top: 4px; padding-top: 4px; height: 40px; }
-  .top .hdr-menu > #cmdBtn { margin: 0; }
-  .hdr-menu #cmdBtn .ic-slot, .hdr-menu #cmdBtn .ic-slot > svg { width: 16px; height: 16px; flex-basis: 16px; color: var(--ink-2); }
-  .hdr-menu #cmdBtn .cmd-text { color: var(--ink); }
-  .hdr-menu > [aria-pressed="true"]::after { content: ""; width: 8px; height: 4px; margin-right: 2px; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: translateY(-2px) rotate(-45deg); }
+  :root.ph .top .hdr-menu > button:is(.btn, .icon-btn, .cmd-field):is(:hover, :focus-visible) { background: var(--well); outline: none; }
+  :root.ph .hdr-menu > button .ic-slot { color: var(--ink-2); }
+  :root.ph .hdr-menu .mlabel { display: inline; flex: 1 1 auto; }
+  :root.ph .hdr-menu .exlabel, :root.ph .hdr-menu .cmd-field .kbd, :root.ph .hdr-menu #examplesBtn .ic-slot { display: none; }
+  :root.ph .hdr-menu #examplesBtn::before { content: ""; width: 16px; height: 16px; flex: 0 0 16px; }
+  :root.ph .hdr-menu > #toggleLeft { border-top: 1px solid var(--line); border-radius: 0; margin-top: 4px; padding-top: 4px; height: 40px; }
+  :root.ph .top .hdr-menu > #cmdBtn { margin: 0; }
+  :root.ph .hdr-menu #cmdBtn .ic-slot, :root.ph .hdr-menu #cmdBtn .ic-slot > svg { width: 16px; height: 16px; flex-basis: 16px; color: var(--ink-2); }
+  :root.ph .hdr-menu #cmdBtn .cmd-text { color: var(--ink); }
+  :root.ph .hdr-menu > [aria-pressed="true"]::after { content: ""; width: 8px; height: 4px; margin-right: 2px; border-left: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); transform: translateY(-2px) rotate(-45deg); }
 }
 
 /* ---------- Phone (< 768): single column, 16px gutters, no horizontal page scroll ---------- */

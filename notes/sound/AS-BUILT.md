@@ -75,7 +75,7 @@ All hooks return at once when sound is off (`sndP.on` false).
 | error | `sndError()` before the failure toasts: ZP_MAX, "cannot be rewritten", the two derivative failures, "Saving files is not available", save failure, figure failure |
 | snap | `onUp()`: a drawn point or a dragged handle settles with Snap on |
 | morphStart / morphEnd | `openTransport()`, `toggleTransport()` when a play starts; the arrival in the play loop once per play; `closeTransport()` disarms |
-| morphTick | the morph slider's `oninput` (`sndScrub`) |
+| morphTick | the morph slider's `oninput` (`sndScrub` → `Sound.scrub(u0, u1)`, v15.1: the engine picks detents or the band from the drag's speed; "Scrub" below) |
 | pointer tier | `onMove()` hover paths (plane, globe, landscape, lasso drawing) call `sndMove()`; `pointerleave` and the touch probe's end call `sndHoverOff()`. Since 2026-10-23 also the merged deformation plane's hover (`sndMove(…, 'merged')`) |
 | the function under a still probe (2026-10-23, `DEFORMATION.md`) | **one hook, `soundFunctionChanged()`**, once a frame at most: `frame()` while the deformation plays and the morph slider via `sndScrub` (`'t'`), `chainChanged()`, `openTransport()`, `closeTransport()`. v15: call it from the Params change event |
 | collide | `hoverReadout()` (`sndCollide()`) |
@@ -140,7 +140,7 @@ All hooks return at once when sound is off (`sndP.on` false).
     Height −32.52 on D5 (phone range 5.28); bell −29.7 alone, +17.15 dB over the voice;
   - phones at 360 and 390 px: the speaker in the bar only while on, the More-menu rows, the popover fits, no overflow;
   - no exceptions.
-  - Noise-burst cues (snap, the plain scrub detent, cut) read a moving offset of one noise buffer, so their level varies
+  - Noise-burst cues (snap, cut; the scrub detent until v15) read a moving offset of one noise buffer, so their level varies
     by a few dB from one play to the next. Their ranges are wider.
 - **Cost of Hear F** (synthetic pointer events, the app's whole handler):
   - z² − 1: 0.14 ms per event, off and on alike.
@@ -247,3 +247,41 @@ Details: `DEFORMATION.md`. In short:
   of `t_sound.js` fail here (12 turns give 9 bells), and the live queue check of `sound_cmd.js` fails when the audio
   clock moves during the burst (once in three runs). The final `sound_cmd.js` run passed with 0 failures.
 - Size: the published file grows by 8,040 bytes (+0.3 %), gzipped by 2.9 KB, against the same build of `v15-base`.
+
+## Scrub (v15.1, 2026-10-24, `work/xvk`)
+
+The user: dragging t "makes cracking sounds"; the cues feel mechanical when played constantly.
+
+- **What the cracking was.** By design, not a fault: v15 played `morphTick`, a noise burst with a 0.8 ms attack, at
+  every 0.05 of t, plus a sine key at t = 0, ¼, ½, ¾, 1 that skipped the gap and storm guards. A fast drag (two 0 → 1 → 0
+  sweeps in 2.4 s, recorded from the app) made 42 bursts and 17 keys, about 25 sharp onsets a second: a rattle.
+  Both detectors count each burst attack as a click: `sound_clicks.py` 222 (60 Hz input) and 239 (240 Hz), worst −6.5
+  dB re RMS; `det.py` 39 (A) and 167 (B) "engine" hits over the 8 recordings. (`det.py` calls these "engine" only
+  because the recorder's start hook misses `AudioBufferSourceNode.start`, so noise-burst cues have no cue span.) No
+  engine fault: no gaps, no late sources or params.
+- **Now** (`Sound.scrub(u0, u1)`; the app's `sndScrub` calls it with t / length before and after each input):
+  - speed = detents a second, smoothed over 60 ms; an input after 150 ms of rest (a click on the track, an arrow key)
+    is a step, not speed.
+  - slow (≤ 3 a second): a soft detent at each 0.05 of t, a small wooden tock (a 1.0 → 1.4 kHz sine over t with a
+    2.756× bar partial, 3 ms sin² rise, T60 40 ms, an envelope with no corner, `softEnv`), each one ±3 % in pitch and
+    ±1.5 dB (no two alike); 3 to 6 a second, the detents fade out; at 6 or more, none.
+  - fast (> 3 a second): a band of noise (band-pass Q 0.8 at 650 Hz · 2^(0.8 t), brighter by up to 1.5× with speed,
+    low-pass 2.6 kHz), its level ((v − 3) / 30)^0.6, as a surface scraped faster sounds louder and brighter (Gaver's
+    scraping). Each swell is a new band rising exponentially (0.2 s from −80 dB); it fades (τ 40 ms, two gains) 70 ms
+    after the last input or when the drag slows to 3 a second, and is stopped 0.8 s later.
+  - t = 0, ½, 1 (¼ and ¾ dropped): soft sine keys D5, A5, D6 with an 8 ms rise, at any speed, each at most once in
+    250 ms.
+- **Measured** (the same recordings, vol 0.7, default tiers): fast drag peak −20.8 → −29.5 dBFS, crest factor 23 → 17
+  dB, sharp onsets 25 a second → 3.7 (the keys) over a continuous band. Slow drag (2.5 a second) peak −22.3 → −29.3
+  dBFS. Lab (`sound_lab.js`, 100 %): detent −45.2 LUFS-M, the key at ½ −41.5, at 1 −39.5, the key alone −45.0; HF ≤
+  −81 dB, phone loss ≤ 0.1 dB, ends at exactly 0. `sound_cmd.js` GROUP for morphTick is now [−48, −38].
+- **Clicks**, the 8 recordings (fast, slow, mixed, jump; 60 and 240 Hz input): `det.py` engine hits A 0, B 0; no gaps,
+  no late params or sources. `sound_clicks.py`: fast 0 (240 Hz) and 1 at −50 dB re RMS (60 Hz); the slow detents
+  still show one hit each at their onset (−25 dB re RMS, −70 dBFS above 10 kHz), which `det.py` classes as the cue's
+  attack. Not found why a sin² rise leaves that one-block HF trace; it is there for every cue's onset.
+- Tests: `t_sound.js` 6 new scrub checks (92/92); `sound_lab.js` adds the key alone ({t: 0.5, g: 0}).
+  Recording command: `work/xvk/test/xvk_cdp/scrub_rec_cmd.js` (+ `scrub_cfg.json`: page and tag).
+- `sound_deform_cmd.js` C: its scrub (0.025 of t every two frames, 15 detents a second) is now a fast drag, so it
+  expects the keys at ½ and 0 (2 to 3 `morphTick`), not 21 detents.
+- Not done: nobody listened. `sound_cmd.js` and `sound_deform_cmd.js` were not rerun in full after the change.
+
