@@ -1,0 +1,177 @@
+[
+ {
+  "id": "users-1",
+  "severity": "high",
+  "title": "A circle through P, Q and a point built on line PQ is never a line",
+  "detail": "Tested with the PoC (constr.js). A third point made as line(P,Q) ∩ circle, or as a point on line PQ, gives a circle in 2000 of 2000 random cases, with a radius up to 4.5e20. The exact orientation test is exact only on the rounded inputs, and a constructed point is off the line by rounding. The app then gets {kind:'disc', c ≈ (−5.4e15, −7.2e15), r ≈ 8.9e15, complement:true}. Region.levelOf computes r − |z − c|: in float64 its error is about 1 unit at that size. The GPU (gl.js ixKindLevel, float32 uniforms) is off by about 1e9. The picture is wrong exactly in the case the design shows as its exactness showcase (shots 03 and 04). The midpoint case is fine (0 of 2000).",
+  "fix": "Track incidence in the graph. A point built on line(P,Q) (meet with it, glider on it) counts as collinear with P and Q, and circle3 then returns the line itself. Move the 'gcircle' kind (the Hermitian form, anchored at the first point) from optional phase 3 into phase 2, for CPU and GPU. Add a test: circle(P, Q, X) is a line for X on PQ, and it renders exactly per pixel."
+ },
+ {
+  "id": "users-2",
+  "severity": "high",
+  "title": "Intersection labels swap when the circle passes through the line case",
+  "detail": "In the PoC, circle(P,Q,R) meets a fixed circle k. Dragging R through line PQ: at R.y = 0.001, X1 = −0.594 and X2 = 0.994. At R.y = 0, X1 = 0.994 and X2 = −0.594, and they stay swapped after. The reason is the rule change: two circles are ordered 'left of centre1 → centre2', but a line and a circle are ordered 'along the line'. Anything built on X1 jumps to the other point. This breaks the design's own claim that the family is continuous on the Riemann sphere.",
+  "fix": "Use one rule for all oriented generalized circles: X1 is where curve 2 enters the inside (left side) of curve 1, and X2 is where it leaves. This rule is the same for lines and circles, so it is continuous through the line case. It changes only at tangency, where the two points merge anyway. Add a test that drags R through collinear and checks that X1 moves less than 1e-6 per step."
+ },
+ {
+  "id": "users-3",
+  "severity": "high",
+  "title": "Phone: you cannot see the image while editing zeros and poles",
+  "detail": "In phone/shots/after/zp.png the editor sheet covers the bottom half of the plane. The Y inset (bottom-left) is under the sheet. The student adds a zero and cannot see what it does to the image, and that is the point of the task. ζ₂ also sits on the sheet's edge, half hidden, even after the view shift.",
+  "fix": "While a sheet is open, show X and Y side by side above it, about 195 × 300 px each. Both stay live, and the probe links them. Alternative: move the inset to the top-left, under the title chip, while a sheet is open."
+ },
+ {
+  "id": "users-4",
+  "severity": "medium",
+  "title": "Phase and Landscape cards change meaning and use a poor frame",
+  "detail": "X → Y and Deformation cards are cumulative (the image after step k). Phase and Landscape cards show only f_k over w_{k−1}. So the meaning of a card changes when you switch views. No Phase card matches the main Phase picture, which shows arg F over z. The frame is the box of the shapes' image. With exp on the strip that box is a huge half-plane, so the Möbius card (img/light/t-phase-2.png, t-land-2.png) is a flat pink field with its zero and pole squeezed into a corner. With no shapes, which is common in Phase, the frame is not defined at all.",
+  "fix": "Make every card cumulative. In Phase, card k shows arg F_k (= f_k ∘ … ∘ f₁) over the main plane's z-window. Landscape does the same with log|F_k|. The last card then equals the main view, and students see how arg F is built up step by step. Show the step's own portrait over w_{k−1} only when the step is shown alone."
+ },
+ {
+  "id": "users-5",
+  "severity": "medium",
+  "title": "A step's own letters clash with shared parameter names",
+  "detail": "The desktop mockup (after-f1, after-f2) shows the Zeros-and-poles leading coefficient a = 1, or the Möbius a = 1, directly above 'Parameters: a = 0.50'. The formula (a w₁ + b)/(c w₁ + d) uses the same a. If a student types 'a' into the Möbius b field, it is not clear whether that means 1 or 0.5. A teacher would write wrong statements on the board.",
+  "fix": "Write a step's own coefficients with the step's index: a₂, b₂, c₂, d₂ for f₂, in the formula and on the field labels. Shared parameters keep the plain names. A name in a field always means the shared parameter."
+ },
+ {
+  "id": "users-6",
+  "severity": "medium",
+  "title": "Typos silently become sliders",
+  "detail": "The rules 'an unknown lower-case name becomes a slider' and 'ab = a·b' turn typos into sliders. In the PoC parser, 'sinc(z)' gives the names s, n, c (three new sliders) and 'epx(z)' gives p. 'Log z' gives o, plus errors for L and g. A student on a phone misses the toast and gets a product of sliders instead of an error.",
+  "fix": "Create a slider only when the unknown name is one letter standing alone (an operator, space or bracket on both sides), and only one per edit. A run of letters that is not a known function stays an error: 'Unknown function sinc'."
+ },
+ {
+  "id": "users-7",
+  "severity": "medium",
+  "title": "The filled side of a 3-point circle depends on the order of the taps",
+  "detail": "The order of the points picks the inside: counterclockwise gives the disc, clockwise gives the outside of the circle (shot 04). A student who taps clockwise gets the whole plane minus a disc, and its image looks nothing like what they expected. The design asks the user about this (question 2).",
+  "fix": "When the shape is created, reorder the points counterclockwise, so the tool always makes the disc. Keep the oriented rule only while dragging, so the fill still passes through the half-plane to the outside continuously, as on the sphere."
+ },
+ {
+  "id": "users-8",
+  "severity": "medium",
+  "title": "A point on a 3-point circle jumps at the line case",
+  "detail": "The glider stores an angle about the centre. In the PoC with t = 1: at R.y = 0.001, S = 245.8 − 72.1i. At 0, S = −2. At −0.001, S = 245.8 + 837.9i. The point runs off toward ∞, jumps back to a finite point, then leaves again in another direction. Moving P, Q and R together also slides S relative to them.",
+  "fix": "Store the glider's real parameter t through the Möbius map that sends 0, 1, ∞ to P, Q, R, so S = M(t). It is continuous through the line case and stays fixed relative to P, Q, R. On line(P,Q), use t with S = P + t(Q − P)."
+ },
+ {
+  "id": "users-9",
+  "severity": "medium",
+  "title": "The two classic circle families are not recognized exactly",
+  "detail": "Tested with the app copy's Curves.fromFormula. '|z−1| = 2|z+1|' is exact. The same Apollonian circle written as '|(z−1)/(z+1)| = 2' is not: it is traced. 'arg((z−1)/(z+1)) = 1', the arc through ±1, is traced too. These two families (Apollonian and Steiner circles) are what a teacher uses for Möbius maps. With a slider on k or θ, a traced curve costs about 120 ms per value, so it is 'exact but late'.",
+  "fix": "Teach the recognizer that |M(z)| = k and arg M(z) = θ, for a Möbius M, are a generalized circle and an arc. Test them with a slider: exact for 101 values, at 60 fps."
+ },
+ {
+  "id": "users-10",
+  "severity": "medium",
+  "title": "No snapping when adding or dragging zeros and poles",
+  "detail": "'Add zero here' places the zero exactly where the click or press was. With a finger, that gives values like 0.6183 − 0.3127i. Teaching and homework use nice values (0.5, i, −1). Neither design mentions snapping for marks.",
+  "fix": "Round a new or dragged mark to the ruler's minor division (for example 0.05 at 0.5 / div). Hold Alt, or turn Snap off on touch, for free placement. Show the snapped value in the menu's header."
+ },
+ {
+  "id": "users-11",
+  "severity": "medium",
+  "title": "Phone: dragging a mark off the plane deletes it",
+  "detail": "The phone keeps the desktop hint 'Drag a mark … off the plane to remove it'. With the half-height sheet, the plane's bottom edge cuts through the content; in zp.png, ζ₂ sits on it. A short downward drag would delete the zero. A finger also hides the mark while it is being dragged.",
+  "fix": "On touch, remove a mark only with its row's ×, or with 'Remove ζ₂' in the long-press menu, plus an Undo toast. When a dragged mark reaches the edge, pan the plane instead. Show a 'ζ₂ = …' label above the finger while dragging."
+ },
+ {
+  "id": "users-12",
+  "severity": "medium",
+  "title": "The long-press differs between phone and desktop, and the phone loses the live probe",
+  "detail": "Desktop: hold 500 ms and release opens the menu, and hold and slide stays the probe. Phone: hold 450 ms and release opens the menu, and 'probing moves into the menu', so the value at one point shows only after the menu opens. Students use the live probe (slide a finger, read F(z)) all the time.",
+  "fix": "Use one rule on both: a 450 ms ring, then slide for the live probe, or release without moving for the menu."
+ },
+ {
+  "id": "users-13",
+  "severity": "medium",
+  "title": "'Add zero here' in the Phase view is undefined when the step is not f₁",
+  "detail": "The desktop design offers Add zero or pole here in 'the Phase portrait'. The main Phase view is arg F over z. If the Zeros-and-poles step is f₃, a click at z₀ is not a point of w₂. Adding a zero of f₃ at F₂(z₀) would also add zeros at every other preimage, for example z₀ + 2πik through exp. That would be a surprise unless the menu says so.",
+  "fix": "Offer the items only where that step's input plane is shown. Elsewhere, show one item: 'Show f₃ alone to add zeros here'."
+ },
+ {
+  "id": "users-14",
+  "severity": "medium",
+  "title": "Deformation cards show an approximate t during playback",
+  "detail": "During playback the moving card shows the nearest of 9 pre-rendered frames (t = 0, 1/8, …). So the card can show t = 0.5 while the main view and its label are at 0.55. This trades exactness for speed, and the user's rule forbids that unless 60 fps is at risk. The design's own estimate is under 1 ms per card.",
+  "fix": "Render the moving card at the exact t every frame. Use the 9-frame cache only when the perf guard reports a frame over budget. Put this in the gate: 3 cards, morph play, p95 at most 16.7 ms."
+ },
+ {
+  "id": "users-15",
+  "severity": "medium",
+  "title": "The phone mockup does not show shared numbers or constructions",
+  "detail": "Phone screens: home, Y, Phase, Landscape, Deformation, zeros and poles, menu, More, More tools, Display, guarantees, Russian. None shows the Numbers sheet with a slider driving the plane, or a construction being picked by finger (snap ring, 'point 2 of 3' chip). A student's homework with sliders happens on a phone.",
+  "fix": "Add two screens: the Numbers sheet open with the plane updating above it, and Circle through 3 points at point 2 of 3 with the snap ring on an existing point. Check the 44 px targets and the 360 px Russian width."
+ },
+ {
+  "id": "users-16",
+  "severity": "medium",
+  "title": "The construction tools differ between the three designs",
+  "detail": "Constructions design: the Line tool snaps to points, so there is no 'line through 2 points' tool, and the Draw grid gains Circle (3 points) and Intersect. Phone More tools: Line through 2 points, Circle through 3 points, Midpoint, Point on a curve, and no Intersect. Desktop menu: Line through 2 points. A student would see two ways to draw the same line.",
+  "fix": "Use one set everywhere. The Line tool, with snapping, is the line through 2 points. The new tools are Circle (3 points) and Intersect, with Midpoint and Point on a curve under More. The phone's Constructions group lists exactly these."
+ },
+ {
+  "id": "users-17",
+  "severity": "medium",
+  "title": "Phone: frequent controls are out of thumb reach",
+  "detail": "Undo, Redo, the view switch and ⋯ are in the header, about 83 px from the top of an 844 px screen. On a phone held in one hand, the top-left corner, where Undo is, is the hardest place to reach. Students undo all the time while trying things.",
+  "fix": "Move Undo into the bottom tool row: six keys, 60 px each at 360 px. Redo goes on Undo's long-press. Keep the view switch at the top, since it is used less often than Undo."
+ },
+ {
+  "id": "users-18",
+  "severity": "medium",
+  "title": "No way to hand a configuration to students",
+  "detail": "Shared numbers and constructions are meant for lectures and homework. Today the state lives in localStorage only, and share links are 'future'. A teacher cannot send the exact figure (P, Q, R, a, the chain) for homework.",
+  "fix": "Add 'Copy link' (the saved JSON in the URL hash) and Open/Save scene file to phase 1. Opening a link loads into a new state with Undo, and never overwrites without asking."
+ },
+ {
+  "id": "users-19",
+  "severity": "low",
+  "title": "Phone: the context menu header shows the wrong coordinate",
+  "detail": "In phone/shots/after/ctx.png the press ring is at about 0.36 + 0.18i (from the rulers), but the menu header says 'w₂ = 0.62 − 0.31i', which is below the axis. The desktop mockup is consistent (0.67 − 0.56i matches its ring). The user rejects inexact visuals.",
+  "fix": "Fix the mockup so the header shows the pressed point before it goes to the user."
+ },
+ {
+  "id": "users-20",
+  "severity": "low",
+  "title": "Parallel lines are called 'not meeting'",
+  "detail": "The PoC returns [undefined, ∞] for parallel lines, with the reason 'The curves do not meet here'. On the Riemann sphere they meet at ∞, where they are tangent. In a complex-analysis course that message is wrong.",
+  "fix": "Return ∞ for both points, with the reason 'They meet only at ∞'."
+ },
+ {
+  "id": "users-21",
+  "severity": "low",
+  "title": "Same icon for Numbers and Display on the phone",
+  "detail": "The chain bar's Numbers card and the plane's Display button both use the sliders glyph (home-x.png, phase). They mean different things on the same screen.",
+  "fix": "Give Numbers its own glyph (an italic 'a =' chip, or the parameter names when there are any). Keep the sliders glyph for Display."
+ },
+ {
+  "id": "users-22",
+  "severity": "low",
+  "title": "The desktop mockup uses r as a parameter name",
+  "detail": "The Parameters section shows 'r = 1.20', but the constructions design reserves r (it is |z| in region formulas). The user will judge the mockup and the rule together.",
+  "fix": "Rename it to ρ in the mockup."
+ },
+ {
+  "id": "users-23",
+  "severity": "low",
+  "title": "In X → Y, a step's card shows the next step's poles",
+  "detail": "The f₁ (Exponential) card shows a red × at w₁ = −1, which is the Möbius pole of f₂. The f₂ card shows f₃'s pole p₁. A student reads it as 'exp has a pole'.",
+  "fix": "Tag such marks with their step (a small f₂ beside the ×), or show them only while the next card is hovered or selected."
+ },
+ {
+  "id": "users-24",
+  "severity": "low",
+  "title": "Card pictures do not match the spec",
+  "detail": "The Landscape thumbnails (t-land-*.png) have axis labels (|f₁|, 10, 1, 0.1, Re z) that shrink to about 5 px on a 172 px card. The spec says no axis labels. The Deformation thumbnails show dotted paths, but the spec says no paths.",
+  "fix": "Render the card pictures without labels or paths, as specified, and capture them again."
+ },
+ {
+  "id": "users-25",
+  "severity": "low",
+  "title": "The scale chip is not translated",
+  "detail": "On the Russian phone screen (ru360.png) the title chip reads 'z 2 / div'.",
+  "fix": "Translate 'div' (for example '/ дел.'), and check the chip at 360 px."
+ }
+]

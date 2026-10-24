@@ -1,0 +1,177 @@
+[
+  {
+    "id": "design-1",
+    "severity": "high",
+    "title": "Right-click \"Add zero here\" does not work on the main map",
+    "detail": "The user asked to add zeros and poles \"directly on the map by right clicking\". In both designs, Add zero here and Add pole here appear only where the zeros-and-poles step's input plane shows: X when it is f1, or a step shown alone. In the audited chain (exp, Möbius, zeros and poles), right-clicking X or Y offers no zero. The phone task table counts \"Add a zero at a chosen point\" as 2 taps, but that assumes f3 is already shown alone. From the home screen it takes 4 to 5 taps: card, lens, close the sheet, long-press, menu item. The big Add zero button also switches the planes to Show alone, which breaks the desktop rule \"select is not focus\".",
+    "fix": "On X (and on the Phase portrait over z), offer \"Add zero of f_k here\" and \"Add pole of f_k here\" for the selected zeros-and-poles step, or the only one. Place the mark at w_(k-1) = f_(k-1)∘…∘f_1(z). This is exact: z then becomes a zero of f_k∘…∘f_1, and a zero of F when the step is last. When an earlier step is not one-to-one (exp), add a muted line: \"also at z + 2πik\". Do not switch to Show alone. Keep plain \"Add zero here\" on the step's own input plane. Never offer it on Y. Then fix the phone task count."
+  },
+  {
+    "id": "design-2",
+    "severity": "high",
+    "title": "The type name, the card's only text, is truncated",
+    "detail": "Measured in headless Chrome on the desktop frames. In English, \"Zeros and poles\" gets 61 px of the 92 it needs at 1024 and 54 px at 768. In Russian, \"Дробно-линейная функция\" needs 167 px and is cut at every width (73 to 114 px available). \"Нули и полюсы\" is cut at 1024 and 768. See cdp-review/shots/ru-f5-xy-1024.png (\"Дробно-ли…\", \"Нули и …\"). The user said \"the type is enough\", so the type has to be readable. The lens icon in the head takes another 20 px.",
+    "fix": "Add a card-name table with at most 12 characters in English and 14 in Russian, and no abbreviations: Möbius as «Мёбиус», Zeros and poles as «Нули и полюсы». Let the name wrap to two lines at 12 px, as the phone does. On the card, show Shown alone with the accent index tag only, and drop the head lens icon. Acceptance test: no card name truncates at 768, 1024, 1280 or 1440, in English or Russian."
+  },
+  {
+    "id": "design-3",
+    "severity": "high",
+    "title": "F has no home on desktop, and the expanded formula F(z) is lost on both",
+    "detail": "Desktop puts the guarantees in a chain-head button (\"Analytic · 1 of 8\") with a popover listing 8 lamps. The phone puts them in an F card with a compact text form (\"Guaranteed: Analytic. Not implied: …\"). These are two components and two layouts for one thing. Today's Composite map shows F(z) fully expanded plus the w_k list. DESIGN.md §2.6 moves it into the popover, but neither mockup shows it: the desktop popover starts with the lamps, and the phone F sheet shows only F = f3∘f2∘f1. Nobody will look for the formula of F behind a guarantees button. The chain head now holds 7 controls in 36 px.",
+    "fix": "One system. Add the phone's F card to desktop as the chain's last card: a narrow 88 px tile with no picture (it would repeat the last card), \"F\" and the lit lamp. Selecting F fills the Inspector with the expanded F(z) and Copy LaTeX, the phone's compact guarantees, the natural domain, and Step by step (folded). Remove the head button and its popover. The head keeps the title, Pictures/Names and Whole chain. Lower the card minimum to 120 px so five tiles fit at 1024."
+  },
+  {
+    "id": "design-4",
+    "severity": "medium",
+    "title": "Phone view switch: two tiny X/Y segments that duplicate the inset swap",
+    "detail": "The phone splits X → Y into an X segment and a Y segment, each 38 × 32 px. Tapping the inset also swaps X and Y, so two controls do one job. Desktop has X → Y · Phase · Landscape, so the phone doc lists this as a \"deliberate difference\". It is the most tapped control on the phone, yet it is the smallest. It also needs a merged \"X→Y\" state for the Deformation.",
+    "fix": "Use the desktop switch on the phone: X → Y · Phase · Landscape, 44 px tall. In X → Y, the inset decides which plane is large, and the title chip names it (z, or w = F(z)). The Deformation then needs no merged segment. This also frees about 76 px of header at 360."
+  },
+  {
+    "id": "design-5",
+    "severity": "medium",
+    "title": "The phone mockup misses its own 44 px rule",
+    "detail": "Measured on all 24 phone screens: 152 of 598 interactive elements are under 44 px. They include the view segments (38×32, 58×32, 84×32), the editor's icon buttons (40×40: Argand, Remove, ⋯, Show alone), the value fields (40 px tall), the 1× speed button (40×32), the Snap pill (36 tall) and the Numbers chip (40 wide). The CSS has no hit-area extensions. The Argand and Remove buttons sit next to each other, so a hit area cannot grow without overlapping.",
+    "fix": "Make every phone control at least 44 × 44 visible, with 4 px between neighbours. Value fields 44 px tall with 16 px text. Put the check into the phone acceptance file (§8) and run it on the mockup before building."
+  },
+  {
+    "id": "design-6",
+    "severity": "medium",
+    "title": "Long-press is specified twice, differently",
+    "detail": "Desktop §2.5: hold 500 ms and release without moving opens the menu, and \"hold and slide stays the probe\". Phone §3.6: hold 450 ms, release opens the menu, and \"probing moves into the menu\". The phone doc never says what happens when the finger slides after the hold. The phone mockup's menu head shows only w₂, not the probe value F(z) that §3.6 promises. INTERFACE.md says \"press-and-release after a long press\" with no number.",
+    "fix": "One state machine, written once in INTERFACE.md and used on both platforms. Press, 8 px slop, 450 ms with a ring filling. Then slide to probe, with a live readout of z and F(z). Or release without sliding to open the menu, with the point and F(z) in its head. Two fingers cancel."
+  },
+  {
+    "id": "design-7",
+    "severity": "medium",
+    "title": "Phase and Landscape card pictures do not read at a glance",
+    "detail": "From after-f2-phase and after-f3-land (crops checked):\n- The Möbius Phase card is one flat salmon colour, with its zero and pole crushed at the left edge.\n- The Landscape cards show clipped axis tick labels (\"−2\", \"Re z\", \"0 20\", \"w₁\"), although §2.2 says there are none.\n- The Region card's Landscape picture has a doubled \"z\" label.\n- The Möbius relief is a flat sheet with one spike.\nThe cause is the framing rule. Using the previous card's image box ignores where the step's own structure is.",
+    "fix": "Set each card's frame to the union of its input-shapes box and the step's zeros, poles and critical points, plus 10 %. Phase cards show only the ζ and p marks, with no letters. Landscape cards show no axes and no labels, with the height clamped to the main view's range. Review 4 views × 2 themes at a 120 px card width before building."
+  },
+  {
+    "id": "design-8",
+    "severity": "medium",
+    "title": "During playback cards jump, and the two docs disagree on when cards redraw",
+    "detail": "Desktop §2.3 shows the nearest of 9 pre-rendered frames during play. At a 2 s step, that is 8 visible jumps, about 4 fps, beside a 60 fps main view, which is not calm. Desktop never redraws a card during a drag; it updates 150 ms after release. Phone §3.3 redraws \"at most about 10 per second during a drag\". The two rules contradict each other, and the phone rule risks the 60 fps budget.",
+    "fix": "Use one rule everywhere. Cards never redraw during a drag, pan or play. During play, a card shows its step's t = 1 picture (dimmed until reached) and animates only the 3 px progress bar. At pause or release, it draws the exact picture. This drops the 9-frame cache (about 7.9 MB)."
+  },
+  {
+    "id": "design-9",
+    "severity": "medium",
+    "title": "Keyboard and screen-reader access is not designed",
+    "detail": "None of the three docs covers it:\n- opening the plane menu without a pointer;\n- menu semantics: the mockup has role=\"menu\" but no role=\"menuitem\";\n- the chain's keyboard model: Show alone is a lens button or a double-click, with no key;\n- card pictures: alt=\"\" and no accessible name on the card;\n- focus for the popover editor and the non-modal phone sheets;\n- announcements for \"Added slider a\" and \"The curves do not meet here\".",
+    "fix": "Add an accessibility section to INTERFACE.md:\n- The chain is a listbox: arrows move, Enter selects, L toggles Show alone, Delete removes.\n- Each card is named, e.g. \"f₂, Möbius, shown alone\".\n- Shift+F10 or the Menu key opens the plane menu at the keyboard probe, which arrow keys move (sound stage 2 already plans one).\n- Menu items are menuitems with arrow navigation, and Esc returns focus.\n- Popovers and sheets take focus and return it on close.\n- Toasts and undefined states use aria-live=\"polite\"."
+  },
+  {
+    "id": "design-10",
+    "severity": "medium",
+    "title": "Phone: Numbers and Display share one icon",
+    "detail": "The Numbers card at the start of the chain bar and the Display button on the plane both use the same sliders glyph (build.py: IC[\"sliders\"] for both). They are two different things that look the same, 300 px apart. Numbers is also the first chip of a \"function chain\", though it is not a step.",
+    "fix": "Give Numbers its own glyph: an italic STIX \"a =\". Show the names under it when there are any (a, ρ), and \"Numbers\" when there are none. Keep the sliders glyph for Display only, on both platforms."
+  },
+  {
+    "id": "design-11",
+    "severity": "medium",
+    "title": "Phone Deformation toggle is still a bare icon",
+    "detail": "The phone audit criticises \"the view switch and the deformation toggle are bare icons\". The redesign labels the view switch but keeps the Deformation toggle as an unlabelled 48 × 48 glyph at the end of the chain bar. Desktop's toggle has the word \"Deformation\".",
+    "fix": "Put the label under the glyph at 10.5 px semi-condensed, as in the tool row: \"Deformation\" / «Деформация» (about 58 px). Widen the toggle to 64 px. Same word and glyph as desktop."
+  },
+  {
+    "id": "design-12",
+    "severity": "medium",
+    "title": "Tablet portrait: the docked Inspector hides the rows it exists for",
+    "detail": "In frame 6 (768 × 1024), the 260 px Inspector under the chain shows the head, the formula, the two Add buttons and \"a = 1\". ζ₁, ζ₂ and p₁ are below the fold of a 330 px column. A right rail (\"Inspector\", two icons) is also still drawn although the Inspector is docked, so there are two rails and a docked panel: a cockpit.",
+    "fix": "At 768–1023, give the Selection column two thirds of the width and the Parameters column one third, and make the panel 320 px tall. Put the formula on the head row, so the zero and pole rows show without scrolling. Remove the right rail whenever the Inspector is docked."
+  },
+  {
+    "id": "design-13",
+    "severity": "medium",
+    "title": "The popover editor covers the plane's own controls",
+    "detail": "In frame 3 (Landscape, no panel), the 320 px Möbius popover sits on the plane's options strip, hiding |F|, Re F, Im F, Tiles, Plain, Plaster and n, and it covers the centre of the relief. The design itself rejected popovers because \"it covers the planes while you edit\".",
+    "fix": "Without the panel, open the editor as a temporary 288 px Inspector that slides over the right edge of the stage (Esc or ] closes it). Never place it over the picture or the options strip. Apply the same rule to the Parameters popover."
+  },
+  {
+    "id": "design-14",
+    "severity": "medium",
+    "title": "Construction tools differ between desktop and phone",
+    "detail": "Desktop (INTERFACE.md): Line through 2 points is the Line tool with snapping, the Draw grid gains Circle (3 points) and Intersect, and Midpoint, Bisector and Point on curve go under More. Phone (§3.8 and the tools screen): Line through 2 points, Circle through 3 points, Midpoint and Point on a curve. The phone has no Intersect and no Bisector, but adds a separate Line-through-2-points tool. The phone sheet also uses a second button style (wide outlined rows) beside the tool tiles.",
+    "fix": "Use one tool set on both platforms: Circle (3 points) and Intersect in the grid; Midpoint, Bisector and Point on curve under More; the Line tool snaps to points (snap radius 22 px on touch). Show constructions as ordinary tiles in the same grid style."
+  },
+  {
+    "id": "design-15",
+    "severity": "medium",
+    "title": "Circle through three points: the filled side depends on the click order",
+    "detail": "Constructions §1.2: counterclockwise P, Q, R fills the disc, and clockwise fills the outside of the circle. About half of first attempts will fill the whole plane except the disc. Continuity matters while dragging. It does not need to decide the result at creation.",
+    "fix": "At creation, orient the circle so that the bounded disc is filled, whatever the click order, and store that orientation. Afterwards, orientation follows the points, so a drag through collinear stays continuous (disc, then half-plane, then outside). Use complement flips it. This answers the doc's question 2."
+  },
+  {
+    "id": "design-16",
+    "severity": "medium",
+    "title": "Parameter names collide with step coefficient letters and with r",
+    "detail": "Möbius fields are labelled a, b, c, d, and the zeros-and-poles step has a field a. The desktop mockup shows a shared parameter a beside that step's field a. The constructions doc's own example, \"the Möbius b = a i\", is ambiguous: the Möbius a or the shared a? The desktop mockup also uses a parameter named r, which the constructions design reserves (r = |z|).",
+    "fix": "State the rule: step coefficient letters are labels, not names in the scope. The link chip shows which number a field uses. Warn when a new parameter's name equals a coefficient letter of a step that uses it. Rename the mockup's r to ρ."
+  },
+  {
+    "id": "design-17",
+    "severity": "medium",
+    "title": "Cyrillic look-alike letters will create ghost parameters",
+    "detail": "On the Russian layout, а с е о р х у к look exactly like the Latin letters. work/xb/src/parse.js has no Cyrillic handling. With the rule \"an unknown lower-case name becomes a new slider\", typing a Cyrillic «а» creates a second slider that also reads \"a\", or fails with an error the user cannot see the reason for.",
+    "fix": "Before parsing any formula field, map the 8 homoglyphs to Latin (а→a, с→c, е→e, о→o, р→p, х→x, у→y, к→k). Refuse any other Cyrillic letter with «Используйте латинские буквы» / \"Use Latin letters for names\". Add the case to t_params."
+  },
+  {
+    "id": "design-18",
+    "severity": "medium",
+    "title": "Phone math typography is broken in the chips and the F sheet",
+    "detail": "The phone title chips read \"w = F ( z ) 2 / div\", with spaced parentheses, and \"w 2 0.5 / div\". The F sheet shows \"F = f 3 ∘ f 2 ∘ f 1\" with detached subscripts. The zeros-and-poles formula well starts \"w 3 =\". Desktop sets all of these correctly. The user once rejected an export as \"AI slop\" for less.",
+    "fix": "On the phone, use the desktop pane head's math markup (STIX italic with <sub>, no letter-spacing), not spaced text. Add the chips and the F sheet to the visual review in light and dark."
+  },
+  {
+    "id": "design-19",
+    "severity": "low",
+    "title": "Display sheet sliders are cramped",
+    "detail": "On the phone Display sheet, the Cell and Opacity rows are about 18 px apart, and their thumbs overlap the next row. The swatch label \"Sphere ch…\" is cut. This sheet replaces the 1500 px scroll, so it should be the roomiest one.",
+    "fix": "Use 44 px slider rows, with the name on the left and the value on the right. Let swatch names wrap to two lines."
+  },
+  {
+    "id": "design-20",
+    "severity": "low",
+    "title": "Russian labels on the phone: an abbreviation and cuts",
+    "detail": "On ru360:\n- The tool row shows «Многоуг.». The rule \"at most 8 characters\" forces abbreviations, which look unfinished.\n- «Экспонента» runs into the connector arrow.\n- At 390, the F card's \"Analytic\" is cut to \"Analyti\".",
+    "fix": "Allow two-line tool labels with soft hyphens («Много-угольник» at 11 px). Chain card names wrap and never overflow. The F card shows only the lamp and \"F\"."
+  },
+  {
+    "id": "design-21",
+    "severity": "low",
+    "title": "\"Analytic · 1 of 8\" reads like a score, and it is long in Russian",
+    "detail": "\"1 of 8\" reads like a grade or a page count. In Russian the button becomes \"Аналитическая функция · 1 из 8\" (228 px measured at 1024).",
+    "fix": "Show only the lit names (\"Analytic\", «Аналитическая»), or \"No guarantees\" when none are lit. Drop the count. With design-3, this text sits on the F tile."
+  },
+  {
+    "id": "design-22",
+    "severity": "low",
+    "title": "Desktop header at 1024 still truncates and omits the Language button",
+    "detail": "At 1024 the header shows \"Exampl…\" and \"Add function or…\" («Приме…», «Добавить фун…» in Russian; measured). The mockup header is built from xr only, so it lacks v14's Language globe button (work/xb). The real header is one button wider than drawn.",
+    "fix": "Below 1280 px, the search becomes an icon with ⌘K, and Examples keeps its full word. Redraw the header frames from the merged xr + xb header, in English and Russian."
+  },
+  {
+    "id": "design-23",
+    "severity": "low",
+    "title": "Shown alone is a hidden mode on the phone",
+    "detail": "With f3 shown alone, the header still says \"X\" while the plane is the w₂-plane. The only way back is to open the editor and untoggle the lens. Desktop has \"Whole chain\" in the chain head; the phone has no equivalent.",
+    "fix": "Show it in the title chip as \"w₂ · f₃ alone ×\": one tap returns to the whole chain. Put the same × in the desktop plane head."
+  },
+  {
+    "id": "design-24",
+    "severity": "low",
+    "title": "Two accent marks on different cards during the Deformation",
+    "detail": "In frame 4, f₁ has the accent selection outline while f₂ carries the accent progress bar. Two accents on two cards compete for attention, and it is unclear which step the Inspector shows.",
+    "fix": "During playback, the selection outline turns neutral (--line-strong) and only the playing card is accent. The Inspector keeps the selected step."
+  },
+  {
+    "id": "design-25",
+    "severity": "low",
+    "title": "Construction labels collide",
+    "detail": "PoC shots 01 and 10: X₂ sits on c; S, m and g overlap at 390 px; X₁ sits on the circle stroke. The build plan names \"label clutter\" as a risk but gives no rule.",
+    "fix": "Add a label placer: 8 candidate offsets along the outward normal, avoiding other labels, marks and strokes. Curve labels go at 85 % of the visible arc. Test on the PoC scene at 390 and 1440, light and dark."
+  }
+]

@@ -113,7 +113,7 @@ await ev('__cmwSetView("R", "plane"); 1'); await sleep(300);
 
 // 6. Y's variable at focus k (P13)
 await ev('__cmwExample(1); 1'); await sleep(1500);
-await ev(`document.querySelector('.card[data-k="2"] .nm').click(); 1`); await sleep(600);
+await ev(`document.querySelector('.card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); 1`); await sleep(600);
 await key('d'); await sleep(400);
 ok('focus 2: the Y hint in w₂', /w₂-plane/.test(await txt('#rightReadout')), await txt('#rightReadout'));
 await key('4'); await sleep(500);
@@ -128,7 +128,7 @@ const dk = await ev(`[...document.querySelectorAll('.card')].map((c) => [c.datas
 out.ex12cards = dk;
 const kd = (dk.find((c) => /d\/dz/.test(c[1])) || [])[0];
 if (kd) {
-  await ev(`document.querySelector('.card[data-k="${kd}"] .nm').click(); 1`); await sleep(600);
+  await ev(`document.querySelector('.card[data-k="${kd}"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); 1`); await sleep(600);
   await key('3'); await sleep(900);
   const lt = await txt('#leftTitle');
   ok('d/dz focus: landscape of log|w_k(z)|', /landscape of log\|w.\(z\)\|/.test(lt), lt);
@@ -152,7 +152,7 @@ await key('m'); await sleep(300);
 await ev('__cmwSetView("R", "plane"); 1'); await sleep(300);
 for (const w of [1024, 1180, 1440]) {
   await view(w, 900, false); await sleep(400);
-  await ev(`document.querySelector('.card[data-k="2"] .nm').click(); __cmwSetView("L", "land"); __cmwSetPhase(true); 1`); await sleep(900);
+  await ev(`document.querySelector('.card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); __cmwSetView("L", "land"); __cmwSetPhase(true); 1`); await sleep(900);
   const t = await ev(`(() => { const t = document.getElementById('leftTitle'), pr = t.querySelector('.prole'); return { cls: t.className, txt: pr ? [...pr.childNodes].filter((n) => n.nodeType === 3 || getComputedStyle(n).display !== 'none').map((n) => n.textContent).join('') : '', cut: pr ? pr.scrollWidth > pr.clientWidth + 1 : false, terse: t.classList.contains('terse') }; })()`);
   out['title' + w] = t;
   ok(`title at ${w}: the role whole, short or gone, never cut`, !t.cut || t.terse, t);

@@ -1,0 +1,302 @@
+[
+ {
+  "id": "design-1",
+  "status": "fixed",
+  "note": "At full height the chain bar moves up to the sheet's top edge, under the header, and the sheet starts below it. v15_phone_cmd now checks it: the bar sits on the sheet's edge and no sheet control is covered (elementFromPoint at each control). It passes. src/phone.css."
+ },
+ {
+  "id": "design-2",
+  "status": "fixed",
+  "note": "A grabber tap now resizes on the head's click, after the tap's own events, and the sheet ignores a stray click for 400 ms after a resize. A drag resizes on release. Probe dsr p4: focus after the grabber tap stays on the grabber. v15_phone_cmd checks it too. src/phone.js grabber()."
+ },
+ {
+  "id": "design-3",
+  "status": "fixed",
+  "note": "On the phone the F tile shows F and the lamp dot only. The names stay in the aria-label and the F Editor. Probe dsr p5 at 390: tile 48 x 52, F at y 732..758 inside it, one 8 px dot, no text. src/phone.css."
+ },
+ {
+  "id": "design-4",
+  "status": "fixed",
+  "note": "When the expanded F does not fit, the Inspector writes F in terms of the last w (the mockup's form), with the w list under it. A step formula first drops its generic form. Anything still too wide is scaled down, to 70 % at most. The choice is made once per formula, so drag frames do no layout. Probe: every Inspector formula fits its well at 288 px (1440, 1280) and 264 px (1024) (scrollWidth = clientWidth). src/inspector.js fitPick, fitTex."
+ },
+ {
+  "id": "design-5",
+  "status": "fixed",
+  "note": "With X and Y side by side, the temporary Inspector docks while it is open: the stage gives up 296 px and the Inspector fills that column. It covers no plane. Merged views keep the overlay, their centre stays clear. Probe dsr a3: Inspector x 1100..1388, Y ends at 1092. v15_desktop_cmd checks it (covers none of the planes) and passes."
+ },
+ {
+  "id": "design-6",
+  "status": "fixed",
+  "note": "New points are labelled z₀, z₁, … (z₀′ … on Y). A saved label is kept. The export caption uses z_i too. src/app.js pointLabel."
+ },
+ {
+  "id": "design-7",
+  "status": "fixed",
+  "note": "Bypass and ⋯ now sit on the picture's top-right corner, on a small surface below the head. The name keeps its full width on hover and after a click. Seen in the 1024 Russian shot. src/desk.css."
+ },
+ {
+  "id": "design-8",
+  "status": "fixed",
+  "note": "Every zero and pole row has its Argand button (28 px desktop, 44 px phone), named by the indexed symbol: 'Pick ζ₁ on an Argand diagram', 'Pick a₃ …'. Probe: 5 buttons for a₃, ζ₁, ζ₂, ζ₃, p₁; dsr p2: 44 x 44 on the phone. app.js zpItemField, inspector.js."
+ },
+ {
+  "id": "design-9",
+  "status": "fixed",
+  "note": "The hint now depends on the input: on the phone layout or a coarse pointer it reads 'Or long-press a plane. Marks snap to the ruler.' (ru «Или удерживайте палец на плоскости. Метки привязываются к линейке.»). Desktop keeps the right-click text. inspector.js touchUI."
+ },
+ {
+  "id": "design-10",
+  "status": "fixed",
+  "note": "The Editor has one head: the sheet head is a thin grabber bar (its tap area 44 px tall), and × sits at the right of the Inspector's own head (index, icon, name, lens, ⋯, all 44 px). Numbers keeps its own head. dsr p2 and v15_phone_cmd: every control 44 x 44. src/phone.css."
+ },
+ {
+  "id": "design-11",
+  "status": "fixed",
+  "note": "With a sheet open, the two small planes hide Sphere, Display, Fit and the legend chip. Only the title chips stay, and Y's chip reads w only. src/phone.css."
+ },
+ {
+  "id": "design-12",
+  "status": "fixed",
+  "note": "Numbers opens the Editor with Parameters only, headed Numbers («Числа»). A card or the F tile brings the selection back. dsr p2: the Numbers sheet holds only the number rows and + Number. src/phone.js setNums."
+ },
+ {
+  "id": "design-13",
+  "status": "fixed",
+  "note": "The card of the step being played has the accent outline (.playing). In All at once it is the last card, which now shows the deformation itself (math-1). A held picture hides its t label, so no card shows a wrong t. Probe dsr a4: f2 card 'sel quiet stale playing', the held cards have no t label."
+ },
+ {
+  "id": "design-14",
+  "status": "fixed",
+  "note": "The chain is one tab stop with a roving tabindex. The listbox is now an empty owner element that owns only the options (region card, step cards, F) through aria-owns. Connectors are aria-hidden. Bypass and ⋯ on a card are aria-hidden and out of the tab order (they stay in the Inspector's ⋯, plus a new 'Insert a function after it' item, and the keys Delete and L). The Add tile is its own tab stop after the selected card, outside the listbox. Probe dsr k1: Tab goes card → Add → Inspector; arrows still move the selection."
+ },
+ {
+  "id": "design-15",
+  "status": "duplicate",
+  "note": "Same as russian-1 (the Russian F tile). Fixed there: «Аналитична» on one line."
+ },
+ {
+  "id": "design-16",
+  "status": "fixed",
+  "note": "At 768 to 1023 the zero rows fill the left column and the pole rows the right one, under a₃, so the order no longer zigzags. Not changed: the formula stays in its well under the head; moving it onto the head row is a layout change for after the v14 merge. src/desk.css."
+ },
+ {
+  "id": "design-17",
+  "status": "fixed",
+  "note": "One add control (+ Number at the end; the head + is gone). Play sits right after the value field. Range ends, the slider's aria-label and idle value fields use U+2212 (the parser reads it back). Probe dsr a2: one Number button; rur2 run11: «−2» and «a от −2 до 2». Not changed: zero and pole fields keep their typed text (it is the stored value and what tests and copy read); the head formula shows the typeset form."
+ },
+ {
+  "id": "design-18",
+  "status": "fixed",
+  "note": "Clear chain moved into a ⋯ menu in the chain head, as a danger item. The hidden button stays for the command palette. Probe: #clearChain hidden, #chainMoreBtn present."
+ },
+ {
+  "id": "design-19",
+  "status": "fixed",
+  "note": "The temporary Inspector's head reads 'Inspector' («Инспектор»), with the Esc key cap and ×. Its dialog name is Inspector too. inspector.js."
+ },
+ {
+  "id": "design-20",
+  "status": "fixed",
+  "note": "On a card, a zero or pole mark that the picture's edge would cut is left out, as the main view does for off-screen marks. app.js drawCuts offEdge."
+ },
+ {
+  "id": "design-21",
+  "status": "fixed",
+  "note": "#propsPanel is role=region named Inspector. The temporary one is a dialog of the same name; the phone sheet is already a named dialog. Probe dsr k1: {role: region, label: Inspector}."
+ },
+ {
+  "id": "design-22",
+  "status": "rejected",
+  "note": "Not a v15 change. The header markup in work/xva equals v15-base's (only the right toggle's label changed), so the 768 px header is the v14 base's. Check it against frames f5 and f6 after the v14 merge, as the finding says."
+ },
+ {
+  "id": "math-1",
+  "status": "fixed",
+  "note": "In All at once, card k draws the deformation itself up to step k (map mode 3, a = 0, b = k, t), over its grey start (b = k − 1). So the last card equals the main plane at every t. One after another is unchanged. Shot m3-def-allatonce: the f₃ card shows the main picture's shape at t = 0.5. app.js cardDef."
+ },
+ {
+  "id": "math-2",
+  "status": "fixed",
+  "note": "A bound value out of range (r = a ≤ 0, a count outside 1 to 60) or a formula with no value now makes the shape undefined. It is not drawn, its row says why ('r = a = −0.3: a radius must be positive'), its eye is disabled, and it comes back when the value is valid again. Probe m2_params: a = −0.3 gives that row text. app.js applyBinds."
+ },
+ {
+  "id": "math-3",
+  "status": "fixed",
+  "note": "At load (init) and on undo and redo, Params.recompute() and applyBinds on every shape and target run before the first render (bindsAll). Probe m2_params case d5: b = 2a + 1 saved as 7 opens as 2, and the disc bound to b has r = 2."
+ },
+ {
+  "id": "math-4",
+  "status": "fixed",
+  "note": "Guide: 'the point becomes a zero of f_k ∘ … ∘ f₁ exactly, and of F when f_k is the last step'. Menu: when active steps follow f_k, a muted line gives F there, from rangeF(k, n)(0). Probe m1 case B: 'F there: 1.00 (f₂ follows)'."
+ },
+ {
+  "id": "math-5",
+  "status": "fixed",
+  "note": "The 'also at' line now shows for Add pole too. Probe m1 case A: 'Add pole of f₃ here / also at z + 2πik'."
+ },
+ {
+  "id": "math-6",
+  "status": "fixed",
+  "note": "A Möbius step with ad − bc = 0 has no pole mark and no markers from it; its map is the exact constant. The Inspector adds 'f₁ is constant, = 1; z = −1 is removable.' The menu says 'every point maps here: an earlier step is constant'. Shot m2-mob-degenerate: no × at −1, the note under the determinant. Probe m1 case C."
+ },
+ {
+  "id": "math-7",
+  "status": "fixed",
+  "note": "A zero or pole added from the menu is stored at 15 significant digits, and a part below 1e-15 of the other is set to 0. Probe m1: fields read 0.58+0.96i, 0.85+1.32i and 0.8; F_k at the point stays below 1e-15. A value typed or loaded with noise is kept as the user's text."
+ },
+ {
+  "id": "math-8",
+  "status": "fixed",
+  "note": "The menu head treats a part below 1e-12 of the other as 0 and prints at most 6 decimals. Probe m1: 'F(z) = −2.20' (Joukowski) and 'F(z) = −2.00' (constant F)."
+ },
+ {
+  "id": "math-9",
+  "status": "fixed",
+  "note": "Y's fit frames an image that is a point up to rounding (span below 1e-9·max(1, |w|)) as ±1 around it. The old floor never fired. Shot m2-mob-degenerate: Y at 0.5 / div around 1. app.js robustBox."
+ },
+ {
+  "id": "math-10",
+  "status": "fixed",
+  "note": "figureState now carries the Landscape camera (relative to its fit) and the deformation (open, T). A link or scene applies them once at load; they are never kept in the saved state. Probe m4_link: yaw 0.7 and pitch 0.9 come back, deformation open at T = 1.25, F identical."
+ },
+ {
+  "id": "math-11",
+  "status": "fixed",
+  "note": "A step's formula keeps its shared numbers as names: (w₁ − 1)/(a w₁ + 1) and (2a + 1)(w₂ − a)(w₂ + 0.5i)(w₂ + a)/(w₂ + 0.8 − 0.75i). The step is built again with sentinel numbers, which are then replaced by each field's TeX; it falls back to the values if a sentinel does not come through. The previous fixer's version printed '[object Object]' (Expr.toTex returns {s, p}); fixed and checked in the browser. inspector.js namedTex."
+ },
+ {
+  "id": "math-12",
+  "status": "fixed",
+  "note": "symOf has sin (π − z + 2πk, z + 2πk) and cos (−z + 2πk, z + 2πk). An earlier constant step gives 'every point maps here'. Polynomial and rational steps say 'also at n other points, counted with multiplicity'. Probe m1 cases H and I."
+ },
+ {
+  "id": "math-13",
+  "status": "fixed",
+  "note": "With the degenerate pole gone (math-6), the constant Phase view shows a clean outline on one colour. Shot m2-mob-degenerate-phase: no dark dashes."
+ },
+ {
+  "id": "math-14",
+  "status": "duplicate",
+  "note": "Same as design-17 (U+2212 in Parameters). Fixed there."
+ },
+ {
+  "id": "regress-1",
+  "status": "fixed",
+  "note": "A panel that the one-dock rule closes at 1024 to 1279 is closed at run time only. dockPref changes only for the panel the user toggled, and at 1280 or more both panels follow dockPref again. Probe rvreg states: 1200 tools opened → savedR false; 1440 after and after reload: both panels open."
+ },
+ {
+  "id": "regress-2",
+  "status": "fixed",
+  "note": "v15_planemenu_cmd's touch pan presses in the upper half of X, clear of the phone's inset. Its port comes from the daemon's cdpd.js. It passes."
+ },
+ {
+  "id": "regress-3",
+  "status": "fixed",
+  "note": "zp_cmd.js runs at the shipped geometry (no __cmwChainH hook). Its per-pixel truth leaves out 16 px ruler bands at the plane's edges. It passes."
+ },
+ {
+  "id": "regress-4",
+  "status": "fixed",
+  "note": "It was new in v15 (the taller planes leave 204 px under them at 1440 x 900; the 320 px card is 242 px tall). A tour callout meant to sit below a tall area, with too little room under it, now tries a wider, shorter card (440, 520, then 600 px) before it falls back to covering the area. The Phase callout is 600 x 183 at y 705, under the planes (they end at 696). tour_cmd: 94 of 94. tour.js layout()."
+ },
+ {
+  "id": "regress-5",
+  "status": "fixed",
+  "note": "The left readout treats a component below a billionth of X's pixel as 0, and |z| and arg read the same rounded point. Probe (example 13, pointer at X's centre): 'z 0.0000 + 0.0000i, |z| 0.0000, arg 0°' (the first pass still showed |z| 7.11×10⁻¹⁵ and arg 90°). ubfix_cmd.js was not refreshed: its 21 stale checks remain. app.js setReadouts, fmtCxHtml atol."
+ },
+ {
+  "id": "regress-6",
+  "status": "rejected",
+  "note": "Kept on purpose for the 3-way merge with v14's fixes. The finding's own fix is to delete them right after the merge, in one commit with no other changes."
+ },
+ {
+  "id": "regress-7",
+  "status": "fixed",
+  "note": "inspector.js keeps the handle Params.mount returns and destroys it before mounting again. Params.render skips any mount whose element is not connected."
+ },
+ {
+  "id": "regress-8",
+  "status": "rejected",
+  "note": "Not a v15 regression: src/sound.js is v15-base's, and the main tree's fix arrives with the planned 3-way merge. t_sound is still 64 of 66 here."
+ },
+ {
+  "id": "regress-9",
+  "status": "rejected",
+  "note": "Optional. A perf unit at the shipped geometry needs a new baseline, and this round must not write baselines. The review measured the shipped geometry within budget. Propose the unit at the gate."
+ },
+ {
+  "id": "regress-10",
+  "status": "fixed",
+  "note": "Guide: 'Below that come the items for what is under the pointer …, then Add zero …'. Guarantees: 'a property not named is not implied, though it may still hold' (tour: 'one not listed is not implied, but may hold', for the 240-character limit). Tour: 'After earlier steps, the zero goes where the point lands'. Parameters: '= {v}, from {x}', 'Unlink from the formula'. Rail: 'Edit the selection'. Messages: 'Added zero ζ₃ of f₂ at 1+i.', 'Added zero ζ₃ of f₂.', 'Removed zero ζ₁ of f₁.'. Russian updated."
+ },
+ {
+  "id": "russian-1",
+  "status": "fixed",
+  "note": "The tile shows one short word per lamp through $tx('ftile', …): «Аналитична», «Рациональна», «Дробно-линейна», «Собственная», «Гомеоморфна», «Конформна», «Многочлен», «Целая». It breaks only at a hyphen. The Inspector and aria-label keep the full names. Probe rur2 run1: tile 'F Аналитична', aria 'F: Аналитическая функция'."
+ },
+ {
+  "id": "russian-2",
+  "status": "fixed",
+  "note": "Russian card names hyphenate by syllables (hyphens: auto, lang=ru) on desktop and phone. Hyperbolic sine, cosine and tangent get the card names «Гиперб. синус», «Гиперб. косинус», «Гиперб. тангенс», because «Гиперболический» needed three lines and was cut by the two-line limit. Probe at 1440 and 1024 with five steps (79 px names): all 12 long names fit in two lines, none cut."
+ },
+ {
+  "id": "russian-3",
+  "status": "fixed",
+  "note": "v15d.card_mobius ru is «Дробно-линейная» (two lines at its own hyphen). Probe rur2 run1: card 'f 2 Дробно-линейная'."
+ },
+ {
+  "id": "russian-4",
+  "status": "fixed",
+  "note": "pm.select, pm.hide and pm.delete use a colon: «Выделить: %{name}». The integral items quote the name: «Вычислить интеграл от F по кривой «Прямая 1»», «… по контуру «…»» (v15-review.json)."
+ },
+ {
+  "id": "russian-5",
+  "status": "fixed",
+  "note": "chainKey binds L through I18N.keyOf (the physical key; «д» on ЙЦУКЕН). Probe rur2 run10: «д» with KeyL shows the step alone."
+ },
+ {
+  "id": "russian-6",
+  "status": "fixed",
+  "note": "The language-switch stash records the open phone sheet (and Numbers mode). After the reload Phone.open reopens it. Probe rur2 run13: More is open again after the switch, card 2 and a = 0.7 kept."
+ },
+ {
+  "id": "russian-7",
+  "status": "fixed",
+  "note": "A Cyrillic look-alike as a new number's name reads as its Latin letter, as in formulas. Another Cyrillic letter gets «Буква «д» — русская: имена пишутся латиницей. Переключите раскладку.» Probe rur2 run11: «с» + Enter adds the number c."
+ },
+ {
+  "id": "russian-8",
+  "status": "duplicate",
+  "note": "Same as design-9. The touch hint has its own Russian copy."
+ },
+ {
+  "id": "russian-9",
+  "status": "fixed",
+  "note": "v15p.ui.empty has a no-break space in «+ Число», and the inline Re z = a never breaks (white-space: nowrap)."
+ },
+ {
+  "id": "russian-10",
+  "status": "duplicate",
+  "note": "Same as design-17 (U+2212 in range ends and the slider's aria-label)."
+ },
+ {
+  "id": "russian-11",
+  "status": "fixed",
+  "note": "«все z, для которых:» in lower case ($tx('insp', …)). The \\text{} words of a domain condition are set as HTML in the interface's type, with the math typeset between them. Probe rur2 run2."
+ },
+ {
+  "id": "russian-12",
+  "status": "fixed",
+  "note": "Phone split view: Y's chip reads w only. Below 1100 px the Russian plane subtitle hides. The left rail's vertical label is «Инструменты» ($tx('rail', …))."
+ },
+ {
+  "id": "russian-13",
+  "status": "fixed",
+  "note": "(a) «ещё в n точках с учётом кратности»; (b) «Добавить нуль функции f₂ здесь», «Добавлен нуль ζ₃ функции f₂ …»; (c) the card keeps «Обратная Жуковского», the Inspector title and aria use the full catalog name; (d) «помечены номером шага»; (e) «Дважды щёлкните карточку», «Двойной щелчок»."
+ },
+ {
+  "id": "russian-14",
+  "status": "fixed",
+  "note": "F1 to F12 are in the scanner's ALLOW list. The walk now also visits the Inspector for every card and F, Parameters (+ Number, a refused Cyrillic name, rename, the number's menu), the planes' menu on X (empty, a shape) and Y, and every phone sheet and Numbers. The extended walk ran at 1440: n = 0, no errors (446 s)."
+ }
+]

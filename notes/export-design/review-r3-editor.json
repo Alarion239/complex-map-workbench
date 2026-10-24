@@ -1,0 +1,170 @@
+[
+ {
+  "id": "editor-1",
+  "severity": "high",
+  "title": "Captions use f_1 and f_2 but never define them; the display shows only the composite F",
+  "detail": "Every chain caption except the short plane filmstrip describes the homotopy step by step: \"for $f_{1}$, the zoom homotopy ...; for $f_{2}$, the elliptic Mobius transformations ...\". The reader is never told what f_1 and f_2 are. The new display gives only F(z)=(e^z-1)/(e^z+1). A referee or a student cannot check the homotopy (H^(1)_1 = e^z, H^(2)_1(w)=(w-1)/(w+1)) from the caption. This affects Phase, Phase on the sphere, Landscape, One frame and the paths figures, in English and Russian. The display is the natural place for the chain, because the user asked for it to hold formulas that are too long for inline text.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-phase-article1.tex, r3-film-land-png-homework.tex, r3-frame-phase-article1-boxes.json (cap), r3-paths-plane-article1-boxes.json, r3-ru-film-phase-homework-boxes.json; compiled: notes/export-design/review-r3-editor/t_caption.pdf p.2 and p.5",
+  "fix": "When the caption names steps, display the chain: \\[ \\displaystyle F=f_2\\circ f_1,\\quad f_1(z)=e^{z},\\quad f_2(w)=\\frac{w-1}{w+1}, \\] and optionally F(z)=... on a second line (gathered). Otherwise drop the step names from the text. Build it from A.capParts per step, in en and ru."
+ },
+ {
+  "id": "editor-2",
+  "severity": "high",
+  "title": "Different figures get the same file name and the same \\label",
+  "detail": "The default name and label depend only on the scene and a coarse view tag. Five different figures are all named strip-to-disk.pdf/.png with \\label{fig:strip-to-disk}: the globe filmstrip, the globe paths figure, the globe One frame, the Phase-on-the-sphere filmstrip and its One frame. The static X -> Y figure has the same name and label. The phase filmstrip, phase One frame and the round-2 phase figure all share strip-to-disk-phase. The plane filmstrip and the plane paths figure share strip-to-disk-deformation. A teacher who exports the filmstrip and the One frame for the same homework uploads strip-to-disk-phase.png twice. Overleaf replaces the first file, so both figures silently show the second image. LaTeX warns 'Label multiply defined' and \\ref resolves to the wrong figure. In my test document, 'See Figure~\\ref{fig:strip-to-disk-phase}' printed 'Figure 4' (the One frame), not the filmstrip (Figure 1).",
+  "evidence": "Labels in work/xve/test/regress/export/out/r3-film-globe-article1.tex, r3-paths-globe-article1.tex, r3-frame-globe-article1.tex, r3-film-phaseGlobe-article1.tex, xy-strip-article1.tex (all fig:strip-to-disk; first comment line names strip-to-disk.pdf); work/xve/test/regress/export/out/latex/test-article1.log ('fig:strip-to-disk' multiply defined x11); notes/export-design/review-r3-editor/t_caption.log, t_caption.pdf p.1 ('See Figure 4').",
+  "fix": "Give the name and label a kind suffix: -film, -paths, -frame, plus -globe or -sphere for the sphere views (for example strip-to-disk-phase-film, strip-to-disk-globe-paths). Keep it stable so a re-export replaces only its own file."
+ },
+ {
+  "id": "editor-3",
+  "severity": "high",
+  "title": "Globe filmstrip: the orange dot is an unnamed point of the line Im z = 0.8, but the caption names only z_0 = 0",
+  "detail": "globePathPoints keeps a point shape only if its path is on the near side for 8 of 13 samples. z_0 = 0 sits at the south pole, which is on the far side in this camera, so it is dropped. Points on the boundary curves are tracked instead. The caption says 'the image of ... and the point $z_0=0$ under $H_t$. Solid: the paths t->H_t(z) of the marked points'. A reader takes the orange dot for z_0. It is not z_0: H_0(0)=H_2(0)=0, so z_0 would sit at the same spot in (a) and (d). The dots are at different places in the panel: (24.23, 77.65) in (a) and (32.96, 95.32) in (d), panel-relative SVG units. In all four frames the dot lies on the brown curve, the line Im z = 0.8. The image of z_0 itself is never drawn. The globe paths figure says 'the point $z_0=0$ under $F$' but has no mark at F(0) either.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-globe-article1.svg (circle cx/cy vs the image x/y of each panel), r3-film-globe-png-article1.png, r3-film-globe-png-slides.png, r3-film-globe-article1-boxes.json (cap); src/figure.js globePathPoints and figFilmPic.",
+  "fix": "Name the tracked point in the figure and the caption: label it (A, or z = x+0.8i) and say 'the path of the point z = ... of the line'. Say that z_0 is on the far side ('z_0 = 0 maps to the hidden south pole'), or turn the camera for the export. Never list a point among the shown objects if it is not drawn."
+ },
+ {
+  "id": "editor-9",
+  "severity": "high",
+  "title": "Homework deformation figures break the 'dashed open boundaries' decision, and the dash means 't = 0' instead",
+  "detail": "README.md decision 2: in Homework, open boundaries are dashed and the caption says 'Dashed: boundary not included'. The static Homework figure does this: xy-strip-homework dashes the strip's boundary in navy. The deformation figures in Homework do not. r3-film-plane-homework draws the boundaries of H_t(X) solid. Its only dashes are gray, for 'the boundary at $t=0$', and its caption says 'dashed: the boundary at $t=0$'. r3-film-globe-homework and r3-paths-globe-homework have no dashed boundary at all. r3-paths-plane-homework uses dashes twice in one picture: navy dashed for open boundaries, and gray dashed for X's outline ('(dashed outline)'). The Print-look video strokes every H_t boundary solid and dashes X's boundary in gray, while the Light-look video shows the screen's dashed open boundary. So in one homework, a dashed line means 'not included' in one figure and 'where the boundary was at t = 0' in the next.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-plane-homework.svg (dash 3 2 only on #666666, the t=0 ghost) and its caption; work/xve/test/regress/export/out/xy-strip-homework.svg (dash 3 2 on #223b6c) and its caption; work/xve/test/regress/export/out/r3-paths-plane-homework.svg (navy and gray dashes); work/xve/test/regress/export/out/r3-film-globe-homework.svg (no 3 2 dash); notes/export-design/review-r3-editor/pl_d.png (article filmstrip panel d, solid unit circle); notes/export-design/review-r3-editor/v-planeprint-63.png (Print video, solid) vs notes/export-design/review-r3-editor/v-plane-126.png (Light video, dashed).",
+  "fix": "In Homework, dash the open boundaries of H_t(X) in every deformation figure: the plane and globe filmstrips, the paths figures and the Print video. Add 'Dashed: boundary not included'. Show the t = 0 ghost and X's outline with another mark, for example a thin gray solid line, which the globe filmstrip already uses ('gray: the boundary at t=0'). Use one mapping of dash to meaning across the whole export."
+ },
+ {
+  "id": "editor-4",
+  "severity": "medium",
+  "title": "The short caption (list of figures) is not short: 4 to 5 lines and words like 'key at right'",
+  "detail": "shortCaption keeps the text before the display, and cuts it to the first sentence only past 220 characters. For Phase, Landscape and One frame, the first sentence itself is 330 to 400 characters. It carries the level sets, the shading factor e^{2pi/12} and '(key at right)'. In the list of figures this entry runs 5 lines, and '(key at right)' means nothing there. The Russian entry is 4 lines.",
+  "evidence": "notes/export-design/review-r3-editor/t_caption.pdf p.1 (List of Figures: entries 1 and 4 are 5 lines); ru1 compile (pdftotext) shows the Russian entry at 4 lines; work/xve/test/regress/export/out/r3-film-phase-article1.tex \\caption[{...}].",
+  "fix": "Build the short caption from a template, not by cutting the long one. For example: 'Phase portraits of $H_t$ at $t=0,2/3,4/3,2$.' / 'Landscapes of $H_t$ ...' / 'The deformation $H_t$ on the Riemann sphere.' Keep it under about 100 characters."
+ },
+ {
+  "id": "editor-5",
+  "severity": "medium",
+  "title": "The video does not show what the screen shows at the same t (window, paths)",
+  "detail": "Phase: the video window comes from the zeros and poles, padded by 0.6x their span and then fitted to 16:9. For Strip to disk this is about x in [-12.4,12.4], y in [-6.9,6.9]. The screen shows about [-8,8] x [-4.5,4.5]. Plane: the window is the union of four frames, about [-5.8,5.8] x [-3.3,3.3], against the screen's [-2.9,2.9] x [-1.6,1.6]. With the screen's Paths on, the screen shows about 20 path arrows. The video's 'Paths' draws only up to 4 marked points (here one, z_0). The Crop setting that could choose 'screen' is in Fine-tune, which the Video format hides. So it still applies to the video, but out of sight. videoCheck compares the video with the video's own renderer, never with the screen.",
+  "evidence": "notes/export-design/review-r3-editor/v-phase-126.png vs notes/export-design/review-r3-editor/ed3-phase-T2.png; notes/export-design/review-r3-editor/v-plane-126.png vs notes/export-design/review-r3-editor/ed3-plane-T2.png; src/figure.js videoBox, videoFrame (plan.tracked), videoCheck.",
+  "fix": "Add a Window choice to the video options, 'As on screen' (the default) or 'Fit the motion', and show it. When the screen's Paths are on, draw the screen's path selection (morphPathsFor) in the video. Add a test that compares a frame at T with a screen capture at T, after the window is matched."
+ },
+ {
+  "id": "editor-6",
+  "severity": "medium",
+  "title": "Videos have no scale and no key: no tick numbers, no axes in Print, no phase colour key",
+  "detail": "Light look: the plane and phase frames show the grid and axes, but no numbers. Print look: a white field with no axes at all, so a viewer cannot tell where 0 is or how large the image is. Phase video: no colour ring, so the hue cannot be read as arg H_t. The screen has tick numbers and a key. A lecture video loses the information that the stills and the screen keep.",
+  "evidence": "notes/export-design/review-r3-editor/v-plane-126.png (axes, no numbers), notes/export-design/review-r3-editor/v-planeprint-63.png (no axes), notes/export-design/review-r3-editor/v-phase-126.png (no key, no numbers).",
+  "fix": "Draw tick numbers (vector, at video scale) on the plane kinds in both looks. Draw axes in Print. Put the ring key in a corner for Phase and Phase on the sphere. Keep them fixed across frames, since the window is fixed."
+ },
+ {
+  "id": "editor-7",
+  "severity": "medium",
+  "title": "Lecture pace: one easing over the whole chain, no hold at the steps, short end holds",
+  "detail": "videoTimes eases the run from 0 to m with one smoothstep and holds only at t=0 and t=m, for 0.6 s each. For a chain, the steps get unequal time and the intermediate maps flash by. With m=4 and a 4 s run, steps 1 and 4 take about 1.31 s each and steps 2 and 3 about 0.70 s each. There is no pause at t=1,...,m-1, where the class should see f_1, f_2 o f_1, .... The run length is the same for 1 step or 5. 0.6 s at the start is too short to read the first frame before it moves. Loop repeats hold-run-hold three times and jumps from t=m back to t=0.",
+  "evidence": "src/figure.js videoTimes: run = m*ease(i/n), hold = round(0.6*fps), loop = [...one, ...one, ...one].",
+  "fix": "Ease each step on its own (t = k + ease(u)) and give each step the chosen length, or offer 'seconds per step'. Hold 0.5 to 1 s at each integer t. Make the end holds 1 to 1.5 s. Make Loop a bounce, or use a short cross-fade so it does not jump."
+ },
+ {
+  "id": "editor-8",
+  "severity": "medium",
+  "title": "Globe and Landscape videos: labels are too small to read on a projector",
+  "detail": "At 1280x720 the globe's labels i and 1 are about 10 to 12 px. The 1 is cut by the sphere's edge. The infinity sign at the north pole is about 8 px in very light gray on white, almost invisible. The landscape's tick labels (|F|, 0.1, 1, 10, Re z, Im z) are about 9 px, and the relief fills about 40% of the frame. These come from the art layer at screen scale (dpr = min(W,H)/720 = 1 at 720p). The plane's H_t(z_0) label is about 20 px at 1080p.",
+  "evidence": "notes/export-design/review-r3-editor/v-globe-0.png, notes/export-design/review-r3-editor/gl_i.png (zoom of the i label), notes/export-design/review-r3-editor/v-land-63.png.",
+  "fix": "For video, draw the globe labels and the relief axes as vectors through the recorded camera (as the filmstrip does), at a size tied to H (about 3% of H). Fit the relief to the frame."
+ },
+ {
+  "id": "editor-10",
+  "severity": "medium",
+  "title": "Phase on the sphere filmstrip barely shows the deformation; its black curve is not explained",
+  "detail": "With the screen's camera, the four phase globes look almost the same. The north cap near infinity faces the viewer and the action near 0 is on the far side. A thick black-and-white curve (X's boundary on the domain sphere) is drawn in every frame, but the caption does not say what it is.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-phaseGlobe-png-article1.png; caption in r3-film-phaseGlobe-article1-boxes.json.",
+  "fix": "Pick the export camera so the zeros and poles of the frames face the viewer, or warn in the dialog when they are hidden. Add 'black: the boundary of X' to the caption."
+ },
+ {
+  "id": "editor-11",
+  "severity": "low",
+  "title": "Landscape: the vertical axis says |F| while the surface is |H_t| (screen and video)",
+  "detail": "At t=1 the relief shows H_1 = e^z, but the axis label reads |F|. The pane header correctly says 'landscape of log|H_t|'. The video copies the label, so a frame of the deformation is mislabelled.",
+  "evidence": "notes/export-design/review-r3-editor/v-land-63.png and notes/export-design/review-r3-editor/ed3-land-T1.png ('|F|' on the vertical axis at t = 1.00).",
+  "fix": "Label the axis |H_t| while the deformation is on (art layer or figure overlay)."
+ },
+ {
+  "id": "editor-12",
+  "severity": "low",
+  "title": "Article PNG snippet hard-codes width=360pt: 15 pt overfull in the standard article class",
+  "detail": "The Article PNG snippet is \\includegraphics[width=360pt]{...}. In \\documentclass{article} (\\textwidth 345pt) this gives 'Overfull \\hbox (15.0pt too wide)' and the figure runs into the right margin. The Homework snippet already uses the shrink-only form.",
+  "evidence": "notes/export-design/review-r3-editor/t_caption.log (4 x Overfull \\hbox 15.0pt; article class with the r3 PNG/PDF snippets).",
+  "fix": "Use width=\\ifdim\\linewidth<360pt \\linewidth\\else 360pt\\fi for PNG and SVG in Article too. It is still exact where it fits."
+ },
+ {
+  "id": "editor-13",
+  "severity": "low",
+  "title": "Caption wording: a circular homotopy sentence, and F's display far from where F is named",
+  "detail": "'Here $H_t$ deforms the identity ($t=0$) into $F$ ($t=2$) along the homotopy $H_t$, ...' says that H_t deforms along H_t. In Phase, Landscape, globe and One frame captions, F is named in the first sentence but its display comes 500 to 800 characters later, after 'The map is'. In amsart the word 'is' was left alone on the line before the display.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-phase-article1.tex; work/xve/test/regress/export/out/latex/test-article1.pdf p.9 ('The map / is' then the display).",
+  "fix": "Write 'Here $H_t$, $0\\le t\\le 2$, runs the steps in turn: ...' and introduce the display as 'where' or 'with' right after the homotopy sentence, or start the caption with the display when it is long."
+ },
+ {
+  "id": "editor-14",
+  "severity": "low",
+  "title": "Slides: F appears nowhere, and the 2x2 globe grid fills only about 40% of the frame",
+  "detail": "The Beamer snippet has no caption, and its frame title is 'The deformation $H_t$'. The image carries no formula, so the slide never says what F is. The globe filmstrip on a 16:9 slide is a small 2x2 block with wide empty sides.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-globe-png-slides.png, r3-film-plane-slides.tex.",
+  "fix": "Put F in the frame (for example \\begin{frame}{The deformation $H_t$ to $F(z)=\\frac{e^z-1}{e^z+1}$}, or a display under the figure). Use a 1x4 row on the 16:9 slide when the cells allow."
+ },
+ {
+  "id": "editor-15",
+  "severity": "low",
+  "title": "The LaTeX box in the dialog cannot be read: one 8000 px line",
+  "detail": "#xfTex is a <pre> with white-space: pre. The caption is one line (scrollWidth 8241 px in a 282 px box), so the user cannot proofread or edit the caption before copying it.",
+  "evidence": "CDP probe in the dialog (Phase, PNG): {ws:'pre', sw:8241, cw:282}; notes/export-design/round3/dlg-png-1440.png.",
+  "fix": "white-space: pre-wrap; overflow-wrap: anywhere for the box (copy the unwrapped text)."
+ },
+ {
+  "id": "editor-16",
+  "severity": "low",
+  "title": "Displayed F of the Disk automorphism example is not in normal form",
+  "detail": "The display is F(z)=\\frac{z+\\left(-0.5-0.3i\\right)}{\\left(-0.5+0.3i\\right)\\,z+1}. It is correct, but a reader expects \\frac{z-(0.5+0.3i)}{1-(0.5-0.3i)\\,z}. A display is where a formula is read most closely.",
+  "evidence": "__cmwExample(5), build({for:'homework'}) caption (this review's run c4).",
+  "fix": "Fold '+ (-a)' to '- a' and put the constant first in a linear denominator when the display is built."
+ },
+ {
+  "id": "editor-17",
+  "severity": "low",
+  "title": "Video t label: all italic, two decimals, small",
+  "detail": "'t = 1.20' is set entirely in italic, so the digits and '=' are italic too, which is wrong in mathematical setting. It uses two decimals while the figures use t = 2/3. At 720p it is about 23 px.",
+  "evidence": "notes/export-design/review-r3-editor/v-phase-126.png, v-globe-0.png (bottom left).",
+  "fix": "Italic t only; upright '= 1.20'. Use about 4% of H. Optionally add the step ('step 2: f_2')."
+ },
+ {
+  "id": "editor-18",
+  "severity": "low",
+  "title": "Landscape filmstrip: no orientation, a faint floor ghost, and |H_t|=1 drawn as thick white bands",
+  "detail": "The reliefs have no axes or Re z / Im z marks, although the caption gives the window [-8,8] x [-5,5]. Each frame has a very faint floor image that will print as gray smudges. In (d) the |H_t|=1 contours are much thicker than the other contours and read as tears in the surface.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-land-png-article1.png (panel d).",
+  "fix": "Draw Re z and Im z marks as vectors through the camera. Drop the floor ghost in print. Draw |H_t|=1 at the weight of the other contours."
+ },
+ {
+  "id": "editor-19",
+  "severity": "low",
+  "title": "Small inconsistencies: B/W and colour use different windows; Russian intervals mix ';' and ','",
+  "detail": "The phase filmstrip is on [-7.5,7.5] x [-5,5] in colour and on [-7,7] x [-5,5] in B/W, for the same scene. The Russian caption prints [-7,5; 7,5] x [-5, 5] with ';' in one interval and ',' in the next.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-phase-article1-bw-boxes.json vs r3-film-phase-article1-boxes.json; r3-ru-film-phase-homework-boxes.json.",
+  "fix": "Use the same window for both inks. In Russian, use ';' in every interval of a product once any endpoint has a decimal comma."
+ },
+ {
+  "id": "editor-20",
+  "severity": "low",
+  "title": "Branch cut in the Joukowski phase filmstrip has a ragged edge",
+  "detail": "In (b) and (c) the discontinuity of H_t along the lower unit semicircle shows stair steps (seen at 150 dpi). A cut is a feature of the map; it should be a clean curve, perhaps with a thin line, not raster teeth.",
+  "evidence": "notes/export-design/review-r3-editor/jouk-film-phase.png, notes/export-design/review-r3-editor/jz_c.png (zoom of panel c).",
+  "fix": "Draw the cut as a vector curve over the portrait, or render the portrait with supersampling near the cut."
+ },
+ {
+  "id": "editor-21",
+  "severity": "low",
+  "title": "PNG defaults to 300 dpi for Article; journals ask 600 dpi or more for figures with text",
+  "detail": "The PNG holds the labels as pixels. For combination art (image plus text) most publishers ask 500 to 600 dpi, and 1000 or more for line art. 300 dpi is fine for Homework and Docs.",
+  "evidence": "Dialog: Format PNG with 300 dpi selected under Article (notes/export-design/round3/dlg-png-1440.png).",
+  "fix": "Default to 600 dpi when For = Article, and say in the note that PDF is preferred for journals."
+ }
+]

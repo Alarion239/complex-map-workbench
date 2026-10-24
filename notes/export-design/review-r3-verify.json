@@ -1,0 +1,52 @@
+[
+ {
+  "id": "verify-editor-3",
+  "of": "editor-3",
+  "status": "partly fixed",
+  "severity": "medium",
+  "title": "Globe filmstrip: z_0 shows as an unexplained black dot in (b) and (c), and the caption calls the other point 'dot' too",
+  "detail": "The caption now names the tracked point: 'the path of the point $0.8i$ (dot)'. It still lists 'the point $z_0=0$' among the objects shown under H_t. z_0 is drawn as a small black dot in (b) and (c) only. In (a) and (d) it is on the far side and missing, and the filmstrip caption does not say so (the paths figure does: 'is on the far side of the sphere and is not shown'). So the figure has two kinds of dot, an orange dot with a ring (0.8i) and a small black dot (z_0), and the caption calls only one of them 'dot'. A reader cannot tell which dot is z_0. Same in Homework (named A=0) and on the slide.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-globe-png-article1.png (black dot at panel (b) lower right and (c) lower right; none in (a), (d)); r3-film-globe-png-slides.png; caption in r3-film-globe-article1.tex and r3-film-globe-homework.tex.",
+  "fix": "Name both marks: 'the point $z_0=0$ (black dot; on the far side in (a) and (d))' and 'the point $0.8i$ (orange dot)'. Or use the paths figure's sentence for the frames where z_0 is hidden."
+ },
+ {
+  "id": "verify-editor-13",
+  "of": "editor-13",
+  "status": "partly fixed",
+  "severity": "low",
+  "title": "Globe captions still end with 'The map is' and the display; in Russian the chain caption says 'где ..., где'",
+  "detail": "The homotopy captions now lead into the display with 'where'. The globe filmstrip and globe paths captions (no step names) still name F in the first sentence and show its display only at the end, after 'The map is'. In amsart, 'map is' sits alone on the line before the display (Figure 3 of my test document). In Russian, the join adds a second 'где' right after the app's own 'где': '... с неподвижными точками $p=i$ и $q=-i$, где ${H^{(2)}_{s}}'(p)=e^{-\\pi i s/2}$, где \\[ ... \\]'. This is in the LaTeX caption and in the PNG's own caption.",
+  "evidence": "work/xve/test/regress/export/out/r3-film-globe-article1.tex ('The map is\\ifinner'); notes/export-design/review-r3-verify/t_amsart.pdf p.3 (pdftotext: 'map is' on its own line before F(z)); work/xve/test/regress/export/out/r3-ru-film-phase-homework.tex and r3-ru-film-phase-png-homework.tex ('где ...(p)=e^{-\\pi i s/2}$, где\\ifinner'); notes/export-design/review-r3-verify/phase-docs-ru-200-cap.png.",
+  "fix": "For the globe captions, put the display right after the first sentence that names F ('... from the identity ($t=0$) to $F$ ($t=2$), where \\[F(z)=...\\]'). In Russian, when the homotopy text already has 'где', join with ', причём' or end the sentence and start 'Здесь \\[ ... \\]'; or replace the app's inner 'где' with 'и'."
+ },
+ {
+  "id": "verify-editor-8",
+  "of": "editor-8",
+  "status": "partly fixed",
+  "severity": "low",
+  "title": "Globe video (Light look): the infinity label is still tiny, very pale and almost cut by the frame's top edge",
+  "detail": "The i and 1 labels are now about 20 px at 720p and readable. The infinity sign at the north pole is still about 11 px tall and 22 px wide, and its darkest pixel is (221, 223, 222) on white (contrast about 1.35:1). It sits 4 px below the frame's top edge. On a projector it cannot be seen. The Print look does not draw it at all.",
+  "evidence": "Video made in the running app: makeVideo({size:'1280x720', look:'light'}) on the globe, frame at t=1 decoded in Chrome: notes/export-design/review-r3-verify/globe-light.png and the 3x crop globe-top-z.png (non-white pixels of the sign at y 4-14, x 631-652).",
+  "fix": "Draw the infinity label like the other labels (dark, about 3 % of H), and leave room for it in the video crop (videoCrop should include the label's box)."
+ },
+ {
+  "id": "verify-editor-7",
+  "of": "editor-7",
+  "status": "partly fixed",
+  "severity": "low",
+  "title": "Video pace: each step still gets the chosen length divided by the number of steps",
+  "detail": "Each step is now eased on its own, there is a 0.6 s hold at every whole t, 1.2 s end holds and a cross-fade for Loop. But the Length menu (3/4/6/8 s) is still the length of the whole run: per = secs*fps/nSteps. A 5-step chain at 4 s gives 0.8 s per step, a 1-step map gets 4 s. The finding asked for the chosen length per step, or a 'seconds per step' option.",
+  "evidence": "work/xve/src/figure.js videoTimes: 'per = Math.max(2, Math.round(v.secs * fps / nSteps))'; dialog Video panel: the Length select has values 3, 4, 6, 8 with no 'per step' label.",
+  "fix": "Make the Length menu 'per step' (or label it 'whole run' and add a per-step choice), so a long chain is not rushed."
+ },
+ {
+  "id": "verify-new-1",
+  "of": "editor-1 (new, related)",
+  "status": "new",
+  "severity": "low",
+  "title": "The PNG's own caption (For Docs): superscripts of one line touch the line above",
+  "detail": "The image's own caption sets the long homotopy text at a fixed line spacing. Tall superscripts collide with the line above: in English the prime of ${H^{(2)}_{s}}'$ overlaps the subscript 0 of $H^{(1)}_{0}$ above it; in Russian the prime and '(2)' touch 'дробно-линейных'. The display that follows is fine. LaTeX would add space here; the image caption does not.",
+  "evidence": "Running app, Phase view, build({for:'homework', capInImage:true}) then png 200 dpi: notes/export-design/review-r3-verify/phase-docs-200.png, en-zoom.png; with lang 'ru': phase-docs-ru-200-cap.png, ru-zoom.png.",
+  "fix": "When a caption line has a superscript or subscript box taller than the strut, add the excess to that line's spacing (like TeX's \\lineskiplimit and \\lineskip)."
+ }
+]

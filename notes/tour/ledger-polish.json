@@ -1,0 +1,74 @@
+[
+ {
+  "id": "polish-1",
+  "verdict": "fixed (engine and audit); the app's landscape layout is an app finding",
+  "root": "The engine lit any anchor that was in the DOM and visible by its own box, even when a panel that cannot scroll cut it to a 0 px line.",
+  "change": "src/tour.js: seenBox() also returns the box left by ancestors that clip and cannot scroll (overflow hidden or clip). clippedAway(): a part is clipped away when that box leaves under 6 px (or half) of it in either direction, or under 25 % of its area while it would fit. partRect() marks such a part hidden; holesFor() draws no hole for it (never an empty line). show(): after reveal and settling, an anchor clipped away falls back to the next name of the step's anchor list (cauchy and sheets fall back to the panes), else the step is skipped with the reason 'clipped' (see polish-3). Mid-step (a rotation), the clipped part simply loses its hole.",
+  "evidence": "844 x 390 touch, safe area L/R 47 B 21: deform/transport, deform/paths and deform/order are now skipped and reported (Tour.skipped(): why 'clipped'); no zero-area hole is drawn. analysis/cauchy and branches/sheets light the panes. Audit sizes 844 x 390, 720 x 450 and 1152 x 720 added; new kinds hiddenAnchor and zeroHole: 0 in the full run. Unit checks in test/t_tour_engine.js (clippedAway).",
+  "left": "App (not the tour): in phone landscape the panes collapse to a 24 px strip, so the transport, Paths and the order menu cannot be shown at all. The audit reports these as skipped (clipped) / appClipped."
+ },
+ {
+  "id": "polish-2",
+  "verdict": "fixed",
+  "root": "The callout moved above every app layer, toasts included, but place() and the ring mask did not know about toasts.",
+  "change": "src/tour.js guardToast(): in every layout, a visible toast in #toastHost that the callout would cover (8 px margin) moves up or down, just clear of the callout (the shorter move that stays on screen and inside the safe area), with an inline transform on #toastHost that is removed when the toast goes or the tour ends. The callout itself does not jump. The toasts' boxes join the ring mask, so the rings never draw over a toast.",
+  "evidence": "390 x 844 RU dark touch, safe area 47/34, basics/x: toast [40,513,350,549], callout [12,557,378,798]; elementFromPoint at the toast's centre is the toast. Audit layer 'toast' at X on every configuration and 'toast*' on every step at 390, 768 and 1440 px: 0 failures (not covered, rings masked off, callout topmost).",
+  "left": ""
+ },
+ {
+  "id": "polish-3",
+  "verdict": "engine and audit fixed; the anchors themselves are content, handed to v15 (work/xva)",
+  "root": "show() skipped a step whose anchor was missing without telling anyone, and the audit only rowed the steps it visited.",
+  "change": "src/tour.js: every skip has a reason ('missing', 'clipped', 'scene'), is warned once per step and run ('[tour] step skipped id (why)'), and is listed by Tour.skipped() and Tour.lit().skipped (the running tour, else the last one). Audit: builds the expected list per configuration (every step minus those absent by design: wide below 640 px, missing features, via Tour._t.absent) and fails each step not visited, with the engine's reason ('skipped' kind; 'appClipped' when the reason is clipped).",
+  "evidence": "Full audit 'fin' (80 configurations): 88 step views skipped, 26 step and layout pairs, listed in notes/tour/POLISH.md section 7. They are the ones the review named (768 px: basics/shapes, basics/formula, views/patterns; Russian at 768, 1024 and 1280 px: views/key), the same at the new size 844 x 390, views/key at 720 x 450 (EN and RU), and the three landscape steps of polish-1. Every other failure kind is 0.",
+  "left": "Content (v15, work/xva): give basics/shapes, basics/formula and views/patterns a 'panel' before-action or a fallback anchor when the left panel is a closed drawer (768 px and 844 x 390), and views/key a fallback (the overflow button) when #wKeyChkR is in the overflow popover (720 x 450; Russian at 768, 1024 and 1280 px) or clipped (844 x 390). The engine needs nothing more: a fallback name in the anchor list is used automatically."
+ },
+ {
+  "id": "polish-4",
+  "verdict": "fixed",
+  "root": "appLayerOpen() asked only the app's layerOpen(), which does not count the sound popover, while the engine's own layer list did.",
+  "change": "src/tour.js appLayerOpen(): true when any layer the engine keeps clear is open (layerEls()), or when the app says so. So the Tab trap and Esc stand aside. escToLayer(): Esc with the focus in the callout, while a layer is open that the app's layerOpen() does not report, is forwarded to that layer (a synthetic Escape keydown on it; the tour's own handler lets it pass). The sound popover closes on it and gives the focus to its button. No app change.",
+  "evidence": "1440 x 900, keys/sound, #soundMore opened: Tab from sndOn goes to sndVol (inside the popover). Focus on Next, Esc: tour stays, popover closed, focus on #soundMore. Esc again: tour ends. Audit layer 'sound' (Esc with the focus in the callout): 0 failures at every size where it can be opened.",
+  "left": ""
+ },
+ {
+  "id": "polish-5",
+  "verdict": "fixed (test/tour_audit_cmd.js, test/tour_audit_merge.js)",
+  "root": "The audit read path numbers in viewBox units, matched each target to its nearest hole only, skipped vertical overflow, opened few layers, ran portrait sizes only, trusted the engine's moving flag and did not check which steps were visited.",
+  "change": "(a) paths() maps every sub-path through svg.getScreenCTM(). (b) Every hole must be explained by the lit elements (equal to one, the union of those it overlaps, or a trimmed part of one): else 'extraHole'; a zero-area hole is 'zeroHole'; an anchor with under 2 px on screen is 'hiddenAnchor'; the probe's resolve() passes over a candidate clipped away, as the engine does. (c) In the layer pass, ringsOff(): the ring mask's cut-outs must cover the layer, or no ring may come near it ('ringOverLayer'). (d) scrollHeight > clientHeight checks for the callout's boxes, and a 'sliver' check on the text area (scrolls by under 8 px). (e) New layers: a toast, the sound settings (Esc from the callout), the reference guide, the Language menu; layerAll: the palette and a toast on every step at 390, 768 and 1440 px (RU). A layer that leaves no strip for the docked ×, like a full-screen dialog, is judged by its controls. (f) Sizes 720 x 450 (200 % of 1440 x 900), 844 x 390 (landscape, safe area L/R 47 B 21) and 1152 x 720. (g) settle() trusts only what is drawn and the callout. (h) The visited list (polish-3). Also the focus pass checks that the focus comes back after the palette (polish-9).",
+  "evidence": "Smoke runs before the dock fix found real failures (844 x 390 palette: the docked callout over the palette by 7 px; analysis/cauchy reported as a hidden anchor until the probe passed over clipped candidates as the engine does), so the new checks bite. Final run 'fin': 2688 step views, 968 layer checks, 220 follow checks, 80 focus checks; the only failures are the skipped steps of polish-3. Rows in work/xvt/test/pol_cdp/audit/fin-1.json to fin-5.json.",
+  "left": "Pixel checks of the rings (the mask is checked by geometry, not by reading pixels)."
+ },
+ {
+  "id": "polish-6",
+  "verdict": "fixed (not reproducible here: overlay scroll bars; checked by narrowing the fixed roots)",
+  "root": "The SVG viewBox and the clamps used innerWidth/innerHeight, which include a classic scroll bar, while the fixed roots exclude it.",
+  "change": "src/tour.js drawHoles(): each SVG's viewBox is its own client box (getBoundingClientRect), so one unit is one CSS px at the same place, whatever the roots' size. vpSize() (documentElement.clientWidth/Height) replaces innerWidth/innerHeight in partRect(), layout() (place, placeDock), fixedEdge(), freeBand() and reveal(). The card's max-width uses 100% (the viewport less scroll bars) instead of 100vw.",
+  "evidence": "With .tour-root and .tour-top narrowed by 15 px and 9 px (as a scroll bar would): viewBox '0 0 1425 891', getScreenCTM is the identity, the hole maps to [268,44,698,612], equal to the anchor. Before: scale 0.99 and a 4.7 px vertical offset.",
+  "left": "visualViewport (pinch zoom, an on-screen keyboard) is still not used for placement; fixed elements follow the layout viewport, which is what the roots fill."
+ },
+ {
+  "id": "polish-7",
+  "verdict": "fixed",
+  "root": "MathJax's hidden assistive MathML (absolute, at the formula's top) is taller than the formula by about 2 px and counted in the text area's scroll height.",
+  "change": "src/tour.js CSS: .tour-card mjx-assistive-mml { box-sizing: border-box; max-height: 100% } (both !important, as MathJax uses !important on its own rules). It stays readable by screen readers (it was already visually clipped).",
+  "evidence": "1440 EN, every step: .tour-scroll scrollHeight minus clientHeight is 0 on every step (before: 2 px on 7 steps). Audit 'sliver' and 'scrollY' checks: 0 in the full run.",
+  "left": ""
+ },
+ {
+  "id": "polish-8",
+  "verdict": "fixed",
+  "root": "The docked strip had a fixed min-width of 220 px and 4 px vertical padding, so it could not fit a narrower gutter or a short margin and accepted an overlap.",
+  "change": "src/tour.js: the docked strip is more compact (no vertical padding: the × sets its height, 36 or 44 px). When the whole strip would cover a layer, layout() tries, in order: narrower, into the widest strip beside the layers (dockGutter(); the title wraps), then the × alone ('tight'); the first that covers no layer wins, else the whole strip kept off the layers' controls (as before). placeDock() now reports how much of the layers it covers (over).",
+  "evidence": "1024 x 768 RU, guide open: guide [192,12,832,756], dock [840,8,1016,58] (176 px wide, title on two lines), no overlap. 844 x 390 RU touch, palette open: the compact dock fits above the palette (overlap before the change: 7 px). Audit layer 'guide' on every configuration: 0 failures. Unit checks for dockGutter and placeDock.over.",
+  "left": "Where no strip is left (the guide at 844 x 390 leaves 39 px on each side), the dock still covers a corner of the dialog, clear of its controls, as designed."
+ },
+ {
+  "id": "polish-9",
+  "verdict": "fixed",
+  "root": "Nothing remembered that the focus was in the callout when an app layer opened; the app's palette gives the focus back to its own opener.",
+  "change": "src/tour.js refocus(): a key pressed in the callout is remembered; when the first layer opens with the focus in the callout, or within 1.5 s of such a key (Cmd+K), that control is kept; when the last layer closes and the focus is outside the callout and not in a field, it goes back there (preventScroll). A pointerdown outside the callout forgets it (the user moved on).",
+  "evidence": "1024 x 768 EN dark, basics/y: Next focused, Cmd+K (focus in the palette's Search), type 'sin', Esc: focus on Next, tour active. Audit focus pass: the same check on every configuration, 0 failures.",
+  "left": ""
+ }
+]

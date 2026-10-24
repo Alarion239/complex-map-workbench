@@ -10,7 +10,7 @@
 // Expect "TOTAL clicks 0", except nodes_landEdge: the fallback's native gate may leave a corner at an onset from
 // silence below −50 dB re the local RMS (DESIGN §7.6 counts a snap from −50 dB). Delete test/<you>_cdp/rec afterwards
 // (about 25 MB).
-const PORT = 8832, BASE = `http://localhost:${PORT}/test.html`;
+const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 // The kit's load() opens port 8793. This file loads through PORT, so the saved state, the sound settings and every
 // nav() share one origin. (With the kit's load(), the 360 px step opened 8793, where sound was never turned on.)
 const loadHere = async (ns, st, extra) => {

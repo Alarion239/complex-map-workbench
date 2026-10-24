@@ -10,7 +10,8 @@ const Tour = (() => {
   const $t = I18 ? I18.t : (s, p) => (p ? s.replace(/%\{(\w+)\}|\{(\w+)\}/g, (m, a, b) => { const k = a || (!/[$\\]/.test(s) && b); return k && k in p ? String(p[k]) : m; }) : s);
   // Russian notation (tg, sh, ln) where the tour sets TeX; English unchanged
   const notation = (tex) => (I18 ? I18.notation(tex) : tex);
-  const VERSION = 1;          // content version; a chapter whose `rev` is newer than what a user saw is marked New
+  const VERSION = 2;          // content version; a chapter whose `rev` is newer than what a user saw is marked New
+                              // (2: v15, the Inspector, the F tile, the planes' menu, shared numbers, the phone layout)
   const SUGGEST_MAX = 3;      // an ignored suggestion comes back on at most this many openings
 
   // ---------------------------------------------------------------- content
@@ -70,6 +71,14 @@ const Tour = (() => {
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }],
     },
+    // v15: one shared number a (src/params.js) used twice: the zeros ±a of the step and the radius of the circle
+    // |z| = a (a shape field bound to a), so its slider moves both. `params` is the app's S.params
+    numbers: {
+      name: 'A shared number', needs: 'params', view: { cx: 0, cy: 0, s: 80 }, look: look(),
+      params: [{ name: 'a', value: 1, min: 0.2, max: 1.8, step: 0.01 }],
+      shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }, { kind: 'circle', c: [0, 0], r: 1, bind: { r: 'a' } }],
+      steps: [{ type: 'custom', params: { expr: '\\frac{z^2-a^2}{z^2+1}', cut: 180 } }],
+    },
   };
 
   // Copy markup: $tex$, {K} a key (kbd), **bold**. {mod} is ⌘ on Apple devices and Ctrl elsewhere.
@@ -80,34 +89,36 @@ const Tour = (() => {
   // The panes are named by their role, X and Y, never left and right: on a phone they stack.
   const CHAPTERS = [
     {
-      id: 'basics', title: 'Basics', time: '2 min', rev: 1, scene: 'strip',
+      id: 'basics', title: 'Basics', time: '2 min', rev: 2, scene: 'strip',
       steps: [
         { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['deform', false], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
           body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image. This takes about two minutes, and your own work comes back when the tour ends.' },
-        { id: 'x', anchor: 'paneL', title: 'X: the domain', place: 'right',
+        { id: 'x', anchor: 'paneL', title: 'X: the domain', place: 'right', before: [['plane', 'L']],
           body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
           touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.' },
-        { id: 'y', anchor: 'paneR', title: 'Y: the image', place: 'left',
+        { id: 'y', anchor: 'paneR', title: 'Y: the image', place: 'left', before: [['plane', 'R']],
           body: 'Y shows the image under $F(z)=(e^z-1)/(e^z+1)$: the strip becomes the unit disc. $F$ is conformal there: grid lines still cross at right angles, and tiny squares map to near-squares.' },
         // (Y lit with X beside it: the callout sits below Y, not over X where the preimage marks appear)
         { id: 'preimages', anchor: 'paneR', also: ['paneL'], title: 'Preimages', place: 'bottom',
           body: 'Hover a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart, as $F$ has period $2\\pi i$.',
-          touch: 'Touch and hold a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.',
-          try: { text: 'Hover inside the disc, then outside it.', touch: 'Touch and hold inside the disc, then outside it.', on: 'probe', test: probeInOut } },
-        { id: 'draw', anchor: ['tools', 'toolsRail'], also: ['paneL'], title: 'Draw a shape', place: 'right',
+          // (v15 touch: a still hold opens the planes' menu; a hold then a slide probes)
+          touch: 'Hold a point $w$ in Y, then slide: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.',
+          try: { text: 'Hover inside the disc, then outside it.', touch: 'Hold inside the disc, then slide out of it.', on: 'probe', test: probeInOut } },
+        { id: 'draw', anchor: ['tools', 'toolsRail'], also: ['paneL'], title: 'Draw a shape', place: 'right', before: [['plane', 'L']],
           body: 'Pick a tool and drag in X to add a shape. The same tools in Y add a target in $w$ instead.',
           try: { text: 'Choose Disc, then drag in X.', on: 'shape-added' } },
         // (tryWide: on a phone the list and X are a screen apart, so the drag is not asked for there)
-        { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', place: 'right', before: [['tool', 'select']], tryWide: true,
+        { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', place: 'right', before: [['tool', 'select'], ['panel', 'left', 'tools']], tryWide: true,
           body: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select {V}, drag a shape or a handle and the image follows; {mod}{Z} undoes.',
           touch: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select, drag a shape or a handle and the image follows.',
           try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved' } },
-        { id: 'formula', anchor: 'formula', title: 'Sets from formulas', place: 'right',
+        { id: 'formula', anchor: 'formula', title: 'Sets from formulas', place: 'right', before: [['panel', 'left', 'tools']],
           body: 'Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.' },
         { id: 'chain', anchor: 'chain', title: 'The function chain', place: 'top',
-          body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to focus that step, and X and Y become its input and output.',
-          touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to focus that step, and X and Y become its input and output.',
-          try: { text: 'Click the card $f_1$.', touch: 'Tap the card $f_1$.', on: 'step-focused', test: (e) => !e || e.k === 1 } },
+          // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
+          body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
+          touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; the lens there shows that step alone, with X and Y as its input and output.',
+          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then the lens in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1 } },
         { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', place: 'top', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.' },
@@ -127,14 +138,40 @@ const Tour = (() => {
           body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
         { id: 'land', anchor: 'panes', title: 'Landscape', place: 'bottom', before: [['view', 'land']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.' },
-        { id: 'sphere', anchor: 'surfaceL', also: ['panes'], title: 'The Riemann sphere', place: 'bottom', before: [['view', 'phase'], ['surface', 'L', 'sphere']],
+        { id: 'sphere', anchor: ['surfaceL', 'sphereKey'], also: ['panes'], title: 'The Riemann sphere', place: 'bottom', before: [['view', 'phase'], ['surface', 'L', 'sphere']],
           body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.' },
-        // (wide: Y's options hold the Phase key only on a wide screen; on a phone the step is left out from the start)
-        { id: 'key', anchor: 'phaseKey', also: ['paneR'], title: 'Phase key', place: 'left', wide: true, before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
+        // (when Y's strip is too short for it, it is in the Display options button, which is lit instead; on a phone,
+        // Y is the large plane and its options are in the Display sheet)
+        { id: 'key', anchor: ['phaseKey', 'rightOpts'], also: ['paneR'], title: 'Phase key', place: 'left', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R'], ['panel', 'sheet', 'display']],
           body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.' },
-        { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', place: 'bottom', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }]],
+        { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', place: 'bottom', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }], ['panel', 'left', 'display']],
           body: 'The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F\'(z)|$: blue shrinks, amber grows.',
           try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch' } },
+      ],
+    },
+    {
+      // v15 (notes/ui-redesign-2): the cards' pictures, the Inspector, zeros and poles, the planes' menu, shared numbers
+      id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 2, scene: 'strip',
+      steps: [
+        { id: 'cards', anchor: 'chain', also: ['viewSwitch'], title: 'Cards follow the view', place: 'top', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
+          body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
+          try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land' } },
+        // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
+        { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', place: 'left', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
+          body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
+          touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.' },
+        { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', place: 'left', before: [['scene', 'zp'], ['view', 'xy'], ['select', 1], ['panel', 'right']], wait: 120,
+          body: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
+          touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.',
+          try: { text: 'Drag a zero or a pole.', on: 'zp-moved' } },
+        // (the planes' menu, src/planemenu.js: on X the mark goes to w₀ = z, exactly; behind other steps to F_{k-1}(z))
+        { id: 'zpHere', anchor: 'paneL', title: 'Add a zero here', place: 'right', needs: 'planeMenu', before: [['select', 1], ['plane', 'L']],
+          body: 'Right-click a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
+          touch: 'Hold a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
+          try: { text: 'Right-click X, then Add zero of $f_1$ here.', touch: 'Hold X, then Add zero of $f_1$ here.', on: 'zp-added' } },
+        { id: 'numbers', anchor: 'params', also: ['panes'], title: 'Shared numbers', place: 'left', before: [['scene', 'numbers'], ['view', 'phase'], ['select', 1], ['panel', 'right']], wait: 120,
+          body: 'Type a new letter such as $a$ in any field, and a slider $a$ appears under Parameters. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.',
+          try: { text: 'Drag the slider of $a$.', on: 'number-changed' } },
       ],
     },
     {
@@ -150,70 +187,69 @@ const Tour = (() => {
           body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
           touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
           try: { text: 'Click Paths twice, or press {P} twice.', touch: 'Tap Paths twice.', on: 'paths-toggled', count: 2 } },
-        { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', place: 'top', before: [['deform', true]],
+        // (on a phone the order select is in the Display sheet while the deformation shows)
+        { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', place: 'top', before: [['deform', true], ['panel', 'sheet', 'display']],
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.' },
       ],
     },
     {
-      id: 'analysis', title: 'Analysis', time: '1½ min', rev: 1, scene: 'roots',
+      id: 'analysis', title: 'Analysis', time: '1½ min', rev: 2, scene: 'roots',
       steps: [
-        { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', place: 'bottom', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
+        { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', place: 'bottom', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
           body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.' },
         { id: 'cauchy', anchor: ['phaseStyle', 'panes'], also: ['panes'], title: 'Cauchy integral', place: 'top', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
           body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. Select another closed curve to use it instead.' },
-        { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', place: 'top', before: [['scene', 'zp']],
-          body: 'This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow. The axes button beside $a$, as beside every complex parameter, picks a value on a small Argand diagram.',
-          try: { text: 'Drag a zero or a pole.', on: 'zp-moved' } },
-        { id: 'integral', anchor: 'paneL', title: 'Integrals', place: 'right', before: [['scene', ['residueZp', 'residue']], ['view', 'xy']],
+        { id: 'integral', anchor: 'paneL', title: 'Integrals', place: 'right', before: [['scene', ['residueZp', 'residue']], ['view', 'xy'], ['plane', 'L']],
           body: 'Right-click the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
-          touch: 'Touch and hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
-          try: { text: 'Right-click the circle, then choose $\\oint$.', touch: 'Touch and hold the circle, then choose $\\oint$.', on: 'integral-opened' } },
-        { id: 'domain', anchor: 'domain', title: 'Natural domain', place: 'left', before: [['panel', 'right']],
-          body: 'Where every step is defined. For a typed formula the panel reads "the formula is defined at $z$": here that is every $z$ except the poles $\\pm i$.',
-          byScene: { residueZp: 'Where every step is defined: here every $z$ except the poles $\\pm i$, which the panel writes $z\\notin\\{i,-i\\}$.' } },
-        { id: 'guarantees', anchor: 'guarantees', title: 'Guarantees', place: 'left', before: [['panel', 'right']],
-          body: 'A lamp is lit only when every step has the property and composition keeps it, so a lit lamp is always true; unlit means only that the chain does not imply it. Step by step, below, shows which step brings which property.' },
+          touch: 'Hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
+          try: { text: 'Right-click the circle, then choose $\\oint$.', touch: 'Hold the circle, then choose $\\oint$.', on: 'integral-opened' } },
+        // (v15: api.anchor selects the F tile for these names, so the Inspector shows F; on a phone, in the Editor sheet)
+        { id: 'domain', anchor: 'domain', also: ['fTile'], title: 'Natural domain', place: 'left', before: [['panel', 'right']],
+          body: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
+          byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' } },
+        { id: 'guarantees', anchor: 'guarantees', also: ['fTile'], title: 'Guarantees', place: 'left', before: [['panel', 'right']],
+          body: 'The F tile names what the chain guarantees. A property is listed only when every step has it and composition keeps it, so it is always true; one not listed is not implied, but may hold. Step by step shows which step brings which.' },
       ],
     },
     {
-      id: 'branches', title: 'Branches and inverses', time: '1 min', rev: 1, scene: 'logAnnulus',
+      id: 'branches', title: 'Branches and inverses', time: '1 min', rev: 2, scene: 'logAnnulus',
       steps: [
-        { id: 'cut', anchor: 'paneL', title: 'Branch cuts', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
-          body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ on the card adds $2\\pi i k$.',
+        { id: 'cut', anchor: 'paneL', title: 'Branch cuts', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L']],
+          body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
           try: { text: 'Drag the red cut.', on: 'cut-moved' } },
-        { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', place: 'top',
-          body: '$f^{-1}$ on a card replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.' },
+        { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', place: 'left', before: [['select', 1], ['panel', 'right']],
+          body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.' },
         // (X lit with the chain: the callout sits over Y, which is not lit, beside X)
-        { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', place: 'right', before: [['scene', 'deriv'], ['view', 'xy']],
+        { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', place: 'right', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L']],
           body: 'A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.' },
         { id: 'sheets', anchor: ['sheets', 'panes'], also: ['panes'], title: 'All sheets', place: 'bottom', before: [['scene', 'logSheets'], ['view', 'land']], wait: 120,
           body: 'In Landscape, All sheets draws the whole Riemann surface of a multivalued map: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$ instead of jumping at the cut.' },
       ],
     },
     {
-      id: 'export', title: 'Export and LaTeX', time: '30 s', rev: 1, scene: null,
+      id: 'export', title: 'Export and LaTeX', time: '30 s', rev: 2, scene: null,
       steps: [
         { id: 'figure', anchor: ['exportBtn', 'moreBtn'], title: 'Figures for articles', place: 'bottom',
           body: 'Export a vector figure of the current view, with a caption that states exactly what is drawn, or copy a LaTeX document with $F$, its natural domain and its guarantees.',
           narrow: 'Export, in this menu, makes a vector figure with a caption that states exactly what is drawn, or a LaTeX document with $F$, its natural domain and its guarantees.' },
-        { id: 'formula-tex', anchor: 'composite', title: 'The formula in LaTeX', place: 'left', before: [['panel', 'right']],
-          body: 'Composite map: $F$ in closed form; the copy button puts its LaTeX on the clipboard.' },
+        { id: 'formula-tex', anchor: 'composite', also: ['fTile'], title: 'The formula in LaTeX', place: 'left', before: [['panel', 'right']],
+          body: 'With the F tile selected, the Inspector shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.' },
       ],
     },
     {
-      id: 'keys', title: 'Palette and keys', time: '30 s', rev: 1, scene: null,
+      id: 'keys', title: 'Palette and keys', time: '30 s', rev: 2, scene: null,
       steps: [
         { id: 'palette', anchor: ['palette', 'moreBtn'], title: 'Command palette', place: 'bottom',
           body: 'Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step.',
           narrow: 'Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step.',
-          try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Add function or command.', on: 'palette-opened' } },
+          try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Search functions and commands.', on: 'palette-opened' } },
         { id: 'sound', anchor: ['soundBtn', 'soundBar', 'moreBtn'], needs: 'sound', title: 'Sound', place: 'bottom',
-          body: 'Sound stays off until you turn it on here or with {Shift}{M}. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.',
-          narrow: 'Sound stays off until you turn it on, in this menu. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.',
-          touch: 'Sound stays off until you turn it on here. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.' },
+          body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. The tone that plays $\\arg F$ as pitch stays off until you turn it on here.',
+          narrow: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. The tone that plays $\\arg F$ as pitch stays off until you turn it on there.',
+          touch: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. The tone that plays $\\arg F$ as pitch stays off until you turn it on here.' },
         { id: 'help', anchor: ['helpBtn', 'moreBtn'], title: 'Help is here', place: 'bottom',
           body: 'This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.',
-          narrow: 'Help, in this menu, opens the tour by chapter and the reference guide.' },
+          narrow: 'Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.' },
       ],
     },
   ];
@@ -239,18 +275,26 @@ const Tour = (() => {
     'tool:disc': '.tool[data-tool="disc"]', formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
     patterns: '#patternSeg', chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
-    rightPanel: '#rightPanel', composite: '#propsPanel > section:nth-of-type(1)', guarantees: '#propsPanel > section:nth-of-type(2)',
-    domain: '#propsPanel > section:nth-of-type(3)', matrix: '#propsPanel > section:nth-of-type(4)',
-    // the card of the first zeros-and-poles step (its parameter block is .params.zp)
-    zpCard: () => { const p = document.querySelector('.pipe .card .params.zp, .card .params.zp'); return p ? p.closest('.card') : null; },
-    // the f⁻¹ button of the first card that has one; the All sheets check of the Landscape options (its label)
-    invBtn: () => [...document.querySelectorAll('.card button')].find((b) => /<sup>\s*(−|-|&minus;)1\s*<\/sup>/.test(b.innerHTML)) || null,
+    // (v15: the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
+    // which the app's api.anchor does for these names)
+    rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
+    domain: '#propsPanel .insp-F .idom', matrix: '#propsPanel .insp-F details.steps',
+    // the editor of the selected zeros-and-poles step (its parameter block is .params.zp)
+    zpCard: () => document.querySelector('#propsPanel .insp-step .params.zp'),
+    // the Inspector's ⋯ menu of the selected step (Replace with the inverse); the All sheets check of the Landscape options (its label)
+    invBtn: () => document.querySelector('#propsPanel .insp-step .ihead .more'),
     sheets: () => { const c = document.querySelector('#sheetsChk'); return c ? c.closest('label') || c : null; },
     // the Sound control of the top bar (the sound round); the Phase key check of Y's options (X → Y, Y on its plane)
     soundBtn: '#soundBtn', soundBar: '#soundPh',
     // the Phase style control of the Phase view's options (Tiles, Plain, …, Cauchy)
     phaseStyle: '#dcSeg',
     phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c ? c.closest('label') || c : null; },
+    // Y's Display options button, where the Phase key goes when Y's options strip has no room for it
+    rightOpts: '#rightFoot .opts-btn',
+    // v15: the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
+    // closes the chain; on a phone, the Sphere key in the plane's right column
+    inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
+    fTile: '#pipeline .ftile', sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
   };
   // the app's hover tooltip: hidden while it would cover the callout
   const TIP_SEL = '#tip';
@@ -304,42 +348,73 @@ const Tour = (() => {
   // side is right/left/bottom/top beside the hole (caret: where along the card's edge its pointer sits) or, for a
   // sheet, top/middle/bottom; 'float' is the last resort, the place that covers the least of what is lit. The first
   // place that covers no lit area wins.
+  // opt.safe: the safe-area insets {t, r, b, l} (a phone's notch and home bar), kept clear like the 12 px margin.
+  // opt.block: rects the card must never cover, the layers the user opened (the palette, a menu, a dialog): every place
+  // above is tried clear of them, then places beside them; when none is clear the result is {mode: 'dock'}, and the
+  // caller docks the callout, compact, at an edge (placeDock).
   const M = 12, GAP = 14;
+  // the area of the card at (x, y) over rects, each grown by m
+  const overArea = (card, x, y, rects, m = 4) => rects.reduce((s, h) => s + Math.max(0, Math.min(x + card.w, h.r + m) - Math.max(x, h.l - m)) * Math.max(0, Math.min(y + card.h, h.b + m) - Math.max(y, h.t - m)), 0);
+  // the box the card stays in: the viewport less the margin and the safe area
+  const bounds = (vp, sf = {}) => ({ l: M + (sf.l || 0), t: M + (sf.t || 0), r: vp.w - M - (sf.r || 0), b: vp.h - M - (sf.b || 0) });
   function place(hole, card, vp, opt = {}) {
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const B = bounds(vp, opt.safe);
     const others = (opt.others || []).filter(Boolean);
+    const block = (opt.block || []).filter(Boolean);
     const lit = hole ? [hole].concat(others) : others;
-    const over = (x, y, rects, m = 4) => rects.reduce((s, h) => s + Math.max(0, Math.min(x + card.w, h.r + m) - Math.max(x, h.l - m)) * Math.max(0, Math.min(y + card.h, h.b + m) - Math.max(y, h.t - m)), 0);
+    const over = (x, y, rects, m = 4) => overArea(card, x, y, rects, m);
+    // clear of every open layer (8 px apart)
+    const free = (x, y) => !block.length || over(x, y, block, 8) === 0;
+    const DOCK = { mode: 'dock', side: null, x: 0, y: 0, caret: null };
     if (vp.w < (opt.narrow || 640)) {
       // a sheet across the bottom or the top, or in a gap between lit areas
       const ys = [];
       const low = hole && (hole.t + hole.b) / 2 > vp.h * 0.55;
-      ys.push(['bottom', vp.h - card.h - M], ['top', M]);
+      ys.push(['bottom', B.b - card.h], ['top', B.t]);
       if (low) ys.reverse();
       const sorted = lit.slice().sort((a, b) => a.t - b.t);
       for (let i = 0; i + 1 < sorted.length; i++) {
         const g0 = sorted[i].b, g1 = sorted[i + 1].t;
         if (g1 - g0 >= card.h + 16) ys.push(['middle', Math.round(g0 + (g1 - g0 - card.h) / 2)]);
       }
+      // with a layer open: right above or below it too
+      for (const k of block) { if (k.t - 8 - card.h >= B.t) ys.push(['middle', k.t - 8 - card.h]); if (k.b + 8 + card.h <= B.b) ys.push(['middle', k.b + 8]); }
       let best = null;
+      // (covering the anchor costs most: on a phone a large plane and a bar may leave no gap between them)
       for (const [side, y] of ys) {
-        const o = over(M, y, lit, 2);
+        if (!free(B.l, y)) continue;
+        const o = over(B.l, y, lit, 2) + (hole ? 7 * over(B.l, y, [hole], 2) : 0);
         if (!best || o < best.o) best = { side, y, o };
         if (o === 0) break;
       }
-      return { mode: 'sheet', side: best.side, x: M, y: Math.round(best.y), caret: null };
+      if (!best) return DOCK;
+      return { mode: 'sheet', side: best.side, x: B.l, y: Math.round(best.y), caret: null };
     }
-    if (!hole) return { mode: 'center', side: null, x: Math.round((vp.w - card.w) / 2), y: Math.round((vp.h - card.h) / 2), caret: null };
+    const fl = [[B.l, B.t], [B.r - card.w, B.t], [B.l, B.b - card.h], [B.r - card.w, B.b - card.h]];
+    // beside each open layer, and the corners: the places left when a layer is in the way
+    const aside = () => {
+      const out = [];
+      for (const k of block) { const s = sides(k); for (const side of ['right', 'left', 'bottom', 'top']) if (s[side]) out.push([s[side].x, s[side].y]); }
+      return out.concat(fl).map(([x, y]) => ({ mode: 'float', side: null, x, y, caret: null }));
+    };
+    if (!hole) {
+      const c = { mode: 'center', side: null, x: Math.round(clamp((vp.w - card.w) / 2, B.l, B.r - card.w)), y: Math.round(clamp((vp.h - card.h) / 2, B.t, B.b - card.h)), caret: null };
+      if (free(c.x, c.y)) return c;
+      let best = null;
+      for (const q of aside()) { if (!free(q.x, q.y)) continue; const o = over(q.x, q.y, lit); if (!best || o < best.o) best = Object.assign(q, { o }); }
+      return best ? fin(best) : DOCK;
+    }
     // the four places beside R, centred on c (default: R's centre) along the shared edge
-    const sides = (R, c) => {
+    function sides(R, c) {
       const cx = c ? c.x : (R.l + R.r) / 2, cy = c ? c.y : (R.t + R.b) / 2;
       return {
-        right: R.r + GAP + card.w + M <= vp.w && { x: R.r + GAP, y: clamp(cy - card.h / 2, M, vp.h - card.h - M) },
-        left: R.l - GAP - card.w >= M && { x: R.l - GAP - card.w, y: clamp(cy - card.h / 2, M, vp.h - card.h - M) },
-        bottom: R.b + GAP + card.h + M <= vp.h && { x: clamp(cx - card.w / 2, M, vp.w - card.w - M), y: R.b + GAP },
-        top: R.t - GAP - card.h >= M && { x: clamp(cx - card.w / 2, M, vp.w - card.w - M), y: R.t - GAP - card.h },
+        right: R.r + GAP + card.w <= B.r && { x: R.r + GAP, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
+        left: R.l - GAP - card.w >= B.l && { x: R.l - GAP - card.w, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
+        bottom: R.b + GAP + card.h <= B.b && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.b + GAP },
+        top: R.t - GAP - card.h >= B.t && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.t - GAP - card.h },
       };
-    };
+    }
     const order = ['right', 'left', 'bottom', 'top'];
     if (order.includes(opt.prefer)) order.unshift(...order.splice(order.indexOf(opt.prefer), 1));
     const cands = [];
@@ -358,32 +433,82 @@ const Tour = (() => {
       const s2 = sides(U);
       for (const side of order) if (s2[side]) cands.push({ mode: 'side', side, x: s2[side].x, y: s2[side].y, caret: null });
     }
-    for (const c of cands) if (over(c.x, c.y, lit) === 0) return fin(c);
+    for (const c of cands) if (over(c.x, c.y, lit) === 0 && free(c.x, c.y)) return fin(c);
     // 2b. below or above the hole, short of room by a little: at the viewport's edge there, over the hole's rim only
     // (Preimages at 900 px: under Y, over Y's bottom margin, not inside Y over its disc)
     for (const side of order) {
       let y = null;
-      if (side === 'bottom') { const v = vp.h - card.h - M; if (v < hole.b + GAP && v > hole.b - 0.12 * card.h) y = v; }
-      else if (side === 'top') { const v = M; if (v + card.h > hole.t - GAP && v + card.h < hole.t + 0.12 * card.h) y = v; }
+      // (below: over the hole's bottom rim by at most a quarter of the card, where the panes keep their options strips;
+      // above: 12 %, the panes' titles)
+      if (side === 'bottom') { const v = B.b - card.h; if (v < hole.b + GAP && v > hole.b - 0.25 * card.h) y = v; }
+      else if (side === 'top') { const v = B.t; if (v + card.h > hole.t - GAP && v + card.h < hole.t + 0.12 * card.h) y = v; }
       if (y == null) continue;
-      const x = clamp(hx - card.w / 2, M, vp.w - card.w - M);
-      if (over(x, y, lit) <= 0.12 * card.w * card.h && over(x, y, others) === 0) return fin({ mode: 'edge', side, x, y, caret: null });
+      const x = clamp(hx - card.w / 2, B.l, B.r - card.w);
+      // (over the rims of all the lit areas together, X's and Y's: at most a quarter of the card below, 12 % above)
+      if (over(x, y, lit) <= (side === 'bottom' ? 0.25 : 0.12) * card.w * card.h && free(x, y)) return fin({ mode: 'edge', side, x, y, caret: null });
     }
     // 3. no room beside it (a panel as wide as the stage): inside the hole, in the corner with the fewest controls
     if (hole.r - hole.l >= card.w + 32 && hole.b - hole.t >= card.h + 32) {
       const avoid = (typeof opt.avoid === 'function' ? opt.avoid() : opt.avoid) || [];
       const ins = [[hole.l + 16, hole.b - 16 - card.h], [hole.r - 16 - card.w, hole.b - 16 - card.h], [hole.l + 16, hole.t + 16], [hole.r - 16 - card.w, hole.t + 16]]
-        .map(([x, y]) => ({ mode: 'inset', side: null, x: clamp(x, M, vp.w - card.w - M), y: clamp(y, M, vp.h - card.h - M), caret: null }));
+        .map(([x, y]) => ({ mode: 'inset', side: null, x: clamp(x, B.l, B.r - card.w), y: clamp(y, B.t, B.b - card.h), caret: null }));
       let best = null;
-      for (const c of ins) { const o = over(c.x, c.y, avoid, 6) + over(c.x, c.y, others); if (!best || o < best.o) best = Object.assign(c, { o }); }
-      return fin(best);
+      for (const c of ins) { if (!free(c.x, c.y)) continue; const o = over(c.x, c.y, avoid, 6) + over(c.x, c.y, others); if (!best || o < best.o) best = Object.assign(c, { o }); }
+      if (best) return fin(best);
     }
     // 4. a small screen: the place that covers the least of what is lit, without a pointer
-    cands.push(...[[M, M], [vp.w - card.w - M, M], [M, vp.h - card.h - M], [vp.w - card.w - M, vp.h - card.h - M]].map(([x, y]) => ({ mode: 'float', side: null, x, y, caret: null })));
+    cands.push(...fl.map(([x, y]) => ({ mode: 'float', side: null, x, y, caret: null })));
+    if (block.length) cands.push(...aside());
     let best = null;
-    for (const c of cands) { const o = over(c.x, c.y, lit); if (!best || o < best.o) best = Object.assign(c, { o }); }
+    for (const c of cands) { if (!free(c.x, c.y)) continue; const o = over(c.x, c.y, lit); if (!best || o < best.o) best = Object.assign(c, { o }); }
+    if (!best) return DOCK;
     return fin(Object.assign(best, { mode: 'float', caret: null }));
     function fin(c) { return { mode: c.mode, side: c.side, x: Math.round(c.x), y: Math.round(c.y), caret: c.caret == null ? null : Math.round(c.caret) }; }
+  }
+  // The docked callout (place() found no room clear of an open layer): compact, in a corner or along the top or the
+  // bottom edge, where it covers the least of the open layers, then of what is lit. A layer that fills the screen (a
+  // dialog on a phone) leaves no such place: the callout then keeps off the layer's controls (opt.avoid: rects, or a
+  // function called only then). card: the docked card's size; opt: {safe, block, lit, avoid}. Returns {mode: 'dock',
+  // side: 'top' | 'bottom', x, y}.
+  function placeDock(card, vp, opt = {}) {
+    // (8 px from the screen's edges, not 12: a dialog with a narrow margin above or below it still leaves room)
+    const sf = opt.safe || {};
+    const B = { l: 8 + (sf.l || 0), t: 8 + (sf.t || 0), r: vp.w - 8 - (sf.r || 0), b: vp.h - 8 - (sf.b || 0) };
+    const block = (opt.block || []).filter(Boolean), lit = (opt.lit || []).filter(Boolean);
+    const xs = [B.r - card.w, B.l, Math.round((vp.w - card.w) / 2)];
+    let avoid = null;
+    // the cost of a place, compared in order: the layers' controls it covers, the layers it covers, how close it comes
+    // to them (8 px), how far it is from the screen's edge (only when scanning), what is lit
+    const cost = (x, y, edge) => {
+      const ob = overArea(card, x, y, block, 0);
+      if (ob > 0 && avoid == null) avoid = (typeof opt.avoid === 'function' ? opt.avoid() : opt.avoid) || [];
+      return [ob > 0 ? overArea(card, x, y, avoid, 4) : 0, ob, overArea(card, x, y, block, 8) + (edge || 0), overArea(card, x, y, lit, 0)];
+    };
+    const less = (a, b) => { for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > 0.5) return a[i] < b[i]; return false; };
+    let best = null;
+    for (const [side, y] of [['top', B.t], ['bottom', B.b - card.h]]) {
+      for (const x of xs) { const o = cost(x, y); if (!best || less(o, best.o)) best = { side, x, y, o }; }
+    }
+    // every edge place covers a control (a dialog that fills a phone's screen): the strip nearest an edge that covers none
+    if (best.o[0] > 0) {
+      for (let y = B.t; y <= B.b - card.h; y += 8) {
+        for (const x of xs) {
+          const o = cost(x, y, 10 * Math.min(y - B.t, B.b - card.h - y));
+          if (less(o, best.o)) best = { side: y - B.t <= B.b - card.h - y ? 'top' : 'bottom', x, y, o };
+        }
+      }
+    }
+    return { mode: 'dock', side: best.side, x: Math.round(Math.max(B.l, best.x)), y: Math.round(Math.max(B.t, best.y)), caret: null, over: best.o[1] };
+  }
+  // The widest strip beside the open layers, left or right, from the screen's edge (8 px, and the safe area) to 8 px
+  // short of the layers: the docked callout narrows into it rather than cover a layer (a dialog with side margins
+  // narrower than the docked strip). 0 when it is narrower than min.
+  function dockGutter(vp, opt = {}) {
+    const sf = opt.safe || {}, block = (opt.block || []).filter(Boolean);
+    if (!block.length) return 0;
+    const U = block.reduce((u, h) => ({ l: Math.min(u.l, h.l), r: Math.max(u.r, h.r) }), { l: Infinity, r: -Infinity });
+    const w = Math.floor(Math.max(U.l - 8 - (8 + (sf.l || 0)), vp.w - 8 - (sf.r || 0) - (U.r + 8)));
+    return w >= (opt.min || 120) ? w : 0;
   }
   // The lit areas of a step from its padded rects (the anchor's first): areas that mostly overlap merge into one (the
   // anchor inside a lit panel: the panel is lit and the anchor gets a ring of its own, `mark`); areas that only touch
@@ -439,6 +564,7 @@ const Tour = (() => {
   let run = null;        // the running tour: {chs, ci, si, snap, scene, seq, opener, offs, ui, ...}
   let sugg = null;       // the suggestion card
   let menu = null;       // the help menu
+  let lastWhy = null;    // the steps the last run skipped, and why (Tour.skipped())
   const doc = () => (typeof document !== 'undefined' ? document : null);
   const mac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
   const modKey = () => (mac() ? '⌘' : 'Ctrl');
@@ -466,7 +592,8 @@ const Tour = (() => {
   const coarse = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
   const phone = () => narrow() || coarse();
   // where the tour lives: the help button, or the ⋯ menu that holds it on a phone
-  const helpWhere = () => (anchorEl('helpBtn') ? $t('Help') : anchorEl('moreBtn') ? $t('⋯ › Help') : $t('Help'));
+  // (v15: on a phone the ⋯ sheet lists Guided tour)
+  const helpWhere = () => (anchorEl('helpBtn') ? $t('Help') : anchorEl('moreBtn') ? $t('⋯ › Guided tour') : $t('Help'));
   // the copy a step shows here: by the scene shown, on a touch screen, below 640 px, else its body
   function copyFor(step, scene, o = {}) {
     const isCoarse = o.coarse != null ? o.coarse : coarse(), isNarrow = o.narrow != null ? o.narrow : narrow();
@@ -523,35 +650,113 @@ const Tour = (() => {
     const r = e.getBoundingClientRect();
     return r.width > 1 && r.height > 1;
   }
-  function anchorEl(names) {
-    for (const n of [].concat(names)) {
-      let e;
-      try { e = api.anchor ? api.anchor(n) : undefined; } catch (x) { e = undefined; }
-      if (e === undefined && ANCHORS[n]) { try { e = typeof ANCHORS[n] === 'function' ? ANCHORS[n]() : document.querySelector(ANCHORS[n]); } catch (x) { e = null; } }
-      if (visible(e)) return e;
+  // What a name lights (api.anchor, else the ANCHORS default): an Element (HTML or SVG); a list of Elements, a composite
+  // anchor whose visible members are each lit exactly; or a region of an element, { el, rect }, such as a part of a
+  // canvas: rect is { x, y, w, h } in CSS px from the element's top left corner, or a function returning a client rect
+  // { left, top, right, bottom }. Normalised to { el (the first visible element), parts: [{ el, rect? }] } or null.
+  function anchorVal(n) {
+    let e;
+    try { e = api.anchor ? api.anchor(n) : undefined; } catch (x) { e = undefined; }
+    if (e === undefined && ANCHORS[n]) { try { e = typeof ANCHORS[n] === 'function' ? ANCHORS[n]() : document.querySelector(ANCHORS[n]); } catch (x) { e = null; } }
+    return e;
+  }
+  function normAnchor(v) {
+    if (!v) return null;
+    if (Array.isArray(v) || (typeof NodeList !== 'undefined' && v instanceof NodeList)) {
+      const els = [...v].filter(visible);
+      return els.length ? { el: els[0], parts: els.map((e) => ({ el: e })) } : null;
     }
+    if (v.el && v.rect && !(typeof Element !== 'undefined' && v instanceof Element)) return visible(v.el) ? { el: v.el, parts: [{ el: v.el, rect: v.rect }] } : null;
+    return visible(v) ? { el: v, parts: [{ el: v }] } : null;
+  }
+  // (ok: a further test, such as not clipped away)
+  function anchorOf(names, ok) {
+    for (const n of [].concat(names)) { const t = normAnchor(anchorVal(n)); if (t && (!ok || ok(t))) return t; }
     return null;
   }
-  // the part of e that can be seen: its box cut by every scrolling or clipping ancestor (a side panel that scrolls)
-  function seenBox(e) {
-    const r = e.getBoundingClientRect();
+  function anchorEl(names) { const t = anchorOf(names); return t ? t.el : null; }
+  // a part's box in client px: the element's border box, or its region
+  function partBox(p) {
+    const b = p.el.getBoundingClientRect();
+    if (!p.rect) return b;
+    try {
+      const q = typeof p.rect === 'function' ? p.rect(p.el) : p.rect;
+      if (q && q.left != null) return { left: q.left, top: q.top, right: q.right, bottom: q.bottom, width: q.right - q.left, height: q.bottom - q.top };
+      if (q && q.x != null) return { left: b.left + q.x, top: b.top + q.y, right: b.left + q.x + q.w, bottom: b.top + q.y + q.h, width: q.w, height: q.h };
+    } catch (e) { /* the element's box */ }
+    return b;
+  }
+  // the corner radii of an element in px [top left, top right, bottom right, bottom left]: its border-radius, or the
+  // rx of an SVG rect; 0 for anything else
+  function radii(e) {
+    try {
+      if (typeof HTMLElement !== 'undefined' && e instanceof HTMLElement) {
+        const cs = getComputedStyle(e), b = e.getBoundingClientRect(), m = Math.min(b.width, b.height);
+        return ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'].map((k) => {
+          const v = String(cs[k] || '0').split(' ')[0], n = parseFloat(v);
+          return !Number.isFinite(n) ? 0 : /%$/.test(v) ? (n / 100) * m : n;
+        });
+      }
+      if (e && e.tagName === 'rect' && e.rx && e.rx.baseVal && e.getScreenCTM) {
+        const k = e.rx.baseVal.value * Math.abs(e.getScreenCTM().a || 1);
+        return [k, k, k, k];
+      }
+    } catch (x) { /* square */ }
+    return [0, 0, 0, 0];
+  }
+  // the part of e that can be seen: its box (or the given box) cut by every scrolling or clipping ancestor (a side
+  // panel that scrolls)
+  function seenBox(e, box) {
+    const r = box || e.getBoundingClientRect();
     let l = r.left, t = r.top, rr = r.right, b = r.bottom;
+    // (a fixed box, such as a phone's tool row, is not clipped by the ancestors above it)
+    let fx = getComputedStyle(e).position === 'fixed';
+    // clip: the box the ancestors that clip and cannot scroll leave (null: none)
+    let clip = null;
     for (let a = e.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      if (fx) break;
       const cs = getComputedStyle(a);
+      fx = cs.position === 'fixed';
       if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
       // a box that cannot clip: display: contents (the header's popover on a wide screen: auto overflow, a 0 × 0 box)
       if (cs.display === 'contents') continue;
       const q = a.getBoundingClientRect();
       if (q.width === 0 && q.height === 0) continue;
       l = Math.max(l, q.left); t = Math.max(t, q.top); rr = Math.min(rr, q.right); b = Math.min(b, q.bottom);
+      // (only a panel that cannot scroll: a scrolled panel is scrolled back by reveal, or by the user)
+      if (/(hidden|clip)/.test(cs.overflowX + cs.overflowY)) clip = clip ? { l: Math.max(clip.l, q.left), t: Math.max(clip.t, q.top), r: Math.min(clip.r, q.right), b: Math.min(clip.b, q.bottom) } : { l: q.left, t: q.top, r: q.right, b: q.bottom };
     }
-    return { l, t, r: Math.max(l, rr), b: Math.max(t, b), full: r };
+    return { l, t, r: Math.max(l, rr), b: Math.max(t, b), full: r, clip };
   }
-  function rectOf(e, pad) {
-    const s = seenBox(e), W = innerWidth, H = innerHeight;
-    const l = Math.max(2, s.l - pad), t = Math.max(2, s.t - pad), rr = Math.min(W - 2, s.r + pad), b = Math.min(H - 2, s.b + pad);
-    return { l, t, r: Math.max(l, rr), b: Math.max(t, b) };
+  // the viewport the tour draws in: the layout viewport less any classic scroll bar (what position: fixed fills)
+  function vpSize() {
+    const d = document.documentElement;
+    return { w: (d && d.clientWidth) || innerWidth, h: (d && d.clientHeight) || innerHeight };
   }
+  // Clipped away: a panel that cannot scroll leaves (almost) nothing of a part that would fit in it (a phone in
+  // landscape squeezes the panes to a strip: the transport below them is cut to a 0 px line). A part bigger than its
+  // panel is not clipped away: its visible part is what is lit. The viewport does not count (a scroll brings it in).
+  function clippedAway(full, s) {
+    if (!s.clip) return false;
+    const c = s.clip, fw = full.right - full.left, fh = full.bottom - full.top;
+    const w = Math.min(full.right, c.r) - Math.max(full.left, c.l), h = Math.min(full.bottom, c.b) - Math.max(full.top, c.t);
+    if (fw <= 0 || fh <= 0) return false;
+    if (w < Math.min(6, fw / 2) || h < Math.min(6, fh / 2)) return true;
+    const big = fw > c.r - c.l + 1 || fh > c.b - c.t + 1;
+    return !big && w * h < 0.25 * fw * fh;
+  }
+  // A part's lit rect: exactly its visible box (grown by pad, 0 unless a step asks), cut by the viewport, with its
+  // corner radii; a corner on a cut edge is square. hidden: the part is clipped away.
+  function partRect(p, pad) {
+    const full = partBox(p), s = seenBox(p.el, full), vp = vpSize(), W = vp.w, H = vp.h;
+    const l = Math.max(0, s.l - pad), t = Math.max(0, s.t - pad), rr = Math.min(W, s.r + pad), b = Math.min(H, s.b + pad);
+    const cut = [t > full.top - pad + 0.5, rr < full.right + pad - 0.5, b < full.bottom + pad - 0.5, l > full.left - pad + 0.5];   // top, right, bottom, left
+    const k = p.rect ? [0, 0, 0, 0] : radii(p.el);
+    const rad = [cut[0] || cut[3] ? 0 : k[0], cut[0] || cut[1] ? 0 : k[1], cut[2] || cut[1] ? 0 : k[2], cut[2] || cut[3] ? 0 : k[3]].map((x) => (x > 0 ? x + pad : 0));
+    return { l, t, r: Math.max(l, rr), b: Math.max(t, b), rad, hidden: clippedAway(full, s) };
+  }
+  // every part of an anchor is clipped away
+  const tgtHidden = (tgt) => !!tgt && tgt.parts.every((q) => partRect(q, 0).hidden);
 
   // ---------------------------------------------------------------- styles
   const CSS = `
@@ -559,34 +764,58 @@ const Tour = (() => {
 :root { --tour-scrim: #121A2080; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tour-scrim: #000000A3; } }
 :root[data-theme="dark"] { --tour-scrim: #000000A3; }
+/* two layers: the shade (z 25) sits under the app's own menus, palette and dialogs, so a layer the user opens is lit
+   and usable; the ring and the callout (.tour-top) sit above every app layer, in the top layer while the app has one
+   open there (its More menu is a popover) */
 .tour-root { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
-.tour-dim { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+:root.ph .tour-root { z-index: 27; }   /* (v15: above the chain bar, 26; under the More sheet, 28, a layer) */
+.tour-top, .tour-top[popover] { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: inherit; }
+.tour-top::backdrop { background: transparent; pointer-events: none; }
+.tour-dim { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .tour-dim .tour-shade { fill: var(--tour-scrim); pointer-events: visiblePainted; cursor: default; }
 .tour-dim .tour-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; pointer-events: none; }
 .tour-dim .tour-glow { fill: none; stroke: var(--accent); stroke-opacity: 0.22; stroke-width: 7; pointer-events: none; }
 .tour-dim .tour-mark { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
 .tour-card {
-  position: fixed; z-index: 35; left: 0; top: 0; width: 320px; max-width: calc(100vw - 24px); pointer-events: auto;
+  position: fixed; z-index: 1; left: 0; top: 0; width: 320px; max-width: calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); pointer-events: auto;
+  max-height: calc(100vh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; box-sizing: border-box;
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4, 6px); box-shadow: var(--shadow-3);
-  color: var(--ink); font: var(--t-body); text-align: left; outline: none;
+  color: var(--ink); font: var(--t-body); text-align: left; outline: none; overflow-wrap: break-word;
   transition: opacity var(--t-med) var(--ease-out), translate var(--t-med) var(--ease-out);
 }
 .tour-card.center { width: 380px; }
 .tour-card.entering { opacity: 0; translate: 0 4px; }
-.tour-card.sheet { width: auto; right: max(12px, env(safe-area-inset-right, 0px)); left: max(12px, env(safe-area-inset-left, 0px)) !important; max-width: none; }
-.tour-card.sheet[data-edge="bottom"] { top: auto !important; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.tour-card.sheet { width: auto; right: calc(12px + env(safe-area-inset-right, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)) !important; max-width: none; }
+/* docked: an open layer leaves no room for the whole callout; it waits along an edge, title and × only */
+.tour-card.docked { width: max-content; min-width: min(220px, calc(100% - 24px)); max-width: min(420px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); }
+.tour-card.docked .tour-scroll, .tour-card.docked .tour-foot, .tour-card.docked .tour-chap, .tour-card.docked .tour-caret { display: none; }
+.tour-card.docked .tour-dock { display: block; }
+.tour-card.docked .tour-in { padding: 0 0 0 14px; }
+.tour-card.docked .tour-head { margin: 0; }
+/* the × alone: no strip beside the layers is wide enough for the title */
+.tour-card.docked.tight { width: auto; min-width: 0; }
+.tour-card.docked.tight .tour-in { padding: 0; }
+.tour-card.docked.tight .tour-dock { display: none; }
+.tour-dock { display: none; flex: 1 1 auto; min-width: 0; padding: 4px 0; font: 600 14px/20px var(--f-ui); color: var(--ink); }
 .tour-card.nudge { animation: tour-nudge 320ms var(--ease-std); }
 @keyframes tour-nudge { 30% { translate: 0 -3px; } 60% { translate: 0 1px; } }
 .tour-bar { position: absolute; left: -1px; right: -1px; top: -1px; height: 3px; border-radius: var(--r-4, 6px) var(--r-4, 6px) 0 0; overflow: hidden; background: transparent; }
 .tour-bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width var(--t-slow) var(--ease-std); }
-.tour-in { padding: 14px 16px 12px; }
-.tour-head { display: flex; align-items: center; gap: 8px; min-height: 20px; margin: -2px -6px 2px 0; }
-.tour-chap { flex: 1 1 auto; font: var(--t-caption); color: var(--muted); letter-spacing: 0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tour-x { width: 24px; height: 24px; }
+.tour-in { display: flex; flex-direction: column; min-height: 0; padding: 14px 16px 12px; }
+.tour-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.tour-head { display: flex; align-items: center; gap: 8px; min-height: 20px; margin: -10px -12px 2px 0; flex: 0 0 auto; }
+.tour-chap { flex: 1 1 auto; min-width: 0; font: var(--t-caption); color: var(--muted); letter-spacing: 0.01em; white-space: normal; overflow-wrap: anywhere; }
+/* buttons: at least 36 px with a mouse, 44 px on a touch screen, 8 px apart; the row wraps rather than clip */
+.tour-card .tour-x { flex: 0 0 auto; width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
 .tour-title { margin: 0 0 6px; font: 600 15px/20px var(--f-ui); color: var(--ink); text-wrap: balance; }
 .tour-body { margin: 0; font: 400 13px/19px var(--f-ui); color: var(--ink-2); text-wrap: pretty; }
 .tour-body .kbd, .tour-try .kbd { margin: 0 1px; }
 .tour-body mjx-container, .tour-try mjx-container { font-size: 106% !important; color: var(--ink); }
+/* MathJax's hidden copy for screen readers starts at the formula's top and can reach 2 px below it: kept inside the
+   formula, so a formula on the last line never makes the text scroll */
+.tour-card mjx-assistive-mml { box-sizing: border-box !important; max-height: 100% !important; }
 .tour-math { font: italic 500 14px/1 var(--f-math); color: var(--ink); white-space: nowrap; }
 .tour-nb { white-space: nowrap; }
 .tour-try {
@@ -598,9 +827,16 @@ const Tour = (() => {
 .tour-try .tour-tick svg { width: 10px; height: 10px; opacity: 0; transform: scale(0.6); transition: opacity var(--t-med) var(--ease-out), transform var(--t-med) var(--ease-out); }
 .tour-try.done .tour-tick { background: var(--accent); }
 .tour-try.done .tour-tick svg { opacity: 1; transform: none; color: var(--accent-ink); }
-.tour-foot { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
-.tour-count { flex: 1 1 auto; font: var(--t-readout); color: var(--muted); white-space: nowrap; }
-.tour-foot .btn { white-space: nowrap; }
+.tour-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 14px; flex: 0 0 auto; }
+.tour-count { flex: 1 1 auto; min-width: 0; font: var(--t-readout); color: var(--muted); white-space: nowrap; }
+.tour-count:empty { display: none; }
+.tour-foot .btn { height: auto; min-height: 36px; min-width: 36px; padding: 0 14px; white-space: nowrap; max-width: 100%; }
+.tour-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .tour-card .tour-x { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  .tour-foot .btn { min-height: 44px; min-width: 44px; padding: 0 16px; }
+  .tour-head { margin: -12px -14px 2px 0; }
+}
 .tour-foot .btn.primary.ready { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
 .tour-caret { position: absolute; width: 12px; height: 12px; background: var(--surface); border: 1px solid var(--line-strong); rotate: 45deg; }
 .tour-card[data-side="right"] .tour-caret { left: -7px; top: calc(var(--caret) - 6px); border-top: 0; border-right: 0; }
@@ -635,8 +871,6 @@ const Tour = (() => {
   .tour-suggest { left: max(12px, env(safe-area-inset-left, 0px)) !important; right: max(12px, env(safe-area-inset-right, 0px)); width: auto; max-width: none; }
   .tour-suggest.compact { left: auto !important; }
   .tour-suggest .tour-caret { display: none; }
-  .tour-foot .btn { height: 36px; padding: 0 14px; }
-  .tour-x { width: 32px; height: 32px; }
 }
 /* the help menu (the app's menu component, plus a chapter row) */
 .pop.menu.tour-menu { min-width: 264px; }
@@ -672,57 +906,82 @@ const Tour = (() => {
   };
 
   // ---------------------------------------------------------------- spotlight
-  // One SVG: a full-screen shade with rounded holes (even-odd), so clicks on the shade stop and clicks in a hole reach
-  // the app; a 1.5px accent ring and a soft glow around each hole. Holes animate in JS (CSS cannot animate a path in
-  // every browser).
+  // Two SVGs. The shade (in .tour-root, under the app's own layers): a full-screen fill with a hole per lit area
+  // (even-odd), so clicks on the shade stop and clicks in a hole reach the app. The rings (in .tour-top, above every
+  // layer): a 1.5px accent ring and a soft glow just outside each hole, and a dashed ring just outside an anchor that
+  // sits inside a lit panel; they are masked out of any open layer, so they never draw over what the user opened. A
+  // hole is exactly the lit element's visible border box, with its corner radii; holes animate in JS between steps
+  // (CSS cannot animate a path in every browser), towards the target as it is measured in each frame.
+  const radOf = (h) => (Array.isArray(h.rad) ? h.rad : [0, 1, 2, 3].map(() => h.rad || 0));
   function rrPath(h) {
-    const w = h.r - h.l, ht = h.b - h.t, r = Math.max(0, Math.min(h.rad, w / 2, ht / 2));
-    return `M${h.l + r} ${h.t}H${h.r - r}A${r} ${r} 0 0 1 ${h.r} ${h.t + r}V${h.b - r}A${r} ${r} 0 0 1 ${h.r - r} ${h.b}H${h.l + r}A${r} ${r} 0 0 1 ${h.l} ${h.b - r}V${h.t + r}A${r} ${r} 0 0 1 ${h.l + r} ${h.t}Z`;
+    const w = h.r - h.l, ht = h.b - h.t, m = Math.max(0, Math.min(w / 2, ht / 2));
+    const [a, b, c, d] = radOf(h).map((x) => Math.max(0, Math.min(x, m)));
+    return `M${h.l + a} ${h.t}H${h.r - b}A${b} ${b} 0 0 1 ${h.r} ${h.t + b}V${h.b - c}A${c} ${c} 0 0 1 ${h.r - c} ${h.b}H${h.l + d}A${d} ${d} 0 0 1 ${h.l} ${h.b - d}V${h.t + a}A${a} ${a} 0 0 1 ${h.l + a} ${h.t}Z`;
   }
-  function drawHoles(ui, holes, mark) {
-    const W = innerWidth, H = innerHeight;
-    ui.svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    ui.shade.setAttribute('d', `M0 0H${W}V${H}H0Z` + holes.map(rrPath).join(''));
-    const rings = holes.map(rrPath).join('');
-    ui.ring.setAttribute('d', rings);
-    ui.glow.setAttribute('d', rings);
-    if (mark !== undefined) ui.mark.setAttribute('d', mark ? rrPath(mark) : '');
+  // a rect grown by e, its radii with it (a ring drawn just outside a hole)
+  const grow = (h, e) => ({ l: h.l - e, t: h.t - e, r: h.r + e, b: h.b + e, rad: radOf(h).map((x) => x + e) });
+  // (each SVG's viewBox is its own client box, so one unit is one CSS px at the same place: a classic scroll bar
+  // narrows the fixed roots, never the drawing's scale)
+  const boxOf = (g) => { const b = g.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? b : Object.assign({ left: 0, top: 0 }, vpSize(), { width: vpSize().w, height: vpSize().h }); };
+  function drawHoles(ui, holes, mark, layers) {
+    const sb = boxOf(ui.svg), rb = boxOf(ui.rsvg);
+    const X = sb.left, Y = sb.top, W = sb.width, H = sb.height;
+    ui.svg.setAttribute('viewBox', `${X} ${Y} ${W} ${H}`);
+    ui.rsvg.setAttribute('viewBox', `${rb.left} ${rb.top} ${rb.width} ${rb.height}`);
+    ui.shade.setAttribute('d', `M${X} ${Y}H${X + W}V${Y + H}H${X}Z` + holes.map(rrPath).join(''));
+    ui.ring.setAttribute('d', holes.map((h) => rrPath(grow(h, 0.75))).join(''));
+    ui.glow.setAttribute('d', holes.map((h) => rrPath(grow(h, 3.5))).join(''));
+    // (mark: the anchor's own ring, or a list: the anchor's and the insets')
+    if (mark !== undefined) ui.mark.setAttribute('d', [].concat(mark || []).map((m) => rrPath(grow(m, 0.75))).join(''));
+    if (layers !== undefined) {
+      for (const [k, v] of [['x', rb.left], ['y', rb.top], ['width', rb.width], ['height', rb.height]]) { ui.maskRect.setAttribute(k, v); ui.maskEl.setAttribute(k, v); }
+      ui.maskHoles.setAttribute('d', (layers || []).map((h) => rrPath(grow(h, 2))).join(''));
+    }
     ui.holes = holes;
   }
-  function animateHoles(ui, to, mark, dur) {
-    cancelAnimationFrame(ui.raf);
-    const from = ui.holes || [];
-    // the inner ring appears once the shade has settled
-    ui.mark.setAttribute('d', '');
-    const ms = dur;
-    if (!ms || reduced() || !from.length || !to.length) { drawHoles(ui, to, mark); return; }
-    // pairs morph; a hole without a partner grows from (or into) the first partner's rectangle
-    const n = Math.max(from.length, to.length);
-    const A = [], B = [];
-    for (let i = 0; i < n; i++) { A.push(from[i] || from[0]); B.push(to[i] || to[0]); }
-    const t0 = performance.now();
-    const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-    const lerp = (a, b, u) => a + (b - a) * u;
-    const frame = (now) => {
-      const u = ease(Math.min(1, (now - t0) / ms));
-      drawHoles(ui, A.map((a, i) => { const b = B[i]; return { l: lerp(a.l, b.l, u), t: lerp(a.t, b.t, u), r: lerp(a.r, b.r, u), b: lerp(a.b, b.b, u), rad: lerp(a.rad, b.rad, u) }; }));
-      if (u < 1) ui.raf = requestAnimationFrame(frame); else drawHoles(ui, to, mark);
-    };
-    ui.raf = requestAnimationFrame(frame);
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  // the holes drawn u of the way from `from` to `to` (pairs morph; a hole without a partner grows from, or into, the
+  // first partner's rectangle)
+  function between(from, to, u) {
+    const lerp = (a, b) => a + (b - a) * u;
+    if (!from.length || !to.length) return to;
+    const n = Math.max(from.length, to.length), out = [];
+    for (let i = 0; i < n; i++) {
+      const a = from[i] || from[0], b = to[i] || to[0], ra = radOf(a), rb = radOf(b);
+      out.push({ l: lerp(a.l, b.l), t: lerp(a.t, b.t), r: lerp(a.r, b.r), b: lerp(a.b, b.b), rad: ra.map((x, j) => lerp(x, rb[j])) });
+    }
+    return out;
   }
 
+  let maskN = 0;
   function buildUI() {
     const NS = 'http://www.w3.org/2000/svg';
+    const mk = (cls) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('class', cls); return p; };
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'tour-dim'); svg.setAttribute('aria-hidden', 'true');
-    const mk = (cls) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('class', cls); return p; };
-    const shade = mk('tour-shade'), glow = mk('tour-glow'), ring = mk('tour-ring'), markP = mk('tour-mark');
+    const shade = mk('tour-shade');
     shade.setAttribute('fill-rule', 'evenodd');
-    svg.append(shade, glow, ring, markP);
+    svg.append(shade);
+    // the rings, masked out of the open layers
+    const rsvg = document.createElementNS(NS, 'svg');
+    rsvg.setAttribute('class', 'tour-dim tour-rings'); rsvg.setAttribute('aria-hidden', 'true');
+    const id = 'tourRingMask' + (++maskN);
+    const defs = document.createElementNS(NS, 'defs'), maskEl = document.createElementNS(NS, 'mask'), maskRect = document.createElementNS(NS, 'rect'), maskHoles = document.createElementNS(NS, 'path');
+    maskEl.setAttribute('id', id); maskEl.setAttribute('maskUnits', 'userSpaceOnUse'); maskEl.setAttribute('maskContentUnits', 'userSpaceOnUse');
+    maskRect.setAttribute('fill', '#fff'); maskRect.setAttribute('x', '0'); maskRect.setAttribute('y', '0');
+    maskHoles.setAttribute('fill', '#000');
+    maskEl.append(maskRect, maskHoles); defs.append(maskEl);
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('mask', `url(#${id})`);
+    const glow = mk('tour-glow'), ring = mk('tour-ring'), markP = mk('tour-mark');
+    g.append(glow, ring, markP);
+    rsvg.append(defs, g);
     const live = el('div', { class: 'tour-sr', 'aria-live': 'polite', 'aria-atomic': 'true' });
-    const root = el('div', { class: 'tour-root', 'data-tour': 'root' }, svg, live);
+    const root = el('div', { class: 'tour-root', 'data-tour': 'root' }, svg);
+    const top = el('div', { class: 'tour-top', 'data-tour': 'top' }, rsvg, live);
     const bar = el('i');
     const chap = el('span', { class: 'tour-chap' });
+    const dock = el('span', { class: 'tour-dock', 'aria-hidden': 'true' });
     const x = el('button', { class: 'icon-btn tour-x', type: 'button', 'aria-label': $t('End the tour'), title: $t('End the tour') + '  Esc' });
     x.innerHTML = ICON_X;
     const title = el('h2', { class: 'tour-title', id: 'tourTitle' });
@@ -733,12 +992,81 @@ const Tour = (() => {
     const done = el('button', { class: 'btn ghost', type: 'button', hidden: true }, $t('Done'));
     const next = el('button', { class: 'btn primary', type: 'button' }, $t('Next'));
     const caret = el('span', { class: 'tour-caret', 'aria-hidden': 'true' });
+    const foot = el('div', { class: 'tour-foot' }, count, back, done, next);
     const card = el('div', { class: 'tour-card entering', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'tourTitle', 'aria-describedby': 'tourBody', tabindex: '-1', 'data-tour': 'card' },
       el('div', { class: 'tour-bar', 'aria-hidden': 'true' }, bar), caret,
-      el('div', { class: 'tour-in' }, el('div', { class: 'tour-head' }, chap, x), title, body, tryBox, el('div', { class: 'tour-foot' }, count, back, done, next)));
-    root.append(card);
-    document.body.append(root);
-    return { root, svg, shade, glow, ring, mark: markP, live, card, bar, chap, x, title, body, tryBox, count, back, done, next, holes: null, raf: 0 };
+      el('div', { class: 'tour-in' }, el('div', { class: 'tour-head' }, chap, dock, x), el('div', { class: 'tour-scroll' }, title, body, tryBox), foot));
+    top.append(card);
+    // the safe-area insets, read from a probe (env() has no script API)
+    const safeP = el('div', { 'aria-hidden': 'true', style: 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)' });
+    top.append(safeP);
+    document.body.append(root, top);
+    return { root, top, svg, rsvg, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, card, bar, chap, dock, x, title, body, tryBox, count, back, done, next, foot, caret, safeP, holes: null, raf: 0, anim: null, motion: 0, topSet: [] };
+  }
+  function safeArea(ui) {
+    try { const cs = getComputedStyle(ui.safeP); return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; } catch (e) { return { t: 0, r: 0, b: 0, l: 0 }; }
+  }
+
+  // ---------------------------------------------------------------- the app's layers
+  // What the user can open over the app: its popovers (#popHost: the palette, menus, the integral popover, the
+  // coordinate pad, the options sheet), a dialog (.modal-bg's box), the sound settings, anything in the top layer
+  // (the header's More menu is a popover). api.layers() may list them instead (elements). The callout never covers
+  // them, and the rings are masked out of them.
+  const LAYER_SEL = '#popHost > *, .modal-bg > *, .snd-pop:not([hidden]), dialog[open]';
+  function layerEls() {
+    let els = null;
+    try { if (fn('layers')) els = api.layers(); } catch (e) { els = null; }
+    if (!els || typeof els.length !== 'number') {
+      els = [...document.querySelectorAll(LAYER_SEL)];
+      try { els.push(...document.querySelectorAll(':popover-open')); } catch (e) { /* no popover API */ }
+    }
+    // (v15: a layer that holds the step's own anchor, a phone's sheet or a drawer the step opened, is part of the step:
+    // it is lit, not kept clear, and its rings are not masked off)
+    const lit = run && run.el && run.el.isConnected ? run.el : null;
+    return [...els].filter((e) => e && e.closest && !e.closest('[data-tour="root"], [data-tour="top"]') && visible(e) && !(lit && e.contains(lit)));
+  }
+  // the controls of the open layers (a docked callout over a full-screen dialog keeps off them)
+  function layerControls() {
+    const out = [];
+    for (const k of layerEls()) {
+      for (const c of k.querySelectorAll('button, input, select, textarea, a[href], summary, [role="button"], [role="option"], [role="menuitem"], [tabindex]:not([tabindex="-1"])')) {
+        const b = c.getBoundingClientRect();
+        if (b.width > 1 && b.height > 1) out.push({ l: b.left, t: b.top, r: b.right, b: b.bottom });
+        if (out.length > 300) return out;
+      }
+    }
+    return out;
+  }
+  function appLayers() {
+    return layerEls().map((e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, rad: radii(e) }; });
+  }
+  // The callout's layer joins the top layer (as a manual popover) while the app has something there, shown after it
+  // so it stays above; it leaves when the app's top layer is empty. (Only then: the app's layerOpen() counts open
+  // popovers, and a tour always in the top layer would read as a layer that never closes.)
+  function topLayerApp() {
+    try { return [...document.querySelectorAll(':popover-open, dialog:modal')].filter((e) => !e.closest('[data-tour]')); } catch (e) { return []; }
+  }
+  function syncTop(ui) {
+    const top = ui && ui.top;
+    if (!top || !top.isConnected || typeof top.showPopover !== 'function') return;
+    const now = topLayerApp();
+    let isOpen = false;
+    try { isOpen = top.matches(':popover-open'); } catch (e) { isOpen = false; }
+    const added = now.some((e) => !ui.topSet.includes(e));
+    ui.topSet = now;
+    if (now.length ? isOpen && !added : !isOpen) return;
+    const a = document.activeElement;
+    try {
+      if (now.length) {
+        if (!top.hasAttribute('popover')) top.setAttribute('popover', 'manual');
+        if (isOpen) top.hidePopover();
+        top.showPopover();
+      } else {
+        top.hidePopover();
+        top.removeAttribute('popover');
+      }
+    } catch (e) { warn('top layer', e); }
+    if (a && a !== document.activeElement && top.contains(a)) { try { a.focus({ preventScroll: true }); } catch (e) { /* */ } }
   }
 
   // ---------------------------------------------------------------- the run
@@ -800,7 +1128,7 @@ const Tour = (() => {
     if (prev) { lend = prev.lend; opener = opener || prev.opener; stop({ silent: true, keepWork: true }); }
     else lend = borrow();
     if (!opener) opener = document.activeElement !== document.body ? document.activeElement : null;
-    const r = { ci, si: 0, lend, snap: lend ? lend.snap : null, scenes: !!lend, scene: undefined, sceneOk: {}, seq: 0, opener, offs: [], tryOffs: [], skipped: new Set(), absent: new Set(), ui: null, el: null, step: null, dir: 1, timer: 0, tracked: null };
+    const r = { ci, si: 0, lend, snap: lend ? lend.snap : null, scenes: !!lend, scene: undefined, sceneOk: {}, seq: 0, opener, offs: [], tryOffs: [], skipped: new Set(), why: new Map(), absent: new Set(), ui: null, el: null, step: null, dir: 1, timer: 0, tracked: null };
     // steps on a feature this build does not have (api.has), or that need a scene the tour cannot borrow, are left out
     // from the start, so the count is right
     CHAPTERS.forEach((c, i) => c.steps.forEach((st, j) => { if (absent(i, j, r.scenes)) r.absent.add(skipKey(i, j)); }));
@@ -843,15 +1171,17 @@ const Tour = (() => {
     ui.x.addEventListener('click', () => stop({}));
     ui.shade.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); });
     const onKey = (e) => {
-      if (run !== r) return;
+      if (run !== r || e === fwdKey) return;
       const inCard = ui.card.contains(document.activeElement);
       const idle = document.activeElement === document.body || document.activeElement == null || inCard;
+      if (inCard) { ui.keyEl = document.activeElement; ui.keyAt = performance.now(); }
       if (e.key === 'Escape') {
-        // Escape in the callout ends the tour. Elsewhere the app's own Escape comes first: a menu, the palette or a
-        // dialog, a field being typed in, and whatever the app reports busy (a drawing, a drag, a selection, an open
-        // drawer). Only when the app has nothing to cancel does Escape end the tour
+        // The app's own layer comes first, wherever the focus is: a menu, the palette or a dialog closes and the tour
+        // stays. Then Escape in the callout ends the tour. Elsewhere the app's own Escape comes first: a field being
+        // typed in, and whatever the app reports busy (a drawing, a drag, a selection, an open drawer). Only when the
+        // app has nothing to cancel does Escape end the tour
+        if (appLayerOpen()) { if (inCard) escToLayer(e); return; }
         if (!inCard) {
-          if (appLayerOpen()) return;
           const a = document.activeElement;
           if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
           if (appBusy()) return;
@@ -865,19 +1195,50 @@ const Tour = (() => {
       else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); go(-1); }
     };
     document.addEventListener('keydown', onKey, true);
+    // a click elsewhere: the user has moved on, the focus is theirs (no return to the callout when the layers close)
+    const onDown = (e) => { if (run === r && !ui.card.contains(e.target)) { ui.refocus = null; ui.keyEl = null; } };
+    document.addEventListener('pointerdown', onDown, true);
+    r.offs.push(() => document.removeEventListener('pointerdown', onDown, true));
+    r.offs.push(() => { const h = document.querySelector(TOAST_SEL); if (h && ui.toastDy) { h.style.transform = ''; ui.toastDy = 0; } });
     const onHide = () => { if (run === r && r.lend && r.lend.stashed) unbeat(); };
     const onShow = (e) => { if (e.persisted && run === r && r.lend && r.lend.stashed) beat(); };
     addEventListener('pagehide', onHide);
     addEventListener('pageshow', onShow);
     r.offs.push(() => removeEventListener('pagehide', onHide), () => removeEventListener('pageshow', onShow));
-    const onMove = () => track();
+    // The spotlight keeps up in the same frame: a scroll (of the page or any panel) and a resize are handled as they
+    // fire, before the frame is painted; a ResizeObserver catches the lit elements, the callout and the open layers
+    // changing size; a MutationObserver catches layout changes that fire no event (a panel opening, the chain
+    // growing, a menu or a dialog opening); and while anything moves (a transition, an animation, the shade's own
+    // morph) the layout runs every frame until it has been still for a while
+    const onMove = () => { if (run === r) { layout(false); kick(12); } };
     addEventListener('resize', onMove);
     addEventListener('scroll', onMove, true);
     r.offs.push(() => document.removeEventListener('keydown', onKey, true), () => removeEventListener('resize', onMove), () => removeEventListener('scroll', onMove, true));
-    // layout changes that fire no event (a panel opening, the chain growing): a cheap check four times a second; the
-    // stash's heartbeat every two seconds
+    if (typeof visualViewport !== 'undefined' && visualViewport) { visualViewport.addEventListener('resize', onMove); r.offs.push(() => visualViewport.removeEventListener('resize', onMove)); }
+    const ours = (n) => { const e = n && (n.nodeType === 1 ? n : n.parentElement); return !e || !!e.closest('[data-tour="root"], [data-tour="top"], #tip'); };
+    if (typeof ResizeObserver === 'function') {
+      ui.ro = new ResizeObserver(() => { if (run === r) { layout(false); kick(12); } });
+      ui.roSet = new Set();
+      r.offs.push(() => ui.ro.disconnect());
+    }
+    if (typeof MutationObserver === 'function') {
+      const mo = new MutationObserver((recs) => { if (run === r && recs.some((m) => !ours(m.target))) { syncTop(ui); kick(12); } });
+      mo.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'] });
+      r.offs.push(() => mo.disconnect());
+    }
+    const onAnim = (e) => { if (run === r && !ours(e.target)) kick(45); };
+    for (const t of ['transitionrun', 'animationstart']) { document.addEventListener(t, onAnim, true); r.offs.push(() => document.removeEventListener(t, onAnim, true)); }
+    // a popover or a modal dialog of the app opening (the top layer): the callout goes above it at once
+    const onToggle = (e) => {
+      if (run !== r || ours(e.target)) return;
+      const go = () => { if (run === r) { syncTop(ui); layout(false); kick(20); } };
+      queueMicrotask(go); requestAnimationFrame(go);
+    };
+    for (const t of ['beforetoggle', 'toggle']) { document.addEventListener(t, onToggle, true); r.offs.push(() => document.removeEventListener(t, onToggle, true)); }
+    r.offs.push(() => { try { if (ui.top.matches(':popover-open')) ui.top.hidePopover(); } catch (e) { /* */ } });
+    // a safety net for anything the observers miss, four times a second; the stash's heartbeat every two seconds
     let n = 0;
-    r.timer = setInterval(() => { track(); if (r.lend && r.lend.stashed && ++n % Math.round(BEAT_MS / 250) === 0) beat(); }, 250);
+    r.timer = setInterval(() => { syncTop(ui); track(); if (r.lend && r.lend.stashed && ++n % Math.round(BEAT_MS / 250) === 0) beat(); }, 250);
     r.offs.push(() => clearInterval(r.timer));
     // the app's hover tooltip sits above the callout: hidden while it would cover it
     const tip = document.querySelector(TIP_SEL);
@@ -896,10 +1257,24 @@ const Tour = (() => {
     if (over && !tip.dataset.tourHid) { tip.dataset.tourHid = '1'; tip.style.visibility = 'hidden'; }
     else if (!over && tip.dataset.tourHid) { delete tip.dataset.tourHid; tip.style.visibility = ''; }
   }
+  // (every layer the tour itself keeps clear counts, also one the app's layerOpen() does not report: the sound settings)
   function appLayerOpen() {
+    if (layerEls().length) return true;
     try { if (fn('layerOpen')) return !!api.layerOpen(); } catch (e) { /* fall through */ }
-    return !!document.querySelector('#popHost > .pop, .modal-bg, .pal, .palette, [popover]:popover-open');
+    try { return !!document.querySelector('#popHost > .pop, .modal-bg, .pal, .palette, [popover]:popover-open:not([data-tour])'); } catch (e) { return !!document.querySelector('#popHost > .pop, .modal-bg, .pal, .palette'); }
   }
+  // Escape in the callout while a layer is open that the app's own Escape does not close (its layerOpen() does not
+  // report it: the sound settings close on an Escape inside them): the key goes to that layer, the topmost one
+  function escToLayer(e) {
+    let own = true;
+    try { own = fn('layerOpen') ? !!api.layerOpen() : true; } catch (x) { own = true; }
+    if (own) return;
+    const k = layerEls().filter((x) => !x.contains(document.activeElement)).pop();
+    if (!k) return;
+    e.preventDefault(); e.stopPropagation();
+    try { fwdKey = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }); k.dispatchEvent(fwdKey); } catch (x) { /* */ } finally { fwdKey = null; }
+  }
+  let fwdKey = null;   // the Escape forwarded to a layer (the tour's own key handler lets it pass)
   // the app has something of its own that Escape cancels (INTEGRATION.md §3: busy)
   function appBusy() {
     try { if (fn('busy')) return !!api.busy(); } catch (e) { /* fall through */ }
@@ -947,7 +1322,7 @@ const Tour = (() => {
     return k.find((x) => !(SCENES[x] && [].concat(SCENES[x].needs || []).some(featureOff))) || k[k.length - 1];
   }
   // the actions that change the scene or the view: only when the tour can put the user's work back (borrow)
-  const CHANGES = new Set(['scene', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look']);
+  const CHANGES = new Set(['scene', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look', 'select', 'plane']);
   function absent(ci, si, scenes) {
     const ch = CHAPTERS[ci], st = ch.steps[si], k = sceneAt(ch, si), sc = k != null ? SCENES[k] : null;
     if (scenes === false && (k != null || (st.before || []).some((a) => CHANGES.has(a[0])))) return true;
@@ -979,7 +1354,7 @@ const Tour = (() => {
     r.scene = key; r.sceneOk[key] = ok;
     return ok;
   }
-  const ACTIONS = { view: 'setView', surface: 'setSurface', deform: 'setDeformation', focus: 'focusStep', panel: 'showPanel', tool: 'setTool', look: 'setLook' };
+  const ACTIONS = { view: 'setView', surface: 'setSurface', deform: 'setDeformation', focus: 'focusStep', panel: 'showPanel', tool: 'setTool', look: 'setLook', select: 'selectStep', plane: 'showPlane' };
   function act(r, a) {
     const [name, ...args] = a;
     if (name === 'scene') return loadScene(r, pickScene(args[0]));
@@ -1013,6 +1388,8 @@ const Tour = (() => {
     r.ui.card.setAttribute('aria-busy', 'true');
     const want = sceneAt(ch, si);
     const ok = want == null ? true : loadScene(r, want);
+    // a step that does not ask for the panel: a phone's sheet that an earlier step opened closes (optional)
+    if (r.scenes && !(step.before || []).some((a) => a[0] === 'panel')) call('closeSheet');
     for (const a of step.before || []) {
       if (a[0] === 'scene') continue;
       act(r, a);
@@ -1022,26 +1399,48 @@ const Tour = (() => {
     await frames(2);
     await sleep(step.wait || (step.before && step.before.length ? 60 : 0));
     if (stale()) return;
-    const target = step.anchor == null ? null : anchorEl(step.anchor);
-    if ((step.anchor != null && !target) || !ok) {
-      // missing in this build or this layout: skip it, in the direction of travel
-      r.skipped.add(skipKey(ci, si));
+    // the fonts the copy and the lit controls are set in (a Cyrillic face loads on first use)
+    if (typeof document.fonts === 'object' && document.fonts && document.fonts.status !== 'loaded') { await Promise.race([document.fonts.ready, sleep(1000)]); if (stale()) return; }
+    let tgt = step.anchor == null ? null : anchorOf(step.anchor);
+    let target = tgt ? tgt.el : null;
+    // Missing in this build or this layout, or clipped away: skip it, in the direction of travel. The skip is reported
+    // (Tour.skipped(), and a warning once per step and run), never silent
+    const skip = async (why) => {
+      const key = skipKey(ci, si);
+      r.skipped.add(key);
+      if (!r.why.has(key)) { r.why.set(key, why); warn('step skipped', `${key} (${why})`); }
       const d = dir || 1;
       const pos = seek(ci, si + d, d, isAbsent);
       if (!pos) { if (d > 0) stop({ finished: true }); else await show(ci, si, 1); return; }
       if (pos.ci !== ci && d > 0) { rec.done[ch.id] = ch.rev; save(); }
       await show(pos.ci, pos.si, d);
-      return;
-    }
-    r.step = step; r.el = target;
+    };
+    if (!ok) { await skip('scene'); return; }
+    if (step.anchor != null && !target) { await skip('missing'); return; }
+    r.step = step; r.el = target; r.tgt = tgt;
     // the copy of a control that lives in the ⋯ menu here says "in this menu"
     r.inMenu = !!target && [].concat(step.anchor).length > 1 && target === anchorEl('moreBtn') && anchorEl([].concat(step.anchor)[0]) !== target;
     // bring the lit area into view: between the top bar and what is fixed at the bottom (a phone's tool bar, and the
     // sheet the callout becomes), measured again once the scroll has ended
-    if (target) { await reveal(target, step); if (stale()) return; }
+    if (target) {
+      await reveal(target, step); if (stale()) return;
+      // measured once it has settled: the lit area unchanged over two frames (a view switch, a panel sliding open)
+      await steady(r, step, 700); if (stale()) return;
+      // clipped away by a panel that cannot scroll (the panes squeezed to a strip on a phone in landscape): another of
+      // the step's anchors, else the step is skipped (an empty line lit where the control would be helps no one)
+      if (tgtHidden(r.tgt)) {
+        tgt = anchorOf(step.anchor, (t) => !tgtHidden(t));
+        if (!tgt) { r.step = null; await skip('clipped'); return; }
+        target = tgt.el; r.el = target; r.tgt = tgt;
+        await reveal(target, step); if (stale()) return;
+        await steady(r, step, 700); if (stale()) return;
+      }
+    }
     r.ui.card.removeAttribute('aria-busy');
     fill(r, ch, step);
+    watchStep(r);
     layout(true);
+    kick(30);
     announce(r, ch, step);
     armTry(r, step);
     try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ }
@@ -1050,7 +1449,7 @@ const Tour = (() => {
   // the band of the viewport that nothing fixed covers: below the top bar, above a bottom bar and (on a phone) the sheet
   function fixedEdge(y, fromTop) {
     let best = null;
-    const xs = [innerWidth * 0.25, innerWidth * 0.5, innerWidth * 0.75];
+    const vp = vpSize(), xs = [vp.w * 0.25, vp.w * 0.5, vp.w * 0.75];
     for (const x of xs) {
       for (const e of document.elementsFromPoint(x, y)) {
         if (e.closest('[data-tour]')) continue;
@@ -1058,17 +1457,17 @@ const Tour = (() => {
         for (; a && a !== document.body && a !== document.documentElement; a = a.parentElement) { const p = getComputedStyle(a).position; if (p === 'fixed' || p === 'sticky') break; }
         if (!a || a === document.body || a === document.documentElement) break;
         const q = a.getBoundingClientRect();
-        if (q.width < innerWidth * 0.4) break;
-        best = fromTop ? Math.max(best == null ? 0 : best, q.bottom) : Math.min(best == null ? innerHeight : best, q.top);
+        if (q.width < vp.w * 0.4) break;
+        best = fromTop ? Math.max(best == null ? 0 : best, q.bottom) : Math.min(best == null ? vp.h : best, q.top);
         break;
       }
     }
     return best;
   }
   function freeBand() {
-    const top = fixedEdge(2, true) || 0, bar = fixedEdge(innerHeight - 3, false);
-    let bot = bar == null ? innerHeight : bar;
-    if (narrow()) bot = Math.min(bot, innerHeight * 0.58);
+    const H = vpSize().h, top = fixedEdge(2, true) || 0, bar = fixedEdge(H - 3, false);
+    let bot = bar == null ? H : bar;
+    if (narrow()) bot = Math.min(bot, H * 0.58);
     return { top, bot: Math.max(top + 80, bot) };
   }
   function scrollWin(y) {
@@ -1082,18 +1481,60 @@ const Tour = (() => {
       scrollTo({ top: y, behavior: 'smooth' });
     });
   }
+  // Scrolls every scrolling ancestor of e (not the page) so e's box is inside it, 8 px clear, when it fits; when it
+  // does not, so its start shows. Instant: the spotlight follows in the same frame. Returns whether anything moved.
+  function panelsReveal(e) {
+    let moved = false;
+    for (let a = e.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      const sy = /(auto|scroll|overlay)/.test(cs.overflowY) && a.scrollHeight > a.clientHeight + 1;
+      const sx = /(auto|scroll|overlay)/.test(cs.overflowX) && a.scrollWidth > a.clientWidth + 1;
+      if (!sy && !sx) continue;
+      const q = a.getBoundingClientRect(), b = e.getBoundingClientRect(), m = 8;
+      const top = q.top + a.clientTop, left = q.left + a.clientLeft, bot = top + a.clientHeight, right = left + a.clientWidth;
+      // (a part that fits only without the 8 px margins is placed whole, with equal margins)
+      const need = (lo, hi, a0, a1) => {
+        if (hi - lo <= a1 - a0 - 2 * m) return lo < a0 + m ? lo - a0 - m : hi > a1 - m ? hi - a1 + m : 0;
+        if (hi - lo <= a1 - a0) { const mm = (a1 - a0 - (hi - lo)) / 2; return lo < a0 + mm - 0.5 || hi > a1 - mm + 0.5 ? lo - a0 - mm : 0; }
+        return lo < a0 || lo > a0 + m ? lo - a0 - m : 0;
+      };
+      const dy = sy ? need(b.top, b.bottom, top, bot) : 0, dx = sx ? need(b.left, b.right, left, right) : 0;
+      if (Math.abs(dy) < 1 && Math.abs(dx) < 1) continue;
+      const y0 = a.scrollTop, x0 = a.scrollLeft;
+      try { a.scrollTo({ top: y0 + dy, left: x0 + dx, behavior: 'instant' }); } catch (x) { a.scrollTop = y0 + dy; a.scrollLeft = x0 + dx; }
+      if (a.scrollTop !== y0 || a.scrollLeft !== x0) moved = true;
+    }
+    return moved;
+  }
+  // waits (at most maxMs) until the step's lit areas are the same in two frames running
+  async function steady(r, step, maxMs) {
+    const t0 = performance.now();
+    let last = '';
+    while (performance.now() - t0 < maxMs) {
+      if (run !== r || r.step !== step) return;
+      const sig = JSON.stringify(holesFor(step, r.tgt).holes.map((h) => [h.l, h.t, h.r, h.b].map((v) => Math.round(v * 2))));
+      if (sig === last) return;
+      last = sig;
+      await frames(1);
+    }
+  }
   const inFixed = (e) => { for (let a = e; a && a !== document.body && a !== document.documentElement; a = a.parentElement) { const p = getComputedStyle(a).position; if (p === 'fixed' || p === 'sticky') return true; } return false; };
   async function reveal(target, step) {
-    // a control in the top bar or a fixed tool bar is always in view; scrolling would only move the page under it
+    // the panels that cut a lit part scroll first (v15: the F tile in a scrolled chain strip, a section low in a
+    // phone's sheet); the anchor's panels last, so it wins where both are in one panel
+    const alsoAll = [].concat(step.also || []).map((a) => anchorEl(a)).filter((e) => e && e !== target);
+    let pm = false;
+    for (const e of alsoAll) if (panelsReveal(e)) pm = true;
+    if (panelsReveal(target)) pm = true;
+    if (pm) await frames(1);
+    // a control in the top bar or a fixed tool bar (or a phone's sheet) is always in view; scrolling the page would
+    // only move the page under it
     if (inFixed(target)) return;
-    const also = [].concat(step.also || []).map((a) => anchorEl(a)).filter((e) => e && e !== target && !inFixed(e));
+    const also = alsoAll.filter((e) => !inFixed(e));
     for (let pass = 0; pass < 2; pass++) {
-      // mostly cut off by a scrolling panel (a section low in a side panel, the add card at the end of a long chain):
-      // that panel scrolls first
-      const sb = seenBox(target), b0 = sb.full;
-      const fw = Math.min(b0.width, innerWidth * 0.5), fh = Math.min(b0.height, innerHeight * 0.5);
-      const clipped = fw > 0 && fh > 0 && Math.min(sb.r - sb.l, fw) * Math.min(sb.b - sb.t, fh) < 0.6 * fw * fh;
-      if (clipped) { target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' }); await frames(1); }
+      // cut by a scrolling panel (a section low in a side panel, the add card at the end of a long chain): that panel
+      // scrolls first, so the whole target shows when it fits
+      if (panelsReveal(target)) await frames(1);
       // the lit area: the anchor, and its second lit element when both can be brought in
       let b = target.getBoundingClientRect();
       const box = { top: b.top, bottom: b.bottom };
@@ -1104,15 +1545,18 @@ const Tour = (() => {
         // it fits: wholly inside the band
         if (box.top < band.top + 2) delta = box.top - band.top - 8;
         else if (box.bottom > band.bot - 2) delta = box.bottom - band.bot + 8;
+      } else if (also.length && narrow() && b.bottom - b.top <= room) {
+        // two lit areas that cannot both fit (X and Y on a phone): the anchor whole, at the band's edge toward the
+        // other, so as much of the other shows as can
+        delta = box.top < b.top - 1 ? b.bottom - band.bot + 8 : b.top - band.top - 8;
       } else if (also.length && narrow()) {
-        // two lit areas that cannot both fit (X and Y on a phone): their middle in the middle of the band
-        delta = (box.top + box.bottom) / 2 - (band.top + band.bot) / 2;
+        delta = b.top - band.top - 8;
       } else if (b.bottom - b.top <= room) {
         if (b.top < band.top + 2) delta = b.top - band.top - 8;
         else if (b.bottom > band.bot - 2) delta = b.bottom - band.bot + 8;
       } else if (b.top < band.top - 2 || b.top > band.top + 0.4 * room) delta = b.top - band.top - 8;
       if (Math.abs(delta) < 2) return;
-      const maxY = Math.max(0, document.documentElement.scrollHeight - innerHeight);
+      const maxY = Math.max(0, document.documentElement.scrollHeight - vpSize().h);
       const y = Math.max(0, Math.min(maxY, scrollY + delta));
       if (Math.abs(y - scrollY) < 1) return;
       await scrollWin(y);
@@ -1147,6 +1591,9 @@ const Tour = (() => {
     const nextCh = nx && nx.ci !== r.ci ? CHAPTERS[nx.ci] : null;
     const last = !nx;
     ui.next.textContent = step.anchor == null && r.ci === 0 && r.si === 0 ? $t('Start') : last ? $t('Finish') : nextCh ? $t('Next: {chapter}', { chapter: $t(nextCh.title) }) : $t('Next');
+    ui.next.removeAttribute('aria-label');
+    if (nextCh) { ui.next.dataset.full = ui.next.textContent; ui.next.dataset.short = $t('Next'); } else { delete ui.next.dataset.full; delete ui.next.dataset.short; }
+    ui.dock.textContent = $t(step.title);
     ui.next.classList.remove('ready');
     ui.done.hidden = !nextCh;
     // at a chapter's end the footer holds Back, Done and "Next: <chapter>"; the full progress line says the rest
@@ -1160,14 +1607,52 @@ const Tour = (() => {
     r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k, title: $t(step.title) }) + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }), modKey()) + (tr ? $t(' Try it: ') + plainCopy(tryFor(tr), modKey()) : '');
   }
 
-  function holesFor(step, target) {
-    if (!target) return { holes: [], mark: null };
-    const pad = step.pad != null ? step.pad : 6;
-    const list = [target];
-    for (const a of [].concat(step.also || [])) { const e = anchorEl(a); if (e && !list.includes(e)) list.push(e); }
-    const { holes, mark } = litAreas(list.map((e) => rectOf(e, pad)));
-    const rad = (h) => Object.assign(h, { rad: h.r - h.l > 240 && h.b - h.t > 160 ? 10 : 8 });
-    return { holes: holes.map(rad), mark: mark && Object.assign(mark, { rad: 7 }) };
+  // The lit areas of a step: its anchor's parts and its `also` areas, each exactly its visible box (step.pad grows them
+  // when a step asks), with its corner radii; an anchor inside a lit panel is the mark.
+  function holesFor(step, tgt) {
+    if (!tgt) return { holes: [], mark: null, insets: [] };
+    const pad = step.pad != null ? step.pad : 0;
+    const parts = tgt.parts.slice();
+    for (const a of [].concat(step.also || [])) {
+      const t = anchorOf(a);
+      if (t) for (const q of t.parts) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el)) parts.push(q);
+    }
+    // (a part clipped away has no hole: never an empty line where the anchor would be)
+    const rects = parts.map((q) => partRect(q, pad)).filter((q, i) => !q.hidden && (i === 0 || (q.r - q.l > 0.5 && q.b - q.t > 0.5)));
+    if (!rects.length) return { holes: [], mark: null, insets: [] };
+    const { holes, mark } = litAreas(rects);
+    // each hole takes the radii of the part whose box it is (the panel an anchor sits in), else of the part it overlaps most
+    const match = (h) => {
+      let best = null, bo = -1;
+      for (const q of rects) {
+        if (Math.max(Math.abs(q.l - h.l), Math.abs(q.t - h.t), Math.abs(q.r - h.r), Math.abs(q.b - h.b)) < 0.5) return q.rad;
+        const o = Math.max(0, Math.min(q.r, h.r) - Math.max(q.l, h.l)) * Math.max(0, Math.min(q.b, h.b) - Math.max(q.t, h.t));
+        if (o > bo) { bo = o; best = q; }
+      }
+      return best ? best.rad : [0, 0, 0, 0];
+    };
+    // (v15: a lit part inside a larger lit area, other than the anchor, X's inset on a phone inside the lit Y, the chain
+    // under a merged Inspector: a ring of its own, like the mark)
+    const area = (q) => Math.max(0, q.r - q.l) * Math.max(0, q.b - q.t);
+    const insets = rects.slice(1).filter((q) => area(q) > 1 && holes.some((h) => q.l >= h.l - 0.5 && q.t >= h.t - 0.5 && q.r <= h.r + 0.5 && q.b <= h.b + 0.5 && area(h) > 1.3 * area(q)))
+      .map((q) => ({ l: q.l, t: q.t, r: q.r, b: q.b, rad: q.rad }));
+    return { holes: holes.map((h) => Object.assign(h, { rad: match(h) })), mark: mark && Object.assign(mark, { rad: rects[0].rad }), insets };
+  }
+  // A second lit area the app itself covers (v15, a short desktop window: the chain under the Inspector) is not lit:
+  // at its centre and four inner points the topmost element of the app, the tour and the open layers aside, is
+  // another element. (The anchor is never dropped this way.)
+  function covered(e) {
+    if (!e || !e.isConnected || typeof document.elementsFromPoint !== 'function') return false;
+    const b = e.getBoundingClientRect(), vp = vpSize(), lay = layerEls();
+    let n = 0;
+    for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
+      const x = b.left + fx * b.width, y = b.top + fy * b.height;
+      if (x < 0 || y < 0 || x >= vp.w || y >= vp.h) continue;
+      const hit = document.elementsFromPoint(x, y).find((h) => !h.closest('[data-tour]') && !lay.some((k) => k.contains(h)));
+      n++;
+      if (!hit || hit === e || e.contains(hit) || hit.contains(e)) return false;
+    }
+    return n > 0;
   }
   // controls inside the lit area that an inset callout should not cover
   function controlsIn(e) {
@@ -1181,47 +1666,210 @@ const Tour = (() => {
     return out;
   }
 
-  // measure, place and draw; animate on a step change, follow scrolls and resizes immediately
+  // the elements whose size the spotlight depends on: the callout, the page, the lit parts (the open layers join in layout)
+  function watch(ui, els) {
+    if (!ui.ro) return;
+    for (const e of els) if (e && !ui.roSet.has(e)) { ui.roSet.add(e); try { ui.ro.observe(e); } catch (x) { /* */ } }
+  }
+  function watchStep(r) {
+    const ui = r.ui;
+    if (!ui.ro) return;
+    ui.ro.disconnect(); ui.roSet = new Set();
+    const els = [ui.card, document.documentElement];
+    if (r.tgt) els.push(...r.tgt.parts.map((q) => q.el));
+    for (const a of [].concat((r.step && r.step.also) || [])) { const t = anchorOf(a); if (t) els.push(...t.parts.map((q) => q.el)); }
+    watch(ui, els);
+  }
+  // "Next: <chapter>" shortens to "Next" (the full label stays its accessible name) when it would not fit the row
+  function fitNext(ui) {
+    const n = ui.next, full = n.dataset.full;
+    if (!full) return;
+    if (n.textContent !== full) { n.textContent = full; n.removeAttribute('aria-label'); }
+    // (v15: "Next: Editing the chain" beside Back and Done wraps in a 320 px card: a free-standing card widens, up to
+    // 380 px, to keep the row on one line)
+    const card = ui.card;
+    if (!card.style.width && !card.classList.contains('sheet') && !card.classList.contains('docked') && ui.foot.clientWidth > 0) {
+      const kids = [...ui.foot.children].filter((c) => !c.hidden && c.offsetWidth > 0);
+      if (kids.length > 1 && kids[kids.length - 1].offsetTop > kids[0].offsetTop + 2) {
+        const need = kids.reduce((s, c) => s + c.offsetWidth, 0) + 8 * (kids.length - 1) - ui.foot.clientWidth;
+        const w = Math.ceil(card.offsetWidth + need + 1);
+        if (w <= Math.min(380, vpSize().w - 24)) card.style.width = w + 'px';
+      }
+    }
+    if (ui.foot.clientWidth > 0 && n.scrollWidth > ui.foot.clientWidth + 0.5) { n.textContent = n.dataset.short; n.setAttribute('aria-label', full); }
+  }
+  // Measure, place and draw: on a step change (the shade morphs from where it was to the new area, measured afresh in
+  // each frame), and whenever something moves (scroll, resize, observers, the motion loop). Returns whether anything
+  // changed. The callout goes beside the lit area, inside the viewport and its safe area, clear of every open layer;
+  // with no room clear of the layers it docks along an edge.
   function layout(stepChange) {
     const r = run;
-    if (!r || !r.step) return;
+    if (!r || !r.step) return false;
     const ui = r.ui, step = r.step;
     // the anchor went away while the step shows (a panel closed, the layout changed): another match, or a centred card
-    if (r.el && !visible(r.el)) r.el = anchorEl(step.anchor) || r.el;
-    const { holes, mark } = holesFor(step, r.el && visible(r.el) ? r.el : null);
+    if (r.el && !visible(r.el)) { const t = anchorOf(step.anchor); if (t) { r.tgt = t; r.el = t.el; } }
+    const { holes, mark, insets } = holesFor(step, r.el && visible(r.el) ? r.tgt : null);
+    const marks = [mark, ...(insets || [])].filter(Boolean);
+    const layers = appLayers();
+    watch(ui, layerEls());
+    const safe = safeArea(ui), vp = vpSize(), nar = narrow();
     const card = ui.card;
-    card.classList.toggle('sheet', narrow());
-    const cw = card.offsetWidth, chh = card.offsetHeight;
+    const block = layers.map((k) => ({ l: k.l, t: k.t, r: k.r, b: k.b }));
+    // the whole callout's size: measured afresh unless it is docked and nothing that sets it has changed since (no
+    // undocking and redocking in every frame while a layer stays open)
+    const key = [r.seq, vp.w, vp.h, nar, ui.title.textContent.length, ui.body.childNodes.length].join(',');
+    let size;
+    if (card.classList.contains('docked') && ui.full && ui.full.key === key) size = ui.full.size;
+    else {
+      card.classList.toggle('sheet', nar);
+      card.classList.remove('docked', 'tight');
+      card.style.width = ''; card.style.minWidth = '';
+      fitNext(ui);
+      // (v15 review regress-4: a callout meant to sit below a tall area, the planes, with too little room under it at
+      // 320 px tries a wider, shorter card, up to 600 px, before place() falls back to covering the area)
+      const h0 = holes[0];
+      if (step.place === 'bottom' && h0 && !nar) {
+        // (the room between the area itself, without its lit margin, and the viewport's margin: place() then puts the
+        // card there, beside the area or at the viewport's edge over the lit margin only)
+        const room = vp.h - M - (h0.b - (step.pad != null ? step.pad : 0));
+        // (review-polish-verify V-1: up to the width of all the lit areas together, X and Y side by side; when no width
+        // fits the room, the narrowest that is short of it by at most a quarter of its height, which place() 2b puts
+        // at the viewport's edge over the areas' bottom rim (their options strips), not inside the anchor over what the
+        // step is about: Preimages in Russian, over Y's disc)
+        const span = holes.reduce((u, q) => ({ l: Math.min(u.l, q.l), r: Math.max(u.r, q.r) }), { l: h0.l, r: h0.r });
+        if (card.offsetHeight > room && room >= 96) {
+          let edge = null;
+          for (const w of [440, 520, 600, 680]) {
+            if (w > Math.min(vp.w - 2 * M, Math.max(320, span.r - span.l))) break;
+            card.style.width = w + 'px';
+            fitNext(ui);
+            if (card.offsetHeight <= room) break;
+            if (edge == null && card.offsetHeight * 0.75 <= room) edge = w;
+          }
+          if (card.offsetHeight > room) { card.style.width = edge != null ? edge + 'px' : ''; fitNext(ui); }
+        }
+      }
+      size = { w: card.offsetWidth, h: card.offsetHeight };
+      ui.full = { key, size };
+    }
     // beside the anchor's area, clear of every lit area; the pointer aims at the anchor itself when it sits in a lit panel
-    const p = place(holes[0] || null, { w: cw, h: chh }, { w: innerWidth, h: innerHeight }, {
+    let p = place(holes[0] || null, size, vp, {
       prefer: step.place, others: holes.slice(1), point: mark ? { x: (mark.l + mark.r) / 2, y: (mark.t + mark.b) / 2 } : null,
-      avoid: () => controlsIn(r.el),
+      avoid: () => controlsIn(r.el), safe, block,
     });
+    if (p.mode === 'dock') {
+      card.classList.remove('sheet');
+      card.classList.add('docked');
+      // The docked strip: whole (the title and the ×), else narrower into the strip beside the layers (the title
+      // wraps), else the × alone; the first that covers no layer, else the whole one, kept off the layers' controls
+      const dockAs = (t) => { card.classList.toggle('tight', t === 'tight'); card.style.width = typeof t === 'number' ? t + 'px' : ''; card.style.minWidth = typeof t === 'number' ? '0px' : ''; return { w: card.offsetWidth, h: card.offsetHeight }; };
+      const at = (sz) => placeDock(sz, vp, { safe, block, lit: holes, avoid: () => layerControls() });
+      const s0 = dockAs(null), p0 = at(s0);
+      size = s0; p = p0;
+      if (p0.over > 0) {
+        const gw = dockGutter(vp, { safe, block, min: (coarse() ? 44 : 36) + 100 });
+        let ok = false;
+        if (gw && gw < s0.w) { const s1 = dockAs(gw), p1 = at(s1); if (p1.over <= 0) { size = s1; p = p1; ok = true; } }
+        if (!ok) { const s2 = dockAs('tight'), p2 = at(s2); if (p2.over <= 0) { size = s2; p = p2; ok = true; } }
+        if (!ok) dockAs(null);
+      }
+    } else if (card.classList.contains('docked')) {
+      card.classList.remove('docked', 'tight');
+      card.style.width = ''; card.style.minWidth = '';
+      card.classList.toggle('sheet', nar);
+    }
+    // the focus goes back to the callout when the layers it left for close (⌘K from Next, then Esc)
+    refocus(ui, layers.length);
     card.dataset.side = p.mode === 'side' && p.caret != null ? p.side : '';
-    card.dataset.edge = p.mode === 'sheet' ? p.side : '';
-    if (p.mode !== 'sheet') { card.style.left = p.x + 'px'; card.style.top = p.y + 'px'; }
-    else { card.style.left = ''; card.style.top = p.side === 'top' ? 'calc(12px + env(safe-area-inset-top, 0px))' : p.side === 'middle' ? p.y + 'px' : ''; }
+    card.dataset.edge = p.mode === 'sheet' || p.mode === 'dock' ? p.side : '';
+    card.style.top = p.y + 'px';
+    card.style.left = nar && p.mode !== 'dock' ? '' : p.x + 'px';
     if (p.caret != null) card.style.setProperty('--caret', p.caret + 'px');
-    const sig = JSON.stringify(holes.concat(mark ? [mark] : []).map((h) => [h.l, h.t, h.r, h.b].map(Math.round))) + p.x + ',' + p.y + p.mode + p.side;
-    if (!stepChange && sig === r.tracked) return;
+    // a toast (an Undo after a delete) moves clear of the callout, and the rings keep off it like off a layer
+    const sheetL = 12 + (safe.l || 0);
+    const cr = nar && p.mode !== 'dock' ? { l: sheetL, t: p.y, r: vp.w - 12 - (safe.r || 0), b: p.y + size.h } : { l: p.x, t: p.y, r: p.x + size.w, b: p.y + size.h };
+    const toasts = guardToast(ui, cr, vp, safe);
+    const masked = toasts.length ? layers.concat(toasts) : layers;
+    const q = (h) => [h.l, h.t, h.r, h.b].map((v) => Math.round(v * 4) / 4);
+    const sig = JSON.stringify([holes.map(q), marks.map(q), block.map(q), toasts.map(q), holes.map((h) => h.rad)]) + [p.x, p.y, p.mode, p.side, size.w, size.h, vp.w, vp.h].join(',');
+    const changed = sig !== r.tracked;
     r.tracked = sig;
     if (stepChange) {
-      animateHoles(ui, holes, mark, ms(getComputedStyle(document.documentElement).getPropertyValue('--t-slow'), 240));
+      const dur = reduced() ? 0 : ms(getComputedStyle(document.documentElement).getPropertyValue('--t-slow'), 240);
+      // (no morph when the lit area stays where it is: the inner ring shows at once)
+      const same = ui.holes && ui.holes.length === holes.length && ui.holes.every((h, i) => Math.max(Math.abs(h.l - holes[i].l), Math.abs(h.t - holes[i].t), Math.abs(h.r - holes[i].r), Math.abs(h.b - holes[i].b)) < 1);
+      ui.anim = dur && !same && ui.holes && ui.holes.length && holes.length ? { from: ui.holes.slice(), t0: performance.now(), dur } : null;
       card.classList.add('entering');
       requestAnimationFrame(() => card.classList.remove('entering'));
-    } else { cancelAnimationFrame(ui.raf); drawHoles(ui, holes, mark); }
+    }
+    let ended = false;
+    if (ui.anim && !holes.length) ui.anim = null;
+    if (ui.anim) {
+      const u = ease(Math.min(1, (performance.now() - ui.anim.t0) / ui.anim.dur));
+      // (the inner ring appears once the shade has settled)
+      if (u < 1) { drawHoles(ui, between(ui.anim.from, holes, u), null, masked); kick(2); return true; }
+      ui.anim = null; ended = true;
+    }
+    if (changed || ended || stepChange) { drawHoles(ui, holes, marks, masked); guardTip(r); }
+    return changed;
+  }
+  // The focus and the app's layers: when the first layer opens with the focus in the callout (or a key from it just
+  // opened it: ⌘K), that control is remembered; when the last one closes and the focus is left outside the callout
+  // and not in a field, it goes back there (a click elsewhere in between forgets it)
+  function refocus(ui, n) {
+    const was = ui.nLayers || 0, a = document.activeElement;
+    ui.nLayers = n;
+    if (!was && n) ui.refocus = ui.card.contains(a) ? a : ui.keyEl && performance.now() - (ui.keyAt || 0) < 1500 ? ui.keyEl : null;
+    else if (was && !n) {
+      const f = ui.refocus;
+      ui.refocus = null;
+      if (!f || !f.isConnected || !visible(f) || ui.card.contains(a)) return;
+      if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+      try { f.focus({ preventScroll: true }); } catch (e) { /* */ }
+    }
+  }
+  // The app's toasts sit under the callout: one that would be covered moves, up or down, just clear of it (the less
+  // far of the two that stays on screen), and back once the callout is out of its way. Returns the toasts' boxes.
+  const TOAST_SEL = '#toastHost';
+  function guardToast(ui, c, vp, safe) {
+    const host = document.querySelector(TOAST_SEL);
+    if (!host) return [];
+    const kids = [...host.children].filter(visible);
+    const dy0 = ui.toastDy || 0;
+    if (!kids.length) { if (dy0) { host.style.transform = ''; ui.toastDy = 0; } return []; }
+    const boxes = kids.map((k) => { const b = k.getBoundingClientRect(); return { l: b.left, t: b.top - dy0, r: b.right, b: b.bottom - dy0, rad: radii(k) }; });
+    const U = boxes.reduce((u, h) => ({ l: Math.min(u.l, h.l), t: Math.min(u.t, h.t), r: Math.max(u.r, h.r), b: Math.max(u.b, h.b) }));
+    const m = 8, lo = (safe.t || 0) + m, hi = vp.h - (safe.b || 0) - m;
+    let dy = 0;
+    if (U.l < c.r + m && U.r > c.l - m && U.t < c.b + m && U.b > c.t - m) {
+      const fits = [c.t - m - U.b, c.b + m - U.t].filter((d) => U.t + d >= lo && U.b + d <= hi).sort((a, b) => Math.abs(a) - Math.abs(b));
+      dy = fits.length ? Math.round(fits[0]) : 0;
+    }
+    if (dy !== dy0) { host.style.transform = dy ? `translateY(${dy}px)` : ''; ui.toastDy = dy; }
+    return boxes.map((b) => ({ l: b.l, t: b.t + dy, r: b.r, b: b.b + dy, rad: b.rad }));
+  }
+  // the motion loop: layout every frame for n frames, longer while things keep changing or the shade morphs
+  function kick(n) {
+    const r = run;
+    if (!r) return;
+    const ui = r.ui;
+    ui.motion = Math.max(ui.motion || 0, n || 2);
+    if (!ui.raf) ui.raf = requestAnimationFrame(tick);
+  }
+  function tick() {
+    const r = run;
+    if (!r) return;
+    const ui = r.ui;
+    ui.raf = 0;
+    if (layout(false)) ui.motion = Math.max(ui.motion, 12); else ui.motion--;
+    if (!ui.raf && (ui.anim || ui.motion > 0)) ui.raf = requestAnimationFrame(tick);
   }
   // a CSS time token in ms ('240ms', '0.24s'); the fallback when it is missing
   function ms(v, dflt) {
     const m = /^\s*([\d.]+)\s*(ms|s)?\s*$/.exec(String(v || ''));
     return m ? parseFloat(m[1]) * (m[2] === 's' ? 1000 : 1) : dflt;
   }
-  let trackQ = false;
-  function track() {
-    if (!run || trackQ) return;
-    trackQ = true;
-    requestAnimationFrame(() => { trackQ = false; layout(false); });
-  }
+  function track() { kick(2); }
 
   function armTry(r, step) {
     const t = tryOf(step);
@@ -1251,6 +1899,7 @@ const Tour = (() => {
     const r = run;
     if (!r) return;
     run = null;
+    lastWhy = r.why;
     r.seq++;   // a show() of this run still waiting gives up
     for (const off of r.tryOffs.splice(0)) off();
     for (const off of r.offs.splice(0)) off();
@@ -1263,9 +1912,9 @@ const Tour = (() => {
     save();
     const ui = r.ui;
     ui.card.classList.add('closing');
-    ui.svg.style.transition = reduced() ? '' : 'opacity 120ms linear';
-    ui.svg.style.opacity = '0';
-    setTimeout(() => ui.root.remove(), reduced() ? 0 : 140);
+    for (const g of [ui.svg, ui.rsvg]) { g.style.transition = reduced() ? '' : 'opacity 120ms linear'; g.style.opacity = '0'; }
+    ui.raf = 0;
+    setTimeout(() => { ui.root.remove(); ui.top.remove(); }, reduced() ? 0 : 140);
     if (opt.keepWork) return;
     // the user's work comes back exactly as it was; the message says so only when it did
     const back = giveBack(r.lend, false);
@@ -1519,6 +2168,7 @@ const Tour = (() => {
     try { ok = api.restore(snap, { fromStash: true }) !== false; } catch (e) { warn('restore', e); ok = false; }
     if (ok) dropStash();
   }
+  function skippedList() { const w = run ? run.why : lastWhy; return w ? [...w].map(([id, why]) => ({ id, why })) : []; }
   // forget the record (a "Show the tour suggestion again" command); a backup of the user's work is never dropped here
   function reset() { rec = normRec(null); save(); }
 
@@ -1534,10 +2184,13 @@ const Tour = (() => {
       if (!(run && run.ui && run.ui.holes)) return null;
       const a = run.el && run.el.isConnected ? run.el.getBoundingClientRect() : null;
       return { holes: run.ui.holes.map((h) => ({ l: h.l, t: h.t, r: h.r, b: h.b })), side: run.ui.card.dataset.side || null, edge: run.ui.card.dataset.edge || null,
-        anchor: a ? { l: a.left, t: a.top, r: a.right, b: a.bottom } : null, scenes: run.scenes, scene: run.scene == null ? null : run.scene };
+        anchor: a ? { l: a.left, t: a.top, r: a.right, b: a.bottom } : null, scenes: run.scenes, scene: run.scene == null ? null : run.scene,
+        docked: run.ui.card.classList.contains('docked'), layers: appLayers().length, moving: !!run.ui.anim || run.ui.card.getAttribute('aria-busy') === 'true', skipped: skippedList() };
     },
+    // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
+    skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, place, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, probeInOut, SUGGEST_MAX, KEY, STASH, LIVE },
+    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, place, placeDock, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, probeInOut, SUGGEST_MAX, KEY, STASH, LIVE, dockGutter, clippedAway },
   };
   return Tour;
 })();

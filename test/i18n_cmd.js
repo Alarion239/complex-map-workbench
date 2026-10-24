@@ -124,14 +124,13 @@ for (const w of [1024, 1440]) {
   await sleep(4500); await settle(1500);
   const after2 = JSON.parse(await ev(snapOf));
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.cards === before2.cards && after2.morph === before2.morph);
-  // the phone: More → Language → Русский
+  // the phone (v15 phone layout: More is a sheet, Language a three-way switch in it): More → Русский
   await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await settle(3500);
   const b3 = JSON.parse(await ev(snapOf));
-  await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(400);
-  await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
-  const pm = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('.mi').length, l: r.left, r: r.right, t: r.top }; })()`);
-  check('phone: the Language menu from More, inside the window', pm && pm.n === 3 && pm.l >= 0 && pm.r <= 390 && pm.t >= 0, pm);
-  await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((m) => m.textContent.includes('Русский')); b && b.click(); })()`);
+  await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
+  const pm = await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); if (!b) return null; const m = b.parentElement, r = m.getBoundingClientRect(); return { n: m.querySelectorAll('button').length, l: r.left, r: r.right, t: r.top }; })()`);
+  check('phone: the Language switch in the More sheet, inside the window', pm && pm.n === 3 && pm.l >= 0 && pm.r <= 390 && pm.t >= 0, pm);
+  await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); b && b.click(); })()`);
   await sleep(4500); await settle(1500);
   const a3 = JSON.parse(await ev(snapOf));
   check('phone switch: Russian, same work', (await ev('I18N.lang')) === 'ru' && JSON.stringify(a3.st) === JSON.stringify(b3.st) && a3.cards === b3.cards, { cards: [b3.cards, a3.cards] });

@@ -223,6 +223,18 @@ Details: `DEFORMATION.md`. In short:
 - One hook, `soundFunctionChanged()`, re-evaluates once a frame at most whenever the function under a still probe
   changes (a dragged zero, an edited parameter; v15's Params). Free with sound or Hear F off.
 - A swap without a path (the transport opening or closing, a loop repeat) glides to the nearest turn, with no cue.
+- After the review (`review-deformation.json`, `ledger-deformation.json`): Esc clears the rest; a still pointer whose
+  plane changes (the panes merge or split, `setMain`, a fit) is re-picked (`sndRelayout`, `sndRepick`; hooks in
+  `openTransport`, `closeTransport`, `setMain`); a click keeps the rest; zero and pole speech only for a played ping;
+  the transport's run has no time limit; the keyboard probe stays a 280 ms sample during a play; the merged plane draws
+  the path t → H_t(p) and its head (`sndOverlay`, hook in `renderOverlays`); `soundFunctionChanged({ at })` tracks a
+  change along a path; the Height swap glide runs its 150 ms.
+- After the verification (`review-deformation-verify.json`): the re-pick waits for a frame drawn at the new layout
+  (`sndFrame`, one line at the end of `frame()`; `sndRelayout` also from `onPaneResize`), and a plane's view key holds
+  its pane's size, so the probe is the point under the pointer to the pixel after the transport bar resizes the plane;
+  on the relief and X's globe the needle stays when only the camera refits (no fresh start: the swap glide runs to its
+  end; `HeightVoice.reset()` keeps a running glide's end); Esc also forgets the pointer's position, so no layout change
+  brings the tone back before the pointer moves.
 - Changes: `src/sound.js` (`Sound.pathStep`, `Sound.turns`, `HeightVoice.set(…, glide)`; the bell rule now counts a
   turn that ends on the integer up to rounding), the sound block of `src/app.js` (`sndHover`, `sndRetrack`,
   `soundFunctionChanged`, `sndFAt`, `sndVKey`), five one-line hooks (`frame()`, `chainChanged()`, `openTransport()`,

@@ -1,0 +1,203 @@
+{
+ "_about": "v15 guided tour and reference guide for the new layout (the Inspector, the F tile, the planes' menu, shared numbers, the phone sheets; notes/tour/INTEGRATION.md). id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md. Read by tools/make_ru_table.py (v15-*.json).",
+ "v15t.preimages_touch": {
+  "en": "Hold a point $w$ in Y, then slide: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.",
+  "ru": "Удерживайте точку $w$ в Y, затем ведите палец: X отмечает все $z$ в видимой части, для которых $F(z)=w$. Внутри круга такая точка в полосе ровно одна, так как $F$ взаимно однозначно отображает полосу на круг. Вне круга их две, и они отличаются на $2\\pi i$.",
+  "note": "tour.js, Preimages on touch (v15: a still hold opens the planes' menu; a hold, then a slide, probes)."
+ },
+ "v15t.try_hold_slide": {
+  "en": "Hold inside the disc, then slide out of it.",
+  "ru": "Удерживайте палец внутри круга, затем выведите его за круг.",
+  "note": "tour.js, Preimages, Try it on touch."
+ },
+ "v15t.chain_touch": {
+  "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; the lens there shows that step alone, with X and Y as its input and output.",
+  "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Коснитесь карточки, и снизу откроется панель с её редактором; лупа в нём показывает только этот шаг, и X и Y становятся его входом и выходом.",
+  "note": "tour.js, the chain step on a phone: \"the sheet\" is the bottom panel (v15-phone: «панель»; «лист» is the Riemann sheet)."
+ },
+ "v15t.try_tap_lens": {
+  "en": "Tap the card $f_1$, then the lens in the sheet.",
+  "ru": "Коснитесь карточки $f_1$, затем лупы на панели.",
+  "note": "tour.js, the chain step's Try it on a phone."
+ },
+ "v15t.ch_edit": {
+  "en": "Editing the chain",
+  "ru": "Правка цепочки",
+  "note": "tour.js, the v15 chapter title (help menu row)."
+ },
+ "v15t.cards_title": {
+  "en": "Cards follow the view",
+  "ru": "Карточки и вид",
+  "note": "tour.js, step title: the cards' pictures follow the open view."
+ },
+ "v15t.cards": {
+  "en": "Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.",
+  "ru": "Каждая карточка показывает $F_k$, отображение до её шага включительно, в открытом виде: здесь это фазовый портрет. Поэтому последняя карточка совпадает с главной картинкой, а ряд карточек показывает, как строится $F$.",
+  "note": "tour.js, the cards step."
+ },
+ "v15t.try_land": {
+  "en": "Press {3}, or choose Landscape.",
+  "ru": "Нажмите {3} или выберите «Рельеф».",
+  "note": "tour.js, the cards step's Try it ({3} is a key)."
+ },
+ "v15t.try_land_touch": {
+  "en": "Choose Landscape.",
+  "ru": "Выберите «Рельеф».",
+  "note": "tour.js, the cards step's Try it on touch."
+ },
+ "v15t.insp_title": {
+  "en": "The Inspector",
+  "ru": "Инспектор",
+  "note": "tour.js, step title."
+ },
+ "v15t.insp": {
+  "en": "The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step's own coefficients carry its index, as $a_2$ here.",
+  "ru": "Инспектор редактирует выбранный шаг: формула целиком, просторное поле для каждого коэффициента и меню ⋯ с обратной функцией, отключением, перемещением и удалением. Собственные коэффициенты шага помечены его номером, как здесь $a_2$.",
+  "note": "tour.js, the Inspector step."
+ },
+ "v15t.insp_touch": {
+  "en": "A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step's own coefficients carry its index, as $a_2$ here.",
+  "ru": "Карточка, которой вы коснулись, открывает свой редактор на панели снизу, а X и Y встают рядом над ней, так что образ меняется прямо во время ввода. Собственные коэффициенты шага помечены его номером, как здесь $a_2$.",
+  "note": "tour.js, the Inspector step on a phone (the sheet = the bottom panel)."
+ },
+ "v15t.zp": {
+  "en": "This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.",
+  "ru": "Этот шаг задан своими нулями и полюсами. Перетащите любой из них в X или добавьте новый кнопкой «Нуль» или «Полюс» — отображение и его образ изменятся следом. Кнопка с осями рядом с коэффициентом позволяет выбрать значение на маленькой комплексной плоскости.",
+  "note": "tour.js, Zeros and poles (v15: the Inspector's buttons, «Нуль» / «Полюс» in v15-desktop)."
+ },
+ "v15t.zp_touch": {
+  "en": "This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.",
+  "ru": "Этот шаг задан своими нулями и полюсами. Перетащите любой из них в X или коснитесь кнопки «Нуль» или «Полюс», чтобы добавить новый, — отображение и его образ изменятся следом.",
+  "note": "tour.js, Zeros and poles on touch."
+ },
+ "v15t.zphere_title": {
+  "en": "Add a zero here",
+  "ru": "Нуль в этой точке",
+  "note": "tour.js, step title (the planes' menu)."
+ },
+ "v15t.zphere": {
+  "en": "Right-click a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.",
+  "ru": "Щёлкните правой кнопкой мыши по точке X и выберите «Добавить нуль функции $f_1$ здесь»: эта точка станет нулём $F$. Если перед шагом стоят другие шаги, нуль ставится туда, куда они переводят точку, поэтому он точный.",
+  "note": "tour.js, Add a zero here (the menu item is v15-planemenu's «Добавить нуль %{f} здесь»)."
+ },
+ "v15t.zphere_touch": {
+  "en": "Hold a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.",
+  "ru": "Удерживайте точку X и выберите «Добавить нуль функции $f_1$ здесь»: эта точка станет нулём $F$. Если перед шагом стоят другие шаги, нуль ставится туда, куда они переводят точку, поэтому он точный.",
+  "note": "tour.js, Add a zero here on touch (hold = long press)."
+ },
+ "v15t.try_zphere": {
+  "en": "Right-click X, then Add zero of $f_1$ here.",
+  "ru": "Правый щелчок по X, затем «Добавить нуль $f_1$ здесь».",
+  "note": "tour.js, Try it (at most 60 characters as read)."
+ },
+ "v15t.try_zphere_touch": {
+  "en": "Hold X, then Add zero of $f_1$ here.",
+  "ru": "Удерживайте X, затем «Добавить нуль $f_1$ здесь».",
+  "note": "tour.js, Try it on touch."
+ },
+ "v15t.numbers_title": {
+  "en": "Shared numbers",
+  "ru": "Общие числа",
+  "note": "tour.js (step title) and the guide's heading; v15-params: «число»."
+ },
+ "v15t.numbers": {
+  "en": "Type a new letter such as $a$ in any field, and a slider $a$ appears under Parameters. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.",
+  "ru": "Введите новую букву, например $a$, в любое поле, и в разделе «Параметры» появится ползунок $a$. Здесь $a$ задаёт оба нуля $\\pm a$ функции $F$ и окружность $|z|=a$: двигайте ползунок, и они сдвинутся вместе.",
+  "note": "tour.js, Shared numbers."
+ },
+ "v15t.try_slider": {
+  "en": "Drag the slider of $a$.",
+  "ru": "Передвиньте ползунок $a$.",
+  "note": "tour.js, Try it."
+ },
+ "v15t.integral_touch": {
+  "en": "Hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
+  "ru": "Удерживайте палец на самой окружности и выберите $\\oint F\\,dz$: появятся интеграл, число оборотов, а также нули и полюсы внутри. Внутри окружности лежит полюс $i$ функции $1/(z^2+1)$, поэтому $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
+  "note": "tour.js, Integrals on touch (hold = long press; the planes' menu)."
+ },
+ "v15t.try_hold_circle": {
+  "en": "Hold the circle, then choose $\\oint$.",
+  "ru": "Удерживайте окружность, затем выберите $\\oint$.",
+  "note": "tour.js, Integrals, Try it on touch."
+ },
+ "v15t.domain": {
+  "en": "Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads \"the formula is defined at $z$\": here every $z$ except the poles $\\pm i$.",
+  "ru": "Выберите плитку F в конце цепочки, и инспектор покажет, где определены все шаги. Для введённой формулы он пишет «формула определена в точке $z$»: здесь это все $z$, кроме полюсов $\\pm i$.",
+  "note": "tour.js, Natural domain (v15: the F tile and the F Inspector)."
+ },
+ "v15t.domain_zp": {
+  "en": "Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.",
+  "ru": "Выберите плитку F в конце цепочки, и инспектор покажет, где определены все шаги: здесь это все $z$, кроме полюсов $\\pm i$, что записано как $z\\notin\\{i,-i\\}$.",
+  "note": "tour.js, Natural domain for the zeros-and-poles scene."
+ },
+ "v15t.try_search": {
+  "en": "Open ⋯, then Search functions and commands.",
+  "ru": "Откройте ⋯ и выберите «Поиск функций и команд».",
+  "note": "tour.js, Command palette on a phone (the ⋯ sheet's row, v15-phone)."
+ },
+ "v15t.help_narrow": {
+  "en": "Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.",
+  "ru": "Пункт «Обзор» в этом меню открывает обзор по главам, а «Руководство» — всё руководство.",
+  "note": "tour.js, Help is here on a phone: the ⋯ sheet's rows Guided tour («Обзор») and Reference guide («Руководство»)."
+ },
+ "v15t.where_more": {
+  "en": "⋯ › Guided tour",
+  "ru": "⋯ › Обзор",
+  "note": "tour.js, where the tour lives on a phone (the suggestion card, its toast)."
+ },
+ "v15t.g_intro": {
+  "en": "Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the domain (or the input of a step shown alone), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.",
+  "ru": "Постройте область в плоскости <i>z</i>, пропустите её через цепочку функций <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, … и следите за всеми промежуточными образами. Левая панель всегда показывает <i>X</i> — область определения (или вход шага, показанного отдельно), а правая — <i>Y</i>, плоскость образов: слева фигуры, справа их образы.",
+  "note": "app.js, the reference guide (openGuide), v15: the intro (\"focused\" is now \"shown alone\")."
+ },
+ "v15t.g_chain": {
+  "en": "Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients carry its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. Double-click a card, or press the lens in the Inspector, to show that step alone. Drag a card's header onto a connector to reorder.",
+  "ru": "Добавить шаг можно клавишей {x}, карточкой «Добавить функцию» или кнопкой вставки между карточками; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в палитре команд, и она станет шагом. Нажмите на карточку, чтобы выбрать шаг: его редактирует <b>инспектор</b> справа — формула целиком, поле для каждого коэффициента и меню ⋯, которое заменяет шаг обратной функцией, отключает, перемещает, дублирует или удаляет его. Собственные коэффициенты шага несут его номер (<i>a</i><sub>2</sub>); буква без номера — это общее число. Двойное нажатие на карточку или лупа в инспекторе показывает только этот шаг. Чтобы изменить порядок, перетащите карточку за заголовок на кнопку вставки.",
+  "note": "app.js, the reference guide (openGuide), v15: the function chain (select, the Inspector, Show alone)."
+ },
+ "v15t.g_cards": {
+  "en": "Each card's picture follows the open view: card <i>k</i> shows <i>F</i><sub><i>k</i></sub>, the map up to its step, as an image in <i>X</i> → <i>Y</i>, a phase portrait in Phase and a relief in Landscape, so the last card is the main picture. The <b>F</b> tile closes the chain: see Guarantees.",
+  "ru": "Картинка карточки следует открытому виду: карточка <i>k</i> показывает <i>F</i><sub><i>k</i></sub>, отображение до её шага включительно, — образ в виде <i>X</i> → <i>Y</i>, фазовый портрет в виде «Фаза» и рельеф в виде «Рельеф», поэтому последняя карточка совпадает с главной картинкой. Цепочку замыкает плитка <b>F</b>: см. «Гарантии».",
+  "note": "app.js, the reference guide (openGuide), v15: the cards' pictures."
+ },
+ "v15t.g_numbers": {
+  "en": "Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Parameters</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.",
+  "ru": "Введите новую букву, например <i>a</i>, в любое поле (коэффициент, нуль, радиус, формулу области вроде Re <i>z</i> = <i>a</i>), и число <i>a</i> появится в разделе <b>Параметры</b> инспектора, с ползунком и воспроизведением. Измените его один раз, и всё, что его использует, изменится следом. <b>Скопировать ссылку на этот рисунок</b> в меню «Экспорт» помещает весь рисунок в ссылку; <b>Сохранить сцену</b> и <b>Открыть сцену</b> работают с файлом.",
+  "note": "app.js, the reference guide (openGuide), v15: shared numbers, links and scene files (v15-params terms)."
+ },
+ "v15t.g_cuts": {
+  "en": "Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone); it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number, in the Inspector, picks the branch.",
+  "ru": "У логарифмов, корней и комплексных степеней разрез идёт по лучу из 0. Перетащите маркер линии разреза в исходной плоскости шага (для первого шага это <i>X</i>, для остальных покажите шаг отдельно); с Shift он привязывается к углам, кратным 15°. Заштрихованная сторона — та, к которой относится разрез. Номер листа в инспекторе выбирает ветвь.",
+  "note": "app.js, the reference guide (openGuide), v15: branch cuts."
+ },
+ "v15t.g_zp": {
+  "en": "<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in the Inspector, with Shift-click (a zero) or Shift-⌘-click (Shift-Ctrl, a pole), or from the plane's menu (below). Drag one off the plane, or select it and press Delete, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.",
+  "ru": "<i>Нули и полюсы</i> (в группе «Многочлены и свои формулы») — это отображение <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Его нули (точки) и полюсы (крестики) — маркеры в его исходной плоскости (для первого шага это X, для остальных покажите шаг отдельно): перетаскивайте их или добавляйте кнопками <b>Нуль</b> и <b>Полюс</b> в инспекторе, щелчком с Shift (нуль) или с Shift + ⌘ (Shift + Ctrl, полюс) либо из меню плоскости (ниже). Чтобы удалить нуль или полюс, перетащите его за пределы плоскости или выделите и нажмите Delete. Шаг с многочленом или рациональной функцией можно переписать в таком виде через его меню <b>⋯</b> — и обратно.",
+  "note": "app.js, the reference guide (openGuide), v15: zeros and poles (the Inspector's buttons are «Нуль» / «Полюс»)."
+ },
+ "v15t.g_menu_h": {
+  "en": "The planes' menu",
+  "ru": "Меню плоскости",
+  "note": "app.js, the reference guide (openGuide), v15: heading."
+ },
+ "v15t.g_menu": {
+  "en": "Right-click any plane (hold it on touch; Shift+F10 from the keyboard) for its menu. Its head gives the point and the map there. Below that come the items for what is under the pointer (a zero or pole, a shape, a cut handle), then <b>Add zero of <i>f</i><sub><i>k</i></sub> here</b> and <b>Add pole of <i>f</i><sub><i>k</i></sub> here</b> on <i>X</i>, Copy coordinates and Center view here. A zero added on <i>X</i> goes where the point lands after the earlier steps, so the point becomes a zero of <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> exactly, and of <i>F</i> when <i>f</i><sub><i>k</i></sub> is the last step; the menu says where else it appears and, when steps follow, what <i>F</i> is there. Points snap to the ruler while Snap is on; hold Alt to place them freely.",
+  "ru": "Щёлкните правой кнопкой мыши по любой плоскости (на сенсорном экране удерживайте палец; с клавиатуры — Shift+F10), чтобы открыть её меню. В заголовке меню — точка и значение отображения в ней. Ниже идут команды для того, что под указателем (нуль или полюс, фигура, маркер разреза), затем <b>Добавить нуль функции <i>f</i><sub><i>k</i></sub> здесь</b> и <b>Добавить полюс функции <i>f</i><sub><i>k</i></sub> здесь</b> на <i>X</i>, «Скопировать координаты» и «Центрировать здесь». Нуль, добавленный на <i>X</i>, ставится туда, куда точку переводят предыдущие шаги, поэтому точка становится нулём <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> точно, а нулём <i>F</i> — если <i>f</i><sub><i>k</i></sub> последний шаг; меню пишет, где ещё он появится, и, если дальше есть шаги, чему там равна <i>F</i>. Пока включена привязка, точки привязываются к делениям линейки; удерживайте Alt, чтобы ставить их свободно.",
+  "note": "app.js, the reference guide (openGuide), v15: the planes' context menu (v15-planemenu labels)."
+ },
+ "v15t.g_inverse": {
+  "en": "<b>Replace with the inverse</b>, in a step's ⋯ menu in the Inspector, replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the command says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the palette as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.",
+  "ru": "Пункт <b>Заменить обратной</b> в меню ⋯ шага в инспекторе заменяет шаг обратной функцией на той же ветви. У шага, который принимает некоторые значения более одного раза (например, у многочлена степени 2 и выше), нет однозначной обратной: команда объясняет почему и предлагает вместо неё прообразы. Пункт <b>Заменить производной</b> в меню ⋯ заменяет отдельный шаг его производной <i>f</i>′ (а шаг d/dz дифференцирует всю цепочку перед ним); обе команды есть и в палитре — <b>Обратная к <i>f</i><sub><i>k</i></sub></b> и <b>Производная <i>f</i><sub><i>k</i></sub></b>, — и обе можно отменить.",
+  "note": "app.js, the reference guide (openGuide), v15: inverses and derivatives (f⁻¹ left the card for the Inspector's ⋯ menu)."
+ },
+ "v15t.g_integrals": {
+  "en": "Right-click a curve or a region's boundary (hold it on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.",
+  "ru": "Щёлкните правой кнопкой мыши (на сенсорном экране удерживайте палец) по кривой или по границе области на левой плоскости, по её образу на правой плоскости или по её обводке на фазовом портрете и выберите <b>Вычислить интеграл</b>: во всплывающем окне появятся ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> и график интеграла с переменным верхним пределом, начиная с 0; граница области обходится так, что область остаётся слева. Для замкнутой кривой добавляются (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, число оборотов <i>F</i>∘<i>γ</i> вокруг 0 и найденные внутри нули и полюсы: по принципу аргумента число оборотов равно числу нулей минус число полюсов. Пока окно открыто, кривая подсвечена и на ней показано направление обхода. Стиль <b>Интеграл Коши</b> строит фазовый портрет интеграла Коши по выделенной замкнутой кривой: внутри он равен <i>F</i>, снаружи 0.",
+  "note": "app.js, the reference guide (openGuide), v15: integrals (\"a long press\" is now \"hold it\")."
+ },
+ "v15t.g_guar": {
+  "en": "The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Select the tile, and the Inspector shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.",
+  "ru": "Плитка <b>F</b> в конце цепочки называет то, чем <i>F</i> гарантированно является. Свойство названо, только если им обладает каждый шаг и композиция его сохраняет, поэтому оно всегда верно; если свойство не названо, оно не следует из цепочки, хотя может и выполняться. Выберите плитку, и инспектор покажет <i>F</i> в явном виде с кнопкой «Скопировать LaTeX», её естественную область определения и раздел «По шагам»: какой шаг даёт какое свойство.",
+  "note": "app.js, the reference guide (openGuide), v15: guarantees (the F tile replaces the lamps)."
+ }
+}

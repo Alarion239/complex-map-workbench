@@ -17,7 +17,7 @@ const scaleL = () => ev(`(() => { const a = __cmwW2S('L', 0, 0), b = __cmwW2S('L
 // 1. a fresh state: X → Y, the switch in the top bar, Plane · Sphere in both heads, the Deformation toggle in the top
 // bar (not in a pane head), no Phase toggle
 await view(1440, 900, false);
-await nav('http://localhost:8793/test.html?ns=mvviews' + Date.now());
+await nav((process.env.CMW_BASE || 'http://localhost:8793/') + 'test.html?ns=mvviews' + Date.now());
 await settle(2200);
 logs();
 let v = await vw();
@@ -165,7 +165,8 @@ ok('M turns it off: the panes split again', !Ld.deform && Ld.merged === null && 
   ok('own deformation view: Y unchanged, the deformation keeps its zoom', d1 > d0 * 1.2 && Math.abs(y1 - y0) < 5e-3 * y0 && Math.abs(d2 - d1) < 1e-3, { y0, d0, d1, y1, d2 });
 }
 // a focused step deforms that step only
-await ev(`(() => { const c = document.querySelector('.card[data-k="2"]'); if (c) c.click(); return 1; })()`); await settle(500);
+// (v15: a click selects the step; Show alone is a double-click)
+await ev(`(() => { const c = document.querySelector('.card[data-k="2"]'); if (c) c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(500);
 await key('m'); await settle(700);
 const fst = await ev("__cmwState()");
 ok("focused step: its own deformation", fst.focus === 2 && fst.morph.open && /t = [0-9.]+ \/ 1/.test(await ev(`document.getElementById('morphLabel').textContent`)), { focus: fst.focus, label: await ev(`document.getElementById('morphLabel').textContent`) });
@@ -202,21 +203,23 @@ ok('Landscape exports one panel', R.figLand.view === 'land' && R.figLand.images 
 // with the deformation on, the one panel is H_t and the caption says so (review: it named F under a picture of H_t)
 await key('m'); await settle(900); await ev('__cmwMorph({ T: 0.6 }); 1'); await settle(600);
 R.figLandDef = await figDialog();
-ok('Landscape + Deformation: caption of H_t', R.figLandDef.images === 1 && /^Landscape of \$H_t\$/.test(R.figLandDef.cap) && /\\log\|H_t\|/.test(R.figLandDef.cap) && /t=0\.60/.test(R.figLandDef.cap) && !/andscape of \$F/.test(R.figLandDef.cap), R.figLandDef.cap);
+// (round 3, notes/export-design/ROUND3.md: the deformation exports as a deformation in every view; one frame at t is a
+// choice of the Deformation row)
+ok('Landscape + Deformation: a filmstrip of H_t, caption of H_t', R.figLandDef.images === 4 && R.figLandDef.deform.join() === 'Filmstrip,One frame' && /^Landscapes of \$H_t\$/.test(R.figLandDef.cap) && /\\log\|H_t\|/.test(R.figLandDef.cap) && !/andscape of \$F/.test(R.figLandDef.cap), R.figLandDef);
 await key('2'); await settle(900);
 R.figPhaseDef = await figDialog();
-ok('Phase + Deformation: caption of H_t', R.figPhaseDef.images >= 1 && /^Phase portrait of \$H_t\$/.test(R.figPhaseDef.cap) && /\\arg H_t/.test(R.figPhaseDef.cap) && !/portrait of \$F/.test(R.figPhaseDef.cap), R.figPhaseDef.cap);
+ok('Phase + Deformation: a filmstrip of H_t (and the ring key), caption of H_t', R.figPhaseDef.images === 5 && /^Phase portraits of \$H_t\$/.test(R.figPhaseDef.cap) && /\\arg H_t/.test(R.figPhaseDef.cap) && !/portrait of \$F/.test(R.figPhaseDef.cap), R.figPhaseDef);
 // X → Y + Deformation on the globe: one panel of the globe of H_t, as on screen (review: the split figure, squashed)
 await key('1'); await settle(500); await key('4', 8); await settle(1200);
 R.figGlobeDef = await figDialog();
-ok('globe deformation exports one globe of H_t', R.figGlobeDef.view === 'xyR' && R.figGlobeDef.panels === 'R' && R.figGlobeDef.images === 1 && /^The deformation \$H_t\$ on the Riemann sphere/.test(R.figGlobeDef.cap), R.figGlobeDef);
+ok('globe deformation exports a filmstrip of globes of H_t (or the paths, or one frame)', R.figGlobeDef.view === 'xyR' && R.figGlobeDef.images === 4 && R.figGlobeDef.deform.join() === 'Filmstrip,Paths,One frame' && /^The deformation \$H_t\$ on the Riemann sphere/.test(R.figGlobeDef.cap), R.figGlobeDef);
 await key('3', 8); await settle(500); await key('m'); await settle(600);
 // a chain with a d/dz step (no deformation figure): the merged plane, one panel of H_t
 await ev(`__cmwExample(12); 1`); await settle(1200);
 await key('1'); await settle(500);
 await key('m'); await settle(900); await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(600);
 R.figDeriv = await figDialog();
-ok('d/dz chain deformation exports the merged panel of H_t', R.figDeriv.view === 'xyR' && R.figDeriv.images === 1 && /H_t/.test(R.figDeriv.cap), R.figDeriv);
+ok('d/dz chain deformation exports a filmstrip of the merged plane of H_t', R.figDeriv.view === 'xyR' && R.figDeriv.images === 4 && /H_t/.test(R.figDeriv.cap), R.figDeriv);
 await key('m'); await settle(500);
 await ev(`__cmwExample(1); 1`); await settle(1200);
 await key('1'); await settle(500);
@@ -276,7 +279,7 @@ for (const [o, w] of loads) {
 // 9a. every visible top-bar control fits at phone widths (review: the more menu fell off at 390 and below)
 for (const w of [360, 375, 390]) {
   await view(w, 800, false, true);
-  await nav('http://localhost:8793/test.html?ns=mvtop' + w);
+  await nav((process.env.CMW_BASE || 'http://localhost:8793/') + 'test.html?ns=mvtop' + w);
   await settle(1500);
   const bad = await ev(`(() => { const W = innerWidth, out = []; for (const e of document.querySelectorAll('#top > *')) { if (e.offsetParent === null) continue; const r = e.getBoundingClientRect(); if (r.width > 0 && (r.right > W + 0.5 || r.left < -0.5)) out.push([e.id || String(e.className.baseVal || e.className), Math.round(r.left), Math.round(r.right)]); } const m = document.getElementById('hdrMoreBtn').getBoundingClientRect(); if (!(m.width > 0) || m.right > W) out.push(['hdrMoreBtn hidden or cut', m.left, m.right]); return out; })()`);
   ok(`top bar fits at ${w}`, !bad.length, bad);
@@ -284,7 +287,7 @@ for (const w of [360, 375, 390]) {
 // 9. narrow and dark: the switch and the toggle stay in the bar, no horizontal scroll, one panel per merged view
 for (const [w, h, dark, mobile, tag] of [[390, 844, false, true, 'phone_light'], [390, 844, true, true, 'phone_dark'], [1024, 768, true, false, 'tablet_dark'], [1440, 900, true, false, 'desk_dark']]) {
   await view(w, h, dark, mobile);
-  await nav('http://localhost:8793/test.html?ns=mvnarrow' + tag);
+  await nav((process.env.CMW_BASE || 'http://localhost:8793/') + 'test.html?ns=mvnarrow' + tag);
   await settle(2000);
   await ev('__cmwExample(1); 1'); await settle(800);
   const geo = await ev(`({ sw: document.documentElement.scrollWidth, iw: innerWidth, vsw: (() => { const r = document.getElementById('viewSwitch').getBoundingClientRect(); return [r.left, r.right, r.height]; })(), mb: (() => { const r = document.getElementById('morphBtn').getBoundingClientRect(); return [r.left, r.right]; })() })`);

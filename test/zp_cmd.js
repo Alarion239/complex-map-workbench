@@ -60,7 +60,7 @@ const EXACT = `await (async () => {
   for (let j = 0; j < 4000; j++) { const t = 2 * Math.PI * j / 4000, w = F(C(CZ.re + R * Math.cos(t), CZ.im + R * Math.sin(t))); if (Number.isFinite(w.re) && Number.isFinite(w.im)) rim.push([W / 2 + (w.re - v.cx) * v.s, H / 2 - (w.im - v.cy) * v.s]); }
   const nearRim = (px, py) => rim.some(([x, y]) => Math.abs(x - px) < 3.5 && Math.abs(y - py) < 3.5);
   let n = 0, bad = 0; const badAt = [];
-  for (let py = 8; py < H - 8; py += 6) for (let px = 8; px < W - 8; px += 6) {
+  for (let py = 16; py < H - 16; py += 6) for (let px = 16; px < W - 16; px += 6) {
     const t = inImage(w2(px, py));
     let robust = true;
     for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5], [-1.5, -1.5]]) if (inImage(w2(px + dx, py + dy)) !== t) { robust = false; break; }
@@ -76,6 +76,8 @@ const EXACT = `await (async () => {
 })()`;
 
 // ---------------------------------------------------------------------------------------------------------------
+// (v15 review regress-3: the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
+// edges, 16 px, where axis ink is neither fill nor plane)
 // 1. (z^2 - 1)/z of a disc: handles, the card, exact at rest
 await view(1440, 900, false);
 await load('zpacc' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
@@ -87,8 +89,9 @@ const h0 = await handle('zeros', 0), p0 = await handle('poles', 0);
 const e0 = await w2s(1, 0), e1 = await w2s(0, 0);
 ok('zero 1 drawn at 1', h0 && Math.hypot(h0.x - e0[0], h0.y - e0[1]) < 0.75, { h0, e0 });
 ok('pole 1 drawn at 0', p0 && Math.hypot(p0.x - e1[0], p0.y - e1[1]) < 0.75, { p0, e1 });
-const card = await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="1"]'); return { fields: [...c.querySelectorAll('input[data-zp]')].map((e) => [e.dataset.zp, e.value]), adds: [...c.querySelectorAll('.zp-add')].map((b) => b.textContent), syms: [...c.querySelectorAll('.zp-sym')].map((e) => e.textContent), tex: c.querySelector('.ftex').dataset.tex }; })()`);
-ok('card: a field per zero and pole, + zero / + pole', JSON.stringify(card.fields) === JSON.stringify([['zeros:0', '1'], ['zeros:1', '-1'], ['poles:0', '0']]) && card.adds.join('|') === 'zero2|pole1' && card.syms.join('') === 'ζ₁ζ₂p₁', card);
+// (v15: the step's editor is the Inspector's: #propsPanel .insp-step; Add zero / Add pole are its big buttons)
+const card = await ev(`(() => { const c = document.querySelector('#propsPanel .insp-step[data-k="1"]'); return { fields: [...c.querySelectorAll('input[data-zp]')].map((e) => [e.dataset.zp, e.value]), adds: [...c.querySelectorAll('.zp-add')].map((b) => b.textContent), syms: [...c.querySelectorAll('.zp-sym')].map((e) => e.textContent), tex: c.querySelector('.ftex').dataset.tex }; })()`);
+ok('Inspector: a field per zero and pole, Add zero / Add pole', JSON.stringify(card.fields) === JSON.stringify([['zeros:0', '1'], ['zeros:1', '-1'], ['poles:0', '0']]) && card.adds.join('|') === 'Add zero2|Add pole1' && card.syms.join('') === 'ζ₁ζ₂p₁', card);
 ok('card formula factored', /\\frac\{\\left\(z-1\\right\)\\left\(z\+1\\right\)\}\{z\}/.test(card.tex || ''), card.tex);
 let lamps = await ev('__qa.lamps()');
 ok('guarantees: rational of exact degree 2, not polynomial, not Möbius', /●rational\(deg 2\)/.test(lamps) && /○polynomial/.test(lamps) && /○mobius/.test(lamps), lamps);
@@ -113,8 +116,8 @@ ok('no recompile while dragging (one chain signature)', keys.length === 1 && key
 z = await zp();
 ok('the zero moved (rounded below a pixel)', /^1\.2\d\d?\+0\.6[0-9]*i, -1$/.test(z.params.zeros) || /^1\.\d+\+0\.\d+i, -1$/.test(z.params.zeros), z.params);
 ok('the dragged zero is selected', z.sel && z.sel.kind === 'zeros' && z.sel.i === 0, z.sel);
-const fieldNow = await ev(`document.querySelector('#pipeline .card[data-k="1"] input[data-zp="zeros:0"]').value`);
-ok('card field follows the drag', fieldNow === z.params.zeros.split(',')[0].trim(), fieldNow);
+const fieldNow = await ev(`document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"]').value`);
+ok('Inspector field follows the drag', fieldNow === z.params.zeros.split(',')[0].trim(), fieldNow);
 await settle(900);
 ex = await ev(EXACT, 60000);
 ok('exact at rest after the drag', ex.n > 2000 && ex.rate < 0.002, ex);
@@ -172,13 +175,13 @@ paths = await pathsR();
 ok('back to degree 2: exact again', paths.every((p) => p.path === 'inverse'), paths);
 
 // 4. the card's buttons: + pole, x on it
-await clickSel('#pipeline .card[data-k="1"] .zp-add.poles'); await settle(600);
+await clickSel('#propsPanel .insp-step[data-k="1"] .zp-add.poles'); await settle(600);
 z = await zp();
 ok('+ pole adds a pole in view', Funcs_split(z.params.poles).length === 2 && z.handles.some((q) => q.kind === 'poles' && q.i === 1 && q.x > pane.left && q.x < pane.left + pane.w), z);
-await clickSel('#pipeline .card[data-k="1"] input[data-zp="poles:1"] + .zp-del'); await settle(600);
+await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:1"] ~ .zp-del'); await settle(600);
 ok('x removes it', Funcs_split((await zp()).params.poles).length === 1, (await zp()).params);
 // typing a value
-await ev(`(() => { const e = document.querySelector('#pipeline .card[data-k="1"] input[data-zp="poles:0"]'); e.value = '0.5i'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(500);
+await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:0"]'); e.value = '0.5i'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(500);
 const pz = await handle('poles', 0), pe = await w2s(0, 0.5);
 ok('a typed pole moves its handle', pz && Math.hypot(pz.x - pe[0], pz.y - pe[1]) < 0.75, { pz, pe });
 
@@ -205,7 +208,8 @@ await grab();
 await load('zpacc2' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [0.5, 1] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '1+i, -1', poles: '' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, { pattern: 'checker' }));
 await settle(1200); await grab();
 ok('whole chain: no handles in X (step 2 acts on w1)', (await zp()).handles.length === 0, await zp());
-await clickSel('#pipeline .card[data-k="2"] .nm'); await settle(1200);
+// (v15: a click selects; Show alone is a double-click)
+await ev(`document.querySelector('#pipeline .card[data-k="2"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`); await settle(1200);
 z = await zp();
 ok('f2 focused: its zeros in its input plane', z.k === 2 && z.handles.length === 2, z);
 h = (await zp()).handles.find((q) => q.x > z.pane.left + 20 && q.x < z.pane.left + z.pane.w - 60 && q.y > z.pane.top + 20 && q.y < z.pane.top + z.pane.h - 40);
@@ -252,6 +256,7 @@ await shot('zp-dark'); shots.push('zp-dark');
 await view(1440, 900, false); await settle(300);
 await grab();
 ok('no exceptions', errs.length === 0, errs.slice(0, 5));
+// (no geometry hook to remove: review regress-3)
 return { pass: fails.length === 0, fails, info, shots };
 
 function Funcs_split(s) { return String(s || '').split(',').map((x) => x.trim()).filter((x) => x); }

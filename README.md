@@ -10,6 +10,11 @@ see what they do:
   e^−π < |w| < 1; log of the half-plane reaches the window edges at any zoom), with a sphere-mesh fallback for maps
   that cannot be inverted.
 - **Phase** and **Landscape**: full-width phase portraits and 3D landscapes of the chain.
+- **The function chain**: each step is a card with a picture that follows the open view; the **Inspector** edits the
+  selected step (with large Add zero / Add pole buttons for a zeros-and-poles step), and the **F** tile holds the
+  formula of F, its guarantees and its domain. Right-click a plane (or hold on a phone) for "Add zero here" and more.
+- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it. Copy link and scene files
+  hand the whole figure on.
 - **Deformation**: a toggle that morphs every view along natural homotopies from z to F(z) (analytic at every
   moment, on F's own branches), one step after another or all at once, with live paths t ↦ H_t(z) that can be
   switched off.
@@ -17,9 +22,10 @@ see what they do:
 - Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves, and
   guarantees (analytic, injective, …) that are only lit when they are proven.
 - **Figure export** (⌘E): article-grade PDF, SVG and PNG for every view, with presets for articles (one or two
-  columns) and homework, black-and-white versions, LaTeX snippets for Overleaf, and images for Docs.
-- **Sound** (off until turned on): interface cues, and "hear the function": a Shepard tone follows arg F under the
-  pointer, so loops around zeros and poles make the winding audible.
+  columns) and homework, black-and-white versions, LaTeX snippets for Overleaf, images for Docs, deformation
+  filmstrips for every view, and MP4/WebM videos of the deformation.
+- **Sound**: interface and event cues (on by default after the first click), and an optional "hear the function": a
+  Shepard tone follows arg F under the pointer, also while the deformation plays.
 - **Guided tour** from the Help button, suggested once on first opening.
 - **Russian**: the interface follows the browser's language (or the globe button), with Russian notation
   (tg, sh, ch, …) and Russian figure captions.

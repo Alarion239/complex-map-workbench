@@ -259,11 +259,22 @@ the new cue marks. Undo and redo stay silent.
   The same guards and queues apply. (Until then pointer cues were held while the deformation played, because the
   tracker could not follow t.) A swap with no path between the functions (the transport opening or closing, a loop
   repeat) is a glide to the nearest turn with no cue. Any other change of the function (a dragged zero, a parameter)
-  re-evaluates through one hook, `soundFunctionChanged()`, once a frame at most.
+  re-evaluates through one hook, `soundFunctionChanged()`, once a frame at most; given a path (`{ at }`), it is tracked
+  exactly too. When the plane under a still pointer changes (the panes merge, another view, a fit, a resize), the
+  probe is the point now under the pointer, read once the new layout is drawn (a fresh start, no cue); on the relief
+  and X's globe the needle stays while only the camera refits. Esc stops the tone until the pointer moves, layout
+  changes included. A click keeps the probe; a drag or pan ends it. Zero and pole speech follows the ping actually
+  played (review 2026-10-23, `ledger-deformation.json`).
 - **The continuous tone** fades after 1.6 s of stillness (of the probe and of the function under it) and is released
   after 6 s. In keyboard mode each step sounds a 280 ms sample, so the tone does not talk over the screen reader.
 
 ### 2.5 Sonification: hearing the function
+
+**The merged deformation plane (X → Y with the Deformation open; 2026-10-23).** The point p under the pointer is read as
+a point of X, where the paths t → H_t(z) start. The tone is H_t(p), the head of the path from p (the same tone as the
+Phase view at p). While it sounds, that path and the probe's cross at its head are drawn. A zero ping means H_t(p) = 0:
+the head crosses 0. Rejected: the w under the pointer (arg w does not change with t, so the tone would never move), and
+the preimage of w under H_t (several, colliding at critical values, too costly per frame). Details: `DEFORMATION.md`.
 
 **Phase (hover in X).**
 

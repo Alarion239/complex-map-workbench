@@ -1,0 +1,114 @@
+[
+  {
+    "id": "russian-1",
+    "severity": "high",
+    "title": "The F tile overflows in Russian: the lamp text is clipped and «Аналитическая» hyphenates into three lines",
+    "detail": "The F tile is 88 px (72 px under 1024) and shows each lit lamp with its full Russian class name. With a rational chain (z^3, then zeros and poles) it shows «Рациональная функция степень 6» and «Собственное отображение». The text runs past the tile's bottom edge: «отображение» is cut, and the F glyph is pushed against the top. English («Rational deg 6», «Proper») fits with 25 px to spare. Even with one lamp, «Аналитическая функция» takes 3 to 4 lines with two hyphens («Анали-тиче-ская функция») at 768, 1024 and 1280. The design says the tile shows F and the lit property in a word, like «Analytic».",
+    "evidence": "Measured by test/rur2_cdp/cmd/p6.js: text below the tile's bottom edge is ru +7 px (1440), +14 px (1024), +14 px (768). In en it is −25 px at all three. Shots: work/xva/test/rur2_cdp/shots/p6-ru-1024-ftile.png, work/xva/test/rur2_cdp/shots/p5-1440l-pm.png (bottom right), work/xva/test/rur2_cdp/shots/p12-768l-F.png, work/xva/test/rur2_cdp/shots/p1-1280d-ftile.png. Strings: lamp names in the guarantees table (GLOSSARY 1.10).",
+    "fix": "Give the tile its own short labels through a context such as $tx('ftile', …): «Аналитическая», «Целая», «Рациональная», «Многочлен», «Дробно-линейная», «Собственное», «Гомеоморфизм», «Конформное», with «степ. 6» or «степень 6» on its own line. Keep the full noun phrases in the Inspector and the aria-label. Also cap the tile at one lamp plus «+1» (the full list is one click away), and add the RU tile to the card-name acceptance test at 768, 1024, 1280 and 1440."
+  },
+  {
+    "id": "russian-2",
+    "severity": "high",
+    "title": "Card type names break inside a word with no hyphen («Гиперболиче / ский тангенс»)",
+    "detail": "Card names have `hyphens: manual` and `overflow-wrap: anywhere`, and the strings have no soft hyphens. So a Russian word wider than the 73–84 px name box is split at an arbitrary letter, with no hyphen. «Гиперболический тангенс» shows as «Гиперболиче» / «ский тангенс» at 1440 with four steps. Other long one-word names (Ареатангенс, Автоморфизм, Экспонента on narrow cards) are at the same risk. DESIGN.md 2.1 says the type name 'is never cut' and that this was measured in Russian. It was not measured with four or more steps, where the cards shrink to about 120 px. The F tile's lamp names already use `hyphens: auto` with lang=ru, which hyphenates correctly.",
+    "evidence": "work/xva/test/rur2_cdp/shots/p3-zoom-cards.png (3× zoom of the chain at 1440 with tan, tanh, log and a custom step). Computed style from test/rur2_cdp/cmd/p3.js: .nm hyphens=manual, overflowWrap=anywhere, width 79 px, lang=ru.",
+    "fix": "In Russian, set `hyphens: auto` and `overflow-wrap: normal` on `#pipeline .card .nm`, as the lamp names already do. Or add soft hyphens to the long Russian card names in the ru table (Гипер\\u00adболи\\u00adческий). Extend the card-name acceptance test to five steps at 1024 and 1440, failing on any line that ends inside a word without a hyphen."
+  },
+  {
+    "id": "russian-3",
+    "severity": "medium",
+    "title": "The card says «Мёбиус», against the glossary and against the Inspector, which says «Дробно-линейная»",
+    "detail": "GLOSSARY 1.2 says: Card label «Дробно-линейная»; no short «Мёбиус». The TFKP books say «дробно-линейное», and «Мёбиус» alone is not a Russian name for the map. The v15 table adds a card context with «Мёбиус». So one step has three names: the card says «Мёбиус», its aria-label and the Inspector title say «Дробно-линейная», and the F tile's unlit list says «дробно-линейная функция».",
+    "evidence": "notes/i18n/ru/v15-desktop.json v15d.card_mobius ('Möbius' → 'Мёбиус'). Probe p1: card text «f 2 Мёбиус», aria-label «f₂, Дробно-линейная». Shots: work/xva/test/rur2_cdp/shots/p1-1440l-card2.png and work/xva/test/rur2_cdp/shots/p12-1024d.png.",
+    "fix": "Set v15d.card_mobius ru to «Дробно-линейная». It breaks cleanly at its own hyphen («Дробно-/линейная») in two lines. Regenerate the table with tools/make_ru_table.py."
+  },
+  {
+    "id": "russian-4",
+    "severity": "medium",
+    "title": "The plane menu uses a shape's name in the nominative after a verb: «Выделить Прямая 1», «Скрыть Прямая 1», «Удалить Прямая 1»",
+    "detail": "planemenu.js fills 'Select {name}', 'Hide {name}' and 'Delete {name}' with the shape's display name, which is a nominative noun phrase. The ru templates «Выделить %{name}», «Скрыть %{name}» and «Удалить %{name}» then produce bad grammar for every feminine name: Прямая, Точка, Формула, Кривая, Дуга (the accusative would be прямую, точку…). The same pattern is in the integral item «…по кривой Прямая 1». This shows on every right-click on a shape.",
+    "evidence": "Probe test/rur2_cdp/cmd/p4.js, right-click on the line of the example «Полоса на круг»: «Выделить Прямая 1 || Скрыть Прямая 1 || Удалить Прямая 1 || ∮ Вычислить интеграл от F по кривой Прямая 1». Shot: work/xva/test/rur2_cdp/shots/p4-1440l-pm-line.png. Source: planemenu.js:254-256; notes/i18n/ru/v15-planemenu.json pm.select, pm.hide, pm.delete.",
+    "fix": "Do not inflect a name in a template. Use a colon form: «Выделить: %{name}», «Скрыть: %{name}», «Удалить: %{name}». Or name the thing generically: «Выделить фигуру «%{name}»». For the integral item, quote the name: «по кривой «%{name}»»."
+  },
+  {
+    "id": "russian-5",
+    "severity": "medium",
+    "title": "The «Показать только этот шаг  L» shortcut does nothing on a Russian (ЙЦУКЕН) layout",
+    "detail": "The card's key handler, chainKey (app.js:8169), checks `e.key === 'l' || e.key === 'L'`. On ЙЦУКЕН the physical L key gives e.key «д», so a Russian user pressing the advertised L on a focused card gets nothing. GLOSSARY 3.12 requires shortcuts to bind the physical key (e.code / I18N.keyOf), and the main key handler does this: «ъ» (BracketRight) toggles the Inspector correctly. The other card keys (arrows, Home, End, Enter, Delete) are layout-independent and fine.",
+    "evidence": "Probe test/rur2_cdp/cmd/p10.js on card 1, focused: key 'д' with code KeyL leaves focus 0. Latin 'l' with code KeyL switches to 1. «ъ» with code BracketRight shrinks the right panel from 288 to 36 px (works). Source: app.js:8169. Tooltips: v15d.whole_chain_l and v15d.alone_l.",
+    "fix": "In chainKey, use `const kk = (I18N.keyOf(e) || '').toLowerCase(); … else if (kk === 'l' && !mod) …` as the global handler does. Add a ЙЦУКЕН case to the desktop acceptance test."
+  },
+  {
+    "id": "russian-6",
+    "severity": "medium",
+    "title": "On the phone, switching the language closes the open sheet (numbers and selection are kept)",
+    "detail": "On a phone the Language switch is inside the More sheet. Choosing English (or Русский) reloads the page. After the reload the selected card and the shared numbers are restored, but no sheet is open: neither More, where the user was, nor the Editor that was open before. The user has to find their place again. The task's acceptance rule is that the switch keeps the numbers, the selection and the open sheet.",
+    "evidence": "Probe test/rur2_cdp/cmd/p13.js at 390 px: before, Phone._state().kind = 'more' (and 'edit' before that) and card 2 is selected. After a tap on «English»: lang=en, kind=null, card 2 still selected, a=0.7 kept. Shot: work/xva/test/rur2_cdp/shots/p13-after-switch.png.",
+    "fix": "In the I18N.onSwitch save hook, store Phone.sheet() (and the Editor's target step). On load, call Phone.open(kind) once after init. Reopening More, the sheet that holds the switch, is the expected result."
+  },
+  {
+    "id": "russian-7",
+    "severity": "medium",
+    "title": "A Russian layout gives two different answers: «а» in a formula becomes the number a, but «а» as a new number's name is refused",
+    "detail": "parse.js (LOOK, lines 125-127) silently reads Cyrillic look-alikes as Latin: typing «Re z = а» with a Cyrillic а on ЙЦУКЕН creates the shared number a, which is good. But the «+ Число» name field (params.js:51) rejects any Cyrillic letter with «Используйте латинские буквы», including а, с, е, о, р, х, у and к, which look the same as the Latin letters the hint suggests («например a или k»). The message also does not say which letter is wrong or that the cause is the keyboard layout. In the value field, «с» is folded to c and reported as «c₀ не задано», which hides that a Cyrillic letter was typed.",
+    "evidence": "Probes test/rur2_cdp/cmd/p10.js and p11.js: the formula «Re z = а» (U+0430) gives params ['a']. The name field «с» (U+0441) + Enter gives «Используйте латинские буквы», and no number is added. Shot: work/xva/test/rur2_cdp/shots/p11-cyrname.png. Source: params.js:51, parse.js:125-127.",
+    "fix": "In params.js name validation, use the same look-alike table as the parser, so «а» is read as a, as everywhere else. For other Cyrillic letters, name the letter and the cause: «Буква «д» — русская. Имя пишется латиницей: переключите раскладку.»"
+  },
+  {
+    "id": "russian-8",
+    "severity": "medium",
+    "title": "The zeros-and-poles hint tells phone users to right-click and hold Alt",
+    "detail": "The Inspector line under Нуль / Полюс is one string for every device: «Или щёлкните правой кнопкой по плоскости. Метки привязываются к линейке (Alt — свободно).» In the phone Editor sheet this names a mouse gesture and a key the device does not have. The phone gesture is a long press («удерживайте палец», GLOSSARY 3.12). The tour already has *_touch variants for exactly this. The English line has the same problem; it is listed here because the Russian copy must get its own touch wording.",
+    "evidence": "Shots: work/xva/test/rur2_cdp/shots/p7-390l-sheet-edit.png and work/xva/test/rur2_cdp/shots/p8-ru-360d-edit.png. String: notes/i18n/ru/v15-desktop.json v15d.zp_hint.",
+    "fix": "Add a touch variant, chosen the same way the tour chooses its *_touch keys: en 'Or hold a point of X. Marks snap to the ruler.', ru «Или удерживайте палец на плоскости X. Метки привязываются к линейке.» Drop the Alt clause on touch."
+  },
+  {
+    "id": "russian-9",
+    "severity": "low",
+    "title": "Lines break inside «+ Число» and inside the formula «Re z = a» in the Parameters hint",
+    "detail": "The empty Parameters hint quotes the button as «+ Число» with a normal space, so it wraps as «+» / «Число»» at 1280 and 1440. At 768 the inline formula breaks between «=» and «a» («Re z =» / «a»). Both read as typos.",
+    "evidence": "Shots: work/xva/test/rur2_cdp/shots/p1-1440l-card2.png (Parameters, right), work/xva/test/rur2_cdp/shots/p1-1280d-ftile.png and work/xva/test/rur2_cdp/shots/p12-768l-F.png. String: notes/i18n/ru/v15-params.json v15p.ui.empty.",
+    "fix": "In v15p.ui.empty, use U+00A0 between «+» and «Число». Give the inline <i>Re z = a</i> `white-space: nowrap` (in both languages)."
+  },
+  {
+    "id": "russian-10",
+    "severity": "low",
+    "title": "The Parameters slider ends and their aria-label use a hyphen for the minus sign («-2», «a от -2 до 2»)",
+    "detail": "Everywhere else the Russian interface prints the true minus (U+2212): the readouts, the plane menu head «z = −1,80 + 0,80i» and the formulas. The new Parameters row prints its range ends with ASCII '-', both on screen and in the slider's aria-label. A screen reader may read that as «дефис». I18N.num(-2) returns '-2', so any new code that relies on it inherits the hyphen.",
+    "evidence": "Probe test/rur2_cdp/cmd/p11.js: row HTML `<span class=\"prm-end\">-2</span>` and `aria-label=\"a от -2 до 2\"`. I18N.num(-2) → '-2', I18N.num(-0.5) → '-0,5'.",
+    "fix": "Format display numbers with U+2212 (in I18N.num for screen text, or in params.js fmt and slider_label). Input fields keep the ASCII hyphen and the point."
+  },
+  {
+    "id": "russian-11",
+    "severity": "low",
+    "title": "The F Inspector's domain line has a capital after a colon, and its Russian text inside the formula list is in a different font",
+    "detail": "It reads «Естественная область определения D: Все z, для которых:». In Russian the word after a colon is lower-case («все z»). The last bullet «формула определена в точке w₃» is Cyrillic set inside MathJax \\text{}. It renders in the math serif, while the surrounding prose is in the UI sans. This line now lives in the new F Inspector, where the Guarantees panel used to be.",
+    "evidence": "Shot: work/xva/test/rur2_cdp/shots/p2-1440l-F.png (right panel). The innerText shows the \\text{} letters as separate glyph runs.",
+    "fix": "Lower-case «все» in the ru string. Render text-only conditions as HTML next to the math, not inside \\text{}."
+  },
+  {
+    "id": "russian-12",
+    "severity": "low",
+    "title": "The plane titles and the phone title chip lose their Russian words to an ellipsis",
+    "detail": "At 1024 the Inspector takes the right column, and the X plane subtitle is cut to «область определени…». On the phone, the Y title chip in the side-by-side view is cut to «w = F(z) 2 /…» at 390 px and to «w = F(z) 2…» at 360 px, so the unit «дел.» never shows. English is also truncated on the phone («2 / div», 129 px of text in 107 px), so this is partly a layout issue, but Russian loses more. At 1024 the vertical left-rail label «Инструменты областей» is also clipped («…нты областей»).",
+    "evidence": "Probe test/rur2_cdp/cmd/p8.js: the ru Y chip has scrollWidth 135 against clientWidth 92 (360 px) and 127 (430 px); en has 129 against 107. Shots: work/xva/test/rur2_cdp/shots/p8-ru-360d-edit.png and work/xva/test/rur2_cdp/shots/p12-1024d.png (top-left subtitle, bottom of the left rail).",
+    "fix": "In the split view, drop «= F(z)» from the chip (the plane is labelled w), or show only the scale. Under about 1100 px, hide the plane subtitle or let it wrap. Shorten the rail label to «Инструменты»."
+  },
+  {
+    "id": "russian-13",
+    "severity": "low",
+    "title": "Small wording issues in the v15 Russian table",
+    "detail": "(a) pm.also_n: «также ещё в {n} точках» says 'also' twice; «ещё в {n} точках» is enough, and the one-form becomes «ещё в {n} точке». (b) The step is named inconsistently: «Добавить нуль f₂ здесь» and «Добавлен нуль f₂» in some places, «Нуль ζ₁ функции f₂ удалён» and «Удалить нуль 1 функции f₂» in others; GLOSSARY usage is «нуль функции f₂». (c) The card name «Обратная Жуковского» is elliptical; GLOSSARY 1.9 has «Обратная к функции Жуковского». (d) The tour and guide's «Собственные коэффициенты шага несут его номер» is a calque of 'carry its index'; «помечены номером шага» reads naturally. (e) v15d.tour_chain: «Двойное нажатие…» and «Дважды нажмите на карточку» are for a mouse; GLOSSARY 3.12 uses «щёлкните» for the mouse, so «Дважды щёлкните карточку».",
+    "evidence": "notes/i18n/ru/v15-planemenu.json (pm.also_n, pm.add_zero_of, pm.added_zero, pm.removed_zero); notes/i18n/ru/v15-desktop.json (v15d.added_zero, v15d.card_ijouk, v15d.tour_chain, v15d.tour_try_dbl); notes/i18n/ru/v15-tour.json (v15t.insp). The plane menu as seen: «Добавить нуль f₂ здесь / также в точках e^{2πik/3}z» (work/xva/test/rur2_cdp/shots/p5-1440l-pm.png).",
+    "fix": "(a) «ещё в {n} точке/точках». (b) «Добавить нуль функции %{f} здесь», «Добавлен нуль функции f{k}». (c) Keep the short card name if it must fit, but use «Обратная к функции Жуковского» in the Inspector title and aria. (d) «помечены номером шага (здесь $a_2$)». (e) «Дважды щёлкните карточку $f_1$» and «Двойной щелчок показывает…»."
+  },
+  {
+    "id": "russian-14",
+    "severity": "low",
+    "title": "The i18n walk is not updated for v15 and fails its own gate on «Shift+F10»",
+    "detail": "test/i18n_walk_cmd.js (dated 09:53, before v15) does not select steps into the Inspector, open the F tile, add numbers or open the range/rename/delete flows. It does not right-click X on a chain with a zeros-and-poles step or on a shape, and it does not open the phone sheets (it still looks for the v14 drawers toggleLeft/toggleRight). At 1440 light and 390 dark it reports n = 1 and no errors. The only hit is «Shift+F10» in the guide's plane-menu section: F10 is a key name, allowed by GLOSSARY 3.12, but it is missing from the scanner's allow list. My own probes ran the same scanner over the Inspector (each step type, F), the F tile, the plane menu (shape, empty X, Y, zp step), Parameters (empty, a number, name errors) and all five phone sheets at 360, 390, 430, 768, 1024, 1280 and 1440. They found 0 English strings.",
+    "evidence": "test/rur_cdp/walk1440.json and test/rur_cdp/walk390.json (n=1, words ['F10'], state 'palette deform'). Probes: test/rur2_cdp/cmd/p1, p2, p4, p5, p7, p12 (__i18nLeft() = [] in each).",
+    "fix": "Add 'F10' (and F1–F12) to ALLOW in test/i18n_scan.js. Extend the walk with the v15 surfaces: click each card and the F tile, add, rename, range and delete a number, right-click X on a zp chain and on a shape, and run Phone.open('edit'|'tools'|'display'|'more') at phone widths."
+  }
+]

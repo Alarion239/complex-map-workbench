@@ -1406,9 +1406,13 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .toast-act:hover { background: var(--accent-soft); }
 
 /* modal (guide) */
-.modal-bg { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 12px; background: var(--scrim); animation: fade-in var(--t-med) var(--ease-out); }
+/* (v15) the backdrop's top and bottom pads clear the notch and the home bar (--mbg-t, --mbg-b), and a dialog's
+   max-height leaves both pads. Before, max-height left 24 px whatever the pads were: on a phone with a home bar the
+   export dialog's top was above the screen (-22 px at 390 x 844). Without a safe area both pads are 12 px, as before. */
+.modal-bg { --mbg-t: max(12px, env(safe-area-inset-top, 0px)); --mbg-b: max(12px, env(safe-area-inset-bottom, 0px));
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: var(--mbg-t) 12px var(--mbg-b); background: var(--scrim); animation: fade-in var(--t-med) var(--ease-out); }
 .modal {
-  position: relative; width: min(640px, calc(100vw - 24px)); max-height: calc(100svh - 24px); overflow-y: auto; padding: 24px;
+  position: relative; width: min(640px, calc(100vw - 24px)); max-height: calc(100svh - var(--mbg-t, 12px) - var(--mbg-b, 12px)); overflow-y: auto; padding: 24px;
   background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3);
   font: 400 13.5px/21px var(--f-ui); color: var(--ink);
   animation: pop-in var(--t-med) var(--ease-out);
@@ -1514,7 +1518,7 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-foot { position: sticky; bottom: 0; z-index: 3; }
 }
 @media (max-width: 560px) {
-  .modal.xf { width: calc(100vw - 24px); max-height: calc(100svh - 24px); border-radius: var(--r-3); }
+  .modal.xf { width: calc(100vw - 24px); max-height: calc(100svh - var(--mbg-t, 12px) - var(--mbg-b, 12px)); border-radius: var(--r-3); }
   .xf-head { padding: 12px 16px 0; } .xf-body { padding: 12px 16px 0; } .xf-foot { padding: 10px 16px 12px; }
   .xf-ctl { grid-template-columns: 1fr; }
   .xf-chip { display: none; }
@@ -1796,7 +1800,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .pal-item { grid-template-columns: 84px minmax(0, 1fr); }
   .pal-props { display: none; }
   .pal-foot, .pal-head > .kbd { display: none; }
-  .modal-bg { align-items: end; padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .modal-bg { align-items: end; --mbg-b: calc(12px + env(safe-area-inset-bottom, 0px)); }
   .modal { padding: 20px 16px; }
 }
 @media (max-width: 767px) and (pointer: coarse) {
@@ -1856,6 +1860,20 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] .texprev:empty::before { content: "Предпросмотр"; }
 :root[data-lang="ru"] .pat { white-space: normal; }
 :root[data-lang="ru"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* (v15) the five mesh stops («Черновая» … «Максимум») are 242 px of labels in one row; the left panel has 214-226 px
+   at 1024-1440 px. The row widened the Display column, so the pattern swatches and «Максимум» ran 3-15 px past the
+   panel. In Russian the stops stand at their slider positions (0, 1/4, 1/2, 3/4, 1, thumb-centre corrected as --at
+   is), and the 2nd and 4th labels take a second line: every label stays whole at 11 px (GLOSSARY 3.10: no «макс.»),
+   and the row adds nothing to the column's width */
+:root[data-lang="ru"] #meshPresets { display: block; min-height: 36px; }
+:root[data-lang="ru"] #meshPresets > button { position: absolute; top: 0; }
+:root[data-lang="ru"] #meshPresets > button:first-child { left: 0; }
+:root[data-lang="ru"] #meshPresets > button:last-child { right: 0; }
+:root[data-lang="ru"] #meshPresets > button:nth-child(3) { left: calc(5px + 0.5 * (100% - 10px)); translate: -50% 0; }
+:root[data-lang="ru"] #meshPresets > button:nth-child(2) { left: calc(5px + 0.25 * (100% - 10px)); }
+:root[data-lang="ru"] #meshPresets > button:nth-child(4) { left: calc(5px + 0.75 * (100% - 10px)); }
+:root[data-lang="ru"] #meshPresets > button:is(:nth-child(2), :nth-child(4)) { top: 20px; padding-top: 0; translate: -50% 0; }
+:root[data-lang="ru"] #meshPresets > button:is(:nth-child(2), :nth-child(4))::before { top: -20px; }
 :root[data-lang="ru"] .pal-label { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 /* the export dialog: the fine-tune labels ("Обрезка", "Панели") need a wider column; "Текст 10 пт" a wider select;
    the caption-language switch (shown only outside English) sizes its options by their labels; on a phone the preview
@@ -1925,10 +1943,10 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="btn ghost menu-btn" id="examplesBtn" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="mlabel">Examples</span><span class="exlabel">Examples</span><span class="ic-slot" data-icon="chevD"></span></button>
       <button class="cmd-field" id="cmdBtn" aria-label="Add function or command" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function or command</span><span class="kbd" id="cmdKbd">⌘K</span></button>
       <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Region tools  [" aria-label="Show or hide region tools" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Region tools panel</span></button>
-      <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Guarantees  ]" aria-label="Show or hide guarantees" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Guarantees panel</span></button>
+      <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
       <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span></button>
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
-      <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; off by default -->
+      <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
       <button class="icon-btn" id="langBtn" title="Language" aria-label="Language" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.75"/><path d="M2.25 8h11.5M8 2.25c-2.2 2.9-2.2 8.6 0 11.5M8 2.25c2.2 2.9 2.2 8.6 0 11.5"/></svg></span><span class="mlabel">Language: <span class="llabel">Auto</span></span></button>
@@ -2057,7 +2075,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <h2>Function chain</h2>
           <div class="compose" id="composeTex"></div>
           <div class="grow"></div>
-          <div class="seg small" id="chainMode" role="radiogroup" aria-label="Card size"><button data-mode="cards" class="on" role="radio" aria-checked="true">Cards</button><button data-mode="compact" role="radio" aria-checked="false">Compact</button></div>
+          <div class="seg small" id="chainMode" role="radiogroup" aria-label="Cards show"><button data-mode="cards" class="on" role="radio" aria-checked="true">Pictures</button><button data-mode="compact" role="radio" aria-checked="false">Names</button></div>
           <button class="btn small" id="viewAllBtn" aria-pressed="true">Whole chain</button>
           <button class="btn ghost small" id="clearChain">Clear chain</button>
         </div>
@@ -2065,11 +2083,11 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       </div>
     </section>
 
-    <aside class="panel right" id="rightPanel" aria-label="Guarantees">
+    <aside class="panel right" id="rightPanel" aria-label="Inspector">
       <div class="rail" id="rightRail">
-        <button class="icon-btn rail-open" id="rightRailOpen" title="Show guarantees  ]" aria-label="Show guarantees"><span class="ic-slot" data-icon="chevL"></span></button>
-        <div class="rail-lamps" id="railLamps"></div>
-        <span class="rail-label">Guarantees</span>
+        <button class="icon-btn rail-open" id="rightRailOpen" title="Show the Inspector  ]" aria-label="Show the Inspector"><span class="ic-slot" data-icon="chevL"></span></button>
+        <div class="rail-icons"><button class="icon-btn" id="rightRailEdit" title="Edit the selection" aria-label="Edit the selection"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l.8-3.2L10.5 3a1.4 1.4 0 0 1 2 2L5.8 11.7z"/></svg></button></div>
+        <span class="rail-label">Inspector</span>
       </div>
       <div id="propsPanel"></div>
     </aside>

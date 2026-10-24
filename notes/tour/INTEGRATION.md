@@ -31,7 +31,7 @@ The module injects its own CSS on first use (`<style id="tourCSS">`), written on
 `--t-fast`, `--t-med`, `--t-slow`, `--ease-out`, `--ease-std`), the classes `.btn.primary`, `.btn.ghost`,
 `.icon-btn`, `.icon-btn.small`, `.kbd`, `.pop.menu` with `.menu-head`, `.mi`, `.mi-ic`, `.mi-label`, `.mi-key`,
 `.msep`, the keyframes `pop-in` and `fade-out`, and the hover tooltip `#tip` (hidden by the tour while it would cover
-the callout; it sits at z 70, above the callout's 35). Renaming one of these changes the tour's look.
+the callout; the callout is above every layer, the tooltip included). Renaming one of these changes the tour's look.
 
 One markup change is recommended in `page.html`: the help button now opens a menu, so
 
@@ -103,7 +103,15 @@ const tourApi = {
   setDeformation(on),                    // open or close the transport, as M does          (openTransport / closeTransport)
   setTool(id),                           // 'select', 'disc', … (the ids of TOOLS)          (setTool)
   focusStep(k),                          // 0 = Whole chain, k = step k                      (setFocus)
-  showPanel(side),                       // 'left' | 'right': open a collapsed side panel   (setPanels)
+  showPanel(side, sheet?),               // 'left' | 'right': open a collapsed side panel   (setPanels); v15: on a
+                                         // phone 'right' opens the Editor sheet (the Inspector), 'left' opens
+                                         // `sheet` ('tools': shapes and formula; 'display': the patterns); a left
+                                         // drawer it opened (768-1023 px) closes again with closeSheet()
+  selectStep(k),                         // v15, optional: select step k (or 'F') for the Inspector  (selectStep)
+  showPlane(pane),                       // v15, optional: 'L' | 'R' is the large plane on a phone (the other is
+                                         // the inset); nothing elsewhere                    (Phone.swap)
+  closeSheet(),                          // v15, optional: close a phone's bottom sheet (or the left drawer the
+                                         // tour opened); the tour calls it before a step that has no 'panel' action
 
   // ---- feedback
   on(event, fn) -> unsubscribe,          // the Events table; fn(payload)
@@ -121,6 +129,11 @@ const tourApi = {
   hasWork() -> boolean,                  // optional: saved work existed at this opening (a returning user): the
                                          // suggestion reads "Take the 2-minute tour", not "New here?"
   onTour(active), onSuggest(shown),      // optional notifications (not sent when one chapter hands over to another)
+  layers() -> Element[],                 // v15, optional: the open layers (popovers, the planes' menu, a dialog,
+                                         // the sound settings, the top layer, a phone's sheet, an overlay drawer).
+                                         // The callout keeps clear of them and the rings are masked off them; a
+                                         // layer that holds the step's anchor is lit instead. Default: '#popHost > *,
+                                         // .modal-bg > *, .snd-pop:not([hidden]), dialog[open]' and :popover-open
 };
 ```
 
@@ -182,6 +195,7 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `invBtn` | the f⁻¹ button of the first card that has one | the `.card button` whose label is f<sup>−1</sup> |
 | `sheets` | the All sheets check of the Landscape options | the label around `#sheetsChk` |
 | `phaseKey` | the Phase key check of Y's options (X → Y, Y on its plane) | the label around `#wKeyChkR` |
+| `rightOpts` | Y's Display options button, where the Phase key goes when Y's options strip has no room (the fallback of `phaseKey`) | `#rightFoot .opts-btn` |
 | `soundBtn`, `soundBar` | the Sound control of the top bar (the sound round); on a phone with sound on, its button left in the bar | `#soundBtn`, `#soundPh` |
 | `phaseStyle` | the Phase style control of the Phase view's options (Tiles … Cauchy) | `#dcSeg` |
 | `examples`, `palette`, `exportBtn`, `helpBtn`, `moreBtn` | the top bar | `#examplesBtn`, `#cmdBtn`, `#exportBtn`, `#helpBtn`, `#hdrMoreBtn` |
@@ -190,6 +204,27 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `rightPanel` | the right side panel | `#rightPanel` |
 | `composite`, `guarantees`, `domain`, `matrix` | the right panel's sections: Composite map, Guarantees, Natural domain, Step by step | `#propsPanel > section:nth-of-type(1)` … `(4)` |
 
+### Anchors added or changed in v15
+
+The v15 layout (notes/ui-redesign-2): the right panel is the Inspector, the F tile replaces the Guarantees panel, and a
+phone has one plane, a chain bar, a tool row and bottom sheets. These rows replace the rows of the same names above
+once v15 is merged; `test/t_tour.js` of the v15 build reads both tables (the v14 gate's copy reads the table above).
+
+| name | what | default |
+|---|---|---|
+| `composite`, `guarantees`, `domain`, `matrix` | the F Inspector's parts: the formula of *F*, the lit guarantees, the natural domain, Step by step. The app's `anchor` selects the F tile for these names and draws the Inspector first | `#propsPanel .insp-F .iform`, `.iglist`, `.idom`, `details.steps` |
+| `zpCard` | the Inspector's editor of the selected zeros-and-poles step (Add zero, Add pole, the rows) | `#propsPanel .insp-step .params.zp` |
+| `invBtn` | the Inspector's ⋯ menu of the selected step (Replace with the inverse) | `#propsPanel .insp-step .ihead .more` |
+| `inspector` | the Inspector's Selection (the selected step's editor) | `#propsPanel .insp-sel` |
+| `params` | the Inspector's Parameters (the shared numbers of `src/params.js`) | `#propsPanel .prm`, else `.insp-params` |
+| `fTile` | the F tile that closes the chain | `#pipeline .ftile` |
+| `sphereKey` | on a phone, the Sphere key in the plane's right column (the fallback of `surfaceL`) | the visible `.ph-col .ph-sph` |
+
+On a phone (below 768 px, `src/phone.js`): `tools` (`#secDraw`) is the tool row, `chain` (`.pipe-wrap`) the chain bar
+with the F tile and Deformation, `moreBtn` the ⋯ sheet (Guided tour, Reference guide, Search, Export). The Inspector's
+names (`inspector`, `params`, `zpCard`, `invBtn`, the F parts) are in the Editor sheet, which a step's `panel` action
+opens; `formula`, `shapes`, `patterns` and `display` are in closed sheets, so their steps are skipped there.
+
 ### Features
 
 | feature | what | the steps left out without it |
@@ -197,6 +232,9 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `zp` | the zeros-and-poles step type (`funcs.js` `id: 'zp'`) | Analysis: Zeros and poles (its scene uses it). The integral and the natural domain then use the typed formula 1/(z²+1) instead of the zp step |
 | `allAtOnce` | the One after another / All at once select of the transport | Deformation: All steps at once |
 | `sound` | the Sound control (`typeof Sound !== 'undefined'`) | Palette and keys: Sound |
+| `params` | v15: shared numbers (`typeof Params !== 'undefined'`) | Editing the chain: Shared numbers (its scene) |
+| `planeMenu` | v15: the planes' context menu (`typeof PlaneMenu !== 'undefined'`) | Editing the chain: Add a zero here |
+(`zp` now leaves out Editing the chain: Zeros and poles and Add a zero here, both on the `zp` scene.)
 
 Before integration (v12) both are missing; the demo adapter returns `has('zp') === false` and
 `has('allAtOnce') === false`. After the deformation round lands, the app can omit `has` or return true.
@@ -223,6 +261,13 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 | `zp-moved` | `{ kind: 'zero' \| 'pole', i }` | a zero or a pole of a zeros-and-poles step is dragged |
 | `cut-moved` | `{ k, cut }` | a branch cut's handle is dragged (once, at the end of the drag) |
 
+### Events added in v15
+
+| event | payload | emit when |
+|---|---|---|
+| `zp-added` | `{ k, kind: 'zero' \| 'pole', i }` | a zero or a pole is added to step k (the Inspector's buttons, Shift-click, the planes' menu: `zpAdd`) |
+| `number-changed` | `{ names, live }` | a shared number changes (its slider, Play, its field, undo: `Params.on('change')`) |
+
 ### The scenes the tour loads
 
 `loadScene` receives these (`SCENES` in `tour.js`), in the EX format. Each is an app example or the same map written
@@ -240,6 +285,7 @@ one sheet, the Tiles phase style, Paths on and One after another, except where t
 | Logarithm of an annulus | `log` (cut 180°, sheet 0), focus 1 | the annulus 0.5 < \|z\| < 2, the unit circle, a segment | |
 | The derivative in the chain | custom z³ − 3z, then `deriv` | the disc \|z\| < 1.6 and a polar grid | the point 0 |
 | Every sheet of the logarithm | `log` (cut 180°, sheet 0); look: height Im, All sheets | the annulus 0.5 < \|z\| < 2 | |
+| A shared number (`numbers`, needs `params`) | custom (z² − a²)/(z² + 1) with the number a = 1 on [0.2, 1.8] (`params`, the app's `S.params`) | the square [−1.5, 1.5]², the circle \|z\| = a (its radius bound to a: `bind: { r: 'a' }`) | |
 
 ## 4. Public API
 
@@ -262,7 +308,7 @@ Tour.reset()                              // forget the record (a "Show the tour
 Tour.VERSION                              // bump with a content change; chapters with a newer `rev` show New
 ```
 
-Chapter ids: `basics`, `views`, `deform`, `analysis`, `branches`, `export`, `keys`.
+Chapter ids: `basics`, `views`, `edit` (v15), `deform`, `analysis`, `branches`, `export`, `keys`.
 
 Storage, all through `api.storageKey`: `cmw-tour` holds `{ v, shown, outcome, done, last }` (see DESIGN.md);
 `cmw-tour-stash` the backup `{ page, snap: { state } }` while a tour runs; `cmw-tour-live` its heartbeat `{ page, t }`.
@@ -347,3 +393,57 @@ Details: `notes/export-design/AS-BUILT.md`, section "Review fixes on the merged 
 - `busy()` also counts a playing Listen along and a keyboard loop.
 - Steps: Preimages and Targets anchor on `paneR` with `paneL`; Derivative on `paneL` with the chain; `views/key` is
   `wide` (left out below 640 px); `basics/shapes` is `tryWide`. `place()` has a near-miss mode `edge`.
+
+## 7. v15: the tour and the guide for the new layout (work/xva, 2026-10-23)
+
+The v15 layout (notes/ui-redesign-2): the Inspector, the F tile, the planes' menu, shared numbers, the phone layout.
+Files: `src/tour.js`, `src/app.js` (the adapter, two event lines, the guide text), `test/t_tour.js`,
+`test/tour_cmd.js`, this file, `notes/i18n/ru/v15-tour.json` (40 entries), `src/i18n_ru.js` (regenerated).
+
+**Content** (8 chapters, 39 steps; `VERSION` 2, so the changed chapters show New to returning users):
+- New chapter **Editing the chain** (`edit`, after Views, rev 2): Cards follow the view (Phase; Try it: Landscape),
+  The Inspector (step 2 selected), Zeros and poles (moved from Analysis), Add a zero here (the planes' menu; Try it:
+  `zp-added`), Shared numbers (scene `numbers`; Try it: drag the slider, `number-changed`).
+- Analysis: Natural domain and Guarantees light the F tile with the F Inspector. Branches: Inverses selects step 1.
+- Phone copy: "hold" for the long press (Preimages: hold, then slide; Integrals; Add a zero here), "the sheet" for
+  the Editor; the palette's Try it and Help name the ⋯ sheet's rows; the suggestion says "⋯ › Guided tour".
+- The caps of `test/t_tour.js` grew with it: 5 to 8 chapters, at most 40 steps (DESIGN.md said 7 and 36).
+
+**New actions** (optional adapter methods, §3): `['select', k]` → `selectStep(k)`, `['plane', 'L' | 'R']` →
+`showPlane(pane)` (the large plane on a phone). Before a step without a `panel` action the tour calls `closeSheet()`.
+On a phone `showPanel('right')` opens the Editor sheet. `restore()` closes a sheet and puts the large plane back.
+
+**The guide** (`openGuide`): the intro says "shown alone"; the chain paragraph names the Inspector, the indexed
+coefficients and double-click; new paragraphs on the cards' pictures, Shared numbers (links and scene files) and the
+planes' menu; zeros and poles name Add zero / Add pole; inverses live in the ⋯ menu; Guarantees describe the F tile.
+
+**Checks:** `node test/t_tour.js` 1084/1084 (the v14 copy in the main tree still 933/933: the v15 names are in their
+own tables). `t_i18n_keys`, `t_i18n`, `t_i18n_english`, `t_params` pass. A walk of every step at 1440 and 390 px
+(English) and 390 and 1024 px (Russian): every Editing step shows; on a phone Shapes, Formula, Phase key, Patterns and
+All at once are skipped (their controls are in closed sheets or the step is wide-only).
+
+**Phone fixes in `tour.js`:** the tour comes as two roots: `.tour-root` (the shade, z 25; z 27 on `:root.ph`, so the
+chain bar at z 26 stays under the shade and the More sheet at z 28 above it) and `.tour-top` (the rings and the callout, above every layer of the app); a fixed box (the tool row) is no longer clipped by the ancestors above it, so it is
+lit whole; on a narrow screen the sheet avoids the step's anchor first (it weighs 8 times the other lit areas).
+
+**Browser checks** (headless Chrome, port 8926, this build's `dist/test.html`): `tour_cmd.js` 93 of 94, with new
+checks for Add a zero here (a real right-click, then the menu item) and Shared numbers (the slider ticks the Try it
+and the circle's radius follows *a*). The one failure is the known one from the desktop build: "Phase portrait: the
+callout is below the panel" (the planes are 84 px taller, so the callout sits inside the portrait's top right).
+`tour_lit_cmd.js` 78 of 78 (every step at 1440 × 900 and 1024 × 700). Shots: `test/xvtour_cdp/shots/xvt-*`.
+
+**Left:** the Phase portrait callout above; on a phone the Patterns and Phase key steps are skipped (their controls
+are in the Display sheet; a step could open it); the zeros-and-poles hint in the Inspector still says "right-click"
+on a phone; in Russian at 1024 px the F tile's lit names overflow the tile (the desktop build's tile, seen in
+`xvt-d1024ru-analysis-domain.png`). The quality and perf suites were not run for this change (no rendering code changed).
+
+**On the v15 layout (work/xvm, 2026-10-23, 20:00 to 21:00; details in notes/workflows/V15-INTEGRATION.md, section 8).**
+The phone steps that were skipped now show:
+
+- Shapes and Formula open the Tools sheet.
+- Patterns, All at once and Phase key open the Display sheet. For Phase key, Y is made the large plane first.
+- On a narrow desktop, Shapes and Formula open the left drawer, and the next step closes it.
+- Phase key lights Y's Display options button when Y's strip has no room for the check.
+
+The adapter now has `layers()`. A layer that holds the step's anchor is lit, not avoided. A lit part inside another
+lit area gets its own ring. A second lit area that the app covers is not lit.

@@ -1,0 +1,185 @@
+{
+ "_about": "v15 review round (notes/ui-redesign-2/ledger-v15.json): the strings the review fixes add. id -> {en, ru, plural?, en_plural?, ctx?, note}. Russian follows notes/i18n/GLOSSARY.md. Read by tools/make_ru_table.py (v15-*.json).",
+ "v15r.bind_novalue": {
+  "en": "{x} has no value here",
+  "ru": "%{x} здесь не имеет значения",
+  "note": "Shapes list row: a field bound to a formula of shared numbers that has no value now (math-2); the shape is not drawn."
+ },
+ "v15r.bind_count": {
+  "en": "a count is a whole number from 1 to 60",
+  "ru": "количество — целое число от 1 до 60",
+  "note": "Reason after \"n = …: \" for a grid count out of range (math-2)."
+ },
+ "v15r.bind_radius": {
+  "en": "a radius must be positive",
+  "ru": "радиус должен быть положительным",
+  "note": "Reason after \"r = a = −0.3: \" (math-2)."
+ },
+ "v15r.bind_radii": {
+  "en": "radii must be 0 or more",
+  "ru": "радиусы должны быть не меньше 0",
+  "note": "Reason after \"r₁ = … = −1: \" (math-2)."
+ },
+ "v15r.zp_hint_touch": {
+  "en": "Or long-press a plane. Marks snap to the ruler.",
+  "ru": "Или удерживайте палец на плоскости. Метки привязываются к линейке.",
+  "note": "Inspector hint under Add zero / Add pole on touch screens (design-9, russian-8; GLOSSARY 3.12)."
+ },
+ "v15r.mob_const": {
+  "en": "f{k} is constant, = {v}.",
+  "ru": "f%{k} — постоянная, равна %{v}.",
+  "note": "Inspector, a Möbius step with ad − bc = 0 and c = 0 (math-6). {k} is a subscript digit."
+ },
+ "v15r.mob_const_rem": {
+  "en": "f{k} is constant, = {v}; z = {p} is removable.",
+  "ru": "f%{k} — постоянная, равна %{v}; особенность в точке z = %{p} устранимая.",
+  "note": "Inspector, a Möbius step with ad − bc = 0 (math-6): the point −d/c is a removable singularity."
+ },
+ "v15r.insert_after": {
+  "en": "Insert a function after it",
+  "ru": "Вставить функцию после него",
+  "note": "Step ⋯ menu: the keyboard way to the connectors’ insert + (design-14). «него»: the step (шаг)."
+ },
+ "v15r.chain_more": {
+  "en": "More for the chain",
+  "ru": "Действия с цепочкой",
+  "note": "aria-label of the chain head’s ⋯ (holds Clear chain; design-18)."
+ },
+ "v15r.cyr_name": {
+  "en": "The letter “{x}” is Cyrillic: names are written in Latin letters. Switch the keyboard layout.",
+  "ru": "Буква «%{x}» — русская: имена пишутся латиницей. Переключите раскладку.",
+  "note": "Parameters, + Number: a Cyrillic letter that is not a look-alike of a Latin one (russian-7)."
+ },
+ "v15r.every_point": {
+  "en": "every point maps here: an earlier step is constant",
+  "ru": "сюда переходит любая точка: один из предыдущих шагов постоянен",
+  "note": "Plane menu, muted line under Add zero/pole of fₖ here (math-6, math-12)."
+ },
+ "v15r.also_mult": {
+  "en": "also at {n} other point, counted with multiplicity",
+  "en_plural": [
+   "also at {n} other point, counted with multiplicity",
+   "also at {n} other points, counted with multiplicity"
+  ],
+  "plural": {
+   "one": "ещё в %{n} точке с учётом кратности",
+   "few": "ещё в %{n} точках с учётом кратности",
+   "many": "ещё в %{n} точках с учётом кратности",
+   "other": "ещё в %{n} точках с учётом кратности"
+  },
+  "note": "Plane menu muted line for polynomial and rational steps (math-12; russian-13a: no «также ещё»)."
+ },
+ "v15r.f_there": {
+  "en": "F there: {v} ({f} follows)",
+  "ru": "F здесь: %{v} (далее %{f})",
+  "note": "Plane menu muted line when active steps follow fₖ (math-4): the value of F at the new zero. {f} is f with a subscript (HTML)."
+ },
+ "v15r.added_zero_at": {
+  "en": "Added zero {mark} of {f} at {z}.",
+  "ru": "Добавлен нуль %{mark} функции %{f} в точке %{z}.",
+  "note": "Announcement after the plane menu adds a zero (regress-10, russian-13b)."
+ },
+ "v15r.added_pole_at": {
+  "en": "Added pole {mark} of {f} at {z}.",
+  "ru": "Добавлен полюс %{mark} функции %{f} в точке %{z}.",
+  "note": "Announcement after the plane menu adds a pole."
+ },
+ "v15r.added_zero": {
+  "en": "Added zero {mark} of {f}.",
+  "ru": "Добавлен нуль %{mark} функции %{f}.",
+  "note": "Announcement after the Inspector’s Add zero (regress-10)."
+ },
+ "v15r.added_pole": {
+  "en": "Added pole {mark} of {f}.",
+  "ru": "Добавлен полюс %{mark} функции %{f}.",
+  "note": "Announcement after the Inspector’s Add pole."
+ },
+ "v15r.all_z": {
+  "en": "All <i>z</i> for which:",
+  "ru": "все <i>z</i>, для которых:",
+  "note": "Inspector, F: after «Естественная область определения D: » (russian-11: lower case after a colon).",
+  "ctx": "insp"
+ },
+ "v15r.rail_tools": {
+  "en": "Region tools",
+  "ru": "Инструменты",
+  "note": "The left rail’s vertical label (russian-12): short, so it fits the rail at 1024.",
+  "ctx": "rail"
+ },
+ "v15r.ftile.analytic": {
+  "en": "Analytic",
+  "ru": "Аналитична",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.entire": {
+  "en": "Entire",
+  "ru": "Целая",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.rational": {
+  "en": "Rational",
+  "ru": "Рациональна",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.polynomial": {
+  "en": "Polynomial",
+  "ru": "Многочлен",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.mobius": {
+  "en": "Möbius",
+  "ru": "Дробно-линейна",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.proper": {
+  "en": "Proper",
+  "ru": "Собственная",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.homeo": {
+  "en": "Homeomorphic",
+  "ru": "Гомеоморфна",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.ftile.conformal": {
+  "en": "Conformal",
+  "ru": "Конформна",
+  "note": "The F tile’s one-word lamp (russian-1, design-15): F and a short predicative form («F аналитична»); the Inspector and the aria-label keep the full names.",
+  "ctx": "ftile"
+ },
+ "v15r.pm_integrate": {
+  "en": "Integrate {x} along {name}",
+  "ru": "Вычислить интеграл от %{x} по кривой «%{name}»",
+  "note": "Plane menu and shape menu (review russian-4): the shape’s name in quotes, so it stays in the nominative («по кривой «Прямая 1»»)."
+ },
+ "v15r.pm_integrate_closed": {
+  "en": "∮ {x} d{dv} around {name}",
+  "ru": "∮ %{x} d%{dv} по контуру «%{name}»",
+  "note": "Plane menu, a closed curve (review russian-4): the name in quotes, as for the open curve."
+ },
+ "v15r.card_sinh": {
+  "en": "Hyperbolic sine",
+  "ru": "Гиперб. синус",
+  "ctx": "card",
+  "note": "Card name only (review russian-2): «Гиперболический» needs three hyphenated lines on a narrow card, past the two-line limit. The Inspector, the aria-label and the catalog keep «Гиперболический …» (GLOSSARY)."
+ },
+ "v15r.card_cosh": {
+  "en": "Hyperbolic cosine",
+  "ru": "Гиперб. косинус",
+  "ctx": "card",
+  "note": "Card name only (review russian-2): «Гиперболический» needs three hyphenated lines on a narrow card, past the two-line limit. The Inspector, the aria-label and the catalog keep «Гиперболический …» (GLOSSARY)."
+ },
+ "v15r.card_tanh": {
+  "en": "Hyperbolic tangent",
+  "ru": "Гиперб. тангенс",
+  "ctx": "card",
+  "note": "Card name only (review russian-2): «Гиперболический» needs three hyphenated lines on a narrow card, past the two-line limit. The Inspector, the aria-label and the catalog keep «Гиперболический …» (GLOSSARY)."
+ }
+}

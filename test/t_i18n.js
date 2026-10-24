@@ -110,7 +110,9 @@ for (const [k, v] of Object.entries(RU)) {
       'and', 'or', 'not', 'ad', 'bc', 'dz', 'arcctg', 'arccot', 'acot', 'lg', 'Ln', 'Arg', 'arcth', 'arcoth', 'artanh',
       // phase 2b: key names, file formats and units, products, LaTeX names, math words (exp, const, az + b)
       'Escape', 'pdf', 'png', 'svg', 'txt', 'tex', 'pt', 'in', 'cm', 'mm', 'Overleaf', 'Beamer', 'Docs', 'Slides', 'Google', 'WebGL', 'Web', 'Audio', 'AudioWorklet',
-      'arXiv', 'tbp', 'figure', 'amsart', 'Letter', 'REVTeX', 'IEEE', 'iPhone', 'iPad', 'pdfLaTeX', 'XeLaTeX', 'LuaLaTeX', 'exp', 'const', 'az', 'cz', 'arg', 'Res', 'sin', 'cos', 'fontenc']);
+      'arXiv', 'tbp', 'figure', 'amsart', 'Letter', 'REVTeX', 'IEEE', 'iPhone', 'iPad', 'pdfLaTeX', 'XeLaTeX', 'LuaLaTeX', 'exp', 'const', 'az', 'cz', 'arg', 'Res', 'sin', 'cos', 'fontenc',
+      // export round 3: a unit, Inkscape and its --shell-escape (the svg package), the browsers that encode video
+      'dpi', 'Inkscape', 'shell', 'escape', 'Chrome', 'Edge', 'Safari']);
     const rest = f.replace(MATH, ' ').replace(/<(i|var|sub|sup|kbd)>.*?<\/\1>/g, ' ').replace(/<[^>]*>/g, ' ').replace(PH, ' ').replace(/\\[A-Za-z]+(\{[^}]*\})?/g, ' ');
     // a LaTeX comment's package options, arguments and font files are code
     const rest2 = latexComment ? rest.replace(/\[[^\]]*\]/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/[\w-]+\.otf/g, ' ') : rest;

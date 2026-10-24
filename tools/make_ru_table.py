@@ -32,7 +32,10 @@ extra_doc = json.load(open(root / 'tools' / 'ru_extra.json'))
 extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # phase 2b's new strings (notes/i18n/ru/phase2b*.json): id -> {en, ru, plural, en_plural, ctx, note}. Keyed like the
 # call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many), and they win like tools/ru_extra.json
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)):  # the review fixes last
+# (v15: the redesign's strings, notes/i18n/ru/v15-<area>.json, after phase 2b's; a v15 table whose build is not merged
+# into this tree yet is left out, so its strings and its changes to shared ones arrive with its sources)
+V15_NOT_HERE = set()   # every v15 table's build is merged here (export round 3, work/xve, included)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE):  # the review fixes last
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue

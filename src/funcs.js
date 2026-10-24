@@ -1100,7 +1100,7 @@ const Funcs = (() => {
       : mob ? props({ analytic: true, rational: true, mobius: true, injective: true, deg: 1, degExact: true, entire: cz, polynomial: cz, proper: cz })
         : props({ analytic: true, rational: true, deg: 1, degExact: false });
     return {
-      f: (z) => CX.mobApply(m, z),
+      f: degenerate && !cz ? ((k) => () => k)(CX.div(a, c)) : (z) => CX.mobApply(m, z),
       hom: mob ? mobHom(m) : null,
       homTex: mob ? (v) => mobHomTex(m, v) : null,
       tex: (x) => {
@@ -1113,7 +1113,8 @@ const Funcs = (() => {
         return { s: `\\frac{${num.s}}{${den.s}}`, p: 4 };
       },
       props: P,
-      poles: pole ? [pole] : [],
+      // (a constant map has no pole: −d/c is a removable singularity, so it gets no pole mark; review math-6)
+      poles: pole && !degenerate ? [pole] : [],
       domain: pole ? (v) => `${v}\\neq ${CX.tex(pole)}` : null,
       inverse: !mob ? null : { type: 'mobius', params: { a: fmtC(d), b: fmtC(CX.neg(b)), c: fmtC(CX.neg(c)), d: fmtC(a) } },
       inverseNote: mob ? null : degenerate ? $t('ad − bc = 0 makes this map constant, so it has no inverse')

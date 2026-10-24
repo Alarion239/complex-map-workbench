@@ -111,3 +111,14 @@ winding, listen along a curve, the keyboard probe).
 "During deformation, sounds must also follow the deformation. Now they only change during deformation if I move my
 mouse." → built in `work/xvs`: the tone and its cues follow H_t under a still pointer, and any change of the function
 under a still pointer re-evaluates the tone through one hook. See `DEFORMATION.md`.
+
+## The user's decision on defaults (2026-10-23, for v15)
+
+"Make the default for sound to not include function sounds, since it may be annoying for some. But by default include
+sounds for different events. And you can turn on the sound by default then, as the small clicks are fine."
+
+So from v15: Sound is ON by default; Interface sounds ON (Snap ticks stay off); Mathematical events ON; Hear the
+function under the pointer OFF (the user turns it on). Browsers allow audio only after the first click or key press
+on the page, so the audio context is created on that first gesture and nothing plays before it. A user's own stored
+choice (lsk('cmw-sound')) always wins over the default; the default applies only when nothing is stored. Test pages
+under ?ns= keep sound off unless a test turns it on, so the quality and perf suites are unaffected.

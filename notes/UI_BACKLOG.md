@@ -130,3 +130,8 @@ tour, Russian) is gated.
     the deformation (X -> Y on the plane and on the sphere, Phase, Landscape); PNG, SVG and video as first-class
     formats (video for the deformation); a copyable LaTeX snippet for PNG; F set in display style in captions and
     snippets. Built in work/xve, merged into v15.
+
+23. **Sound on by default** (user, 2026-10-23): "Make the default for sound to not include function sounds, since it
+    may be annoying for some. But by default include sounds for different events. And you can turn on the sound by
+    default then, as the small clicks are fine." In v15: Sound on, Interface and Events on, Hear F off; the audio
+    starts at the first click or key press; a stored choice wins; ?ns= test pages stay silent. notes/sound/README.md.

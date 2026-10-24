@@ -1,0 +1,291 @@
+/* ======================================================================
+   v15 desktop and tablet (notes/ui-redesign-2/desktop/DESIGN.md): the chain's cards are a type and a picture, the
+   F tile closes the chain, the right panel is the Inspector. build.py puts this file at the end of page.html's style.
+   ====================================================================== */
+/* ---------- the chain: 188 px (36 head + 8 + 134 card + 10) ---------- */
+.stage { grid-template-rows: minmax(0, 1fr) 8px var(--chain-h, 188px); }
+.pipe-head .compose { display: none; }
+.pipe-head #viewAllBtn:disabled { opacity: 0.5; }
+.pipeline { align-items: stretch; padding: 8px 12px 10px; scroll-snap-type: x proximity; }
+.card {
+  flex: 1 1 0; width: auto; min-width: 120px; max-width: 208px; height: 134px; contain-intrinsic-size: auto 134px;
+  container-type: inline-size; outline-offset: -2px;
+}
+.card.region-card { flex-basis: 0; width: auto; contain-intrinsic-size: auto 134px; }
+.card-head { flex: 0 0 36px; height: 36px; gap: 5px; padding: 0 6px; }
+.card .grip { display: none; }
+.card .nm {
+  flex: 1 1 auto; min-width: 0; margin-left: 0; white-space: normal; overflow: hidden; text-overflow: clip;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font: 600 12px/13px var(--f-ui); font-stretch: 87.5%; hyphens: manual; overflow-wrap: normal; word-break: normal;
+}
+.card .ty { display: inline-grid; place-items: center; flex: 0 0 14px; width: 14px; height: 14px; color: var(--ink-2); }
+.card .ty svg { width: 14px; height: 14px; display: block; }
+@container (max-width: 139px) { .card .card-head .ty { display: none; } }
+/* hover actions sit over the name (absolute), so the name keeps its width */
+.card .acts { position: absolute; right: 3px; top: 6px; z-index: 2; display: flex; opacity: 0; pointer-events: none; background: var(--surface); border-radius: var(--r-2); box-shadow: -6px 0 6px var(--surface); }
+/* (keyboard focus shows them; a click's focus does not, so a selected card keeps its name readable) */
+.card .acts { opacity: 0; }
+.card:hover .acts, .card:focus-visible .acts, .card:has(:focus-visible) .acts { opacity: 1; pointer-events: auto; }
+.card:focus-within:not(:hover):not(:has(:focus-visible)):not(:focus-visible) .acts { opacity: 0; pointer-events: none; }
+.card .thumb { flex: 1 1 auto; height: auto; min-height: 0; border-bottom: 0; }
+.card .thumb-var { display: none; }
+/* a picture that waits for its exact redraw (a drag in progress): a thin bar under it, never an approximate picture */
+.card .thumb::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line-strong); opacity: 0; transition: opacity var(--t-fast) var(--ease-out); z-index: 1; pointer-events: none; }
+.card.stale .thumb::before { opacity: 1; }
+.card .tlab { position: absolute; right: 4px; bottom: 5px; z-index: 1; padding: 0 4px; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--overlay); font: 400 10.5px/15px var(--f-mono); color: var(--ink-2); pointer-events: none; }
+.card .tlab:empty { display: none; }
+.card > .ftex-row, .card > .params, .card > .note, .card > .pchips, .card > .err-msg, .card > .swatches { display: none !important; }
+/* states: selected = accent outline; shown alone = accent index tag; bypassed = the hatch; error = red border */
+.card.focus { border-color: var(--line); outline: 0; }
+.card.focus .idx { background: var(--accent); color: var(--accent-ink); }
+.card.sel, .card.sel:hover { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
+.card.sel.quiet { border-color: var(--line-strong); outline-color: var(--line-strong); }
+.card.focus:focus-visible, .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card.bad, .card.bad:hover, .card.bad.sel { border-color: var(--error); outline-color: var(--error); }
+/* connectors: 28 px, the variable above the arrow; the + on hover */
+.conn { flex: 0 0 28px; width: 28px; height: 134px; --conn-y: 76px; align-self: flex-start; }
+.conn-line svg { width: 28px; }
+.conn-add { left: 5px; }
+.conn-f { display: none; }
+.conn-last + .add-card { margin-left: 0; }
+.add-card { flex: 0 0 44px; width: 44px; height: 134px; padding: 0; gap: 0; align-self: flex-start; }
+.add-card > span:not(:first-child) { display: none; }
+/* the F tile closes the chain: F and its lit guarantees (no "1 of 8") */
+.ftile {
+  position: relative; flex: 0 0 88px; width: 88px; height: 134px; margin-left: 8px; padding: 0 6px; align-self: flex-start;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); color: var(--ink); cursor: pointer;
+  scroll-snap-align: start; transition: border-color var(--t-fast) var(--ease-out);
+}
+.ftile:hover { border-color: var(--line-strong); }
+.ftile.sel { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
+.ftile:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ftile .fF { font: italic 500 26px/1 var(--f-math); }
+.ftile .fl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 76px; }
+.ftile .lamp { display: flex; align-items: flex-start; gap: 5px; font: 500 11.5px/13px var(--f-ui); font-stretch: 87.5%; color: var(--ink-2); text-align: left; hyphens: manual; }
+.ftile .lamp::before { content: ""; flex: 0 0 8px; width: 8px; height: 8px; margin-top: 2.5px; border-radius: var(--r-1); background: var(--good); }
+.ftile .lamp[hidden] { display: none; }
+.ftile .lampq { color: var(--muted); }
+.ftile .lampq:empty { display: none; }
+.ftile .fnone { font: 500 11.5px/13px var(--f-ui); font-stretch: 87.5%; color: var(--muted); text-align: center; }
+.ftile .fnone[hidden] { display: none; }
+/* names only (the Names switch): heads alone */
+.pipeline.compact .card { height: 36px; flex-basis: 0; width: auto; contain-intrinsic-size: auto 36px; }
+.pipeline.compact .card > :not(.card-head) { display: none !important; }
+.pipeline.compact .card-head { border-bottom: 0; }
+.pipeline.compact .conn { height: 36px; --conn-y: 22px; }
+.pipeline.compact .conn-var { display: none; }
+.pipeline.compact .add-card { height: 36px; flex-direction: row; }
+.pipeline.compact .ftile { height: 36px; flex-direction: row; gap: 8px; width: auto; flex-basis: auto; min-width: 88px; padding: 0 10px; }
+.pipeline.compact .ftile .fF { font-size: 18px; }
+.pipeline.compact .ftile .fl { flex-direction: row; }
+.pipeline.compact .ftile .lamp ~ .lamp { display: none; }
+
+/* ---------- the Inspector (the right panel) ---------- */
+.panel.right { overflow: hidden; }
+#propsPanel { display: flex; flex-direction: column; min-height: 100%; }
+.panel.right > #propsPanel { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.insp-sel { flex: 0 0 auto; }
+.insp-params { flex: 1 0 auto; min-height: 240px; }
+.insp-params[hidden] { display: none; }
+.insp-params > h2 { margin-bottom: 6px; }
+.ihead { display: flex; align-items: center; gap: 6px; min-height: 28px; margin: 0 0 10px; font: var(--t-heading); color: var(--ink); }
+.ihead .ty { display: inline-grid; place-items: center; width: 14px; height: 14px; color: var(--ink-2); flex: 0 0 14px; }
+.ihead .ty svg { width: 14px; height: 14px; display: block; }
+.ihead .ttl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.ihead .icon-btn { width: 28px; height: 28px; flex: 0 0 auto; }
+.ihead .icon-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.ihead .fF { font: italic 500 15px/1 var(--f-math); padding: 0 4px; }
+.iform { padding: 10px 12px; margin: 0 0 12px; background: var(--well); border-radius: var(--r-2); font-size: 15px; color: var(--ink); overflow-x: auto; scrollbar-width: thin; }
+.iform .ftex { white-space: nowrap; }
+.iform .ftex.long { white-space: normal; font: var(--t-label); color: var(--muted); }
+.iform .wl { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 13.5px; }
+.iform .wl > div { white-space: nowrap; }
+.inote { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
+.inote:empty { display: none; }
+.ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
+.ierr:empty { display: none; }
+/* fields: one row each, 32 px, the symbol, the field, the Argand button */
+#propsPanel .params { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin: 0 0 10px; }
+#propsPanel .params .pf, #propsPanel .params .pf.wide { grid-template-columns: 30px minmax(0, 1fr); gap: 6px; min-height: 32px; grid-column: auto; }
+#propsPanel .params .pl { font: italic 500 15px/20px var(--f-math); color: var(--ink-2); overflow: visible; }
+#propsPanel .params .pl sub { font-size: 10px; font-style: normal; }
+#propsPanel .params .inp, #propsPanel .params select.inp { height: 32px; font-size: 13px; padding: 0 10px; }
+#propsPanel .params .pair > .inp:has(+ .argand) { padding-right: 34px; }
+#propsPanel .params .icon-btn.argand { width: 28px; height: 28px; right: 2px; }
+#propsPanel .params.matrix2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin: 0 0 10px; padding: 2px 10px; }
+#propsPanel .params.matrix2::before, #propsPanel .params.matrix2::after { top: 0; bottom: 0; height: auto; width: 4px; border-width: 1.25px; }
+#propsPanel .params.matrix2 .pf { grid-template-columns: 22px minmax(0, 1fr); }
+/* zeros and poles: Add zero and Add pole are 36 px; one row per zero and pole, with Remove */
+#propsPanel .params.zp .pf.zp-adds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; min-height: 36px; }
+#propsPanel .zp-add { height: 36px; gap: 8px; font: 600 13px/16px var(--f-ui); border-radius: var(--r-2); }
+#propsPanel .zp-add:hover { background: var(--well); }
+#propsPanel .zp-add .zp-mark { flex-basis: 10px; width: 10px; height: 10px; }
+#propsPanel .zp-add.poles .zp-mark::before, #propsPanel .zp-add.poles .zp-mark::after { top: 4px; }
+#propsPanel .zp-add .zp-n { display: none; }
+#propsPanel .params.zp .zp-hint { font: var(--t-label); color: var(--muted); margin: 0 0 4px; }
+#propsPanel .params.zp .pf.zp-item, #propsPanel .params.zp .pf.zp-item.wide1 { grid-column: auto; }
+#propsPanel .pf.zp-item .pair > .inp { padding-right: 64px; }
+#propsPanel .pf.zp-item .icon-btn.argand { right: 32px; }
+#propsPanel .icon-btn.zp-del { width: 28px; height: 28px; right: 2px; }
+#propsPanel .icon-btn.zp-del svg { width: 14px; height: 14px; }
+.isub { font: var(--t-label); color: var(--muted); margin: 10px 0 0; }
+.isub:empty { display: none; }
+/* F: the expanded formula, the lit guarantees in words, one muted line, the domain, folded tables */
+.iglist { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 4px; }
+.iglist .lamp { display: inline-flex; align-items: center; gap: 6px; font: var(--t-heading); font-size: 13.5px; color: var(--ink); }
+.iglist .lamp::before { content: ""; width: 8px; height: 8px; border-radius: var(--r-1); background: var(--good); }
+.iglist .lamp[hidden] { display: none; }
+.iglist .lampq { font: var(--t-label); color: var(--muted); }
+.iglist .lampq:empty { display: none; }
+.ignot { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
+.idom { font: var(--t-body); color: var(--ink-2); margin: 0 0 8px; }
+.idom ul { margin: 4px 0 0; padding-left: 18px; }
+.ifold { border-top: 1px solid var(--line); }
+.ifold > summary { display: flex; align-items: center; gap: 6px; height: 30px; font: var(--t-label); color: var(--ink-2); cursor: pointer; list-style: none; }
+.ifold > summary::-webkit-details-marker { display: none; }
+.ifold > summary::before { content: ""; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); margin: 0 3px; transition: transform var(--t-fast) var(--ease-out); }
+.ifold[open] > summary::before { transform: rotate(45deg); }
+.ifold p { font: var(--t-label); color: var(--ink-2); margin: 0 0 8px; }
+.ifold .matrix { margin: 0 0 8px; }
+.iregion .swatches { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 8px; }
+.iregion .swatches .swatch { width: 12px; height: 12px; }
+/* the temporary Inspector: the panel hidden, the editor slides in over the stage's right edge */
+#propsPanel.temp {
+  position: fixed; z-index: 25; display: flex !important; width: 288px; min-height: 0; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3);
+  animation: drawer-r var(--t-med) var(--ease-out);
+}
+.tbar { display: none; }
+#propsPanel.temp > .tbar { display: flex; align-items: center; gap: 8px; flex: 0 0 32px; height: 32px; padding: 0 4px 0 12px; border-bottom: 1px solid var(--line); font: var(--t-label); color: var(--muted); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+#propsPanel.temp > .tbar .grow { flex: 1 1 auto; }
+#propsPanel.temp > .tbar .kbd { font: 400 11px/16px var(--f-mono); color: var(--faint); }
+#propsPanel.temp > .tbar .icon-btn { width: 24px; height: 24px; }
+/* the plane under it keeps its legend and zoom buttons clear of it */
+.pane.under-insp .viewstack { right: calc(8px + var(--insp-w, 288px)); }
+.pane.under-insp .legend-chip { margin-right: var(--insp-w, 288px); }
+.pane.under-insp .options { margin-right: var(--insp-w, 288px); }
+.rail .rail-icons { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rail .rail-icons .icon-btn { width: 28px; height: 28px; }
+.rail-lamps { display: none; }
+
+/* ---------- breakpoints (DESIGN.md 4) ---------- */
+/* 1024 to 1279: the left panel is a rail, the Inspector docks at 264 px; one side panel docks at a time */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .layout { --lw: 240px; --rw: 264px; }
+  .layout.hide-left { --lw: 36px; }
+  .layout.hide-right { --rw: 36px; }
+  .layout:not(.hide-right) > .panel.right { position: relative; z-index: auto; top: auto; bottom: auto; right: auto; width: auto; background: var(--panel); border-color: var(--line); border-radius: var(--r-3); box-shadow: none; animation: none; }
+  .ftile { flex-basis: 72px; width: 72px; }
+}
+/* 768 to 1023: no right column; the Inspector docks under the chain (320 px): Selection two thirds, Parameters one third */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .layout { --rw: 0px; grid-template-columns: var(--lw) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 320px; row-gap: 8px; }
+  .layout.hide-right { grid-template-rows: minmax(0, 1fr) 0; row-gap: 0; }
+  .layout > .panel.left { grid-row: 1 / -1; }
+  .layout > .stage { grid-row: 1; }
+  .layout > .panel.right, .layout:not(.hide-right) > .panel.right {
+    grid-column: 2; grid-row: 2; position: relative; z-index: auto; top: auto; bottom: auto; right: auto; width: auto;
+    background: var(--panel); border-color: var(--line); border-radius: var(--r-3); box-shadow: none; animation: none;
+  }
+  .layout.hide-right > .panel.right { display: none; }
+  .layout > .panel.right > .rail { display: none !important; }
+  .layout > .panel.right > #propsPanel { display: grid !important; grid-template-columns: 2fr 1fr; align-items: start; }
+  .layout > .panel.right > #propsPanel > .insp-sel { grid-column: 1; min-height: 100%; border-bottom: 0; border-right: 1px solid var(--line); }
+  .layout > .panel.right > #propsPanel > .insp-params { grid-column: 2; min-height: 0; }
+  .layout > .panel.right > #propsPanel > .insp-params[hidden] ~ .insp-sel, .layout > .panel.right > #propsPanel:has(> .insp-params[hidden]) > .insp-sel { grid-column: 1 / -1; border-right: 0; }
+  #propsPanel .insp-step .params:not(.zp):not(.matrix2) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
+  #propsPanel .params.zp { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
+  #propsPanel .params.zp .pf.zp-adds, #propsPanel .params.zp .zp-hint { grid-column: 1 / -1; }
+  .ftile { flex-basis: 72px; width: 72px; }
+}
+/* the phone keeps its stacked page until its own redesign: the Inspector is a disclosure after the chain */
+@media (max-width: 767px) {
+  .stage { grid-template-rows: none; }
+  .card { flex: 0 0 min(180px, 56vw); width: min(180px, 56vw); max-width: none; }
+  .card.region-card { flex-basis: min(160px, 50vw); width: min(160px, 50vw); }
+  .ftile { flex: 0 0 88px; }
+  .pipeline.compact .card { flex-basis: min(160px, 50vw); width: min(160px, 50vw); }
+}
+.iform mjx-container[display="true"] { margin: 0 !important; text-align: left !important; }
+.card.region-card.focus .idx { background: var(--well); color: var(--ink); }
+/* (the lit names are words, not the old lamp rows) */
+.ftile .lamp, .iglist .lamp { min-height: 0; padding: 0; border-top: 0; cursor: inherit; background: none; grid-template-columns: none; transition: none; }
+.ftile .lamp:hover, .iglist .lamp:hover { background: none; }
+.ftile .lamp .lampname, .iglist .lamp .lampname { font: inherit; color: inherit; white-space: normal; overflow: visible; }
+.ftile .lampq, .iglist .lampq { font: 400 10.5px/13px var(--f-mono); text-align: left; }
+/* a narrower stage (below 1440): 16 px connectors, a 36 px add tile, so the region, three steps and F fit at 1024 */
+@media (min-width: 768px) and (max-width: 1439px) {
+  .conn { flex-basis: 16px; width: 16px; }
+  .conn-var { font-size: 11px; }
+  .conn-line svg { width: 16px; }
+  .conn-add { left: -1px; }
+  .add-card { flex-basis: 36px; width: 36px; }
+  .ftile { flex-basis: 72px; width: 72px; margin-left: 6px; }
+  .ftile .lamp { font-size: 11px; }
+}
+/* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1440 in
+   English, 1600 in Russian); Examples keeps its word */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; }
+  .top .cmd-field .cmd-text { display: none; }
+  #examplesBtn { flex-shrink: 0; }
+}
+@media (min-width: 1440px) and (max-width: 1599px) {
+  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; }
+  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
+}
+.pane.under-insp .legend-chip:not(.calc-chip) { right: calc(8px + var(--insp-w, 288px)); margin-right: 0; }
+/* (a long lit name breaks by syllables in the narrow tile, in the page's language) */
+.ftile .lamp .lampname { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; min-width: 0; }
+.ftile .fl { min-width: 0; }
+@media (max-width: 767px) { .rail .rail-icons { display: none; } }
+/* a step shown alone: the chip in X's head, with its × back to the whole chain */
+.alone-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 22px; margin-right: 6px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
+.alone-chip[hidden] { display: none; }
+.alone-chip i { font: italic 500 13px/1 var(--f-math); }
+.alone-chip sub { font-size: 9.5px; }
+.alone-chip .icon-btn { width: 20px; height: 20px; color: var(--accent); }
+.alone-chip .icon-btn svg { width: 12px; height: 12px; }
+/* (a lit name and its qualifier: "Rational", then "deg 2" under it, inside the narrow tile) */
+.ftile .lamp { display: grid; grid-template-columns: 8px minmax(0, 1fr); column-gap: 5px; align-items: start; }
+.ftile .lamp::before { grid-row: 1; grid-column: 1; }
+.ftile .lamp .lampname { grid-column: 2; }
+.ftile .lamp .lampq { grid-column: 2; }
+.insp-step .isub { font: 400 13.5px/18px var(--f-math); color: var(--ink-2); }
+/* ---------- v15 review fixes (notes/ui-redesign-2/ledger-v15.json) ---------- */
+/* design-7: the hover actions sit on the picture's top-right corner, on a small surface; the name keeps its width */
+.card .acts { top: 40px; right: 4px; padding: 1px; border: 1px solid var(--line); box-shadow: var(--shadow-1); }
+/* design-13: the card of the step the deformation is in; a held picture shows no t (its t is not the current one) */
+.card.playing, .card.playing:hover, .card.sel.quiet.playing { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -2px; }
+.card.stale .tlab { visibility: hidden; }
+/* russian-2: a Russian card name breaks by syllables with a hyphen, never inside a word without one */
+:root[data-lang="ru"] #pipeline .card .nm { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: normal; word-break: normal; }
+/* russian-11: the words of a domain condition in the interface's type */
+.idom .itxt { font: inherit; color: inherit; }
+/* design-5: the temporary Inspector with X and Y side by side takes the stage's right 296 px while it is open */
+.layout.temp-dock > .stage { margin-right: 296px; }
+#clearChain[hidden] { display: none !important; }
+.pipe-head #chainMoreBtn { width: 28px; height: 28px; }
+/* design-16: at 768 to 1023 the zeros fill the left column and the poles the right, under a₃ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #propsPanel .params.zp { grid-auto-flow: row dense; }
+  #propsPanel .params.zp > .pf:not(.zp-item) { grid-column: 1 / -1; }
+  #propsPanel .params.zp > .pf.zp-item:has(.zp-sym.zeros) { grid-column: 1; }
+  #propsPanel .params.zp > .pf.zp-item:has(.zp-sym.poles) { grid-column: 2; }
+}
+/* russian-1, design-15: in Russian the tile's word takes the tile's whole width under its lamp, one word a line
+   (short predicative forms: «Аналитична»); «Дробно-линейна» breaks at its own hyphen only */
+:root[data-lang="ru"] .ftile .fl { align-items: stretch; width: 100%; max-width: none; }
+:root[data-lang="ru"] .ftile .lamp { grid-template-columns: minmax(0, 1fr); justify-items: center; row-gap: 2px; text-align: center; }
+:root[data-lang="ru"] .ftile .lamp::before { grid-row: auto; grid-column: 1; margin-top: 0; }
+:root[data-lang="ru"] .ftile .lamp .lampname, :root[data-lang="ru"] .ftile .lamp .lampq { grid-column: 1; text-align: center; hyphens: manual; -webkit-hyphens: manual; overflow-wrap: normal; }
+@media (min-width: 768px) and (max-width: 1439px) { :root[data-lang="ru"] .ftile .lamp { font-size: 10.5px; } }
+:root[data-lang="ru"] .pipeline.compact .ftile .lamp { row-gap: 1px; }
+/* russian-12: below 1100 px the Russian plane subtitle gives way (it was cut to «область определени…») */
+@media (min-width: 768px) and (max-width: 1099px) { :root[data-lang="ru"] .pane-title .sub { display: none; } }
+/* russian-9: an inline formula in a hint never breaks inside */
+.prm-empty i { white-space: nowrap; }
+/* design-14: the chain's listbox is an empty owner (aria-owns the options); it takes no room */
+#pipeline > .chain-lb { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "video-1",
+    "severity": "high",
+    "title": "Dark theme: every video frame and filmstrip render makes long main-thread tasks (78-440 ms) and runs 4x slower",
+    "detail": "artRender (app.js ~9510-9527) sets data-theme='light' on <html> and sets it back for every render when TH.dark. A MutationObserver on <html> data-theme (app.js 12695) then calls themeChanged() after each render. That handler runs readTheme, buildDisplay, buildShapeList and drawLegend, clears the ruler caches, and redraws L, R and T. A video renders once per new t, so in the dark theme this runs about 130-1000 times per video. It also runs on each of the filmstrip's renders. Each flip also forces a full style recalculation (7-21 ms each with the dialog open). The builder's tests (export_cmd.js, longtask_*_cmd.js) and ROUND3.md measure only the light theme, so this is not covered. It breaks the user's rule that export work never blocks the main thread for more than 50 ms. It is a likely cause of the 50-104 ms tasks the build report blames on load.",
+    "evidence": "Runs were interleaved under the same load, 1280x720 30 fps 3 s light-look video, plane (test/rv3v_cdp/v8_cmd.js). Dark: 28 and 16 long tasks (top 161, 145, 139 ms), frame median 52/42 ms, 5.9/4.9 s. Light: 0 long tasks, frame median 13/12 ms, 1.4/1.3 s. v5_cmd.js at load ~3: dark median 51 ms, p90 108, max 170-206; light median 13, max 21. v7_cmd.js, 1080p 4 s with the dialog open: dark 104 long tasks (max 221 ms) in the light look and 85 (max 440 ms) in the print look; light theme 0 and 1. Filmstrip build in the dialog's path (__cmwFig.build deform:'film', v9_cmd.js): globe dark 6 long tasks (215, 173, 153 ms), light 0; plane dark 1-2 (93 ms), light 0.",
+    "fix": "Do not let the export's temporary theme flip reach themeChanged. Set a flag around the flip in artRender and return early from themeChanged while it is set (the theme ends where it started, so nothing needs rebuilding). A better fix is to read the light-theme tokens once (a cached light TH snapshot) and swap TH in memory without touching data-theme. Then add dark-theme runs to export_cmd.js (videos and filmstrips) and to the long-task probes."
+  },
+  {
+    "id": "video-2",
+    "severity": "medium",
+    "title": "A video made while the tab or frame is hidden runs at about 1 frame per second",
+    "detail": "Each rendered frame waits on setTimeout-based polls: GLR.gpuDone polls with setTimeout(poll, 4), and the back-pressure loop waits with setTimeout(4). Browsers limit timers in hidden pages to about one per second. A user who switches tabs while a video is made comes back to an almost stalled job. The dialog says nothing about it. Default 4 s 1080p30: about 130 rendered frames, so more than 2 min hidden instead of about 2 s. 8 s 60 fps bounce: about 960 rendered frames, so about 16 min. A claude.ai artifact iframe that scrolls out of view or sits in a background tab is throttled the same way.",
+    "evidence": "test/rv3v_cdp/v4_cmd.js: visible, 127 frames in 1569 ms. Then a second tab was put in front (document.visibilityState 'hidden'). Progress went from frame 28 to 36 in 8 s (about 1 frame/s). The video finished only after the tab came back, at 9750 ms.",
+    "fix": "Take timers out of the per-frame path. Poll gpuDone with a MessageChannel or scheduler.postTask loop, or with a fence check on the next frame. Wait for back-pressure with the encoder's 'dequeue' event. Also watch visibilitychange during makeVideo and show a line such as 'Keep this tab in front while the video is made' (or pause and resume)."
+  },
+  {
+    "id": "video-3",
+    "severity": "medium",
+    "title": "'Save figure again' after a video: silent full re-render with no progress or Cancel; fails with a generic error when the deformation is off",
+    "detail": "again('save') with set.last.kind === 'video' calls makeVideo(optsOf(set, {video})) directly (figure.js again()). The video is rendered again with no dialog, progress or Cancel. The user can keep editing the scene, and each frame renders the live state while plan.box, the tracked points and the H_t cache were fixed at the start, so frames can mix states. When the deformation has been turned off since then, makeVideo throws 'The deformation is off'. app.js 9691 then toasts 'The figure could not be made here.', and the menu item stays enabled. 'Copy figure again' after a video falls through to copying a PDF figure snippet the user never exported.",
+    "evidence": "test/rv3v_cdp/v2_cmd.js: settings().last = {kind:'video', fmt:'webm'}. again('save') took 5566 ms (553 frames), and no progress UI (.xf-prog, aria-busy) was seen during it. After toggling the deformation off (defoOf() null), again('save') rejected with 'The deformation is off'.",
+    "fix": "For last.kind 'video', open the Export dialog on Format = Video (progress and Cancel included) instead of rendering in the background. Or show progress and Cancel in a toast, and block editing while it runs. When the deformation is off, fall back to the last figure format, or disable 'Save figure again' with a reason."
+  },
+  {
+    "id": "video-4",
+    "severity": "low",
+    "title": "The last video's encoded data and plan stay in memory after the save (a test-only hook in production)",
+    "detail": "makeVideo stores lastVideo = {chunks, desc, plan, times, ...} for videoCheck, which only the tests use. It ships in the published file and is never cleared. The chunks equal the whole file (up to about 55 MB at the 16 Mbit/s cap for an 8 s loop at 60 fps). plan keeps o (with the dialog's alive closure, which keeps the closed dialog's scope: fig, the poster data URL and the DOM), the shapes and up to 400 cached H_t closures. All of this stays until the next video.",
+    "evidence": "test/rv3v_cdp/v1_cmd.js, Runtime.getHeapUsage after a forced GC: backingStorageSize was 6 MB before, 8 MB after the 2.3 MB default video, and 19 MB after the 12.2 MB 1080p60 8 s bounce video. The growth matches the encoded size. dist/complex-map-workbench.html contains videoCheck and lastVideo (5 matches).",
+    "fix": "Keep lastVideo only when a test asks for it (for example opts.keepForCheck, or only when window.__cmwFig exists), or drop chunks and plan once the blob is made. Do not keep o.alive in the plan after the run."
+  },
+  {
+    "id": "video-5",
+    "severity": "low",
+    "title": "The dialog shows '.mp4' while the file it will save is .webm (VP9 fallback)",
+    "detail": "syncFmt sets extEl to '.mp4' for every video. On a browser without an H.264 encoder (Chromium without proprietary codecs, some Linux and Firefox builds), pickEncoder picks VP9 and the file saved is <name>.webm. The name field still says .mp4 before and after the save. Only the after-line says 'VP9 (WEBM)'.",
+    "evidence": "test/rv3v_cdp/v2_cmd.js with isConfigSupported refusing avc1: the extension label was '.mp4' before Save; the file saved was 'strip-to-disk-deformation.webm'; the label was still '.mp4' after. The file itself is fine (V_VP9 1920x1080, 253 blocks, 3 key frames, plays and seeks in Chrome).",
+    "fix": "Run pickEncoder once when Format = Video is chosen (cache the result). Set the extension, and say 'WebM (VP9)' in the hint, from it."
+  },
+  {
+    "id": "video-6",
+    "severity": "low",
+    "title": "Video is offered when the browser has no VideoEncoder; the user finds out only after Save",
+    "detail": "fOpts adds Video whenever the deformation is on. With no VideoEncoder, the user can choose Video, sees a poster and options, and clicks Save video. makeVideo then builds the plan (four renders in videoBox) before pickEncoder fails. Only then does a toast say the browser cannot encode video.",
+    "evidence": "test/rv3v_cdp/v2_cmd.js with window.VideoEncoder undefined: the format row still had pdf,png,svg,video (not disabled), and the poster rendered. Save video gave the toast 'This browser cannot encode video. Try a recent Chrome, Edge or Safari.' after 174 ms, and the console showed 'Error: This browser cannot encode video (no WebCodecs encoder)'. Nothing was saved, which is correct.",
+    "fix": "Check typeof VideoEncoder (and one isConfigSupported) when building the format row. Show Video disabled with the reason, or say it in the video panel before Save. Call pickEncoder before videoPlan."
+  },
+  {
+    "id": "video-7",
+    "severity": "low",
+    "title": "The progress text is a live region updated on every frame; the progress bar has no value",
+    "detail": "progTxt has role='status' (aria-live polite), and its text changes on every frame ('Frame 1 of 553' and so on, up to 60 times a second). Screen readers announce it over and over or queue it up. The div with role='progressbar' never sets aria-valuenow, aria-valuemin or aria-valuemax, so it reports no progress.",
+    "evidence": "test/rv3v_cdp/v2_cmd.js recorded 46 distinct role=status texts ('Frame 1 of 553' to 'Frame 46 of 553') in the first few seconds of one run. figure.js 2678-2680: role 'status' on .xf-progtxt; no aria-valuenow anywhere in figure.js.",
+    "fix": "Move role='status' off the per-frame text (aria-live='off'). Announce only the start, every 25 % and the end. Set aria-valuenow, aria-valuemin and aria-valuemax on the progressbar."
+  },
+  {
+    "id": "video-8",
+    "severity": "low",
+    "title": "MP4 muxer assumes no frame reordering and a present avcC; it does not check either",
+    "detail": "makeVideo sorts chunks by timestamp (presentation order) before muxMP4 and writes no ctts. That is correct only when the encoder emits no B-frames. If an encoder reorders frames (possible with another platform encoder or a later browser), the samples come out of decode order and the file is broken. If the encoder gives no decoderConfig.description (an encoder that ignores avc.format 'avc' and emits Annex B), muxMP4 writes an empty avcC. The file is then saved and reported as '✓ Saved', but it will not play.",
+    "evidence": "Not seen in Chrome 156 on macOS. Every MP4 here has max_num_ref_frames 1 and no ctts; the IDR samples are exactly the stss entries; my own box and SPS parser (<tmp>) and an AVFoundation full decode (avcheck.swift) found no problem. The risk is in figure.js makeVideo: 'chunks.sort((a, b) => a.ts - b.ts)' and 'muxMP4(chunks, desc || new Uint8Array(0), ...)'.",
+    "fix": "Keep the encoder's output order (do not sort). If timestamps are not increasing, write ctts or fail. Throw a clear error when desc is missing or the first sample starts with an Annex B start code (00 00 00 01). Setting no B-frames explicitly is not possible in WebCodecs, so check instead."
+  },
+  {
+    "id": "video-9",
+    "severity": "low",
+    "title": "WebM fallback has no Cues (seek index)",
+    "detail": "muxWebM writes EBML, Info (with Duration), Tracks and Clusters, but no Cues and no SeekHead. Chrome seeks it well. Players that need Cues (some desktop players, editors, mkvalidator) seek slowly or cannot seek, and some show the file as not seekable.",
+    "evidence": "<tmp> on the fallback 1920x1080 60 fps file: cues false, seekhead false, 3 clusters, 253 blocks, timestamps increasing by 16-17 ms. Chrome <video>: duration 4.217 s, seeks in 22-66 ms, plays to the end with 0 corrupted frames.",
+    "fix": "Write a Cues element (one CuePoint per cluster: time, track 1, cluster position) after the clusters, and a small SeekHead. The cluster offsets are already known when the body is built."
+  },
+  {
+    "id": "video-10",
+    "severity": "low",
+    "title": "During a run the dialog jumps by 36 px, and the video options stay live",
+    "detail": "When Save video starts, the progress row appears in the footer and the dialog grows 36 px (it moves up 18 px). Size, Speed, Ends, Look, Paths and t label stay enabled while a video is made. Changing one has no effect on the video being made (its plan is fixed). It does start a new poster render in parallel and rewrites the hint ('1920 × 1080 · 30 fps · …') to settings that are not the ones being encoded.",
+    "evidence": "Screenshots test/rv3v_cdp/shots/rv3v-dlg-dark-before.png and rv3v-dlg-dark-during0-5.png: the dialog title moves from y≈138 to y≈120, and the footer gains the progress row. v3_cmd.js clicked Look = Print 0.7 s into a run in each view: the saved video was fine (no breakage), and the poster was rendered again during the run.",
+    "fix": "Reserve the progress row's height (or put the bar in place of the footer's name row) and disable the video options during a run."
+  },
+  {
+    "id": "video-11",
+    "severity": "low",
+    "title": "Landscape and globe videos are the pane's picture letterboxed: the subject fills a small part of the frame",
+    "detail": "The plane, d/dz and Phase kinds get a window fitted to the frame (videoBox). The globe, phase-sphere and Landscape kinds render the pane's picture at the video's size with no crop. The landscape relief takes about 40 % of the width of a 1280x720 frame, and the 1080x1080 globe has wide margins. The filmstrips crop these kinds ('one union crop'), but the video does not. The Landscape frame's vertical axis is still labelled |F| while the surface is log|H_t| (at t = 0, the identity).",
+    "evidence": "Frames decoded with AVFoundation: <tmp> (video-land.mp4 frame 100: the relief spans x≈290-630 of 900 in the downscaled view) and out/globe60.png (video-globe.mp4 frame 60).",
+    "fix": "Use the filmstrip's union crop for the globes and the landscape: render 4 frames, take the union of the content boxes, then fit to the video's aspect, as videoBox does for plane kinds. Relabel the landscape axis |H_t| in a deformation video (or hide it)."
+  }
+]

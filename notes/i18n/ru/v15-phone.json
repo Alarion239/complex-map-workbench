@@ -1,0 +1,12 @@
+{
+  "_about": "v15 phone layout (work/xva, src/phone.js; notes/ui-redesign-2/build/phone.md): the strings it adds. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md (Тема, Настройки, Поиск as in the glossary; buttons and menu rows are verbs or nouns, no final period). Read by tools/make_ru_table.py (v15-*.json).",
+  "v15ph.numbers": { "en": "Numbers", "ru": "Числа", "note": "The chain bar's first chip on a phone when there are no shared numbers yet (phone/DESIGN.md 3.3: «Числа»); also its accessible name." },
+  "v15ph.numbers_list": { "en": "Numbers: {list}", "ru": "Числа: %{list}", "note": "Accessible name of the Numbers chip: the names of the shared numbers, comma-separated (a, ρ)." },
+  "v15ph.theme": { "en": "Theme", "ru": "Тема", "note": "Row label in the phone's More sheet, followed by the Auto / Light / Dark switch (GLOSSARY: Тема: Авто / Светлая / Тёмная)." },
+  "v15ph.settings": { "en": "Settings", "ru": "Настройки", "note": "Link on the Sound row of the phone's More sheet: opens the sound settings (GLOSSARY: Настройки звука)." },
+  "v15ph.this_view": { "en": "This view", "ru": "Этот вид", "note": "Heading in the phone's Display sheet over the options of the open view (the ones the plane's sliders button held)." },
+  "v15ph.resize": { "en": "Resize the sheet", "ru": "Изменить высоту панели", "note": "Accessible name of the bottom sheet's grabber: a tap toggles half and full height." },
+  "v15ph.show_large": { "en": "Show {x} large", "ru": "Показать %{x} крупно", "note": "Accessible name of the small inset plane on a phone: a tap swaps it with the large plane. {x} is X or Y (Latin, italic in the picture)." },
+  "v15ph.search": { "en": "Search functions and commands", "ru": "Поиск функций и команд", "note": "Row in the phone's More sheet: opens the command palette (GLOSSARY: Поиск)." },
+  "v15ph.links": { "en": "Links, scenes and LaTeX", "ru": "Ссылки, сцены и LaTeX-код", "note": "Row in the phone's More sheet: opens the export menu (copy LaTeX, copy link, save and open scene files)." }
+}

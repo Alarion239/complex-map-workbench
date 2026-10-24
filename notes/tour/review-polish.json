@@ -1,0 +1,74 @@
+[
+ {
+  "id": "polish-1",
+  "severity": "high",
+  "title": "Phone landscape: the lit target is clipped to nothing, so the step lights an empty strip",
+  "detail": "After rotating a phone (844 x 390, touch), the X/Y panes shrink to a 24 px strip (#panes 44-68 px). Targets inside them are cut away by that container. The engine still shows the step: the hole for 'Play and scrub' (deform/transport, Try it: drag t) is {l 92, t 77, r 752, b 77}, zero height, because .tdock (77-117 px) lies below the panes' clip. 'Paths' (deform/paths) also gets a zero-height hole. The user sees a highlight around the pane title bar and no transport, so the Try it cannot be done. Other steps in landscape light only the 24 px title strip (X, the sphere tab, Cauchy). The engine has no check for an anchor whose visible area is (almost) zero, and the audit never runs landscape sizes. If it did, its seen() would call this 'appOverflow' (the panel cannot scroll) and not a failure.",
+  "evidence": "t5.js at 844x390 dsf 2, touch, safe area L/R 47 B 21: deform1 holes [{92,77,752,77},{91,44,753,68}], tdock [92,77,752,117], panes [91,44,753,68]; deform2 hole {96,118,164,118}. Screenshots work/xvt/test/rvp_cdp/shots/t5-land-deform1.png, work/xvt/test/rvp2_cdp/shots/t3/land844-deform-transport.png, work/xvt/test/rvp2_cdp/shots/t3/land844-analysis-cauchy.png. Rotating mid-step itself works (card inside the viewport and safe area, hole equals the 24 px pane): work/xvt/test/rvp_cdp/shots/t6-rotated.png.",
+  "fix": "Engine: when the anchor's visible box is under a few px (or under ~25 % of its border box) after reveal(), and no scrolling panel can bring it in, do not draw an empty hole. Light the nearest clipping ancestor (or the step's also area), say so in the copy, or skip the step and report it (see polish-3). Audit: add landscape sizes (844x390, 932x430, 1024x600) and fail on a zero-area anchor hole. App (not the tour): the panes collapse to 24 px in phone landscape."
+ },
+ {
+  "id": "polish-2",
+  "severity": "medium",
+  "title": "Toasts are hidden under the callout (a regression)",
+  "detail": "The callout now sits above every app layer, toasts included (z 2147483000 vs #toastHost z 60). Before, the callout was at z 35, below toasts. The callout does not move away from toasts: place() only avoids popovers, dialogs and the sound popover. On a phone the bottom sheet covers the toast area, so every toast is invisible during a tour. That includes toasts with an Undo action (.toast-act), e.g. after a delete or a Clear chain in a Try it step. The rings are also drawn over toasts, since the mask only cuts open layers.",
+  "evidence": "t6.js, 390x844 RU dark touch, safe area 47/34, basics/x: __tourApi.toast('...') gives toast [42,710,348,746], callout [12,557,378,798]. elementFromPoint at the toast's centre is the tour card. Screenshot work/xvt/test/rvp_cdp/shots/t6-toast.png.",
+  "fix": "Add the visible '#toastHost > .toast' boxes to the block rects passed to place() and to the ring mask, so the callout moves aside like it does for a menu. Or, while a tour runs, raise #toastHost above .tour-top (toasts are short and small). The audit should open a toast during a step."
+ },
+ {
+  "id": "polish-3",
+  "severity": "medium",
+  "title": "Steps are skipped silently, and the audit counts that as a pass",
+  "detail": "When an anchor is missing, show() skips the step, and the audit only rows the steps it visits. So 'Phase key' (views/key) never shows in Russian at 768, 1024 and 1280 px. In Russian the #wKeyChkR option moves into the overflow popover, so the anchor is not in the DOM. 'Your shapes', 'Sets from formulas' and 'Patterns' never show at 768 px, where the left panel is a closed drawer (#secShapes is 0 x 0). The audit's own rows show this: 35 step views per config at 1024 EN, 34 at 1024 RU, 32 at 768 EN and 31 at 768 RU, yet the audit reports 0 failures. The user asked for 'every chapter and step'. A layout change in v15 could drop more steps without anyone noticing.",
+  "evidence": "test/xvt_cdp/audit/final-1..4.json, rows per cfg: 768-*-ru-* miss basics/shapes, basics/formula, views/patterns, views/key; 1024/1280-*-ru-* miss views/key. t8.js: Tour.start({chapter:'views', step:4}) at 1024 RU lands on views/patterns, and #wKeyChkR is 'missing'; at 1024 EN it is shown (label 84x24 at 752,425).",
+  "fix": "Audit: build the expected step list per config (CHAPTERS minus steps absent by design: wide below 640, needs) and fail on any step not visited. Engine: expose the skipped steps (e.g. Tour.lit().skipped or a Tour.skipped() list) and warn once per skip. Content (xva/v15): give these anchors a fallback (the options sliders button, the drawer's rail) or a 'panel' action that opens the drawer first."
+ },
+ {
+  "id": "polish-4",
+  "severity": "medium",
+  "title": "Escape and Tab ignore the sound settings popover: Esc ends the tour and leaves the popover open",
+  "detail": "The engine's layerEls() counts '.snd-pop:not([hidden])', but appLayerOpen() asks the app's layerOpen(), which only checks popEl, padEl, '#popHost > .pop', '.modal-bg' and popovers. The sound popover is none of these. With it open, the tour's Tab trap is active: Tab from inside the popover jumps into the callout, so keyboard users cannot move through the sound settings. Esc in the callout then ends the tour, and the popover stays open. That breaks 'Esc closes the app's layer first, then the tour'. On phones and in the 768-1023 px layout, the popover is reachable during the 'Sound' step through the lit More menu.",
+  "evidence": "t10.js, 1440x900 EN, keys/sound, #soundMore opened: focus on sndOn. Tab -> focus .tour-x (inCard true). Tab -> Back. Esc -> {tour: false, pop: true}. t6.js shows it can be opened by touch at 390 px: More -> sound caret -> #sndPop [16,95,374,660], callout docked.",
+  "fix": "In appLayerOpen(), return true also when layerEls().length > 0 (OR with api.layerOpen()), so the trap and Esc stand aside for every layer the engine itself treats as open. Or ask the app to add .snd-pop:not([hidden]) to layerOpen(). Add the sound popover to the audit's layer pass."
+ },
+ {
+  "id": "polish-5",
+  "severity": "medium",
+  "title": "The audit can pass when the spotlight is wrong: it reads path numbers, not what is drawn",
+  "detail": "Several gaps let a broken spotlight pass. (a) paths() parses the SVG 'd' in viewBox units and never maps them to the screen (getScreenCTM), so a viewBox/size mismatch, a transform or a hidden SVG would all pass (see polish-6). (b) Each target takes its nearest hole, so extra or stale holes elsewhere are never flagged. A zero-area anchor 'matches' a zero-area hole, so polish-1 would pass, filed as appOverflow. (c) The rings and their mask over open layers are never checked: elementFromPoint ignores the pointer-events:none rings. (d) Text overflow is horizontal only (scrollWidth), so vertical overflow (polish-7) is missed. (e) The layer pass opens layers on only 2 steps (keys/0, basics/1). It never opens the reference guide (?), the sound popover, the Language menu or a toast. The tooltip case is synthetic. (f) No landscape, zoomed or short viewports (720x450 = 200 % of 1440x900). (g) settle() trusts the engine's own 'moving' flag. (h) Skipped steps are invisible (polish-3).",
+  "evidence": "test/tour_audit_cmd.js: paths() (no CTM), spot() nearest-hole loop, cardInfo() overflow uses scrollWidth only, runLayer() list, HEIGHT table (portrait only). My own probe maps paths through getScreenCTM; it agreed with the engine wherever the SVG box equals the viewBox.",
+  "fix": "Map hole coordinates through svg.getScreenCTM() and compare against svg.getBoundingClientRect(). Fail on holes that match no target and on zero-area anchor holes. Test the ring mask: no ring/glow segment may intersect an open layer's box. Add scrollHeight > clientHeight + 0.5 checks. Run the layer pass on every step for at least one size per layout (phone, tablet, desktop) and add ?, the sound popover, Language and a toast. Add 844x390, 720x450 and 1152x720 sizes. Assert the visited step list."
+ },
+ {
+  "id": "polish-6",
+  "severity": "medium",
+  "title": "The shade's viewBox uses innerWidth/innerHeight, which include classic scrollbars (likely misaligned on Windows/Linux)",
+  "detail": "drawHoles() sets viewBox '0 0 innerWidth innerHeight'. The SVG fills .tour-root (position: fixed; inset: 0), which is the viewport minus any classic scrollbar. With a root scrollbar, the default preserveAspectRatio (xMidYMid meet) scales the drawing by (W - s)/W and centres it vertically. Holes then drift by up to the scrollbar width at the right edge, plus a few px vertically. partRect() also clamps to innerWidth (under the scrollbar). The page does scroll in these cases: below 640 px, and at 200 % browser zoom on a 1440 x 900 screen (720 x 450 CSS px, root scrollHeight 2672). Windows and Linux Chrome, and macOS with 'always show scroll bars', show a classic (thin) root scrollbar there. Not reproduced here: headless Chrome on this Mac uses overlay scrollbars, even with forced styles (clientWidth == innerWidth).",
+  "evidence": "src/tour.js drawHoles(): ui.svg.setAttribute('viewBox', `0 0 ${W} ${H}`) with W = innerWidth, H = innerHeight. CSS .tour-root { position: fixed; inset: 0 } and .tour-dim { width: 100%; height: 100% }. t4e.js at 720x450 dsf 2: rootScroll 2672, svgBox == viewBox only because the scrollbar overlays.",
+  "fix": "Use document.documentElement.clientWidth/clientHeight (or the SVG's own getBoundingClientRect()) for the viewBox and the clamps, or set preserveAspectRatio='none' with an explicit pixel size. Note: visualViewport (pinch zoom, an on-screen keyboard) is also not taken into account."
+ },
+ {
+  "id": "polish-7",
+  "severity": "low",
+  "title": "The callout's text area scrolls by 2 px when the last line has a formula",
+  "detail": "MathJax's hidden assistive MathML (mjx-assistive-mml) sticks out about 2 px below .tour-scroll (overflow-y: auto). So the text area scrolls whenever the body or Try it ends with a formula. A mouse wheel or trackpad over the text nudges it 2 px. On systems with always-visible scrollbars, a scrollbar would likely appear and narrow the text (not verified: overlay scrollbars here). This is new: v15-base had no scroll container. It shows on 7 steps in EN and RU at every width (basics/formula, basics/add, deform/order, analysis/targets, analysis/domain, branches/deriv, keys/sound).",
+  "evidence": "t4c.js at 1440 EN: basics/add clientHeight 85, scrollHeight 87, overflowing node MJX-ASSISTIVE-MML; keys/sound 104/106; analysis/domain 86/88; deform/order 88/90. t4d.js: one wheel tick over the text -> .tour-scroll scrollTop 2.",
+  "fix": "Clip the assistive node inside the callout (e.g. '.tour-scroll mjx-container { position: relative; overflow: clip }' or 'contain: paint'), or give .tour-scroll 'padding-bottom: 2px'. Make the audit check vertical overflow."
+ },
+ {
+  "id": "polish-8",
+  "severity": "low",
+  "title": "The docked strip covers part of the reference guide even when the guide is not full-screen",
+  "detail": "With the reference guide open (? key), the guide's side gutters are about 190 px. The docked strip has min-width 220 px, so it cannot fit beside the dialog and overlaps a corner of it: top right at 1024 x 768, bottom left at 768 x 1024. On phones the dialog fills the screen and the dock sits over its text, clear of its buttons (as designed). The audit never opens the guide.",
+  "evidence": "t2 sweep (Cmd+K, Ctrl+K, Cmd+E and ? on every step): palette and export dialog clean at 1440 EN, 1024 RU dark, 768 RU touch, 390 RU dark touch with safe area and 360 EN touch. With ?, the dock overlaps the guide at 1024 RU, e.g. basics/x dock [784,8,1016,54] (34 steps), and at 768 RU touch, e.g. [8,962,228,1016] (8 steps). Screenshots work/xvt/test/rvp2_cdp/shots/t2/1024rum-basics-x-help?.png, work/xvt/test/rvp_cdp/shots/t2/390rut-basics-x-help?.png.",
+  "fix": "Let the dock shrink to the free gutter (title with ellipsis, then × only, with a 44 px minimum on touch) before it accepts an overlap. Or place it in the dialog's top/bottom margin when that is tall enough. Add the guide to the audit's layer pass."
+ },
+ {
+  "id": "polish-9",
+  "severity": "low",
+  "title": "After the palette closes, focus does not always return to the callout",
+  "detail": "Keyboard only, at 1024 EN dark, step basics/y: Cmd+K, type 'sin', Esc. Focus lands on an app element ('Complex Map Workbench…', no focus ring), not the callout's Next. The next Esc ends the tour, which is fine, but the user has lost their place. Without typing (1440, t1.js), focus did come back to Next. Everything else in the keyboard path works: Help -> Enter -> Take the tour -> Enter starts it; Tab cycles inside the callout; each button has a 2 px ring; ArrowRight and Enter step.",
+  "evidence": "t7.js: palFocus 'Search' (in the palette), palEsc ['Complex Map Workbenc', 'none 3px', inCard false]; t1.js afterEsc focus 'btn primary'.",
+  "fix": "Remember the callout button that had focus when an app layer opens (focusout from the card, or in syncTop/layout when layers go from 0 to >0). When the layers go back to 0 and focus is outside the card and not in a field, restore it with preventScroll."
+ }
+]

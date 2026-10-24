@@ -62,6 +62,70 @@ const Expr = (() => {
   const commaHint = (src, pos) => (RU_ONLY() && src[pos] === ',' && /\d/.test(src[pos - 1] || '') && /\d/.test(src[pos + 1] || '')
     ? $t('Use a decimal point: 0.5, not 0,5 (a comma separates conditions)') : null);
   const LETTERS = { z: 'v:z', w: 'v:z', x: 'v:x', y: 'v:y', r: 'v:r', i: 'c:i', e: 'c:e' };
+  // ---- shared numbers (v15, src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1.1) ----
+  // Expr.setNames({get(name) -> number | undefined, display(name)}) turns on names: a letter the parser does not read
+  // (a, k, A, a1, a_1, alpha, \alpha, α) is a shared number, read as its value (a num node with .param). Only text
+  // that was an error without names reads differently: a run of letters is a name only when the base tokenizer
+  // cannot read the whole run (xi stays x i, chi stays ch i). Without the hook (node tests) nothing changes.
+  let NAMES = null, NAMED = null;
+  const setNames = (h) => { NAMES = h || null; };
+  const GREEK = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Lambda: 'Λ', Xi: 'Ξ', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
+  const GREEK_TEX = Object.assign({ varepsilon: 'ε', varphi: 'φ', varrho: 'ρ', varsigma: 'σ' }, GREEK);
+  const GREEK_WORD = Object.assign({}, GREEK);
+  delete GREEK_WORD.xi; delete GREEK_WORD.chi;           // plain xi and chi already read as x i and ch i
+  const GREEK_CH = { 'ϕ': 'φ', 'ϵ': 'ε', 'ϱ': 'ρ', 'ς': 'σ' };
+  const GREEK_NAME = Object.fromEntries(Object.entries(GREEK).map(([k, v]) => [v, k]));
+  const SUBD = '₀₁₂₃₄₅₆₇₈₉';
+  // a name's index after it: digits, _1, _{12} or ₁₂ -> {s: '12', len}
+  function subAt(src, j) {
+    const m = /^(?:_\{\s*(\d+)\s*\}|_(\d+)|(\d+)|([₀-₉]+))/.exec(src.slice(j));
+    if (!m) return { s: '', len: 0 };
+    return { s: m[1] || m[2] || m[3] || [...m[4]].map((c) => SUBD.indexOf(c)).join(''), len: m[0].length };
+  }
+  // a name in TeX: \alpha_{1}, a_{12}
+  function nameTex(nm) {
+    const m = /^(\D+)(\d*)$/.exec(nm) || [nm, nm, ''];
+    const b = GREEK_NAME[m[1]] ? `\\${GREEK_NAME[m[1]]}` : m[1];
+    return m[2] ? `${b}_{${m[2]}}` : b;
+  }
+  function nameTok(name, pos, len) {
+    const v = NAMES.get(name);
+    if (v === undefined && !NAMED.unknown.includes(name)) NAMED.unknown.push(name);
+    NAMED.spans.push({ pos, len, name });
+    return { t: 'num', v: v === undefined ? 0 : v, s: '', pos, param: name };
+  }
+  // the base tokenizer reads the whole run of letters (functions and z w x y r i e)
+  function baseRun(run, ru) {
+    const names = ru ? PLAIN_NAMES : PLAIN_BASE;
+    let j = 0;
+    while (j < run.length) {
+      const r = run.slice(j), nm = names.find((x) => r.startsWith(x));
+      if (nm) { j += nm.length; continue; }
+      if (!LETTERS[run[j]]) return false;
+      j++;
+    }
+    return true;
+  }
+  // the tokens of the run of letters at i when it holds names: a Greek name, one letter (with its index), or a product
+  // of single letters with at most one new name (az, ai); any other run is an unknown function ("sinc")
+  function nameRun(src, i, ru) {
+    const rest = src.slice(i), run = /^[A-Za-z]+/.exec(rest)[0];
+    if (baseRun(run, ru) || (RU_ONLY() && UNSUPPORTED_NAMES.some((nm) => rest.startsWith(nm)))) return null;
+    const g = GREEK_WORD[run];
+    if (g || run.length === 1) {
+      const sb = subAt(src, i + run.length);
+      return { toks: [nameTok((g || run) + sb.s, i, run.length + sb.len)], end: i + run.length + sb.len };
+    }
+    let fresh = 0;
+    for (const c of run) if (!LETTERS[c] && NAMES.get(c) === undefined) fresh++;
+    if (fresh > 1 || (fresh === 1 && run.length > 3)) throw new ParseError($t('Unknown function {f}', { f: run }), i);
+    const toks = [...run].map((c, j) => (LETTERS[c] ? tokFrom(LETTERS[c], i + j) : nameTok(c, i + j, 1)));
+    return { toks, end: i + run.length };
+  }
+  // Cyrillic look-alikes typed on a Russian layout read as the Latin letters (not inside a Russian word: и, или, не)
+  const LOOK = { 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'к': 'k', 'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
+  const CYR = /[А-Яа-яЁё]/;
+  const latinize = (s) => s.replace(/[асеорхукАВСЕНКМОРТХ]/g, (c, k, all) => (CYR.test(all[k - 1] || '') || CYR.test(all[k + 1] || '') ? c : LOOK[c]));
 
   function tokFrom(spec, pos) {
     const [t, v] = spec.split(':');
@@ -93,6 +157,10 @@ const Expr = (() => {
         }
         const name = m[1];
         const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
+        if (!spec && NAMES && GREEK_TEX[name]) {
+          const sb = subAt(src, i + m[0].length);
+          toks.push(nameTok(GREEK_TEX[name] + sb.s, i, m[0].length + sb.len)); i += m[0].length + sb.len; continue;
+        }
         if (!spec) {
           // suggest the nearest known commands ("Try \\sin or \\sinh")
           const dist = (a, b) => {
@@ -139,6 +207,10 @@ const Expr = (() => {
       if (num) { toks.push({ t: 'num', v: parseFloat(num[0]), s: num[0], pos: i }); i += num[0].length; continue; }
       if (/[A-Za-z]/.test(ch)) {
         const rest = src.slice(i);
+        if (NAMES && !/[A-Za-z]/.test(src[i - 1] || '')) {
+          const nr = nameRun(src, i, ru);
+          if (nr) { toks.push(...nr.toks); i = nr.end; continue; }
+        }
         let matched = null;
         for (const nm of (ru ? PLAIN_NAMES : PLAIN_BASE)) {
           if (rest.startsWith(nm)) { matched = nm; break; }
@@ -179,12 +251,29 @@ const Expr = (() => {
       // the words и, или, не as and, or, not (the Russian interface shows them between conditions: review ui-6)
       const rw = ru && /^(или|не|и)(?![А-Яа-яЁё])/.exec(src.slice(i));
       if (rw) { RU_USED = true; toks.push({ t: { 'или': 'or', 'и': 'and', 'не': 'not' }[rw[1]], pos: i, src: rw[1] }); i += rw[0].length; continue; }
+      if (NAMES && (ch === 'θ' || ch === 'ϑ')) { toks.push({ t: 'var', v: 'theta', pos: i }); i++; continue; }
+      if (NAMES && /[\u0391-\u03A9\u03B1-\u03C9\u03D5\u03F5\u03F1]/.test(ch)) {
+        const sb = subAt(src, i + 1);
+        toks.push(nameTok((GREEK_CH[ch] || ch) + sb.s, i, 1 + sb.len)); i += 1 + sb.len; continue;
+      }
+      if (NAMES && CYR.test(ch)) throw new ParseError($t('Use Latin letters for names'), i);
       throw new ParseError($t("Unexpected '{x}'", { x: ch }), i);
     }
     toks.push({ t: 'eof', pos: n });
     return toks;
   }
 
+  // the names in a text, as written: [{pos, len, name}] (a list or a formula that does not parse yet: the names before
+  // the first error; ';' lists read like ',' lists)
+  function nameSpans(src) {
+    if (!NAMES) return [];
+    const saved = NAMED;
+    NAMED = { unknown: [], spans: [] };
+    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ }
+    const out = NAMED.spans;
+    NAMED = saved;
+    return out;
+  }
   function parse(src, opts) {
     RU_USED = false;
     try { return parseOnce(src, opts, true); } catch (e) {
@@ -202,6 +291,7 @@ const Expr = (() => {
   function parseOnce(src, opts, ru = true) {
     const { allowRel = false } = opts || {};
     if (!src || !src.trim()) throw new ParseError($t('Empty expression'), 0);
+    if (NAMES) { src = latinize(String(src)); NAMED = { unknown: [], spans: [] }; }
     const toks = tokenize(src, allowRel, ru);
     let p = 0, absDepth = 0, digitComma = false;
     const peek = () => toks[p];
@@ -325,7 +415,7 @@ const Expr = (() => {
     function parsePrimary() {
       const tk = next();
       switch (tk.t) {
-        case 'num': return { t: 'num', v: C(tk.v, 0), lit: tk.s };
+        case 'num': return tk.param ? { t: 'num', v: C(tk.v, 0), param: tk.param } : { t: 'num', v: C(tk.v, 0), lit: tk.s };
         case 'const':
           if (tk.v === 'i') return { t: 'num', v: C(0, 1), name: 'i' };
           if (tk.v === 'e') return { t: 'num', v: C(Math.E, 0), name: 'e' };
@@ -389,6 +479,14 @@ const Expr = (() => {
     // Russian only (verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
     // and 5<|z|) is kept, but a caller that passes opts.notes gets a warning to show under its field
     if (digitComma && opts && Array.isArray(opts.notes)) opts.notes.push($t('A comma between digits separates conditions; write the decimal part with a point'));
+    // names not defined yet: one is offered as a new number (e.unknown), two at once are refused (DESIGN.md 1.4)
+    if (NAMES && NAMED.unknown.length) {
+      const u = NAMED.unknown, d = (n) => (NAMES.display ? NAMES.display(n) : n);
+      const e = new ParseError(u.length === 1 ? $t('{x} is not defined yet: press Enter to add the number {x}', { x: d(u[0]) }) : $t('One new name at a time: {x}', { x: u.map(d).join(', ') }), 0);
+      e.unknown = u.slice();
+      throw e;
+    }
+    if (NAMES && opts && Array.isArray(opts.spans)) opts.spans.push(...NAMED.spans);
     return ast;
   }
 
@@ -1242,7 +1340,7 @@ const Expr = (() => {
     const wrap = (r, minP) => (r.p < minP ? paren(r.s) : r.s);
     function go(n) {
       switch (n.t) {
-        case 'num': return numTex(n.v, n.name, n.lit);
+        case 'num': return n.param ? { s: nameTex(n.param), p: 4 } : numTex(n.v, n.name, n.lit);
         case 'var':
           if (n.n === 'z') return arg;
           if (n.n === 'x') return { s: `\\operatorname{Re}${arg.p >= 4 ? ' ' : ''}${wrap(arg, 4)}`, p: 3, bare: arg.p >= 4 };
@@ -1288,6 +1386,6 @@ const Expr = (() => {
     return go(ast);
   }
 
-  return { parse, compile, compileLevel, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N };
+  return { parse, compile, compileLevel, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;

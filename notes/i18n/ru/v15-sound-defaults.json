@@ -1,0 +1,23 @@
+{
+ "_about": "v15 integration (work/xvm): the user's new sound defaults (notes/sound/README.md, last section): sound on by default, Interface and Mathematical events on, Hear the function off. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md (1.12, 3.6). Read by tools/make_ru_table.py (v15-*.json).",
+ "v15s.tour_sound_body": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. The tone that plays $\\arg F$ as pitch stays off until you turn it on here.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно здесь или клавишами {Shift}{M}. Тон, передающий $\\arg F$ высотой звука, выключен, пока вы не включите его здесь.",
+  "note": "tour.js, keys/sound (desktop). Replaces tour.sound_stays_off_until. «петля», «число оборотов», «тон», «высота звука»: glossary 1.12."
+ },
+ "v15s.tour_sound_narrow": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. The tone that plays $\\arg F$ as pitch stays off until you turn it on there.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно в этом меню. Тон, передающий $\\arg F$ высотой звука, выключен, пока вы не включите его там.",
+  "note": "tour.js, keys/sound (narrow: the anchor is the ⋯ menu). Replaces tour.sound_stays_off_until_3."
+ },
+ "v15s.tour_sound_touch": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. The tone that plays $\\arg F$ as pitch stays off until you turn it on here.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно здесь. Тон, передающий $\\arg F$ высотой звука, выключен, пока вы не включите его здесь.",
+  "note": "tour.js, keys/sound (touch). Replaces tour.sound_stays_off_until_2."
+ },
+ "v15s.guide_sound": {
+  "en": "<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on: a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
+  "ru": "Звук (кнопка <b>Звук</b> в верхней панели, {x}) включён по умолчанию и начинает звучать после вашего первого щелчка или нажатия клавиши; ваш выбор хранится только на этом устройстве. Стрелка рядом с кнопкой открывает настройки громкости и состава звуков: интерфейс и математические события (деформация, число оборотов замкнутой петли), оба включены по умолчанию, и <b>Слушать функцию под указателем</b> (выключено, пока вы это не включите) — тон, звуковысотный класс которого задаётся значением arg <i>F</i>, так что петля вокруг нуля порядка <i>m</i> даёт <i>m</i> восходящих циклов. {x2} останавливает всё, что звучит. С клавиатуры: перейдите клавишей Tab на левую плоскость; стрелки перемещают указатель, {x3} переходит к следующему нулю или полюсу, {x4} сообщает его порядок, {x5} описывает вид, {x6} рисует петлю, а {x7} включает прослушивание вдоль неё. Если программа чтения с экрана работает в режиме просмотра, пользуйтесь кнопкой: сочетание {x} может не дойти до страницы.",
+  "note": "app.js, the guide's Sound paragraph (replaces guide.sound_top_bar_x; only the first two sentences changed, the rest is that entry's Russian). {x} … {x7} as in the call site: ⇧M, Esc, Z, O, D, Enter, L."
+ }
+}

@@ -10,6 +10,14 @@
 # --latex: every snippet compiled with latexmk in the document class it was made for (amsart, REVTeX two-column,
 #         Letter with 1 in margins at 11 pt, Beamer 16:9): no errors, no overfull boxes, and the measured
 #         \linewidth / \columnwidth / \textwidth equal to the width the figure claims.
+# Round 3 (notes/export-design/ROUND3.md):
+# Captions: a snippet whose caption displays F (\[ \displaystyle F(z) = ... \], guarded for LaTeX's one-line trial) has
+#         a short caption (\caption[short]{long}) with no display in it.
+# Video:  every out/*.mp4 parsed box by box (ftyp, mvhd, tkhd, mdhd, stsd/avc1/avcC, stts, stss, stsz, stco, mdat): the
+#         duration, the frame count, the frame rate and the codec match video-<view>.json, the sizes add up to mdat, the
+#         first sample is a key frame; with QuickLook (macOS qlmanage) a thumbnail is decoded independently.
+# --latex now compiles every snippet (PDF and PNG) with pdfLaTeX and XeLaTeX, the English ones in English documents
+#         and the Russian ones (-ru-) in Russian ones, with \listoffigures (the short captions).
 # Exit status 1 on any failure. Options: --dir DIR (default: out/ next to this file), --latex.
 import argparse, json, pathlib, re, shutil, struct, subprocess, sys
 
@@ -28,10 +36,10 @@ def check(name, ok, what):
 
 
 def run(cmd, **kw):
-    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+    return subprocess.run(cmd, capture_output=True, text=True, errors='replace', **kw)
 
 
-have = {t: shutil.which(t) for t in ('pdffonts', 'pdfimages', 'latexmk')}
+have = {t: shutil.which(t) for t in ('pdffonts', 'pdfimages', 'latexmk', 'qlmanage')}
 if not OUT.is_dir() or not any(OUT.iterdir()):
     print(f'no files in {OUT}: run test/export_cmd.js first')
     sys.exit(2)
@@ -107,6 +115,148 @@ for bj in sorted(OUT.glob('*-boxes.json')):
         hits.append(f"{b['kind']} '{b['tex']}' outside the page")
     check(name, not hits, f'{len(boxes)} typeset boxes, collisions: {"; ".join(sorted(set(hits))[:6]) or "none"}')
 
+# ---- round 3: the display-style F in the snippets ----
+for t in sorted(OUT.glob('*.tex')):
+    snip = t.read_text()
+    if '\\displaystyle' not in snip:
+        continue
+    m = re.search(r"\\caption\[\{(.*?)\}\]\{", snip)
+    # (review r3, editor-1: or the chain, gathered lines in \displaystyle that start with F(z) = ...)
+    guarded = re.search(r'\\ifinner\\hskip\\hsize\\else\\\[ (?:\\begin\{gathered\})?\\displaystyle [A-Za-z_{}0-9]+\([a-z_{}0-9]+\)=.*?\\\]\\fi', snip, re.S)
+    if guarded and 'gathered' in guarded.group(0):
+        guarded = guarded if re.search(r'F=f_\{\d+\}(\\circ f_\{\d+\})+', guarded.group(0)) and '\\end{gathered}' in guarded.group(0) else None
+    check(t.name, bool(m) and '\\[' not in m.group(1) and bool(guarded), f'display F guarded: {bool(guarded)}; short caption: {(m.group(1)[:60] + "...") if m else "missing"}')
+
+
+# ---- round 3: the videos ----
+def mp4_boxes(b, start=0, end=None, path=''):
+    out, i, end = [], start, len(b) if end is None else end
+    while i + 8 <= end:
+        size, typ = struct.unpack('>I4s', b[i:i + 8])
+        typ = typ.decode('latin-1')
+        hdr = 8
+        if size == 1:
+            size = struct.unpack('>Q', b[i + 8:i + 16])[0]; hdr = 16
+        if size < hdr or i + size > end:
+            break
+        out.append((path + '/' + typ, i, i + hdr, i + size))
+        if typ in ('moov', 'trak', 'mdia', 'minf', 'stbl', 'dinf'):
+            out += mp4_boxes(b, i + hdr, i + size, path + '/' + typ)
+        if typ == 'stsd':
+            out += mp4_boxes(b, i + hdr + 8, i + size, path + '/' + typ)
+        if typ == 'avc1':
+            out += mp4_boxes(b, i + hdr + 78, i + size, path + '/' + typ)
+        i += size
+    return out
+
+
+for mp4 in sorted(OUT.glob('*.mp4')):
+    b = mp4.read_bytes()
+    bx = {p: (s0, d0, e0) for p, s0, d0, e0 in mp4_boxes(b)}
+    g = lambda p: bx.get(p)
+    try:
+        _, d, _ = g('/moov/mvhd'); mts, mdur = struct.unpack('>II', b[d + 12:d + 20])
+        _, d, _ = g('/moov/trak/mdia/mdhd'); tts, tdur = struct.unpack('>II', b[d + 12:d + 20])
+        _, d, _ = g('/moov/trak/mdia/minf/stbl/stts'); n_e = struct.unpack('>I', b[d + 4:d + 8])[0]; cnt, delta = struct.unpack('>II', b[d + 8:d + 16])
+        _, d, _ = g('/moov/trak/mdia/minf/stbl/stsz'); n = struct.unpack('>I', b[d + 8:d + 12])[0]; sizes = struct.unpack(f'>{n}I', b[d + 12:d + 12 + 4 * n])
+        _, d, _ = g('/moov/trak/mdia/minf/stbl/stss'); nk = struct.unpack('>I', b[d + 4:d + 8])[0]; keys = struct.unpack(f'>{nk}I', b[d + 8:d + 8 + 4 * nk])
+        _, d, _ = g('/moov/trak/mdia/minf/stbl/stco'); off = struct.unpack('>I', b[d + 8:d + 12])[0]
+        s0, d, e = g('/moov/trak/mdia/minf/stbl/stsd/avc1'); W, H = struct.unpack('>HH', b[d + 24:d + 28])
+        _, d, _ = g('/moov/trak/mdia/minf/stbl/stsd/avc1/avcC'); prof, compat, level = b[d + 1], b[d + 2], b[d + 3]
+        md = g('/mdat')
+        fps = tts / delta
+        meta = json.loads((OUT / (mp4.stem + '.json')).read_text()) if (OUT / (mp4.stem + '.json')).exists() else {}
+        codec = f'avc1.{prof:02X}{compat:02X}{level:02X}'
+        ok = (n_e == 1 and cnt == n and md and md[2] - md[1] == sum(sizes) and off == md[1] and keys and keys[0] == 1
+              and (not meta or (meta['frames'] == n and abs(fps - meta['fps']) < 1e-6 and meta['W'] == W and meta['H'] == H and meta['codec'].upper() == codec.upper()))
+              and abs(mdur / mts - n / fps) < 0.002)
+        check(mp4.name, ok, f'{codec} (profile {prof}, level {level / 10:.1f}), {W}x{H}, {n} frames at {fps:g} fps = {mdur / mts:.3f} s, {nk} key frames, mdat {sum(sizes) // 1024} KB')
+    except Exception as ex:
+        check(mp4.name, False, f'not a readable MP4: {ex!r}')
+        continue
+    if have['qlmanage']:
+        qd = OUT / 'ql'
+        qd.mkdir(exist_ok=True)
+        try:
+            run(['qlmanage', '-t', '-s', '320', '-o', str(qd), str(mp4)], timeout=60)
+        except Exception:
+            pass
+        th = qd / (mp4.name + '.png')
+        check(mp4.name, th.exists() and th.stat().st_size > 2000, f'QuickLook (AVFoundation) decodes it: {"thumbnail " + str(th.stat().st_size // 1024) + " KB" if th.exists() else "no thumbnail"}')
+
+# WebM (the fallback): the EBML header's DocType, the track's codec and size, one SimpleBlock per frame, key frames
+def ebml(b, i, end):
+    while i < end:
+        l = 8 - b[i].bit_length() + 1; eid = int.from_bytes(b[i:i + l], 'big'); i += l
+        l = 8 - b[i].bit_length() + 1; sz = int.from_bytes(b[i:i + l], 'big') & ((1 << (7 * l)) - 1); i += l
+        yield eid, i, i + sz
+        i += sz
+
+
+for wm in sorted(OUT.glob('*.webm')):
+    b = wm.read_bytes()
+    try:
+        info = {'doctype': None, 'codec': None, 'W': None, 'H': None, 'blocks': 0, 'keys': 0, 'cues': [], 'seek': {}, 'seg': None}
+        def walk(i, end):
+            for eid, a, z in ebml(b, i, end):
+                # (review r3, video-9: the Cues, one CuePoint per cluster, and the SeekHead that finds them)
+                if eid == 0x18538067: info['seg'] = a
+                if eid in (0x1A45DFA3, 0x18538067, 0x1654AE6B, 0xAE, 0xE0, 0x1F43B675):
+                    walk(a, z)
+                elif eid == 0x1C53BB6B:
+                    for e2, a2, z2 in ebml(b, a, z):
+                        if e2 == 0xBB:
+                            for e3, a3, z3 in ebml(b, a2, z2):
+                                if e3 == 0xB7:
+                                    for e4, a4, z4 in ebml(b, a3, z3):
+                                        if e4 == 0xF1: info['cues'].append(int.from_bytes(b[a4:z4], 'big'))
+                elif eid == 0x114D9B74:
+                    for e2, a2, z2 in ebml(b, a, z):
+                        sid = pos = None
+                        for e3, a3, z3 in ebml(b, a2, z2):
+                            if e3 == 0x53AB: sid = int.from_bytes(b[a3:z3], 'big')
+                            if e3 == 0x53AC: pos = int.from_bytes(b[a3:z3], 'big')
+                        info['seek'][sid] = pos
+                elif eid == 0x4282: info['doctype'] = b[a:z].decode()
+                elif eid == 0x86: info['codec'] = b[a:z].decode()
+                elif eid == 0xB0: info['W'] = int.from_bytes(b[a:z], 'big')
+                elif eid == 0xBA: info['H'] = int.from_bytes(b[a:z], 'big')
+                elif eid == 0xA3:
+                    info['blocks'] += 1; info['keys'] += 1 if b[a + 3] & 0x80 else 0
+        walk(0, len(b))
+        meta = json.loads((OUT / (wm.stem + '.json')).read_text()) if (OUT / (wm.stem + '.json')).exists() else {}
+        ok = info['doctype'] == 'webm' and info['codec'] in ('V_VP9', 'V_VP8') and info['keys'] >= 1 and (not meta or (meta['frames'] == info['blocks'] and meta['W'] == info['W'] and meta['H'] == info['H']))
+        check(wm.name, ok, f"{info['doctype']} {info['codec']} {info['W']}x{info['H']}, {info['blocks']} frames, {info['keys']} key frames")
+        # cluster element starts, relative to the segment's data: each must be a CuePoint's position
+        seg = info['seg'] or 0
+        # (each element's own start: its id and size fields included)
+        starts, cues_at = [], None
+        i = seg
+        while i < len(b):
+            h0 = i
+            l = 8 - b[i].bit_length() + 1; eid = int.from_bytes(b[i:i + l], 'big'); i += l
+            l = 8 - b[i].bit_length() + 1; sz = int.from_bytes(b[i:i + l], 'big') & ((1 << (7 * l)) - 1); i += l
+            if eid == 0x1F43B675: starts.append(h0 - seg)
+            if eid == 0x1C53BB6B: cues_at = h0 - seg
+            i += sz
+        okc = len(info['cues']) == len(starts) and info['cues'] == starts and info['seek'].get(0x1C53BB6B) == cues_at and 0x1549A966 in info['seek']
+        check(wm.name + ' cues', okc, f"{len(info['cues'])} cue points for {len(starts)} clusters, positions {'match' if info['cues'] == starts else 'differ'}, SeekHead {'finds the Cues' if info['seek'].get(0x1C53BB6B) == cues_at else 'missing'}")
+    except Exception as ex:
+        check(wm.name, False, f'not a readable WebM: {ex!r}')
+
+# ---- one label per figure (review r3, editor-2): a label is shared only by the variants of one figure (its PNG
+# snippet, its B/W and Russian versions), never by two different figures ----
+lab = {}
+for t in sorted(OUT.glob('*.tex')):
+    m = re.search(r'\\label\{([^}]*)\}', t.read_text())
+    if not m or not t.stem.startswith('r3-'):
+        continue
+    fam = re.sub(r'-(png|bw|ru)(?=-|$)', '', t.stem)
+    fam = re.sub(r'-(article1|article2W|article2|homework|slides)$', '', fam)
+    lab.setdefault(m.group(1), set()).add(fam)
+shared = {k: sorted(v) for k, v in lab.items() if len(v) > 1}
+check('labels: one figure each (round 3)', not shared, f'{len(lab)} labels' + (f', shared: {shared}' if shared else ''))
+
 # ---- the snippets in the documents they were made for ----
 DOCS = {
     # tag suffix -> (preamble, the width the snippet names, the macro to measure)
@@ -116,24 +266,31 @@ DOCS = {
     'homework': ('\\documentclass[11pt]{article}\n\\usepackage[letterpaper,margin=1in]{geometry}\n\\usepackage{graphicx,amsmath,amssymb,float}', '\\linewidth'),
     'slides': ('\\documentclass[aspectratio=169]{beamer}\n\\usepackage{graphicx,amsmath,amssymb}', '\\textwidth'),
 }
+RU_PRE = {
+    # (the snippets' Russian captions sit in \foreignlanguage{russian}{...}: the English-main preamble they name)
+    'pdflatex': '\\usepackage[T2A,T1]{fontenc}\n\\usepackage[utf8]{inputenc}\n\\usepackage[russian,english]{babel}',
+    'xelatex': '\\usepackage{fontspec}\n\\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf,BoldItalicFont=cmunbi.otf]\n\\setsansfont{cmunss.otf}[BoldFont=cmunsx.otf,ItalicFont=cmunsi.otf]\n\\usepackage[russian,english]{babel}',
+}
 if args.latex:
     if not have['latexmk']:
         rows.append(('latex', 'info', 'latexmk not installed: skipped'))
     else:
         tdir = OUT / 'latex'
         tdir.mkdir(exist_ok=True)
-        for kind, (pre, macro) in DOCS.items():
+        for kind, (pre0, macro), engine, lang in [(k, d, e, l) for k, d in DOCS.items() for e in ('pdflatex', 'xelatex') for l in ('en', 'ru')]:
             texs = sorted(p for p in OUT.glob(f'*-{kind}.tex')) + sorted(p for p in OUT.glob(f'*-{kind}-bw.tex'))
+            texs = [t for t in texs if ('-ru-' in t.name) == (lang == 'ru')]
             if not texs:
                 continue
+            pre = pre0 + ('\n' + RU_PRE[engine] if lang == 'ru' else '')
             body = []
             for t in texs:
                 snip = t.read_text()
-                # the file the snippet includes, next to the document
-                if (OUT / f'{t.stem}.pdf').exists():
-                    shutil.copy(OUT / f'{t.stem}.pdf', tdir / f'{t.stem}.pdf')
-                else:
+                # the file the snippet includes, next to the document (a PDF, or the PNG its snippet names)
+                src = next((OUT / f'{t.stem}{x}' for x in ('.pdf', '.png') if (OUT / f'{t.stem}{x}').exists()), None)
+                if src is None:
                     continue
+                shutil.copy(src, tdir / src.name)
                 m = re.search(r'made for (\\[a-z]+) = ([0-9.]+)pt', snip)
                 claim = float(m.group(2)) if m else None
                 body.append(f'\\typeout{{CMW {t.stem} {macro}=\\the{macro} claim={claim}}}')
@@ -143,18 +300,20 @@ if args.latex:
                     body.append(snip)
                 else:
                     body.append(f'Some text before the figure. {snip}\nSome text after it.\n\\clearpage')
-            doc = f'{pre}\n\\begin{{document}}\n' + '\n'.join(body) + '\n\\end{document}\n'
-            src = tdir / f'test-{kind}.tex'
+            lof = '' if kind == 'slides' else '\n\\listoffigures'
+            doc = f'{pre}\n\\begin{{document}}\n' + '\n'.join(body) + lof + '\n\\end{document}\n'
+            job = f'test-{kind}' + ('' if (engine, lang) == ('pdflatex', 'en') else f'-{engine}-{lang}')
+            src = tdir / f'{job}.tex'
             src.write_text(doc)
-            r = run(['latexmk', '-pdf', '-interaction=nonstopmode', '-halt-on-error', src.name], cwd=tdir)
-            log = (tdir / f'test-{kind}.log').read_text(errors='replace') if (tdir / f'test-{kind}.log').exists() else ''
+            r = run(['latexmk', '-pdf' if engine == 'pdflatex' else '-xelatex', '-interaction=nonstopmode', '-halt-on-error', src.name], cwd=tdir)
+            log = (tdir / f'{job}.log').read_text(errors='replace') if (tdir / f'{job}.log').exists() else ''
             errs = re.findall(r'^! .*', log, re.M)
             over = re.findall(r'Overfull \\hbox \(([0-9.]+)pt too wide\)', log)
             widths = re.findall(r'CMW (\S+) \\[a-z]+=([0-9.]+)pt claim=([0-9.None]+)', log)
             bad = [f'{t} {w}pt vs {c}pt' for t, w, c in widths if c != 'None' and abs(float(w) - float(c)) > 0.6]
-            check(f'latex {kind}', r.returncode == 0 and not errs and not over and not bad,
+            check(f'latex {kind} {engine} {lang}', r.returncode == 0 and not errs and not over and not bad,
                   f'{len(texs)} snippets, errors {errs[:2] or "none"}, overfull {over[:3] or "none"}, widths {bad[:3] or "as claimed"}')
-            for p in tdir.glob(f'test-{kind}.*'):
+            for p in tdir.glob(f'{job}.*'):
                 if p.suffix not in ('.tex', '.pdf', '.log'):
                     p.unlink()
 

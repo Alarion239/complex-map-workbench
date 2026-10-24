@@ -9,8 +9,10 @@
 //   then found two more snaps, both from stopping things while the pointer moves: Esc / hush stepped the bus back to 1
 //   under a hover voice the moving pointer had re-gated, and stopping "Listen along" cut its buffer mid-waveform. Both
 //   now fade on raised cosines; the voices' gate and duck start with zero slope.
-//   Off by default. The AudioContext is never created at load: only after the user turns sound on, inside a gesture,
-//   or (when "on" was remembered) inside the first activation gesture in this frame. Nothing is ever queued while the
+//   On by default from v15 (Interface and Mathematical events; Snap ticks and Hear the function off), except on a test
+//   page (?ns=), which stays off until a test turns it on; a stored choice always wins. The AudioContext is never
+//   created at load: only after the user turns sound on, inside a gesture, or (when "on" is the default or was
+//   remembered) inside the first activation gesture in this frame, so nothing plays before the first click or key. Nothing is ever queued while the
 //   context is not running (one sound is allowed inside an active gesture, so "toggle on" is heard). Hidden tab:
 //   silent and suspended. Preferences are per device (localStorage), never part of the saved or shared work.
 // Tiers are split by WHAT TRIGGERS a cue, not by topic:
@@ -24,12 +26,17 @@
 //      Sound.curve(phi, lnAbs, dur, {bells, cuts, pc}) · Sound.hush() (Esc: stop everything now, setting unchanged)
 //      Sound.set({on, vol, ui, snap, events, sonify}) · Sound.toggle() · Sound.prefs() · Sound.subscribe(fn)
 //      Sound.state() · Sound.render(fn, dur) (offline, for tests) · Sound.CATALOG
+//      Sound.pathStep(argStep, Fat, z0, T0, g0, z1, T1, g1, opts) · Sound.turns(L, ring) (the probe's arithmetic, pure)
 // =====================================================================================================================
 const Sound = (() => {
   // the app's lsk('cmw-sound'): a ?ns=name page (test tabs) keeps its own setting
-  const KEY = (() => { try { const ns = new URLSearchParams(location.search).get('ns'); return ns ? 'cmw-sound:' + ns : 'cmw-sound'; } catch (e) { return 'cmw-sound'; } })();
+  const NS = (() => { try { return new URLSearchParams(location.search).get('ns') || ''; } catch (e) { return ''; } })();
+  const KEY = NS ? 'cmw-sound:' + NS : 'cmw-sound';
   const TIERS = ['ui', 'events', 'sonify'];
-  const DEFAULTS = { on: false, vol: 0.7, ui: true, snap: false, events: true, sonify: false };
+  // (v15, the user's defaults, notes/sound/README.md: sound on, Interface and Mathematical events on, Snap ticks and
+  // Hear the function off. A ?ns= test page starts off, so the quality and perf suites stay silent unless a test turns
+  // it on. These apply only when nothing is stored: a stored choice always wins.)
+  const DEFAULTS = { on: !NS, vol: 0.7, ui: true, snap: false, events: true, sonify: false };
   const AC = window.AudioContext || window.webkitAudioContext;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   // storage: a sandboxed frame without allow-same-origin throws on the mere access; then nothing is remembered
@@ -333,7 +340,8 @@ const Sound = (() => {
       while (zpTry.length && now - zpTry[0] > 300) zpTry.shift();
       zpTry.push(now);
       if (now < zpQuietUntil) return false;
-      if (zpTry.length >= 3) { zpQuietUntil = now + 600; return play('dense', { pan: o.pan }); }
+      // (returns 'dense' when the cluster cue played instead: the app says so once, review snddef-4)
+      if (zpTry.length >= 3) { zpQuietUntil = now + 600; return play('dense', { pan: o.pan }) && 'dense'; }
       if (now - (lastStart.get('zp') || -1e9) < d.gap) return false;
       lastStart.set('zp', now);
     } else if (!o.force && now - (lastStart.get(name) || -1e9) < d.gap) return false;
@@ -587,10 +595,12 @@ registerProcessor('cmw-voice', Voice);`;
   const HV = { amp: 0.042 };
   function HeightVoice(G, T = 'sonify') {
     const c = G.c, worklet = !!G.worklet && (G.offline || prefer.worklet), be = worklet ? WorkletBackend(G, T, 'height', 0.06) : NodeHeight(G, T);
-    let dead = false, last = -1, lastWall = 0, loud = 1, on = false, started = false;
+    let dead = false, last = -1, lastWall = 0, loud = 1, on = false, started = false, gEnd = 0;
     const v = {
       engine: worklet ? 'worklet' : 'nodes',
-      set(lnAbs, pn = 0, t, sectors = 12) {
+      // glide: at least this long (s) for this move (a function swapped under a still probe). It is kept to its end:
+      // the next frames' moves ask for the rest of it, not for one frame (review snddef-5)
+      set(lnAbs, pn = 0, t, sectors = 12, glide = 0) {
         if (dead) return;
         const explicit = t != null; if (!explicit) t = c.currentTime;
         const wall = performance.now();
@@ -599,11 +609,16 @@ registerProcessor('cmw-voice', Voice);`;
         const f = hNote(lnc(lnAbs) / (2 * Math.PI / sectors));
         loud = Math.min(1.5, Math.pow(587.33 / f, 0.35));   // a tilt: low notes a little louder (small speakers)
         if (!started) { started = true; be.start(t, Math.log2(f), 0, HV.amp * loud, clamp(pn, -0.3, 0.3), explicit); return; }
-        be.moveH(t, Math.log2(f), Math.max(dt, 0.008), HV.amp * loud, clamp(pn, -0.3, 0.3), explicit);
+        const clk = explicit ? t : wall / 1000;
+        if (glide > 0) gEnd = clk + glide;
+        be.moveH(t, Math.log2(f), Math.max(dt, 0.008, glide, gEnd - clk), HV.amp * loud, clamp(pn, -0.3, 0.3), explicit);
       },
       gate(g, t, tau) { if (!dead) { on = !!g; be.gate(on ? 1 : 0, t, tau != null ? tau : on ? 0.02 : 0.08); } },
       duck: (t, hold) => { if (!dead && hold > 0) be.duck(t, hold); },
       sounding: () => on && !dead, chroma: () => null,
+      // reset: a fresh start of the probe (a new point, a lost track). The pitch is absolute here, so only the frame
+      // clock starts again; a swap's glide still running keeps its end, so a fresh start never cuts it to one short
+      // move (review snddef-5)
       silence() { v.gate(false, undefined, 0.01); }, reset() { last = -1; },
       stop(t) { if (dead) return; on = false; be.stop(t); dead = true; liveVoices.delete(v); if (G === Gl()) touchIdle(); },
     };
@@ -834,6 +849,27 @@ registerProcessor('cmw-voice', Voice);`;
     emit();
   }
 
+  // ---------------------------------------------------------------- the probe's arithmetic (pure; used by app.js)
+  // arg F along a path in (z, t) (notes/sound/DEFORMATION.md). Fat(T) is the function at transport time T. The change
+  // of arg of u ↦ Fat(T0 + u (T1 − T0))(z0 + u (z1 − z0)), u ∈ [0, 1], tracked exactly by argStep (Calc.argStep) on
+  // the parameter u: a still probe (z1 = z0) follows t, a probe that moves while t runs follows both at once. g0, g1:
+  // the values at the ends (known). Returns argStep's result {d, exact, why, evals}; why 'jump' is a cut of H_t
+  // sweeping across the probe, 'zero' or 'pole' one passing exactly through it.
+  function pathStep(argStep, Fat, z0, T0, g0, z1, T1, g1, opts) {
+    const dx = z1.re - z0.re, dy = z1.im - z0.im, dT = T1 - T0;
+    const P = (u) => { const s = u.re; return Fat(T0 + s * dT)({ re: z0.re + s * dx, im: z0.im + s * dy }); };
+    return argStep(P, { re: 0, im: 0 }, g0, { re: 1, im: 0 }, g1, opts);
+  }
+  // the turns of a loop or a run {phi, k} (phi: arg in turns since it began): one call of ring(dir) per completed
+  // turn; a turn back must first come back to the previous integer, so a wobble at a turn rings once. (A turn that
+  // ends on the integer up to rounding counts: e^(2πi·3t)z tracks to 2.9999999999999982 turns.)
+  function turns(L, ring) {
+    let n = 0;
+    while (L.phi >= L.k + 1 - 1e-9) { L.k++; n++; if (ring) ring(1); }
+    while (L.phi <= L.k - 1 + 1e-9) { L.k--; n--; if (ring) ring(-1); }
+    return n;
+  }
+
   // offline rendering, for tests and waveform thumbnails (no output device, no activation needed)
   // opts.nodes: the native-node voices (the fallback where no AudioWorklet is allowed)
   async function render(fn, dur, opts = {}) {
@@ -848,7 +884,7 @@ registerProcessor('cmw-voice', Voice);`;
     play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush,
     set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
     voice: () => liveVoice('phase'), heightVoice: () => liveVoice('height'), curve, curveBuffer, render, graph, CATALOG, SH, HV, ShepardVoice, HeightVoice,
-    shG, shBell, shCentre, shLoud, hNote, loadWorklet, prefer, lead: () => LEAD, debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
+    shG, shBell, shCentre, shLoud, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
   };
 })();
 // the sound popover (page.html #sndPop) sits outside #app, which the app's walker translates: in another interface

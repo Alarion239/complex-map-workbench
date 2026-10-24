@@ -11,9 +11,11 @@
     'Complex', 'Map', 'Workbench', 'English',
     // key names (GLOSSARY 3.12)
     'Enter', 'Esc', 'Escape', 'Shift', 'Tab', 'Ctrl', 'Alt', 'Option', 'Cmd', 'Space', 'Delete', 'Backspace', 'Home', 'End', 'PgUp', 'PgDn', 'Del', 'Fn',
+    // function keys (Shift+F10 opens a plane's menu; review russian-14)
+    'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12',
     // file formats, units and products
     'LaTeX', 'TeX', 'PDF', 'PNG', 'SVG', 'pdf', 'png', 'svg', 'tex', 'txt', 'JSON', 'json', 'pt', 'px', 'cm', 'mm', 'in', 'dpi', 'WebGL', 'WebGL2', 'Web', 'Audio',
-    'Overleaf', 'Beamer', 'Google', 'Docs', 'Slides', 'Word', 'Keynote', 'PowerPoint', 'MathJax', 'arXiv', 'pdfLaTeX', 'XeLaTeX', 'LuaLaTeX', 'CMU', 'Unicode',
+    'Overleaf', 'Inkscape', 'Beamer', 'Google', 'Docs', 'Slides', 'Word', 'Keynote', 'PowerPoint', 'MathJax', 'arXiv', 'pdfLaTeX', 'XeLaTeX', 'LuaLaTeX', 'CMU', 'Unicode',
     'iPhone', 'iPad', 'AudioWorklet', 'amsart', 'article', 'REVTeX', 'IEEE', 'Letter', 'A4', 'tbp', 'figure', 'linewidth', 'textwidth', 'columnwidth',
     // key chips read out together by the tour's screen-reader line (⇧ M)
     'ShiftM',

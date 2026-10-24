@@ -1,0 +1,94 @@
+[
+ {
+  "id": "snddef-1",
+  "verdict": "fixed",
+  "root": "soundStop() gated the voice but left snd.rest, so the next frame's soundFunctionChanged('t') re-evaluated and re-gated.",
+  "fix": "soundStop() now clears snd.rest, snd.run, snd.path and the idle timer, and cancels snd.fcRaf and snd.rpRaf. The tone comes back only on the next pointer move, keyboard probe step or layout re-pick.",
+  "evidence": "Reviewer case c1 B re-run on the fixed build: 0 voice set() calls and 0 gate changes after Esc in 1.5 s (was 54 set() calls, gate on 10 ms after Esc).",
+  "verify": {
+   "found": "Verification (review-deformation-verify.json): soundStop() kept snd.cxy, so the next layout change (M closing the deformation, a view switch) re-picked and restarted the tone with the pointer still.",
+   "fix": "soundStop() also clears snd.cxy and any waiting re-pick (snd.rp). sndPtr sets cxy again on the next pointer move, so only a move brings the tone back.",
+   "evidence": "Verifier's c15 re-run (test/xvsf_cdp/cmd/c15.js): Esc mid-play, then M closes: 0 voice set(), 0 gate-on, rest null (was 1 and 1). Esc at rest, then Phase -> Landscape: 0 and 0 (was 1 and 1). A pointer move after: tone back (2 set(), 2 gate-on). test/sound_deform_cmd.js case H (new) checks both and the return on a move."
+  }
+ },
+ {
+  "id": "snddef-2",
+  "verdict": "fixed",
+  "root": "The rest was tied to the plane it was made on. When X -> Y merged, Chrome sent pointerleave to X (sndHoverOff) and pointerenter to the merged plane, with no pointermove, so nothing re-picked the point. A later automatic fit of the merged plane also changed the view key, and sndRetrack then gave up.",
+  "fix": "A capture pointermove listener (only while Hear F is on) keeps the pointer's page position (snd.cxy). sndRelayout() schedules sndRepick() on the next frame: it finds the plane under that position (elementFromPoint), computes its point (s2w of X, pickLand, pickSphereLeft, the merged plane or its globe) and calls sndMove, a fresh start (nearest turn, 250 ms without cues). Called from openTransport, closeTransport, setMain and a pointerenter of a plane with no buttons. sndRetrack also re-picks when the view under a still pointer moved (a fit or a zoom), except during a press.",
+  "evidence": "Reviewer case c2 F re-run: 60 voice set() calls in the first second after M, fcN 58, rest.src 'merged', one bell (was 0 set() calls, rest null). Order of events measured in headless Chrome: pointerout/leave on overlayL, then pointerover/enter on overlayR, before the next rAF. test/sound_deform_cmd.js case D now checks the close: the probe is the point of X under the pointer (src 'pointer', a voice update).",
+  "verify": {
+   "found": "Verification: the re-pick ran on the next requestAnimationFrame, before the panes took their new size (onPaneResize runs from the ResizeObserver after that frame's callbacks) and before the relief was redrawn (pickLand reads render3D.pick, the last drawn frame's camera and heights). The view key held no pane size, so nothing corrected the point later. In Phase the tone followed a point 20.5 px from the pointer.",
+   "fix": "sndRelayout() now only marks a re-pick (snd.rp). sndFrame(), one line at the end of frame(), runs it after the frame is drawn, once the pane under the pointer has its new size (its rect equals pane.w, pane.h) and, on the relief, a frame was drawn since the request (gives up after 30 frames). sndRelayout() is also called from onPaneResize (one line) and from sndRetrack when the view key changed. The plane keys (P, M) hold the pane width and height. sndRepick keeps the needle on the relief and X's globe when the plane and view key are the same.",
+   "evidence": "Verifier's c16 re-run (test/xvsf_cdp/cmd/c16.js), re-picked rest vs a pointer event at the same place: open (Phase) 0 px (was 20.5), close 0 (20.5), Phase -> Landscape 0 (23.2), Landscape -> Phase 0 (12.7), -> X -> Y 0, merge at M 0, split 0. test/sound_deform_cmd.js case H (new) checks the same 7 steps (< 0.5 px): pass. Cases A and B there, and test/xvs_cdp/cmd/pathform.js, put the pointer down before the open and passed only on the stale point; they now put it on z with the transport open (A, B: then Play again from the end). A: 1.8888889 turns, one bell; B: one zero ping; the open itself still checked for a voice update every frame.",
+   "id": "snddef-2/8-repick"
+  }
+ },
+ {
+  "id": "snddef-3",
+  "verdict": "fixed",
+  "root": "The capture pointerdown listener dropped the rest on every mouse or pen press, a click included.",
+  "fix": "pointerdown only records where the press began (snd.press). sndPtr drops the rest when a pressed pointer moves more than 3 px (the app's own drag threshold); pointerup clears the press. A plain click keeps the rest.",
+  "evidence": "Reviewer case c2 G re-run: 96 voice set() calls during the play after a click, one bell, rest kept (was 0)."
+ },
+ {
+  "id": "snddef-4",
+  "verdict": "fixed",
+  "root": "sndSay ran whether or not the engine played the ping; the hold compared the 14 px order with the held one, so a second zero in the 8 to 14 px ring re-armed the test every other frame; m >= 2 and essential singularities were never checked.",
+  "fix": "sndNear: held while the 14 px circle gives any nonzero count; an order m >= 2 only when the 4 px circle agrees (otherwise the nearer one's order, or nothing and a new test next frame); a count above 8 is held with no landmark. Speech only when SND.play returned true; the engine's play() now returns 'dense' when the cluster cue played, and the app then says 'Many zeros or poles' (an existing translated string). sndSayOnce never repeats the same words within 1.5 s.",
+  "evidence": "Reviewer case c4 re-run. K (z^50 - 1): 1 ping, 1 announcement 'Zero of order 1 here.' (was 13 announcements in 535 ms, one 'order 2'). L (sin(1/z)): 1 announcement, no 'Pole of order', no order above 2 (was 18, with 'Zero of order 29', 'Pole of order 41'). One 'zero2' was requested there and refused by the engine's gap, so not spoken: two zeros of sin(1/z) about 1 px apart are inside the 4 px circle, below the screen's resolution. Cut case: one cut tick."
+ },
+ {
+  "id": "snddef-5",
+  "verdict": "fixed",
+  "root": "Each frame's set() replaced the running 0.15 s swap glide with a one-frame glide.",
+  "fix": "HeightVoice.set keeps a swap's glide to its end: it stores the glide's end time and passes max(dt, glide, remaining) on the following moves (sound.js). I also tried a raised-cosine shape for long glides in the worklet; it was not verified in time, so I reverted it.",
+  "evidence": "Worklet command log at the open (c10 re-run): moveH dur 0.150, 0.133, 0.117, 0.100, 0.084, 0.067, 0.050, 0.033, 0.017 s, one frame apart: the glide now runs its 150 ms (was 0.15 then 0.0167). Pitch 1700 Hz to 1000 Hz over about 150 ms. Detector A: 0 in all Landscape recordings. Detector B is not reduced: -12.9 dB at the open (c10, events off), worst -7.8 dB in c5 P (events on, loop). The raw waveform at the B hit has no step: max |second difference| 0.0031 there against 0.0028 in the steady tone before. B flags the onset of a fast pitch slide after a steady tone. Not done: a Landscape loop-repeat case in sound_deform_clicks_cmd.js. Click regression on the final build (test/sound_deform_clicks_cmd.js, 32 recordings): sound_clicks.py 0 clicks; det.py A 0, late-par 0, no gaps; B 26 engine hits, worst -16.5 dB in landPlay_240_6x at the open (t = 0.1 s, the glide's start), the other three Landscape recordings 0. The earlier build's notes gave B -38.0 dB there, so keeping the glide for its full 150 ms raised B at the open in one of four runs. A is the snap rule of DESIGN 7.6 and stays 0. Left open: lower B at the glide's start (a raised-cosine glide shape, tried and reverted untested).",
+  "verify": {
+   "found": "Verification: at the Landscape open the 0.15 s swap glide was cut after one frame to an 8 ms move. Cause, measured (test/xvsf_cdp/cmd/c10b.js): not the re-pick. The relief camera refits one or two frames after the open; sndHover took the view-key change as a gesture and dropped the track (snd.last = null), so the next frame was a fresh start, and HeightVoice.reset() zeroed the glide's end (reset from sndRetrack -> sndHover at 45 ms, gestT set in the same frame).",
+   "fix": "(1) sndHover: a view-key change during a function re-evaluation at the same point (the needle under a refitted camera) still hushes cues for 250 ms but keeps the track. (2) sound.js: HeightVoice.reset() keeps a running glide's end (only the frame clock restarts). (3) sndRepick keeps the needle when the plane and view key are unchanged, so the open does not re-pick on the relief.",
+   "evidence": "Verifier's c10 re-run (events off, loop on; worklet log): moveH at the open 0.150, 0.121, 0.105, 0.088, 0.071, 0.055 s (was 0.150 then 0.008); at the repeat 0.150, 0.133, 0.117, 0.100, 0.083, 0.066; 0 moves under 12 ms inside a glide; 0 voice resets. test/sound_deform_cmd.js case E now checks it (3 glides, 0 cuts). Click regression: test/sound_deform_clicks_cmd.js now also records the Landscape across a loop repeat (landLoop, events off) and counts glideCuts (a move inside a swap's glide that ends before it). 36 recordings: test/sound_clicks.py 0 clicks; det.py A 0, late-par 0, no gaps; glideCuts 0 in all 8 Landscape runs (12 swap glides, each runs to its end). B 62 engine hits in all, worst at the Landscape loop repeat (-10.4 dB, landLoop_240_1x); at the open worst -48.6 dB (was -16.5). At the swap starts the waveform has no step: max |second difference| 0.0029 against 0.0027 in the steady tone before (the slide's onset, as the verifier found). The first version of the glideCuts count (any move under 12 ms) also counted the short last moves of a glide at 240 Hz; the count now compares end times."
+  }
+ },
+ {
+  "id": "snddef-6",
+  "verdict": "fixed",
+  "root": "The run expired 1.6 s after the function stopped changing, whatever moved it.",
+  "fix": "A run started by the transport's t (run.tp) has no wall-clock limit. It ends at a swap, a new chain value, a play started from 0 (sndMorphStart with morph.T = 0), a move of the probe while nothing plays, the pointer leaving, or Esc. Other runs keep the 1.6 s limit.",
+  "evidence": "Reviewer case c12 re-run (z^9, PageUp x10): 0.7 s gaps 3 bells, run 3.778; 1.9 s gaps 3 bells, run 3.778 (was 0 bells, run 0.378)."
+ },
+ {
+  "id": "snddef-7",
+  "verdict": "fixed (speech wording kept)",
+  "root": "The merged plane showed nothing at H_t(p), the point the tone describes.",
+  "fix": "sndOverlay(), called from renderOverlays (one line), draws the path t -> H_t(p) from t = 0 to now (40 samples, thin, the probe's colour, broken at poles and jumps; skipped when 40 calls would cost over 1 ms) and the probe's cross at its head, while the tone sounds on the merged plane. The decision is now in DESIGN 2.5. The readout keeps w: the plane's coordinate is w, and the head now shows H_t(p). The speech keeps 'Zero of order m here.': a new sentence would need a new Russian string in the one-line i18n_ru.js, which v15 is also editing; with the head drawn, the ping comes as the head crosses 0.",
+  "evidence": "Screenshot notes/sound/review-deformation/merged_path_fixed.png (z^2, merged plane, t = 0.6, pointer at 0.6 + 0.5i): the path runs from the pointer's cross to a second cross at H_0.6(p) = 0.298 + 0.604i (the value hAt gives). rest.src 'merged'."
+ },
+ {
+  "id": "snddef-8",
+  "verdict": "fixed",
+  "root": "Same as snddef-2: setMain changed the view key and nothing re-picked.",
+  "fix": "setMain calls sndRelayout() (one line); sndRepick uses pickLand for the relief.",
+  "evidence": "Reviewer case c1 D re-run (Phase, Landscape at 0.6 s, Phase at 1.3 s): contour ticks and a bell during the Landscape, 89 voice set() calls (was 65, none in the Landscape).",
+  "verify": {
+   "found": "Verification: the re-pick ran on the next requestAnimationFrame, before the panes took their new size (onPaneResize runs from the ResizeObserver after that frame's callbacks) and before the relief was redrawn (pickLand reads render3D.pick, the last drawn frame's camera and heights). The view key held no pane size, so nothing corrected the point later. In Phase the tone followed a point 20.5 px from the pointer.",
+   "fix": "sndRelayout() now only marks a re-pick (snd.rp). sndFrame(), one line at the end of frame(), runs it after the frame is drawn, once the pane under the pointer has its new size (its rect equals pane.w, pane.h) and, on the relief, a frame was drawn since the request (gives up after 30 frames). sndRelayout() is also called from onPaneResize (one line) and from sndRetrack when the view key changed. The plane keys (P, M) hold the pane width and height. sndRepick keeps the needle on the relief and X's globe when the plane and view key are the same.",
+   "evidence": "Verifier's c16 re-run (test/xvsf_cdp/cmd/c16.js), re-picked rest vs a pointer event at the same place: open (Phase) 0 px (was 20.5), close 0 (20.5), Phase -> Landscape 0 (23.2), Landscape -> Phase 0 (12.7), -> X -> Y 0, merge at M 0, split 0. test/sound_deform_cmd.js case H (new) checks the same 7 steps (< 0.5 px): pass. Cases A and B there, and test/xvs_cdp/cmd/pathform.js, put the pointer down before the open and passed only on the stale point; they now put it on z with the transport open (A, B: then Play again from the end). A: 1.8888889 turns, one bell; B: one zero ping; the open itself still checked for a voice update every frame.",
+   "id": "snddef-2/8-repick"
+  }
+ },
+ {
+  "id": "snddef-9",
+  "verdict": "fixed",
+  "root": "Every frame of a play reset the keyboard probe's 280 ms idle timer.",
+  "fix": "For the keyboard probe, a re-evaluation the transport makes by itself updates the voice silently (no gate, no timer). The voice sounds a 280 ms sample at the probe's own steps and at a change a person made (snd.userT: a scrub key, an edit, the transport opening). Pings, bells and the arrival still sound.",
+  "evidence": "Reviewer case c5 R re-run (Loop on, 5 s): 16 gate-ons, all in the first 280 ms after M (was 191, continuous); 192 silent voice updates keep the pitch right for the next sample."
+ },
+ {
+  "id": "snddef-10",
+  "verdict": "fixed",
+  "root": "(a) The hook had no way to give a path. (b) Path steps made fewer than 4 calls, so the cost was never learnt; sndFAt built both morph states.",
+  "fix": "(a) soundFunctionChanged({ at: (u) => F_u }) tracks a change along a path from u = 0 to 1, exactly as t; several in a frame are followed in turn. A bare call makes the frame's change pathless; a path together with a t step falls back to the nearest turn. The contract is in the code comment and DEFORMATION.md: report a change in one form only, and do not call the bare form every frame while the transport plays. (b) sndF uses morphState(true).F directly. Path steps now count in the cost average, which is used from 15 decayed calls (was 200).",
+  "evidence": "test/xvs_cdp/cmd/pathform.js: z^9 with t moved in 4 jumps of 0.25 given as paths: run 3.7778 turns, 3 bells (the bare form cannot count these). Reviewer case c8 (heavy chain, 1x and 4x CPU): 60 fps in every mode, 0 evaluations with sound off or Hear F off. perEval stayed at 0.002 in that run (made before the last threshold change); the 3 ms deadline still bounds every event."
+ }
+]

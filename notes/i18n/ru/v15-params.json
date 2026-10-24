@@ -122,7 +122,7 @@
  },
  "v15p.ui.empty": {
   "en": "Shared numbers: type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.",
-  "ru": "Общие числа: введите новую букву в любую формулу, например <i>Re z = a</i>, или нажмите «+ Число».",
+  "ru": "Общие числа: введите новую букву в любую формулу, например <i>Re z = a</i>, или нажмите «+ Число».",
   "note": "params build (v15)"
  },
  "v15p.ui.number": {
@@ -201,7 +201,7 @@
   "note": "params build (v15)"
  },
  "v15p.ui.by_formula": {
-  "en": "= {v}, by formula of {x}",
+  "en": "= {v}, from {x}",
   "ru": "= {v}, по формуле от {x}",
   "note": "params build (v15)"
  },
@@ -291,8 +291,8 @@
   "note": "params build (v15)"
  },
  "v15p.ui.make_free": {
-  "en": "Make free",
-  "ru": "Сделать свободным",
+  "en": "Unlink from the formula",
+  "ru": "Отвязать от формулы",
   "note": "params build (v15)"
  },
  "v15p.ui.deleted": {

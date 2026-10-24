@@ -1,0 +1,303 @@
+[
+ {
+  "id": "editor-1",
+  "severity": "high",
+  "verdict": "fixed",
+  "root": "The homotopy text names the steps f_1, f_2, but the display held only the composite F(z).",
+  "change": "app.js figCapParts returns chain (each step k of the deformation: f_k, its input variable z or w_{k-1}, its TeX). figure.js chainDisplay sets a gathered display, each line in \\displaystyle: \"F(z)=..., F=f_2∘f_1\" then \"f_1(z)=e^z, f_2(w_1)=(w_1-1)/(w_1+1)\", lines packed to 88 % of the figure width by measured width. It ends the sentence that names the steps (CHAINTOK). Same in English and Russian, and in the image caption (the {d} segment).",
+  "check": "export_cmd.js: every caption that names f_{1} has F=f_{2}\\circ f_{1}, f_{1}(z)=e^{z} and f_{2}(w_{1})=\\frac{w_{1}-1}{w_{1}+1} in its display; preflight compiles them with pdfLaTeX and XeLaTeX (en, ru) with no error and no overfull box."
+ },
+ {
+  "id": "editor-2",
+  "severity": "high",
+  "verdict": "fixed",
+  "root": "The default name came from the scene and a coarse view tag only, so different figures shared a file and a \\label.",
+  "change": "figure.js defaultName(view, deform, fmt): scene + view + kind: strip-to-disk-deformation-film / -deformation-paths, -globe-film / -globe-paths / -globe-frame, -phase-film / -phase-frame, -phase-sphere-film / -frame, -landscape-film / -frame, -<kind>-video. Without the deformation: -phase, -landscape, -phase-sphere, or the scene. The dialog name follows the figure until the user edits it; build() and Save figure again use it too; the label is fig:<name>.",
+  "check": "export_cmd.js checks that a name is never used by two kinds of figure and that the label is the name; preflight \"labels: one figure each\" groups the r3 snippets by figure (PNG, B/W and Russian variants share one) and fails on a label shared by two figures."
+ },
+ {
+  "id": "editor-3",
+  "severity": "high",
+  "verdict": "fixed",
+  "root": "The globe tracked a point of a boundary curve when z_0 was on the far side, but the caption named only the marked points in general, and listed z_0 although it was never drawn.",
+  "change": "figFilmPic and figGlobePaths: the tracked points are named in the caption by their value and marker (\"of the point $0.8i$ (dot)\"). A point shape is drawn (black dot) in every frame where it faces the camera; a point shape that is hidden in every frame is named: \"The point $A=0$ is on the far side of the sphere and is not shown.\" The paths figure marks F(p) the same way.",
+  "check": "export_cmd.js: the globe filmstrip caption names the tracked point (\"of the point $...$ (dot)\", not \"of the marked points\"); the globe paths caption either draws the listed point or says it is hidden."
+ },
+ {
+  "id": "editor-9",
+  "severity": "high",
+  "verdict": "fixed",
+  "root": "In the deformation figures a dash meant \"the boundary at t=0\", while the Homework rule (README decision 2) says a dash means \"boundary not included\".",
+  "change": "One mapping everywhere: a dash means \"not included\". Plane filmstrip: the t=0 boundary is a thin solid gray line (0.4 pt #999999); in Homework an open set's boundary of H_t(X) is dashed 3 2 and the caption adds \"Dashed: boundary not included.\" Plane paths figure: X's outline is thin solid gray; its caption says \"(gray outline)\". Globe filmstrip and globe paths (Homework): the art layer leaves the open set's GL line out (app.js artSkip, o.skipLines), and the figure draws H_t of its boundary through the camera, dashed, with a white casing; caption adds the sentence. Print video: X's boundary thin solid gray; open boundaries dashed.",
+  "check": "export_cmd.js: Homework plane and globe filmstrips have a 3 2 dash and \"Dashed: boundary not included\", and the t=0 boundary is not dashed; Article plane filmstrips have no 3 2 dash; the plane paths figure has no dashed gray outline and no \"dashed outline\" in its caption."
+ },
+ {
+  "id": "editor-4",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "The short caption was the long caption cut at its first sentence, which was itself 330 to 400 characters.",
+  "change": "figure.js shortFor(view, body): a template per figure (\"Phase portraits of $H_t$ at $t=0,\\,2/3,\\,4/3,\\,2$.\", \"Landscapes of ...\", \"The deformation $H_t$ on the Riemann sphere at ...\", \"Paths of the deformation $H_t$.\", one-frame and non-deformation forms), en and ru; latexIn uses it whenever the caption has a display.",
+  "check": "export_cmd.js: every short caption is under 100 characters; preflight compiles the list of figures in every class."
+ },
+ {
+  "id": "editor-5",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "The video's window was always fitted to the motion (or the zeros and poles), and the screen's path selection was not drawn.",
+  "change": "The video options have a Window row (plane, d/dz and Phase): As on screen (default: the screen's window, widened to the frame's aspect) or Fit the motion (the old behaviour). The bridge gives the screen's path selection (app.js screenPaths: mfCache.sel.kept) and the video draws those paths (thin, dark, a head at H_t(z)) next to the marked points. Every path is sampled once at plan time (97 values of t) and drawn up to the frame's t. A test compares a frame with the screen.",
+  "check": "export_cmd.js: the Window row exists with As on screen checked; videoScreenCheck: the video window contains the screen window with the same centre, and a frame at the screen's t, cropped to the screen window, matches a capture of the pane (mean abs difference reported)."
+ },
+ {
+  "id": "editor-6",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "The video drew only the art layer and the t label: no numbers, no axes in Print, no key.",
+  "change": "videoFrame: tick numbers along the axes in both looks (fixed per video, the window is fixed), at 2.8 % of H with a white halo; axes in the Print look; the ring key (arg H_t, 0, ±π) top right for Phase and Phase on the sphere, drawn once per video from the app's wheel colours.",
+  "check": "Frames decoded from the test videos (out/video-*.png.dec) and the smoke frames show the numbers, the axes and the key."
+ },
+ {
+  "id": "editor-7",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "One smoothstep over the whole chain, holds only at the ends (0.6 s), and Loop jumped from t=m to t=0.",
+  "change": "videoTimes: each step eased on its own over an equal share of the run (t = k + ease(u)); a 0.6 s hold at every whole t inside; 1.2 s holds at both ends; Loop: three runs, each followed by a 0.5 s cross-fade from the t=m frame to the t=0 frame (the last one too, so a looping player does not jump). Fades blend two kept frames, no extra renders.",
+  "check": "export_cmd.js \"video pace\": end holds >= 36 frames at 30 fps, a hold of >= 18 frames at t=1, equal time per step, 45 fade frames in a loop ending on t=0."
+ },
+ {
+  "id": "editor-8",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "Globe and relief frames were the pane's picture at dpr = min(W,H)/720, so the art layer's labels were about 9 to 12 px at 720p, and the relief filled 40 % of the frame.",
+  "change": "For the globe, Phase on the sphere and Landscape the video renders at dpr = H/360 (the art layer's labels at about 3 % of H) and crops to the union of what four frames draw (the relief's floor corners included), widened to the frame's aspect, at most 1.6x zoom (videoCrop). The Print look draws the globe labels 0, 1, i, -1, -i through the camera at 2.8 % of H.",
+  "check": "Frames at 720p: the globe labels i and 1 are about 20 px; the relief and its floor labels fill the frame."
+ },
+ {
+  "id": "editor-10",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "The phase-sphere filmstrip uses the screen's camera, which can hide the zeros and poles, and its black curve was not explained.",
+  "change": "The caption adds \"Black: the boundary of $X$.\" The filmstrip counts the zeros and poles of each frame that face away from the camera; when more than half are hidden the dialog says so under the paper (\"turn the globe so they face you, then export again\"). The camera stays the user's choice.",
+  "check": "export_cmd.js: the phase-sphere caption has \"Black: the boundary of $X$.\"."
+ },
+ {
+  "id": "editor-11",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The landscape's vertical axis label was always F (or f_k).",
+  "change": "app.js draw3DLabels: the label is H_t while the deformation is on and the left pane paints it (morphOn() && lPaintsF()). The screen and the video read |H_t|.",
+  "check": "Smoke frame of the landscape video at t=1 shows |H_t|. The quality suite passes (no golden includes it)."
+ },
+ {
+  "id": "editor-12",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "Article PNG and SVG snippets named width=360pt, 15 pt too wide in the standard article class.",
+  "change": "latexIn: PNG and SVG use the shrink-only width in every preset (\\ifdim\\linewidth<Wpt \\linewidth\\else Wpt\\fi): exact where it fits, never wider than the column.",
+  "check": "export_cmd.js checks the shrink-only form for every PNG snippet; preflight compiles them with no overfull box."
+ },
+ {
+  "id": "editor-13",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "\"Here H_t deforms ... along the homotopy H_t\" is circular, and the display came far after F was named.",
+  "change": "homSentence: \"Here $H_t$, $0\\le t\\le 2$, deforms the identity ($t=0$) into $F$ ($t=2$) and runs the steps in turn (...): for $f_{1}$, ...; for $f_{2}$, ..., where \\[ chain \\]\". The app's own homotopy text is reused after its \"the homotopy H_t, ..., that\" prefix, which is matched exactly in either language (else the old sentence is kept). The display follows the sentence that names the steps.",
+  "check": "export_cmd.js: no caption has \"Here $H_t$ deforms ... along the homotopy $H_t$\"."
+ },
+ {
+  "id": "editor-14",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The Beamer frame never named F, and the 2x2 grid left the 16:9 frame mostly empty.",
+  "change": "The frame title is \"The deformation $H_t$ to $F(z)=...$\" when F is short (<= 48 characters); otherwise the snippet displays F under the figure. Filmstrips on slides use one row of four frames.",
+  "check": "export_cmd.js: the four frame titles of every slides filmstrip are on one row; the Beamer documents compile."
+ },
+ {
+  "id": "editor-15",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "#xfTex used white-space: pre.",
+  "change": "white-space: pre-wrap; overflow-wrap: anywhere. The copied text is the snippet itself (unwrapped).",
+  "check": "export_cmd.js: the LaTeX box is pre-wrap and its scroll width equals its client width."
+ },
+ {
+  "id": "editor-16",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The app's composite TeX writes z+\\left(-a\\right) and c\\,z+1.",
+  "change": "figure.js tidyTex on every displayed formula: \"+\\left(-a\\right)\" becomes \"-a\" (a complex literal keeps its parentheses), and a linear denominator \"{\\left(c\\right)\\,z+1}\" becomes \"{1+c\\,z}\" before the sign fold. Disk automorphism: \\frac{z-\\left(0.5+0.3i\\right)}{1-\\left(0.5-0.3i\\right)\\,z}.",
+  "check": "A probe of __cmwExample for the disk automorphism (see ROUND3.md)."
+ },
+ {
+  "id": "editor-17",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The t label was one italic string of two decimals at 3.2 % of H.",
+  "change": "vText draws an italic t and an upright \" = 1.20\" in Latin Modern, at 4 % of H, on a white halo.",
+  "check": "Smoke frames."
+ },
+ {
+  "id": "editor-18",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The relief frames had no orientation, the floor printed the phase portrait at 10 %, and |H_t| = 1 was the accent line.",
+  "change": "figFilmPic crops each relief with its floor and draws the floor marks through its camera (landFloor: Re and Im ticks and names along the front edges, clipped to the panel). gl.js drawLandscape takes floorPrint: false and seaLine: false, which the art layer passes: no phase print on the floor, and no white \"sea level\" line, whose width grows where |H_t| stays near 1 over a wide flat area (panel d); |H_t| = 1 is then drawn as one of the ln|H_t| contours, at their weight. The screen keeps both (the defaults).",
+  "check": "export_cmd.js: each landscape filmstrip has at least four floor tick labels. The rendered filmstrip (ROUND3.md) has no white bands and no floor ghost. Quality suite: PASS."
+ },
+ {
+  "id": "editor-19",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The phase filmstrip's window snapped to a grid that depended on the key's width (none in B/W); Russian intervals took their separator one interval at a time.",
+  "change": "figFilmPhase snaps the window with the colour layout's panel width in both inks. winTex in Russian takes one separator for the whole product (I18.texSep of all four ends).",
+  "check": "Colour and B/W filmstrips of the strip now both read [-7.5,7.5]x[-5,5]."
+ },
+ {
+  "id": "editor-20",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "Two causes. The level lines arg H_t = k pi/6 were traced cell by cell, and a cell across the cut, where H_t jumps, was taken for a crossing, so a staircase of short segments ran along the cut. The portrait itself was sampled once per pixel.",
+  "change": "argLevels drops a crossing on an edge where H_t is not continuous: the value at the edge's midpoint is farther than a quarter of the ends' difference from their mean (one extra evaluation per crossed edge, cached). artPanel takes ss: 2: the filmstrip's portraits are rendered at 600 dpi and averaged 2 x 2 (down2, in slices) to 300 dpi, so the cut is a smooth edge.",
+  "check": "The Joukowski phase filmstrip (example 3, ROUND3.md): no staircase in (b) and (c); the level lines at the zeros and poles are unchanged."
+ },
+ {
+  "id": "editor-21",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "PNG defaulted to 300 dpi for every destination.",
+  "change": "The dpi menu is remembered per For (dpiFor); Article defaults to 600 dpi, Homework and Slides to 300. The note adds \"For a journal, PDF is better: it is vector.\" under Article.",
+  "check": "export_cmd.js: the dialog under Article shows 600 dpi and the note."
+ },
+ {
+  "id": "video-1",
+  "severity": "high",
+  "verdict": "fixed",
+  "root": "artRender flipped data-theme to light for every render in the dark theme; each flip forced a style recalculation and the theme observer rebuilt the app.",
+  "change": "app.js lightTheme(): the light tokens are read once per class list (one flip, undone in the same block); artRender swaps TH in memory (and clears the ink cache) and restores it, without touching data-theme. themeChanged skips a notice whose theme key (data-theme, class, prefers-color-scheme) is unchanged, so the one-off read does not rebuild the panels.",
+  "check": "export_cmd.js \"dark theme\": a 2 s video and a filmstrip in the dark theme cause at most one data-theme flip pair and no task of 50 ms or more."
+ },
+ {
+  "id": "video-2",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "gpuDone polled with setTimeout(4) and the back-pressure loop slept with setTimeout(4); a hidden page runs timers about once a second.",
+  "change": "gl.js gpuDone polls through a MessageChannel while the page is hidden (setTimeout otherwise). makeVideo waits for the encoder's dequeue event (with a message-channel turn) instead of a timer. The dialog tells the user to keep the tab in front if it was hidden during a run.",
+  "check": "export_cmd.js \"video in a hidden page\": a second tab is put in front (visibilityState hidden); a 2 s video takes about as long as in a visible page (1.3 s against 1.3 s; before: about one frame per second)."
+ },
+ {
+  "id": "video-3",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "again('save') re-ran makeVideo in the background with no progress or Cancel, and failed when the deformation was off; Copy figure again copied a PDF snippet.",
+  "change": "After a video, Save figure again opens the Export dialog on Video (progress and Cancel there). With the deformation off (or no encoder) it, and Copy figure again, use the last figure destination (settings.lastFig), never the video.",
+  "check": "export_cmd.js: Save figure again after a video opens the dialog on Video with nothing saved; with the deformation off it saves the last figure (SVG) with no error."
+ },
+ {
+  "id": "video-4",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "makeVideo kept the last video (chunks, plan, the dialog's alive closure) for videoCheck in every build.",
+  "change": "lastVideo is set only when opts.keepForCheck (the tests); it is cleared at the start of every video; the kept plan drops o.alive. Kept fade frames are released after the run.",
+  "check": "export_cmd.js: a video made without keepForCheck leaves videoCheck with nothing (null)."
+ },
+ {
+  "id": "video-5",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The extension label was \".mp4\" for every video.",
+  "change": "pickEncoder results are cached per size and rate; choosing Video runs it once and sets the extension (.mp4 or .webm) before Save; the poster hint adds \"WebM (VP9)\" in that case.",
+  "check": "export_cmd.js: with H.264 refused, the dialog shows .webm before Save."
+ },
+ {
+  "id": "video-6",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "Video was offered without a VideoEncoder and failed only after the plan.",
+  "change": "The format row shows Video disabled, with the reason as its title, when VideoEncoder is missing; makeVideo picks the encoder before it plans or renders anything.",
+  "check": "export_cmd.js: with VideoEncoder removed, Video is disabled with the reason and not selected."
+ },
+ {
+  "id": "video-7",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The per-frame text was the live region and the progress bar had no value.",
+  "change": "The frame count is aria-hidden; a visually hidden role=status announces the start, 25 / 50 / 75 % and the save. The progressbar has aria-valuemin 0, aria-valuemax 100 and aria-valuenow.",
+  "check": "export_cmd.js: during a run the bar has a value and no status text says \"Frame\"."
+ },
+ {
+  "id": "video-8",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "makeVideo sorted the chunks by timestamp and muxMP4 wrote an empty avcC when the description was missing.",
+  "change": "The chunks stay in the encoder's output (decode) order. muxMP4 writes a ctts box when the timestamps are not in order (and fails on a gap), and throws a clear error when the avcC description is missing or the first sample starts with an Annex B start code.",
+  "check": "Every test MP4 is parsed by the preflight (no ctts: Chrome emits no reordering) and decoded back."
+ },
+ {
+  "id": "video-9",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "muxWebM wrote no Cues and no SeekHead.",
+  "change": "muxWebM writes a SeekHead (Info, Tracks, Cues; fixed-size positions) and a Cues element with one CuePoint per cluster (time, track 1, cluster position).",
+  "check": "preflight: \"video-webm.webm cues\": one cue point per cluster at the cluster's position, and the SeekHead finds the Cues."
+ },
+ {
+  "id": "video-10",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The progress row wrapped below the footer (36 px), and the options stayed live during a run.",
+  "change": "During a run the progress row takes the name row's place in the footer (no new line), and every video option and the format row are disabled until it ends or is cancelled.",
+  "check": "export_cmd.js: during a run the dialog's top and height do not change and the options are disabled; after Cancel they are enabled."
+ },
+ {
+  "id": "video-11",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "Globe and relief videos used the pane's picture uncropped, and the relief axis said |F|.",
+  "change": "Same change as editor-8 (videoCrop) and editor-11 (|H_t|).",
+  "check": "Smoke frames of the globe and the landscape."
+ },
+ {
+  "id": "verify-editor-3",
+  "of": "editor-3",
+  "severity": "medium",
+  "verdict": "fixed",
+  "root": "On the globe, a point shape whose path is not drawn (z_0 = 0) was a small black dot, the tracked point an orange dot, and the caption named only the second one. Nothing said which dot was z_0 or why it was missing in (a) and (d). In B/W the two marks were both black dots.",
+  "change": "figure.js figFilmPic: a point shape without a path gets the next marker shape after the tracked points (a square, then a triangle, a diamond; green, pink, yellow in colour, black in B/W), r 1.9 like the tracked marker. The frames where it is on the far side are recorded (info.marks[].hiddenIn). The caption adds: \"The square is the image of the point $z_0=0$; in (a) and (d) it is on the far side of the sphere.\" (Homework: $A=0$; Russian: «Образ точки $A=0$ — квадрат; в кадрах а и г он на обратной стороне сферы.»). A slide has no caption, so a key under the frames shows each marker with $H_t(0.8i)$, $H_t(0)$. figGlobePaths marks such a point at F(z) with a square too and names it. Russian 'dot' is now «жирная точка», so the caption never reads «точки 0,8i (точка)».",
+  "check": "export_cmd.js: in every globe filmstrip z_0 has the square marker, hiddenIn = (a), (d), the SVG has no small black dot, and the caption has the square sentence; the slide has a two-entry key. Looked at: globe-film-art.png, globe-film-sl.png (round3/verify-*.png)."
+ },
+ {
+  "id": "verify-editor-13",
+  "of": "editor-13",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "displayF put the display at the end of the caption behind \"The map is\" when the sentence naming F was longer than 190 characters (globe filmstrip, globe paths, the one-panel Phase figure). In amsart \"map is\" was left alone on a line. In Russian the chain display was joined with «, где» after a homotopy phrase that already had its own «где».",
+  "change": "figure.js displayF: no \"The map is\" any more. The display follows the phrase that names F: at the first ':' or ';' after F (outside math and brackets, within 100 characters), and the rest of the sentence becomes a sentence of its own (\"Phase portrait of $F$ on $[-7,7]\\times[-5,5]$, where \\[F(z)=…\\] The color shows …\"); else at the sentence's end. The globe captions are two sentences now, so F's sentence is short: \"… from the identity ($t=0$) to $F$ ($t=2$), where \\[…\\] At (a) $t=0$, …, the frames show the image of …\". leadIn(): when the sentence already has its own \"where\" / «где» outside math, the sentence is closed and the display follows \"Here\" / «Здесь» («… где ${H^{(2)}_{s}}'(p)=e^{-\\pi i s/2}$. Здесь \\[…\\]»). The short caption strips either lead-in.",
+  "check": "export_cmd.js on every caption: no \"The map is\" or «Отображение задаётся формулой», at most one where/где in the sentence the display ends, and F's own display within 160 characters of the first $F$. The preflight compiles all snippets (amsart, REVTeX, Letter, Beamer; pdfLaTeX and XeLaTeX; English and Russian)."
+ },
+ {
+  "id": "verify-editor-8",
+  "of": "editor-8",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "In the Light look the globe's labels came from the app's canvas, which fades a label as its point nears the rim (smoothstep 0.05 to 0.3 of n·v): the north pole sits near the top rim, so infinity was drawn at about 15 % ink, 13 CSS px, and the crop (ink bounds of the globe) ended 4 px above it. The Print look did not draw infinity at all.",
+  "change": "figure.js videoFrame: both looks draw the six sphere labels themselves (globeLabelSpots: wherever the point faces the camera, n·v > 0.05; poles 1.1 out, equator points just above |z| = 1, as on screen), dark on a white halo at 2.8 % of H, infinity at 1.5x that (its glyph is only x-height tall). videoCrop adds each label's box with air to the crop. app.js (export hook): artRender takes noGlobeLabels; sphereView then skips drawing its own sphere labels but still registers their places, so the point labels keep clear of them.",
+  "check": "export_cmd.js: the globe video's infinity label is in the frame (at least 2 % of H from the edge), at least 4 % of H in size, and its darkest decoded pixel is under 80 of 255 (got 1). Decoded 720p frames at t = 1 and t = 2, Light and Print: darkest pixel 1 to 5 (was 221), ink 12 x 20 px starting 32 px below the top edge (was 4 px); round3/verify-video-globe-*.png."
+ },
+ {
+  "id": "verify-editor-7",
+  "of": "editor-7",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "The Length menu (3/4/6/8 s) was the length of the whole run, divided among the steps (per = secs·fps/nSteps), so a 5-step chain at 4 s gave 0.8 s per step.",
+  "change": "Rule: the Length is per step. videoTimes: per = secs·fps for every step; holds as before (0.6 s at each whole t, 1.2 s at the ends). The menu reads \"2 s per step\", \"3 s per step\", \"4 s per step\", \"6 s per step\" (aria-label \"Length of each step\"; Russian «%{v} с на шаг», «Длительность шага»); default 3 s; a remembered value off the list snaps to the nearest. The poster line under the menu still gives the whole video's length.",
+  "check": "export_cmd.js: frames for 1, 2 and 5 steps at 4 s, 30 fps: 193, 331, 745 (one step 120 + 72 hold frames + 1; each further step 120 + 18); the dialog's options and label say \"per step\"."
+ },
+ {
+  "id": "verify-new-1",
+  "of": "editor-1 (new, related)",
+  "severity": "low",
+  "verdict": "fixed",
+  "root": "XD.caption set every line of the image's own caption at a fixed 1.2 pt baseline distance, whatever the line's height and depth.",
+  "change": "figure.js XD.caption: TeX's rule. Baselines are 1.2 pt apart unless the depth of a line plus the height of the next (natural MathJax boxes, at least the strut 0.75/0.3 pt) would leave less than \\lineskiplimit = 0; then they are \\lineskip = 0.1 pt apart. The first line's baseline moves down for a tall first line; the caption's height follows the last line's depth.",
+  "check": "export_cmd.js in each deformation view, English and Russian: in the PNG's own caption (Homework, For Docs) no two pieces of text overlap. Looked at: phase-docs-ru at 200 dpi (round3/verify-phase-docs-ru.png)."
+ }
+]

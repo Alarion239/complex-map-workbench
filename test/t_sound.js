@@ -143,7 +143,8 @@ function makeEnv(opts = {}) {
   };
   const sandbox = {
     window: win, console, Math, JSON, Object, Array, Float32Array, Float64Array, Number, String, Set, Map, Promise, Error, isFinite, encodeURIComponent,
-    location: { search: opts.search || '' },
+    // (a test page by default, as the app's test tabs are: ?ns=; search: '' is the published page)
+    location: { search: opts.search != null ? opts.search : '?ns=t0' },
     URLSearchParams,
     navigator: { userActivation: { get hasBeenActive() { return true; }, get isActive() { return env.userActive; } } },
     document: { visibilityState: 'visible', addEventListener: (t, f) => { (env.listeners['doc:' + t] = env.listeners['doc:' + t] || []).push(f); } },
@@ -174,17 +175,39 @@ function makeEnv(opts = {}) {
 const flush = () => new Promise((r) => setImmediate(r));
 
 (async () => {
-  // off by default: nothing is created at load, on a hover or a click
+  // v15 defaults (notes/sound/README.md): the published page has sound on, Interface and Mathematical events on, Snap
+  // ticks and Hear the function off; nothing is created or played before the page's first click or key
+  {
+    const e = makeEnv({ search: '' });
+    const p = e.Sound.prefs();
+    check('v15 default: on, Interface and events on, snap and Hear F off', p.on && p.ui && p.events && !p.snap && !p.sonify, JSON.stringify(p));
+    check('v15 default: no context at load', e.ctxs.length === 0 && e.Sound.state().audio === 'none');
+    check('v15 default: nothing plays before a gesture', e.Sound.play('toggleOn', {}) === false && e.Sound.play('stepAdd', {}) === false && e.ctxs.length === 0);
+    e.fire('keydown', { key: 'Escape' });
+    check('v15 default: Esc is not an activation', e.ctxs.length === 0);
+    e.fire('pointerdown');
+    check('v15 default: the first click creates the context', e.ctxs.length === 1 && e.ctx().state === 'running');
+    check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
+  }
+  // a stored choice always wins over the default
+  {
+    const e = makeEnv({ search: '', store: { 'cmw-sound': JSON.stringify({ on: false, vol: 0.7, ui: true, snap: false, events: true, sonify: false }) } });
+    check('stored off wins: off at load', e.Sound.prefs().on === false);
+    e.fire('pointerdown'); e.fire('click');
+    check('stored off wins: a click creates nothing', e.ctxs.length === 0 && e.Sound.play('toggleOn', { force: true }) === false);
+  }
+  // a test page (?ns=): off by default, so the quality and perf suites stay silent; nothing is created at load, on a
+  // hover or a click
   {
     const e = makeEnv();
-    check('engine: off by default', e.Sound.prefs().on === false && e.Sound.state().audio === 'none');
+    check('engine: off by default under ?ns=', e.Sound.prefs().on === false && e.Sound.state().audio === 'none');
     e.fire('pointerdown'); e.fire('click');
     check('engine: no cue, no context while off', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.voice() === null && e.ctxs.length === 0);
     check('engine: off → no AudioContext at all', e.ctxs.length === 0);
   }
   // a remembered "on" waits for a click or key of this page load
   {
-    const e = makeEnv({ store: { 'cmw-sound': JSON.stringify({ on: true, vol: 0.7, ui: true, snap: false, events: true, sonify: true }) } });
+    const e = makeEnv({ search: '', store: { 'cmw-sound': JSON.stringify({ on: true, vol: 0.7, ui: true, snap: false, events: true, sonify: true }) } });
     check('remembered on: no context at load', e.ctxs.length === 0 && e.Sound.prefs().on);
     check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.Sound.voice() === null && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
@@ -303,6 +326,100 @@ const flush = () => new Promise((r) => setImmediate(r));
     e.advance(100);
     check('off: the context is suspended', c.state === 'suspended');
     check('off: nothing plays after', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.voice() === null);
+  }
+  // the tracker driven by t at a fixed z (notes/sound/DEFORMATION.md): Sound.pathStep and Sound.turns, as the app uses
+  // them while the deformation plays or is scrubbed under a still probe
+  {
+    const S = makeEnv().Sound, A = Calc.argStep;
+    const cexp = (re, im) => { const r = Math.exp(re); return C(r * Math.cos(im), r * Math.sin(im)); };
+    const clog = (z) => C(Math.log(Math.hypot(z.re, z.im)), Math.atan2(z.im, z.re));
+    // the transport's schedule: m steps of eased motion (as frame() plays them) sampled at hz frames a second
+    const play = (m, hz, secs = 1.6) => { const Ts = [0]; for (let j = 0; j < m; j++) { const n = Math.round(secs * hz); for (let i = 1; i <= n; i++) { const u = i / n; Ts.push(j + (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)); } } return Ts; };
+    // follow H_T(z) along a list of transport times; returns {phi (turns), up, down, jumps, steps, why}
+    const follow = (Hat, z, Ts, opts = {}) => {
+      const L = { phi: 0, k: 0 }; let up = 0, down = 0, jumps = 0, g0 = Hat(Ts[0])(z), whys = [];
+      for (let i = 1; i < Ts.length; i++) {
+        const g1 = Hat(Ts[i])(z), r = S.pathStep(A, Hat, z, Ts[i - 1], g0, z, Ts[i], g1, opts);
+        if (!r.exact) { whys.push(r.why); if (r.why === 'jump') jumps++; }
+        L.phi += r.d / TAU; S.turns(L, (d) => (d > 0 ? up++ : down++)); g0 = g1;
+      }
+      return { phi: L.phi, up, down, jumps, whys };
+    };
+    // (a) a rotation: H_t(z) = e^(2πi·3t) z: three turns at any z ≠ 0, three rising bells, at 60 and 240 Hz
+    const rot = (T) => (z) => CX.mul(cexp(0, TAU * 3 * T), z);
+    for (const hz of [60, 240]) {
+      const r = follow(rot, C(0.4, -0.7), play(1, hz));
+      check(`t-tracker: e^(2πi·3t)z at ${hz} Hz: +3 turns, 3 bells up`, Math.abs(r.phi - 3) < 1e-9 && r.up === 3 && r.down === 0 && !r.whys.length, JSON.stringify(r));
+    }
+    // (b) the pitch follows arg H_t: z^(1+4t) (the natural path of z^5, principal) at z = e^(i·170°): the tracked arg is
+    // (1+4t)·170° at every frame, so the total is 4 × 170° = 1.889 turns: one bell
+    {
+      const th = 170 * Math.PI / 180, z = C(Math.cos(th), Math.sin(th));
+      const pw = (T) => (w) => cexp(CX.mul(C(1 + 4 * T, 0), clog(w)).re, CX.mul(C(1 + 4 * T, 0), clog(w)).im);
+      const Ts = play(1, 60); let phi = th / TAU, g0 = pw(0)(z), worst = 0;
+      for (let i = 1; i < Ts.length; i++) { const g1 = pw(Ts[i])(z); phi += S.pathStep(A, pw, z, Ts[i - 1], g0, z, Ts[i], g1).d / TAU; g0 = g1; worst = Math.max(worst, Math.abs(phi - (1 + 4 * Ts[i]) * th / TAU)); }
+      const r = follow(pw, z, Ts);
+      check('t-tracker: z^(1+4t) at 170°: the pitch is arg H_t at every frame (exact)', worst < 1e-9, worst);
+      check('t-tracker: z^(1+4t) at 170°: 1.889 turns, one bell', Math.abs(r.phi - 4 * th / TAU) < 1e-9 && r.up === 1 && r.down === 0, JSON.stringify(r));
+    }
+    // (c) the turn count over a play equals the winding of t → H_t(z): two steps one after another (as morphState
+    // builds them), rotate twice, then a pole moving round the probe (−1 turn): +1 net, 2 up and 1 down at 60 Hz
+    {
+      const z = C(0.3, 0.2);
+      const Hat = (T) => (w) => {
+        const j = Math.min(1, Math.floor(T)), t = T - j;
+        const a = j === 0 ? CX.mul(cexp(0, TAU * 2 * t), w) : CX.mul(cexp(0, TAU * 2), w);
+        if (j === 0) return a;
+        const p = C(z.re + 0.5 * Math.cos(TAU * t), z.im + 0.5 * Math.sin(TAU * t)), q = C(z.re + 0.5, z.im);
+        return CX.mul(a, CX.div(CX.sub(w, q), CX.sub(w, p)));
+      };
+      const r = follow(Hat, z, play(2, 60));
+      // the winding of the path by fine sampling (an independent count)
+      let wsum = 0, g0 = Hat(0)(z); for (let i = 1; i <= 20000; i++) { const g1 = Hat(2 * i / 20000)(z); wsum += Math.atan2(g0.re * g1.im - g0.im * g1.re, g0.re * g1.re + g0.im * g1.im); g0 = g1; }
+      check('t-tracker: two steps, the turn count is the winding of t → H_t(z)', Math.abs(r.phi - wsum / TAU) < 1e-6 && Math.abs(r.phi - 1) < 1e-6 && r.up === 2 && r.down === 1, JSON.stringify({ r, w: wsum / TAU }));
+    }
+    // (d) a zero of order 2 of H_t passes the probe: H_t(z) = (z − a(t))²(z + 2), a(t) = −1 + 2t; the probe at 0.01i.
+    // The app's rule frame by frame (orderAt on the 8 px circle, held until the 14 px circle no longer gives it; here
+    // 1 px = 0.006): one ping, of order 2, and the tracked arg stays exact through it
+    {
+      const z = C(0, 0.01), px = 0.006;
+      const Hat = (T) => (w) => { const a = C(-1 + 2 * T, 0), d = CX.sub(w, a); return CX.mul(CX.mul(d, d), CX.add(w, C(2, 0))); };
+      const Ts = play(1, 60); let near = 0; const pings = [];
+      for (const T of Ts) {
+        const F = Hat(T), g = F(z), hh = 0.5 * px;
+        const ld = CX.abs(CX.sub(F(C(z.re + hh, z.im)), F(C(z.re - hh, z.im)))) / (2 * hh) / CX.abs(g);
+        if (near) { if (!(ld > 1 / (14 * px)) || Calc.orderAt(F, z, 14 * px) !== near) near = 0; continue; }
+        if (!(ld > 1 / (8 * px))) continue;
+        const m = Calc.orderAt(F, z, 8 * px);
+        if (m) { near = m; pings.push(m); }
+      }
+      const r = follow(Hat, z, Ts);
+      const exact = (2 * (Math.atan2(0.01, -1) - Math.atan2(0.01, 1)) + 0) / TAU;
+      check('t-tracker: a double zero of H_t sweeping across the probe: one ping, of order 2', pings.length === 1 && pings[0] === 2, JSON.stringify(pings));
+      check('t-tracker: … and the tracked arg is exact through it (+0.994 turns)', Math.abs(r.phi - exact) < 1e-9 && r.up === 0, JSON.stringify({ r, exact }));
+    }
+    // (e) a cut of H_t sweeping across the probe: √(e^(2πit) z) (principal) at z = 1 jumps once, at t = ½
+    {
+      const sq = (T) => (w) => { const v = CX.mul(cexp(0, TAU * T), w); return sqrtP(v); };
+      const r = follow(sq, C(1, 0), play(1, 60));
+      check('t-tracker: a cut of H_t sweeping across the probe: one jump', r.jumps === 1, JSON.stringify(r));
+    }
+    // (f) no double count: the path in (z, t) split between pointer events and frames, in any order, sums to the
+    // same total as one step (the probe moves away and back while t runs)
+    {
+      const z0 = C(0.4, -0.7), P = (s) => C(z0.re + 0.3 * Math.sin(Math.PI * s), z0.im + 0.2 * Math.sin(Math.PI * s));
+      const one = S.pathStep(A, rot, z0, 0, rot(0)(z0), z0, 1, rot(1)(z0));
+      let tot = 0, zp = z0, Tp = 0, gp = rot(0)(z0);
+      const cuts = [0.013, 0.05, 0.051, 0.2, 0.33, 0.5, 0.71, 0.9, 0.97, 1];
+      for (const s of cuts) { const zz = s === 1 ? z0 : P(s), g = rot(s)(zz), r = S.pathStep(A, rot, zp, Tp, gp, zz, s, g); tot += r.d; zp = zz; Tp = s; gp = g; }
+      check('t-tracker: one path split between pointer events and frames: the same total, no double count', one.exact && Math.abs(tot - one.d) < 1e-9 && Math.abs(one.d - 3 * TAU) < 1e-9, { one: one.d, tot });
+    }
+    // (g) the bell rule: a wobble at a turn rings once; going back rings a falling bell
+    {
+      const L = { phi: 0, k: 0 }, out = [];
+      for (const p of [0.5, 0.99, 1.02, 0.97, 1.03, 0.9, 1.6, 2.05, 1.8, 0.95, 0.99]) { L.phi = p; S.turns(L, (d) => out.push(d)); }
+      check('turns: a wobble at a turn rings once; back past a turn rings down', out.join() === '1,1,-1', out.join());
+    }
   }
   // no Web Audio: everything is a no-op
   {

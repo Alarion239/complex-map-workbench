@@ -10,7 +10,7 @@
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/sound_cmd.js
 // Prints {pass, fails, R}; pass is true when every check holds.
-const PORT = 8832, BASE = `http://localhost:${PORT}/test.html`;
+const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 // The kit's load() opens port 8793. This file loads through PORT, so the saved state, the sound settings and every
 // nav() share one origin. (With the kit's load(), the 360 px step opened 8793, where sound was never turned on.)
 const loadHere = async (ns, st, extra) => {
@@ -154,13 +154,8 @@ await move(...(await W(0.6, 0.6))); await settle(700); await made(true);
 }
 ok('pan: no pointer cue during the gesture and the 250 ms after', !R.pan.made.some((x) => x === 'zero' || x === 'pole' || x === 'cut' || x === 'dense'), R.pan);
 await ev(`document.getElementById('leftFit') && document.getElementById('leftFit').click(); 1`); await settle(600);
-// while the deformation plays: the voice may follow, event cues do not
-await key('m'); await settle(300);
-await move(...(await W(-1.4, 0.002))); await sleep(100);
-for (let i = 0; i <= 20; i++) { await move(...(await W(-1.4 + 0.4 * i / 20, 0.002))); await sleep(20); }
-R.morphQuiet = (await made(true)).filter((x) => x === 'zero' || x === 'pole' || x === 'cut' || x === 'dense');
-ok('while the deformation plays: no pointer cue', !R.morphQuiet.length, R.morphQuiet);
-await key('m'); await settle(400); await made(true);
+// (while the deformation plays, the probe follows H_t in (z, t) and its cues fire as for the pointer: section 16,
+// test/sound_deform_cmd.js; until 2026-10-23 pointer cues were held during a play)
 
 // 8. loops: the Lasso around both zeros: two rising bells while drawing, W = 2 announced, the first loop plays itself;
 // Esc stops it at once and keeps sound on; a second loop sounds its winding and waits
@@ -371,27 +366,74 @@ ok('tracker cost: the tracker itself stays within its 3 ms deadline (max < 4 ms 
 ok('tracker cost: Hear F adds < 5 ms per event at p95 (a heavy chain: the budget holds)', R.costHeavy.on.p95 - R.costHeavy.off.p95 < 5, R.costHeavy);
 await ev(`Sound.set({ sonify: false }); 1`);
 
-// 15. phones (360, 390): the speaker in the bar while sound is on, back in the More menu when off; no overflow
+// 15. phones (360, 390), the v15 layout (src/phone.js; the v14 speaker in the bar is gone): Sound is a row of More (⋯)
+// with its switch and Settings; the switch shows the state and turns sound off; Settings opens the popover, which
+// fits; no sideways overflow
 for (const w of [360, 390]) {
   await view(w, 780, false, true);
   await nav(`${BASE}?ns=${ns}`); await settle(1200);
-  const g = async () => ev(`(() => { const ph = document.getElementById('soundPh'), b = document.getElementById('soundBtn'), m = document.getElementById('soundMore'); return { ph: getComputedStyle(ph).display !== 'none' && !ph.hidden, btn: getComputedStyle(b).display, more: getComputedStyle(m).display, over: document.documentElement.scrollWidth - innerWidth, top: document.getElementById('top').scrollWidth - document.getElementById('top').clientWidth }; })()`);
-  const on = await g();
-  await ev(`Sound.set({ on: false }); 1`); await settle(200);
-  const off = await g();
-  await clickSel('#hdrMoreBtn'); await settle(300);
-  const menu = await ev(`(() => { const b = document.getElementById('soundBtn'), m = document.getElementById('soundMore'); return { btn: b.offsetParent !== null && getComputedStyle(b).display !== 'none', more: m.offsetParent !== null }; })()`);
-  await clickSel('#soundMore'); await settle(300);
+  await ev(`Sound.set({ on: true }, { quiet: true }); 1`); await settle(200);
+  const over = await ev(`document.documentElement.scrollWidth - innerWidth`);
+  const sheet = async () => { await clickSel('#hdrMoreBtn'); await settle(500); return ev(`(() => { const b = document.querySelector('.ph-sb[data-k="more"]'), sw = b && b.querySelector('.ph-switch'), set = b && b.querySelector('.ph-link'); const vis = (e) => !!e && !e.closest('[hidden]') && e.getClientRects().length > 0; return { open: vis(b), sw: vis(sw), set: vis(set), checked: sw ? sw.getAttribute('aria-checked') : null }; })()`); };
+  const on = await sheet();
+  await clickSel('.ph-sb[data-k="more"] .ph-switch'); await settle(300);
+  const off = { on: await ev('Sound.state().on'), checked: await ev(`(() => { const sw = document.querySelector('.ph-sb[data-k="more"] .ph-switch'); return sw ? sw.getAttribute('aria-checked') : null; })()`) };
+  await clickSel('.ph-sb[data-k="more"] .ph-link'); await settle(500);
   const pop = await ev(`(() => { const r = document.getElementById('sndPop').getBoundingClientRect(); return { l: r.left, r: r.right, b: r.bottom, w: innerWidth, h: innerHeight, open: !document.getElementById('sndPop').hidden }; })()`);
-  await key('Escape'); await ev(`Sound.set({ on: true }); 1`);
-  R['phone' + w] = { on, off, menu, pop };
-  ok(`${w} px: the speaker in the bar while on, not while off; no overflow`, on.ph && !off.ph && on.over <= 0 && off.over <= 0 && on.top <= 0, { on, off });
-  ok(`${w} px: the More menu has Sound and Sound settings while off`, menu.btn && menu.more, menu);
-  ok(`${w} px: the popover fits`, pop.open && pop.l >= 0 && pop.r <= pop.w && pop.b <= pop.h, pop);
+  await key('Escape'); await settle(200); await ev(`Sound.set({ on: true }); 1`);
+  R['phone' + w] = { over, on, off, pop };
+  ok(`${w} px: More has the Sound row (switch on, Settings); no overflow`, on.open && on.sw && on.set && on.checked === 'true' && over <= 0, { over, on });
+  ok(`${w} px: the switch turns sound off and shows it`, off.on === false && off.checked === 'false', off);
+  ok(`${w} px: Settings opens the popover, which fits`, pop.open && pop.l >= 0 && pop.r <= pop.w && pop.b <= pop.h, pop);
 }
 await view(1440, 900, false, false);
 await ev(`Sound.set({ on: false }); 1`);
+
+// 16. the function under a still probe changes (notes/sound/DEFORMATION.md): the Deformation played and scrubbed with
+// the pointer still over X's Phase plane, the merged deformation plane and the Landscape; a zero dragged while the
+// pointer rests elsewhere; sound off. The cases are test/sound_deform_cmd.js (also run alone).
+// (the section reads the console log itself: what came before is kept for the check of exceptions below)
+const logsBefore = logs();
+{
+  const AF = Object.getPrototypeOf(async function () {}).constructor;
+  const H = { ev, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, img, fs, path, DIR };
+  const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_deform_cmd.js'), 'utf8'))(...Object.values(H));
+  R.deform = D.R;
+  for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'deformation: ' + f.name }));
+  await ev(`Sound.set({ on: false }); 1`);
+}
+// 17. v15 defaults (notes/sound/README.md, the user's decision of 2026-10-23), on a page without ?ns= (the published
+// page's storage keys; removed again below): sound on, Interface and Mathematical events on, Snap ticks and Hear the
+// function off; no AudioContext and no cue before the first click or key; the first click starts it; a stored choice
+// wins. (Sections 1 to 16 run under ?ns=, where sound starts off.)
+{
+  const clean = `localStorage.removeItem('cmw-sound'); localStorage.removeItem('complex-map-workbench-v1'); 1`;
+  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await ev(clean);
+  await send('Page.navigate', { url: BASE }); await sleep(2200);
+  await spy();
+  let s = await ev('Sound.state()');
+  const pre = { st: s, ac: await ev('__acN'), pressed: await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed')`), stored: await ev(`localStorage.getItem('cmw-sound')`) };
+  R.v15def = { pre };
+  ok('v15 default: on, Interface and events on, Snap and Hear F off', s.on && s.ui && s.events && !s.snap && !s.sonify && pre.pressed === 'true', pre);
+  ok('v15 default: no AudioContext at load, nothing stored', s.audio === 'none' && pre.ac === 0 && pre.stored === null, pre);
+  await move(700, 400); await settle(300);
+  R.v15def.hover = { ac: await ev('__acN'), made: await made(true) };
+  ok('v15 default: a hover starts nothing and plays nothing', R.v15def.hover.ac === 0 && !R.v15def.hover.made.length, R.v15def.hover);
+  await click(700, 400); await settle(600);
+  s = await ev('Sound.state()');
+  R.v15def.click = { audio: s.audio, ac: await ev('__acN') };
+  ok('v15 default: the first click creates the context, running', s.audio === 'running' && R.v15def.click.ac === 1, R.v15def.click);
+  // a stored choice wins: off, stored, survives a reload
+  await clickSel('#soundBtn'); await settle(400);
+  await send('Page.navigate', { url: BASE }); await sleep(2200);
+  s = await ev('Sound.state()');
+  await click(700, 400); await settle(400);
+  R.v15def.stored = { on: s.on, ac: await ev('__acN'), stored: await ev(`localStorage.getItem('cmw-sound')`) };
+  ok('v15 default: a stored "off" wins on reload, and a click creates nothing', !s.on && R.v15def.stored.ac === 0 && /"on":false/.test(R.v15def.stored.stored || ''), R.v15def.stored);
+  await ev(clean);
+}
 await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
-const exc = logs().filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
+const exc = logsBefore.concat(logs()).filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
 ok('no exceptions', !exc.length, exc.slice(0, 5));
 return { pass: !fails.length, nfail: fails.length, fails, R };

@@ -120,7 +120,8 @@ async function pageNow() { return B.ev('performance.now()'); }
 async function openApp(state) {
   const ns = `perf${process.pid}_${++nsCounter}`;
   const key = `complex-map-workbench-v1:${ns}`;
-  const id = await B.addInit(`if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)}) { try { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`);
+  // (v15: the app's chain is 188 px; the scenes keep the v14 pane geometry, a 272 px chain, through the test hook)
+  const id = await B.addInit(`window.__cmwChainH = 272; if (location.pathname.endsWith('/test.html') && new URLSearchParams(location.search).get('ns') === ${JSON.stringify(ns)}) { try { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(state))}); } catch (e) {} }`);
   const t0 = Date.now();
   await B.nav(`${BASE}test.html?ns=${ns}`);
   await B.removeInit(id);
@@ -625,18 +626,22 @@ async function scrubUnit(morph = false) {
     await sleep(400);
     await settle(await pageNow());
   }
+  // (v15: a step's fields are in the Inspector, #i1_phi, once step 1 is selected; earlier builds: the card's #p1_phi)
+  const PHI = `(document.getElementById('i1_phi') || document.getElementById('p1_phi'))`;
+  await B.ev(`(() => { if (document.querySelector('#propsPanel .insp-sel') && !document.getElementById('i1_phi')) { const c = document.querySelector('#pipeline .card[data-k="1"]'); if (c) c.click(); } return 1; })()`);
+  await sleep(200);
   const reps = [];
   let changed = true;
   for (let i = 0; i < REPS; i++) {
     const legs = [];
     for (const dir of [1, -1]) {
-      const r = await B.ev(`(() => { const l = document.querySelector('label[for="p1_phi"]'); if (!l) return null; l.scrollIntoView({ block: 'nearest' }); const b = l.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+      const r = await B.ev(`(() => { const e = ${PHI}, l = e && document.querySelector('label[for="' + e.id + '"]'); if (!l) return null; l.scrollIntoView({ block: 'nearest' }); const b = l.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
       if (!r) throw new Error('scrub label p1_phi not found');
-      const v0 = await B.ev(`document.getElementById('p1_phi').value`);
+      const v0 = await B.ev(`${PHI}.value`);
       const a = await pageNow();
       await B.drag(r[0], r[1], r[0] + dir * 160, r[1], { n: 40, dt: 16, button: 'left' });
       const b = await pageNow();
-      const v1 = await B.ev(`document.getElementById('p1_phi').value`);
+      const v1 = await B.ev(`${PHI}.value`);
       changed = changed && Math.abs(Number(v1) - Number(v0)) >= 30;
       const w = await windowStats(a, b);
       const s = await settle(b);
@@ -909,6 +914,10 @@ async function scrubMobiusUnit() {
     const cl = GLR.createLines; GLR.createLines = function () { c.up++; return cl.apply(this, arguments); };
     const sc = Region.sampleCurve; Region.sampleCurve = function () { c.samp++; return sc.apply(this, arguments); }; return 1; })()`);
   const count = () => B.ev('[__lineCount.up, __lineCount.samp]');
+  // (v15: the Inspector's #i1_phi once step 1 is selected; earlier builds: the card's #p1_phi)
+  const PHI = `(document.getElementById('i1_phi') || document.getElementById('p1_phi'))`;
+  await B.ev(`(() => { if (document.querySelector('#propsPanel .insp-sel') && !document.getElementById('i1_phi')) { const c = document.querySelector('#pipeline .card[data-k="1"]'); if (c) c.click(); } return 1; })()`);
+  await sleep(200);
   const reps = [];
   let changed = true, up = 0, samp = 0, upS = 0, sampS = 0, crossed = true;
   const phis = [];
@@ -917,16 +926,16 @@ async function scrubMobiusUnit() {
   for (let i = 0; i < REPS; i++) {
     const legs = [];
     for (const dir of [1, -1]) {
-      const r = await B.ev(`(() => { const l = document.querySelector('label[for="p1_phi"]'); if (!l) return null; l.scrollIntoView({ block: 'nearest' }); const b = l.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+      const r = await B.ev(`(() => { const e = ${PHI}, l = e && document.querySelector('label[for="' + e.id + '"]'); if (!l) return null; l.scrollIntoView({ block: 'nearest' }); const b = l.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
       if (!r) throw new Error('scrub label p1_phi not found');
-      const v0 = await B.ev(`document.getElementById('p1_phi').value`);
+      const v0 = await B.ev(`${PHI}.value`);
       const c0 = await count();
       const a = await pageNow();
       await B.drag(r[0], r[1], r[0] + dir * 160, r[1], { n: 40, dt: 16, button: 'left' });
       await sleep(40);   // the frame of the last tick (refinement on settle starts only after the 150-200 ms debounces)
       const b = await pageNow();
       const c1 = await count();
-      const v1 = await B.ev(`document.getElementById('p1_phi').value`);
+      const v1 = await B.ev(`${PHI}.value`);
       changed = changed && Math.abs(Number(v1) - Number(v0)) >= 30;
       crossed = crossed && crosses(Number(v0), Number(v1)) >= 1;
       phis.push([Number(v0), Number(v1)]);

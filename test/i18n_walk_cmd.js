@@ -128,6 +128,37 @@ if (W < 1024) {
   await ev(`(() => { const t = document.getElementById('toolMore'); if (t) t.open = true; })()`); await S('tool more', 600);
   await ev(`(() => { const t = document.getElementById('toolMore'); if (t) t.open = false; })()`);
 }
-const left = await ev(`__i18nLeft()`);
+const left0 = await ev(`__i18nLeft()`);
+// v15 (review russian-14): the Inspector for every card and the F tile, Parameters (add, a refused name, rename, the
+// number's menu), the planes' menu on X (a zeros-and-poles chain, a shape) and, on a phone, every sheet
+const ns15 = `xbi-walk15-${W}-${Date.now()}`;
+const ST15 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 60 },
+  shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.6 }, { id: 's2', kind: 'line', a: [0, 0.8], b: [1, 0.8] }],
+  steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: 'a', d: '1' }, on: true }, { type: 'zp', params: { a: '1', zeros: '0.5', poles: '-0.5i' }, on: true }],
+  params: [{ name: 'a', value: 0.5, min: -2, max: 2, step: 0.01 }] };
+await ev(`localStorage.setItem('complex-map-workbench-v1:${ns15}', ${JSON.stringify(JSON.stringify(ST15))}), 1`);
+await nav(`${BASE}test.html?ns=${ns15}&lang=ru`); await sleep(4000);
+await ev(SCAN);
+const tryEv = async (js) => { try { return await ev(js); } catch (e) { return null; } };
+for (const k of [0, 1, 2, 3, 'F']) {
+  await tryEv(`(() => { const e = document.querySelector(${JSON.stringify(k === 'F' ? '#pipeline .ftile' : '#pipeline .card[data-k="KK"]')}.replace('KK', ${JSON.stringify(String(k))})); e && e.click(); return 1; })()`);
+  await S('inspector ' + k, 900);
+}
+await tryEv(`(() => { const d = document.querySelector('#propsPanel details.ifold'); if (d) d.open = true; for (const x of document.querySelectorAll('#propsPanel details.ifold')) x.open = true; return 1; })()`); await S('inspector F folds', 500);
+await tryEv(`(() => { const b = document.querySelector('.prm-add button'); b && b.click(); return 1; })()`); await S('parameters: new number', 500);
+await type('д'); await key('Enter'); await S('parameters: a refused name', 500); await key('Escape'); await sleep(200);
+await tryEv(`(() => { const b = document.querySelector('.prm-row .prm-name'); b && b.click(); return 1; })()`); await S('parameters: rename', 500); await key('Escape'); await sleep(200);
+await tryEv(`(() => { const b = document.querySelector('.prm-row .prm-more'); b && b.click(); return 1; })()`); await S('parameters: menu', 500); await esc();
+if (!PHONE) {
+  for (const [lab, re, im] of [['empty X', -1.2, -1.1], ['shape', 0.5, 0.8]]) {
+    await tryEv(`(() => { const p = __cmwPlaneMenu().w2s('L', ${re}, ${im}); PlaneMenu.open('L', null, { clientX: p[0], clientY: p[1] }); return 1; })()`);
+    await S('plane menu ' + lab, 600); await esc();
+  }
+  await tryEv(`(() => { PlaneMenu.open('R', null, { clientX: document.getElementById('canvasR').getBoundingClientRect().left + 60, clientY: document.getElementById('canvasR').getBoundingClientRect().top + 60 }); return 1; })()`); await S('plane menu Y', 600); await esc();
+} else {
+  for (const k of ['edit', 'tools', 'display', 'more']) { await tryEv(`(Phone.open(${JSON.stringify(k)}), 1)`); await S('phone sheet ' + k, 800); await tryEv('(Phone.close(true), 1)'); await sleep(300); }
+  await tryEv(`(Phone.open('edit', { params: true }), 1)`); await S('phone sheet numbers', 800); await tryEv('(Phone.close(true), 1)');
+}
+const left = left0.concat(await ev(`__i18nLeft()`));
 const logsNow = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404/.test(JSON.stringify(l))).slice(0, 8);
 return { w: W, dark: DARK, chapters: chapters.length, n: left.length, errors: logsNow, left };

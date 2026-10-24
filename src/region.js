@@ -339,7 +339,7 @@ const Region = (() => {
     level: (s) => Expr.compileLevel(Expr.parse(s.expr, { allowRel: true })),
     bbox: () => null,
     boundary: null,
-    tex: (s) => { try { return Expr.toTex(Expr.parse(s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
+    tex: (s) => { try { return Expr.toTex(Expr.parse((s.bind && s.bind.expr) || s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
   };
 
   // A curve formula (an equation: Re z^2 = 1, |\sin z| = 1, Im(1/z) = 1 and z\bar z = 1 or ...): the curve of
@@ -400,7 +400,7 @@ const Region = (() => {
     type: 'curve', label: $t('Curve formula'),
     handles: () => [],
     curves: fcurveCurves,
-    tex: (s) => { try { return Expr.toTex(Expr.parse(s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
+    tex: (s) => { try { return Expr.toTex(Expr.parse((s.bind && s.bind.expr) || s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
   };
 
   // ---------- shape API ----------

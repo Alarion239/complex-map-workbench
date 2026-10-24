@@ -1989,7 +1989,7 @@ void main() {
 }
 `;
   const LAND_COMMON = `
-uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol;
+uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
@@ -2021,8 +2021,8 @@ void main() {
   a = mix(a, ml, (plaster ? 0.65 : 0.40) * iso(xm, fm, 0.9) * dfade(fm));              // ln|F| = k 2pi/n
   a = mix(a, plaster ? ml : toLin(uArgLine), (plaster ? 0.25 : 0.30) * iso(xp, fp, 0.7) * dfade(fp));  // arg F = k 2pi/n
   float ds = abs(lr) / max(flr, 1e-6);                                                  // sea level |F| = 1
-  a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
-  a = mix(a, vec3(1.0), 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
+  a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
+  a = mix(a, vec3(1.0), uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
   vec3 eb = vBary / max(fb, vec3(1e-6));                                                // exposed cliff edges
   float cliff = max(max(vEdge.x * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.x)),
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
@@ -3208,6 +3208,10 @@ float wabs(vec2 w) {
   // a promise that settles once the GPU has finished every command issued so far: a fence polled between tasks,
   // never waited on (SPEC 10.6: the export reads its rasters back only then, so a readback does not hold the main
   // thread while the GPU finishes 300 dpi passes; P3 review). Settles anyway after maxMs or on a lost context.
+  // (a hidden page runs timers about once a second: a video made there polls through a message channel instead)
+  const laterQ = [], laterCh = typeof MessageChannel !== 'undefined' ? new MessageChannel() : null;
+  if (laterCh) laterCh.port1.onmessage = () => { const f = laterQ.shift(); if (f) f(); };
+  const later = (f) => { if (laterCh && typeof document !== 'undefined' && document.hidden) { laterQ.push(f); laterCh.port2.postMessage(0); } else setTimeout(f, 4); };
   function gpuDone(maxMs = 3000) {
     if (!ok || lost || !gl || typeof gl.fenceSync !== 'function') return Promise.resolve(false);
     let f = null;
@@ -3219,9 +3223,9 @@ float wabs(vec2 w) {
         let done = true;
         try { done = gl.isContextLost() || gl.getSyncParameter(f, gl.SYNC_STATUS) === gl.SIGNALED; } catch (e) { done = true; }
         if (done || performance.now() - t0 > maxMs) { try { gl.deleteSync(f); } catch (e) { /* lost */ } res(done); return; }
-        setTimeout(poll, 4);
+        later(poll);
       };
-      setTimeout(poll, 0);
+      later(poll);
     });
   }
   function blit(ctx) {
@@ -4028,6 +4032,8 @@ float wabs(vec2 w) {
       u3(P, 'uPlaster', C.plaster);
       u3(P, 'uModLine', C.modLine);
       u3(P, 'uArgLine', C.argLine);
+      // (the figure's art layer: no white sea-level line, |F| = 1 is an ordinary contour of the ln|F| family)
+      u1f(P, 'uSea', st.seaLine === false ? 0 : 1);
       u3(P, 'uFogCol', C.landBottom);
       u1f(P, 'uFogNear', fogNear);
       u1f(P, 'uFogFar', fogFar);
@@ -4052,7 +4058,7 @@ float wabs(vec2 w) {
       u2f(Fp, 'uExt', ext[0], ext[1]);
       u3(Fp, 'uFloorCol', C.floor); u3(Fp, 'uMinor', C.minor); u3(Fp, 'uMed', C.medium); u3(Fp, 'uMajor', C.major);
       u3(Fp, 'uShadow', C.shadow); u1f(Fp, 'uShadowA', C.shadowA);
-      u1f(Fp, 'uPrint', material === 2 ? 0 : 1);
+      u1f(Fp, 'uPrint', material === 2 || st.floorPrint === false ? 0 : 1);
       u1f(Fp, 'uPlateA', alpha);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };

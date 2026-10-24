@@ -1,0 +1,178 @@
+[
+  {
+    "id": "design-1",
+    "severity": "high",
+    "title": "Phone: at full height the chain bar floats over the editor and hides a field",
+    "detail": "Tap a card, then tap the grabber to open the Editor at full height. The sheet moves to the top (y 56), but the chain bar stays where it was (y 360 to 424). It covers the zeta-1 row. elementFromPoint on the zeta-1 field returns a card name, so the field cannot be tapped. The chain bar should ride on the sheet's top edge (phone DESIGN 3.5), not sit in the middle of its content.",
+    "evidence": "work/xva/test/dsr_cdp/shots/p2-editfull-390-light.png, work/xva/test/dsr_cdp/shots/p3-editfull-390-wait.png (2 s after the tap, same overlap); measured: sheet [0,56,390,788], .pipe-wrap [0,360,390,64], #i3_zeros0 [60,378,306,44], elementFromPoint = .nm",
+    "fix": "At full height, move the chain bar with the sheet (to the sheet's top edge, under the header) or hide it. Add a check to v15_phone_cmd.js: at full height, no sheet control is covered (elementFromPoint at each control's centre)."
+  },
+  {
+    "id": "design-2",
+    "severity": "high",
+    "title": "Phone: tapping the grabber focuses the field under it (the keyboard would pop up)",
+    "detail": "On a 390 x 844 phone, open a step's Editor and tap the grabber to expand it. The sheet grows under the finger, and the tap's click lands on the field that is now there. Focus goes to the zeta-2 field (#i3_zeros1). On a real phone the keyboard opens and covers half the screen right after a layout gesture.",
+    "evidence": "cmd work/xva/test/dsr_cdp/cmd/p4.js: activeElement after the card tap = the card; after the grabber tap = #i3_zeros1",
+    "fix": "Expand on click (not on pointerdown or touchend), or call preventDefault on the grabber's touchend, or ignore clicks in the sheet for about 350 ms after it resizes. Keep focus on the grabber."
+  },
+  {
+    "id": "design-3",
+    "severity": "high",
+    "title": "Phone: the F tile in the chain bar is cut (\"Analyti / c\") and F pokes out of it",
+    "detail": "The design says the phone F tile shows F and its lamp only (phone DESIGN 3.3). The build puts the word \"Analytic\" in a 48 px tile. It breaks inside the word (\"Analyti\" then \"c\"), runs 2 px past the tile's bottom, and the F glyph starts 2 px above the tile's top. It is the one tile the user approved, and it looks broken at 360 and 390, in light and dark.",
+    "evidence": "work/xva/test/dsr_cdp/shots/p5-bar-390.png (3x zoom), work/xva/test/dsr_cdp/shots/p2-F-360-dark.png, work/xva/test/dsr_cdp/shots/p2-nums-390-light.png; measured: tile [256,725,48,52], F [272,723,15,26], lamp [257,753,46,26]",
+    "fix": "On the phone show F and the lamp dot only, with the name in the aria-label and a long-press label (as designed). If a word is kept, size the tile to the word and never break inside it."
+  },
+  {
+    "id": "design-4",
+    "severity": "high",
+    "title": "Desktop: the formula of F is cut off in the F Inspector",
+    "detail": "Select the F tile with the exp, Möbius, zeros-and-poles chain at 1440. The expanded F(z) is wider than the 288 px panel. It ends at \"+ 0.5\" and the rest (\"i)\") is cut. The well has overflow-x: auto, but nothing shows that it scrolls. The mockup (f2) wrote F in terms of w2 so it fits. A cut formula is exactly the kind of non-article-grade picture the user rejects. The same chain fits on the phone only because the font is smaller there.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a3-phase-F-1440-dark.png, work/xva/test/dsr_cdp/shots/k2-F-1440-light.png; measured: .iform scrollWidth 280 > clientWidth 262; MathJax 268 > 238",
+    "fix": "When the expanded F does not fit, show F in terms of the last w (F(z) = (w2 - 0.5)(w2 + 0.5i)/(w2 + 0.8 - 0.75i), as in the mockup) with the w_k list under it, or break the line, or scale the display to fit. Add a check: no Inspector formula wider than its well at 264 and 288 px."
+  },
+  {
+    "id": "design-5",
+    "severity": "high",
+    "title": "Desktop: the temporary Inspector covers the centre of Y",
+    "detail": "With the panel hidden (]), selecting a card opens the temporary Inspector at x 1100 to 1388. Y spans 832 to 1388, so the overlay covers 288 of Y's 556 px, including its centre (x 1110) and the end of Y's title. DESIGN 3 says it never covers the picture's centre. The builder lists this as left; it is the first thing a user sees after hiding the panel.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a3-temp-1440-light.png; measured: #propsPanel [1100,44,288,652], #paneR [832,44,556,652]",
+    "fix": "When the temporary Inspector opens in X -> Y, shrink the stage by 288 px (dock it for the time it is open), or open it over X's left edge, or narrow it to the space right of Y's centre. Re-check at 1280 and 1024."
+  },
+  {
+    "id": "design-6",
+    "severity": "high",
+    "title": "A drawn point is labelled \"a\", the same letter as the shared number a",
+    "detail": "Points get the letters a, b, c... on the planes (pointLabel). With v15 those letters are also shared numbers. In the test figure, X shows a point \"a\", Y shows \"a‴\", Parameters shows \"a = 0.5\", and the Inspector shows a3. The design's rule is that a plain a always means the shared number (desktop DESIGN 2.4, 2.7). The mockup labels the point z0. Typing \"a\" in a field next to a point called a will surprise people.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a2-x-center.png, work/xva/test/dsr_cdp/shots/a1-1440-light-default.png, work/xva/test/dsr_cdp/shots/p1-home-390-light.png; src/app.js pointLabel (line 2142)",
+    "fix": "Label new points z0, z1, z2... (or P, Q, R once constructions come), never a lowercase letter that can be a number's name. Keep old saved labels; only the default changes."
+  },
+  {
+    "id": "design-7",
+    "severity": "medium",
+    "title": "Hover actions cover the card name, so a hovered card reads \"Zeros a...\"",
+    "detail": "Bypass and ⋯ sit over the name while the pointer is on the card. Right after a click the pointer is still there, so the selected card reads \"Zeros a\" followed by the icons, at 1440, 1024 and 768, and \"Нули и пол\" in Russian. DESIGN 2.1 says the name is the card's only text and must never be cut.",
+    "evidence": "work/xva/test/dsr_cdp/shots/k2-hover-1440.png, work/xva/test/dsr_cdp/shots/a5-xy-1024-light.png, work/xva/test/dsr_cdp/shots/a5-xy-768-light.png, work/xva/test/dsr_cdp/shots/a5-ru-1024-light.png",
+    "fix": "Put the two actions in the picture's top-right corner (over the picture, with a small surface), or show them only on hover of the head's index tag. The name keeps its full width."
+  },
+  {
+    "id": "design-8",
+    "severity": "medium",
+    "title": "The zero and pole rows have no Argand button",
+    "detail": "DESIGN 2.4 and both mockups give each row the symbol, the field, the Argand button and Remove. In the build only a3 has the Argand button; zeta-1, zeta-2 and p1 have × only. The one Argand button is named \"Pick a on an Argand diagram\", which uses the plain a that now means the shared number.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a2-insp-zoom.png; the Inspector's buttons: one \"Pick a on an Argand diagram\", three \"Remove ...\"",
+    "fix": "Add the Argand button to every zero and pole row (desktop 28 px, phone 44 px), as in the mockups. Name it with the indexed symbol: \"Pick a₃ on an Argand diagram\", \"Pick ζ₁ ...\"."
+  },
+  {
+    "id": "design-9",
+    "severity": "medium",
+    "title": "Phone: the Inspector's hint says \"right-click\" and \"Alt\"",
+    "detail": "On a phone the Editor says \"Or right-click a plane. Marks snap to the ruler (Alt: free).\" There is no right-click or Alt key on a phone. The design text is \"Or long-press a plane. New and dragged marks snap to 0.05.\" The builder lists it as left.",
+    "evidence": "work/xva/test/dsr_cdp/shots/p2-edit-390-light.png",
+    "fix": "Choose the hint by input: (pointer: coarse) or the phone layout gets the long-press text; the Snap pill replaces the Alt part."
+  },
+  {
+    "id": "design-10",
+    "severity": "medium",
+    "title": "Phone: the sheet has two heads, so the first 90 px say almost nothing",
+    "detail": "The Editor opens with a grabber row that holds only × (52 px of empty band), then the Inspector's own head (f3, Zeros and poles, lens, ⋯). The design has one 52 px head: index, icon, name, Show alone, ⋯. On a 780 px tall phone the half-height sheet then shows only three zero rows.",
+    "evidence": "work/xva/test/dsr_cdp/shots/p2-edit-390-light.png, work/xva/test/dsr_cdp/shots/p2-F-360-dark.png",
+    "fix": "Merge them: the grabber is a thin bar on top of the Inspector head, and × joins the head's buttons (or Esc and drag down only)."
+  },
+  {
+    "id": "design-11",
+    "severity": "medium",
+    "title": "Phone: with a sheet open, each 195 px plane keeps its full button column",
+    "detail": "With the Editor open, X and Y are 195 x 300 each. Each still shows the globe, Display and Fit buttons (44 px each), and Y adds a pattern button. Seven round buttons cover about a quarter of the two small planes, and Y's title is cut to \"w = F(z) 2 /...\". The mockup's split planes show only the title chips. This is the cockpit look the user asked to remove.",
+    "evidence": "work/xva/test/dsr_cdp/shots/p2-edit-390-light.png, work/xva/test/dsr_cdp/shots/p2-F-360-dark.png",
+    "fix": "In the split view, hide the plane buttons (they belong to the single-plane screen) and keep only the title chips. Fit can stay as a double-tap."
+  },
+  {
+    "id": "design-12",
+    "severity": "medium",
+    "title": "Phone: Numbers opens the last selection scrolled down, not the numbers",
+    "detail": "Tap the Numbers chip with F selected. The sheet opens on F's Inspector, scrolled to Parameters, so the top of the sheet shows F's \"Step by step\" and \"How these are decided\". The numbers are there, but the context is wrong. Phone DESIGN 3.5 gives Numbers its own content: one row per number, then \"+ Number\".",
+    "evidence": "work/xva/test/dsr_cdp/shots/p2-nums-390-light.png",
+    "fix": "Let Numbers open the Editor with only Parameters (hide the Selection section), headed \"Numbers\". A card or the F tile brings the selection back."
+  },
+  {
+    "id": "design-13",
+    "severity": "medium",
+    "title": "Deformation: the playing card is not marked, and held cards show a t that disagrees with the main t",
+    "detail": "While the deformation plays, no card is accent. The selected card turns neutral (.sel.quiet), but nothing marks the playing one (design-24). The cards hold their pictures during playback, and each card has a \"t = 1.00\" label. In one capture the main bar read t = 0.96 / 3 (in f1), while the cards read f1 t = 1.00, f2 t = 1.00, f3 t = 0.96. The design also says no letters on cards (design-7).",
+    "evidence": "work/xva/test/dsr_cdp/shots/a4-def-paused.png, work/xva/test/dsr_cdp/shots/a3-def-1440-light.png; src/desk.css has .card.sel.quiet but no rule for a playing card",
+    "fix": "Add a .playing class with the accent outline to the card of the step being played. Remove the t labels, or hide them while the picture is held, so a card never shows a t that is not the current one."
+  },
+  {
+    "id": "design-14",
+    "severity": "medium",
+    "title": "The chain listbox is a long tab walk with interactive and non-option children",
+    "detail": "Each card has tabIndex 0. Tab walks Insert +, the card, Bypass and ⋯ for every step: about 17 stops from the region to the F tile. Arrows already move the selection, so the listbox should be one tab stop with a roving tabindex. The listbox also holds connectors (with text such as \"w1\", not aria-hidden) and the Add tile, which are not options. The options contain buttons (6 in this chain). Screen readers may read the connectors as stray text.",
+    "evidence": "cmd work/xva/test/dsr_cdp/cmd/k1.js: tabSeq; #pipeline children option/-/option...; innerBtns 6; ariaHiddenConn false",
+    "fix": "Use a roving tabindex (the selected option is 0, the others -1). Put aria-hidden on the connectors and move Insert, Add, Bypass and ⋯ out of the listbox's accessibility tree (they stay in the Inspector's ⋯ and the keyboard: Delete, L). Give the Add tile its own tab stop after the listbox."
+  },
+  {
+    "id": "design-15",
+    "severity": "medium",
+    "title": "Russian: the F tile's lamp takes four lines at 1024",
+    "detail": "At 1024 the 72 px F tile reads \"Анали- / тиче- / ская / функция\" in four lines, and three at 1440. The tile is tall enough, but the broken word looks like an error, next to card names that are short forms.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a5-ru-1024-light.png, work/xva/test/dsr_cdp/shots/a5-ru-1440-F.png",
+    "fix": "Give the tile a short form with $tx('ftile', ...): «Аналитична» (or «Голоморфна»), on one line. Keep the full words in the F Inspector."
+  },
+  {
+    "id": "design-16",
+    "severity": "low",
+    "title": "At 768 the zero rows run in two columns in a zigzag order",
+    "detail": "Under the chain at 768 the rows are a3 | zeta-1 on the first line and zeta-2 | p1 on the second, so the leading coefficient sits beside a zero and the zeros are split across lines. The formula is in a well under the head, not on the head row (DESIGN 4), so the rows start lower than planned.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a5-xy-768-light.png; mockup notes/ui-redesign-2/desktop/shots/after-f6-xy-768-light.png",
+    "fix": "Fill the columns top to bottom (zeros left, poles right, a3 above both), and move the formula onto the head row as designed."
+  },
+  {
+    "id": "design-17",
+    "severity": "low",
+    "title": "Parameters: two add buttons, a far-away Play, and hyphens as minus signs",
+    "detail": "The Parameters head has a + and the list ends with \"+ Number\": two controls for one action. Play sits at the far right next to ⋯, about 110 px from the value field (the mockup puts it right after the field). The range ends read \"-2\", and the slider is named \"a from -2 to 2\", with a hyphen-minus. The zero and pole fields show \"-0.5i\" and \"-0.8+0.75i\" (the mockup shows \"−0.8 + 0.75i\"). On the phone the \"=\" sits far from the name.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a2-insp-zoom.png, work/xva/test/dsr_cdp/shots/p2-nums-390-light.png",
+    "fix": "Keep one add control (\"+ Number\" at the end, or the head + only). Put Play right after the value field. Use U+2212 in the range labels and aria-labels, and show field values with the true minus and spaced + where the field is not focused."
+  },
+  {
+    "id": "design-18",
+    "severity": "low",
+    "title": "\"Clear chain\" is a plain text button in the chain head",
+    "detail": "DESIGN 2.1 puts Clear chain under the head's ⋯. The build shows \"Clear chain\" as a word button next to Whole chain, at every width and in Russian («Очистить цепочку»). A destructive action now has the same weight as Pictures | Names, and the head is busier.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a1-1440-light-default.png, work/xva/test/dsr_cdp/shots/a5-ru-1024-light.png",
+    "fix": "Move it into a ⋯ menu in the chain head, as designed."
+  },
+  {
+    "id": "design-19",
+    "severity": "low",
+    "title": "The temporary Inspector's head reads \"Editor (the panel is hidden)\"",
+    "detail": "The overlay's title explains the app's state instead of naming the thing. The rail calls it Inspector, the design calls it the temporary Inspector, and the phone calls it Editor.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a3-temp-1440-light.png",
+    "fix": "Title it \"Inspector\" (Russian as in the glossary), with the Esc key cap and ×. Use one name on every platform."
+  },
+  {
+    "id": "design-20",
+    "severity": "low",
+    "title": "A later step's mark is cut at the card's edge",
+    "detail": "With f3 selected, the f2 card shows f3's pole (design: marks of step k+1 on card k while k+1 is selected). The pole lies outside the card's frame, so half a red × is cut at the top edge of the picture. It reads as a glitch.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a1-1440-light-default.png (the f2 card), work/xva/test/dsr_cdp/shots/a5-xy-768-light.png",
+    "fix": "Draw marks that fall outside the frame as a small edge arrow, or leave them out, as the main view does for off-screen marks."
+  },
+  {
+    "id": "design-21",
+    "severity": "low",
+    "title": "The Inspector is not a named region",
+    "detail": "#propsPanel is a plain div with no role or name, so a screen reader user cannot jump to the Inspector. The chain is a named listbox; the panel that edits its selection should be findable too.",
+    "evidence": "cmd work/xva/test/dsr_cdp/cmd/k1.js: insp {role: null, label: null}",
+    "fix": "Give it role=\"region\" and aria-label \"Inspector\" (and the same on the temporary one and the phone sheet, which is already a named dialog)."
+  },
+  {
+    "id": "design-22",
+    "severity": "low",
+    "title": "At 768 the header loses Examples, search and the panel toggles",
+    "detail": "Frame f6 of the mockup keeps Examples, search, the two panel toggles, export, language, theme, sound and help at 768. The build shows the logo, Undo, Redo, the three view icons, Deformation and ⋯. This may be the v15 base's header, which v14's fixes will replace; check it after the merge.",
+    "evidence": "work/xva/test/dsr_cdp/shots/a5-xy-768-light.png; mockup notes/ui-redesign-2/desktop/shots/after-f6-xy-768-light.png",
+    "fix": "After the v14 merge, compare the 768 and 1024 headers with frames f5 and f6 and add a check for Examples' word at 1024."
+  }
+]

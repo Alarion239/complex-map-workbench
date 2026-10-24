@@ -10,20 +10,10 @@
     "ru": " Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{m}$); это %{hom}.",
     "note": "Film captions of Phase, Landscape and the phase sphere; worded as the one-frame caption."
   },
-  "v15x.globe_paths": {
-    "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole: the image of %{list} under %{map} ($t=%{m}$) over its boundary at $t=0$ (gray).",
-    "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс): образ %{list} при отображении %{map} ($t=%{m}$) поверх его границы при $t=0$ (серая линия).",
-    "note": "The paths figure on the globe. %{list}: the shapes in the genitive."
-  },
   "v15x.globe_arrows": {
     "en": " Arrows are the paths $t\\mapsto H_t(z)$ of %{n} points, from $z$ (dot) to $%{F}(z)$.",
     "ru": " Стрелки — пути $t\\mapsto H_t(z)$ выбранных точек (их %{n}): от $z$ (точка) до $%{F}(z)$.",
     "note": "Paths figure on the globe; worded without a case after the number."
-  },
-  "v15x.globe_film": {
-    "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$), at %{ts}: the image of %{list} under $H_t$.",
-    "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) от тождественного отображения ($t=0$) до %{map} ($t=%{m}$) при %{ts}: образ %{list} при отображении $H_t$.",
-    "note": "Filmstrip on the globe."
   },
   "v15x.globe_solid": {
     "en": " Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.",
@@ -197,6 +187,11 @@
     "ru": "%{w} × %{h} · %{fps} к/с · %{secs} с · этот кадр: t = %{t}",
     "note": ""
   },
+  "v15x.fps_option": {
+    "en": "{n} fps",
+    "ru": "%{n} к/с",
+    "note": "a frame-rate option of the video (30 or 60); к/с as in v15x.poster_hint"
+  },
   "v15x.svg_note": {
     "en": "SVG in LaTeX needs the svg package and Inkscape (Overleaf has both). Google Docs cannot place SVG: use PNG there.",
     "ru": "Для SVG в LaTeX нужны пакет svg и Inkscape (в Overleaf есть оба). Google Документы не вставляют SVG: там используйте PNG.",
@@ -257,9 +252,239 @@
     "ru": "Здесь не удалось создать видео.",
     "note": ""
   },
-  "v15x.the_map_is": {
-    "en": " The map is",
-    "ru": " Отображение задаётся формулой",
-    "note": "figure.js displayF: a caption whose sentence naming F is long ends with F's displayed formula after these words."
+  "v15x.globe_arrow_one": {
+    "en": " The arrow is the path $t\\mapsto H_t(z)$ of one point, from $z$ (dot) to $%{F}(z)$.",
+    "ru": " Стрелка — путь $t\\mapsto H_t(z)$ одной точки: от $z$ (точка) до $%{F}(z)$.",
+    "note": "Paths figure on the globe with one path."
+  },
+  "r3.here_steps": {
+    "en": " Here $H_t$, $0\\le t\\le %{m}$, deforms the identity ($t=0$) into %{map} ($t=%{m}$) and runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): %{rest}.",
+    "ru": " Здесь $H_t$, $0\\le t\\le %{m}$, непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{m}$), выполняя шаги по очереди ($H_t=H^{(k)}_{t-k+1}$ при $k-1\\le t\\le k$): %{rest}.",
+    "note": "editor-13: the homotopy sentence without 'along the homotopy H_t'. %{rest}: the app's per-step clauses ('for f_1, ...'). Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.dot": {
+    "en": "dot",
+    "ru": "жирная точка",
+    "note": "editor-3: the marker of a tracked point (a filled circle). Export review r3 (ROUND3.md, ledger-r3.json). (review r3 verify, editor-3) «жирная точка», not «точка»: the caption reads «путь точки $0{,}8i$ (жирная точка)», never «точки … (точка)»."
+  },
+  "r3.square": {
+    "en": "square",
+    "ru": "квадрат",
+    "note": "editor-3: a marker. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.triangle": {
+    "en": "triangle",
+    "ru": "треугольник",
+    "note": "editor-3: a marker. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.diamond": {
+    "en": "diamond",
+    "ru": "ромб",
+    "note": "editor-3: a marker. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.hidden1": {
+    "en": " The point %{p} is on the far side of the sphere and is not shown.",
+    "ru": " Точка %{p} находится на обратной стороне сферы и не видна.",
+    "note": "editor-3. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.hiddenN": {
+    "en": " The points %{list} are on the far side of the sphere and are not shown.",
+    "ru": " Точки %{list} находятся на обратной стороне сферы и не видны.",
+    "note": "editor-3. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.arrow1": {
+    "en": " The arrow is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (dot) to $%{F}(z)$.",
+    "ru": " Стрелка — путь $t\\mapsto H_t(z)$ точки %{p}: от $z$ (точка) до $%{F}(z)$.",
+    "note": "editor-3: the globe's paths figure names the point. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.arrowN": {
+    "en": " Arrows are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (dot) to $%{F}(z)$.",
+    "ru": " Стрелки — пути $t\\mapsto H_t(z)$ точек %{list}: от $z$ (точка) до $%{F}(z)$.",
+    "note": "editor-3. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.solid1": {
+    "en": " Solid: the path $t\\mapsto H_t(z)$ of the point %{p} up to the frame's $t$; dotted: the rest of the path; gray: the boundary at $t=0$.",
+    "ru": " Сплошная линия — путь $t\\mapsto H_t(z)$ точки %{p} до значения $t$ в кадре; точечная — оставшаяся часть пути; серая — граница при $t=0$.",
+    "note": "editor-3: %{p} is '$0.8i$ (dot)'. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.solidN": {
+    "en": " Solid: the paths $t\\mapsto H_t(z)$ of the points %{list} up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.",
+    "ru": " Сплошные линии — пути $t\\mapsto H_t(z)$ точек %{list} до значения $t$ в кадре; точечные — оставшаяся часть каждого пути; серая — граница при $t=0$.",
+    "note": "editor-3. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.black": {
+    "en": " Black: the boundary of $X$.",
+    "ru": " Чёрная линия — граница множества $X$.",
+    "note": "editor-10: Phase on the sphere. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.shownat": {
+    "en": " Shown at $t=%{t}$.",
+    "ru": " Показан кадр при $t=%{t}$.",
+    "note": "editor-13: one frame; the homotopy sentence follows. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.defo_choice": {
+    "en": "The deformation $H_t$%{choice}%{choice2}",
+    "ru": "Деформация $H_t$%{choice}%{choice2}",
+    "note": "editor-13: the one-frame caption on the globe or over a d/dz step. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_gpaths": {
+    "en": "Paths of the deformation $H_t$ on the Riemann sphere.",
+    "ru": "Пути деформации $H_t$ на сфере Римана.",
+    "note": "editor-4: short caption (list of figures). Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_globe": {
+    "en": "The deformation $H_t$ on the Riemann sphere at %{ts}.",
+    "ru": "Деформация $H_t$ на сфере Римана при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_pglobe": {
+    "en": "Phase portraits of $H_t$ on the Riemann sphere at %{ts}.",
+    "ru": "Фазовые портреты $H_t$ на сфере Римана при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_land": {
+    "en": "Landscapes of $H_t$ at %{ts}.",
+    "ru": "Рельефы $H_t$ при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_phase": {
+    "en": "Phase portraits of $H_t$ at %{ts}.",
+    "ru": "Фазовые портреты $H_t$ при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_plane": {
+    "en": "The deformation $H_t$ at %{ts}.",
+    "ru": "Деформация $H_t$ при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_paths": {
+    "en": "Paths of the deformation $H_t$.",
+    "ru": "Пути деформации $H_t$.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_phase1": {
+    "en": "Phase portrait of $H_t$ at %{ts}.",
+    "ru": "Фазовый портрет $H_t$ при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_land1": {
+    "en": "Landscape of $H_t$ at %{ts}.",
+    "ru": "Рельеф $H_t$ при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_pglobe1": {
+    "en": "Phase portrait of $H_t$ on the Riemann sphere at %{ts}.",
+    "ru": "Фазовый портрет $H_t$ на сфере Римана при %{ts}.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_phaseF": {
+    "en": "Phase portrait of $%{F}$.",
+    "ru": "Фазовый портрет функции $%{F}$.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_landF": {
+    "en": "Landscape of $%{F}$.",
+    "ru": "Рельеф функции $%{F}$.",
+    "note": "editor-4. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.slide_to": {
+    "en": "The deformation $H_t$ to $%{F}$",
+    "ru": "Деформация $H_t$ к $%{F}$",
+    "note": "editor-14: a Beamer frame title with F. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.window": {
+    "en": "Window",
+    "ru": "Окно",
+    "note": "editor-5: the video's window. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.fitmotion": {
+    "en": "Fit the motion",
+    "ru": "По движению",
+    "note": "editor-5: the window that holds every frame of the motion. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.journal": {
+    "en": " For a journal, PDF is better: it is vector.",
+    "ru": " Для журнала лучше PDF: он векторный.",
+    "note": "editor-21. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.hiddenzp": {
+    "en": "Most zeros and poles are on the far side of the sphere in these frames: turn the globe so they face you, then export again.",
+    "ru": "Большая часть нулей и полюсов в этих кадрах на обратной стороне сферы: поверните глобус к ним и экспортируйте снова.",
+    "note": "editor-10. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.front": {
+    "en": "Keep this tab in front while the video is made: a hidden tab can slow it down.",
+    "ru": "Пока видео создаётся, держите вкладку на переднем плане: скрытая вкладка может работать медленнее.",
+    "note": "video-2. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.pdone": {
+    "en": "{p} % done",
+    "ru": "Готово на %{p} %",
+    "note": "video-7: announced at 25, 50, 75 %. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.vsaved": {
+    "en": "The video is saved.",
+    "ru": "Видео сохранено.",
+    "note": "video-7. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.gray_outline": {
+    "en": " (gray outline)",
+    "ru": " (серый контур)",
+    "note": "editor-9: X's outline in the plane paths figure (was dashed). Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.gray_outlines": {
+    "en": ", with gray outlines,",
+    "ru": " (серые границы)",
+    "note": "editor-9. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.gray_outline1": {
+    "en": ", with a gray outline,",
+    "ru": " (серая граница)",
+    "note": "editor-9. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3.s_image": {
+    "en": "The image under $%{F}$.",
+    "ru": "Образ при отображении $%{F}$.",
+    "note": "editor-4: the short caption of an X -> Y figure whose own first part is over 100 characters. Export review r3 (ROUND3.md, ledger-r3.json)."
+  },
+  "r3v.here": {
+    "en": " Here",
+    "ru": " Здесь",
+    "note": "figure.js leadIn: the lead-in of a display when its sentence already has «где» (the homotopy's «…, где H'(p) = …»): the sentence ends and the display follows «Здесь». Never «где …, где» (review r3 verify, editor-13)."
+  },
+  "r3v.globe_paths": {
+    "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).",
+    "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) от тождественного отображения ($t=0$) до %{map} ($t=%{m}$). На рисунке показан образ %{list} при отображении $%{F}$ поверх его границы при $t=0$ (серая линия).",
+    "note": "The paths figure on the globe. The first sentence names F, so its display follows it at once (no «Отображение задаётся формулой» at the end). %{list}: the shapes in the genitive."
+  },
+  "r3v.globe_film": {
+    "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.",
+    "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) от тождественного отображения ($t=0$) до %{map} ($t=%{m}$). На кадрах при %{ts} показан образ %{list} при отображении $H_t$.",
+    "note": "Filmstrip on the globe. Two sentences: the display of F follows the first. %{ts}: «$t=0$ (\\textit{а}), …»."
+  },
+  "r3v.mark_paths": {
+    "en": " The %{mark} is the image of the point %{p} under $%{F}$.",
+    "ru": " Образ точки %{p} при отображении $%{F}$ — %{mark}.",
+    "note": "Globe paths figure: a point shape without an arrow, marked with a square (r3.square). No pronoun after the marker word (its gender varies)."
+  },
+  "r3v.mark_hidden_in": {
+    "en": " The %{mark} is the image of the point %{p}; in %{frames} it is on the far side of the sphere.",
+    "ru": " Образ точки %{p} — %{mark}; в кадрах %{frames} он на обратной стороне сферы.",
+    "note": "Globe filmstrip: «он» is «образ». %{frames}: «\\textit{а} и \\textit{г}»."
+  },
+  "r3v.mark": {
+    "en": " The %{mark} is the image of the point %{p}.",
+    "ru": " Образ точки %{p} — %{mark}.",
+    "note": "Globe filmstrip: a point shape whose path is not drawn, marked with a square (then a triangle, a diamond)."
+  },
+  "r3v.len_step": {
+    "en": "Length of each step",
+    "ru": "Длительность шага",
+    "note": "Video: the Length menu's label (aria). The menu gives the length of one step of the chain."
+  },
+  "r3v.secs_step": {
+    "en": "{v} s per step",
+    "ru": "%{v} с на шаг",
+    "note": "Video Length menu: 2, 3, 4, 6 s for each step (a chain of five steps is five times as long)."
   }
 }

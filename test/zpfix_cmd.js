@@ -42,7 +42,7 @@ const st2 = await ev('__cmwShapes()'), z2 = await zp();
 ok('the selected disc\'s radius handle wins over zeta_1 on the same spot', z2.params.zeros === '1, -1' && Math.abs(st2.shapes[0].r - 1.5) < 0.06, { zeros: z2.params.zeros, r: st2.shapes[0].r });
 // a zero snapped onto the pole: repeated clicks cycle between them (the pole can be grabbed)
 await ev(`__cmwSelect(null)`); await settle(200);
-await ev(`(() => { const e = document.querySelector('#pipeline .card[data-k="1"] input[data-zp="zeros:1"]'); e.value = '0'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(500);
+await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:1"]'); e.value = '0'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(500);
 const c0 = await w2s(0, 0);
 await click(c0[0], c0[1]); await settle(250);
 const s1 = (await zp()).sel;
@@ -54,16 +54,16 @@ ok('a zero on the pole: two clicks take both', s1 && s2 && s1.kind !== s2.kind, 
 await load('zpfix3' + Date.now(), { shapes: [{ id: 's1', kind: 'disc', c: [0, 1.2], r: 0.5 }],
   steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } });
 await settle(1200); await grab();
-await ev(`(() => { const e = document.querySelector('#pipeline .card[data-k="1"] input[data-zp="zeros:0"]'); e.value = '0.5, 0.5i'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(600);
-let fields = await ev(`[...document.querySelectorAll('#pipeline .card[data-k="1"] input[data-zp^="zeros:"]')].map((e) => [e.dataset.zp, e.value])`);
+await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"]'); e.value = '0.5, 0.5i'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(600);
+let fields = await ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] input[data-zp^="zeros:"]')].map((e) => [e.dataset.zp, e.value])`);
 ok('a list in one field: one field per item', JSON.stringify(fields) === JSON.stringify([['zeros:0', '0.5'], ['zeros:1', '0.5i'], ['zeros:2', '-1']]), fields);
 h = await handle('zeros', 2);
 await drag(h.x, h.y, h.x + 20, h.y - 30, 8, 16); await settle(500);
-fields = await ev(`[...document.querySelectorAll('#pipeline .card[data-k="1"] input[data-zp^="zeros:"]')].map((e) => [e.dataset.zp, e.value])`);
+fields = await ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] input[data-zp^="zeros:"]')].map((e) => [e.dataset.zp, e.value])`);
 const z3 = await zp();
 ok('after a drag of zeta_3 its own field shows it', fields.length === 3 && fields[2][1] === Funcs_split(z3.params.zeros)[2] && fields[0][1] === '0.5', { fields, zeros: z3.params.zeros });
 // long values: one item per row (the field shows the whole value)
-const wide = await ev(`(() => { const e = document.querySelector('#pipeline .card[data-k="1"] input[data-zp="zeros:2"]'); return { wide: e.closest('.zp-item').classList.contains('wide1'), fits: e.scrollWidth <= e.clientWidth + 1 }; })()`);
+const wide = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:2"]'); return { wide: e.closest('.zp-item').classList.contains('wide1'), fits: e.scrollWidth <= e.clientWidth + 1 }; })()`);
 ok('a long dragged value: its field takes the full row and shows it whole', wide.wide && wide.fits, wide);
 await shot('zpfix-card-light'); shots.push('zpfix-card-light');
 
@@ -72,14 +72,14 @@ const many = Array.from({ length: 24 }, (_, i) => `${(Math.cos(i * Math.PI / 12)
 await load('zpfix4' + Date.now(), { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.6 }],
   steps: [{ type: 'zp', params: { a: '1', zeros: many, poles: '0' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } });
 await settle(1500); await grab();
-const btn = await ev(`(() => { const b = document.querySelector('#pipeline .card[data-k="1"] .zp-add.zeros'); return b ? { dis: b.disabled, tip: b.dataset.tip, text: b.textContent } : null; })()`);
+const btn = await ev(`(() => { const b = document.querySelector('#propsPanel .insp-step[data-k="1"] .zp-add.zeros'); return b ? { dis: b.disabled, tip: b.dataset.tip, text: b.textContent } : null; })()`);
 ok('24 zeros: + zero disabled, says the cap, shows the count', btn && btn.dis && /At most 24/.test(btn.tip) && /24/.test(btn.text), btn);
 const e5 = await w2s(0.3, 0.2);
 await click(e5[0], e5[1], { mods: 8 }); await settle(400);
 ok('24 zeros: Shift-click adds none', Funcs_split((await zp()).params.zeros).length === 24, Funcs_split((await zp()).params.zeros).length);
-const err = await ev(`(() => { const e = document.querySelector('#pipeline .card[data-k="1"] input[data-zp="zeros:0"]'); e.value = '0.1, 0.2'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); return document.querySelector('#pipeline .card[data-k="1"]').textContent; })()`);
+const err = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"]'); e.value = '0.1, 0.2'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); return document.querySelector('#propsPanel .insp-step[data-k="1"]').textContent; })()`);
 await settle(500);
-ok('25 typed: the step says the cap', /At most 24/.test(err) || /At most 24/.test(await ev(`document.querySelector('#pipeline .card[data-k="1"]').textContent`)), err.slice(0, 200));
+ok('25 typed: the step says the cap', /At most 24/.test(err) || /At most 24/.test(await ev(`document.querySelector('#propsPanel .insp-step[data-k="1"]').textContent`)), err.slice(0, 200));
 
 await grab();
 ok('no exceptions or console errors', errs.length === 0, errs.slice(0, 5));

@@ -137,7 +137,7 @@ check('Patterns step', (await cur()).id === 'patterns', await cur());
 await clickSel('#patternSeg [aria-label="Stretch"]'); await settle(700);
 check('Patterns: choosing Stretch ticks the Try it', await ev(`document.querySelector('.tour-try').classList.contains('done')`));
 g = await ev(`({ count: document.querySelector('.tour-count').textContent, next: document.querySelector('.tour-card .btn.primary').textContent, done: !document.querySelectorAll('.tour-foot .btn')[1].hidden, h: Math.round(document.querySelector('.tour-foot').getBoundingClientRect().height) })`);
-check('end of a chapter: Back, Done and "Next: Deformation" on one line', g.count === '' && g.next === 'Next: Deformation' && g.done && g.h <= 40, g);
+check('end of a chapter: Back, Done and "Next: Editing the chain" on one line', g.count === '' && g.next === 'Next: Editing the chain' && g.done && g.h <= 40, g);
 await snap('tour-patterns-dark');
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
@@ -161,22 +161,43 @@ check('All steps at once shows, the order select lit whole: "Next: Analysis"', g
 await snap('tour-order-light');
 await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.tour-count').textContent })`);
-check('Analysis counts 6 steps', g.cur && g.cur.id === 'targets' && g.count === '1 of 6', g);
+check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && g.count === '1 of 5', g);
 check('Targets: the copy names X and Y and the multiplicity', /X shades their preimages/.test(await ev(`document.querySelector('.tour-body').textContent`)) && /multiplicity/.test(await ev(`document.querySelector('.tour-body').textContent`)));
 // the Cauchy phase style: Phase view, the style control lit whole, the integral over the scene's unit circle
 await ev(`Tour.next()`); await settle(1800);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('#leftFoot .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: !!(a && r && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1), on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);
 check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, the integral over the unit circle', g.c && g.c.id === 'cauchy' && g.scene === 'roots' && g.main === 'phase' && g.dc === 'cauchy' && g.lit && g.on === 'Cauchy' && /inside, 0 outside/.test(g.note || '') && !/Select a closed curve/.test(g.note || ''), g);
 await snap('tour-cauchy-light');
-await ev(`Tour.next()`); await settle(1800);
+// (v15: Zeros and poles moved to the chapter Editing the chain, step 3)
+await ev(`Tour.start({ chapter: 'edit', step: 2 })`); await settle(1800);
 check('Zeros and poles: its scene brings the Tiles style back', (await ev('__cmwState().dc')) === 'enhanced');
-g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), card = document.querySelector('.params.zp'); return { c, scene: L && L.scene, card: !!(card && L && L.anchor && card.closest('.card').getBoundingClientRect().left === L.anchor.l) }; })()`);
+// (v15: the zeros and poles are edited in the Inspector: the lit anchor is its parameter block)
+g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), card = document.querySelector('#propsPanel .params.zp'); return { c, scene: L && L.scene, card: !!(card && L && L.anchor && Math.abs(card.getBoundingClientRect().left - L.anchor.l) < 1) }; })()`);
 check('Zeros and poles: its scene and the zp card lit', g.c && g.c.id === 'zp' && g.scene === 'zp' && g.card, g);
 await snap('tour-zp-light');
 // a real drag of a zero ticks the Try it
 const zh = await ev(`(__cmwZp().handles || []).find((q) => q.kind === 'zeros' || q.kind === 'zero')`);
 if (zh) { await drag(zh.x, zh.y, zh.x + 12, zh.y - 18, 10, 16); await settle(700); }
 check('Zeros and poles: dragging a zero ticks the Try it', !!zh && (await ev(`document.querySelector('.tour-try').classList.contains('done')`)), zh);
+// (v15: Add a zero here, through the planes' menu: a right-click on X, then its first Add zero item, ticks the Try it)
+await ev('Tour.next()'); await settle(1500);
+const pz = await ev(`(() => { const r = document.querySelector('#plotL').getBoundingClientRect(); return { x: Math.round(r.left + r.width * 0.3), y: Math.round(r.top + r.height * 0.35) }; })()`);
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pz.x, y: pz.y });
+await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pz.x, y: pz.y, button: 'right', buttons: 2, clickCount: 1 });
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pz.x, y: pz.y, button: 'right', buttons: 0, clickCount: 1 }); await settle(500);
+const mz = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .pop.menu.pm .mi')].find((x) => /Add zero of/.test(x.textContent)); if (!b) return null; const q = b.getBoundingClientRect(); return { x: Math.round(q.left + q.width / 2), y: Math.round(q.top + q.height / 2) }; })()`);
+if (mz) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mz.x, y: mz.y }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: mz.x, y: mz.y, button: 'left', buttons: 1, clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: mz.x, y: mz.y, button: 'left', buttons: 0, clickCount: 1 }); }
+await settle(700);
+g = await ev(`({ id: Tour.current().id, done: document.querySelector('.tour-try').classList.contains('done'), n: __cmwP().steps[0].params.zeros })`);
+check('Add a zero here: the planes\' menu adds a zero and ticks the Try it', g.id === 'zpHere' && g.done && /,.*,/.test(g.n), g);
+// (v15: Shared numbers: dragging the slider of a ticks the Try it, and the circle's radius follows a)
+await ev('Tour.next()'); await settle(1800);
+const sl = await ev(`(() => { const r = document.querySelector('#propsPanel .prm input[type=range]'); if (!r) return null; const b = r.getBoundingClientRect(); return { x: Math.round(b.left + b.width * 0.5), y: Math.round(b.top + b.height / 2), r: b.right }; })()`);
+if (sl) { await drag(sl.x, sl.y, sl.x + 40, sl.y, 8, 16); await settle(700); }
+g = await ev(`({ id: Tour.current().id, done: document.querySelector('.tour-try').classList.contains('done'), a: (__cmwP().params || [])[0], r: (__cmwP().shapes.find((s) => s.kind === 'circle') || {}).r })`);
+check('Shared numbers: the slider ticks the Try it, and the circle follows a', g.id === 'numbers' && g.done && g.a && Math.abs(g.a.value - g.r) < 1e-9 && g.a.value !== 1, g);
+await snap('tour-numbers-light');
+await ev(`Tour.start({ chapter: 'analysis', step: 1 })`); await settle(1800);   // (Cauchy; Next is Integrals)
 await ev(`Tour.next()`); await settle(1800);
 g = await ev(`({ c: Tour.current(), scene: Tour.lit() && Tour.lit().scene })`);
 check('Integrals: the zp form of the residue scene', g.c && g.c.id === 'integral' && g.scene === 'residueZp', g);
@@ -185,7 +206,8 @@ g = await ev(`document.querySelector('.tour-body').textContent + ' | ' + documen
 check('Integrals: right-click the circle itself and choose ∮', /Right-click the circle itself/.test(g) && /∮/.test(g) && !/Integrate/.test(g), g);
 await ev('Tour.next()'); await settle(1500);
 g = await ev(`({ id: Tour.current().id, body: document.querySelector('.tour-body').textContent, panel: (document.querySelector('#propsPanel > section:nth-of-type(3)') || {}).textContent, tex: [...document.querySelectorAll('#propsPanel > section:nth-of-type(3) [data-tex], #propsPanel > section:nth-of-type(3) mjx-container')].map((e) => e.dataset.tex || e.getAttribute('aria-label') || '').join(' ') })`);
-check('Natural domain comes next, and its copy matches the zp panel (z ∉ {i, −i})', g.id === 'domain' && /which the panel writes/.test(g.body) && !/formula is defined/.test(g.panel || ''), { id: g.id, body: g.body, panel: (g.panel || '').slice(0, 120), tex: g.tex.slice(0, 120) });
+g.panel = await ev(`(document.querySelector('#propsPanel .insp-F .idom') || {}).textContent || ''`);
+check('Natural domain comes next, and its copy matches the F Inspector of the zp scene (z ∉ {i, −i})', g.id === 'domain' && /written/.test(g.body) && /F tile/.test(g.body) && g.panel && !/formula is defined/.test(g.panel), { id: g.id, body: g.body, panel: (g.panel || '').slice(0, 120) });
 await snap('tour-domain-light');
 await ev('Tour.next()'); await settle(1500);
 check('then Guarantees', (await cur()).id === 'guarantees');
@@ -204,7 +226,7 @@ g = await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; ret
 check('Examples: the lit patch holds the whole button (not a dot at its corner)', g.ok, g);
 await clickSel('.tour-foot .btn.ghost:not([hidden]) + .btn.ghost'); await settle(500);
 g = await recOf('t5b');
-check('Done ends the tour, Basics is done and Continue points at Views', !(await ev('Tour.isActive()')) && g.done.basics === 1 && g.last && g.last.ch === 'views' && g.last.i === 0, g);
+check('Done ends the tour, Basics is done and Continue points at Views', !(await ev('Tour.isActive()')) && g.done.basics === 2 && g.last && g.last.ch === 'views' && g.last.i === 0, g);
 
 // 7. Escape belongs to the app while its palette is open
 await open('t6p', { chapter: 'keys', step: 0 });
@@ -277,10 +299,10 @@ await fresh();
 
 // 9. the help menu: chapters, done marks, continue, keys
 await open('t7');
-await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 1, shown: 1, outcome: 'taken', done: { basics: 1 }, last: { ch: 'views', i: 1 } }))})`);
+await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 2 }, last: { ch: 'views', i: 1 } }))})`);
 await clickSel('#helpBtn'); await settle(500);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); return m && { items: [...m.querySelectorAll('.mi')].map(x => x.textContent.trim()), focus: m.contains(document.activeElement), role: m.getAttribute('role'), done: m.querySelectorAll('.tour-done').length }; })()`);
-check('menu: continue, seven chapters, guide, shortcuts', g && g.items.length === 10 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
+check('menu: continue, eight chapters, guide, shortcuts', g && g.items.length === 11 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
 check('menu: focus inside', g && g.focus);
 await snap('tour-menu-light');
 await view(1440, 900, true); await settle(300);
@@ -307,7 +329,7 @@ await nav(U + '?ns=t10'); await settle(1500);
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(n))`);
 await key('k', 4); await settle(500); await type('tour'); await settle(500);
 g = await ev(`[...document.querySelectorAll('#palList [role=option]')].map((x) => x.textContent.trim()).filter((t) => /^Tour:/.test(t))`);
-check('palette: seven "Tour: …" entries', g.length === 7 && g.some((t) => /Tour: Analysis/.test(t)), g);
+check('palette: eight "Tour: …" entries', g.length === 8 && g.some((t) => /Tour: Analysis/.test(t)), g);
 await ev(`(() => { const o = [...document.querySelectorAll('#palList [role=option]')].find((x) => /Tour: Analysis/.test(x.textContent)); o && o.click(); })()`); await settle(2000);
 g = await ev(`({ cur: Tour.current(), calls: window.__calls })`);
 check('palette: Tour: Analysis starts it; the tour loads its scene through the app', g.cur && g.cur.chapter === 'analysis' && g.calls.includes('loadScene') && g.calls.includes('setView') && g.calls.includes('sandbox'), g);
@@ -316,12 +338,15 @@ await ev(`document.querySelector('.tour-card .btn.primary').focus()`); await key
 
 // 12. phone: the callout is a sheet, the anchor scrolled into the free half, nothing scrolls sideways
 await open('t8', { chapter: 'basics', step: 1 }, 390, 844, false, true);
-g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); return { sheet: document.querySelector('.tour-card').classList.contains('sheet'), cw: Math.round(c.width), over: !(c.top >= p.bottom || c.bottom <= p.top), noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
-check('phone: sheet, full width, not over the pane, no horizontal scroll', g.sheet && g.cw >= 390 - 32 && !g.over && g.noHScroll, g);
+g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); const cy = (p.top + p.bottom) / 2; return { sheet: document.querySelector('.tour-card').classList.contains('sheet'), cw: Math.round(c.width), overC: c.top < cy && c.bottom > cy, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
+// (v15: the phone shows one plane of nearly the whole screen, so the sheet sits at an edge, clear of its centre)
+check('phone: sheet, full width, clear of the pane\'s centre, no horizontal scroll', g.sheet && g.cw >= 390 - 32 && !g.overC && g.noHScroll, g);
 await snap('tour-phone-x');
 await open('t8b', { chapter: 'basics', step: 4 }, 390, 844, true, true);
-g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(); return { lit: Tour.lit(), top: c.top, bottom: c.bottom }; })()`);
-check('phone, two lit areas: the sheet sits between them', g.lit && g.lit.edge === 'middle' && g.lit.holes.length === 2 && g.lit.holes.every((h) => h.b <= g.top || h.t >= g.bottom), g);
+g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, cardOnTop: !!(top && top.closest('.tour-card')) }; })()`);
+// (v15: the tool row and the large X leave no gap: the sheet keeps clear of the tool row, the step's anchor, lit whole,
+// and it is drawn above the chain bar)
+check('phone, two lit areas: the tool row lit whole and clear of the sheet, the sheet on top', g.lit && g.lit.holes.length === 2 && g.lit.holes[0].b - g.lit.holes[0].t >= g.row.b - g.row.t - 2 && (g.bottom <= g.row.t || g.top >= g.row.b) && g.cardOnTop, g);
 await snap('tour-phone-draw-dark');
 // what a phone reads: the panes by their role, touch instead of hover
 const phoneText = [];
@@ -330,21 +355,22 @@ for (const [ch, i] of [['basics', 1], ['basics', 2], ['basics', 3], ['basics', 4
   phoneText.push(await ev(`Tour.current().id + ': ' + document.querySelector('.tour-body').textContent + ' ' + (document.querySelector('.tour-try').hidden ? '' : document.querySelector('.tour-try').textContent)`));
 }
 check('phone: no left, right or hover in what the steps say', phoneText.length === 6 && phoneText.every((t) => !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(t)), phoneText);
-check('phone: the preimages step says touch and hold', phoneText.some((t) => /^preimages: Touch and hold/.test(t)), phoneText[2]);
+check('phone: the preimages step says hold, then slide', phoneText.some((t) => /^preimages: Hold a point/.test(t)), phoneText[2]);
 await key('Escape'); await ev('Tour.stop()'); await settle(300);
 await open('t8c', null, 390, 844, false, true); await ev('Tour.reset(); Tour.suggest({ delay: 0, force: true })'); await settle(900);
 await sleep(400);
 g = await ev(`(() => { const s = document.querySelector('.tour-suggest').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return { top: s.top, hdr: h.bottom, b: innerHeight - s.bottom, w: Math.round(s.width) }; })()`);
 check('phone: the suggestion is a sheet under the top bar, clear of the tool bar', g.top >= g.hdr && g.top <= g.hdr + 20 && g.b > 120 && g.w >= 390 - 32, g);
 g = await ev(`document.querySelector('.tour-sg-body').textContent + document.querySelector('#tourSay').textContent`);
-check('phone: the suggestion says where Help is (in ⋯)', /⋯ › Help/.test(g), g);
+check('phone: the suggestion says where the tour is (⋯ › Guided tour)', /⋯ › Guided tour/.test(g), g);
 await snap('tour-phone-suggest');
 // the help menu from the ⋯ menu: the help button closes with ⋯, the menu hangs under ⋯
 await nav(U + '?ns=t8d'); await settle(1500);
-await clickSel('#hdrMoreBtn'); await settle(400);
-await clickSel('#helpBtn'); await settle(500);
+// (v15: ⋯ opens the More sheet, whose Guided tour row opens the tour menu)
+await clickSel('#hdrMoreBtn'); await settle(500);
+await ev(`(() => { const b = [...document.querySelectorAll('.ph-row')].find((x) => /Guided tour/.test(x.textContent)); b && b.click(); })()`); await settle(600);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); if (!m) return null; const b = m.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, inView: b.left >= 0 && b.right <= innerWidth && b.top >= 0 }; })()`);
-check('phone: Help in ⋯ opens the tour menu on screen', g && g.inView && g.t > 20, g);
+check('phone: Guided tour in ⋯ opens the tour menu on screen', g && g.inView && g.t > 20, g);
 g = await ev(`[...document.querySelectorAll('.tour-menu .mi')].map((x) => x.textContent.trim())`);
 check('phone: the menu shows no key hints and no shortcuts item', !g.some((t) => /Keyboard shortcuts/.test(t)) && !g.some((t) => /\?$/.test(t)), g);
 await snap('tour-phone-menu');

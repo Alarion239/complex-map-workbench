@@ -1,0 +1,30 @@
+[
+ {
+  "id": "snddef-2/8-repick",
+  "of": ["snddef-2", "snddef-8"],
+  "status": "still wrong",
+  "severity": "medium",
+  "title": "The layout re-pick uses stale pane geometry: in the Phase view the tone follows a point 20 px away from the pointer",
+  "detail": "The re-pick runs on the next frame after openTransport, closeTransport or setMain. At that moment the pane still has its old size, so s2w (or pickLand) gives the old point or a wrong one. Nothing corrects it later, because the view key (sndVKey) holds cx, cy, s or the camera, not the pane size. Opening the deformation in the Phase view (main 'phase', no merge) shrinks the plane by the transport bar, so the point under a still pointer moves by 20.5 px, but the rest keeps the old point. During the whole play the tone is H_t at a point the pointer is not on, while the needle and readout show the right one. For z^5 at 1.2 e^{i170 deg} the two points differ by 41 degrees in arg F at t = 1, so the pitch does not match the colour under the pointer, and a zero or pole ping can fire or be missed. The merge in X -> Y and its close are exact.",
+  "evidence": "c16.js: pointer still at 1.2 e^{i170 deg}; after each change, the re-picked rest is compared with the point a pointer event at the same client position gives. Open transport (Phase): rest -1.1818+0.2084i, event -1.1818+0.0375i, 20.5 px apart. Close: 20.5 px. Phase -> Landscape: 23.2 px (pickLand). Landscape -> Phase: 12.7 px (9 px in x and in y; the overlay rect went 866 -> 848 px wide in that frame). Phase -> X -> Y: 0 px. c14.js: the merged plane at M ends exact (first re-pick -3.245+0.225i, then a fit re-pick -3.525+0.044i, which maps back to the pointer pixel). The builder's test/xvs_cdp/cmd/pathform.js passes only on the stale point: its rest stays at 1.2 e^{i170 deg} after the open.",
+  "fix": "Re-pick after the panes have their new size: run sndRepick after applyLayout's resize (or from the pane's resize, e.g. a ResizeObserver), and put the pane width and height in sndVKey so sndRetrack re-picks when only the size changed. Add to sound_deform_cmd.js: after open, close and each setMain, compare the rest with a pointer event at the same client position."
+ },
+ {
+  "id": "snddef-5",
+  "status": "still wrong (at the open)",
+  "severity": "medium",
+  "title": "Landscape: at the open the 0.15 s swap glide is still cut after one frame, now to 8 ms",
+  "detail": "At a loop repeat the swap glide now runs its 150 ms. At the open it does not. The first move asks for 0.150 s. The next frame is a fresh start (the else-if branch near app.js 12179 that calls snd.voice.reset()), most likely the sndRelayout re-pick. reset() zeroes gEnd and last in HeightVoice, so the next move asks for max(0, 0.008, 0, 0) = 8 ms. The pitch then drops about 1.1 octaves in one 5 ms analysis hop at full level. DESIGN line 434 asks for at least a 12 ms glide while the voice sounds. At the loop repeat detector B still flags -9 to -10 dB, but the waveform has no step there (max second difference 0.0030 against 0.0028 in the steady tone), so that is the start of the designed slide, not a click. The Landscape loop-repeat case with a B check that the review asked for is not in the click regression (the ledger says so too).",
+  "evidence": "My recordings v10 (open at 0.0 s, events off), v11 (open at 0.4 s), v5P (open, then loop repeats). Worklet command log at the open: moveH dur 0.150, then 21 to 32 ms later dur 0.008, then 0.0167 every frame (all three recordings). At the repeat (v5P 2.635 s): dur 0.150, 0.133, 0.117, 0.100, as intended. STFT peak in v11: 1734 Hz until 0.406 s, 1546 Hz at 0.431 s, 726 Hz at 0.436 s. In v5P at the repeat: 1750 Hz at 2.62 s to 700 Hz at 2.80 s. det.py: A 0 in all. B at the open in v11: -30.3 dB (and -43, -42 dB at 0.435 to 0.44 s, at the 8 ms jump). B at repeats: v5P -10.1 dB, v10 -12.6 dB, v11 -9.0 dB. Recordings: scratchpad xvsv/rec (session scratchpad; may be gone later). Scripts: notes/sound/review-deformation/verify/.",
+  "fix": "Do not drop a running swap glide on a fresh start: let HeightVoice.reset() keep gEnd (reset only last), or skip the fresh start in sndRepick when the new point gives the same value as the rest. Add the Landscape open and loop repeat, events off, to sound_deform_clicks_cmd.js, with a check that no moveH under 12 ms follows a 0.15 s glide while the voice sounds."
+ },
+ {
+  "id": "snddef-1",
+  "status": "partly fixed",
+  "severity": "low",
+  "title": "After Esc, a layout change brings the tone back with the pointer still",
+  "detail": "Esc now stops the tone during a play, and nothing re-gates it while the play runs. But soundStop() keeps snd.cxy, so the next layout change re-picks and restarts the tone with no pointer move. That happens when M closes the deformation and when the view changes. DESIGN line 264 and DEFORMATION.md line 154 say Esc stops the tone until the pointer moves.",
+  "evidence": "c15.js (z^5, Phase, pointer still). (a) M, Esc at 0.7 s: 0 voice set() calls from Esc to the end of the play. M then closes the deformation: a voice set() and gate(true) 8 ms later. Recording v15a: -42 dB RMS until Esc at 0.715 s, silence apart from the arrival, then -42 dB RMS again from the close at 2.52 s to the end (3.7 s). The same shows in v1B: gate 0 at 0.715 s after Esc, then 'snap' and gate 1 at 2.235 s, at the close. (b) Esc while resting with no deformation, then Phase -> Landscape: 1 voice set(), 1 gate-on, rest re-made.",
+  "fix": "In soundStop(), also clear snd.cxy (or set a flag that sndRepick honours) until a real pointermove or keyboard probe step."
+ }
+]
