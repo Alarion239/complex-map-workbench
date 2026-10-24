@@ -15,6 +15,9 @@ see what they do:
   formula of F, its guarantees and its domain. Right-click a plane (or hold on a phone) for "Add zero here" and more.
 - **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it. Copy link and scene files
   hand the whole figure on.
+- **Typed formulas** (LaTeX or plain) are recognized as the catalog steps they are made of, so `\sin(z^2+1)` runs as
+  fast as the catalog and is offered as its steps (z ↦ z² ↦ z²+1 ↦ sin(z²+1)) in one click; in the search, `sin z`
+  is the Sine step.
 - **Deformation**: a toggle that morphs every view along natural homotopies from z to F(z) (analytic at every
   moment, on F's own branches), one step after another or all at once, with live paths t ↦ H_t(z) that can be
   switched off.
@@ -24,8 +27,10 @@ see what they do:
 - **Figure export** (⌘E): article-grade PDF, SVG and PNG for every view, with presets for articles (one or two
   columns) and homework, black-and-white versions, LaTeX snippets for Overleaf, images for Docs, deformation
   filmstrips for every view, and MP4/WebM videos of the deformation.
-- **Sound**: interface and event cues (on by default after the first click), and an optional "hear the function": a
-  Shepard tone follows arg F under the pointer, also while the deformation plays.
+- **Sound**: small struck, plucked and blown interface and event cues (on by default after the first click), and an
+  optional "hear the function": a phase harp plucks a note each time arg F under the pointer crosses one of five
+  phase lines (a rising scale round a zero, a falling one round a pole; the low Ds count the winding number), also
+  while the deformation plays; a closed curve sings its winding number as one note.
 - **Guided tour** from the Help button, suggested once on first opening.
 - **Russian**: the interface follows the browser's language (or the globe button), with Russian notation
   (tg, sh, ch, …) and Russian figure captions.

@@ -1,0 +1,143 @@
+{
+ "x_za_tex": {
+  "id": "x_za_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 3.34,
+   "R": 2.6
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.2,
+   "p50": 16.7,
+   "p95": 17.3,
+   "max": 17.7
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.4,
+   "max": 17.7
+  },
+  "paramSettleMs": 2
+ },
+ "x_powa_a": {
+  "id": "x_powa_a",
+  "cards": [
+   "Region*",
+   "f₁, Complex power"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.18,
+   "R": 4.46
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.3,
+   "p50": 16.7,
+   "p95": 17.4,
+   "max": 19.5
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 16.9,
+   "max": 17.3
+  },
+  "paramSettleMs": 3
+ },
+ "x_sinaz": {
+  "id": "x_sinaz",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 3.78,
+   "R": 4.08
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.2,
+   "p50": 16.7,
+   "p95": 17,
+   "max": 17.3
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 77,
+   "fps": 59.2,
+   "p50": 16.7,
+   "p95": 17,
+   "max": 51.4
+  },
+  "paramSettleMs": 1
+ },
+ "x_k_sinaz": {
+  "id": "x_k_sinaz",
+  "cards": [
+   "Region*",
+   "f₁, Multiply by c",
+   "f₂, Sine"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.3,
+   "R": 5.7
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.2,
+   "p50": 16.7,
+   "p95": 16.9,
+   "max": 20.1
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 16.9,
+   "max": 17.1
+  },
+  "paramSettleMs": 0
+ }
+}

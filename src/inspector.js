@@ -202,8 +202,130 @@ const Inspector = (() => {
       fillParams(params, st, k);
       const note = h('div', { class: 'inote' });
       const det = h('div', { class: 'isub' });
-      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, note);
-      return { kind: 'step', k, root, lens, inv, byp, ftex, err, note, det, params };
+      // v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps shows how it is built, after
+      // its fields and before the note line, with one button that splits it into those steps
+      const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true, role: 'region' }) : null;
+      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, split, note);
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, err, note, det, params, split, typing: false };
+      if (split) {
+        split.open = foldOpen();
+        split.addEventListener('toggle', () => { if (!split.hidden) { foldSave(split.open); syncFoldLabel(split); } });
+        // (hidden from the first keystroke in the formula field until the text is committed: Enter or leaving the field)
+        const fx = params.querySelector('input[data-pkey="expr"]');
+        if (fx) {
+          fx.addEventListener('input', () => { if (!E.typing) { E.typing = true; fillSplit(E, k); } });
+          const done = () => { if (E.typing) { E.typing = false; A.requestRender('P'); } };
+          fx.addEventListener('change', done);
+          fx.addEventListener('blur', done);
+          // (Enter commits even when the text ends as it began, which fires no change event)
+          fx.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(); });
+        }
+      }
+      return E;
+    }
+    // the fold of the split offer is remembered for this viewer (folding it is the dismissal); open without storage. The
+    // key is the app's (lsk: namespaced on a ?ns= page, as every other setting: review regress-2)
+    const FOLD_KEY = A.lsk ? A.lsk('cmw-split-fold') : 'cmw-split-fold';
+    function foldOpen() { try { return localStorage.getItem(FOLD_KEY) !== '0'; } catch (e) { return true; } }
+    function foldSave(open) { try { localStorage.setItem(FOLD_KEY, open ? '1' : '0'); } catch (e) { /* ignore */ } }
+    function syncFoldLabel(box) {
+      const sm = box.querySelector('summary');
+      if (sm) box.setAttribute('aria-label', sm.textContent);
+    }
+    // the offer: "Built from n steps" with the derivation z ↦ … ↦ F (each row named) and Split into n steps; a formula that
+    // is one catalog step says so, with Replace with that step. Nothing while the formula is being typed, or in the tour
+    function fillSplit(E, k) {
+      const box = E.split;
+      if (!box) return false;
+      const S = A.S(), st = S.steps[k - 1], b = A.built()[k - 1];
+      let sp = null;
+      if (st && st.type === 'custom' && b && !b.error && !E.typing && !A.splitHidden()) { try { sp = A.splitInfo(k); } catch (e) { sp = null; } }
+      const show = !!(sp && (sp.kind === 'one' || sp.kind === 'many') && sp.rows);
+      if (box.hidden !== !show) box.hidden = !show;
+      if (!show) return false;
+      const n = sp.steps.length, one = sp.kind === 'one';
+      const name = one ? A.Funcs.DEFS[sp.steps[0].type].label : '';
+      // (the rows in the step's own input variable, as its heading: w₆ ↦ w₆² ↦ … for f₇, review steps-9)
+      const v = A.wvar(k - 1), rv = one ? null : A.Funcs.splitRowsVar(sp, v) || sp;
+      const key = JSON.stringify([sp.kind, sp.steps, rv && rv.eq, v, I18N.lang]);
+      if (box.dataset.key !== key) {
+        box.dataset.key = key;
+        box.classList.toggle('one', one);
+        box.innerHTML = '';
+        const sum = h('summary', null);
+        if (one) sum.append(h('span', null, $t('This is the step “{name}”.', { name })));
+        else sum.append(h('span', { class: 'so-open' }, $tn('Built from {n} step', 'Built from {n} steps', n, { n })), h('span', { class: 'so-closed' }, $tn('Built from {n} step: {chain}', 'Built from {n} steps: {chain}', n, { n, chain: sp.names.join(' → ') })));
+        box.append(sum);
+        if (!one) {
+          const ol = h('ol', { class: 'so-rows' });
+          fillRows(ol, rv.rows, rv.eq);
+          box.append(ol);
+          // a long chain repeats a growing expression in every row: when a row does not fit even at 70 %, the block
+          // shows each step once instead, named (u₁ = z², u₂ = u₁ + 1, w₁ = sin u₂: review steps-3)
+          fitRows(ol, () => { const sub = A.Funcs.splitSubRows(sp, v, A.wvar(k)); if (sub) { ol.classList.add('subst'); fillRows(ol, sub, null); fitRows(ol); } });
+        } else if (sp.steps[0].type === 'mobius') {
+          // a fraction: the simple moves it is made of, read only (z ↦ z − 1 ↦ 1/(z − 1) ↦ 3/(z − 1) ↦ 3/(z − 1) + 2:
+          // review steps-5)
+          const mv = A.Funcs.splitMoves(sp.steps[0], v);
+          if (mv) { const ol = h('ol', { class: 'so-rows moves' }); fillRows(ol, mv, null); box.append(ol); fitRows(ol); }
+        }
+        // (the focus goes to the first new card, so the keyboard does not fall back to the page: review steps-11)
+        const btn = h('button', { class: 'so-btn', type: 'button', onclick: () => { if (A.splitStep(k)) focusCard(k); } },
+          one ? $t('Replace with “{name}”', { name }) : $tn('Split into {n} step', 'Split into {n} steps', n, { n }));
+        box.append(btn);
+        E.splitBtn = btn;
+        syncFoldLabel(box);
+      }
+      const tip = sp.blocked ? A.Funcs.splitReason(sp) : $t('Each step gets its own card and picture; the deformation plays them one by one.');
+      const btn = E.splitBtn;
+      if (btn && btn.dataset.tip !== tip) { btn.dataset.tip = tip; btn.setAttribute('aria-description', tip); }
+      if (btn && btn.disabled !== !!sp.blocked) btn.disabled = !!sp.blocked;
+      return true;
+    }
+    // after a split, the keyboard goes to the first new card, the chain's option (the button and its Inspector are
+    // rebuilt: the card is looked up again while the chain is drawn; review steps-11)
+    function focusCard(k) {
+      let n = 0;
+      const go = () => {
+        const c = document.querySelector(`#pipeline .card[data-k="${k}"]`);
+        if (c && c.isConnected && document.activeElement !== c) c.focus({ preventScroll: true });
+        // (held for 12 frames: the chain and the Inspector are drawn again after the split)
+        if (++n < 12) requestAnimationFrame(go);
+      };
+      go();
+    }
+    // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
+    function fillRows(ol, rows, eq) {
+      ol.innerHTML = '';
+      const sub = ol.classList.contains('subst');
+      rows.forEach((r, i) => {
+        const last = i === rows.length - 1;
+        const t = h('span', { class: 'so-tex' });
+        const li = h('li', { class: 'so-row' }, h('span', { class: 'so-map', 'aria-hidden': 'true' }, i && !sub ? '↦' : ''), t, h('span', { class: 'so-name' }, i || sub ? r.name : ''));
+        ol.append(li);
+        TeX.set(t, last && eq ? `${r.tex}=${eq}` : r.tex);
+      });
+    }
+    // a long row: smaller, down to 70 %; tooLong() when one still does not fit there (once the TeX is typeset)
+    function fitRows(ol, tooLong) {
+      let tries = 0;
+      const go = () => {
+        if (!ol.isConnected) return;
+        const ts = [...ol.querySelectorAll('.so-tex')];
+        // (MathJax not loaded yet, or the box folded or hidden: tried again on the next frames, for 2 s)
+        if (!TeX.ready || !ol.clientWidth || ts.some((t) => t.dataset.tex && !t.firstChild)) { if (++tries < 120) requestAnimationFrame(go); return; }
+        let over = false;
+        for (const t of ts) {
+          t.style.fontSize = '';
+          const w = t.scrollWidth, avail = t.clientWidth;
+          if (!(avail > 0) || w <= avail + 0.5) continue;
+          const f = Math.floor((avail / w) * 100);
+          if (f < 70) over = true;
+          t.style.fontSize = Math.max(70, f) + '%';
+        }
+        if (over && tooLong) tooLong();
+      };
+      requestAnimationFrame(go);
     }
     function fillParams(params, st, k) {
       const d = A.defOf(st);
@@ -245,12 +367,26 @@ const Inspector = (() => {
         // (the generic form and the values do not fit: the values alone, then smaller)
         fitPick(E.ftex, full, full === short ? null : short);
         const drags = b.cuts.some((x) => x.editable) ? $t('Drag the seam in the input plane') : null;
-        const n = [b.branchNote, drags, A.branchTag(st, b)].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
+        // (the split offer says what the note's "Same as …" says: the note drops it while the offer shows)
+        const offer = fillSplit(E, k);
+        // a formula read as a chain that is not offered as steps (its numbers have no short exact form, or depend on a
+        // shared number): the note says why it stays one step (review steps-4)
+        let rn = offer ? null : b.recNote;
+        if (rn && st.type === 'custom' && A.splitInfo && !E.typing && !A.splitHidden()) {
+          let sp = null;
+          try { sp = A.splitInfo(k); } catch (e) { sp = null; }
+          if (sp && sp.kind === 'none' && (sp.reason === 'R2' || sp.reason === 'R3') && / → /.test(rn)) {
+            const why = A.Funcs.splitReason(sp);
+            rn = rn.replace(/\.$/, '') + '; ' + $t('it stays one step: {why}', { why: why.charAt(0).toLowerCase() + why.slice(1) });
+          }
+        }
+        const n = [b.branchNote, drags, A.branchTag(st, b), rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
         const nt = n ? n + '.' : '';
         if (E.note.textContent !== nt) E.note.textContent = nt;
       } else {
         E.ftex.innerHTML = ''; E.ftex.dataset.tex = '';
         if (E.note.textContent) E.note.textContent = '';
+        fillSplit(E, k);
       }
       // a Möbius step: its determinant, with the indexed letters in math italics and numbers with the true minus
       let dt = '';

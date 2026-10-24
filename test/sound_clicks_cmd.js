@@ -1,6 +1,7 @@
 // Sound: the click regression, recorded from the APP (notes/sound/DESIGN.md §7.5 and §7.6). Headless Chrome drives
 // pointer events over the app's planes (synthetic, at 60 and 240 Hz, ±25 % timing jitter, 2 % main-thread stalls) with
-// "Hear the function" on and every cue off (the voice alone), records the output after the soft clipper
+// "Hear the function" on and every cue off (the voice alone; v15.2: on the phase plane the voice is the harp, whose
+// strings are logged as scheduled so the detector tells their own attacks from snaps), records the output after the soft clipper
 // (test/sound_rec.js), and writes each run to <daemon folder>/rec/<engine>_<case>_<rate>.f32 (+ .json). Cases: the slow
 // line, the circle around a zero (z² − 1, Phase), the Height walk on the relief (the Landscape), each at 60 and 240 Hz
 // with the AudioWorklet voice and with the native-node fallback; leaving the relief and coming back (120 Hz); then the
@@ -54,13 +55,15 @@ async function run(tag, name, rate, o) {
     const path = ${pathSrc};
     await __drive({ sel: '#overlayL', path, rate: 60, dur: 0.25, jitter: 0 });
     await new Promise((r) => setTimeout(r, 250));
+    window.__cues = []; Sound.cueHook((t, c) => __cues.push(['cue', t, 0.006, 0]));
     await __rec.start();
     ${c.pre ? `await (${c.pre})();` : ''}
     const before = __cmwSound().play;
     const log = await __drive({ sel: '#overlayL', path, rate: ${rate}, dur: ${c.dur}, jitter: 0.25, stalls: 0.02, seed: ${rate * 7 + name.length}${c.act ? `, act: ${c.act}, actAt: ${c.actAt}` : ''} });
     await new Promise((r) => setTimeout(r, 300));
     const st = await __rec.stop();
-    return { st, n: log.length, log, engine: Sound.state().engine, played: before, playing: __cmwSound().play };
+    Sound.cueHook(null);
+    return { st, n: log.length, log, cues: __cues, engine: Sound.state().engine, played: before, playing: __cmwSound().play };
   })()`, 120000);
   if (!r || !r.st) { res.runs.push({ tag, name, rate, err: r }); return; }
   if (c.main === 'land') r.onRelief = await ev(`(() => { const path = ${pathSrc}; let on = 0; for (let k = 0; k <= 100; k++) if (__cmwSound({ pick: path(k / 100) })) on++; return on; })()`);
@@ -68,8 +71,10 @@ async function run(tag, name, rate, o) {
   const parts = [];
   for (let i = 0; i < r.st.bytes; i += 1 << 20) parts.push(Buffer.from(await ev(`__rec.chunk(${i}, ${1 << 20})`), 'base64'));
   fs.writeFileSync(f + '.f32', Buffer.concat(parts));
-  fs.writeFileSync(f + '.json', JSON.stringify({ f0: r.st.f0, rate: r.st.rate, log: r.log, cues: [] }));
-  res.runs.push({ tag, name, rate, events: r.n, frames: r.st.frames, gaps: r.st.gaps, peak: +r.st.peak.toFixed(4), played: r.played, playingAfter: r.playing, voice: await ev(`__cmwSound().kind + ' ' + __cmwSound().engine`), onRelief: r.onRelief });
+  // (v15.2: the harp's strings and every one-shot, as scheduled: [name, t (s, the context's clock), 0.006, 0]; a detection
+  // from 3 ms before to 6 ms after one is that note's own attack, counted apart as "designed")
+  fs.writeFileSync(f + '.json', JSON.stringify({ f0: r.st.f0, rate: r.st.rate, log: r.log, cues: r.cues || [] }));
+  res.runs.push({ tag, name, rate, notes: (r.cues || []).length, events: r.n, frames: r.st.frames, gaps: r.st.gaps, peak: +r.st.peak.toFixed(4), played: r.played, playingAfter: r.playing, voice: await ev(`__cmwSound().kind + ' ' + __cmwSound().engine`), onRelief: r.onRelief });
 }
 for (const [tag, worklet] of [['worklet', true], ['nodes', false]]) {
   // a new voice on the engine under test: Hear F off (the voice is released) and on again

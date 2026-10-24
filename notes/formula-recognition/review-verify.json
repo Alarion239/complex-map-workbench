@@ -1,0 +1,42 @@
+[
+  {
+    "id": "verify-1",
+    "of": "math-1, math-2",
+    "severity": "medium",
+    "status": "still wrong (deformation only)",
+    "title": "After a seam drag past 180°, the deformation's CPU homotopy ends on the other branch for points that land on the cut with −0",
+    "detail": "b.f is now the formula's own function, bit for bit. The deformation's CPU homotopy b.hom (used for curves during the deformation, app.js:831) still runs the last catalog step's own hom. That step has the normalised (cut, k), so as t → 1 it reads −0 on the cut ray the way the review described in math-2. At t = 1 the curve then jumps to the formula's value. A seam drag produces these cuts: it is unwrapped (app.js:10543), so it reaches 190°, 270°, 540° and −180°. With a neg step, ordinary +0 inputs hit the problem. The positive real axis is an ordinary grid line. v15 without the reader converges to the formula in every case below. Cuts 180, 90 and −120 show no mismatch.",
+    "evidence": "Scratch scripts pts.js and hom.js (Node, work/xvr). Each row lists the formula's value, then this patch's b.hom at t = 0.99 and 1−1e-6, then v15's at the same t. \\log(-z), cut 540, z = 2+0i: Im f = 9.425. Patch 3.183 then 3.142 (π, the other sheet). v15 9.414 then 9.425. \\sqrt{-z}, cut 540, z = 2+0i: f = −1.414i. Patch +1.423i then +1.414i (the other sign). v15 −1.428i then −1.414i. \\log(-z^3), cut −180, z = 1+0i: Im f = −3.142. Patch −9.300 then −9.425. v15 −3.085 then −3.142. Sweep over 230 corpus spellings plus 38 of mine, on cuts 180, 90, −120, −180, 270 and 540, at ±0 axis points and 200 generic points: 79 formula/cut pairs differ from f at t = 1−1e-12 (all at cut −180 or 540, plus 1 at 270). This excludes the inverse-trig square-root endpoints, which are not errors.",
+    "fix": "For log, root and powa steps in a recognized chain, give the CPU f and hom the raw θ (cut·DEG of the formula) and keep the normalised (cut, k) for the GPU and the inverse ops. Alternatively, make the last step of each group end on that group's own piece. Add \\log(-z) and \\sqrt{-z} at cut 540 and \\log(-z^3) at cut −180, at (x, +0), to t_recognize's hom(1−) check."
+  },
+  {
+    "id": "verify-2",
+    "of": "math-3",
+    "severity": "low",
+    "status": "still wrong (another route)",
+    "title": "A removable point inside a sum is still filled in, and the reading adds lamps the formula does not have",
+    "detail": "runPolesHold and factored() catch the review's cases. But a cancellation inside a sub-term goes through Inverse.rationalForm, which reports removed = [] for it. The node is then read as a Möbius step. The formula is NaN at 0 (b.f(0) = NaN), but asChain adds the chain's lamps, including entire and polynomial. The GPU and inverse renderers draw 1+z at 0. Without the reader the lamps are only analytic and rational.",
+    "evidence": "Scratch pts.js. z/z+z, \\frac{z}{z}+z and z\\cdot\\frac{1}{z}+z are read as add. \\frac{1}{z}\\cdot z^2+z is read as mul. Each gets the lamps analytic, entire, rational, polynomial, mobius, proper, injective, deg 1. rationalForm gives ok with removed [], and f(0) = NaN. Handled correctly: \\frac{z^2-1}{z-1} and \\frac{(z-1)^2}{z-1} (removed [1], not read). \\frac{z+1}{z+1}\\cdot z is not read. \\sqrt{\\frac{z}{z}+z} is read as add>root and gains injective, with the same filled point at 0.",
+    "fix": "Before accepting a rational reading in multi(), evaluate the formula (Expr.compile of n) at the zeros of every z-dependent denominator inside n. Refuse when the formula is non-finite there and the reading is finite. Or have rationalForm record cancellations inside sub-terms in removed. Add z/z+z and \\frac{1}{z}\\cdot z^2+z to t_recognize's math-3 block."
+  },
+  {
+    "id": "verify-3",
+    "of": "frperf-3",
+    "severity": "low",
+    "status": "partly fixed",
+    "title": "hornerSafe bounds the degree and the root spacing, but not how ill-conditioned Horner is away from the origin",
+    "detail": "A non-expanded sum of degree ≤ 4 with well-separated roots far from 0 still becomes a 'poly' step. Its expanded coefficients are large, so float32 Horner (the GPU forward plan, used by the phase view and the deformation) loses digits that the formula as typed keeps. Repeated zeros and products are fixed (zp).",
+    "evidence": "Scratch horner.js, float32 emulated at every operation, worst relative error at 0.01–0.1 from a root. (z-100)^{2}+(z-101)^{2} → poly [2, −402, 20201]: Horner 5.3e-2, typed 3.6e-4. (z-10)^{2}+(z-11)^{2}: Horner 5.2e-4, typed 4.6e-5. z(z-1)-0.997(z-1): Horner 8.2e-4, typed 2.2e-5.",
+    "fix": "In hornerSafe, also require a bound on Σ|c_k||z|^k / |p(z)| near the roots. For example, refuse when max|root| > ~4, or when the roots' centroid is far from 0. Or read the expression about the centroid (an add step, then a poly)."
+  },
+  {
+    "id": "verify-4",
+    "of": "frperf-2 (test coverage)",
+    "severity": "info",
+    "status": "no regression; the test overstates",
+    "title": "The one-program sweep in t_recognize hides real program switches by renaming 'pow'/'ratzoom' in the key",
+    "detail": "At a special value, the GPU key of the 'poly' or 'zp' step changes (its natural path becomes 'pow'). t_recognize line 352 maps \"pow\" and \"ratzoom\" to \"nat\" before counting keys, so it reports one program. v15 without the reader switches at the same values, so this is not a regression. The claim of one program over the slider is still not what the check tests.",
+    "evidence": "Scratch keys15.js and sweep.js. Raw GLChain keys, a stepped by 0.01. z^{2}+az: 2 programs (a = 0) in v15 and 2 in xvr. (z-a)(z+1) and (z-a)^3(z+1): 2 programs (a = −1) in both. z(z-a): 2 programs (a = 0) in both. Formulas without a special value keep 1 key: z^{3}+az^2+z, e^{z+a}, \\log(z-a), z^{a+i} and \\frac{(z-a)(z-1)}{z+2}.",
+    "fix": "Count the raw keys in the test, and list the values where the key may change. Or keep the generic nat kind at the special value (a product decision)."
+  }
+]

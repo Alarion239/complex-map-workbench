@@ -1,7 +1,9 @@
 // Sound (notes/sound/DESIGN.md): the pure parts. Calc.argStep and Calc.orderAt (the probe's exact arg steps and the
 // order at a point, by the argument principle), winding counts, and the engine's scheduler and its guards (src/sound.js
 // run in a sandbox against a mock AudioContext: off by default, consent, the queues, the cluster and storm guards, the
-// suspended-context rule, the silent off, Esc). Run: node test/t_sound.js
+// suspended-context rule, the silent off, Esc). v15.2 (notes/sound/AS-BUILT-v152.md): palette B's parts (variation,
+// repetition, clean edges), the scrub's landmarks, the phase harp (its low Ds count the winding number), curves sing
+// (the loudest harmonic is 4 + W). Run: node test/t_sound.js
 const fs = require('fs'), path = require('path'), vm = require('vm');
 global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
@@ -156,7 +158,7 @@ function makeEnv(opts = {}) {
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
-  for (const k in env.Sound.CATALOG) { const d = env.Sound.CATALOG[k], m = d.make; d.make = (G, t, o) => { env.made.push(k); return m(G, t, o); }; }
+  for (const k in env.Sound.CATALOG) { const d = env.Sound.CATALOG[k], m = d.make; d.make = (Pt, o) => { env.made.push(k); return m(Pt, o); }; }
   env.fire = (t, e = {}) => { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); };
   env.advance = (ms) => {
     const end = env.clock + ms;
@@ -189,34 +191,34 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('v15 default: the first click creates the context', e.ctxs.length === 1 && e.ctx().state === 'running');
     check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
   }
-  // v15.1 the deformation scrub (notes/sound/AS-BUILT.md "Scrub"): slow → a soft detent at each 0.05 of t; fast → no
-  // detents, a soft band that follows the speed and fades when the drag stops; t = 0, ½, 1 soft keys at any speed
+  // v15.2 the deformation scrub (palette B, notes/sound/v2/DESIGN.md §3 with board-fixes.md): the texture follows the
+  // speed (the synth's; none in this mock, which has no AudioWorklet), and the landmarks t = 0, ¼, ½, ¾, 1 ring a
+  // wooden note: one per input event (the nearest where t lands), re-armed only 0.02 away (0.05 at the ends), the same
+  // one at most once in 150 ms
   {
     const e = makeEnv({ search: '' }); e.fire('pointerdown');
-    const S = e.Sound, ticks = () => e.made.filter((k) => k === 'morphTick').length, bands = () => e.ctx().sources.filter((s) => s.kind === 'buf' && s.loop);
+    const S = e.Sound, marks = () => e.made.filter((k) => k === 'landmark').length;
     let u = 0.1;
     for (let i = 0; i < 20; i++) { e.advance(100); S.scrub(u, u + 0.01); u += 0.01; }
-    check('scrub slow (2 detents/s, 0.1 → 0.3): 4 detents, no band', ticks() === 4 && bands().length === 0, `${ticks()} ${bands().length}`);
+    check('scrub slow (0.1 → 0.3): one landmark (¼), no detents', marks() === 1 && e.made.length === 1, e.made.join());
     e.advance(400); e.made.length = 0;
     u = 0.05;
-    for (let i = 0; i < 40; i++) { e.advance(16); const u1 = Math.min(1, u + 0.025); S.scrub(u, u1); u = u1; }
-    const b = bands();
-    check('scrub fast (31 detents/s, 0.05 → 1): the first input is a step (one detent), then only the keys at ½ and 1', ticks() === 3, ticks());
-    check('scrub fast: one band, started', b.length === 1 && b[0].started != null && S.scrubState().band && S.scrubState().v > 10, JSON.stringify(S.scrubState()));
-    e.advance(30);
-    check('scrub fast: the band holds while the drag goes on (30 ms without input)', b[0].stopped == null && S.scrubState().band);
-    e.advance(70);
-    check('scrub fast: 70 ms after the last input the band fades, its stop 0.8 s ahead (never on a step)', b[0].stopped != null && b[0].stopped > e.ctx().currentTime + 0.7 && !S.scrubState().band, b[0].stopped);
-    e.advance(2000);
-    check('scrub fast: one band in all', bands().length === 1);
-    // back and forth across ½ quickly: one key per 250 ms at most
-    e.made.length = 0;
-    for (let i = 0; i < 30; i++) { e.advance(16); const a = 0.45 + 0.1 * (i % 2), z = 0.55 - 0.1 * (i % 2); S.scrub(a, z); }
-    check('scrub: the key at ½ at most once in 250 ms', ticks() <= 3, ticks());
+    let vmax = 0;
+    for (let i = 0; i < 40; i++) { e.advance(16); const u1 = Math.min(1, u + 0.025); S.scrub(u, u1); u = u1; vmax = Math.max(vmax, S.scrubState().v); }
+    check('scrub fast (0.05 → 1): ¼, ½, ¾ and 1, one each', marks() === 4, e.made.join());
+    check('scrub fast: the speed is t per second (0.025 per 16 ms: 1.56)', Math.abs(vmax - 0.025 / 0.016) < 1e-6, vmax);
+    e.advance(400); e.made.length = 0;
+    // a resting, trembling hand on ½ (±0.004): one note, then none until t leaves ½ by 0.02
+    S.scrub(0.4, 0.5); for (let i = 0; i < 40; i++) { e.advance(16); S.scrub(0.5 + 0.004 * (i % 2 ? 1 : -1), 0.5 - 0.004 * (i % 2 ? 1 : -1)); }
+    check('scrub: a 2 px tremor on ½ rings ½ once', marks() === 1, marks());
+    e.advance(400); e.made.length = 0;
+    S.scrub(0.6, 0.6); e.advance(200); S.scrub(0, 1);
+    check('scrub: a jump 0 → 1 in one event rings one landmark', marks() === 1, marks());
     // Mathematical events off: nothing
-    S.set({ events: false }); e.made.length = 0; e.advance(2000); const nb = bands().length;
+    S.set({ events: false }); e.made.length = 0; e.advance(2000);
     for (let i = 0; i < 10; i++) { e.advance(100); S.scrub(0.1 + 0.05 * i, 0.15 + 0.05 * i); }
-    check('scrub: Mathematical events off, no detents and no band', ticks() === 0 && bands().length === nb);
+    check('scrub: Mathematical events off, no landmark', marks() === 0);
+    S.scrubEnd();
   }
   // a stored choice always wins over the default
   {
@@ -231,14 +233,14 @@ const flush = () => new Promise((r) => setImmediate(r));
     const e = makeEnv();
     check('engine: off by default under ?ns=', e.Sound.prefs().on === false && e.Sound.state().audio === 'none');
     e.fire('pointerdown'); e.fire('click');
-    check('engine: no cue, no context while off', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.voice() === null && e.ctxs.length === 0);
+    check('engine: no cue, no context while off', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.heightVoice() === null && e.ctxs.length === 0);
     check('engine: off → no AudioContext at all', e.ctxs.length === 0);
   }
   // a remembered "on" waits for a click or key of this page load
   {
     const e = makeEnv({ search: '', store: { 'cmw-sound': JSON.stringify({ on: true, vol: 0.7, ui: true, snap: false, events: true, sonify: true }) } });
     check('remembered on: no context at load', e.ctxs.length === 0 && e.Sound.prefs().on);
-    check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.Sound.voice() === null && e.ctxs.length === 0);
+    check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.Sound.heightVoice() === null && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('remembered on: Esc is not an activation', e.ctxs.length === 0);
     e.fire('pointerdown');
@@ -262,7 +264,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     e.made.length = 0;
     for (let i = 0; i < 40; i++) { e.advance(130); e.Sound.play('cut', {}); e.Sound.play('zero', { order: 1 }); e.Sound.tick({ k: i % 5 }); e.Sound.turn({ dir: 1 }); }
     check('default tiers: no pointer cue at all', e.made.length === 0, e.made.join());
-    check('default tiers: no voice', e.Sound.voice() === null);
+    check('default tiers: no voice, no harp', e.Sound.heightVoice() === null && e.Sound.harp(0.3, {}) === null && e.Sound.harp(1.3, {}) === null);
     // snap ticks have their own switch
     check('snap: off by default', e.Sound.play('snap', {}) === false);
     e.Sound.set({ snap: true }); e.advance(200);
@@ -325,7 +327,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     let ok = 0;
     for (let i = 0; i < 24; i++) { if (e.Sound.play('toggleOn', {}) === true) ok++; if (e.Sound.turn({ dir: 1 }) === true) ok++; e.advance(50); }
     check('suspended: 24 requests, none scheduled', ok === 0 && e.made.length === 0, `${ok} ${e.made.join()}`);
-    check('suspended: no voice created', e.Sound.voice() === null);
+    check('suspended: no voice created, no harp note', e.Sound.heightVoice() === null && e.Sound.harp(0.1, {}) === null);
     // the one exception: a single sound inside an active gesture
     e.userActive = true;
     const g1 = e.Sound.play('toggleOn', { force: true, grace: true }), g2 = e.Sound.play('toggleOff', { force: true, grace: true });
@@ -338,8 +340,12 @@ const flush = () => new Promise((r) => setImmediate(r));
     const c = e.ctx();
     for (const k of ['toggleOn', 'stepAdd', 'error']) { e.Sound.play(k, { force: true }); }
     const cues = [...e.Sound.debug().G.active];
-    const v = e.Sound.voice(); v.set(0.1, 0, 0); v.gate(true);
-    check('sources sounding before Esc', cues.length > 0);
+    const v = e.Sound.heightVoice(); v.set(0.1, 0, undefined, 12); v.gate(true);
+    // a harp run (fallback strings: buffers)
+    e.Sound.harpReset(0.02); for (let i = 1; i <= 6; i++) { e.advance(16); e.Sound.harp(0.02 + 0.1 * i, { dt: 0.016 }); }
+    const strings = [...e.Sound.debug().G.active].filter((s) => !cues.includes(s));
+    check('sources sounding before Esc', cues.length > 0 && strings.length > 0, `${cues.length} ${strings.length}`);
+    cues.push(...strings);
     e.Sound.hush();
     const T = c.currentTime;
     check('Esc: every cue source stopped within 80 ms', cues.every((s) => s.stopped != null && s.stopped <= T + 0.08), cues.map((s) => s.stopped).slice(0, 4));
@@ -354,7 +360,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('off: every source stopped', c.sources.every((s) => s.stopped != null));
     e.advance(100);
     check('off: the context is suspended', c.state === 'suspended');
-    check('off: nothing plays after', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.voice() === null);
+    check('off: nothing plays after', e.Sound.play('toggleOn', { force: true }) === false && e.Sound.heightVoice() === null && e.Sound.harp(5.3, {}) === null);
   }
   // the tracker driven by t at a fixed z (notes/sound/DEFORMATION.md): Sound.pathStep and Sound.turns, as the app uses
   // them while the deformation plays or is scrubbed under a still probe
@@ -448,6 +454,172 @@ const flush = () => new Promise((r) => setImmediate(r));
       const L = { phi: 0, k: 0 }, out = [];
       for (const p of [0.5, 0.99, 1.02, 0.97, 1.03, 0.9, 1.6, 2.05, 1.8, 0.95, 0.99]) { L.phi = p; S.turns(L, (d) => out.push(d)); }
       check('turns: a wobble at a turn rings once; back past a turn rings down', out.join() === '1,1,-1', out.join());
+    }
+  }
+  // ---------- v15.2: palette B, the harp, curves sing (pure; the parts as the synth receives them) ----------
+  {
+    const S = makeEnv().Sound, posted = [], g = { c: { sampleRate: 48000 }, synth: { post: (l) => posted.push(...l) }, offline: false, active: new Set() };
+    const cue = (name, o) => { posted.length = 0; S.cueTo(g, name, 1, o || {}); return posted[0]; };
+    // variation: two plays differ, a seed repeats; the turn bell has no pitch variation (its pitch is information)
+    const f0 = (c) => c.parts.filter((p) => p.k === 'm').map((p) => p.f);
+    const a1 = cue('toggleOn', { seed: 7, noRep: true }), a2 = cue('toggleOn', { seed: 7, noRep: true }), a3 = cue('toggleOn', { noRep: true });
+    check('variation: the same seed gives the same strike', JSON.stringify(a1.parts) === JSON.stringify(a2.parts));
+    check('variation: another play is another strike', JSON.stringify(a1.parts) !== JSON.stringify(a3.parts));
+    const b1 = cue('turn', { pc: 0.3, dir: 1 }), b2 = cue('turn', { pc: 0.3, dir: 1 });
+    // (glass beats: each mode is a pair f ± b/2 with a random b; the pair's mean is the pitch)
+    const pit = (c, i) => (f0(c)[2 * i] + f0(c)[2 * i + 1]) / 2;
+    check('turn bell: no pitch variation (grace note and bell)', [0, 4].every((i) => Math.abs(pit(b1, i) - pit(b2, i)) < 1e-9), JSON.stringify([pit(b1, 0), pit(b2, 0), pit(b1, 4), pit(b2, 4)]));
+    // repetition softens (−1 dB a repeat within 2 s, to −4 dB); count-bearing cues keep their level
+    const gs = []; for (let i = 0; i < 6; i++) { posted.length = 0; S.cueTo(g, 'stepAdd', 10 + 0.3 * i, {}); gs.push(posted[0].g); }
+    const db = gs.map((x) => 20 * Math.log10(x / gs[0]));
+    check('repetition: −1 dB a repeat, down to −4 dB', Math.abs(db[1] + 1) < 1e-6 && Math.abs(db[4] + 4) < 1e-6 && Math.abs(db[5] + 4) < 1e-6, db.map((x) => x.toFixed(2)).join());
+    posted.length = 0; S.cueTo(g, 'stepAdd', 20, {}); const gFresh = posted[0].g;
+    check('repetition: after 2 s of silence, full level again', Math.abs(gFresh - gs[0]) < 1e-9);
+    const ls = []; for (let i = 0; i < 4; i++) { posted.length = 0; S.cueTo(g, 'loopDone', 30 + 0.2 * i, { w: 2 }); ls.push(posted[0].g); }
+    check('repetition: count-bearing cues (loop pings) keep their level', ls.every((x) => Math.abs(x - ls[0]) < 1e-12));
+    // gesture: a faster strike is brighter and louder (the mallet: τ ∝ vel^−0.2)
+    const lo = cue('zero', { vel: 0.35, seed: 3 }), hi = cue('zero', { vel: 0.95, seed: 3 });
+    check('gesture: a faster approach strikes the zero harder (shorter contact, louder)', hi.parts[0].tau < lo.parts[0].tau && hi.parts[0].a > lo.parts[0].a);
+    // clean edges: every catalog cue, rendered by the fallback's own code, starts from 0 and ends at exactly 0
+    const L = S.LIB;
+    let worst = '';
+    for (const name of Object.keys(S.CATALOG)) {
+      const c = cue(name, { order: 2, w: 3, k: 1, q: 2, seed: 1 });
+      let end = 0; for (const p of c.parts) end = Math.max(end, L.partEnd(p));
+      const n = Math.ceil(end * 48000) + 4, y = new Float32Array(n);
+      for (const p of c.parts) L.MAKE[p.k](p, 48000).run(y, Math.round((p.d || 0) * 48000), n);
+      let pk = 0; for (const v of y) pk = Math.max(pk, Math.abs(v));
+      if (!(Math.abs(y[0]) < 1e-3 * pk && y[n - 1] === 0 && y[n - 2] === 0 && pk > 0)) worst += `${name}: first ${y[0]} last ${y[n - 1]} peak ${pk}; `;
+    }
+    check('clean edges: every cue starts at 0 and ends at exactly 0', !worst, worst);
+  }
+  // the phase harp: arg F tracked exactly along a loop (Calc.argStep), fed to the harp: the low Ds counted up minus
+  // down are the winding number; a loop round a zero rises, round a pole falls; a tremor across a line plays nothing
+  {
+    const S = makeEnv().Sound;
+    const loop = (F, c, r, laps = 1, N = 240, th0 = 0.37) => {
+      const st = S.Harp(), notes = [];
+      let z0 = C(c.re + r * Math.cos(th0), c.im + r * Math.sin(th0)), g0 = F(z0), phi = Math.atan2(g0.im, g0.re) / TAU;
+      S.harpStep(st, null, 0, phi, {});
+      for (let i = 1; i <= N * laps; i++) {
+        const th = th0 + TAU * i / N, z1 = C(c.re + r * Math.cos(th), c.im + r * Math.sin(th)), g1 = F(z1), q = Calc.argStep(F, z0, g0, z1, g1);
+        phi += q.d / TAU; z0 = z1; g0 = g1;
+        for (const nn of S.harpStep(st, null, i * 0.02, phi, { dt: 0.02 })) notes.push(nn);
+      }
+      return { W: st.up - st.down, up: st.up, down: st.down, notes, phi };
+    };
+    const zp = rational([[C(1, 0), 1], [C(-1, 0), 2]], [[C(0, 1), 1], [C(0.5, -0.8), 2]]);
+    const cases = [['a simple zero', C(1, 0), 0.3, 1, 1], ['a double zero', C(-1, 0), 0.3, 1, 2], ['a simple pole', C(0, 1), 0.3, 1, -1], ['a double pole', C(0.5, -0.8), 0.25, 1, -2],
+      ['a simple zero, two laps', C(1, 0), 0.3, 2, 2], ['all four inside (1 + 2 − 1 − 2)', C(0, 0), 1.6, 1, 0], ['nothing inside', C(2.5, 2.5), 0.4, 1, 0]];
+    for (const [what, c, r, laps, W] of cases) {
+      const h = loop(zp, c, r, laps);
+      check(`harp: ${what}: low Ds up − down = ${W}`, h.W === W && Math.abs(h.phi - h.notes.length * 0 - h.phi) < 1, JSON.stringify({ up: h.up, down: h.down }));
+    }
+    // a loop round a zero plays a rising scale (every note up, D E F♯ A B in turn); round a pole a falling one
+    const up = loop(zp, C(1, 0), 0.3), dn = loop(zp, C(0, 1), 0.3);
+    const cls = (ns) => ns.map((x) => ((x.i % 5) + 5) % 5);
+    check('harp: round a zero, a rising scale of 5 notes a turn', up.notes.length === 5 && up.notes.every((x) => x.dir > 0) && cls(up.notes).every((j, k, a) => !k || j === (a[k - 1] + 1) % 5), JSON.stringify(cls(up.notes)));
+    check('harp: round a pole, a falling scale', dn.notes.length === 5 && dn.notes.every((x) => x.dir < 0) && cls(dn.notes).every((j, k, a) => !k || j === (a[k - 1] + 4) % 5), JSON.stringify(cls(dn.notes)));
+    const dz = loop(zp, C(-1, 0), 0.3);
+    // (a note sounds once arg F is 3.75° past its line: a line within that of the loop's end waits for the next move)
+    check('harp: round a double zero, the scale twice (9 or 10 notes, all up, 2 low Ds)', dz.notes.length >= 9 && dz.notes.length <= 10 && dz.notes.every((x) => x.dir > 0) && dz.up === 2, JSON.stringify({ n: dz.notes.length, up: dz.up, down: dz.down }));
+    // a tremor of ±3° across a line (and across arg 0, the D): nothing; a step of 8° across it: one note
+    const st = S.Harp(); S.harpStep(st, null, 0, 1 / 6 - 0.004, {});
+    let k = 0; for (let i = 0; i < 50; i++) k += S.harpStep(st, null, i * 0.02, 1 / 6 + (i % 2 ? 0.008 : -0.008), { dt: 0.02 }).length;
+    check('harp: a ±3° tremor across E plays nothing (hysteresis 3.75°)', k === 0, k);
+    k = S.harpStep(st, null, 1, 1 / 6 + 0.012, { dt: 0.02 }).length;
+    check('harp: past the hysteresis it plays once', k === 1, k);
+    // the D-only zone (a trembling hand within 8 px of a zero): only the Ds sound, and the count stays exact
+    const sh = S.Harp(); S.harpStep(sh, null, 0, 0.05, {}); let noted = 0;
+    for (let i = 1; i <= 20; i++) { sh.notes = 0; S.harpStep(sh, null, i * 0.02, 0.05 + 0.1 * i, { dt: 0.02, shaky: true }); noted += sh.notes; }
+    check('harp: the D-only zone counts every D (2 turns: 2 up) and plays only those', sh.up === 2 && sh.down === 0, JSON.stringify(sh));
+  }
+  // v15.2 review fixes. math-1: whole turns hidden in one piece (|F| steady, a fast phase) are seen: e^{30z} moved up
+  // by 0.40 and 0.42 turns arg F by 12.0 and 12.6 rad (they read −0.57 and 0.03, exact, before)
+  {
+    const e30 = (z) => expF(CX.scale(z, 30));
+    for (const L of [0.4, 0.42, 25.1 / 30]) {
+      const r = Calc.argStep(e30, C(0, 0), null, C(0, L), null);
+      check(`math-1: argStep e^{30z} over ${L}i is ${(30 * L).toFixed(2)} rad`, r.exact && Math.abs(r.d - 30 * L) < 1e-9, JSON.stringify(r));
+    }
+    const r = Calc.argStep((z) => CX.sin(CX.scale(z, 20)), C(-0.3, 1), null, C(0.3, 1), null);
+    check('math-1: argStep sin(20z) along Im z = 1, 0.6 wide: −12 rad', r.exact && Math.abs(r.d + 12) < 1e-6, JSON.stringify(r));
+    // a pointer loop round nothing for e^{30z} (0.42 up in one event, 42 slow steps back): 0 Ds (was −2)
+    const S = makeEnv().Sound, st = S.Harp();
+    let z0 = C(0, 0), g0 = e30(z0), phi = 0;
+    S.harpStep(st, null, 0, phi, {});
+    const path = [C(0, 0.42)]; for (let i = 41; i >= 0; i--) path.push(C(0, 0.01 * i));
+    for (const z1 of path) { const g1 = e30(z1), q = Calc.argStep(e30, z0, g0, z1, g1); phi += q.d / TAU; z0 = z1; g0 = g1; S.harpStep(st, null, 0, phi, { dt: 0.016 }); }
+    check('math-1: a pointer loop round nothing for e^{30z}: 0 low Ds net', st.up === st.down && Math.abs(phi) < 1e-9, JSON.stringify({ up: st.up, down: st.down, phi }));
+  }
+  // sound-2: the singer has a note for W = −3 … 20 only (harmonic 4 + W of D3); outside, the callers ping or speak
+  {
+    const S = makeEnv().Sound;
+    check('sound-2: singable W −3 … 20, not −4, −5 or 21', [-3, 0, 1, 20].every((W) => S.singable(W)) && ![-4, -5, 21, 0.5].some((W) => S.singable(W)));
+    const ph = new Float64Array(256); for (let j = 0; j < 256; j++) ph[j] = -4 * j / 256;
+    const a = S.curveAmps(ph, -4);
+    check('sound-2: W = −4 has no harmonic (why it is not sung)', a.n0 === 0 && a.A.every((x) => x < 0.05), JSON.stringify(a.A.slice(0, 4)));
+  }
+  // sound-3: a finger held still 10 px from a zero (F = z, 1 px a unit), on a line, with a 9 Hz tremor of ±1.5 px: the
+  // band of 2.5 px (the app's |F'/F| · 2.5 px) plucks nothing; with the fixed 7.5° band it chattered
+  {
+    const S = makeEnv().Sound;
+    const held = (band) => {
+      const st = S.Harp(); let phi = null, prev = null;
+      for (let k = 0; k < 600; k++) {
+        const t = k / 60, x = 10 + 1.5 * Math.sin(TAU * 9 * t), y = 1.5 * Math.sin(TAU * 8.3 * t + 1);
+        const a = Math.atan2(y, x) / TAU; if (phi === null) phi = a; else { let d = a - prev; d -= Math.round(d); phi += d; } prev = a;
+        S.harpStep(st, null, t, phi, { dt: 1 / 60, h: band ? (1 / Math.hypot(x, y)) * 2.5 / TAU : 0 });
+      }
+      return st.notes;
+    };
+    const n0 = held(false), n1 = held(true);
+    check('sound-3: a held finger near a zero: 0 notes with the 2.5 px band (many without)', n1 === 0 && n0 > 10, JSON.stringify({ fixed: n0, band: n1 }));
+    // the band never loses a count: a loop round the zero at 10 px from arg 0.4 turn, 3 laps: 3 Ds up
+    const st = S.Harp(); let phi = 0.4; S.harpStep(st, null, 0, phi, {});
+    for (let i = 1; i <= 360; i++) { phi = 0.4 + 3 * i / 360; S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h: 0.1 * 2.5 / TAU }); }
+    check('sound-3: with the band, 3 laps round a zero still give 3 low Ds', st.up === 3 && st.down === 0, JSON.stringify(st));
+  }
+  // math-4: a drawn loop that starts on the D line (arg F within the band of 0) and closes there: harpClose brings the
+  // count to W (it played W − 1 before); a loop that only wiggles across nothing stays at 0
+  {
+    const e = makeEnv();
+    e.Sound.set({ on: true, sonify: true }, { quiet: true }); e.advance(10);
+    const S = e.Sound;
+    const lap = (start, W, wig) => {
+      S.harpReset(start); S.harpCount();
+      let c0 = null;
+      const N = 60;
+      for (let i = 0; i <= N; i++) {
+        e.advance(16);
+        const phi = wig ? start + 0.05 * Math.sin(Math.PI * i / N) : start + W * i / N;
+        S.harp(phi, { dt: 0.016 });
+        if (i === 0) c0 = S.harpState().c;
+      }
+      S.harpClose(c0 + 5 * W, {});
+      return S.harpCount();
+    };
+    for (const [start, W] of [[0.001, 1], [0.003, 1], [-0.002, 1], [0.001, -1], [0.003, 2], [0.4, 1]]) {
+      const r = lap(start, W, false);
+      check(`math-4: a loop from arg ${start} turn, W = ${W}: low Ds up − down = W`, r.up - r.down === W, JSON.stringify(r));
+    }
+    const r = lap(0.001, 0, true);
+    check('math-4: a wiggle from arg 0.001 turn up and back: 0 Ds', r.up === 0 && r.down === 0, JSON.stringify(r));
+  }
+  // curves sing: the phase along a closed curve played as one period; its loudest harmonic is 4 + W (D5 for 0, F♯5 for
+  // 1, A5 for 2, A4 for −1), and the spectral centre is exactly W
+  {
+    const S = makeEnv().Sound;
+    const sample = (F, c, r, M = 512) => { const ph = new Float64Array(M); let z0 = C(c.re + r, c.im), g0 = F(z0), acc = Math.atan2(g0.im, g0.re) / TAU; ph[0] = acc; for (let j = 1; j <= M; j++) { const th = TAU * j / M, z1 = C(c.re + r * Math.cos(th), c.im + r * Math.sin(th)), g1 = F(z1); acc += Calc.argStep(F, z0, g0, z1, g1).d / TAU; if (j < M) ph[j] = acc; z0 = z1; g0 = g1; } return { ph, W: Math.round(acc - ph[0]) }; };
+    const loudest = (A) => A.indexOf(Math.max(...A)) + 1;
+    const centre = (A, W) => { let e = 0, m = 0; for (let n = 1; n <= A.length; n++) { e += A[n - 1] * A[n - 1]; m += (n - 4) * A[n - 1] * A[n - 1]; } return m / e; };
+    const cases = [['z − 0.6 on |z| = 1', (z) => sub(z, C(0.6, 0)), C(0, 0), 1, 1], ['z³ − 1 on |z| = 1.5', (z) => sub(mul(z, mul(z, z)), C(1, 0)), C(0, 0), 1.5, 3],
+      ['(z − ½)/(z + ½) on |z| = 1', (z) => CX.div(sub(z, C(0.5, 0)), CX.add(z, C(0.5, 0))), C(0, 0), 1, 0], ['1/z on |z| = 1', (z) => CX.inv(z), C(0, 0), 1, -1],
+      ['z² with the zero off centre', (z) => mul(sub(z, C(0.5, 0.2)), sub(z, C(0.5, 0.2))), C(0, 0), 1, 2], ['e^z on |z| = 3 (W = 0, wide)', expF, C(0, 0), 3, 0]];
+    for (const [what, F, c, r, W] of cases) {
+      const sm = sample(F, c, r), a = S.curveAmps(sm.ph, sm.W);
+      check(`curves sing: ${what}: W = ${W}, the loudest harmonic ${4 + W}`, sm.W === W && a.n0 === 4 + W && loudest(a.A) === 4 + W, JSON.stringify({ W: sm.W, loud: loudest(a.A), A: a.A.slice(0, 9).map((x) => +x.toFixed(3)) }));
+      if (W !== 0 || what.startsWith('(')) check(`curves sing: ${what}: the spectral centre is W (±0.05)`, Math.abs(centre(a.A, W) - W) < 0.05, centre(a.A, W));
     }
   }
   // no Web Audio: everything is a no-op

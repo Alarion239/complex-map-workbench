@@ -1,0 +1,409 @@
+ok  logH.mask                  IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (6.6s)
+ok  logH.pattern               IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0885 (3.9s)
+ok  logH_out4.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (4.6s)
+ok  logH_out4.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.4706 (3.0s)
+ok  logH_out16.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.1s)
+ok  logH_out16.pattern         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.6418 (3.1s)
+ok  exp_strip.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.6s)
+ok  exp_strip.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0357 (3.6s)
+ok  cayley_H.mask              IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.0s)
+ok  cayley_H.pattern           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0988 (3.7s)
+ok  cayley_H_zoom1.mask        IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (4.0s)
+ok  cayley_H_zoom1.pattern     IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.9984 (3.3s)
+ok  recip_ext.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (4.7s)
+ok  recip_ext.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.1413 (4.2s)
+ok  recip_ext_zoom0.mask       IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.0s)
+ok  recip_ext_zoom0.pattern    IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.9974 (3.9s)
+ok  sq_Q1.mask                 IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (4.3s)
+ok  sq_Q1.pattern              IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0512 (5.2s)
+ok  sqrt_slit.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.6s)
+ok  sqrt_slit.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.3356 (4.4s)
+ok  sqrt_slit_out16.mask       IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.2s)
+ok  sqrt_slit_out16.pattern    IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 1.0000 (4.5s)
+ok  sin_halfstrip.mask         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px (3.8s)
+ok  sin_halfstrip.pattern      IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0698 (4.1s)
+ok  disc_cube.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px golden 0.00000 (4.7s)
+ok  disc_cube.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.1092 golden 0.00000 (5.1s)
+ok  joukowski.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.01px golden 0.00000 (5.2s)
+ok  joukowski.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.01px parity 1.0000 excl 0.1905 golden 0.00000 (5.9s)
+ok  annulus_log.mask           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px golden 0.00000 (4.3s)
+ok  annulus_log.pattern        IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.1665 golden 0.00000 (4.3s)
+ok  poly_mobius.mask           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px golden 0.00000 (4.6s)
+ok  poly_mobius.pattern        IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.2315 golden 0.00000 (5.0s)
+ok  zi_H.mask                  IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 hole_leak 0/112 (5.0s)
+ok  zi_H.pattern               IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.2532 colour-off 0.0000 hole_leak 0/112 (5.1s)
+ok  zi_H.polar                 IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px polar-parity 0.9999 excl 0.1305 colour-off 0.0000 hole_leak 0/112 (4.9s)
+ok  zi_H.mask85                IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 0.9967 p01 0.9967 colour-off 0.0000 hole_leak 0/112 (5.0s)
+ok  zi_H.mask20                IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 hole_leak 0/112 (4.7s)
+ok  zi_H_out4.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 hole_leak 0/0 (5.0s)
+ok  zi_H_out4.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.4594 colour-off 0.0000 hole_leak 0/0 (4.7s)
+ok  zi_H_out4.polar            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px polar-parity 1.0000 excl 0.4421 colour-off 0.0000 hole_leak 0/0 (5.0s)
+ok  zi_H_out16.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 hole_leak 0/0 (4.3s)
+ok  zi_H_out16.pattern         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.6189 colour-off 0.0000 hole_leak 0/0 (5.1s)
+ok  expH.mask                  IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (5.9s)
+ok  expH.pattern               IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0438 colour-off 0.0000 (6.2s)
+ok  expH.mask85                IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 0.9967 p01 0.9967 colour-off 0.0000 (6.7s)
+ok  expH.mask20                IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (5.7s)
+ok  expH_out16.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (5.3s)
+ok  expH_out16.pattern         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0494 colour-off 0.0000 (4.5s)
+ok  e1z_disc.mask              IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (4.4s)
+ok  e1z_disc.pattern           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0604 colour-off 0.0000 (4.5s)
+ok  e1z_disc.mask85            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 0.9967 p01 0.9967 colour-off 0.0000 (4.7s)
+ok  e1z_disc.mask20            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (4.2s)
+ok  e1z_disc_out16.mask        IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.02px opacity min 0.0653 p01 1.0000 colour-off 0.0001 (4.3s)
+ok  e1z_disc_out16.pattern     IoU 0.9999 hole 0.0001 spill 0.0000 bnd    0.03px parity 1.0000 excl 0.0211 colour-off 0.0001 (4.8s)
+ok  e1z_custom.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (5.3s)
+ok  e1z_custom.pattern         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0604 colour-off 0.0000 (8.0s)
+ok  e1z_custom.mask85          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 0.9967 p01 0.9967 colour-off 0.0000 (5.7s)
+ok  exp_far_disc.mask          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (4.7s)
+ok  exp_far_disc.pattern       IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.3092 colour-off 0.0000 (4.3s)
+ok  ez2_disc.mask              IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (5.7s)
+ok  ez2_disc.pattern           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.1128 colour-off 0.0000 (5.9s)
+ok  healed_cut.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (3.9s)
+ok  healed_cut.pattern         IoU 0.9995 hole 0.0005 spill 0.0000 bnd    0.02px parity 1.0000 excl 0.2997 colour-off 0.0005 (4.9s)
+ok  atanh_D_s20.mask           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (2.5s)
+ok  atanh_D_s20.mask85         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 0.8507 p01 0.8507 colour-off 1.0000 (3.9s)
+ok  atanh_D_s10.mask           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (4.7s)
+ok  atanh_D_s10.mask85         IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 0.8507 p01 0.8507 colour-off 1.0000 (4.5s)
+ok  atan_D_s20.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (2.5s)
+ok  atan_D_s10.mask            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (2.3s)
+ok  cube_far_deep.mask         IoU 0.9999 hole 0.0001 spill 0.0000 bnd    0.03px opacity min 0.3107 p01 1.0000 colour-off 0.0010 (2.5s)
+ok  cube_far_deep.pattern      IoU 0.9998 hole 0.0002 spill 0.0000 bnd    0.04px parity 0.9998 excl 0.0074 colour-off 0.0006 (3.2s)
+ok  zi_H_polar85.polar85       IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px polar-parity 1.0000 excl 0.1285 colour-off 0.0000 hole_leak 0/112 (2.6s)
+ok  zi_H_polar85.polar50       IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px polar-parity 1.0000 excl 0.1285 colour-off 0.0000 hole_leak 0/112 (2.7s)
+ok  rat9.mask                  IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (2.6s)
+ok  rat9.pattern               IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0949 colour-off 0.0000 (2.5s)
+ok  rat9_out8.mask             IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (2.4s)
+ok  rat9_out8.pattern          IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0260 colour-off 0.0000 (2.5s)
+ok  jouk_custom.mask           IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.01px opacity min 0.0146 p01 1.0000 colour-off 0.0000 (2.4s)
+ok  jouk_custom.pattern        IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.01px parity 1.0000 excl 0.1905 colour-off 0.0000 (2.5s)
+ok  zp_disc.mask               IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px opacity min 1.0000 p01 1.0000 colour-off 0.0000 (2.4s)
+ok  zp_disc.pattern            IoU 1.0000 hole 0.0000 spill 0.0000 bnd    0.00px parity 1.0000 excl 0.0794 colour-off 0.0000 (2.4s)
+
+81 runs in 343.1s -> test/regress/quality/out/latest/metrics.json
+
+Image-quality gate
+  baseline test/regress/quality/baseline.json (2026-10-19T19:57:13, app 04aa240d1958)
+  current  test/regress/quality/out/latest/metrics.json (2026-10-24T17:13:55, app 78a411000d1c)
+
+run                        metric           baseline      current delta(+good)  status
+logH.mask                  settle_ms             630         4569    -3939.0  worse (info)
+logH.pattern               settle_ms             615         1668    -1053.0  worse (info)
+logH_out4.mask             iou               0.72805            1   +0.27195  IMPROVED
+logH_out4.mask             hole              0.27195            0   +0.27195  IMPROVED
+logH_out4.mask             bnd_err_px        9.79024            0   +9.79024  better (info)
+logH_out4.mask             bnd_p95_px         36.592            0      +36.6  better (info)
+logH_out4.mask             settle_ms             617         2711    -2094.0  worse (info)
+logH_out4.pattern          iou               0.72198            1   +0.27802  IMPROVED
+logH_out4.pattern          hole              0.27802            0   +0.27802  IMPROVED
+logH_out4.pattern          parity_acc        0.98261            1   +0.01739  IMPROVED
+logH_out4.pattern          bnd_err_px         10.009            0      +10.0  better (info)
+logH_out4.pattern          bnd_p95_px         36.592            0      +36.6  better (info)
+logH_out4.pattern          parity_excl       0.51175      0.47060   +0.04116  better (info)
+logH_out4.pattern          settle_ms             615         1126     -511.0  worse (info)
+logH_out16.mask            iou               0.18240            1   +0.81760  IMPROVED
+logH_out16.mask            hole              0.81760            0   +0.81760  IMPROVED
+logH_out16.mask            bnd_err_px        5.72317            0   +5.72317  better (info)
+logH_out16.mask            bnd_p95_px        9.02295            0   +9.02295  better (info)
+logH_out16.pattern         iou               0.17962            1   +0.82038  IMPROVED
+logH_out16.pattern         hole              0.82038            0   +0.82038  IMPROVED
+logH_out16.pattern         bnd_err_px        5.74268            0   +5.74268  better (info)
+logH_out16.pattern         bnd_p95_px        9.02295            0   +9.02295  better (info)
+logH_out16.pattern         parity_excl       0.69835      0.64181   +0.05654  better (info)
+logH_out16.pattern         settle_ms             608         1209     -601.0  worse (info)
+exp_strip.mask             settle_ms             609         1570     -961.0  worse (info)
+exp_strip.pattern          settle_ms             608         1407     -799.0  worse (info)
+cayley_H.mask              settle_ms             616         1136     -520.0  worse (info)
+cayley_H.pattern           iou               0.99999            1   +0.00001  better
+cayley_H.pattern           hole              0.00001            0   +0.00001  better
+cayley_H.pattern           settle_ms             614         1514     -900.0  worse (info)
+cayley_H_zoom1.mask        iou               0.77244            1   +0.22756  IMPROVED
+cayley_H_zoom1.mask        hole              0.22747            0   +0.22747  IMPROVED
+cayley_H_zoom1.mask        bnd_err_px         45.826            0      +45.8  better (info)
+cayley_H_zoom1.mask        bnd_p95_px          191.5            0     +191.5  better (info)
+cayley_H_zoom1.mask        settle_ms             612         2151    -1539.0  worse (info)
+cayley_H_zoom1.pattern     iou               0.71157            1   +0.28843  IMPROVED
+cayley_H_zoom1.pattern     hole              0.28837            0   +0.28837  IMPROVED
+cayley_H_zoom1.pattern     bnd_err_px         58.095            0      +58.1  better (info)
+cayley_H_zoom1.pattern     bnd_p95_px          193.1            0     +193.1  better (info)
+cayley_H_zoom1.pattern     settle_ms             613         1264     -651.0  worse (info)
+recip_ext.mask             settle_ms             614         2608    -1994.0  worse (info)
+recip_ext.pattern          iou               0.99999            1   +0.00001  better
+recip_ext.pattern          hole              0.00001            0   +0.00001  better
+recip_ext.pattern          settle_ms             608         2084    -1476.0  worse (info)
+recip_ext_zoom0.mask       iou               0.80528            1   +0.19472  IMPROVED
+recip_ext_zoom0.mask       hole              0.19453            0   +0.19453  IMPROVED
+recip_ext_zoom0.mask       bnd_err_px          100.4            0     +100.4  better (info)
+recip_ext_zoom0.mask       bnd_p95_px          242.0            0     +242.0  better (info)
+recip_ext_zoom0.mask       settle_ms             613         1248     -635.0  worse (info)
+recip_ext_zoom0.pattern    iou               0.75321            1   +0.24679  IMPROVED
+recip_ext_zoom0.pattern    hole              0.24663            0   +0.24663  IMPROVED
+recip_ext_zoom0.pattern    bnd_err_px          127.2            0     +127.2  better (info)
+recip_ext_zoom0.pattern    bnd_p95_px          245.7            0     +245.7  better (info)
+recip_ext_zoom0.pattern    settle_ms             613         1641    -1028.0  worse (info)
+sq_Q1.mask                 settle_ms             615         2450    -1835.0  worse (info)
+sq_Q1.pattern              settle_ms             615         2983    -2368.0  worse (info)
+sqrt_slit.mask             settle_ms             614         1707    -1093.0  worse (info)
+sqrt_slit.pattern          parity_acc        0.99999            1   +0.00001  better
+sqrt_slit.pattern          settle_ms             608         2307    -1699.0  worse (info)
+sqrt_slit_out16.mask       iou               0.60588            1   +0.39412  IMPROVED
+sqrt_slit_out16.mask       hole              0.39410            0   +0.39410  IMPROVED
+sqrt_slit_out16.mask       bnd_err_px         82.762            0      +82.8  better (info)
+sqrt_slit_out16.mask       bnd_p95_px            208            0     +208.0  better (info)
+sqrt_slit_out16.mask       settle_ms             614         1460     -846.0  worse (info)
+sqrt_slit_out16.pattern    iou               0.60554            1   +0.39446  IMPROVED
+sqrt_slit_out16.pattern    hole              0.39445            0   +0.39445  IMPROVED
+sqrt_slit_out16.pattern    bnd_err_px         82.835            0      +82.8  better (info)
+sqrt_slit_out16.pattern    bnd_p95_px            208            0     +208.0  better (info)
+sqrt_slit_out16.pattern    settle_ms             615         2721    -2106.0  worse (info)
+sin_halfstrip.mask         settle_ms             614         1794    -1180.0  worse (info)
+sin_halfstrip.pattern      settle_ms             615         2062    -1447.0  worse (info)
+disc_cube.mask             settle_ms             735         1938    -1203.0  worse (info)
+disc_cube.pattern          settle_ms             617         2378    -1761.0  worse (info)
+joukowski.mask             settle_ms             619         2454    -1835.0  worse (info)
+joukowski.pattern          settle_ms             620         3257    -2637.0  worse (info)
+annulus_log.mask           settle_ms             617         1988    -1371.0  worse (info)
+annulus_log.pattern        settle_ms             618         1693    -1075.0  worse (info)
+poly_mobius.mask           settle_ms             613         2352    -1739.0  worse (info)
+poly_mobius.pattern        settle_ms             610         2606    -1996.0  worse (info)
+zi_H.mask                  iou               0.99505            1   +0.00495  IMPROVED
+zi_H.mask                  hole              0.00495            0   +0.00495  IMPROVED
+zi_H.mask                  opacity_min       0.14934            1   +0.85066  IMPROVED
+zi_H.mask                  color_off         0.00691            0   +0.00691  IMPROVED
+zi_H.mask                  bnd_err_px        0.43698            0   +0.43698  better (info)
+zi_H.mask                  bnd_p95_px         11.892            0      +11.9  better (info)
+zi_H.mask                  settle_ms             924         2705    -1781.0  worse (info)
+zi_H.mask                  opacity_lt99      0.00539            0   +0.00539  better (info)
+zi_H.mask                  color_err_mean      0.67202            0   +0.67202  better (info)
+zi_H.pattern               iou               0.99463            1   +0.00537  IMPROVED
+zi_H.pattern               hole              0.00537            0   +0.00537  IMPROVED
+zi_H.pattern               parity_acc        0.64059            1   +0.35941  IMPROVED
+zi_H.pattern               color_off         0.00623            0   +0.00623  IMPROVED
+zi_H.pattern               bnd_err_px        0.47386            0   +0.47386  better (info)
+zi_H.pattern               bnd_p95_px         12.145            0      +12.1  better (info)
+zi_H.pattern               settle_ms             611         2191    -1580.0  worse (info)
+zi_H.pattern               color_err_mean      0.67326      0.08046   +0.59280  better (info)
+zi_H.polar                 iou               0.99486            1   +0.00514  IMPROVED
+zi_H.polar                 hole              0.00514            0   +0.00514  IMPROVED
+zi_H.polar                 parity_acc        0.94849      0.99989   +0.05140  IMPROVED
+zi_H.polar                 color_off         0.00595            0   +0.00595  IMPROVED
+zi_H.polar                 bnd_err_px        0.45382            0   +0.45382  better (info)
+zi_H.polar                 bnd_p95_px         11.954            0      +12.0  better (info)
+zi_H.polar                 settle_ms             617         2100    -1483.0  worse (info)
+zi_H.mask85                iou               0.99476            1   +0.00524  IMPROVED
+zi_H.mask85                hole              0.00524            0   +0.00524  IMPROVED
+zi_H.mask85                opacity_min       0.12837      0.99673   +0.86836  IMPROVED
+zi_H.mask85                color_off         0.39101            0   +0.39101  IMPROVED
+zi_H.mask85                bnd_err_px        0.46264            0   +0.46264  better (info)
+zi_H.mask85                bnd_p95_px         11.954            0      +12.0  better (info)
+zi_H.mask85                settle_ms             618         2145    -1527.0  worse (info)
+zi_H.mask85                opacity_p01       0.85066      0.99673   +0.14607  better (info)
+zi_H.mask85                opacity_mean      0.93536      0.99679   +0.06143  better (info)
+zi_H.mask85                opacity_lt99      0.98271            0   +0.98271  better (info)
+zi_H.mask85                color_err_mean       15.897      0.98135      +14.9  better (info)
+zi_H.mask85                color_err_p99       36.304            1      +35.3  better (info)
+zi_H.mask20                iou               0.00917            1   +0.99083  IMPROVED
+zi_H.mask20                hole              0.99083            0   +0.99083  IMPROVED
+zi_H.mask20                opacity_min       0.02990            1   +0.97010  IMPROVED
+zi_H.mask20                color_off               1            0   +1.00000  IMPROVED
+zi_H.mask20                bnd_err_px         87.411            0      +87.4  better (info)
+zi_H.mask20                bnd_p95_px         86.364            0      +86.4  better (info)
+zi_H.mask20                annot             0.00378            0   +0.00378  better (info)
+zi_H.mask20                settle_ms             613         2174    -1561.0  worse (info)
+zi_H.mask20                opacity_p01       0.20021            1   +0.79979  better (info)
+zi_H.mask20                opacity_mean      0.32666            1   +0.67334  better (info)
+zi_H.mask20                opacity_lt99      0.99197            0   +0.99197  better (info)
+zi_H.mask20                color_err_mean        164.5            0     +164.5  better (info)
+zi_H.mask20                color_err_p99        194.4            0     +194.4  better (info)
+zi_H_out4.mask             iou               0.99398            1   +0.00602  IMPROVED
+zi_H_out4.mask             hole              0.00602            0   +0.00602  IMPROVED
+zi_H_out4.mask             opacity_min       0.14934            1   +0.85066  IMPROVED
+zi_H_out4.mask             color_off         0.00967            0   +0.00967  IMPROVED
+zi_H_out4.mask             bnd_err_px        0.09268            0   +0.09268  better (info)
+zi_H_out4.mask             bnd_p95_px        4.15833            0   +4.15833  better (info)
+zi_H_out4.mask             settle_ms             610         2846    -2236.0  worse (info)
+zi_H_out4.mask             opacity_lt99      0.00809            0   +0.00809  better (info)
+zi_H_out4.mask             color_err_mean      0.93478            0   +0.93478  better (info)
+zi_H_out4.pattern          iou               0.99334            1   +0.00666  IMPROVED
+zi_H_out4.pattern          hole              0.00666            0   +0.00666  IMPROVED
+zi_H_out4.pattern          parity_acc        0.52613            1   +0.47387  IMPROVED
+zi_H_out4.pattern          color_off         0.00840            0   +0.00840  IMPROVED
+zi_H_out4.pattern          bnd_err_px        0.10244            0   +0.10244  better (info)
+zi_H_out4.pattern          bnd_p95_px        4.43609            0   +4.43609  better (info)
+zi_H_out4.pattern          parity_excl       0.46250      0.45942   +0.00308  better (info)
+zi_H_out4.pattern          settle_ms             619         2316    -1697.0  worse (info)
+zi_H_out4.pattern          color_err_mean      0.92638      0.19253   +0.73385  better (info)
+zi_H_out4.polar            iou               0.99350            1   +0.00650  IMPROVED
+zi_H_out4.polar            hole              0.00650            0   +0.00650  IMPROVED
+zi_H_out4.polar            parity_acc        0.96928            1   +0.03072  IMPROVED
+zi_H_out4.polar            color_off         0.00777            0   +0.00777  IMPROVED
+zi_H_out4.polar            bnd_err_px        0.10000            0   +0.10000  better (info)
+zi_H_out4.polar            bnd_p95_px        4.29699            0   +4.29699  better (info)
+zi_H_out4.polar            parity_excl       0.44423      0.44214   +0.00210  better (info)
+zi_H_out4.polar            settle_ms             614         2719    -2105.0  worse (info)
+zi_H_out16.mask            opacity_min       0.76680            1   +0.23320  IMPROVED
+zi_H_out16.mask            color_off         0.00820            0   +0.00820  IMPROVED
+zi_H_out16.mask            settle_ms             618         2192    -1574.0  worse (info)
+zi_H_out16.mask            opacity_lt99      0.00820            0   +0.00820  better (info)
+zi_H_out16.pattern         iou               0.99590            1   +0.00410  IMPROVED
+zi_H_out16.pattern         hole              0.00410            0   +0.00410  IMPROVED
+zi_H_out16.pattern         color_off         0.00410            0   +0.00410  IMPROVED
+zi_H_out16.pattern         parity_excl       0.62140      0.61885   +0.00255  better (info)
+zi_H_out16.pattern         settle_ms             611         2912    -2301.0  worse (info)
+expH.mask                  settle_ms             611         3383    -2772.0  worse (info)
+expH.pattern               parity_acc        0.31080            1   +0.68920  IMPROVED
+expH.pattern               settle_ms             614         3240    -2626.0  worse (info)
+expH.mask85                settle_ms             612         4122    -3510.0  worse (info)
+expH.mask85                color_err_mean      0.18794      0.99631   -0.80837  worse (info)
+expH.mask20                iou               0.81498            1   +0.18502  IMPROVED
+expH.mask20                hole              0.18502            0   +0.18502  IMPROVED
+expH.mask20                opacity_min       0.48995            1   +0.51005  IMPROVED
+expH.mask20                color_off               1            0   +1.00000  IMPROVED
+expH.mask20                bnd_err_px         95.098            0      +95.1  better (info)
+expH.mask20                bnd_p95_px          286.4            0     +286.4  better (info)
+expH.mask20                annot             0.00357            0   +0.00357  better (info)
+expH.mask20                settle_ms             615         3369    -2754.0  worse (info)
+expH.mask20                opacity_p01       0.48995            1   +0.51005  better (info)
+expH.mask20                opacity_mean      0.58039            1   +0.41961  better (info)
+expH.mask20                opacity_lt99      0.99643            0   +0.99643  better (info)
+expH.mask20                color_err_mean        102.2            0     +102.2  better (info)
+expH.mask20                color_err_p99        124.0            0     +124.0  better (info)
+expH_out16.mask            settle_ms             616         2684    -2068.0  worse (info)
+expH_out16.pattern         parity_acc        0.37295            1   +0.62705  IMPROVED
+expH_out16.pattern         settle_ms             624         1915    -1291.0  worse (info)
+e1z_disc.mask              settle_ms             615         2003    -1388.0  worse (info)
+e1z_disc.pattern           parity_acc        0.50000            1   +0.50000  IMPROVED
+e1z_disc.pattern           settle_ms             618         1448     -830.0  worse (info)
+e1z_disc.mask85            opacity_min             1      0.99673   -0.00327  worse (in tol)
+e1z_disc.mask85            settle_ms             613         1919    -1306.0  worse (info)
+e1z_disc.mask85            color_err_mean            0      0.99533   -0.99533  worse (info)
+e1z_disc.mask20            opacity_min       0.98728            1   +0.01272  IMPROVED
+e1z_disc.mask20            settle_ms             614         1797    -1183.0  worse (info)
+e1z_disc.mask20            opacity_p01       0.98728            1   +0.01272  better (info)
+e1z_disc.mask20            opacity_mean      0.98733            1   +0.01267  better (info)
+e1z_disc.mask20            opacity_lt99      0.99550            0   +0.99550  better (info)
+e1z_disc.mask20            color_err_mean      3.46410            0   +3.46410  better (info)
+e1z_disc.mask20            color_err_p99      3.46410            0   +3.46410  better (info)
+e1z_disc_out16.mask        iou               0.99994      0.99995   +0.00001  better
+e1z_disc_out16.mask        hole              0.00006      0.00005   +0.00001  better
+e1z_disc_out16.mask        opacity_min       0.00636      0.06530   +0.05894  IMPROVED
+e1z_disc_out16.mask        settle_ms             617         1567     -950.0  worse (info)
+e1z_disc_out16.pattern     iou               0.99994      0.99995   +0.00000  better
+e1z_disc_out16.pattern     hole              0.00006      0.00005   +0.00001  better
+e1z_disc_out16.pattern     parity_acc        0.50000            1   +0.50000  IMPROVED
+e1z_disc_out16.pattern     settle_ms             614         1776    -1162.0  worse (info)
+e1z_custom.mask            settle_ms             620         2769    -2149.0  worse (info)
+e1z_custom.pattern         parity_acc        0.50000            1   +0.50000  IMPROVED
+e1z_custom.pattern         settle_ms             619         4194    -3575.0  worse (info)
+e1z_custom.mask85          opacity_min             1      0.99673   -0.00327  worse (in tol)
+e1z_custom.mask85          settle_ms             619         3426    -2807.0  worse (info)
+e1z_custom.mask85          color_err_mean            0      0.99533   -0.99533  worse (info)
+exp_far_disc.mask          settle_ms             616         1956    -1340.0  worse (info)
+exp_far_disc.pattern       settle_ms             610         2015    -1405.0  worse (info)
+ez2_disc.mask              settle_ms             616         2840    -2224.0  worse (info)
+ez2_disc.pattern           settle_ms             609         3052    -2443.0  worse (info)
+healed_cut.mask            settle_ms             612         1514     -902.0  worse (info)
+healed_cut.pattern         iou               0.99946      0.99950   +0.00004  better
+healed_cut.pattern         hole              0.00054      0.00050   +0.00004  better
+healed_cut.pattern         color_off         0.00054      0.00050   +0.00004  better
+healed_cut.pattern         settle_ms             615         3133    -2518.0  worse (info)
+
+Warnings:
+  - browser differs: baseline Chrome/155.0.8059.80, current Chrome/156.0.8078.47 (renders may differ slightly)
+
+Improvements (better than the baseline by more than the tolerance):
+  + logH_out4.mask             iou         0.72805 -> 1
+  + logH_out4.mask             hole        0.27195 -> 0
+  + logH_out4.pattern          iou         0.72198 -> 1
+  + logH_out4.pattern          hole        0.27802 -> 0
+  + logH_out4.pattern          parity_acc  0.98261 -> 1
+  + logH_out16.mask            iou         0.18240 -> 1
+  + logH_out16.mask            hole        0.81760 -> 0
+  + logH_out16.pattern         iou         0.17962 -> 1
+  + logH_out16.pattern         hole        0.82038 -> 0
+  + cayley_H_zoom1.mask        iou         0.77244 -> 1
+  + cayley_H_zoom1.mask        hole        0.22747 -> 0
+  + cayley_H_zoom1.pattern     iou         0.71157 -> 1
+  + cayley_H_zoom1.pattern     hole        0.28837 -> 0
+  + recip_ext_zoom0.mask       iou         0.80528 -> 1
+  + recip_ext_zoom0.mask       hole        0.19453 -> 0
+  + recip_ext_zoom0.pattern    iou         0.75321 -> 1
+  + recip_ext_zoom0.pattern    hole        0.24663 -> 0
+  + sqrt_slit_out16.mask       iou         0.60588 -> 1
+  + sqrt_slit_out16.mask       hole        0.39410 -> 0
+  + sqrt_slit_out16.pattern    iou         0.60554 -> 1
+  + sqrt_slit_out16.pattern    hole        0.39445 -> 0
+  + zi_H.mask                  iou         0.99505 -> 1
+  + zi_H.mask                  hole        0.00495 -> 0
+  + zi_H.mask                  opacity_min 0.14934 -> 1
+  + zi_H.mask                  color_off   0.00691 -> 0
+  + zi_H.pattern               iou         0.99463 -> 1
+  + zi_H.pattern               hole        0.00537 -> 0
+  + zi_H.pattern               parity_acc  0.64059 -> 1
+  + zi_H.pattern               color_off   0.00623 -> 0
+  + zi_H.polar                 iou         0.99486 -> 1
+  + zi_H.polar                 hole        0.00514 -> 0
+  + zi_H.polar                 parity_acc  0.94849 -> 0.99989
+  + zi_H.polar                 color_off   0.00595 -> 0
+  + zi_H.mask85                iou         0.99476 -> 1
+  + zi_H.mask85                hole        0.00524 -> 0
+  + zi_H.mask85                opacity_min 0.12837 -> 0.99673
+  + zi_H.mask85                color_off   0.39101 -> 0
+  + zi_H.mask20                iou         0.00917 -> 1
+  + zi_H.mask20                hole        0.99083 -> 0
+  + zi_H.mask20                opacity_min 0.02990 -> 1
+  + zi_H.mask20                color_off   1 -> 0
+  + zi_H_out4.mask             iou         0.99398 -> 1
+  + zi_H_out4.mask             hole        0.00602 -> 0
+  + zi_H_out4.mask             opacity_min 0.14934 -> 1
+  + zi_H_out4.mask             color_off   0.00967 -> 0
+  + zi_H_out4.pattern          iou         0.99334 -> 1
+  + zi_H_out4.pattern          hole        0.00666 -> 0
+  + zi_H_out4.pattern          parity_acc  0.52613 -> 1
+  + zi_H_out4.pattern          color_off   0.00840 -> 0
+  + zi_H_out4.polar            iou         0.99350 -> 1
+  + zi_H_out4.polar            hole        0.00650 -> 0
+  + zi_H_out4.polar            parity_acc  0.96928 -> 1
+  + zi_H_out4.polar            color_off   0.00777 -> 0
+  + zi_H_out16.mask            opacity_min 0.76680 -> 1
+  + zi_H_out16.mask            color_off   0.00820 -> 0
+  + zi_H_out16.pattern         iou         0.99590 -> 1
+  + zi_H_out16.pattern         hole        0.00410 -> 0
+  + zi_H_out16.pattern         color_off   0.00410 -> 0
+  + expH.pattern               parity_acc  0.31080 -> 1
+  + expH.mask20                iou         0.81498 -> 1
+  + expH.mask20                hole        0.18502 -> 0
+  + expH.mask20                opacity_min 0.48995 -> 1
+  + expH.mask20                color_off   1 -> 0
+  + expH_out16.pattern         parity_acc  0.37295 -> 1
+  + e1z_disc.pattern           parity_acc  0.50000 -> 1
+  + e1z_disc.mask20            opacity_min 0.98728 -> 1
+  + e1z_disc_out16.mask        opacity_min 0.00636 -> 0.06530
+  + e1z_disc_out16.pattern     parity_acc  0.50000 -> 1
+  + e1z_custom.pattern         parity_acc  0.50000 -> 1
+
+NEW runs (no baseline entry yet: reported, not gated; accept a baseline to gate them):
+  NEW atanh_D_s20.mask           iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW atanh_D_s20.mask85         iou 1  hole 0  spill 0  opacity_min 0.85066  opacity_p01 0.85066  color_off 1
+  NEW atanh_D_s10.mask           iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW atanh_D_s10.mask85         iou 1  hole 0  spill 0  opacity_min 0.85066  opacity_p01 0.85066  color_off 1
+  NEW atan_D_s20.mask            iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW atan_D_s10.mask            iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW cube_far_deep.mask         iou 0.99987  hole 0.00013  spill 0  opacity_min 0.31071  opacity_p01 1  color_off 0.00096
+  NEW cube_far_deep.pattern      iou 0.99979  hole 0.00021  spill 0  parity_acc 0.99976  parity_n 103750  color_off 0.00056
+  NEW zi_H_polar85.polar85       iou 1  hole 0  spill 0  parity_acc 1  parity_n 95888  color_off 0  hole_leak 0
+  NEW zi_H_polar85.polar50       iou 1  hole 0  spill 0  parity_acc 1  parity_n 95888  color_off 0  hole_leak 0
+  NEW rat9.mask                  iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW rat9.pattern               iou 1  hole 0  spill 0  parity_acc 1  parity_n 157398  color_off 0
+  NEW rat9_out8.mask             iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW rat9_out8.pattern          iou 1  hole 0  spill 0  parity_acc 1  parity_n 205250  color_off 0
+  NEW jouk_custom.mask           iou 0.99998  hole 0.00002  spill 0  opacity_min 0.01460  opacity_p01 1  color_off 0.00002
+  NEW jouk_custom.pattern        iou 0.99998  hole 0.00002  spill 0  parity_acc 1  parity_n 166240  color_off 0.00002
+  NEW zp_disc.mask               iou 1  hole 0  spill 0  opacity_min 1  opacity_p01 1  color_off 0
+  NEW zp_disc.pattern            iou 1  hole 0  spill 0  parity_acc 1  parity_n 86984  color_off 0
+
+Targets (absolute thresholds of the spec; reported only, --enforce-targets to gate): 259 met, 0 not met
+
+81 runs: 0 failed, 28 improved, 35 unchanged within tolerance, 18 NEW (not compared with a baseline)
+RESULT: PASS
+test/regress/quality/run.sh --no-build --base-url http://localhost:9114  62.82s user 23.84s system 24% cpu 5:49.26 total

@@ -1,0 +1,11 @@
+await nav('http://127.0.0.1:9053/notes/sound/v2/board.html?v=' + Date.now()); await sleep(500);
+await view(1100, 900, false); await click(500, 120); await sleep(800);
+const r = {};
+r.state = await ev(`JSON.stringify(__board.state().b)`);
+await ev(`document.querySelector('[data-auto="0.5"]').click(); 1`); await sleep(1300);
+await ev(`document.getElementById('playBtn').click(); 1`); await sleep(2400);
+await ev(`__board.setPal('A'); document.querySelector('#cues tbody button').click(); 1`); await sleep(300);
+r.log = await ev(`JSON.stringify(SoundB.engine().log.map(l => l[0]))`);
+await shot('board_final', { x: 0, y: 0, width: 1100, height: 900 });
+r.logs = logs();
+return r;

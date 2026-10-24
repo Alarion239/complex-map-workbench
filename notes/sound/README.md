@@ -137,3 +137,10 @@ github. Maybe we don't need each point sound? Maybe it should be composite of a 
 know. Maybe each point is fine. It just feels weird, maybe because of its weird non-natural sound and your new version
 resolves that. Just please see what is done and give me a few options to choose. Try to make them as nice and good
 as possible." -> research and an options board in notes/sound/hearf/.
+
+## The user's choice for hearing the function (2026-10-24)
+
+"Option 2 (phase harp) for the pointer, plus option 4 (curves sing) for loops and the deformation." (notes/sound/hearf/
+options.html, README.md there). With palette B for every other cue (liked earlier: "I like everything except for
+hearing the function"). Defaults stay: sound on, interface and event cues on, hearing the function off until turned on.
+Built into v15.2.

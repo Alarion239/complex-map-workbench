@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound v2 A/B</title>
+<style>
+:root { --bg:#fbfaf7; --fg:#1d1c1a; --mut:#6b665e; --line:#e2ddd3; --acc:#2f6f62; --b2:#8a4b2a; }
+@media (prefers-color-scheme: dark) { :root { --bg:#161513; --fg:#ece8e1; --mut:#a39d93; --line:#2e2b27; --acc:#7cc4b2; --b2:#e0a27c; } }
+body { background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, sans-serif; margin:0; padding:16px; max-width:920px; }
+h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:22px 0 6px; } p { color:var(--mut); margin:4px 0 10px; }
+table { border-collapse:collapse; width:100%; } td { border-top:1px solid var(--line); padding:6px 4px; vertical-align:middle; }
+td.w { color:var(--mut); font-size:13px; } button { font:inherit; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:transparent; color:var(--fg); cursor:pointer; }
+button.a { border-color:var(--mut); } button.b { border-color:var(--acc); color:var(--acc); } button:active { transform:translateY(1px); }
+input[type=range] { width:100%; } .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; } .tag { font-size:12px; color:var(--mut); }
+</style></head><body>
+<h1>Sound v2: listen and compare</h1>
+<p><b>A</b> is the sound in the app now. <b>B</b> is the proposal (notes/sound/v2/DESIGN.md). B is different each time you
+press it, as it would be in use. Use laptop speakers or headphones at a moderate volume.</p>
+
+<h2>1. The deformation slider (the "cracking")</h2>
+<p>Drag the slider. A: a noise tick every 0.05 of t, as now. B: a soft air sound that follows how fast you move, and a wooden
+note at t = 0, ¼, ½, ¾ and 1. C: only the notes at t = 0, ¼, ½, ¾, 1.</p>
+<div class="row"><label><input type="radio" name="sv" value="A" checked> A now</label><label><input type="radio" name="sv" value="B"> B air + notes</label><label><input type="radio" name="sv" value="C"> C notes only</label></div>
+<input id="scrub" type="range" min="0" max="1" step="0.001" value="0">
+<div class="row"><span class="tag">Recorded drags (0 → 1 → 0):</span>
+<button class="a" data-scrub="A,1.2">A medium</button><button class="b" data-scrub="B,1.2">B medium</button>
+<button class="a" data-scrub="A,0.5">A fast</button><button class="b" data-scrub="B,0.5">B fast</button>
+<button class="a" data-scrub="A,4">A slow</button><button class="b" data-scrub="B,4">B slow</button></div>
+
+<h2>2. Every cue</h2>
+<table id="cues"></table>
+
+<h2>3. Hear the function: the Shepard tone</h2>
+<p>A: pure sines, as now. B: the "glass choir": three slightly detuned voices per partial, slow drift, a vibrato that only
+grows while the pitch rests, a little breath. Same pitch, same winding.</p>
+<div class="row"><button class="a" data-sh="0,still">A resting</button><button class="b" data-sh="1,still">B resting</button>
+<button class="a" data-sh="0,loop">A loop around a double zero</button><button class="b" data-sh="1,loop">B loop around a double zero</button></div>
+
+<script src="../../../src/sound.js"></script>
+<script src="synth2.js"></script>
+<script>
+'use strict';
+const FS = 48000;
+let ac = null;
+const actx = () => { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); if (ac.state !== 'running') ac.resume(); return ac; };
+const playBuf = (b) => { const c = actx(), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(c.currentTime + 0.02); };
+
+// ---- rendering through the app's own graph (panner, tier, its room), 100 % volume, no clipper: A and B alike
+async function renderA(fn, dur) { return Sound.render(fn, dur, { rate: FS, noClip: true }); }
+async function renderB(dur, write, tier = 'events', wet = 0.15, pan = 0) {
+  V2.setRate(FS);
+  const n = Math.ceil(dur * FS), y = new Float64Array(n); write(y);
+  const c = new OfflineAudioContext(2, n, FS), g = Sound.graph(c, 1, { allOn: true, noClip: true });
+  const b = c.createBuffer(1, n, FS); b.getChannelData(0).set(Float32Array.from(y));
+  const s = c.createBufferSource(); s.buffer = b; const p = c.createStereoPanner(); p.pan.value = pan; s.connect(p); p.connect(g.tier[tier].dry);
+  if (wet) { const w = c.createGain(); w.gain.value = wet; p.connect(w); w.connect(g.tier[tier].wet); }
+  s.start(0); return c.startRendering();
+}
+async function renderStereo(dur, write, tier = 'sonify', wet = 0.08) {
+  const n = Math.ceil(dur * FS), L = new Float64Array(n), R = new Float64Array(n); write(L, R);
+  const c = new OfflineAudioContext(2, n, FS), g = Sound.graph(c, 1, { allOn: true, noClip: true });
+  const b = c.createBuffer(2, n, FS); b.getChannelData(0).set(Float32Array.from(L)); b.getChannelData(1).set(Float32Array.from(R));
+  const s = c.createBufferSource(); s.buffer = b; const inp = c.createGain(); s.connect(inp); inp.connect(g.tier[tier].dry);
+  if (wet) { const w = c.createGain(); w.gain.value = wet; inp.connect(w); w.connect(g.tier[tier].wet); }
+  s.start(0); return c.startRendering();
+}
+
+// ---- the scrub: slider events at 60 Hz along t(time); A emulates app.js sndScrub + Sound.play's gap (40 ms) and storm
+// guard (14 a second for cues that are not forced; landmarks are forced)
+function dragPath(T, there = true) {
+  const pts = []; const tot = there ? 2 * T : T;
+  for (let k = 0; k * (1 / 60) <= tot + 1e-9; k++) { const tm = k / 60, x = tm <= T ? tm / T : 2 - tm / T; pts.push([0.05 + tm, Math.max(0, Math.min(1, 0.5 - 0.5 * Math.cos(Math.PI * x)))]); }
+  return pts;
+}
+function scrubTicksA(path) {
+  const ticks = []; let last = -1e9; const recent = [];
+  for (let k = 1; k < path.length; k++) {
+    const [tm, u] = path[k], d0 = Math.round(path[k - 1][1] * 20), d1 = Math.round(u * 20); if (d1 === d0) continue;
+    const force = d1 % 5 === 0, now = tm * 1000;
+    if (!force && now - last < 40) continue;
+    while (recent.length && now - recent[0] > 1000) recent.shift();
+    if (!force && recent.length >= 14) continue;
+    last = now; if (!force) recent.push(now); ticks.push([tm, d1 / 20]);
+  }
+  return ticks;
+}
+async function scrubA(path, dur) { const ticks = scrubTicksA(path); const b = await renderA((g, t) => { for (const [tm, u] of ticks) Sound.CATALOG.morphTick.make(g, t + tm, { t: u, pan: 0 }); }, dur); b.ticks = ticks.length; return b; }
+async function scrubB(path, dur, notesOnly = false, airOnly = false) { let m = 0; const b = await renderB(dur, (y) => { m = V2.texture(y, path, { amp: notesOnly ? 0 : 0.06, noMarks: airOnly }); }, 'events', 0.12); b.ticks = m; return b; }
+
+// ---- the Shepard tone: A = pure sines (the current recipe), B = the glass choir; offline in JS through the graph
+function shPath(kind) { return kind === 'still' ? { dur: 5, c: () => 0.25, l: () => 0 } : { dur: 6, c: (t) => (t < 0.5 ? 0 : t < 4.5 ? 2 * (0.5 - 0.5 * Math.cos(Math.PI * (t - 0.5) / 4)) : 2), l: (t) => (t < 0.5 || t > 4.5 ? 0 : -0.6 * Math.sin(Math.PI * (t - 0.5) / 2) ** 2) }; }
+async function shepard(warm, kind) {
+  const p = shPath(kind);
+  return renderStereo(p.dur, (L, R) => { V2.setRate(FS); V2.shepard(L, R, p.c, p.l, { warm, amp: warm ? 0.028 * 1.22 : 0.028 }); // B's 3 voices sum partly incoherently: about +3 dB to match A's loudness
+    const nF = Math.round(0.05 * FS); for (let i = 0; i < nF; i++) { const e = 0.5 - 0.5 * Math.cos(Math.PI * i / nF); L[i] *= e; R[i] *= e; L[L.length - 1 - i] *= e; R[R.length - 1 - i] *= e; } }, 'sonify', 0.08);
+}
+
+// ---- cues: A from the app's catalog, B from V2.CAT
+const CUES = [
+  ['toggleOn', {}, 'A switch turned on'], ['toggleOff', {}, 'A switch turned off'], ['stepAdd', {}, 'A step added'], ['stepRemove', {}, 'A step removed'],
+  ['view', { k: 1 }, 'Switch view'], ['exportDone', {}, 'Export ready'], ['error', {}, 'Error'], ['edge', {}, 'Keyboard probe at the edge'], ['snap', {}, 'Snap (off by default)'],
+  ['morphStart', {}, 'Deformation plays'], ['morphEnd', {}, 'Deformation arrives'], ['loopDone', { w: 2 }, 'Loop closed, W = 2'], ['loopDone', { w: -1 }, 'Loop closed, W = −1'],
+  ['zero', { order: 2 }, 'Zero of order 2'], ['pole', { order: 1 }, 'Pole'], ['cut', {}, 'Branch cut'], ['turn', { pc: 0, dir: 1 }, 'One full turn (bell)'],
+  ['dense', {}, 'Many zeros'], ['contour', { k: 0, f: 587.33 }, 'Contour tick'], ['collide', {}, 'Preimages collide'],
+];
+const cueA = (name, o, dur = 1.6) => renderA((g, t) => Sound.CATALOG[name].make(g, t, Object.assign({ pan: 0 }, o)), dur);
+const cueB = (name, o) => { const d = V2.CAT[name]; return renderB(d.dur + 0.5, (y) => d.make(y, o), d.tier, d.wet); };
+
+// ---- measurements (BS.1770 K-weighting; phone = 4th-order high-pass at 550 Hz, as test/sound_lab.js)
+const TAU = 2 * Math.PI;
+function biq(x, b, a) { const y = new Float64Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = b[0] * x[i] + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y; }
+const KW = [[[1.53512485958697, -2.69169618940638, 1.19839281085285], [1, -1.69065929318241, 0.73248077421585]], [[1, -2, 1], [1, -1.99004745483398, 0.99007225036621]]];
+function hpRBJ(f, q, fs) { const w = TAU * f / fs, al = Math.sin(w) / (2 * q), c = Math.cos(w), a0 = 1 + al; return [[(1 + c) / 2 / a0, -(1 + c) / a0, (1 + c) / 2 / a0], [1, -2 * c / a0, (1 - al) / a0]]; }
+const PHONE = [hpRBJ(550, 0.5412, 48000), hpRBJ(550, 1.3066, 48000)];
+function kw(buf, phone) { return [0, 1].map((c) => { let x = buf.getChannelData(c); for (const [b, a] of KW.concat(phone ? PHONE : [])) x = biq(x, b, a); return x; }); }
+function lufs(buf, phone, win = 0.4) { const ch = kw(buf, phone), n = ch[0].length, p = new Float64Array(n + 1); for (let i = 0; i < n; i++) p[i + 1] = p[i] + ch[0][i] ** 2 + ch[1][i] ** 2; const w = Math.round(win * FS); let m = 0; if (n < w) m = p[n] / w; else for (let i = 0; i + w <= n; i += 480) m = Math.max(m, (p[i + w] - p[i]) / w); return -0.691 + 10 * Math.log10(m + 1e-30); }
+function mono(buf) { const L = buf.getChannelData(0), R = buf.getChannelData(1), m = new Float64Array(L.length); for (let i = 0; i < m.length; i++) m[i] = 0.5 * (L[i] + R[i]); return m; }
+function fft(re, im) { const n = re.length; for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } } for (let len = 2; len <= n; len <<= 1) { const a = -TAU / len, wr = Math.cos(a), wi = Math.sin(a); for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let j = 0; j < len / 2; j++) { const p = i + j, q = p + len / 2, xr = re[q] * cr - im[q] * ci, xi = re[q] * ci + im[q] * cr; re[q] = re[p] - xr; im[q] = im[p] - xi; re[p] += xr; im[p] += xi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } } }
+// envelope (1 ms RMS), crest factor over the active part, 10-90 % rise time of the loudest onset, transients per second
+// (a 2 ms window more than 9 dB over the preceding 20 ms and above -50 dB re the peak), spectral centroid and flatness
+// (power-weighted over 1024-sample frames above -40 dB re the loudest frame), and the band energy above 3 kHz
+function measure(buf) {
+  const x = mono(buf), n = x.length, h = 48; const env = new Float64Array(Math.floor(n / h));
+  let pk = 0; for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(x[i]));
+  for (let k = 0; k < env.length; k++) { let s = 0; for (let i = k * h; i < (k + 1) * h; i++) s += x[i] * x[i]; env[k] = Math.sqrt(s / h); }
+  const emax = Math.max(...env), act = env.filter((e) => e > emax * 0.01);
+  const rms = Math.sqrt(act.reduce((s, e) => s + e * e, 0) / Math.max(1, act.length));
+  let k0 = env.indexOf(emax), a = k0; while (a > 0 && env[a - 1] > 0.1 * emax) a--; let b = a; while (b < k0 && env[b] < 0.9 * emax) b++;
+  let tr = 0; for (let k = 22; k < env.length; k += 1) { let e2 = 0, e20 = 0; for (let j = 0; j < 2; j++) e2 += env[k + j] ** 2 || 0; for (let j = 2; j < 22; j++) e20 += env[k - j] ** 2; e2 /= 2; e20 /= 20; if (env[k] > emax * 0.00316 && e2 > 7.94 * (e20 + 1e-20)) { tr++; k += 20; } }
+  const N = 1024, re = new Float64Array(N), im = new Float64Array(N); let fr = [], cen = 0, cw = 0, hi = 0, tot = 0, flat = 0, fw = 0;
+  for (let s = 0; s + N <= n; s += N) { for (let i = 0; i < N; i++) { re[i] = x[s + i] * (0.5 - 0.5 * Math.cos(TAU * i / (N - 1))); im[i] = 0; } fft(re, im); const P = new Float64Array(N / 2); let e = 0; for (let k = 1; k < N / 2; k++) { P[k] = re[k] ** 2 + im[k] ** 2; e += P[k]; } fr.push([e, P]); }
+  const fmax = Math.max(...fr.map((f) => f[0]));
+  for (const [e, P] of fr) { if (e < fmax * 1e-4) continue; let c = 0, lg = 0, ar = 0, h3 = 0; for (let k = 1; k < N / 2; k++) { c += k * FS / N * P[k]; lg += Math.log(P[k] + 1e-30); ar += P[k]; if (k * FS / N > 3000) h3 += P[k]; } cen += c; cw += e; hi += h3; tot += ar; flat += e * Math.exp(lg / (N / 2 - 1)) / (ar / (N / 2 - 1)); fw += e; }
+  const dur = n / FS;
+  return { lufs: +lufs(buf).toFixed(1), phone: +(lufs(buf) - lufs(buf, true)).toFixed(1), peak: +(20 * Math.log10(pk)).toFixed(1), crest: +(20 * Math.log10(pk / rms)).toFixed(1),
+    rise_ms: +((b - a) * h / FS * 1000).toFixed(1), trans_per_s: +(tr / dur).toFixed(1), centroid: Math.round(cen / cw), flat: +(flat / fw).toFixed(3), hf3k_dB: +(10 * Math.log10(hi / tot)).toFixed(1) };
+}
+// how alike two plays are: the peak normalised cross-correlation within ±3 ms (1 = identical, a "machine gun")
+function alike(b1, b2) { const x = mono(b1), y = mono(b2), n = Math.min(x.length, y.length); let ex = 0, ey = 0; for (let i = 0; i < n; i++) { ex += x[i] * x[i]; ey += y[i] * y[i]; } let best = 0; for (let l = -144; l <= 144; l += 2) { let s = 0; for (let i = Math.max(0, -l); i < n && i + l < n; i++) s += x[i] * y[i + l]; best = Math.max(best, s / Math.sqrt(ex * ey)); } return +best.toFixed(3); }
+// the pitch class read back from the audio (magnitude-weighted circular mean of chroma per 4096-sample frame)
+function chromaTrack(buf) { const x = mono(buf), N = 4096, re = new Float64Array(N), im = new Float64Array(N), out = []; for (let s = 0; s + N <= x.length; s += 2048) { for (let i = 0; i < N; i++) { re[i] = x[s + i] * (0.5 - 0.5 * Math.cos(TAU * i / (N - 1))); im[i] = 0; } fft(re, im); let cx = 0, cy = 0; for (let k = 2; k < N / 2; k++) { const f = k * FS / N; if (f < 60 || f > 5000) continue; const m = Math.hypot(re[k], im[k]), ph = Math.log2(f / 36.7081); cx += m * Math.cos(TAU * ph); cy += m * Math.sin(TAU * ph); } out.push([(s + N / 2) / FS, Math.atan2(cy, cx) / TAU]); } return out; }
+// slow level fluctuation (dB, max - min of 50 ms RMS) over a span: "is it alive?"
+function ripple(buf, t0, t1) { const x = mono(buf), w = Math.round(0.05 * FS), v = []; for (let s = Math.round(t0 * FS); s + w <= Math.round(t1 * FS); s += w) { let e = 0; for (let i = 0; i < w; i++) e += x[s + i] ** 2; v.push(10 * Math.log10(e / w)); } return +(Math.max(...v) - Math.min(...v)).toFixed(2); }
+
+window.__measure = async () => {
+  const out = { scrub: {}, cues: {}, shepard: {} };
+  for (const T of [0.5, 1.2, 4]) {
+    const p = dragPath(T), dur = 2 * T + 1.2;
+    const a = await scrubA(p, dur), b = await scrubB(p, dur), c = await scrubB(p, dur, true), d = await scrubB(p, dur, false, true);
+    out.scrub['drag' + T] = { A: Object.assign({ cues: a.ticks, cues_per_s: +(a.ticks / (2 * T)).toFixed(1), shortTerm3s: +lufs(a, false, Math.min(3, dur)).toFixed(1) }, measure(a)), B: Object.assign({ notes: b.ticks, shortTerm3s: +lufs(b, false, Math.min(3, dur)).toFixed(1) }, measure(b)), C: Object.assign({ notes: c.ticks }, measure(c)), airOnly: Object.assign({ shortTerm3s: +lufs(d, false, Math.min(3, dur)).toFixed(1) }, measure(d)) };
+  }
+  for (const [name, o, label] of CUES) {
+    const key = name + (o.w != null ? '_w' + o.w : o.order ? '_m' + o.order : '');
+    const a1 = await cueA(name, o), a2 = await cueA(name, o), b1 = await cueB(name, o), b2 = await cueB(name, o);
+    out.cues[key] = { A: Object.assign(measure(a1), { alike: alike(a1, a2) }), B: Object.assign(measure(b1), { alike: alike(b1, b2) }) };
+  }
+  for (const kind of ['still', 'loop']) {
+    const a = await shepard(false, kind), b = await shepard(true, kind), p = shPath(kind);
+    const rb = (buf) => { const tr = chromaTrack(buf); if (kind === 'still') { const e = tr.filter(([t]) => t > 0.3 && t < 4.7).map(([, c]) => { let d = c - 0.25; d -= Math.round(d); return Math.abs(d) * 1200; }); return { maxErr_cents: +Math.max(...e).toFixed(1), meanErr_cents: +(e.reduce((s, v) => s + v, 0) / e.length).toFixed(1) }; } let u = 0, prev = null; for (const [t, c] of tr) { if (t < 0.3 || t > 5.7) continue; if (prev != null) { let d = c - prev; d -= Math.round(d); u += d; } prev = c; } return { turns_read: +u.toFixed(3) }; };
+    out.shepard[kind] = { A: Object.assign({ lufs: +lufs(a).toFixed(1), phone: +(lufs(a) - lufs(a, true)).toFixed(1), ripple_dB: kind === 'still' ? ripple(a, 0.5, 4.5) : ripple(a, 4.7, 5.8) }, rb(a)), B: Object.assign({ lufs: +lufs(b).toFixed(1), phone: +(lufs(b) - lufs(b, true)).toFixed(1), ripple_dB: kind === 'still' ? ripple(b, 0.5, 4.5) : ripple(b, 4.7, 5.8) }, rb(b)) };
+  }
+  return out;
+};
+
+// ---- the UI
+const tbl = document.getElementById('cues');
+for (const [name, o, label] of CUES) {
+  const tr = document.createElement('tr'); tr.innerHTML = `<td>${label}</td><td class="w">${Sound.CATALOG[name].recipe}</td><td><button class="a">A</button></td><td><button class="b">B</button></td>`;
+  const [ba, bb] = tr.querySelectorAll('button'); ba.onclick = async () => { actx(); playBuf(await cueA(name, o)); }; bb.onclick = async () => { actx(); playBuf(await cueB(name, o)); };
+  tbl.appendChild(tr);
+}
+for (const b of document.querySelectorAll('[data-scrub]')) b.onclick = async () => { actx(); const [v, T] = b.dataset.scrub.split(','), p = dragPath(+T), d = 2 * T + 1.2; playBuf(v === 'A' ? await scrubA(p, d) : await scrubB(p, d)); };
+for (const b of document.querySelectorAll('[data-sh]')) b.onclick = async () => { actx(); const [w, k] = b.dataset.sh.split(','); b.disabled = true; playBuf(await shepard(w === '1', k)); b.disabled = false; };
+
+// the live slider: A through the app's engine exactly as app.js sndScrub; B/C live native nodes: looping noise into two
+// band-passes, level from the speed of t (attack 25 ms, release 160 ms), band from t; landmark notes from V2
+const sl = document.getElementById('scrub'); let lastT = 0, lastTime = 0, live = null;
+function liveB() {
+  if (live) return live; const c = actx(), n = c.sampleRate * 2, nb = c.createBuffer(1, n, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  { let pk = 0; const aP = 1 - Math.exp(-2 * Math.PI * 900 / c.sampleRate); for (let i = 0; i < n; i++) { pk += aP * (d[i] - pk); d[i] = 3 * pk; } }   // pink-ish, as V2.texture
+  const src = c.createBufferSource(); src.buffer = nb; src.loop = true; const b1 = c.createBiquadFilter(), b2 = c.createBiquadFilter(), g2 = c.createGain(), g = c.createGain(), lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3500; lp.Q.value = 0.5;
+  b1.type = b2.type = 'bandpass'; b1.Q.value = b2.Q.value = 1.6; g2.gain.value = 0.35; g.gain.value = 0; src.connect(b1); src.connect(b2); b2.connect(g2); b1.connect(lp); g2.connect(lp); lp.connect(g); g.connect(c.destination); src.start();
+  return (live = { g, b1, b2 });
+}
+let decay = 0;
+sl.addEventListener('input', async () => {
+  const v = document.querySelector('[name=sv]:checked').value, t = +sl.value, now = performance.now() / 1000, dt = Math.max(0.008, now - lastTime), speed = Math.abs(t - lastT) / dt;
+  if (v === 'A') { Sound.set({ on: true, events: true }); const d0 = Math.round(lastT * 20), d1 = Math.round(t * 20); if (d1 !== d0) Sound.play('morphTick', { t: d1 / 20, force: d1 % 5 === 0 }); }
+  else {
+    const c = actx();
+    if (v === 'B') { const L = liveB(), x = Math.min(1, Math.max(0, (speed - 0.1) / 0.3)), lvl = x * x * (3 - 2 * x) * Math.min(1, Math.pow(speed / 2.5, 0.6)), fc = 380 * Math.pow(2, 2.2 * t) * (1 + 0.12 * lvl);
+      L.g.gain.setTargetAtTime(0.06 * 0.6 * lvl, c.currentTime, lvl > L.g.gain.value ? 0.025 : 0.16); L.b1.frequency.setTargetAtTime(fc, c.currentTime, 0.02); L.b2.frequency.setTargetAtTime(Math.min(2.3 * fc, 9000), c.currentTime, 0.02);
+      clearTimeout(decay); decay = setTimeout(() => L.g.gain.setTargetAtTime(0, c.currentTime, 0.16), 60); }
+    for (let q = 0; q <= 4; q++) { const m = q / 4; if ((lastT < m && t >= m) || (lastT > m && t <= m)) { const vel = Math.min(0.85, Math.max(0.3, 0.3 + 0.25 * Math.log2(1 + speed))); playBuf(await renderB(0.8, (y) => V2.CAT.landmark.make(y, { q, vel }), 'events', 0.15)); } }
+  }
+  lastT = t; lastTime = now;
+});
+</script>
+</body></html>

@@ -1,0 +1,221 @@
+{
+ "rec-glsl-test.html?corpus=1": {
+  "done": true,
+  "chains": 626,
+  "programs": 178,
+  "total": 4467024,
+  "compared": 4445884,
+  "failCount": 53,
+  "errors": [
+   "key check failed: custom expr"
+  ],
+  "ms": 30322,
+  "recognized": 626,
+  "failByChain": {
+   "exp > \\log(\\sin z) > add": 20,
+   "exp > \\log\\left(z+\\sqrt{z^2+1}\\right) > add": 11,
+   "exp > \\sin\\frac{1}{z} > add": 2,
+   "exp > \\arcsin(\\sin z) > add": 20
+  },
+  "singularChecked": 2790,
+  "singularBad": 20,
+  "singularEx": [
+   [
+    "exp > \\frac{\\sin z}{\\cos z} > add",
+    "range(0,3)",
+    [
+     13.374711036682129,
+     4.137282848358154
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0.5,
+     -1.25
+    ]
+   ],
+   [
+    "exp > \\frac{\\sin z}{\\cos z} > add",
+    "range(0,3)",
+    [
+     9.514198303222656,
+     10.270347595214844
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0.5,
+     -1.25
+    ]
+   ],
+   [
+    "exp > \\frac{\\sin z}{\\cos z} > add",
+    "range(0,3)",
+    [
+     10.270347595214844,
+     -9.514198303222656
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0.5,
+     0.75
+    ]
+   ],
+   [
+    "exp > \\frac{\\sin z}{\\cos z} > add",
+    "range(0,3)",
+    [
+     13.651480674743652,
+     -3.104363441467285
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0.5,
+     -1.25
+    ]
+   ]
+  ]
+ },
+ "rec-glsl-test.html?": {
+  "done": true,
+  "chains": 574,
+  "programs": 264,
+  "total": 4434060,
+  "compared": 3892271,
+  "failCount": 65,
+  "errors": [
+   "key check failed: custom expr"
+  ],
+  "ms": 45608,
+  "recognized": 136,
+  "failByChain": {
+   "blaschke a=i phi=-120 (regr)": 8,
+   "blaschke a=-1 phi=45 (regr)": 8,
+   "multi#49 custom>custom>custom>root>arcsin": 49
+  },
+  "singularChecked": 437359,
+  "singularBad": 0,
+  "singularEx": []
+ },
+ "norec-glsl-test.html?corpus=1": {
+  "done": true,
+  "chains": 696,
+  "programs": 294,
+  "total": 5003292,
+  "compared": 4980988,
+  "failCount": 95,
+  "errors": [],
+  "ms": 45379,
+  "recognized": 0,
+  "failByChain": {
+   "exp > \\log(e^{z}) > add": 3,
+   "exp > \\log(\\log z) > add": 1,
+   "exp > \\log(\\sin z) > add": 25,
+   "exp > \\log z+\\log(z-1) > add": 2,
+   "exp > \\log\\left(z+\\sqrt{z^2+1}\\right) > add": 12,
+   "exp > \\frac{1}{\\sin z} > add": 1,
+   "exp > \\frac{\\sin z}{\\cos z} > add": 13,
+   "exp > \\sin\\frac{1}{z} > add": 2,
+   "exp > \\arcsin(\\sin z) > add": 23,
+   "exp > \\frac{e^{z}-1}{z} > add": 6,
+   "exp > z+\\sqrt{z^2-1} > add": 5,
+   "exp > \\log(z^3-z) > add": 2
+  },
+  "singularChecked": 3227,
+  "singularBad": 12,
+  "singularEx": [
+   [
+    "exp > \\exp(\\sin z) > add",
+    "range(0,3)",
+    [
+     13.374711036682129,
+     4.137282848358154
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0.5,
+     -0.25
+    ]
+   ],
+   [
+    "exp > \\exp(\\sin z) > add",
+    "range(0,3)",
+    [
+     10.270347595214844,
+     -9.514198303222656
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0.5,
+     -0.25
+    ]
+   ],
+   [
+    "exp > \\exp(\\sin z) > add",
+    "range(0,2)",
+    [
+     13.374711036682129,
+     4.137282848358154
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   [
+    "exp > \\exp(\\sin z) > add",
+    "range(0,2)",
+    [
+     10.270347595214844,
+     -9.514198303222656
+    ],
+    [
+     null,
+     null
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  ]
+ },
+ "norec-glsl-test.html?": {
+  "done": true,
+  "chains": 574,
+  "programs": 283,
+  "total": 4434060,
+  "compared": 3891045,
+  "failCount": 16,
+  "errors": [],
+  "ms": 20821,
+  "recognized": 0,
+  "failByChain": {
+   "blaschke a=i phi=-120 (regr)": 8,
+   "blaschke a=-1 phi=45 (regr)": 8
+  },
+  "singularChecked": 438868,
+  "singularBad": 0,
+  "singularEx": []
+ }
+}

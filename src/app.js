@@ -61,7 +61,8 @@
     download: svgI('<path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"/>'),
     sphere: svgI('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
     // the deformation's paths t -> H_t(z): a start dot, a curved path and its arrowhead
-    paths: svgI('<circle cx="3.25" cy="12.25" r="1.4" fill="currentColor" stroke="none"/><path d="M3.25 12.25C4.5 7 8.5 4.25 13 4.25"/><path d="M10.25 2.25L13 4.25l-2.25 2.6"/>'),
+    // (the paths' own glyph: an open ring at z, the line, a small arrowhead at its middle, a filled dot at the end)
+    paths: svgI('<circle cx="3.25" cy="12.25" r="1.75" stroke-width="1.25"/><path d="M4.4 10.9C6 6.6 9 4.6 12.2 4.3"/><path d="M5.6 5.4L8.3 5.6L7.1 8.1" stroke-width="1.3"/><circle cx="13" cy="4.25" r="1.7" fill="currentColor" stroke="none"/>'),
   };
   // right-plane mode icons (14px)
   const msvg = (inner) => `<svg class="mic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -2755,7 +2756,7 @@
   }
   function zpItemField(st, k, kind, i, raw, pre) {
     const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i), what = kind === 'zeros' ? 'zero' : 'pole';
-    const input = h('input', { class: 'inp', id, value: zpShow(raw), spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+    const input = h('input', { class: 'inp', id, value: zpShow(raw), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
     input.dataset.zp = `${kind}:${i}`;
     // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)
     const fields = () => [...input.closest('.params').querySelectorAll(`input[data-zp^="${kind}:"]`)];
@@ -3886,7 +3887,7 @@
     if (hom && imageMode && role === 'R' && !figMode && S.morphPaths !== false && !morphHasDeriv()) {
       try {
         const Pg = (w) => { if (!w || !CX.isFin(w)) return null; const p = lift(w.re, w.im); return facing(p) > 0.02 ? project(pane, info.MVP, p.map((v) => v * 1.01)) : null; };
-        drawMorphPaths(pane, morphSelGlobe(pane), hom.imageF || hom.F, Pg);
+        drawMorphPathsX(pane, morphSelGlobe(pane, { MVP: info.MVP, eye: info.eye }), hom.imageF || hom.F, Pg);
       } catch (e) { console.error('deformation paths', e); }
     }
     if (labels.length) placeLabels(ctx, pane, labels);
@@ -3960,26 +3961,11 @@
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // ---------------- the deformation as one picture (notes/ui-design/morph-figure.md 3-6) ----------------
-  // One plane holds X (neutral grey), its image (the carried pattern) and the paths t -> H_t(z) of sample points, from a
-  // dot at z to an arrowhead at F(z). With the user's change (README, decisions 2026-10-20): samples are a well-spread
-  // set of boundary AND interior points, the cap is 20 at a single column and 40 at a double column (or a pane of that
-  // width), and an arrow is dropped only for real clutter: through infinity or a cut, fixed, off the panel, hidden along
-  // an axis or an edge, its head on another start dot (or a path over a start dot), start dots or heads crowding, running
-  // alongside another path, or more than MF.maxCross crossings. One rule for the screen and the figure; px are the
-  // drawing's own (CSS px on screen, figure px = 1/96 in in the export).
-  const MF = {
-    perInch: 5.8, minN: 20, maxN: 40,
-    margin: 3, fixedPx: 7, gap: 10, headGap: 6, headCrowd: 9, dotClear: 3.5, along: 2.5, alongPx: 16, alongFrac: 0.3, maxCross: 2, headSpread: 2.5,
-    // the figure (morph-figure.md 5, table)
-    pathW: 0.65, pathColor: '#1B252C', haloW: 2.0, haloA: 0.85, headL: 4.6, headW: 1.75, headNotch: 0.7, dotR: 1.4, dotRing: 2.1,
-    srcFillA: 0.07, srcEdgeW: 0.6, dash: '3.2 2.2',
-    // the figure is printed in the light theme whatever the screen's theme: fixed inks (the light theme's ink-2 and ink)
-    outlineInk: '#3E4C56', labelInk: '#121A20',
-  };
-  const mfBudget = (widthIn) => Math.max(MF.minN, Math.min(MF.maxN, Math.round(MF.perInch * widthIn)));
+  // One plane holds X (neutral grey), its image (the carried pattern) and the paths t -> H_t(z) of sample points: evenly
+  // spaced, from X's boundary first, with equal-time marks (PATHS, pathsGen; notes/paths-aesthetics/AS-BUILT.md).
+  // The figure is printed in the light theme whatever the screen's theme: fixed inks (the light theme's ink-2 and ink).
+  const MF = { srcFillA: 0.07, srcEdgeW: 0.6, dash: '3.2 2.2', outlineInk: '#3E4C56' };
   const morphHasDeriv = () => morphRange().steps.some((k) => isDeriv(k));
-  // the largest 1-2-5 step not above raw
-  const niceFloor = (raw) => { const p = 10 ** Math.floor(Math.log10(raw)); const m = raw / p; return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * p; };
   const mDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const segD = (p, a, b) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
@@ -4050,29 +4036,6 @@
     return out;
   };
   const lenPx = (l) => { let s = 0; for (let i = 1; i < l.length; i++) s += mDist(l[i], l[i - 1]); return s; };
-  // the path t -> H_t(z) traced adaptively in px (a chord under 1.2 px, or a midpoint within 0.04 px of it), as samples
-  // {T, w, p}; broken where H_T(z) is not finite or jumps (a pole or a cut on the way). Fat(T): H_T, shared (cached) by
-  // every candidate, since all paths subdivide [0, Tend] at the same dyadic times.
-  function tracePath(z, Fat, Tend, P, N) {
-    const ev = (T) => { const w = Fat(T)(z); if (!w || !CX.isFin(w)) return null; const p = P(w); return Math.abs(p[0]) < 2e4 && Math.abs(p[1]) < 2e4 ? { T, w, p } : null; };
-    const out = [];
-    let broken = false;
-    const rec = (a, b, d) => {
-      if (!a || !b) { broken = true; return; }
-      const L = mDist(a.p, b.p);
-      if (d >= 16) { if (L > 25) broken = true; out.push(b); return; }
-      const m = ev(0.5 * (a.T + b.T));
-      if (!m) { broken = true; return; }
-      const dev = Math.hypot(m.p[0] - 0.5 * (a.p[0] + b.p[0]), m.p[1] - 0.5 * (a.p[1] + b.p[1]));
-      if ((L < 1.2 && dev < 0.12) || (dev < 0.04 && d >= 2)) { out.push(b); return; }
-      rec(a, m, d + 1); if (broken) return; rec(m, b, d + 1);
-    };
-    let a = ev(0);
-    if (!a) return { broken: true, s: [] };
-    out.push(a);
-    for (let i = 1; i <= N && !broken; i++) { const b = ev(Tend * i / N); rec(a, b, 0); a = b; }
-    return { broken, s: out };
-  }
   // X: the visible area shapes (and curve shapes) of the z-plane; inside(z): z lies in one of the areas
   function morphX() {
     const vis = S.shapes.filter((s) => s.visible !== false);
@@ -4101,186 +4064,6 @@
     }
     return out;
   }
-  // morph-figure.md 4, with the user's change: candidates are the corners, the boundary's crossings with the lattice
-  // lines of step h (arcs and other curves: equal arc length h), the points the user drew, and the nodes of a lattice of
-  // step hi inside X (at least 0.4 hi and 6 px from the boundary). h and hi are 1-2-5 steps chosen so each family
-  // offers somewhat more candidates than the budget; the selection then keeps a well-spread subset.
-  function morphCandidates(X, outline, win, pxPerUnit, budget) {
-    const inWin = (z) => z.re >= win.x0 && z.re <= win.x1 && z.im >= win.y0 && z.im <= win.y1;
-    let L = 0;
-    for (const o of outline) for (let i = 1; i < o.l.length; i++) { const a = o.l[i - 1], b = o.l[i]; if (inWin(C(a[0], a[1])) || inWin(C(b[0], b[1]))) L += Math.hypot(b[0] - a[0], b[1] - a[1]); }
-    const out = [];
-    const minPx = 9 / pxPerUnit;
-    const h = Math.max(L > 0 ? niceFloor(L / (1.3 * budget)) : 1, niceFloor(Math.max(minPx, 1e-12)) * 2);
-    const far = (z, d) => !out.some((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) < d);
-    const push = (z, kind, s) => { if (CX.isFin(z) && inWin(z) && far(z, 0.45 * h)) out.push({ z, kind, s }); };
-    for (const s of X.vis) if (kindType(s) === 'point') { const z = C(s.p[0], s.p[1]); if (inWin(z)) out.push({ z, kind: 'point', s }); }
-    const latticeOnSeg = (a, b) => {
-      const dx = b.re - a.re, dy = b.im - a.im, useX = Math.abs(dx) >= Math.abs(dy);
-      const c0 = useX ? a.re : a.im, c1 = useX ? b.re : b.im;
-      if (Math.abs(c1 - c0) < 1e-15) return;
-      const lo = Math.max(Math.min(c0, c1), useX ? win.x0 : win.y0), hi = Math.min(Math.max(c0, c1), useX ? win.x1 : win.y1);
-      if (!(hi >= lo) || (hi - lo) / h > 4000) return;
-      for (let k = Math.ceil(lo / h - 1e-9); k * h <= hi + 1e-9 * h; k++) { const u = (k * h - c0) / (c1 - c0); push(C(a.re + dx * u, a.im + dy * u), 'edge', null); }
-    };
-    // corners first
-    for (const o of outline) {
-      const c = o.c;
-      if (c.pts) for (const q of c.pts) push(q, 'corner', null);
-      else if (c.a && c.b && !c.long) { push(c.a, 'corner', null); push(c.b, 'corner', null); }
-      else if (!c.closed && !c.long && c.f) { push(c.f(0), 'corner', null); push(c.f(1), 'corner', null); }
-    }
-    for (const o of outline) {
-      const c = o.c;
-      if (c.pts) { for (let i = 1; i < c.pts.length; i++) latticeOnSeg(c.pts[i - 1], c.pts[i]); continue; }
-      if (c.a && c.b) { latticeOnSeg(c.a, c.b); continue; }
-      // any other curve: equal arc length about h along its samples
-      let acc = 0;
-      const l = o.l;
-      push(C(l[0][0], l[0][1]), 'edge', null);
-      for (let i = 1; i < l.length; i++) {
-        const sl = Math.hypot(l[i][0] - l[i - 1][0], l[i][1] - l[i - 1][1]);
-        acc += sl;
-        if (acc >= h) { acc = 0; push(C(l[i][0], l[i][1]), 'edge', null); }
-      }
-    }
-    // interior nodes: the area of X in the window, by a 64 x 64 sample
-    if (X.areas.length) {
-      let nIn = 0;
-      const G = 64;
-      for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) if (X.inside(C(win.x0 + (i + 0.5) / G * (win.x1 - win.x0), win.y0 + (j + 0.5) / G * (win.y1 - win.y0)))) nIn++;
-      const A = nIn / (G * G) * (win.x1 - win.x0) * (win.y1 - win.y0);
-      if (A > 0) {
-        const hi = Math.max(niceFloor(Math.sqrt(A / (1.3 * budget))), niceFloor(14 / pxPerUnit));
-        const dense = [];
-        for (const o of outline) for (const p of o.l) dense.push(p);
-        const clear = Math.max(0.4 * hi, 6 / pxPerUnit);
-        const nx = (win.x1 - win.x0) / hi, ny = (win.y1 - win.y0) / hi;
-        if (nx * ny < 40000) {
-          for (let i = Math.ceil(win.x0 / hi); i * hi <= win.x1; i++) {
-            for (let j = Math.ceil(win.y0 / hi); j * hi <= win.y1; j++) {
-              const z = C(i * hi, j * hi);
-              if (!X.inside(z)) continue;
-              let ok = true;
-              for (const p of dense) if (Math.abs(p[0] - z.re) < clear && Math.abs(p[1] - z.im) < clear && Math.hypot(p[0] - z.re, p[1] - z.im) < clear) { ok = false; break; }
-              if (ok && far(z, 0.45 * Math.min(h, hi))) out.push({ z, kind: 'node', s: null });
-            }
-          }
-        }
-      }
-    }
-    return { cands: out, h };
-  }
-  // the selection (morph-figure.md 4, revised for more arrows): hard prunes, then a greedy farthest-point choice of
-  // start points (boundary points slightly preferred, then the clearance to the kept paths and the length as tie-breaks),
-  // updated incrementally as each path is kept; a candidate dies only for clutter. ctx: {box (px), budget, ink: SegGrid
-  // of the static ink (X's outline, the image's edge), axes: [x, y] px of the origin}
-  // (a generator: it yields between candidates so the work can run in slices off the frame; runGen / runGenSliced)
-  const bboxPx = (l, e = 0) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const p of l) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; } return { x0: x0 - e, x1: x1 + e, y0: y0 - e, y1: y1 + e }; };
-  const boxD = (A, B) => Math.hypot(Math.max(0, A.x0 - B.x1, B.x0 - A.x1), Math.max(0, A.y0 - B.y1, B.y0 - A.y1));
-  const inBoxE = (p, B, e) => p[0] >= B.x0 - e && p[0] <= B.x1 + e && p[1] >= B.y0 - e && p[1] <= B.y1 + e;
-  function* morphSelectGen(cands, ctx) {
-    const { box, budget, ink, axes } = ctx;
-    const m = MF.margin;
-    const inner = { x0: box.x + m, x1: box.x + box.w - m, y0: box.y + m, y1: box.y + box.h - (ctx.footPx || 0) - m };
-    const nogo = ctx.nogo || [];
-    const inBox = (p) => p[0] >= inner.x0 && p[0] <= inner.x1 && p[1] >= inner.y0 && p[1] <= inner.y1 && !nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1);
-    const fixedPx = Math.max(MF.fixedPx, ctx.fixedPx || 0);
-    const log = [];
-    const ok = [];
-    for (const c of cands) {
-      if (c.broken) { log.push([c, 'through ∞ or a cut']); continue; }
-      if (c.len < fixedPx) { log.push([c, 'fixed']); continue; }
-      if (!c.l.every(inBox)) { log.push([c, 'leaves the panel']); continue; }
-      if (ctx.excursion && !c.l.every((p) => inBoxE(p, ctx.excursion, 0))) { log.push([c, 'a far excursion']); continue; }
-      const hidden = c.rs.every((p) => Math.abs(p[1] - axes[1]) <= 1.5 || Math.abs(p[0] - axes[0]) <= 1.5 || ink.near(p, 1.5) <= 1.5);
-      if (hidden) { log.push([c, 'hidden along an axis or an edge']); continue; }
-      c.dS = Infinity; c.dH = Infinity; c.dB = Infinity; c.nX = 0; c.alongN = 0; c.dead = null; c.kept = false;
-      c.bb = bboxPx(c.l);
-      ok.push(c);
-    }
-    const kept = [];
-    const R30 = 30;
-    // keep k: update every live candidate against it. Pairs whose boxes are farther apart than every radius used
-    // below (30 px) only get the point tests; points of c farther than the radius from k's box are not queried, and
-    // the distance query shrinks to the nearest distance found so far (exact: the same values as a full search).
-    function* keep(k) {
-      kept.push(k); k.kept = true;
-      const kb = k.bb || bboxPx(k.l);
-      const g = SegGrid(6, { x0: kb.x0 - 1, y0: kb.y0 - 1, x1: kb.x1 + 1, y1: kb.y1 + 1 });
-      g.addLine(k.l, k);
-      const s1 = k.l[0], e1 = k.l[k.l.length - 1];
-      let n = 0;
-      for (const c of ok) {
-        if (c.dead || c.kept) continue;
-        if (++n % 4 === 0) yield;
-        const s0 = c.l[0], e0 = c.l[c.l.length - 1];
-        let bad = null;
-        // heads that meet are kept only when the images are the same point (z and -z under z^2: M3)
-        const wa = c.s[c.s.length - 1].w, wb = k.s[k.s.length - 1].w;
-        const same = Math.hypot(wa.re - wb.re, wa.im - wb.im) <= 1e-9 * Math.max(1, Math.hypot(wa.re, wa.im));
-        const ee = same ? 0 : Math.max(2, mDist(e0, e1));
-        const near = boxD(c.bb, kb) <= R30;
-        if (mDist(e0, s1) < MF.headGap || mDist(s0, e1) < MF.headGap) bad = 'its head lands on a start dot';
-        else if (mDist(s0, s1) < MF.gap) bad = 'start dots crowd';
-        else if (ee >= 2 && ee < (ctx.headCrowd || MF.headCrowd)) bad = 'heads crowd';
-        else if (near && g.near(s0, MF.dotClear) < MF.dotClear) bad = 'a path runs over its start dot';
-        else if (near && ee >= 2 && g.near(e0, MF.dotClear) < MF.dotClear) bad = 'its head lies on a path';
-        else if (near) {
-          // its body over k's start dot or head
-          let d1 = Infinity, d2 = Infinity;
-          const t1 = inBoxE(s1, c.bb, MF.dotClear), t2 = ee >= 2 && inBoxE(e1, c.bb, MF.dotClear);
-          if (t1 || t2) for (let i = 1; i < c.l.length; i++) { if (t1) d1 = Math.min(d1, segD(s1, c.l[i - 1], c.l[i])); if (t2) d2 = Math.min(d2, segD(e1, c.l[i - 1], c.l[i])); }
-          if (d1 < MF.dotClear) bad = 'it runs over a start dot';
-          else if (d2 < MF.dotClear) bad = 'a head lies on it';
-        }
-        if (!bad && near) {
-          let nNear = 0, dmin = Infinity;
-          for (const p of c.rs) {
-            const r = Math.max(MF.along, Math.min(R30, dmin));
-            if (!inBoxE(p, kb, r)) continue;
-            const d = g.near(p, r);
-            if (d < dmin) dmin = d;
-            if (d <= MF.along) nNear++;
-          }
-          c.dB = Math.min(c.dB, dmin);
-          c.alongN += nNear;
-          const crossed = new Set();
-          for (let i = 1; i < c.l.length && !crossed.size; i++) g.crossTags(c.l[i - 1], c.l[i], crossed);
-          if (crossed.size) c.nX++;
-          if (c.alongN * 1.5 > Math.max(MF.alongPx, MF.alongFrac * c.len)) bad = 'runs alongside a kept path';
-          else if (c.nX > MF.maxCross) bad = `crosses more than ${MF.maxCross} kept paths`;
-        }
-        if (bad) { c.dead = bad; log.push([c, bad]); continue; }
-        c.dS = Math.min(c.dS, mDist(s0, s1), mDist(s0, e1) * 1.5);
-        // (heads at the same image point, z and -z under z^2, do not crowd each other)
-        if (!same) c.dH = Math.min(c.dH, ee);
-      }
-    }
-    // the points the user drew always get a path (when it can be drawn at all)
-    for (const c of ok) if (c.sp.kind === 'point' && !c.dead) yield* keep(c);
-    while (kept.length < budget) {
-      let best = null, bestScore = -Infinity;
-      for (const c of ok) {
-        if (c.dead || c.kept) continue;
-        const bonus = c.sp.kind === 'corner' ? 10 : c.sp.kind === 'edge' ? 5 : 0;
-        // spread in both planes: the start dots and the heads (an image much smaller than X, the strip's disc, would
-        // otherwise get heads that crowd and kill most candidates)
-        const score = Math.min(c.dS, MF.headSpread * c.dH, 90) + 0.3 * Math.min(c.dB, 30) + 0.02 * c.len + bonus;
-        if (score > bestScore) { bestScore = score; best = c; }
-      }
-      if (!best) break;
-      yield* keep(best);
-    }
-    for (const c of ok) if (!c.kept && !c.dead) log.push([c, 'over the budget']);
-    // non-injective maps (M3): heads that meet stop 1.5 px short, both visible
-    for (const a of kept) for (const b of kept) {
-      if (a === b) continue;
-      const wa = a.s[a.s.length - 1].w, wb = b.s[b.s.length - 1].w;
-      if (Math.hypot(wa.re - wb.re, wa.im - wb.im) <= 1e-9 * Math.max(1, Math.hypot(wa.re, wa.im))) { a.meet = true; b.meet = true; }
-    }
-    return { kept, log };
-  }
   // run a generator to its end (synchronously), or in slices of about `slice` ms between which the event loop runs
   // (frames, input); alive() false stops it (null)
   const runGen = (g) => { let r; do r = g.next(); while (!r.done); return r.value; };
@@ -4300,169 +4083,12 @@
       }
     }
   }
-  // the whole selection for a drawing: P maps the plane to px, box is the panel (px), win its world window. A generator
-  // (yields between candidates); morphPathsFor runs it to the end. opt: footPx, headCrowd, headL (the drawing's
-  // arrowhead length: a path shorter than 3 heads reads as a bead and is 'fixed'), nogo (px rectangles to keep clear)
-  function* morphPathsGen(P, box, win, widthIn, Tend, opt = {}) {
-    const X = morphX();
-    const outline = morphOutline(X, win);
-    yield;
-    const pxPerUnit = box.w / (win.x1 - win.x0);
-    const budget = opt.budget || mfBudget(widthIn);
-    const Fc = new Map();
-    const Fat = (T) => { let f = Fc.get(T); if (!f) { f = morphAt(T); Fc.set(T, f); } return f; };
-    // the static ink: X's outline and the image's edge at Tend, in px
-    const pxLines = [], endLines = [];
-    for (const o of outline) pxLines.push(o.l.map((q) => P(C(q[0], q[1]))));
-    const Fe = Fat(Tend);
-    for (const o of outline) {
-      let cur = [];
-      for (const q of o.l) {
-        const w = Fe(C(q[0], q[1]));
-        const p = w && CX.isFin(w) ? P(w) : null;
-        if (!p || Math.abs(p[0]) > 2e4 || Math.abs(p[1]) > 2e4 || (cur.length && mDist(p, cur[cur.length - 1]) > 40)) { if (cur.length > 1) endLines.push(cur); cur = p ? [p] : []; continue; }
-        cur.push(p);
-      }
-      if (cur.length > 1) endLines.push(cur);
-    }
-    yield;
-    const inPanel = (p) => p[0] >= box.x && p[0] <= box.x + box.w && p[1] >= box.y && p[1] <= box.y + box.h;
-    const boxOf = (lines) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const l of lines) for (const p of l) if (inPanel(p)) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); } return x1 >= x0 && y1 >= y0 ? { x0, x1, y0, y1 } : null; };
-    const toW = (px, py) => C(win.x0 + (px - box.x) / box.w * (win.x1 - win.x0), win.y1 - (py - box.y) / box.h * (win.y1 - win.y0));
-    // An unbounded X is sampled near its image and its own visible boundary: the union of 2.5 half-sizes of the
-    // visible image's box and the box of X's boundary in view (the Joukowski circle's top and bottom, which become the
-    // airfoil's two surfaces), so far points do not make giant loops across the panel. A bounded X is sampled whole.
-    let swin = win;
-    const imgB = boxOf(endLines), xB = boxOf(pxLines);
-    if (!X.bounded) {
-      let U = null;
-      if (imgB) {
-        const cx = (imgB.x0 + imgB.x1) / 2, cy = (imgB.y0 + imgB.y1) / 2, hw = Math.max(40, 2.5 * (imgB.x1 - imgB.x0) / 2), hh = Math.max(40, 2.5 * (imgB.y1 - imgB.y0) / 2);
-        U = { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh };
-      }
-      if (xB && U) U = { x0: Math.min(U.x0, xB.x0 - 24), x1: Math.max(U.x1, xB.x1 + 24), y0: Math.min(U.y0, xB.y0 - 24), y1: Math.max(U.y1, xB.y1 + 24) };
-      if (U && U.x1 > U.x0 && U.y1 > U.y0) {
-        const a = toW(U.x0, U.y1), b = toW(U.x1, U.y0);
-        swin = { x0: Math.max(win.x0, a.re), x1: Math.min(win.x1, b.re), y0: Math.max(win.y0, a.im), y1: Math.min(win.y1, b.im) };
-        if (!(swin.x1 > swin.x0 && swin.y1 > swin.y0)) swin = win;
-      }
-    }
-    // a path is drawn only when it stays near X and its image: within the box of X's visible part and F(X) grown by
-    // a quarter of its size (a multi-step chain can send a point far out and back: a needle loop across the panel)
-    let exc = null;
-    if (Math.ceil(Tend - 1e-9) > 1) {
-      const sb = (() => { const a = P(C(swin.x0, swin.y1)), b = P(C(swin.x1, swin.y0)); return { x0: a[0], x1: b[0], y0: a[1], y1: b[1] }; })();
-      const parts = [imgB, X.bounded ? xB : (xB ? { x0: Math.max(sb.x0, box.x), x1: Math.min(sb.x1, box.x + box.w), y0: Math.max(sb.y0, box.y), y1: Math.min(sb.y1, box.y + box.h) } : null)].filter(Boolean);
-      if (parts.length) {
-        const U = parts.reduce((A, B) => ({ x0: Math.min(A.x0, B.x0), x1: Math.max(A.x1, B.x1), y0: Math.min(A.y0, B.y0), y1: Math.max(A.y1, B.y1) }));
-        const ex = Math.max(24, 0.25 * (U.x1 - U.x0)), ey = Math.max(24, 0.25 * (U.y1 - U.y0));
-        exc = { x0: U.x0 - ex, x1: U.x1 + ex, y0: U.y0 - ey, y1: U.y1 + ey };
-      }
-    }
-    const tm0 = performance.now();
-    const { cands: sps, h } = morphCandidates(X, outline, swin, pxPerUnit, budget);
-    if (budget > MF.minN) {
-      const more = morphCandidates(X, outline, swin, pxPerUnit, MF.minN).cands;
-      const tol = 0.25 * h;
-      for (const c of more) if (!sps.some((q) => Math.abs(q.z.re - c.z.re) < tol && Math.abs(q.z.im - c.z.im) < tol)) sps.push(c);
-    }
-    const tm1 = performance.now();
-    yield;
-    const N = Math.max(24, 24 * Math.ceil(Tend));
-    const cands = [];
-    for (const sp of sps) {
-      const tr = tracePath(sp.z, Fat, Tend, P, N);
-      const l = tr.s.map((q) => q.p);
-      const c = { sp, s: tr.s, broken: tr.broken || l.length < 2, l: l.length ? l : [[0, 0]] };
-      c.len = lenPx(c.l); c.rs = resamplePx(c.l);
-      cands.push(c);
-      yield;
-    }
-    // Heads where the image is sparse (an image much smaller than X: the strip's disc, where a z-grid sends the heads
-    // into crowds near ±1 and leaves the rest empty): a grid of the image's box in px, spaced a little over the head
-    // crowding distance, each point with no candidate head near it pulled back by Newton's method on F(z) = w from
-    // the candidate whose head is nearest; kept when z lies in X (inside swin) and F(z) = w to 1e-9.
-    // (the heads of the paths that can be drawn at all: inside the panel and the excursion box all along)
-    const drawable = (c) => !c.broken && c.l.every((p) => inPanel(p) && (!exc || inBoxE(p, exc, 0)));
-    // (the image's box in px: the candidates' heads, the image of X's outline and of a 48 x 48 sample of X in the
-    // window; a formula area has no outline)
-    const imgPts = [];
-    if (X.areas.length) {
-      const G = 48, Fe1 = Fat(Tend);
-      for (let i = 0; i < G; i++) {
-        for (let j = 0; j < G; j++) {
-          const z = C(win.x0 + (i + 0.5) / G * (win.x1 - win.x0), win.y0 + (j + 0.5) / G * (win.y1 - win.y0));
-          if (!X.inside(z)) continue;
-          const w = Fe1(z);
-          if (w && CX.isFin(w)) imgPts.push(P(w));
-        }
-        if (i % 4 === 3) yield;
-      }
-    }
-    const hB = boxOf([cands.filter((c) => !c.broken).map((c) => c.l[c.l.length - 1]), imgPts, ...endLines]);
-    const heads = cands.filter(drawable).map((c) => [c.l[c.l.length - 1], c]);
-    const starts = cands.filter((c) => !c.broken).map((c) => [c.l[c.l.length - 1], c]);
-    if (X.areas.length && hB && starts.length) {
-      const crowd = opt.headCrowd || MF.headCrowd, Fe2 = Fat(Tend), imgB = hB;
-      const bw = imgB.x1 - imgB.x0, bh = imgB.y1 - imgB.y0;
-      const sp = Math.max(crowd, Math.sqrt(bw * bh / 300));
-      const near = (g, r) => heads.some(([e]) => Math.abs(e[0] - g[0]) < r && Math.abs(e[1] - g[1]) < r && mDist(e, g) < r);
-      const tol = 0.25 * h;
-      let added = 0;
-      for (let gy = imgB.y0 + sp / 2; gy < imgB.y1 && added < 120; gy += sp) {
-        for (let gx = imgB.x0 + sp / 2; gx < imgB.x1 && added < 120; gx += sp) {
-          const g = [gx, gy];
-          if (near(g, 0.5 * sp)) continue;
-          yield;
-          const w = toW(gx, gy);
-          let best = null, bd = Infinity;
-          for (const [e, c] of starts) { const d = mDist(e, g); if (d < bd) { bd = d; best = c; } }
-          let z = best.sp.z, okN = false;
-          for (let it = 0; it < 30; it++) {
-            const f = Fe2(z);
-            if (!f || !CX.isFin(f)) break;
-            const r = CX.sub(f, w);
-            if (CX.abs(r) <= 1e-9 * Math.max(1, CX.abs(w))) { okN = true; break; }
-            const e = 1e-6 * Math.max(1, CX.abs(z)), fp = Fe2(C(z.re + e, z.im)), fm = Fe2(C(z.re - e, z.im));
-            if (!fp || !fm || !CX.isFin(fp) || !CX.isFin(fm)) break;
-            const d = CX.scale(CX.sub(fp, fm), 1 / (2 * e));
-            if (!(CX.abs(d) > 0)) break;
-            let st = CX.div(r, d);
-            const L = CX.abs(st), cap = 0.5 * Math.max(swin.x1 - swin.x0, swin.y1 - swin.y0);
-            if (L > cap) st = CX.scale(st, cap / L);
-            z = CX.sub(z, st);
-          }
-          if (!okN || !X.inside(z) || z.re < win.x0 || z.re > win.x1 || z.im < win.y0 || z.im > win.y1) continue;
-          if (sps.some((q) => Math.abs(q.z.re - z.re) < tol && Math.abs(q.z.im - z.im) < tol)) continue;
-          const sp2 = { z, kind: 'node', s: null };
-          sps.push(sp2);
-          const tr = tracePath(z, Fat, Tend, P, N);
-          const l = tr.s.map((q) => q.p);
-          const c = { sp: sp2, s: tr.s, broken: tr.broken || l.length < 2, l: l.length ? l : [[0, 0]] };
-          c.len = lenPx(c.l); c.rs = resamplePx(c.l);
-          cands.push(c);
-          if (drawable(c)) heads.push([c.l[c.l.length - 1], c]);
-          added++;
-          yield;
-        }
-      }
-    }
-    const ink = SegGrid(8);
-    for (const l of pxLines) ink.addLine(l, 'X');
-    for (const l of endLines) ink.addLine(l, 'FX');
-    const tm2 = performance.now();
-    const sel = yield* morphSelectGen(cands, { box, budget, ink, axes: P(C(0, 0)), footPx: opt.footPx || 0, headCrowd: opt.headCrowd, fixedPx: 3 * (opt.headL || MF.headL), nogo: opt.nogo, excursion: exc });
-    const tm3 = performance.now();
-    return { kept: sel.kept, log: sel.log, budget, h, X, outline, pxLines, endLines, Tend, nCands: cands.length, ms: { cand: tm1 - tm0, trace: tm2 - tm1, select: tm3 - tm2, nT: Fc.size } };
-  }
-  const morphPathsFor = (...a) => runGen(morphPathsGen(...a));
   // the screen's selection. Choosing is never done inside a frame: a frame draws the last finished selection (its
   // paths re-traced under the current chain and shapes when those changed, re-projected when the view changed) and asks
   // for a new one, which runs in slices off the frame once the chain, the shapes and the view have been still for
   // 150 ms (a scrub, a shape drag, a pan or a zoom never re-choose per frame) and requests a render when it is done.
   // The first selection after opening starts at once.
-  const MF_SCREEN_HL = 6.5;
-  const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0 };
+  const mfCache = { key: '', vkey: '', v0: null, sel: null, rkey: '', rsel: null, job: null, want: '', timer: 0, prev: null };
   // The kept start points are points of the plane, not of the screen (merged-views review: a 60 px pan swapped the
   // whole set once the job ran, and during play the paths popped between sets): a selection stays while the view is
   // within a pan of 30 % of the panel and a zoom of 1.5x of the view it was chosen in, at the same panel size; the
@@ -4471,11 +4097,16 @@
     const a = mfCache.v0, v = pane.view;
     if (!a || a.w !== pane.w || a.h !== pane.h || !(v.s > 0)) return false;
     const r = v.s / a.s;
-    return r < 1.5 && r > 1 / 1.5 && Math.abs(v.cx - a.cx) * v.s <= 0.3 * pane.w && Math.abs(v.cy - a.cy) * v.s <= 0.3 * pane.h;
+    if (!(r < 1.5 && r > 1 / 1.5 && Math.abs(v.cx - a.cx) * v.s <= 0.3 * pane.w && Math.abs(v.cy - a.cy) * v.s <= 0.3 * pane.h)) return false;
+    // (a scrub's auto-fit or a pan that leaves more than one kept start out of view chooses again, cross-faded; one such
+    // path is drawn clipped meanwhile, with the chevron where it comes in, drawMorphPaths)
+    let off = 0;
+    if (mfCache.sel && !pane.globeSel) for (const k of mfCache.sel.kept) { const p = pane.w2s(k.sp.z); if (!(p[0] >= 0 && p[1] >= 0 && p[0] <= pane.w && p[1] <= pane.h) && ++off > 1) return false; }
+    return true;
   }
   function mfScreenKey(pane) {
     const m = morphLen();
-    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, m, S.shapes.filter((s) => s.visible !== false)]);
+    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, m, S.shapes.filter((s) => s.visible !== false), pane.globeSel ? `globe${mfGlobe.epoch}` : '']);
     const v = pane.view, vkey = [v.cx, v.cy, v.s, pane.w, pane.h].join('|');
     return { key, vkey, m };
   }
@@ -4500,14 +4131,22 @@
     if (mfCache.job) mfCache.job.alive = false;
     mfCache.job = job;
     const v = Object.assign({}, pane.view), W = pane.w, Hh = pane.h;
-    const P = (w) => [W / 2 + (w.re - v.cx) * v.s, Hh / 2 - (w.im - v.cy) * v.s];
+    // (the globe: chosen on the sphere as the camera shows it when the job starts, spaced in its px; a point turned
+    // more than 70 degrees from the camera counts as not shown, so the limb's foreshortened scratches are never chosen)
+    const cam = pane.globeSel && mfGlobe.cam ? { MVP: mfGlobe.cam.MVP.slice(), eye: mfGlobe.cam.eye.slice() } : null;
+    const P = cam ? globeSelP(cam, W, Hh, PATHS.globeFace) : (w) => [W / 2 + (w.re - v.cx) * v.s, Hh / 2 - (w.im - v.cy) * v.s];
     const win = pane.box();
     const alive = () => job.alive && morph.open;
     // (nothing of it runs in the frame that asked: the first slice, the layout read of the no-go boxes included, is a
     // task of its own)
-    job.run = nextMacrotask().then(() => (alive() ? runGenSliced(morphPathsGen(P, { x: 0, y: 0, w: W, h: Hh }, win, W / 96, m, { footPx: 8, headCrowd: 12, headL: MF_SCREEN_HL, nogo: mfNogo(pane) }), alive) : null)).then((sel) => {
+    const globe = !!pane.globeSel;
+    job.run = nextMacrotask().then(() => (alive() ? runGenSliced(pathsGen(P, { x: 0, y: 0, w: W, h: Hh }, win, m, globe ? { globe, maxN: PATHS.globeMax } : { footPx: 8, nogo: mfNogo(pane) }), alive) : null)).then((sel) => {
       if (mfCache.job === job) mfCache.job = null;
       if (!sel || !job.alive) return;
+      if (cam) sel.cam = cam;
+      // (a new set for a moved view, the same chain and shapes (the globe's orbit epoch aside): cross-faded in)
+      const base = (q) => q.replace(/"globe\d+"\]$/, '"globe"]');
+      mfCache.prev = mfCache.sel && mfCache.key && base(mfCache.key) === base(key) && !!mfCache.sel.globe === globe ? { sel: mfCache.sel, next: sel, t0: performance.now() } : null;
       mfCache.key = key; mfCache.vkey = vkey; mfCache.v0 = { cx: v.cx, cy: v.cy, s: v.s, w: W, h: Hh }; mfCache.sel = sel; mfCache.rkey = ''; mfCache.rsel = null;
       requestRender('R');
     }).catch((e) => { if (mfCache.job === job) mfCache.job = null; console.error('deformation paths', e); });
@@ -4542,7 +4181,7 @@
       const P = (w) => pane.w2s(w);
       const N = Math.max(24, 24 * Math.ceil(m));
       const kept = [];
-      for (const k of mfCache.sel.kept) { const tr = tracePath(k.sp.z, Fat, m, P, N); if (!tr.broken && tr.s.length > 1) kept.push({ sp: k.sp, s: tr.s, meet: false }); }
+      for (const k of mfCache.sel.kept) { const r = pathRetrace(k, Fat, m, P, N); if (r) kept.push(r); }
       mfCache.rkey = key; mfCache.rsel = Object.assign({}, mfCache.sel, { kept, Tend: m });
     }
     return mfCache.rsel;
@@ -4550,16 +4189,36 @@
   // The merged globe's live paths (merged-views review: the design's "one plane (or one globe)" both carry them): the
   // same selection, chosen off the frame in the deformation's own flat frame at the globe pane's size (defFitView,
   // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere
-  const mfGlobe = { key: '', vp: null };
-  function morphSelGlobe(pane) {
+  // The globe's paths are chosen on the sphere under the camera of the moment (globeSelP); an orbit that turns more than
+  // one kept start (or a quarter of them) away from the camera chooses again (epoch), after the same 150 ms of stillness.
+  const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
+  function morphSelGlobe(pane, cam) {
+    if (cam) mfGlobe.cam = cam;
     const k = mfScreenKey(pane).key + `|${pane.w}x${pane.h}`;
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
-      vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null;
+      vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
       vp.view = defFitView(vp, false);
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
-    return morphSelScreen(mfGlobe.vp);
+    const sel = morphSelScreen(mfGlobe.vp);
+    if (sel && cam && mfCache.key === mfScreenKey(mfGlobe.vp).key) {
+      const P = globeSelP(cam, pane.w, pane.h, 0.2);
+      const off = sel.kept.filter((q) => !P(q.sp.z)).length;
+      if (off > Math.max(1, 0.25 * sel.kept.length)) mfGlobe.epoch++;
+    }
+    return sel;
+  }
+  // the globe's projection for the choice: a point of the plane lifted to the sphere, in px of a w x h pane under the
+  // camera cam {MVP, eye}; null where the sphere's normal there is more than acos(face) from the camera
+  function globeSelP(cam, w, h, face) {
+    const pane = { w, h };
+    return (z) => {
+      if (!z || !CX.isFin(z)) return null;
+      const p = liftC(z.re, z.im), tv = [cam.eye[0] - p[0], cam.eye[1] - p[1], cam.eye[2] - p[2]], l = Math.hypot(...tv) || 1;
+      if ((tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / l <= face) return null;
+      return project(pane, cam.MVP, p.map((x) => x * 1.01));
+    };
   }
   // the screen's selection, finished now (a test hook): waits for (or starts) the job
   async function morphSelScreenNow(pane, force) {
@@ -4571,113 +4230,606 @@
     await mfCache.job.run;
     return mfCache.sel;
   }
-  // an arrowhead at the end of polyline l: tip on the last point (or `short` px before it), along the chord over ~L px
-  function arrowHead(l, L, Wd, short = 0, notch = MF.headNotch) {
-    const last = l[l.length - 1];
-    let i = l.length - 2;
-    while (i > 0 && mDist(last, l[i]) < L * 0.9) i--;
-    const q = l[Math.max(0, i)], dx = last[0] - q[0], dy = last[1] - q[1], n = Math.hypot(dx, dy) || 1, ux = dx / n, uy = dy / n;
-    const tip = [last[0] - short * ux, last[1] - short * uy];
-    const bx = tip[0] - L * ux, by = tip[1] - L * uy, nx = -uy, ny = ux;
-    const nt = [tip[0] - L * notch * ux, tip[1] - L * notch * uy];
-    return { poly: [tip, [bx + Wd * nx, by + Wd * ny], nt, [bx - Wd * nx, by - Wd * ny]], u: [ux, uy] };
+  // ---------------- the deformation's paths t -> H_t(z) (notes/paths-aesthetics/AS-BUILT.md) ----------------
+  // Evenly spaced paths (Jobard-Lefer streamline placement), seeded from X's boundary first and then inside X, with
+  // equal-time marks: an open ring at z, small dots at t = m/4 and 3m/4, one arrowhead at t = m/2 and a filled dot at
+  // H_t(z) (F(z) at the end). On screen only the travelled part 0 -> t is drawn, so a frame while playing looks like a
+  // frame at rest. Spacings in the drawing's px (CSS px on screen; figure px, 1/96 in, x figK in the figure; x 1.4 for
+  // the globe): seeds every sep px inside X and sep/3 along its boundary; a kept path keeps dTest px from every kept
+  // path away from its own two ends and crosses none (when that leaves fewer than minN, a second pass allows one
+  // crossing and 0.7 dTest); starts dS apart, ends dE apart; at most one path far longer than the way from z to F(z)
+  // (a loop); at most maxN, and one per area^2 px^2 of the panel.
+  // (review fixes, notes/paths-aesthetics/AS-BUILT.md "Review fixes"): shortK caps the count by the panel's short side
+  // (a phone gets about 9); ink caps the summed length of the kept paths at ink x sqrt(panel area); a path longer than
+  // longK dS keeps 2 dTest from the kept paths over all but longShare of its length; stubs under stubK dS are a last
+  // resort (at most one); arrowheads live only on paths of arrowMin px or more
+  // (verify fixes, AS-BUILT.md "Verify fixes"): the long-path spacing is measured at longD dTest and a path at the
+  // limit is dropped; a corner where steps meet over vee degrees is rejected; a ring or an end dot keeps dE/2 from the
+  // path's own line too; a pane under small px on its short side keeps no stub and draws an arrowhead on every kept
+  // path; the globe prefers points inside X and keeps no path along X's outline; fade: ms of a cross-fade between sets
+  const PATHS = { sep: 24, dTest: 14, dS: 34, dE: 26, maxN: 18, minN: 8, area: 110, edgeShare: 0.55, figK: 0.7, figMax: 12, globeMax: 9, globeK: 1.4, shortK: 0.7, ink: 2.5, longK: 3, longShare: 0.2, longD: 2.2, stubK: 1.2, arrowMin: 60, globeFace: 0.35, sharp: 0.75, vee: 120, small: 500, fade: 150 };
+  // the times of a path's marks: one step (or all at once) has its arrowhead at m/2 (and, in the figure only, where the
+  // caption explains them, dots at m/4 and 3m/4); steps one after another have an arrowhead in the middle of each step
+  // (t = k - 1/2: never on the corner where the steps meet) and a bar across the path at each step's end inside the
+  // range (t = k), so a corner reads as "the step changes here"
+  function pathMarkTimes(Tend) {
+    if (allAtOnce() || morphRange().steps.length < 2) return { arrows: [0.5 * Tend], dots: [0.25 * Tend, 0.75 * Tend], nodes: [], seq: false };
+    const arrows = [], nodes = [];
+    for (let k = 1; k - 0.5 < Tend + 1e-9; k++) arrows.push(k - 0.5);
+    for (let k = 1; k < Tend - 1e-9; k++) nodes.push(k);
+    if (!arrows.length) arrows.push(0.5 * Tend);
+    return { arrows, dots: [], nodes, seq: true };
   }
-  const trimEndPx = (l, d) => {
-    const out = l.slice();
-    let rem = d;
-    while (out.length > 2) {
-      const a = out[out.length - 2], b = out[out.length - 1], sl = mDist(a, b);
-      if (sl > rem) { const u = (sl - rem) / sl; out[out.length - 1] = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; return out; }
-      rem -= sl; out.pop();
+  // the last frame's moving points on the merged plane, [x, y, z.re, z.im] (a test hook compares them with H_T(z))
+  let mfDrawn = null;
+  // t -> H_t(z), t in [0, Tend], as runs of samples {T, w, p}: N shared uniform times (H_T cached across paths), each
+  // gap refined while its chord is over 1.5 px or its midpoint strays over 0.05 px from the chord (screen arclength and
+  // turning: no kinks); a new run where H_T is not finite or very far off (a pole, infinity) or jumps (a cut: a chord
+  // still over 3 px at depth 14, a time step of Tend / 786432). A jump is never drawn.
+  function traceRuns(z, Fat, Tend, P, N) {
+    const ev = (T) => { const w = Fat(T)(z); if (!w || !CX.isFin(w)) return null; const p = P(w); return p && Math.abs(p[0]) < 4e4 && Math.abs(p[1]) < 4e4 ? { T, w, p } : null; };
+    const runs = [];
+    let cur = [];
+    const cut = () => { if (cur.length > 1) runs.push(cur); cur = []; };
+    const rec = (a, b, d) => {
+      const L = mDist(a.p, b.p);
+      if (d >= 14) { if (L > 3) cut(); cur.push(b); return; }
+      const m = ev(0.5 * (a.T + b.T));
+      if (!m) { cut(); cur.push(b); return; }
+      const dev = Math.hypot(m.p[0] - 0.5 * (a.p[0] + b.p[0]), m.p[1] - 0.5 * (a.p[1] + b.p[1]));
+      if ((L < 1.5 && dev < 0.15) || (dev < 0.05 && d >= 1 && L < 30)) { cur.push(b); return; }
+      rec(a, m, d + 1); rec(m, b, d + 1);
+    };
+    let a = ev(0);
+    if (a) cur.push(a);
+    for (let i = 1; i <= N; i++) {
+      const b = ev(Tend * i / N);
+      if (a && b) rec(a, b, 0); else { cut(); if (b) cur.push(b); }
+      a = b;
     }
-    return out;
-  };
-  // on screen (morph-figure.md 3): rails (the whole path, faint, with its arrowhead), the travelled part 0 -> T (ink on a
-  // halo casing) and the start dots; the moving head at H_T(z) is an ink arrowhead along the path's current direction,
-  // so at t = end it covers the rail's arrowhead and the screen shows the figure (arrowheads, no head dots), and a
-  // motion frame reads like the rest frame. Thin: 40 arrows must stay readable. sel null: no paths yet (being chosen).
-  // P: the projection of the plane to the pane's px (the w-globe's: null on its far side, where a path is not drawn)
-  function drawMorphPaths(pane, sel, F, P = (w) => pane.w2s(w)) {
-    if (!sel || !sel.kept.length) return;
-    const ctx = pane.ctx;
-    const T = morph.T, atEnd = T >= (sel.Tend || morphLen()) - 1e-9;
-    const HL = MF_SCREEN_HL, HW = 2.3;
-    const items = sel.kept.map((k) => {
-      let ss = k.s, l = ss.map((q) => P(q.w));
-      // (on the globe, the longest run of samples on its front side; a path cut there has no start dot or end head)
-      let cut0 = false, cut1 = false;
-      if (l.some((p) => !p)) {
-        let b0 = 0, b1 = -1, i0 = -1;
-        for (let i = 0; i <= l.length; i++) {
-          if (i < l.length && l[i]) { if (i0 < 0) i0 = i; continue; }
-          if (i0 >= 0 && i - 1 - i0 > b1 - b0) { b0 = i0; b1 = i - 1; }
-          i0 = -1;
-        }
-        if (b1 - b0 < 1) return null;
-        cut0 = b0 > 0; cut1 = b1 < l.length - 1;
-        ss = ss.slice(b0, b1 + 1); l = l.slice(b0, b1 + 1);
+    cut();
+    return runs;
+  }
+  // the marks of a path in the plane (pathMarkTimes): z = H_0(z), e = H_Tend(z) (null where not finite), the
+  // arrowheads and the step bars with H_t(z) just before and after their time (a, b: the direction), the dots
+  function pathMarksW(z, Fat, Tend) {
+    const at = (T) => { const w = Fat(T)(z); return w && CX.isFin(w) ? w : null; };
+    const h = Tend / 512, mt = pathMarkTimes(Tend);
+    const dirAt = (T) => ({ T, w: at(T), a: at(Math.max(0, T - h)), b: at(Math.min(Tend, T + h)) });
+    return { z: at(0), e: at(Tend), arrows: mt.arrows.map(dirAt), nodes: mt.nodes.map(dirAt), dots: mt.dots.map((T) => ({ T, w: at(T) })), seq: mt.seq };
+  }
+  // the selection (a generator: it yields between candidates, so it runs in slices off the frame; runGen /
+  // runGenSliced). P maps the plane to px (null where a point is not shown: the globe's far side and limb), box is the
+  // panel (px), win its world window. opt: scale (the spacings' factor), footPx, nogo (px rectangles to keep clear),
+  // maxN, globe, fig (the exported figure: stricter about the frame and the picture's lines). Every path is traced whole
+  // (the same points at every t: no popping while scrubbing or playing). A path may leave the panel (it is clipped
+  // there, with a cue) when most of it is inside, but never leaves and comes back.
+  function* pathsGen(P, box, win, Tend, opt = {}) {
+    const k = (opt.scale || 1) * (opt.globe ? PATHS.globeK : 1);
+    const sep = PATHS.sep * k, dT = PATHS.dTest * k, dS = PATHS.dS * k, dE = PATHS.dE * k;
+    // (the count: maxN, one per area^2 px^2, and by the panel's short side: a phone's tall pane gets about 9, not 18)
+    const sh = Math.min(box.w, box.h) / (PATHS.area * k);
+    let cap = Math.max(4, Math.min(opt.maxN || PATHS.maxN, Math.round(box.w * box.h / (PATHS.area * k) ** 2), Math.round(PATHS.shortK * sh * sh)));
+    const inkCap = PATHS.ink * Math.sqrt(box.w * box.h);
+    // (a small pane, a phone: a stub is never kept and every kept path is long enough for its arrowhead, so each one
+    // shows its direction; longer paths are preferred)
+    const small = !opt.fig && Math.min(box.w, box.h) < PATHS.small * k;
+    const stubPx = PATHS.stubK * dS, arrowPx = small ? stubPx : PATHS.arrowMin;
+    const X = morphX(), outline = morphOutline(X, win);
+    yield;
+    const Fc = new Map();
+    const Fat = (T) => { let f = Fc.get(T); if (!f) { f = morphAt(T); Fc.set(T, f); } return f; };
+    const m0 = 2 * k, foot = opt.footPx || 0;
+    const inner = { x0: box.x + m0, x1: box.x + box.w - m0, y0: box.y + m0, y1: box.y + box.h - foot - m0 };
+    const nogo = opt.nogo || [];
+    const inNogo = (p) => nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1);
+    const inPanel = (p) => p[0] >= inner.x0 && p[0] <= inner.x1 && p[1] >= inner.y0 && p[1] <= inner.y1 && !inNogo(p);
+    // (a start stands dS/2 inside the panel: a ring on the frame with a chevron beside it says nothing)
+    const mS = 0.5 * dS;
+    const inStart = (p) => p[0] >= inner.x0 + mS && p[0] <= inner.x1 - mS && p[1] >= inner.y0 + mS && p[1] <= inner.y1 - mS && !inNogo(p);
+    const toW = (px, py) => C(win.x0 + (px - box.x) / box.w * (win.x1 - win.x0), win.y1 - (py - box.y) / box.h * (win.y1 - win.y0));
+    // seeds: the point shapes, X's boundary every sep/3 px (its areas' outline; the curves when there is no area; a
+    // formula area's boundary found on a grid, where X's inside test changes), and a square grid of step sep inside X
+    const seeds = [];
+    for (const s of X.vis) if (kindType(s) === 'point' && s.p) seeds.push({ z: C(s.p[0], s.p[1]), kind: 'point' });
+    const eg = sep / 3;
+    let nEdge = 0, nNode = 0;
+    for (const o of outline) {
+      if (X.areas.length && kindType(o.s) !== 'area') continue;
+      let rem = 0;
+      for (let i = 1; i < o.l.length; i++) {
+        const a = o.l[i - 1], b = o.l[i], pa = P(C(a[0], a[1])), pb = P(C(b[0], b[1]));
+        if (!pa || !pb) { rem = 0; continue; }
+        const L = mDist(pa, pb);
+        if (!(L > 0) || L > 2e4) continue;
+        let s = rem;
+        for (; s <= L; s += eg) { const u = s / L, p = [pa[0] + (pb[0] - pa[0]) * u, pa[1] + (pb[1] - pa[1]) * u]; if (inPanel(p)) { seeds.push({ z: C(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u), kind: 'edge' }); nEdge++; } }
+        rem = s - L;
       }
-      if (l.length < 2) return null;
-      const up = [];
-      if (!cut0 || ss[0].T <= T) for (const q of ss) { if (q.T <= T) up.push(P(q.w)); else break; }
-      const wT = F(k.sp.z);
-      let head = CX.isFin(wT) ? P(wT) : null;
-      // (the moving point drawn only on the run it belongs to)
-      if (head && (cut0 && T < ss[0].T || cut1 && T > ss[ss.length - 1].T)) head = null;
-      if (head && up.length) up.push(head);
-      const short = k.meet && atEnd ? 1.5 : 0;
-      // the moving head's direction: back along the travelled part, or (near the start) ahead along the rail
-      let hd = null;
-      if (head) {
-        if (lenPx(up) >= HL * 0.9) hd = arrowHead(up, HL, HW, short);
-        else {
-          let q = null;
-          for (const r of l) if (mDist(r, head) >= HL * 0.9 && (r[0] - head[0]) * (l[l.length - 1][0] - head[0]) + (r[1] - head[1]) * (l[l.length - 1][1] - head[1]) > 0) { q = r; break; }
-          if (q) {
-            const d = mDist(q, head), u = [(q[0] - head[0]) / d, (q[1] - head[1]) / d];
-            hd = arrowHead([[head[0] - u[0] * HL, head[1] - u[1] * HL], head], HL, HW, 0);
-          }
+    }
+    if (X.areas.length && !nEdge && !opt.globe) {
+      const st = 4 * k, ins = (px, py) => X.inside(toW(px, py));
+      let n = 0;
+      for (let py = inner.y0; py < inner.y1; py += st) for (let px = inner.x0; px < inner.x1; px += st) if (ins(px, py) && (!ins(px + st, py) || !ins(px - st, py) || !ins(px, py + st) || !ins(px, py - st)) && !inNogo([px, py]) && n++ % 2 === 0) seeds.push({ z: toW(px, py), kind: 'edge' });
+    }
+    if (X.areas.length) for (let py = inner.y0 + 0.75 * sep; py < inner.y1 - 0.5 * sep; py += sep) for (let px = inner.x0 + 0.75 * sep; px < inner.x1 - 0.5 * sep; px += sep) { const z = toW(px, py); if (X.inside(z) && !inNogo([px, py])) { seeds.push({ z, kind: 'node' }); nNode++; } }
+    // (a small X in a wide figure frame: its starts would be packed at print size while the paths run out of the frame)
+    if (opt.fig && X.areas.length && nNode * sep * sep < 0.05 * box.w * box.h) cap = Math.min(cap, 5);
+    // (the figure and the globe: the picture's own lines, X's outline at the start and at the end, which a path must not
+    // lie along: on the globe a boundary point's path along X's outline reads as a mark on it)
+    let picG = null;
+    const picR = opt.globe ? 3 : 2;
+    if (opt.fig || opt.globe) {
+      picG = SegGrid(4 * k);
+      const FE = Fat(Tend);
+      for (const o of outline) {
+        const l0 = o.l.map((q) => P(C(q[0], q[1]))), l1 = o.l.map((q) => { const w = FE(C(q[0], q[1])); return w && CX.isFin(w) ? P(w) : null; });
+        for (const l of [l0, l1]) for (let i = 1; i < l.length; i++) if (l[i - 1] && l[i] && mDist(l[i - 1], l[i]) < 60 * k) picG.add(l[i - 1], l[i], 1);
+      }
+    }
+    yield;
+    const mt = pathMarkTimes(Tend);
+    const N = Math.max(48, 48 * Math.ceil(Tend));
+    // (why candidates were left out, by reason: a test hook's and the notes' view of the choice)
+    const rej = {}, no = (w) => { rej[w] = (rej[w] || 0) + 1; };
+    const cands = [];
+    let n = 0;
+    for (const sd of seeds) {
+      if (++n % 6 === 0) yield;
+      const runs = traceRuns(sd.z, Fat, Tend, P, N);
+      if (!runs.length || runs[0][0].T > 0) { no('trace'); continue; }
+      const p0 = runs[0][0].p;
+      if (!inStart(p0)) { no('start'); continue; }
+      // in the panel: the drawn length lin; the length before the path first leaves the panel; how often it comes
+      // back in after leaving (an exit and a re-entry reads as an orphan line: never kept); the share of t shown
+      let len = 0, lin = 0, pre = 0, out = false, back = 0, tShown = 0;
+      for (const r of runs) {
+        tShown += r[r.length - 1].T - r[0].T;
+        for (let i = 0; i < r.length; i++) {
+          const ip = inPanel(r[i].p);
+          if (!ip) out = true; else if (out && (i === 0 || !inPanel(r[i - 1].p))) back++;
+          if (!i) continue;
+          const d = mDist(r[i].p, r[i - 1].p);
+          len += Math.min(d, 400);
+          if (ip && inPanel(r[i - 1].p)) { lin += d; if (!out) pre += d; }
         }
       }
-      return { k, l, up, head, hd, short, cut0, cut1 };
-    }).filter(Boolean);
-    if (!items.length) return;
-    ctx.save();
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    // rails
-    ctx.strokeStyle = TH.faint; ctx.fillStyle = TH.faint; ctx.globalAlpha = 0.75; ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (const it of items) { const b = it.cut1 ? it.l : trimEndPx(it.l, HL * 0.6 + (it.k.meet ? 1.5 : 0)); ctx.moveTo(b[0][0], b[0][1]); for (let i = 1; i < b.length; i++) ctx.lineTo(b[i][0], b[i][1]); }
-    ctx.stroke();
-    ctx.beginPath();
-    for (const it of items) { if (it.cut1) continue; const hd = arrowHead(it.l, HL, HW, it.k.meet ? 1.5 : 0); ctx.moveTo(hd.poly[0][0], hd.poly[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(hd.poly[i][0], hd.poly[i][1]); ctx.closePath(); }
-    ctx.fill();
-    // travelled parts (stopping inside the moving head's notch)
-    const path = () => {
-      ctx.beginPath();
-      for (const it of items) {
-        if (it.up.length < 2) continue;
-        const b = it.hd && lenPx(it.up) > HL ? trimEndPx(it.up, HL * (1 - MF.headNotch) + it.short) : it.up;
-        ctx.moveTo(b[0][0], b[0][1]); for (let i = 1; i < b.length; i++) ctx.lineTo(b[i][0], b[i][1]);
+      // (a stub: under stubK dS of drawn line it is a ring touching a dot, with no direction; a last resort)
+      if (lin < 10 * k || back || (small && lin < stubPx)) { no(back ? 'reentry' : 'short'); continue; }
+      if (out && pre < 2 * dS) { no('exit'); continue; }
+      if (opt.globe && tShown < 0.6 * Tend) { no('hidden'); continue; }
+      const lr = runs[runs.length - 1], e = lr[lr.length - 1];
+      const pe = e.T >= Tend - 1e-9 && inPanel(e.p) ? e.p : null;
+      if (!pe && lin < 0.4 * len) { no('off'); continue; }
+      if (opt.fig && lin < 0.7 * len) { no('frame'); continue; }
+      // (a path far longer than the way from z to F(z), the Joukowski cusp's loop: honest, but one is enough)
+      const loop = !!pe && lin > 2.6 * mDist(p0, pe) + 40 * k;
+      const rs = [];
+      for (const r of runs) for (const p of resamplePx(r.map((q) => q.p), 3 * k)) if (inPanel(p)) rs.push(p);
+      // a path that retraces itself (0 -> 1 -> 0 reads as one segment): over 20 % of it within 2 px of an earlier,
+      // non-adjacent part of it; a back-and-forth that ends where it starts with no area inside
+      if (retraceShare(rs, 2 * k, 6) > 0.2) { no('retrace'); continue; }
+      // (a hairpin: tighter than about 4 px of radius it reads as a kink, not a curve; the corner where steps one after
+      // another meet is not counted here, it has its own test below and a bar)
+      if (sharpTurn(runs, mt.seq ? mt.nodes : [], 3 * k, inPanel) > PATHS.sharp) { no('sharp'); continue; }
+      if (pe && mDist(p0, pe) < 6 * k) {
+        let A = 0;
+        for (let i = 1; i < rs.length; i++) A += rs[i - 1][0] * rs[i][1] - rs[i][0] * rs[i - 1][1];
+        if (Math.abs(A) / 2 < 0.1 * lin * lin / (4 * Math.PI)) { no('fold'); continue; }
+      }
+      // (the figure: a path along the picture's lines hides them and reads as one of them)
+      // (away from its own two ends: a boundary point starts on X's outline and ends on its image by construction)
+      if (picG && rs.length) {
+        let on = 0, nn = 0;
+        for (const p of rs) { if (mDist(p, p0) < 0.75 * sep || (pe && mDist(p, pe) < 0.75 * sep)) continue; nn++; if (picG.near(p, picR) < picR) on++; }
+        if (on > 0.3 * nn) { no('picture'); continue; }
+      }
+      // steps one after another: where they meet (t = k), the moving point at that time (kept dE apart, as the ends),
+      // and the turn there: a turn over PATHS.vee (120) degrees, or over 100 with a short leg, is a doubled-back V that
+      // reads as two paths flowing into one point (rejected); a milder turn costs a little. On a small pane every step's
+      // leg must reach the arrowhead limit (stubPx), as a whole path must: a shorter leg crowds its arrowhead and the bar
+      // onto a V (v15.2: Strip to disk on a phone kept one 44 px path with two arrowheads and a bar)
+      const pk = [];
+      let turn = 0, vee = false;
+      if (mt.seq) {
+        const s = runs.flat();
+        for (const Tk of mt.nodes) {
+          const i = s.findIndex((q) => q.T >= Tk - 1e-9);
+          if (i < 0 || Math.abs(s[i].T - Tk) > Tend / N) { pk.push(null); continue; }
+          pk.push(inPanel(s[i].p) ? s[i].p : null);
+          let a = i, b = i, la = 0, lb = 0, L1 = 0, L2 = 0;
+          while (a > 0 && la < 6 * k) { la += mDist(s[a].p, s[a - 1].p); a--; }
+          while (b < s.length - 1 && lb < 6 * k) { lb += mDist(s[b].p, s[b + 1].p); b++; }
+          for (let j = 1; j < s.length; j++) { const d = Math.min(mDist(s[j].p, s[j - 1].p), 400); if (s[j].T <= Tk + 1e-9 && s[j].T > Tk - 1) L1 += d; else if (s[j].T > Tk && s[j].T <= Tk + 1 + 1e-9) L2 += d; }
+          if (small && Math.min(L1, L2) < stubPx) vee = true;
+          if (la < 1 || lb < 1) continue;
+          const u = [s[i].p[0] - s[a].p[0], s[i].p[1] - s[a].p[1]], v = [s[b].p[0] - s[i].p[0], s[b].p[1] - s[i].p[1]];
+          const ang = Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v) || 1))));
+          turn = Math.max(turn, ang);
+          if (ang > PATHS.vee * DEG || (ang > 100 * DEG && Math.min(L1, L2) < 2 * dS)) vee = true;
+        }
+      }
+      if (vee) { no('vee'); continue; }
+      // (the ring and the end dot keep dE/2 from the path's own line beyond its first and before its last dS of
+      // arclength: a hook's return leg passing its own ring reads as the ring sitting on the line)
+      if (selfNear(runs, p0, pe, 0.5 * dE, dS, 6 * k)) { no('self'); continue; }
+      cands.push({ sp: { z: sd.z, kind: sd.kind }, runs, p0, pe, pk, rs, len: lin, loop, turn, stub: lin < stubPx, long: lin > PATHS.longK * dS, dS: Infinity, dE: Infinity, dead: 0, kept: false });
+    }
+    const grid = SegGrid(6 * k, { x0: box.x - 1, y0: box.y - 1, x1: box.x + box.w + 1, y1: box.y + box.h + 1 });
+    const kept = [];
+    let nLoop = 0, nStub = 0, ink = 0;
+    // (the globe: the share of the seeds whose start, or most of whose path, is on the sphere's far side: the globe's
+    // hint when few paths are left)
+    const ex = 0.75 * sep, lD = PATHS.longD * dT;
+    const exempt = (p, c) => mDist(p, c.p0) < ex || (c.pe && mDist(p, c.pe) < ex);
+    const nearLine = (p, c, r) => { for (let i = 1; i < c.rs.length; i++) if (segD(p, c.rs[i - 1], c.rs[i]) < r) return true; return false; };
+    // (separation: no point of the path within d of a kept path; crossings: at most nX kept paths crossed; a long path
+    // keeps 2 dTest over most of its length: long parallel arcs 15-25 px apart read as a bundle)
+    const test = (c, d, nX) => {
+      if (c.loop && nLoop) return false;
+      if (c.stub && (nStub || !nX)) return false;
+      // (the ink cap from the second path on: the first paths are the long ones, and two of them can already fill a pane)
+      if (kept.length && ink + c.len > inkCap) return false;
+      if (!kept.length) return true;
+      // (no end dot on or beside a start ring; an end dot or a ring dE/2 clear of every other path's line)
+      if (kept.some((q) => (c.pe && mDist(c.pe, q.p0) < 0.5 * dS) || (q.pe && mDist(q.pe, c.p0) < 0.5 * dS))) return false;
+      if ((c.pe && grid.near(c.pe, 0.5 * dE) < 0.5 * dE) || grid.near(c.p0, 0.5 * dE) < 0.5 * dE) return false;
+      if (kept.some((q) => nearLine(q.p0, c, 0.5 * dE) || (q.pe && nearLine(q.pe, c, 0.5 * dE)))) return false;
+      let nFar = 0, nLong = 0;
+      for (const p of c.rs) {
+        if (exempt(p, c)) continue;
+        if (grid.near(p, d) < d) return false;
+        if (c.long) { nFar++; if (grid.near(p, lD) < lD) nLong++; }
+      }
+      if (c.long && nLong > PATHS.longShare * nFar) return false;
+      // (and the same for the kept long paths: c must not bring one of them over longShare)
+      const longKept = kept.filter((q) => q.long);
+      if (longKept.length) {
+        const cg = SegGrid(6 * k);
+        for (let i = 1; i < c.rs.length; i++) cg.add(c.rs[i - 1], c.rs[i], 1);
+        for (const q of longKept) {
+          let add = 0;
+          for (let i = 0; i < q.rs.length; i++) if (!q.nearMask[i] && !exempt(q.rs[i], q) && cg.near(q.rs[i], lD) < lD) add++;
+          if (q.nNear + add > PATHS.longShare * q.nFar) return false;
+        }
+      }
+      const crossed = new Set();
+      for (const r of c.runs) {
+        for (let i = 1; i < r.length; i++) {
+          const a = r[i - 1].p, b = r[i].p;
+          if ((!inPanel(a) && !inPanel(b)) || exempt(a, c)) continue;
+          grid.crossTags(a, b, crossed);
+          if (crossed.size > nX) return false;
+        }
+      }
+      return true;
+    };
+    const keepC = (c) => {
+      // (a long path's samples within 2 dTest of the other kept paths: those kept before it, then those kept after)
+      if (c.long) {
+        c.nearMask = new Uint8Array(c.rs.length); c.nNear = 0; c.nFar = 0;
+        c.rs.forEach((p, i) => { if (exempt(p, c)) return; c.nFar++; if (grid.near(p, lD) < lD) { c.nearMask[i] = 1; c.nNear++; } });
+      }
+      const longKept = kept.filter((q) => q.long);
+      if (longKept.length) {
+        const cg = SegGrid(6 * k);
+        for (let i = 1; i < c.rs.length; i++) cg.add(c.rs[i - 1], c.rs[i], 1);
+        for (const q of longKept) for (let i = 0; i < q.rs.length; i++) if (!q.nearMask[i] && !exempt(q.rs[i], q) && cg.near(q.rs[i], lD) < lD) { q.nearMask[i] = 1; q.nNear++; }
+      }
+      kept.push(c); c.kept = true; ink += c.len;
+      if (c.loop) nLoop++;
+      if (c.stub) nStub++;
+      for (const r of c.runs) for (let i = 1; i < r.length; i++) if (inPanel(r[i].p) || inPanel(r[i - 1].p)) grid.add(r[i - 1].p, r[i].p, c);
+      for (const q of cands) {
+        if (q.kept || q.dead === 1) continue;
+        q.dS = Math.min(q.dS, mDist(q.p0, c.p0));
+        if (q.pe && c.pe) q.dE = Math.min(q.dE, mDist(q.pe, c.pe));
+        // (steps one after another: the moving points stand dE apart at each step's end too)
+        for (let j = 0; j < q.pk.length; j++) if (q.pk[j] && c.pk[j]) q.dE = Math.min(q.dE, mDist(q.pk[j], c.pk[j]));
       }
     };
-    ctx.globalAlpha = 0.8; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.8; path(); ctx.stroke();
-    ctx.globalAlpha = 1; ctx.strokeStyle = TH.ink2; ctx.lineWidth = 1.25; path(); ctx.stroke();
-    // start dots
-    ctx.beginPath();
-    for (const it of items) { if (it.cut0) continue; const p = it.l[0]; ctx.moveTo(p[0] + 2.8, p[1]); ctx.arc(p[0], p[1], 2.8, 0, TAU); }
-    ctx.fillStyle = TH.halo; ctx.globalAlpha = 0.9; ctx.fill();
-    ctx.beginPath();
-    for (const it of items) { if (it.cut0) continue; const p = it.l[0]; ctx.moveTo(p[0] + 1.8, p[1]); ctx.arc(p[0], p[1], 1.8, 0, TAU); }
-    ctx.fillStyle = TH.ink2; ctx.globalAlpha = 1; ctx.fill();
-    // the moving heads: ink arrowheads on a halo casing (a dot while the path has barely begun to move)
-    const headsPath = () => { ctx.beginPath(); for (const it of items) { if (!it.hd) continue; const q = it.hd.poly; ctx.moveTo(q[0][0], q[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(q[i][0], q[i][1]); ctx.closePath(); } };
-    headsPath(); ctx.strokeStyle = TH.halo; ctx.lineWidth = 2; ctx.globalAlpha = 0.9; ctx.stroke();
-    headsPath(); ctx.fillStyle = TH.ink2; ctx.globalAlpha = 1; ctx.fill();
-    ctx.beginPath();
-    for (const it of items) { if (it.hd || !it.head) continue; ctx.moveTo(it.head[0] + 2.2, it.head[1]); ctx.arc(it.head[0], it.head[1], 2.2, 0, TAU); }
-    ctx.fill();
+    // (marked points first, held to the same tests: spacing, no stub, no retrace)
+    for (const c of cands) if (c.sp.kind === 'point' && kept.length < cap && !c.stub && c.dS >= dS && c.dE >= dE && test(c, dT, 0)) keepC(c);
+    // farthest first: the start farthest from the kept starts (and the end from the kept ends); the boundary first (up
+    // to edgeShare of the paths), then boundary and inside together (the boundary slightly preferred, longer paths
+    // slightly preferred), then, when that leaves fewer than minN, the looser test (one crossing, 0.7 dTest, one stub)
+    let it = 0;
+    // (the globe: points inside X first, the boundary is not preferred: its paths lie along X's outline at the limb)
+    for (const [d, nX, edges, upTo] of [[dT, 0, true, opt.globe ? 0 : Math.ceil(PATHS.edgeShare * cap)], [dT, 0, false, cap], [0.7 * dT, 1, false, cap]]) {
+      if (nX && kept.length >= Math.min(PATHS.minN, cap)) break;
+      if (nX) for (const c of cands) if (c.dead === 2) c.dead = 0;
+      while (kept.length < upTo) {
+        let best = null, bs = -Infinity;
+        for (const c of cands) {
+          if (c.kept || c.dead || (edges && c.sp.kind !== 'edge')) continue;
+          if (c.dS < dS || c.dE < dE) { c.dead = 1; continue; }
+          const sc = Math.min(c.dS, c.dE * dS / dE, 4 * dS) + (c.sp.kind === 'edge' ? (opt.globe ? -0.35 : 0.35) * dS : 0) + (small ? 0.15 : 0.04) * Math.min(c.len, 200 * k) - (c.loop ? 0.5 * dS : 0) - (c.stub ? dS : 0) - dS * c.turn / Math.PI;
+          if (sc > bs) { bs = sc; best = c; }
+        }
+        if (!best) break;
+        if (test(best, d, nX)) keepC(best); else { best.dead = 2; no('spacing'); }
+        if (++it % 3 === 0) yield;
+      }
+    }
+    for (const c of kept) { c.mk = pathMarksW(c.sp.z, Fat, Tend); pathFlat(c); }
+    const pxLines = outline.map((o) => o.l.map((q) => P(C(q[0], q[1]))).filter(Boolean));
+    return { kept, log: [], budget: cap, X, outline, pxLines, endLines: [], Tend, nCands: cands.length, ms: { nT: Fc.size }, globe: !!opt.globe, ink, rej, arrowMin: arrowPx, away: opt.globe ? ((rej.trace || 0) + (rej.hidden || 0)) / Math.max(1, seeds.length) : 0 };
+  }
+  // whether a path's start p0 lies within r of its own line beyond its first skip px of arclength, or its end pe within
+  // r of its own line before its last skip px (a closed path, pe within shut of p0, is the fold test's: its ends are
+  // left alone)
+  function selfNear(runs, p0, pe, r, skip, shut) {
+    let L = 0;
+    for (const q of runs) for (let i = 1; i < q.length; i++) L += Math.min(mDist(q[i].p, q[i - 1].p), 400);
+    const closed = !!pe && mDist(p0, pe) < shut;
+    let acc = 0;
+    for (const q of runs) {
+      for (let i = 1; i < q.length; i++) {
+        const a = q[i - 1].p, b = q[i].p, a0 = acc;
+        acc += Math.min(mDist(a, b), 400);
+        if (a0 > skip && (!closed || acc < L - skip) && segD(p0, a, b) < r) return true;
+        if (pe && !closed && acc < L - skip && segD(pe, a, b) < r) return true;
+      }
+    }
+    return false;
+  }
+  // the share of a resampled polyline l (points every ~step px) lying within r of an earlier part of it at least gap
+  // samples back (a path that goes back over itself)
+  function retraceShare(l, r, gap) {
+    if (l.length < gap + 2) return 0;
+    const g = SegGrid(Math.max(4, 2 * r));
+    let hit = 0;
+    for (let i = gap + 1; i < l.length; i++) {
+      g.add(l[i - gap - 1], l[i - gap], i);
+      if (g.near(l[i], r) < r) hit++;
+    }
+    return hit / l.length;
+  }
+  // the sharpest turn (rad) of a path's runs between successive chords of step px of arclength, at vertices where
+  // inPanel holds; each run is cut at the times in nodes (the corners where steps one after another meet)
+  function sharpTurn(runs, nodes, step, inPanel) {
+    let mx = 0;
+    const piece = (l) => {
+      // (points every step px of arclength along l)
+      const u = [l[0]];
+      let acc = 0;
+      for (let i = 1; i < l.length; i++) {
+        let a = l[i - 1];
+        const b = l[i];
+        let d = mDist(a, b);
+        while (acc + d >= step) { const s = (step - acc) / d; a = [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]; u.push(a); d = mDist(a, b); acc = 0; }
+        acc += d;
+      }
+      for (let i = 2; i < u.length; i++) {
+        if (!inPanel(u[i - 1])) continue;
+        const ax = u[i - 1][0] - u[i - 2][0], ay = u[i - 1][1] - u[i - 2][1], bx = u[i][0] - u[i - 1][0], by = u[i][1] - u[i - 1][1];
+        mx = Math.max(mx, Math.acos(Math.max(-1, Math.min(1, (ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by) || 1)))));
+      }
+    };
+    for (const r of runs) {
+      let cur = [r[0].p];
+      for (let i = 1; i < r.length; i++) {
+        cur.push(r[i].p);
+        if (nodes.some((t) => Math.abs(r[i].T - t) < 1e-9)) { piece(cur); cur = [r[i].p]; }
+      }
+      if (cur.length > 1) piece(cur);
+    }
+    return mx;
+  }
+  // (a kept path's samples as one list s and its px polyline l: the test hooks' and the caption's view of it)
+  const pathFlat = (c) => { c.s = c.runs.flat(); c.l = c.s.map((q) => q.p); c.lenPx = lenPx(c.l); return c; };
+  // a kept path re-traced under a changed chain or shapes (the screen cache)
+  function pathRetrace(k, Fat, Tend, P, N) {
+    const runs = traceRuns(k.sp.z, Fat, Tend, P, N);
+    return runs.length ? pathFlat({ sp: k.sp, runs, mk: pathMarksW(k.sp.z, Fat, Tend) }) : null;
+  }
+  // On screen (the merged plane; the globe with P its projection, null on the far side, where the run splits): the
+  // travelled part 0 -> T in ink on a halo of the plane's colour (light and dark), the open ring at z, the marks the
+  // moving point has passed (the arrowhead, one per step one after another, on paths of PATHS.arrowMin px or more; a
+  // bar where steps meet; no time dots: the live view has no caption to explain them) and the moving point H_T(z), a
+  // filled dot; a small open chevron where a path leaves the view or comes into it, and where it goes behind the
+  // globe's limb. Nothing ahead of the moving point: rest and motion look alike. A path whose start has left the view
+  // (a pan or a scrub's auto-fit) stays, clipped, with the chevron where it comes in, until the next choice (verify fix
+  // path-3: it vanished at once). o.fade scales the opacity (the cross-fade between two sets, drawMorphPathsX); o.hook
+  // false leaves the test hook's record alone.
+  function drawMorphPaths(pane, sel, F, P = null, o = {}) {
+    if (!sel || !sel.kept.length) return;
+    const fade = o.fade == null ? 1 : o.fade;
+    if (!(fade > 0.01)) return;
+    const flat = !P;
+    if (flat) P = (w) => pane.w2s(w);
+    const ctx = pane.ctx, T = morph.T, Tend = sel.Tend || morphLen(), W = pane.w, Hh = pane.h;
+    const inView = (q) => q[0] >= 0 && q[0] <= W && q[1] >= 0 && q[1] <= Hh;
+    const LW = flat ? 1.4 : 1.6, AL = 9.5, AW = 3.2, BAR = 4;
+    const lines = [], rings = [], arrows = [], bars = [], heads = [], cues = [], drawnZ = [];
+    // (a cue: an open chevron at tip (x, y) pointing along u)
+    const edgeCue = (a, b, enter) => {
+      const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+      // the point where the segment crosses the view's edge, from its inside end
+      const [o, q] = enter ? [b, a] : [a, b];
+      const ex = q[0] - o[0], ey = q[1] - o[1];
+      let u = 1;
+      if (q[0] > W) u = Math.min(u, (W - o[0]) / ex); if (q[0] < 0) u = Math.min(u, -o[0] / ex); if (q[1] > Hh) u = Math.min(u, (Hh - o[1]) / ey); if (q[1] < 0) u = Math.min(u, -o[1] / ey);
+      const x = o[0] + ex * u, y = o[1] + ey * u;
+      cues.push(enter ? [x + 12 * ux, y + 12 * uy, ux, uy] : [x - 7 * ux, y - 7 * uy, ux, uy]);
+    };
+    for (const k of sel.kept) {
+      const mk = k.mk;
+      const pz = mk && mk.z && k.runs[0][0].T === 0 ? P(mk.z) : null;
+      const wT = T > 0 ? F(k.sp.z) : null;
+      const hp = wT && CX.isFin(wT) ? P(wT) : null;
+      let headOn = false, len = 0;
+      for (const r of k.runs || []) {
+        if (r[0].T > T) break;
+        let cur = [];
+        const end = () => { if (cur.length > 1) lines.push(cur); cur = []; };
+        let gone = false;
+        for (const q of r) {
+          if (q.T > T) break;
+          const p = P(q.w);
+          if (!p) {
+            // (the globe: the run goes behind the limb; a chevron a little before the last point it shows)
+            if (!flat && cur.length > 1 && !gone) { const a = cur[cur.length - 2], b = cur[cur.length - 1], d = mDist(a, b) || 1; cues.push([b[0] - 4 * (b[0] - a[0]) / d, b[1] - 4 * (b[1] - a[1]) / d, (b[0] - a[0]) / d, (b[1] - a[1]) / d]); }
+            gone = true; end(); continue;
+          }
+          if (cur.length) len += mDist(cur[cur.length - 1], p);
+          cur.push(p);
+          if (!flat && gone && cur.length === 2) { const a = cur[0], b = cur[1], d = mDist(a, b) || 1; cues.push([a[0] + 10 * (b[0] - a[0]) / d, a[1] + 10 * (b[1] - a[1]) / d, (b[0] - a[0]) / d, (b[1] - a[1]) / d]); gone = false; }
+        }
+        // (the moving point joins the run it is on)
+        if (hp && T <= r[r.length - 1].T + 1e-12 && cur.length && mDist(cur[cur.length - 1], hp) < 30) { cur.push(hp); headOn = true; }
+        if (flat) for (let i = 1; i < cur.length; i++) { const a = inView(cur[i - 1]), b = inView(cur[i]); if (a && !b) edgeCue(cur[i - 1], cur[i], false); else if (!a && b) edgeCue(cur[i - 1], cur[i], true); }
+        end();
+      }
+      if (headOn) { heads.push(hp); if (flat) drawnZ.push([hp[0], hp[1], k.sp.z.re, k.sp.z.im]); }
+      if (!mk) continue;
+      if (pz) rings.push(pz);
+      // (a mark is drawn once the moving point has passed it, and only where it stands clear of the ring, the other
+      // marks and the moving point: a slow stretch packs them)
+      const placed = pz ? [pz] : [];
+      const clear = (p, r) => placed.every((q) => mDist(p, q) >= r) && !(headOn && mDist(p, hp) < r);
+      const dirOf = (m) => { const a = m.a && P(m.a), b = m.b && P(m.b), d = a && b ? mDist(a, b) : 0; return d > 1e-9 ? [(b[0] - a[0]) / d, (b[1] - a[1]) / d] : null; };
+      const long = Math.max(len, k.lenPx || 0) >= (sel.arrowMin || PATHS.arrowMin);
+      for (const m of mk.arrows || []) {
+        if (!long || T < m.T - 1e-9 || !m.w) continue;
+        const p = P(m.w), u = p && dirOf(m);
+        if (u && clear(p, 9)) { arrows.push([p, u[0], u[1]]); placed.push(p); }
+      }
+      for (const m of mk.nodes || []) {
+        if (T < m.T - 1e-9 || !m.w) continue;
+        const p = P(m.w), u = p && dirOf(m);
+        if (u && clear(p, 6)) { bars.push([p, u[0], u[1]]); placed.push(p); }
+      }
+    }
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const circles = (l, r) => { ctx.beginPath(); for (const p of l) { ctx.moveTo(p[0] + r, p[1]); ctx.arc(p[0], p[1], r, 0, TAU); } };
+    const arrowPath = () => {
+      ctx.beginPath();
+      for (const [p, ux, uy] of arrows) {
+        const tx = p[0] + 0.5 * AL * ux, ty = p[1] + 0.5 * AL * uy, bx = p[0] - 0.5 * AL * ux, by = p[1] - 0.5 * AL * uy;
+        ctx.moveTo(tx, ty); ctx.lineTo(bx - AW * uy, by + AW * ux); ctx.lineTo(bx + 0.3 * AL * ux, by + 0.3 * AL * uy); ctx.lineTo(bx + AW * uy, by - AW * ux); ctx.closePath();
+      }
+    };
+    const barPath = () => { ctx.beginPath(); for (const [p, ux, uy] of bars) { ctx.moveTo(p[0] - BAR * uy, p[1] + BAR * ux); ctx.lineTo(p[0] + BAR * uy, p[1] - BAR * ux); } };
+    const chevrons = () => {
+      ctx.beginPath();
+      for (const [x, y, ux, uy] of cues) {
+        const L = 5, c = Math.cos(0.6), s = Math.sin(0.6);
+        ctx.moveTo(x - L * (ux * c - uy * s), y - L * (uy * c + ux * s)); ctx.lineTo(x, y); ctx.lineTo(x - L * (ux * c + uy * s), y - L * (uy * c - ux * s));
+      }
+    };
+    // the casing (one pass for everything), then the ink
+    const ga = (a) => { ctx.globalAlpha = a * fade; };
+    ctx.strokeStyle = TH.halo; ga(0.55);
+    ctx.beginPath(); for (const l of lines) { ctx.moveTo(l[0][0], l[0][1]); for (let i = 1; i < l.length; i++) ctx.lineTo(l[i][0], l[i][1]); }
+    ctx.lineWidth = LW + 2.2; ctx.stroke();
+    chevrons(); ctx.lineWidth = 3.4; ctx.stroke();
+    barPath(); ctx.lineWidth = 3.6; ctx.stroke();
+    ga(0.85); ctx.fillStyle = TH.halo;
+    circles(rings, 3.9); ctx.fill(); circles(heads, 4.1); ctx.fill();
+    arrowPath(); ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.strokeStyle = TH.ink; ctx.fillStyle = TH.ink; ga(0.92);
+    ctx.beginPath(); for (const l of lines) { ctx.moveTo(l[0][0], l[0][1]); for (let i = 1; i < l.length; i++) ctx.lineTo(l[i][0], l[i][1]); }
+    ctx.lineWidth = LW; ctx.stroke();
+    chevrons(); ctx.lineWidth = 1.4; ctx.stroke();
+    barPath(); ctx.lineWidth = 1.2; ctx.stroke();
+    ga(1);
+    circles(rings, 2.6); ctx.lineWidth = 1.25; ctx.stroke();
+    arrowPath(); ctx.fill();
+    circles(heads, 2.8); ctx.fill();
     ctx.restore();
+    if (flat && o.hook !== false) mfDrawn = { T, heads: drawnZ };
+  }
+  // the live paths with the cross-fade between two sets (verify fix path-3: a new choice after a pan, a zoom or an
+  // orbit swapped the whole set in one frame): for PATHS.fade ms after a choice replaced a set under the same chain and
+  // shapes, the old set fades out while the new one fades in
+  function drawMorphPathsX(pane, sel, F, P = null) {
+    const pv = mfCache.prev;
+    let u = 1;
+    if (pv && pv.next === sel) {
+      u = Math.min(1, (performance.now() - pv.t0) / PATHS.fade);
+      if (u < 1) { drawMorphPaths(pane, pv.sel, F, P, { fade: 1 - u, hook: false }); requestRender('R'); } else mfCache.prev = null;
+    }
+    drawMorphPaths(pane, sel, F, P, { fade: u });
+  }
+  // the paths as print vectors in figure units (u: units per pt): items [{ runs: [[[x, y], ...], ...], z, e (the
+  // start ring and the end dot: [x, y] or null), arrows: [{ p, d: [ux, uy] }], nodes: [{ p, d }] (where steps meet),
+  // dots: [p], limbOut / limbIn: indices of the runs that go behind the globe's limb at their end / come from behind at
+  // their start }]; o: { u, clip {x, y, w, h}, id }. Black, 0.5 pt, on a 1 pt white casing (0.25 pt each side: it
+  // parts the line from a dark square without a second line on the grey ones); an open ring (1.3 pt) at z, a 3.4 pt
+  // arrowhead at each arrow time, a 3.2 pt bar across the path where steps meet, dots (0.65 pt) at the dot times, a
+  // filled dot (1.3 pt) at the end; an open chevron where a path leaves the clip or comes into it, or passes the limb
+  function pathsSvg(items, o = {}) {
+    const u = o.u || 1, clip = o.clip || null;
+    const f2 = (v) => (Math.round(v * 100) / 100).toString();
+    const inC = (p) => !clip || (p[0] >= clip.x && p[0] <= clip.x + clip.w && p[1] >= clip.y && p[1] <= clip.y + clip.h);
+    let d = '', rings = '', dots = '', heads = '', ends = '', cues = '', bars = '';
+    const chev = (x, y, ux, uy) => { const L = 2.6 * u, c = Math.cos(0.6), sn = Math.sin(0.6); cues += `M${f2(x - L * (ux * c - uy * sn))} ${f2(y - L * (uy * c + ux * sn))}L${f2(x)} ${f2(y)}L${f2(x - L * (ux * c + uy * sn))} ${f2(y - L * (uy * c - ux * sn))}`; };
+    // (where segment a (inside the clip) -> b (outside) meets the clip's edge)
+    const cross = (a, b) => {
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      let s = 1;
+      if (b[0] > clip.x + clip.w) s = Math.min(s, (clip.x + clip.w - a[0]) / dx); if (b[0] < clip.x) s = Math.min(s, (clip.x - a[0]) / dx);
+      if (b[1] > clip.y + clip.h) s = Math.min(s, (clip.y + clip.h - a[1]) / dy); if (b[1] < clip.y) s = Math.min(s, (clip.y - a[1]) / dy);
+      return [a[0] + dx * s, a[1] + dy * s];
+    };
+    const unit = (a, b) => { const dd = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / dd, (b[1] - a[1]) / dd]; };
+    for (const it of items) {
+      let len = 0;
+      it.runs.forEach((r, ri) => {
+        if (r.length < 2) return;
+        d += 'M' + r.map((p) => `${f2(p[0])} ${f2(p[1])}`).join('L');
+        for (let i = 1; i < r.length; i++) {
+          const a = r[i - 1], b = r[i];
+          len += Math.hypot(b[0] - a[0], b[1] - a[1]);
+          if (!clip) continue;
+          const ia = inC(a), ib = inC(b);
+          if (ia === ib) continue;
+          const [ux, uy] = unit(a, b);
+          if (ia) { const c = cross(a, b); chev(c[0] - 2.2 * u * ux, c[1] - 2.2 * u * uy, ux, uy); }
+          else { const c = cross(b, a); chev(c[0] + 4.8 * u * ux, c[1] + 4.8 * u * uy, ux, uy); }
+        }
+        if (it.limbOut && it.limbOut.includes(ri)) { const a = r[r.length - 2], b = r[r.length - 1], [ux, uy] = unit(a, b); chev(b[0] - 1.6 * u * ux, b[1] - 1.6 * u * uy, ux, uy); }
+        if (it.limbIn && it.limbIn.includes(ri)) { const a = r[0], b = r[1], [ux, uy] = unit(a, b); chev(a[0] + 4 * u * ux, a[1] + 4 * u * uy, ux, uy); }
+      });
+      const z = it.z, e = it.e;
+      if (z) rings += `<circle cx="${f2(z[0])}" cy="${f2(z[1])}" r="${f2(1.3 * u)}"/>`;
+      if (e) ends += `<circle cx="${f2(e[0])}" cy="${f2(e[1])}" r="${f2(1.3 * u)}"/>`;
+      if (len < 9 * u) continue;
+      const placed = [z, e].filter(Boolean);
+      const clear = (p, r) => inC(p) && placed.every((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) >= r * u);
+      for (const m of it.arrows || []) {
+        if (!m.p || !m.d || !clear(m.p, 3.4)) continue;
+        const [ux, uy] = m.d, p = m.p, L = 3.4 * u, Wd = 1.35 * u, tx = p[0] + 0.5 * L * ux, ty = p[1] + 0.5 * L * uy, bx = p[0] - 0.5 * L * ux, by = p[1] - 0.5 * L * uy;
+        heads += `<path d="M${f2(tx)} ${f2(ty)}L${f2(bx - Wd * uy)} ${f2(by + Wd * ux)}L${f2(bx + 0.3 * L * ux)} ${f2(by + 0.3 * L * uy)}L${f2(bx + Wd * uy)} ${f2(by - Wd * ux)}Z"/>`;
+        placed.push(p);
+      }
+      for (const m of it.nodes || []) {
+        if (!m.p || !m.d || !clear(m.p, 2.4)) continue;
+        const [ux, uy] = m.d, p = m.p, B = 1.6 * u;
+        bars += `M${f2(p[0] - B * uy)} ${f2(p[1] + B * ux)}L${f2(p[0] + B * uy)} ${f2(p[1] - B * ux)}`;
+        placed.push(p);
+      }
+      for (const p of it.dots || []) if (p && clear(p, 2.4)) { dots += `<circle cx="${f2(p[0])}" cy="${f2(p[1])}" r="${f2(0.65 * u)}"/>`; placed.push(p); }
+    }
+    const w = (v) => f2(v * u);
+    let body = '';
+    // (every white casing first, then every black line: a bar's or a chevron's casing drawn over the path cut the line
+    // at a step's corner into a gap with a loose slash beside it; verify fix path-1)
+    if (d) body += `<path d="${d}" fill="none" stroke="#ffffff" stroke-width="${w(1)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if (cues) body += `<path d="${cues}" fill="none" stroke="#ffffff" stroke-width="${w(1.5)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if (bars) body += `<path d="${bars}" fill="none" stroke="#ffffff" stroke-width="${w(1.5)}" stroke-linecap="round"/>`;
+    if (d) body += `<path d="${d}" fill="none" stroke="#000000" stroke-width="${w(0.5)}" stroke-linecap="round" stroke-linejoin="round" class="mf-paths"/>`;
+    if (cues) body += `<path d="${cues}" fill="none" stroke="#000000" stroke-width="${w(0.5)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if (bars) body += `<path d="${bars}" fill="none" stroke="#000000" stroke-width="${w(0.5)}" stroke-linecap="round" class="mf-bars"/>`;
+    if (dots) body += `<g fill="#000000" stroke="#ffffff" stroke-width="${w(0.3)}" paint-order="stroke">${dots}</g>`;
+    if (heads) body += `<g fill="#000000" stroke="#ffffff" stroke-width="${w(0.35)}" stroke-linejoin="round" paint-order="stroke" class="mf-heads">${heads}</g>`;
+    if (rings) body += `<g fill="#ffffff" stroke="#000000" stroke-width="${w(0.45)}" class="mf-rings">${rings}</g>`;
+    if (ends) body += `<g fill="#000000" stroke="#ffffff" stroke-width="${w(0.35)}" paint-order="stroke" class="mf-ends">${ends}</g>`;
+    if (!clip || !body) return body;
+    const id = `${o.id || 'mp'}-clip`;
+    return `<clipPath id="${id}"><rect x="${f2(clip.x)}" y="${f2(clip.y)}" width="${f2(clip.w)}" height="${f2(clip.h)}"/></clipPath><g clip-path="url(#${id})">${body}</g>`;
   }
   // X's outline over the moving image (so X never disappears under it): 1 px faint, dashed 4/3 when the set is open
   const mfOutlineCache = { skey: '', wkey: '', val: null, timer: 0 };
@@ -4716,114 +4868,34 @@
     const targets = X.areas.map((s) => Object.assign({}, s, { color: ink, edge: ink, alpha: MF.srcFillA, width: 0 }));
     try { GLR.drawPreimage({ map: IDENT, view: pane.view, dpr: pane.dpr, targets, ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo), haloA: 0 }); } catch (e) { console.error('X tint', e); }
   }
-  // the figure's vector layers of the deformation panel (morph-figure.md 5), in figure px: X's outline, the paths on
-  // their casing, the arrowheads, the start dots, and the labels z and F(z) on one path when a clear place exists
+  // the figure's vector layers of the deformation panel (morph-figure.md 5), in figure px: X's outline and the paths
+  // (pathsSvg, line weights in pt)
   function morphFigureLayers(sel, P, box, clipId) {
     const f2 = (v) => (Math.round(v * 100) / 100).toString();
     const dP = (l) => 'M' + l.map((p) => `${f2(p[0])} ${f2(p[1])}`).join('L');
-    let s = `<defs><clipPath id="${clipId}"><rect x="${f2(box.x)}" y="${f2(box.y)}" width="${f2(box.w)}" height="${f2(box.h)}"/></clipPath></defs><g clip-path="url(#${clipId})">`;
+    let s = `<defs><clipPath id="${clipId}"><rect x="${f2(box.x)}" y="${f2(box.y)}" width="${f2(box.w)}" height="${f2(box.h)}"/></clipPath></defs>`;
     // X's outline over the image
     const ol = sel.pxLines.filter((l) => l.length > 1);
-    if (ol.length) s += `<path d="${ol.map(dP).join('')}" fill="none" stroke="${MF.outlineInk}" stroke-width="${MF.srcEdgeW}"${sel.X.open ? ` stroke-dasharray="${MF.dash}"` : ''}/>`;
-    let halo = '', lines = '', heads = '', dots = '', rings = '';
-    const inkHeads = [];
-    for (const k of sel.kept) {
-      const short = k.meet ? 1.5 : 0;
-      const hd = arrowHead(k.l, MF.headL, MF.headW, short);
-      k.head = hd;
-      inkHeads.push(hd.poly);
-      const body = trimEndPx(k.l, MF.headL * (1 - MF.headNotch) + 0.3 + short);
-      k.body = body;
-      halo += `<path d="${dP(body)}"/>`;
-      lines += `<path d="${dP(body)}"/>`;
-      heads += `<path d="M${hd.poly.map((p) => `${f2(p[0])} ${f2(p[1])}`).join('L')}Z"/>`;
-      dots += `<circle cx="${f2(k.l[0][0])}" cy="${f2(k.l[0][1])}" r="${MF.dotR}"/>`;
-      rings += `<circle cx="${f2(k.l[0][0])}" cy="${f2(k.l[0][1])}" r="${MF.dotRing}"/>`;
-    }
-    s += `<g fill="none" stroke="#FFFFFF" stroke-opacity="${MF.haloA}" stroke-width="${MF.haloW}" stroke-linecap="round" stroke-linejoin="round">${halo}</g>`;
-    s += `<g fill="#FFFFFF" fill-opacity="${MF.haloA}" stroke="#FFFFFF" stroke-opacity="${MF.haloA}" stroke-width="1.3" stroke-linejoin="round">${heads}${rings}</g>`;
-    s += `<g fill="none" stroke="${MF.pathColor}" stroke-width="${MF.pathW}" stroke-linecap="round" stroke-linejoin="round" class="mf-paths">${lines}</g>`;
-    s += `<g fill="${MF.pathColor}" stroke="none" class="mf-heads">${heads}</g><g fill="${MF.pathColor}" stroke="none">${dots}</g>`;
-    s += '</g>';
-    // labels (B3.1): z beyond the dot on X's outer side, F(z) beyond the tip, both clear of every ink layer by 2.5 px
-    const lz = mj('z', 9 * PT), lf = mj('F(z)', 9 * PT);
-    let labelled = null;
-    if (lz && lf && lz.w > 0) {
-      const PAD = 2.5;
-      const g = SegGrid(8);
-      for (const k of sel.kept) { g.addLine(k.body, 1); const hp = k.head.poly; g.addLine([...hp, hp[0]], 1); const c = k.l[0], r = MF.dotRing; g.add([c[0] - r, c[1]], [c[0] + r, c[1]], 1); g.add([c[0], c[1] - r], [c[0], c[1] + r], 1); }
-      for (const l of sel.pxLines) g.addLine(l, 1);
-      for (const l of sel.endLines) g.addLine(l, 1);
-      const o = P(C(0, 0));
-      g.add([box.x, o[1]], [box.x + box.w, o[1]], 1); g.add([o[0], box.y], [o[0], box.y + box.h], 1);
-      const frameIn = { x0: box.x + 5, y0: box.y + 5, x1: box.x + box.w - 5, y1: box.y + box.h - 5 };
-      const rectOf = (it, c) => ({ x0: c[0] - it.w / 2 - PAD, x1: c[0] + it.w / 2 + PAD, y0: c[1] - it.h / 2 - PAD, y1: c[1] + it.h / 2 + PAD });
-      const grow = (R, e) => ({ x0: R.x0 - e, x1: R.x1 + e, y0: R.y0 - e, y1: R.y1 + e });
-      const clear = (R) => !(R.x0 < frameIn.x0 || R.x1 > frameIn.x1 || R.y0 < frameIn.y0 || R.y1 > frameIn.y1) && !g.hitsRect(R);
-      const room = (R) => { let best = -1; for (const e of [0, 1.5, 3.5, 5.5]) { if (clear(grow(R, e))) best = e; else break; } return best; };
-      const ext = (it, u) => Math.min((it.w / 2 + PAD) / Math.max(Math.abs(u[0]), 1e-9), (it.h / 2 + PAD) / Math.max(Math.abs(u[1]), 1e-9));
-      const dirs = Array.from({ length: 24 }, (_, k) => [Math.cos(k * Math.PI / 12), Math.sin(k * Math.PI / 12)]);
-      const ang = (u, v) => Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1])));
-      const toW = (p) => C(box.wx0 + (p[0] - box.x) / box.w * (box.wx1 - box.wx0), box.wy1 - (p[1] - box.y) / box.h * (box.wy1 - box.wy0));
-      const placeZ = (k) => {
-        const a = k.l[0];
-        const out = dirs.filter((u) => !sel.X.inside(toW([a[0] + 4 * u[0], a[1] + 4 * u[1]])));
-        let n;
-        if (out.length && out.length < dirs.length) { n = out.reduce((s2, u) => [s2[0] + u[0], s2[1] + u[1]], [0, 0]); const q = Math.hypot(n[0], n[1]) || 1; n = [n[0] / q, n[1] / q]; }
-        else { const a2 = k.l[Math.min(k.l.length - 1, 4)], q = mDist(a, a2) || 1; n = [(a[0] - a2[0]) / q, (a[1] - a2[1]) / q]; }
-        let best = null;
-        for (const u of dirs.filter((u2) => ang(u2, n) <= 75 * Math.PI / 180)) {
-          const d = MF.dotRing + 1.2 + ext(lz, u), c = [a[0] + d * u[0], a[1] + d * u[1]];
-          if (k.sp.kind !== 'node' && sel.X.areas.length && sel.X.inside(toW(c))) continue;
-          // unambiguous: no other start dot as near the label as its own (by a third)
-          const dOwn = mDist(c, a);
-          if (sel.kept.some((q) => q !== k && mDist(c, q.l[0]) < 1.2 * dOwn)) continue;
-          const R = rectOf(lz, c), r = room(R);
-          // (among the clear places, the one whose own dot is nearest by the widest margin, then the most room)
-          const ratio = Math.min(2, Math.min(...sel.kept.filter((q) => q !== k).map((q) => mDist(c, q.l[0])), 1e9) / dOwn);
-          if (r >= 0 && (!best || ratio > best.ratio + 0.05 || (ratio > best.ratio - 0.05 && r > best.r))) best = { c, R, r, ratio };
-        }
-        return best;
-      };
-      const placeF = (k, Rz) => {
-        const e = k.l[k.l.length - 1], ue = k.head.u;
-        let best = null;
-        for (const u of dirs.filter((u2) => ang(u2, ue) <= 100 * Math.PI / 180)) {
-          const d = 1.5 + ext(lf, u), c = [e[0] + d * u[0], e[1] + d * u[1]];
-          const dOwn = mDist(c, e);
-          if (sel.kept.some((q) => q !== k && mDist(c, q.l[q.l.length - 1]) < 1.2 * dOwn)) continue;
-          const R = rectOf(lf, c);
-          if (Rz && !(R.x1 < Rz.x0 || Rz.x1 < R.x0 || R.y1 < Rz.y0 || Rz.y1 < R.y0)) continue;
-          const r = room(R);
-          if (r >= 0 && (!best || r > best.r)) best = { c, R, r };
-        }
-        return best;
-      };
-      let pick = null;
-      // a boundary path first; an interior one when no boundary path has room
-      for (const nodes of [false, true]) {
-        for (const k of sel.kept.filter((q) => q.sp.kind !== 'point' && (q.sp.kind === 'node') === nodes).sort((x, y) => y.len - x.len)) {
-          const zp = placeZ(k); if (!zp) continue;
-          const fp = placeF(k, zp.R); if (!fp) continue;
-          const r = Math.min(zp.r, fp.r);
-          if (!pick || r > pick.r) pick = { k, zp, fp, r };
-        }
-        if (pick) break;
-      }
-      if (pick) {
-        labelled = pick.k;
-        const put = (tex, c) => {
-          const it = mj(tex, 9 * PT, MF.labelInk), hw = mj(tex, 9 * PT, '#FFFFFF');
-          const x = c[0] - it.w / 2, y = c[1] + it.h / 2 + it.va;
-          const vb = (hw.markup.match(/viewBox="([^"]+)"/) || [])[1];
-          const sc = vb ? it.w / +vb.split(/\s+/)[2] : 0;
-          const casing = sc > 0 ? mjAt({ markup: hw.markup.replace(/ stroke="none"/g, ` stroke="#FFFFFF" stroke-width="${(1.5 / sc).toFixed(1)}" stroke-linejoin="round"`), w: it.w, h: it.h, va: it.va }, x, y) : '';
-          return `<g opacity="0.9">${casing}</g>${mjAt(it, x, y)}`;
-        };
-        s += put('z', pick.zp.c) + put('F(z)', pick.fp.c);
-      }
-    }
-    return { svg: s, labelled };
+    if (ol.length) s += `<g clip-path="url(#${clipId})"><path d="${ol.map(dP).join('')}" fill="none" stroke="${MF.outlineInk}" stroke-width="${MF.srcEdgeW}"${sel.X.open ? ` stroke-dasharray="${MF.dash}"` : ''}/></g>`;
+    s += pathsSvg(sel.kept.map((k) => pathItem(k, P, sel.Tend)), { u: 96 / 72, clip: { x: box.x, y: box.y, w: box.w, h: box.h }, id: `${clipId}p` });
+    return { svg: s, labelled: null };
+  }
+  // a kept path for pathsSvg under the projection P (figure px or pt): its runs, the ring at z only where the path
+  // starts there, the end dot only where it reaches t = Tend, its arrowheads and step bars with their directions, its
+  // time dots (pathMarkTimes)
+  function pathItem(k, P, Tend) {
+    const mk = k.mk || {}, runs = k.runs || [];
+    const pr = (w) => (w ? P(w) : null);
+    const dirOf = (m) => { const a = pr(m.a), b = pr(m.b), d = a && b ? mDist(a, b) : 0; return d > 1e-9 ? [(b[0] - a[0]) / d, (b[1] - a[1]) / d] : null; };
+    const lr = runs[runs.length - 1];
+    return {
+      runs: runs.map((r) => r.map((q) => P(q.w))),
+      z: runs.length && runs[0][0].T === 0 ? pr(mk.z) : null,
+      e: lr && lr[lr.length - 1].T >= Tend - 1e-9 ? pr(mk.e) : null,
+      arrows: (mk.arrows || []).map((m) => ({ p: pr(m.w), d: dirOf(m) })),
+      nodes: (mk.nodes || []).map((m) => ({ p: pr(m.w), d: dirOf(m) })),
+      dots: (mk.dots || []).map((m) => pr(m.w)),
+    };
   }
   // the geometry of a kept path in the plane: 'segment', 'arc' or 'other' (the caption's path clause, measured)
   function morphPathShape(z, Tend) {
@@ -4920,6 +4992,22 @@
     });
     return { segs, stop, mobius: false };
   }
+  // the times of a path's marks, m/4, m/2 and 3m/4, as TeX: a reduced fraction when m is whole (1/4, 3/2), else a number
+  const pathTimesTex = (Tend) => [1, 2, 3].map((j) => {
+    if (Math.abs(Tend - Math.round(Tend)) > 1e-9) return I18N.texNum(CX.fmtNum(Tend * j / 4, 3));
+    let n = Math.round(Tend) * j, d = 4;
+    while (n % 2 === 0 && d > 1) { n /= 2; d /= 2; }
+    return d === 1 ? String(n) : `${n}/${d}`;
+  });
+  // a time as TeX: a reduced fraction when it is a whole number of quarters (1/4, 3/2), else a number
+  const timeTex = (x) => {
+    let n = Math.round(4 * x), d = 4;
+    if (Math.abs(4 * x - n) > 1e-9) return I18N.texNum(CX.fmtNum(x, 3));
+    while (n % 2 === 0 && d > 1) { n /= 2; d /= 2; }
+    return d === 1 ? String(n) : `${n}/${d}`;
+  };
+  // the times of the marks (pathMarkTimes) as TeX lists for the captions: { seq, arrows: '1/2,\\ 3/2', nodes: '1' }
+  const pathMarksTex = (Tend) => { const mt = pathMarkTimes(Tend), list = (l) => l.map(timeTex).join(',\\ '); return { seq: mt.seq, arrows: list(mt.arrows), nodes: list(mt.nodes), dots: mt.dots.map(timeTex) }; };
   // the deformation caption (morph-figure.md 5): generated from the shapes, the chain, the kept set and the measured
   // geometry of the paths; true of what is drawn. opt.both: the (b) part of the Both figure, after "The deformation
   // H_t, 0 <= t <= T:", which names the set of (a) instead of repeating it
@@ -4963,8 +5051,12 @@
         const kinds = new Set(sel.kept.map((k) => morphPathShape(k.sp.z, Tend)));
         if (!kinds.has('other')) clause = kinds.size === 2 ? $t('; each is an arc of a circle or a segment') : kinds.has('arc') ? $t('; each is an arc of a circle') : $t('; each is a segment');
       }
-      out.push(...capT(' Arrows are the paths %{p} of %{parts}, from %{z} (dot) to %{end}%{clause}.', { p: { m: 't\\mapsto H_t(z)' }, parts: parts.length > 1 ? parts.slice(0, -1).join(', ') + $tx('list', ' and ') + parts[parts.length - 1] : parts[0], z: { m: 'z' }, end: { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}(z)` : 'F(z)' }, clause }));
-      if (sel.kept.some((k) => k.meet)) out.push({ t: $t(' Arrows that meet show points with the same image.') });
+      const q = pathTimesTex(Tend).map((x) => ({ m: `t=${x}` })), mx = pathMarksTex(Tend);
+      const args = { p: { m: 't\\mapsto H_t(z)' }, parts: parts.length > 1 ? parts.slice(0, -1).join(', ') + $tx('list', ' and ') + parts[parts.length - 1] : parts[0], z: { m: 'z' }, end: { m: Tend < morphLen() - 1e-9 ? `H_{${I18N.texNum(CX.fmtNum(Tend, 2))}}(z)` : 'F(z)' }, q1: q[0], q2: q[1], q3: q[2], qa: { m: `t=${mx.arrows}` }, qn: { m: `t=${mx.nodes}` }, clause };
+      // (steps one after another: an arrowhead in the middle of each step, a bar where the steps meet)
+      if (!mx.seq) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}%{clause}.', args));
+      else if (mx.nodes) out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa} (the middle of each step) and a bar at %{qn}, where one step ends and the next begins%{clause}.', args));
+      else out.push(...capT(' Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa}%{clause}.', args));
     }
     out.push(...patternSegs(Fname));
     if (vis.some((s) => kindType(s) === 'area' && Region.isOpen(s))) out.push({ t: $t(' Dashed boundaries do not belong to the sets.') });
@@ -5017,7 +5109,7 @@
     drawMorphOutline(pane, X, base > 0 ? stageF(base) : null);
     const paths = !figMode && S.morphPaths !== false && !morphHasDeriv();
     if (paths) {
-      try { drawMorphPaths(pane, morphSelScreen(pane), ms.F); } catch (e) { console.error('deformation paths', e); }
+      try { drawMorphPathsX(pane, morphSelScreen(pane), ms.F); } catch (e) { console.error('deformation paths', e); }
     } else {
       // (Paths off: the point trails from t = 0 to now, as before)
       const ctx = pane.ctx;
@@ -6564,6 +6656,7 @@
       if (lPaintsF()) dirty.L = true;
       again = morph.playing;
       soundFunctionChanged('t');
+      sndMotion();   // (sound: the motion bed on a play's first pass)
       // the cards are held while it plays (renderThumbs is debounced past every frame), so their t is not the main
       // t: they show no t until they are redrawn after the pause (review verify-1, design-13)
       if (morph.playing && cardKind() === 'def') for (const c of document.querySelectorAll('#pipeline .card:not(.stale)')) c.classList.add('stale');
@@ -6960,7 +7053,8 @@
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan')}</span>` : rk('', paneL ? scaleText(paneL) : ''));
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in Archivo)
   function idleRight() {
-    const v = rGlobe() ? { hint: globeHint('R') }
+    // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
+    const v = rGlobe() ? { hint: mfGlobeAway() ? $t('Paths: X is on the far side; drag to turn') : globeHint('R') }
       : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in the {x}-plane', { x: yHtml() }) } : scaleText(paneR);
     return v && v.hint ? `<span class="rhint">${v.hint}</span>` : rk('', v);
   }
@@ -7116,6 +7210,7 @@
       const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
       const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? $t('Pause') : $t('Play'), 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
       const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': $t('Deformation time'),
+        onchange: () => sndScrubEnd(), onpointerup: () => sndScrubEnd(),
         oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; sndScrub(morph.T, v); morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
       const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
       if (allAtOnce()) {
@@ -7286,6 +7381,8 @@
   }
   function legendWanted(side = 'R') { return !!legendKind(side); }
   function drawLegend() { drawLegendSide('L'); drawLegendSide('R'); }
+  // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
+  const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   function drawLegendSide(side) {
     const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
@@ -7396,15 +7493,23 @@
       // the rows the view outline uses in X → Y (merged-views review: the chip's lower half was blank)
       if (morphOn()) {
         const run = (t, font, color, x, yy) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, yy); return x + ctx.measureText(t).width; };
+        // (with a cut's row above, X and the paths share the last row: the paths' row is never dropped)
+        const paths = S.morphPaths !== false && !morphHasDeriv(), share = paths && y > 52;
+        let px0 = 8;
         if (y < 68) {
           // (at a focused step after the first, the start is the dashed outline of the step's source, renderMorph)
-          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y); }
-          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); run('start', `11px ${TH.ui}`, TH.muted, 30, y); }
-          y += 15;
+          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); px0 = run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y) + 10; }
+          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); px0 = run('start', `11px ${TH.ui}`, TH.muted, 30, y) + 10; }
+          if (share) px0 = Math.min(px0, W - 80); else { y += 15; px0 = 8; }
         }
-        if (y < 72 && S.morphPaths !== false && !morphHasDeriv()) {
-          ctx.strokeStyle = TH.muted; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(23, y); ctx.moveTo(19.5, y - 3); ctx.lineTo(23.5, y); ctx.lineTo(19.5, y + 3); ctx.stroke();
-          let x = run('t', `italic 500 12px ${TH.math}`, TH.muted, 30, y);
+        if (y < 72 && paths) {
+          // the paths' glyph (as on screen): an open ring, the line, a small arrowhead at its middle, a filled dot
+          ctx.strokeStyle = TH.muted; ctx.fillStyle = TH.muted; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(px0 + 3.6, y); ctx.lineTo(px0 + 15, y); ctx.stroke();
+          ctx.beginPath(); ctx.arc(px0 + 1.8, y, 1.8, 0, TAU); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(px0 + 11, y); ctx.lineTo(px0 + 6.5, y - 2.6); ctx.lineTo(px0 + 7.8, y); ctx.lineTo(px0 + 6.5, y + 2.6); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.arc(px0 + 16, y, 2, 0, TAU); ctx.fill();
+          let x = run('t', `italic 500 12px ${TH.math}`, TH.muted, px0 + 22, y);
           x = run(' ↦ ', `11px ${TH.ui}`, TH.muted, x, y);
           x = run('H', `italic 500 12px ${TH.math}`, TH.muted, x, y);
           x = run('t', `italic 500 9px ${TH.math}`, TH.muted, x, y + 3);
@@ -7615,7 +7720,7 @@
       for (const it of list) {
         if (it === 'sep') { host.append(h('div', { class: 'msep', role: 'separator' })); continue; }
         const ic = it.swatch ? `<span class="swatch" style="--c0:${it.swatch.c0};--c1:${it.swatch.alt};--k:${it.swatch.edge}"></span>` : it.icon ? ICONS[it.icon] || '' : '';
-        const b = h('button', { class: 'mi' + (it.danger ? ' danger' : '') + (it.kids ? ' has-sub' : ''), role: it.radio ? 'menuitemradio' : 'menuitem', 'aria-checked': it.radio ? String(!!it.checked) : null, disabled: it.disabled || null, 'aria-haspopup': it.kids ? 'menu' : null,
+        const b = h('button', { class: 'mi' + (it.danger ? ' danger' : '') + (it.kids ? ' has-sub' : ''), role: it.radio ? 'menuitemradio' : 'menuitem', 'aria-checked': it.radio ? String(!!it.checked) : null, disabled: it.disabled || null, 'aria-haspopup': it.kids ? 'menu' : null, 'data-tip': it.tip || null, 'aria-description': it.tip || null,
           onclick: (e) => {
             e.stopPropagation();
             if (it.kids) { openMenu(b, it.kids, cls, { opener, okey, parent: items, label: it.label }); return; }
@@ -7844,7 +7949,7 @@
     const ptField = (key, label) => {
       // (v15: a field may hold a formula of the shared numbers, kept in s.bind)
       const ptText = () => (s.bind && s.bind[key]) || CX.fmt(C(s[key][0], s[key][1]), 6);
-      const inp = h('input', { class: 'inp mono', value: ptText(), spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+      const inp = h('input', { class: 'inp mono', value: ptText(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
       follow(inp, () => (s[key] ? ptText() : null));
       const f = h('div', { class: 'field' }, lab(label), inp);
       const now = () => JSON.stringify([s[key], s.bind && s.bind[key]]);
@@ -7866,7 +7971,7 @@
     const numField = (key, label, step = 'any') => {
       // (v15: a text field, so that it takes formulas of the shared numbers: 2a, ρ/2)
       const numText = () => (s.bind && s.bind[key]) || fmtNumIn(s[key]);
-      const inp = h('input', { class: 'inp mono', type: 'text', step, value: numText(), spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+      const inp = h('input', { class: 'inp mono', type: 'text', step, value: numText(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
       follow(inp, () => (s[key] != null ? numText() : null));
       const l = lab(label);
       const f = h('div', { class: 'field' }, l, inp);
@@ -7906,7 +8011,7 @@
       case 'cgrid': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>')), numField('n', $t('divisions'), 1)); break;
       case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
-        const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+        const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
         inp.addEventListener('input', () => {
           // (Russian: a comma between digits read as two conditions keeps the set, with the warning as the tip: verify-5)
           try { const warn = []; Expr.compileLevel(Expr.parse(inp.value, { allowRel: true, notes: warn })); setExprBind(s, inp.value); inp.classList.remove('bad'); if (warn.length) inp.setAttribute('data-tip', warn.join(' ')); else inp.removeAttribute('data-tip'); shapesChanged(false); } catch (e) { inp.classList.add('bad'); }
@@ -7918,7 +8023,7 @@
       case 'fcurve': {
         // the equation stays a curve while typed (an area or a refused equation keeps the last good one); the notes
         // are the curve engine's: the formula's own and this window's trace's (budget, touching zeros)
-        const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+        const inp = h('input', { class: 'inp math-src', value: (s.bind && s.bind.expr) || s.expr, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
         const fld = h('div', { class: 'field wide' }, lab($tx('field', 'equation')), inp);
         const nt = h('div', { class: 'lbl note' });
         const notes = () => {
@@ -8219,8 +8324,13 @@
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
-    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
     const bk = built[k - 1];
+    // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
+    if (st.type === 'custom') {
+      const sp = Funcs.splitSteps(st, bk), no = sp.kind === 'none' || !!sp.blocked;
+      items.push({ label: sp.kind === 'one' ? $t('Replace with “{name}”', { name: Funcs.DEFS[sp.steps[0].type].label }) : $t('Split into steps'), disabled: no, tip: no ? Funcs.splitReason(sp) : null, run: () => splitStep(k) });
+    }
+    // a polynomial or rational map by its zeros and poles (dragged in the input plane), and back
     if (Funcs.DEFS.zp && (st.type === 'poly' || st.type === 'rational' || (st.type === 'custom' && bk && !bk.error && bk.props && bk.props.rational && !bk.usesCut))) items.push({ label: $t('Write by zeros and poles'), disabled: !!(bk && (bk.error || (bk.props && bk.props.constant))), run: () => convertZp(k, true) });
     if (st.type === 'zp') items.push({ label: $t('Write by coefficients'), disabled: !!(bk && bk.error), run: () => convertZp(k, false) });
     items.push('sep', { label: $t('Remove'), icon: 'trash', danger: true, run: () => removeStep(k) });
@@ -8493,7 +8603,7 @@
       // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
       const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
       const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
-      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocomplete: 'off', 'data-fx': '' });
+      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
       if (num) input.dataset.num = '1';
       input.addEventListener('input', () => {
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
@@ -8579,6 +8689,67 @@
     const card = document.querySelector(`#pipeline .card[data-k="${at + 1}"]`);
     if (card) card.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     return cardButton(at + 1);
+  }
+  // v15.2: a formula added as its steps (the palette's Add as n steps): one commit, the first new step shown alone; into
+  // an empty chain, F is the formula the user typed, so the planes show F with its parts on the cards (review steps-1)
+  function addSteps(list, at) {
+    if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
+    at = Math.max(0, Math.min(S.steps.length, at));
+    const news = list.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: true }));
+    const empty = !S.steps.length;
+    S.steps.splice(at, 0, ...news);
+    chainChanged(true);
+    setFocus(empty ? 0 : at + 1);
+    if (empty) { S.sel = 1; syncSel(); }
+    commit();
+    startTransition(at + 1);
+    for (const s of news) noteRecent(s.type);
+    soundCue('stepAdd');
+    bornCards(at + 1, news.length);
+    return cardButton(at + 1);
+  }
+  // the new cards unfold (200 ms; none with reduced motion), and the first one scrolls into view
+  function bornCards(k, n) {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const cards = [];
+    for (let j = k; j < k + n; j++) { const c = document.querySelector(`#pipeline .card[data-k="${j}"]`); if (c) cards.push(c); }
+    if (!still) { for (const c of cards) c.classList.add('born'); setTimeout(() => { for (const c of cards) c.classList.remove('born'); }, 240); }
+    if (cards[0]) cards[0].scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still ? 'auto' : 'smooth' });
+  }
+  // v15.2 (notes/formula-steps/DESIGN.md 7): a formula step replaced by the catalog steps it is (Funcs.splitSteps): the
+  // same function, so the planes do not change; one commit, undone by Undo
+  function splitStep(k) {
+    const st = S.steps[k - 1], b = built[k - 1];
+    const sp = st && st.type === 'custom' ? Funcs.splitSteps(st, b) : null;
+    if (!sp || sp.kind === 'none' || sp.blocked) { sndError(); toast(Funcs.splitReason(sp).replace(/\.?$/, '.')); return null; }
+    const news = sp.steps.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: st.on !== false }));
+    const n = news.length;
+    // the deformation (open on the whole chain): the formula's unit [j, j+1) becomes [j, j+n), its own sub-steps
+    let T1 = null;
+    // (all at once: one t for every step, kept as it is; the movie runs the new steps together)
+    if (morph.open && S.focus === 0) { const j = morphRange().steps.indexOf(k); T1 = S.homAll ? morph.T : j >= 0 ? Funcs.splitMorphT(morph.T, j, n) : morph.T; }
+    // the formula shown alone (the palette's flow focuses a new step): the first new step alone is only part of it. With
+    // no other step, F is the formula: show F, so the planes stay the same; otherwise the toast says what is shown
+    // (review steps-1)
+    const alone = S.focus === k, only = S.steps.length === 1;
+    S.steps.splice(k - 1, 1, ...news);
+    if (S.focus > k) S.focus += n - 1;
+    else if (alone && only) S.focus = 0;
+    chainChanged(true);
+    setFocus(S.focus);
+    S.sel = k;
+    if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
+    syncSel();
+    commit();
+    soundCue('stepAdd');
+    tourEmit('formula-split', { k, n });
+    bornCards(k, n);
+    requestRender('P');
+    const shown = alone && !only && n > 1 ? ' ' + (document.documentElement.classList.contains('ph') ? $t('Showing f{k} alone.', { k: sub(k) }) : $t('Showing f{k} alone; › shows the next step.', { k: sub(k) })) : '';
+    undoToast((n === 1 ? $t('f{k} is now the step “{name}”.', { k: sub(k), name: Funcs.DEFS[news[0].type].label })
+      : $t('Split f{k} into f{k}–f{k2}: {chain}.', { k: sub(k), k2: sub(k + n - 1), chain: sp.names.join(' → ') })) + shown);
+    // (the card, focusable, for the ⋯ menu's focus; true while the chain is still to be drawn; null is a refusal)
+    return document.querySelector(`#pipeline .card[data-k="${k}"]`) || true;
   }
   function removeStep(k) {
     const name = defOf(S.steps[k - 1]).label;
@@ -8772,7 +8943,7 @@
     const ll = lb.querySelector('.llabel'); if (ll) { ll.textContent = nm; if (pref === 'auto') ll.removeAttribute('lang'); else ll.setAttribute('lang', pref); }
   }
   function paletteItems(q, fnOnly) {
-    q = q.trim();
+    q = Expr.typed(q.trim());
     const ql = q.toLowerCase();
     const items = [];
     const score = (text) => (I18N.lang === 'en' || !ql ? score1(text) : Math.max(score1(text), score1(enOf(text))));
@@ -8797,8 +8968,23 @@
             items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: $t('Add this curve'), desc: $t('Adds {what} in the z-plane', { what: plan.what }), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
           } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: q })); } }); }
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
-          const cb = Funcs.build({ type: 'custom', params: { expr: q, cut: 180 }, on: true });
-          items.push({ kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Custom formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) });
+          const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
+          const cb = Funcs.build(cst);
+          const formula = { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Custom formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) };
+          // v15.2 (notes/formula-steps/DESIGN.md 4): a query that reads as exactly one catalog step is that step, with its
+          // parameters written from the query, listed first (Enter adds it); the formula is the second choice. A query
+          // of several steps keeps the formula first and offers it as those steps second.
+          const sp = cb.error ? null : Funcs.splitSteps(cst, cb);
+          if (sp && sp.kind === 'one' && !sp.blocked && sp.rows) {
+            const s0 = sp.steps[0], d0 = Funcs.DEFS[s0.type], p0 = Object.assign(Funcs.defaults(s0.type), s0.params);
+            const b0 = Funcs.build({ type: s0.type, params: p0, on: true });
+            items.oneType = s0.type;
+            items.push({ kind: 'fn', type: s0.type, params: p0, group: d0.group, tex: `f(z)=${sp.rows[1].tex}`, label: d0.label, desc: (FN_INFO[s0.type] || [''])[0], props: b0.error ? {} : b0.props, one: true, run: (at) => addStep(s0.type, p0, at) });
+            items.push(formula);
+          } else if (sp && sp.kind === 'many' && !sp.blocked && sp.rows) {
+            const n = sp.steps.length;
+            items.push(formula, { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: formula.tex, label: $tn('Add as {n} step', 'Add as {n} steps', n, { n }), desc: sp.names.join(' → '), props: formula.props, rows: sp.rows, run: (at) => addSteps(sp.steps, at) });
+          } else items.push(formula);
         }
       } catch (e) { items.parseErr = e.message; } // shown when nothing else matches
     }
@@ -8825,7 +9011,8 @@
       if (!ql || sc >= 0.5) fns.push(fnItem(dd, 'Calculus', sc));
     }
     if (ql) fns.sort((a, b) => b.sc - a.sc);
-    items.push(...fns);
+    // (no two Sine rows: the one-step reading of the query is the catalog row of that type)
+    items.push(...(items.oneType ? fns.filter((x) => x.type !== items.oneType) : fns));
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
       for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: c })); } });
@@ -8899,7 +9086,7 @@
     const explicit = at != null;
     const insertAt = explicit ? at : (S.focus > 0 ? S.focus : S.steps.length);
     const ctxText = explicit ? (at === 0 ? $t('Insert at the start') : $t('Insert after f{x}', { x: sub(at) })) : (S.focus > 0 ? $t('Insert after f{x}', { x: sub(S.focus) }) : $t('Append to the chain'));
-    const input = h('input', { class: 'pal-input', id: 'palInput', placeholder: opt.fnOnly ? $t('Search functions, or type a formula in z') : $t('Search functions, regions, examples, commands'), spellcheck: 'false', autocomplete: 'off', 'aria-label': $t('Search'), role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palList' });
+    const input = h('input', { class: 'pal-input', id: 'palInput', placeholder: opt.fnOnly ? $t('Search functions, or type a formula in z') : $t('Search functions, regions, examples, commands'), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': $t('Search'), role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palList' });
     const list = h('div', { class: 'pal-list', role: 'listbox', id: 'palList' });
     const pvCanvas = h('canvas', { width: 368, height: 368 });
     const pvCap = h('div', { class: 'pal-cap' });
@@ -8936,7 +9123,10 @@
         const row = h('div', { class: 'pal-item' + (i === palState.sel ? ' sel' : ''), role: 'option', id: `pal-o${i}`, 'aria-selected': String(i === palState.sel), 'data-i': i,
           onpointermove: () => { if (palState.sel !== i) { palState.sel = i; mark(false); } },
           onclick: (e) => runItem(it, e.shiftKey) },
-        t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, ...(it.labelParts ? it.labelParts() : [it.label])), it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
+        t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, ...(it.labelParts ? it.labelParts() : [it.label])),
+          // (on a phone the preview with its derivation is hidden: Add as n steps shows the derivation itself, small and
+          // fitted, instead of the step names, review steps-12)
+          it.rows && document.documentElement.classList.contains('ph') ? h('span', { class: 'pal-desc pal-drv' }, drvLine(it.rows, 'drv-line', 0.6)) : it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
         list.append(row);
       });
       // a query that looks like a formula but does not parse gets the parser's message and its suggestions
@@ -9072,6 +9262,37 @@
       }
     }
     cap.innerHTML = $t('Image after adding {f}', { f: fsub((palState ? palState.at : S.steps.length) + 1) });
+    // (Add as n steps: the derivation z ↦ z² ↦ z²+1 ↦ sin(z²+1), smaller when it is long, down to 70 %, then on a
+    // second line after a ↦: never cut, review steps-2)
+    if (it.rows) {
+      cap.innerHTML = '';
+      cap.append(drvLine(it.rows, 'pal-rows', 0.7));
+    }
+  }
+  // a derivation as a line of its rows' formulas joined by ↦, each typeset on its own, so the line can break after a ↦;
+  // it shrinks to fit its box first (down to min), and wraps past that (review steps-2, steps-12)
+  function drvLine(rows, cls, min) {
+    const line = h('span', { class: cls });
+    rows.forEach((r, i) => {
+      const t = h('span', { class: 'drv-tex' });
+      line.append(i ? h('span', { class: 'drv-map', 'aria-hidden': 'true' }, '↦') : '', t);
+      TeX.set(t, r.tex);
+    });
+    let tries = 0;
+    const fit = () => {
+      if (!line.isConnected) { if (++tries < 60) requestAnimationFrame(fit); return; }
+      const box = line.parentNode, avail = box ? box.clientWidth - parseFloat(getComputedStyle(box).paddingLeft || 0) - parseFloat(getComputedStyle(box).paddingRight || 0) : 0;
+      if (!TeX.ready || !(avail > 0)) { if (++tries < 120) requestAnimationFrame(fit); return; }
+      line.style.fontSize = '';
+      line.classList.add('measure');
+      const w = line.scrollWidth;
+      line.classList.remove('measure');
+      // (the gaps between the pieces are px and do not scale with the type)
+      const G = Math.max(0, line.children.length - 1) * (parseFloat(getComputedStyle(line).columnGap) || 0);
+      if (w > avail + 0.5) line.style.fontSize = Math.floor(Math.max(min, (avail - G) / Math.max(1, w - G)) * 100) + '%';
+    };
+    requestAnimationFrame(fit);
+    return line;
   }
 
   // ---------------- guarantees panel ----------------
@@ -9151,13 +9372,19 @@
     if (!head) return;
     let chip = $('aloneChip');
     if (!chip) {
-      chip = h('span', { class: 'alone-chip', id: 'aloneChip', hidden: true }, h('span', { class: 'ac-t' }),
+      // (v15.2: ‹ and › walk the steps one by one, in the head strip, never over the plane)
+      const nav = (d) => h('button', { class: 'icon-btn ac-nav ' + (d < 0 ? 'prev' : 'next'), type: 'button', 'aria-label': d < 0 ? $t('Show the previous step alone') : $t('Show the next step alone'), 'data-tip': d < 0 ? $t('Show the previous step alone') : $t('Show the next step alone'),
+        onclick: () => { const j = S.focus + d; if (j >= 1 && j <= S.steps.length) { setFocus(j); requestRender('P'); } } }, d < 0 ? '‹' : '›');
+      chip = h('span', { class: 'alone-chip', id: 'aloneChip', hidden: true }, nav(-1), h('span', { class: 'ac-t' }), nav(1),
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': $t('Show the whole chain'), 'data-tip': $t('Show the whole chain'), html: ICONS.close, onclick: () => setFocus(0) }));
       head.insertBefore(chip, $('leftLed'));
     }
     const k = S.focus;
     chip.hidden = !(k > 0);
     if (k > 0) { const ht = $t('{f} alone', { f: `<i>f</i>${sub(k)}` }); const el = chip.querySelector('.ac-t'); if (el.innerHTML !== ht) el.innerHTML = ht; }
+    const pv = chip.querySelector('.ac-nav.prev'), nx = chip.querySelector('.ac-nav.next');
+    if (pv) pv.disabled = !(k > 1);
+    if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
   // the Inspector docks under the chain from 768 to 1023 px; from 1024 a hidden panel opens as the temporary Inspector
   const underChain = () => window.innerWidth >= 768 && window.innerWidth < 1024;
@@ -9239,7 +9466,7 @@
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
       paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep,
-      regionSummary, swatchStyle, kindType, requestRender, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -9748,6 +9975,30 @@
   // opt.morph (the deformation open, morph-figure.md 5): the right panel is the deformation, one plane with X, its
   // image and the paths, for 0 <= t <= end (or up to the current t with opt.upTo), whatever the scrubber shows
   const mfFigCache = { key: '', sel: null };
+  // the paths figure's own choice (figure.js figPaths): the points kept in the world window o.box drawn o.w x o.h pt
+  // (pathsGen at the figure's spacing), and the caption that names them, in o.lang; o.paths false: none (the caption
+  // without its paths sentence). -> {kept: [{z, kind}], captionTex} or null (cancelled, or no deformation picture)
+  async function figMorphPaths(o) {
+    const alive = o.alive || (() => true);
+    if (!(morphOn() && rImage() && !morphHasDeriv())) return null;
+    const Tend = morphLen(), b = o.box, w = o.w * 96 / 72, h = o.h * 96 / 72;
+    const P = (z) => [(z.re - b.x0) / (b.x1 - b.x0) * w, (b.y1 - z.im) / (b.y1 - b.y0) * h];
+    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false), Tend, b.x0, b.x1, b.y0, b.y1, w, h]);
+    let sel = mfFigCache.key === key ? mfFigCache.sel : null;
+    if (!sel) {
+      sel = await runGenSliced(pathsGen(P, { x: 0, y: 0, w, h }, b, Tend, { scale: PATHS.figK, maxN: PATHS.figMax, fig: true }), alive);
+      if (!sel || !alive()) return null;
+      mfFigCache.key = key; mfFigCache.sel = sel;
+    }
+    if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
+    let capSegs;
+    I18N.using(o.lang || I18N.lang, () => {
+      const keepT = morph.T;
+      morph.T = Tend;
+      try { capSegs = morphCaption(sel, Tend); } finally { morph.T = keepT; }
+    });
+    return { kept: sel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind })), captionTex: captionLatex(capSegs) };
+  }
   // (the export meshes of smPrepareExport live only while the figure draws; f.partial counts the forward images whose
   // mesh ended on a budget, which the dialog's note reports)
   // (each call tags its export meshes with its own generation, so a cancelled call's cleanup never drops the meshes
@@ -9831,7 +10082,7 @@
         const fkey = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
         if (mfFigCache.key === fkey) mSel = mfFigCache.sel;
         else {
-          mSel = await runGenSliced(morphPathsGen(P, { x, y, w: pw, h: r.ph }, b, opt.widthIn, Tend, { headL: MF.headL }), alive);
+          mSel = await runGenSliced(pathsGen(P, { x, y, w: pw, h: r.ph }, b, Tend, { scale: PATHS.figK, maxN: PATHS.figMax, fig: true }), alive);
           if (!mSel || !alive()) return null;
           mfFigCache.key = fkey; mfFigCache.sel = mSel;
         }
@@ -10051,7 +10302,6 @@
     sceneName: figSceneName,
     sceneMeta: () => JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => ({ type: st.type, params: st.params, on: st.on !== false })), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)),
     chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
-    legacyMorph: (o) => buildFigure({ panels: ['R'], widthIn: o.widthIn, caption: false, morph: true, paths: S.morphPaths !== false, alive: o.alive, lang: o.lang }),
     hue: hueBytes,
     // (export round 3) the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
     // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
@@ -10060,6 +10310,14 @@
     lift: liftC,
     // (export review r3) the screen's deformation paths (their points z), for the video's Paths
     screenPaths: () => (S.view.main === 'xy' && S.morphPaths !== false && mfCache.sel && mfCache.sel.kept ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
+    // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe), and the live globe's
+    // chosen points (the globe's paths figure draws the same ones)
+    pathsSvg: (items, o) => pathsSvg(items, o),
+    pathTimesTex: (m) => pathTimesTex(m),
+    pathMarkTimes: (m) => pathMarkTimes(m),
+    pathMarksTex: (m) => pathMarksTex(m),
+    morphPaths: (o) => figMorphPaths(o),
+    globePaths: () => (rGlobe() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
   });
   // what each lit lamp means, in LaTeX
   const BADGE_TEX = {
@@ -11635,6 +11893,7 @@
       <h3>${$t(`Function chain`)}</h3>
       <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. Double-click a card, or press the lens in the Inspector, to show that step alone. Drag a card's header onto a connector to reorder.`, { x: k('+') })}</p>
       <p>${$t(`Each card's picture follows the open view: card <i>k</i> shows <i>F</i><sub><i>k</i></sub>, the map up to its step, as an image in <i>X</i> → <i>Y</i>, a phase portrait in Phase and a relief in Landscape, so the last card is the main picture. The <b>F</b> tile closes the chain: see Guarantees.`)}</p>
+      <p>${$t(`A typed formula that is a chain of catalog steps, such as <span class="chip ftag" data-tex="\\sin(z^2+1)"></span>, shows in the Inspector how it is built: <span class="chip ftag" data-tex="z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class="chip ftag" data-tex="z^2+\\sin z"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.`)}</p>
       <h3>${$t(`Shared numbers`)}</h3>
       <p>${$t(`Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Parameters</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.`)}</p>
       <p>${$t(`<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.`)}</p>
@@ -11654,7 +11913,7 @@
       <h3>${$t(`Integrals`)}</h3>
       <p>${$t(`Right-click a curve or a region's boundary (hold it on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`)}</p>
       <h3>${$t(`Sound`)}</h3>
-      <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on: a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L') })}</p>
+      <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is a harp: silent while you rest, it plucks a note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B), so a loop around a zero of order <i>m</i> plays a rising scale <i>m</i> times, around a pole a falling one, and the low Ds, counted up minus down, are the winding number. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L') })}</p>
       <h3>${$t(`Guarantees`)}</h3>
       <p>${$t(`The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Select the tile, and the Inspector shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`)}</p>
       <h3>${$t(`Keys`)}</h3>
@@ -12259,6 +12518,9 @@
     // the last change of F a person made (not the transport's own frames); path, the paths of the changes since the
     // last evaluation (soundFunctionChanged({ at })); said, the last speech
     ptrOn: false, cxy: null, press: null, rp: null, userT: -1e9, path: null, said: null,
+    // v15.2: hT, the harp's last step (its dt); spd, the probe's speed (px per ms, for how hard a ping is struck); cv,
+    // the last loop singing while the function changes (curves sing); listenN, a tag per "listen along"
+    hT: 0, spd: 0, cv: { key: '', W: null, bad: null, idle: 0, on: false, hushed: false }, listenN: 0,
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
@@ -12286,13 +12548,22 @@
     sndStopPlay(false);
     SND.hush();
     if (snd.voice) snd.voice.gate(false, undefined, 0.01);
+    clearTimeout(snd.idleT);
+    clearTimeout(snd.cv.idle); snd.cv.on = false; snd.cv.key = '';
     // Esc means silence now: a still probe stops following the function until the pointer moves or the keyboard probe
     // steps again (review snddef-1). The pointer's position goes too, so no layout change re-picks a point under a
-    // still pointer (the merge, a view switch, a resize): sndPtr keeps it again from the next move
-    clearTimeout(snd.idleT);
+    // still pointer (the merge, a view switch, a resize): sndPtr keeps it again from the next move.
+    // v15.2 (review sound-1): the deformation may go on playing. Its motion bed is over for this play (a new Play arms
+    // it again) and the last loop stops singing H_t until the next thing a person does (sndUnhush: a press, a key, a
+    // move of the probe, Play, a scrub, a new loop)
+    snd.morphArm = false;
+    if (snd.mo) { SND.motionEnd(); snd.mo = null; }
+    snd.cv.hushed = true;
     snd.rest = null; snd.run = null; snd.path = null; snd.cxy = null; snd.rp = null;
     if (snd.fcRaf) { cancelAnimationFrame(snd.fcRaf); snd.fcRaf = 0; }
   }
+  // the next thing a person does after Esc lets the last loop sing again (review sound-1)
+  function sndUnhush() { snd.cv.hushed = false; }
   function sndSync(s) {
     sndP = s;
     const on = !!s.on;
@@ -12324,7 +12595,7 @@
       if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', 'ArrowUp ArrowDown ArrowLeft ArrowRight Z O D Enter L'); }
       else if (!on && cv.hasAttribute('tabindex')) { cv.removeAttribute('tabindex'); cv.removeAttribute('aria-keyshortcuts'); }
     }
-    if (!(on && s.sonify)) sndVoiceOff(true);
+    if (!(on && s.sonify)) { sndVoiceOff(true); sndCurveOff(); }
     if (!(on && s.events)) sndStopPlay(false);
     // the pointer's position on the page, only while Hear F is on (sndPtr)
     const hear = on && !!s.sonify;
@@ -12348,6 +12619,8 @@
     if (!SND) { for (const id of ['soundBtn', 'soundMore']) { const b = $(id); if (b) b.hidden = true; } return; }
     snd.tracker = !!(typeof Calc !== 'undefined' && Calc.argStep && Calc.orderAt);
     SND.subscribe(sndSync); sndSync(SND.state());
+    document.addEventListener('pointerdown', sndUnhush, true);
+    document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') sndUnhush(); }, true);
     $('soundBtn').addEventListener('click', soundToggle);
     $('soundPh').addEventListener('click', soundToggle);
     const pop = $('sndPop'), more = $('soundMore');
@@ -12388,17 +12661,38 @@
 
   // ---- Mathematical events: the deformation ----
   // the swell once per play the user starts, the arrival once per such play (never on loop repeats)
-  function sndMorphStart() { if (!sndP.on || !SND) return; snd.morphArm = true; SND.play('morphStart', {}); if (!(morph.T > 0)) snd.run = null; }
-  function sndMorphArrive() { if (!snd.morphArm) return; snd.morphArm = false; soundCue('morphEnd'); }
+  function sndMorphStart() { if (!sndP.on || !SND) return; sndUnhush(); snd.morphArm = true; SND.play('morphStart', {}); if (!(morph.T > 0)) snd.run = null; }
+  function sndMorphArrive() {
+    if (!snd.morphArm) return;
+    snd.morphArm = false;
+    if (snd.mo && SND) { SND.motionEnd(); snd.mo = null; }
+    soundCue('morphEnd', { vel: sndClamp(0.6 * Math.sqrt(2 / Math.max(0.2, S.morphSecs || 1.6)), 0.35, 0.9) });
+  }
   // scrubbing (v15.1): Sound.scrub decides from the drag's speed: soft detents at each 0.05 of t / morphLen() while
   // slow, a soft band that follows the speed while fast; t = 0, ½, 1 soft keys
   function sndScrub(T0, T1) {
     // (the slider's input sets morph.T right after this call: the tone follows H_t on the next frame; a person's step)
     snd.userT = performance.now();
+    sndUnhush();
     soundFunctionChanged('t');
     if (!sndP.on || !sndP.events || !SND) return;
     const m = morphLen() || 1;
     SND.scrub(T0 / m, T1 / m);
+  }
+  // the hand let go of the slider: the scrub's air fades (DESIGN v2 §3)
+  function sndScrubEnd() { if (SND) SND.scrubEnd(); }
+  // the motion bed (DESIGN v2 §4): while a play the user started runs its first pass, the scrub's air follows the
+  // playback (t / length and its rate); it fades at the arrival or a pause. Off while Hear the function is on (the harp
+  // and the loop's note follow H_t there). One line in frame().
+  function sndMotion() {
+    if (!SND || !sndP.on || !sndP.events) return;
+    const m = morphLen() || 1, now = performance.now();
+    if (!snd.morphArm || !morph.playing || !morph.open || sndP.sonify) { if (snd.mo) { SND.motionEnd(); snd.mo = null; } return; }
+    const mo = snd.mo || (snd.mo = { T: morph.T, t: now, rate: 0 });
+    const dt = (now - mo.t) / 1000;
+    if (dt > 0) { const r = Math.abs(morph.T - mo.T) / m / dt; mo.rate += (r - mo.rate) * Math.min(1, dt / 0.08); }
+    mo.T = morph.T; mo.t = now;
+    SND.motion(morph.T / m, mo.rate);
   }
 
   // ---- Hear the function under the pointer ----
@@ -12429,7 +12723,7 @@
   }
   function sndVoice(kind) {
     if (snd.voice && snd.kind !== kind) { snd.voice.stop(); snd.voice = null; }
-    if (!snd.voice) { snd.voice = kind === 'height' ? SND.heightVoice() : SND.voice(); snd.kind = kind; }
+    if (!snd.voice) { snd.voice = SND.heightVoice(); snd.kind = kind; }
     return snd.voice;
   }
   function sndVoiceOff(release) {
@@ -12477,10 +12771,11 @@
       if (kind && typeof kind.at === 'function') { if (snd.path !== false) (snd.path || (snd.path = [])).push(kind.at); }
       else { snd.fcGen++; snd.path = false; }
     }
-    if (!snd.fcRaf && snd.rest) snd.fcRaf = requestAnimationFrame(sndRetrack);
+    if (!snd.fcRaf && (snd.rest || (snd.lastLoop && morph.open))) snd.fcRaf = requestAnimationFrame(sndRetrack);
   }
   function sndRetrack() {
     snd.fcRaf = 0;
+    sndCurveLive();
     const r = snd.rest;
     if (!sndP.on || !sndP.sonify || !SND || !snd.tracker || snd.play || !r || r.src === 'loop') { snd.path = null; return; }
     if (r.src === 'key' && !snd.kz) { snd.path = null; return; }
@@ -12584,7 +12879,7 @@
     const F = sndF(), fk = sndFrameKey(), ck = `${chainSig[nSteps()]}#${snd.fcGen}`, vk = sndVKey(src);
     const T = morph.open ? morph.T : null, merged = src === 'merged';
     const pan = sndClamp(0.4 * (2 * px / Math.max(1, merged ? paneR.w : paneL.w) - 1), -0.4, 0.4);
-    if (!fn) snd.rest = { z, src, px, nk: sndVKey(src, true) };
+    if (!fn) { snd.rest = { z, src, px, nk: sndVKey(src, true) }; sndUnhush(); }
     // a view change: cues wait 250 ms, and the track starts afresh, since the probe's point moved with the view.
     // Except under a still needle (the relief's or X's globe's camera refitted while the function changes, as when the
     // deformation opens on the Landscape): the point is the same, so the track goes on, and the swap's glide with it
@@ -12614,7 +12909,11 @@
     // the 3 ms hold twice: a count of calls from the measured cost of one call, and a wall-clock deadline checked
     // inside the tracker (performance.now() may tick in 0.1 ms steps, too coarse to time one event's few calls)
     const deadline = t0 + 3;
-    let jump = false, budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
+    let jump = false, seat = false, budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
+    // the probe's speed in px per ms (how hard a zero's ping or a contour's bar is struck; DESIGN v2 §1.3)
+    const vs = merged ? V.right.s : leftView().s, dtp = t0 - (snd.pT || 0);
+    snd.pT = t0;
+    if (!fn) snd.spd = moved && dtp > 0 && dtp < 250 ? CX.abs(CX.sub(z, snd.last)) * vs / dtp : 0;
     // the run: arg's turns since the function under the probe began to change (bells, as a loop's). A run of the
     // transport's t lasts while the transport is open and the probe stays: a slow scrub or a pause keeps it (review
     // snddef-6). It ends at a swap, a new chain value, a play started from 0 (sndMorphStart) or a move of the probe
@@ -12664,7 +12963,8 @@
         const q = TAU / (S.sectors || 12), k0 = Math.floor(Math.log(CX.abs(snd.g)) / q), k1 = Math.floor(Math.log(CX.abs(g)) / q);
         if (k0 !== k1 && Number.isFinite(k0) && Number.isFinite(k1)) {
           const up = k1 > k0, n = Math.min(24, Math.abs(k1 - k0));
-          for (let j = 1; j <= n; j++) SND.tick({ k: up ? k0 + j : k0 - j + 1, pan });
+          const vel = fn ? undefined : sndClamp(0.3 + 0.3 * Math.log2(1 + snd.spd), 0.3, 0.85);
+          for (let j = 1; j <= n; j++) SND.tick({ k: up ? k0 + j : k0 - j + 1, pan, vel });
         }
       }
     } else if (sndOk(g)) {
@@ -12672,23 +12972,43 @@
       const a = Math.atan2(g.im, g.re) / TAU;
       snd.phi = a + Math.round(snd.phi - a);
       snd.run = null;
+      seat = true;
       if (snd.voice) snd.voice.reset();
     }
     snd.last = z; snd.g = g;
-    if (!sndOk(g)) return;   // F is 0 or ∞ here: the voice holds
-    if (!quiet && budget > 48 && performance.now() < deadline) sndNear(F, z, g, pan, budget, deadline, merged ? V.right.s : leftView().s); else if (quiet) snd.near = 0;
-    // the keyboard probe sounds a 280 ms sample, so the tone does not talk over a screen reader: at its own steps and
-    // at a change of F a person made (a scrub key, an edit, the transport opening). While the transport plays by
-    // itself the voice follows silently; the pings and bells still sound (review snddef-9)
-    const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
-    if (keyQuiet && !snd.voice) return;
-    const v = sndVoice(height ? 'height' : 'phase');
-    if (!v) return;
+    if (!sndOk(g)) return;   // F is 0 or ∞ here: the harp re-seats on the next point
+    snd.ld = 0;
+    if (!quiet && budget > 48 && performance.now() < deadline) sndNear(F, z, g, pan, budget, deadline, vs, fn); else if (quiet) snd.near = 0;
     const la = Math.log(CX.abs(g));
-    // (a swap glides over 0.15 s on the Height scale: the Shepard voice's own rule already takes 0.3 s a turn)
-    if (height) v.set(la, pan, undefined, S.sectors || 12, swap ? 0.15 : 0); else v.set(snd.phi, la, pan, undefined, jump);
     // (the merged plane draws the head H_t(p) of the probe's path: sndOverlay)
     if (merged) requestRender('OR');
+    if (!height) {
+      // the phase harp (v15.2, notes/sound/hearf option 2): silent while still; a plucked note at each of the five
+      // phase lines arg F crosses (D E F♯ A B; the low Ds counted up minus down are the winding number). A fresh start,
+      // a cut, a swap (no path joins the two functions), the 250 ms after a view gesture, and the keyboard probe while
+      // the transport plays by itself (it does not talk over a screen reader) re-seat it without a note. Within 8 px of
+      // a zero or pole, while the pointer moves (a trembling hand), only the Ds sound, each with its direction's fifth.
+      const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
+      const dt = snd.hT ? (t0 - snd.hT) / 1000 : 0.016;
+      snd.hT = t0;
+      // (a moving pointer, mouse or finger: the band is what 2.5 px of it turn arg F, so a hand held still near a zero
+      // plucks nothing (a 9 Hz tremor of ±1.5 px: 0 notes in 10 s at 6 to 40 px from a zero, was up to 149), review
+      // sound-3; the keyboard probe's steps and a still probe under a changing F keep 7.5°)
+      const band = !fn && src !== 'key' && snd.ld > 0 ? snd.ld * 2.5 / vs / TAU : 0;
+      if (seat || jump || swap || quiet || keyQuiet) SND.harpReset(snd.phi);
+      else SND.harp(snd.phi, { ln: la, pan, dt, h: band, shaky: !!snd.near && moved && !fn });
+      // a loop being drawn: the harp's state at its first point (harpClose at the release); a re-seat later in the loop
+      // (a cut, a view gesture) leaves its count as it is
+      const lp = snd.loop;
+      if (lp) { const hc = SND.harpState().c; if (lp.hc === undefined && hc !== null) lp.hc = hc; else if (seat || jump || swap || quiet || keyQuiet || hc === null) lp.hc = null; }
+      return;
+    }
+    // the Landscape: the Height voice (an organ on the pentatonic staircase of |F|)
+    const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
+    if (keyQuiet && !snd.voice) return;
+    const v = sndVoice('height');
+    if (!v) return;
+    v.set(la, pan, undefined, S.sectors || 12, swap ? 0.15 : 0);
     if (keyQuiet) return;
     v.gate(true);
     // stillness: the tone fades after 1.6 s without movement (of the probe or of the function under it) and is
@@ -12708,10 +13028,12 @@
   // to 40 there). Spoken only when
   // the engine played the ping (the cluster cue: "Many zeros or poles"), never the same words twice within 1.5 s
   // (review snddef-4). (vs: px per unit of the probe's plane)
-  function sndNear(F, z, g, pan, budget, deadline, vs) {
+  function sndNear(F, z, g, pan, budget, deadline, vs, fn) {
     const px = 1 / Math.max(1e-300, vs), hh = 0.5 * px;
     let ld = 0;
     try { const a = F(C(z.re + hh, z.im)), b = F(C(z.re - hh, z.im)); ld = CX.abs(CX.sub(a, b)) / (2 * hh) / CX.abs(g); } catch (e) { ld = 0; }
+    // (|F'/F| here, per unit: the harp's band, sndHover)
+    snd.ld = Number.isFinite(ld) ? ld : 0;
     if (snd.near) { if (!(ld > 1 / (14 * px)) || !Calc.orderAt(F, z, 14 * px, { budget, deadline })) snd.near = 0; return; }
     if (!(ld > 1 / (8 * px))) return;
     const m8 = Calc.orderAt(F, z, 8 * px, { budget, deadline });
@@ -12720,7 +13042,9 @@
     let m = m8;
     if (Math.abs(m) >= 2) { const m4 = Calc.orderAt(F, z, 4 * px, { budget, deadline }); if (m4 !== m) { if (!m4 || Math.abs(m4) > Math.abs(m)) return; m = m4; } }
     snd.near = m;
-    const played = SND.play(m > 0 ? 'zero' : 'pole', { order: Math.abs(m), pan });
+    // struck harder when approached faster (a still probe under a changing function: the default)
+    const vel = fn ? undefined : sndClamp(0.35 + 0.35 * Math.log2(1 + snd.spd), 0.35, 0.95);
+    const played = SND.play(m > 0 ? 'zero' : 'pole', { order: Math.abs(m), pan, vel });
     if (!played) return;
     sndSayOnce(played === 'dense' ? $t('Many zeros or poles') : m > 0 ? $t('Zero of order {m} here.', { m: Math.abs(m) }) : $t('Pole of order {m} here.', { m: Math.abs(m) }));
   }
@@ -12731,11 +13055,9 @@
     snd.said = [text, now];
     sndSay(text);
   }
-  // a bell each time a loop's (or a run's) arg completes a turn (a turn back must reach the previous integer); the
-  // loop's starting pitch class, queued by the engine at ≤ 8 a second, never lost. silent: count only.
-  function sndTurnBells(L, pan, silent) {
-    SND.turns(L, silent ? null : (dir) => SND.turn({ dir, pc: L.pc0, pan }));
-  }
+  // the turns of a loop being drawn (or a run while the function changes): counted (a turn back must reach the
+  // previous integer). v15.2: no bell; the harp's low D is the turn (notes/sound/hearf OPTIONS §3)
+  function sndTurnBells(L) { SND.turns(L, null); }
   // the preimages of a hovered w collide (a preimage of multiplicity ≥ 2): never on a change of their count
   function sndCollide() {
     if (!sndP.on || !sndP.sonify || !SND) return;
@@ -12745,23 +13067,116 @@
     snd.collide = key;
   }
 
-  // ---- loops and "listen along a curve" ----
+  // ---- loops, "listen along a curve" and curves that sing ----
   // a closed loop released (the Lasso, or Enter with the keyboard probe), in X plane coordinates [[x, y], …]: its
-  // winding number exactly (Calc.argPrinciple: zeros minus poles inside); the first loop of a page plays itself back,
-  // later loops sound |W| pings and wait for L or the curve's menu
+  // winding number exactly (Calc.argPrinciple: zeros minus poles inside); the first loop of a page plays itself back
+  // (the harp along it, then its note); later loops sing their note W (with Hear the function on; notes/sound/hearf
+  // option 4), or sound palette B's |W| pings, and wait for L or the curve's menu
   function sndLoopDone(pts) {
+    const lp = snd.loop;
     snd.loop = null;
     if (!sndP.on || !SND || !pts || pts.length < 3) return;
     snd.lastLoop = { pts: pts.slice(), closed: true };
+    sndUnhush();
     if (!sndP.events) return;
     let r;
     try { r = Calc.argPrinciple(sndF(), pts, 0, { budget: 120000 }); } catch (e) { r = { ok: false, turn: NaN, winding: 0 }; }
     if (!Number.isFinite(r.turn)) { SND.play('cut', { tier: 'events' }); sndSay($t('No winding number: F jumps, vanishes or is infinite on the loop.')); return; }
     const W = r.winding, say = $t('Winding number {W}: zeros minus poles inside, counted with multiplicity.', { W });
+    // the harp under the pointer closes the loop: its low Ds come to exactly W (review math-4)
+    if (lp && Number.isInteger(lp.hc) && sndP.sonify && Number.isInteger(W)) { SND.harpClose(lp.hc + 5 * W, { pan: 0 }); SND.harpReset(snd.phi); }
     sndSay(say);
     // (one message: a polite live region would read only the last of two)
     if (!snd.auto && !matchMedia('(prefers-reduced-motion: reduce)').matches) { snd.auto = true; if (sndListen(pts, true, say)) return; }
+    if (sndP.sonify && sndSingLoop(pts, W)) return;
     SND.play('loopDone', { w: W });
+  }
+  // a closed curve sings its winding number W as one note (harmonic 4 + W of D3: D5 for 0, F♯5 for 1, A5 for 2, A4
+  // for −1 …): its phase along the curve, sampled evenly in arc length and tracked exactly (sndSample), played as one
+  // period of a waveform (Sound.curveAmps). o: {at (s from now), tag}. False when it cannot (F too costly, a cut)
+  function sndSingLoop(pts, W, o = {}, Sm) {
+    // (a W with no harmonic of D3, 4 + W outside 1 … 24: no note, so the caller plays the |W| pings: review sound-2)
+    if (!SND || !snd.tracker || !Number.isInteger(W) || !SND.singable(W)) return false;
+    Sm = Sm || sndSample(sndF(), pts, true);
+    if (!Sm || Sm.cuts.length) return false;
+    const n = Sm.phi.length;
+    if (Math.abs(Sm.phi[n - 1] - Sm.phi[0] - W) > 0.05) return false;
+    const a = SND.curveAmps(Sm.phi.subarray(0, n - 1), W);
+    snd.sang = W;
+    return SND.sing(a.A, a.n0, { mode: 'release', tier: 'events', at: o.at || 0, tag: o.tag });
+  }
+  // the last loop sings while the function changes under it (the deformation plays or is scrubbed, an edit), with Hear
+  // the function on: once a frame (sndRetrack), the loop sampled at 256 points under H_t, arg tracked exactly between
+  // them within 2.5 ms (over that, the note holds). Its note W can only change when a zero or pole of H_t crosses the
+  // loop (homotopy invariance): there W is undefined for an instant and the note holds, then steps. It fades 0.9 s
+  // after the function stops changing.
+  function sndCurveLive() {
+    const L = snd.lastLoop, cv = snd.cv;
+    // (after Esc: silent until the next thing a person does, review sound-1)
+    if (!sndP.on || !sndP.sonify || !SND || !snd.tracker || !L || !L.closed || snd.play || !morph.open || cv.hushed) { sndCurveOff(); return; }
+    const key = `${chainSig[nSteps()]}|${morph.T}|${S.focus}|${S.homAll ? 1 : 0}|${snd.fcGen}|${L.pts.length}`;
+    if (key === cv.key) return;
+    cv.key = key;
+    const t0 = performance.now();
+    let r = null;
+    try { r = sndCurveW(sndF(), L.pts, 256, t0 + 2.5); } catch (e) { r = null; }
+    if (r) {
+      if (!r.ok) { if (cv.bad == null) cv.bad = t0; if (t0 - cv.bad > 150) sndCurveOff(true); cv.W = null; }
+      else if (!SND.singable(r.W)) {
+        // a W with no harmonic of D3 (4 + W outside 1 … 24, a loop round four poles): no note; the count is spoken
+        // whenever it changes (review sound-2)
+        cv.bad = null;
+        if (cv.on) { SND.singOff(); cv.on = false; }
+        if (cv.W !== r.W) sndSayOnce($t('Winding number of the loop: {W}.', { W: r.W }));
+        cv.W = r.W; cv.T = morph.T;
+      } else {
+        cv.bad = null;
+        const a = SND.curveAmps(r.ph, r.W);
+        if (SND.sing(a.A, a.n0, { mode: 'live', tier: 'sonify' })) {
+          if (cv.W != null && cv.W !== r.W) sndSayOnce($t('Winding number of the loop: {W}.', { W: r.W }));
+          cv.on = true; cv.W = r.W; cv.T = morph.T;
+        }
+      }
+    }
+    clearTimeout(cv.idle);
+    cv.idle = setTimeout(() => sndCurveOff(true), 900);
+  }
+  function sndCurveOff(keepKey) {
+    const cv = snd.cv;
+    clearTimeout(cv.idle);
+    if (cv.on && SND) SND.singOff();
+    cv.on = false; cv.bad = null;
+    if (!keepKey) { cv.key = ''; cv.W = null; }
+  }
+  // a closed polygon resampled at M points evenly in arc length; arg F tracked exactly between them (and back to the
+  // start): {ph (turns), W, ok}; ok false where F vanishes, is infinite or jumps on the curve (no winding number);
+  // null when the deadline passed (the caller holds)
+  function sndCurveW(F, pts, M, deadline) {
+    const n = pts.length, Ls = [0];
+    for (let i = 1; i <= n; i++) { const a = pts[i - 1], b = pts[i % n]; Ls.push(Ls[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+    const tot = Ls[n];
+    if (!(tot > 0)) return { ok: false };
+    const zs = [];
+    let i = 0;
+    for (let k = 0; k < M; k++) {
+      const sk = tot * k / M;
+      while (i < n - 1 && Ls[i + 1] < sk) i++;
+      const a = pts[i], b = pts[(i + 1) % n], u = (sk - Ls[i]) / Math.max(1e-300, Ls[i + 1] - Ls[i]);
+      zs.push(C(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u));
+    }
+    const ph = new Float64Array(M), gs = zs.map((z) => F(z));
+    if (!gs.every(sndOk)) return { ok: false };
+    let acc = Math.atan2(gs[0].im, gs[0].re) / TAU, ok = true;
+    const a0 = acc;
+    ph[0] = acc;
+    for (let k = 1; k <= M; k++) {
+      const r = Calc.argStep(F, zs[k - 1], gs[k - 1], zs[k % M], gs[k % M], { budget: 400, deadline });
+      if (!r.exact) { if (r.why === 'budget') return null; ok = false; }
+      acc += r.d / TAU;
+      if (k < M) ph[k] = acc;
+    }
+    const Wn = acc - a0, W = Math.round(Wn);
+    return { ph, W, ok: ok && Math.abs(Wn - W) < 0.05 };
   }
   // a curve sampled uniformly in arc length, arg tracked exactly between the samples; null when F is too costly here
   function sndSample(F, pts, closed) {
@@ -12799,18 +13214,17 @@
     const Sm = sndSample(sndF(), pts, closed);
     if (!Sm) { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; }
     const n = Sm.phi.length, turns = Sm.phi[n - 1] - Sm.phi[0], dur = sndClamp(2.2 + 1.0 * Math.abs(turns), 2.6, 7);
-    const bells = [], L = { phi: 0, k: 0 };
-    // (a turn that ends on the integer up to rounding counts, as in Sound.turns: a closed loop of winding 2 can track to
-    // 1.9999999999999996 turns, and its playback then rang one bell, not two)
-    for (let j = 1; j < n; j++) {
-      L.phi = Sm.phi[j] - Sm.phi[0];
-      while (L.phi >= L.k + 1 - 1e-9) { L.k++; bells.push({ t: (j / (n - 1)) * dur, dir: 1 }); }
-      while (L.phi <= L.k - 1 + 1e-9) { L.k--; bells.push({ t: (j / (n - 1)) * dur, dir: -1 }); }
-    }
-    const h = SND.curve(Sm.phi, Sm.la, dur, { bells, cuts: Sm.cuts.map((u) => u * dur), pc: Sm.phi[0] - Math.floor(Sm.phi[0]) });
-    if (!h) return false;
+    // the phase harp along the curve (its low Ds, up minus down, are the curve's winding number), its cuts ticked;
+    // then a closed curve with a winding number sings it as one note (v15.2)
+    const tag = 'listen' + (++snd.listenN);
+    const hh = SND.harpAlong(Sm.phi, Sm.la, dur, { tag, closed, cuts: Sm.cuts.map((u) => u * dur) });
+    if (!hh) return false;
+    const Wr = Math.round(turns);
+    // (a W the singer has no note for, 4 + W outside 1 … 24: its |W| pings instead, review sound-2)
+    if (closed && !Sm.cuts.length && Math.abs(turns - Wr) < 0.05 && !sndSingLoop(pts, Wr, { at: dur + 0.05, tag }, Sm) && !SND.singable(Wr)) SND.play('loopDone', { w: Wr, at: dur + 0.05, tag, force: true });
+    const h = { t0: hh.t0, now: hh.now, tag, harp: hh };
     // the pointer moving more than 4 px from where it was when the playback started ends it
-    const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null };
+    const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag };
     sndSay((lead ? lead + ' ' : '') + (closed && !Sm.cuts.length ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Math.round(turns)) : $t('Listening along the curve. Esc stops.')));
     const tick = () => {
       if (snd.play !== p) return;
@@ -12828,7 +13242,7 @@
     if (!p) return;
     snd.play = null;
     cancelAnimationFrame(p.raf);
-    p.h.stop();
+    SND.stopTag(p.tag);
     if (hushAll) SND.hush();
     probe = null; setReadouts(null); sndRender();
   }
@@ -12967,6 +13381,7 @@
   // The adapter the tour drives: where things are, the user's work (snapshot, restore, the paused autosave), the tour's
   // scenes and looks, and the events that tick its Try its. tourWire() runs at the end of init().
   const tourL = {};
+  let tourSplit = false;   // v15.2: the tour's stop shows the Inspector's split offer (its scene sets split: true)
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
@@ -13093,7 +13508,9 @@
     snapshot: tourSnapshot,
     restore: tourRestore,
     // on: write any pending save now, then pause the autosave; off: resume it (restore has put the work back)
-    sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; save(); } return true; },
+    sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
+    // v15.2: the current stop shows the Inspector's split offer (its split: true); every other stop hides it
+    splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
     setView: (main) => setMain(main),
@@ -13933,16 +14350,94 @@
   // item 2 (the deformation picture): open/close and scrub the transport; the screen's path selection
   window.__cmwMorph = (o) => { if (o && o.open != null) { if (o.open) openTransport(); else closeTransport(); } if (o && o.T != null) { morph.T = o.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R'); } if (o && o.playing != null) { morph.playing = !!o.playing; setPlayIcon(); requestRender('R'); } return { open: morph.open, T: morph.T, playing: morph.playing, on: morphOn() }; };
   window.__cmwMorphSel = async (o) => { if (!morphOn()) return null; const t0 = performance.now(); const sel = await morphSelScreenNow(paneR, !!(o && o.force)); const wall = performance.now() - t0; if (!sel) return null; const end = S.focus > 0 ? S.focus : nSteps(); const base = S.focus > 0 ? S.focus - 1 : 0; return { ms: sel.ms, wall, budget: sel.budget, n: sel.kept.length, nCands: sel.nCands, kept: sel.kept.map((k) => { const w = stageF(end)(k.sp.z), w0 = stageF(base)(k.sp.z), a = k.s[0].w, b = k.s[k.s.length - 1].w; return { z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], path: k.l, F: [w.re, w.im], W0: [w0.re, w0.im], Ws: [a.re, a.im], We: [b.re, b.im], meet: !!k.meet }; }), log: sel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) }; };
-  window.__cmwMorphSelSync = () => { const pane = paneR, m = morphLen(), t = performance.now(); const sel = morphPathsFor((w) => pane.w2s(w), { x: 0, y: 0, w: pane.w, h: pane.h }, pane.box(), pane.w / 96, m, { footPx: 8, headCrowd: 12, headL: MF_SCREEN_HL, nogo: mfNogo(pane) }); return { wall: performance.now() - t, ms: sel.ms, n: sel.kept.length, nc: sel.nCands }; };
-  window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null });
+  // paths-aesthetics (test/deform_nat_cmd.js): the screen's kept paths measured in its px. seg: the longest drawn
+  // segment; jump: the largest distance of H at a segment's mid time from the segment's midpoint (segments over 3 px:
+  // a jump across a cut would be about half the segment); ang: the largest angle between drawn segments over 0.3 px,
+  // turn: that angle over the mean length of its two segments (rad/px; p99 and max), kink: the largest angle between
+  // two segments both over 1.5 px (the trace refines a turn into short chords: a kink is a corner it left); sep: per
+  // path, the share of its 3 px samples (away from the paths' ends, the transport and the legend) within 0.7 dTest of
+  // another path, in the px it was chosen in (the worst path); heads: the last frame's moving points vs H_T(z) (px)
+  window.__cmwPathsCheck = () => {
+    const sel = mfCache.rsel && mfCache.rkey === mfScreenKey(paneR).key ? mfCache.rsel : mfCache.sel;
+    if (!sel) return null;
+    const P = (w) => paneR.w2s(w);
+    const Fc = new Map(), Fat = (T) => { let f = Fc.get(T); if (!f) { f = morphAt(T); Fc.set(T, f); } return f; };
+    let seg = 0, jump = 0, ang = 0, kink = 0, nSeg = 0, kinkStep = 0;
+    const turns = [], polys = [], nodeT = pathMarkTimes(sel.Tend || morphLen()).nodes;
+    const g = SegGrid(6);
+    for (const k of sel.kept) {
+      const ls = [];
+      for (const r of k.runs) {
+        const l = r.map((q) => P(q.w));
+        ls.push(r.map((q) => q.p));
+        for (let i = 1; i < r.length; i++) g.add(r[i - 1].p, r[i].p, k);
+        for (let i = 1; i < l.length; i++) {
+          const a = l[i - 1], b = l[i], L = mDist(a, b);
+          nSeg++; seg = Math.max(seg, L);
+          if (L > 3) { const m = P(Fat(0.5 * (r[i - 1].T + r[i].T))(k.sp.z)); jump = Math.max(jump, mDist(m, [0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1])])); }
+          if (i >= 2) {
+            const o = l[i - 2], L0 = mDist(o, a);
+            // (a step's end, one after another, is a corner of H itself: it is marked with a bar and counted apart)
+            const atNode = nodeT.some((t) => Math.abs(r[i - 1].T - t) < 1e-9);
+            if (L0 > 0.3 && L > 0.3) { const q = Math.acos(Math.max(-1, Math.min(1, ((a[0] - o[0]) * (b[0] - a[0]) + (a[1] - o[1]) * (b[1] - a[1])) / (L0 * L)))); if (atNode) { kinkStep = Math.max(kinkStep, q); continue; } ang = Math.max(ang, q); turns.push(q / (0.5 * (L0 + L))); if (L0 >= 1.5 && L >= 1.5) kink = Math.max(kink, q); }
+          }
+        }
+      }
+      polys.push({ k, ls });
+    }
+    const ex = 0.75 * PATHS.sep, d = 0.7 * PATHS.dTest, nogo = mfNogo(paneR);
+    let sep = 0;
+    // (only a path's own start and end are exempt, within ex: the review's measure; another path's end is not.
+    // sepLong: the share within 2 dTest, for paths longer than longK dS)
+    let sepLong = 0;
+    for (const { k, ls } of polys) {
+      if (!ls.length) continue;
+      const lr = ls[ls.length - 1], ends = [ls[0][0], lr[lr.length - 1]];
+      let n = 0, near = 0, far = 0;
+      for (const l of ls) for (const p of resamplePx(l, 3)) {
+        if (p[0] < 0 || p[1] < 0 || p[0] > paneR.w || p[1] > paneR.h - 8 || nogo.some((R) => p[0] >= R.x0 && p[0] <= R.x1 && p[1] >= R.y0 && p[1] <= R.y1) || ends.some((q) => mDist(p, q) < ex)) continue;
+        n++; if (g.near(p, d, k) < d) near++; if (g.near(p, PATHS.longD * PATHS.dTest, k) < PATHS.longD * PATHS.dTest) far++;
+      }
+      if (n) sep = Math.max(sep, near / n);
+      if (n && (k.lenPx || 0) > PATHS.longK * PATHS.dS) sepLong = Math.max(sepLong, far / n);
+    }
+    // the review's other measures: the shortest path, the largest retrace share, an end dot's or a ring's nearest
+    // other line, a ring's nearest other end, the turn at a step's end
+    // (ownLine: a ring's or an end dot's distance from its own path's line beyond its first / before its last dS)
+    let minLen = Infinity, retr = 0, endLine = Infinity, ringLine = Infinity, ringEnd = Infinity, ownLine = Infinity;
+    for (const { k, ls } of polys) {
+      if (!ls.length) continue;
+      minLen = Math.min(minLen, k.lenPx || 0);
+      {
+        const q0 = ls[0][0], lq = ls[ls.length - 1], qe = k.runs[k.runs.length - 1].slice(-1)[0].T >= sel.Tend - 1e-9 ? lq[lq.length - 1] : null;
+        let L = 0, acc = 0;
+        for (const l of ls) for (let i = 1; i < l.length; i++) L += mDist(l[i], l[i - 1]);
+        for (const l of ls) for (let i = 1; i < l.length; i++) { const a0 = acc; acc += mDist(l[i], l[i - 1]); if (a0 > PATHS.dS) ownLine = Math.min(ownLine, segD(q0, l[i - 1], l[i])); if (qe && acc < L - PATHS.dS) ownLine = Math.min(ownLine, segD(qe, l[i - 1], l[i])); }
+      }
+      retr = Math.max(retr, retraceShare(ls.flatMap((l) => resamplePx(l, 3)), 2, 6));
+      const lr = ls[ls.length - 1], s0 = ls[0][0], e0 = k.runs[k.runs.length - 1].slice(-1)[0].T >= sel.Tend - 1e-9 ? lr[lr.length - 1] : null;
+      for (const o of polys) {
+        if (o.k === k || !o.ls.length) continue;
+        for (const l of o.ls) for (let i = 1; i < l.length; i++) { if (e0) endLine = Math.min(endLine, segD(e0, l[i - 1], l[i])); ringLine = Math.min(ringLine, segD(s0, l[i - 1], l[i])); }
+        const ol = o.ls[o.ls.length - 1];
+        ringEnd = Math.min(ringEnd, mDist(s0, ol[ol.length - 1]));
+      }
+    }
+    turns.sort((a, b) => a - b);
+    let heads = 0;
+    if (mfDrawn) for (const h of mfDrawn.heads) { const q = P(Fat(mfDrawn.T)(C(h[2], h[3]))); heads = Math.max(heads, mDist(q, h)); }
+    return { ownLine, arrowMin: sel.arrowMin, kinkStep, minLen, retrace: retr, endLine, ringLine, ringEnd, sepLong, ink: sel.ink, cap: sel.budget, n: sel.kept.length, nSeg, seg, jump, ang, kink, turnP99: turns.length ? turns[Math.floor(0.99 * (turns.length - 1))] : 0, turnMax: turns.length ? turns[turns.length - 1] : 0, sep, heads, nHeads: mfDrawn ? mfDrawn.heads.length : 0, T: mfDrawn ? mfDrawn.T : null, kinds: sel.kept.reduce((a, q) => { a[q.sp.kind] = (a[q.sp.kind] || 0) + 1; return a; }, {}) };
+  };
+  window.__cmwMorphCache = () => ({ ready: !!(mfCache.sel && mfCache.key === mfScreenKey(paneR).key && (mfCache.vkey === mfScreenKey(paneR).vkey || mfViewOk(paneR))), job: !!mfCache.job, zs: mfCache.sel ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null, rej: mfCache.sel ? mfCache.sel.rej : null, away: mfCache.sel ? mfCache.sel.away : null, hint: mfGlobeAway(), prev: mfCache.prev ? mfCache.prev.sel.kept.length : 0 });
   window.__cmwLastFigure = () => Figure.last();
+  window.__cmwFigPathsSel = () => (mfFigCache.sel ? { n: mfFigCache.sel.kept.length, nCands: mfFigCache.sel.nCands, cap: mfFigCache.sel.budget, rej: mfFigCache.sel.rej } : null);
   window.__cmwFig = Figure;
   window.__cmwPrepareExport = (panels, alive) => prepareExport(panels || ['L', 'R'], alive);
   window.__cmwRenderOff = (side, w, h, dpr) => renderOff(side, w, h, dpr).toDataURL('image/png');
   // client coordinates of plane point (re, im) in the left ('L') or right ('R') plane, as last drawn
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
   // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
-  window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); return { voice: !!snd.voice, kind: snd.kind, engine: snd.voice ? snd.voice.engine : '', phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
+  window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { harp: SND ? SND.harpState() : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes } : null, voice: !!snd.voice, kind: snd.kind, engine: snd.voice ? snd.voice.engine : '', phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

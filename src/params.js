@@ -471,7 +471,7 @@ const Params = (() => {
   }
   const CSS_ESC = (s) => (typeof CSS !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/"/g, '\\"'));
   function newRow(m) {
-    const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), placeholder: 'a', spellcheck: 'false', autocomplete: 'off', 'data-prm-focus': 'new' });
+    const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), placeholder: 'a', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
     const err = h('div', { class: 'prm-err', role: 'alert' });
     const ok = () => {
       const c = check(inp.value);
@@ -495,7 +495,7 @@ const Params = (() => {
     const nm = p.name, d = display(nm);
     const r = h('div', { class: 'prm-row', role: 'listitem', 'data-name': nm });
     const nameBtn = h('button', { class: 'prm-name', type: 'button', 'data-tip': $t('Rename'), 'aria-label': $t('Rename {x}', { x: d }), 'data-prm-focus': 'n:' + nm, onclick: () => { m.open = { name: nm, what: 'rename' }; draw(m); } }, d);
-    const val = h('input', { class: 'inp mono prm-val' + (p.expr ? ' expr' : ''), value: valShow(p), spellcheck: 'false', autocomplete: 'off', 'aria-label': $t('Value of {x}', { x: d }), 'data-prm-focus': 'v:' + nm });
+    const val = h('input', { class: 'inp mono prm-val' + (p.expr ? ' expr' : ''), value: valShow(p), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': $t('Value of {x}', { x: d }), 'data-prm-focus': 'v:' + nm });
     const err = h('div', { class: 'prm-err', role: 'alert', hidden: true });
     const showErr = (msg) => { err.textContent = msg || ''; err.hidden = !msg; r.classList.toggle('has-err', !!msg); val.classList.toggle('bad', !!msg); };
     let before = null;
@@ -544,7 +544,7 @@ const Params = (() => {
     return r;
   }
   function renameEd(m, p) {
-    const inp = h('input', { class: 'inp mono', value: display(p.name), spellcheck: 'false', autocomplete: 'off', 'aria-label': $t('New name for {x}', { x: display(p.name) }), style: 'width:56px;height:24px', 'data-prm-focus': 'rn:' + p.name });
+    const inp = h('input', { class: 'inp mono', value: display(p.name), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': $t('New name for {x}', { x: display(p.name) }), style: 'width:56px;height:24px', 'data-prm-focus': 'rn:' + p.name });
     const done = (ok) => {
       if (ok) {
         const t = inp.value.trim();
@@ -562,7 +562,7 @@ const Params = (() => {
     return inp;
   }
   function rangeEd(m, p) {
-    const f = (v, lab) => h('input', { class: 'inp mono', value: String(v), spellcheck: 'false', autocomplete: 'off', 'aria-label': lab });
+    const f = (v, lab) => h('input', { class: 'inp mono', value: String(v), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': lab });
     const lo = f(p.min, $t('Minimum')), hi = f(p.max, $t('Maximum')), st = f(p.step, $t('Step'));
     const ok = () => {
       const rd = (x) => { try { return evalReal(x.value.replace(/(\d),(\d)/g, '$1.$2')); } catch (e) { return NaN; } };

@@ -1,0 +1,98 @@
+[
+ {
+  "id": "aud-1",
+  "severity": "high",
+  "title": "The 'materials' are almost pure sine tones, so B's keys and slider notes are not yet 'realistic'",
+  "detail": "The user asked for sounds that are more realistic. What tells the ear 'kalimba', 'wood' or 'glass' is mostly the upper partials and the contact noise in the first 20 to 50 ms. In B the mallet law w(f)=1/(1+(2fτ)²), with τ = 1.1 to 2.2 ms and normalised to the fundamental, removes almost all of that. The fundamental is already above the mallet's corner (about 1/(2τ), roughly 230 to 450 Hz), so the second partial ends up 35 to 50 dB down. The contact noise is 40 to 47 dB down. So the toggle 'tine', the 'wood' landmark notes and the 'wood' view key are a sine with a 1 to 2 ms soft onset and an exponential decay, which is the same recipe as A. Only block, skin and (partly) glass keep any material colour. A second effect: the per-play variation of mallet velocity (×0.92 to 1.08) only changes partials nobody can hear. What is left to vary is ±1 dB of level, ±6 cents of pitch and ±12 % of decay, all at or below the threshold of hearing a difference. So a toggle still sounds the same on every play. That matches the 1.3 to 3.1 dB repeat distance in MEASUREMENTS §3, which is near their own audibility limit. B will sound soft and inoffensive, but more like 'quieter sines' than struck objects.",
+  "evidence": "node render of the worklet (scratch <tmp>). toggleOn A5: 2nd mode 5496 Hz −48.7 dB, energy above 1.5·f0 −68 dB, contact noise −46.7 dB, centroid/f0 = 1.00. toggleOff: −50.8 / −68.6 / −44 dB. landmark A5 (wood, vel .5): 2nd mode −37.0 dB, above 1.5·f0 −48 dB, noise −41.8 dB. landmark D5 vel .3: −36.0 / −44.6 / −42.6 dB. view (wood): 2nd mode −35 dB. zero (glass): 2nd mode −22 dB, 3rd −42 dB, noise −51 dB. For contrast, the error (block): 2nd mode −15 dB, noise −22.5 dB. MEASUREMENTS §1 'C' (notes only): 2–5 kHz share 0 %, centroid 865 to 881 Hz for notes at 587 to 1175 Hz. Code: engine_b.js:338-339 (mallet, tauOf), 331-333 (MAT), CAT toggleOn soft 1.1 (374), landmark soft 1.8 (384).",
+  "fix": "Set each material's first-50-ms colour directly rather than through one steep mallet law. Use τ ≈ 0.25 to 0.5 ms for tine, glass and block, 0.5 to 0.8 ms for wood, and keep 1.5 to 2.5 ms for felt and skin. Or change w(f) to 6 dB/oct (1/sqrt(1+(fτ)²)). Targets at a medium strike: wood 2nd partial (3.93×) −14 to −20 dB with T60 about 0.25× the fundamental's; tine 2nd partial (6.27×) −18 to −24 dB, very short (20 to 40 ms), plus a 1 to 2 ms broadband tick at −24 to −30 dB; glass 2nd and 3rd partials −10 / −18 dB. Contact noise for wood and block at −20 to −26 dB of the peak. Because these upper parts die within 30 to 60 ms, the 2–5 kHz share should stay under 10 % (check with measure.js). Then the velocity variation becomes audible as a change of brightness: widen it to ×0.8 to 1.2 so that each play has ±3 to 4 dB on the upper partial. That is what makes a repeated real strike sound alive, more than pitch jitter does."
+ },
+ {
+  "id": "aud-2",
+  "severity": "medium",
+  "title": "Landmark notes have no hysteresis or rate limit: chatter and machine-gun return in wiggles, tremor and the snap zone",
+  "detail": "scrub() fires a landmark every time t crosses or lands on 0, ¼, ½, ¾ or 1. Landmarks are forced, have gap 0 and are count:true, so they skip both the 14-per-second guard and the −1 dB-per-repeat softening. So: (a) a fast wiggle across the quarters gives 18 notes a second, more than A's own guard allows, and 3 dB louder over 400 ms than a medium drag; (b) a hand resting on t = ½ with ±1 px of tremor (trackpad) re-fires the same A5 note about 8 times a second, which is the identical-repeat 'machine gun' at low level; (c) the app's snap to 0 or 1 within 0.03 re-fires the end note every time the hand crosses 0.03 (4 a second in the test); (d) a jump in one event (End or Home, PageUp, a click on the track) fires up to 4 notes on the same sample, a F♯5-A5-B5-D6 cluster with a peak 3.7 dB above a normal drag. MEASUREMENTS' slow wiggle (±0.13, 7 notes in 3 s) did not reach these cases.",
+  "evidence": "Simulation of the engine's crossing rule with the texture, rendered by the worklet in node (scratch <tmp>). Medium 0→1→0 in 1.2 s: 8 notes, loudest 400 ms −30.5 dBFS (dry), peak −17.9. Fast wiggle ±0.3 at 3 Hz: 18 notes/s, −27.2 / −16.2. Tremor ±0.004 at 8 Hz on t = ½: 8 notes/s (all A5, vel 0.3). Hovering 0.02 to 0.045: 4 notes/s at t = 0. 0 → 1 in one event: 4 simultaneous notes, peak −14.2. Code: engine_b.js:475-485 (scrub), 384 (landmark gap 0, count true), 439 (the guard skips forced cues).",
+  "fix": "Arm each landmark only after t has moved at least 0.02 to 0.03 away from it, and give each landmark a 150 to 200 ms minimum re-trigger interval. Landmarks are position marks, not counts, so apply the repetition softening to them (−2 dB per re-hit within 1 s). On a jump of more than 0.1 in one event, play only the landmark nearest the destination, or a quick 25 to 35 ms-spaced run in the direction of travel at falling velocity. Cap the landmark rate at about 8 a second and drop the extra ones, keeping the end notes."
+ },
+ {
+  "id": "aud-3",
+  "severity": "medium",
+  "title": "The scrub texture sputters at slow drags, and its loudness depends on the app's frame rate",
+  "detail": "The speed is |ΔT| / (handler wall time difference), clamped to 8 to 100 ms per input event. It is then smoothed with an asymmetric one-pole (25 ms attack, 160 ms release) before the smoothstep that opens the texture between 0.1 and 0.4 t/s. (1) At slow drags, pixel quantisation makes input events arrive every 1 or 2 frames, so the estimate flips between about 0.11 and 0.27 t/s, right inside the smoothstep. The texture then sputters by up to 14 dB within 50 ms windows. (2) When the main thread is busy (the app redraws the deformation on every input), handler times bunch together. The 8 ms clamp plus the fast-attack, slow-release smoother turn that symmetric jitter into a level that is biased upward. The same hand speed sounds up to 4 dB louder in a heavy scene than in a light one, and less steady. Above 0.3 t/s with a steady 60 or 120 Hz event stream, the texture is as smooth as the noise itself (sd 0.5 to 0.9 dB), which is good.",
+  "evidence": "Worklet texture driven by simulated slider events (240 px slider, step 0.001, ±2 to 3 ms jitter; scratch <tmp>), 50 ms RMS over the steady part. 0.15 t/s at 60 Hz: v estimate p10/p50/p90 0.11/0.14/0.27, level sd 3.6 dB, range 13.7 dB. 0.3 t/s: sd 0.57, range 3.0. 0.6 t/s: sd 0.74. 1.2 t/s: sd 0.52. 0.6 t/s with 50 ms main-thread frames (coalesced handlers): v p50 1.0 instead of 0.6, mean level −35.8 instead of −39.8 dBFS (+4 dB). 0.3 t/s with 33 ms frames: sd 1.33, range 4.8. Code: engine_b.js:476 (performance.now(), clamp 8–100 ms), 114 (asymmetric smoother), 117 (smoothstep 0.1–0.4).",
+  "fix": "Estimate the speed from event.timeStamp, not performance.now() in the handler. Use a least-squares slope of (timeStamp, t) over the last 60 to 80 ms, or getCoalescedEvents() on the pointer, instead of the speed of a single event. Smooth the speed symmetrically, in the log domain (about 40 ms), and keep the asymmetric release only on the gain. Give the gate hysteresis (open at 0.15, close at 0.07 t/s), or replace the smoothstep with a gentler curve that starts at 0.05 t/s, so a slow drag makes a faint, steady breath rather than a sputter. Re-run a2_scrub.js: the target is a 50 ms level sd under 1 dB at every speed above 0.1 t/s, and under 1 dB of level difference between 16 ms and 50 ms frames."
+ },
+ {
+  "id": "aud-4",
+  "severity": "medium",
+  "title": "The glass choir's random level wobble covers about half of the |F| loudness cue",
+  "detail": "The hear-the-function voice uses loudness for ln|F|: shLoud goes from 0.6 to 1.0, a 4.4 dB range, and the tone gets quieter near a zero. In B, the three detuned voices (±3.5 cents, side amplitudes 0.13, with ±1.5 cents and ±6 % level drift on new random targets every 0.9 to 1.9 s) make the level drift by 1.8 to 2.7 dB at random, at rest and while moving. A listener can no longer tell 'quieter because |F| fell' from 'quieter because the chorus breathed'. Pitch class (arg F) is not affected: it reads back within 5 cents and the winding is exact (MEASUREMENTS §4). So the tone stays clearly pitched and warmer. The bell centre's wander (±0.06 octave) is 20 % of the ±0.3-octave register swing, which is acceptable.",
+  "evidence": "Worklet choir rendered in node for 10 s, 3 seeds, resting and moving, at loud = 1 (scratch <tmp>). 400 ms RMS range 1.84 to 2.72 dB (sd 0.47 to 0.76), the same in mono (phones) and in one channel. The |F| cue range is 20·log10(1/0.6) = 4.44 dB (src/sound.js:401). MEASUREMENTS §4: 'Slow level change' 1.6 / 3.5 dB for B against 0.15 / 0.14 for A. Breath plus sidebands: −23.9 dB of the total. Code: engine_b.js:197 (DET, VA), 243 (drift targets).",
+  "fix": "Keep the motion but take it out of the loudness. Have the outer voices' level drift ±0.02 instead of ±0.06, the detune ±2 cents with ±0.7 cents of drift, and give them opposite detune signs, so their beats partly cancel in level and remain as width and shimmer. Target a 400 ms level range under 1 dB (under a quarter of the cue). Or move 'alive' into timbre, which does not carry information here: let the breath band and the bell centre wander, not the gain. Re-check pitch read-back and winding afterwards."
+ },
+ {
+  "id": "aud-5",
+  "severity": "medium",
+  "title": "The board's slider comparison is not level-matched, so the A/B on the main complaint is biased",
+  "detail": "The page says the palettes are matched in loudness cue by cue, and that is true for the 21 single cues. But the slider, which is the user's actual complaint, is 4 dB quieter in B over short-term windows (5 to 6 dB in a slow drag), with peaks 11.6 dB lower. In listening tests the quieter of two options is reliably judged less annoying, and on a nuisance sound that preference comes from level alone. So the user may prefer B for being quieter rather than for being less mechanical. If B ships and the user later turns the volume up, the texture will come back in the 2 to 5 kHz region less than A, but the sputter (aud-3) and the landmark chatter (aud-2) will be 4 dB more audible than on the board.",
+  "evidence": "MEASUREMENTS §1, medium drag: A −35.2 / B −39.2 LUFS short-term, peaks −15.8 / −27.4. Slow: −37.6 / −44.1. page.html:62 ('matched in loudness cue by cue').",
+  "fix": "Add a 'level-matched' switch to the slider demo that adds the measured offset (+4 dB short-term) to B's texture and landmarks. Or state on the page that B's slider is 4 dB quieter by design, and suggest listening once with B matched. A 'hide the labels' toggle (an X button that picks A or B at random until revealed) would remove the remaining expectation bias at almost no cost."
+ },
+ {
+  "id": "aud-6",
+  "severity": "low",
+  "title": "The 'flutter' that should make the air breathe is 0.25 dB of mostly 12 to 30 Hz wobble: inaudible",
+  "detail": "DESIGN §3 says the texture has a 15 % gain flutter at 6 to 10 Hz 'so it moves like air, not like a fan'. Air and the inhale or swish say the same. As coded, a new uniform target every 64 samples (750 Hz), smoothed by a one-pole of 0.004 per sample (τ about 5 ms, corner about 30 Hz), gives a flutter whose sd is only 0.2 of full scale. At depth 0.15 that is 3 % of gain, 0.25 dB, and 79 % of its modulation energy is above 12 Hz. It is below the noise's own 0.5 to 0.7 dB of fluctuation, so the texture's only movement is its speed and t tracking. That is fine while dragging, but while the motion bed holds a steady rate it is a static, fan-like hiss.",
+  "evidence": "Exact recurrence from engine_b.js:126 (and 67 in Air) simulated for 20 s (scratch <tmp>). flutter sd 0.197, gain sd 3.0 % = 0.25 dB; modulation energy below 4 Hz 6 %, 4 to 12 Hz 15 %, above 12 Hz 79 %.",
+  "fix": "Generate the flutter as smoothed random targets every 100 to 160 ms (6 to 10 Hz), smoothed with τ 30 to 50 ms, at a depth of ±1 to 1.5 dB. Add a second, slower drift (0.5 to 1 Hz) on the band-pass centre of ±5 to 8 %, so the air also changes colour. Keep it level-neutral on average so the loudness match still holds."
+ },
+ {
+  "id": "aud-7",
+  "severity": "low",
+  "title": "The glass 'beating' is too slow to be heard on short pings",
+  "detail": "Glass modes are split into pairs that beat at 0.8 to 3.1 Hz (fundamental 0.8 Hz ×0.8 to 1.25), starting in phase. On pings with T60 0.5 to 0.6 s (zero, loop, turn), the fundamental's beat period is 1 to 1.6 s. The ring has died about 40 dB before even the first beat trough, so the 'struck glass that beats slowly as it rings' becomes only a slightly faster early decay. You can hear it only on the 1 s arrival.",
+  "evidence": "engine_b.js:333 (glass b: [0.8, 1.6, 2.5, 3.1]); a1_materials.js: the zero and loopDone fundamentals are split at 1175/1176 Hz with T60 0.47 to 0.55 s.",
+  "fix": "Scale the beat rate with the ring length. Choose b so that 1 to 1.5 beats fit in the first T60/3 (for T60 0.5 s, the fundamental at 2 to 3 Hz, the upper modes at 3 to 5 Hz). Or start the pair at a random relative phase between 0.2 and 0.4 of a cycle, so the first trough comes early, but keep the level-spread limit from MEASUREMENTS §3."
+ },
+ {
+  "id": "aud-8",
+  "severity": "low",
+  "title": "Phone balance: the pole thump and the low end of the slider texture drop out",
+  "detail": "Through a 550 Hz phone high-pass, the pole loses 7.2 dB (already open in MEASUREMENTS §7), the error 4.5 dB, and the slider texture 4.1 dB at t = 0 but only 0.1 dB at t = 1. On a phone, the air therefore fades in as t rises, which reads as 'louder later' rather than as speed. Laptop speakers (a 200 Hz high-pass) lose 0.2 dB or less everywhere, so laptops are fine. Phones are mono, but the choir's ±0.25 spread folds down without extra beating (the mono and one-channel wobble are the same in aud-4).",
+  "evidence": "a2_scrub.js: texture phone loss 4.1 / 2.0 / 0.7 / 0.3 / 0.1 dB at t = 0 / ¼ / ½ / ¾ / 1; laptop loss ≤ 0.2 dB. MEASUREMENTS §3: pole 7.2 dB, error 4.5 dB.",
+  "fix": "Start the texture's band higher (500 Hz instead of 380 Hz at t = 0, for a 1.3 kHz to 2 kHz range at t = 1), or add a fixed 0.4-level band at 900 to 1100 Hz so some energy is always above 550 Hz. For the pole, give the felt contact a 1 to 2 kHz component at −12 to −18 dB with a 5 to 10 ms decay (the 'thud' of felt on a hard surface), not more low skin."
+ },
+ {
+  "id": "aud-9",
+  "severity": "low",
+  "title": "The turn bell is the most fatiguing sound over a long hear-the-function session",
+  "detail": "When hear-the-function is on, the turn bell repeats on every full turn of arg F, at up to 8 a second. It sits at 1.7 to 3.4 kHz, the ear's most sensitive band (97 % of its energy in 2 to 5 kHz), and it is about 4 LU louder than the voice it marks (−29.2 against −33). For an hour of use, that is the cue most likely to grate. It is the same in A, so it is not a regression, but B was meant to be pleasant over long use.",
+  "evidence": "MEASUREMENTS §3: 'One full turn' −29.3 / −29.2 LUFS-M, 2–5 kHz 94 / 97 %, centroid 2416 / 2334 Hz. Voice −32.7 to −33.0 (§4). Code: engine_b.js:397 (f doubled until ≥ 1700 Hz).",
+  "fix": "Put the bell an octave lower (850 Hz to 1.7 kHz, still above the voice's centre), or trim it by 2 to 3 dB and soften the main strike (soft 1.0 instead of 0.7). Keep 'no pitch variation'. Vary only the brightness of the attack from play to play."
+ },
+ {
+  "id": "aud-10",
+  "severity": "low",
+  "title": "The two-note keys detune each note on its own, so the interval wobbles by up to ±12 cents",
+  "detail": "Adding and removing a step are D5 → A5 (a fifth), and each strike draws its own ±6 cents. The melodic fifth therefore varies by up to ±12 cents from play to play. Played that close together, with the room tail, some plays will sound slightly sour, which reads as 'cheap' rather than 'alive'.",
+  "evidence": "engine_b.js:343 (per-strike detune), 376-377 (stepAdd and stepRemove with detune 6 on each strike).",
+  "fix": "Draw one detune per cue and apply it to both notes (±6 cents in common, ±2 cents between them). Put the variation into velocity and brightness (aud-1) instead."
+ },
+ {
+  "id": "aud-11",
+  "severity": "info",
+  "title": "Clicks: B is click-free by construction, and the measurements support it",
+  "detail": "Every part starts at exactly 0 (a raised cosine over the contact, Hann-windowed noise) and ends at exactly 0 (a 12 to 20 ms raised-cosine fade). Late messages move the whole cue instead of cutting into it, and B schedules no AudioParam automation. Detector A (9 to 11 kHz impulses) found 0 hits outside designed attacks in every live recording, and only 0 to 2 on B's slider, against 90 for A. Detector B's 14 'elsewhere' hits on the B slider are the texture opening over about 25 ms at the start of a drag: a soft puff, not a step. A click needs an onset under about 5 ms. The remaining crackle risk in B is not a DSP fault. It is the repetition patterns in aud-2.",
+  "evidence": "board/out_clicks_live.txt; MEASUREMENTS §5; bench_node.js (first sample 0, last nonzero sample below 1.1e-9, no NaN for all 23 cues).",
+  "fix": "None needed. If the texture onset is made faster by the aud-3 changes, keep the two cascaded 6 ms gain smoothers so that every swell still starts with zero slope."
+ },
+ {
+  "id": "aud-12",
+  "severity": "info",
+  "title": "Untested where the user will listen: Safari, iPhone, real speakers",
+  "detail": "Every measurement is from headless Chrome or node, with muted output. The user is on a Mac and may use Safari. On iPhone, Web Audio is normally silenced by the ring/silent switch, so 'sound on by default' may be silent there. The choir costs about 2.6 times A's voice (1 % of a desktop core), which is still small, but a phone is 3 to 5 times slower and the app's WebGL runs on the same device.",
+  "evidence": "MEASUREMENTS §6 (CPU), §7 ('Tested only in Chrome').",
+  "fix": "Before shipping, listen to board.html once in Safari on the Mac and once on a phone, through the speakers, at the app's default volume of 70 %. On iOS, check that the silent switch behaves as the user expects. If the choir's CPU shows up on a phone, drop the outer voices for partials more than 1.5 octaves from the bell's centre."
+ }
+]

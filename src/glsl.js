@@ -768,19 +768,62 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         };
       }
       case 'custom': {
-        const ast = Expr.parse(v.expr);
+        if (b.rec) return recPlan(P, b, A);
+        const ast = b.ast || Expr.parse(v.expr);
         const cut = A.cell();
         const TH = cut.x;
         const writers = [], lines = [];
         const res = genCustom(ast, P, A, TH, writers, lines);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, String(v.expr), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P),
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P),
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
     }
     return null;
+  }
+
+  // The program key of a formula: its tree without positions or spelling (z^{i} and z^i, \\frac12 and 1/2 are one key),
+  // a shared number by its name (its value is a uniform), any other constant by its value (the sheet code bakes in an
+  // integer exponent)
+  function astSig(n) {
+    return JSON.stringify(n, (k, x) => (k === 'pos' || k === 'len' || k === 'lit' || k === 's' || k === 'name' ? undefined
+      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : [x.v.re, x.v.im]) : x));
+  }
+  // A formula recognized as catalog steps (Funcs: b.rec): each step's own plan, as functions of their own (P r j), and
+  // the step as their composition; its homotopy runs the steps' own homotopies in turn, step j on [j/n, (j+1)/n]
+  // (Funcs' asChain). The key holds the steps' keys only (the sheet view runs the steps too, sheetPlan; d/dz has its
+  // own key part), never the spelling: z^{i} and z^i are one program, and a shared number never recompiles it.
+  function recPlan(P, b, A) {
+    const subs = b.rec.built.map((sb, j) => {
+      const Q = `${P}r${j}`;
+      const pl = stepPlan(Q, sb, A);
+      if (!pl) throw new Error('GLChain: no plan for a recognized step');
+      return { Q, pl };
+    });
+    const n = subs.length;
+    let pre = '';
+    for (const { Q, pl } of subs) {
+      if (pl.pre) pre += pl.pre;
+      pre += `vec2 ${Q}_f(vec2 z) {\n  ${pl.f}\n}\n`;
+      const h = pl.h.startsWith('if (t == 0.0)') ? pl.h : `if (t == 1.0) return ${Q}_f(z);\n  ${pl.h}`;
+      pre += `vec2 ${Q}_h(vec2 z, float t) {\n  ${h}\n}\n`;
+    }
+    const f = subs.map(({ Q }) => `z = ${Q}_f(z);`).join('\n  ') + '\n  return z;';
+    let h = 'if (t <= 0.0) return z;\n  ';
+    if (n === 1) h += `return ${subs[0].Q}_h(z, t);`;
+    else {
+      h += `float s = t * ${n}.0;\n  `;
+      subs.forEach(({ Q }, j) => {
+        if (j < n - 1) h += `if (s < ${j + 1}.0) return ${Q}_h(z, s - ${j}.0);\n  z = ${Q}_f(z);\n  `;
+        else h += `return ${Q}_h(z, s - ${j}.0);`;
+      });
+    }
+    return {
+      sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      write(put) { for (const { pl } of subs) pl.write(put); },
+    };
   }
 
   // ---- d/dz: derivative of one step (for the exact chain rule) ----
@@ -915,7 +958,25 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       };
     }
     if (type !== 'custom') return null;
-    const ast = Expr.parse(v.expr);
+    // a recognized formula: its steps' pieces in turn (as Funcs.sheetEval), a single-valued step through its own Q_f
+    if (b.rec) {
+      const subs = b.rec.built.map((sb, j) => ({ Q: `${P}r${j}`, sp: sheetPlan(`${P}r${j}`, sb, A) }));
+      if (!subs.some((x) => x.sp)) return null;
+      let fn = '', body = '';
+      const rads = [];
+      for (const { Q, sp } of subs) {
+        if (!sp) { body += `  p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n`; continue; }
+        fn += sp.fn;
+        rads.push(...sp.rads);
+        body += sp.custom ? `  ${sp.apply()}\n` : `  { float s0 = cxs0_dig(${sp.rads[0]}, c); ${sp.apply(['s0'])} }\n`;
+      }
+      return {
+        rads, custom: true, apply: () => `p = ${P}_s(p, c);`,
+        fn: `${fn}vec4 ${P}_s(vec4 p, inout highp int c) {\n${body}  return p;\n}\n`,
+        write(put) { for (const { sp } of subs) if (sp) sp.write(put); },
+      };
+    }
+    const ast = b.ast || Expr.parse(v.expr);
     // no branch node: single-valued, both points go through P_f (and no uniforms are spent on a pair version)
     const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || ['a', 'b'].some((k) => hasNode(n[k])));
     if (!hasNode(ast)) return null;
@@ -985,6 +1046,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const slots = A.slots;
     let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\n`;
     for (const { P, plan } of maps) {
+      if (plan.pre) src += plan.pre;
       src += `vec2 ${P}_f(vec2 z) {\n  ${plan.f}\n}\n`;
       // at t = 1 every homotopy equals the map itself (exactly so on the CPU up to float64 rounding)
       const h = plan.h.startsWith('if (t == 0.0)') ? plan.h : `if (t == 1.0) return ${P}_f(z);\n  ${plan.h}`;

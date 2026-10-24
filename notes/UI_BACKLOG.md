@@ -170,3 +170,9 @@ tour, Russian) is gated.
     of t, by design) crackle when dragging fast: quick mitigation in v15.1 (work/xvk). Then a redesign of the whole
     sound palette (natural, varied, responsive to gesture speed), prototyped as an A/B board for the user to
     listen to before it is built (notes/sound/v2/).
+
+30. (2026-10-24) When a typed formula is recognized, offer to split it into its visible chain steps, nicely, so the user sees what F is assembled from and every transform. In v15.2 (notes/formula-steps/).
+31. (2026-10-24) Function search: "sin z" must match the Sine step; a query that is one catalog step adds that step directly (custom formula second). In v15.2.
+32. (2026-10-24) Constructions now (v16, work/xvc): circles through 3 points, lines through 2 points, intersections, points on curves, from every point already on the page (named points, zeros and poles, shape handles, curve crossings); their regions. notes/constructions-v16/.
+33. (2026-10-24) Music example: Grieg, "In the Hall of the Mountain King" (public domain; the user chose it after the copyrighted Pirates theme was declined), adapted to the harp's five strings, accelerating and growing louder, played by one curve; in Examples and the sound guide. notes/sea-song/, work/xvsea.
+34. (2026-10-24) Choose the deformation range: deform a contiguous range of steps with the steps before applied first and the steps after applied last (push-forward of an inner image; pullback under an outer step, e.g. f(z) -> f(sqrt z)). v16, notes/deform-range/.

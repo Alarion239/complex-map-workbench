@@ -1,0 +1,164 @@
+[
+ {
+  "id": "math-1",
+  "severity": "medium",
+  "status": "fixed",
+  "cause": "The step's CPU f was the composition of the catalog steps. A neg became mul(-1+0i) and u/c became mul(1/c), so a -0 imaginary part that CX.neg/sub/div keep became +0, and log, root and powers read the other side of their cut.",
+  "fix": "funcs.js asChain no longer replaces r.f: the step's CPU map stays Expr.compile of the formula on its raw theta. recognize.js tags every item with the formula node it came from (groups); finishRec compiles each group's piece as written, and the deformation's intermediate points (asChain pres) go through these pieces, so hom(1-) ends on the formula's side of its cut. The GPU plan and the inverse ops keep the catalog values.",
+  "evidence": "tools/review_math_repro.js: all 11 cases (log(-z), sqrt(-z), (-z)^i, sqrt(-z^2), log(-z^2), sqrt(-1-z), sqrt(-(z-1)), log(-z/2), log(z/2) at -2-0i, sqrt(2z-1), sqrt((z+(-1))+z)) now equal the formula bit for bit.",
+  "tests": "t_recognize 'review math-1, math-2': 21 formula/cut pairs at 32 points on both axes with +0 and -0, b.f and the groups replay bit-identical to Expr.compile; hom(1-1e-9) within 1e-5 of the formula."
+ },
+ {
+  "id": "math-2",
+  "severity": "low",
+  "status": "fixed",
+  "cause": "finish() normalised the cut to (-180, 180] plus a sheet, which is not bit-identical to Expr's argCut(theta) on the ray.",
+  "fix": "Same as math-1: CPU values are Expr.compile(formula, {theta: raw cut}); group pieces are compiled with the raw theta too. GPU and inverse keep the normalised (cut, k), as the review allowed.",
+  "evidence": "review_math_repro.js math-2: cuts -180, 540, 360, 270 (log z, sqrt z, z^i, cbrt(z/z), sqrt(cot(sin z cos z))) all equal the formula.",
+  "tests": "t_recognize: cuts -180, 270, 360, 540 with +-0 axis points and the saturating inner maps of the review."
+ },
+ {
+  "id": "math-3",
+  "severity": "low",
+  "status": "fixed",
+  "cause": "Consecutive Moebius factors were multiplied into one matrix; an inversion undone by a later one lost the formula's pole (1/(1/0) = NaN), and asChain then ORed the chain's lamps in. The other direction (infinity in, NaN out of mobApply) came from evaluating merged matrices instead of the formula.",
+  "fix": "recognize.js runPolesHold: a merged run whose product loses a factor's pole is refused (whole formula unrecognized, so no lamps are added). The infinity direction is fixed by math-1 (the formula's own values).",
+  "evidence": "review_math_repro.js math-3: sin(1/(1/z)), sqrt(1/(1/z)), e^{1/(1/z+1)} not recognized, lamps empty; arsinh((2-i)/artanh z) and coth((2-i)-artanh z) at -1 equal the formula (-0-0i, 1).",
+  "tests": "t_recognize 'review math-3'."
+ },
+ {
+  "id": "math-4",
+  "severity": "low",
+  "status": "accepted (policy), CPU part fixed",
+  "cause": "Entire identities (sin/cos = tan, e^A e^B = e^{A+B}, ...) are exact but do not overflow where the spelled formula does.",
+  "fix": "CPU: the formula's own values (math-1), so curves, probes and tours keep NaN exactly where the formula has it. GPU: the identity's catalog code draws the true finite function where the spelling overflows; accepted as the review recommended and recorded in DESIGN section 1.",
+  "evidence": "review_math_repro.js math-4: tan(e^z) at 7+i NaN = NaN, e^{3z}e^{-2z} at 240+0.5i and sin z cos z at 0.4+710i equal the formula. GLSL corpus page: the singular check now flags 'exp > sin z/cos z > add' (CPU NaN, GPU finite tan), the intended consequence (raw/glsl_parity_fix.json).",
+  "tests": "t_recognize 'review math-4' (4 cases, bit-identical CPU)."
+ },
+ {
+  "id": "math-5",
+  "severity": "medium",
+  "status": "fixed",
+  "cause": "Decisions that read values (rationalForm at the current a, nameMob dropping identities and naming by zero/unit entries, equal subtrees) were taken at the slider's current value.",
+  "fix": "recognize.js: a tape. Every value-dependent decision (pick/must/same_) is recorded at two generic sets of the shared numbers and must agree; recChain caches the tape by (tree with shared numbers by name, cut) and replays it at the current value. nameMob keeps the recorded generic name (WIDER). A value where the formula really changes kind (constant map, removable point, lower degree) is refused at that value only.",
+  "evidence": "review_math_repro.js math-5: z^a/(z+1), z^a z, z^a+z one reading (none) at every a; e^{z+a} add>exp at every a incl. 0; (az+1)/(z+a) mobius at every a, refused at +-1.",
+  "tests": "t_recognize 'review math-5, frperf-1, frperf-2': 12 formulas swept by 0.01, one chain and one GPU key each."
+ },
+ {
+  "id": "math-6",
+  "severity": "low",
+  "status": "fixed",
+  "cause": "The exact normal form reads 0.1+0.2-0.3 as 0 while the doubles keep 5.55e-17.",
+  "fix": "recognize.js degreeHolds: the reading is used only when the formula in doubles has the normal form's degree (Expr.polyDegree, or far-out comparison for quotients). Otherwise the formula stays, with its own lamps.",
+  "evidence": "review_math_repro.js math-6: (0.1+0.2-0.3)z^3+2z and (0.1+0.2-0.3)z^2+z+1 not recognized; lamps are the formula's (deg=3?, deg=2?).",
+  "tests": "t_recognize 'review math-6' (and (z+1)^2-z^2 = affine, (z+1)^3-z^3 = poly still read)."
+ },
+ {
+  "id": "math-7",
+  "severity": "info",
+  "status": "rejected (no change here)",
+  "cause": "Pre-existing in Expr: neg(1) = -1-0i, so principal values of negative constants sit on the other sheet.",
+  "fix": "None in this patch. The reader evaluates constants with Expr.compile and the step's CPU values are the formula's (math-1), so there is no mismatch. Changing CX.neg or constant folding would change saved formulas' values on cuts; that is a separate Expr decision for the user, recorded in DESIGN section 1.",
+  "evidence": "review_math_repro.js math-7 unchanged (sqrt(-1) = -i, log(-1) = -pi i): Expr's own values.",
+  "tests": "-"
+ },
+ {
+  "id": "frperf-1",
+  "severity": "high",
+  "status": "fixed",
+  "cause": "The 7-point probe guard was evaluated at the current a, and the expanded 'rational' step of (z+a)^12/(z-a)^12 missed 1e-9 at some values.",
+  "fix": "Factored products of affine powers are read as the catalog zp step (product form, exact, frperf-3); the structure is decided once at generic values (tape, math-5) and probed there at 1e-9; at the current value only a gross difference (1e-6) refuses.",
+  "evidence": "Node: (z+a)^12/(z-a)^12 and ^8 on a in [0.5, 0.9] step 0.01: zp 41 of 41 (was 9 and 29 of 41). Headless Chrome 1440x900, a = 0.7 +- 0.2: one state 'Same as Zeros and poles'; drag p95/max 18.4/18.6 ms (review: 18.7/38.8), with the deformation open 18.7/26.6 (46.2), no long tasks; set p50 1.8 ms (5.6). raw/fix/browser_drag.json.",
+  "tests": "t_recognize sweeps; tools/review_perf_node.js."
+ },
+ {
+  "id": "frperf-2",
+  "severity": "high",
+  "status": "fixed; one residual accepted",
+  "cause": "Step names and shapes came from which coefficients were exactly 0 or 1 at the current value.",
+  "fix": "The tape keeps the generic names (poly with a zero coefficient, affine with scale 1, mobius at a = 0). Only a value where the formula changes kind is refused: (z^2-a)/(z+1) at a = 1 is (z-1) with a hole at -1, and its Joukowski reading has s = 0, so no catalog chain of that shape exists there.",
+  "evidence": "Node: z^2+az poly 61 of 61 (was poly 60, pown 1); (z^2-a)/(z+1) affine>joukowski>affine 60 of 61, refused at a = 1. Chrome: z^2+az one state, no long task (review: 3 states, 82 ms task); (z^2-a)/(z+1) 2 states (review: 5). Its first pass compiles each of the two programs once (long tasks 75 and 96 ms; v15 without the reader also had a 52 ms task at a = 1); the second pass holds 60 fps, p95/max 18.3/18.7 ms, deformation open 18.4/18.7. Accepted: a one-time compile per program, as v15.",
+  "tests": "t_recognize sweeps (special values listed and checked to be refused)."
+ },
+ {
+  "id": "frperf-3",
+  "severity": "medium",
+  "status": "fixed",
+  "cause": "Every rational node went through the expanded normal form, and Horner on expanded coefficients cancels near repeated zeros (float32 on the GPU).",
+  "fix": "recognize.js factored(): c * prod (a_k z + b_k)^{m_k} becomes zp (zeros and poles in product form, CPU and GPU) or affine > power > scale; a repeated non-affine factor keeps the formula. New: hornerSafe(): a poly or rational step from a node that is not typed expanded is used only for degree <= 4 with roots apart by > 1e-3; z(z-1)^4-(z-1)^4 keeps the formula. Probes near zeros were not added: the product form is exact, and double-precision probes cannot see the float32 error that the Horner rule now excludes.",
+  "evidence": "(z-1)^5(z+1)^5: zp, CPU relative error <= 1e-12 at r = 0.1 ... 1e-3 from the 5-fold zero (was 1.3e-8 in doubles, 1.3 in float32). Float32 Horner of z(z-1)^4-(z-1)^4 had relative error 1.1e4 at |z-1| = 0.01; now not read. Typed-expanded polynomials and simple-root sums keep their readings (corpus counts unchanged: 210 of 230).",
+  "tests": "t_recognize 'review frperf-3' (zp cases, 7 Horner cases)."
+ },
+ {
+  "id": "frperf-4",
+  "severity": "medium",
+  "status": "fixed; plane-menu part rejected",
+  "cause": "The reading, its catalog builds and the probes ran on every rebuild and were discarded when refused.",
+  "fix": "funcs.js REC_CACHE (96 entries) keyed by (tree with shared numbers by name, cut): a formula without shared numbers is read and built once; with shared numbers the tape is decided once and only replayed. zp skips the rational normal form. The plane menu keeps the reader: its item shows the step's lamps, which must match the step it adds, and a cold build now costs at most 2.5 ms.",
+  "evidence": "Node cold build (no cache), without -> with the reader: (z+1)^20/(z-1)^20 2.35 -> 0.35 ms, (z+a)^12/(z-a)^12 0.91 -> 0.37, (az+b)^8/(cz+d)^8 0.48 -> 0.21, the mixed product 1.56 -> 2.48, z^i 0.05 -> 0.04. Warm: 0.03-0.13 ms. Chrome typing (z+1)^20/(z-1)^20: input max 2.5 ms (review: 17.6; v15: 5.8); z^{i} p50 1.4 ms.",
+  "tests": "t_recognize 'review frperf-4' (cached built steps are reused)."
+ },
+ {
+  "id": "frperf-5",
+  "severity": "low",
+  "status": "fixed",
+  "cause": "The note was a long sentence with internal jargon and catalog labels with parameter letters, and it flickered with the reading.",
+  "fix": "One clause, 'Same as {chain}' / 'Partly the same as {chain}' (RU 'Совпадает с цепочкой ...'), labels without letters (Scaling, Translation, Square root, Root), stable while a slider moves (tape). It stays on every recognized step: each one changes at least the natural path. Strings: notes/i18n/ru/v15-recognize.json; src/i18n_ru.js patched by exactly these keys (+6, -3).",
+  "evidence": "Chrome 1440: EN 'Same as Möbius → Logarithm → Scaling.' (2 lines), RU 3 lines (review: 4). shots/note_1440_en.png, note_1440_ru.png.",
+  "tests": "t_recognize 'review frperf-5'; t_i18n, t_i18n_keys pass."
+ },
+ {
+  "id": "frperf-6",
+  "severity": "low",
+  "status": "fixed (caption); product decision left to the user",
+  "cause": "A recognized step of n steps plays them in one step's time.",
+  "fix": "The deformation caption says so: 'the homotopy that runs its n catalog steps in turn, each on an equal part of 0 <= t <= 1'. Stretching the step to n units is a product decision, listed in DESIGN section 5 and AS-BUILT open points.",
+  "evidence": "funcs.js asChain homTex; all deformations hold 60 fps (raw/fix/browser_bench.json).",
+  "tests": "-"
+ },
+ {
+  "id": "frperf-7",
+  "severity": "info",
+  "status": "no action",
+  "cause": "-",
+  "fix": "-",
+  "evidence": "Re-measured: z^{i} inverse-rendered, typing p50 1.4 ms; (az+1)/(z+a) one state 'Same as Möbius'.",
+  "tests": "-"
+ },
+ {
+  "id": "verify-1",
+  "severity": "medium",
+  "status": "fixed",
+  "cause": "The deformation's CPU homotopy ran the catalog steps' own f and hom. finish() normalises a cut beyond (-180, 180] into (cut, k), which is the formula's function off the ray but not on it: argCut(theta + 360m) is not argCut(theta) + 2 pi m at a -0 point on the ray. So after a seam drag (the seam is unwrapped: -180, 270, 540, ...) the last step's path ran into the other branch there and jumped at t = 1. A second route, found while fixing: inside a group the catalog steps before a cut step may carry the other signed zero than the formula (the formula's z+1-1 turns -0 into +0 where the chain passes z on; the formula's -z keeps the -0 that a catalog mul(-1) turns into +0), at any cut, 180 included (log(z+1-1), sqrt(2 z/2), sin(sqrt(-z))+cos(sqrt(-z)), sin(log(-z))/cos(log(-z))).",
+  "fix": "funcs.js onFormulaCut: the log, root and powa steps of a recognized chain evaluate f and hom on the formula's raw theta, sheet 0 (CX.log(z, theta), CX.powReal(z, 1/n, theta), CX.pow(z, alpha, theta): the calls Expr.compile makes); b.vals keep the normalised (cut, k) for the GPU plan and the inverse ops. recognize.js records step.inp, the formula's subtree whose value is the step's input; funcs.js finishRec compiles it for every step with a cut and every formula part (rec.ins), and asChain starts each step from the formula's own value of the last such input in its group, then the catalog steps after it. So every cut step reads the side of its cut the formula reads, and its homotopy runs into the formula's branch.",
+  "evidence": "Node sweep (corpus 230 spellings + 52 formulas, cuts 180, 90, -120, -180, 270, 540, 360, -540, 190, 900, -360, 720, -270, 45.5, -179.9; 2821 recognized pairs; 232 points incl. +-0 axis points): ends or joins off the formula's value at t = 1-1e-12 in 268 pairs before (187 at the end), 0 at the end after. Left: the zoom path of a formula part (log(z+sqrt(z^2+1)) at 360: part, then log) meets a point on the part's own cut from the side of its centre, as v15 does for any formula (13 joins, 3 of them parts, 10 at artanh's branch point 1, where the path converges only logarithmically). The verifier's rows: log(-z) cut 540 at 2+0i: hom(1-1e-6) 0.6931 + 9.4248i = f; sqrt(-z) cut 540: -1.4142i = f; log(-z^3) cut -180 at 1+0i: -3.1416i = f. Hom cost unchanged (20k points: 0.62-2.30 ms, before 0.67-2.40).",
+  "tests": "t_recognize 'review math-1, math-2' now checks the deformation on every cut (homEnds: t = 1-1e-12 and every join, chordal 1e-4), with the verifier's pairs (log(-z), sqrt(-z) at 540, log(-z^3) at -180, ...) and the in-group cases; 'review verify-1': every spelling of the corpus on the cuts -180, 270, 540, 360, -540, 900, 190.5, -359.9 (1656 recognized pairs): values bit for bit, the deformation's end and joins. With the fix disabled: 275 failures."
+ },
+ {
+  "id": "verify-2",
+  "severity": "low",
+  "status": "fixed",
+  "cause": "Inverse.rationalForm divides common powers of z out (z/z + z = (z + z^2)/z -> 1 + z) without listing them in removed, so a cancellation inside a sub-term passed as 'ok' and the reading filled in the point and added the chain's lamps.",
+  "fix": "recognize.js polesHold: before a rational reading is used, every zero of a z-dependent divisor inside the node (a division's denominator, a negative integer power's base) must be a pole of the reading P/Q (cluster means of the roots, within 1e-6 (1+|x|)); otherwise the formula stays (the node becomes a formula part, with its own lamps). Taken at the current values with same_ (a value that makes such a point, (z-a)/z + z at a = 0, is refused there). rationalForm itself is unchanged: its removed list drives the inverse renderer's holes, and a common power of z that stays a pole (1/z + 1/z^2) is not a hole.",
+  "evidence": "z/z+z, \\frac{z}{z}+z, z\\cdot\\frac{1}{z}+z, \\frac{1}{z}\\cdot z^2+z: not recognized, lamps analytic, rational (were add/mul with entire, polynomial, injective). \\sqrt{\\frac{z}{z}+z}: partly read (formula part, then root), lamps analytic only (was add>root, injective). 1/z+1/z (mobius), 1/z+1/z^2 (rational), (z^2+1)/z (joukowski>mul) are read as before. Corpus: 210 of 230 recognized, exact inverse renderer 206, unchanged.",
+  "tests": "t_recognize 'review verify-2' (6 refused with no extra lamps, the square root case, 4 that keep their reading) and the sweep (z-a)/z + z over a in [-0.3, 0.3], refused at a = 0."
+ },
+ {
+  "id": "verify-3",
+  "severity": "low",
+  "status": "fixed",
+  "cause": "hornerSafe bounded the degree and the root spacing, not the conditioning of Horner on the expanded coefficients away from 0.",
+  "fix": "recognize.js hornerSafe: also kappa = sum |c_k||z|^k / |p(z)| <= 1e4 at 0.01 from every root (8 directions), for each poly and rational item of a node not typed expanded. Otherwise the formula stays as typed.",
+  "evidence": "kappa at 0.01 from a root: (z-100)^2+(z-101)^2 about 4e6, (z-10)^2+(z-11)^2 about 4e4, z(z-1)-0.997(z-1) about 3e4: all three now keep the typed formula. z^2-1 has about 100. Corpus readings unchanged (210 of 230).",
+  "tests": "t_recognize 'review verify-3': the three refused; float32-emulated Horner of the accepted single-poly readings ((z^2+1)(z-1)+z, (z+1)^2+z, z(z+1)+(z-1)) within 1e-3 of the formula at 0.01 from each root."
+ },
+ {
+  "id": "verify-4",
+  "severity": "info",
+  "status": "fixed (test)",
+  "cause": "The slider sweep in t_recognize mapped the keys 'pow' and 'ratzoom' to 'nat' before counting programs, which hid the switch of the catalog poly/zp natural path at a special value.",
+  "fix": "The sweep counts the raw GLChain keys. Each sweep lists keyAt, the values where the program may change (the catalog step's natural path becomes the monomial's 'pow' there, as for the catalog steps themselves and v15): z^2+az at a = 0, (z-a)^3(z+1) at a = -1. At every other value the key must be one.",
+  "evidence": "Raw keys over the sliders: z^2+az 60 values one key, a = 0 another; (z-a)^3(z+1) 240 values one key, a = -1 another; the other 11 sweeps one key at every value.",
+  "tests": "t_recognize 'review math-5, frperf-1, frperf-2' (raw keys, keyAt)."
+ }
+]

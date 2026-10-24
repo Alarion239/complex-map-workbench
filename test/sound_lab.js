@@ -2,8 +2,8 @@
 // renders every cue of Sound.CATALOG offline (OfflineAudioContext, through its panner, as in use, at 100 % volume)
 // and measures it: LUFS-M (BS.1770 K-weighting, the loudest 400 ms), the same through a phone-speaker model (a 4th-order
 // high-pass at 550 Hz), the peak, the onset and the last sample before the source stops, and the energy above 14 kHz;
-// then the continuous voices (Shepard at ln|F| = −8, 0, 8; Height at contour levels −7, 0, 8) and the turn bell over
-// the voice. window.__sndLab() → { rows, voices }.
+// then (v15.2) the harp's note and run, the singer's release note (curves sing), and the Height voice at contour levels
+// −7, 0, 8. window.__sndLab() → { rows, voices }.
 (() => {
   const TAU = 2 * Math.PI;
   function fft(re, im) {
@@ -44,7 +44,9 @@
     for (let i = 0; i < n; i++) if (Math.max(Math.abs(L[i]), Math.abs(R[i])) > peak * 1e-3) lastLoud = i;
     const o = Math.round(onset * fs);
     let first = 0; for (let i = o; i < o + Math.round(0.00025 * fs); i++) first = Math.max(first, Math.abs(L[i]), Math.abs(R[i]));
-    let end = 0; if (stopAt) { const s = Math.min(n - 1, Math.round(stopAt * fs)); end = Math.max(Math.abs(L[s - 1]), Math.abs(R[s - 1])); }
+    // (v15.2: the synth ends each part on a sample of exactly 0; the cue's end time is the sum of its parts' rounded
+    // lengths, so the sample read is 2 after it: 0 when nothing is left sounding, as a step would not be)
+    let end = 0; if (stopAt) { const s = Math.min(n - 1, Math.round(stopAt * fs) + 2); end = Math.max(Math.abs(L[s]), Math.abs(R[s])); }
     let N = 1; while (N < n) N <<= 1;
     const re = new Float64Array(N), im = new Float64Array(N);
     for (let i = 0; i < n; i++) re[i] = 0.5 * (L[i] + R[i]);
@@ -56,32 +58,33 @@
   window.__sndLab = async (opts = {}) => {
     const rows = [];
     for (const [name, d] of Object.entries(Sound.CATALOG)) {
-      const variants = name === 'zero' ? [{ order: 1 }, { order: 2 }, { order: 4 }] : name === 'pole' ? [{ order: 1 }] : name === 'turn' ? [{ dir: 1, pc: 0 }, { dir: -1, pc: 0 }] : name === 'morphTick' ? [{ t: 0.05 }, { t: 0.5 }, { t: 1 }, { t: 0.5, g: 0 }] : name === 'view' ? [{ k: 0 }] : name === 'contour' ? [{ k: -7 }, { k: 0 }, { k: 8 }] : name === 'loopDone' ? [{ w: 2 }, { w: 0 }] : [{}];
-      for (const o of variants) {
+      const variants = name === 'zero' ? [{ order: 1 }, { order: 2 }, { order: 4 }] : name === 'pole' ? [{ order: 1 }] : name === 'turn' ? [{ dir: 1, pc: 0 }, { dir: -1, pc: 0 }] : name === 'landmark' ? [{ q: 0 }, { q: 2, vel: 0.5 }, { q: 4, vel: 0.85 }] : name === 'view' ? [{ k: 0 }] : name === 'contour' ? [{ k: -7 }, { k: 0 }, { k: 8 }] : name === 'loopDone' ? [{ w: 2 }, { w: 0 }] : [{}];
+      for (const o0 of variants) {
+        // (palette B: every play is a new strike; the lab plays a fixed seed)
+        const o = Object.assign({ seed: 1 }, o0);
         let endAt = 0;
-        const buf = await Sound.render((G, t) => { endAt = d.make(G, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });
+        const buf = await Sound.render((G, t) => { endAt = Sound.cueTo(G, name, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });
         const a = analyse(buf, 0.01, null);
-        const dry = await Sound.render((G, t) => { G.tier[d.tier].wet.gain.value = 0; endAt = d.make(G, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });
+        const dry = await Sound.render((G, t) => { G.tier[d.tier].wet.gain.value = 0; endAt = Sound.cueTo(G, name, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });
         const ad = analyse(dry, 0.01, endAt);
         const L = lufsM(buf, false), Lp = lufsM(buf, true);
         rows.push({ name, o, tier: d.tier, peak: +dB(a.peak).toFixed(2), lufs: +L.toFixed(2), phone: +Lp.toFixed(2), loss: +(L - Lp).toFixed(2), first: +a.first.toFixed(3), end: ad.end, hf: +a.hf.toFixed(1), len: +a.len.toFixed(3) });
       }
     }
     const voices = {};
-    const shep = async (la, bell) => Sound.render((G) => {
-      const v = Sound.ShepardVoice(G); v.set(0, la, 0, 0.1); v.gate(true, 0.1, 0.02);
-      for (let s = 0.1 + 1 / 60; s <= 3.1; s += 1 / 60) v.set(0.5 * (s - 0.1), la, 0, s);
-      v.gate(false, 3.1, 0.05); v.stop(3.5);
-      if (bell) Sound.CATALOG.turn.make(G, 1.5, { dir: 1, pc: 0.7 });
-    }, 3.6, { noClip: true, nodes: opts.nodes });
-    const Ls = {}, Lsp = {};
-    for (const la of [-8, 0, 8]) { const b = await shep(la); Ls[la] = lufsM(b, false, 0.4, 3.0, true); Lsp[la] = lufsM(b, true, 0.4, 3.0, true); }
-    voices.shepard = { at1: +Ls[0].toFixed(2), range: +(Math.max(Ls[-8], Ls[0], Ls[8]) - Math.min(Ls[-8], Ls[0], Ls[8])).toFixed(2), phoneRange: +(Math.max(Lsp[-8], Lsp[0], Lsp[8]) - Math.min(Lsp[-8], Lsp[0], Lsp[8])).toFixed(2), all: [Ls[-8], Ls[0], Ls[8]].map((x) => +x.toFixed(2)) };
-    const vb = await shep(0, true), vo = await shep(0, false);
-    let f = Sound.SH.fLo * Math.pow(2, 0.7); while (f < 1700) f *= 2;
-    voices.bellOverVoice = +(bandDb(vb, f, 1.56, 1.71) - bandDb(vo, f, 1.56, 1.71)).toFixed(2);
-    const tb = await Sound.render((G, t) => Sound.CATALOG.turn.make(G, t, { dir: 1, pc: 0.7 }), 1.2, { noClip: true, nodes: opts.nodes });
-    voices.bellAlone = +lufsM(tb, false).toFixed(2);
+    // the harp (v15.2): one note E at velocity 0.7 and |F| = 1, the D with its accent, and a run of 10 notes a second
+    // (each string is a new pluck, ±1 dB: the lab plays a fixed seed)
+    const note = async (j) => { Sound.seed(1); return Sound.render((G, t) => { Sound.harpNote(G, j, 0.7, t, 0, 1, false, 0, 'sonify'); }, 2.6, { noClip: true }); };
+    const hn = await note(2), hd = await note(0), ha = analyse(hn, 0.01, 2.55);
+    const run = await Sound.render((G, t) => { const st = Sound.Harp(); Sound.harpStep(st, null, t, 0.03, {}); for (let i = 1; i <= 150; i++) Sound.harpStep(st, G, t + (i - 1) * 0.016, 0.03 + 2 * 0.016 * i, { ln: 0, dt: 0.016 }); }, 3.6, { noClip: true });
+    voices.harp = { note: +lufsM(hn, false).toFixed(2), d: +lufsM(hd, false).toFixed(2), loss: +(lufsM(hn, false) - lufsM(hn, true)).toFixed(2), run: +lufsM(run, false).toFixed(2), first: +ha.first.toFixed(3), end: ha.end, peak: +dB(ha.peak).toFixed(2) };
+    // curves sing: the release note of z − 0.6 (W = 1) and 1/(z − 0.6) (W = −1) on the unit circle; its level and its
+    // loudest harmonic (n·D3, n = 1 … 8)
+    const phase = (sign) => { const M = 512, ph = new Float64Array(M); let prev = 0, acc = 0; for (let j = 0; j < M; j++) { const th = 2 * Math.PI * j / M, a = sign * Math.atan2(Math.sin(th), Math.cos(th) - 0.6); if (j) { let d = a - prev; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); acc += d; } else acc = a; prev = a; ph[j] = acc / (2 * Math.PI); } return ph; };
+    const singR = async (W) => { const c = Sound.curveAmps(phase(W), W); return Sound.render((G, t) => G.synth.post(Sound.singCmds(c.A, c.n0, 'release', t, 'events', { gate: 1 })), 3.4, { noClip: true }); };
+    const s1 = await singR(1), sm1 = await singR(-1);
+    const peakH = (b) => { let best = 0, bn = 0; for (let n = 1; n <= 8; n++) { const e = bandDb(b, 146.8324 * n, 0.5, 1.4); if (e > best || !bn) { best = e; bn = n; } } return bn; };
+    voices.sing = { w1: +lufsM(s1, false).toFixed(2), wm1: +lufsM(sm1, false).toFixed(2), loss: +(lufsM(s1, false) - lufsM(s1, true)).toFixed(2), peak1: peakH(s1), peakm1: peakH(sm1) };
     const hv = async (la) => Sound.render((G) => { const v = Sound.HeightVoice(G); v.set(la, 0, 0.1, 12); v.gate(true, 0.1, 0.02); v.set(la, 0, 0.2, 12); v.gate(false, 2.1, 0.05); v.stop(2.4); }, 2.5, { noClip: true, nodes: opts.nodes });
     const H = {}, Hp = {};
     for (const u of [-7, 0, 8]) { const b = await hv(u * TAU / 12); H[u] = lufsM(b, false, 0.4, 2.0, true); Hp[u] = lufsM(b, true, 0.4, 2.0, true); }

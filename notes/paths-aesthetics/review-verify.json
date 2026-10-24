@@ -1,0 +1,63 @@
+{
+  "verified": "2026-10-24, work/xvz/dist/test.html on port 9047 (headless Chrome, 1440x900 light and 390x844 mobile), plus notes/paths-aesthetics/after/review. Shots: notes/paths-aesthetics/verify-shots/.",
+  "fixed": {
+    "path-2": "Strip to disk retrace 0.047; no 0 -> 1 -> 0 segment in the live view or the figure.",
+    "path-3 (scrub)": "All 7 examples: scrubbing 0 -> end in 13 steps keeps the same starts (1 set) and draws every path (heads = n); no orphan line from the edge in the Cayley-cube figure.",
+    "path-5": "Phone at t = m/2: at most 8 paths (Disk automorphism, Log annulus, Square root 8; Cayley-cube 3; Quarter 3; Sine half-strip 3; Strip to disk 1).",
+    "path-6 (desktop)": "Shortest path at t = end, 1440x900: 41-65 px in all 7 examples.",
+    "path-9": "Sine half-strip Article: 4 paths, none on the imaginary axis.",
+    "path-10": "No ring on the frame edge in the Strip to disk and Cayley-cube figures.",
+    "path-11": "Legend shows 'image of a cut' and then X with the paths glyph (Log annulus, Square root).",
+    "path-12": "Live: no time dots; one arrowhead; no arrowhead on short paths."
+  },
+  "still_wrong": [
+    {
+      "id": "path-1",
+      "severity": "medium",
+      "title": "Chain corners still read as V hooks, and in print the bar breaks the line at the corner",
+      "detail": "The arrowhead is off the corner now, but corners up to 144 degrees are kept. Strip to disk has 3 paths live and 2 in the figure, and all of them are V-shaped hooks. In the Article B/W figure the bar's white halo (stroke 0.35, paint-order stroke) cuts both legs at the V's tip. The corner then shows as a gap with a loose slash beside it, so it reads as a broken path and not as 'the step changes here'. The same gap shows at one Cayley-cube bar (lower middle).",
+      "evidence": "Live __cmwPathsCheck at t = end: Strip to disk kinkStep 2.52 rad. verify-shots/z_striptodisk-fig-bar.png (4x crop of after/review/striptodisk-export-article-bw.png), z_cayleycube-fig.png, z_striptodisk-live-corner.png.",
+      "fix": "In print, draw the bar with no white halo (or a halo only on the bar's ends), or draw a small open node at the corner instead of a bar. Lower the kept corner limit to about 120 degrees, or require both legs to be at least 2 dS for any corner over 100 degrees."
+    },
+    {
+      "id": "path-7",
+      "severity": "medium",
+      "title": "A path's own second leg passes 4 px from its own start ring",
+      "detail": "The ring and dot clearance tests check other paths only. In Strip to disk (live, t = end), the path from z = 0.642 + 1.566i goes up to the imaginary axis and comes back down, and its return leg runs 4.1 px from its own ring. On screen the ring sits on the line.",
+      "evidence": "Own measure from __cmwMorphSel paths: Strip to disk ownRing 4.1 px (all other paths in the 7 examples 17-30 px). verify-shots/z_striptodisk-live-corner.png (right path).",
+      "fix": "Apply the dE/2 ring and end-dot clearance to the path's own line too, beyond its first and last dS of arclength."
+    },
+    {
+      "id": "path-4",
+      "severity": "medium",
+      "title": "Cayley-cube still has two long parallel lines, and the ink cap is skipped for the first 4 paths",
+      "detail": "Live at t = end, the paths from 1.12 + 0.23i and 1.24 + 0.84i run as two near-parallel straight legs for about 180 px, within 30 px of each other (within 40 px for about 285 px). sepLong is 0.25, exactly at the limit. The ink is 2066 px against a cap of about 1721 (2.5 x sqrt(848 x 559)), because pathsGen applies the cap only once 4 paths are kept (line 4434). On the phone, sepLong is again 0.247.",
+      "evidence": "__cmwPathsCheck at t = end: sepLong 0.25, ink 2066. Own measure: 178 of 668 px and 182 of 494 px within 30 px of another path. verify-shots/cayleycube-light-end.png (the two diagonals from the upper right).",
+      "fix": "Apply the ink cap from the second path on (or with a minimum of 2, not 4). Make longShare a strict margin (for example 0.2), or measure it at 2.2 dTest, so that pairs at the limit are dropped."
+    },
+    {
+      "id": "path-6",
+      "severity": "low",
+      "title": "On the phone, stubs and paths with no arrowhead are still all that show in some scenes",
+      "detail": "At 390x844, t = m/2, Sine half-strip keeps 3 paths, and the shortest is 29 px: a ring-and-dot dumbbell at the bottom of X, under the 41 px stub limit. All 3 phone paths are too short for an arrowhead, so nothing shows direction. Disk automorphism on the phone shows mostly short rim arcs with no arrowheads.",
+      "evidence": "__cmwPathsCheck on the phone: Sine half-strip n 3, minLen 29 px. verify-shots/sinhalf-phone-mid.png, diskauto-phone-mid.png.",
+      "fix": "On small panes, scale stubK and arrowMin by the same factor as the spacings (or drop the stub instead of keeping it), and prefer fewer, longer paths when the pane is narrow."
+    },
+    {
+      "id": "path-3",
+      "severity": "low",
+      "title": "Panning makes a path vanish at once (a pop)",
+      "detail": "Disk automorphism, t = 0.5: after 6 pans of 30 px, one path's start leaves the view and that path is no longer drawn (heads 10 -> 9 while the set stays the same). It disappears in a single frame with no fade. A second start leaving the view chooses a new set, which is a larger pop.",
+      "evidence": "Pan test: heads 10,10,10,10,10,10,9 with n = 10 throughout.",
+      "fix": "Keep drawing the path clipped, with the entry chevron that now exists, until the next selection. Or fade it out over about 150 ms."
+    },
+    {
+      "id": "path-8",
+      "severity": "low",
+      "title": "The globe is still sparse: short rim strokes, and Cayley-cube has none",
+      "detail": "Disk automorphism globe at t = m/2: 5 paths. Four of them are short strokes (about 20-90 px) along X's boundary circle, and they read as marks on the outline. Cayley-cube shows 0 paths on the default globe while Paths is on, with no hint why.",
+      "evidence": "verify-shots/diskauto-globe-mid.png; __cmwMorphCache on the globe: Cayley-cube 0 paths.",
+      "fix": "When the globe shows no paths (or fewer than 3) while Paths is on, say so in the legend row (for example 'paths: X faces away'). Prefer interior seeds over rim seeds on the globe."
+    }
+  ]
+}

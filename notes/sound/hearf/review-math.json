@@ -1,0 +1,138 @@
+[
+ {
+  "id": "hfmath-1",
+  "severity": "high",
+  "title": "On the deformation, the phase harp is silent on 4 of the 6 functions, and the 'rising' line is wrong for 3 of them",
+  "detail": "In the deformation gesture the probe holds still while a zero of H_t passes about 3 px away, and the arg change at the probe is about half a turn. The harp's rule 'within 8 px of a zero, play only the D notes' (Near.inside, Newton distance |H/H′| < 8 px) is on exactly while arg H_t swings. That rule exists to stop tremor flutter, but here the pointer is not moving. So the E and F♯ notes are suppressed, and no D is crossed. The harp plays nothing; only the zero ping sounds. For z²/(z − 1) and sin z it plays a single falling D. The direction is also wrong for half the functions. For eᶻ, z²/(z − 1) and sin z the zero moves left under a probe that sits above the axis, so arg H_t falls by about 0.48 turn. Yet option 1 promises 'a rising half-turn glide' and the harp 'a short rising run'. A student who compares the options on this gesture hears the harp 'fail', and is told the wrong direction for zeros moving left.",
+  "evidence": "tools/mathrev/a5.js, harp on the deformation, portrait 386 px (desktop), 309 px (phone) and 320 px (measure.js). Note events: z² − 1 0, (z − 1)/(z + 1) 0, eᶻ 0, z³ 0, z²/(z − 1) 1 (D↓), sin z 1 (D↓). Pings 1 each. nearInside covers t 0.34–0.46 (z² − 1) and 0.39–0.60 (eᶻ). Arg change at the probe: +0.484, +0.477, −0.474, +0.488, −0.481, −0.478 turns. LISTEN.sung.deform and LISTEN.harp.deform (proto/core.js:519–520) say 'rising' for every function.",
+  "fix": "Apply the near-zone 'D only' rule only while the pointer moves (pr.speed > 0). A still probe has no tremor, so the deformation then plays its run: for z² − 1, E and F♯ rising. Write each deformation's Listen line from the sign that tools/deform.js already computes: 'rising' for z² − 1, (z − 1)/(z + 1) and z³; 'falling' for eᶻ, z²/(z − 1) and sin z. Better still, add 'the zero passes left to right under the probe, so arg H turns up'. Alternatively, put each probe on the side that gives a rise, and say so."
+ },
+ {
+  "id": "hfmath-2",
+  "severity": "high",
+  "title": "On z³ and z²/(z − 1), 'Loop: a zero' circles the multiple zero, but every Listen line still describes a simple zero",
+  "detail": "target(fn, 'zero') falls back to fn.zeros[0] when there is no simple zero. So on z³ both loop buttons circle the triple zero, and on z²/(z − 1) 'Loop: a zero' circles the double zero (the button's small label does say so). LISTEN is keyed by gesture only, so the guidance is wrong. z³, 'Loop: a zero': Today/1 say 'two climbs'; the true count is 6 turns and 6 bells. The harp says 'the scale twice, a low D each lap'; the truth is 6 times, 3 low Ds per lap. Option 4 says 'F♯5 then A5 (W = 2)'; the truth is C6 (W = 3), then F♯6 (W = 6). Option 3 says 'a faint F♯5'; in fact F♯5 is the strongest harmonic, 0.3 dB over home. z³, 'Loop: a double zero' says 'four climbs' and 'D6 (W = 4)'; the truth is 6 and F♯6. z²/(z − 1), 'Loop: a zero' says 'two' where the truth is 4. A student who trusts the Listen line concludes that the sound miscounts, at the very moment it is right.",
+  "evidence": "proto/core.js:273–277 target(), :517–523 LISTEN. tools/mathrev/a2.js, option 4 on the z³ zero loop: W goes 0 → 3 at lap 0.51 and → 6 at lap 1.51. On the dz zero loop: 0 → 2 → 4. Ring on z³'s loop: h5 0.0, h4 −0.3, h6 −9.2 dB. PROTOTYPE.md: harp D count 6 on the triple-zero loop.",
+  "fix": "Write the Listen lines from the target's order m and the 2 laps: turns = 2m; harp 'the scale 2m times, m low Ds per lap'; option 4 'W = m after half a lap, 2m after a lap and a half', with the note names from NOTE_OF_H. Disable 'Loop: a zero' when there is no simple zero, as 'Loop: a pole' already is. Then the two buttons never play the same loop under different words."
+ },
+ {
+  "id": "hfmath-3",
+  "severity": "high",
+  "title": "Option 4, 'Hear the view': on eᶻ, sin z and (z − 1)/(z + 1), the note you hear moves with no zero or pole swallowed",
+  "detail": "The exact fact is that the centre of the phase signal's spectrum, Σ k|b_k|², equals W. The strongest harmonic, which is what the ear takes as the note, is not W. When arg F swings unevenly along the circle, the spectrum spreads, and the loudest harmonic wanders. On eᶻ (W = 0 throughout) the home D5 loses the lead at r ≈ 1.6 and is silent at r ≈ 2.4, where J₀(r) = 0. The loudest pair is then A4 and F♯5, then D4 and A5, and from r ≈ 3.9 the folded harmonic 1 (D3, the 'two octaves down' note) leads, with D6 and E6 above it. The listener is told 'the note climbs one harmonic for each zero the circle swallows, falls for each pole'. They hear it fall two octaves on a function with no zeros or poles. On sin z the C6 of W = 3 is already loudest at r = 2.83, before the circle reaches ±π, and E6 (the W = 5 note) leads at the corners. On (z − 1)/(z + 1) the zero and the pole are swallowed together at r = 1, so W stays 0 (honest: N − P = 0). Even so, from r ≈ 0.7 the sound is an equal A4/F♯5 dyad, the 'pole' and 'zero' notes, with home 0 to 7 dB under. This is the headline promise of option 4, and it fails audibly on 3 of the 6 functions.",
+  "evidence": "tools/mathrev/a3.js, strongest harmonics and share per radius. eᶻ: r 1.41 h4/h3/h5 equal (31 %); r 2.83 h2 and h6 (23 %); r 3.89–5.66 h1 leads (27–37 %). sin z: r 2.83, W = 1, h7 0.0, h5 −1.2; r 5.30–5.66, W = 3, h9 leads. (z − 1)/(z + 1): r 0.71–1.41, h3 = h5, h4 −0.4 to −7.1. z² − 1, z³ and z²/(z − 1) are clean (W's harmonic leads with 58–100 %). LISTEN.curve.view: proto/core.js:522.",
+  "fix": "Keep the invariant exact and shrink the rest. Play e^{2πi φ̃} with φ̃(s) = W s + λ (φ(s) − W s), where s is the arc-length fraction. The mean of φ̃′ is still W, so the centre stays exactly W, and the spread shrinks by λ. With λ = 0.35, tools/mathrev/a7.js makes W the strongest harmonic for sin z at r 2.83 (89 %) and r 5.66 (81 %), for (z − 1)/(z + 1) at r 0.71 (88 %), and for eᶻ up to r = 4. At r = 5.66 eᶻ still leads with k = −1 (33 %), so choose λ adaptively: the largest λ ≤ 1 for which the RMS of φ − W s is at most about 0.12 turn. The step at a crossing then becomes a clean change of note. Also say on the page: 'the note is the winding number; a rough or spread sound means arg F swings along the curve'."
+ },
+ {
+  "id": "hfmath-4",
+  "severity": "medium",
+  "title": "Option 3 cannot tell a zero from a pole, or a simple zero from a triple one, unless the point is inside the 20 px ring",
+  "detail": "Outside the ring, the first overtone's level relative to home is |c₁/c₀| = r·|F′/F|, which is r times the logarithmic derivative. For z − b and for 1/(z − b) at the same distance δ, it is the same number, r/δ. For a zero of order m it is m·r/δ. So F♯5 'swells in' just as much near a pole as near a zero. Only the faint higher harmonics differ: a pole adds A5, C6 and so on in a geometric series (Cauchy–Hadamard: their decay rate is the distance to the nearest singularity). On the page this shows as follows. On (z − 1)/(z + 1), 'Loop: a zero' and 'Loop: a pole' sound almost the same: F♯5 at −8.5 vs −10.5 dB, A5 at −27 vs −20 dB. On z³'s loop, 58 px from the triple zero, the strongest harmonic is F♯5, and the readout prints 'strongest harmonic 5 = F♯5 (a major third up)'. The option line reads 'a third up near a simple zero', yet the ring contains no zero. eᶻ has F♯5 at −7.6 dB at every point, with no zero anywhere (r|F′/F| = r). OPTIONS.md §4 also says 'one harmonic dominates exactly when Rouché's theorem applies'. That is only one direction. Rouché's condition implies that harmonic m dominates and that W = m; dominance alone implies neither. The z³ loop is a counterexample, as is 1 + 1.2w + 0.9w² on |w| = 1, which has no zeros inside but has k = 1 dominant.",
+  "evidence": "tools/mathrev/a2.js, ring at the loop's midpoint (386 px): (z − 1)/(z + 1) zero loop h4 0, h5 −8.5, h6 −27.4; pole loop h4 0, h5 −10.5, h6 −19.7. z³ loop h5 0, h4 −0.3, h6 −9.2. z²/(z − 1) zero loop h5 −4.6; pole loop h5 −5.8. Formula: F(a + re^{iθ}) = Σ F^{(k)}(a) r^k e^{ikθ}/k!, so |c₁/c₀| = r|F′(a)/F(a)|.",
+  "fix": "Choose the whistle from the ring's exact winding number: the tracker on the 20 px circle gives N − P inside it, by the argument principle. Play it as harmonic 4 + W(ring), and let the Taylor coefficients set only the colour (brightness for a nearby singularity). Then 'a third' always means 'one zero inside the ring', and a pole outside never sounds like a zero. If the mapping stays as it is, reword the option line: 'the third shows how fast log F changes here; inside the ring it counts zeros minus poles'."
+ },
+ {
+  "id": "hfmath-5",
+  "severity": "medium",
+  "title": "Option 3 on the sweep reports a double zero as simple and a triple zero as double; 'a fifth near a double zero' is never played",
+  "detail": "The sweep passes every zero on the real axis at 0.08·hw, which is 15.4 px (δ = 0.77 r for the 20 px ring; 12.4 px on a phone). With the zero inside the ring off centre, the coefficients of (δ + w)^m are binomial: C(m, k) δ^{m−k} r^k. Harmonic m leads only when δ < r/m. At δ = 0.77 r, z²/(z − 1)'s double zero gives F♯5 strongest and A5 at −3.9 dB: the 'simple zero' note. z³'s triple zero gives A5 strongest: the 'double zero' note. The simple pole of (z − 1)/(z + 1) gives A4 correctly, but with D3 at −0.6 dB (see hfmath-7). So no scripted gesture ever shows the option's main claim, a fifth near a double zero. A hand would have to pass within about 10 px of the zero.",
+  "evidence": "tools/mathrev/a1.js (386 px). z²/(z − 1), ring above 0: h5 0.0, h6 −3.9, h4 −8.2. z³: h6 0.0, h5 −2.2, h7 −7.3. Simple zeros: h5 0.0, h4 −2.2 to −2.5. OPTIONS[3].line in proto/core.js:513.",
+  "fix": "Add a gesture for this option that passes through the zero, or approaches it and holds for 1 s. Or move the sweep to 0.02·hw for every option (it is then also inside the 8 px ping radius; see hfmath-6). With the ring-W design of hfmath-4, the order is exact whenever the zero is inside the ring."
+ },
+ {
+  "id": "hfmath-6",
+  "severity": "medium",
+  "title": "Option 4's live loop changes note after half a lap, not 'when the first lap closes'",
+  "detail": "While drawing, the stroke is closed by the dashed chord back to its start. For a circle around a zero, the chord passes the zero once the arc exceeds a half circle. So W becomes 1 at lap 0.5 and 2 at lap 1.5. The Listen lines say F♯5 'when the first lap closes, A5 after the second' (pole: 'A4 after one lap, D4 after two'). At exactly half a lap the chord is a diameter through the zero, so the curve passes through it and W is undefined for an instant. On z³ the tracker reports a spurious W = 2 for one frame, and on z²/(z − 1) W = 1. Mathematically this is a fine teaching moment: the winding number belongs to the closed curve, chord included. As written, though, the guidance tells the student to expect the step half a lap late.",
+  "evidence": "tools/mathrev/a2.js, W timeline of option 4's live stroke. z² − 1: W 0 → 1 at lap 0.51, → 2 at 1.51. (z − 1)/(z + 1) pole: 0 → −1 at 0.51, → −2 at 1.51. z³: 0 → 2 (one frame) → 3 at 0.50–0.51, → 4 → 6 at 1.50–1.51. LISTEN.curve, proto/core.js:522.",
+  "fix": "Rewrite: 'D5 until the dashed chord that closes your stroke passes the zero (half a lap), then F♯5; A5 after a lap and a half'. Skip the frame whose curve passes within a pixel of a zero (curveSpectrum's ok flag can test min |F| on the curve), so no spurious W is ever sung."
+ },
+ {
+  "id": "hfmath-7",
+  "severity": "medium",
+  "title": "Folding k ≤ −4 onto harmonic 1 creates a false 'triple pole' D3",
+  "detail": "toAmps adds the energy of every coefficient below k = −3 into harmonic 1 (D3). D3 is also the meaning 'a triple pole / W = −3' and the hum's fundamental. A simple pole inside the ring off centre has a slowly decaying Laurent tail, (δ/r)^j on k = −1 − j, so the fold makes D3 almost as loud as the pole's own A4. On the sweep past (z − 1)/(z + 1)'s pole: A4 0 dB, D3 −0.6 dB, D4 −2.2 dB. In 'Hear the view' on eᶻ, the folded D3 is the loudest harmonic from r ≈ 3.9 to the corner, with W = 0. Students then hear a pole of order 3 that does not exist.",
+  "evidence": "proto/core.js:136–150 toAmps (n ≤ 0 → low, A[0] = √(A[0]² + low)). tools/mathrev/a1.js: mob pole on the sweep, h3 0.0, h1 −0.6, h2 −2.2. tools/mathrev/a3.js: eᶻ, r 3.89–5.66, h1 leads.",
+  "fix": "Drop k ≤ −4, or send that energy to the breath noise as an unpitched 'deep' colour. Do not add it to a pitched harmonic. If poles of order ≥ 4 matter, shift by 6 instead of 4, with home on harmonic 6 (A4 over D3). The readout should say 'below the scale', not 'two octaves down'."
+ },
+ {
+  "id": "hfmath-8",
+  "severity": "medium",
+  "title": "The page has no branch cut, no essential singularity and no growth gesture, where the options differ most",
+  "detail": "The six functions are all meromorphic. The user's app has log, √ and powers with cuts, and these are where today's tone sounds strangest: a jump. Each option's cut behaviour is specified in OPTIONS.md (harp: the cut cue and no notes; ring: a rough reed; curves: 'no winding number'), but none of it is on the page; the page's Probe has no jump detection. Growth is not shown either. The eᶻ sweep runs up the line Re z = 0.32, so |F| = e^{0.32} is constant, and no gesture lets a student compare how the options carry |F|: today by loudness and register, options 1 and 2 by register, options 3 and 4 not at all. The choice the user is asked to make, 'which one makes a zero, a pole and a winding number obvious', is therefore made without the cases that separate the options.",
+  "evidence": "proto/core.js:17–36 FUNCS (no √, log or e^{1/z}). :283 eᶻ sweep 'v'. Ring and curve normalise |F| away (ringSpectrum unit RMS; curveSpectrum uses F/|F|).",
+  "fix": "Add √z (principal cut on the negative axis) with a sweep that crosses the cut and a loop around 0. Add a horizontal 'growth' sweep on eᶻ along Im z = 0.3. Port the app's jump test (Calc.argStep why: 'jump') into Probe and play the cut cue. In the option lines, say that options 3 and 4 do not hear |F|."
+ },
+ {
+  "id": "hfmath-9",
+  "severity": "low",
+  "title": "The sweep never comes within the 8 px ping radius, so 'pings near zeros' never happens",
+  "detail": "The sweep's offset, 0.08·hw, is always 15.4 px on the desktop layout and 12.4 px on a phone, and the zero and pole pings fire inside 8 px. No zero or pole ping sounds on any sweep, in any option; only turn bells do, on 4 functions. Today's Listen line promises 'pings near zeros'. The harp's 'D only near a zero' rule also never shows on the sweep.",
+  "evidence": "tools/mathrev/a1.js: cues on the sweep are 0 on z² − 1 and (z − 1)/(z + 1), and 1 (a turn bell) on the others; minimum distance 15.4 px (386 px) and 12.4 px (309 px). Near.step, proto/core.js:250–267.",
+  "fix": "Either drop 'pings near zeros' from the sweep line, or run the sweep at 0.03·hw (about 6 px), which also lets option 3 show the order (hfmath-5)."
+ },
+ {
+  "id": "hfmath-10",
+  "severity": "low",
+  "title": "Option 4's harmonic ladder hears the sign of W but cannot count it beyond about ±2",
+  "detail": "W maps to harmonic 4 + W of D3. The intervals are not uniform. +1 is a major third up, but −1 is a fourth down. Upward the steps shrink: W 4 → 5 → 6 are whole tones (D6, E6, F♯6). Downward they grow: −2 → −3 is an octave. W = −3 lands on D3, the hum's fundamental, where the whistle disappears, and every W ≤ −3 merges there. Zeros and poles are not mirror images by ear, although W is sign-symmetric. Today's tone and the harp count turns exactly by bells or low Ds. Option 4 gives a pitch from which only the sign and small |W| can be read.",
+  "evidence": "NOTE_OF_H, proto/core.js:152; the fold at :147. Harmonic series of D3: 1 D3, 2 D4, 3 A4, 4 D5, 5 F♯5, 6 A5, 7 C6 (−31 c), 8 D6, 9 E6, 10 F♯6.",
+  "fix": "Say so on the page: 'the note gives the sign and a small W; the readout gives the number'. For a count, pair option 4 with the harp, as OPTIONS §9 recommends. Shifting home to harmonic 6 or 8 would give poles room and a more symmetric ladder near 0."
+ },
+ {
+  "id": "hfmath-11",
+  "severity": "low",
+  "title": "Two-lap gestures make option 4 sing the 'double zero' note around a simple zero",
+  "detail": "Two laps around a simple zero have W = 2 (A5). Option 3 uses that same note to mean 'a double zero under the pointer'. Both are correct: the curve's winding number is laps × order, while the ring reads the order. But the shared vocabulary (A5 = 2) means different things in two options played side by side on the same gesture. A student comparing them may conclude that one option is wrong.",
+  "evidence": "gesture(), proto/core.js:288 (laps = 2). LISTEN.curve.zero: 'A5 after the second (W = 2: two laps)'. OPTIONS[3].line: 'a fifth near a double zero'.",
+  "fix": "Show W in the readout as 'W = 2 (1 zero × 2 laps)'. Alternatively, give option 4 one lap and a 1 s hold, which also lets the release note be heard against the same loop."
+ },
+ {
+  "id": "hfmath-12",
+  "severity": "low",
+  "title": "The harp's strings are unevenly spaced, and in the D-only zones the sign of a turn is inaudible",
+  "detail": "The five strings sit at arg F = 0°, 60°, 120°, 210° and 270°, so the gaps are 60°, 60°, 90°, 60° and 90°. Circling a zero at constant speed gives a short-short-long-short-long rhythm, which a student may read as arg F turning unevenly. Near a zero or pole (within 8 px), and above 24 notes a second, only the D sounds. Successive Ds have the same pitch class, so up and down differ only by a ±0.12 pan. The count stays exact on the readout, but the ear cannot tell a zero from a pole there.",
+  "evidence": "HARP_TH, proto/core.js:375. Harp.frame :395 (non-D skipped when nearInside or rate > 24). note() :410 (pan = 0.12·dir).",
+  "fix": "Add one line on the page: 'the rhythm is the scale's own, not arg F's'. In the D-only zones, play the up-crossing D with the A above and the down-crossing D with the A below, so the sign stays audible."
+ },
+ {
+  "id": "hfmath-13",
+  "severity": "low",
+  "title": "The page gives no reading key: which colour is D, and what each note means",
+  "detail": "Every option uses D as home and arg F = 0 as D, but nothing on the portrait says which colour is arg 0. The harp's strings are drawn without naming the brighter D line. For options 3 and 4 the meaning of the notes (F♯5 = +1, A5 = +2, A4 = −1, D4 = −2) is in OPTIONS.md, not on the page. The readout prints interval names ('a major third up'), which a student must translate back to zeros and poles alone.",
+  "evidence": "proto/page.html:124 legend (zero, pole, harp strings only). ui.js readout(); describe() in core.js:452–456.",
+  "fix": "Add a one-line key under the portrait per option: Today/1/2 'red = arg 0 = D; up = arg F increasing'; 3/4 'D5 home · F♯5 +1 · A5 +2 · A4 −1 · D4 −2'. Have describe() add the meaning: '… F♯5 (+1: one zero inside)'."
+ },
+ {
+  "id": "hfmath-14",
+  "severity": "info",
+  "title": "What a student learns by ear: Today and option 1 (sung point)",
+  "detail": "Same mapping: the pitch class is arg F, with D = arg 0. Learnable: the direction of turning (a climb means arg F is increasing, so counter-clockwise around a zero; a fall means a pole). The winding number of a loop is exact as the count of turn bells; the glide itself drops whole turns above about 3 turns a second, but the bells are counted from the exact tracker. The order of a zero is the number of cycles per lap. Growth is weak: |F| moves the register ±0.3 octave, saturating near |F| ≈ e^{±5}, and today also its loudness. Option 1's drone makes arg F readable as an absolute interval (90° = minor third, 210° = fifth), which is a genuine gain over today. Not learnable: the arrangement around a point (zero vs pole without moving), or cuts (untested here). Mapping: correct and honest. The convention 'zeros up, poles down' is the same in all four options, which is good.",
+  "evidence": "proto/core.js Today :328–346, Sung :353–372, ShPlan :216–231, Turns :237–247.",
+  "fix": "None needed beyond hfmath-1 (direction text on the deformation)."
+ },
+ {
+  "id": "hfmath-15",
+  "severity": "info",
+  "title": "What a student learns by ear: option 2 (phase harp)",
+  "detail": "Learnable: direction (rising or falling runs) and the speed of arg F (note rate = 5 × turns per second, uneven; see hfmath-12). The winding number is exact: up Ds minus down Ds equals W on every closed loop that starts more than 3.75° from arg 0. The Schmitt trigger makes this a theorem, not a heuristic, and the build checks it (2, −2, 4, 6). Order of a zero: m scales per lap. Growth: register ±0.5 octave. Not learnable: arg F between strings (60–90° resolution), the sign of a turn inside the D-only zones, and anything while the pointer rests, by design. On the page it currently fails the deformation (hfmath-1). Of the pointer options it is the most honest counter.",
+  "evidence": "proto/core.js Harp :377–427; PROTOTYPE.md 'Exactness checks'.",
+  "fix": "hfmath-1 and hfmath-12."
+ },
+ {
+  "id": "hfmath-16",
+  "severity": "info",
+  "title": "What a student learns by ear: option 3 (the ring)",
+  "detail": "Learnable, when the point is inside the 20 px ring and near its centre (δ < r/m): the order of a zero (F♯5, A5, C6) and of a pole (A4, D4), as the Laurent coefficients at the pointer. Nearby singularities show as brightness: the decay of the high harmonics is r/ρ, where ρ is the radius of convergence at the pointer (Cauchy–Hadamard). That is a real, rarely heard fact. Not learnable: arg F, |F| or growth (normalised away), and zero vs pole outside the ring (hfmath-4). The order is misread at the edge of the ring (hfmath-5). Mapping: correct as Fourier/Laurent mathematics; the page's wording oversells it. It is honest only after hfmath-4's change, or a reworded option line.",
+  "evidence": "ringSpectrum, proto/core.js:112–132; tools/mathrev/a1.js and a2.js.",
+  "fix": "hfmath-4, hfmath-5, hfmath-7."
+ },
+ {
+  "id": "hfmath-17",
+  "severity": "info",
+  "title": "What a student learns by ear: option 4 (curves sing)",
+  "detail": "Learnable: the argument principle (N − P inside a curve) as the spectral centre, exactly. By Parseval, Σ k|b_k|² is the mean of φ′, which is W; the code computes W with the exact tracker. Homotopy invariance in the deformation: the note does not change until a zero of H_t touches the loop. The measured switch of the loudest harmonic lies within 0.04 of t of the W step on all six functions; it is a crossfade with both notes within about 2 dB, not a click-step. Strongest when arg F turns evenly (small loops; z², z³, z²/(z − 1)). Not learnable reliably: W on wide circles over fast-varying F (hfmath-3), large |W| (hfmath-10), cuts (untested). It is closest to the user's 'composite of a curve', and with the λ-compression of hfmath-3 it would make W the heard note while keeping the centre exact.",
+  "evidence": "tools/mathrev/a4.js. Deformation, W step vs strongest-harmonic switch: z² − 1 0.40 vs 0.38; (z − 1)/(z + 1) 0.60 vs 0.63; eᶻ 0.53/0.92 vs 0.54/0.92; z³ 0.74 vs 0.74; z²/(z − 1) 0.70 vs 0.74; sin z 0.89 vs 0.89.",
+  "fix": "hfmath-3, hfmath-6, hfmath-10, hfmath-11. In the Listen line for the deformation, say 'crossfades' rather than 'steps'."
+ }
+]

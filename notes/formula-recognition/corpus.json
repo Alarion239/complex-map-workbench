@@ -1,0 +1,8794 @@
+{
+ "about": "Formula-recognition audit corpus (notes/formula-recognition/AUDIT.md). v15 work copy work/xvr, 2026-10-24. kind: exact = the formula is this catalog chain as written (z once, same branches on the formula cut 180, sheet 0); identity = equal as a function to the chain but written differently (z more than once, or an algebraic identity) -- values were checked, recognising it needs a proof per pattern; trap = looks like a simpler map but is exactly the chain given (e.g. sqrt(z^2) is not z); none = no catalog chain.",
+ "sharedNumber": {
+  "a": 0.7,
+  "note": "shared numbers are real sliders; the corpus evaluates a = 0.7"
+ },
+ "valuesChecked": "328 points: 300 random in [-3,3]^2 and pairs 1e-7 either side of the real and imaginary axes (the default cut and the inverse-trig cuts); mismatch = relative difference > 1e-9 or one side undefined",
+ "fields": {
+  "today": "what the app does with the formula as a custom step now: inverse ops (Inverse.stepOps) or INEL reason (then the SphereMesh forward fallback), natural path kind (Funcs customNat), lamps lit, branch cuts drawn",
+  "catalogPath": "the same for the catalog chain",
+  "browser": "headless Chrome (ANGLE Metal), 1440x900: shape paths, render ms (__cmwTime), rAF frames while panning the w-plane and while dragging the shared number, SphereMesh settle, deformation at t = 0.5"
+ },
+ "entries": [
+  {
+   "id": "exp1",
+   "tex": "e^{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "EXP",
+    "naturalPath": "exp",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP",
+    "naturalPath": [
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp2",
+   "tex": "\\exp(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "EXP",
+    "naturalPath": "exp",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP",
+    "naturalPath": [
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp3",
+   "tex": "\\exp z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "EXP",
+    "naturalPath": "exp",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP",
+    "naturalPath": [
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp4",
+   "tex": "exp(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    }
+   ],
+   "branches": "plain text",
+   "today": {
+    "inverse": "EXP",
+    "naturalPath": "exp",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP",
+    "naturalPath": [
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp5",
+   "tex": "e^z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    }
+   ],
+   "branches": "plain text",
+   "today": {
+    "inverse": "EXP",
+    "naturalPath": "exp",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP",
+    "naturalPath": [
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp6",
+   "tex": "e^{iz}",
+   "plain": "e^(i*z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "i"
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+EXP",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP",
+    "naturalPath": [
+     "own:mul",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 3.74,
+      "R": 5.2
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 17
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7.8,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 17.1
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.86,
+      "R": 4.32
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 6.77,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.6
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "exp7",
+   "tex": "e^{2z+1}",
+   "plain": "e^(2z+1)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "affine",
+     "params": {
+      "a": "2",
+      "b": "1"
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+AFF+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+AFF+EXP",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP",
+    "naturalPath": [
+     "own:affine",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp8",
+   "tex": "e^{-z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "-1"
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP",
+    "naturalPath": [
+     "own:mul",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp9",
+   "tex": "2e^{z}+1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    },
+    {
+     "type": "affine",
+     "params": {
+      "a": "2",
+      "b": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "EXP+AFF+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP+AFF",
+    "naturalPath": [
+     "own:exp",
+     "own:affine"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp10",
+   "tex": "\\frac{e^{z}}{2}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "EXP+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP+AFF",
+    "naturalPath": [
+     "own:exp",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp11",
+   "tex": "2^{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.6931471805599453"
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "branches": "c^z = e^{z Log c}, principal Log c (as Expr.compile)",
+   "today": {
+    "inverse": "EXPC",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP",
+    "naturalPath": [
+     "own:mul",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp12",
+   "tex": "e^{z^2}",
+   "plain": "e^(z^2)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "IPOW+EXP",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "IPOW+EXP",
+    "naturalPath": [
+     "own:pown",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp13",
+   "tex": "e^{1/z}",
+   "plain": "e^(1/z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "MOB+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "MOB+EXP",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "MOB+EXP",
+    "naturalPath": [
+     "own:recip",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp14",
+   "tex": "e^{\\frac{1}{z}}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "MOB+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB+EXP",
+    "naturalPath": [
+     "own:recip",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp15",
+   "tex": "e^{az}",
+   "plain": "e^(a*z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "a"
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "branches": "shared number a",
+   "today": {
+    "inverse": "AFF+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+EXP",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP",
+    "naturalPath": [
+     "own:mul",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.86,
+      "R": 6.16
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.1,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 17.8
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "paramFrames": {
+      "n": 78,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.7,
+      "max": 23.8
+     },
+     "paramSettleMs": 2,
+     "morphRenderMs": 6.63,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.6,
+      "p95": 17.7,
+      "max": 18.3
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 3.46,
+      "R": 2.94
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.1,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "paramFrames": {
+      "n": 78,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.6
+     },
+     "paramSettleMs": 1,
+     "morphRenderMs": 4.6,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.9,
+      "max": 18.5
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "exp16",
+   "tex": "e^{e^{z}}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "EXP+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP+EXP",
+    "naturalPath": [
+     "own:exp",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp17",
+   "tex": "e^{z}e^{z}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "branches": "e^z e^z = e^{2z} everywhere (no branch); z twice, not rational",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP",
+    "naturalPath": [
+     "own:mul",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 4.55e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (a power with z in the exponent)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 4.98,
+      "R": 4.3
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.3,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.87,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.3,
+      "max": 17.6
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.38,
+      "R": 5.58
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17,
+      "max": 17.2
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.03,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.1,
+      "max": 17.5
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "exp18",
+   "tex": "\\frac{e^{z}-e^{-z}}{2}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "sinh"
+    }
+   ],
+   "branches": "sinh by definition; entire, no branch",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SINH",
+    "naturalPath": [
+     "zoom:sinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.87e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (a power with z in the exponent)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 4.54,
+      "R": 5.02
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7.77,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.3,
+      "max": 18.1
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.78,
+      "R": 4.32
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.7,
+      "max": 17.8
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.7,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.8
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "exp19",
+   "tex": "\\frac{e^{z}+e^{-z}}{2}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "cosh"
+    }
+   ],
+   "branches": "cosh by definition; entire, no branch",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "COSH",
+    "naturalPath": [
+     "zoom:cosh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 2.85e-16
+   }
+  },
+  {
+   "id": "exp20",
+   "tex": "\\frac{e^{iz}+e^{-iz}}{2}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "cos"
+    }
+   ],
+   "branches": "cos by definition; entire",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "COS",
+    "naturalPath": [
+     "zoom:cos"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.91e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (a power with z in the exponent)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 4.26,
+      "R": 3.56
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.6
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.87,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.7
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.56,
+      "R": 4.3
+     },
+     "panFrames": {
+      "n": 79,
+      "fps": 60,
+      "p50": 16.6,
+      "p95": 17.5,
+      "max": 21.7
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.2,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.6
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "exp21",
+   "tex": "\\frac{e^{iz}-e^{-iz}}{2i}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "sin"
+    }
+   ],
+   "branches": "sin by definition; entire",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN",
+    "naturalPath": [
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.97e-16
+   }
+  },
+  {
+   "id": "exp22",
+   "tex": "e^{\\log z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "branches": "= z on z != 0 (exp o Log is the identity there); not defined at 0, so NOT the identity step",
+   "today": {
+    "inverse": "LOG+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG+EXP",
+    "naturalPath": [
+     "own:log",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "exp23",
+   "tex": "e^{z+1/z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "Laurent exponent: z twice, no catalog chain",
+   "today": {
+    "inverse": "RAT2+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "exp24",
+   "tex": "ze^{z}",
+   "plain": "z*e^z",
+   "kind": "none",
+   "catalog": null,
+   "branches": "Lambert-type: no catalog chain",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (a power with z in the exponent)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 3.34,
+      "R": 4.44
+     },
+     "panFrames": {
+      "n": 77,
+      "fps": 60.2,
+      "p50": 16.6,
+      "p95": 17.3,
+      "max": 17.6
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 8.07,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17,
+      "max": 17.7
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "exp25",
+   "tex": "e^{z}+z",
+   "kind": "none",
+   "catalog": null,
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "log1",
+   "tex": "\\log z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "cut on the formula cut (default 180)",
+   "today": {
+    "inverse": "LOG",
+    "naturalPath": "log",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG",
+    "naturalPath": [
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log2",
+   "tex": "\\ln z",
+   "plain": "ln z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "LOG",
+    "naturalPath": "log",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "LOG",
+    "naturalPath": "log",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "LOG",
+    "naturalPath": [
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log3",
+   "tex": "\\ln(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "LOG",
+    "naturalPath": "log",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG",
+    "naturalPath": [
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log4",
+   "tex": "log(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "plain text",
+   "today": {
+    "inverse": "LOG",
+    "naturalPath": "log",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG",
+    "naturalPath": [
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log5",
+   "tex": "\\operatorname{Ln} z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "Russian Ln = principal log here",
+   "today": {
+    "inverse": "LOG",
+    "naturalPath": "log",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG",
+    "naturalPath": [
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log6",
+   "tex": "\\log(z-1)",
+   "plain": "log(z-1)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "add",
+     "params": {
+      "c": "-1"
+     }
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "AFF+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+LOG",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+LOG",
+    "naturalPath": [
+     "own:add",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.74,
+      "R": 2.76
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.6
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.3,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 18
+     },
+     "lampsInApp": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.2,
+      "R": 2.78
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 18
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.37,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 26.1
+     },
+     "lampsInApp": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper"
+    }
+   }
+  },
+  {
+   "id": "log7",
+   "tex": "\\log(2z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "equals log 2 + log z here only because Arg 2 = 0 (no cut moves); recognise as the composition, never by splitting the log",
+   "today": {
+    "inverse": "AFF+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+LOG",
+    "naturalPath": [
+     "own:mul",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log8",
+   "tex": "2\\log z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "LOG+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG+AFF",
+    "naturalPath": [
+     "own:log",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log9",
+   "tex": "\\log(z^2)",
+   "plain": "log(z^2)",
+   "kind": "trap",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "Log(z^2) is not 2 Log z: they differ by 2 pi i on Re z < 0 half-planes",
+   "today": {
+    "inverse": "IPOW+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "IPOW+LOG",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "IPOW+LOG",
+    "naturalPath": [
+     "own:pown",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log10",
+   "tex": "\\frac{\\log z}{2}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "LOG+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG+AFF",
+    "naturalPath": [
+     "own:log",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log11",
+   "tex": "\\log(e^{z})",
+   "kind": "trap",
+   "catalog": [
+    {
+     "type": "exp"
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "Log(e^z) = z only for |Im z| < pi; the step is exp then log",
+   "today": {
+    "inverse": "EXP+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP+LOG",
+    "naturalPath": [
+     "own:exp",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log12",
+   "tex": "\\log\\frac{1+z}{1-z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "1",
+      "c": "-1",
+      "d": "1"
+     }
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "MOB+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB+LOG",
+    "naturalPath": [
+     "own:mobius",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log13",
+   "tex": "\\frac{1}{2}\\log\\frac{1+z}{1-z}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "artanh"
+    }
+   ],
+   "branches": "principal artanh: the Mobius image of each half-plane Im z > 0, < 0 is the same half-plane, so the Args agree; same cuts (-inf,-1], [1,inf)",
+   "today": {
+    "inverse": "MOB+LOG+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ATANH",
+    "naturalPath": [
+     "zoom:artanh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.94e-16
+   }
+  },
+  {
+   "id": "log14",
+   "tex": "\\log(\\log z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "LOG+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG+LOG",
+    "naturalPath": [
+     "own:log",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log15",
+   "tex": "\\log(\\sin z)",
+   "plain": "log(sin z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    },
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "SIN+LOG",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "SIN+LOG",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "SIN+LOG",
+    "naturalPath": [
+     "zoom:sin",
+     "own:log"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "log16",
+   "tex": "\\log z+\\log(z-1)",
+   "kind": "none",
+   "catalog": null,
+   "branches": "not Log(z(z-1)) (branch); z twice",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\log)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "log17",
+   "tex": "z\\log z",
+   "kind": "none",
+   "catalog": null,
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\log)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "log18",
+   "tex": "\\log\\left(z+\\sqrt{z^2+1}\\right)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "arsinh"
+    }
+   ],
+   "branches": "the textbook arsinh; agrees with the principal arsinh off its cuts (i[1,inf), -i[1,inf)) -- verify numerically before recognizing",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sqrt)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ASINH",
+    "naturalPath": [
+     "zoom:arsinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.43e-15
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sqrt)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 6.36,
+      "R": 3.48
+     },
+     "panFrames": {
+      "n": 77,
+      "fps": 60.4,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 16.9
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 1,
+      "built": 1,
+      "ms": 115
+     },
+     "morphRenderMs": 3.43,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17,
+      "max": 17.3
+     },
+     "lampsInApp": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 6.34,
+      "R": 3.16
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 16.9
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 9.43,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17,
+      "max": 17.7
+     },
+     "lampsInApp": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper"
+    }
+   }
+  },
+  {
+   "id": "log19",
+   "tex": "a\\log z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "a"
+     }
+    }
+   ],
+   "branches": "shared number a",
+   "today": {
+    "inverse": "LOG+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "LOG+AFF",
+    "naturalPath": [
+     "own:log",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow1",
+   "tex": "z^{2}",
+   "plain": "z^2",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW",
+    "naturalPath": "pow",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "IPOW",
+    "naturalPath": "pow",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "IPOW",
+    "naturalPath": [
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow2",
+   "tex": "z^2",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    }
+   ],
+   "branches": "plain",
+   "today": {
+    "inverse": "IPOW",
+    "naturalPath": "pow",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW",
+    "naturalPath": [
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow3",
+   "tex": "z^3",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 3
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW",
+    "naturalPath": "pow",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW",
+    "naturalPath": [
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow4",
+   "tex": "z\\cdot z",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    }
+   ],
+   "branches": "rational, exact; z twice",
+   "today": {
+    "inverse": "QUAD",
+    "naturalPath": "pow",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW",
+    "naturalPath": [
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow5",
+   "tex": "z^{-1}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "IPOW",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow6",
+   "tex": "z^{-2}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": -2
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW",
+    "naturalPath": [
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow7",
+   "tex": "z^{1/2}",
+   "plain": "z^(1/2)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "principal on the formula cut, same as \\sqrt{z}",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow8",
+   "tex": "\\sqrt{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 6.06,
+      "R": 3.12
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.6,
+      "p95": 17.6,
+      "max": 19
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.9,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 18.3
+     },
+     "lampsInApp": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.52,
+      "R": 2.74
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.4,
+      "p50": 16.7,
+      "p95": 17.3,
+      "max": 18.5
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.77,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.8
+     },
+     "lampsInApp": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper"
+    }
+   }
+  },
+  {
+   "id": "pow9",
+   "tex": "sqrt(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "plain",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow10",
+   "tex": "\\sqrt[3]{z}",
+   "plain": "z^(1/3)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 3,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": false,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow11",
+   "tex": "z^{1/3}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 3,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow12",
+   "tex": "z^{i}",
+   "plain": "z^i",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "i",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "e^{i Log z} on the formula cut",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow13",
+   "tex": "z^{2.5}",
+   "plain": "z^2.5",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "2.5",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow14",
+   "tex": "z^{a}",
+   "plain": "z^a",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "a",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "shared number a; e^{a Log z}",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow15",
+   "tex": "\\sqrt{z^2}",
+   "plain": "sqrt(z^2)",
+   "kind": "trap",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "not z: = z on Re z > 0, -z on Re z < 0",
+   "today": {
+    "inverse": "IPOW+ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "IPOW+ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "IPOW+ROOTPOW",
+    "naturalPath": [
+     "own:pown",
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow16",
+   "tex": "(z^2)^{1/2}",
+   "kind": "trap",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "as \\sqrt{z^2}",
+   "today": {
+    "inverse": "IPOW+ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+ROOTPOW",
+    "naturalPath": [
+     "own:pown",
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow17",
+   "tex": "\\left(\\sqrt{z}\\right)^2",
+   "kind": "identity",
+   "catalog": [],
+   "branches": "= z everywhere (0^{1/2} = 0); z once, so today ROOTPOW then IPOW (exact); recognising it as the identity would drop the formula cut, which changes nothing visible but the cut drawing",
+   "today": {
+    "inverse": "ROOTPOW+IPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "pow18",
+   "tex": "\\sqrt{1-z^2}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "affine",
+     "params": {
+      "a": "-1",
+      "b": "1"
+     }
+    },
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+AFF+ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+AFF+ROOTPOW",
+    "naturalPath": [
+     "own:pown",
+     "own:affine",
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow19",
+   "tex": "\\sqrt{z}\\sqrt{z}",
+   "kind": "identity",
+   "catalog": [],
+   "branches": "= z off 0; z twice, not rational",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sqrt)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "pow20",
+   "tex": "(z+1)^{1.5}",
+   "plain": "(z+1)^1.5",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    },
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "1.5",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "today": {
+    "inverse": "AFF+ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+ROOTPOW",
+    "naturalPath": [
+     "own:add",
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow21",
+   "tex": "z^{4}+1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 4
+     }
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": [
+     "own:pown",
+     "own:add"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow22",
+   "tex": "(z^2+1)^2",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    },
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+AFF+IPOW",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+AFF+IPOW",
+    "naturalPath": [
+     "own:pown",
+     "own:add",
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow23",
+   "tex": "\\sqrt{z}+1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "ROOTPOW+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW+AFF",
+    "naturalPath": [
+     "own:root",
+     "own:add"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow24",
+   "tex": "3z^{2}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "3"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": "pow",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": [
+     "own:pown",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob1",
+   "tex": "\\frac{1}{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob2",
+   "tex": "1/z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    }
+   ],
+   "branches": "plain",
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob3",
+   "tex": "\\frac{z-i}{z+i}",
+   "plain": "(z-i)/(z+i)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "-i",
+      "c": "1",
+      "d": "i"
+     }
+    }
+   ],
+   "branches": "Cayley",
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5,
+      "R": 6.12
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.6,
+      "p95": 17.1,
+      "max": 25.5
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.1,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.3,
+      "max": 17.8
+     },
+     "lampsInApp": "●rational ●analytic ○entire ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.58,
+      "R": 4.86
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.7,
+      "p95": 17,
+      "max": 17.4
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.43,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.3,
+      "max": 17.6
+     },
+     "lampsInApp": "●mobius ●rational(deg 1) ●analytic ○entire ○polynomial ○proper ●homeo ●conformal"
+    }
+   }
+  },
+  {
+   "id": "mob4",
+   "tex": "(z-i)/(z+i)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "-i",
+      "c": "1",
+      "d": "i"
+     }
+    }
+   ],
+   "branches": "plain",
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob5",
+   "tex": "\\frac{1+z}{1-z}",
+   "plain": "(1+z)/(1-z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "1",
+      "c": "-1",
+      "d": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob6",
+   "tex": "\\frac{2z+1}{3z-4}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "2",
+      "b": "1",
+      "c": "3",
+      "d": "-4"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob7",
+   "tex": "\\frac{az+1}{z+a}",
+   "plain": "(a*z+1)/(z+a)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "a",
+      "b": "1",
+      "c": "1",
+      "d": "a"
+     }
+    }
+   ],
+   "branches": "shared number a",
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 6.22,
+      "R": 5.1
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.6,
+      "p95": 17.4,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "paramFrames": {
+      "n": 75,
+      "fps": 57.7,
+      "p50": 16.7,
+      "p95": 21.9,
+      "max": 44.6
+     },
+     "paramSettleMs": 1,
+     "morphRenderMs": 8.63,
+     "morphFrames": {
+      "n": 90,
+      "fps": 59.2,
+      "p50": 16.7,
+      "p95": 19.3,
+      "max": 36.9
+     },
+     "lampsInApp": "●rational ●analytic ○entire ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.18,
+      "R": 3
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.5
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "paramFrames": {
+      "n": 78,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 19.1
+     },
+     "paramSettleMs": 1,
+     "morphRenderMs": 7.33,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 18.3
+     },
+     "lampsInApp": "●mobius ●rational(deg 1) ●analytic ○entire ○polynomial ○proper ●homeo ●conformal"
+    }
+   }
+  },
+  {
+   "id": "mob8",
+   "tex": "\\frac{z-a}{1-\\bar{a}z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "parses (\\bar a of a real shared a is a constant): today one MOB op; the catalog blaschke(a, phi 0) is the same map, but the catalog step takes a complex a while a shared number is real",
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mob9",
+   "tex": "2z+1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "affine",
+     "params": {
+      "a": "2",
+      "b": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "AFF+AFF",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "mobius",
+     "proper",
+     "injective"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF",
+    "naturalPath": [
+     "own:affine"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob10",
+   "tex": "iz",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "i"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "AFF",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "mobius",
+     "proper",
+     "injective"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF",
+    "naturalPath": [
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob11",
+   "tex": "z+1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "AFF",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "mobius",
+     "proper",
+     "injective"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF",
+    "naturalPath": [
+     "own:add"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob12",
+   "tex": "\\frac{1}{z-1}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "add",
+     "params": {
+      "c": "-1"
+     }
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+MOB",
+    "naturalPath": [
+     "own:add",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob13",
+   "tex": "\\frac{z}{z-1}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "0",
+      "c": "1",
+      "d": "-1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob14",
+   "tex": "\\frac{(z-1)^3}{(z-1)^2(z+2)}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "-1",
+      "c": "1",
+      "d": "2"
+     }
+    }
+   ],
+   "branches": "exact gcd: a removable point at z = 1 (0/0 in the formula), which the catalog Mobius does not have",
+   "today": {
+    "inverse": "MOB",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB",
+    "naturalPath": [
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 2.46e-16
+   }
+  },
+  {
+   "id": "jk1",
+   "tex": "\\frac12(z+\\frac1z)",
+   "plain": "(z+1/z)/2",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "joukowski"
+    }
+   ],
+   "branches": "rational, exact",
+   "today": {
+    "inverse": "RAT2+AFF",
+    "naturalPath": "jouk",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": false,
+    "inverse": "RAT2+AFF",
+    "naturalPath": "jouk",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "JOUK",
+    "naturalPath": [
+     "jouk"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.92,
+      "R": 3.34
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.1,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 17.4
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.83,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.9
+     },
+     "lampsInApp": "●rational ●analytic ○entire ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.42,
+      "R": 2.82
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 17.2
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 6.87,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.6,
+      "p95": 17.4,
+      "max": 17.7
+     },
+     "lampsInApp": "●rational(deg 2) ●proper ●analytic ○entire ○polynomial ○mobius ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "jk2",
+   "tex": "\\frac{1}{2}\\left(z+\\frac{1}{z}\\right)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "joukowski"
+    }
+   ],
+   "today": {
+    "inverse": "RAT2+AFF",
+    "naturalPath": "jouk",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "JOUK",
+    "naturalPath": [
+     "jouk"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "jk3",
+   "tex": "(z+1/z)/2",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "joukowski"
+    }
+   ],
+   "branches": "plain",
+   "today": {
+    "inverse": "RAT2+AFF",
+    "naturalPath": "jouk",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "JOUK",
+    "naturalPath": [
+     "jouk"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "jk4",
+   "tex": "\\frac{z^2+1}{2z}",
+   "plain": "(z^2+1)/(2z)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "joukowski"
+    }
+   ],
+   "today": {
+    "inverse": "RAT2",
+    "naturalPath": "jouk",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "RAT2",
+    "naturalPath": "jouk",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "JOUK",
+    "naturalPath": [
+     "jouk"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.85e-16
+   }
+  },
+  {
+   "id": "jk5",
+   "tex": "z+\\frac{1}{z}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "joukowski"
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "RAT2",
+    "naturalPath": "jouk",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "JOUK+AFF",
+    "naturalPath": [
+     "jouk",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "jk6",
+   "tex": "z-\\frac{1}{z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "degree 2 rational (RAT2), no catalog step but the rational step",
+   "today": {
+    "inverse": "RAT2",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "rat1",
+   "tex": "z^2+1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": [
+     "own:pown",
+     "own:add"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "rat2",
+   "tex": "(z-1)(z+1)",
+   "plain": "(z-1)*(z+1)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "-1"
+     }
+    }
+   ],
+   "branches": "rational, exact",
+   "today": {
+    "inverse": "QUAD",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "QUAD",
+    "naturalPath": "ratzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "IPOW+AFF",
+    "naturalPath": [
+     "own:pown",
+     "own:add"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.93e-16
+   }
+  },
+  {
+   "id": "rat3",
+   "tex": "z^2-z",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "poly",
+     "params": {
+      "co": "1, -1, 0"
+     }
+    }
+   ],
+   "branches": "quadratic",
+   "today": {
+    "inverse": "QUAD",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "QUAD",
+    "naturalPath": [
+     "ratzoom"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.85e-16
+   }
+  },
+  {
+   "id": "rat4",
+   "tex": "\\frac{z^2-1}{z^2+1}",
+   "plain": "(z^2-1)/(z^2+1)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "-1",
+      "c": "1",
+      "d": "1"
+     }
+    }
+   ],
+   "branches": "rational in z^2",
+   "today": {
+    "inverse": "RAT2",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "RAT2",
+    "naturalPath": "ratzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "IPOW+MOB",
+    "naturalPath": [
+     "own:pown",
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.76,
+      "R": 5
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.8
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7.63,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "lampsInApp": "●rational ●analytic ○entire ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.04,
+      "R": 3.16
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.1,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.5
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 18.9
+     },
+     "lampsInApp": "●rational(deg 2) ●analytic ○entire ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "rat5",
+   "tex": "\\frac{z^2}{z^2+1}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "0",
+      "c": "1",
+      "d": "1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "RAT2",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+MOB",
+    "naturalPath": [
+     "own:pown",
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "rat6",
+   "tex": "z^3-z",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "poly",
+     "params": {
+      "co": "1, 0, -1, 0"
+     }
+    }
+   ],
+   "branches": "cubic: the catalog has no inverse either",
+   "today": {
+    "inverse": "INEL: polynomial formula of degree 3 (the exact renderer inverts degree ≤ 2, also of a power z^k)",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "INEL: step 1: polynomial of degree 3",
+    "naturalPath": [
+     "ratzoom"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 2.09e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: polynomial formula of degree 3 (the exact renderer inverts degree ≤ 2, also of a power z^k)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 6.58,
+      "R": 2.84
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 17.4
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 5.97,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.2,
+      "max": 17.7
+     },
+     "lampsInApp": "●polynomial(deg 3) ●rational(deg 3) ●analytic ●entire ○mobius ●proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:forward(step 1: polynomial of degree 3) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 2.52,
+      "R": 2.36
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 16.9
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 3.97,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.1,
+      "max": 17.4
+     },
+     "lampsInApp": "●polynomial(deg 3) ●rational(deg 3) ●analytic ●entire ○mobius ●proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "rat7",
+   "tex": "\\frac{z^3-1}{z^3+1}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 3
+     }
+    },
+    {
+     "type": "mobius",
+     "params": {
+      "a": "1",
+      "b": "-1",
+      "c": "1",
+      "d": "1"
+     }
+    }
+   ],
+   "branches": "rational in z^3",
+   "today": {
+    "inverse": "IPOW+MOB",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+MOB",
+    "naturalPath": [
+     "own:pown",
+     "own:mobius"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "rat8",
+   "tex": "z^2+\\frac{1}{z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "degree 3 rational",
+   "today": {
+    "inverse": "INEL: rational formula of degree 3 (the exact renderer inverts degree ≤ 2, also of a power z^k)",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "rat9",
+   "tex": "\\frac{z}{z^2+1}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "rational",
+     "params": {
+      "p": "1, 0",
+      "q": "1, 0, 1"
+     }
+    }
+   ],
+   "branches": "degree 2",
+   "today": {
+    "inverse": "RAT2",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "rational"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "RAT2",
+    "naturalPath": [
+     "ratzoom"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "rat10",
+   "tex": "z^{2}+az",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "poly",
+     "params": {
+      "co": "1, a, 0"
+     }
+    }
+   ],
+   "branches": "shared number a",
+   "today": {
+    "inverse": "QUAD",
+    "naturalPath": "ratzoom",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "proper"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "QUAD",
+    "naturalPath": [
+     "ratzoom"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.98e-16
+   }
+  },
+  {
+   "id": "tr1",
+   "tex": "\\sin z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    }
+   ],
+   "today": {
+    "inverse": "SIN",
+    "naturalPath": "zoom:sin",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN",
+    "naturalPath": [
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr2",
+   "tex": "\\sin(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    }
+   ],
+   "today": {
+    "inverse": "SIN",
+    "naturalPath": "zoom:sin",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN",
+    "naturalPath": [
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr3",
+   "tex": "sin(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    }
+   ],
+   "branches": "plain",
+   "today": {
+    "inverse": "SIN",
+    "naturalPath": "zoom:sin",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN",
+    "naturalPath": [
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr4",
+   "tex": "\\sin(2z)",
+   "plain": "sin(2z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    },
+    {
+     "type": "sin"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+SIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+SIN",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+SIN",
+    "naturalPath": [
+     "own:mul",
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.14,
+      "R": 3.94
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 17.8
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7.07,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 18.7
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.06,
+      "R": 3.72
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 3.87,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 18
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "tr5",
+   "tex": "\\cos z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "cos"
+    }
+   ],
+   "today": {
+    "inverse": "COS",
+    "naturalPath": "zoom:cos",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "COS",
+    "naturalPath": [
+     "zoom:cos"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr6",
+   "tex": "\\cos(z)/2",
+   "plain": "cos(z)/2",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "cos"
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "COS+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "COS+AFF",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "COS+AFF",
+    "naturalPath": [
+     "zoom:cos",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr7",
+   "tex": "\\tan(z/2)",
+   "plain": "tan(z/2)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    },
+    {
+     "type": "tan"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+TAN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+TAN",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+TAN",
+    "naturalPath": [
+     "own:mul",
+     "zoom:tan"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr8",
+   "tex": "\\tan z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tan"
+    }
+   ],
+   "today": {
+    "inverse": "TAN",
+    "naturalPath": "zoom:tan",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TAN",
+    "naturalPath": [
+     "zoom:tan"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr9",
+   "tex": "\\tg z",
+   "plain": "tg z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tan"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "TAN",
+    "naturalPath": "zoom:tan",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "TAN",
+    "naturalPath": "zoom:tan",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "TAN",
+    "naturalPath": [
+     "zoom:tan"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr10",
+   "tex": "\\operatorname{tg} z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tan"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "TAN",
+    "naturalPath": "zoom:tan",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TAN",
+    "naturalPath": [
+     "zoom:tan"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr11",
+   "tex": "\\cot z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tan"
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "TAN+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TAN+MOB",
+    "naturalPath": [
+     "zoom:tan",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr12",
+   "tex": "\\ctg z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tan"
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "TAN+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TAN+MOB",
+    "naturalPath": [
+     "zoom:tan",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr13",
+   "tex": "\\sec z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "cos"
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "COS+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "COS+MOB",
+    "naturalPath": [
+     "zoom:cos",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr14",
+   "tex": "\\frac{1}{\\sin z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "SIN+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN+MOB",
+    "naturalPath": [
+     "zoom:sin",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr15",
+   "tex": "\\frac{\\sin z}{\\cos z}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "tan"
+    }
+   ],
+   "branches": "tan everywhere (common zeros none); z twice",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sin)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TAN",
+    "naturalPath": [
+     "zoom:tan"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 2.33e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sin)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 6.12,
+      "R": 3.5
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.4,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.6
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 8.43,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.8
+     },
+     "lampsInApp": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 7.38,
+      "R": 4.92
+     },
+     "panFrames": {
+      "n": 79,
+      "fps": 60.3,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7.7,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.2,
+      "max": 17.6
+     },
+     "lampsInApp": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "tr16",
+   "tex": "\\sin^2 z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    },
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    }
+   ],
+   "today": {
+    "inverse": "SIN+IPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN+IPOW",
+    "naturalPath": [
+     "zoom:sin",
+     "own:pown"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr17",
+   "tex": "\\sin(z)\\cos(z)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    },
+    {
+     "type": "sin"
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    }
+   ],
+   "branches": "sin 2z / 2; z twice",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sin)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+SIN+AFF",
+    "naturalPath": [
+     "own:mul",
+     "zoom:sin",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 5.17e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sin)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 5.46,
+      "R": 3.22
+     },
+     "panFrames": {
+      "n": 77,
+      "fps": 60.2,
+      "p50": 16.6,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7.57,
+     "morphFrames": {
+      "n": 90,
+      "fps": 59.9,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 18.7
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.62,
+      "R": 6
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.6,
+      "p95": 17.6,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 7,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "tr18",
+   "tex": "\\sin(e^{z})",
+   "plain": "sin(e^z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    },
+    {
+     "type": "sin"
+    }
+   ],
+   "today": {
+    "inverse": "EXP+SIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "EXP+SIN",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "EXP+SIN",
+    "naturalPath": [
+     "own:exp",
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.5,
+      "R": 4.42
+     },
+     "panFrames": {
+      "n": 77,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 18.2
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 8.1,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.6
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.14,
+      "R": 6
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 9.73,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.6,
+      "p95": 17.4,
+      "max": 18
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "tr19",
+   "tex": "\\cos(\\log z)",
+   "plain": "cos(log z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "log",
+     "params": {
+      "cut": 180,
+      "k": 0
+     }
+    },
+    {
+     "type": "cos"
+    }
+   ],
+   "today": {
+    "inverse": "LOG+COS",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "LOG+COS",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "LOG+COS",
+    "naturalPath": [
+     "own:log",
+     "zoom:cos"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr20",
+   "tex": "\\sin(az)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "a"
+     }
+    },
+    {
+     "type": "sin"
+    }
+   ],
+   "branches": "shared number a",
+   "today": {
+    "inverse": "AFF+SIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+SIN",
+    "naturalPath": [
+     "own:mul",
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 3.26,
+      "R": 2.14
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 17.2
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "paramFrames": {
+      "n": 78,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.1,
+      "max": 17.5
+     },
+     "paramSettleMs": 1,
+     "morphRenderMs": 5.9,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.2,
+      "max": 17.4
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 5.4,
+      "R": 6.06
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.3,
+      "p50": 16.7,
+      "p95": 17,
+      "max": 17.8
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "paramFrames": {
+      "n": 78,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 16.9,
+      "max": 18
+     },
+     "paramSettleMs": 3,
+     "morphRenderMs": 4.13,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.2,
+      "max": 18.1
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "tr21",
+   "tex": "\\sin z+z",
+   "plain": "sin(z)+z",
+   "kind": "none",
+   "catalog": null,
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sin)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sin)",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sin)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 3.12,
+      "R": 3.3
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.1,
+      "p50": 16.7,
+      "p95": 17.8,
+      "max": 40.5
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.27,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 17.7
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "tr22",
+   "tex": "\\frac{\\sin z}{z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "sinc: removable at 0",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sin)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "tr23",
+   "tex": "\\sin\\frac{1}{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    },
+    {
+     "type": "sin"
+    }
+   ],
+   "today": {
+    "inverse": "MOB+SIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB+SIN",
+    "naturalPath": [
+     "own:recip",
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "tr24",
+   "tex": "\\cos(\\pi z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "3.141592653589793"
+     }
+    },
+    {
+     "type": "cos"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+COS",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+COS",
+    "naturalPath": [
+     "own:mul",
+     "zoom:cos"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy1",
+   "tex": "\\sinh z",
+   "plain": "sinh(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sinh"
+    }
+   ],
+   "today": {
+    "inverse": "SINH",
+    "naturalPath": "zoom:sinh",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "SINH",
+    "naturalPath": "zoom:sinh",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "SINH",
+    "naturalPath": [
+     "zoom:sinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy2",
+   "tex": "\\cosh z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "cosh"
+    }
+   ],
+   "today": {
+    "inverse": "COSH",
+    "naturalPath": "zoom:cosh",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "COSH",
+    "naturalPath": [
+     "zoom:cosh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy3",
+   "tex": "\\tanh z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tanh"
+    }
+   ],
+   "today": {
+    "inverse": "TANH",
+    "naturalPath": "zoom:tanh",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TANH",
+    "naturalPath": [
+     "zoom:tanh"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy4",
+   "tex": "\\sh z",
+   "plain": "sh z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sinh"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "SINH",
+    "naturalPath": "zoom:sinh",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "SINH",
+    "naturalPath": "zoom:sinh",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "SINH",
+    "naturalPath": [
+     "zoom:sinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy5",
+   "tex": "\\operatorname{ch} z",
+   "plain": "ch(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "cosh"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "COSH",
+    "naturalPath": "zoom:cosh",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "COSH",
+    "naturalPath": "zoom:cosh",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "COSH",
+    "naturalPath": [
+     "zoom:cosh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy6",
+   "tex": "\\th z",
+   "plain": "th z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tanh"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "TANH",
+    "naturalPath": "zoom:tanh",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "TANH",
+    "naturalPath": "zoom:tanh",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "TANH",
+    "naturalPath": [
+     "zoom:tanh"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy7",
+   "tex": "\\operatorname{sh}(2z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    },
+    {
+     "type": "sinh"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "AFF+SINH",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+SINH",
+    "naturalPath": [
+     "own:mul",
+     "zoom:sinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy8",
+   "tex": "\\coth z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tanh"
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "TANH+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TANH+MOB",
+    "naturalPath": [
+     "zoom:tanh",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy9",
+   "tex": "\\cth z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "tanh"
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "TANH+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "TANH+MOB",
+    "naturalPath": [
+     "zoom:tanh",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "hy10",
+   "tex": "\\cosh(z)-1",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "cosh"
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "-1"
+     }
+    }
+   ],
+   "today": {
+    "inverse": "COSH+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "COSH+AFF",
+    "naturalPath": [
+     "zoom:cosh",
+     "own:add"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it1",
+   "tex": "\\arcsin z",
+   "plain": "arcsin(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arcsin"
+    }
+   ],
+   "branches": "principal",
+   "today": {
+    "inverse": "ASIN",
+    "naturalPath": "zoom:arcsin",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ASIN",
+    "naturalPath": "zoom:arcsin",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ASIN",
+    "naturalPath": [
+     "zoom:arcsin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it2",
+   "tex": "\\arccos z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arccos"
+    }
+   ],
+   "today": {
+    "inverse": "ACOS",
+    "naturalPath": "zoom:arccos",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ACOS",
+    "naturalPath": [
+     "zoom:arccos"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it3",
+   "tex": "\\arctan z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arctan"
+    }
+   ],
+   "today": {
+    "inverse": "ATAN",
+    "naturalPath": "zoom:arctan",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ATAN",
+    "naturalPath": [
+     "zoom:arctan"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it4",
+   "tex": "\\arctg z",
+   "plain": "arctg(z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arctan"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "ATAN",
+    "naturalPath": "zoom:arctan",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ATAN",
+    "naturalPath": "zoom:arctan",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ATAN",
+    "naturalPath": [
+     "zoom:arctan"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it5",
+   "tex": "\\operatorname{arsinh} z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arsinh"
+    }
+   ],
+   "today": {
+    "inverse": "ASINH",
+    "naturalPath": "zoom:arsinh",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ASINH",
+    "naturalPath": [
+     "zoom:arsinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it6",
+   "tex": "\\operatorname{arsh} z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arsinh"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "ASINH",
+    "naturalPath": "zoom:arsinh",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ASINH",
+    "naturalPath": [
+     "zoom:arsinh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it7",
+   "tex": "\\operatorname{arch} z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arcosh"
+    }
+   ],
+   "branches": "Russian",
+   "today": {
+    "inverse": "ACOSH",
+    "naturalPath": "zoom:arcosh",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ACOSH",
+    "naturalPath": [
+     "zoom:arcosh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it8",
+   "tex": "\\operatorname{artanh} z",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "artanh"
+    }
+   ],
+   "today": {
+    "inverse": "ATANH",
+    "naturalPath": "zoom:artanh",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ATANH",
+    "naturalPath": [
+     "zoom:artanh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it9",
+   "tex": "\\arcsin(z/2)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    },
+    {
+     "type": "arcsin"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+ASIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+ASIN",
+    "naturalPath": [
+     "own:mul",
+     "zoom:arcsin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it10",
+   "tex": "\\arctan\\frac{1}{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "recip"
+    },
+    {
+     "type": "arctan"
+    }
+   ],
+   "today": {
+    "inverse": "MOB+ATAN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "MOB+ATAN",
+    "naturalPath": [
+     "own:recip",
+     "zoom:arctan"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it11",
+   "tex": "\\arcsin(\\sin z)",
+   "kind": "trap",
+   "catalog": [
+    {
+     "type": "sin"
+    },
+    {
+     "type": "arcsin"
+    }
+   ],
+   "branches": "not z: folds the plane onto the strip |Re w| <= pi/2",
+   "today": {
+    "inverse": "SIN+ASIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN+ASIN",
+    "naturalPath": [
+     "zoom:sin",
+     "zoom:arcsin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it12",
+   "tex": "\\sin(\\arcsin z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "arcsin"
+    },
+    {
+     "type": "sin"
+    }
+   ],
+   "branches": "= z everywhere (sin o arcsin = id), but the step chain is what the formula says",
+   "today": {
+    "inverse": "ASIN+SIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ASIN+SIN",
+    "naturalPath": [
+     "zoom:arcsin",
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "it13",
+   "tex": "\\frac{1}{2i}\\log\\frac{1+iz}{1-iz}",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "arctan"
+    }
+   ],
+   "branches": "the textbook arctan; principal arctan agrees off its cuts (i[1,inf), -i[1,inf)) -- same argument as artanh",
+   "today": {
+    "inverse": "MOB+LOG+AFF",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ATAN",
+    "naturalPath": [
+     "zoom:arctan"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 1.98e-16
+   }
+  },
+  {
+   "id": "mi1",
+   "tex": "\\bar{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "conj"
+    }
+   ],
+   "today": {
+    "inverse": "CONJ",
+    "naturalPath": "line",
+    "lamps": [],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "CONJ",
+    "naturalPath": [
+     "own:conj"
+    ],
+    "lamps": [
+     [
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mi2",
+   "tex": "\\overline{z}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "conj"
+    }
+   ],
+   "today": {
+    "inverse": "CONJ",
+    "naturalPath": "line",
+    "lamps": [],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "CONJ",
+    "naturalPath": [
+     "own:conj"
+    ],
+    "lamps": [
+     [
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mi3",
+   "tex": "z",
+   "kind": "exact",
+   "catalog": [],
+   "branches": "identity",
+   "today": {
+    "inverse": "AFF",
+    "naturalPath": "mob",
+    "lamps": [
+     "analytic",
+     "entire",
+     "rational",
+     "polynomial",
+     "mobius",
+     "proper",
+     "injective"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi4",
+   "tex": "\\left|z\\right|",
+   "kind": "none",
+   "catalog": null,
+   "branches": "not a map the inverse renderer takes (loses information)",
+   "today": {
+    "inverse": "INEL: abs loses information",
+    "naturalPath": "line",
+    "lamps": [],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi5",
+   "tex": "z^{z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "variable base and exponent",
+   "today": {
+    "inverse": "INEL: variable base and exponent",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi6",
+   "tex": "\\sin z+\\cos z",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "affine",
+     "params": {
+      "a": "1",
+      "b": "0.7853981633974483"
+     }
+    },
+    {
+     "type": "sin"
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "1.4142135623730951"
+     }
+    }
+   ],
+   "branches": "sqrt2 sin(z + pi/4); z twice",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sin)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+SIN+AFF",
+    "naturalPath": [
+     "own:affine",
+     "zoom:sin",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 3.02e-16
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sin)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 4.7,
+      "R": 3.68
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 20.1
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.23,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.6,
+      "max": 17.8
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 4.84,
+      "R": 4.36
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.6,
+      "p95": 17.8,
+      "max": 17.8
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 6.93,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 17.8
+     },
+     "lampsInApp": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    }
+   }
+  },
+  {
+   "id": "mi7",
+   "tex": "z^{2}e^{z}",
+   "kind": "none",
+   "catalog": null,
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi8",
+   "tex": "\\frac{e^{z}-1}{z}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "removable at 0",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (a power with z in the exponent)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi9",
+   "tex": "\\cos z+z^{2}",
+   "kind": "none",
+   "catalog": null,
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\cos)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi10",
+   "tex": "\\tan z-z",
+   "kind": "none",
+   "catalog": null,
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\tan)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi11",
+   "tex": "\\log(1+z)-\\log(1-z)",
+   "kind": "identity",
+   "catalog": [
+    {
+     "type": "artanh"
+    },
+    {
+     "type": "mul",
+     "params": {
+      "c": "2"
+     }
+    }
+   ],
+   "branches": "= 2 artanh z exactly (principal artanh is defined this way)",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\log)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "ATANH+AFF",
+    "naturalPath": [
+     "zoom:artanh",
+     "own:mul"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 2
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   },
+   "browser": {
+    "formula": {
+     "path": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\log)) Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:forward Ls1:forward",
+     "renderMs": {
+      "L": 7.54,
+      "R": 4.28
+     },
+     "panFrames": {
+      "n": 78,
+      "fps": 60.2,
+      "p50": 16.7,
+      "p95": 17.2,
+      "max": 17.7
+     },
+     "settleAfterPanMs": 0,
+     "sphereMesh": {
+      "entries": 1,
+      "built": 1,
+      "ms": 382
+     },
+     "morphRenderMs": 3.63,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.6,
+      "p95": 17.5,
+      "max": 18
+     },
+     "lampsInApp": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal"
+    },
+    "catalog": {
+     "path": "Rs1:inverse Ls1:forward(identity map)",
+     "pathAfterPan": "Rs1:inverse Ls1:forward",
+     "renderMs": {
+      "L": 3.9,
+      "R": 2.06
+     },
+     "panFrames": {
+      "n": 76,
+      "fps": 58.7,
+      "p50": 16.7,
+      "p95": 17.5,
+      "max": 54.9
+     },
+     "settleAfterPanMs": 1,
+     "sphereMesh": {
+      "entries": 0,
+      "built": 0,
+      "ms": 0
+     },
+     "morphRenderMs": 4.47,
+     "morphFrames": {
+      "n": 90,
+      "fps": 60,
+      "p50": 16.7,
+      "p95": 17.4,
+      "max": 17.7
+     },
+     "lampsInApp": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper"
+    }
+   }
+  },
+  {
+   "id": "mi12",
+   "tex": "\\sqrt{z-1}\\sqrt{z+1}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "z twice through roots: not sqrt(z^2-1) (different cuts); the inverse-Joukowski-like branch with the cut [-1, 1]",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sqrt)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi13",
+   "tex": "z+\\sqrt{z^2-1}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "the inverse Joukowski only with the right branch; the principal sqrt gives a different cut",
+   "today": {
+    "inverse": "INEL: z occurs more than once in a part that is not rational in z (\\sqrt)",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   }
+  },
+  {
+   "id": "mi14",
+   "tex": "\\sin(z^{2})",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "pown",
+     "params": {
+      "n": 2
+     }
+    },
+    {
+     "type": "sin"
+    }
+   ],
+   "today": {
+    "inverse": "IPOW+SIN",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "IPOW+SIN",
+    "naturalPath": [
+     "own:pown",
+     "zoom:sin"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "proper"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mi15",
+   "tex": "\\exp(\\sin z)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "sin"
+    },
+    {
+     "type": "exp"
+    }
+   ],
+   "today": {
+    "inverse": "SIN+EXP",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic",
+     "entire"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "SIN+EXP",
+    "naturalPath": [
+     "zoom:sin",
+     "own:exp"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mi16",
+   "tex": "\\frac{1}{1+e^{-z}}",
+   "plain": "1/(1+e^(-z))",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "-1"
+     }
+    },
+    {
+     "type": "exp"
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "branches": "logistic: z once",
+   "today": {
+    "inverse": "AFF+EXP+AFF+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "AFF+EXP+AFF+MOB",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "AFF+EXP+AFF+MOB",
+    "naturalPath": [
+     "own:mul",
+     "own:exp",
+     "own:add",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mi17",
+   "tex": "\\frac{1}{e^{z}+1}",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "exp"
+    },
+    {
+     "type": "add",
+     "params": {
+      "c": "1"
+     }
+    },
+    {
+     "type": "recip"
+    }
+   ],
+   "today": {
+    "inverse": "EXP+AFF+MOB",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "EXP+AFF+MOB",
+    "naturalPath": [
+     "own:exp",
+     "own:add",
+     "own:recip"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire"
+     ],
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic",
+      "rational",
+      "mobius",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mi18",
+   "tex": "\\tanh\\left(\\frac{z}{2}\\right)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "mul",
+     "params": {
+      "c": "0.5"
+     }
+    },
+    {
+     "type": "tanh"
+    }
+   ],
+   "today": {
+    "inverse": "AFF+TANH",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "catalogPath": {
+    "inverse": "AFF+TANH",
+    "naturalPath": [
+     "own:mul",
+     "zoom:tanh"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "entire",
+      "rational",
+      "polynomial",
+      "mobius",
+      "proper",
+      "injective"
+     ],
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 0
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow25",
+   "tex": "z^{1+i}",
+   "plain": "z^(1+i)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "1+i",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "the user case",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow26",
+   "tex": "z^{0.5+2i}",
+   "plain": "z^(0.5+2i)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "0.5+2i",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "the user case",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow27",
+   "tex": "z^{a+i}",
+   "plain": "z^(a+i)",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "powa",
+     "params": {
+      "alpha": "a+i",
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "shared a, complex exponent",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:powa"
+    ],
+    "lamps": [
+     [
+      "analytic"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "pow28",
+   "tex": "z^{0.5}",
+   "plain": "z^0.5",
+   "kind": "exact",
+   "catalog": [
+    {
+     "type": "root",
+     "params": {
+      "n": 2,
+      "cut": 180,
+      "k": 0
+     }
+    }
+   ],
+   "branches": "as sqrt: same values on cut 180",
+   "today": {
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "lamps": [
+     "analytic"
+    ],
+    "cutsDrawn": 0
+   },
+   "plainToday": {
+    "sameAst": true,
+    "inverse": "ROOTPOW",
+    "naturalPath": "gzoom",
+    "valuesEqual": true
+   },
+   "catalogPath": {
+    "inverse": "ROOTPOW",
+    "naturalPath": [
+     "own:root"
+    ],
+    "lamps": [
+     [
+      "analytic",
+      "injective"
+     ]
+    ],
+    "cutsDrawn": 1
+   },
+   "values": {
+    "points": 328,
+    "mismatches": 0,
+    "maxRel": 0
+   }
+  },
+  {
+   "id": "mob15",
+   "tex": "\\frac{az+b}{cz+d}",
+   "kind": "none",
+   "catalog": null,
+   "branches": "needs four shared numbers (a,b,c,d): only a is defined in this audit",
+   "today": {
+    "error": "One new name at a time: b, c, d"
+   }
+  }
+ ]
+}

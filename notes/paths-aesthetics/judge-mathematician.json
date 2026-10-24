@@ -1,0 +1,51 @@
+{
+  "judge": "mathematician (teaches complex analysis, uses the deformations in lectures)",
+  "date": "2026-10-24",
+  "scale": "1-10, higher is better; for clutter, 10 means least cluttered",
+  "evidence": {
+    "looked_at": "every compare-*.png sheet; full-size jouk, chain3, cosstrip, mobius, rational exports for A, B and C; live light, dark, t = 1, globe and play montages for jouk, rational, mobius, cosstrip",
+    "live_test": "own CDP harness on port 9043 (test/judgemath_cdp), jouk and chain3, styles A, B and C: scrubbed t = 0.15, 0.5, 0.85 and took two frames while playing. The same points stay through scrub and play in all three, with no popping.",
+    "fps_playing_1440x900": "rational and chain3: today, A, B and C all hold 60 fps (p95 16.8 ms). C had one 83 ms frame on rational, in a single sample.",
+    "harness_cleanup": "daemon stopped, server stopped, Chrome profile deleted"
+  },
+  "scores": {
+    "A": { "beauty_calm": 6, "motion_legibility": 5, "math_faithfulness": 5, "clutter": 8, "motion_behaviour": 9, "print_quality": 3, "total": 36 },
+    "B": { "beauty_calm": 6, "motion_legibility": 8, "math_faithfulness": 6, "clutter": 5, "motion_behaviour": 6, "print_quality": 8, "total": 39 },
+    "C": { "beauty_calm": 6, "motion_legibility": 7, "math_faithfulness": 9, "clutter": 6, "motion_behaviour": 7, "print_quality": 7, "total": 42 }
+  },
+  "winner": "C",
+  "notes": {
+    "A": [
+      "Live, it is the calmest of the three: one mark per path, and a frame taken while playing looks like a still. In dark mode the white trails read well, and A is the most legible on the globe.",
+      "The start z, which is half of the statement z -> F(z), is lost: the tail fades to 12 % live and to a light grey in print. The Joukowski export reads as pins stuck in a board, not as motion.",
+      "Print is weak: the tapered grey tails disappear on the 50 % checker. A still figure also asks the reader to know that thick means late."
+    ],
+    "B": [
+      "It makes the best single figures: the Joukowski export, the left half of chain3, the outer arcs of Mobius and of cos. Evenly spaced and textbook-like, it reads in black and white without a caption convention.",
+      "Mathematical risk: paths of a homotopy are not the trajectories of one steady flow. Points that move at different times may cross the same place, so forbidding crossings shows a biased subset (cos at t = 1 keeps 6 paths live and leaves the left half of the ellipse empty). The even, flow-like look also invites reading Joukowski as potential flow into the airfoil, which is the wrong picture for that map in a lecture.",
+      "Its arrowheads sit at equal arclength (every 72 px or 30 pt), so the figure carries no time and no speed.",
+      "Paths tangle at shared sinks: near w = 0 in chain3, at w = 1 in Mobius (cased lines slicing through the disc), and in the middle of the cos export, where paths cross despite the rule.",
+      "Live, it is the busiest of the three (up to 44 paths, faint rails and arrows), and the play frame is as busy as a still. On the globe it is nearly invisible."
+    ],
+    "C": [
+      "It is the most faithful. Beads at t = 0, 1/4, 1/2, 3/4, 1 are real time information: their spacing shows the speed of the parametrisation, for example the slowdown near Joukowski's cusp. Boundary to boundary is the heart of conformal mapping. Live, the moving point rides the moving edge of the image, so the eye sees H_t(boundary of X) = boundary of H_t(X).",
+      "Open ring to filled dot reproduces in black and white by shape, not by grey, so it prints cleanly.",
+      "Weak points: Joukowski gets only 4-5 paths and the far field is empty, so the article figure looks sparse. In chain3, 22 paths times 5 beads makes about 110 dots. In cos, the long arcs cross several times. Faint future beads show as grey specks inside the image. The open/filled convention needs a sentence in the caption."
+    ],
+    "all": [
+      "cube and zp are weak in all three (3-6 short paths), and the globe export is weak in all three.",
+      "The 2.6 x chord rule silently drops honest paths, such as the loop at Joukowski's cusp. With beads, one such loop per figure would be legible and instructive."
+    ]
+  },
+  "graft": [
+    "Keep C's meaning: equal-time beads (t = 0, 1/4, 1/2, 3/4, 1, with time and not arclength setting the marks), an open ring at z, a filled dot at F(z), and boundary-first seeding.",
+    "From B: run its evenly-spaced (Jobard-Lefer) separation test on C's candidates, so no two paths run alongside each other. Where the boundary leaves a large empty area, such as Joukowski's far field, add a few interior seeds chosen the same way. Cap at about 12-16 paths, and cap the dots by dropping the 1/4 and 3/4 beads when there are more than about 10 paths.",
+    "From B, for print: the 0.5 pt line on a 1.3 pt white casing. Add at most one small arrowhead per path, at the t = 1/2 bead, instead of one every 30 pt, so the direction reads even before the caption is read.",
+    "From A, live while playing: draw only the travelled part with a round head; no dotted future rail and no future beads. Show the full path and all beads when paused or scrubbing, so motion frames look like rest frames.",
+    "From A, on the globe: heavier, darker paths with heads, which read on the sphere where B and C fade into the grid.",
+    "Keep from all three: the same points at every t, splits at cuts and poles, a chevron at the view edge, and ink on a halo of the plane colour (it works in dark).",
+    "Allow at most one honest long or looping path per figure instead of dropping all of them by the 2.6 x rule.",
+    "Caption for the winner, for example: 'Paths t -> H_t(z) of boundary points: open circle z, dots at t = 1/4, 1/2, 3/4, filled dot F(z).'"
+  ],
+  "reasons": "C, because it is the only direction that shows time (equal-t beads) and the boundary correspondence, which is what I teach with these pictures; it prints by shape, not grey. B makes the prettiest figures, but its no-crossing rule and steady-flow look misrepresent a homotopy (cos keeps 6 paths), its arrowheads carry no time, and it is the busiest live. A is the best in motion but loses the start z and fades in print. Make C the base, with B's spacing and print line weight and A's travelled-only trail while playing."
+}

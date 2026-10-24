@@ -1,0 +1,59 @@
+{
+ "pass": 95,
+ "of": 95,
+ "fails": [],
+ "shots": [
+  "tour-x-light",
+  "tour-draw-light",
+  "tour-shapes-light",
+  "tour-views-switch-dark",
+  "tour-phase-dark",
+  "tour-sphere-dark",
+  "tour-phasekey-dark",
+  "tour-patterns-dark",
+  "tour-paths-light",
+  "tour-order-light",
+  "tour-cauchy-light",
+  "tour-zp-light",
+  "tour-numbers-light",
+  "tour-integral-light",
+  "tour-domain-light",
+  "tour-welcome-dark",
+  "tour-examples-light",
+  "tour-palette-light",
+  "tour-help-light",
+  "tour-export-light",
+  "tour-suggest-light",
+  "tour-suggest-dark",
+  "tour-suggest-pill-light",
+  "tour-menu-light",
+  "tour-menu-dark",
+  "tour-analysis-light",
+  "tour-phone-x",
+  "tour-phone-draw-dark",
+  "tour-phone-suggest",
+  "tour-phone-menu"
+ ],
+ "logs": [
+  {
+   "t": "warning",
+   "m": "[tour] snapshot no snapshot"
+  },
+  {
+   "t": "warning",
+   "m": "[tour] no scenes snapshot() gave nothing"
+  },
+  {
+   "t": "warning",
+   "m": "[tour] snapshot no snapshot"
+  },
+  {
+   "t": "warning",
+   "m": "[tour] no scenes snapshot() gave nothing"
+  },
+  {
+   "t": "warning",
+   "m": "[tour] restore the user's work could not be put back; the backup is kept"
+  }
+ ]
+}

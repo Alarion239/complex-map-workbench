@@ -235,7 +235,31 @@ const Calc = (() => {
     const ok = (g) => fin(g) && absC(g) > 0;
     if (!ok(g0) || !ok(g1)) return { d: ok(g0) && ok(g1) ? argq(g0, g1) : 0, exact: false, why: 'end', evals: 0 };
     const ctx = { evals: 0, budget: opts.budget || 6000, tiny: opts.tiny != null ? opts.tiny : 1e-300, deadline: opts.deadline || 0 };
-    const d = track(F, z0, g0, z1, g1, ctx, 0);
+    // v15.2 (review math-1): track() cannot see whole turns hidden in a piece where |F| hardly changes (e^{30z} moved
+    // up by 0.42 turns by 4π in each half and reads 0). So the segment is first cut into m equal pieces, each turning arg
+    // F by at most π/4 at the rate of either end: the rate is d arg F / ds there, from one more call of F at a
+    // thousandth of the step (2 calls in all). Pieces beyond the budget fail as 'budget'
+    const dz = C(z1.re - z0.re, z1.im - z0.im), EPS = 1e-3;
+    const rate = (z, g, s) => {
+      const w = F(C(z.re + s * EPS * dz.re, z.im + s * EPS * dz.im));
+      ctx.evals++;
+      return ok(w) ? Math.abs(argq(g, w)) / EPS : 0;
+    };
+    const m = Math.min(4096, Math.max(1, Math.ceil(Math.max(rate(z0, g0, 1), rate(z1, g1, -1)) / (Math.PI / 4))));
+    let d = 0, za = z0, ga = g0;
+    for (let j = 1; j <= m; j++) {
+      const zb = j === m ? z1 : C(z0.re + dz.re * j / m, z0.im + dz.im * j / m);
+      let gb = g1;
+      if (j < m) {
+        if (ctx.deadline && ctx.evals >= (ctx.nextT || 0)) { ctx.nextT = ctx.evals + 16; if (nowMs() > ctx.deadline) ctx.budget = 0; }
+        if (ctx.evals >= ctx.budget) { ctx.evals = ctx.budget + 1; d = NaN; break; }
+        gb = F(zb); ctx.evals++;
+        if (!ok(gb)) { ctx.failAt = zb; d = NaN; break; }
+      }
+      d += track(F, za, ga, zb, gb, ctx, 0);
+      if (Number.isNaN(d)) break;
+      za = zb; ga = gb;
+    }
     if (!Number.isNaN(d)) return { d, exact: true, evals: ctx.evals };
     let why = 'jump';
     if (ctx.evals > ctx.budget) why = 'budget';
@@ -264,6 +288,10 @@ const Calc = (() => {
   // winding number of F∘γ − p about 0 for the closed polygon γ: zeros minus poles of F − p inside, counted with
   // multiplicity, when F is meromorphic there. ok is false when F − p vanishes or is singular on γ, or jumps
   // (a branch cut crosses γ).
+  // The limit of every count here (argStep, orderAt, argPrinciple; review math-2): a zero and a pole closer together than
+  // about 1/50 of the spacing of the samples, with γ passing between them away from a sample, cancel in F's values at
+  // the samples and their midpoints, so the piece is accepted and their 2π is missed (winding 0 for 1, still ok).
+  // Below a pixel at the default zoom: a zero dragged onto a pole, or a deformation where the two meet.
   function argPrinciple(F, poly, p = 0, opts = {}) {
     const pts = loop(poly);
     if (pts.length < 3) return { winding: 0, ok: false, turn: NaN };

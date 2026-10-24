@@ -1,0 +1,106 @@
+[
+  {
+    "id": "snd-1",
+    "severity": "high",
+    "title": "Options 3 and 4 sound like a pure sine at D5, the same synthetic tone the user called unnatural",
+    "detail": "The 'overtone singer' (proto/worklet.js runHV) puts almost all of its energy into the one selected harmonic. The hum is harmonics 1–3 at weights 1, 0.3, 0.1, 18 dB under, so it is mostly a 147 Hz sine. In a real khoomei the drone is a full voice close in level to the whistle, and the whistle is a narrow formant peak, so its neighbours are raised too. Here the result is one sine with a faint low murmur under it. The 'living f0' does not help much either: jitter is 0.2 % (about 3 cents), and the ±8-cent vibrato only starts after the spectrum has been steady for 0.4 s. While the pointer moves, that never happens. Prediction: an ocarina or test-tone whistle, not a singer. Nobody has listened to it.",
+    "evidence": "Offline renders (tools/measure.js run with the page's own code, 48 kHz), share of energy per harmonic of D3 in 170 ms frames. On ring_z2m1_zero, ring_mob_pole and ring_z2m1_sweep, harmonic 4 (D5) is −0.2 to −1.2 dB of the frame's energy, harmonic 1 is −20 dB, harmonic 2 −29 dB, harmonic 3 −34 to −43 dB. Band shares for ring_* renders: 0.5–2 kHz −0.1 dB, 250–500 Hz −26 dB, 2–5 kHz −39 to −40 dB. curve_z2m1_zero holds F♯5 and then A5 at −0.3 to −0.4 dB of the frame. For comparison, the UNSW demonstration of overtone singing has the fundamental 'only 8 dB lower than the selected harmonic' (https://newt.phys.unsw.edu.au/jw/xoomi.html). Bloothooft et al. trace the whistle to merged formants 2 and 3, so it is a narrow resonance, not a lone partial (https://www.coli.uni-saarland.de/Phonetics/icphs/ICPhS1991/12_ICPhS_1991_Vol_5/p12.5_014.pdf).",
+    "fix": "Voice the hum as a real vowel: harmonics 1–12 under an /o/–/u/ envelope (F1 ≈ 400 Hz, F2 ≈ 800 Hz, F3 ≈ 2.5 kHz at about −20 dB), with the drone's total level 6–8 dB under the whistle instead of 18. Shape the whistle as a resonance on top of that voice rather than a lone partial: harmonics n±1 at −12 to −15 dB re harmonic n. Run vibrato at ±15–25 cents and 5–5.5 Hz while the voice sounds, at a reduced depth while the spectrum is moving rather than zero. Keep the drone's share small enough that the strongest harmonic above the 3rd is still the 'note'. Then recalibrate LV.hv to −32 LUFS-M and repeat the harmonic-share check: the hum should be −6 to −8 dB and the 2–5 kHz band −20 to −25 dB."
+  },
+  {
+    "id": "snd-2",
+    "severity": "high",
+    "title": "Option 3 plays almost the same steady note on four of the five gestures, so it can lose the comparison without being heard at its best",
+    "detail": "The loops run at 0.3 of the view's half-width from the zero or pole, about 2.4 ring radii away, so the 20 px ring never contains the point. The zero loop, pole loop and double-zero loop therefore give a steady D5 with a faint third. The sweep starts and ends the same way. Only the sweep's pass near a zero and the deformation show what the option is for. The LISTEN text admits this ('stays nearly constant'). A listener moving between options will hear '3 = one steady beep' first, which makes snd-1 worse.",
+    "evidence": "ring_z2m1_zero: harmonic 4 at −0.5 to −1.2 dB and harmonic 5 at −7 to −13 dB for the whole 5 s. ring_mob_pole: harmonic 4 at −0.7 to −1.7 dB, harmonics 5, 6, 7 at −6/−15/−20 dB at best. LUFS-M max minus gated mean is 0.5 dB for ring_z2m1_zero, ring_mob_pole and ring_z2m1_sweep (the other options: 3–6 dB). The band shares of ring_z2m1_sweep, ring_z2m1_zero and ring_mob_pole agree to 0.1 dB in every band. On the sweep, F♯5 only rises to about +3.6 dB over D5 at the closest pass (t = 1.4 s and 4.8 s).",
+    "fix": "Add a gesture built for the pointer options, 'Visit a zero, then a pole': glide in to the zero, rest 1 s on it, glide to the pole, rest 1 s, glide out. Make it the first gesture in the list and use it in 'A quick way to choose'. Or, for option 3 only, make the loop gestures pass over the point. Either way, change option 3's 'Listen for' line on loops to say it is the wrong gesture for this option."
+  },
+  {
+    "id": "snd-3",
+    "severity": "medium",
+    "title": "On a phone speaker the pole notes, the home hum and the harp's low D lose most of their level",
+    "detail": "Phone micro-speakers reproduce little below about 400–600 Hz. Options 3 and 4 put the pole side of the scale there: A4 at 440 Hz, D4 at 294 Hz, D3 at 147 Hz. The reference hum is a 147 Hz sine. So a pole or W < 0 comes out much quieter than a zero or W > 0, and the reference you compare against disappears. Option 2's turn accent is a D3 string at 146.8 Hz. The string version keeps harmonics 2–8, so the pitch survives as a missing fundamental. The glass version's partials (×1, 2.32, 4.25, 6.63) are inharmonic, so without the fundamental they do not carry a D. Options 1 and Today centre on about 630 Hz and lose only 2–6 dB.",
+    "evidence": "Energy lost through a modelled phone speaker (two 2nd-order high-passes at 600 Hz, 24 dB/oct) on the same renders: curve_mob_pole (W = −2, D4) −13.7 dB, against curve_dz_dzero −1.5 dB and curve_z2m1_zero −2.6 dB, a 11–12 dB asymmetry between pole and zero loops. ring_* −3.5 to −5.8 dB. harp-glass −4.7 to −7.7 dB, harp string −2.5 to −3.7 dB. sung-cello −3.6 to −5.8 dB. Choir, glass and reed −1.7 to −3.0 dB. Today −2.6 to −4.4 dB. A patent on phone covers (https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9232030) notes the 20–400 Hz range is weak in smartphone speakers. The 600 Hz high-pass is an assumption, not a measurement of a particular phone.",
+    "fix": "(a) With snd-1's harmonic-rich hum, the reference survives on a phone through harmonics 2–6. (b) Give notes on harmonics 1–3 equal-loudness make-up of +4, +6 and +8 dB for n = 3, 2, 1, capped so that a peak stays ≤ −12 dBFS. Or add a soft octave-up 'formant' partial to those notes only. (c) Harp: play the turn accent as D4 rather than D3, and in glass mode use the string pluck for the accent string. (d) Add one line under the volume slider: 'judge on headphones or laptop speakers; phone speakers drop the low notes'."
+  },
+  {
+    "id": "snd-4",
+    "severity": "medium",
+    "title": "On an iPhone with the silent switch on, the page may play nothing",
+    "detail": "On iOS, Web Audio has historically obeyed the ring/silent switch, so with the switch on, an AudioContext plays silence and no error appears. The page never sets navigator.audioSession.type. If the user tries the page on an iPhone, every option will seem broken or silent. The user plans to choose by ear on whatever device is to hand.",
+    "evidence": "grep for audioSession in options.html and proto/ui.js: 0 hits. MDN AudioSession.type: 'playback' is 'an exclusive type that will pause other playback audio' (https://developer.mozilla.org/docs/Web/API/AudioSession/type). WebKit bug reports that setting it to 'playback' or 'play-and-record' helps (https://bugs.webkit.org/show_bug.cgi?id=264473). A whole library exists only to work around this (https://github.com/swevans/unmute). Not tested on a device here.",
+    "fix": "In ensureAudio(), before creating or resuming the context, add: try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}. Add one line to the hint on phones: 'No sound? Check the silent switch.'"
+  },
+  {
+    "id": "snd-5",
+    "severity": "medium",
+    "title": "For a given function and gesture, the options' loudness differs by up to 7 dB, not ±2 dB",
+    "detail": "PROTOTYPE.md's ±2 dB is the mean over six functions. Comparing the options on the same function and gesture, the gated loudness spread is 2.5–4 dB on most cases, but 5.3–7.0 dB on e^z's sweep and on the deformations. The harps are quiet at slow motion. Their velocity floor is 0.4 when arg F turns slowly, which is 4.9 dB under the 0.7 they were calibrated at. The glass variant also softens its mallet at low velocity, losing high partials. Option 3 with the home note at −9 dB gets a fixed +3.5 dB of make-up. That overshoots by about 2.5 dB when the home harmonic is not the one sounding, as in the deformation. A quieter option sounds 'less there' and a louder one 'better', which would bias the choice.",
+    "evidence": "tools/measure.json, gated LUFS-M per function and gesture. exp sweep: harp-glass −39.3 (loudest block −35.7), harp −36.2, ring −32.3 (spread 7.0 dB). exp deform: sung-choir −35.7 vs ring-home9 −29.6 (6.1 dB). mob deform: 5.8 dB. dz deform: harp-glass −35.0 vs ring-home9 −29.4 (5.6 dB). z2m1 deform: 5.3 dB. ring-home9 deform is −29.4 to −30.7 against ring −31.9 to −32.0. Option 1's deformation is quiet by design (silent until the zero passes) and does not count as a defect.",
+    "fix": "Harp: raise the velocity floor to 0.55 (glass 0.6), or calibrate LV.harp and LV.glass at velocity 0.5 instead of 0.7. Ring with home −9 dB: replace the fixed +3.5 dB with renormalising the spectrum to unit RMS after the home attenuation, capped at +6 dB. Then add a check to measure.js that fails when the spread on any one function and gesture exceeds 4 dB, excluding option 1's silent-by-design deformation."
+  },
+  {
+    "id": "snd-6",
+    "severity": "medium",
+    "title": "Glass harp: the zero ping sounds like one more D note and confuses the D count",
+    "detail": "Palette B's zero ping is a glass strike at D6 (st(24) = 1174.7 Hz). The glass harp's D notes include a glass D6 copy (weight 0.36 at |F| = 1). Within 8 px of a zero, only the D notes sound, and that is exactly where the ping fires. So near a zero you hear glass Ds and a glass D6 ping of the same pitch and material. Counting 'low Ds' is the option's main promise, and the ping looks like one more. A double zero pings twice. The string harp is less affected: same pitch, but a different material.",
+    "evidence": "proto/core.js: CUE.zero is strike(P, …, st(24), 'glass', …). Harp.note includes octave copies of 73.416 × 2^oc up to 2400 Hz with Gaussian weight; for D6 at |F| = 1, w = exp(−0.5 (1/0.7)²) = 0.36, which passes the 0.0316 cut. Harp.frame skips non-D notes when fr.nearInside is true. Not heard.",
+    "fix": "In harp mode, make the zero ping a different material from the harp, such as palette B's wood or a soft felt knock. Or leave out the D6 copy from glass-harp D notes while nearInside is true. Make the string harp the default."
+  },
+  {
+    "id": "snd-7",
+    "severity": "medium",
+    "title": "The plucked-string harp is the brightest sound on the page and may tire the ear during fast runs",
+    "detail": "pluck() lets harmonics fall off only as 1/√n, through a one-pole low-pass at 3.3–8 kHz ('bright' 0.35–0.65). It gives 8 harmonics even to the 1.2–2.4 kHz strings, and adds a 2 ms noise burst up to 6 kHz. That is closer to steel or harpsichord than to a gut or nylon harp. In runs of 14–24 notes/s, the 2–5 kHz band (where the ear is most sensitive) stays full. Prediction: 'glittery' at first, wearing after minutes. Not heard.",
+    "evidence": "Band shares on the same gestures: harp 2–5 kHz −8.5 to −10.0 dB, >5 kHz −17.5 to −22.9 dB. Every other option on the sweeps: 2–5 kHz −9 to −41 dB, >5 kHz −30 to −58 dB. In loops the other options' 2–5 kHz share is mostly the turn bells. HF (>3 kHz) level re the full signal in 2 ms frames: harp median −17.3 dB, p99 −7.0 dB; cello −22, choir −30, ring −40. Spectral centroid: harp 1.0–1.24 kHz, ring 0.6 kHz, choir 0.8–1.25 kHz.",
+    "fix": "Use a 1/n roll-off, or a pluck-position comb at 1/7 of the string length. Set fcut = min(4 kHz, 3·f0). Drop partials above 5 kHz. Narrow 'bright' to 0.2–0.45. Lower the contact noise's fc to ≤ 3 kHz. Target: the harp's 2–5 kHz share ≤ −15 dB on the loops, matching the cello and today's voice."
+  },
+  {
+    "id": "snd-8",
+    "severity": "medium",
+    "title": "Options 3 and 4 share one voice, so they are hard to tell apart on the deformation and would collide if adopted together",
+    "detail": "Both play the same 'hv' voice: the same D3 hum, the same D5 home note, the same harmonic scale. On the deformation, option 3 moves D5 → F♯5 → D5 as the zero passes through the ring, and option 4 steps D5 → F♯5. A listener will hear these as the same sound. OPTIONS.md says option 4 'goes with any of' 1–3. Paired with 3 in the app, the pointer's whistle and a loop's note would be the same voice on the same hum, and only one hv voice exists in the engine.",
+    "evidence": "proto/core.js: Ring and Curve both post {k: 'hv'} to the single runHV voice. LISTEN.ring.deform reads 'the overtone moves D5 → F♯5 → D5'; LISTEN.curve.deform reads 'the loop's note steps when a zero of H_t crosses the loop'. Band shares of ring_mob_deform and curve_mob_deform: 0.5–2 kHz −0.1 and −0.4 dB, centroid 731 and 657 Hz.",
+    "fix": "Give option 4's note a recognisably different body that keeps the same harmonic scale, for example a bowed-glass or organ-pipe envelope: slower 120 ms attack, flute-like breath, and a 1 s bloom at release. Or a different vowel (/a/ for curves, /u/ for the ring). Plan a second hv voice if 3 and 4 can sound together."
+  },
+  {
+    "id": "snd-9",
+    "severity": "medium",
+    "title": "Phone CPU and audio-thread allocation are not measured, and the harp allocates on the audio thread",
+    "detail": "On this Mac, the audio thread's mean is ≤ 3.7 % of a core. A mid-range phone core is several times slower. Each harp string is posted as a new cue with about 9 part objects and closures, and Engine.cue() runs groups.filter(…) twice per string and q.splice per command, all on the audio thread. At 24 notes/s with 2–3 octave copies each, that is about 70 allocations a second on that thread, so garbage-collection pauses can cause underruns that a Mac never shows. The worst p99 per quantum was 486 µs (sung cello, zero loop): 18 % of the 2.67 ms budget here, so plausibly 50–90 % on a phone. Also, the two cmw-timbre nodes created for option 1 stay connected and keep processing their control loop and room after you switch to another option.",
+    "evidence": "tools/bench.json: harp-glass 3.72 %, harp-string 3.06 %, sung-choir 3.01 %. measure.json us99: sung-cello_z2m1_zero 486 µs, sung-cello_dz_dzero 364 µs. proto/worklet.js Engine.cue: parts.push({… p: M(pt, fs)}), this.groups.filter(…) ×2, this.groups.push(g). proto/ui.js selectOpt calls stopAll and leaves voice and drone connected; timbres.js process returns true while end < 0. Phones not run.",
+    "fix": "Preallocate a pool of 12 (glass 8) string voices with fixed mode arrays and post only {f, a, t60, bright, at}. Keep a running count of strings instead of filter(). Disconnect the timbre nodes 0.5 s after leaving option 1. Run claude_cdp's recorder once with Chrome's mobile CPU throttling (4×) and read the existing underrun counter."
+  },
+  {
+    "id": "snd-10",
+    "severity": "low",
+    "title": "Option 1: the drone's level does not follow the volume slider while a sound is held",
+    "detail": "Sung.frame sends the drone a new 'loud' only when the register cc changes by more than 0.01. The voice gets the new volume every frame. Moving the slider during a held tone therefore changes the voice and not the drone. At −12 dB on the slider, the drone becomes 12 dB louder relative to the voice, only about 3 dB under it at the softest bowing, until |F| moves.",
+    "evidence": "proto/core.js Sung.frame: if (this.drone && (this.dcc === null || Math.abs(cc - this.dcc) > 0.01)) o.drone({… loud: 0.178 * this.vol }). proto/ui.js line 337 updates ses.vol only.",
+    "fix": "Remember the last drone volume and also resend the drone's 'loud' when this.vol changes."
+  },
+  {
+    "id": "snd-11",
+    "severity": "low",
+    "title": "The engine's room is a short series-allpass chain, which can ring metallically on plucks and pings",
+    "detail": "hf-engine's room is 4 Schroeder allpasses in series per ear (4.7–23 ms, g capped at 0.72) and a 4.2 kHz one-pole. The comment says 3. On sustained tones an allpass chain is neutral. On impulses, such as harp plucks (wet 0.18) and pings (wet 0.14–0.2), its early echoes are sparse and periodic (the 4.7 ms stage is a 213 Hz flutter), which can sound like a spring or tin can. The tail is short (T60 about 0.1–0.3 s, not the 0.55 s set), so the effect is small. Not heard.",
+    "evidence": "proto/worklet.js: DL = [0.0047, 0.0083, 0.0127, 0.0211], g = min(0.72, 10^(−3d/(t60/3))), so the 4.7 ms stage is capped at 0.72 and decays about 2.9 dB per pass.",
+    "fix": "Listen to a single slow harp note at wet 0.18 and at 0. If it rings metallic, lower the harp's wet to 0.10, or put 2 short damped combs (23 and 31 ms, g 0.5) in parallel before the allpasses. Correct the comment."
+  },
+  {
+    "id": "snd-12",
+    "severity": "info",
+    "title": "Confirmed: the cello and clarinet detector-B hits are steady bow and reed noise, not clicks",
+    "detail": "PROTOTYPE.md attributes cello and clarinet detector-B hits to timbres.js's bow and reed noise. An independent check agrees. No option has isolated high-frequency bursts: the 3 kHz+ level is a steady floor that tracks the signal. One caution: that floor is high for cello and clarinet, −20 to −22 dB re the signal against −30 for the choir. If either sounds 'scratchy' after a minute, its noise is the knob.",
+    "evidence": "2 ms frames, high-passed above 3 kHz. Frames more than 12 dB above the local 50 ms median: cello 0, clarinet 0, choir 0, glass 0, harp 0, ring 0, curves 0 (zero loop on z²−1 and pole loop on (z−1)/(z+1)). Today: 5. Median HF re full: cello −22.1/−20.6 dB, clarinet −20.7/−20.1 dB, choir −29.6, glass −26.1.",
+    "fix": "None needed for clicks. Optionally give option 1 a 'bow noise −4 dB' setting so the user can tell texture from artefact."
+  },
+  {
+    "id": "snd-13",
+    "severity": "info",
+    "title": "How to listen: what should make each option distinct by ear",
+    "detail": "From the spectra, the five voices fall into three families. Option 1 and Today: a sliding tone (1 is real instruments over a drone). Option 2: separate plucked notes with silence between them. Options 3 and 4: a whistle over a hum. Today against option 1 is mostly a change of timbre plus the drone. The endless Shepard climb on the loops is unchanged, so if 'not the same' was about the climbing, option 1 will not fix it. 1-glass and 2-glass share a material. Suggested order for the user: z²/(z−1); the double-zero loop on 1-choir, 2-string, 3 and 4; then the sweep on 1-cello against Today. Ask after each: 'would I leave this on for five minutes?'",
+    "evidence": "Spectral centroids on the z²−1 zero loop: today 955 Hz, cello 902, choir 1061, glass 1118, clarinet 1143, harp 1118, ring 605, curve 783. Time sounding as a share of the render: harp 0.17–0.68 (sparse), ring 0.46–0.70, sung 0.45–0.71, today 0.65–0.75.",
+    "fix": "Put this ordering in the page's 'A quick way to choose' once snd-1, snd-2 and snd-5 are fixed, so the choice is not made against a sine-like option 3 or a 7 dB-quiet glass harp."
+  }
+]

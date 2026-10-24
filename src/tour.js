@@ -27,6 +27,12 @@ const Tour = (() => {
       shapes: [{ kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' }, { kind: 'line', a: [0, 0.8], b: [1, 0.8] }, { kind: 'point', p: [0, 0], label: 'z₀' }],
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
+    // v15.2 (notes/formula-steps/DESIGN.md 11): a typed formula that is a chain of catalog steps
+    splitFormula: {
+      name: 'A formula in steps', view: { cx: 0, cy: 0, s: 80 }, look: look(),
+      shapes: [{ kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }],
+      steps: [{ type: 'custom', params: { expr: '\\sin(z^2+1)', cut: 180 } }],
+    },
     rational: {
       name: 'A rational map', view: { cx: 0, cy: 0, s: 80 }, look: look(),
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }],
@@ -151,7 +157,7 @@ const Tour = (() => {
     },
     {
       // v15 (notes/ui-redesign-2): the cards' pictures, the Inspector, zeros and poles, the planes' menu, shared numbers
-      id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 2, scene: 'strip',
+      id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 3, scene: 'strip',
       steps: [
         { id: 'cards', anchor: 'chain', also: ['viewSwitch'], title: 'Cards follow the view', place: 'top', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
@@ -160,6 +166,10 @@ const Tour = (() => {
         { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', place: 'left', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
           body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
           touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.' },
+        // (v15.2: the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
+        { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', place: 'left', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
+          body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
+          try: { text: 'Press Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split' } },
         { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', place: 'left', before: [['scene', 'zp'], ['view', 'xy'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
           touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.',
@@ -240,13 +250,13 @@ const Tour = (() => {
       id: 'keys', title: 'Palette and keys', time: '30 s', rev: 2, scene: null,
       steps: [
         { id: 'palette', anchor: ['palette', 'moreBtn'], title: 'Command palette', place: 'bottom',
-          body: 'Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step.',
-          narrow: 'Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step.',
+          body: 'Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.',
+          narrow: 'Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.',
           try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Search functions and commands.', on: 'palette-opened' } },
         { id: 'sound', anchor: ['soundBtn', 'soundBar', 'moreBtn'], needs: 'sound', title: 'Sound', place: 'bottom',
-          body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. The tone that plays $\\arg F$ as pitch stays off until you turn it on here.',
-          narrow: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. The tone that plays $\\arg F$ as pitch stays off until you turn it on there.',
-          touch: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. The tone that plays $\\arg F$ as pitch stays off until you turn it on here.' },
+          body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: a harp plucks each phase line of $\\arg F$, and a loop sings its number.',
+          narrow: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. To hear the function, turn it on there: a harp plucks each phase line of $\\arg F$, and a loop sings its number.',
+          touch: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. To hear the function, turn it on here: a harp plucks each phase line of $\\arg F$, and a loop sings its number.' },
         { id: 'help', anchor: ['helpBtn', 'moreBtn'], title: 'Help is here', place: 'bottom',
           body: 'This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.',
           narrow: 'Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.' },
@@ -281,6 +291,8 @@ const Tour = (() => {
     domain: '#propsPanel .insp-F .idom', matrix: '#propsPanel .insp-F details.steps',
     // the editor of the selected zeros-and-poles step (its parameter block is .params.zp)
     zpCard: () => document.querySelector('#propsPanel .insp-step .params.zp'),
+    // v15.2: the selected formula step's split offer (how it is built from catalog steps)
+    splitOffer: '#propsPanel .insp-step .split-offer:not([hidden])',
     // the Inspector's ⋯ menu of the selected step (Replace with the inverse); the All sheets check of the Landscape options (its label)
     invBtn: () => document.querySelector('#propsPanel .insp-step .ihead .more'),
     sheets: () => { const c = document.querySelector('#sheetsChk'); return c ? c.closest('label') || c : null; },
@@ -1533,6 +1545,8 @@ const Tour = (() => {
     const ch = CHAPTERS[ci], step = ch.steps[si];
     r.ci = ci; r.si = si; r.dir = dir;
     rec.last = { ch: ch.id, i: si }; save();
+    // (v15.2: the Inspector's split offer shows during the tour only at a step that asks for it)
+    call('splitOffer', !!step.split);
     for (const off of r.tryOffs.splice(0)) off();
     r.ui.card.setAttribute('aria-busy', 'true');
     const want = sceneAt(ch, si);

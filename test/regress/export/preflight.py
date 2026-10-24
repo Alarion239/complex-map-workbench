@@ -87,6 +87,14 @@ for svg in sorted(OUT.glob('*.svg')):
     refs = set(re.findall(r'(?:xlink:)?href="#([^"]+)"', s)) | set(re.findall(r'url\(#([^)]+)\)', s))
     missing = sorted(refs - set(ids))
     check(svg.name, dup == 0 and nested == 0 and not missing, f'{len(ids)} ids, {dup} duplicates, {nested} nested <svg>, {len(missing)} dangling refs, {len(s) // 1024} KB')
+    # (paths-aesthetics) the deformation's paths: vectors, black, 0.5 pt on a 1 pt white casing, a ring at each start and
+    # a dot at each end, no transparency (print)
+    if 'class="mf-paths"' in s:
+        lw = set(re.findall(r'stroke-width="([\d.]+)"[^>]*class="mf-paths"', s))
+        nr = len(re.findall(r'<circle', (re.search(r'class="mf-rings">(.*?)</g>', s) or [None, ''])[1])) if 'mf-rings' in s else 0
+        ne = len(re.findall(r'<circle', (re.search(r'class="mf-ends">(.*?)</g>', s) or [None, ''])[1])) if 'mf-ends' in s else 0
+        op = re.findall(r'(?:stroke-|fill-)?opacity="(?!1")[^"]*"[^>]*>(?=[^<]*(?:<circle|<path)[^>]*class="mf-)', s)
+        check(svg.name + ' paths', lw == {'0.5'} and nr > 0 and ne > 0 and not op, f'path weight {sorted(lw)} pt, {nr} start rings, {ne} end dots, {len(op)} transparent layers')
 
 
 def inter(a, b, pad=0.0):

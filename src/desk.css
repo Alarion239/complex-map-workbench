@@ -289,3 +289,42 @@
 .prm-empty i { white-space: nowrap; }
 /* design-14: the chain's listbox is an empty owner (aria-owns the options); it takes no room */
 #pipeline > .chain-lb { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+/* v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps, as the Inspector shows it — a fold
+   after the fields with the derivation z ↦ … ↦ F (each row named at the right, wrapping under its formula when it needs
+   the room) and one small secondary button. Existing tokens only, so light and dark come free. */
+.split-offer { margin: 0 0 10px; border-top: 1px solid var(--line); }
+.split-offer[hidden] { display: none; }
+.split-offer > summary { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 0; font: var(--t-label); color: var(--ink-2); cursor: pointer; list-style: none; }
+.split-offer > summary::-webkit-details-marker { display: none; }
+.split-offer > summary::before { content: ""; flex: 0 0 auto; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); margin: 0 3px; transition: transform var(--t-fast) var(--ease-out); }
+.split-offer[open] > summary::before { transform: rotate(45deg); }
+.split-offer.one > summary::before { display: none; }
+.split-offer.one > summary { cursor: default; pointer-events: none; color: var(--ink); }
+.split-offer[open] .so-closed, .split-offer:not([open]) .so-open { display: none; }
+.split-offer .so-rows { list-style: none; margin: 2px 0 8px; padding: 8px 10px; background: var(--well); border-radius: var(--r-2); display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--ink); }
+.split-offer .so-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: baseline; column-gap: 8px; min-width: 0; }
+.split-offer .so-map { color: var(--ink-2); text-align: center; }
+.split-offer .so-tex { min-width: 0; white-space: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.split-offer .so-name { padding-left: 14px; font: 400 12px/16px var(--f-ui); color: var(--ink-2); white-space: nowrap; text-align: right; }
+.split-offer .so-rows.subst .so-map { display: none; }
+.split-offer .so-rows.subst .so-row { grid-template-columns: minmax(0, 1fr) auto; }
+.split-offer .so-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-2); background: var(--surface); color: var(--ink); font: 600 13px/16px var(--f-ui); cursor: pointer; text-align: center; }
+.split-offer .so-btn:hover { border-color: var(--ink-2); }
+.split-offer .so-btn:active { background: var(--well); }
+.split-offer .so-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.split-offer .so-btn:disabled { opacity: 0.5; cursor: default; }
+.split-offer.one .so-btn { margin-top: 2px; }
+/* the new cards of a split unfold (200 ms) */
+@keyframes cardBorn { from { opacity: 0; transform: scaleX(0.6); } to { opacity: 1; transform: none; } }
+#pipeline .card.born { animation: cardBorn 200ms var(--ease-out, ease-out); transform-origin: left center; }
+@media (prefers-reduced-motion: reduce) { #pipeline .card.born { animation: none; } }
+/* the alone chip walks the steps: ‹ and › show the previous and next step alone */
+.alone-chip .ac-nav { width: 20px; height: 20px; color: var(--accent); font: 600 13px/1 var(--f-ui); }
+.alone-chip .ac-nav:disabled { opacity: 0.4; }
+.pal-cap .pal-rows { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 5px; row-gap: 2px; max-width: 100%; vertical-align: middle; }
+.pal-rows .drv-tex, .drv-line .drv-tex { white-space: nowrap; }
+.pal-rows .drv-map, .drv-line .drv-map { color: var(--muted); }
+.pal-rows.measure, .drv-line.measure { flex-wrap: nowrap; width: max-content; max-width: none; }
+.pal-desc.pal-drv { overflow: visible; white-space: normal; color: var(--ink-2); }
+.pal-item:has(.pal-drv) { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
+.drv-line { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; max-width: 100%; font-size: 12.5px; }

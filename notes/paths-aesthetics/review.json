@@ -1,0 +1,98 @@
+[
+  {
+    "id": "path-1",
+    "severity": "high",
+    "title": "Sequential chains (One after another) draw sharp corners, and the t = m/2 arrowhead sits on the corner",
+    "detail": "With two steps one after another (the gallery's 2nd example 'Strip to disk', and 'Cayley, then cube'), each path is two legs that meet at t = 1 with a corner of up to 125 degrees. m/2 = 1 is exactly the step boundary, so the one arrowhead lands on the corner. Its direction is the chord H(1-h) -> H(1+h) across the corner, so it lines up with neither leg. Where leg 2 doubles back, the corner plus the arrowhead reads as two paths flowing into one point. Strip to disk at t = 2 is the most chaotic picture in the gallery: four arrowheads in one column on the imaginary axis, V shapes, and an end dot touching an arrowhead. AS-BUILT only measured chain3 with all steps at once, so this case was never checked.",
+    "evidence": "__cmwPathsCheck at t = end, 1440x900: Strip to disk kink 1.98 rad (phone 2.15), Cayley-cube kink 2.19 rad (phone 2.08). The other one-step examples are at most 0.03. Shots: notes/paths-aesthetics/review-shots/striptodisk-light-end.png, z_sd_end.png (3x zoom), striptodisk-export-article-bw.png (arrowheads stacked at x = 0, y = +-0.3, +-0.75), cayleycube-export-article-bw.png. Caption: 'small dots at t=1/2 and t=3/2 and an arrowhead at t=1'.",
+    "fix": "For one-after-another chains, put the marks per step: one arrowhead in the middle of each step's leg (t = k - 1/2), never at an integer t. Mark the step boundary with its own small neutral node (a 1.2 px tick or open diamond) so the corner reads as 'the step changes here'. In pathsGen, add a penalty or rejection when the turn at a step boundary is over about 100 degrees and the shorter leg is under 2 x dS, which is the doubled-back V. Update the caption sentence to match."
+  },
+  {
+    "id": "path-2",
+    "severity": "high",
+    "title": "A marked point's path that retraces itself is kept and drawn as a misleading segment",
+    "detail": "Marked points ('point' seeds) are kept first. They are checked only for separation: no length check, no dS/dE, no loop or retrace check. In Strip to disk, z0 = 0 goes 0 -> 1 under exp and back 1 -> 0 under the Moebius map. 45 % of its samples lie on top of its own earlier part. On screen and in print it is one segment from 0 to 1. The end dot F(z0) = 0 covers the start ring, and the dots at t = 1/2 and 3/2 lie on the same segment, so the reader cannot recover the motion.",
+    "evidence": "short.js (review-shots): Strip to disk retrace share 0.45 for one kept path. striptodisk-export-article-bw.png: segment 0 -> 1 on the real axis, with a filled dot over the ring at 0.",
+    "fix": "Hold point seeds to the same tests as the other seeds. Drop any path (of any kind) where more than about 20 % of its length lies within 2 px of an earlier, non-adjacent part of itself. Also drop it when its end lies within 6 px of its start and the path is a back-and-forth (chord / length < 0.1 with no enclosed area)."
+  },
+  {
+    "id": "path-3",
+    "severity": "high",
+    "title": "Paths appear from the frame edge with no start ring and no cue",
+    "detail": "Live: a selection is kept while the view stays within a 1.5x zoom and a 30 % pan, and the auto-fit on a scrub moves the view. After a scrub, starts chosen in the old view can be off screen. Those paths then come in from the frame edge as bare lines: no ring, and no cue, because chevrons mark only exits. In Cayley-cube at t = 1, two curves come down from the top edge. One runs 15-20 px from its neighbour for about 150 px, which looks like a stray double line. In figures, a leg of a two-step path leaves the frame (and gets a chevron) and then comes back with no cue. The other half reads as an orphan line (Strip to disk top right; Cayley-cube top).",
+    "evidence": "review-shots/ex-8-cayleycube-light-t05.png and z_cc_top.png (3x): two lines from the top edge, one ring only. cayleycube-export-article-bw.png: line from the top frame edge at x of about 0.5 with no ring. striptodisk-export-article-bw.png: chevron up at x = 1.3, and an orphan line down from the top edge at x = 1.65.",
+    "fix": "Draw an entry cue (the same open chevron, pointing in) wherever a run enters the view or clip, in drawMorphPaths and pathsSvg. Live: when re-projecting a kept selection, drop or fade out paths whose start is no longer in view, or re-choose when more than one start is off view. Figure: reject candidates whose visible runs are split by an exit and re-entry (more than one in-frame run)."
+  },
+  {
+    "id": "path-4",
+    "severity": "medium",
+    "title": "Long parallel arcs still bundle: 14 px clears the separation test but reads as 'running along each other'",
+    "detail": "Separation is checked at 0.7 x 14 = 9.8 px, so the check reports 0 everywhere. Long paths 15-25 px apart over 100+ px look like bundles, or like contour lines competing with the picture. Examples: Log of an annulus has 4 nested loops on the left of the strip and a tangle of loops at the top of the strip. Disk automorphism has 18 near-parallel arcs, and 18 of them on a phone. Cayley-cube has the two top curves. Paths are also exempt within 0.75 x sep = 18 px of every path's ends, so convergence near sinks is not seen at all.",
+    "evidence": "review-shots/logann-light-end.png (left side: 4 nested arcs; top: loops overlapping in the strip), s_phone.png (Disk automorphism, 18 paths in a 390 px disc), z_cc_top.png. __cmwPathsCheck sep = 0 in all of these.",
+    "fix": "Make spacing scale with length. Keep dTest at 14 px for short paths. For a candidate longer than 3 x dS, reject it if more than 25 % of its length is within 2 x dTest (about 28 px) of a kept path. Cap the total drawn ink (sum of path lengths) at about 2.5 x sqrt(pane area) per pane, so scenes with long paths get fewer paths. Do not exempt other paths' ends in the separation measure, only the path's own ends."
+  },
+  {
+    "id": "path-5",
+    "severity": "medium",
+    "title": "Phones get the full desktop count (18), not 'about 11' as AS-BUILT says",
+    "detail": "The cap is round(w x h / 110^2), and on a phone the right pane is tall (about 390 x 760), so the area cap is about 24 and the maxN of 18 applies. That puts 18 paths in a quarter of the desktop width. The spacings (sep 24, dS 34) are absolute px, so the paths pack at the minimum spacing everywhere.",
+    "evidence": "walk.js at 390x844 (mobile emulation), t = 0.5: Disk automorphism n = 18, Log of an annulus n = 18, Square root n = 17, Strip to disk n = 6. Shot: review-shots/s_phone.png.",
+    "fix": "Cap by the short side as well, for example cap = min(maxN, area cap, round(1.4 x min(w, h) / 110) ^ 2 / 2), or scale the spacings with min(1, min(w, h) / 600). Aim for at most 8-10 paths at 390 px wide."
+  },
+  {
+    "id": "path-6",
+    "severity": "medium",
+    "title": "Stub paths of 11-25 px are kept (ring and dot dumbbells with no direction)",
+    "detail": "Candidates need only lin >= 10 px. A path under 3 x AL = 21 px gets no time marks, so it is drawn as an open ring touching a filled dot. The result is a meaningless dumbbell glyph, which goes against 'fewer, better paths'. In Sine of a half-strip, 3 of 13 paths are under 25 px, all near the origin where the picture is busiest.",
+    "evidence": "short.js at t = end: Sine half-strip minLen 11 px (3 paths < 25 px, 4 < 40 px), Quarter plane 22 px, Disk automorphism 23 px, Square root 25 px. Shot: review-shots/z_sin.png (dumbbells at the bottom centre).",
+    "fix": "Raise the minimum visible length to about 1.2 x dS (about 40 px) at t = end, and use the length in the score so short candidates lose. If a region only has stubs, keep at most one, or show just the end dot with a short tail."
+  },
+  {
+    "id": "path-7",
+    "severity": "medium",
+    "title": "End dots land on other paths' lines and next to other starts; intermediate heads crowd in chains",
+    "detail": "The 'no end dot on a start ring' rule uses 8 px, and the separation test exempts each path's ends. So an end dot can sit on another path's line, and a ring can sit next to another path's end. For chains run one after another, dE applies only at t = m. At t = 1 the heads of Strip to disk stand in one column on the imaginary axis, 21 px apart.",
+    "evidence": "short.js: Strip to disk end dot 1.8 px from another path's line; Disk automorphism end dot 10 px from another start ring and 9.7 px from a line. ex-1-striptodisk-light-t05.png: heads at y of about 371 and 392 on x = 711, 21 px apart (dE = 26).",
+    "fix": "Test each end dot and ring against all kept lines with a clearance of at least dE / 2 (13 px), and rings against ends with dS / 2. For sequential chains, also apply the dE test at every integer t (each step's end)."
+  },
+  {
+    "id": "path-8",
+    "severity": "medium",
+    "title": "Globe: a few tiny, foreshortened paths at the limb that end there with no cue",
+    "detail": "The globe's paths are chosen in the flat fit frame and then lifted. Points spread evenly in the plane can sit on the sphere's limb, where they are foreshortened to a few px. Disk automorphism shows 18 paths on the plane but only 4 short, hard-to-see strokes along the horizon on the globe. On Square root, a path runs off the limb and simply stops, because chevrons are flat only. The globe looks emptier than the plane, and its paths read as scratches.",
+    "evidence": "review-shots/diskauto-globe-mid.png and z_dag.png (paths along the rim at y of about 160-230); s_globe sheet in walk.js output: Square root, a stroke cut at the left limb. AS-BUILT lists 'globe gets few paths' as open.",
+    "fix": "Choose globe paths on the sphere: space them by angle and reject seeds whose surface normal is within 70 degrees of the view (|n . v| < 0.35) for most of the path. Draw a small fade or terminal tick where a run goes behind the limb. Consider pointing the default globe camera at X's centroid."
+  },
+  {
+    "id": "path-9",
+    "severity": "medium",
+    "title": "Figure: a small X in a wide frame crams its starts together, sends 3 of 8 paths off the frame, and lays one path over a picture line",
+    "detail": "In Sine of a half-strip (Article, B/W), X is a 3 x 2.4 box at the bottom centre of a 15 x 12.5 frame. The rings and dots are packed at print size while the paths run out to the left, right and top edges (chevrons). One path runs straight up the imaginary axis, on top of the image's vertical line and the dashed lines, and hides them. At 0.5 pt on a 1 pt casing it reads as the picture's own line.",
+    "evidence": "review-shots/sinhalf-export-article-bw.png.",
+    "fix": "In the figure choice, require that at least about 70 % of a path's length stays in the frame. Reject a path when more than 30 % of its length lies within 1.5 pt of an outline or grid curve of the picture (pxLines and the grid's image). When X takes up under 5 % of the frame, cap the paths at about 5."
+  },
+  {
+    "id": "path-10",
+    "severity": "low",
+    "title": "Paths that start on the frame edge and leave at once (a ring and a chevron, nothing else)",
+    "detail": "The inner margin is only 2 x k px, so a seed can sit on the frame edge. If its path leaves straight away, all that shows is a ring with a chevron next to it: wasted ink, and it looks like a stray glyph at the frame.",
+    "evidence": "striptodisk-export-article-bw.png: ring at (5.9, 1.5) on the right edge with a chevron at once. cayleycube-export-article-bw.png: ring at (-2.5, 0) on the left edge with a chevron.",
+    "fix": "Require the first in-frame run from z to be at least 2 x dS long before its first exit, or keep start points at least dS / 2 inside the frame."
+  },
+  {
+    "id": "path-11",
+    "severity": "low",
+    "title": "The legend and the Paths icon show the old style, and the legend drops the paths row when there is a cut",
+    "detail": "The legend row is a plain arrow (line plus arrowhead at the end), and the Paths button icon is a start dot, a curve and an arrowhead at the end. The new look is an open ring, a line, a mid arrowhead and a filled end dot. Also, the legend only draws the paths row when y < 72. When 'image of a cut' takes the first row (Log of an annulus, Square root), the paths row is silently dropped while 18 paths are on screen.",
+    "evidence": "src/app.js about lines 63 (ICONS.paths) and 7150 (legend: if (y < 72 && S.morphPaths ...)). review-shots/logann-light-end.png and sqrt-light-end.png: the legend shows 'image of a cut' and X but no paths row.",
+    "fix": "Draw the glyph as ring, line, small mid arrowhead and dot, in the legend, the button and the figure key. Let the chip grow a fourth row, or merge X and the paths into one row."
+  },
+  {
+    "id": "path-12",
+    "severity": "low",
+    "title": "Too many glyph kinds per path on screen; the 7 px arrowhead is hard to tell from the time dots",
+    "detail": "Each path carries a ring, two 1.7 px time dots, a 7 x 5.2 px arrowhead and a head dot: 5 marks, so about 90 marks for 18 paths. At 100 % zoom on the checker, the arrowhead at m/2 is hard to tell apart from the dots at m/4 and 3m/4, so the path reads as a string of beads rather than showing a direction. The dots are noise unless you have read the caption, and the live view has no caption.",
+    "evidence": "review-shots/z_sin.png (2.5x crop: the arrowhead and the dots look alike), jouk/rational after shots.",
+    "fix": "Live: drop the m/4 and 3m/4 dots and keep ring, line, one arrowhead (9-10 px long, AW 3.2) and the head dot. Keep the dots in the exported figure, where the caption explains them. Skip the arrowhead on paths under about 60 px."
+  }
+]

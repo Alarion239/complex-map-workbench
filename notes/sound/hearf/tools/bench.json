@@ -1,0 +1,34 @@
+{
+ "today": {
+  "us": 7.4,
+  "pct": 0.28
+ },
+ "sung-cello": {
+  "us": 48.2,
+  "pct": 1.81
+ },
+ "sung-choir": {
+  "us": 73.6,
+  "pct": 2.76
+ },
+ "sung-glass": {
+  "us": 49.9,
+  "pct": 1.87
+ },
+ "sung-reed": {
+  "us": 51.1,
+  "pct": 1.92
+ },
+ "harp-string": {
+  "us": 61.6,
+  "pct": 2.31
+ },
+ "harp-glass": {
+  "us": 91.1,
+  "pct": 3.42
+ },
+ "singer": {
+  "us": 9.2,
+  "pct": 0.35
+ }
+}

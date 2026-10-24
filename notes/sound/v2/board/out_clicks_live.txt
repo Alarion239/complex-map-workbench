@@ -1,0 +1,6 @@
+{"file": "live_A_hover.f32", "secs": 11.1, "rms_dBFS": -41.4, "detA": {"attack": 18, "gradual": 0, "elsewhere": 0}, "detA_where": [], "detB": {"attack": 74, "gradual": 2, "elsewhere": 3}, "detB_where": [6.216, 6.23, 6.232]}
+{"file": "live_A_scrub.f32", "secs": 9.4, "rms_dBFS": -48.1, "detA": {"attack": 90, "gradual": 0, "elsewhere": 0}, "detA_where": [], "detB": {"attack": 324, "gradual": 0, "elsewhere": 0}, "detB_where": []}
+{"file": "live_A_ui.f32", "secs": 10.4, "rms_dBFS": -42.3, "detA": {"attack": 26, "gradual": 0, "elsewhere": 0}, "detA_where": [], "detB": {"attack": 112, "gradual": 0, "elsewhere": 8}, "detB_where": [0.287, 0.29, 0.297, 0.304, 0.307, 0.311, 0.318, 0.327]}
+{"file": "live_B_hover.f32", "secs": 11.1, "rms_dBFS": -42.5, "detA": {"attack": 18, "gradual": 0, "elsewhere": 0}, "detA_where": [], "detB": {"attack": 42, "gradual": 2, "elsewhere": 0}, "detB_where": []}
+{"file": "live_B_scrub.f32", "secs": 9.8, "rms_dBFS": -48.9, "detA": {"attack": 2, "gradual": 0, "elsewhere": 0}, "detA_where": [], "detB": {"attack": 3, "gradual": 0, "elsewhere": 14}, "detB_where": [0.235, 0.235, 0.244, 0.249, 0.255, 0.259, 0.263, 2.575]}
+{"file": "live_B_ui.f32", "secs": 10.4, "rms_dBFS": -42.8, "detA": {"attack": 26, "gradual": 0, "elsewhere": 0}, "detA_where": [], "detB": {"attack": 128, "gradual": 0, "elsewhere": 1}, "detB_where": [7.034]}

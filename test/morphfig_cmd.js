@@ -62,7 +62,11 @@ for (const cs of CASES) {
   for (const a of sel.kept) for (const b of sel.kept) if (a !== b) hs = Math.min(hs, Math.hypot(a.end[0] - b.start[0], a.end[1] - b.start[1]));
   r.minHeadStart = +hs.toFixed(2);
   ok(cs.id + ': no head on a start dot', hs >= 6, hs);
-  ok(cs.id + ': more arrows than the old cap', sel.n > 8 || sel.n === sel.nCands, sel.n);
+  // (paths-aesthetics: fewer, evenly spaced paths; at most 18 on a desktop pane)
+  // (ex-strip, Strip to disk one step after another: most of its paths go out under exp and come back under the
+  // Moebius map, a doubled-back V or a retrace, which the review fixes reject; 3 hooks is what is left)
+  const nMin = cs.id === 'ex-strip' ? 3 : 4;
+  ok(cs.id + `: ${nMin} to 18 paths`, (sel.n >= nMin || sel.n === sel.nCands) && sel.n <= 18, sel.n);
   r.dropped = sel.log.reduce((a, l) => { a[l[3]] = (a[l[3]] || 0) + 1; return a; }, {});
   await shot(`mf-${cs.id}-screen-t1`, { x: 720, y: 0, width: 720, height: 900 });
   await ev('__cmwMorph({ T: 0.55 })');
@@ -74,8 +78,13 @@ for (const cs of CASES) {
     if (!fig || fig.__exc) { ok(`${cs.id}: figure ${w}`, false, fig); continue; }
     const tag = `${cs.id}-${w === 7 ? 'double' : 'single'}`;
     fs.writeFileSync(path.join(OUT, `mf-${tag}.svg`), fig.svg);
-    const nHeads = (fig.svg.match(/class="mf-heads">([\s\S]*?)<\/g>/) || ['', ''])[1].split('<path').length - 1;
-    ok(`${tag}: one arrowhead per kept path`, nHeads === fig.morph.kept.length, [nHeads, fig.morph.kept.length]);
+    // (paths-aesthetics) a ring at each start, at most one arrowhead per path and step, an end dot per path
+    const nOf = (cls) => ((fig.svg.match(new RegExp(`class="${cls}">([\\s\\S]*?)</g>`)) || ['', ''])[1].match(/<(?:path|circle)/g) || []).length;
+    const nHeads = nOf('mf-heads'), nRings = nOf('mf-rings'), nEnds = nOf('mf-ends');
+    // (steps one after another: one arrowhead per step, in its middle; review path-1)
+    const mSteps = Math.max(1, Math.ceil(+(await ev(`(document.getElementById('morphRange') || {}).max`)) || 1));
+    ok(`${tag}: a ring per path, at most one arrowhead per path and step`, nRings === fig.morph.kept.length && nHeads <= mSteps * fig.morph.kept.length && nEnds <= fig.morph.kept.length && nEnds > 0, [nRings, nHeads, nEnds, fig.morph.kept.length, mSteps]);
+    ok(`${tag}: the caption names the marks`, /Curves are the paths/.test(fig.cap) && /\(circle\)/.test(fig.cap), fig.cap.slice(-300));
     // the caption's maths: no inline \\frac (morph-figure.md 5), no X called grey, no TeX lost to the template literal
     ok(`${tag}: no inline \\frac in the caption`, !/\\frac/.test(fig.cap), fig.cap);
     ok(`${tag}: no '(grey)' in the caption`, !/grey/.test(fig.cap), fig.cap);

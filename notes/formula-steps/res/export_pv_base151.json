@@ -1,0 +1,812 @@
+{
+ "pass": false,
+ "fails": [
+  {
+   "name": "preview: it advances at the video's frame rate (30 fps: 24 to 36 frames a second), drawing as it goes",
+   "got": {
+    "i0": 139,
+    "i1": 174,
+    "n": 211,
+    "fps": 30,
+    "rate": 30.7,
+    "draws": 10
+   }
+  },
+  {
+   "name": "preview: no main-thread task of 50 ms or more while it fills and plays",
+   "got": {
+    "lt": [
+     266,
+     52,
+     57,
+     117,
+     74
+    ],
+    "frames": 202,
+    "med": 116.5,
+    "p95": 120.1,
+    "max": 152,
+    "over20": 180
+   }
+  },
+  {
+   "name": "preview: the animation frames keep time while it fills and plays (median under 18 ms, 95 % under 25 ms, none of 50 ms)",
+   "got": {
+    "lt": [
+     266,
+     52,
+     57,
+     117,
+     74
+    ],
+    "frames": 202,
+    "med": 116.5,
+    "p95": 120.1,
+    "max": 152,
+    "over20": 180
+   }
+  },
+  {
+   "name": "preview DPR 2: plays at 30 fps from compressed frames, no task of 50 ms, frames on time",
+   "got": {
+    "ra": 30.1,
+    "pa": {
+     "lt": [
+      56,
+      100,
+      81,
+      80,
+      62,
+      110,
+      56,
+      59,
+      257
+     ],
+     "frames": 35,
+     "med": 52.4,
+     "p95": 151.8,
+     "max": 275.2
+    }
+   }
+  },
+  {
+   "name": "preview 60 fps Loop: plays at 60 fps while it fills (48 to 66 a second), no task of 50 ms, frames on time",
+   "got": {
+    "rb": 61.2,
+    "pb": {
+     "lt": [
+      119
+     ],
+     "frames": 31,
+     "med": 116.4,
+     "p95": 126.3,
+     "max": 197.1
+    }
+   }
+  }
+ ],
+ "files": 0,
+ "figs": 0,
+ "pv": {
+  "open": {
+   "tPoster": 311,
+   "tMoving": 256,
+   "tFilled": 18203,
+   "adv": {
+    "i0": 139,
+    "i1": 174,
+    "n": 211,
+    "fps": 30,
+    "rate": 30.7,
+    "draws": 10
+   },
+   "perf": {
+    "lt": [
+     266,
+     52,
+     57,
+     117,
+     74
+    ],
+    "frames": 202,
+    "med": 116.5,
+    "p95": 120.1,
+    "max": 152,
+    "over20": 180
+   },
+   "state": {
+    "playing": true,
+    "i": 114,
+    "n": 211,
+    "ready": 121,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 1,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720)",
+    "poster": false,
+    "canvas": true,
+    "btn": "Pause",
+    "seek": [
+     114,
+     210,
+     "3.2 s of 7.0 s, t = 1.00"
+    ],
+    "time": "3.8 / 7.0 s",
+    "hint": "1280 × 720 · 30 fps · 7.0 s",
+    "stats": {
+     "renders": 121,
+     "live": 1,
+     "runs": 1,
+     "draws": 193,
+     "decodes": 0
+    }
+   }
+  },
+  "once": {
+   "k": 94,
+   "entry": 0.9967407407407407,
+   "frames": 211,
+   "n": 211,
+   "pw": 743,
+   "ph": 418,
+   "madVideo": 2.282,
+   "madExact": 0,
+   "range": 244
+  },
+  "loop": {
+   "k": 217,
+   "entry": {
+    "a": 2,
+    "b": 0,
+    "k": 0.4666666666666667
+   },
+   "frames": 678,
+   "n": 678,
+   "pw": 743,
+   "ph": 418,
+   "madVideo": 1.232,
+   "madExact": 0.036,
+   "range": 245
+  },
+  "close": {
+   "c0": {
+    "renders": 245,
+    "live": 0,
+    "runs": 4,
+    "draws": 1325,
+    "decodes": 0
+   },
+   "c1": {
+    "renders": 245,
+    "live": 0,
+    "runs": 4,
+    "draws": 1325,
+    "decodes": 0
+   }
+  },
+  "globeBounce": {
+   "filledMs": 18652,
+   "k": 269,
+   "entry": 1.0008240740740741,
+   "frames": 385,
+   "n": 385,
+   "pw": 743,
+   "ph": 418,
+   "madVideo": 0.33,
+   "madExact": 0,
+   "range": 246
+  },
+  "reduced": {
+   "r0": {
+    "playing": false,
+    "i": 131,
+    "n": 385,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 6,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720) · Paused: reduced motion is on. Press Play to watch.",
+    "poster": true,
+    "canvas": false,
+    "btn": "Play",
+    "seek": [
+     131,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.4 / 12.8 s",
+    "hint": "1280 × 720 · 30 fps · 12.8 s",
+    "stats": {
+     "renders": 367,
+     "live": 1,
+     "runs": 6,
+     "draws": 1865,
+     "decodes": 0
+    }
+   },
+   "r1": {
+    "playing": false,
+    "i": 131,
+    "n": 385,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 6,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720) · Paused: reduced motion is on. Press Play to watch.",
+    "poster": true,
+    "canvas": false,
+    "btn": "Play",
+    "seek": [
+     131,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.4 / 12.8 s",
+    "hint": "1280 × 720 · 30 fps · 12.8 s",
+    "stats": {
+     "renders": 367,
+     "live": 1,
+     "runs": 6,
+     "draws": 1865,
+     "decodes": 0
+    }
+   },
+   "rt": 1.1953425925925927
+  }
+ },
+ "pv2": {
+  "dpr2": {
+   "a": {
+    "playing": true,
+    "i": 251,
+    "n": 271,
+    "ready": 14,
+    "total": 181,
+    "pw": 1486,
+    "ph": 836,
+    "shown": true,
+    "fps": 30,
+    "id": 1,
+    "raw": false,
+    "lazy": false,
+    "hot": 12,
+    "bytes": 866124,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 2,
+    "btn": "Pause",
+    "seek": [
+     251,
+     270,
+     "7.7 s of 9.0 s, t = 2.00"
+    ],
+    "time": "8.4 / 9.0 s",
+    "stats": {
+     "renders": 14,
+     "live": 1,
+     "runs": 1,
+     "draws": 34,
+     "decodes": 0
+    }
+   },
+   "pa": {
+    "lt": [
+     56,
+     100,
+     81,
+     80,
+     62,
+     110,
+     56,
+     59,
+     257
+    ],
+    "frames": 35,
+    "med": 52.4,
+    "p95": 151.8,
+    "max": 275.2
+   },
+   "fs0": {
+    "i": 173,
+    "t": 1.244570644718793
+   },
+   "ra": 30.1
+  },
+  "dpr2match": {
+   "k": 121,
+   "entry": 0.9910836762688615,
+   "frames": 271,
+   "n": 271,
+   "pw": 1486,
+   "ph": 836,
+   "madVideo": 1.357,
+   "madExact": 1.269
+  },
+  "loop60": {
+   "b": {
+    "playing": true,
+    "i": 703,
+    "n": 2793,
+    "ready": 14,
+    "total": 721,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 60,
+    "id": 2,
+    "raw": false,
+    "lazy": false,
+    "hot": 14,
+    "bytes": 324356,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     703,
+     2792,
+     "11.6 s of 46.5 s, t = 1.70"
+    ],
+    "time": "11.7 / 46.5 s",
+    "stats": {
+     "renders": 195,
+     "live": 1,
+     "runs": 2,
+     "draws": 776,
+     "decodes": 735
+    }
+   },
+   "rb": 61.2,
+   "pb": {
+    "lt": [
+     119
+    ],
+    "frames": 31,
+    "med": 116.4,
+    "p95": 126.3,
+    "max": 197.1
+   }
+  },
+  "hidden": {
+   "h0": 202,
+   "h1": 202,
+   "h2": 209
+  },
+  "restart": {
+   "c0": {
+    "playing": false,
+    "i": 162,
+    "n": 0,
+    "ready": 0,
+    "total": 0,
+    "pw": 0,
+    "ph": 0,
+    "shown": true,
+    "fps": 0,
+    "id": 0,
+    "raw": null,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": true,
+    "canvas": false,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Play",
+    "seek": [
+     0,
+     0,
+     null
+    ],
+    "time": "",
+    "stats": {
+     "renders": 216,
+     "live": 0,
+     "runs": 3,
+     "draws": 819,
+     "decodes": 735
+    }
+   },
+   "c1": {
+    "playing": false,
+    "i": 162,
+    "n": 0,
+    "ready": 0,
+    "total": 0,
+    "pw": 0,
+    "ph": 0,
+    "shown": true,
+    "fps": 0,
+    "id": 0,
+    "raw": null,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": true,
+    "canvas": false,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     0,
+     0,
+     null
+    ],
+    "time": "",
+    "stats": {
+     "renders": 216,
+     "live": 0,
+     "runs": 3,
+     "draws": 819,
+     "decodes": 735
+    }
+   },
+   "c2": {
+    "playing": true,
+    "i": 142,
+    "n": 385,
+    "ready": 6,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 4,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     142,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.7 / 12.8 s",
+    "stats": {
+     "renders": 222,
+     "live": 1,
+     "runs": 4,
+     "draws": 827,
+     "decodes": 735
+    }
+   }
+  },
+  "pausedRestart": {
+   "tp": 451,
+   "c3": {
+    "id": 5,
+    "shown": true,
+    "playing": false,
+    "canvas": true,
+    "poster": false,
+    "btn": "Play",
+    "pw": 743
+   }
+  },
+  "focus": {
+   "f0": [
+    146,
+    [
+     141,
+     677,
+     "4.7 s of 22.6 s, t = 1.43"
+    ]
+   ],
+   "f1": [
+    194,
+    [
+     141,
+     677,
+     "4.7 s of 22.6 s, t = 1.43"
+    ]
+   ],
+   "f2": [
+    195,
+    [
+     195,
+     677,
+     "6.5 s of 22.6 s, t = 2.00"
+    ],
+    false
+   ]
+  },
+  "resize": {
+   "d0": {
+    "playing": true,
+    "i": 152,
+    "n": 678,
+    "ready": 8,
+    "total": 121,
+    "pw": 306,
+    "ph": 172,
+    "shown": true,
+    "fps": 30,
+    "id": 6,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 306,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     152,
+     677,
+     "4.4 s of 22.6 s, t = 1.20"
+    ],
+    "time": "5.1 / 22.6 s",
+    "stats": {
+     "renders": 252,
+     "live": 1,
+     "runs": 6,
+     "draws": 873,
+     "decodes": 735
+    }
+   },
+   "d1": {
+    "playing": true,
+    "i": 170,
+    "n": 678,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 7,
+    "raw": false,
+    "lazy": false,
+    "hot": 1,
+    "bytes": 0,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     170,
+     677,
+     "5.5 s of 22.6 s, t = 1.94"
+    ],
+    "time": "5.7 / 22.6 s",
+    "stats": {
+     "renders": 253,
+     "live": 1,
+     "runs": 7,
+     "draws": 875,
+     "decodes": 735
+    }
+   },
+   "d2": {
+    "playing": true,
+    "i": 205,
+    "n": 678,
+    "ready": 4,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 7,
+    "raw": false,
+    "lazy": false,
+    "hot": 4,
+    "bytes": 115326,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     205,
+     677,
+     "6.5 s of 22.6 s, t = 2.00"
+    ],
+    "time": "6.8 / 22.6 s",
+    "stats": {
+     "renders": 256,
+     "live": 1,
+     "runs": 7,
+     "draws": 882,
+     "decodes": 735
+    }
+   }
+  },
+  "reduced": {
+   "e0": {
+    "playing": false,
+    "i": 131,
+    "n": 678,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 8,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720) · Paused: reduced motion is on. Press Play to watch.",
+    "poster": true,
+    "canvas": false,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Play",
+    "seek": [
+     131,
+     677,
+     "4.4 s of 22.6 s, t = 1.20"
+    ],
+    "time": "4.4 / 22.6 s",
+    "stats": {
+     "renders": 258,
+     "live": 1,
+     "runs": 8,
+     "draws": 882,
+     "decodes": 735
+    }
+   },
+   "e1": {
+    "playing": false,
+    "i": 132,
+    "n": 678,
+    "ready": 4,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 8,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720)",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Play",
+    "seek": [
+     132,
+     677,
+     "4.4 s of 22.6 s, t = 1.22"
+    ],
+    "time": "4.4 / 22.6 s",
+    "stats": {
+     "renders": 261,
+     "live": 1,
+     "runs": 8,
+     "draws": 886,
+     "decodes": 735
+    }
+   },
+   "e2": {
+    "playing": true,
+    "i": 645,
+    "n": 678,
+    "ready": 121,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 8,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720)",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     645,
+     677,
+     "21.5 s of 22.6 s, t = 2.00"
+    ],
+    "time": "21.5 / 22.6 s",
+    "stats": {
+     "renders": 378,
+     "live": 1,
+     "runs": 8,
+     "draws": 1081,
+     "decodes": 735
+    }
+   }
+  },
+  "lowmem": {
+   "playing": true,
+   "i": 147,
+   "n": 678,
+   "ready": 3,
+   "total": 121,
+   "pw": 743,
+   "ph": 418,
+   "shown": true,
+   "fps": 30,
+   "id": 9,
+   "raw": false,
+   "lazy": false,
+   "hot": 3,
+   "bytes": 89270,
+   "mime": "image/webp",
+   "note": "Preview: drawing the frames, 0 %",
+   "poster": false,
+   "canvas": true,
+   "cssW": 743,
+   "dpr": 1,
+   "btn": "Pause",
+   "seek": [
+    147,
+    677,
+    "4.4 s of 22.6 s, t = 1.20"
+   ],
+   "time": "4.9 / 22.6 s",
+   "stats": {
+    "renders": 381,
+    "live": 1,
+    "runs": 9,
+    "draws": 1086,
+    "decodes": 735
+   }
+  }
+ },
+ "logs": []
+}

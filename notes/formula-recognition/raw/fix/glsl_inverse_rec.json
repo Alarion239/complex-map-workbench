@@ -1,0 +1,255 @@
+{
+ "pass": false,
+ "anchors": {
+  "compared": 5120,
+  "failCount": 0,
+  "fails": []
+ },
+ "walk": {
+  "cases": 382,
+  "eligibleCases": 368,
+  "programs": 102,
+  "points": 23552,
+  "compared": 23522,
+  "leaves": 57028,
+  "skipped": {
+   "discontinuous": 30,
+   "ramp": 0,
+   "nonfinite": 0,
+   "ineligible": 15,
+   "deepLeaves": 525
+  },
+  "failCount": 0,
+  "byChain": {},
+  "fails": []
+ },
+ "rational": {
+  "chains": 41,
+  "cases": 82,
+  "eligibleCases": 81,
+  "compared": 5184,
+  "leaves": 13555,
+  "failCount": 0,
+  "kinds": {
+   "IPOW>MOB": 3,
+   "JOUK": 1,
+   "QUAD": 2,
+   "AFF>JOUK>AFF": 4,
+   "RAT2": 8,
+   "AFF": 1,
+   "MOB>LOG": 1,
+   "IPOW>AFF>ROOTPOW": 1,
+   "MOB>IPOW": 1,
+   "JOUK>AFF>EXP": 1,
+   "JOUK>AFF>SIN": 1,
+   "IPOW>JOUK>AFF": 1,
+   "MOB>AFF>JOUK>AFF": 2,
+   "AFF>JOUK>AFF>LOG": 1,
+   "SIN>QUAD": 1,
+   "RAT2>ROOTPOW": 2,
+   "AFF>AFF>JOUK>AFF": 2,
+   "RAT2>IPOW": 1,
+   "AFF>RAT2": 2,
+   "AFF>JOUK>AFF>EXP": 1,
+   "QUAD>LOG": 1,
+   "AFF>JOUK>AFF>IPOW": 1,
+   "LOG>QUAD": 1,
+   "RAT2>MOB": 1
+  }
+ },
+ "clip": {
+  "compared": 61440,
+  "failCount": 1,
+  "fails": [
+   {
+    "shape": "{\"id\":1,\"kind\":\"sector\",\"c\":[1.6107717785052955,0.6441231421194971],\"r\":0,\"t1\":-47,\"t2\":151}",
+    "z0": [
+     -3.13918399810791,
+     3.392744779586792
+    ],
+    "q": [
+     -0.12858743965625763,
+     0.0712730661034584
+    ],
+    "m": 0,
+    "bad": [
+     "hole cpu [28107.232090873124, Infinity] gpu [28120.474609375, 1.0000000150474662e+30]"
+    ]
+   }
+  ]
+ },
+ "fs": {
+  "flat": true,
+  "sphere": true
+ },
+ "flip": {
+  "cases": [
+   {
+    "type": "poly",
+    "params": "{\"co\":\"1, 0, -1, 0\"}",
+    "fwdKey": "[\"glc1\",[[\"poly\",4,\"ratzoom\"]]]",
+    "slots": 6,
+    "invKey": "[\"inv2\",[\"X\"]]",
+    "eligible": false,
+    "drawn": "forward",
+    "filled": 21243,
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "poly",
+    "params": "{\"co\":\"1, 0, 0, 5\"}",
+    "fwdKey": "[\"glc1\",[[\"poly\",4,\"ratzoom\"]]]",
+    "slots": 6,
+    "invKey": "[\"inv2\",[[\"IPOW\",\"AFF\"]]]",
+    "eligible": true,
+    "fwdKeySame": true,
+    "invKeyChanged": true,
+    "drawn": "inverse",
+    "filled": 19792,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "poly",
+    "params": "{\"co\":\"1, 0, -1, 0\"}",
+    "fwdKey": "[\"glc1\",[[\"poly\",4,\"ratzoom\"]]]",
+    "slots": 6,
+    "invKey": "[\"inv2\",[\"X\"]]",
+    "eligible": false,
+    "fwdKeySame": true,
+    "invKeyChanged": true,
+    "drawn": "forward",
+    "filled": 21243,
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "rational",
+    "params": "{\"p\":\"1, 2\",\"q\":\"1, 0\"}",
+    "fwdKey": "[\"glc1\",[[\"rational\",2,2,\"mob\"]]]",
+    "slots": 8,
+    "invKey": "[\"inv2\",[[\"MOB\"]]]",
+    "eligible": true,
+    "drawn": "inverse",
+    "filled": 31676,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "rational",
+    "params": "{\"p\":\"1, 2\",\"q\":\"0, 1\"}",
+    "fwdKey": "[\"glc1\",[[\"rational\",2,1,\"mob\"]]]",
+    "slots": 8,
+    "invKey": "[\"inv2\",[[\"AFF\"]]]",
+    "eligible": true,
+    "fwdKeySame": false,
+    "invKeyChanged": true,
+    "drawn": "inverse",
+    "filled": 21108,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "rational",
+    "params": "{\"p\":\"1, 2\",\"q\":\"1, 0\"}",
+    "fwdKey": "[\"glc1\",[[\"rational\",2,2,\"mob\"]]]",
+    "slots": 8,
+    "invKey": "[\"inv2\",[[\"MOB\"]]]",
+    "eligible": true,
+    "fwdKeySame": false,
+    "invKeyChanged": true,
+    "drawn": "inverse",
+    "filled": 31676,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "mobius",
+    "params": "{\"a\":\"1\",\"b\":\"2\",\"c\":\"1\",\"d\":\"3\"}",
+    "fwdKey": "[\"glc1\",[[\"mobius\"]]]",
+    "slots": 10,
+    "invKey": "[\"inv2\",[[\"MOB\"]]]",
+    "eligible": true,
+    "drawn": "inverse",
+    "filled": 21109,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "mobius",
+    "params": "{\"a\":\"1\",\"b\":\"2\",\"c\":\"2\",\"d\":\"4\"}",
+    "fwdKey": "[\"glc1\",[[\"mobius\"]]]",
+    "slots": 10,
+    "invKey": "[\"inv2\",[\"X\"]]",
+    "eligible": false,
+    "fwdKeySame": true,
+    "invKeyChanged": true,
+    "drawn": "forward",
+    "filled": 0,
+    "constant": true,
+    "ok": true
+   },
+   {
+    "type": "mobius",
+    "params": "{\"a\":\"1\",\"b\":\"2\",\"c\":\"2\",\"d\":\"4.1\"}",
+    "fwdKey": "[\"glc1\",[[\"mobius\"]]]",
+    "slots": 10,
+    "invKey": "[\"inv2\",[[\"MOB\"]]]",
+    "eligible": true,
+    "fwdKeySame": true,
+    "invKeyChanged": true,
+    "drawn": "inverse",
+    "filled": 7034,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   },
+   {
+    "type": "mobius",
+    "params": "{\"a\":\"1\",\"b\":\"2\",\"c\":\"2\",\"d\":\"4\"}",
+    "fwdKey": "[\"glc1\",[[\"mobius\"]]]",
+    "slots": 10,
+    "invKey": "[\"inv2\",[\"X\"]]",
+    "eligible": false,
+    "fwdKeySame": true,
+    "invKeyChanged": true,
+    "drawn": "forward",
+    "filled": 0,
+    "constant": true,
+    "ok": true
+   },
+   {
+    "type": "mobius",
+    "params": "{\"a\":\"1\",\"b\":\"2\",\"c\":\"1\",\"d\":\"3\"}",
+    "fwdKey": "[\"glc1\",[[\"mobius\"]]]",
+    "slots": 10,
+    "invKey": "[\"inv2\",[[\"MOB\"]]]",
+    "eligible": true,
+    "fwdKeySame": true,
+    "invKeyChanged": true,
+    "drawn": "inverse",
+    "filled": 21109,
+    "srcHasLib": true,
+    "status": "ready",
+    "constant": false,
+    "ok": true
+   }
+  ],
+  "ok": true
+ },
+ "errors": [],
+ "ms": 4955,
+ "logs": []
+}

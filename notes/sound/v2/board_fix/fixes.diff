@@ -1,0 +1,352 @@
+--- board/engine_b.js	2026-10-24 01:30:58
++++ board_fix/engine_b.js	2026-10-24 01:58:35
+@@ -135,12 +135,25 @@
+   class Synth extends AudioWorkletProcessor {
+     constructor(o) {
+       super();
+-      this.fs = sampleRate; this.q = []; this.cues = []; this.tex = new Map(); this.y = new Float32Array(128); this.stat = { cues: 0, late: 0, maxLateMs: 0 };
++      this.fs = sampleRate; this.q = []; this.cues = []; this.tex = new Map(); this.dying = []; this.y = new Float32Array(128); this.stat = { cues: 0, late: 0, maxLateMs: 0 };
++      this.nFade = Math.round(0.012 * this.fs);   // (fix) the hush: what sounds fades on a 12 ms raised cosine
+       const p = (o && o.processorOptions) || {};
+       for (const c of p.cmds || []) this.push(c);
+       this.port.onmessage = (e) => { if (e.data === 'stat') { this.port.postMessage(this.stat); return; } for (const c of e.data) this.push(c); };
+     }
+-    push(c) { c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
++    push(c) { if (c.k === 'clear') { this.clear(); return; } c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
++    // (fix) {k: 'clear'} (Esc, off, a hidden tab): queued cues and texture updates are dropped, parts that have not
++    // started are dropped, and what sounds now fades to 0 on a 12 ms raised cosine (no step)
++    clear() {
++      this.q.length = 0;
++      for (let ci = this.cues.length - 1; ci >= 0; ci--) {
++        const cue = this.cues[ci]; cue.parts = cue.parts.filter((p) => p.live && p.sf < currentFrame);
++        if (!cue.parts.length) this.cues.splice(ci, 1); else if (cue.fade == null) cue.fade = 0;
++      }
++      for (const T of this.tex.values()) { T.fade = 0; this.dying.push(T); }
++      this.tex.clear();
++    }
++    fadeY(o, y, n) { const N = this.nFade; for (let j = 0; j < n; j++) { const k = o.fade + j; y[j] *= k >= N ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * k / N); } o.fade += n; return o.fade >= N; }
+     mix(outs, tier, pan, g, wet, y, n) {
+       const th = (Math.max(-0.4, Math.min(0.4, pan)) + 1) * Math.PI / 4, gl = g * Math.cos(th), gr = g * Math.sin(th);
+       const D = outs[2 * tier], W = outs[2 * tier + 1];
+@@ -168,8 +181,13 @@
+           if (p.sf >= f0 + n) { more = true; continue; }
+           any = true; p.live = p.v.run(y, Math.max(0, p.sf - f0), n); if (p.live) more = true;
+         }
++        let gone = false; if (cue.fade != null && any) gone = this.fadeY(cue, y, n);
+         if (any) this.mix(outs, cue.tier, cue.pan, cue.g, cue.wet, y, n);
+-        if (!more) this.cues.splice(ci, 1);
++        if (!more || gone) this.cues.splice(ci, 1);
++      }
++      for (let di = this.dying.length - 1; di >= 0; di--) {
++        const T = this.dying[di]; T.run(y, f0, n); const gone = this.fadeY(T, y, n); this.mix(outs, T.tier, T.pan, 1, T.wet, y, n);
++        if (gone) this.dying.splice(di, 1);
+       }
+       for (const [id, T] of this.tex) {
+         if (T.silent(f0)) { if (T.end || f0 - T.last > 30 * fs) this.tex.delete(id); continue; }
+@@ -472,20 +490,32 @@
+     // ---- the scrub (replaces the detent every 0.05 of t): the texture follows the speed of t; landmark notes at
+     // t = 0, ¼, ½, ¾, 1 (forced); an end reached faster than 0.8 t/s adds a felt bump. tm: an explicit clock (offline)
+     let sLast = null, mode = 'B';
++    // (fix, review aud-2 / sndv2p-1) a landmark re-arms only after t has left it by 0.02 (0.05 at the ends, beyond the
++    // app's 0.03 snap), the same landmark rings at most once in 150 ms, and one input event rings at most one
++    // landmark (the one nearest where t lands): a resting, trembling hand, the snap zone and a jump (End, a click on
++    // the track) no longer machine-gun. An ordinary drag (≤ 0.05 of t per event) rings the same notes as before, at
++    // the same velocities. The texture is unchanged.
++    const lmArmed = [true, true, true, true, true], lmLast = [-1e9, -1e9, -1e9, -1e9, -1e9];
+     function scrub(T0, T1, tm) {
+       const wall = tm != null ? tm : performance.now() / 1000, dtw = sLast == null ? 0.016 : clamp(wall - sLast, 0.008, 0.1); sLast = wall;
+       const v = Math.abs(T1 - T0) / dtw, at = tm != null ? tm : now();
+       if (mode === 'B' && tierOn('events')) post([{ k: 'tex', id: 1, at, v, t: T1, amp: 0.06, tier: 1, wet: 0.12, hold: 0.09, seed: 11 }]);
++      let best = -1;
+       for (let q = 0; q <= 4; q++) {
+         const m = q / 4;
+-        if ((T0 < m && T1 >= m) || (T0 > m && T1 <= m)) {
+-          play('landmark', { q, vel: clamp(0.3 + 0.25 * Math.log2(1 + v), 0.3, 0.85), force: true, t0: at });
+-        }
++        if (!lmArmed[q] && Math.abs(T0 - m) >= (q === 0 || q === 4 ? 0.05 : 0.02)) lmArmed[q] = true;
++        if (((T0 < m && T1 >= m) || (T0 > m && T1 <= m)) && (best < 0 || Math.abs(T1 - m) < Math.abs(T1 - best / 4))) best = q;
+       }
++      if (best >= 0) {
++        const wq = wall * 1000;
++        if (lmArmed[best] && wq - lmLast[best] >= 150) { play('landmark', { q: best, vel: clamp(0.3 + 0.25 * Math.log2(1 + v), 0.3, 0.85), force: true, t0: at }); lmLast[best] = wq; }
++        lmArmed[best] = false;
++      }
+     }
+     function scrubEnd(tm) { sLast = null; post([{ k: 'tex', id: 1, at: tm != null ? tm : now(), v: 0, end: true, rel: 0.16 }]); }
+     // ---- the motion bed: while the deformation plays its first pass, the texture driven by the playback (×0.6)
+-    function motion(t, rate, tm) { if (tierOn('events')) post([{ k: 'tex', id: 2, at: tm != null ? tm : now(), v: rate, t, amp: 0.06, tier: 1, wet: 0.12, hold: 0.25, seed: 23 }]); }
++    // (fix, sndv2p-11) 'notes only' (mode C) has no air during Play either
++    function motion(t, rate, tm) { if (mode !== 'C' && tierOn('events')) post([{ k: 'tex', id: 2, at: tm != null ? tm : now(), v: rate, t, amp: 0.06, tier: 1, wet: 0.12, hold: 0.25, seed: 23 }]); }
+     function motionEnd(tm) { post([{ k: 'tex', id: 2, at: tm != null ? tm : now(), v: 0, end: true, rel: 0.13 }]); }
+     // ---- the glass choir (the app's ShepardVoice on this graph, with the choir in its worklet)
+     function voice() {
+@@ -494,7 +524,14 @@
+       const st = v.stop; v.stop = (t) => { voices.delete(v); if (chromaVoice === v) chromaVoice = null; st(t); };
+       return v;
+     }
+-    return { play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), scrub, scrubEnd, motion, motionEnd, voice, log, setMode: (m) => { mode = m; }, mode: () => mode,
++    // (fix, sndv2p-2) Esc, off, a hidden tab: every queued and sounding cue and texture fades out in 12 ms inside the
++    // worklet, the turn and contour queues empty, live voices are gated off (τ 4 ms), as the app's Sound.hush()
++    function hush() {
++      post([{ k: 'clear' }]); sLast = null;
++      for (const q of Object.values(Q)) { q.next = 0; q.many = 0; q.due.length = 0; }
++      for (const v of voices) v.gate(false, undefined, 0.004);
++    }
++    return { play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), scrub, scrubEnd, motion, motionEnd, voice, log, hush, setMode: (m) => { mode = m; }, mode: () => mode,
+       stat: () => new Promise((res) => { if (!node) return res(null); node.port.onmessage = (e) => res(e.data); node.port.postMessage('stat'); }), node: () => node, lead: () => LEAD };
+   }
+ 
+@@ -513,10 +550,17 @@
+   }
+   const touch = () => { clearTimeout(idle); idle = setTimeout(() => { if (ctx && ctx.state === 'running') ctx.suspend(); }, 30000); };
+   const live = (f) => (...a) => { if (!E || !P.on) return false; if (ctx.state !== 'running') ctx.resume(); touch(); return f(...a); };
++  // (fix, sndv2p-2) off is immediate (hush + master τ 3 ms, as the app's off), on and volume keep the 30 ms glide
+   function set(o) {
+-    Object.assign(P, o);
+-    if (G) G.master.gain.setTargetAtTime(P.on ? P.vol * P.vol : 0, ctx.currentTime + 0.012, 0.03);
++    const was = P.on; Object.assign(P, o);
++    if (was && !P.on && E) E.hush();
++    if (G) G.master.gain.setTargetAtTime(P.on ? P.vol * P.vol : 0, ctx.currentTime + 0.012, was && !P.on ? 0.003 : 0.03);
+   }
++  const hush = () => { if (E) E.hush(); };
++  if (typeof document !== 'undefined') {
++    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && ctx) { hush(); setTimeout(() => { if (document.visibilityState === 'hidden' && ctx.state === 'running') ctx.suspend(); }, 60); } });
++    window.addEventListener('pagehide', () => { if (ctx && ctx.state === 'running') { hush(); ctx.suspend(); } });
++  }
+ 
+   // ---------------------------------------------------------------- offline rendering (tests, measurements)
+   async function render(fn, dur, opts = {}) {
+@@ -530,7 +574,7 @@
+   }
+ 
+   return {
+-    ensure, set, prefs: () => ({ ...P }), state: () => ({ audio: ctx ? ctx.state : 'none', ready: !!E }),
++    ensure, set, hush, prefs: () => ({ ...P }), state: () => ({ audio: ctx ? ctx.state : 'none', ready: !!E }),
+     play: live((n, o) => E.play(n, o)), turn: live((o) => E.turn(o)), tick: live((o) => E.tick(o)),
+     scrub: live((a, b) => E.scrub(a, b)), scrubEnd: live(() => E.scrubEnd()), motion: live((t, r) => E.motion(t, r)), motionEnd: live(() => E.motionEnd()),
+     voice: live(() => E.voice()), setMode: (m) => { if (E) E.setMode(m); }, engine: () => E, ctx: () => ctx,
+--- board/page.js	2026-10-24 01:35:03
++++ board_fix/page.js	2026-10-24 02:00:18
+@@ -8,26 +8,55 @@
+   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+   let PAL = 'B', started = false, vol = 0.7;
+   const pal = () => (PAL === 'A' ? Sound : SoundB);
+-  const play = (name, o = {}) => (started ? pal().play(name, o) : false);
++  // (fix, sndv2p-3) B's engine loads in the first gesture, after that press's own handler has run: a B cue asked for
++  // before it is ready is kept (the last one) and played when it is, so the first press in B is heard, as in A
++  let pendB = null;
++  const bReady = () => SoundB.state().ready;
++  const playB = (name, o) => { if (bReady()) return SoundB.play(name, o); pendB = { t: performance.now(), f: () => SoundB.play(name, o) }; return false; };
++  const play = (name, o = {}) => (!started ? false : PAL === 'A' ? Sound.play(name, o) : playB(name, o));
+ 
+   // ---------------------------------------------------------------- start (a gesture), palette, volume
+   function start() {
+     if (started) return; started = true;
+-    Sound.set({ on: true, vol, ui: true, snap: true, events: true, sonify: true }, { quiet: true });
+-    SoundB.set({ on: true, vol }); SoundB.ensure().then(() => { SoundB.setMode(bmode); status(); });
++    const on = $('onChk').checked;
++    Sound.set({ on, vol, ui: true, snap: true, events: true, sonify: true }, { quiet: true });
++    SoundB.set({ on, vol }); SoundB.ensure().then(() => { SoundB.setMode(bmode); status(); const pb = pendB; pendB = null; if (pb && performance.now() - pb.t < 800) pb.f(); });
+     status();
+   }
+   for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, start, { capture: true });
+-  function status() { $('status').textContent = !started ? 'Click anywhere to start sound.' : `Playing palette ${PAL}${PAL === 'B' && !SoundB.state().ready ? ' (loading…)' : ''}.`; }
+-  function setPal(p) {
+-    if (p === PAL) return; PAL = p; voiceOff(true);
++  function status(extra) { $('status').textContent = !started ? 'Click anywhere to start sound.' : !$('onChk').checked ? 'Sound is off.' : `Playing palette ${PAL}${PAL === 'B' && !SoundB.state().ready ? ' (loading…)' : ''}.${extra ? ' ' + extra : ''}`; }
++  // (fix, sndv2p-10) a palette switch stops Play and the auto-drag first, so the two palettes never mix in one pass;
++  // (fix, sndv2p-13) the first instruction is no longer overwritten at load
++  function setPal(p, init) {
++    if (p === PAL && !init) return;
++    const was = !init && (playing || auto); if (!init) { stopPlay(); stopAuto(); if (started && PAL === 'B') SoundB.scrubEnd(); }
++    PAL = p; voiceOff(true);
+     for (const b of document.querySelectorAll('.seg.pal button')) b.setAttribute('aria-pressed', String(b.dataset.p === p));
+-    document.body.classList.toggle('palA', p === 'A'); $('bmodeRow').style.opacity = p === 'B' ? 1 : 0.45;
+-    $('hint').textContent = p === 'A' ? 'Palette A: the sounds in the app today.' : 'Palette B: the new sounds. Each play is a little different.';
++    document.body.classList.toggle('palA', p === 'A');
++    if (!init) $('hint').textContent = was ? `Switched to ${p}: press Play (or a Drag for me button) again.` : p === 'A' ? 'Palette A: the sounds in the app today.' : 'Palette B: the new sounds. Each play is a little different.';
+     status();
+   }
+   for (const b of document.querySelectorAll('.seg.pal button')) b.onclick = () => setPal(b.dataset.p);
+-  window.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT' && e.target.type === 'text') return; if (e.key === 'a' || e.key === 'A') setPal('A'); if (e.key === 'b' || e.key === 'B') setPal('B'); });
++  // (fix, sndv2p-9) the A / B keys: no modifier, not while typing, and they can be turned off (WCAG 2.1.4);
++  // (fix, sndv2p-2) Esc stops everything at once in both palettes
++  const typing = (t) => t && (t.isContentEditable || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || (t.tagName === 'INPUT' && !/^(checkbox|radio|range|button)$/.test(t.type)));
++  window.addEventListener('keydown', (e) => {
++    if (e.key === 'Escape') { hushAll(); status('Stopped (Esc).'); return; }
++    if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target) || !$('keysChk').checked) return;
++    if (e.key === 'a' || e.key === 'A') setPal('A'); if (e.key === 'b' || e.key === 'B') setPal('B');
++  });
++  const timers = new Set();
++  const later = (f, ms) => { const id = setTimeout(() => { timers.delete(id); f(); }, ms); timers.add(id); };
++  function hushAll() {
++    stopPlay(); stopAuto(); for (const id of timers) clearTimeout(id); timers.clear(); pendB = null;
++    voiceOff(true); if (started) { Sound.hush(); SoundB.hush(); }
++  }
++  $('onChk').onchange = (e) => {
++    const on = e.target.checked;
++    if (!on) hushAll();
++    if (started) { Sound.set({ on }, { quiet: true }); SoundB.set({ on }); if (on) play('toggleOn'); }
++    status();
++  };
+   $('vol').oninput = (e) => { vol = +e.target.value / 100; Sound.set({ vol }); SoundB.set({ vol }); };
+   const segPick = (seg, btn) => { for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b === btn)); };
+ 
+@@ -81,7 +110,7 @@
+   // are silent (the app's rule)
+   function stopPlay() {
+     if (!playing) return; cancelAnimationFrame(playing.raf);
+-    if (playing.first && PAL === 'B' && started) SoundB.motionEnd();
++    if (playing.first && playing.pal === 'B' && started) SoundB.motionEnd();
+     playing = null; $('playBtn').textContent = '▶ Play';
+   }
+   $('playBtn').onclick = () => {
+@@ -230,22 +259,26 @@
+   ];
+   const bName = (n) => (n === 'morphTick' ? 'landmark' : n), bOpts = (n, o) => (n === 'morphTick' ? { q: 2, vel: 0.5, force: true } : o);
+   const cueA = (n, o) => { if (!started) return; Sound.play(n, Object.assign({ force: true, audition: true }, o)); };
+-  const cueB = (n, o) => { if (!started) return; SoundB.play(bName(n), Object.assign({ force: true, audition: true }, bOpts(n, o))); };
++  // (fix, sndv2p-4) an audition is never softened by B's repeat rule, so ×4 and repeated presses stay level-matched with A
++  const cueB = (n, o) => { if (!started) return; playB(bName(n), Object.assign({ force: true, audition: true, noRep: true }, bOpts(n, o))); };
+   const tb = document.querySelector('#cues tbody');
+   for (const [n, o, label] of CUES) {
+     const tr = document.createElement('tr');
+-    tr.innerHTML = `<td>${label}</td><td class="w">${Sound.CATALOG[n].what}</td><td class="btns"><button class="pa">A</button> <button class="pa">×4</button></td><td class="btns"><button class="pb">B</button> <button class="pb">×4</button></td>`;
++    // (fix, sndv2p-9) each button names its cue for screen readers
++    tr.innerHTML = `<td>${label}</td><td class="w">${Sound.CATALOG[n].what}</td><td class="btns"><button class="pa" aria-label="Play “${label}” in A">A</button> <button class="pa" aria-label="Play “${label}” in A, four times">×4</button></td><td class="btns"><button class="pb" aria-label="Play “${label}” in B">B</button> <button class="pb" aria-label="Play “${label}” in B, four times">×4</button></td>`;
+     const [a1, a4, b1, b4] = tr.querySelectorAll('button');
+     a1.onclick = () => cueA(n, o); b1.onclick = () => cueB(n, o);
+-    a4.onclick = () => { for (let i = 0; i < 4; i++) setTimeout(() => cueA(n, o), 700 * i); };
+-    b4.onclick = () => { for (let i = 0; i < 4; i++) setTimeout(() => cueB(n, o), 700 * i); };
++    a4.onclick = () => { for (let i = 0; i < 4; i++) later(() => cueA(n, o), 700 * i); };
++    b4.onclick = () => { for (let i = 0; i < 4; i++) later(() => cueB(n, o), 700 * i); };
+     tb.appendChild(tr);
+   }
+ 
+   // ---------------------------------------------------------------- init
+   const ro = new ResizeObserver(() => { drawMorph(); const w = Math.round(pc.clientWidth * (window.devicePixelRatio || 1)); if (w && Math.abs(pc.width - w) > 2) { pc.width = pc.height = Math.min(900, w); paintPlane(); } else drawPlane(); });
+   ro.observe(cv); ro.observe(pc);
+-  drawMorph(); paintPlane(); readout(); setPal('A'); setPal('B');
++  drawMorph(); paintPlane(); readout(); setPal('B', true);
++  // (fix, sndv2p-15e) iPhone and iPad: the silent switch mutes Web Audio
++  if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('iosNote').hidden = false;
+   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawMorph);
+   // (tests) the same entry points the controls use
+   window.__board = { setPal, scrubTo, scrubEnd, hover, start, play, FNS, setFn: (k) => document.querySelector(`#fnSeg button[data-f="${k}"]`).click(), state: () => ({ PAL, T, started, b: SoundB.state(), a: Sound.state() }), P };
+--- board/page.html	2026-10-24 01:35:03
++++ board_fix/page.html	2026-10-24 02:07:41
+@@ -2,9 +2,9 @@
+ <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+ <title>Sound Board A/B</title>
+ <style>
+-:root { --bg:#f7f5f0; --card:#fffdf8; --fg:#1f1d1a; --mut:#6c665c; --line:#e3ddd1; --a:#5d6a78; --b:#2f6f62; --bsoft:#e2efe9; --asoft:#e8ebef; --warn:#a4462b; --focus:#2f6f62; }
+-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --a:#9fb0c2; --b:#7cc4b2; --bsoft:#1f3330; --asoft:#262b31; --warn:#e08a6c; --focus:#7cc4b2; } }
+-:root[data-theme="dark"] { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --a:#9fb0c2; --b:#7cc4b2; --bsoft:#1f3330; --asoft:#262b31; --warn:#e08a6c; --focus:#7cc4b2; }
++:root { --bg:#f7f5f0; --card:#fffdf8; --fg:#1f1d1a; --mut:#6c665c; --line:#e3ddd1; --a:#5d6a78; --b:#2f6f62; --bsoft:#e2efe9; --asoft:#e8ebef; --warn:#a4462b; --focus:#2f6f62; --onacc:#fff; }
++@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --a:#9fb0c2; --b:#7cc4b2; --bsoft:#1f3330; --asoft:#262b31; --warn:#e08a6c; --focus:#7cc4b2; --onacc:#141412; } }
++:root[data-theme="dark"] { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --a:#9fb0c2; --b:#7cc4b2; --bsoft:#1f3330; --asoft:#262b31; --warn:#e08a6c; --focus:#7cc4b2; --onacc:#141412; }
+ * { box-sizing:border-box; }
+ body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; margin:0; }
+ main { max-width:960px; margin:0 auto; padding:16px 16px 64px; }
+@@ -12,10 +12,12 @@
+ .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:14px 0; }
+ .bar { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line); }
+ .bar .in { max-width:960px; margin:0 auto; padding:10px 16px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+-.seg { display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+-.seg button { border:0; border-radius:0; padding:6px 14px; background:transparent; }
++.seg { display:inline-flex; border:1px solid var(--line); border-radius:999px; }
++.seg button { border:0; border-radius:0; padding:6px 14px; background:transparent; position:relative; }
++.seg button:first-child { border-radius:999px 0 0 999px; } .seg button:last-child { border-radius:0 999px 999px 0; }
++.seg button:focus-visible { z-index:1; }
+ .seg button[aria-pressed="true"] { background:var(--fg); color:var(--bg); }
+-.seg.pal button[data-p="A"][aria-pressed="true"] { background:var(--a); color:#fff; } .seg.pal button[data-p="B"][aria-pressed="true"] { background:var(--b); color:#fff; }
++.seg.pal button[data-p="A"][aria-pressed="true"] { background:var(--a); color:var(--onacc); } .seg.pal button[data-p="B"][aria-pressed="true"] { background:var(--b); color:var(--onacc); }
+ button { font:inherit; color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:8px; padding:5px 11px; cursor:pointer; }
+ button:hover { border-color:var(--mut); } button:active { transform:translateY(1px); }
+ button:focus-visible, input:focus-visible, canvas:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+@@ -32,12 +34,12 @@
+ #planeCv { width:100%; aspect-ratio:1; touch-action:none; cursor:crosshair; }
+ .read { font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--mut); white-space:pre-wrap; min-height:5em; }
+ .sw { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+-.sw input { appearance:none; width:34px; height:20px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; margin:0; transition:background .15s; }
++.sw input { appearance:none; width:34px; height:20px; border-radius:999px; background:var(--line); box-shadow:inset 0 0 0 1px var(--mut); position:relative; cursor:pointer; margin:0; transition:background .15s; }
+ .sw input::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--card); box-shadow:0 1px 2px rgba(0,0,0,.25); transition:left .15s; }
+ .sw input:checked { background:var(--fg); } .sw input:checked::after { left:16px; }
+ .chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+-.chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px; font:13px ui-monospace, Menlo, monospace; }
+-.chip button { border:0; padding:0 6px; color:var(--mut); }
++.chip { display:inline-flex; align-items:center; gap:2px; border:1px solid var(--line); border-radius:999px; padding:1px 2px 1px 10px; font:13px ui-monospace, Menlo, monospace; }
++.chip button { border:0; padding:0 6px; color:var(--mut); min-width:24px; min-height:24px; border-radius:999px; }
+ input[type=text] { font:14px ui-monospace, Menlo, monospace; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--fg); width:12em; }
+ .msg { font-size:13px; } .msg.err { color:var(--warn); }
+ .tbl-wrap { overflow-x:auto; }
+@@ -47,36 +49,52 @@
+ kbd { font:12px ui-monospace, Menlo, monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+ .hint { background:var(--bsoft); border-radius:8px; padding:8px 12px; color:var(--fg); font-size:14px; }
+ body.palA .hint { background:var(--asoft); }
++@media (max-width:600px) {
++  .bar .in { gap:8px 12px; padding:8px 16px; flex-wrap:nowrap; }
++  .bar strong, #keysLbl { display:none; }
++  .bar .status { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
++  .bar .seg button { padding:6px 10px; }
++  .bar .vlab { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
++  #vol { width:80px !important; }
++  table#cues { min-width:0; } #cues, #cues tbody { display:block; } #cues thead { display:none; }
++  #cues tr { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:2px 8px; align-items:center; border-top:1px solid var(--line); padding:8px 0; }
++  #cues td { border:0; padding:0; } #cues td.w { grid-column:1 / -1; grid-row:2; }
++  #cues td.btns button { min-height:32px; }
++}
+ </style></head><body>
+ <div class="bar"><div class="in">
+   <strong>Sound board</strong>
+   <span class="seg pal" role="group" aria-label="Palette"><button data-p="A" aria-pressed="false">A · now</button><button data-p="B" aria-pressed="true">B · new</button></span>
+-  <span class="tag">or press <kbd>A</kbd> / <kbd>B</kbd></span>
+-  <label class="tag">Volume <input id="vol" type="range" min="0" max="100" value="70" style="width:110px; vertical-align:middle"></label>
+-  <span class="status" id="status">Click anywhere to start sound.</span>
++  <label class="sw tag" id="keysLbl" title="Switch with the A and B keys"><input type="checkbox" id="keysChk" checked> keys <kbd>A</kbd> / <kbd>B</kbd></label>
++  <label class="sw tag"><input type="checkbox" id="onChk" checked> Sound</label>
++  <label class="tag"><span class="vlab">Volume</span> <input id="vol" type="range" min="0" max="100" value="70" style="width:110px; vertical-align:middle" aria-label="Volume"></label>
++  <span class="status" id="status" role="status" aria-live="polite">Click anywhere to start sound.</span>
+ </div></div>
+ <main>
+ <h1>Compare the sounds: A (in the app now) and B (the new palette)</h1>
+ <p>Everything on this page plays through the palette chosen at the top. A is the app's engine as shipped (src/sound.js of v15).
+ B is the proposal: struck and bowed materials, a new variation on every play, a speed-following slider sound. The two are
+-matched in loudness cue by cue, so you can judge timbre rather than volume. Laptop speakers or headphones at a moderate level.</p>
++matched in loudness cue by cue, so you can judge timbre rather than volume. Laptop speakers or headphones at a moderate level.
++<kbd>Esc</kbd> stops every sound.</p>
+ <div class="hint" id="hint">Try the slider below in A, then in B. Then hover the plane with the pointer.</div>
++<p class="tag" id="iosNote" hidden>No sound on an iPhone or iPad? Turn off the silent switch (Web Audio follows it).</p>
+ 
+ <section class="card" id="sec-morph">
+   <h2>1. The Deformation (the slider that "cracks")</h2>
+   <p>Drag t like in the app. A ticks every 0.05 of t. B breathes with how fast you drag, rings a wooden note at t = 0, ¼, ½, ¾, 1,
+-  and is silent when your hand stops. Press play to hear the start, the motion and the arrival.</p>
++  and is silent when your hand stops. Press play to hear the start, the motion and the arrival.
++  B's slider is about 4 dB quieter than A's by design.</p>
+   <canvas id="morphCv" width="900" height="210" aria-label="The grid deforming from z to z squared as t goes from 0 to 1"></canvas>
+   <div class="row"><span class="tag" style="min-width:4.5em">t = <b id="tval">0.00</b></span></div>
+   <input id="tslider" type="range" min="0" max="1" step="0.001" value="0" aria-label="Deformation t">
+   <div class="row">
+     <button id="playBtn" aria-label="Play the deformation">▶ Play</button>
+     <span class="seg" id="durSeg" role="group" aria-label="Play length"><button data-d="1">1 s</button><button data-d="2" aria-pressed="true">2 s</button><button data-d="4">4 s</button></span>
+-    <label class="sw"><input type="checkbox" id="loopChk"> Loop</label>
++    <label class="sw"><input type="checkbox" id="loopChk"> Loop <span class="tag">(repeats silent)</span></label>
+     <span class="tag">Drag for me:</span>
+     <button data-auto="4">slow</button><button data-auto="1.2">medium</button><button data-auto="0.5">fast</button><button data-auto="wiggle">wiggle</button>
+   </div>
+-  <div class="row" id="bmodeRow"><span class="tag">B's slider:</span>
++  <div class="row" id="bmodeRow"><span class="tag">B's slider (applies to B only):</span>
+     <span class="seg" id="bmodeSeg" role="group" aria-label="B slider sound"><button data-m="B" aria-pressed="true">air + notes (recommended)</button><button data-m="C">notes only</button></span></div>
+ </section>
+ 
+@@ -112,7 +130,8 @@
+ <section class="card" id="sec-cues">
+   <h2>4. Every cue, one by one</h2>
+   <p>A plays the same waveform every time. B is a new strike on every press: press it several times, or use ×4.
+-  Where pitch carries meaning (the turn bell, the order pings) only level and brightness vary.</p>
++  Where pitch carries meaning (the turn bell, the order pings) only level and brightness vary. Here every press plays
++  at full level; in the app, B softens a cue repeated within 2 s by up to 4 dB (A does not).</p>
+   <div class="tbl-wrap"><table id="cues"><thead><tr><th>Cue</th><th>What it means</th><th>A · now</th><th>B · new</th></tr></thead><tbody></tbody></table></div>
+ </section>
+ <p class="tag">Files: notes/sound/v2/board.html (this page, self-contained), DESIGN.md (the recipes), MEASUREMENTS.md (the numbers).

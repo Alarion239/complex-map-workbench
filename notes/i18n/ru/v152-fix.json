@@ -1,0 +1,28 @@
+{
+ "_about": "v15.2 review fixes (notes/workflows/ledger-v152.json, work/xv152): new strings of the fixes for review-v152-steps.json (steps-1, steps-4, steps-7). Read after the other v152 tables. id -> {en, ru, note}.",
+ "fix.splitShownAlone": {
+  "en": "Showing f{k} alone; › shows the next step.",
+  "ru": "Показан только шаг f%{k}; › показывает следующий шаг.",
+  "note": "steps-1: appended to the split's Undo toast when the formula was shown alone and other steps exist (desktop: the alone chip has ›). {k}: subscript digits."
+ },
+ "fix.splitShownAlonePh": {
+  "en": "Showing f{k} alone.",
+  "ru": "Показан только шаг f%{k}.",
+  "note": "steps-1: the same on the phone (no ‹ ›)."
+ },
+ "fix.rotation": {
+  "en": "Rotation",
+  "ru": "Поворот",
+  "note": "steps-7: the name of a Multiply by c step with |c| = 1 (−1, i) in the derivation, the toast and the 'Same as' note. GLOSSARY: rotation = поворот."
+ },
+ "fix.rotScale": {
+  "en": "Rotation and scaling",
+  "ru": "Поворот и растяжение",
+  "note": "steps-7: a Multiply by c step with c neither of modulus 1 nor positive (−2, 2i, a shared number). As in the existing «Поворот и растяжение; конформно на ℂ»."
+ },
+ "fix.staysOne": {
+  "en": "it stays one step: {why}",
+  "ru": "она остаётся одним шагом: %{why}",
+  "note": "steps-4: appended to the note «Совпадает с цепочкой …» after a semicolon when the formula is not offered as steps; {why}: the reason with a lower-case first letter («у её чисел нет короткой точной записи», «её числа зависят от a»). «она»: the formula."
+ }
+}

@@ -1980,7 +1980,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         <summary><h2>Region from a formula</h2></summary>
         <div class="psec-body">
           <div class="formula-row">
-            <input id="formulaInput" class="inp math-src" placeholder="|z-1| < 2" spellcheck="false" autocomplete="off" aria-label="Region formula">
+            <input id="formulaInput" class="inp math-src" placeholder="|z-1| < 2" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Region formula">
             <button class="btn primary" id="formulaAdd" title="Add the set (an equation adds a curve): in z as a shape, in w as a target">Add</button>
           </div>
           <div class="texprev-row"><div class="texprev" id="formulaPrev"></div><span class="btag" id="formulaPlane"></span></div>
@@ -2108,7 +2108,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <label class="snd-chk"><input type="checkbox" id="sndUi"><span><b>Interface</b><small>Steps, toggles, views, export, errors: controls you operate</small></span></label>
     <label class="snd-chk sub"><input type="checkbox" id="sndSnap"><span><b>Snap ticks</b><small>A tick when a drawn point settles on the grid</small></span></label>
     <label class="snd-chk"><input type="checkbox" id="sndEv"><span><b>Mathematical events</b><small>Things you start: the deformation, a closed loop&rsquo;s winding, listening along a curve</small></span></label>
-    <label class="snd-chk"><input type="checkbox" id="sndSo"><span><b>Hear the function under the pointer</b><small>A continuous tone: arg <i>F</i> as pitch class, |<i>F</i>| as register and loudness; cuts, zeros and poles, contours, turns</small></span></label>
+    <label class="snd-chk"><input type="checkbox" id="sndSo"><span><b>Hear the function under the pointer</b><small><span data-i18n="html">Silent while you rest; a plucked note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B): a loop round a zero plays a rising scale, round a pole a falling one, and the low Ds count its turns. A closed loop sings its winding number as one note. Cuts, zeros and poles, contours</span></small></span></label>
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
   <p class="snd-fine">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>

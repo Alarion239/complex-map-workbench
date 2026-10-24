@@ -3,7 +3,7 @@
 // button, key P, palette, saved, figure export), the natural paths of Joukowski / cos / rational maps, and the steps
 // all at once (map mode 3, t in [0, 1]). A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/deform_nat_cmd.js
-// Prints {pass, fails, shots}; screenshots go to <daemon folder>/shots/nat-*.png (light and dark).
+// Prints {pass, fails, shots, paths}; screenshots go to <daemon folder>/shots/nat-*.png (light and dark).
 const fails = [], shots = [];
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
@@ -57,8 +57,8 @@ await shot('nat-joukowski-light'); shots.push('nat-joukowski-light');
 // export: Paths row, arrows on and off
 const figOn = await ev(`await (async () => { const f = await __cmwBuildFigure({ panels: ['R'], morph: true, caption: true, widthIn: 3.4 }); return f ? { n: f.morph ? f.morph.kept.length : -1, cap: f.captionTex } : { n: -2, cap: '' }; })()`, 60000);
 const figOff = await ev(`await (async () => { const f = await __cmwBuildFigure({ panels: ['R'], morph: true, caption: true, widthIn: 3.4, paths: false }); return f ? { n: f.morph ? f.morph.kept.length : -1, cap: f.captionTex } : { n: -2, cap: '' }; })()`, 60000);
-ok('figure with paths: arrows and their sentence', figOn.n > 0 && /Arrows are the paths/.test(figOn.cap), { n: figOn.n });
-ok('figure without paths: no arrows, no arrow sentence', figOff.n === 0 && !/Arrows are the paths/.test(figOff.cap), { n: figOff.n });
+ok('figure with paths: paths and their sentence', figOn.n > 0 && /Curves are the paths/.test(figOn.cap) && /\(circle\)/.test(figOn.cap) && /arrowhead at \$t=1\/2\$/.test(figOn.cap), { n: figOn.n, cap: figOn.cap.slice(-400) });
+ok('figure without paths: no paths, no paths sentence', figOff.n === 0 && !/Curves are the paths/.test(figOff.cap), { n: figOff.n });
 ok('caption names the Joukowski path', /coth/.test(figOn.cap) && /arcoth/.test(figOn.cap), figOn.cap.slice(0, 400));
 await view(1440, 900, true); await settle(900);
 await shot('nat-joukowski-dark'); shots.push('nat-joukowski-dark');
@@ -148,6 +148,60 @@ const sv2 = await saved(NS + 'd');
 ok('with d/dz: key P changes nothing', sv2.morphPaths !== false, sv2.morphPaths);
 await ev('__cmwMorph({ open: false })'); await settle(300);
 
+// 9. the paths (notes/paths-aesthetics/AS-BUILT.md): evenly spaced, smooth, split at cuts, heads at H_t(z), the same
+// points while scrubbing and playing, 60 fps while playing (__cmwPathsCheck: the screen's kept paths in px)
+const PA = {
+  jouk: { shapes: [{ id: 's1', kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true }, { id: 's2', kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 }], steps: [{ type: 'joukowski', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 70 } },
+  rational: { shapes: [{ id: 's1', kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }, { id: 's2', kind: 'cgrid', a: [-1.5, -1.5], b: [1.5, 1.5], n: 6 }], steps: [{ type: 'rational', params: { p: '1, 0, -1', q: '1, 0, 1' }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } },
+  expstrip: { shapes: [{ id: 's1', kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } },
+  chain3: { homAll: true, shapes: [{ id: 's1', kind: 'rect', a: [-1.5, -1.2], b: [1.5, 1.2] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }, { type: 'pown', params: { n: 2 }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } },
+  zp: { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.5 }], steps: [{ type: 'zp', params: { a: '1', zeros: '0.8, -0.8', poles: '0.5i' }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } },
+};
+const paRes = {};
+for (const [id, sc] of Object.entries(PA)) {
+  await load(NS + 'pa' + id, Object.assign({ pattern: 'checker', homAll: !!sc.homAll }, sc));
+  await settle(800); await grab();
+  await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
+  await at(0.5); await ev('await __cmwMorphSel()', 60000); await settle(400);
+  const c = await ev('__cmwPathsCheck()');
+  if (!c) { ok(`paths ${id}: a selection`, false, c); continue; }
+  const zs0 = JSON.stringify((await ev('__cmwMorphCache()')).zs);
+  // (expstrip: X is a strip 30 px tall at this zoom; its points left of 0 all end at the wedge's apex (one end dot
+  // there), those right of about 3 leave the view at once: 3 paths is the honest count, review fixes. chain3: three
+  // long arcs of about 570 px fill the ink cap, which now holds from the second path on: 3, verify fixes)
+  const nMin = id === 'expstrip' || id === 'chain3' ? 3 : 4;
+  ok(`paths ${id}: ${nMin} to 18 paths`, c.n >= nMin && c.n <= 18, c.n);
+  ok(`paths ${id}: no jump drawn (a segment's mid time within 1 px of its midpoint)`, c.jump < 1, c.jump);
+  ok(`paths ${id}: no kink (segments over 1.5 px meet at under 20 degrees)`, c.kink < 0.35, c.kink);
+  ok(`paths ${id}: smooth (99 % of the turning under 0.3 rad per px)`, c.turnP99 < 0.3, c.turnP99);
+  ok(`paths ${id}: separated (each path at most 10 % within 0.7 dTest of another, away from the ends)`, c.sep <= 0.1, c.sep);
+  ok(`paths ${id}: the moving points are at H_t(z)`, c.nHeads > 0 && c.heads < 0.5, { heads: c.heads, n: c.nHeads });
+  // the same points at every t: scrubbed, then played
+  for (const T of [0.15, 0.85]) { await at(T); ok(`paths ${id}: the same points at t = ${T}`, JSON.stringify((await ev('__cmwMorphCache()')).zs) === zs0, null); }
+  await ev('__cmwMorph({ T: 0, playing: true })'); await sleep(250);
+  const fr = await ev('await (async () => await __qa.frames(1500))()', 30000);
+  const zsPlay = JSON.stringify((await ev('__cmwMorphCache()')).zs);
+  const cp = await ev('__cmwPathsCheck()');
+  await ev('__cmwMorph({ playing: false })'); await settle(300);
+  ok(`paths ${id}: the same points while playing`, zsPlay === zs0, null);
+  ok(`paths ${id}: the moving points at H_t(z) while playing`, cp && cp.heads < 0.5, cp && cp.heads);
+  ok(`paths ${id}: 60 fps while playing (p95 under 20 ms)`, fr.fps >= 55 && fr.p95 < 20, fr);
+  paRes[id] = { n: c.n, kinds: c.kinds, jump: +c.jump.toFixed(3), kink: +c.kink.toFixed(3), turnP99: +c.turnP99.toFixed(3), sep: +c.sep.toFixed(3), heads: +c.heads.toFixed(4), frames: fr };
+  await ev('__cmwMorph({ open: false })'); await settle(300);
+}
+// phone width: the paths fit a narrow pane (fewer, still separated)
+await view(390, 844, false, true);
+await load(NS + 'paphone', Object.assign({ pattern: 'checker' }, PA.rational));
+await settle(1200);
+await ev('__cmwMorph({ open: true, playing: false })'); await settle(800);
+await at(0.5); await ev('await __cmwMorphSel()', 60000); await settle(400);
+const cph = await ev('__cmwPathsCheck()');
+ok('paths on a phone: a few, separated', cph && cph.n >= 3 && cph.n <= 12 && cph.sep <= 0.1, cph && { n: cph.n, sep: cph.sep });
+paRes.phone = cph && { n: cph.n, sep: +cph.sep.toFixed(3) };
+await shot('nat-paths-phone'); shots.push('nat-paths-phone');
+await ev('__cmwMorph({ open: false })');
+await view(1440, 900, false); await settle(400);
+
 await grab();
 ok('no exceptions or console errors', errs.length === 0, errs.slice(0, 5));
-return { pass: fails.length === 0, fails, shots };
+return { pass: fails.length === 0, fails, shots, paths: paRes };

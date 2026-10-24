@@ -22,11 +22,16 @@ const count = (list, name) => list.filter((x) => x === name).length;
 // cues made (names) and the voice's set() calls ([time, arg in turns or ln|F|, ln|F|]); both cleared on read
 const spy = () => ev(`(() => {
   window.__made = []; window.__vset = [];
-  for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (G, t, o) => { __made.push(k); return m(G, t, o); }; d.__spy = 1; }
+  for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; }
   const wrap = (mk) => function () { const v = mk.apply(this, arguments); if (v && !v.__spy) { const s = v.set; v.set = function (...a) { __vset.push([performance.now(), a[0], a[1]]); return s.apply(this, a); }; v.__spy = 1; } return v; };
-  if (!Sound.voice.__w) { Sound.voice = wrap(Sound.voice); Sound.voice.__w = 1; Sound.heightVoice = wrap(Sound.heightVoice); Sound.heightVoice.__w = 1; }
+  // (v15.2: the phase plane's tone is the harp: every step of the probe, or a re-seat, is one harp call)
+  const hw = (fn) => function (phi, o) { __vset.push([performance.now(), phi, o && o.ln]); return fn.apply(this, arguments); };
+  if (!Sound.harp.__w) { Sound.harp = hw(Sound.harp); Sound.harp.__w = 1; Sound.harpReset = hw(Sound.harpReset); Sound.harpReset.__w = 1; Sound.heightVoice = wrap(Sound.heightVoice); Sound.heightVoice.__w = 1; }
   return 1; })()`);
-const take = () => ev(`(() => { const o = { made: __made.slice(), vset: __vset.slice() }; __made.length = 0; __vset.length = 0; return o; })()`);
+// made cues, the tone's updates, and the harp's count since the last take (low Ds up and down, notes played)
+const take = () => ev(`(() => { const o = { made: __made.slice(), vset: __vset.slice(), harp: Sound.harpCount() }; __made.length = 0; __vset.length = 0; return o; })()`);
+// the low Ds of a run of arg from f0 (turns) over d turns: the integers crossed
+const wantDs = (f0, d) => Math.floor(f0 + d) - Math.floor(f0);
 // frames while something runs: rAF times, and the transport's t at each
 const frames = (ms) => ev(`await new Promise((res) => { const t = [], T = [], t0 = performance.now(); const f = () => { t.push(performance.now()); T.push(__cmwState().morph.T); if (performance.now() - t0 < ${ms}) requestAnimationFrame(f); else res({ t, T }); }; requestAnimationFrame(f); })`, ms + 20000);
 // every frame in which t moved has a voice update in the frame after it (set() calls between successive frames)
@@ -83,7 +88,8 @@ const th = 170 * Math.PI / 180, Z = [1.2 * Math.cos(th), 1.2 * Math.sin(th)];
   R.phase = { frames: fr2.t.length, per: perFrame(fr2, got2.vset), made: got2.made, run: s2.run, T: s2.T, fcN: s2.fcN, rest: s2.rest };
   ok('A Phase, Play: a voice update in every frame t moved', R.phase.per.moved > 60 && R.phase.per.missed === 0 && R.phase.per.changed >= R.phase.per.moved - 2, R.phase.per);
   ok('A Phase: the run is the winding of t → H_t(z): 4 × 170° = 1.889 turns', s2.run && Math.abs(s2.run.phi - 4 * th / (2 * Math.PI)) < 1e-6, s2.run);
-  ok('A Phase: one turn bell, no zero, pole, cut or dense', count(got2.made, 'turn') === 1 && !got2.made.some((x) => /^(zero|pole|cut|dense|turnMany)$/.test(x)), got2.made);
+  R.phase.harp = got2.harp;
+  ok('A Phase: the harp: 2 low Ds up (arg z = 170° + 1.889 turns crosses 1 and 2), about 10 notes, no zero, pole, cut or dense', got2.harp.up === wantDs(170 / 360, 4 * th / (2 * Math.PI)) && got2.harp.down === 0 && got2.harp.notes >= 9 && got2.harp.notes <= 10 && !got2.made.some((x) => /^(zero|pole|cut|dense|turnMany)$/.test(x)), { harp: got2.harp, made: got2.made });
   ok('A Phase, Play: the swell and the arrival once each', count(got2.made, 'morphStart') === 1 && count(got2.made, 'morphEnd') === 1, got2.made);
 }
 // A2. Play again with Loop on, and the pointer jiggling by 1 px now and then: the loop repeat is a new start (no cut,
@@ -102,8 +108,8 @@ const th = 170 * Math.PI / 180, Z = [1.2 * Math.cos(th), 1.2 * Math.sin(th)];
   await settle(200);
   const got = await take();
   R.loopRuns = { made: got.made, morph: await ev('__cmwState().morph') };
-  const bells = count(got.made, 'turn');
-  ok('A2 Loop: about one bell per play (two plays in 5.6 s), never a cut at the repeat', bells >= 1 && bells <= 3 && !got.made.some((x) => /^(cut|zero|pole|dense|turnMany)$/.test(x)), got.made);
+  R.loopRuns.harp = got.harp;
+  ok('A2 Loop: two low Ds a play (two plays in 5.6 s), never down, never a cut at the repeat', got.harp.up >= 2 && got.harp.up <= 6 && got.harp.down === 0 && !got.made.some((x) => /^(cut|zero|pole|dense|turnMany)$/.test(x)), { harp: got.harp, made: got.made });
   ok('A2 Loop: one swell, no arrival repeated on loops', count(got.made, 'morphStart') <= 1 && count(got.made, 'morphEnd') <= 1, got.made);
   await key('m'); await settle(400);
   await ev(`__cmwSet('loop', false); 1`);
@@ -132,7 +138,7 @@ await spy();
   R.zeroSweep = { per: perFrame(fr, got.vset), made: got.made, live: s.live, dphi: s.phi - phi0, run: s.run, rest: s.rest };
   ok('B a zero of H_t passes the still pointer: one ping, order 1, "Zero of order 1 here."', count(got.made, 'zero') === 1 && !got.made.some((x) => /^(pole|cut|dense)$/.test(x)) && /Zero of order 1 here/.test(s.live), R.zeroSweep);
   ok('B the tone follows every frame', R.zeroSweep.per.missed === 0 && R.zeroSweep.per.moved > 40, R.zeroSweep.per);
-  ok('B the run: arg(z − t) from 0.006° to 179.7°: +0.4989 turns, no bell', s.run && Math.abs(s.run.phi - (Math.atan2(0.003, -0.5) - Math.atan2(0.003, 0.5)) / (2 * Math.PI)) < 1e-6 && count(got.made, 'turn') === 0, s.run);
+  ok('B the run: arg(z − t) from 0.006° to 179.7°: +0.4989 turns; the harp plucks E and F♯ (60°, 120°), no low D', s.run && Math.abs(s.run.phi - (Math.atan2(0.003, -0.5) - Math.atan2(0.003, 0.5)) / (2 * Math.PI)) < 1e-6 && got.harp.up === 0 && got.harp.down === 0 && got.harp.notes === 2, { run: s.run, harp: got.harp });
 }
 // C. scrubbing while the pointer rests on the plane (the slider moved by the keyboard): the tone follows each step,
 // the scrub detents play, and the zero sweeping back pings once
@@ -149,7 +155,7 @@ await spy();
   let follows = 0; for (const [t, g] of steps) if (g && Math.abs(g[0] - (z0[0] - t)) < 1e-9 && Math.abs(g[1] - z0[1]) < 1e-12) follows++;
   R.scrub = { follows, sets: got.vset.length, made: got.made, live: s.live };
   ok('C scrub with a still pointer: H_t at the probe follows every step of the slider', follows === 40 && got.vset.length >= 38, R.scrub);
-  ok('C scrub (v15.1: 15 detents a second is a fast drag: the band, no detents): the keys at ½ and 0 only, and one zero ping on the way back, no cut', count(got.made, 'morphTick') >= 2 && count(got.made, 'morphTick') <= 3 && count(got.made, 'zero') === 1 && !got.made.some((x) => /^(cut|dense)$/.test(x)), got.made);
+  ok('C scrub (v15.2, palette B: the air and the landmarks): ¾, ½, ¼ and 0 once each, and one zero ping on the way back, no cut', count(got.made, 'landmark') === 4 && count(got.made, 'zero') === 1 && !got.made.some((x) => /^(cut|dense)$/.test(x)), got.made);
   await key('m'); await settle(400);
 }
 
@@ -176,7 +182,7 @@ await spy();
   R.merged = { lay, rest: s0.rest, per: perFrame(fr, got.vset), made: got.made, run: s.run };
   ok('D merged plane: the probe is the plane\'s point (src merged)', lay.merged === 'R' && s0.rest && s0.rest.src === 'merged' && Math.abs(s0.rest.z[0] - Z[0]) < 0.02 && Math.abs(s0.rest.z[1] - Z[1]) < 0.02, { lay, rest: s0.rest });
   ok('D merged plane: a voice update in every frame t moved', R.merged.per.moved > 60 && R.merged.per.missed === 0, R.merged.per);
-  ok('D merged plane: H_t(p) as in X: about 1.889 turns, one bell, no zero or cut', s.run && Math.abs(s.run.phi - 4 * th / (2 * Math.PI)) < 0.02 && count(got.made, 'turn') === 1 && !got.made.some((x) => /^(zero|pole|cut|dense)$/.test(x)), { run: s.run, made: got.made });
+  ok('D merged plane: H_t(p) as in X: about 1.889 turns, the harp\'s 2 low Ds up, no zero or cut', s.run && Math.abs(s.run.phi - 4 * th / (2 * Math.PI)) < 0.02 && got.harp.up === 2 && got.harp.down === 0 && !got.made.some((x) => /^(zero|pole|cut|dense)$/.test(x)), { run: s.run, harp: got.harp, made: got.made });
   // M closes the deformation: X → Y splits again; the still pointer's probe is the point now under it (X: its z; Y: no
   // tone), found again by the re-pick (review snddef-2), never the merged plane's point
   await take();
@@ -235,7 +241,8 @@ await spy();
   let changed = 0; for (let i = 1; i < circ.length; i++) if (circ[i] && circ[i - 1] && (circ[i][0] !== circ[i - 1][0] || circ[i][1] !== circ[i - 1][1])) changed++;
   R.zpCircle = { changed, sets: got.vset.length, made: got.made, run: s.run };
   ok('F a zero dragged round the still probe: F at the probe changes every frame', changed >= 85 && got.vset.length >= 85, R.zpCircle);
-  ok('F … +1 turn: one bell up, no zero ping (it stays 0.3 away)', s.run && Math.abs(s.run.phi - 1) < 0.02 && count(got.made, 'turn') === 1 && !got.made.some((x) => /^(zero|pole|cut|dense)$/.test(x)), R.zpCircle);
+  R.zpCircle.harp = got.harp;
+  ok('F … +1 turn: the harp\'s scale once (one low D up, 5 notes), no zero ping (it stays 0.3 away)', s.run && Math.abs(s.run.phi - 1) < 0.02 && got.harp.up === 1 && got.harp.down === 0 && got.harp.notes >= 4 && got.harp.notes <= 5 && !got.made.some((x) => /^(zero|pole|cut|dense)$/.test(x)), R.zpCircle);
   // then straight through the probe: one ping of order 1
   await sleep(1800); await take();
   await ev(`await (async () => { for (let i = 0; i <= 60; i++) { __cmwSound({ zp: [1, 'zeros', 0, ${A[0]} - 0.4 + 0.8 * i / 60, ${A[1]} + 0.001] }); await new Promise((r) => requestAnimationFrame(r)); } await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); return 1; })()`, 60000);

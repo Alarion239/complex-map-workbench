@@ -62,9 +62,17 @@ const CX = (() => {
   }
 
   // Argument in (theta - 2pi, theta]; theta = pi gives the principal branch.
+  // A cut along the negative real axis (theta = pi + 2 pi m) reads the sign of a zero imaginary part as the principal
+  // branch does at every m: -1 - 0i is the limit from below (theta - 2 pi), -1 + 0i is theta. So argCut(pi + 2 pi m) is
+  // argCut(pi) + 2 pi m on the ray too, as the catalog's (cut, sheet) form computes it (review math-3: a formula with
+  // its cut at 540 or -180 and its split steps differed there)
   function argCut(a, theta = Math.PI) {
     let t = Math.atan2(a.im, a.re);
-    if (theta !== Math.PI) t -= TAU * Math.ceil((t - theta) / TAU);
+    if (theta !== Math.PI) {
+      const m = (theta - Math.PI) / TAU, mr = Math.round(m);
+      if (Math.abs(m - mr) < 1e-12) t += TAU * mr;
+      else t -= TAU * Math.ceil((t - theta) / TAU);
+    }
     return t;
   }
   // log with branch cut along the ray at angle theta, on sheet k.

@@ -1490,28 +1490,62 @@ const Figure = (() => {
     }
     return out;
   }
+  // ---------- the deformation's paths as vectors (notes/paths-aesthetics/AS-BUILT.md; app.js pathsSvg draws them) ----------
+  // t -> f(t) for t in [a, b] as runs of [x, y, t] (figure pt): n uniform times, each gap refined while its chord is
+  // over 1.2 pt or its midpoint strays over 0.03 pt from it; a new run where f is null (the far side, a pole) or jumps
+  // (a chord still over 12 pt at depth 12)
+  function sampleRunsT(f, a, b, n = 64) {
+    const ev = (t) => { const p = f(t); return p && isFinite(p[0]) && isFinite(p[1]) && Math.abs(p[0]) < 1e5 && Math.abs(p[1]) < 1e5 ? [p[0], p[1], t] : null; };
+    const runs = []; let cur = [];
+    const cut = () => { if (cur.length > 1) runs.push(cur); cur = []; };
+    const rec = (p, q, d) => {
+      const L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (d >= 12) { if (L > 12) cut(); cur.push(q); return; }
+      const m = ev(0.5 * (p[2] + q[2]));
+      if (!m) { cut(); cur.push(q); return; }
+      const dev = Math.hypot(m[0] - 0.5 * (p[0] + q[0]), m[1] - 0.5 * (p[1] + q[1]));
+      if ((L < 1.2 && dev < 0.1) || (dev < 0.03 && d >= 1 && L < 24)) { cur.push(q); return; }
+      rec(p, m, d + 1); rec(m, q, d + 1);
+    };
+    let p = ev(a); if (p) cur.push(p);
+    for (let i = 1; i <= n; i++) { const q = ev(a + (b - a) * i / n); if (p && q) rec(p, q, 0); else { cut(); if (q) cur.push(q); } p = q; }
+    cut();
+    return runs;
+  }
+  // the paths of the points zs under f (a point of the plane -> figure pt, or null where it is not drawn: the far side
+  // of the globe) as app.js pathsSvg items: runs sampled in pt, the ring at z, the end dot, the marks of
+  // app.js pathMarkTimes (arrowheads with their directions, the bars where steps meet, the time dots); limb: f's null is
+  // the globe's far side, so a run that ends before t = m goes behind the limb there (a chevron), and one that starts
+  // after t = 0 comes from behind
+  function pathItems(zs, Hof, m, f, limb = false) {
+    const at = (z, t) => { const q = Hof(t)(z); return fin(q) ? f(q) : null; };
+    const mt = A.pathMarkTimes ? A.pathMarkTimes(m) : { arrows: [0.5 * m], dots: [0.25 * m, 0.75 * m], nodes: [] };
+    const h = m / 512;
+    return zs.map((z) => {
+      const runs = sampleRunsT((u) => at(z, u), 0, m, 64 * Math.ceil(m));
+      const dirAt = (t) => { const a = at(z, Math.max(0, t - h)), b = at(z, Math.min(m, t + h)), d = a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0; return { p: at(z, t), d: d > 1e-9 ? [(b[0] - a[0]) / d, (b[1] - a[1]) / d] : null }; };
+      const lr = runs[runs.length - 1], limbOut = [], limbIn = [];
+      if (limb) runs.forEach((r, i) => { if (r[r.length - 1][2] < m - 1e-9) limbOut.push(i); if (r[0][2] > 1e-9) limbIn.push(i); });
+      return { runs, z: runs.length && runs[0][0][2] <= 0 ? at(z, 0) : null, e: lr && lr[lr.length - 1][2] >= m - 1e-9 ? at(z, m) : null, arrows: mt.arrows.map(dirAt), nodes: mt.nodes.map(dirAt), dots: mt.dots.map((t) => at(z, t)), limbOut, limbIn };
+    });
+  }
   // the paths figure: one plane at t = end, the region's image over X's outline (dashed gray), and the paths
   // t -> H_t(z) of the points the app's morph figure keeps (its selection and its caption: buildFigure), drawn here
-  // as 0.45 pt lines with 3 pt heads, from a dot at z to F(z)
+  // by app.js pathsSvg: 0.5 pt lines, a ring at z, dots at t = m/4, 3m/4, an arrowhead at m/2, a filled dot at F(z)
   async function figPaths(o, P, W, T) {
     const st = A.state();
     const [tp, lp] = T;
-    const leg = await A.legacyMorph({ widthIn: W / 72, alive: o.alive, lang: XD.lang });
-    if (!leg || (o.alive && !o.alive())) return null;
     const m = A.morphLen(), shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3), scr = A.screenBox('R');
-    const kept = ((leg.morph && leg.morph.kept) || []).map((k) => C(k.z[0], k.z[1]));
     const Hs = new Map();
     const Hof = (t) => { const k = t.toFixed(6); if (!Hs.has(k)) Hs.set(k, A.homF(t)); return Hs.get(k); };
-    const span = Math.max(scr.x1 - scr.x0, scr.y1 - scr.y0);
-    const paths = kept.map((z) => XD.sample((u) => { const w = Hof(u)(z); return fin(w) ? [w.re, w.im] : null; }, 0, m, 64, 0.0015 * span));
-    // the window: what is drawn at t = end, X's outline and the paths, inside the screen window
+    // the window: what is drawn at t = end and X's outline, inside the screen window (the paths are chosen in it, so
+    // every start lies inside the frame; a path that leaves it ends in a chevron)
     let cb = null;
     if (o.crop !== 'screen') {
       const q = await A.art('R', { box: scr, wpt: 150, dpi: 72, ink: printInkFor(o, st.alpha), T: m, alive: o.alive });
       if (!q) return null;
       cb = contentBox(q, scr);
       for (const s of shapes) if (kindType(s) !== 'point') { const b = ptsBox(shapeCurves(s, (z) => z, scr, 150, srcWin).pts, scr); if (b) cb = unionBox(cb, b); }
-      const pb = ptsBox(paths.flat(), scr); if (pb) cb = unionBox(cb, pb);
     }
     const mL0 = 24, box = o.crop === 'screen' || !cb ? snapScreen(scr, W - mL0) : fitBox(cb, scr, W - mL0);
     const step = stepFor(box, W - mL0);
@@ -1520,6 +1554,10 @@ const Figure = (() => {
     const hmax = Math.min(W * 0.75, P.maxH - top - bottom);
     if (h > hmax) { h = hmax; w = h * aspect(box); }
     const x = (W - w - mL - 4) / 2 + mL;
+    // the paths and the caption that names them (app.js: the screen's rule at the figure's size)
+    const leg = await A.morphPaths({ box, w, h, alive: o.alive, lang: XD.lang, paths: A.defo().paths });
+    if (!leg || (o.alive && !o.alive())) return null;
+    const kept = leg.kept.map((k) => C(k.z[0], k.z[1]));
     const art = await artPanel('R', box, w, o, { T: m });
     if (!art) return null;
     const Hm = Hof(m), curves = [];
@@ -1533,21 +1571,7 @@ const Figure = (() => {
       if (o.ink === 'bw' && !dash) dash = bwDash(P, bwI++);
       curves.push({ pts: shapeCurves(s, Hm, box, w, srcWin).pts, w: t === 'area' ? P.lw.edge : P.lw.curve, color: o.ink === 'bw' ? '#000000' : tn.edge, dash, cap: dash && (dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2') ? 'round' : 'butt' });
     }
-    const ink = '#1a1a1a';
-    for (const pp of paths) curves.push({ pts: pp, w: 0.45, color: ink, casing: 0.35, cap: 'round', noObst: true });
-    const over = (X, Y) => {
-      let g = '';
-      for (const pp of paths) {
-        const seg = pp[pp.length - 1], first = pp[0] && pp[0][0];
-        if (!seg || seg.length < 2 || !first) continue;
-        const e = seg[seg.length - 1];
-        let k = seg.length - 2; while (k > 0 && Math.hypot(X(seg[k][0]) - X(e[0]), Y(seg[k][1]) - Y(e[1])) < 2) k--;
-        const th = Math.atan2(Y(e[1]) - Y(seg[k][1]), X(e[0]) - X(seg[k][0]));
-        g += `<circle cx="${f2(X(first[0]))}" cy="${f2(Y(first[1]))}" r="1.05" fill="${ink}" stroke="#ffffff" stroke-width="0.35"/>`;
-        g += XD.arrowHead(X(e[0]), Y(e[1]), th, 3.2, ink);
-      }
-      return g;
-    };
+    const over = (X, Y) => A.pathsSvg(pathItems(kept, Hof, m, (q) => [X(q.re), Y(q.im)]), { u: 1, clip: { x, y: top, w, h }, id: `${XD.ns}-mp` });
     const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points: [], axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('R')}`, `\\operatorname{Im} ${A.panelVar('R')}`], over });
     const items = [p.markup, head(x, x + w, top - 3, '', `${A.panelVar('L')},\\ ${A.panelVar('R')}`, lp)];
     let cap = leg.captionTex || '';
@@ -1967,8 +1991,11 @@ const Figure = (() => {
     const items = [`<image x="${f2(x)}" y="${f2(y)}" width="${f2(iw)}" height="${f2(ih)}" preserveAspectRatio="none" xlink:href="${a.url}"/>`];
     const proj = globeProj(r.globe, r, c, x, y, k);
     const Hs = new Map(), Hof = (t) => { const key = t.toFixed(6); if (!Hs.has(key)) Hs.set(key, A.homF(t)); return Hs.get(key); };
-    const zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
-    const ink = '#1a1a1a', pxPt = 300 / 96 * k;
+    // (the live globe's own points when it shows them, those mostly on the camera's side; else points of the boundaries)
+    const live = A.globePaths ? A.globePaths() : null;
+    let zs = live && live.length ? live.map((q) => C(q[0], q[1])).filter((z) => { let vis = 0; for (let i = 0; i <= 12; i++) if (proj(Hof(m * i / 12)(z))) vis++; return vis >= 8 && proj(Hof(m)(z)); }) : [];
+    if (!zs.length) zs = globePathPoints(shapes, srcWin, Hof, m, proj, 0.07 * iw);
+    const pxPt = 300 / 96 * k;
     let g = '';
     // (export review r3, editor-9) an open set's boundary, dashed (Homework); editor-3: a point shape whose path is not
     // drawn is marked at F(z) where it faces the camera, else named as hidden
@@ -1990,19 +2017,7 @@ const Figure = (() => {
       marks.push({ z, lab, mk });
       g += XD.marker(PTS[mk][0], e[0], e[1], 1.9, o.ink === 'bw' ? '#000000' : PTS[mk][1], '#ffffff', 0.4);
     }
-    for (const z of zs) {
-      const segs = XD.sample((u) => proj(Hof(u)(z)), 0, m, 64, 0.2);
-      if (!segs.length) continue;
-      const dd = ptPath(segs);
-      g += `<path d="${dd}" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/><path d="${dd}" fill="none" stroke="${ink}" stroke-width="0.6" stroke-linecap="round"/>`;
-      const s0 = proj(z);
-      if (s0) g += `<circle cx="${f2(s0[0])}" cy="${f2(s0[1])}" r="1.3" fill="${ink}" stroke="#ffffff" stroke-width="0.4"/>`;
-      const last = segs[segs.length - 1], e = last[last.length - 1], eF = proj(Hof(m)(z));
-      if (eF && Math.hypot(eF[0] - e[0], eF[1] - e[1]) < 0.5) {
-        let q = last.length - 2; while (q > 0 && Math.hypot(last[q][0] - e[0], last[q][1] - e[1]) < 2) q--;
-        if (q >= 0) g += XD.arrowHead(e[0], e[1], Math.atan2(e[1] - last[q][1], e[0] - last[q][0]), 4, ink);
-      }
-    }
+    g += A.pathsSvg(pathItems(zs, Hof, m, proj, true), { u: 1 });
     items.push(g, globeLabels(r.globe, r, c, x, y, k, tp - 1));
     return { items, defs: '', lines: [], H: y + ih + 4, info: { film: null, globePaths: true, m, kept: zs.length, pts: zs.map((z) => ({ z })), hidden, marks, open: openS.length > 0 } };
   }
@@ -2168,6 +2183,10 @@ const Figure = (() => {
       const hidden = (fi.hidden || []).length ? (fi.hidden.length === 1 ? $t(' The point %{p} is on the far side of the sphere and is not shown.', { p: hp(fi.hidden[0]) }) : $t(' The points %{list} are on the far side of the sphere and are not shown.', { list: joinL(fi.hidden.map(hp)) })) : '';
       const dashed = fi.open ? $t(' Dashed: boundary not included.') : '';
       const plainN = (fi.pts || []).map((q) => `$${cxTexL(q.z)}$`);
+      const qT = A.pathTimesTex ? A.pathTimesTex(fi.m || 1) : ['1/4', '1/2', '3/4'];
+      const mx = A.pathMarksTex ? A.pathMarksTex(fi.m || 1) : { seq: false };
+      // (steps one after another: an arrowhead in the middle of each step, a bar where the steps meet)
+      const marksS = !mx.seq ? $t(' Small dots mark $t=%{a}$ and $t=%{c}$, an arrowhead $t=%{b}$.', { a: qT[0], b: qT[1], c: qT[2] }) : mx.nodes ? $t(' Arrowheads mark $t=%{a}$, the middle of each step, and bars $t=%{n}$, where one step ends and the next begins.', { a: mx.arrows, n: mx.nodes }) : $t(' An arrowhead marks $t=%{a}$.', { a: mx.arrows });
       // (export review r3, verify-editor-3) the other point shapes, named by their marker; the frames where one is on the
       // far side ((a) and (d))
       const fl = (i) => (ru ? `\\textit{${RU_LETTERS[i]}}` : `(${String.fromCharCode(97 + i)})`);
@@ -2175,7 +2194,7 @@ const Figure = (() => {
         : x.hiddenIn && x.hiddenIn.length ? $t(' The %{mark} is the image of the point %{p}; in %{frames} it is on the far side of the sphere.', { mark: marks[x.mk], p: hp(x), frames: joinL(x.hiddenIn.map(fl)) })
           : $t(' The %{mark} is the image of the point %{p}.', { mark: marks[x.mk], p: hp(x) }))).join('');
       // (verify-editor-13) the sentence that names F is short, so its display follows it at once ("..., where \[ F(z) = ... \]")
-      if (fi.globePaths) return $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).', { list, map, m: tnum(fi.m), F: c.Fname }) + (plainN.length === 1 ? $t(' The arrow is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (dot) to $%{F}(z)$.', { p: plainN[0], F: c.Fname }) : plainN.length ? $t(' Arrows are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (dot) to $%{F}(z)$.', { list: joinL(plainN), F: c.Fname }) : '') + markS + hidden + dashed;
+      if (fi.globePaths) return $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).', { list, map, m: tnum(fi.m), F: c.Fname }) + (plainN.length ? (plainN.length === 1 ? $t(' The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (circle) to $%{F}(z)$ (dot).', { p: plainN[0], F: c.Fname }) : plainN.length <= 3 ? $t(' Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (circle) to $%{F}(z)$ (dot).', { list: joinL(plainN), F: c.Fname }) : $t(' Curves are the paths $t\\mapsto H_t(z)$ of %{n} points, from $z$ (circle) to $%{F}(z)$ (dot).', { n: String(plainN.length), F: c.Fname })) + marksS : '') + markS + hidden + dashed;
       if (fi.film === 'globe') return $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { map, m: tnum(fi.m), ts, list }) + (named.length === 1 ? $t(" Solid: the path $t\\mapsto H_t(z)$ of the point %{p} up to the frame's $t$; dotted: the rest of the path; gray: the boundary at $t=0$.", { p: named[0] }) : named.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the points %{list} up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.", { list: joinL(named) }) : $t(' Gray: the boundary at $t=0$.')) + markS + hidden + dashed;
       if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, at %{ts}: the color shows $\\arg H_t$ (key at right).', { ts }) + (fi.outline ? $t(' Black: the boundary of $X$.') : '') + along;
       if (fi.film === 'land') {

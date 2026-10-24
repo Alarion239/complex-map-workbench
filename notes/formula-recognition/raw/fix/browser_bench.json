@@ -1,0 +1,1248 @@
+{
+ "c_zi_tex": {
+  "id": "c_zi_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 10.42,
+   "R": 4.54
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18.5,
+   "max": 18.8
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6.17,
+  "morphPaths": "Rs1:forward",
+  "shot": "<project>/work/xvr/test/frc_cdp/shots/morph_c_zi_tex.png",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.2,
+   "max": 18.5
+  }
+ },
+ "c_zi_plain": {
+  "id": "c_zi_plain",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 3.76,
+   "R": 3.22
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.6,
+   "p50": 16.6,
+   "p95": 18.2,
+   "max": 18.4
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6.27,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 89,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 18.1,
+   "max": 18.2
+  }
+ },
+ "c_z1i_tex": {
+  "id": "c_z1i_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.54,
+   "R": 5.58
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.7,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 19.4
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 10.33,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60.1,
+   "p50": 16.6,
+   "p95": 18.3,
+   "max": 19
+  }
+ },
+ "c_z1i_plain": {
+  "id": "c_z1i_plain",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 8.88,
+   "R": 5.24
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.3,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 18.6
+  },
+  "settleMs": 3,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 12,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.6,
+   "max": 19.6
+  }
+ },
+ "c_z05_tex": {
+  "id": "c_z05_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 4.74,
+   "R": 2.94
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.3,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.8
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 5.83,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 18.9
+  }
+ },
+ "c_z05_plain": {
+  "id": "c_z05_plain",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 4.84,
+   "R": 4.04
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.9,
+   "max": 25.9
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 9.43,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60.1,
+   "p50": 16.7,
+   "p95": 18.5,
+   "max": 20.3
+  }
+ },
+ "c_za_tex": {
+  "id": "c_za_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.6,
+   "R": 2.42
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18.2,
+   "max": 18.4
+  },
+  "settleMs": 4,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 76,
+   "fps": 58.5,
+   "p50": 16.7,
+   "p95": 22.6,
+   "max": 32.7
+  },
+  "paramSettleMs": 94,
+  "morphTime": 5.33,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 59.9,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 20.7
+  }
+ },
+ "c_za_plain": {
+  "id": "c_za_plain",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 9.28,
+   "R": 5.96
+  },
+  "pan": {
+   "n": 77,
+   "fps": 59.2,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 38.7
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 77,
+   "fps": 59.2,
+   "p50": 16.7,
+   "p95": 18.7,
+   "max": 49
+  },
+  "paramSettleMs": 1,
+  "morphTime": 6.9,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60.1,
+   "p50": 16.6,
+   "p95": 18.8,
+   "max": 20.3
+  }
+ },
+ "c_zai_tex": {
+  "id": "c_zai_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.68,
+   "R": 3.34
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18.2,
+   "max": 18.3
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60.1,
+   "p50": 16.6,
+   "p95": 18.2,
+   "max": 29.4
+  },
+  "paramSettleMs": 1,
+  "morphTime": 6.63,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.5,
+   "max": 20.3
+  }
+ },
+ "k_zi": {
+  "id": "k_zi",
+  "cards": [
+   "Region*",
+   "f₁, Complex power"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 3.44,
+   "R": 4.98
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.5,
+   "p50": 16.7,
+   "p95": 18,
+   "max": 18.8
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6.03,
+  "morphPaths": "Rs1:forward",
+  "shot": "<project>/work/xvr/test/frc_cdp/shots/morph_k_zi.png",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.3,
+   "max": 18.7
+  }
+ },
+ "k_za": {
+  "id": "k_za",
+  "cards": [
+   "Region*",
+   "f₁, Complex power"
+  ],
+  "lamps": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 10.84,
+   "R": 4.22
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.6,
+   "p95": 18.7,
+   "max": 22.9
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 21.7
+  },
+  "paramSettleMs": 1,
+  "morphTime": 4.53,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 19.3,
+   "max": 22.9
+  }
+ },
+ "f_exp6": {
+  "id": "f_exp6",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.98,
+   "R": 5.12
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.2,
+   "p50": 16.6,
+   "p95": 18.2,
+   "max": 18.8
+  },
+  "settleMs": 4,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 9.47,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 19.3,
+   "max": 20.4
+  }
+ },
+ "f_tr4": {
+  "id": "f_tr4",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 7.36,
+   "R": 5.4
+  },
+  "pan": {
+   "n": 77,
+   "fps": 61,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 32.7
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.87,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 59.9,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 34.5
+  }
+ },
+ "f_pow8": {
+  "id": "f_pow8",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.38,
+   "R": 3.48
+  },
+  "pan": {
+   "n": 79,
+   "fps": 60.5,
+   "p50": 16.6,
+   "p95": 18.6,
+   "max": 18.7
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 9.43,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 19.7,
+   "max": 21.4
+  }
+ },
+ "f_log6": {
+  "id": "f_log6",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.82,
+   "R": 2.92
+  },
+  "pan": {
+   "n": 77,
+   "fps": 60.7,
+   "p50": 16.6,
+   "p95": 18.3,
+   "max": 22.7
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 5.73,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60.1,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 20.1
+  }
+ },
+ "f_tr18": {
+  "id": "f_tr18",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 3.44,
+   "R": 2.94
+  },
+  "pan": {
+   "n": 77,
+   "fps": 60.6,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 20.3
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 5.97,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 59.9,
+   "p50": 16.8,
+   "p95": 18.1,
+   "max": 18.6
+  }
+ },
+ "f_mob3": {
+  "id": "f_mob3",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●mobius ●rational(deg 1) ●analytic ○entire ○polynomial ○proper ●homeo ●conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6,
+   "R": 3.32
+  },
+  "pan": {
+   "n": 79,
+   "fps": 60.5,
+   "p50": 16.6,
+   "p95": 18.2,
+   "max": 18.7
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 8.97,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.8,
+   "p95": 18.6,
+   "max": 20.6
+  }
+ },
+ "f_jk1": {
+  "id": "f_jk1",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●rational(deg 2) ●proper ●analytic ○entire ○polynomial ○mobius ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.94,
+   "R": 3.5
+  },
+  "pan": {
+   "n": 79,
+   "fps": 60.1,
+   "p50": 16.6,
+   "p95": 18.5,
+   "max": 25.2
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6.7,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.6,
+   "max": 19.6
+  }
+ },
+ "f_rat4": {
+  "id": "f_rat4",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●rational(deg 2) ●analytic ○entire ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.06,
+   "R": 6.94
+  },
+  "pan": {
+   "n": 78,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 18.6,
+   "max": 43.4
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60.1,
+   "p50": 16.5,
+   "p95": 20.9,
+   "max": 24.4
+  }
+ },
+ "f_exp18": {
+  "id": "f_exp18",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.7,
+   "R": 3.24
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.5,
+   "p95": 18.5,
+   "max": 18.8
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6.4,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 19.4,
+   "max": 20.6
+  }
+ },
+ "f_exp20": {
+  "id": "f_exp20",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 4.56,
+   "R": 4.92
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.7,
+   "p50": 16.5,
+   "p95": 18.2,
+   "max": 18.7
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.93,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.6,
+   "max": 19.3
+  }
+ },
+ "f_tr15": {
+  "id": "f_tr15",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.9,
+   "R": 5.18
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.7
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.9,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.5
+  }
+ },
+ "f_exp17": {
+  "id": "f_exp17",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.3,
+   "R": 4.3
+  },
+  "pan": {
+   "n": 78,
+   "fps": 59.6,
+   "p50": 16.6,
+   "p95": 18.6,
+   "max": 48.9
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.63,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 89,
+   "fps": 59.9,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 18.7
+  }
+ },
+ "f_log18": {
+  "id": "f_log18",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sqrt)) Ls1:forward(identity map)",
+  "time": {
+   "L": 7.54,
+   "R": 5.26
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.5,
+   "max": 34.6
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:forward Ls1:forward",
+  "sm": {
+   "entries": 1,
+   "built": 1,
+   "ms": 119
+  },
+  "morphTime": 4.83,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.8,
+   "p95": 18.6,
+   "max": 19.1
+  }
+ },
+ "f_mi11": {
+  "id": "f_mi11",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●conformal ●homeo ●analytic ○entire ○rational ○polynomial ○mobius ○proper",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.36,
+   "R": 3.54
+  },
+  "pan": {
+   "n": 79,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18,
+   "max": 18.5
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.3,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.7,
+   "max": 20.1
+  }
+ },
+ "f_mi6": {
+  "id": "f_mi6",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 3.94,
+   "R": 2.74
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18.5,
+   "max": 18.6
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.8,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.5,
+   "max": 19.5
+  }
+ },
+ "f_tr17": {
+  "id": "f_tr17",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.5,
+   "R": 7.44
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.4,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 24.8
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 6,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.9
+  }
+ },
+ "f_tr21": {
+  "id": "f_tr21",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (\\sin)) Ls1:forward(identity map)",
+  "time": {
+   "L": 3.62,
+   "R": 3.16
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.2,
+   "p50": 16.6,
+   "p95": 18.6,
+   "max": 41
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:forward Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 4.3,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.5,
+   "max": 18.9
+  }
+ },
+ "f_exp24": {
+  "id": "f_exp24",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:forward(step 1: z occurs more than once in a part that is not rational in z (a power with z in the exponent)) Ls1:forward(identity map)",
+  "time": {
+   "L": 4.38,
+   "R": 4.34
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.1,
+   "p50": 16.8,
+   "p95": 18.3,
+   "max": 19.4
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:forward Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 8.93,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 59.9,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.6
+  }
+ },
+ "f_rat6": {
+  "id": "f_rat6",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●polynomial(deg 3) ●rational(deg 3) ●analytic ●entire ○mobius ●proper ○homeo ○conformal",
+  "paths": "Rs1:forward(step 1: polynomial formula of degree 3 (the exact renderer inverts degree ≤ 2, also of a power z^k)) Ls1:forward(identity map)",
+  "time": {
+   "L": 5.22,
+   "R": 5.56
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.3,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 18.7
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:forward Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "morphTime": 5.53,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.8,
+   "p95": 18.5,
+   "max": 18.7
+  }
+ },
+ "f_tr20": {
+  "id": "f_tr20",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 7.04,
+   "R": 3.32
+  },
+  "pan": {
+   "n": 79,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 21.5
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60.1,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.7
+  },
+  "paramSettleMs": 0,
+  "morphTime": 5.03,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 18.7
+  }
+ },
+ "f_mob7": {
+  "id": "f_mob7",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●mobius ●rational(deg 1) ●analytic ○entire ○polynomial ○proper ●homeo ●conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.06,
+   "R": 5.24
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.2,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 18.6
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 23.5
+  },
+  "paramSettleMs": 1,
+  "morphTime": 6.67,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.2,
+   "max": 18.9
+  }
+ },
+ "f_exp15": {
+  "id": "f_exp15",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●entire ●analytic ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 5.66,
+   "R": 3.86
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.3,
+   "p50": 16.7,
+   "p95": 18.5,
+   "max": 21.4
+  },
+  "settleMs": 0,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 18.5
+  },
+  "paramSettleMs": 1,
+  "morphTime": 5.23,
+  "morphPaths": "Rs1:forward",
+  "morph": {
+   "n": 90,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.5,
+   "max": 18.9
+  }
+ }
+}

@@ -1,0 +1,117 @@
+{
+ "pass": true,
+ "fails": [],
+ "shots": [
+  "nat-joukowski-paths-off-light",
+  "nat-joukowski-light",
+  "nat-joukowski-dark",
+  "nat-cos-light",
+  "nat-cos-dark",
+  "nat-allatonce-light",
+  "nat-allatonce-dark",
+  "nat-rational-light",
+  "nat-rational-dark",
+  "nat-rational-phase-light",
+  "nat-joukdisk-light",
+  "nat-paths-phone"
+ ],
+ "paths": {
+  "jouk": {
+   "n": 12,
+   "kinds": {
+    "edge": 4,
+    "node": 8
+   },
+   "jump": 0.013,
+   "kink": 0.067,
+   "turnP99": 0.089,
+   "sep": 0,
+   "heads": 0,
+   "frames": {
+    "n": 90,
+    "fps": 60,
+    "p50": 16.7,
+    "p95": 18.4,
+    "max": 19.3
+   }
+  },
+  "rational": {
+   "n": 7,
+   "kinds": {
+    "edge": 6,
+    "node": 1
+   },
+   "jump": 0.05,
+   "kink": 0.099,
+   "turnP99": 0.073,
+   "sep": 0,
+   "heads": 0,
+   "frames": {
+    "n": 90,
+    "fps": 60,
+    "p50": 16.6,
+    "p95": 17.9,
+    "max": 19.7
+   }
+  },
+  "expstrip": {
+   "n": 3,
+   "kinds": {
+    "edge": 3
+   },
+   "jump": 0.05,
+   "kink": 0.014,
+   "turnP99": 0.013,
+   "sep": 0,
+   "heads": 0,
+   "frames": {
+    "n": 90,
+    "fps": 60,
+    "p50": 16.6,
+    "p95": 18.4,
+    "max": 18.8
+   }
+  },
+  "chain3": {
+   "n": 3,
+   "kinds": {
+    "edge": 3
+   },
+   "jump": 0.05,
+   "kink": 0.042,
+   "turnP99": 0.022,
+   "sep": 0,
+   "heads": 0,
+   "frames": {
+    "n": 90,
+    "fps": 60.1,
+    "p50": 16.6,
+    "p95": 18.5,
+    "max": 18.7
+   }
+  },
+  "zp": {
+   "n": 11,
+   "kinds": {
+    "edge": 7,
+    "node": 4
+   },
+   "jump": 0.048,
+   "kink": 0.109,
+   "turnP99": 0.161,
+   "sep": 0,
+   "heads": 0,
+   "frames": {
+    "n": 90,
+    "fps": 60.1,
+    "p50": 16.7,
+    "p95": 17.7,
+    "max": 18.2
+   }
+  },
+  "phone": {
+   "n": 8,
+   "sep": 0
+  }
+ }
+}

@@ -1,0 +1,148 @@
+{
+ "z2az": {
+  "paths": "Rs1:inverse Ls1:forward",
+  "note": "Same as Polynomial.",
+  "lamps": "●polynomial(deg 2) ●rational(deg 2) ●analytic ●entire ○mobius ●proper ○homeo ○conformal",
+  "drag": {
+   "frames": {
+    "n": 97,
+    "fps": 60.3,
+    "p50": 16.7,
+    "p95": 18.4,
+    "max": 19.8
+   },
+   "setMs": {
+    "p50": 1.4,
+    "max": 10.5
+   },
+   "longtasks": [],
+   "states": [
+    "inverse,forward|Same as Polynomial."
+   ]
+  },
+  "drag2": {
+   "frames": {
+    "n": 96,
+    "fps": 60.1,
+    "p50": 16.7,
+    "p95": 18.4,
+    "max": 18.7
+   },
+   "setMs": {
+    "p50": 1.3,
+    "max": 4.2
+   },
+   "longtasks": [],
+   "states": [
+    "inverse,forward|Same as Polynomial."
+   ]
+  },
+  "dragMorph": {
+   "frames": {
+    "n": 97,
+    "fps": 60.4,
+    "p50": 16.7,
+    "p95": 18.3,
+    "max": 18.8
+   },
+   "setMs": {
+    "p50": 2.5,
+    "max": 3.2
+   },
+   "longtasks": [],
+   "states": [
+    "forward|Same as Polynomial."
+   ]
+  },
+  "dragMorph2": {
+   "frames": {
+    "n": 95,
+    "fps": 59.4,
+    "p50": 16.7,
+    "p95": 18.3,
+    "max": 42.6
+   },
+   "setMs": {
+    "p50": 2.5,
+    "max": 3.8
+   },
+   "longtasks": [],
+   "states": [
+    "forward|Same as Polynomial."
+   ]
+  }
+ },
+ "mob_a": {
+  "paths": "Rs1:inverse Ls1:forward",
+  "note": "Same as Möbius.",
+  "lamps": "●mobius ●rational(deg 1) ●analytic ○entire ○polynomial ○proper ●homeo ●conformal",
+  "drag": {
+   "frames": {
+    "n": 96,
+    "fps": 59.8,
+    "p50": 16.6,
+    "p95": 18.5,
+    "max": 54.1
+   },
+   "setMs": {
+    "p50": 1.3,
+    "max": 11.9
+   },
+   "longtasks": [],
+   "states": [
+    "inverse,forward|Same as Möbius."
+   ]
+  },
+  "drag2": {
+   "frames": {
+    "n": 96,
+    "fps": 60,
+    "p50": 16.6,
+    "p95": 18.4,
+    "max": 24.3
+   },
+   "setMs": {
+    "p50": 1.4,
+    "max": 3.7
+   },
+   "longtasks": [],
+   "states": [
+    "inverse,forward|Same as Möbius."
+   ]
+  },
+  "dragMorph": {
+   "frames": {
+    "n": 97,
+    "fps": 60.1,
+    "p50": 16.7,
+    "p95": 18.4,
+    "max": 18.7
+   },
+   "setMs": {
+    "p50": 2.4,
+    "max": 5.5
+   },
+   "longtasks": [],
+   "states": [
+    "forward|Same as Möbius."
+   ]
+  },
+  "dragMorph2": {
+   "frames": {
+    "n": 96,
+    "fps": 60.1,
+    "p50": 16.7,
+    "p95": 18.3,
+    "max": 18.5
+   },
+   "setMs": {
+    "p50": 2.4,
+    "max": 3.6
+   },
+   "longtasks": [],
+   "states": [
+    "forward|Same as Möbius."
+   ]
+  }
+ }
+}

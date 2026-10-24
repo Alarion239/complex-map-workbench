@@ -1386,6 +1386,17 @@ const Expr = (() => {
     return go(ast);
   }
 
-  return { parse, compile, compileLevel, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  // a query as a phone keyboard or a paste gives it (review steps-6, steps-14): a capitalized first word that is a function
+  // name only in lower case (Sin z, Exp z, Tg z: Android capitalizes the first letter; Log, Ln, Re, Im and Arg are
+  // names as they are and stay), a capital Z alone at the start, and superscript digits (z², z⁻¹) as ^{…}
+  const SUP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁻': '-', '⁺': '+' };
+  function typed(src) {
+    let q = String(src).replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+/g, (m) => `^{${[...m].map((c) => SUP[c]).join('')}}`);
+    const has = (w) => Object.prototype.hasOwnProperty.call(PLAIN, w) || Object.prototype.hasOwnProperty.call(RU_NAMES, w);
+    q = q.replace(/^(\s*\\?)([A-Z][a-z]+)(?![A-Za-z])/, (m, a, w) => (!has(w) && has(w.toLowerCase()) ? a + w.toLowerCase() : m));
+    q = q.replace(/^(\s*)Z(?![A-Za-z_])/, '$1z');
+    return q;
+  }
+  return { parse, typed, compile, compileLevel, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;

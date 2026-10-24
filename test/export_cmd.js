@@ -126,6 +126,16 @@ for (const [p, o] of Object.entries(PRESETS)) {
   if (r && p === 'article2W') ok('filmstrip: four frames titled (a) t = 0 ... (d) t = 2', r.boxes.filter((b) => b.kind === 'title').length === 4 && /\(d\) \$t=2\$/.test(r.cap), { titles: r.boxes.filter((b) => b.kind === 'title').map((b) => b.tex), cap: r.cap });
   const q = await build(`paths-strip-${p}`, Object.assign({ deform: 'paths' }, o), ['pdf', 'svg', 'tex']);
   if (q && p === 'article1') ok('paths: one panel with the arrows, the morph caption', q.nImg === 1 && /joined by the homotopy/.test(q.cap) && !/Dashed boundaries do not belong/.test(q.cap), q.cap);
+  // (paths-aesthetics) the paths as vectors: 0.5 pt black lines, a ring per path at z and a dot at F(z), the caption's
+  // marks sentence, every start inside the frame (chosen in the figure's own window)
+  if (q && p === 'article1') {
+    const nr = ((q.svg.match(/class="mf-rings">([\s\S]*?)<\/g>/) || ['', ''])[1].match(/<circle/g) || []).length;
+    const ne = ((q.svg.match(/class="mf-ends">([\s\S]*?)<\/g>/) || ['', ''])[1].match(/<circle/g) || []).length;
+    ok('paths: vector paths at 0.5 pt with a ring and an end dot each', /stroke-width="0.5"[^>]*class="mf-paths"/.test(q.svg) && nr === q.info.kept && ne > 0 && ne <= q.info.kept && q.info.kept >= 2 && q.info.kept <= 12, { kept: q.info.kept, nr, ne });
+    // (Strip to disk is two steps one after another: an arrowhead in the middle of each step and a bar where they meet,
+    // no time dots, review fix path-1; most of its paths double back at t = 1 and are left out, so 2 paths can be all)
+    ok('paths: the caption names the marks', /Curves are the paths/.test(q.cap) && (/small dots at/.test(q.cap) || /\(the middle of each step\) and a bar at/.test(q.cap)) && /arrowhead at/.test(q.cap), q.cap.slice(-300));
+  }
 }
 await key('m'); await settle(600);
 // the view kinds of a merged plane: X -> Y + the deformation over a d/dz step (one panel of H_t)
@@ -309,7 +319,7 @@ for (const [kind, go] of VIEWS3) {
   if (kind === 'plane' || kind === 'globe') {
     for (const p of ['article1', 'homework']) {
       const r = await build3(`r3-paths-${kind}-${p}`, Object.assign({ deform: 'paths' }, P3[p]));
-      if (r) ok(`r3-paths-${kind}-${p}: one picture with the paths`, r.nImg === 1 && (kind === 'plane' ? /joined by the homotopy|Arrows/.test(r.cap) : /Arrows are the paths|The arrow is the path/.test(r.cap)), r.cap.slice(0, 400));
+      if (r) ok(`r3-paths-${kind}-${p}: one picture with the paths`, r.nImg === 1 && (kind === 'plane' ? /joined by the homotopy|Curves are the paths/.test(r.cap) : /Curves are the paths|The curve is the path/.test(r.cap)), r.cap.slice(0, 400));
       if (r && kind === 'plane') ok(`r3-paths-plane-${p}: X's outline is gray and solid (a dash means "not included")`, !/stroke="#707070"[^>]*stroke-dasharray/.test(r.svg) && !/dashed outline/.test(r.cap), r.cap.slice(0, 400));
       if (r && kind === 'globe') ok(`r3-paths-globe-${p}: a listed point is drawn or said to be hidden`, !/\$(z_0|A)=0\$/.test(r.cap) || /\$(z_0|A)=0\$ is on the far side/.test(r.cap) || (r.info.hidden || []).length === 0, r.cap.slice(0, 700));
       // (review r3 verify2, new-1) a hidden point is not in the list of what the figure shows: only the sentence that

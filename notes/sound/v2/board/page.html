@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound Board A/B</title>
+<style>
+:root { --bg:#f7f5f0; --card:#fffdf8; --fg:#1f1d1a; --mut:#6c665c; --line:#e3ddd1; --a:#5d6a78; --b:#2f6f62; --bsoft:#e2efe9; --asoft:#e8ebef; --warn:#a4462b; --focus:#2f6f62; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --a:#9fb0c2; --b:#7cc4b2; --bsoft:#1f3330; --asoft:#262b31; --warn:#e08a6c; --focus:#7cc4b2; } }
+:root[data-theme="dark"] { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --a:#9fb0c2; --b:#7cc4b2; --bsoft:#1f3330; --asoft:#262b31; --warn:#e08a6c; --focus:#7cc4b2; }
+* { box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; margin:0; }
+main { max-width:960px; margin:0 auto; padding:16px 16px 64px; }
+h1 { font-size:21px; margin:6px 0 2px; letter-spacing:-0.01em; } h2 { font-size:16px; margin:0 0 4px; } p { margin:4px 0 10px; color:var(--mut); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:14px 0; }
+.bar { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line); }
+.bar .in { max-width:960px; margin:0 auto; padding:10px 16px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.seg { display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+.seg button { border:0; border-radius:0; padding:6px 14px; background:transparent; }
+.seg button[aria-pressed="true"] { background:var(--fg); color:var(--bg); }
+.seg.pal button[data-p="A"][aria-pressed="true"] { background:var(--a); color:#fff; } .seg.pal button[data-p="B"][aria-pressed="true"] { background:var(--b); color:#fff; }
+button { font:inherit; color:var(--fg); background:transparent; border:1px solid var(--line); border-radius:8px; padding:5px 11px; cursor:pointer; }
+button:hover { border-color:var(--mut); } button:active { transform:translateY(1px); }
+button:focus-visible, input:focus-visible, canvas:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+button.pa { border-color:var(--a); color:var(--a); } button.pb { border-color:var(--b); color:var(--b); }
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+.tag { font-size:13px; color:var(--mut); }
+.status { font-size:13px; color:var(--mut); margin-left:auto; }
+input[type=range] { accent-color:var(--fg); }
+#tslider { width:100%; height:28px; }
+canvas { display:block; max-width:100%; border-radius:8px; border:1px solid var(--line); }
+#morphCv { width:100%; height:260px; background:var(--bg); }
+.plane { display:grid; grid-template-columns:minmax(0, 360px) 1fr; gap:16px; align-items:start; }
+@media (max-width:700px) { .plane { grid-template-columns:1fr; } }
+#planeCv { width:100%; aspect-ratio:1; touch-action:none; cursor:crosshair; }
+.read { font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--mut); white-space:pre-wrap; min-height:5em; }
+.sw { display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+.sw input { appearance:none; width:34px; height:20px; border-radius:999px; background:var(--line); position:relative; cursor:pointer; margin:0; transition:background .15s; }
+.sw input::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:var(--card); box-shadow:0 1px 2px rgba(0,0,0,.25); transition:left .15s; }
+.sw input:checked { background:var(--fg); } .sw input:checked::after { left:16px; }
+.chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.chip { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px; font:13px ui-monospace, Menlo, monospace; }
+.chip button { border:0; padding:0 6px; color:var(--mut); }
+input[type=text] { font:14px ui-monospace, Menlo, monospace; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:transparent; color:var(--fg); width:12em; }
+.msg { font-size:13px; } .msg.err { color:var(--warn); }
+.tbl-wrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; min-width:560px; } td, th { border-top:1px solid var(--line); padding:6px 6px; vertical-align:middle; text-align:left; }
+th { font-size:12px; color:var(--mut); font-weight:600; border-top:0; }
+td.w { color:var(--mut); font-size:13px; } td.btns { white-space:nowrap; }
+kbd { font:12px ui-monospace, Menlo, monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+.hint { background:var(--bsoft); border-radius:8px; padding:8px 12px; color:var(--fg); font-size:14px; }
+body.palA .hint { background:var(--asoft); }
+</style></head><body>
+<div class="bar"><div class="in">
+  <strong>Sound board</strong>
+  <span class="seg pal" role="group" aria-label="Palette"><button data-p="A" aria-pressed="false">A · now</button><button data-p="B" aria-pressed="true">B · new</button></span>
+  <span class="tag">or press <kbd>A</kbd> / <kbd>B</kbd></span>
+  <label class="tag">Volume <input id="vol" type="range" min="0" max="100" value="70" style="width:110px; vertical-align:middle"></label>
+  <span class="status" id="status">Click anywhere to start sound.</span>
+</div></div>
+<main>
+<h1>Compare the sounds: A (in the app now) and B (the new palette)</h1>
+<p>Everything on this page plays through the palette chosen at the top. A is the app's engine as shipped (src/sound.js of v15).
+B is the proposal: struck and bowed materials, a new variation on every play, a speed-following slider sound. The two are
+matched in loudness cue by cue, so you can judge timbre rather than volume. Laptop speakers or headphones at a moderate level.</p>
+<div class="hint" id="hint">Try the slider below in A, then in B. Then hover the plane with the pointer.</div>
+
+<section class="card" id="sec-morph">
+  <h2>1. The Deformation (the slider that "cracks")</h2>
+  <p>Drag t like in the app. A ticks every 0.05 of t. B breathes with how fast you drag, rings a wooden note at t = 0, ¼, ½, ¾, 1,
+  and is silent when your hand stops. Press play to hear the start, the motion and the arrival.</p>
+  <canvas id="morphCv" width="900" height="210" aria-label="The grid deforming from z to z squared as t goes from 0 to 1"></canvas>
+  <div class="row"><span class="tag" style="min-width:4.5em">t = <b id="tval">0.00</b></span></div>
+  <input id="tslider" type="range" min="0" max="1" step="0.001" value="0" aria-label="Deformation t">
+  <div class="row">
+    <button id="playBtn" aria-label="Play the deformation">▶ Play</button>
+    <span class="seg" id="durSeg" role="group" aria-label="Play length"><button data-d="1">1 s</button><button data-d="2" aria-pressed="true">2 s</button><button data-d="4">4 s</button></span>
+    <label class="sw"><input type="checkbox" id="loopChk"> Loop</label>
+    <span class="tag">Drag for me:</span>
+    <button data-auto="4">slow</button><button data-auto="1.2">medium</button><button data-auto="0.5">fast</button><button data-auto="wiggle">wiggle</button>
+  </div>
+  <div class="row" id="bmodeRow"><span class="tag">B's slider:</span>
+    <span class="seg" id="bmodeSeg" role="group" aria-label="B slider sound"><button data-m="B" aria-pressed="true">air + notes (recommended)</button><button data-m="C">notes only</button></span></div>
+</section>
+
+<section class="card" id="sec-plane">
+  <h2>2. Hear the function</h2>
+  <div class="plane">
+    <canvas id="planeCv" width="720" height="720" tabindex="0" aria-label="The complex plane, coloured by the argument of F"></canvas>
+    <div>
+      <div class="seg" id="fnSeg" role="group" aria-label="Function"><button data-f="sq" aria-pressed="true">z²</button><button data-f="exp">eᶻ</button><button data-f="rat">(z−1)(z+1)²/(z²+1)</button></div>
+      <p style="margin-top:10px">Hover: the tone's pitch class is arg F, so circling a zero climbs. Near a zero or a pole it rings
+      its order (white dots: zeros, black: poles). Press and draw a loop: a bell for each full turn of arg F, then the winding
+      number when you let go. Rest the pointer: in B the tone starts to sing (vibrato); in A it holds still.</p>
+      <label class="sw"><input type="checkbox" id="sonChk" checked> Hear the function</label>
+      <div class="read" id="readout"></div>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="sec-ui">
+  <h2>3. Interface</h2>
+  <p>The everyday clicks. These are the sounds that play most often, so they are the ones that must not tire.</p>
+  <div class="row">
+    <label class="sw"><input type="checkbox" class="tg" checked> Grid</label>
+    <label class="sw"><input type="checkbox" class="tg"> Contours</label>
+    <label class="sw"><input type="checkbox" class="tg"> Labels</label>
+  </div>
+  <div class="row"><span class="tag">Steps:</span><span class="chips" id="chips"></span><button id="addStep">+ Add step</button></div>
+  <div class="row"><span class="tag">View:</span><span class="seg" id="viewSeg" role="group" aria-label="View"><button data-k="0" aria-pressed="true">X → Y</button><button data-k="1">Phase</button><button data-k="2">Landscape</button><button data-k="3">Sphere</button></span></div>
+  <div class="row"><span class="tag">f(z) =</span><input type="text" id="fx" value="z^2 + 1" aria-label="Formula"><button id="apply">Apply</button><span class="msg" id="fxMsg"></span></div>
+  <div class="row"><button id="exportBtn">Export PNG</button><span class="msg" id="exMsg"></span><button id="edgeBtn">Keyboard probe hits the edge</button><button id="snapBtn">Snap to grid point</button></div>
+</section>
+
+<section class="card" id="sec-cues">
+  <h2>4. Every cue, one by one</h2>
+  <p>A plays the same waveform every time. B is a new strike on every press: press it several times, or use ×4.
+  Where pitch carries meaning (the turn bell, the order pings) only level and brightness vary.</p>
+  <div class="tbl-wrap"><table id="cues"><thead><tr><th>Cue</th><th>What it means</th><th>A · now</th><th>B · new</th></tr></thead><tbody></tbody></table></div>
+</section>
+<p class="tag">Files: notes/sound/v2/board.html (this page, self-contained), DESIGN.md (the recipes), MEASUREMENTS.md (the numbers).
+Nothing in the app was changed.</p>
+</main>
+<script>
+/*SOUND_A*/
+</script>
+<script>
+/*ENGINE_B*/
+</script>
+<script>
+/*PAGE*/
+</script>
+</body></html>

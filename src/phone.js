@@ -398,6 +398,9 @@ const Phone = (() => {
   }
   function after(k, opt) {
     if (k === 'edit' && opt.params) els.body.edit.scrollTop = 0;
+    // a formula step built from catalog steps: its offer's summary is brought into view (it sat below the fold, review
+    // steps-12); the sheet scrolls only as far as that needs
+    else if (k === 'edit') { const sm = els.body.edit.querySelector('.split-offer:not([hidden]) > summary'); if (sm) sm.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
   }

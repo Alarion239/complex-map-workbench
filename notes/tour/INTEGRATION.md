@@ -220,6 +220,7 @@ once v15 is merged; `test/t_tour.js` of the v15 build reads both tables (the v14
 | `fTile` | the F tile that closes the chain | `#pipeline .ftile` |
 | `sphereKey` | on a phone, the Sphere key in the plane's right column (the fallback of `surfaceL`) | the visible `.ph-col .ph-sph` |
 | `lens` | v15.1: the selected step's lens (Show this step alone) in the Inspector's head; on a phone, in the Editor sheet. Lit by `basics/chain`'s `try.work` (the parts a touch task names, lit and kept clear on a touch screen) | `#propsPanel .insp-step .ihead .alone-btn` |
+| `splitOffer` | v15.2 (notes/formula-steps/DESIGN.md): the selected formula step's split offer in the Inspector (how it is built from catalog steps, and Split into n steps); on a phone, in the Editor sheet. Shown during the tour only at a step with `split: true` (the app's `splitOffer(on)`, called by `show` for every step) | `#propsPanel .insp-step .split-offer:not([hidden])` |
 
 On a phone (below 768 px, `src/phone.js`): `tools` (`#secDraw`) is the tool row, `chain` (`.pipe-wrap`) the chain bar
 with the F tile and Deformation, `moreBtn` the ⋯ sheet (Guided tour, Reference guide, Search, Export). The Inspector's
@@ -268,6 +269,7 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 |---|---|---|
 | `zp-added` | `{ k, kind: 'zero' \| 'pole', i }` | a zero or a pole is added to step k (the Inspector's buttons, Shift-click, the planes' menu: `zpAdd`) |
 | `number-changed` | `{ names, live }` | a shared number changes (its slider, Play, its field, undo: `Params.on('change')`) |
+| `formula-split` | `{ k, n }` | v15.2: formula step k is split into the n catalog steps it is (`splitStep`: the Inspector's offer or the step's ⋯ menu) |
 
 ### The scenes the tour loads
 
@@ -278,6 +280,7 @@ one sheet, the Tiles phase style, Paths on and One after another, except where t
 | scene | map | shapes | targets |
 |---|---|---|---|
 | Strip to disk | `exp`, then Möbius (1, −1; 1, 1): F = (eᶻ − 1)/(eᶻ + 1) | the strip \|Im z\| < π/2, the line Im z = 0.8, the point z₀ = 0 | |
+| A formula in steps (`splitFormula`, v15.2) | custom \sin(z² + 1), which the Inspector offers to split into z², +1, sin | the square [−1.2, 1.2]² | |
 | A rational map | custom (z² − 1)/(z² + 1) | the square [−1.5, 1.5]² | |
 | Zeros and poles | `zp`: a = 1, zeros 1, −1, poles i, −i (the same map) | the square [−1.5, 1.5]² | |
 | Roots as preimages | custom z³ − 1 | the unit circle | the point 0, the circle \|w\| = 0.6 |
@@ -448,3 +451,18 @@ The phone steps that were skipped now show:
 
 The adapter now has `layers()`. A layer that holds the step's anchor is lit, not avoided. A lit part inside another
 lit area gets its own ring. A second lit area that the app covers is not lit.
+
+### Anchors added in v16
+
+The constructions round (work/xvc, notes/constructions-v16/SPEC.md 16).
+
+| name | element | note |
+|---|---|---|
+| `constructTools` | `#constructTools` | the Construct grid under Draw (desktop and the tablet drawer); null on a phone, where the step falls back to `tools` (the tool row, with More) |
+
+### Events added in v16
+
+| event | payload | emit when |
+|---|---|---|
+| `construct-added` | `{ op: 'circle3' \| 'meet' \| 'midpoint' \| 'bisector' \| 'glider' }` | a construction tool, the Point tool on a crossing or a curve, or the planes' menu makes a construction (construct.js) |
+| `construct-family` | `{ kind: 'disc' \| 'halfplane' \| 'complement' \| 'circle' \| 'line' }` | a circle through three points changes family while its points move (CORE's `recomputed` event, kindChanged) |

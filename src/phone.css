@@ -317,3 +317,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-split:not(.ph-land) #rightReadout::before { content: "w"; }
 /* russian-2 on the phone: syllable breaks with a hyphen */
 :root.ph[data-lang="ru"] #pipeline .card .nm { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: normal; }
+/* v15.2: the split offer in the Editor sheet — names always under their formula, the button 44 px and full width;
+   the alone chip keeps its one 44 px target (‹ › do not fit at 360 px) */
+:root.ph .split-offer .so-name { grid-column: 2 / -1; padding-left: 0; text-align: left; }
+:root.ph .split-offer .so-rows.subst .so-name { grid-column: 1 / -1; }
+:root.ph .split-offer .so-btn { min-height: 44px; }
+:root.ph .split-offer > summary { min-height: 44px; }
+:root.ph .alone-chip .ac-nav { display: none; }

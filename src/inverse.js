@@ -333,8 +333,14 @@ const Inverse = (() => {
         return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 2)`);
       }
       case 'custom': {
-        let ast;
-        try { ast = Expr.parse(v.expr); } catch (e) { return INEL(e.message); }
+        // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
+        if (b.rec) {
+          const ops = [];
+          for (const sb of b.rec.built) { const r = stepOps(sb); if (!r.ok) { ops.length = 0; break; } ops.push(...r.ops); }
+          if (ops.length) return OK(ops);
+        }
+        let ast = b.ast;
+        if (!ast) { try { ast = Expr.parse(v.expr); } catch (e) { return INEL(e.message); } }
         return customOps(ast, v.cut * DEG);
       }
     }

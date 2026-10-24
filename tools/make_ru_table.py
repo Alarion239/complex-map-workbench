@@ -35,15 +35,22 @@ extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # (v15: the redesign's strings, notes/i18n/ru/v15-<area>.json, after phase 2b's; a v15 table whose build is not merged
 # into this tree yet is left out, so its strings and its changes to shared ones arrive with its sources)
 # (v15.1: three tables were written after v15. The video preview (work/xvv) and the phone tour's step toggle
-# (work/xvp) are merged now; the formula recognizer's sources are not in this tree yet, so its table waits for them.)
-V15_NOT_HERE = {'v15-recognize.json'}
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE):  # the review fixes last
+# (work/xvp) were merged in v15.1; v15.2 merges the formula recognizer (src/recognize.js), so its table is in too.)
+# (v15.2: each piece writes notes/i18n/ru/v152-<piece>.json, read after the v15 tables, so its changes to shared
+# strings win. Every v15.2 piece is merged in this tree: the paths, the recognizer, the formula steps and the sound.
+# The sea song (work/xvsea, v152-seasong.json, written after the v15.2 build) is not: its table arrives with it.)
+V15_NOT_HERE = set()
+V152_NOT_HERE = {'v152-seasong.json'}
+phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE):  # the review fixes last
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue
         pl = v.get('en_plural')
         key = pl[0] + CTX + pl[1] if v.get('plural') and isinstance(pl, list) else (v['ctx'] + CTX if v.get('ctx') else '') + v['en']
         extra[key] = v.get('plural') or v['ru']
+        if f.name.startswith('phase2b'):
+            phase2b_keys.add(key)
 
 entries = [(k, v) for k, v in C.items() if k != '_meta'] + list(M['entries'].items()) + list(G.items())
 entries += [(k, v) for k, v in M.get('missing_from_inventory', {}).items()]
@@ -335,6 +342,65 @@ for k in sorted(table):
     elif k not in site_keys and k not in extra and re.search(r'%?\{[A-Za-z_][A-Za-z0-9_]*\}', k.split(CTX)[-1]):
         orphans.append(k)
 
+# review regress-4 (v15.2): an entry from the hand-written tables (notes/i18n/ru/*.json, tools/ru_extra.json) whose
+# English no source holds any more (a string the code removed: the old paths captions, the old tour and guide texts on
+# sound) is dead weight that hides real misses: it is dropped and listed ('dropped', why 'removed'). "Holds" is generous:
+# the English (the one form of a plural, the text after a context) equals a string literal of src/*.js or occurs in one,
+# or in page.html. Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
+# only counted when no literal holds them ('unused', report only).
+JS_LIT = re.compile(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"|`(?:[^`\\]|\\.)*`")
+
+
+def js_unescape(lit):
+    body = lit[1:-1]
+    if lit[0] == '`':
+        return body
+    return re.sub(r'\\(u\{[0-9a-fA-F]+\}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)', lambda m: (
+        chr(int(m.group(1)[2:-1], 16)) if m.group(1).startswith('u{') else chr(int(m.group(1)[1:], 16)) if m.group(1)[0] in 'ux' and len(m.group(1)) > 1
+        else {'n': '\n', 't': '\t', 'r': '\r', 'b': '\b', 'f': '\f', 'v': '\v', '0': '\0'}.get(m.group(1), m.group(1))), body)
+
+
+src_lits, src_blob, src_raw = set(), [], []
+for f in sorted((root / 'src').glob('*')):
+    if f.name in ('i18n_ru.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
+        continue
+    t = f.read_text()
+    src_raw.append(t)
+    if f.suffix == '.html':
+        # (the page's static text as the walker reads it: entities decoded, tags and runs of white space as one space)
+        import html as _html
+        src_raw.append(re.sub(r'\s+', ' ', _html.unescape(re.sub(r'<[^>]+>', ' ', t))))
+        src_raw.append(re.sub(r'\s+', ' ', _html.unescape(t)))
+        continue
+    for m in JS_LIT.finditer(t):
+        v = js_unescape(m.group(0))
+        src_lits.add(v)
+        src_blob.append(v)
+src_blob, src_raw = '\n'.join(src_blob), '\n'.join(src_raw)
+# contexts looked up with a computed text ($tx('audio', s.audio)): every entry of such a context is held
+dyn_ctx = set(re.findall(r"\$tx\(\s*'([^']+)'\s*,\s*(?!['`\"])", src_raw))
+
+
+def held(k):
+    parts = k.split(CTX)
+    plural = len(parts) == 2 and isinstance(table.get(k), dict)
+    vis = parts[0] if plural else parts[-1]
+    if not plural and len(parts) == 2 and parts[0] in dyn_ctx:
+        return True
+    # (a literal, a part of one, or the raw text: a template literal's backslashes are doubled there)
+    return vis in src_lits or vis in src_blob or vis in src_raw or vis.replace('\\', '\\\\') in src_raw
+
+
+unused = []
+for k in sorted(table):
+    if held(k):
+        continue
+    if k in extra and k not in phase2b_keys:
+        dropped.append({'key': k, 'why': 'removed: no source holds its English'})
+        del table[k]
+    else:
+        unused.append(k)
+
 out = root / 'src' / 'i18n_ru.js'
 blob = json.dumps(table, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
 lit = json.dumps(blob, ensure_ascii=False).replace('</', '<\\/').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
@@ -346,11 +412,12 @@ out.write_text(
 report = {
     'entries': len(table), 'call_sites': len({s[1] for s in sites}), 'resolved': len(resolved),
     'unresolved': unresolved, 'collisions': len(collisions), 'how': how, 'dropped': dropped, 'orphans': orphans,
+    'unused': unused,
 }
 json.dump(report, open(root / 'tools' / 'ru_report.json', 'w'), ensure_ascii=False, indent=1)
 json.dump(collisions, open(root / 'tools' / 'ru_collisions.json', 'w'), ensure_ascii=False, indent=1)
 print(f'{out.relative_to(root)}: {len(table)} entries, {out.stat().st_size} bytes; call sites {report["call_sites"]}, '
-      f'unresolved {len(unresolved)}; collisions {len(collisions)} (tools/ru_collisions.json); dropped {len(dropped)}, orphans {len(orphans)}')
+      f'unresolved {len(unresolved)}; collisions {len(collisions)} (tools/ru_collisions.json); dropped {len(dropped)}, orphans {len(orphans)}, unused {len(unused)}')
 for u in unresolved:
     print('  UNRESOLVED', u['where'], json.dumps(u['key'], ensure_ascii=False)[:150], '-', u['why'])
 if '--strict' in sys.argv and unresolved:

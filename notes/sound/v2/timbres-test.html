@@ -1,0 +1,1738 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hear the Function Timbres</title>
+<style>
+:root { --bg:#f7f5f0; --card:#fffdf8; --fg:#1f1d1a; --mut:#6c665c; --line:#e3ddd1; --edge:#a39b8d; --b:#2f6f62; --bsoft:#e2efe9; --warn:#a4462b; --focus:#2f6f62; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --edge:#6f685e; --b:#7cc4b2; --bsoft:#1f3330; --warn:#e08a6c; --focus:#7cc4b2; } }
+:root[data-theme="dark"] { --bg:#141412; --card:#1c1b19; --fg:#ece8e1; --mut:#a49e94; --line:#2f2c28; --edge:#6f685e; --b:#7cc4b2; --bsoft:#1f3330; --warn:#e08a6c; --focus:#7cc4b2; }
+* { box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; margin:0; }
+main { max-width:960px; margin:0 auto; padding:16px 16px 64px; }
+h1 { font-size:21px; margin:6px 0 2px; letter-spacing:-0.01em; } h2 { font-size:16px; margin:0 0 4px; } p { margin:4px 0 10px; color:var(--mut); }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:14px 0; }
+.bar { position:sticky; top:0; z-index:5; background:var(--bg); border-bottom:1px solid var(--line); }
+.bar .in { max-width:960px; margin:0 auto; padding:10px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.seg { display:inline-flex; flex-wrap:wrap; border:1px solid var(--edge); border-radius:12px; overflow:hidden; }
+.seg button { border:0; border-radius:0; padding:7px 12px; background:transparent; min-height:36px; }
+.seg button[aria-pressed="true"] { background:var(--b); color:var(--bg); }
+@media (max-width:700px) { .bar { position:static; } }
+button { font:inherit; color:var(--fg); background:transparent; border:1px solid var(--edge); border-radius:8px; padding:6px 12px; cursor:pointer; min-height:32px; }
+button:hover { border-color:var(--fg); } button:active { transform:translateY(1px); }
+button:focus-visible, canvas:focus-visible, input:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+button.on { background:var(--bsoft); border-color:var(--b); }
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+.tag { font-size:13px; color:var(--mut); }
+.status { font-size:13px; color:var(--mut); flex-basis:100%; min-height:1.5em; margin:-4px 0 0; }   /* its own line: a status change never re-wraps the bar (a first click would land on a moved button) */
+.plane { display:grid; grid-template-columns:minmax(0, 340px) 1fr; gap:16px; align-items:start; }
+@media (max-width:700px) { .plane { grid-template-columns:1fr; } }
+canvas { display:block; max-width:100%; border-radius:8px; border:1px solid var(--line); }
+#planeCv { width:100%; aspect-ratio:1; touch-action:none; cursor:crosshair; }
+.read { font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--mut); white-space:pre-wrap; min-height:5em; }
+.tbl-wrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; min-width:620px; font-size:14px; } td, th { border-top:1px solid var(--line); padding:6px 6px; text-align:left; vertical-align:top; }
+th { font-size:12px; color:var(--mut); font-weight:600; border-top:0; } td.n { font-variant-numeric:tabular-nums; }
+.hint { background:var(--bsoft); border-radius:8px; padding:8px 12px; color:var(--fg); font-size:14px; }
+kbd { font:12px ui-monospace, Menlo, monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 4px; }
+.ok { color:var(--b); } .bad { color:var(--warn); }
+</style></head><body>
+<div class="bar"><div class="in">
+  <strong>Hear the function</strong>
+  <span class="seg" role="group" aria-label="Timbre" id="tseg">
+    <button data-k="glass-choir" aria-pressed="false">0 · B now</button>
+    <button data-k="cello" aria-pressed="true">1 · Cello</button>
+    <button data-k="choir" aria-pressed="false">2 · Choir</button>
+    <button data-k="glass" aria-pressed="false">3 · Glass harmonica</button>
+    <button data-k="reed" aria-pressed="false">4 · Clarinet</button>
+  </span>
+  <label class="tag">Volume <input id="vol" type="range" min="0" max="100" value="70" style="width:100px; vertical-align:middle" aria-label="Volume"></label>
+  <span class="status" id="status" role="status">Click anywhere to start sound.</span>
+</div></div>
+<main>
+<h1>Four timbres for "hear the function"</h1>
+<p>Only the tone that follows arg F changes. Every other sound here (the zero and pole pings, the turn bells, the loop's
+winding) is palette B exactly as on the sound board. "0 · B now" is the glass choir you heard. Keys <kbd>0</kbd>–<kbd>4</kbd>
+switch the timbre; the demo playing restarts in the new one.</p>
+<p class="hint" id="hint">The pitch class is arg F: one full turn around a zero climbs one octave cycle and the bell rings. |F| sets the loudness and a little of the register.</p>
+
+<section class="card" aria-labelledby="h-demo">
+  <h2 id="h-demo">1. Demos</h2>
+  <p>Each demo drives the voice exactly as the app's probe does (60 updates a second, the same backlog rule, the 1.6 s stillness fade).</p>
+  <div class="row" id="demos">
+    <button data-d="rest">Rest on D, |F| = 1</button>
+    <button data-d="zero">Loop round a double zero (2 turns up)</button>
+    <button data-d="pole">Loop round a pole (1 turn down)</button>
+    <button data-d="sweep">From a zero to a pole (|F| rises)</button>
+    <button data-d="wander">Wander</button>
+    <button data-d="stop">Stop</button>
+  </div>
+  <div class="row"><button id="tour">Play the double-zero loop in all five, one after another</button><span class="tag" id="tourMsg"></span></div>
+</section>
+
+<section class="card" aria-labelledby="h-plane">
+  <h2 id="h-plane">2. The plane</h2>
+  <p>Move over the plane to hear F; press and draw a loop to hear the turns counted. White dots are zeros, black dots poles.</p>
+  <div class="row" role="group" aria-label="Function" id="fnSeg">
+    <button data-f="sq" class="on">z²</button><button data-f="rat">(z − 1)(z + 1)² / (z² + 1)</button><button data-f="exp">eᶻ</button>
+  </div>
+  <div class="plane"><canvas id="planeCv" width="680" height="680" aria-label="Phase portrait of F. Move to hear arg F; drag a loop."></canvas><div class="read" id="readout" aria-live="polite"></div></div>
+</section>
+
+<section class="card" aria-labelledby="h-meas">
+  <h2 id="h-meas">3. Check in this browser</h2>
+  <p>Renders each voice offline through this browser's AudioWorklet: loudness at |F| = 1 (LUFS-M, matched to B), CPU of the
+  whole Shepard stack, the pitch class read back from the spectrum, and the first and last samples.</p>
+  <div class="row"><button id="measure">Measure</button><span class="tag" id="mMsg"></span></div>
+  <div class="tbl-wrap"><table id="mTab"><thead><tr><th>Voice</th><th>LUFS-M</th><th>vs B</th><th>CPU (% of one core)</th><th>Pitch class error (cents, 4 classes)</th><th>Peak</th><th>Starts / ends at 0</th></tr></thead><tbody></tbody></table></div>
+</section>
+<p class="tag">Recipes and measurements: TIMBRES.md. Engine: timbres.js (AudioWorklet, no AudioParam automation).</p>
+</main>
+<script>
+// ---- notes/v15-candidate/src/sound.js (sha256 84826ddebe6e773a…)
+'use strict';
+// Sound for Complex Map Workbench: the engine of notes/sound/prototype.html (revision 3, DESIGN §7 and §7.6), taken as
+// it is. The app's hooks live in app.js (the "sound" block); the controls in page.html (#soundCtl, #sndPop).
+// =====================================================================================================================
+// Sound: the proposed src/sound.js. Web Audio synthesis only (no assets).
+//   Revision 3 (click-free, DESIGN §7): the continuous voices are rendered sample by sample in an AudioWorklet (from a
+//   Blob URL, else a data: URL); where neither is allowed, native nodes with anchored, append-only automation. No
+//   cancelAndHoldAtTime anywhere: it was the source of the snaps heard while moving. An independent check (DESIGN §7.6)
+//   then found two more snaps, both from stopping things while the pointer moves: Esc / hush stepped the bus back to 1
+//   under a hover voice the moving pointer had re-gated, and stopping "Listen along" cut its buffer mid-waveform. Both
+//   now fade on raised cosines; the voices' gate and duck start with zero slope.
+//   On by default from v15 (Interface and Mathematical events; Snap ticks and Hear the function off), except on a test
+//   page (?ns=), which stays off until a test turns it on; a stored choice always wins. The AudioContext is never
+//   created at load: only after the user turns sound on, inside a gesture, or (when "on" is the default or was
+//   remembered) inside the first activation gesture in this frame, so nothing plays before the first click or key. Nothing is ever queued while the
+//   context is not running (one sound is allowed inside an active gesture, so "toggle on" is heard). Hidden tab:
+//   silent and suspended. Preferences are per device (localStorage), never part of the saved or shared work.
+// Tiers are split by WHAT TRIGGERS a cue, not by topic:
+//   ui      Interface: a control the user operated (snap ticks are a separate switch, off by default)
+//   events  Mathematical events: a deliberate action with mathematical content (deformation play / scrub, a loop
+//           closed and its winding, listen along a curve)
+//   sonify  Hear the function under the pointer (opt-in): the live voices and every cue driven by pointer position
+//           (branch cut, zero/pole order, contour, turn bells, preimages collide)
+// API: Sound.play(name, {pan, order, k, t, dir, pc, w, n, at, force, tier}) · Sound.turn({dir, pc, pan}) (count-bearing,
+//      queued, never dropped silently) · Sound.tick({k, pan}) (contour, queued) · Sound.voice() · Sound.heightVoice()
+//      Sound.curve(phi, lnAbs, dur, {bells, cuts, pc}) · Sound.hush() (Esc: stop everything now, setting unchanged)
+//      Sound.set({on, vol, ui, snap, events, sonify}) · Sound.toggle() · Sound.prefs() · Sound.subscribe(fn)
+//      Sound.state() · Sound.render(fn, dur) (offline, for tests) · Sound.CATALOG
+//      Sound.pathStep(argStep, Fat, z0, T0, g0, z1, T1, g1, opts) · Sound.turns(L, ring) (the probe's arithmetic, pure)
+// =====================================================================================================================
+const Sound = (() => {
+  // the app's lsk('cmw-sound'): a ?ns=name page (test tabs) keeps its own setting
+  const NS = 'timbres-test';   // (its own storage key; the rest of this engine is src/sound.js of v15 verbatim)
+  const KEY = NS ? 'cmw-sound:' + NS : 'cmw-sound';
+  const TIERS = ['ui', 'events', 'sonify'];
+  // (v15, the user's defaults, notes/sound/README.md: sound on, Interface and Mathematical events on, Snap ticks and
+  // Hear the function off. A ?ns= test page starts off, so the quality and perf suites stay silent unless a test turns
+  // it on. These apply only when nothing is stored: a stored choice always wins.)
+  const DEFAULTS = { on: !NS, vol: 0.7, ui: true, snap: false, events: true, sonify: false };
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  // storage: a sandboxed frame without allow-same-origin throws on the mere access; then nothing is remembered
+  let store = null;
+  try { store = window.localStorage; store.getItem(KEY); } catch (e) { store = null; }
+  const P = Object.assign({}, DEFAULTS);
+  try {
+    const s = store && JSON.parse(store.getItem(KEY) || 'null');
+    if (s && typeof s === 'object') for (const k in DEFAULTS) if (typeof s[k] === typeof DEFAULTS[k]) P[k] = s[k];
+  } catch (e) { /* corrupt: defaults */ }
+  const save = () => { try { if (store) store.setItem(KEY, JSON.stringify(P)); } catch (e) { /* not remembered */ } };
+
+  let ctx = null, G = null, hidden = document.visibilityState === 'hidden', activated = false, idleTimer = 0, lastGesture = -1e9, graceUsed = false;
+  const subs = new Set();
+  const state = () => ({ ...P, supported: !!AC, remembered: !!store, audio: ctx ? ctx.state : 'none', rate: ctx ? ctx.sampleRate : 0,
+    latency: ctx ? (ctx.baseLatency || 0) + (ctx.outputLatency || 0) : 0, hidden, engine: G ? G.engine : 'none' });
+  // (tests) prefer.worklet = false: the native-node voices in a live context too
+  const prefer = { worklet: true };
+  const emit = () => { const s = state(); for (const f of subs) { try { f(s); } catch (e) { /* a subscriber's bug is not ours */ } } };
+  // a click or key in this page load (our own listeners), and the browser agrees the frame is activated: only then is a
+  // context created or resumed. (Chrome keeps a frame's sticky activation across a reload; a remembered "on" still
+  // waits for a gesture on the new page.)
+  const mayStart = () => activated && (navigator.userActivation ? navigator.userActivation.hasBeenActive : true);
+  const inGesture = () => (navigator.userActivation ? navigator.userActivation.isActive : performance.now() - lastGesture < 1000);
+
+  // ---------------------------------------------------------------- graph
+  // voices → (stereo panner, always) → tier (dry, and a send to a small synthetic room) → bus (hush) → master (volume)
+  // → safety soft clip → speakers
+  function graph(c, vol, opts = {}) {
+    const master = c.createGain(); master.gain.value = vol;
+    if (opts.noClip) master.connect(c.destination);
+    else { const clip = c.createWaveShaper(); clip.curve = SOFTCLIP; clip.oversample = '2x'; master.connect(clip); clip.connect(c.destination); }
+    const bus = c.createGain(); bus.connect(master);
+    const room = c.createConvolver(); room.buffer = roomIR(c);
+    // normalize = true scales this IR to about −12 dB; wet 2.0 puts the tail of a bell ~15–18 dB under its direct
+    // sound (keys ≥ 28 dB): audible as a short dark ring, not as an effect
+    const wet = c.createGain(); wet.gain.value = 2.0; room.connect(wet); wet.connect(bus);
+    const tier = {};
+    for (const k of TIERS) {
+      const dry = c.createGain(), send = c.createGain(), on = opts.allOn || P[k] ? 1 : 0;
+      dry.gain.value = on; send.gain.value = on; dry.connect(bus); send.connect(room);
+      tier[k] = { dry, wet: send };
+    }
+    // the audition bus (a settings preview, the sound board): always open, still behind the master switch
+    const ad = c.createGain(), aw = c.createGain(); ad.connect(bus); aw.connect(room);
+    const aud = { dry: ad, wet: aw };
+    const g = { c, master, bus, tier, noise: noiseBuf(c), active: new Set(), worklet: false, engine: 'loading', offline: false, flush: [] };
+    g.audition = { c, master, bus, tier: { ui: aud, events: aud, sonify: aud }, noise: g.noise, active: g.active };
+    return g;
+  }
+  // linear below 0.5 (−6 dBFS), a tanh knee above, never beyond 0.834 (−1.6 dBFS)
+  // raised-cosine fades (zero slope at both ends) for the hush and for stopping "listen along"
+  const FADE_DN = (() => { const n = 64, a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = 0.5 + 0.5 * Math.cos(Math.PI * i / (n - 1)); return a; })();
+  const FADE_UP = FADE_DN.slice().reverse();
+  const SOFTCLIP = (() => { const n = 4097, a = new Float32Array(n); for (let i = 0; i < n; i++) { const x = 2 * i / (n - 1) - 1, m = Math.abs(x); a[i] = m < 0.5 ? x : Math.sign(x) * (0.5 + 0.39 * Math.tanh((m - 0.5) / 0.39)); } return a; })();
+  function prng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function noiseBuf(c) { const n = c.sampleRate, b = c.createBuffer(1, n, n), d = b.getChannelData(0), r = prng(11); for (let i = 0; i < n; i++) d[i] = 2 * r() - 1; return b; }
+  // a dark, short room (T60 0.75 s, 6 ms pre-delay), darker as it decays, faded out at its end
+  function roomIR(c) {
+    const fs = c.sampleRate, n = Math.round(fs * 0.9), b = c.createBuffer(2, n, fs);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch), r = prng(101 + ch);
+      let lp = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / fs, u = t - 0.006;
+        const env = u < 0 ? 0 : Math.exp(-6.9 * u / 0.75) * Math.min(1, u / 0.004) * Math.min(1, (n - i) / (0.03 * fs));
+        lp += (2 * r() - 1 - lp) * (0.12 + 0.55 * Math.exp(-t / 0.07));
+        d[i] = lp * env;
+      }
+    }
+    return b;
+  }
+
+  // ---------------------------------------------------------------- primitives
+  // attack (linear), exponential decay to −60 dB in t60, then a linear ramp to exactly 0: clickless at both ends
+  function env(p, t, peak, att, t60, hold = 0) {
+    p.setValueAtTime(0, t);
+    p.linearRampToValueAtTime(peak, t + att);
+    if (hold) p.setValueAtTime(peak, t + att + hold);
+    p.exponentialRampToValueAtTime(peak * 1e-3, t + att + hold + t60);
+    p.linearRampToValueAtTime(0, t + att + hold + t60 + 0.01);
+    return t + att + hold + t60 + 0.02;
+  }
+  const track = (G, src) => { G.active.add(src); src.onended = () => G.active.delete(src); };
+  // a cue's output: ALWAYS through an equal-power panner (so pan 0 and pan 0.001 have the same level; cues capped at
+  // ±0.4, about −6 dB in the far ear), dry into its tier, a send into the room. Without StereoPanner: mono at −3 dB,
+  // the panner's centre level.
+  function out(G, T, pan = 0, wet = 0, cap = 0.4) {
+    const c = G.c, inp = c.createGain();
+    let node = inp;
+    if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = clamp(pan || 0, -cap, cap); inp.connect(p); node = p; inp.panner = p; }
+    else inp.gain.value = Math.SQRT1_2;
+    node.connect(G.tier[T].dry);
+    if (wet) { const s = c.createGain(); s.gain.value = wet; node.connect(s); s.connect(G.tier[T].wet); }
+    return inp;
+  }
+  function tone(G, dest, t, f, amp, o = {}) {
+    const c = G.c, osc = c.createOscillator(), g = c.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(f, t);
+    if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t + (o.glide || 0.06));
+    const end = env(g.gain, t, amp, o.att || 0.003, o.t60 || 0.15, o.hold || 0);
+    let node = osc;
+    if (o.lp) {
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = o.lpQ || 0.4;
+      lp.frequency.setValueAtTime(o.lp, t); if (o.lp1) lp.frequency.exponentialRampToValueAtTime(o.lp1, t + (o.lpT || 0.3));
+      osc.connect(lp); node = lp;
+    }
+    node.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(end); track(G, osc);
+    return end;
+  }
+  let noiseOff = 0;
+  // band-passed noise; f1: the band sweeps exponentially to f1 over `sweep` s
+  function burst(G, dest, t, fc, q, amp, t60, o = {}) {
+    const c = G.c, src = c.createBufferSource(), bp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = G.noise; bp.type = 'bandpass'; bp.Q.value = q;
+    bp.frequency.setValueAtTime(fc, t); if (o.f1) bp.frequency.exponentialRampToValueAtTime(o.f1, t + o.sweep);
+    lp.type = 'lowpass'; lp.frequency.value = Math.min(6500, 1.9 * Math.max(fc, o.f1 || 0)); lp.Q.value = 0.5;
+    const end = env(g.gain, t, amp, o.att || 0.0008, t60, o.hold || 0);
+    src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(dest);
+    noiseOff = (noiseOff + 0.1373) % 0.85;
+    src.start(t, noiseOff); src.stop(end); track(G, src);
+    return end;
+  }
+  // UI "key": a sine with a breath of 2nd and 3rd harmonic that die sooner
+  function key(G, d, t, f, amp, t60 = 0.13) {
+    return Math.max(tone(G, d, t, f, amp, { t60 }), tone(G, d, t, 2 * f, amp * 0.16, { t60: t60 * 0.55 }), tone(G, d, t, 3 * f, amp * 0.05, { t60: t60 * 0.35 }));
+  }
+  // glass/bell: inharmonic partials 1, 2.76, 5.40 (a struck bar) with shorter decays up the series; partials above
+  // 0.45·fs are left out (16 and 22.05 kHz contexts: Bluetooth hands-free, some Android devices)
+  function bell(G, d, t, f, amp, t60 = 0.6) {
+    const ny = 0.45 * G.c.sampleRate;
+    let e = tone(G, d, t, f, amp, { t60, att: 0.002 });
+    if (2.756 * f < ny) e = Math.max(e, tone(G, d, t, 2.756 * f, amp * 0.24, { t60: t60 * 0.45, att: 0.002 }));
+    if (5.404 * f < ny) e = Math.max(e, tone(G, d, t, 5.404 * f, amp * 0.06, { t60: t60 * 0.2, att: 0.002 }));
+    return e;
+  }
+  // wood: a lowpassed triangle, short
+  const wood = (G, d, t, f, amp, t60 = 0.09, lp = 1100) => tone(G, d, t, f, amp, { type: 'triangle', lp, t60, att: 0.003 });
+
+  // the palette: D major pentatonic around D4 (D E F♯ A B). While a live Shepard voice sounds, pitched events/sonify
+  // cues are transposed by XF to the voice's current chroma (≤ ±6 semitones), so they form a consonance with it.
+  let XF = 1;
+  const D4 = 293.665, st0 = (n) => D4 * Math.pow(2, n / 12), st = (n) => XF * st0(n);
+  const PENTA = [0, 2, 4, 7, 9], penta0 = (k) => st0(12 + 12 * Math.floor(k / 5) + PENTA[((k % 5) + 5) % 5]), penta = (k) => XF * penta0(k);
+  // the Height scale: one contour of |F| = one pentatonic step; |F| = 1 is D5; A3 … A6 (clamped beyond)
+  const HMIN = -7, HMAX = 8;
+  const hNote = (u) => { const uc = clamp(u, HMIN, HMAX), j = Math.min(HMAX - 1, Math.floor(uc)), a = uc - j; return penta0(j) * Math.pow(penta0(j + 1) / penta0(j), a); };
+
+  // ---------------------------------------------------------------- the catalog
+  // tier, minimum gap between two starts (ms), label, what it means, the recipe; make(G, t, o) returns the end time
+  const CATALOG = {
+    // Interface: dry, small, wood and plastic
+    snap: { tier: 'ui', gap: 125, label: 'Snap', what: 'The pointer settled on a grid point (separate switch, off by default)', recipe: 'noise band-passed at 1.9 kHz, Q 1.4, 25 ms',
+      make: (G, t, o) => burst(G, out(G, 'ui', o.pan, 0), t, 1900, 1.4, 0.48, 0.025) },
+    toggleOn: { tier: 'ui', gap: 60, label: 'Toggle on', what: 'A switch or option turned on', recipe: 'key A5',
+      make: (G, t, o) => key(G, out(G, 'ui', o.pan, 0.04), t, st0(19), 0.20) },
+    toggleOff: { tier: 'ui', gap: 60, label: 'Toggle off', what: 'A switch or option turned off', recipe: 'key E5, shorter',
+      make: (G, t, o) => key(G, out(G, 'ui', o.pan, 0.04), t, st0(14), 0.21, 0.1) },
+    stepAdd: { tier: 'ui', gap: 80, label: 'Add a step', what: 'A function joined the chain', recipe: 'keys D5 then A5, 55 ms apart',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.05); return Math.max(key(G, d, t, st0(12), 0.16), key(G, d, t + 0.055, st0(19), 0.18)); } },
+    stepRemove: { tier: 'ui', gap: 80, label: 'Remove a step', what: 'A function left the chain', recipe: 'keys A5 then D5',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.05); return Math.max(key(G, d, t, st0(19), 0.17), key(G, d, t + 0.055, st0(12), 0.15, 0.11)); } },
+    view: { tier: 'ui', gap: 80, label: 'Switch view', what: 'X → Y, Phase, Landscape: a degree of the scale each', recipe: 'soft tick and key D5 / F♯5 / A5',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.03), i = clamp(o.k | 0, 0, 3); return Math.max(burst(G, d, t, 2200, 1.2, 0.2, 0.02), key(G, d, t + 0.004, st0([12, 16, 19, 21][i]), 0.24, 0.09)); } },
+    exportDone: { tier: 'ui', gap: 300, label: 'Export ready', what: 'A figure or file is ready', recipe: 'a swish (noise swept 1 → 3 kHz, 120 ms), then key A5: "written"',
+      make: (G, t, o) => { const d = out(G, 'ui', o.pan, 0.03); return Math.max(burst(G, d, t, 1000, 2.2, 0.24, 0.06, { f1: 3000, sweep: 0.12, att: 0.05, hold: 0.04 }), key(G, d, t + 0.13, st0(19), 0.25, 0.16)); } },
+    error: { tier: 'ui', gap: 250, label: 'Error', what: 'Something could not be done (with the message)', recipe: 'two wooden D4 knocks with a 1.2 kHz body and a D5 overtone (survives phone speakers)',
+      make: (G, t, o) => {
+        const d = out(G, 'ui', o.pan, 0.03); let e = t;
+        for (const [u, a] of [[0, 1], [0.075, 0.85]]) e = Math.max(e, wood(G, d, t + u, st0(0), 0.18 * a, 0.09, 2000), burst(G, d, t + u, 1200, 3, 0.5 * a, 0.05), tone(G, d, t + u, st0(12), 0.22 * a, { t60: 0.09, att: 0.002 }));
+        return e; } },
+    edge: { tier: 'ui', gap: 150, label: 'Edge', what: 'The keyboard probe reached the edge of the view', recipe: 'a soft wooden A5 knock with a 1.5 kHz contact',
+      make: (G, t, o) => Math.max(wood(G, out(G, 'ui', o.pan, 0.02), t, st0(19), 0.16, 0.07, 2600), burst(G, out(G, 'ui', o.pan, 0), t, 1500, 2, 0.14, 0.015)) },
+
+    // Mathematical events: deliberate actions; bells and glass, a small room
+    morphStart: { tier: 'events', gap: 200, label: 'Deformation plays', what: 'H_t starts from t = 0 (once per play you start; never on loop repeats)', recipe: 'D5 + A5 swell (triangles), low-pass opening 700 Hz → 3.5 kHz over 0.3 s',
+      make: (G, t, o) => { const d = out(G, 'events', o.pan, 0.15); return Math.max(tone(G, d, t, st(12), 0.075, { type: 'triangle', att: 0.09, t60: 0.5, lp: 700, lp1: 3500, lpT: 0.3, lpQ: 0.7 }), tone(G, d, t, st(19), 0.06, { type: 'triangle', att: 0.11, t60: 0.5, lp: 700, lp1: 3500, lpT: 0.3, lpQ: 0.7 })); } },
+    morphTick: { tier: 'events', gap: 40, label: 'Deformation scrub', what: 'A detent every 0.05 of t; landmarks t = 0, ¼, ½, ¾, 1 are pitched D5 F♯5 A5 B5 D6', recipe: 'tick; landmarks add a key; the ends ring',
+      make: (G, t, o) => {
+        const d = out(G, 'events', o.pan, 0.04), u = clamp(+o.t || 0, 0, 1), q = Math.round(u * 4), mark = Math.abs(u * 4 - q) < 1e-6, ends = mark && (q === 0 || q === 4);
+        let e = burst(G, d, t, 1500 * Math.pow(2, u), 1.6, 0.45, 0.02);
+        if (mark) e = Math.max(e, tone(G, d, t, st([12, 16, 19, 21, 24][q]), ends ? 0.10 : 0.06, { t60: ends ? 0.25 : 0.08, att: 0.002 }));
+        return e; } },
+    morphEnd: { tier: 'events', gap: 300, label: 'Deformation arrives', what: 'H_t reached t = 1 (once per play you start)', recipe: 'glass D6 and F♯6',
+      make: (G, t, o) => { const d = out(G, 'events', o.pan, 0.2); return Math.max(bell(G, d, t, st(24), 0.075, 0.8), bell(G, d, t + 0.03, st(28), 0.055, 0.8)); } },
+    loopDone: { tier: 'events', gap: 200, label: 'Loop closed', what: 'Its winding number W as |W| pings, rising for W > 0, falling for W < 0; W = 0 a single soft knock', recipe: 'glass pings on the pentatonic, 125 ms apart, the first accented; > 8: a flourish',
+      make: (G, t, o) => {
+        const d = out(G, 'events', o.pan, 0.2), w = o.w | 0, n = Math.min(8, Math.abs(w));
+        if (!w) return Math.max(wood(G, d, t, st(19), 0.15, 0.1, 2600), burst(G, d, t, 1500, 2, 0.1, 0.012));
+        let e = t;
+        for (let j = 0; j < n; j++) e = Math.max(e, bell(G, d, t + 0.125 * j, penta(w > 0 ? 5 + j : 5 - j), j ? 0.08 : 0.113, 0.35));
+        if (Math.abs(w) > 8) e = Math.max(e, many(G, d, t + 0.125 * n, w > 0 ? 1 : -1));
+        return e; } },
+
+    // Hear the function under the pointer (opt-in): pointer-driven cues
+    cut: { tier: 'sonify', gap: 120, label: 'Branch cut', what: 'The probe crossed a branch cut: F jumps there', recipe: 'a double tick stepping down, 3.2 then 2.0 kHz',
+      make: (G, t, o) => { const d = out(G, o.tier || 'sonify', o.pan, 0.05); return Math.max(burst(G, d, t, 3200, 2.2, 0.52, 0.022), burst(G, d, t + 0.024, 2000, 2.2, 0.52, 0.03)); } },
+    zero: { tier: 'sonify', gap: 250, label: 'Zero', what: 'The probe reached a zero; one ping per order (found by the argument principle on a small circle)', recipe: 'bell D6 × m; 110 ms apart (150 ms for m ≥ 3); the first +3 dB',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.2), m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.11; let e = t; for (let j = 0; j < m; j++) e = Math.max(e, bell(G, d, t + sp * j, st(24), j ? 0.092 : 0.13, 0.45)); return e; } },
+    pole: { tier: 'sonify', gap: 250, label: 'Pole', what: 'The probe reached a pole; one thump per order', recipe: 'felt thump A4 → A3 with its octave at −6 dB and a 1.5 kHz felt contact, × m',
+      make: (G, t, o) => {
+        const d = out(G, 'sonify', o.pan, 0.12), m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.12; let e = t;
+        for (let j = 0; j < m; j++) { const u = t + sp * j, a = j ? 1 : 1.41; e = Math.max(e, tone(G, d, u, st(7), 0.15 * a, { f1: st(-5), glide: 0.05, t60: 0.16, att: 0.003 }), tone(G, d, u, st(19), 0.125 * a, { f1: st(7), glide: 0.05, t60: 0.12, att: 0.003 }), burst(G, d, u, 1500, 2, 0.38 * a, 0.03)); }
+        return e; } },
+    dense: { tier: 'sonify', gap: 600, label: 'Many zeros or poles', what: 'More than two zeros/poles entered within 300 ms (a cluster): one quiet cue, then 600 ms of silence for them', recipe: 'three quiet glass ticks D6 E6 F♯6, 40 ms apart',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.15); let e = t; for (let j = 0; j < 3; j++) e = Math.max(e, bell(G, d, t + 0.04 * j, penta(5 + j), 0.03, 0.2)); return e; } },
+    contour: { tier: 'sonify', gap: 0, label: 'Contour', what: 'The probe crossed a level line of |F| (Height): the tone\'s own note, an octave up', recipe: 'organ tick on the level\'s step of the Height scale, one octave up',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.03), f = 2 * hNote(clamp(o.k | 0, HMIN, HMAX)); return Math.max(tone(G, d, t, f, 0.10, { t60: 0.07, att: 0.002 }), tone(G, d, t, 2 * f, 0.05, { t60: 0.05, att: 0.002 }), tone(G, d, t, 3 * f, 0.03, { t60: 0.04, att: 0.002 }), burst(G, d, t, Math.min(5000, Math.max(1500, 2 * f)), 2, 0.09, 0.012)); } },
+    turn: { tier: 'sonify', gap: 0, label: 'One full turn', what: 'arg F completed a turn and is "home": the loop\'s starting pitch class, two octaves above the tone; approached from below (up) or above (down)', recipe: 'a grace note a fifth below (up) or a fourth above (down), then glass on the home pitch class at 1.7–3.4 kHz',
+      make: (G, t, o) => {
+        const d = out(G, o.tier || 'sonify', o.pan, 0.2), up = (o.dir || 1) > 0;
+        let f = SH.fLo * Math.pow(2, ((o.pc || 0) % 1 + 1) % 1); while (f < 1700) f *= 2;
+        const g = up ? f * 2 / 3 : f * 4 / 3;
+        return Math.max(bell(G, d, t, g, 0.045, 0.12), bell(G, d, t + 0.045, f, 0.105, 0.5)); } },
+    turnMany: { tier: 'sonify', gap: 0, label: 'Many turns', what: 'More turns than can be counted live (> 8 queued): the count is shown, announced and played back exactly', recipe: 'a quick run of five glass notes, up or down',
+      make: (G, t, o) => many(G, out(G, o.tier || 'sonify', o.pan, 0.2), t, (o.dir || 1) > 0 ? 1 : -1) },
+    collide: { tier: 'sonify', gap: 300, label: 'Preimages collide', what: 'w crossed a critical value: two preimages merged (a preimage of multiplicity ≥ 2), never a count change at the view\'s edge', recipe: 'two glass tones a whole tone apart gliding into one',
+      make: (G, t, o) => { const d = out(G, 'sonify', o.pan, 0.15), f = st(19); return Math.max(tone(G, d, t, f * Math.pow(2, 2 / 12), 0.08, { f1: f, glide: 0.18, t60: 0.5, att: 0.01 }), tone(G, d, t, f / Math.pow(2, 2 / 12), 0.08, { f1: f, glide: 0.18, t60: 0.5, att: 0.01 })); } },
+  };
+  function many(G, d, t, dir) { let e = t; for (let j = 0; j < 5; j++) e = Math.max(e, bell(G, d, t + 0.035 * j, penta(dir > 0 ? 5 + j : 9 - j), 0.035, 0.18)); return e; }
+
+  // ---------------------------------------------------------------- lifecycle
+  // Click-free scheduling (revision 3; DESIGN §7). Revision 2 clicked while the pointer moved: its ramp() was
+  // cancelAndHoldAtTime(t) + linearRampToValueAtTime(v, t + d), per partial, per pointer event. When the previous ramp
+  // had already ended at t (about every other event), there was nothing to cancel, so no anchor was inserted (as the
+  // spec says) and the new ramp started from the previous event, in the past: the value jumped (offline, exactly on the
+  // render clock: by up to 75 % of the ramp's range; live: up to 130 snaps a second, as loud as the voice). Now:
+  //   1. the continuous voices are rendered in an AudioWorklet from per-sample-smoothed controls (a late message only
+  //      adds latency); without one, native nodes with anchored, append-only automation in the future (Lane);
+  //   2. every other param (volume, tiers, bus, duck, pan) only ever gets target curves started at now + LEAD (follow);
+  //   3. a one-shot starts at now + LEAD, so its anchored attack never begins in the past.
+  // LEAD: measured in Chrome with 256-frame callbacks, a step at currentTime + 6 ms still landed up to 2 ms late; at
+  // ≥ 10 ms never (0 of 352): twice the callback period, at least 12 ms.
+  let LEAD = 0.012;
+  const volGain = (v) => v * v;   // a squared taper is close to perceptual: 0.7 → −6.2 dB, 0.5 → −12 dB, 0.1 → −40 dB
+  function applyGains(fast) {
+    if (!G) return;
+    const t = ctx.currentTime;
+    follow(ctx, G.master.gain, P.on && !hidden ? volGain(P.vol) : 0, fast ? 0.004 : 0.03, t);
+    for (const k of TIERS) { follow(ctx, G.tier[k].dry.gain, P[k] ? 1 : 0, 0.03, t); follow(ctx, G.tier[k].wet.gain, P[k] ? 1 : 0, 0.03, t); }
+  }
+  // create or resume, only in or after an activation gesture in this frame
+  function ensure() {
+    if (!AC || !P.on || hidden || !mayStart()) return false;
+    if (!ctx || ctx.state === 'closed') {
+      try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* not iOS 16.4+ */ }
+      try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { ctx = null; return false; }
+      ctx.onstatechange = () => { if (ctx.state === 'running') graceUsed = false; emit(); };
+      LEAD = Math.max(0.012, 2 * (ctx.baseLatency || 0.005));
+      G = graph(ctx, 0);
+      // the voices' worklet loads in the background; until it is there (or where it is refused) voices use native nodes
+      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; g.engine = ok ? 'worklet' : 'nodes'; emit(); }); } else G.engine = 'nodes';
+      applyGains(true);
+    }
+    if (ctx.state !== 'running') ctx.resume().then(emit, () => {});
+    emit();
+    return true;
+  }
+  // may a sound be scheduled now? Only on a running clock: a suspended or iOS-"interrupted" context would release a
+  // backlog as a burst on resume. The one exception: a single sound inside an active gesture (the "on" confirmation).
+  function canSchedule(grace) {
+    if (ctx && ctx.state === 'running') return true;
+    if (!ensure()) return false;
+    if (ctx.state === 'running') return true;
+    if (grace && !graceUsed && inGesture()) { graceUsed = true; return true; }
+    return false;
+  }
+  // activation events (HTML: keydown, mousedown/pointerdown for a mouse, pointerup/touchend for touch, click)
+  const onActivate = (e) => { if (e.type === 'keydown' && e.key === 'Escape') return; activated = true; lastGesture = performance.now(); if (P.on && !hidden && (!ctx || ctx.state !== 'running')) ensure(); };
+  for (const ev of ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click']) window.addEventListener(ev, onActivate, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => {
+    hidden = document.visibilityState === 'hidden';
+    if (ctx) {
+      if (hidden) { applyGains(true); hush(); setTimeout(() => { if (hidden && ctx.state === 'running') ctx.suspend().then(emit, () => {}); }, 60); }
+      else if (P.on && mayStart()) { ctx.resume().then(emit, () => {}); applyGains(); }
+    }
+    emit();
+  });
+  window.addEventListener('pagehide', () => { if (ctx && ctx.state === 'running') { hush(); ctx.suspend().then(emit, () => {}); } });
+  // an idle engine sleeps (no audio device kept awake); the next request wakes it
+  function touchIdle(ms = 30000) {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { if (ctx && ctx.state === 'running' && !liveVoices.size && !G.active.size) ctx.suspend().then(emit, () => {}); }, ms);
+  }
+
+  // ---------------------------------------------------------------- one-shots
+  const lastStart = new Map(), recent = [], zpTry = [];
+  let zpQuietUntil = 0;
+  function play(name, o = {}) {
+    const d = CATALOG[name];
+    if (!d || !AC || !P.on || hidden) return false;
+    const tier = o.tier || d.tier;
+    if (!o.audition && (!P[tier] || (name === 'snap' && !P.snap))) return false;
+    if (!canSchedule(!!o.grace)) return false;
+    const now = performance.now(), sched = !!o.force || o.at > 0;
+    // zeros and poles are never forced: a shared gap, and a cluster (≥ 3 entries in 300 ms: sin(1/z), z⁵⁰ − 1,
+    // Blaschke products) becomes one quiet "dense" cue followed by 600 ms of silence for them
+    if ((name === 'zero' || name === 'pole') && !o.audition) {
+      while (zpTry.length && now - zpTry[0] > 300) zpTry.shift();
+      zpTry.push(now);
+      if (now < zpQuietUntil) return false;
+      // (returns 'dense' when the cluster cue played instead: the app says so once, review snddef-4)
+      if (zpTry.length >= 3) { zpQuietUntil = now + 600; return play('dense', { pan: o.pan }) && 'dense'; }
+      if (now - (lastStart.get('zp') || -1e9) < d.gap) return false;
+      lastStart.set('zp', now);
+    } else if (!o.force && now - (lastStart.get(name) || -1e9) < d.gap) return false;
+    // a storm guard for decorative one-shots: at most 14 a second. Scheduled and forced (count-bearing) cues neither
+    // count against it nor are refused by it.
+    while (recent.length && now - recent[0] > 1000) recent.shift();
+    if (!sched && recent.length >= 14 && name !== 'error') return false;
+    lastStart.set(name, now); if (!sched) recent.push(now);
+    const t = ctx.currentTime + LEAD + (o.at || 0);
+    const ch = tier !== 'ui' && !o.audition ? liveChroma(t) : null;
+    XF = ch == null ? 1 : Math.pow(2, ch - Math.round(ch));
+    let end;
+    try { end = d.make(o.audition ? G.audition : G, t, o); } finally { XF = 1; }
+    // the live voices give way: −6 dB for the cue's first 250 ms
+    for (const v of liveVoices) v.duck(t, Math.min(0.25, end - t));
+    touchIdle();
+    return true;
+  }
+  // count-bearing cues are never dropped silently: they queue on the audio clock (turn bells ≤ 8/s; contour ticks
+  // ≤ 12/s). Beyond 8 queued bells one "many turns" flourish plays and the exact count is shown, announced and played
+  // back; contour ticks beyond 0.5 s of backlog coalesce (the Height tone itself is the staircase, one step a contour).
+  // q.due: when each queued cue sounds (its slot + LEAD, as play() schedules it), oldest first
+  const Q = { turn: { next: 0, gap: 0.125, cap: 8, many: 0, due: [] }, contour: { next: 0, gap: 0.083, cap: 6, many: 0, due: [] } };
+  function queued(name, o) {
+    if (!AC || !P.on || hidden || !P[o.tier || 'sonify'] || !canSchedule(false)) return false;
+    const q = Q[name], now = ctx.currentTime, at = Math.max(now, q.next);
+    // "beyond cap queued" counts the cues that have not sounded yet. (The check was at − now ≥ cap · gap. The audio
+    // clock moves by whole render quanta, 5.3 ms at 48 kHz, even during one burst of calls: then the first bell, still
+    // LEAD ahead, counted as played, and 12 turns gave 9 bells.) The flourish waits in the queue like a bell, and there
+    // is one per backlog: another only after the pending one has played.
+    while (q.due.length && q.due[0] <= now) q.due.shift();
+    if (q.due.length >= q.cap) {
+      if (name === 'turn' && !(q.many > now)) { q.many = q.next; play('turnMany', Object.assign({}, o, { at: q.next - now, force: true })); q.due.push(q.next + LEAD); q.next += 0.25; }
+      return 'coalesced';
+    }
+    q.next = at + q.gap; q.due.push(at + LEAD);
+    return play(name, Object.assign({}, o, { at: at - now, force: true }));
+  }
+
+  // ---------------------------------------------------------------- sonification voices
+  // Shepard: N partials an octave apart, f = fLo · 2^pos, pos ∈ [0, N); a bell over pos (centre c, σ) fixes the timbre.
+  // arg F in turns moves every pos by the same amount, so one turn moves each partial into its upper neighbour's place:
+  // pitch class = arg F, seamlessly. fLo = D1, so arg F = 0 (F positive real) sounds D, the palette's tonic.
+  // The bell is a Gaussian times a taper that is exactly 0, with zero slope, at both band edges (sin² over the outer
+  // half octave, where the Gaussian is already below −52 dB): a partial leaving the top re-enters at the bottom at
+  // exactly zero gain, so the wrap is inaudible by construction.
+  // ln|F| moves the bell a little (±0.3 octave: "register", log F on the pitch helix) and the loudness from 60 % to
+  // 100 %; the chroma climb, which carries the winding number, stays dominant.
+  const SH = { N: 9, fLo: 36.70810, sigma: 0.95, c0: 4.1, swing: 0.3, amp: 0.028, edge: 0.5 };
+  const lnc = (x) => Number.isFinite(x) ? x : (x > 0 ? 50 : -50);
+  const shG = (pos, c) => { const d = (pos - c) / SH.sigma; return Math.exp(-0.5 * d * d); };
+  const shTaper = (p) => { if (p <= 0 || p >= SH.N) return 0; const e = Math.min(p, SH.N - p); if (e >= SH.edge) return 1; const s = Math.sin(0.5 * Math.PI * e / SH.edge); return s * s; };
+  const shBell = (pos, c) => shG(pos, c) * shTaper(pos);
+  // partials fade out between 0.40 and 0.45 · fs (16 and 22.05 kHz contexts) instead of being cut
+  const nyq = (f, fs) => { const r = f / fs; return r <= 0.40 ? 1 : r >= 0.45 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.40) / 0.05); };
+  const shCentre = (lnAbs) => SH.c0 + SH.swing * Math.tanh(lnc(lnAbs) / 2.5);
+  const shLoud = (lnAbs) => 0.6 + 0.4 / (1 + Math.exp(-1.3 * (lnc(lnAbs) + 1)));
+  const liveVoices = new Set(), Gl = () => G;
+  let chromaVoice = null;
+  const liveChroma = (t) => (chromaVoice && chromaVoice.sounding() ? chromaVoice.chroma(t) : null);
+  // the Height voice's organ: harmonics 1–4 at 1/n, normalised to a peak of 1 (as createPeriodicWave does)
+  const ORGAN = [1, 1 / 2, 1 / 3, 1 / 4];
+  const ORGAN_NORM = (() => { let m = 0; for (let i = 0; i < 4096; i++) { const a = 2 * Math.PI * i / 4096; let s = 0; for (let n = 0; n < 4; n++) s += ORGAN[n] * Math.sin((n + 1) * a); m = Math.max(m, Math.abs(s)); } return 1 / m; })();
+
+  // ---- the voices' AudioWorklet: every sample computed from per-sample-smoothed controls. Commands are time-stamped
+  // ({at} in seconds of the context's clock) and applied at that sample, or on arrival if late: lateness adds latency,
+  // never a step. Chroma moves by linear slews (deltas, so whole turns never matter); centre, loudness and pan by
+  // one-pole smoothers; gate and duck by two cascaded one-poles (τ/2 each), so an onset or a fade starts with zero
+  // slope (no corner in the envelope); each partial is a phase accumulator, continuous through any change.
+  const WORKLET_SRC = `'use strict';
+const N = ${SH.N}, FLO = ${SH.fLo}, ISIG = ${1 / SH.sigma}, EDGE = ${SH.edge}, AMP = ${SH.amp};
+const ORG = [${ORGAN.join(', ')}], ONORM = ${ORGAN_NORM};
+const TL = 4096, SINT = new Float32Array(TL + 1); for (let i = 0; i <= TL; i++) SINT[i] = Math.sin(2 * Math.PI * i / TL);
+const sin1 = (p) => { const x = p * TL, i = x | 0; return SINT[i] + (SINT[i + 1] - SINT[i]) * (x - i); };
+const GD = 8, GL = 8192, GT = new Float32Array(GL + 2); for (let i = 0; i <= GL + 1; i++) { const d = -GD + 2 * GD * i / GL; GT[i] = Math.exp(-0.5 * d * d); }
+const gauss = (d) => { if (d <= -GD || d >= GD) return 0; const x = (d + GD) * (GL / (2 * GD)), i = x | 0; return GT[i] + (GT[i + 1] - GT[i]) * (x - i); };
+const taper = (p) => { if (p <= 0 || p >= N) return 0; const e = p < N - p ? p : N - p; if (e >= EDGE) return 1; const s = Math.sin(0.5 * Math.PI * e / EDGE); return s * s; };
+const P2 = new Float64Array(N); for (let k = 0; k < N; k++) P2[k] = Math.pow(2, k);
+class Voice extends AudioWorkletProcessor {
+  constructor(o) {
+    super();
+    const p = (o && o.processorOptions) || {};
+    this.kind = p.kind || 'shepard'; this.q = []; this.fs = sampleRate;
+    this.s = 0; this.sFrom = 0; this.sTo = 0; this.sLen = 0; this.sPos = 0; this.fresh = true;
+    this.c = ${SH.c0}; this.cT = this.c; this.ld = 1; this.ldT = 1; this.pan = 0; this.panT = 0;
+    this.g = 0; this.g1 = 0; this.gT = 0; this.gA = this.coef(0.01); this.dk = 1; this.dk1 = 1; this.dkT = 1; this.dkA = this.coef(0.005); this.dkEnd = -1;
+    this.aCL = this.coef(0.02); this.aPan = this.coef(0.03); this.aAmp = this.coef(0.012);
+    this.ph = new Float64Array(N); this.end = -1;
+    this.amp = 0; this.ampT = 0;   // height: organ level
+    for (const c of p.cmds || []) this.push(c);
+    this.port.onmessage = (e) => { for (const c of e.data) this.push(c); };
+  }
+  coef(tau) { return tau > 0 ? 1 - Math.exp(-1 / (tau * this.fs)) : 1; }
+  quiet() { return this.g < 1e-4 && this.g1 < 1e-4; }
+  push(c) { c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
+  apply(c, frame) {
+    if (c.snap != null) {
+      // a new start (the first set, a new function): the nearest equivalent of the chroma (whole turns are inaudible);
+      // instant only while silent, otherwise a 12 ms glide
+      let d = c.snap - this.s; d -= Math.round(d); this.sTo = this.s + d;
+      if (this.quiet() || this.fresh) { this.s = this.sTo; this.sLen = 0; } else { this.sFrom = this.s; this.sLen = Math.round(0.012 * this.fs); this.sPos = 0; }
+    }
+    if (c.ds != null) { this.sFrom = this.s; this.sTo += c.ds; this.sLen = Math.max(1, Math.round(c.dur * this.fs)); this.sPos = 0; }
+    if (c.lf != null) {
+      // the Height voice: s is log2 of the frequency, slewed linearly (in pitch) to the target
+      if (this.fresh || this.quiet()) { this.s = this.sTo = c.lf; this.sLen = 0; } else { this.sFrom = this.s; this.sTo = c.lf; this.sLen = Math.max(1, Math.round((c.dur || 0.008) * this.fs)); this.sPos = 0; }
+    }
+    if (c.cc != null) { this.cT = c.cc; this.ldT = c.loud; if (this.fresh || this.quiet()) { this.c = this.cT; this.ld = this.ldT; } }
+    if (c.pan != null) { this.panT = c.pan; if (this.fresh) this.pan = c.pan; }
+    if (c.amp != null) { this.ampT = c.amp; if (this.fresh || this.quiet()) this.amp = c.amp; }
+    if (c.gate != null) { this.gT = c.gate; this.gA = this.coef(c.tau / 2); }
+    if (c.duck != null) { this.dkT = 0.5; this.dkA = this.coef(0.005); this.dkEnd = frame + Math.round(c.duck * this.fs); }
+    if (c.stop) { this.gT = 0; this.gA = this.coef((c.tau || 0.05) / 2); this.end = frame + Math.round(0.5 * this.fs); }
+    this.fresh = false;
+  }
+  process(_, outputs) {
+    const out = outputs[0], L = out[0], R = out[1] || out[0], n = L.length, f0 = currentFrame, fs = this.fs, inv = 1 / fs, ph = this.ph;
+    const height = this.kind === 'height';
+    for (let i = 0; i < n; i++) {
+      const fr = f0 + i;
+      while (this.q.length && this.q[0].f <= fr) this.apply(this.q.shift(), fr);
+      if (this.dkEnd >= 0 && fr >= this.dkEnd) { this.dkT = 1; this.dkA = this.coef(0.04); this.dkEnd = -1; }
+      if (this.sLen > 0) { this.sPos++; if (this.sPos >= this.sLen) { this.s = this.sTo; this.sLen = 0; } else this.s = this.sFrom + (this.sTo - this.sFrom) * (this.sPos / this.sLen); }
+      this.c += (this.cT - this.c) * this.aCL; this.ld += (this.ldT - this.ld) * this.aCL; this.pan += (this.panT - this.pan) * this.aPan;
+      this.g1 += (this.gT - this.g1) * this.gA; this.g += (this.g1 - this.g) * this.gA;
+      this.dk1 += (this.dkT - this.dk1) * this.dkA; this.dk += (this.dk1 - this.dk) * this.dkA; this.amp += (this.ampT - this.amp) * this.aAmp;
+      let y = 0;
+      if (this.g > 1e-6 || this.g1 > 1e-6 || this.gT > 0) {
+        if (height) {
+          // s is log2 of the frequency here
+          const f = Math.pow(2, this.s); let p = ph[0] + f * inv; p -= Math.floor(p); ph[0] = p;
+          let acc = 0; for (let h = 0; h < 4; h++) { const fh = f * (h + 1); if (fh < 0.45 * fs) { let q = p * (h + 1); q -= Math.floor(q); acc += ORG[h] * sin1(q); } }
+          y = acc * ONORM * this.amp * this.g * this.dk;
+        } else {
+          const si = Math.floor(this.s), u = this.s - si, b = FLO * Math.pow(2, u);
+          let acc = 0;
+          for (let k = 0; k < N; k++) {
+            let kk = (k + si) % N; if (kk < 0) kk += N;
+            const pos = kk + u, f = b * P2[kk];
+            let p = ph[k] + f * inv; if (p >= 1) p -= Math.floor(p); ph[k] = p;
+            let gk = gauss((pos - this.c) * ISIG);
+            if (gk < 1e-9) continue;
+            gk *= taper(pos);
+            const r = f * inv; if (r > 0.40) gk *= r >= 0.45 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.40) / 0.05);
+            acc += gk * sin1(p);
+          }
+          y = acc * AMP * this.ld * this.g * this.dk;
+        }
+      }
+      // the equal-power pan law of a StereoPannerNode for a mono input (−3 dB each side at the centre)
+      const th = (this.pan + 1) * Math.PI / 4;
+      L[i] = y * Math.cos(th); if (R !== L) R[i] = y * Math.sin(th);
+    }
+    return this.end < 0 || f0 < this.end;
+  }
+}
+registerProcessor('cmw-voice', Voice);`;
+  let workletURL = null;
+  const workletURLs = () => {
+    const u = [];
+    try { if (!workletURL) workletURL = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'text/javascript' })); u.push(workletURL); } catch (e) { /* no Blob URLs */ }
+    u.push('data:text/javascript;charset=utf-8,' + encodeURIComponent(WORKLET_SRC));
+    return u;
+  };
+  // load the voices' worklet into a context: a Blob URL, else a data: URL; false where neither is allowed (a CSP
+  // without blob:/data: for scripts, no AudioWorklet): the voices then use native nodes (anchored automation)
+  let workletRefused = false;   // refused once (a CSP): not asked again in this page
+  async function loadWorklet(c) {
+    if (workletRefused || !c.audioWorklet || typeof AudioWorkletNode === 'undefined') return false;
+    for (const u of workletURLs()) { try { await c.audioWorklet.addModule(u); return true; } catch (e) { /* refused: next */ } }
+    workletRefused = true;
+    return false;
+  }
+
+  // the voice's chroma as the main thread plans it: segments {t0, t1, s0, s1} on the context's clock (the worklet and
+  // the node timeline both follow the same plan; only the cue transposition and the display read it)
+  function Plan() {
+    let segs = [], sEnd = null;
+    const at = (t) => {
+      if (sEnd === null) return 0;
+      for (let i = segs.length - 1; i >= 0; i--) { const g = segs[i]; if (t >= g.t0) return t >= g.t1 || g.t1 <= g.t0 ? g.s1 : g.s0 + (g.s1 - g.s0) * (t - g.t0) / (g.t1 - g.t0); }
+      return segs.length ? segs[0].s0 : sEnd;
+    };
+    return {
+      at, end: () => sEnd, empty: () => sEnd === null,
+      start(t, s) { segs = [{ t0: t, t1: t, s0: s, s1: s }]; sEnd = s; },
+      // replan from t (the worklet: a new slew from where the voice is) or append at the end (the node timeline)
+      replan(t, s1, t1) { const s0 = at(t); segs = segs.filter((g) => g.t1 > t - 0.5 && g.t0 < t); segs.push({ t0: t, t1, s0, s1 }); sEnd = s1; return s0; },
+      append(t0, t1, s1) { const s0 = sEnd; segs.push({ t0, t1, s0, s1 }); if (segs.length > 64) segs.splice(0, segs.length - 64); sEnd = s1; return s0; },
+      reset() { segs = []; sEnd = null; },
+    };
+  }
+
+  // a voice's output: stereo already panned (the worklet) → its tier, dry and a small send to the room
+  function outStereo(G, T, wet) {
+    const c = G.c, inp = c.createGain();
+    inp.connect(G.tier[T].dry);
+    if (wet) { const s = c.createGain(); s.gain.value = wet; inp.connect(s); s.connect(G.tier[T].wet); }
+    return inp;
+  }
+
+  // the main-thread side shared by both voices and both back ends: dt from the event clock, the backlog rule (never
+  // reversed; whole turns beyond one dropped, since they sound identical; played at ≤ ~3 turns/s)
+  function ShepardVoice(G, T = 'sonify') {
+    const c = G.c, plan = Plan(), worklet = !!G.worklet && (G.offline || prefer.worklet);
+    let off = 0, last = -1, lastWall = 0, dead = false, on = false, centre = SH.c0, loud = 1;
+    const be = worklet ? WorkletBackend(G, T, 'shepard', 0.08) : NodeShepard(G, T);
+    const v = {
+      engine: worklet ? 'worklet' : 'nodes',
+      // ph: arg F in turns, unwrapped along the probe's path; lnAbs = ln |F|; jump: F jumped (a cut); returns the whole
+      // turns dropped
+      set(ph, lnAbs, pn = 0, t, jump = false) {
+        if (dead) return 0;
+        const explicit = t != null; if (!explicit) t = c.currentTime;
+        const wall = performance.now();
+        const dt = explicit ? (last < 0 ? 0.02 : clamp(t - last, 0.008, 0.05)) : (last < 0 ? 0.02 : clamp((wall - lastWall) / 1000, 0.008, 0.05));
+        last = t; lastWall = wall;
+        centre = shCentre(lnAbs); loud = shLoud(lnAbs);
+        let dropped = 0;
+        if (plan.empty()) {
+          off = Math.floor(ph); const f = ph - off;
+          plan.start(t, f);
+          be.start(t, f, centre, loud, clamp(pn, -0.3, 0.3), explicit);
+          return 0;
+        }
+        const cur = be.from(plan, t, explicit);
+        let back = ph - off - cur;
+        if (Math.abs(back) > 1) { const w = Math.sign(back) * (Math.ceil(Math.abs(back)) - 1); off += w; back -= w; dropped = w; }
+        // the backlog with its true sign: the frame interval plus 0.3 s per turn (≈ 3 turns/s at most); a jump (a branch
+        // cut) as a 12 ms glide. (The worklet replans from where the voice is; the node timeline only appends, so there
+        // a move ends one frame interval after now + LEAD, or later when 0.3 s per turn needs longer: no queue builds up.)
+        const slow = jump ? 0 : 0.3 * Math.abs(back), dur = jump ? 0.012 : dt + slow;
+        be.move(plan, t, cur, cur + back, dur, centre, loud, clamp(pn, -0.3, 0.3), explicit, jump ? 0.012 : dt, slow);
+        return dropped;
+      },
+      gate(g, t, tau) { if (dead) return; on = !!g; if (on) chromaVoice = v; be.gate(on ? 1 : 0, t, tau != null ? tau : on ? 0.02 : 0.08); },
+      duck: (t, hold) => { if (!dead && hold > 0) be.duck(t, hold); },
+      sounding: () => on && !dead && !plan.empty(),
+      chroma: (t = c.currentTime) => { const s = plan.at(t); return s - Math.floor(s); },
+      silence() { v.gate(false, undefined, 0.01); plan.reset(); last = -1; },
+      reset() { plan.reset(); last = -1; },
+      partials: () => { const s = plan.at(c.currentTime), u = s - Math.floor(s); return Array.from({ length: SH.N }, (_, k) => ({ pos: k + u, amp: loud * shBell(k + u, centre) })); },
+      centre: () => centre,
+      stop(t) { if (dead) return; on = false; be.stop(t); dead = true; liveVoices.delete(v); if (chromaVoice === v) chromaVoice = null; if (G === Gl()) touchIdle(); },
+    };
+    liveVoices.add(v);
+    return v;
+  }
+  // the landscape probe: an organ tone (harmonics 1–4 at 1/n, so it survives phone speakers) on the Height scale:
+  // u = ln|F| / (2π/S), one contour of the drawn lines = one pentatonic step, |F| = 1 on D5, A3 … A6
+  const HV = { amp: 0.042 };
+  function HeightVoice(G, T = 'sonify') {
+    const c = G.c, worklet = !!G.worklet && (G.offline || prefer.worklet), be = worklet ? WorkletBackend(G, T, 'height', 0.06) : NodeHeight(G, T);
+    let dead = false, last = -1, lastWall = 0, loud = 1, on = false, started = false, gEnd = 0;
+    const v = {
+      engine: worklet ? 'worklet' : 'nodes',
+      // glide: at least this long (s) for this move (a function swapped under a still probe). It is kept to its end:
+      // the next frames' moves ask for the rest of it, not for one frame (review snddef-5)
+      set(lnAbs, pn = 0, t, sectors = 12, glide = 0) {
+        if (dead) return;
+        const explicit = t != null; if (!explicit) t = c.currentTime;
+        const wall = performance.now();
+        const dt = explicit ? (last < 0 ? 0 : clamp(t - last, 0.008, 0.05)) : (last < 0 ? 0 : clamp((wall - lastWall) / 1000, 0.008, 0.05));
+        last = t; lastWall = wall;
+        const f = hNote(lnc(lnAbs) / (2 * Math.PI / sectors));
+        loud = Math.min(1.5, Math.pow(587.33 / f, 0.35));   // a tilt: low notes a little louder (small speakers)
+        if (!started) { started = true; be.start(t, Math.log2(f), 0, HV.amp * loud, clamp(pn, -0.3, 0.3), explicit); return; }
+        const clk = explicit ? t : wall / 1000;
+        if (glide > 0) gEnd = clk + glide;
+        be.moveH(t, Math.log2(f), Math.max(dt, 0.008, glide, gEnd - clk), HV.amp * loud, clamp(pn, -0.3, 0.3), explicit);
+      },
+      gate(g, t, tau) { if (!dead) { on = !!g; be.gate(on ? 1 : 0, t, tau != null ? tau : on ? 0.02 : 0.08); } },
+      duck: (t, hold) => { if (!dead && hold > 0) be.duck(t, hold); },
+      sounding: () => on && !dead, chroma: () => null,
+      // reset: a fresh start of the probe (a new point, a lost track). The pitch is absolute here, so only the frame
+      // clock starts again; a swap's glide still running keeps its end, so a fresh start never cuts it to one short
+      // move (review snddef-5)
+      silence() { v.gate(false, undefined, 0.01); }, reset() { last = -1; },
+      stop(t) { if (dead) return; on = false; be.stop(t); dead = true; liveVoices.delete(v); if (G === Gl()) touchIdle(); },
+    };
+    liveVoices.add(v);
+    return v;
+  }
+
+  // ---- back end 1: the AudioWorklet (one node per voice; in an offline render the node is built when rendering starts,
+  // with every command in its options, so renders are exact and deterministic)
+  function WorkletBackend(G, T, kind, wet) {
+    const c = G.c, o = outStereo(G, T, wet), pend = [];
+    let node = null, stopT = null;
+    const make = () => {
+      node = new AudioWorkletNode(c, 'cmw-voice', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { kind, cmds: pend.splice(0) } });
+      node.connect(o);
+    };
+    const post = (cmd) => { if (node) node.port.postMessage([cmd]); else pend.push(cmd); };
+    if (G.offline) G.flush.push(make); else make();
+    const now = (t) => (t != null ? t : c.currentTime);
+    return {
+      start(t, s, cc, loud, pan) { post(kind === 'height' ? { at: t, lf: s, amp: loud, pan } : { at: t, snap: s, cc, loud, pan }); },
+      from: (plan, t) => plan.at(t),
+      move(plan, t, cur, s1, dur, cc, loud, pan) { const s0 = plan.end(); plan.replan(t, s1, t + dur); post({ at: t, ds: s1 - s0, dur, cc, loud, pan }); },
+      moveH(t, lf, dur, amp, pan) { post({ at: t, lf, dur, amp, pan }); },
+      gate(g, t, tau) { post({ at: now(t), gate: g, tau }); },
+      duck(t, hold) { post({ at: now(t), duck: hold }); },
+      stop(t) { post({ at: now(t), stop: 1, tau: 0.05 }); stopT = now(t); if (!G.offline) setTimeout(() => { try { o.disconnect(); } catch (e) { /* gone */ } }, 800 + Math.max(0, stopT - c.currentTime) * 1000); },
+    };
+  }
+
+  // ---- back end 2: native nodes with anchored, append-only automation (no AudioWorklet here). Every param that moves
+  // continuously is a Lane: its own timeline (end time, end value); a move starts at max(now + LEAD, end), anchored with
+  // setValueAtTime(end value) when there is a gap, and is never cancelled. Gate, duck and pan only get target curves.
+  function Lane(p, v0) { p.value = v0; return { p, end: 0, v: v0 }; }
+  function laneTo(L, v, T0, T1) {
+    if (T0 > L.end + 1e-7) L.p.setValueAtTime(L.v, T0);
+    if (T1 > T0 + 1e-7) L.p.linearRampToValueAtTime(v, T1); else L.p.setValueAtTime(v, T0);
+    L.end = Math.max(T0, T1); L.v = v;
+  }
+  function laneSet(L, v, T) { L.p.setValueAtTime(v, T); L.end = T; L.v = v; }
+  const leadOf = (c) => (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext ? 0 : LEAD);
+  // a target curve from wherever the param is, starting no earlier than now + LEAD (only for params that never get
+  // linear ramps: cancelScheduledValues then removes only future targets, and a target starts from the running value)
+  function follow(c, p, v, tau, t = 0) {
+    const T = Math.max(t || 0, c.currentTime + leadOf(c));
+    p.cancelScheduledValues(T);
+    if (tau > 0) p.setTargetAtTime(v, T, tau); else p.setValueAtTime(v, T);
+    return T;
+  }
+  function nodeCommon(G, T, wet) {
+    const c = G.c, o = out(G, T, 0, wet, 0.3), vg = c.createGain(), dk = c.createGain();
+    vg.gain.value = 0; vg.connect(dk); dk.connect(o);
+    let stopped = false;
+    return {
+      c, o, vg, dk,
+      pan(pn, t) { if (o.panner) follow(c, o.panner.pan, pn, 0.03, t); },
+      gate(g, t, tau) { if (!stopped) follow(c, vg.gain, g, tau, t); },
+      duck(t, hold) { const T0 = follow(c, dk.gain, 0.5, 0.01, t); dk.gain.setTargetAtTime(1, T0 + hold, 0.08); },
+      stop(t, srcs) { const T0 = follow(c, vg.gain, 0, 0.05, t); stopped = true; for (const s of srcs) s.stop(T0 + 0.5); },
+    };
+  }
+  function NodeShepard(G, T) {
+    const cm = nodeCommon(G, T, 0.08), c = cm.c, N = SH.N, osc = [], det = [], gl = [];
+    for (let k = 0; k < N; k++) {
+      const os = c.createOscillator(), g = c.createGain();
+      os.frequency.value = SH.fLo; os.connect(g); g.connect(cm.vg); os.start();
+      osc.push(os); det.push(Lane(os.detune, 1200 * k)); gl.push(Lane(g.gain, 0));
+    }
+    let end = 0, cE = SH.c0, lE = 1, want = null, timer = 0;
+    const gainOf = (pos, cc, l) => SH.amp * l * shBell(pos, cc) * nyq(SH.fLo * Math.pow(2, pos), c.sampleRate);
+    // one segment from (T0, sE) to (T1, s1): each partial follows k + s (mod N), a breakpoint every 1/16 turn so the gain
+    // follows the bell, and an exact split where a partial wraps (its gain is 0 there; the detune jumps there)
+    function segment(T0, T1, sE, s1, c1, l1) {
+      const m = Math.max(1, Math.ceil(Math.abs(s1 - sE) * 16));
+      for (let k = 0; k < N; k++) {
+        let tp = T0, sp = sE;
+        for (let j = 1; j <= m; j++) {
+          const a = j / m, tj = T0 + (T1 - T0) * a, sj = sE + (s1 - sE) * a, cj = cE + (c1 - cE) * a, lj = lE + (l1 - lE) * a;
+          const p0 = k + sp, p1 = k + sj, w0 = Math.floor(p0 / N), w1 = Math.floor(p1 / N);
+          if (w0 !== w1) {
+            const up = w1 > w0, edge = (up ? w1 : w0) * N, tc = tp + (tj - tp) * ((edge - p0) / (p1 - p0));
+            laneTo(det[k], 1200 * (up ? N : 0), tp, tc); laneTo(gl[k], 0, tp, tc);
+            laneSet(det[k], 1200 * (up ? 0 : N), tc);
+            tp = tc;
+          }
+          const pos = p1 - N * w1;
+          laneTo(det[k], 1200 * pos, tp, tj); laneTo(gl[k], gainOf(pos, cj, lj), tp, tj);
+          tp = tj; sp = sj;
+        }
+      }
+      end = T1; cE = c1; lE = l1;
+    }
+    const be = {
+      start(t, s, cc, loud, pan, explicit) {
+        const T0 = explicit ? t : c.currentTime + LEAD;
+        for (let k = 0; k < N; k++) { const pos = k + s; laneSet(det[k], 1200 * pos, T0); laneSet(gl[k], gainOf(pos, cc, loud), T0); }
+        end = T0; cE = cc; lE = loud; cm.pan(pan, T0);
+      },
+      // the node timeline cannot be replanned: a move starts where the queue ends (≤ 20 ms ahead of now + LEAD; more is
+      // held and sent when the queue drains, the newest target only)
+      from: (plan) => plan.end(),
+      move(plan, t, cur, s1, dur, cc, loud, pan, explicit, dt, slow) {
+        if (explicit) { const T0 = Math.max(t, end), T1 = Math.max(T0 + slow, t + dt, T0 + 0.004); segment(T0, T1, plan.end(), s1, cc, loud); plan.append(T0, T1, s1); cm.pan(pan, T0); return; }
+        want = { s1, dt, slow, cc, loud, pan, plan }; be.pump();
+      },
+      pump() {
+        if (!want) return;
+        const now = c.currentTime + LEAD, ahead = end - now;
+        if (ahead > 0.02) { clearTimeout(timer); timer = setTimeout(be.pump, (ahead - 0.015) * 1000); return; }
+        const w = want; want = null;
+        const T0 = Math.max(now, end), T1 = Math.max(T0 + w.slow, now + w.dt, T0 + 0.004);
+        segment(T0, T1, w.plan.end(), w.s1, w.cc, w.loud); w.plan.append(T0, T1, w.s1); cm.pan(w.pan, T0);
+      },
+      gate: cm.gate, duck: cm.duck,
+      stop(t) { clearTimeout(timer); want = null; cm.stop(t, osc); },
+    };
+    return be;
+  }
+  function NodeHeight(G, T) {
+    const cm = nodeCommon(G, T, 0.06), c = cm.c, os = c.createOscillator(), lg = c.createGain();
+    os.setPeriodicWave(c.createPeriodicWave(new Float32Array([0, 0, 0, 0, 0]), new Float32Array([0, ...ORGAN])));
+    os.frequency.value = 440; os.connect(lg); lg.connect(cm.vg); os.start();
+    const det = Lane(os.detune, 0), amp = Lane(lg.gain, 0);
+    const cents = (lf) => 1200 * (lf - Math.log2(440));
+    let want = null, timer = 0;
+    const be = {
+      start(t, lf, _c, a, pan, explicit) { const T0 = explicit ? t : c.currentTime + LEAD; laneSet(det, cents(lf), T0); laneSet(amp, a, T0); cm.pan(pan, T0); },
+      moveH(t, lf, dur, a, pan, explicit) {
+        if (explicit) { const T0 = Math.max(t, det.end); laneTo(det, cents(lf), T0, T0 + dur); laneTo(amp, a, T0, T0 + dur); cm.pan(pan, T0); return; }
+        want = { lf, dur, a, pan }; be.pump();
+      },
+      pump() {
+        if (!want) return;
+        const now = c.currentTime + LEAD, ahead = det.end - now;
+        if (ahead > 0.02) { clearTimeout(timer); timer = setTimeout(be.pump, (ahead - 0.015) * 1000); return; }
+        const w = want; want = null; const T0 = Math.max(now, det.end), T1 = Math.max(now + w.dur, T0 + 0.004);
+        laneTo(det, cents(w.lf), T0, T1); laneTo(amp, w.a, T0, T1); cm.pan(w.pan, T0);
+      },
+      gate: cm.gate, duck: cm.duck,
+      stop(t) { clearTimeout(timer); want = null; cm.stop(t, [os]); },
+    };
+    return be;
+  }
+  function liveVoice(kind) {
+    if (!P.on || !P.sonify || hidden || !AC) return null;
+    if (!canSchedule(false)) return null;
+    clearTimeout(idleTimer);
+    return kind === 'height' ? HeightVoice(G) : ShepardVoice(G);
+  }
+
+  // "listen along a curve": the arg (turns, unwrapped) and ln|F| sampled uniformly in time over dur seconds, synthesised
+  // sample by sample with integrated phases (exact and phase-continuous), as one buffer
+  function curveBuffer(c, phi, lnAbs, dur) {
+    const fs = c.sampleRate, n = Math.ceil(dur * fs), M = phi.length, b = c.createBuffer(1, n, fs), y = b.getChannelData(0);
+    const ph = new Float64Array(SH.N), fade = Math.round(0.03 * fs);
+    for (let i = 0; i < n; i++) {
+      const u = (i / (n - 1)) * (M - 1), j = Math.min(M - 2, Math.floor(u)), a = u - j;
+      const f = phi[j] + (phi[j + 1] - phi[j]) * a, la = lnAbs[j] + (lnAbs[j + 1] - lnAbs[j]) * a;
+      const cen = shCentre(la), ld = shLoud(la), e = Math.min(1, i / fade, (n - 1 - i) / fade);
+      let s = 0;
+      for (let k = 0; k < SH.N; k++) {
+        let p = k + f; p -= SH.N * Math.floor(p / SH.N);
+        const fk = SH.fLo * Math.pow(2, p);
+        ph[k] += 2 * Math.PI * fk / fs;
+        if (ph[k] > 1e6) ph[k] %= 2 * Math.PI;
+        const g = shBell(p, cen) * nyq(fk, fs);
+        if (g > 1e-5) s += g * Math.sin(ph[k]);
+      }
+      y[i] = SH.amp * ld * e * s;
+    }
+    return b;
+  }
+  // a deliberate action (a button, a key): the Mathematical events tier. Its bells (on the curve's starting pitch class)
+  // and cut ticks go through the same tier, scheduled on the audio clock at least 100 ms apart. Returns
+  // {t0, dur, stop()} or null.
+  function curve(phi, lnAbs, dur, opts = {}) {
+    if (!P.on || !P.events || hidden || !AC) return null;
+    if (!canSchedule(false)) return null;
+    const src = ctx.createBufferSource(), fade = ctx.createGain(); src.buffer = curveBuffer(ctx, phi, lnAbs, dur);
+    src.connect(fade); fade.connect(out(G, 'events', 0, 0.1)); track(G, src);
+    const t0 = ctx.currentTime + Math.max(0.03, LEAD + 0.01);
+    src.start(t0);
+    let next = 0;
+    for (const b of opts.bells || []) { const at = Math.max(0.025 + b.t, next); next = at + 0.1; play('turn', { dir: b.dir, pc: opts.pc, at, force: true, tier: 'events' }); }
+    for (const tt of opts.cuts || []) play('cut', { at: 0.025 + tt, force: true, tier: 'events' });
+    clearTimeout(idleTimer); src.onended = () => { G.active.delete(src); touchIdle(); };
+    // stop: a 12 ms raised-cosine fade from now + LEAD (no corner, no step), then the source: never cut mid-waveform
+    let stopped = false;
+    return { t0, dur, now: () => ctx.currentTime, stop() { if (stopped) return; stopped = true; try { const T = ctx.currentTime + LEAD; fade.gain.setValueCurveAtTime(FADE_DN, T, 0.012); src.stop(T + 0.02); } catch (e) { /* ended */ } } };
+  }
+  // Esc, hidden, off: everything stops now, queues are emptied, live voices are gated off; the setting is unchanged.
+  // The bus goes down on a 12 ms raised cosine, every scheduled source is stopped inside the silent window that
+  // follows, and the bus comes back on a 30 ms raised cosine 50 ms after the start: no step (revision 3 stepped it
+  // back to 1, a snap under a hover voice that a still-moving pointer had re-gated) and no corner (a target curve
+  // starts with a corner, heard as a tick at the stop). DESIGN §7.6. A hush during a hush joins its silent window, or
+  // (in its return) starts a new one after it: value curves never overlap.
+  function hush() {
+    if (!ctx || !G) return;
+    const now = ctx.currentTime + LEAD, at = G.hushAt == null ? -1 : G.hushAt;
+    let t = at;
+    if (!(now <= at + 0.035)) {
+      t = Math.max(now, at + 0.081);
+      try { G.bus.gain.setValueCurveAtTime(FADE_DN, t, 0.012); G.bus.gain.setValueCurveAtTime(FADE_UP, t + 0.05, 0.03); }
+      catch (e) { t = follow(ctx, G.bus.gain, 0, 0.004); G.bus.gain.setTargetAtTime(1, t + 0.05, 0.015); }
+      G.hushAt = t;
+    }
+    const off = Math.max(now, t + 0.013);
+    for (const s of G.active) { try { s.stop(off); } catch (e) { /* not started */ } }
+    // the voices fade now (τ 4 ms, zero slope at the start), in command order: pointer events handled after this one
+    // (bunched behind a busy main thread) re-gate the voice after it, never before a fade-out stamped at now + LEAD
+    // (that order gave a 10 ms blip: the voice swelling, then cut)
+    for (const v of liveVoices) v.gate(false, undefined, 0.004);
+    Q.turn.next = Q.contour.next = 0; Q.turn.due.length = Q.contour.due.length = 0;
+  }
+
+  // ---------------------------------------------------------------- settings
+  function set(o, opts = {}) {
+    const was = P.on;
+    for (const k in o) if (k in DEFAULTS && typeof o[k] === typeof DEFAULTS[k]) P[k] = k === 'vol' ? clamp(o[k], 0, 1) : o[k];
+    save();
+    if (P.on && !was) { activated = true; lastGesture = performance.now(); ensure(); applyGains(true); if (!opts.quiet) play('toggleOn', { force: true, grace: true }); }
+    else if (!P.on && was && ctx) {
+      // off is immediate and silent: the icon and aria-pressed confirm it
+      hush(); for (const v of [...liveVoices]) v.stop();
+      follow(ctx, G.master.gain, 0, 0.003);
+      setTimeout(() => { if (!P.on && ctx && ctx.state === 'running') ctx.suspend().then(emit, () => {}); }, 60);
+    } else applyGains();
+    emit();
+  }
+
+  // ---------------------------------------------------------------- the probe's arithmetic (pure; used by app.js)
+  // arg F along a path in (z, t) (notes/sound/DEFORMATION.md). Fat(T) is the function at transport time T. The change
+  // of arg of u ↦ Fat(T0 + u (T1 − T0))(z0 + u (z1 − z0)), u ∈ [0, 1], tracked exactly by argStep (Calc.argStep) on
+  // the parameter u: a still probe (z1 = z0) follows t, a probe that moves while t runs follows both at once. g0, g1:
+  // the values at the ends (known). Returns argStep's result {d, exact, why, evals}; why 'jump' is a cut of H_t
+  // sweeping across the probe, 'zero' or 'pole' one passing exactly through it.
+  function pathStep(argStep, Fat, z0, T0, g0, z1, T1, g1, opts) {
+    const dx = z1.re - z0.re, dy = z1.im - z0.im, dT = T1 - T0;
+    const P = (u) => { const s = u.re; return Fat(T0 + s * dT)({ re: z0.re + s * dx, im: z0.im + s * dy }); };
+    return argStep(P, { re: 0, im: 0 }, g0, { re: 1, im: 0 }, g1, opts);
+  }
+  // the turns of a loop or a run {phi, k} (phi: arg in turns since it began): one call of ring(dir) per completed
+  // turn; a turn back must first come back to the previous integer, so a wobble at a turn rings once. (A turn that
+  // ends on the integer up to rounding counts: e^(2πi·3t)z tracks to 2.9999999999999982 turns.)
+  function turns(L, ring) {
+    let n = 0;
+    while (L.phi >= L.k + 1 - 1e-9) { L.k++; n++; if (ring) ring(1); }
+    while (L.phi <= L.k - 1 + 1e-9) { L.k--; n--; if (ring) ring(-1); }
+    return n;
+  }
+
+  // offline rendering, for tests and waveform thumbnails (no output device, no activation needed)
+  // opts.nodes: the native-node voices (the fallback where no AudioWorklet is allowed)
+  async function render(fn, dur, opts = {}) {
+    const rate = opts.rate || 48000, c = new OfflineAudioContext(2, Math.ceil(dur * rate), rate), g = graph(c, opts.vol != null ? opts.vol : 1, { allOn: true, noClip: opts.noClip });
+    g.offline = true; g.worklet = !opts.nodes && await loadWorklet(c); g.engine = g.worklet ? 'worklet' : 'nodes';
+    fn(g, 0.01, c);
+    for (const f of g.flush) f();
+    return c.startRendering();
+  }
+
+  return {
+    play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush,
+    set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
+    voice: () => liveVoice('phase'), heightVoice: () => liveVoice('height'), curve, curveBuffer, render, graph, CATALOG, SH, HV, ShepardVoice, HeightVoice,
+    shG, shBell, shCentre, shLoud, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
+  };
+})();
+// the sound popover (page.html #sndPop) sits outside #app, which the app's walker translates: in another interface
+// language its static strings are translated here, once, at load (src/i18n.js; English: nothing runs)
+if (typeof document !== 'undefined' && typeof I18N !== 'undefined' && I18N.lang !== 'en') { const pop = document.getElementById('sndPop'); if (pop) I18N.applyStatic(pop); }
+
+</script>
+<script>
+// ---- palette B: notes/sound/v2/board/engine_b.js
+'use strict';
+// =====================================================================================================================
+// Sound v2 ("B"): the new palette of notes/sound/v2/DESIGN.md as an engine, for the sound board (board.html).
+// Nothing here is in the app. It shares the app's graph (Sound.graph: panner law, tiers, the small dark room, the
+// soft clipper) and the app's Shepard voice protocol (Sound.ShepardVoice: the exact chroma plan, gate, duck), so only
+// what the sounds are made of differs.
+//   * one AudioWorklet node ("cmwb-synth") renders every one-shot and the scrub texture sample by sample. The main
+//     thread posts parameters only ({k: 'cue', at, parts: [...]}); variation is drawn on the main thread from a
+//     per-play PRNG, so a seeded play is exact and repeatable. Every part starts at exactly 0 (raised-cosine ring-in
+//     over the mallet contact, Hann-windowed noise) and ends at exactly 0 (a raised-cosine fade): a late message adds
+//     latency, never a step. No AudioParam automation anywhere in B (the shared graph's gains only get the app's
+//     follow() targets, through Sound).
+//   * one AudioWorklet node per Shepard voice ("cmw-voice", the same command protocol as the app's): the glass choir.
+//   Parts: 'm' a decaying mode (modal synthesis), 'n' a contact noise burst, 'air' band-passed noise gliding,
+//   'bow' a bowed-glass tone (3 detuned sines). The texture ('tex') is a persistent voice that follows the speed of t.
+// =====================================================================================================================
+function B_WORKLET() {
+  'use strict';
+  const TL = 4096, SINT = new Float32Array(TL + 1);
+  for (let i = 0; i <= TL; i++) SINT[i] = Math.sin(2 * Math.PI * i / TL);
+  const sin1 = (p) => { const x = p * TL, i = x | 0; return SINT[i] + (SINT[i + 1] - SINT[i]) * (x - i); };   // p in [0, 1)
+  function prng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const rc = (x) => 0.5 - 0.5 * Math.cos(Math.PI * x);   // raised cosine 0 → 1 over x ∈ [0, 1]
+
+  // ---- one-shot parts. run(y, from, to) adds into the mono scratch y; returns true while it has more to play
+  function Mode(c, fs) {
+    const nAtt = Math.max(1, Math.round(c.tau * fs)), nDec = Math.max(16, Math.round(c.t60 * fs)), n = nAtt + nDec, nF = Math.min(Math.round(0.012 * fs), nDec);
+    let i = 0, e = 1, p = c.ph || 0, dg = 1;
+    const k = Math.exp(-6.9078 / nDec), f = c.f / fs, r = c.drop ? Math.pow(2, -c.drop / 12) : 1, kd = Math.exp(-1 / ((c.tdrop || 0.06) * fs)), a = c.a;
+    return { run(y, from, to) {
+      for (let j = from; j < to; j++) {
+        if (i >= n) return false;
+        let g;
+        if (i < nAtt) g = rc(i / nAtt); else { g = e; e *= k; }
+        if (i > n - nF) g *= rc((n - i) / nF);
+        let fi = f; if (r !== 1) { fi *= r + (1 - r) * dg; dg *= kd; }
+        p += fi; if (p >= 1) p -= 1;
+        y[j] += a * g * sin1(p); i++;
+      }
+      return i < n;
+    } };
+  }
+  // contact: Hann-windowed white noise, one-pole low-pass at fc, one-pole high-pass at 250 Hz
+  function Noise(c, fs) {
+    const n = Math.max(8, Math.round(c.dur * fs)), a = 1 - Math.exp(-2 * Math.PI * c.fc / fs), h = Math.exp(-2 * Math.PI * 250 / fs), R = prng(c.seed);
+    let i = 0, lp = 0, hx = 0, hy = 0;
+    return { run(y, from, to) {
+      for (let j = from; j < to; j++) {
+        if (i >= n) return false;
+        lp += a * (2 * R() - 1 - lp); const v = h * (hy + lp - hx); hx = lp; hy = v;
+        y[j] += c.a * v * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))); i++;
+      }
+      return i < n;
+    } };
+  }
+  // air: white noise into a Chamberlin band-pass gliding fa → fb (exponential), raised-cosine envelope (rise att·dur,
+  // fall the rest; exactly 0 at both ends), a 6-10 Hz random flutter of depth fl
+  function Air(c, fs) {
+    const n = Math.max(16, Math.round(c.dur * fs)), R = prng(c.seed), att = c.att == null ? 0.5 : c.att, q = c.q, iq = 1 / Math.sqrt(q), fl0 = c.fl || 0.15, ratio = c.fb / c.fa;
+    let i = 0, lo = 0, bp = 0, F = 0, fl = 0, flt = 0;
+    return { run(y, from, to) {
+      for (let j = from; j < to; j++) {
+        if (i >= n) return false;
+        const u = i / n;
+        if ((i & 7) === 0) { const fc = Math.min(c.fa * Math.pow(ratio, u), 0.2 * fs); F = 2 * Math.sin(Math.PI * fc / fs); }
+        const hp = 2 * R() - 1 - lo - bp / q; bp += F * hp; lo += F * bp;
+        if ((i & 63) === 0) flt = 2 * R() - 1; fl += (flt - fl) * 0.004;
+        const e = u < att ? rc(u / att) : 1 - rc((u - att) / (1 - att));
+        y[j] += c.a * e * (1 + fl0 * fl) * bp * iq; i++;
+      }
+      return i < n;
+    } };
+  }
+  // bowed glass: 3 detuned sines (vs: [ratio, amp, phase]), raised-cosine attack, hold, exponential release, a 20 ms
+  // raised-cosine fade to 0; an optional glide f0 → f1 on a raised cosine over `glide` s
+  function Bow(c, fs) {
+    const n1 = Math.max(1, Math.round(c.att * fs)), n2 = n1 + Math.round(c.hold * fs), n = n2 + Math.round(c.t60 * fs), nF = Math.round(0.02 * fs), k = Math.exp(-6.9078 / (n - n2));
+    const nG = Math.max(1, Math.round((c.glide || 0.2) * fs)), lr = c.f1 ? Math.log(c.f1 / c.f0) : 0, vs = c.vs.map(([r, a, p]) => ({ f: c.f0 * r / fs, a, p }));
+    let i = 0, e = 1, gl = 1;
+    return { run(y, from, to) {
+      for (let j = from; j < to; j++) {
+        if (i >= n) return false;
+        let g; if (i < n1) g = rc(i / n1); else if (i < n2) g = 1; else { g = e; e *= k; }
+        if (i > n - nF) g *= rc((n - i) / nF);
+        if (lr && i <= nG) gl = Math.exp(lr * rc(i / nG));
+        let s = 0; for (const v of vs) { v.p += v.f * gl; if (v.p >= 1) v.p -= Math.floor(v.p); s += v.a * sin1(v.p); }
+        y[j] += c.a * g * s; i++;
+      }
+      return i < n;
+    } };
+  }
+  const MAKE = { m: Mode, n: Noise, air: Air, bow: Bow };
+
+  // the scrub / motion texture: pink-ish noise into two band-passes (fc follows t: 380 Hz at t = 0, 1.75 kHz at t = 1;
+  // the second 2.3× up at 0.35), a 3.5 kHz output low-pass, a 15 % flutter; level from the smoothed speed of t
+  // (attack 25 ms, release 160 ms): silent below 0.1 t/s and when the hand holds still (no update for `hold` s)
+  function Tex(fs, seed) {
+    const R = prng(seed), aA = 1 - Math.exp(-1 / (0.025 * fs)), aP = 1 - Math.exp(-2 * Math.PI * 900 / fs), aO = 1 - Math.exp(-2 * Math.PI * 3500 / fs), aG = 1 - Math.exp(-1 / (0.006 * fs)), aT = 1 - Math.exp(-32 / (0.02 * fs));
+    return { v: 0, vT: 0, t: 0, tT: 0, g: 0, g1: 0, gT: 0, amp: 0.06, tier: 1, wet: 0.12, pan: 0, last: 0, hold: 0.09 * fs, aR: 1 - Math.exp(-1 / (0.16 * fs)), end: false, fresh: true,
+      lo1: 0, bp1: 0, lo2: 0, bp2: 0, pk: 0, ol: 0, fl: 0, flt: 0, F1: 0, F2: 0, i: 0,
+      set(c, frame) {
+        if (c.amp != null) this.amp = c.amp; if (c.tier != null) this.tier = c.tier; if (c.wet != null) this.wet = c.wet; if (c.pan != null) this.pan = c.pan;
+        if (c.hold != null) this.hold = c.hold * fs;
+        if (c.t != null) { this.tT = c.t; if (this.fresh) this.t = c.t; }
+        if (c.v != null) this.vT = c.v;
+        if (c.end) { this.end = true; this.vT = 0; this.aR = 1 - Math.exp(-1 / ((c.rel || 0.16) * fs)); }
+        else this.aR = 1 - Math.exp(-1 / (0.16 * fs));
+        this.last = frame; this.fresh = false;
+      },
+      silent(f0) { if (f0 - this.last > this.hold) this.vT = 0; return this.g < 1e-6 && this.g1 < 1e-6 && this.gT === 0 && this.v < 0.02 && this.vT < 0.02; },
+      run(y, f0, n) {
+        for (let j = 0; j < n; j++) {
+          if (f0 + j - this.last > this.hold) this.vT = 0;
+          this.v += (this.vT - this.v) * (this.vT > this.v ? aA : this.aR);
+          if ((this.i++ & 31) === 0) {
+            const v = this.v, x = Math.min(1, Math.max(0, (v - 0.1) / 0.3)), lvl = x * x * (3 - 2 * x) * Math.min(1, Math.pow(v / 2.5, 0.6));
+            this.t += (this.tT - this.t) * aT;
+            const fc = 380 * Math.pow(2, 2.2 * Math.min(1, Math.max(0, this.t))) * (1 + 0.12 * lvl);
+            this.F1 = 2 * Math.sin(Math.PI * fc / fs); this.F2 = 2 * Math.sin(Math.PI * Math.min(2.3 * fc, 0.2 * fs) / fs);
+            this.gT = this.amp * lvl;
+          }
+          this.g1 += (this.gT - this.g1) * aG; this.g += (this.g1 - this.g) * aG;   // two one-poles: every swell starts with zero slope
+          this.pk += aP * (2 * R() - 1 - this.pk); const w = 3 * this.pk;
+          let hp = w - this.lo1 - this.bp1 / 1.6; this.bp1 += this.F1 * hp; this.lo1 += this.F1 * this.bp1;
+          hp = w - this.lo2 - this.bp2 / 1.6; this.bp2 += this.F2 * hp; this.lo2 += this.F2 * this.bp2;
+          if ((this.i & 63) === 0) this.flt = 2 * R() - 1; this.fl += (this.flt - this.fl) * 0.004;
+          this.ol += aO * ((this.bp1 + 0.35 * this.bp2) * 0.7906 - this.ol);
+          y[j] = this.g * (1 + 0.15 * this.fl) * this.ol;
+        }
+      },
+    };
+  }
+
+  // outputs: 2·tier = dry, 2·tier + 1 = the room send (already scaled by the cue's wet); each stereo
+  class Synth extends AudioWorkletProcessor {
+    constructor(o) {
+      super();
+      this.fs = sampleRate; this.q = []; this.cues = []; this.tex = new Map(); this.y = new Float32Array(128); this.stat = { cues: 0, late: 0, maxLateMs: 0 };
+      const p = (o && o.processorOptions) || {};
+      for (const c of p.cmds || []) this.push(c);
+      this.port.onmessage = (e) => { if (e.data === 'stat') { this.port.postMessage(this.stat); return; } for (const c of e.data) this.push(c); };
+    }
+    push(c) { c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
+    mix(outs, tier, pan, g, wet, y, n) {
+      const th = (Math.max(-0.4, Math.min(0.4, pan)) + 1) * Math.PI / 4, gl = g * Math.cos(th), gr = g * Math.sin(th);
+      const D = outs[2 * tier], W = outs[2 * tier + 1];
+      if (D && D[0]) { const L = D[0], Rr = D[1] || D[0]; for (let j = 0; j < n; j++) { L[j] += y[j] * gl; if (Rr !== L) Rr[j] += y[j] * gr; } }
+      if (wet && W && W[0]) { const L = W[0], Rr = W[1] || W[0], wl = gl * wet, wr = gr * wet; for (let j = 0; j < n; j++) { L[j] += y[j] * wl; if (Rr !== L) Rr[j] += y[j] * wr; } }
+    }
+    process(_, outs) {
+      const f0 = currentFrame, n = outs[0][0].length, y = this.y, fs = this.fs;
+      while (this.q.length && this.q[0].f < f0 + n) {
+        const c = this.q.shift();
+        if (c.k === 'cue') {
+          // late (the message arrived after its time): the whole cue moves to now; it still starts from 0
+          const sh = c.f < f0 ? f0 - c.f : 0; if (sh) { this.stat.late++; this.stat.maxLateMs = Math.max(this.stat.maxLateMs, 1000 * sh / fs); }
+          this.stat.cues++;
+          this.cues.push({ tier: c.tier, pan: c.pan || 0, g: c.g == null ? 1 : c.g, wet: c.wet || 0, parts: c.parts.map((p) => ({ sf: c.f + sh + Math.round((p.d || 0) * fs), v: MAKE[p.k](p, fs), live: true })) });
+        } else if (c.k === 'tex') {
+          let T = this.tex.get(c.id); if (!T) { T = Tex(fs, c.seed || 7); this.tex.set(c.id, T); }
+          T.set(c, Math.max(c.f, f0));
+        }
+      }
+      for (let ci = this.cues.length - 1; ci >= 0; ci--) {
+        const cue = this.cues[ci]; y.fill(0); let more = false, any = false;
+        for (const p of cue.parts) {
+          if (!p.live) continue;
+          if (p.sf >= f0 + n) { more = true; continue; }
+          any = true; p.live = p.v.run(y, Math.max(0, p.sf - f0), n); if (p.live) more = true;
+        }
+        if (any) this.mix(outs, cue.tier, cue.pan, cue.g, cue.wet, y, n);
+        if (!more) this.cues.splice(ci, 1);
+      }
+      for (const [id, T] of this.tex) {
+        if (T.silent(f0)) { if (T.end || f0 - T.last > 30 * fs) this.tex.delete(id); continue; }
+        T.run(y, f0, n); this.mix(outs, T.tier, T.pan, 1, T.wet, y, n);
+      }
+      return true;
+    }
+  }
+  registerProcessor('cmwb-synth', Synth);
+
+  // ---- the glass choir: the app's Shepard voice (same commands, same chroma, gate, duck, pan), each octave partial
+  // made of 3 voices (−3.5, 0, +3.5 cents; 0.13 / 0.74 / 0.13; panned −0.25 / 0 / +0.25 around the voice's pan) whose
+  // detune drifts ±1.5 cents and level ±0.06 (new targets every ~1.4 s, 0.8 s smoother); a shared 5.1 Hz vibrato of
+  // 6 cents × s, s → 1 (τ 0.7 s) while the chroma moves slower than 0.05 turn/s, → 0 (τ 0.15 s) when it moves; the
+  // bell's centre wanders ±0.06 octave (timbre only); breath: noise band-passed at the bell's centre, −24 dB.
+  // The 'height' kind is the app's organ, unchanged.
+  const N = 9, FLO = 36.7081, ISIG = 1 / 0.95, EDGE = 0.5, AMP = 0.028 * 1.22;
+  const ORG = [1, 1 / 2, 1 / 3, 1 / 4]; let ONORM = 0;
+  for (let i = 0; i < 4096; i++) { const a = 2 * Math.PI * i / 4096; let s = 0; for (let h = 0; h < 4; h++) s += ORG[h] * Math.sin((h + 1) * a); ONORM = Math.max(ONORM, Math.abs(s)); }
+  ONORM = 1 / ONORM;
+  const GD = 8, GL = 8192, GT = new Float32Array(GL + 2); for (let i = 0; i <= GL + 1; i++) { const d = -GD + 2 * GD * i / GL; GT[i] = Math.exp(-0.5 * d * d); }
+  const gauss = (d) => { if (d <= -GD || d >= GD) return 0; const x = (d + GD) * (GL / (2 * GD)), i = x | 0; return GT[i] + (GT[i + 1] - GT[i]) * (x - i); };
+  const taper = (p) => { if (p <= 0 || p >= N) return 0; const e = p < N - p ? p : N - p; if (e >= EDGE) return 1; const s = Math.sin(0.5 * Math.PI * e / EDGE); return s * s; };
+  const P2 = new Float64Array(N); for (let k = 0; k < N; k++) P2[k] = Math.pow(2, k);
+  const DET = [-3.5, 0, 3.5], VA = [0.13, 0.74, 0.13], SPR = [-0.25, 0, 0.25], CENT = Math.LN2 / 1200, M = 3;
+  class Voice extends AudioWorkletProcessor {
+    constructor(o) {
+      super();
+      const p = (o && o.processorOptions) || {};
+      this.kind = p.kind || 'shepard'; this.q = []; this.fs = sampleRate;
+      this.s = 0; this.sFrom = 0; this.sTo = 0; this.sLen = 0; this.sPos = 0; this.fresh = true;
+      this.c = 4.1; this.cT = this.c; this.ld = 1; this.ldT = 1; this.pan = 0; this.panT = 0;
+      this.g = 0; this.g1 = 0; this.gT = 0; this.gA = this.coef(0.01); this.dk = 1; this.dk1 = 1; this.dkT = 1; this.dkA = this.coef(0.005); this.dkEnd = -1;
+      this.aCL = this.coef(0.02); this.aPan = this.coef(0.03); this.aAmp = this.coef(0.012);
+      this.end = -1; this.amp = 0; this.ampT = 0;
+      // the choir's own state
+      const R = (this.R = prng(p.seed || ((currentFrame * 2654435761) >>> 0) || 1));
+      this.ph = new Float64Array(N * M).map(() => R());
+      this.dv = new Float64Array(N * M); this.dvT = new Float64Array(N * M); this.da = new Float64Array(N * M); this.daT = new Float64Array(N * M);
+      this.nextD = new Float64Array(N * M).map(() => currentFrame + R() * 1.4 * this.fs);
+      this.slow = 0; this.sPrev = 0; this.vibP = R(); this.cw = 0; this.cwT = 0; this.cwNext = 0; this.lo = 0; this.bp = 0; this.bF = 0.08; this.ctl = 0;
+      this.PL = new Float64Array(M); this.PR = new Float64Array(M);
+      this.aD = 1 - Math.exp(-32 / (0.8 * this.fs)); this.aCw = 1 - Math.exp(-32 / (2 * this.fs)); this.aUp = this.coef(0.7); this.aDn = this.coef(0.15);
+      for (const c of p.cmds || []) this.push(c);
+      this.port.onmessage = (e) => { for (const c of e.data) this.push(c); };
+    }
+    coef(tau) { return tau > 0 ? 1 - Math.exp(-1 / (tau * this.fs)) : 1; }
+    quiet() { return this.g < 1e-4 && this.g1 < 1e-4; }
+    push(c) { c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
+    apply(c, frame) {
+      if (c.snap != null) {
+        let d = c.snap - this.s; d -= Math.round(d); this.sTo = this.s + d;
+        if (this.quiet() || this.fresh) { this.s = this.sTo; this.sLen = 0; this.sPrev = this.s; } else { this.sFrom = this.s; this.sLen = Math.round(0.012 * this.fs); this.sPos = 0; }
+      }
+      if (c.ds != null) { this.sFrom = this.s; this.sTo += c.ds; this.sLen = Math.max(1, Math.round(c.dur * this.fs)); this.sPos = 0; }
+      if (c.lf != null) {
+        if (this.fresh || this.quiet()) { this.s = this.sTo = c.lf; this.sLen = 0; } else { this.sFrom = this.s; this.sTo = c.lf; this.sLen = Math.max(1, Math.round((c.dur || 0.008) * this.fs)); this.sPos = 0; }
+      }
+      if (c.cc != null) { this.cT = c.cc; this.ldT = c.loud; if (this.fresh || this.quiet()) { this.c = this.cT; this.ld = this.ldT; } }
+      if (c.pan != null) { this.panT = c.pan; if (this.fresh) this.pan = c.pan; }
+      if (c.amp != null) { this.ampT = c.amp; if (this.fresh || this.quiet()) this.amp = c.amp; }
+      if (c.gate != null) { this.gT = c.gate; this.gA = this.coef(c.tau / 2); }
+      if (c.duck != null) { this.dkT = 0.5; this.dkA = this.coef(0.005); this.dkEnd = frame + Math.round(c.duck * this.fs); }
+      if (c.stop) { this.gT = 0; this.gA = this.coef((c.tau || 0.05) / 2); this.end = frame + Math.round(0.5 * this.fs); }
+      this.fresh = false;
+    }
+    control(fr) {
+      // every 32 samples: drift, colour, pans, breath band (all slow; steps of < 0.1 % of their range)
+      const R = this.R, fs = this.fs;
+      for (let ix = 0; ix < N * M; ix++) {
+        if (fr >= this.nextD[ix]) { this.dvT[ix] = 3 * R() - 1.5; this.daT[ix] = 0.12 * R() - 0.06; this.nextD[ix] = fr + (0.9 + R()) * fs; }
+        this.dv[ix] += (this.dvT[ix] - this.dv[ix]) * this.aD; this.da[ix] += (this.daT[ix] - this.da[ix]) * this.aD;
+      }
+      if (fr >= this.cwNext) { this.cwT = 2 * R() - 1; this.cwNext = fr + (2.2 + R()) * fs; }
+      this.cw += (this.cwT - this.cw) * this.aCw;
+      for (let m = 0; m < M; m++) { const th = (Math.max(-0.6, Math.min(0.6, this.pan + SPR[m])) + 1) * Math.PI / 4; this.PL[m] = Math.cos(th); this.PR[m] = Math.sin(th); }
+      this.bF = 2 * Math.sin(Math.PI * Math.min(FLO * Math.pow(2, this.c + 0.06 * this.cw), 0.2 * fs) / fs);
+    }
+    process(_, outputs) {
+      const out = outputs[0], L = out[0], R = out[1] || out[0], n = L.length, f0 = currentFrame, fs = this.fs, inv = 1 / fs, ph = this.ph;
+      const height = this.kind === 'height';
+      for (let i = 0; i < n; i++) {
+        const fr = f0 + i;
+        while (this.q.length && this.q[0].f <= fr) this.apply(this.q.shift(), fr);
+        if (this.dkEnd >= 0 && fr >= this.dkEnd) { this.dkT = 1; this.dkA = this.coef(0.04); this.dkEnd = -1; }
+        if (this.sLen > 0) { this.sPos++; if (this.sPos >= this.sLen) { this.s = this.sTo; this.sLen = 0; } else this.s = this.sFrom + (this.sTo - this.sFrom) * (this.sPos / this.sLen); }
+        this.c += (this.cT - this.c) * this.aCL; this.ld += (this.ldT - this.ld) * this.aCL; this.pan += (this.panT - this.pan) * this.aPan;
+        this.g1 += (this.gT - this.g1) * this.gA; this.g += (this.g1 - this.g) * this.gA;
+        this.dk1 += (this.dkT - this.dk1) * this.dkA; this.dk += (this.dk1 - this.dk) * this.dkA; this.amp += (this.ampT - this.amp) * this.aAmp;
+        let yl = 0, yr = 0;
+        if (this.g > 1e-6 || this.g1 > 1e-6 || this.gT > 0) {
+          if (height) {
+            const f = Math.pow(2, this.s); let p = ph[0] + f * inv; p -= Math.floor(p); ph[0] = p;
+            let acc = 0; for (let h = 0; h < 4; h++) { const fh = f * (h + 1); if (fh < 0.45 * fs) { let q = p * (h + 1); q -= Math.floor(q); acc += ORG[h] * sin1(q); } }
+            const y = acc * ONORM * this.amp * this.g * this.dk, th = (this.pan + 1) * Math.PI / 4; yl = y * Math.cos(th); yr = y * Math.sin(th);
+          } else {
+            if ((this.ctl++ & 31) === 0) this.control(fr);
+            const rate = Math.abs(this.s - this.sPrev) * fs; this.sPrev = this.s;
+            this.slow += ((rate < 0.05 ? 1 : 0) - this.slow) * (rate < 0.05 ? this.aUp : this.aDn);
+            this.vibP += 5.1 * inv; if (this.vibP >= 1) this.vibP -= 1;
+            const vib = 1 + 6 * this.slow * CENT * sin1(this.vibP);
+            const si = Math.floor(this.s), u = this.s - si, b = FLO * Math.pow(2, u), cen = this.c + 0.06 * this.cw;
+            let al = 0, ar = 0;
+            for (let k = 0; k < N; k++) {
+              let kk = (k + si) % N; if (kk < 0) kk += N;
+              const pos = kk + u, f = b * P2[kk];
+              let gk = gauss((pos - cen) * ISIG);
+              if (gk < 1e-9) { for (let m = 0; m < M; m++) { const ix = k * M + m; let p = ph[ix] + f * inv; if (p >= 1) p -= Math.floor(p); ph[ix] = p; } continue; }
+              gk *= taper(pos);
+              const r = f * inv; if (r > 0.40) gk *= r >= 0.45 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.40) / 0.05);
+              for (let m = 0; m < M; m++) {
+                const ix = k * M + m, fi = f * (1 + (DET[m] + this.dv[ix]) * CENT) * vib;
+                let p = ph[ix] + fi * inv; if (p >= 1) p -= Math.floor(p); ph[ix] = p;
+                const s = gk * VA[m] * (1 + this.da[ix]) * sin1(p);
+                al += s * this.PL[m]; ar += s * this.PR[m];
+              }
+            }
+            // breath at the bell's centre (q 0.8), equal in both ears
+            const hp = 2 * this.R() - 1 - this.lo - this.bp / 0.8; this.bp += this.bF * hp; this.lo += this.bF * this.bp;
+            const br = 0.035 * 0.7071 * this.bp;
+            const G = AMP * this.ld * this.g * this.dk; yl = (al + br) * G; yr = (ar + br) * G;
+          }
+        }
+        L[i] = yl; if (R !== L) R[i] = yr;
+      }
+      return this.end < 0 || f0 < this.end;
+    }
+  }
+  registerProcessor('cmw-voice', Voice);
+}
+
+const SoundB = (() => {
+  const TIERS = ['ui', 'events', 'sonify'], TI = { ui: 0, events: 1, sonify: 2 };
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const TAU = 2 * Math.PI;
+  const SRC = '(' + B_WORKLET.toString() + ')();';
+  let url = null;
+  async function loadModule(c) {
+    const urls = [];
+    try { if (!url) url = URL.createObjectURL(new Blob([SRC], { type: 'text/javascript' })); urls.push(url); } catch (e) { /* no Blob URLs */ }
+    urls.push('data:text/javascript;charset=utf-8,' + encodeURIComponent(SRC));
+    for (const u of urls) { try { await c.audioWorklet.addModule(u); return true; } catch (e) { /* next */ } }
+    return false;
+  }
+
+  // ---------------------------------------------------------------- variation (a PRNG per play)
+  function prng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  let R = prng(1);
+  const rnd = (a, b) => a + (b - a) * R();
+  const vdb = (db) => Math.pow(10, rnd(-db, db) / 20);
+  const cents = (c) => Math.pow(2, c / 1200);
+  const seed32 = () => (R() * 4294967296) >>> 0;
+  let XF = 1, FS = 48000;
+  const D4 = 293.665, st0 = (n) => D4 * Math.pow(2, n / 12), st = (n) => XF * st0(n);
+  const PENTA = [0, 2, 4, 7, 9], penta = (k) => XF * st0(12 + 12 * Math.floor(k / 5) + PENTA[((k % 5) + 5) % 5]);
+
+  // ---------------------------------------------------------------- materials (DESIGN §1.1)
+  const MAT = {
+    wood: { r: [1, 3.93, 9.2], a: [1, 0.22, 0.06], d: [1, 0.32, 0.12], b: [0, 0, 0], knock: 0.10, kf: 1800 },
+    tine: { r: [1, 6.267, 17.55], a: [1, 0.10, 0.025], d: [1, 0.22, 0.08], b: [0, 0, 0], knock: 0.05, kf: 2500 },
+    glass: { r: [1, 2.32, 4.25, 6.63], a: [1, 0.34, 0.14, 0.05], d: [1, 0.55, 0.30, 0.17], b: [0.8, 1.6, 2.5, 3.1], knock: 0.025, kf: 4000 },
+    bar: { r: [1, 2.756, 5.404, 8.933], a: [1, 0.26, 0.08, 0.025], d: [1, 0.45, 0.20, 0.10], b: [0.5, 1.2, 0, 0], knock: 0.03, kf: 3500 },
+    skin: { r: [1, 1.593, 2.136, 2.296], a: [1, 0.45, 0.25, 0.18], d: [1, 0.6, 0.45, 0.4], b: [0, 0, 0, 0], knock: 0.22, kf: 1500 },
+    block: { r: [1, 2.4, 3.9], a: [1, 0.45, 0.2], d: [1, 0.5, 0.3], b: [0, 0, 0], knock: 0.30, kf: 1200 },
+  };
+  const mallet = (f, tau) => 1 / (1 + Math.pow(2 * f * tau, 2));
+  const tauOf = (vel, soft) => soft * Math.pow(clamp(vel, 0.05, 1), -0.2) * 0.001;
+  // the primitives write parts (d: delay in s inside the cue)
+  function strike(P, d, f0, mat, o) {
+    const M = MAT[mat], vel = clamp((o.vel == null ? 0.7 : o.vel) * rnd(0.92, 1.08), 0.05, 1), tau = tauOf(vel, o.soft || 1.2);
+    const dt = o.detune == null ? 3 : o.detune, f = f0 * cents(rnd(-dt, dt));
+    const g = (o.amp || 0.1) * vel * vdb(o.var == null ? 1 : o.var), t60 = (o.t60 || 0.3) * rnd(0.88, 1.12), w0 = mallet(f, tau);
+    for (let j = 0; j < M.r.length; j++) {
+      const fj = f * M.r[j]; if (fj >= 0.45 * FS) continue;
+      const aj = g * M.a[j] * mallet(fj, tau) / w0 * (j ? vdb(1.5) : 1), tj = t60 * M.d[j];
+      if (M.b[j]) {   // a split pair beating at b Hz, both halves in phase at the strike: the ring "breathes"
+        const bb = M.b[j] * rnd(0.8, 1.25), ph = R(), r2 = rnd(0.3, 0.6);
+        P.push({ k: 'm', d, f: fj - bb / 2, a: aj * (1 - r2), t60: tj, tau, ph, drop: o.drop });
+        P.push({ k: 'm', d, f: fj + bb / 2, a: aj * r2, t60: tj * 0.9, tau, ph, drop: o.drop });
+      } else P.push({ k: 'm', d, f: fj, a: aj, t60: tj, tau, ph: 0, drop: o.drop });
+    }
+    if (M.knock) P.push({ k: 'n', d, dur: Math.max(0.002, 2.5 * tau), fc: Math.min(M.kf * (0.6 + 0.8 * vel), 6000), a: g * M.knock * (o.knock == null ? 1 : o.knock), seed: seed32() });
+  }
+  // a muted pluck as a modal string (harmonics, slightly stretched, low-passed by `bright`, the upper ones shorter):
+  // the spectrum a Karplus-Strong string settles into, in the same one primitive as the strikes
+  function pluck(P, d, f0, o) {
+    const f = f0 * cents(rnd(-3, 3)), g = (o.amp || 0.1) * vdb(1.5), t60 = o.t60 || 0.4, fcut = -Math.log(1 - clamp(o.bright == null ? 0.5 : o.bright, 0.05, 0.95)) * FS / TAU;
+    const hs = []; let norm = 0;
+    for (let n = 1; n <= 8; n++) { const fn = f * n * (1 + 0.0008 * n * n); if (fn > 0.45 * FS) break; const a = 1 / Math.sqrt(1 + Math.pow(fn / fcut, 2)) / Math.sqrt(n); hs.push([fn, a, t60 / (1 + 0.35 * (n - 1))]); norm += a; }
+    for (const [fn, a, tj] of hs) P.push({ k: 'm', d, f: fn, a: 1.6 * g * a / norm, t60: tj * rnd(0.9, 1.1), tau: 0.0004, ph: R() });
+    P.push({ k: 'n', d, dur: 0.002, fc: Math.min(2 * fcut, 6000), a: 0.1 * g, seed: seed32() });
+  }
+  const air = (P, d, dur, fa, fb, q, amp, o = {}) => P.push({ k: 'air', d, dur, fa, fb, q, a: amp, att: o.att, fl: o.fl, seed: seed32() });
+  const bowed = (P, d, f0, o) => P.push({ k: 'bow', d, f0, f1: o.f1, glide: o.glide, att: o.att || 0.2, hold: o.hold || 0.1, t60: o.t60 || 0.6, a: (o.amp || 0.05) * vdb(1),
+    vs: [[-5, 0.34], [0.3, 0.4], [5.5, 0.26]].map(([c, a]) => [cents(c + rnd(-1.5, 1.5)), a, R()]) });
+
+  // ---------------------------------------------------------------- the catalog (DESIGN §2). trim: dB, from the
+  // level match against A (MEASUREMENTS.md); count: count-bearing, never softened by repetition (§1.4)
+  const S = (s) => s;
+  const CAT = {
+    snap: { tier: 'ui', gap: 125, wet: 0.05, make: (P, o) => strike(P, 0, 2100, 'block', { vel: o.vel == null ? 0.5 : o.vel, soft: 0.5, t60: 0.03, amp: 0.28, detune: 60, var: 2.5 }) },
+    toggleOn: { tier: 'ui', gap: 60, wet: 0.08, make: (P, o) => strike(P, 0, st0(19), 'tine', { vel: o.vel == null ? 0.65 : o.vel, soft: 1.1, t60: 0.24, amp: 0.265, detune: 6 }) },
+    toggleOff: { tier: 'ui', gap: 60, wet: 0.08, make: (P, o) => strike(P, 0, st0(14), 'tine', { vel: o.vel == null ? 0.5 : o.vel, soft: 1.8, t60: 0.15, amp: 0.36, detune: 6 }) },
+    stepAdd: { tier: 'ui', gap: 80, wet: 0.08, make: (P) => { strike(P, 0, st0(12), 'tine', { vel: 0.55, soft: 1.3, t60: 0.2, amp: 0.205, detune: 6 }); strike(P, S(0.058 + rnd(-0.004, 0.004)), st0(19), 'tine', { vel: 0.65, soft: 1.1, t60: 0.26, amp: 0.22, detune: 6 }); } },
+    stepRemove: { tier: 'ui', gap: 80, wet: 0.08, make: (P) => { strike(P, 0, st0(19), 'tine', { vel: 0.62, soft: 1.2, t60: 0.2, amp: 0.27, detune: 6 }); strike(P, S(0.058 + rnd(-0.004, 0.004)), st0(12), 'tine', { vel: 0.5, soft: 1.8, t60: 0.14, amp: 0.24, detune: 6 }); } },
+    view: { tier: 'ui', gap: 80, wet: 0.08, make: (P, o) => { air(P, 0, 0.05, 2600, 3400, 1.4, 0.03, { att: 0.3 }); strike(P, 0.02, st0([12, 16, 19, 21][clamp(o.k | 0, 0, 3)]), 'wood', { vel: 0.6, soft: 1.6, t60: 0.22, amp: 0.20, detune: 6 }); } },
+    exportDone: { tier: 'ui', gap: 300, wet: 0.10, make: (P) => { air(P, 0, 0.2, 700, 2200, 1.1, 0.16, { att: 0.55, fl: 0.25 }); strike(P, 0.17, st0(19), 'glass', { vel: 0.55, soft: 0.9, t60: 0.6, amp: 0.32 }); strike(P, 0.19, st0(26), 'glass', { vel: 0.45, soft: 0.9, t60: 0.45, amp: 0.14 }); } },
+    error: { tier: 'ui', gap: 250, wet: 0.06, make: (P) => { for (const [u, a, c] of [[0, 1, 0], [0.088 + rnd(-0.005, 0.005), 0.85, -25]]) { strike(P, u, st0(0) * cents(c), 'block', { vel: 0.8 * a, soft: 0.9, t60: 0.09, amp: 0.26, knock: 5 }); strike(P, u, st0(12) * cents(c), 'block', { vel: 0.7 * a, soft: 0.9, t60: 0.06, amp: 0.40, knock: 0 }); } } },
+    edge: { tier: 'ui', gap: 150, wet: 0.05, make: (P) => { strike(P, 0, st0(7), 'skin', { vel: 0.6, soft: 1.8, t60: 0.1, amp: 0.17, drop: 1, knock: 3.5 }); strike(P, 0, st0(19), 'block', { vel: 0.5, soft: 0.8, t60: 0.05, amp: 0.34 }); } },
+    morphStart: { tier: 'events', gap: 200, wet: 0.22, make: (P) => { air(P, 0, 0.6, 600, 2600, 0.9, 0.04, { att: 0.45, fl: 0.3 }); bowed(P, 0, st(12), { att: 0.22, hold: 0.12, t60: 0.7, amp: 0.05 }); bowed(P, 0.03, st(19), { att: 0.25, hold: 0.1, t60: 0.7, amp: 0.04 }); } },
+    morphEnd: { tier: 'events', gap: 300, wet: 0.25, make: (P, o) => { const v = o.vel == null ? 0.6 : o.vel; strike(P, 0, st(0), 'wood', { vel: 0.5, soft: 2.2, t60: 0.5, amp: 0.10 }); strike(P, 0.012, st(24), 'glass', { vel: v, soft: 0.9, t60: 1.0, amp: 0.13 }); strike(P, 0.04, st(28), 'glass', { vel: v * 0.85, soft: 0.9, t60: 0.9, amp: 0.095 }); } },
+    landmark: { tier: 'events', gap: 0, wet: 0.15, count: true, make: (P, o) => { const q = clamp(o.q | 0, 0, 4); strike(P, 0, st([12, 16, 19, 21, 24][q]), 'wood', { vel: o.vel == null ? 0.5 : o.vel, soft: 1.8, t60: q === 0 || q === 4 ? 0.45 : 0.3, amp: 0.065 }); } },
+    endBump: { tier: 'events', gap: 0, wet: 0.1, count: true, make: (P, o) => strike(P, 0, st0(-12), 'skin', { vel: clamp(o.vel == null ? 0.5 : o.vel, 0.3, 0.8), soft: 3, t60: 0.15, amp: 0.35, drop: 1 }) },
+    loopDone: { tier: 'events', gap: 200, wet: 0.22, count: true, make: (P, o) => {
+      const w = o.w | 0, n = Math.min(8, Math.abs(w));
+      if (!w) return strike(P, 0, st(19), 'block', { vel: 0.5, soft: 1.2, t60: 0.08, amp: 0.270 });
+      for (let j = 0; j < n; j++) strike(P, 0.125 * j + (j ? rnd(-0.003, 0.003) : 0), penta(w > 0 ? 5 + j : 5 - j), 'glass', { vel: j ? 0.62 - 0.02 * j : 0.85, soft: 0.8, t60: 0.5, amp: 0.11, detune: 2 });
+      if (Math.abs(w) > 8) many(P, 0.125 * n, w > 0 ? 1 : -1);
+    } },
+    cut: { tier: 'sonify', gap: 120, wet: 0.08, make: (P) => { pluck(P, 0, st(28), { t60: 0.09, bright: 0.22, amp: 0.16 }); pluck(P, 0.035, st(24), { t60: 0.12, bright: 0.18, amp: 0.16 }); } },
+    zero: { tier: 'sonify', gap: 250, wet: 0.2, make: (P, o) => { const m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.11; for (let j = 0; j < m; j++) strike(P, sp * j, st(24), 'glass', { vel: (o.vel == null ? 0.6 : o.vel) * (j ? 0.75 : 1), soft: 0.8, t60: 0.55, amp: 0.21, detune: 2 }); } },
+    pole: { tier: 'sonify', gap: 250, wet: 0.14, make: (P, o) => { const m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.12, v = o.vel == null ? 0.7 : o.vel; for (let j = 0; j < m; j++) { strike(P, sp * j, st(7), 'skin', { vel: v * (j ? 0.75 : 1), soft: 1.6, t60: 0.16, amp: 0.36, drop: 1.5, knock: 3.5 }); strike(P, sp * j, st(-5), 'skin', { vel: v * (j ? 0.75 : 1), soft: 2.4, t60: 0.2, amp: 0.06, drop: 1.5, knock: 0 }); strike(P, sp * j, st(19), 'wood', { vel: v * (j ? 0.75 : 1), soft: 1.4, t60: 0.07, amp: 0.13, drop: 1, detune: 2 }); } } },
+    dense: { tier: 'sonify', gap: 600, wet: 0.15, make: (P) => { for (let j = 0; j < 3; j++) strike(P, 0.04 * j + (j ? rnd(-0.004, 0.004) : 0), penta(5 + j), 'glass', { vel: 0.35, soft: 0.8, t60: 0.2, amp: 0.085 }); } },
+    contour: { tier: 'sonify', gap: 0, wet: 0.05, count: true, make: (P, o) => strike(P, 0, 2 * Sound.hNote(clamp(o.k | 0, -7, 8)), 'wood', { vel: o.vel == null ? 0.5 : o.vel, soft: 1.4, t60: 0.09, amp: 0.25, detune: 2 }) },
+    turn: { tier: 'sonify', gap: 0, wet: 0.2, count: true, make: (P, o) => { let f = 36.7081 * Math.pow(2, ((o.pc || 0) % 1 + 1) % 1); while (f < 1700) f *= 2; const up = (o.dir || 1) > 0; strike(P, 0, up ? f * 2 / 3 : f * 4 / 3, 'glass', { vel: 0.35, soft: 0.8, t60: 0.14, amp: 0.12, detune: 0 }); strike(P, 0.045, f, 'glass', { vel: 0.7, soft: 0.7, t60: 0.6, amp: 0.15, detune: 0 }); } },
+    turnMany: { tier: 'sonify', gap: 0, wet: 0.2, count: true, make: (P, o) => many(P, 0, (o.dir || 1) > 0 ? 1 : -1) },
+    collide: { tier: 'sonify', gap: 300, wet: 0.18, make: (P) => { const f = st(19); bowed(P, 0, f * Math.pow(2, 2 / 12), { f1: f, glide: 0.22, att: 0.04, hold: 0.1, t60: 0.5, amp: 0.06 }); bowed(P, 0, f / Math.pow(2, 2 / 12), { f1: f, glide: 0.22, att: 0.04, hold: 0.1, t60: 0.5, amp: 0.06 }); } },
+  };
+  function many(P, d, dir) { for (let j = 0; j < 5; j++) strike(P, d + 0.035 * j + (j ? rnd(-0.003, 0.003) : 0), penta(dir > 0 ? 5 + j : 9 - j), 'glass', { vel: 0.4, soft: 0.8, t60: 0.2, amp: 0.10 }); }
+  // level trims (dB) measured against A (notes/sound/v2/MEASUREMENTS.md); 0 until calibrated
+  const TRIM = {'toggleOn': -1.07, 'toggleOff': -0.4, 'stepAdd': 0.06, 'stepRemove': -0.72, 'view': 2.75, 'exportDone': -1.8, 'error': -0.82, 'edge': -2.23, 'snap': -2.85, 'morphStart': 1.91, 'morphEnd': -0.59, 'loopDone': 0.48, 'zero': -0.35, 'pole': 0.1, 'dense': 0.35, 'cut': -3.25, 'turn': -0.43, 'turnMany': -1.43, 'contour': -1.52, 'collide': 0.5};   // (calibrated 2026-10-24, 6 plays each)
+  const partEnd = (p) => (p.d || 0) + (p.k === 'm' ? p.tau + p.t60 : p.k === 'n' || p.k === 'air' ? p.dur : p.att + p.hold + p.t60);
+
+  // ---------------------------------------------------------------- an engine bound to one graph (live or offline)
+  // G: Sound.graph(c, vol); G.offline: commands are collected and handed to the nodes when rendering starts
+  function Engine(G, opts = {}) {
+    const c = G.c, pend = [], voices = new Set();
+    FS = c.sampleRate;
+    let node = null, LEAD = Math.max(0.012, 2 * (c.baseLatency || 0.005)), cueN = 0, seedBase = opts.seed != null ? opts.seed : ((Date.now() * 2654435761) >>> 0);
+    const mk = () => {
+      node = new AudioWorkletNode(c, 'cmwb-synth', { numberOfInputs: 0, numberOfOutputs: 6, outputChannelCount: [2, 2, 2, 2, 2, 2], processorOptions: { cmds: pend.splice(0) } });
+      TIERS.forEach((T, k) => { node.connect(G.tier[T].dry, 2 * k); node.connect(G.tier[T].wet, 2 * k + 1); });
+    };
+    if (G.offline) G.flush.push(mk); else mk();
+    const post = (list) => { if (node) node.port.postMessage(list); else pend.push(...list); };
+    const now = () => (G.offline ? 0 : c.currentTime + LEAD);
+    const log = [];   // (tests) every cue: [name, at]
+    const lastStart = new Map(), recent = [], zpTry = [], reps = new Map();
+    let zpQuietUntil = 0, chromaVoice = null;
+    const tierOn = (T) => !opts.tiers || opts.tiers[T];
+    // o: {pan, at (s from now), t0 (absolute clock, offline), force, vel, k, q, w, order, dir, pc, tier, seed}
+    function play(name, o = {}) {
+      const d = CAT[name]; if (!d) return false;
+      const tier = o.tier || d.tier;
+      if (!o.audition && !tierOn(tier)) return false;
+      if (!G.offline) {
+        const wall = performance.now(), sched = !!o.force || o.at > 0;
+        if ((name === 'zero' || name === 'pole') && !o.audition) {
+          while (zpTry.length && wall - zpTry[0] > 300) zpTry.shift();
+          zpTry.push(wall);
+          if (wall < zpQuietUntil) return false;
+          if (zpTry.length >= 3) { zpQuietUntil = wall + 600; return play('dense', { pan: o.pan }) && 'dense'; }
+          if (wall - (lastStart.get('zp') || -1e9) < d.gap) return false;
+          lastStart.set('zp', wall);
+        } else if (!o.force && wall - (lastStart.get(name) || -1e9) < d.gap) return false;
+        while (recent.length && wall - recent[0] > 1000) recent.shift();
+        if (!sched && recent.length >= 14 && name !== 'error') return false;
+        lastStart.set(name, wall); if (!sched) recent.push(wall);
+      }
+      const t = (o.t0 != null ? o.t0 : now()) + (o.at || 0);
+      // repetition softens: −1 dB per repeat within 2 s, down to −4 dB (not count-bearing cues)
+      let rg = 0;
+      if (!d.count && !o.noRep) { const r = reps.get(name), k = r && t - r.t < 2 ? Math.min(4, r.k + 1) : 0; reps.set(name, { t, k }); rg = -k; }
+      R = prng(o.seed != null ? o.seed : (seedBase + 0x9E3779B9 * ++cueN) >>> 0);
+      const ch = tier !== 'ui' && chromaVoice && chromaVoice.sounding() ? chromaVoice.chroma(t) : null;
+      XF = ch == null ? 1 : Math.pow(2, ch - Math.round(ch));
+      const P = [];
+      try { d.make(P, o); } finally { XF = 1; }
+      const g = Math.pow(10, (rg + (TRIM[name] || 0) + (o.gainDb || 0)) / 20);
+      post([{ k: 'cue', at: t, tier: TI[tier], pan: clamp(o.pan || 0, -0.4, 0.4), wet: d.wet, g, parts: P }]);
+      log.push([name, t, [...new Set(P.map((p) => Math.round(1e4 * (p.d || 0)) / 1e4))]]);
+      let end = t; for (const p of P) end = Math.max(end, t + partEnd(p));
+      for (const v of voices) v.duck(t, Math.min(0.25, end - t));
+      return true;
+    }
+    // count-bearing cues queue on the audio clock (the app's rule: turn bells ≤ 8/s and a flourish beyond 8 queued;
+    // contour ticks ≤ 12/s)
+    const Q = { turn: { next: 0, gap: 0.125, cap: 8, many: 0, due: [] }, contour: { next: 0, gap: 0.083, cap: 6, many: 0, due: [] } };
+    function queued(name, o) {
+      if (!tierOn(o.tier || 'sonify')) return false;
+      const q = Q[name], tn = G.offline ? (o.t0 || 0) : c.currentTime, at = Math.max(tn, q.next);
+      while (q.due.length && q.due[0] <= tn) q.due.shift();
+      if (q.due.length >= q.cap) {
+        if (name === 'turn' && !(q.many > tn)) { q.many = q.next; play('turnMany', Object.assign({}, o, { at: q.next - tn, force: true })); q.due.push(q.next + LEAD); q.next += 0.25; }
+        return 'coalesced';
+      }
+      q.next = at + q.gap; q.due.push(at + LEAD);
+      return play(name, Object.assign({}, o, { at: at - tn, force: true }));
+    }
+    // ---- the scrub (replaces the detent every 0.05 of t): the texture follows the speed of t; landmark notes at
+    // t = 0, ¼, ½, ¾, 1 (forced); an end reached faster than 0.8 t/s adds a felt bump. tm: an explicit clock (offline)
+    let sLast = null, mode = 'B';
+    function scrub(T0, T1, tm) {
+      const wall = tm != null ? tm : performance.now() / 1000, dtw = sLast == null ? 0.016 : clamp(wall - sLast, 0.008, 0.1); sLast = wall;
+      const v = Math.abs(T1 - T0) / dtw, at = tm != null ? tm : now();
+      if (mode === 'B' && tierOn('events')) post([{ k: 'tex', id: 1, at, v, t: T1, amp: 0.06, tier: 1, wet: 0.12, hold: 0.09, seed: 11 }]);
+      for (let q = 0; q <= 4; q++) {
+        const m = q / 4;
+        if ((T0 < m && T1 >= m) || (T0 > m && T1 <= m)) {
+          play('landmark', { q, vel: clamp(0.3 + 0.25 * Math.log2(1 + v), 0.3, 0.85), force: true, t0: at });
+        }
+      }
+    }
+    function scrubEnd(tm) { sLast = null; post([{ k: 'tex', id: 1, at: tm != null ? tm : now(), v: 0, end: true, rel: 0.16 }]); }
+    // ---- the motion bed: while the deformation plays its first pass, the texture driven by the playback (×0.6)
+    function motion(t, rate, tm) { if (tierOn('events')) post([{ k: 'tex', id: 2, at: tm != null ? tm : now(), v: rate, t, amp: 0.06, tier: 1, wet: 0.12, hold: 0.25, seed: 23 }]); }
+    function motionEnd(tm) { post([{ k: 'tex', id: 2, at: tm != null ? tm : now(), v: 0, end: true, rel: 0.13 }]); }
+    // ---- the glass choir (the app's ShepardVoice on this graph, with the choir in its worklet)
+    function voice() {
+      if (!tierOn('sonify')) return null;
+      const v = Sound.ShepardVoice(G, 'sonify'); voices.add(v); chromaVoice = v;
+      const st = v.stop; v.stop = (t) => { voices.delete(v); if (chromaVoice === v) chromaVoice = null; st(t); };
+      return v;
+    }
+    return { play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), scrub, scrubEnd, motion, motionEnd, voice, log, setMode: (m) => { mode = m; }, mode: () => mode,
+      stat: () => new Promise((res) => { if (!node) return res(null); node.port.onmessage = (e) => res(e.data); node.port.postMessage('stat'); }), node: () => node, lead: () => LEAD };
+  }
+
+  // ---------------------------------------------------------------- the live engine: its own AudioContext (made in a
+  // gesture), the app's graph and settings law (volume squared), sleeping after 30 s idle
+  const P = { on: true, vol: 0.7, ui: true, events: true, sonify: true };
+  let ctx = null, G = null, E = null, loading = null, idle = 0;
+  async function ensure() {
+    if (ctx && ctx.state !== 'closed') { if (ctx.state !== 'running') ctx.resume(); return !!E; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    ctx = new AC({ latencyHint: 'interactive' });
+    G = Sound.graph(ctx, 0);
+    G.master.gain.setTargetAtTime(P.vol * P.vol, ctx.currentTime + 0.012, 0.01);
+    loading = loadModule(ctx).then((ok) => { if (!ok) return false; G.worklet = true; G.engine = 'worklet'; E = Engine(G, { tiers: P }); return true; });
+    return loading;
+  }
+  const touch = () => { clearTimeout(idle); idle = setTimeout(() => { if (ctx && ctx.state === 'running') ctx.suspend(); }, 30000); };
+  const live = (f) => (...a) => { if (!E || !P.on) return false; if (ctx.state !== 'running') ctx.resume(); touch(); return f(...a); };
+  function set(o) {
+    Object.assign(P, o);
+    if (G) G.master.gain.setTargetAtTime(P.on ? P.vol * P.vol : 0, ctx.currentTime + 0.012, 0.03);
+  }
+
+  // ---------------------------------------------------------------- offline rendering (tests, measurements)
+  async function render(fn, dur, opts = {}) {
+    const rate = opts.rate || 48000, c = new OfflineAudioContext(2, Math.ceil(dur * rate), rate), g = Sound.graph(c, opts.vol != null ? opts.vol : 1, { allOn: true, noClip: opts.noClip });
+    g.offline = true; g.worklet = await loadModule(c); g.engine = 'worklet';
+    const e = Engine(g, { seed: opts.seed != null ? opts.seed : 1 });
+    if (opts.mode) e.setMode(opts.mode);
+    await fn(e, 0.01, c, g);
+    for (const f of g.flush) f();
+    const b = await c.startRendering(); b.log = e.log; return b;
+  }
+
+  return {
+    ensure, set, prefs: () => ({ ...P }), state: () => ({ audio: ctx ? ctx.state : 'none', ready: !!E }),
+    play: live((n, o) => E.play(n, o)), turn: live((o) => E.turn(o)), tick: live((o) => E.tick(o)),
+    scrub: live((a, b) => E.scrub(a, b)), scrubEnd: live(() => E.scrubEnd()), motion: live((t, r) => E.motion(t, r)), motionEnd: live(() => E.motionEnd()),
+    voice: live(() => E.voice()), setMode: (m) => { if (E) E.setMode(m); }, engine: () => E, ctx: () => ctx,
+    render, CAT, MAT, TRIM, SRC, B_WORKLET,
+  };
+})();
+
+</script>
+<script src="timbres.js"></script>
+<script>
+'use strict';
+// timbres-test.html: the four timbres of ../timbres.js on palette B's graph and cues (SoundB of the sound board), plus an
+// in-browser check (offline renders through this browser's AudioWorklet). "glass-choir" is B's own voice, unchanged.
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const TAU = 2 * Math.PI;
+  let TIMBRE = 'cello', started = false, vol = 0.7, ready = null;
+  Timbres.install(Sound, () => TIMBRE);   // SoundB.voice() → Sound.ShepardVoice(G, 'sonify') → this timbre
+
+  // ---------------------------------------------------------------- start (a gesture), timbre, volume
+  function start() {
+    if (started) return; started = true;
+    SoundB.set({ on: true, vol });
+    ready = SoundB.ensure().then(async (ok) => { if (ok) ok = await Timbres.load(SoundB.ctx()); status(); return ok; });
+    status();
+  }
+  for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, start, { capture: true });
+  const label = (k) => (k === 'glass-choir' ? 'B now (glass choir)' : Timbres.NAMES[k]);
+  function status() { $('status').textContent = !started ? 'Click anywhere to start sound.' : ready && !SoundB.state().ready ? 'Loading…' : 'Hear the function: ' + label(TIMBRE) + '.'; }
+  function setTimbre(k) {
+    if (k === TIMBRE) return; TIMBRE = k; voiceOff(true);
+    for (const b of document.querySelectorAll('#tseg button')) b.setAttribute('aria-pressed', String(b.dataset.k === k));
+    status();
+    if (demo && !demo.tour) { const d = demo.name; stopDemo(); runDemo(d); }
+  }
+  for (const b of document.querySelectorAll('#tseg button')) b.onclick = () => setTimbre(b.dataset.k);
+  const KEYS = ['glass-choir', 'cello', 'choir', 'glass', 'reed'];
+  window.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT') return; const i = '01234'.indexOf(e.key); if (i >= 0) setTimbre(KEYS[i]); });
+  $('vol').oninput = (e) => { vol = e.target.value / 100; SoundB.set({ vol }); };
+
+  // ---------------------------------------------------------------- 1. demos: a path of (arg F in turns, ln|F|) over time
+  let demo = null;
+  const PATHS = {
+    rest: { dur: 2.5, f: () => ({ ph: 0, ln: 0 }) },
+    zero: { dur: 4, cue: ['zero', { order: 2 }], f: (t) => ({ ph: 0.1 + 2 * t / 4, ln: Math.log(0.25) }), w: 2 },
+    pole: { dur: 3, cue: ['pole', { order: 1 }], f: (t) => ({ ph: 0.6 - t / 3, ln: Math.log(2) }), w: -1 },
+    sweep: { dur: 5, f: (t) => ({ ph: 0.3, ln: Math.log(0.01) + Math.log(1e4) * t / 5 }) },
+    wander: { dur: 8, f: (t) => ({ ph: 0.2 + 0.5 * Math.sin(0.9 * t) + 0.35 * Math.sin(2.3 * t + 1) + 0.12 * t, ln: 1.5 * Math.sin(0.7 * t) }) },
+  };
+  async function runDemo(name, tour) {
+    stopDemo(); if (name === 'stop') return;
+    start(); if (!(await ready)) return;
+    const P = PATHS[name], v = SoundB.voice(); if (!v) return;
+    const d = (demo = { name, v, tour, t0: performance.now() + 60, L: null, timer: 0 });
+    for (const b of document.querySelectorAll('#demos button')) b.classList.toggle('on', b.dataset.d === name);
+    if (P.cue) SoundB.play(P.cue[0], Object.assign({ pan: 0 }, P.cue[1]));
+    const tick = () => {
+      if (demo !== d) return;
+      const t = (performance.now() - d.t0) / 1000;
+      if (t < 0) { d.timer = setTimeout(tick, 16); return; }
+      const { ph, ln } = P.f(Math.min(t, P.dur));
+      if (!d.done) {
+        // the path's last update is always its exact end (a late timer must not skip the last whole turn's bell)
+        v.set(ph, ln, 0); v.gate(true);
+        if (!d.L) d.L = { phi: 0, k: 0, pc0: ph - Math.floor(ph), ph0: ph };
+        else { d.L.phi = ph - d.L.ph0; if (P.w != null) Sound.turns(d.L, (dir) => SoundB.turn({ dir, pc: d.L.pc0, pan: 0 })); }
+        if (t < P.dur) { d.timer = setTimeout(tick, 16); return; }
+      }
+      if (!d.ended) { d.done = d.ended = true; if (P.w != null) SoundB.play('loopDone', { w: P.w }); d.timer = setTimeout(() => { if (demo === d) v.gate(false, undefined, 0.35); }, 1600); d.end = setTimeout(() => { if (demo === d) { v.stop(); demo = null; markDemo(); if (d.tour) d.tour(); } }, 3200); }
+    };
+    tick();
+  }
+  function markDemo() { for (const b of document.querySelectorAll('#demos button')) b.classList.toggle('on', !!demo && b.dataset.d === demo.name); }
+  function stopDemo() { if (!demo) return; clearTimeout(demo.timer); clearTimeout(demo.end); demo.v.stop(); demo = null; markDemo(); }
+  for (const b of document.querySelectorAll('#demos button')) b.onclick = () => runDemo(b.dataset.d);
+  $('tour').onclick = async () => {
+    const seq = KEYS.slice(); const next = () => { const k = seq.shift(); if (!k) { $('tourMsg').textContent = 'Done.'; return; } setTimbre(k); $('tourMsg').textContent = 'Now: ' + label(k); runDemo('zero', next); };
+    next();
+  };
+
+  // ---------------------------------------------------------------- 2. the plane (as the sound board's)
+  const pc = $('planeCv'), px = pc.getContext('2d');
+  const C = (re, im) => ({ re, im });
+  const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re), div = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+  const FNS = {
+    sq: { F: (z) => mul(z, z), view: 1.6, zeros: [[C(0, 0), 2]], poles: [], name: 'F(z) = z²' },
+    exp: { F: (z) => { const e = Math.exp(z.re); return C(e * Math.cos(z.im), e * Math.sin(z.im)); }, view: 3.2, zeros: [], poles: [], name: 'F(z) = eᶻ (arg F = Im z: move up and down)' },
+    rat: { F: (z) => { const a = C(z.re - 1, z.im), b = C(z.re + 1, z.im), num = mul(a, mul(b, b)), den = C(z.re * z.re - z.im * z.im + 1, 2 * z.re * z.im); return div(num, den); }, view: 1.8, zeros: [[C(1, 0), 1], [C(-1, 0), 2]], poles: [[C(0, 1), 1], [C(0, -1), 1]], name: 'F(z) = (z − 1)(z + 1)² / (z² + 1)' },
+  };
+  let FN = FNS.sq, img = null, loopPts = null;
+  const toZ = (x, y) => { const w = pc.clientWidth, s = 2 * FN.view / w; return C((x - w / 2) * s, -(y - w / 2) * s); };
+  const toPx = (z) => { const w = pc.clientWidth, s = w / (2 * FN.view); return [w / 2 + z.re * s, w / 2 - z.im * s]; };
+  function paintPlane() {
+    const W = pc.width, H = pc.height, id = px.createImageData(W, H), d = id.data, v = FN.view;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const z = C((i / W * 2 - 1) * v, (1 - j / H * 2) * v), f = FN.F(z), a = Math.atan2(f.im, f.re) / TAU, m = Math.log2(Math.hypot(f.re, f.im));
+      const hue = (a + 1) % 1, band = Number.isFinite(m) ? m - Math.floor(m) : 0, L = 0.42 + 0.16 * band, S = 0.55;
+      const q = L < 0.5 ? L * (1 + S) : L + S - L * S, p = 2 * L - q, h2 = (t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 0.5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+      const o = 4 * (j * W + i); d[o] = 255 * h2(hue + 1 / 3); d[o + 1] = 255 * h2(hue); d[o + 2] = 255 * h2(hue - 1 / 3); d[o + 3] = 255;
+    }
+    img = id; drawPlane();
+  }
+  function drawPlane() {
+    if (!img) return; px.setTransform(1, 0, 0, 1, 0, 0); px.putImageData(img, 0, 0);
+    const k = pc.width / pc.clientWidth; px.setTransform(k, 0, 0, k, 0, 0);
+    const dot = (z, fill) => { const [x, y] = toPx(z); px.beginPath(); px.arc(x, y, 5, 0, TAU); px.fillStyle = fill; px.fill(); px.lineWidth = 1.5; px.strokeStyle = fill === '#fff' ? '#000' : '#fff'; px.stroke(); };
+    for (const [z] of FN.zeros) dot(z, '#fff'); for (const [z] of FN.poles) dot(z, '#000');
+    if (loopPts && loopPts.length > 1) { px.beginPath(); loopPts.forEach((z, i) => { const [x, y] = toPx(z); i ? px.lineTo(x, y) : px.moveTo(x, y); }); px.strokeStyle = '#fff'; px.lineWidth = 2; px.stroke(); }
+  }
+  for (const b of document.querySelectorAll('#fnSeg button')) b.onclick = () => { FN = FNS[b.dataset.f]; for (const x of document.querySelectorAll('#fnSeg button')) x.classList.toggle('on', x === b); voiceOff(false); paintPlane(); readout(); };
+  const argT = (z) => { const f = FN.F(z); return Math.atan2(f.im, f.re) / TAU; };
+  const lnAbs = (z) => { const f = FN.F(z); return Math.log(Math.hypot(f.re, f.im)); };
+  function dArg(z0, z1) {
+    const n = clamp(Math.ceil(Math.hypot(z1.re - z0.re, z1.im - z0.im) / (FN.view / 60)), 1, 256); let s = 0, a0 = argT(z0);
+    for (let i = 1; i <= n; i++) { const u = i / n, a1 = argT(C(z0.re + (z1.re - z0.re) * u, z0.im + (z1.im - z0.im) * u)); let d = a1 - a0; d -= Math.round(d); if (Number.isFinite(d)) s += d; a0 = a1; }
+    return s;
+  }
+  const P = { voice: null, vk: null, last: null, phi: 0, idle: 0, sleep: 0, near: new Map(), loop: null, lastT: 0, speed: 0, W: null };
+  function voiceOff(release) {
+    clearTimeout(P.idle);
+    if (P.voice) { if (release) { P.voice.stop(); P.voice = null; } else { P.voice.gate(false); clearTimeout(P.sleep); P.sleep = setTimeout(() => { if (P.voice && !P.loop) { P.voice.stop(); P.voice = null; } }, 6000); } }
+    P.last = null;
+  }
+  function readout() {
+    const z = P.last; let t = FN.name + '\n';
+    if (z) { const f = FN.F(z); t += `z = ${z.re.toFixed(2)} ${z.im < 0 ? '−' : '+'} ${Math.abs(z.im).toFixed(2)}i\narg F = ${(((P.phi % 1) + 1) % 1).toFixed(3)} turn   |F| = ${Math.hypot(f.re, f.im).toPrecision(3)}\n`; }
+    if (P.loop) t += `drawing a loop: ${P.loop.phi.toFixed(2)} turns so far\n`; else if (P.W != null) t += `last loop: winding number ${P.W}\n`;
+    $('readout').textContent = t;
+  }
+  function hover(x, y) {
+    const z = toZ(x, y), now = performance.now();
+    if (P.last) { const dpx = Math.hypot(...toPx(z).map((v, i) => v - toPx(P.last)[i])); P.speed = 0.7 * P.speed + 0.3 * dpx / Math.max(4, now - P.lastT); }
+    P.lastT = now;
+    const pan = clamp(0.4 * (x - pc.clientWidth / 2) / (pc.clientWidth / 2), -0.4, 0.4);
+    if (P.last) { const d = dArg(P.last, z); P.phi += d; if (P.loop) { P.loop.phi += d; Sound.turns(P.loop, (dir) => SoundB.turn({ dir, pc: P.loop.pc0, pan })); P.loop.pts.push(z); loopPts = P.loop.pts; drawPlane(); } }
+    else P.phi = argT(z);
+    P.last = z;
+    if (!SoundB.state().ready) { readout(); return; }
+    if (!P.voice || P.vk !== TIMBRE) { if (P.voice) P.voice.stop(); P.voice = SoundB.voice(); P.vk = TIMBRE; }
+    if (P.voice) { P.voice.set(P.phi, lnAbs(z), pan); P.voice.gate(true); }
+    for (const [list, name] of [[FN.zeros, 'zero'], [FN.poles, 'pole']]) for (const [zz, m] of list) {
+      const [a, b] = toPx(zz), dd = Math.hypot(a - x, b - y), key = name + zz.re + ',' + zz.im;
+      if (dd < 9 && !P.near.get(key)) { P.near.set(key, true); SoundB.play(name, { order: m, pan, vel: clamp(0.35 + 0.35 * Math.log2(1 + P.speed), 0.35, 0.95) }); }
+      else if (dd > 16) P.near.delete(key);
+    }
+    clearTimeout(P.idle); P.idle = setTimeout(() => { if (P.voice && !P.loop) P.voice.gate(false, undefined, 0.35); }, 1600);
+    clearTimeout(P.sleep); P.sleep = setTimeout(() => { if (P.voice && !P.loop) { P.voice.stop(); P.voice = null; } }, 6000);
+    readout();
+  }
+  const rel = (e) => { const b = pc.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  pc.addEventListener('pointermove', (e) => { if (demo) stopDemo(); const [x, y] = rel(e); hover(x, y); });
+  pc.addEventListener('pointerleave', () => { if (!P.loop) { voiceOff(false); readout(); } });
+  pc.addEventListener('pointerdown', (e) => {
+    pc.setPointerCapture(e.pointerId); const [x, y] = rel(e); hover(x, y);
+    P.loop = { phi: 0, k: 0, pc0: P.phi - Math.floor(P.phi), pts: [P.last] }; loopPts = P.loop.pts; drawPlane();
+  });
+  pc.addEventListener('pointerup', () => {
+    if (!P.loop) return; const L = P.loop; P.loop = null;
+    if (L.pts.length > 8) { let s = 0; for (let i = 1; i < L.pts.length; i++) s += dArg(L.pts[i - 1], L.pts[i]); s += dArg(L.pts[L.pts.length - 1], L.pts[0]); P.W = Math.round(s); SoundB.play('loopDone', { w: P.W }); }
+    setTimeout(() => { loopPts = null; drawPlane(); }, 900); readout();
+  });
+  paintPlane(); readout();
+
+  // ---------------------------------------------------------------- 3. the check: offline renders in this browser
+  const FS = 48000;
+  function biq(x, b, a) { const y = new Float64Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = b[0] * x[i] + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; } return y; }
+  const KW = [[[1.53512485958697, -2.69169618940638, 1.19839281085285], [1, -1.69065929318241, 0.73248077421585]], [[1, -2, 1], [1, -1.99004745483398, 0.99007225036621]]];
+  function lufs(buf, t0) { const c = [0, 1].map((k) => { let x = buf.getChannelData(k).subarray(Math.round(t0 * FS)); for (const [b, a] of KW) x = biq(x, b, a); return x; }); const n = c[0].length, p = new Float64Array(n + 1); for (let i = 0; i < n; i++) p[i + 1] = p[i] + c[0][i] ** 2 + c[1][i] ** 2; const w = Math.round(0.4 * FS); let m = 0; for (let i = 0; i + w <= n; i += 480) m = Math.max(m, (p[i + w] - p[i]) / w); return -0.691 + 10 * Math.log10(m + 1e-30); }
+  function fft(re, im) { const n = re.length; for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } } for (let len = 2; len <= n; len <<= 1) { const a = -TAU / len, wr = Math.cos(a), wi = Math.sin(a); for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let j = 0; j < len / 2; j++) { const p = i + j, q = p + len / 2, xr = re[q] * cr - im[q] * ci, xi = re[q] * ci + im[q] * cr; re[q] = re[p] - xr; im[q] = im[p] - xi; re[p] += xr; im[p] += xi; const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t; } } } }
+  // the perceived pitch class: subharmonic summation (Hermes 1988) folded to one octave, 1-cent grid (as timbres/measure_node.js)
+  function pitchClass(buf, s, win, nfft) {
+    const L = buf.getChannelData(0), R = buf.getChannelData(1), re = new Float64Array(nfft), im = new Float64Array(nfft);
+    for (let i = 0; i < win; i++) re[i] = 0.5 * (L[s + i] + R[s + i]) * (0.5 - 0.5 * Math.cos(TAU * i / (win - 1)));
+    fft(re, im); const m = new Float64Array(nfft / 2); for (let k = 0; k < nfft / 2; k++) m[k] = Math.hypot(re[k], im[k]);
+    const bin = FS / nfft, A = (f) => { const x = f / bin, i = x | 0; return i + 1 < m.length ? Math.sqrt(m[i] + (m[i + 1] - m[i]) * (x - i)) : 0; };
+    let best = -1, bc = 0;
+    for (let c = 0; c < 1200; c++) { let S = 0; for (let o = 0; o < 7; o++) { const f0 = 36.7081 * Math.pow(2, o + c / 1200); if (f0 < 55 || f0 > 2200) continue; for (let h = 1; h <= 10; h++) { const f = h * f0; if (f > 8000) break; S += Math.pow(0.84, h - 1) * A(f); } } if (S > best) { best = S; bc = c; } }
+    return bc / 1200;
+  }
+  let bURL = null;
+  async function ctxFor(secs) {
+    const c = new OfflineAudioContext(2, Math.ceil(secs * FS), FS);
+    if (!bURL) bURL = URL.createObjectURL(new Blob([SoundB.SRC], { type: 'text/javascript' }));
+    await c.audioWorklet.addModule(bURL); await Timbres.load(c); return c;
+  }
+  const restCmds = (pc) => [{ at: 0.05, snap: pc, cc: 4.1, loud: Timbres.loudOf(0), pan: 0 }, { at: 0.05, gate: 1, tau: 0.02 }];
+  function mkNode(c, k, cmds, seed) { return k === 'B' ? new AudioWorkletNode(c, 'cmw-voice', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { kind: 'shepard', seed, cmds } }) : Timbres.node(c, k, { seed, cmds }); }
+  async function render(k, cmds, secs, seed = 11) { const c = await ctxFor(secs); mkNode(c, k, cmds, seed).connect(c.destination); return c.startRendering(); }
+  $('measure').onclick = async () => {
+    const tb = $('mTab').querySelector('tbody'); tb.innerHTML = ''; $('measure').disabled = true;
+    try {
+      // CPU: 30 s of one voice, minus the same render with nothing in it
+      const timeIt = async (k) => { const c = await ctxFor(30); if (k) { const n = mkNode(c, k, restCmds(0.2), 3); n.connect(c.destination); } const t0 = performance.now(); await c.startRendering(); return performance.now() - t0; };
+      $('mMsg').textContent = 'Timing an empty render…'; let base = Infinity; for (let r = 0; r < 2; r++) base = Math.min(base, await timeIt(null));
+      let bL = null;
+      for (const k of ['B', 'cello', 'choir', 'glass', 'reed']) {
+        $('mMsg').textContent = 'Measuring ' + (k === 'B' ? 'B' : Timbres.NAMES[k]) + '…';
+        const buf = await render(k, restCmds(0), 4.5), L = lufs(buf, 0.6); if (k === 'B') bL = L;
+        let pk = 0; const ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) pk = Math.max(pk, Math.abs(ch[i]));
+        let ms = Infinity; for (let r = 0; r < 2; r++) ms = Math.min(ms, await timeIt(k));
+        const cpu = 100 * Math.max(0, ms - base) / 30000;
+        const errs = [];
+        for (const p of [0, 0.25, 0.5, 0.75]) { const b = await render(k, restCmds(p), 3.2, 100 + 8 * p); let cx = 0, cy = 0; for (let w = 0; w < 5; w++) { const cc = pitchClass(b, Math.round((0.9 + 0.42 * w) * FS), 16384, 65536); cx += Math.cos(TAU * cc); cy += Math.sin(TAU * cc); } let d = Math.atan2(cy, cx) / TAU - p; d -= Math.round(d); errs.push(Math.round(d * 1200 * 10) / 10); }
+        const stopBuf = await render(k, restCmds(0.2).concat([{ at: 1.5, stop: 1, tau: 0.05 }]), 4.5);
+        const s0 = stopBuf.getChannelData(0), endsZero = s0[0] === 0 && Math.abs(s0[s0.length - 1]) < 1e-9;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${k === 'B' ? 'B now (glass choir)' : Timbres.NAMES[k]}</td><td class="n">${L.toFixed(1)}</td><td class="n">${k === 'B' ? '' : (L - bL >= 0 ? '+' : '') + (L - bL).toFixed(1) + ' dB'}</td><td class="n">${cpu.toFixed(2)}</td><td class="n">${errs.join(', ')}</td><td class="n">${pk.toFixed(3)}</td><td class="${endsZero ? 'ok' : 'bad'}">${endsZero ? 'yes' : 'no'}</td>`;
+        tb.appendChild(tr);
+      }
+      $('mMsg').textContent = 'Done. (CPU: rendering 30 s offline, minus an empty render; this machine, this browser.)';
+    } catch (e) { $('mMsg').textContent = 'Failed: ' + e.message; }
+    $('measure').disabled = false;
+    window.__done = true;
+  };
+})();
+
+</script>
+</body></html>

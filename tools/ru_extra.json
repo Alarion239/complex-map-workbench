@@ -39,5 +39,15 @@
   "few": "%{n} полюса",
   "many": "%{n} полюсов",
   "other": "%{n} полюса"
- }
+ },
+ " Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with small dots at %{q1} and %{q3} and an arrowhead at %{q2}%{clause}.": " Кривые — пути %{p} для %{parts}: от %{z} (кружок) до %{end} (точка), с маленькими точками при %{q1} и %{q3} и стрелкой при %{q2}%{clause}.",
+ " The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (circle) to $%{F}(z)$ (dot).": " Кривая — путь $t\\mapsto H_t(z)$ точки %{p}: от $z$ (кружок) до $%{F}(z)$ (точка).",
+ " Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (circle) to $%{F}(z)$ (dot).": " Кривые — пути $t\\mapsto H_t(z)$ точек %{list}: от $z$ (кружок) до $%{F}(z)$ (точка).",
+ " Curves are the paths $t\\mapsto H_t(z)$ of %{n} points, from $z$ (circle) to $%{F}(z)$ (dot).": " Кривые — пути $t\\mapsto H_t(z)$ выбранных точек (их %{n}): от $z$ (кружок) до $%{F}(z)$ (точка).",
+ " Small dots mark $t=%{a}$ and $t=%{c}$, an arrowhead $t=%{b}$.": " Маленькие точки отмечают $t=%{a}$ и $t=%{c}$, стрелка — $t=%{b}$.",
+ " Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa} (the middle of each step) and a bar at %{qn}, where one step ends and the next begins%{clause}.": " Кривые — пути %{p} для %{parts}: от %{z} (кружок) до %{end} (точка), со стрелкой при %{qa} (середина каждого шага) и чёрточкой при %{qn}, где один шаг сменяется следующим%{clause}.",
+ " Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa}%{clause}.": " Кривые — пути %{p} для %{parts}: от %{z} (кружок) до %{end} (точка), со стрелкой при %{qa}%{clause}.",
+ " Arrowheads mark $t=%{a}$, the middle of each step, and bars $t=%{n}$, where one step ends and the next begins.": " Стрелки отмечают $t=%{a}$ (середина каждого шага), чёрточки — $t=%{n}$, где один шаг сменяется следующим.",
+ " An arrowhead marks $t=%{a}$.": " Стрелка отмечает $t=%{a}$.",
+ "Paths: X is on the far side; drag to turn": "Пути: X на обратной стороне; перетащите, чтобы повернуть"
 }

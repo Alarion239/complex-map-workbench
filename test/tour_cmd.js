@@ -171,8 +171,8 @@ await ev(`Tour.next()`); await settle(1800);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('#leftFoot .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: !!(a && r && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1), on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);
 check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, the integral over the unit circle', g.c && g.c.id === 'cauchy' && g.scene === 'roots' && g.main === 'phase' && g.dc === 'cauchy' && g.lit && g.on === 'Cauchy' && /inside, 0 outside/.test(g.note || '') && !/Select a closed curve/.test(g.note || ''), g);
 await snap('tour-cauchy-light');
-// (v15: Zeros and poles moved to the chapter Editing the chain, step 3)
-await ev(`Tour.start({ chapter: 'edit', step: 2 })`); await settle(1800);
+// (v15: Zeros and poles moved to the chapter Editing the chain, step 3; v15.2: step 4, after A formula in steps)
+await ev(`Tour.start({ chapter: 'edit', step: 3 })`); await settle(1800);
 check('Zeros and poles: its scene brings the Tiles style back', (await ev('__cmwState().dc')) === 'enhanced');
 // (v15: the zeros and poles are edited in the Inspector: the lit anchor is its parameter block)
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), card = document.querySelector('#propsPanel .params.zp'); return { c, scene: L && L.scene, card: !!(card && L && L.anchor && Math.abs(card.getBoundingClientRect().left - L.anchor.l) < 1) }; })()`);

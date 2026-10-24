@@ -1,0 +1,72 @@
+{
+ "y_za_tex": {
+  "id": "y_za_tex",
+  "cards": [
+   "Region*",
+   "f₁, Custom formula"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 6.7,
+   "R": 6.38
+  },
+  "pan": {
+   "n": 78,
+   "fps": 60.6,
+   "p50": 16.7,
+   "p95": 17.7,
+   "max": 18
+  },
+  "settleMs": 2,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 79,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.5,
+   "max": 17.7
+  },
+  "paramSettleMs": 1
+ },
+ "y_powa_a": {
+  "id": "y_powa_a",
+  "cards": [
+   "Region*",
+   "f₁, Complex power"
+  ],
+  "lamps": "●analytic ○entire ○rational ○polynomial ○mobius ○proper ○homeo ○conformal",
+  "paths": "Rs1:inverse Ls1:forward(identity map)",
+  "time": {
+   "L": 7.74,
+   "R": 5.08
+  },
+  "pan": {
+   "n": 79,
+   "fps": 60.5,
+   "p50": 16.7,
+   "p95": 17.6,
+   "max": 20
+  },
+  "settleMs": 1,
+  "pathsAfterPan": "Rs1:inverse Ls1:forward",
+  "sm": {
+   "entries": 0,
+   "built": 0,
+   "ms": 0
+  },
+  "param": {
+   "n": 78,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.4,
+   "max": 18.8
+  },
+  "paramSettleMs": 2
+ }
+}

@@ -1,0 +1,163 @@
+{
+ "_about": "v15.2 formula in steps (notes/formula-steps/DESIGN.md, work/xv152): the Inspector's offer to split a typed formula into the catalog steps it is, the ⋯ items, the palette's one-step rule and Add as n steps, the alone chip's ‹ ›, the tour stop and the guide paragraph. id -> {en, ru, note}. Russian follows notes/i18n/GLOSSARY.md: шаг/шага/шагов, цепочка, «инспектор» lower case in running text, «ёлочки», a no-break space before «—». The verb is «Разложить» (a composition, разложение в композицию); «Заменить шагом …» follows «Заменить обратной». {name}: the catalog label, already translated; {chain}: labels joined by ' → '. Read by tools/make_ru_table.py (v152-*.json).",
+ "split.notChain": {
+  "en": "Not a chain of catalog steps",
+  "ru": "Не цепочка шагов каталога",
+  "note": "R1: the ⋯ item's tooltip (disabled) and the toast when a split is refused."
+ },
+ "split.depends": {
+  "en": "Its numbers depend on {names}",
+  "ru": "Её числа зависят от %{names}",
+  "note": "R2: the formula's coefficients depend on a shared number ({names}: the names, comma-separated). «Её»: the formula."
+ },
+ "split.noShort": {
+  "en": "Its numbers have no short exact form",
+  "ru": "У её чисел нет короткой точной записи",
+  "note": "R3."
+ },
+ "split.error": {
+  "en": "This step has an error",
+  "ru": "В этом шаге ошибка",
+  "note": "R4."
+ },
+ "split.values": {
+  "en": "Not at these values of the numbers",
+  "ru": "Не при этих значениях чисел",
+  "note": "R5: at the current values of the shared numbers the formula changes kind; the button is disabled."
+ },
+ "split.built": {
+  "en": "Built from {n} step",
+  "en_plural": [
+   "Built from {n} step",
+   "Built from {n} steps"
+  ],
+  "ru": "Составлена из %{n} шагов",
+  "plural": {
+   "one": "Составлена из %{n} шага",
+   "few": "Составлена из %{n} шагов",
+   "many": "Составлена из %{n} шагов",
+   "other": "Составлена из %{n} шага"
+  },
+  "note": "Inspector: the fold's summary, open (the formula is built from n catalog steps). «Составлена»: the formula."
+ },
+ "split.builtChain": {
+  "en": "Built from {n} step: {chain}",
+  "en_plural": [
+   "Built from {n} step: {chain}",
+   "Built from {n} steps: {chain}"
+  ],
+  "ru": "Составлена из %{n} шагов: %{chain}",
+  "plural": {
+   "one": "Составлена из %{n} шага: %{chain}",
+   "few": "Составлена из %{n} шагов: %{chain}",
+   "many": "Составлена из %{n} шагов: %{chain}",
+   "other": "Составлена из %{n} шага: %{chain}"
+  },
+  "note": "Inspector: the fold's summary, folded (with the step names)."
+ },
+ "split.btn": {
+  "en": "Split into {n} step",
+  "en_plural": [
+   "Split into {n} step",
+   "Split into {n} steps"
+  ],
+  "ru": "Разложить на %{n} шагов",
+  "plural": {
+   "one": "Разложить на %{n} шаг",
+   "few": "Разложить на %{n} шага",
+   "many": "Разложить на %{n} шагов",
+   "other": "Разложить на %{n} шага"
+  },
+  "note": "Inspector: the button that splits the formula step into its n steps."
+ },
+ "split.btnTip": {
+  "en": "Each step gets its own card and picture; the deformation plays them one by one.",
+  "ru": "У каждого шага будет своя карточка и картинка; деформация пройдёт их по очереди.",
+  "note": "The split button's tooltip and aria-description."
+ },
+ "split.menu": {
+  "en": "Split into steps",
+  "ru": "Разложить на шаги",
+  "note": "The ⋯ menu of a formula step."
+ },
+ "split.one": {
+  "en": "This is the step “{name}”.",
+  "ru": "Это шаг «%{name}».",
+  "note": "Inspector: a formula that reads as exactly one catalog step ({name}: its label, e.g. Синус). v15.2 review steps-10: the English quotes the label (a verb phrase such as Translate by c read badly as \"the Translate by c step\")."
+ },
+ "split.oneBtn": {
+  "en": "Replace with “{name}”",
+  "ru": "Заменить шагом «%{name}»",
+  "note": "Inspector button and ⋯ item for a one-step formula. v15.2 review steps-10: the English quotes the label (a verb phrase such as Translate by c read badly as \"the Translate by c step\")."
+ },
+ "split.toast": {
+  "en": "Split f{k} into f{k}–f{k2}: {chain}.",
+  "ru": "Шаг f%{k} разложен на шаги f%{k}–f%{k2}: %{chain}.",
+  "note": "The Undo toast after a split ({k}, {k2}: subscript digits)."
+ },
+ "split.oneToast": {
+  "en": "f{k} is now the step “{name}”.",
+  "ru": "Шаг f%{k} заменён шагом «%{name}».",
+  "note": "The Undo toast after a one-step replace. v15.2 review steps-10: the English quotes the label (a verb phrase such as Translate by c read badly as \"the Translate by c step\")."
+ },
+ "pal.asSteps": {
+  "en": "Add as {n} step",
+  "en_plural": [
+   "Add as {n} step",
+   "Add as {n} steps"
+  ],
+  "ru": "Добавить как %{n} шагов",
+  "plural": {
+   "one": "Добавить как %{n} шаг",
+   "few": "Добавить как %{n} шага",
+   "many": "Добавить как %{n} шагов",
+   "other": "Добавить как %{n} шага"
+  },
+  "note": "Palette: the second row for a typed formula of n catalog steps."
+ },
+ "alone.prev": {
+  "en": "Show the previous step alone",
+  "ru": "Показать отдельно предыдущий шаг",
+  "note": "X's head, the alone chip's ‹ (tooltip and aria-label)."
+ },
+ "alone.next": {
+  "en": "Show the next step alone",
+  "ru": "Показать отдельно следующий шаг",
+  "note": "X's head, the alone chip's ›."
+ },
+ "tour.split.title": {
+  "en": "A formula in steps",
+  "ru": "Формула по шагам",
+  "note": "Tour, Editing the chain: the new stop's title; also the scene's name."
+ },
+ "tour.split.body": {
+  "en": "This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.",
+  "ru": "Эта формула — цепочка шагов каталога, и инспектор показывает, из чего она составлена. Разложите её, и у каждого шага появится своя карточка: ряд карточек покажет все преобразования по очереди, а деформация пройдёт их одно за другим. «Отменить» вернёт формулу.",
+  "note": "Tour stop body."
+ },
+ "tour.split.try": {
+  "en": "Press Split into 3 steps.",
+  "ru": "Нажмите «Разложить на 3 шага».",
+  "note": "Tour stop Try it (desktop)."
+ },
+ "tour.split.tryTouch": {
+  "en": "Tap Split into 3 steps.",
+  "ru": "Коснитесь кнопки «Разложить на 3 шага».",
+  "note": "Tour stop Try it (touch)."
+ },
+ "tour.keys.body": {
+  "en": "Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.",
+  "ru": "{mod}{K} открывает поиск по функциям, формулам областей, примерам и командам. Введите формулу, например $e^{z^2}$, чтобы добавить её как шаг; формула, совпадающая с одной функцией каталога, например $\\sin z$, добавляет саму эту функцию.",
+  "note": "Tour, Palette and keys (replaces the v15 text: the one-step clause added)."
+ },
+ "tour.keys.narrow": {
+  "en": "Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.",
+  "ru": "Пункт «Поиск» в этом меню находит функции, формулы, примеры и команды. Введите формулу, например $e^{z^2}$, чтобы добавить её как шаг; формула, совпадающая с одной функцией каталога, например $\\sin z$, добавляет саму эту функцию.",
+  "note": "Tour, Palette and keys, narrow (replaces the v15 text)."
+ },
+ "guide.split": {
+  "en": "A typed formula that is a chain of catalog steps, such as <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, shows in the Inspector how it is built: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.",
+  "ru": "Если введённая формула — цепочка шагов каталога, например <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, инспектор показывает, из чего она составлена: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. Пункт <b>Разложить на шаги</b> превращает её в эти шаги, у каждого своя карточка и картинка; «Отменить» возвращает формулу. Сумма или произведение двух функций от <i>z</i>, например <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, — не цепочка: такая формула остаётся одним шагом. В поиске формула, которая совпадает с одной функцией каталога, например sin z или z^i, сразу добавляет эту функцию.",
+  "note": "Guide, Function chain, after the cards paragraph."
+ }
+}
