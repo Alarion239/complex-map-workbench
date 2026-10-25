@@ -2798,6 +2798,15 @@ float wabs(vec2 w) {
     res.vaos.set(key, v);
     return v;
   }
+  // (v16.1) frees the entries of res evaluated under the app key cacheKey, at every template size: the forward stand-in
+  // a shape drew while its inverse program compiled, once the inverse pass draws it. Nothing looks that evaluation up
+  // again unless the shape falls back to forward, which evaluates it anew (gate v16: sphere.logUHP kept 1.2 MB)
+  function dropCached(res, cacheKey) {
+    if (!res || !res.tf || !cacheKey) return 0;
+    let n = 0;
+    for (const e of [...res.tf.values()]) if (e.ck === cacheKey) { freeEntry(e); n++; }
+    return n;
+  }
   function freeCache(res) {
     if (res.tf) for (const e of [...res.tf.values()]) freeEntry(e);
     res.tf = null;
@@ -5205,7 +5214,7 @@ float wabs(vec2 w) {
     _src: { REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, PATTERNS, STYLES,
+    createMesh, createSkip, setSkip, createLines, destroy, dropCached, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, PATTERNS, STYLES,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows)

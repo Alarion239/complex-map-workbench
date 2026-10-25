@@ -12,7 +12,7 @@
  },
  "fix.mk_hint": {
   "en": "Right-click the spiral, then Listen along.",
-  "ru": "Щёлкните спираль правой кнопкой и выберите «Слушать вдоль кривой».",
+  "ru": "Правой кнопкой по спирали: «Слушать вдоль кривой».",
   "note": "Toast when the Mountain King example opens (desktop); its button is Listen (review user-5). Keep the menu item's name as the v15.2 table has it."
  },
  "fix.mk_hint_ph": {

@@ -1,0 +1,13 @@
+{
+ "_about": "v16.1 patch (notes/v16-patch1-ledger.json): strings added while fixing the v16 gate and verifier items. id -> {en, ru, note}. Read by tools/make_ru_table.py (v16-*.json).",
+ "p1.wdef_app": {
+  "en": " Here %{w}.",
+  "ru": " Здесь %{w}.",
+  "note": "Export caption (verify-2): a sentence that defines the stage w_d of a d/dz step in the deformation's start, e.g. ' Here w_2 = d/dz(z^3).' %{w} is a formula."
+ },
+ "p1.wdef_fig": {
+  "en": " Here $%{w}$.",
+  "ru": " Здесь $%{w}$.",
+  "note": "Figure caption (verify-2): the same definition sentence in a LaTeX caption; %{w} is a formula such as w_{2}=\\frac{d}{dz}(z^3)."
+ }
+}

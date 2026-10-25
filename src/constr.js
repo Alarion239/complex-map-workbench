@@ -278,19 +278,29 @@
       // [review math-3] collinear (exactly, by the decimals, or by incidence): the line through P and Q itself, its side
       // the one the lifting gives (left of P -> Q unless R lies between P and Q), so R's rounding never tilts it
       const lam = dot(r1, q1) / sq, sgn = lam > 0 && lam < 1 ? -1 : 1;
-      return gc(0, [sgn * q1[1], -sgn * q1[0]], 0, P);
+      return withPts(gc(0, [sgn * q1[1], -sgn * q1[0]], 0, P), [P, Q, R]);
     }
     // (e: the triangle's longest side, which meets0 reads to tell a circle whose points are collinear to rounding)
     const g = gc(A, [D / 2, E / 2], 0, P);
     if (g) g.e = Math.sqrt(Math.max(sq, sr, dot(sub(R, Q), sub(R, Q))));
-    return g;
+    return withPts(g, [P, Q, R]);
   }
   // the line through p and q, directed p -> q (the interior on its left)
   function line2(p, q) {
     if (isInf(p) || isInf(q)) return null;
     const d = sub(q, p), L = abs(d);
     if (!(L > 0)) return null;
-    return gc(0, [d[1] / L, -d[0] / L], 0, p);
+    return withPts(gc(0, [d[1] / L, -d[0] / L], 0, p), [p, q]);
+  }
+  // (v16.1, verify-3) a form keeps the points it was built through (g.pts): two curves built through the same two points
+  // meet exactly there, whatever the conditioning (meets), where solving the forms lost up to 0.08 |PQ| for a circle
+  // through nearly collinear points met with the line through two of them
+  function withPts(g, pts) { if (g) g.pts = pts.map((z) => z.slice()); return g; }
+  function sharedPts(g1, g2) {
+    if (!g1 || !g2 || !g1.pts || !g2.pts) return null;
+    const out = [];
+    for (const a of g1.pts) if (isXY(a) && g2.pts.some((b) => isXY(b) && b[0] === a[0] && b[1] === a[1]) && !out.some((c) => c[0] === a[0] && c[1] === a[1])) out.push(a);
+    return out.length === 2 ? [out[0].slice(), out[1].slice()] : null;
   }
   // centre c, through q (counterclockwise: the disc is the interior)
   function circleCP(c, q) {
@@ -324,6 +334,8 @@
     if (isInf(p) && isInf(q)) return two;
     // two lines: the finite crossing and infinity, which take the opposite roles
     if (isInf(q)) return crossing(g1, g2, p) <= 0 ? [p, INF] : [INF, p];
+    const sh = isInf(p) ? null : sharedPts(g1, g2);
+    if (sh) return crossing(g1, g2, sh[0]) <= 0 ? [sh[0], sh[1]] : [sh[1], sh[0]];
     return crossing(g1, g2, p) <= 0 ? [p, q] : [q, p];
   }
   // the two intersections, unordered. Solved in the Hermitian form of one curve along the other (a line, or the

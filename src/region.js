@@ -977,6 +977,80 @@ const Region = (() => {
       if (lo === 0 && hi === n - 1) return pts;
       return pts.slice(2 * lo, 2 * hi + 2);
     }
+    // (v16.1) A kept segment with an end outside the window whose image bends within it is halved until, under every
+    // map, each piece's image midpoint is within BEND of its chord: the GPU draws a segment as 8 straight pieces, so a
+    // geometric tail step of exp along a vertical line (up to 1.8 rad of the unit circle) drew chords up to 1 px inside
+    // the circle at 150 px per unit (gate v16: curves exp_imag_axis). Only segments the cut test calls resolved under
+    // every map are halved (one it keeps unresolved is a pole crossed far out); at most FAR_DEPTH halvings per segment
+    // and FAR_EVAL map evaluations per curve. Inside the window today's samples (diag / 700) are kept as they are.
+    const BEND = 1 / 32, FAR_DEPTH = 6, FAR_EVAL = 8192;
+    function resolveFar(pts0, Fs, win) {
+      if (!Fs.length || pts0.length < 4) return pts0;
+      const pts = wrapCut(pts0, Fs, win), n = pts.length / 2;
+      let ev = 0;
+      const img = (x, y) => { ev += Fs.length; const z = C(x, y); return Fs.map((F) => F(z)); };
+      const inWin = (x, y) => x >= win.x0 && x <= win.x1 && y >= win.y0 && y <= win.y1;
+      // 1: halve, 0: drawn as it is
+      const bent = (A, B, M) => {
+        let any = false;
+        for (let i = 0; i < A.length; i++) {
+          const a = A[i], b = B[i], m = M[i];
+          if (!fin(a) || !fin(b) || !fin(m)) return false;
+          const ch = Math.hypot(b.re - a.re, b.im - a.im), dev = Math.hypot(m.re - (a.re + b.re) / 2, m.im - (a.im + b.im) / 2);
+          if (dev > 0.25 * ch) return false;
+          if (dev > BEND * ch && dev > 1e-9 * Math.max(Math.hypot(a.re, a.im), Math.hypot(b.re, b.im), Math.hypot(m.re, m.im))) any = true;
+        }
+        return any;
+      };
+      const out = [pts[0], pts[1]];
+      let changed = false, Wa = img(pts[0], pts[1]);
+      const split = (ax, ay, A, bx, by, B, depth) => {
+        if (depth < FAR_DEPTH && ev < FAR_EVAL) {
+          const mx = (ax + bx) / 2, my = (ay + by) / 2, M = img(mx, my);
+          if (bent(A, B, M)) { changed = true; split(ax, ay, A, mx, my, M, depth + 1); split(mx, my, M, bx, by, B, depth + 1); return; }
+        }
+        out.push(bx, by);
+      };
+      for (let i = 0; i + 1 < n; i++) {
+        const ax = pts[2 * i], ay = pts[2 * i + 1], bx = pts[2 * i + 2], by = pts[2 * i + 3];
+        if (inWin(ax, ay) && inWin(bx, by)) { out.push(bx, by); Wa = null; continue; }
+        const A = Wa || img(ax, ay), B = img(bx, by);
+        split(ax, ay, A, bx, by, B, 0);
+        Wa = B;
+      }
+      return changed ? new Float64Array(out) : pts;
+    }
+    // walking out of the window on each side, the samples end once the image has turned by WRAP under every map past
+    // expandBox(win, CUT_BOX) (the run stop's rule: exp along a vertical line draws the unit circle again and again, 8 more turns in its
+    // tails); what follows draws the same curve again
+    function wrapCut(pts, Fs, win) {
+      const n = pts.length / 2, box = expandBox(win, CUT_BOX);   // (never inside the cut test's box)
+      const inWin = (i) => { const x = pts[2 * i], y = pts[2 * i + 1]; return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1; };
+      const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
+      let m = 0, best = Infinity;
+      for (let i = 0; i < n; i++) { const d = Math.hypot(pts[2 * i] - cx, pts[2 * i + 1] - cy); if (d < best) { best = d; m = i; } }
+      const walk = (sgn) => {
+        const st = Fs.map(() => ({ w: null, dir: NaN, turn: 0 }));
+        for (let i = m; sgn > 0 ? i < n : i >= 0; i += sgn) {
+          const z = C(pts[2 * i], pts[2 * i + 1]), out = !inWin(i);
+          let all = true;
+          Fs.forEach((F, k) => {
+            const q = st[k], w = F(z);
+            if (!fin(w)) { q.w = null; q.dir = NaN; all = false; return; }
+            if (q.w && out) {
+              const dx = w.re - q.w.re, dy = w.im - q.w.im;
+              if (dx || dy) { const dir = Math.atan2(dy, dx); if (q.dir === q.dir) { let a = dir - q.dir; a -= 2 * Math.PI * Math.round(a / (2 * Math.PI)); q.turn += Math.abs(a); } q.dir = dir; }
+            } else if (!out) { q.turn = 0; q.dir = NaN; }
+            q.w = w;
+            if (!(q.turn > WRAP)) all = false;
+          });
+          if (all) return i;
+        }
+        return sgn > 0 ? n - 1 : 0;
+      };
+      const hi = walk(1), lo = walk(-1);
+      return lo === 0 && hi === n - 1 ? pts : pts.slice(2 * lo, 2 * hi + 2);
+    }
     // the smallest offset along u from q that float32 still separates from q in origin-relative GPU coordinates
     function f32Floor(q, u, o) {
       if (!o) return 0;
@@ -1278,7 +1352,7 @@ const Region = (() => {
       for (const c of curves) {
         if (!c) continue;
         let pts = sampleCurve(c, win, { tail: stop });
-        if (c.long && c.reach) pts = cutUnresolved(pts, Fs, win);
+        if (c.long && c.reach) pts = resolveFar(cutUnresolved(pts, Fs, win), Fs, win);
         if (c.pts && c.outer && !c.closed) pts = rayEnds(pts, c, win, stop);
         if (pts.length < 4) continue;
         let list = sing ? sing.slice().sort((a, b) => boxDist(win, a.z) - boxDist(win, b.z)) : jumpScan(pts, Fs[0], maxEval);

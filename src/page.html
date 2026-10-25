@@ -1143,7 +1143,9 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .fader-stops > button.on::before { background: var(--accent); }
 .fader-stops > button[style*="--at"] { position: absolute; left: calc(5px + var(--at) * (100% - 10px)); translate: -50% 0; }
 .fader-stops > button[style*="--at"]::before { left: 50%; right: auto; }
-.fader-stops:has(> button[style*="--at"]) { display: block; }
+/* (v16.1) no :has(> button[style*="--at"]) here: a style attribute inside :has() made every inline style change anywhere
+   (the transport scrubber's --fill, every frame of a deformation) a style recalc of about 1.5 to 2 ms on a phone; nothing
+   sets --at on a stop today. A stop placed by --at needs its row as a block: give that row a class. */
 
 /* ---------- Display section ---------- */
 .patterns { display: grid; grid-template-columns: repeat(4, 52px); justify-content: space-between; row-gap: 8px; margin-top: 2px; }

@@ -1907,6 +1907,22 @@
     if (prev === path) return;
     lastPath.set(k, path);
     if (path === 'forward' && prev && prev !== 'forward') scheduleFix();
+    if (path === 'inverse') dropStandIn(k);
+  }
+  // (v16.1) the forward stand-ins a live pane drew for a shape while its inverse program compiled: role|id -> [[res,
+  // cacheKey], ...]. Once that shape draws inverse there, their map-cache evaluations are freed (GLR.dropCached); before
+  // v16 a mesh rebuild soon after the load freed them by chance (gate v16 perf: sphere.logUHP held 1.2 MB more)
+  const standIns = new Map();
+  function noteStandIn(role, id, pairs) {
+    const k = role + '|' + id, have = standIns.get(k) || [];
+    for (const q of pairs) if (q[0] && q[1] && !have.some((h) => h[0] === q[0] && h[1] === q[1])) have.push(q);
+    if (have.length) standIns.set(k, have);
+  }
+  function dropStandIn(k) {
+    const have = standIns.get(k);
+    if (!have) return;
+    standIns.delete(k);
+    if (GLR.dropCached) for (const [res, key] of have) GLR.dropCached(res, key);
   }
   let invFailKey = '', invThrew = false;
   let thumbNotFinal = false;   // a thumbnail drew a forward stand-in for an inverse program still compiling
@@ -2174,7 +2190,9 @@
       };
       if (smOut) st.scissors = smOut;
       GLR.drawRegion(pm.meshRes, st);
-      if (fx && fx.extraRes) GLR.drawRegion(fx.extraRes, Object.assign({}, st, { skip: null, L: 1, cacheKey: cache ? `x|${fx.mapKey}|${mapKeyOf(map)}` : null }));
+      const xKey = cache && fx && fx.extraRes ? `x|${fx.mapKey}|${mapKeyOf(map)}` : null;
+      if (fx && fx.extraRes) GLR.drawRegion(fx.extraRes, Object.assign({}, st, { skip: null, L: 1, cacheKey: xKey }));
+      if (live && role && lp === 'pending' && st.cacheKey) noteStandIn(role, s.id, [[pm.meshRes, st.cacheKey], [fx && fx.extraRes, xKey]]);
       if (smOld) GLR.drawPreMapped(smd.old.res, Object.assign(smLook(s, pane, alpha, map), { scissor: smOld }));
     }
     if (gf) {
@@ -3823,7 +3841,8 @@
   // the number of longitude sectors of the spherical checker (SPEC 6.3): 16 at pattern scale 1, even, 4 to 64
   const sphN = () => Math.max(4, Math.min(64, 2 * Math.round(8 / (S.patternScale || 1))));
   // the outcome of a globe's inverse pass (GLR.drawSphere onResult), as drawScene records a flat one
-  function globeResult(role, s, res, live) {
+  function globeResult(role, s, res, live, fwd) {
+    if (live && res === 'pending' && fwd) noteStandIn(role, s.id, fwd.map((f) => [f.res, f.st && f.st.cacheKey]));
     if (live) notePath(role, s.id, res === 'drawn' ? 'inverse' : res === 'pending' ? 'pending' : 'forward');
     if (res === 'pending') { if (live) invWaiting.add(role); else thumbNotFinal = true; }
     else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
@@ -3921,7 +3940,7 @@
           regions.push({
             inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
-            fwd, onResult: (res) => globeResult(role, s, res, live),
+            fwd, onResult: (res) => globeResult(role, s, res, live, fwd),
           });
         } else {
           regions.push(...fwd);
@@ -5136,8 +5155,18 @@
     const preT = tok(p.pre.filter((k) => k > d), d), postT = tok(p.post);
     const pre = preT.length ? comp(preT) : null, post = postT.length ? comp(postT) : null;
     const qp = [post, pre].filter(Boolean).join('\\circ ');
-    return { range: { a: p.a, b: p.b }, pre, post, qp, qpz: app(postT, app(preT, 'z')), H: `H_t=${[post, 'G_t', pre].filter(Boolean).join('\\circ ')}`, deriv: d };
+    // (v16.1, verify-2: the captions that write w_d also define it, as a function of z)
+    const wdef = d ? `w_{${d}}=${stageTexOf(d)}` : null;
+    return { range: { a: p.a, b: p.b }, pre, post, qp, qpz: app(postT, app(preT, 'z')), H: `H_t=${[post, 'G_t', pre].filter(Boolean).join('\\circ ')}`, deriv: d, wdef };
   }
+  // the stage w_k as TeX in z: the active steps up to k composed (a d/dz step writes the derivative of what it is given)
+  function stageTexOf(k) {
+    let arg = { s: 'z', p: 4 };
+    for (const j of activeSteps()) { if (j > k) break; arg = built[j - 1].tex(arg); }
+    return arg.s;
+  }
+  // " Here w_d = ...", after a caption sentence that writes the bracket's start with a d/dz in its pre
+  const wDefSegs = (rt) => (rt && rt.wdef ? capT(' Here %{w}.', { w: { m: rt.wdef } }) : []);
   function morphHomSegs(Tend) {
     const rt = rangeTex();
     if (rt) return morphHomSegsRange(Tend, rt);
@@ -5270,6 +5299,7 @@
       const mark0 = lineShapes.length ? (dashed ? $t(' (dashed outline)') : $t(' (outlined)')) : pts.length ? $t(' (dots)') : '';
       out.push(...capT('The images of %{set} under %{start}%{mark} and under %{end} (%{pat}), joined by %{hom}.', { set: setGen, start: { m: hom.rt.qp }, mark: mark0, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
     } else out.push(...capT('%{head}%{mark} and %{its} under %{end} (%{pat}), joined by %{hom}.', { head, mark, its, end: endM, pat: patWord, hom: [...hom.segs, ...hom.stop] }));
+    out.push(...wDefSegs(hom.rt));
     const nb = sel.kept.filter((k) => k.sp.kind === 'corner' || k.sp.kind === 'edge').length;
     const ni = sel.kept.filter((k) => k.sp.kind === 'node').length;
     const np = sel.kept.filter((k) => k.sp.kind === 'point').length;
@@ -5376,15 +5406,37 @@
     drawRulers(pane, 'R');
   }
   // the transport's readout and scrubber follow the time in every view
+  // (v16.1, gate v16 deform_range_fps) the play tick calls this every frame, also in Phase and Landscape alone. It reads
+  // before it writes (the phone's label check measured the scrubber after the readout changed: a forced layout every
+  // frame), sets the readout's Text node instead of replacing it, and while playing moves the scrubber only when its
+  // thumb moves by half a pixel: on a phone each change of the page's tree or a style was a full style recalc (the
+  // page's :has() rules), about 1.5 to 2 ms a frame. Paused, the scrubber shows T exactly.
   function syncTransport() {
-    syncPlaying();
-    const lab = $('morphLabel');
-    if (lab) lab.textContent = `t = ${I18N.num(morph.T.toFixed(2))} / ${morphLen()}`;
     const sl = $('morphRange');
-    if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
     // (v16: a phone's transport labels, SPEC 6.6)
     const fs = sl && sl.closest('.tscrub[data-fit="1"]');
     if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of fs.querySelectorAll('.tfix')) x.hidden = true; delete fs.dataset.fit; } }
+    syncPlaying();
+    const lab = $('morphLabel');
+    if (lab) setText(lab, `t = ${I18N.num(morph.T.toFixed(2))} / ${morphLen()}`);
+    if (sl && document.activeElement !== sl && +sl.value !== morph.T) {
+      const w = faderW.get(sl) || 0, span = (+sl.max || 1) - (+sl.min || 0) || 1;
+      if (!(morph.playing && w > 0 && Math.abs(morph.T - +sl.value) * w / span < 0.5)) { sl.value = morph.T; paintFader(sl); }
+    }
+  }
+  // a text that changes every frame: its Text node's data (a characterData change), never a new node (a childList change)
+  function setText(el, s) {
+    const t = el.firstChild;
+    if (t && t.nodeType === 3 && !t.nextSibling) { if (t.data !== s) t.data = s; } else el.textContent = s;
+  }
+  // the transport scrubber's width (a ResizeObserver: no layout read in a frame)
+  const faderW = new WeakMap();
+  let faderObs = null;
+  const faderRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) faderW.set(e.target, e.contentRect.width); }) : null;
+  function watchFader(rng) {
+    if (!faderRO) return;
+    if (faderObs && faderObs !== rng) faderRO.unobserve(faderObs);
+    faderObs = rng; faderRO.observe(rng);
   }
   // the colour key of X's phase portrait painted under the Y plane (the Key switch in X's legend chip): the
   // portrait of the identity in the current style, so a colour in X reads off as a value in Y
@@ -7551,6 +7603,7 @@
         ...(trow ? [trow] : []),
         h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
+      watchFader(rng);
       // (v16: a phone's transport labels, measured once the dock is laid out: here, then on the next frames and renders)
       if (scrub.dataset.fit) { const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } }
     }
@@ -7680,6 +7733,9 @@
     b.innerHTML = morph.playing ? ICONS.pause : ICONS.play;
     b.title = morph.playing ? $t('Pause') : $t('Play');
     b.setAttribute('aria-label', b.title);
+    // (v16.1: paused, the scrubber shows T exactly; while playing syncTransport moves it in half-pixel steps)
+    const sl = !morph.playing ? $('morphRange') : null;
+    if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
   // phase color as in the shaders (OKLCH wheel, arg 0 = red)
   function oklchRGB(L, Cc, hh) {
@@ -10436,7 +10492,7 @@
     const Fname = hm ? 'H_t' : Fname0, mapM = hm ? 'H_t' : mapF;
     const homDef = () => {
       const m = morphLen(), hom = morphHomSegs(m);
-      if (hom.rt) return capT(' Shown at %{t}, where %{H} deforms %{QP} (%{t0}) into %{map} (%{tm}); it is %{hom}.', { t: { m: `t=${I18N.texNum(morph.T.toFixed(2))}` }, H: { m: hom.rt.H }, QP: { m: hom.rt.qp }, t0: { m: 't=0' }, map: { m: mapF }, tm: { m: `t=${m}` }, hom: hom.segs });
+      if (hom.rt) return [...capT(' Shown at %{t}, where %{H} deforms %{QP} (%{t0}) into %{map} (%{tm}); it is %{hom}.', { t: { m: `t=${I18N.texNum(morph.T.toFixed(2))}` }, H: { m: hom.rt.H }, QP: { m: hom.rt.qp }, t0: { m: 't=0' }, map: { m: mapF }, tm: { m: `t=${m}` }, hom: hom.segs }), ...wDefSegs(hom.rt)];
       return capT(' Shown at %{t}, where %{H} deforms the identity (%{t0}) into %{map} (%{tm}) along %{hom}.', { t: { m: `t=${I18N.texNum(morph.T.toFixed(2))}` }, H: { m: 'H_t' }, t0: { m: 't=0' }, map: { m: mapF }, tm: { m: `t=${m}` }, hom: hom.segs });
     };
     // the plane of X in three cases (Russian: nominative, after «в»/«на», after «над»)
@@ -10909,7 +10965,7 @@
     hue: hueBytes,
     // (export round 3) the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
     // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
-    defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), rGlobe: rGlobe(), main: S.view.main, paths: S.morphPaths !== false, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null }; },
+    defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), rGlobe: rGlobe(), main: S.view.main, paths: S.morphPaths !== false, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
     plotFAt: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.F : focusF(); } finally { morph.T = keep; } },
     lift: liftC,
     // (export review r3) the screen's deformation paths (their points z), for the video's Paths
