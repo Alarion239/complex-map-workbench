@@ -176,6 +176,16 @@ The published file has no `__cmw` hooks and no machine paths.
 - **Not changed (steps-13):** while the deformation plays, new cards stay blank until it pauses, as every card does
   (cards are held during playback for 60 fps, review verify-1 / design-13).
 
+## 6c. Patch v15.2.1 (2026-10-25, `notes/v15.2-patch1-ledger.json`)
+
+- **The search caption (verify-3).** The derivation wraps first, after a ↦ (a row and its ↦ break together). Each row
+  is set in display style at 13 px, so a fraction's parts are full size. Only a row wider than the box makes the line
+  smaller, down to 85 %. A row wider still scrolls. The smallest glyph of 1/(1+e^{−sin(2z+1)}) is 10.8 px (was 4.6 px).
+- **The search rows (verify-4).** A row's formula fits its column (120 px; 84 px on a phone): smaller down to 85 %,
+  then without its "f(z) =", down to 75 %, then a fade at its end. Never a hard cut. The Add as n steps row shows the
+  start of its own derivation, such as z ↦ z² ↦ ⋯, not the formula again. On the phone its row also shows the whole
+  derivation, now wrapped at full size (it shrank to 60 % before).
+
 ## 7. Screenshots (notes/formula-steps/shots/)
 
 - `split-search-sinz.png`: `sin z` lists Sine first and Custom formula second.

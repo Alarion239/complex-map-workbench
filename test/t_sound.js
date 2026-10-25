@@ -580,6 +580,47 @@ const flush = () => new Promise((r) => setImmediate(r));
     for (let i = 1; i <= 360; i++) { phi = 0.4 + 3 * i / 360; S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h: 0.1 * 2.5 / TAU }); }
     check('sound-3: with the band, 3 laps round a zero still give 3 low Ds', st.up === 3 && st.down === 0, JSON.stringify(st));
   }
+  // verify-1 (v15.2.1): a probe seated inside the band of a line (a long press) that goes round a zero and stops where it
+  // began sounds the lap's D at the end (the pointer's harp has a lap: Harp(true)). F = z, r px from the zero, 1 px a
+  // unit, the app's band (2.5 px of arg F); a touch inside 8 px is in the D-only zone (shaky)
+  {
+    const S = makeEnv().Sound;
+    const touchLap = (r, deg, o = {}) => {
+      const st = S.Harp(true), h = Math.min(0.125, (1 / r) * 2.5 / TAU), dir = o.dir || 1, laps = o.laps || 1, N = 48;
+      let phi = deg / 360; S.harpStep(st, null, 0, phi, {});
+      for (let i = 1; i <= N * laps; i++) { phi = deg / 360 + dir * i / N; S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h, shaky: r < 8 }); }
+      const lap = { up: st.up, down: st.down, notes: st.notes };
+      // then held at the lap's end, trembling ±1.5 px at about 9 Hz for 3 s: no note, the count unchanged
+      const x0 = r * Math.cos(TAU * phi), y0 = r * Math.sin(TAU * phi);
+      let prev = phi;
+      for (let k = 1; k <= 180; k++) {
+        const t = k / 60, x = x0 + 1.5 * Math.sin(TAU * 9 * t), y = y0 + 1.5 * Math.sin(TAU * 8.3 * t + 1);
+        let d = Math.atan2(y, x) / TAU - prev; d -= Math.round(d); prev += d;
+        S.harpStep(st, null, 3 + t, prev, { dt: 1 / 60, h: Math.min(0.125, (1 / Math.hypot(x, y)) * 2.5 / TAU), shaky: r < 8 });
+      }
+      return { lap, held: { up: st.up - lap.up, down: st.down - lap.down, notes: st.notes - lap.notes } };
+    };
+    for (const [r, deg] of [[15, 3], [15, 5], [15, 8], [15, 15], [15, 25], [30, 3], [60, 3], [12, 0.5]]) {
+      const q = touchLap(r, deg);
+      check(`verify-1: a touch lap ${r} px from a zero, from ${deg}° above the D line: 1 low D, 5 notes; held there: nothing`, q.lap.up === 1 && q.lap.down === 0 && q.lap.notes === 5 && q.held.notes === 0, JSON.stringify(q));
+    }
+    const q6 = touchLap(6, 5.7);
+    check('verify-1: a touch lap 6 px from a zero (the D-only zone), from 5.7°: its D sounds (was silent)', q6.lap.up === 1 && q6.lap.down === 0 && q6.lap.notes === 1 && q6.held.notes === 0, JSON.stringify(q6));
+    const qd = touchLap(15, 3, { dir: -1 }), qb = touchLap(15, -3, { dir: -1 }), q2 = touchLap(15, 8, { laps: 2 });
+    check('verify-1: a falling lap from 3° above and from 3° below the D line: 1 low D down each', qd.lap.down === 1 && qd.lap.up === 0 && qb.lap.down === 1 && qb.lap.up === 0, JSON.stringify({ qd, qb }));
+    check('verify-1: two laps from 8°: 2 low Ds', q2.lap.up === 2 && q2.lap.down === 0 && q2.lap.notes === 10, JSON.stringify(q2));
+    // a probe that goes most of the way round and comes back (no lap): no D; the held finger of sound-3: still nothing
+    const st = S.Harp(true), h = (1 / 15) * 2.5 / TAU; let phi = 0.01; S.harpStep(st, null, 0, phi, {});
+    for (let i = 1; i <= 80; i++) { phi = 0.01 + 0.9 * Math.sin(Math.PI * i / 80); S.harpStep(st, null, i / 60, phi, { dt: 1 / 60, h }); }
+    check('verify-1: 0.9 turn out and back from 3.6°: 0 low Ds', st.up === 0 && st.down === 0, JSON.stringify(st));
+    const hs = S.Harp(true); let ph = null, pv = null;
+    for (let k = 0; k < 600; k++) {
+      const t = k / 60, x = 10 + 1.5 * Math.sin(TAU * 9 * t), y = 1.5 * Math.sin(TAU * 8.3 * t + 1);
+      const a = Math.atan2(y, x) / TAU; if (ph === null) ph = a; else { let d = a - pv; d -= Math.round(d); ph += d; } pv = a;
+      S.harpStep(hs, null, t, ph, { dt: 1 / 60, h: (1 / Math.hypot(x, y)) * 2.5 / TAU });
+    }
+    check('verify-1: with the lap, a held finger near a zero still plucks nothing', hs.notes === 0, JSON.stringify(hs));
+  }
   // math-4: a drawn loop that starts on the D line (arg F within the band of 0) and closes there: harpClose brings the
   // count to W (it played W − 1 before); a loop that only wiggles across nothing stays at 0
   {

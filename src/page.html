@@ -1357,10 +1357,11 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .pal-item:hover { background: var(--well); }
 .pal-item.sel, .pal-item.sel:hover { background: var(--accent-soft); }
 .pal-item.sel .pal-label { color: var(--accent); }
-.pal-tex {
-  min-width: 0; overflow: hidden; white-space: nowrap; font-size: 15px; color: var(--ink);
-  -webkit-mask-image: linear-gradient(90deg, var(--ink) calc(100% - 12px), transparent);
-  mask-image: linear-gradient(90deg, var(--ink) calc(100% - 12px), transparent);
+.pal-tex { min-width: 0; overflow: hidden; white-space: nowrap; font-size: calc(15px * var(--fit, 1)); color: var(--ink); }
+/* a formula still wider than its column at 75 % (fitPalTex) ends in a fade, never a hard cut */
+.pal-tex.over {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
 }
 .pal-tex .tex-fallback { font-size: 15px; }
 .pal-tex.pal-glyph { color: var(--muted); font: var(--t-body); }

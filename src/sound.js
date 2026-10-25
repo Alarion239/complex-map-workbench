@@ -870,8 +870,24 @@ registerProcessor('cmw-voice', Voice);`;
     while (P1 < thr(st.c) - h) { fired.push({ i: st.c, dir: -1, u: tAt(thr(st.c)) }); st.c--; }
     return fired;
   }
-  function Harp() { return { c: null, phi: 0, recent: [], up: 0, down: 0, notes: 0 }; }
-  const HP = Harp();
+  // a seated probe's lap (v15.2.1, review verify-1): a probe seated inside a line's band (a long press, a first point)
+  // that comes back to its seat's arg k whole turns on finds the trigger still a line short there (it waits for the
+  // band), so a lap that stops where it began never sounded its D (a touch 15 px from a zero, from 3° or 8° above the
+  // D line; at 6 px, inside the D-only zone, the lap was silent). Arriving within the band of φ_s + k, the trigger is
+  // brought to its seat's cell + 5k in the direction of travel, plucking the line between, as harpClose does for drawn
+  // loops; once per arrival (a hand held at the lap's end does not chatter). The count is the state's, so nothing is
+  // counted twice. Only the pointer's harp (HP) has a lap: lap = {phi, c, k}
+  function lapClose(st, P0, P1, h, fired) {
+    const L = st.lap, k = Math.round(P1 - L.phi);
+    if (k === L.k || !(Math.abs(P1 - (L.phi + k)) <= h)) return;
+    L.k = k;
+    const c = L.c + 5 * k;
+    if (P1 > P0) while (st.c < c) { st.c++; fired.push({ i: st.c, dir: 1, u: 1 }); }
+    else if (P1 < P0) while (st.c > c) { fired.push({ i: st.c, dir: -1, u: 1 }); st.c--; }
+  }
+  const lapSeat = (st, phi) => { if (st.lap) st.lap = st.c === null ? { phi: 0, c: null, k: 0 } : { phi, c: st.c, k: 0 }; };
+  function Harp(lap) { return { c: null, phi: 0, recent: [], up: 0, down: 0, notes: 0, lap: lap ? { phi: 0, c: null, k: 0 } : null }; }
+  const HP = Harp(true);
   // one note: the pitch class in octave copies (D2 … 2.4 kHz) under a Gaussian over log2 f (σ 0.7 octave, centred on
   // D5 + 0.5·tanh(ln|F| / 2.5): lower near zeros, higher near poles), copies under −30 dB dropped (usually 3 remain);
   // each a dark plucked string (T60 1.8 s at D5, ∝ f^−0.5). A D adds a D4 string (the turn's accent) and is +1.8 dB
@@ -900,9 +916,10 @@ registerProcessor('cmw-voice', Voice);`;
   // notes spread over the step as the crossings were). o: {ln, pan, dt, shaky (the D-only zone near a zero or pole,
   // while the pointer moves), h (the band, turns: HARP_H … 1/8), tier, tag}. Returns the crossings (tests count the Ds)
   function harpStep(st, g, t0, phi, o) {
-    if (st.c === null) { st.c = cellOf(phi); st.phi = phi; return []; }
+    if (st.c === null) { st.c = cellOf(phi); st.phi = phi; lapSeat(st, phi); return []; }
     const h = o.h > HARP_H ? Math.min(0.125, o.h) : HARP_H;
     const P0 = st.phi, dt = clamp(o.dt || 0.016, 0.008, 0.1), fired = harpCross(st, P0, phi, h);
+    if (st.lap && st.lap.c !== null) lapClose(st, P0, phi, h, fired);
     st.phi = phi;
     if (!fired.length) return fired;
     const rateT = Math.abs(phi - P0) / dt;   // turns per second
@@ -938,7 +955,7 @@ registerProcessor('cmw-voice', Voice);`;
     return harpStep(HP, G, ctx.currentTime + LEAD, 0.5 * (thr(c) + thr(c + 1)), Object.assign({ dt: 0.1 }, o));
   }
   // a fresh start, a cut or a swap: re-seat on the colour under the probe, without a note
-  function harpReset(phi) { HP.c = phi == null || !Number.isFinite(phi) ? null : cellOf(phi); HP.phi = phi; }
+  function harpReset(phi) { HP.c = phi == null || !Number.isFinite(phi) ? null : cellOf(phi); HP.phi = phi; lapSeat(HP, phi); }
   // "listen along": the harp played along a curve's samples (phi: unwrapped turns, la: ln|F|, uniform in time over dur
   // s), scheduled now on the audio clock, tagged so that stopping it drops what has not sounded. Returns the D count.
   function harpAlong(phi, la, dur, o = {}) {

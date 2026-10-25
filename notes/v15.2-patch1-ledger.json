@@ -1,0 +1,47 @@
+[
+ {
+  "id": "gate-v152-r1",
+  "status": "no-action",
+  "note": "The gate confirmed no failure, so there was nothing to fix. The 2 perf FAILs passed on their re-run, and v15.2 was not worse than v15.1 in the context run. The zp drag timing passed in all 6 paired runs."
+ },
+ {
+  "id": "gate-stale-deform-clicks",
+  "status": "fixed-test",
+  "note": "The gate's stale check. test/sound_deform_clicks_cmd.js now logs the harp's notes with Sound.cueHook, as sound_clicks_cmd.js does. It is the gate's harplog copy, but it keeps the rec_deform folder. Run on this build: 36 files, 889 notes logged, late-src 0 and late-par 0 in all 36. The click amplitudes could not be judged in this session (see open-click-regression)."
+ },
+ {
+  "id": "verify-1",
+  "status": "fixed",
+  "note": "Root cause: the pointer's harp seats with the zero-band cell. A probe seated inside a line's band, back at its seat's arg plus 1 turn, is still one line short until it passes the band. Fix (src/sound.js): the pointer's harp keeps its seat {phi, c} (harpReset and the first point). When a step lands within the band of phi + k (k is not the last lap reached), the trigger moves to c + 5k in the direction of travel and plucks the line between, as harpClose does. It runs once per arrival, so a hand held at the lap's end does not chatter. Every pluck is a state change, so nothing is counted twice. Node test t_sound.js has 13 new checks and passes 151/151. Touch laps 12 to 60 px from 0.5 to 25 degrees, and 6 px (D-only zone) from 5.7 degrees, give 1 D. Falling laps from 3 degrees above and below give 1 D down. Two laps give 2. Out-and-back 0.9 turn gives 0. A finger held after the lap, or held with no lap, plays 0 notes. With the lap turned off, 9 of these checks fail, as the verifier measured. In the app, sound_v152_cmd.js section 8 (new; 390x844 Android, touch): 15 px from 3, 5 and 8 degrees and 30 px from 3 degrees give 1 D up and 5 notes, with 0 notes held. 6 px from 5.7 degrees gives 1 D and 1 note (it was silent). Pass, 0 failures. sound_cmd pass. sound_v152_fps: 60 fps in 8 of 8, work p95 at most 2.1 ms, sound p95 at most 1.5 ms."
+ },
+ {
+  "id": "verify-2",
+  "status": "fixed",
+  "note": "tools/make_ru_table.py now drops every entry that no source holds, not only the hand-written ones. Kept: contexts a computed $tx reaches, and text the source holds once concatenations are joined and white space is collapsed (a safety net; it keeps 'End the tour  Esc'). Also kept: the phase 2b fixes and leftovers, the two tables t_i18n pins ('Guide  ?' is the only one left unused). Dropped 281 entries. 39 were held by v15.1's source and removed by v15.2, including all 35 the verifier named (' Arrows that meet ...', ' Arrows are the paths ', the old cue descriptions, the old Search help). 242 are older dead keys, mostly inventory spellings with old placeholder names. The report now lists only shipped orphans (195 -> 27). Table: 2360 -> 2079 entries, 340,303 -> 282,295 bytes. Published page: 3,429,874 -> 3,377,646 bytes. --strict: 0 unresolved. V152_NOT_HERE is unchanged. t_i18n used 5 dead keys as test data. Those now use the app's own keys ('Saved {filename}.', '%{F} is %{props}; ...', 'Figure 1.'). 'not guaranteed' is gone from the phase 2b list because no source holds it. Results: t_i18n 18429/18429, t_i18n_keys 4856, t_i18n_english 977 identical, t_i18n_parse pass. i18n_cmd 92/92. Russian walk at 1440 light and 390 dark: 0 English left, 0 errors. The walk's lookup misses are only amsart and Beamer 16:9/4:3 (names, as before), and none is a dropped key. i18n_shots: 62, no errors. tour 95/95. v15_desktop pass. export: 307 files. preflight --latex: 970 checks, 4 fails, all the known pv-*-frame.png artefacts. Every LaTeX job is ok in English and Russian."
+ },
+ {
+  "id": "verify-3",
+  "status": "fixed",
+  "note": "src/app.js drvLine and src/desk.css. Each row of the derivation is set in display style at 13 px, so a fraction's parts are full size. A row and its following mapsto break together, so the line wraps after a mapsto first. Only a row wider than the box shrinks the line, and never below 85 percent. A row wider still scrolls. Measured at 1440: 1/(1+e^{-sin(2z+1)}) shows 6 rows on 5 lines at 100 percent, inside the box. Its smallest glyph is 10.9 px (was 4.62). sin(z^2+1) is 10.9 px (was 7.2). e^{z^2}+1 is 7.7 px, a second-level script as TeX sets it. Russian dark gives the same. On the phone, the Add as n steps row wraps the derivation at 12.5 px with smallest glyph 10.5 px (it shrank to 60 percent before). fix152 24/24 (steps-2: 4 rows inside, 3 lines). split 93/93. Shots: notes/v15.2-patch1-evidence/shots."
+ },
+ {
+  "id": "verify-4",
+  "status": "fixed",
+  "note": "src/app.js fitPalTex and drvStart, src/page.html .pal-tex. Each row's formula fits its column (120 px; 84 px on the phone): it shrinks to 85 percent, then drops its 'f(z) =' and shrinks to 75 percent. If it is still wider, it ends in a 24 px fade. The fade was a fixed 12 px mask on every row, even rows that fit. The Add as n steps row shows the start of its own derivation, with as many rows as fit and then a mapsto and an ellipsis. Examples: 'z -> 2z+1 -> ...' and 'z -> z^2 -> z^2+1 -> e^{z^2}+1' in full at 1440, and 'z -> z^2 -> ...' on the phone. It no longer repeats the formula row. Measured: at 1440 the fraction is f(z)=... at 88 percent, and sin(z^2+1) has no f(z)= at 100 percent. On the phone sin(z^2+1) is at 95 percent and the fraction at 100 percent. A long formula (sin+cos+e^z z^5) is at 75 percent with a fade. Nothing is cut hard. fix152 24/24 (steps-12: phone row inside). split 93/93."
+ },
+ {
+  "id": "open-click-regression",
+  "status": "not-run",
+  "note": "The click amplitude checks could not run. The Mac's default output is now a Bluetooth headset at 16 kHz, and headless Chrome follows it. sound_clicks.py needs at least 40 kHz. sound_clicks_cmd and sound_deform_clicks_cmd both ran without errors, but at 16 kHz, so the detector refused them. System settings were not changed. Re-run when the default output is the speakers or another 44.1/48 kHz device. Command: q.sh test/sound_clicks_cmd.js && python3 test/sound_clicks.py <kit>/rec '*', and the same for sound_deform_clicks_cmd.js. The harp change only adds a pluck at the end of a step, scheduled like any other note."
+ },
+ {
+  "id": "timing-export-preview-dpr2",
+  "status": "not-confirmed",
+  "note": "The full export run failed 1 timing check: 'preview DPR 2 ... no task of 50 ms'. It had one 83 ms long task (max frame 139 ms, p95 19.8 ms). Re-run paired against v15.1, preview section only, in ABBA order with 3 runs each. v15.2.1 had no long tasks, p95 18.4/18.7/19.4 ms and max 31.3/53.8/40.2 ms (1 of 3 fails on max over 50). v15.1 had no long tasks, p95 18.5/18.6/19.0 ms and max 19.4/42.7/32.1 ms. v15.2.1 is not clearly worse, and this patch does not touch the preview. Evidence: notes/v15.2-patch1-evidence/acc/pv_*.json."
+ },
+ {
+  "id": "build",
+  "status": "info",
+  "note": "Patch files: src/sound.js, src/app.js, src/desk.css, src/page.html, src/i18n_ru.js (generated), tools/make_ru_table.py, tools/ru_report.json, and tests test/t_sound.js, test/t_i18n.js, test/sound_v152_cmd.js, test/sound_deform_clicks_cmd.js. Notes updated: notes/sound/AS-BUILT-v152.md and notes/formula-steps/AS-BUILT.md. Two builds give the same bytes: complex-map-workbench.html 210b336510c8b3f82e76e313b815106ca8c5df01111ae7e66e13ea75a32ed304 (3,377,646 bytes), test.html 8b47c3544d52f6fdf8046de6bf38b44d3f74d24242f97b94b50b5b9375e45d8b. The published file has no __cmw hooks, machine paths, localhost or e-mail addresses. All 30 node tests t_*.js pass, plus sound_bench and test_compare. test/regress is unchanged against the gate's list, with no rule, baseline, golden or accepted.json changes. The perf and quality suites were not re-run: no drawing path they measure changed. Not published."
+ }
+]

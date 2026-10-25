@@ -181,7 +181,8 @@ The user's choices:
   the counts are unchanged.
 - **A loop that starts on the D line (math-4).** When a drawn loop closes, the harp's state is brought to its state at the
   loop's first point shifted by W turns (`Sound.harpClose`), so its low Ds are W wherever the loop began. A pointer that
-  only hovers still sounds a line once arg F is past it by the band.
+  only hovers still sounds a line once arg F is past it by the band (v15.2.1: or once it is back at its seat's arg
+  plus whole turns, below).
 - **Fast phases (math-1).** `Calc.argStep` first cuts a segment into pieces that turn arg F by at most π/4 at the rate of
   either end (2 more calls of F): e^{30z} moved up 0.42 reads 12.6 rad (was 0.03, marked exact).
 - **The limit of every count (math-2).** A zero and a pole closer together than about 1/50 of the sample spacing, with
@@ -193,6 +194,16 @@ The user's choices:
 - **The harp's D (sound-5).** The accent is ×1.23 (+1.8 dB), was ×1.26.
 - **Open for the user:** W = 3 and W = 7 sing the 7th and 11th harmonics (sound-6, a taste item); nobody has listened on
   the Android phone (sound-7).
+
+## Patch v15.2.1 (2026-10-25, `notes/v15.2-patch1-ledger.json`)
+
+- **A lap that ends where it began (verify-1).** The pointer's harp remembers where it was seated (a long press, a first
+  point). When the probe comes back within the band of that arg plus k whole turns, the line the trigger still waits
+  for is plucked there, as `harpClose` does for drawn loops. This happens once per arrival, so a finger held at the end
+  does not chatter. A touch lap 15 px from a zero from 3°, 5° or 8° above the D line now gives its D (it gave none).
+  At 6 px, inside the D-only zone, the lap from 5.7° gives its D (it was silent).
+- **The click test of the deformation** (`test/sound_deform_clicks_cmd.js`) logs the harp's notes with
+  `Sound.cueHook`, as `sound_clicks_cmd.js` does, so a pluck's own attack is not counted as a click.
 
 ## How to run
 

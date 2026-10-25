@@ -138,7 +138,8 @@ ok(keys.size >= 75, 'page.html strings found: ' + keys.size);
 // ---- 4. Russian lookups, plurals, word order ----
 as('ru', () => {
   eq(I18N.t('Fit view'), 'Вписать в окно', 'ru t');
-  eq(I18N.t('Saved {file}.', { file: 'a.png' }), 'Файл a.png сохранён.', 'ru fill, word order');
+  // (v15.2.1, review verify-2: the table ships only keys a source holds, so these use the app's own keys)
+  eq(I18N.t('Saved {filename}.', { filename: 'a.png' }), 'Файл a.png сохранён.', 'ru fill, word order');
   eq(I18N.tx('pred', 'conformal'), 'конформно', 'context: predicate');
   eq(I18N.t('conformal'), 'конформное', 'context: no context');
   const sh = (n) => I18N.tn('{n} shape', '{n} shapes', n);
@@ -146,10 +147,10 @@ as('ru', () => {
   const want = { 1: '1 фигура', 2: '2 фигуры', 4: '4 фигуры', 5: '5 фигур', 11: '11 фигур', 12: '12 фигур', 14: '14 фигур', 21: '21 фигура', 22: '22 фигуры', 25: '25 фигур', 101: '101 фигура', 111: '111 фигур', 0: '0 фигур', 1.5: '1,5 фигуры' };
   for (const [n, w] of Object.entries(want)) eq(sh(+n), w, 'ru plural ' + n);
   eq(I18N.list(['конформно', 'однолистно', 'ограничено']), 'конформно, однолистно и ограничено', 'ru list, no serial comma');
-  const p = I18N.parts('{F} is {props}; these properties are guaranteed by the chain.', { F: { m: 'F' }, props: [{ t: 'конформно' }] });
-  eq(JSON.stringify(p), JSON.stringify(['Отображение ', { m: 'F' }, ' ', [{ t: 'конформно' }], '; эти свойства гарантирует цепочка.']), 'parts keep values and Russian order');
-  eq(I18N.using('en', () => I18N.t('Figure {n}.', { n: 1 })), 'Figure 1.', 'English caption from a Russian interface');
-  eq(I18N.t('Figure {n}.', { n: 1 }), 'Рис. 1.', 'Russian caption');
+  const p = I18N.parts('%{F} is %{props}; these properties are guaranteed by the chain.', { F: { m: 'F' }, props: [{ t: 'конформно' }] });
+  eq(JSON.stringify(p), JSON.stringify([{ m: 'F' }, '\u00a0— ', [{ t: 'конформно' }], '; эти свойства гарантирует цепочка.']), 'parts keep values and Russian order');
+  eq(I18N.using('en', () => I18N.t('Figure 1.')), 'Figure 1.', 'English caption from a Russian interface');
+  eq(I18N.t('Figure 1.'), 'Рис.\u00a01.', 'Russian caption');
   // notation: whole commands only
   eq(I18N.notation('\\tan z'), '\\operatorname{tg} z', 'tg');
   eq(I18N.notation('\\tanh z'), '\\operatorname{th} z', 'th, not tg+h');
@@ -286,14 +287,14 @@ const asyncChecks = async () => {
   I18N._setLang('ru');
   const C = I18N.at('en');
   await new Promise((r) => setTimeout(r, 5));
-  const cap = [C.t('Figure {n}.', { n: 1 }), C.notation('w=\\tan z'), C.texInterval(0.5, 1), C.num(0.5), C.list(['a', 'b'])].join(' ');
+  const cap = [C.t('Figure 1.'), C.notation('w=\\tan z'), C.texInterval(0.5, 1), C.num(0.5), C.list(['a', 'b'])].join(' ');
   await Promise.resolve();
   eq(cap, 'Figure 1. w=\\tan z [0.5,1] 0.5 a and b', 'at(en) after awaits in a Russian UI');
   ok(!/[А-яЁё]/.test(cap) && !/tg/.test(cap), 'no Cyrillic and no tg in the English caption');
   const R2 = I18N.at('ru');
   await new Promise((r) => setTimeout(r, 5));
   I18N._setLang('en');
-  eq([R2.t('Figure {n}.', { n: 1 }), R2.notation('w=\\tan z'), R2.texNum(0.5)].join(' '), 'Рис. 1. w=\\operatorname{tg} z 0{,}5', 'at(ru) after awaits in an English UI');
+  eq([R2.t('Figure 1.'), R2.notation('w=\\tan z'), R2.texNum(0.5)].join(' '), 'Рис.\u00a01. w=\\operatorname{tg} z 0{,}5', 'at(ru) after awaits in an English UI');
 };
 
 // ---- 7. the parser accepts both spellings (src/parse.js) ----
@@ -425,7 +426,7 @@ eq(I18N._resolve({ nav: nav(['ru-RU', 'en']) }), 'ru', 'phase 2b: ru-RU resolves
   }
   ok(n >= 20, 'leftovers: ' + n);
   // the strings phase 2b wrapped (they were left in English): each is in the shipped table
-  for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'not guaranteed', 'Theme: {name}', 'Log-polar', 'Pause', 'Play', 'Show', 'Hide',
+  for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Log-polar', 'Pause', 'Play', 'Show', 'Hide',
     'Radii must be 0 or more', 'Use a whole number from 1 to 60', 'Half-strip to half-plane', 'Principal branch', 'WebGL2 is unavailable, so regions cannot be drawn', 'Domain plane', 'Image plane']) ok(Object.prototype.hasOwnProperty.call(RU_ALL, k), 'phase 2b wrapped string in the table: ' + k);
 }
 // ---------------- phase 2b review fixes (notes/i18n/ledger-2b.json) ----------------

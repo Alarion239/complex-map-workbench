@@ -9116,7 +9116,9 @@
         // (four groups stay English as data: items.parseErr below looks for them)
         if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group === 'Custom formula' ? $t('Custom formula') : group === 'Region formulas' ? $t('Region formulas') : group === 'Curve formulas' ? $t('Curve formulas') : group === 'Calculus' ? $t('Calculus') : group)); }
         const t = h('span', { class: 'pal-tex' });
-        if (it.tex) TeX.set(t, it.tex);
+        // (Add as n steps: the start of its own derivation, not the formula row's TeX again: review verify-4)
+        if (it.rows) t.append(drvStart(it.rows));
+        else if (it.tex) TeX.set(t, it.tex);
         const props = h('span', { class: 'pal-props' });
         if (it.props) for (const [key, ab, title] of PROP_LETTERS) props.append(h('span', { class: 'pp' + (it.props[key] ? ' on' : ''), title }, ab));
         else if (it.key) props.append(h('span', { class: 'kbd' }, it.key));
@@ -9126,9 +9128,10 @@
         t, h('span', { class: 'pal-main' }, h('span', { class: 'pal-label' }, ...(it.labelParts ? it.labelParts() : [it.label])),
           // (on a phone the preview with its derivation is hidden: Add as n steps shows the derivation itself, small and
           // fitted, instead of the step names, review steps-12)
-          it.rows && document.documentElement.classList.contains('ph') ? h('span', { class: 'pal-desc pal-drv' }, drvLine(it.rows, 'drv-line', 0.6)) : it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
+          it.rows && document.documentElement.classList.contains('ph') ? h('span', { class: 'pal-desc pal-drv' }, drvLine(it.rows, 'drv-line')) : it.desc ? h('span', { class: 'pal-desc' }, it.desc) : ''), props);
         list.append(row);
       });
+      fitPalTex(list, items);
       // a query that looks like a formula but does not parse gets the parser's message and its suggestions
       if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas')) list.prepend(h('div', { class: 'pal-empty', role: 'presentation' }, h('span', { class: 'err' }, $t('Not a formula yet: {parseErr}', { parseErr: items.parseErr }))));
       else if (!items.length) list.append(h('div', { class: 'pal-empty' }, opt.fnOnly ? $t('No match. Type a formula in z, such as e^{z^2}, to add it as a step.') : $t('No match. Type a formula in z to add it as a step, a set such as |z| < 1, or a curve such as Re z = 0.')));
@@ -9262,37 +9265,87 @@
       }
     }
     cap.innerHTML = $t('Image after adding {f}', { f: fsub((palState ? palState.at : S.steps.length) + 1) });
-    // (Add as n steps: the derivation z ↦ z² ↦ z²+1 ↦ sin(z²+1), smaller when it is long, down to 70 %, then on a
-    // second line after a ↦: never cut, review steps-2)
+    // (Add as n steps: the derivation z ↦ z² ↦ z²+1 ↦ sin(z²+1), wrapped after a ↦ when it is long: never cut, never
+    // tiny; review steps-2, verify-3)
     if (it.rows) {
       cap.innerHTML = '';
-      cap.append(drvLine(it.rows, 'pal-rows', 0.7));
+      cap.append(drvLine(it.rows, 'pal-rows'));
     }
   }
-  // a derivation as a line of its rows' formulas joined by ↦, each typeset on its own, so the line can break after a ↦;
-  // it shrinks to fit its box first (down to min), and wraps past that (review steps-2, steps-12)
-  function drvLine(rows, cls, min) {
+  // a derivation as a line of its rows' formulas joined by ↦, each typeset on its own in display style (a fraction's
+  // parts at the full size, its scripts one level down), a row and the ↦ after it kept together, so the line breaks
+  // after a ↦. It wraps first; only a row wider than the whole box makes the line smaller, down to 85 % (the scripts
+  // stay at about 8 px), and a row wider still scrolls. Never cut, never unreadable (review steps-2, steps-12; v15.2.1
+  // verify-3: it shrank to 70 % before it wrapped, and a fraction's exponent came out at 4.6 px)
+  function drvLine(rows, cls, min = 0.85) {
     const line = h('span', { class: cls });
     rows.forEach((r, i) => {
       const t = h('span', { class: 'drv-tex' });
-      line.append(i ? h('span', { class: 'drv-map', 'aria-hidden': 'true' }, '↦') : '', t);
-      TeX.set(t, r.tex);
+      line.append(h('span', { class: 'drv-step' }, t, i < rows.length - 1 ? h('span', { class: 'drv-map', 'aria-hidden': 'true' }, '↦') : ''));
+      TeX.set(t, `\\displaystyle ${r.tex}`);
     });
     let tries = 0;
     const fit = () => {
       if (!line.isConnected) { if (++tries < 60) requestAnimationFrame(fit); return; }
-      const box = line.parentNode, avail = box ? box.clientWidth - parseFloat(getComputedStyle(box).paddingLeft || 0) - parseFloat(getComputedStyle(box).paddingRight || 0) : 0;
+      const box = line.parentNode, cs = box && getComputedStyle(box), avail = box ? box.clientWidth - parseFloat(cs.paddingLeft || 0) - parseFloat(cs.paddingRight || 0) : 0;
       if (!TeX.ready || !(avail > 0)) { if (++tries < 120) requestAnimationFrame(fit); return; }
-      line.style.fontSize = '';
-      line.classList.add('measure');
-      const w = line.scrollWidth;
-      line.classList.remove('measure');
-      // (the gaps between the pieces are px and do not scale with the type)
-      const G = Math.max(0, line.children.length - 1) * (parseFloat(getComputedStyle(line).columnGap) || 0);
-      if (w > avail + 0.5) line.style.fontSize = Math.floor(Math.max(min, (avail - G) / Math.max(1, w - G)) * 100) + '%';
+      line.style.removeProperty('--drv-k');
+      line.classList.remove('scroll');
+      let w = 0;
+      for (const s of line.children) w = Math.max(w, s.getBoundingClientRect().width);
+      if (w > avail + 0.5) {
+        const k = Math.max(min, Math.floor((avail / w) * 100) / 100);
+        line.style.setProperty('--drv-k', String(k));
+        if (w * k > avail + 0.5) line.classList.add('scroll');
+      }
     };
     requestAnimationFrame(fit);
     return line;
+  }
+  // the start of a derivation for a search row's formula column: z ↦ z² ↦ ⋯, as many rows as fit (fitPalTex)
+  function drvStart(rows) {
+    const line = h('span', { class: 'drv-start' });
+    rows.forEach((r, i) => {
+      const t = h('span', { class: 'drv-tex' });
+      line.append(h('span', { class: 'drv-step' }, i ? h('span', { class: 'drv-map' }, '↦') : '', t));
+      TeX.set(t, r.tex);
+    });
+    line.append(h('span', { class: 'drv-step drv-more', hidden: true }, h('span', { class: 'drv-map' }, '↦'), h('span', { class: 'drv-dots' }, '⋯')));
+    return line;
+  }
+  // a search row's formula in its column (120 px; 84 px on a phone), once laid out: smaller when it is wider, down to
+  // 85 %; past that without its "f(z) =" or "w =", down to 75 %; past that it ends in a fade, never a hard cut. The
+  // Add as n steps row keeps as many rows of its derivation as fit and ends in ↦ ⋯ (review verify-4: both rows showed
+  // the same cut formula, "f(z) = sin" on the phone)
+  function fitPalTex(list, items, tries = 0) {
+    requestAnimationFrame(() => {
+      if (!list.isConnected || palState === null || palState.items !== items) return;
+      if (!TeX.ready || !list.clientWidth) { if (tries < 120) fitPalTex(list, items, tries + 1); return; }
+      for (const row of list.querySelectorAll('.pal-item')) {
+        const it = items[+row.dataset.i], t = row.querySelector('.pal-tex');
+        if (!it || !t || !(t.clientWidth > 0)) continue;
+        const avail = t.clientWidth;
+        t.classList.remove('over');
+        t.style.removeProperty('--fit');
+        if (it.rows) {
+          const line = t.firstChild, steps = line ? [...line.children] : [], more = steps.pop();
+          if (!more || line.getBoundingClientRect().width <= avail + 0.5) continue;
+          more.hidden = false;
+          let k = steps.length - 1;
+          for (; k >= 1; k--) { steps[k].hidden = true; if (line.getBoundingClientRect().width <= avail + 0.5) break; }
+          if (!k) t.classList.add('over');
+          continue;
+        }
+        let w = t.scrollWidth;
+        if (w <= avail + 0.5) continue;
+        const bare = it.tex && /^(?:f\(z\)|w)=/.test(it.tex) ? it.tex.replace(/^(?:f\(z\)|w)=/, '') : '';
+        if (bare && w * 0.85 > avail + 0.5) { TeX.set(t, bare); w = t.scrollWidth; }
+        if (w <= avail + 0.5) continue;
+        const f = Math.max(0.75, Math.floor((avail / w) * 100) / 100);
+        t.style.setProperty('--fit', String(f));
+        if (w * f > avail + 0.5) t.classList.add('over');
+      }
+    });
   }
 
   // ---------------- guarantees panel ----------------

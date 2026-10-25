@@ -321,10 +321,16 @@
 /* the alone chip walks the steps: ‹ and › show the previous and next step alone */
 .alone-chip .ac-nav { width: 20px; height: 20px; color: var(--accent); font: 600 13px/1 var(--f-ui); }
 .alone-chip .ac-nav:disabled { opacity: 0.4; }
-.pal-cap .pal-rows { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 5px; row-gap: 2px; max-width: 100%; vertical-align: middle; }
-.pal-rows .drv-tex, .drv-line .drv-tex { white-space: nowrap; }
-.pal-rows .drv-map, .drv-line .drv-map { color: var(--muted); }
-.pal-rows.measure, .drv-line.measure { flex-wrap: nowrap; width: max-content; max-width: none; }
+.pal-cap .pal-rows { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 5px; row-gap: 4px; max-width: 100%; vertical-align: middle; font-size: calc(13px * var(--drv-k, 1)); }
+/* a row of a derivation and the ↦ after it break together (drvLine); a row wider than the box at 85 % scrolls */
+.drv-step { display: inline-flex; align-items: baseline; column-gap: inherit; white-space: nowrap; }
+.drv-step[hidden] { display: none; }
+.pal-rows .drv-tex, .drv-line .drv-tex, .drv-start .drv-tex { white-space: nowrap; }
+.pal-rows .drv-map, .drv-line .drv-map, .drv-start .drv-map { color: var(--muted); }
+.pal-rows.scroll, .drv-line.scroll { overflow-x: auto; overscroll-behavior-x: contain; }
 .pal-desc.pal-drv { overflow: visible; white-space: normal; color: var(--ink-2); }
 .pal-item:has(.pal-drv) { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
-.drv-line { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; max-width: 100%; font-size: 12.5px; }
+.drv-line { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 4px; row-gap: 4px; max-width: 100%; font-size: calc(12.5px * var(--drv-k, 1)); }
+/* the Add as n steps row's formula column: the start of its derivation, z ↦ z² ↦ ⋯ (fitPalTex) */
+.drv-start { display: inline-flex; align-items: baseline; column-gap: 4px; font-size: 14px; }
+.drv-start .drv-dots { font: 400 14px/1 var(--f-math); color: var(--muted); }

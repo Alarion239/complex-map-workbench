@@ -167,7 +167,40 @@ await ev(`Sound.set({ sonify: true }); 1`);
   R.heldLap = await harpLoop([0, 0], 0.25, 1);
   ok('the same zero, one lap of radius 0.25: low Ds 1 up 0 down', R.heldLap.harp.up === 1 && R.heldLap.harp.down === 0, R.heldLap);
 }
-const exc = logs().filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
+// 8. (review verify-1, v15.2.1) the phone: a long press near a zero, then one lap round it that stops where it began.
+// Its D sounds at the end, from any start: 3°, 5° and 8° above the D line 15 px from the zero, 3° at 30 px, and 5.7°
+// at 6 px, inside the D-only zone (that lap was silent); then the finger held there with a ±1.5 px tremor: no note
+{
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+  await send('Emulation.setUserAgentOverride', { userAgent: ANDROID, acceptLanguage: 'en-US,en' });
+  await view(390, 844, false, true);
+  await loadHere(ns + 'ph', fn('z'));
+  await ev(`__cmwSetMain('phase')`); await settle(900);
+  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); await new Promise((r) => setTimeout(r, 600)); 1`);
+  await ev(`__cmwSet('loop', false); 1`);
+  const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
+  const c0 = await W(0, 0);
+  const lap = async (r, deg, n = 48) => {
+    const a0 = deg * Math.PI / 180, P = (a) => [c0[0] + r * Math.cos(a), c0[1] - r * Math.sin(a)];
+    await T('touchStart', [P(a0)]); await sleep(650);
+    await ev('Sound.harpCount()');
+    for (let i = 1; i <= n; i++) { await T('touchMove', [P(a0 + 2 * Math.PI * i / n)]); await sleep(16); }
+    const h = await ev('Sound.harpCount()');
+    const [x0, y0] = P(a0);
+    for (let k = 0; k < 90; k++) { const t = k / 60; await T('touchMove', [[x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)]]); await sleep(16); }
+    const held = await ev('Sound.harpCount()');
+    await T('touchEnd', []); await sleep(300);
+    return { up: h.up, down: h.down, notes: h.notes, held: held.notes };
+  };
+  R.touchLaps = {};
+  for (const [r, deg, notes] of [[15, 3, 5], [15, 5, 5], [15, 8, 5], [30, 3, 5], [6, 5.7, 1]]) {
+    const q = R.touchLaps[`r${r}_from${deg}`] = await lap(r, deg);
+    ok(`a touch lap ${r} px from a zero, from ${deg}° above the D line: 1 low D up at its end, ${notes} notes; held there: no note`, q.up === 1 && q.down === 0 && q.notes === notes && q.held === 0, q);
+  }
+  await view(1440, 900, false, false);
+  await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: 'en-US,en' });
+}
+const exc =logs().filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
 ok('no exceptions', !exc.length, exc.slice(0, 5));
 await ev(`Sound.set({ on: false }); 1`);
 return { pass: !fails.length, nfail: fails.length, fails, R };

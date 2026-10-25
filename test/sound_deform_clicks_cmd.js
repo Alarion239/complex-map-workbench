@@ -12,6 +12,8 @@
 // Each run also counts glideCuts: a Height move posted inside a swap's 0.15 s glide that ends before the glide does
 // (expect 0 in every run; review snddef-5: a fresh start cut the glide at the Landscape's open to one 8 ms move).
 // Delete rec_deform afterwards (about 100 MB).
+// v15.2.1 (gate v15.2): the harp's notes are logged with Sound.cueHook, as test/sound_clicks_cmd.js does, so
+// test/sound_clicks.py excuses each pluck's own attack (with cues: [] every harp note counted as a click: 224 in 36 files).
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const OUT = path.join(DIR, 'rec_deform'), OUTB = path.join(OUT, 'det');
 fs.mkdirSync(OUTB, { recursive: true });
@@ -41,15 +43,15 @@ async function page(chain, main, hz) {
   const fr = await ev(`await new Promise((res) => { const t = []; const f = (x) => { t.push(performance.now()); if (t.length < 60) requestAnimationFrame(f); else res(+(1000 * 59 / (t[59] - t[0])).toFixed(1)); }; requestAnimationFrame(f); })`);
   res.pages.push({ chain, main, hz, fps: fr, engine: st.st && st.st.engine, rec: st.rec, err: st.err });
 }
-const startRec = () => ev(`await (async () => { for (const k in __dlog) __dlog[k].length = 0; window.__dOn = true; const f = () => { __dframe(); if (window.__dOn) requestAnimationFrame(f); }; requestAnimationFrame(f); window.__fc0 = __cmwSound().fcN; return __rec.start(); })()`);
+const startRec = () => ev(`await (async () => { for (const k in __dlog) __dlog[k].length = 0; window.__dOn = true; const f = () => { __dframe(); if (window.__dOn) requestAnimationFrame(f); }; requestAnimationFrame(f); window.__fc0 = __cmwSound().fcN; window.__cues = []; Sound.cueHook((t, c) => __cues.push(['cue', t, 0.006, 0])); return __rec.start(); })()`);
 async function stopRec(name) {
-  const r = await ev(`await (async () => { window.__dOn = false; const st = await __rec.stop(); return { st, fcN: __cmwSound().fcN - __fc0, kind: __cmwSound().kind, engine: Sound.state().engine, late: __dlog.late.length, cmds: __dlog.cmds.length, frames: __dlog.ev.length }; })()`, 120000);
+  const r = await ev(`await (async () => { window.__dOn = false; const st = await __rec.stop(); Sound.cueHook(null); return { st, cues: __cues, fcN: __cmwSound().fcN - __fc0, kind: __cmwSound().kind, engine: Sound.state().engine, late: __dlog.late.length, cmds: __dlog.cmds.length, frames: __dlog.ev.length }; })()`, 120000);
   const parts = [];
   for (let i = 0; i < r.st.bytes; i += 1 << 20) parts.push(Buffer.from(await ev(`__rec.chunk(${i}, ${1 << 20})`), 'base64'));
   const f = path.join(OUT, name), buf = Buffer.concat(parts);
   fs.writeFileSync(f + '.f32', buf);
   const dl = await ev(`JSON.parse(JSON.stringify(__dlog))`, 60000);
-  fs.writeFileSync(f + '.json', JSON.stringify({ f0: r.st.f0, rate: r.st.rate, log: dl.ev.map((e) => [e.pn, e.now]), cues: [] }));
+  fs.writeFileSync(f + '.json', JSON.stringify({ f0: r.st.f0, rate: r.st.rate, log: dl.ev.map((e) => [e.pn, e.now]), cues: r.cues || [] }));
   fs.writeFileSync(path.join(OUTB, name + '.f32'), buf);
   fs.writeFileSync(path.join(OUTB, name + '.json'), JSON.stringify({ fs: r.st.rate, f0: r.st.f0, gaps: r.st.gaps, log: dl }));
   const hm = dl.cmds.filter((x) => x.c && 'lf' in x.c && 'dur' in x.c).map((x) => [x.c.at, x.c.dur]);

@@ -42,6 +42,7 @@ extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 V15_NOT_HERE = set()
 V152_NOT_HERE = {'v152-seasong.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
+PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
 for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE):  # the review fixes last
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
@@ -49,7 +50,7 @@ for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == '
         pl = v.get('en_plural')
         key = pl[0] + CTX + pl[1] if v.get('plural') and isinstance(pl, list) else (v['ctx'] + CTX if v.get('ctx') else '') + v['en']
         extra[key] = v.get('plural') or v['ru']
-        if f.name.startswith('phase2b'):
+        if f.name in PHASE2B_PINNED:
             phase2b_keys.add(key)
 
 entries = [(k, v) for k, v in C.items() if k != '_meta'] + list(M['entries'].items()) + list(G.items())
@@ -348,6 +349,13 @@ for k in sorted(table):
 # the English (the one form of a plural, the text after a context) equals a string literal of src/*.js or occurs in one,
 # or in page.html. Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
 # only counted when no literal holds them ('unused', report only).
+# v15.2.1 (review verify-2): the inventory's entries that no source holds are dropped too ('dropped', why 'removed'):
+# they shipped as dead bytes (v15.2 removed 39 of them: ' Arrows that meet show points with the same image.', the old
+# palette-B cue descriptions, the old Search help; the rest are the inventory's own spellings with the placeholder
+# names its call sites renamed, which those call sites' resolved keys replace). Kept: what a computed lookup reaches (a
+# context looked up with a computed text), what the source holds once its concatenations ('a' + 'b') are joined and its
+# white space collapsed (a safety net), and the phase 2b fixes and leftovers, which t_i18n checks are shipped ('unused',
+# report only).
 JS_LIT = re.compile(r"'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\"|`(?:[^`\\]|\\.)*`")
 
 
@@ -377,6 +385,8 @@ for f in sorted((root / 'src').glob('*')):
         src_lits.add(v)
         src_blob.append(v)
 src_blob, src_raw = '\n'.join(src_blob), '\n'.join(src_raw)
+src_joined = re.sub(r'\s+', ' ', re.sub(r"(['\"`])\s*\+\s*(['\"`])", '', src_raw))
+src_blob_ws = re.sub(r'\s+', ' ', src_blob)
 # contexts looked up with a computed text ($tx('audio', s.audio)): every entry of such a context is held
 dyn_ctx = set(re.findall(r"\$tx\(\s*'([^']+)'\s*,\s*(?!['`\"])", src_raw))
 
@@ -388,18 +398,24 @@ def held(k):
     if not plural and len(parts) == 2 and parts[0] in dyn_ctx:
         return True
     # (a literal, a part of one, or the raw text: a template literal's backslashes are doubled there)
-    return vis in src_lits or vis in src_blob or vis in src_raw or vis.replace('\\', '\\\\') in src_raw
+    if vis in src_lits or vis in src_blob or vis in src_raw or vis.replace('\\', '\\\\') in src_raw:
+        return True
+    # (the safety net: concatenations joined, runs of white space as one space)
+    ws = re.sub(r'\s+', ' ', vis)
+    return ws in src_joined or ws in src_blob_ws or ws.replace('\\', '\\\\') in src_joined
 
 
 unused = []
 for k in sorted(table):
     if held(k):
         continue
-    if k in extra and k not in phase2b_keys:
+    if k not in phase2b_keys:
         dropped.append({'key': k, 'why': 'removed: no source holds its English'})
         del table[k]
     else:
         unused.append(k)
+# (an orphan dropped as removed is no longer listed as one: what is left are the real ones)
+orphans = [k for k in orphans if k in table]
 
 out = root / 'src' / 'i18n_ru.js'
 blob = json.dumps(table, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
