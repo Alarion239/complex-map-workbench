@@ -803,6 +803,13 @@ const Figure = (() => {
     // the figure is the same from a phone or a wide window (3:2 around the view's centre; a vertical strip is square)
     if (t.l && t.r && !(t.t && t.b)) { const c = (screen.x0 + screen.x1) / 2, hw = 0.75 * (b.y1 - b.y0); b.x0 = c - hw; b.x1 = c + hw; }
     else if (t.t && t.b && !(t.l && t.r)) { const c = (screen.y0 + screen.y1) / 2, hh = 0.5 * (b.x1 - b.x0); b.y0 = c - hh; b.y1 = c + hh; }
+    // (v16 review picture-9) the points the caption names are framed whole, even when an unbounded set (a line) keeps
+    // the window's edge on that side: 8 % beyond the farthest point
+    const mu = content.must;
+    if (mu) {
+      const mx = 0.08 * Math.max(mu.x1 - mu.x0, b.x1 - b.x0), my = 0.08 * Math.max(mu.y1 - mu.y0, b.y1 - b.y0);
+      b = { x0: Math.min(b.x0, mu.x0 - mx), x1: Math.max(b.x1, mu.x1 + mx), y0: Math.min(b.y0, mu.y0 - my), y1: Math.max(b.y1, mu.y1 + my) };
+    }
     // a sliver at least a quarter of the long side: a segment on the real axis is not a hairline panel
     const minSpan = 0.25 * Math.max(b.x1 - b.x0, b.y1 - b.y0);
     if (b.x1 - b.x0 < minSpan) { const c = (b.x0 + b.x1) / 2; b.x0 = c - minSpan / 2; b.x1 = c + minSpan / 2; }
@@ -877,16 +884,22 @@ const Figure = (() => {
       if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
     let pi = 0;
+    // (v16 review picture-7) with constructions the caption names points (z₀, z₃ …): every point is labelled as the
+    // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
+    const cmFig = shapes.some((x) => x.def || x.at);
+    const markOf = (s) => (cmFig && typeof Construct !== 'undefined' && Construct.pointMark ? Construct.pointMark(s) : null);
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
+      const mk = markOf(s);
       const z = C(s.p[0], s.p[1]), w = F(z);
-      const k = pi++;
-      if (!fin(w)) return;
+      const k = mk === 'helper' ? -1 : pi++;
+      if (!fin(w) || s._atInf) return;
+      if (mk === 'helper') { points.push({ z: [w.re, w.im], r: 1.1, kind: 'ring', label: null, at: 'auto', sw: 0.5 }); return; }
       let label = null;
       if (P.named) label = String.fromCharCode(65 + (k % 26)) + (primeName ? "'" : '');
-      else { const l = texLabel(s, k); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
-      if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
-      else points.push({ z: [w.re, w.im], r: 1.5, kind: 'dot', fill: '#000000', label, at: 'auto' });
+      else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
+      if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : mk === 'ring' ? 'ring' : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
+      else points.push({ z: [w.re, w.im], r: mk === 'ring' ? 1.7 : 1.5, kind: mk === 'ring' ? 'ring' : 'dot', fill: '#000000', label, at: 'auto', sw: mk === 'ring' ? 0.6 : undefined });
     });
     return { curves, points, chev, dashed };
   }
@@ -1033,10 +1046,10 @@ const Figure = (() => {
       const big = expandBox(ref, 2);
       const q = await A.art(side, { box: big, wpt: 300, dpi: 72, ink: printInkFor(o, st.alpha), alive: o.alive });
       if (!q) return null;
-      let cb = contentBox(q, big);
+      let cb = contentBox(q, big), must = null;
       for (const s of shapes) {
         if (kindType(s) === 'area') continue;
-        if (kindType(s) === 'point') { const w = Fs[side](C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); continue; }
+        if (kindType(s) === 'point') { const w = Fs[side](C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
         const b = ptsBox(shapeCurves(s, Fs[side], big, 300, srcWin).pts, big);
         if (b) {
           const ex = 0.01;
@@ -1044,6 +1057,7 @@ const Figure = (() => {
           cb = unionBox(cb, b);
         }
       }
+      if (cb && must && shapes.some((x) => x.def || x.at)) cb = Object.assign({}, cb, { must });   // (constructions: picture-9)
       boxes[side] = fitBox(cb, ref, roughW);
       touches[side] = cb && cb.touch;
     }
@@ -1453,7 +1467,8 @@ const Figure = (() => {
       const curves = [];
       // (export review r3, editor-9: X's boundary at t = 0 is a thin gray line; a dash means "not included", as in every
       // Homework figure)
-      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, (z) => z, box, pw, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
+      const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (v16: the bracket's start, H_0 = Q o P)
+      if (t > 0) for (const s of shapes) if (kindType(s) === 'area') curves.push({ pts: shapeCurves(s, H0f, box, pw, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
       shapes.forEach((s, si) => {
         if (kindType(s) === 'point') return;
         const tn = tonesOf(s, o), open = P.dashOpen && kindType(s) === 'area' && Region.isOpen && Region.isOpen(s);
@@ -1561,7 +1576,8 @@ const Figure = (() => {
     const art = await artPanel('R', box, w, o, { T: m });
     if (!art) return null;
     const Hm = Hof(m), curves = [];
-    for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, (z) => z, box, w, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
+    const H0f = A.defo().qp ? Hof(0) : (z) => z;   // (v16: the bracket's start, H_0 = Q o P)
+    for (const s of shapes) if (kindType(s) !== 'point') curves.push({ pts: shapeCurves(s, H0f, box, w, srcWin).pts, w: 0.4, color: '#999999', cap: 'butt' });
     let bwI = 0;
     for (const s of shapes) {
       const t = kindType(s);
@@ -2149,6 +2165,14 @@ const Figure = (() => {
   function homSentence(c, map) {
     if (!c.hom) return '';
     const m = tnum(c.hom.m), tail = c.chain && c.raw ? CHAINTOK : '';
+    // (v16, SPEC 8: a bracket with a pre or a post: H_t = Q o G_t o P, and G_t is the bracketed part)
+    const d = A.defo ? A.defo() : null;
+    if (d && d.qp && c.hom.inner) {
+      const hom = (c.hom.inner.length > 360 && c.hom.innerShort ? c.hom.innerShort.replace(/:\s*$/, '') : c.hom.inner) + tail;
+      if (d.pre && d.post) return $t(' Here $H_t=%{Q}\\circ G_t\\circ %{P}$, $0\\le t\\le %{m}$, deforms $%{QP}$ ($t=0$) into %{map} ($t=%{m}$): $%{P}$ acts first and $%{Q}$ last, both in full, and $G_t$ is %{hom}.', { Q: d.post, P: d.pre, QP: d.qp, m, map, hom });
+      if (d.pre) return $t(' Here $H_t=G_t\\circ %{P}$, $0\\le t\\le %{m}$, deforms $%{P}$ ($t=0$) into %{map} ($t=%{m}$): $%{P}$ acts first, in full, and $G_t$ is %{hom}.', { P: d.pre, m, map, hom });
+      return $t(' Here $H_t=%{Q}\\circ G_t$, $0\\le t\\le %{m}$, deforms $%{Q}$ ($t=0$) into %{map} ($t=%{m}$): $%{Q}$ acts last, in full, and $G_t$ is %{hom}.', { Q: d.post, m, map, hom });
+    }
     const vals = { H: 'H_t', range: `0\\le t\\le ${c.hom.m}`, def: 'H_t=H^{(k)}_{t-k+1}', interval: 'k-1\\le t\\le k' };
     let pref = '';
     try {
@@ -2194,8 +2218,9 @@ const Figure = (() => {
         : x.hiddenIn && x.hiddenIn.length ? $t(' The %{mark} is the image of the point %{p}; in %{frames} it is on the far side of the sphere.', { mark: marks[x.mk], p: hp(x), frames: joinL(x.hiddenIn.map(fl)) })
           : $t(' The %{mark} is the image of the point %{p}.', { mark: marks[x.mk], p: hp(x) }))).join('');
       // (verify-editor-13) the sentence that names F is short, so its display follows it at once ("..., where \[ F(z) = ... \]")
-      if (fi.globePaths) return $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).', { list, map, m: tnum(fi.m), F: c.Fname }) + (plainN.length ? (plainN.length === 1 ? $t(' The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (circle) to $%{F}(z)$ (dot).', { p: plainN[0], F: c.Fname }) : plainN.length <= 3 ? $t(' Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (circle) to $%{F}(z)$ (dot).', { list: joinL(plainN), F: c.Fname }) : $t(' Curves are the paths $t\\mapsto H_t(z)$ of %{n} points, from $z$ (circle) to $%{F}(z)$ (dot).', { n: String(plainN.length), F: c.Fname })) + marksS : '') + markS + hidden + dashed;
-      if (fi.film === 'globe') return $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { map, m: tnum(fi.m), ts, list }) + (named.length === 1 ? $t(" Solid: the path $t\\mapsto H_t(z)$ of the point %{p} up to the frame's $t$; dotted: the rest of the path; gray: the boundary at $t=0$.", { p: named[0] }) : named.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the points %{list} up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.", { list: joinL(named) }) : $t(' Gray: the boundary at $t=0$.')) + markS + hidden + dashed;
+      const dq = A.defo ? A.defo() : null, z0 = dq && dq.qp ? `H_0(z)=${dq.qpz}` : 'z';   // (v16: a bracket's start)
+      if (fi.globePaths) return (dq && dq.qp ? $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over the boundary of its image at $t=0$ (gray).', { QP: dq.qp, list, map, m: tnum(fi.m), F: c.Fname }) : $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over its boundary at $t=0$ (gray).', { list, map, m: tnum(fi.m), F: c.Fname })) + (plainN.length ? (plainN.length === 1 ? $t(' The curve is the path $t\\mapsto H_t(z)$ of the point %{p}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { p: plainN[0], F: c.Fname, z0 }) : plainN.length <= 3 ? $t(' Curves are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { list: joinL(plainN), F: c.Fname, z0 }) : $t(' Curves are the paths $t\\mapsto H_t(z)$ of %{n} points, from $%{z0}$ (circle) to $%{F}(z)$ (dot).', { n: String(plainN.length), F: c.Fname, z0 })) + marksS : '') + markS + hidden + dashed;
+      if (fi.film === 'globe') return (dq && dq.qp ? $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { QP: dq.qp, map, m: tnum(fi.m), ts, list }) : $t('The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from the identity ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.', { map, m: tnum(fi.m), ts, list })) + (named.length === 1 ? $t(" Solid: the path $t\\mapsto H_t(z)$ of the point %{p} up to the frame's $t$; dotted: the rest of the path; gray: the boundary at $t=0$.", { p: named[0] }) : named.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the points %{list} up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.", { list: joinL(named) }) : $t(' Gray: the boundary at $t=0$.')) + markS + hidden + dashed;
       if (fi.film === 'phaseGlobe') return $t('Phase portraits of $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, at %{ts}: the color shows $\\arg H_t$ (key at right).', { ts }) + (fi.outline ? $t(' Black: the boundary of $X$.') : '') + along;
       if (fi.film === 'land') {
         const ht = { log: '\\log|H_t|', abs: '|H_t|', re: '\\operatorname{Re} H_t', im: '\\operatorname{Im} H_t' }[c.height || 'log'];
@@ -2255,7 +2280,8 @@ const Figure = (() => {
         return cap;
       }
       const i = body.info, ts = i.ts.map((t, k) => $t('(%{letter}) $t=%{t}$', { letter: ru ? RU_LETTERS[k] : String.fromCharCode(97 + k), t: i.labs[k] }));
-      let s = $t('The deformation $H_t$ from the identity ($t=0$) to %{map} ($t=%{m}$), at %{ts}.', { map, m: tnum(i.m), ts: joinL(ts) });
+      const dq = A.defo ? A.defo() : null;
+      let s = dq && dq.qp ? $t('The deformation $H_t$ from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$), at %{ts}.', { QP: dq.qp, map, m: tnum(i.m), ts: joinL(ts) }) : $t('The deformation $H_t$ from the identity ($t=0$) to %{map} ($t=%{m}$), at %{ts}.', { map, m: tnum(i.m), ts: joinL(ts) });
       s += i.tracked.length ? $t(" Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.") : $t(' Gray: the boundary at $t=0$.');
       if (i.open) s += $t(' Dashed: boundary not included.');
       return s;
@@ -2758,7 +2784,7 @@ const Figure = (() => {
       for (const s of plan.shapes) {
         if (kindType(s) === 'point') continue;
         const cs = plan.cs.get(s) || [];
-        if (t > 0 && kindType(s) === 'area') for (const seg of mapCurves(cs, (z) => z, plan.box, wpt / 2)) line(seg.map((p) => P(C(p[0], p[1]))), '#999999', 1 * lw);
+        if (t > 0 && kindType(s) === 'area') for (const seg of mapCurves(cs, A.defo().qp ? plan.Hof(0) : (z) => z, plan.box, wpt / 2)) line(seg.map((p) => P(C(p[0], p[1]))), '#999999', 1 * lw);
         const tn = tonesOf(s, o), open = kindType(s) === 'area' && Region.isOpen && Region.isOpen(s);
         for (const seg of mapCurves(cs, Ht, plan.box, wpt / 2)) line(seg.map((p) => P(C(p[0], p[1]))), tn.edge, 2 * lw, open ? [7 * lw, 5 * lw] : null);
       }

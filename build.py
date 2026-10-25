@@ -2,7 +2,7 @@ import json, pathlib, re
 root = pathlib.Path(__file__).parent
 src = root / 'src'
 page = (src / 'page.html').read_text()
-js = '\n'.join((src / f).read_text() for f in ['cx.js', 'parse.js', 'funcs.js', 'inverse.js', 'recognize.js', 'calc.js', 'glsl.js', 'region.js', 'curves.js', 'sphere.js', 'gl.js', 'view.js', 'figure.js', 'sound.js', 'tour.js', 'inspector.js', 'planemenu.js', 'params.js', 'phone.js', 'app.js'])
+js = '\n'.join((src / f).read_text() for f in ['cx.js', 'parse.js', 'funcs.js', 'homrange.js', 'inverse.js', 'recognize.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'curves.js', 'sphere.js', 'gl.js', 'view.js', 'figure.js', 'sound.js', 'tour.js', 'inspector.js', 'planemenu.js', 'construct.js', 'params.js', 'phone.js', 'seasong.js', 'app.js'])
 # v15 desktop (notes/ui-redesign-2/build/desktop.md): the redesign's styles close the page's stylesheet
 _i = page.rindex('</style>')
 page = page[:_i] + (src / 'desk.css').read_text() + (src / 'phone.css').read_text() + page[_i:]

@@ -1,0 +1,98 @@
+[
+ {
+  "id": "math-1",
+  "severity": "critical",
+  "title": "Huge circles are drawn off their own points: reanchor projects through the centre",
+  "detail": "Constr.reanchor(G, z0) finds the anchor with project(G, z0), which goes through geomOf (c + r*v/|v|, c about r away). That loses eps*|c|. mrCurve and sampleMR then set C = 0 at this wrong anchor, so the whole M(R) curve is translated. This hits every circle with r > 50 x the window diagonal and every gcircle drawn that way. The form itself is exact; only the drawn curve (X, and its image in Y) is wrong. packForm uses the same reanchor (see math-10).",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t12.js: circle3((0.3,0.2),(0.6,0.4),(0.9,0.6)) has r = 1.69e15 and reanchor C' = -0.416 (should be ~1e-16). Its M(R) samples are up to 0.208 off the form inside the window, while the three points are within 7e-17 of the form. In the app (work/xvc/test/rmath_cdp/repro/b3.js, work/xvc/test/rmath_cdp/shots/rm_nearlines.png), Circle 1 and Circle 2 are drawn as lines visibly shifted off z0..z2 and z3..z5. The per-pixel Disc 1 boundary does pass through z0..z2. Under 1/z, Y draws them as circles, not as lines through 0.",
+  "fix": "Project onto the form without the centre. From z, step along n = grad f/|grad f| and solve f(z + s n) = 0 in the Hermitian form, as meets0 does for a line: take the small root with the stable q-formula, or do two float64 Newton steps relative to o. Keep C' = f(o') and assert |C'| < 1e-12*(1 + |o'|). Test: random slanted circle3 with r from 1e6 to 1e16. Every sampleMR sample in the window must be within 1e-12*(1 + |z|) of the form."
+ },
+ {
+  "id": "math-2",
+  "severity": "critical",
+  "title": "Two big circles meet in the wrong place, and their crossing cannot be picked",
+  "detail": "meets0 handles two circles by walking the smaller one by centre and radius, z = c + r e^{i phi}. For two nearly straight circles that error is eps*|c|. In the grid case (math-3) it is more than a unit. The snap's crossing finder (meetNear) uses the same meets, so the ring never appears at the true crossing. Intersect 'curve, then curve' makes the wrong points.",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t11.js: two circles through the grid points (0.3,0.2),(0.6,0.4),(0.9,0.6) and (-0.2,0.3),(-0.4,0.6),(-0.6,0.9) should cross at 0. They 'meet' at (1,1), which is 1.39 off both curves. node work/xvc/test/rmath_cdp/repro/t1.js: at r = 5e8 the error is 3e-8, at r = 4.6e11 it is 2.8e-5. In the app (work/xvc/test/rmath_cdp/repro/b3.js) z6 = (1,1), and __cmwCI({snap}) at 0 returns null.",
+  "fix": "Use the radical axis. Re-anchor f2 at o1 exactly (B' = B2 + A2(o1 - o2), C' = f2(o1)). Then L = A2 f1 - A1 f2 is a line form (A = 0). Normalise it, solve L with f1 on the existing stable line-circle path, and keep the entering-rule order. Test: two circle3 through slanted near-collinear triples (r from 1e6 to 1e16) meet within 1e-12 of both forms."
+ },
+ {
+  "id": "math-3",
+  "severity": "high",
+  "title": "Collinear grid points are not exactly collinear, so 'the line' becomes a circle of radius 1e15",
+  "detail": "snapZ returns +x.toPrecision(12): the decimal-nearest doubles 0.1, 0.3, 0.6 and so on. orient is exact on the doubles, so about half of all collinear triples on the 0.1, 0.05 and 0.01 grids give A != 0 with a random sign. In practice: a Circle through 3 points on a grid line is a 'circle' of r ~ 3e14-7e15 and never the line. Its region row reads 'the disc through ...' or 'outside the circle through ...', chosen by rounding noise. The collinear half-plane of SPEC 2.3 (and the tour's 'half-plane, then complement') cannot be reached on these grids. math-1, math-2 and math-7 then make the picture visibly wrong. The 0.5 and 1 grids are fine.",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t4.js: 592 of 1320 collinear grid triples have orient != 0 at the 0.1, 0.05 and 0.01 steps (smallest r 3.3e14); 0 of 1320 at the 0.5 and 1 steps. (0.1,0.3),(0.4,1.2),(0.7,2.1) gives orient 1.25e-16 and r = 6.8e15. work/xvc/test/rmath_cdp/repro/b3.js: Disc 1 through z0..z2 on y = 2x/3 has the row 'the disc through z0, z1, z2' and r = 1.69e15.",
+  "fix": "Decide collinearity on the decimal values the user snapped or typed. When all six coordinates satisfy x === +x.toPrecision(12), scale them to integers (BigInt, times 10^k) and run the exact predicate there. If that gives 0, use A = 0 and build the line form from P and Q. Otherwise keep today's predicate. Add a test that grid triples on a line give kind line/halfplane."
+ },
+ {
+  "id": "math-4",
+  "severity": "critical",
+  "title": "Wrong incidence for a point on a polygon or rectangle: a circle is drawn as a line that misses its own point",
+  "detail": "A glider on a polygon or rectangle slides over every side (glide uses pc.poly, t in [0, n)). But incOf adds the line key L:<shape>:<part> of the side it was made on, wherever t is now. collinearByRefs then says three points are collinear when they are not, and circle3 forces A = 0.",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t6.js: a square [0,4]^2. M1 and M2 are meets of side 0 with x = 1 and x = 2, and G is a glider made on side 0 with t = 2.5, so G = (2,4). circle3(M1, M2, G) has kind line, A = 0 and byInc = true. G is 4.12 off the drawn curve.",
+  "fix": "In lineKeysOfCurve or incOf, add no line key for a glider whose piece has poly. A glider on one bounded side (a segment) stays fine. Add this case to the incidence tests."
+ },
+ {
+  "id": "math-5",
+  "severity": "high",
+  "title": "A meet of a line with a 3-point circle jumps to the far crossing after the collinear state",
+  "detail": "meetsOf gives index 'finite' whenever both pieces have G.A === 0, which includes a circle3 that is collinear at that moment, for example on integer grid points. Case A: Intersect while the circle is a line stores 'finite'. Once the third point leaves the line, evalNode's fallback (ms.length === 2 && index 'finite' -> ms[0]) takes entering-index 0, which here is the far crossing. Case B: an index stored while it was a circle meets only {finite} at the exact collinear instant. The fallback then takes the finite crossing, so index 0 jumps from about 8e9 to 0 and back (the continuous value is infinity) and lands on index 1's point. Anything built on both points goes undefined ('coincide').",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t5.js: C = circle3((-1,0),(1,0),c) and L is x = 0.25. Case A: with c = (3,0) the meet is (0.25, 0). With c = (3, 1e-12) it is (0.25, 8e12), and with c = (3, 0.5) it is (0.25, 16.56), while the clicked crossing is at (0.25, -0.057). Case B, index 0: (0.25, 8e9) -> (0.25, 0) -> (0.25, -8e9) for y = 1e-9, 0, -1e-9.",
+  "fix": "Use 'finite' only when both curves are lines by kind (line, segment, ray, half-plane edge, polygon side, bisector, a line bound at both ends), never for a circle3 form. For a pair with a circle3, use meets() (entering rule; for A = 0 it orders [p, INF] continuously) and store that index at creation. For a stored 'finite' that meets two points, take the one nearest the last value s.p."
+ },
+ {
+  "id": "math-6",
+  "severity": "high",
+  "title": "'Put on this curve' creates a cycle: the construction freezes and is lost on reload",
+  "detail": "menuItems offers 'Put on this curve' for any free point with a curve within the curve radius, and excludes only the point itself. A free point always lies on every curve built through it (circle3, a line bound to it), so the item shows on every defining point. setDef has no cycle check. The graph marks both cyclic and skips them, so the curve stops following its other points. On reload, validate frees both shapes, so the circle3 definition is gone.",
+  "evidence": "Running app (work/xvc/test/rmath_cdp/repro/b2.js): right-click z0 of Circle 1 = circle3(z0, z1, z2). The menu shows 'Circle through this point…', 'Midpoint with…', 'Put on this curve' and 'Make free'. After running it, __cmwC().cyclic = [s1, s4]. Dragging z1 to (1.5, 0) leaves Circle 1 at c = (0, -0.07), r = 1.0885, so it no longer passes through z1. node work/xvc/test/rmath_cdp/repro/t10.js: validate frees 2 shapes, and C loses def.",
+  "fix": "In menuItems pass exclude = {p.id} plus graph().users(p.id). In cm.setDef, refuse (with no change) a def whose curve or point args include id or anything in users(id). Add a test."
+ },
+ {
+  "id": "math-7",
+  "severity": "high",
+  "title": "Arcs (including the arc through 3 points) are in centre-radius form: wrong meets, gliders and end tests",
+  "detail": "pieces() builds an arc with circlePiece(g.c, g.r, ...) and no G, so meets use {A: 1/r, C: -r, o: c} anchored at the far centre. glide and projectPiece go through c + r e^{i a}. onPiece compares angles with an absolute 1e-9 rad tolerance, which is r*1e-9 in length. Arcs through nearly collinear points are common (the Arc tool binds a, m, b [C24]; see math-3).",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t8.js: an arc through (0.1,0.3),(0.4,1.2),(0.7,2.1) has r = 6.8e15. Meeting it with y = 1.5: index 0 is 'nomeet', and index 1 = (1.108, 1.5) where the answer is (0.5, 1.5). A glider at t = 0.5 is at (1, 2), not on the arc. node work/xvc/test/rmath_cdp/repro/t7.js: on the arc (-1,0),(0,1e-10),(1,0) (r = 5e9), the carrier point at x = 2, beyond the end b, passes onPiece.",
+  "fix": "Give the arc piece G = circle3(a, m, b) (the exact form), and the line piece when orient = 0. Test 'on the arc' exactly: z on the carrier lies on the arc a..b through m iff orient(a, z, b) has the sign of orient(a, m, b), or z is a or b. Parametrize gliders with the Moebius map of (a, m, b), as circle3 gliders are."
+ },
+ {
+  "id": "math-8",
+  "severity": "medium",
+  "title": "Curve pieces are renumbered when a polygon side degenerates, so meets move to another side",
+  "detail": "pieces() pushes only non-null pieces and sets part = out.length. When two consecutive vertices coincide (bound to one point, or dragged together), every later side shifts down by one. A meet or glider on part k then refers to another side, or to none and becomes undefined with the misleading reason '<Polygon> is undefined'. The same happens with sectors whose span reaches 360 or whose r changes.",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t7.js: a square with v1 bound to z. With z on v0 there are 3 pieces, and the meet on part 3 (side v3->v0, which still exists, crossing at (0,2)) becomes argUndef. With z on v2 the same thing happens. A meet on part 2 would silently move to side v3->v0.",
+  "fix": "Keep one slot per side (part = side index). Give a degenerate side a null piece that meets nothing ('nomeet', its own reason), and never renumber. Do the same for sector parts (fixed slots: edge 1, arc, edge 2)."
+ },
+ {
+  "id": "math-9",
+  "severity": "medium",
+  "title": "'The half-plane left of z0 -> z1' is the right side when z2 lies between them",
+  "detail": "For collinear P, Q, R with R between P and Q, the generalized circle P -> Q -> R runs the line from Q towards P. So the region (the continuous limit of the disc) is the half-plane right of P -> Q. That is correct mathematics, but defText, phrase and the export caption say 'the half-plane left of z0 -> z1' / 'to the left of the line through z0 and z1'. The spec's creation rule (§2.3: collinear at creation keeps the left side of P -> Q) is not built either: flip stays false. constr_cmd A's midpoint case (circle through z0, z1 and their midpoint) is this case.",
+  "evidence": "node work/xvc/test/rmath_cdp/repro/t9.js: P = 0, Q = 1. With R = 2 or R = -1, the point (0.5, 1) is inside. With R = 0.5, at creation or dragged onto the segment, it is outside, and the concrete half-plane is a = (0,0), b = (-1,0).",
+  "fix": "Write the text from the form. If dot(b - a, Q - P) < 0, say 'the half-plane left of z1 -> z0' (or 'right of z0 -> z1'), in English and Russian. Then either implement §2.3's rule (set flip when orient = 0 and R is between P and Q at creation) or change the spec to the continuous rule."
+ },
+ {
+  "id": "math-10",
+  "severity": "medium",
+  "title": "Per-view re-anchoring [C5] is not wired, and wiring it as it is would move huge regions on the GPU",
+  "detail": "GLR.setFormAnchor is called only from the test hook __cmwC (app.js, TEMP-DEBUG block), so the published page packs every gdisc and gcurve at its first defining point. The float32 error is then about 6e-8*|z - o| at views far from that point (P = 1000 with a view near 0 at 1e-5 per px gives about 6 px). packForm re-anchors with Constr.reanchor, which has math-1's eps*r error. Wiring it before fixing math-1 would shift huge-radius gdisc and gcurve on the GPU by up to the same 0.2 units.",
+  "evidence": "grep setFormAnchor work/xvc/src/*.js: gl.js defines it, and the only caller is app.js inside window.__cmwC. AS-BUILT-core 'Not done' 3. gl.js packForm calls Constr.reanchor(G, formAnchor).",
+  "fix": "Fix math-1, then call GLR.setFormAnchor with the view centre of the plane being packed (X for shapes, Y for targets: one anchor per pack) before packShapes on every view change. Add a GPU-vs-CPU readback at a view 1e4 away from the anchor."
+ },
+ {
+  "id": "math-11",
+  "severity": "medium",
+  "title": "Formula-curve meets and points: the branches are joined into one polyline, so phantom crossings appear",
+  "detail": "cmEnv.trace concatenates every component of Region.curvesOf (fixed window -8..8) into one polyline. polyCross and projectPiece then see spurious segments joining the branches. There is no Newton refinement (SPEC 2.4 asks for float64), and curves outside |x|, |y| <= 8 are missing.",
+  "evidence": "Running app (work/xvc/test/rmath_cdp/repro/b5.js, work/xvc/test/rmath_cdp/shots/rm_fcurve.png): Im(z^2) = 1 does not meet y = -x. Yet the meet is defined at (7.8e-7, -7.8e-7), and a point on the curve seeded at (0.3, -0.3) sits at (0.3, -7e-7). Both are on the 4009-unit segment joining the two branches. work/xvc/test/rmath_cdp/repro/b4.js: |z^2 - 1| = 0.8 has a 1.76 jump, and its true meets with y = 0.3 are off the level set by up to 1.4e-4 (chord error).",
+  "fix": "Give each component its own traced piece, or keep the pieces separate inside one part and run polyCross per component. Refine with Newton on the two level functions to float64. Trace on the current view plus a margin, not on a fixed -8..8."
+ },
+ {
+  "id": "math-12",
+  "severity": "low",
+  "title": "A point on a 3-point circle is not at an even pace, and jumps when a defining point goes to infinity",
+  "detail": "S(t) = M(tan(pi t)) is a Moebius parametrization. Its speed varies by the ratio of distances, so a slider or Play is not 'all the way round at an even pace' (SPEC 2.5). When an argument becomes infinity (a meet of lines turning parallel), pts3Of returns null and the glider switches to the line piece's arc length from the anchor foot, P + t(Q - P)/|Q - P|. The limit of the Moebius form is P + tan(pi t)(Q - P), so the point jumps.",
+  "evidence": "constr.js glide(pc, t, pts3) and makeCtx.pts3Of (R.some(x => x.inf) -> null). mob3t(P, Q, R, t) tends to P + t(Q - P) as R -> infinity.",
+  "fix": "With R = infinity keep the Moebius form: S(t) = P + tan(pi t)(Q - P), and P at t = 0, infinity at t = 1/2. Either change the spec wording ('in Moebius order, through P, Q, R at t = 0, 1/4, 1/2') or reparametrize by arc length for the slider."
+ }
+]

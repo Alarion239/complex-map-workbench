@@ -1,0 +1,33 @@
+// pitch review: the pointer harp (Hear the function) on F(z) = z in Phase view, two loops round the zero
+const PORT = 9312, ns = 'prptr' + Date.now();
+const OUT = path.join(DIR, 'rec'); fs.mkdirSync(OUT, { recursive: true });
+const recSrc = fs.readFileSync(path.join(DIR, '..', 'sound_rec.js'), 'utf8');
+const inj48 = await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { const A = window.AudioContext; if (!A) return; window.AudioContext = class extends A { constructor(o) { super(Object.assign({ sampleRate: 48000 }, o || {})); } }; })();` });
+const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: recSrc });
+await view(1440, 900, false, false);
+await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+const o = { v3: true, v4: true, shapes: [], steps: [{ type: 'custom', params: { expr: 'z', cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 120 } };
+await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
+await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2400);
+await ev(`__cmwSetMain('phase')`); await sleep(1200);
+await click(5, 300); await sleep(200);
+const st0 = await ev(`Sound.set({ on: true, vol: 0.7, ui: false, events: true, sonify: true }, { quiet: true }); await new Promise((r) => setTimeout(r, 600)); __cmwSet('loop', false); ({ st: Sound.state(), rec: !!(window.__rec && __rec.ctx), err: window.__rec && __rec.err })`);
+const c = await ev(`__cmwW2S('L', 0, 0)`);
+const R = 70;
+await move(c[0] + R, c[1] + 2); await sleep(60); await move(c[0] + R, c[1]); await sleep(400);
+await ev(`window.__cues = []; Sound.cueHook((t, c) => __cues.push({ t, str: c.str ? 1 : 0, g: c.g, pan: c.pan, tag: c.tag, m: c.parts.filter((q) => q.k === 'm').map((q) => [q.f, q.a, q.t60]), n: c.parts.filter((q) => q.k !== 'm').length })); await __rec.start(); 1`);
+// two counter-clockwise loops (screen y down: minus sin) at 0.5 turn per second, then rest
+const log = await ev(`await __drive({ sel: '#overlayL', path: (u) => [${c[0]} + ${R} * Math.cos(2 * Math.PI * 2 * u), ${c[1]} - ${R} * Math.sin(2 * Math.PI * 2 * u)], rate: 60, dur: 4, jitter: 0.1, seed: 3 })`, 60000);
+await sleep(3500);
+const st = await ev(`await __rec.stop()`, 60000);
+const cues = await ev(`(() => { Sound.cueHook(null); return __cues; })()`);
+const synth = await ev(`await Sound.stat()`);
+const parts = [];
+for (let i = 0; i < st.bytes; i += 1 << 20) parts.push(Buffer.from(await ev(`__rec.chunk(${i}, ${1 << 20})`), 'base64'));
+const f = path.join(OUT, 'pointer');
+fs.writeFileSync(f + '.f32', Buffer.concat(parts));
+fs.writeFileSync(f + '.json', JSON.stringify({ rate: st.rate, f0: st.f0, cues, frames: st.frames, gaps: st.gaps, peak: st.peak, R, c, scale: await ev(`__cmwW2S('L', 1, 0)[0] - __cmwW2S('L', 0, 0)[0]`) }));
+await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
+await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj48.identifier });
+await ev(`Sound.set({ on: false }); 1`);
+return { st0, c, synth, frames: st.frames, rate: st.rate, gaps: st.gaps, peak: st.peak, cues: cues.length, strs: cues.filter((q) => q.str).length, other: cues.filter((q) => !q.str).map((q) => q.m.slice(0, 2)), logs: logs().filter((l) => !/404|Failed to load resource/.test(l.m)) };

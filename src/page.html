@@ -664,6 +664,14 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 /* a longer level-2 note in the draft chip's place (drawing tools while the left plane shows the sphere, until P3b) */
 .note-chip { width: max-content; height: auto; min-height: 32px; padding: 6px 12px; white-space: normal; text-align: center; text-wrap: balance; }
 .note-chip > span { overflow: visible; }
+/* (v16 verify-7) a note with its action: the Mountain King's "Listen" (the chip itself lets the plane take the pointer) */
+.note-chip.has-act { padding: 2px 4px 2px 12px; text-align: left; }
+.note-chip .chip-act { pointer-events: auto; flex: 0 0 auto; }
+/* (v16 verify-7) the same hint in X's title row, over no plane */
+.pane-hint { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; margin-right: 4px; font: var(--t-body); color: var(--muted); }
+.pane-hint[hidden] { display: none; }
+.pane-hint-t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pane-hint .toast-act { flex: 0 0 auto; height: 24px; }
 /* the draft chip takes the place of the plane's empty chip while a polygon is drafted there */
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */
@@ -1291,6 +1299,9 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .mi-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .mi-label i { font: var(--t-math-s); }
 .mi-key { margin-left: 16px; font: 400 11px/16px var(--f-mono); color: var(--faint); }
+.mi-key.mi-math { font: 400 13px/18px var(--f-math); color: var(--muted); white-space: nowrap; }
+.mi-key.mi-math i { font-style: italic; }
+.mi-key.mi-math sub { font-size: 0.72em; line-height: 0; }
 .mi:disabled { opacity: 0.4; cursor: default; }
 .mi.danger:not(:disabled):hover, .mi.danger:focus-visible { background: var(--error-soft); color: var(--error); }
 .mi.danger:not(:disabled):hover .mi-ic, .mi.danger:focus-visible .mi-ic { color: var(--error); }
@@ -1407,6 +1418,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
   animation: pop-in-up var(--t-med) var(--ease-out);
 }
 .toast:not(:has(.toast-act)) { padding-right: 12px; }
+.toast .toast-x { flex: 0 0 auto; width: 28px; height: 28px; margin-left: -8px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; }
 .toast-act { height: 28px; padding: 0 8px; border-radius: var(--r-2); font: 600 13px/18px var(--f-ui); color: var(--accent); transition: background-color var(--t-fast) var(--ease-out); }
 .toast-act:hover { background: var(--accent-soft); }

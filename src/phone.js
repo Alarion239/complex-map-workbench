@@ -103,6 +103,7 @@ const Phone = (() => {
     });
     // the tool row follows the tool: a tool from More tools lights the More key with its icon and name
     new MutationObserver(() => syncTools()).observe($('tools'), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });   // (v16 [C20])
     new MutationObserver(() => { els.undo.disabled = $('undoBtn').disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
     els.undo.disabled = $('undoBtn').disabled;
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
@@ -278,7 +279,7 @@ const Phone = (() => {
   const ROW = ['select', 'point', 'disc', 'polygon'];
   function syncTools() {
     if (!els.undo) return;
-    const onB = document.querySelector('#tools .tool.on');
+    const onB = document.querySelector('#tools .tool.on, #constructTools .tool.on');
     const id = onB ? onB.dataset.tool : 'select';
     const sum = document.querySelector('#toolMore > summary');
     if (!sum) return;
@@ -286,13 +287,13 @@ const Phone = (() => {
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
-    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.getAttribute('aria-label'); }
+    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3 points')
     else if (ic.dataset.ph !== 'more') { ic.innerHTML = els.moreIc; lab.textContent = els.moreLab; }
     ic.dataset.ph = extra ? id : 'more';
     if (kind === 'tools') fillTiles();
   }
   function fillTiles() {
-    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map((b) => {
+    const tile = (b) => {
       const t = h('button', { class: 'ph-tile' + (b.classList.contains('on') ? ' on' : ''), type: 'button', 'aria-pressed': String(b.classList.contains('on')), 'data-tool': b.dataset.tool, 'aria-label': b.getAttribute('aria-label') },
         h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.querySelector('span').textContent));
       t.addEventListener('click', () => {
@@ -302,7 +303,11 @@ const Phone = (() => {
         close();
       });
       return t;
-    });
+    };
+    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
+    // (v16: the Construct group after the drawing tiles, under its heading; a tile closes the sheet as the others do)
+    const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
+    if (ct.length) tiles.push(h('h3', { class: 'ph-h cm-ph' }, $t('Construct')), ...ct);
     els.tiles.replaceChildren(...tiles);
   }
   function syncSnap() { const s = $('snapBtn'); if (s && els.snap) els.snap.setAttribute('aria-pressed', s.getAttribute('aria-pressed') || 'false'); }
@@ -466,7 +471,7 @@ const Phone = (() => {
       const dock = document.querySelector('.tdock:not([hidden])');
       if (dock) {
         els.morphKids = [];
-        for (const el of dock.querySelectorAll(':scope > select, :scope > .check')) {
+        for (const el of dock.querySelectorAll(':scope > select, :scope > .check, :scope > .trange')) {   // (v16: and the Deformed steps row)
           const ph = document.createComment('phone'); el.parentNode.insertBefore(ph, el); els.morphKids.push([el, ph]); els.viewOpts.append(el);
         }
       }

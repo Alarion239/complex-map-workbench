@@ -1,0 +1,66 @@
+[
+  {
+    "id": "music-1",
+    "severity": "high",
+    "title": "The register jumps an octave at every bar line, so the theme's contour flips there",
+    "detail": "On z^(-1+24i), ln|F| is about -70 in bars 1 and 3 and about +70 in bars 2 and 4, so the harp's register is saturated at -0.5 and +0.5 octave. The pitch classes are right, but the dominant octave copy moves a whole octave at each bar line, which reverses Grieg's steps there. Bar 1 ends on F#4 and bar 2 starts on E5: Grieg's step down (F# to E#) becomes a seventh up. Bar 3 ends on B4 and bar 4 starts on A5: Grieg's step down (B to A) becomes a seventh up. Each statement's flam is a high B (B5) just before the low downbeat B4. The bar-2 downbeat E sits halfway (+0.12), so it sounds as a blend of E4 and E5. Contour and rhythm are what make this theme recognizable, so this is the biggest risk to 'instantly recognizable'. Calling it 'call and answer' (CHOICE.md) does not hold up: Grieg's answer sinks, and here it leaps. F cannot fix it, because the float32 range (|ln|F|| < 88) forces the principal angle across +/-180 degrees, and that forces the change of sign.",
+    "evidence": "Recorded Listen along (desktop 1440x900 and 412x915 mobile emulation, worklet engine, 48 kHz, test/sound_rec.js tap). Register per note, as the amplitude-weighted mean log2(f/D5) over each note's string cues: statement 1, notes 1-12 = -0.45 to -0.53 (bar 1); note 13 (E, bar-2 downbeat) = +0.12; notes 14-24 = +0.43 to +0.59 (bar 2); 25-37 = -0.46 to -0.53 (bar 3); 38 = +0.16; 39-47 = +0.44 to +0.59 (bar 4). The flam (note 0) = +0.47. The same pattern holds in all three statements. Coda: crash 2 is low and crashes 1 and 3 are high.",
+    "fix": "Give the piece its own register the same way it got its own velocities: add listen.reg, either a constant ln or one value per crossing, and have harpAlong use it in place of la[j] when the guard passes (about 3 lines in harpAlong/harpStep). For example, hold all four bars at about -0.3 octave, let each statement rise a little for the crescendo, and put the coda low. Add one clause to the guide: 'this example sets its own register'. If it is kept as is, it needs an explicit listening sign-off on the phone that the theme still reads."
+  },
+  {
+    "id": "music-2",
+    "severity": "high",
+    "title": "The 78 forced graces (49% of the onsets) sound as separate notes, and the D re-plucks are nearly as loud as the melody",
+    "detail": "Every grace crossing is a clearly separate onset. Bar 1's 'F# D F#' swing is heard as F# (f#) (e) D (d) (e) F#: seven onsets in 0.6 s, roughly evenly spaced (90-120 ms), so the iconic third swing becomes a stepwise run with stutters, because the turn re-plucks repeat the note just played. Each downbeat gets b(high) B B, three Bs, with the drum on top. The D graces are the loudest, because a D is +2 dB and adds the D4 accent string. The per-crossing vel list already lets these crossings be made almost silent, so the extras are a choice in make.js, not a constraint of the harp.",
+    "evidence": "A spectral-flux onset detector (2048/128 hop, adaptive threshold) on the recording finds 78 of 78 graces as distinct onsets (desktop and phone). From the recorded cue amplitudes, each grace against the next main note: mean -6.4 dB, range -13.3 to +2.4 dB, and 25 of 78 within 4 dB. The D re-plucks (notes 9, 21, 33, 43, 62, 90, 103, 109, 115, 127, 137) are -2.4 to -3.8 dB. Heard sequence (s): (B)0.353 B0.448 B0.753 D1.051 E1.360 F#1.658 (F#)1.780 (E)1.871 D1.960 (D)2.083 (E)2.173 F#2.264.",
+    "fix": "In the melody file, set the graces to about 0.12x their main note, the same-string turn re-plucks to about 0.08x, and the D graces lower still (x0.6 for the accent); the flam can go to about 0. Keep the coda runs as they are. Add an engine guard in harpNote: skip the cue when vel < 0.02, so a silent crossing takes no string slot (see music-5). Re-run t_seasong.js, which needs no change to the crossings, and re-record. Then do the planned phone listening check with this version."
+  },
+  {
+    "id": "music-3",
+    "severity": "medium",
+    "title": "The drum (cut tick) stays at one level, so it leads the pianissimo opening",
+    "detail": "harpAlong plays the cut ticks with play('cut') at the catalog level (TRIM -3.25 dB). Nothing from the piece's dynamics reaches them. While the theme starts very soft, each downbeat's drum is roughly 10 dB above the melody. By statement 3 it is only about 4 dB above. So the drum does a decrescendo relative to the theme, the opposite of Grieg. The cut sound is also two plucks, about 31-35 ms apart, so every downbeat carries four onsets within about 130 ms: the flam, B, tick 1 and tick 2.",
+    "evidence": "Cue amplitudes (sum of partials x gain): ticks 0.32-0.42, all 7 about equal. Main notes average 0.119 in statement 1, 0.182 in statement 2, 0.243 in statement 3 and 0.268 in the coda. Audio peak in the 50 ms window at each tick: -26.0, -26.8, -24.8, -24.2, -25.0, -21.5, -20.0 dBFS, against main-note peaks of -31.9 dBFS in statement 1. The flux detector finds the tick's second pluck as a separate onset 31-33 ms after each of the 7 ticks, at 0.25-0.34 of the maximum flux.",
+    "fix": "Scale the piece's ticks: pass a gainDb per tick, either from the vel at that crossing (for example 20*log10(v/0.9) - 4) or from a stored listen.tick list, so the drum grows from soft to loud with the theme. Optionally, give the piece a single-pluck tick so the downbeat does not flam twice."
+  },
+  {
+    "id": "music-4",
+    "severity": "medium",
+    "title": "The ending is a high, thin glissando whose ringing sound is not B minor (the D is stolen)",
+    "detail": "The coda's three 'crashes' are six-crossing harp glissandi, 40 ms apart and 0.22 s long. The synth keeps at most 12 strings, and a note takes 4 (a D takes 5). So when the last crash lands, only its last 3-4 notes still ring: E (partly), F#, A and B. The D, the minor third, has already been faded out. The piece ends on a pentatonic cluster, not on B minor. The final B is in the high register: B5 dominant, with B6 and B4. Crash 2 is low and crash 3 is high, so the piece ends upward and light. The coda's RMS is barely above statement 3. Grieg's ending is hammered fff tutti chords in B minor, so this reads as a flourish, not a crash.",
+    "evidence": "Final crash: (B)21.557 (D)21.598 [strings 294/588/1176/2351 Hz + the D4 accent] (E)21.639 (F#)21.679 (A)21.720 B21.758 [247/494/988/1979 Hz]. That is 4.0 strings per note, and the FIFO of 12 at 21.76 s holds B(4) + A(3) + F#(3) + 2 of E's 3. Final B register = +0.48. RMS: statement 3 -35.8, coda -34.6 dBFS. Main-note peaks: statement 3 -24.9, coda -20.4 dBFS. Nothing sounds after the last note; the ring-out is -55 dBFS RMS over 2 s.",
+    "fix": "End on a B-minor sonority. In the last roll, silence the E and A crossings (vel about 0, with the skip guard from music-2) so that B, D, F# and B ring. Put the coda in the low register (music-1's listen.reg). For weight, consider landing twice: a back-and-forth across the B line adds two crossings with no other strings. For piece playback, raise the string cap (for example to 20-24, see music-5) so the final chord can ring together."
+  },
+  {
+    "id": "music-5",
+    "severity": "low",
+    "title": "Voice stealing cuts almost every note short (620 of 636 strings faded out early)",
+    "detail": "The harp's 12-string FIFO was sized for the pointer. Each note here uses about 4 strings: up to 3 octave copies, kept down to -27 dB, plus the D4 accent. So each note is faded out over 30 ms after about three later onsets: about 0.55 s in statement 1 and 0.3 s in statement 3, whatever its written length. The graces spend half of the slots. Held notes survive only where a gap follows them. The texture is drier than a harp's, and the coda cannot ring as a chord (music-4).",
+    "evidence": "Synth stat after the run, desktop: cues 644, steals 620, maxStrings 12, late 0. Mobile emulation: steals 621. On average 4.0 string cues per note: 636 string cues for 159 notes.",
+    "fix": "For a piece playback, raise the cap (for example to 24), and check phone CPU with the existing fps run. Alternatively, drop octave copies below -20 dB for the piece. Silencing the graces (music-2) on its own halves the stealing."
+  },
+  {
+    "id": "music-6",
+    "severity": "low",
+    "title": "The opening is softer than any ordinary harp note in the app (statement 1 at about -44 dBFS RMS)",
+    "detail": "The main notes of statement 1 have vel 0.30-0.42. The pointer harp's notes are at least 0.55 before rate softening. At the default volume of 0.7, the first 8 s are quiet, and bars 1 and 3 sit in the low register: B4 and F#4, with B3 and F#3 copies, plus the D4 accent at 294 Hz, which phone speakers barely reproduce. On a phone in a normal room the first statement may be hard to hear, which also undercuts recognition.",
+    "evidence": "Main-note peaks -31.9 / -27.9 / -24.9 / -20.4 dBFS (statement 1 / 2 / 3 / coda). RMS -44.1 / -39.3 / -35.8 / -34.6 dBFS. Peak of the whole piece -19.0 dBFS at volume 0.7. Desktop and mobile emulation agree within 0.6 dB.",
+    "fix": "Check it on the Android phone. If statement 1 is hard to hear, raise the start velocity to about 0.42 (main notes) and keep the end at 1.0: the crescendo stays about 8 dB in peaks. A fixed mid register (music-1) also helps phone speakers."
+  },
+  {
+    "id": "music-7",
+    "severity": "info",
+    "title": "Adaptation check: the main notes are Grieg's with the stated substitutions; the substitution rules are mixed but defensible",
+    "detail": "Main notes as recorded, statement 1: B B D E F# D F# | E D E E B E | B B D E F# D F# B | A F# D F# A. The rhythm is exact: eighths of 295-309 ms at the start, then the quarters and the half note. Bar 2 uses the nearest string (E# to E, C# to D, C to B). Bar 1 does not: C# goes to B, two semitones, not to D, one semitone. The reason given (D would anticipate the next D) is reasonable. The top voice's chromatic sink (F#, E#, E) becomes F#, E, E. Five pentatonic strings cannot avoid that, and it is acceptable. Nothing from the film score or any modern arrangement appears: a grep of src, tools and dist for pirate, caribbean, badelt, zimmer and 'black pearl' finds nothing, and the melody file states Grieg 1875.",
+    "evidence": "Pitch class of every recorded note against the score fixture: 0 mismatches out of 159. Main-note inter-onset times in bar 1: 305, 298, 309, 298, 302, 304 ms, then 603 ms (the quarter).",
+    "fix": "No change needed."
+  },
+  {
+    "id": "music-8",
+    "severity": "info",
+    "title": "Verified: every note present and on time, nothing extra, a clear accelerando and crescendo, Esc stops it, and other curves are unchanged",
+    "detail": "Recorded twice as the app plays it: desktop (right-click, Listen along) and Android mobile emulation (412x915, long-press, Listen along). Both used the same worklet engine and produced the same schedule. The emulation cannot test a real Android audio device, so the phone listening check is still needed. All 159 crossings sounded in the score's order, with the right strings and directions. The detector found 76 of 81 main notes; the other 5 fall within 22 ms of a tick and were merged with it. It found 78 of 78 graces and 5-6 of 7 ticks. The only onsets not in the score are each tick's designed second pluck, plus one tiny event (0.05 of maximum flux) at 0.377 s. No stray crossings, extra ticks or runs, and no onset after the last note. Accelerando: the main-note eighth (25th percentile of inter-onset times) is 237, then 182, then 140 ms. Crescendo: main-note peaks +11.5 dB from statement 1 to the coda, with rate softening bypassed as intended. Esc at 6 s: -42.8 dBFS before, -80.7 dBFS 20-50 ms after, silent by 0.4 s; 508 of 636 strings never started. Other curves: in sound.js, with vel undefined the path is identical to xvsd-snap. sndListen's duration is unchanged without listen. The only general change is the cut-tick time, now at the crossing, which moves it at most dur/899 (7.8 ms or less) earlier, an improvement. The menu and L key change only for the piece.",
+    "evidence": "Scheduled onsets against the score: worst 9.1 ms (desktop and phone). Ticks against the score: +5.1 to +11.0 ms. Synth stat: late 0, gaps 0 in the recording. Recordings were 25.0 s at 48 kHz; the WAV/f32 files were deleted after analysis, and no audio was kept. The disk is low.",
+    "fix": "No change needed."
+  }
+]

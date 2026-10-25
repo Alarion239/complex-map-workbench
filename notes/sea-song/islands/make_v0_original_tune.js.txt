@@ -1,0 +1,271 @@
+#!/usr/bin/env node
+// The islands sea song: a melody -> one closed sailing route whose phase plays it on the app's phase harp.
+// node make.js [--png] [--quiet]   writes route.json (the example's data) and, with --png, sketch.png (a rough check)
+//
+// How it works (notes/sea-song/islands/PROPOSAL.md):
+//  - The harp plucks a string each time the unwrapped arg F crosses a line (0°, 60°, 120°, 210°, 270°: D E F# A B).
+//    So a melody is a walk on the lines: each note is one crossing, up (the next string) or down (back across the
+//    one just crossed). walk() turns the score into crossings and refuses a leap that was not written as a run.
+//  - Listen along plays the curve uniformly in arc length, so a note's onset is where (in arc length) the route
+//    crosses its line, divided by the speed V. Each note is a knot in the log-F plane, zeta = ln|F| + i arg F, put on
+//    its line (plus or minus half the Schmitt band), and consecutive knots are joined by a cubic Bezier in zeta that
+//    stays inside the colour band between them (its control points do, so it never crosses another line). The
+//    route is that path lifted to z through F (Newton continuation). Between two knots the only free number is how
+//    far ln|F| moves: a long note sails far along its colour band (from near one island toward another), a short one
+//    turns close round an island. It is found by bisection so that the lifted arc length is exactly V x the note.
+//  - The last note's ring and the lead-in are one more Bezier inside the A-B band, back to the first knot: the route
+//    closes with no cut, winding number W, so the loop then sings W (F#5 for W = 1).
+const fs = require('fs'), path = require('path');
+const OUT = __dirname;
+const ARGS = new Set(process.argv.slice(2));
+
+// ------------------------------------------------------------------ the melody (original; B minor pentatonic, 6/8)
+const TEMPO = 84;                 // dotted quarter notes a minute
+const S16 = 60 / TEMPO / 6;       // a sixteenth, s
+const LEAD = 0.30, RING = 1.25;   // s before the first note; s the last note rings before the loop closes and sings
+const W = 1;                      // the route's winding number: zeros minus poles inside; sung as F#5
+const START_CELL = -2;            // the first colour: between A (210°) and B (270°)
+// [string, sixteenths, where the route plucks it: 'L' low, near a zero island (ln|F| = -RREG); 'H' high, near a pole
+// island (ln|F| = +RREG)]. A long note between an L and an H is a voyage from one island to the other.
+const SCORE = [
+  ['B', 2, 'L'], ['B', 2, 'L'], ['B', 2, 'L'], ['D', 1, 'L'], ['E', 1, 'L'], ['F#', 4, 'L'],   // 1 the call: three knocks, a run up to the fifth
+  ['A', 2, 'H'], ['B', 4, 'H'], ['B', 2, 'H'], ['A', 2, 'H'], ['F#', 2, 'H'],                 // 2 up to the octave and turn
+  ['E', 3, 'H'], ['D', 3, 'L'], ['D', 2, 'L'], ['E', 2, 'L'], ['F#', 2, 'L'],                 // 3 a swell: down to D, back up
+  ['F#', 1, 'L'], ['E', 1, 'L'], ['D', 1, 'L'], ['B', 1, 'L'], ['A', 1, 'L'], ['F#', 7, 'L'], // 4 the answer sweeps down to the low F#
+  ['F#', 2, 'L'], ['A', 2, 'L'], ['B', 2, 'L'], ['D', 1, 'L'], ['E', 1, 'L'], ['F#', 4, 'L'],  // 5 the call again, from the deep
+  ['A', 2, 'H'], ['B', 1, 'H'], ['D', 2, 'H'], ['E', 1, 'H'], ['F#', 6, 'H'],                 // 6 and higher, to the high F#
+  ['F#', 4, 'H'], ['E', 2, 'H'], ['D', 6, 'H'],                                              // 7 the cadence: F# E D ...
+  ['B', 12, 'L'],                                                                            // 8 ... B (then the loop sings F#)
+];
+const PC = { D: 0, E: 1, 'F#': 2, A: 3, B: 4 };
+const NAMES = ['D', 'E', 'F#', 'A', 'B'];
+
+// the harp's lines (src/sound.js: HARP_TH, HARP_H, thr)
+const TH = [0, 1 / 6, 1 / 3, 7 / 12, 3 / 4], H = 1 / 96;
+const mod5 = (i) => ((i % 5) + 5) % 5;
+const thr = (i) => Math.floor(i / 5) + TH[mod5(i)];
+
+function walk(score, c0) {
+  let c = c0, t = 0;
+  const notes = [];
+  for (const [nm, d, reg] of score) {
+    const j = PC[nm];
+    let line, dir;
+    if (mod5(c + 1) === j) { line = c + 1; dir = 1; c++; }
+    else if (mod5(c) === j) { line = c; dir = -1; c--; }
+    else throw new Error(`${nm} at sixteenth ${t}: not the next string either way (write the run through the strings between)`);
+    notes.push({ nm, j, line, dir, t16: t, d16: d, reg });
+    t += d;
+  }
+  return { notes, endCell: c };
+}
+
+// ------------------------------------------------------------------ the function: islands on a sea
+// F(z) = a (z - z1)(z - z2)(z - z3) / ((z - p1)(z - p2)) as the app's zeros-and-poles step evaluates it
+const ISL = {
+  a: [1, 0],
+  zeros: [[-1.6, -0.35], [0.15, 0.95], [1.25, -0.75]],
+  poles: [[-0.35, -0.85], [1.55, 0.75]],
+};
+const VDEF = 1.9;         // route speed, plane units a second
+const RMAXDEF = 2.9;      // |ln|F|| at most this at a note (keeps the route off the islands)
+
+// ---- complex arithmetic on [re, im]
+const cm = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cs = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cabs = (a) => Math.hypot(a[0], a[1]);
+const cexp = (a) => { const r = Math.exp(a[0]); return [r * Math.cos(a[1]), r * Math.sin(a[1])]; };
+const clog = (a) => [Math.log(cabs(a)), Math.atan2(a[1], a[0])];
+function makeF(isl) {
+  const zs = isl.zeros, ps = isl.poles, deg = Math.max(zs.length, ps.length), a = isl.a;
+  const F = (z) => {
+    let w = a;
+    for (let i = 0; i < deg; i++) {
+      if (i < zs.length && i < ps.length) w = cm(w, cdv(cs(z, zs[i]), cs(z, ps[i])));
+      else if (i < zs.length) w = cm(w, cs(z, zs[i]));
+      else w = cdv(w, cs(z, ps[i]));
+    }
+    return w;
+  };
+  const g = (z) => {   // F'/F
+    let r = [0, 0];
+    for (const q of zs) { const v = cdv([1, 0], cs(z, q)); r = [r[0] + v[0], r[1] + v[1]]; }
+    for (const q of ps) { const v = cdv([1, 0], cs(z, q)); r = [r[0] - v[0], r[1] - v[1]]; }
+    return r;
+  };
+  return { F, g };
+}
+
+// ------------------------------------------------------------------ lifting a zeta path through F
+// solve F(z) = e^zeta near z (Newton on log F - zeta, principal: the steps are small)
+function solve(FG, z, zeta) {
+  for (let it = 0; it < 30; it++) {
+    const r = clog(cm(FG.F(z), cexp([-zeta[0], -zeta[1]])));
+    if (cabs(r) < 1e-13) return z;
+    const dz = cdv(r, FG.g(z));
+    const s = Math.min(1, 0.25 / Math.max(1e-12, cabs(dz)));   // damped near a critical point
+    z = [z[0] - s * dz[0], z[1] - s * dz[1]];
+  }
+  const r = clog(cm(FG.F(z), cexp([-zeta[0], -zeta[1]])));
+  return cabs(r) < 1e-9 ? z : null;
+}
+const bez = (P, u) => { const v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u; return [a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0], a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1]]; };
+// the lift of the Bezier P (zeta) from z0: points (the first is z0) and length; null when it fails
+function lift(FG, P, z0, maxDz = 0.01) {
+  const pts = [z0];
+  let z = z0, u = 0, h = 1 / 256, L = 0;
+  while (u < 1) {
+    const u1 = Math.min(1, u + h), zt = bez(P, u1), gz = FG.g(z), guess = [z[0], z[1]];
+    // predictor: dz = dzeta / g
+    const zp = bez(P, u), dzeta = [zt[0] - zp[0], zt[1] - zp[1]], pr = cdv(dzeta, gz);
+    const z1 = solve(FG, [guess[0] + pr[0], guess[1] + pr[1]], zt);
+    if (!z1 || cabs(cs(z1, z)) > maxDz || cabs(cs(z1, [guess[0] + pr[0], guess[1] + pr[1]])) > 0.2 * cabs(pr) + 1e-9) {
+      h /= 2; if (h < 1e-9) return null; continue;
+    }
+    L += cabs(cs(z1, z)); z = z1; u = u1; pts.push(z);
+    if (cabs(cs(z1, z)) < 0.3 * maxDz) h = Math.min(h * 1.5, 1 / 64);
+  }
+  return { pts, L };
+}
+
+// ------------------------------------------------------------------ building the route
+function build(o = {}) {
+  const FG = makeF(o.isl || ISL), V = o.V || VDEF, RMAX = o.RMAX || RMAXDEF;
+  const { notes, endCell } = walk(SCORE, START_CELL);
+  if (endCell !== START_CELL + 5 * W) throw new Error(`the walk ends in cell ${endCell}; a closed route with W = ${W} must end in ${START_CELL + 5 * W}`);
+  const K = notes.length, TAU = 2 * Math.PI;
+  for (const n of notes) { n.t = LEAD + n.t16 * S16; n.Th = TAU * (thr(n.line) + n.dir * H / 2); }
+  // the register plan: higher strings toward the poles (ln|F| up), lower toward the zeros
+  const RREG = o.rreg || 2.4, plan = (n) => (n.reg === 'H' ? RREG : -RREG);
+  const adj = o.adj || new Array(K + 1).fill(0);   // per-interval length corrections (s), from verify()
+  const band = (c) => thr(c + 1) - thr(c);
+  // the Bezier between knots a and b (zeta), given the far knot's ln|F|
+  function bezier(na, nb, ra, rb, bulge = 0) {
+    const A = [ra, na.Th], B = [rb, nb.Th];
+    if (na.dir === nb.dir) {
+      const h = 0.42 * Math.abs(nb.Th - na.Th);
+      return [A, [ra + bulge, na.Th + na.dir * h], [rb + bulge, nb.Th - nb.dir * h], B];
+    }
+    // a reversal: out into the band past the line and back (the band: above the line after an up crossing)
+    const c = na.dir > 0 ? na.line : na.line - 1, h = 0.5 * TAU * band(c);
+    return [A, [ra + bulge, na.Th + na.dir * h], [rb + bulge, nb.Th + na.dir * h], B];
+  }
+  // seat the first knot
+  const n0 = notes[0], r0 = o.r0 != null ? o.r0 : plan(n0);
+  let z = solve(FG, o.z0 || [-1.2, 0.3], [r0, n0.Th]);
+  if (!z) throw new Error('cannot seat the first note');
+  // each interval: the far knot's ln|F| moves by d (sign by the register plan first, then the other way), d found by
+  // bisection so the lifted arc is exactly V x the note; a dead end (no d works) backs up and tries the other sign
+  // the next knot's ln|F| goes to the register plan (or as near it as the note's length allows), and the arc bulges
+  // sideways in ln|F| (sign sgn) just enough to make it exactly V x the note long
+  function interval(k, kn, sgn) {
+    const na = notes[k], nb = notes[k + 1], ra = kn.r, want = V * (nb.t - na.t + adj[k]), pr = plan(nb);
+    const lenOf = (rb, e) => { const l = lift(FG, bezier(na, nb, ra, rb, e), kn.z); return l ? l.L : NaN; };
+    const cands = [];
+    for (let q = 0; q <= 8; q++) cands.push(pr + (ra - pr) * q / 8);
+    for (const rb of cands) {
+      if (process.env.DBG > 1) console.log('   rb', rb.toFixed(2), 'L0', (lenOf(rb, 0) / V).toFixed(3), 'want', (want / V).toFixed(3));
+      if (!(lenOf(rb, 0) <= want)) continue;
+      const emax = Math.max(0.05, sgn > 0 ? RMAX + 0.6 - Math.max(ra, rb) : RMAX + 0.6 + Math.min(ra, rb));
+      if (!(lenOf(rb, sgn * emax) >= want)) continue;
+      let lo = 0, hi = emax;
+      for (let it = 0; it < 56; it++) { const m = 0.5 * (lo + hi), lm = lenOf(rb, sgn * m); if (lm < want) lo = m; else hi = m; }
+      const e = sgn * 0.5 * (lo + hi), P = bezier(na, nb, ra, rb, e), l = lift(FG, P, kn.z);
+      return { knot: { z: l.pts[l.pts.length - 1], r: rb }, seg: { pts: l.pts, L: l.L, P, e } };
+    }
+    return null;
+  }
+  const knots = [{ z, r: r0 }], segs = [], tried = [];
+  let k = 0, steps = 0;
+  while (k + 1 < K) {
+    if (++steps > (o.maxSteps || 4000)) throw new Error(`no route found (stuck near note ${k + 1})`);
+    const pref = (o.sign && o.sign[k]) || (knots[k].r >= 0 ? -1 : 1);   // bulge toward the open sea first
+    tried[k] = tried[k] || [];
+    let got = null;
+    for (const sgn of [pref, -pref]) {
+      if (tried[k].includes(sgn)) continue;
+      tried[k].push(sgn);
+      got = interval(k, knots[k], sgn);
+      if (got) break;
+    }
+    if (process.env.DBG) console.log('k', k, 'got', !!got, knots[k].r.toFixed(2), got ? got.seg.e.toFixed(2) : '');
+    if (got) { knots[k + 1] = got.knot; segs[k] = got.seg; k++; tried[k] = []; continue; }
+    if (k === 0) throw new Error('no route from the first note');
+    tried[k] = null; k--;   // back up
+  }
+  knots.length = K; segs.length = K - 1;
+  // the ring and the lead-in: one Bezier in the A-B band from the last knot back to the first (+ W turns)
+  const nl = notes[K - 1], nf = Object.assign({}, n0, { Th: n0.Th + TAU * W });
+  const wantC = V * (RING + LEAD + adj[K]);
+  const lenC = (e) => { const P = bezier(nl, nf, knots[K - 1].r, r0, e); const l = lift(FG, P, knots[K - 1].z); return l ? { l, P } : null; };
+  const sgnC = o.closeSign || 1;
+  let lo = 0, hi = 4, cl;
+  const c0 = lenC(0);
+  if (!c0 || c0.l.L > wantC) throw new Error(`the closing turn is already ${(c0 ? c0.l.L / V : NaN).toFixed(3)} s`);
+  for (let it = 0; it < 60; it++) { const m = 0.5 * (lo + hi), r = lenC(sgnC * m); if (r && r.l.L < wantC) lo = m; else hi = m; }
+  cl = lenC(sgnC * 0.5 * (lo + hi));
+  const zEnd = cl.l.pts[cl.l.pts.length - 1], gap = cabs(cs(zEnd, knots[0].z));
+  segs.push({ pts: cl.l.pts, L: cl.l.L, P: cl.P, closing: true });
+  return { FG, V, isl: o.isl || ISL, notes, knots, segs, gap, total: segs.reduce((s, q) => s + q.L, 0) };
+}
+
+// the route as a closed polyline, uniform in arc length, starting LEAD before the first note
+function polyline(R, N) {
+  // one dense list from the first knot round to it again
+  const dense = [];
+  for (const s of R.segs) for (let i = dense.length ? 1 : 0; i < s.pts.length; i++) dense.push(s.pts[i]);
+  const cum = [0];
+  for (let i = 1; i < dense.length; i++) cum.push(cum[i - 1] + cabs(cs(dense[i], dense[i - 1])));
+  const L = cum[cum.length - 1], s0 = L - R.V * LEAD, out = [];
+  let j = 0;
+  for (let k = 0; k < N; k++) {
+    const s = (s0 + (L * k) / N) % L;
+    if (k === 0 || s < cum[j]) j = 0;
+    while (j < cum.length - 2 && cum[j + 1] < s) j++;
+    const u = (s - cum[j]) / Math.max(1e-300, cum[j + 1] - cum[j]), a = dense[j], b = dense[j + 1];
+    out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
+  }
+  return { pts: out, L };
+}
+
+module.exports = { SCORE, TEMPO, S16, LEAD, RING, W, START_CELL, ISL, VDEF, walk, thr, H, NAMES, build, polyline, makeF };
+
+if (require.main === module) {
+  const R = build();
+  console.log('notes', R.notes.length, 'gap', R.gap.toExponential(2), 'length', R.total.toFixed(3), 'dur', (R.total / R.V).toFixed(3));
+  console.log('ln|F| at the notes', R.knots.map((k) => k.r.toFixed(2)).join(' '));
+}
+
+// ------------------------------------------------------------------ a rough sketch (not the app's rendering)
+function sketch(R, file, box) {
+  const zlib = require('zlib'), Wd = 720, Ht = 520;
+  const pts = R.segs.flatMap((s) => s.pts);
+  let [x0, x1, y0, y1] = box || [Infinity, -Infinity, Infinity, -Infinity];
+  if (!box) { for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); } }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, sc = 0.85 * Math.min(Wd / (x1 - x0 || 1), Ht / (y1 - y0 || 1));
+  const img = Buffer.alloc(Wd * Ht * 3);
+  const TH5 = [0, 1 / 6, 1 / 3, 7 / 12, 3 / 4, 1];
+  const COL = [[230, 120, 110], [235, 190, 100], [150, 200, 120], [110, 170, 220], [175, 140, 215]];
+  for (let py = 0; py < Ht; py++) for (let px = 0; px < Wd; px++) {
+    const z = [cx + (px - Wd / 2) / sc, cy - (py - Ht / 2) / sc], w = R.FG.F(z);
+    let t = Math.atan2(w[1], w[0]) / (2 * Math.PI); t -= Math.floor(t);
+    let b = 0; while (t >= TH5[b + 1]) b++;
+    const lr = Math.log(Math.hypot(w[0], w[1])), shade = 0.82 + 0.18 * (lr - Math.floor(lr));
+    const o = (py * Wd + px) * 3;
+    for (let c = 0; c < 3; c++) img[o + c] = Math.min(255, COL[b][c] * shade);
+  }
+  const dot = (p, r, col) => { const X = Wd / 2 + (p[0] - cx) * sc, Y = Ht / 2 - (p[1] - cy) * sc; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r) continue; const xx = Math.round(X + dx), yy = Math.round(Y + dy); if (xx < 0 || yy < 0 || xx >= Wd || yy >= Ht) continue; const o = (yy * Wd + xx) * 3; img[o] = col[0]; img[o + 1] = col[1]; img[o + 2] = col[2]; } };
+  for (let i = 1; i < pts.length; i++) for (let u = 0; u < 1; u += 0.2) dot([pts[i - 1][0] + u * (pts[i][0] - pts[i - 1][0]), pts[i - 1][1] + u * (pts[i][1] - pts[i - 1][1])], 1, [20, 20, 30]);
+  for (const k of R.knots) dot(k.z, 3, [255, 255, 255]);
+  const isl = R.isl || ISL;
+  for (const z of isl.zeros) dot(z, 5, [0, 0, 0]);
+  for (const p of isl.poles) dot(p, 5, [255, 255, 255]);
+  const raw = Buffer.alloc((Wd * 3 + 1) * Ht);
+  for (let y = 0; y < Ht; y++) { raw[y * (Wd * 3 + 1)] = 0; img.copy(raw, y * (Wd * 3 + 1) + 1, y * Wd * 3, (y + 1) * Wd * 3); }
+  const crc = (buf) => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); } return ~c >>> 0; };
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const cr = Buffer.alloc(4); cr.writeUInt32BE(crc(td)); return Buffer.concat([len, td, cr]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(Wd, 0); ihdr.writeUInt32BE(Ht, 4); ihdr[8] = 8; ihdr[9] = 2;
+  fs.writeFileSync(file, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]));
+}
+module.exports.sketch = sketch;

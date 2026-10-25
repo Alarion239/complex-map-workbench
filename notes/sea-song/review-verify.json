@@ -1,0 +1,67 @@
+[
+  {
+    "id": "verify-1",
+    "from": "ui-2",
+    "severity": "medium",
+    "status": "open (left for the user to decide)",
+    "title": "The spiral still crosses itself, now 31 times (was 27)",
+    "detail": "The corners are fixed: the largest turning angle between samples is 11.2 degrees (one sample at that value, none over 20). The self-crossings are not fixed, and the re-spread points have 4 more than before. The radius still runs 0.544 to 1.529. On screen the curve reads as a wobbly, knotted ring, not an exact spiral (desktop Phase view, phone Phase view, X to Y).",
+    "evidence": "node over work/xvsea/src/seasong.js: 1200 points, max turn 11.2 deg, >20 deg: 0, segment self-intersections: 31, r 0.544-1.529. Screenshots taken in this run (desktop 1440x900 light, phone 412x915) and then deleted to save disk.",
+    "fix": "The user's decision (AS-BUILT says so). Option (b) of ui-2, more space between turns, is the one that removes the crossings."
+  },
+  {
+    "id": "verify-2",
+    "from": "music-1",
+    "severity": "low",
+    "verdict": "PLAUSIBLE",
+    "status": "new, left over from the fix",
+    "title": "On the D notes the register fix is weaker, because the D4 accent string is outside listen.reg",
+    "detail": "listen.reg works for every note: the loudest string is the written note an octave up for all 78 theme notes, and the contour matches Grieg's at every step. But harpNote still adds the fixed D4 accent string on each D at 0.5x amplitude. On a main D, that accent and the D4 octave copy together carry almost as much energy as the D5 copy that should lead. The margin is 0.9 to 3.5 dB (mean 1.9 dB). On other notes the next copy is 4.4 dB down by design, and at least 2.7 dB down as recorded. So the Ds' octave is the least clear. In bars 1 and 3, B4 to D5 could be heard as B4 down to D4, a sixth down instead of a third up. This needs ears: check it in the planned phone listening test.",
+    "evidence": "Recorded Listen along as the app plays it (worklet, desktop 1440x900, test/sound_rec.js tap, 16 kHz in this headless run), with each cue's frequency and amplitude logged. Dominant copy minus the written pitch: +12 semitones for 78 of 78 theme notes. Contour mismatches between consecutive main notes, by dominant copy: 0. On main D notes, D4 (copy plus accent) against D5, as root-sum-square amplitude: min -3.5, max -0.9, mean -1.9 dB, n = 18.",
+    "fix": "When o.reg is given (a piece), put the D accent at the dominant copy's octave or leave it out. That is one condition in harpNote and does not change the pointer harp. Then re-run t_seasong.js."
+  },
+  {
+    "id": "verify-3",
+    "from": "AS-BUILT.md",
+    "severity": "low",
+    "title": "AS-BUILT.md still states the old behaviour below its 'After the review' section",
+    "detail": "The new section says it replaces any text below that disagrees with it. But the body still says, as current fact, things that are no longer true: 'The register alternates … reads as call and answer' and 'Nobody has listened yet … lower their velocity from 0.4x to 0.3x'. It still quotes the old blurb ('Right-click the spiral (hold it on touch)'), the old button ('Play In the Hall of the Mountain King') and 'main-note velocity rises from 0.36 to 0.86'. It still describes 'the cut handle's label sits on the spiral', '159 note onsets' (150 sound now) and the old recording figures (peak -18.3, RMS -43.9 / -39.3 / -35.9 / -37.0). A reader, or the merge, will meet contradictory statements.",
+    "evidence": "notes/sea-song/AS-BUILT.md, sections 'What you get', 'The recording' and 'Known traits and open items', against its own 'After the review' section and the app as run.",
+    "fix": "Edit those lines or delete them, so the file describes one version."
+  },
+  {
+    "id": "verify-4",
+    "from": "ui-9",
+    "severity": "low",
+    "title": "Russian curve menu: the new name appears without quotes in Listen along, but with quotes in the item above it",
+    "detail": "In the same menu: «Вычислить интеграл от F по кривой «Спираль»» but «Слушать вдоль кривой Спираль». The 'Listen along {name}' template is from v15.2, but before this change it showed generated names. With a real name, the unquoted form reads like a run-on. English 'Listen along Spiral' is fine.",
+    "evidence": "seasong_cmd.js run on port 9308: R.menuRu = ['∮Вычислить интеграл от F по кривой «Спираль»', 'Слушать вдоль кривой Спираль', 'Выделить: Спираль', …].",
+    "fix": "Optional. Quote the name in the Russian of 'Listen along {name}' («Слушать вдоль кривой «{name}»»), as the integral item does, in notes/i18n/ru/v152-sound.json or v152-seasong.json. Or leave it; this is the glossary owner's call."
+  },
+  {
+    "id": "verify-5",
+    "from": "perf (user rule: 60 fps)",
+    "severity": "info",
+    "title": "60 fps while it plays could not be confirmed here: seasong_cmd.js fails its four fps checks, and the cause is the machine",
+    "detail": "seasong_cmd.js passes every check except the frame-time ones: desktop 17 fps (p95 115 ms), phone 8.5 to 15 fps. In the same session the app idle measured 15 fps (p95 115 ms), as low as during playback. An ordinary Listen along measured 16.5 fps and the piece 15.8 fps. So the low numbers come from the machine, not the feature. During the run another agent's headless Chrome (work/xv152/test/fx152_cdp, about 1 h old, its GPU helper at 114% CPU) and GeForce NOW were running, and the load average was 7.8. The piece now keeps up to 24 strings, not 12, which is more work on the audio worklet. AS-BUILT's 60 fps (p95 17.2 to 18.6 ms) may still hold, but it was not re-measured here.",
+    "evidence": "test/verify_cdp/fps_cmd.js on port 9308: idle 14.9 / 14.8 / 14.7 fps; piece 15.8 fps; ordinary listen 16.5 fps. seasong_cmd.js: framesDesk {fps 17.1, p95 114.7}, phones {15.2, 8.9, 8.5 fps}. ps showed pid 28128 (fx152_cdp) and GeForceNOW.",
+    "fix": "Re-run seasong_cmd.js (and v15_phone_cmd.js) when no other headless Chrome is running, before the merge. No code change is indicated."
+  },
+  {
+    "id": "verify-6",
+    "from": "music-2, music-6, music-8",
+    "severity": "info",
+    "title": "Still open: the listening check on the Android phone",
+    "detail": "The measured fixes are in, but whether the graces now stay in the background, whether statement 1 is audible on a phone speaker, and verify-2 all need ears. Statement 1's main-note peaks are -29.5 dBFS at volume 0.7, 2.4 dB above the review's -31.9, and statement 1's RMS is -42.2 dBFS.",
+    "evidence": "test/seasong_wav.js on this run's recording: mainPeakDbfs [-29.5, -26.5, -23.8, -20.8]; rmsDbfs statement1 -42.2, statement2 -39.0, statement3 -35.5, coda -38.0 (the coda window includes 3 s of ring-out); peak -19.5 dBFS.",
+    "fix": "The user's phone check, as AS-BUILT plans."
+  },
+  {
+    "id": "verify-0",
+    "severity": "info",
+    "title": "Verified fixed against the running app and a new recording (not the ledger)",
+    "detail": "music-1: listen.reg holds. The dominant copy is the written note +12 for 78/78 theme notes, with 0 contour mismatches, and the bar lines step as Grieg's do. music-2: graces before the coda are -17.2 to -27.2 dB below the next main note (mean -21.4). Re-plucks average -23.1 dB, D graces -20.9 dB, and no grace is within 10 dB. The flams and the coda's E and A are silent (9 crossings; 150 of 159 sound). music-3: each tick is a single pluck (all parts at d = 0). Ticks rise -20.9 to -13.0 dB with the theme, 0.9 to 3.6 dB under the main note on the same beat, all within 1 ms of the score. music-4: the final chord is B minor, with no E or A: B4 0, F#4 -3.9, B3 -5.7, D4 -6.9, D5 -8.2 dB, plus older B and D strings. The crashes are low (wl -0.45 to -0.47). music-5: the cap is 24 (maxStrings 24, late 0). Steals are still 564 of 615 strings, but 0 of 80 main notes lose their loudest string before the next main note starts. music-6: statement 1 main-note peaks rose 2.4 dB. music-7/8: worst onset against the score 7.5 ms, 0 gaps, no console errors. ui-1: stops when another example opens, when the curve is deleted, and when α is edited in the step panel (play false after 0.7 s). It keeps playing through a theme toggle and pointer moves. ui-3: X to Y fits the spiral in the 410 px pane (curve 306-681 in 287-697), and Phase comes back at its own scale (188.7 px/unit, then 132.3, then 188.7 again). ui-4: the handle and its label sit inside the innermost turn, on desktop, in X to Y and on the phone. ui-5/6/11: the EN guide uses curly quotes with no math italic on the title. The RU guide reads «В пещере горного короля» and 'каждая линия фазы при пересечении …'. The buttons read 'Open and play “…”' and «Открыть и сыграть «В пещере горного короля»». ui-7: on desktop, 11 gallery lines are cut and only the melody's has a title. ui-8: the blurb is device-neutral in EN and RU. ui-9: 'Spiral' / «Спираль» appears in the menu and the Shapes list. ui-10: xvsea's committed i18n_ru.js has all 6 tour Sound-step keys, including the 3 its tour.js uses; this is still a merge-order note only. ui-13: free_cdp no longer holds a profile (36K).",
+    "evidence": "Recording: test/verify_cdp/rec_cmd.js (seasong_rec_cmd.js with each cue's frequency, amplitude and cap logged); analysis script in the session scratchpad. Probes: test/verify_cdp/probe2.js, probe3.js, fps_cmd.js; seasong_cmd.js on port 9308. The recording (f32), the Chrome profile and the screenshots were deleted after analysis (disk 4.2 GB free).",
+    "fix": ""
+  }
+]

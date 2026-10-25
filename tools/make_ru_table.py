@@ -38,12 +38,13 @@ extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # (work/xvp) were merged in v15.1; v15.2 merges the formula recognizer (src/recognize.js), so its table is in too.)
 # (v15.2: each piece writes notes/i18n/ru/v152-<piece>.json, read after the v15 tables, so its changes to shared
 # strings win. Every v15.2 piece is merged in this tree: the paths, the recognizer, the formula steps and the sound.
-# The sea song (work/xvsea, v152-seasong.json, written after the v15.2 build) is not: its table arrives with it.)
+# v16 merges the sea song (work/xvsea, v152-seasong.json), so its table is read too; no English key is in two of the
+# v152-*.json / v16-*.json tables, so their order changes no string.)
 V15_NOT_HERE = set()
-V152_NOT_HERE = {'v152-seasong.json'}
+V152_NOT_HERE = set()
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE):  # the review fixes last
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')):  # the review fixes last (v16: the constructions' table, read after v15.2's)
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue

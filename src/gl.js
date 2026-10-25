@@ -65,15 +65,21 @@ precision highp sampler2D;
   // A chain with d/dz steps (GLChain's chainStage / chainIsDeriv): stage maps G_k are functions of z, a d/dz step
   // has no homotopy of its own, so mode 1 at a d/dz step mixes G_(hi-1)(s) and G_hi(s), and mode 2 takes G_b(s)
   // when a d/dz step lies in (a, b] (chainRange from a > 0 cannot cross one).
-  const MAP_PLAIN = `
+  // (v16 deformation range, notes/deform-range/SPEC.md 4: modes 1 and 3 may carry a post, the steps (uB, uPost] after
+  // the bracket in full, maps only by the d/dz rule; none when uPost <= uB. Every homotopy is the identity at t <= 0:
+  // H_0 = post o pre exactly. ?: evaluates only the chosen operand, so t = 0 costs no homotopy.)
+  const POST_OF = `
+vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
+`;
+  const MAP_PLAIN = POST_OF + `
 vec2 mapPoint(vec2 s) {
-  if (uMode == 1) { vec2 z = chainRange(s, uBase, uHi - 1); return chainHom(uHi, z, uT); }
+  if (uMode == 1) { vec2 z = chainRange(s, uBase, uHi - 1); return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT)); }
   if (uMode == 2) { vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT); }
-  if (uMode == 3) return chainHomAll(chainRange(s, uBase, uA), uA, uB, uT);
+  if (uMode == 3) { vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT)); }
   return chainRange(s, uA, uB);
 }
 `;
-  const MAP_STAGE = (n) => `
+  const MAP_STAGE = (n) => POST_OF + `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
   return false;
@@ -81,22 +87,23 @@ bool derivIn(int a, int b) {
 vec2 mapPoint(vec2 s) {
   if (uMode == 1) {
     vec2 z = chainRange(s, uBase, uHi - 1);
-    if (chainIsDeriv(uHi)) return mix(z, chainStage(uHi, s), uT);   // (a d/dz focus has the z-plane on the left)
-    return chainHom(uHi, z, uT);
+    // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
+    if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
+    return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));
   }
   if (uMode == 2) {
     vec2 z0 = chainRange(s, uBase, uA);
     vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
     return mix(z0, z1, uT);
   }
-  if (uMode == 3) return chainHomAll(chainRange(s, uBase, uA), uA, uB, uT);
+  if (uMode == 3) { vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT)); }
   return chainRange(s, uA, uB);
 }
 `;
   const hasStages = (info) => !!info && /\bchainStage\b/.test(info.source || '') && /\bchainIsDeriv\b/.test(info.source || '');
   const hasSheets = (info) => !!info && /\bchainSheetRange\b/.test(info.source || '');
   const MAP = (info) => `
-uniform int uMode; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase;
+uniform int uMode; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
 ${hasStages(info) ? MAP_STAGE(sigsOf(info.key).length) : MAP_PLAIN}
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
@@ -602,6 +609,14 @@ ${TF_EMIT(rt)}
 ${SRC}
 void main() { emit(mapPoint(srcOf(mix(aP.xy, aP.zw, aT.x)))); }
 `;
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (v16 tests, GLR.evalMap: points through mapPoint, read back by transform feedback; test.html only: review v16 regress-7)
+  const EVAL_VS = `
+layout(location = 0) in vec2 aP;
+out vec2 tfOut;
+void main() { tfOut = mapPoint(aP); gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }
+`;
+  // TEMP-DEBUG-HOOK
   const TF_FS = `
 out vec4 o;
 void main() { o = vec4(0.0); }
@@ -1008,6 +1023,7 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
     L = g;
   }
   else if (kind == 7) L = formulaLevel(int(K.z + 0.5), w);
+  else if (kind == 8) { vec2 u = w - A.xy; L = -0.5 * (A.z * dot(u, u) + 2.0 * dot(B.xy, u) + A.w); }   // v16 gdisc: -f/2
   if (K.y > 0.5) L = -L;
   return L > -1e30 ? min(L, 1e30) : -1e30;
 }
@@ -1049,6 +1065,17 @@ vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
     vec2 u = vec2(cos(an), sin(an));
     vec2 qr = A.xy + clamp(dot(v, u), 0.0, A.z) * u;
     return nearer(w, qc, qr);
+  }
+  if (kind == 20) {           // v16 gcurve: two Newton steps on f / 2 (the signed distance near the curve)
+    vec2 q = w;
+    for (int k = 0; k < 2; k++) {
+      vec2 u = q - A.xy;
+      float f2 = 0.5 * (A.z * dot(u, u) + 2.0 * dot(B.xy, u) + A.w);
+      vec2 g = A.z * u + B.xy;
+      float gg = dot(g, g);
+      if (gg > 0.0) q -= f2 * g / gg;
+    }
+    return q;
   }
   return w + vec2(1e30);
 }
@@ -1200,6 +1227,20 @@ vec2 ixClipPiece(vec4 P0, vec4 P1, vec2 z0, vec2 q, float m) {
     float tt = -L0 / cq;
     return cq > 0.0 ? vec2(tt, IX_INF) : vec2(-IX_INF, tt);
   }
+  if (t == 4) {               // v16 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
+    vec2 u0 = z0 - P0.yz;
+    float a = P0.w * qq, b = 2.0 * (P0.w * dot(u0, q) + dot(P1.xy, q));
+    float c = P0.w * dot(u0, u0) + 2.0 * dot(P1.xy, u0) + P1.z - 2.0 * m;
+    if (!(a > 0.0)) {
+      if (!(abs(b) > 1e-30)) return c < 0.0 ? vec2(-IX_INF, IX_INF) : E;
+      float tt = -c / b;
+      return b > 0.0 ? vec2(-IX_INF, tt) : vec2(tt, IX_INF);
+    }
+    float D = b * b - 4.0 * a * c;
+    if (!(D > 0.0)) return E;
+    float qr = -0.5 * (b + (b >= 0.0 ? 1.0 : -1.0) * sqrt(D)), t1 = qr / a, t2 = c / qr;
+    return vec2(min(t1, t2), max(t1, t2));
+  }
   if (t == 2) {
     float x0 = P0.y - m, x1 = P0.z + m, y0 = P1.x - m, y1 = P1.y + m;
     if (!(x0 <= x1 && y0 <= y1)) return E;
@@ -1268,6 +1309,10 @@ vec3 ixKindLevel(vec2 z) {
     return dm > 0.0 ? vec3(sg * dm, sg * (z - qn) / dm) : vec3(0.0);
   }
   if (kind == 4) return vec3(uShA.z * (z.y - uShA.y) - uShA.w * (z.x - uShA.x), -uShA.w, uShA.z);
+  if (kind == 8) {            // v16 gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
+    vec2 u = z - uShA.xy;
+    return vec3(-0.5 * (uShA.z * dot(u, u) + 2.0 * dot(uShB.xy, u) + uShA.w), -(uShA.z * u + uShB.xy));
+  }
   if (kind == 5) {
     vec2 v = z - uShA.xy;
     float d = cx_abs(v);
@@ -1323,6 +1368,7 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
     bool big = L.lam.x > 0.0, at0 = uShC.x > 0.5;
     float th = L.lam.y;
     if (kind == 4) { if (big || uShC.y > 0.5) ixDirHalf(uShA.zw, th, dLX, dLY, cs, s, n); else s = at0 ? IX_BIG : -IX_BIG; return; }
+    if (kind == 8) { if (big) s = uShA.z < 0.0 ? IX_BIG : -IX_BIG; else if (uShC.y > 0.5) ixDirHalf(uShB.zw, th, dLX, dLY, 1.0, s, n); else s = at0 ? IX_BIG : -IX_BIG; return; }
     if (kind == 6 && !(uShA.z > 0.0)) {
       if (!(big || uShC.y > 0.5)) { s = at0 ? IX_BIG : -IX_BIG; return; }
       if (uShA.w >= 360.0) { s = cs > 0.0 ? IX_BIG : -IX_BIG; return; }
@@ -2297,6 +2343,9 @@ void main() {
     // the map cache passes: a point draw into the cache texture (rt), else transform feedback
     tfRegion: { chain: true, vs: () => TF_REGION_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     tfLine: { chain: true, vs: () => TF_LINE_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    evalPt: { chain: true, vs: () => EVAL_VS, fs: () => TF_FS, tf: true },
+    // TEMP-DEBUG-HOOK
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
@@ -2334,7 +2383,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -2465,6 +2514,8 @@ float wabs(vec2 w) {
     let p = 0;
     while (p < a.length && p < b.length && a[p] === b[p]) p++;
     const mode = map.mode || 0;
+    // (v16: a changed step inside the post: the start of the bracketed part, from the source plane)
+    if ((mode === 1 || mode === 3) && (map.post || 0) >= p + 1) { const lo = mode === 1 ? (map.hi || 0) - 1 : (map.a || 0); return { mode: 0, a: map.base || 0, b: Math.min(lo, p) }; }
     if (mode === 1 && (map.hi || 0) > p) return { mode: 0, a: map.base || 0, b: (map.hi || 0) - 1 };
     if ((mode === 2 || mode === 3) && (map.b || 0) > p) return { mode: 0, a: map.base || 0, b: map.a || 0 };
     return map;
@@ -2474,7 +2525,7 @@ float wabs(vec2 w) {
   function isIdent(map) {
     if (!cur.info) return true;
     const m = map || {}, mode = m.mode || 0;
-    const lo = mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, hi = mode === 1 ? (m.hi || 0) : (m.b || 0);
+    const lo = mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, hi = Math.max(mode === 1 ? (m.hi || 0) : (m.b || 0), mode === 1 || mode === 3 ? (m.post || 0) : 0);
     for (let k = Math.max(1, lo); k <= Math.min(hi, cur.sigs.length); k++) if (LIVE(cur.sigs[k - 1])) return false;
     return true;
   }
@@ -2491,7 +2542,7 @@ float wabs(vec2 w) {
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapFor(map, P.ch) || {};
-      u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0);
+      u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
   }
@@ -2502,7 +2553,7 @@ float wabs(vec2 w) {
     const ox = org ? org[0] : 0, oy = org ? org[1] : 0;
     u2f(P, 'uOrgHi', hi32(ox), hi32(oy)); u2f(P, 'uOrgLo', ox - hi32(ox), oy - hi32(oy));
   }
-  const mapKeyOf = (m) => (m ? `${m.mode || 0},${m.a || 0},${m.b || 0},${m.hi || 0},${m.t || 0},${m.base || 0}` : '0');
+  const mapKeyOf = (m) => (m ? `${m.mode || 0},${m.a || 0},${m.b || 0},${m.hi || 0},${m.t || 0},${m.base || 0},${m.post || 0}` : '0');
 
   // ---------------- phase LUT: 256 x 32 RGBA8, oklch(L, min(0.13, 0.97 Cmax(L, h)), h), h = 29 deg + arg ----------------
   const LUT_W = 256, LUT_H = 32;
@@ -3598,6 +3649,20 @@ float wabs(vec2 w) {
 
   // ---------------- preimages (Preimage mode) ----------------
   const TKIND = { disc: 1, rect: 2, polygon: 3, halfplane: 4, annulus: 5, sector: 6, formula: 7, segment: 11, line: 12, ray: 13, circle: 14, arc: 15, curve: 16, cgrid: 17, pgrid: 18, fcurve: 19 };
+  // v16 (notes/constructions-v16/SPEC.md 2.2): a gcircle disc or circle (s._g, A != 0) packs its exact form instead of
+  // (c, r): kind 8 (gdisc, the area form: inverse and Preimage area paths) or 20 (gcurve, the curve paths), A = (o, A,
+  // C), B = (B, tangent at 0 when the curve passes through 0 by incidence), relative to an anchor o re-anchored in
+  // float64 at the point of the curve nearest formAnchor (the view's centre, GLR.setFormAnchor), so float32 sees only
+  // small numbers near the view at any radius [C4, C5]
+  let formAnchor = null;
+  const gKind = (t) => (t && t._g && t._g.A !== 0 && (t.kind === 'disc' || t.kind === 'circle') ? (t.kind === 'disc' ? 8 : 20) : 0);
+  function packForm(t) {
+    let G = t._g;
+    if (formAnchor && typeof Constr !== 'undefined' && Constr.reanchor && !G.thru0) G = Constr.reanchor(G, formAnchor);
+    const gx = G.B[0] - G.A * G.o[0], gy = G.B[1] - G.A * G.o[1], gl = Math.hypot(gx, gy) || 1;
+    const A = [G.o[0], G.o[1], G.A, G.C], B = [G.B[0], G.B[1], -gy / gl, gx / gl];
+    return [...A, ...B].every(Number.isFinite) ? { kind: gKind(t), A, B, size: 2 / Math.abs(G.A), pts: null } : null;
+  }
   // MAX_FORMS: formula level functions of the preimage pass (area formulas, traced curve pieces: a complex piece takes
   // two, a restriction one); the inverse renderer's formula areas have their own cap MAX_INV_FORMS (SPEC 4.4)
   const MAX_TARGETS = 16, MAX_PTS = 256, MAX_FORMS = 8, MAX_INV_FORMS = 4;
@@ -3671,6 +3736,7 @@ float wabs(vec2 w) {
   // pts ([x, y] of polygons and freehand curves, finite only)}, or null (an unknown kind, non-finite parameters)
   function packShape(t) {
     if (!t || !TKIND[t.kind]) return null;
+    if (gKind(t)) return packForm(t);
     let kind = TKIND[t.kind], ps = null;
     let A = [0, 0, 0, 0], B = [0, 0, 0, 0], size = 0;
     const c = xyOf(t.c), a = xyOf(t.a), b = xyOf(t.b);
@@ -3757,9 +3823,10 @@ float wabs(vec2 w) {
       }
       const area = kind < 10;
       const col = col3(t.color, area ? [0.23, 0.44, 0.83] : [0.04, 0.23, 0.61]);
+      const cmp = t.complement && area && kind !== 8;   // (v16: a gdisc's form holds its side)
       const edge = col3(t.edge, col.map((x) => 0.55 * x));
       const cell = size > 0 ? nice125(size / 4) : (st.wGrid > 0 ? st.wGrid : 0.5);
-      recs.push(kind, t.complement && area ? 1 : 0, start, count, ...A, ...B, ...col, t.alpha ?? (area ? 0.4 : 1), ...edge, t.width ?? 2 * (st.dpr || 1), cell, 0, 0, 0);
+      recs.push(kind, cmp ? 1 : 0, start, count, ...A, ...B, ...col, t.alpha ?? (area ? 0.4 : 1), ...edge, t.width ?? 2 * (st.dpr || 1), cell, 0, 0, 0);
     }
     const nt = recs.length / 24;
     if (!nt) return;
@@ -4331,6 +4398,11 @@ float wabs(vec2 w) {
       if (pc.t === 'disc') out.push(1, pc.c[0], pc.c[1], pc.r, 0, 0, 0, 0);
       else if (pc.t === 'box') out.push(2, fcl(pc.x0), fcl(pc.x1), 0, fcl(pc.y0), fcl(pc.y1), 0, 0);
       else if (pc.t === 'half') out.push(3, pc.a[0], pc.a[1], 0, pc.d[0], pc.d[1], 0, 0);
+      else if (pc.t === 'g') {
+        let G = pc.G;
+        if (formAnchor && typeof Constr !== 'undefined' && Constr.reanchor) G = Constr.reanchor(G, formAnchor);
+        out.push(4, G.o[0], G.o[1], G.A, G.B[0], G.B[1], G.C, 0);
+      }
       else out.push(0, 0, 0, 0, 0, 0, 0, 0);
     }
     return 1 + 2 * (ins.length + holes.length);       // texels: the header, then 2 per piece
@@ -4351,7 +4423,8 @@ float wabs(vec2 w) {
     const want = [], wantExpr = [], wantIds = [];
     for (const s of list || []) {
       if (!s || s.visible === false || !TKIND[s.kind] || TKIND[s.kind] > 10) continue;
-      const rec = { offset: 0, kind: TKIND[s.kind], complement: !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
+      const gk = gKind(s);
+      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false };
       recs.set(s.id, rec);
       let prim = null;
       try { prim = typeof Region !== 'undefined' && Region.clipPrimitive ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
@@ -4375,6 +4448,7 @@ float wabs(vec2 w) {
         const ax = s.a[0], ay = s.a[1], dx = s.b[0] - ax, dy = s.b[1] - ay, L = Math.hypot(dx, dy) || 1;
         thru0 = Math.abs((dx * ay - dy * ax) / L) <= 1e-12 * Math.hypot(ax, ay) ? 1 : 0;
       } else if (s.kind === 'sector') thru0 = Math.hypot(s.c[0], s.c[1]) <= 1e-12 ? 1 : 0;
+      if (gk) thru0 = s._g.thru0 ? 1 : 0;             // v16: from incidence [C9]
       rec.C = [at0, thru0, 0, 0];
       rec.offset = data.length / 4;
       const n0 = data.length, n = packPrim(prim, data);
@@ -5094,7 +5168,7 @@ float wabs(vec2 w) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
@@ -5154,6 +5228,43 @@ float wabs(vec2 w) {
     // All sheets for map (GPU map spec) with window W: {K (surfaces drawn, at most 24), total, W, infinite} or null
     // when the current chain cannot draw it (no multivalued step in (a, b], a homotopy, a d/dz in (a, b] with a > 0,
     // or no chainSheetRange in the chain's GLSL)
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    // (v16 tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
+    // transform feedback: a Float32Array of pairs, or null while the program compiles or without WebGL
+    evalMap(map, pts) {
+      if (!ok || lost || !cur.info) return null;
+      syncDepth++;
+      let P;
+      try { P = getProg('evalPt', cur, true); } finally { syncDepth--; }
+      if (!P) return null;
+      const n = pts.length, data = new Float32Array(2 * n);
+      pts.forEach((q, i) => { data[2 * i] = q[0]; data[2 * i + 1] = q[1]; });
+      const vbo = gl.createBuffer(), out = gl.createBuffer(), vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, out); gl.bufferData(gl.ARRAY_BUFFER, 8 * n, gl.STREAM_READ);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      use(P, map);
+      if (!tfObj) tfObj = gl.createTransformFeedback();
+      gl.enable(gl.RASTERIZER_DISCARD);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tfObj);
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
+      gl.beginTransformFeedback(gl.POINTS);
+      gl.drawArrays(gl.POINTS, 0, n);
+      gl.endTransformFeedback();
+      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.bindVertexArray(null);
+      const res = new Float32Array(2 * n);
+      gl.bindBuffer(gl.ARRAY_BUFFER, out); gl.getBufferSubData(gl.ARRAY_BUFFER, 0, res); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      gl.deleteBuffer(vbo); gl.deleteBuffer(out); gl.deleteVertexArray(vao);
+      return res;
+    },
+    // (v16 tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
+    _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
+    // TEMP-DEBUG-HOOK
     sheetInfo(map, W) { const p = ok ? sheetPlan(map, W) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite } : null; },
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },

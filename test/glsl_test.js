@@ -12,6 +12,7 @@
   const C = CX.C;
   const TOL = 2e-3;
   const TS = [0, 0.01, 0.37, 0.5, 0.73, 0.999, 1];
+  const RANGE_TS = [0, 0.25, 0.5, 0.999, 1];
 
   // ---------- deterministic random ----------
   let seed = 12345;
@@ -247,7 +248,46 @@
   // (its circle radii, its exactness), and skipped where that model and the CPU's own radii disagree (truncation
   // of the circle formula next to a singularity or a cut)
   const isStageRow = (steps, built, row) => row.mode === 3 || row.mode === 4 || (row.mode === 0 && row.a <= 0 && derivIn(steps, built, 0, row.b));
+  function rangeTwin(steps, built, row) {
+    const n = steps.length, liveK = (k) => live(steps, built, k);
+    const stepFn = (k) => (liveK(k) && built[k - 1].op !== 'deriv' ? built[k - 1].f : null);
+    const G = Funcs.stageFunctions(steps, built);
+    const stageF = (k) => G[Math.max(0, Math.min(n, k))];
+    const rangeF = (a, b) => { if (!a) return stageF(b); const fs = []; for (let i = a + 1; i <= b; i++) { const f = stepFn(i); if (f) fs.push(f); } return (z) => { for (const f of fs) z = f(z); return z; }; };
+    const HR = HomRange.make({ n, stepFn, isDeriv: () => false, stepActive: (k) => !!stepFn(k), stageF, rangeF, built, C });
+    return HR.cpuMap(row.mode === 7 ? { mode: 1, hi: row.k, t: row.t, b: row.b, post: row.post } : { mode: 3, a: row.k, b: row.b, t: row.t, post: row.post });
+  }
+  // the range row's composition with every stage value rounded to float32 (the GPU's precision between steps)
+  function rangeTwin32(steps, built, row, z) {
+    const r32 = (w) => C(Math.fround(w.re), Math.fround(w.im)), lo = row.mode === 7 ? row.k - 1 : row.k;
+    let w = r32(z);
+    for (let k = 1; k <= lo; k++) if (live(steps, built, k)) w = r32(built[k - 1].f(w));
+    if (row.t > 0) for (let k = lo + 1; k <= (row.mode === 7 ? row.k : row.b); k++) if (live(steps, built, k)) { const b = built[k - 1]; w = r32(row.t >= 1 ? b.f(w) : b.hom ? b.hom(row.t)(w) : ((x) => { const v = b.f(x); return C((1 - row.t) * x.re + row.t * v.re, (1 - row.t) * x.im + row.t * v.im); })(w)); }
+    for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) w = r32(built[k - 1].f(w));
+    return w;
+  }
+  // (review v16 regress-1) a range row's point that lies on a cut of one of its steps at float32 resolution: the
+  // step's input is real to within 1e-6 (a zero imaginary part whose sign the GPU does not keep, e.g. tanh saturated to
+  // 1 then a zoom to 1.001, fed to arcsin) and the step jumps across it. The CPU and the GPU then take either side, so
+  // the point is not compared (counted in skippedRangeF32, as the mode-0 rows' discontinuity check would)
+  function rangeOnCut(steps, built, row, z) {
+    const lo = row.mode === 7 ? row.k - 1 : row.k, hi = row.mode === 7 ? row.k : row.b, fs = [];
+    for (let k = 1; k <= lo; k++) if (live(steps, built, k)) fs.push(built[k - 1].f);
+    if (row.t > 0) for (let k = lo + 1; k <= hi; k++) if (live(steps, built, k)) { const b = built[k - 1]; fs.push(row.t >= 1 ? b.f : b.hom ? b.hom(row.t) : (x) => { const v = b.f(x); return C((1 - row.t) * x.re + row.t * v.re, (1 - row.t) * x.im + row.t * v.im); }); }
+    for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) fs.push(built[k - 1].f);
+    let w = z;
+    for (const f of fs) {
+      const e = 1e-6 * (1 + CX.abs(w));
+      if (fin(w) && Math.abs(w.im) <= e) {
+        const a = f(C(w.re, e)), b = f(C(w.re, -e)), m = f(w);
+        if (fin(a) && fin(b) && fin(m) && CX.abs(CX.sub(a, b)) > 1e-3 * (1 + CX.abs(m))) return true;
+      }
+      w = f(w);
+    }
+    return false;
+  }
   function rowFn(steps, built, row, model) {
+    if (row.mode === 7 || row.mode === 8) return rangeTwin(steps, built, row);
     if (row.mode === 4) return (z, zc) => Funcs.sheetEval(steps, built, row.b, zc, z, row.combo, SHEET_W, model || {});
     if (row.mode === 5) return (z, zc) => Funcs.sheetEval(steps, built, row.b, zc, z, row.combo, SHEET_W, { a: row.a });
     if (isStageRow(steps, built, row)) return Funcs.stageFunctions(steps, built, model || {})[Math.max(0, Math.min(row.mode === 3 ? row.k : row.b, steps.length))];
@@ -407,7 +447,24 @@
       };
     }
     const ks = [];
-    if (row.mode === 0) { for (let k = row.a + 1; k <= row.b; k++) if (live(steps, built, k)) ks.push(k); }
+    if (row.mode === 7 || row.mode === 8) {
+      // (v16) the magnitudes along the row's own composition: the pre in full, the bracketed homotopies at t (none at
+      // t = 0, the identity), the post in full
+      const lo = row.mode === 7 ? row.k - 1 : row.k, his = [];
+      for (let k = lo + 1; k <= (row.mode === 7 ? row.k : row.b); k++) if (live(steps, built, k) && row.t > 0) his.push(built[k - 1]);
+      const pre = [], post = [];
+      for (let k = 1; k <= lo; k++) if (live(steps, built, k)) pre.push(built[k - 1]);
+      for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) post.push(built[k - 1]);
+      return (z) => {
+        let mag = 0, cancel = 0;
+        const step = (b, w) => { if (b.def.id === 'custom') { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); } z = w; mag = Math.max(mag, fin(z) ? CX.abs(z) : Infinity); };
+        for (const b of pre) step(b, b.f(z));
+        for (const b of his) { if (isLinHom(b)) { const w = b.f(z); mag = Math.max(mag, fin(w) ? CX.abs(w) : Infinity); } step(b, (b.hom ? b.hom(row.t) : (zz) => { const w = b.f(zz); return C((1 - row.t) * zz.re + row.t * w.re, (1 - row.t) * zz.im + row.t * w.im); })(z)); }
+        for (const b of post) step(b, b.f(z));
+        return { mag, cancel };
+      };
+    }
+    else if (row.mode === 0) { for (let k = row.a + 1; k <= row.b; k++) if (live(steps, built, k)) ks.push(k); }
     else if (row.mode === 6) {
       // all at once: the magnitudes along the composition of the paths (and f of a straight-line step)
       const hs = [];
@@ -496,6 +553,13 @@ void main() {
   else if (m.x < 3.5) w = chainStage(int(m.y), z);
   else if (m.x < 4.5) w = chainSheet(zz.zw, z, int(m.y), int(m.z));
   else if (m.x < 5.5) w = chainSheetRange(zz.zw, z, int(m.y), int(m.z), int(m.w));
+  else if (m.x > 6.5) {
+    int xi = int(m.x + 0.5), md = xi - 16 * (xi / 16), kk = xi / 16, b = int(m.y + 0.5), post = int(m.z + 0.5);
+    vec2 u = chainRange(z, 0, md == 7 ? kk - 1 : kk);
+    if (md == 7) u = m.w <= 0.0 ? u : chainHom(kk, u, m.w);
+    else u = m.w <= 0.0 ? u : chainHomAll(u, kk, b, m.w);
+    w = post > b ? chainRange(u, b, post) : u;
+  }
   else w = chainHomAll(z, int(m.y), int(m.z), m.w);
   o = vec4(w, cfin(w) ? 1.0 : 0.0, 1.0);
 }`;
@@ -549,7 +613,9 @@ void main() {
     if (rows.length > HMAX) throw new Error(`too many rows: ${rows.length}`);
     rows.forEach((r, i) => {
       const v = r.mode === 0 ? [r.a, r.b] : r.mode === 3 ? [r.k, 0] : r.mode === 4 ? [r.b, r.combo] : r.mode === 5 ? [r.a, r.b, r.combo] : r.mode === 6 ? [r.a, r.b, r.t] : [r.i, r.t || 0];
-      md.set([r.mode, v[0], v[1], v[2] || 0], 4 * i);
+      // (v16: modes 7 and 8 pack their step into x: mode + 16 k, then b, post and t)
+      if (r.mode === 7 || r.mode === 8) md.set([r.mode + 16 * r.k, r.b, r.post, r.t], 4 * i);
+      else md.set([r.mode, v[0], v[1], v[2] || 0], 4 * i);
     });
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, modeTex);
@@ -570,7 +636,7 @@ void main() {
   }
 
   const rowName = (r) => (r.mode === 0 ? `range(${r.a},${r.b})` : r.mode === 1 ? `step(${r.i})` : r.mode === 2 ? `hom(${r.i},t=${r.t})`
-    : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
+    : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
   function testChain(ch) {
     const built = ch.steps.map((s) => Funcs.build(s));
     const gc = GLChain.build(ch.steps, built);
@@ -593,6 +659,22 @@ void main() {
       if (n > 1 && sheets.length) rows.push({ mode: 4, b: n - 1, combo: 1 });
       // the surfaces of the steps after the first, from points of the w_1-plane (a focused step)
       if (n > 1) for (let c = 0; c < Math.min(gc.sheets.combos(SHEET_W, n, 1), 4); c++) rows.push({ mode: 5, a: 1, b: n, combo: c });
+    }
+    // (v16 deformation range, SPEC 13.2) mode 7: chainRange(chainHom(hi, chainRange(z, 0, hi - 1), t), b, post); mode 8:
+    // chainRange(chainHomAll(chainRange(z, 0, lo), lo, b, t), b, post); the CPU twin is HomRange.cpuMap
+    if (n >= 2 && !derivs.length) {
+      const act = (k) => live(ch.steps, built, k);
+      for (let a = 1; a <= n; a++) for (let b = a; b <= n; b++) {
+        const ks = []; for (let k = a; k <= b; k++) if (act(k)) ks.push(k);
+        let out0 = 0; for (let k = 1; k <= n; k++) if (act(k) && (k < a || k > b)) out0++;
+        if (!ks.length || !out0) continue;
+        for (const t of RANGE_TS) {
+          if (rows.length + 2 > HMAX) break;
+          rows.push({ mode: 7, k: ks[0], b, post: n, t });
+          if (ks.length > 1) rows.push({ mode: 8, k: a - 1, b, post: n, t });
+        }
+      }
+      R.rangeRows = (R.rangeRows || 0) + rows.filter((r) => r.mode >= 7).length;
     }
     const model = { circleRel: GLChain.circleRel, exact: gc.derivExact };
     const out = runGPU(gc, rows);
@@ -628,7 +710,7 @@ void main() {
           const k = (ri * P + p) * 4;
           // (hom at t = 0 is the exact identity on the GPU even where the CPU's (1-t)z + t f(z) gives 0*inf = NaN)
           if (e.skip === 'nonfinite' && stageRow) { const st = gs(Z[p]); if (st.circle || st.dInf || f32Finite(ch.steps, built, row, Z[p])) { R.skippedTrunc++; continue; } }
-          if (e.skip === 'nonfinite' && !((row.mode === 2 || row.mode === 6) && row.t === 0) && (!fin(e.w) || CX.abs(e.w) > 1e31)) {
+          if (e.skip === 'nonfinite' && !((row.mode === 2 || row.mode === 6 || row.mode === 7 || row.mode === 8) && row.t === 0) && (!fin(e.w) || CX.abs(e.w) > 1e31)) {
             if (out[k + 2] > 0.5) {
               const ws = sphere(() => g(Z[p]));
               if (fin(ws) && Math.hypot(out[k] - ws.re, out[k + 1] - ws.im) <= TOL * (1 + CX.abs(ws))) {
@@ -643,6 +725,19 @@ void main() {
             if (out[k + 2] > 0.5 && R.singular.bad.length < 20) R.singular.bad.push({ chain: ch.name, row: rowName(row), z: [Z[p].re, Z[p].im], cpu: e.w ? [e.w.re, e.w.im] : null, gpu: [out[k], out[k + 1]] });
           }
           continue;
+        }
+        // (v16 range rows: a value float32 cannot reproduce, the row's own composition with every stage rounded to
+        // float32 already as far from the CPU as the tolerance: next to a pole of a later step, e.g. a Möbius map)
+        if ((row.mode === 7 || row.mode === 8)) {
+          const k0 = (ri * P + p) * 4, gw0 = C(out[k0], out[k0 + 1]);
+          if (!(Math.hypot(gw0.re - e.w.re, gw0.im - e.w.im) <= TOL * (1 + CX.abs(e.w)))) {
+            const w32 = rangeTwin32(ch.steps, built, row, Z[p]);
+            if (!fin(w32) || Math.hypot(w32.re - e.w.re, w32.im - e.w.im) > 0.5 * TOL * (1 + CX.abs(e.w)) || rangeOnCut(ch.steps, built, row, Z[p])) {
+              R.skippedRangeF32 = (R.skippedRangeF32 || 0) + 1;
+              if (rangeOnCut(ch.steps, built, row, Z[p])) R.skippedRangeCut = (R.skippedRangeCut || 0) + 1;
+              continue;
+            }
+          }
         }
         R.compared++;
         if (stageRow) { if (row.mode === 4) R.comparedSheet = (R.comparedSheet || 0) + 1; else R.comparedDeriv = (R.comparedDeriv || 0) + 1; }

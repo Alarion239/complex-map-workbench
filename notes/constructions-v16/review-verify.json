@@ -1,0 +1,90 @@
+{
+ "round": "v16 constructions, independent verification of the review fixes (work/xvc, dist built 17:04:30), 2026-10-24",
+ "method": "Ran in the app (headless Chrome, test/vrf_cdp, port 9209) and in node on work/xvc/src. Re-ran the reviewers' repros (rmath_cdp/repro t1-t12, b2-b5) against the current code, re-ran constr_cmd.js (110/110 pass) and its section F twice, and added my own command files (test/vrf_cdp/c/d1-d6.js). node test/t_constr.js: 164/164.",
+ "summary": {
+  "checked": 43,
+  "confirmed_fixed": 38,
+  "still_wrong_or_partial": 4,
+  "not_checked": ["regress-3 (glsl_inverse_cmd not re-run: up to 30 min)", "user-14 (phone taps, no phone check made)"],
+  "new": 2
+ },
+ "still_wrong": [
+  {
+   "id": "verify-1",
+   "severity": "high",
+   "kind": "new (not in the four reviews; the hit order is v15.1's, so not caused by the fixes)",
+   "title": "In Select, the points of a 3-point Circle cannot be dragged: the press picks the circle and moves the whole construction",
+   "detail": "editDown's hit test goes topmost first and puts only areas last. A 3-point Circle (Curve mode) always comes after its points in the list and always passes through them, so a press on z0, z1 or z2 hits the circle. The drag then translates every root (SPEC 4.3), so the circle never changes shape. The defining points can be dragged only in Region mode (a disc is an area, so the point wins). constr_cmd misses it because its drag test uses zeros and gliders, which win for other reasons.",
+   "evidence": "test/vrf_cdp/c/d2.js and d3.js: circle3(z0, z1, z2) with fill 'none', Select. A click on z1 = (1, -0.5) selects s4 (the circle), not s2. Dragging from z1 to (1.5, 0) moves all three points by (0.5, 0.5); r stays 1.0885. Selecting the circle first changes nothing. With fill 'in' (d5.js) the same drag moves only that point, as expected.",
+   "fix": "In editDown, test point shapes within 7 px before curves (or prefer a point over any curve at the same press), then the curves. Check bound lines, segments and arcs as well, since they also pass through their points. Add a constr_cmd check that drags z1 of a 3-point Circle in Curve mode."
+  },
+  {
+   "id": "verify-2",
+   "severity": "medium",
+   "kind": "caused by the picture-7 / user-12 fixes",
+   "title": "The Russian export caption has English inside it: 'и~the line through $z_{0}$ and $z_{1}$'",
+   "detail": "A meet's caption names its curves through A.capPhrase(c, 'gen'). For a line bound at both ends, shapePhrase returns the English bound-line phrase, which has no genitive and no translation. constr_cmd stores the caption in info.capRu but does not check it, so the suite passes.",
+   "evidence": "constr_cmd info.capRu (my run): '... точка пересечения $z_{3}=0{,}866+0{,}5i$ окружности $|z|=1$ и~the line through $z_{0}$ and $z_{1}$ и~круг, ...'. The EN caption is fine.",
+   "fix": "Give the bound-line, segment, ray and half-plane phrases a genitive form ('прямой, проходящей через точки $z_0$ и $z_1$', and so on) in v16-constructions.json, used when capPhrase is called with 'gen'. Add a check that capRu has no Latin words outside $...$."
+  },
+  {
+   "id": "verify-3",
+   "severity": "low",
+   "kind": "possible regression (not a paired run)",
+   "title": "Dragging a point with 50 dependents is slower than the AS-BUILT figure",
+   "detail": "1 and 10 dependents are unchanged and meet BUDGET60. At 50 dependents the frame is about 50 % slower than the number in AS-BUILT, although the machine was less loaded. 50 is 'reported, not met' in SPEC 3 [C3c], so this is not a gate failure. The pre-fix build was not kept, so I could not pair the runs.",
+   "evidence": "constr_cmd section F, two runs on test/vrf_cdp, load average about 5: 50 dependents rAF work p95 30.9 and 29.3 ms, frame p95 50.1 and 50 ms. AS-BUILT.md F (pre-fix, load average up to 19): 20.3 ms, frame p95 33.4 ms. 1: 2.0-2.5 ms (was 2.4); 10: 5.2-5.3 ms (was 5.7).",
+   "fix": "Rebuild the pre-fix sources (the reviewed constr.js and construct.js) and run section F paired and interleaved with the current build. If the gap holds, profile the drag. Likely suspects are the per-frame work added by the fixes: drawSources and the dimming (user-9), and exact-form strokes for big circles."
+  },
+  {
+   "id": "verify-4",
+   "severity": "low",
+   "kind": "user-11, partly fixed",
+   "title": "A bound line's definition is still cut off in its row at 1440",
+   "detail": "The row wraps to two lines, but 'line through z₀ and z₁' still ends in an ellipsis ('line / through z…'). The tooltip has the full text, but a touch user cannot read it.",
+   "evidence": "test/vrf_cdp/shots/pv-col.png (Shapes list: 'Line 1 ⛓ line / through z…').",
+   "fix": "Let the definition take the full row width under the name when it does not fit beside it, or shorten it ('through z₀, z₁')."
+  },
+  {
+   "id": "picture-1",
+   "severity": "low",
+   "kind": "partial, as the ledger says",
+   "title": "Still open: fill stripes at s ≥ 1e8 (the shared v15 mesh pattern path)",
+   "detail": "The stroke is now right: constr_cmd R gives -0.41, -0.31, -0.33, -0.33 px at s = 1e2…1e8, and cm-zoom-8.png shows the circle through z1 at 1e-6 per division. The float32 pattern stripes on fills at extreme zoom remain, for plain discs as well.",
+   "evidence": "constr_cmd info.zoomStrokePx; ledger picture-1.",
+   "fix": "As picture-2: view-relative pattern coordinates."
+  },
+  {
+   "id": "user-6",
+   "severity": "low",
+   "kind": "partial, as the ledger says",
+   "title": "Still open: no 'Replace point…' to re-point a lost argument",
+   "detail": "Checked: the reason now names the value ('The zero at 1 + 0.5i was removed'). A zero added back at 1+0.5i (a Shift-click with the 3-point tool) rebinds, and the disc is defined again. A zero put back anywhere else still cannot be used, except by Make free.",
+   "evidence": "test/vrf_cdp/c/d5.js.",
+   "fix": "Add 'Replace point…' to the row ⋯ menu and the Inspector."
+  }
+ ],
+ "confirmed_fixed": {
+  "math-1": "random slanted near-collinear triples, r up to 1e15: |C'| relative 3e-16, M(R) samples on the form to 8e-16 (scratch m1.js); t12's grid triple is now a line",
+  "math-2": "t1: both meets on both forms to 1e-16 at r = 5e8 and 4.6e11; t11 meets at (-1e-16, -6e-17); in the app (b3) the snap at 0 returns the crossing",
+  "math-3": "b3: circle3 on y = 2x/3 grid points is a line and the disc is a half-plane (A = 0); t4 radii are all undefined (lines)",
+  "math-4": "t6: the circle passes through G (level 0), byInc false",
+  "math-5": "t5 case B: index 0 runs 8e9 -> inf -> -8e9 (continuous), index 1 stays at the near crossing",
+  "math-6": "b2: the menu on z0 of Circle 1 no longer offers 'Put on this curve'; no cycle",
+  "math-7": "t8: a grid arc meets y = 1.5 at (0.5, 1.5) and the glider at t = 1/2 is m; t7: points beyond the arc's end fail onPiece",
+  "math-8": "t7: 4 pieces in every degenerate case, and the meet on side 4 stays at (0, 2)",
+  "math-9": "t9 and d5.js: created collinear keeps left of P -> Q; dragged onto the segment, the row reads 'the half-plane left of z₁ → z₀', which matches a = 0, b = -1",
+  "math-10": "setFormAnchor is called from cmFormAnchor at 5 sites in app.js (code read only; GPU parity not re-run)",
+  "math-11": "b5: Im(z^2) = 1 does not meet y = -x (nomeet), and the glider is on the curve; d6.js: the 4 meets of |z^2-1| = 0.8 with y = 0.3 are on the level set to 1e-16",
+  "math-12": "not re-run in the app (t_constr D passes)",
+  "user-1, user-3, user-4, user-5, user-7, user-11 (tooltip), user-15, regress-1": "constr_cmd R passes in my run; the rows read z₀, z₁ (shots)",
+  "user-2, picture-4": "the chip reads 'Точка 3 из 3 · По 3 точкам · Esc — отмена' in full (RU 1440) and 'Point 3 of 3 · 3 points' on the phone (390)",
+  "user-8": "d4.js: removing ζ₁ gives '1 shape is now undefined.' with Undo, and Undo restores the zero and the disc",
+  "user-12": "d4.js: 'круг, ограниченный окружностью через ζ₁, вершину 3 многоугольника 1 и z₁' (but see verify-2 for captions)",
+  "user-13": "constr_cmd: 'Built on z₀, z₁, ζ₁: drag those, or Make free'",
+  "picture-3": "d6.js: the half-plane preview is filled when the third pick snaps onto Line 1; leaving the pane clears the hover preview and the ring (pv-col.png, pv-left.png)",
+  "picture-5, picture-6": "the ring sits clear of the point in the RU and EN pick shots; the chip is above-left",
+  "picture-7, picture-9": "EN caption names points by label and gives each value once (constr_cmd info.capEn)",
+  "regress-2, regress-4, regress-5, regress-6": "per ledger; snap cost not re-measured beyond section F's pointermove p95 (0.6-2 ms)"
+ }
+}

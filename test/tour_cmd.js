@@ -156,12 +156,17 @@ check('a tooltip over the callout is hidden, and shows again away from it', g.ov
 // 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step
 await open('t4', { chapter: 'deform', step: 2 });
 g = await ev(`({ id: Tour.current().id, count: document.querySelector('.tour-count').textContent, next: document.querySelector('.tour-card .btn.primary').textContent })`);
-check('Paths is step 3 of 4 of Deformation', g.id === 'paths' && g.count === '3 of 4' && g.next === 'Next', g);
+check('Paths is step 3 of 5 of Deformation (v16: + Part of the chain)', g.id === 'paths' && g.count === '3 of 5' && g.next === 'Next', g);
 await snap('tour-paths-light');
 await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), next: document.querySelector('.tour-card .btn.primary').textContent, lit: (() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return !!a && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })(), sel: !!document.querySelector('#homOrderSel') })`);
-check('All steps at once shows, the order select lit whole: "Next: Analysis"', g.cur && g.cur.id === 'order' && g.lit && g.sel && g.next === 'Next: Analysis', g);
+check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && g.next === 'Next', g);
 await snap('tour-order-light');
+await ev(`Tour.next()`); await settle(1600);
+// (v16, notes/deform-range/SPEC.md 10.2) Part of the chain: the bracket's left end lit, every step bracketed
+g = await ev(`({ cur: Tour.current(), next: document.querySelector('.tour-card .btn.primary').textContent, body: document.querySelector('.tour-body').textContent, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
+check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && g.next === 'Next: Analysis' && /The bracket over the cards/.test(g.body) && g.range === null, g);
+await snap('tour-range-light');
 await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.tour-count').textContent })`);
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && g.count === '1 of 5', g);
@@ -214,7 +219,7 @@ check('Natural domain comes next, and its copy matches the F Inspector of the zp
 await snap('tour-domain-light');
 await ev('Tour.next()'); await settle(1500);
 check('then Guarantees', (await cur()).id === 'guarantees');
-check('chapter counted done on leaving it', (await recOf('t4')).done.deform === 1);
+check('chapter counted done on leaving it (v16: at its rev 2)', (await recOf('t4')).done.deform === 2);
 
 // 6. welcome (centred) and the end of Basics
 await open('t5', { chapter: 'basics', step: 0 }, 1440, 900, true);
@@ -305,7 +310,8 @@ await open('t7');
 await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 2 }, last: { ch: 'views', i: 1 } }))})`);
 await clickSel('#helpBtn'); await settle(500);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); return m && { items: [...m.querySelectorAll('.mi')].map(x => x.textContent.trim()), focus: m.contains(document.activeElement), role: m.getAttribute('role'), done: m.querySelectorAll('.tour-done').length }; })()`);
-check('menu: continue, eight chapters, guide, shortcuts', g && g.items.length === 11 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
+// (v16: nine chapters, with Constructions)
+check('menu: continue, nine chapters, guide, shortcuts', g && g.items.length === 12 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
 check('menu: focus inside', g && g.focus);
 await snap('tour-menu-light');
 await view(1440, 900, true); await settle(300);
@@ -340,7 +346,7 @@ await nav(U + '?ns=t10'); await settle(1500);
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(n))`);
 await key('k', 4); await settle(500); await type('tour'); await settle(500);
 g = await ev(`[...document.querySelectorAll('#palList [role=option]')].map((x) => x.textContent.trim()).filter((t) => /^Tour:/.test(t))`);
-check('palette: eight "Tour: …" entries', g.length === 8 && g.some((t) => /Tour: Analysis/.test(t)), g);
+check('palette: nine "Tour: …" entries', g.length === 9 && g.some((t) => /Tour: Analysis/.test(t)), g);
 await ev(`(() => { const o = [...document.querySelectorAll('#palList [role=option]')].find((x) => /Tour: Analysis/.test(x.textContent)); o && o.click(); })()`); await settle(2000);
 g = await ev(`({ cur: Tour.current(), calls: window.__calls })`);
 check('palette: Tour: Analysis starts it; the tour loads its scene through the app', g.cur && g.cur.chapter === 'analysis' && g.calls.includes('loadScene') && g.calls.includes('setView') && g.calls.includes('sandbox'), g);

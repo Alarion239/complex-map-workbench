@@ -144,3 +144,6 @@ as possible." -> research and an options board in notes/sound/hearf/.
 options.html, README.md there). With palette B for every other cue (liked earlier: "I like everything except for
 hearing the function"). Defaults stay: sound on, interface and event cues on, hearing the function off until turned on.
 Built into v15.2.
+
+## Decision (2026-10-25 02:20)
+The user accepted the open items: loops with W = 3 and W = 7 keep their notes (v15.2 sound-6), and no change after the phone listen (sound-7). Quote: "I like everything that is waiting on mee, you can proceed. No need to change anything".

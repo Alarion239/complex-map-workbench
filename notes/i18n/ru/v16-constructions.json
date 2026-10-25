@@ -1,0 +1,782 @@
+{
+ "_about": "v16 constructions, the interface (src/construct.js; notes/constructions-v16/SPEC.md 15). id -> {en, ru, note, ctx?, en_plural?, plural?}. Neutral forms («{x}: не определено», «привязка: {x}», «Удалено: …») avoid agreement with an unknown noun [C26]; gestures per GLOSSARY 708 («щёлкните», «перетащите», «выберите»). Read by tools/make_ru_table.py (v16-*.json, after v15-*).",
+ "tool.construct": {
+  "en": "Construct",
+  "ru": "Построения",
+  "note": "Heading of the tool group under Draw (desktop), and in More tools (phone)."
+ },
+ "tool.construct_aria": {
+  "en": "Construction tools",
+  "ru": "Инструменты построений",
+  "note": "aria-label of the Construct toolbar."
+ },
+ "tool.circle3": {
+  "en": "Circle through 3 points",
+  "ru": "Окружность по трём точкам",
+  "note": "Tool name (tooltip, chip, palette)."
+ },
+ "tool.circle3_tile": {
+  "en": "3 points",
+  "ru": "По 3 точкам",
+  "note": "Tile label of Circle through 3 points (52 px at 11 px)."
+ },
+ "tool.meet": {
+  "en": "Intersect",
+  "ru": "Пере­сечение",
+  "note": "Tool name and tile (a soft hyphen for the 52 px tile, as «Прямо­угольник»)."
+ },
+ "tool.midpoint": {
+  "en": "Midpoint",
+  "ru": "Середина",
+  "note": "Tool name and tile."
+ },
+ "tool.bisector": {
+  "en": "Perpendicular bisector",
+  "ru": "Серединный перпендикуляр",
+  "note": "Tool name."
+ },
+ "tool.bisector_tile": {
+  "en": "Bisector",
+  "ru": "Перпен­дикуляр",
+  "note": "Tile label of Perpendicular bisector (a soft hyphen for the 52 px tile)."
+ },
+ "tool.arc_desc": {
+  "en": "An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.",
+  "ru": "Дуга через 3 точки: перетащите от начала к концу, затем сдвиньте средний маркер. Каждая из трёх точек может привязаться к точке на странице.",
+  "note": "The Arc tool's tooltip in v16 [C24]: its a, m, b handles bind like any others."
+ },
+ "tool.circle3_desc": {
+  "en": "Pick three points: points on the page, crossings, or empty spots. The circle and its disc follow them.",
+  "ru": "Выберите три точки: точки на странице, пересечения или пустые места. Окружность и её круг следуют за ними.",
+  "note": "Tooltip's second line."
+ },
+ "tool.meet_desc": {
+  "en": "Click a crossing of two curves, or one curve and then another.",
+  "ru": "Щёлкните пересечение двух кривых или сначала одну кривую, затем другую.",
+  "note": "Tooltip's second line."
+ },
+ "tool.midpoint_desc": {
+  "en": "Pick two points, or a segment.",
+  "ru": "Выберите две точки или отрезок.",
+  "note": "Tooltip's second line."
+ },
+ "tool.bisector_desc": {
+  "en": "Pick two points, or a segment: the line of the points equally far from both.",
+  "ru": "Выберите две точки или отрезок: прямая из точек, равноудалённых от обеих.",
+  "note": "Tooltip's second line."
+ },
+ "chip.points": {
+  "en": "{tool}: point {n} of {m} · Esc cancels",
+  "ru": "{tool}: точка {n} из {m} · Esc — отмена",
+  "note": "Draft chip of a construction tool (mouse)."
+ },
+ "chip.points_touch": {
+  "en": "{tool}: point {n} of {m}",
+  "ru": "{tool}: точка {n} из {m}",
+  "note": "The same on touch (the chip has a × instead of Esc)."
+ },
+ "chip.meet": {
+  "en": "{tool}: a crossing, or curve {n} of 2 · Esc cancels",
+  "ru": "{tool}: пересечение или кривая {n} из 2 · Esc — отмена",
+  "note": "Draft chip of Intersect."
+ },
+ "chip.meet_touch": {
+  "en": "{tool}: a crossing, or curve {n} of 2",
+  "ru": "{tool}: пересечение или кривая {n} из 2",
+  "note": "The same on touch."
+ },
+ "chip.switch": {
+  "en": "Curve or region",
+  "ru": "Кривая или область",
+  "note": "aria-label of the Curve | Region switch."
+ },
+ "chip.curve": {
+  "en": "Curve",
+  "ru": "Кривая",
+  "note": "Switch: make the circle (a curve).",
+  "ctx": "construct"
+ },
+ "chip.region": {
+  "en": "Region",
+  "ru": "Область",
+  "note": "Switch: make the disc (a region).",
+  "ctx": "construct"
+ },
+ "chip.on": {
+  "en": "on {x}",
+  "ru": "привязка: {x}",
+  "note": "Snap ring's chip: on z₂, on ζ₁, on the end of Segment 1, on Circle 1 ∩ Line 2 [C26]."
+ },
+ "chip.distinct": {
+  "en": "{x} needs distinct points",
+  "ru": "{x}: нужны различные точки",
+  "note": "A co-argument under the pointer; x is a tool name."
+ },
+ "chip.drawinx": {
+  "en": "Draw in X to use {x}",
+  "ru": "Чтобы использовать {x}, рисуйте в X",
+  "note": "An image point z₀″ while Y does not show the whole chain."
+ },
+ "chip.meet_hint": {
+  "en": "Click a crossing of two curves, or a curve.",
+  "ru": "Щёлкните пересечение двух кривых или кривую.",
+  "note": "Intersect clicked on empty space."
+ },
+ "ref.vertex": {
+  "en": "vertex {n} of {x}",
+  "ru": "вершина {n}: {x}",
+  "note": "A handle as a point: vertex 3 of Polygon 2."
+ },
+ "ref.centre": {
+  "en": "the centre of {x}",
+  "ru": "центр: {x}",
+  "note": "A handle as a point."
+ },
+ "ref.middle": {
+  "en": "the middle of {x}",
+  "ru": "середина: {x}",
+  "note": "The middle handle of an arc."
+ },
+ "ref.corner": {
+  "en": "corner {n} of {x}",
+  "ru": "угол {n}: {x}",
+  "note": "A rectangle's corner handle."
+ },
+ "ref.start": {
+  "en": "the start of {x}",
+  "ru": "начало: {x}",
+  "note": "A handle as a point."
+ },
+ "ref.end": {
+  "en": "the end of {x}",
+  "ru": "конец: {x}",
+  "note": "A handle as a point."
+ },
+ "ref.side": {
+  "en": "side {n} of {x}",
+  "ru": "сторона {n}: {x}",
+  "note": "A piece of a boundary: side 3 of Rectangle 1."
+ },
+ "why.coincide": {
+  "en": "The points coincide",
+  "ru": "Точки совпадают",
+  "note": "Undefined reason."
+ },
+ "why.coincide3": {
+  "en": "Two of the points coincide",
+  "ru": "Две точки совпадают",
+  "note": "Undefined reason."
+ },
+ "why.nomeet": {
+  "en": "The curves do not meet here",
+  "ru": "Кривые здесь не пересекаются",
+  "note": "Undefined reason; also a toast of Intersect."
+ },
+ "why.lineInf": {
+  "en": "A line needs two finite points",
+  "ru": "Для прямой нужны две конечные точки",
+  "note": "Undefined reason."
+ },
+ "why.handleInf": {
+  "en": "Only a line can pass through ∞",
+  "ru": "Через ∞ может проходить только прямая",
+  "note": "A handle of a circle or polygon bound to ∞ (CORE code handleInf)."
+ },
+ "why.tRange": {
+  "en": "The point is off the end of its curve",
+  "ru": "Точка вышла за конец своей кривой",
+  "note": "A point on a bounded curve whose t is out of range (CORE code tRange)."
+ },
+ "why.zpRemoved": {
+  "en": "{mark} was removed",
+  "ru": "{mark}: удалён",
+  "note": "mark: ζ₂ or p₁ (both masculine nouns: нуль, полюс)."
+ },
+ "why.stepRemoved": {
+  "en": "The step of {mark} was removed",
+  "ru": "Шаг, которому принадлежал {mark}, удалён",
+  "note": "Undefined reason."
+ },
+ "why.zpNotF1": {
+  "en": "{mark} is a zero of {f} now: only the zeros and poles of f₁ lie in the z-plane",
+  "ru": "{mark} теперь нуль {f}: в плоскости z лежат только нули и полюсы f₁",
+  "note": "Undefined reason."
+ },
+ "why.zpNotF1p": {
+  "en": "{mark} is a pole of {f} now: only the zeros and poles of f₁ lie in the z-plane",
+  "ru": "{mark} теперь полюс {f}: в плоскости z лежат только нули и полюсы f₁",
+  "note": "Undefined reason (a pole)."
+ },
+ "why.argUndef": {
+  "en": "{x} is undefined",
+  "ru": "{x}: не определено",
+  "note": "Neutral [C26]."
+ },
+ "why.argUndef0": {
+  "en": "An argument is undefined",
+  "ru": "Один из аргументов не определён",
+  "note": "Undefined reason without a name."
+ },
+ "why.parallel": {
+  "en": "They meet only at ∞",
+  "ru": "Они пересекаются только в ∞",
+  "note": "Row note of a meet of parallel lines."
+ },
+ "def.c3": {
+  "en": "through {a}, {b}, {c}",
+  "ru": "через {a}, {b} и {c}",
+  "note": "Row: a circle through three points. [review user-12: the names after «через» are in the accusative (ctx acc), the last joined with «и»]"
+ },
+ "def.c3line": {
+  "en": "the line through {a}, {b}, {c}",
+  "ru": "прямая через {a}, {b} и {c}",
+  "note": "Row: the same when the points are collinear. [review user-12: the names after «через» are in the accusative (ctx acc), the last joined with «и»]"
+ },
+ "def.c3disc": {
+  "en": "the disc through {a}, {b}, {c}",
+  "ru": "круг, ограниченный окружностью через {a}, {b} и {c}",
+  "note": "Row: the region of a 3-point circle. [review user-12: the names after «через» are in the accusative (ctx acc), the last joined with «и»]"
+ },
+ "def.c3hp": {
+  "en": "the half-plane left of {a} → {b}",
+  "ru": "полуплоскость слева от {a} → {b}",
+  "note": "Row: the region when collinear [C25]."
+ },
+ "def.c3out": {
+  "en": "outside the circle through {a}, {b}, {c}",
+  "ru": "внешность окружности через {a}, {b} и {c}",
+  "note": "Row: the region when the orientation turned. [review user-12: the names after «через» are in the accusative (ctx acc), the last joined with «и»]"
+ },
+ "def.meet1": {
+  "en": "{c1} ∩ {c2}, first point",
+  "ru": "{c1} ∩ {c2}, первая точка",
+  "note": "Row of a meet."
+ },
+ "def.meet2": {
+  "en": "{c1} ∩ {c2}, second point",
+  "ru": "{c1} ∩ {c2}, вторая точка",
+  "note": "Row of a meet."
+ },
+ "def.on": {
+  "en": "on {curve}",
+  "ru": "на кривой: {curve}",
+  "note": "Row of a point on a curve [C26]."
+ },
+ "def.mid": {
+  "en": "midpoint of {a}, {b}",
+  "ru": "середина {a}, {b}",
+  "note": "Row of a midpoint."
+ },
+ "def.bis": {
+  "en": "bisector of {a}, {b}",
+  "ru": "серединный перпендикуляр: {a}, {b}",
+  "note": "Row of a bisector (neutral: a handle name may stand for a or b)."
+ },
+ "def.follows": {
+  "en": "follows {x}",
+  "ru": "следует за {x}",
+  "note": "Tooltip of the link glyph of a shape with bound handles."
+ },
+ "drag.built": {
+  "en": "{x} is built from {y}: drag those",
+  "ru": "{x}: построено по {y}, перетаскивайте их",
+  "note": "A fixed constructed point was dragged [C26]."
+ },
+ "drag.pan": {
+  "en": "Built on {x}: drag those, or Make free",
+  "ru": "Построено по {x}: перетаскивайте их или нажмите «Отвязать»",
+  "note": "A shape built on a zero or another shape's handle: the press pans (once per session)."
+ },
+ "act.other": {
+  "en": "Other point",
+  "ru": "Другая точка",
+  "note": "A meet: swap to the other crossing."
+ },
+ "act.showpt": {
+  "en": "Show as point",
+  "ru": "Показать как точку",
+  "note": "A helper point (made by a snap) becomes an ordinary point."
+ },
+ "act.free": {
+  "en": "Make free",
+  "ru": "Отвязать",
+  "note": "Keep the shape, forget its definition and bindings [C26]."
+ },
+ "act.mark": {
+  "en": "Mark the intersection",
+  "ru": "Отметить пересечение",
+  "note": "Plane menu on a crossing."
+ },
+ "act.ptcurve": {
+  "en": "Point on this curve",
+  "ru": "Точка на этой кривой",
+  "note": "Plane menu on a curve."
+ },
+ "act.c3here": {
+  "en": "Circle through this point…",
+  "ru": "Окружность через эту точку…",
+  "note": "Plane menu on a point: starts the tool with this point."
+ },
+ "act.midhere": {
+  "en": "Midpoint with…",
+  "ru": "Середина между этой точкой и…",
+  "note": "Plane menu on a point."
+ },
+ "act.puton": {
+  "en": "Put on this curve",
+  "ru": "Поместить на эту кривую",
+  "note": "Plane menu on a free point on a curve [C22]."
+ },
+ "insp.title": {
+  "en": "Construction",
+  "ru": "Построение",
+  "note": "Inspector view heading."
+ },
+ "insp.uses": {
+  "en": "Uses",
+  "ru": "Строится по",
+  "note": "Inspector: the shapes it is built from."
+ },
+ "insp.usedby": {
+  "en": "Used by",
+  "ru": "Используется в",
+  "note": "Inspector: the shapes built on it."
+ },
+ "toast.freed": {
+  "en": "Some constructions could not be read and were opened as plain shapes.",
+  "ru": "Некоторые построения не удалось прочитать: они открыты как обычные фигуры.",
+  "note": "Load toast (CORE event loadFreed)."
+ },
+ "cap.c3": {
+  "en": "the circle through {a}, {b} and {c}",
+  "ru": "окружность, проходящая через {a}, {b} и {c}",
+  "note": "Export caption; a, b, c are maths such as $z_2=-1-1.5i$."
+ },
+ "cap.c3line": {
+  "en": "the line through {a}, {b} and {c}",
+  "ru": "прямая, проходящая через {a}, {b} и {c}",
+  "note": "Export caption (collinear)."
+ },
+ "cap.c3disc": {
+  "en": "the disc bounded by the circle through {a}, {b} and {c}",
+  "ru": "круг, ограниченный окружностью, проходящей через {a}, {b} и {c}",
+  "note": "Export caption."
+ },
+ "cap.c3hp": {
+  "en": "the half-plane to the left of the line from {a} to {b}",
+  "ru": "полуплоскость слева от прямой, направленной от {a} к {b}",
+  "note": "Export caption: the region of a 3-point circle when collinear; a, b in the order the region is left of [review math-9]."
+ },
+ "cap.c3out": {
+  "en": "the outside of the circle through {a}, {b} and {c}",
+  "ru": "внешность окружности, проходящей через {a}, {b} и {c}",
+  "note": "Export caption."
+ },
+ "cap.meet": {
+  "en": "the intersection {x} of {c1} and {c2}",
+  "ru": "точка пересечения {x} {c1} и {c2}",
+  "note": "Export caption; c1, c2 are the curves' own phrases in the genitive («окружности |z−c|=r») [review picture-7]."
+ },
+ "cap.mid": {
+  "en": "the midpoint {x} of {a} and {b}",
+  "ru": "середина {x} между {a} и {b}",
+  "note": "Export caption."
+ },
+ "cap.glider": {
+  "en": "the point {x} on {c}",
+  "ru": "точка {x} {c}",
+  "note": "Export caption; c is the curve's phrase in the genitive («точка z₂ окружности |z|=1») [review picture-7]."
+ },
+ "cap.bis": {
+  "en": "the perpendicular bisector of {a} and {b}",
+  "ru": "серединный перпендикуляр к отрезку между {a} и {b}",
+  "note": "Export caption."
+ },
+ "toast.deleted": {
+  "en": "Deleted {x} and {n} shape built on it.",
+  "en_plural": [
+   "Deleted {x} and {n} shape built on it.",
+   "Deleted {x} and {n} shapes built on it."
+  ],
+  "ru": "Удалено: {x} и зависимые фигуры ({n}).",
+  "plural": {
+   "one": "Удалено: {x} и зависимые фигуры ({n}).",
+   "few": "Удалено: {x} и зависимые фигуры ({n}).",
+   "many": "Удалено: {x} и зависимые фигуры ({n}).",
+   "other": "Удалено: {x} и зависимые фигуры ({n})."
+  },
+  "note": "Delete toast with a cascade [C26]."
+ },
+ "toast.nofollow": {
+  "en": "{n} shape no longer follows it.",
+  "en_plural": [
+   "{n} shape no longer follows it.",
+   "{n} shapes no longer follow it."
+  ],
+  "ru": "Отвязано фигур: {n}.",
+  "plural": {
+   "one": "Отвязано фигур: {n}.",
+   "few": "Отвязано фигур: {n}.",
+   "many": "Отвязано фигур: {n}.",
+   "other": "Отвязано фигур: {n}."
+  },
+  "note": "Delete toast: bindings freed."
+ },
+ "toast.undef": {
+  "en": "{n} shape is now undefined.",
+  "en_plural": [
+   "{n} shape is now undefined.",
+   "{n} shapes are now undefined."
+  ],
+  "ru": "Не определено фигур: {n}.",
+  "plural": {
+   "one": "Не определено фигур: {n}.",
+   "few": "Не определено фигур: {n}.",
+   "many": "Не определено фигур: {n}.",
+   "other": "Не определено фигур: {n}."
+  },
+  "note": "Zero removed: its constructions are undefined."
+ },
+ "chip.release": {
+  "en": "Release to remove {mark}; {n} shape will be undefined",
+  "en_plural": [
+   "Release to remove {mark}; {n} shape will be undefined",
+   "Release to remove {mark}; {n} shapes will be undefined"
+  ],
+  "ru": "Отпустите, чтобы удалить {mark}; станет не определено фигур: {n}",
+  "plural": {
+   "one": "Отпустите, чтобы удалить {mark}; станет не определено фигур: {n}",
+   "few": "Отпустите, чтобы удалить {mark}; станет не определено фигур: {n}",
+   "many": "Отпустите, чтобы удалить {mark}; станет не определено фигур: {n}",
+   "other": "Отпустите, чтобы удалить {mark}; станет не определено фигур: {n}"
+  },
+  "note": "A zero dragged off the plane."
+ },
+ "act.delete_n": {
+  "en": "Delete (and {n} built on it)",
+  "en_plural": [
+   "Delete (and {n} built on it)",
+   "Delete (and {n} built on it)"
+  ],
+  "ru": "Удалить (и зависимые: {n})",
+  "plural": {
+   "one": "Удалить (и зависимые: {n})",
+   "few": "Удалить (и зависимые: {n})",
+   "many": "Удалить (и зависимые: {n})",
+   "other": "Удалить (и зависимые: {n})"
+  },
+  "note": "Delete with the cascade count."
+ },
+ "tour.ch": {
+  "en": "Constructions",
+  "ru": "Построения",
+  "note": "Tour chapter title (and the scene's name)."
+ },
+ "tour.c3_title": {
+  "en": "Circle through three points",
+  "ru": "Окружность по трём точкам",
+  "note": "Tour step title."
+ },
+ "tour.c3_body": {
+  "en": "Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.",
+  "ru": "Выберите три точки: точки, уже отмеченные на странице, пересечения или пустые места. Окружность и её круг следуют за ними.",
+  "note": "Tour step body."
+ },
+ "tour.c3_try": {
+  "en": "Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.",
+  "ru": "Выберите «Окружность по трём точкам» и щёлкните $z_0$, $z_1$, $z_2$.",
+  "note": "Try it."
+ },
+ "tour.c3_try_touch": {
+  "en": "Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.",
+  "ru": "Выберите «Окружность по трём точкам» в меню «Ещё», затем коснитесь $z_0$, $z_1$, $z_2$.",
+  "note": "Try it on touch."
+ },
+ "tour.follow_title": {
+  "en": "It follows its points",
+  "ru": "Она следует за своими точками",
+  "note": "Tour step title (она: the circle)."
+ },
+ "tour.follow_body": {
+  "en": "Drag $z_2$ across the line through $z_0$ and $z_1$: the disc becomes a half-plane, then the outside of the circle. Its image under $1/z$ follows.",
+  "ru": "Перетащите $z_2$ через прямую, проходящую через $z_0$ и $z_1$: круг станет полуплоскостью, затем внешностью окружности. Его образ при отображении $1/z$ следует за ним.",
+  "note": "Tour step body."
+ },
+ "tour.follow_try": {
+  "en": "Drag $z_2$ across the line.",
+  "ru": "Перетащите $z_2$ через прямую.",
+  "note": "Try it."
+ },
+ "tour.meet_title": {
+  "en": "Intersections",
+  "ru": "Пересечения",
+  "note": "Tour step title."
+ },
+ "tour.meet_body": {
+  "en": "Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Hold Alt to place freely. Intersect marks a crossing.",
+  "ru": "Инструменты рисования, инструмент «Точка» и перетаскиваемые маркеры привязываются к точкам, нулям и пересечениям и следуют за ними; «Точка» привязывается и к кривым. Удерживайте Alt, чтобы ставить свободно. «Пересечение» отмечает точку пересечения.",
+  "note": "Tour step body. [review regress-5: the three v15 gestures that changed]"
+ },
+ "tour.meet_touch": {
+  "en": "Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Turn Snap off in the tools sheet to place freely.",
+  "ru": "Инструменты рисования, инструмент «Точка» и перетаскиваемые маркеры привязываются к точкам, нулям и пересечениям и следуют за ними; «Точка» привязывается и к кривым. Чтобы ставить свободно, отключите привязку в панели инструментов.",
+  "note": "Tour step body on touch (no Alt). [review regress-5]"
+ },
+ "tour.meet_try": {
+  "en": "Draw a line from a crossing.",
+  "ru": "Нарисуйте прямую от точки пересечения.",
+  "note": "Try it."
+ },
+ "ref.acc0": {
+  "en": "vertex {n} of {x}",
+  "ru": "вершину {n} {x}",
+  "note": "A handle named after «через» (accusative); x is the shape in the genitive («многоугольника 1») [review user-12].",
+  "ctx": "acc"
+ },
+ "ref.acc1": {
+  "en": "the centre of {x}",
+  "ru": "центр {x}",
+  "note": "A handle named after «через» (accusative); x is the shape in the genitive («многоугольника 1») [review user-12].",
+  "ctx": "acc"
+ },
+ "ref.acc2": {
+  "en": "the middle of {x}",
+  "ru": "середину {x}",
+  "note": "A handle named after «через» (accusative); x is the shape in the genitive («многоугольника 1») [review user-12].",
+  "ctx": "acc"
+ },
+ "ref.acc3": {
+  "en": "corner {n} of {x}",
+  "ru": "угол {n} {x}",
+  "note": "A handle named after «через» (accusative); x is the shape in the genitive («многоугольника 1») [review user-12].",
+  "ctx": "acc"
+ },
+ "ref.acc4": {
+  "en": "the start of {x}",
+  "ru": "начало {x}",
+  "note": "A handle named after «через» (accusative); x is the shape in the genitive («многоугольника 1») [review user-12].",
+  "ctx": "acc"
+ },
+ "ref.acc5": {
+  "en": "the end of {x}",
+  "ru": "конец {x}",
+  "note": "A handle named after «через» (accusative); x is the shape in the genitive («многоугольника 1») [review user-12].",
+  "ctx": "acc"
+ },
+ "kind.gen.Polygon": {
+  "en": "Polygon",
+  "ru": "многоугольника",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Rectangle": {
+  "en": "Rectangle",
+  "ru": "прямоугольника",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Segment": {
+  "en": "Segment",
+  "ru": "отрезка",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Line": {
+  "en": "Line",
+  "ru": "прямой",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Ray": {
+  "en": "Ray",
+  "ru": "луча",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Half-plane": {
+  "en": "Half-plane",
+  "ru": "полуплоскости",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Arc": {
+  "en": "Arc",
+  "ru": "дуги",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Circle": {
+  "en": "Circle",
+  "ru": "окружности",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Disc": {
+  "en": "Disc",
+  "ru": "круга",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Annulus": {
+  "en": "Annulus",
+  "ru": "кольца",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "kind.gen.Sector": {
+  "en": "Sector",
+  "ru": "сектора",
+  "note": "A shape kind in the genitive, lowercase, before its number: «вершину 3 многоугольника 1» [review user-12].",
+  "ctx": "gen-kind"
+ },
+ "why.zeroAt": {
+  "en": "The zero at {v} was removed",
+  "ru": "Нуль в точке {v} удалён",
+  "note": "Undefined reason: a zero that constructions used, by its value [review user-6]."
+ },
+ "why.poleAt": {
+  "en": "The pole at {v} was removed",
+  "ru": "Полюс в точке {v} удалён",
+  "note": "Undefined reason: a pole, by its value [review user-6]."
+ },
+ "def.line2": {
+  "en": "line through {a} and {b}",
+  "ru": "прямая через {a} и {b}",
+  "note": "Row: a line bound to two points (a, b accusative) [review user-5]."
+ },
+ "def.seg2": {
+  "en": "segment from {a} to {b}",
+  "ru": "отрезок: {a} — {b}",
+  "note": "Row: a segment bound at both ends (neutral form) [review user-5]."
+ },
+ "def.ray2": {
+  "en": "ray from {a} through {b}",
+  "ru": "луч: начало — {a}, проходит через {b}",
+  "note": "Row: a ray bound at both ends [review user-5]."
+ },
+ "def.hpright": {
+  "en": "the half-plane right of {a} → {b}",
+  "ru": "полуплоскость справа от {a} → {b}",
+  "note": "Row: a bound half-plane whose complement is used [review user-5]."
+ },
+ "chip.here": {
+  "en": "{x} is already here",
+  "ru": "{x} уже здесь",
+  "note": "Snap chip: a Point-tool click on an existing point selects it [review user-14]."
+ },
+ "toast.snapoff": {
+  "en": "To place a point next to another, turn Snap off in the tools sheet.",
+  "ru": "Чтобы поставить точку рядом с другой, отключите привязку в панели инструментов.",
+  "note": "Touch, once a session: how to place a point beside another [review user-14]."
+ },
+ "chip.esc": {
+  "en": "Esc cancels",
+  "ru": "Esc — отмена",
+  "note": "Draft chip tail (mouse) [review user-2]."
+ },
+ "chip.meet2": {
+  "en": "A crossing, or curve {n} of 2",
+  "ru": "Пересечение или кривая {n} из 2",
+  "note": "Draft chip of Intersect: the counter first [review user-2]."
+ },
+ "chip.pointn": {
+  "en": "Point {n} of {m}",
+  "ru": "Точка {n} из {m}",
+  "note": "Draft chip: the counter first [review user-2]."
+ },
+ "t.c3": {
+  "en": "0 at {p}, ¼ at {q}, ½ at {r}",
+  "ru": "0 в {p}, ¼ в {q}, ½ в {r}",
+  "note": "Inspector: what t means on a circle through 3 points [review user-15]."
+ },
+ "t.poly": {
+  "en": "sides: 0 at vertex 1, {n} once round",
+  "ru": "стороны: 0 в вершине 1, {n} — полный обход",
+  "note": "Inspector: t on a polygon or rectangle [review user-15]."
+ },
+ "t.circle": {
+  "en": "turns, 0 at the right",
+  "ru": "обороты, 0 справа",
+  "note": "Inspector: t on a circle [review user-15]."
+ },
+ "t.seg": {
+  "en": "0 = start, 1 = end",
+  "ru": "0 = начало, 1 = конец",
+  "note": "Inspector: t on a segment, an arc or a line [review user-15]."
+ },
+ "err.nan": {
+  "en": "This is not a number",
+  "ru": "Это не число",
+  "note": "Field error under the t field [review user-1]."
+ },
+ "cap.hpright": {
+  "en": "the half-plane to the right of the line from {a} to {b}",
+  "ru": "полуплоскость справа от прямой, направленной от {a} к {b}",
+  "note": "Export caption: a bound half-plane, complement [review user-5]."
+ },
+ "cap.seg2": {
+  "en": "the segment from {a} to {b}",
+  "ru": "отрезок от {a} до {b}",
+  "note": "Export caption: a segment bound at both ends [review user-5]."
+ },
+ "cap.c3.gen": {
+  "en": "the circle through {a}, {b} and {c}",
+  "ru": "окружности, проходящей через {a}, {b} и {c}",
+  "note": "Caption, genitive [review user-12, picture-7].",
+  "ctx": "gen"
+ },
+ "cap.c3line.gen": {
+  "en": "the line through {a}, {b} and {c}",
+  "ru": "прямой, проходящей через {a}, {b} и {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.line2.gen": {
+  "en": "the line through {a} and {b}",
+  "ru": "прямой, проходящей через {a} и {b}",
+  "note": "Caption, genitive: a line bound at both ends, named by a meet or a point on it («точка пересечения … и прямой, проходящей через …») [v16 verify-2].",
+  "ctx": "gen"
+ },
+ "cap.ray2.gen": {
+  "en": "the ray from {a} through {b}",
+  "ru": "луча с началом {a}, проходящего через {b}",
+  "note": "Caption, genitive: a ray bound at both ends [v16 verify-2].",
+  "ctx": "gen"
+ },
+ "cap.bis.gen": {
+  "en": "the perpendicular bisector of {a} and {b}",
+  "ru": "серединного перпендикуляра к отрезку между {a} и {b}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.seg2.gen": {
+  "en": "the segment from {a} to {b}",
+  "ru": "отрезка от {a} до {b}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.c3disc.gen": {
+  "en": "the disc bounded by the circle through {a}, {b} and {c}",
+  "ru": "круга, ограниченного окружностью, проходящей через {a}, {b} и {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.c3out.gen": {
+  "en": "the outside of the circle through {a}, {b} and {c}",
+  "ru": "внешности окружности, проходящей через {a}, {b} и {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.c3hp.gen": {
+  "en": "the half-plane to the left of the line from {a} to {b}",
+  "ru": "полуплоскости слева от прямой, направленной от {a} к {b}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.hpright.gen": {
+  "en": "the half-plane to the right of the line from {a} to {b}",
+  "ru": "полуплоскости справа от прямой, направленной от {a} к {b}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ }
+}

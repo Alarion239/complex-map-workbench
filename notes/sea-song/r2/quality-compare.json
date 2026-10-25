@@ -1,0 +1,2860 @@
+{
+ "pass": true,
+ "runs": {
+  "logH.mask": "same",
+  "logH.pattern": "same",
+  "logH_out4.mask": "IMPROVED",
+  "logH_out4.pattern": "IMPROVED",
+  "logH_out16.mask": "IMPROVED",
+  "logH_out16.pattern": "IMPROVED",
+  "exp_strip.mask": "same",
+  "exp_strip.pattern": "same",
+  "cayley_H.mask": "same",
+  "cayley_H.pattern": "same",
+  "cayley_H_zoom1.mask": "IMPROVED",
+  "cayley_H_zoom1.pattern": "IMPROVED",
+  "recip_ext.mask": "same",
+  "recip_ext.pattern": "same",
+  "recip_ext_zoom0.mask": "IMPROVED",
+  "recip_ext_zoom0.pattern": "IMPROVED",
+  "sq_Q1.mask": "same",
+  "sq_Q1.pattern": "same",
+  "sqrt_slit.mask": "same",
+  "sqrt_slit.pattern": "same",
+  "sqrt_slit_out16.mask": "IMPROVED",
+  "sqrt_slit_out16.pattern": "IMPROVED",
+  "sin_halfstrip.mask": "same",
+  "sin_halfstrip.pattern": "same",
+  "disc_cube.mask": "same",
+  "disc_cube.pattern": "same",
+  "joukowski.mask": "same",
+  "joukowski.pattern": "same",
+  "annulus_log.mask": "same",
+  "annulus_log.pattern": "same",
+  "poly_mobius.mask": "same",
+  "poly_mobius.pattern": "same",
+  "zi_H.mask": "IMPROVED",
+  "zi_H.pattern": "IMPROVED",
+  "zi_H.polar": "IMPROVED",
+  "zi_H.mask85": "IMPROVED",
+  "zi_H.mask20": "IMPROVED",
+  "zi_H_out4.mask": "IMPROVED",
+  "zi_H_out4.pattern": "IMPROVED",
+  "zi_H_out4.polar": "IMPROVED",
+  "zi_H_out16.mask": "IMPROVED",
+  "zi_H_out16.pattern": "IMPROVED",
+  "expH.mask": "same",
+  "expH.pattern": "IMPROVED",
+  "expH.mask85": "same",
+  "expH.mask20": "IMPROVED",
+  "expH_out16.mask": "same",
+  "expH_out16.pattern": "IMPROVED",
+  "e1z_disc.mask": "same",
+  "e1z_disc.pattern": "IMPROVED",
+  "e1z_disc.mask85": "same",
+  "e1z_disc.mask20": "IMPROVED",
+  "e1z_disc_out16.mask": "IMPROVED",
+  "e1z_disc_out16.pattern": "IMPROVED",
+  "e1z_custom.mask": "same",
+  "e1z_custom.pattern": "IMPROVED",
+  "e1z_custom.mask85": "same",
+  "exp_far_disc.mask": "same",
+  "exp_far_disc.pattern": "same",
+  "ez2_disc.mask": "same",
+  "ez2_disc.pattern": "same",
+  "healed_cut.mask": "same",
+  "healed_cut.pattern": "same",
+  "atanh_D_s20.mask": "NEW",
+  "atanh_D_s20.mask85": "NEW",
+  "atanh_D_s10.mask": "NEW",
+  "atanh_D_s10.mask85": "NEW",
+  "atan_D_s20.mask": "NEW",
+  "atan_D_s10.mask": "NEW",
+  "cube_far_deep.mask": "NEW",
+  "cube_far_deep.pattern": "NEW",
+  "zi_H_polar85.polar85": "NEW",
+  "zi_H_polar85.polar50": "NEW",
+  "rat9.mask": "NEW",
+  "rat9.pattern": "NEW",
+  "rat9_out8.mask": "NEW",
+  "rat9_out8.pattern": "NEW",
+  "jouk_custom.mask": "NEW",
+  "jouk_custom.pattern": "NEW",
+  "zp_disc.mask": "NEW",
+  "zp_disc.pattern": "NEW"
+ },
+ "failures": [],
+ "improvements": [
+  {
+   "run": "logH_out4.mask",
+   "metric": "iou",
+   "baseline": 0.728049,
+   "current": 1
+  },
+  {
+   "run": "logH_out4.mask",
+   "metric": "hole",
+   "baseline": 0.271951,
+   "current": 0
+  },
+  {
+   "run": "logH_out4.pattern",
+   "metric": "iou",
+   "baseline": 0.721985,
+   "current": 1
+  },
+  {
+   "run": "logH_out4.pattern",
+   "metric": "hole",
+   "baseline": 0.278015,
+   "current": 0
+  },
+  {
+   "run": "logH_out4.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.982606,
+   "current": 1
+  },
+  {
+   "run": "logH_out16.mask",
+   "metric": "iou",
+   "baseline": 0.182404,
+   "current": 1
+  },
+  {
+   "run": "logH_out16.mask",
+   "metric": "hole",
+   "baseline": 0.817596,
+   "current": 0
+  },
+  {
+   "run": "logH_out16.pattern",
+   "metric": "iou",
+   "baseline": 0.179617,
+   "current": 1
+  },
+  {
+   "run": "logH_out16.pattern",
+   "metric": "hole",
+   "baseline": 0.820383,
+   "current": 0
+  },
+  {
+   "run": "cayley_H_zoom1.mask",
+   "metric": "iou",
+   "baseline": 0.772444,
+   "current": 1
+  },
+  {
+   "run": "cayley_H_zoom1.mask",
+   "metric": "hole",
+   "baseline": 0.227466,
+   "current": 0
+  },
+  {
+   "run": "cayley_H_zoom1.pattern",
+   "metric": "iou",
+   "baseline": 0.711565,
+   "current": 1
+  },
+  {
+   "run": "cayley_H_zoom1.pattern",
+   "metric": "hole",
+   "baseline": 0.288368,
+   "current": 0
+  },
+  {
+   "run": "recip_ext_zoom0.mask",
+   "metric": "iou",
+   "baseline": 0.805281,
+   "current": 1
+  },
+  {
+   "run": "recip_ext_zoom0.mask",
+   "metric": "hole",
+   "baseline": 0.194532,
+   "current": 0
+  },
+  {
+   "run": "recip_ext_zoom0.pattern",
+   "metric": "iou",
+   "baseline": 0.753214,
+   "current": 1
+  },
+  {
+   "run": "recip_ext_zoom0.pattern",
+   "metric": "hole",
+   "baseline": 0.246625,
+   "current": 0
+  },
+  {
+   "run": "sqrt_slit_out16.mask",
+   "metric": "iou",
+   "baseline": 0.605882,
+   "current": 1
+  },
+  {
+   "run": "sqrt_slit_out16.mask",
+   "metric": "hole",
+   "baseline": 0.394103,
+   "current": 0
+  },
+  {
+   "run": "sqrt_slit_out16.pattern",
+   "metric": "iou",
+   "baseline": 0.605539,
+   "current": 1
+  },
+  {
+   "run": "sqrt_slit_out16.pattern",
+   "metric": "hole",
+   "baseline": 0.394454,
+   "current": 0
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "iou",
+   "baseline": 0.995047,
+   "current": 1
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "hole",
+   "baseline": 0.004953,
+   "current": 0
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "opacity_min",
+   "baseline": 0.149338,
+   "current": 1
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "color_off",
+   "baseline": 0.006907,
+   "current": 0
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "iou",
+   "baseline": 0.994629,
+   "current": 1
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "hole",
+   "baseline": 0.005371,
+   "current": 0
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.640588,
+   "current": 1
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "color_off",
+   "baseline": 0.006226,
+   "current": 0
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "iou",
+   "baseline": 0.994856,
+   "current": 1
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "hole",
+   "baseline": 0.005144,
+   "current": 0
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "parity_acc",
+   "baseline": 0.948493,
+   "current": 0.999895
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "color_off",
+   "baseline": 0.005953,
+   "current": 0
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "iou",
+   "baseline": 0.994756,
+   "current": 1
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "hole",
+   "baseline": 0.005244,
+   "current": 0
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "opacity_min",
+   "baseline": 0.128372,
+   "current": 0.996734
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "color_off",
+   "baseline": 0.39101,
+   "current": 0
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "iou",
+   "baseline": 0.00917,
+   "current": 1
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "hole",
+   "baseline": 0.99083,
+   "current": 0
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "opacity_min",
+   "baseline": 0.029902,
+   "current": 1
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "color_off",
+   "baseline": 1,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "iou",
+   "baseline": 0.993976,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "hole",
+   "baseline": 0.006024,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "opacity_min",
+   "baseline": 0.149338,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "color_off",
+   "baseline": 0.00967,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "iou",
+   "baseline": 0.993342,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "hole",
+   "baseline": 0.006658,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.526128,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "color_off",
+   "baseline": 0.008402,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "iou",
+   "baseline": 0.9935,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "hole",
+   "baseline": 0.0065,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "parity_acc",
+   "baseline": 0.969279,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "color_off",
+   "baseline": 0.007768,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "opacity_min",
+   "baseline": 0.766795,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "color_off",
+   "baseline": 0.008197,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "iou",
+   "baseline": 0.995902,
+   "current": 1
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "hole",
+   "baseline": 0.004098,
+   "current": 0
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "color_off",
+   "baseline": 0.004098,
+   "current": 0
+  },
+  {
+   "run": "expH.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.310804,
+   "current": 1
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "iou",
+   "baseline": 0.814978,
+   "current": 1
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "hole",
+   "baseline": 0.185022,
+   "current": 0
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "opacity_min",
+   "baseline": 0.489948,
+   "current": 1
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "color_off",
+   "baseline": 1,
+   "current": 0
+  },
+  {
+   "run": "expH_out16.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.372948,
+   "current": 1
+  },
+  {
+   "run": "e1z_disc.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.5,
+   "current": 1
+  },
+  {
+   "run": "e1z_disc.mask20",
+   "metric": "opacity_min",
+   "baseline": 0.987275,
+   "current": 1
+  },
+  {
+   "run": "e1z_disc_out16.mask",
+   "metric": "opacity_min",
+   "baseline": 0.006363,
+   "current": 0.065303
+  },
+  {
+   "run": "e1z_disc_out16.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.5,
+   "current": 1
+  },
+  {
+   "run": "e1z_custom.pattern",
+   "metric": "parity_acc",
+   "baseline": 0.5,
+   "current": 1
+  }
+ ],
+ "new": [
+  "atanh_D_s20.mask",
+  "atanh_D_s20.mask85",
+  "atanh_D_s10.mask",
+  "atanh_D_s10.mask85",
+  "atan_D_s20.mask",
+  "atan_D_s10.mask",
+  "cube_far_deep.mask",
+  "cube_far_deep.pattern",
+  "zi_H_polar85.polar85",
+  "zi_H_polar85.polar50",
+  "rat9.mask",
+  "rat9.pattern",
+  "rat9_out8.mask",
+  "rat9_out8.pattern",
+  "jouk_custom.mask",
+  "jouk_custom.pattern",
+  "zp_disc.mask",
+  "zp_disc.pattern"
+ ],
+ "targets": [
+  {
+   "run": "e1z_custom.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.mask85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.mask85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.mask85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask20",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask20",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask20",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.mask85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc_out16.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.999953,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc_out16.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 4.7e-05,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc_out16.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc_out16.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.999948,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc_out16.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 5.2e-05,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_disc_out16.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.mask85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH_out16.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH_out16.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH_out16.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH_out16.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH_out16.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "expH_out16.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "exp_far_disc.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "exp_far_disc.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "exp_far_disc.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "exp_far_disc.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "exp_far_disc.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "exp_far_disc.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "ez2_disc.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "ez2_disc.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "ez2_disc.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "ez2_disc.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "ez2_disc.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "ez2_disc.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "healed_cut.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "healed_cut.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "healed_cut.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "healed_cut.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.999499,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "healed_cut.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0.000499,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "healed_cut.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2 / 12.4: the exact-image scenes"
+  },
+  {
+   "run": "e1z_custom.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_custom.mask85",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_custom.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_disc.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_disc.mask20",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_disc.mask85",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_disc.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_disc_out16.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 6.6e-05,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "e1z_disc_out16.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 5.7e-05,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "expH.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "expH.mask85",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "expH.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "expH_out16.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "expH_out16.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "exp_far_disc.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "exp_far_disc.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "ez2_disc.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "ez2_disc.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "healed_cut.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "healed_cut.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0.000501,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 / 6.1: the exact image shows the opaque fill colours (c0; the checker colours) at any alpha"
+  },
+  {
+   "run": "cayley_H.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H_zoom1.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H_zoom1.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H_zoom1.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H_zoom1.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H_zoom1.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "cayley_H_zoom1.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "exp_strip.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "exp_strip.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "exp_strip.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "exp_strip.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "exp_strip.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "exp_strip.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out16.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out16.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out16.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out16.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out16.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out16.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out4.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out4.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out4.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out4.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out4.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "logH_out4.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext_zoom0.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext_zoom0.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext_zoom0.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext_zoom0.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext_zoom0.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "recip_ext_zoom0.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sin_halfstrip.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sin_halfstrip.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sin_halfstrip.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sin_halfstrip.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sin_halfstrip.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sin_halfstrip.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sq_Q1.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sq_Q1.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sq_Q1.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sq_Q1.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sq_Q1.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sq_Q1.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sqrt_slit.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sqrt_slit.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sqrt_slit.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sqrt_slit.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sqrt_slit.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "sqrt_slit.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 11 P2: every unbounded scene, the old ones too (sqrt_slit_out16 left out: its tie rows are allowed)"
+  },
+  {
+   "run": "zi_H.mask",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H.pattern",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_out16.mask",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_out16.pattern",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_out4.mask",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_out4.pattern",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "hole_leak",
+   "op": "max",
+   "limit": 0,
+   "value": 0,
+   "met": true,
+   "note": "SPEC 12.4 (a): the z^i hole stays empty"
+  },
+  {
+   "run": "zi_H.polar",
+   "metric": "parity_acc",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.999895,
+   "met": true,
+   "note": "SPEC 12.4 (a): the polar parity of every sheet"
+  },
+  {
+   "run": "zi_H_out4.polar",
+   "metric": "parity_acc",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 12.4 (a): the polar parity of every sheet"
+  },
+  {
+   "run": "e1z_custom.mask85",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 0.996734,
+   "met": true,
+   "note": "SPEC 12.4 mask85"
+  },
+  {
+   "run": "e1z_disc.mask85",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 0.996734,
+   "met": true,
+   "note": "SPEC 12.4 mask85"
+  },
+  {
+   "run": "expH.mask85",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 0.996734,
+   "met": true,
+   "note": "SPEC 12.4 mask85"
+  },
+  {
+   "run": "zi_H.mask85",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 0.996734,
+   "met": true,
+   "note": "SPEC 12.4 mask85"
+  },
+  {
+   "run": "e1z_disc.mask20",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 12.4 mask20 (12.1 (g) names e^{1/z} too)"
+  },
+  {
+   "run": "expH.mask20",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 12.4 mask20 (12.1 (g) names e^{1/z} too)"
+  },
+  {
+   "run": "zi_H.mask20",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 12.4 mask20 (12.1 (g) names e^{1/z} too)"
+  },
+  {
+   "run": "healed_cut.mask",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.99,
+   "value": 1,
+   "met": true,
+   "note": "SPEC 15 M5: no crack where a later step heals a cut"
+  },
+  {
+   "run": "atan_D_s10.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atan_D_s10.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atan_D_s10.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atan_D_s20.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atan_D_s20.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atan_D_s20.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s20.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s20.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s20.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s20.mask85",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s20.mask85",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s20.mask85",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "cube_far_deep.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.999866,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "cube_far_deep.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0.000134,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "cube_far_deep.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "cube_far_deep.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.99979,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "cube_far_deep.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0.00021,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "cube_far_deep.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "P2 review (SPEC 13.12): saturation points (artanh / arctan of the unit disc zoomed out 6x, 12x) and a deep zoom (s = 3e4)"
+  },
+  {
+   "run": "atanh_D_s10.mask85",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.845,
+   "value": 0.850662,
+   "met": true,
+   "note": "P2 review: one sheet at alpha 0.85 everywhere, no half-covered band where float32 tanh w is +-1"
+  },
+  {
+   "run": "atanh_D_s20.mask85",
+   "metric": "opacity_min",
+   "op": "min",
+   "limit": 0.845,
+   "value": 0.850662,
+   "met": true,
+   "note": "P2 review: one sheet at alpha 0.85 everywhere, no half-covered band where float32 tanh w is +-1"
+  },
+  {
+   "run": "cube_far_deep.pattern",
+   "metric": "parity_acc",
+   "op": "min",
+   "limit": 0.999,
+   "value": 0.999759,
+   "met": true,
+   "note": "P2 review: checker colours in range and cell edges kept at a deep zoom"
+  },
+  {
+   "run": "cube_far_deep.pattern",
+   "metric": "color_off",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0.000555,
+   "met": true,
+   "note": "P2 review: checker colours in range and cell edges kept at a deep zoom"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "parity_acc",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)"
+  },
+  {
+   "run": "zi_H_polar85.polar50",
+   "metric": "cell_err_p99",
+   "op": "max",
+   "limit": 2,
+   "value": 0,
+   "met": true,
+   "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "parity_acc",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)"
+  },
+  {
+   "run": "zi_H_polar85.polar85",
+   "metric": "cell_err_p99",
+   "op": "max",
+   "limit": 2,
+   "value": 1,
+   "met": true,
+   "note": "P2 review / SPEC 5.3: z^i's polar cells keep their colours at alpha < 1 (no seams, light cells reach c1)"
+  },
+  {
+   "run": "zp_disc.mask",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)"
+  },
+  {
+   "run": "zp_disc.mask",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)"
+  },
+  {
+   "run": "zp_disc.mask",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)"
+  },
+  {
+   "run": "zp_disc.pattern",
+   "metric": "iou",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)"
+  },
+  {
+   "run": "zp_disc.pattern",
+   "metric": "hole",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)"
+  },
+  {
+   "run": "zp_disc.pattern",
+   "metric": "spill",
+   "op": "max",
+   "limit": 0.001,
+   "value": 0,
+   "met": true,
+   "note": "zeros-and-poles step (2026-10-22): (z^2-1)/z by its zeros and pole, exact through the fold (RAT2)"
+  },
+  {
+   "run": "zp_disc.pattern",
+   "metric": "parity_acc",
+   "op": "min",
+   "limit": 0.999,
+   "value": 1,
+   "met": true,
+   "note": "zeros-and-poles step: the checker of both sheets"
+  }
+ ],
+ "targets_enforced": false,
+ "warnings": [
+  "browser differs: baseline Chrome/155.0.8059.80, current Chrome/156.0.8078.47 (renders may differ slightly)"
+ ]
+}

@@ -31,7 +31,7 @@
 //   sonify  Hear the function under the pointer (opt-in): the harp, the loop's note while the deformation plays, and
 //           every cue driven by pointer position (branch cut, zero/pole order, contour, preimages collide)
 // API: Sound.play(name, {pan, order, k, q, w, vel, at, force, tier, tag}) · Sound.turn(o) · Sound.tick(o) (queued,
-//      count-bearing) · Sound.harp(phi, o) · Sound.harpReset(phi) · Sound.harpAlong(phi, la, dur, o) ·
+//      count-bearing) · Sound.harp(phi, o) · Sound.harpReset(phi) · Sound.harpAlong(phi, la, dur, o) · Sound.alongCount(phi, closed, lines) ·
 //      Sound.sing(A, n0, o) · Sound.singOff(o) · Sound.curveAmps(ph, W) · Sound.scrub(u0, u1) · Sound.scrubEnd() ·
 //      Sound.motion(u, rate) · Sound.motionEnd() · Sound.heightVoice() · Sound.hush() (Esc) · Sound.stopTag(tag) ·
 //      Sound.set({on, vol, ui, snap, events, sonify}) · Sound.toggle() · Sound.prefs() · Sound.subscribe(fn) ·
@@ -406,14 +406,26 @@ const Sound = (() => {
   }
   // a plucked string as modes (the spectrum a Karplus–Strong string settles into): harmonics 1–8, slightly stretched,
   // low-passed by `bright`, the upper ones shorter, a 0.4 ms ring-in and a 2 ms contact noise. o.dark (the harp): a gut
-  // string, harmonics falling as 1/n under min(4 kHz, 3 f0), nothing above 5 kHz, the contact at most 3 kHz
+  // string, harmonics falling as 1/n under min(4 kHz, 3 f0), nothing above 5 kHz, the contact at most 3 kHz. o.tune (the
+  // harp's strings, notes/sea-song/r2 and r3): in tune. No detune of its own (the note's tuning is already in f0),
+  // harmonic partials (exactly n·f0) and fixed start phases, as a real pluck has: partials that meet another string's
+  // (an octave copy, a chord's octave or fifth) add the same way every time, with no slow beat and no level left to
+  // chance. Partial n starts at PH_ODD of n's odd part plus o.ph0 turns: n and 2n of one string start alike, and the
+  // octave copies of the pointer's harp (ph0 a quarter turn an octave) meet in quadrature, so they add in power, as
+  // independent strings do on average, every time, and do not all start rising together, which would be a click (the
+  // other cues keep 1 + 0.0008 n² and random phases). o.oct (a piece's note): the
+  // 2nd partial at this level of the fundamental and with its decay, the soft octave for small speakers, on the string
+  // itself, a steady doubling
+  const oddPart = (n) => { while (!(n & 1)) n >>= 1; return n; }, PH_ODD = { 1: 0, 3: 0.5, 5: 0.25, 7: 0.75 };
   function pluck(Pt, d, f0, o) {
-    const f = f0 * cents(rnd(-3, 3)), g = (o.amp || 0.1) * vdb(o.dark ? 1.0 : 1.5), t60 = o.t60 || 0.4;
+    const f = o.tune ? f0 : f0 * cents(rnd(-3, 3)), g = (o.amp || 0.1) * vdb(o.dark ? 1.0 : 1.5), t60 = o.t60 || 0.4;
     let fcut = -Math.log(1 - clamp(o.bright == null ? 0.5 : o.bright, 0.05, 0.95)) * FS / TAU;
     if (o.dark) fcut = Math.min(fcut, 4000, 3 * f0);
     const hs = []; let norm = 0;
-    for (let n = 1; n <= 8; n++) { const fn = f * n * (1 + 0.0008 * n * n); if (fn > (o.dark ? 5000 : 0.45 * FS)) break; const a = 1 / Math.sqrt(1 + Math.pow(fn / fcut, 2)) / (o.dark ? n : Math.sqrt(n)); hs.push([fn, a, t60 / (1 + 0.35 * (n - 1))]); norm += a; }
-    for (const [fn, a, tj] of hs) Pt.push({ k: 'm', d, f: fn, a: 1.6 * g * a / norm, t60: tj * rnd(0.9, 1.1), tau: 0.0004, ph: R() });
+    for (let n = 1; n <= 8; n++) { const fn = o.tune ? f * n : f * n * (1 + 0.0008 * n * n); if (fn > (o.dark ? 5000 : 0.45 * FS)) break; const a = 1 / Math.sqrt(1 + Math.pow(fn / fcut, 2)) / (o.dark ? n : Math.sqrt(n)); hs.push([fn, a, t60 / (1 + 0.35 * (n - 1))]); norm += a; }
+    const jit = hs.map(() => rnd(0.9, 1.1));
+    if (o.oct > 0 && hs.length > 1) { hs[1][1] = o.oct * hs[0][1]; hs[1][2] = hs[0][2]; jit[1] = jit[0]; }
+    hs.forEach(([fn, a, tj], i) => Pt.push({ k: 'm', d, f: fn, a: 1.6 * g * a / norm, t60: tj * jit[i], tau: 0.0004, ph: o.tune ? (PH_ODD[oddPart(i + 1)] + (o.ph0 || 0)) % 1 : R() }));
     Pt.push({ k: 'n', d, dur: 0.002, fc: Math.min(2 * fcut, o.dark ? 3000 : 6000), a: 0.1 * g, seed: seed32() });
   }
   const air = (Pt, d, dur, fa, fb, q, amp, o = {}) => Pt.push({ k: 'air', d, dur, fa, fb, q, a: amp, att: o.att, fl: o.fl, seed: seed32() });
@@ -458,8 +470,9 @@ const Sound = (() => {
         if (Math.abs(w) > 8) many(Pt, 0.125 * n, w > 0 ? 1 : -1);
       } },
 
+    // (o.one: the first pluck only, a composed piece's drum: notes/sea-song)
     cut: { tier: 'sonify', gap: 120, wet: 0.08, label: 'Branch cut', what: 'The probe crossed a branch cut: F jumps there. Two muted plucks stepping down',
-      make: (Pt) => { pluck(Pt, 0, st(28), { t60: 0.09, bright: 0.22, amp: 0.16 }); pluck(Pt, 0.035, st(24), { t60: 0.12, bright: 0.18, amp: 0.16 }); } },
+      make: (Pt, o) => { pluck(Pt, 0, st(28), { t60: 0.09, bright: 0.22, amp: 0.16 }); if (!o.one) pluck(Pt, 0.035, st(24), { t60: 0.12, bright: 0.18, amp: 0.16 }); } },
     zero: { tier: 'sonify', gap: 250, wet: 0.2, label: 'Zero', what: 'The probe reached a zero; one glass ping per order (the argument principle on a small circle), harder when approached faster',
       make: (Pt, o) => { const m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.11; for (let j = 0; j < m; j++) strike(Pt, sp * j, st(24), 'glass', { vel: (o.vel == null ? 0.6 : o.vel) * (j ? 0.75 : 1), soft: 0.8, t60: 0.55, amp: 0.21, detune: 2 }); } },
     pole: { tier: 'sonify', gap: 250, wet: 0.14, label: 'Pole', what: 'The probe reached a pole; one felt thump per order',
@@ -479,8 +492,11 @@ const Sound = (() => {
   // level trims (dB) from the level match against v15's palette (notes/sound/v2/MEASUREMENTS.md, board.html)
   const TRIM = { toggleOn: -1.07, toggleOff: -0.4, stepAdd: 0.06, stepRemove: -0.72, view: 2.75, exportDone: -1.8, error: -0.82, edge: -2.23, snap: -2.85, morphStart: 1.91, morphEnd: -0.59, loopDone: 0.48, zero: -0.35, pole: 0.1, dense: 0.35, cut: -3.25, turn: -0.43, turnMany: -1.43, contour: -1.52, collide: 0.5 };
   // the calibrated levels of hearing the function (notes/sound/hearf/PROTOTYPE.md): one harp note at velocity 0.7 and
-  // |F| = 1 is −32 LUFS-M; the singer's unit-energy spectrum at lvl 1 is −32 LUFS-M (the release note +1 dB)
-  const LV = { harp: 0.0918, hv: 0.83 };
+  // |F| = 1 is −32 ± 2.5 LUFS-M, a D (with its accent) 2 to 5 dB over E; the singer's unit-energy spectrum at lvl 1 is
+  // −32 LUFS-M (the release note +1 dB). The harp's copies now have fixed phases (pluck: their coinciding partials in
+  // quadrature, notes/sea-song/r3), and the folded D accent: seeds 1–8 give E −34.1 to −32.9, D −31.0 to −29.9, D − E
+  // 2.6 to 3.7 dB (round 2, random phases: E −34.6 to −30.3, D − E −0.5 to +6.6)
+  const LV = { harp: 0.0831, hv: 0.83 };
 
   // ---------------------------------------------------------------- the synth node (or the fallback)
   // the worklet's source: the library, the synth processor (6 tier outputs + the audition pair), the Height voice
@@ -519,12 +535,15 @@ class Synth extends AudioWorkletProcessor {
     const fs = this.fs, sh = c.f < f0 ? f0 - c.f : 0;
     if (sh) { this.stat.late++; this.stat.maxLateMs = Math.max(this.stat.maxLateMs, 1000 * sh / fs); }
     this.stat.cues++;
-    const cue = { tier: c.tier, pan: c.pan || 0, g: c.g == null ? 1 : c.g, wet: c.wet || 0, tag: c.tag, str: !!c.str, fade: -1, fadeN: this.nFade,
+    const cue = { tier: c.tier, pan: c.pan || 0, g: c.g == null ? 1 : c.g, wet: c.wet || 0, tag: c.tag, str: !!c.str, key: c.key || 0, fade: -1, fadeN: this.nFade,
       parts: c.parts.map((p) => ({ sf: c.f + sh + Math.round((p.d || 0) * fs), v: L.MAKE[p.k](p, fs), live: true })) };
-    // the harp's strings: at most 12 at once; the oldest fades out over 30 ms (raised cosine) when a 13th starts
+    // the harp's strings: at most 12 at once (c.cap: a composed piece's, notes/sea-song); the oldest fades out over
+    // 30 ms (raised cosine) when one more starts. c.key (a piece's string, its MIDI note): a string plucked again is
+    // damped first, as a harpist re-plucks one string (notes/sea-song/r3)
     if (cue.str) {
       const strs = this.strs;
-      while (strs.length >= 12) { const o = strs.shift(); if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
+      if (cue.key) for (let i = strs.length - 1; i >= 0; i--) if (strs[i].key === cue.key) { const o = strs.splice(i, 1)[0]; if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
+      while (strs.length >= (c.cap || 12)) { const o = strs.shift(); if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
       strs.push(cue); if (strs.length > this.stat.maxStrings) this.stat.maxStrings = strs.length;
     }
     this.cues.push(cue); if (this.cues.length > this.stat.maxCues) this.stat.maxCues = this.cues.length;
@@ -857,66 +876,95 @@ registerProcessor('cmw-voice', Voice);`;
   // A, B. A Schmitt trigger on each line (h = 1/96 turn): an up note when the unwrapped arg rises past θ + h having last
   // been below θ − h, a down note the other way; so a tremor under 7.5° across a line plays nothing, and the low Ds
   // counted up minus down are exactly the winding number of any closed path that starts more than 3.75° from arg 0.
+  // A harp's lines are lines of the Phase key: line s (0 … 11) at arg F = 30°·s plucks D + s semitones. The pointer's
+  // harp has five, HARP_LINES; a composed piece (notes/sea-song/r2) has its own, exactly the pitch classes its score uses.
   // v15.2 (review sound-3): the pointer's harp widens the band to what 2.5 px of the probe turn arg F (o.h: the app's
   // |F'/F| · 2.5 px, at most 1/8 turn), so a finger held still near a zero, where a pixel turns arg F by more than 7.5°,
   // plucks nothing; the count is the same (the trigger's state moves one line at a time, whatever the band)
-  const HARP_TH = [0, 1 / 6, 1 / 3, 7 / 12, 3 / 4], HARP_ST = [0, 2, 4, 7, 9], HARP_H = 1 / 96;
-  const thr = (i) => Math.floor(i / 5) + HARP_TH[((i % 5) + 5) % 5];
-  const cellOf = (phi) => { let i = Math.floor(phi) * 5; while (thr(i + 1) <= phi) i++; while (thr(i) > phi) i--; return i; };
+  const HARP_LINES = [0, 2, 4, 7, 9], HARP_H = 1 / 96;
+  const thrL = (L, i) => { const n = L.length; return Math.floor(i / n) + L[((i % n) + n) % n] / 12; };
+  const cellL = (phi, L) => { let i = Math.floor(phi) * L.length; while (thrL(L, i + 1) <= phi) i++; while (thrL(L, i) > phi) i--; return i; };
+  const cellOf = (phi) => cellL(phi, HARP_LINES);
+  const linesOk = (L) => Array.isArray(L) && L.length >= 2 && L.length <= 12 && L.every((v, i) => Number.isInteger(v) && v >= 0 && v < 12 && (!i || v > L[i - 1]));
   // the crossings of the lines from cell c as the arg goes P0 → P1: [{i, dir, u}] (u: where along the step, 0 … 1)
   function harpCross(st, P0, P1, h = HARP_H) {
-    const fired = [], tAt = (th) => (P1 === P0 ? 1 : clamp((th - P0) / (P1 - P0), 0, 1));
-    while (P1 > thr(st.c + 1) + h) { st.c++; fired.push({ i: st.c, dir: 1, u: tAt(thr(st.c)) }); }
-    while (P1 < thr(st.c) - h) { fired.push({ i: st.c, dir: -1, u: tAt(thr(st.c)) }); st.c--; }
+    const fired = [], L = st.L, tAt = (th) => (P1 === P0 ? 1 : clamp((th - P0) / (P1 - P0), 0, 1));
+    while (P1 > thrL(L, st.c + 1) + h) { st.c++; fired.push({ i: st.c, dir: 1, u: tAt(thrL(L, st.c)) }); }
+    while (P1 < thrL(L, st.c) - h) { fired.push({ i: st.c, dir: -1, u: tAt(thrL(L, st.c)) }); st.c--; }
     return fired;
   }
   // a seated probe's lap (v15.2.1, review verify-1): a probe seated inside a line's band (a long press, a first point)
   // that comes back to its seat's arg k whole turns on finds the trigger still a line short there (it waits for the
   // band), so a lap that stops where it began never sounded its D (a touch 15 px from a zero, from 3° or 8° above the
   // D line; at 6 px, inside the D-only zone, the lap was silent). Arriving within the band of φ_s + k, the trigger is
-  // brought to its seat's cell + 5k in the direction of travel, plucking the line between, as harpClose does for drawn
-  // loops; once per arrival (a hand held at the lap's end does not chatter). The count is the state's, so nothing is
-  // counted twice. Only the pointer's harp (HP) has a lap: lap = {phi, c, k}
+  // brought to its seat's cell + 5k in the direction of travel (5: the pointer's lines; st.L.length), plucking the line
+  // between, as harpClose does for drawn loops; once per arrival (a hand held at the lap's end does not chatter). The
+  // count is the state's, so nothing is counted twice. Only the pointer's harp (HP) has a lap: lap = {phi, c, k}
   function lapClose(st, P0, P1, h, fired) {
     const L = st.lap, k = Math.round(P1 - L.phi);
     if (k === L.k || !(Math.abs(P1 - (L.phi + k)) <= h)) return;
     L.k = k;
-    const c = L.c + 5 * k;
+    const c = L.c + st.L.length * k;
     if (P1 > P0) while (st.c < c) { st.c++; fired.push({ i: st.c, dir: 1, u: 1 }); }
     else if (P1 < P0) while (st.c > c) { fired.push({ i: st.c, dir: -1, u: 1 }); st.c--; }
   }
   const lapSeat = (st, phi) => { if (st.lap) st.lap = st.c === null ? { phi: 0, c: null, k: 0 } : { phi, c: st.c, k: 0 }; };
-  function Harp(lap) { return { c: null, phi: 0, recent: [], up: 0, down: 0, notes: 0, lap: lap ? { phi: 0, c: null, k: 0 } : null }; }
+  // Harp(lines): a piece's own lines (notes/sea-song); Harp(true): the pointer's harp, on HARP_LINES and with a lap
+  function Harp(lines) { return { c: null, phi: 0, recent: [], up: 0, down: 0, notes: 0, k: 0, L: linesOk(lines) ? lines.slice() : HARP_LINES, lap: lines === true ? { phi: 0, c: null, k: 0 } : null }; }
   const HP = Harp(true);
-  // one note: the pitch class in octave copies (D2 … 2.4 kHz) under a Gaussian over log2 f (σ 0.7 octave, centred on
-  // D5 + 0.5·tanh(ln|F| / 2.5): lower near zeros, higher near poles), copies under −30 dB dropped (usually 3 remain);
-  // each a dark plucked string (T60 1.8 s at D5, ∝ f^−0.5). A D adds a D4 string (the turn's accent) and is +1.8 dB
-  // (×1.23; ×1.26 put the D at −29.4 LUFS-M, 0.1 dB over its −32 ± 2.5 window: review sound-5).
-  // sign: in the D-only zone an up D also sounds the A above, a down D the A below.
-  function harpNote(g, j, vel, t, ln, dir, sign, pan, tier, tag) {
-    const cen = 0.5 * Math.tanh((Number.isFinite(ln) ? ln : ln > 0 ? 50 : -50) / 2.5), isD = j === 0, base = 73.416 * Math.pow(2, HARP_ST[j] / 12), bright = 0.2 + 0.25 * clamp((vel - 0.4) / 0.45, 0, 1);
+  // one note: the pitch class (s semitones above D) in octave copies (D2 … 2.4 kHz) under a Gaussian over log2 f
+  // (σ 0.7 octave, centred on D5 + 0.5·tanh(ln|F| / 2.5): lower near zeros, higher near poles), copies under −30 dB
+  // dropped (usually 3 remain); each a dark plucked string (T60 1.8 s at D5, ∝ f^−0.5), in tune: one detune (±1.5 cents)
+  // shared by all its strings, so its octaves are pure (notes/sea-song/r2). A D is +1.8 dB (×1.23; ×1.26 put the old
+  // harp's D at −29.4 LUFS-M, 0.1 dB over its −32 ± 2.5 window: review sound-5) and has the turn's accent on
+  // its D4 copy: that string is louder by the accent (half the note's level, added in power, as two independent strings
+  // added on average), one string and not a second one at the same pitch, whose sum would depend on the phases
+  // (notes/sea-song/r3). sign: in the D-only zone an up D also sounds the A above, a down D the A below
+  function harpString(g, f, a, at, bright, pn, tier, tag, cap, oct, key, ph0) {
+    R = prng((seedBase + 0x9E3779B9 * ++cueN) >>> 0);
+    const Pt = []; pluck(Pt, 0, f, { t60: 1.8 * Math.pow(f / 587.33, -0.5), bright, amp: a, dark: true, tune: true, oct, ph0 });
+    return emitCue(g, Object.assign({ tier: TI[tier], pan: pn, wet: 0.12, g: 1, parts: Pt, tag, str: 1 }, cap ? { cap } : {}, key ? { key } : {}), at);
+  }
+  function harpNote(g, s, vel, t, ln, dir, sign, pan, tier, tag, cap) {
+    const cen = 0.5 * Math.tanh((Number.isFinite(ln) ? ln : ln > 0 ? 50 : -50) / 2.5), isD = s === 0, base = 73.416 * Math.pow(2, s / 12), bright = 0.2 + 0.25 * clamp((vel - 0.4) / 0.45, 0, 1);
     const amp = LV.harp * vel * (isD ? 1.23 : 1), pn = clamp((pan || 0) + 0.12 * dir, -0.4, 0.4);
     let end = t;
     FS = g.c.sampleRate;
-    const string = (f, a, at) => {
-      R = prng((seedBase + 0x9E3779B9 * ++cueN) >>> 0);
-      const Pt = []; pluck(Pt, 0, f, { t60: 1.8 * Math.pow(f / 587.33, -0.5), bright, amp: a, dark: true });
-      end = Math.max(end, emitCue(g, { tier: TI[tier], pan: pn, wet: 0.12, g: 1, parts: Pt, tag, str: 1 }, at));
-    };
+    R = prng((seedBase + 0x9E3779B9 * ++cueN) >>> 0);
+    const det = cents(rnd(-1.5, 1.5));
+    const string = (f, a, at, oc) => { end = Math.max(end, harpString(g, f * det, a, at, bright, pn, tier, tag, cap, 0, 0, 0.25 * oc)); };
     for (let oc = 0; oc < 6; oc++) {
       const f = base * Math.pow(2, oc); if (f > 2400) break;
-      const d = (Math.log2(f / 587.33) - cen) / 0.7, w = Math.exp(-0.5 * d * d); if (w < 0.0316) continue;
-      string(f, amp * w, t);
-      if (sign && w > 0.5) string(f * Math.pow(2, (dir > 0 ? 7 : -5) / 12), 0.3 * amp * w, t + 0.03);
+      const d = (Math.log2(f / 587.33) - cen) / 0.7, w0 = Math.exp(-0.5 * d * d), acc = isD && oc === 2 ? 0.5 : 0;
+      if (w0 < 0.0316 && !acc) continue;
+      const w = w0 < 0.0316 ? 0 : w0;
+      string(f, amp * Math.hypot(w, acc), t, oc);
+      if (sign && w > 0.5) string(f * Math.pow(2, (dir > 0 ? 7 : -5) / 12), 0.3 * amp * w, t + 0.03, oc);
     }
-    if (isD) string(293.66, 0.5 * amp, t);
     return end;
+  }
+  // a composed piece's note (notes/sea-song/r3): one string at the written pitch, m in MIDI (A4 = 440 Hz; a fraction is
+  // the score's own tuning, e.g. its just fifth), no detune: a pitch is always the same string, plucked again (key) and
+  // never two near-unisons. Its octave for small speakers is its own 2nd partial at dbl of the fundamental (one string,
+  // a fixed level), not a second string. PIECE_G: about the level of the two strings it replaces (1.25 at round 2's
+  // LV.harp, 0.0918)
+  const PIECE_G = 1.38;
+  function pieceNote(g, m, vel, t, dir, pan, tier, tag, cap, dbl) {
+    const bright = 0.2 + 0.25 * clamp((vel - 0.4) / 0.45, 0, 1), amp = LV.harp * PIECE_G * vel, pn = clamp((pan || 0) + 0.12 * dir, -0.4, 0.4);
+    FS = g.c.sampleRate;
+    return harpString(g, 440 * Math.pow(2, (m - 69) / 12), amp, t, bright, pn, tier, tag, cap, dbl > 0 ? dbl : 0, Math.round(m));
   }
   // a harp step: the arg went from st.phi to phi over dt seconds of the probe, played from t0 on the audio clock (the
   // notes spread over the step as the crossings were). o: {ln, pan, dt, shaky (the D-only zone near a zero or pole,
-  // while the pointer moves), h (the band, turns: HARP_H … 1/8), tier, tag}. Returns the crossings (tests count the Ds)
+  // while the pointer moves), h (the band, turns: HARP_H … 1/8), tier, tag, vel, note, dbl, cap}. o.vel (a composed
+  // curve's stored dynamics, notes/sea-song): the k-th crossing (st.k) sounds at velocity o.vel[k], in place of the rate
+  // rules and the D-only thinning; under 0.02 it is silent (it still counts, and takes no string). o.note (a piece's
+  // written notes, MIDI, one per crossing, 0 for a crossing that is not a written note: silent): pieceNote in place of
+  // the octave copies; o.dbl its octave string's level. o.cap: the strings kept at once (a number, or one per crossing: a
+  // piece's theme keeps one note ringing, its chords four, notes/sea-song/r3). The lines are the harp's own (st.L).
+  // Returns the crossings (tests count the Ds)
   function harpStep(st, g, t0, phi, o) {
-    if (st.c === null) { st.c = cellOf(phi); st.phi = phi; lapSeat(st, phi); return []; }
+    if (st.c === null) { st.c = cellL(phi, st.L); st.phi = phi; lapSeat(st, phi); return []; }
     const h = o.h > HARP_H ? Math.min(0.125, o.h) : HARP_H;
     const P0 = st.phi, dt = clamp(o.dt || 0.016, 0.008, 0.1), fired = harpCross(st, P0, phi, h);
     if (st.lap && st.lap.c !== null) lapClose(st, P0, phi, h, fired);
@@ -924,19 +972,26 @@ registerProcessor('cmw-voice', Voice);`;
     if (!fired.length) return fired;
     const rateT = Math.abs(phi - P0) / dt;   // turns per second
     for (const n of fired) {
-      const at = t0 + n.u * dt, j = ((n.i % 5) + 5) % 5, isD = j === 0;
+      const nL = st.L.length, s = st.L[((n.i % nL) + nL) % nL], isD = s === 0, at = t0 + n.u * dt, vk = o.vel ? o.vel[st.k] : undefined, mk = o.note ? o.note[st.k] : undefined, ck = Array.isArray(o.cap) ? o.cap[st.k] : o.cap;
+      st.k++;
       while (st.recent.length && st.recent[0] < at - 0.5) st.recent.shift();
       st.recent.push(at);
       // notes per second: over the last 0.5 s, or implied by how fast arg F turns now (5 strings a turn), so the first
       // notes of a sudden run are already lighter; above 24 a second only the Ds sound (the count survives)
-      const rate = Math.max(st.recent.length / 0.5, 5 * rateT), dOnly = !!o.shaky || st.recent.length / 0.5 > 24;
+      const rate = Math.max(st.recent.length / 0.5, 5 * rateT), dOnly = vk == null && (!!o.shaky || st.recent.length / 0.5 > 24);
       if (isD) { if (n.dir > 0) st.up++; else st.down++; }
       if (!isD && dOnly) continue;
+      if ((vk != null && vk < 0.02) || (o.note && !(mk > 0))) continue;
       let vel = 0.55 + 0.3 * clamp(Math.log10(Math.max(rateT, 0.1) / 0.1), 0, 1);
       if (rate > 2.5) vel *= Math.pow(2.5 / rate, 0.6);
       if (rate > 14) vel *= 14 / rate;
+      // (review v16 sound-picture-1: a still probe under a changing F, a zero passing beside it, hears its sweep: the
+      // fast-run rule is for a hand that sweeps, so here the notes keep at least 0.25, about 12 dB under a normal note,
+      // not 30)
+      if (o.still) vel = Math.max(vel, 0.25);
+      if (vk != null) vel = clamp(vk, 0, 1);
       st.notes++;
-      if (g) busy(harpNote(g, j, vel, at, o.ln, n.dir, isD && dOnly, o.pan, o.tier || 'sonify', o.tag));
+      if (g) busy(mk > 0 ? pieceNote(g, mk, vel, at, n.dir, o.pan, o.tier || 'sonify', o.tag, ck, o.dbl) : harpNote(g, s, vel, at, o.ln, n.dir, isD && dOnly, o.pan, o.tier || 'sonify', o.tag, ck));
     }
     return fired;
   }
@@ -946,28 +1001,45 @@ registerProcessor('cmw-voice', Voice);`;
     return harpStep(HP, G, ctx.currentTime + LEAD, phi, o);
   }
   // a loop drawn with the pointer or the keys closed (review math-4): the trigger is brought to the state it had at the
-  // loop's first point, shifted by the loop's W whole turns (c = c0 + 5W), and the lines between are plucked now. Its low
+  // loop's first point, shifted by the loop's W whole turns (c = c0 + 5W, five lines), and the lines between are plucked now. Its low
   // Ds counted up minus down are then exactly W wherever the loop began: a start inside a line's band no longer loses
   // (or doubles) that line's D. The caller re-seats on the probe's own arg afterwards (harpReset)
   function harpClose(c, o = {}) {
     if (HP.c === null || !Number.isInteger(c) || c === HP.c) return [];
     if (!AC || !P.on || hidden || !P.sonify || !canSchedule(false)) { HP.c = null; return []; }
-    return harpStep(HP, G, ctx.currentTime + LEAD, 0.5 * (thr(c) + thr(c + 1)), Object.assign({ dt: 0.1 }, o));
+    return harpStep(HP, G, ctx.currentTime + LEAD, 0.5 * (thrL(HP.L, c) + thrL(HP.L, c + 1)), Object.assign({ dt: 0.1 }, o));
   }
   // a fresh start, a cut or a swap: re-seat on the colour under the probe, without a note
   function harpReset(phi) { HP.c = phi == null || !Number.isFinite(phi) ? null : cellOf(phi); HP.phi = phi; lapSeat(HP, phi); }
+  // a closed curve (listen along): seated as if it had arrived at its start from its own end (shifted by its whole
+  // turns), so a curve that starts exactly on a line sounds that line once, at the start, and not again when it closes
+  // there: its low Ds are its winding number wherever it starts
+  function alongSeat(st, phi, closed, t0) {
+    const n = phi.length;
+    if (closed && n > 2) { const W = phi[n - 1] - phi[0], p0 = phi[n - 2] - W; st.c = cellL(p0, st.L); harpCross(st, p0, phi[0]); st.phi = phi[0]; }
+    else harpStep(st, null, t0, phi[0], {});
+  }
+  // the crossings listen along would play on these samples (nothing sounds), on the default lines or a piece's own:
+  // a stored velocity list must match it
+  function alongCount(phi, closed, lines) {
+    const st = Harp(lines);
+    alongSeat(st, phi, closed, 0);
+    let k = 0;
+    for (let j = 1; j < phi.length; j++) { k += harpCross(st, st.phi, phi[j]).length; st.phi = phi[j]; }
+    return k;
+  }
   // "listen along": the harp played along a curve's samples (phi: unwrapped turns, la: ln|F|, uniform in time over dur
   // s), scheduled now on the audio clock, tagged so that stopping it drops what has not sounded. Returns the D count.
+  // o: {tag, closed, cuts (tick times, s), pan, lines, vel, note, dbl (a composed curve's own lines, and its velocities
+  // and written notes, one per crossing: harpStep; the app passes them only when alongCount agrees), cap (its strings at
+  // once: a number or one per crossing), tickDb (its drum: one gain per cut, dB; each tick then a single pluck)}
   function harpAlong(phi, la, dur, o = {}) {
     if (!AC || !P.on || hidden || !P.events || !canSchedule(false)) return null;
-    const st = Harp(), n = phi.length, t0 = ctx.currentTime + Math.max(0.03, LEAD + 0.01), dt = dur / Math.max(1, n - 1);
-    // a closed curve: seated as if it had arrived at its start from its own end (shifted by its whole turns), so a curve
-    // that starts exactly on a line sounds that line once, at the start, and not again when it closes there: its low Ds
-    // are its winding number wherever it starts
-    if (o.closed && n > 2) { const W = phi[n - 1] - phi[0], p0 = phi[n - 2] - W; st.c = cellOf(p0); harpCross(st, p0, phi[0]); st.phi = phi[0]; }
-    else harpStep(st, null, t0, phi[0], {});
-    for (let j = 1; j < n; j++) harpStep(st, G, t0 + (j - 1) * dt, phi[j], { ln: la[j], pan: o.pan || 0, dt, tier: 'events', tag: o.tag });
-    for (const tt of o.cuts || []) play('cut', { at: Math.max(0.03, LEAD + 0.01) - LEAD + tt, force: true, tier: 'events', tag: o.tag });
+    const st = Harp(o.lines), n = phi.length, t0 = ctx.currentTime + Math.max(0.03, LEAD + 0.01), dt = dur / Math.max(1, n - 1);
+    alongSeat(st, phi, o.closed, t0);
+    for (let j = 1; j < n; j++) harpStep(st, G, t0 + (j - 1) * dt, phi[j], { ln: la[j], pan: o.pan || 0, dt, tier: 'events', tag: o.tag, vel: o.vel, note: o.note, dbl: o.dbl, cap: o.cap });
+    const td = o.tickDb && o.cuts && o.tickDb.length === o.cuts.length ? o.tickDb : null;
+    (o.cuts || []).forEach((tt, i) => play('cut', Object.assign({ at: Math.max(0.03, LEAD + 0.01) - LEAD + tt, force: true, tier: 'events', tag: o.tag }, td ? { gainDb: td[i], one: true, noRep: true } : {})));
     busy(t0 + dur + 2);
     return { t0, up: st.up, down: st.down, notes: st.notes, now: () => ctx.currentTime };
   }
@@ -1235,7 +1307,7 @@ registerProcessor('cmw-voice', Voice);`;
     play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush, stopTag,
     scrub, scrubEnd, scrubState: () => ({ v: SC.v, tex: SC.tex }), motion, motionEnd,
     harp, harpReset, harpClose, harpAlong, harpState: () => ({ up: HP.up, down: HP.down, notes: HP.notes, c: HP.c }), harpCount: () => { const r = { up: HP.up, down: HP.down, notes: HP.notes }; HP.up = HP.down = HP.notes = 0; return r; },
-    harpStep, harpNote, Harp, cellOf, curveAmps, singable, sing, singCmds, singOff, singState: () => ({ on: singOn, tier: singTier }),
+    harpStep, harpNote, pieceNote, Harp, cellOf, alongCount, curveAmps, singable, sing, singCmds, singOff, singState: () => ({ on: singOn, tier: singTier }),
     set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
     heightVoice, render, graph, cueTo, CATALOG, TRIM, MAT, LV, HV, HeightVoice, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, LIB, WORKLET_SRC,
     seed: (n) => { seedBase = n >>> 0; cueN = 0; }, cueHook: (f) => { cueHook = f || null; },

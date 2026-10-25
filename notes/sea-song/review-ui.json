@@ -1,0 +1,114 @@
+[
+ {
+  "id": "ui-1",
+  "severity": "high",
+  "title": "Nothing but Esc, L or the menu stops the melody: it keeps playing, and the probe keeps moving, after the curve is deleted or another example is opened",
+  "detail": "sndMove now returns early for a piece (app.js 12508: `if (p && p.piece && src !== 'key') return;`). That removed the only implicit stop, a pointer move of more than 4 px. Before, every mouse action began with such a move, so playback always stopped before an edit. No other path calls sndStopPlay: not loadExample, not deleting or dragging the shape, not changing the chain. During the 22 to 24 s piece the user can now do any of these, and the probe crosshair and readouts keep travelling the stored zs of the old curve, over a different picture, while the harp plays a function that is no longer on screen. The guide's own text ('Esc stops') is the only way out.",
+  "evidence": "CDP probe (test/revui_cdp/probe1.js, port 9306, 1440x900 light). Start Listen along from the curve menu, then call __cmwExample(0): __cmwSound().play stays true, listenHarp is {notes:159, piece:true}, and the readout reads 'z 0.0038 + 1.4880i |z| 1.4880 arg 89.85°' over the empty canvas (notes/sea-song/review-ui-shots/d_other_example_while_playing.png). Select the curve and press Delete while it plays: shapes 0, play true, the 'Shape deleted. Undo' toast is up, and the probe and readout are still moving (notes/sea-song/review-ui-shots/d_deleted_while_playing.png). In probe3, switching the main view to X→Y did not stop it either; that one is harmless.",
+  "fix": "Keep the pointer-move exemption, but stop a piece on any change to what it plays: call sndStopPlay(true) in loadExample, and wherever the chain or shapes change (commit/rebuild), when snd.play.piece is set and sndListenOf(shape) no longer returns the same listen. Simplest: give snd.play the shape id, and in tick() stop when the shape is gone from S.shapes or sndListenOf(shape) is null. Add both cases to seasong_cmd.js."
+ },
+ {
+  "id": "ui-2",
+  "severity": "medium",
+  "title": "The 'spiral' crosses itself 27 times and has 28 sharp corners, so in Phase view and the thumbnails it reads as a tangle",
+  "detail": "SEASONG.pts (1200 points) has 27 self-intersections between turns and 28 vertices with a turning angle of 20 to 29.6° between consecutive samples. Its radius only runs from 0.544 to 1.529, so neighbouring turns about 3 ring-spacings apart wobble into each other. At 1 px on the saturated phase rings this looks hand-drawn and knotted rather than an exact spiral, especially on the phone and in the 48x32 and 96x64 thumbnails. The user's brief was a 'beautiful function and the curve around it', and the house rule is exact, article-grade visuals. The wobbles are the melody (radial back-and-forth across phase rings), so this is a design trade-off, not a code slip.",
+  "evidence": "node over src/seasong.js: 'self-intersections: 27 [[240,453],[241,454],[281,488],...]'; 'largest turning angles: 29.6@652 29.5@238 26.5@646 ...'; 'count >20°: 28'; 'r 0.544 1.529'; closest approach of non-neighbour points 0.0016 (0.3 px at s=215). Pictures: notes/sea-song/review-ui-shots/d_light_phase.png, notes/sea-song/shots/phone_en_light.png.",
+  "fix": "Pick one and decide with the user. (a) Smooth the generated curve (a C2 spline through the musical waypoints, then re-check that the crossing sequence is unchanged with t_seasong.js: 159 crossings, the same order and directions). This removes the corners. (b) Space the turns further apart (a larger inward pitch per turn) so that the radial excursions of the repeated notes cannot reach the next turn. This removes the self-crossings. Either way, re-record and re-run t_seasong.js."
+ },
+ {
+  "id": "ui-3",
+  "severity": "low",
+  "title": "X→Y view: the spiral is clipped on both sides and the w-plane shows almost nothing",
+  "detail": "ex.fit is applied once, in loadExample, for the pane width at that moment (Phase, one merged plane). Switch to X→Y and the X plane halves to 410 px at the same scale (s=215): the spiral runs off the left and right edges. The Y plane opens at 1×10^8 per division and shows a few arcs running to infinity, because |F| runs from e^-78 to e^78. AS-BUILT says the image is not a picture, but nothing tells the user, and X→Y is one click away (the 1 key).",
+  "evidence": "notes/sea-song/review-ui-shots/d_light_xy.png (1440x900): the X plane is 287 to 697 px wide and the spiral is cut at both edges; the Y axis reads '1×10^8 / div'. __cmwLayout() after __cmwSetMain('xy'): wL 410, wR 410.",
+  "fix": "Re-apply ex.fit when the X pane's size changes while this example is current, as the Phase view already gets it. Optionally add half a sentence to the blurb or guide: 'its image is not drawable (|F| spans e^±78); use the Phase view'."
+ },
+ {
+  "id": "ui-4",
+  "severity": "low",
+  "title": "The cut handle and its 'θ 174.7°' label sit on the spiral at every size (known)",
+  "detail": "The handle is placed at 0.33 of the view's smaller side, which is inside the spiral at any view that shows the whole curve. The label hides several crossings of the curve and of the cut, which is exactly where the 'drum' happens. AS-BUILT lists this as a known trait. It is listed here because it is the first thing on screen at every size checked: desktop 1440x900 and 1024x700, tablet 768x1024 in light and in Russian dark, and phone 412x915.",
+  "evidence": "notes/sea-song/review-ui-shots/d_light_phase.png (label at about 530-595 by 352-368, over the 3rd and 4th turns); notes/sea-song/review-ui-shots/t_ru_dark_phase.png; notes/sea-song/shots/phone_en_light.png.",
+  "fix": "Let an example give a handle radius (e.g. ex.cutR = 1.56, just outside the curve's maximum radius of 1.529), used by the handle placement when present. Every other example keeps today's placement."
+ },
+ {
+  "id": "ui-5",
+  "severity": "low",
+  "title": "Guide: the piece's title is set in the math italic face, and the Russian drops the «ёлочки» that glossary rule 9 asks for",
+  "detail": "The guide paragraph wraps the title in <i>…</i>. This app styles <i> in the guide as a math variable (the serif italic of arg F and m), so 'In the Hall of the Mountain King' reads as a formula. In Russian the title appears as italic «В пещере горного короля» with no quotes. Glossary rule 9 says titles take «ёлочки», and the same strings already use them elsewhere: the blurb has «Пер Гюнт», the button «В пещере горного короля».",
+  "evidence": "notes/sea-song/shots/desk_en_guide.png, notes/sea-song/review-ui-shots/p_ru_guide.png. notes/i18n/ru/v152-seasong.json v152sea.guide_melody ru: 'Пример <i>В пещере горного короля</i> (по Эдварду Григу)'.",
+  "fix": "EN: drop the <i> or use an <em> in the text font. RU: 'Пример «В пещере горного короля» (по Эдварду Григу)'. The key is unchanged if only the RU value changes; if the EN changes, update both."
+ },
+ {
+  "id": "ui-6",
+  "severity": "low",
+  "title": "Russian guide: «которую он пересекает» has an ambiguous 'он'",
+  "detail": "'Пункт <b>Слушать вдоль кривой</b> … играет на арфе …: arg F — это высота звука, каждая линия фазы, которую он пересекает, звучит щипком своей струны'. The nearest masculine noun is «Пункт» (the menu item), so «он» reads as the menu item crossing the lines. The English 'it' means arg F, as in the v15.2 harp paragraph ('each time arg F crosses one of five phase lines').",
+  "evidence": "notes/i18n/ru/v152-seasong.json v152sea.guide_melody; the rendered page in notes/sea-song/review-ui-shots/p_ru_guide.png.",
+  "fix": "'… каждая линия фазы, которую пересекает arg <i>F</i>, звучит щипком своей струны …'."
+ },
+ {
+  "id": "ui-7",
+  "severity": "low",
+  "title": "Every Examples item now gets a native title tooltip, not just this one",
+  "detail": "app.js 11567 adds `title: ex.blurb` to every gallery button, so all 15 items now pop a native browser tooltip on hover. The app's own tooltips use data-tip (40 uses against 11 title). The blurb is also already the button's visible text, so screen readers that read title as the description announce it twice. This is a change to the other 14 examples, outside the feature.",
+  "evidence": "Diff against work/xvsd-snap/src/app.js line 11545 → 11567. seasong_cmd.js checks only the new item's title.",
+  "fix": "Set the title only when the blurb is actually cut (after layout: blurb.scrollWidth > blurb.clientWidth), or use the app's data-tip. Either keeps the other items as they were."
+ },
+ {
+  "id": "ui-8",
+  "severity": "low",
+  "title": "On the phone, the cut-off gallery line leads with a desktop instruction",
+  "detail": "The gallery shows the blurb on one line with an ellipsis, and a title tooltip does not exist on touch. On the phone the visible text is 'Edvard Grieg, Peer Gynt (1875). Right-click the spi…', so the touch instruction ('hold it on touch') is never seen. The Russian is the same: «…Щёлкните спираль правой кнопкой мыши…».",
+  "evidence": "probe2 (412x915, mobile): the last item's blurb is clipped (scrollWidth > clientWidth), title length 190; notes/sea-song/review-ui-shots/p_en_gallery.png.",
+  "fix": "Make the first clause device-neutral, e.g. 'Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral's menu (right-click, or hold on touch): …'. Or give the phone its own string. Either way, update v152-seasong.json."
+ },
+ {
+  "id": "ui-9",
+  "severity": "low",
+  "title": "The melody's curve is called 'Freehand curve 1' in the menu and the Shapes list",
+  "detail": "The menu item reads 'Listen along Freehand curve 1', in Russian «Слушать вдоль кривой Кривая от руки 1». The Shapes list shows 'Freehand curve 1'. The blurb and guide call it 'the spiral'. A named shape would make the menu match the instructions.",
+  "evidence": "seasong_cmd.js on port 9306: R.menuEn[1] = 'Listen along Freehand curve 1', R.menuRu[1] = 'Слушать вдоль кривой Кривая от руки 1'.",
+  "fix": "If shapes can carry a name (shapeNames), name it 'Spiral' / «Спираль» (new strings, translated per the glossary). Otherwise leave it."
+ },
+ {
+  "id": "ui-10",
+  "severity": "low",
+  "title": "Merge hazard: regenerating the Russian table in xvsea now loses the tour's Sound-step strings, and --strict does not notice",
+  "detail": "I ran tools/make_ru_table.py --strict in a copy of xvsea at 17:2x against the shared notes. It reports 'unresolved 0', but the table it writes differs from the committed src/i18n_ru.js in 6 keys. The three tour.js keys/sound strings that xvsea's tour.js uses (desktop, narrow, touch) lose their Russian. Three new keys arrive for an English that xvsea does not have. The cause is that shared notes/i18n/ru/v152-sound.json was rewritten at 17:17:48 by another branch's regress-3 fix, after xvsea's i18n_ru.js (17:15:34). Tour copy is not a literal call site, so --strict cannot see the loss. The committed table and dist are correct today (dist rebuilt here is byte-identical).",
+  "evidence": "Regenerated table vs work/xvsea/src/i18n_ru.js: 'Sound is on by default: quiet cues confirm what you do. Turn it off here or with {Shift}{M}…' → None (and the 'in this menu' and 'here.' variants), new keys 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number…'.",
+  "fix": "At the merge, take tour.js from the sound branch before regenerating i18n_ru.js, as AS-BUILT's merge notes imply. Then check that the tour's Sound step is Russian (tour_cmd.js in RU or i18n_walk_cmd.js). Do not regenerate in xvsea alone."
+ },
+ {
+  "id": "ui-11",
+  "severity": "low",
+  "title": "The guide button replaces the user's work without saying so",
+  "detail": "'Play In the Hall of the Mountain King' calls sndPlayPiece → loadExample(i), which clears S.shapes and S.steps and loads the example. Undo brings the work back through commit(), but the label only says 'Play'. Someone reading the Sound section in the middle of their own work loses the canvas with one click.",
+  "evidence": "app.js sndPlayPiece; loadExample sets S.shapes = []; S.steps = [] and then commit().",
+  "fix": "'Open and play In the Hall of the Mountain King' / «Открыть и сыграть «В пещере горного короля»». Or show a toast 'Opened the example. Undo returns your work' with an Undo action, as Delete does."
+ },
+ {
+  "id": "ui-12",
+  "severity": "info",
+  "title": "Not covered: the tour's Sound step and the glossary's Examples table",
+  "detail": "tour.js is unchanged. Its Sound step and its Examples step ('from the Joukowski airfoil to a residue found by integration') do not mention the melody, an open item in AS-BUILT. The shared GLOSSARY.md, section 1.14 Examples, does not list «В пещере горного короля». Neither is a defect. Both are the places a later pass would update.",
+  "evidence": "diff -rq work/xvsd-snap work/xvsea: tour.js and i18n.js identical; the tour_cmd.js shot tour-examples-light (not kept, disk); GLOSSARY.md 1.14.",
+  "fix": "Optional: add the name to GLOSSARY 1.14 (the glossary's owner). Mention the example in the tour's Sound step only if callout fit allows (tour_cmd.js checks it)."
+ },
+ {
+  "id": "ui-13",
+  "severity": "info",
+  "title": "Disk: a 55 MB Chrome profile is left in work/xvsea/test/free_cdp",
+  "detail": "test/free_cdp/chprof-KdWs6o is a leftover headless-Chrome profile from an earlier run. Free space is 3.9 GB, below the 8 GB stated in the brief. test/free_cdp, islands_cdp and seasong_cdp are harness copies and should not go into the merge.",
+  "evidence": "du -sh work/xvsea/test/free_cdp → 55M; df / → 3.9Gi available.",
+  "fix": "rm -rf work/xvsea/test/free_cdp/chprof-* (whoever owns it). Leave the *_cdp folders out of the merge."
+ },
+ {
+  "id": "ui-0",
+  "severity": "info",
+  "title": "What was checked and passed",
+  "detail": "dist is current: build.py run on a copy of xvsea/src is byte-identical to dist/complex-map-workbench.html and dist/test.html. Diff against xvsd-snap: build.py, app.js, sound.js, i18n_ru.js, make_ru_table.py, ru_report.json, plus new seasong.js, melody tool and tests. No golden PNG, baseline.json or perf/accepted.json changed. Node: t_seasong 43/43, t_sound 122/122, t_views 76/76, t_i18n_english byte-identical, t_i18n_keys 4751 pass, t_funcs 0 bad, t_tour 1101/1103 (the same 2 failures as the base). CDP on 9306: seasong_cmd.js pass, 0 fails (desktop fps 60, p95 18.1 ms); tour_cmd.js 95/95; sound_v152_cmd.js pass, 0 fails; i18n_cmd.js 92/92; v15_phone_cmd.js pass, 0 fails. Quality suite (run_quality.js on 9306, compare_quality.py): PASS, 81 runs, 0 failed, 28 improved, 35 unchanged, 18 NEW, 259 targets met; all 8 golden PNGs byte-identical to this run's renders. The picture was checked in Phase, X→Y, Landscape, sphere X and sphere Y, light and dark, at 1440x900, 1024x700, tablet 768x1024 (EN light, RU dark) and phone 412x915 (EN light, RU dark); the guide and gallery in EN and RU on the phone and the desktop. There were no console errors in any probe. The Russian strings follow the glossary terms (Слушать вдоль кривой, разрез, число оборотов, Математические события, Настройки звука).",
+  "evidence": "test/revui_cdp/probe1.js, probe2.js, probe3.js; notes/sea-song/review-ui-shots/*. {\"node\": \"t_seasong 43/43, t_sound 122/122, t_views 76/76, t_i18n_english identical, t_i18n_keys 4751, t_funcs 0 bad, t_tour 1101/1103 (same 2 as base)\", \"seasong_cmd\": \"pass, 0 fails\", \"tour_cmd\": \"95/95\", \"sound_v152_cmd\": \"pass, 0 fails\", \"i18n_cmd\": \"92/92\", \"v15_phone_cmd\": \"pass, 0 fails\", \"quality\": \"PASS: 81 runs, 0 failed, 28 improved, 35 unchanged, 18 NEW; 259 targets met; all 8 golden PNGs byte-identical to this run renders\", \"make_ru_table_strict\": \"0 unresolved, 15 collisions (see ui-10)\"}",
+  "fix": ""
+ }
+]

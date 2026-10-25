@@ -1,0 +1,50 @@
+[
+  {
+    "id": "picture-1",
+    "severity": "high",
+    "title": "test/sound_cmd.js now fails: the pointer harp's D accent is too loud, and how loud depends on chance",
+    "detail": "Round 2 changed harpNote: all strings of a note now share one detune. On a D, the D4 accent string (0.5·amp) and the Gaussian D4 octave copy (w = 0.36) are now exactly the same frequency. Each string still gets its own random partial phases, so the two add with a random phase: sometimes they reinforce, sometimes they cancel. The same happens, more weakly, wherever a lower copy's partial meets an upper copy's fundamental (they are now within 0.3 cents). So the D accent of 'Hear the function' (palette B's turn marker, which the user approved) is now anywhere from absent to over-loud, and every pointer-harp note varies more in level from pluck to pluck. AS-BUILT's check table lists sound_v152_cmd.js but not sound_cmd.js, so this was missed.",
+    "evidence": "sound_cmd.js on work/xvsea/dist (my Chrome, port 9313): pass false, one fail. 'harp: one note at velocity 0.7 … D 2 to 5 dB over E' got note −33.85, d −27.43 LUFS-M: D is 6.42 dB over E, and outside −32 ± 2.5. The same lab on round 1's build (built in scratch from work/xvsea-final-snap) gives note −31.8, d −29.4: 2.4 dB, pass. Peak 400 ms level of harpNote(…, 0.7) for seeds 1 to 6, D minus E: round 2 +6.6, +5.5, +2.3, +4.2, +1.6, −0.5 dB; round 1 +1.9, +2.5, +2.9, +3.7, +1.1, +4.5 dB. Range of E's level across those seeds: round 2 4.3 dB (−30.3 to −34.6), round 1 2.1 dB. All other sound_cmd.js checks and sound_v152_cmd.js pass.",
+    "fix": "In harpNote, do not stack a second string at the D4 copy's exact frequency. Either fold the accent into the D4 copy (one string at the combined level), or give the accent string its own small offset of a few cents so it beats as in round 1. For tuned strings (o.tune), use fixed partial phases (for example all 0) so octave partials that coincide always add the same way, then re-level. Re-run the sound lab over seeds 1 to 8 until D minus E stays within 2 to 5 dB. Add test/sound_cmd.js to the round's check table. Note that test/sound_lab.js calls harpNote(G, j, …) and j now means semitones, not string index: note(2) was F♯ in round 1 and is E now (the lab's comment says E, so keep 2, but say so)."
+  },
+  {
+    "id": "picture-2",
+    "severity": "medium",
+    "title": "On common laptop sizes (1366×768, 1024×768) the bottom of the spiral now runs under the plane's style bar",
+    "detail": "The example's fit box keeps a fixed 0.27–0.29 in world units below the curve for the style bar (SEASONG.fit y0 −1.68, curve min −1.39). The bar's height is fixed in pixels, so when the fit scales the view down on a short plane, that world margin becomes about 40 px and the bar (32 px plus its 8 px inset) covers the outer turn's lowest bulge. Round 1 was clear at 1366×768 and 1024×768; round 2 is not, and it is worse than round 1 wherever both overlap. seasong_cmd.js checks 'above the style bar' only at 1440×900, so it passes.",
+    "evidence": "Stored points inside the style bar's box after __cmwExample(14). Round 2: 1024×700 18, 1024×768 11, 1280×720 16, 1366×768 11, 768×1024 19; 0 at 1280×800, 1440×900, 1920×1080 and on phones. Round 1: 12, 0, 10, 0, 12 at the same sizes. At 1366×768 the bar's top is y 505 and the curve's lowest point is y 505. Screenshot: notes/sea-song/r2/review-picture/desk_1366x768_bar.png (DPR 2; the outer turn's bottom goes behind 'n 12 ▾ / Outlines').",
+    "fix": "Reserve the bar in pixels, not world units: when fitting, shrink the plane height by the bar's rect height plus 8 to 12 px before choosing s and cy (or let loadExample read a fitPadPx). Then add 1366×768, 1280×720, 1024×768 and 768×1024 to seasong_cmd.js's in-view check, with no point inside the bar's rect."
+  },
+  {
+    "id": "picture-3",
+    "severity": "medium",
+    "title": "'No corners' is checked per stored point, but on screen there are 30–45° bends within 3–6 px",
+    "detail": "The generator reports turnMaxDeg 8.5 between neighbouring stored points, but those points are 0.5 to 10 px apart, so this does not measure curvature. Measured as turning per screen length, the curve still has elbow-like bends: about 40° within 5 px (radius of curvature about 4 to 8 px). They are at the coda's upper-left corner (points 1106 to 1130), at the bend above the third turn's lower right (point 1019), around points 780, 829 and 883, and at the V at the bottom of the outer turn. There are 136 inflections, so each turn is a chain of bumps rather than a smooth spiral. Round 2 is clearly cleaner than round 1 (37° within 2.8 px there, and 31 crossings), but at phone pixel density these bends still read as corners.",
+    "evidence": "Largest turning within any arc of the stored curve (my script over SEASONG.pts). Desktop, 182 px/unit: 27° within 2.9 px (pt 1019), 27° within 2.6 px (pt 1108), 39° within 4.5 to 5.3 px (pts 1108 and 1019), 38° within 5.9 px (pt 883). Phone, 128 px/unit: 33° within 2.6 px, 44° within 4.7 to 5.5 px. Smallest radius of curvature on desktop is 4.4 px (pt 1192), then 6.0, 7.6 and 7.7 px. Screenshot: notes/sea-song/r2/review-picture/phone_dpr2.6_inner.png (412×915 at DPR 2.625; see the elbow at the inner turn's upper left).",
+    "fix": "Bound curvature in screen terms: in tools/melody_curve.js require turning ≤ about 15° per 4 px of arc at the phone's 128 px/unit, and report that instead of turnMaxDeg. Wide wobble is built into F = z^(−2+24i): the melody needs Δln r = Δφ/24, about ±13% in radius per turn. F = z^(−3+48i) keeps the same ratio per statement (e^(−4π/48) = 0.77, so the same accelerando and still one cut crossing per turn) but halves the wobble. Its phase rings are twice as dense, so it is worth one A/B screenshot before deciding. If β stays at 24, lengthen the Hermite bends at the turn points (the slope-0 ends) so no bend is tighter than about 10 px radius on the phone."
+  },
+  {
+    "id": "picture-4",
+    "severity": "low",
+    "title": "The end of the curve (the coda's last B4) nearly touches the turn outside it",
+    "detail": "The last notes of the coda push the curve outward, and its free end stops about 6 px (desktop) or 4 px (phone) from the third turn. With the 1.5 px line and halo, the end reads as a T-junction or near-touch, not a spiral that winds in and stops. The coda's upper-left part also comes within 7.7 px (desktop) or 5.5 px (phone) of the third turn (points 830 and 1123). There are no crossings.",
+    "evidence": "Smallest gap between points more than 270° of arg z apart: points 1199 and 1003, 0.0329 in world units, which is 6.0 px at 182 px/unit and 4.2 px at 128 px/unit. Points 1123 and 830: 0.043, which is 7.8 px and 5.6 px. Screenshot: notes/sea-song/r2/review-picture/phone_dpr2.6_inner.png, lower right.",
+    "fix": "Add a minimum gap between turns (for example 10 px at 128 px/unit) to the generator's report, and pull the coda's last rolled chord inward (end it slightly earlier in θ, or end the curve on the up-roll before it reaches the outer turn's radius). The written notes do not change."
+  },
+  {
+    "id": "picture-5",
+    "severity": "low",
+    "title": "A stale comment in src/app.js still says z^(−1+24i)",
+    "detail": "The comment for the example in EX (src/app.js line 11433) still describes round 1: 'one curve spiralling into z^(−1+24i)'. The example is now z^(−2+24i), and the tex and steps come from SEASONG.",
+    "evidence": "src/app.js:11433: '// phase harp, one curve spiralling into z^(−1+24i) (src/seasong.js, made by tools/melody_curve.js)'",
+    "fix": "Change it to z^(−2+24i), or drop the exponent and point to SEASONG.tex."
+  },
+  {
+    "id": "picture-6",
+    "severity": "low",
+    "title": "The quality suite's output folder was left in the work copy (disk is low)",
+    "detail": "work/xvsea/test/regress/quality/out/latest (2.5 MB of renders, maps and golden diffs) is still there from the round's run. It is the only test/regress difference from the merge base. Goldens, baseline.json and perf/accepted.json are byte-identical to work/xvsd-snap.",
+    "evidence": "diff -rq work/xvsd-snap/test/regress work/xvsea/test/regress shows only 'Only in xvsea/test/regress/quality: out'. du: 2.5M.",
+    "fix": "Delete test/regress/quality/out after the gate, or keep only compare.json in notes/sea-song/r2."
+  }
+]

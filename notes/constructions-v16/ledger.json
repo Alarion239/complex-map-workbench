@@ -1,0 +1,346 @@
+{
+ "round": "v16 constructions, review fixes (work/xvc), 2026-10-24",
+ "previous_run": "A cut-off run had changed src/constr.js only (projectForm, radical-axis meets, orientD, arc forms, part slots, traced components with Newton, mob3x, pieceDist/pieceBox). Diffed against the reviewed constr.js extracted from dist/ (built 13:55); all of it kept and tested; the rest finished here.",
+ "summary": {
+  "findings": 43,
+  "fixed": 40,
+  "partial": [
+   "user-6",
+   "picture-1"
+  ],
+  "no_change": [
+   "regress-6"
+  ]
+ },
+ "tests": {
+  "t_constr": "A 66/66, B 18/18, C 54/54, D 26/26 (new section D: test/constr_review_tests.js): 164 passed",
+  "node": "all test/t_*.js pass, except t_tour 1181/1183 (splitOffer, formula-split: known v15.2 names, also failing on frozen v15.1)",
+  "constr_cmd": "110/110 (new section R: the review fixes in the app, incl. the zoomed stroke check)",
+  "acceptance": "v15_desktop_cmd pass, v15_phone_cmd pass, tour_cmd 95/95, i18n_cmd 92/0, mv_views_cmd pass, export_cmd pass",
+  "quality": "run.sh --no-build: 81 runs, 0 failed, 28 improved, 35 unchanged, 18 NEW; targets 259 met; PASS. Baselines and goldens untouched.",
+  "glsl_inverse": "pass: walk 1122 cases / 66136 points / 0 fails, clip 266240 lines / 0 fails (200 exact-form discs), REGION_FS identical, flip ok; v15 rows alone 822 cases / 0 fails",
+  "i18n": "make_ru_table.py --strict: 0 unresolved; t_i18n 19491 pass, t_i18n_keys pass",
+  "build": "twice, identical bytes (sha256 e265ee46e5d9407e...); the published page has no __cmw"
+ },
+ "files": [
+  "src/constr.js",
+  "src/construct.js",
+  "src/app.js",
+  "src/region.js",
+  "src/figure.js",
+  "src/tour.js",
+  "src/i18n_ru.js (regenerated)",
+  "test/t_constr.js",
+  "test/constr_review_tests.js (new)",
+  "test/constr_cmd.js",
+  "test/glsl_inverse_test.js",
+  "test/make_glsl_inverse_test.py",
+  "notes/i18n/ru/v16-constructions.json",
+  "notes/constructions-v16/SPEC.md (2.3, 2.5)",
+  "notes/constructions-v16/AS-BUILT.md (What is new)",
+  "notes/constructions-v16/shots/fixes/"
+ ],
+ "findings": [
+  {
+   "id": "math-1",
+   "status": "fixed",
+   "what": "reanchor, project and sampleMR find the anchor with projectForm: two Newton steps along grad f in the Hermitian form, never through the centre.",
+   "where": "src/constr.js projectForm, project, reanchor (kept from the previous (cut-off) run)",
+   "tests": "t_constr D 'math-1': |C'|/(1+|o'|) < 1e-12 and every M(R) sample in the window on the form to < 1e-12 (1+|z|), r = 1e6..1e16"
+  },
+  {
+   "id": "math-2",
+   "status": "fixed",
+   "what": "Two circles meet through their radical axis (a line form, f2 re-anchored at o1 exactly), then the stable line path.",
+   "where": "src/constr.js meets0 (kept from the previous (cut-off) run)",
+   "tests": "t_constr D 'math-2': crossings of two circles r = 1e6..1e16 on both forms to 1e-12; the grid lines through (0.3,0.2)… and (-0.2,0.3)… meet at 0 (repro t11 gives (0, -1.7e-16))"
+  },
+  {
+   "id": "math-3",
+   "status": "fixed",
+   "what": "orientD decides collinearity on the decimals (all six coordinates 12-digit decimals: exact BigInt predicate on them); A = 0 then builds the line through P and Q itself (side from the lifting), so rounding of R never tilts it. Creation flip and the tool preview use the same form.",
+   "where": "src/constr.js decOf, decCollinear, orientD (previous (cut-off) run), circle3 line branch (this run); arc pieces",
+   "tests": "t_constr D 'math-3': 1100+ grid triples on the 0.1/0.05/0.01 grids are lines; the region through three grid points on a line is a half-plane. PoC test 'A is zero exactly when…' updated to the decimal rule."
+  },
+  {
+   "id": "math-4",
+   "status": "fixed",
+   "what": "incOf adds no line key for a glider on a polygon or rectangle (it slides over every side); a glider on one segment keeps its incidence.",
+   "where": "src/constr.js incOf",
+   "tests": "t_constr D 'math-4' (repro t6: the circle now passes through G)"
+  },
+  {
+   "id": "math-5",
+   "status": "fixed",
+   "what": "'finite' only for two lines by kind (3-point circles and arcs keep the entering rule, so Intersect stores 0/1); a stored 'finite' that now meets two points takes the one nearest the last value.",
+   "where": "src/constr.js lineByKind, meetsOf (previous (cut-off) run), evalNode meet fallback (this run)",
+   "tests": "t_constr D 'math-5'; repro t5 case B continuous"
+  },
+  {
+   "id": "math-6",
+   "status": "fixed",
+   "what": "'Put on this curve' excludes the point and everything built on it; cm.setDef refuses a def whose refs reach the shape or its users (Constr.wouldCycle).",
+   "where": "src/construct.js menuItems; src/app.js cmApi.setDef; src/constr.js wouldCycle",
+   "tests": "t_constr D 'math-6'"
+  },
+  {
+   "id": "math-7",
+   "status": "fixed",
+   "what": "Arc pieces carry the exact form of circle3(a, m, b) (line piece when collinear), onPiece tests the side of chord ab that holds m, gliders use the Moebius map of (a, m, b).",
+   "where": "src/constr.js pieces arc, onPiece, glide, projectPiece (previous (cut-off) run)",
+   "tests": "t_constr D 'math-7' (grid arc meets y = 1.5 at (0.5, 1.5); r = 5e9 arc ends; glider at t = 1/2 is m)"
+  },
+  {
+   "id": "math-8",
+   "status": "fixed",
+   "what": "One slot per polygon/rectangle side and fixed sector slots; a degenerate side is a 'none' piece that meets nothing; consumers skip 'none'.",
+   "where": "src/constr.js pieces slot/NONE (previous (cut-off) run); construct.js pieceDist/strokePiece",
+   "tests": "t_constr D 'math-8' (repro t7: 4 parts, the meet on side 4 stays)"
+  },
+  {
+   "id": "math-9",
+   "status": "fixed",
+   "what": "Creation rule of SPEC 2.3 built: collinear at creation keeps the left of P -> Q (flip from sign(A) of the drawn form). Row and caption name the half-plane from the form: left of z1 -> z0 when the form runs against P -> Q.",
+   "where": "src/constr.js evalNode circle3 flip; src/construct.js hpOrder, defText, phrase; SPEC 2.3 note",
+   "tests": "t_constr D 'math-9'; repro t9: created collinear with R between is now left of P->Q"
+  },
+  {
+   "id": "math-10",
+   "status": "fixed",
+   "what": "GLR.setFormAnchor is called before every pack: X view (clipWin) centre for the shapes (inverse images, globe), Y centre for the targets (preimage tints), the pane centre for the X tint. reanchor is exact since math-1.",
+   "where": "src/app.js cmFormAnchor and its 5 call sites",
+   "tests": "glsl_inverse_cmd with the new rows (regress-3): far-anchor discs (1e4 away) packed at the window centre, clip 0 fails, walk 0 fails"
+  },
+  {
+   "id": "math-11",
+   "status": "fixed",
+   "what": "env.trace returns one component per traced branch with its level function, on the z-window plus a margin; pieces keep components apart; polyline crossings and projections are refined by Newton in float64.",
+   "where": "src/app.js cmEnv.trace (this run); src/constr.js compsOf, polysOf, newton1/2 (previous (cut-off) run)",
+   "tests": "t_constr D 'math-11' (xy = 1 does not meet y = -x; its meet with y = x is (1, 1) to 1e-14)"
+  },
+  {
+   "id": "math-12",
+   "status": "fixed",
+   "what": "A 3-point circle glider with one point at infinity uses the limit map (no jump); SPEC 2.5 now states the Moebius parametrization (P, Q, R at t = 0, 1/4, 1/2; not an even pace) and the arc map.",
+   "where": "src/constr.js mob3x/mob3invx (previous (cut-off) run), pts3In (this run); notes/constructions-v16/SPEC.md 2.5",
+   "tests": "t_constr D 'math-12'"
+  },
+  {
+   "id": "user-1",
+   "status": "fixed",
+   "what": "A new name in a glider's t field creates the number (value = the current t, range of the curve: 0..1, 0..n on a polygon), binds t and shows 'Added the number k' with Undo; bad input shows the field error text.",
+   "where": "src/construct.js inspectorBuild t field",
+   "tests": "constr_cmd R 'user-1'"
+  },
+  {
+   "id": "user-2",
+   "status": "fixed",
+   "what": "Draft chip: counter first ('Point 2 of 3 · 3 points · Esc cancels'), the tile label on panes under 560 px and on touch, wraps to two lines, max-content width; Curve | Region as two icons on narrow panes and touch.",
+   "where": "src/construct.js chipText, syncChip, CSS",
+   "tests": "constr_cmd A, C (RU), E (phone) chip checks (expectations updated)"
+  },
+  {
+   "id": "user-3",
+   "status": "fixed",
+   "what": "A bound handle's field is read-only '= z0' with Make free (unbinds that handle, one undo step).",
+   "where": "src/app.js shapeEditor boundField",
+   "tests": "constr_cmd R 'user-3'"
+  },
+  {
+   "id": "user-4",
+   "status": "fixed",
+   "what": "Point rows are named as the plane labels them (z0, a user label); helpers by their meet; a hidden point keeps 'Point n'. shapeNames uses the same scheme, so toasts and chips agree.",
+   "where": "src/app.js rowName, shapeNames, buildShapeList",
+   "tests": "constr_cmd R 'user-4'"
+  },
+  {
+   "id": "user-5",
+   "status": "fixed",
+   "what": "A line/segment/ray/half-plane bound at both ends reads by its points in the row ('line through z0 and z1') and in the caption; values stay in the tooltip.",
+   "where": "src/construct.js boundText, row, phrase; src/app.js shapePhrase hook",
+   "tests": "constr_cmd R 'user-5'"
+  },
+  {
+   "id": "user-6",
+   "status": "partial",
+   "what": "The reason names the lost zero by its value ('The zero at 1 + 0.5i was removed'); a zero added back at that value (1e-9 relative) takes the ref again automatically (syncSteps). Not done: a 'Replace point…' action.",
+   "where": "src/constr.js lastZp, resolveIn, rebindZero; src/construct.js reasonText",
+   "tests": "t_constr D 'user-6'; constr_cmd G (expectation updated)"
+  },
+  {
+   "id": "user-7",
+   "status": "fixed",
+   "what": "The row menu's Delete is found by its icon/label, so it reads 'Delete (and n built on it)'.",
+   "where": "src/construct.js rowMenu",
+   "tests": "constr_cmd R 'user-7'"
+  },
+  {
+   "id": "user-8",
+   "status": "fixed",
+   "what": "Removing a zero that constructions use shows the toast with Undo.",
+   "where": "src/construct.js on(zpRemoved) -> undoToast",
+   "tests": "constr_cmd G (toast text)"
+  },
+  {
+   "id": "user-9",
+   "status": "fixed",
+   "what": "A selected construction rings each defining point and draws its curves wide and faint; hovering a construction (or selecting one on touch) dims every unrelated shape to 30 % (SPEC 10), extending v15's 50 % hover dim.",
+   "where": "src/construct.js drawSources; src/app.js dimK/cmFocusSet",
+   "tests": "shot test/rfix_cdp/shots/vis-sel.png; v15 hover unchanged without constructions"
+  },
+  {
+   "id": "user-10",
+   "status": "fixed",
+   "what": "The snap chip sits above-left of the target (labels go below/right first), 6 px clear of the ring, and is hidden after a construction completes until the pointer moves 4 px.",
+   "where": "src/construct.js drawOverlay, setRing, holdRing",
+   "tests": "shots vis-hp-preview.png, cm-d1440-c3-pick.png"
+  },
+  {
+   "id": "user-11",
+   "status": "fixed",
+   "what": "A definition (or a reason) wraps to two lines in its row; the cell tooltip holds the whole definition with the equation under it. (Touch long-press not added: the two-line cell shows it.)",
+   "where": "src/construct.js row, CSS",
+   "tests": "constr_cmd R 'user-11'; shot vis-sel.png"
+  },
+  {
+   "id": "user-12",
+   "status": "fixed",
+   "what": "After 'через' handles are in the accusative with a genitive owner ('вершину 3 многоугольника 1'), the list ends with 'и'; captions name curves in the genitive ('точка пересечения z4 окружности … и прямой …').",
+   "where": "src/construct.js genKind, genName, handleName(acc); notes/i18n/ru/v16-constructions.json",
+   "tests": "constr_cmd C RU row (expectation updated); make_ru_table --strict 0 unresolved"
+  },
+  {
+   "id": "user-13",
+   "status": "fixed",
+   "what": "'Built on …' and 'is built from …' name the draggable roots (Constr.dragRoots: free points, free handles, zeros, free curves).",
+   "where": "src/constr.js dragRoots; src/construct.js rootsText",
+   "tests": "t_constr D 'user-13'"
+  },
+  {
+   "id": "user-14",
+   "status": "fixed",
+   "what": "A Point-tool click on an existing point says 'z0 is already here' in the chip; on touch, once a session, a toast points to the Snap switch in the tools sheet (Snap off: the Point tool places freely).",
+   "where": "src/construct.js pointDown",
+   "tests": "manual (no phone check added)"
+  },
+  {
+   "id": "user-15",
+   "status": "fixed",
+   "what": "The t field says what t means: '0 at z0, ¼ at z1, ½ at z2' (3-point circle), 'turns, 0 at the right', 'sides: 0 at vertex 1, n once round', '0 = start, 1 = end'; a new number gets that range.",
+   "where": "src/construct.js tMeaning",
+   "tests": "constr_cmd R 'user-15'"
+  },
+  {
+   "id": "regress-1",
+   "status": "fixed",
+   "what": "Step uid and zpIds are saved, linked and put in scene meta only when a shape refers to the step; step and zero ids come from a run-time counter that skips every id in use (refs included), so nextId is left alone.",
+   "where": "src/constr.js freshId, takenIds, referencedSteps, idReplacer; src/app.js cmSaveReplacer in writeState, figureState, sceneMeta",
+   "tests": "t_constr D 'regress-1'; constr_cmd R 'regress-1' (localStorage has no uid/zpIds and nextId 50)"
+  },
+  {
+   "id": "regress-2",
+   "status": "fixed",
+   "what": "bigCircle (M(R) sampling) is limited to constructions (s._g); plain v15 circles and discs keep v15.1 sampling and cost.",
+   "where": "src/region.js bigCircle",
+   "tests": "quality suite PASS (81 runs, 0 failed)"
+  },
+  {
+   "id": "regress-3",
+   "status": "fixed",
+   "what": "glsl_inverse_test gains exact-form discs (near collinear up to r 1e7, a first point 1e4 away, complements) in the clip section (200 shapes after the v15 ones) and the walk (one per chain, on its own random stream); constr.js is inlined in the test page. Leaves deeper than D = 12 of these discs are compared on the CPU side only (float32 holds the leaf's own position to 6e-8 * 2^D window radii).",
+   "where": "test/glsl_inverse_test.js, test/make_glsl_inverse_test.py",
+   "tests": "glsl_inverse_cmd: pass; walk 1122 cases, 66136 points, 0 fails; clip 266240 lines, 0 fails; v15 rows alone (gdisc:false): 822 cases, 0 fails. Not run on the frozen v15.1 (its sources have no constr.js); the v15 rows keep their v15 stream."
+  },
+  {
+   "id": "regress-4",
+   "status": "fixed",
+   "what": "The piece cache is keyed on a cheap signature (fields, a long point list by length and every 64th point), never a JSON.stringify per move; pieces outside the pointer's reach are skipped by a cached bbox; curve distances use the exact form.",
+   "where": "src/construct.js pieceSig, piecesOf, boxesOf, snapAt; src/constr.js pieceDist, pieceBox",
+   "tests": "snapAt per pointer move among 100 shapes and a 2000-point freehand stroke (300 moves, in the app): p50 0.1 ms, p95 0.6 ms (the first move builds the cache: 27 ms once); constr_cmd F frames: 1 dependent p95 work 2.0 ms, 10: 5.2 ms (BUDGET60 met)"
+  },
+  {
+   "id": "regress-5",
+   "status": "fixed",
+   "what": "The three changed v15 gestures and the Alt / Snap escape are in the release notes and in the tour's Constructions chapter text.",
+   "where": "notes/constructions-v16/AS-BUILT.md (What's new); src/tour.js construct/meet (EN, RU)",
+   "tests": "t_tour 1181/1183 (the 2 known v15.2 failures)"
+  },
+  {
+   "id": "regress-6",
+   "status": "no change",
+   "what": "Flaky under load; node tests were run apart from the browser suites this time: t_sphere passed.",
+   "where": "-",
+   "tests": "all node tests: see tests"
+  },
+  {
+   "id": "picture-1",
+   "status": "partial",
+   "what": "Root cause of the reported 62 px: the scene was loaded without clipWin, so it meshed and sampled in the fixed -4..4 window at s = 2e6. A saved state without clipWin now takes its view's window (as a scene file does). With the window following the view, the stroke passes the exact crossing within 0.41 px at s = 1e2, 1e4, 1e6, 1e8. GPU forms are packed at the view centre (math-10). Left: at s >= 1e8 the fill pattern shows float32 stripes (the shared v15 mesh pattern path, also for plain discs).",
+   "where": "src/app.js init (clipWin from the view); cmFormAnchor",
+   "tests": "constr_cmd R 'picture-1' (errors -0.41, -0.31, -0.33, -0.33 px); shot test/rfix_cdp/shots/p1c-200000000.png"
+  },
+  {
+   "id": "picture-2",
+   "status": "fixed",
+   "what": "A constructed region more than 50 window diagonals across counts as unbounded for the automatic pattern cell (as its limit, the half-plane), so the cell stays the window's through the collinear case; no 'cell 1e6' and no stripes from it.",
+   "where": "src/app.js patternCell, cmHuge",
+   "tests": "in the app, a 3-point disc with A = 2e-3, 2e-7, 0, -2e-7 (nc1/nc2/nc0/nc3): the cell stays the window one (0.5 in z), flat checker, no stripes; shot notes/constructions-v16/shots/fixes (p2-nc2 in test/rfix_cdp/shots)"
+  },
+  {
+   "id": "picture-3",
+   "status": "fixed",
+   "what": "The preview shows what the click makes: disc, half-plane (the clipped side, filled) or outside (even-odd); stroke and fill take the colour newShape will give; the hover preview and the ring clear on pointerleave.",
+   "where": "src/construct.js drawPreview, leave; src/app.js pointerleave hook, adapter nextCi",
+   "tests": "shot test/rfix_cdp/shots/vis-hp-preview.png"
+  },
+  {
+   "id": "picture-4",
+   "status": "fixed",
+   "what": "Same fix as user-2.",
+   "where": "src/construct.js chipText",
+   "tests": "constr_cmd A/C/E"
+  },
+  {
+   "id": "picture-5",
+   "status": "fixed",
+   "what": "The snap ring is drawn at r 11 (13 on touch), 1.75 px with its halo and a 14 % accent fill, outside every point mark and the 8 px selection ring.",
+   "where": "src/construct.js drawOverlay",
+   "tests": "shots cm-d1440-c3-pick.png, vis-hp-preview.png"
+  },
+  {
+   "id": "picture-6",
+   "status": "fixed",
+   "what": "Chip position rounded to whole pixels and clamped to all four pane edges; placed above-left (opposite the label placer's first choices).",
+   "where": "src/construct.js drawOverlay",
+   "tests": "shots"
+  },
+  {
+   "id": "picture-7",
+   "status": "fixed",
+   "what": "With constructions in the figure every point is labelled as the plane labels it (helpers unlabelled, small rings), fixed constructed points are rings; captions give each point's value once (its own phrase), name point shapes by label, handles by value, zeros by name = value, curves by their own phrase in the genitive, bound lines by their points.",
+   "where": "src/figure.js planeLayers; src/construct.js phrase; src/app.js capPhrase adapter, complement guard",
+   "tests": "in the app (__cmwFig.build, 2 panels): EN caption \"the disc bounded by the circle through $z_{0}$, $z_{1}$ and $z_{2}$, the line through $z_{0}$ and $z_{1}$, the midpoint $z_{3}=-0.65+0.65i$ of $z_{0}$ and $z_{2}$, … the intersection $z_{4}=0.711+0.462i$ of the circle $|z-(1.6+0.6i)|=0.9$ and the line through …\"; RU in the genitive; 4 ring markers in the SVG; export_cmd pass. Also fixed on the way: the Russian caption of a plain line printed its \text form as maths."
+  },
+  {
+   "id": "picture-8",
+   "status": "fixed",
+   "what": "Same fix as user-4.",
+   "where": "src/app.js rowName",
+   "tests": "constr_cmd R 'user-4'"
+  },
+  {
+   "id": "picture-9",
+   "status": "fixed",
+   "what": "A figure panel with constructions frames every finite point image even where an unbounded set keeps the window edge (8 % beyond the farthest point).",
+   "where": "src/figure.js fitBox (content.must), the panel loop",
+   "tests": "in the app (__cmwFig.build, 2 panels): EN caption \"the disc bounded by the circle through $z_{0}$, $z_{1}$ and $z_{2}$, the line through $z_{0}$ and $z_{1}$, the midpoint $z_{3}=-0.65+0.65i$ of $z_{0}$ and $z_{2}$, … the intersection $z_{4}=0.711+0.462i$ of the circle $|z-(1.6+0.6i)|=0.9$ and the line through …\"; RU in the genitive; 4 ring markers in the SVG; export_cmd pass. Also fixed on the way: the Russian caption of a plain line printed its \text form as maths."
+  },
+  {
+   "id": "picture-10",
+   "status": "fixed",
+   "what": "A fixed constructed point is a 1.5 px ring at r 3.5 inside a 3.5 px halo, unfilled: the dot's outer extent (5 px), hollow on any pattern.",
+   "where": "src/app.js drawPoints",
+   "tests": "shot vis-sel.png (z3)"
+  }
+ ]
+}

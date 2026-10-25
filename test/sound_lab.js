@@ -73,7 +73,9 @@
     }
     const voices = {};
     // the harp (v15.2): one note E at velocity 0.7 and |F| = 1, the D with its accent, and a run of 10 notes a second
-    // (each string is a new pluck, ±1 dB: the lab plays a fixed seed)
+    // (each string is a new pluck, ±1 dB: the lab plays a fixed seed; harpNote's second argument is semitones above D
+    // since notes/sea-song/r2, so note(2) is E, as this comment says, and note(0) is D; before, it was an index into
+    // [0, 2, 4, 7, 9] and note(2) played F♯)
     const note = async (j) => { Sound.seed(1); return Sound.render((G, t) => { Sound.harpNote(G, j, 0.7, t, 0, 1, false, 0, 'sonify'); }, 2.6, { noClip: true }); };
     const hn = await note(2), hd = await note(0), ha = analyse(hn, 0.01, 2.55);
     const run = await Sound.render((G, t) => { const st = Sound.Harp(); Sound.harpStep(st, null, t, 0.03, {}); for (let i = 1; i <= 150; i++) Sound.harpStep(st, G, t + (i - 1) * 0.016, 0.03 + 2 * 0.016 * i, { ln: 0, dt: 0.016 }); }, 3.6, { noClip: true });

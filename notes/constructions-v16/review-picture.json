@@ -1,0 +1,82 @@
+[
+  {
+    "id": "picture-1",
+    "severity": "high",
+    "title": "Zoomed in, a 3-point circle misses its own defining point and its fill disappears",
+    "detail": "SPEC §0 and §2.3 say the region of circle(P, Q, R) is exact per pixel on the CPU and the GPU at any distance. That holds only at ordinary zoom. Test: circle through (-1,0), (1,0), (0,0.6), the view centred on z1 = (1,0). I scanned one row 20 px above z1 and compared the stroke's column with the exact crossing: s = 2e3 px/unit gives 0 px error; 2e4 gives 0.7 px; 2e5 gives 6 px; 2e6 gives about 62 px, and the disc's fill shows on neither side. At 2e9 there is neither a stroke nor a fill, only the point. An ordinary v15 disc with the same c and r renders the same way (ctl.png), so the cause is the shared polyline stroke sampler (a chord error that matches about 430 segments) and the float32 GPU disc. It is not new code. But constructions are where users zoom in on a point to check that the circle passes through it, and the SPEC promises that it does.",
+    "evidence": "notes/constructions-v16/shots/review-picture/dz.png (s=2e6, constructed), dz2.png (s=2e9), ctl.png (an ordinary disc, the same picture). The row scan: stroke column 139 / 138-139 / 133 against the exact 139.2 / 139.32 / 139.33 at s = 2e3 / 2e4 / 2e5.",
+    "fix": "For shapes with s._g, stroke analytically in screen space. Use ctx.arc with the centre and radius in px while r_px < ~1e7, and the clipped tangent line beyond that. Or sample adaptively along the visible arc only, with the chord error kept under 0.25 px. For the GPU gdisc and gcurve kinds, re-centre the form at the view centre in float64 on the CPU each frame (A|z-o|^2 + B·(z-o) + C with o = the view centre) and send that to the shader, so nothing cancels in float32. Add a quality-suite target: the stroke passes within 0.5 px of every defining point at s = 1e2…1e8."
+  },
+  {
+    "id": "picture-2",
+    "severity": "medium",
+    "title": "Near-collinear 3-point regions: a pattern cell of 100 or 1×10⁶ and float32 stripes",
+    "detail": "Dragging a defining point through the collinear case is the SPEC's showcase continuity: disc, then half-plane, then outside. Just off collinear the region is a disc of huge radius. With A = 2e-3 (r = 500) the legend reads 'cell 100 in z' and X shows two flat tiles. With A = 2e-7 (r = 5e6) the legend reads 'cell 1×10⁶ in z' and the fill shows a fine grid of float32 stripes over the whole plane instead of a flat colour. So the picture flickers between a usable pattern, stripes and a half-plane as the point crosses the line. An ordinary disc of radius 5e6 shows the same stripes (ctl2.png), so the cause is shared, but constructions make this state routine.",
+    "evidence": "notes/constructions-v16/shots/review-picture/nc.png (X and Y for A=2e-3 and 2e-7: the legend cell is 100 and then 1×10⁶), nc2z.png (the stripes, constructed), ctl2.png (an ordinary disc, the same stripes).",
+    "fix": "For regions whose radius is much larger than the view (and for half-planes), choose the auto pattern cell from the visible window, not from the region's size, so the cell stays continuous through collinear. Evaluate the pattern in view-relative float64-offset coordinates (the same re-centring as picture-1), so no stripes appear."
+  },
+  {
+    "id": "picture-3",
+    "severity": "medium",
+    "title": "The Circle through 3 points preview does not show the half-plane, uses the wrong colour in Y, and freezes off-pane",
+    "detail": "drawPreview (construct.js 773-787) fills only when the oriented form has A > 0. In the collinear case the result is a filled half-plane, but the preview is a bare dashed line. When the third pick snaps onto an existing line (for example Line 1 through z0 and z1), that dashed line lies on top of the solid line and cannot be seen, so nothing previews the region at all (pv-col.png). The fill colour is TH.c[S().shapes.length % 8].c0 on both sides, while the stroke uses targets.length in Y, so a Y draft shows mismatched stroke and fill colours. When the pointer leaves the pane, the preview stays at its last in-pane position instead of hiding: three shots taken with the pointer in different places outside the pane were identical (pv3.png).",
+    "evidence": "notes/constructions-v16/shots/review-picture/pv-col.png (the snap on Line 1, collinear: no visible preview), pv3.png (three hover positions, one frozen preview), pv-outside.png; construct.js:760-787.",
+    "fix": "Preview the region the click will create, in all three cases: the disc, the half-plane (fill the clipped side polygon) and the outside (evenodd with the pane rectangle). Take the colour index from the side being drawn for both stroke and fill. Clear draftC.hover on pointerleave of the pane."
+  },
+  {
+    "id": "picture-4",
+    "severity": "medium",
+    "title": "The construction draft chip is truncated on a 1440 px desktop in English",
+    "detail": "With the Curve | Region switch the chip reads 'Circle through 3 points: point 3 of 3 · Esc ca…', which cuts off the instruction itself. Russian text is longer and will be cut earlier. Tablet and phone widths are narrower still.",
+    "evidence": "notes/constructions-v16/shots/review-picture/pv-outside.png (the top of the z-plane).",
+    "fix": "Use a short chip text: '3 points: 2 of 3 · Esc', or drop the tool name since the tile is lit. Alternatively let the chip wrap to two lines or take the pane's width minus the switch. Check the EN and RU chips at 1440, 1024, 768 and 390 in constr_cmd for no text-overflow."
+  },
+  {
+    "id": "picture-5",
+    "severity": "medium",
+    "title": "The snap ring is hidden under the point it marks",
+    "detail": "The snap ring is drawn at r = 6 px (stroke 1.5, halo 3.5). A v15 point dot reaches 5 px with its halo, so only a ~1 px sliver of the ring shows, and the crosshair crosses that. A fixed constructed point's ring mark is r = 4 with a 4.5 px halo, reaching 6.25 px, so the snap ring falls inside the mark's own halo and the two merge into one thick ring. The user cannot see that the snap took. The ring is the main feedback for 'points existent on the page'.",
+    "evidence": "notes/constructions-v16/shots/review-picture/h-z0.png (on z₀: a cyan sliver), h-z3.png (on the midpoint z₃: the ring and the mark merge); construct.js:718-719; app.js drawPoints 2336-2339.",
+    "fix": "Draw the snap ring outside every mark: r ≈ 10 px (and 12 px on touch) with its halo. Optionally add a faint accent fill so it reads at a glance. Keep it clear of the 8 px selection ring."
+  },
+  {
+    "id": "picture-6",
+    "severity": "low",
+    "title": "The snap chip is drawn at sub-pixel positions and can leave the pane at the bottom",
+    "detail": "In the chip code, cx = x + 12 and cy = y - 34 come from w2sxy, which is not rounded. roundRect(cx + 0.5, cy + 0.5, …) is crisp only when x is a whole number, so for a general point at 1x the 1 px border straddles two pixels and the text is soft. When there is no room above (cy < 4), cy = y + 12 is not clamped to pane.h - hgt - 4. The chip also ignores the label placer: it is drawn over whatever labels sit above and to the right of the target. The target's own label usually sits right under it (h-z0.png), and the label of a nearby point can be covered. Its text is upright sans with Unicode subscripts ('on z₀'), next to the italic maths label z₀.",
+    "evidence": "construct.js:720-734; notes/constructions-v16/shots/review-picture/h-z0.png, h-z3.png.",
+    "fix": "Round cx and cy before the +0.5, clamp the chip to all four pane edges, and register its box as a hard obstacle for placeLabels in that frame (or prefer the side opposite the target's label). Optionally set the point name in the chip with the math font, as the rows do."
+  },
+  {
+    "id": "picture-7",
+    "severity": "medium",
+    "title": "Export: the caption names points and curves the figure never labels or distinguishes",
+    "detail": "The figure draws every point shape as the same small black dot with no label: free points, midpoints, meet points and the new z5 alike (texLabel returns null without a user label). The caption says 'the midpoint $z_3$ … of $z_0$ and $z_2$' and 'the intersection $z_4 = 2.483+0.428i$ of Circle 1 and Line 2'. The reader cannot tell which dot is z3 or z4. 'Circle 1' and 'Line 2' are row names that appear nowhere in the figure or the maths. Each point's value is repeated in every phrase ($z_0=-1.5$ appears 4 times in one caption). A line bound to z0 and z1 is still 'the line through $-1.5$ and $0.5-i$'. The ring and dot distinction (SPEC 1.4) is lost in export. This is not article-grade for exactly the scenes this round enables.",
+    "evidence": "notes/constructions-v16/shots/review-picture/fig.png and fig.svg (11 identical <circle r=1.5 fill=#000000>, no <text>). The caption returned by __cmwFig.build({}) for the scene: '(a) The point $z_{0}=-1.5$, … the disc bounded by the circle through $z_{0}=-1.5$, $z_{1}=0.5-i$ and $z_{2}=0.2+1.3i$, the line through $-1.5$ and $0.5-i$, the midpoint $z_{3}=-0.65+0.65i$ of $z_{0}=-1.5$ and $z_{2}=0.2+1.3i$, … the intersection $z_{4}=2.483+0.428i$ of Circle 1 and Line 2 …'.",
+    "fix": "When a caption names points (any construction present), label them in the figure with v15's z_k (texLabel falls back to the same index as pointLabel, which skips helpers), and draw fixed constructed points as rings (an XD.marker 'ring'). State each value once ('$z_0=-1.5$, $z_1=0.5-i$, $z_2=…$; the disc bounded by the circle through $z_0$, $z_1$, $z_2$; …'). Name curves by their maths ('the circle $|z-(1.6+0.6i)|=0.9$', 'the bisector of $z_1$ and $z_2$'), never by row names. Say 'the line through $z_0$ and $z_1$' when it is bound."
+  },
+  {
+    "id": "picture-8",
+    "severity": "medium",
+    "title": "The Shapes rows call points 'Point 4' while the plane and every definition call them z₃",
+    "detail": "The plane labels are z₀ … z₄, and the definitions use them ('midpoint of z₀, z₂', 'bisector of z₁, z₂'). But the row's name column says 'Point 1', 'Point 2', … 'Point 4 · midpoint of z₀, z₂', and that point is z₃ in the plane. 'Point 6' is the helper. SPEC §10 says the name column shows z₃. The user has to translate between two numbering schemes off by one to follow a definition.",
+    "evidence": "notes/constructions-v16/shots/review-picture/s1-light1.png and s1-dark2.png (the Shapes list against the z-plane labels).",
+    "fix": "In the rows, name point shapes by pointName(s) (the same z_k as the plane, a user label if set). Give helpers their meet name, as shapeLabel already does."
+  },
+  {
+    "id": "picture-9",
+    "severity": "low",
+    "title": "A figure panel crops away a constructed point the caption names",
+    "detail": "In the exported two-panel figure, panel (b) is framed to x ∈ [-6, 1]. The image of the meet point z4 (1.483 - 0.072i under F(z) = z - 1 - 0.5i) and most of Circle 1's image fall outside it, but the caption describes them. Panel (a) shows them. The infinite lines (Line 1, the bisector) probably dominate the auto-fit.",
+    "evidence": "notes/constructions-v16/shots/review-picture/fig.png (the right panel: the blue circle is cut at the frame, no dot at the meet point).",
+    "fix": "When fitting a figure panel, include every finite point shape's image (and bounded curves) before infinite carriers, or clip lines to the source window first (as figure.js already does for long pieces)."
+  },
+  {
+    "id": "picture-10",
+    "severity": "low",
+    "title": "A constructed point's ring mark is heavier than the dot it sits beside",
+    "detail": "A fixed constructed point draws a 4.5 px halo, then fills with TH.surface, then a 1.5 px ring. A free point draws a 2 px halo. In dark mode the midpoint z₃ and the meet z₄′ read as larger, dark-rimmed blobs, and the surface-coloured centre is a grey disc on top of the checker. That is a different weight from the v15 dots next to them, while SPEC 1.4 asks for 'a ring of the same size'.",
+    "evidence": "notes/constructions-v16/shots/review-picture/z-left2.png (z₃), z-right2.png (z₃′, z₄′); app.js drawPoints 2336-2338.",
+    "fix": "Match the dot's outer extent: a halo of 2-2.5 px around an r = 4 ring with a 1.5 px stroke. Fill the centre with the plane's background (or leave it unfilled with a thin inner halo) so the ring reads as hollow on any pattern."
+  }
+]

@@ -466,3 +466,19 @@ The constructions round (work/xvc, notes/constructions-v16/SPEC.md 16).
 |---|---|---|
 | `construct-added` | `{ op: 'circle3' \| 'meet' \| 'midpoint' \| 'bisector' \| 'glider' }` | a construction tool, the Point tool on a crossing or a curve, or the planes' menu makes a construction (construct.js) |
 | `construct-family` | `{ kind: 'disc' \| 'halfplane' \| 'complement' \| 'circle' \| 'line' }` | a circle through three points changes family while its points move (CORE's `recomputed` event, kindChanged) |
+
+### Anchors added by the deformation range (v16)
+
+The deformation range (work/xv16, notes/deform-range/SPEC.md 10.2). Read by xv16's t_tour.js only.
+
+| name | element | note |
+|---|---|---|
+| `bracketL` | `#chainBracket .br-end.l` | the left end of the deformation's bracket over the chain (shown while the deformation shows the whole chain); on a phone, where the bracket is only drawn, `#pipeline` |
+
+### Events added by the deformation range (v16)
+
+| event | payload | emit when |
+|---|---|---|
+| `deformation-range` | `{ a, b }` | the bracket is set (dragged, its keys, the ⋯ menu's Deformation, the palette, the phone's Deformed steps row); every step is `{ a: 1, b: n }` |
+
+The scene action `['range', null \| { a, b }]` (adapter `setRange`) sets the bracket before a stop; null is every step.

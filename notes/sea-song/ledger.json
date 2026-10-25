@@ -1,0 +1,218 @@
+{
+ "_about": "Ledger for notes/sea-song/review-music.json and review-ui.json (22 findings), work/xvsea. Status: fixed, partly_fixed (with the reason), no_change_needed.",
+ "tests": {
+  "node": "t_seasong 50/50 (new checks: silent crossings, register contour, graces, drum, cap), t_sound 122/122, t_views 76/76, t_funcs 0 bad, t_i18n 18249 pass, t_i18n_keys 4754 pass, t_i18n_english byte-identical, t_tour 1101/1103 (the same 2 as the base)",
+  "cdp_port_9307": "seasong_cmd.js pass, 0 fails (with the new ui-1, ui-3, ui-5/6, ui-7/8/9, ui-11 checks; desktop fps 60 p95 17.9 ms, phone emulation p95 18.0-18.2 ms); sound_v152_cmd.js pass; i18n_cmd.js 92/92; v15_phone_cmd.js pass",
+  "not_run": "the quality suite (run.sh, 81 runs) was not re-run. drawCuts changes only for a step with handleR, which only this example has, so no golden image changed and no baseline or accepted.json was touched",
+  "make_ru_table": "--strict: unresolved 0, collisions 15; then the ui-10 restore"
+ },
+ "recording": "notes/sea-song/mountain-king.m4a re-recorded (24.8 s, 48 kHz, worklet engine, volume 0.7): 150 onsets, worst 7.5 ms from the score, peak -18.9 dBFS, RMS -43.2 / -39.3 / -35.1 / -36.5 dBFS (statements 1-3, coda), synth late 0, gaps 0, maxStrings 24. WAV and f32 deleted.",
+ "open": [
+  "A listening check on the Android phone (music-1/2/6).",
+  "ui-2: the spiral's self-crossings are a property of F; changing them is the user's decision.",
+  "At the merge: ui-10 (take tour.js first, then regenerate i18n_ru.js)."
+ ],
+ "findings": [
+  {
+   "id": "music-1",
+   "status": "fixed",
+   "what": "The piece sets its own register: listen.reg, one value per crossing (octaves from D5), used by harpStep in place of ln|F| when the guard passes. The melody file's register block: centre = log2(f/D5) + 0.75 for each written main note (graces take their main note's, the coda -0.45), so the loudest octave copy is always the written note an octave up (B4 to B5) and never flips at a bar line. The guide says 'This example sets its own register and dynamics.'",
+   "where": [
+    "src/sound.js harpStep (o.reg)",
+    "src/app.js sndListen",
+    "tools/melody_curve.js regOf",
+    "tools/melodies/mountain-king.json register",
+    "src/seasong.js listen.reg"
+   ],
+   "evidence": "t_seasong: 'the loudest copy follows the written contour': 66 steps of the theme, 0 flipped (F#->E is a step down, F#->B a fourth up, B->A a step down); the margin is 4.4 dB, above a string's random +-1 dB, and the check passed on 7 runs with different seeds. A first try with the range compressed to 0.8 flipped 2 steps on one seed, so it was dropped. The per-statement rise the review suggested was dropped for the same reason: the theme's B3..B4 already fills the harp's whole register range."
+  },
+  {
+   "id": "music-2",
+   "status": "fixed",
+   "what": "Graces in the background: a passing grace 0.12x its main note, the turn's re-pluck (the string just played) 0.08x, a D grace x0.6 more, the flam 0. Engine guard in harpStep: a stored velocity under 0.02 is skipped (it still counts as a crossing and a D still counts up/down) and takes no string slot. Coda runs keep their levels.",
+   "where": [
+    "tools/melodies/mountain-king.json dynamics",
+    "tools/melody_curve.js score()",
+    "src/sound.js harpStep"
+   ],
+   "evidence": "9 silent crossings (3 flams, the coda's 6 E/A); 150 of 159 crossings sound; t_seasong 'graces at most 0.12 of the note they lead to' (0.121 after rounding). The crossings, their order, directions and onsets are unchanged (worst 7.2 ms in node, 7.5 ms recorded)."
+  },
+  {
+   "id": "music-3",
+   "status": "fixed",
+   "what": "The drum follows the dynamics: listen.tick holds one gain per cut tick, 20 log10(v/0.9) dB with v the main note on that beat (-6.5 dB rising to +0.9 dB), used when the tick count matches. A piece's tick is a single pluck (cut make: o.one), without the repetition softening, so a downbeat is the B plus one tick.",
+   "where": [
+    "src/sound.js harpAlong, CATALOG.cut",
+    "src/app.js sndListen",
+    "tools/melody_curve.js tickDb"
+   ],
+   "evidence": "t_seasong: 7 ticks, one pluck each, gains rising -9.75 to -2.33 dB in steps (TRIM included). Recording: the 50 ms peak at the first tick is -28.4 dBFS against the opening's main notes at -30.2 dBFS (before: -26.0 against -31.9). The drum now rises about 6 dB over the piece, with the theme."
+  },
+  {
+   "id": "music-4",
+   "status": "fixed",
+   "what": "Each of the three crashes rings as a B-minor chord: the roll's E and A crossings are silent (rollSilent), leaving B D F# B. The coda sits low (register -0.45). A piece keeps up to 24 strings, so the final chord's 14 strings ring together. Landing twice was not added: it would add crossings to the curve.",
+   "where": [
+    "tools/melodies/mountain-king.json dynamics.rollSilent, register.coda",
+    "src/sound.js worklet start (c.cap)",
+    "src/app.js sndListen (cap 24)"
+   ],
+   "evidence": "Recording: synth maxStrings 24, late 0, gaps 0. The coda's RMS is -36.5 dBFS against statement 3's -35.1; the coda's main-note peaks are -21.4 dBFS against -23.9."
+  },
+  {
+   "id": "music-5",
+   "status": "fixed",
+   "what": "String cap 24 for a piece (cue.cap, honoured by the worklet; every other sound keeps 12). Together with music-2 (9 silent crossings, much quieter graces), each note rings about twice as long before it is faded.",
+   "where": [
+    "src/sound.js"
+   ],
+   "evidence": "Synth stat: cues 622, maxStrings 24, late 0. Steals are still 562: a string's natural ring outlasts 24 later strings in this fast piece, but each is now faded after about 6 later notes instead of 3. Frames while it plays: desktop p95 17.9 ms, phone emulation p95 18.0-18.2 ms (60 fps). The real Android phone was not tested here."
+  },
+  {
+   "id": "music-6",
+   "status": "fixed",
+   "what": "Start velocity raised: dynamics.from 0.30 -> 0.38 (main notes by quarter 0.44, 0.59, 0.74, 0.90), to 0.90 -> 0.95 so the crescendo stays above 6 dB. The new register puts the loudest copies at 494-988 Hz, which phone speakers reproduce.",
+   "where": [
+    "tools/melodies/mountain-king.json dynamics"
+   ],
+   "evidence": "Recording at volume 0.7: main-note peaks -30.2 / -26.9 / -23.9 / -21.4 dBFS (before -31.9 / -27.9 / -24.9 / -20.4); RMS -43.2 / -39.3 / -35.1 / -36.5; the RMS rise from statement 1 to 3 is 8.1 dB. RMS is about the same as before because the graces were made much quieter. Still needs the listening check on the Android phone."
+  },
+  {
+   "id": "music-7",
+   "status": "no_change_needed",
+   "what": "Info: the adaptation check passed.",
+   "evidence": ""
+  },
+  {
+   "id": "music-8",
+   "status": "no_change_needed",
+   "what": "Info: the verification passed. Re-checked after the fixes: all 159 crossings in order, 150 sound, worst onset 7.5 ms recorded, Esc and the other curves unchanged (t_sound 122/122, sound_v152_cmd pass).",
+   "evidence": ""
+  },
+  {
+   "id": "ui-1",
+   "status": "fixed",
+   "what": "Playback stops when what it plays changes. loadExample stops any Listen along first. sndListen keeps the shape; each frame the tick stops it (tag only, a 12 ms fade) when the shape is no longer in S.shapes (deleted, undo, another example), and for a melody when sndListenOf no longer returns it (edited, other chain, deformation open): checked at once when listen was dropped, otherwise every 8th frame. The pointer-move exemption is kept.",
+   "where": [
+    "src/app.js sndListen, sndListenShape, loadExample"
+   ],
+   "evidence": "seasong_cmd.js new checks pass: opening another example while it plays gives play false; selecting the curve and pressing Delete gives shapes 0 and play false."
+  },
+  {
+   "id": "ui-2",
+   "status": "partly_fixed",
+   "what": "The corners are fixed. The 1200 stored points are now spread by arc length and turning angle (pointsBy.turn 0.6) from the generator's fine solution, so the hairpins get more points. The self-crossings are not fixed. They come from F: with z^(-1+i b) and two turns per statement, a radial excursion of D turns of arg F reaches 2D ring spacings, whatever b is. Every leap of more than half a turn (A F# D, for example) must cross the next turn. Removing the crossings means a different F, for example z^(-2+i b) with one turn per statement, and that loses the drum on the downbeats of bars 1 and 3. This is the design choice the review asks the user to make.",
+   "where": [
+    "tools/melody_curve.js (pointsBy)",
+    "tools/melodies/mountain-king.json pointsBy",
+    "src/seasong.js"
+   ],
+   "evidence": "Largest turn between neighbouring stored points: 29.6 -> 11.2 degrees; vertices over 12 degrees: 83 -> 0; vertices over 20 degrees: 28 -> 0. Segment length 0.002 to 0.08 (17 px at s = 215, on the nearly straight parts). Self-crossings: 27 -> 31 (the finer hairpins show crossings the coarse polyline cut through; the curve itself is unchanged). t_seasong's sampling sweep still gives the same 159 crossings (8 sample counts x 3 point sets). Pictures: notes/sea-song/shots/desk_en_light.png, phone_en_light.png."
+  },
+  {
+   "id": "ui-3",
+   "status": "fixed",
+   "what": "ex.fit is applied again when a view is first opened after the example loaded, if the user has not moved the view (setMain, exFitTo / exFitKey). The optional blurb note was not added.",
+   "where": [
+    "src/app.js exFitTo, setMain"
+   ],
+   "evidence": "seasong_cmd.js: after __cmwSetMain('xy'), the whole spiral is inside the 410 px X pane (curve 306-681 in pane 287-697); back in Phase, the view is unchanged. notes/sea-song/shots/desk_en_xy.png."
+  },
+  {
+   "id": "ui-4",
+   "status": "fixed",
+   "what": "An example step can carry handleR. This one puts the handle at r = 0.3, inside the spiral's innermost turn (r >= 0.54), so the label 'θ 174.7°' to its right stays in the empty centre. The review suggested r = 1.56, outside the curve, but the cut points left (174.7°) and the label is drawn to the right of the handle, so it would still lie on the outer turns, and on the phone it would be at the plane's edge. The default placement is used when the handle would be off-screen or within 20 px of the centre. Other examples are unchanged.",
+   "where": [
+    "src/app.js drawCuts, loadExample",
+    "tools/melody_curve.js steps[0].handleR"
+   ],
+   "evidence": "notes/sea-song/shots/desk_en_light.png, phone_en_light.png, desk_en_xy.png: handle and label inside the innermost turn at all three sizes."
+  },
+  {
+   "id": "ui-5",
+   "status": "fixed",
+   "what": "EN: the title is in quotes, not <i> (the math italic); <em> was not used because the Russian must keep the same tags (t_i18n). RU: «В пещере горного короля» in ёлочки. The button is quoted the same way.",
+   "where": [
+    "src/app.js guide",
+    "notes/i18n/ru/v152-seasong.json guide_melody, play_button"
+   ],
+   "evidence": "seasong_cmd: the paragraph's <i> are only F, F (EN and RU); RU has «В пещере горного короля». t_i18n all 18249 pass."
+  },
+  {
+   "id": "ui-6",
+   "status": "fixed",
+   "what": "RU: '…каждая линия фазы при пересечении звучит щипком своей струны…'. This has no pronoun to misread. The review's wording adds a third arg F, which would break t_i18n's same-tags check.",
+   "where": [
+    "notes/i18n/ru/v152-seasong.json guide_melody"
+   ],
+   "evidence": "seasong_cmd: no «которую он»; t_i18n pass."
+  },
+  {
+   "id": "ui-7",
+   "status": "fixed",
+   "what": "The gallery sets the title only on an example with ex.tip, and only when its line is cut (scrollWidth > clientWidth). The other 14 items have no title, as before.",
+   "where": [
+    "src/app.js openGallery, EX"
+   ],
+   "evidence": "seasong_cmd: 'no other example gained a tooltip' (en, ru); the melody's tooltip is its whole description where cut."
+  },
+  {
+   "id": "ui-8",
+   "status": "fixed",
+   "what": "The description now starts with a sentence that works on every device: 'Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral's menu (right-click, or hold on touch): …'. RU: 'Эдвард Григ, «Пер Гюнт» (1875). Выберите «Слушать вдоль кривой» в меню спирали (щелчок правой кнопкой, на сенсорном экране — долгое нажатие): …' (glossary gestures).",
+   "where": [
+    "src/app.js EX",
+    "notes/i18n/ru/v152-seasong.json example_blurb"
+   ],
+   "evidence": "seasong_cmd checks the opening words in EN and RU."
+  },
+  {
+   "id": "ui-9",
+   "status": "fixed",
+   "what": "The curve is named 'Spiral' / «Спираль» (shape nameKey 'spiral', shapeName). The menu shows 'Listen along Spiral' / «Слушать вдоль кривой Спираль», and the Shapes list shows Spiral.",
+   "where": [
+    "src/app.js shapeName, EX",
+    "notes/i18n/ru/v152-seasong.json v152sea.spiral"
+   ],
+   "evidence": "seasong_cmd menuEn/menuRu; desk_en_light.png Shapes list."
+  },
+  {
+   "id": "ui-10",
+   "status": "fixed_here_merge_note_kept",
+   "what": "src/i18n_ru.js was regenerated with make_ru_table.py --strict (0 unresolved, 15 collisions). Then this branch's three tour Sound-step strings were put back from the committed table, and the other branch's three were left out, so the table differs from the committed one only in the 4 strings changed here. At the merge: take tour.js from the sound branch first, then regenerate, as the review says.",
+   "where": [
+    "src/i18n_ru.js",
+    "tools/ru_report.json"
+   ],
+   "evidence": "Key diff against the committed table: only the guide paragraph, the blurb, the button (each old key out, new key in) and 'Spiral' (new). t_i18n_keys 4754 pass; i18n_cmd 92/92."
+  },
+  {
+   "id": "ui-11",
+   "status": "fixed",
+   "what": "The button reads 'Open and play “In the Hall of the Mountain King”' / «Открыть и сыграть «В пещере горного короля»». Undo brings the earlier work back, as before.",
+   "where": [
+    "src/app.js guide",
+    "notes/i18n/ru/v152-seasong.json play_button"
+   ],
+   "evidence": "seasong_cmd checks the exact EN and RU labels."
+  },
+  {
+   "id": "ui-12",
+   "status": "no_change_needed",
+   "what": "Not changed. GLOSSARY.md belongs to its owner, and this task may write only notes/sea-song. The tour text is unchanged so the tour's callout fit is not put at risk. Suggested for later: add 'In the Hall of the Mountain King | В пещере горного короля' and 'Spiral | Спираль' to GLOSSARY 1.14.",
+   "evidence": ""
+  },
+  {
+   "id": "ui-13",
+   "status": "fixed",
+   "what": "Deleted work/xvsea/test/free_cdp/chprof-* (55 MB). My own harness copy (test/sea2_cdp) and its Chrome profiles were deleted after each run.",
+   "evidence": "du: free_cdp 55M -> 24K."
+  },
+  {
+   "id": "ui-0",
+   "status": "no_change_needed",
+   "what": "Info. The checks it lists were re-run where they are affected (see tests).",
+   "evidence": ""
+  }
+ ]
+}

@@ -1,0 +1,122 @@
+[
+ {
+  "id": "user-1",
+  "severity": "high",
+  "title": "A point on a curve: typing a new shared number into t is refused without a message",
+  "detail": "This is the user's original request (2026-10-22: 'parametrize ... by some shared number'). In the Construction view of a point on Circle 1, typing a (Enter) turns the t field red. No number a is created, the point does not move and nothing says why. The Parameters panel right below says 'type a new letter in any formula ... or press + Number'. t binds only after the user first makes a with + Number (then t = a works and the point moves). construct.js inspectorView's t handler calls Params.evalReal, which throws on an unknown name, and returns.",
+  "evidence": "Desktop 1440, EN, light. Point tool on Circle 1's stroke made z₂ (glider). Inspector t = 0.754972, typed 'a' + Enter: class 'inp mono cm-it bad', s.bind undefined, p unchanged, Parameters panel still empty. Then + Number 'a', typed 'a': bind {t:'a'}, p = 2.3−0.5i. Shot notes/constructions-v16/shots/user-u-glider-bound.png",
+  "fix": "When the text is a new identifier (or a formula with new identifiers), create the numbers the way v15's other fields do (the same path as 'Re z = a') and then bind. For genuinely bad input, show v15's field error text under the field, not only the red border."
+ },
+ {
+  "id": "user-2",
+  "severity": "high",
+  "title": "The waiting chip is cut off, so the pick counter is hidden on the phone and in Russian",
+  "detail": "The counter ('point 2 of 3') is the only thing that tells the user which pick comes next. The chip puts it after the long tool name, so the ellipsis cuts it. Desktop 1440 EN, 430 px pane: 'Circle through 3 points: point 1 of 3 · Esc ca…'. Desktop RU: 'Окружность по трём точкам: точка 2 и…'. Phone 390 EN: 'Circle through 3 points…', with no counter at all. With touch there is no hover preview either, so the user taps blind.",
+  "evidence": "notes/constructions-v16/shots/user-p-c3-pick1.png (phone, after the first pick), notes/constructions-v16/shots/user-r-c3-pick.png (RU dark desktop), notes/constructions-v16/shots/user-u-c3-hoverz.png (EN desktop)",
+  "fix": "Put the counter first and shorten the text on narrow panes: '2 of 3 · Circle through 3 points', or on a phone '3 points: 2/3'. Let the chip wrap to two lines rather than truncate. On a phone, make Curve | Region two icons. The Bisector chip in Russian on a phone fits ('Серединный перпендикуляр: точка 2 из 2'), so only circle3 and Intersect need this."
+ },
+ {
+  "id": "user-3",
+  "severity": "medium",
+  "title": "A bound line's start and end fields look editable, but typing into them does nothing",
+  "detail": "A line drawn from z₀ to z₁ opens its row editor with 'start a' and 'end b' fields. Typing −2+i and pressing Enter leaves the line on z₀. The field keeps showing −2+i, which contradicts the picture, and there is no message. It resets only after a reload. The user cannot tell whether the edit was accepted, ignored or broke the link.",
+  "evidence": "urev3: Line 1 at {a:{s:'s1'}, b:{s:'s2'}}. Typed '-2+i' + Enter in start a: line.a stays [-1.5,0], the field reads '-2+i', no toast or err-msg. Shot notes/constructions-v16/shots/user-u-line-typed.png",
+  "fix": "Show a bound handle's field read-only, as '= z₀' with the link glyph and a 'Make free' affordance. Or let a typed value free that handle with a toast ('Line 1 no longer follows z₀', Undo). Either way, never leave a stale value in the field."
+ },
+ {
+  "id": "user-4",
+  "severity": "medium",
+  "title": "The rows call points 'Point 1, 2, 3' while the plane and every definition say z₀, z₁, z₂",
+  "detail": "The definitions name points by their labels ('midpoint of z₀, z₁', 'the disc through ζ₁, vertex 3 of Polygon 1, z₂', 'follows z₀, z₁'). The Shapes list names the same points 'Point 1', 'Point 2', 'Point 3' (off by one, and a different scheme), and in Russian 'Точка 1'. So the reader of a definition row cannot find its points in the list. The new meet point is 'Point 3' in its row and 'z₂' in the disc's definition. This predates v16, but constructions make it a daily problem.",
+  "evidence": "rows: 'Point 1 −1.5', 'Point 2 0.5−i', 'Point 3 Circle 1 ∩ Segment 1, second point', 'Disc 1 the disc through ζ₁, vertex 3 of Polygon 1, z₂'. Shot notes/constructions-v16/shots/user-u-c3-done.png",
+  "fix": "Name a point row by its label (z₀, or the user's label), as the plane does, or show 'Point 1 · z₀'. Use one scheme in the rows, Inspector chips, toasts and captions."
+ },
+ {
+  "id": "user-5",
+  "severity": "medium",
+  "title": "The line through two points is described by coordinates, not by its points",
+  "detail": "The user's headline case ('line through 2 points') reads 'line through −1.5+0.5i, 0.5−i' in the row, even after z₀ was renamed A, while the Inspector says 'follows A, z₁'. The 3-point circle says 'through z₀, z₁, ζ₁', so the two features describe themselves differently. The export caption keeps the coordinates too (AS-BUILT limit 6).",
+  "evidence": "urev3 after the rename: row 'Line 1 line through −1.5+0.5i, 0.5−i'; Inspector 'follows A, z₁'.",
+  "fix": "When both ends of a line, segment, ray or half-plane are bound, use the definition phrase in the row and caption: 'line through z₀ and z₁', 'the half-plane left of z₀ → z₁' (keep the values in the tooltip and in the caption's maths)."
+ },
+ {
+  "id": "user-6",
+  "severity": "medium",
+  "title": "After a zero is removed and added back, the construction still says 'ζ₁ was removed'",
+  "detail": "Remove ζ₁ (the field's ×), then Shift-click to put a zero back at exactly 1+0.5i. The disc stays undefined, and its row says 'ζ₁ was removed' while a ζ₁ is drawn at the same spot. There is no way to point the disc at the new ζ₁: ⋯ offers only Make free (it keeps the old geometry and drops the link) or Delete. Re-adding a zero is a likely recovery path, so the message reads as a bug.",
+  "evidence": "urev2: the zero is removed, 'zeros':'1+0.5i' again after the Shift-click, and the row still reads 'Disc 1 ζ₁ was removed'. Shot notes/constructions-v16/shots/user-u-undef-menu.png",
+  "fix": "Name the lost zero by its value ('the zero at 1+0.5i was removed'). Rebind automatically when a zero reappears within the snap tolerance of the lost one in the same step, or offer 'Use ζ₁' in ⋯ and the Inspector. More generally, add 'Replace point…' (re-pick one argument)."
+ },
+ {
+  "id": "user-7",
+  "severity": "medium",
+  "title": "⋯ Delete does not say that dependents will be deleted too",
+  "detail": "Circle 1 has 2 shapes built on it, but its row ⋯ menu shows a plain 'Delete ⌫'. The cascade count from SPEC §9 and §11 ('Delete (and 2 built on it)') never appears there. The code looks for the item with it.danger, and v15's row Delete item does not have that flag. The Inspector's button does show the count. The toast with Undo appears only after the delete.",
+  "evidence": "urev2 ⋯ on Circle 1: ['Integrate F along it','Duplicate','Color','Bring forward','Send backward','Clear shapes','Delete⌫']; after Delete the toast reads 'Deleted Circle 1 and 2 shapes built on it. Undo'. construct.js:932-933. Shot notes/constructions-v16/shots/user-u-circle-menu.png",
+  "fix": "Find the Delete item by its action or id, not by the danger flag, and check the plane menu's object-group Delete too."
+ },
+ {
+  "id": "user-8",
+  "severity": "medium",
+  "title": "Removing a zero that constructions use: the toast has no Undo",
+  "detail": "Deleting a shape gives 'Deleted … Undo'. Removing ζ₁ (with the ×, or easily by dragging it off the plane on a phone) gives only '1 shape is now undefined.' with no button. The user loses the construction's input and must know ⌘Z or find the Undo key. AS-BUILT limit 10 notes this.",
+  "evidence": "urev2: after the × on ζ₁, toastText is ['1 shape is now undefined.'] with no Undo button. Shot notes/constructions-v16/shots/user-u-undef-menu.png",
+  "fix": "Give that toast the same Undo action as the delete toast."
+ },
+ {
+  "id": "user-9",
+  "severity": "medium",
+  "title": "Selecting a construction shows nothing in the plane about what it is built from",
+  "detail": "A selected 3-point disc has no handles (as designed), and its defining points ζ₁, vertex 3 and z₂ are not marked. Only the Inspector chips (desktop) and the row tint name them. On a phone the Inspector is closed by default, so the user sees a big region with no handles and no hint of how to change it. SPEC §10's hover and selection highlight in the plane (others at 30 %) is not built (AS-BUILT limit 2).",
+  "evidence": "urev2, Disc 1 selected: no ring or emphasis on ζ₁, z₂ or the polygon vertex. Shot notes/constructions-v16/shots/user-u-disc-selected.png",
+  "fix": "At least for the selection, and also for a touch selection, draw the snap ring on each defining point (and the curves, for meets and gliders). Dim the unrelated shapes as §10 says. That makes 'drag those' visible."
+ },
+ {
+  "id": "user-10",
+  "severity": "low",
+  "title": "The snap chip covers the label of the point it names",
+  "detail": "'on z₀' sits right over z₀'s label, and 'on ζ₁' over ζ₁'s. After a circle is finished, the crossing chip 'on Circle 1 ∩ Segment 1' stays over the new z₂ label until the pointer moves. The chip hides what it is naming.",
+  "evidence": "notes/constructions-v16/shots/user-u-line-hover.png, notes/constructions-v16/shots/user-u-c3-hoverz.png, notes/constructions-v16/shots/user-u-c3-done.png",
+  "fix": "Place the chip on the side opposite the target's label box (or above-left with a 12 px gap), and hide it when a construction completes until the next pointer move."
+ },
+ {
+  "id": "user-11",
+  "severity": "low",
+  "title": "Definitions are truncated in the Shapes column and the tooltip shows the equation instead",
+  "detail": "At 1440 the row reads 'Disc 1 the disc throug…' and 'Point 3 Circle 1 ∩ Seg…'. The cell tooltip carries the equation, not the definition, so the full definition can be read only in the desktop Inspector. On a tablet or phone it is effectively unreadable.",
+  "evidence": "notes/constructions-v16/shots/user-u-c3-done.png (rows at the bottom left)",
+  "fix": "Let a constructed row's definition wrap to a second line, or put the full definition in the tooltip and on touch long-press (with the equation under it)."
+ },
+ {
+  "id": "user-12",
+  "severity": "low",
+  "title": "Russian definitions are ungrammatical",
+  "detail": "'круг, ограниченный окружностью через ζ₁, вершина 3: Многоугольник 1, z₂'. After 'через' Russian needs the accusative and a genitive owner: 'через ζ₁, вершину 3 многоугольника 1 и z₂'. The handle-ref phrase is in the nominative with a colon, and the list has no 'и'.",
+  "evidence": "RU rows (urev2, lang=ru): 'Круг 1 круг, ограниченный окружностью через ζ₁, вершина 3: Многоугольник 1, z₂'",
+  "fix": "In v16-constructions.json, give the handle refs case forms ('вершину {n} многоугольника {k}', 'конец отрезка {k}') for use after 'через', and join the last item with 'и'. Check the export captions too (AS-BUILT limit 6: the nominative everywhere)."
+ },
+ {
+  "id": "user-13",
+  "severity": "low",
+  "title": "'Built on …: drag those' names a point that cannot be dragged",
+  "detail": "Pressing inside the disc built on ζ₁, vertex 3 and z₂ pans X and says 'Built on ζ₁, vertex 3 of Polygon 1, z₂: drag those, or Make free'. z₂ is a fixed meet point: dragging it shows another refusal ('z₂ is built from …: drag those'). The user gets sent through two refusals.",
+  "evidence": "notes/constructions-v16/shots/user-u-drag-builtdisc-mid.png",
+  "fix": "Name the draggable roots only (follow the definitions down to free points, zeros and free handles): 'Built on ζ₁, vertex 3 of Polygon 1, Circle 1, Segment 1: drag those, or Make free'."
+ },
+ {
+  "id": "user-14",
+  "severity": "low",
+  "title": "Phone: no way to place a free point near an existing point or curve",
+  "detail": "On touch the snap radius is 22 px for points and 10 px for curves, and there is no Alt key. A Point-tool tap 20 px from z₀ makes nothing new (it selects z₀), and a tap 7 px from Circle 1 makes a point on the curve. The phone has no visible Snap toggle. So a user who wants a free point close to an existing one, or just off a curve, cannot place it. The silent 'nothing happened' tap is the surprising part.",
+  "evidence": "uph2 (390 × 844, Android UA, touch): shape count 6 → 6 after a tap 20 px from z₀; a tap 7 px off Circle 1 made s53 with def glider. Shot notes/constructions-v16/shots/user-p-point-taps.png",
+  "fix": "Give the snap a touch escape: a 'Free' toggle in the draft chip or the Point tool's long-press, or put the Snap toggle in the phone's More tools sheet. When a tap selects an existing point, show the chip 'z₀ (already here)' so it is not silent."
+ },
+ {
+  "id": "user-15",
+  "severity": "low",
+  "title": "A point on a curve's t has no visible meaning or range",
+  "detail": "The Inspector shows 't 0.754972' for a point on Circle 1, with no unit or range and no indication of where t = 0 is. The user cannot predict where t = 0.25 lands or what range to give the shared number a (its default −2…2 goes around the circle twice).",
+  "evidence": "Inspector for z₂ on Circle 1: 't 0.754972'; with t = a = 1 the point sits at 2.3−0.5i (angle 0). Shot notes/constructions-v16/shots/user-u-glider-bound.png",
+  "fix": "Label the field 't (turns, 0 at the right)' on a circle and 't (0 = start, 1 = end)' on a segment or arc. When binding, suggest the number's range 0…1."
+ }
+]

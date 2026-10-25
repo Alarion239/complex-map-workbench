@@ -103,9 +103,26 @@ window.__invTestRun = async (opts = {}) => {
   }
   // ---- shapes ----
   const SH = [];
+  const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (v16: the exact-form discs, when constr.js is loaded)
   function randShape(id) {
     const c = [rf(-2.5, 2.5), rf(-2.5, 2.5)], k = pick(['disc', 'disc', 'rect', 'halfplane', 'halfplane', 'sector', 'sector', 'annulus', 'polygon', 'polygon', 'cdisc', 'chalf', 'cpoly', 'formula']);
+    return shapeOfKind(id, k, c);
+  }
+  function shapeOfKind(id, k, c) {
     switch (k) {
+      // (v16 review regress-3) a 3-point disc in its exact form (s._g: TKIND 8, the clip piece 'g'): near-collinear
+      // points (radius up to 1e7), a far first point (the anchor 1e4 away from the window), and the complement
+      case 'gdisc': case 'gfar': case 'gcomp': {
+        const o = k === 'gfar' ? [rf(-1, 1) * 1e4, rf(-1, 1) * 1e4] : c, a = rf(0, 2 * Math.PI), L = rf(0.5, 2), h = k === 'gfar' ? 0 : L * 10 ** rf(-7, 0);
+        const u = [Math.cos(a), Math.sin(a)], n = [-u[1], u[0]];
+        let P = [o[0] - L * u[0], o[1] - L * u[1]], Q = [o[0] + h * n[0], o[1] + h * n[1]], R = [o[0] + L * u[0], o[1] + L * u[1]];
+        if (k === 'gfar') { const d = [c[0] - o[0], c[1] - o[1]], D = Math.hypot(d[0], d[1]); Q = [o[0] + d[0] * (1 + 0.3 / D), o[1] + d[1] * (1 + 0.3 / D)]; P = [o[0] + n[0] * 0.5, o[1] + n[1] * 0.5]; R = [o[0] - n[0] * 0.5, o[1] - n[1] * 0.5]; }
+        let G = Constr.circle3(P, Q, R);
+        if (!G || G.A === 0) return { id, kind: 'disc', c, r: rf(0.2, 2) };
+        if ((G.A < 0) !== (k === 'gcomp')) G = { A: -G.A, B: [-G.B[0], -G.B[1]], C: -G.C, o: G.o.slice() };
+        const g = Constr.geomOf(G);
+        return { id, kind: 'disc', c: g.c, r: g.r, complement: G.A < 0 ? true : undefined, _g: G, def: { op: 'circle3' } };
+      }
       case 'disc': return { id, kind: 'disc', c, r: rf(0.2, 2) };
       case 'cdisc': return { id, kind: 'disc', c, r: rf(0.2, 1.5), complement: true };
       case 'rect': return { id, kind: 'rect', a: c, b: [c[0] + rf(-3, 3), c[1] + rf(-3, 3)] };
@@ -218,7 +235,12 @@ void main() {
   // ---- walk parity ----
   const SPC = opts.shapesPerChain ?? 2;
   let seedRat = null;   // the rational chains (last in the list) hand the random stream back as they found it: the clip test keeps its sample
+  // (v16 review regress-3) the first gChains eligible chains take one exact-form disc after their v15 shapes, on a
+  // random stream of its own (the v15 cases stay the same cases); the GPU packs it at the window's centre, as the app does
+  let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
+  R.gWalk = { cases: 0 };
   for (const ch of chains.slice(0, opts.maxCases || Infinity)) {
+    if (gSaved !== null) { seed = gSaved; gSaved = null; }
     const steps = ch.steps, built = steps.map(Funcs.build);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
     if (RA && seedRat === null) seedRat = seed;
@@ -227,11 +249,14 @@ void main() {
     if (RA) { RA.chains++; const k = plan.ops.map((o) => o.kind).join('>'); RA.kinds[k] = (RA.kinds[k] || 0) + 1; }
     GLR.setChain(GLChain.build(steps, built));
     const F = (z) => plan.ops.reduce((u, o) => o.fwd(u), z);
-    for (let si = 0; si < SPC; si++) {
+    const gx = !RA && gLeft > 0 ? 1 : 0;
+    for (let si = 0; si < SPC + gx; si++) {
+      if (si === SPC) { gSaved = seed; seed = (seed ^ 0x5bd1e995) | 0; gLeft--; R.gWalk.cases++; }
       R.cases++; if (RA) RA.cases++;
-      const shape = randShape(si + 1);
+      const shape = si < SPC ? randShape(si + 1) : shapeOfKind(si + 1, pick(['gdisc', 'gdisc', 'gfar', 'gcomp']), [rf(-1, 1), rf(-1, 1)]);
       const ctr = [rf(-1, 1), rf(-1, 1)], s = rf(40, 120);
       const win = { x0: ctr[0] - 205 / s, x1: ctr[0] + 205 / s, y0: ctr[1] - 258 / s, y1: ctr[1] + 258 / s };
+      if (si === SPC && GLR.setFormAnchor) GLR.setFormAnchor([ctr[0], ctr[1]]);
       let prep;
       try { prep = Inverse.prepare(plan, { win, shape }); } catch (e) { R.errors.push(`${ch.name}: prepare ${e.message}`); continue; }
       if (!prep.ok) { R.skipped.ineligible++; continue; }
@@ -302,12 +327,16 @@ void main() {
         for (let r = 0; r < Math.min(8, lv.length); r++) {
           const c = lv[r], q = at(10 + r);
           if (!isF(c.z) && !(c.lam)) continue;
+          // (v16: an exact-form disc of radius up to 1e7 passes through far sheets too. A leaf at key D lies about 2^D window
+          // radii from the view, where float32 holds the leaf's own position only to 6e-8 * 2^D radii: from D = 12 on that
+          // is 0.03 px and more, so those leaves are compared on the CPU's side only; GDEEP counts them)
+          if (shape._g && !(c.D <= 12)) { R.skipped.gDeep = (R.skipped.gDeep || 0) + 1; continue; }
           if (Math.abs(q[1] - c.cv) > 0.03) bad.push(`leaf ${r} cv gpu ${q[1].toFixed(3)} (s ${q[0].toFixed(3)}) cpu ${c.cv.toFixed(3)} (s ${Number.isFinite(c.s) ? c.s.toFixed(3) : c.s}, lvl ${c.lvl})`);
-          if (c.cov && c.D <= 16 && !(Math.abs(q[2] - c.D) <= 2e-3 * (1 + Math.abs(c.D)))) bad.push(`leaf ${r} D gpu ${q[2]} cpu ${c.D}`);
+          if (c.cov && c.D <= 16 && !(Math.abs(q[2] - c.D) <= 2e-3 * (1 + Math.abs(c.D)))) bad.push(`leaf ${r} D gpu ${q[2]} cpu ${c.D}`);   // (g-shapes: D <= 12 here, above)
         }
         // front keys
         const fk = at(9), ent = cpu.entries;
-        for (let r = 0; r < 3 && r < ent.length; r++) if (ent[r].D <= 16 && !(Math.abs(fk[r] - ent[r].D) <= 2e-3 * (1 + Math.abs(ent[r].D)))) bad.push(`front ${r} D gpu ${fk[r]} cpu ${ent[r].D}`);
+        for (let r = 0; r < 3 && r < ent.length; r++) if (ent[r].D <= (shape._g ? 12 : 16) && !(Math.abs(fk[r] - ent[r].D) <= 2e-3 * (1 + Math.abs(ent[r].D)))) bad.push(`front ${r} D gpu ${fk[r]} cpu ${ent[r].D}`);
         if (bad.length) {
           R.failCount++; if (RA) RA.failCount++;
           R.byChain[ch.name] = (R.byChain[ch.name] || 0) + 1;
@@ -317,6 +346,8 @@ void main() {
     }
   }
   if (seedRat !== null) seed = seedRat;
+  if (gSaved !== null) { seed = gSaved; gSaved = null; }
+  if (GLR.setFormAnchor) GLR.setFormAnchor(null);
   // ---- saturation anchors (SPEC 13.12, P2 review): artanh / arctan of shapes through +-1 / +-i, far out in the strip
   // (|Re w| up to 40: float32 tanh w is +-1 there): GPU leaf coverage = CPU (anchored, float64), and the coverage of
   // artanh(|z| < 1) and arctan(|z| < 1) is the exact strip |Im w| < pi/4 (|Re w| < pi/4) ----
@@ -385,11 +416,15 @@ void main() {
     const steps = [St('mul', { c: '1' })], built = steps.map(Funcs.build);
     GLR.setChain(GLChain.build(steps, built));
     const plan = Inverse.planChain(steps, built);
-    const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0 };
+    const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
     const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0 };
     const N = 1024;
-    for (let rep = 0; rep < (opts.clipShapes ?? 60); rep++) {
-      let shape = randShape(1);
+    // (v16 review regress-3) after the v15 shapes (their random stream unchanged), the exact-form discs: near
+    // collinear, a far anchor (1e4 away; the GPU packs at the view's centre, as the app does), complements
+    const nV15 = opts.clipShapes ?? 60, nG = GDISC ? (opts.gShapes ?? 40) : 0;
+    if (GDISC && GLR.setFormAnchor) GLR.setFormAnchor([0, 0]);
+    for (let rep = 0; rep < nV15 + nG; rep++) {
+      let shape = rep < nV15 ? randShape(1) : shapeOfKind(1, pick(['gdisc', 'gdisc', 'gfar', 'gcomp']), [rf(-2.5, 2.5), rf(-2.5, 2.5)]);
       const prim = Region.clipPrimitive(shape);
       const win = { x0: -4, x1: 4, y0: -4, y1: 4 };
       const prep = Inverse.prepare(plan, { win, shape });
@@ -424,7 +459,7 @@ void main() {
         else if (hC && !(same(c.hlo, o[2]) && same(c.hhi, o[3]))) bad.push(`hole cpu [${c.hlo}, ${c.hhi}] gpu [${o[2]}, ${o[3]}]`);
         if (bad.length) { CL.failCount++; if (CL.fails.length < 20) CL.fails.push({ shape: JSON.stringify(shape).slice(0, 140), z0: [z0.re, z0.im], q: [q.re, q.im], m, bad }); }
       }
-      kinds[shape.kind + (shape.complement ? '~' : '')] = (kinds[shape.kind + (shape.complement ? '~' : '')] || 0) + 1;
+      kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] = (kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] || 0) + 1;
     }
     CL.kinds = kinds;
   }

@@ -324,3 +324,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .split-offer .so-btn { min-height: 44px; }
 :root.ph .split-offer > summary { min-height: 44px; }
 :root.ph .alone-chip .ac-nav { display: none; }
+/* v16: the bracket is drawn, not dragged, on a phone (SPEC 6.7): its line in the 6 px gap and over the 12 px connectors */
+:root.ph .chain-bracket { pointer-events: none; }
+:root.ph .chain-bracket .br-end { pointer-events: none; }
+:root.ph .chain-bracket .br-end::before { display: none; }
+:root.ph .chain-bracket .br-line::before { pointer-events: none; }
+:root.ph.ph-morph .tdock > .trange { display: none !important; }
+:root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)[data-mtitle]::before { content: attr(data-mtitle); padding-right: 8px; border-right: 1px solid var(--line-strong); }
+/* v16 (SPEC 6.6): the transport's "f₁ →" / "→ f₄" labels are left out when the range input would be under 120 px. The
+   phone's docked row is play 44, the readout, the speed, Paths and × (about 330 px with the gaps), so below 560 px the
+   scrubber cannot keep 120 px beside a label: the bracket above the cards says the same. (app.js also measures it.) */
+@media (max-width: 559px) { :root.ph .tdock .tfix { display: none; } }

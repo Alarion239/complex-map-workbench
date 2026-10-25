@@ -334,3 +334,41 @@
 /* the Add as n steps row's formula column: the start of its derivation, z ↦ z² ↦ ⋯ (fitPalTex) */
 .drv-start { display: inline-flex; align-items: baseline; column-gap: 4px; font-size: 14px; }
 .drv-start .drv-dots { font: 400 14px/1 var(--f-math); color: var(--muted); }
+/* v16: the deformation's bracket over the chain (notes/deform-range/SPEC.md 6.2): a line in the chain bar's top padding
+   from connector a to connector b + 1, built from borders in whole CSS px; its ends are sliders over their connectors */
+#pipeline { position: relative; }
+.chain-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; animation: br-in 120ms var(--ease-out); }
+.chain-bracket[hidden] { display: none; }
+@keyframes br-in { from { opacity: 0; } to { opacity: 1; } }
+.br-line { position: absolute; box-sizing: border-box; border: 1.5px solid var(--ink-2); border-bottom: 0; border-radius: 2px 2px 0 0; pointer-events: none; }
+.br-end { position: absolute; cursor: ew-resize; touch-action: none; border-radius: var(--r-1); }
+.br-end:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.chain-bracket:has(.br-end:is(:hover, :focus-visible, .drag)) .br-line { border-color: var(--accent); border-width: 2px; }
+#pipeline.card-drag .br-end { pointer-events: none; }
+/* (review v16 user-3) the ends show as grab handles at rest, a small pill where the line turns down; the line's top
+   edge carries a tooltip (a thin strip above the cards, so it never takes a card's clicks) */
+.br-end::before { content: ""; position: absolute; left: 50%; top: 0; width: 7px; height: 13px; margin-left: -3.5px; box-sizing: border-box; border-radius: 4px; background: var(--surface); border: 1.5px solid var(--ink-2); }
+.br-end:is(:hover, :focus-visible, .drag)::before { background: var(--accent); border-color: var(--accent); }
+.br-line::before { content: ""; position: absolute; left: 6px; right: 6px; top: -5px; height: 9px; pointer-events: auto; }
+#pipeline.card-drag .br-line::before { pointer-events: none; }
+.conn.br-at .conn-add { display: none; }
+@media (prefers-reduced-motion: no-preference) { .br-line { transition: left 120ms var(--ease-out), width 120ms var(--ease-out); } .chain-bracket.drag .br-line { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .chain-bracket { animation: none; } }
+/* the transport with a bracket's pre or post: "f₁ →" and "→ f₄" around the scrubber (SPEC 6.6) */
+.tscrub.tfixed { gap: 6px; flex-wrap: nowrap; }
+.tscrub > .trail { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; height: 100%; }
+.tscrub > .trail > input[type="range"] { flex: 1 1 auto; width: 100%; }
+.tfix { flex: 0 0 auto; font: italic 500 11px/12px var(--f-math); color: var(--ink-2); white-space: nowrap; }
+.tfix i { font: inherit; }
+.tfix[hidden] { display: none; }
+/* the phone's Deformed steps row lives in the Display sheet; on desktop it is built but hidden (SPEC 6.7) */
+.tdock > .trange { display: none; }
+.trange { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 6px; width: 100%; }
+.trange .tr-label { flex: 0 1 auto; font: var(--t-label); color: var(--ink-2); }
+.trange .tr-sels { flex: 1 1 200px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.trange .tr-sels > select { flex: 1 1 0; min-width: 0; height: 44px; }
+.trange .tr-dash { flex: 0 0 auto; color: var(--ink-2); }
+.trange .tr-note { flex: 1 1 100%; font: var(--t-label); color: var(--muted); }
+.trange .tr-from { flex: 1 1 100%; font: 400 14px/18px var(--f-math); color: var(--muted); }
+.trange .tr-from i { font-style: italic; }
+.trange .tr-from sub { font-size: 0.72em; line-height: 0; }

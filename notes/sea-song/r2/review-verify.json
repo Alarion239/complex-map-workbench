@@ -1,0 +1,91 @@
+{
+  "_about": "Independent check of the round-2 review fixes (review-pitch.json, review-picture.json) on work/xvsea, against a fresh recording and the running app, not the ledger. dist rebuilt: same bytes. Headless Chrome on port 9315; worklet engine, 48 kHz, late 0, gaps 0. New recordings: desktop 1440x900 and Android emulation 412x915 (Listen along from the curve's menu), and the pointer harp (two loops round the zero of F(z) = z, Phase view). Evidence in notes/sea-song/r2/review-verify/: mk_desk.m4a, pointer.m4a, cue logs, ana.py with its results (ana_desk.json, ana_phone.json), desk_1366x768.png. Browser, server, Chrome profile and raw audio removed afterwards.",
+  "findings": [
+    {
+      "id": "verify-1",
+      "was": "picture-3",
+      "severity": "medium",
+      "status": "still wrong (not fixed: rejected with reasons, left for a later round or the user)",
+      "title": "The spiral still has sharp bends, 33 to 39 degrees within 4 px at the phone's scale",
+      "detail": "The curve is the same as in the review. Only the generator's report changed: it now reports the bends in screen terms. The reason given for not fixing it holds. The phase has to cover a 4-semitone leap plus a turn within one eighth of statement 3, at constant speed. z^(-3+48i) is ruled out: at beta = 48, |beta theta| reaches 151, and float32 exp overflows above 88.",
+      "evidence": "src/seasong.js pts at 128 px/unit (phone): the largest turning within 4 px of arc is 39.4 degrees at pt 1108, measured as the sum of the turns at the points. The generator's own midpoint measure gives 33.3 degrees. 136 inflections. Three-point radius under 8 px at 35 points; the smallest is 2.9 px at pt 1192, near the end. At 182 px/unit (desktop) it is 33.3 degrees at pt 1019.",
+      "fix": "A new phase design (minimum acceleration through the notes), or the user accepts the bends as they are."
+    },
+    {
+      "id": "verify-2",
+      "was": "picture-4",
+      "severity": "low",
+      "status": "still wrong (left for the user's choice)",
+      "title": "The curve's end still nearly touches the turn outside it",
+      "detail": "Unchanged. The ledger's reason holds: an ascending octave roll multiplies r by e^(2 pi/24) = 1.30, which is exactly the spacing between turns. So the last up-roll comes back to the outer turn unless the coda's music changes.",
+      "evidence": "Closest points of different turns: 1199 and 1003, 0.0329 units apart, which is 4.2 px at 128 px/unit and 6.0 px at 182.",
+      "fix": "The user chooses: end on a falling roll (B4 F#4 D4 B3) or a three-note chord, or keep it as it is."
+    },
+    {
+      "id": "verify-3",
+      "severity": "low",
+      "status": "documentation",
+      "title": "One wrong number in the ledger, and AS-BUILT's recording section describes the old file",
+      "detail": "ledger.json tests.sound_cmd.js says 'D - E 2.84', but its own numbers (note -33.04, D -29.88 LUFS-M) give 3.16 dB, which my run reproduces exactly. Separately, the body of r2/AS-BUILT.md still describes notes/sea-song/mountain-king.m4a as round 2's recording (180 strings + 4 ticks, at most 8 strings, an octave string at -10 dB, a shared ±1.5-cent detune, cap 8). That file has been replaced by the fixed recording: 94 cues, at most 4 strings, octave partial at -5 dB, no detune. A note at the top says so, but the table below it reads as current.",
+      "evidence": "sound_cmd.js on the fresh build: harp lab note -33.04, d -29.88. Fresh recording: 90 strings + 4 ticks, maxStrings 4, octave partial -5.036 dB on every string.",
+      "fix": "Change the ledger to 3.16. In AS-BUILT.md, label the recording section 'round 2 (round2.m4a)', or add the round-3 numbers next to it."
+    }
+  ],
+  "checked": [
+    {
+      "id": "pitch-1",
+      "result": "fixed",
+      "evidence": "Least-squares fit of every ringing pitch, using the cue log's exact frequencies. At onset + 50 ms, the loudest ringing 2nd is -22.0 dB on desktop and -22.5 dB in phone emulation, with 0 of 74 cases above -20 dB. Over each note's whole span from +10 ms it is -21.2 / -21.7 dB, with none at -12 dB or louder (the review found 35 of 90). The theme cap is 1 and the coda cap 4. The engine had 86 steals and at most 4 strings."
+    },
+    {
+      "id": "pitch-2",
+      "result": "fixed",
+      "evidence": "One string per note. Its 2nd partial is scheduled at exactly -5.036 dB on all 90 notes, and partials are exact harmonics (ratios 1 to 8). Measured octave level over each theme note: desktop -5.97 to -3.41 dB, phone run -5.97 to -3.29 dB. Across both runs that is ±1.34 dB around -4.63, inside ±1.5. Final chord ring-out (0.3 s on, down to 45 dB below the start): every band decays without a rise between 50 ms frames, so there is no slow AM. Residual against a straight dB decay: desktop at most 1.1 dB; phone run 0.1 to 0.3 dB except B4 at 4.1 dB, which is a smooth bend from two coincident components with different decays, not a swell (review: 29 to 31 dB of AM)."
+    },
+    {
+      "id": "pitch-3",
+      "result": "fixed",
+      "evidence": "Pointer-harp recording, two identical loops. Each D has one D4 string. D4 measured -40.6 and -41.3 dB (0.7 dB apart; the review found -1.1 against -20.4). The D4 copy is 5.2 to 5.7 dB over the E4 copy (want at least +2). Each copy repeats within 1.1 dB from loop 1 to loop 2: E5, F#5, A5, B5."
+    },
+    {
+      "id": "pitch-4",
+      "result": "fixed",
+      "evidence": "Cue log: each of the 9 pitches has exactly one frequency for the whole piece, and strings carry their key. With cap 1 in the theme, no same-pitch strings overlap."
+    },
+    {
+      "id": "pitch-5",
+      "result": "fixed",
+      "evidence": "F#4 is 370.4125 Hz, exactly 1.5 × B3, a just fifth (+1.955 cents, the only pitch off equal temperament). B3's 3rd partial and F#4's 2nd now coincide. The F#5 band in the ring-out decays monotonically (residual 0.3 dB)."
+    },
+    {
+      "id": "pitch-6",
+      "result": "still holds",
+      "evidence": "90 written notes in order, 4 drum ticks, onsets at most 9.78 ms from the score, pitches 0 to +1.955 cents from written. Crescendo RMS -42.4, -38.7, -35.6 dBFS, coda -34.8; peak -21.0 dBFS. Statement 1 is 0.9 dB quieter than round2.m4a. Through a 4th-order 700 Hz high-pass as a phone-speaker model it is 0.4 dB quieter (-51.1 against -50.7 dBFS), which is negligible. The Android phone listen is still open."
+    },
+    {
+      "id": "picture-1",
+      "result": "fixed",
+      "evidence": "test/sound_cmd.js: pass, 0 fails. Harp lab: note -33.04, d -29.88, first 0.205. sound_v152_cmd.js: pass, 0 fails. The claim for seeds 1 to 8 was not re-run; only the lab's default seed was."
+    },
+    {
+      "id": "picture-2",
+      "result": "fixed",
+      "evidence": "seasong_cmd.js passes, with 0 stored points under the bar at 1366x768, 1280x720, 1024x768, 1024x700 and 768x1024. At 1366x768 the curve's bottom is at y 481 and the bar's top at y 509. Own check at 1366x768 and 1024x768 (dark): no page element covers any curve point; screenshot desk_1366x768.png. exFitTo only affects examples with ex.fit, and this example is the only one, so other examples' views are unchanged. Phones have no bar on the plane."
+    },
+    {
+      "id": "picture-5",
+      "result": "fixed",
+      "evidence": "src/app.js no longer contains '24i'. The comment now points to SEASONG.tex."
+    },
+    {
+      "id": "picture-6",
+      "result": "fixed",
+      "evidence": "diff -rq work/xvsd-snap/test/regress work/xvsea/test/regress: no differences."
+    },
+    {
+      "id": "regressions",
+      "result": "none found",
+      "evidence": "t_seasong 66/66, t_sound 122/122, t_views 76/76, t_i18n 18249, t_i18n_keys 4754, t_i18n_english byte-identical. seasong_cmd: desktop 60 fps (p95 17.1 ms); phone light, dark and RU 60 fps (p95 18.1 to 18.2 ms); no console errors. make_ru_table.py --strict, run in a scratch copy: 0 unresolved, 15 collisions. Re-running it drops the tour's three Sound-step strings, which were put back by hand (documented and not new). The shipped table differs from round 1 only in the guide's melody paragraph. dist rebuilds to the same bytes."
+    }
+  ]
+}

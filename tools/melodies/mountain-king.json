@@ -1,0 +1,236 @@
+{
+  "_about": "Edvard Grieg, In the Hall of the Mountain King (Peer Gynt, 1875; Grieg died 1907: public domain). Our own adaptation of the melody for the phase harp, written from the theme itself (no arrangement or transcription used). Read by tools/melody_curve.js; see notes/sea-song/README.md.",
+  "title": "In the Hall of the Mountain King",
+  "theme": [
+    [
+      "B",
+      3,
+      1
+    ],
+    [
+      "C#",
+      4,
+      1
+    ],
+    [
+      "D",
+      4,
+      1
+    ],
+    [
+      "E",
+      4,
+      1
+    ],
+    [
+      "F#",
+      4,
+      1
+    ],
+    [
+      "D",
+      4,
+      1
+    ],
+    [
+      "F#",
+      4,
+      2
+    ],
+    [
+      "E#",
+      4,
+      1
+    ],
+    [
+      "C#",
+      4,
+      1
+    ],
+    [
+      "E#",
+      4,
+      2
+    ],
+    [
+      "E",
+      4,
+      1
+    ],
+    [
+      "C",
+      4,
+      1
+    ],
+    [
+      "E",
+      4,
+      2
+    ],
+    [
+      "B",
+      3,
+      1
+    ],
+    [
+      "C#",
+      4,
+      1
+    ],
+    [
+      "D",
+      4,
+      1
+    ],
+    [
+      "E",
+      4,
+      1
+    ],
+    [
+      "F#",
+      4,
+      1
+    ],
+    [
+      "D",
+      4,
+      1
+    ],
+    [
+      "F#",
+      4,
+      1
+    ],
+    [
+      "B",
+      4,
+      1
+    ],
+    [
+      "A",
+      4,
+      1
+    ],
+    [
+      "F#",
+      4,
+      1
+    ],
+    [
+      "D",
+      4,
+      1
+    ],
+    [
+      "F#",
+      4,
+      1
+    ],
+    [
+      "A",
+      4,
+      4
+    ]
+  ],
+  "_theme": "[note, octave, eighths], 4/4: bars 1-4 as Grieg wrote them (B C# D E F# D F#, the answer E# C# E# / E C E, B C# D E F# D F# B, A F# D F# A), in the octave the piece sounds (B3 to B4). Round 2 plays every note as written: the piece has its own strings (the generator takes them from this list and codaChord).",
+  "statements": 3,
+  "coda": [
+    [
+      0,
+      1,
+      4
+    ],
+    [
+      4,
+      -1,
+      3
+    ],
+    [
+      6,
+      1,
+      4
+    ]
+  ],
+  "_coda": "crashing chords: [eighths after the previous, direction, the last B's octave]; each a rolled run of a whole turn ending on B, its chord notes (codaChord) sounding from the beat on, rising or falling with the roll (B3 D4 F#4 B4, then B4 F#4 D4 B3, then B3 D4 F#4 B4), the other lines silent; the first crash's first note is on the cut (the drum)",
+  "codaChord": [
+    "B",
+    "D",
+    "F#"
+  ],
+  "codaFirstOnCut": true,
+  "F": {
+    "n": -2,
+    "beta": 24,
+    "turnsPerStatement": 1
+  },
+  "_F": "F(z) = z^(n + i beta): the catalog's powa step. One statement is one clockwise turn; each statement is the one before scaled by e^(2 pi (1 + n turns) / beta) = e^(-pi/12) = 0.77 about 0, so constant speed plays it 1.30 times as fast (100, 130, 169, 219), and every turn lies inside the one before: the spiral never crosses itself (round 1's z^(-1+24i) with two turns a statement crossed itself 31 times).",
+  "tempo": {
+    "q0": 100,
+    "leadBeats": 0.75,
+    "tailBeats": 0.35,
+    "codaSlow": 1.5,
+    "codaFrom": 48
+  },
+  "_tempo": "quarter = q0 at the start; the accelerando per statement is fixed by F (x1.30); from beat codaFrom (the first crash) the music broadens: each beat codaSlow times as long, so the coda's rolled chords stay within the speed the curve allows",
+  "dynamics": {
+    "from": 0.38,
+    "to": 0.95,
+    "power": 1.15,
+    "downbeat": 1.12,
+    "long": 1.05,
+    "roll": [
+      0.75,
+      0.9
+    ],
+    "land": 1.0,
+    "tickDb": 0
+  },
+  "_dynamics": "main note velocity (from + (to - from)(b/48)^power), x downbeat on a bar's first beat, x long on notes of a quarter or more. Every crossing that is not a written note is silent (velocity 0). A crash's first note land, the rolled notes after it from roll[1] down to roll[0]. The drum: each cut tick at 20 log10(v / 0.9) + tickDb dB, v the written note it falls on, so it grows with the theme",
+  "octave": 0.56,
+  "_octave": "each written note sounds on one string at its written pitch, its 2nd partial (the octave) at this level of the fundamental (-5 dB, for small speakers that lose the fundamental): one string a note, so the octave has one fixed level (round 2's second string at -10 dB added to the 2nd partial with a random phase: -20 to -2.6 dB, notes/sea-song/r2 review pitch-2)",
+  "tuning": {
+    "F#": 1.955
+  },
+  "_tuning": "cents from equal temperament by pitch class, for every note of the piece: F# a just fifth (3:2) over B, so the final B-minor chord's fifth does not beat (B3's 3rd partial is F#4's 2nd exactly; review pitch-5); 2 cents, too small to hear in the melody. No other detune: a pitch is always the same string",
+  "strings": {
+    "theme": 1,
+    "coda": 4
+  },
+  "_strings": "the strings kept ringing at once: in the theme one (each note damps the one before as the next is plucked, over 30 ms, as a harpist damps a staccato line: no seconds ring together, review pitch-1), in the coda four (the chord B3 D4 F#4 B4); a string plucked again is damped first, as a harpist re-plucks it (review pitch-4)",
+  "cutHandleR": 0.3,
+  "_cutHandleR": "the cut handle (and its angle label) inside the spiral's innermost turn instead of on the turns (review ui-4)",
+  "pointsBy": {
+    "turn": 0.6
+  },
+  "_pointsBy": "the stored points are spread by arc length and by turning (half each), so the hairpins of the re-plucks are drawn with more points (review ui-2: no corner over about 12 degrees)",
+  "rollBeats": 0.3,
+  "crossSlope": 0.8,
+  "points": 1200,
+  "decimals": 4,
+  "example": {
+    "tex": "w=z^{-2+24i}",
+    "view": {
+      "cx": -0.17,
+      "cy": 0.03,
+      "s": 198
+    },
+    "fit": {
+      "x0": -1.72,
+      "x1": 1.39,
+      "y0": -1.51,
+      "y1": 1.72
+    },
+    "_fit": "the box kept in view (the curve spans x -1.60 to 1.26, y -1.39 to 1.62, and 0.12 to spare on each side); the plane's style bar is kept clear in pixels by the app (exFitTo: it does not scale with the view, review picture-2)"
+  },
+  "_cutDeg": "the cut on the ray of bar 1's downbeat at 180 degrees: on z^(-2+24i) the GPU's float32 z^alpha needs |24 theta| < 88 on the branch, so the cut must be near 180 degrees",
+  "cutDeg": 180,
+  "_turnPast": "a turn of the melody goes this far (turns of arg F) past the last line it reaches, at most 42 % of the way to the next line (the harp's Schmitt band is 1/96 turn)",
+  "turnPast": 0.06,
+  "_crossSlope": "arg F crosses a written note's line at least this fast (turns a beat): the Schmitt band is passed within 0.017 beat (10 ms at the start, 5 ms at the end)",
+  "check": {
+    "pxPerUnit": 128,
+    "arcPx": 4
+  },
+  "_check": "the generator's report 'look': the drawing at the phone's scale (128 px a unit): the most it turns within any 4 px of arc, its smallest radius over such an arc, and the narrowest gap between neighbouring turns, in px (review picture-3, picture-4)"
+}

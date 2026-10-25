@@ -159,6 +159,31 @@ if (!PHONE) {
   for (const k of ['edit', 'tools', 'display', 'more']) { await tryEv(`(Phone.open(${JSON.stringify(k)}), 1)`); await S('phone sheet ' + k, 800); await tryEv('(Phone.close(true), 1)'); await sleep(300); }
   await tryEv(`(Phone.open('edit', { params: true }), 1)`); await S('phone sheet numbers', 800); await tryEv('(Phone.close(true), 1)');
 }
-const left = left0.concat(await ev(`__i18nLeft()`));
+const left15 = await ev(`__i18nLeft()`);
+// v16 (review v16 regress-8): the deformation range's interface: the transport with a bracket (push-forward, pullback,
+// t = 0.5), a card's ⋯ → Deformation ▸ with its "from …" keys (desktop), the palette's range commands, the phone's
+// Deformed steps row in the Display sheet, the bracket's aria text, and the Mountain King example's hint
+const ns16 = `xbi-walk16-${W}-${Date.now()}`;
+const ST16 = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', srcView: { cx: 0, cy: 0, s: 90 },
+  shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [1, 1] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'pown', params: { n: 2 }, on: true }, { type: 'sin', params: {}, on: true }] };
+await ev(`localStorage.setItem('complex-map-workbench-v1:${ns16}', ${JSON.stringify(JSON.stringify(ST16))}), 1`);
+await nav(`${BASE}test.html?ns=${ns16}&lang=ru`); await sleep(4000);
+await ev(SCAN);
+await tryEv(`(__cmwMorph({ open: true, playing: false }), 1)`); await S('v16 transport', 900);
+await tryEv(`(__cmwMorph({ range: { a: 2, b: 3 } }), 1)`); await S('v16 bracket 2-3 push-forward', 900);
+await tryEv(`(__cmwMorph({ T: 0.5 }), 1)`); await S('v16 bracket 2-3 t = 0.5', 600);
+await tryEv(`(__cmwMorph({ range: { a: 1, b: 2 } }), 1)`); await S('v16 bracket 1-2 pullback', 900);
+if (!PHONE) {
+  for (const k of [2, 3]) {
+    await tryEv(`await (async () => { document.querySelector('#pipeline .card[data-k="${k}"] .more').click(); await new Promise((r) => setTimeout(r, 400)); const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /^(Deformation|Деформация)/.test((x.querySelector('.mi-label') || x).textContent.trim())); if (b) b.click(); return 1; })()`);
+    await S('v16 card ' + k + ' Deformation submenu', 500); await esc();
+  }
+  for (const q of ['прообраз', 'скобк', 'bracket']) { await key('k', 4); await sleep(500); await type(q); await S('v16 palette ' + q, 600); await key('Escape'); await sleep(200); }
+} else {
+  await tryEv(`(Phone.open('display'), 1)`); await S('v16 phone Display sheet, Deformed steps', 900); await tryEv('(Phone.close(true), 1)'); await sleep(300);
+}
+const mkI = await tryEv(`(() => { for (let i = 0; i < 40; i++) { try { __cmwExample(i); } catch (e) { return -1; } if (__cmwState && document.querySelector('#examplesBtn .exlabel') && /горного|mountain/i.test(document.querySelector('#examplesBtn .exlabel').textContent)) return i; } return -1; })()`);
+await S('v16 Mountain King and its hint', 1500);
+const left = left0.concat(left15, await ev(`__i18nLeft()`));
 const logsNow = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404/.test(JSON.stringify(l))).slice(0, 8);
 return { w: W, dark: DARK, chapters: chapters.length, n: left.length, errors: logsNow, left };

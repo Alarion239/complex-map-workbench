@@ -21,7 +21,11 @@ see what they do:
 - **Deformation**: a toggle that morphs every view along natural homotopies from z to F(z) (analytic at every
   moment, on F's own branches), one step after another or all at once, with live paths t ↦ H_t(z) that can be
   switched off.
+  A bracket over the chain cards chooses which steps deform: the steps before it act first and the steps after it act
+  last, so you can watch f(z) become f(√z) (a pullback) or push an image you already have forward.
 - **Zeros and poles**: a step a·∏(z − z_k)/∏(z − p_j) whose zeros (dots) and poles (crosses) you drag in the plane.
+- **Constructions**: circles through 3 points, lines through 2, intersections, midpoints and bisectors, built from any
+  point on the page (points, shape corners, zeros and poles, crossings of curves); they follow what they are built on.
 - Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves, and
   guarantees (analytic, injective, …) that are only lit when they are proven.
 - **Figure export** (⌘E): article-grade PDF, SVG and PNG for every view, with presets for articles (one or two
@@ -30,7 +34,8 @@ see what they do:
 - **Sound**: small struck, plucked and blown interface and event cues (on by default after the first click), and an
   optional "hear the function": a phase harp plucks a note each time arg F under the pointer crosses one of five
   phase lines (a rising scale round a zero, a falling one round a pole; the low Ds count the winding number), also
-  while the deformation plays; a closed curve sings its winding number as one note.
+  while the deformation plays; a closed curve sings its winding number as one note. The example "In the Hall of the Mountain King"
+  plays Grieg's theme (public domain) along one spiral under z^(−2+24i).
 - **Guided tour** from the Help button, suggested once on first opening.
 - **Russian**: the interface follows the browser's language (or the globe button), with Russian notation
   (tg, sh, ch, …) and Russian figure captions.

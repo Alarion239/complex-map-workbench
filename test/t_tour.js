@@ -29,8 +29,8 @@ function namesIn(section) {
   return out;
 }
 // (v15: the names the new layout adds are in their own tables, so the v14 gate's copy of this test still passes)
-const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15')]);
-const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added in v15')]);
+const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)')]);
+const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)')]);
 ok('INTEGRATION.md lists anchors', DOC_ANCHORS.size >= 20, [...DOC_ANCHORS]);
 ok('INTEGRATION.md lists events', DOC_EVENTS.size >= 10, [...DOC_EVENTS]);
 for (const k of Object.keys(T.ANCHORS)) ok(`anchor ${k} of the default map is documented`, DOC_ANCHORS.has(k));
@@ -46,9 +46,10 @@ for (const m of ['Tour.init', 'Tour.start', 'Tour.suggest', 'Tour.isSeen', 'Tour
 const CH = T.CHAPTERS;
 const steps = CH.flatMap((c) => c.steps.map((s) => Object.assign({ ch: c.id }, s)));
 // (v15: an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
-ok('5 to 8 chapters', CH.length >= 5 && CH.length <= 8, CH.length);
-ok('20 to 40 steps', steps.length >= 20 && steps.length <= 40, steps.length);
-check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'deform', 'analysis', 'branches', 'export', 'keys']);
+// (v16: a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
+ok('5 to 9 chapters', CH.length >= 5 && CH.length <= 9, CH.length);
+ok('20 to 44 steps', steps.length >= 20 && steps.length <= 44, steps.length);   // (v16: + the deformation range's stop)
+check('chapter order', CH.map((c) => c.id), ['basics', 'views', 'edit', 'construct', 'deform', 'analysis', 'branches', 'export', 'keys']);   // (v16: Constructions)
 ok('basics: 8 to 10 steps (about two minutes)', CH[0].steps.length >= 8 && CH[0].steps.length <= 10, CH[0].steps.length);
 ok('basics: at most 4 Try its (two minutes, as the suggestion promises)', CH[0].steps.filter((s) => s.try).length <= 4, CH[0].steps.filter((s) => s.try).map((s) => s.id));
 ok('no chapter over 6 steps but Basics', CH.slice(1).every((c) => c.steps.length <= 6), CH.map((c) => c.steps.length));
@@ -82,7 +83,7 @@ for (const s of steps) {
   for (const a of s.anchor == null ? [] : [].concat(s.anchor, s.also || [])) ok(`${id}: anchor ${a} is in the contract`, DOC_ANCHORS.has(a) && a in T.ANCHORS, a);
   if (s.place) ok(`${id}: place is a side`, ['right', 'left', 'bottom', 'top'].includes(s.place), s.place);
   for (const a of s.before || []) {
-    ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'deform', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane'].includes(a[0]), a);
+    ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'deform', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);
     if (a[0] === 'select') ok(`${id}: select value`, a[1] === 'F' || (Number.isInteger(a[1]) && a[1] >= 1), a);
     if (a[0] === 'plane') ok(`${id}: plane value`, ['L', 'R'].includes(a[1]), a);
     if (a[0] === 'scene') ok(`${id}: scene ${a[1]} exists`, [].concat(a[1]).every((k) => !!T.SCENES[k]), a[1]);

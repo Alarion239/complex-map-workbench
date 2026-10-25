@@ -1,0 +1,38 @@
+{
+ "_about": "v16 review fixes (notes/workflows/ledger-v16.json): strings added while fixing review-v16-*.json. id -> {en, ru, note}. Read by tools/make_ru_table.py (v16-*.json).",
+ "fix.coincide": {
+  "en": "The curves coincide here, so their crossings are not defined",
+  "ru": "Здесь кривые совпадают, поэтому их точки пересечения не определены",
+  "note": "Reason of an undefined crossing point (constructions): a 3-point circle whose points are collinear to rounding met with that line (review math-5)."
+ },
+ "fix.br_line": {
+  "en": "Drag either end to choose the deformed steps",
+  "ru": "Перетащите любой конец, чтобы выбрать деформируемые шаги",
+  "note": "Tooltip of the deformation bracket's line over the cards (review user-3)."
+ },
+ "fix.mk_hint": {
+  "en": "Right-click the spiral, then Listen along.",
+  "ru": "Щёлкните спираль правой кнопкой и выберите «Слушать вдоль кривой».",
+  "note": "Toast when the Mountain King example opens (desktop); its button is Listen (review user-5). Keep the menu item's name as the v15.2 table has it."
+ },
+ "fix.mk_hint_ph": {
+  "en": "Hold the spiral, then Listen along.",
+  "ru": "Удерживайте палец на спирали и выберите «Слушать вдоль кривой».",
+  "note": "The same toast on a phone (touch)."
+ },
+ "fix.listen": {
+  "en": "Listen",
+  "ru": "Слушать",
+  "note": "The toast's button: turns sound on if needed and listens along the spiral."
+ },
+ "fix.listening": {
+  "en": "Listening along {name} · Esc stops",
+  "ru": "Звучит вдоль кривой «{name}» · Esc — стоп",
+  "note": "Chip over the X plane while a curve is listened along; {name} the curve's name (Spiral)."
+ },
+ "fix.listening_ph": {
+  "en": "Listening along {name}",
+  "ru": "Звучит вдоль кривой «{name}»",
+  "note": "The same chip on a phone (no Esc key)."
+ }
+}

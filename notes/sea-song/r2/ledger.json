@@ -1,0 +1,145 @@
+{
+  "_about": "Round 2's review fixes (review-pitch.json, review-picture.json), built in work/xvsea on top of round 2. Measures: notes/sea-song/r2/r3-measure (accept.py, accept-desktop.json, accept-m4a.json, rec-cues.json). Round 2's recording is kept as r2/round2.m4a.",
+  "tests": {
+    "t_seasong.js": "66/66 (new checks: one string a note with its octave partial at dbl, exact tuning, harmonic partials with fixed phases, per-crossing caps 1/4, string keys, the pointer harp's D accent on one string and its copies in quadrature)",
+    "t_sound.js": "122/122",
+    "sound_cmd.js (CDP, port 9314)": "pass, 0 fails; harp lab note -33.04, D -29.88 LUFS-M (D - E 3.16), loss 1.59, run -32.1, first 0.205",
+    "pointer harp, seeds 1-8 (the lab's LUFS-M)": "E -34.09 to -32.90, D -30.97 to -29.88, D - E 2.58 to 3.67 dB, first 0.17 to 0.21: all inside the lab's windows (round 2: D - E -0.5 to +6.6, E spread 4.3 dB)",
+    "sound_v152_cmd.js": "pass, 0 fails",
+    "seasong_cmd.js": "pass, 0 fails; new: 1366x768, 1280x720, 1024x768, 1024x700, 768x1024 all with the spiral above the style bar and 0 points under it; desktop 60 fps p95 17.1 ms, phone light/dark/RU 60 fps p95 18.3 to 19.6 ms",
+    "build": "twice, same bytes; no machine paths",
+    "make_ru_table.py": "not re-run: no user-visible string changed (only comments and code), so the table and the tour's Sound-step strings are untouched",
+    "perf baselines, accepted.json, goldens": "unchanged"
+  },
+  "recording": {
+    "file": "notes/sea-song/mountain-king.m4a (re-recorded: the sound changed), 26.0 s, AAC 324 KB, worklet engine, 48 kHz, late 0, gaps 0, 94 cues = 90 strings + 4 ticks, at most 4 strings at once, 86 damped",
+    "pitch-1 seconds": "loudest ringing 2nd 50 ms after each onset: worst -25.1 dB, 0 of 60 over -20 dB (round 2: 19 of 90 at -6 dB or louder)",
+    "pitch-2 octave": "octave against fundamental over each theme note's span: -6.29 to -4.04 dB, median -5.1, spread 2.25 dB (round 2: -20.4 to -2.7)",
+    "pitch-2/5 ring-out": "final chord, after the decay trend: B4 3.0 dB, D5 0.1 dB, F#5 2.3 dB residual; B4 and D5 decay with no rise at all, F#5 one 1 dB rise (two coincident partials with different decays), no beat (round 2: 29 to 31 dB of slow AM)",
+    "decoded m4a": "the same: worst 2nd -25.2 dB, octave spread 2.26 dB, ring-out 3.05 / 0.1 / 2.57 dB",
+    "level": "peak -21.7 dBFS; RMS -42.3, -38.5, -35.7 dBFS by statement, coda -34.9 (rise 6.6 dB); main-note peaks -32.2, -28.6, -26.3, -25.5; onsets at most 9.8 ms from the score",
+    "not done": "no phone-emulation recording this round (same worklet engine and score); no Android phone listen"
+  },
+  "findings": [
+    {
+      "id": "pitch-1",
+      "status": "fixed",
+      "what": "The theme keeps one note ringing: each new note damps the one before (30 ms raised cosine, the engine's steal fade) as a harpist damps a staccato line; the coda's chords keep four. listen.cap is now one value per crossing (theme 1, coda 4) from the score's strings {theme: 1, coda: 4}; harpStep reads cap[k].",
+      "where": [
+        "src/sound.js harpStep (o.cap per crossing)",
+        "tools/melody_curve.js listen.cap",
+        "tools/melodies/mountain-king.json strings",
+        "src/app.js sndListen comment"
+      ],
+      "evidence": "Recording: loudest ringing 2nd at onset + 50 ms is -25.1 dB at worst, 0 of 60 seconds-cases over -20 dB (want <= -20). Engine stat: at most 4 strings at once."
+    },
+    {
+      "id": "pitch-2",
+      "status": "fixed",
+      "what": "One string a note: the octave for small speakers is the string's own 2nd partial at dbl (0.56, -5 dB) of the fundamental, with the fundamental's decay, so it is a steady doubling; no second string, no near-unison. Tuned harp strings have harmonic partials (exactly n f) and fixed start phases (by the partial's odd part, so n and 2n start alike), not random ones.",
+      "where": [
+        "src/sound.js pluck (o.tune, o.oct, PH_ODD)",
+        "src/sound.js pieceNote",
+        "tools/melodies/mountain-king.json octave"
+      ],
+      "evidence": "Octave level over each theme note: -6.29 to -4.04 dB (spread 2.25, want within +-1.5). Final chord ring-out: B4 3.0, D5 0.1, F#5 2.3 dB after the decay trend, monotone in B4 and D5 (want <= 3; round 2: 29-31 dB). t_seasong checks one string a note, dbl exact, harmonic partials, fixed phases."
+    },
+    {
+      "id": "pitch-3",
+      "status": "fixed",
+      "what": "The pointer harp's D accent is folded into its D4 copy: one string at hypot(w, 0.5) of the note's level (the power two independent strings have on average), never a second string at the same pitch. Each octave copy starts a quarter turn on from the copy below, so its partials meet the lower copy's in quadrature and add in power every time; no random phase decides a crossing's balance.",
+      "where": [
+        "src/sound.js harpNote",
+        "src/sound.js pluck (o.ph0)",
+        "src/sound.js harpString"
+      ],
+      "evidence": "Seeds 1-8 in the lab: D - E 2.58 to 3.67 dB, E within 1.2 dB (round 2: D - E -0.5 to +6.6, E 4.3 dB). The D4 copy is one deterministic string, so repeated identical D crossings differ only by the strings' own +-1 dB; with |F| = 1 its level is 1.26 hypot(0.36, 0.5) = 0.78 of the note's against E's E4 copy 0.49: +4.0 dB (want >= +2). Re-recorded by the verifier on the pointer loop (review-verify/pointer.m4a): D4 within 0.7 dB loop to loop, 5.2 to 5.7 dB over the E4 copy. t_seasong: a D has one string a pitch."
+    },
+    {
+      "id": "pitch-4",
+      "status": "fixed",
+      "what": "No random detune for a piece's notes: a pitch is always the same frequency (MIDI with the score's tuning). Each string carries its note as a key, and the worklet damps a string plucked again before it sounds (30 ms), as a harpist re-plucks one string. In the theme the cap of 1 also damps every re-strike.",
+      "where": [
+        "src/sound.js Synth.start (cue.key)",
+        "src/sound.js pieceNote, harpString (key)"
+      ],
+      "evidence": "t_seasong: every string keyed by its note; exact pitches (0 cents off the tuned value). Recording ring-out shows no swell (B4, D5 no rise)."
+    },
+    {
+      "id": "pitch-5",
+      "status": "fixed",
+      "what": "The score's tuning: F# is a just fifth over B (+1.955 cents), every other pitch equal temperament. With harmonic partials, B3's 3rd partial is exactly F#4's 2nd: the final chord's fifth does not beat. 2 cents is inaudible in the melody.",
+      "where": [
+        "tools/melodies/mountain-king.json tuning",
+        "tools/melody_curve.js (listen.note: MIDI with the tuning as a fraction, 66.01955)"
+      ],
+      "evidence": "F#5 band in the ring-out: 2.3 dB residual after the decay, one 1 dB rise, no periodic beat (round 2: about 1 Hz beat, 29 dB)."
+    },
+    {
+      "id": "pitch-6",
+      "status": "no change needed",
+      "what": "Information only. Pitch, timing, dynamics and the ending stay as measured: onsets at most 9.8 ms from the score, crescendo 6.6 dB by statement, peak -21.7 dBFS."
+    },
+    {
+      "id": "picture-1",
+      "status": "fixed",
+      "what": "As pitch-3, then re-levelled: LV.harp 0.0831 (was 0.0918) and PIECE_G 1.38 (was 1.25) so the piece keeps round 2's level. test/sound_lab.js now says that harpNote's argument is semitones above D (note(2) is E, note(0) D). sound_cmd.js is in this round's checks.",
+      "where": [
+        "src/sound.js LV, PIECE_G, harpNote",
+        "test/sound_lab.js comment"
+      ],
+      "evidence": "sound_cmd.js: pass, 0 fails (note -33.04, d -29.88, first 0.205). Seeds 1-8 all inside -32 +- 2.5 with D 2 to 5 dB over E. All-zero phases were tried first and failed the soft-start check (first 0.55: the copies started rising together); golden-ratio phases gave first 0.37 and 3 dB lower levels; the quarter-turn rule gives 0.17 to 0.21."
+    },
+    {
+      "id": "picture-2",
+      "status": "fixed",
+      "what": "exFitTo keeps the plane's style bar clear in pixels: on a desktop it measures the bar (at least 40 px) plus 8 px, fits the box in the height above it and centres it there; a phone (:root.ph) has no bar on the plane. The fit box lost its 0.27 world margin for the bar: y0 -1.51 (0.12 below the curve, as on the other sides).",
+      "where": [
+        "src/app.js exFitBarPx, exFitTo",
+        "tools/melodies/mountain-king.json example.fit",
+        "test/seasong_cmd.js (new sizes)"
+      ],
+      "evidence": "seasong_cmd.js: 0 stored points inside the bar's box and the curve's lowest point 24 to 28 px above the bar at 1366x768, 1280x720, 1024x768, 1024x700 and 768x1024 (round 2: 11 to 19 points under it); 1440x900 and phones pass as before."
+    },
+    {
+      "id": "picture-3",
+      "status": "rejected with evidence (partly addressed)",
+      "what": "The generator now reports the drawing in screen terms (look: the most it turns within 4 px of arc at 128 px a unit, its smallest radius, the narrowest gap between turns) instead of only turnMaxDeg. The curve itself is unchanged.",
+      "where": [
+        "tools/melody_curve.js shape(), report look",
+        "tools/melodies/mountain-king.json check"
+      ],
+      "evidence": "Report: 33.3 deg within 4 px at 128 px/unit, smallest radius 6.1 px (the review's 33 deg / 4.4-6 px). Why not fixed: the bends are where the phase must cover a 4-semitone leap plus a turn within one eighth of statement 3 (F# D F#, C# E#, E C) at the curve's constant speed. A search over the phase design (turn travel 0.06 to 0.16, room 0.42 to 0.8, eased turns, crossing slope 0.5 to 0.8) gave at best 28 deg; more travel or a lower slope made it worse or infeasible (no constant-speed solution). z^(-3+48i) is not usable: the GPU's float32 z^alpha needs |beta theta| < 88 on the branch, and beta = 48 gives up to 48 pi = 151. Fixing it needs a new phase design (a minimum-acceleration phase through the notes), a round of its own."
+    },
+    {
+      "id": "picture-4",
+      "status": "rejected with evidence, for the user",
+      "what": "Measured now (look.gapPx, 4.2 px at 128 px/unit between the curve's end and the third turn); the coda not changed.",
+      "where": [
+        "tools/melody_curve.js shape()"
+      ],
+      "evidence": "An ascending octave roll multiplies r by e^(2 pi/24) = 1.30, which is exactly the spacing between turns, so the last up-roll always comes back to the turn outside it unless theta advances by most of a turn while it rolls. Search: a shorter tail gives 5.5 px; 10 px needs a much slower coda (codaSlow 2.0, rolls 0.45 beat: 8.6 px, +1 s). The options that work change the music the user approved: end on a falling roll (B4 F#4 D4 B3) or on a three-note chord. Left for the user to choose."
+    },
+    {
+      "id": "picture-5",
+      "status": "fixed",
+      "what": "The comment in EX now says the curve spirals into 0 under SEASONG.tex, with no exponent.",
+      "where": [
+        "src/app.js EX"
+      ]
+    },
+    {
+      "id": "picture-6",
+      "status": "fixed",
+      "what": "test/regress/quality/out deleted; its compare.json kept as notes/sea-song/r2/quality-compare.json. test/regress now equals the merge base.",
+      "where": [
+        "work/xvsea/test/regress"
+      ]
+    }
+  ],
+  "open": [
+    "Listen on the Android phone: the theme is now a damped line (one note at a time) with a steady -5 dB octave.",
+    "picture-3: a new phase design for gentler bends in statement 3 and the coda.",
+    "picture-4: the user's choice of ending (falling final roll, or three-note chord) if the near-touch at the end matters."
+  ]
+}

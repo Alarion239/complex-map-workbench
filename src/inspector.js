@@ -562,7 +562,9 @@ const Inspector = (() => {
       if (!skeleton()) return;
       mountParams();
       const sel = A.sel();
-      const sig = sigOf(sel);
+      // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
+      const cmSig = typeof Construct !== 'undefined' && (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
+      const sig = cmSig || sigOf(sel);
       if (sig !== cur.sig || cur.stale || !cur.el || !selSec.contains(cur.el.root)) {
         // (a field being typed in keeps its place: a zero emptied while typing drops out of the list until the
         // field is left, so the editor waits for that instead of rebuilding under the caret)
@@ -572,13 +574,13 @@ const Inspector = (() => {
         } else {
           selSec.innerHTML = '';
           cur.stale = false;
-          cur.el = sel === 'F' ? buildF() : sel ? buildStep(sel) : buildRegion();
+          cur.el = cmSig ? Construct.inspectorBuild() : sel === 'F' ? buildF() : sel ? buildStep(sel) : buildRegion();
           selSec.append(cur.el.root);
           cur.sig = sig;
         }
       }
       const E = cur.el;
-      if (E.kind === 'step') fillStep(E); else if (E.kind === 'F') fillF(E); else fillRegion(E);
+      if (E.kind === 'construct') Construct.inspectorFill(E); else if (E.kind === 'step') fillStep(E); else if (E.kind === 'F') fillF(E); else fillRegion(E);
     }
     // the step editor's parameter block again (zeros or poles added or removed)
     function refreshParams(k) {

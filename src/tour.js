@@ -85,6 +85,13 @@ const Tour = (() => {
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }, { kind: 'circle', c: [0, 0], r: 1, bind: { r: 'a' } }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-a^2}{z^2+1}', cut: 180 } }],
     },
+    // v16 constructions: 1/z, three free points z₀, z₁, z₂ and the line through z₀ and z₁ (its ends bound to them)
+    construct: {
+      name: 'Constructions', needs: 'constructions', view: { cx: 0, cy: 0, s: 80 }, look: look(),
+      shapes: [{ kind: 'point', id: 'tc0', p: [-1.5, -0.5] }, { kind: 'point', id: 'tc1', p: [1, -1] }, { kind: 'point', id: 'tc2', p: [0.25, 1.25] },
+        { kind: 'line', id: 'tc3', a: [-1.5, -0.5], b: [1, -1], at: { a: { s: 'tc0' }, b: { s: 'tc1' } } }],
+      steps: [{ type: 'recip', params: {} }],
+    },
   };
 
   // Copy markup: $tex$, {K} a key (kbd), **bold**. {mod} is ⌘ on Apple devices and Ctrl elsewhere.
@@ -185,7 +192,23 @@ const Tour = (() => {
       ],
     },
     {
-      id: 'deform', title: 'Deformation', time: '1 min', rev: 1, scene: 'strip',
+      // v16 (notes/constructions-v16/SPEC.md 16): circles through three points, following, snapping to crossings
+      id: 'construct', title: 'Constructions', time: '1 min', rev: 1, scene: 'construct',
+      steps: [
+        { id: 'c3', anchor: ['constructTools', 'tools', 'toolsRail'], also: ['paneL'], title: 'Circle through three points', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L']],
+          body: 'Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.',
+          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3' } },
+        { id: 'follow', anchor: 'paneL', title: 'It follows its points', place: 'right', before: [['tool', 'select'], ['plane', 'L']],
+          body: 'Drag $z_2$ across the line through $z_0$ and $z_1$: the disc becomes a half-plane, then the outside of the circle. Its image under $1/z$ follows.',
+          try: { text: 'Drag $z_2$ across the line.', on: 'construct-family', test: (e) => !e || e.kind === 'halfplane' || e.kind === 'complement' } },
+        { id: 'meet', anchor: 'paneL', title: 'Intersections', place: 'right', before: [['plane', 'L']],
+          body: 'Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Hold Alt to place freely. Intersect marks a crossing.',
+          touch: 'Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Turn Snap off in the tools sheet to place freely.',
+          try: { text: 'Draw a line from a crossing.', on: 'shape-added', test: (e) => !e || !!e.bound } },
+      ],
+    },
+    {
+      id: 'deform', title: 'Deformation', time: '1 min', rev: 2, scene: 'strip',
       steps: [
         { id: 'toggle', anchor: 'deformToggle', title: 'Deformation', place: 'bottom', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['deform', false]],
           body: 'Plays a homotopy $H_t$ from the identity to $F$, step by step, in every view. In X → Y the two panes merge into one plane.',
@@ -200,6 +223,10 @@ const Tour = (() => {
         // (on a phone the order select is in the Display sheet while the deformation shows)
         { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', place: 'top', before: [['deform', true], ['panel', 'sheet', 'display']],
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.' },
+        // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
+        { id: 'range', anchor: 'bracketL', title: 'Part of the chain', place: 'top', before: [['deform', true], ['range', null]],
+          body: 'The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.',
+          try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2 } },
       ],
     },
     {
@@ -282,9 +309,13 @@ const Tour = (() => {
   const ANCHORS = {
     examples: '#examplesBtn', palette: '#cmdBtn', exportBtn: '#exportBtn', helpBtn: '#helpBtn', moreBtn: '#hdrMoreBtn',
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
+    // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
+    constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
     'tool:disc': '.tool[data-tool="disc"]', formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
     patterns: '#patternSeg', chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
+    // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
+    bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : document.querySelector('#pipeline'); },
     // (v15: the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
     // which the app's api.anchor does for these names)
     rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
@@ -1483,7 +1514,7 @@ const Tour = (() => {
     return k.find((x) => !(SCENES[x] && [].concat(SCENES[x].needs || []).some(featureOff))) || k[k.length - 1];
   }
   // the actions that change the scene or the view: only when the tour can put the user's work back (borrow)
-  const CHANGES = new Set(['scene', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look', 'select', 'plane']);
+  const CHANGES = new Set(['scene', 'range', 'view', 'surface', 'deform', 'focus', 'panel', 'tool', 'look', 'select', 'plane']);
   function absent(ci, si, scenes) {
     const ch = CHAPTERS[ci], st = ch.steps[si], k = sceneAt(ch, si), sc = k != null ? SCENES[k] : null;
     if (scenes === false && (k != null || (st.before || []).some((a) => CHANGES.has(a[0])))) return true;
@@ -1515,7 +1546,7 @@ const Tour = (() => {
     r.scene = key; r.sceneOk[key] = ok;
     return ok;
   }
-  const ACTIONS = { view: 'setView', surface: 'setSurface', deform: 'setDeformation', focus: 'focusStep', panel: 'showPanel', tool: 'setTool', look: 'setLook', select: 'selectStep', plane: 'showPlane' };
+  const ACTIONS = { range: 'setRange', view: 'setView', surface: 'setSurface', deform: 'setDeformation', focus: 'focusStep', panel: 'showPanel', tool: 'setTool', look: 'setLook', select: 'selectStep', plane: 'showPlane' };
   function act(r, a) {
     const [name, ...args] = a;
     if (name === 'scene') return loadScene(r, pickScene(args[0]));

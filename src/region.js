@@ -403,8 +403,45 @@ const Region = (() => {
     tex: (s) => { try { return Expr.toTex(Expr.parse((s.bind && s.bind.expr) || s.expr, { allowRel: true })).s; } catch (e) { return $t('\\text{invalid}'); } },
   };
 
+  // ---------- v16: the exact gcircle form (notes/constructions-v16/SPEC.md 2.2) ----------
+  // Region.formOf(s): the runtime form s._g of a constructed circle, line, disc or half-plane ({o, A, B, C}: f(z) =
+  // A|z - o|^2 + 2 Re(conj(B)(z - o)) + C, f < 0 on its left side, the region), else the form of the shape's own
+  // fields (Constr.formOfFields: disc, circle, half-plane, line), else null (other kinds, or no constr.js)
+  function formOf(s) {
+    if (s && s._g) return s._g;
+    return typeof Constr !== 'undefined' && Constr.formOfFields ? Constr.formOfFields(s) : null;
+  }
+  // the level -f/2 of a form: positive inside, the signed distance near the curve at any radius (float64, relative
+  // to the anchor o, so no centre far away enters)
+  function formLevel(G) {
+    const ox = G.o[0], oy = G.o[1], A = G.A, bx = G.B[0], by = G.B[1], c0 = G.C;
+    return (z) => { const ux = z.re - ox, uy = z.im - oy; return -0.5 * (A * (ux * ux + uy * uy) + 2 * (bx * ux + by * uy) + c0); };
+  }
+  // a gcircle disc (or its complement) or half-plane: its region is the form's left side (the complement is in the form)
+  const gArea = (s) => !!(s && s._g && (s.kind === 'disc' || s.kind === 'halfplane'));
+  // circles far larger than the window (r > MR_RATIO x its diagonal), and gcircles, are drawn as M(R) (SPEC 2.2 [C7]):
+  // dense near the view, geometric beyond, the far arc through the antipode present (160 equal angles would put no
+  // sample in the window, and 1/z maps the far arc next to 0)
+  const MR_RATIO = 50;
+  function mrCurve(G, win) {
+    const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
+    const H = Constr.reanchor(G, [cx, cy]), H0 = Object.assign({}, H, { C: 0 });
+    const f = (s) => { const z = Constr.mR(H0, diag * Math.tan(Math.PI * (s - 0.5))); return z === Constr.INF ? C(NaN, NaN) : C(z[0], z[1]); };
+    return { f, n0: 400, closed: true, gform: G, gsamp: (w, step) => Constr.sampleMR(G, w || win, step) };
+  }
+  // (review regress-2: constructions only, s._g; a plain v15 circle or disc keeps v15.1's sampling and cost)
+  function bigCircle(s, win) {
+    if (!win || !s._g || !(s.kind === 'circle' || s.kind === 'disc') || typeof Constr === 'undefined' || !Constr.sampleMR) return null;
+    const G = formOf(s);
+    if (!G || G.A === 0) return null;
+    const diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
+    if (!(1 / Math.abs(G.A) > MR_RATIO * diag) || !Number.isFinite(diag)) return null;
+    return mrCurve(G, win);
+  }
+
   // ---------- shape API ----------
   function levelOf(s) {
+    if (gArea(s)) return formLevel(s._g);
     const L = K[s.kind].level(s);
     return s.complement ? (z) => -L(z) : L;
   }
@@ -416,6 +453,8 @@ const Region = (() => {
   // o: {reach: 'far' (default: every caller but the settle-time line refinement) | 'sphere'} (SPEC 9.1)
   function curvesOf(s, win, o) {
     const k = K[s.kind];
+    const big = bigCircle(s, win);
+    if (big) return [big];
     if (k.type === 'curve') return k.curves(s, win, o);
     if (k.type === 'area' && k.boundary) return k.boundary(s, win, o);
     return [];
@@ -767,6 +806,7 @@ const Region = (() => {
   function sampleCurve(c, win, o) {
     const diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
     const step = diag / 700;
+    if (c.gsamp) return c.gsamp(win, step);
     const out = [];
     const push = (z) => out.push(z.re, z.im);
     if (c.long) {
@@ -1442,6 +1482,12 @@ const Region = (() => {
   }
   function clipPrimitive(s) {
     if (!s || !K[s.kind] || K[s.kind].type !== 'area') return null;
+    // a gcircle disc: the form itself ('g': {f < 0}, A > 0); its complement: the flipped form as the hole (v16)
+    if (gArea(s) && s._g.A !== 0) {
+      const G = s._g;
+      if (G.A > 0) return { in: [{ t: 'g', G }], hole: null, exact: true };
+      return { in: [], hole: [{ t: 'g', G: { o: G.o, A: -G.A, B: [-G.B[0], -G.B[1]], C: -G.C } }], exact: true };
+    }
     if (!s.complement) return basePrimitive(s);
     switch (s.kind) {
       case 'halfplane': return { in: [{ t: 'half', a: [s.a[0], s.a[1]], d: [s.a[0] - s.b[0], s.a[1] - s.b[1]] }], hole: null, exact: true };
@@ -1475,6 +1521,22 @@ const Region = (() => {
   const EMPTY_T = { lo: Infinity, hi: -Infinity };
   function clipPiece(pc, z0, q, m) {
     const qq = q.re * q.re + q.im * q.im;
+    if (pc.t === 'g') {
+      // {t : f(z0 + t q) < 2m} (f / 2 is the signed distance near the curve): a t^2 + b t + c < 0 with a = A|q|^2 >= 0,
+      // in coordinates relative to the anchor (v16, SPEC 2.2)
+      const G = pc.G, ux = z0.re - G.o[0], uy = z0.im - G.o[1];
+      const a = G.A * qq, b = 2 * (G.A * (ux * q.re + uy * q.im) + G.B[0] * q.re + G.B[1] * q.im);
+      const c = G.A * (ux * ux + uy * uy) + 2 * (G.B[0] * ux + G.B[1] * uy) + G.C - 2 * m;
+      if (!(a > 0)) {
+        if (!(Math.abs(b) > 1e-300)) return c < 0 ? { lo: -Infinity, hi: Infinity } : EMPTY_T;
+        const t = -c / b;
+        return b > 0 ? { lo: -Infinity, hi: t } : { lo: t, hi: Infinity };
+      }
+      const D = b * b - 4 * a * c;
+      if (!(D > 0)) return EMPTY_T;
+      const qr = -0.5 * (b + (b >= 0 ? 1 : -1) * Math.sqrt(D)), t1 = qr / a, t2 = c / qr;
+      return { lo: Math.min(t1, t2), hi: Math.max(t1, t2) };
+    }
     if (pc.t === 'disc') {
       // projection form (review P1, finding 6): the foot of the perpendicular from c, t_c = <c - z0, q> / |q|^2, and the
       // distance h = |cross(q, c - z0)| / |q| of c from the line; half chord sqrt((r - h)(r + h)) / |q|. The quadratic
@@ -1561,6 +1623,15 @@ const Region = (() => {
   // null for another kind or a degenerate shape
   function capOf(s) {
     let a, b, d;
+    if (s._g && (s.kind === 'disc' || s.kind === 'circle' || s.kind === 'halfplane' || s.kind === 'line')) {
+      // the region a|z|^2 + 2 Re(conj(b) z) + d > 0 of the form (-f > 0, expanded about 0; v16 [C8])
+      const G = s._g, ox = G.o[0], oy = G.o[1];
+      a = -G.A; b = [-(G.B[0] - G.A * ox), -(G.B[1] - G.A * oy)];
+      d = -(G.A * (ox * ox + oy * oy) - 2 * (G.B[0] * ox + G.B[1] * oy) + G.C);
+      const mu0 = 1 / Math.sqrt(b[0] * b[0] + b[1] * b[1] + (a - d) * (a - d) / 4);
+      if (!Number.isFinite(mu0)) return null;
+      return { C: [mu0 * b[0], -mu0 * b[1], mu0 * (a - d) / 2], h: -mu0 * (a + d) / 2 };
+    }
     if (s.kind === 'disc' || s.kind === 'circle') {
       if (!(s.r > 0)) return null;
       a = -1; b = [s.c[0], s.c[1]]; d = s.r * s.r - (s.c[0] * s.c[0] + s.c[1] * s.c[1]);
@@ -1760,7 +1831,7 @@ const Region = (() => {
   const Globe = { lift, unlift, finiteOf, capFamily, capOf, shapeOfCap, applyCap, rotationTo, rotAxis, rot3, rotateShape, capFrame, rimPoint, rimAngle,
     globeHandlesOf, setGlobeHandle, sphereCurvesOf, globeInside, CAP_INF_EPS, CAP_MIN, HANDLE_FAR, dot3, cross3, norm3 };
 
-  return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, polyCurve: poly, levelOf, bboxOf, curvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
+  return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
     supportOf, clipPrimitive, shapeClip, convexOf, formulaBox, Globe, curveDesc, traceWin, fcurveTrace,
     capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf };
 })();

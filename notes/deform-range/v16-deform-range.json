@@ -1,0 +1,194 @@
+{
+ "_about": "v16 deformation range (notes/deform-range/SPEC.md 11): the bracket over the chain, its ⋯ submenu, palette commands, transport labels, the phone's Deformed steps row, captions, guide and tour. id -> {en, ru, note, en_plural?, plural?}. Russian per GLOSSARY: деформация, гомотопия, шаг/шага/шагов, «сразу» for 'at once' (math.json), en dash in «шаги 1–3», no-break space before «—». Copy to notes/i18n/ru/v16-deform-range.json; read by tools/make_ru_table.py (v16-*.json).",
+ "dr.menu": {
+  "en": "Deformation",
+  "ru": "Деформация",
+  "note": "Submenu label in a card's ⋯ and the Inspector's ⋯ (after Insert d/dz after it)."
+ },
+ "dr.only": {
+  "en": "Only {f}, inside F",
+  "ru": "Только {f} внутри F",
+  "note": "Radio item: bracket = this step alone; {f} is HTML f with subscript. Distinct from Show alone ('{f} alone')."
+ },
+ "dr.steps": {
+  "en": "Steps {f1}–{f2}",
+  "ru": "Шаги {f1}–{f2}",
+  "note": "Radio item: bracket from {f1} to {f2}; en dash."
+ },
+ "dr.every": {
+  "en": "Every step",
+  "ru": "Все шаги",
+  "note": "Radio item: no bracket (today's default)."
+ },
+ "dr.from": {
+  "en": "from {v}",
+  "ru": "от {v}",
+  "note": "Menu key slot: where the deformation starts; {v} is math, e.g. (f₄∘f₃)(w₁). Not shown on the phone."
+ },
+ "dr.drag_l": {
+  "en": "Drag to choose the first deformed step",
+  "ru": "Перетащите, чтобы выбрать первый деформируемый шаг",
+  "note": "Tooltip of the bracket's left end (desktop, tablet)."
+ },
+ "dr.drag_r": {
+  "en": "Drag to choose the last deformed step",
+  "ru": "Перетащите, чтобы выбрать последний деформируемый шаг",
+  "note": "Tooltip of the bracket's right end."
+ },
+ "dr.first": {
+  "en": "First deformed step",
+  "ru": "Первый деформируемый шаг",
+  "note": "aria-label of the left end (role slider) and of the phone's first select."
+ },
+ "dr.last": {
+  "en": "Last deformed step",
+  "ru": "Последний деформируемый шаг",
+  "note": "aria-label of the right end and of the phone's second select."
+ },
+ "dr.pre": {
+  "en": "{list} is applied first, in full",
+  "ru": "Сначала полностью применяется {list}",
+  "note": "Tooltip of the transport's 'f₁ →' label; $tn by the number of steps; {list} is f₁ or f₁–f₂.",
+  "en_plural": "{list} are applied first, in full",
+  "plural": "Сначала полностью применяются {list}"
+ },
+ "dr.post": {
+  "en": "{list} is applied last, in full",
+  "ru": "В конце полностью применяется {list}",
+  "note": "Tooltip of the transport's '→ f₄' label; $tn.",
+  "en_plural": "{list} are applied last, in full",
+  "plural": "В конце полностью применяются {list}"
+ },
+ "dr.aria": {
+  "en": "Deforming step {f}.",
+  "ru": "Деформируется шаг {f}.",
+  "note": "Transport aria-description, first sentence; followed by dr.pre / dr.post as sentences (with a period). $tn.",
+  "en_plural": "Deforming steps {range}.",
+  "plural": "Деформируются шаги {range}."
+ },
+ "dr.why_deriv": {
+  "en": "A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.",
+  "ru": "Шаг d/dz дифференцирует всю цепочку до него, поэтому он не может стоять после деформируемых шагов.",
+  "note": "Reason: tooltip at the drag stop, disabled menu items, the phone row's note."
+ },
+ "dr.why_off": {
+  "en": "Turn this step back on first.",
+  "ru": "Сначала снова включите этот шаг.",
+  "note": "Reason: a disabled Deformation item on a bypassed card."
+ },
+ "dr.row": {
+  "en": "Deformed steps",
+  "ru": "Деформируемые шаги",
+  "note": "Phone Display sheet row label before the two selects; wraps above them at 360 px in Russian."
+ },
+ "dr.cmd_only": {
+  "en": "Deformation: only {f}, inside F",
+  "ru": "Деформация: только {f} внутри F",
+  "note": "Palette command for the selected step."
+ },
+ "dr.cmd_steps": {
+  "en": "Deformation: steps {f1}–{f2}",
+  "ru": "Деформация: шаги {f1}–{f2}",
+  "note": "Palette command."
+ },
+ "dr.cmd_every": {
+  "en": "Deformation: every step",
+  "ru": "Деформация: все шаги",
+  "note": "Palette command."
+ },
+ "dr.aliases": {
+  "en": "part range bracket pullback pull-back precompose push-forward inside under outer inner",
+  "ru": "часть диапазон скобка композиция внутри внешний внутренний прообраз образ",
+  "note": "Palette search aliases of the four commands (space separated; English aliases also match in Russian)."
+ },
+ "dr.label_all": {
+  "en": "steps {range} at once · t = {t}",
+  "ru": "шаги {range} сразу · t = {t}",
+  "note": "State label, all at once with a bracket that is not every step; {t} through I18N.num (decimal comma)."
+ },
+ "dr.cap_head": {
+  "en": "The images of %{set} under %{start}%{mark} and under %{end} (%{pat}), joined by %{hom}.",
+  "ru": "Образы %{set} при отображениях %{start}%{mark} и %{end} (%{pat}); их соединяет %{hom}.",
+  "note": "morphCaption head with a pre or post. %{set}: genitive set phrase (setGen); %{mark}: ' (outlined)' etc. without the serial comma; %{start}: H₀ as math; %{hom}: dr.cap_hom."
+ },
+ "dr.cap_hom": {
+  "en": "the homotopy %{H}, %{range}, where %{G} is %{inner}",
+  "ru": "гомотопия %{H}, %{range}, где %{G} — %{inner}",
+  "note": "morphCaption: H = H_t=f_3∘G_t∘f_1, range 0≤t≤m, G = G_t, inner = the bracketed part (a step's phrase with H renamed G, dr.cap_turn or dr.cap_once). Nominative, as 'их соединяет …'."
+ },
+ "dr.cap_turn": {
+  "en": "the homotopy that runs the steps in turn ({def} on {interval}): ",
+  "ru": "гомотопия, которая выполняет шаги по очереди ({def} при {interval}): ",
+  "note": "Inner part, one after another; def = G_t=H^{(k)}_{t-k+a}, interval = k-a≤t≤k-a+1; the 'for f_k, …' list follows."
+ },
+ "dr.cap_once": {
+  "en": "the homotopy {G} that deforms these steps at once: ",
+  "ru": "гомотопия {G}, деформирующая эти шаги сразу: ",
+  "note": "Inner part, all at once; G = H^{(b)}_t∘⋯∘H^{(a)}_t; the list follows."
+ },
+ "dr.fig_both": {
+  "en": " Here $H_t=%{Q}\\circ G_t\\circ %{P}$, $0\\le t\\le %{m}$, deforms $%{QP}$ ($t=0$) into %{map} ($t=%{m}$): $%{P}$ acts first and $%{Q}$ last, both in full, and $G_t$ is %{hom}.",
+  "ru": " Здесь $H_t=%{Q}\\circ G_t\\circ %{P}$, $0\\le t\\le %{m}$, непрерывно деформирует $%{QP}$ ($t=0$) в %{map} ($t=%{m}$): $%{P}$ действует первым, $%{Q}$ — последним, оба полностью, а $G_t$ — это %{hom}.",
+  "note": "figure.js homSentence with pre and post; %{hom} = inner."
+ },
+ "dr.fig_pre": {
+  "en": " Here $H_t=G_t\\circ %{P}$, $0\\le t\\le %{m}$, deforms $%{P}$ ($t=0$) into %{map} ($t=%{m}$): $%{P}$ acts first, in full, and $G_t$ is %{hom}.",
+  "ru": " Здесь $H_t=G_t\\circ %{P}$, $0\\le t\\le %{m}$, непрерывно деформирует $%{P}$ ($t=0$) в %{map} ($t=%{m}$): $%{P}$ действует первым и полностью, а $G_t$ — это %{hom}.",
+  "note": "figure.js homSentence, pre only (push-forward)."
+ },
+ "dr.fig_post": {
+  "en": " Here $H_t=%{Q}\\circ G_t$, $0\\le t\\le %{m}$, deforms $%{Q}$ ($t=0$) into %{map} ($t=%{m}$): $%{Q}$ acts last, in full, and $G_t$ is %{hom}.",
+  "ru": " Здесь $H_t=%{Q}\\circ G_t$, $0\\le t\\le %{m}$, непрерывно деформирует $%{Q}$ ($t=0$) в %{map} ($t=%{m}$): $%{Q}$ действует последним и полностью, а $G_t$ — это %{hom}.",
+  "note": "figure.js homSentence, post only (pullback)."
+ },
+ "dr.fig_film": {
+  "en": "The deformation $H_t$ from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$), at %{ts}.",
+  "ru": "Деформация $H_t$ от $%{QP}$ ($t=0$) до %{map} ($t=%{m}$) при %{ts}.",
+  "note": "Bracket variant of the plane film's first sentence."
+ },
+ "dr.fig_globe_paths": {
+  "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). The figure shows the image of %{list} under $%{F}$ over the boundary of its image at $t=0$ (gray).",
+  "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) от $%{QP}$ ($t=0$) до %{map} ($t=%{m}$). На рисунке показан образ %{list} при отображении $%{F}$ поверх границы его образа при $t=0$ (серая линия).",
+  "note": "Bracket variant of the globe paths figure."
+ },
+ "dr.fig_globe_film": {
+  "en": "The deformation $H_t$ on the Riemann sphere, with $\\infty$ at the north pole, from $%{QP}$ ($t=0$) to %{map} ($t=%{m}$). At %{ts}, the frames show the image of %{list} under $H_t$.",
+  "ru": "Деформация $H_t$ на сфере Римана (точка $\\infty$ — северный полюс) от $%{QP}$ ($t=0$) до %{map} ($t=%{m}$). На кадрах при %{ts} показан образ %{list} при отображении $H_t$.",
+  "note": "Bracket variant of the globe film."
+ },
+ "dr.cap_shown": {
+  "en": " Shown at %{t}, where %{H} deforms %{QP} (%{t0}) into %{map} (%{tm}); it is %{hom}.",
+  "ru": " Показан кадр при %{t}. Здесь %{H} непрерывно деформирует %{QP} (%{t0}) в %{map} (%{tm}); это %{hom}.",
+  "note": "Bracket variant of the Phase/Landscape screen caption (app.js 'Shown at …'); %{hom} = dr.cap_hom."
+ },
+ "dr.guide_1": {
+  "en": "A step shown alone deforms in its own planes; to see it deform inside $F$, bracket it (below).",
+  "ru": "Шаг, показанный отдельно, деформируется в своих плоскостях; чтобы увидеть его деформацию внутри $F$, возьмите его в скобку (см. ниже).",
+  "note": "Guide, end of the Deformation paragraph."
+ },
+ "dr.guide_2": {
+  "en": "<b>Part of the chain.</b> While the deformation shows the whole chain, a bracket stands over the cards. Drag its ends, or choose a card's ⋯ → <b>Deformation</b>; on a phone, use Deformed steps in the Display sheet. Steps before the bracket act first and in full, steps after it last and in full: $H_t=f_3\\circ G_t\\circ f_1$ runs from $f_3\\circ f_1$ at $t=0$ to $F$, while $G_t$ deforms the bracketed steps. Bracket the last steps to watch them deform the image $f_1(X)$ (a push-forward); bracket the first steps to watch them deform under the last ones (a pullback: for $\\sqrt{z}$ then $f$, bracket $\\sqrt{z}$ to go from $f(z)$ to $f(\\sqrt{z})$). The start is outlined, and the plane's title names it.",
+  "ru": "<b>Часть цепочки.</b> Пока деформация показывает всю цепочку, над карточками стоит скобка. Перетащите её концы или выберите в меню ⋯ карточки пункт <b>Деформация</b>; на телефоне — строка «Деформируемые шаги» в панели «Вид». Шаги перед скобкой действуют первыми и полностью, шаги после неё — последними и полностью: $H_t=f_3\\circ G_t\\circ f_1$ идёт от $f_3\\circ f_1$ при $t=0$ до $F$, а $G_t$ деформирует шаги в скобке. Возьмите в скобку последние шаги — и увидите, как они деформируют образ $f_1(X)$; возьмите первые — и увидите, как они деформируются под действием последних (для $\\sqrt{z}$, затем $f$, возьмите в скобку $\\sqrt{z}$: путь от $f(z)$ к $f(\\sqrt{z})$). Начало деформации обведено контуром, его называет заголовок плоскости.",
+  "note": "Guide, new paragraph after the Deformation paragraph. Check «Вид» against the v15 table's name of the phone Display sheet."
+ },
+ "dr.tour_title": {
+  "en": "Part of the chain",
+  "ru": "Часть цепочки",
+  "note": "Tour stop 'range' title (Deformation chapter, rev 2)."
+ },
+ "dr.tour_body": {
+  "en": "The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.",
+  "ru": "Скобка над карточками отмечает деформируемые шаги. Шаги перед ней действуют первыми и полностью, после неё — последними. Возьмите в скобку только $f_2$: дробно-линейное отображение деформирует полуплоскость $f_1(X)$.",
+  "note": "Tour body, ≤ 240 characters (EN 205, RU 216). Scene strip: exp, then (z−1)/(z+1)."
+ },
+ "dr.tour_try": {
+  "en": "Drag the bracket's left end past $f_1$.",
+  "ru": "Перетащите левый конец скобки за $f_1$.",
+  "note": "Tour try (pointer)."
+ },
+ "dr.tour_touch": {
+  "en": "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.",
+  "ru": "В меню ⋯ шага $f_2$ выберите «Деформация», затем «Только $f_2$ внутри $F$».",
+  "note": "Tour try (touch)."
+ }
+}
