@@ -30,6 +30,7 @@ const GLR = (() => {
   let pcExt = null;        // KHR_parallel_shader_compile
   let rtOK = false;        // EXT_color_buffer_float: map caches are drawn into their RG32F texture (tfEntry)
   let syncDepth = 0;       // > 0: chain programs are waited for (tests)
+  let syncFwd = 0;         // > 0: chain and static programs are waited for, inverse ones as before (exports)
   // side mode (GLR.side): setChain and the draws use a chain that is not the user's (example thumbnails) without
   // touching cur or hist; side = the saved {cur} while it lasts
   let sideMode = false, side = null;
@@ -68,46 +69,52 @@ precision highp sampler2D;
   // (v16 deformation range, notes/deform-range/SPEC.md 4: modes 1 and 3 may carry a post, the steps (uB, uPost] after
   // the bracket in full, maps only by the d/dz rule; none when uPost <= uB. Every homotopy is the identity at t <= 0:
   // H_0 = post o pre exactly. ?: evaluates only the chosen operand, so t = 0 costs no homotopy.)
+  // The mode is compiled in (uMode a constant, mapPoint only that mode's body; getProg keeps one program per mode a
+  // draw uses): ANGLE's Direct3D 11 back end (Windows) inlines every call and D3DCompile's time grows much faster than
+  // the code, so the four modes in one program (seven copies of the chain) took 26-42 s to compile for exp then
+  // Mobius on an Iris Xe, its mode 0 alone 0.3 s. A view that does not deform never compiles the homotopies.
   const POST_OF = `
 vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
 `;
-  const MAP_PLAIN = POST_OF + `
-vec2 mapPoint(vec2 s) {
-  if (uMode == 1) { vec2 z = chainRange(s, uBase, uHi - 1); return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT)); }
-  if (uMode == 2) { vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT); }
-  if (uMode == 3) { vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT)); }
-  return chainRange(s, uA, uB);
-}
-`;
-  const MAP_STAGE = (n) => POST_OF + `
+  const MAP_PLAIN = [
+    'return chainRange(s, uA, uB);',
+    'vec2 z = chainRange(s, uBase, uHi - 1); return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));',
+    'vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT);',
+    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+  ];
+  const MAP_STAGE = [
+    'return chainRange(s, uA, uB);',
+    `vec2 z = chainRange(s, uBase, uHi - 1);
+  // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
+  if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
+  return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
+    `vec2 z0 = chainRange(s, uBase, uA);
+  vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
+  return mix(z0, z1, uT);`,
+    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+  ];
+  const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
   return false;
 }
-vec2 mapPoint(vec2 s) {
-  if (uMode == 1) {
-    vec2 z = chainRange(s, uBase, uHi - 1);
-    // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
-    if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
-    return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));
-  }
-  if (uMode == 2) {
-    vec2 z0 = chainRange(s, uBase, uA);
-    vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
-    return mix(z0, z1, uT);
-  }
-  if (uMode == 3) { vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT)); }
-  return chainRange(s, uA, uB);
-}
 `;
   const hasStages = (info) => !!info && /\bchainStage\b/.test(info.source || '') && /\bchainIsDeriv\b/.test(info.source || '');
   const hasSheets = (info) => !!info && /\bchainSheetRange\b/.test(info.source || '');
-  const MAP = (info) => `
-uniform int uMode; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
-${hasStages(info) ? MAP_STAGE(sigsOf(info.key).length) : MAP_PLAIN}
+  // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
+  const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
+  const MAP = (info, mode) => {
+    const st = hasStages(info);
+    return `
+const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
+${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
+vec2 mapPoint(vec2 s) {
+  ${(st ? MAP_STAGE : MAP_PLAIN)[mode]}
+}
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
 `;
+  };
   // identical to GLChain.LIB's cfin, for programs that do not include the chain
   const FIN = `
 bool cfin(vec2 w) {
@@ -2407,12 +2414,12 @@ float wabs(vec2 w) {
     }
     return libRe.test(src) ? 2 : /\bcfin\b/.test(src) ? 1 : 0;
   }
-  function sources(name, ch) {
+  function sources(name, ch, mode = 0) {
     const d = DEFS[name];
     const vs = d.vs(), fs = d.fs();
     if (!d.chain) return [HEAD + vs, HEAD + fs];
     // (the sheet programs also take the deformation's sheets, chainSheetHom: GLChain's sheetHom)
-    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info);
+    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info, mode);
     const pre = (s) => ['', FIN, lib][libUse(s)];
     return [HEAD + pre(vs) + vs, HEAD + pre(fs) + fs];
   }
@@ -2423,30 +2430,40 @@ float wabs(vec2 w) {
   }
   let useClock = 0, pollT = 0;
   const PROG_KEEP = 3;   // chain versions kept per program (undo, redo and bypass toggles reuse them)
-  // The program `name` for chain version ch (null for programs without the chain); start: begin compiling if needed.
-  // Returns the program once it is ready, else null.
-  function getProg(name, ch, start) {
+  // the id of program `name` in progs: chain programs per chain version and map mode (the draw's map, as use() applies
+  // it to version ch), the others once
+  function progId(name, ch, map) {
+    const d = DEFS[name];
+    return d && d.chain ? `${name}|${ch.key}|m${modeOf(mapFor(map, ch))}` : name + '|static';
+  }
+  // The program `name` for chain version ch (null for programs without the chain) and the draw's map (its mode: one
+  // program per mode, MAP); start: begin compiling if needed. Returns the program once it is ready, else null.
+  function getProg(name, ch, start, map) {
     const d = DEFS[name];
     if (!d) throw new Error('unknown program ' + name);
     if (d.chain && !(ch && ch.info)) return null;
     const key = d.chain ? ch.key : 'static';
-    const id = name + '|' + key;
+    const mode = d.chain ? modeOf(mapFor(map, ch)) : 0;
+    const id = progId(name, ch, map);
     let e = progs.get(id);
     if (!e) {
       if (!start) return null;
-      e = { name, key, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain) };
+      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain) };
       progs.set(id, e);
       e.rt = d.tf === 'rt' && rtOK;
-      try { const [vs, fs] = sources(name, ch); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
-      if (d.chain) evictProgs(name);
+      try { const [vs, fs] = sources(name, ch, mode); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
+      if (d.chain) evictProgs(name, mode);
     }
     e.used = ++useClock;
     if (d.chain) e.ch = ch;
     if (!sideMode) e.side = false;   // a side chain's program that the current chain now uses (an example loaded)
     if (e.state === 'pending') {
-      // programs without the chain compile once at start-up; syncDepth (tests) waits as well
-      if (!pcExt || !d.chain || syncDepth > 0) finishLink(e);
-      else if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && canFinish(e)) finishLink(e);
+      // programs without the chain compile once (the 2D view's at init, PRESTART_2D); their first use does not wait
+      // either: a synchronous link held the main thread 0.3-1.8 s per program on Direct3D 11 (Iris Xe), ~4 s before
+      // the first frame, while the background links run in parallel (1.3 s for all seven). syncDepth (tests) and
+      // syncFwd (figure and video exports) wait.
+      if (!pcExt || syncDepth > 0 || syncFwd > 0) finishLink(e);
+      else if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (!d.chain || canFinish(e))) finishLink(e);
       else schedulePoll();
     }
     return e.state === 'ready' ? e : null;
@@ -2463,7 +2480,7 @@ float wabs(vec2 w) {
     for (const name of names) {
       const d = DEFS[name], id = name + '|static';
       if (!d || d.chain || progs.has(id)) continue;
-      const e = { name, key: 'static', chain: false, ch: null, state: 'pending', used: ++useClock, side: false };
+      const e = { id, name, key: 'static', mode: 0, chain: false, ch: null, state: 'pending', used: ++useClock, side: false };
       progs.set(id, e);
       e.rt = d.tf === 'rt' && rtOK;
       try { const [vs, fs] = sources(name, null); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); n++; } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
@@ -2472,6 +2489,28 @@ float wabs(vec2 w) {
     if (n) schedulePoll();
     return n;
   }
+  // A deformation is coming (the app: the pointer on its toggle): the current chain's programs that the views draw now
+  // start compiling for these map modes too, in the background, so the homotopy's first frames find them (MAP compiles
+  // a mode at its first draw). Never without KHR_parallel_shader_compile (that would link synchronously here).
+  // -> the number started
+  function prestartModes(modes) {
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    let n = 0;
+    for (const e of [...progs.values()]) {
+      if (!e.chain || e.inv || e.side || e.key !== cur.key || e.mode !== 0) continue;
+      for (const m of modes) {
+        const mm = modeOf({ mode: m });
+        if (!mm || progs.has(progId(e.name, cur, { mode: mm }))) continue;
+        getProg(e.name, cur, true, { mode: mm });
+        n++;
+      }
+    }
+    return n;
+  }
+  // the static programs of the 2D views' first frame (the grid, cached fills and curves, identity fills and curves),
+  // started at init and after a context restore: that frame needs them anyway, and their links overlap the app's
+  // start-up instead of each other
+  const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark'];
   // A chain program whose background compile has landed is taken into use at most one per FRESH_MS while an earlier
   // version stands in (always for side chains): ANGLE completes a program's Metal side when it is first drawn, and
   // several of those in one frame held the GPU process, and so every frame on the page, for 100-250 ms (spec 8.7).
@@ -2479,21 +2518,21 @@ float wabs(vec2 w) {
   let freshT = -1e9;
   function canFinish(e) {
     const now = performance.now();
-    if (now - freshT < FRESH_MS && (e.side || hist.some((h) => { const q = progs.get(e.name + '|' + h.key); return q && q.state === 'ready'; }))) return false;
+    if (now - freshT < FRESH_MS && (e.side || hist.some((h) => { const q = progs.get(`${e.name}|${h.key}|m${e.mode}`); return q && q.state === 'ready'; }))) return false;
     freshT = now;
     return true;
   }
   // side chains keep their own programs (SIDE_KEEP per program name) and never evict the current chain's history
   const SIDE_KEEP = 12;
-  function evictProgs(name) {
-    const list = [...progs.values()].filter((e) => e.name === name && e.chain && e.key !== cur.key && e.side === sideMode && !(sideMode && side && e.key === side.cur.key));
+  function evictProgs(name, mode) {
+    const list = [...progs.values()].filter((e) => e.name === name && e.mode === mode && e.chain && e.key !== cur.key && e.side === sideMode && !(sideMode && side && e.key === side.cur.key));
     list.sort((a, b) => a.used - b.used);
     for (let i = 0; i < list.length - ((sideMode ? SIDE_KEEP : PROG_KEEP) - 1); i++) {
       const e = list[i];
       if (e.p) gl.deleteProgram(e.p);
       if (e.vs) gl.deleteShader(e.vs);
       if (e.fs) gl.deleteShader(e.fs);
-      progs.delete(e.name + '|' + e.key);
+      progs.delete(e.id);
     }
   }
   function schedulePoll() { if (!pollT) pollT = setTimeout(pollCompiles, 16); }
@@ -2503,7 +2542,7 @@ float wabs(vec2 w) {
     let main = false, sided = false, waiting = false;
     for (const e of progs.values()) {
       if (e.state !== 'pending') continue;
-      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || canFinish(e))) { (e.inv ? finishInv : finishLink)(e); if (e.side) sided = true; else main = true; } else waiting = true;
+      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || !e.chain || canFinish(e))) { (e.inv ? finishInv : finishLink)(e); if (e.side) sided = true; else main = true; } else waiting = true;
     }
     if (waiting) schedulePoll();
     // which draws can now redraw: main (the current chain and its history), side (side chains)
@@ -2512,16 +2551,33 @@ float wabs(vec2 w) {
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
   // compile; null when nothing can draw: frameErr says why for a failed compile, framePending for one in flight.
-  function program(name) {
-    const P = getProg(name, cur, true);
+  // map: the draw's map (the one passed to use()), which picks the program of its mode
+  function program(name, map) {
+    const P = getProg(name, cur, true, map);
     if (P) return P;
-    const e = progs.get(name + '|' + (DEFS[name].chain ? cur.key : 'static'));
+    const e = progs.get(progId(name, cur, map));
     if (e && e.state === 'error') { frameErr = friendly(e.error); return null; }
-    if (!DEFS[name].chain || !cur.info) return null;
+    if (!DEFS[name].chain) { if (e && e.state === 'pending') framePending = true; return null; }
+    if (!cur.info) return null;
     framePending = true;
     if (sideMode) return null;   // a side chain draws only with its own programs
-    for (const h of hist) { const Q = getProg(name, h, false); if (Q) return Q; }
-    return null;
+    for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
+    return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
+  }
+  // a deformation's start through the plain chain (mode 0), as mapFor shows a homotopy or morph through a changed step:
+  // what draws while the program of the deformation's own mode compiles (its first frames: MAP compiles a mode only
+  // when a draw needs it)
+  function startOf(m) {
+    const mode = modeOf(m);
+    if (mode === 1) return { mode: 0, a: m.base || 0, b: (m.hi || 0) - 1 };
+    if (mode === 2 || mode === 3) return { mode: 0, a: m.base || 0, b: m.a || 0 };
+    return m;
+  }
+  // the map program P draws for the draw's map: mapFor's translation to P's chain version, and the deformation's start
+  // when P is a plain program standing in for a mode still compiling
+  function mapIn(P, map) {
+    const m = mapFor(map, P.ch);
+    return P.mode === modeOf(m) ? m : startOf(m);
   }
   // a map spec of the current chain, applied to an earlier version ch: steps before the first structural change are
   // shared; a homotopy or morph through a changed step shows its start
@@ -2558,7 +2614,7 @@ float wabs(vec2 w) {
     gl.useProgram(P.p);
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
-      const m = mapFor(map, P.ch) || {};
+      const m = mapIn(P, map) || {};
       u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
@@ -3029,9 +3085,9 @@ float wabs(vec2 w) {
     const keyOf = (ch, m) => `${cacheKey}|${L}|${mapKeyOf(m)}|${ch.key}|${ch.hash}`;
     const hit = Pf ? null : c.get(keyOf(cur, map));
     if (hit) return touch(hit);
-    const P = Pf || program(isMesh ? 'tfRegion' : 'tfLine');
+    const P = Pf || program(isMesh ? 'tfRegion' : 'tfLine', map);
     if (!P) return null;
-    const key = keyOf(P.ch, mapFor(map, P.ch));
+    const key = keyOf(P.ch, mapIn(P, map));
     const hit2 = c.get(key);
     if (hit2) return touch(hit2);
     const tpl = isMesh ? regionTemplate(L) : lineTemplate(L);
@@ -3072,7 +3128,7 @@ float wabs(vec2 w) {
   // need the per-vertex chain programs (region, line): adding a step compiles two chain programs instead of four
   // (spec 8.7), and a frame evaluates the chain ~10x less often than per vertex. null while nothing can evaluate.
   function tmpEntry(res, isMesh, L, map) {
-    const P = program(isMesh ? 'tfRegion' : 'tfLine');
+    const P = program(isMesh ? 'tfRegion' : 'tfLine', map);
     if (!P) return null;
     const tpl = isMesh ? regionTemplate(L) : lineTemplate(L);
     const count = tpl.P * res.n;
@@ -3080,7 +3136,7 @@ float wabs(vec2 w) {
     if (H > maxTex || !P.rt) return null;
     if (!res.tmp) res.tmp = new Map();
     const slot = (isMesh ? 'm' : 'l') + L;
-    const key = `${mapKeyOf(mapFor(map, P.ch))}|${P.ch.key}|${P.ch.hash}`;
+    const key = `${mapKeyOf(mapIn(P, map))}|${P.ch.key}|${P.ch.hash}`;
     let e = res.tmp.get(slot);
     const now = performance.now();
     sweepTmpLater();
@@ -3200,6 +3256,7 @@ float wabs(vec2 w) {
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
       rtOK = !!gl.getExtension('EXT_color_buffer_float');
       ok = true;
+      prestart(PRESTART_2D);
       canvas.addEventListener('webglcontextlost', (e) => {
         // a GPU reset: the browser may give the context back (webglcontextrestored); until then the app shows
         // a "restoring" state rather than the unsupported message
@@ -3226,6 +3283,7 @@ float wabs(vec2 w) {
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
         rtOK = !!gl.getExtension('EXT_color_buffer_float');
         ok = true; lost = false;
+        prestart(PRESTART_2D);
         if (api.onRestore) api.onRestore();
       });
     } catch (e) {
@@ -3461,22 +3519,24 @@ float wabs(vec2 w) {
   // tfEntry's answer while the current chain's transform-feedback program is still compiling (and no earlier one is
   // ready): the draw then uses whichever direct program is already ready, without starting another compile
   const PENDING = {};
-  function readyProg(name) {
-    const P = getProg(name, cur, false);
+  function readyProg(name, map) {
+    const P = getProg(name, cur, false, map);
     if (P || sideMode) return P;
-    for (const h of hist) { const Q = getProg(name, h, false); if (Q) return Q; }
-    return null;
+    for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
+    return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
   // nothing ready for a direct draw while the current chain compiles: an earlier version's cached evaluation of
-  // the (translated) map stands in, so the pane keeps showing the previous image instead of going blank
+  // the (translated) map stands in, so the pane keeps showing the previous image instead of going blank (or, for a
+  // deformation whose mode compiles, this chain's evaluation of its start)
   function stand(res, isMesh, L, map, name) {
-    const d = progs.get(name + '|' + cur.key);
+    const d = progs.get(progId(name, cur, map));
     if (!d || d.state !== 'pending' || sideMode) return null;   // a failed compile is reported, never covered up
     for (const h of hist) {
-      const T = getProg(isMesh ? 'tfRegion' : 'tfLine', h, false);
+      const T = getProg(isMesh ? 'tfRegion' : 'tfLine', h, false, map);
       if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
     }
-    return null;
+    const T = modeOf(map) ? getProg(isMesh ? 'tfRegion' : 'tfLine', cur, false, startOf(map)) : null;
+    return T ? tfEntry(res, isMesh, L, map, 'stand-in', T) : null;
   }
   function freeTmp(e) {
     if (!tmpAll.delete(e)) return;
@@ -3504,7 +3564,7 @@ float wabs(vec2 w) {
   function cached(res, isMesh, L, map, cacheKey) {
     const e = cacheKey ? tfEntry(res, isMesh, L, map, cacheKey) : tmpEntry(res, isMesh, L, map);
     if (e) return e;
-    const s = progs.get((isMesh ? 'tfRegion' : 'tfLine') + '|' + cur.key);
+    const s = progs.get(progId(isMesh ? 'tfRegion' : 'tfLine', cur, map));
     return s && s.state === 'pending' ? PENDING : null;
   }
   // Draw a region mesh. st: {map, view, dpr, L, color (c0), color2 (c1), edge (k), ink, alpha, pattern, cell, lines,
@@ -3520,7 +3580,7 @@ float wabs(vec2 w) {
       const pend = e === PENDING;
       if (pend) e = null;
       const name = ident ? 'region0' : (sph ? 'regionS' : 'region') + (e ? 'C' : '');
-      let P = pend ? readyProg(name) : program(name);
+      let P = pend ? readyProg(name, st.map) : program(name, st.map);
       if (!P && !ident && !e && (e = stand(res, true, L, st.map, pend ? 'tfRegion' : name))) P = program(sph ? 'regionSC' : 'regionC');
       if (!P) return;
       use(P, st.map);
@@ -3563,8 +3623,8 @@ float wabs(vec2 w) {
       const pend = e === PENDING;
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
-      let P = pend ? readyProg(nameOf()) : program(nameOf());
-      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf());
+      let P = pend ? readyProg(nameOf(), st.map) : program(nameOf(), st.map);
+      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
       if (e) bindCache(P, e);
@@ -3651,7 +3711,7 @@ float wabs(vec2 w) {
   function drawColorPlot(st) {
     if (!ok) return;
     const cz = st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
-    const P = program(cz ? 'cauchy' : 'color');
+    const P = program(cz ? 'cauchy' : 'color', st.map);
     if (!P) return;
     use(P, st.map);
     const dpr = st.dpr || 1;
@@ -3705,8 +3765,8 @@ float wabs(vec2 w) {
     delete DEFS[name];
   }
   // the program for a list of formula level functions (GLSL sources defining tlev0, tlev1, ...)
-  function preProgram(forms, sph) {
-    if (!forms.length) return program(sph ? 'preS' : 'pre');
+  function preProgram(forms, sph, map) {
+    if (!forms.length) return program(sph ? 'preS' : 'pre', map);
     const src = forms.join('');
     let h = 0;
     for (let i = 0; i < src.length; i++) h = (Math.imul(h, 31) + src.charCodeAt(i)) | 0;
@@ -3720,7 +3780,7 @@ float wabs(vec2 w) {
       preNames.splice(preNames.indexOf(name), 1);
       preNames.push(name);
     }
-    return program(name);
+    return program(name, map);
   }
   // GLSL of a formula target's level function, named tlev<f>: the app's levelSrc (any function name) or GLChain's
   function formulaSource(t, f) {
@@ -3857,7 +3917,7 @@ float wabs(vec2 w) {
     const nt = recs.length / 24;
     if (!nt) return;
     const sph = !!st.sphere;
-    const P = preProgram(forms, sph);
+    const P = preProgram(forms, sph, st.map);
     if (!P) return;
     // records, then vertices, one texel each
     const W = nt * 6 + pts.length;     // at most 352 texels: one row
@@ -3978,9 +4038,9 @@ float wabs(vec2 w) {
   let land = null;
   function landHeights(st, N, mode, H, mu, aspect) {
     const b = st.box;
-    const P1 = program('landTF'), P2 = program('landNrm');
+    const P1 = program('landTF', st.map), P2 = program('landNrm');
     if (!P1 || !P2) return land && land.N === N ? land : null;   // compiling: keep the last heights
-    const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapFor(st.map, P1.ch)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu].join('|');
+    const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapIn(P1, st.map)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu].join('|');
     if (land && land.key === key) return land;
     if (!land || land.N !== N) {
       if (land) { gl.deleteTexture(land.tex1); gl.deleteTexture(land.tex2); }
@@ -4052,7 +4112,7 @@ float wabs(vec2 w) {
   // per-cell sheet heights (LAND_SHEET_TF_VS): cache keyed like landHeights, plus the stage, window and combos
   let landS = null;
   function sheetHeights(st, sp, N, mode, H, mu, aspect) {
-    const P1 = program('landSheetTF');
+    const P1 = program('landSheetTF', sp.hom ? st.map : null);
     if (!P1 || !hasSheets(P1.ch.info)) return landS && landS.want === N && landS.K === sp.K ? landS : null;
     // cells per side: about the plain landscape's cell count in all, at least 96 per side
     const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
@@ -4121,7 +4181,7 @@ float wabs(vec2 w) {
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
     const sp = st.sheets ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
-    const Ls = sp ? program('landSheet') : null;   // (both sheet programs start compiling here)
+    const Ls = sp ? program('landSheet', st.map) : null;   // (both sheet programs start compiling here)
     let hs = sp ? sheetHeights(st, sp, N, mode, H, mu, aspect) : null;
     if (!Ls) hs = null;
     const hd = hs || landHeights(st, N, mode, H, mu, aspect);
@@ -4162,7 +4222,7 @@ float wabs(vec2 w) {
     // from below the plate (the camera under it) it is drawn last, as a light veil, so the underside stays visible.
     const below = eye[2] < floorZ;
     const floorPass = (alpha) => {
-      const Fp = program('floor');
+      const Fp = program('floor', st.map);
       if (!Fp) return;
       use(Fp, st.map);
       common(Fp);
@@ -4176,7 +4236,7 @@ float wabs(vec2 w) {
     if (!below) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
-    const Lp = hs ? Ls : program('land');
+    const Lp = hs ? Ls : program('land', st.map);
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
@@ -4229,7 +4289,7 @@ float wabs(vec2 w) {
     }
     // probe needle from the floor to (z, h(z))
     if (st.probe) {
-      const Pp = program(hs ? 'probeSheet' : 'probe');
+      const Pp = program(hs ? 'probeSheet' : 'probe', st.map);
       if (Pp) {
         use(Pp, st.map);
         if (hs) { u1i(Pp, 'uSheetA', hs.a); u1i(Pp, 'uSheetB', hs.b); u1i(Pp, 'uSheetW', hs.W); }
@@ -4334,7 +4394,7 @@ float wabs(vec2 w) {
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(true);
     const phase = st.mode === 'color';
-    const P = program(phase ? 'sphereP' : 'sphere');
+    const P = program(phase ? 'sphereP' : 'sphere', st.map);
     if (P) {
       use(P, st.map);
       uM4(P, 'uMVP', MVP);
@@ -5210,7 +5270,7 @@ float wabs(vec2 w) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -5261,6 +5321,9 @@ float wabs(vec2 w) {
     get cacheBytes() { return cacheBytes; },
     // true: every compile is waited for (tests that compare frames drawn right after a chain change)
     set syncCompile(v) { syncDepth += v ? 1 : -1; },
+    // (exports) every chain and static program a draw needs is linked before it draws: a deformation frame's map mode
+    // may be one the screen never drew (MAP); inverse programs keep their own rule (syncCompile)
+    set syncPrograms(v) { syncFwd += v ? 1 : -1; },
     // side(true) ... side(false): setChain and the draws in between use a side chain (example thumbnails). The current
     // chain, its history and their programs are untouched; a side draw never stands in with them, so a side frame
     // whose programs are still compiling draws nothing (frameStatus().pending) and onReady({side: true}) follows.
@@ -5279,7 +5342,7 @@ float wabs(vec2 w) {
       if (!ok || lost || !cur.info) return null;
       syncDepth++;
       let P;
-      try { P = getProg('evalPt', cur, true); } finally { syncDepth--; }
+      try { P = getProg('evalPt', cur, true, map); } finally { syncDepth--; }
       if (!P) return null;
       const n = pts.length, data = new Float32Array(2 * n);
       pts.forEach((q, i) => { data[2 * i] = q[0]; data[2 * i + 1] = q[1]; });

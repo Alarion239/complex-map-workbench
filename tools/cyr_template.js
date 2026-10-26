@@ -18,15 +18,96 @@
 //                                      \textrm{}, \mbox{} groups whose words hold Cyrillic (and no math)
 //   CYR.typeset(tex, pt, color, math)  the whole TeX set as one item of XD.tex's shape: math runs by math(tex, pt,
 //                                      color) (figure.js: XD.tex), word runs by word(); glyph keys CYR-RM-41E ...
+//   CYR.needs(s)                       a letter MathJax's fonts lack: Cyrillic, or a Latin letter with an accent
+//                                      (Italian à è é ì ò ù ...), composed from the face's own outlines (compose)
 const CYR = (() => {
   const RAW = { rm: /*RM*/"", bx: /*BX*/"", ti: /*TI*/"" };
   const FACES = {};
   // a face's JSON: this module's own string in node; in the built page a block the browser never runs (a script
   // element of type application/json, id cmw-cyr-rm; build.py sets RAW[f] to null, and the bold face there keeps only
   // the glyphs bold Russian text uses). A face with no block has no glyphs: word() returns null, MathJax sets the run
-  const face = (f) => FACES[f] || (FACES[f] = JSON.parse(RAW[f] != null ? RAW[f] : ((typeof document !== 'undefined' && document.getElementById('cmw-cyr-' + f)) || {}).textContent || '{"stroke":13,"space":333,"glyphs":{},"kern":{}}'));
+  const face = (f) => FACES[f] || (FACES[f] = withAccents(JSON.parse(RAW[f] != null ? RAW[f] : ((typeof document !== 'undefined' && document.getElementById('cmw-cyr-' + f)) || {}).textContent || '{"stroke":13,"space":333,"glyphs":{},"kern":{}}')));
   const NB = ' ';
   const hasCyr = (s) => /[Ѐ-ӿ]/.test(String(s));
+  // ---- Latin letters with an accent (Italian) ----
+  // MathJax's TeX fonts have no à or è either (\text{città} sets the à as <text> in a system font, and its \grave is a
+  // math accent, steep and high). They are composed from the face's own outlines as TeX's \accent builds them in
+  // OT1: the base letter (a dotless i for ì) and the CMU grave (`), mirrored for the acute (Computer Modern's acute is
+  // the grave's mirror image), its ink centred over the base's and raised by the base's height above the x-height for
+  // a capital. ch: [base, +1 grave | -1 acute]
+  const ACCENTS = { 'à': ['a', 1], 'è': ['e', 1], 'é': ['e', -1], 'ì': ['ı', 1], 'í': ['ı', -1], 'ò': ['o', 1], 'ó': ['o', -1], 'ù': ['u', 1], 'ú': ['u', -1], 'À': ['A', 1], 'È': ['E', 1], 'É': ['E', -1], 'Ì': ['I', 1], 'Ò': ['O', 1], 'Ó': ['O', -1], 'Ù': ['U', 1] };
+  const ACC_RE = /[àèéìíòóùúÀÈÉÌÒÓÙ]/;
+  const needs = (s) => hasCyr(s) || ACC_RE.test(String(s));
+  // a glyph's outline (relative m l h v c z, as make_cyr_module.py writes it) as contours: absolute start, the
+  // commands after the moveto, and the ink box of its points
+  function contours(d) {
+    const t = String(d).match(/[mlhvcz]|-?\d+(?:\.\d+)?/g) || [];
+    const out = [];
+    let x = 0, y = 0, cur = null, cmd = null;
+    const pt = (px, py) => { cur.x0 = Math.min(cur.x0, px); cur.x1 = Math.max(cur.x1, px); cur.y0 = Math.min(cur.y0, py); cur.y1 = Math.max(cur.y1, py); };
+    for (let i = 0; i < t.length;) {
+      if (/[mlhvcz]/.test(t[i])) {
+        cmd = t[i++];
+        if (cmd === 'z') { cur.ops.push(['z']); x = cur.x; y = cur.y; continue; }
+      }
+      const n = (k) => t.slice(i, (i += k)).map(Number);
+      if (cmd === 'm') { const [dx, dy] = n(2); x += dx; y += dy; cur = { x, y, ops: [], x0: x, x1: x, y0: y, y1: y }; out.push(cur); cmd = 'l'; continue; }
+      if (cmd === 'l') { const a = n(2); cur.ops.push(['l', ...a]); x += a[0]; y += a[1]; pt(x, y); }
+      else if (cmd === 'h') { const a = n(1); cur.ops.push(['h', ...a]); x += a[0]; pt(x, y); }
+      else if (cmd === 'v') { const a = n(1); cur.ops.push(['v', ...a]); y += a[0]; pt(x, y); }
+      else if (cmd === 'c') { const a = n(6); cur.ops.push(['c', ...a]); pt(x + a[0], y + a[1]); pt(x + a[2], y + a[3]); x += a[4]; y += a[5]; pt(x, y); }
+      else break;
+    }
+    return out;
+  }
+  // contours back to one outline (a mirrored contour: x -> -x from its start, which the caller has placed)
+  function outline(cs) {
+    let px = 0, py = 0, s = '';
+    for (const c of cs) {
+      s += `m${r2(c.x - px)} ${r2(c.y - py)}`;
+      for (const [op, ...a] of c.ops) {
+        if (op === 'z') { s += 'z'; continue; }
+        const v = c.mirror ? a.map((q, j) => (op === 'v' || j % 2 === 1 ? q : -q)) : a;
+        s += op + v.map(r2).join(' ');
+      }
+      px = c.x; py = c.y;
+    }
+    return s.replace(/ -/g, '-');
+  }
+  const box = (cs) => cs.reduce((b, c) => ({ x0: Math.min(b.x0, c.x0), x1: Math.max(b.x1, c.x1), y0: Math.min(b.y0, c.y0), y1: Math.max(b.y1, c.y1) }), { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+  function compose(F, ch) {
+    const [b, dir] = ACCENTS[ch];
+    const g = F.glyphs[b === 'ı' ? 'i' : b], ga = F.glyphs['`'], gx = F.glyphs.x;
+    if (!g || !ga || !gx) return null;
+    let base = contours(g[1]);
+    if (b === 'ı') base = base.filter((c) => c.y0 < gx[3]);               // the dot is the contour above the x-height
+    const acc = contours(ga[1]);
+    const bb = box(base), ab = box(acc);
+    const up = /[A-Z]/.test(b) ? g[3] - gx[3] : 0;                        // a capital: its height above the x-height
+    const mid = (ab.x0 + ab.x1) / 2, dx = (bb.x0 + bb.x1) / 2 - mid;
+    const placed = acc.map((c) => Object.assign({}, c, { x: (dir < 0 ? 2 * mid - c.x : c.x) + dx, y: c.y + up, mirror: dir < 0 }));
+    const all = base.concat(placed);
+    return [g[0], outline(all), Math.min(g[2], Math.round(ab.y0 + up)), Math.max(g[3], Math.round(ab.y1 + up))];
+  }
+  // the accented letters a face can compose (F.composed), with the base letter's kerning (F.ckern); the face's own
+  // glyphs and kerning stay the CMU tables'
+  function withAccents(F) {
+    F.composed = {}; F.ckern = {};
+    for (const ch of Object.keys(ACCENTS)) {
+      if (Object.prototype.hasOwnProperty.call(F.glyphs, ch)) continue;
+      const g = compose(F, ch);
+      if (!g) continue;
+      F.composed[ch] = g;
+      const b = ACCENTS[ch][0] === 'ı' ? 'i' : ACCENTS[ch][0];
+      for (const [p, v] of Object.entries(F.kern || {})) {
+        const q = [...p];
+        if (q.length !== 2) continue;
+        if (q[0] === b) F.ckern[ch + q[1]] = v;
+        if (q[1] === b) F.ckern[q[0] + ch] = v;
+      }
+    }
+    return F;
+  }
   const r2 = (x) => +x.toFixed(2);
   function word(text, f = 'rm', pt = 10, color = '#000') {
     const F = face(f);
@@ -35,9 +116,10 @@ const CYR = (() => {
     let x = 0, prev = null, uses = '', a = 0, d = 0;
     for (const ch of String(text)) {
       if (ch === ' ' || ch === NB) { x += F.space; prev = null; continue; }
-      const g = Object.prototype.hasOwnProperty.call(F.glyphs, ch) ? F.glyphs[ch] : null;
+      const g = Object.prototype.hasOwnProperty.call(F.glyphs, ch) ? F.glyphs[ch] : F.composed && Object.prototype.hasOwnProperty.call(F.composed, ch) ? F.composed[ch] : null;
       if (!g) return null;
-      if (prev && F.kern[prev + ch]) x += F.kern[prev + ch];
+      const kp = prev && (F.kern[prev + ch] || (F.ckern && F.ckern[prev + ch]));
+      if (kp) x += kp;
       const key = `CYR-${f.toUpperCase()}-${ch.codePointAt(0).toString(16).toUpperCase()}`;
       if (!seen.has(key)) { seen.add(key); glyphs.push([key, g[1]]); }
       uses += `<use xlink:href="#@NS@-${key}" transform="translate(${r2(x)},0)"/>`;
@@ -58,7 +140,7 @@ const CYR = (() => {
       let j = TEXT_CMD.lastIndex, depth = 1;
       while (j < s.length && depth) { if (s[j] === '\\') { j += 2; continue; } if (s[j] === '{') depth++; else if (s[j] === '}') depth--; j++; }
       const body = s.slice(TEXT_CMD.lastIndex, j - 1);
-      if (depth || !hasCyr(body) || /[\\{}$]/.test(body)) continue;   // math inside the words: MathJax keeps it
+      if (depth || !needs(body) || /[\\{}$]/.test(body)) continue;   // math inside the words: MathJax keeps it
       if (m.index > last) out.push({ m: s.slice(last, m.index) });
       out.push({ t: body.replace(/~/g, NB), face: FACE_OF[m[1]] });
       last = j; TEXT_CMD.lastIndex = j;
@@ -78,6 +160,6 @@ const CYR = (() => {
     }
     return { inner, glyphs, w: x, a, d, vb0: 0, k, tex: String(tex), pt, color };
   }
-  return { hasCyr, word, split, typeset, face, NB };
+  return { hasCyr, needs, word, split, typeset, face, NB };
 })();
 if (typeof module !== 'undefined') module.exports = CYR;

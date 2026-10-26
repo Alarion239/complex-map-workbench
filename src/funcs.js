@@ -41,8 +41,9 @@ const Funcs = (() => {
   const fmtC = (c) => CX.fmtExact(c);
   // angles in plain-text notes: one decimal at most, U+2212 minus
   const fmtDeg = (x) => I18N.num(String(+x.toFixed(1)).replace('-', '−'));
-  // a half-open interval of angles, (a°, b°]; in Russian a semicolon when an end has a decimal comma (GLOSSARY 2.3)
-  const degIv = (a, b) => { const x = fmtDeg(a), y = fmtDeg(b); return `(${x}°${I18N.lang === 'ru' && /,/.test(x + y) ? '; ' : ', '}${y}°]`; };
+  // a half-open interval of angles, (a°, b°]; in Russian and Italian a semicolon when an end has a decimal comma
+  // (GLOSSARY 2.3)
+  const degIv = (a, b) => { const x = fmtDeg(a), y = fmtDeg(b); return `(${x}°${I18N.comma() && /,/.test(x + y) ? '; ' : ', '}${y}°]`; };
 
   // ---- homotopies (t in [0,1] -> z => w), identity at t=0, the map at t=1 ----
   function mobHom(m) {
@@ -526,9 +527,9 @@ const Funcs = (() => {
   // a list field's items, read by one rule in both languages, so saved work survives a language switch (review
   // math-1, verify-1; GLOSSARY 2.3: lists of decimals take «;»): with a ';' outside brackets the items are split on
   // ';' and a comma between two digits is a decimal comma (0,5; -1 is 0.5 and -1); without one, on commas as before.
-  // Only text typed into the field in the Russian interface is checked further (typedList): there a comma between two
-  // digits with no ';' (0,5, -1) is refused with the hint, never read silently as two items.
-  const RU_LIST = () => typeof I18N !== 'undefined' && I18N.lang === 'ru';
+  // Only text typed into the field in a decimal-comma interface (Russian, Italian) is checked further (typedList): there
+  // a comma between two digits with no ';' (0,5, -1) is refused with the hint, never read silently as two items.
+  const RU_LIST = () => typeof I18N !== 'undefined' && !!I18N.comma && I18N.comma();
   // the list texts with a comma between two digits and no ';' that the user typed into a step's field in Russian
   // (step -> {key: Set of texts}); a saved or switched text is not in it, so it is read by the common rule. An undo
   // carries a step's set to the step restored at its place (typedKeep), so a refused text never comes back unchecked

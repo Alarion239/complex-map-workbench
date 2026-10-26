@@ -496,7 +496,7 @@ const Phone = (() => {
     if (snd.has) kids.push(h('div', { class: 'ph-srow' }, h('span', { class: 'ph-ic', html: A.soundIcon() }), h('span', { class: 'ph-rl' }, $t('Sound')), sndSet, sw));
     kids.push(seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme));
     const lang = A.langPref();
-    kids.push(seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru']], lang, (v) => A.setLang(v), A.globeIcon));
+    kids.push(seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
     kids.push(h('div', { class: 'ph-sep' }));
     kids.push(row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true));
     kids.push(row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true));

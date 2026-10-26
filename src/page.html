@@ -6,24 +6,26 @@
 <script>
 /* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
-   Russian marks <html>, starts the Cyrillic faces' stylesheet now, and keeps #app hidden until init() has translated
-   the static text (I18N.reveal); English returns at once. */
+   Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal);
+   Russian also starts the Cyrillic faces' stylesheet now. English returns at once. */
 (function () {
   try {
     var q = new URLSearchParams(location.search), l = q.get('lang'), ns = q.get('ns') || '', p = null, n = '';
     try { p = localStorage.getItem(ns ? 'cmw-lang:' + ns : 'cmw-lang'); } catch (e) { p = null; }
-    if (l !== 'en' && l !== 'ru' && l !== 'pseudo') {
-      if (p === 'en' || p === 'ru') l = p;
+    if (l !== 'en' && l !== 'ru' && l !== 'it' && l !== 'pseudo') {
+      if (p === 'en' || p === 'ru' || p === 'it') l = p;
       else if (ns) l = 'en';
-      else { n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); l = /^ru(-|$)/.test(n) ? 'ru' : 'en'; }
+      else { n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); l = /^ru(-|$)/.test(n) ? 'ru' : /^it(-|$)/.test(n) ? 'it' : 'en'; }
     }
     if (l === 'en') return;
     var d = document.documentElement, k = document.createElement('link');
-    d.lang = 'ru'; d.setAttribute('data-lang', 'ru'); d.classList.add('i18n-wait');
+    l = l === 'pseudo' ? 'ru' : l;
+    d.lang = l; d.setAttribute('data-lang', l); d.classList.add('i18n-wait');
+    addEventListener('load', function () { d.classList.remove('i18n-wait'); });
+    if (l !== 'ru') return;
     k.id = 'i18n-fonts'; k.rel = 'stylesheet';
     k.href = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
     document.head.appendChild(k);
-    addEventListener('load', function () { d.classList.remove('i18n-wait'); });
   } catch (e) { /* the page shows as before */ }
 })();
 </script>
@@ -230,7 +232,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
    the speaker in the bar while sound is on (one tap silences it) */
 #soundBtn, #soundMore { order: 12; }
 /* the Language setting (notes/i18n/USER-DECISIONS.md): the globe, after Sound and before Help; app.js opens its menu
-   (Auto, English, Русский) */
+   (Auto, English, Русский, Italiano) */
 #langBtn { order: 12; }
 .top .snd-btn { display: inline-flex; align-items: center; gap: 5px; width: auto; padding: 0 6px 0 6px; border-radius: var(--r-2) 0 0 var(--r-2); font: var(--t-label); }
 .top .snd-caret { width: 17px; margin-left: -8px; border-radius: 0 var(--r-2) var(--r-2) 0; }
@@ -1938,6 +1940,22 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="ru"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
 /* ui-16: the export size button names the paper; the width in points stays in the open list */
 :root[data-lang="ru"] #xfSize .xf-dim { display: none; }
+/* i18n, Italian: the app's own faces cover it (Latin with accents), so only the decimal comma (as in Russian: a narrow
+   CMW Comma before the mono face), the CSS-generated preview word and MathJax's <text> letters (accented letters in
+   \text{} have no TeX glyph) are set here */
+:root[data-lang="it"] { --f-mono: "CMW Comma", "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+:root[data-lang="it"] .texprev:empty::before { content: "Anteprima"; }
+:root[data-lang="it"] mjx-container svg text { font-family: "STIX Two Text", "Times New Roman", serif; }
+/* the Russian tool cells (DESIGN.md 8.1, 8.2): two lines of 11 px, wrapping at spaces and soft hyphens
+   («Corona circolare», «Circon­ferenza» are 5-25 px wider than a cell) */
+:root[data-lang="it"] .tools > .tool:not(.rail-tool) { height: 56px; }
+:root[data-lang="it"] .tool > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
+:root[data-lang="it"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
+/* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
+   button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
+:root[data-lang="it"] .pat { white-space: normal; }
+:root[data-lang="it"] .pat > span { max-width: 62px; text-align: center; line-height: 12px; font-stretch: 87.5%; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+:root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
 <div id="app">

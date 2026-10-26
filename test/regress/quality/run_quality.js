@@ -105,13 +105,17 @@ function reeval(dir) {
 
 // ---------------- headless Chrome over the DevTools pipe ----------------
 function chromePath() {
-  const c = [process.env.CHROME, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/usr/bin/google-chrome', '/usr/bin/chromium'];
+  const c = [process.env.CHROME, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/usr/bin/google-chrome', '/usr/bin/chromium',
+    ...(process.platform === 'win32' ? [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA]
+      .filter(Boolean).map((d) => path.join(d, 'Google', 'Chrome', 'Application', 'chrome.exe')) : [])];
   for (const p of c) if (p && fs.existsSync(p)) return p;
   throw new Error('Chrome not found (set CHROME=/path/to/chrome)');
 }
+// the platform's own ANGLE back end: Metal on macOS, Direct3D 11 on Windows
+const ANGLE = process.platform === 'win32' ? 'd3d11' : 'metal';
 async function startChrome() {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-quality-'));
-  const ch = spawn(chromePath(), ['--headless=new', '--use-angle=metal', `--user-data-dir=${prof}`, '--remote-debugging-pipe',
+  const ch = spawn(chromePath(), ['--headless=new', `--use-angle=${ANGLE}`, `--user-data-dir=${prof}`, '--remote-debugging-pipe',
     '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false', 'about:blank'],
   { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const wr = ch.stdio[3], rd = ch.stdio[4];

@@ -76,7 +76,7 @@ def relative(d):
 
 faces = {}
 for k in ('rm', 'bx', 'ti'):
-    t = json.load(open(cyr / f'cyr_{k}.json'))
+    t = json.load(open(cyr / f'cyr_{k}.json', encoding='utf-8'))
     glyphs = {}
     for ch, (adv, d) in t['glyphs'].items():
         if k == 'ti' and ch not in ITALIC:
@@ -86,10 +86,11 @@ for k in ('rm', 'bx', 'ti'):
     kern = {pair: v for pair, v in t['kern'].items() if all(c in glyphs for c in pair)}
     faces[k] = {'face': t['face'], 'stroke': t['stroke'], 'space': t['check'].get(' ', 333), 'glyphs': glyphs, 'kern': kern}
 
-src = (root / 'tools' / 'cyr_template.js').read_text()
+src = (root / 'tools' / 'cyr_template.js').read_text(encoding='utf-8')
 lits = {k: json.dumps(json.dumps(v, ensure_ascii=False, separators=(',', ':')), ensure_ascii=False) for k, v in faces.items()}
 out = src.replace('/*RM*/""', lits['rm']).replace('/*BX*/""', lits['bx']).replace('/*TI*/""', lits['ti'])
-(root / 'src' / 'cyr.js').write_text(out)
+with open(root / 'src' / 'cyr.js', 'w', encoding='utf-8', newline='\n') as f:   # UTF-8 and LF on every platform
+    f.write(out)
 sizes = {k: len(v) for k, v in lits.items()}
-orig = {k: len(json.dumps(json.load(open(cyr / f'cyr_{k}.json')), ensure_ascii=False, separators=(',', ':'))) for k in faces}
+orig = {k: len(json.dumps(json.load(open(cyr / f'cyr_{k}.json', encoding='utf-8')), ensure_ascii=False, separators=(',', ':'))) for k in faces}
 print('src/cyr.js', (root / 'src' / 'cyr.js').stat().st_size, 'bytes; faces', sizes, 'from', orig)

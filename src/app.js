@@ -7406,6 +7406,18 @@
     updateBracket();   // (v16: the deformation's bracket shows with the transport on the whole chain)
   }
   // segmented controls: mark the selected segment and move the sliding thumb
+  // the sliding marker of the segmented controls is placed for every control that changed in one pass at the next
+  // frame: reading offsetLeft right after the class change forced a layout per control (about 0.4 s of layouts while
+  // the panels were built at start-up on Windows)
+  const segPending = new Map();
+  let segRaf = 0;
+  function placeSegs() {
+    segRaf = 0;
+    const list = [...segPending];
+    segPending.clear();
+    const at = list.map(([, on]) => (on.isConnected ? [on.offsetLeft, on.offsetWidth] : null));
+    list.forEach(([el], i) => { if (at[i]) { el.style.setProperty('--seg-x', at[i][0] + 'px'); el.style.setProperty('--seg-w', at[i][1] + 'px'); } });
+  }
   function setSeg(el, value) {
     if (!el) return;
     let on = null;
@@ -7417,8 +7429,8 @@
       if (sel) on = b;
     }
     if (on) {
-      el.style.setProperty('--seg-x', on.offsetLeft + 'px');
-      el.style.setProperty('--seg-w', on.offsetWidth + 'px');
+      segPending.set(el, on);
+      if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
   function seg(id, value, options, onchange, label) {
@@ -9742,15 +9754,18 @@
     if (!enRev) { enRev = new Map(); const tb = I18N._table(I18N.lang) || {}; for (const k in tb) if (typeof tb[k] === 'string') enRev.set(tb[k], k.slice(k.indexOf(I18N.CTX) + 1)); }
     return enRev.get(s) || s;
   };
-  // the Language setting's items: the globe button's menu, the More menu and the palette (Auto, English, Русский)
+  // the languages' own names (never translated: each is found under its own name)
+  const LANG_NAMES = { en: 'English', ru: 'Русский', it: 'Italiano' };
+  // the Language setting's items: the globe button's menu, the More menu and the palette (Auto, English, Русский,
+  // Italiano)
   function langItems() {
     // Auto names what it would pick here (a test page's ?ns= stays English: review eng-12); each name carries its own
     // lang for a screen reader (eng-3); the menu is named and opens on the checked item (eng-7)
-    const pref = I18N.readPref(), autoRu = I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator }) === 'ru';
-    const auto = autoRu ? 'Русский' : 'English';
+    const pref = I18N.readPref(), autoLang = I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator });
+    const auto = LANG_NAMES[autoLang] || LANG_NAMES.en;
     const mk = (v, label, lang, labelEl) => ({ label, lang, labelEl, radio: true, checked: pref === v, run: () => pickLang(v) });
-    const autoEl = h('span', { class: 'mi-label' }, ...I18N.parts('Auto ({name})', { name: h('span', { lang: autoRu ? 'ru' : 'en' }, auto) }));
-    const list = [mk('auto', $t('Auto ({name})', { name: auto }), null, autoEl), mk('en', 'English', 'en'), mk('ru', 'Русский', 'ru')];
+    const autoEl = h('span', { class: 'mi-label' }, ...I18N.parts('Auto ({name})', { name: h('span', { lang: LANG_NAMES[autoLang] ? autoLang : 'en' }, auto) }));
+    const list = [mk('auto', $t('Auto ({name})', { name: auto }), null, autoEl), mk('en', LANG_NAMES.en, 'en'), mk('ru', LANG_NAMES.ru, 'ru'), mk('it', LANG_NAMES.it, 'it')];
     list.menuLabel = $t('Language'); list.focusChecked = true;
     return list;
   }
@@ -9759,7 +9774,7 @@
   function syncLangLabel() {
     const lb = $('langBtn');
     if (!lb) return;
-    const pref = I18N.readPref(), nm = pref === 'ru' ? 'Русский' : pref === 'en' ? 'English' : $t('Auto');
+    const pref = I18N.readPref(), nm = LANG_NAMES[pref] || $t('Auto');
     lb.setAttribute('aria-label', $t('Language: {name}', { name: nm }));
     const ll = lb.querySelector('.llabel'); if (ll) { ll.textContent = nm; if (pref === 'auto') ll.removeAttribute('lang'); else ll.setAttribute('lang', pref); }
   }
@@ -9890,7 +9905,7 @@
         [$t('Region tools panel'), () => setPanels(!S.hideLeft, S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(S.hideLeft, !S.hideRight), ']'],
         // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
-        ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, russian, русский, english, английский'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, english, английский', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, russian, русский', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })]] : []),
+        ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, lingua, russian, русский, english, английский, italian, italiano'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, lingua, english, английский, inglese', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, lingua, russian, русский, russo', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })], [$t('Language: {name}', { name: 'Italiano' }), () => pickLang('it'), '', 'language, язык, lingua, italian, итальянский, italiano', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'it' }, 'Italiano') })]] : []),
       ];
       for (const [label, run, key, alias, labelParts] of view) if (!ql || score(label) || (alias && aliasScore(alias) >= 2)) items.push(labelParts ? { kind: 'cmd', group: $t('View'), label, key, run, labelParts } : { kind: 'cmd', group: $t('View'), label, key, run });
       const acts = [
@@ -10542,14 +10557,19 @@
     // exact images (SPEC 10.6): prepareExport has waited for the inverse programs; one still compiling (normally
     // none) is waited for here, and only then
     const wait = GLR.ok && GLR.inverseStatus && (GLR.inverseStatus(S.alpha, 'flat') === 'pending' || GLR.inverseStatus(S.alpha, 'globe') === 'pending');
+    // the forward programs are always waited for: a deformation frame may need a map mode the screen never drew
+    // (gl.js MAP compiles one program per mode), and a static program's first use no longer waits on screen
+    const waitFwd = GLR.ok;
     offRender = true;
     if (wait) GLR.syncCompile = true;
+    if (waitFwd) GLR.syncPrograms = true;
     try {
       if (side === 'L') { paneL = off; renderLeft(); } else { paneR = off; renderRight(); }
       // labels are placed in a microtask on screen; here they are needed before the pixels are read
       if (off.labels) flushLabels(off, off.labels);
     } finally {
       if (wait) GLR.syncCompile = false;
+      if (waitFwd) GLR.syncPrograms = false;
       offRender = false;
       paneL = keep.L; paneR = keep.R;
       for (const [v, s] of scaled) v.s = s;
@@ -11241,8 +11261,9 @@
       });
       for (const k of act) { const b = built[k - 1]; if (b.domain) conds.push(b.domain(wvar(k - 1))); }
     } finally { CX.setTexExact(false); }
-    // (exact constants keep the point for copying; the Russian document prints them as 0{,}5, as its captions do)
-    if (I18N.lang === 'ru') { const dc = (t) => t.replace(/(\d)\.(\d)/g, '$1{,}$2'); texF = dc(texF); for (let i = 0; i < rows.length; i++) rows[i] = dc(rows[i]); for (let i = 0; i < conds.length; i++) conds[i] = dc(conds[i]); }
+    // (exact constants keep the point for copying; the Russian and Italian documents print them as 0{,}5, as their
+    // captions do)
+    if (I18N.comma()) { const dc = (t) => t.replace(/(\d)\.(\d)/g, '$1{,}$2'); texF = dc(texF); for (let i = 0; i < rows.length; i++) rows[i] = dc(rows[i]); for (let i = 0; i < conds.length; i++) conds[i] = dc(conds[i]); }
     const deg = P.deg != null ? (P.degExact ? $t(', of degree {deg}', { deg: P.deg }) : $t(', of degree at most {deg}', { deg: P.deg })) : '';
     const lit = BADGES.filter(([k]) => words[k]), unlit = BADGES.filter(([k]) => !words[k]);
     const name = (k, n) => BADGE_NAME_TEX[k] || n;
@@ -11251,6 +11272,8 @@
       '\\documentclass{article}',
       // (Russian text needs Cyrillic fonts and hyphenation: DESIGN.md 5, tested with pdfLaTeX)
       ...(I18N.lang === 'ru' ? ['\\usepackage{iftex}', '\\ifPDFTeX', '  \\usepackage[T2A]{fontenc}', '  \\usepackage[utf8]{inputenc}', '\\else', '  \\usepackage{fontspec}', '  \\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf,BoldItalicFont=cmunbi.otf]', '\\fi', '\\usepackage[russian]{babel}'] : []),
+      // (Italian: accented letters and Italian hyphenation, pdfLaTeX, XeLaTeX and LuaLaTeX alike)
+      ...(I18N.lang === 'it' ? ['\\usepackage{iftex}', '\\ifPDFTeX', '  \\usepackage[T1]{fontenc}', '  \\usepackage[utf8]{inputenc}', '\\fi', '\\usepackage[italian]{babel}'] : []),
       '\\usepackage{amsmath,amssymb}',
       '\\begin{document}',
       '',
@@ -11272,7 +11295,7 @@
       for (const [k, n] of lit) out.push(`  \\item \\textbf{${name(k, n)}}${k === 'rational' || k === 'polynomial' ? deg : ''}: ${BADGE_TEX[k]}.`);
       out.push('\\end{itemize}');
     } else out.push('', $t('The chain guarantees none of the tracked properties.'));
-    if (unlit.length) out.push('', $t('Not implied by the chain (they may still hold): {x}.', { x: unlit.map(([k, n]) => name(k, n).replace(/ onto image$/, ' onto its image')).map((x) => (I18N.lang === 'ru' ? x.replace(/^[А-ЯЁ]/, (c) => c.toLowerCase()) : x)).join(', ') }));
+    if (unlit.length) out.push('', $t('Not implied by the chain (they may still hold): {x}.', { x: unlit.map(([k, n]) => name(k, n).replace(/ onto image$/, ' onto its image')).map((x) => (I18N.lang === 'ru' ? x.replace(/^[А-ЯЁ]/, (c) => c.toLowerCase()) : I18N.lang === 'it' ? x.replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase()) : x)).join(', ') }));
     out.push('', '\\end{document}', '');
     // Russian notation (tg, sh, ...) at the export boundary (DESIGN.md 6); English is unchanged
     return I18N.notation(out.join('\n'));
@@ -14463,7 +14486,7 @@
       const L = sndLandmarks(), zs = L.filter((p) => p.kind === 'zero'), ps = L.filter((p) => p.kind === 'pole');
       const list = (a, w) => {
         if (!a.length) return w === 'zero' ? $t('no zeros') : $t('no poles');
-        const lp = { items: a.slice(0, 6).map((p) => sndFmt(p.z) + (p.mult > 1 ? $t(' (order {mult})', { mult: p.mult }) : '')).join(I18N.lang === 'ru' ? '; ' : ', '), andMore: a.length > 6 ? $t(', and more') : '' };
+        const lp = { items: a.slice(0, 6).map((p) => sndFmt(p.z) + (p.mult > 1 ? $t(' (order {mult})', { mult: p.mult }) : '')).join(I18N.comma() ? '; ' : ', '), andMore: a.length > 6 ? $t(', and more') : '' };
         if (w === 'zero') return L.incomplete ? $tn('{n} or more zero: {items}{andMore}', '{n} or more zeros: {items}{andMore}', a.length, lp) : $tn('{n} zero: {items}{andMore}', '{n} zeros: {items}{andMore}', a.length, lp);
         return L.incomplete ? $tn('{n} or more pole: {items}{andMore}', '{n} or more poles: {items}{andMore}', a.length, lp) : $tn('{n} pole: {items}{andMore}', '{n} poles: {items}{andMore}', a.length, lp);
       };
@@ -15251,6 +15274,10 @@
     // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
     const mb = $('morphBtn');
     if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
+    // a deformation is coming: the homotopy programs (one per map mode, gl.js MAP) start compiling in the background,
+    // so its first frames do not wait for them (the pointer or focus on the toggle, as prestartGlobe)
+    const prestartMorph = () => { try { if (!morph.open && GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } };
+    if (mb) { mb.addEventListener('pointerenter', prestartMorph); mb.addEventListener('focus', prestartMorph); }
     $('linesChk').addEventListener('change', (e) => { S.lines = e.target.checked; requestRender('L', 'R', 'T'); save(); });
     $('chevChk').addEventListener('change', (e) => { S.chev = e.target.checked; requestRender('L', 'R'); save(); });
     // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
@@ -15391,7 +15418,7 @@
       sndToggleCue(curTheme !== 'light');
     });
     setTheme(curTheme);
-    // the Language setting (device only): Auto, English, Русский; a choice that changes the language reloads. The
+    // the Language setting (device only): Auto, English, Русский, Italiano; a choice that changes the language reloads. The
     // globe button is page.html's; the menus and the palette reach the same items
     const lb = $('langBtn');
     if (lb) {

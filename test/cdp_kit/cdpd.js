@@ -7,9 +7,11 @@ const fs = require('fs');
 const DIR = __dirname;
 const Q = path.join(DIR, 'q');
 fs.mkdirSync(Q, { recursive: true });
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; CHROME_BIN overrides)
+const WIN = process.platform === 'win32';
+const CHROME = process.env.CHROME_BIN || (WIN ? path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe') : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
 const prof = fs.mkdtempSync(path.join(DIR, 'chprof-'));
-const ch = spawn(CHROME, ['--headless=new', '--use-angle=metal', `--user-data-dir=${prof}`, '--remote-debugging-pipe',
+const ch = spawn(CHROME, ['--headless=new', `--use-angle=${WIN ? 'd3d11' : 'metal'}`, `--user-data-dir=${prof}`, '--remote-debugging-pipe',
   '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false', 'about:blank'],
   { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
 const wr = ch.stdio[3], rd = ch.stdio[4];

@@ -38,10 +38,11 @@ const Figure = (() => {
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
   const texCache = new Map();
   // a Russian figure: Russian notation (tg, sh, ln), and words with Cyrillic set from the CMU outlines of src/cyr.js
-  // (MathJax's fonts have none: it would write <text> in a system font); the math stays MathJax's
+  // (MathJax's fonts have none: it would write <text> in a system font); the math stays MathJax's. Words with an
+  // accented Latin letter (Italian: è, perché, più) are set from the same outlines (cyr.js composes the letters)
   XD.tex = (tex, pt, color = '#000') => {
     if (XD.lang === 'ru' && I18) tex = I18.notation(tex, 'ru');
-    if (typeof CYR === 'undefined' || !CYR.hasCyr(tex)) return mjTex(tex, pt, color);
+    if (typeof CYR === 'undefined' || !(CYR.needs ? CYR.needs(tex) : CYR.hasCyr(tex))) return mjTex(tex, pt, color);
     const key = `cyr|${pt}|${color}|${tex}`;
     if (texCache.has(key)) return texCache.get(key);
     const out = CYR.typeset(tex, pt, color, mjTex);
@@ -106,7 +107,7 @@ const Figure = (() => {
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
   XD.decimals = (step) => { for (let d = 0; d < 7; d++) if (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) < 1e-9) return d; return 6; };
-  XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return XD.lang === 'ru' && I18 ? I18.texNum(t, 'ru') : t; };
+  XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own
   XD.axisSteps = (box, step) => {
@@ -531,7 +532,7 @@ const Figure = (() => {
     const lib = await pdfLib();
     if (!lib) throw new Error('The PDF library could not be loaded');
     const doc = new lib.jsPDF({ unit: 'pt', format: [fig.W, fig.H], orientation: fig.W > fig.H ? 'landscape' : 'portrait', compress: true, putOnlyUsedFonts: true });
-    const info = (v) => (fig.lang === 'ru' && I18 ? I18.pdfText(v) : v);
+    const info = (v) => (fig.lang !== 'en' && I18 ? I18.pdfText(v) : v);
     doc.setProperties({ title: fig.name || 'Figure', creator: 'Complex Map Workbench', subject: fig.captionTex ? info(fig.captionTex.slice(0, 400)) : '' });
     if (fig.meta && doc.addMetadata) {
       const json = JSON.stringify(fig.meta).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
@@ -1425,7 +1426,7 @@ const Figure = (() => {
     const [tp, lp] = T;
     const m = A.morphLen(), n = 4;
     const ts = [...Array(n).keys()].map((i) => i * m / (n - 1));
-    const fracTex = (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (XD.lang === 'ru' && I18 ? I18.texNum(CX.fmtNum(t, 2), 'ru') : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
+    const fracTex = (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (I18 && I18.comma(XD.lang) ? I18.texNum(CX.fmtNum(t, 2), XD.lang) : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
     const shapes = A.shapes(), srcWin = expandBox(A.screenBox('L0'), 3);
     const scr = A.screenBox('R');
     const cols = W >= 400 || o.for === 'slides' ? 4 : 2, rows = n / cols;
@@ -1617,7 +1618,7 @@ const Figure = (() => {
   const PATHS_OK = new Set(['plane', 'globe']);
   // the frames' times: n frames from 0 to m, and their labels (thirds when m is whole)
   const filmTimes = (m, n = 4) => [...Array(n).keys()].map((i) => i * m / (n - 1));
-  const fracTexOf = (m) => (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (XD.lang === 'ru' && I18 ? I18.texNum(CX.fmtNum(t, 2), 'ru') : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
+  const fracTexOf = (m) => (t) => { const q = t / m * 3; if (m === 1) return ['0', '1/3', '2/3', '1'][Math.round(q)] || (I18 && I18.comma(XD.lang) ? I18.texNum(CX.fmtNum(t, 2), XD.lang) : CX.fmtNum(t, 2)); return Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : `${Math.round(t * 3)}/3`; };
   const frameTitle = (i, lab, lp) => XD.tex(XD.lang === 'ru' ? `\\textit{${RU_LETTERS[i]}}\\enspace t=${lab}` : `\\text{(${String.fromCharCode(97 + i)})}\\enspace t=${lab}`, lp);
   // the non-white bounds of a raster {w, h, rgb} (px): [i0, i1, j0, j1], or null
   const inkBounds = (r, thr = 246) => {
@@ -2043,6 +2044,8 @@ const Figure = (() => {
   const numTex = (v) => (+v.toPrecision(3)).toString();
   // captions are built inside using(lang): $t and I18N.lang give the caption's language
   const capRu = () => !!I18 && I18.lang === 'ru';
+  // a caption language with a decimal comma (Russian, Italian): numbers, points and lists of decimals as GLOSSARY 2.3
+  const capComma = () => !!I18 && !!I18.comma && I18.comma();
   // ---- F's formula as a displayed equation (round 3: "it might be too complicated to fit inline") ----
   // LaTeX first sets a caption in one line (an \hbox) to see whether it fits, and display math cannot go there: the
   // display is guarded so that, in that trial, it is a gap of a full line (the caption is then set as a paragraph),
@@ -2151,16 +2154,16 @@ const Figure = (() => {
     if (head.length > 220) { const k = head.search(/\.\s/); if (k > 0) head = head.slice(0, k); }
     return head.replace(/[.,;:]$/, '') + '.';
   }
-  // [x0,x1]x[y0,y1]; in Russian a semicolon inside a bracket pair when an endpoint is a decimal (GLOSSARY 2.3)
+  // [x0,x1]x[y0,y1]; in Russian and Italian a semicolon inside a bracket pair when an endpoint is a decimal (GLOSSARY 2.3)
   // (export review r3, editor-19: one separator for the whole product, ';' in both intervals once an endpoint is a decimal)
-  const winTex = (b) => { if (!b) return ''; if (!capRu()) return `[${numTex(b.x0)},${numTex(b.x1)}]\\times[${numTex(b.y0)},${numTex(b.y1)}]`; const v = [b.x0, b.x1, b.y0, b.y1].map(numTex), sep = I18.texSep(v), n = (x) => I18.texNum(x); return `[${n(v[0])}${sep}${n(v[1])}]\\times[${n(v[2])}${sep}${n(v[3])}]`; };
+  const winTex = (b) => { if (!b) return ''; if (!capComma()) return `[${numTex(b.x0)},${numTex(b.x1)}]\\times[${numTex(b.y0)},${numTex(b.y1)}]`; const v = [b.x0, b.x1, b.y0, b.y1].map(numTex), sep = I18.texSep(v), n = (x) => I18.texNum(x); return `[${n(v[0])}${sep}${n(v[1])}]\\times[${n(v[2])}${sep}${n(v[3])}]`; };
   const us = (segs) => segs.map((s) => (s.t != null ? { t: s.t.replace(/colour/g, 'color').replace(/Colour/g, 'Color').replace(/grey/g, 'gray').replace(/ \(bar\)/g, '') } : s));
-  // a point of the plane in a Russian caption: the decimal comma (a short number formula, never a snippet)
-  const cxTexL = (z) => { const s = cxTex(z); return capRu() ? s.replace(/(\d)\.(\d)/g, '$1{,}$2') : s; };
+  // a point of the plane in a Russian or Italian caption: the decimal comma (a short number formula, never a snippet)
+  const cxTexL = (z) => { const s = cxTex(z); return capComma() ? s.replace(/(\d)\.(\d)/g, '$1{,}$2') : s; };
   const listTex = (zs) => zs.map((r) => `$${cxTexL(r.z)}$${(r.mult || 1) > 1 ? $t(' (order {mult})', { mult: r.mult }) : ''}`);
   const joinWords = (a) => (a.length <= 1 ? a.join('') : a.length === 2 ? `${a[0]} and ${a[1]}` : `${a.slice(0, -1).join(', ')}, and ${a[a.length - 1]}`);
-  // Russian: «a, b и c», with «;» between decimals («$0{,}5$; $1$ и $2$»)
-  const joinL = (a) => (!capRu() ? joinWords(a) : a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(a.some((x) => /\{,\}/.test(x)) ? '; ' : ', ')} и ${a[a.length - 1]}`);
+  // Russian: «a, b и c», Italian: «a, b e c», with «;» between decimals («$0{,}5$; $1$ и $2$»)
+  const joinL = (a) => (!capComma() ? joinWords(a) : a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(a.some((x) => /\{,\}/.test(x)) ? '; ' : ', ')} ${capRu() ? 'и' : $t('and')} ${a[a.length - 1]}`);
   // the homotopy as a sentence (export review r3, editor-13): "Here H_t, 0 <= t <= m, deforms the identity (t = 0)
   // into F (t = m) and runs the steps in turn (...): for f_1, ...; for f_2, ..." rather than "... along the homotopy
   // H_t, ..., that runs the steps in turn"; CHAINTOK ends it when the chain is displayed. Called inside using(lang)
@@ -2411,8 +2414,8 @@ const Figure = (() => {
     P.maxH = o.for === 'slides' ? 0.5 * W : Infinity;
     const view = o.view || A.viewKind();
     const name = (o.name || defaultName(view, o.deform) || 'figure').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'figure';
-    // the caption language: o.lang ('en' | 'ru'), else the interface's
-    const lang = o.lang === 'en' || o.lang === 'ru' ? o.lang : uiLang();
+    // the caption language: o.lang ('en' | 'ru' | 'it'), else the interface's
+    const lang = o.lang === 'en' || o.lang === 'ru' || o.lang === 'it' ? o.lang : uiLang();
     XD.begin(name, lang);
     const t0 = performance.now();
     let body;
@@ -3321,7 +3324,7 @@ const Figure = (() => {
   const sizeKey = (s) => (s.for === 'article' ? (s.cols === 2 ? 'article2' : 'article1') : s.for);
   // the caption language (DESIGN.md 12, i18n-22): the dialog offers it only when the interface is not English, so an
   // English interface keeps its dialog and its captions as they were
-  const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru') ? s.capLang : uiLang());
+  const capLangOf = (s) => (uiLang() !== 'en' && (s.capLang === 'en' || s.capLang === 'ru' || s.capLang === 'it') ? s.capLang : uiLang());
   // the build options from the remembered settings
   function optsOf(s, extra) {
     const sk = sizeKey(s);
@@ -3487,7 +3490,7 @@ const Figure = (() => {
     const inkRow = row($t('Ink'), inkSeg); inkRow.classList.add('wide');
     // the caption language (DESIGN.md 12): offered only when the interface is not English (the English dialog is
     // unchanged); remembered with the settings. An edited caption is dropped: it was written in the other language
-    const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
+    const capLangRow = uiLang() !== 'en' ? row($t('Caption'), segB('xfCapLang', set.capLang === 'en' || set.capLang === 'ru' || set.capLang === 'it' ? set.capLang : 'ui', [['ui', $t('Interface language')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => { set.capLang = v; capEdited = null; regen.hidden = true; changed(); }, $t('Caption language'))) : null;
     if (capLangRow) capLangRow.classList.add('wide');
     // (round 3) the deformation is a deformation in every view that shows it: the filmstrip, the paths (plane and
     // globe), or one frame at the current t (the earlier one-panel figure of Phase, Landscape and the globes)
