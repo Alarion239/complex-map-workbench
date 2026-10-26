@@ -1,0 +1,47 @@
+worst |cos angle(K, C)|, worst distance of P, Q from K / |PQ| (exact from the float coefficients), undefined count
+A = circle3(P, Q, P*); B = null vector at G's anchor; X = cross product at P, G re-anchored exactly; Y = the same, re-anchored in float; Z = the proposal: X with every step exact (BigInt), one rounding per coefficient
+
+                                              |   A: cos      inc  und |   B: cos      inc  und |   X: cos      inc  und |   Y: cos      inc  und |   Z: cos      inc  und
+random (10 000; 70 % circles, 30 % lines)     | 2.2e-13  1.1e-15    0 | 1.7e-14  3.3e-14    0 | 1.4e-14  2.1e-15    0 | 1.8e-14  2.1e-15    0 | 6.3e-15  2.5e-16    0
+P at 1e-2 from C (2000)                       | 2.5e-14  4.3e-16    0 | 3.6e-14  3.7e-14    0 | 1.9e-16  3.6e-16    0 | 1.2e-15  4.4e-16    0 | 1.4e-16  2.5e-16    0
+P at 1e-4 from C (2000)                       | 4.1e-12  3.9e-16    0 | 1.4e-13  1.7e-13    0 | 1.8e-16  4.0e-16    0 | 2.0e-15  4.0e-16    0 | 1.3e-16  2.4e-16    0
+P at 1e-6 from C (2000)                       | 3.3e-10  3.9e-16    0 | 3.2e-14  4.1e-14    0 | 1.8e-16  3.8e-16    0 | 7.0e-16  3.8e-16    0 | 1.3e-16  2.1e-16    0
+P at 1e-8 from C (2000)                       |  2.9e-8  3.7e-16    0 | 3.1e-14  5.6e-14    0 | 1.8e-16  4.0e-16    0 | 3.6e-15  3.8e-16    0 | 1.1e-16  2.2e-16    0
+P at 1e-10 from C (2000)                      |  3.0e-6  4.0e-16    0 | 4.4e-14  4.1e-14    0 | 1.9e-16  3.4e-16    0 | 1.6e-15  3.4e-16    0 | 1.4e-16  2.2e-16    0
+P at 1e-12 from C (2000)                      |  2.9e-4  3.9e-16    0 | 1.1e-13  4.4e-14    0 | 2.0e-16  4.0e-16    0 | 2.1e-15  4.0e-16    0 | 1.4e-16  2.2e-16    0
+P at 1e-14 from C (2000)                      |  3.4e-2  4.0e-16    0 | 1.4e-13  5.1e-14    0 | 2.0e-16  3.7e-16    0 | 8.1e-16  3.7e-16    0 | 1.1e-16  2.6e-16    0
+P at 1e-16 from C (2000)                      |  1.0e+0  3.5e-16  906 | 5.5e-14  5.0e-14    0 | 2.0e-16  3.6e-16    0 | 8.9e-16  3.6e-16    0 | 1.1e-16  2.2e-16    0
+P exactly on C (r = 5, 13, 25: Pythagorean)   |       0        0   16 | 3.9e-16  2.3e-16    0 | 1.0e-16  1.2e-16    0 | 1.0e-16  1.2e-16    0 | 9.1e-17  6.6e-17    0
+P exactly on C, C a line                      |  8.3e-1  1.2e-16  160 | 2.9e-16  1.5e-14    0 | 1.2e-16  3.0e-16    0 | 1.2e-16  3.4e-16    0 | 8.3e-17  2.0e-16    0
+P and Q both exactly on C (ideal points)      |       0        0    4 | 1.2e-16  5.0e-17    0 | 5.6e-17  3.9e-17    0 | 7.2e-17  5.0e-17    0 | 1.7e-17  5.0e-17    0
+P at 1e-3 from the centre                     | 2.8e-18  2.7e-16    0 | 1.6e-18  2.4e-16    0 | 1.8e-18  1.9e-16    0 | 1.8e-18  1.9e-16    0 | 1.0e-18  1.3e-16    0
+P at 1e-6 from the centre                     | 2.9e-21  2.1e-16    0 | 1.6e-21  1.9e-16    0 | 2.0e-21  1.6e-16    0 | 2.0e-21  1.6e-16    0 | 1.2e-21  1.3e-16    0
+P at 1e-9 from the centre                     | 1.8e-24  1.8e-16    0 | 1.4e-24  1.7e-16    0 | 1.2e-24  2.0e-16    0 | 1.2e-24  2.0e-16    0 | 8.7e-25  1.5e-16    0
+P at 1e-12 from the centre                    | 2.4e-27  1.9e-16    0 | 1.4e-27  2.3e-16    0 | 2.4e-27  1.8e-16    0 | 2.4e-27  1.8e-16    0 | 1.7e-27  1.2e-16    0
+P exactly at the centre (the line c Q)        |       0  1.3e-16    0 |       0  1.1e-16    0 |       0  1.1e-16    0 |       0  1.1e-16    0 |       0  1.1e-16    0
+Q at 1e-3 from P* (near the pencil)           | 6.5e-11  9.4e-12    0 | 4.1e-10  3.6e-10    0 | 2.4e-10  1.2e-11    0 | 2.4e-10  1.2e-11    0 | 9.2e-15  2.2e-16    0
+Q at 1e-6 from P* (near the pencil)           |  1.4e-7   8.4e-9    0 |  1.7e-7   1.7e-7    0 |  3.5e-7   8.7e-9    0 |  3.5e-7   8.7e-9    0 | 5.8e-15  2.5e-16    0
+Q at 1e-9 from P* (near the pencil)           |  3.7e-4   9.2e-6    0 |  1.1e-4   1.1e-4    0 |  2.6e-4   6.0e-6    0 |  2.6e-4   6.0e-6    0 | 7.9e-15  2.4e-16    0
+Q at 1e-3 from P                              | 3.5e-14  1.8e-16    0 | 2.7e-10  1.8e-10    0 | 2.1e-14  1.6e-16    0 | 8.6e-15  1.7e-16    0 | 1.4e-14  1.6e-16    0
+Q at 1e-6 from P                              | 4.3e-14  1.7e-16    0 |  2.5e-7   1.6e-7    0 | 1.7e-14  1.4e-16    0 | 1.8e-14  1.6e-16    0 | 9.6e-15  1.2e-16    0
+Q at 1e-9 from P                              | 4.3e-14  1.9e-16    0 |  5.0e-4   8.4e-4    0 | 1.2e-14  1.7e-16    0 | 1.8e-14  1.7e-16    0 | 1.1e-14  1.4e-16    0
+Q = P* exactly (unit circle 0.5 / 2; real line|       0        0    3 |       0        0    3 |       0        0    3 |       0        0    3 |       0        0    3
+Q = INF (the line through P perp. to C)       | 1.2e-13  1.1e-15    0 | 3.0e-15        0    0 | 3.0e-15        0    0 | 3.0e-15        0    0 | 3.0e-15        0    0
+huge C (r = 1e9, P, Q near the curve)         |  7.2e-8  3.3e-16    0 |  6.2e-7   3.2e+0  346 | 3.6e-16  4.8e-16    0 |  7.2e-8  3.7e-16    0 | 2.3e-16  2.6e-16    0
+tiny C (r = 1e-6 at 1+i, P, Q within 1e-5)    | 5.3e-10  2.4e-15    0 | 1.8e-14  3.2e-15    0 | 2.7e-14  3.2e-15    0 | 2.7e-14  3.2e-15    0 | 2.4e-15  2.0e-16    0
+gcircle C: circle3 of nearly collinear points | 1.1e-13  3.0e-16    0 | 2.0e-16  8.4e-14    0 | 3.0e-16  4.6e-16    0 | 3.9e-16  4.6e-16    0 | 2.4e-16  2.6e-16    0
+C far away: unit circle at 1e6 + 1e6 i, P, Q n|  1.5e-8  3.4e-15    0 | 4.3e-15  1.9e-15    0 | 1.9e-15  1.0e-15    0 | 1.9e-15  1.0e-15    0 | 4.2e-16  1.9e-16    0
+
+Z: float path 0, exact path 42223
+
+continuity: P = (1 + s, 0.3) crosses the unit circle near s = -0.0461 (C: |z| = 1), Q = -0.2 + 0.5i
+  A: largest change of the level at 3 probes per 1e-7 step 3.32e+0; undefined steps 1; sign(A) flips 1
+  B: largest change of the level at 3 probes per 1e-7 step 1.69e-7; undefined steps 0; sign(A) flips 0
+  X: largest change of the level at 3 probes per 1e-7 step 1.69e-7; undefined steps 0; sign(A) flips 0
+  Z: largest change of the level at 3 probes per 1e-7 step 1.69e-7; undefined steps 0; sign(A) flips 0
+  P exactly on C (r = 5, P = 3 + 4i): A gives undefined (P* = P: two points coincide); B gives cos -4.0e-17
+
+orientation: X agrees with circle3(P, Q, P*) when P is inside C?
+  P inside: same 518, opposite 0;  P outside: same 0, opposite 1482
+
+time per evaluation: Z 1500 ns, A (circle3) 97 ns, X (exact re-anchor, BigInt) 689 ns, Y (float) 46 ns

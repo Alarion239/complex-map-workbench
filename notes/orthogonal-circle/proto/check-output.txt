@@ -1,0 +1,51 @@
+== 1. the core: exactness, incidence, the undefined cases
+PASS random 10^4: worst |cos| 6.7e-15, P and Q off K 2.5e-16 |PQ|, undefined 0
+PASS P at 1e-2 .. 1e-16 from C, both sides: worst |cos| 1.4e-16
+PASS P exactly on C (Pythagorean points): worst |cos| 4.6e-17
+PASS P and Q both on C: the geodesic between ideal points
+PASS Q at 1e-3 .. 1e-9 from P*: worst |cos| 7.9e-15
+PASS P exactly at the centre: a line, A = 0 exactly
+PASS Q = P* exactly: pencil (unit circle 0.5 / 2, real line i / -i, 0.25(1 + i) / 2(1 + i))
+PASS P = Q: coincide; both INF: lineInf; P at the centre and Q = INF: pencil
+PASS C of radius 1e9, 1e-6, far at 1e6(1 + i), a nearly collinear 3-point C: worst |cos| 1.8e-15
+PASS radius 1e-150 and 1e150: no overflow or underflow
+PASS Q = INF: the line through P along C's normal: worst |cos| 2.1e-15
+== 2. the anchor swaps keep the oriented curve (P = INF; Q exactly 0)
+PASS Q = 0 (anchored at 0, thru0) agrees with Q = 1e-300 (anchored at P): worst level difference 3.2e-15
+PASS P = INF agrees in orientation with P far away (500 cases; flips 0)
+== 3. orientation against circle3(P, Q, P*)
+PASS as an oriented curve K = circle3(P, Q, P*) when P is inside C (786 same, 0 opposite), the opposite outside (2214, 0)
+== 4. the graph: creation, drags, the line case, the region family
+PASS created: a circle, perpendicular to C {"kind":"circle","flip":true,"A":0.488453695637725}
+PASS at creation K is oriented as the disc (A > 0)
+PASS P dragged from 0.3 + 0.2i to 3.1 + 0.6i across C: undefined frames 0, worst |cos| 5.1e-16, largest level step at 3 probes 1.8e-3
+PASS P at C's centre (0): the line through 0 and Q, thru0 {"kind":"line"}
+PASS Q at 0: the line, anchored at 0 (thru0)
+PASS decimal rule [math-3]: snapped points on a line through the centre give the line, though the doubles are not collinear {"orient":-3.469446951953614e-17,"kind":"line","radiusWithoutRule":1583644522175334}
+PASS C's centre crosses PQ (grid steps): the family disc -> halfplane -> outside, A continuous (largest step 2.6e-2), |cos| 5.4e-17
+== 5. Use complement on C, chains, curve kinds
+PASS Use complement on a disc C does not turn K over
+PASS Use complement on a 3-point C does not turn K over; K is perpendicular to it
+PASS a chain: perpendicular to a perpendicular circle "9.6e-17"
+PASS C a polygon side, an arc, a half-plane edge, a sector arc and edge, an annulus circle, a segment: perpendicular to the carrier {"k1":"3.7e-17","k2":"5.1e-18","k3":"9.5e-17","k4":"1.2e-17","k5":"5.3e-17","k6":"6.4e-17","k8":"4.8e-17"}
+PASS C a freehand curve: undefined, notCircle
+== 6. gliders on K: continuous through the line case; Use complement on K does not move them
+PASS C's centre crosses PQ (0.0005 steps, through the line at step 1000): gliders at t = 0.1, 0.4 move at most 1.8e-3 per step, off K 5.1e-16, undefined 0
+PASS K a line: t = 1/4 is at |PQ| from P [0.3999999999999998,0]
+PASS Use complement on K does not move a glider on it
+PASS glide -> projectPiece round trip: worst t error 0; the antipode reads 1/2
+== 7. meets with K keep the entering rule
+PASS K ∩ C while P crosses C: both meets defined, largest step 6.2e-4, on C to 5.8e-15
+PASS K ∩ a line through the line case: indices 0,1 (no 'finite'), the meet moves at most 1.0e-4 per step
+PASS K ∩ line(P, Q) is exactly {P, Q} (withPts)
+== 8. plumbing: validate, save and load, old builds, plans, speed
+PASS save -> load -> recompute is bitwise identical
+PASS validate: a wrong signature frees the shape, its fields kept
+PASS v16.1 / v16.2 validate: perp is freed, its disc kept where it was (one loadFreed toast) {"freed":1}
+PASS deletePlan: deleting C or P deletes K and the glider on it [["C","g","k"],["P","g","k"]]
+PASS moveRoots: K on a free C: null (the press pans, with the chip)
+PASS moveRoots: K on a 3-point C of free points moves all five
+PASS describe: op perp, fill
+PASS speed: perpForm 1852 ns; a drag with 10 dependents 0.055 ms CPU per recompute
+
+41 passed, 0 failed

@@ -6,8 +6,9 @@
 //   - the ring and its chip ("on z₂"), at 8 px (mouse) or 22 px (touch);
 //   - binding: a drawing tool's handles bind at the press and at the release, a handle dragged onto a target binds,
 //     the Point tool makes a meet point on a crossing and a point on a curve on a stroke;
-//   - the four tools (Circle through 3 points, Intersect, Midpoint, Perpendicular bisector): picks, the draft chip
-//     with Curve | Region, the dashed preview, Backspace and Esc;
+//   - the six tools (Circle through 3 points, Intersect, Midpoint, Perpendicular bisector, Perpendicular circle, Touching
+//     circle): picks,
+//     the draft chip with Curve | Region, the dashed preview, Backspace and Esc;
 //   - dragging what is built: a point on a curve slides, a fixed point says what it is built from, a shape built on
 //     free points moves them (else the press pans);
 //   - texts: definitions, undefined reasons, the delete toasts; the rows, the ⋯ items, the plane menu's group, the
@@ -18,8 +19,12 @@ const Construct = (() => {
   let A = null;            // the app's adapter (app.js cmUiApi)
   const events = [];
   const TAU = 2 * Math.PI;
-  const CTOOLS = ['circle3', 'meet', 'midpoint', 'bisector'];
-  const NEED = { circle3: 3, midpoint: 2, bisector: 2, meet: 2 };
+  const CTOOLS = ['circle3', 'meet', 'midpoint', 'bisector', 'perp', 'touch'];
+  // (perp: P and Q are the picks; its curve is draftC.curve1, as Intersect's first curve: notes/orthogonal-circle/SPEC.md 4;
+  // touch: T and P, either order, on the curve draftC.curve1: notes/orthogonal-circle/TANGENT-SPEC.md 4)
+  const NEED = { circle3: 3, midpoint: 2, bisector: 2, meet: 2, perp: 2, touch: 2 };
+  // the tools whose first pick is a line or a circle that stays picked
+  const CURVE1 = new Set(['perp', 'touch']);
   const GRID = new Set(['cgrid', 'pgrid']);
   const POS = /^(p|a|b|m|c|v\d+)$/;
   const SUBD = '₀₁₂₃₄₅₆₇₈₉';
@@ -42,6 +47,9 @@ const Construct = (() => {
   const env = () => (api && api.cm ? api.cm.env() : {});
   const graph = () => Constr.graph(S());
   const isCTool = (t) => CTOOLS.includes(t);
+  // a circle given by points (3 points, the perpendicular circle's 2, a touching circle's T and finite P): the Curve |
+  // Region controls, Use complement, the glider parameter (CORE's pts3). Tangent lines stay out, as bisector does
+  const isCirc3 = (s) => !!(s && s.def && (s.def.op === 'circle3' || s.def.op === 'perp' || (s.def.op === 'touch' && !(s.def.args[2] && s.def.args[2].inf))));
   // [review regress-4] the pieces of a shape, cached on a cheap signature of the fields pieces read (a long point list,
   // a freehand stroke of 2000 points, by its length and every 64th point: it is moved whole), never a JSON.stringify
   // of the whole shape per pointer move; a formula curve also by the window it is traced in
@@ -49,7 +57,8 @@ const Construct = (() => {
     const pts = Array.isArray(s.pts) ? s.pts : null;
     let ps = '';
     if (pts) { const k = pts.length <= 64 ? 1 : 64; ps = pts.length + ':'; for (let i = 0; i < pts.length; i += k) ps += pts[i] + ';'; ps += pts[pts.length - 1]; }
-    const g = s._g ? s._g.A + ',' + s._g.B + ',' + s._g.C + ',' + s._g.o : '';
+    // (a touching circle's or a tangent's piece also carries C's form, tch: K's form can stay while C's changes)
+    const tc = s._g && s._g.tch, g = s._g ? s._g.A + ',' + s._g.B + ',' + s._g.C + ',' + s._g.o + (tc ? '|' + tc.G.A + ',' + tc.G.B + ',' + tc.G.C + ',' + tc.G.o + ',' + tc.tp : '') : '';
     const w = s.kind === 'fcurve' && A.win ? JSON.stringify(A.win('L')) : '';
     return s.kind + '|' + ps + '|' + g + '|' + [s.a, s.b, s.c, s.m, s.p, s.r, s.r1, s.r2, s.t1, s.t2, s.expr, s.complement].join(';') + '|' + w;
   }
@@ -76,9 +85,10 @@ const Construct = (() => {
     }
     return Constr.pieceDist(pc, z);
   }
-  // the three defining points of a circle3 (for the glider parameter; one may be ∞), as CORE's pts3Of [math-12]
+  // the three defining points of a circle3 (for the glider parameter; one may be ∞), as CORE's pts3Of [math-12]; a
+  // perpendicular circle's M(R) map at P
   function pts3Of(s, plane) {
-    if (!s || !s.def || s.def.op !== 'circle3') return null;
+    if (!isCirc3(s)) return null;
     try { return Constr.pts3(S(), s, plane, env()); } catch (e) { return null; }
   }
 
@@ -94,7 +104,7 @@ const Construct = (() => {
   function shapeLabel(s) {
     if (!s) return '?';
     if (s.kind === 'point') { if (s.helper && s.def && s.def.op === 'meet') return meetName(s); return pointName(s); }
-    if (isT(s)) { const c = {}; let n = 0; for (const x of S().targets) { c[x.kind] = (c[x.kind] || 0) + 1; if (x === s) n = c[x.kind]; } return $t('Target {x} {x2}', { x: Region.KINDS[s.kind].label.toLowerCase(), x2: n }); }
+    if (isT(s)) { const c = {}; let n = 0; for (const x of S().targets) { const k = nameKind(x); c[k] = (c[k] || 0) + 1; if (x === s) n = c[k]; } return $t('Target {x} {x2}', { x: Region.KINDS[nameKind(s)].label.toLowerCase(), x2: n }); }
     return A.shapeNames().get(s.id) || Region.KINDS[s.kind].label;
   }
   const nameById = (id) => shapeLabel(find(id));
@@ -123,8 +133,15 @@ const Construct = (() => {
     }
     return null;
   }
+  // (v16.3 review user-9: the kind a perpendicular or touching circle is named by, app.js's nameKind)
+  function nameKind(s) {
+    const nk = s.def && (s.def.op === 'perp' || s.def.op === 'touch') ? s.def.nk : null;
+    if ((nk !== 'circle' && nk !== 'line') || !['circle', 'line', 'disc', 'halfplane'].includes(s.kind)) return s.kind;
+    const region = s.kind === 'disc' || s.kind === 'halfplane';
+    return nk === 'circle' ? (region ? 'disc' : 'circle') : (region ? 'halfplane' : 'line');
+  }
   function genName(s) {
-    const nm = shapeLabel(s), m = /\s(\d+)$/.exec(nm), k = isT(s) ? null : genKind(s.kind);
+    const nm = shapeLabel(s), m = /\s(\d+)$/.exec(nm), k = isT(s) ? null : genKind(nameKind(s));
     return m && k ? `${k} ${m[1]}` : nm;
   }
   function handleName(s, h, cs) {
@@ -148,6 +165,10 @@ const Construct = (() => {
     return x;
   }
   const fmtZ = (z) => { try { return CX.fmt(CX.C(z[0], z[1])).replace(/-/g, '−'); } catch (e) { return String(z); } };
+  // [v16.3 review user-1] the unit circle and the axes picked as a construction's curve become fixed shapes (no handles,
+  // no body drag; Make free unlocks them): they read as what they are
+  const FIXED = { unit: () => $t('the unit circle'), real: () => $t('the real axis'), imag: () => $t('the imaginary axis') };
+  const fixedName = (s) => (s && !s.def && !s.at && FIXED[s.fixed] ? FIXED[s.fixed]() : null);
   function curveName(ref) {
     const s = find(ref.s);
     if (!s) return '?';
@@ -181,6 +202,13 @@ const Construct = (() => {
       case 'nomeet': return $t('The curves do not meet here');
       case 'coincideCurves': return $t('The curves coincide here, so their crossings are not defined');
       case 'lineInf': return $t('A line needs two finite points');
+      // (the perpendicular circle: Q is P's mirror image in the curve; the curve is not a line or a circle)
+      case 'pencil': return $t('The points are symmetric in the curve: every circle through both is perpendicular to it');
+      case 'notCircle': return a.x ? $t('{x} is not a line or a circle', { x: nameById(a.x) }) : $t('An argument is undefined');
+      // (a tangent from a point inside its circle)
+      case 'inside': return $t('The point is inside the circle, so no line through it touches the circle');
+      // (the touching point left its curve: a rectangle's corner on another side now [v16.3 review math-1])
+      case 'offCurve': return $t('The touching point is not on {c}', { c: typeof a.x === 'string' ? curveName({ s: a.x, part: a.part | 0 }) : '?' });
       case 'handleInf': return $t('Only a line can pass through ∞');
       case 'tRange': return $t('The point is off the end of its curve');
       case 'zpRemoved':
@@ -209,7 +237,23 @@ const Construct = (() => {
     const dd = g.d[0] * (Q.r.z[0] - P.r.z[0]) + g.d[1] * (Q.r.z[1] - P.r.z[1]);
     return dd < 0 ? [Q.i, P.i] : [P.i, Q.i];
   }
-  function defText(s) {
+  // [v16.3 review user-13] the curve a perpendicular or touching circle is built on: a region by its boundary ("the circle
+  // of Disc 1"), a curve by its name
+  function cName(ref) {
+    const s = ref && find(ref.s);
+    if (s && !s.fixed && (s.kind === 'disc' || s.kind === 'halfplane') && piecesOf(s).length === 1) return s.kind === 'disc' ? $t('the circle of {x}', { x: shapeLabel(s) }) : $t('the edge of {x}', { x: shapeLabel(s) });
+    return curveName(ref);
+  }
+  // [v16.3 review user-2] the touching point of a tangent from P: the meet point of the tangent and its curve made with
+  // it (by its name), or null
+  function tangentPoint(s) {
+    const c = s.def.args[0], same = (r) => !!r && r.part === 0 && r.s === s.id, onC = (r) => !!r && r.s === c.s && r.part === c.part;
+    const m = (isT(s) ? S().targets : S().shapes).find((x) => x.kind === 'point' && x.def && x.def.op === 'meet' && !x.helper && x.visible !== false && x.def.args.some(same) && x.def.args.some(onC));
+    return m ? pointName(m) : null;
+  }
+  // short: a row (the curve first, so the cut-off end is the least needed part [v16.3 review user-10]); else the
+  // Inspector's long form
+  function defText(s, short) {
     const d = s.def;
     if (!d) return null;
     const N = (i) => refName(d.args[i], 'acc');
@@ -222,14 +266,57 @@ const Construct = (() => {
       }
       case 'meet': {
         const c1 = curveName(d.args[0]), c2 = curveName(d.args[1]);
+        // (a touching point: both indices are the same point)
+        if (touchMeet(s)) return $t('{c1} ∩ {c2}, where they touch', { c1, c2 });
         if (d.index === 'finite' || d.seed) return `${c1} ∩ ${c2}`;
         return d.index === 1 ? $t('{c1} ∩ {c2}, second point', { c1, c2 }) : $t('{c1} ∩ {c2}, first point', { c1, c2 });
       }
       case 'glider': return $t('on {curve}', { curve: curveName(d.args[0]) });
       case 'midpoint': return $t('midpoint of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
       case 'bisector': return $t('bisector of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
+      case 'perp': {
+        const p = { a: N(1), b: N(2), c: cName(d.args[0]) };
+        if (short) {
+          if (d.fill !== 'in') return s.kind === 'line' ? $t('line perpendicular to {c}, through {a} and {b}', p) : $t('perpendicular to {c}, through {a} and {b}', p);
+          if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+          return s.complement ? $t('outside a circle perpendicular to {c}, through {a} and {b}', p) : $t('disc perpendicular to {c}, through {a} and {b}', p);
+        }
+        if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {a} and {b}, perpendicular to {c}', p) : $t('through {a} and {b}, perpendicular to {c}', p);
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.complement) return $t('outside the circle through {a} and {b}, perpendicular to {c}', p);
+        return $t('the disc through {a} and {b}, perpendicular to {c}', p);
+      }
+      // the touching circle: {a} is T (nominative: «точка касания — {a}»), {b} is P (after "through", ctx acc)
+      case 'touch': {
+        const p = { a: refName(d.args[1]), b: N(2), c: cName(d.args[0]) };
+        if (d.args[2] && d.args[2].inf) return $tx('row', 'the tangent to {c} at {a}', p);
+        if (d.fill !== 'in') return s.kind === 'line' ? $t('the line through {b}, touching {c} at {a}', p) : $t('through {b}, touching {c} at {a}', p);
+        if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return $t('the half-plane left of {a} → {b}', { a: refName(d.args[i]), b: refName(d.args[j]) }); }
+        if (s.complement) return $t('outside the circle through {b}, touching {c} at {a}', p);
+        return $t('the disc through {b}, touching {c} at {a}', p);
+      }
+      // [v16.3 review user-2] by its touching point (made with it, in the same undo step), never "left" or "right" (they
+      // read mirrored on screen when P is above C); without that point, by its number
+      case 'tangent': {
+        const p = { c: cName(d.args[0]), p: N(1) }, t = tangentPoint(s);
+        if (t && short) return $t('tangent to {c} at {t}, through {p}', Object.assign(p, { t }));
+        return t ? $t('the tangent to {c} through {p}, touching at {t}', Object.assign(p, { t })) : $t('tangent {n} to {c} through {p}', Object.assign(p, { n: d.index === 1 ? 2 : 1 }));
+      }
     }
     return null;
+  }
+  // a meet point of two curves that touch by construction (a touching circle or a tangent and its curve, two touching
+  // circles of one curve at one point): CORE's meet rule gives the touching point for both indices
+  function touchMeet(s) {
+    const d = s && s.def;
+    if (!d || d.op !== 'meet' || d.seed) return false;
+    // (v16.3 review regress-1: only a touching circle or a tangent touches by construction; any other meet row does no
+    // piece work here)
+    const tc = (r) => { const c = r && find(r.s); return !!(c && c.def && (c.def.op === 'touch' || c.def.op === 'tangent')); };
+    if (!tc(d.args[0]) && !tc(d.args[1])) return false;
+    const pc = (r) => { const c = r && find(r.s); return c && !c.cundef ? piecesOf(c)[r.part] : null; };
+    const a = pc(d.args[0]), b = pc(d.args[1]);
+    try { return !!(a && b && Constr.touchAt(a, b) != null); } catch (e) { return false; }
   }
   // [review user-5] a line, segment, ray or half-plane bound at both ends reads by its points ("line through z₀ and z₁")
   function boundText(s) {
@@ -250,7 +337,8 @@ const Construct = (() => {
   }
 
   // ---------------------------------------------------------------- snap targets (SPEC 4.1)
-  // o: {points, cross, curves, exclude: Set, touch}; returns {cls, ref, z, pc?, t?} | null
+  // o: {points, cross, curves, exclude: Set, touch, exact}; returns {cls, ref, z, pc?, t?} | null. exact: curves whose
+  // piece is an exact line or circle only (the perpendicular circle's curve: never a freehand or a formula curve)
   function snapAt(side, x, y, o = {}) {
     const st = S();
     if (!st) return null;
@@ -294,6 +382,7 @@ const Construct = (() => {
         if (s.visible === false || ex.has(s.id) || s.kind === 'point' || GRID.has(s.kind) || s.kind === 'formula') continue;
         const pcs = piecesOf(s), bx = boxesOf(s);
         pcs.forEach((pc, part) => {
+          if (o.exact && ((pc.kind !== 'line' && pc.kind !== 'circle') || !pc.G)) return;
           const b = bx[part];
           if (b && (Z[0] < b.x0 - lim || Z[0] > b.x1 + lim || Z[1] < b.y0 - lim || Z[1] > b.y1 + lim)) return;   // (the box prefilter)
           const d = pieceDist(pc, Z);
@@ -337,7 +426,7 @@ const Construct = (() => {
     if (role === 'handle') return { points: true, cross: true, curves: false };
     return { points: true, cross: true, curves: false };
   }
-  const chipOf = (t) => (t ? $t('on {x}', { x: refName(t.ref) }) : '');
+  const chipOf = (t) => (t ? $t('on {x}', { x: t.label || refName(t.ref) }) : '');
   // (a finished construction hides the ring and chip until the pointer moves on [review user-10])
   let ringHold = null;
   function setRing(side, t, warn) {
@@ -507,6 +596,12 @@ const Construct = (() => {
   // a fixed constructed point stays and says why, a shape built on free points moves them, other built shapes pan
   function moveDrag(d, pane, side, x, y) {
     const s = d.shape;
+    // [v16.3 review user-1] the unit circle or an axis made a shape for a construction stays put: the press pans
+    if (s && fixedName(s)) {
+      if (!d.cmWarned) { d.cmWarned = true; A.toast($t('This is {x}: it stays fixed. To move it, choose Make free in ⋯.', { x: fixedName(s) })); }
+      d.cm = 'pan';
+      return 'pan';
+    }
     if (!s || !(s.def || s.at)) return false;
     const z = pane.s2w(x, y), Z = [z.re, z.im];
     if (d.cm === 'pan') return false;
@@ -518,8 +613,10 @@ const Construct = (() => {
       try { pr = Constr.projectPiece(pc, Z, pc.c3 ? pts3Of(e, isT(s) ? 1 : 0) : null); } catch (er) { pr = null; }
       if (!pr) return true;
       if (s.bind && s.bind.t) return true;   // (a number moves it)
-      if (pr.seed) api.cm.setDef(s.id, { seed: pr.seed, live: true }); else api.cm.setDef(s.id, { t: pr.t, live: true });
-      d.moved = true; d.cmLive = true;
+      // [v16.3 review user-4] the recompute waits for the frame, as a free point's drag: the handler keeps the last
+      // target, the frame applies it once (moveUp applies one still pending at the release)
+      d.cmPend = pr; d.moved = true; d.cmLive = true;
+      if (!d.cmRaf) d.cmRaf = requestAnimationFrame(() => glideFlush(d));
       return true;
     }
     if (s.kind === 'point' && s.def) {
@@ -545,6 +642,15 @@ const Construct = (() => {
     return 'pan';
   }
 
+  function glideFlush(d) {
+    d.cmRaf = 0;
+    const pr = d.cmPend, s = d.shape;
+    d.cmPend = null;
+    if (!pr || !s || !find(s.id)) return;
+    if (pr.seed) api.cm.setDef(s.id, { seed: pr.seed, live: true }); else api.cm.setDef(s.id, { t: pr.t, live: true });
+  }
+  // onUp 'move': a glider's target still waiting for its frame is applied before the gesture's undo step
+  function moveUp(d) { if (d && d.cmRaf) { cancelAnimationFrame(d.cmRaf); glideFlush(d); } }
   // [review user-13] what can be dragged to change s: its definitions followed down to free points, free handles,
   // zeros and free curves (never a fixed point that would refuse the drag in turn)
   function rootsText(s) {
@@ -572,7 +678,30 @@ const Construct = (() => {
     if (!isCTool(tool)) return false;
     if (side === 'L' && A.leftStage() > 0) return false;
     if (side === 'R' && !A.targetsEditable()) return false;
+    // [v16.3 review user-11] the perpendicular or touching circle's draft (its curve, its points) is not dropped by a
+    // click in the other plane that picks no curve there: that click does nothing
+    if (draftC && draftC.tool === tool && draftC.side !== side && CURVE1.has(tool) && (draftC.picks.length || curve1Ok()) && !perpCurveAt(side, x, y)) return true;
     if (!draftC || draftC.tool !== tool || draftC.side !== side) draftC = { tool, side, picks: [], curve1: null, hover: null };
+    // the perpendicular and the touching circle's first pick: the curve (an exact line or circle, or a shown display
+    // curve); it stays picked for the next circle
+    if (CURVE1.has(tool) && !curve1Ok()) {
+      const c = perpCurveAt(side, x, y);
+      if (!c) { A.toast($t('Click a line or a circle.')); return true; }
+      draftC.curve1 = c; draftC.picks = [];
+      A.requestRender('OL', 'OR');
+      return true;
+    }
+    if (tool === 'touch') {
+      const r = touchTargetC(side, x, y), t = r.t;
+      if (r.warn) { A.toast(r.warn); return true; }
+      if (r.restart) { draftC.picks = []; draftC.carried = false; draftC.doneK = null; }
+      if (t.ref && t.ref.img && !A.yWhole()) { A.toast($t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return true; }
+      draftC.hoverT = null;
+      if (t.cls === 'ring') { finishTouch(side, t); return true; }
+      draftC.picks.push(t);
+      if (draftC.picks.length >= NEED.touch) finishTouch(side, null); else A.requestRender('OL', 'OR');
+      return true;
+    }
     let t = pickOf(side, x, y);
     if (tool === 'meet') {
       if (t.cls === 'cross') { finishMeetCross(t, side); return true; }
@@ -602,7 +731,200 @@ const Construct = (() => {
     if (draftC.picks.length >= NEED[tool]) finish(side); else { A.requestRender('OL', 'OR'); }
     return true;
   }
-  const toolName = (id) => ({ circle3: $t('Circle through 3 points'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Perpendicular bisector') }[id] || id);
+  const toolName = (id) => ({ circle3: $t('Circle through 3 points'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Perpendicular bisector'), perp: $t('Perpendicular circle'), touch: $t('Touching circle') }[id] || id);
+  // ---------------------------------------------------------------- the perpendicular circle's curve (notes/orthogonal-circle/SPEC.md 4)
+  // an exact line or circle at the pointer, else the nearest shown display curve within the curve radius: the unit
+  // circle when it is on, the real and the imaginary axis (every flat plane draws them). A display curve is kept as
+  // make: it becomes a shape when the circle is made (never on hover: newShape uses up an id).
+  // {cls: 'curve', ref, z, pc, t} | {cls: 'curve', ref: null, z, label, make, pc} | null
+  function perpCurveAt(side, x, y, touch) {
+    const t = snapAt(side, x, y, { points: false, cross: false, curves: true, exact: true, touch });
+    if (t) return t;
+    const pane = A.setView(side), zc = pane.s2w(x, y), Z = [zc.re, zc.im], sc = pane.view.s;
+    const lim = radii(touch != null ? touch : touchNow()).c, cands = [];
+    if (S().unit) { const r = Math.hypot(Z[0], Z[1]); cands.push({ d: Math.abs(r - 1) * sc, label: $t('the unit circle'), make: { kind: 'circle', c: [0, 0], r: 1, fixed: 'unit' }, z: r > 0 ? [Z[0] / r, Z[1] / r] : [1, 0] }); }
+    cands.push({ d: Math.abs(Z[1]) * sc, label: $t('the real axis'), make: { kind: 'line', a: [0, 0], b: [1, 0], fixed: 'real' }, z: [Z[0], 0] });
+    cands.push({ d: Math.abs(Z[0]) * sc, label: $t('the imaginary axis'), make: { kind: 'line', a: [0, 0], b: [0, 1], fixed: 'imag' }, z: [0, Z[1]] });
+    let best = null;
+    for (const c of cands) if (c.d <= lim && (!best || c.d < best.d)) best = c;
+    if (!best) return null;
+    let pc = null;
+    try { pc = Constr.pieces(Object.assign({ id: '', ci: 0, visible: true }, best.make), env())[0] || null; } catch (e) { pc = null; }
+    return { cls: 'curve', ref: null, z: best.z, label: best.label, make: best.make, pc };
+  }
+  // the draft's curve still exists (an undo may have removed it): else the draft drops it
+  function curve1Ok() {
+    const c = draftC && draftC.curve1;
+    if (!c) return false;
+    if (c.make || (c.ref && find(c.ref.s))) return true;
+    draftC.curve1 = null;
+    return false;
+  }
+  // the piece of the draft's curve
+  function curve1Piece(c) {
+    if (!c) return null;
+    if (c.make) return c.pc || null;
+    const s = c.ref && find(c.ref.s);
+    return (s && piecesOf(s)[c.ref.part]) || null;
+  }
+  // the draft curve's name ("Circle 1", "side 2 of Polygon 1", "the unit circle")
+  const curve1Name = () => { const c = draftC && draftC.curve1; return !c ? '?' : c.ref ? curveName(c.ref) : c.label || '?'; };
+  // ---------------------------------------------------------------- the touching circle's picks (TANGENT-SPEC.md 4)
+  // a target on C by construction (the T test): C's own stroke, a crossing with C, a point on C (CORE's onCurveByRefs,
+  // through bound handles). A free point that lies on C by its floats is not on C
+  function onC(t) {
+    const c = draftC && draftC.curve1;
+    if (!t || !c) return false;
+    if (t.onMake) return true;
+    if (!c.ref) return false;                       // (a display curve: only its own stroke is on it)
+    const same = (r) => !!r && r.s === c.ref.s && r.part === c.ref.part;
+    if (t.cls === 'curve') return same(t.ref);
+    if (t.cls === 'cross') return t.ref.meet.some(same);
+    if (t.cls === 'point' && t.ref) { try { return Constr.onCurveByRefs(S(), t.ref, c.ref); } catch (e) { return false; } }
+    return false;
+  }
+  // C's stroke at the pointer, within the curve radius: a point on C (on a display curve: onMake, its ref is set when
+  // the curve becomes a shape)
+  function strokeOnC(side, x, y) {
+    const c = draftC.curve1, pc = curve1Piece(c);
+    if (!pc) return null;
+    const pane = A.setView(side), zc = pane.s2w(x, y), Z = [zc.re, zc.im];
+    if (!(pieceDist(pc, Z) * pane.view.s <= radii(touchNow()).c)) return null;
+    let pr = null;
+    try { pr = Constr.projectPiece(pc, Z, pc.c3 && c.ref ? pts3Of(find(c.ref.s), side === 'R' ? 1 : 0) : null); } catch (e) { pr = null; }
+    if (!pr || !isXY(pr.z)) return null;
+    const t = { cls: 'curve', ref: c.ref || null, z: pr.z.slice(), t: pr.t, seed: pr.seed, pc };
+    if (!c.ref) Object.assign(t, { onMake: true, label: c.label });
+    return t;
+  }
+  // the name a pick has, or will take when it becomes a point (a new point is the next z_n, or the next target letter)
+  function pickName(p, side) {
+    if (p && p.cls === 'point' && p.ref) return refName(p.ref);
+    const st = S();
+    if (side === 'R') return A.targetLabel({}, st.targets.filter((x) => x.kind === 'point').length);
+    return A.pointLabel({}, st.shapes.filter((x) => x.kind === 'point' && x.visible !== false && !x.helper).length, 0);
+  }
+  // after T: the tangent at T as a line form (C a circle), else null
+  function hintForm(T) {
+    const pc = curve1Piece(draftC && draftC.curve1);
+    if (!pc || pc.kind !== 'circle' || !pc.G || !isXY(T)) return null;
+    try { const r = Constr.touchForm(pc.G, T, Constr.INF); return r && r.G ? r.G : null; } catch (e) { return null; }
+  }
+  // the tangent hint at the pointer, within the curve radius (a stroke); Alt, or Snap off, skips it: P = ∞
+  function hintAt(side, x, y, Tp) {
+    if (A.altHeld() || (lastEv && lastEv.altKey) || !A.snapOn()) return null;
+    const G = hintForm(Tp.z);
+    if (!G) return null;
+    const g = Constr.geomOf(G), L = Math.hypot(g.d[0], g.d[1]);
+    if (!(L > 0)) return null;
+    const pane = A.setView(side), zc = pane.s2w(x, y), u = [g.d[0] / L, g.d[1] / L];
+    const tt = (zc.re - g.p[0]) * u[0] + (zc.im - g.p[1]) * u[1], z = [g.p[0] + tt * u[0], g.p[1] + tt * u[1]];
+    const [sx, sy] = pane.w2sxy(z[0], z[1]);
+    if (!(Math.hypot(sx - x, sy - y) <= radii(touchNow()).c)) return null;
+    return { cls: 'hint', ref: { inf: 1 }, z, G, label: $t('the tangent at {a}', { a: pickName(Tp, side) }) };
+  }
+  // after P: the tangents from P to C (C a circle, P outside it), each with its touching point on C's piece
+  function ringsOf(P) {
+    const pc = curve1Piece(draftC && draftC.curve1);
+    if (!pc || pc.kind !== 'circle' || !pc.G || !isXY(P)) return [];
+    const out = [];
+    for (const k of [0, 1]) {
+      let r = null;
+      try { r = Constr.tangentForm(pc.G, P, k); } catch (e) { r = null; }
+      if (r && r.G && isXY(r.tp) && Constr.onPiece(pc, r.tp)) out.push({ k, G: r.G, tp: r.tp });
+    }
+    return out;
+  }
+  // the rings still offered: after a ring's tangent is made, P stays picked with the other ring [v16.3 review user-5]
+  const ringsLeft = (P) => ringsOf(P).filter((r) => !(draftC && draftC.doneK && draftC.doneK.includes(r.k)));
+  // a ring at the pointer, within the point radius: the tangent from P with index k
+  function ringAt(side, x, y, Pp) {
+    const pane = A.setView(side);
+    let best = null, bd = radii(touchNow()).p;
+    for (const r of ringsLeft(Pp.z)) { const [sx, sy] = pane.w2sxy(r.tp[0], r.tp[1]), dd = Math.hypot(sx - x, sy - y); if (dd < bd) { bd = dd; best = r; } }
+    return best ? { cls: 'ring', ref: null, z: best.tp.slice(), k: best.k, G: best.G, label: $t('a tangent from {p}', { p: pickName(Pp, side) }) } : null;
+  }
+  // what a click at (x, y) takes now: {t} (t.role 'T' or 'P'; a hint, a ring) or {t?, warn} (the toast it gives, the
+  // target it refuses). First X: T when it is on C, else P. After T: points and crossings, the tangent hint, strokes, a
+  // free point; on C is refused. After P: a ring, a point or crossing on C, C's stroke; anything else is refused
+  function touchTarget(side, x, y) {
+    const d = draftC, P0 = d.picks[0], c1 = d.curve1;
+    const pane = A.setView(side), zc = pane.s2w(x, y), Z = [zc.re, zc.im];
+    const dup = (t) => !!t && !!t.ref && (t.cls === 'point' || t.cls === 'cross') && d.picks.some((p) => p.ref && Constr.refKey(p.ref) === Constr.refKey(t.ref));
+    const distinct = () => $t('{x} needs distinct points', { x: toolName('touch') });
+    // (a display curve is no shape yet: its stroke is looked for beside the snap targets, the nearer stroke wins)
+    const withMake = (t) => {
+      if (!c1.make || !(t.cls === 'free' || t.cls === 'curve')) return t;
+      const c = strokeOnC(side, x, y);
+      return c && (t.cls === 'free' || pieceDist(c.pc, Z) <= pieceDist(t.pc, Z)) ? c : t;
+    };
+    if (!P0) { const t = withMake(pickOf(side, x, y)); return { t: Object.assign({}, t, { role: onC(t) ? 'T' : 'P' }) }; }
+    if (P0.role === 'T') {
+      const t = snapAt(side, x, y, { points: true, cross: true, curves: false }) || hintAt(side, x, y, P0) || withMake(pickOf(side, x, y));
+      if (dup(t)) return { t, warn: distinct() };
+      if (t.cls !== 'hint' && onC(t)) return { t, warn: $t('Click a point off {c}.', { c: curve1Name() }) };
+      return { t: Object.assign({}, t, { role: 'P' }) };
+    }
+    const rg = ringAt(side, x, y, P0);
+    if (rg) return { t: rg };
+    const t = snapAt(side, x, y, { points: true, cross: true, curves: false });
+    if (dup(t)) return { t, warn: distinct() };
+    if (t && onC(t)) return { t: Object.assign({}, t, { role: 'T' }) };
+    const c = strokeOnC(side, x, y);
+    if (c) return { t: Object.assign(c, { role: 'T' }) };
+    return { t, warn: $t('Click a point on {c}.', { c: curve1Name() }) };
+  }
+  // [v16.3 review user-5] after a ring's tangent, P stays picked (carried): a click it would refuse starts the next circle
+  // instead, as a first pick ({t, restart: true})
+  function touchTargetC(side, x, y) {
+    const r = touchTarget(side, x, y);
+    if (!r.warn || !draftC.carried || draftC.picks.length !== 1) return r;
+    const keep = draftC.picks;
+    draftC.picks = [];
+    let r2;
+    try { r2 = touchTarget(side, x, y); } finally { draftC.picks = keep; }
+    return Object.assign(r2, { restart: true });
+  }
+  // the touching circle (or, from a ring, the tangent and its touching point): the new points first, then K, one undo
+  // step; a display curve becomes a shape first, and K takes the colour after it. The curve stays picked
+  function finishTouch(side, ring) {
+    const d = draftC, target = side === 'R', c1 = d.curve1, pc = curve1Piece(c1);
+    const pre = [], shapes = [], out = [];
+    let cref = c1.ref;
+    if (c1.make) { const C = A.newShape(c1.make.kind, JSON.parse(JSON.stringify(c1.make)), target); pre.push(C); cref = { s: C.id, part: 0 }; }
+    const refOf = (p) => {
+      if (p.cls === 'hint') return { inf: 1 };
+      if (p.cls === 'free') { const q = A.newShape('point', { p: p.z.slice() }, target); shapes.push(q); return { s: q.id }; }
+      const m = materialize(p.onMake ? Object.assign({}, p, { ref: cref }) : p, side, {});
+      shapes.push(...m.shapes);
+      return m.ref;
+    };
+    const Tp = d.picks.find((p) => p.role === 'T'), Pp = d.picks.find((p) => p.role === 'P');
+    let s, pRef = null;
+    if (ring) {
+      let g = null;
+      try { g = Constr.shapeOf(ring.G); } catch (e) { g = null; }
+      pRef = refOf(Pp);
+      s = A.newShape('line', Object.assign(g && g.kind === 'line' ? { a: g.a, b: g.b } : { a: Pp.z.slice(), b: ring.z.slice() }, { def: { op: 'tangent', args: [cref, pRef], index: ring.k, fill: 'none' } }), target);
+      out.push(s, A.newShape('point', { p: ring.z.slice(), def: { op: 'meet', args: [{ s: s.id, part: 0 }, cref], index: 0 } }, target));
+    } else {
+      const tr = refOf(Tp), pr = refOf(Pp);
+      let g = null;
+      try { const r = pc && pc.G ? Constr.touchForm(pc.G, Tp.z, pr.inf ? Constr.INF : Pp.z) : null; g = r && r.G ? Constr.shapeOf(r.G) : null; } catch (e) { g = null; }
+      const base = g ? (g.kind === 'line' ? { a: g.a, b: g.b } : { c: g.c, r: g.r }) : { c: Tp.z.slice(), r: 1 };
+      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: { op: 'touch', args: [cref, tr, pr], fill: 'none', nk: g && g.kind === 'line' ? 'line' : 'circle' } }), target);
+      out.push(s);
+    }
+    if (pre.length) s.ci = A.nextCi(target, 1);
+    draftC = null;
+    holdRing();
+    api.cm.create(pre.concat(shapes, out), { target });
+    draftC = { tool: 'touch', side, picks: [], curve1: { cls: 'curve', ref: cref, z: c1.z }, hover: null };
+    // (a ring: P stays picked, with the other ring still offered; the second tangent is one click [v16.3 review user-5])
+    if (ring && pRef && find(pRef.s)) Object.assign(draftC, { picks: [{ cls: 'point', ref: pRef, z: Pp.z.slice(), role: 'P' }], carried: true, doneK: (d.doneK || []).concat([ring.k]) });
+    A.requestRender('OL', 'OR');
+    A.tourEmit('construct-added', { op: ring ? 'tangent' : 'touch' });
+  }
   // the picks as refs (new free points, meet points and points on curves made in the same undo step)
   function refsOfPicks(side) {
     const shapes = [], refs = [];
@@ -618,7 +940,8 @@ const Construct = (() => {
     const d = draftC, tool = d.tool, target = side === 'R';
     const { shapes, refs } = refsOfPicks(side);
     const P = d.picks.map((p) => p.z);
-    let s;
+    const pre = [];
+    let s, next = null;
     if (tool === 'circle3') {
       let G = null;
       try { G = Constr.circle3(P[0], P[1], P[2]); } catch (e) { G = null; }
@@ -626,6 +949,18 @@ const Construct = (() => {
       const fin = P.find(isXY) || [0, 0];
       const base = g && !g.line ? { c: g.c, r: g.r } : { c: fin.slice(), r: 1 };
       s = A.newShape(fillMode === 'in' ? 'disc' : 'circle', Object.assign(base, { def: { op: 'circle3', args: refs, fill: fillMode } }), target);
+    } else if (tool === 'perp') {
+      // K's starting fields (recompute sets them exactly); a display curve becomes a shape first, in the same undo step,
+      // and K then takes the next colour
+      const c1 = d.curve1, pc = curve1Piece(c1);
+      let cref = c1.ref;
+      if (c1.make) { const C = A.newShape(c1.make.kind, JSON.parse(JSON.stringify(c1.make)), target); pre.push(C); cref = { s: C.id, part: 0 }; }
+      let g = null;
+      try { const r = pc && pc.G && isXY(P[0]) && isXY(P[1]) ? Constr.perpForm(pc.G, P[0], P[1], pc) : null; g = r && r.G ? Constr.shapeOf(r.G) : null; } catch (e) { g = null; }
+      const base = g ? (g.kind === 'line' ? { a: g.a, b: g.b } : { c: g.c, r: g.r }) : { c: (P.find(isXY) || [0, 0]).slice(), r: 1 };
+      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: { op: 'perp', args: [cref].concat(refs), fill: 'none', nk: g && g.kind === 'line' ? 'line' : 'circle' } }), target);
+      if (pre.length) s.ci = A.nextCi(target, 1);
+      next = { tool: 'perp', side, picks: [], curve1: { cls: 'curve', ref: cref, z: c1.z }, hover: null };
     } else if (tool === 'midpoint') {
       s = A.newShape('point', { p: isXY(P[0]) && isXY(P[1]) ? [(P[0][0] + P[1][0]) / 2, (P[0][1] + P[1][1]) / 2] : [0, 0], def: { op: 'midpoint', args: refs } }, target);
     } else {
@@ -633,7 +968,9 @@ const Construct = (() => {
     }
     draftC = null;
     holdRing();
-    api.cm.create(shapes.concat([s]), { target });
+    api.cm.create(pre.concat(shapes, [s]), { target });
+    // (the perpendicular circle: the curve stays picked; Backspace with no points, or Esc, drops it)
+    if (next) draftC = next;
     A.requestRender('OL', 'OR');
     A.tourEmit('construct-added', { op: tool });
   }
@@ -702,6 +1039,7 @@ const Construct = (() => {
     const gp = A.globePick(side, x, y);
     if (!gp || !gp.g) return false;
     if (tool === 'meet') { A.toast($t('Click a crossing of two curves, or a curve.')); return true; }
+    if (CURVE1.has(tool)) { A.toast($t('Click a line or a circle.')); return true; }
     const R = radii(touchNow()).p;
     let best = null, bd = R;
     const consider = (P, ref, z) => { const q = A.gScreen(gp.gc, P); if (!q) return; const d = Math.hypot(q[0] - x, q[1] - y); if (d < bd) { bd = d; best = { cls: 'point', ref, z }; } };
@@ -718,8 +1056,9 @@ const Construct = (() => {
   function back() {
     if (!draftC) return false;
     if (draftC.tool === 'meet') { if (!draftC.curve1) return cancel(); draftC.curve1 = null; }
+    else if (CURVE1.has(draftC.tool) && !draftC.picks.length) { if (!draftC.curve1) return cancel(); draftC.curve1 = null; }
     else if (!draftC.picks.length) return cancel();
-    else draftC.picks.pop();
+    else { draftC.picks.pop(); draftC.hoverT = null; }
     A.requestRender('OL', 'OR');
     return true;
   }
@@ -727,15 +1066,31 @@ const Construct = (() => {
   // ---------------------------------------------------------------- the chip (the draft chip of the plane drawn in)
   // [review user-2, picture-4] the counter first (it says which pick is next), then the tool (its tile label on a
   // narrow pane or touch), then Esc; the chip wraps to two lines rather than cut the counter
-  const toolShort = (id) => ({ circle3: $t('3 points'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Bisector') }[id] || id);
+  // (v16.3 review user-7: the English tile is «Orthogonal», one line, as the Russian «Ортогональная»; «perpendicular»
+  // stays the bisector's sense)
+  const toolShort = (id) => ({ circle3: $t('3 points'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Bisector'), perp: $t('Orthogonal'), touch: $t('Touching') }[id] || id);
+  // [v16.3 review user-12] the chip's touch form (no "Esc cancels", a ×) from its first frame when the tool was chosen
+  // by touch, or on a coarse pointer before any pointer event over a plane
+  let lastPressTouch = null;
+  const coarse = () => { try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } };
+  const chipTouch = () => (lastEv ? touchNow() || (lastPressTouch === true && lastPressAt > lastEvAt) : lastPressTouch != null ? lastPressTouch : coarse());
+  let lastPressAt = 0, lastEvAt = 0;
   function chipText(narrow) {
     const tool = A.tool();
     if (!isCTool(tool)) return '';
-    const touch = touchNow(), tn = narrow || touch ? toolShort(tool) : toolName(tool);
+    // (the tile's soft hyphen never reaches the chip: it would break the chip's line there [v16.3 review user-8])
+    const touch = chipTouch(), tn = (narrow || touch ? toolShort(tool) : toolName(tool)).replace(/\u00AD/g, '');
     const tail = touch ? '' : ' · ' + $t('Esc cancels');
     if (tool === 'meet') {
       const n = draftC && draftC.curve1 ? 2 : 1;
       return $t('A crossing, or curve {n} of 2', { n }) + ' · ' + tn + tail;
+    }
+    if (CURVE1.has(tool) && !(draftC && draftC.tool === tool && curve1Ok())) return $t('Pick a line or a circle') + ' · ' + tn + tail;
+    // (the touching circle: after P, the touching point on C; after T, P or the tangent when C is a circle)
+    if (tool === 'touch' && draftC && draftC.tool === 'touch' && draftC.picks.length) {
+      if (draftC.picks[0].role === 'P') return (ringsLeft(draftC.picks[0].z).length ? $t('Touching point on {c}, or a ring for a tangent', { c: curve1Name() }) : $t('Touching point on {c}', { c: curve1Name() })) + ' · ' + tn + tail;
+      const pc = curve1Piece(draftC.curve1);
+      if (pc && pc.kind === 'circle') return $t('Point {n} of {m}, or the tangent', { n: 2, m: 2 }) + ' · ' + tn + tail;
     }
     const n = (draftC && draftC.tool === tool ? draftC.picks.length : 0) + 1, m = NEED[tool];
     return $t('Point {n} of {m}', { n, m }) + ' · ' + tn + tail;
@@ -768,14 +1123,14 @@ const Construct = (() => {
       if (el.firstElementChild && el.firstElementChild !== box) el.firstElementChild.hidden = true;
       const plot = el.parentElement, narrow = !!plot && plot.clientWidth > 0 && plot.clientWidth < 560;
       const txt = chipText(narrow);
-      const sig = `${txt}|${tool}|${fillMode}|${I18N.lang}|${touchNow()}|${narrow}`;
+      const sig = `${txt}|${tool}|${fillMode}|${I18N.lang}|${chipTouch()}|${narrow}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
         box.append(A.h('span', { class: 'cm-t' }, txt));
         if (tool === 'circle3') {
           // (a narrow pane or touch: two icons, a circle and a filled disc, with their names as labels)
-          const icons = narrow || touchNow();
+          const icons = narrow || chipTouch();
           const seg = A.h('span', { class: 'cm-seg' + (icons ? ' cm-icons' : ''), role: 'group', 'aria-label': $t('Curve or region') });
           for (const [v, lab] of [['none', $tx('construct', 'Curve')], ['in', $tx('construct', 'Region')]]) {
             const b = A.h('button', { type: 'button', class: 'cm-sb' + (fillMode === v ? ' on' : ''), 'aria-pressed': String(fillMode === v), 'aria-label': lab, title: lab, onclick: (e) => { e.stopPropagation(); fillMode = v; A.requestRender('OL', 'OR'); } });
@@ -785,7 +1140,7 @@ const Construct = (() => {
           }
           box.append(seg);
         }
-        if (touchNow()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
+        if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
       }
     }
   }
@@ -886,14 +1241,23 @@ const Construct = (() => {
   function drawPreview(pane, side, ctx, TH) {
     const d = draftC;
     // [review picture-3] the colour the new shape will take, for its stroke and its fill alike
-    const ink = A.shapeInk({ ci: A.nextCi ? A.nextCi(side === 'R') : (side === 'R' ? S().targets.length : S().shapes.length) % 8 });
+    // (a perpendicular or touching circle on a display curve: that curve becomes the next shape, and K the one after it)
+    const k = CURVE1.has(d.tool) && d.curve1 && d.curve1.make ? 1 : 0;
+    const ink = A.shapeInk({ ci: A.nextCi ? A.nextCi(side === 'R', k) : ((side === 'R' ? S().targets.length : S().shapes.length) + k) % 8 });
     const color = ink.edge;
     ctx.save();
     ctx.strokeStyle = color; ctx.lineWidth = 1.5;
     const P = d.picks.map((p) => p.z);
+    // the perpendicular or touching circle's curve, 4 px wide at 35 % (as Intersect's first curve), under its picks
+    const ppc = CURVE1.has(d.tool) && curve1Ok() ? curve1Piece(d.curve1) : null;
+    if (ppc) { ctx.lineWidth = 4; ctx.globalAlpha = 0.35; strokePiece(pane, ctx, ppc); ctx.globalAlpha = 1; ctx.lineWidth = 1.5; }
+    // [v16.3 review user-3] the touching circle's marks in dark mode: the accent (the new shape's colour is too dim on
+    // the picked curve's glow), and a halo of the plane's colour under each pick
+    const mark = d.tool === 'touch' && TH.dark ? TH.accent : color;
     for (const p of d.picks) {
       const [x, y] = pane.w2sxy(p.z[0], p.z[1]);
-      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, TAU); ctx.fill();
+      if (d.tool === 'touch') { ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.strokeStyle = color; }
+      ctx.fillStyle = mark; ctx.beginPath(); ctx.arc(x, y, d.tool === 'touch' ? 4 : 3.5, 0, TAU); ctx.fill();
     }
     if (d.tool === 'meet' && d.curve1) {
       const s = find(d.curve1.ref.s), pc = s && piecesOf(s)[d.curve1.ref.part];
@@ -901,7 +1265,13 @@ const Construct = (() => {
     }
     const hv = d.hover;
     ctx.setLineDash([4, 3]);
-    if (hv && d.tool === 'circle3' && P.length === 2) {
+    if (d.tool === 'touch') { if (ppc && ppc.G) drawTouch(pane, ctx, d, ppc, hv, TH, mark); }
+    else if (ppc && ppc.G && hv && P.length === 1 && isXY(P[0])) {
+      // K through P and the pointer (nothing while it is undefined: the pointer at P, or at P's mirror image)
+      let r = null;
+      try { r = Constr.perpForm(ppc.G, P[0], hv, ppc); } catch (e) { r = null; }   // (the piece: the decimal rules, as the made K [v16.3 review math-3, math-4])
+      if (r && r.G) strokeForm(pane, ctx, r.G);
+    } else if (hv && d.tool === 'circle3' && P.length === 2) {
       let G = null;
       try { G = Constr.circle3(P[0], P[1], hv); } catch (e) { G = null; }
       if (G) {
@@ -945,6 +1315,60 @@ const Construct = (() => {
     }
     ctx.restore();
   }
+  // the touching circle's preview (dashed, in the new shape's colour; drawn with no pointer too, since touch has no
+  // hover): after T, the tangent at T thin at 50 %; after P, the tangents from P and their rings (hollow, 5 px). K
+  // through the pointer (after P: touching C at the pointer's nearest point on C); a snapped hint or ring at full
+  // strength instead. Nothing where K is undefined
+  // [v16.3 review user-3] the hint and the rings: in dark mode in the accent at full strength; each ring 2 px wide on a
+  // halo of the plane's colour (it shows over the picked curve's glow), 6 px (8 px on touch)
+  function drawTouch(pane, ctx, d, pc, hv, TH, mark) {
+    const P0 = d.picks[0], ht = d.hoverT || null;
+    if (!P0 || !isXY(P0.z)) return;
+    const dark = !!TH.dark;
+    const line = (G, full) => { ctx.save(); ctx.strokeStyle = mark; ctx.lineWidth = full || dark ? 1.5 : 1; ctx.globalAlpha = full || dark ? 1 : 0.5; strokeForm(pane, ctx, G); ctx.restore(); };
+    let K = null;
+    if (P0.role === 'T') {
+      const H = hintForm(P0.z), snapped = !!ht && ht.cls === 'hint';
+      if (H) line(H, snapped);
+      if (hv && !snapped) { try { const r = Constr.touchForm(pc.G, P0.z, hv); K = r && r.G; } catch (e) { K = null; } }
+    } else {
+      const snapped = !!ht && ht.cls === 'ring';
+      const rr = touchNow() || chipTouch() ? 8 : 6;
+      for (const r of ringsLeft(P0.z)) {
+        const full = snapped && ht.k === r.k;
+        line(r.G, full);
+        const [x, y] = pane.w2sxy(r.tp[0], r.tp[1]);
+        ctx.save(); ctx.setLineDash([]);
+        ctx.lineWidth = 4; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
+        ctx.lineWidth = 2; ctx.strokeStyle = mark; ctx.globalAlpha = full || dark ? 1 : 0.6; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke(); ctx.restore();
+      }
+      if (hv && !snapped) {
+        let T = ht && ht.role === 'T' ? ht.z : null;
+        if (!T) { try { const pr = Constr.projectPiece(pc, hv, pc.c3 && d.curve1.ref ? pts3Of(find(d.curve1.ref.s), d.side === 'R' ? 1 : 0) : null); T = pr && isXY(pr.z) ? pr.z : null; } catch (e) { T = null; } }
+        if (T) { try { const r = Constr.touchForm(pc.G, T, P0.z); K = r && r.G; } catch (e) { K = null; } }
+      }
+    }
+    if (K) strokeForm(pane, ctx, K);
+  }
+  // a generalized circle, exact at any radius: a line clipped to the pane; a circle by ctx.arc below 1e6 px; beyond, its
+  // M(R) samples (Constr.sampleMR), broken where they leave a margin around the pane (no huge canvas coordinates)
+  function strokeForm(pane, ctx, G) {
+    const g = Constr.geomOf(G);
+    ctx.beginPath();
+    if (g.line) { const L = clipLine(pane, g.p, g.d); if (L) { ctx.moveTo(L[0], L[1]); ctx.lineTo(L[2], L[3]); } }
+    else if (g.r * pane.view.s < 1e6) { const [cx, cy] = pane.w2sxy(g.c[0], g.c[1]); ctx.arc(cx, cy, g.r * pane.view.s, 0, TAU); }
+    else {
+      const pts = Constr.sampleMR(G, pane.box(), 2 / pane.view.s), m = 4 * Math.hypot(pane.w, pane.h);
+      let on = false;
+      for (let i = 0; i < pts.length; i += 2) {
+        const [x, y] = pane.w2sxy(pts[i], pts[i + 1]);
+        if (!(x > -m && x < pane.w + m && y > -m && y < pane.h + m)) { on = false; continue; }
+        if (on) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        on = true;
+      }
+    }
+    ctx.stroke();
+  }
   function clipLine(pane, p, d) {
     const L = Math.hypot(d[0], d[1]);
     if (!(L > 0)) return null;
@@ -968,7 +1392,7 @@ const Construct = (() => {
 
   // ---------------------------------------------------------------- hover (no button): the ring before the press
   function hover(pane, side, x, y, e) {
-    if (e) lastEv = e;
+    if (e) { lastEv = e; lastEvAt = performance.now(); }
     const tool = A.tool();
     if (isCTool(tool) && hoverSide !== side && !draftC) { hoverSide = side; A.requestRender('OL', 'OR'); }
     if (tool === 'select' || tool === 'formula' || tool === 'curve' || tool === 'lasso' || tool === 'cgrid' || tool === 'pgrid') { if (ring) setRing(null, null); return; }
@@ -976,9 +1400,26 @@ const Construct = (() => {
     const cl = classesFor(tool, 'draw');
     let t = cl ? snapAt(side, x, y, cl) : null;
     if (isCTool(tool)) {
-      if (!draftC || draftC.side !== side) draftC = draftC && draftC.picks.length ? draftC : { tool, side, picks: [], curve1: null, hover: null };
+      if (!draftC || draftC.side !== side) draftC = draftC && (draftC.picks.length || (CURVE1.has(draftC.tool) && draftC.curve1)) ? draftC : { tool, side, picks: [], curve1: null, hover: null };
+      // (the perpendicular or touching circle before its curve: the ring on an exact curve or a display curve, "on the
+      // unit circle")
+      if (CURVE1.has(tool) && !curve1Ok()) t = cl ? perpCurveAt(side, x, y) : null;
       const pane2 = A.setView(side);
       const z0 = pane2.s2w(x, y);
+      // (the touching circle after its curve: the target a click takes, the tangent hint and the rings among them; a
+      // refused target shows its toast as the chip)
+      if (tool === 'touch' && curve1Ok()) {
+        // (the other plane: a click there starts a new draft, so its ring is a curve's; no preview in the draft's plane)
+        if (draftC.side !== side) { draftC.hover = null; draftC.hoverT = null; A.requestRender('OL', 'OR'); setRing(side, cl ? perpCurveAt(side, x, y) : null); return; }
+        const r = cl ? touchTargetC(side, x, y) : null, tt = r && r.t && r.t.cls !== 'free' ? r.t : null;
+        draftC.hover = r && r.restart ? null : tt && !r.warn ? tt.z.slice() : [z0.re, z0.im];
+        draftC.hoverT = r && !r.warn && !r.restart ? r.t : null;
+        A.requestRender('OL', 'OR');
+        if (tt && r.warn) { setRing(side, tt, r.warn); return; }
+        if (tt && tt.ref && tt.ref.img && !A.yWhole()) { setRing(side, tt, $t('Draw in X to use {x}', { x: pointName(find(tt.ref.img)) })); return; }
+        setRing(side, tt);
+        return;
+      }
       draftC.hover = t ? t.z.slice() : [z0.re, z0.im];
       if (t && t.ref && draftC.picks.some((p) => p.ref && Constr.refKey(p.ref) === Constr.refKey(t.ref))) { setRing(side, t, $t('{x} needs distinct points', { x: toolName(tool) })); return; }
       if (t && tool === 'meet' && t.cls === 'point') t = snapAt(side, x, y, { points: false, cross: true, curves: true });
@@ -987,11 +1428,11 @@ const Construct = (() => {
     }
     setRing(side, t);
   }
-  function pointer(e) { lastEv = e; }
+  function pointer(e) { lastEv = e; lastEvAt = performance.now(); }
   // the pointer left a plane: no hover preview and no ring there [review picture-3]
   function leave(side) {
     let ch = false;
-    if (draftC && draftC.side === side && draftC.hover) { draftC.hover = null; ch = true; }
+    if (draftC && draftC.side === side && draftC.hover) { draftC.hover = null; draftC.hoverT = null; ch = true; }
     if (ring && ring.side === side) { ring = null; ch = true; }
     if (ch) A.requestRender('OL', 'OR');
   }
@@ -1039,12 +1480,13 @@ const Construct = (() => {
   // ---------------------------------------------------------------- rows, ⋯ items, hover links
   // updateShapeList's cell: true when this wrote it (a definition, a reason)
   function row(s, r) {
-    if (!(s.def || s.at || s.cundef || s._atInf)) { if (r.box) r.box.classList.remove('cm-linked'); return false; }
+    if (!(s.def || s.at || s.cundef || s._atInf || fixedName(s))) { if (r.box) r.box.classList.remove('cm-linked'); return false; }
     const d = r.d;
     let text = null, cls = 'cm-def';
-    if (s.cundef) { text = reasonText(s.cundef); cls = 'err-msg'; }
+    if (!s.def && !s.at && !s.cundef && fixedName(s)) text = fixedName(s);
+    else if (s.cundef) { text = reasonText(s.cundef); cls = 'err-msg'; }
     else if (s._atInf) text = s._note === 'parallel' ? `${pointName(s)} = ∞ · ${$t('They meet only at ∞')}` : `${pointName(s)} = ∞`;
-    else if (s.def) text = defText(s);
+    else if (s.def) text = defText(s, true);
     else if (s.at) text = boundText(s);
     if (text == null) {
       // a shape with only at: its equation (v15) and a link glyph; the tooltip says what it follows
@@ -1073,15 +1515,16 @@ const Construct = (() => {
   const LINK = '<svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M5 7l2-2M4.2 5.6L3 6.8a1.6 1.6 0 0 0 2.2 2.2l1.2-1.2M7.8 6.4L9 5.2A1.6 1.6 0 0 0 6.8 3L5.6 4.2"/></svg>';
   // the row's ⋯ menu: Make free, Use complement (flip), Other point, Show as point, Curve | Region
   function rowMenu(s, items) {
-    if (!(s.def || s.at || s.helper)) return;
+    if (!(s.def || s.at || s.helper || fixedName(s))) return;
     const add = [];
-    if (s.def && s.def.op === 'circle3') {
+    if (fixedName(s)) add.push({ label: $t('Make free'), run: () => unfix(s) });
+    if (isCirc3(s)) {
       const i = items.findIndex((it) => it && it.label && (it.label === $t('Use complement') || it.label === $t('Use the set itself')));
       if (i >= 0) items.splice(i, 1);
       if (s.def.fill === 'in') add.push({ label: $t('Use complement'), run: () => api.cm.setDef(s.id, { flip: !s.def.flip }) });
       add.push({ label: s.def.fill === 'in' ? $tx('construct', 'Curve') : $tx('construct', 'Region'), run: () => setFill(s, s.def.fill === 'in' ? 'none' : 'in') });
     }
-    if (s.def && s.def.op === 'meet' && s.def.index !== 'finite' && !s.def.seed) add.push({ label: $t('Other point'), run: () => api.cm.setDef(s.id, { index: s.def.index === 1 ? 0 : 1 }) });
+    if (s.def && s.def.op === 'meet' && s.def.index !== 'finite' && !s.def.seed && !touchMeet(s)) add.push({ label: $t('Other point'), run: () => api.cm.setDef(s.id, { index: s.def.index === 1 ? 0 : 1 }) });
     if (s.helper) add.push({ label: $t('Show as point'), run: () => { delete s.helper; delete s.owner; A.shapesChanged(true); A.commit(); } });
     if (s.def || s.at) add.push({ label: $t('Make free'), run: () => api.cm.makeFree(s.id) });
     if (add.length) items.unshift(...add, 'sep');
@@ -1090,6 +1533,8 @@ const Construct = (() => {
     const del = items.find((it) => it && typeof it === 'object' && (it.icon === 'trash' || it.label === $t('Delete')));
     if (del) { try { const n = Constr.deletePlan(S(), [s.id]).del.length - 1; if (n > 0) del.label = $tn('Delete (and {n} built on it)', 'Delete (and {n} built on it)', n); } catch (e) { /* */ } }
   }
+  // Make free on a fixed unit circle or axis: its handles and its drag come back (one undo step)
+  function unfix(s) { delete s.fixed; if (isT(s)) A.targetsChanged(true); else A.shapesChanged(true); A.commit(); }
   // Curve | Region of a 3-point circle: the kind changes, the definition stays
   function setFill(s, fill) {
     s.def.fill = fill;
@@ -1135,6 +1580,11 @@ const Construct = (() => {
     const target = side === 'R';
     if (t && t.cls === 'cross') items.push({ label: $t('Mark the intersection'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'meet' }); } });
     if (t && t.cls === 'curve') items.push({ label: $t('Point on this curve'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'glider' }); } });
+    // (an exact line or circle: the Perpendicular circle tool with this curve picked)
+    if (t && t.cls === 'curve' && t.pc && (t.pc.kind === 'line' || t.pc.kind === 'circle') && t.pc.G) {
+      items.push({ label: $t('Perpendicular circle…'), run: () => { A.setTool('perp'); draftC = { tool: 'perp', side, picks: [], curve1: t, hover: null }; A.requestRender('OL', 'OR'); } });
+      items.push({ label: $t('Touching circle…'), run: () => { A.setTool('touch'); draftC = { tool: 'touch', side, picks: [], curve1: t, hover: null }; A.requestRender('OL', 'OR'); } });
+    }
     if (t && t.cls === 'point') {
       const start = (tool) => () => { A.setTool(tool); draftC = { tool, side, picks: [t], curve1: null, hover: null }; A.requestRender('OL', 'OR'); };
       items.push({ label: $t('Circle through this point…'), run: start('circle3') });
@@ -1152,6 +1602,7 @@ const Construct = (() => {
     // a constructed shape under the press: Make free
     const hit = hitShape(side, ctx.x, ctx.y);
     if (hit && (hit.def || hit.at)) items.push({ label: $t('Make free'), run: () => api.cm.makeFree(hit.id) });
+    else if (hit && fixedName(hit)) items.push({ label: $t('Make free'), run: () => unfix(hit) });
     return items;
   }
   function hitShape(side, x, y) {
@@ -1174,6 +1625,10 @@ const Construct = (() => {
     if (!c) return null;
     const pc = piecesOf(c)[r.part];
     if (!pc || pc.kind === 'none' || pc.kind === 'traced') return null;
+    if (c.def && c.def.op === 'perp') return { text: $t('0 at {p}, ½ opposite it', { p: refName(c.def.args[1]) }), range: [0, 1] };
+    // (a touching circle: perp's map anchored at T; the tangent at T and a tangent from P: plain line gliders from T or P)
+    if (c.def && c.def.op === 'touch' && !(c.def.args[2] && c.def.args[2].inf)) return { text: $t('0 at {p}, ½ opposite it', { p: refName(c.def.args[1]) }), range: [0, 1] };
+    if (c.def && (c.def.op === 'touch' || c.def.op === 'tangent')) return { text: $t('0 at {p}; t is the distance from it', { p: refName(c.def.args[1]) }), range: [-10, 10] };
     if (c.def && c.def.op === 'circle3') {
       const [p, q, rr] = c.def.args.map((x) => refName(x));
       return { text: $t('0 at {p}, ¼ at {q}, ½ at {r}', { p, q, r: rr }), range: [0, 1] };
@@ -1196,13 +1651,13 @@ const Construct = (() => {
     // a chip per shape (hover: highlighted in X; click: selected), plain for a zero or ∞
     const chip = (id, label) => (id ? h('button', { type: 'button', class: 'cm-chipbtn', onclick: () => A.select(id), onpointerenter: () => A.hoverShape(id), onpointerleave: () => A.hoverShape(null) }, label || nameById(id)) : h('span', { class: 'cm-chipbtn cm-plain' }, label));
     // fields
-    if (s.def && s.def.op === 'circle3') {
+    if (isCirc3(s)) {
       const seg = h('div', { class: 'seg cm-iseg', role: 'group' });
       for (const [v, lab] of [['none', $tx('construct', 'Curve')], ['in', $tx('construct', 'Region')]]) seg.append(h('button', { type: 'button', class: (s.def.fill === 'in') === (v === 'in') ? 'on' : '', 'aria-pressed': String((s.def.fill === 'in') === (v === 'in')), onclick: () => setFill(s, v) }, lab));
       fields.append(seg);
       if (s.def.fill === 'in') fields.append(h('label', { class: 'cm-icheck' }, h('input', { type: 'checkbox', checked: s.complement ? true : null, onchange: () => api.cm.setDef(s.id, { flip: !s.def.flip }) }), $t('Use complement')));
     }
-    if (s.def && s.def.op === 'meet' && s.def.index !== 'finite' && !s.def.seed) fields.append(h('button', { type: 'button', class: 'btn', onclick: () => api.cm.setDef(s.id, { index: s.def.index === 1 ? 0 : 1 }) }, $t('Other point')));
+    if (s.def && s.def.op === 'meet' && s.def.index !== 'finite' && !s.def.seed && !touchMeet(s)) fields.append(h('button', { type: 'button', class: 'btn', onclick: () => api.cm.setDef(s.id, { index: s.def.index === 1 ? 0 : 1 }) }, $t('Other point')));
     if (s.def && s.def.op === 'glider' && Number.isFinite(s.t)) {
       const meaning = tMeaning(s);
       const inp = h('input', { class: 'inp mono cm-it', value: s.bind && s.bind.t ? s.bind.t : String(+s.t.toPrecision(6)), 'aria-label': 't' + (meaning ? ' (' + meaning.text + ')' : ''), spellcheck: 'false' });
@@ -1327,13 +1782,46 @@ const Construct = (() => {
     if (d.op === 'midpoint') return { src: 'the midpoint {x} of {a} and {b}', params: { x: self(), a: P(0), b: P(1) } };
     if (d.op === 'glider') return { src: 'the point {x} on {c}', params: { x: self(), c: CM(d.args[0]) } };
     if (d.op === 'bisector') return { src: 'the perpendicular bisector of {a} and {b}', params: { a: P(0), b: P(1) } };
+    // {c}: C's carrier, a circle or a line in the genitive (a 3-point, perpendicular or touching circle drawn as a curve by
+    // its own phrase; any other piece by its circle or its line: a polygon side is the line it lies on)
+    const carrier = (ref) => {
+      const C = find(ref.s), pc = C && piecesOf(C)[ref.part];
+      let c = curveName(ref);
+      if (C && pc && A.capPhrase) {
+        if (isCirc3(C) && C.def.fill !== 'in') c = A.capPhrase(C, 'gen');
+        else if (pc.kind === 'circle' && isXY(pc.c)) c = A.capPhrase({ id: '', kind: 'circle', c: pc.c.slice(), r: pc.r }, 'gen');
+        else if (pc.kind === 'line' && isXY(pc.a) && isXY(pc.b)) c = A.capPhrase({ id: '', kind: 'line', a: pc.a.slice(), b: pc.b.slice() }, 'gen');
+      }
+      return c;
+    };
+    // the touching circle ({a}: T, {b}: P), the tangent at T, the tangent from P
+    if (d.op === 'tangent') return { src: 'the tangent to {c} through {p}', params: { c: carrier(d.args[0]), p: P(1) } };
+    if (d.op === 'touch') {
+      const p = { a: P(1), b: P(2), c: carrier(d.args[0]) };
+      if (d.args[2] && d.args[2].inf) return { src: 'the tangent to {c} at {a}', params: { c: p.c, a: p.a } };
+      if (d.fill !== 'in') return s.kind === 'line' ? { src: 'the line through {b} touching {c} at {a}', params: p } : { src: 'the circle through {b} touching {c} at {a}', params: p };
+      if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return { src: 'the half-plane to the left of the line from {a} to {b}', params: { a: P(i), b: P(j) } }; }
+      if (s.complement) return { src: 'the outside of the circle through {b} touching {c} at {a}', params: p };
+      return { src: 'the disc bounded by the circle through {b} touching {c} at {a}', params: p };
+    }
+    if (d.op === 'perp') {
+      const p = { a: P(1), b: P(2), c: carrier(d.args[0]) };
+      if (d.fill !== 'in') return s.kind === 'line' ? { src: 'the line through {a} and {b} perpendicular to {c}', params: p } : { src: 'the circle through {a} and {b} perpendicular to {c}', params: p };
+      if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return { src: 'the half-plane to the left of the line from {a} to {b}', params: { a: P(i), b: P(j) } }; }
+      if (s.complement) return { src: 'the outside of the circle through {a} and {b} perpendicular to {c}', params: p };
+      return { src: 'the disc bounded by the circle through {a} and {b} perpendicular to {c}', params: p };
+    }
     return null;
   }
   // (the caption templates, for the Russian table's call-site scan: capT translates them at run time)
   const CAPTIONS = () => [$t('the line through {a}, {b} and {c}'), $t('the circle through {a}, {b} and {c}'), $t('the half-plane to the left of the line from {a} to {b}'),
     $t('the half-plane to the right of the line from {a} to {b}'), $t('the line through {a} and {b}'), $t('the segment from {a} to {b}'), $t('the ray from {a} through {b}'),
     $t('the outside of the circle through {a}, {b} and {c}'), $t('the disc bounded by the circle through {a}, {b} and {c}'), $t('the intersection {x} of {c1} and {c2}'),
-    $t('the midpoint {x} of {a} and {b}'), $t('the point {x} on {c}'), $t('the perpendicular bisector of {a} and {b}')];
+    $t('the midpoint {x} of {a} and {b}'), $t('the point {x} on {c}'), $t('the perpendicular bisector of {a} and {b}'),
+    $t('the circle through {a} and {b} perpendicular to {c}'), $t('the line through {a} and {b} perpendicular to {c}'),
+    $t('the disc bounded by the circle through {a} and {b} perpendicular to {c}'), $t('the outside of the circle through {a} and {b} perpendicular to {c}'),
+    $t('the circle through {b} touching {c} at {a}'), $t('the line through {b} touching {c} at {a}'), $t('the disc bounded by the circle through {b} touching {c} at {a}'),
+    $t('the outside of the circle through {b} touching {c} at {a}'), $t('the tangent to {c} at {a}'), $t('the tangent to {c} through {p}')];
 
   // ---------------------------------------------------------------- the tool rows, the grid, the CSS, the keys
   const tsvg = (inner) => `<svg class="tic" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -1343,6 +1831,10 @@ const Construct = (() => {
     meet: tsvg('<path d="M3 15.5L17 4.5M3 6.5c4 0 9 3 14 9"/><circle cx="10.1" cy="9.4" r="2.6" fill="none" stroke-width="1.3"/>'),
     midpoint: tsvg('<path d="M3.5 14.5l13-9"/>' + dot(3.5, 14.5) + dot(16.5, 5.5) + '<circle cx="10" cy="10" r="2.3" fill="none" stroke-width="1.3"/>'),
     bisector: tsvg('<path d="M3.5 13.5l13-7" stroke-opacity=".55"/>' + dot(3.5, 13.5) + dot(16.5, 6.5) + '<path d="M6.6 2.5l6.8 15"/><path d="M10.9 9.5l.7 1.5-1.5.7"/>'),
+    // a line, a half-circle on it (centre (10, 14.5), r 5.5) with two dots on it, a right-angle mark at its right foot
+    perp: tsvg('<path d="M2.5 14.5h15"/><path d="M4.5 14.5a5.5 5.5 0 0 1 11 0"/><path d="M15.5 12.4h2.1v2.1" stroke-width="1.1"/>' + dot(6.1, 10.62) + dot(12.8, 9.77)),
+    // a circle and a smaller one touching it from outside, a dot at the touching point (exactly on both)
+    touch: tsvg('<circle cx="8" cy="10" r="5.5"/><circle cx="16" cy="10" r="2.5"/>' + dot(13.5, 10)),
   };
   function toolRows() {
     return [
@@ -1350,6 +1842,8 @@ const Construct = (() => {
       ['meet', $t('Intersect'), '', $t('Click a crossing of two curves, or one curve and then another.'), 'construct', $t('Intersect')],
       ['midpoint', $t('Midpoint'), '', $t('Pick two points, or a segment.'), 'construct', $t('Midpoint')],
       ['bisector', $t('Perpendicular bisector'), '', $t('Pick two points, or a segment: the line of the points equally far from both.'), 'construct', $t('Bisector')],
+      ['perp', $t('Perpendicular circle'), '', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('Orthogonal')],
+      ['touch', $t('Touching circle'), '', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
     ];
   }
   const CSS = `
@@ -1376,6 +1870,7 @@ const Construct = (() => {
 .shape.cm-link-on > .shape-row { background: var(--accent-soft); }
 .rail-sep { width: 18px; height: 1px; background: var(--line); margin: 4px 0; flex: 0 0 auto; }
 #railTools.cm-tight1 > .rail-tool:is([data-tool="cgrid"], [data-tool="pgrid"]), #railTools.cm-tight2 > .rail-tool:is([data-tool="curve"], [data-tool="lasso"]) { display: none; }
+@media (min-width: 768px) { :root:not(.ph) .cm-tight3 > .rail-label { display: none; } }
 .cm-insp { display: flex; flex-direction: column; gap: 4px; }
 .cm-ihead { margin-bottom: 4px; }
 .cm-ilabel { font: var(--t-label); color: var(--muted); margin-top: 8px; }
@@ -1423,36 +1918,40 @@ const Construct = (() => {
     else if (e.key === 'Backspace' && has) { back(); e.preventDefault(); e.stopPropagation(); }
   }
   // the tablet rail (SPEC 5.4): when it would overflow the panel, Grid and Polar grid leave it first (they stay in the
-  // drawer), then Freehand and Lasso
+  // drawer), then Freehand and Lasso; (v16.3, the fifth Construct tool) then the rail's vertical "Region tools" label,
+  // which v16.2 already cut by 10 px at 1024 × 768 (the count above it and the open key stay)
   function fitRail() {
     const rail = document.getElementById('railTools');
     if (!rail || !rail.offsetParent) return;
     const box = rail.closest('.panel') || rail.parentElement;
     const over = () => box.scrollHeight > box.clientHeight + 1;
     rail.classList.remove('cm-tight1', 'cm-tight2');
+    if (rail.parentElement) rail.parentElement.classList.remove('cm-tight3');
     if (over()) rail.classList.add('cm-tight1');
     if (over()) rail.classList.add('cm-tight2');
+    if (over() && rail.parentElement) rail.parentElement.classList.add('cm-tight3');
   }
   function ui(adapter) {
     A = adapter;
     css();
     try { const rail = document.getElementById('railTools'); if (rail && window.ResizeObserver) { const ro = new ResizeObserver(() => fitRail()); ro.observe(rail.closest('.panel') || rail.parentElement); } } catch (e) { /* */ }
     window.addEventListener('keydown', keydown, true);
+    window.addEventListener('pointerdown', (e) => { lastPressTouch = e.pointerType === 'touch' || e.pointerType === 'pen'; lastPressAt = performance.now(); }, true);
     if (typeof PlaneMenu !== 'undefined') PlaneMenu.register('constructions', menuItems);
   }
-  // the command palette: the four tools; Make free and Use complement for a selected construction (SPEC 5.6)
+  // the command palette: the six tools; Make free and Use complement for a selected construction (SPEC 5.6)
   function paletteActs() {
     const out = CTOOLS.map((id) => [toolName(id), () => A.setTool(id), '']);
     const s = A.selected() && find(A.selected());
     if (s && (s.def || s.at)) out.push([$t('Make free'), () => api.cm.makeFree(s.id), '']);
-    if (s && s.def && s.def.op === 'circle3' && s.def.fill === 'in') out.push([$t('Use complement'), () => api.cm.setDef(s.id, { flip: !s.def.flip }), '']);
+    if (isCirc3(s) && s.def.fill === 'in') out.push([$t('Use complement'), () => api.cm.setDef(s.id, { flip: !s.def.flip }), '']);
     return out;
   }
   // a tool change: the draft goes, the chip follows
   function toolChanged() { if (draftC && draftC.tool !== A.tool()) draftC = null; gestSnap = null; ring = null; }
   // TEMP-DEBUG-HOOK (removed before publishing)
   function debug() {
-    return { ring: ring ? { side: ring.side, z: ring.z, ref: ring.ref, cls: ring.cls, chip: ring.chip } : null, draft: draftC ? { tool: draftC.tool, side: draftC.side, picks: draftC.picks.map((p) => ({ cls: p.cls, z: p.z, ref: p.ref })), curve1: draftC.curve1 && draftC.curve1.ref } : null, fill: fillMode, events: events.map((e) => e.type) };
+    return { ring: ring ? { side: ring.side, z: ring.z, ref: ring.ref, cls: ring.cls, chip: ring.chip, warn: ring.warn } : null, draft: draftC ? { tool: draftC.tool, side: draftC.side, picks: draftC.picks.map((p) => ({ cls: p.cls, z: p.z, ref: p.ref, role: p.role })), curve1: draftC.curve1 && draftC.curve1.ref, hoverT: draftC.hoverT ? { cls: draftC.hoverT.cls, k: draftC.hoverT.k, z: draftC.hoverT.z } : null, rings: draftC.tool === 'touch' && draftC.picks[0] && draftC.picks[0].role === 'P' ? ringsOf(draftC.picks[0].z).map((r) => ({ k: r.k, tp: r.tp })) : null, hint: draftC.tool === 'touch' && draftC.picks[0] && draftC.picks[0].role === 'T' ? hintForm(draftC.picks[0].z) : null } : null, fill: fillMode, events: events.map((e) => e.type) };
   }
   // TEMP-DEBUG-HOOK
   // (every entry point is inert until the app's adapter arrives: init() builds the tools before Construct.ui runs)
@@ -1461,7 +1960,7 @@ const Construct = (() => {
     init(a) { api = a; },
     on, ui, toolRows, ICON, buildGrid, CTOOLS, isTool: isCTool,
     vertexPick: g(vertexPick, null), bindVertices: g(bindVertices), globeClick: g(globeClick, false), boundUnder: g(boundUnder, null), snapAt: g(snapAt, null), drawStart: g(drawStart, null), drawMove: g(drawMove, null), drawEnd: g(drawEnd), pointDown: g(pointDown, false),
-    handleMove: g(handleMove, null), handleUp: g(handleUp), moveDrag: g(moveDrag, false), click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false),
+    handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false),
     hover: g(hover), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
     defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),

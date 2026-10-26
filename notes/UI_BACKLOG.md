@@ -179,3 +179,7 @@ tour, Russian) is gated.
 35. (2026-10-25) Tour: highlight exactly the tool each action step needs; the card-pictures step must guarantee pictures (not compact). 36. All sheets during the deformation (sin sqrt z: see the sheets split/merge). 37. LaTeX caption: no "all sheets" claim for infinitely many sheets. 38. Figure export More options shows nothing. -> notes/v16-user5/.
 39. (2026-10-25) Landscape 3D: continuous walls where continuous (no holes, however steep), nothing across real discontinuities (cuts, sheet seams), clean edges at the height box. notes/landscape-walls/, work/xvls.
 40. (2026-10-25) Perpendicular circle: a construction tool for circles perpendicular to a line or circle (through 2 points = hyperbolic lines). notes/orthogonal-circle/. v16.3.
+41. (2026-10-25) Touching (tangent) lines and circles to a line or circle, with the perpendicular tool. notes/orthogonal-circle/TANGENT-*. v16.3.
+42. (2026-10-26) Help paragraph on the deformation: the polynomial sentence is out of date (polynomials zoom); fix with the v16.4 merge. Joukowski path stays (user).
+43. (2026-10-26) Tour round 3: lighter callouts (phones: readable without a tap, no pop-up over the work), every action step with a completion condition and auto-advance 3 s after, a Grieg/sound chapter explaining how sound is extracted. notes/tour-r3/, work/xvtr.
+44. (2026-10-26) Old Windows laptops: lag on the first draw only (shader compile); the user finds it fine. Possible later: KHR_parallel_shader_compile, warm-up compiles.

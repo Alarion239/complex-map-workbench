@@ -2919,7 +2919,7 @@
     const ctx = pane.octx;
     const k = shapeInk(s).edge;
     for (const [key, z] of Region.handlesOf(s)) {
-      if (typeof Construct !== 'undefined' && (s.def || (s.at && s.at[key]))) continue;   // (v16)
+      if (typeof Construct !== 'undefined' && (s.def || s.fixed || (s.at && s.at[key]))) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
       ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -6053,7 +6053,7 @@
   // the shapes' names as their rows show them ("Circle 1")
   function shapeNames() {
     const counts = {}, names = new Map(), pv = { n: 0 };
-    for (const s of S.shapes) { counts[s.kind] = (counts[s.kind] || 0) + 1; names.set(s.id, rowName(s, counts, pv, false)); }
+    for (const s of S.shapes) { const nk = nameKind(s); counts[nk] = (counts[nk] || 0) + 1; names.set(s.id, rowName(s, counts, pv, false)); }
     return names;
   }
   // (v16 review user-4, picture-8) a point's row is named as the plane labels it (z₀, or the user's label), so the names
@@ -8402,7 +8402,17 @@
     if (s.kind === 'point' && s.label) return exLabel(s.label);
     // (an example's named curve: the melody's spiral, notes/sea-song)
     if (s.kind === 'curve' && s.nameKey === 'spiral') return $t('Spiral');
-    return $t('{kind} {n}', { kind: Region.KINDS[s.kind].label, n: counts[s.kind] });
+    const nk = nameKind(s);
+    return $t('{kind} {n}', { kind: Region.KINDS[nk].label, n: counts[nk] });
+  }
+  // (v16.3 review user-9) a perpendicular or touching circle is numbered once, by the kind it was made as (def.nk): a
+  // drag that turns it into a line for a moment renames neither it nor the shapes after it
+  function nameKind(s) {
+    const nk = s.def && (s.def.op === 'perp' || s.def.op === 'touch') ? s.def.nk : null;
+    if (nk !== 'circle' && nk !== 'line') return s.kind;
+    const region = s.kind === 'disc' || s.kind === 'halfplane';
+    if (!region && s.kind !== 'circle' && s.kind !== 'line') return s.kind;
+    return nk === 'circle' ? (region ? 'disc' : 'circle') : (region ? 'halfplane' : 'line');
   }
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
@@ -8443,7 +8453,7 @@
     // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span><i>z</i>-plane</span>') }));
     const counts = {}, pv = { n: 0 };
-    S.shapes.forEach((s) => { counts[s.kind] = (counts[s.kind] || 0) + 1; host.append(shapeRow(s, rowName(s, counts, pv), false)); });
+    S.shapes.forEach((s) => { const nk = nameKind(s); counts[nk] = (counts[nk] || 0) + 1; host.append(shapeRow(s, rowName(s, counts, pv), false)); });
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     {
       const out = S.focus === 0 ? '<i>w</i>' : wHtml(rightStage());
@@ -8451,9 +8461,10 @@
       if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in the {out}-plane.', { out }) }))));
       const tc = {};
       S.targets.forEach((s, i) => {
-        tc[s.kind] = (tc[s.kind] || 0) + 1;
+        const nk = nameKind(s);
+        tc[nk] = (tc[nk] || 0) + 1;
         // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
-        const label = s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: Region.KINDS[s.kind].label.toLowerCase(), x2: tc[s.kind] });
+        const label = s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: Region.KINDS[nk].label.toLowerCase(), x2: tc[nk] });
         host.append(shapeRow(s, label, true, i));
       });
     }
@@ -11678,7 +11689,7 @@
     if (cmU) { if (cmU.key) { drag = { mode: 'handle', shape: cmU.shape, key: cmU.key, target }; return true; } selected = cmU.shape.id; zpSel = null; buildShapeList(); drag = { mode: 'move', shape: cmU.shape, z0: z, moved: false, target }; requestRender(ov); return true; }
     if (sel) {
       for (const [key, hz] of Region.handlesOf(sel)) {
-        if (typeof Construct !== 'undefined' && (sel.def || (sel.at && sel.at[key]))) continue;   // (v16: a bound handle is no handle)
+        if (typeof Construct !== 'undefined' && (sel.def || sel.fixed || (sel.at && sel.at[key]))) continue;   // (v16: a bound handle is no handle; v16.3: nor a fixed shape's)
         const [hx, hy] = pane.w2s(hz);
         if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) { drag = { mode: 'handle', shape: sel, key, target }; return true; }
       }
@@ -12457,7 +12468,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved))) soundCue('snap');
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (typeof Construct !== 'undefined') { if (d.mode === 'handle') Construct.handleUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.menuAt && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); } }   // (v16: bind a dropped handle; a click picks)
+    if (typeof Construct !== 'undefined') { if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.menuAt && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); } }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
@@ -14891,7 +14902,8 @@
     const find = (id) => S.shapes.find((x) => x.id === id) || S.targets.find((x) => x.id === id) || null;
     const isT = (id) => S.targets.some((x) => x.id === id);
     const done = (ids, live, structural) => {
-      const r = cmSync({ all: true });
+      // (v16.3 review user-4: a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag)
+      const r = live && !structural ? null : cmSync({ all: true });
       const st = structural || !!(r && (r.kindChanged.length || r.undefChanged.length));
       if (ids.some((id) => !isT(id))) shapesChanged(st);
       if (ids.some(isT)) targetsChanged(st);
@@ -14921,9 +14933,12 @@
         if (patch.def && Constr.wouldCycle && Constr.wouldCycle(S, id, patch.def.args)) return false;   // (review math-6: no cycles)
         if (patch.def) s.def = patch.def;
         if (!s.def) return;
-        for (const k of ['fill', 'flip', 'index', 'seed']) if (k in patch) s.def[k] = patch[k];
+        for (const k of ['fill', 'index', 'seed']) if (k in patch) s.def[k] = patch[k];
+        // (v16.3 review math-5: Use complement keeps the meet points on the shape where they are, in the same step)
+        if ('flip' in patch) { if (Constr.setFlip) Constr.setFlip(S, id, patch.flip); else s.def.flip = patch.flip; }
         if ('t' in patch) s.t = patch.t;
-        done([id], !!patch.live, true);
+        // (v16.3 review user-4: a glider's live drag frame is not structural: the rows are updated, not rebuilt)
+        done([id], !!patch.live, !patch.live || !!patch.def);
       },
       makeFree(id) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], false, true); },
       // a gesture moved a source (live: a motion frame; the gesture's end calls end())
@@ -14961,7 +14976,7 @@
       leftStage, lFlat, targetsEditable, zpStep,
       yWhole: () => S.focus === 0 && !morphOn() && rImage(),
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, targetLabel,
-      nextCi: (target) => (target ? TARGET_CI[S.targets.length % TARGET_CI.length] : S.shapes.length % 8),   // (the colour newShape will give)
+      nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
       capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption: review picture-7)
       newShape, deleteShape, requestRender, commit, shapesChanged, targetsChanged, buildShapeList, toast, undoToast, tourEmit, bindField,
     };

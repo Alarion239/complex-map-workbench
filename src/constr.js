@@ -1052,7 +1052,7 @@
       const G = s._g;
       if (G.A === 0) push(Object.assign(linePiece(geomOf(G).p, add(geomOf(G).p, geomOf(G).d), -Infinity, Infinity, 0) || {}, { G }));
       else { const g = geomOf(G); push(circlePiece(g.c, g.r, 0, 0, TAU, G)); }
-      if (out[0] && s.def && s.def.op === 'circle3') out[0].c3 = true;
+      if (out[0] && s.def && (s.def.op === 'circle3' || s.def.op === 'perp' || (s.def.op === 'touch' && !(s.def.args[2] && s.def.args[2].inf)))) out[0].c3 = true;
       return out.filter((p) => p && p.kind);
     }
     switch (s.kind) {
@@ -1151,6 +1151,8 @@
   function meetsOf(pa, pb) {
     if (!pa || !pb || pa.kind === 'none' || pb.kind === 'none') return [];
     if (pa.kind === 'traced' || pb.kind === 'traced') return [];
+    const tp = touchAt(pa, pb);
+    if (tp != null) return lineByKind(pa) && lineByKind(pb) ? [{ z: tp, index: 'finite' }] : [{ z: tp, index: 0 }, { z: tp, index: 1 }];
     if (lineByKind(pa) && lineByKind(pb)) {
       const m = meets0(pa.G, pb.G);
       return [{ z: m[0], index: 'finite' }];
@@ -1272,6 +1274,10 @@
   function glide(pc, t, pts3) {
     if (!pc || !Number.isFinite(t) || pc.kind === 'none') return null;
     if (pc.kind === 'traced') return null;
+    if (pts3 && pts3.mr) {
+      const u = (((t % 1) + 1) % 1), H = reanchorAt(pc.G, pts3.mr);
+      return Math.abs(u - 0.5) < 1e-15 ? mR(H, Infinity) : mR(H, pts3.sg * pts3.s * Math.tan(Math.PI * u));
+    }
     if (pts3) { const u = (((t % 1) + 1) % 1); if (Math.abs(u - 0.5) < 1e-15) return isInf(pts3[2]) ? INF : pts3[2].slice(); return mob3x(pts3[0], pts3[1], pts3[2], Math.tan(Math.PI * u)); }
     if (pc.arc3) {
       const [a, m, b] = pc.arc3;
@@ -1313,6 +1319,15 @@
       if (!best) return null;
       const r = newton1(best, bc && typeof bc.g === 'function' ? bc.g : null, bh);     // [math-11] onto the level set
       return { seed: r, z: r };
+    }
+    if (pts3 && pts3.mr) {
+      // tau of the nearest point w: w - o = i B tau / (1 - i A tau / 2), so tau = (w - o) / (i (B + A (w - o) / 2))
+      const w = projectForm(pc.G, z), H = reanchorAt(pc.G, pts3.mr), v = sub(w, H.o);
+      const den = [H.B[0] + H.A * v[0] / 2, H.B[1] + H.A * v[1] / 2], tau = div(v, [-den[1], den[0]])[0];
+      let t = Math.atan(tau / (pts3.sg * pts3.s)) / Math.PI;
+      if (!Number.isFinite(t)) t = 0.5;
+      t = ((t % 1) + 1) % 1;
+      return { t, z: glide(pc, t, pts3) };
     }
     if (pts3) {
       const w = projectForm(pc.G, z);
@@ -1394,7 +1409,7 @@
   }
 
   // ---------------------------------------------------------------- the graph over the state (SPEC 3)
-  const OPS = { circle3: { n: 3, pts: true }, midpoint: { n: 2, pts: true }, bisector: { n: 2, pts: true }, meet: { n: 2, curves: true }, glider: { n: 1, curves: true } };
+  const OPS = { circle3: { n: 3, pts: true }, perp: { n: 3, sig: ['c', 'p', 'p'] }, touch: { n: 3, sig: ['c', 'p', 'p'] }, tangent: { n: 2, sig: ['c', 'p'] }, midpoint: { n: 2, pts: true }, bisector: { n: 2, pts: true }, meet: { n: 2, curves: true }, glider: { n: 1, curves: true } };
   const POINT_OPS = new Set(['meet', 'glider', 'midpoint']);
   const isNode = (s) => !!s && ((s.at && typeof s.at === 'object') || (s.def && typeof s.def === 'object'));
   function refsOf(s) {
@@ -1589,6 +1604,19 @@
     if (!region) return { kind: 'circle', f: { c: g.c, r: g.r, a: undefined, b: undefined, complement: undefined } };
     return { kind: 'disc', f: { c: g.c, r: g.r, a: undefined, b: undefined, complement: G.A < 0 ? true : undefined } };
   }
+  // the ops whose def.flip is Use complement (a curve built on one undoes it: K never turns over) [v16.3 review math-2]
+  const FLIPPED = ['circle3', 'perp', 'touch', 'tangent'];
+  // T on the curve of the form G, to within rounding: the distance |f(T)| / |grad f(T)| at most 1e-12 S, S the figure's
+  // size (|T|, |P|, |P - T|, C's centre and radius, or its anchor for a line) [v16.3 review math-1]
+  function onCarrier(G, T, P) {
+    const u = sub(T, G.o), f = G.A * dot(u, u) + 2 * dot(G.B, u) + G.C, gr = 2 * abs([G.A * u[0] + G.B[0], G.A * u[1] + G.B[1]]);
+    if (f === 0) return true;
+    if (!(gr > 0)) return false;
+    let S = Math.max(abs(T), abs(G.o), 1e-300);
+    if (P && !isInf(P)) S = Math.max(S, abs(P), abs(sub(P, T)));
+    if (G.A !== 0) { const g = geomOf(G); S = Math.max(S, abs(g.c) + g.r); }
+    return Math.abs(f) / gr <= 1e-12 * S;
+  }
   // evaluate shape s (a node). Returns {ch, kindChanged, undef: {code, args} | null, inf}
   function evalNode(ctx, s, plane) {
     const pt = (r) => resolveIn(ctx, r, plane);
@@ -1637,6 +1665,65 @@
         const r = setKind(s, ff.kind, ff.f);
         s._g = G;
         res.ch = r.ch || true; res.kindChanged = r.kindChanged;
+        return res;
+      }
+      if (op === 'perp') {
+        const cr = args[0];
+        if (!isCurveRef(cr)) return fail(U('argUndef', { x: null }));
+        const e = ctx.idx.get(cr.s);
+        if (!e || e.plane !== plane || e.s.cundef || e.s.undef) return fail(U('argUndef', { x: cr.s }));
+        const pc = ctx.piecesOf(e.s)[cr.part];
+        if (!pc || (pc.kind !== 'line' && pc.kind !== 'circle') || !pc.G) return fail(U('notCircle', { x: cr.s }));
+        // the curve's own orientation: Use complement on a 3-point, perpendicular or touching circle does not turn K
+        // over [v16.3 review math-2: one list for perp and touch]
+        const cd = e.s.def, Gc = cd && cd.flip && FLIPPED.includes(cd.op) ? flipG(pc.G) : pc.G;
+        const R = [args[1], args[2]].map(pt);
+        const bad = R.find((x) => x.undef);
+        if (bad) return fail(bad);
+        const P = R[0].inf ? INF : R[0].z, Q = R[1].inf ? INF : R[1].z;
+        const r = perpForm(Gc, P, Q, pc);
+        if (r.undef) return fail(U(r.undef));
+        let G = r.G;
+        // at creation (SPEC 2.3, as circle3): the disc; a line keeps the left side of P -> Q
+        if (def.flip == null) def.flip = !isInf(P) && !isInf(Q) && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(Q, P)) < 0));
+        if (def.flip) G = flipG(G);
+        const fin = [P, Q].filter((z) => !isInf(z));
+        if (fin.length === 2) { G.e = abs(sub(fin[1], fin[0])); withPts(G, fin); }
+        if (G.o[0] === 0 && G.o[1] === 0) G.thru0 = true;
+        const ff = fieldsOfForm(G, def.fill === 'in');
+        const rr = setKind(s, ff.kind, ff.f);
+        s._g = G;
+        res.ch = true; res.kindChanged = rr.kindChanged;
+        return res;
+      }
+      if (op === 'touch' || op === 'tangent') {
+        const cr = args[0];
+        if (!isCurveRef(cr)) return fail(U('argUndef', { x: null }));
+        const e = ctx.idx.get(cr.s);
+        if (!e || e.plane !== plane || e.s.cundef || e.s.undef) return fail(U('argUndef', { x: cr.s }));
+        const pc = ctx.piecesOf(e.s)[cr.part];
+        if (!pc || (pc.kind !== 'line' && pc.kind !== 'circle') || !pc.G) return fail(U('notCircle', { x: cr.s }));
+        const cd = e.s.def, Gc = cd && cd.flip && FLIPPED.includes(cd.op) ? flipG(pc.G) : pc.G;
+        const R = args.slice(1).map(pt);
+        const bad = R.find((x) => x.undef);
+        if (bad) return fail(bad);
+        const Z = R.map((x) => (x.inf ? INF : x.z));
+        // [v16.3 review math-1] T must lie on C's carrier (a rectangle's corner moves to other sides as its handles are
+        // dragged; a crafted save): else K touches nothing, and the meet rule would report T as a crossing
+        if (op === 'touch' && !isInf(Z[0]) && !onCarrier(pc.G, Z[0], Z[1])) return fail(U('offCurve', { x: cr.s, part: cr.part }));
+        const r = op === 'touch' ? touchForm(Gc, Z[0], Z[1]) : tangentForm(Gc, Z[0], def.index === 1 ? 1 : 0);
+        if (r.undef) return fail(U(r.undef, r.undef === 'notCircle' || r.undef === 'argUndef' ? { x: cr.s } : {}));
+        let G = r.G;
+        if (def.flip == null) def.flip = op === 'touch' && G.A < 0;
+        if (def.flip) G = flipG(G);
+        G.tch = { G: { A: pc.G.A, B: pc.G.B.slice(), C: pc.G.C, o: pc.G.o.slice() }, tp: isInf(r.tp) ? INF : r.tp.slice() };
+        const fin = (op === 'touch' ? Z : [Z[0], r.tp]).filter((z) => !isInf(z));
+        if (fin.length === 2) { G.e = abs(sub(fin[1], fin[0])); withPts(G, fin); }
+        if (G.o[0] === 0 && G.o[1] === 0) G.thru0 = true;
+        const ff = fieldsOfForm(G, def.fill === 'in');
+        const rr = setKind(s, ff.kind, ff.f);
+        s._g = G;
+        res.ch = true; res.kindChanged = rr.kindChanged;
         return res;
       }
       if (op === 'meet' || op === 'glider') {
@@ -1742,6 +1829,184 @@
     return out;
   }
 
+  // ---------------------------------------------------------------- the perpendicular circle (notes/orthogonal-circle/SPEC.md)
+  // perpForm(Gc, P, Q): the generalized circle through P and Q that crosses the curve of the form Gc at right angles.
+  // Lifted, a point z is the row (|z - o|^2, 2(z - o), 1) and a curve G the row (-C/2, B, -A/2): a form passes through
+  // z when it is orthogonal to z's row, and crosses G at right angles when it is orthogonal to G's row. Anchored at P
+  // (C = 0): (A, Bx, By) = (|d|^2, 2d) x (-C'/2, B'), d = Q - P, (A', B', C') = Gc re-anchored at P; Q = INF: (0, -B'y,
+  // B'x). Every step is exact (dyadic BigInt on the doubles), with one rounding at the end, so the right angle holds to
+  // the last rounding wherever P and Q are (on the curve, at its centre, next to P's mirror image P*). {G} | {undef}
+  const dz = (x) => { const [m, e] = decompose(x); return { m, e }; };
+  const dmul = (a, b) => ({ m: a.m * b.m, e: a.e + b.e });
+  const dadd = (a, b) => { if (a.m === 0n) return b; if (b.m === 0n) return a; if (a.e < b.e) [a, b] = [b, a]; return { m: (a.m << BigInt(a.e - b.e)) + b.m, e: b.e }; };
+  const dneg = (a) => ({ m: -a.m, e: a.e });
+  const dsub = (a, b) => dadd(a, dneg(b));
+  const TWO = { m: 2n, e: 0 };
+  // dyadics to doubles under one common power of two (gc normalizes after: no overflow, no underflow of the largest)
+  function dScaled(xs) {
+    const len = (a) => (a.m < 0n ? -a.m : a.m).toString(2).length;
+    const top = Math.max(...xs.filter((a) => a.m !== 0n).map((a) => len(a) + a.e));
+    return xs.map((a) => {
+      if (a.m === 0n) return 0;
+      const neg = a.m < 0n, M = neg ? -a.m : a.m, sh = Math.max(0, len(a) - 64);
+      return (neg ? -1 : 1) * ldexp(Number(M >> BigInt(sh)), sh + a.e - top);
+    });
+  }
+  // [v16.3 review math-3, math-4] numbers as the decimals the user snapped or typed (decOf: 12 digits), scaled to integers
+  // under one power of ten: BigInts, or null when one is not such a decimal (or the scales are too far apart)
+  function decInts(xs) {
+    const ds = xs.map(decOf);
+    if (ds.some((d) => !d)) return null;
+    const es = ds.filter((d) => d[0] !== 0n).map((d) => d[1]);
+    if (!es.length) return ds.map(() => 0n);
+    const E = Math.min(...es);
+    if (Math.max(...es) - E > 80) return null;
+    return ds.map(([m, e]) => (m === 0n ? 0n : m * 10n ** BigInt(e - E)));
+  }
+  // perpForm(Gc, P, Q, pc?): pc, C's piece, gives the decimals C was drawn with (a circle's centre and radius, a line's
+  // two points) for the decimal rules below; without it (or when they are not decimals) only the exact rules apply
+  function perpForm(Gc, P, Q, pc) {
+    if (!Gc) return { undef: 'notCircle' };
+    if (isInf(P) && isInf(Q)) return { undef: 'lineInf' };
+    const zero = (z) => !isInf(z) && z[0] === 0 && z[1] === 0;
+    // the anchor: P; Q when P is infinity, or when Q alone is exactly 0 (the Lambda rule's thru0 [C9]). Swapping the two
+    // point rows turns the null vector over: sg = -1 keeps the curve's orientation
+    let sg = 1;
+    if (isInf(P) || (zero(Q) && !zero(P))) { [P, Q] = [Q, P]; sg = -1; }
+    if (!isInf(Q) && eqP(P, Q)) return { undef: 'coincide' };
+    const A0 = dz(Gc.A), Bx0 = dz(Gc.B[0]), By0 = dz(Gc.B[1]), C0 = dz(Gc.C);
+    const ux = dsub(dz(P[0]), dz(Gc.o[0])), uy = dsub(dz(P[1]), dz(Gc.o[1]));
+    const Bx1 = dadd(Bx0, dmul(A0, ux)), By1 = dadd(By0, dmul(A0, uy));
+    const C1 = dadd(dadd(dmul(A0, dadd(dmul(ux, ux), dmul(uy, uy))), dmul(TWO, dadd(dmul(Bx0, ux), dmul(By0, uy)))), C0);
+    let A, Bx, By;
+    if (isInf(Q)) { A = { m: 0n, e: 0 }; Bx = dneg(By1); By = Bx1; }
+    else {
+      const dx = dsub(dz(Q[0]), dz(P[0])), dy = dsub(dz(Q[1]), dz(P[1])), dd = dadd(dmul(dx, dx), dmul(dy, dy));
+      A = dmul(TWO, dsub(dmul(dx, By1), dmul(dy, Bx1)));
+      Bx = dsub(dneg(dmul(dy, C1)), dmul(dd, By1));
+      By = dadd(dmul(dd, Bx1), dmul(dx, C1));
+    }
+    if (A.m === 0n && Bx.m === 0n && By.m === 0n) return { undef: 'pencil' };      // Q = P* (or P at the centre, Q = INF)
+    let [a, bx, by] = dScaled([A, Bx, By]);
+    const fin2 = !isInf(P) && !isInf(Q);
+    // [v16.3 review math-3, user-9] Q = P* in the decimals (the exact test above sees it only when P* is a double): a
+    // circle C (c, r): P, Q collinear with c and (P - c).(Q - c) = r^2; a line C through a, b: Q - P perpendicular to
+    // b - a and the midpoint of P Q on it. One configuration, one outcome: the pencil, as for 0.5 and 2
+    if (fin2 && pc && pc.kind === 'circle' && Gc.A !== 0 && isXY(pc.c) && pc.r > 0 && orientD(pc.c, P, Q) === 0) {
+      const v = decInts([P[0], P[1], Q[0], Q[1], pc.c[0], pc.c[1], pc.r]);
+      if (v) { const [px, py, qx, qy, cx, cy, rr] = v; if ((px - cx) * (qx - cx) + (py - cy) * (qy - cy) === rr * rr) return { undef: 'pencil' }; }
+    }
+    if (fin2 && pc && pc.kind === 'line' && Gc.A === 0 && isXY(pc.a) && isXY(pc.b)) {
+      const v = decInts([pc.a[0], pc.a[1], pc.b[0], pc.b[1], P[0], P[1], Q[0], Q[1]]);
+      if (v) {
+        const [ax, ay, bx2, by2, px, py, qx, qy] = v, ex = bx2 - ax, ey = by2 - ay;
+        if ((qx - px) * ex + (qy - py) * ey === 0n) {
+          if (ex * ((py - ay) + (qy - ay)) - ey * ((px - ax) + (qx - ax)) === 0n) return { undef: 'pencil' };
+          // [v16.3 review math-4] P Q perpendicular to the line C in the decimals: K is the line P Q itself (the circle
+          // of radius ~1e16 that rounding gives is not drawn, named a disc, or met at a finite far point), its side
+          // from the rounded form, as the circle rule below
+          if (a !== 0) {
+            const d = sub(Q, P), L = abs(d), sn = Math.sign(bx * d[1] - by * d[0]);
+            if (sn !== 0) { a = 0; bx = sn * d[1] / L; by = -sn * d[0] / L; }
+          }
+        }
+      }
+    }
+    // [math-3] Gc anchored at its centre (B = 0: a circle, a disc, an annulus, a sector's arc): A = -2 A' orient(o, P, Q),
+    // so K is the line P Q itself when the decimals the user snapped are collinear with the centre
+    if (a !== 0 && !isInf(Q) && Gc.A !== 0 && Gc.B[0] === 0 && Gc.B[1] === 0 && orientD(Gc.o, P, Q) === 0) {
+      const d = sub(Q, P), L = abs(d), sn = Math.sign(bx * d[1] - by * d[0]);
+      if (sn !== 0) { a = 0; bx = sn * d[1] / L; by = -sn * d[0] / L; }
+    }
+    const G = gc(sg * a, [sg * bx, sg * by], 0, P);
+    return G ? { G } : { undef: 'pencil' };
+  }
+
+  // ---------------------------------------------------------------- touching (notes/orthogonal-circle/TANGENT-SPEC.md)
+  // a dyadic to a double (one rounding)
+  const dnum1 = (a) => { if (a.m === 0n) return 0; const neg = a.m < 0n, M = neg ? -a.m : a.m, sh = Math.max(0, M.toString(2).length - 64); return (neg ? -1 : 1) * ldexp(Number(M >> BigInt(sh)), sh + a.e); };
+  // Gc re-anchored at p, exactly: {A, Bx, By, C} dyadic (C = f(p))
+  function atD(Gc, p) {
+    const A0 = dz(Gc.A), Bx0 = dz(Gc.B[0]), By0 = dz(Gc.B[1]), C0 = dz(Gc.C);
+    const ux = dsub(dz(p[0]), dz(Gc.o[0])), uy = dsub(dz(p[1]), dz(Gc.o[1]));
+    return { A: A0, Bx: dadd(Bx0, dmul(A0, ux)), By: dadd(By0, dmul(A0, uy)), C: dadd(dadd(dmul(A0, dadd(dmul(ux, ux), dmul(uy, uy))), dmul(TWO, dadd(dmul(Bx0, ux), dmul(By0, uy)))), C0) };
+  }
+  // touchForm(Gc, T, P): the generalized circle touching Gc at T (a point of Gc) through P. Anchored at T (C = 0):
+  // (A, B) = (-2 d.B', |d|^2 B'), d = P - T, B' = Gc's B at T; P = INF: (0, B'), the tangent at T. {G, tp} | {undef}
+  function touchForm(Gc, T, P) {
+    if (!Gc) return { undef: 'notCircle' };
+    if (isInf(T) && isInf(P)) return { undef: 'lineInf' };
+    if (isInf(T)) {
+      if (Gc.A !== 0) return { undef: 'argUndef' };
+      return { G: { A: 0, B: Gc.B.slice(), C: 0, o: P.slice() }, tp: INF };     // (C's B bitwise: exactly parallel)
+    }
+    if (!isInf(P) && eqP(P, T)) return { undef: 'coincide' };
+    const c = atD(Gc, T);
+    let A, Bx, By, o = T;
+    if (isInf(P)) { A = { m: 0n, e: 0 }; Bx = c.Bx; By = c.By; }
+    else {
+      const dx = dsub(dz(P[0]), dz(T[0])), dy = dsub(dz(P[1]), dz(T[1])), dd = dadd(dmul(dx, dx), dmul(dy, dy));
+      A = dmul({ m: -2n, e: 0 }, dadd(dmul(dx, c.Bx), dmul(dy, c.By)));
+      Bx = dmul(dd, c.Bx); By = dmul(dd, c.By);
+      // the Lambda rule [C9]: P alone exactly 0 -> anchored at P, exactly: B + A d, C = 0
+      if (P[0] === 0 && P[1] === 0 && !(T[0] === 0 && T[1] === 0)) { Bx = dadd(Bx, dmul(A, dx)); By = dadd(By, dmul(A, dy)); o = P; }
+    }
+    if (A.m === 0n && Bx.m === 0n && By.m === 0n) return { undef: 'coincide' };
+    const [a, bx, by] = dScaled([A, Bx, By]);
+    const G = gc(a, [bx, by], 0, o);
+    return G ? { G, tp: T.slice() } : { undef: 'coincide' };
+  }
+  // tangentForm(Gc, P, k): the line through P touching the circle Gc; k = 0 touches left of the ray P -> centre, k = 1
+  // right. B', s^2 = A f(P), N^2 = |B'|^2 - s^2 exact; n = (N B' + sg s J B') / |B'|^2. A line Gc: its parallel, at INF
+  function tangentForm(Gc, P, k) {
+    if (!Gc) return { undef: 'notCircle' };
+    if (isInf(P)) return { undef: 'lineInf' };
+    if (Gc.A === 0) return { G: { A: 0, B: Gc.B.slice(), C: 0, o: P.slice() }, tp: INF };   // (C's B bitwise: exactly parallel)
+    const c = atD(Gc, P), s2d = dmul(c.A, c.C);
+    if (s2d.m < 0n) return { undef: 'inside' };
+    const b2d = dadd(dmul(c.Bx, c.Bx), dmul(c.By, c.By));
+    const Bx = dnum1(c.Bx), By = dnum1(c.By), b2 = dnum1(b2d), sq = Math.sqrt(dnum1(s2d)), N = Math.sqrt(dnum1(dsub(b2d, s2d)));
+    const sg = k === 1 ? 1 : -1;
+    const G = gc(0, [(N * Bx - sg * sq * By) / b2, (N * By + sg * sq * Bx) / b2], 0, P);
+    if (!G) return { undef: 'coincide' };
+    const u = [-G.B[1], G.B[0]], t = -(Bx * u[0] + By * u[1]) / Gc.A;
+    return { G, tp: [P[0] + t * u[0], P[1] + t * u[1]] };
+  }
+  // the touching point of two pieces by construction (a touch or tangent piece and the curve it was built on, or two
+  // touches of one curve at one point), else null
+  const sameG = (a, b) => !!a && !!b && a.A === b.A && a.C === b.C && a.B[0] === b.B[0] && a.B[1] === b.B[1] && a.o[0] === b.o[0] && a.o[1] === b.o[1];
+  function touchAt(pa, pb) {
+    const ta = pa.G && pa.G.tch, tb = pb.G && pb.G.tch;
+    if (ta && sameG(ta.G, pb.G)) return ta.tp;
+    if (tb && sameG(tb.G, pa.G)) return tb.tp;
+    if (ta && tb && sameG(ta.G, tb.G) && !isInf(ta.tp) && !isInf(tb.tp) && eqP(ta.tp, tb.tp)) return ta.tp;
+    return null;
+  }
+  // a point ref on a curve ref by construction (a glider on it, a meet with it, one of its defining points, a handle of
+  // its shape at an end of the piece), through bound handles
+  const POSK = /^(p|a|b|m|c|v\d+)$/;
+  function onCurveByRefs(state, pref, cref) {
+    if (!isPointRef(pref) || !isCurveRef(cref)) return false;
+    const ctx = makeCtx(state, {}, null);
+    const same = (c) => isCurveRef(c) && c.s === cref.s && c.part === cref.part;
+    const k = canonKey(ctx, pref), m = /^s:([^:]+)$/.exec(k);
+    const pe = m ? ctx.idx.get(m[1]) : null, d = pe && pe.s.def;
+    if (d && ((d.op === 'glider' && same(d.args[0])) || (d.op === 'meet' && d.args.some(same)))) return true;
+    const e = ctx.idx.get(cref.s);
+    if (!e) return false;
+    const C = e.s, cd = C.def, keys = new Set();
+    if (cd && cd.op === 'circle3') cd.args.forEach((r) => keys.add(canonKey(ctx, r)));
+    if (cd && (cd.op === 'perp' || cd.op === 'touch' || cd.op === 'tangent')) cd.args.slice(1).forEach((r) => { if (r && !r.inf) keys.add(canonKey(ctx, r)); });
+    // (never a rectangle's corner: its corners are re-sorted from min/max, so a handle drag moves corner a to other
+    // sides while the curve ref keeps its part [v16.3 review math-1])
+    const pc = !cd && C.kind !== 'rect' ? ctx.piecesOf(C)[cref.part] : null;
+    if (pc) {
+      const ends = [pc.a, pc.b].concat(pc.arc3 || []).filter(isXY);
+      for (const h of handleKeys(C)) { if (!POSK.test(h)) continue; const z = handlePos(C, h); if (z && ends.some((w) => eqP(w, z))) keys.add(canonKey(ctx, { s: C.id, h })); }
+    }
+    return keys.has(k);
+  }
+
   // ---------------------------------------------------------------- recompute (SPEC 3)
   // Constr.recompute(state, changed, env) -> {ids, kindChanged, undefChanged, order}
   // changed: {all} | {shapes: [ids], zp: [step uids], chain: bool, params: bool}; env: {zp, zpAll, F, trace}
@@ -1800,6 +2065,23 @@
     return ctx;
   }
   function pts3In(ctx, cs, plane) {
+    // a perpendicular circle: the M(R) map anchored at P, scaled by |PQ|, its sign undoing the flip
+    // (z(t) = mR(K at P, sg |PQ| tan(pi t)): P at 0, the point opposite P at 1/2, infinity there for a line)
+    if (cs && cs.def && cs.def.op === 'perp') {
+      const R = cs.def.args.slice(1).map((r) => resolveIn(ctx, r, plane));
+      if (R.some((x) => x.undef)) return 'inf';
+      const fin = R.filter((x) => !x.inf).map((x) => x.z);
+      if (!fin.length) return 'inf';
+      return { mr: fin[0], s: fin.length === 2 ? abs(sub(fin[1], fin[0])) : 1, sg: cs.def.flip ? -1 : 1 };
+    }
+    if (cs && cs.def && cs.def.op === 'touch') {
+      if (cs.def.args[2] && cs.def.args[2].inf) return null;
+      const R = cs.def.args.slice(1).map((r) => resolveIn(ctx, r, plane));
+      if (R.some((x) => x.undef)) return 'inf';
+      const fin = R.filter((x) => !x.inf).map((x) => x.z);
+      if (!fin.length) return 'inf';
+      return { mr: fin[0], s: fin.length === 2 ? abs(sub(fin[1], fin[0])) : 1, sg: cs.def.flip ? -1 : 1 };
+    }
     if (!cs || !cs.def || cs.def.op !== 'circle3') return null;
     const R = cs.def.args.map((r) => resolveIn(ctx, r, plane));
     if (R.some((x) => x.undef)) return 'inf';
@@ -1875,9 +2157,11 @@
           if (!O || !Array.isArray(d.args) || d.args.length !== O.n) ok = false;
           else if (O.pts && !d.args.every((r) => okPointRef(r, plane))) ok = false;
           else if (O.curves && !d.args.every((r) => okCurveRef(r, plane))) ok = false;
+          else if (O.sig && !d.args.every((r, i) => (O.sig[i] === 'c' ? okCurveRef(r, plane) : okPointRef(r, plane)))) ok = false;
           else if (d.op === 'meet' && !(d.index === 0 || d.index === 1 || d.index === 'finite')) d.index = 0;
-          if (ok && d.op === 'circle3' && d.fill !== 'in') d.fill = 'none';
-          if (ok && d.op === 'circle3' && d.flip != null) d.flip = !!d.flip;
+          else if (d.op === 'tangent' && !(d.index === 0 || d.index === 1)) d.index = 0;
+          if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.fill !== 'in') d.fill = 'none';
+          if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.flip != null) d.flip = !!d.flip;
           if (ok && d.op === 'glider' && !Number.isFinite(s.t)) s.t = 0;
           if (ok && d.seed != null && !isXY(d.seed)) delete d.seed;
         }
@@ -2008,6 +2292,23 @@
     return out;
   }
   // Constr.describe(state, id) -> {op, args, fill, flip, index, family, t, at, inf, undef, note} (no text)
+  // Constr.setFlip(state, id, flip): Use complement on a 3-point, perpendicular or touching circle. Flipping K's form
+  // reverses the entering rule of every meet on it (index 0 and 1 trade places), so the meet points on K swap their index
+  // in the same step and stay where they are [v16.3 review math-5]. Returns the ids of the meets swapped
+  function setFlip(state, id, flip) {
+    const e = index(state).get(id), d = e && e.s.def;
+    if (!d) return [];
+    const was = !!d.flip, now = !!flip;
+    d.flip = now;
+    if (was === now || !FLIPPED.includes(d.op)) return [];
+    const out = [];
+    for (const L of lists(state)) for (const s of L) {
+      const m = s && s.def;
+      if (!m || m.op !== 'meet' || m.seed || !(m.index === 0 || m.index === 1) || !Array.isArray(m.args) || !m.args.some((r) => r && r.s === id)) continue;
+      m.index = 1 - m.index; out.push(s.id);
+    }
+    return out;
+  }
   function describe(state, id) {
     const e = index(state).get(id);
     if (!e) return null;
@@ -2016,8 +2317,8 @@
     if (s.kind === 'disc' && s.complement) family = 'complement';
     return {
       op: d ? d.op : (s.at ? 'bound' : null), args: d ? d.args.slice() : [], at: s.at ? Object.assign({}, s.at) : null,
-      fill: d && d.op === 'circle3' ? (d.fill === 'in' ? 'in' : 'none') : null, flip: d ? !!d.flip : null,
-      index: d && d.op === 'meet' ? d.index : null, family, t: d && d.op === 'glider' ? s.t : null,
+      fill: d && ['circle3', 'perp', 'touch'].includes(d.op) ? (d.fill === 'in' ? 'in' : 'none') : null, flip: d ? !!d.flip : null,
+      index: d && (d.op === 'meet' || d.op === 'tangent') ? d.index : null, family, t: d && d.op === 'glider' ? s.t : null,
       inf: !!s._atInf, undef: s.cundef || null, note: s._note || null,
     };
   }
@@ -2053,7 +2354,7 @@
     resolve, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
     syncSteps, zpRemoveId, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
     // v16 review fixes
-    orientD, projectForm, pieceDist, pieceBox, pts3, wouldCycle, dragRoots, idReplacer, referencedSteps,
+    orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
     get lastRecompute() { return lastRecompute; },
   };
 });

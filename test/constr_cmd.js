@@ -65,7 +65,7 @@ await section('A', async () => {
   await load(NS, STATE);
   await settle(800);
   await grab();
-  ok('the Construct grid has four tiles', (await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`)) === 'circle3,meet,midpoint,bisector', null);
+  ok('the Construct grid has six tiles (v16.3: Perpendicular circle, Touching circle)', (await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`)) === 'circle3,meet,midpoint,bisector,perp,touch', null);
   // 14. the plane menu on a crossing: Mark the intersection
   const xc = await W(1.5 + 0.8 / Math.SQRT2, -0.5 + 0.8 / Math.SQRT2);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: xc[0] + 1, y: xc[1] + 1 });
@@ -326,7 +326,7 @@ await section('C', async () => {
   await load(NS + 'ru', STATE);
   await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].map((s) => s.textContent.replace(/\u00ad/g, ''))`);
-  ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр']), tiles);
+  ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание']), tiles);
   ok('RU heading', (await ev(`document.querySelector('#cmHead').textContent`)) === 'Построения', null);
   const fits = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].every((s) => s.scrollWidth <= s.clientWidth + 1)`);
   ok('RU tile labels fit', fits, tiles);
@@ -372,7 +372,7 @@ await section('D', async () => {
   await shot('cm-t1024');
   await view(768, 1024, false, false); await settle(800);
   info.rail768 = await ev(`(() => { const r = document.querySelector('#railTools'); if (!r || !r.offsetParent) return null; const b = r.getBoundingClientRect(), p = r.parentElement.getBoundingClientRect(); return { sep: !!r.querySelector('.rail-sep'), n: r.querySelectorAll('.rail-tool').length, bottom: b.bottom, panel: p.bottom, overflow: r.scrollHeight > r.clientHeight + 1 }; })()`);
-  ok('768: the rail has the divider and the four tools', info.rail768 && info.rail768.sep && info.rail768.n >= 22, info.rail768);
+  ok('768: the rail has the divider and the six tools', info.rail768 && info.rail768.sep && info.rail768.n >= 23, info.rail768);
   await shot('cm-t768');
   await view(1440, 900, false, false); await settle(500);
   await grab();
@@ -390,7 +390,7 @@ await section('E', async () => {
   const more = await center('#toolMore > summary');
   await touch(more[0], more[1]); await settle(500);
   info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles > *')].map((e) => e.tagName === 'H3' ? '#' + e.textContent : e.dataset.tool)`);
-  ok('phone: More tools has the Construct heading and four tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector'), info.phTiles);
+  ok('phone: More tools has the Construct heading and six tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
   await shot('cm-p390-more');
   const t3 = await center('.ph-tiles .ph-tile[data-tool="circle3"]');
   await touch(t3[0], t3[1]); await settle(600);

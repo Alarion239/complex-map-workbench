@@ -1,0 +1,233 @@
+{
+ "_about": "v16.3 review fix pass (2026-10-26), in work/xv163. 23 findings: review-math.json (6), review-user.json (14), review-regress.json (3). status: fixed 19, no_change 3 (info), deferred 1 (user-14, needs the user's go-ahead). Results (evidence-fix/): node test/t_constr.js 251/251 (E 48, F 39; +7 and +3 new checks); all 34 test/t_*.js rc 0 (node_tests.txt); make_ru_table.py --strict: 0 unresolved (2370 entries, 1776 call sites); CDP on port 9826: fix163_cmd 20/20 (new), touch_cmd 90/90, perp_cmd 79/79, constr_cmd 115/115, i18n_cmd 94/94, tour_cmd 97/97, v15_phone_cmd pass, v15_desktop_cmd pass on run 2 (run 1: one shape-drag frame p95 of 17.7 ms in a scene with no constructions, load average ~10 from other agents; run 2 p95 11.6 / 15.8 ms); quality suite (run.sh --no-build): PASS, 81 runs, 0 failed, 28 improved, 35 unchanged, 18 new, 259 targets met, as before. Baselines, accepted.json and golden images byte-identical to the main tree. Published file: no __cmw/__qa hooks, no localhost; sha256 in build.sha256. touch, constr, i18n, tour and v15 ran one small edit before the final build (construct.js passes C's piece to perpForm in the perp preview and creation); perp_cmd, fix163_cmd and v15_desktop ran on the final build. | 2026-10-26 release round: verify-2 fixed in test/fix163_cmd.js (touch emulation around U12, port from one constant); verify-3 ledger wording (user-7); verify-1 left open (math-3 'open').",
+ "findings": [
+  {
+   "id": "math-1",
+   "severity": "high",
+   "status": "fixed",
+   "fix": "Both parts. (1) evalNode's touch branch checks that T lies on C's carrier: |f(T)| / |grad f(T)| <= 1e-12 S (S: |T|, |P|, |P - T|, C's centre + radius or anchor). Off it, K is undefined with the new reason 'offCurve' ('The touching point is not on {c}'), so no tch is attached and no false touching meet is reported; this also covers crafted saves. (2) onCurveByRefs never counts a rectangle's corner as on a side (the corner-to-side map changes under handle drags), so a rectangle corner is P, not T.",
+   "files": [
+    "src/constr.js (onCarrier, evalNode touch branch, onCurveByRefs)",
+    "src/construct.js (reasonText 'offCurve')",
+    "notes/i18n/ru/v163-constr.json (why.offCurve)"
+   ],
+   "evidence": "t_constr F: 'a rectangle corner as T, b dragged across a: K undefined (offCurve), no false touching meet; a corner is never on a side by construction'; 'a saved touching circle whose T is off C: undefined, and no meet'; 'T a glider on a large far circle: K defined'. review-math/t2.js now prints K {code: 'offCurve'}, the meet undefined, Constr.meets on the pieces []."
+  },
+  {
+   "id": "math-2",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "One shared list FLIPPED = ['circle3', 'perp', 'touch', 'tangent'] for the perp and the touch branches of evalNode: Use complement on a touching circle no longer turns a perpendicular circle built on it over.",
+   "files": [
+    "src/constr.js"
+   ],
+   "evidence": "t_constr E: 'Use complement on a touching circle does not turn a perpendicular circle on it over, nor move its gliders'. review-math/t1.js: Q's form and g identical before and after."
+  },
+  {
+   "id": "math-3",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Decimal pencil rule in perpForm, from the decimals C was drawn with (perpForm takes C's piece as a 4th argument; evalNode, the preview and the creation pass it). Circle C (c, r): orientD(c, P, Q) = 0 and (P - c).(Q - c) = r^2 exactly in the 12-digit decimals -> {undef: 'pencil'}. Line C through a, b: (Q - P).(b - a) = 0 and the midpoint of P Q on the line, exactly in the decimals -> 'pencil'. One configuration now gives one outcome, the pencil, as for the binary-exact 0.5 and 2.",
+   "files": [
+    "src/constr.js (decInts, perpForm)",
+    "src/construct.js (preview and finish pass the piece)"
+   ],
+   "evidence": "t_constr E: unit circle 0.5 & 2, 0.2 & 5, 0.1 & 10, 0.4 & 2.5, 0.1+0.2i & 2+4i, 1.3+0.9i & 0.52+0.36i: all the pencil; the line y = 2x mirror pairs of t9.js and the real axis 0.1±0.2i: all the pencil; near misses stay a line or a circle. fix163_cmd: the app shows the pencil reason for 1.3+0.9i, 0.52+0.36i.",
+   "open": "verify-1 (low, not fixed in v16.3): on a circle C that is not stored as decimals (a 3-point circle such as the one through 0, 1, i), a binary-exact mirror pair gives the pencil and a decimal mirror pair gives the line through the centre. Decimal circles, lines and the real axis give the pencil."
+  },
+  {
+   "id": "math-4",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Decimal line rule for a line C: when (Q - P).(b - a) = 0 in the decimals of C's two points (and not a mirror pair), K is the line P Q (A = 0, B = sn J(Q - P) / |Q - P|, sn from the rounded form, as the circle rule). The creation flip then follows the left-of-P->Q rule, the far meet is infinity, and the row and caption say line or half-plane.",
+   "files": [
+    "src/constr.js (perpForm)"
+   ],
+   "evidence": "t_constr E: the 132-case grid of t3.js (y = 2x): 130 lines, each the half-plane left of P -> Q with the far meet at infinity, and 2 mirror pairs (the pencil); 0 circles."
+  },
+  {
+   "id": "math-5",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "New Constr.setFlip(state, id, flip): sets def.flip and swaps index 0 <-> 1 of every meet on that shape (not seeded, not 'finite'). Flipping K's form reverses the entering rule, so the swap keeps every meet point where it was. app.js setDef routes 'flip' through it, so Use complement (row menu, Inspector, palette) is one undo step. Applies to circle3 as well as perp and touch.",
+   "files": [
+    "src/constr.js (setFlip, exported)",
+    "src/app.js (cmApi.setDef)"
+   ],
+   "evidence": "t_constr E: 'Use complement (setFlip) keeps the meet points on K where they are'; 'the same for a 3-point circle; setting the same flip again swaps nothing'. fix163_cmd: in the app the meet on K stays (index 0 -> 1) and one Cmd+Z brings back both."
+  },
+  {
+   "id": "math-6",
+   "severity": "info",
+   "status": "no_change",
+   "fix": "Nothing to fix (the review's checks that hold). The sweeps of t5-t7 were not re-run; the node suites that cover the same ground (E, F continuity and save/load) pass."
+  },
+  {
+   "id": "user-1",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "The unit circle and the axes picked as a curve become shapes with fixed: 'unit' | 'real' | 'imag'. Select honours it: no handles (drawn or pressed), a body drag pans, with a toast 'This is the unit circle: it stays fixed. To move it, choose Make free in ⋯.' The row reads 'the unit circle' / 'the real axis' / 'the imaginary axis'. ⋯ and the plane menu have Make free, which removes the flag (one undo step). Rows of shapes built on it still name it Circle 1 (unchanged, so existing names and tests hold).",
+   "files": [
+    "src/construct.js (perpCurveAt, fixedName, moveDrag, row, rowMenu, menuItems, unfix)",
+    "src/app.js (drawHandles, handle press)",
+    "notes/i18n/ru/v163-constr.json (toast.fixed)"
+   ],
+   "evidence": "fix163_cmd U1: C made with fixed: 'unit'; its row 'the unit circle'; a 12-step drag on its stroke leaves c = 0, r = 1 with the toast; ⋯ has Make free; after it the flag is gone."
+  },
+  {
+   "id": "user-2",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "A tangent from P is named by its touching point (the meet made with it, in the same undo step): row 'tangent to Circle 1 at z₃, through z₂' (RU «касательная к кривой: Окружность 1 в точке z₃, через z₂»); Inspector 'the tangent to Circle 1 through z₂, touching at z₃'. Without that point: 'tangent 1 / 2 to Circle 1 through z₂'. Left/right are gone (strings removed).",
+   "files": [
+    "src/construct.js (tangentPoint, defText)",
+    "notes/i18n/ru/v163-constr.json (row.tangent_at, row.tangent_at_s, row.tangent_n; row.tangent_left/right removed)"
+   ],
+   "evidence": "touch_cmd A7 and C RU rows; fix163_cmd U2 (both tangents read by their touching points)."
+  },
+  {
+   "id": "user-3",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "Touching tool marks: in dark mode the hint, the tangents and the rings use the accent at full strength; every ring is 2 px on a 4 px halo of the plane colour, radius 6 px (8 px on touch); T and P are filled dots (4 px) on a halo. Light mode keeps the new shape's colour (its rings now also get the halo and the larger radius).",
+   "files": [
+    "src/construct.js (drawPreview, drawTouch)"
+   ],
+   "evidence": "Shot evidence-fix/fix-dark-rings.png (1440, dark: rings and tangents in the accent, readable over the glow). Not re-shot on the 390 px phone; touch_cmd D's phone shots ran on this build (pass)."
+  },
+  {
+   "id": "user-4",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "Root cause: each pointermove of a glider called setDef with structural = true, which rebuilt the whole shape list (buildShapeList) and recomputed twice. Now a live setDef is not structural (rows are updated, rebuilt only on a kind or undefined change) and recomputes once; and the glider's drag stores its target in the handler and applies it in the next frame (moveUp applies a pending one at the release, before the undo step).",
+   "files": [
+    "src/app.js (cmApi done/setDef, onUp calls Construct.moveUp)",
+    "src/construct.js (moveDrag glider branch, glideFlush, moveUp)"
+   ],
+   "evidence": "fix163_cmd U4, the review's kind of scene (28 shapes: unit circle, 6 perpendicular and 3 touching circles, 1/z), 90 moves 16 ms apart, 3 runs: T (glider) frame p95 16.7 / 16.8 / 16.8 ms, max 16.8 in all 3, pointermove p95 0.2 ms, rAF work p95 2.7-2.9 ms; a free point in the same scene: frame p95 16.7-16.8, pointermove 1.2 ms. touch_cmd F (20 dependents): T pointermove p95 0.2 ms (was 17.9), frame p95 16.8, rAF work p95 10.4 ms."
+  },
+  {
+   "id": "user-5",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "After a ring click, P stays picked (as a ref to the point just made or picked) and the other ring stays offered; the used ring is not offered again. A click that the carried P would refuse (off C, not a ring) starts the next circle with that click as its first pick. Backspace and Esc as before.",
+   "files": [
+    "src/construct.js (finishTouch, ringsLeft, touchTargetC, click, hover)"
+   ],
+   "evidence": "fix163_cmd U5: after the first ring the draft keeps P and both rings' data, one click on the other ring makes the second tangent through the same P; with both made, a click off C becomes the new P."
+  },
+  {
+   "id": "user-6",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Chip after P when rings exist: 'Touching point on Circle 1, or a ring for a tangent' / «Точка касания на кривой: Окружность 1 или кольцо — касательная».",
+   "files": [
+    "src/construct.js (chipText)",
+    "notes/i18n/ru/v163-constr.json (chip.touch_P_ring)"
+   ],
+   "evidence": "touch_cmd A5, C RU chips, D phone RU chip; fix163_cmd U6."
+  },
+  {
+   "id": "user-7",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "The English tile is 'Orthogonal' (one line, fits the 52 px tile); the Russian stays «Ортого­нальная». The v16.3 CSS that put the English tile on two lines is removed. Tooltip, palette and plane menu keep 'Perpendicular circle'; so does the chip on a plane 560 px or wider (construct.js chipText). On a narrower plane the chip uses the tile text: at 1440 x 900 with both planes, X's plane is 427 px wide and the chip reads 'Pick a line or a circle · Orthogonal · Esc cancels'. [wording corrected 2026-10-26, review-verify verify-3]",
+   "files": [
+    "src/construct.js (toolRows, toolShort, CSS)",
+    "notes/i18n/ru/v163-constr.json (tool.perp_tile)"
+   ],
+   "evidence": "perp_cmd A1: label 'Orthogonal' fits on one line inside the tile; D rails at 1024 and 768 fit; shot fix-dark-rings.png shows the tile."
+  },
+  {
+   "id": "user-8",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "The chip strips U+00AD from the tool name, so the Russian chip reads «Ортогональная» and never breaks there.",
+   "files": [
+    "src/construct.js (chipText)"
+   ],
+   "evidence": "perp_cmd C: RU chips 'Выберите прямую или окружность · Ортогональная · Esc — отмена' and 'Точка 1 из 2 · Ортогональная · Esc — отмена'."
+  },
+  {
+   "id": "user-9",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "(a) The decimal mirror image is the pencil (math-3). (b) A perpendicular or touching circle records the kind it was made as (def.nk: circle | line) and is numbered by it (app.js nameKind; construct.js genName and target names alike): a drag that makes it a line for a moment renames neither it nor the shapes after it. Saves without nk (older v16.3 drafts) and circle3 keep the old naming.",
+   "files": [
+    "src/app.js (nameKind, shapeNames, buildShapeList, shapeName)",
+    "src/construct.js (nameKind, genName, shapeLabel for targets, finish/finishTouch set nk)"
+   ],
+   "evidence": "fix163_cmd U9: K a line (P, Q collinear with the centre) is still 'Circle 2' and the next circle 'Circle 3'; the pair 1.3+0.9i, 0.52+0.36i shows the pencil reason."
+  },
+  {
+   "id": "user-10",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Rows put the curve first: 'perpendicular to Circle 1, through z₀ and z₁' (line, disc, outside forms likewise; RU «ортогональна кривой: Окружность 1; через z₀ и z₁»); a tangent's row 'tangent to Circle 1 at z₃, through z₂'. The Inspector and the captions keep the long forms.",
+   "files": [
+    "src/construct.js (defText short, row)",
+    "notes/i18n/ru/v163-constr.json (row.*_s)"
+   ],
+   "evidence": "perp_cmd A3 (row and Inspector), A10, A12, C RU row; touch_cmd A7."
+  },
+  {
+   "id": "user-11",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "With the perpendicular or touching tool, a click in the other plane that picks no curve there does nothing while the draft has its curve or points; a click on a curve there starts the new draft as before. (The point tools are unchanged: any click is a valid pick there.)",
+   "files": [
+    "src/construct.js (click)"
+   ],
+   "evidence": "fix163_cmd U11: a click in Y's empty space keeps the X draft (its curve and P)."
+  },
+  {
+   "id": "user-12",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "The chip's touch form (no 'Esc cancels', a ×) is chosen from the last press anywhere (a tile tapped by touch or pen), or a coarse-only pointer before any plane event, not only from the last plane event. Applies to all six Construct tools.",
+   "files": [
+    "src/construct.js (chipTouch, ui pointerdown listener, syncChip)"
+   ],
+   "evidence": "fix163_cmd U12: a touch tap on the Orthogonal tile at 1440: 'Pick a line or a circle · Orthogonal' with the ×; perp_cmd and touch_cmd D phone chips pass."
+  },
+  {
+   "id": "user-13",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "When the picked curve is a disc or a half-plane, the rows of perp, touch and tangent name its boundary: 'the circle of Disc 1' / 'the edge of Half-plane 1' (RU «граница (Круг 1)»). Captions already name the carrier by its maths.",
+   "files": [
+    "src/construct.js (cName, defText)",
+    "notes/i18n/ru/v163-constr.json (row.circle_of, row.edge_of)"
+   ],
+   "evidence": "fix163_cmd U13: 'disc perpendicular to the circle of Disc 1, through …'."
+  },
+  {
+   "id": "user-14",
+   "severity": "suggestion",
+   "status": "deferred",
+   "fix": "Not built: a per-shape 'inside C only' drawing option is a new feature; the reviewer marks it for a later round with the user's go-ahead."
+  },
+  {
+   "id": "regress-1",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "touchMeet returns false at once unless one of the two curves is a touch or tangent shape, so v16.2-only scenes do no piece work per meet row.",
+   "files": [
+    "src/construct.js (touchMeet)"
+   ],
+   "evidence": "Covered functionally by touch_cmd A7/A8 (touching meets still read 'where they touch'); the paired P10 timing was not re-run."
+  },
+  {
+   "id": "regress-2",
+   "severity": "info",
+   "status": "no_change",
+   "fix": "None needed (the review's own verdict). The tile rename does not change the grid's rows."
+  },
+  {
+   "id": "regress-3",
+   "severity": "info",
+   "status": "no_change",
+   "fix": "Out of scope (predates v16.3). The glider part of it (recompute in pointermove, a list rebuild per move) is fixed under user-4; the region repaint per disc dependent is unchanged."
+  }
+ ]
+}

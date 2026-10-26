@@ -1,0 +1,40 @@
+PASS touch, 4000 random graphs (circle, line, segment, arc, disc and its complement): overlap depth / S <= 1e-12 "4.1e-16"
+PASS touch: T and P on K within 1e-15 S "2.6e-16"
+PASS touch: no undefined K 0
+PASS the meet rule: meet(K, C) index 0 and index 1 are T exactly, in the graph 0
+PASS the meet rule on pieces (snapping, Intersect): both meets are T exactly "4000/4000"
+PASS without the rule the v16.2 solver finds no meet often (why the rule is needed) "none 1055, two 2945"
+PASS tangent, 8000 lines: overlap depth / S <= 1e-12 "3.9e-16"
+PASS tangent: the touching point on K and on C, and P on K, within 1e-15 S ["1.3e-16","3.7e-16"]
+PASS tangent: k = 0 touches left of the ray P -> centre, every time "4000/4000"
+PASS tangent: its touching point (a meet) is tp exactly 0
+PASS tangent from inside: undefined, inside
+PASS tangent from a point exactly on C (f(P) = 0 in the floats): both are the tangent there, tp = P [[1,-3],[1,-3]]
+     0.6 + 0.8i on the unit circle (1e-17 outside in floats): touching points 1.3e-8 apart
+PASS tangent to a line: its parallel, touching at infinity
+     3-point C through y = 0 (P above): inside | inside | inside | B=(0, -1.0e+0) tp=inf | B=(-3.0e-5, -1.0e+0) tp=1.3e+5 | B=(-9.4e-4, -1.0e+0) tp=4.2e+3 | B=(-3.0e-2, -1.0e+0) tp=1.3e+2
+PASS tangent: as C flattens, the tangents tend to the parallel (tp to infinity), then P is inside: undefined
+     the pole of T1 T2 as T2 passes the antipode (lines by kind): index finite: 3.2e+0, 6.4e+0, 3.2e+1, 3.2e+2, 3.2e+2, 3.2e+1, 6.4e+0, 3.2e+0
+PASS two tangents at T1, T2: a lines-by-kind meet, finite on both sides of the antipode (goes out and comes back)
+PASS T slides through the angle where P is on its tangent: no undefined step, no flip {"und":0,"flips":0,"jump":0.000003773462733613897}
+PASS P crosses the tangent at T: no undefined step, no flip {"und":0,"flips":0,"jump":0.000006250000003760192}
+PASS P crosses C: no undefined step, no flip {"und":0,"flips":0,"jump":4.875081174304796e-7}
+PASS a point on K moves continuously while K passes through its line case (steps of 1e-4) {"und":0,"worst":"1.9e-4"}
+PASS P outside: K is made the disc (flip at creation); Use complement on K does not move a point on it {"fl":true,"d":"0"}
+PASS the tangent at T: a line by kind; a point on it at t is at distance t from T
+PASS two touches of C at the same T meet exactly at T
+PASS P exactly 0: K anchored at 0 (the Lambda rule), C = 0 exactly
+PASS P exactly 0: still tangent "3.2e-17"
+PASS P = T: coincide
+PASS a freehand C: undefined {"code":"notCircle","args":{"x":"c"}}
+PASS validate: a wrong signature is freed; a bad index becomes 0 {"freed":1}
+PASS the v16.2 validate frees touch and keeps its circle {"freed":1}
+PASS save, load, recompute: bitwise
+PASS deletePlan: C takes T, K and the touching points ["c","t","k","m0","m1"]
+PASS onCurveByRefs: a glider on C and a meet with C are on C
+PASS onCurveByRefs: a line's ends; a polygon vertex on its two sides only
+PASS onCurveByRefs: a circle3's points; a point bound to a segment's end
+PASS onCurveByRefs: a free point lying on C numerically is not on C; a glider on another curve is not
+PASS speed: touchForm and tangentForm under 5 us "1.57 us, 1.10 us"
+
+35 passed, 0 failed

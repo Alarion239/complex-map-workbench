@@ -24,7 +24,8 @@ see what they do:
   A bracket over the chain cards chooses which steps deform: the steps before it act first and the steps after it act
   last, so you can watch f(z) become f(√z) (a pullback) or push an image you already have forward.
 - **Zeros and poles**: a step a·∏(z − z_k)/∏(z − p_j) whose zeros (dots) and poles (crosses) you drag in the plane.
-- **Constructions**: circles through 3 points, lines through 2, intersections, midpoints and bisectors, built from any
+- **Constructions**: circles through 3 points, lines through 2, intersections, midpoints, bisectors, circles
+  perpendicular to a line or circle (hyperbolic lines in the disk and half-plane) and touching circles and tangents, built from any
   point on the page (points, shape corners, zeros and poles, crossings of curves); they follow what they are built on.
 - Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves, and
   guarantees (analytic, injective, …) that are only lit when they are proven.

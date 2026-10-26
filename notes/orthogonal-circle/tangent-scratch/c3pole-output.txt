@@ -1,0 +1,2 @@
+lines by kind, finite: 3.2e+0, 3.2e+1, 3.2e+2, 3.2e+2, 3.2e+1, 3.2e+0
+c3, index 0:          3.2e+0, 3.2e+1, 3.2e+2, inf, inf, inf

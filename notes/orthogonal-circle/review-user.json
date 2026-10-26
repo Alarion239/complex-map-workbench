@@ -1,0 +1,114 @@
+[
+  {
+    "id": "user-1",
+    "severity": "medium",
+    "title": "The picked unit circle becomes a free Circle 1 that one stray drag moves off |z| = 1",
+    "detail": "Picking the shown unit circle makes Circle 1 (c = 0, r = 1), and every perpendicular or touching circle is built on it. With Select, a drag on its stroke moves the whole circle, and that stroke is where the user clicks most in the disk model. All the hyperbolic lines follow Circle 1, while the shown unit circle stays put. The picture stops being the disk model with no warning. The axes picked as Line 1 behave the same way.",
+    "evidence": "Disk scene (Mobius i(1+z)/(1-z), unit on): 3 perpendicular circles on the unit circle. Then Select, and a 12-step drag on the stroke at angle -2.4 by (-0.3, -0.2). Circle 1 became {c: [-0.3, -0.2], r: 1}, and the row reads |z - (-0.3 ...|. Shot: notes/orthogonal-circle/shots/review-user/c5-circle1-dragged.png (the dashed true unit circle and the moved Circle 1 with its circles).",
+    "fix": "Make the shapes made from the unit circle and the axes fixed: no handles and no body drag, for example def {op: 'unit'} or {op: 'axis', which}, or a fixed flag that Select honours. Make free in ⋯ unlocks it. The row and the Inspector can then say 'the unit circle' / 'the real axis'."
+  },
+  {
+    "id": "user-2",
+    "severity": "medium",
+    "title": "'Left' and 'right' tangent are mirrored on screen when P is above the circle",
+    "detail": "k = 0 is 'left of the ray from P to C's centre' (TANGENT-SPEC). So with P above the circle (the usual picture), the tangent that touches on the right side of the screen is called 'the left tangent', and the other way round. A reader matching rows to the picture gets them swapped. The Russian «левая/правая касательная» has the same problem.",
+    "evidence": "Circle 1 (centre 0.75, r 2.016), P = z₈ = 0.75 + 2.3i. A click on the ring at tp = 1.72 + 1.77i (right on screen) made 'Line 4: the left tangent to Circle 1 through z₈' with z₉ there. The ring at -0.22 + 1.77i made 'Line 5: the right tangent …'. Shot: shots/review-user/f4-both-tangents.png.",
+    "fix": "Name a tangent by its touching point, which is made in the same undo step: 'the tangent to Circle 1 through z₈, touching at z₉' / «касательная к кривой: Окружность 1, через z₈; точка касания — z₉». If no point is made, use 'tangent 1 / 2 from z₈'. Captions can do the same."
+  },
+  {
+    "id": "user-3",
+    "severity": "medium",
+    "title": "Dark mode: the rings, the tangent hint and the T marker are barely visible, worst on the phone",
+    "detail": "On a phone there is no hover, so the rings and the dashed hint are the only clue that a tap gives a tangent. In dark mode the rings are small, dim grey-green circles. The one at the top sits on the picked circle's blue glow and almost disappears. The hint at T is a thin grey dash about as bright as the grid. The T dot is grey on the glow. In light mode the rings are lavender and readable.",
+    "evidence": "Phone 390 × 844, dark, Russian, disk scene. Touch, the unit circle, then P = -1.4 + 1.2i: shots/review-user/h8-rings.png and the zoom h8-rings-zoom.png (rings at 0.135 + 0.99i and -0.96 - 0.28i). T at angle -1: h6-touch-T.png. Light-mode comparison: f2-ring-hover.png and e6-rings.png.",
+    "fix": "Draw the rings and the hint in the accent or draft colour at full alpha in dark mode, as light mode does with lavender. Give each ring a 2 px stroke and at least a 7 px radius on touch, with a halo of the background colour so it shows over the picked curve's glow. Draw T as a filled draft-coloured dot."
+  },
+  {
+    "id": "user-4",
+    "severity": "medium",
+    "title": "Glider drag of the touching point T is janky: frame p95 about 21 ms, hitches of 43 to 52 ms",
+    "detail": "Dragging T round the circle stutters next to a free-point drag in the same scene. AS-BUILT-touch lists this as Open (the glider path's pointermove p95 is 18 ms). Its frame p95 of 16.8 ms did not hold here, with the rAF recorded in the page.",
+    "evidence": "Desktop 1440, disk scene with 28 shapes (6 perpendicular circles, 3 touching circles, the unit circle). 90 mouse moves 16 ms apart, rAF intervals recorded in the page, 3 runs. Free point z₀: p95 17.8 / 18.1 / 18.2 ms, max ≤ 19.9. Glider T: p95 21.2 / 21.0 / 21.6 ms, max 22 / 52.5 / 43.4 ms. Headless Chrome with load average 4 to 6, so the absolute numbers are noisy, but the gap between the two drags was the same in every run.",
+    "fix": "Defer the glider's recompute to the frame, as a free point's drag does (the pointermove handler stores the target; the rAF does the work). Then re-measure with touch_cmd F, adding a frame check for the T drag."
+  },
+  {
+    "id": "user-5",
+    "severity": "low",
+    "title": "After the second tangent from P is wanted, P must be clicked again",
+    "detail": "'The two tangents from an outside point' is the common case. After a click on one ring, the draft keeps the curve but drops P and the other ring. The second tangent takes 2 more clicks (P again, then the other ring), and the user has to know P is now an existing point to snap to.",
+    "evidence": "Right after the first ring click, the draft was {picks: [], curve1: s53, rings: null}. A click on z₈ again brought both rings back, and the second ring gave Line 5. Script c8 (shots f3-after-ring1 / f4-both-tangents).",
+    "fix": "After a ring click, keep P picked and leave the other ring offered, so the second tangent is one click. Backspace and Esc clear as now, and a click elsewhere starts the next circle."
+  },
+  {
+    "id": "user-6",
+    "severity": "low",
+    "title": "The chip after P does not say that a ring gives a tangent",
+    "detail": "After T the chip says 'Point 2 of 2, or the tangent'. After P it says only 'Touching point on Circle 1 · Touching · Esc cancels', even though two dashed tangents and two rings appear. Only the tile's tooltip explains the rings, and phone users never see that tooltip.",
+    "evidence": "Chip after P = 1.6 + 3i: 'Touching point on Circle 1 · Touching · Esc cancels' (e6-rings.png). RU: «Точка касания на кривой: Окружность 1 · Касание» (h8-rings.png).",
+    "fix": "When rings exist: 'Touching point on Circle 1, or a ring for a tangent' / «Точка касания на кривой: Окружность 1 или кольцо — касательная»."
+  },
+  {
+    "id": "user-7",
+    "severity": "low",
+    "title": "The English tile 'Perpen-dicular' wraps, and next to the Russian bisector tile «Перпендикуляр» the names cross",
+    "detail": "In English, 'Perpendicular' is the circle tool. In Russian, «Перпендикуляр» is the existing Bisector tile, and the circle tool is «Ортогональная». A Russian user looking for perpendicular circles taps the bisector. A bilingual user sees the two tools trade names. The English tile is also the only Construct tile on two lines ('Perpen-dicular').",
+    "evidence": "Desktop rail: a0-fresh / b3-preview (the 'Perpen-dicular' tile on 2 lines). RU phone sheet: h1b-more-sheet-scrolled.png («Перпен-дикуляр» next to «Ортого-нальная»).",
+    "fix": "Make the English tile 'Orthogonal'. It matches the RU tile, likely fits on one line (it is 10 letters; 'Intersect' is 9), and keeps 'perpendicular' for the bisector's sense. The tooltip and the plane menu can keep 'Perpendicular circle'. Or rename the RU bisector tile to «Серед. перпенд.»."
+  },
+  {
+    "id": "user-8",
+    "severity": "low",
+    "title": "The chip uses the tile label with its soft hyphen, so it wraps as «Ортого-/нальная» on the phone",
+    "detail": "The draft chip's tool name is the tile text, which has U+00AD. On a 390 px phone in Russian the chip breaks there, over two lines. In English the chip says 'Perpendicular' (with the hidden hyphen), not the tool's name 'Perpendicular circle'.",
+    "evidence": "h2-perp-picked.png: «Выберите прямую или окружность · Ортого-\\nнальная · Esc — отмена». The chip's textContent has 'Perpen\\u00addicular'.",
+    "fix": "Build the chip from the tool's name (tip) without U+00AD ('Perpendicular circle' / «Ортогональная окружность»), or at least strip the soft hyphen from the chip."
+  },
+  {
+    "id": "user-9",
+    "severity": "low",
+    "title": "A shape's name and kind change while a point is dragged (Circle 2 → Line 1, the others renumbered); the mirror-image case is inconsistent",
+    "detail": "With snap on, dragging z₁ onto the mirror image of z₀ in decimals gives a line. The rows and Inspector then rename it 'Line 1', and every later circle moves down one (Circle 3 → Circle 2, Circle 4 → Circle 3). In the disk model this happens whenever a point snaps onto a diameter through the other. At the exact mirror image every circle through both points is perpendicular. The binary pair (0.5, 2) shows the pencil reason and hides K, but the decimal pair (1.3 + 0.9i, 0.52 + 0.36i) silently gives a line.",
+    "evidence": "Disk scene. z₀ dragged to 1.3 + 0.9i, then z₁ to 0.52 + 0.36i (= z₀ / |z₀|²): s53 kind line, row 'Line 1: the line through z₀ and z₁, perpendicular to Circle 1'. 'Circle 3' → 'Circle 2' and 'Circle 4' → 'Circle 3' (script c4; c4-inverse.png).",
+    "fix": "In perpForm's decimal line branch, also test the decimal mirror image (Q = P* in decimals) and give 'pencil'. Keep a construction's name stable while its kind flips: number a perpendicular or touching result once, at creation."
+  },
+  {
+    "id": "user-10",
+    "severity": "low",
+    "title": "Rows cut off the curve's name, which is the part that matters",
+    "detail": "At 1440 px the row reads 'Circle 2 / through z₀ and z₁, perpendicular to Circ…'. The ellipsis hides which curve it is perpendicular to. With several curves (unit circle, axis, a 3-point circle), every row looks alike.",
+    "evidence": "b5-three.png and c2 (rows 'Circle 2 … perpendicular to Circ…'). The touch rows ('through z₇, touching Circle 1 at z₆') fit.",
+    "fix": "Put the curve first: '⊥ Circle 1, through z₀, z₁' or 'perpendicular to Circle 1, through z₀ and z₁' (RU «ортогональна кривой: Окружность 1, через z₀ и z₁»). Keep the long form for the Inspector and the captions."
+  },
+  {
+    "id": "user-11",
+    "severity": "low",
+    "title": "A stray click just over the plane border drops the whole draft (curve and P)",
+    "detail": "With the curve and P picked in X, a click that lands in Y (for example on a ring close to X's right edge) starts over in Y. The draft goes to {side: R, curve1: null}, with the toast 'Click a line or a circle.' The picked curve and P are lost, and there is no undo for a draft.",
+    "evidence": "Script c7: ring tp at x = 2.12 was past the X plane's edge (view ±1.95). The click went to Y, the draft reset, and the toast showed.",
+    "fix": "While the draft has picks, ignore a click in the other plane unless it is on a curve, or keep the old draft until a valid pick happens there."
+  },
+  {
+    "id": "user-12",
+    "severity": "low",
+    "title": "The phone chip before the first pick says 'Esc cancels' and has no × (all Construct tools)",
+    "detail": "This was not introduced by this build: the two new tools inherit it. Until the curve is picked, the chip on Android reads '… · Esc cancels', with no ×. After the first pick it shows the ×.",
+    "evidence": "Phone 390 × 844 with the Android UA, a tile tapped from More. 3 points: 'Point 1 of 3 · 3 points · Esc cancels'. Perp: 'Pick a line or a circle · Perpendicular · Esc cancels'. Touch: the same (script c14; j1-phone-en-perp-chip.png). After the curve: 'Point 1 of 2 · Perpendicular ×'.",
+    "fix": "Use the touch form of the chip (no 'Esc', with a ×) whenever the tool was chosen by touch or the device is coarse-pointer, from the first frame."
+  },
+  {
+    "id": "user-13",
+    "severity": "low",
+    "title": "'perpendicular to Disc 1' when the curve is a disc",
+    "detail": "The 3 points tool made a Disc here, and the row of a circle on it reads 'through z₃ and z₄, perpendicular to Disc 1'. A circle is perpendicular to a curve, not to a region.",
+    "evidence": "Script c10: 'Circle 1: through z₃ and z₄, perpendicular to Disc 1'.",
+    "fix": "When C is a region, name its boundary: 'perpendicular to the circle of Disc 1' / «ортогонально границе: Круг 1» (and the same for 'touching')."
+  },
+  {
+    "id": "user-14",
+    "severity": "suggestion",
+    "title": "Hyperbolic lines are whole circles; article figures of the disk and half-plane models need only the part inside",
+    "detail": "Drawing the disk model gives full circles that run outside the unit disk and cross each other there. Drawing the half-plane model gives full circles below the real axis. This works as specified, but an article-grade figure of either model needs the geodesic arcs only. Today there is no way to clip them.",
+    "evidence": "b5-three.png (disk), d3-halfplane.png (half-plane).",
+    "fix": "For a later round (needs the user's go-ahead): a per-shape 'inside C only' option that draws the arc of K inside the picked curve, the arc between its two crossings with C."
+  }
+]

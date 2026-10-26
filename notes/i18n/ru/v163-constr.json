@@ -1,0 +1,344 @@
+{
+ "_about": "v16.3 constructions: the Perpendicular circle (notes/orthogonal-circle/SPEC.md 5) and the Touching circle (notes/orthogonal-circle/TANGENT-SPEC.md 5; src/construct.js). id -> {en, ru, note, ctx?}. Built in work/xv163. Read by tools/make_ru_table.py (V163_HERE, after the v16.1 tables).",
+ "tool.perp": {
+  "en": "Perpendicular circle",
+  "ru": "Ортогональная окружность",
+  "note": "Tool name: tooltip, chip, palette."
+ },
+ "tool.perp_tile": {
+  "en": "Orthogonal",
+  "ru": "Ортого­нальная",
+  "note": "Tile text (52 px tile). v16.3 review user-7: English «Orthogonal» on one line (no soft hyphen; «perpendicular» stays the bisector's sense); Russian two lines at its soft hyphen."
+ },
+ "tool.perp_desc": {
+  "en": "Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.",
+  "ru": "Выберите прямую или окружность, затем две точки: окружность через них пересечёт кривую под прямым углом. Кривая остаётся выбранной для следующей.",
+  "note": "Tooltip's second line."
+ },
+ "chip.perp_curve": {
+  "en": "Pick a line or a circle",
+  "ru": "Выберите прямую или окружность",
+  "note": "Draft chip, before the curve."
+ },
+ "toast.perp_miss": {
+  "en": "Click a line or a circle.",
+  "ru": "Щёлкните прямую или окружность.",
+  "note": "Toast: a miss, or a globe."
+ },
+ "row.perp": {
+  "en": "through {a} and {b}, perpendicular to {c}",
+  "ru": "через {a} и {b}, ортогонально кривой: {c}",
+  "note": "Row (a, b: ctx acc) [C26]."
+ },
+ "row.perp_line": {
+  "en": "the line through {a} and {b}, perpendicular to {c}",
+  "ru": "прямая через {a} и {b}, ортогональная кривой: {c}",
+  "note": "Row."
+ },
+ "row.perp_disc": {
+  "en": "the disc through {a} and {b}, perpendicular to {c}",
+  "ru": "круг, ограниченный окружностью через {a} и {b}, ортогональной кривой: {c}",
+  "note": "Row."
+ },
+ "row.perp_out": {
+  "en": "outside the circle through {a} and {b}, perpendicular to {c}",
+  "ru": "внешность окружности через {a} и {b}, ортогональной кривой: {c}",
+  "note": "Row."
+ },
+ "why.pencil": {
+  "en": "The points are symmetric in the curve: every circle through both is perpendicular to it",
+  "ru": "Точки симметричны относительно кривой: любая окружность через них ей ортогональна",
+  "note": "Reason pencil (Ahlfors' \"symmetric\"; Шабат: «симметричные относительно окружности»)."
+ },
+ "why.notCircle": {
+  "en": "{x} is not a line or a circle",
+  "ru": "{x}: не прямая и не окружность",
+  "note": "Reason notCircle [C26]."
+ },
+ "menu.perp": {
+  "en": "Perpendicular circle…",
+  "ru": "Ортогональная окружность…",
+  "note": "Plane menu on a curve."
+ },
+ "insp.perp_t": {
+  "en": "0 at {p}, ½ opposite it",
+  "ru": "0 в {p}, ½ — в противоположной точке",
+  "note": "Inspector: t on K (a no-break space before the em dash, the house rule)."
+ },
+ "chip.unit": {
+  "en": "the unit circle",
+  "ru": "единичная окружность",
+  "note": "Hover chip \"on {x}\" («привязка: {x}»)."
+ },
+ "chip.realaxis": {
+  "en": "the real axis",
+  "ru": "действительная ось",
+  "note": "Hover chip."
+ },
+ "chip.imagaxis": {
+  "en": "the imaginary axis",
+  "ru": "мнимая ось",
+  "note": "Hover chip."
+ },
+ "cap.perp": {
+  "en": "the circle through {a} and {b} perpendicular to {c}",
+  "ru": "окружность, проходящая через {a} и {b} и ортогональная {c}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.perp_line": {
+  "en": "the line through {a} and {b} perpendicular to {c}",
+  "ru": "прямая, проходящая через {a} и {b} и ортогональная {c}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.perp_disc": {
+  "en": "the disc bounded by the circle through {a} and {b} perpendicular to {c}",
+  "ru": "круг, ограниченный окружностью, проходящей через {a} и {b} и ортогональной {c}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.perp_out": {
+  "en": "the outside of the circle through {a} and {b} perpendicular to {c}",
+  "ru": "внешность окружности, проходящей через {a} и {b} и ортогональной {c}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.perp.gen": {
+  "en": "the circle through {a} and {b} perpendicular to {c}",
+  "ru": "окружности, проходящей через {a} и {b} и ортогональной {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.perp_line.gen": {
+  "en": "the line through {a} and {b} perpendicular to {c}",
+  "ru": "прямой, проходящей через {a} и {b} и ортогональной {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.perp_disc.gen": {
+  "en": "the disc bounded by the circle through {a} and {b} perpendicular to {c}",
+  "ru": "круга, ограниченного окружностью, проходящей через {a} и {b} и ортогональной {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.perp_out.gen": {
+  "en": "the outside of the circle through {a} and {b} perpendicular to {c}",
+  "ru": "внешности окружности, проходящей через {a} и {b} и ортогональной {c}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "tool.touch": {
+  "en": "Touching circle",
+  "ru": "Касающаяся окружность",
+  "note": "Tool name: tooltip, chip, palette."
+ },
+ "tool.touch_tile": {
+  "en": "Touching",
+  "ru": "Касание",
+  "note": "Tile text (52 px tile), like «Пересечение»."
+ },
+ "tool.touch_desc": {
+  "en": "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.",
+  "ru": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной даёт касательную, по кольцу — касательную из точки. Кривая остаётся выбранной для следующей.",
+  "note": "Tooltip's second line."
+ },
+ "menu.touch": {
+  "en": "Touching circle…",
+  "ru": "Касающаяся окружность…",
+  "note": "Plane menu on a curve."
+ },
+ "chip.touch_T": {
+  "en": "Point {n} of {m}, or the tangent",
+  "ru": "Точка {n} из {m} или касательная",
+  "note": "Draft chip after T (C a circle)."
+ },
+ "chip.touch_P": {
+  "en": "Touching point on {c}",
+  "ru": "Точка касания на кривой: {c}",
+  "note": "Draft chip after P [C26]."
+ },
+ "toast.touch_on": {
+  "en": "Click a point on {c}.",
+  "ru": "Щёлкните точку на кривой: {c}.",
+  "note": "Toast: after P, a pick off C [C26]."
+ },
+ "toast.touch_off": {
+  "en": "Click a point off {c}.",
+  "ru": "Щёлкните точку вне кривой: {c}.",
+  "note": "Toast: after T, a pick on C [C26]."
+ },
+ "chip.touch_hint": {
+  "en": "the tangent at {a}",
+  "ru": "касательная в точке {a}",
+  "note": "Hover chip \"on {x}\": the tangent hint at T."
+ },
+ "chip.touch_ring": {
+  "en": "a tangent from {p}",
+  "ru": "касательная из {p}",
+  "note": "Hover chip \"on {x}\": a ring."
+ },
+ "row.touch": {
+  "en": "through {b}, touching {c} at {a}",
+  "ru": "через {b}, касается кривой: {c}; точка касания — {a}",
+  "note": "Row (b: ctx acc; a: nominative) [C26]."
+ },
+ "row.touch_line": {
+  "en": "the line through {b}, touching {c} at {a}",
+  "ru": "прямая через {b}, касающаяся кривой: {c}; точка касания — {a}",
+  "note": "Row."
+ },
+ "row.touch_disc": {
+  "en": "the disc through {b}, touching {c} at {a}",
+  "ru": "круг, ограниченный окружностью через {b}, касающейся кривой: {c}; точка касания — {a}",
+  "note": "Row."
+ },
+ "row.touch_out": {
+  "en": "outside the circle through {b}, touching {c} at {a}",
+  "ru": "внешность окружности через {b}, касающейся кривой: {c}; точка касания — {a}",
+  "note": "Row."
+ },
+ "row.touch_tangent": {
+  "en": "the tangent to {c} at {a}",
+  "ru": "касательная к кривой: {c}; точка касания — {a}",
+  "note": "Row of the tangent at T (ctx row: the caption with the same English is cap.touch_tangent).",
+  "ctx": "row"
+ },
+ "row.touch_meet": {
+  "en": "{c1} ∩ {c2}, where they touch",
+  "ru": "{c1} ∩ {c2}, точка касания",
+  "note": "Row of the touching point."
+ },
+ "why.inside": {
+  "en": "The point is inside the circle, so no line through it touches the circle",
+  "ru": "Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности",
+  "note": "Reason inside."
+ },
+ "insp.tangent_t": {
+  "en": "0 at {p}; t is the distance from it",
+  "ru": "0 в {p}; t — расстояние от этой точки",
+  "note": "Inspector: t on a tangent line (a no-break space before the em dash, the house rule)."
+ },
+ "cap.touch": {
+  "en": "the circle through {b} touching {c} at {a}",
+  "ru": "окружность, проходящая через {b} и касающаяся {c} в точке {a}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.touch_line": {
+  "en": "the line through {b} touching {c} at {a}",
+  "ru": "прямая, проходящая через {b} и касающаяся {c} в точке {a}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.touch_disc": {
+  "en": "the disc bounded by the circle through {b} touching {c} at {a}",
+  "ru": "круг, ограниченный окружностью, проходящей через {b} и касающейся {c} в точке {a}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.touch_out": {
+  "en": "the outside of the circle through {b} touching {c} at {a}",
+  "ru": "внешность окружности, проходящей через {b} и касающейся {c} в точке {a}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.touch_tangent": {
+  "en": "the tangent to {c} at {a}",
+  "ru": "касательная к {c} в точке {a}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.tangent": {
+  "en": "the tangent to {c} through {p}",
+  "ru": "касательная к {c}, проходящая через {p}",
+  "note": "Caption; c: the carrier in the genitive, which equals the dative for «окружности» and «прямой»."
+ },
+ "cap.touch.gen": {
+  "en": "the circle through {b} touching {c} at {a}",
+  "ru": "окружности, проходящей через {b} и касающейся {c} в точке {a}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.touch_line.gen": {
+  "en": "the line through {b} touching {c} at {a}",
+  "ru": "прямой, проходящей через {b} и касающейся {c} в точке {a}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.touch_disc.gen": {
+  "en": "the disc bounded by the circle through {b} touching {c} at {a}",
+  "ru": "круга, ограниченного окружностью, проходящей через {b} и касающейся {c} в точке {a}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.touch_out.gen": {
+  "en": "the outside of the circle through {b} touching {c} at {a}",
+  "ru": "внешности окружности, проходящей через {b} и касающейся {c} в точке {a}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.touch_tangent.gen": {
+  "en": "the tangent to {c} at {a}",
+  "ru": "касательной к {c} в точке {a}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "cap.tangent.gen": {
+  "en": "the tangent to {c} through {p}",
+  "ru": "касательной к {c}, проходящей через {p}",
+  "note": "Caption, genitive.",
+  "ctx": "gen"
+ },
+ "row.perp_s": {
+  "en": "perpendicular to {c}, through {a} and {b}",
+  "ru": "ортогональна кривой: {c}; через {a} и {b}",
+  "note": "Row (short form, the curve first: review user-10). The Inspector keeps row.perp."
+ },
+ "row.perp_line_s": {
+  "en": "line perpendicular to {c}, through {a} and {b}",
+  "ru": "прямая, ортогональная кривой: {c}; через {a} и {b}",
+  "note": "Row, short form, K a line."
+ },
+ "row.perp_disc_s": {
+  "en": "disc perpendicular to {c}, through {a} and {b}",
+  "ru": "круг, ортогональный кривой: {c}; через {a} и {b}",
+  "note": "Row, short form, Region."
+ },
+ "row.perp_out_s": {
+  "en": "outside a circle perpendicular to {c}, through {a} and {b}",
+  "ru": "внешность окружности, ортогональной кривой: {c}; через {a} и {b}",
+  "note": "Row, short form, Region with Use complement."
+ },
+ "row.tangent_at": {
+  "en": "the tangent to {c} through {p}, touching at {t}",
+  "ru": "касательная к кривой: {c}, через {p}; точка касания — {t}",
+  "note": "Row and Inspector: a tangent from P named by its touching point (review user-2; replaces left/right)."
+ },
+ "row.tangent_n": {
+  "en": "tangent {n} to {c} through {p}",
+  "ru": "касательная {n} к кривой: {c}, через {p}",
+  "note": "Row: a tangent from P whose touching point was deleted ({n}: 1 or 2)."
+ },
+ "row.circle_of": {
+  "en": "the circle of {x}",
+  "ru": "граница ({x})",
+  "note": "A disc picked as the curve: its boundary (review user-13)."
+ },
+ "row.edge_of": {
+  "en": "the edge of {x}",
+  "ru": "граница ({x})",
+  "note": "A half-plane picked as the curve: its edge (review user-13)."
+ },
+ "chip.touch_P_ring": {
+  "en": "Touching point on {c}, or a ring for a tangent",
+  "ru": "Точка касания на кривой: {c} или кольцо — касательная",
+  "note": "Draft chip after P when the tangents from P are offered (review user-6)."
+ },
+ "why.offCurve": {
+  "en": "The touching point is not on {c}",
+  "ru": "Точка касания не лежит на кривой: {c}",
+  "note": "Undefined reason: T left its curve (a rectangle corner on another side; review math-1)."
+ },
+ "toast.fixed": {
+  "en": "This is {x}: it stays fixed. To move it, choose Make free in ⋯.",
+  "ru": "Это {x}: она закреплена. Чтобы сдвинуть её, выберите «Отвязать» в ⋯.",
+  "note": "Toast: a drag on the unit circle or an axis made a shape for a construction (review user-1). {x}: the unit circle, the real axis, the imaginary axis (all feminine in Russian)."
+ },
+ "row.tangent_at_s": {
+  "en": "tangent to {c} at {t}, through {p}",
+  "ru": "касательная к кривой: {c} в точке {t}, через {p}",
+  "note": "Row (short form): a tangent from P by its touching point first (review user-2, user-10); the Inspector keeps row.tangent_at."
+ }
+}

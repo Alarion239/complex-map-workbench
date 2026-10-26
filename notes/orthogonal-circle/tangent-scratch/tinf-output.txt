@@ -1,0 +1,12 @@
+T = +1e1 along C: max level difference from the parallel 5.1e-1
+T = -1e1 along C: max level difference from the parallel 5.4e-1
+T = +1e3 along C: max level difference from the parallel 5.4e-3
+T = -1e3 along C: max level difference from the parallel 5.4e-3
+T = +1e6 along C: max level difference from the parallel 5.4e-6
+T = -1e6 along C: max level difference from the parallel 5.4e-6
+T = +1e9 along C: max level difference from the parallel 1.2e-7
+T = -1e9 along C: max level difference from the parallel 1.0e-7
+T = +1e12 along C: max level difference from the parallel 1.7e-4
+T = -1e12 along C: max level difference from the parallel 5.3e-5
+T = +1e15 along C: max level difference from the parallel 1.1e-1
+T = -1e15 along C: max level difference from the parallel 2.0e-1

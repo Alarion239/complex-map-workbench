@@ -4,6 +4,9 @@
 //  B. its 18 bridge tests (poc/bridge.test.js), against this copy's src/ (region.js, curves.js)
 //  C. the integration and exactness tests of SPEC 18: refs, ids, collinear and continuity, exact levels, sampling,
 //     formOf readers, intersections, gliders, the graph, the plans, save and load, bound numbers
+//  D. the v16 review fixes (constr_review_tests.js)
+//  E. the Perpendicular circle, op perp (constr_perp_tests.js; notes/orthogonal-circle/SPEC.md 7)
+//  F. the Touching circle, ops touch and tangent (constr_touch_tests.js; notes/orthogonal-circle/TANGENT-SPEC.md 7)
 'use strict';
 const path = require('path');
 const SRC = path.join(__dirname, '../src');
@@ -384,5 +387,13 @@ require('./constr_core_tests.js')({ K, ok, near, nearP, Inverse, Curves });
 sect.D = [0, 0]; cur = 'D';
 require('./constr_review_tests.js')({ K, ok, near, nearP });
 
-console.log(`\nA ${sect.A[0]}/${sect.A[0] + sect.A[1]}, B ${sect.B[0]}/${sect.B[0] + sect.B[1]}, C ${sect.C[0]}/${sect.C[0] + sect.C[1]}, D ${sect.D[0]}/${sect.D[0] + sect.D[1]}: ${pass} passed, ${fail} failed`);
+// =========================================================== E. the Perpendicular circle (notes/orthogonal-circle/SPEC.md 7)
+sect.E = [0, 0]; cur = 'E';
+require('./constr_perp_tests.js')({ K, ok, near, nearP });
+
+// =========================================================== F. the Touching circle (notes/orthogonal-circle/TANGENT-SPEC.md 7)
+sect.F = [0, 0]; cur = 'F';
+require('./constr_touch_tests.js')({ K, ok, near, nearP });
+
+console.log(`\nA ${sect.A[0]}/${sect.A[0] + sect.A[1]}, B ${sect.B[0]}/${sect.B[0] + sect.B[1]}, C ${sect.C[0]}/${sect.C[0] + sect.C[1]}, D ${sect.D[0]}/${sect.D[0] + sect.D[1]}, E ${sect.E[0]}/${sect.E[0] + sect.E[1]}, F ${sect.F[0]}/${sect.F[0] + sect.F[1]}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
