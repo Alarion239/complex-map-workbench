@@ -73,7 +73,7 @@ const Tour = (() => {
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }],
     },
     logSheets: {
-      name: 'Every sheet of the logarithm', view: { cx: 0, cy: 0, s: 60 }, look: look({ height: 'im', sheets: true }),
+      name: 'Sheets of the logarithm', view: { cx: 0, cy: 0, s: 60 }, look: look({ height: 'im', sheets: true }),
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }],
     },
@@ -97,14 +97,18 @@ const Tour = (() => {
   // Copy markup: $tex$, {K} a key (kbd), **bold**. {mod} is ⌘ on Apple devices and Ctrl elsewhere.
   // A step: id, anchor (a name or a list of fallbacks; null = centred card), also (more lit areas), title, body,
   // narrow (body below 640 px), touch (body on a touch screen: no hover, no right-click), byScene (body by the scene
-  // shown), before (actions run first), try ({text, touch, on: event(s), test(e, memory), count, advance}), place
+  // shown), before (actions run first), try ({text, touch, on: event(s), test(e, memory), count, advance, ctl, work}), place
   // (the preferred side of the callout), wait (ms after the actions), needs (an app feature, see api.has).
+  // v16.1: try.ctl names the controls that complete the Try it (a tool's button, a slider, a view's key), lit while the
+  // Try it shows, each its own area or a ring inside a lit one, and reachable with Tab; try.work names parts lit on a
+  // touch screen only. live: the anchor is looked up again whenever the layout changes (a phone's tool in the More tools
+  // sheet, then on the More key). pictures: the chain shows its cards' pictures during the step (api.chainPictures).
   // The panes are named by their role, X and Y, never left and right: on a phone they stack.
   const CHAPTERS = [
     {
       id: 'basics', title: 'Basics', time: '2 min', rev: 2, scene: 'strip',
       steps: [
-        { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['deform', false], ['surface', 'L', 'plane'], ['surface', 'R', 'plane']],
+        { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['deform', false], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select']],
           body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image. This takes about two minutes, and your own work comes back when the tour ends.' },
         { id: 'x', anchor: 'paneL', title: 'X: the domain', place: 'right', before: [['plane', 'L']],
           body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
@@ -117,21 +121,23 @@ const Tour = (() => {
           // (v15 touch: a still hold opens the planes' menu; a hold then a slide probes)
           touch: 'Hold a point $w$ in Y, then slide: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.',
           try: { text: 'Hover inside the disc, then outside it.', touch: 'Hold inside the disc, then slide out of it.', on: 'probe', test: probeInOut } },
-        { id: 'draw', anchor: ['tools', 'toolsRail'], also: ['paneL'], title: 'Draw a shape', place: 'right', before: [['plane', 'L']],
+        // (v16.1: the Disc tool itself, where it shows: the Draw panel, the rail, a phone's tool row; live: the lit tool is
+        // looked up again as the layout changes)
+        { id: 'draw', anchor: 'tool:disc', also: ['paneL'], live: true, title: 'Draw a shape', place: 'right', before: [['plane', 'L']],
           body: 'Pick a tool and drag in X to add a shape. The same tools in Y add a target in $w$ instead.',
           try: { text: 'Choose Disc, then drag in X.', on: 'shape-added' } },
         // (tryWide: on a phone the list and X are a screen apart, so the drag is not asked for there)
         { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', place: 'right', before: [['tool', 'select'], ['panel', 'left', 'tools']], tryWide: true,
           body: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select {V}, drag a shape or a handle and the image follows; {mod}{Z} undoes.',
           touch: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select, drag a shape or a handle and the image follows.',
-          try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved' } },
+          try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved', ctl: ['tool:select'] } },
         { id: 'formula', anchor: 'formula', title: 'Sets from formulas', place: 'right', before: [['panel', 'left', 'tools']],
           body: 'Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.' },
         { id: 'chain', anchor: 'chain', title: 'The function chain', place: 'top',
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
           touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; the lens there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then the lens in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'] } },
+          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then the lens in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'] } },
         { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', place: 'top', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.' },
@@ -146,7 +152,7 @@ const Tour = (() => {
         { id: 'switch', anchor: 'viewSwitch', title: 'Three views', place: 'bottom', before: [['deform', false], ['view', 'xy']],
           body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
           touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each in one wide panel.',
-          try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true } },
+          try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', place: 'bottom', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
         { id: 'land', anchor: 'panes', title: 'Landscape', place: 'bottom', before: [['view', 'land']], wait: 120,
@@ -159,16 +165,18 @@ const Tour = (() => {
           body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.' },
         { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', place: 'bottom', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }], ['panel', 'left', 'display']],
           body: 'The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F\'(z)|$: blue shrinks, amber grows.',
-          try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch' } },
+          try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch', ctl: ['patStretch'] } },
       ],
     },
     {
       // v15 (notes/ui-redesign-2): the cards' pictures, the Inspector, zeros and poles, the planes' menu, shared numbers
       id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 3, scene: 'strip',
       steps: [
-        { id: 'cards', anchor: 'chain', also: ['viewSwitch'], title: 'Cards follow the view', place: 'top', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
+        // (v16.1, pictures: the chain shows its cards' pictures for this step, Pictures rather than Names and tall enough;
+        // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
+        { id: 'cards', anchor: 'chain', also: ['viewSwitch'], pictures: true, title: 'Cards follow the view', place: 'top', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane']],
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
-          try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land' } },
+          try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'] } },
         // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
         { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', place: 'left', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
           body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
@@ -176,35 +184,37 @@ const Tour = (() => {
         // (v15.2: the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
         { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', place: 'left', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
-          try: { text: 'Press Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split' } },
-        { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', place: 'left', before: [['scene', 'zp'], ['view', 'xy'], ['select', 1], ['panel', 'right']], wait: 120,
+          try: { text: 'Press Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split', ctl: ['splitBtn'] } },
+        { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', place: 'left', before: [['scene', 'zp'], ['view', 'xy'], ['tool', 'select'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
           touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.',
-          try: { text: 'Drag a zero or a pole.', on: 'zp-moved' } },
+          try: { text: 'Drag a zero or a pole.', on: 'zp-moved', ctl: ['tool:select'] } },
         // (the planes' menu, src/planemenu.js: on X the mark goes to w₀ = z, exactly; behind other steps to F_{k-1}(z))
-        { id: 'zpHere', anchor: 'paneL', title: 'Add a zero here', place: 'right', needs: 'planeMenu', before: [['select', 1], ['plane', 'L']],
+        { id: 'zpHere', anchor: 'paneL', title: 'Add a zero here', place: 'right', needs: 'planeMenu', before: [['tool', 'select'], ['select', 1], ['plane', 'L']],
           body: 'Right-click a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
           touch: 'Hold a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
           try: { text: 'Right-click X, then Add zero of $f_1$ here.', touch: 'Hold X, then Add zero of $f_1$ here.', on: 'zp-added' } },
         { id: 'numbers', anchor: 'params', also: ['panes'], title: 'Shared numbers', place: 'left', before: [['scene', 'numbers'], ['view', 'phase'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'Type a new letter such as $a$ in any field, and a slider $a$ appears under Parameters. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.',
-          try: { text: 'Drag the slider of $a$.', on: 'number-changed' } },
+          try: { text: 'Drag the slider of $a$.', on: 'number-changed', ctl: ['paramSlider'] } },
       ],
     },
     {
       // v16 (notes/constructions-v16/SPEC.md 16): circles through three points, following, snapping to crossings
       id: 'construct', title: 'Constructions', time: '1 min', rev: 1, scene: 'construct',
       steps: [
-        { id: 'c3', anchor: ['constructTools', 'tools', 'toolsRail'], also: ['paneL'], title: 'Circle through three points', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L']],
+        // (v16.1: the Circle through 3 points tool itself; on a phone the More tools sheet opens with its tile, and once
+        // it is picked the More key, which then shows it, is lit)
+        { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools']],
           body: 'Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.',
           try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3' } },
         { id: 'follow', anchor: 'paneL', title: 'It follows its points', place: 'right', before: [['tool', 'select'], ['plane', 'L']],
           body: 'Drag $z_2$ across the line through $z_0$ and $z_1$: the disc becomes a half-plane, then the outside of the circle. Its image under $1/z$ follows.',
-          try: { text: 'Drag $z_2$ across the line.', on: 'construct-family', test: (e) => !e || e.kind === 'halfplane' || e.kind === 'complement' } },
-        { id: 'meet', anchor: 'paneL', title: 'Intersections', place: 'right', before: [['plane', 'L']],
+          try: { text: 'Drag $z_2$ across the line.', on: 'construct-family', test: (e) => !e || e.kind === 'halfplane' || e.kind === 'complement', ctl: ['tool:select'] } },
+        { id: 'meet', anchor: 'paneL', title: 'Intersections', place: 'right', before: [['plane', 'L'], ['panel', 'sheet', 'tools']],
           body: 'Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Hold Alt to place freely. Intersect marks a crossing.',
           touch: 'Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Turn Snap off in the tools sheet to place freely.',
-          try: { text: 'Draw a line from a crossing.', on: 'shape-added', test: (e) => !e || !!e.bound } },
+          try: { text: 'Draw a line from a crossing.', on: 'shape-added', test: (e) => !e || !!e.bound, ctl: ['tool:line'] } },
       ],
     },
     {
@@ -215,7 +225,7 @@ const Tour = (() => {
           try: { text: 'Click it, or press {M}.', touch: 'Tap it.', on: 'deformation-toggled', test: (e) => !e || e.on !== false, advance: true } },
         { id: 'transport', anchor: 'transport', also: ['panes'], title: 'Play and scrub', place: 'top', before: [['deform', true]],
           body: 'Play, or drag $t$. Each step follows its natural path when it has one (the caption names it): $H_t$ is analytic for every $t$, so angles are kept wherever $H_t\'\\neq0$.',
-          try: { text: 'Drag $t$.', on: 'deformation-t' } },
+          try: { text: 'Drag $t$.', on: 'deformation-t', ctl: ['playBtn', 'tSlider'] } },
         { id: 'paths', anchor: 'paths', title: 'Paths', place: 'top', before: [['deform', true]],
           body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
           touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
@@ -226,7 +236,7 @@ const Tour = (() => {
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
         { id: 'range', anchor: 'bracketL', title: 'Part of the chain', place: 'top', before: [['deform', true], ['range', null]],
           body: 'The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.',
-          try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2 } },
+          try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2, work: ['card2Menu'] } },
       ],
     },
     {
@@ -235,8 +245,8 @@ const Tour = (() => {
         { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', place: 'bottom', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
           body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.' },
         { id: 'cauchy', anchor: ['phaseStyle', 'panes'], also: ['panes'], title: 'Cauchy integral', place: 'top', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
-          body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. Select another closed curve to use it instead.' },
-        { id: 'integral', anchor: 'paneL', title: 'Integrals', place: 'right', before: [['scene', ['residueZp', 'residue']], ['view', 'xy'], ['plane', 'L']],
+          body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. With several closed curves, the selected one is used.' },
+        { id: 'integral', anchor: 'paneL', title: 'Integrals', place: 'right', before: [['scene', ['residueZp', 'residue']], ['view', 'xy'], ['tool', 'select'], ['plane', 'L']],
           body: 'Right-click the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
           touch: 'Hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.',
           try: { text: 'Right-click the circle, then choose $\\oint$.', touch: 'Hold the circle, then choose $\\oint$.', on: 'integral-opened' } },
@@ -251,16 +261,17 @@ const Tour = (() => {
     {
       id: 'branches', title: 'Branches and inverses', time: '1 min', rev: 2, scene: 'logAnnulus',
       steps: [
-        { id: 'cut', anchor: 'paneL', title: 'Branch cuts', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L']],
+        { id: 'cut', anchor: 'paneL', title: 'Branch cuts', place: 'right', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select'], ['plane', 'L']],
           body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
-          try: { text: 'Drag the red cut.', on: 'cut-moved' } },
+          try: { text: 'Drag the red cut.', on: 'cut-moved', ctl: ['tool:select'] } },
         { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', place: 'left', before: [['select', 1], ['panel', 'right']],
           body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.' },
         // (X lit with the chain: the callout sits over Y, which is not lit, beside X)
         { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', place: 'right', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L']],
           body: 'A $d/dz$ step differentiates the chain so far: here $F=3z^2-3$, the derivative of $z^3-3z$. The target $0$ marks its zeros $\\pm1$, the critical points of $z^3-3z$.' },
-        { id: 'sheets', anchor: ['sheets', 'panes'], also: ['panes'], title: 'All sheets', place: 'bottom', before: [['scene', 'logSheets'], ['view', 'land']], wait: 120,
-          body: 'In Landscape, All sheets draws the whole Riemann surface of a multivalued map: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$ instead of jumping at the cut.' },
+        // (v16.1: on a phone the All sheets check is in the Display sheet, which opens)
+        { id: 'sheets', anchor: ['sheets', 'panes'], also: ['panes'], title: 'All sheets', place: 'bottom', before: [['scene', 'logSheets'], ['view', 'land'], ['panel', 'sheet', 'display']], wait: 120,
+          body: 'In Landscape, All sheets draws the sheets of a multivalued map instead of its cut principal branch: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$. $\\log z$ has infinitely many sheets, so a window of them is drawn; sheets ± sets its width.' },
       ],
     },
     {
@@ -269,7 +280,8 @@ const Tour = (() => {
         { id: 'figure', anchor: ['exportBtn', 'moreBtn'], title: 'Figures for articles', place: 'bottom',
           body: 'Export a vector figure of the current view, with a caption that states exactly what is drawn, or copy a LaTeX document with $F$, its natural domain and its guarantees.',
           narrow: 'Export, in this menu, makes a vector figure with a caption that states exactly what is drawn, or a LaTeX document with $F$, its natural domain and its guarantees.' },
-        { id: 'formula-tex', anchor: 'composite', also: ['fTile'], title: 'The formula in LaTeX', place: 'left', before: [['panel', 'right']],
+        // (v16.1: and the copy button the copy names, in the head of F's Inspector)
+        { id: 'formula-tex', anchor: 'composite', also: ['fTile', 'copyTex'], title: 'The formula in LaTeX', place: 'left', before: [['panel', 'right']],
           body: 'With the F tile selected, the Inspector shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.' },
       ],
     },
@@ -311,7 +323,7 @@ const Tour = (() => {
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
-    'tool:disc': '.tool[data-tool="disc"]', formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
+    formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
     patterns: '#patternSeg', chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
@@ -340,7 +352,31 @@ const Tour = (() => {
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
     fTile: '#pipeline .ftile', sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
+    // v16.1 (notes/v16-user5/AS-BUILT-tour.md): the control a step's task needs, exactly. A tool is its own button where
+    // it shows: the Draw panel, the collapsed panel's rail, a phone's tool row or its More tools sheet; on a phone a tool
+    // outside the row is the More key, which then carries the tool's icon and name
+    'tool:disc': toolBtn('disc'), 'tool:select': toolBtn('select'), 'tool:line': toolBtn('line'), 'tool:circle3': toolBtn('circle3'),
+    viewPhase: '#viewSwitch > [data-mode="phase"]', viewLand: '#viewSwitch > [data-mode="land"]',
+    patStretch: () => vis1('#patternSeg .pat[data-pat="stretch"]'),
+    splitBtn: '#propsPanel .insp-step .split-offer:not([hidden]) .so-btn',
+    // the card f₁; the card f₂, whose ⋯ shows on it (on a phone, where a card has none, f₂'s ⋯ in the Editor sheet that
+    // a tap on the card opens)
+    card1: '#pipeline .card[data-k="1"]',
+    card2Menu: () => (phoneLayout() && vis1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || vis1('#pipeline .card[data-k="2"]'),
+    // the slider of the first shared number; the deformation's t slider and Play
+    paramSlider: () => vis1('#propsPanel .prm-row input[type="range"]'),
+    tSlider: () => vis1('#morphRange'), playBtn: () => vis1('#morphPlay'),
+    // F's Copy LaTeX button, in the head of the Inspector with the F tile selected
+    copyTex: '#propsPanel .insp-F .ihead .icon-btn',
   };
+  // the first visible match of a selector (a control that has a copy elsewhere, hidden in this layout)
+  function vis1(sel) { for (const e of document.querySelectorAll(sel)) if (visible(e)) return e; return null; }
+  const phoneLayout = () => document.documentElement.classList.contains('ph');
+  function toolBtn(id) {
+    const q = `[data-tool="${id}"]`;
+    return () => vis1(`.ph-sheet:not([hidden]) .ph-tile${q}`) || vis1(`#tools > .tool${q}, #constructTools > .tool${q}`) || vis1(`#railTools > .tool${q}`)
+      || (phoneLayout() ? vis1('#toolMore > summary') : null);
+  }
   // the app's hover tooltip: hidden while it would cover the callout
   const TIP_SEL = '#tip';
 
@@ -691,6 +727,10 @@ const Tour = (() => {
   const tryFor = (t, o = {}) => $t((o.coarse != null ? o.coarse : coarse()) && t.touch ? t.touch : t.text);
   // a step's Try it here (tryWide: not below 640 px, where what it asks for is off-screen)
   const tryOf = (step) => (step.try && !(step.tryWide && narrow()) ? step.try : null);
+  // (v16.1) the controls that complete the step's Try it, while it shows
+  const ctlOf = (step) => { const t = tryOf(step); return t && t.ctl ? [].concat(t.ctl) : []; };
+  // the parts a Try it's touch task names (try.work), lit on a touch screen
+  const workOf = (step) => { const t = tryOf(step); return t && t.work && t.touch && coarse() ? [].concat(t.work) : []; };
 
   function el(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -1478,7 +1518,16 @@ const Tour = (() => {
     const sel = ':is(button, [href], input, select, textarea, summary, [tabindex]):not([tabindex="-1"]):not([disabled]):not([hidden])';
     const inCard = [...ui.card.querySelectorAll(sel)].filter((x) => x.offsetParent !== null || x === document.activeElement);
     // during a Try it the lit element stays reachable from the keyboard
-    const lit = run.step && tryOf(run.step) && run.el ? [...run.el.querySelectorAll(sel)].filter(visible) : [];
+    // (v16.1: the anchor itself when it is a control, the Disc tool, and the controls the Try it names, even a key of a
+    // toolbar whose roving focus is elsewhere)
+    const lit = [];
+    if (run.step && tryOf(run.step)) {
+      for (const e of [run.el, ...ctlOf(run.step).map((a) => anchorEl(a))]) {
+        if (!e) continue;
+        if (e.matches('button, input, select, summary') && !e.disabled && visible(e)) lit.push(e);
+        lit.push(...[...e.querySelectorAll(sel)].filter(visible));
+      }
+    }
     const ring = inCard.concat(lit);
     if (!ring.length) return;
     const i = ring.indexOf(document.activeElement);
@@ -1578,6 +1627,9 @@ const Tour = (() => {
     rec.last = { ch: ch.id, i: si }; save();
     // (v15.2: the Inspector's split offer shows during the tour only at a step that asks for it)
     call('splitOffer', !!step.split);
+    // (v16.1: a step about the cards' pictures shows them, Pictures rather than Names; any other step, and the end of the
+    // tour, gives the user's setting back. picNote: the tour changed it, and the step says so)
+    r.picNote = call('chainPictures', !!step.pictures) === true && !!step.pictures;
     for (const off of r.tryOffs.splice(0)) off();
     r.ui.card.setAttribute('aria-busy', 'true');
     const want = sceneAt(ch, si);
@@ -1717,11 +1769,15 @@ const Tour = (() => {
   const inFixed = (e) => { for (let a = e; a && a !== document.body && a !== document.documentElement; a = a.parentElement) { const p = getComputedStyle(a).position; if (p === 'fixed' || p === 'sticky') return true; } return false; };
   async function reveal(target, step) {
     // the panels that cut a lit part scroll first (v15: the F tile in a scrolled chain strip, a section low in a
-    // phone's sheet); the anchor's panels last, so it wins where both are in one panel
-    const alsoAll = [].concat(step.also || []).map((a) => anchorEl(a)).filter((e) => e && e !== target);
+    // phone's sheet); the anchor's panels last, so it wins where both are in one panel. (v16.1: the controls a Try it
+    // needs after it: the Select tool above the shape list of a short side panel shows whole, the list from its top)
+    const ctls = ctlOf(step).map((a) => anchorEl(a)).filter((e) => e && e !== target);
+    const alsoAll = [].concat(step.also || [], workOf(step)).map((a) => anchorEl(a)).filter((e) => e && e !== target).concat(ctls);
+    const ctlsReveal = () => { let m = false; for (const e of ctls) if (panelsReveal(e)) m = true; return m; };
     let pm = false;
     for (const e of alsoAll) if (panelsReveal(e)) pm = true;
     if (panelsReveal(target)) pm = true;
+    if (ctlsReveal()) pm = true;
     if (pm) await frames(1);
     // a control in the top bar or a fixed tool bar (or a phone's sheet) is always in view; scrolling the page would
     // only move the page under it
@@ -1730,7 +1786,7 @@ const Tour = (() => {
     for (let pass = 0; pass < 2; pass++) {
       // cut by a scrolling panel (a section low in a side panel, the add card at the end of a long chain): that panel
       // scrolls first, so the whole target shows when it fits
-      if (panelsReveal(target)) await frames(1);
+      if (panelsReveal(target) | ctlsReveal()) await frames(1);
       // the lit area: the anchor, and its second lit element when both can be brought in
       let b = target.getBoundingClientRect();
       const box = { top: b.top, bottom: b.bottom };
@@ -1769,7 +1825,7 @@ const Tour = (() => {
     ui.chap.textContent = $t(ch.title);
     ui.title.textContent = stepTitle(step);
     ui.body.textContent = '';
-    ui.body.append(richText(copyFor(step, r.scene, { menu: r.inMenu })));
+    ui.body.append(richText(copyFor(step, r.scene, { menu: r.inMenu }) + picNote(r, step)));
     r.countText = $t('{k} of {total}', { k, total });
     r.countShort = `${k}/${total}`;
     ui.bar.style.width = `${(100 * k / Math.max(1, total)).toFixed(1)}%`;
@@ -1799,10 +1855,12 @@ const Tour = (() => {
     ui.back.hidden = !seek(r.ci, r.si - 1, -1, isAbsent);
     ui.card.classList.toggle('center', step.anchor == null && !narrow());
   }
+  // (v16.1) the cards' pictures step, when the tour turned them on: so the user knows their setting comes back
+  const picNote = (r, step) => (r.picNote && step.pictures ? ' ' + $t('The tour turns the cards\' pictures on for this step; your setting comes back after it.') : '');
   function announce(r, ch, step) {
     const k = r.countText;
     const tr = tryOf(step);
-    r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k, title: stepTitle(step) }) + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }), modKey()) + (tr ? $t(' Try it: ') + plainCopy(tryFor(tr), modKey()) : '');
+    r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k, title: stepTitle(step) }) + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }) + picNote(r, step), modKey()) + (tr ? $t(' Try it: ') + plainCopy(tryFor(tr), modKey()) : '');
   }
 
   // The lit areas of a step: its anchor's parts and its `also` areas, each exactly its visible box (step.pad grows them
@@ -1811,12 +1869,21 @@ const Tour = (() => {
   function litParts(step, tgt) {
     const parts = tgt.parts.slice();
     // (try.work names parts of the touch task: review-phone phone-2, the lens in the sheet the first tap opens)
-    const tr = tryOf(step), work = tr && tr.work && tr.touch && coarse() ? tr.work : [];
-    for (const a of [].concat(step.also || [], work)) {
+    const ctl = new Set(ctlOf(step));
+    for (const a of [].concat(step.also || [], ctlOf(step), workOf(step))) {
       const t = anchorOf(a);
-      if (t) for (const q of t.parts) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el)) parts.push(q);
+      if (t) for (const q of t.parts) if (!parts.some((x) => x.el === q.el && !x.rect && !q.rect) && !covered(q.el) && !(ctl.has(a) && underLayer(q.el))) parts.push(q);
     }
     return parts;
+  }
+  // (v16.1) a Try it's control under an open layer it is not in (a phone's tool row under the Editor sheet) is not lit:
+  // it cannot be reached there, and the step has switched to it already
+  function underLayer(e) {
+    const lay = layerEls().filter((k) => !k.contains(e));
+    if (!lay.length || typeof document.elementsFromPoint !== 'function') return false;
+    const b = e.getBoundingClientRect();
+    const hit = document.elementsFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2).find((h) => !h.closest('[data-tour]'));
+    return !!hit && lay.some((k) => k.contains(hit));
   }
   function holesFor(step, tgt) {
     if (!tgt) return { holes: [], mark: null, insets: [] };
@@ -1955,6 +2022,10 @@ const Tour = (() => {
     const parts = litParts(step, tgt);
     const hs = parts.map((q) => { const H = scrollerOf(q.el); return H && canHost(ui, H) ? H : null; });
     if (!hs.some(Boolean)) return null;
+    // (v16.1: a part in a panel nested inside another lit part's panel, the slider of a in its list inside the Editor
+    // sheet, is drawn in the outer panel: two shades one inside the other would dim the lit part around it, and their
+    // two windows over the page would cancel out)
+    for (let i = 0; i < hs.length; i++) for (let k = 0; hs[i] && k < hs.length; k++) if (hs[k] && hs[k] !== hs[i] && hs[k].contains(hs[i])) { hs[i] = hs[k]; k = -1; }
     const pad = step.pad != null ? step.pad : 0, vp = vpSize();
     const outerOf = (q, i) => { const pr = partRect(q, pad); return pr.hidden || (i > 0 && !(pr.r - pr.l > 0.5 && pr.b - pr.t > 0.5)) ? null : pr; };
     const winOf = (H) => {
@@ -2110,7 +2181,7 @@ const Tour = (() => {
     const els = [ui.card, document.documentElement];
     if (r.tgt) els.push(...r.tgt.parts.map((q) => q.el));
     const tr = r.step ? tryOf(r.step) : null;
-    for (const a of [].concat((r.step && r.step.also) || [], (tr && tr.work) || [])) { const t = anchorOf(a); if (t) els.push(...t.parts.map((q) => q.el)); }
+    for (const a of [].concat((r.step && r.step.also) || [], r.step ? ctlOf(r.step) : [], (tr && tr.work) || [])) { const t = anchorOf(a); if (t) els.push(...t.parts.map((q) => q.el)); }
     watch(ui, els);
   }
   // "Next: <chapter>" shortens to "Next" (the full label stays its accessible name) when it would not fit the row
@@ -2141,6 +2212,8 @@ const Tour = (() => {
     const ui = r.ui, step = r.step;
     // the anchor went away while the step shows (a panel closed, the layout changed): another match, or a centred card
     if (r.el && !visible(r.el)) { const t = anchorOf(step.anchor); if (t) { r.tgt = t; r.el = t.el; } }
+    // (v16.1, live: the anchor that shows now, a tool's tile in a phone's sheet rather than the More key under it)
+    else if (step.live && step.anchor != null) { const t = anchorOf(step.anchor); if (t && t.el !== r.el) { r.tgt = t; r.el = t.el; watchStep(r); } }
     const tgtNow = r.el && visible(r.el) ? r.tgt : null;
     const { holes, mark, insets } = holesFor(step, tgtNow);
     const marks = [mark, ...(insets || [])].filter(Boolean);
@@ -2398,6 +2471,8 @@ const Tour = (() => {
     for (const off of r.tryOffs.splice(0)) off();
     for (const off of r.offs.splice(0)) off();
     cancelAnimationFrame(r.ui.raf);
+    // (v16.1: the chain's Pictures | Names setting as the user left it, before their work comes back)
+    call('chainPictures', false);
     if (opt.finished) {
       rec.done[CHAPTERS[r.ci].id] = CHAPTERS[r.ci].rev;
       // "Continue the tour" picks up at the next chapter, or nowhere after the last

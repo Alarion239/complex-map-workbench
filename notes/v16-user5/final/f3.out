@@ -1,0 +1,64 @@
+{
+ "logk3en": {
+  "K": 5,
+  "title": "z-planelandscape of Im F, sheets k = 1…5landscape",
+  "cap": "The landscape of $F(z)=\\log z$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); the sheets $k=1,\\dots,5$ of infinitely many are shown. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic and conformal onto its image; these properties are guaranteed by the chain.",
+  "tex": "Landscape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\log z. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=1,\\dots,5$ of infinitely many are shown."
+ },
+ "logk3ru": {
+  "K": 5,
+  "title": "плоскость zрельеф функции Im F, листы k = 1…5рельеф",
+  "cap": "Рельеф функции $F(z)=\\operatorname{Ln} z$ над плоскостью $z$: высота — $\\operatorname{Im} F$, цвет — $\\arg F$ (шкала); из бесконечного множества листов показаны листы $k=1,\\dots,5$. На естественной области определения $D=\\{z : \\arg z\\neq 180^\\circ\\}$ $F$ — аналитическая функция и конформное отображение на свой образ; эти свойства гарантирует цепочка.",
+  "tex": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\operatorname{Ln} z. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=1,\\dots,5$."
+ },
+ "logk0en": {
+  "K": 5,
+  "title": "z-planelandscape of Im F, sheets k = −2…2landscape",
+  "cap": "The landscape of $F(z)=\\log z$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); the sheets $k=-2,\\dots,2$ of infinitely many are shown. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic and conformal onto its image; these properties are guaranteed by the chain.",
+  "tex": "Landscape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\log z. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of infinitely many are shown."
+ },
+ "logk0ru": {
+  "K": 5,
+  "title": "плоскость zрельеф функции Im F, листы k = −2…2рельеф",
+  "cap": "Рельеф функции $F(z)=\\operatorname{Ln} z$ над плоскостью $z$: высота — $\\operatorname{Im} F$, цвет — $\\arg F$ (шкала); из бесконечного множества листов показаны листы $k=-2,\\dots,2$. На естественной области определения $D=\\{z : \\arg z\\neq 180^\\circ\\}$ $F$ — аналитическая функция и конформное отображение на свой образ; эти свойства гарантирует цепочка.",
+  "tex": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\operatorname{Ln} z. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=-2,\\dots,2$."
+ },
+ "root30k3en": {
+  "K": 5,
+  "title": "z-planelandscape of Im F, sheets k = 1…5landscape",
+  "cap": "The landscape of $F(z)=\\sqrt[30]{z}$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); the sheets $k=1,\\dots,5$ of 30 are shown. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic and conformal onto its image; these properties are guaranteed by the chain.",
+  "tex": "Landscape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[30]{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=1,\\dots,5$ of 30 are shown."
+ },
+ "root30k3ru": {
+  "K": 5,
+  "title": "плоскость zрельеф функции Im F, листы k = 1…5рельеф",
+  "cap": "Рельеф функции $F(z)=\\sqrt[30]{z}$ над плоскостью $z$: высота — $\\operatorname{Im} F$, цвет — $\\arg F$ (шкала); показаны листы $k=1,\\dots,5$ (всего листов: 30). На естественной области определения $D=\\{z : \\arg z\\neq 180^\\circ\\}$ $F$ — аналитическая функция и конформное отображение на свой образ; эти свойства гарантирует цепочка.",
+  "tex": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[30]{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны листы $k=1,\\dots,5$ (всего листов: 30)."
+ },
+ "logs": [
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  }
+ ]
+}

@@ -1,0 +1,72 @@
+{
+ "user": {
+  "0": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "1": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "0.25": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "0.5": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "cap": " height is $\\operatorname{Im} H_t$ and the colour $\\arg H_t$ (bar); $H_t$ is drawn on 2 surfaces, one for each sheet of $F$. Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, where $k$ is its branch number on that surface. Shown at $t=1.00$, where $H_t=f_{2}\\circ G_t$ deforms $f_{2}$ ($t=0$) into $F(z)=\\sin\\left(\\sqrt{z}\\right)$ ($t=1$); it is the homotopy $H_t=f_{2}\\circ G_t$, $0\\le t\\le 1$, where $G_t$ is the homotopy $G_t(z)=z^{1-(1/2)t}$ (on every sheet). Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt{z}$ and $f_{2}(w)=\\sin w$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic; this is guaranteed by the chain."
+ },
+ "userFrames": {},
+ "logsin": {
+  "0": {
+   "K": 5,
+   "title": "z-planelandscape of Im Ht, on the sheets k = −2…2 of Flandscape"
+  },
+  "1": {
+   "K": 5,
+   "title": "z-planelandscape of Im Ht, on the sheets k = −2…2 of Flandscape"
+  },
+  "0.5": {
+   "K": 5,
+   "title": "z-planelandscape of Im Ht, on the sheets k = −2…2 of Flandscape"
+  },
+  "cap": "Im} H_t$ and the colour $\\arg H_t$ (bar); $H_t$ is drawn on 5 surfaces, one for each of the sheets $k=-2,\\dots,2$ of $F$. Each deformed logarithm runs along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, where $k$ is its branch number on that surface. Shown at $t=1.00$, where $H_t=f_{2}\\circ G_t$ deforms $f_{2}$ ($t=0$) into $F(z)=\\sin\\left(\\log z\\right)$ ($t=1$); it is the homotopy $H_t=f_{2}\\circ G_t$, $0\\le t\\le 1$, where $G_t$ is the homotopy $G_t(z)=(z^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $G_1(z)=\\log z$ (on every sheet). Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\log z$ and $f_{2}(w)=\\sin w$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic; this is guaranteed by the chain."
+ },
+ "whole": {
+  "2": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "0.5": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "1.5": {
+   "K": 2,
+   "title": "z-planelandscape of Im Ht, on both sheets of Flandscape"
+  },
+  "cap": "a}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface. Shown at $t=2.00$, where $H_t$ deforms the identity ($t=0$) into $F(z)=\\sin\\left(\\sqrt{z}\\right)$ ($t=2$) along the homotopy $H_t$, $0\\le t\\le 2$, that runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (on every sheet); for $f_{2}$, the zoom homotopy ${H^{(2)}_{s}}(w_{1})=\\sin(sw_{1})/s$. Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt{z}$ and $f_{2}(w)=\\sin w$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic; this is guaranteed by the chain."
+ },
+ "wholeTex": "Landscapes of $H_t$ over $[-8,8]\\times[-5,5]$ at (a) $t=0$, (b) $t=2/3$, (c) $t=4/3$, and (d) $t=2$: the height is $\\operatorname{Im} H_t$ and the color shows $\\arg H_t$; $H_t$ is drawn on 2 surfaces, one for each sheet of $F$. Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface. Here $H_t$, $0\\le t\\le 2$, deforms the identity ($t=0$) into $F$ ($t=2$) and runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (on every sheet); for $f_{2}$, the zoom homotopy ${H^{(2)}_{s}}(w_{1})=\\sin(sw_{1})/s$, where\\ifinner\\hskip\\hsize\\else\\[ \\begin{gathered}\\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right),\\qquad F=f_{2}\\circ f_{1},\\\\ \\displaystyle f_{1}(z)=\\sqrt{z},\\qquad f_{2}(w_{1})=\\sin\\left(w_{1}\\right).\\end{gathered} \\]\\fi",
+ "wholeTexRu": "Рельефы $H_t$ над $[-8,8]\\times[-5,5]$ при $t=0$ (\\textit{а}), $t=2/3$ (\\textit{б}), $t=4/3$ (\\textit{в}) и~$t=2$ (\\textit{г}): высота равна $\\operatorname{Im} H_t$, а~цвет показывает $\\arg H_t$; деформация $H_t$ показана на 2 поверхностях, по одной для каждого листа $F$. Каждый деформируемый корень и~каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, где $s$ ($0\\le s\\le 1$)~--- время соответствующего шага, а~$k$~--- номер ветви на этой поверхности. Здесь $H_t$, $0\\le t\\le 2$, непрерывно деформирует тождественное отображение ($t=0$) в~$F$ ($t=2$), выполняя шаги по очереди ($H_t=H^{(k)}_{t-k+1}$ при $k-1\\le t\\le k$): для $f_{1}$~--- гомотопия ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (на каждом листе); для $f_{2}$~--- гомотопия масштабирования ${H^{(2)}_{s}}(w_{1})=\\sin(sw_{1})/s$, где\\ifinner\\hskip\\hsize\\else\\[ \\begin{gathered}\\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right),\\qquad F=f_{2}\\circ f_{1},\\\\ \\displaystyle f_{1}(z)=\\sqrt{z},\\qquad f_{2}(w_{1})=\\sin\\left(w_{1}\\right).\\end{gathered} \\]\\fi",
+ "logs": [
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  },
+  {
+   "t": "log-error",
+   "m": "Failed to load resource: the server responded with a status of 404 (File not found)"
+  }
+ ]
+}

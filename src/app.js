@@ -3549,9 +3549,12 @@
     backdrop(pane);
     const box = landBox();
     // the Morph transport (homView): the surface of H_t; All sheets (S.sheets, window S.sheetW): the whole covering
-    // surface of the focused map instead of its cut principal branch (not while morphing)
+    // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
+    // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
     const hv = typeof homView === 'function' ? homView() : null;
-    const sheets = !hv && S.sheets ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)) } : null;
+    // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
+    // draws its principal branch, multiSheet null)
+    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: Math.max(1, Math.min(4, Math.round(S.sheetW) || 2)), end: hv ? endMap().b : 0 } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
@@ -3560,23 +3563,30 @@
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
     render3D.linear = false;
+    // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
+    // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
+    // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
+    // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
+    // and a log window keeps its pitch instead of the compressed height's plates)
     const fm = focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
       const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}`;
       const c = render3D.muS || (render3D.muS = { key: '', mu: 1 });
+      const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
+      const zAt = (i, j) => C(box.x0 + (i + 0.5) / 12 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 12 * (box.y1 - box.y0));
+      const hOf = (w) => (w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN);
       if (c.key !== key) {
         const vals = [], sv = [], sv0 = [];
         for (let k = 0; k < si.K; k++) for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) {
-          const z = C(box.x0 + (i + 0.5) / 12 * (box.x1 - box.x0), box.y0 + (j + 0.5) / 12 * (box.y1 - box.y0));
+          const z = zAt(i, j);
           let w = null;
           try { w = Funcs.sheetEval(S.steps, built, fm.b, z, z, k, sheets.W, { a: fm.a || 0 }); } catch (e) { w = null; }
-          const x = w ? (S.height === 're' ? w.re : S.height === 'im' ? w.im : CX.abs(w)) : NaN;
+          const x = hOf(w);
           if (!Number.isFinite(x)) continue;
           vals.push(Math.abs(x)); sv.push(x);
           if (k === 0) sv0.push(x);
         }
-        const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
         for (const a of [vals, sv, sv0]) a.sort((x, y) => x - y);
         // linear heights over all sheets: the scale is (nearly) the largest value, so the surfaces fill the block
         c.key = key; c.mu = vals.length ? Math.max(1e-6, q(vals, lin ? 0.98 : 0.5)) : mu;
@@ -3584,6 +3594,71 @@
         c.boost = lin && s0 > 0 && s1 > 0 ? Math.max(1, Math.min(4.5, 0.8 * s1 / s0)) : 1;
       }
       mu = c.mu;
+      // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
+      // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
+      // follows H_t: the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
+      // first needed), interpolated in log between them; the last is F's own (at the end the surfaces are F's, bit for
+      // bit), so the end frame is still the static one. The block (boost) stays F's.)
+      // (v16.2, review rv162-1: with many sheets one time's scale is K x 144 evaluations, about 8 ms at K = 24 on the
+      // Mac, so computing each inside the frame that first needs it dropped frames on the first play. The 8 times are
+      // now filled in idle time, one row of 12 points at a time, from the frame that opens the key on, ahead of t; a
+      // frame that needs a time not yet filled finishes it from where the idle work stopped. Same points, same values,
+      // same percentile: the scale is unchanged, only when it is computed moves.)
+      if (hv && c.mu > 0 && typeof Funcs.sheetMapEval === 'function') {
+        const L = morphLen(), N = 8, T = Math.max(0, Math.min(L, +hv.t || 0));
+        const hk = `${key}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${L}|${leftStage()}|${sheets.end}`;
+        const x = T / L * N, j = Math.min(N - 1, Math.floor(x)), f = x - j;
+        let h = render3D.muH && render3D.muH.key === hk ? render3D.muH : null;
+        if (!h) {
+          // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
+          // stops when this no longer matches, so a value is only ever computed for the state of its key
+          const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
+          const cmu = c.mu, K = si.K, W = sheets.W, end = sheets.end, s0 = sig();
+          h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
+          // fill time j (from where it stopped); with over(), stop after the row that runs past it and return false
+          h.fill = (jt, over) => {
+            if (jt >= N) return true;
+            if (h.mu[jt] !== undefined) return true;
+            const p = h.part[jt] || (h.part[jt] = { r: 0, v: [], mp: null, bad: false });
+            if (!p.bad) {
+              try {
+                if (!p.mp) p.mp = HR.state(S, jt / N * L, true).map;
+                for (; p.r < K * 12; p.r++) {
+                  if (over && over()) return false;
+                  const k = Math.floor(p.r / 12), jj = p.r % 12;
+                  for (let i = 0; i < 12; i++) {
+                    const z = zAt(i, jj), xv = hOf(Funcs.sheetMapEval(S.steps, built, p.mp, z, z, k, W, end));
+                    if (Number.isFinite(xv)) p.v.push(Math.abs(xv));
+                  }
+                }
+              } catch (e) { p.bad = true; }
+            }
+            const v = p.bad ? [] : p.v;
+            v.sort((a, b) => a - b);
+            h.mu[jt] = v.length ? Math.max(1e-6, q(v, lin ? 0.98 : 0.5)) : cmu;
+            h.part[jt] = null;
+            return true;
+          };
+          const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb) => setTimeout(() => cb(null), 16);
+          const work = (dl) => {
+            if (render3D.muH !== h || h.sig() !== h.s0) return;
+            const t0 = performance.now();
+            const over = () => (dl && typeof dl.timeRemaining === 'function' ? dl.timeRemaining() < 2 : performance.now() - t0 > 3);
+            // ahead of the transport's current time first, then the rest
+            const from = Math.max(0, Math.min(N - 1, h.from || 0));
+            for (let d = 0; d < N; d++) if (!h.fill((from + d) % N, over)) { ric(work); return; }
+          };
+          h.from = j;
+          ric(work);
+        }
+        h.from = j;
+        const at = (jt) => {
+          if (jt >= N) return c.mu;
+          if (h.mu[jt] === undefined) h.fill(jt, null);
+          return h.mu[jt];
+        };
+        mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : Math.exp((1 - f) * Math.log(at(j)) + f * Math.log(at(j + 1)));
+      }
       lscale *= c.boost || 1;
       if (lin) render3D.linear = true;
     }
@@ -3602,7 +3677,7 @@
       if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${omk}` });
     }
     const info = GLR.drawLandscape({
-      map: hv ? hv.map : focusMap(), box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: hv ? hv.map : focusMap(), box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
       colors: {
         floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
@@ -3618,6 +3693,7 @@
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, box, w: pane.w, h: pane.h };
     if (info && !artMode) draw3DLabels(pane, info, box);
+    render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     render3D.pick = info && !figMode ? { cam: view, box, info, w: pane.w, h: pane.h, F: hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
@@ -5167,6 +5243,9 @@
   }
   // " Here w_d = ...", after a caption sentence that writes the bracket's start with a d/dz in its pre
   const wDefSegs = (rt) => (rt && rt.wdef ? capT(' Here %{w}.', { w: { m: rt.wdef } }) : []);
+  // (v16.1 review user-1, user-2) the Landscape draws H_t on F's sheets: a deformed root, power or log runs on every
+  // sheet, so its homotopy is not said to be on the principal branch (homTex's o.sheets: "on every sheet")
+  const homSheetWords = () => { try { const sh = sheetsShown(); return !!(sh && sh.hom); } catch (e) { return false; } };
   function morphHomSegs(Tend) {
     const rt = rangeTex();
     if (rt) return morphHomSegsRange(Tend, rt);
@@ -5177,9 +5256,10 @@
     const range = (t1) => [{ t: ', ' }, { m: `0\\le t\\le ${t1}` }];
     // (several steps: f_k, p_k, ... name step k's map and centre; all at once, every H^{(k)}_t acts on u, since its input
     // there is H^{(k-1)}_t(z), not w_{k-1})
+    const sh = homSheetWords();
     const phrase = (k, names) => {
       const b = built[k - 1], v = all && m > 1 ? 'u' : k === 1 ? 'z' : `w_{${k - 1}}`;
-      const o = names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : undefined;
+      const o = names || sh ? Object.assign(names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : {}, sh ? { sheets: true } : {}) : undefined;
       const r = b && b.homTex ? b.homTex(v, o) : null;
       if (r) return r;
       return { tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v, F: m === 1 && S.focus === 0 ? 'F' : `f_{${k}}` }), segment: true };
@@ -5221,9 +5301,10 @@
     const upTo = Tend < (all ? 1 : m) - 1e-9;
     const stop = upTo ? capT(', shown for %{r}', { r: { m: `0\\le t\\le ${I18N.texNum(CX.fmtNum(Tend, 2))}` } }) : [];
     const toG = (g) => (g.m == null ? g : { m: g.m.replace(/H_(\{[^{}]*\}|[t0-9])/g, 'G_$1').replace(/H\^/g, 'G^') });
+    const sh = homSheetWords();
     const phrase = (k, names) => {
       const b = built[k - 1], v = all && m > 1 ? 'u' : k === 1 ? 'z' : `w_{${k - 1}}`;
-      const o = names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : undefined;
+      const o = names || sh ? Object.assign(names ? { f: `f_{${k}}`, p: `p_{${k}}`, c: `c_{${k}}`, a: `a_{${k}}` } : {}, sh ? { sheets: true } : {}) : undefined;
       const r = b && b.homTex ? b.homTex(v, o) : null;
       if (r) return r;
       return { tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v, F: `f_{${k}}` }), segment: true };
@@ -7264,7 +7345,7 @@
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
     let roleL, shortL;
-    if (lLand()) { roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: S.sheets && !morphOn() && multiSheet() ? $t(', all sheets') : '' }); shortL = $tx('role', 'landscape'); }
+    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : '' }); shortL = $tx('role', 'landscape'); }
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
@@ -7383,8 +7464,17 @@
   // the idle left readout: the scale, or how to draw on or turn the globe, or orbit the landscape (which takes no
   // drawing, panels.md 9.1)
   const touchUI = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
+  // (v16.1 review user-7) a phone has no pane title: in Landscape with All sheets its title chip says which sheets are
+  // drawn, as the title does ("Im H_t, on both sheets of F"), in place of the orbit hint
+  const landSheetsHint = () => {
+    if (!document.documentElement.classList.contains('ph')) return '';
+    const shw = sheetsShown();
+    if (!shw) return '';
+    const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : focusDeriv() ? `${fnHtml()}(<i>z</i>)` : fnHtml();
+    return heightHtml(of) + sheetsClause(shw, 'html');
+  };
   const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
-    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan')}</span>` : rk('', paneL ? scaleText(paneL) : ''));
+    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : ''));
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in Archivo)
   function idleRight() {
     // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
@@ -7475,17 +7565,139 @@
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
+  // (v16.1 review math-6) D: how many of the K surfaces are distinct sheets, from F's values on every surface at a few
+  // generic points (two surfaces agreeing to 1e-9 at all of them are one sheet): √ then z² is F = z, single-valued, so
+  // its two surfaces are one sheet and All sheets has nothing more to draw (null: the principal branch, no clause)
+  let sheetsD = { key: '', D: 0 };
   function multiSheet() {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
-    try { return GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { return null; }
+    let ms = null;
+    try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
+    if (!ms) return null;
+    const m = endMap(), key = `${chainSig[nSteps()]}|${S.focus}|${ms.W}|${ms.K}`;
+    if (sheetsD.key !== key) {
+      const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [];
+      const same = (u, v) => (!u || !v ? u === v : !(Number.isFinite(u.re) && Number.isFinite(u.im) && Number.isFinite(v.re) && Number.isFinite(v.im)) ? !(Number.isFinite(u.re) && Number.isFinite(u.im)) && !(Number.isFinite(v.re) && Number.isFinite(v.im)) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
+      for (let c = 0; c < ms.K; c++) {
+        const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, ms.W, { a: m.a || 0 }); } catch (e) { return null; } });
+        if (!reps.some((r) => r.every((w, i) => same(w, v[i])))) reps.push(v);
+      }
+      sheetsD = { key, D: reps.length };
+    }
+    return sheetsD.D > 1 ? Object.assign({}, ms, { D: sheetsD.D }) : null;
   }
-  // the All sheets check: with more sheet combinations than the landscape draws (GLR caps them), "24 of 30"
+  // All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md): H_t is drawn on the sheets that become
+  // F's (GLChain chainSheetHom), unless a step the deformation applies has no sheet form: a d/dz, or a deformed formula
+  // with branch points that is not recognised as catalog steps (Funcs.sheetMapPieces null). The test takes every step
+  // the deformation applies at some t (all at once from the source stage), so it does not change with t.
+  function deformSheetsOk() {
+    if (!morphOn() || typeof Funcs.sheetMapPieces !== 'function') return false;
+    const R = morphRange();
+    try { return !!Funcs.sheetMapPieces(S.steps, built, { mode: 3, base: leftStage(), a: R.lo, b: R.b, post: R.p1, t: 0.5 }); } catch (e) { return false; }
+  }
+  // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
+  // sheets off, a deformation with no sheet form, or no multivalued step in the map in focus), else {K: the surfaces
+  // drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom} (one per multivalued piece of the
+  // map in focus: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
+  // log). hom: the deformation shows, and H_t is drawn on the sheets that become these sheets of F (at most these:
+  // a step not begun adds its sheets when it starts; notes/v16-user5/SHEETS-DESIGN.md)
+  function sheetsShown() {
+    if (!S.sheets || !lLand()) return null;
+    const hom = morphOn();
+    if (hom && !deformSheetsOk()) return null;
+    const ms = multiSheet();
+    if (!ms) return null;
+    const m = endMap(), a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
+    try {
+      for (const e of Funcs.sheetSteps(S.steps, built)) {
+        if (e.k <= a || e.k > b) continue;
+        const q = Funcs.stepSheets(built[e.k - 1])[e.node];
+        // (v16.1 verify-5: kb, the step's own branch, on which its window is centred (Funcs' stepTh: a root's k mod n,
+        // a log's or power's k; a formula's branch nodes 0), so the caption numbers the window as drawn)
+        const bb = built[e.k - 1], v = bb && bb.def && bb.def.id !== 'custom' && bb.vals ? bb.vals : {}, kk = v.k | 0, rn = Math.max(2, v.n | 0);
+        pieces.push({ n: e.n, of: q && q.of > 0 ? q.of : e.n > 0 ? e.n : Infinity, kb: bb && bb.def && bb.def.id === 'root' ? ((kk % rn) + rn) % rn : kk });
+      }
+    } catch (e) { return null; }
+    // (v16.1 review math-2: while deforming, which deformed pieces are roots and powers, which logs: the clause gives
+    // their paths on a sheet)
+    let dk = null;
+    if (hom) {
+      // (v16.1 verify-1: turn, the deformed pieces run in turn, each in its own time s: steps one after another, or the
+      // catalog steps of a recognised formula; else every piece deforms in the caption's own t)
+      const R = morphRange();
+      dk = { pow: false, log: false, turn: R.steps.length > 1 && !allAtOnce() };
+      const kinds = (b) => (!b || b.error || !b.def ? [] : b.def.id === 'custom' && b.rec ? b.rec.built.flatMap(kinds) : b.def.id === 'log' ? ['log'] : b.def.id === 'root' || b.def.id === 'powa' ? (Funcs.stepSheets(b).some((q) => q.n !== 1) ? ['pow'] : []) : []);
+      try {
+        for (const e of Funcs.sheetMapPieces(S.steps, built, { mode: 3, base: leftStage(), a: R.lo, b: R.b, post: R.p1, t: 0.5 }) || []) {
+          if (e.how !== 2) continue;
+          const b = built[e.k - 1], q = kinds(b);
+          for (const x of q) dk[x] = true;
+          if (q.length && b && b.def && b.def.id === 'custom' && b.rec && b.rec.built.length > 1) dk.turn = true;
+        }
+      } catch (e) { /* no tail */ }
+    }
+    return pieces.length ? { K: ms.K, D: ms.D || ms.K, total: ms.total, W: ms.W, pieces, hom, dk } : null;
+  }
+  // the clause on what it draws, exact (the user, v16.1: "all sheets" is not true of infinitely many): a finite
+  // covering says how many sheets (both, all 3), a window says which and of how many (the sheets k = -2, ..., 2 of
+  // infinitely many), a capped one how many combinations (24 of the 30). fmt 'tex': {src, p, then} for $t or capT, with
+  // p.k the window as TeX without dollars (the caller wraps it, and p.H, p.F while deforming), src null for the plural
+  // string done (p.text), then: a second sentence {src, p} or null; 'html': the Landscape title's suffix (", both
+  // sheets"). Finite counts are of distinct sheets (sh.D: √ then z⁴ draws 4 combinations that are 2 sheets).
+  // While deforming (sh.hom; v16.1 review math-1, math-2): H_t is drawn on F's K surfaces, one for each of F's sheets
+  // (or combinations), every multivalued step on its sheet with its branch number kept along its path; H_t's own
+  // sheets are not counted (z^s has infinitely many for 0 < t < 1, and several of them end on each sheet of z^α), so
+  // the title says "on the sheets of F" and the caption names the path on a sheet of each deformed root, power or log.
+  function sheetsClause(sh, fmt, F) {
+    const win = sh.pieces.some((q) => !(q.n > 0)), html = fmt === 'html', D = sh.D || sh.K, capped = sh.total > sh.K;
+    // (v16.1 verify-5: the window as drawn, centred on the step's own branch kb when every window piece has the same)
+    const kbs = [...new Set(sh.pieces.filter((q) => !(q.n > 0)).map((q) => q.kb || 0))], kb = kbs.length === 1 ? kbs[0] : 0;
+    const k = html ? `<i>k</i> = ${I18N.num(kb - sh.W).replace('-', '−')}…${I18N.num(kb + sh.W).replace('-', '−')}` : `k=${kb - sh.W},\\dots,${kb + sh.W}`;
+    const N = sh.pieces.reduce((x, q) => x * (Number.isFinite(q.of) ? q.of : Infinity), 1);
+    if (html && sh.hom) {
+      const Fh = fnHtml();
+      if (capped) return win ? $t(', on {K} of the {total} sheet combinations of {F}, {k}', { K: sh.K, total: sh.total, F: Fh, k }) : $t(', on {K} of the {total} sheet combinations of {F}', { K: sh.K, total: sh.total, F: Fh });
+      if (!win) return D === 2 ? $t(', on both sheets of {F}', { F: Fh }) : $tn(', on all {n} sheets of {F}', ', on all {n} sheets of {F}', D, { F: Fh });
+      return sh.pieces.length === 1 ? $t(', on the sheets {k} of {F}', { k, F: Fh }) : $tn(', on {n} sheets of {F}, {k}', ', on {n} sheets of {F}, {k}', sh.K, { k, F: Fh });
+    }
+    if (html) {
+      if (capped) return win ? $t(', {K} of {total} sheet combinations, {k}', { K: sh.K, total: sh.total, k }) : $t(', {K} of {total} sheet combinations', { K: sh.K, total: sh.total });
+      if (!win) return D === 2 ? $t(', both sheets') : $tn(', all {n} sheets', ', all {n} sheets', D);
+      return sh.pieces.length === 1 ? $t(', sheets {k}', { k }) : $tn(', {n} sheets, {k}', ', {n} sheets, {k}', sh.K, { k });
+    }
+    if (sh.hom) {
+      const p = { H: 'H_t', F: F || 'F', n: sh.K };
+      const dk = sh.dk || {};
+      // the paths on a sheet (a second sentence): z^alpha along z^sigma e^{2 pi i k sigma}, log along (z^u e^{2 pi i k u} - 1)/u + u,
+      // in the caption's t when every piece deforms in it, else in the time s of the piece's own step (v16.1 verify-1:
+      // the steps in turn define step k's homotopy in its own s; sigma is the exponent, a letter not used elsewhere)
+      const then = dk.turn
+        ? (dk.pow && dk.log ? { src: ' Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, and each deformed logarithm along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.', p: {} }
+          : dk.pow ? { src: ' Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.', p: {} }
+            : dk.log ? { src: ' Each deformed logarithm runs along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.', p: {} } : null)
+        : dk.pow && dk.log ? { src: ' Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, and each deformed logarithm along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, where $k$ is its branch number on that surface.', p: {} }
+          : dk.pow ? { src: ' Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, where $k$ is its branch number on that surface.', p: {} }
+            : dk.log ? { src: ' Each deformed logarithm runs along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, where $k$ is its branch number on that surface.', p: {} } : null;
+      if (capped) return win ? { src: '; %{H} is drawn on %{n} surfaces, one for each of %{K} of the %{total} sheet combinations of %{F} in the window %{k}.', p: Object.assign(p, { K: sh.K, total: sh.total, k }), then } : { src: '; %{H} is drawn on %{n} surfaces, one for each of %{K} of the %{total} sheet combinations of %{F}.', p: Object.assign(p, { K: sh.K, total: sh.total }), then };
+      if (!win) return D === sh.K ? { src: '; %{H} is drawn on %{n} surfaces, one for each sheet of %{F}.', p, then } : { src: '; %{H} is drawn on %{n} surfaces, one for each of the %{n} sheet combinations of %{F}.', p, then };
+      return sh.pieces.length === 1 ? { src: '; %{H} is drawn on %{n} surfaces, one for each of the sheets %{k} of %{F}.', p: Object.assign(p, { k }), then } : { src: '; %{H} is drawn on %{n} surfaces, one for each of %{n} sheets of %{F} (the window %{k}).', p: Object.assign(p, { k }), then };
+    }
+    if (capped) return win ? { src: '; %{K} of the %{total} sheet combinations in the window %{k} are shown.', p: { K: sh.K, total: sh.total, k } } : { src: '; %{K} of the %{total} sheet combinations are shown.', p: { K: sh.K, total: sh.total } };
+    if (!win) return D === 2 ? { src: '; both sheets are shown.', p: {} } : { src: null, p: { text: $tn('; all {n} sheets are shown.', '; all {n} sheets are shown.', D) } };
+    if (sh.pieces.length === 1) return Number.isFinite(N) ? { src: '; the sheets %{k} of %{N} are shown.', p: { k, N } } : { src: '; the sheets %{k} of infinitely many are shown.', p: { k } };
+    return Number.isFinite(N) ? { src: '; %{n} of the %{N} sheets are shown (the window %{k}).', p: { n: sh.K, N, k } } : { src: '; %{n} of the infinitely many sheets are shown (the window %{k}).', p: { n: sh.K, k } };
+  }
+  // the TeX parameters of a clause: the window k and, while deforming, H and F are math (wrap: {m} for capT, $..$)
+  const sheetsTexP = (p, wrap) => { const r = Object.assign({}, p); for (const q of ['k', 'H', 'F']) if (r[q] != null) r[q] = wrap(r[q]); return r; };
+  // the All sheets check: with more sheet combinations than the landscape draws (GLR caps them), "24 of 30" (F's: while
+  // deforming, at most those are drawn); while a deformation that has no sheet form shows, its tip says so
   function sheetsLabel(lab, ms) {
     const span = lab && lab.querySelector('span');
     if (!span) return lab;
     const capped = !!(S.sheets && ms && ms.total > ms.K);
     span.textContent = capped ? $t('All sheets ({K} of {total})', { K: ms.K, total: ms.total }) : $t('All sheets');
-    if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
+    if (S.sheets && morphOn() && !deformSheetsOk()) lab.dataset.tip = $t('While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.');
+    else if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
     return lab;
   }
   function setSheets(on) {
@@ -7545,7 +7757,9 @@
       const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? $t('Pause') : $t('Play'), 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
       const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': $t('Deformation time'),
         onchange: () => sndScrubEnd(), onpointerup: () => sndScrubEnd(),
-        oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; sndScrub(morph.T, v); morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
+        // (v16.2: the readout follows a paused scrub in every view; in Landscape or Phase alone Y's pane, whose render
+        // called syncTransport, is not drawn, so it kept the last played t)
+        oninput: (e) => { let v = +e.target.value; const r = Math.round(v); if (Math.abs(v - r) < 0.03) v = r; sndScrub(morph.T, v); morph.T = v; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); paintFader(e.target); syncTransport(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); } });
       const ticks = h('div', { class: 'tticks', 'aria-hidden': 'true' });
       if (allAtOnce()) {
         const ks = morphRange().steps;
@@ -8105,6 +8319,9 @@
     closePalette();
     const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : items.menuLabel || null });
     pop._opener = opener;
+    // (v16.1 user-5) a menu opened from a dialog (Export figure's Size and More formats) is drawn over the dialog: the
+    // popovers' layer (30) is under the modal's (50), so it opened behind the dialog and its scrim, out of sight
+    if (opener && opener.closest && opener.closest('.modal-bg')) pop.classList.add('over-modal');
     const add = (host, list) => {
       for (const it of list) {
         if (it === 'sep') { host.append(h('div', { class: 'msep', role: 'separator' })); continue; }
@@ -10122,7 +10339,7 @@
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
       paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep,
-      regionSummary, swatchStyle, kindType, requestRender, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -10516,7 +10733,10 @@
       else if (lGlobe() && lPhase()) push(...lab('a'), ...capT('The phase portrait of %{map} on the Riemann sphere, with %{inf} at the north pole.', { map: { m: mapM }, inf }));
       else if (lLand()) {
         const ht = { log: `\\log|${Fname}|`, abs: `|${Fname}|`, re: `\\operatorname{Re} ${Fname}`, im: `\\operatorname{Im} ${Fname}` }[S.height || 'log'];
-        push(...lab('a'), ...capT('The landscape of %{map}', { map: { m: S.sheets ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), { t: S.sheets ? $t('; all sheets of the Riemann surface are shown.') : $t('; zeros are pits and poles are peaks.') });
+        // (v16.1 user-5: what All sheets draws, exactly; while deforming, the sheets of H_t that become those of F,
+        // notes/v16-user5/SHEETS-DESIGN.md; the multivalued notation only when it draws F's own sheets)
+        const shw = sheetsShown(), shc = shw ? sheetsClause(shw, 'tex', Fname0) : null;
+        push(...lab('a'), ...capT('The landscape of %{map}', { map: { m: shw && !shw.hom ? I18N.notation(mapM, undefined, { multi: true }) : mapM } }), { t: $tx('cap', ' over ') }, ...planeName('ins'), ...capT(': the height is %{h}', { h: { m: ht } }), ...(lPhase() ? capT(' and the colour %{arg} (bar)', { arg: { m: `\\arg ${Fname}` } }) : []), ...(shc ? (shc.src ? capT(shc.src, sheetsTexP(shc.p, (m) => ({ m }))) : [{ t: shc.p.text }]) : [{ t: $t('; zeros are pits and poles are peaks.') }]), ...(shc && shc.then ? texSegs($t(shc.then.src, shc.then.p)) : []));
       } else if (vis.length) push(...lab('a'), ...cap1(shapeList), { t: $tx('cap', ' in ') }, ...planeName('prep'), { t: lGlobe() ? $t(', on the Riemann sphere.') : '.' });
       else push(...lab('a'), ...cap1(planeName()), { t: '.' });
       if (both) push({ t: ' ' });
@@ -10928,7 +11148,7 @@
       if (chain && chain.some((q) => !q.tex)) chain = null;
     }
     return { shapeList, shapeListGen, nShapes: vis.length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
-      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: S.height, phase: lPhase(), dc: S.dc, sectors: S.sectors || 12, hm, hom, chain, sheets: !!S.sheets };
+      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: S.height, phase: lPhase(), dc: S.dc, sectors: S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
   }
   const hueBytes = (t) => { // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
     const deg = (((t * 360 - 180) % 360) + 360) % 360, f = deg / 30, i = Math.floor(f) % 12, u = f - Math.floor(f);
@@ -10958,6 +11178,7 @@
     formulaTex: () => figCapParts().formula,
     formulaRaw: () => figCapParts().raw,
     capParts: figCapParts,
+    sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
     segsTex: (segs) => captionLatex(segs),
     sceneName: figSceneName,
     sceneMeta: () => { const used = typeof Constr !== 'undefined' && Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
@@ -12359,7 +12580,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Every sheet of the logarithm'), tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -12636,7 +12857,7 @@
       <h3>${$t(`The planes' menu`)}</h3>
       <p>${$t(`Right-click any plane (hold it on touch; Shift+F10 from the keyboard) for its menu. Its head gives the point and the map there. Below that come the items for what is under the pointer (a zero or pole, a shape, a cut handle), then <b>Add zero of <i>f</i><sub><i>k</i></sub> here</b> and <b>Add pole of <i>f</i><sub><i>k</i></sub> here</b> on <i>X</i>, Copy coordinates and Center view here. A zero added on <i>X</i> goes where the point lands after the earlier steps, so the point becomes a zero of <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> exactly, and of <i>F</i> when <i>f</i><sub><i>k</i></sub> is the last step; the menu says where else it appears and, when steps follow, what <i>F</i> is there. Points snap to the ruler while Snap is on; hold Alt to place them freely.`)}</p>
       <h3>${$t(`Views`)}</h3>
-      <p>${$t(`The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`, { x: k('1'), x2: k('2'), x3: k('3'), x4: k('⇧ 1'), x5: k('⇧ 2'), x6: k('⇧ 3'), x7: k('⇧ 4') })}</p>
+      <p>${$t(`The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`, { x: k('1'), x2: k('2'), x3: k('3'), x4: k('⇧ 1'), x5: k('⇧ 2'), x6: k('⇧ 3'), x7: k('⇧ 4') })}</p>
       <h3>${$t(`Deformation`)}</h3>
       <p>${$t(`<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.`, { x: k('M'), x2: k('P') })} ${guideTex($t('A step shown alone deforms in its own planes; to see it deform inside $F$, bracket it (below).'))}</p>
       <p>${guideTex($t('<b>Part of the chain.</b> While the deformation shows the whole chain, a bracket stands over the cards. Drag its ends, or choose a card\'s ⋯ → <b>Deformation</b>; on a phone, use Deformed steps in the Display sheet. Steps before the bracket act first and in full, steps after it last and in full: $H_t=f_3\\circ G_t\\circ f_1$ runs from $f_3\\circ f_1$ at $t=0$ to $F$, while $G_t$ deforms the bracketed steps. Bracket the last steps to watch them deform the image $f_1(X)$ (a push-forward); bracket the first steps to watch them deform under the last ones (a pullback: for $\\sqrt{z}$ then $f$, bracket $\\sqrt{z}$ to go from $f(z)$ to $f(\\sqrt{z})$). The start is outlined, and the plane\'s title names it.'))}</p>
@@ -12766,7 +12987,7 @@
     pat.innerHTML = '';
     for (const [v, l, tip] of PATTERNS) {
       const cv = h('canvas', { width: 104, height: 80, 'aria-hidden': 'true' });
-      const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
+      const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-pat': v, 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
         onclick: () => { S.pattern = v; buildDisplay(); requestRender('L', 'R', 'T'); save(); } }, cv, h('span', null, l));
       pat.append(b);
       drawPatternSwatch(cv, v);
@@ -14258,6 +14479,7 @@
   let tourSplit = false;   // v15.2: the tour's stop shows the Inspector's split offer (its scene sets split: true)
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
+  let tourPics = null;    // v16.1: the chain's Pictures | Names and height before a tour step turned its pictures on
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
   function tourEmit(ev, p) {
@@ -14386,6 +14608,32 @@
     sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
     // v15.2: the current stop shows the Inspector's split offer (its split: true); every other stop hides it
     splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
+    // v16.1 (user 5): a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
+    // Pictures needs (140 px, the gutter's own rule) at Pictures' 188 px; off, the user's setting comes back (unless they
+    // changed it meanwhile). True while the tour holds the pictures on. A phone's chain bar always shows its pictures
+    chainPictures: (on) => {
+      const root = document.documentElement;
+      if (on) {
+        if (tourPics) return true;
+        if (tourPhone()) return false;
+        const hNow = root.style.getPropertyValue('--chain-h'), short = (parseFloat(getComputedStyle($('stage')).getPropertyValue('--chain-h')) || 188) < 140;
+        if (!S.compact && !short) return false;
+        tourPics = { compact: !!S.compact, h: hNow };
+        S.compact = false;
+        if (short) root.style.setProperty('--chain-h', '188px');
+        applyLayout(); requestRender('T');
+        return true;
+      }
+      if (!tourPics) return false;
+      const p = tourPics;
+      tourPics = null;
+      if (!S.compact) {
+        S.compact = p.compact;
+        if (p.h) root.style.setProperty('--chain-h', p.h); else root.style.removeProperty('--chain-h');
+        applyLayout(); requestRender('T');
+      }
+      return false;
+    },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
     setView: (main) => setMain(main),
@@ -15529,6 +15777,8 @@
   };
   // v16 constructions (INTERFACE): the ring, the draft, the session's Curve | Region; o.fill sets it
   window.__cmwCI = (o) => { if (o && o.gs) { const [side, P] = o.gs, gc = globeCam(side), q = gc && gScreen(gc, P), r = (side === 'R' ? paneR : paneL).ocanvas.getBoundingClientRect(); return q ? [r.left + q[0], r.top + q[1]] : null; } if (o && o.fill) Construct.fill = o.fill; if (o && o.snap) { const [side, x, y, opt] = o.snap; const t = Construct.snapAt(side, x, y, opt || {}); return t ? { cls: t.cls, z: t.z, ref: t.ref } : null; } if (o && o.names) return S.shapes.concat(S.targets).map((s) => ({ id: s.id, kind: s.kind, name: Construct.shapeLabel(s), def: Construct.defText(s), why: s.cundef ? Construct.reasonText(s.cundef) : null })); if (o && o.shapes) return { hi, n: hist.length, tool, selected, zeros: S.steps[0] ? S.steps[0].params.zeros : null, list: S.shapes.concat(S.targets).map((s) => Object.assign(JSON.parse(JSON.stringify(s, noRuntime)), { inf: !!s._atInf, A: s._g ? s._g.A : null })) }; return Construct.debug(); };
+  window.__cmwCapText = (panels) => figureCaption(panels || ['L']).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
+  window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

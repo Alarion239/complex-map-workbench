@@ -79,7 +79,7 @@ ok('__cmwState().mode', (await ev('__cmwState().mode')) === 'image', await ev('_
 const pane = await ev(`['image', 'color', '3d', 'sphere'].map((m) => __cmwPaneOf(m)).join('')`);
 ok('__cmwPaneOf', pane === 'RLLR', pane);
 // 6. every example opens in the view it was made for (the old rightMode, migrated)
-const want = { 'A formula in LaTeX': V('plane', true, 'plane'), 'A residue by integration': V('plane', true, 'plane'), 'The derivative in the chain': V('plane', true, 'plane'), 'Every sheet of the logarithm': V('land', true, 'plane') };
+const want = { 'A formula in LaTeX': V('plane', true, 'plane'), 'A residue by integration': V('plane', true, 'plane'), 'The derivative in the chain': V('plane', true, 'plane'), 'Sheets of the logarithm': V('land', true, 'plane') };
 const exs = [];
 for (let i = 0; i < 14; i++) {
   await ev(`__cmwExample(${i}); 1`); await sleep(500);
@@ -90,7 +90,7 @@ for (let i = 0; i < 14; i++) {
   ok(`example ${i} ${name}`, same(v, w), v);
   // the Plain relief of earlier builds (their default material), kept by the landscape-only landPlain: the
   // portrait's style S.dc is not rewritten (U-b review)
-  if (name === 'Every sheet of the logarithm') { const st = await ev('__cmwState()'); ok('log example: the Plain relief of earlier builds, dc kept', st.landPlain === true && st.dc !== 'phase', st); }
+  if (name === 'Sheets of the logarithm') { const st = await ev('__cmwState()'); ok('log example: the Plain relief of earlier builds, dc kept', st.landPlain === true && st.dc !== 'phase', st); }
 }
 // 7. old saved states open in the equivalent view (panels.md 10)
 const st = { v3: true, v4: true, v5: true, shapes: [{ kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'pown', params: { n: 2 } }], nextId: 9, focus: 0 };

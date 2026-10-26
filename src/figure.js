@@ -2102,7 +2102,9 @@ const Figure = (() => {
   }
   // the first letter of a sentence made from a clause, in capitals (not inside math)
   const upperFirst = (s) => s.replace(/^(\s*)(\p{Ll})/u, (m0, sp0, ch) => sp0 + ch.toUpperCase());
-  function displayF(cap, c, maxW = 300, pt = 10) {
+  // multi: the figure draws the multivalued function (a landscape with All sheets), so the display writes it as one
+  // (Ln in Russian, GLOSSARY 2.2; English unchanged), as the inline map of the same caption does (v16.1 user-5)
+  function displayF(cap, c, maxW = 300, pt = 10, multi = false) {
     const iC = cap.indexOf(CHAINTOK);
     if (iC >= 0) {
       if (c.raw && c.chain) {
@@ -2115,7 +2117,7 @@ const Figure = (() => {
     if (i < 0) return cap;
     // the end of the sentence that names F (the next '.' outside math before a space or the end)
     const j = sentenceEnds(cap).find((q) => q > i);
-    const disp = `${DISP_OPEN}\\displaystyle ${c.Fname}(${c.lvar})=${tidyTex(c.raw)}.${DISP_CLOSE}`;
+    const disp = `${DISP_OPEN}\\displaystyle ${c.Fname}(${c.lvar})=${tidyTex(multi && I18 ? I18.notation(c.raw, undefined, { multi: true }) : c.raw)}.${DISP_CLOSE}`;
     // (export review r3, verify-editor-13) the display follows the phrase that names F: at the first ':' or ';' after F
     // (outside math and brackets, within 100 characters: "Phase portrait of $F$ on $[-7,7]\times[-5,5]$: the color
     // ...", "Landscape of $F$ over ...: the height ..."), and the rest of that sentence becomes a sentence of its own;
@@ -2187,6 +2189,9 @@ const Figure = (() => {
     }
     return $t(' Here $H_t$ deforms the identity ($t=0$) into %{map} ($t=%{m}$) along %{hom}.', { map, m, hom: c.hom.tex + tail });
   }
+  // the landscape's clause on its sheets (app's sheetsClause, 'tex'): the window k and H, F as math, then the sentence on
+  // the deformed pieces' paths on a sheet (v16.1 review math-2), if any
+  const sheetsTex = (shc) => (shc.src ? $t(shc.src, Object.fromEntries(Object.entries(shc.p).map(([q, v]) => [q, q === 'k' || q === 'H' || q === 'F' ? `$${v}$` : v]))) : shc.p.text) + (shc.then ? $t(shc.then.src, shc.then.p) : '');
   // one template per sentence (Russian word order, notes/i18n/GLOSSARY.md 1.11); called inside using(lang)
   function captionFor(o, view, body) {
     const ru = capRu();
@@ -2228,7 +2233,9 @@ const Figure = (() => {
         const ht = { log: '\\log|H_t|', abs: '|H_t|', re: '\\operatorname{Re} H_t', im: '\\operatorname{Im} H_t' }[c.height || 'log'];
         let s2 = $t('Landscapes of $H_t$%{over} at %{ts}: the height is $%{ht}$', { over: fi.box ? $t(' over $%{box}$', { box: winTex(fi.box) }) : '', ts, ht });
         if (c.phase && o.ink !== 'bw') s2 += $t(' and the color shows $\\arg %{f}$', { f: 'H_t' });
-        s2 += c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
+        // (v16.1 review user-1: the frames draw H_t on F's sheets, as the single frame; its clause says so)
+        const shf = c.sheets && c.sheets.hom && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
+        s2 += shf ? sheetsTex(shf) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
         return s2 + along;
       }
       if (fi.film === 'phase') {
@@ -2266,10 +2273,14 @@ const Figure = (() => {
     }
     if (view === 'land') {
       const f = hm ? 'H_t' : c.Fname, ht = { log: `\\log|${f}|`, abs: `|${f}|`, re: `\\operatorname{Re} ${f}`, im: `\\operatorname{Im} ${f}` }[c.height || 'log'];
-      // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2, review math-8)
-      let s = $t('Landscape of %{map}%{over}: the height is $%{ht}$', { map: hm ? '$H_t$' : c.sheets && I18 ? I18.notation(map, undefined, { multi: true }) : map, over: body.info.box ? $t(' over $%{box}$', { box: winTex(body.info.box) }) : '', ht });
+      // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2, review math-8; c.sheets: what the landscape
+      // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming: v16.1 user-5)
+      const shc = c.sheets && (hm || !c.sheets.hom) && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
+      let s = $t('Landscape of %{map}%{over}: the height is $%{ht}$', { map: hm ? '$H_t$' : shc && I18 ? I18.notation(map, undefined, { multi: true }) : map, over: body.info.box ? $t(' over $%{box}$', { box: winTex(body.info.box) }) : '', ht });
       if (c.phase && o.ink !== 'bw') s += $t(' and the color shows $\\arg %{f}$', { f });
-      s += c.sheets ? $t('; all sheets of the Riemann surface are shown.') : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
+      // (while deforming, c.sheets.hom: the sheets of H_t that become those of F, notes/v16-user5/SHEETS-DESIGN.md; the
+      // window k and H, F are math)
+      s += shc ? sheetsTex(shc) : c.height === 'log' || c.height === 'abs' || !c.height ? $t('; zeros are pits and poles are peaks.') : '.';
       return s + homDef();
     }
     if (view === 'morph') {
@@ -2416,7 +2427,7 @@ const Figure = (() => {
     else if (defo && o.deform !== 'frame') body = defo === 'globe' && o.deform === 'paths' ? await figGlobePaths(o, P, W, T) : defo === 'phase' ? await figFilmPhase(o, P, W, T) : defo === 'deriv' ? await figFilm(o, P, W, T) : await figFilmPic(o, P, W, T, defo);
     else body = await figXY(view === 'xyL' || view === 'xyR' ? Object.assign({}, o, { panels: view === 'xyL' ? 'L' : 'R' }) : o, P, W, T, view);
     if (!body || (o.alive && !o.alive())) return null;
-    const autoCap = polish(using(lang, () => displayF(captionFor(o, view, body), A.capParts(), 0.88 * W, T[2])), lang);
+    const autoCap = polish(using(lang, () => { const cp = A.capParts(); return displayF(captionFor(o, view, body), cp, 0.88 * W, T[2], view === 'land' && !cp.hm && !!cp.sheets); }), lang);
     const shortCap = polish(using(lang, () => shortFor(view, body)), lang);
     const cp = using(lang, () => A.capParts()), Fn = view === 'morph' || (cp.hm && (view === 'phase' || view === 'land')) ? 'H_t' : cp.Fname;
     const film = view === 'morph' || (body.info && (body.info.film || body.info.globePaths));
@@ -3366,7 +3377,12 @@ const Figure = (() => {
     let token = 0, fig = null, capEdited = null, closed = false;
     const st = { set, view, building: false };
     dlg = st;
-    const close = () => { closed = true; token++; pv.stop(); bg.remove(); document.removeEventListener('keydown', onKey, true); dlg = null; if (opener && opener.focus) opener.focus({ preventScroll: true }); };
+    const close = () => { closed = true; token++; pv.stop(); bg.remove(); document.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onDown, true); dlg = null; if (opener && opener.focus) opener.focus({ preventScroll: true }); };
+    // (v16.1 user-5) a press outside an open menu (Size, More formats) closes the menu only, not the dialog with it:
+    // whether a menu was open is read before the menu's own outside press closes it (window, capture)
+    let downMenu = false;
+    const onDown = () => { downMenu = !!document.querySelector('#popHost .pop.menu'); };
+    window.addEventListener('pointerdown', onDown, true);
     const onKey = (e) => {
       if (e.key === 'Escape') { if (document.querySelector('#popHost .pop.menu')) return; e.preventDefault(); close(); return; }
       // Tab and Shift+Tab stay inside the dialog (aria-modal): from the last control to the first and back
@@ -3381,7 +3397,7 @@ const Figure = (() => {
       }
     };
     document.addEventListener('keydown', onKey, true);
-    const bg = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === bg) close(); } });
+    const bg = h('div', { class: 'modal-bg', onclick: (e) => { if (e.target === bg && !downMenu) close(); } });
     const segB = (id, value, options, onchange, label, cls) => {
       const el = h('div', { class: 'seg xf-seg' + (cls ? ' ' + cls : ''), id, role: 'radiogroup', 'aria-label': label });
       for (const [v, l, sub, ic] of options) {

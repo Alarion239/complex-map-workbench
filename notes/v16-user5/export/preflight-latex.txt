@@ -1,0 +1,1044 @@
+dialog-overleaf.pdf                   ok   fonts: 0
+dialog-overleaf.pdf                   ok   images 2 ['image/gray'], no smask
+dialog-overleaf.pdf                   ok   images not interpolated
+dialog-overleaf.pdf                   ok   ExtGState alpha values none
+dialog-overleaf.pdf                   ok   no /SMask
+dialog-overleaf.pdf                   ok   MediaBox 245.08 x 119.27 bp; target 246 pt = 245.08 bp
+dialog-overleaf.pdf                   ok   header %PDF-1.3
+film-strip-article1.pdf               ok   fonts: 0
+film-strip-article1.pdf               ok   images 4 ['image/index'], no smask
+film-strip-article1.pdf               ok   images not interpolated
+film-strip-article1.pdf               ok   ExtGState alpha values none
+film-strip-article1.pdf               ok   no /SMask
+film-strip-article1.pdf               ok   MediaBox 358.66 x 230.53 bp; target 360 pt = 358.66 bp
+film-strip-article1.pdf               ok   header %PDF-1.3
+film-strip-article2.pdf               ok   fonts: 0
+film-strip-article2.pdf               ok   images 4 ['image/index'], no smask
+film-strip-article2.pdf               ok   images not interpolated
+film-strip-article2.pdf               ok   ExtGState alpha values none
+film-strip-article2.pdf               ok   no /SMask
+film-strip-article2.pdf               ok   MediaBox 245.08 x 173.75 bp; target 246 pt = 245.08 bp
+film-strip-article2.pdf               ok   header %PDF-1.3
+film-strip-article2W.pdf              ok   fonts: 0
+film-strip-article2W.pdf              ok   images 4 ['image/index'], no smask
+film-strip-article2W.pdf              ok   images not interpolated
+film-strip-article2W.pdf              ok   ExtGState alpha values none
+film-strip-article2W.pdf              ok   no /SMask
+film-strip-article2W.pdf              ok   MediaBox 508.09 x 113.33 bp; target 510 pt = 508.09 bp
+film-strip-article2W.pdf              ok   header %PDF-1.3
+film-strip-homework.pdf               ok   fonts: 0
+film-strip-homework.pdf               ok   images 4 ['image/index'], no smask
+film-strip-homework.pdf               ok   images not interpolated
+film-strip-homework.pdf               ok   ExtGState alpha values none
+film-strip-homework.pdf               ok   no /SMask
+film-strip-homework.pdf               ok   MediaBox 468.00 x 109.29 bp; target 469.75 pt = 468.00 bp
+film-strip-homework.pdf               ok   header %PDF-1.3
+film-strip-slides.pdf                 ok   fonts: 0
+film-strip-slides.pdf                 ok   images 4 ['image/index'], no smask
+film-strip-slides.pdf                 ok   images not interpolated
+film-strip-slides.pdf                 ok   ExtGState alpha values none
+film-strip-slides.pdf                 ok   no /SMask
+film-strip-slides.pdf                 ok   MediaBox 396.85 x 117.43 bp; target 398.34 pt = 396.85 bp
+film-strip-slides.pdf                 ok   header %PDF-1.3
+land-strip-article1-bw.pdf            ok   fonts: 0
+land-strip-article1-bw.pdf            ok   images 1 ['image/gray'], no smask
+land-strip-article1-bw.pdf            ok   images not interpolated
+land-strip-article1-bw.pdf            ok   ExtGState alpha values none
+land-strip-article1-bw.pdf            ok   no /SMask
+land-strip-article1-bw.pdf            ok   MediaBox 358.66 x 256.13 bp; target 360 pt = 358.66 bp
+land-strip-article1-bw.pdf            ok   header %PDF-1.3
+land-strip-article1.pdf               ok   fonts: 0
+land-strip-article1.pdf               ok   images 1 ['image/rgb'], no smask
+land-strip-article1.pdf               ok   images not interpolated
+land-strip-article1.pdf               ok   ExtGState alpha values none
+land-strip-article1.pdf               ok   no /SMask
+land-strip-article1.pdf               ok   MediaBox 358.66 x 256.13 bp; target 360 pt = 358.66 bp
+land-strip-article1.pdf               ok   header %PDF-1.3
+land-strip-article2.pdf               ok   fonts: 0
+land-strip-article2.pdf               ok   images 1 ['image/rgb'], no smask
+land-strip-article2.pdf               ok   images not interpolated
+land-strip-article2.pdf               ok   ExtGState alpha values none
+land-strip-article2.pdf               ok   no /SMask
+land-strip-article2.pdf               ok   MediaBox 245.08 x 177.79 bp; target 246 pt = 245.08 bp
+land-strip-article2.pdf               ok   header %PDF-1.3
+land-strip-article2W.pdf              ok   fonts: 0
+land-strip-article2W.pdf              ok   images 1 ['image/rgb'], no smask
+land-strip-article2W.pdf              ok   images not interpolated
+land-strip-article2W.pdf              ok   ExtGState alpha values none
+land-strip-article2W.pdf              ok   no /SMask
+land-strip-article2W.pdf              ok   MediaBox 508.09 x 348.08 bp; target 510 pt = 508.09 bp
+land-strip-article2W.pdf              ok   header %PDF-1.3
+land-strip-homework.pdf               ok   fonts: 0
+land-strip-homework.pdf               ok   images 1 ['image/rgb'], no smask
+land-strip-homework.pdf               ok   images not interpolated
+land-strip-homework.pdf               ok   ExtGState alpha values none
+land-strip-homework.pdf               ok   no /SMask
+land-strip-homework.pdf               ok   MediaBox 468.00 x 323.33 bp; target 469.75 pt = 468.00 bp
+land-strip-homework.pdf               ok   header %PDF-1.3
+land-strip-slides.pdf                 ok   fonts: 0
+land-strip-slides.pdf                 ok   images 1 ['image/rgb'], no smask
+land-strip-slides.pdf                 ok   images not interpolated
+land-strip-slides.pdf                 ok   ExtGState alpha values none
+land-strip-slides.pdf                 ok   no /SMask
+land-strip-slides.pdf                 ok   MediaBox 396.85 x 198.43 bp; target 398.34 pt = 396.85 bp
+land-strip-slides.pdf                 ok   header %PDF-1.3
+paths-strip-article1.pdf              ok   fonts: 0
+paths-strip-article1.pdf              ok   images 1 ['image/index'], no smask
+paths-strip-article1.pdf              ok   images not interpolated
+paths-strip-article1.pdf              ok   ExtGState alpha values none
+paths-strip-article1.pdf              ok   no /SMask
+paths-strip-article1.pdf              ok   MediaBox 358.66 x 139.77 bp; target 360 pt = 358.66 bp
+paths-strip-article1.pdf              ok   header %PDF-1.3
+paths-strip-article2.pdf              ok   fonts: 0
+paths-strip-article2.pdf              ok   images 1 ['image/index'], no smask
+paths-strip-article2.pdf              ok   images not interpolated
+paths-strip-article2.pdf              ok   ExtGState alpha values none
+paths-strip-article2.pdf              ok   no /SMask
+paths-strip-article2.pdf              ok   MediaBox 245.08 x 101.91 bp; target 246 pt = 245.08 bp
+paths-strip-article2.pdf              ok   header %PDF-1.3
+paths-strip-article2W.pdf             ok   fonts: 0
+paths-strip-article2W.pdf             ok   images 1 ['image/index'], no smask
+paths-strip-article2W.pdf             ok   images not interpolated
+paths-strip-article2W.pdf             ok   ExtGState alpha values none
+paths-strip-article2W.pdf             ok   no /SMask
+paths-strip-article2W.pdf             ok   MediaBox 508.09 x 189.58 bp; target 510 pt = 508.09 bp
+paths-strip-article2W.pdf             ok   header %PDF-1.3
+paths-strip-homework.pdf              ok   fonts: 0
+paths-strip-homework.pdf              ok   images 1 ['image/index'], no smask
+paths-strip-homework.pdf              ok   images not interpolated
+paths-strip-homework.pdf              ok   ExtGState alpha values none
+paths-strip-homework.pdf              ok   no /SMask
+paths-strip-homework.pdf              ok   MediaBox 468.00 x 179.70 bp; target 469.75 pt = 468.00 bp
+paths-strip-homework.pdf              ok   header %PDF-1.3
+paths-strip-slides.pdf                ok   fonts: 0
+paths-strip-slides.pdf                ok   images 1 ['image/index'], no smask
+paths-strip-slides.pdf                ok   images not interpolated
+paths-strip-slides.pdf                ok   ExtGState alpha values none
+paths-strip-slides.pdf                ok   no /SMask
+paths-strip-slides.pdf                ok   MediaBox 396.85 x 155.42 bp; target 398.34 pt = 396.85 bp
+paths-strip-slides.pdf                ok   header %PDF-1.3
+phase-strip-article1-bw.pdf           ok   fonts: 0
+phase-strip-article1-bw.pdf           ok   images 1 ['image/gray'], no smask
+phase-strip-article1-bw.pdf           ok   images not interpolated
+phase-strip-article1-bw.pdf           ok   ExtGState alpha values none
+phase-strip-article1-bw.pdf           ok   no /SMask
+phase-strip-article1-bw.pdf           ok   MediaBox 358.66 x 318.61 bp; target 360 pt = 358.66 bp
+phase-strip-article1-bw.pdf           ok   header %PDF-1.3
+phase-strip-article1.pdf              ok   fonts: 0
+phase-strip-article1.pdf              ok   images 2 ['image/rgb'], no smask
+phase-strip-article1.pdf              ok   images not interpolated
+phase-strip-article1.pdf              ok   ExtGState alpha values none
+phase-strip-article1.pdf              ok   no /SMask
+phase-strip-article1.pdf              ok   MediaBox 358.66 x 263.75 bp; target 360 pt = 358.66 bp
+phase-strip-article1.pdf              ok   header %PDF-1.3
+phase-strip-article2-bw.pdf           ok   fonts: 0
+phase-strip-article2-bw.pdf           ok   images 1 ['image/gray'], no smask
+phase-strip-article2-bw.pdf           ok   images not interpolated
+phase-strip-article2-bw.pdf           ok   ExtGState alpha values none
+phase-strip-article2-bw.pdf           ok   no /SMask
+phase-strip-article2-bw.pdf           ok   MediaBox 245.08 x 221.26 bp; target 246 pt = 245.08 bp
+phase-strip-article2-bw.pdf           ok   header %PDF-1.3
+phase-strip-article2.pdf              ok   fonts: 0
+phase-strip-article2.pdf              ok   images 2 ['image/rgb'], no smask
+phase-strip-article2.pdf              ok   images not interpolated
+phase-strip-article2.pdf              ok   ExtGState alpha values none
+phase-strip-article2.pdf              ok   no /SMask
+phase-strip-article2.pdf              ok   MediaBox 245.08 x 179.25 bp; target 246 pt = 245.08 bp
+phase-strip-article2.pdf              ok   header %PDF-1.3
+phase-strip-article2W.pdf             ok   fonts: 0
+phase-strip-article2W.pdf             ok   images 2 ['image/rgb'], no smask
+phase-strip-article2W.pdf             ok   images not interpolated
+phase-strip-article2W.pdf             ok   ExtGState alpha values none
+phase-strip-article2W.pdf             ok   no /SMask
+phase-strip-article2W.pdf             ok   MediaBox 508.09 x 391.84 bp; target 510 pt = 508.09 bp
+phase-strip-article2W.pdf             ok   header %PDF-1.3
+phase-strip-homework.pdf              ok   fonts: 0
+phase-strip-homework.pdf              ok   images 2 ['image/rgb'], no smask
+phase-strip-homework.pdf              ok   images not interpolated
+phase-strip-homework.pdf              ok   ExtGState alpha values none
+phase-strip-homework.pdf              ok   no /SMask
+phase-strip-homework.pdf              ok   MediaBox 468.00 x 359.62 bp; target 469.75 pt = 468.00 bp
+phase-strip-homework.pdf              ok   header %PDF-1.3
+phase-strip-slides.pdf                ok   fonts: 0
+phase-strip-slides.pdf                ok   images 2 ['image/rgb'], no smask
+phase-strip-slides.pdf                ok   images not interpolated
+phase-strip-slides.pdf                ok   ExtGState alpha values none
+phase-strip-slides.pdf                ok   no /SMask
+phase-strip-slides.pdf                ok   MediaBox 396.85 x 198.43 bp; target 398.34 pt = 396.85 bp
+phase-strip-slides.pdf                ok   header %PDF-1.3
+r3-film-globe-article1.pdf            ok   fonts: 0
+r3-film-globe-article1.pdf            ok   images 4 ['image/rgb'], no smask
+r3-film-globe-article1.pdf            ok   images not interpolated
+r3-film-globe-article1.pdf            ok   ExtGState alpha values none
+r3-film-globe-article1.pdf            ok   no /SMask
+r3-film-globe-article1.pdf            ok   MediaBox 358.66 x 251.20 bp; target 360 pt = 358.66 bp
+r3-film-globe-article1.pdf            ok   header %PDF-1.3
+r3-film-globe-article2.pdf            ok   fonts: 0
+r3-film-globe-article2.pdf            ok   images 4 ['image/rgb'], no smask
+r3-film-globe-article2.pdf            ok   images not interpolated
+r3-film-globe-article2.pdf            ok   ExtGState alpha values none
+r3-film-globe-article2.pdf            ok   no /SMask
+r3-film-globe-article2.pdf            ok   MediaBox 245.08 x 183.05 bp; target 246 pt = 245.08 bp
+r3-film-globe-article2.pdf            ok   header %PDF-1.3
+r3-film-globe-homework.pdf            ok   fonts: 0
+r3-film-globe-homework.pdf            ok   images 4 ['image/rgb'], no smask
+r3-film-globe-homework.pdf            ok   images not interpolated
+r3-film-globe-homework.pdf            ok   ExtGState alpha values none
+r3-film-globe-homework.pdf            ok   no /SMask
+r3-film-globe-homework.pdf            ok   MediaBox 468.00 x 135.75 bp; target 469.75 pt = 468.00 bp
+r3-film-globe-homework.pdf            ok   header %PDF-1.3
+r3-film-globe-slides.pdf              ok   fonts: 0
+r3-film-globe-slides.pdf              ok   images 4 ['image/rgb'], no smask
+r3-film-globe-slides.pdf              ok   images not interpolated
+r3-film-globe-slides.pdf              ok   ExtGState alpha values none
+r3-film-globe-slides.pdf              ok   no /SMask
+r3-film-globe-slides.pdf              ok   MediaBox 396.85 x 133.53 bp; target 398.34 pt = 396.85 bp
+r3-film-globe-slides.pdf              ok   header %PDF-1.3
+r3-film-land-article1.pdf             ok   fonts: 0
+r3-film-land-article1.pdf             ok   images 4 ['image/rgb'], no smask
+r3-film-land-article1.pdf             ok   images not interpolated
+r3-film-land-article1.pdf             ok   ExtGState alpha values none
+r3-film-land-article1.pdf             ok   no /SMask
+r3-film-land-article1.pdf             ok   MediaBox 358.66 x 305.00 bp; target 360 pt = 358.66 bp
+r3-film-land-article1.pdf             ok   header %PDF-1.3
+r3-film-land-article2.pdf             ok   fonts: 0
+r3-film-land-article2.pdf             ok   images 4 ['image/rgb'], no smask
+r3-film-land-article2.pdf             ok   images not interpolated
+r3-film-land-article2.pdf             ok   ExtGState alpha values none
+r3-film-land-article2.pdf             ok   no /SMask
+r3-film-land-article2.pdf             ok   MediaBox 245.08 x 219.82 bp; target 246 pt = 245.08 bp
+r3-film-land-article2.pdf             ok   header %PDF-1.3
+r3-film-land-homework.pdf             ok   fonts: 0
+r3-film-land-homework.pdf             ok   images 4 ['image/rgb'], no smask
+r3-film-land-homework.pdf             ok   images not interpolated
+r3-film-land-homework.pdf             ok   ExtGState alpha values none
+r3-film-land-homework.pdf             ok   no /SMask
+r3-film-land-homework.pdf             ok   MediaBox 468.00 x 118.04 bp; target 469.75 pt = 468.00 bp
+r3-film-land-homework.pdf             ok   header %PDF-1.3
+r3-film-land-slides.pdf               ok   fonts: 0
+r3-film-land-slides.pdf               ok   images 4 ['image/rgb'], no smask
+r3-film-land-slides.pdf               ok   images not interpolated
+r3-film-land-slides.pdf               ok   ExtGState alpha values none
+r3-film-land-slides.pdf               ok   no /SMask
+r3-film-land-slides.pdf               ok   MediaBox 396.85 x 102.09 bp; target 398.34 pt = 396.85 bp
+r3-film-land-slides.pdf               ok   header %PDF-1.3
+r3-film-phase-article1-bw.pdf         ok   fonts: 0
+r3-film-phase-article1-bw.pdf         ok   images 4 ['image/gray'], no smask
+r3-film-phase-article1-bw.pdf         ok   images not interpolated
+r3-film-phase-article1-bw.pdf         ok   ExtGState alpha values none
+r3-film-phase-article1-bw.pdf         ok   no /SMask
+r3-film-phase-article1-bw.pdf         ok   MediaBox 358.66 x 270.40 bp; target 360 pt = 358.66 bp
+r3-film-phase-article1-bw.pdf         ok   header %PDF-1.3
+r3-film-phase-article1.pdf            ok   fonts: 0
+r3-film-phase-article1.pdf            ok   images 5 ['image/rgb'], no smask
+r3-film-phase-article1.pdf            ok   images not interpolated
+r3-film-phase-article1.pdf            ok   ExtGState alpha values none
+r3-film-phase-article1.pdf            ok   no /SMask
+r3-film-phase-article1.pdf            ok   MediaBox 358.66 x 270.40 bp; target 360 pt = 358.66 bp
+r3-film-phase-article1.pdf            ok   header %PDF-1.3
+r3-film-phase-article2.pdf            ok   fonts: 0
+r3-film-phase-article2.pdf            ok   images 5 ['image/rgb'], no smask
+r3-film-phase-article2.pdf            ok   images not interpolated
+r3-film-phase-article2.pdf            ok   ExtGState alpha values none
+r3-film-phase-article2.pdf            ok   no /SMask
+r3-film-phase-article2.pdf            ok   MediaBox 245.08 x 202.25 bp; target 246 pt = 245.08 bp
+r3-film-phase-article2.pdf            ok   header %PDF-1.3
+r3-film-phase-homework.pdf            ok   fonts: 0
+r3-film-phase-homework.pdf            ok   images 5 ['image/rgb'], no smask
+r3-film-phase-homework.pdf            ok   images not interpolated
+r3-film-phase-homework.pdf            ok   ExtGState alpha values none
+r3-film-phase-homework.pdf            ok   no /SMask
+r3-film-phase-homework.pdf            ok   MediaBox 468.00 x 124.71 bp; target 469.75 pt = 468.00 bp
+r3-film-phase-homework.pdf            ok   header %PDF-1.3
+r3-film-phase-slides.pdf              ok   fonts: 0
+r3-film-phase-slides.pdf              ok   images 5 ['image/rgb'], no smask
+r3-film-phase-slides.pdf              ok   images not interpolated
+r3-film-phase-slides.pdf              ok   ExtGState alpha values none
+r3-film-phase-slides.pdf              ok   no /SMask
+r3-film-phase-slides.pdf              ok   MediaBox 396.85 x 106.24 bp; target 398.34 pt = 396.85 bp
+r3-film-phase-slides.pdf              ok   header %PDF-1.3
+r3-film-phaseGlobe-article1.pdf       ok   fonts: 0
+r3-film-phaseGlobe-article1.pdf       ok   images 5 ['image/rgb'], no smask
+r3-film-phaseGlobe-article1.pdf       ok   images not interpolated
+r3-film-phaseGlobe-article1.pdf       ok   ExtGState alpha values none
+r3-film-phaseGlobe-article1.pdf       ok   no /SMask
+r3-film-phaseGlobe-article1.pdf       ok   MediaBox 358.66 x 251.20 bp; target 360 pt = 358.66 bp
+r3-film-phaseGlobe-article1.pdf       ok   header %PDF-1.3
+r3-film-phaseGlobe-article2.pdf       ok   fonts: 0
+r3-film-phaseGlobe-article2.pdf       ok   images 5 ['image/rgb'], no smask
+r3-film-phaseGlobe-article2.pdf       ok   images not interpolated
+r3-film-phaseGlobe-article2.pdf       ok   ExtGState alpha values none
+r3-film-phaseGlobe-article2.pdf       ok   no /SMask
+r3-film-phaseGlobe-article2.pdf       ok   MediaBox 245.08 x 183.05 bp; target 246 pt = 245.08 bp
+r3-film-phaseGlobe-article2.pdf       ok   header %PDF-1.3
+r3-film-phaseGlobe-homework.pdf       ok   fonts: 0
+r3-film-phaseGlobe-homework.pdf       ok   images 5 ['image/rgb'], no smask
+r3-film-phaseGlobe-homework.pdf       ok   images not interpolated
+r3-film-phaseGlobe-homework.pdf       ok   ExtGState alpha values none
+r3-film-phaseGlobe-homework.pdf       ok   no /SMask
+r3-film-phaseGlobe-homework.pdf       ok   MediaBox 468.00 x 116.18 bp; target 469.75 pt = 468.00 bp
+r3-film-phaseGlobe-homework.pdf       ok   header %PDF-1.3
+r3-film-phaseGlobe-slides.pdf         ok   fonts: 0
+r3-film-phaseGlobe-slides.pdf         ok   images 5 ['image/rgb'], no smask
+r3-film-phaseGlobe-slides.pdf         ok   images not interpolated
+r3-film-phaseGlobe-slides.pdf         ok   ExtGState alpha values none
+r3-film-phaseGlobe-slides.pdf         ok   no /SMask
+r3-film-phaseGlobe-slides.pdf         ok   MediaBox 396.85 x 98.72 bp; target 398.34 pt = 396.85 bp
+r3-film-phaseGlobe-slides.pdf         ok   header %PDF-1.3
+r3-film-plane-article1.pdf            ok   fonts: 0
+r3-film-plane-article1.pdf            ok   images 4 ['image/index'], no smask
+r3-film-plane-article1.pdf            ok   images not interpolated
+r3-film-plane-article1.pdf            ok   ExtGState alpha values none
+r3-film-plane-article1.pdf            ok   no /SMask
+r3-film-plane-article1.pdf            ok   MediaBox 358.66 x 230.53 bp; target 360 pt = 358.66 bp
+r3-film-plane-article1.pdf            ok   header %PDF-1.3
+r3-film-plane-article2.pdf            ok   fonts: 0
+r3-film-plane-article2.pdf            ok   images 4 ['image/index'], no smask
+r3-film-plane-article2.pdf            ok   images not interpolated
+r3-film-plane-article2.pdf            ok   ExtGState alpha values none
+r3-film-plane-article2.pdf            ok   no /SMask
+r3-film-plane-article2.pdf            ok   MediaBox 245.08 x 173.75 bp; target 246 pt = 245.08 bp
+r3-film-plane-article2.pdf            ok   header %PDF-1.3
+r3-film-plane-homework.pdf            ok   fonts: 0
+r3-film-plane-homework.pdf            ok   images 4 ['image/index'], no smask
+r3-film-plane-homework.pdf            ok   images not interpolated
+r3-film-plane-homework.pdf            ok   ExtGState alpha values none
+r3-film-plane-homework.pdf            ok   no /SMask
+r3-film-plane-homework.pdf            ok   MediaBox 468.00 x 109.29 bp; target 469.75 pt = 468.00 bp
+r3-film-plane-homework.pdf            ok   header %PDF-1.3
+r3-film-plane-slides.pdf              ok   fonts: 0
+r3-film-plane-slides.pdf              ok   images 4 ['image/index'], no smask
+r3-film-plane-slides.pdf              ok   images not interpolated
+r3-film-plane-slides.pdf              ok   ExtGState alpha values none
+r3-film-plane-slides.pdf              ok   no /SMask
+r3-film-plane-slides.pdf              ok   MediaBox 396.85 x 117.43 bp; target 398.34 pt = 396.85 bp
+r3-film-plane-slides.pdf              ok   header %PDF-1.3
+r3-frame-globe-article1.pdf           ok   fonts: 0
+r3-frame-globe-article1.pdf           ok   images 1 ['image/rgb'], no smask
+r3-frame-globe-article1.pdf           ok   images not interpolated
+r3-frame-globe-article1.pdf           ok   ExtGState alpha values none
+r3-frame-globe-article1.pdf           ok   no /SMask
+r3-frame-globe-article1.pdf           ok   MediaBox 358.66 x 312.88 bp; target 360 pt = 358.66 bp
+r3-frame-globe-article1.pdf           ok   header %PDF-1.3
+r3-frame-land-article1.pdf            ok   fonts: 0
+r3-frame-land-article1.pdf            ok   images 1 ['image/rgb'], no smask
+r3-frame-land-article1.pdf            ok   images not interpolated
+r3-frame-land-article1.pdf            ok   ExtGState alpha values none
+r3-frame-land-article1.pdf            ok   no /SMask
+r3-frame-land-article1.pdf            ok   MediaBox 358.66 x 232.38 bp; target 360 pt = 358.66 bp
+r3-frame-land-article1.pdf            ok   header %PDF-1.3
+r3-frame-phase-article1.pdf           ok   fonts: 0
+r3-frame-phase-article1.pdf           ok   images 2 ['image/rgb'], no smask
+r3-frame-phase-article1.pdf           ok   images not interpolated
+r3-frame-phase-article1.pdf           ok   ExtGState alpha values none
+r3-frame-phase-article1.pdf           ok   no /SMask
+r3-frame-phase-article1.pdf           ok   MediaBox 358.66 x 263.75 bp; target 360 pt = 358.66 bp
+r3-frame-phase-article1.pdf           ok   header %PDF-1.3
+r3-frame-phaseGlobe-article1.pdf      ok   fonts: 0
+r3-frame-phaseGlobe-article1.pdf      ok   images 1 ['image/rgb'], no smask
+r3-frame-phaseGlobe-article1.pdf      ok   images not interpolated
+r3-frame-phaseGlobe-article1.pdf      ok   ExtGState alpha values none
+r3-frame-phaseGlobe-article1.pdf      ok   no /SMask
+r3-frame-phaseGlobe-article1.pdf      ok   MediaBox 358.66 x 312.88 bp; target 360 pt = 358.66 bp
+r3-frame-phaseGlobe-article1.pdf      ok   header %PDF-1.3
+r3-paths-globe-article1.pdf           ok   fonts: 0
+r3-paths-globe-article1.pdf           ok   images 1 ['image/rgb'], no smask
+r3-paths-globe-article1.pdf           ok   images not interpolated
+r3-paths-globe-article1.pdf           ok   ExtGState alpha values none
+r3-paths-globe-article1.pdf           ok   no /SMask
+r3-paths-globe-article1.pdf           ok   MediaBox 358.66 x 277.00 bp; target 360 pt = 358.66 bp
+r3-paths-globe-article1.pdf           ok   header %PDF-1.3
+r3-paths-globe-homework.pdf           ok   fonts: 0
+r3-paths-globe-homework.pdf           ok   images 1 ['image/rgb'], no smask
+r3-paths-globe-homework.pdf           ok   images not interpolated
+r3-paths-globe-homework.pdf           ok   ExtGState alpha values none
+r3-paths-globe-homework.pdf           ok   no /SMask
+r3-paths-globe-homework.pdf           ok   MediaBox 468.00 x 359.00 bp; target 469.75 pt = 468.00 bp
+r3-paths-globe-homework.pdf           ok   header %PDF-1.3
+r3-paths-plane-article1.pdf           ok   fonts: 0
+r3-paths-plane-article1.pdf           ok   images 1 ['image/index'], no smask
+r3-paths-plane-article1.pdf           ok   images not interpolated
+r3-paths-plane-article1.pdf           ok   ExtGState alpha values none
+r3-paths-plane-article1.pdf           ok   no /SMask
+r3-paths-plane-article1.pdf           ok   MediaBox 358.66 x 139.77 bp; target 360 pt = 358.66 bp
+r3-paths-plane-article1.pdf           ok   header %PDF-1.3
+r3-paths-plane-homework.pdf           ok   fonts: 0
+r3-paths-plane-homework.pdf           ok   images 1 ['image/index'], no smask
+r3-paths-plane-homework.pdf           ok   images not interpolated
+r3-paths-plane-homework.pdf           ok   ExtGState alpha values none
+r3-paths-plane-homework.pdf           ok   no /SMask
+r3-paths-plane-homework.pdf           ok   MediaBox 468.00 x 179.70 bp; target 469.75 pt = 468.00 bp
+r3-paths-plane-homework.pdf           ok   header %PDF-1.3
+r3-ru-film-phase-homework.pdf         ok   fonts: 0
+r3-ru-film-phase-homework.pdf         ok   images 5 ['image/rgb'], no smask
+r3-ru-film-phase-homework.pdf         ok   images not interpolated
+r3-ru-film-phase-homework.pdf         ok   ExtGState alpha values none
+r3-ru-film-phase-homework.pdf         ok   no /SMask
+r3-ru-film-phase-homework.pdf         ok   MediaBox 468.00 x 124.71 bp; target 469.75 pt = 468.00 bp
+r3-ru-film-phase-homework.pdf         ok   header %PDF-1.3
+r3-ru-film-plane-article1.pdf         ok   fonts: 0
+r3-ru-film-plane-article1.pdf         ok   images 4 ['image/index'], no smask
+r3-ru-film-plane-article1.pdf         ok   images not interpolated
+r3-ru-film-plane-article1.pdf         ok   ExtGState alpha values none
+r3-ru-film-plane-article1.pdf         ok   no /SMask
+r3-ru-film-plane-article1.pdf         ok   MediaBox 358.66 x 230.53 bp; target 360 pt = 358.66 bp
+r3-ru-film-plane-article1.pdf         ok   header %PDF-1.3
+r3-ru-film-plane-article2.pdf         ok   fonts: 0
+r3-ru-film-plane-article2.pdf         ok   images 4 ['image/index'], no smask
+r3-ru-film-plane-article2.pdf         ok   images not interpolated
+r3-ru-film-plane-article2.pdf         ok   ExtGState alpha values none
+r3-ru-film-plane-article2.pdf         ok   no /SMask
+r3-ru-film-plane-article2.pdf         ok   MediaBox 245.08 x 173.75 bp; target 246 pt = 245.08 bp
+r3-ru-film-plane-article2.pdf         ok   header %PDF-1.3
+r3-ru-film-plane-homework.pdf         ok   fonts: 0
+r3-ru-film-plane-homework.pdf         ok   images 4 ['image/index'], no smask
+r3-ru-film-plane-homework.pdf         ok   images not interpolated
+r3-ru-film-plane-homework.pdf         ok   ExtGState alpha values none
+r3-ru-film-plane-homework.pdf         ok   no /SMask
+r3-ru-film-plane-homework.pdf         ok   MediaBox 468.00 x 109.29 bp; target 469.75 pt = 468.00 bp
+r3-ru-film-plane-homework.pdf         ok   header %PDF-1.3
+r3-ru-film-plane-slides.pdf           ok   fonts: 0
+r3-ru-film-plane-slides.pdf           ok   images 4 ['image/index'], no smask
+r3-ru-film-plane-slides.pdf           ok   images not interpolated
+r3-ru-film-plane-slides.pdf           ok   ExtGState alpha values none
+r3-ru-film-plane-slides.pdf           ok   no /SMask
+r3-ru-film-plane-slides.pdf           ok   MediaBox 396.85 x 117.43 bp; target 398.34 pt = 396.85 bp
+r3-ru-film-plane-slides.pdf           ok   header %PDF-1.3
+r3-ru-xy-strip-article1.pdf           ok   fonts: 0
+r3-ru-xy-strip-article1.pdf           ok   images 2 ['image/index'], no smask
+r3-ru-xy-strip-article1.pdf           ok   images not interpolated
+r3-ru-xy-strip-article1.pdf           ok   ExtGState alpha values none
+r3-ru-xy-strip-article1.pdf           ok   no /SMask
+r3-ru-xy-strip-article1.pdf           ok   MediaBox 358.66 x 141.10 bp; target 360 pt = 358.66 bp
+r3-ru-xy-strip-article1.pdf           ok   header %PDF-1.3
+r3-ru-xy-strip-homework.pdf           ok   fonts: 0
+r3-ru-xy-strip-homework.pdf           ok   images 2 ['image/index'], no smask
+r3-ru-xy-strip-homework.pdf           ok   images not interpolated
+r3-ru-xy-strip-homework.pdf           ok   ExtGState alpha values none
+r3-ru-xy-strip-homework.pdf           ok   no /SMask
+r3-ru-xy-strip-homework.pdf           ok   MediaBox 468.00 x 166.91 bp; target 469.75 pt = 468.00 bp
+r3-ru-xy-strip-homework.pdf           ok   header %PDF-1.3
+u5-sheets-capped-article1.pdf         ok   fonts: 0
+u5-sheets-capped-article1.pdf         ok   images 1 ['image/rgb'], no smask
+u5-sheets-capped-article1.pdf         ok   images not interpolated
+u5-sheets-capped-article1.pdf         ok   ExtGState alpha values none
+u5-sheets-capped-article1.pdf         ok   no /SMask
+u5-sheets-capped-article1.pdf         ok   MediaBox 358.66 x 397.72 bp; target 360 pt = 358.66 bp
+u5-sheets-capped-article1.pdf         ok   header %PDF-1.3
+u5-sheets-log-article1.pdf            ok   fonts: 0
+u5-sheets-log-article1.pdf            ok   images 1 ['image/rgb'], no smask
+u5-sheets-log-article1.pdf            ok   images not interpolated
+u5-sheets-log-article1.pdf            ok   ExtGState alpha values none
+u5-sheets-log-article1.pdf            ok   no /SMask
+u5-sheets-log-article1.pdf            ok   MediaBox 358.66 x 390.52 bp; target 360 pt = 358.66 bp
+u5-sheets-log-article1.pdf            ok   header %PDF-1.3
+u5-sheets-log-homework.pdf            ok   fonts: 0
+u5-sheets-log-homework.pdf            ok   images 1 ['image/rgb'], no smask
+u5-sheets-log-homework.pdf            ok   images not interpolated
+u5-sheets-log-homework.pdf            ok   ExtGState alpha values none
+u5-sheets-log-homework.pdf            ok   no /SMask
+u5-sheets-log-homework.pdf            ok   MediaBox 468.00 x 499.95 bp; target 469.75 pt = 468.00 bp
+u5-sheets-log-homework.pdf            ok   header %PDF-1.3
+u5-sheets-logsqrt-article1.pdf        ok   fonts: 0
+u5-sheets-logsqrt-article1.pdf        ok   images 1 ['image/rgb'], no smask
+u5-sheets-logsqrt-article1.pdf        ok   images not interpolated
+u5-sheets-logsqrt-article1.pdf        ok   ExtGState alpha values none
+u5-sheets-logsqrt-article1.pdf        ok   no /SMask
+u5-sheets-logsqrt-article1.pdf        ok   MediaBox 358.66 x 365.80 bp; target 360 pt = 358.66 bp
+u5-sheets-logsqrt-article1.pdf        ok   header %PDF-1.3
+u5-sheets-ru-capped-article1.pdf      ok   fonts: 0
+u5-sheets-ru-capped-article1.pdf      ok   images 1 ['image/rgb'], no smask
+u5-sheets-ru-capped-article1.pdf      ok   images not interpolated
+u5-sheets-ru-capped-article1.pdf      ok   ExtGState alpha values none
+u5-sheets-ru-capped-article1.pdf      ok   no /SMask
+u5-sheets-ru-capped-article1.pdf      ok   MediaBox 358.66 x 397.72 bp; target 360 pt = 358.66 bp
+u5-sheets-ru-capped-article1.pdf      ok   header %PDF-1.3
+u5-sheets-ru-log-article1.pdf         ok   fonts: 0
+u5-sheets-ru-log-article1.pdf         ok   images 1 ['image/rgb'], no smask
+u5-sheets-ru-log-article1.pdf         ok   images not interpolated
+u5-sheets-ru-log-article1.pdf         ok   ExtGState alpha values none
+u5-sheets-ru-log-article1.pdf         ok   no /SMask
+u5-sheets-ru-log-article1.pdf         ok   MediaBox 358.66 x 390.52 bp; target 360 pt = 358.66 bp
+u5-sheets-ru-log-article1.pdf         ok   header %PDF-1.3
+u5-sheets-ru-log-homework.pdf         ok   fonts: 0
+u5-sheets-ru-log-homework.pdf         ok   images 1 ['image/rgb'], no smask
+u5-sheets-ru-log-homework.pdf         ok   images not interpolated
+u5-sheets-ru-log-homework.pdf         ok   ExtGState alpha values none
+u5-sheets-ru-log-homework.pdf         ok   no /SMask
+u5-sheets-ru-log-homework.pdf         ok   MediaBox 468.00 x 499.95 bp; target 469.75 pt = 468.00 bp
+u5-sheets-ru-log-homework.pdf         ok   header %PDF-1.3
+u5-sheets-ru-logsqrt-article1.pdf     ok   fonts: 0
+u5-sheets-ru-logsqrt-article1.pdf     ok   images 1 ['image/rgb'], no smask
+u5-sheets-ru-logsqrt-article1.pdf     ok   images not interpolated
+u5-sheets-ru-logsqrt-article1.pdf     ok   ExtGState alpha values none
+u5-sheets-ru-logsqrt-article1.pdf     ok   no /SMask
+u5-sheets-ru-logsqrt-article1.pdf     ok   MediaBox 358.66 x 365.80 bp; target 360 pt = 358.66 bp
+u5-sheets-ru-logsqrt-article1.pdf     ok   header %PDF-1.3
+xy-cayleycube-article1-bw.pdf         ok   fonts: 0
+xy-cayleycube-article1-bw.pdf         ok   images 2 ['image/gray'], no smask
+xy-cayleycube-article1-bw.pdf         ok   images not interpolated
+xy-cayleycube-article1-bw.pdf         ok   ExtGState alpha values none
+xy-cayleycube-article1-bw.pdf         ok   no /SMask
+xy-cayleycube-article1-bw.pdf         ok   MediaBox 358.66 x 158.67 bp; target 360 pt = 358.66 bp
+xy-cayleycube-article1-bw.pdf         ok   header %PDF-1.3
+xy-cayleycube-article1.pdf            ok   fonts: 0
+xy-cayleycube-article1.pdf            ok   images 2 ['image/index'], no smask
+xy-cayleycube-article1.pdf            ok   images not interpolated
+xy-cayleycube-article1.pdf            ok   ExtGState alpha values none
+xy-cayleycube-article1.pdf            ok   no /SMask
+xy-cayleycube-article1.pdf            ok   MediaBox 358.66 x 158.67 bp; target 360 pt = 358.66 bp
+xy-cayleycube-article1.pdf            ok   header %PDF-1.3
+xy-cayleycube-article2.pdf            ok   fonts: 0
+xy-cayleycube-article2.pdf            ok   images 2 ['image/index'], no smask
+xy-cayleycube-article2.pdf            ok   images not interpolated
+xy-cayleycube-article2.pdf            ok   ExtGState alpha values none
+xy-cayleycube-article2.pdf            ok   no /SMask
+xy-cayleycube-article2.pdf            ok   MediaBox 245.08 x 110.79 bp; target 246 pt = 245.08 bp
+xy-cayleycube-article2.pdf            ok   header %PDF-1.3
+xy-cayleycube-article2W.pdf           ok   fonts: 0
+xy-cayleycube-article2W.pdf           ok   images 2 ['image/index'], no smask
+xy-cayleycube-article2W.pdf           ok   images not interpolated
+xy-cayleycube-article2W.pdf           ok   ExtGState alpha values none
+xy-cayleycube-article2W.pdf           ok   no /SMask
+xy-cayleycube-article2W.pdf           ok   MediaBox 508.09 x 226.60 bp; target 510 pt = 508.09 bp
+xy-cayleycube-article2W.pdf           ok   header %PDF-1.3
+xy-cayleycube-homework-bw.pdf         ok   fonts: 0
+xy-cayleycube-homework-bw.pdf         ok   images 2 ['image/gray'], no smask
+xy-cayleycube-homework-bw.pdf         ok   images not interpolated
+xy-cayleycube-homework-bw.pdf         ok   ExtGState alpha values none
+xy-cayleycube-homework-bw.pdf         ok   no /SMask
+xy-cayleycube-homework-bw.pdf         ok   MediaBox 468.00 x 189.21 bp; target 469.75 pt = 468.00 bp
+xy-cayleycube-homework-bw.pdf         ok   header %PDF-1.3
+xy-cayleycube-homework.pdf            ok   fonts: 0
+xy-cayleycube-homework.pdf            ok   images 2 ['image/index'], no smask
+xy-cayleycube-homework.pdf            ok   images not interpolated
+xy-cayleycube-homework.pdf            ok   ExtGState alpha values none
+xy-cayleycube-homework.pdf            ok   no /SMask
+xy-cayleycube-homework.pdf            ok   MediaBox 468.00 x 189.21 bp; target 469.75 pt = 468.00 bp
+xy-cayleycube-homework.pdf            ok   header %PDF-1.3
+xy-cayleycube-slides.pdf              ok   fonts: 0
+xy-cayleycube-slides.pdf              ok   images 2 ['image/index'], no smask
+xy-cayleycube-slides.pdf              ok   images not interpolated
+xy-cayleycube-slides.pdf              ok   ExtGState alpha values none
+xy-cayleycube-slides.pdf              ok   no /SMask
+xy-cayleycube-slides.pdf              ok   MediaBox 396.85 x 156.82 bp; target 398.34 pt = 396.85 bp
+xy-cayleycube-slides.pdf              ok   header %PDF-1.3
+xy-quarter-article1-bw.pdf            ok   fonts: 0
+xy-quarter-article1-bw.pdf            ok   images 2 ['image/gray'], no smask
+xy-quarter-article1-bw.pdf            ok   images not interpolated
+xy-quarter-article1-bw.pdf            ok   ExtGState alpha values none
+xy-quarter-article1-bw.pdf            ok   no /SMask
+xy-quarter-article1-bw.pdf            ok   MediaBox 358.66 x 160.36 bp; target 360 pt = 358.66 bp
+xy-quarter-article1-bw.pdf            ok   header %PDF-1.3
+xy-quarter-article1.pdf               ok   fonts: 0
+xy-quarter-article1.pdf               ok   images 2 ['image/index'], no smask
+xy-quarter-article1.pdf               ok   images not interpolated
+xy-quarter-article1.pdf               ok   ExtGState alpha values none
+xy-quarter-article1.pdf               ok   no /SMask
+xy-quarter-article1.pdf               ok   MediaBox 358.66 x 160.36 bp; target 360 pt = 358.66 bp
+xy-quarter-article1.pdf               ok   header %PDF-1.3
+xy-quarter-article2.pdf               ok   fonts: 0
+xy-quarter-article2.pdf               ok   images 2 ['image/index'], no smask
+xy-quarter-article2.pdf               ok   images not interpolated
+xy-quarter-article2.pdf               ok   ExtGState alpha values none
+xy-quarter-article2.pdf               ok   no /SMask
+xy-quarter-article2.pdf               ok   MediaBox 245.08 x 110.25 bp; target 246 pt = 245.08 bp
+xy-quarter-article2.pdf               ok   header %PDF-1.3
+xy-quarter-article2W.pdf              ok   fonts: 0
+xy-quarter-article2W.pdf              ok   images 2 ['image/index'], no smask
+xy-quarter-article2W.pdf              ok   images not interpolated
+xy-quarter-article2W.pdf              ok   ExtGState alpha values none
+xy-quarter-article2W.pdf              ok   no /SMask
+xy-quarter-article2W.pdf              ok   MediaBox 508.09 x 205.01 bp; target 510 pt = 508.09 bp
+xy-quarter-article2W.pdf              ok   header %PDF-1.3
+xy-quarter-homework-bw.pdf            ok   fonts: 0
+xy-quarter-homework-bw.pdf            ok   images 2 ['image/gray'], no smask
+xy-quarter-homework-bw.pdf            ok   images not interpolated
+xy-quarter-homework-bw.pdf            ok   ExtGState alpha values none
+xy-quarter-homework-bw.pdf            ok   no /SMask
+xy-quarter-homework-bw.pdf            ok   MediaBox 468.00 x 161.60 bp; target 469.75 pt = 468.00 bp
+xy-quarter-homework-bw.pdf            ok   header %PDF-1.3
+xy-quarter-homework.pdf               ok   fonts: 0
+xy-quarter-homework.pdf               ok   images 2 ['image/index'], no smask
+xy-quarter-homework.pdf               ok   images not interpolated
+xy-quarter-homework.pdf               ok   ExtGState alpha values none
+xy-quarter-homework.pdf               ok   no /SMask
+xy-quarter-homework.pdf               ok   MediaBox 468.00 x 161.60 bp; target 469.75 pt = 468.00 bp
+xy-quarter-homework.pdf               ok   header %PDF-1.3
+xy-quarter-slides.pdf                 ok   fonts: 0
+xy-quarter-slides.pdf                 ok   images 2 ['image/index'], no smask
+xy-quarter-slides.pdf                 ok   images not interpolated
+xy-quarter-slides.pdf                 ok   ExtGState alpha values none
+xy-quarter-slides.pdf                 ok   no /SMask
+xy-quarter-slides.pdf                 ok   MediaBox 396.85 x 133.04 bp; target 398.34 pt = 396.85 bp
+xy-quarter-slides.pdf                 ok   header %PDF-1.3
+xy-strip-article1-bw.pdf              ok   fonts: 0
+xy-strip-article1-bw.pdf              ok   images 2 ['image/gray'], no smask
+xy-strip-article1-bw.pdf              ok   images not interpolated
+xy-strip-article1-bw.pdf              ok   ExtGState alpha values none
+xy-strip-article1-bw.pdf              ok   no /SMask
+xy-strip-article1-bw.pdf              ok   MediaBox 358.66 x 155.73 bp; target 360 pt = 358.66 bp
+xy-strip-article1-bw.pdf              ok   header %PDF-1.3
+xy-strip-article1.pdf                 ok   fonts: 0
+xy-strip-article1.pdf                 ok   images 2 ['image/index'], no smask
+xy-strip-article1.pdf                 ok   images not interpolated
+xy-strip-article1.pdf                 ok   ExtGState alpha values none
+xy-strip-article1.pdf                 ok   no /SMask
+xy-strip-article1.pdf                 ok   MediaBox 358.66 x 155.73 bp; target 360 pt = 358.66 bp
+xy-strip-article1.pdf                 ok   header %PDF-1.3
+xy-strip-article2.pdf                 ok   fonts: 0
+xy-strip-article2.pdf                 ok   images 2 ['image/index'], no smask
+xy-strip-article2.pdf                 ok   images not interpolated
+xy-strip-article2.pdf                 ok   ExtGState alpha values none
+xy-strip-article2.pdf                 ok   no /SMask
+xy-strip-article2.pdf                 ok   MediaBox 245.08 x 119.27 bp; target 246 pt = 245.08 bp
+xy-strip-article2.pdf                 ok   header %PDF-1.3
+xy-strip-article2W.pdf                ok   fonts: 0
+xy-strip-article2W.pdf                ok   images 2 ['image/index'], no smask
+xy-strip-article2W.pdf                ok   images not interpolated
+xy-strip-article2W.pdf                ok   ExtGState alpha values none
+xy-strip-article2W.pdf                ok   no /SMask
+xy-strip-article2W.pdf                ok   MediaBox 508.09 x 222.14 bp; target 510 pt = 508.09 bp
+xy-strip-article2W.pdf                ok   header %PDF-1.3
+xy-strip-homework-bw.pdf              ok   fonts: 0
+xy-strip-homework-bw.pdf              ok   images 2 ['image/gray'], no smask
+xy-strip-homework-bw.pdf              ok   images not interpolated
+xy-strip-homework-bw.pdf              ok   ExtGState alpha values none
+xy-strip-homework-bw.pdf              ok   no /SMask
+xy-strip-homework-bw.pdf              ok   MediaBox 468.00 x 166.91 bp; target 469.75 pt = 468.00 bp
+xy-strip-homework-bw.pdf              ok   header %PDF-1.3
+xy-strip-homework.pdf                 ok   fonts: 0
+xy-strip-homework.pdf                 ok   images 2 ['image/index'], no smask
+xy-strip-homework.pdf                 ok   images not interpolated
+xy-strip-homework.pdf                 ok   ExtGState alpha values none
+xy-strip-homework.pdf                 ok   no /SMask
+xy-strip-homework.pdf                 ok   MediaBox 468.00 x 166.91 bp; target 469.75 pt = 468.00 bp
+xy-strip-homework.pdf                 ok   header %PDF-1.3
+xy-strip-slides.pdf                   ok   fonts: 0
+xy-strip-slides.pdf                   ok   images 2 ['image/index'], no smask
+xy-strip-slides.pdf                   ok   images not interpolated
+xy-strip-slides.pdf                   ok   ExtGState alpha values none
+xy-strip-slides.pdf                   ok   no /SMask
+xy-strip-slides.pdf                   ok   MediaBox 396.85 x 135.12 bp; target 398.34 pt = 396.85 bp
+xy-strip-slides.pdf                   ok   header %PDF-1.3
+film-strip-article1.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+film-strip-article2.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+film-strip-article2W.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+film-strip-homework.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+film-strip-slides.png                 ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+land-strip-article1-bw.png            ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+land-strip-article1.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+land-strip-article2.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+land-strip-article2W.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+land-strip-homework.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+land-strip-slides.png                 ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-article1-bw.png           ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-article1.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-article2-bw.png           ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-article2.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-article2W.png             ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-homework.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+phase-strip-slides.png                ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+pv-dpr2-compressed-frame.png          FAIL colour type 6 (RGBA), no dpi, chunks IHDR,IEND
+pv-globe-bounce-frame.png             FAIL colour type 6 (RGBA), no dpi, chunks IHDR,IEND
+pv-loop-fade-frame.png                FAIL colour type 6 (RGBA), no dpi, chunks IHDR,IEND
+pv-once-frame.png                     FAIL colour type 6 (RGBA), no dpi, chunks IHDR,IEND
+r3-film-globe-article1.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-article2.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-homework.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-png-article1.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-png-article2.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-png-homework.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-png-slides.png          ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-globe-slides.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-article1.png             ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-article2.png             ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-homework.png             ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-png-article1.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-png-article2.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-png-homework.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-png-slides.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-land-slides.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-article1-bw.png         ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-article1.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-article2.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-homework.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-png-article1-bw.png     ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-png-article1.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-png-article2.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-png-homework.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-png-slides.png          ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phase-slides.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-article1.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-article2.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-homework.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-png-article1.png   ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-png-article2.png   ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-png-homework.png   ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-png-slides.png     ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-phaseGlobe-slides.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-article1.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-article2.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-homework.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-png-article1.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-png-article2.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-png-homework.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-png-slides.png          ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-film-plane-slides.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-globe-article1.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-globe-png-article1.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-land-article1.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-land-png-article1.png        ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-phase-article1.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-phase-png-article1.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-phaseGlobe-article1.png      ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-frame-phaseGlobe-png-article1.png  ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-globe-article1.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-globe-homework.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-globe-png-article1.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-globe-png-homework.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-plane-article1.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-plane-homework.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-plane-png-article1.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-paths-plane-png-homework.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-phase-homework.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-phase-png-homework.png     ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-article1.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-article2.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-homework.png         ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-png-article1.png     ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-png-article2.png     ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-png-homework.png     ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-png-slides.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-film-plane-slides.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-xy-strip-article1.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-xy-strip-homework.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-xy-strip-png-article1.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+r3-ru-xy-strip-png-homework.png       ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-cayleycube-article1.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-cayleycube-article2.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-cayleycube-article2W.png           ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-cayleycube-homework.png            ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-cayleycube-slides.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-quarter-article1.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-quarter-article2.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-quarter-article2W.png              ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-quarter-homework.png               ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-quarter-slides.png                 ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-article1-bw.png              ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-article1.png                 ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-article2.png                 ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-article2W.png                ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-homework-bw.png              ok   colour type 0 (grey), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-homework.png                 ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+xy-strip-slides.png                   ok   colour type 2 (RGB), 300 dpi, chunks IHDR,pHYs,iTXt,IEND
+film-strip-article1.svg               ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 220 KB
+film-strip-article2.svg               ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 199 KB
+film-strip-article2W.svg              ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 210 KB
+film-strip-homework.svg               ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 209 KB
+film-strip-slides.svg                 ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 286 KB
+land-strip-article1-bw.svg            ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 148 KB
+land-strip-article1.svg               ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 373 KB
+land-strip-article2.svg               ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 204 KB
+land-strip-article2W.svg              ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 630 KB
+land-strip-homework.svg               ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 548 KB
+land-strip-slides.svg                 ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 430 KB
+paths-strip-article1.svg              ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 82 KB
+paths-strip-article1.svg paths        ok   path weight ['0.5'] pt, 2 start rings, 2 end dots, 0 transparent layers
+paths-strip-article2.svg              ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 64 KB
+paths-strip-article2W.svg             ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 96 KB
+paths-strip-article2W.svg paths       ok   path weight ['0.5'] pt, 2 start rings, 2 end dots, 0 transparent layers
+paths-strip-homework.svg              ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 92 KB
+paths-strip-homework.svg paths        ok   path weight ['0.5'] pt, 2 start rings, 2 end dots, 0 transparent layers
+paths-strip-slides.svg                ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 87 KB
+paths-strip-slides.svg paths          ok   path weight ['0.5'] pt, 2 start rings, 2 end dots, 0 transparent layers
+phase-strip-article1-bw.svg           ok   8 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 52 KB
+phase-strip-article1.svg              ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 573 KB
+phase-strip-article2-bw.svg           ok   8 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 46 KB
+phase-strip-article2.svg              ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 315 KB
+phase-strip-article2W.svg             ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 1061 KB
+phase-strip-homework.svg              ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 905 KB
+phase-strip-slides.svg                ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 365 KB
+r3-film-globe-article1.svg            ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 987 KB
+r3-film-globe-article2.svg            ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 583 KB
+r3-film-globe-homework.svg            ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 679 KB
+r3-film-globe-slides.svg              ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 432 KB
+r3-film-land-article1.svg             ok   25 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 433 KB
+r3-film-land-article2.svg             ok   25 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 257 KB
+r3-film-land-homework.svg             ok   23 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 232 KB
+r3-film-land-slides.svg               ok   20 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 182 KB
+r3-film-phase-article1-bw.svg         ok   20 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 116 KB
+r3-film-phase-article1.svg            ok   27 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 759 KB
+r3-film-phase-article2.svg            ok   27 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 472 KB
+r3-film-phase-homework.svg            ok   27 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 627 KB
+r3-film-phase-slides.svg              ok   27 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 493 KB
+r3-film-phaseGlobe-article1.svg       ok   22 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 891 KB
+r3-film-phaseGlobe-article2.svg       ok   22 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 483 KB
+r3-film-phaseGlobe-homework.svg       ok   22 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 481 KB
+r3-film-phaseGlobe-slides.svg         ok   22 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 364 KB
+r3-film-plane-article1.svg            ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 220 KB
+r3-film-plane-article2.svg            ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 199 KB
+r3-film-plane-homework.svg            ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 209 KB
+r3-film-plane-slides.svg              ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 288 KB
+r3-frame-globe-article1.svg           ok   3 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 297 KB
+r3-frame-land-article1.svg            ok   12 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 243 KB
+r3-frame-phase-article1.svg           ok   18 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 752 KB
+r3-frame-phaseGlobe-article1.svg      ok   3 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 333 KB
+r3-paths-globe-article1.svg           ok   3 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 480 KB
+r3-paths-globe-article1.svg paths     ok   path weight ['0.5'] pt, 3 start rings, 3 end dots, 0 transparent layers
+r3-paths-globe-homework.svg           ok   3 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 706 KB
+r3-paths-globe-homework.svg paths     ok   path weight ['0.5'] pt, 3 start rings, 3 end dots, 0 transparent layers
+r3-paths-plane-article1.svg           ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 82 KB
+r3-paths-plane-article1.svg paths     ok   path weight ['0.5'] pt, 2 start rings, 2 end dots, 0 transparent layers
+r3-paths-plane-homework.svg           ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 92 KB
+r3-paths-plane-homework.svg paths     ok   path weight ['0.5'] pt, 2 start rings, 2 end dots, 0 transparent layers
+r3-ru-film-phase-homework.svg         ok   26 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 633 KB
+r3-ru-film-plane-article1.svg         ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 219 KB
+r3-ru-film-plane-article2.svg         ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 198 KB
+r3-ru-film-plane-homework.svg         ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 208 KB
+r3-ru-film-plane-slides.svg           ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 287 KB
+r3-ru-xy-strip-article1.svg           ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 95 KB
+r3-ru-xy-strip-homework.svg           ok   20 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 120 KB
+xy-cayleycube-article1.svg            ok   18 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 199 KB
+xy-cayleycube-article2.svg            ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 165 KB
+xy-cayleycube-article2W.svg           ok   18 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 251 KB
+xy-cayleycube-homework.svg            ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 279 KB
+xy-cayleycube-slides.svg              ok   14 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 282 KB
+xy-quarter-article1.svg               ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 199 KB
+xy-quarter-article2.svg               ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 182 KB
+xy-quarter-article2W.svg              ok   17 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 236 KB
+xy-quarter-homework.svg               ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 305 KB
+xy-quarter-slides.svg                 ok   13 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 291 KB
+xy-strip-article1-bw.svg              ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 108 KB
+xy-strip-article1.svg                 ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 105 KB
+xy-strip-article2.svg                 ok   14 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 79 KB
+xy-strip-article2W.svg                ok   16 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 136 KB
+xy-strip-homework-bw.svg              ok   20 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 119 KB
+xy-strip-homework.svg                 ok   20 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 119 KB
+xy-strip-slides.svg                   ok   19 ids, 0 duplicates, 0 nested <svg>, 0 dangling refs, 146 KB
+film-strip-article1                   ok   26 typeset boxes, collisions: none
+film-strip-article2                   ok   26 typeset boxes, collisions: none
+film-strip-article2W                  ok   21 typeset boxes, collisions: none
+film-strip-homework                   ok   21 typeset boxes, collisions: none
+film-strip-slides                     ok   19 typeset boxes, collisions: none
+land-strip-article1                   ok   12 typeset boxes, collisions: none
+land-strip-article1-bw                ok   12 typeset boxes, collisions: none
+land-strip-article2                   ok   12 typeset boxes, collisions: none
+land-strip-article2W                  ok   12 typeset boxes, collisions: none
+land-strip-homework                   ok   12 typeset boxes, collisions: none
+land-strip-slides                     ok   12 typeset boxes, collisions: none
+paths-strip-article1                  ok   12 typeset boxes, collisions: none
+paths-strip-article2                  ok   12 typeset boxes, collisions: none
+paths-strip-article2W                 ok   12 typeset boxes, collisions: none
+paths-strip-homework                  ok   12 typeset boxes, collisions: none
+paths-strip-slides                    ok   12 typeset boxes, collisions: none
+phase-strip-article1                  ok   20 typeset boxes, collisions: none
+phase-strip-article1-bw               ok   15 typeset boxes, collisions: none
+phase-strip-article2                  ok   20 typeset boxes, collisions: none
+phase-strip-article2-bw               ok   15 typeset boxes, collisions: none
+phase-strip-article2W                 ok   20 typeset boxes, collisions: none
+phase-strip-homework                  ok   20 typeset boxes, collisions: none
+phase-strip-slides                    ok   20 typeset boxes, collisions: none
+r3-film-globe-article1                ok   12 typeset boxes, collisions: none
+r3-film-globe-article2                ok   12 typeset boxes, collisions: none
+r3-film-globe-homework                ok   12 typeset boxes, collisions: none
+r3-film-globe-slides                  ok   14 typeset boxes, collisions: none
+r3-film-land-article1                 ok   36 typeset boxes, collisions: none
+r3-film-land-article2                 ok   36 typeset boxes, collisions: none
+r3-film-land-homework                 ok   32 typeset boxes, collisions: none
+r3-film-land-slides                   ok   28 typeset boxes, collisions: none
+r3-film-phase-article1                ok   25 typeset boxes, collisions: none
+r3-film-phase-article1-bw             ok   22 typeset boxes, collisions: none
+r3-film-phase-article2                ok   25 typeset boxes, collisions: none
+r3-film-phase-homework                ok   22 typeset boxes, collisions: none
+r3-film-phase-slides                  ok   22 typeset boxes, collisions: none
+r3-film-phaseGlobe-article1           ok   11 typeset boxes, collisions: none
+r3-film-phaseGlobe-article2           ok   11 typeset boxes, collisions: none
+r3-film-phaseGlobe-homework           ok   11 typeset boxes, collisions: none
+r3-film-phaseGlobe-slides             ok   11 typeset boxes, collisions: none
+r3-film-plane-article1                ok   26 typeset boxes, collisions: none
+r3-film-plane-article2                ok   26 typeset boxes, collisions: none
+r3-film-plane-homework                ok   21 typeset boxes, collisions: none
+r3-film-plane-slides                  ok   19 typeset boxes, collisions: none
+r3-frame-globe-article1               ok   2 typeset boxes, collisions: none
+r3-frame-land-article1                ok   12 typeset boxes, collisions: none
+r3-frame-phase-article1               ok   20 typeset boxes, collisions: none
+r3-frame-phaseGlobe-article1          ok   2 typeset boxes, collisions: none
+r3-paths-globe-article1               ok   2 typeset boxes, collisions: none
+r3-paths-globe-homework               ok   2 typeset boxes, collisions: none
+r3-paths-plane-article1               ok   12 typeset boxes, collisions: none
+r3-paths-plane-homework               ok   12 typeset boxes, collisions: none
+r3-ru-film-phase-homework             ok   22 typeset boxes, collisions: none
+r3-ru-film-plane-article1             ok   26 typeset boxes, collisions: none
+r3-ru-film-plane-article2             ok   26 typeset boxes, collisions: none
+r3-ru-film-plane-homework             ok   21 typeset boxes, collisions: none
+r3-ru-film-plane-slides               ok   19 typeset boxes, collisions: none
+r3-ru-xy-strip-article1               ok   27 typeset boxes, collisions: none
+r3-ru-xy-strip-homework               ok   21 typeset boxes, collisions: none
+u5-sheets-capped-article1             ok   10 typeset boxes, collisions: none
+u5-sheets-log-article1                ok   10 typeset boxes, collisions: none
+u5-sheets-log-homework                ok   10 typeset boxes, collisions: none
+u5-sheets-logsqrt-article1            ok   10 typeset boxes, collisions: none
+u5-sheets-ru-capped-article1          ok   10 typeset boxes, collisions: none
+u5-sheets-ru-log-article1             ok   10 typeset boxes, collisions: none
+u5-sheets-ru-log-homework             ok   10 typeset boxes, collisions: none
+u5-sheets-ru-logsqrt-article1         ok   10 typeset boxes, collisions: none
+xy-cayleycube-article1                ok   24 typeset boxes, collisions: none
+xy-cayleycube-article1-bw             ok   24 typeset boxes, collisions: none
+xy-cayleycube-article2                ok   20 typeset boxes, collisions: none
+xy-cayleycube-article2W               ok   27 typeset boxes, collisions: none
+xy-cayleycube-homework                ok   20 typeset boxes, collisions: none
+xy-cayleycube-homework-bw             ok   20 typeset boxes, collisions: none
+xy-cayleycube-slides                  ok   12 typeset boxes, collisions: none
+xy-quarter-article1                   ok   23 typeset boxes, collisions: none
+xy-quarter-article1-bw                ok   23 typeset boxes, collisions: none
+xy-quarter-article2                   ok   23 typeset boxes, collisions: none
+xy-quarter-article2W                  ok   30 typeset boxes, collisions: none
+xy-quarter-homework                   ok   22 typeset boxes, collisions: none
+xy-quarter-homework-bw                ok   22 typeset boxes, collisions: none
+xy-quarter-slides                     ok   9 typeset boxes, collisions: none
+xy-strip-article1                     ok   27 typeset boxes, collisions: none
+xy-strip-article1-bw                  ok   27 typeset boxes, collisions: none
+xy-strip-article2                     ok   22 typeset boxes, collisions: none
+xy-strip-article2W                    ok   27 typeset boxes, collisions: none
+xy-strip-homework                     ok   21 typeset boxes, collisions: none
+xy-strip-homework-bw                  ok   21 typeset boxes, collisions: none
+xy-strip-slides                       ok   15 typeset boxes, collisions: none
+film-strip-article1.tex               ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+film-strip-article2.tex               ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+film-strip-article2W.tex              ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+film-strip-homework.tex               ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+land-strip-article1-bw.tex            ok   display F guarded: True; short caption: Landscape of $F$....
+land-strip-article1.tex               ok   display F guarded: True; short caption: Landscape of $F$....
+land-strip-article2.tex               ok   display F guarded: True; short caption: Landscape of $F$....
+land-strip-article2W.tex              ok   display F guarded: True; short caption: Landscape of $F$....
+land-strip-homework.tex               ok   display F guarded: True; short caption: Landscape of $F$....
+paths-strip-article1.tex              ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+paths-strip-article2.tex              ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+paths-strip-article2W.tex             ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+paths-strip-homework.tex              ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+phase-strip-article1-bw.tex           ok   display F guarded: True; short caption: Phase portrait of $F$....
+phase-strip-article1.tex              ok   display F guarded: True; short caption: Phase portrait of $F$....
+phase-strip-article2-bw.tex           ok   display F guarded: True; short caption: Phase portrait of $F$....
+phase-strip-article2.tex              ok   display F guarded: True; short caption: Phase portrait of $F$....
+phase-strip-article2W.tex             ok   display F guarded: True; short caption: Phase portrait of $F$....
+phase-strip-homework.tex              ok   display F guarded: True; short caption: Phase portrait of $F$....
+r3-film-globe-article1.tex            ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=0,\,2/3,\,...
+r3-film-globe-article2.tex            ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=0,\,2/3,\,...
+r3-film-globe-homework.tex            ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=0,\,2/3,\,...
+r3-film-globe-png-article1.tex        ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=0,\,2/3,\,...
+r3-film-globe-png-article2.tex        ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=0,\,2/3,\,...
+r3-film-globe-png-homework.tex        ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=0,\,2/3,\,...
+r3-film-land-article1.tex             ok   display F guarded: True; short caption: Landscapes of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-land-article2.tex             ok   display F guarded: True; short caption: Landscapes of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-land-homework.tex             ok   display F guarded: True; short caption: Landscapes of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-land-png-article1.tex         ok   display F guarded: True; short caption: Landscapes of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-land-png-article2.tex         ok   display F guarded: True; short caption: Landscapes of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-land-png-homework.tex         ok   display F guarded: True; short caption: Landscapes of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-article1-bw.tex         ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-article1.tex            ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-article2.tex            ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-homework.tex            ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-png-article1-bw.tex     ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-png-article1.tex        ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-png-article2.tex        ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phase-png-homework.tex        ok   display F guarded: True; short caption: Phase portraits of $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-phaseGlobe-article1.tex       ok   display F guarded: True; short caption: Phase portraits of $H_t$ on the Riemann sphere at $t=0,\,2/3...
+r3-film-phaseGlobe-article2.tex       ok   display F guarded: True; short caption: Phase portraits of $H_t$ on the Riemann sphere at $t=0,\,2/3...
+r3-film-phaseGlobe-homework.tex       ok   display F guarded: True; short caption: Phase portraits of $H_t$ on the Riemann sphere at $t=0,\,2/3...
+r3-film-phaseGlobe-png-article1.tex   ok   display F guarded: True; short caption: Phase portraits of $H_t$ on the Riemann sphere at $t=0,\,2/3...
+r3-film-phaseGlobe-png-article2.tex   ok   display F guarded: True; short caption: Phase portraits of $H_t$ on the Riemann sphere at $t=0,\,2/3...
+r3-film-phaseGlobe-png-homework.tex   ok   display F guarded: True; short caption: Phase portraits of $H_t$ on the Riemann sphere at $t=0,\,2/3...
+r3-film-plane-article1.tex            ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-plane-article2.tex            ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-plane-homework.tex            ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-plane-png-article1.tex        ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-plane-png-article2.tex        ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-film-plane-png-homework.tex        ok   display F guarded: True; short caption: The deformation $H_t$ at $t=0,\,2/3,\,4/3,\,2$....
+r3-frame-globe-article1.tex           ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=1.20$....
+r3-frame-globe-png-article1.tex       ok   display F guarded: True; short caption: The deformation $H_t$ on the Riemann sphere at $t=1.20$....
+r3-frame-land-article1.tex            ok   display F guarded: True; short caption: Landscape of $H_t$ at $t=1.20$....
+r3-frame-land-png-article1.tex        ok   display F guarded: True; short caption: Landscape of $H_t$ at $t=1.20$....
+r3-frame-phase-article1.tex           ok   display F guarded: True; short caption: Phase portrait of $H_t$ at $t=1.20$....
+r3-frame-phase-png-article1.tex       ok   display F guarded: True; short caption: Phase portrait of $H_t$ at $t=1.20$....
+r3-frame-phaseGlobe-article1.tex      ok   display F guarded: True; short caption: Phase portrait of $H_t$ on the Riemann sphere at $t=1.20$....
+r3-frame-phaseGlobe-png-article1.tex  ok   display F guarded: True; short caption: Phase portrait of $H_t$ on the Riemann sphere at $t=1.20$....
+r3-paths-globe-article1.tex           ok   display F guarded: True; short caption: Paths of the deformation $H_t$ on the Riemann sphere....
+r3-paths-globe-homework.tex           ok   display F guarded: True; short caption: Paths of the deformation $H_t$ on the Riemann sphere....
+r3-paths-globe-png-article1.tex       ok   display F guarded: True; short caption: Paths of the deformation $H_t$ on the Riemann sphere....
+r3-paths-globe-png-homework.tex       ok   display F guarded: True; short caption: Paths of the deformation $H_t$ on the Riemann sphere....
+r3-paths-plane-article1.tex           ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+r3-paths-plane-homework.tex           ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+r3-paths-plane-png-article1.tex       ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+r3-paths-plane-png-homework.tex       ok   display F guarded: True; short caption: Paths of the deformation $H_t$....
+r3-ru-film-phase-homework.tex         ok   display F guarded: True; short caption: \foreignlanguage{russian}{Фазовые портреты $H_t$ при $t=0,\,...
+r3-ru-film-phase-png-homework.tex     ok   display F guarded: True; short caption: \foreignlanguage{russian}{Фазовые портреты $H_t$ при $t=0,\,...
+r3-ru-film-plane-article1.tex         ok   display F guarded: True; short caption: \foreignlanguage{russian}{Деформация $H_t$ при $t=0,\,2/3,\,...
+r3-ru-film-plane-article2.tex         ok   display F guarded: True; short caption: \foreignlanguage{russian}{Деформация $H_t$ при $t=0,\,2/3,\,...
+r3-ru-film-plane-homework.tex         ok   display F guarded: True; short caption: \foreignlanguage{russian}{Деформация $H_t$ при $t=0,\,2/3,\,...
+r3-ru-film-plane-png-article1.tex     ok   display F guarded: True; short caption: \foreignlanguage{russian}{Деформация $H_t$ при $t=0,\,2/3,\,...
+r3-ru-film-plane-png-article2.tex     ok   display F guarded: True; short caption: \foreignlanguage{russian}{Деформация $H_t$ при $t=0,\,2/3,\,...
+r3-ru-film-plane-png-homework.tex     ok   display F guarded: True; short caption: \foreignlanguage{russian}{Деформация $H_t$ при $t=0,\,2/3,\,...
+r3-ru-xy-strip-article1.tex           ok   display F guarded: True; short caption: \foreignlanguage{russian}{Образ при отображении $F$.}...
+r3-ru-xy-strip-homework.tex           ok   display F guarded: True; short caption: \foreignlanguage{russian}{Образ при отображении $F$.}...
+r3-ru-xy-strip-png-article1.tex       ok   display F guarded: True; short caption: \foreignlanguage{russian}{Образ при отображении $F$.}...
+r3-ru-xy-strip-png-homework.tex       ok   display F guarded: True; short caption: \foreignlanguage{russian}{Образ при отображении $F$.}...
+u5-sheets-capped-article1.tex         ok   display F guarded: True; short caption: Landscape of $F$....
+u5-sheets-log-article1.tex            ok   display F guarded: True; short caption: Landscape of $F$....
+u5-sheets-log-homework.tex            ok   display F guarded: True; short caption: Landscape of $F$....
+u5-sheets-logsqrt-article1.tex        ok   display F guarded: True; short caption: Landscape of $F$....
+u5-sheets-ru-capped-article1.tex      ok   display F guarded: True; short caption: \foreignlanguage{russian}{Рельеф функции $F$.}...
+u5-sheets-ru-log-article1.tex         ok   display F guarded: True; short caption: \foreignlanguage{russian}{Рельеф функции $F$.}...
+u5-sheets-ru-log-homework.tex         ok   display F guarded: True; short caption: \foreignlanguage{russian}{Рельеф функции $F$.}...
+u5-sheets-ru-logsqrt-article1.tex     ok   display F guarded: True; short caption: \foreignlanguage{russian}{Рельеф функции $F$.}...
+xy-cayleycube-article1-bw.tex         ok   display F guarded: True; short caption: The image under $F$....
+xy-cayleycube-article1.tex            ok   display F guarded: True; short caption: The image under $F$....
+xy-cayleycube-article2.tex            ok   display F guarded: True; short caption: The image under $F$....
+xy-cayleycube-article2W.tex           ok   display F guarded: True; short caption: The image under $F$....
+xy-cayleycube-homework-bw.tex         ok   display F guarded: True; short caption: The image under $F$....
+xy-cayleycube-homework.tex            ok   display F guarded: True; short caption: The image under $F$....
+xy-quarter-article1-bw.tex            ok   display F guarded: True; short caption: The image under $F$....
+xy-quarter-article1.tex               ok   display F guarded: True; short caption: The image under $F$....
+xy-quarter-article2.tex               ok   display F guarded: True; short caption: The image under $F$....
+xy-quarter-article2W.tex              ok   display F guarded: True; short caption: The image under $F$....
+xy-quarter-homework-bw.tex            ok   display F guarded: True; short caption: The image under $F$....
+xy-quarter-homework.tex               ok   display F guarded: True; short caption: The image under $F$....
+xy-strip-article1-bw.tex              ok   display F guarded: True; short caption: The image under $F$....
+xy-strip-article1.tex                 ok   display F guarded: True; short caption: The image under $F$....
+xy-strip-article2.tex                 ok   display F guarded: True; short caption: The image under $F$....
+xy-strip-article2W.tex                ok   display F guarded: True; short caption: The image under $F$....
+xy-strip-homework-bw.tex              ok   display F guarded: True; short caption: The image under $F$....
+xy-strip-homework.tex                 ok   display F guarded: True; short caption: The image under $F$....
+video-globe.mp4                       ok   avc1.640020 (profile 100, level 3.2), 1080x1080, 211 frames at 30 fps = 7.033 s, 4 key frames, mdat 1907 KB
+video-globe.mp4                       ok   QuickLook (AVFoundation) decodes it: thumbnail 87 KB
+video-land.mp4                        ok   avc1.64001F (profile 100, level 3.1), 1280x720, 678 frames at 30 fps = 22.600 s, 12 key frames, mdat 7260 KB
+video-land.mp4                        ok   QuickLook (AVFoundation) decodes it: thumbnail 34 KB
+video-phase.mp4                       ok   avc1.64001F (profile 100, level 3.1), 1280x720, 211 frames at 30 fps = 7.033 s, 4 key frames, mdat 2282 KB
+video-phase.mp4                       ok   QuickLook (AVFoundation) decodes it: thumbnail 87 KB
+video-phaseGlobe.mp4                  ok   avc1.64001F (profile 100, level 3.1), 1280x720, 211 frames at 30 fps = 7.033 s, 4 key frames, mdat 1556 KB
+video-phaseGlobe.mp4                  ok   QuickLook (AVFoundation) decodes it: thumbnail 40 KB
+video-plane.mp4                       ok   avc1.64002A (profile 100, level 4.2), 1920x1080, 529 frames at 60 fps = 8.817 s, 5 key frames, mdat 4587 KB
+video-plane.mp4                       ok   QuickLook (AVFoundation) decodes it: thumbnail 11 KB
+video-webm.webm                       ok   webm V_VP9 1280x720, 151 frames, 3 key frames
+video-webm.webm cues                  ok   3 cue points for 3 clusters, positions match, SeekHead finds the Cues
+labels: one figure each (round 3)     ok   12 labels
+latex article1 pdflatex en            ok   39 snippets, errors none, overfull none, widths as claimed
+latex article1 pdflatex ru            ok   7 snippets, errors none, overfull none, widths as claimed
+latex article1 xelatex en             ok   39 snippets, errors none, overfull none, widths as claimed
+latex article1 xelatex ru             ok   7 snippets, errors none, overfull none, widths as claimed
+latex article2 pdflatex en            ok   18 snippets, errors none, overfull none, widths as claimed
+latex article2 pdflatex ru            ok   2 snippets, errors none, overfull none, widths as claimed
+latex article2 xelatex en             ok   18 snippets, errors none, overfull none, widths as claimed
+latex article2 xelatex ru             ok   2 snippets, errors none, overfull none, widths as claimed
+latex article2W pdflatex en           ok   7 snippets, errors none, overfull none, widths as claimed
+latex article2W xelatex en            ok   7 snippets, errors none, overfull none, widths as claimed
+latex homework pdflatex en            ok   25 snippets, errors none, overfull none, widths as claimed
+latex homework pdflatex ru            ok   7 snippets, errors none, overfull none, widths as claimed
+latex homework xelatex en             ok   25 snippets, errors none, overfull none, widths as claimed
+latex homework xelatex ru             ok   7 snippets, errors none, overfull none, widths as claimed
+latex slides pdflatex en              ok   17 snippets, errors none, overfull none, widths as claimed
+latex slides pdflatex ru              ok   2 snippets, errors none, overfull none, widths as claimed
+latex slides xelatex en               ok   17 snippets, errors none, overfull none, widths as claimed
+latex slides xelatex ru               ok   2 snippets, errors none, overfull none, widths as claimed
+
+4 failure(s) in 1042 checks

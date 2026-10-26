@@ -235,7 +235,7 @@ const tm = await ev('__cmwTime(1)');
 ok('__cmwTime times both panes in X → Y', tm.left > 0 && tm.right > 0, tm);
 
 // 7. every example opens in the view it was made for (the old rightMode, migrated)
-const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Every sheet of the logarithm': 'land' };
+const want = { 'A formula in LaTeX': 'phase', 'A residue by integration': 'phase', 'The derivative in the chain': 'phase', 'Sheets of the logarithm': 'land' };
 const exs = [];
 for (let i = 0; i < 14; i++) {
   await ev(`__cmwExample(${i}); 1`); await sleep(500);

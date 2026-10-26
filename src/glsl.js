@@ -845,7 +845,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   // Mirrors Funcs.sheetEval: every multivalued piece takes the cut opposite its input at zc and the sheet read from
   // the digits of combo (cxs0_dig). Sheet counts (radices) are uniforms, so no parameter value is baked in.
   // Custom formulas: vec4 P_s(vec4 p, inout highp int c), node by node as Funcs' pairCompile (children first).
-  function genCustomPair(ast, P, A, writers, lines) {
+  function genCustomPair(ast, P, A, writers, lines, theta = Math.PI) {
     let tmp = 0;
     const dep = Expr.depends;
     const rads = [];
@@ -858,11 +858,12 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
+    // (v16.1 review math-3: the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
     function node(bn, inC) {
       const rc = A.cell(), i = rads.length;
       rads.push(rc);
-      writers.push((put) => put(rc.c, bn.n, 0));
-      lines.push(`  float ${P}_s${i} = cxs0_dig(${rc.x}, c);`, `  float ${P}_t${i} = carg(${inC}) + CX_PI;`);
+      writers.push((put) => put(rc.c, bn.n, theta));
+      lines.push(`  float ${P}_s${i} = cxs0_dig(${rc.x}, c) + floor((${rc.y} - carg(${inC})) / (2.0 * CX_PI));`, `  float ${P}_t${i} = carg(${inC}) + CX_PI;`);
       return [`${P}_t${i}`, `${P}_s${i}`];
     }
     function g(n) {
@@ -946,14 +947,23 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       const rc = A.cell(), al = type === 'log' ? null : A.cell();
       const n = Math.max(2, v.n);
       const f = type === 'root' ? (x) => `cpowr(${x}, ${al.x}, th, s)` : type === 'powa' ? (x) => `cpow(${x}, ${al.v}, th, s)` : (x) => `clog(${x}, th, s)`;
+      // the step's path at 0 < t < 1 on the same sheet and local cut (the deformation's sheets, Funcs' homPair): z^e
+      // with e = 1 + (alpha - 1)t, log through cxs0_lh (P_h of the step, on (th, s))
+      const g = type === 'root' ? (x) => `cpowr(${x}, e, th, s)` : type === 'powa' ? (x) => `cpow(${x}, e, th, s)` : (x) => `cxs0_lh(${x}, th, s, u)`;
+      const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `vec2 e = vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
+      // (v16.1 review math-3) the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
+      // + 2 pi k, the digit shifted by floor((rc.y - arg c0) / 2 pi), c0 the input at the cell centre (0 by default)
+      const kk = type === 'root' ? (((v.k | 0) % n) + n) % n : v.k | 0, Th = (v.cut ?? 180) * Math.PI / 180 + 2 * Math.PI * kk;
+      const sOf = (s0) => `${s0} + floor((${rc.y} - carg(p.xy)) / (2.0 * CX_PI))`;
       return {
         rads: [rc.x],
-        apply: (s) => `{ float s = ${s[0]}; float th = carg(p.xy) + CX_PI; p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
+        apply: (s) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; p = vec4(${f('p.xy')}, ${f('p.zw')}); }`,
+        homApply: (s, t) => `{ float s = ${sOf(s[0])}; float th = carg(p.xy) + CX_PI; ${ge(t)} p = vec4(${g('p.xy')}, ${g('p.zw')}); }`,
         fn: '',
         write(put) {
-          if (type === 'root') { put(rc.c, n <= Funcs.SHEET_MAX ? n : 0, 0); put(al.c, 1 / n, 0); }
-          else if (type === 'powa') { put(rc.c, Funcs.sheetCount(v.alpha), 0); putC(put, al, v.alpha); }
-          else put(rc.c, 0, 0);
+          if (type === 'root') { put(rc.c, n <= Funcs.SHEET_MAX ? n : 0, Th); put(al.c, 1 / n, 0); }
+          else if (type === 'powa') { put(rc.c, Funcs.sheetCount(v.alpha), Th); putC(put, al, v.alpha); }
+          else put(rc.c, 0, Th);
         },
       };
     }
@@ -962,17 +972,34 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     if (b.rec) {
       const subs = b.rec.built.map((sb, j) => ({ Q: `${P}r${j}`, sp: sheetPlan(`${P}r${j}`, sb, A) }));
       if (!subs.some((x) => x.sp)) return null;
-      let fn = '', body = '';
+      let fn = '', hfn = '', body = '', hbody = '';
       const rads = [];
-      for (const { Q, sp } of subs) {
-        if (!sp) { body += `  p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n`; continue; }
+      const n = subs.length;
+      // the path at 0 < t < 1 (the deformation's sheets): its steps' paths in turn, step q on [q/n, (q+1)/n] (recPlan,
+      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits
+      subs.forEach(({ Q, sp }, q) => {
+        if (!sp) {
+          body += `  p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n`;
+          hbody += `  if (j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
+          return;
+        }
         fn += sp.fn;
+        hfn += sp.hfn || '';
         rads.push(...sp.rads);
         body += sp.custom ? `  ${sp.apply()}\n` : `  { float s0 = cxs0_dig(${sp.rads[0]}, c); ${sp.apply(['s0'])} }\n`;
-      }
+        if (sp.custom) {
+          const hom = sp.homCall ? sp.homCall(`x - ${q}.0`) : 'p = vec4(cx_nan());';
+          hbody += `  if (j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        } else {
+          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
+        }
+      });
       return {
         rads, custom: true, apply: () => `p = ${P}_s(p, c);`,
+        homCall: (t) => `p = ${P}_sh(p, c, ${t});`,
         fn: `${fn}vec4 ${P}_s(vec4 p, inout highp int c) {\n${body}  return p;\n}\n`,
+        // (the path's function goes with chainSheetHom, into the sheet programs only: GLChain's sheetHom)
+        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
         write(put) { for (const { sp } of subs) if (sp) sp.write(put); },
       };
     }
@@ -981,7 +1008,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || ['a', 'b'].some((k) => hasNode(n[k])));
     if (!hasNode(ast)) return null;
     const writers = [], lines = [];
-    const { res, rads } = genCustomPair(ast, `${P}_p`, A, writers, lines);
+    const { res, rads } = genCustomPair(ast, `${P}_p`, A, writers, lines, (v.cut ?? 180) * Math.PI / 180);
     if (!rads.length) return null;
     return {
       rads: rads.map((r) => r.x),
@@ -1146,6 +1173,42 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         + '  return cxs0_sraw(vec4(zc, z), a, b, combo, a).zw;\n}\n';
     }
 
+    // chainSheetHom(zc, z, mode, base, a, hi, b, post, t, combo): a deformation map (gl.js map modes 1 and 3: step hi
+    // at t, or the steps (a, b] at t, from the stage base, the post (b, post] in full) on surface combo, as
+    // Funcs.sheetMapEval: cxs0_how says how step k is applied (0 not, 1 in full, 2 its path at t); the digits of combo
+    // are read for the pieces of the steps applied, in chain order, so at t = 1 the surfaces are chainSheet's
+    // (its own source, sheetHom, after the chain's: only the sheet programs take it, so every other program compiles
+    // the chain as before)
+    let sh = '';
+    // the log's path at 0 < t < 1 on sheet s of the cut th, u = 1 - t (P_h of a log step: (z^u - 1)/u + u)
+    if (spl.size) {
+      sh += 'vec2 cxs0_lh(vec2 z, float th, float s, float u) {\n  if (u < 1e-6) return clog(z, th, s);\n'
+        + '  if (z.x == 0.0 && z.y == 0.0) return vec2(u - 1.0 / u, 0.0);\n  return cx_expm1(clog(z, th, s) * u) * (1.0 / u) + vec2(u, 0.0);\n}\n';
+      for (const sp of spl.values()) sh += sp.hfn || '';
+    }
+    sh += 'int cxs0_how(int k, int mode, int base, int a, int hi, int b, int post) {\n'
+      + '  if (mode == 1) { if (k > base && k < hi) return 1; if (k == hi) return 2; }\n'
+      + '  else if (mode == 3) { if (k > base && k <= a) return 1; if (k > a && k <= b) return 2; }\n'
+      + '  if (post > b && k > b && k <= post) return 1;\n  return 0;\n}\n';
+    // end > 0 (F's last step, v16.1 review math-5): F's digits, every live step in (base, end]; a step the map does not
+    // apply yet reads its digits and does not act (Funcs.sheetMapEval's end)
+    sh += 'vec2 chainSheetHom(vec2 zc, vec2 z, int mode, int base, int a, int hi, int b, int post, float t, int combo, int end) {\n'
+      + '  vec4 p = vec4(zc, z);\n  highp int c = combo;\n  int h;\n';
+    for (const { P, k, plan } of live) {
+      sh += `  h = cxs0_how(${k}, mode, base, a, hi, b, post);\n`;
+      if (plan.deriv) { sh += '  if (h > 0) return vec2(cx_nan());\n'; continue; }
+      const sp = spl.get(k);
+      if (!sp) {
+        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
+      } else if (sp.custom) {
+        const hom = sp.homCall ? sp.homCall('t') : 'p = vec4(cx_nan());';
+        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) ${hom}\n  else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+      } else {
+        sh += `  if (h > 0) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (h == 1 || t >= 1.0) ${sp.apply(['s0'])}\n    else if (t > 0.0) ${sp.homApply(['s0'], 't')}\n  }\n  else if (${k} > base && ${k} <= end) cxs0_dig(${sp.rads[0]}, c);\n`;
+      }
+    }
+    sh += '  return p.zw;\n}\n';
+
     let cache = null;
     function values() {
       if (cache) return cache;
@@ -1164,6 +1227,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     return {
       key: JSON.stringify(['glc1', sigs]),
       source: src,
+      // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md): GLSL to put after
+      // source in the programs that call it
+      sheetHom: sh,
       get inverse() {
         if (inverse === undefined) {
           try { inverse = buildInverse(onOff, built); } catch (e) { inverse = { ok: false, reason: 'inverse: ' + (e && e.message), key: null }; }
@@ -1180,6 +1246,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         steps: sheetList,
         combos: (W = 2, b = steps.length, a = 0) => Funcs.sheetCombos(steps, built, W, b, Funcs.SHEET_MAX, a),
         total: (W = 2, b = steps.length, a = 0) => Funcs.sheetCombos(steps, built, W, b, Infinity, a),
+        // a deformation map's pieces (Funcs.sheetMapPieces: chainSheetHom reads their digits), null when it cannot be
+        // drawn as sheets
+        mapPieces: (map, end) => (Funcs.sheetMapPieces ? Funcs.sheetMapPieces(steps, built, map, end || 0) : null),
       },
     };
   }

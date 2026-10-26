@@ -14,6 +14,7 @@ function check(name, got, want) {
 const ok = (name, cond, info) => { n++; if (!cond) { fails++; console.log('FAIL', name, info !== undefined ? JSON.stringify(info) : ''); } };
 
 // ---- the contract: the anchor and event names documented in INTEGRATION.md
+// (v16.2: the user-5 addendum, notes/v16-user5/INTEGRATION-v161-tour.md, is merged into INTEGRATION.md, section 8)
 const DOC = fs.readFileSync(path.join(__dirname, '../notes/tour/INTEGRATION.md'), 'utf8');
 function namesIn(section) {
   const i = DOC.indexOf(section);
@@ -29,7 +30,7 @@ function namesIn(section) {
   return out;
 }
 // (v15: the names the new layout adds are in their own tables, so the v14 gate's copy of this test still passes)
-const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)')]);
+const DOC_ANCHORS = new Set([...namesIn('### Anchors'), ...namesIn('### Anchors added or changed in v15'), ...namesIn('### Anchors added in v16'), ...namesIn('### Anchors added by the deformation range (v16)'), ...namesIn('### Anchors added in v16.1')]);
 const DOC_EVENTS = new Set([...namesIn('### Events'), ...namesIn('### Events added in v15'), ...namesIn('### Events added in v16'), ...namesIn('### Events added by the deformation range (v16)')]);
 ok('INTEGRATION.md lists anchors', DOC_ANCHORS.size >= 20, [...DOC_ANCHORS]);
 ok('INTEGRATION.md lists events', DOC_EVENTS.size >= 10, [...DOC_EVENTS]);
@@ -44,6 +45,9 @@ for (const m of ['Tour.init', 'Tour.start', 'Tour.suggest', 'Tour.isSeen', 'Tour
 
 // ---- content
 const CH = T.CHAPTERS;
+// (v16.1) the anchors that are themselves the control a Try it needs: a tool, a toggle, the bracket, the palette's key,
+// the plane that is hovered, held or right-clicked
+const CONTROL_ANCHORS = new Set(['tool:disc', 'tool:circle3', 'deformToggle', 'paths', 'bracketL', 'palette', 'paneL', 'paneR']);
 const steps = CH.flatMap((c) => c.steps.map((s) => Object.assign({ ch: c.id }, s)));
 // (v15: an eighth chapter, Editing the chain: the cards, the Inspector, zeros and poles, the planes' menu, shared numbers)
 // (v16: a ninth chapter, Constructions, of 3 steps, SPEC 16: the budget grows by that chapter)
@@ -110,10 +114,19 @@ for (const s of steps) {
     for (const e of [].concat(s.try.on || [])) { EVENTS_USED.add(e); ok(`${id}: event ${e} is in the contract`, DOC_EVENTS.has(e), e); }
     if (s.try.test) ok(`${id}: try test tolerates a bare event`, s.try.test(undefined) === true);
     ok(`${id}: a Try it lights what it asks for`, s.anchor != null);
+    // (v16.1, user 5: the control that completes it is lit, exactly: the anchor is that control (a tool, a toggle, the
+    // plane the task happens in) or try.ctl names it; its names are in the contract)
+    for (const a of [].concat(s.try.ctl || [], s.try.work || [])) ok(`${id}: try control ${a} is in the contract`, DOC_ANCHORS.has(a) && a in T.ANCHORS, a);
+    ok(`${id}: the Try it's control is lit (the anchor or try.ctl)`, [].concat(s.try.ctl || []).length > 0 || CONTROL_ANCHORS.has([].concat(s.anchor)[0]), s.anchor);
   }
   if (s.needs) ok(`${id}: needs is a feature name`, typeof s.needs === 'string' || Array.isArray(s.needs));
 }
 for (const e of DOC_EVENTS) ok(`documented event ${e} is used by a Try it`, EVENTS_USED.has(e), e);
+// (v16.1) every task with a drag asks for the Select tool, which it switches on first and lights
+for (const s of steps.filter((x) => x.try && /\bdrag\b/i.test(x.try.text) && !/slider|\$t\$|bracket/i.test(x.try.text) && x.id !== 'draw')) {
+  ok(`${s.ch}/${s.id}: a drag lights the Select tool`, [].concat(s.try.ctl || []).includes('tool:select'), s.try.ctl);
+  ok(`${s.ch}/${s.id}: a drag switches to Select first`, (s.before || []).some((a) => a[0] === 'tool' && a[1] === 'select'), s.before);
+}
 ok('the first step is the centred welcome', CH[0].steps[0].anchor === null);
 ok('every other step has an anchor', steps.slice(1).every((s) => s.anchor != null));
 ok('a Try it per chapter at least (except Export)', CH.filter((c) => c.id !== 'export').every((c) => c.steps.some((s) => s.try)));
@@ -123,6 +136,9 @@ for (const [k, sc] of Object.entries(T.SCENES)) ok(`scene ${k}: a full look`, sc
 ok('scenes: Checker by default', Object.values(T.SCENES).every((sc) => sc.look.pattern === 'checker'));
 check('the Landscape sheets scene: Im height and all sheets', [T.SCENES.logSheets.look.height, T.SCENES.logSheets.look.sheets], ['im', true]);
 const stepOf = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
+ok('Draw a shape lights the Disc tool itself', [].concat(stepOf('basics', 'draw').anchor)[0] === 'tool:disc' && stepOf('basics', 'draw').live === true);
+ok('Circle through three points lights its tool, and opens a phone\'s More tools', [].concat(stepOf('construct', 'c3').anchor)[0] === 'tool:circle3' && stepOf('construct', 'c3').before.some((a) => a[0] === 'panel' && a[1] === 'sheet' && a[2] === 'tools'));
+ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
 // (v15: and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
 ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
 ok('Patterns sets Checker first, so Choose Stretch can always tick', stepOf('views', 'patterns').before.some((a) => a[0] === 'look' && a[1].pattern === 'checker'));

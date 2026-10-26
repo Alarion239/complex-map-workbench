@@ -97,7 +97,9 @@ await key('Escape'); await settle(300);
 check('a second Escape ends the tour', !(await ev('Tour.isActive()')));
 // Escape while a polygon is being drawn cancels the polygon, not the tour
 await open('t3p', { chapter: 'basics', step: 4 });
-await clickSel('#secDraw .tool[data-tool="polygon"]'); await settle(200);
+// (v16.1: the step lights the Disc tool alone, so the shade covers the other tools: Polygon by its key, G)
+await ev(`document.activeElement && document.activeElement.blur()`); await key('g'); await settle(200);
+check('Polygon picked by its key during the Draw step', await ev(`document.querySelector('#tools .tool.on').dataset.tool === 'polygon'`));
 await click(380, 480); await sleep(150); await click(460, 500); await settle(300);
 await key('Escape'); await settle(300);
 check('Escape during a polygon: the tour stays', await ev('Tour.isActive()'));
@@ -361,10 +363,11 @@ g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundin
 check('phone: sheet or bar, full width, clear of the lit pane, no horizontal scroll', (g.sheet || g.mini) && g.cw >= 390 - 32 && !g.overC && !(g.mini && g.overP) && g.noHScroll, g);
 await snap('tour-phone-x');
 await open('t8b', { chapter: 'basics', step: 4 }, 390, 844, true, true);
-g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, cardOnTop: !!(top && top.closest('.tour-card')) }; })()`);
+g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), d = document.querySelector('#tools > .tool[data-tool="disc"]').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, disc: { l: d.left, t: d.top, r: d.right, b: d.bottom }, cardOnTop: !!(top && top.closest('.tour-card')) }; })()`);
 // (v15: the tool row and the large X leave no gap: the sheet keeps clear of the tool row, the step's anchor, lit whole,
 // and it is drawn above the chain bar)
-check('phone, two lit areas: the tool row lit whole and clear of the sheet, the sheet on top', g.lit && g.lit.holes.length === 2 && g.lit.holes[0].b - g.lit.holes[0].t >= g.row.b - g.row.t - 2 && (g.bottom <= g.row.t || g.top >= g.row.b) && g.cardOnTop, g);
+// (v16.1, user 5: the Disc key itself, not the whole row)
+check('phone, two lit areas: the Disc key lit whole and clear of the sheet, the sheet on top', g.lit && g.lit.holes.length === 2 && ['l', 't', 'r', 'b'].every((k) => Math.abs(g.lit.holes[0][k] - g.disc[k]) <= 1) && (g.bottom <= g.row.t || g.top >= g.row.b) && g.cardOnTop, g);
 await snap('tour-phone-draw-dark');
 // what a phone reads: the panes by their role, touch instead of hover
 const phoneText = [];

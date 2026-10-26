@@ -209,7 +209,8 @@ const Inspector = (() => {
       const E = { kind: 'step', k, root, lens, inv, byp, ftex, err, note, det, params, split, typing: false };
       if (split) {
         split.open = foldOpen();
-        split.addEventListener('toggle', () => { if (!split.hidden) { foldSave(split.open); syncFoldLabel(split); } });
+        // (v16.1: the tour's unfolding, below, is not the viewer's fold)
+        split.addEventListener('toggle', () => { if (split.dataset.tourOpen) { delete split.dataset.tourOpen; syncFoldLabel(split); return; } if (!split.hidden) { foldSave(split.open); syncFoldLabel(split); } });
         // (hidden from the first keystroke in the formula field until the text is committed: Enter or leaving the field)
         const fx = params.querySelector('input[data-pkey="expr"]');
         if (fx) {
@@ -243,6 +244,8 @@ const Inspector = (() => {
       const show = !!(sp && (sp.kind === 'one' || sp.kind === 'many') && sp.rows);
       if (box.hidden !== !show) box.hidden = !show;
       if (!show) return false;
+      // (v16.1, user 5: the tour's stop about the offer unfolds it, so its Split button shows, without saving the fold)
+      if (A.splitTour && A.splitTour() && !box.open) { box.dataset.tourOpen = '1'; box.open = true; }
       const n = sp.steps.length, one = sp.kind === 'one';
       const name = one ? A.Funcs.DEFS[sp.steps[0].type].label : '';
       // (the rows in the step's own input variable, as its heading: w₆ ↦ w₆² ↦ … for f₇, review steps-9)

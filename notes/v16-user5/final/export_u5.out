@@ -1,0 +1,384 @@
+{
+ "pass": true,
+ "fails": [],
+ "files": 0,
+ "figs": 0,
+ "pv": {},
+ "pv2": {},
+ "u5": {
+  "caps": {
+   "log": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "imes[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\log z. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of infinitely many are shown.",
+    "ru": "ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\operatorname{Ln} z. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=-2,\\dots,2$."
+   },
+   "sqrt": {
+    "title": "landscape of Im F, both sheets",
+    "en": "Landscape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; both sheets are shown.",
+    "ru": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны оба листа."
+   },
+   "cube": {
+    "title": "landscape of Im F, all 3 sheets",
+    "en": "scape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[3]{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; all 3 sheets are shown.",
+    "ru": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[3]{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны все 3 листа."
+   },
+   "sinsqrt": {
+    "title": "landscape of Im F, both sheets",
+    "en": "over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right). \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; both sheets are shown.",
+    "ru": "ции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right). \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны оба листа."
+   },
+   "capped": {
+    "title": "landscape of Im F, 24 of 30 sheet combinations",
+    "en": "es[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[6]{\\sqrt[5]{z}}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; 24 of the 30 sheet combinations are shown.",
+    "ru": "[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[6]{\\sqrt[5]{z}}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны сочетания листов: 24 из 30."
+   },
+   "logsqrt": {
+    "title": "landscape of Im F, 10 sheets, k = −2…2",
+    "en": "r\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\log z+\\sqrt{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; 10 of the infinitely many sheets are shown (the window $k=-2,\\dots,2$).",
+    "ru": "\\hsize\\else\\[ \\displaystyle F(z)=\\operatorname{Ln} z+\\sqrt{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны листы: 10 из бесконечного множества (окно $k=-2,\\dots,2$)."
+   },
+   "root30": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[30]{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of 30 are shown.",
+    "ru": "8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[30]{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны листы $k=-2,\\dots,2$ (всего листов: 30)."
+   },
+   "powi": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=z^{i}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of infinitely many are shown.",
+    "ru": "s[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=z^{i}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=-2,\\dots,2$."
+   },
+   "nearthird": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=z^{0.3333}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of infinitely many are shown.",
+    "ru": "$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=z^{0{,}3333}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=-2,\\dots,2$."
+   },
+   "morph": {
+    "title": "landscape of Im Ht, on both sheets of F",
+    "en": " $k$ is its branch number on that surface. Shown at $t=1.00$. Here $H_t$ deforms the identity ($t=0$) into $F$ ($t=1$) along the homotopy $H_t(z)=z^{1-(1/2)t}$ (on every sheet), $0\\le t\\le 1$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi",
+    "ru": "оверхности. Показан кадр при $t=1{,}00$. Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в~$F$ ($t=1$), где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi Это гомотопия $H_t(z)=z^{1-(1/2)t}$ (на каждом листе), $0\\le t\\le 1$."
+   },
+   "film": {
+    "en": "Landscapes of $H_t$ over $[-8,8]\\times[-5,5]$ at (a) $t=0$, (b) $t=1/3$, (c) $t=2/3$, and (d) $t=1$: the height is $\\operatorname{Im} H_t$ and the color shows $\\arg H_t$; $H_t$ is drawn on 2 surfaces, one for each sheet of $F$. Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, where $k$ is its branch number on that surface. Here $H_t$ deforms the identity ($t=0$) into $F$ ($t=1$) along the homotopy $H_t(z)=z^{1-(1/2)t}$ (on every sheet), $0\\le t\\le 1$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi",
+    "ru": "Рельефы $H_t$ над $[-8,8]\\times[-5,5]$ при $t=0$ (\\textit{а}), $t=1/3$ (\\textit{б}), $t=2/3$ (\\textit{в}) и~$t=1$ (\\textit{г}): высота равна $\\operatorname{Im} H_t$, а~цвет показывает $\\arg H_t$; деформация $H_t$ показана на 2 поверхностях, по одной для каждого листа $F$. Каждый деформируемый корень и~каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, где $k$~--- номер ветви на этой поверхности. Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в~$F$ ($t=1$), где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi Это гомотопия $H_t(z)=z^{1-(1/2)t}$ (на каждом листе), $0\\le t\\le 1$.",
+    "view": "land"
+   },
+   "user": {
+    "en": "Landscapes of $H_t$ over $[-8,8]\\times[-5,5]$ at (a) $t=0$, (b) $t=1/3$, (c) $t=2/3$, and (d) $t=1$: the height is $\\operatorname{Im} H_t$ and the color shows $\\arg H_t$; $H_t$ is drawn on 2 surfaces, one for each sheet of $F$. Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, where $k$ is its branch number on that surface. Here $H_t=f_{2}\\circ G_t$, $0\\le t\\le 1$, deforms $f_{2}$ ($t=0$) into $F$ ($t=1$), where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right). \\]\\fi $f_{2}$ acts last, in full, and $G_t$ is the homotopy $G_t(z)=z^{1-(1/2)t}$ (on every sheet).",
+    "ru": "Рельефы $H_t$ над $[-8,8]\\times[-5,5]$ при $t=0$ (\\textit{а}), $t=1/3$ (\\textit{б}), $t=2/3$ (\\textit{в}) и~$t=1$ (\\textit{г}): высота равна $\\operatorname{Im} H_t$, а~цвет показывает $\\arg H_t$; деформация $H_t$ показана на 2 поверхностях, по одной для каждого листа $F$. Каждый деформируемый корень и~каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, где $k$~--- номер ветви на этой поверхности. Здесь $H_t=f_{2}\\circ G_t$, $0\\le t\\le 1$, непрерывно деформирует $f_{2}$ ($t=0$) в~$F$ ($t=1$), где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right). \\]\\fi $f_{2}$ действует последним и~полностью, а~$G_t$~--- это гомотопия $G_t(z)=z^{1-(1/2)t}$ (на каждом листе)."
+   },
+   "whole": {
+    "en": "Landscapes of $H_t$ over $[-8,8]\\times[-5,5]$ at (a) $t=0$, (b) $t=2/3$, (c) $t=4/3$, and (d) $t=2$: the height is $\\operatorname{Im} H_t$ and the color shows $\\arg H_t$; $H_t$ is drawn on 2 surfaces, one for each sheet of $F$. Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface. Here $H_t$, $0\\le t\\le 2$, deforms the identity ($t=0$) into $F$ ($t=2$) and runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (on every sheet); for $f_{2}$, the zoom homotopy ${H^{(2)}_{s}}(w_{1})=\\sin(sw_{1})/s$, where\\ifinner\\hskip\\hsize\\else\\[ \\begin{gathered}\\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right),\\qquad F=f_{2}\\circ f_{1},\\\\ \\displaystyle f_{1}(z)=\\sqrt{z},\\qquad f_{2}(w_{1})=\\sin\\left(w_{1}\\right).\\end{gathered} \\]\\fi",
+    "ru": "Рельефы $H_t$ над $[-8,8]\\times[-5,5]$ при $t=0$ (\\textit{а}), $t=2/3$ (\\textit{б}), $t=4/3$ (\\textit{в}) и~$t=2$ (\\textit{г}): высота равна $\\operatorname{Im} H_t$, а~цвет показывает $\\arg H_t$; деформация $H_t$ показана на 2 поверхностях, по одной для каждого листа $F$. Каждый деформируемый корень и~каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, где $s$ ($0\\le s\\le 1$)~--- время соответствующего шага, а~$k$~--- номер ветви на этой поверхности. Здесь $H_t$, $0\\le t\\le 2$, непрерывно деформирует тождественное отображение ($t=0$) в~$F$ ($t=2$), выполняя шаги по очереди ($H_t=H^{(k)}_{t-k+1}$ при $k-1\\le t\\le k$): для $f_{1}$~--- гомотопия ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (на каждом листе); для $f_{2}$~--- гомотопия масштабирования ${H^{(2)}_{s}}(w_{1})=\\sin(sw_{1})/s$, где\\ifinner\\hskip\\hsize\\else\\[ \\begin{gathered}\\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right),\\qquad F=f_{2}\\circ f_{1},\\\\ \\displaystyle f_{1}(z)=\\sqrt{z},\\qquad f_{2}(w_{1})=\\sin\\left(w_{1}\\right).\\end{gathered} \\]\\fi"
+   },
+   "single": {
+    "ls": {
+     "drawn": null,
+     "shown": null,
+     "deformOk": false,
+     "linear": false,
+     "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+    },
+    "en": "Landscape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}^{2}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$."
+   }
+  },
+  "menus": {
+   "1440-light-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "1440-light-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   },
+   "1440-dark-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "1440-dark-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   },
+   "390-light-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "390-light-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   },
+   "390-dark-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "390-dark-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   }
+  }
+ },
+ "logs": []
+}

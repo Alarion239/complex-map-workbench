@@ -30,7 +30,7 @@ const open = async (ns, w = 1440, h = 900, dark = false) => {
 };
 const b64of = (expr) => `await (async () => { const b = await (${expr}); const u8 = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); })()`;
 
-if (process.env.CMW_ONLY !== 'preview') { // (CMW_ONLY=preview: section 5 only)
+if (process.env.CMW_ONLY !== 'preview' && process.env.CMW_ONLY !== 'user5') { // (CMW_ONLY=preview: section 5 only; CMW_ONLY=user5: section 6 only)
 // 1. every view x preset x ink, in every format
 const PRESETS = {
   article1: { for: 'article', cols: 1 },
@@ -567,7 +567,7 @@ await build3('r3-ru-film-phase-homework', { for: 'homework', lang: 'ru' });
 // motion, it restarts on an option change, it stops when the format changes and when the dialog closes, and the page
 // keeps its frames while it fills and plays (no task of 50 ms or more; the animation frames on time)
 R.pv = {};
-{
+if (process.env.CMW_ONLY !== 'user5') {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
@@ -695,7 +695,7 @@ R.pv = {};
 // frame, the button and the scrubber during a restart, a bigger window, reduced motion drawing only what is seen, the
 // scrubber quiet for a screen reader while it plays, a hidden page, a small device
 R.pv2 = {};
-{
+if (process.env.CMW_ONLY !== 'user5') {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !cv.hidden, cssW: Math.round(cv.getBoundingClientRect().width || parseFloat(cv.style.width) || 0), dpr: devicePixelRatio, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
@@ -823,6 +823,171 @@ R.pv2 = {};
   R.pv2.lowmem = g0;
   ok('preview (vp-7): with 4 GB or less, a timeline that fits 192 MB but not 64 MB is kept compressed', g0.raw === false && g0.total === 121, g0);
   await key('Escape'); await sleep(300);
+  await view(1440, 900, false, false);
+}
+
+// 6. (v16.1, the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
+// (a) the Landscape with All sheets says exactly which sheets it draws, in the LaTeX caption (English and Russian),
+// the figure's own caption and the pane title: both / all n sheets for a finite covering, the window of infinitely
+// many (log, z^i) or of N (a 30th root), n of the infinitely many for several pieces, K of the total combinations when
+// capped; never "all sheets of the Riemann surface". While deforming (the merge with work/xvsh) the landscape draws H_t
+// on the sheets that become F's: the clause says so, exactly.
+// (b) the Export figure dialog's menus (More formats, Size) open over the dialog, inside the viewport, take the focus,
+// move with the arrows, close with Esc (the dialog stays) and with a press outside (the dialog stays); an item works
+// with a real click. At 1440 and 390 px (phone), light and dark.
+if (process.env.CMW_ONLY !== 'preview') {
+  R.u5 = { caps: {}, menus: {} };
+  // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it)
+  const loadSt = async (ns, st) => {
+    await nav(`${BASE}gl-helpers.html`);
+    await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({ v3: true, v4: true, nextId: 50, focus: 0 }, st)))}); 1`);
+    await nav(`${BASE}test.html?ns=${ns}`); await settle(1500);
+  };
+  // (sections 1 to 4 keep their helpers in their own block: this section's own, the same files for the preflight)
+  const dlgReady = async () => { for (let i = 0; i < 120; i++) { await sleep(150); const r = await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`); if (r === true) return true; } return false; };
+  const build = async (tag, opts, fmts) => {
+    const r = await ev(`await (async () => { try { const f = await __cmwFig.build(${JSON.stringify(opts)}); if (!f) return null; window.__f = f;
+      return { W: f.W, H: f.H, Wtex: f.Wtex, view: f.view, name: f.name, cap: f.captionTex, boxes: f.boxes, lines: f.lines, tex: __cmwFig.latex(f) }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
+    if (!r || r.err) { fails.push({ name: `build ${tag}`, got: r }); return null; }
+    if (fmts.includes('tex')) {
+      fs.writeFileSync(path.join(OUT, `${tag}-boxes.json`), JSON.stringify({ target: r.Wtex, W: r.W, H: r.H, view: r.view, preset: opts.for, cols: opts.cols || null, ink: 'colour', boxes: r.boxes, lines: r.lines, cap: r.cap }));
+      fs.writeFileSync(path.join(OUT, `${tag}.tex`), r.tex.replace(new RegExp(`\\{${r.name}\\}`, 'g'), `{${tag}}`));
+    }
+    if (fmts.includes('pdf')) {
+      const b = await ev(b64of('__cmwFig.pdf(window.__f)'), 120000);
+      if (typeof b === 'string') fs.writeFileSync(path.join(OUT, `${tag}.pdf`), Buffer.from(b, 'base64')); else fails.push({ name: `pdf ${tag}`, got: b });
+    }
+    return r;
+  };
+  await view(1440, 900, false, false);
+  const RT = (n) => ({ type: 'root', params: { n, cut: 180 } }), LG = { type: 'log', params: { cut: 180, k: 0 } }, CU = (expr) => ({ type: 'custom', params: { expr, cut: 180 } });
+  const CASES = [
+    ['log', [LG], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
+    ['sqrt', [RT(2)], /; both sheets are shown\./, /; показаны оба листа\./, /, both sheets$/],
+    ['cube', [RT(3)], /; all 3 sheets are shown\./, /; показаны все 3 листа\./, /, all 3 sheets$/],
+    ['sinsqrt', [RT(2), CU('\\sin(z)')], /; both sheets are shown\./, /; показаны оба листа\./, /, both sheets$/],
+    ['capped', [RT(5), RT(6)], /; 24 of the 30 sheet combinations are shown\./, /; показаны сочетания листов: 24 из 30\./, /, 24 of 30 sheet combinations$/],
+    ['logsqrt', [CU('\\log(z)+\\sqrt{z}')], /; 10 of the infinitely many sheets are shown \(the window \$k=-2,\\dots,2\$\)\./, /; показаны листы: 10 из бесконечного множества \(окно \$k=-2,\\dots,2\$\)\./, /, 10 sheets, k = −2…2$/],
+    ['root30', [RT(30)], /; the sheets \$k=-2,\\dots,2\$ of 30 are shown\./, /; показаны листы \$k=-2,\\dots,2\$ \(всего листов: 30\)\./, /, sheets k = −2…2$/],
+    ['powi', [CU('z^{i}')], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
+    // (v16.1 review math-7: a typed near-fraction is not 1/3: a window of its infinitely many sheets)
+    ['nearthird', [{ type: 'powa', params: { alpha: '0.333333333', cut: 180, k: 0 } }], /; the sheets \$k=-2,\\dots,2\$ of infinitely many are shown\./, /; из бесконечного множества листов показаны листы \$k=-2,\\dots,2\$\./, /, sheets k = −2…2$/],
+  ];
+  const disc = [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }];
+  const OLD = /all sheets of the Riemann surface|все листы римановой поверхности/;
+  for (const [nm, steps, en, ru, title] of CASES) {
+    await loadSt(`u5s${nm}${Date.now()}`, { steps, rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+    const t = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
+    const fmts = nm === 'log' || nm === 'capped' || nm === 'logsqrt' ? ['pdf', 'tex'] : [];
+    const e = await build(`u5-sheets-${nm}-article1`, { for: 'article' }, fmts);
+    const r = await build(`u5-sheets-ru-${nm}-article1`, { for: 'article', lang: 'ru' }, fmts);
+    // (the figure's own caption: the PNG for Docs, set from the same template)
+    const own = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'homework', capInImage: true }); return f ? f.boxes.filter((b) => b.kind === 'caption').map((b) => b.tex || b.text || '').join(' ') : null; })()`, 120000);
+    R.u5.caps[nm] = { title: t, en: e && e.cap.slice(-200), ru: r && r.cap.slice(-200) };
+    ok(`sheets ${nm}: the English caption says which sheets`, e && en.test(e.cap) && !OLD.test(e.cap), e && e.cap.slice(-260));
+    ok(`sheets ${nm}: the Russian caption says which sheets`, r && ru.test(r.cap) && !OLD.test(r.cap), r && r.cap.slice(-260));
+    ok(`sheets ${nm}: the Landscape title says which sheets`, title.test(t || ''), t);
+    ok(`sheets ${nm}: the figure's own caption has no "all sheets"`, own != null && !OLD.test(own), own && own.slice(-200));
+    if (nm === 'log') {
+      ok('sheets log: the Russian display writes the multivalued Ln (GLOSSARY 2.2)', r && /\\operatorname\{Ln\} z/.test(r.cap) && !/\\ln z/.test(r.cap), r && r.cap.slice(0, 260));
+      ok('sheets log: the English display keeps log', e && /F\(z\)=\\log z/.test(e.cap), e && e.cap.slice(0, 200));
+      await build('u5-sheets-log-homework', { for: 'homework' }, ['pdf', 'tex']);
+      await build('u5-sheets-ru-log-homework', { for: 'homework', lang: 'ru' }, ['pdf', 'tex']);
+    }
+  }
+  // the deformation on: the landscape draws H_t on the sheets that become F's (work/xvsh), so the clause names them
+  // (both of √z's), with no Ln (the map is H_t) and never "all sheets of the Riemann surface"
+  await loadSt(`u5smorph${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+  await key('m'); await settle(2000);
+  const mt = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
+  const mc = await build('u5-sheets-morph-article1', { for: 'article', deform: 'frame' }, []);
+  const mr = await build('u5-sheets-ru-morph-article1', { for: 'article', deform: 'frame', lang: 'ru' }, []);
+  R.u5.caps.morph = { title: mt, en: mc && mc.cap.slice(-260), ru: mr && mr.cap.slice(-260) };
+  // (v16.1 review user-1, user-2, math-2: one surface of H_t per sheet of F, the deformed root's path on its sheet, and
+  // the homotopy not called the principal branch)
+  const homEN = /; \$H_t\$ is drawn on 2 surfaces, one for each sheet of \$F\$\. Each deformed root or power \$z\^\{\\alpha\}\$ runs along \$z\^\{\\sigma\}e\^\{2\\pi ik\\sigma\}\$, \$\\sigma=1\+\(\\alpha-1\)t\$, where \$k\$ is its branch number on that surface\./;
+  const homRU = /; деформация \$H_t\$ показана на 2 поверхностях, по одной для каждого листа \$F\$\. Каждый деформируемый корень и[~ ]каждая степень/;
+  ok('sheets, deformation on: the English caption: one surface per sheet of F, the path on a sheet', mc && homEN.test(mc.cap) && !OLD.test(mc.cap) && !/\\operatorname\{Ln\}/.test(mc.cap) && !/principal branch/.test(mc.cap) && /\(on every sheet\)/.test(mc.cap), mc && mc.cap.slice(-700));
+  ok('sheets, deformation on: the Russian caption names them', mr && homRU.test(mr.cap) && !OLD.test(mr.cap) && !/главная ветвь/.test(mr.cap) && /\(на каждом листе\)/.test(mr.cap), mr && mr.cap.slice(-700));
+  ok('sheets, deformation on: the title says on both sheets of F', /, on both sheets of F$/.test(mt || ''), mt);
+  // (v16.1 review user-1) the default figure while deforming is the four-panel film: its caption has the same clause
+  const fe = await build('u5-sheets-film-article1', { for: 'article' }, []), fr = await build('u5-sheets-ru-film-article1', { for: 'article', lang: 'ru' }, []);
+  R.u5.caps.film = { en: fe && fe.cap.slice(-900), ru: fr && fr.cap.slice(-900), view: fe && fe.view };
+  ok('sheets, film: the English caption has the sheets clause and no principal branch', fe && /Landscapes of \$H_t\$/.test(fe.cap) && homEN.test(fe.cap) && !/principal branch/.test(fe.cap) && /\(on every sheet\)/.test(fe.cap), fe && fe.cap.slice(0, 900));
+  ok('sheets, film: the Russian caption too', fr && homRU.test(fr.cap) && !/главная ветвь/.test(fr.cap) && /\(на каждом листе\)/.test(fr.cap), fr && fr.cap.slice(0, 900));
+  await key('m'); await settle(600);
+  // (v16.1 review user-1) the user's case: sin √z, √ bracketed; the film and the single frame
+  await loadSt(`u5susr${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+  await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 }, T: 0.5 })'); await settle(2000);
+  const ue = await build('u5-sheets-user-film', { for: 'article' }, ['tex']), ur = await build('u5-sheets-ru-user-film', { for: 'article', lang: 'ru' }, []);
+  R.u5.caps.user = { en: ue && ue.cap, ru: ur && ur.cap };
+  ok('sheets, the user\'s case: the film caption names the sheets and G_t on every sheet', ue && homEN.test(ue.cap) && !/principal branch/.test(ue.cap) && /G_t/.test(ue.cap), ue && ue.cap.slice(0, 1200));
+  ok('sheets, the user\'s case: Russian', ur && homRU.test(ur.cap) && !/главная ветвь/.test(ur.cap) && /G_t/.test(ur.cap), ur && ur.cap.slice(0, 1200));
+  // (v16.1 verify-1) the whole chain, √ then sin in turn (0 <= t <= 2): the path is written in the step's own time s,
+  // with sigma the exponent, not in the global t
+  await ev('__cmwMorph({ open: true, playing: false, range: null, T: 1.5 })'); await settle(2000);
+  const we = await build('u5-sheets-whole-film', { for: 'article' }, []), wr = await build('u5-sheets-ru-whole-film', { for: 'article', lang: 'ru' }, []);
+  R.u5.caps.whole = { en: we && we.cap, ru: wr && wr.cap };
+  const turnEN = /Each deformed root or power \$z\^\{\\alpha\}\$ runs along \$z\^\{\\sigma\}e\^\{2\\pi ik\\sigma\}\$, \$\\sigma=1\+\(\\alpha-1\)s\$, where \$s\$ \(\$0\\le s\\le 1\$\) is the time of the step it belongs to/;
+  ok('sheets, whole chain in turn: the path in the step\'s own time s', we && turnEN.test(we.cap) && !/\(\\alpha-1\)t\$/.test(we.cap) && /runs the steps in turn/.test(we.cap), we && we.cap.slice(0, 1400));
+  ok('sheets, whole chain in turn: Russian', wr && /\\sigma=1\+\(\\alpha-1\)s\$, где \$s\$ \(\$0\\le s\\le 1\$\)(?:~---|\s—) время соответствующего шага/.test(wr.cap) && !/\(\\alpha-1\)t\$/.test(wr.cap), wr && wr.cap.slice(0, 1400));
+  await ev('__cmwMorph({ open: false })'); await settle(600);
+  // (v16.1 review math-6) √ then z²: F = z is single-valued, so All sheets draws one surface and says nothing of sheets
+  await loadSt(`u5ssv${Date.now()}`, { steps: [RT(2), { type: 'powa', params: { alpha: '2', cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
+  const sv = await ev('__cmwLandSheets()'), se = await build('u5-sheets-single-article1', { for: 'article' }, []);
+  R.u5.caps.single = { ls: sv, en: se && se.cap.slice(-300) };
+  ok('sheets, √ then z²: one surface, no sheets in the title or the caption', sv && !sv.drawn && !sv.shown && !/sheet/.test(sv.title) && se && !/sheet/.test(se.cap), R.u5.caps.single);
+  // (b) the dialog's menus
+  const MP = `(() => { const p = document.querySelector('#popHost .pop.menu'), m = document.querySelector('.modal.xf'); if (!p) return { open: false, dialog: !!m };
+    const r = p.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2), e2 = document.elementFromPoint(r.left + 8, r.top + 8);
+    return { open: true, dialog: !!m, rect: [r.left, r.top, r.width, r.height].map(Math.round), z: +getComputedStyle(p).zIndex, zm: +getComputedStyle(document.querySelector('.modal-bg')).zIndex,
+      onTop: !!(e && p.contains(e)) && !!(e2 && p.contains(e2)), inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: p.contains(document.activeElement) ? document.activeElement.textContent.trim() : null }; })()`;
+  const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.hidden) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+  for (const [w, h] of [[1440, 900], [390, 844]]) {
+    for (const dark of [false, true]) {
+      const tag = `${w}-${dark ? 'dark' : 'light'}`;
+      await open('xu5menu', w, h, dark);
+      await ev('__cmwExample(1); 1'); await settle(1800);
+      await key('e', 2); await dlgReady();
+      for (const id of ['xfMore', 'xfSize']) {
+        const c = await center('#' + id);
+        if (!c) { ok(`menus ${tag} ${id}: the button is there`, false, null); continue; }
+        await click(c[0], c[1]); await sleep(350);
+        const a = await ev(MP);
+        await shot(`u5-menu-${id}-${tag}`);
+        await key('ArrowDown'); await sleep(80);
+        const b = await ev(MP);
+        await key('Escape'); await sleep(250);
+        const x = await ev(`({ menu: !!document.querySelector('#popHost .pop.menu'), dialog: !!document.querySelector('.modal.xf'), focus: document.activeElement && document.activeElement.id })`);
+        R.u5.menus[`${tag}-${id}`] = { a, b, x };
+        ok(`menus ${tag} ${id}: opens over the dialog (elementFromPoint at its centre is inside it), inside the viewport`, a.open && a.z > a.zm && a.onTop && a.inView, a);
+        ok(`menus ${tag} ${id}: the focus is in the menu and moves with the arrows`, !!a.focus && !!b.focus && a.focus !== b.focus, { a: a.focus, b: b.focus });
+        ok(`menus ${tag} ${id}: Esc closes the menu, the dialog stays, the focus is back on the button`, !x.menu && x.dialog && x.focus === id, x);
+      }
+      // the keyboard alone: the button focused, Enter opens the menu, Esc closes it
+      await ev(`document.getElementById('xfMore').focus(); 1`); await key('Enter'); await sleep(300);
+      const kb = await ev(MP);
+      ok(`menus ${tag}: Enter on More formats opens it with the focus inside`, kb.open && kb.onTop && !!kb.focus, kb);
+      await key('Escape'); await sleep(250);
+      // a press outside the open menu, on the backdrop, closes the menu only
+      let c = await center('#xfMore'); await click(c[0], c[1]); await sleep(300);
+      await click(4, 4); await sleep(300);
+      const po = await ev(`({ menu: !!document.querySelector('#popHost .pop.menu'), dialog: !!document.querySelector('.modal.xf') })`);
+      ok(`menus ${tag}: a press outside the menu closes the menu, not the dialog`, !po.menu && po.dialog, po);
+      // an item, clicked with the mouse where it is drawn: SVG is saved
+      if (!dark) {
+        await ev('window.__saved.length = 0; 1');
+        c = await center('#xfMore'); await click(c[0], c[1]); await sleep(300);
+        const it = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .pop.menu .mi')].find((x) => /^SVG/.test(x.textContent.trim())); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+        if (it) await click(it[0], it[1]);
+        for (let i = 0; i < 50; i++) { await sleep(200); if (await ev('window.__saved.length > 0')) break; }
+        const sv = await ev('window.__saved.map((s) => s.name)');
+        ok(`menus ${tag}: a real click on SVG in More formats saves the SVG`, !!it && sv.some((n) => /\.svg$/.test(n)), { it, sv });
+      }
+      await key('Escape'); await settle(300);
+      ok(`menus ${tag}: Esc closes the dialog afterwards`, await ev('!document.querySelector(".modal.xf")'), null);
+    }
+  }
   await view(1440, 900, false, false);
 }
 

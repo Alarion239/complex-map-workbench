@@ -1,0 +1,120 @@
+{
+ "_about": "v16.1 user report 5: the fix pass over review-user.json, review-math.json and review-regress.json (18 findings), built in work/xvta (2026-10-25, 17:10-18:10). verdict: fixed | rejected (with the evidence) | no-change. Files: src/funcs.js, src/glsl.js, src/gl.js, src/app.js, src/figure.js, src/tour.js, src/i18n_ru.js (generated); tests: test/t_sheets_deform.js, test/glsl_test.js, test/sheets_deform_cmd.js, test/export_cmd.js; Russian: notes/i18n/ru/v161-user5.json (19 new u5f.* entries, read-modify-write). The old u5.cap_* and u5m.cap_hom_* entries stay in the file but are no longer referenced (make_ru_table drops them).",
+ "findings": [
+  {
+   "id": "user-1",
+   "verdict": "fixed",
+   "what": "The film caption (fi.film === 'land') now gets the same sheets clause as the single frame (figure.js sheetsTex), and while the Landscape draws H_t on F's sheets a deformed root, power or log is no longer called the principal branch: its homotopy reads '(on every sheet)' / '(на каждом листе)' (funcs.js branchOr through homTex's o.sheets; app.js homSheetWords passes it from morphHomSegs and morphHomSegsRange, so screen, single frame and film agree). Added the film case and the user's case (sin √z, √ bracketed, film) to export_cmd.js section 6, EN and RU.",
+   "tests": "export_cmd.js section 6 (CMW_ONLY=user5): pass, 0 fails; film and user's-case captions EN/RU checked; preflight --latex 0 failures in 83 checks; the new film captions compiled separately with pdfLaTeX (EN) and XeLaTeX (RU), no errors."
+  },
+  {
+   "id": "user-2",
+   "verdict": "fixed",
+   "what": "Same root as user-1: the on-screen caption's homotopy sentence now says '(on every sheet)' when the Landscape draws the sheets, and the clause no longer says 'the sheets of H_t that become the sheets of F'. Example (user's case, t = 0.5): '...; $H_t$ is drawn on 2 surfaces, one for each sheet of $F$. Each deformed root or power $z^{\\alpha}$ runs along $z^{s}e^{2\\pi iks}$, $s=1+(\\alpha-1)t$, where $k$ is its branch number on that surface. ... $G_t$ is the homotopy $G_t(z)=z^{1-(1/2)t}$ (on every sheet).'",
+   "tests": "sheets_deform_cmd.js: the caption check (new regex, no 'principal branch', '(on every sheet)') passes."
+  },
+  {
+   "id": "user-3",
+   "verdict": "fixed",
+   "what": "With math-5 the deformation draws F's K surfaces at every t (a step not begun keeps its digits and does not act), so the title's and the check's counts are the drawn counts; the title names F's sheets as the carrier (', on 24 of the 30 sheet combinations of F', ', on both sheets of F'). The tip '24 of the 30 surfaces are drawn (at most 24)' is now true while deforming.",
+   "tests": "browser: 5th root then 6th root, whole chain, T = 0, 0.5, 1.5, 2: drawn K 24 = shown K 24, title 'landscape of Im H_t, on 24 of the 30 sheet combinations of F', check 'All sheets (24 of 30)'."
+  },
+  {
+   "id": "user-4",
+   "verdict": "fixed",
+   "what": "Tour 'Cauchy integral': the sentence that asked for an action nothing lit ('Select another closed curve to use it instead.') is now a statement: 'With several closed curves, the selected one is used.' (cauchyPlot takes the selected closed curve, else the first). The step only describes, as the audit lists it. Chosen over a new task because the 'roots' scene is shared with the Targets step, where a second closed curve would change what that step shows.",
+   "tests": "t_tour 1326/1326; RU entry u5f.tour_cauchy."
+  },
+  {
+   "id": "user-5",
+   "verdict": "rejected",
+   "what": "Left for the user to decide, as the review says (optional): a per-sheet cue (tint or seam on sheet k ≠ 0) would change the phase colouring that the captions describe. The comb edges at the height limit are the renderer's dropped cliff triangles (also with All sheets off, not new). math-4's knee replaces the compressed height while deforming with sheets, so the end frame is the static All sheets frame; at t ≈ 0 of sin √z the surfaces still rise steeply to the knee. For the backlog: a per-sheet cue, and cliff triangles at the height limit."
+  },
+  {
+   "id": "user-6",
+   "verdict": "fixed",
+   "what": "Tour 'All sheets': 'In Landscape, All sheets draws the sheets of a multivalued map instead of its cut principal branch: Im log z climbs a helicoid around 0. log z has infinitely many sheets, so a window of them is drawn; sheets ± sets its width.' (no fixed k range: the window follows the user's sheets ± setting). Help: 'All sheets draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; ...)'. The tour scene's internal name is now 'Sheets of the logarithm', as the gallery.",
+   "tests": "t_tour 1326/1326 (body within 240 characters as read); make_ru_table --strict 0 unresolved."
+  },
+  {
+   "id": "user-7",
+   "verdict": "fixed",
+   "what": "On a phone (no pane title), the Landscape's title chip shows what the title says when All sheets draws sheets ('Im H_t, on both sheets of F' / 'Im H_t, на обоих листах F', or 'Im F, both sheets' at rest), in place of the orbit hint, inside the existing chip (app.js landSheetsHint). The drawing-tool hint keeps priority.",
+   "tests": "sheets_deform_cmd.js at 390 x 844 (Android UA), EN and RU, light and dark, t = 0, 0.5, 1: the chip check passes; screenshot shots/sd-390-ru-light-t0.5.png."
+  },
+  {
+   "id": "user-8",
+   "verdict": "no-change",
+   "what": "Verified OK by the review (tool lighting, card pictures step, Export menus over the dialog). Rechecked the menus: export_cmd.js section 6 (b) passes at 1440 and 390, light and dark."
+  },
+  {
+   "id": "math-1",
+   "verdict": "fixed",
+   "what": "html clause while deforming has its own wording naming F's sheets as the carrier (', on both sheets of F', ', on all n sheets of F', ', on the sheets k = −2…2 of F', ', on K of the total sheet combinations of F'); the count is the drawn count (math-5). The caption never counts sheets of H_t (see math-2).",
+   "tests": "sheets_deform_cmd.js title checks (EN, RU) and log window title; browser capped-chain check (user-3)."
+  },
+  {
+   "id": "math-2",
+   "verdict": "fixed",
+   "what": "The deformation clauses now say '$H_t$ is drawn on n surfaces, one for each sheet of $F$' (or of the sheets k = −2…2, or of K of the total combinations), followed by the path on a sheet of each deformed piece: roots and powers along $z^{s}e^{2\\pi iks}$, $s=1+(\\alpha-1)t$, logs along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, with k the branch number on that surface. No 'sheets of H_t that become', which was false for roots (several sheets of z^s end on each sheet of z^α). The homotopy drops '(principal branch)' (user-1).",
+   "tests": "export_cmd.js section 6 and sheets_deform_cmd.js caption regexes (EN and RU)."
+  },
+  {
+   "id": "math-3",
+   "verdict": "fixed",
+   "what": "Sheets are numbered from the step's own cut and branch: digit d on the local cut is local sheet d + floor((Th − arg c0)/2π), Th = the step's cut + 2πk (a formula's branch nodes: its cut, k = 0), c0 the piece's input at the cell centre. Funcs.stepPair, homPair and pairCompile; GLSL root/powa/log plans (Th in the radix cell's .y) and custom-formula nodes (theta in .y) alike. Digit 0 is the step itself (F at rest, the plain H_t while deforming) on every cell the step's cut does not cross, the seam follows the user's cut, and a window is centred on F's branch. Cut 180°, k = 0 gives offset 0 everywhere: the default picture is unchanged.",
+   "tests": "t_sheets_deform: new checks, surface 0 = F at rest and = the plain H_t at T = 0.25, 0.5, 0.75 at every grid point for √ cut −90°, ∛ cut 45° k 3, log cut 60° k 3, z^{2/3} cut −120° k 2, a recognised formula; the review's probe4: plain H_t on no drawn sheet at 0 of 1600 points (was 1200); probe3 logk3: F among the drawn surfaces (index 2, was −1). glsl-test: 585 chains (3 new: other cuts and branches), 6.34 M compared, 0 fails, singular 0 bad."
+  },
+  {
+   "id": "math-4",
+   "verdict": "fixed",
+   "what": "While deforming with sheets and height Re/Im, the Landscape uses the static All sheets' scale and block boost (from F's sheets, cached per chain, so fixed for the whole transport) and a linear height with a soft knee (new height modes reKnee/imKnee = 6/7: linear up to the scale, then 1 + c·atan((|x|−1)/c), c = 0.5/π, levelling off at 1.25, the static clamp's height). The end frame is the static frame except the top 2 % of values (between the scale and 1.25 of it); a log window keeps its pitch. Trade-off, stated: where H_t is far below F (sin ∘ log at t = 0: F's outer sheets reach about 10^5) the start is flat on F's scale, as the static All sheets of F is.",
+   "tests": "sheets_deform_cmd.js functional checks pass; screenshots shots/sd-1440-en-light-t*.png, sd-log-t*.png; frame times below (regress-3)."
+  },
+  {
+   "id": "math-5",
+   "verdict": "fixed",
+   "what": "Funcs.sheetMapPieces / sheetMapCombos / sheetMapEval take F's last step (end): the digits are F's, read for every live step in (base, end] in chain order, and a step the map does not apply yet reads its digits without acting. GLSL chainSheetHom takes end (uSheetB); gl.js sheetPlan(map, W, end) and GLR.sheetInfo pass it; app.js render3D passes endMap().b while deforming. Surface c is F's surface c at every t: no re-indexing at a node, no vanishing surface, and the count is F's (K at most 24, as the static view). Without end (0) the old reading is kept (tests of it unchanged).",
+   "tests": "t_sheets_deform: 42479 checks, 0 failed (new: every chain and configuration, count = F's at 5 times, end = F's bit for bit, every node continuous to 1e-6; the review's ⁴√, log, sin, ∛ chain: 24 surfaces at every T, none changes at the node). glsl-test mode 9: 2386 rows (1983 in the review run; new: rows with end = n, first and last combos, and the 3 new chains), 949 855 points, 0 fails."
+  },
+  {
+   "id": "math-6",
+   "verdict": "fixed",
+   "what": "multiSheet() counts the distinct sheets D: F's K surfaces evaluated at 5 generic points, surfaces agreeing to 1e-9 are one. D = 1 (√ then z², F single-valued): All sheets draws the principal branch and no clause or title suffix is written. 1 < D < K: the finite wording uses D ('both sheets' for 2 distinct), and the deforming clause says 'one for each of the n sheet combinations of F'.",
+   "tests": "export_cmd.js section 6: √ then z²: drawn null, shown null, title 'landscape of Im F', caption without 'sheet'."
+  },
+  {
+   "id": "math-7",
+   "verdict": "fixed",
+   "what": "sheetCount uses sheetCountOf's exact test (q ≤ 24): a typed 0.333333333 is a window of infinitely many sheets (5 drawn, caption 'the sheets k=−2,…,2 of infinitely many are shown'), 1/3 typed as 0.3333333333333333 still 3 sheets. Checked: every p/q with q ≤ 24, |p| ≤ 200, is detected exactly.",
+   "tests": "t_sheets_deform math-7 checks; t_funcs passes (its sheetCount cases); export_cmd.js section 6 case 'nearthird' (EN, RU, title)."
+  },
+  {
+   "id": "regress-1",
+   "verdict": "fixed",
+   "what": "Cause found: q.sh waits 3000 × 0.1 s = 300 s and then prints TIMEOUT (rc 1), and the walk takes about 8 minutes; the review's walk_1440 ended rc=1 after 331 s, which is q.sh's limit, not a stall of the page. My kit's q.sh waits 900 s. Control: v16-candidate/dist walk at 1440 (RU) with a timestamped line per section: 17:16:17 to 17:24:20 (8 min 3 s), chapters 9, n = 0, no errors. Final build (work/xvta dist): 8 min 2 s, chapters 9, n = 0, no errors; both logs have 479 timestamped sections.",
+   "tests": "notes/v16-user5/fix/walk_v16c.log and walk_xvta.log (a line per section), walk_v16c.out and walk_xvta.out (results); fix/walk_timestamped_cmd.js (i18n_walk_cmd.js with a log line per section)."
+  },
+  {
+   "id": "regress-2",
+   "verdict": "fixed",
+   "what": "Same as user-6 (tour step and Help reworded; Russian added)."
+  },
+  {
+   "id": "regress-3",
+   "verdict": "rejected",
+   "what": "Cannot be measured here: the user's Android phone is not reachable from this machine (emulation only runs on the Mac's GPU). Measured what can be: 60 fps in every run, All sheets on vs off within noise. Before release: Chrome remote debugging on the phone with the user's case and a K = 24 chain, __qa.frames(3000) as in test/sheets_deform_cmd.js section 3. Note math-5 draws F's K from t = 0, so the per-frame cost of a capped chain is its end cost (the same as the static All sheets) from the start.",
+   "tests": "user's case, alternating 3 × on/off: 390 x 844 p95 18.6/18.3/17.7 on vs 18.6/18.4/17.5 off; 1440 x 900 17.6/17.4/17.3 vs 17.1/17.8/17.6. K = 24 chain (∛, log, sin, √) from t = 0: 1440 p95 18.3/17.7 vs 17.6/17.7; 390 18.4/18.2 vs 18.0/18.4; all 60 fps. (One phone run in sheets_deform_cmd.js read 19.1 against 18.2 and failed its 0.5 ms gate; the 6-run recheck shows it was noise.)"
+  }
+ ],
+ "tests": {
+  "node": "all 34 test/t_*.js pass (t_sheets_deform 42479 checks 0 failed; t_i18n 20612; t_tour 1326/1326; t_deform_range 1086; t_i18n_english byte-identical).",
+  "ru": "make_ru_table --strict: 2299 entries, 0 unresolved (reads v161-user5.json, V161_HERE); src/i18n_ru.js regenerates byte for byte.",
+  "glsl": "glsl-test: 585 chains, 6 338 860 compared, 0 fails, singular 0 bad; mode 9 2386 rows, 949 855 points, 0 fails.",
+  "browser": "sheets_deform_cmd.js: every functional check passes (1440 and 390, EN/RU, light/dark); export_cmd.js section 6: pass; preflight --latex 0 failures; frame times above.",
+  "quality": "test/regress/quality/run.sh --no-build --base-url http://localhost:9708: PASS, 81 runs, 0 failed, 28 improved, 35 unchanged, 18 NEW; targets 259 met, 0 not met. Baselines, golden images, accepted.json untouched.",
+  "walk": "i18n_walk_cmd.js at 1440, Russian, light, with a timestamped line per section: v16 control 8 min 3 s and the final build 8 min 2 s, both 9 chapters, n = 0, no errors (\"Russian complete\")."
+ },
+ "build": "work/xvta/dist: complex-map-workbench.html fcccb783…, test.html 2a305463…; the published page has no __cmw hooks.",
+ "evidence": "notes/v16-user5/fix/: node_tests.txt, node_t_sheets_deform.txt, u5_glsl.out (glsl-test), u5_sd.out (sheets_deform_cmd), u5_export.out (export_cmd section 6), u5_perf.out and u5_user_fps.out (frame times; their command files beside them), u5_quality.log, walk logs, screenshots sd-*.png and u5_grid.png (user case t = 0, 0.5, 1 and sin log window t = 0, 0.5, 1 at 1440; phone chip at 390)."
+}

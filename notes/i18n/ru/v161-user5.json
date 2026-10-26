@@ -1,0 +1,278 @@
+{
+ "_about": "v16.1 user report 5: shared by its pieces (work/xvsh sheets while deforming: u5.*; work/xvta tour: tour.*; work/xvex export: xvex.restored* — restored after a lost write, see the notes; the merge in work/xvta: u5m.*). id -> {en, ru, note, en_plural?, plural?}. Read by tools/make_ru_table.py (v161-*.json). Edit by read-modify-write only.",
+ "u5.sheets_tip": {
+  "en": "While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.",
+  "ru": "Пока показана эта деформация, рисуется один лист: у деформируемого шага нет пути на каждом листе.",
+  "note": "Tooltip of the Landscape's All sheets check while a deformation that cannot be drawn on every sheet is open (a d/dz, or a deformed formula with branch points that is not catalog steps)."
+ },
+ "u5.cap_screen": {
+  "en": "; the sheets of %{H} that become the sheets of %{F} are shown.",
+  "ru": "; показаны листы %{H}, которые становятся листами %{F}.",
+  "note": "End of the on-screen landscape caption while the deformation shows with All sheets; %{H} is H_t, %{F} is F or f_k (math)."
+ },
+ "u5.cap_fig": {
+  "en": "; the sheets of $H_t$ that become the sheets of $%{F}$ are shown.",
+  "ru": "; показаны листы $H_t$, которые становятся листами $%{F}$.",
+  "note": "The same sentence in the exported figure's caption (LaTeX), %{F} is F or f_k."
+ },
+ "tour.pictures_note": {
+  "en": "The tour turns the cards' pictures on for this step; your setting comes back after it.",
+  "ru": "На этом шаге тур включает картинки на карточках; после него вернётся ваша настройка.",
+  "note": "Tour, chapter Editing the chain, step Cards follow the view: appended to the step's text when the chain showed Names (or was too short for pictures); the tour switches the chain to Pictures for the step and restores the user's setting after it (work/xvta)."
+ },
+ "xvex.restored1": {
+  "en": ", all {n} sheets",
+  "ru": ", все {n} лист",
+  "en_plural": [
+   ", all {n} sheets",
+   ", all {n} sheets"
+  ],
+  "plural": {
+   "few": ", все {n} листа",
+   "many": ", все {n} листов",
+   "one": ", все {n} лист",
+   "other": ", все {n} листов"
+  },
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored2": {
+  "en": ", both sheets",
+  "ru": ", оба листа",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored3": {
+  "en": ", sheets {k}",
+  "ru": ", листы {k}",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored4": {
+  "en": ", {K} of {total} sheet combinations",
+  "ru": ", сочетания листов: {K} из {total}",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored5": {
+  "en": ", {K} of {total} sheet combinations, {k}",
+  "ru": ", сочетания листов: {K} из {total}, {k}",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored6": {
+  "en": ", {n} sheets, {k}",
+  "ru": ", {n} лист, {k}",
+  "en_plural": [
+   ", {n} sheets, {k}",
+   ", {n} sheets, {k}"
+  ],
+  "plural": {
+   "few": ", {n} листа, {k}",
+   "many": ", {n} листов, {k}",
+   "one": ", {n} лист, {k}",
+   "other": ", {n} листов, {k}"
+  },
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored7": {
+  "en": "; %{K} of the %{total} sheet combinations are shown.",
+  "ru": "; показаны сочетания листов: %{K} из %{total}.",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored8": {
+  "en": "; %{K} of the %{total} sheet combinations in the window %{k} are shown.",
+  "ru": "; показаны сочетания листов в окне %{k}: %{K} из %{total}.",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored9": {
+  "en": "; %{n} of the %{N} sheets are shown (the window %{k}).",
+  "ru": "; показаны листы: %{n} из %{N} (окно %{k}).",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored10": {
+  "en": "; %{n} of the infinitely many sheets are shown (the window %{k}).",
+  "ru": "; показаны листы: %{n} из бесконечного множества (окно %{k}).",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored11": {
+  "en": "; all {n} sheets are shown.",
+  "ru": "; показаны все {n} лист.",
+  "en_plural": [
+   "; all {n} sheets are shown.",
+   "; all {n} sheets are shown."
+  ],
+  "plural": {
+   "few": "; показаны все {n} листа.",
+   "many": "; показаны все {n} листов.",
+   "one": "; показаны все {n} лист.",
+   "other": "; показаны все {n} листов."
+  },
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored12": {
+  "en": "; both sheets are shown.",
+  "ru": "; показаны оба листа.",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored13": {
+  "en": "; the sheets %{k} of %{N} are shown.",
+  "ru": "; показаны листы %{k} (всего листов: %{N}).",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored14": {
+  "en": "; the sheets %{k} of infinitely many are shown.",
+  "ru": "; из бесконечного множества листов показаны листы %{k}.",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "xvex.restored15": {
+  "en": "Sheets of the logarithm",
+  "ru": "Листы логарифма",
+  "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
+ },
+ "u5m.cap_hom_win": {
+  "en": "; the sheets of %{H} that become the sheets %{k} of %{F} are shown.",
+  "ru": "; показаны листы %{H}, которые становятся листами %{F} с номерами %{k}.",
+  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
+ },
+ "u5m.cap_hom_nwin": {
+  "en": "; the sheets of %{H} that become %{n} sheets of %{F} are shown (the window %{k}).",
+  "ru": "; показаны листы %{H}, которые становятся листами %{F} (всего %{n}, окно %{k}).",
+  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
+ },
+ "u5m.cap_hom_cap": {
+  "en": "; the sheets of %{H} that become %{K} of the %{total} sheet combinations of %{F} are shown.",
+  "ru": "; показаны листы %{H}, которые становятся сочетаниями листов %{F}: %{K} из %{total}.",
+  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
+ },
+ "u5m.cap_hom_capwin": {
+  "en": "; the sheets of %{H} that become %{K} of the %{total} sheet combinations of %{F} in the window %{k} are shown.",
+  "ru": "; показаны листы %{H}, которые становятся сочетаниями листов %{F} в окне %{k}: %{K} из %{total}.",
+  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
+ },
+ "u5f.title_hom_capwin": {
+  "en": ", on {K} of the {total} sheet combinations of {F}, {k}",
+  "ru": ", на сочетаниях листов {F}: {K} из {total}, {k}",
+  "note": "Landscape title suffix while the deformation shows with All sheets and the sheet combinations are capped: H_t is drawn on F's first K combinations, in the window k. {F}: F or f_k (HTML); {k}: k = −2…2 (HTML)."
+ },
+ "u5f.title_hom_cap": {
+  "en": ", on {K} of the {total} sheet combinations of {F}",
+  "ru": ", на сочетаниях листов {F}: {K} из {total}",
+  "note": "As u5f.title_hom_capwin, without a window."
+ },
+ "u5f.title_hom_both": {
+  "en": ", on both sheets of {F}",
+  "ru": ", на обоих листах {F}",
+  "note": "Landscape title suffix while the deformation shows with All sheets: H_t is drawn on the two sheets of F (one surface per sheet of F)."
+ },
+ "u5f.title_hom_all": {
+  "en": ", on all {n} sheets of {F}",
+  "ru": ", на всех {n} листах {F}",
+  "en_plural": [
+   ", on all {n} sheets of {F}",
+   ", on all {n} sheets of {F}"
+  ],
+  "plural": {
+   "one": ", на всех {n} листе {F}",
+   "few": ", на всех {n} листах {F}",
+   "many": ", на всех {n} листах {F}",
+   "other": ", на всех {n} листах {F}"
+  },
+  "note": "As u5f.title_hom_both, n ≥ 3 sheets."
+ },
+ "u5f.title_hom_win": {
+  "en": ", on the sheets {k} of {F}",
+  "ru": ", на листах {F} с номерами {k}",
+  "note": "Landscape title suffix while the deformation shows with All sheets and F has infinitely many sheets (log): the window k = −2…2."
+ },
+ "u5f.title_hom_nwin": {
+  "en": ", on {n} sheets of {F}, {k}",
+  "ru": ", на {n} листах {F}, {k}",
+  "en_plural": [
+   ", on {n} sheets of {F}, {k}",
+   ", on {n} sheets of {F}, {k}"
+  ],
+  "plural": {
+   "one": ", на {n} листе {F}, {k}",
+   "few": ", на {n} листах {F}, {k}",
+   "many": ", на {n} листах {F}, {k}",
+   "other": ", на {n} листах {F}, {k}"
+  },
+  "note": "As u5f.title_hom_win, several multivalued pieces."
+ },
+ "u5f.cap_hom_capwin": {
+  "en": "; %{H} is drawn on %{n} surfaces, one for each of %{K} of the %{total} sheet combinations of %{F} in the window %{k}.",
+  "ru": "; деформация %{H} показана на %{n} поверхностях, по одной для каждого из сочетаний листов %{F} в окне %{k}: %{K} из %{total}.",
+  "note": "Landscape caption (screen and figure) while the deformation shows with All sheets, capped combinations in a window. %{H} = H_t, %{F} = F or f_k, %{k} the window (math); n ≥ 2."
+ },
+ "u5f.cap_hom_cap": {
+  "en": "; %{H} is drawn on %{n} surfaces, one for each of %{K} of the %{total} sheet combinations of %{F}.",
+  "ru": "; деформация %{H} показана на %{n} поверхностях, по одной для каждого из сочетаний листов %{F}: %{K} из %{total}.",
+  "note": "As u5f.cap_hom_capwin, without a window."
+ },
+ "u5f.cap_hom_fin": {
+  "en": "; %{H} is drawn on %{n} surfaces, one for each sheet of %{F}.",
+  "ru": "; деформация %{H} показана на %{n} поверхностях, по одной для каждого листа %{F}.",
+  "note": "Landscape caption while the deformation shows with All sheets, F with finitely many sheets (n ≥ 2)."
+ },
+ "u5f.cap_hom_combo": {
+  "en": "; %{H} is drawn on %{n} surfaces, one for each of the %{n} sheet combinations of %{F}.",
+  "ru": "; деформация %{H} показана на %{n} поверхностях, по одной для каждого из сочетаний листов %{F} (всего %{n}).",
+  "note": "As u5f.cap_hom_fin when some combinations of the steps' sheets give the same sheet of F."
+ },
+ "u5f.cap_hom_win": {
+  "en": "; %{H} is drawn on %{n} surfaces, one for each of the sheets %{k} of %{F}.",
+  "ru": "; деформация %{H} показана на %{n} поверхностях, по одной для каждого из листов %{F} с номерами %{k}.",
+  "note": "As u5f.cap_hom_fin for a window k = −2,…,2 (log, irrational powers)."
+ },
+ "u5f.cap_hom_nwin": {
+  "en": "; %{H} is drawn on %{n} surfaces, one for each of %{n} sheets of %{F} (the window %{k}).",
+  "ru": "; деформация %{H} показана на %{n} поверхностях, по одной для каждого из %{n} листов %{F} (окно %{k}).",
+  "note": "As u5f.cap_hom_win, several multivalued pieces."
+ },
+ "u5f.then_pow": {
+  "en": " Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, where $k$ is its branch number on that surface.",
+  "ru": " Каждый деформируемый корень и каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, где $k$ — номер ветви на этой поверхности.",
+  "note": "Sentence after u5f.cap_hom_*: the path of a deformed root or power on a surface. (verify-1: the exponent is σ; every deformed piece deforms in the caption's t: one step, or all at once.)"
+ },
+ "u5f.then_log": {
+  "en": " Each deformed logarithm runs along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, where $k$ is its branch number on that surface.",
+  "ru": " Каждый деформируемый логарифм идёт по пути $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, где $k$ — номер ветви на этой поверхности.",
+  "note": "As u5f.then_pow, for a deformed logarithm. (verify-1: the exponent is σ; every deformed piece deforms in the caption's t: one step, or all at once.)"
+ },
+ "u5f.then_both": {
+  "en": " Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, and each deformed logarithm along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, where $k$ is its branch number on that surface.",
+  "ru": " Каждый деформируемый корень и каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)t$, а каждый деформируемый логарифм — по пути $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-t$, где $k$ — номер ветви на этой поверхности.",
+  "note": "As u5f.then_pow, with both kinds. (verify-1: the exponent is σ; every deformed piece deforms in the caption's t: one step, or all at once.)"
+ },
+ "u5f.then_pow_turn": {
+  "en": " Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.",
+  "ru": " Каждый деформируемый корень и каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, где $s$ ($0\\le s\\le 1$) — время соответствующего шага, а $k$ — номер ветви на этой поверхности.",
+  "note": "As u5f.then_pow when the deformed pieces run in turn (steps one after another, or the catalog steps of a recognised formula): the path in the time s of the piece's own step (verify-1)."
+ },
+ "u5f.then_log_turn": {
+  "en": " Each deformed logarithm runs along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.",
+  "ru": " Каждый деформируемый логарифм идёт по пути $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, где $s$ ($0\\le s\\le 1$) — время соответствующего шага, а $k$ — номер ветви на этой поверхности.",
+  "note": "As u5f.then_pow_turn, for a deformed logarithm."
+ },
+ "u5f.then_both_turn": {
+  "en": " Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, and each deformed logarithm along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.",
+  "ru": " Каждый деформируемый корень и каждая степень $z^{\\alpha}$ идут по пути $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, а каждый деформируемый логарифм — по пути $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, где $s$ ($0\\le s\\le 1$) — время соответствующего шага, а $k$ — номер ветви на этой поверхности.",
+  "note": "As u5f.then_pow_turn, with both kinds."
+ },
+ "u5f.every_sheet": {
+  "en": "on every sheet",
+  "ru": "на каждом листе",
+  "note": "In a homotopy's parentheses instead of \"principal branch\" while the Landscape draws the deformation on every sheet: \"the homotopy H_t(z)=z^{1-(1/2)t} (on every sheet)\"."
+ },
+ "u5f.tour_cauchy": {
+  "en": "The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. With several closed curves, the selected one is used.",
+  "ru": "Стиль «Интеграл Коши» строит фазовый портрет интеграла $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ по замкнутой кривой $\\gamma$ — здесь это единичная окружность. Внутри он равен $F(z)=z^3-1$, снаружи — $0$; три нуля функции $F$ лежат на самой окружности $\\gamma$. Если замкнутых кривых несколько, берётся выделенная.",
+  "note": "Tour, Analysis, Cauchy integral: the last sentence no longer asks for an action that nothing lights (review user-4)."
+ },
+ "u5f.tour_sheets": {
+  "en": "In Landscape, All sheets draws the sheets of a multivalued map instead of its cut principal branch: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$. $\\log z$ has infinitely many sheets, so a window of them is drawn; sheets ± sets its width.",
+  "ru": "В виде «Рельеф» режим «Все листы» рисует листы многозначного отображения вместо его главной ветви с разрезом: $\\operatorname{Im}\\operatorname{Ln} z$ поднимается по геликоиду вокруг $0$. У $\\operatorname{Ln} z$ бесконечно много листов, поэтому рисуется окно из них; его ширину задаёт «листы ±».",
+  "note": "Tour, Branches, All sheets (review user-6): not \"the whole Riemann surface\", since log draws a window."
+ },
+ "u5f.help_views": {
+  "en": "The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.",
+  "ru": "Переключатель в середине верхней панели выбирает вид ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> показывает две плоскости рядом: слева фигуры, справа их образы; у каждой панели свой переключатель <b>Плоскость · Сфера</b> ({x4} {x5} для левой, {x6} {x7} для правой). На правой плоскости у указателя виден индикатор производной. <b>Фаза</b> — одна широкая панель, где каждая точка <i>X</i> окрашена по arg <i>F</i>, с линиями уровня модуля, на плоскости или на сфере Римана; фигуры обведены. <b>Рельеф</b> — одна широкая панель, где над <i>X</i> строится поверхность |<i>F</i>| в цветах фазы или в стиле «Гипс»: нули — ямы, полюсы — пики; для отображения с разрезом флажок <b>«Все листы»</b> рисует его листы вместо главной ветви с разрезом (все, если их конечное число, иначе окно из них; лучше всего с высотой Re <i>F</i> или Im <i>F</i>). У каждого вида своя камера и своё положение плоскости. <b>Сфера</b> переносит панель на сферу Римана, ∞ — в северном полюсе. На ней рисуют так же, как на плоскости (слева фигуры, справа цели; Кольцо, Сектор и Полярная сетка рисуются только на плоскости): «Круг» на сфере — это шапочка, «Окружность» — её край; если край проходит через ∞, круг становится полуплоскостью, а окружность — прямой. Инструментом «Выбор» перетаскивайте фигуру, чтобы сдвинуть её (переходя через ∞, она меняет тип), а пустое место — чтобы вращать сферу; при любом инструменте сферу вращают средней кнопкой мыши, перетаскиванием с нажатым Пробелом или двумя пальцами. Флажок <b>Шкала фазы</b> в настройках правой плоскости вида <i>X</i> → <i>Y</i> подкладывает под образы цвета фазового портрета, так что по цвету портрета можно прочесть значение <i>w</i>.",
+  "note": "Help, the views paragraph (review regress-2): All sheets draws the sheets, all of them or a window."
+ }
+}

@@ -1,0 +1,47 @@
+[
+ {
+  "id": "verify-1",
+  "severity": "medium",
+  "status": "new (from the math-2 fix)",
+  "title": "The new path sentence is false for a deformation that runs the steps one after another (t from 0 to n), and it uses s for two different things",
+  "detail": "While deforming with All sheets, the caption now adds: 'Each deformed root or power $z^{\\alpha}$ runs along $z^{s}e^{2\\pi iks}$, $s=1+(\\alpha-1)t$' (and for log: '$u=1-t$'). That is right only when t is the step's own time in [0, 1] (one bracketed step, or all at once). When the steps run in turn, t goes from 0 to n and the same caption defines the steps with their own time s: 'for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(4/5)s}$ ...; for $f_{2}$, ... $w_{1}^{1-(5/6)s}$'. So s means the exponent in one sentence and the step's time in the next, and with the global t the formula is wrong: 5th root then 6th root at t = 1.5 gives s = 1 + (1/6 - 1)(1.5) = -0.25 for the 6th root, but its exponent is 1 - (5/6)(0.5) = 0.583; the 5th root is already finished (exponent 1/5), not 1 + (1/5 - 1)(1.5) = -0.2. Same for √ then log (log's u = 1 - t is negative for t > 1). This sentence is in the exported LaTeX of the default film (whole chain with All sheets), the single frame and the screen caption, EN and RU ('s=1+(\\alpha-1)t' in u5f.then_pow / then_log / then_both).",
+  "evidence": "Running app (work/xvta dist/test.html, 1440x900, light). notes/v16-user5/review-verify/captions.json: 'capped' (⁵√ then ⁶√, whole chain) film caption and screen captions at T 0.5 and 1.5; 'whole' (√ then sin, whole chain) film caption; 'sqrtlog' (√ then log, whole chain). Code: src/app.js 7541-7543 (fixed strings, no transport check).",
+  "fix": "Write the path in the step's own time, and use a letter that is not already taken: e.g. 'runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ is the step's own time ($s=t$ when one step deforms)', and for log '$(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$'. Or attach the path to each step in the homotopy list ('(on sheet k: $z^{1-(1/2)s}e^{2\\pi ik(1-(1/2)s)}$)'). Same in RU (v161-user5.json, read-modify-write). Add a whole-chain film case to export_cmd.js section 6."
+ },
+ {
+  "id": "verify-2",
+  "severity": "medium",
+  "status": "new (from the math-4 fix); also the user's point 2",
+  "title": "The fixed height scale taken from F's sheets flattens H_t: log then sin shows one flat sheet for the first half of the deformation, and the user's case starts as cliffs to a flat lid",
+  "detail": "math-4 replaced the per-frame compressed height with a linear height on F's All sheets scale plus a knee that levels off at 1.25 of it. When F's sheets are much taller than H_t, H_t is flat. log then sin, log bracketed, All sheets, height Im: at t = 0 and t = 0.5 the five drawn surfaces look like one flat plane with only the tick 0 on the axis, while the title says 'on the sheets k = −2…2 of F'. This is exactly what the user reported ('I do not see the sheets. I only see one sheet'). The fixer noted it as a trade-off. In the user's own case (sin √z, √ bracketed) H_0 = sin z is far above F's scale, so t = 0 to about 0.3 is mostly vertical walls up to the flat cap, with comb edges along the cap. In the review build (compressed scale) the same frames were readable S-shaped surfaces (review-user/s3-grid.png). The end frame does now match the static All sheets frame (checked: √ then sin, log, log then sin).",
+  "evidence": "notes/v16-user5/review-verify/C-logT05.png (log then sin, t = 0.5: one flat plane), vv-log-T0.png, G-log-crop.png (static, t = 0, 0.5, 1; log alone static vs t = 1); G-user-crop.png (user's case t = 0, 0.15, 0.5, 1) against review-user/s3-grid.png. The export film shows the same walls in panels (a) and (b) (vx-xfMore-1440.png).",
+  "fix": "Keep the end equal to the static frame, but do not use F's scale for every t. For example, interpolate the scale on a log scale between H_0's and F's 98th percentiles (both over the drawn sheets, computed once per transport), so each frame is readable and t = 1 equals the static frame. Or take the scale from the drawn H_t at a few t and use the largest that still leaves F's inner sheets visible. Check the user's case, log then sin and the capped chains at t = 0, 0.25, 0.5, and the frame times (BUDGET60)."
+ },
+ {
+  "id": "verify-5",
+  "severity": "low",
+  "status": "new (from the math-3 fix; the missing branch in F may be older)",
+  "title": "With a branch k ≠ 0, the caption says 'the sheets k = −2,…,2' but the window is now centred on F's branch, and F is written as the principal branch",
+  "detail": "log with k = 3: F(1) = 6πi in the app, but the caption writes '$F(z)=\\log z$' and 'the sheets $k=-2,\\dots,2$ of infinitely many are shown'. Since math-3 the drawn window is centred on F's own branch, so the surfaces are log z + 2πik for k = 1…5, not k = −2…2 in the usual numbering. The 30th root with k = 3 does the same ('$F(z)=\\sqrt[30]{z}$', 'the sheets $k=-2,\\dots,2$ of 30'; drawn: branches 1…5). The title says 'sheets k = −2…2' too. EN and RU alike. With the default k = 0 everything is right.",
+  "evidence": "Running app, Landscape, All sheets: notes/v16-user5/review-verify/c5.js and c6.js (outputs quoted here: logk3 F(1) = (0, 18.8496); root30k3 F(1) = 0.8090+0.5878i).",
+  "fix": "Number the window in the caption as drawn: either print the absolute numbers ('the sheets $k=1,\\dots,5$', with F written on its branch, e.g. '$F(z)=\\log z+6\\pi i$'), or say the numbering is relative ('the sheet of F and the 2 on each side'). The same for the title and RU strings."
+ },
+ {
+  "id": "verify-3",
+  "severity": "low",
+  "status": "open (user-5, left for the user)",
+  "title": "Near t = 0 the sheets still cannot be told apart, and the comb edges at the height cap remain",
+  "detail": "Still as the review found: in the user's case the two surfaces have the same phase colours and cross each other at small t, and the walls end in saw-tooth combs at the cap (screen and exported film panels (a) and (b)). The fix pass left the per-sheet cue for the user to decide and put the combs on the backlog. verify-2 makes the early frames more wall-dominated, so the combs show more than before.",
+  "evidence": "notes/v16-user5/review-verify/G-user-crop.png (t = 0 and 0.15), vx-xfMore-1440.png (film panels (a), (b)).",
+  "fix": "Ask the user about a per-sheet cue (thin seam or slight tint on sheet k ≠ 0). Backlog: close the cliff triangles at the cap (article-grade rule)."
+ },
+ {
+  "id": "verify-4",
+  "severity": "low",
+  "status": "open (regress-3, cannot be measured here)",
+  "title": "All sheets while deforming is still not measured on the Android phone, and capped chains now draw 24 surfaces from t = 0",
+  "detail": "The fix pass rejected regress-3 because the phone is not reachable. math-5 now draws F's K surfaces at every t (24 for a capped chain from the start), so the early frames cost as much as the end. 60 fps holds on the Mac (the ledger's runs); the user's phone GPU is slower and unmeasured.",
+  "evidence": "notes/v16-user5/ledger.json regress-3 and math-5; review-regress-evidence/gpu_cost.json.",
+  "fix": "Before release, measure the user's case and a 24-surface chain playing on the phone (Chrome remote debugging, __qa.frames(3000)). If it misses 60 fps, profile it first. Do not lower the surface quality."
+ }
+]

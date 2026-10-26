@@ -13,6 +13,7 @@
   const TOL = 2e-3;
   const TS = [0, 0.01, 0.37, 0.5, 0.73, 0.999, 1];
   const RANGE_TS = [0, 0.25, 0.5, 0.999, 1];
+  const SHEET_TS = [0, 0.37, 0.73, 1];
 
   // ---------- deterministic random ----------
   let seed = 12345;
@@ -219,6 +220,21 @@
   add('sheets root d', [S('root'), D()]);
   add('sheets log d root', [S('log'), D(), S('root', { n: 3 })]);
   add('sheets sqrt d d', [S('custom', { expr: '\\sqrt{z}' }), D(), D()]);
+  // (v16.1 user-5) the deformation's sheets (chainSheetHom, mode 9 rows): the user's sin √z, both cuts, a recognised
+  // formula, a log window, a complex power, a pre with sheets, a formula with branch points in full
+  add('sheets deform sin sqrt', [S('root'), S('sin')]);
+  add('sheets deform sin sqrt -90', [S('root', { cut: -90 }), S('sin')]);
+  add('sheets deform rec sin sqrt', [S('custom', { expr: '\\sin\\sqrt{z}' })]);
+  add('sheets deform rec 2log(z+1) root', [S('custom', { expr: '2\\log(z+1)' }), S('root', { n: 3, cut: 45, k: 2 })]);
+  add('sheets deform log sin', [S('log', { cut: 90 }), S('sin')]);
+  add('sheets deform powa cx mobius', [S('powa', { alpha: '0.5+0.4i' }), S('mobius')]);
+  add('sheets deform mul log root', [S('mul', { c: '1+i' }), S('log'), S('root')]);
+  add('sheets deform sin pair', [S('sin'), S('custom', { expr: '\\log z+\\sqrt{z}' })]);
+  // (v16.1 review math-3) sheets numbered from the step's own cut and branch: a power and a log on other branches, a
+  // formula with its own cut
+  add('sheets branch powa cut k', [S('powa', { alpha: '0.6666666666666666', cut: -120, k: 2 }), S('sin')]);
+  add('sheets branch log cut k', [S('log', { cut: 60, k: 3 }), S('root', { n: 3, cut: 30, k: 1 })]);
+  add('sheets branch custom cut', [S('custom', { expr: '\\sqrt{z}+\\log(z+1)', cut: -45 }), S('sin')]);
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 
   // ---------- sample points (float32-exact) ----------
@@ -287,6 +303,7 @@
     return false;
   }
   function rowFn(steps, built, row, model) {
+    if (row.mode === 9) return (z, zc) => Funcs.sheetMapEval(steps, built, row.map, zc, z, row.combo, SHEET_W, row.end || 0);
     if (row.mode === 7 || row.mode === 8) return rangeTwin(steps, built, row);
     if (row.mode === 4) return (z, zc) => Funcs.sheetEval(steps, built, row.b, zc, z, row.combo, SHEET_W, model || {});
     if (row.mode === 5) return (z, zc) => Funcs.sheetEval(steps, built, row.b, zc, z, row.combo, SHEET_W, { a: row.a });
@@ -447,6 +464,21 @@
       };
     }
     const ks = [];
+    if (row.mode === 9) {
+      // (v16.1) the magnitudes along the principal composition of the map's steps (in full, or the path at t), at z and zc
+      const m = row.map, hs = [];
+      for (let k = 1; k <= steps.length; k++) {
+        if (!live(steps, built, k)) continue;
+        const how = Funcs.sheetMapHow(m, k), b = built[k - 1];
+        if (how === 1 || (how === 2 && m.t >= 1)) hs.push(b.f);
+        else if (how === 2 && m.t > 0) hs.push(b.hom ? b.hom(m.t) : (zz) => { const w = b.f(zz); return C((1 - m.t) * zz.re + m.t * w.re, (1 - m.t) * zz.im + m.t * w.im); });
+      }
+      return (z, zc) => {
+        let mag = 0;
+        for (const z0 of zc ? [z, zc] : [z]) { let w = z0; for (const hh of hs) { w = hh(w); mag = Math.max(mag, fin(w) ? CX.abs(w) : Infinity); } }
+        return { mag, cancel: 0 };
+      };
+    }
     if (row.mode === 7 || row.mode === 8) {
       // (v16) the magnitudes along the row's own composition: the pre in full, the bracketed homotopies at t (none at
       // t = 0, the identity), the post in full
@@ -547,6 +579,12 @@ void main() {
   vec2 z = zz.xy;
   vec4 m = texelFetch(uModes, ivec2(0, c.y), 0);
   vec2 w;
+  // (v16.1) mode 9: chainSheetHom; m = (9, mode + 4 post + 256 end, t, combo), the second texel (base, a, hi, b)
+  if (m.x > 8.75 && m.x < 9.25) {
+    vec4 m2 = texelFetch(uModes, ivec2(1, c.y), 0);
+    int pk = int(m.y + 0.5), pq = pk / 4;
+    w = chainSheetHom(zz.zw, z, pk - 4 * pq, int(m2.x + 0.5), int(m2.y + 0.5), int(m2.z + 0.5), int(m2.w + 0.5), pq - 64 * (pq / 64), m.z, int(m.w + 0.5), pk / 256);
+  } else
   if (m.x < 0.5) w = chainRange(z, int(m.y), int(m.z));
   else if (m.x < 1.5) w = chainStep(int(m.y), z);
   else if (m.x < 2.5) w = chainHom(int(m.y), z, m.z);
@@ -601,7 +639,7 @@ void main() {
   function runGPU(gc, rows) {
     let pr = progs.get(gc.key);
     if (!pr) {
-      pr = compile('#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\n' + gc.source + '\n' + MAIN);
+      pr = compile('#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\n' + gc.source + (gc.sheetHom || '') + '\n' + MAIN);
       progs.set(gc.key, pr);
       R.programs++;
     }
@@ -609,19 +647,20 @@ void main() {
     const u = new Float32Array(4 * gc.slots);
     gc.fill(u);
     gl.uniform4fv(pr.uChain, u);
-    const md = new Float32Array(4 * rows.length);
+    const md = new Float32Array(8 * rows.length);
     if (rows.length > HMAX) throw new Error(`too many rows: ${rows.length}`);
     rows.forEach((r, i) => {
       const v = r.mode === 0 ? [r.a, r.b] : r.mode === 3 ? [r.k, 0] : r.mode === 4 ? [r.b, r.combo] : r.mode === 5 ? [r.a, r.b, r.combo] : r.mode === 6 ? [r.a, r.b, r.t] : [r.i, r.t || 0];
       // (v16: modes 7 and 8 pack their step into x: mode + 16 k, then b, post and t)
-      if (r.mode === 7 || r.mode === 8) md.set([r.mode + 16 * r.k, r.b, r.post, r.t], 4 * i);
-      else md.set([r.mode, v[0], v[1], v[2] || 0], 4 * i);
+      if (r.mode === 7 || r.mode === 8) md.set([r.mode + 16 * r.k, r.b, r.post, r.t], 8 * i);
+      else if (r.mode === 9) { const m = r.map; md.set([9, m.mode + 4 * (m.post || 0) + 256 * (r.end || 0), m.t || 0, r.combo, m.base || 0, m.a || 0, m.hi || 0, m.b || 0], 8 * i); }
+      else md.set([r.mode, v[0], v[1], v[2] || 0], 8 * i);
     });
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, modeTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 1, rows.length, 0, gl.RGBA, gl.FLOAT, md);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 2, rows.length, 0, gl.RGBA, gl.FLOAT, md);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, ptsTex);
     gl.uniform1i(pr.uPts, 0); gl.uniform1i(pr.uModes, 1);
@@ -636,7 +675,7 @@ void main() {
   }
 
   const rowName = (r) => (r.mode === 0 ? `range(${r.a},${r.b})` : r.mode === 1 ? `step(${r.i})` : r.mode === 2 ? `hom(${r.i},t=${r.t})`
-    : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
+    : r.mode === 3 ? `stage(${r.k})` : r.mode === 4 ? `sheet(${r.b},combo=${r.combo})` : r.mode === 6 ? `homAll(${r.a},${r.b},t=${r.t})` : r.mode === 7 ? `rangeNat(hi=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 8 ? `rangeAll(lo=${r.k},b=${r.b},post=${r.post},t=${r.t})` : r.mode === 9 ? `sheetHom(${JSON.stringify(r.map)},combo=${r.combo}${r.end ? `,end=${r.end}` : ''})` : `sheetRange(${r.a},${r.b},combo=${r.combo})`);
   function testChain(ch) {
     const built = ch.steps.map((s) => Funcs.build(s));
     const gc = GLChain.build(ch.steps, built);
@@ -674,7 +713,25 @@ void main() {
           if (ks.length > 1) rows.push({ mode: 8, k: a - 1, b, post: n, t });
         }
       }
-      R.rangeRows = (R.rangeRows || 0) + rows.filter((r) => r.mode >= 7).length;
+      R.rangeRows = (R.rangeRows || 0) + rows.filter((r) => r.mode === 7 || r.mode === 8).length;
+    }
+    // (v16.1 user-5) mode 9: chainSheetHom, H_t on the sheets that become F's (Funcs.sheetMapEval): every step at t
+    // after the steps before it (and with the post after it), all at once, at t in SHEET_TS, the first combos
+    if (sheets.length && !derivs.length) {
+      const act = (k) => live(ch.steps, built, k), maps = [];
+      for (let k = 1; k <= n; k++) if (act(k)) for (const t of SHEET_TS) { maps.push({ mode: 1, hi: k, t }); if (k < n) maps.push({ mode: 1, hi: k, t, b: k, post: n }); }
+      if (n > 1) for (const t of SHEET_TS) maps.push({ mode: 3, a: 0, b: n, t });
+      for (const m of maps) {
+        if (!Funcs.sheetMapPieces(ch.steps, built, m)) continue;
+        const K = Funcs.sheetMapCombos(ch.steps, built, m, SHEET_W);
+        for (let c = 0; c < Math.min(K, 3) && rows.length < HMAX; c++) rows.push({ mode: 9, map: m, combo: c, t: m.t });
+        // (v16.1 review math-5) F's digits (end = n): a step not begun reads its digits; the first and the last combos
+        if (m.mode === 1 && m.hi < n && Funcs.sheetMapPieces(ch.steps, built, m, n)) {
+          const KE = Funcs.sheetMapCombos(ch.steps, built, m, SHEET_W, Funcs.SHEET_MAX, n);
+          for (const c of [...new Set([0, 1, KE - 1])]) if (c < KE && rows.length < HMAX) rows.push({ mode: 9, map: m, combo: c, t: m.t, end: n });
+        }
+      }
+      R.sheetHomRows = (R.sheetHomRows || 0) + rows.filter((r) => r.mode === 9).length;
     }
     const model = { circleRel: GLChain.circleRel, exact: gc.derivExact };
     const out = runGPU(gc, rows);
@@ -710,7 +767,7 @@ void main() {
           const k = (ri * P + p) * 4;
           // (hom at t = 0 is the exact identity on the GPU even where the CPU's (1-t)z + t f(z) gives 0*inf = NaN)
           if (e.skip === 'nonfinite' && stageRow) { const st = gs(Z[p]); if (st.circle || st.dInf || f32Finite(ch.steps, built, row, Z[p])) { R.skippedTrunc++; continue; } }
-          if (e.skip === 'nonfinite' && !((row.mode === 2 || row.mode === 6 || row.mode === 7 || row.mode === 8) && row.t === 0) && (!fin(e.w) || CX.abs(e.w) > 1e31)) {
+          if (e.skip === 'nonfinite' && !((row.mode === 2 || row.mode === 6 || row.mode === 7 || row.mode === 8 || row.mode === 9) && row.t === 0) && (!fin(e.w) || CX.abs(e.w) > 1e31)) {
             if (out[k + 2] > 0.5) {
               const ws = sphere(() => g(Z[p]));
               if (fin(ws) && Math.hypot(out[k] - ws.re, out[k + 1] - ws.im) <= TOL * (1 + CX.abs(ws))) {
@@ -742,6 +799,7 @@ void main() {
         R.compared++;
         if (stageRow) { if (row.mode === 4) R.comparedSheet = (R.comparedSheet || 0) + 1; else R.comparedDeriv = (R.comparedDeriv || 0) + 1; }
         if (row.mode === 5) R.comparedSheetRange = (R.comparedSheetRange || 0) + 1;
+        if (row.mode === 9) R.comparedSheetHom = (R.comparedSheetHom || 0) + 1;
         const k = (ri * P + p) * 4;
         const gw = C(out[k], out[k + 1]);
         const err = Math.hypot(gw.re - e.w.re, gw.im - e.w.im);

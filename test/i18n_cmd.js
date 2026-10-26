@@ -197,6 +197,17 @@ for (const w of [1024, 1440]) {
   const e = await ev(`(() => { try { Expr.parse('0,5'); return null; } catch (e) { return e.message; } })()`);
   check('en: "0,5" keeps its English message', e === "Unexpected ','", e);
 }
+// ---- 8 (v16.1 user-5): the logarithm's example and its Landscape title say which sheets, in Russian ----
+{
+  await open('ru', 1440, false);
+  // (the example picked from the Examples list by its Russian name)
+  await clickSel('#examplesBtn'); await settle(500);
+  const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
+  check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
+  await settle(2500);
+  const t = await ev(`(() => { const e = document.querySelector('.prole .rf') || document.querySelector('.prole'); return e ? e.textContent : null; })()`);
+  check('ru: the Landscape title names the window of sheets («листы k = −2…2»), not «все листы»', /, листы k = −2…2$/.test(t || '') && !/все листы/.test(t || ''), t);
+}
 const errs = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404|fonts\.g/.test(JSON.stringify(l)));
 check('no console errors', errs.length === 0, errs.slice(0, 5));
 const fails = R.filter((r) => !r[1]);

@@ -104,6 +104,9 @@ const Funcs = (() => {
   }
   // the branch of a power homotopy, as words
   const branchWords = (cut, k) => (Math.abs(cut - 180) < 1e-9 && !k ? $t('principal branch') : $t('branch with the cut at $\\arg=%{cut}^\\circ$, sheet %{k}', { cut: CX.texNum(cut, 2), k }));
+  // (v16.1 review user-1) a root's, power's or log's path while the Landscape draws it on every sheet (homTex's
+  // o.sheets): no branch is named, since each surface takes its own
+  const branchOr = (o, cut, k) => (o && o.sheets ? $t('on every sheet') : branchWords(cut, k));
   // z^{1 + (alpha - 1) t} with a real exponent: 1 + (n - 1) t written out
   function expoTex(al) {
     const s = al - 1;
@@ -381,7 +384,7 @@ const Funcs = (() => {
     if (u < 1e-6) return (z) => CX.log(z, th, k);
     return (z) => CX.add(CX.scale(CX.sub(CX.powReal(z, u, th, k), C(1, 0)), 1 / u), C(u, 0));
   };
-  const logHomTex = (cut, k) => (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=(%{v}^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $H_1(%{v})=\\log %{v}$ (%{cut})', { v, cut: branchWords(cut, k) }) });
+  const logHomTex = (cut, k) => (v = 'z', o) => ({ tex: $t('the homotopy $H_t(%{v})=(%{v}^{1-t}-1)/(1-t)+1-t$ for $0\\le t<1$, $H_1(%{v})=\\log %{v}$ (%{cut})', { v, cut: branchOr(o, cut, k) }) });
   // The zoom path of any other analytic formula, about a point p where f is analytic with f′(p) ≠ 0 (f′ from Expr.diff):
   //   H_t(z) = (1 − t) p + t f(p) + f′(p)^{t−1} (f(p + t(z − p)) − f(p)) / t   (principal power),
   // and below t₀ ≥ 10⁻³ (where f(x) − f(p) would cancel in float32 on the GPU) the blend z + (t/t₀)(H_{t₀}(z) − z),
@@ -1206,7 +1209,7 @@ const Funcs = (() => {
       return {
         f: (z) => CX.powReal(z, 1 / n, th, kk),
         hom: powHom(C(1 / n, 0), th, kk),
-        homTex: (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{1-(%{m}/%{n})t}$ (%{cut})', { v, m: n - 1, n, cut: branchWords(cut, kk) }) }),
+        homTex: (v = 'z', o) => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{1-(%{m}/%{n})t}$ (%{cut})', { v, m: n - 1, n, cut: branchOr(o, cut, kk) }) }),
         tex: (a) => ({ s: n === 2 ? `\\sqrt{${a.s}}` : `\\sqrt[${n}]{${a.s}}`, p: 4 }),
         props: props({ analytic: true, injective: true }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
@@ -1239,7 +1242,7 @@ const Funcs = (() => {
           : $t('A complex exponent winds around 0, so its inverse would need a spiral branch cut; use the Preimage view'),
         f: (z) => CX.pow(z, alpha, th, k),
         hom: powHom(alpha, th, k),
-        homTex: (v = 'z') => ({ tex: alpha.im === 0 ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (%{cut})', { v, e: expoTex(alpha.re), cut: branchWords(cut, k) }) : $t('the homotopy $H_t(%{v})=%{v}^{1+(\\alpha-1)t}$, $\\alpha=%{alpha}$ (%{cut})', { v, alpha: CX.tex(alpha, 3), cut: branchWords(cut, k) }) }),
+        homTex: (v = 'z', o) => ({ tex: alpha.im === 0 ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (%{cut})', { v, e: expoTex(alpha.re), cut: branchOr(o, cut, k) }) : $t('the homotopy $H_t(%{v})=%{v}^{1+(\\alpha-1)t}$, $\\alpha=%{alpha}$ (%{cut})', { v, alpha: CX.tex(alpha, 3), cut: branchOr(o, cut, k) }) }),
         tex: (a) => powTex(a, CX.tex(alpha)),
         props: props({ analytic: true, injective: inj }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
@@ -1670,10 +1673,10 @@ const Funcs = (() => {
     };
     if (n === 1) r.homTex = built[0].homTex || r.homTex;
     else {
-      r.homTex = (v = 'z') => {
+      r.homTex = (v = 'z', o) => {
         const parts = built.map((b, j) => {
           const x = j ? `u_{${j}}` : v;
-          const h = b.homTex ? b.homTex(x) : null;
+          const h = b.homTex ? b.homTex(x, o && o.sheets ? { sheets: true } : undefined) : null;
           return h && h.tex ? h.tex : $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v: x, F: 'f' });
         });
         return { tex: $t('the homotopy that runs its %{n} catalog steps in turn, each on an equal part of $0\\le t\\le 1$ ($u_j$: the point after step $j$): %{list}', { n: String(n), list: parts.join($t('; then ')) }) };
@@ -2371,15 +2374,41 @@ const Funcs = (() => {
   // a LOCAL cut opposite the cell centre zc (cut angle = arg of the piece's input at zc + 180°, so the cut never
   // crosses the cell) and on a chosen sheet. Over all sheets the union of the cells is the covering surface.
   const SHEET_MAX = 24;
-  // branches of z^s: q for a real s = p/q (q ≤ 24; 1 for an integer), 0 (infinitely many: a window) otherwise
+  // (v16.1 review math-3) sheets are numbered from the step's own branch: Th = its cut (radians) + 2 pi k (its sheet k;
+  // a formula's branch nodes: its cut, k = 0). Digit d on the local cut of a cell centred where the piece's input is c0
+  // is local sheet d + sheetOff(c0, Th): the shift from the local range (arg c0 - pi, arg c0 + pi] to the step's
+  // (cut - 2 pi, cut] plus k. So digit 0 is the step itself (F, or the plain H_t) on every cell the step's cut does not
+  // cross, the seam between the drawn sheets lies along that cut, and a window k = -W..W is centred on the step's
+  // branch. The default (cut 180 degrees, k = 0) gives 0 everywhere: as before. GPU twin: glsl.js, the same floor.
+  const sheetOff = (c0, Th) => Math.floor((Th - Math.atan2(c0.im, c0.re)) / (2 * PI));
+  const stepTh = (bb) => { const v = bb.vals || {}, cut = (v.cut ?? 180) * DEG, k = v.k | 0; if (bb.def.id === 'root') { const n = Math.max(2, v.n); return cut + 2 * PI * (((k % n) + n) % n); } return cut + 2 * PI * k; };
+  // branches of z^s: q for a real s = p/q (q ≤ 24; 1 for an integer), 0 (infinitely many: a window) otherwise. The
+  // same exact test as sheetCountOf (v16.1 review math-7: a typed 0.333333333 is 333333333/10^9, not 1/3, so it gets
+  // a window, as its caption says, and not 3 surfaces under "all 3 sheets")
   function sheetCount(s) {
     if (typeof s === 'number') s = C(s, 0);
     if (!s || s.im !== 0 || !Number.isFinite(s.re)) return 0;
-    for (let q = 1; q <= SHEET_MAX; q++) {
-      const y = s.re * q;
-      if (Math.abs(y - Math.round(y)) <= 1e-9 * Math.max(1, Math.abs(y))) return q;
+    const q = sheetCountOf(s);
+    return q <= SHEET_MAX ? q : 0;
+  }
+  // (v16.1 user-5) the true number of branches of z^s, for the captions (sheetCount stops at 24, where the landscape
+  // switches to a window): q for a real s that is exactly a fraction p/q in lowest terms with q <= 10^6 (a typed 0.123
+  // is 123/1000: 1000 sheets), Infinity otherwise (a non-real s, sqrt 2, pi: no fraction with q <= 10^6 is the double)
+  function sheetCountOf(s) {
+    if (typeof s === 'number') s = C(s, 0);
+    if (!s || s.im !== 0 || !Number.isFinite(s.re)) return Infinity;
+    const x = Math.abs(s.re);
+    let h0 = 0, h1 = 1, k0 = 1, k1 = 0, y = x;   // the convergents h/k of the continued fraction of x
+    for (let i = 0; i < 64; i++) {
+      const a = Math.floor(y), h = a * h1 + h0, k = a * k1 + k0;
+      if (k > 1e6) break;
+      if (h / k === x) return k;
+      h0 = h1; h1 = h; k0 = k1; k1 = k;
+      const f = y - a;
+      if (!(f > 0)) break;
+      y = 1 / f;
     }
-    return 0;
+    return Infinity;
   }
   const constOf = (n) => Expr.compile(n)(C(0, 0));
   // how a node of a custom formula depends on the branch: null (single-valued, as constants, integer powers and
@@ -2421,7 +2450,7 @@ const Funcs = (() => {
             const A = go(n.a);
             if (!bn) { const k = constOf(n.b).re; return (c, w, S) => { const a = A(c, w, S); return [CX.ipow(a[0], k), CX.ipow(a[1], k)]; }; }
             const i = nodes.push(bn) - 1, v = bn.v;
-            return (c, w, S) => { const a = A(c, w, S), th = cutOf(a[0]), s = S[i]; return [CX.pow(a[0], v, th, s), CX.pow(a[1], v, th, s)]; };
+            return (c, w, S) => { const a = A(c, w, S), th = cutOf(a[0]), s = S[i] + sheetOff(a[0], theta); return [CX.pow(a[0], v, th, s), CX.pow(a[1], v, th, s)]; };
           }
           if (!Expr.depends(n.a)) {
             const B = go(n.b), base = constOf(n.a);
@@ -2431,18 +2460,18 @@ const Funcs = (() => {
           }
           const A = go(n.a), B = go(n.b);
           const i = nodes.push(bn) - 1;
-          return (c, w, S) => { const a = A(c, w, S), b = B(c, w, S), th = cutOf(a[0]), s = S[i]; return [CX.pow(a[0], b[0], th, s), CX.pow(a[1], b[1], th, s)]; };
+          return (c, w, S) => { const a = A(c, w, S), b = B(c, w, S), th = cutOf(a[0]), s = S[i] + sheetOff(a[0], theta); return [CX.pow(a[0], b[0], th, s), CX.pow(a[1], b[1], th, s)]; };
         }
         case 'root': {
           const A = go(n.a), bn = branchNode(n), i = nodes.push(bn) - 1, s1 = bn.s;
-          return (c, w, S) => { const a = A(c, w, S), th = cutOf(a[0]), s = S[i]; return [CX.pow(a[0], s1, th, s), CX.pow(a[1], s1, th, s)]; };
+          return (c, w, S) => { const a = A(c, w, S), th = cutOf(a[0]), s = S[i] + sheetOff(a[0], theta); return [CX.pow(a[0], s1, th, s), CX.pow(a[1], s1, th, s)]; };
         }
         case 'call': {
           const A = go(n.a);
           if (n.f === 'log' || n.f === 'sqrt') {
             const i = nodes.push(branchNode(n)) - 1, lg = n.f === 'log';
             return (c, w, S) => {
-              const a = A(c, w, S), th = cutOf(a[0]), s = S[i];
+              const a = A(c, w, S), th = cutOf(a[0]), s = S[i] + sheetOff(a[0], theta);
               return lg ? [CX.log(a[0], th, s), CX.log(a[1], th, s)] : [CX.powReal(a[0], 0.5, th, s), CX.powReal(a[1], 0.5, th, s)];
             };
           }
@@ -2460,17 +2489,19 @@ const Funcs = (() => {
     if (!pairCache.has(b)) pairCache.set(b, pairCompile(b.ast || Expr.parse(b.vals.expr), b.vals.cut * DEG));
     return pairCache.get(b);
   }
-  // the multivalued pieces of one built step, in the order their sheet digits are read: [{n}] (n sheets, 0: a
-  // window of 2W + 1 sheets, 1: single-valued after all, e.g. an integer exponent)
+  // the multivalued pieces of one built step, in the order their sheet digits are read: [{n, of}] (n sheets, 0: a
+  // window of 2W + 1 sheets, 1: single-valued after all, e.g. an integer exponent; of: the piece's own number of
+  // sheets, Infinity for log, so a caption can say "k = -2, ..., 2 of infinitely many" or "of 30": v16.1 user-5)
+  const nodeOf = (x) => (x.kind === 'sqrt' ? 2 : x.kind === 'root' ? sheetCountOf(x.s) : x.kind === 'powc' ? sheetCountOf(x.v) : Infinity);
   function stepSheets(b) {
     if (!b || b.error || !b.def || b.op === 'deriv') return [];
     const id = b.def.id, v = b.vals;
-    if (id === 'root') { const n = Math.max(2, v.n); return [{ n: n <= SHEET_MAX ? n : 0 }]; }
-    if (id === 'powa') return [{ n: sheetCount(v.alpha) }];
-    if (id === 'log') return [{ n: 0 }];
+    if (id === 'root') { const n = Math.max(2, v.n); return [{ n: n <= SHEET_MAX ? n : 0, of: n }]; }
+    if (id === 'powa') return [{ n: sheetCount(v.alpha), of: sheetCountOf(v.alpha) }];
+    if (id === 'log') return [{ n: 0, of: Infinity }];
     // a recognized formula: the pieces of its steps, in order (as the catalog chain)
     if (id === 'custom' && b.rec) return b.rec.built.flatMap(stepSheets);
-    if (id === 'custom') { try { return pairOf(b).nodes.map((x) => ({ n: x.n })); } catch (e) { return []; } }
+    if (id === 'custom') { try { return pairOf(b).nodes.map((x) => ({ n: x.n, of: nodeOf(x) })); } catch (e) { return []; } }
     return [];
   }
   // Funcs.sheetSteps(steps, built) -> [{k, n, node}]: the multivalued pieces of the live steps (n sheets, 0 for
@@ -2489,6 +2520,25 @@ const Funcs = (() => {
     let p = 1;
     for (const e of sheetSteps(steps, built)) if (e.k > a && e.k <= b) p *= e.n > 0 ? e.n : 2 * W + 1;
     return Math.min(p, cap);
+  }
+  // one built step on the pair [value at the cell centre, value at the point], every multivalued piece on the local cut
+  // opposite its input at the centre and on its sheet s[i] (the step's pieces in stepSheets order)
+  function stepPair(bb, pr, s) {
+    const id = bb.def.id;
+    const c0 = pr[0], w0 = pr[1];
+    if (id === 'custom' && bb.rec) {
+      let i = 0;
+      for (const sb of bb.rec.built) { const m = stepSheets(sb).length; pr = stepPair(sb, pr, s.slice(i, i + m)); i += m; }
+      return pr;
+    }
+    if (id === 'root' || id === 'powa' || id === 'log') {
+      const th = Math.atan2(c0.im, c0.re) + PI, sh = s[0] + sheetOff(c0, stepTh(bb));
+      if (id === 'root') { const e = 1 / Math.max(2, bb.vals.n); return [CX.powReal(c0, e, th, sh), CX.powReal(w0, e, th, sh)]; }
+      if (id === 'powa') { const a = bb.vals.alpha; return [CX.pow(c0, a, th, sh), CX.pow(w0, a, th, sh)]; }
+      return [CX.log(c0, th, sh), CX.log(w0, th, sh)];
+    }
+    if (id === 'custom') return pairOf(bb).f(c0, w0, s);
+    return [bb.f(c0), bb.f(w0)];
   }
   // Funcs.sheetEval(steps, built, b, zc, z, combo, W) -> G_b(z) on surface number combo of the cell centred at zc.
   // combo is read as mixed-radix digits, lowest first, one per multivalued piece of the live steps 1..b in chain
@@ -2517,23 +2567,6 @@ const Funcs = (() => {
     let L = 0;
     for (let k = 1; k <= b; k++) if (isLive(steps, built, k) && built[k - 1].op === 'deriv') lev[k] = ++L;
     const step = (k, pr) => stepPair(built[k - 1], pr, S[k]);
-    function stepPair(bb, pr, s) {
-      const id = bb.def.id;
-      const c0 = pr[0], w0 = pr[1];
-      if (id === 'custom' && bb.rec) {
-        let i = 0;
-        for (const sb of bb.rec.built) { const m = stepSheets(sb).length; pr = stepPair(sb, pr, s.slice(i, i + m)); i += m; }
-        return pr;
-      }
-      if (id === 'root' || id === 'powa' || id === 'log') {
-        const th = Math.atan2(c0.im, c0.re) + PI, sh = s[0];
-        if (id === 'root') { const e = 1 / Math.max(2, bb.vals.n); return [CX.powReal(c0, e, th, sh), CX.powReal(w0, e, th, sh)]; }
-        if (id === 'powa') { const a = bb.vals.alpha; return [CX.pow(c0, a, th, sh), CX.pow(w0, a, th, sh)]; }
-        return [CX.log(c0, th, sh), CX.log(w0, th, sh)];
-      }
-      if (id === 'custom') return pairOf(bb).f(c0, w0, s);
-      return [bb.f(c0), bb.f(w0)];
-    }
     function stage(k, zc0, z0) {
       let p = 0;
       for (let j = k; j >= 1; j--) if (isLive(steps, built, j) && built[j - 1].op === 'deriv') { p = j; break; }
@@ -2555,9 +2588,116 @@ const Funcs = (() => {
     return stage(b, zc, z)[1];
   }
 
+  // ---------------- the deformation's sheets (notes/v16-user5/SHEETS-DESIGN.md) ----------------
+  // H_t on the sheets that become F's: every multivalued piece keeps the digit it has in F's surfaces (sheetEval) and
+  // its path runs on that sheet, with the local cut opposite its input at the cell centre. GPU twin: chainSheetHom.
+  // How a deformation map applies step k: 0 not at all, 1 in full, 2 its path at t. Map mode 1 (step hi at t): the
+  // steps (base, hi) in full, hi at t; mode 3 (all at once): (base, a] in full, (a, b] at t; both: the post (b, post]
+  // in full when post > b (homrange.js state / cpuMap). The steps of the bracket not begun are not applied.
+  function sheetMapHow(map, k) {
+    const mode = map.mode || 0, base = map.base || 0, a = map.a || 0, hi = map.hi || 0, b = map.b || 0, post = map.post || 0;
+    if (mode === 1) { if (k > base && k < hi) return 1; if (k === hi) return 2; }
+    else if (mode === 3) { if (k > base && k <= a) return 1; if (k > a && k <= b) return 2; }
+    if (post > b && k > b && k <= post) return 1;
+    return 0;
+  }
+  // the step's path has a form on every sheet: a single-valued step (its own path on both points), a root, a power,
+  // log, and a formula recognised as such steps (a formula with branch points otherwise follows a zoom or a straight
+  // line of its principal value: no sheet form)
+  function sheetHomOk(b) {
+    if (!b || b.error || !b.def || b.op === 'deriv') return false;
+    const id = b.def.id;
+    if (id === 'root' || id === 'powa' || id === 'log') return true;
+    if (id === 'custom' && b.rec) return b.rec.built.every(sheetHomOk);
+    return !stepSheets(b).some((e) => e.n !== 1);
+  }
+  // Funcs.sheetMapPieces(steps, built, map, end) -> [{k, n, node, how}]: the multivalued pieces a deformation map (mode 1
+  // or 3) applies, in digit order (n sheets, 0: a window of 2W + 1), or null when the map cannot be drawn as sheets (a
+  // d/dz among its steps, a path at t with no sheet form, another mode). end > 0 (F's last step: the landscape passes
+  // it, v16.1 review math-5): the digits are F's, read for every live step in (base, end] in chain order, and a step
+  // the map does not apply yet (how 0) keeps its digits without acting, so surface c is F's surface c at every t (no
+  // re-indexing when a step begins, no surface that vanishes at a node) and the count is F's
+  function sheetMapPieces(steps, built, map, end = 0) {
+    const mode = (map && map.mode) || 0;
+    if (mode !== 1 && mode !== 3) return null;
+    const out = [], base = map.base || 0;
+    for (let k = 1; k <= steps.length; k++) {
+      if (!isLive(steps, built, k)) continue;
+      const how = sheetMapHow(map, k);
+      if (!how && !(k > base && k <= end)) continue;
+      const b = built[k - 1];
+      if (b.op === 'deriv') return null;
+      if (how === 2 && !sheetHomOk(b)) return null;
+      stepSheets(b).forEach((e, node) => { if (e.n !== 1) out.push({ k, n: e.n, node, how }); });
+    }
+    return out;
+  }
+  // the number of surfaces of a deformation map with window W (capped at SHEET_MAX; Infinity for the raw product), 0
+  // when it cannot be drawn as sheets; end: as sheetMapPieces (F's count)
+  function sheetMapCombos(steps, built, map, W = 2, cap = SHEET_MAX, end = 0) {
+    const ps = sheetMapPieces(steps, built, map, end);
+    if (!ps) return 0;
+    let p = 1;
+    for (const e of ps) p *= e.n > 0 ? e.n : 2 * W + 1;
+    return Math.min(p, cap);
+  }
+  // a step's path at 0 < t < 1 on the pair, its pieces on the sheets s (stepPair's order): roots and powers z^s with
+  // s = 1 + (alpha - 1)t, log (z^u - 1)/u + u with u = 1 - t (powHom, logHom: the step's own paths, here on the local
+  // cut and sheet), a recognised formula its steps' paths in turn (step j on [j/n, (j+1)/n], asChain), any other step
+  // its own path (single-valued, sheetHomOk)
+  function homPair(bb, pr, s, t) {
+    const id = bb.def.id, c0 = pr[0], w0 = pr[1];
+    if (id === 'custom' && bb.rec) {
+      const subs = bb.rec.built, n = subs.length, x = t * n, j = Math.min(n - 1, Math.floor(x));
+      let i = 0;
+      for (let q = 0; q < n; q++) {
+        const sb = subs[q], m = stepSheets(sb).length, ss = s.slice(i, i + m);
+        i += m;
+        if (q < j) pr = stepPair(sb, pr, ss);
+        else if (q === j && x - j > 0) pr = homPair(sb, pr, ss, x - j);
+      }
+      return pr;
+    }
+    if (id === 'root' || id === 'powa' || id === 'log') {
+      const th = Math.atan2(c0.im, c0.re) + PI, sh = s[0] + sheetOff(c0, stepTh(bb));
+      const H = id === 'log' ? logHom(th, sh)(t) : powHom(id === 'root' ? C(1 / Math.max(2, bb.vals.n), 0) : bb.vals.alpha, th, sh)(t);
+      return [H(c0), H(w0)];
+    }
+    const H = bb.hom ? bb.hom(t) : linHom(bb.f)(t);
+    return [H(c0), H(w0)];
+  }
+  // Funcs.sheetMapEval(steps, built, map, zc, z, combo, W, end) -> H_t(z) on surface number combo of the cell centred
+  // at zc, for a deformation map (mode 1 or 3; mode 0: sheetEval of the steps (a, b]). combo's mixed-radix digits,
+  // lowest first, are read for the pieces the map applies (sheetMapPieces), as sheetEval reads F's: at t = 1 every step
+  // is in full and the surfaces are F's, combo for combo; at t = 0 the path is the identity on every sheet. end > 0:
+  // F's digits (every live step in (base, end]; a step not begun reads its digits and does not act), so surface c is
+  // F's surface c at every t. NaN when the map cannot be drawn as sheets.
+  function sheetMapEval(steps, built, map, zc, z, combo = 0, W = 2, end = 0) {
+    const mode = (map && map.mode) || 0;
+    if (mode !== 1 && mode !== 3) return sheetEval(steps, built, (map && map.b) || 0, zc, z, combo, W, { a: (map && map.a) || 0 });
+    if (!sheetMapPieces(steps, built, map, end)) return C(NaN, NaN);
+    const t = Math.max(0, Math.min(1, +map.t || 0)), base = map.base || 0;
+    let c = Math.max(0, Math.floor(+combo || 0)), pr = [zc, z];
+    for (let k = 1; k <= steps.length; k++) {
+      if (!isLive(steps, built, k)) continue;
+      const how = sheetMapHow(map, k);
+      if (!how && !(k > base && k <= end)) continue;
+      const b = built[k - 1];
+      const s = stepSheets(b).map((e) => {
+        const r = e.n > 0 ? e.n : 2 * W + 1, d = c % r;
+        c = Math.floor(c / r);
+        return e.n > 0 ? d : d - W;
+      });
+      if (!how) continue;
+      if (how === 1 || t >= 1) pr = stepPair(b, pr, s);
+      else if (t > 0) pr = homPair(b, pr, s, t);
+    }
+    return pr[1];
+  }
+
   return {
     DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval,
+    stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();

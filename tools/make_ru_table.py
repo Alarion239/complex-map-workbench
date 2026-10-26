@@ -42,9 +42,13 @@ extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # v152-*.json / v16-*.json tables, so their order changes no string.)
 V15_NOT_HERE = set()
 V152_NOT_HERE = set()
+# (v16.1: the gate's fix pass and the user's requests write notes/i18n/ru/v161-<piece>.json, read last, so their changes
+# to shared strings win; only the tables whose sources are merged in this tree are read: work/xvex has user-5's, the
+# exact sheet captions and the export dialog's menus. A merge adds its pieces' names here.)
+V161_HERE = {'v161-user5.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')):  # the review fixes last (v16: the constructions' table, read after v15.2's)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue

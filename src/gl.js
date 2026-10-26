@@ -1871,6 +1871,12 @@ vec2 heightW(vec2 w) {
     bool bad = uHMode == 4 ? nanx : nany;
     return vec2(uH * clamp(x / mu, -1.25, 1.25), bad ? 0.0 : 1.0);
   }
+  // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
+  if (uHMode == 6 || uHMode == 7) {
+    float x = clamp((uHMode == 6 ? w.x : w.y) / mu, -1e30, 1e30), a = abs(x), c = 0.5 / PI;
+    bool bad = uHMode == 6 ? nanx : nany;
+    return vec2(uH * sign(x) * (a <= 1.0 ? a : 1.0 + c * atan((a - 1.0) / c)), bad ? 0.0 : 1.0);
+  }
   if (uHMode == 2 || uHMode == 3) {
     float x = uHMode == 2 ? w.x : w.y;
     bool bad = uHMode == 2 ? nanx : nany;
@@ -1970,8 +1976,18 @@ void main() {
   // Vertices are not shared between cells: the height texture holds a 2 x 2 block per cell (its corners), one tile
   // of 2M x 2M texels (M = uN - 1 cells per side) per combo, uTileC tiles per row. Texel: (height, valid, nx, ny)
   // with the normal from central differences of the height on the same sheet (nz > 0 follows).
-  const LAND_SHEET_TF_VS = `
-uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform int uSheetA; uniform int uSheetB; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
+  // the surface number combo of the drawn map at (zc, z): mode 0 the steps (uSheetA, uSheetB] (chainSheetRange, as
+  // before); a deformation (modes 1 and 3, the map's own uniforms) H_t on the sheets that become F's (chainSheetHom,
+  // notes/v16-user5/SHEETS-DESIGN.md)
+  const SHEET_MAP = `
+uniform int uSheetA; uniform int uSheetB;
+vec2 mapSheet(vec2 zc, vec2 z, int combo) {
+  if (uMode == 1 || uMode == 3) return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, combo, uSheetB);
+  return chainSheetRange(zc, z, uSheetA, uSheetB, combo);
+}
+`;
+  const LAND_SHEET_TF_VS = SHEET_MAP + `
+uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
 out vec4 tfOut;
 void main() {
   int M = uN - 1, T = 2 * M;
@@ -1990,7 +2006,7 @@ void main() {
   float h[5]; float ok[5];
   for (int k = 0; k < 5; k++) {
     vec2 o = k == 0 ? vec2(0.0) : (k == 1 ? vec2(e.x, 0.0) : (k == 2 ? vec2(-e.x, 0.0) : (k == 3 ? vec2(0.0, e.y) : vec2(0.0, -e.y))));
-    vec2 hv = heightW(chainSheetRange(zc, z + o, uSheetA, uSheetB, combo));
+    vec2 hv = heightW(mapSheet(zc, z + o, combo));
     h[k] = hv.x; ok[k] = hv.y;
   }
   float cl = 0.3 * uH;
@@ -2050,8 +2066,8 @@ in vec2 vZ; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge;
 uniform vec3 uCut; uniform vec3 uUnder; uniform vec4 uBox;
 out vec4 o;
-${sheet ? `flat in vec2 vZc; flat in int vCombo; uniform int uSheetA; uniform int uSheetB;
-vec2 landW(vec2 z) { return chainSheetRange(vZc, z, uSheetA, uSheetB, vCombo); }` : 'vec2 landW(vec2 z) { return mapF(z); }'}
+${sheet ? `flat in vec2 vZc; flat in int vCombo;${SHEET_MAP}
+vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }` : 'vec2 landW(vec2 z) { return mapF(z); }'}
 void main() {
   vec2 w = landW(vZ);              // colour from F at the interpolated z: contours stay crisp
   float r = wabs(w);
@@ -2188,10 +2204,10 @@ void main() {
   // combination (instance), each with the cuts placed opposite the probe itself
   const PROBE_VS = (sheet) => `
 uniform vec2 uProbe; uniform vec4 uBox; uniform vec2 uAspect; uniform float uFloorZ; uniform float uDpr;
-${sheet ? 'uniform int uSheetA; uniform int uSheetB;' : ''}
+${sheet ? SHEET_MAP : ''}
 ${MARK_EMIT}
 void main() {
-  vec2 w = ${sheet ? 'chainSheetRange(uProbe, uProbe, uSheetA, uSheetB, gl_InstanceID)' : 'mapF(uProbe)'};
+  vec2 w = ${sheet ? 'mapSheet(uProbe, uProbe, gl_InstanceID)' : 'mapF(uProbe)'};
   vec2 hv = heightW(w);
   vec2 uv = (uProbe - uBox.xy) / uBox.zw;
   vec2 xy = (uv - 0.5) * 2.0 * uAspect;
@@ -2358,9 +2374,9 @@ void main() {
     ulevel: { chain: false, vs: () => ULEVEL_VS, fs: () => ULEVEL_FS },
     probe: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(false), fs: () => MARK_FS },
     // All sheets (only for chains whose source has chainSheetRange: see sheetPlan)
-    landSheetTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_SHEET_TF_VS, fs: () => TF_FS, tf: true },
-    landSheet: { chain: true, vs: () => LAND_SHEET_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(true) },
-    probeSheet: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(true), fs: () => MARK_FS },
+    landSheetTF: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_SHEET_TF_VS, fs: () => TF_FS, tf: true },
+    landSheet: { chain: true, sheet: true, vs: () => LAND_SHEET_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(true) },
+    probeSheet: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(true), fs: () => MARK_FS },
     mark: { chain: false, vs: () => MARK_VS, fs: () => MARK_FS },
     sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(false) },
     sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(true) },
@@ -2383,7 +2399,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = typeof GLChain !== 'undefined' ? GLChain.LIB : '';
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'postOf', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -2395,7 +2411,8 @@ float wabs(vec2 w) {
     const d = DEFS[name];
     const vs = d.vs(), fs = d.fs();
     if (!d.chain) return [HEAD + vs, HEAD + fs];
-    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + MAP(ch.info);
+    // (the sheet programs also take the deformation's sheets, chainSheetHom: GLChain's sheetHom)
+    const lib = (typeof GLChain !== 'undefined' ? GLChain.LIB : '') + '\n' + ch.info.source + (d.sheet ? ch.info.sheetHom || '' : '') + MAP(ch.info);
     const pre = (s) => ['', FIN, lib][libUse(s)];
     return [HEAD + pre(vs) + vs, HEAD + pre(fs) + fs];
   }
@@ -3991,10 +4008,26 @@ float wabs(vec2 w) {
   // a, b, W, infinite (a log or irrational power among the steps), steps}; null when the map has no multivalued step
   // in (a, b], cannot be drawn as sheets (a homotopy, or a d/dz in (a, b] with a > 0) or the chain has no
   // chainSheetRange (GLChain). Combos 0..K-1 go to chainSheetRange as they are (it decodes them, steps in chain order).
-  function sheetPlan(map, W) {
+  function sheetPlan(map, W, end) {
     const info = cur.info;
     if (!info || !hasSheets(info) || !info.sheets || !Array.isArray(info.sheets.steps)) return null;
     const m = map || {};
+    // a deformation (modes 1 and 3): H_t on the sheets that become F's (chainSheetHom; notes/v16-user5/SHEETS-DESIGN.md),
+    // the pieces of the steps the map applies; a = the source stage, b = the last stage applied. end > 0 (F's last step,
+    // v16.1 review math-5): F's pieces and digits throughout (b = end, chainSheetHom's end): surface c is F's surface c
+    // at every t, a step not begun keeps its digits, and the count is F's
+    if (m.mode === 1 || m.mode === 3) {
+      end = Math.max(0, Math.floor(+end || 0));
+      let ps = null;
+      try { ps = typeof info.sheets.mapPieces === 'function' ? info.sheets.mapPieces(m, end) : null; } catch (e) { ps = null; }
+      if (!ps || !ps.length) return null;
+      W = clamp(Math.round(W) || 2, 1, 4);
+      let total = 1;
+      for (const s of ps) total *= s.n > 0 ? s.n : 2 * W + 1;
+      const K = Math.min(SHEET_MAX, total);
+      if (K < 2) return null;
+      return { K, total, a: m.base || 0, b: end > 0 ? end : Math.max(m.mode === 1 ? m.hi || 0 : m.b || 0, m.post || 0), W, infinite: ps.some((s) => !(s.n > 0)), steps: ps, hom: true };
+    }
     if ((m.mode || 0) !== 0) return null;
     // a > 0: the steps in (a, b] from points of the w_a-plane (chainSheetRange); never across a d/dz (its input is a
     // function of z, not a point: chainSheetRange gives NaN there)
@@ -4027,10 +4060,11 @@ float wabs(vec2 w) {
     M = Math.max(8, Math.min(M, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
     const texW = tileC * 2 * M, texH = tileR * 2 * M;
     const b = st.box;
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, b.x0, b.x1, b.y0, b.y1, M, mode, H, mu].join('|');
+    // (the map's key too: a deformation's surfaces change with t)
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(st.map) : '0'].join('|');
     if (landS && landS.key === key) return landS;
     if (!landS) landS = { tex1: floatTex() };
-    use(P1, null);
+    use(P1, sp.hom ? st.map : null);
     u1i(P1, 'uN', M + 1);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
@@ -4069,7 +4103,7 @@ float wabs(vec2 w) {
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
     const { aspect, H, floorZ, Mx } = landGeom(box, st.scale);
     const modeName = st.heightMode || 'log';
-    const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5 }[modeName] ?? 0;
+    const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[modeName] ?? 0;
     const mu = st.mu > 0 ? st.mu : 1;
     const N = clamp(Math.round(st.cells || 256), 32, 512);
     const dpr = st.dpr || Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
@@ -4079,19 +4113,20 @@ float wabs(vec2 w) {
     const heightOf = (v) => {
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
+      if (mode >= 6) { const x = v / mu, a = Math.abs(x), c = 0.5 / Math.PI; return H * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
       if (mode >= 4) return H * Math.max(-1.25, Math.min(1.25, v / mu));
       return H * (2 / Math.PI) * Math.atan(v / mu);
     };
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
-    const sp = st.sheets ? sheetPlan(st.map, st.sheets.W) : null;
+    const sp = st.sheets ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
     const Ls = sp ? program('landSheet') : null;   // (both sheet programs start compiling here)
     let hs = sp ? sheetHeights(st, sp, N, mode, H, mu, aspect) : null;
     if (!Ls) hs = null;
     const hd = hs || landHeights(st, N, mode, H, mu, aspect);
     if (!hd) return info;
-    if (hs) info.sheets = { K: hs.K, total: sp.total, W: sp.W, N: hs.N, infinite: sp.infinite };
+    if (hs) info.sheets = { K: hs.K, total: sp.total, W: sp.W, N: hs.N, infinite: sp.infinite, hom: !!sp.hom };
     const ext = [aspect[0] + 0.16, aspect[1] + 0.16];
     const camD = Math.hypot(eye[0] - (st.cam.tx || 0), eye[1] - (st.cam.ty || 0), eye[2] - (st.cam.tz || 0));
     const fogNear = Math.max(0.01, camD - 1.6), fogFar = camD + 1.6;
@@ -5274,7 +5309,7 @@ float wabs(vec2 w) {
     // (v16 tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
     // TEMP-DEBUG-HOOK
-    sheetInfo(map, W) { const p = ok ? sheetPlan(map, W) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite } : null; },
+    sheetInfo(map, W, end) { const p = ok ? sheetPlan(map, W, end) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },
     onRestore: null, onLost: null, onReady: null,

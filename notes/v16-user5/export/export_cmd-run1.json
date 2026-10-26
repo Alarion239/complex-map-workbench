@@ -1,0 +1,1565 @@
+{
+ "pass": false,
+ "fails": [
+  {
+   "name": "video globe: no main-thread task of 50 ms or more while it is made",
+   "got": {
+    "longTasks": [
+     58
+    ],
+    "beats": 208,
+    "wall": 3759
+   }
+  },
+  {
+   "name": "preview DPR 2: plays at 30 fps from compressed frames, no task of 50 ms, frames on time",
+   "got": {
+    "ra": 30,
+    "pa": {
+     "lt": [],
+     "frames": 152,
+     "med": 16.6,
+     "p95": 20.3,
+     "max": 55.1
+    }
+   }
+  }
+ ],
+ "files": 307,
+ "figs": 80,
+ "timing": {
+  "median": 205,
+  "max": 666
+ },
+ "dialog": {
+  "1440-light": {
+   "box": [
+    160,
+    96,
+    1120,
+    709
+   ],
+   "bg": "rgb(255, 255, 255)"
+  },
+  "1440-dark": {
+   "box": [
+    160,
+    96,
+    1120,
+    709
+   ],
+   "bg": "rgb(29, 40, 47)"
+  },
+  "760-light": {
+   "box": [
+    12,
+    12,
+    736,
+    876
+   ],
+   "bg": "rgb(255, 255, 255)"
+  },
+  "760-dark": {
+   "box": [
+    12,
+    12,
+    736,
+    876
+   ],
+   "bg": "rgb(29, 40, 47)"
+  },
+  "360-light": {
+   "box": [
+    12,
+    12,
+    336,
+    756
+   ],
+   "bg": "rgb(255, 255, 255)"
+  },
+  "360-dark": {
+   "box": [
+    12,
+    12,
+    336,
+    756
+   ],
+   "bg": "rgb(29, 40, 47)"
+  }
+ },
+ "overleaf": {
+  "saved": [
+   "strip-to-disk.pdf"
+  ],
+  "copied": [
+   "% strip-to-disk.pdf is made for \\columnwidth = 246pt (REVTeX column); include it unscaled so its labels match your text.\n% If your \\columnwidth is narrower, use [width=\\columnwidth] (the labels will shrink). Preamble: \\usepackage{graphicx,amsmath,amssymb}\n\\begin{figure}[tbp]\n  \\centering\n  \\includegraphics{strip-to-disk}\n  \\caption{My own caption with $w=f(z)$.}\n  \\label{fig:strip-to-disk}\n\\end{figure}\n"
+  ],
+  "btn": "✓ Saved · LaTeX copied",
+  "note": "First time only: drop strip-to-disk.pdf into Overleaf's file tree, then paste. The snippet includes the figure at its natural size, so its labels match your text."
+ },
+ "r3": {
+  "figs": {
+   "r3-film-plane-article1": {
+    "W": 358.66,
+    "H": 230.53,
+    "ms": 290,
+    "imgs": 4
+   },
+   "r3-film-plane-article2": {
+    "W": 245.08,
+    "H": 173.75,
+    "ms": 121,
+    "imgs": 4
+   },
+   "r3-film-plane-homework": {
+    "W": 468,
+    "H": 109.29,
+    "ms": 150,
+    "imgs": 4
+   },
+   "r3-film-plane-slides": {
+    "W": 396.85,
+    "H": 117.43,
+    "ms": 186,
+    "imgs": 4
+   },
+   "r3-paths-plane-article1": {
+    "W": 358.66,
+    "H": 139.77,
+    "ms": 207,
+    "imgs": 1
+   },
+   "r3-paths-plane-homework": {
+    "W": 468,
+    "H": 179.7,
+    "ms": 228,
+    "imgs": 1
+   },
+   "r3-film-globe-article1": {
+    "W": 358.66,
+    "H": 251.2,
+    "ms": 292,
+    "imgs": 4
+   },
+   "r3-film-globe-article2": {
+    "W": 245.08,
+    "H": 183.05,
+    "ms": 173,
+    "imgs": 4
+   },
+   "r3-film-globe-homework": {
+    "W": 468,
+    "H": 135.75,
+    "ms": 162,
+    "imgs": 4
+   },
+   "r3-film-globe-slides": {
+    "W": 396.85,
+    "H": 133.53,
+    "ms": 166,
+    "imgs": 4
+   },
+   "r3-paths-globe-article1": {
+    "W": 358.66,
+    "H": 277,
+    "ms": 101,
+    "imgs": 1
+   },
+   "r3-paths-globe-homework": {
+    "W": 468,
+    "H": 359,
+    "ms": 222,
+    "imgs": 1
+   },
+   "r3-frame-globe-article1": {
+    "W": 358.66,
+    "H": 312.88,
+    "ms": 86,
+    "imgs": 1
+   },
+   "r3-film-phase-article1": {
+    "W": 358.66,
+    "H": 270.4,
+    "ms": 372,
+    "imgs": 5
+   },
+   "r3-film-phase-article2": {
+    "W": 245.08,
+    "H": 202.25,
+    "ms": 230,
+    "imgs": 5
+   },
+   "r3-film-phase-homework": {
+    "W": 468,
+    "H": 124.71,
+    "ms": 209,
+    "imgs": 5
+   },
+   "r3-film-phase-slides": {
+    "W": 396.85,
+    "H": 106.24,
+    "ms": 208,
+    "imgs": 5
+   },
+   "r3-film-phase-article1-bw": {
+    "W": 358.66,
+    "H": 270.4,
+    "ms": 111,
+    "imgs": 4
+   },
+   "r3-frame-phase-article1": {
+    "W": 358.66,
+    "H": 263.75,
+    "ms": 173,
+    "imgs": 2
+   },
+   "r3-film-phaseGlobe-article1": {
+    "W": 358.66,
+    "H": 251.2,
+    "ms": 270,
+    "imgs": 5
+   },
+   "r3-film-phaseGlobe-article2": {
+    "W": 245.08,
+    "H": 183.05,
+    "ms": 152,
+    "imgs": 5
+   },
+   "r3-film-phaseGlobe-homework": {
+    "W": 468,
+    "H": 116.18,
+    "ms": 139,
+    "imgs": 5
+   },
+   "r3-film-phaseGlobe-slides": {
+    "W": 396.85,
+    "H": 98.72,
+    "ms": 118,
+    "imgs": 5
+   },
+   "r3-frame-phaseGlobe-article1": {
+    "W": 358.66,
+    "H": 312.88,
+    "ms": 78,
+    "imgs": 1
+   },
+   "r3-film-land-article1": {
+    "W": 358.66,
+    "H": 305,
+    "ms": 209,
+    "imgs": 4
+   },
+   "r3-film-land-article2": {
+    "W": 245.08,
+    "H": 219.82,
+    "ms": 137,
+    "imgs": 4
+   },
+   "r3-film-land-homework": {
+    "W": 468,
+    "H": 118.04,
+    "ms": 104,
+    "imgs": 4
+   },
+   "r3-film-land-slides": {
+    "W": 396.85,
+    "H": 102.09,
+    "ms": 98,
+    "imgs": 4
+   },
+   "r3-frame-land-article1": {
+    "W": 358.66,
+    "H": 232.38,
+    "ms": 119,
+    "imgs": 1
+   },
+   "r3-ru-xy-strip-homework": {
+    "W": 468,
+    "H": 166.91,
+    "ms": 303,
+    "imgs": 2
+   },
+   "r3-ru-film-plane-article1": {
+    "W": 358.66,
+    "H": 230.53,
+    "ms": 260,
+    "imgs": 4
+   },
+   "r3-ru-film-plane-article2": {
+    "W": 245.08,
+    "H": 173.75,
+    "ms": 142,
+    "imgs": 4
+   },
+   "r3-ru-film-plane-homework": {
+    "W": 468,
+    "H": 109.29,
+    "ms": 174,
+    "imgs": 4
+   },
+   "r3-ru-film-plane-slides": {
+    "W": 396.85,
+    "H": 117.43,
+    "ms": 188,
+    "imgs": 4
+   },
+   "r3-ru-xy-strip-article1": {
+    "W": 358.66,
+    "H": 141.1,
+    "ms": 149,
+    "imgs": 2
+   },
+   "r3-ru-film-phase-homework": {
+    "W": 468,
+    "H": 124.71,
+    "ms": 355,
+    "imgs": 5
+   }
+  },
+  "videos": {
+   "plane": {
+    "ext": "mp4",
+    "codec": "avc1.64002A",
+    "frames": 529,
+    "expect": 529,
+    "fps": 60,
+    "secs": 8.816666666666666,
+    "W": 1920,
+    "H": 1080,
+    "ms": 6982,
+    "wall": 7198,
+    "beats": 428,
+    "longTasks": [],
+    "k": 211,
+    "t": 1.8046574074074075,
+    "mad": 0.06957103587962964,
+    "labels": null,
+    "inf": null,
+    "infInk": null
+   },
+   "globe": {
+    "ext": "mp4",
+    "codec": "avc1.640020",
+    "frames": 211,
+    "expect": 211,
+    "fps": 30,
+    "secs": 7.033333333333333,
+    "W": 1080,
+    "H": 1080,
+    "ms": 3568,
+    "wall": 3759,
+    "beats": 208,
+    "longTasks": [
+     58
+    ],
+    "k": 84,
+    "t": 0.8960000000000001,
+    "mad": 0.5831976996527778,
+    "labels": [
+     {
+      "lab": "∞",
+      "x0": 523.9599609375002,
+      "x1": 556.0400390625002,
+      "y0": 46.127079780560905,
+      "y1": 70.8770797805609,
+      "fs": 45
+     },
+     {
+      "lab": "1",
+      "x0": 974.3487030675228,
+      "x1": 989.3487030675228,
+      "y0": 561.9541004704021,
+      "y1": 585.0541004704021,
+      "fs": 30
+     },
+     {
+      "lab": "i",
+      "x0": 257.94283806260785,
+      "x1": 266.27779900010785,
+      "y0": 627.7699524246518,
+      "y1": 650.8699524246518,
+      "fs": 30
+     }
+    ],
+    "inf": {
+     "lab": "∞",
+     "x0": 523.9599609375002,
+     "x1": 556.0400390625002,
+     "y0": 46.127079780560905,
+     "y1": 70.8770797805609,
+     "fs": 45
+    },
+    "infInk": 1
+   },
+   "phase": {
+    "ext": "mp4",
+    "codec": "avc1.64001F",
+    "frames": 211,
+    "expect": 211,
+    "fps": 30,
+    "secs": 7.033333333333333,
+    "W": 1280,
+    "H": 720,
+    "ms": 1897,
+    "wall": 1961,
+    "beats": 117,
+    "longTasks": [],
+    "k": 84,
+    "t": 0.8960000000000001,
+    "mad": 1.0761628327546295,
+    "labels": null,
+    "inf": null,
+    "infInk": null
+   },
+   "phaseGlobe": {
+    "ext": "mp4",
+    "codec": "avc1.64001F",
+    "frames": 211,
+    "expect": 211,
+    "fps": 30,
+    "secs": 7.033333333333333,
+    "W": 1280,
+    "H": 720,
+    "ms": 1974,
+    "wall": 2020,
+    "beats": 123,
+    "longTasks": [],
+    "k": 84,
+    "t": 0.8960000000000001,
+    "mad": 0.4175708912037037,
+    "labels": [
+     {
+      "lab": "0",
+      "x0": 625.2972729616737,
+      "x1": 635.2972729616737,
+      "y0": 667.5682328046582,
+      "y1": 682.9682328046582,
+      "fs": 20
+     },
+     {
+      "lab": "1",
+      "x0": 922.8212565706262,
+      "x1": 932.8212565706262,
+      "y0": 242.1580695984358,
+      "y1": 257.5580695984358,
+      "fs": 20
+     },
+     {
+      "lab": "i",
+      "x0": 441.37271615593954,
+      "x1": 446.92935678093954,
+      "y0": 178.41593424756516,
+      "y1": 193.81593424756517,
+      "fs": 20
+     }
+    ],
+    "infInk": null
+   },
+   "land": {
+    "ext": "mp4",
+    "codec": "avc1.64001F",
+    "frames": 678,
+    "expect": 678,
+    "fps": 30,
+    "secs": 22.6,
+    "W": 1280,
+    "H": 720,
+    "ms": 8544,
+    "wall": 8658,
+    "beats": 464,
+    "longTasks": [],
+    "k": 271,
+    "t": 0.06075,
+    "mad": 0.33161530671296297,
+    "labels": null,
+    "inf": null,
+    "infInk": null
+   },
+   "webm": {
+    "ext": "webm",
+    "codec": "vp09.00.40.08",
+    "frames": 151,
+    "fps": 30,
+    "W": 1280,
+    "H": 720,
+    "mad": 0.24279333043981483
+   }
+  },
+  "dialog": {},
+  "dark": {
+   "frames": 211,
+   "ms": 2890,
+   "flips": 2,
+   "lt": [],
+   "dark": true,
+   "fig": true
+  },
+  "screen": {
+   "mad": 3.7022018167456556,
+   "holds": true,
+   "centre": 0,
+   "t": 1.2
+  },
+  "hidden": {
+   "hidden": {
+    "vis": "hidden",
+    "frames": 211,
+    "ms": 4276
+   },
+   "visible": {
+    "vis": "visible",
+    "frames": 211,
+    "ms": 3158
+   },
+   "tab": {
+    "targetId": "54F14A35D137635C48C27AFE9CD707E0"
+   }
+  }
+ },
+ "pv": {
+  "open": {
+   "tPoster": 239,
+   "tMoving": 8,
+   "tFilled": 1283,
+   "adv": {
+    "i0": 132,
+    "i1": 162,
+    "n": 211,
+    "fps": 30,
+    "rate": 29.9,
+    "draws": 30
+   },
+   "perf": {
+    "lt": [],
+    "frames": 207,
+    "med": 16.7,
+    "p95": 18.3,
+    "max": 49.3,
+    "over20": 6
+   },
+   "state": {
+    "playing": true,
+    "i": 26,
+    "n": 211,
+    "ready": 121,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 1,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720)",
+    "poster": false,
+    "canvas": true,
+    "btn": "Pause",
+    "seek": [
+     26,
+     210,
+     "0.4 s of 7.0 s, t = 0.00"
+    ],
+    "time": "0.9 / 7.0 s",
+    "hint": "1280 × 720 · 30 fps · 7.0 s",
+    "stats": {
+     "renders": 121,
+     "live": 1,
+     "runs": 1,
+     "draws": 107,
+     "decodes": 0
+    }
+   }
+  },
+  "once": {
+   "k": 94,
+   "entry": 0.9967407407407407,
+   "frames": 211,
+   "n": 211,
+   "pw": 743,
+   "ph": 418,
+   "madVideo": 2.282,
+   "madExact": 0,
+   "range": 244
+  },
+  "loop": {
+   "k": 217,
+   "entry": {
+    "a": 2,
+    "b": 0,
+    "k": 0.4666666666666667
+   },
+   "frames": 678,
+   "n": 678,
+   "pw": 743,
+   "ph": 418,
+   "madVideo": 1.232,
+   "madExact": 0.036,
+   "range": 245
+  },
+  "close": {
+   "c0": {
+    "renders": 257,
+    "live": 0,
+    "runs": 4,
+    "draws": 540,
+    "decodes": 0
+   },
+   "c1": {
+    "renders": 257,
+    "live": 0,
+    "runs": 4,
+    "draws": 540,
+    "decodes": 0
+   }
+  },
+  "globeBounce": {
+   "filledMs": 4640,
+   "k": 269,
+   "entry": 1.0008240740740741,
+   "frames": 385,
+   "n": 385,
+   "pw": 743,
+   "ph": 418,
+   "madVideo": 0.33,
+   "madExact": 0,
+   "range": 246
+  },
+  "reduced": {
+   "r0": {
+    "playing": false,
+    "i": 131,
+    "n": 385,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 6,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720) · Paused: reduced motion is on. Press Play to watch.",
+    "poster": true,
+    "canvas": false,
+    "btn": "Play",
+    "seek": [
+     131,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.4 / 12.8 s",
+    "hint": "1280 × 720 · 30 fps · 12.8 s",
+    "stats": {
+     "renders": 379,
+     "live": 1,
+     "runs": 6,
+     "draws": 865,
+     "decodes": 0
+    }
+   },
+   "r1": {
+    "playing": false,
+    "i": 131,
+    "n": 385,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 6,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720) · Paused: reduced motion is on. Press Play to watch.",
+    "poster": true,
+    "canvas": false,
+    "btn": "Play",
+    "seek": [
+     131,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.4 / 12.8 s",
+    "hint": "1280 × 720 · 30 fps · 12.8 s",
+    "stats": {
+     "renders": 379,
+     "live": 1,
+     "runs": 6,
+     "draws": 865,
+     "decodes": 0
+    }
+   },
+   "rt": 1.1953425925925927
+  }
+ },
+ "pv2": {
+  "dpr2": {
+   "a": {
+    "playing": true,
+    "i": 251,
+    "n": 271,
+    "ready": 73,
+    "total": 181,
+    "pw": 1486,
+    "ph": 836,
+    "shown": true,
+    "fps": 30,
+    "id": 1,
+    "raw": false,
+    "lazy": false,
+    "hot": 12,
+    "bytes": 5476010,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 40 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 2,
+    "btn": "Pause",
+    "seek": [
+     251,
+     270,
+     "7.7 s of 9.0 s, t = 1.99"
+    ],
+    "time": "8.4 / 9.0 s",
+    "stats": {
+     "renders": 73,
+     "live": 1,
+     "runs": 1,
+     "draws": 81,
+     "decodes": 4
+    }
+   },
+   "pa": {
+    "lt": [],
+    "frames": 152,
+    "med": 16.6,
+    "p95": 20.3,
+    "max": 55.1
+   },
+   "fs0": {
+    "i": 171,
+    "t": 1.216
+   },
+   "ra": 30
+  },
+  "dpr2match": {
+   "k": 121,
+   "entry": 0.9910836762688615,
+   "frames": 271,
+   "n": 271,
+   "pw": 1486,
+   "ph": 836,
+   "madVideo": 1.357,
+   "madExact": 1.269
+  },
+  "loop60": {
+   "b": {
+    "playing": true,
+    "i": 694,
+    "n": 2793,
+    "ready": 115,
+    "total": 721,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 60,
+    "id": 2,
+    "raw": false,
+    "lazy": false,
+    "hot": 40,
+    "bytes": 2903732,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 10 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     694,
+     2792,
+     "11.5 s of 46.5 s, t = 1.68"
+    ],
+    "time": "11.6 / 46.5 s",
+    "stats": {
+     "renders": 296,
+     "live": 1,
+     "runs": 2,
+     "draws": 401,
+     "decodes": 139
+    }
+   },
+   "rb": 59.9,
+   "pb": {
+    "lt": [],
+    "frames": 182,
+    "med": 16.6,
+    "p95": 19.7,
+    "max": 38.2
+   }
+  },
+  "hidden": {
+   "h0": 356,
+   "h1": 356,
+   "h2": 412
+  },
+  "restart": {
+   "c0": {
+    "playing": false,
+    "i": 148,
+    "n": 0,
+    "ready": 0,
+    "total": 0,
+    "pw": 0,
+    "ph": 0,
+    "shown": true,
+    "fps": 0,
+    "id": 0,
+    "raw": null,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": true,
+    "canvas": false,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Play",
+    "seek": [
+     0,
+     0,
+     null
+    ],
+    "time": "",
+    "stats": {
+     "renders": 447,
+     "live": 0,
+     "runs": 3,
+     "draws": 630,
+     "decodes": 155
+    }
+   },
+   "c1": {
+    "playing": true,
+    "i": 131,
+    "n": 385,
+    "ready": 0,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 4,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": true,
+    "canvas": false,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     131,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.4 / 12.8 s",
+    "stats": {
+     "renders": 447,
+     "live": 1,
+     "runs": 4,
+     "draws": 630,
+     "decodes": 155
+    }
+   },
+   "c2": {
+    "playing": true,
+    "i": 143,
+    "n": 385,
+    "ready": 24,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 4,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 10 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     143,
+     384,
+     "4.4 s of 12.8 s, t = 1.20"
+    ],
+    "time": "4.8 / 12.8 s",
+    "stats": {
+     "renders": 471,
+     "live": 1,
+     "runs": 4,
+     "draws": 643,
+     "decodes": 155
+    }
+   }
+  },
+  "pausedRestart": {
+   "tp": 220,
+   "c3": {
+    "id": 5,
+    "shown": true,
+    "playing": false,
+    "canvas": true,
+    "poster": false,
+    "btn": "Play",
+    "pw": 743
+   }
+  },
+  "focus": {
+   "f0": [
+    144,
+    [
+     139,
+     677,
+     "4.6 s of 22.6 s, t = 1.38"
+    ]
+   ],
+   "f1": [
+    185,
+    [
+     139,
+     677,
+     "4.6 s of 22.6 s, t = 1.38"
+    ]
+   ],
+   "f2": [
+    186,
+    [
+     186,
+     677,
+     "6.2 s of 22.6 s, t = 2.00"
+    ],
+    false
+   ]
+  },
+  "resize": {
+   "d0": {
+    "playing": true,
+    "i": 152,
+    "n": 678,
+    "ready": 39,
+    "total": 121,
+    "pw": 306,
+    "ph": 172,
+    "shown": true,
+    "fps": 30,
+    "id": 6,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: drawing the frames, 30 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 306,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     152,
+     677,
+     "4.4 s of 22.6 s, t = 1.20"
+    ],
+    "time": "5.1 / 22.6 s",
+    "stats": {
+     "renders": 639,
+     "live": 1,
+     "runs": 6,
+     "draws": 749,
+     "decodes": 155
+    }
+   },
+   "d1": {
+    "playing": true,
+    "i": 162,
+    "n": 678,
+    "ready": 11,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 7,
+    "raw": false,
+    "lazy": false,
+    "hot": 11,
+    "bytes": 308402,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 0 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     162,
+     677,
+     "5.2 s of 22.6 s, t = 1.76"
+    ],
+    "time": "5.4 / 22.6 s",
+    "stats": {
+     "renders": 651,
+     "live": 1,
+     "runs": 7,
+     "draws": 758,
+     "decodes": 155
+    }
+   },
+   "d2": {
+    "playing": true,
+    "i": 189,
+    "n": 678,
+    "ready": 59,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 7,
+    "raw": false,
+    "lazy": false,
+    "hot": 17,
+    "bytes": 1839898,
+    "mime": "image/webp",
+    "note": "Preview: drawing the frames, 40 %",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     189,
+     677,
+     "6.2 s of 22.6 s, t = 2.00"
+    ],
+    "time": "6.3 / 22.6 s",
+    "stats": {
+     "renders": 699,
+     "live": 1,
+     "runs": 7,
+     "draws": 785,
+     "decodes": 155
+    }
+   }
+  },
+  "reduced": {
+   "e0": {
+    "playing": false,
+    "i": 131,
+    "n": 678,
+    "ready": 1,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": false,
+    "fps": 30,
+    "id": 8,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720) · Paused: reduced motion is on. Press Play to watch.",
+    "poster": true,
+    "canvas": false,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Play",
+    "seek": [
+     131,
+     677,
+     "4.4 s of 22.6 s, t = 1.20"
+    ],
+    "time": "4.4 / 22.6 s",
+    "stats": {
+     "renders": 700,
+     "live": 1,
+     "runs": 8,
+     "draws": 785,
+     "decodes": 155
+    }
+   },
+   "e1": {
+    "playing": false,
+    "i": 132,
+    "n": 678,
+    "ready": 5,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 8,
+    "raw": true,
+    "lazy": true,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720)",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Play",
+    "seek": [
+     132,
+     677,
+     "4.4 s of 22.6 s, t = 1.22"
+    ],
+    "time": "4.4 / 22.6 s",
+    "stats": {
+     "renders": 704,
+     "live": 1,
+     "runs": 8,
+     "draws": 790,
+     "decodes": 155
+    }
+   },
+   "e2": {
+    "playing": true,
+    "i": 217,
+    "n": 678,
+    "ready": 121,
+    "total": 121,
+    "pw": 743,
+    "ph": 418,
+    "shown": true,
+    "fps": 30,
+    "id": 8,
+    "raw": true,
+    "lazy": false,
+    "hot": 0,
+    "bytes": 0,
+    "mime": null,
+    "note": "Preview: the frames of the video itself, scaled to fit here (the video is 1280 × 720)",
+    "poster": false,
+    "canvas": true,
+    "cssW": 743,
+    "dpr": 1,
+    "btn": "Pause",
+    "seek": [
+     217,
+     677,
+     "6.4 s of 22.6 s, t = 2.00"
+    ],
+    "time": "7.2 / 22.6 s",
+    "stats": {
+     "renders": 820,
+     "live": 1,
+     "runs": 8,
+     "draws": 875,
+     "decodes": 155
+    }
+   }
+  },
+  "lowmem": {
+   "playing": true,
+   "i": 143,
+   "n": 678,
+   "ready": 14,
+   "total": 121,
+   "pw": 743,
+   "ph": 418,
+   "shown": true,
+   "fps": 30,
+   "id": 9,
+   "raw": false,
+   "lazy": false,
+   "hot": 14,
+   "bytes": 415308,
+   "mime": "image/webp",
+   "note": "Preview: drawing the frames, 10 %",
+   "poster": false,
+   "canvas": true,
+   "cssW": 743,
+   "dpr": 1,
+   "btn": "Pause",
+   "seek": [
+    143,
+    677,
+    "4.4 s of 22.6 s, t = 1.20"
+   ],
+   "time": "4.8 / 22.6 s",
+   "stats": {
+    "renders": 834,
+    "live": 1,
+    "runs": 9,
+    "draws": 888,
+    "decodes": 155
+   }
+  }
+ },
+ "u5": {
+  "caps": {
+   "log": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "imes[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\log z. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of infinitely many are shown.",
+    "ru": "ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\operatorname{Ln} z. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=-2,\\dots,2$."
+   },
+   "sqrt": {
+    "title": "landscape of Im F, both sheets",
+    "en": "Landscape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; both sheets are shown.",
+    "ru": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны оба листа."
+   },
+   "cube": {
+    "title": "landscape of Im F, all 3 sheets",
+    "en": "scape of $F$ over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[3]{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; all 3 sheets are shown.",
+    "ru": "Рельеф функции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[3]{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны все 3 листа."
+   },
+   "sinsqrt": {
+    "title": "landscape of Im F, both sheets",
+    "en": "over $[-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right). \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; both sheets are shown.",
+    "ru": "ции $F$ над $[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sin\\left(\\sqrt{z}\\right). \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны оба листа."
+   },
+   "capped": {
+    "title": "landscape of Im F, 24 of 30 sheet combinations",
+    "en": "es[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[6]{\\sqrt[5]{z}}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; 24 of the 30 sheet combinations are shown.",
+    "ru": "[-8,8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[6]{\\sqrt[5]{z}}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны сочетания листов: 24 из 30."
+   },
+   "logsqrt": {
+    "title": "landscape of Im F, 10 sheets, k = −2…2",
+    "en": "r\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\log z+\\sqrt{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; 10 of the infinitely many sheets are shown (the window $k=-2,\\dots,2$).",
+    "ru": "\\hsize\\else\\[ \\displaystyle F(z)=\\operatorname{Ln} z+\\sqrt{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны листы: 10 из бесконечного множества (окно $k=-2,\\dots,2$)."
+   },
+   "root30": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "-8,8]\\times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[30]{z}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of 30 are shown.",
+    "ru": "8]\\times[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\sqrt[30]{z}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; показаны листы $k=-2,\\dots,2$ (всего листов: 30)."
+   },
+   "powi": {
+    "title": "landscape of Im F, sheets k = −2…2",
+    "en": "times[-5,5]$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=z^{i}. \\]\\fi The height is $\\operatorname{Im} F$ and the color shows $\\arg F$; the sheets $k=-2,\\dots,2$ of infinitely many are shown.",
+    "ru": "s[-5,5]$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=z^{i}. \\]\\fi Высота равна $\\operatorname{Im} F$, а~цвет показывает $\\arg F$; из бесконечного множества листов показаны листы $k=-2,\\dots,2$."
+   }
+  },
+  "menus": {
+   "1440-light-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "1440-light-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   },
+   "1440-dark-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      956,
+      536,
+      200,
+      215
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "1440-dark-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      975,
+      428,
+      330,
+      159
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   },
+   "390-light-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "390-light-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   },
+   "390-dark-xfMore": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "PDFvector"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      455,
+      200,
+      327
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "SVGvector"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfMore"
+    }
+   },
+   "390-dark-xfSize": {
+    "a": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "✓ amsart — One column · the default360 pt"
+    },
+    "b": {
+     "open": true,
+     "dialog": true,
+     "rect": [
+      29,
+      397,
+      330,
+      239
+     ],
+     "z": 55,
+     "zm": 50,
+     "onTop": true,
+     "inView": true,
+     "focus": "article · 10 pt345 pt"
+    },
+    "x": {
+     "menu": false,
+     "dialog": true,
+     "focus": "xfSize"
+    }
+   }
+  }
+ },
+ "logs": []
+}

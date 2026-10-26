@@ -1,0 +1,229 @@
+{
+ "m6": {
+  "sqrt_sq": {
+   "steps": [
+    "root{\"n\":2,\"cut\":180,\"k\":0}",
+    "powa{\"alpha\":\"2\",\"cut\":180,\"k\":0}"
+   ],
+   "static": {
+    "K": null,
+    "D": null,
+    "title": "z-planelandscape of Im Flandscape",
+    "cap": "The landscape of $F(z)=\\sqrt{z}^{2}$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); zeros are pits and poles are peaks. Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt{z}$ and $f_{2}(w)=w^{2}$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ,\\ \\arg w_{1}\\neq 180^\\circ\\}$ (with $w_k$ the value after step $k$), $F$ is analytic; this is guaranteed by the cha"
+   },
+   "def": {
+    "K": null,
+    "D": null,
+    "title": "z-planelandscape of Im Htlandscape",
+    "cap": "The landscape of $H_t$ over the $z$-plane: the height is $\\operatorname{Im} H_t$ and the colour $\\arg H_t$ (bar); zeros are pits and poles are peaks. Shown at $t=0.50$, where $H_t$ deforms the identity ($t=0$) into $F(z)=\\sqrt{z}^{2}$ ($t=2$) along the homotopy $H_t$, $0\\le t\\le 2$, that runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (principal branch); for $f_{2}$, the homotopy ${H^{(2)}_{s}}(w_{1})=w_{1}^{1+s}$ (prin"
+   }
+  },
+  "sqrt_4": {
+   "steps": [
+    "root{\"n\":2,\"cut\":180,\"k\":0}",
+    "powa{\"alpha\":\"4\",\"cut\":180,\"k\":0}"
+   ],
+   "static": {
+    "K": null,
+    "D": null,
+    "title": "z-planelandscape of Im Flandscape",
+    "cap": "The landscape of $F(z)=\\sqrt{z}^{4}$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); zeros are pits and poles are peaks. Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt{z}$ and $f_{2}(w)=w^{4}$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ,\\ \\arg w_{1}\\neq 180^\\circ\\}$ (with $w_k$ the value after step $k$), $F$ is analytic; this is guaranteed by the cha"
+   },
+   "def": {
+    "K": null,
+    "D": null,
+    "title": "z-planelandscape of Im Htlandscape",
+    "cap": "The landscape of $H_t$ over the $z$-plane: the height is $\\operatorname{Im} H_t$ and the colour $\\arg H_t$ (bar); zeros are pits and poles are peaks. Shown at $t=0.50$, where $H_t$ deforms the identity ($t=0$) into $F(z)=\\sqrt{z}^{4}$ ($t=2$) along the homotopy $H_t$, $0\\le t\\le 2$, that runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(1/2)s}$ (principal branch); for $f_{2}$, the homotopy ${H^{(2)}_{s}}(w_{1})=w_{1}^{1+3s}$ (pri"
+   }
+  },
+  "cbrt_cube": {
+   "steps": [
+    "root{\"n\":3,\"cut\":180,\"k\":0}",
+    "powa{\"alpha\":\"3\",\"cut\":180,\"k\":0}"
+   ],
+   "static": {
+    "K": null,
+    "D": null,
+    "title": "z-planelandscape of Im Flandscape",
+    "cap": "The landscape of $F(z)=\\sqrt[3]{z}^{3}$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); zeros are pits and poles are peaks. Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt[3]{z}$ and $f_{2}(w)=w^{3}$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ,\\ \\arg w_{1}\\neq 180^\\circ\\}$ (with $w_k$ the value after step $k$), $F$ is analytic; this is guaranteed by t"
+   },
+   "def": {
+    "K": null,
+    "D": null,
+    "title": "z-planelandscape of Im Htlandscape",
+    "cap": "The landscape of $H_t$ over the $z$-plane: the height is $\\operatorname{Im} H_t$ and the colour $\\arg H_t$ (bar); zeros are pits and poles are peaks. Shown at $t=0.50$, where $H_t$ deforms the identity ($t=0$) into $F(z)=\\sqrt[3]{z}^{3}$ ($t=2$) along the homotopy $H_t$, $0\\le t\\le 2$, that runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): for $f_{1}$, the homotopy ${H^{(1)}_{s}}(z)=z^{1-(2/3)s}$ (principal branch); for $f_{2}$, the homotopy ${H^{(2)}_{s}}(w_{1})=w_{1}^{1+2s}$ ("
+   }
+  }
+ },
+ "phone": {
+  "userru": {
+   "chip0": {
+    "t": "Im F, оба листа",
+    "w": 87.515625,
+    "h": 14,
+    "l": 17,
+    "r": 104.515625,
+    "top": 69,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390
+   },
+   "chip": {
+    "t": "Im Ht, на обоих листах F",
+    "w": 138.578125,
+    "h": 14,
+    "l": 17,
+    "r": 155.578125,
+    "top": 69,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390,
+    "ws": "normal",
+    "ov": "visible",
+    "to": "clip"
+   },
+   "overflow": false
+  },
+  "useren": {
+   "chip0": {
+    "t": "Im F, both sheets",
+    "w": 92.453125,
+    "h": 14,
+    "l": 17,
+    "r": 109.453125,
+    "top": 71,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390
+   },
+   "chip": {
+    "t": "Im Ht, on both sheets of F",
+    "w": 136.234375,
+    "h": 14,
+    "l": 17,
+    "r": 153.234375,
+    "top": 71,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390,
+    "ws": "nowrap",
+    "ov": "visible",
+    "to": "clip"
+   },
+   "overflow": false
+  },
+  "cappedru": {
+   "chip0": {
+    "t": "Im F, сочетания листов: 24 из 30",
+    "w": 186.875,
+    "h": 14,
+    "l": 17,
+    "r": 203.875,
+    "top": 69,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390
+   },
+   "chip": {
+    "t": "Im Ht, на сочетаниях листов F: 24 из 30",
+    "w": 224.5625,
+    "h": 14,
+    "l": 17,
+    "r": 241.5625,
+    "top": 69,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390,
+    "ws": "normal",
+    "ov": "visible",
+    "to": "clip"
+   },
+   "overflow": false
+  },
+  "cappeden": {
+   "chip0": {
+    "t": "Im F, 24 of 30 sheet combinations",
+    "w": 180.640625,
+    "h": 14,
+    "l": 17,
+    "r": 197.640625,
+    "top": 71,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390
+   },
+   "chip": {
+    "t": "Im Ht, on 24 of the 30 sheet combinations of F",
+    "w": 244.0625,
+    "h": 14,
+    "l": 17,
+    "r": 261.0625,
+    "top": 71,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390,
+    "ws": "nowrap",
+    "ov": "visible",
+    "to": "clip"
+   },
+   "overflow": false
+  },
+  "m5ru": {
+   "chip0": {
+    "t": "Im F, сочетания листов: 24 из 60, k = −2…2",
+    "w": 242.796875,
+    "h": 14,
+    "l": 17,
+    "r": 259.796875,
+    "top": 69,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390
+   },
+   "chip": {
+    "t": "Im Ht, на сочетаниях листов F: 24 из 60, k = −2…2",
+    "w": 280.484375,
+    "h": 14,
+    "l": 17,
+    "r": 297.484375,
+    "top": 69,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390,
+    "ws": "normal",
+    "ov": "visible",
+    "to": "clip"
+   },
+   "overflow": false
+  },
+  "m5en": {
+   "chip0": {
+    "t": "Im F, 24 of 60 sheet combinations, k = −2…2",
+    "w": 237.40625,
+    "h": 14,
+    "l": 17,
+    "r": 254.40625,
+    "top": 71,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390
+   },
+   "chip": {
+    "t": "Im Ht, on 24 of the 60 sheet combinations of F, k = −2…2",
+    "w": 300.828125,
+    "h": 14,
+    "l": 17,
+    "r": 317.828125,
+    "top": 71,
+    "sw": 0,
+    "cw": 0,
+    "vw": 390,
+    "ws": "nowrap",
+    "ov": "visible",
+    "to": "clip"
+   },
+   "overflow": false
+  }
+ },
+ "errs": []
+}
