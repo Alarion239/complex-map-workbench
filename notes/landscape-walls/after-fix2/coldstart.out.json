@@ -1,0 +1,157 @@
+{
+ "out": [
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^5-8z}\\cosh(z/13)",
+   "sheets": false,
+   "setMainReturnMs": 17,
+   "drawnStartEndMs": [
+    198,
+    371
+   ],
+   "gapsOver100ms": [
+    [
+     190,
+     109
+    ]
+   ],
+   "firstCapture": [
+    53,
+    147
+   ],
+   "cuts": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^5-9z}\\cosh(z/14)",
+   "sheets": false,
+   "setMainReturnMs": 25,
+   "drawnStartEndMs": [
+    192,
+    337
+   ],
+   "gapsOver100ms": [],
+   "firstCapture": [
+    65,
+    140
+   ],
+   "cuts": 1
+  },
+  {
+   "page": "base/test.html",
+   "f": "z^4/(\\sinh z+53)",
+   "sheets": false,
+   "setMainReturnMs": 22,
+   "drawnStartEndMs": [
+    295,
+    380
+   ],
+   "gapsOver100ms": [],
+   "firstCapture": [
+    75,
+    130
+   ],
+   "cuts": null
+  },
+  {
+   "page": "test.html",
+   "f": "z^4/(\\sinh z+59)",
+   "sheets": false,
+   "setMainReturnMs": 14,
+   "drawnStartEndMs": [
+    303,
+    1364
+   ],
+   "gapsOver100ms": [
+    [
+     376,
+     965
+    ]
+   ],
+   "firstCapture": [
+    49,
+    104
+   ],
+   "cuts": 0
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\tanh(z^3/5)+\\sqrt{z-3}",
+   "sheets": false,
+   "setMainReturnMs": 21,
+   "drawnStartEndMs": [
+    391,
+    485
+   ],
+   "gapsOver100ms": [],
+   "firstCapture": [
+    65,
+    107
+   ],
+   "cuts": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\tanh(z^3/6)+\\sqrt{z-4}",
+   "sheets": false,
+   "setMainReturnMs": 36,
+   "drawnStartEndMs": [
+    391,
+    1673
+   ],
+   "gapsOver100ms": [
+    [
+     526,
+     1105
+    ]
+   ],
+   "firstCapture": [
+    98,
+    162
+   ],
+   "cuts": 1
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^4+z+7}\\sinh(z/9)",
+   "sheets": false,
+   "setMainReturnMs": 26,
+   "drawnStartEndMs": [
+    285,
+    1424
+   ],
+   "gapsOver100ms": [
+    [
+     391,
+     1009
+    ],
+    [
+     5404,
+     186
+    ]
+   ],
+   "firstCapture": [
+    52,
+    100
+   ],
+   "cuts": 1
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^4+z+8}\\sinh(z/10)",
+   "sheets": false,
+   "setMainReturnMs": 32,
+   "drawnStartEndMs": [
+    368,
+    482
+   ],
+   "gapsOver100ms": [],
+   "firstCapture": [
+    61,
+    114
+   ],
+   "cuts": null
+  }
+ ],
+ "logs": []
+}

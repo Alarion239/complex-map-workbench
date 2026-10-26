@@ -1,0 +1,62 @@
+{
+ "what": "Independent check of review-pictures.json and review-math.json against the running app (work/xvls/dist, 2026-10-25 20:59 build), not the ledger. Headless Chrome (ANGLE Metal), desktop 1440 x 900, light and dark, port 9806. Base: work/xvsh-snap built in my scratchpad and served next to it as base/test.html. Commands and pictures: notes/landscape-walls/review-verify/.",
+ "still_wrong": [
+  {
+   "id": "verify-1",
+   "about": "pictures-1",
+   "severity": "high",
+   "title": "A new formula still freezes the page for 4 to 6 s on its first Landscape",
+   "detail": "Fresh formulas, loaded on the 2D view, then __cmwSetMain('land'), base and this build alternating. The longest main-thread gap (rAF):\n- This build: 9 of 11 runs stall 3.4 to 6.3 s. Examples: sqrt(z^5-2z) cosh(z/5) 5.96 s, log(z^5+6) cos(z/7) 3.73 s, sqrt(z^4+z+5) sinh(z/7) 4.47 s, tanh(z^3/4)+sqrt(z-2) 4.74 s.\n- A formula with no cut stalls as long (z^3/(cosh z+8) 6.27 s, z^4/(sinh z+13) 5.03 s), and it has no edge pass (cuts 0). So the edge program is not the cause, or not the only one.\n- Base: 11 of 11 runs have no gap over 0.75 s.\n- The surface is first on screen 4.6 to 7.3 s after the switch on this build, against 0.4 to 1.1 s on base.\n- With All sheets on, there is no stall (0.39 to 0.51 s, base 0.62 s).\nThe likely cause is the principal land program's compile. LAND_FS now calls the chain about six times for the wall lookup (landW at vZ, at both bracket ends, in the false-position loop and twice at zs). Not confirmed per program (time box).\nThe ledger's cold-start numbers ('first surface 0.15 to 1.04 s') come from a flawed probe. coldstart_cmd.js stamps a frame's time before Page.captureScreenshot, and the capture itself blocks through the stall. So a frame stamped at about 0.2 s is the picture from after the freeze.",
+   "evidence": "review-verify/cs1.js, cs2.js, cs3.js (outputs quoted above). cs2 and cs3 also record when each capture returns. Example: sqrt(z^5-2z) cosh(z/5) drawn in the capture started at 255 ms that returned at 7261 ms, with gaps [229 ms: 786 ms] and [1262 ms: 5961 ms].",
+   "fix": "Find which program blocks: log getProgramParameter(LINK_STATUS) and first-draw times per program. If it is LAND_FS:\n- Do not let the wall lookup gate the first frame. Compile the principal land shader with uWallFit's code behind a separate program, the plain one first, and swap when it is ready (KHR_parallel_shader_compile, as the edge pass now does).\n- Or keep one landW call site: put the bracket ends, the loop and the final zs evaluation in one loop with a uniform trip count.\nRe-measure with the capture's end time, and gate on base + 0.3 s to first surface and no main-thread gap over base + 100 ms."
+  },
+  {
+   "id": "verify-2",
+   "about": "pictures-2, pictures-3",
+   "severity": "medium",
+   "title": "Pole walls are now a broken, speckled band; speckles also show on the user's walls",
+   "detail": "The main wall faces are smooth now. The user's walls at t = 0.2 have no fluting or colour stripes, and the contours run straight and level (pictures-3 holds there). But where the wall lookup falls back, the fix leaves a new artifact that is worse than a pleat:\n- tan z Re: at every pole a vertical band of dashed dark scratches and pixel noise crosses the wall. It is visible at 1:1, light and dark.\n- sec z Re (dark): the same noisy seam where the purple wall meets the green one.\n- The user's sin sqrt z at t = 0.2, All sheets, Im: salt-and-pepper dots in a narrow vertical strip on the teal wall, next to the grey slab, and on the pink wall behind. Light and dark.\nThe ledger calls this 'slightly broken'. In pictures it reads as noise, not as a surface, which is not article-grade.",
+   "evidence": "review-verify/crop-tan-sec-pole-band-4x.png (left: tan Re light; right: sec Re dark), crop-user-t0.2-wall-speckle-4x.png (light | dark), full frames p-tan-re-light.png, p-sec-re-dark.png, p-user-t0.2-im-sh-{light,dark}.png.",
+   "fix": "Where the lookup falls back (keep < 1, or no bracket), do not mix per pixel between zs and vZ. The choice flips between neighbouring pixels, and dFdx/dFdy of zs then blow up, which gives both the dots and the scratches. Make the fallback continuous: fade the tiles and contours by the error alone and use the facet's own normal. Or clamp gT and the zs derivatives, and choose the root nearest the previous one along the level line. The root fix is still design 3.3."
+  },
+  {
+   "id": "verify-3",
+   "about": "pictures-4",
+   "severity": "low",
+   "title": "Large grey slabs remain in the user's case at t = 0.2",
+   "detail": "Orbiting confirms the ledger: the grey slabs are the undersides of sheets (front, side and back views all show grey faces). So it is the designed underside style, not antialiased tiles. They still read as flat grey boards between coloured walls, which the reviewer flagged as curtain-like. This is open for the user's eye, as the ledger says.",
+   "evidence": "review-verify/p-user-t0.2-im-sh-light.png; work/xvls/test/verify_cdp/shots/yaw-user-t0.2-back.png and yaw-user-t0.2-side.png.",
+   "fix": "Show the user at t = 0.2 and ask. If they read as curtains, keep more of the hue on the underside of a wall facet (steep facets only)."
+  },
+  {
+   "id": "verify-4",
+   "about": "pictures-5",
+   "severity": "low",
+   "title": "The log log z branch-point fin is still there (deferred)",
+   "detail": "log log z, Im, All sheets: a dark twisted fin still sticks up out of the top sheet near z = 1, as the reviewer showed. The ledger defers it, with design 3.2 and 3.3 left to build.",
+   "evidence": "review-verify/crop-pole-clip-and-loglog-fin-4x.png (right half), p-loglog-im-sh-light.png.",
+   "fix": "As in pictures-5: drop or refine the cell holding a known branch point in the sheets' TF pass."
+  },
+  {
+   "id": "verify-5",
+   "about": "math-6 (b)",
+   "severity": "low",
+   "title": "Two different cuts on one edge: only the first is found (documented, not fixed)",
+   "detail": "From the code: LAND_EDGE_VS keeps one bracket per edge, so the second cut on the same edge is bridged. The ledger documents this. (a) and (c) are fixed in the code: the far-end value test now runs with no height prefilter, and a midpoint test catches a cut crossed twice. Not measured on the GPU.",
+   "evidence": "src/gl.js LAND_EDGE_VS edgeJump (one bracket, jump set once).",
+   "fix": "As in math-6, or count such edges in t_landwalls so they stay visible."
+  }
+ ],
+ "holds": [
+  "math-1: z^2 at t = 0.5 and 0.25, and z^-2 at t = 0.2 (Im, N = 256): 127 of 127 edges across the negative axis flagged as jumps (before: 0 of 127). z^3 at t = 0.5: 0 jumps, correct (the exponent is 2 there).",
+  "math-3: cut modes from the GPU: tan 0, Joukowski at rest 0, Joukowski at t = 0.5 2. arcsin(z) + 1/z (mode 2, pole at the centre cell for even N): 0 jumps within 3 cells of the pole in Re and Im. Im finds the arcsin cuts (208 edges).",
+  "math-4: sqrt(z)/(z-1), Im, All sheets: the box clip at the pole is a smooth round rim on both sheets.",
+  "math-5: GLR.landMesh after meshN 240, 480, 1920, 240: only the current pane size plus 64 are kept.",
+  "math-8: FLOOR_FS skips corners below -1.25 H (code).",
+  "math-2 (desktop, Max mesh 1920): user's case with All sheets playing, 60 and 58.3 fps (p95 17.7 and 20.7 ms; base 49 and 51.5 fps). tan Re orbit 60 fps (p95 17.7). User's case orbit at t = 0.2, 57.8 and 60 fps. Single-frame hitches of 97 and 112 ms on this build only. Phone and Android not measured.",
+  "pictures-3: the wavy mid-wall lines in the user's case are now straight level lines.",
+  "pictures-6: the phone pictures named in the ledger exist in after/.",
+  "i18n: no new $t strings in the diff against xvsh-snap."
+ ],
+ "not_checked": "Android phone hardware and phone emulation perf, mid-play frames, glsl-test, node t_*.js, quality suite, math-7 beyond the ledger's argument (accepted: the sagitta is sub-pixel away from branch points)."
+}

@@ -1,0 +1,100 @@
+{
+ "round": "landscape walls, round 3 after the fixes: independent verification",
+ "date": "2026-10-26",
+ "build": "work/xvls/dist/test.html (built 09:00:30 from src/gl.js 09:00:30, app.js 07:53). Base: work/xvsh-snap and round 2: work/xvls-final-snap, both built into the scratchpad. All three served on 127.0.0.1:9845 from one folder of symlinks; work/xvls/dist untouched. Headless Chrome with ANGLE Metal (kit work/xvls/test/rv3v_cdp, profile and disk cache inside it), 1440x900 at DPR 1 and 390x844 phone. Two other agents' headless Chromes (xvhs, a quality run) were open.",
+ "how": "Timing always alternated with the base in one browser, no captures during timed windows. Pictures: frames captured mid-play with t read before and after each capture. Commands and outputs: notes/landscape-walls/r3/review-verify/ (cmd/, *.out.json, crops).",
+ "still_wrong": [
+  {
+   "id": "verify-1",
+   "severity": "high",
+   "from": "new, caused by the speed-3 fix (round 2 blocker 1 comes back in the usual flow)",
+   "title": "Opening the deformation shows torn, holed walls for the whole play, every loop, until it is paused (default and Max mesh, principal surface)",
+   "detail": "Opening the deformation starts the play at t = 0 at once (app.js openTransport). The speed-3 fix never draws a chain program for the first time in a moving frame. edgeAhead first-draws the deformation's edge pass only at rest, once it has settled (900 ms after its link). So when the user opens the deformation, no rest frame comes, and every play frame uses the former 0.3 H rule (cuts -1). The walls next to the cut get jagged teeth and holes, the same picture as the base. Round 2 draws them clean. With Loop on it stays torn on the second and third pass (frames at 3 s and 6 s, t = 0.001 and 0.099). The same build is clean if the transport is opened and the play starts 1.2 s or 2.5 s later. All sheets is clean (a different path). The review's and the builder's real-play gates missed it because they set a rest t first, which warms the edge pass. Desktop 1440x900 light, sin sqrt z, Im, default mesh and Max.",
+   "evidence": "notes/landscape-walls/r3/review-verify/open-and-play-torn-walls-loop.png (row 1: this build, open and play at once, frames at 0.4, 3.0 and 6.0 s, then round 2 at 6 s, clean; row 2: this build with a 1.2 s wait, clean, then the base, torn; row 3: a 2.5 s wait, clean, then round 2 at 3 s); open-and-play-default-mesh-r3-all-base-r2.png (rows: this build principal t ~0.04-0.7 torn; this build All sheets clean; base torn; round 2 clean); open-and-play-max-mesh.png (Max, t 0.002-0.47, torn). Raw: work/xvls/test/rv3v_cdp/shots/Q-*, Q2-*; qp2.out.json, quickplay.out.json; cmd/quickplay_body.js, cmd/qp2_body.js.",
+   "fix": "Let the edge pass be ready before the first play frame: start compiling it with the chain whenever a deformation can open (or when the step card shows its play control), and first-draw it with a write-nothing pass at the last rest frame. If it is still cold when the play starts, take the one first-draw stall at t = 0 rather than tear the whole play, or draw with round 2's moving path until it is ready. Add an 'open and play at once, Loop on' case to the motion gate, default and Max meshes, light and dark."
+  },
+  {
+   "id": "verify-2",
+   "severity": "high",
+   "from": "new (not in the base; seen only in this build)",
+   "title": "WebGL errors every frame while a two-step deformation plays with All sheets: texImage2D 'ArrayBufferView not big enough' and texSubImage2D 'Offset overflows texture dimensions'",
+   "detail": "A fresh custom formula with a square root after sqrt z (sin sqrt(z^2 + c)), All sheets on, Landscape opened, then the deformation over f1 -> f2 played 1 s later. In 3 of 3 runs that logged per page, this build logged WebGL errors while it played: 94 in 6.5 s in 2 runs, 50 in 1.5 s in a third. First one INVALID_OPERATION texImage2D 'ArrayBufferView not big enough for request', then GL_INVALID_VALUE glTexSubImage2DRobustANGLE 'Offset overflows texture dimensions' every frame. They begin when the play loops from t = 2 back into the first step (the third run: 0 errors up to t = 2 at 5.5 s, 50 by t = 0.96 at 7 s). None after it stops. The base logged none in 3 of 3. Round 2 logged 1 message in the same flow (not inspected). The user's own case (one-step range) logged none. Likely cause (not proven): rfApply writes the level and list textures in place when o.lvDim / o.lstRows match ('written in place, r3'). After a failed or mis-sized texImage2D the size fields still claim the old size, so every later texSubImage2D fails and the refinement reads levels that do not match the heights. The picture breaks with them: in the errored frame (t = 0.96) a straight white slit runs across both sheets, from the block's edge to the branch point, with a loose sliver beside it. The same frame of the base and this build at rest after the stop have none.",
+   "evidence": "notes/landscape-walls/r3/review-verify/warn.out.json (per page and phase), cardplay.out.json (first sighting). allsheets-two-step-errors-slit-t0.96.png (left: playing with the errors, t = 0.964; right: after the stop); allsheets-two-step-errors-r3-vs-base.png (top: this build at t = 0.79, 0.96 and stopped; bottom: base at the same moments); warn2.out.json (t and error count per frame). Command: cmd/warn_body.js, cmd/cardplay_body.js.",
+   "fix": "Find the texture: log the size of each texImage2D/texSubImage2D against its data in rfApply, rfBuild and runTFRows for this case. Set lvDim/lstRows only after a successful allocation, and check the data length (Mq x M x 4, 1024 x rows) before writing in place. Make 'no WebGL errors or warnings' a check in landscape_walls_cmd.js, with a two-step deformation and All sheets."
+  },
+  {
+   "id": "verify-3",
+   "severity": "high",
+   "from": "speed-2 / round 2 blocker 2 (the ledger also marks it open)",
+   "title": "Cold opens: All sheets stalls 3 times where the base stalls once, and its first picture comes 140 to 500 ms later; the principal surface's first stall is longer in 4 of 4 pairs",
+   "detail": "Fresh formulas (random constants), desktop 1440x900, base and this build alternating, 4 + 4 opens each. All sheets: this build 3 gaps over 100 ms in every open (141 to 296 ms; the last one 1.7 to 2.2 s after the open), the base 1 (240 to 282 ms). First picture: 690, 744, 750, 1098 ms against the base's 482 to 607. Principal: longest gap 528 to 745 ms against the base's 367 to 604 (longer in each pair), and a second gap of 139 to 145 ms at 1.67 to 2.02 s in 4 of 4. The base had a second gap of 102 to 161 ms at 0.7 to 1.0 s in 3 of 4. First picture about the same (777 to 1075 against 886 to 1152). Other agents' browsers were running, but the order alternated, and this build was worse in every All-sheets pair.",
+   "evidence": "notes/landscape-walls/r3/review-verify/cold.out.json (runs and summary); command cmd/cold.js (the builder's cold_full.js on port 9845).",
+   "fix": "As the ledger says: route the edge pass's and the sheets' refinement evaluations through the surface's own chain program, so a fresh formula pays one first-draw stall, as in the base. Until then this blocker is not met."
+  },
+  {
+   "id": "verify-4",
+   "severity": "medium",
+   "from": "speed-5 fix (3 s cap) together with speed-2",
+   "title": "A fresh formula with All sheets, deformation started soon after the open: 305 to 724 ms freezes during the play in 2 of 5 runs (base: none over 113 ms in 5)",
+   "detail": "sin sqrt(z^2 + c) after sqrt z, All sheets, Landscape opened, deformation f1 -> f2 played 1 s later, frame gaps over the next 8 s. This build: 710 ms at 1.1 s and 724 ms at 2.96 s (run 1), 305 ms at 1.67 s (run 2), none over 100 in the other three runs (cardplay and warn). Base: largest gap after the play started 113 ms, in 5 runs. The 2.96 s freeze matches the card wait's new 3 s cap: the step cards' Landscape programs then compile and are first drawn while the pane plays. The 1.1 s one is the play's own first frames. Mid-play freezes are what the user sees as a stuck animation.",
+   "evidence": "notes/landscape-walls/r3/review-verify/cardplay.out.json, warn.out.json (gap lists, 'time@ms'). Command: cmd/cardplay_body.js.",
+   "fix": "Never let the cap release a card's first draws into a moving frame. Release it at the next rest frame, or warm the card programs with a write-nothing draw at the pane's rest frames. Measure mid-play gaps with fresh formulas, base alternating."
+  },
+  {
+   "id": "verify-5",
+   "severity": "medium",
+   "from": "speed-1 and speed-3 / round 2 blocker 3",
+   "title": "Max mesh: BUDGET60 met in steady state, but the first All-sheets run after a load fails in 2 of 3 (desktop 42 to 52 fps, phone 47 to 58), and 1 of 4 desktop principal plays fails",
+   "detail": "Desktop 1440x900 and phone 390x844, the user's case at Max, drag, camera orbit, play and after stop, pages alternating (B,T,T,B; T,B,B,T; phone T,B,B,T). Steady state is fixed: in 5 of 7 runs this build holds 60 fps everywhere, and All-sheets play beats the base (base 47 to 56 fps, failing 6 of 6). But the first All-sheets run in two blocks failed in every moving row. Desktop: drag 51.7, orbit 42.1 (max 85 ms), play 42.7 fps, while the base just before held 60 in drag and orbit. Phone: drag 58.3, orbit 54.3 (max 112 ms), play 47.5. One desktop principal play fell to 53.2 fps (p95 24.4; base 60 in 4 of 4). The base never fails drag or orbit. Noise from other agents' GPU work is possible, but the failures fall on the first run after a load, the first seconds a user meets.",
+   "evidence": "notes/landscape-walls/r3/review-verify/perf_desk.out.json, perf_desk2.out.json, perf_phone.out.json (lines, 'BUDGET60 FAIL'). Command: cmd/perf_body.js (the builder's perf2.js).",
+   "fix": "Trace the first All-sheets run after a load (GPU timer per pass, program link and settle times): likely the sheets' refinement passes or their background links landing in the first seconds. Keep them off moving frames. Add a 'first run after load' row to BUDGET60."
+  },
+  {
+   "id": "verify-6",
+   "severity": "low",
+   "from": "new (hook removal in the fix)",
+   "title": "Removing every TEMP-DEBUG-HOOK took out v16's GLR.evalMap, so the project's deform_range suites and this round's own motion gate cannot run on the build",
+   "detail": "work/xvls/src/gl.js has 0 TEMP-DEBUG-HOOK blocks. The base (work/xvsh-snap) has 3 blocks, among them GLR.evalMap and its evalPt program, which test/deform_range_cmd.js and test/deform_range_gl_cmd.js (root test/) call. test/landscape_walls_cmd.js calls GLR._lw, landMesh and landRefine, so its motion and mesh parts cannot run on the build that will ship. The ledger's 20 of 20 motion cases come from a hooked scratch build, not this one. Hook removal before publishing is planned, but it removes v16's hooks too, and that is outside this round.",
+   "evidence": "grep: 'GLR.evalMap' in test/deform_range_cmd.js, test/deform_range_gl_cmd.js; 'TEMP-DEBUG-HOOK' count 0 in work/xvls/src/gl.js against 6 marker lines in work/xvsh-snap/src/gl.js.",
+   "fix": "Put back the base's hooks (GLR.evalMap, evalPt) and this round's test hooks behind the TEMP-DEBUG-HOOK markers, and remove them all in the publish step, as before. Re-run the motion gate on the build itself."
+  },
+  {
+   "id": "verify-8",
+   "severity": "low",
+   "from": "speed-4 (fixed in part)",
+   "title": "Still 47 MB of textures held after a play at the default mesh (base 8 MB), and 15 MB at rest after formula changes (base 8 MB)",
+   "detail": "The review's memory command (WebGL objects counted), user's case, All sheets, default mesh, desktop. This build: rest 11 textures 8.7 MB, Max 33.3 MB, back 8.7 MB; after All sheets off and on 17 textures, 13.7 MB (base 5, 10 MB); after a 3 s play and stop 24 textures, 47.1 MB (base 5, 8.1 MB), until the next formula; after 5 and 10 formula changes 24 textures, 14.9 to 15 MB (base 8.1). A fence is alive at Max and after it (sync 1), until the next rebuild. No growth over the 10 formulas, so no leak. About 39 MB more than the base held while idle after a play is what the phone pays.",
+   "evidence": "notes/landscape-walls/r3/review-verify/mem.out.json; command cmd/mem.js (the builder's mem_full.js).",
+   "fix": "After the play stops and the rest refinement has landed, free the deformation's moving-path textures and its sheets' refinement objects, not only at the next formula."
+  },
+  {
+   "id": "verify-7",
+   "severity": "low",
+   "from": "pictures-3 (rejected by the builder as out of scope, pre-existing)",
+   "title": "z^{1/5} tan 3z: All sheets stays ticked while the deformation shows one sheet (pre-existing, UI backlog)",
+   "detail": "Not re-measured; the builder agrees it is unchanged and points at an existing tip. It is still wrong for the user, so it stays on the list for the UI backlog.",
+   "evidence": "notes/landscape-walls/r3/review-pictures/z15tan-allsheets-transport.png; ledger.json pictures-3.",
+   "fix": "UI backlog: dim the check or support All sheets for that deformation."
+  }
+ ],
+ "checked_and_fixed": [
+  {
+   "id": "pictures-1 / round 2 blocker 1",
+   "result": "Fixed when a rest frame at t > 0 comes first (see verify-1 for the open-and-play flow). Real play at 1x, frames mid-play with t read per frame: Max mesh desktop light (t 0.03 to 1) and dark (t 0.01 to 1, also mid-orbit), All sheets at Max, default mesh principal (light) and All sheets (dark), phone 390x844 at Max: wall contours straight, no sawtooth, scratches or speckles; no console messages.",
+   "evidence": "notes/landscape-walls/r3/review-verify/max-play-light-clean.png, max-play-dark-orbit-clean.png, default-play-and-allsheets-max-clean.png, allsheets-default-dark-play-clean.png, max-phone-play-clean.png, pics.out.json"
+  },
+  {
+   "id": "speed-1",
+   "result": "Steady state fixed: Max with All sheets, 60 fps in drag, orbit and play in the second run of each block, desktop and phone (base fails play 6 of 6). The first run after a load is in verify-5."
+  },
+  {
+   "id": "speed-3",
+   "result": "Hitches gone: no frame over 34 ms in principal Max play; 3 of 4 desktop and 2 of 2 phone runs at 60 fps. The one fail is in verify-5."
+  },
+  {
+   "id": "pictures-2",
+   "result": "Not re-checked here (the builder did not reproduce it in 30 frames); no speckles seen in any frame of this review."
+  }
+ ],
+ "not_checked": "speed-6 context loss: not re-run. A camera fling on the Landscape followed by a switch to the planes (camSpin could keep interacting() true while the turn is not stepped): no momentum survived the switch in 4 runs, so no effect found (fling.out.json, fling2.out.json). Quality suite, GLSL suites, export: not run."
+}

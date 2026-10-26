@@ -7,6 +7,7 @@
 //  D. the v16 review fixes (constr_review_tests.js)
 //  E. the Perpendicular circle, op perp (constr_perp_tests.js; notes/orthogonal-circle/SPEC.md 7)
 //  F. the Touching circle, ops touch and tangent (constr_touch_tests.js; notes/orthogonal-circle/TANGENT-SPEC.md 7)
+//  G. Inside C only, a perpendicular circle's arc on one side of C (constr_seg_tests.js; orthogonal-circle/segments/SPEC.md 11)
 'use strict';
 const path = require('path');
 const SRC = path.join(__dirname, '../src');
@@ -395,5 +396,9 @@ require('./constr_perp_tests.js')({ K, ok, near, nearP });
 sect.F = [0, 0]; cur = 'F';
 require('./constr_touch_tests.js')({ K, ok, near, nearP });
 
-console.log(`\nA ${sect.A[0]}/${sect.A[0] + sect.A[1]}, B ${sect.B[0]}/${sect.B[0] + sect.B[1]}, C ${sect.C[0]}/${sect.C[0] + sect.C[1]}, D ${sect.D[0]}/${sect.D[0] + sect.D[1]}, E ${sect.E[0]}/${sect.E[0] + sect.E[1]}, F ${sect.F[0]}/${sect.F[0] + sect.F[1]}: ${pass} passed, ${fail} failed`);
+// =========================================================== G. Inside C only (notes/orthogonal-circle/segments/SPEC.md 11)
+sect.G = [0, 0]; cur = 'G';
+require('./constr_seg_tests.js')({ K, ok, near, nearP });
+
+console.log(`\nA ${sect.A[0]}/${sect.A[0] + sect.A[1]}, B ${sect.B[0]}/${sect.B[0] + sect.B[1]}, C ${sect.C[0]}/${sect.C[0] + sect.C[1]}, D ${sect.D[0]}/${sect.D[0] + sect.D[1]}, E ${sect.E[0]}/${sect.E[0] + sect.E[1]}, F ${sect.F[0]}/${sect.F[0] + sect.F[1]}, G ${sect.G[0]}/${sect.G[0] + sect.G[1]}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

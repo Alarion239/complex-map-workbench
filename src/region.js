@@ -450,8 +450,31 @@ const Region = (() => {
     const b = K[s.kind].bbox && K[s.kind].bbox(s);
     return b || null;
   }
+  // (v16.4: a perpendicular circle drawn inside its curve only, notes/orthogonal-circle/segments) the arc's open curves:
+  // a circle's from Constr.segCurves; on a line (review math-1, math-4) the chord is a segment, and the ray, or the two
+  // rays through infinity, are the line kinds' long rays (the FAR clip and, with {reach: 'sphere'}, c.reach), so the
+  // settle refinement, its tails and curvePieces' clip treat them as a whole line; each runs from the arc's start toward
+  // its end, the finite ends bitwise
+  function segCurvesOf(q, win, o) {
+    if (q.G.A !== 0) return Constr.segCurves(q, win);
+    const fin = (z) => Array.isArray(z), Pz = (z) => C(z[0], z[1]), [e0, e1] = q.ends;
+    if (!win || !(win.x1 - win.x0 > 0)) { const c = q.ends.find(fin) || [0, 0], h = Math.max(1, q.L); win = { x0: c[0] - h, x1: c[0] + h, y0: c[1] - h, y1: c[1] + h }; }
+    const exact = (c) => { if (!c) return null; const f = c.f, a = c.a, b = c.b; return Object.assign(c, { cap: 'butt', gform: q.G, seg: true, f: (x) => (x === 0 ? C(a.re, a.im) : x === 1 ? C(b.re, b.im) : f(x)) }); };   // (past 0 and 1: the refinement's tails)
+    const rev = (c) => { if (!c) return null; const r = longSeg(c.b, c.a); if (c.reach) r.reach = [c.reach[1], c.reach[0]]; return r; };
+    if (fin(e0) && fin(e1)) {
+      const a = Pz(e0), b = Pz(e1), m = q.fields && q.fields.m;
+      // (the chord holds the arc's middle; the outside of a diameter passes through infinity: two rays)
+      if (m && (m[0] - e0[0]) * (m[0] - e1[0]) + (m[1] - e0[1]) * (m[1] - e1[1]) <= 0) return [exact(seg(a, b))];
+      return [exact(longOf(a, CX.sub(a, b), win, 0, o)), exact(rev(longOf(b, CX.sub(b, a), win, 0, o)))].filter(Boolean);
+    }
+    const e = fin(e0) ? e0 : e1, m = q.fields && q.fields.b;
+    if (!fin(e) || !fin(m)) return [];
+    const c = longOf(Pz(e), CX.sub(Pz(m), Pz(e)), win, 0, o);
+    return c ? [exact(fin(e0) ? c : rev(c))] : [];
+  }
   // o: {reach: 'far' (default: every caller but the settle-time line refinement) | 'sphere'} (SPEC 9.1)
   function curvesOf(s, win, o) {
+    if (s._seg && s._g && typeof Constr !== 'undefined' && Constr.segCurves) return segCurvesOf(s._seg, win, o);
     const k = K[s.kind];
     const big = bigCircle(s, win);
     if (big) return [big];
@@ -1905,7 +1928,7 @@ const Region = (() => {
   const Globe = { lift, unlift, finiteOf, capFamily, capOf, shapeOfCap, applyCap, rotationTo, rotAxis, rot3, rotateShape, capFrame, rimPoint, rimAngle,
     globeHandlesOf, setGlobeHandle, sphereCurvesOf, globeInside, CAP_INF_EPS, CAP_MIN, HANDLE_FAR, dot3, cross3, norm3 };
 
-  return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
+  return { KINDS: K, FAR, Lines, meshInstances, isOpen, sampleCurve, formOf, formLevel, MR_RATIO, polyCurve: poly, levelOf, bboxOf, curvesOf, segCurvesOf, handlesOf, setHandle, translate, hitTest, buildMesh, mapMesh, mapCurve, defaultsFor, expandBox, clipLine, arc3,
     supportOf, clipPrimitive, shapeClip, convexOf, formulaBox, Globe, curveDesc, traceWin, fcurveTrace,
     capOf, shapeOfCap, rotateShape, globeHandlesOf, setGlobeHandle, sphereCurvesOf };
 })();

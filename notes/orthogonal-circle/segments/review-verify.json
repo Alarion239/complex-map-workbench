@@ -1,0 +1,68 @@
+{
+ "_about": "v16.4 Inside C only: independent check of review-math.json (8) and review-user.json (10) against the running app (work/xvhs/dist/test.html, headless Chrome on port 9865), 2026-10-26. dist was first confirmed to be the build of the current src (a scratch rebuild is byte-identical). Not the ledger: each fix was re-run in the app. 'still_wrong' lists what is still wrong; 'checked' says how each finding was verified.",
+ "count": 4,
+ "still_wrong": [
+  {
+   "id": "verify-1",
+   "severity": "medium",
+   "from": "the user-2 / user-3 fix (new)",
+   "title": "English captions: the new closing comma inside a nested phrase reads as a list break",
+   "detail": "The closing comma ({pc}) is added in English too, and also when a seg line is named inside another shape's phrase (a meet, a glider, a perpendicular to a seg line). In an English list that comma before 'and' looks like the list's own last-item comma. The intersection then reads as two list items, and the sentence has two final 'and's. Russian is correct («…, проходящей через $z_0$ и~$z_1$, и~гиперболической прямой …»). Before the fix the English had no comma there and read correctly.",
+   "evidence": "Scene: unit circle, z0 = 0.1+0.6i, z1 = -0.5-0.3i, z2 = 0.55-0.25i, seg lines k1 = (z0, z1) and k2 = (z1, z2), the meet of k1 and k2. Article caption (EN): '…, the intersection $z_{4}=-0.5-0.3i$ of the hyperbolic line through $z_{0}$ and $z_{1}$ in the domain $|z|<1$, and the hyperbolic line through $z_{1}$ and $z_{2}$ in the domain $|z|<1$, the point $z_{5}=0.2+0.1i$, the point $z_{6}=-0.1+0.3i$, and the circle through …'. The on-screen caption is the same.",
+   "fix": "Close the phrase only where the language needs it: always in Russian; in English only at the end of the top-level list, before the template's 'in the $z$-plane'. Do not add {pc} to an English phrase used as a parameter of another phrase (construct.js CM and carrier through app.js capPhrase)."
+  },
+  {
+   "id": "verify-2",
+   "severity": "high",
+   "from": "user-1 (deferred)",
+   "title": "A hyperbolic triangle still draws with six tails: 'Between z0 and z1' is not built",
+   "detail": "Still as reported. Inside draws the whole geodesic from C to C. The ledger defers it as a question for the user (SPEC 12), so it is not a fix that failed. It is open until the user answers.",
+   "evidence": "J1 scene (three Inside sides through z0, z1, z2): each side runs to |z| = 1. review-user shots ru-tri-done.png and ru-exp2z.png still match the app.",
+   "fix": "Ask the user the SPEC 12 question ('Also add Between z0 and z1, so a hyperbolic triangle draws without tails?') before v16.4 ships."
+  },
+  {
+   "id": "verify-3",
+   "severity": "low",
+   "from": "user-3 (partly fixed)",
+   "title": "The triangle caption still says 'in the domain |z|<1' three times",
+   "detail": "The 'in … in the z-plane' stacking is fixed ('…in the domain $|z|<1$, in the $z$-plane'). The repeated domain is not grouped, by choice (ledger). Still wordy for an article.",
+   "evidence": "EN article caption of the J1 triangle: '…the hyperbolic line through $z_{0}$ and $z_{1}$ in the domain $|z|<1$, the hyperbolic line through $z_{1}$ and $z_{2}$ in the domain $|z|<1$, and the hyperbolic line through $z_{2}$ and $z_{0}$ in the domain $|z|<1$, in the $z$-plane.'",
+   "fix": "Optional, as the ledger says."
+  },
+  {
+   "id": "verify-4",
+   "severity": "low",
+   "from": "pre-existing in v16.3 (seen while checking; not caused by v16.4)",
+   "title": "Homework captions rename the points A, B, C, … but construction phrases still say z0, z1; the 6th point is called F, the map's name",
+   "detail": "In 'for: homework' the points are listed as A, B, C, …, but perpendicular circles and the new hyperbolic lines name their points as $z_{0}$, $z_{1}$. With six points, the sixth is 'F', the same letter as the map F in the same sentence. v16.3 does the same for a whole perpendicular circle, so this is not a v16.4 regression, but the new seg captions inherit it.",
+   "evidence": "v16.4 RU homework: 'точка $A=0{,}1+0{,}6i$, … гиперболическая прямая в~области $|z|<1$, проходящая через $z_{0}$ и~$z_{1}$, … точка $F=0{,}2+0{,}1i$, … справа~--- образы при отображении $F$'. v16.3 (notes/v16.3-candidate) EN homework: 'the point $A=0.1+0.6i$, the point $B=-0.5-0.3i$, and the circle through $z_{0}$ and $z_{1}$ perpendicular to the circle $|z|=1$'.",
+   "fix": "For the backlog: pass the letters map to Construct.phrase's point names in homework mode, and skip F (and the map's other letters) when assigning letters."
+  }
+ ],
+ "checked": {
+  "math-1": "fixed. In the app, Y under exp for the vertical seg ray Re z = 1 over the real axis draws a clean arc of |w| = e with no chords (shots/verify/vfy-exp-seg1.png; the image of X's visible part, as for a whole line). node test/t_constr.js: G 37/37, 288 passed.",
+  "math-2": "fixed. Seg ray with a glider at its infinite end (t 1, at inf): Whole circle gives t 0.5 at inf; One side of Line 1 only gives t 1 at inf. Whole diameter line with a glider at inf: Inside Circle 1 only moves it to the centre (mirror image, |p| = 8e-17); Other side brings it back to inf; Whole circle gives t 0.5 at inf.",
+  "math-3": "fixed. perp_cmd J2: '…in the domain $\\{|z|>1\\}\\cup\\{\\infty\\}$ on the circle through …'.",
+  "math-4": "fixed. 'Integrate F along it' (F = 1/z): the vertical seg ray gives 0.8047 + 1.1071i, which is log(1+2i), the integral from 1 to the window's top at 1+2i; the two rays give 0. No singularity message.",
+  "math-5": "fixed. Two vertical seg rays (Re z = 1, 2) and two disc geodesics through e^{0.7i}: m0 and m1 are both nomeet; the rows read 'The curves do not meet here'.",
+  "math-6": "fixed. perp_cmd J5: the item reads 'Outside the circle of Disc 1 only', and the row then says outside.",
+  "math-7": "fixed. perp_cmd J3: z0 on C gives 'in the domain $|z|<1$ on the circle through …' and the row 'on the circle through z₀ and z₁'.",
+  "math-8": "documented only, as the ledger says (v16.2 and Preimage draw the two-rays case as the chord). Not re-run.",
+  "user-1": "open: see verify-2.",
+  "user-2": "fixed in Russian (perp_cmd J1, and a scene with a glider, a meet and a perpendicular to a seg line: every participial phrase is closed correctly, also in the homework caption). The English side effect is verify-1.",
+  "user-3": "partly fixed: see verify-3.",
+  "user-4": "fixed. 1440 EN: words once C is picked ('Point 1 of 2 · Orthogonal · Esc cancels | Whole | Inside'), chip right 663.5 inside the plane's 697; Whole's tooltip 'Whole: the whole circle'. 1440 RU: the words do not fit, so it shows icons, on one line inside the plane (chip right 669 of 697; shots/verify/vfy-chip-1440ru.png).",
+  "user-5": "fixed. perp_cmd J7 at 390 × 844 (Android, touch): both chips' buttons stay 20 px tall and take taps 18 px above and below their centre.",
+  "user-6": "fixed. perp_cmd J4 (EN and RU rows).",
+  "user-7": "not done (ledger: rejected; the reviewer called it optional). Still true: a seg K switched to Whole stays 'Arc n'.",
+  "user-8": "not done (rejected; not v16.4 code).",
+  "user-9": "not done (rejected; palette order).",
+  "user-10": "nothing needed.",
+  "regressions": "perp_cmd section J 9/9 with no console errors. Captions of all 40 examples (article, homework and on-screen; EN and RU) are the same as v16.3's. A first run showed a difference only in the phase-portrait examples 9, 11 and 12. It came from a namespace shared between the two pages. A re-run of EN examples 0–12 in fresh namespaces shows no difference. RU 9, 11 and 12 were not re-run. They showed the same phase-shading clause difference, which points to the same cause. No console errors in any probe."
+ },
+ "not_checked": [
+  "Deformation (morph) captions with seg lines: pcTidy runs in captionLatex and layoutCaption, but no morph figure was built.",
+  "The Orthogonal chip at 1024 px: the probe did not reach the chip (the tool's tile was not found at that width), so the words or icons choice there is unverified.",
+  "BUDGET60 and the quality suite were not re-run (the ledger's perp_cmd I8 reports frame p95 16.7 ms)."
+ ]
+}

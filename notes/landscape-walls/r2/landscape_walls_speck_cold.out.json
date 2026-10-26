@@ -1,0 +1,260 @@
+{
+ "rows": [],
+ "perf": [],
+ "fails": [],
+ "speck": [
+  {
+   "page": "r1/test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "1440-light",
+   "speckles": 5
+  },
+  {
+   "page": "r1/test.html",
+   "id": "tan-re",
+   "tag": "1440-light",
+   "speckles": 135
+  },
+  {
+   "page": "r1/test.html",
+   "id": "sec-re",
+   "tag": "1440-light",
+   "speckles": 42
+  },
+  {
+   "page": "test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "1440-light",
+   "speckles": 0
+  },
+  {
+   "page": "test.html",
+   "id": "tan-re",
+   "tag": "1440-light",
+   "speckles": 1
+  },
+  {
+   "page": "test.html",
+   "id": "sec-re",
+   "tag": "1440-light",
+   "speckles": 2
+  },
+  {
+   "page": "r1/test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "1440-dark",
+   "speckles": 4
+  },
+  {
+   "page": "r1/test.html",
+   "id": "tan-re",
+   "tag": "1440-dark",
+   "speckles": 129
+  },
+  {
+   "page": "r1/test.html",
+   "id": "sec-re",
+   "tag": "1440-dark",
+   "speckles": 77
+  },
+  {
+   "page": "test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "1440-dark",
+   "speckles": 0
+  },
+  {
+   "page": "test.html",
+   "id": "tan-re",
+   "tag": "1440-dark",
+   "speckles": 1
+  },
+  {
+   "page": "test.html",
+   "id": "sec-re",
+   "tag": "1440-dark",
+   "speckles": 5
+  },
+  {
+   "page": "r1/test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "390-light",
+   "speckles": 1
+  },
+  {
+   "page": "r1/test.html",
+   "id": "tan-re",
+   "tag": "390-light",
+   "speckles": 44
+  },
+  {
+   "page": "r1/test.html",
+   "id": "sec-re",
+   "tag": "390-light",
+   "speckles": 11
+  },
+  {
+   "page": "test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "390-light",
+   "speckles": 1
+  },
+  {
+   "page": "test.html",
+   "id": "tan-re",
+   "tag": "390-light",
+   "speckles": 0
+  },
+  {
+   "page": "test.html",
+   "id": "sec-re",
+   "tag": "390-light",
+   "speckles": 1
+  },
+  {
+   "page": "r1/test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "390-dark",
+   "speckles": 0
+  },
+  {
+   "page": "r1/test.html",
+   "id": "tan-re",
+   "tag": "390-dark",
+   "speckles": 42
+  },
+  {
+   "page": "r1/test.html",
+   "id": "sec-re",
+   "tag": "390-dark",
+   "speckles": 17
+  },
+  {
+   "page": "test.html",
+   "id": "user-t0.2-im-sheets",
+   "tag": "390-dark",
+   "speckles": 0
+  },
+  {
+   "page": "test.html",
+   "id": "tan-re",
+   "tag": "390-dark",
+   "speckles": 0
+  },
+  {
+   "page": "test.html",
+   "id": "sec-re",
+   "tag": "390-dark",
+   "speckles": 0
+  }
+ ],
+ "cold": [
+  {
+   "page": "base/test.html",
+   "f": "\\log(z^5+4)\\cos(z/5)",
+   "firstSurfaceMs": 193,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\log(z^5+6)\\cos(z/7)",
+   "firstSurfaceMs": 199,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "landTF@59 landNrm@59 mark@67 landEdgeS@78 floor@94 land@95 landLv@117 landRP@193 landRA@261 landR@311"
+  },
+  {
+   "page": "test.html",
+   "f": "z^4/(\\sinh z+13)",
+   "firstSurfaceMs": 209,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "landTF@54 landNrm@54 mark@59 floor@94 land@94 landLv@129 landRP@193 landRA@260 landR@310"
+  },
+  {
+   "page": "base/test.html",
+   "f": "z^4/(\\sinh z+15)",
+   "firstSurfaceMs": 215,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^4+z+3}\\sinh(z/5)",
+   "firstSurfaceMs": 420,
+   "longestGapMs": 144,
+   "gaps": [
+    [
+     106,
+     144
+    ]
+   ],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^4+z+5}\\sinh(z/7)",
+   "firstSurfaceMs": 225,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "landTF@115 landNrm@115 mark@128 landEdgeS@137 floor@154 land@154 landLv@173 landRP@254 landRA@305 landR@355"
+  },
+  {
+   "page": "test.html",
+   "f": "\\tanh(z^3/4)+\\sqrt{z-2}",
+   "firstSurfaceMs": 548,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "landTF@123 landNrm@123 mark@141 landEdgeS@144 floor@175 land@176 landLv@212 landRP@276 landRA@326 landR@376"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\tanh(z^3/5)+\\sqrt{z-3}",
+   "firstSurfaceMs": 202,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "z^3/(\\cosh z+8)",
+   "firstSurfaceMs": 215,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "z^3/(\\cosh z+9)",
+   "firstSurfaceMs": 249,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "landTF@131 landNrm@131 mark@147 floor@171 land@174 landLv@202 landRP@265 landRA@315 landR@366"
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^5-2z}\\cosh(z/5)",
+   "firstSurfaceMs": 147,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "landTF@56 landNrm@59 mark@66 landEdgeS@73 floor@90 land@90 landLv@108 landRP@173 landRA@238 landR@289"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^5-3z}\\cosh(z/6)",
+   "firstSurfaceMs": 375,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  }
+ ],
+ "coldSummary": {
+  "baseLongestGapMs": 144,
+  "thisLongestGapMs": 0
+ },
+ "pass": true,
+ "logs": []
+}

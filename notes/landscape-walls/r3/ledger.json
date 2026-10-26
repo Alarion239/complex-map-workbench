@@ -1,0 +1,110 @@
+{
+  "round": "landscape walls r3, fixes after review-pictures.json and review-speed.json",
+  "date": "2026-10-26",
+  "work_copy": "work/xvls (src/gl.js, src/app.js, test/landscape_walls_cmd.js; dist rebuilt with python3 build.py)",
+  "untouched": "work/xvls-final-snap, work/xvls-final-snap-r1, work/xvsh-snap, src/, dist/, build.py, test/ at the root, other work/ copies; perf baselines, accepted.json, golden images",
+  "previous_run": "The cut-off run had only copied the review commands into work/xvls/test/r3fix_cdp; no source file had changed. Nothing of it was kept or undone.",
+  "builds_compared": "base = work/xvsh-snap built in the scratchpad; r3 = work/xvls as reviewed, built in the scratchpad before any change (r3o); fixed = work/xvls now. Served from work/xvls/dist on 127.0.0.1:9844 (base/, r3o/, r1/ were temporary links, removed). Headless Chrome, ANGLE Metal, one browser; timing alternating base and fixed.",
+  "findings": [
+    {
+      "id": "pictures-1",
+      "severity": "high",
+      "status": "fixed",
+      "cause": "Measured, not guessed: a dump of the moving levels at the Max mesh showed the walls near the domain's edge moving 15 to 20 cells between two level reads, so a wall lay on base cells the late levels call flat, drawn by `land`, which has no facetW. A band of fill-in around the last levels' walls (tried first: 2 to 10 cells, code 63, no evaluations) could not reach them: 2.90 px moving, as r3's 2.91.",
+      "fix": "While something moves, every base triangle of the principal surface with a corner sloped over 1 (its normal) and no jump on its edges is drawn by a new program without the chain, landB (F from the corners, the refined cells' fragment stage, so facetW), and `land` skips exactly those (uSteep, per triangle). The test runs every frame on the current heights, so the walls are covered wherever they have moved. landB compiles once per page and is warmed with the refinement's programs; it is not drawn while the mesh built at rest for the same heights stands (orbit, zoom), so those frames equal the rest picture. Over 256 cells the moving refinement is dropped: the base mesh plus landB, refined when it stops (this also removes the level read-backs, speed-3).",
+      "evidence": [
+        "Forced moving path (r3's gate) at t = 0.2, Max, desktop, left-wall Im H_t = 0 contour, largest deviation from the rest fit: light rest 0.48, moving 0.50 (r3: 2.91); dark 0.50 / 0.50; default mesh 0.50 / 0.50. after/max-forced-t0.2-rest-moving.png.",
+        "test/landscape_walls_cmd.js part motion, extended with the Max mesh and T steps of 0.013 and 0.026 a frame (real play at 1x and 2x): 20 of 20 cases pass, moving within 0.05 px of rest (principal 0.48-0.51 rest, 0.49-0.55 moving; All sheets 0.34-0.37 / 0.33-0.37), light and dark. fix-runs/landscape_walls_motion_perf.out.json.",
+        "Real play at 1x, Max, frames captured mid-play with t read per frame: desktop light and dark and phone 390x844, contours straight on the salmon and teal walls; r3 at the same moments zigzags. after/max-play-principal-fixed-light-dark-vs-r3.png, after/max-play-principal-zoom-fixed-vs-r3.png, after/max-phone-forced-t0.2-rest-moving.png.",
+        "Rest pictures unchanged against r3: 0 pixels differ by more than 12 levels (user's case, principal and All sheets, default and Max; log log z), tan z 1 pixel, z^{1/5} tan 3z 31 pixels (max 35, the multi-frame sheet build's timing). fix-runs/smoke_final_unhooked.out.json."
+      ]
+    },
+    {
+      "id": "pictures-2",
+      "severity": "low",
+      "status": "rejected: not reproduced",
+      "evidence": "sec z Re, default mesh, desktop light, real play at 1x, 3 runs x 10 frames with T read before and after each capture (t 0.06 to 0.99, the review's 0.16 to 0.38 window covered in each run): the strips' silhouettes are clean, no dotted columns. after/sec-play-silhouettes.png. The steep base triangles of moving frames are now drawn by landB (pictures-1), which changes how a late wall's facets are coloured; no edge-on fade was added without a case that shows the speckle."
+    },
+    {
+      "id": "pictures-3",
+      "severity": "low",
+      "status": "rejected: out of scope, pre-existing",
+      "evidence": "Same in the base and in round 2 (the review's own comparison). The All sheets check already carries a tip in this case (app.js sheetsLabel: 'While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.'). Dimming the check is a UI decision; for the UI backlog, not the walls."
+    },
+    {
+      "id": "pictures-4",
+      "severity": "info",
+      "status": "no action"
+    },
+    {
+      "id": "speed-1",
+      "severity": "high",
+      "status": "fixed",
+      "cause": "Not the refined sheets: with the refinement off the orbit was as slow, and with the sheets' base draw off it was 60 fps; with no fragments drawn it was still slow, so the vertex stage. With Re or Im heights All sheets use linear heights, and the sheets' vertex stage clipped every triangle at the block through a 5-vertex polygon in local arrays, which the GPU keeps in memory, for every vertex of the 1 M triangles at Max.",
+      "fix": "A triangle inside the block (every one without linear heights, nearly all with them) takes a path without the polygon; the clip's code is only in a variant for linear heights (landSheetC), so the plain program has none of it; the refined/base texture selects became two branches. Also: a camera still turning after a drag is let go counts as moving (app.js camSpin; those frames were rest frames at a new distance each), with one rest frame when it dies away. An interim rule that drew the sheets unrefined while orbiting over 256 cells was measured unnecessary after the vertex fix (60 fps either way) and removed: the orbit keeps the refined rest mesh.",
+      "evidence": [
+        "Max, All sheets, desktop, alternating base / fixed (fix-runs/perf_alternating_pre-final.out.json): orbit by a real pointer drag fixed 60.0 and 60.0 fps (p95 17.7, 17.2), base 58.5 and 58.6 (p95 20.0, 20.2); orbit through the camera hook (rest frames, the review's method) fixed 58.8 and 60 (p95 19.8, 17.2), base 49.3 and 55.3. r3 in the same session: 25 to 38 fps.",
+        "Drag at Max, All sheets, refined sheets drawn during the orbit: 60.0 and 60.1 fps, p95 17.5 (fix-runs/drag_max_allsheets_refined_vs_base_sheets.out.json).",
+        "Rows added to BUDGET60 in test/landscape_walls_cmd.js: orbit (hook) and drag at Max, All sheets on and off, desktop and phone, light and dark. Their run: All sheets 57.2 to 60.5 fps, p95 17.2 to 18.6, every one passing; see speed-3 for the principal rows.",
+        "Final build, alternating (fix-runs/perf_alternating_final.out.json), Max, All sheets: desktop drag 60.1 and 60.0 fps (p95 17.2, 17.4), hook orbit 60 / 60, play 59.0 / 60.0 (p95 19.1, 17.7); base drag 58.9 / 56.4, hook 58.5 / 55.4, play 53.9 / 50.6. Phone 390x844: fixed 60 fps in every row (p95 17.1 to 17.7); base 52.9 to 60."
+      ]
+    },
+    {
+      "id": "speed-2",
+      "severity": "high",
+      "status": "open: not fixed",
+      "what_was_tried": "Compiling the edge pass (landEdgeS) and All sheets' landSheetRF with the surface's programs and drawing them first in the same frame, so a fresh formula has one first-draw stall as the base does. Measured (fix-runs/cold_merged_tried_reverted.out.json, 4 + 4 fresh formulas each, alternating): the principal surface's one stall became 890 to 1525 ms (base 478 to 967) and the first picture came at 1230 to 2290 ms (base 930 to 1621); with All sheets the first picture came at 1142 to 2336 ms (base 518 to 861). Worse for the user, so reverted.",
+      "kept": "The refinement's static programs (landLv, landRP, landRA, landR, landB) now link in the background (prestart) instead of on the main thread at their first use.",
+      "measured_now": "fix-runs/cold_alternating.out.json (this machine was loaded: the base itself had 1 to 2 gaps over 100 ms per open). Principal: longest gap fixed 102 to 792 ms against base 0 to 899; a second gap of 140 to 213 ms about 1 s after the first in 3 of 4 opens (the edge pass's first draw). All sheets: 2 to 4 gaps per open, longest 233 to 416 ms, against base 0 to 1 gap, longest 140 to 292; first picture 484 to 869 ms against 274 to 592.",
+      "root_fix_needed": "Every chain program's first draw compiles its Metal pipeline in the GPU process; the walls add the edge pass and All sheets' refinement passes as chain programs of their own. One stall as in the base needs their chain evaluations to run through the surface's existing chain program (one call site, as landTF's uPass 1 does for the principal refinement): the edge pass's continuation and the sheets' lattice and sub-cell corners as points fed to landTF / landSheetTF, the rest in programs without the chain. A redesign of both passes, beyond this step's time box."
+    },
+    {
+      "id": "speed-3",
+      "severity": "medium",
+      "status": "fixed in part: the hitches are gone; desktop Max principal play misses BUDGET60",
+      "cause": "Two causes, both measured. (1) The level read-backs: getBufferSubData waited 40 to 100 ms for the GPU process in this environment (median 44 to 80 ms, r3 and the fixed build alike), 4 to 8 reads a second while playing at Max. (2) The deformation's edge pass (landEdgeH) was compiled when the play left t = 0 and first drawn 0.96 s into the play, a GPU-process stall mid-play.",
+      "fix": "(1) Over 256 cells the moving frames take no levels and no read-back (pictures-1's landB covers the walls). (2) A chain program that has not run yet is never first drawn in a moving frame: the edge pass then waits for rest (the former 0.3 H rule meanwhile), and when the transport opens at t = 0 the edge pass that t > 0 will need starts compiling and is first drawn, by a pass that writes nothing, at rest once it has settled (edgeAhead).",
+      "evidence": [
+        "Max, principal, desktop, alternating (fix-runs/perf_alternating_pre-final.out.json): play fixed 57.9 and 58.4 fps, p95 20.0 and 19.2, longest frame 22.1 and 24.2 ms; base 60 / 60, p95 17.6 / 17.7. r3 review: 52.0 fps, longest 252 ms.",
+        "landscape_walls_cmd.js perf rows: the principal Max rows passed on the phone (60 fps, p95 17.5 to 17.8) and on desktop dark orbit (59.6, p95 18.2); two failed, desktop light orbit through the hook 53.2 fps, p95 20.1, one 263 ms frame, and desktop dark drag 58 fps, p95 22.9. The hook orbit draws rest frames, each at a new nearest distance, so the principal rest refinement is rebuilt and read back when the scale crosses a quarter octave; the drag is real motion. See the final table for the build as it stands (landB is no longer drawn while the rest mesh stands).",
+        "Final build, alternating base / fixed / fixed / base (fix-runs/perf_alternating_final.out.json): Max principal play desktop 53.6 and 52.9 fps, p95 23.6 and 25.1, longest 24.6 and 40.1 ms (base 60 / 60, p95 17.4 / 17.6): BUDGET60 fails, no hitches over 41 ms. Phone 390x844: 60.0 and 59.9 fps, p95 17.5 and 18.2 (base 60 / 60). Orbit (drag and hook) at Max principal 59.6 to 60 fps everywhere.",
+        "What the desktop play frames pay for, on a scratch build with the hooks (fix-runs/max_play_landB_edge_diag.out.json, alternating): with landB 58.9 and 52.3 fps; without landB 60.0 and 59.9 (p95 18.1, 18.0); without the edge pass 60.0 and 56.4. landB (pictures-1's fix) is the larger share: a draw over every base triangle of the 511 x 511 grid with a steepness test in its vertex stage, and its fragment stage (facetW, the line fade) is heavier than the base cells' when the chain itself is cheap (sin sqrt z)."
+      ],
+      "open": "A trade the user decides: clean contours on moving walls at the Max mesh (landB) against 3 to 7 fps on desktop while the principal surface plays at Max (60 fps on the phone). Ways to win it back without losing the picture, not done in this time box: draw landB only over the rows and columns that held steep cells in the last frame's heights (a min/max pass), or move the steepness test out of the vertex stage into a per-cell pass."
+    },
+    {
+      "id": "speed-4",
+      "severity": "low",
+      "status": "fixed in part",
+      "fix": "After a rest build the passes' scratch textures go (the lattice, the points, their values, the levels' copy; made again on demand); the pane's hidden surface keeps its heights but not its refinement when All sheets is toggled; the tail fence is deleted once no read is in flight.",
+      "evidence": "fix-runs/mem.out.json, the review's command: after toggling All sheets off and on 17 textures, 13.7 MB (r3: 25, 22.6 MB; base 5, 10 MB); after play and stop 24 textures, 47.1 MB (r3: 32, 56.1 MB); after 10 formulas 15 MB (r3: 23.9). What stays after the play is the rest refinement of the deformation's sheets on the picture shown (its texture is the design's at-rest budget, 128 bytes per sub-cell and sheet), freed with the next formula."
+    },
+    {
+      "id": "speed-5",
+      "severity": "low",
+      "status": "fixed in part",
+      "fix": "A step card's Landscape waits for the pane at most 3 s from its first wait for the chain, so a long play or orbit no longer keeps the cards empty. The 900 ms settle after the card programs' link stays: it keeps their first draws' stalls off the pane.",
+      "evidence": "Not timed in this step."
+    },
+    {
+      "id": "speed-6",
+      "severity": "info",
+      "status": "no action"
+    }
+  ],
+  "hooks": "Every TEMP-DEBUG-HOOK block and line is gone from src/gl.js (0 left), including the v16 ones (GLR.evalMap and its evalPt program) and r3's (GLR._lw, _lwLog, _lwT, _lwF, landMesh, landRefine, _map). app.js keeps its window.__cmw* test hooks (build.py strips them from the published page). Consequence: test/landscape_walls_cmd.js (GLR._lw, landMesh, landRefine), test/deform_range_cmd.js and test/deform_range_gl_cmd.js (GLR.evalMap) need a build with the hooks; their runs here were made before the removal (the hooked gl.js is kept in the scratchpad only). One removal took real code with it (rfBuild's body sat inside a hook block); restored, then the final build was checked.",
+  "tests": {
+    "node": "35 of 35 test/t_*.js pass (fix-runs/node_suite.txt).",
+    "landscape_walls_cmd": "Parts motion and perf on the hooked build before the last two changes (fix-runs/landscape_walls_motion_perf.out.json): motion 20 of 20 pass; perf 2 BUDGET60 fails, both the principal surface at Max on desktop (speed-3). Parts mesh, speck and cold not re-run (no change to the rest mesh; the rest pictures were compared instead).",
+    "rest_pictures": "Final build against r3: identical within the thresholds above, All sheets with linear (clip variant) and with |F| and log heights (plain variant): 0 pixels over 12.",
+    "smoke_final": "Final build without hooks: the user's case at default and Max, sheets on and off, opened, played 2.5 s, stopped: no console errors, no shader failures (fix-runs/smoke_final_unhooked.out.json).",
+    "not_run": "Quality suite (test/regress/quality/run.sh), the GLSL suites, export, deform_range, mv_views: not re-run in this step's time box."
+  },
+  "files_changed": [
+    "work/xvls/src/gl.js: STEEP + LAND_B_VS + landB; LAND_VS uSteep; lvRaw / lvDrawnR in REFINE; no moving refinement over 256 cells; edge pass never first drawn while moving, edgeAhead; LAND_SHEET_VS(clip) with landSheetC and the inside-the-block path; background links for the refinement's static programs; freeScratch, hidden surface's refinement freed, tail fence freed; cards' wait capped; all TEMP-DEBUG-HOOK removed.",
+    "work/xvls/src/app.js: camSpin (camera momentum counts as motion) and one rest frame when it ends.",
+    "work/xvls/test/landscape_walls_cmd.js: motion part with the Max mesh and T steps 0.013 and 0.026; perf part with orbit and drag rows at Max, All sheets on and off.",
+    "work/xvls/dist: rebuilt."
+  ],
+  "commands": "work/xvls/test/r3fix_cdp/my/*.js (perf2.js alternating drag/hook/play/stop; restcmp.js, smoke.js, abs.js rest pictures; play.js real-play frames; keepR.js; orbdiag*.js the orbit diagnosis; dbg*.js the level dumps), with cmd/pcommon.js or cmd/common.js as prelude."
+}

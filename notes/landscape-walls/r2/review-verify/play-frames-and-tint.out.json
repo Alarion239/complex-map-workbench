@@ -1,0 +1,91 @@
+{
+ "frames": [
+  [
+   "pl2-allsh-0",
+   0.074
+  ],
+  [
+   "pl2-allsh-1",
+   0.236
+  ],
+  [
+   "pl2-allsh-2",
+   0.571
+  ],
+  [
+   "pl2-allsh-3",
+   0.813
+  ],
+  [
+   "pl2-allsh-4",
+   0.954
+  ],
+  [
+   "pl2-allsh-5",
+   0.996
+  ],
+  [
+   "pl2-princ-0",
+   0.074
+  ],
+  [
+   "pl2-princ-1",
+   0.256
+  ],
+  [
+   "pl2-princ-2",
+   0.571
+  ],
+  [
+   "pl2-princ-3",
+   0.843
+  ],
+  [
+   "pl2-princ-4",
+   0.954
+  ],
+  [
+   "pl2-princ-5",
+   0.996
+  ]
+ ],
+ "tint": [
+  {
+   "view": "1440 light",
+   "T": 0.05,
+   "changedPct": 14.7,
+   "sheet0Pct": 7.1,
+   "sheet1Pct": 7.6,
+   "stepRel": 0.201,
+   "meanAbsRel": 0.1
+  },
+  {
+   "view": "1440 light",
+   "T": 1,
+   "changedPct": 12.2,
+   "sheet0Pct": 4.3,
+   "sheet1Pct": 8,
+   "stepRel": 0.06,
+   "meanAbsRel": 0.03
+  },
+  {
+   "view": "1440 dark",
+   "T": 0.05,
+   "changedPct": 14.7,
+   "sheet0Pct": 7.1,
+   "sheet1Pct": 7.6,
+   "stepRel": 0.26,
+   "meanAbsRel": 0.13
+  },
+  {
+   "view": "1440 dark",
+   "T": 1,
+   "changedPct": 12.3,
+   "sheet0Pct": 4.3,
+   "sheet1Pct": 8,
+   "stepRel": 0.073,
+   "meanAbsRel": 0.037
+  }
+ ],
+ "errs": []
+}

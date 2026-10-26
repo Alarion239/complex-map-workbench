@@ -347,7 +347,13 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .rl.on { background: var(--good); border-color: var(--good); }
 
 /* ---------- Stage ---------- */
-.stage { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 8px var(--chain-h, 272px); min-width: 0; min-height: 0; }
+.stage { position: relative; display: grid; grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 272px); min-width: 0; min-height: 0; }
+/* v16.4: the guided tour's strip (src/tour.js) in the stage's first row, a row the tour sizes (--tour-h) while it runs */
+.stage > #tourSlot { grid-row: 1; min-width: 0; min-height: 0; }
+.stage > .panes { grid-row: 2; }
+.stage > #gutterRow { grid-row: 3; }
+.stage > .pipe-wrap { grid-row: 4; }
+.tour-slot[hidden] { display: none !important; }
 .panes {
   display: grid; min-height: 0; min-width: 0;
   grid-template-columns: minmax(0, calc((100% - 8px) * var(--split, 0.5))) 8px minmax(0, 1fr);
@@ -1978,6 +1984,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     </div>
     <button class="icon-btn snd-ph" id="soundPh" aria-pressed="true" title="Sound is on: turn it off (Shift+M)" aria-label="Sound" aria-keyshortcuts="Shift+M" hidden><span class="ic-slot snd-ic"></span></button>
     <button class="icon-btn hdr-more" id="hdrMoreBtn" popovertarget="hdrMenu" title="More" aria-label="More"><span class="ic-slot" data-icon="more"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg></span></button>
+    <div id="tourHeadSlot" class="tour-slot" hidden></div>
   </header>
 
   <main class="layout">
@@ -2030,6 +2037,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     </aside>
 
     <section class="stage" id="stage">
+      <div id="tourSlot" class="tour-slot" hidden></div>
       <div class="panes" id="panes">
         <div class="pane" id="paneL">
           <div class="pane-head">

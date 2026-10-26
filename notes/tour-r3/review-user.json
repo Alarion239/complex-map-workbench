@@ -1,0 +1,82 @@
+[
+  {
+    "id": "user-1",
+    "severity": "high",
+    "title": "Phone: The function chain never moves on by itself, and the user cannot close the sheet",
+    "detail": "On a phone the task is 'Tap the card f1, then the lens in the sheet.' The tap on the card opens the Editor sheet. That sheet was not open when the step started, so syncLayers() counts it as an app layer and holds the countdown. The tick and the result line appear, but the step stays there and Next never fills. The sheet also sits under the tour's shade (.tour-dim .tour-shade, pointer-events: visiblePainted), so its x does nothing and X and Y can't be panned. The only way on is Next, which is exactly what the user asked to stop needing. On a desktop the double-click opens no layer, so there it works.",
+    "evidence": "390x844, touch, EN, light (test/ru_cdp, cmd c7-c11). After the lens tap, Tour.lit().countdown = {state: 'held', held: ['layer'], left: null}, layers 1, done true. There was no advance in 7 s. A tap on the sheet's x at (363,551) left the sheet open: elementFromPoint there is path.tour-shade (data-tour=host). There was no advance in another 7 s. The panes at (100,250) and (300,250) are also path.tour-shade. Shots: notes/tour-r3/review-user-shots/p16-chain-done.png, p17-add.png.",
+    "fix": "When the step's own task opens the sheet (the card tap of chain, or any ctl/work control of the step), count that layer in r.stepLayers. It is then part of the step and holds nothing. Light it as well: put the sheet in the lit areas, or let touches through the shade there. A simpler rule also works: on a phone, a sheet that holds the step's work never holds the countdown."
+  },
+  {
+    "id": "user-2",
+    "severity": "high",
+    "title": "Phone: Sets from formulas tells the user to type and press Add, but nothing notices when they do",
+    "detail": "On a phone (tryWide), the formula step is a read step, but its lead is a task: 'Type a set such as |z-1|<2, then press Add.' I did exactly that in the lit 'Region from a formula' card and the shape appeared in X and Y. There was no tick, no result line, no countdown and no advance. This breaks the user's 'conditions for completion' rule on the phone, and it reads like a bug. The field's placeholder is the very text '|z-1| < 2', so it also looks as if it is already filled in. A press on Add with the empty field adds nothing.",
+    "evidence": "390x844, touch, EN (cmd c19). After typing '|z-1|<2' and tapping Add, Tour.lit().countdown.state = 'idle', the lead line is unchanged, and the step was still basics/formula after 5 s. The shape list grew. Shot: notes/tour-r3/review-user-shots/p18-formula-phone-added.png.",
+    "fix": "Keep the try on phones for this step: the step's before already opens the More tools sheet with the field and Add lit, so the task can be done there (tryWide was meant for the shapes drag). If it must stay a read step, make the phone lead a statement, not an instruction ('A set such as |z-1|<2 can be typed here.')."
+  },
+  {
+    "id": "user-3",
+    "severity": "high",
+    "title": "Russian at 360 px: the Grieg captions run past the strip and are cut",
+    "detail": "In the Sound chapter the strip row holds Back, the text, the stop button and Next, which leaves about 180 px for the text. All four Russian captions wrap to 3 lines in a strip made for 2. The last line is cut at the strip's bottom ('фазы: arg F — высота.', 'быстрее.', 'арпеджио.'). The drum caption also pushes the title out of the top ('Григ на кривой' is half gone). These captions are where the tour explains how the sound is made, so they must be readable. The 'Next →' shortening does not help here, because Next is already short and the extra button is the cause.",
+    "evidence": "360x740, touch, RU, dark, Listen pressed (cmd c20). The bottom of .ts-l2 against the strip's bottom at 124: 125, 133, 125 and 125 px for the four captions, and 125 for the result. Shot: notes/tour-r3/review-user-shots/ru360-captions.png. At 390 in English the captions fit in 2 lines.",
+    "fix": "Size the strip from the step's longest line, captions included: sizeDesk/paintLead could measure every caption and the result, and let the phone row grow to 3 lines for this step. Another way is to fold Back into Why while a piece plays. The Russian captions can also be shortened (for example 'Разрез — удар барабана; виток меньше — быстрее.'). Add the captions at 360 px to the audit's no-cut-text check."
+  },
+  {
+    "id": "user-4",
+    "severity": "medium",
+    "title": "The 3 s countdown on Next is almost invisible, in light and dark",
+    "detail": "Auto-advance is the main new behaviour, but the only cue is Next filling from the left, and the fill is a slightly darker teal on teal. A user who is still looking at Y gets no clear warning before the step changes under them. On a phone in daylight it cannot be seen at all.",
+    "evidence": "I measured the pixels 1.5 s into the countdown. Light, 390 px: filled (7,90,115) against unfilled (10,106,135), a contrast of 1.26:1. Dark, 1440 px: (120,201,224) against (82,183,211), 1.24:1. Shots: notes/tour-r3/review-user-shots/p09-strip.png (light, at 0.5, 1.5 and 2.5 s, 3x) and d05-big.png (dark).",
+    "fix": "Give the fill at least 3:1 against the base, for example a white overlay at 30-35 % in light and a dark one in dark, or a 3 px bar along Next's bottom edge. The strip's own .ts-prog line could also run the 3 s. Consider a short word in the lead line too, such as 'Done. Next in 3 s'. The live region already says this to screen readers."
+  },
+  {
+    "id": "user-5",
+    "severity": "medium",
+    "title": "A chapter's last task never moves on, and nothing says why",
+    "detail": "Six task steps end a chapter: views/patterns, edit/numbers, construct/meet, deform/range, branches/sheets and export/formula-tex. These are marked never, so the countdown goes straight to 'cancelled'. After five or six steps that moved on by themselves, the user does the task, sees the tick and waits, and nothing happens. The user asked for each task to move on by itself 3 s after it is done. If stopping at a chapter's end is deliberate, the strip has to say so.",
+    "evidence": "1440x900, mouse, EN, dark (cmd c18). Choosing Stretch at views/patterns gave countdown {state: 'cancelled'}. The live region read 'Done. Blue shrinks, amber grows: |F'| at each point.', without 'Next step in 3 seconds'. The step was still views/patterns after 5 s. Next reads 'Next: Editing the chain'. Shot: notes/tour-r3/review-user-shots/d04-patterns-done-dark.png.",
+    "fix": "Either let these steps move on too, after 3 s into the next chapter's first step (Next already names it), or keep the stop and put it in the lead line: 'Done. Chapter finished: Next: Editing the chain'. Either way, give Next a ready state that can be seen."
+  },
+  {
+    "id": "user-6",
+    "severity": "medium",
+    "title": "Sound settings shows the tour's borrowed sound, and the user's choice there is undone",
+    "detail": "Start with sound off and press 'Turn on and listen' on Grieg. The tour holds sound on through the whole chapter, including its last step, Sound settings, whose lead says 'Turn sound, or Hear the function, on or off here.' The menu there shows sound on, but that is the tour's setting, not the user's. A user who decides to keep it on sees it is already on and does nothing, and loses it when the chapter ends. Turning it off and on again here does not help either. tourSoundHold gives the old value back whenever the current value still equals the one the tour set.",
+    "evidence": "390x844, touch, EN. The test page starts with sound off (Sound.prefs().on false). After Listen in the song step and the loop step: at sound/settings, Sound.prefs() = {on: true, events: true, sonify: false}. After Next, at export/figure, Sound.prefs().on = false (cmd c12, c14).",
+    "fix": "Give the sound back (soundHold(null)) when Sound settings opens, so the menu shows the user's own settings, and keep Hear the function only for the hear step. Or: any change the user makes to sound during the chapter makes that key theirs, so drop it from tourSnd.held."
+  },
+  {
+    "id": "user-7",
+    "severity": "medium",
+    "title": "Phone portrait: no visible way to end the tour, and no sign that the text opens more",
+    "detail": "At 360-430 px portrait, the strip hides both x End and 'Why ▾' (display: none). End the tour, Back and Move on by itself exist only inside the Why panel. Nothing shows that tapping the title opens that panel. The desktop strip shows 'Why ▾' and x. Escape is not available on a phone. So a user who wants out has to guess that the text is a button, or use the browser's Back.",
+    "evidence": "390x844 (cmd c2, c21): getComputedStyle(.ts-x).display = 'none' and getComputedStyle(.ts-wl).display = 'none'. The row holds Back, the text and Next only. Shots: notes/tour-r3/review-user-shots/p05-x-counting.png, p19-why-phone.png (the panel, after a tap on the text).",
+    "fix": "Keep a 44 px x in the portrait row. At 390 there is room if Next shows 'Next' or '→'. Also show a small ▾ after the step count (for example '4/10 ▾'), so the text reads as tappable."
+  },
+  {
+    "id": "user-8",
+    "severity": "low",
+    "title": "Phone: 'Press Listen.' but the button shows only ▶, and 'Turn on and listen' cannot be seen",
+    "detail": "On phones (portrait and landscape) the act button shows only an icon. Its label exists only as aria-label. The task says 'Press Listen.' (RU «Нажмите «Слушать».»), and no button says Listen. When the user's sound is off, the planned label 'Turn on and listen', which warns that the tour will turn sound on, is invisible on a phone.",
+    "evidence": "390x844 (cmd c12): .ts-act innerText '' and aria-label 'Listen'. Landscape RU: the same ▶ only. Shots: notes/tour-r3/review-user-shots/s01-song.png and l3-song.png (landscape).",
+    "fix": "On phones, write the task as 'Press ▶ to listen.', or show a short label next to the icon ('Listen' / «Слушать»; it fits once Next shortens to '→'). When sound is off, add to the result or lead line that the tour turns sound on for this chapter."
+  },
+  {
+    "id": "user-9",
+    "severity": "low",
+    "title": "Phone Preimages: a hold shorter than 450 ms pans Y instead of probing, and nothing tells the user",
+    "detail": "The task is 'Hold inside the disc, then slide out of it.' The app turns a hold into a probe only after the 450 ms ring. A natural 300-400 ms hold followed by a slide pans Y. The disc slides off to the side, the lead does not change, and nothing says what went wrong. With a 650 ms hold the step works and moves on 3010 ms later.",
+    "evidence": "390x844, touch (cmd c3, c4): a 350 ms hold then a slide panned Y (the disc moved right, half out of view) and gave no probe event. A 650 ms hold ticked it. Shot: notes/tour-r3/review-user-shots/p08-pre-sliding.png.",
+    "fix": "Change the touch task to 'Hold inside the disc until the ring fills, then slide out of it.' (RU to match). Also: when a pan of Y happens during this step, set the step's view back, or show a hint in the lead line."
+  },
+  {
+    "id": "user-10",
+    "severity": "low",
+    "title": "Landscape phone, Russian: the Part of the chain task is cut in the header strip",
+    "detail": "In 'head' mode the strip is 47 px tall and its text block 254 px wide. The Russian range task «В ⋯ шага f2: «Деформация», затем «Только f2 внутри F».» needs 3 lines (51 px), and the third line ('внутри F».') runs past the strip's bottom edge into the plane. The 'row' fallback is used only when the header has less than 260 px free, not when the text needs a third line.",
+    "evidence": "844x390, touch, RU, dark (cmd c15): .ts-l2 is 51 px high in a strip that ends at 47. Shot: notes/tour-r3/review-user-shots/l4-range.png.",
+    "fix": "Choose 'row' mode, or the 48 px row, for any step whose lead needs 3 lines in the head slot. Or shorten the Russian phone task, for example «⋯ у f2 → «Деформация» → «Только f2 внутри F».»."
+  }
+]

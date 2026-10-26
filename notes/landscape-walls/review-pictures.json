@@ -1,0 +1,58 @@
+[
+  {
+    "id": "pictures-1",
+    "severity": "high",
+    "title": "After a new formula, the Landscape is an empty box for 2 to 10 s and the page freezes",
+    "detail": "This build is v16 + walls, served from work/xvls/dist on port 9803. The base is work/xvsh-snap, built into my scratchpad and served on port 9804. On first use of a chain, the Landscape draws only the empty block and rulers for several seconds. Formulas that were never compiled before, timed from __cmwSetMain('land') until the surface first covers the probe area:\n- z^2/(sin z+2): base 1.6 s, new 5.3 s\n- sqrt(z^3-2)+cosh z: base 1.3 s, new 4.0 s\n- tanh(z^2): base 1.6 s, new 2.8 s\n- sqrt(z) log(z+1): base 0.85 s, new 2.0 s\n- z^2/(cosh z+3): base 1.5 s, new 9.8 s\nIn the last case the page's main thread was blocked: one evaluate round trip took 8.4 s, against 1.1 s on base. My first pass at about 2.2 s after load also showed sec z (Re), sqrt(z(z-1)(z+1)) (Im), log log z (Im) and sin(1/z) (Re) as empty boxes. Each was the first case of its chain, and each rendered correctly with a 4.5 s wait. The likely cause is the new per-chain LAND_EDGE_VS program, a transform-feedback pass with a 13-step bisection that runs the chain several times per edge, compiled and linked synchronously. This is the user's own complaint ('even empty'), now in time instead of space. The builder's pictures and tests never show it, because the shaders are already warm by then. Not measured on the Android phone, where compiles are usually slower.",
+    "evidence": "notes/landscape-walls/review-pictures/blank-at-1.5s-before-vs-after.png (z^3/(cos z+3), 1.5 s after switching to the Landscape: base drawn, new empty). Timings come from my CDP runs (cmd c3 and c6, port 9803 against 9804).",
+    "fix": "Do not let the edge pass gate the first frame:\n- Compile LAND_EDGE_VS asynchronously (KHR_parallel_shader_compile; poll COMPLETION_STATUS_KHR before using it).\n- Until it is ready, draw the surface with no cut split (the uncut mesh, as base did), then swap in the split mesh.\n- Shrink the program: share the chain body between the endpoint test and the bisection, and use a loop with a uniform trip count that does not unroll 13 copies of the chain.\nAdd a cold-start check to landscape_walls_cmd: a fresh formula must reach a drawn surface within base + 0.3 s, with no main-thread stall over 100 ms beyond base."
+  },
+  {
+    "id": "pictures-2",
+    "severity": "medium",
+    "title": "Walls are closed but not smooth: vertical pleats and colour stripes on one-facet walls",
+    "detail": "Every wall steeper than a cell is now drawn, and no wall shows holes or combs (good). But each wall is a row of flat facets one cell wide, and they show:\n- Vertical light and dark pleats: shading creases between facets, a 'corrugated' look.\n- Hard vertical colour stripes (pink, green, red bands at the wall tops).\nSeen in:\n- tan z Re: every wall, light and dark.\n- sec z Re: the walls at the poles, desktop and phone dark.\n- The user's sin sqrt(z) at t = 0.2 (All sheets): the teal and grey walls are fluted.\n- Faintly, the left wall of z/(e^z-1) Re.\nThe user asked for 'a closed, smooth wall', so this is the most visible remainder on the user's own case. It is the unbuilt design 3.3 (adaptive refinement), but it shows strongly enough to call out.",
+    "evidence": "notes/landscape-walls/review-pictures/crop-tan-re-before-after.png (left before: holes; right after: closed but pleated and striped). Also crop-user-t0.2-walls-light-dark.png, sec-re2.png, phone-dark-4cases.png (first panel) and bern-re-light-1440.png.",
+    "fix": "Build design 3.3, chord-error refinement of wall cells, before shipping to the user. As a cheaper interim step, shade walls from a per-fragment normal: the true height's screen-space gradient (dFdx/dFdy of heightW(F(z)) evaluated per fragment, which LAND_FS already does for colour), or the chain's derivative. Then facet boundaries do not crease. Also evaluate the colour at the fragment's true z, which it already is, but with mip-style tile fading tied to the true dF, not the facet."
+  },
+  {
+    "id": "pictures-3",
+    "severity": "medium",
+    "title": "Wavy contour fragments still crawl across steep walls in the user's case",
+    "detail": "On the user's sin sqrt(z), All sheets, Im at t = 0.2, thin jagged contour lines run horizontally across the teal and grey walls. One is at about height 0 and one at about -0.5, on at least three walls, in both light and dark. They look like scratches: the 'contours fade on facets more than ~1 px off' rule misses them. They are the same 'wavering' the change meant to remove, at lower contrast.",
+    "evidence": "notes/landscape-walls/review-pictures/crop-user-t0.2-walls-light-dark.png (the '~~~' lines mid-wall, left and right halves). Source: notes/landscape-walls/after/sinsqrt-t0.2-im-sheets-{light,dark}.png around x 250-420, y 300-370.",
+    "fix": "Fade contours on the facet's chord error relative to the contour spacing, not only on pixel error. Or fade when |d(height)/d(screen)| is large, using fwidth of the true per-fragment height against the facet's interpolated height. Once 3.3 is built, draw the contours at the true height instead."
+  },
+  {
+    "id": "pictures-4",
+    "severity": "low",
+    "title": "Fast-oscillating walls read as flat grey boards that look like curtains",
+    "detail": "Where F changes faster than the tiles can show (the user's case at t <= 0.2, the right end of tan Re, a pole wall of sec Re), the checker pattern antialiases to neutral grey. With the flat one-facet geometry (pictures-2), these walls look like uniform grey cardboard slabs. A viewer can take them for curtains bridged across a jump, which is the thing the user asked never to draw. In the after filmstrip at t = 0 and 0.2, the largest walls are grey.",
+    "evidence": "notes/landscape-walls/after/sinsqrt-t0.2-im-sheets-light.png (left and centre grey walls), after/filmstrip-light.png (bottom row, first two frames), and phone-dark-4cases.png (second panel).",
+    "fix": "Keep the antialiasing, but fade toward the local mean hue or a lit 'Plain' colour, not neutral grey, and keep wall lighting (pictures-2) so a wall reads as a continuous surface. Check the result with the user on t = 0.2."
+  },
+  {
+    "id": "pictures-5",
+    "severity": "low",
+    "title": "All sheets: a twisted fin at a branch-point cell (log log z)",
+    "detail": "On log log z, Im, All sheets (24 of 25), a dark twisted ribbon sticks up out of the top sheet near z = 1, where log z = 0, and a smaller one sits on a lower sheet. These are the unrefined branch-point cells the AS-BUILT lists as 'not refined, at most one cell can bridge'. The bridge is visible, so it is not sub-pixel.",
+    "evidence": "notes/landscape-walls/review-pictures/crop-loglog-sheets-fin.png (3x zoom) and loglog-im-sh-light-1440.png (top of the stack, x ~ 430, y ~ 80).",
+    "fix": "Refine or drop the cell that holds a known branch point (design 3.2, 'Cells that hold a branch point'), or at least do not draw triangles whose corners come from different sheets' continuations there."
+  },
+  {
+    "id": "pictures-6",
+    "severity": "low",
+    "title": "Coverage: no phone or dark-phone pictures in after/, and my new cases are only partly confirmed",
+    "detail": "after/ is all desktop 868 x 652. The phone ran only as numbers in landscape_walls_cmd. I rendered 5 cases at phone 390 dark: sec z Re, the user's case at t = 0.2, sqrt(z(z-1)(z+1)) Im, log log z Im, and sin(1/z) Re. With a long enough wait they look like desktop (pictures-2 applies). I did not get to:\n- orbiting or playing frames of my own cases,\n- the ranged deformation while it plays,\n- a check of the box clip on the phone.",
+    "evidence": "notes/landscape-walls/review-pictures/phone-dark-4cases.png",
+    "fix": "Add phone light and dark frames, at rest and mid-play, to after/ for the user's case and for one box-clip case (z^i or log, All sheets)."
+  },
+  {
+    "id": "pictures-7",
+    "severity": "info",
+    "title": "What holds up in pictures (no action)",
+    "detail": "Cases I rendered, with a warm shader:\n- sec z: Im and log|F| closed. Re closed but pleated (pictures-2).\n- z/(e^z-1): Re and log|F| continuous, no false cut at the removable 0.\n- sqrt(z(z-1)(z+1)): Im has clean, smooth cut edges and no curtain. All sheets is a seamless saddle pair.\n- log log z: Im shows both cuts (the negative axis and (0,1)) with clean banks. Re log log z showed no visible cut.\n- sin(1/z): Re, Im and log|F| show an essential-singularity tuft with no curtains.\n- Ranged deformation of z^3 inside log, t = 0.15, 0.4, 0.7, 1: the cuts move with t and stay clean, with no bridging. Re is continuous (0 jumps). With All sheets the sheets stay separate.\nBox clip: z^i, All sheets, Im now ends in a smooth curved edge instead of a flat lid. Before/after for √z, log, 1/(z^2+1), Γ-like and tan show no remaining holes or curtains. One GPU-mesh note to check: log log z Re reported 1 jump edge (GLR.landMesh), most likely the singular cell at z = 1. It is not visible.",
+    "evidence": "notes/landscape-walls/review-pictures/:\n- sec-im-light-1440.png, sec-log-light-1440.png\n- bern-re-light-1440.png\n- sqcubic-im-sh-light-1440.png, crop-sqcubic-loglog-cuts.png\n- sin1z-im-light-1440.png, sin1z-log-light-1440.png\n- powlog-im-t0.4-light-1440.png, powlog-im-sh-t0.4-light-1440.png, crop-powlog-branchpoint.png",
+    "fix": "None."
+  }
+]

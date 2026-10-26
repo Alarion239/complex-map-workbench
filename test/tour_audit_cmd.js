@@ -1,570 +1,220 @@
-// Audit of the guided tour's geometry (notes/tour/POLISH.md): every chapter and step at every width, theme, language
-// and input. For each step it records the spotlight against its targets (each lit element's visible border box must
-// match a drawn hole or the inner mark within 1 px, with the element's corner radius), whether the callout is inside
-// the viewport, each button's size, spacing and whether it lies in the callout, text overflow in the callout, and the
-// topmost element at the callout's centre and corners. A "layers" pass opens the palette, the Examples menu, the More
-// menu, the export dialog and a tooltip during a step: the callout must stay on top and must not cover the layer. A
-// "follow" pass scrolls, resizes and changes the layout during a step: the spotlight must follow in the next frame.
-// Run with a copy of test/cdp_kit (dist/test.html served on its port): test/<you>_cdp/q.sh test/tour_audit_cmd.js.
-// A subset: prepend `const AUDIT_CFG = { widths: [390], themes: ['light'], langs: ['ru'], inputs: ['touch'],
-// tag: 'x', shotsPerKind: 3, layers: true, follow: true, steps: true };` to a copy of this file.
-// Rows go to <kit>/audit/<tag>.json, screenshots of failing cases to <kit>/shots/audit-<tag>/.
-// Since the polish review (notes/tour/review-polish.json): the drawn paths are mapped to the screen (getScreenCTM); a
-// hole that matches no lit element, a zero-area hole and an anchor clipped away fail; text that overflows vertically
-// fails; settle() no longer trusts the engine's own flags; every step that should show here must be visited (a step the
-// engine skipped fails, with its reason from Tour.skipped()); landscape and zoomed sizes run too (844 x 390, 720 x 450
-// = 200 % of 1440 x 900, 1152 x 720); the layer pass also opens a toast, the sound settings, the reference guide and
-// the Language menu, checks that the rings are masked off each layer, and (layerAll) runs the palette and a toast on
-// every step at one phone, one tablet and one desktop size.
+// v16.4 (notes/tour-r3/SPEC.md 7.4): the audit of the docked strip, every step of every chapter at 390 × 844, 1024 × 700
+// and 1440 × 900, light and dark, English and Russian, mouse and touch (24 runs). Per step: the strip meets none of the
+// panes, the chain, the tool row and the header's controls; its box is the same for every step of a chapter (a desktop:
+// the panes' too); no lead, task, result or caption is cut (scrollHeight <= clientHeight + 1, scrollWidth <= clientWidth
+// + 1); the title ends in an ellipsis only with the full title as its name; buttons at least 44 px on touch (36 with a
+// mouse), 8 px apart; text contrast at least 4.5:1 in both themes, Next's countdown fill included; the lit patch holds
+// the anchor (90 %); no app layer is left open by the tour (a phone's sheet the step opens aside). The old callout
+// audit (place(), the docked callout, the mini bar) went with the callout. With AUDIT_SHOTS, every step is shot at 390
+// and 1440 (touch and mouse), light and dark, English and Russian, into AUDIT_SHOTS (a folder).
+// r3 review regress-3: v16.2's engine-independent passes are back, ported to the strip (test/tour_audit_spot.js holds
+// v16.2's probe): spotlight-exact (each lit element's visible border box, its corner radius included, matches a drawn
+// hole or ring within 1 px, the paths mapped through getScreenCTM; no hole that no lit element explains; the strip is a
+// window of the shade), the task's control lit (ctl), layers (the palette, Examples, More, export, a toast, the sound
+// settings, the guide and the Language menu over a step: the tour covers none of them and its rings are masked off
+// each; layerAll: the palette and a toast on every step at 390, 768 and 1440), follow (a scroll, a resize and a layout
+// change: the spotlight right in the next frame) and focus (each strip control shows a focus ring; the palette opened
+// from the strip and closed with Esc gives the focus back to the strip). The sizes are v16.2's again: 360, 390, 844 ×
+// 390, 768, 1024 × 700, 1152 × 720 and 1440 (inputs 'auto': touch on a phone's sizes, a mouse elsewhere).
+// Run: test/<you>_cdp/q.sh test/tour_audit_cmd.js. A subset: prepend `const AUDIT_CFG = { sizes: [[390, 844]], ... }`.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const CFG = Object.assign({ widths: [360, 390, 430, 720, 768, 844, 1024, 1152, 1280, 1440], themes: ['light', 'dark'], langs: ['en', 'ru'], inputs: ['mouse', 'touch'],
-  tag: 'audit', shotsPerKind: Infinity, layers: true, follow: true, steps: true, focus: true, safe: true, page: 'test.html', layerAll: [390, 768, 1440] }, typeof AUDIT_CFG !== 'undefined' ? AUDIT_CFG : {});
-const U = `http://localhost:${PORT}/${CFG.page}`;
-// a phone's notch and home bar (touch at 430 px and below): the callout must stay inside them
-const SAFE = { top: 47, bottom: 34, left: 0, right: 0 };
-// a phone in landscape (touch at 844 x 390): the notch on the left or right, the home bar below
-const SAFE_LAND = { top: 0, bottom: 21, left: 47, right: 47 };
-let safeOk = null;
-const HEIGHT = { 360: 780, 390: 844, 430: 932, 720: 450, 768: 1024, 844: 390, 1024: 768, 1152: 720, 1280: 800, 1440: 900 };
-const ROWS = [], LAYERS = [], FOLLOW = [], FOCUS = [], MISSED = [];
-const shotCount = {};
-let shots = 0;
+const CFG = Object.assign({ sizes: [[360, 780], [390, 844], [844, 390], [768, 1024], [1024, 700], [1152, 720], [1440, 900]], themes: ['light', 'dark'], langs: ['en', 'ru'], inputs: ['mouse', 'touch'], shots: null,
+  steps: true, spot: true, layers: true, follow: true, focus: true, layerAll: [390, 768, 1440] },
+  typeof AUDIT_CFG !== 'undefined' ? AUDIT_CFG : {});
+const SPOT = eval(fs.readFileSync(DIR + '/../tour_audit_spot.js', 'utf8') + '; SPOT');
+const inject = () => ev(`window.__aud = ${SPOT}; 1`);
+const U = `http://localhost:${PORT}/test.html`;
+const R = [], ROWS = [];
+const check = (name, pass, detail) => R.push([name, !!pass, detail]);
+const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
+  // (v16.4: and until the step has settled: the strip no longer busy, the spotlight's morph over)
+  for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
 logs();
-
-// the in-page probe: independent of the engine (it resolves the anchors the way INTEGRATION.md specifies and reads the
-// drawn SVG paths), so the same audit measures the old and the new engine
-const PROBE = String.raw`(() => {
-  const vis = (e) => { if (!e || !e.isConnected) return false; if (e.checkVisibility && !e.checkVisibility({ checkOpacity: false, checkVisibilityCSS: true })) return false; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1; };
-  const T = () => Tour._t;
-  // a name of the Anchors table -> what the tour lights: an element, a list of elements (composite) or { el, rect }.
-  // A candidate that a panel which cannot scroll cuts to (almost) nothing is passed over, as INTEGRATION.md says
-  // (the next name of the list is lit, or the step is skipped)
-  const away = (e) => {
-    const r = e.getBoundingClientRect(); let l = r.left, t = r.top, rr = r.right, b = r.bottom;
-    let fx = getComputedStyle(e).position === 'fixed';
-    for (let a = e.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
-      if (fx) break;
-      const cs = getComputedStyle(a);
-      fx = cs.position === 'fixed';
-      if (!/(hidden|clip)/.test(cs.overflowX + cs.overflowY) || cs.display === 'contents') continue;
-      const q = a.getBoundingClientRect(); if (q.width === 0 && q.height === 0) continue;
-      l = Math.max(l, q.left); t = Math.max(t, q.top); rr = Math.min(rr, q.right); b = Math.min(b, q.bottom);
-    }
-    return rr - l < 2 || b - t < 2;
-  };
-  function resolve(names) {
-    for (const n of [].concat(names)) {
-      let e;
-      try { e = window.__tourApi && __tourApi.anchor ? __tourApi.anchor(n) : undefined; } catch (x) { e = undefined; }
-      const A = T().ANCHORS;
-      if (e === undefined && A[n]) { try { e = typeof A[n] === 'function' ? A[n]() : document.querySelector(A[n]); } catch (x) { e = null; } }
-      if (Array.isArray(e)) { const v = e.filter(vis).filter((x) => !away(x)); if (v.length) return v; continue; }
-      if (e && e.el && e.rect) { if (vis(e.el) && !away(e.el)) return e; continue; }
-      if (vis(e) && !away(e)) return e;
-    }
-    return null;
-  }
-  // the visible part of a box: cut by every clipping ancestor and by the viewport
-  function seen(e, box) {
-    const r = box || e.getBoundingClientRect();
-    let l = r.left, t = r.top, rr = r.right, b = r.bottom, tooBig = false;
-    // (a fixed box, a phone's tool row or sheet, is not clipped by the ancestors above it)
-    let fx = getComputedStyle(e).position === 'fixed';
-    for (let a = e.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) {
-      if (fx) break;
-      const cs = getComputedStyle(a);
-      fx = cs.position === 'fixed';
-      if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
-      if (cs.display === 'contents') continue;
-      const q = a.getBoundingClientRect();
-      if (q.width === 0 && q.height === 0) continue;
-      // past the edge of a panel that cannot scroll that way (or wider than it): the app's layout, no scroll can show it whole
-      const canX = /(auto|scroll)/.test(cs.overflowX) && a.scrollWidth > a.clientWidth, canY = /(auto|scroll)/.test(cs.overflowY) && a.scrollHeight > a.clientHeight;
-      const outX = r.left < q.left - 0.5 || r.right > q.right + 0.5, outY = r.top < q.top - 0.5 || r.bottom > q.bottom + 0.5;
-      if ((outX && (!canX || r.right - r.left > a.clientWidth + 1)) || (outY && (!canY || r.bottom - r.top > a.clientHeight + 1))) tooBig = true;
-      l = Math.max(l, q.left); t = Math.max(t, q.top); rr = Math.min(rr, q.right); b = Math.min(b, q.bottom);
-    }
-    const full = { l: r.left, t: r.top, r: r.right, b: r.bottom };
-    l = Math.max(l, 0); t = Math.max(t, 0); rr = Math.min(rr, innerWidth); b = Math.min(b, innerHeight);
-    const s = { l, t, r: Math.max(l, rr), b: Math.max(t, b) };
-    const cut = Math.abs(s.l - full.l) > 0.5 || Math.abs(s.t - full.t) > 0.5 || Math.abs(s.r - full.r) > 0.5 || Math.abs(s.b - full.b) > 0.5;
-    return { s, full, cut, tooBig };
-  }
-  // under an open layer that does not hold it: the topmost element at its centre, the tour aside, is in that layer
-  const underLay = (e) => {
-    const L = [...document.querySelectorAll('#popHost > *, .modal-bg > *, .snd-pop:not([hidden]), dialog[open], .ph-sheet:not([hidden]), :popover-open')].filter((k) => !k.contains(e));
-    if (!L.length) return false;
-    const b = e.getBoundingClientRect(), hit = document.elementsFromPoint((b.left + b.right) / 2, (b.top + b.bottom) / 2).find((h) => !h.closest('[data-tour]'));
-    return !!hit && L.some((k) => k.contains(hit));
-  };
-  const radiusOf = (e) => { if (!(e instanceof HTMLElement)) return 0; const v = parseFloat(getComputedStyle(e).borderTopLeftRadius); return Number.isFinite(v) ? v : 0; };
-  // the targets of the current step: [{ name, s, full, cut, rad }]
-  function targets() {
-    const c = Tour.current(); if (!c) return null;
-    const ch = T().CHAPTERS.find((x) => x.id === c.chapter), st = ch.steps[c.step];
-    if (st.anchor == null) return [];
-    const out = [];
-    const add = (name, v) => {
-      if (!v) return;
-      for (const x of [].concat(v)) {
-        if (x && x.el && x.rect) { const q = typeof x.rect === 'function' ? x.rect() : x.rect; const b = x.el.getBoundingClientRect(); const box = q.left != null ? q : { left: b.left + q.x, top: b.top + q.y, right: b.left + q.x + q.w, bottom: b.top + q.y + q.h }; out.push(Object.assign({ name, rad: 0 }, seen(x.el, box))); }
-        else out.push(Object.assign({ name, rad: radiusOf(x) }, seen(x)));
-      }
-    };
-    const a = resolve(st.anchor);
-    add('anchor', a);
-    // (v16.1: a Try it's control in the anchor's own scrolling panel, both too tall for it together: the control shows
-    // whole and the anchor from its top, so the anchor's cut is not a failure)
-    const scr = (e) => { for (let p = e && e.parentElement; p && p !== document.body; p = p.parentElement) { const cs = getComputedStyle(p); if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 1) return p; } return null; };
-    const trc = st.try && !(st.tryWide && innerWidth < 640) && st.try.ctl ? [].concat(st.try.ctl) : [];
-    if (a instanceof Element && out[0]) for (const n of trc) {
-      const e = resolve(n), sc = scr(a);
-      if (!(e instanceof Element) || !sc || scr(e) !== sc) continue;
-      const ra = a.getBoundingClientRect(), re = e.getBoundingClientRect();
-      if (Math.max(ra.bottom, re.bottom) - Math.min(ra.top, re.top) > sc.clientHeight - 16) out[0].yield = true;
-    }
-    // (a second lit area that the app itself covers, the chain under the Inspector in a short desktop window, is not
-    // expected: at its centre and four inner points the topmost element, the tour and the open layers aside, is another)
-    const LAY = [...document.querySelectorAll('#popHost > *, .modal-bg > *, .snd-pop:not([hidden]), dialog[open], .ph-sheet:not([hidden]), :popover-open')];
-    const covered = (e) => {
-      if (!(e instanceof Element)) return false;
-      const b = e.getBoundingClientRect(); let n = 0;
-      for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
-        const x = b.left + fx * b.width, y = b.top + fy * b.height;
-        if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
-        const hit = document.elementsFromPoint(x, y).find((h) => !h.closest('[data-tour]') && !LAY.some((k) => k !== e && !k.contains(e) && k.contains(h)));
-        n++;
-        if (!hit || hit === e || e.contains(hit) || hit.contains(e)) return false;
-      }
-      return n > 0;
-    };
-    // (v15.1, review-phone phone-2: on a touch screen the parts a Try it's touch task names, try.work, are lit too: the
-    // lens in the Inspector once the card is tapped)
-    const tr = st.try && !(st.tryWide && innerWidth < 640) ? st.try : null;
-    const tw = tr && tr.work && tr.touch && matchMedia('(pointer: coarse)').matches ? tr.work : [];
-    // (v16.1, user 5: the controls a Try it names, try.ctl, are lit while it shows)
-    // (one under an open layer it is not in, a phone's tool row under the Editor sheet, is not: it cannot be reached)
-    const tc = tr && tr.ctl ? [].concat(tr.ctl) : [];
-    for (const n of [].concat(st.also || [], tc, tw)) { const e = resolve(n); if (e && e !== a && !covered(e) && !(tc.includes(n) && e instanceof Element && underLay(e))) add(n, e); }
-    return out;
-  }
-  // the drawn holes (the shade's sub-paths after the first) and the inner mark: bounding boxes and arc radii
-  // (v15.1, a phone: a lit part inside a scrolling panel is drawn by an SVG inside that panel, svg.tour-host, and the
-  // shade over the page has a window over the panel's visible box: every path counts, and a window is no lit area)
-  function paths(sel, skipFirst) {
-    const out = [];
-    for (const p of document.querySelectorAll(sel)) pathsOf(p, skipFirst, out);
-    if (!/tour-shade/.test(sel)) return out;
-    const wins = [...document.querySelectorAll('svg.tour-host')].map((s) => { const H = s.parentElement, b = H.getBoundingClientRect(), l = b.left + H.clientLeft, t = b.top + H.clientTop; return { l: Math.max(0, l), t: Math.max(0, t), r: Math.min(innerWidth, l + H.clientWidth), b: Math.min(innerHeight, t + H.clientHeight) }; });
-    return out.filter((h) => !wins.some((w) => h.l >= w.l - 1 && h.t >= w.t - 1 && h.r <= w.r + 1 && h.b <= w.b + 1 && (h.r - h.l) * (h.b - h.t) >= 0.9 * (w.r - w.l) * (w.b - w.t)));
-  }
-  function pathsOf(p, skipFirst, out) {
-    const d = p.getAttribute('d') || '';
-    // user units -> client px (a viewBox that differs from the SVG's box, a transform)
-    const svg = p.ownerSVGElement, M = (svg && svg.getScreenCTM && svg.getScreenCTM()) || { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-    const X = (x, y) => M.a * x + M.c * y + M.e, Y = (x, y) => M.b * x + M.d * y + M.f;
-    const subs = d.split(/(?=M)/).filter((s) => s.trim());
-    for (const sub of subs.slice(skipFirst ? 1 : 0)) {
-      const toks = sub.match(/[MHVAZLC]|-?[\d.]+(?:e-?\d+)?/gi) || [];
-      let i = 0, x = 0, y = 0, l = Infinity, t = Infinity, r = -Infinity, b = -Infinity, rad = 0, cmd = '';
-      const num = () => parseFloat(toks[i++]);
-      const pt = () => { l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y); };
-      while (i < toks.length) {
-        if (/[A-Za-z]/.test(toks[i])) cmd = toks[i++];
-        if (cmd === 'M' || cmd === 'L') { x = num(); y = num(); pt(); }
-        else if (cmd === 'H') { x = num(); pt(); }
-        else if (cmd === 'V') { y = num(); pt(); }
-        else if (cmd === 'A') { const rx = num(); num(); num(); num(); num(); x = num(); y = num(); rad = Math.max(rad, rx); pt(); }
-        else if (cmd === 'Z' || cmd === 'z') { /* */ }
-        else i++;
-      }
-      // (a path drawn inside a panel, v15.1, is clipped by the panel: what shows is its part inside the panel's box)
-      const host = !!(svg && svg.classList.contains('tour-host'));
-      let q = { l: X(l, t), t: Y(l, t), r: X(r, b), b: Y(r, b) };
-      if (host && !skipFirst) { /* rings and marks: as drawn */ }
-      else if (host) { const H = svg.parentElement, hb = H.getBoundingClientRect(), hl = hb.left + H.clientLeft, ht = hb.top + H.clientTop; q = { l: Math.max(q.l, hl), t: Math.max(q.t, ht), r: Math.min(q.r, hl + H.clientWidth), b: Math.min(q.b, ht + H.clientHeight) }; }
-      if (Number.isFinite(l)) out.push({ l: q.l, t: q.t, r: q.r, b: q.b, rad: rad * Math.abs(M.a), zero: q.r - q.l < 0.5 || q.b - q.t < 0.5, host });
-    }
-    return out;
-  }
-  const diff = (a, b) => Math.max(Math.abs(a.l - b.l), Math.abs(a.t - b.t), Math.abs(a.r - b.r), Math.abs(a.b - b.b));
-  function spot() {
-    const tg = targets(); if (tg == null) return null;
-    const holes = paths('.tour-shade', true), marks = paths('.tour-mark', false);
-    const res = [];
-    const U = tg.reduce((u, t) => ({ l: Math.min(u.l, t.full.l), t: Math.min(u.t, t.full.t), r: Math.max(u.r, t.full.r), b: Math.max(u.b, t.full.b) }), { l: Infinity, t: Infinity, r: -Infinity, b: -Infinity });
-    const allFit = (U.r - U.l) <= innerWidth && (U.b - U.t) <= innerHeight * 0.55;
-    for (const t of tg) {
-      // the anchor shown with (almost) nothing of it on screen: the engine should have skipped the step
-      if (t.name === 'anchor' && (t.s.r - t.s.l < 2 || t.s.b - t.s.t < 2)) { res.push({ name: t.name, d: 0, radD: 0, cut: false, box: [t.s.l, t.s.t, t.s.r, t.s.b].map(Math.round), hole: null, hiddenAnchor: true }); continue; }
-      if (t.name !== 'anchor' && (t.s.r - t.s.l < 0.5 || t.s.b - t.s.t < 0.5)) { res.push({ name: t.name, d: 0, radD: 0, cut: t.name !== 'anchor' && allFit, box: [t.s.l, t.s.t, t.s.r, t.s.b].map(Math.round), hole: null, hidden: true }); continue; }
-      let best = null;
-      for (const h of holes.concat(marks)) { const d = diff(h, t.s); if (!best || d < best.d) best = { d, h }; }
-      // (two lit areas that overlap a little are trimmed apart at the middle of their overlap, so an even-odd shade does
-      // not dim it again: a hole that is this target less a strip that another lit target covers matches it)
-      if (best && best.d > 1) for (const h of holes) {
-        const e4 = [Math.abs(h.l - t.s.l), Math.abs(h.t - t.s.t), Math.abs(h.r - t.s.r), Math.abs(h.b - t.s.b)];
-        if (e4.filter((x) => x <= 1).length < 3 || h.l < t.s.l - 1 || h.t < t.s.t - 1 || h.r > t.s.r + 1 || h.b > t.s.b + 1) continue;
-        const strip = { l: e4[0] > 1 ? t.s.l : e4[2] > 1 ? h.r : t.s.l, t: e4[1] > 1 ? t.s.t : e4[3] > 1 ? h.b : t.s.t, r: e4[2] > 1 ? t.s.r : e4[0] > 1 ? h.l : t.s.r, b: e4[3] > 1 ? t.s.b : e4[1] > 1 ? h.t : t.s.b };
-        // (another lit target spans the strip across the trimmed side and overlaps it along it)
-        const vert = e4[1] > 1 || e4[3] > 1;
-        const other = tg.some((o) => o !== t && (vert ? o.s.t <= strip.t + 1 && o.s.b >= strip.b - 1 && Math.min(o.s.r, strip.r) - Math.max(o.s.l, strip.l) > 0.5
-          : o.s.l <= strip.l + 1 && o.s.r >= strip.r - 1 && Math.min(o.s.b, strip.b) - Math.max(o.s.t, strip.t) > 0.5));
-        if (other) { best = { d: 0, h, trimmed: true }; break; }
-      }
-      const radD = best && !t.cut ? Math.abs(best.h.rad - Math.min(t.rad, (t.s.r - t.s.l) / 2, (t.s.b - t.s.t) / 2)) : 0;
-      // a target that could be shown whole but is cut (off-screen, or by a scrolled panel)
-      // (on a phone the callout takes the lower part of the screen: the band left for the lit areas is about 55 %)
-      const fits = t.name === 'anchor' ? (t.full.r - t.full.l) <= innerWidth && (t.full.b - t.full.t) <= innerHeight * (innerWidth < 640 ? 0.5 : 0.92) : allFit;
-      res.push({ name: t.name, d: best ? +best.d.toFixed(2) : 999, radD: +radD.toFixed(2), cut: t.cut && fits && !t.tooBig && !t.yield, yield: !!t.yield, appOverflow: t.cut && t.tooBig, box: [t.s.l, t.s.t, t.s.r, t.s.b].map(Math.round), hole: best && [best.h.l, best.h.t, best.h.r, best.h.b].map(Math.round) });
-    }
-    // every drawn hole is explained by the lit elements: it is one of them, or the union of those it overlaps (a panel
-    // and the anchor in it), or a part of one (two areas that touch are trimmed apart); and none has zero area
-    const vis2 = tg.filter((t) => t.s.r - t.s.l >= 0.5 && t.s.b - t.s.t >= 0.5);
-    const extra = [], zero = [];
-    for (const h of holes) {
-      if (h.zero) { zero.push([h.l, h.t, h.r, h.b].map(Math.round)); continue; }
-      const ov = vis2.filter((t) => Math.min(t.s.r, h.r) - Math.max(t.s.l, h.l) > 0.5 && Math.min(t.s.b, h.b) - Math.max(t.s.t, h.t) > 0.5);
-      if (!ov.length) { extra.push([h.l, h.t, h.r, h.b].map(Math.round)); continue; }
-      const U2 = ov.reduce((u, t) => ({ l: Math.min(u.l, t.s.l), t: Math.min(u.t, t.s.t), r: Math.max(u.r, t.s.r), b: Math.max(u.b, t.s.b) }), { l: Infinity, t: Infinity, r: -Infinity, b: -Infinity });
-      const inOne = ov.some((t) => h.l >= t.s.l - 1 && h.t >= t.s.t - 1 && h.r <= t.s.r + 1 && h.b <= t.s.b + 1 && [Math.abs(h.l - t.s.l), Math.abs(h.t - t.s.t), Math.abs(h.r - t.s.r), Math.abs(h.b - t.s.b)].filter((x) => x <= 1).length >= 3);
-      if (diff(h, U2) > 1 && !inOne && !ov.some((t) => diff(h, t.s) <= 1)) extra.push([h.l, h.t, h.r, h.b].map(Math.round));
-    }
-    if (extra.length || zero.length) res.push({ name: 'holes', d: 0, radD: 0, cut: false, extra, zero });
-    return res;
-  }
-  const R = (b) => ({ l: b.left, t: b.top, r: b.right, b: b.bottom });
-  function cardInfo(touch) {
-    const card = document.querySelector('.tour-card');
-    if (!card) return null;
-    const c = R(card.getBoundingClientRect());
-    const pr = document.createElement('div');
-    pr.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
-    document.body.append(pr); const pcs = getComputedStyle(pr); const safe = { t: parseFloat(pcs.paddingTop), r: parseFloat(pcs.paddingRight), b: parseFloat(pcs.paddingBottom), l: parseFloat(pcs.paddingLeft) }; pr.remove();
-    const out = Math.max(0, safe.l - c.l, safe.t - c.t, c.r - (innerWidth - safe.r), c.b - (innerHeight - safe.b));
-    const btns = [...card.querySelectorAll('button')].filter(vis).map((b) => { const r = R(b.getBoundingClientRect()); return { label: (b.textContent.trim() || b.getAttribute('aria-label') || '').slice(0, 40), w: +(r.r - r.l).toFixed(1), h: +(r.b - r.t).toFixed(1), r, inside: r.l >= c.l + 0.5 && r.r <= c.r - 0.5 && r.t >= c.t + 0.5 && r.b <= c.b - 0.5, clip: b.scrollWidth > b.clientWidth + 1 }; });
-    const minW = touch ? 44 : 36, minH = touch ? 44 : 36;
-    const small = btns.filter((b) => b.w < minW - 0.01 || b.h < minH - 0.01).map((b) => b.label + ' ' + b.w + '×' + b.h);
-    let gap = Infinity;
-    for (let i = 0; i < btns.length; i++) for (let j = i + 1; j < btns.length; j++) {
-      const a = btns[i].r, b = btns[j].r;
-      const dx = Math.max(0, Math.max(a.l, b.l) - Math.min(a.r, b.r)), dy = Math.max(0, Math.max(a.t, b.t) - Math.min(a.b, b.b));
-      gap = Math.min(gap, dx > 0 && dy > 0 ? Math.hypot(dx, dy) : Math.max(dx, dy));
-    }
-    // text that overflows its box or the callout (clipped labels, a formula wider than the body, an ellipsis)
-    const over = [];
-    const inner = { l: c.l + 1, r: c.r - 1 };
-    for (const e of card.querySelectorAll('.tour-head, .tour-chap, .tour-title, .tour-body, .tour-try, .tour-foot, .tour-count, button, .tour-body mjx-container, .tour-try mjx-container, .tour-math, .tour-nb, .kbd')) {
-      if (!vis(e)) continue;
-      const r = e.getBoundingClientRect();
-      const cls = (e.className && e.className.baseVal == null ? e.className : e.tagName).toString().split(' ')[0] || e.tagName;
-      if (e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0 && getComputedStyle(e).display !== 'inline') over.push(cls + ' scroll ' + e.scrollWidth + '>' + e.clientWidth);
-      // vertical: a box that is not meant to scroll and is taller inside than out
-      if (e.scrollHeight > e.clientHeight + 0.5 && e.clientHeight > 0 && getComputedStyle(e).display !== 'inline' && getComputedStyle(e).overflowY !== 'visible') over.push(cls + ' scrollY ' + e.scrollHeight + '>' + e.clientHeight);
-      if (r.left < inner.l - 0.5 || r.right > inner.r + 0.5) over.push(cls + ' out ' + Math.round(r.left - c.l) + '..' + Math.round(r.right - c.l) + '/' + Math.round(c.r - c.l));
-      const cs = getComputedStyle(e);
-      if (cs.textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1) over.push(cls + ' ellipsis');
-    }
-    // the text area scrolls only when the text is taller than the room: never by a sliver (a formula's hidden copy)
-    const sc = card.querySelector('.tour-scroll');
-    if (sc && vis(sc)) { const ex = sc.scrollHeight - sc.clientHeight; if (ex > 0.5 && ex < 8) over.push('tour-scroll sliver ' + sc.scrollHeight + '>' + sc.clientHeight); }
-    // the topmost element at the callout's centre and corners (4 px in, inside the rounded corners)
-    const pts = [[(c.l + c.r) / 2, (c.t + c.b) / 2], [c.l + 4, c.t + 4], [c.r - 4, c.t + 4], [c.l + 4, c.b - 4], [c.r - 4, c.b - 4]];
-    const top = pts.map(([x, y]) => { const e = document.elementFromPoint(x, y); return e && card.contains(e) ? 'ok' : e ? (e.id ? '#' + e.id : (e.className && e.className.baseVal == null ? '.' + String(e.className).split(' ')[0] : e.tagName)) : 'none'; });
-    return { card: [c.l, c.t, c.r, c.b].map(Math.round), out: +out.toFixed(1), safe, btns: btns.map((b) => [b.label, b.w, b.h, b.inside, b.clip]), small, gap: gap === Infinity ? null : +gap.toFixed(1), notInside: btns.filter((b) => !b.inside).map((b) => b.label), clipped: btns.filter((b) => b.clip).map((b) => b.label), over: [...new Set(over)], top, docked: card.classList.contains('docked') };
-  }
-  // wait until the step has settled: not busy, the drawn spotlight and the callout unchanged for 6 frames
-  async function settle(maxMs = 5000) {
-    const t0 = performance.now(); let last = '', same = 0;
-    while (performance.now() - t0 < maxMs) {
-      await new Promise((r) => requestAnimationFrame(r));
-      const card = document.querySelector('.tour-card');
-      if (!Tour.isActive() || !card) return 'inactive';
-      // (the engine's own flags are not trusted: only what is drawn, and the callout, holding still)
-      const busy = card.getAttribute('aria-busy') === 'true';
-      const dd = [...document.querySelectorAll('.tour-shade, .tour-mark')].map((e) => e.getAttribute('d'));
-      const sig = busy ? 'busy' + Math.random() : JSON.stringify([dd, R(card.getBoundingClientRect()), Tour.current(), document.fonts && document.fonts.status]);
-      if (sig === last) { if (++same >= 6) return 'ok'; } else same = 0;
-      last = sig;
-    }
-    return 'timeout';
-  }
-  const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
-  // the rings are masked off a layer: the mask's cut-outs (client px) cover its box, or no ring comes near it
-  function ringsOff(L) {
-    const b = L.getBoundingClientRect();
-    const cuts = paths('.tour-rings mask path', false);
-    const covered = cuts.some((h) => h.l <= b.left + 1 && h.t <= b.top + 1 && h.r >= b.right - 1 && h.b >= b.bottom - 1);
-    if (covered) return true;
-    // (a ring drawn inside a panel of the app, v15.1, is painted under a layer that covers it: what shows there is the layer)
-    const under = (h) => { if (!h.host) return false; const x = Math.max(b.left + 1, Math.min(b.right - 1, (h.l + h.r) / 2)), y = Math.max(b.top + 1, Math.min(b.bottom - 1, (h.t + h.b) / 2)); const e = document.elementFromPoint(x, y); return !!e && L.contains(e); };
-    const rings = paths('.tour-glow', false).concat(paths('.tour-ring', false), paths('.tour-mark', false)).filter((h) => !under(h));
-    return !rings.some((h) => h.l < b.right && h.r > b.left && h.t < b.bottom && h.b > b.top);
-  }
-  // v16.1 (user 5): the control that completes each step's task, by step, written here from the app's markup (not from
-  // the tour's anchors): it must be lit, its visible box a drawn hole or ring within 1 px. A step with a Try it that is
-  // not in this table fails (ctlMissing), so a new task cannot go unchecked. 'none': no task in this layout by design
-  const q1 = (sel) => [...document.querySelectorAll(sel)].find(vis) || null;
-  const ph = () => document.documentElement.classList.contains('ph');
-  const coarseNow = () => matchMedia('(pointer: coarse)').matches;
-  const tool = (id) => q1('.ph-sheet:not([hidden]) .ph-tile[data-tool="' + id + '"]') || q1('#tools > .tool[data-tool="' + id + '"], #constructTools > .tool[data-tool="' + id + '"]') || q1('#railTools > .tool[data-tool="' + id + '"]') || (ph() && !['select', 'point', 'disc', 'polygon'].includes(id) ? q1('#toolMore > summary') : null);
-  // (the Select tool under an open layer, a phone's Editor sheet: no task there, the step has switched to it)
-  const selTool = () => { const e = tool('select'); return e && underLay(e) ? 'none' : e; };
-  const CTL = {
-    'basics/x': () => q1('#paneL'), 'basics/preimages': () => q1('#paneR'), 'basics/draw': () => tool('disc'),
-    'basics/shapes': () => (innerWidth < 640 ? 'none' : selTool()), 'basics/formula': () => q1('#secFormula'),
-    'basics/chain': () => q1('#pipeline .card[data-k="1"]'), 'basics/add': () => q1('#addStepBtn'), 'basics/examples': () => q1('#examplesBtn') || q1('#hdrMoreBtn'),
-    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => q1('#panes'), 'views/patterns': () => q1('#patternSeg .pat[data-pat="stretch"]'),
-    'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
-    'edit/zpHere': () => q1('#paneL'), 'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
-    'construct/c3': () => tool('circle3'), 'construct/follow': () => selTool(), 'construct/meet': () => tool('line'),
-    'deform/toggle': () => q1('#morphBtn'), 'deform/transport': () => [q1('#morphPlay'), q1('#morphRange')], 'deform/paths': () => q1('#pathsBtn'), 'deform/order': () => q1('#homOrderSel'),
-    'deform/range': () => (coarseNow() ? (ph() && q1('.ph-sheet:not([hidden]) .insp-step[data-k="2"] .ihead .more')) || q1('#pipeline .card[data-k="2"]') : ph() ? q1('#pipeline') : q1('#chainBracket .br-end.l')),
-    'analysis/integral': () => q1('#paneL'), 'analysis/domain': () => q1('#pipeline .ftile'),
-    'branches/cut': () => selTool(), 'branches/inverse': () => q1('#propsPanel .insp-step .ihead .more'), 'branches/sheets': () => { const c = q1('#sheetsChk'); return c ? c.closest('label') || c : null; },
-    'export/figure': () => q1('#exportBtn') || q1('#hdrMoreBtn'), 'export/formula-tex': () => q1('#propsPanel .insp-F .ihead button[aria-label]'), 'keys/palette': () => q1('#cmdBtn') || q1('#hdrMoreBtn'),
-    'keys/sound': () => q1('#soundBtn') || q1('#soundPh') || q1('#hdrMoreBtn'), 'keys/help': () => q1('#helpBtn') || q1('#hdrMoreBtn'),
-  };
-  function ctl() {
-    const c = Tour.current(); if (!c) return null;
-    const id = c.chapter + '/' + c.id, st = T().CHAPTERS.find((x) => x.id === c.chapter).steps[c.step];
-    const tr = st.try && !(st.tryWide && innerWidth < 640) ? st.try : null;
-    const out = { id, kinds: [] };
-    if (!(id in CTL)) { if (tr) out.kinds.push('ctlMissing'); return out; }
-    const want = [].concat(CTL[id]());
-    if (want[0] === 'none') return out;
-    const holes = paths('.tour-shade', true).concat(paths('.tour-mark', false));
-    out.ctl = want.map((e) => {
-      if (!e) return { none: true };
-      const b = seen(e).s;
-      let d = 999, h = null;
-      for (const x of holes) { const dd = diff(x, b); if (dd < d) { d = dd; h = x; } }
-      return { el: (e.id ? '#' + e.id : e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0]) + (e.dataset.tool ? '[' + e.dataset.tool + ']' : ''), box: [b.l, b.t, b.r, b.b].map(Math.round), d: +d.toFixed(2) };
-    });
-    if (out.ctl.some((x) => x.none)) out.kinds.push('ctlNone');
-    if (out.ctl.some((x) => !x.none && x.d > 1)) out.kinds.push('ctlNotLit');
-    // the cards' pictures step: the chain shows Pictures, each card's picture at least 40 px tall
-    if (id === 'edit/cards') {
-      const pl = document.querySelector('#pipeline'), cv = [...document.querySelectorAll('#pipeline .card canvas')].filter(vis);
-      out.pictures = { compact: pl.classList.contains('compact'), n: cv.length, minH: cv.length ? Math.round(Math.min(...cv.map((x) => x.getBoundingClientRect().height))) : 0 };
-      if (out.pictures.compact || out.pictures.n < 2 || out.pictures.minH < 40) out.kinds.push('noPictures');
-    }
-    return out;
-  }
-  return { resolve, targets, spot, cardInfo, settle, paths, seen, frame, vis, ringsOff, ctl };
+const PROBE = `(() => {
+  const strip = document.querySelector('.tour-strip');
+  if (!strip || !Tour.isActive()) return null;
+  const c = Tour.current(), L = Tour.lit();
+  const rb = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null; };
+  const meet = (a, b) => !!a && !!b && a.l < b.r - 0.5 && a.r > b.l + 0.5 && a.t < b.b - 0.5 && a.b > b.t + 0.5;
+  const S = rb(strip);
+  const hits = [];
+  // (fix pass: what shows of a part, cut by the ancestors that clip it: the tool row in a drawer scrolled under its top)
+  const vb = (e) => { let q = rb(e); if (!q) return null; for (let a = e.parentElement; a && a !== document.body && a !== document.documentElement; a = a.parentElement) { const cs = getComputedStyle(a); if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue; const p = a.getBoundingClientRect(); q = { l: Math.max(q.l, p.left), t: Math.max(q.t, p.top), r: Math.min(q.r, p.right), b: Math.min(q.b, p.bottom) }; if (q.r <= q.l || q.b <= q.t) return null; } return q; };
+  for (const [n, sel] of [['panes', '#panes'], ['chain', '.pipe-wrap'], ['tools', '#secDraw']]) { const e = document.querySelector(sel); if (e && e.getClientRects().length && meet(S, vb(e))) hits.push(n); }
+  for (const b of document.querySelectorAll('header.top button, header.top select, header.top input')) { if (strip.contains(b) || !b.getClientRects().length || b.closest('[popover]:not(:popover-open)')) continue; const q = rb(b); if (q && meet(S, q)) hits.push('header:' + (b.id || b.getAttribute('aria-label') || b.textContent.trim().slice(0, 12))); }
+  // cut text: the lead line and its parts, the text block
+  const cut = [];
+  for (const sel of ['.ts-lead', '.ts-l2', '.ts-text']) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && (e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)) cut.push(sel + ' ' + e.scrollWidth + 'x' + e.scrollHeight + '/' + e.clientWidth + 'x' + e.clientHeight); }
+  const ti = strip.querySelector('.ts-title');
+  const titleCut = ti && ti.getClientRects().length && ti.scrollWidth > ti.clientWidth + 1;
+  const titleOk = !titleCut || ti.getAttribute('aria-label') === ti.textContent;
+  // buttons: sizes and gaps
+  const btns = [...strip.querySelectorAll('button')].filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden' && !b.classList.contains('ts-text')).map((b) => { const q = b.getBoundingClientRect(); return { n: b.className.split(' ').pop(), l: q.left, r: q.right, w: q.width, h: q.height, t: q.top, b: q.bottom }; }).sort((a, b) => a.l - b.l);
+  let gap = Infinity;
+  for (let i = 1; i < btns.length; i++) gap = Math.min(gap, btns[i].l - btns[i - 1].r);
+  // contrast of the strip's text on its background (alpha over the page), and of Next's label on its fill
+  const rgb = (s) => { const m = String(s).match(/[\\d.]+/g); return m ? m.map(Number) : [0, 0, 0, 1]; };
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length < 4 || c[3] > 0.5) return c; } return rgb(getComputedStyle(document.body).backgroundColor); };
+  const con = {};
+  for (const [n, sel] of [['title', '.ts-title'], ['lead', '#tourLead'], ['count', '.ts-count'], ['why', '.ts-wl']]) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && e.textContent.trim()) con[n] = +ratio(rgb(getComputedStyle(e).color), bgOf(e)).toFixed(2); }
+  const nx = strip.querySelector('.ts-next'), ncs = getComputedStyle(nx), fill = getComputedStyle(document.documentElement).getPropertyValue('--accent-hover').trim();
+  const hex = (h) => { h = h.replace('#', ''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+  con.next = +ratio(rgb(ncs.color), rgb(ncs.backgroundColor)).toFixed(2);
+  // (r3 review user-4: the countdown is a bar along Next's bottom edge; it must stand off the button as its label does)
+  con.bar = +ratio(rgb(getComputedStyle(nx, '::before').backgroundColor), rgb(ncs.backgroundColor)).toFixed(2);
+  // the lit patch holds the anchor
+  let frac = null;
+  if (L && L.anchor && L.holes[0]) { const a = L.anchor, v = { l: Math.max(2, a.l), t: Math.max(2, a.t), r: Math.min(innerWidth - 2, a.r), b: Math.min(innerHeight - 2, a.b) }, h = L.holes[0]; const ar = Math.max(0, v.r - v.l) * Math.max(0, v.b - v.t); frac = ar ? Math.max(0, Math.min(h.r, v.r) - Math.max(h.l, v.l)) * Math.max(0, Math.min(h.b, v.b) - Math.max(h.t, v.t)) / ar : 1; }
+  // the app's layers left open (a phone's sheet a step opens is part of the step)
+  const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]')).length;
+  const pn = rb(document.querySelector('#panes'));
+  return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.map((b) => b.w)), minH: Math.min(...btns.map((b) => b.h)), gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
 })()`;
-const inject = () => ev(`window.__aud = ${PROBE}; 1`);
-
-const failKinds = (row) => {
-  const k = [];
-  if (row.spot && row.spot.some((s) => s.d > 1)) k.push('spot');
-  if (row.spot && row.spot.some((s) => s.radD > 1)) k.push('radius');
-  if (row.spot && row.spot.some((s) => s.cut)) k.push('cut');
-  if (row.spot && row.spot.some((s) => s.hiddenAnchor)) k.push('hiddenAnchor');
-  if (row.spot && row.spot.some((s) => s.extra && s.extra.length)) k.push('extraHole');
-  if (row.spot && row.spot.some((s) => s.zero && s.zero.length)) k.push('zeroHole');
-  if (row.card && row.card.out > 0.5) k.push('outside');
-  if (row.card && row.card.small.length) k.push('btnSize');
-  if (row.card && row.card.gap != null && row.card.gap < 8) k.push('btnGap');
-  if (row.card && (row.card.notInside.length || row.card.clipped.length)) k.push('btnFit');
-  if (row.card && row.card.over.length) k.push('overflow');
-  if (row.card && row.card.top.some((x) => x !== 'ok')) k.push('covered');
-  if (row.settle !== 'ok') k.push('settle');
-  return k;
-};
-// app layout findings, not the tour's: a lit element wider than the panel that clips it (no scroll can show it whole)
-const appKinds = (row) => (row.spot && row.spot.some((s) => s.appOverflow) ? ['appOverflow'] : []);
-const maybeShot = async (cfgName, id, kinds) => {
-  if (!kinds.length) return null;
-  let take = false;
-  for (const k of kinds) { const key = cfgName + '|' + k; shotCount[key] = (shotCount[key] || 0) + 1; if (shotCount[key] <= CFG.shotsPerKind) take = true; }
-  if (!take) return null;
-  shots++;
-  const name = `audit-${CFG.tag}/${cfgName}__${id.replace('/', '-')}__${kinds.join('-')}`;
-  await shot(name);
-  return name;
-};
-
-for (const w of CFG.widths) for (const theme of CFG.themes) for (const lang of CFG.langs) for (const input of CFG.inputs) {
-  const h = HEIGHT[w] || 900, touch = input === 'touch', dark = theme === 'dark';
-  const cfgName = `${w}-${theme}-${lang}-${input}`;
-  await view(w, h, dark, touch);
-  const phoneSafe = CFG.safe && touch && (w <= 430 || (w > h && h <= 430));
-  try { await send('Emulation.setSafeAreaInsetsOverride', { insets: phoneSafe ? (w > h ? SAFE_LAND : SAFE) : {} }); if (phoneSafe) safeOk = true; } catch (e) { if (phoneSafe) safeOk = false; }
-  const ns = `aud${CFG.tag}${w}${theme[0]}${lang}${input[0]}`;
-  await nav(`${U}?ns=${ns}&lang=${lang}`); await sleep(1200);
+const runs = [];
+const phoneSize = (w, h) => w < 768 || (w > h && h <= 430);
+for (const [w, h] of CFG.sizes) for (const theme of CFG.themes) for (const lang of CFG.langs) for (const input of CFG.inputs) {
+  if (input === 'auto') runs.push({ w, h, theme, lang, input: phoneSize(w, h) ? 'touch' : 'mouse' });
+  else runs.push({ w, h, theme, lang, input });
+}
+const LAYERS = [], FOLLOW = [], FOCUS = [];
+const seen = new Set();
+for (const cfg of runs) {
+  const { w, h, theme, lang, input } = cfg;
+  const tag = `${w}-${theme}-${lang}-${input}`;
+  const touch = input === 'touch';
+  await view(w, h, theme === 'dark', touch);
+  await nav(U + `?ns=aud${w}x${h}${theme[0]}${lang}${input[0]}` + (lang === 'ru' ? '&lang=ru' : '')); await settle(1500);
   await inject();
   await ev('Tour.dismissSuggestion()');
-  // ---- every step
+  await ev('Tour.auto(false)');
   if (CFG.steps) {
-    // (v16.1, user 5: in dark, the chain shows Names first: the cards step must show the pictures all the same, and the
-    // user's Names must come back when the tour ends)
-    const names = theme === 'dark' && w >= 768;
-    if (names) await ev(`(() => { const b = document.querySelector('#chainMode [data-mode="compact"]'); if (b) b.click(); return true; })()`);
-    const chainBefore = await ev(`({ compact: document.querySelector('#pipeline').classList.contains('compact'), h: document.documentElement.style.getPropertyValue('--chain-h') })`);
-    await ev(`await Tour.start({ chapter: 'basics' })`);
-    let prev = null;
-    for (let k = 0; k < 80; k++) {
-      const st = await ev('await __aud.settle()');
-      if (st === 'inactive') break;
-      const cur = await ev('Tour.current()');
-      const id = cur.chapter + '/' + cur.id;
-      if (prev === id) { ROWS.push({ cfg: cfgName, id, stuck: true, kinds: ['stuck'] }); break; }
-      prev = id;
-      const row = await ev(`({ spot: __aud.spot(), card: __aud.cardInfo(${touch}), ctl: __aud.ctl() })`);
-      row.cfg = cfgName; row.id = id; row.settle = st;
-      row.kinds = failKinds(row).concat(row.ctl ? row.ctl.kinds : []);
-      row.app = appKinds(row);
-      row.shot = await maybeShot(cfgName, id, row.kinds);
-      ROWS.push(row);
-      await ev('Tour.next()');
-      await sleep(60);
+  await ev(`Tour.start({ chapter: 'basics' })`); await settle(1500);
+  const byCh = {};
+  const shoot = CFG.shots && (w === 390 || w === 1440) && ((w === 390) === touch);
+  for (let k = 0; k < 60 && (await ev('Tour.isActive()')); k++) {
+    const g = await ev(PROBE);
+    if (!g) break;
+    seen.add(`${tag}:${g.id}`);
+    ROWS.push(Object.assign({ tag }, g));
+    const n = `${tag} ${g.id}`;
+    check(`${n}: the strip meets none of the panes, the chain, the tool row and the header's controls`, g.hits.length === 0, g.hits);
+    check(`${n}: no lead, task, result or caption cut`, g.cut.length === 0, [g.cut, g.lead]);
+    check(`${n}: the title cut only with its full name`, g.titleOk);
+    check(`${n}: buttons ${touch || g.mode !== 'desk' ? 44 : 36} px at least, 8 px apart`, g.minW >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && g.minH >= (touch || g.mode !== 'desk' ? 44 : 36) - 0.5 && (g.gap == null || g.gap >= 7.5), [g.btns, g.gap]);
+    check(`${n}: text contrast at least 4.5:1, Next and its countdown bar included`, Object.values(g.con).every((v) => v >= 4.5), g.con);
+    if (g.frac != null) check(`${n}: the lit patch holds the anchor`, g.frac >= 0.9, g.frac);
+    check(`${n}: no app layer left open by the tour`, g.layers === 0, g.layers);
+    if (CFG.spot) {
+      // (v16.2's spotlight-exact and lit-control checks, through its own probe)
+      const sp = await ev(`({ spot: __aud.spot(), ctl: __aud.ctl() })`);
+      const bad = (sp.spot || []).filter((x) => x.d > 1 || x.radD > 1 || x.cut || x.hiddenAnchor || (x.extra && x.extra.length) || (x.zero && x.zero.length));
+      check(`${n}: spotlight exact (each lit box a drawn hole within 1 px, radii too; no stray hole)`, !bad.length, bad);
+      check(`${n}: the task's control lit`, !(sp.ctl && sp.ctl.kinds.length), sp.ctl);
     }
-    await ev('Tour.isActive() && Tour.stop()'); await sleep(200);
-    const chainAfter = await ev(`({ compact: document.querySelector('#pipeline').classList.contains('compact'), h: document.documentElement.style.getPropertyValue('--chain-h') })`);
-    if (JSON.stringify(chainAfter) !== JSON.stringify(chainBefore)) ROWS.push({ cfg: cfgName, id: 'edit/cards-restore', kinds: ['picturesNotRestored'], chainBefore, chainAfter });
-    if (names) await ev(`(() => { const b = document.querySelector('#chainMode [data-mode="cards"]'); if (b) b.click(); return true; })()`);
-    // every step that should show here (all but those absent by design: wide steps below 640 px, missing features) was
-    // visited; a step the engine skipped fails, with its reason
-    const exp = await ev(`(() => { const T = Tour._t, out = []; T.CHAPTERS.forEach((c, i) => c.steps.forEach((s, j) => { if (!T.absent(i, j, true)) out.push(c.id + '/' + s.id); })); return { exp: out, skipped: Tour.skipped() }; })()`);
-    const seenIds = new Set(ROWS.filter((r) => r.cfg === cfgName).map((r) => r.id));
-    for (const id of exp.exp) if (!seenIds.has(id)) {
-      const why = (exp.skipped.find((x) => x.id === id) || {}).why || 'not visited';
-      MISSED.push({ cfg: cfgName, id, why });
-      ROWS.push({ cfg: cfgName, id, missed: why, kinds: ['skipped'], app: why === 'clipped' ? ['appClipped'] : [] });
+    const b = byCh[g.ch] || (byCh[g.ch] = { strip: g.strip, panes: g.panes, ids: [] });
+    b.ids.push(g.id);
+    check(`${n}: the strip in one place through the chapter${g.mode === 'desk' ? ' (and the panes one size)' : ''}`, JSON.stringify(b.strip) === JSON.stringify(g.strip) && (g.mode !== 'desk' || JSON.stringify(b.panes) === JSON.stringify(g.panes)), { first: b.strip, now: g.strip, panes0: b.panes, panes: g.panes });
+    if (shoot) {
+      const name = `${w}-${theme}-${lang}-${g.id.replace('/', '-')}`;
+      await shot('../../../../../notes/tour-r3/shots/' + name);
     }
+    const before = JSON.stringify(await ev('Tour.current()'));
+    await ev('Tour.next()'); await settle(1100);
+    if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${n}: Next moves on`, false, before); break; }
   }
-  // ---- layers: during a step, open each layer of the app
-  if (CFG.layers) {
+  // every step this build has was visited
+  const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
+  check(`${tag}: every step visited (47, less what the layout leaves out)`, n >= 45, n);
+  await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
+  }
+  // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app
+  if (CFG.layers && theme === 'light') {
     const runLayer = async (stepAt, name, open, close, sel) => {
-      await ev(`await Tour.start(${JSON.stringify(stepAt)})`); await ev('await __aud.settle()');
+      await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle(1300);
       const id = stepAt.chapter + '/' + stepAt.step;
       const opened = await open();
-      await sleep(450); await ev('await __aud.settle(1500)');
+      await sleep(450); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
       const g = await ev(`(() => {
         const L = [...document.querySelectorAll(${JSON.stringify(sel)})].filter(__aud.vis)[0];
-        const card = document.querySelector('.tour-card');
-        if (!card) return { tour: false };
-        const ci = __aud.cardInfo(${touch});
-        if (!L) return { layer: false, ci };
-        const b = L.getBoundingClientRect(), c = card.getBoundingClientRect();
-        const ov = Math.max(0, Math.min(b.right, c.right) - Math.max(b.left, c.left)) * Math.max(0, Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top));
-        // the layer is not covered by the tour: its centre and inner corners hit the layer
+        if (!Tour.isActive()) return { tour: false };
+        if (!L) return { layer: false };
+        const b = L.getBoundingClientRect();
         const pts = [[(b.left + b.right) / 2, (b.top + b.bottom) / 2], [b.left + 6, b.top + 6], [b.right - 6, b.top + 6], [b.left + 6, b.bottom - 6], [b.right - 6, b.bottom - 6]];
-        const lay = pts.map(([x, y]) => { if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return 'offscreen'; const e = document.elementFromPoint(x, y); return e && L.contains(e) ? 'ok' : e ? (e.closest('[data-tour]') ? 'tour' : 'other:' + (e.id || e.className || e.tagName)) : 'none'; });
-        // a layer that fills the viewport (a dialog on a phone) leaves no room beside it: the callout may dock over it,
-        // but never over one of its controls
-        // (also a layer that leaves no strip around it for the docked callout's × alone, 8 px clear: 44 px on touch)
-        const need = ${touch ? 46 : 38} + 16;
-        const room = Math.max(b.left - ci.safe.l, innerWidth - ci.safe.r - b.right, b.top - ci.safe.t, innerHeight - ci.safe.b - b.bottom) >= need;
-        const full = !room || (b.right - b.left) * (b.bottom - b.top) >= 0.85 * (innerWidth - ci.safe.l - ci.safe.r) * (innerHeight - ci.safe.t - ci.safe.b);
-        const ctl = [...L.querySelectorAll('button, input, select, textarea, a[href], summary, [role="button"], [role="option"], [role="menuitem"]')].filter(__aud.vis).filter((x) => { const q = x.getBoundingClientRect(); return q.left < c.right && q.right > c.left && q.top < c.bottom && q.bottom > c.top; }).map((x) => (x.textContent || x.getAttribute('aria-label') || x.tagName).trim().slice(0, 30));
-        return { layer: true, lbox: [b.left, b.top, b.right, b.bottom].map(Math.round), overlap: Math.round(ov), lay, ci, full, ctl, ringsOff: __aud.ringsOff(L) };
+        const lay = pts.map(([x, y]) => { if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return 'offscreen'; const e = document.elementFromPoint(x, y); return e && L.contains(e) ? 'ok' : e ? (e.closest('[data-tour]') ? 'tour' : 'other') : 'none'; });
+        return { layer: true, lbox: [b.left, b.top, b.right, b.bottom].map(Math.round), lay, ringsOff: __aud.ringsOff(L), strip: !!document.querySelector('.tour-strip') && document.querySelector('.tour-strip').getClientRects().length > 0 };
       })()`);
       const kinds = [];
-      if (opened === false || !g.layer) kinds.push('noLayer');
+      if (opened === 'na') { /* not in this layout */ }
+      else if (g.tour === false) kinds.push('tourEnded');
+      else if (!g.layer) kinds.push('noLayer');
       else {
-        if (g.ci.top.some((x) => x !== 'ok')) kinds.push('cardCovered');
-        if (g.full) { if (g.ctl.length) kinds.push('coversLayerControls'); }
-        else {
-          if (g.overlap > 0) kinds.push('coversLayer');
-          if (g.lay.some((x) => x === 'tour')) kinds.push('layerUnderTour');
-        }
-        if (g.ci.out > 0.5) kinds.push('outside');
+        if (g.lay.some((x) => x === 'tour')) kinds.push('layerUnderTour');
         if (!g.ringsOff) kinds.push('ringOverLayer');
+        if (!g.strip) kinds.push('noStrip');
       }
-      // (the tooltip: the only rule is that it never covers the callout; hidden by the tour or under the callout is fine)
-      if (name === 'tooltip') for (const k of ['noLayer', 'coversLayer', 'layerUnderTour', 'coversLayerControls']) { const i = kinds.indexOf(k); if (i >= 0) kinds.splice(i, 1); }
-      const shotName = kinds.length && opened !== 'na' ? await maybeShot(cfgName, id + '-' + name, kinds) : null;
-      const closed = await close();
-      await sleep(350);
+      await close(); await sleep(350);
       const after = await ev(`({ active: Tour.isActive(), layer: [...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis) })`);
-      if (!after.active) kinds.push('tourEnded');
-      if (after.layer) kinds.push('layerStays');
-      const row = { cfg: cfgName, id, layer: name, g, after, kinds, shot: shotName };
-      if (opened === 'na') row.na = true;
-      LAYERS.push(row);
+      if (opened !== 'na' && !after.active) kinds.push('tourEndedOnClose');
+      if (opened !== 'na' && after.layer) kinds.push('layerStays');
+      LAYERS.push({ tag, id, layer: name, g, after, kinds, na: opened === 'na' });
+      check(`${tag} ${id} layer ${name}: the tour covers none of it, its rings masked off it, the tour stays`, !kinds.length, { g, after, kinds });
       await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
     };
     const esc = async () => { await key('Escape'); return true; };
     const X = { chapter: 'basics', step: 1 };
-    await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
-    await runLayer(X, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
-    await runLayer(X, 'examples', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); const narrow = m && m.checkVisibility(); if (narrow) m.click(); document.querySelector('#examplesBtn').click(); return true; })()`), esc, '#popHost > .pop');
-    // (v15: on a phone ⋯ opens the More sheet, not the header's menu)
-    await runLayer(X, 'more', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); if (!m || !m.checkVisibility()) return 'na'; m.click(); return true; })()`), esc, '#hdrMenu:popover-open, .ph-sheet[data-k="more"]:not([hidden])');
-    await runLayer(X, 'export', async () => { await key('e', 4); return true; }, esc, '.modal-bg > .modal');
-    // a toast (an Undo after a delete): never covered by the callout or the rings; it goes when it is removed
     const toastOpen = async () => ev(`(() => { __tourApi.toast('Deleted: circle 3. A long message so the toast is wide'); return true; })()`);
     const toastClose = async () => ev(`(() => { document.querySelector('#toastHost').innerHTML = ''; return true; })()`);
+    await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
+    await runLayer(X, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
+    await runLayer(X, 'examples', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); const narrow = m && m.checkVisibility(); if (narrow) m.click(); const e = document.querySelector('#examplesBtn'); if (!e || !e.checkVisibility()) return 'na'; e.click(); return true; })()`), esc, '#popHost > .pop');
+    await runLayer(X, 'more', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); if (!m || !m.checkVisibility()) return 'na'; m.click(); return true; })()`), esc, '#hdrMenu:popover-open, .ph-sheet[data-k="more"]:not([hidden])');
+    await runLayer(X, 'export', async () => { await key('e', 4); return true; }, esc, '.modal-bg > .modal');
     await runLayer(X, 'toast', toastOpen, toastClose, '#toastHost > .toast');
-    // the sound settings (in the More menu on narrow layouts): Esc with the focus in the callout closes them first
     await runLayer(X, 'sound', async () => ev(`await (async () => { const m = document.querySelector('#hdrMoreBtn'), s = document.querySelector('#soundMore'); if (!s) return 'na'; if (!s.checkVisibility() && m && m.checkVisibility()) { m.click(); await new Promise((r) => setTimeout(r, 200)); } if (!s.checkVisibility()) return 'na'; s.click(); return true; })()`),
-      async () => { await ev(`document.querySelector('.tour-card .btn.primary') && document.querySelector('.tour-card .btn.primary').checkVisibility() ? document.querySelector('.tour-card .btn.primary').focus() : document.querySelector('.tour-card .tour-x').focus()`); await key('Escape'); return true; }, '.snd-pop:not([hidden])');
-    // the reference guide (?)
+      async () => { await ev(`document.querySelector('.tour-strip .ts-next').focus()`); await key('Escape'); return true; }, '.snd-pop:not([hidden])');
     await runLayer(X, 'guide', async () => ev(`(() => { __tourApi.openGuide(); return true; })()`), esc, '.modal-bg > .modal');
-    // the Language menu (in the More menu on narrow layouts)
     await runLayer(X, 'language', async () => ev(`await (async () => { const m = document.querySelector('#hdrMoreBtn'), lb = document.querySelector('#langBtn'); if (!lb) return 'na'; if (!lb.checkVisibility() && m && m.checkVisibility()) { m.click(); await new Promise((r) => setTimeout(r, 200)); } if (!lb.checkVisibility()) return 'na'; lb.click(); return true; })()`), esc, '#popHost > .pop');
-    // the palette and a toast on every step, at one phone, one tablet and one desktop size (Russian: the longest copy)
-    if ((CFG.layerAll || []).includes(w) && theme === 'light' && lang === 'ru' && input === (w < 640 ? 'touch' : 'mouse')) {
-      // (the steps visited by the steps pass; without it, every step not absent by design)
-      const visited = new Set(ROWS.filter((r) => r.cfg === cfgName && !r.missed).map((r) => r.id));
+    if ((CFG.layerAll || []).includes(w) && lang === 'ru') {
       const all = await ev(`Tour._t.CHAPTERS.flatMap((c, i) => c.steps.map((s, j) => ({ chapter: c.id, step: j, id: c.id + '/' + s.id, absent: Tour._t.absent(i, j, true) })))`);
-      for (const at of all.filter((x) => (visited.size ? visited.has(x.id) : !x.absent))) {
+      for (const at of all.filter((x) => !x.absent)) {
         const st = { chapter: at.chapter, step: at.step };
         await runLayer(st, 'palette*', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
         await runLayer(st, 'toast*', toastOpen, toastClose, '#toastHost > .toast');
       }
     }
-    // the app's tooltip, shown over the callout's centre
-    await runLayer(X, 'tooltip', async () => ev(`(() => { const t = document.querySelector('#tip'), c = document.querySelector('.tour-card').getBoundingClientRect(); t.textContent = 'A tooltip over the callout'; t.hidden = false; t.style.left = (c.left + c.width / 2 - 40) + 'px'; t.style.top = (c.top + c.height / 2 - 10) + 'px'; return true; })()`),
-      async () => ev(`(() => { const t = document.querySelector('#tip'); t.hidden = true; return true; })()`), '#tip:not([hidden])');
   }
-  // ---- focus: Tab and Shift+Tab stay in the callout (and, during a Try it, the lit controls), each with a visible ring
-  if (CFG.focus) {
-    await ev(`await Tour.start({ chapter: 'basics', step: 1 })`); await ev('await __aud.settle()');
-    await ev(`document.querySelector('.tour-card .btn.primary').focus()`);
+  // ---- focus: each strip control shows a focus ring; the palette from the strip, Esc: the focus back in the strip
+  if (CFG.focus && theme === 'light') {
+    await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle(1300);
+    await ev(`document.querySelector('.tour-strip .ts-next').focus()`);
     const seenF = [];
-    for (let i = 0; i < 5; i++) {
-      await key('Tab', i === 4 ? 8 : 0);
-      seenF.push(await ev(`(() => { const a = document.activeElement; if (!a) return null; const cs = getComputedStyle(a); const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2) || /(\\d+(\\.\\d+)?px\\s*){3}[1-9]/.test(cs.boxShadow); return { label: (a.textContent || a.getAttribute('aria-label') || a.tagName).trim().slice(0, 30), inCard: !!a.closest('.tour-card'), ring }; })()`));
+    for (let i = 0; i < 4; i++) {
+      await key('Tab', i === 3 ? 8 : 0);
+      seenF.push(await ev(`(() => { const a = document.activeElement; if (!a) return null; const cs = getComputedStyle(a); const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2) || /(\\d+(\\.\\d+)?px\\s*){3}[1-9]/.test(cs.boxShadow); return { label: (a.getAttribute('aria-label') || a.textContent || a.tagName).trim().slice(0, 30), inStrip: !!a.closest('.tour-strip'), ring }; })()`));
     }
-    const kinds = [];
-    if (seenF.some((x) => !x || !x.inCard)) kinds.push('focusLeft');
-    if (seenF.some((x) => x && x.inCard && !x.ring)) kinds.push('focusRing');
-    // the palette from the callout, a search typed, Esc: the focus comes back to the callout (polish-9)
-    await ev(`document.querySelector('.tour-card .btn.primary').focus()`);
+    await ev(`document.querySelector('.tour-strip .ts-next').focus()`);
     await key('k', 4); await sleep(250);
     for (const c of 'sin') await key(c);
     await sleep(150); await key('Escape'); await sleep(300);
-    const back = await ev(`({ inCard: !!(document.activeElement && document.activeElement.closest('.tour-card')), tour: Tour.isActive() })`);
-    seenF.push(Object.assign({ label: 'after the palette' }, back));
-    if (!back.tour || !back.inCard) kinds.push('focusLost');
-    const row = { cfg: cfgName, seen: seenF, kinds };
-    if (kinds.length) row.shot = await maybeShot(cfgName, 'basics-x-focus', kinds);
-    FOCUS.push(row);
-    await ev('Tour.isActive() && Tour.stop()'); await sleep(200);
+    const back = await ev(`({ inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), tour: Tour.isActive() })`);
+    FOCUS.push({ tag, seenF, back });
+    check(`${tag} focus: every strip control the focus reaches shows a ring`, seenF.every((x) => !x || !x.inStrip || x.ring), seenF);
+    check(`${tag} focus: the palette from the strip, Esc: the tour stays and the focus is back in the strip`, back.tour && back.inStrip, back);
+    await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
   }
   // ---- follow: the spotlight keeps up with a scroll, a resize and a layout change, in the next frame
-  if (CFG.follow) {
+  if (CFG.follow && theme === 'light') {
+    const worst = `(() => { const s = __aud.spot() || []; return s.length ? Math.max(...s.map((x) => x.d)) : null; })()`;
     const one = async (stepAt, name, act) => {
-      await ev(`await Tour.start(${JSON.stringify(stepAt)})`);
-      if ((await ev('await __aud.settle()')) !== 'ok') { FOLLOW.push({ cfg: cfgName, name, skipped: 'settle' }); return; }
-      const cur = await ev('Tour.current()');
-      if (!cur || cur.chapter !== stepAt.chapter) { FOLLOW.push({ cfg: cfgName, name, skipped: 'step' }); return; }
+      await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle(1300);
       const r = await act();
-      const kinds = [];
-      if (r && r.skip) { FOLLOW.push({ cfg: cfgName, name, skipped: r.skip }); await ev('Tour.stop()'); await sleep(200); return; }
-      if (!r || r.d1 == null || r.d1 > 1) kinds.push('lag');
-      if (!r || r.d6 == null || r.d6 > 1) kinds.push('stale');
-      const row = { cfg: cfgName, id: cur.chapter + '/' + cur.id, name, r, kinds };
-      if (kinds.length) row.shot = await maybeShot(cfgName, row.id + '-follow-' + name, kinds);
-      FOLLOW.push(row);
+      if (r && r.skip) { FOLLOW.push({ tag, name, skipped: r.skip }); await ev('Tour.isActive() && Tour.stop()'); await sleep(200); return; }
+      FOLLOW.push({ tag, name, r });
+      check(`${tag} follow ${name}: the spotlight right in the next frame and after it`, r && r.d1 != null && r.d1 <= 1 && r.d6 != null && r.d6 <= 1, r);
       await ev('Tour.isActive() && Tour.stop()'); await sleep(200);
     };
-    const worst = `(() => { const s = __aud.spot() || []; return s.length ? Math.max(...s.map((x) => x.d)) : null; })()`;
-    // a target in a scrolled panel: scroll its nearest scrolling ancestor (or the page) by 40 px
-    // (v15: analysis/4, Guarantees in the Inspector; v14's analysis/5 before the Zeros and poles step moved to Editing)
     await one({ chapter: 'analysis', step: 4 }, 'scroll', async () => ev(`await (async () => {
       const tg = Tour.lit() && Tour.lit().anchor; if (!tg) return { skip: 'no anchor' };
       let el = document.elementFromPoint((tg.l + tg.r) / 2, (tg.t + tg.b) / 2);
@@ -579,15 +229,13 @@ for (const w of CFG.widths) for (const theme of CFG.themes) for (const lang of C
       for (let i = 0; i < 5; i++) await __aud.frame(); const d6 = ${worst};
       return { d1, d6, by: dy, where: sc ? (sc.id || sc.className) : 'page' };
     })()`));
-    // a resize of the window by 40 px
     await one({ chapter: 'basics', step: 1 }, 'resize', async () => {
-      await view(w - 40, h, dark, touch);
+      await view(w - 40, h, theme === 'dark', touch);
       const d1 = await ev(`await (async () => { await __aud.frame(); return ${worst}; })()`);
       const d6 = await ev(`await (async () => { for (let i = 0; i < 6; i++) await __aud.frame(); return ${worst}; })()`);
-      await view(w, h, dark, touch);
+      await view(w, h, theme === 'dark', touch);
       return { d1, d6 };
     });
-    // a layout change: the lit element grows by 24 px (the chain card list, a section opening)
     await one({ chapter: 'basics', step: 6 }, 'layout', async () => ev(`await (async () => {
       const a = Tour.lit() && Tour.lit().anchor; if (!a) return { skip: 'no anchor' };
       const e = __aud.resolve(Tour._t.CHAPTERS.find((c) => c.id === Tour.current().chapter).steps[Tour.current().step].anchor);
@@ -600,40 +248,13 @@ for (const w of CFG.widths) for (const theme of CFG.themes) for (const lang of C
     })()`));
   }
 }
+// (as v16.2's: a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
+// views/key at 844 × 390 since v15, notes/tour/POLISH.md)
+const LALL = logs();
+const SKIPS = LALL.filter((l) => /\[tour\] step skipped/.test(l.m)).map((l) => l.m);
+const L = LALL.filter((l) => /EXC|\[tour\]/i.test(l.t + l.m) && !/\[tour\] step skipped/.test(l.m)).slice(0, 12);
+check('no exceptions or tour warnings', !L.length, L);
+try { fs.mkdirSync(DIR + '/audit', { recursive: true }); fs.writeFileSync(DIR + '/audit/strip.json', JSON.stringify({ rows: ROWS, layers: LAYERS, follow: FOLLOW, focus: FOCUS }, null, 0)); } catch (e) { /* */ }
 await view(1440, 900, false, false);
-try { await send('Emulation.setSafeAreaInsetsOverride', { insets: {} }); } catch (e) { /* */ }
-
-// ---- summary
-const fails = ROWS.filter((r) => r.kinds.length);
-const byKind = {};
-for (const r of ROWS) for (const k of r.kinds) byKind[k] = (byKind[k] || 0) + 1;
-const lfails = LAYERS.filter((r) => r.kinds.length && !r.na);
-const lByKind = {};
-for (const r of LAYERS) if (!r.na) for (const k of r.kinds) lByKind[k + ':' + r.layer] = (lByKind[k + ':' + r.layer] || 0) + 1;
-const ffails = FOLLOW.filter((r) => r.kinds && r.kinds.length);
-const fByKind = {};
-for (const r of FOLLOW) for (const k of (r.kinds || [])) fByKind[k + ':' + r.name] = (fByKind[k + ':' + r.name] || 0) + 1;
-const spotD = ROWS.flatMap((r) => (r.spot || []).map((s) => s.d)).filter((d) => d < 999);
-spotD.sort((a, b) => a - b);
-const btnH = ROWS.flatMap((r) => (r.card ? r.card.btns.map((b) => b[2]) : []));
-const LOGS = logs();
-// exceptions and the tour's warnings, apart from its reports of skipped steps (those are rows of their own)
-const exc = LOGS.filter((l) => /EXC|\[tour\]/.test(l.t + ' ' + l.m) && !/\[tour\] step skipped/.test(l.m)).slice(0, 10);
-const summary = {
-  tag: CFG.tag, configs: CFG.widths.length * CFG.themes.length * CFG.langs.length * CFG.inputs.length,
-  stepViews: ROWS.filter((r) => !r.missed).length, failingStepViews: fails.length, byKind,
-  spotDiffPx: spotD.length ? { median: spotD[spotD.length >> 1], p95: spotD[Math.floor(spotD.length * 0.95)], max: spotD[spotD.length - 1], over1: spotD.filter((d) => d > 1).length, of: spotD.length } : null,
-  buttonHeightPx: btnH.length ? { min: Math.min(...btnH), max: Math.max(...btnH) } : null,
-  layerChecks: LAYERS.filter((r) => !r.na).length, failingLayerChecks: lfails.length, layersByKind: lByKind,
-  followChecks: FOLLOW.filter((r) => !r.skipped).length, failingFollow: ffails.length, followByKind: fByKind, followSkipped: FOLLOW.filter((r) => r.skipped).length,
-  appFindings: ROWS.filter((r) => r.app && r.app.length).map((r) => r.cfg + ' ' + r.id),
-  focusChecks: FOCUS.length, failingFocus: FOCUS.filter((r) => r.kinds.length).length, safeAreaEmulated: safeOk,
-  skippedSteps: MISSED.map((m) => m.cfg + ' ' + m.id + ' (' + m.why + ')'),
-  // (v16.1, user 5) the steps whose task's control was checked, and how many showed it lit
-  ctlChecks: ROWS.filter((r) => r.ctl && r.ctl.ctl).length, ctlLit: ROWS.filter((r) => r.ctl && r.ctl.ctl && !r.ctl.kinds.length).length,
-  picturesChecks: ROWS.filter((r) => r.ctl && r.ctl.pictures).length,
-  shots, exceptions: exc,
-};
-fs.mkdirSync(DIR + '/audit', { recursive: true });
-fs.writeFileSync(`${DIR}/audit/${CFG.tag}.json`, JSON.stringify({ summary, rows: ROWS, layers: LAYERS, follow: FOLLOW, focus: FOCUS }, null, 1));
-return { summary, firstFails: fails.slice(0, 6).map((r) => ({ cfg: r.cfg, id: r.id, kinds: r.kinds, ctl: r.ctl, spot: r.spot, small: r.card && r.card.small, over: r.card && r.card.over, top: r.card && r.card.top, out: r.card && r.card.out })), layerFails: lfails.slice(0, 6).map((r) => ({ cfg: r.cfg, layer: r.layer, kinds: r.kinds, overlap: r.g.overlap, lay: r.g.lay, top: r.g.ci && r.g.ci.top })), followFails: ffails.slice(0, 4) };
+const fails = R.filter((r) => !r[1]);
+return { pass: R.length - fails.length, of: R.length, runs: runs.length, steps: ROWS.length, fails: fails.slice(0, 60), nFails: fails.length, logs: L, skipped: [...new Set(SKIPS)] };

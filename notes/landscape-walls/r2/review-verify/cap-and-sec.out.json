@@ -1,0 +1,19 @@
+{
+ "cap": [
+  "m240 user t=0.2 AllSh Im: land null | sheets capped=false Lc=4 evals=13076352 need=13076352",
+  "m240 user t=0.2 Im: land capped=false Lc=4 evals=874370 need=874370 | sheets null",
+  "m240 z^(1/5) tan 3z AllSh Re: land null | sheets capped=true Lc=3 evals=9416640 need=38004960",
+  "m240 tan Re: land capped=false Lc=4 evals=1321550 need=1321550 | sheets null",
+  "m1920 user t=0.2 AllSh Im: land null | sheets capped=false Lc=4 evals=17163168 need=17163168",
+  "m1920 user t=0.2 Im: land capped=false Lc=4 evals=1162585 need=1162585 | sheets null",
+  "m1920 z^(1/5) tan 3z AllSh Re: land null | sheets capped=true Lc=2 evals=4152000 need=74723280",
+  "m1920 tan Re: land capped=false Lc=4 evals=2066330 need=2066330 | sheets null"
+ ],
+ "sec": [
+  "sec-re-m240-light: capped=false Lc=4 evals=550420",
+  "sec-re-m1920-light: capped=false Lc=4 evals=707190",
+  "sec-re-m240-dark: capped=false Lc=4 evals=550535",
+  "sec-re-m1920-dark: capped=false Lc=4 evals=707190"
+ ],
+ "errs": []
+}

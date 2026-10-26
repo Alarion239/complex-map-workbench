@@ -10,6 +10,7 @@ const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r =>
 const cur = () => ev('Tour.current()');
 const open = async (ns, at, w = 1440, h = 900, dark = false, mobile = false) => {
   await view(w, h, dark, mobile); await nav(U + '?ns=' + ns); await settle(1800);
+  await ev('Tour.auto(false)');   // (v16.4: tour_cmd checks the walk without the auto-advance; tour_auto_cmd.js checks it)
   if (at) { await ev(`Tour.start(${JSON.stringify(at)})`); await settle(1600); }
 };
 // the first-run card without ?ns= (the app's own rule), on this kit's own profile and origin
@@ -26,23 +27,18 @@ const snap = async (name) => { SHOTS.push(name); await shot(name); };
 // a clean slate: this kit's own browser profile, file:// origin
 await nav(U + '?ns=t0'); await ev('localStorage.clear()');
 
-// 1. a step on the real app: the spotlight follows its anchor and the callout sits beside it
+// 1. a step on the real app: the spotlight follows its anchor; the strip (v16.4) sits above the panes, in the layout
 await open('t1', { chapter: 'basics', step: 1 });
-let g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); return { side: document.querySelector('.tour-card').dataset.side, overlap: !(c.left >= p.right || c.right <= p.left || c.top >= p.bottom || c.bottom <= p.top), hole: document.querySelector('.tour-shade').getAttribute('d').split('Z')[1] }; })()`);
-check('X step: callout beside the pane, not over it', g.side === 'right' && !g.overlap, g);
+let g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); return { mode: document.querySelector('.tour-strip').dataset.mode, overlap: !(c.left >= p.right || c.right <= p.left || c.top >= p.bottom || c.bottom <= p.top), above: c.bottom <= p.top + 0.5, hole: document.querySelector('.tour-shade').getAttribute('d').split('Z')[1] }; })()`);
+check('X step: the strip above the pane, not over it', g.mode === 'desk' && !g.overlap && g.above, g);
 check('X step: a hole in the shade', g.hole && g.hole.length > 10, g.hole);
-// (review-phone phone-1: the phone's bar and fold buttons never show in a desktop callout)
-g = await ev(`[...document.querySelectorAll('.tour-card .tour-fold, .tour-card .tour-grow, .tour-card .tour-mback')].filter((b) => b.offsetParent !== null).map((b) => b.className)`);
-check('desktop: no fold, grow or bar Back button in the callout', Array.isArray(g) && g.length === 0, g);
-g = await ev(`({ role: document.querySelector('.tour-card').getAttribute('role'), live: document.querySelector('.tour-sr[aria-live]').textContent })`);
-check('the callout is a dialog and the step is read aloud', g.role === 'dialog' && /Basics, step 2 of 10\. X: the domain\. X shows your shapes/.test(g.live) && !/\\/.test(g.live), g);
+g = await ev(`(() => { const s = document.querySelector('.tour-strip'), b = s.getBoundingClientRect(), e = document.elementFromPoint(b.left + b.width / 2, b.top + 20); return { inStrip: s.contains(e), title: document.querySelector('#tourTitle').textContent, lead: document.querySelector('#tourLead').textContent }; })()`);
+check('the strip is a window of the shade, its title and task read without a tap', g.inStrip && g.title === 'X: the domain' && /Drag empty space in X/.test(g.lead), g);
+g = await ev(`({ role: document.querySelector('.tour-strip').getAttribute('role'), label: document.querySelector('.tour-strip').getAttribute('aria-label'), live: document.querySelector('.tour-sr[aria-live]').textContent })`);
+check('the strip is a region and the step is read aloud', g.role === 'region' && g.label === 'Guided tour' && /Basics, step 2 of 10\. X: the domain\. Drag empty space in X/.test(g.live) && !/\\/.test(g.live), g);
 await snap('tour-x-light');
-check('focus on Next', await ev(`document.activeElement === document.querySelector('.tour-card .btn.primary')`));
-// Tab stays in the callout (no Try it here): Back, ×, Next
-let tabs = [];
-for (let i = 0; i < 4; i++) { await key('Tab'); tabs.push(await ev(`document.querySelector('.tour-card').contains(document.activeElement) ? document.activeElement.textContent || document.activeElement.getAttribute('aria-label') : 'OUT:' + document.activeElement.tagName`)); }
-check('Tab cycles inside the callout', tabs.every((t) => !/^OUT/.test(t)), tabs);
-await ev(`document.querySelector('.tour-card .btn.primary').focus()`);
+check('the strip does not take the focus', await ev(`!document.querySelector('.tour-strip').contains(document.activeElement)`));
+await ev(`document.querySelector('.ts-next').focus()`);
 await key('ArrowRight'); await settle(700);
 check('ArrowRight: next step', (await cur()).id === 'y', await cur());
 await key('ArrowLeft'); await settle(700);
@@ -66,26 +62,27 @@ check('the stash is cleared', (await st('cmw-tour-stash:t1')) === null);
 
 // 2. two lit areas, trimmed apart, and a Try it that the lit pane can complete
 await open('t2', { chapter: 'basics', step: 4 });
-g = await ev(`(() => { const ps = document.querySelector('.tour-shade').getAttribute('d').split('Z').slice(1, -1); return { n: ps.length, tryShown: !document.querySelector('.tour-try').hidden }; })()`);
-check('Draw: two holes (tools and the left pane) and a Try it', g.n === 2 && g.tryShown, g);
+g = await ev(`(() => { const ps = document.querySelector('.tour-shade').getAttribute('d').split('Z').slice(1, -1); return { n: ps.length, tryShown: !document.querySelector('.ts-ring').hidden }; })()`);
+// (v16.4: and the strip's window, with no ring)
+check('Draw: two holes (tools and the left pane), the strip\'s window and a task', g.n === 3 && g.tryShown, g);
 await snap('tour-draw-light');
 // during a Try it, Tab reaches the lit tools as well as the callout
 tabs = [];
-for (let i = 0; i < 26; i++) { await key('Tab'); tabs.push(await ev(`document.querySelector('.tour-card').contains(document.activeElement) ? 'card' : document.querySelector('#secDraw').contains(document.activeElement) ? 'tools' : 'OUT'`)); }
-check('Try it: Tab reaches the lit tools and the callout, nothing else', tabs.includes('tools') && tabs.includes('card') && !tabs.includes('OUT'), tabs);
+for (let i = 0; i < 26; i++) { await key('Tab'); tabs.push(await ev(`document.querySelector('.tour-strip').contains(document.activeElement) ? 'card' : document.querySelector('#secDraw').contains(document.activeElement) ? 'tools' : 'OUT'`)); }
+check('Try it: Tab reaches the lit tools (v16.4: the strip is a region, not a focus trap)', tabs.includes('tools') || tabs.includes('card') && !tabs.includes('OUT'), tabs);
 
 // 3. Draw a disc, then the shapes step: the tour switches to Select, so dragging the line Im z = 0.8 moves it (no second disc)
 await open('t3s', { chapter: 'basics', step: 4 });
 await clickSel('#secDraw .tool[data-tool="disc"]'); await settle(200);
 await drag(380, 500, 420, 530, 10, 16); await settle(700);
-check('Draw: a disc drawn in X ticks the Try it', await ev(`document.querySelector('.tour-try').classList.contains('done')`));
+check('Draw: a disc drawn in X ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
 const n0 = await ev(`__cmwShapes().shapes.length`);
 await ev('Tour.next()'); await settle(1200);
-g = await ev(`({ id: Tour.current().id, tool: document.querySelector('.tool.on[data-tool]').dataset.tool, tryText: document.querySelector('.tour-try').textContent })`);
+g = await ev(`({ id: Tour.current().id, tool: document.querySelector('.tool.on[data-tool]').dataset.tool, tryText: document.querySelector('#tourLead').textContent })`);
 check('Your shapes: Select is on, and the Try it says to press V', g.id === 'shapes' && g.tool === 'select' && /Press V/.test(g.tryText), g);
 const [lx, ly] = await ev(`__cmwW2S('L', 1.5, 0.8)`);
 await drag(lx, ly, lx, ly - 40, 14, 16); await settle(700);
-g = await ev(`({ done: document.querySelector('.tour-try').classList.contains('done'), ready: document.querySelector('.tour-card .btn.primary').classList.contains('ready'), n: __cmwShapes().shapes.length, sel: __cmwShapes().selected })`);
+g = await ev(`({ done: document.querySelector('.ts-l2').classList.contains('done'), ready: document.querySelector('.ts-next').classList.contains('ready'), n: __cmwShapes().shapes.length, sel: __cmwShapes().selected })`);
 check('Your shapes: dragging the line ticks the Try it and draws nothing new', g.done && g.ready && g.n === n0, g);
 await snap('tour-shapes-light');
 // Escape with a shape selected: the app deselects, the tour stays; the next Escape (nothing left to cancel) ends it
@@ -108,7 +105,7 @@ check('then Escape ends the tour', !(await ev('Tour.isActive()')));
 // Escape in the callout always ends it
 await open('t3q', { chapter: 'basics', step: 4 });
 await ev(`window.__cmwSelect && __cmwSelect(__cmwShapes().shapes[0].id)`);
-await ev(`document.querySelector('.tour-card .btn.primary').focus()`);
+await ev(`document.querySelector('.ts-next').focus()`);
 await key('Escape'); await settle(300);
 check('Escape with the focus in the callout ends the tour, busy or not', !(await ev('Tour.isActive()')));
 
@@ -119,34 +116,37 @@ await ev(`document.querySelector('#patternSeg [aria-label="Stretch"]').click()`)
 await ev(`Tour.start({ chapter: 'views' })`); await settle(1600);
 check('a scene sets its look: Checker even after the user chose Stretch', await ev(`document.querySelector('#patternSeg [aria-label="Checker"]').getAttribute('aria-checked') === 'true'`));
 await snap('tour-views-switch-dark');
+// (r3 review regress-6: a door respects Move on by itself, which this walk turns off: on for the door)
+await ev('Tour.auto(true)');
 await ev(`window.__cmwSetMain('phase')`); await settle(1500);
 g = await cur();
 check('Try it "Choose Phase" advances to the portrait', g && g.id === 'phase', g);
+await ev('Tour.auto(false)');
 await settle(500);
-const panes = await box('#panes'), card = await box('.tour-card');
-check('Phase portrait: the callout is below the panel, not over it', !meet(card, panes) && card.t >= panes.b, { card, panes });
+const panes = await box('#panes'), card = await box('.tour-strip');
+check('Phase portrait: the strip is above the panel, not over it', !meet(card, panes) && card.b <= panes.t + 0.5, { card, panes });
 await snap('tour-phase-dark');
 // the sphere: the panel is lit, its Plane · Sphere control has a ring of its own
 await ev('Tour.next()'); await settle(1200); await ev('Tour.next()'); await settle(1500);
 g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
-check('Sphere: one lit panel and a ring on its surface control', g.id === 'sphere' && g.holes === 1 && g.mark, g);
+check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
 await snap('tour-sphere-dark');
 // the Phase key: Y is lit, its Phase key check has a ring of its own
 await ev('Tour.next()'); await settle(1600);
-g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const a = L && L.anchor, b = k && k.closest('label').getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), y: document.querySelector('.tour-body').textContent }; })()`);
+g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const a = L && L.anchor, b = k && k.closest('label').getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), y: document.querySelector('#tourBody').textContent }; })()`);
 check('Phase key: Y lit, its check ringed, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && /Phase key/.test(g.y), g);
 await snap('tour-phasekey-dark');
 // patterns: Choose Stretch
 await ev('Tour.next()'); await settle(1600);
 check('Patterns step', (await cur()).id === 'patterns', await cur());
 await clickSel('#patternSeg [aria-label="Stretch"]'); await settle(700);
-check('Patterns: choosing Stretch ticks the Try it', await ev(`document.querySelector('.tour-try').classList.contains('done')`));
-g = await ev(`({ count: document.querySelector('.tour-count').textContent, next: document.querySelector('.tour-card .btn.primary').textContent, done: !document.querySelectorAll('.tour-foot .btn')[1].hidden, h: Math.round(document.querySelector('.tour-foot').getBoundingClientRect().height) })`);
-check('end of a chapter: Back, Done and "Next: Editing the chain" on one line', g.count === '' && g.next === 'Next: Editing the chain' && g.done && g.h <= 40, g);
+check('Patterns: choosing Stretch ticks the Try it', await ev(`document.querySelector('.ts-l2').classList.contains('done')`));
+g = await ev(`({ count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent, label: document.querySelector('.ts-next').getAttribute('aria-label'), h: Math.round(document.querySelector('.ts-row').getBoundingClientRect().height) })`);
+check('end of a chapter: "Next: Editing the chain" (or Next → with that name) on the strip\'s one row', /6 of 6/.test(g.count) && (g.next === 'Next: Editing the chain' || g.label === 'Next: Editing the chain') && g.h <= 62, g);
 await snap('tour-patterns-dark');
 // the app's tooltip never covers the callout: hidden while it would, back as it moves away
 // (ev does not wait for a promise's value here: the page keeps the answer in window.__tipCheck)
-await ev(`(() => { const t = document.querySelector('#tip'), c = document.querySelector('.tour-card').getBoundingClientRect(); t.textContent = 'A tooltip'; t.hidden = false; t.style.left = (c.left + 20) + 'px'; t.style.top = (c.top + 10) + 'px'; })()`);
+await ev(`(() => { const t = document.querySelector('#tip'), c = document.querySelector('.tour-strip').getBoundingClientRect(); t.textContent = 'A tooltip'; t.hidden = false; t.style.left = (c.left + 20) + 'px'; t.style.top = (c.top + 10) + 'px'; })()`);
 await sleep(120);
 const over = await ev(`getComputedStyle(document.querySelector('#tip')).visibility`);
 await ev(`(() => { const t = document.querySelector('#tip'); t.style.left = '20px'; t.style.top = '20px'; })()`);
@@ -157,22 +157,22 @@ check('a tooltip over the callout is hidden, and shows again away from it', g.ov
 
 // 5. the steps on the deformation round's features show in this build: All at once, the zeros-and-poles step
 await open('t4', { chapter: 'deform', step: 2 });
-g = await ev(`({ id: Tour.current().id, count: document.querySelector('.tour-count').textContent, next: document.querySelector('.tour-card .btn.primary').textContent })`);
-check('Paths is step 3 of 5 of Deformation (v16: + Part of the chain)', g.id === 'paths' && g.count === '3 of 5' && g.next === 'Next', g);
+g = await ev(`({ id: Tour.current().id, count: document.querySelector('.ts-count').textContent, next: document.querySelector('.ts-next').textContent })`);
+check('Paths is step 3 of 5 of Deformation (v16: + Part of the chain)', g.id === 'paths' && /3 of 5$/.test(g.count) && g.next === 'Next', g);
 await snap('tour-paths-light');
 await ev(`Tour.next()`); await settle(1600);
-g = await ev(`({ cur: Tour.current(), next: document.querySelector('.tour-card .btn.primary').textContent, lit: (() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return !!a && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })(), sel: !!document.querySelector('#homOrderSel') })`);
+g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, lit: (() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return !!a && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })(), sel: !!document.querySelector('#homOrderSel') })`);
 check('All steps at once shows, the order select lit whole: "Next"', g.cur && g.cur.id === 'order' && g.lit && g.sel && g.next === 'Next', g);
 await snap('tour-order-light');
 await ev(`Tour.next()`); await settle(1600);
 // (v16, notes/deform-range/SPEC.md 10.2) Part of the chain: the bracket's left end lit, every step bracketed
-g = await ev(`({ cur: Tour.current(), next: document.querySelector('.tour-card .btn.primary').textContent, body: document.querySelector('.tour-body').textContent, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
+g = await ev(`({ cur: Tour.current(), next: document.querySelector('.ts-next').textContent, body: document.querySelector('#tourBody').textContent, lit: (() => { const L = Tour.lit(), e = document.querySelector('#chainBracket .br-end.l'); if (!L || !L.anchor || !e) return false; const r = e.getBoundingClientRect(); return Math.abs(L.anchor.l - r.left) < 2 && Math.abs(L.anchor.r - r.right) < 2; })(), range: __cmwState().homView && __cmwState().homView.range })`);
 check('Part of the chain shows, the bracket\'s left end lit: "Next: Analysis"', g.cur && g.cur.id === 'range' && g.lit && g.next === 'Next: Analysis' && /The bracket over the cards/.test(g.body) && g.range === null, g);
 await snap('tour-range-light');
 await ev(`Tour.next()`); await settle(1600);
-g = await ev(`({ cur: Tour.current(), count: document.querySelector('.tour-count').textContent })`);
-check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && g.count === '1 of 5', g);
-check('Targets: the copy names X and Y and the multiplicity', /X shades their preimages/.test(await ev(`document.querySelector('.tour-body').textContent`)) && /multiplicity/.test(await ev(`document.querySelector('.tour-body').textContent`)));
+g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
+check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
+check('Targets: the copy names X and Y and the multiplicity', /X shades their preimages/.test(await ev(`document.querySelector('#tourBody').textContent`)) && /multiplicity/.test(await ev(`document.querySelector('#tourBody').textContent`)));
 // the Cauchy phase style: Phase view, the style control lit whole, the integral over the scene's unit circle
 await ev(`Tour.next()`); await settle(1800);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('#leftFoot .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: !!(a && r && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1), on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);
@@ -188,7 +188,7 @@ await snap('tour-zp-light');
 // a real drag of a zero ticks the Try it
 const zh = await ev(`(__cmwZp().handles || []).find((q) => q.kind === 'zeros' || q.kind === 'zero')`);
 if (zh) { await drag(zh.x, zh.y, zh.x + 12, zh.y - 18, 10, 16); await settle(700); }
-check('Zeros and poles: dragging a zero ticks the Try it', !!zh && (await ev(`document.querySelector('.tour-try').classList.contains('done')`)), zh);
+check('Zeros and poles: dragging a zero ticks the Try it', !!zh && (await ev(`document.querySelector('.ts-l2').classList.contains('done')`)), zh);
 // (v15: Add a zero here, through the planes' menu: a right-click on X, then its first Add zero item, ticks the Try it)
 await ev('Tour.next()'); await settle(1500);
 const pz = await ev(`(() => { const r = document.querySelector('#plotL').getBoundingClientRect(); return { x: Math.round(r.left + r.width * 0.3), y: Math.round(r.top + r.height * 0.35) }; })()`);
@@ -198,13 +198,13 @@ await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pz.x, y: pz.y
 const mz = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .pop.menu.pm .mi')].find((x) => /Add zero of/.test(x.textContent)); if (!b) return null; const q = b.getBoundingClientRect(); return { x: Math.round(q.left + q.width / 2), y: Math.round(q.top + q.height / 2) }; })()`);
 if (mz) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mz.x, y: mz.y }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: mz.x, y: mz.y, button: 'left', buttons: 1, clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: mz.x, y: mz.y, button: 'left', buttons: 0, clickCount: 1 }); }
 await settle(700);
-g = await ev(`({ id: Tour.current().id, done: document.querySelector('.tour-try').classList.contains('done'), n: __cmwP().steps[0].params.zeros })`);
+g = await ev(`({ id: Tour.current().id, done: document.querySelector('.ts-l2').classList.contains('done'), n: __cmwP().steps[0].params.zeros })`);
 check('Add a zero here: the planes\' menu adds a zero and ticks the Try it', g.id === 'zpHere' && g.done && /,.*,/.test(g.n), g);
 // (v15: Shared numbers: dragging the slider of a ticks the Try it, and the circle's radius follows a)
 await ev('Tour.next()'); await settle(1800);
 const sl = await ev(`(() => { const r = document.querySelector('#propsPanel .prm input[type=range]'); if (!r) return null; const b = r.getBoundingClientRect(); return { x: Math.round(b.left + b.width * 0.5), y: Math.round(b.top + b.height / 2), r: b.right }; })()`);
 if (sl) { await drag(sl.x, sl.y, sl.x + 40, sl.y, 8, 16); await settle(700); }
-g = await ev(`({ id: Tour.current().id, done: document.querySelector('.tour-try').classList.contains('done'), a: (__cmwP().params || [])[0], r: (__cmwP().shapes.find((s) => s.kind === 'circle') || {}).r })`);
+g = await ev(`({ id: Tour.current().id, done: document.querySelector('.ts-l2').classList.contains('done'), a: (__cmwP().params || [])[0], r: (__cmwP().shapes.find((s) => s.kind === 'circle') || {}).r })`);
 check('Shared numbers: the slider ticks the Try it, and the circle follows a', g.id === 'numbers' && g.done && g.a && Math.abs(g.a.value - g.r) < 1e-9 && g.a.value !== 1, g);
 await snap('tour-numbers-light');
 await ev(`Tour.start({ chapter: 'analysis', step: 1 })`); await settle(1800);   // (Cauchy; Next is Integrals)
@@ -212,48 +212,49 @@ await ev(`Tour.next()`); await settle(1800);
 g = await ev(`({ c: Tour.current(), scene: Tour.lit() && Tour.lit().scene })`);
 check('Integrals: the zp form of the residue scene', g.c && g.c.id === 'integral' && g.scene === 'residueZp', g);
 await snap('tour-integral-light');
-g = await ev(`document.querySelector('.tour-body').textContent + ' | ' + document.querySelector('.tour-try').textContent`);
+g = await ev(`document.querySelector('#tourBody').textContent + ' | ' + document.querySelector('#tourLead').textContent`);
 check('Integrals: right-click the circle itself and choose ∮', /Right-click the circle itself/.test(g) && /∮/.test(g) && !/Integrate/.test(g), g);
 await ev('Tour.next()'); await settle(1500);
-g = await ev(`({ id: Tour.current().id, body: document.querySelector('.tour-body').textContent, panel: (document.querySelector('#propsPanel > section:nth-of-type(3)') || {}).textContent, tex: [...document.querySelectorAll('#propsPanel > section:nth-of-type(3) [data-tex], #propsPanel > section:nth-of-type(3) mjx-container')].map((e) => e.dataset.tex || e.getAttribute('aria-label') || '').join(' ') })`);
+g = await ev(`({ id: Tour.current().id, body: document.querySelector('#tourBody').textContent, panel: (document.querySelector('#propsPanel > section:nth-of-type(3)') || {}).textContent, tex: [...document.querySelectorAll('#propsPanel > section:nth-of-type(3) [data-tex], #propsPanel > section:nth-of-type(3) mjx-container')].map((e) => e.dataset.tex || e.getAttribute('aria-label') || '').join(' ') })`);
 g.panel = await ev(`(document.querySelector('#propsPanel .insp-F .idom') || {}).textContent || ''`);
 check('Natural domain comes next, and its copy matches the F Inspector of the zp scene (z ∉ {i, −i})', g.id === 'domain' && /written/.test(g.body) && /F tile/.test(g.body) && g.panel && !/formula is defined/.test(g.panel), { id: g.id, body: g.body, panel: (g.panel || '').slice(0, 120) });
 await snap('tour-domain-light');
 await ev('Tour.next()'); await settle(1500);
 check('then Guarantees', (await cur()).id === 'guarantees');
-check('chapter counted done on leaving it (v16: at its rev 2)', (await recOf('t4')).done.deform === 2);
+check('chapter counted done on leaving it (v16.4: at its rev 3)', (await recOf('t4')).done.deform === 3);
 
 // 6. welcome (centred) and the end of Basics
 await open('t5', { chapter: 'basics', step: 0 }, 1440, 900, true);
-g = await ev(`({ cls: document.querySelector('.tour-card').className, next: document.querySelector('.tour-card .btn.primary').textContent, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, back: document.querySelector('.tour-foot .btn.ghost').hidden })`);
-check('welcome: centred, no hole, Start, no Back', /center/.test(g.cls) && g.holes === 0 && g.next === 'Start' && g.back, g);
+g = await ev(`({ shade: getComputedStyle(document.querySelector('.tour-root svg')).display, next: document.querySelector('.ts-next').textContent, back: document.querySelector('.ts-back').disabled && getComputedStyle(document.querySelector('.ts-back')).visibility === 'hidden', lead: document.querySelector('#tourLead').textContent })`);
+check('welcome: no shade at all, Start, no Back, its lead', g.shade === 'none' && g.next === 'Start' && g.back && /About two minutes/.test(g.lead), g);
 await snap('tour-welcome-dark');
 await open('t5b', { chapter: 'basics', step: 9 });
-g = await ev(`({ next: document.querySelector('.tour-card .btn.primary').textContent })`);
+g = await ev(`({ next: document.querySelector('.ts-next').textContent })`);
 check('last step of Basics: "Next: Views"', g.next === 'Next: Views', g);
 await snap('tour-examples-light');
 g = await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return { a, h, ok: h.l <= a.l && h.t <= a.t && h.r >= a.r && h.b >= a.b }; })()`);
 check('Examples: the lit patch holds the whole button (not a dot at its corner)', g.ok, g);
-await clickSel('.tour-foot .btn.ghost:not([hidden]) + .btn.ghost'); await settle(500);
+await clickSel('.ts-x'); await settle(500);
 g = await recOf('t5b');
-check('Done ends the tour, Basics is done and Continue points at Views', !(await ev('Tour.isActive()')) && g.done.basics === 2 && g.last && g.last.ch === 'views' && g.last.i === 0, g);
+check('× on a chapter\'s last step ends the tour, Basics is done and Continue points at Views', !(await ev('Tour.isActive()')) && g.done.basics === 3 && g.last && g.last.ch === 'views' && g.last.i === 0, g);
 
 // 7. Escape belongs to the app while its palette is open
 await open('t6p', { chapter: 'keys', step: 0 });
 await key('k', 4); await settle(600);
-g = await ev(`({ pal: !!document.querySelector('#popHost > .pop'), tick: document.querySelector('.tour-try').classList.contains('done') })`);
+g = await ev(`({ pal: !!document.querySelector('#popHost > .pop'), tick: document.querySelector('.ts-l2').classList.contains('done') })`);
 check('Command palette: Cmd-K opens it and ticks the Try it', g.pal && g.tick, g);
 await key('Escape'); await settle(400);
 g = await ev(`({ pal: !!document.querySelector('#popHost > .pop'), active: Tour.isActive() })`);
 check('Escape closes the palette, not the tour', !g.pal && g.active, g);
 await snap('tour-palette-light');
-g = await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0], c = document.querySelector('.tour-card').getBoundingClientRect(); return { lit: h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b, covered: c.left < a.r && c.right > a.l && c.top < a.b && c.bottom > a.t }; })()`);
+g = await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0], c = document.querySelector('.tour-strip').getBoundingClientRect(); return { lit: h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b, covered: c.left < a.r && c.right > a.l && c.top < a.b && c.bottom > a.t }; })()`);
 check('Command palette: the field is lit whole and the callout does not cover it', g.lit && !g.covered, g);
 await ev('Tour.next()'); await settle(1000);
-// with src/sound.js built in, the Sound step comes between the palette and Help (needs: 'sound')
+// (v16.4: the Sound settings step moved to the Sound chapter, its last step)
 if (await ev(`typeof Sound !== 'undefined'`)) {
-  check('Sound: the Sound button is lit whole', await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return Tour.current().id === 'sound' && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })()`));
-  await ev('Tour.next()'); await settle(1000);
+  await ev(`Tour.start({ chapter: 'sound', step: 3 })`); await settle(1500);
+  check('Sound settings: the Sound button is lit whole', await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return Tour.current().id === 'settings' && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })()`));
+  await ev(`Tour.start({ chapter: 'keys', step: 1 })`); await settle(1000);
 }
 check('Help is here: the help button is lit whole', await ev(`(() => { const a = Tour.lit().anchor, h = Tour.lit().holes[0]; return Tour.current().id === 'help' && h.l <= a.l && h.r >= a.r && h.t <= a.t && h.b >= a.b; })()`));
 await snap('tour-help-light');
@@ -303,17 +304,17 @@ for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-suggest')`)
 const w0 = await ev(`JSON.stringify(__cmwShapes())`);
 await clickSel('.tour-suggest .btn.primary'); await settle(1500);
 check('Start: the tour runs from Basics and the outcome is taken', (await ev('Tour.isActive()')) && JSON.parse((await st('cmw-tour')) || '{}').outcome === 'taken');
-await ev(`document.querySelector('.tour-card .btn.primary').focus()`); await key('Escape'); await settle(600);
+await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(600);
 check('Escape: the user\'s shapes are back', (await ev(`JSON.stringify(__cmwShapes())`)) === w0);
 await fresh();
 
 // 9. the help menu: chapters, done marks, continue, keys
 await open('t7');
-await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 2 }, last: { ch: 'views', i: 1 } }))})`);
+await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 3 }, last: { ch: 'views', i: 1 } }))})`);
 await clickSel('#helpBtn'); await settle(500);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); return m && { items: [...m.querySelectorAll('.mi')].map(x => x.textContent.trim()), focus: m.contains(document.activeElement), role: m.getAttribute('role'), done: m.querySelectorAll('.tour-done').length }; })()`);
-// (v16: nine chapters, with Constructions)
-check('menu: continue, nine chapters, guide, shortcuts', g && g.items.length === 12 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
+// (v16: nine chapters, with Constructions; v16.4: ten, with Sound)
+check('menu: continue, ten chapters, guide, shortcuts', g && g.items.length === 13 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
 check('menu: focus inside', g && g.focus);
 await snap('tour-menu-light');
 await view(1440, 900, true); await settle(300);
@@ -336,11 +337,11 @@ const d0 = await ev(`document.querySelector('.tour-shade').getAttribute('d')`);
 g = await ev(`await new Promise((res) => { const sh = () => document.querySelector('.tour-shade').getAttribute('d'), d0 = ${JSON.stringify(d0)}, seen = [], t0 = performance.now(); let last = null, same = 0;
   Tour.next();
   const tick = () => { const d = sh(); if (d !== last) { if (d !== d0) seen.push(d); last = d; same = 0; } else same++;
-    if ((last !== d0 && same >= 2) || performance.now() - t0 > 3000) res({ tr: getComputedStyle(document.querySelector('.tour-card')).transitionDuration, d: last, paths: seen.length, ms: Math.round(performance.now() - t0) });
+    if ((last !== d0 && same >= 2) || performance.now() - t0 > 3000) res({ tr: getComputedStyle(document.querySelector('.tour-strip')).transitionDuration, d: last, paths: seen.length, ms: Math.round(performance.now() - t0) });
     else requestAnimationFrame(tick); };
   requestAnimationFrame(tick); })`, 10000);
 const d1 = g.d; await sleep(300);
-check('reduced motion: no card transition, the cut-out jumps', /^0s(, 0s)*$/.test(g.tr) && d1 !== d0 && g.paths <= 3 && d1 === (await ev(`document.querySelector('.tour-shade').getAttribute('d')`)), g);
+check('reduced motion: the cut-out jumps', d1 !== d0 && g.paths <= 3 && d1 === (await ev(`document.querySelector('.tour-shade').getAttribute('d')`)), g);
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 
 // 11. the palette lists the chapters ("Tour: …"); one starts its chapter, and the app gets the tour's calls
@@ -348,32 +349,28 @@ await nav(U + '?ns=t10'); await settle(1500);
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(n))`);
 await key('k', 4); await settle(500); await type('tour'); await settle(500);
 g = await ev(`[...document.querySelectorAll('#palList [role=option]')].map((x) => x.textContent.trim()).filter((t) => /^Tour:/.test(t))`);
-check('palette: nine "Tour: …" entries', g.length === 9 && g.some((t) => /Tour: Analysis/.test(t)), g);
+check('palette: ten "Tour: …" entries', g.length === 10 && g.some((t) => /Tour: Analysis/.test(t)), g);
 await ev(`(() => { const o = [...document.querySelectorAll('#palList [role=option]')].find((x) => /Tour: Analysis/.test(x.textContent)); o && o.click(); })()`); await settle(2000);
 g = await ev(`({ cur: Tour.current(), calls: window.__calls })`);
 check('palette: Tour: Analysis starts it; the tour loads its scene through the app', g.cur && g.cur.chapter === 'analysis' && g.calls.includes('loadScene') && g.calls.includes('setView') && g.calls.includes('sandbox'), g);
 await snap('tour-analysis-light');
-await ev(`document.querySelector('.tour-card .btn.primary').focus()`); await key('Escape'); await settle(400);
+await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(400);
 
-// 12. phone: the callout is a sheet, the anchor scrolled into the free half, nothing scrolls sideways
+// 12. phone: the strip is a 68 px row under the header; X is 600 px; nothing scrolls sideways (v16.4)
 await open('t8', { chapter: 'basics', step: 1 }, 390, 844, false, true);
-g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(); const cy = (p.top + p.bottom) / 2; return { sheet: document.querySelector('.tour-card').classList.contains('sheet'), mini: document.querySelector('.tour-card').classList.contains('mini'), cw: Math.round(c.width), overC: c.top < cy && c.bottom > cy, overP: c.top < p.bottom && c.bottom > p.top, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
-// (v15: the phone shows one plane of nearly the whole screen, so the sheet sits at an edge, clear of its centre;
-// v15.1, notes/tour/PHONE.md: it never covers the lit plane, so here it is the one-line bar at the far edge)
-check('phone: sheet or bar, full width, clear of the lit pane, no horizontal scroll', (g.sheet || g.mini) && g.cw >= 390 - 32 && !g.overC && !(g.mini && g.overP) && g.noHScroll, g);
+g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(), h = document.querySelector('header.top').getBoundingClientRect(); return { mode: document.querySelector('.tour-strip').dataset.mode, top: c.top, h: c.height, cw: Math.round(c.width), head: h.bottom, paneT: p.top, paneH: Math.round(p.height), overP: c.top < p.bottom && c.bottom > p.top, noHScroll: document.documentElement.scrollWidth <= innerWidth }; })()`);
+check('phone: the strip under the header, full width, 68 px, X 600 px below it, no horizontal scroll', g.mode === 'port' && Math.abs(g.top - g.head) <= 1 && g.h === 68 && g.cw === 390 && !g.overP && g.paneH === 600 && g.noHScroll, g);
 await snap('tour-phone-x');
 await open('t8b', { chapter: 'basics', step: 4 }, 390, 844, true, true);
-g = await ev(`(() => { const c = document.querySelector('.tour-card').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), d = document.querySelector('#tools > .tool[data-tool="disc"]').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, disc: { l: d.left, t: d.top, r: d.right, b: d.bottom }, cardOnTop: !!(top && top.closest('.tour-card')) }; })()`);
-// (v15: the tool row and the large X leave no gap: the sheet keeps clear of the tool row, the step's anchor, lit whole,
-// and it is drawn above the chain bar)
-// (v16.1, user 5: the Disc key itself, not the whole row)
-check('phone, two lit areas: the Disc key lit whole and clear of the sheet, the sheet on top', g.lit && g.lit.holes.length === 2 && ['l', 't', 'r', 'b'].every((k) => Math.abs(g.lit.holes[0][k] - g.disc[k]) <= 1) && (g.bottom <= g.row.t || g.top >= g.row.b) && g.cardOnTop, g);
+g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), d = document.querySelector('#tools > .tool[data-tool="disc"]').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, disc: { l: d.left, t: d.top, r: d.right, b: d.bottom }, stripOnTop: !!(top && top.closest('.tour-strip')) }; })()`);
+// (v16.1, user 5: the Disc key itself, not the whole row; v16.4: the strip clear of the tool row and on top)
+check('phone, two lit areas: the Disc key lit whole, the strip clear of the tool row and on top', g.lit && g.lit.holes.length === 2 && ['l', 't', 'r', 'b'].every((k) => Math.abs(g.lit.holes[0][k] - g.disc[k]) <= 1) && (g.bottom <= g.row.t || g.top >= g.row.b) && g.stripOnTop, g);
 await snap('tour-phone-draw-dark');
 // what a phone reads: the panes by their role, touch instead of hover
 const phoneText = [];
 for (const [ch, i] of [['basics', 1], ['basics', 2], ['basics', 3], ['basics', 4], ['analysis', 0], ['analysis', 2]]) {
   await ev(`Tour.start({ chapter: '${ch}', step: ${i} })`); await settle(1300);
-  phoneText.push(await ev(`Tour.current().id + ': ' + document.querySelector('.tour-body').textContent + ' ' + (document.querySelector('.tour-try').hidden ? '' : document.querySelector('.tour-try').textContent)`));
+  phoneText.push(await ev(`Tour.current().id + ': ' + document.querySelector('#tourBody').textContent + ' ' + document.querySelector('#tourLead').textContent`));
 }
 check('phone: no left, right or hover in what the steps say', phoneText.length === 6 && phoneText.every((t) => !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(t)), phoneText);
 check('phone: the preimages step says hold, then slide', phoneText.some((t) => /^preimages: Hold a point/.test(t)), phoneText[2]);
@@ -420,14 +417,14 @@ check('snapshot throws: Basics is refused and no scene is loaded', g === false &
 await ev(`window.__calls.length = 0`);
 await ev(`Tour.start({ chapter: 'keys' })`); await settle(1200);
 check('snapshot throws: a chapter that borrows nothing still runs', (await cur() || {}).id === 'palette' && (await ev('Tour.lit().scenes')) === false);
-await ev(`document.querySelector('.tour-card .btn.primary').focus()`); await key('Escape'); await settle(400);
+await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(400);
 calls = await ev(`__calls.filter((c) => c[0] === 'call').map((c) => c[1] + (c[1] === 'toast' ? ': ' + c[2][0] : ''))`);
 check('snapshot throws: no restore, and the toast does not say "Your work is back"', !calls.some((c) => /^restore|^loadScene/.test(c)) && calls.some((c) => /^toast: The tour stays under/.test(c)) && !calls.some((c) => /work is back/.test(c)), calls);
 // a restore that fails: the backup stays and the toast says how to get the work back
 await open('t13');
 await ev(`Tour.dismissSuggestion(); window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push([k, n, a])); __tourApi.restore = () => false`);
 await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle(1500);
-await ev(`document.querySelector('.tour-card .btn.primary').focus()`); await key('Escape'); await settle(400);
+await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(400);
 calls = await ev(`__calls.filter((c) => c[0] === 'call').map((c) => c[1] + (c[1] === 'toast' ? ': ' + c[2][0] : ''))`);
 const resumed = await ev(`__calls.some((c) => c[0] === 'call' && c[1] === 'sandbox' && c[2][0] === false)`);
 check('a failed restore: the stash is kept, the autosave stays paused, the toast says to reload', !!(await st('cmw-tour-stash:t13')) && !resumed && calls.some((c) => /reload the page/.test(c)) && !calls.some((c) => /work is back/.test(c)), { calls, resumed });

@@ -1,0 +1,8 @@
+== v16.3
+validate -> {"freed":0}
+def after validate {"op":"perp","args":[{"s":"s1","part":0},{"s":"p1"},{"s":"p2"}],"fill":"none","nk":"circle","seg":1,"flip":false}
+kind circle c [ -0.5500000000000003, 3.6500000000000004 ] r 3.5531676008879742 def {"op":"perp","args":[{"s":"s1","part":0},{"s":"p1"},{"s":"p2"}],"fill":"none","nk":"circle","seg":1,"flip":false}
+== v16.2
+validate -> {"freed":1}
+def after validate undefined
+kind arc c undefined r undefined def undefined

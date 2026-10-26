@@ -1,0 +1,101 @@
+{
+ "round": "landscape walls, round 2 fixes (review-pictures.json, review-math.json)",
+ "date": "2026-10-26",
+ "built_in": "work/xvls (src/gl.js only; dist/ rebuilt)",
+ "outputs": "notes/landscape-walls/r2/fix/ (test outputs), notes/landscape-walls/r2/after/ (refreshed pictures)",
+ "root_cause_found_on_the_way": {
+  "what": "All sheets of a map (not a deformation): the first refinement on a page asked for level 4 in every cell and kept it, so the whole mesh was capped to nothing (sqrt z, log log z, z^(1/5) tan 3z: 0 refined cells).",
+  "why": "sheetRefine bound the heights on texture unit 2 and then created its textures with floatTex(), which binds each new texture on the active unit: the level pass read an empty uT1, every cell 'not finite'.",
+  "fix": "The textures are made on unit 15 before the heights are bound (also in landRefine and rfWarmed). The deformation case escaped it because its key changes with t.",
+  "evidence": "fix/cap.out.json: log log z with All sheets now 2.49 M evaluations, uncapped (was 'want 44' in all 9216 cells)."
+ },
+ "findings": [
+  {
+   "id": "pictures-1",
+   "status": "fixed",
+   "change": "Every sheet is tinted, sheet 0 included: OKLab lightness x (1 + s), hue and chroma kept. Two sheets: sheet 0 lighter, sheet 1 darker. Three or more: lighter, darker, unchanged in turn. s = 0.14 at t = 0, falling to 0.04 at t = 1 and for a map's sheets at rest.",
+   "evidence": "fix/tint_gate.out.json (user's case, same frame with the cue off and on; pixels classed by the sign of their change). Step between the sheets at t = 0.05: 20.1 % light, 26.0 % dark (desktop), 19.8 % and 26.2 % (phone 390 x 844), gate >= 8 %. At t = 1, mean shift 3.0 % / 3.7 % desktop, 2.9 % / 3.5 % phone, limit 5 %. Pictures: after/cue-t{0.05,0.2,1}-{none,tint}-{light,dark}[-phone].png."
+  },
+  {
+   "id": "pictures-2",
+   "status": "fixed (at the root: math-1)",
+   "change": "No change of its own. The zigzag was the capped refinement: the user's case at rest was drawn at a level 2 cap, so the strips' chord error was ~4 px, and a contour of F at the fragment's exact z was drawn on facets off the true height. With the refinement complete at rest (math-1), the facets are within the 0.25 px target.",
+   "evidence": "fix/wall-contour-after-fix.png (the reviewer's crop of after/sinsqrt-t0.2-im-sheets-{light,dark}.png, 4x): the Im H = 0 line on the left wall is straight. The 0.5 px line-fit check was not added to landscape_walls_cmd (time box)."
+  },
+  {
+   "id": "pictures-3",
+   "status": "open (not settled numerically)",
+   "change": "None.",
+   "evidence": "after/loglog-im-sheets-light.png still shows the ribbon over the top plate and the pin between lower plates. By the geometry it is real: on the sheets of the inner log's principal branch, Im log log z = arg(log z) winds by 2 pi around z = 1, the spacing between consecutive plates, so each plate is a helicoid joined to the next one there. The reviewer's numeric check (sample Im log log z per sheet on a small circle around z = 1, look for refined edges whose ends lie on different sheets) was not run."
+  },
+  {
+   "id": "pictures-4",
+   "status": "not done (time box)",
+   "change": "None. The crest near an essential singularity stays a comb where the walls are narrower than the 16 sub-cell cap.",
+   "evidence": "after/exp-inv-*.png."
+  },
+  {
+   "id": "pictures-5",
+   "status": "fixed by pictures-1 (not checked in a picture)",
+   "change": "Three sheets now take three different shades (lighter, darker, unchanged), so nearly coincident plates differ. The crop of log(z^3), power bracketed, at t = 0.05 was not re-taken.",
+   "evidence": "Shader: LAND_FS, uCueK >= 3."
+  },
+  {
+   "id": "pictures-6",
+   "status": "no action (info)",
+   "change": "None.",
+   "evidence": "Re-checked in passing: after/sec-re-*.png, after/tan-*.png."
+  },
+  {
+   "id": "math-1",
+   "status": "fixed",
+   "change": "(1) Over the budget every cell drops by the same d levels (the chord error grows by the same 4^d everywhere), not a top cap. (2) All sheets at rest is built over several frames, at most 3 M evaluations each and 18 M in all, into a second set of textures that is swapped in when complete. The mesh drawn meanwhile is kept while it is of the same heights. (3) The level bug above.",
+   "evidence": "fix/cap.out.json at rest, 1440 x 900: user's case with All sheets capped = false at the default mesh (13.1 M) and at Max (17.2 M); principal user's case, tan z Re and log log z (All sheets) uncapped; z^(1/5) tan 3z with All sheets needs 38 M / 75 M and drops 1 / 2 levels (it had 0 refined cells). No frame over 34 ms during the progressive build (default and Max).",
+   "cost": "At rest the user's case with All sheets now holds ~70 MB (default) to ~90 MB (Max) of refined texture (128 bytes per sub-cell and sheet), against ~24 MB capped before; briefly twice that during a swap."
+  },
+  {
+   "id": "math-2",
+   "status": "fixed at the cause named by the review (the second stall itself not reproduced here)",
+   "change": "(1) The surface's chain programs (landTF, land, floor; and landSheetTF with landSheet) start compiling together and finish linking together (groupDone): their first draws now fall in one frame, as in the base. (2) The principal 'land' fragment stage is back to the base's: no HEIGHT, no contour fade, no uVW branch. The fade stays in landR and the sheets' program.",
+   "evidence": "fix/cold.out.json, 6 + 6 alternating cold opens: landTF, landNrm, floor and land first used at the same millisecond in every build run (round 2: landTF@162, land@861). Longest main-thread gap 0 to 142 ms (base 0). First surface 100 to 486 ms (base 120 to 270). This machine had no other GPU load at the time, so neither build stalled near a second; the review's 0.85 to 1.1 s second stall was measured under shared-GPU load and was not reproduced either way."
+  },
+  {
+   "id": "math-3",
+   "status": "fixed",
+   "change": "(1) Levels are never read synchronously while moving: the fenced read of an earlier key stands in (a frame or two late). A cell that now holds a real jump counts as level 0 in every program (REFINE lvAt reads the current edges), so stale levels never draw across a cut and neighbours meet its base edges. (2) Over 256 cells the moving levels come from the base heights (no chain evaluation). (3) The moving budget falls with (256 / cells)^2: at Max the base passes fill the frame, and with more work the GPU fell behind and each read waited for it (measured: getBufferSubData 25 to 48 ms). (4) All sheets over 256 cells: base mesh while moving, refined at rest.",
+   "evidence": "fix/perf_desktop.out.json and fix/perf_allsheets_max.out.json, 1440 x 900, playing the user's case. Max, principal: 60.1 fps, p95 19.7 (base 60.0, 18.2; round 2 38 to 57 fps). Max, All sheets: 60.0 fps, p95 18.0 (base 56.1, 19.4). Default mesh: 60 fps, p95 17.7 / 18.0. Orbiting tan z Re: 60 fps, p95 18.0 (Max) and 17.6 (default). A rejected variant (sheets' moving levels from corner slopes): fix/perf_allsheets_max_rejected_variant.out.json. Phone BUDGET60 not re-measured."
+  },
+  {
+   "id": "math-4",
+   "status": "fixed (one part left)",
+   "change": "The level lattice runs in strips of whole cells, each under ~8 MB (was the whole (4M+1)^2 texture, 67 MB at Max, with the scratch buffer growing to match). A dropped mesh frees its refinement textures, read-back buffer and fence (rfFree, also for the sheets' second set). A context restore resets rfWarmAll, rfWarmT, rfWarmTex, rdBuf. The level passes write into a texture of their own, so the drawn mesh's levels are never overwritten while a read is pending.",
+   "left": "ptsTex / evTex are still sized per group (largest measured ~9.5 MB, tan z Re at Max); the scratch buffer still never shrinks, but its largest user is now the sheets' base pass (pre-existing)."
+  },
+  {
+   "id": "math-5",
+   "status": "fixed",
+   "change": "At rest, and in figures, films and exports, the scale is the camera's at the block's nearest point when that is nearer than the fitted distance (a finished zoom or orbit rebuilds once). While moving the fitted scale stands, and a mesh built at rest for the same heights is kept, so orbiting and zooming never rebuild.",
+   "evidence": "fix/cap.out.json: needs at rest rose with the scale (tan z Re 1.05 M -> 1.32 M at the default view). Orbit at 60 fps (perf above)."
+  },
+  {
+   "id": "math-6",
+   "status": "not done (time box)",
+   "change": "None. Cut cells stay at level 0 and their refined neighbours keep the base chord on the shared side.",
+   "evidence": "Code as described in the review."
+  },
+  {
+   "id": "math-7",
+   "status": "not done (time box)",
+   "change": "None, beyond the level bug above, which affected All sheets' refinement of maps.",
+   "evidence": "The hole and curtain check on GLR.landRefine(true).sheets was not written."
+  }
+ ],
+ "tests": {
+  "landscape_walls_cmd mesh (port 9814 copy)": "fix/landscape_walls_mesh.out.json: 48 rows (12 cases, desktop and phone, light and dark): 0 holes, 0 curtains, 0 refined curtains, 0 dropped. One flag, round 1's known one: z^i Im on the phone, 1 edge split.",
+  "node test/t_*.js": "35 of 35 pass.",
+  "quality suite": "test/regress/quality/run.sh --no-build: 81 runs, 0 failed, 28 improved, 35 unchanged, 18 NEW; targets 259 met, 0 not met; RESULT: PASS (fix/quality_suite.txt). Baselines, accepted.json and goldens untouched.",
+  "i18n": "No new strings. make_ru_table.py --strict: unresolved 0. The script rewrote src/i18n_ru.js and tools/ru_report.json; both were put back (i18n_ru.js byte-identical to the round 1 snapshot, as before this pass; ru_report.json restored from the round 1 snapshot).",
+  "not re-run": "speckle and cold parts of landscape_walls_cmd as a whole (cold re-run separately), sheets_deform_cmd, export_cmd, deform_*_cmd, mv_views_cmd, glsl suites, phone BUDGET60, Android hardware."
+ },
+ "after_pictures": "after/ refreshed by the round's own commands (r2_after_before_cmd, r2_after_motion_cmd, r2_phone_cmd, port-fixed copies in test/r2fix_cdp/run/) plus the cue pictures from the tint gate. filmstrip-*.png and cue-t0.03-* / cue-t0.2-*-colour-* are round 2's, not refreshed."
+}

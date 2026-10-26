@@ -1,0 +1,17 @@
+disc model: worst end distance 1.1e-15 | interior samples outside 0 | arcs through P and Q 2000 / 2000
+diameter: K line true ends [
+  [ -0.832050294337844, -0.554700196225229 ],
+  [ 0.832050294337844, 0.554700196225229 ]
+] mid [ 0.26163772125327783, 0.17442514750218524 ]
+diameter, outside: samples [
+  [ 0.9436, 0.6291 ],
+  [ 1.337, 0.8912 ],
+  [ 2.646, 1.764 ],
+  [ -10.68, -7.121 ],
+  [ -1.332, -0.8879 ]
+]
+vertical: K line true ends [ [ 1, 0 ], 'inf' ] t=0.5 [ 1, 1.414213562373095 ]
+disc, P across the diameter through Q: glider step 3.77e-4 | end step (chordal) 2.00e-3 (point step 1.8e-4 / 1e-4)
+half-plane, Q across the vertical through P: glider step 2.60e-4 | end step (chordal) 6.75e-5 (point step 1.8e-4 / 1e-4)
+P across C (r 0.9 .. 1.1): bad frames 0
+8 passed, 0 failed

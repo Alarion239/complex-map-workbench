@@ -1,0 +1,51 @@
+{
+ "pics": [],
+ "gaps": [
+  {
+   "page": "base.html",
+   "frames": 238,
+   "gaps": "0@68"
+  },
+  {
+   "page": "test.html",
+   "frames": 241,
+   "gaps": ""
+  },
+  {
+   "page": "test.html",
+   "frames": 241,
+   "gaps": ""
+  },
+  {
+   "page": "base.html",
+   "frames": 242,
+   "gaps": ""
+  }
+ ],
+ "warn": [
+  {
+   "page": "test.html",
+   "f": "\\sin\\sqrt{z^2+1715}",
+   "Tend": 1.9110107421875,
+   "nLogs": 0,
+   "first": [],
+   "gaps": "3664@65 8231@64 8430@62"
+  },
+  {
+   "page": "base.html",
+   "f": "\\sin\\sqrt{z^2+1722}",
+   "Tend": 1.8896887053671865,
+   "nLogs": 0,
+   "first": [],
+   "gaps": ""
+  },
+  {
+   "page": "test.html",
+   "f": "\\sin\\sqrt{z^2+1729}",
+   "Tend": 1.9007310459345699,
+   "nLogs": 0,
+   "first": [],
+   "gaps": ""
+  }
+ ]
+}

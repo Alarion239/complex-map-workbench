@@ -9,7 +9,9 @@ see what they do:
   per pixel by running the chain backwards through every branch (z^i of the upper half-plane is the exact annulus
   e^−π < |w| < 1; log of the half-plane reaches the window edges at any zoom), with a sphere-mesh fallback for maps
   that cannot be inverted.
-- **Phase** and **Landscape**: full-width phase portraits and 3D landscapes of the chain.
+- **Phase** and **Landscape**: full-width phase portraits and 3D landscapes of the chain. Landscape walls stay
+  closed wherever |F| is continuous, however steep, and break only at real discontinuities (cuts and sheet seams);
+  All sheets tints each sheet so you can tell them apart.
 - **The function chain**: each step is a card with a picture that follows the open view; the **Inspector** edits the
   selected step (with large Add zero / Add pole buttons for a zeros-and-poles step), and the **F** tile holds the
   formula of F, its guarantees and its domain. Right-click a plane (or hold on a phone) for "Add zero here" and more.
@@ -25,7 +27,8 @@ see what they do:
   last, so you can watch f(z) become f(√z) (a pullback) or push an image you already have forward.
 - **Zeros and poles**: a step a·∏(z − z_k)/∏(z − p_j) whose zeros (dots) and poles (crosses) you drag in the plane.
 - **Constructions**: circles through 3 points, lines through 2, intersections, midpoints, bisectors, circles
-  perpendicular to a line or circle (hyperbolic lines in the disk and half-plane) and touching circles and tangents, built from any
+  perpendicular to a line or circle (hyperbolic lines in the disk and half-plane; "Inside" keeps only the arc inside the
+  circle) and touching circles and tangents, built from any
   point on the page (points, shape corners, zeros and poles, crossings of curves); they follow what they are built on.
 - Equation curves (`Re z = 0`, `|z − 1| = 2`, …), targets and their preimages, integrals along closed curves, and
   guarantees (analytic, injective, …) that are only lit when they are proven.
@@ -37,7 +40,9 @@ see what they do:
   phase lines (a rising scale round a zero, a falling one round a pole; the low Ds count the winding number), also
   while the deformation plays; a closed curve sings its winding number as one note. The example "In the Hall of the Mountain King"
   plays Grieg's theme (public domain) along one spiral under z^(−2+24i).
-- **Guided tour** from the Help button, suggested once on first opening.
+- **Guided tour** from the Help button, suggested once on first opening: a docked strip that never covers the
+  planes, lights the exact control each step needs and moves on by itself about 3 s after you do the task. A chapter
+  plays the Grieg example and explains how a curve becomes a melody.
 - **Russian**: the interface follows the browser's language (or the globe button), with Russian notation
   (tg, sh, ch, …) and Russian figure captions.
 

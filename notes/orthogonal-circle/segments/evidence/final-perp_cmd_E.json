@@ -1,0 +1,12 @@
+{
+ "pass": true,
+ "checks": 5,
+ "fails": [],
+ "info": {
+  "capC": "(a) The circle $|z|=1$, the point $z_{0}=0.3+0.2i$, the point $z_{1}=-0.6+0.5i$, and the circle through $z_{0}$ and $z_{1}$ perpendicular to the circle $|z|=1$ in the $z$-plane. (b) Their images under $F$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\frac{1}{z}. \\]\\fi",
+  "capCru": "\\textit{а}~--- окружность $|z|=1$, точка $z_{0}=0{,}3+0{,}2i$, точка $z_{1}=-0{,}6+0{,}5i$ и~окружность, проходящая через $z_{0}$ и~$z_{1}$ и~ортогональная окружности $|z|=1$ в~плоскости~$z$; \\textit{б}~--- образы при отображении $F$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\frac{1}{z}. \\]\\fi",
+  "capL": "(a) A polygon with 3 vertices, the point $z_{0}=0.3+0.2i$, the point $z_{1}=-0.6+0.5i$, and the circle through $z_{0}$ and $z_{1}$ perpendicular to the line through $-1-i$ and $1-i$ in the $z$-plane. (b) Their images under $F$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\frac{1}{z}. \\]\\fi Regions are shaded by a checkerboard of squares of side $0.2$ in the $z$-plane, carried by the map.",
+  "capLru": "\\textit{а}~--- многоугольник с~3 вершинами, точка $z_{0}=0{,}3+0{,}2i$, точка $z_{1}=-0{,}6+0{,}5i$ и~окружность, проходящая через $z_{0}$ и~$z_{1}$ и~ортогональная прямой через точки $-1-i$ и~$1-i$ в~плоскости~$z$; \\textit{б}~--- образы при отображении $F$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\frac{1}{z}. \\]\\fi Области раскрашены шахматной раскраской плоскости $z$ (квадраты со стороной $0{,}2$), перенесённой отображением.",
+  "errs": []
+ }
+}

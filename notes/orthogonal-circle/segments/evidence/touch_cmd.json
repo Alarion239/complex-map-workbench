@@ -1,0 +1,703 @@
+{
+ "pass": true,
+ "checks": 90,
+ "fails": [],
+ "info": {
+  "tile": {
+   "tip": "Touching circle",
+   "desc": "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.",
+   "label": "Touching",
+   "w": 58,
+   "sw": 58,
+   "h": 16,
+   "lh": 16,
+   "btn": 53.5,
+   "bottom": -5
+  },
+  "ringT": {
+   "side": "L",
+   "z": [
+    1,
+    0
+   ],
+   "ref": null,
+   "cls": "curve",
+   "chip": "on the unit circle",
+   "warn": false
+  },
+  "K1": {
+   "id": "s53",
+   "kind": "circle",
+   "def": {
+    "op": "touch",
+    "args": [
+     {
+      "s": "s50",
+      "part": 0
+     },
+     {
+      "s": "s51"
+     },
+     {
+      "s": "s52"
+     }
+    ],
+    "fill": "none",
+    "nk": "circle",
+    "flip": true
+   },
+   "ci": 2,
+   "C": {
+    "id": "s50",
+    "kind": "circle",
+    "ci": 1,
+    "visible": true,
+    "c": [
+     0,
+     0
+    ],
+    "r": 1,
+    "fixed": "unit",
+    "inf": false,
+    "A": null
+   },
+   "T": {
+    "id": "s51",
+    "kind": "point",
+    "ci": 1,
+    "visible": true,
+    "p": [
+     1,
+     0
+    ],
+    "def": {
+     "op": "glider",
+     "args": [
+      {
+       "s": "s50",
+       "part": 0
+      }
+     ]
+    },
+    "t": 0,
+    "inf": false,
+    "A": null
+   },
+   "P": [
+    2,
+    1
+   ]
+  },
+  "rowK1": "through z₁, touching Circle 1 at z₀",
+  "restK1": {
+   "g": "0",
+   "inc": "0",
+   "tchIsC": true
+  },
+  "drags": {
+   "T": {
+    "und": 0,
+    "flips": 0,
+    "g": "2.5e-17",
+    "inc": "1.4e-16",
+    "n": 20,
+    "line": false
+   },
+   "tAfter": [
+    0.9999999949902296,
+    -0.00010009765574909889
+   ],
+   "P": {
+    "und": 0,
+    "flips": 0,
+    "g": "0",
+    "inc": "7.7e-17",
+    "n": 20,
+    "line": false
+   },
+   "pAfter": [
+    0.2,
+    0.3
+   ],
+   "L": {
+    "und": 0,
+    "flips": 0,
+    "g": "0",
+    "inc": "6.4e-17",
+    "n": 20,
+    "line": false
+   },
+   "pAfterL": [
+    0.4,
+    1.2
+   ]
+  },
+  "hintRing": {
+   "side": "L",
+   "z": [
+    1,
+    -1.3
+   ],
+   "ref": {
+    "inf": 1
+   },
+   "cls": "hint",
+   "chip": "on the tangent at z₀",
+   "warn": false
+  },
+  "rowKT": "the tangent to Circle 1 at z₀",
+  "rings": [
+   {
+    "k": 0,
+    "tp": [
+     0.49999999999999933,
+     -0.866025403784439
+    ]
+   },
+   {
+    "k": 1,
+    "tp": [
+     0.49999999999999933,
+     0.866025403784439
+    ]
+   }
+  ],
+  "ringRing": {
+   "side": "L",
+   "z": [
+    0.49999999999999933,
+    0.866025403784439
+   ],
+   "ref": null,
+   "cls": "ring",
+   "chip": "on a tangent from z₂",
+   "warn": false
+  },
+  "tangent": {
+   "L2": {
+    "op": "tangent",
+    "args": [
+     {
+      "s": "s50",
+      "part": 0
+     },
+     {
+      "s": "s55"
+     }
+    ],
+    "index": 1,
+    "fill": "none",
+    "flip": false
+   },
+   "M2": {
+    "op": "meet",
+    "args": [
+     {
+      "s": "s56",
+      "part": 0
+     },
+     {
+      "s": "s50",
+      "part": 0
+     }
+    ],
+    "index": 0
+   },
+   "p": [
+    0.49999999999999933,
+    0.866025403784439
+   ],
+   "tp": [
+    0.49999999999999933,
+    0.866025403784439
+   ],
+   "row": "Line 2 ∩ Circle 1, where they touch",
+   "rowL": "tangent to Circle 1 at z₃, through z₂"
+  },
+  "meetMenu": [
+   "Make free",
+   "Duplicate",
+   "Color",
+   "Bring forward",
+   "Send backward",
+   "Clear shapes",
+   "Delete⌫"
+  ],
+  "meetRing": {
+   "side": "L",
+   "z": [
+    1,
+    0
+   ],
+   "ref": {
+    "meet": [
+     {
+      "s": "s50",
+      "part": 0
+     },
+     {
+      "s": "s53",
+      "part": 0
+     }
+    ],
+    "index": 0
+   },
+   "cls": "cross",
+   "chip": "on Circle 1 ∩ Circle 2",
+   "warn": false
+  },
+  "meet": {
+   "n": 1,
+   "def": {
+    "op": "meet",
+    "args": [
+     {
+      "s": "s53",
+      "part": 0
+     },
+     {
+      "s": "s50",
+      "part": 0
+     }
+    ],
+    "index": 0
+   },
+   "p": [
+    1,
+    0
+   ],
+   "row": "Circle 2 ∩ Circle 1, where they touch"
+  },
+  "inside": {
+   "und": {
+    "code": "inside",
+    "args": {}
+   },
+   "row": "The point is inside the circle, so no line through it touches the circle",
+   "p": [
+    0.5,
+    0
+   ]
+  },
+  "planeMenu": [
+   "∮∮ F dz around Circle 1",
+   "Select Circle 1",
+   "Hide Circle 1",
+   "Delete Circle 1",
+   "Add a zeros-and-poles step with a zero here",
+   "Add point here",
+   "Point on this curve",
+   "Perpendicular circle…",
+   "Touching circle…",
+   "Make free",
+   "Copy coordinates",
+   "Center view here"
+  ],
+  "rowMenuK": [
+   "Region",
+   "Make free",
+   "Integrate F along it",
+   "Duplicate",
+   "Color",
+   "Bring forward",
+   "Send backward",
+   "Clear shapes",
+   "Delete⌫"
+  ],
+  "region": {
+   "kind": "disc",
+   "fill": "in",
+   "row": "the disc through z₁, touching Circle 1 at z₀"
+  },
+  "rowMenuL": [
+   "Make free",
+   "Integrate F along it",
+   "Duplicate",
+   "Color",
+   "Bring forward",
+   "Send backward",
+   "Clear shapes",
+   "Delete (and 1 built on it)⌫"
+  ],
+  "delToast": "Deleted Circle 1 and 5 shapes built on it.",
+  "Bkinds": [
+   "bc:circle",
+   "bt:point",
+   "bp:point",
+   "bq:point",
+   "bk:circle",
+   "bl:line",
+   "bd:disc",
+   "bo:disc/out",
+   "bn:line",
+   "ba:line",
+   "bm:point"
+  ],
+  "linkLen": 958,
+  "v162": {
+   "old": [
+    {
+     "id": "bk",
+     "kind": "circle",
+     "def": null,
+     "c": [
+      2,
+      0
+     ],
+     "r": 1
+    },
+    {
+     "id": "bl",
+     "kind": "line",
+     "def": null,
+     "a": [
+      1,
+      0
+     ],
+     "b": [
+      1,
+      1
+     ]
+    },
+    {
+     "id": "bd",
+     "kind": "disc",
+     "def": null,
+     "c": [
+      2,
+      0
+     ],
+     "r": 1
+    },
+    {
+     "id": "bo",
+     "kind": "disc",
+     "def": null,
+     "c": [
+      2,
+      0
+     ],
+     "r": 1
+    },
+    {
+     "id": "bn",
+     "kind": "line",
+     "def": null,
+     "a": [
+      1,
+      0
+     ],
+     "b": [
+      1,
+      1
+     ]
+    },
+    {
+     "id": "ba",
+     "kind": "line",
+     "def": null,
+     "a": [
+      2,
+      1
+     ],
+     "b": [
+      1,
+      1
+     ]
+    },
+    {
+     "id": "bm",
+     "kind": "point",
+     "def": {
+      "op": "meet",
+      "args": [
+       {
+        "s": "ba",
+        "part": 0
+       },
+       {
+        "s": "bc",
+        "part": 0
+       }
+      ],
+      "index": 0
+     },
+     "p": [
+      0,
+      1
+     ]
+    }
+   ],
+   "ev162": {
+    "freed": 0,
+    "events": []
+   },
+   "toasts": [
+    "Opened the figure from the link.Undo"
+   ]
+  },
+  "ruTile": {
+   "label": "Касание",
+   "w": 58,
+   "sw": 58,
+   "h": 11,
+   "lh": 11,
+   "tip": "Касающаяся окружность",
+   "bw": 53.5,
+   "bottom": -17
+  },
+  "ruChips": [
+   "Выберите прямую или окружность · Касание · Esc — отмена",
+   "Точка 1 из 2 · Касание · Esc — отмена",
+   "Точка 2 из 2 или касательная · Касание · Esc — отмена",
+   "Точка касания на кривой: Окружность 1 или кольцо — касательная · Касание · Esc — отмена"
+  ],
+  "ruHint": "привязка: касательная в точке z₀",
+  "ruRow": "через z₁, касается кривой: Окружность 1; точка касания — z₀",
+  "ruRing": "привязка: касательная из z₂",
+  "ruRows": {
+   "K": "через z₁, касается кривой: Окружность 1; точка касания — z₀",
+   "L": "касательная к кривой: Окружность 1 в точке z₃, через z₂",
+   "M": "Прямая 1 ∩ Окружность 1, точка касания"
+  },
+  "ruReason": "Точка внутри окружности, поэтому ни одна прямая через неё не касается окружности",
+  "capRu": "\\textit{а}~--- окружность $|z|=1$, точка $z_{0}=1$ окружности $|z|=1$, точка $z_{1}=2+i$, точка $z_{2}=1+2i$, окружность, проходящая через $z_{1}$ и~касающаяся окружности $|z|=1$ в~точке $z_{0}$, прямая, проходящая через $z_{2}$ и~касающаяся окружности $|z|=1$ в~точке $z_{0}$, круг, ограниченный окружностью, проходящей через $z_{1}$ и~касающейся окружности $|z|=1$ в~точке $z_{0}$, внешность окружности, проходящей через $z_{1}$ и~касающейся окружности $|z|=1$ в~точке $z_{0}$, касательная к~окружности $|z|=1$ в~точке $z_{0}$, касательная к~окружности $|z|=1$, проходящая через $z_{1}$ и~точка пересечения $z_{3}=i$ касательной к~окружности $|z|=1$, проходящей через $z_{1}$ и~окружности $|z|=1$ в~плоскости~$z$; \\textit{б}~--- образы при отображении $F$, где\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\frac{1}{z}. \\]\\fi Области раскрашены шахматной раскраской плоскости $z$ (квадраты со стороной $0{,}2$), перенесённой отображением.",
+  "darkBg": "rgb(18, 25, 30)",
+  "layout1024": {
+   "rail": true,
+   "grid": false,
+   "over": false,
+   "tight1": true,
+   "tight2": true,
+   "tight3": true,
+   "perp": true,
+   "touch": true,
+   "gridHidden": true
+  },
+  "layout768": {
+   "rail": true,
+   "grid": false,
+   "over": false,
+   "tight1": false,
+   "tight2": false,
+   "tight3": false,
+   "perp": true,
+   "touch": true,
+   "gridHidden": false
+  },
+  "phTiles": [
+   "select",
+   "point",
+   "segment",
+   "line",
+   "ray",
+   "circle",
+   "arc",
+   "curve",
+   "disc",
+   "rect",
+   "polygon",
+   "lasso",
+   "halfplane",
+   "annulus",
+   "sector",
+   "formula",
+   "cgrid",
+   "pgrid",
+   "#Construct",
+   "circle3",
+   "meet",
+   "midpoint",
+   "bisector",
+   "perp",
+   "touch"
+  ],
+  "phTile": {
+   "text": "Touching",
+   "sw": 46,
+   "w": 46,
+   "h": 12,
+   "lh": 12
+  },
+  "phChip": "Point 2 of 2, or the tangent · Touching×",
+  "phTileRu": {
+   "text": "Касание",
+   "sw": 45,
+   "w": 45,
+   "h": 12,
+   "lh": 12
+  },
+  "phChipRu": "Точка касания на кривой: Окружность 1 или кольцо — касательная · Касание×",
+  "capEn": "(a) The circle $|z|=1$, the point $z_{0}=1$ on the circle $|z|=1$, the point $z_{1}=2+i$, the point $z_{2}=1+2i$, the circle through $z_{1}$ touching the circle $|z|=1$ at $z_{0}$, the line through $z_{2}$ touching the circle $|z|=1$ at $z_{0}$, the disc bounded by the circle through $z_{1}$ touching the circle $|z|=1$ at $z_{0}$, the outside of the circle through $z_{1}$ touching the circle $|z|=1$ at $z_{0}$, the tangent to the circle $|z|=1$ at $z_{0}$, the tangent to the circle $|z|=1$ through $z_{1}$, and the intersection $z_{3}=i$ of the tangent to the circle $|z|=1$ through $z_{1}$ and the circle $|z|=1$ in the $z$-plane. (b) Their images under $F$, where\\ifinner\\hskip\\hsize\\else\\[ \\displaystyle F(z)=\\frac{1}{z}. \\]\\fi Regions are shaded by a checkerboard of squares of side $0.2$ in the $z$-plane, carried by the map.",
+  "perf": {
+   "T": {
+    "work_p95": 11.4,
+    "work_max": 25.5,
+    "delta_p50": 16.7,
+    "delta_p95": 16.8,
+    "move_p95": 0.2,
+    "n": 94,
+    "moved": true,
+    "worst": "7.3e-17",
+    "und": 0,
+    "follows": true,
+    "runs": [
+     [
+      12.5,
+      16.8,
+      0.2
+     ],
+     [
+      11.4,
+      16.8,
+      0.2
+     ]
+    ]
+   },
+   "P": {
+    "work_p95": 4.3,
+    "work_max": 14.1,
+    "delta_p50": 16.7,
+    "delta_p95": 16.7,
+    "move_p95": 2.1,
+    "n": 101,
+    "moved": true,
+    "worst": "1.0e-16",
+    "und": 0,
+    "follows": true,
+    "runs": [
+     [
+      4.3,
+      16.7,
+      2.1
+     ],
+     [
+      4.8,
+      16.7,
+      2.4
+     ]
+    ]
+   }
+  },
+  "perfHover": {
+   "hint": {
+    "work_p95": 1.1,
+    "work_max": 1.4,
+    "delta_p50": 16.7,
+    "delta_p95": 16.7,
+    "move_p95": 1.4,
+    "n": 78
+   },
+   "rings": {
+    "work_p95": 0.9,
+    "work_max": 1.3,
+    "delta_p50": 16.7,
+    "delta_p95": 16.8,
+    "move_p95": 1.1,
+    "n": 79
+   },
+   "nRings": 2,
+   "runs": [
+    {
+     "hint": {
+      "work_p95": 1.1,
+      "work_max": 1.4,
+      "delta_p50": 16.7,
+      "delta_p95": 16.7,
+      "move_p95": 1.4,
+      "n": 78
+     },
+     "rings": {
+      "work_p95": 0.9,
+      "work_max": 1.3,
+      "delta_p50": 16.7,
+      "delta_p95": 16.8,
+      "move_p95": 1.1,
+      "n": 79
+     },
+     "nRings": 2
+    },
+    {
+     "hint": {
+      "work_p95": 0.9,
+      "work_max": 1.3,
+      "delta_p50": 16.7,
+      "delta_p95": 16.8,
+      "move_p95": 1.2,
+      "n": 77
+     },
+     "rings": {
+      "work_p95": 1.2,
+      "work_max": 1.4,
+      "delta_p50": 16.7,
+      "delta_p95": 16.8,
+      "move_p95": 0.8,
+      "n": 78
+     },
+     "nRings": 2
+    }
+   ]
+  },
+  "yK": {
+   "def": {
+    "op": "touch",
+    "args": [
+     {
+      "s": "tc",
+      "part": 0
+     },
+     {
+      "s": "s50"
+     },
+     {
+      "img": "g0"
+     }
+    ],
+    "fill": "none",
+    "nk": "circle",
+    "flip": false
+   },
+   "d": {
+    "tool": "touch",
+    "side": "R",
+    "picks": [
+     {
+      "cls": "point",
+      "z": [
+       -2.5,
+       -0.5
+      ],
+      "ref": {
+       "img": "g0"
+      },
+      "role": "P"
+     }
+    ],
+    "curve1": {
+     "s": "tc",
+     "part": 0
+    },
+    "hoverT": null,
+    "rings": [
+     {
+      "k": 0,
+      "tp": [
+       -0.7434371626495053,
+       1.110741133279701
+      ]
+     },
+     {
+      "k": 1,
+      "tp": [
+       -0.13464701732146844,
+       -0.7917280708704124
+      ]
+     }
+    ],
+    "hint": null
+   },
+   "row": "through z₀′, touching Target circle 1 at p"
+  },
+  "errs": []
+ }
+}

@@ -478,9 +478,9 @@ Captions in Russian:
 
 | English | Russian | Note |
 |---|---|---|
-| tour | обзор | «экскурсия» too playful; «тур» an anglicism; «обучение» too school-like for mathematicians. |
+| tour | обучение | (v16.5, UX93 of notes/ux-audit/REPORT.md, approved by the user: «обзор» read as "overview", not a tutorial; it was «обзор» to v16.4.) «экскурсия» too playful; «тур» an anglicism. |
 | chapter | глава | |
-| End the tour | Завершить обзор | |
+| End the tour | Завершить обучение | |
 | Back / Next: <chapter> / Done | Назад / Далее: <глава> / Готово | |
 | New (badge) | Новое | |
 | Help (menu) | Справка | |
@@ -493,7 +493,7 @@ Captions in Russian:
 | More | Ещё | |
 | Examples | Примеры | |
 | Language: Auto · English · Русский | Язык: Авто · English · Русский | Endonyms in both interfaces. Tooltip «Авто — язык системы. Хранится только на этом устройстве.» |
-| Tour suggestion | Предложение пройти обзор | Not «Предложение обзора» (a calque). |
+| Tour suggestion | Предложение пройти обучение | Not «Предложение обучения» (a calque). |
 | Try it (tour task label) | Задание | Avoids two imperatives in a row. |
 | Undo / Redo | Отменить / Повторить | |
 | Close / Done / Cancel | Закрыть / Готово / Отмена | |
@@ -760,7 +760,7 @@ Checked against `parse.js` (longest-prefix match over the names, then single let
 
 - **Phase view name**: «Фаза» chosen. Alternative «Аргумент». Ask a Russian teacher if in doubt; it is one string.
 - **Chips**: Cyrillic letters А Ц Р М ДЛ С И chosen. Alternative: keep A E R P M Pr I (Latin codes with Russian tooltips).
-- **Tour name**: «обзор» chosen. Alternative «экскурсия».
+- **Tour name**: «обучение» (v16.5, UX93; «обзор» until v16.4). Alternative «экскурсия».
 - **Decimal comma in readouts**: chosen on, not yet confirmed by the user. Review i18n-14: readouts show «0,5» while the parser rejects «0,5», so users may type what they see. Either keep the point on screen and use the comma only in captions and LaTeX (turn `decimalComma` off for readouts), or keep the comma and add the parser hint of 2.3. To decide with the user.
 - **Figure units**: centimetres chosen for Russian. Presets for US journals keep inches.
 - **UI font**: needs a decision and a check at 360 px (3.12).

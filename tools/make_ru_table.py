@@ -49,9 +49,16 @@ V161_HERE = {'v161-user5.json'}
 # (v16.3: the Perpendicular circle (work/xv163, notes/orthogonal-circle/SPEC.md 5) writes notes/i18n/ru/v163-constr.json,
 # read after the v16.1 tables; only the tables merged in this tree are listed)
 V163_HERE = {'v163-constr.json'}
+# (v16.4: Inside C only (work/xvhs, notes/orthogonal-circle/segments/SPEC.md 9) writes notes/i18n/ru/v164-segments.json,
+# read after v16.3's; an allow-list, as V161_HERE: other v16.4 rounds' tables are merged with their builds)
+V164_SEG_HERE = {'v164-segments.json'}
+# (v16.4: tour r3, work/xvtr: notes/i18n/ru/v164-tour.json, read after every other table)
+V164_HERE = {'v164-tour.json'}
+# (v16.4: the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
+V164_HELP_HERE = {'v164-help.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "user-1",
+    "severity": "high",
+    "title": "A hyperbolic triangle cannot be drawn: every side runs past its vertices to the circle",
+    "detail": "The user asked for 'the arc inside C (a hyperbolic segment)'. As built, Inside draws the whole geodesic from C to C. Three sides through z0, z1, z2 give three crossing lines with six tails past the vertices, not a triangle. The export shows the same tails. The true segment z0z1 is only listed as an open question (SPEC 12, AS-BUILT 'Open'). So the first thing a user tries with this feature, a hyperbolic triangle, does not work. Everything else in the flow works: the chip, the three sides by mouse and by touch, sharing the vertices, the drag, export.",
+    "evidence": "shots/review-user/ru-tri-done.png (desktop, three Inside sides through z0, z1, z2), ru-exp2z.png (exported figure: six tails), ru-ph3.png (phone). Rows: 'hyperbolic line inside Circle 1, through z0 and z1'.",
+    "fix": "Before v16.4 ships, ask the user the SPEC 12 question, with ru-exp2z.png attached. If the answer is yes, add a third state 'Between z0 and z1': SPEC 2 with ends P and Q instead of K ∩ C, undefined when P and Q are on opposite sides of C. Put it in the chip ([Whole | Inside | Between]), the Inspector and the ⋯ menu. Its rows and captions say 'hyperbolic segment z0z1' («гиперболический отрезок»)."
+  },
+  {
+    "id": "user-2",
+    "severity": "medium",
+    "title": "Russian caption: the participial phrase is never closed by a comma, so the sentence misreads",
+    "detail": "The Russian cap.seg ends in a participial phrase («…, проходящая через $z_1$ и $z_2$»). The list joiner then adds « и гиперболическая прямая …» with no comma. The sentence reads as if the line passes through z1, z2 and another line. The last item runs into «в плоскости $z$» in the same way. Russian requires a comma after a participial phrase (причастный оборот) that ends mid-sentence. This is article text, so it must be right.",
+    "evidence": "LaTeX from the Export figure dialog (lang=ru): «…гиперболическая прямая в~области $|z|<1$, проходящая через $z_{1}$ и~$z_{2}$ и~гиперболическая прямая в~области $|z|<1$, проходящая через $z_{2}$ и~$z_{0}$ в~плоскости~$z$; \\textit{б}~--- …»",
+    "fix": "Close the phrase whenever something follows it: «…, проходящая через $z_1$ и~$z_2$, и~гиперболическая прямая …» and «…, проходящая через $z_2$ и~$z_0$, в~плоскости~$z$». cap.seg_on («…, лежащая на окружности, проходящей через …») needs the same. Add one RU caption check with two seg lines to i18n_cmd or perp_cmd I."
+  },
+  {
+    "id": "user-3",
+    "severity": "low",
+    "title": "English caption repeats 'in the domain |z|<1' on every side and ends '…in the domain |z|<1 in the z-plane'",
+    "detail": "For a triangle the caption says 'in the domain |z|<1' three times. The last item stacks two 'in' phrases: '…the hyperbolic line through z2 and z0 in the domain |z|<1 in the z-plane.' It is correct, but wordy for an article caption.",
+    "evidence": "Export figure LaTeX (en): '(a) The circle $|z|=1$, the point $z_{0}=0.1+0.6i$, …, the hyperbolic line through $z_{0}$ and $z_{1}$ in the domain $|z|<1$, the point $z_{2}=…$, the hyperbolic line through $z_{1}$ and $z_{2}$ in the domain $|z|<1$, and the hyperbolic line through $z_{2}$ and $z_{0}$ in the domain $|z|<1$ in the $z$-plane.'",
+    "fix": "When several seg lines share one C, name the domain once: '…, and the hyperbolic lines through z0 and z1, z1 and z2, and z2 and z0 in the domain |z|<1, in the z-plane.' Or end the item with a comma before 'in the z-plane'. Russian: the same grouping."
+  },
+  {
+    "id": "user-4",
+    "severity": "low",
+    "title": "At 1440 px the chip's Whole | Inside is two unlabelled 16 px icons, so the new option is easy to miss",
+    "detail": "At 1440 px (410 px pane) and below, the chip shows only the icons. The words appear from about 1920 px. At 16 px the Whole icon (an arc with tails over a faint circle) and the Inside icon (a small cap) are hard to tell apart, and Whole's tooltip says only 'Whole'. A user who does not hover never learns that the tool can draw only the inside arc. After C is picked, the chip text shortens to 'Point 1 of 2 · Orthogonal · Esc cancels', and the words would fit.",
+    "evidence": "shots/review-user/ru-a1c.png (1440 chip, zoomed). The .cm-seg class is 'cm-seg cm-icons' at 1440 and 'cm-seg' with 'Whole / Inside' at 1920 and 2560.",
+    "fix": "Choose words or icons from the chip's actual free width after each text change, not from the pane width. Or keep the icons and add a short 'Inside' text label to the pressed button. Optional: give Whole the tooltip 'Whole: the whole circle'."
+  },
+  {
+    "id": "user-5",
+    "severity": "low",
+    "title": "Phone: the chip's Whole | Inside buttons are 28 × 20 px and sit next to the ×",
+    "detail": "On Android Chrome emulation at 390 × 844, each icon button is 28 × 20 px and the two touch each other. This is well under the 48 dp guideline. Precise taps worked, and a tap on Whole's centre switched back to Whole. This copies an existing pattern: the 3-point chip's Curve | Region is also 28 × 20.",
+    "evidence": "shots/review-user/ru-ph2.png. Button rects: Whole x 231.6–259.6, y 102–122; Inside x 259.6–287.6, y 102–122; 3-point chip: Curve 28 × 20, Region 28 × 20, Cancel 28 × 28.",
+    "fix": "On touch (pointer: coarse), extend each segment button's hit area to at least 40 px tall with padding or ::after, keeping the same look. Fix both chips together."
+  },
+  {
+    "id": "user-6",
+    "severity": "low",
+    "title": "With a vertex dragged outside the disc, the row still says 'through z0 and z1'",
+    "detail": "z0 was dragged to 0.35+1.15i. The two sides through z0 are then drawn inside the disc but no longer pass through z0, which is correct (they pass through z0's inverse). Their rows still read 'hyperbolic line inside Circle 1, through z0 and z1'. The caption has an 'on the circle through' variant for this case, but the row does not.",
+    "evidence": "shots/review-user/ru-drag-out.png. Rows after the drag: 'Arc 1 hyperbolic line inside Circle 1, through z₀ and z₁', 'Arc 3 hyperbolic line inside Circle 1, through z₂ and z₀'.",
+    "fix": "Use the caption's off-arc test in the row too: '… inside Circle 1, on the circle through z0 and z1' (RU: «…, на окружности через z₀ и z₁»). Or add a muted 'z0 is outside' note, as other undefined or partial states do."
+  },
+  {
+    "id": "user-7",
+    "severity": "low",
+    "title": "A side switched back to Whole is still called 'Arc 2'",
+    "detail": "This follows SPEC 7.5 (no renaming, so nothing is renumbered). The result is a full circle named 'Arc 2', with the row 'Arc 2 — perpendicular to Circle 1, through z1 and z2'. The name contradicts what is drawn, both in the list and in the Inspector's title.",
+    "evidence": "shots/review-user/ru-whole.png. __cmwCI({names:true}) gives s55: kind circle, name 'Arc 2'.",
+    "fix": "Optional. Name perps by their carrier ('Circle n' / 'Line n') whether the switch is on or off, and let the row's 'hyperbolic line' words say what is drawn. That keeps the no-renumbering rule. Or leave it as is and note it in the guide."
+  },
+  {
+    "id": "user-8",
+    "severity": "low",
+    "title": "Switching one side to Whole zooms Y out to 5/div, and the figure's (b) panel loses its framing",
+    "detail": "Arc 2's whole circle is nearly a line (radius about 10). Switching it to Whole makes Y refit from 1/div to 5/div, so the triangle in Y becomes tiny. Y refits back after Inside. The export made in that state frames (a) as −2.5..2.5 and (b) as −1.5..4, with the disc pushed to the left and F(z1) printed over an arc. This is the existing auto-fit, not new code, but the switch is now a one-click way to trigger it.",
+    "evidence": "shots/review-user/ru-whole.png (w pane at 5/div), ru-exp1z.png (exported panels with Arc 2 whole).",
+    "fix": "Nothing needed for v16.4. Optionally, ignore shapes over 50 window diagonals in Y's auto-fit, as Region's MR_RATIO already does for drawing."
+  },
+  {
+    "id": "user-9",
+    "severity": "low",
+    "title": "Light mode: two sides of the triangle get almost the same colour (ochre and olive)",
+    "detail": "The palette gives Arc 1 rgb(138, 86, 11) and Arc 3 rgb(87, 90, 8). In the light view and in the printed figure, the two sides through z0 are hard to tell apart. Dark mode separates them better (orange and yellow-olive). This is the existing palette order, not new code.",
+    "evidence": "shots/review-user/ru-tri-done.png, pixels on Arc 1 at (482, 330) and Arc 3 at (522, 330). Also ru-exp2z.png.",
+    "fix": "Nothing needed for v16.4. A palette note for later: consecutive curve colours 1 and 3 should differ more in light mode."
+  },
+  {
+    "id": "user-10",
+    "severity": "info",
+    "title": "What works: quick and clear by mouse and touch, EN and RU, light and dark, 60 fps",
+    "detail": "Mouse at 1440: Orthogonal, then Inside, then C, then six clicks give three sides (C stays picked, vertices are reused). The dashed preview shows only the inside arc. Undo removes one side in one step. Clicking the hidden part of a carrier selects nothing. The ⋯ menu ('Region, Other side, Whole circle') and the Inspector (Whole | Inside | Outside) each switch in one click. Phone (390 × 844, Android UA, touch): the tile from More tools, the chip, and the triangle by taps all work. Drags: mouse frame p95 18.1 ms, touch frame p95 17.9 ms, 60 fps. RU strings: the chip «Целиком | Внутри» and its tooltip, the rows «гиперболическая прямая внутри кривой: Окружность 1; через z₀ и z₁», the Inspector «Целиком | Внутри | Снаружи», the menu «Другая сторона», «Окружность целиком». No console errors (only the harness's 404 for its helper page).",
+    "evidence": "shots/review-user/ru-tri-prev2.png, ru-tri-done.png, ru-ru-dark.png, ru-ph3.png, ru-exp2z.png.",
+    "fix": "None."
+  }
+]

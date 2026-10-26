@@ -1,0 +1,71 @@
+{
+ "round": "landscape walls, round 2 after the fixes: independent verification",
+ "date": "2026-10-26",
+ "build": "work/xvls/dist (built 02:26 from src/gl.js 02:06). Base: work/xvsh-snap, built into the scratchpad. Both served on 127.0.0.1:9815 from one folder (symlinks). Headless Chrome with ANGLE Metal, fresh profile, 1440x900 at DPR 1 and a 390x844 phone. One other agent's headless Chrome (xv163) was open but mostly idle.",
+ "how": "Commands and raw outputs are in notes/landscape-walls/r2/review-verify/ (cmd-*.js, *.out.json, crops). The cold-open, perf and cap commands are the builder's own (r2fix_cdp), with base and build alternating.",
+ "still_wrong": [
+  {
+   "id": "verify-1",
+   "severity": "high",
+   "from": "pictures-2 (and round 1 blocker 2, scratches)",
+   "title": "Scratches on steep walls come back while the deformation plays (user's case, default mesh)",
+   "detail": "At rest the Im H = 0 contour on the left wall is now straight in light and dark (sin √z, t = 0.2, All sheets), so pictures-2 is fixed at rest. While the deformation plays it is not. At t ≈ 0.21 to 0.26, the same contour on the left salmon wall turns into a column of short white scratches. The Im H ≈ −0.5 contour on the cyan wall next to it becomes a sawtooth with a spark at its end. This happens with All sheets on and off, in 2 of 2 separate play runs. The likely cause is the moving path: its levels are stale (a frame or two late) or capped, and over 256 cells it uses the base heights. So walls are drawn with coarse chords while the contour is drawn at the exact F. That is the zigzag the ledger traced to the cap, now showing in motion. Playing the deformation is how the user meets this case. The rule is to never trade image quality for speed.",
+   "evidence": "review-verify/play-wall-scratches-t0.24-allsheets-vs-principal-4x.png (left: All sheets at t = 0.236, right: principal at t = 0.256, both playing); play-vs-rest-left-wall-4x.png (left: playing at t = 0.21, right: the same wall at rest at t = 0.2, clean); play-t0.24-allsheets-vs-principal.png (whole pane); rest-t0.2-left-wall-contour-straight-4x.png (rest, light and dark).",
+   "fix": "While moving, draw contours on refined or wall cells only where the facet is within a pixel of the true height. Elsewhere fade the contour out, as round 2 did before the fix, or take its height from the facet. Or keep the levels current while playing, without a synchronous read (they can be computed on the GPU from the same pass). Gate: on the user's frame captured mid-play at t ≈ 0.2, the left-wall contour deviates from a fitted line by at most 0.5 px."
+  },
+  {
+   "id": "verify-2",
+   "severity": "high",
+   "from": "round 1 blocker 1 / math-2",
+   "title": "Cold open with All sheets still splits into two or three stalls, the worst 1.09 s",
+   "detail": "Principal surface (sheets off): fixed. In 5 build runs the longest main-thread gaps were 0, 0, 0, 376 and 393 ms. In 5 base runs they were 0, 0, 0, 209 (+136) and 172 ms. landTF, landNrm, floor and land are first used in the same millisecond. With All sheets on (7 build and 7 base runs, alternating), the principal programs and the sheets' programs are first drawn in different frames, 600 to 700 ms apart. For example, landTF@269 then landSheetTF@985, or landSheetTF@287 then landTF@1037. Each pays its own stall. Longest gap, build: 111, 1089, 415, 707, 535, 0, 0 ms. Base: 879, 612, 204, 633, 531, 162, 0 ms. In the worst pair (log(z²+c)), the build stalled 588 then 1089 ms and first showed the surface at 2069 ms. The base stalled 612 ms once and showed the surface at 1106 ms. A run that started with the sheets' programs (sqrt(z²+c), log(z⁴+c)) had no stall at all. So the ordering, not the shaders, splits the stall. The builder's cold test ran with sheets off only, and AS-BUILT lists the All-sheets cold open as not measured. The user's case uses All sheets.",
+   "evidence": "review-verify/cold-principal-and-allsheets.out.json (10 principal and 4 All-sheets runs), cold-allsheets.out.json (10 All-sheets runs). Each line gives the gaps over 100 ms and the first-use times of each program.",
+   "fix": "With All sheets on, do not draw the principal surface while the sheets' programs compile. Or put both families in one compile and link group, so that every first draw lands in one frame, as in the base. Add All sheets to the cold-open gate: 6 + 6 runs alternating, and the build's longest gap must be no worse than the base's."
+  },
+  {
+   "id": "verify-3",
+   "severity": "medium",
+   "from": "math-3",
+   "title": "BUDGET60: the Max mesh while playing (principal surface) still has p95 about 31 to 44 ms against the base's 17 to 18",
+   "detail": "Desktop 1440x900, sin √z Im, playing, Max mesh, sheets off, 3 runs each. Build: 58.0 / 60.0 / 59.4 fps, p95 44.0 / 34.9 / 30.8 ms, max 49.9 / 42.6 / 46.3. Base: 60 fps, p95 17.3 / 17.3 / 18.3. Phone emulation (390x844, Max, principal, 2 runs): build p95 28.5 / 19.4 against base 18.2 / 18.7. The mean holds 60 fps, but 5 to 10 % of frames take two vsyncs, which is visible stutter. The ledger's own perf_desktop.out.json also has a Max run at p95 42.1 ms (All sheets). What now passes: All sheets at Max plays at 60 fps, p95 17.4 to 18.3, better than the base (45 to 50 fps). The default mesh passes everywhere, desktop and phone, light and dark. Orbiting tan z Re passes at both meshes.",
+   "evidence": "review-verify/perf-desktop.out.json, perf-desktop-max-repeat.out.json, perf-phone.out.json.",
+   "fix": "Profile the Max principal path while playing. The spikes look periodic: perhaps a fenced read landing and the groups being rebuilt (three transform-feedback passes per group) in the same frame. Spread the rebuild over frames or skip it while T changes. Gate the Max mesh while playing at p95 within base +0.5 ms, three runs."
+  },
+  {
+   "id": "verify-4",
+   "severity": "medium",
+   "from": "math-1",
+   "title": "All-sheets refinement is still capped for a heavy map, and Max then refines less than the default mesh",
+   "detail": "The user's case is now uncapped at rest: 13.1 M evaluations at the default mesh, 17.2 M at Max, Lc 4. The principal case, tan z Re and sec z Re are uncapped too. But z^{1/5} tan 3z with All sheets, Re, is capped. At the default mesh it drops 1 level (9.4 M of 38.0 M needed). At Max it drops 2 levels and spends only 4.15 M of the 18 M budget. The uniform drop overshoots by 4x per level, so at Max the walls get 16x the chord error (about 4 px instead of 0.25) and fewer evaluations than at the default mesh. Choosing a finer mesh makes these walls coarser.",
+   "evidence": "review-verify/cap-and-sec.out.json (the cap lines).",
+   "fix": "After the uniform drop, spend what is left of the budget, for example by raising the worst cells back one level until the budget is full. At least never let Max refine less than the default mesh."
+  },
+  {
+   "id": "verify-5",
+   "severity": "low",
+   "from": "pictures-3 / math-7",
+   "title": "log log z with All sheets: the fin above the top plate and the pin between plates are still there, still not settled",
+   "detail": "My render (light and dark) still shows the twisted ribbon over the top plate and a small pin joining two plates near z = 1. The ledger calls it real geometry (the inner log's principal sheet winds around z = 1), but nobody ran the numeric check, and the All-sheets watertight check (math-7) was not written. A fin from mismatched local cuts and real geometry look alike here.",
+   "evidence": "review-verify/tan-re-and-loglog-allsheets.png (right).",
+   "fix": "As in pictures-3 and math-7: sample Im log log z per sheet on a small circle around z = 1, and run the hole and curtain check on GLR.landRefine(true).sheets."
+  },
+  {
+   "id": "verify-6",
+   "severity": "low",
+   "from": "pictures-4, math-6",
+   "title": "Unchanged by design this round: the essential-singularity comb and unrefined cut cells",
+   "detail": "e^{1/z} Re still has a tall, thin multicoloured tower at z = 0 (my crop at default zoom). The comb itself is best seen closer, as in the reviewer's crop. LAND_LV_VS still sets level 0 for any cell with a jump or a non-finite corner (gl.js lines 2057 and 2072), so cut cells keep base chords (math-6). The ledger lists both as not done. Recorded so they are not lost.",
+   "evidence": "review-verify/expinv-re-crest-2x.png; gl.js 2057, 2072.",
+   "fix": "As in pictures-4 and math-6."
+  }
+ ],
+ "checked_and_fixed": [
+  "pictures-1 (tint): the builder's gate re-run on desktop. Step between the sheets at t = 0.05: 20.1 % light, 26.0 % dark (gate ≥ 8 %). At t = 1 the mean shift is 3.0 % / 3.7 % (limit 5 %). Phone not re-run.",
+  "pictures-2 at rest: the left-wall contour is straight in light and dark at DPR 1. DPR 2 was not re-run. Still wrong in motion: verify-1.",
+  "pictures-5: on the log(z³) top plate at t = 0.05 the three wedges now take different shades, so it reads as sheets, not a crack. Thin light slits remain where the plate below shows through.",
+  "Speckles (round 1 blocker 2) at rest: none seen in the user's case at t = 0.2 with All sheets (light and dark, 2x crop), sec z Re (default and Max, light and dark, 3x crop) or tan z Re.",
+  "math-4: no leak found. Live GL textures and buffers stayed at 27 to 28 through 12 s of play, three Max/default mesh switches and four T changes. 40 on the principal surface at Max. About 89 MB at rest for the user's case with All sheets (from texture sizes), 80 MB at Max.",
+  "No console errors or warnings in any run."
+ ],
+ "not_checked": "math-5 (zoom-dependent rebuild), the two cuts on one grid edge, the grey undersides from below, exports with All sheets, DPR 2, Android hardware."
+}

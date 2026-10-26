@@ -1,0 +1,242 @@
+[
+ {
+  "dev": "desk",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 47.5,
+  "p50": 22.9,
+  "p95": 25.8,
+  "max": 26.5
+ },
+ {
+  "dev": "desk",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.1,
+  "max": 27.7
+ },
+ {
+  "dev": "desk",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 52,
+  "p50": 19.7,
+  "p95": 22,
+  "max": 23.8
+ },
+ {
+  "dev": "desk",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.9,
+  "max": 18.8
+ },
+ {
+  "dev": "desk",
+  "b": "base",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.6,
+  "max": 18.7
+ },
+ {
+  "dev": "desk",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.7,
+  "max": 18.2
+ },
+ {
+  "dev": "desk",
+  "b": "base",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.7,
+  "max": 19.4
+ },
+ {
+  "dev": "desk",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.6,
+  "max": 18.1
+ },
+ {
+  "dev": "desk",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 53.9,
+  "p50": 17.7,
+  "p95": 24.5,
+  "max": 33.8
+ },
+ {
+  "dev": "desk",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 18.5,
+  "max": 23.9
+ },
+ {
+  "dev": "desk",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 55.2,
+  "p50": 17.7,
+  "p95": 20.8,
+  "max": 24.6
+ },
+ {
+  "dev": "desk",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 19.2,
+  "max": 28.5
+ },
+ {
+  "dev": "phone",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 50.2,
+  "p50": 19.7,
+  "p95": 23.2,
+  "max": 98.4
+ },
+ {
+  "dev": "phone",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 17.8,
+  "max": 39
+ },
+ {
+  "dev": "phone",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 52,
+  "p50": 19.8,
+  "p95": 23.5,
+  "max": 32
+ },
+ {
+  "dev": "phone",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-play",
+  "fps": 57.7,
+  "p50": 16.6,
+  "p95": 19.5,
+  "max": 88.4
+ },
+ {
+  "dev": "phone",
+  "b": "base",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.8,
+  "max": 18.4
+ },
+ {
+  "dev": "phone",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18,
+  "max": 18.9
+ },
+ {
+  "dev": "phone",
+  "b": "base",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.8,
+  "p95": 18,
+  "max": 18.6
+ },
+ {
+  "dev": "phone",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "tan-re-orbit",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.9,
+  "max": 18.6
+ },
+ {
+  "dev": "phone",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.5,
+  "max": 18.3
+ },
+ {
+  "dev": "phone",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 17.7,
+  "max": 18.4
+ },
+ {
+  "dev": "phone",
+  "b": "base",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 58.2,
+  "p50": 17,
+  "p95": 19.5,
+  "max": 24.8
+ },
+ {
+  "dev": "phone",
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "user-sheets-orbit-t0.2",
+  "fps": 59.6,
+  "p50": 16.7,
+  "p95": 17.8,
+  "max": 36.1
+ }
+]

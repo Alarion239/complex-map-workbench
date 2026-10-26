@@ -1,0 +1,152 @@
+{
+ "_about": "v16.4: Inside C only, a perpendicular circle drawn as the arc on one side of its curve (notes/orthogonal-circle/segments/SPEC.md 9; src/construct.js). id -> {en, ru, note, ctx?}. Built in work/xvhs. Read by tools/make_ru_table.py (V164_SEG_HERE, after the v16.3 table). Terms: «гиперболическая прямая» (the whole geodesic inside C, ends on C), never «отрезок» (a segment has both ends inside C). Review fixes (2026-10-26): 7 entries added (chip.seg_tip_whole, menu.seg_out, row.seg_*_on, row.on_circle, row.on_line); captions close their phrase with a comma in code (app.js pcTidy), no string change.",
+ "side.whole": {
+  "en": "Whole",
+  "ru": "Целиком",
+  "ctx": "side",
+  "note": "Segmented control (chip, Inspector): the whole circle."
+ },
+ "side.in": {
+  "en": "Inside",
+  "ru": "Внутри",
+  "ctx": "side",
+  "note": "Segmented control: the arc inside a circle C."
+ },
+ "side.out": {
+  "en": "Outside",
+  "ru": "Снаружи",
+  "ctx": "side",
+  "note": "Inspector control: the arc outside a circle C."
+ },
+ "side.above": {
+  "en": "Above",
+  "ru": "Выше",
+  "ctx": "side",
+  "note": "Inspector control, a line C."
+ },
+ "side.below": {
+  "en": "Below",
+  "ru": "Ниже",
+  "ctx": "side",
+  "note": "Inspector control, a line C."
+ },
+ "side.left": {
+  "en": "Left",
+  "ru": "Слева",
+  "ctx": "side",
+  "note": "Inspector control, a line C steeper than 45 degrees."
+ },
+ "side.right": {
+  "en": "Right",
+  "ru": "Справа",
+  "ctx": "side",
+  "note": "Inspector control, a line C steeper than 45 degrees."
+ },
+ "chip.seg_group": {
+  "en": "Whole or inside",
+  "ru": "Целиком или внутри",
+  "note": "aria-label of the chip's and the Inspector's control."
+ },
+ "chip.seg_tip": {
+  "en": "Inside: only the arc inside the curve (for a line, on the first point's side)",
+  "ru": "Внутри: только дуга внутри кривой (для прямой — со стороны первой точки)",
+  "note": "Tooltip of the chip's Inside button."
+ },
+ "menu.seg_in": {
+  "en": "Inside {c} only",
+  "ru": "Только внутри кривой: {c}",
+  "note": "Row ⋯ item, a circle C [C26: the name after a colon]."
+ },
+ "menu.seg_side": {
+  "en": "One side of {c} only",
+  "ru": "Только по одну сторону от кривой: {c}",
+  "note": "Row ⋯ item, a line C."
+ },
+ "menu.seg_other": {
+  "en": "Other side",
+  "ru": "Другая сторона",
+  "note": "Row ⋯ item while Inside C only is on."
+ },
+ "menu.seg_whole": {
+  "en": "Whole circle",
+  "ru": "Окружность целиком",
+  "note": "Row ⋯ item: turns Inside C only off."
+ },
+ "row.seg_in": {
+  "en": "hyperbolic line inside {c}, through {a} and {b}",
+  "ru": "гиперболическая прямая внутри кривой: {c}; через {a} и {b}",
+  "note": "Row (short form, the curve first). {a}, {b}: ctx acc."
+ },
+ "row.seg_out": {
+  "en": "hyperbolic line outside {c}, through {a} and {b}",
+  "ru": "гиперболическая прямая вне кривой: {c}; через {a} и {b}",
+  "note": "Row, the outside of a circle C."
+ },
+ "row.seg_side": {
+  "en": "hyperbolic line on one side of {c}, through {a} and {b}",
+  "ru": "гиперболическая прямая по одну сторону от кривой: {c}; через {a} и {b}",
+  "note": "Row, a line C."
+ },
+ "insp.seg_t": {
+  "en": "0 and 1 at its ends on {c}",
+  "ru": "0 и 1 — концы на кривой: {c}",
+  "note": "Inspector: what t means on the arc (no-break space before the dash)."
+ },
+ "cap.seg": {
+  "en": "the hyperbolic line through {a} and {b} in the domain {r}",
+  "ru": "гиперболическая прямая в области {r}, проходящая через {a} и {b}",
+  "note": "Caption. {r}: maths (|z|<1, Im z>0)."
+ },
+ "cap.seg_on": {
+  "en": "the hyperbolic line in the domain {r} on {k}",
+  "ru": "гиперболическая прямая в области {r}, лежащая на {k}",
+  "note": "Caption when P or Q is off the arc. {k}: K's whole caption in the genitive (= prepositional for «окружности, проходящей…», «прямой, проходящей…»)."
+ },
+ "cap.seg.gen": {
+  "en": "the hyperbolic line through {a} and {b} in the domain {r}",
+  "ru": "гиперболической прямой в области {r}, проходящей через {a} и {b}",
+  "ctx": "gen",
+  "note": "Caption, genitive."
+ },
+ "cap.seg_on.gen": {
+  "en": "the hyperbolic line in the domain {r} on {k}",
+  "ru": "гиперболической прямой в области {r}, лежащей на {k}",
+  "ctx": "gen",
+  "note": "Caption, genitive."
+ },
+ "chip.seg_tip_whole": {
+  "en": "Whole: the whole circle",
+  "ru": "Целиком: вся окружность",
+  "note": "Tooltip of the chip's Whole button (review user-4)."
+ },
+ "menu.seg_out": {
+  "en": "Outside {c} only",
+  "ru": "Только вне кривой: {c}",
+  "note": "Row ⋯ item, a circle C drawn as its complement: the switch turns on its region, outside (review math-6) [C26]."
+ },
+ "row.seg_in_on": {
+  "en": "hyperbolic line inside {c}, {k}",
+  "ru": "гиперболическая прямая внутри кривой: {c}; {k}",
+  "note": "Row when P or Q is not strictly inside (review user-6). {k}: row.on_circle or row.on_line."
+ },
+ "row.seg_out_on": {
+  "en": "hyperbolic line outside {c}, {k}",
+  "ru": "гиперболическая прямая вне кривой: {c}; {k}",
+  "note": "Row, the outside of a circle C, P or Q off it."
+ },
+ "row.seg_side_on": {
+  "en": "hyperbolic line on one side of {c}, {k}",
+  "ru": "гиперболическая прямая по одну сторону от кривой: {c}; {k}",
+  "note": "Row, a line C, P or Q off the drawn side."
+ },
+ "row.on_circle": {
+  "en": "on the circle through {a} and {b}",
+  "ru": "на окружности через {a} и {b}",
+  "note": "Row tail {k}: K is a circle; the line passes through neither point."
+ },
+ "row.on_line": {
+  "en": "on the line through {a} and {b}",
+  "ru": "на прямой через {a} и {b}",
+  "note": "Row tail {k}: K is a line."
+ }
+}

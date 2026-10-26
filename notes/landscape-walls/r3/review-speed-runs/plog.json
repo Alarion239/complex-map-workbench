@@ -1,0 +1,22 @@
+[
+ {
+  "shs": false,
+  "gaps": "966@283",
+  "plog": "+landTF@22 +land@22 +floor@22 +landNrm@22 =landNrm@22 =landTF@44 =land@44 =floor@44 +landEdgeS@45 landTF@45 landNrm@45 floor@45 land@45 +mark@45 =mark@45 mark@50 =landEdgeS@53 landEdgeS@966 +landLv@967 =landLv@967 landLv@1247 +landRP@1283 =landRP@1283 landRP@1316 +landRA@1350 =landRA@1350 landRA@1383 +landR@1417 =landR@1417 landR@1449"
+ },
+ {
+  "shs": true,
+  "gaps": "247@203 1580@215",
+  "plog": "+landSheetTF@87 +landSheet@87 +floor@87 =landSheetTF@246 =landSheet@246 =floor@246 landSheetTF@247 floor@247 landSheet@247 +mark@248 =mark@248 mark@448 +landSheetRF@464 =landSheetRF@614 +landTF@866 +land@884 =landTF@902 =land@902 landSheetRF@1530 +landNrm@3199 =landNrm@3199 +landEdgeS@3200 landTF@3200 landNrm@3201 land@3201 =landEdgeS@3218"
+ },
+ {
+  "shs": false,
+  "gaps": "11@103 1068@135",
+  "plog": "+landTF@92 +land@92 +floor@92 +landNrm@92 =landNrm@92 =landTF@124 =land@124 =floor@124 +landEdgeS@124 landTF@124 landNrm@124 floor@125 land@125 +mark@125 =mark@125 mark@132 =landEdgeS@134 landEdgeS@1068 +landLv@1069 =landLv@1069 landLv@1203 +landRP@1234 =landRP@1234 landRP@1268 +landRA@1302 =landRA@1302 landRA@1335 +landR@1368 =landR@1368 landR@1401"
+ },
+ {
+  "shs": true,
+  "gaps": "165@158 1416@209",
+  "plog": "+landSheetTF@34 +landSheet@34 +floor@34 =landSheetTF@160 =landSheet@160 =floor@160 landSheetTF@165 floor@166 landSheet@166 +mark@166 =mark@166 mark@322 +landSheetRF@333 =landSheetRF@450 +landTF@751 +land@768 =landTF@784 =land@784 landSheetRF@1366 +landNrm@3085 =landNrm@3085 +landEdgeS@3086 landTF@3086 landNrm@3086 land@3087 =landEdgeS@3103"
+ }
+]

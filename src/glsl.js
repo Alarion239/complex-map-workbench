@@ -494,6 +494,8 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const c = A.cell(), la = A.cell(), n = A.cell();
         return {
           h: `${T0}return ${c.v} * (1.0 - t) + cmul(cexp(${la.v} * t), cpowr(z - ${c.v}, 1.0 + (${n.x} - 1.0) * t, CX_PI, 0.0));`,
+          // (the same path on the local cut opposite its input at the cell centre zc, sheet 0: chainSheetHom)
+          hc: `${T0}return ${c.v} * (1.0 - t) + cmul(cexp(${la.v} * t), cpowr(z - ${c.v}, 1.0 + (${n.x} - 1.0) * t, carg(zc - ${c.v}) + CX_PI, 0.0));`,
           write(put, b) { const d = Funcs.natData(b); putC(put, c, d ? d.c : C(0, 0)); putC(put, la, d ? d.la : C(0, 0)); put(n.c, d ? d.n : 1, 0); },
         };
       }
@@ -660,15 +662,19 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         // ToInt32(|n|) as two 16-bit halves (Funcs.build keeps |n| <= 4096, so that is just |n|, as in CX.ipow)
         const q = A.slot(), path = pathSlots(A);
         const m = `highp uint mh = uint(${q.v}.z), ml = uint(${q.v}.w);\n  highp int m = int((mh << 16u) | ml);`;
-        return {
-          sig: [type], f: `if (${q.v}.x == 0.0) return vec2(1.0, 0.0);\n  ${m}\n  return cx_ipow32(z, ${q.v}.y > 0.5, m);`,
-          h: `float n = ${q.v}.x;
-  if (n >= 0.0) return cpowr(z, 1.0 + (n - 1.0) * t, CX_PI, 0.0);
-  if (t < 0.5) return cpowr(z, 1.0 + (-n - 1.0) * (2.0 * t), CX_PI, 0.0);
+        const ph = (cut) => `float n = ${q.v}.x;
+  if (n >= 0.0) return cpowr(z, 1.0 + (n - 1.0) * t, ${cut}, 0.0);
+  if (t < 0.5) return cpowr(z, 1.0 + (-n - 1.0) * (2.0 * t), ${cut}, 0.0);
   ${m}
   // inversion path applied to z^|n|; for |z| > 1 via u = (1/z)^|n|, since z^|n| itself may overflow float32
   if (dot(z, z) > 1.0) return ${path.calli('cx_ipow32(z, true, m)', '2.0 * t - 1.0')};
-  return ${path.call('cx_ipow32(z, false, m)', '2.0 * t - 1.0')};`,
+  return ${path.call('cx_ipow32(z, false, m)', '2.0 * t - 1.0')};`;
+        return {
+          sig: [type], f: `if (${q.v}.x == 0.0) return vec2(1.0, 0.0);\n  ${m}\n  return cx_ipow32(z, ${q.v}.y > 0.5, m);`,
+          h: ph('CX_PI'),
+          // (the path z^(1 + (n - 1)t) has a cut for 0 < t < 1: in chainSheetHom it runs on the local cut opposite its
+          // input at the cell centre zc, sheet 0, so the landscape's edge pass finds that cut by continuation)
+          hc: ph('carg(zc) + CX_PI'),
           write(put) {
             const u = (Math.abs(v.n) | 0) >>> 0; // ToUint32(ToInt32(|n|))
             put(q.c, v.n, v.n < 0 ? 1 : 0); put(q.c + 1, u >>> 16, u & 0xffff);
@@ -738,7 +744,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const shared = type === 'poly' ? { P: cells[0], Q: null } : lists[1].length > 1 ? { P: cells[0], Q: cells[1] } : null;
         const np = natPlan(P, b.nat, A, { shared });
         return {
-          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P),
+          sig: [type, ...lists.map((l) => l.length), b.nat ? b.nat.kind : 'lin'], f, h: np ? np.h : LIN(P), hc: np && np.hc,
           write(put) { lists.forEach((co, j) => co.forEach((c, i) => putC(put, cells[j][i], c))); if (np) np.write(put, b); },
         };
       }
@@ -758,7 +764,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         f += '  return w;';
         const np2 = natPlan(P, b.nat, A);
         return {
-          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P),
+          sig: [type, nz, np, b.nat ? b.nat.kind : 'lin'], f, h: np2 ? np2.h : LIN(P), hc: np2 && np2.hc,
           write(put) {
             putC(put, a, zp.a);
             zc.forEach((c, i) => putC(put, c, zp.zeros[i]));
@@ -776,7 +782,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const res = genCustom(ast, P, A, TH, writers, lines);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P),
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
@@ -820,10 +826,22 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         else h += `return ${Q}_h(z, s - ${j}.0);`;
       });
     }
+    // (the landscape's cut kinds, GLChain cutKinds: a sub-step with such a cut, in its map or its path; a sub-step's
+    // path with a principal cut of its own (hc) runs inside the formula's path, which has no local-cut form)
+    const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
     return {
       sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { for (const { pl } of subs) pl.write(put); },
     };
+  }
+  // A step's cuts that the sheets cannot continue (inverse trig functions, the Joukowski branches, arg in a formula):
+  // fo in its map, ho in its path at 0 < t < 1 (a path through the map itself inherits the map's)
+  const NONSHEET_CUT = /\b(?:casin|cacos|catan|casinh|cacosh|catanh|csqrtp|cx_atanhS|cx_asinS|cx_atanS|cx_asinhS)\s*\(|vec2\(carg\(/;
+  function cutKindOf(P, plan) {
+    const fo = plan.cutF !== undefined ? plan.cutF : NONSHEET_CUT.test((plan.pre || '') + plan.f);
+    const ho = plan.cutH !== undefined ? plan.cutH : NONSHEET_CUT.test(plan.h) || (plan.h.includes(`${P}_f(`) && fo);
+    return { fo, ho };
   }
 
   // ---- d/dz: derivative of one step (for the exact chain rule) ----
@@ -1192,13 +1210,19 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       + '  if (post > b && k > b && k <= post) return 1;\n  return 0;\n}\n';
     // end > 0 (F's last step, v16.1 review math-5): F's digits, every live step in (base, end]; a step the map does not
     // apply yet reads its digits and does not act (Funcs.sheetMapEval's end)
+    let hcFns = '';
+    const shHead = sh.length;
     sh += 'vec2 chainSheetHom(vec2 zc, vec2 z, int mode, int base, int a, int hi, int b, int post, float t, int combo, int end) {\n'
       + '  vec4 p = vec4(zc, z);\n  highp int c = combo;\n  int h;\n';
     for (const { P, k, plan } of live) {
       sh += `  h = cxs0_how(${k}, mode, base, a, hi, b, post);\n`;
       if (plan.deriv) { sh += '  if (h > 0) return vec2(cx_nan());\n'; continue; }
       const sp = spl.get(k);
-      if (!sp) {
+      if (!sp && plan.hc) {
+        // (a path with a cut of its own, z^n's z^(1 + (n - 1)t): on the local cut opposite its input at the centre)
+        hcFns += `vec2 ${P}_hc(vec2 z, float t, vec2 zc) {\n  ${plan.hc}\n}\n`;
+        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_hc(p.xy, t, p.xy), ${P}_hc(p.zw, t, p.xy));\n`;
+      } else if (!sp) {
         sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
       } else if (sp.custom) {
         const hom = sp.homCall ? sp.homCall('t') : 'p = vec4(cx_nan());';
@@ -1208,6 +1232,32 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       }
     }
     sh += '  return p.zw;\n}\n';
+    sh = sh.slice(0, shHead) + hcFns + sh.slice(shHead);
+    // the landscape's cut kinds per live step (gl.js cutModeOf): f its map, h its path at 0 < t < 1: 'none' (no cut),
+    // 'sheet' (cuts the sheets continue: chainSheetRange / chainSheetHom), 'other' (cuts they cannot: an inverse trig
+    // function, a Joukowski branch, arg, a formula's path through its branch points), 'deriv' (a d/dz)
+    // (sheet 0 at a cell's own centre is F's value only where every multivalued piece takes its principal branch, the
+    // cut at 180 degrees and branch 0: a root on branch k or another cut angle is found by bisection, as 'other')
+    const principalCut = (bb) => {
+      if (!bb || !bb.def) return true;
+      const id = bb.def.id, v = bb.vals || {};
+      const c180 = v.cut === undefined || v.cut === 180;
+      if (id === 'root') { const n = Math.max(2, v.n); return c180 && ((((v.k || 0) % n) + n) % n) === 0; }
+      if (id === 'powa' || id === 'log') return c180 && !(v.k || 0);
+      if (id === 'custom' && bb.rec) return c180 && bb.rec.built.every(principalCut);
+      if (id === 'custom') return c180;
+      return true;
+    };
+    const cutKinds = [];
+    for (const { P, k, plan } of live) {
+      if (plan.deriv) { cutKinds.push({ k, f: 'deriv', h: 'deriv' }); continue; }
+      const { fo, ho } = cutKindOf(P, plan), sp = spl.get(k), pc = principalCut(built[k - 1]);
+      cutKinds.push({
+        k,
+        f: fo ? 'other' : sp ? (pc ? 'sheet' : 'other') : 'none',
+        h: ho ? 'other' : sp ? (sp.custom && !sp.homCall ? 'other' : pc ? 'sheet' : 'other') : plan.hc ? 'sheet' : 'none',
+      });
+    }
 
     let cache = null;
     function values() {
@@ -1240,6 +1290,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       fill(out) { const v = values(); for (let i = 0; i < v.length; i++) out[i] = v[i]; return out; },
       // live d/dz steps (chainIsDeriv), whether the first is the exact chain rule
       derivs: dks, derivExact: exact,
+      cutKinds,
       // multivalued pieces for the sheet view: steps [{k, n, node}] (n sheets, 0: a window of 2W + 1),
       // combos(W, b, a): number of surfaces of the steps in (a, b] (capped at Funcs.SHEET_MAX; total(...) uncapped)
       sheets: {

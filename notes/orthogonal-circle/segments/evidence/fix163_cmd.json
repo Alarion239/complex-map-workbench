@@ -1,0 +1,92 @@
+{
+ "pass": true,
+ "checks": 20,
+ "fails": [],
+ "info": {
+  "u1row": "the unit circle",
+  "u1toast": "This is the unit circle: it stays fixed. To move it, choose Make free in ⋯.",
+  "u1handles": [
+   "fixed"
+  ],
+  "u1menu": [
+   "Make free",
+   "Integrate F along it",
+   "Duplicate",
+   "Color",
+   "Bring forward",
+   "Send backward",
+   "Clear shapes",
+   "Delete (and 1 built on it)⌫"
+  ],
+  "u2rows": [
+   "tangent to Circle 1 at z₁, through z₀",
+   "tangent to Circle 1 at z₂, through z₀"
+  ],
+  "u13": "disc perpendicular to the circle of Disc 1, through z₄ and z₅",
+  "u12": {
+   "chip": "Pick a line or a circle · Orthogonal",
+   "x": true,
+   "tool": "perp"
+  },
+  "perf": {
+   "T": [
+    {
+     "work_p95": 2.6,
+     "delta_p95": 16.8,
+     "delta_max": 33.4,
+     "move_p95": 0.2,
+     "n": 191,
+     "moved": true,
+     "und": 0
+    },
+    {
+     "work_p95": 3.1,
+     "delta_p95": 16.7,
+     "delta_max": 16.8,
+     "move_p95": 0.2,
+     "n": 192,
+     "moved": true,
+     "und": 0
+    },
+    {
+     "work_p95": 2.7,
+     "delta_p95": 16.7,
+     "delta_max": 16.8,
+     "move_p95": 0.1,
+     "n": 189,
+     "moved": true,
+     "und": 0
+    }
+   ],
+   "z": [
+    {
+     "work_p95": 2.4,
+     "delta_p95": 16.8,
+     "delta_max": 16.8,
+     "move_p95": 1,
+     "n": 196,
+     "moved": true,
+     "und": 0
+    },
+    {
+     "work_p95": 2.1,
+     "delta_p95": 16.8,
+     "delta_max": 16.8,
+     "move_p95": 1.2,
+     "n": 193,
+     "moved": true,
+     "und": 0
+    },
+    {
+     "work_p95": 2.1,
+     "delta_p95": 16.8,
+     "delta_max": 16.8,
+     "move_p95": 1.1,
+     "n": 194,
+     "moved": true,
+     "und": 0
+    }
+   ]
+  }
+ }
+}

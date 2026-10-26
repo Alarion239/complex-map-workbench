@@ -1,0 +1,26 @@
+[
+ {
+  "name": "sinsqrt-playing-0-light",
+  "T": 0.1840118826533203
+ },
+ {
+  "name": "sinsqrt-playing-1-light",
+  "T": 0.8433901193974604
+ },
+ {
+  "name": "sinsqrt-playing-2-light",
+  "T": 0.9995593577509766
+ },
+ {
+  "name": "sinsqrt-playing-0-dark",
+  "T": 0.18401188265332036
+ },
+ {
+  "name": "sinsqrt-playing-1-dark",
+  "T": 0.8126947727900389
+ },
+ {
+  "name": "sinsqrt-playing-2-dark",
+  "T": 0.9980137683955078
+ }
+]

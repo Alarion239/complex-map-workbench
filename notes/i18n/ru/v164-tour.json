@@ -1,0 +1,418 @@
+{
+ "_about": "v16.4 tour r3 (notes/tour-r3/SPEC.md, built in work/xvtr): the docked strip, the leads, the result lines, the Sound chapter and the countdown. id -> {en, ru, note}. Read last by tools/make_ru_table.py (V164_HERE). Leads, tasks, result lines and captions: at most 64 characters as read (two lines at 360 px). Edit by read-modify-write only.",
+ "lead.welcome": {
+  "en": "About two minutes; your own work comes back at the end.",
+  "ru": "Около двух минут; в конце ваша работа вернётся.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "try.x": {
+  "en": "Drag empty space in X, or scroll to zoom.",
+  "ru": "Перетащите пустое место в X или прокрутите колёсико.",
+  "note": "Strip task."
+ },
+ "try.x.touch": {
+  "en": "Drag empty space in X, or pinch.",
+  "ru": "Перетащите пустое место в X или сведите пальцы.",
+  "note": "Strip task. Touch."
+ },
+ "lead.y": {
+  "en": "The strip becomes the unit disc, and angles are kept.",
+  "ru": "Полоса становится единичным кругом, углы сохраняются.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "then.preimages": {
+  "en": "Inside, one $z$; outside, two, $2\\pi i$ apart.",
+  "ru": "Внутри одно $z$, снаружи два, отличающихся на $2\\pi i$.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.draw": {
+  "en": "Y shows its image under $F$.",
+  "ru": "В Y — её образ при отображении $F$.",
+  "note": "Strip result line once the task is done. «её»: the shape (фигура)."
+ },
+ "lead.shapes": {
+  "en": "Each shape is listed with its equation.",
+  "ru": "Каждая фигура в списке — со своим уравнением.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "then.shapes": {
+  "en": "Y followed the line as you dragged it.",
+  "ru": "Пока вы тянули прямую, Y следовал за ней.",
+  "note": "Strip result line once the task is done."
+ },
+ "try.formula": {
+  "en": "Type $|z+1|<1$ and press Add.",
+  "ru": "Введите $|z+1|<1$ и нажмите «Добавить».",
+  "note": "Strip task (r3 review user-2: on a phone too; the example is not the field's placeholder)."
+ },
+ "then.formula": {
+  "en": "A set from a formula is a shape like any other.",
+  "ru": "Множество из формулы — такая же фигура, как другие.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.chain": {
+  "en": "X and Y are now $f_1$'s input and output.",
+  "ru": "Теперь X и Y — вход и выход $f_1$.",
+  "note": "Strip result line once the task is done."
+ },
+ "try.add": {
+  "en": "Press {+}, or click the add card.",
+  "ru": "Нажмите {+} или щёлкните карточку «+».",
+  "note": "Strip task. The add card shows a plus."
+ },
+ "try.add.touch": {
+  "en": "Tap the add card.",
+  "ru": "Коснитесь карточки «+».",
+  "note": "Strip task. Touch."
+ },
+ "lead.examples": {
+  "en": "Worked examples, from Joukowski to a residue.",
+  "ru": "Разобранные примеры — от Жуковского до вычета.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "lead.phase": {
+  "en": "Colour is $\\arg F$; all colours meet at zeros and poles.",
+  "ru": "Цвет — это $\\arg F$; все цвета сходятся в нулях и полюсах.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "try.land": {
+  "en": "Drag to orbit.",
+  "ru": "Перетащите, чтобы повернуть вид.",
+  "note": "Strip task."
+ },
+ "then.land": {
+  "en": "Zeros are pits and poles are peaks: $\\pm1$ and $\\pm i$.",
+  "ru": "Нули — впадины, полюсы — пики: $\\pm1$ и $\\pm i$.",
+  "note": "Strip result line once the task is done."
+ },
+ "try.sphere": {
+  "en": "Drag the sphere to turn it.",
+  "ru": "Перетащите сферу, чтобы повернуть её.",
+  "note": "Strip task."
+ },
+ "then.sphere": {
+  "en": "$\\infty$ is the north pole; here $F(\\infty)=1$.",
+  "ru": "$\\infty$ — северный полюс; здесь $F(\\infty)=1$.",
+  "note": "Strip result line once the task is done."
+ },
+ "try.key": {
+  "en": "Turn on Phase key.",
+  "ru": "Отметьте «Шкала фазы».",
+  "note": "Strip task. The check is labelled «Шкала фазы»."
+ },
+ "then.key": {
+  "en": "Each colour now reads as a value of $w$.",
+  "ru": "Теперь каждый цвет читается как значение $w$.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.patterns": {
+  "en": "Blue shrinks, amber grows: $|F'|$ at each point.",
+  "ru": "Синее сжимается, янтарное растёт: $|F'|$ в каждой точке.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.cards": {
+  "en": "Each card now shows its own landscape.",
+  "ru": "Теперь каждая карточка показывает свой рельеф.",
+  "note": "Strip result line once the task is done."
+ },
+ "lead.inspector": {
+  "en": "The Inspector edits the selected step, here $f_2$.",
+  "ru": "Инспектор правит выбранный шаг, здесь $f_2$.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "then.split": {
+  "en": "One card for each transform; undo brings the formula back.",
+  "ru": "По карточке на преобразование; отмена вернёт формулу.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.zp": {
+  "en": "$F$ and its image followed the mark.",
+  "ru": "$F$ и образ последовали за отметкой.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.zpHere": {
+  "en": "That point is now a zero of $F$.",
+  "ru": "Теперь эта точка — нуль $F$.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.numbers": {
+  "en": "The zeros $\\pm a$ and the circle $|z|=a$ moved together.",
+  "ru": "Нули $\\pm a$ и окружность $|z|=a$ сдвинулись вместе.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.c3": {
+  "en": "Its three points are its handles now.",
+  "ru": "Теперь её три точки — её маркеры.",
+  "note": "Strip result line once the task is done. «её»: the circle; маркер: handle (glossary)."
+ },
+ "lead.follow": {
+  "en": "Drag $z_2$ across the line: the disc changes family.",
+  "ru": "Перетащите $z_2$ через прямую: круг сменит вид.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "then.follow": {
+  "en": "Disc, half-plane, outside: one family, and Y followed.",
+  "ru": "Круг, полуплоскость, внешность — одно семейство; Y следом.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.meet": {
+  "en": "Its end is tied to the crossing and follows it.",
+  "ru": "Её конец привязан к пересечению и следует за ним.",
+  "note": "Strip result line once the task is done. «её»: the line (прямая)."
+ },
+ "then.transport": {
+  "en": "Angles are kept wherever $H_t'\\neq0$.",
+  "ru": "Углы сохраняются везде, где $H_t'\\neq0$.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.paths": {
+  "en": "Each path runs from $z$ to $F(z)$.",
+  "ru": "Каждый путь идёт от $z$ к $F(z)$.",
+  "note": "Strip result line once the task is done."
+ },
+ "try.order": {
+  "en": "Choose All at once.",
+  "ru": "Выберите «Все сразу».",
+  "note": "Strip task."
+ },
+ "then.order": {
+  "en": "Both steps now deform at the same $t$.",
+  "ru": "Теперь оба шага деформируются при одном $t$.",
+  "note": "Strip result line once the task is done."
+ },
+ "then.range": {
+  "en": "Only the Möbius map deforms; $f_1$ acts first, in full.",
+  "ru": "Деформируется только дробно-линейная; $f_1$ — первой, целиком.",
+  "note": "Strip result line once the task is done. Möbius: дробно-линейная (glossary; no «Мёбиус»)."
+ },
+ "lead.targets": {
+  "en": "The target $0$ marks the three cube roots of unity.",
+  "ru": "Цель $0$ отмечает три кубических корня из единицы.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "lead.cauchy": {
+  "en": "Cauchy's integral is $F$ inside $\\gamma$ and $0$ outside.",
+  "ru": "Интеграл Коши равен $F$ внутри $\\gamma$ и $0$ снаружи.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "then.integral": {
+  "en": "$\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
+  "ru": "$\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
+  "note": "Strip result line once the task is done. TeX only; the notation pass gives выч."
+ },
+ "lead.domain": {
+  "en": "Here $F$ is defined for every $z$ except $\\pm i$.",
+  "ru": "Здесь $F$ определена при всех $z$, кроме $\\pm i$.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "lead.guarantees": {
+  "en": "What the chain guarantees: always true when listed.",
+  "ru": "Гарантии цепочки: всё указанное верно всегда.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "then.cut": {
+  "en": "The seam moved; across it the values jump by $2\\pi i$.",
+  "ru": "Разрез сдвинулся; на нём значения скачут на $2\\pi i$.",
+  "note": "Strip result line once the task is done. seam: линия разреза (glossary: no «шов»)."
+ },
+ "try.inverse": {
+  "en": "In ⋯, choose Replace with the inverse.",
+  "ru": "В меню ⋯ выберите «Заменить обратной».",
+  "note": "Strip task."
+ },
+ "then.inverse": {
+  "en": "$e^z$ undoes $\\log z$ on this sheet.",
+  "ru": "$e^z$ обращает $\\log z$ на этом листе.",
+  "note": "Strip result line once the task is done."
+ },
+ "lead.deriv": {
+  "en": "Here $F=3z^2-3$; the target $0$ marks its zeros $\\pm1$.",
+  "ru": "Здесь $F=3z^2-3$; цель $0$ отмечает её нули $\\pm1$.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "try.sheets": {
+  "en": "Drag to orbit the helicoid.",
+  "ru": "Перетащите, чтобы повернуть геликоид.",
+  "note": "Strip task."
+ },
+ "then.sheets": {
+  "en": "Each turn round $0$ climbs one sheet, $2\\pi$ higher.",
+  "ru": "Каждый оборот вокруг $0$ — лист выше, на $2\\pi$.",
+  "note": "Strip result line once the task is done."
+ },
+ "sound.song.title": {
+  "en": "Grieg on a curve",
+  "ru": "Григ на кривой",
+  "note": "Step title."
+ },
+ "sound.song.body": {
+  "en": "Grieg's theme as one curve: the spiral in X under $F(z)=z^{-2+24i}$. Listen along walks it at an even pace and plays $\\arg F$ as pitch, on the piece's own strings. Each turn is $0.77$ of the one before, so the theme comes $1.3$ times as fast.",
+  "ru": "Тема Грига — одна кривая: спираль в X под $F(z)=z^{-2+24i}$. «Слушать вдоль кривой» проходит её в ровном темпе и играет $\\arg F$ как высоту на собственных струнах пьесы. Каждый виток — $0{,}77$ предыдущего, поэтому тема звучит в $1{,}3$ раза быстрее.",
+  "note": "Step body (Why). Decimal comma in TeX."
+ },
+ "sound.song.try": {
+  "en": "Press ▶ to listen.",
+  "ru": "Нажмите ▶, чтобы слушать.",
+  "note": "Strip task (r3 review user-8: the button shows ▶; on a phone only ▶)."
+ },
+ "sound.song.then": {
+  "en": "Every note was $\\arg F$ crossing one of the piece's strings.",
+  "ru": "Каждая нота — $\\arg F$, пересёкший струну.",
+  "note": "Strip result line once the task is done. (r3 review user-3: shortened to fit three lines at 360 px beside the act button.)"
+ },
+ "sound.cap0": {
+  "en": "Each note is a phase line crossed: $\\arg F$ is the pitch.",
+  "ru": "Нота — пересечение линии фазы; $\\arg F$ — высота.",
+  "note": "Caption while the Grieg piece plays. At 0 s. (r3 review user-3: shortened to fit three lines at 360 px beside the act button.)"
+ },
+ "sound.cap1": {
+  "en": "The cut: a drum. The next turn is smaller, so faster.",
+  "ru": "Разрез — удар барабана; виток меньше — быстрее.",
+  "note": "Caption while the Grieg piece plays. At 8.9 s, the second drum. (r3 review user-3: shortened to fit three lines at 360 px beside the act button.)"
+ },
+ "sound.cap2": {
+  "en": "Each turn is $0.77$ of the last: $1.3$ times as fast.",
+  "ru": "Виток — $0{,}77$ прежнего: в $1{,}3$ раза быстрее.",
+  "note": "Caption while the Grieg piece plays. At 15.4 s. (r3 review user-3: shortened to fit three lines at 360 px beside the act button.)"
+ },
+ "sound.cap3": {
+  "en": "The ending is ours: three rolled B-minor chords.",
+  "ru": "Концовка наша: три аккорда си минор арпеджио.",
+  "note": "Caption while the Grieg piece plays. At 20.4 s. (r3 review user-3: shortened to fit three lines at 360 px beside the act button.)"
+ },
+ "sound.strings.title": {
+  "en": "Phase lines are strings",
+  "ru": "Линии фазы — струны",
+  "note": "Step title."
+ },
+ "sound.strings.body": {
+  "en": "The portrait's lines, every $30^\\circ$ of $\\arg F$, are strings a semitone apart, with D where $F>0$. Hear the function plucks five, D, E, F♯, A and B, as the pointer crosses them. Anticlockwise round a zero the scale rises; round a pole it falls.",
+  "ru": "Линии портрета, через каждые $30^\\circ$ по $\\arg F$, — струны на полутон друг от друга; ре — там, где $F>0$. «Слушать функцию» щиплет пять из них — ре, ми, фа-диез, ля, си, — когда указатель их пересекает. Против часовой стрелки вокруг нуля гамма идёт вверх, вокруг полюса — вниз.",
+  "note": "Step body (Why)."
+ },
+ "sound.strings.touch": {
+  "en": "The portrait's lines, every $30^\\circ$ of $\\arg F$, are strings a semitone apart, with D where $F>0$. Hear the function plucks five, D, E, F♯, A and B, as your finger crosses them. Anticlockwise round a zero the scale rises; round a pole it falls.",
+  "ru": "Линии портрета, через каждые $30^\\circ$ по $\\arg F$, — струны на полутон друг от друга; ре — там, где $F>0$. «Слушать функцию» щиплет пять из них — ре, ми, фа-диез, ля, си, — когда палец их пересекает. Против часовой стрелки вокруг нуля гамма идёт вверх, вокруг полюса — вниз.",
+  "note": "Step body (Why), touch."
+ },
+ "sound.strings.try": {
+  "en": "Circle the zero $1$, then the pole $-1$.",
+  "ru": "Обведите нуль $1$, затем полюс $-1$.",
+  "note": "Strip task."
+ },
+ "sound.strings.try.touch": {
+  "en": "Hold near $1$, slide round it, then round $-1$.",
+  "ru": "Удерживайте палец у $1$, обведите его, затем $-1$.",
+  "note": "Strip task. Touch."
+ },
+ "sound.strings.then": {
+  "en": "A scale up and a scale down: one turn of $\\arg F$ each.",
+  "ru": "Гамма вверх и гамма вниз: по обороту $\\arg F$.",
+  "note": "Strip result line once the task is done."
+ },
+ "sound.loop.title": {
+  "en": "A loop sings its number",
+  "ru": "Петля поёт своё число",
+  "note": "Step title."
+ },
+ "sound.loop.body": {
+  "en": "Listen along a closed curve plucks the same strings, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.",
+  "ru": "«Слушать вдоль кривой» на замкнутой кривой щиплет те же струны, а затем поёт одну ноту — её число оборотов $W$: нули минус полюсы внутри. Эта окружность один раз обходит нуль $1$, поэтому $W=1$ и звучит фа-диез.",
+  "note": "Step body (Why)."
+ },
+ "sound.loop.then": {
+  "en": "$W=1$: one turn of $\\arg F$, sung as F♯.",
+  "ru": "$W=1$: один оборот $\\arg F$, спетый как фа-диез.",
+  "note": "Strip result line once the task is done."
+ },
+ "lead.settings": {
+  "en": "Turn sound, or Hear the function, on or off here.",
+  "ru": "Здесь включают и выключают звук и «Слушать функцию».",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "lead.figure": {
+  "en": "A vector figure with an exact caption, or LaTeX.",
+  "ru": "Векторный рисунок с точной подписью или LaTeX.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "try.formulaTex": {
+  "en": "Press the copy button of $F$.",
+  "ru": "Нажмите кнопку копирования у $F$.",
+  "note": "Strip task."
+ },
+ "try.formulaTex.touch": {
+  "en": "Tap the copy button of $F$.",
+  "ru": "Коснитесь кнопки копирования у $F$.",
+  "note": "Strip task. Touch."
+ },
+ "then.formulaTex": {
+  "en": "$F$'s LaTeX is on your clipboard.",
+  "ru": "LaTeX для $F$ — в буфере обмена.",
+  "note": "Strip result line once the task is done."
+ },
+ "lead.help": {
+  "en": "The tour by chapter, the guide and every shortcut.",
+  "ru": "Обзор по главам, справочник и все сочетания клавиш.",
+  "note": "Strip lead (read step), one sentence."
+ },
+ "ui.why": {
+  "en": "Why",
+  "ru": "Подробнее",
+  "note": "The strip's text block: a button that opens the step's explanation (its accessible name; shown as «Подробнее ▾» on a wide screen)."
+ },
+ "ui.auto": {
+  "en": "Move on by itself",
+  "ru": "Переходить дальше самому",
+  "note": "A check in Why: the tour moves on 3 s after a task is done."
+ },
+ "ui.hearNote": {
+  "en": "The tour turns Hear the function on for this step; your setting comes back after it.",
+  "ru": "На этом шаге обзор включает «Слушать функцию»; ваша настройка вернётся после него.",
+  "note": "A note in Why on the Phase lines are strings step."
+ },
+ "ui.soundOn": {
+  "en": "Turn on sound",
+  "ru": "Включить звук",
+  "note": "The strip's act button while the sound is not ready."
+ },
+ "ui.noAudio": {
+  "en": "This browser cannot play sound here.",
+  "ru": "Этот браузер не может здесь воспроизвести звук.",
+  "note": "Toast when Web Audio is missing."
+ },
+ "ui.nextCount": {
+  "en": "Next · {n}",
+  "ru": "Далее · {n}",
+  "note": "Next during the countdown with reduced motion: {n} is 3, 2, 1 (seconds)."
+ },
+ "ui.nextIn3": {
+  "en": "Next step in 3 seconds.",
+  "ru": "Следующий шаг через 3 секунды.",
+  "note": "Screen reader, after \"Done.\" and the result line."
+ },
+ "fix.c3.touch": {
+  "en": "Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.",
+  "ru": "«Ещё» › «По трём точкам», затем коснитесь $z_0$, $z_1$, $z_2$.",
+  "note": "Shortened from 78 characters (SPEC 3)."
+ },
+ "fix.range.touch": {
+  "en": "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.",
+  "ru": "В ⋯ шага $f_2$: «Деформация», затем «Только $f_2$ внутри $F$».",
+  "note": "Shortened from 67 characters (SPEC 3)."
+ },
+ "try.preimages.touch": {
+  "en": "Hold inside the disc until the ring fills, then slide out.",
+  "ru": "Держите в круге, пока кольцо не заполнится, затем ведите наружу.",
+  "note": "Strip task. Touch (r3 review user-9): a probe starts once the hold ring has filled."
+ },
+ "hint.preimages.touch": {
+  "en": "That moved Y: hold still until the ring fills, then slide.",
+  "ru": "Это сдвинуло Y: держите палец, пока кольцо не заполнится.",
+  "note": "Strip line in place of the task after a short hold panned Y. Touch."
+ },
+ "sound.song.off": {
+  "en": "Press ▶ to turn sound on and listen.",
+  "ru": "Нажмите ▶: обзор включит звук и сыграет.",
+  "note": "Strip task while the sound or Mathematical events are off: the button turns them on for the Sound chapter."
+ }
+}

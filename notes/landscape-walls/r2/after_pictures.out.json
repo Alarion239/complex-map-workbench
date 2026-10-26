@@ -1,0 +1,1007 @@
+{
+ "shots": [
+  {
+   "name": "sqrt-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "log-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "log-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 5,
+     "total": 5,
+     "W": 2,
+     "N": 162,
+     "infinite": true,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "log-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "tan-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "tan-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "tan-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "recip-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "recip-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "recip-abs-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of |<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "inv-z2p1-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "inv-z2p1-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "inv-z2p1-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "exp-inv-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "exp-inv-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "z-pow-i-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "z-pow-i-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 5,
+     "total": 5,
+     "W": 2,
+     "N": 162,
+     "infinite": true,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "z-pow-i-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "cbrt-z2m1-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "cbrt-z2m1-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 3,
+     "total": 3,
+     "W": 2,
+     "N": 209,
+     "infinite": false,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "cbrt-z2m1-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "gamma-like-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "gamma-like-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "zeros-poles-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "zeros-poles-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "zeros-poles-log-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sec-re-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "loglog-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 24,
+     "total": 25,
+     "W": 2,
+     "N": 97,
+     "infinite": true,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.0-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.03-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.2-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.8-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t1.0-im-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-re-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-log-sheets-light",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>H</i><sub><i>t</i></sub>|, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.2-im-light",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sqrt-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "log-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "log-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 5,
+     "total": 5,
+     "W": 2,
+     "N": 162,
+     "infinite": true,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "log-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "tan-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "tan-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "tan-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "recip-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "recip-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "recip-abs-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of |<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "inv-z2p1-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "inv-z2p1-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "inv-z2p1-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "exp-inv-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "exp-inv-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "z-pow-i-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "z-pow-i-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 5,
+     "total": 5,
+     "W": 2,
+     "N": 162,
+     "infinite": true,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "z-pow-i-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "cbrt-z2m1-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "cbrt-z2m1-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 3,
+     "total": 3,
+     "W": 2,
+     "N": 209,
+     "infinite": false,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "cbrt-z2m1-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "gamma-like-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "gamma-like-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "zeros-poles-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "zeros-poles-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "zeros-poles-log-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>F</i>|</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sec-re-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": false,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>F</i></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "loglog-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 24,
+     "total": 25,
+     "W": 2,
+     "N": 97,
+     "infinite": true,
+     "hom": false
+    },
+    "shown": true,
+    "deformOk": false,
+    "linear": true,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>F</i>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.0-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.03-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.2-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.8-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t1.0-im-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-re-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Re <i>H</i><sub><i>t</i></sub>, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-log-sheets-dark",
+   "sheets": {
+    "drawn": {
+     "K": 2,
+     "total": 2,
+     "W": 2,
+     "N": 256,
+     "infinite": false,
+     "hom": true
+    },
+    "shown": true,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of log|<i>H</i><sub><i>t</i></sub>|, all sheets</span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.5-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub></span><span class=\"rs\">landscape</span></span>"
+   }
+  },
+  {
+   "name": "sinsqrt-t0.2-im-dark",
+   "sheets": {
+    "drawn": null,
+    "shown": false,
+    "deformOk": true,
+    "linear": false,
+    "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub></span><span class=\"rs\">landscape</span></span>"
+   }
+  }
+ ],
+ "errs": []
+}

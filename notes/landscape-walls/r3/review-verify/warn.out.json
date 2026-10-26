@@ -1,0 +1,90 @@
+[
+ {
+  "page": "test.html",
+  "f": "\\sin\\sqrt{z^2+6009}",
+  "beforeOpen": 0,
+  "open1s": [
+   0,
+   null
+  ],
+  "play1500": [
+   0,
+   null
+  ],
+  "play8s": [
+   94,
+   "WebGL: INVALID_OPERATION: texImage2D: ArrayBufferView not big enough for request"
+  ],
+  "stop": [
+   0,
+   null
+  ],
+  "gaps": "12@83 95@57"
+ },
+ {
+  "page": "base.html",
+  "f": "\\sin\\sqrt{z^2+6016}",
+  "beforeOpen": 0,
+  "open1s": [
+   0,
+   null
+  ],
+  "play1500": [
+   0,
+   null
+  ],
+  "play8s": [
+   0,
+   null
+  ],
+  "stop": [
+   0,
+   null
+  ],
+  "gaps": "19@93"
+ },
+ {
+  "page": "test.html",
+  "f": "\\sin\\sqrt{z^2+6023}",
+  "beforeOpen": 0,
+  "open1s": [
+   0,
+   null
+  ],
+  "play1500": [
+   0,
+   null
+  ],
+  "play8s": [
+   94,
+   "WebGL: INVALID_OPERATION: texImage2D: ArrayBufferView not big enough for request"
+  ],
+  "stop": [
+   0,
+   null
+  ],
+  "gaps": ""
+ },
+ {
+  "page": "base.html",
+  "f": "\\sin\\sqrt{z^2+6030}",
+  "beforeOpen": 0,
+  "open1s": [
+   0,
+   null
+  ],
+  "play1500": [
+   0,
+   null
+  ],
+  "play8s": [
+   0,
+   null
+  ],
+  "stop": [
+   0,
+   null
+  ],
+  "gaps": ""
+ }
+]

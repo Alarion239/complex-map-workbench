@@ -1,0 +1,22 @@
+[
+ [
+  "abs-r3o-abs",
+  "{\"K\":2,\"total\":2,\"W\":2,\"N\":256,\"infinite\":false,\"hom\":false}",
+  "[]"
+ ],
+ [
+  "abs-r3o-log",
+  "{\"K\":2,\"total\":2,\"W\":2,\"N\":256,\"infinite\":false,\"hom\":false}",
+  "[]"
+ ],
+ [
+  "abs-fin-abs",
+  "{\"K\":2,\"total\":2,\"W\":2,\"N\":256,\"infinite\":false,\"hom\":false}",
+  "[]"
+ ],
+ [
+  "abs-fin-log",
+  "{\"K\":2,\"total\":2,\"W\":2,\"N\":256,\"infinite\":false,\"hom\":false}",
+  "[]"
+ ]
+]

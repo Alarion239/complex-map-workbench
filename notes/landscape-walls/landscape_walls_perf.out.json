@@ -1,0 +1,120 @@
+{
+ "rows": [],
+ "perf": [
+  {
+   "tag": "1440-light",
+   "what": "orbit tan Re",
+   "n": 119,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.4,
+   "max": 17.9,
+   "turned": 1.2
+  },
+  {
+   "tag": "1440-light",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.5,
+   "max": 18.4
+  },
+  {
+   "tag": "1440-light",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 17.7,
+   "max": 21
+  },
+  {
+   "tag": "1440-dark",
+   "what": "orbit tan Re",
+   "n": 120,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.4,
+   "max": 17.8,
+   "turned": 1.21
+  },
+  {
+   "tag": "1440-dark",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.7,
+   "max": 20.4
+  },
+  {
+   "tag": "1440-dark",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.5,
+   "max": 18.1
+  },
+  {
+   "tag": "390-light",
+   "what": "orbit tan Re",
+   "n": 120,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.3,
+   "max": 18.4,
+   "turned": 1.21
+  },
+  {
+   "tag": "390-light",
+   "what": "play sin √z Im, All sheets",
+   "n": 149,
+   "fps": 59.6,
+   "p50": 16.6,
+   "p95": 18.6,
+   "max": 35.6
+  },
+  {
+   "tag": "390-light",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 24.8
+  },
+  {
+   "tag": "390-dark",
+   "what": "orbit tan Re",
+   "n": 120,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.9,
+   "max": 18.3,
+   "turned": 1.21
+  },
+  {
+   "tag": "390-dark",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 17.6,
+   "max": 20.6
+  },
+  {
+   "tag": "390-dark",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 60.1,
+   "p50": 16.7,
+   "p95": 18.1,
+   "max": 24.9
+  }
+ ],
+ "fails": [],
+ "pass": true,
+ "logs": []
+}

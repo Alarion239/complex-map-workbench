@@ -1,0 +1,43 @@
+# left-wall Im H_t = 0 contour (pane box 256,266-288,292), rest fit, max deviation px (r3 gate's measure, Python port)
+fm-r3-princ-def-desk-light-t0.2-rest.png rest dev 0.5 gap% 0.0
+fm-r3-princ-def-desk-light-t0.2-move.png dev 0.5 gap% 0.0
+fm-r3-princ-max-desk-light-t0.2-rest.png rest dev 0.48 gap% 0.0
+fm-r3-princ-max-desk-light-t0.2-move.png dev 2.91 gap% 0.0
+fm-r3-princ-max-desk-dark-t0.2-rest.png rest dev 0.5 gap% 0.0
+fm-r3-princ-max-desk-dark-t0.2-move.png dev 2.91 gap% 0.0
+fm-r2-princ-max-desk-light-t0.2-rest.png rest dev 0.48 gap% 0.0
+fm-r2-princ-max-desk-light-t0.2-move.png dev 2.91 gap% 0.0
+fm-r3-allsh-def-desk-light-t0.2-rest.png rest dev 11.94 gap% 18.2
+fm-r3-allsh-def-desk-light-t0.2-move.png dev 0.33 gap% 21.2
+fm-r3-allsh-max-desk-light-t0.2-rest.png rest dev 11.95 gap% 18.2
+fm-r3-allsh-max-desk-light-t0.2-move.png dev 0.33 gap% 21.2
+fm-r2-allsh-max-desk-light-t0.2-rest.png rest dev 11.95 gap% 18.2
+fm-r2-allsh-max-desk-light-t0.2-move.png dev 3.23 gap% 24.2
+# pixels differing rest vs forced moving path (RGB distance > 40 / > 80)
+fm-r3-allsh-def-desk-light-t0.08-move.png n40 106 n80 4 top tiles [(17, 416, 480), (16, 416, 160), (12, 416, 352), (8, 416, 320), (8, 256, 256)]
+fm-r3-allsh-def-desk-light-t0.2-move.png n40 104 n80 14 top tiles [(22, 416, 448), (19, 416, 320), (12, 384, 224), (7, 224, 224), (6, 384, 256)]
+fm-r3-allsh-def-desk-light-t0.26-move.png n40 253 n80 70 top tiles [(57, 448, 352), (51, 448, 448), (50, 448, 480), (22, 448, 384), (15, 448, 512)]
+fm-r3-allsh-max-desk-light-t0.08-move.png n40 74 n80 0 top tiles [(10, 416, 160), (6, 416, 480), (5, 544, 224), (5, 384, 448), (5, 256, 256)]
+fm-r3-allsh-max-desk-light-t0.2-move.png n40 52 n80 0 top tiles [(13, 416, 384), (8, 416, 320), (5, 512, 224), (4, 288, 320), (3, 608, 288)]
+fm-r3-allsh-max-desk-light-t0.26-move.png n40 112 n80 4 top tiles [(32, 448, 480), (26, 448, 352), (17, 448, 448), (7, 448, 384), (5, 448, 512)]
+fm-r3-allsh-max-phone-light-t0.2-move.png n40 10 n80 0 top tiles [(3, 32, 320), (2, 288, 256), (2, 32, 288), (1, 192, 352), (1, 128, 256)]
+fm-r3-princ-def-desk-light-t0.08-move.png n40 71 n80 0 top tiles [(16, 416, 160), (9, 288, 352), (8, 256, 256), (7, 384, 448), (7, 256, 320)]
+fm-r3-princ-def-desk-light-t0.2-move.png n40 21 n80 0 top tiles [(3, 576, 288), (2, 384, 192), (2, 384, 160), (2, 256, 320), (2, 256, 288)]
+fm-r3-princ-def-desk-light-t0.26-move.png n40 12 n80 0 top tiles [(3, 256, 224), (2, 608, 288), (1, 608, 352), (1, 608, 256), (1, 576, 288)]
+fm-r3-princ-max-desk-dark-t0.2-move.png n40 158 n80 12 top tiles [(54, 256, 256), (39, 384, 224), (23, 224, 256), (22, 288, 320), (10, 288, 288)]
+fm-r3-princ-max-desk-light-t0.08-move.png n40 145 n80 0 top tiles [(30, 256, 288), (22, 288, 320), (19, 416, 384), (12, 416, 224), (10, 416, 160)]
+fm-r3-princ-max-desk-light-t0.2-move.png n40 100 n80 0 top tiles [(19, 256, 256), (17, 224, 256), (14, 384, 224), (13, 288, 320), (6, 288, 288)]
+fm-r3-princ-max-desk-light-t0.26-move.png n40 39 n80 0 top tiles [(15, 288, 288), (5, 288, 352), (4, 256, 256), (3, 608, 288), (2, 416, 448)]
+fm-r3-princ-max-phone-light-t0.2-move.png n40 26 n80 0 top tiles [(15, 32, 320), (3, 64, 320), (2, 288, 256), (2, 32, 288), (1, 128, 256)]
+sec-testhtml-move.png n40 114 n80 0 top tiles [(19, 512, 320), (16, 256, 320), (10, 512, 384), (10, 512, 352), (9, 256, 288)]
+# cue off vs on
+cue-desk-light-t0.03-tint.png n40 12843 n80 0 top tiles [(752, 448, 480), (570, 480, 448), (552, 512, 416), (533, 576, 256), (520, 512, 384)]
+cue-desk-light-t0.05-tint.png n40 13578 n80 0 top tiles [(681, 448, 480), (609, 512, 416), (547, 512, 384), (530, 480, 448), (473, 576, 256)]
+cue-desk-dark-t0.03-tint.png n40 19258 n80 0 top tiles [(742, 512, 352), (701, 448, 480), (665, 576, 256), (641, 544, 320), (615, 480, 448)]
+cue-desk-dark-t0.05-tint.png n40 20448 n80 0 top tiles [(745, 512, 352), (663, 512, 384), (648, 448, 480), (647, 448, 224), (634, 544, 320)]
+cue-phone-light-t0.03-tint.png n40 3860 n80 0 top tiles [(451, 224, 256), (286, 128, 320), (253, 256, 224), (252, 192, 256), (244, 224, 288)]
+cue-phone-light-t0.05-tint.png n40 3881 n80 0 top tiles [(450, 224, 256), (284, 192, 256), (277, 128, 320), (252, 256, 224), (228, 224, 288)]
+cue-phone-dark-t0.03-tint.png n40 6531 n80 0 top tiles [(665, 224, 256), (502, 256, 224), (457, 192, 256), (407, 192, 288), (363, 256, 256)]
+cue-phone-dark-t0.05-tint.png n40 6833 n80 0 top tiles [(673, 224, 256), (540, 192, 256), (503, 256, 224), (414, 192, 288), (386, 224, 224)]
+# phone 390x844 Max, All sheets, playing (frames)
+[{"page":"test.html","k":0,"f":{"n":180,"fps":60,"p50":16.6,"p95":18.6,"max":20.2}},{"page":"base/test.html","k":0,"f":{"n":151,"fps":50,"p50":21.9,"p95":24.4,"max":26.4}},{"page":"test.html","k":1,"f":{"n":180,"fps":60,"p50":16.6,"p95":18.5,"max":20.7}},{"page":"base/test.html","k":1,"f":{"n":172,"fps":57.3,"p50":17.9,"p95":18.9,"max":25.7}}]

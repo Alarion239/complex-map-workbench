@@ -16,11 +16,19 @@ html:not(.ph) .ph-only { display: none !important; }
 }
 
 /* a non-modal sheet open: the stage is the planes and the chain bar above it */
-:root.ph.ph-split:not(.ph-land) #app { grid-template-rows: var(--ph-head) calc(var(--ph-hp) + var(--ph-chain)); padding-bottom: 0; }
+:root.ph.ph-split:not(.ph-land) #app { grid-template-rows: var(--ph-head) calc(var(--ph-tour, 0px) + var(--ph-hp) + var(--ph-chain)); padding-bottom: 0; }
 
 /* ---------- header: the view switch and More ---------- */
 :root.ph .top { position: static; height: var(--ph-head); margin: 0; padding: 4px 4px 4px 8px; gap: 4px; background: var(--bg); border-bottom: 1px solid var(--line); }
-:root.ph .top > :not(#viewSwitch, #hdrMoreBtn, #hdrMenu) { display: none !important; }
+:root.ph .top > :not(#viewSwitch, #hdrMoreBtn, #hdrMenu, #tourHeadSlot) { display: none !important; }
+/* v16.4: the guided tour's strip in a landscape phone's header, right of ⋯ (src/tour.js) */
+:root.ph .top > #tourHeadSlot:not([hidden]) { order: 20; flex: 1 1 260px; min-width: 0; align-self: stretch; display: flex; }
+:root.ph .top:has(> #tourHeadSlot:not([hidden])) > #viewSwitch { flex: 0 1 420px; }
+/* (and under the header in portrait, or in a 48 px row when the header has no room: the stage's first child) */
+:root.ph .stage > #tourSlot:not([hidden]) { flex: 0 0 var(--ph-tour, 0px); height: var(--ph-tour, 0px); position: relative; z-index: 16; }
+/* (r3 review: the tour's row under a landscape header keeps the full width while a sheet takes the right 360 px of the
+   layout under it; its slot still reserves the row) */
+:root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
 :root.ph .top > #viewSwitch { flex: 1 1 auto; display: flex; height: 48px; min-width: 0; padding: 1px; }
 :root.ph #viewSwitch::before { display: none; }
 :root.ph #viewSwitch > button { flex: 1 1 0; min-width: 0; height: 100%; padding: 0 4px; justify-content: center; border-radius: var(--r-2); font: 600 13px/1 var(--f-ui); color: var(--ink-2); }
@@ -185,7 +193,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-scrim { position: fixed; inset: 0; z-index: 27; background: color-mix(in srgb, #000 32%, transparent); }
 .ph-scrim[hidden], .ph-sheet[hidden] { display: none !important; }
 .ph-sheet {
-  position: fixed; z-index: 25; left: 0; right: 0; bottom: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-hp, 300px) + var(--ph-chain));
+  position: fixed; z-index: 25; left: 0; right: 0; bottom: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + var(--ph-hp, 300px) + var(--ph-chain));
   display: flex; flex-direction: column; min-height: 0; padding-bottom: var(--ph-safe-b);
   background: var(--surface); color: var(--ink); border-top: 1px solid var(--line-strong); box-shadow: var(--shadow-3);
   transform: translateY(100%); transition: transform 220ms var(--ease-out); will-change: transform;
@@ -194,7 +202,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-sheet.opening { transition: none; transform: translateY(100%); }
 .ph-sheet[data-k="more"] { z-index: 28; top: auto; max-height: calc(100dvh - 48px); border-radius: var(--r-4) var(--r-4) 0 0; }
 /* full height (review design-1): the chain bar rides on the sheet's top edge, under the header; the sheet starts below it */
-:root.ph-full .ph-sheet:not([data-k="more"]) { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-chain)); }
+:root.ph-full .ph-sheet:not([data-k="more"]) { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + var(--ph-chain)); }
 :root.ph.ph-full.ph-split:not(.ph-land) .pipe-wrap { transform: translateY(calc(-1 * var(--ph-hp, 0px))); }
 .ph-sh { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px 4px 0 16px; border-bottom: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
 .ph-sh > .grow { flex: 1 1 auto; }
@@ -278,7 +286,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land #pipeline .card { grid-template-columns: 40px auto; }
 :root.ph.ph-land #secDraw { left: auto; right: 0; width: calc(6 * 56px + 8px); height: 52px; padding: 2px 4px; z-index: 27; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line); }
 :root.ph.ph-land #secDraw > .tools > .tool, :root.ph.ph-land #secDraw > .ph-undo, :root.ph.ph-land #secDraw > .tool-more > summary { height: 46px; }
-:root.ph.ph-land .ph-sheet { left: auto; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: 360px; transform: translateX(100%); border-top: 0; border-left: 1px solid var(--line-strong); }
+:root.ph.ph-land .ph-sheet { left: auto; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px)); width: 360px; transform: translateX(100%); border-top: 0; border-left: 1px solid var(--line-strong); }
 :root.ph.ph-land .ph-sheet.open { transform: none; }
 :root.ph.ph-land .ph-sheet.opening { transform: translateX(100%); }
 :root.ph.ph-land .ph-sheet[data-k="more"] { max-height: none; border-radius: 0; }

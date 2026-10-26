@@ -195,7 +195,8 @@ put while the step shows. The lit patch is the element's box cut by its scrollin
 | `invBtn` | the f⁻¹ button of the first card that has one | the `.card button` whose label is f<sup>−1</sup> |
 | `sheets` | the All sheets check of the Landscape options | the label around `#sheetsChk` |
 | `phaseKey` | the Phase key check of Y's options (X → Y, Y on its plane) | the label around `#wKeyChkR` |
-| `rightOpts` | Y's Display options button, where the Phase key goes when Y's options strip has no room (the fallback of `phaseKey`) | `#rightFoot .opts-btn` |
+| `rightOpts` | Y's Display options button, where the Phase key goes when Y's options strip has no room (the fallback of `phaseKey`; v16.5 UX20: on a desktop always, in Y's pane head) | `#rightFoot .opts-btn` |
+| `leftOpts` | (v16.5 UX20) X's Display options button in its pane head on a desktop: the Phase style and Landscape's options (the fallback of `phaseStyle`) | `#leftFoot .opts-btn` |
 | `soundBtn`, `soundBar` | the Sound control of the top bar (the sound round); on a phone with sound on, its button left in the bar | `#soundBtn`, `#soundPh` |
 | `phaseStyle` | the Phase style control of the Phase view's options (Tiles … Cauchy) | `#dcSeg` |
 | `examples`, `palette`, `exportBtn`, `helpBtn`, `moreBtn` | the top bar | `#examplesBtn`, `#cmdBtn`, `#exportBtn`, `#helpBtn`, `#hdrMoreBtn` |

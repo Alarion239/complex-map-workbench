@@ -1,0 +1,8 @@
+
+NEW runs (no baseline entry yet: reported, not gated; accept a baseline to gate them):
+
+Targets (absolute thresholds of the spec; reported only, --enforce-targets to gate): 259 met, 0 not met
+
+81 runs: 0 failed, 28 improved, 35 unchanged within tolerance, 18 NEW (not compared with a baseline)
+RESULT: PASS
+exit 0

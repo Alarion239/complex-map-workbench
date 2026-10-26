@@ -1,0 +1,338 @@
+[
+ {
+  "b": "snap",
+  "meshN": 1920,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18,
+  "max": 19.4,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "sinsqrt-im",
+  "fps": 59.9,
+  "p50": 16.7,
+  "p95": 18.5,
+  "max": 20.4,
+  "n": 179,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 1920,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.8,
+  "max": 19.5,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.2,
+  "max": 18.9,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 1920,
+  "id": "asin-sqrt-im",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 18.2,
+  "max": 33.1,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "asin-sqrt-im",
+  "fps": 42.6,
+  "p50": 20,
+  "p95": 25.5,
+  "max": 438.8,
+  "n": 119,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 1920,
+  "id": "asin-sqrt-im",
+  "fps": 59.9,
+  "p50": 16.7,
+  "p95": 18.2,
+  "max": 21.6,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "asin-sqrt-im",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 18.3,
+  "max": 19.9,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 1920,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.3,
+  "max": 19.6,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.2,
+  "max": 19.5,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 1920,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.7,
+  "max": 25.8,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 1920,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.8,
+  "max": 18.3,
+  "n": 180,
+  "st": {
+   "meshN": 1920,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 240,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.9,
+  "max": 19.6,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 240,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.3,
+  "max": 19.7,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 240,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.3,
+  "max": 19,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 240,
+  "id": "sinsqrt-im",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 18.2,
+  "max": 19.2,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 240,
+  "id": "asin-sqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 17.8,
+  "max": 21.3,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 240,
+  "id": "asin-sqrt-im",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 17.9,
+  "max": 18.7,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 240,
+  "id": "asin-sqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18,
+  "max": 24.7,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 240,
+  "id": "asin-sqrt-im",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.5,
+  "max": 28.8,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 240,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.1,
+  "max": 19.4,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 240,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18,
+  "max": 31.2,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "snap",
+  "meshN": 240,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.6,
+  "p95": 18.5,
+  "max": 28.1,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ },
+ {
+  "b": "xvls",
+  "meshN": 240,
+  "id": "tan-re-play",
+  "fps": 60,
+  "p50": 16.7,
+  "p95": 18.7,
+  "max": 22.8,
+  "n": 180,
+  "st": {
+   "meshN": 240,
+   "cuts": null
+  }
+ }
+]

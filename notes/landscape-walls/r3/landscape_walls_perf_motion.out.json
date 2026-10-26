@@ -1,0 +1,216 @@
+{
+ "rows": [],
+ "perf": [
+  {
+   "tag": "1440-light",
+   "what": "orbit tan Re",
+   "n": 120,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 18.7,
+   "turned": 1.21
+  },
+  {
+   "tag": "1440-light",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.3,
+   "max": 19.2
+  },
+  {
+   "tag": "1440-light",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 59.9,
+   "p50": 16.6,
+   "p95": 18.2,
+   "max": 20.6
+  },
+  {
+   "tag": "1440-dark",
+   "what": "orbit tan Re",
+   "n": 120,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 19.1,
+   "turned": 1.21
+  },
+  {
+   "tag": "1440-dark",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.2,
+   "max": 18.9
+  },
+  {
+   "tag": "1440-dark",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 19.8
+  },
+  {
+   "tag": "390-light",
+   "what": "orbit tan Re",
+   "n": 120,
+   "fps": 59.9,
+   "p50": 16.7,
+   "p95": 18.4,
+   "max": 18.8,
+   "turned": 1.21
+  },
+  {
+   "tag": "390-light",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.4,
+   "max": 19
+  },
+  {
+   "tag": "390-light",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 20.2
+  },
+  {
+   "tag": "390-dark",
+   "what": "orbit tan Re",
+   "n": 119,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.1,
+   "max": 18.9,
+   "turned": 1.2
+  },
+  {
+   "tag": "390-dark",
+   "what": "play sin √z Im, All sheets",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.6,
+   "p95": 18.2,
+   "max": 18.8
+  },
+  {
+   "tag": "390-dark",
+   "what": "play sin √z Im",
+   "n": 150,
+   "fps": 60,
+   "p50": 16.7,
+   "p95": 18.3,
+   "max": 19.5
+  }
+ ],
+ "fails": [],
+ "speck": [],
+ "cold": [],
+ "motion": [
+  {
+   "page": "test.html",
+   "sheets": true,
+   "tag": "light",
+   "rest": {
+    "n": 26,
+    "gapPct": 21.2,
+    "maxDev": 0.37,
+    "fit": [
+     -0.20975039301237244,
+     335.18523736341285
+    ]
+   },
+   "move": {
+    "n": 26,
+    "gapPct": 21.2,
+    "maxDev": 0.33,
+    "fit": [
+     -0.20947723202012586,
+     335.1134605587973
+    ]
+   }
+  },
+  {
+   "page": "test.html",
+   "sheets": false,
+   "tag": "light",
+   "rest": {
+    "n": 33,
+    "gapPct": 0,
+    "maxDev": 0.5,
+    "fit": [
+     -0.2017657632943277,
+     333.07275828839454
+    ]
+   },
+   "move": {
+    "n": 33,
+    "gapPct": 0,
+    "maxDev": 0.5,
+    "fit": [
+     -0.20129441550356533,
+     332.9412617991489
+    ]
+   }
+  },
+  {
+   "page": "test.html",
+   "sheets": true,
+   "tag": "dark",
+   "rest": {
+    "n": 26,
+    "gapPct": 21.2,
+    "maxDev": 0.35,
+    "fit": [
+     -0.21064850391216197,
+     335.42517763526325
+    ]
+   },
+   "move": {
+    "n": 26,
+    "gapPct": 21.2,
+    "maxDev": 0.37,
+    "fit": [
+     -0.20982318065404315,
+     335.2029755050885
+    ]
+   }
+  },
+  {
+   "page": "test.html",
+   "sheets": false,
+   "tag": "dark",
+   "rest": {
+    "n": 33,
+    "gapPct": 0,
+    "maxDev": 0.51,
+    "fit": [
+     -0.20186503144374215,
+     333.09870037620766
+    ]
+   },
+   "move": {
+    "n": 33,
+    "gapPct": 0,
+    "maxDev": 0.49,
+    "fit": [
+     -0.20145760561840134,
+     332.9847160688115
+    ]
+   }
+  }
+ ],
+ "pass": true,
+ "logs": []
+}

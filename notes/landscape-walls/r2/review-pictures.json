@@ -1,0 +1,50 @@
+[
+ {
+  "id": "pictures-1",
+  "severity": "high",
+  "title": "The per-sheet tint is too faint to tell the two sheets apart near t = 0",
+  "detail": "This is the user's explicit request (USER-ADDENDUM). In the user's case (sin √z, √ bracketed, All sheets, Im) at t = 0.05, the two sheets already separate as doubled crests and walls, but both copies have the same colours. Nothing on screen says which sheet is which. I measured the builder's own cue pictures (r2/after/cue-t0.03-{none,tint}-colour-*.png, the same frame with the tint off and on). Only 7.7 % of the pane's pixels change at t = 0.03 (5.6 % at t = 0.2). They change by about 5/255 per channel on average, a luminance shift of about 2 % (max 45 summed over RGB). Side by side, the two pictures cannot be told apart at a glance, in light or dark. AS-BUILT says '30 % toward the darker or lighter shade', but that is not what reaches the screen. Most likely the visible sheet in front (the depth bias puts sheet 0 there) carries no or little tint, and the rest is lost to lighting and the Tiles pattern. The same happens with log(z^3), power bracketed, at t = 0.05: three nearly coincident top plates read as one plate with a crease.",
+  "evidence": "notes/landscape-walls/r2/review-pictures/cue-t0.03-none-vs-tint.png (left none, right tint, t = 0.03); cue-user-t0-vs-t0.05.png (my renders, t = 0 and 0.05, light and dark, 1440x900); pixel statistics computed from r2/after/cue-t0.03-* and cue-t0.2-*.",
+  "fix": "Tint by sheet parity on every sheet, the front one included, so the pair always differs. For example, sheet 0 lighter and sheet 1 darker by about ±15 % OKLab L each at t = 0, which is a visible step. Or add the seam (the sheets' crossing curve) on top of the tint near t = 0. Gate it with a picture check: at t = 0.05, on pixels where both sheets show, the mean L of sheet 0 and sheet 1 must differ by at least 8 %. At t = 1 the shift on a lone sheet must stay at most 5 %. Check light, dark and the phone."
+ },
+ {
+  "id": "pictures-2",
+  "severity": "medium",
+  "title": "Zigzag contour 'scratches' on steep walls in the user's case (new in round 2)",
+  "detail": "Take sin √z, All sheets, Im, t = 0.2. The contour line at Im H = 0 on the left back wall (seen from behind, in the darker underside colour) is drawn as a wobbly sawtooth. So is the line at Im H ≈ −0.5 on the cyan wall next to it. Round 1 drew the same line on the same frame as a nearly straight line, and before the walls there was no wall there. It shows in the builder's own r2/after/sinsqrt-t0.2-im-sheets-{light,dark}.png. It also shows in my renders at DPR 1 and DPR 2 (1440x900), so it is not an accident of resolution. These are the 'scratches on steep walls' the round was meant to remove, now as lines. The likely cause: on the refined strips F is interpolated from the vertices, and the contour's width or phase comes from screen derivatives (fwidth) on sub-pixel strip triangles, which jump from strip to strip.",
+  "evidence": "notes/landscape-walls/r2/review-pictures/wall-contour-zigzag-r2-r1-before.png (top: r2 builder light, my r2 light, round 1 light; bottom: r2 builder dark, my r2 dark, before); wall-contour-zigzag-dpr2-and-phone.png (DPR 2, light and dark: two zigzag lines).",
+  "fix": "On refined walls, take the contour's height from each fragment's own interpolated exact height and its width from the analytic gradient (the vertex normal's slope, projected), not from fwidth across strips. Or compute the contour per vertex at the strips' resolution and draw it as a line. Add a crop check to landscape_walls_cmd: on the user's frame at t = 0.2, the Im H = 0 contour on the left wall must deviate from a fitted straight line by at most 0.5 px."
+ },
+ {
+  "id": "pictures-3",
+  "severity": "medium",
+  "title": "log log z, All sheets: the fin above the top plate and a small tube between lower plates remain",
+  "detail": "Round 1 named this fin as a blocker. Round 2 leaves it as an open item ('should be real geometry, not confirmed'). In my render (1440x900, light) the top plate still carries a twisted dark ribbon standing above it at z = 1. A lower plate shows a small vertical tube or pin joining two plates at the same point. To a reader both look like curtains. Only the sheet where log z is near 0 (k = 0 of the outer log) should wind around z = 1. A tube joining two different plates would be a curtain, not geometry. Phone dark shows the same stack.",
+  "evidence": "notes/landscape-walls/r2/review-pictures/essential-crest-logz3-loglog.png (bottom right); phone-8-cases.png (log log z Im, phone dark); r2/after/loglog-im-sheets-*.png.",
+  "fix": "Settle it numerically before shipping. Sample Im log log z on each drawn sheet on a small circle around z = 1, and check the refined mesh's triangles there for edges whose two ends lie on different sheets. Any such edge is a curtain: drop it, as the cut rule does. If the top plate's ribbon is real, clip it at the window's cut so it ends cleanly. Then take a crop from two more angles."
+ },
+ {
+  "id": "pictures-4",
+  "severity": "low",
+  "title": "The crest near an essential singularity (e^{1/z}, sin(1/z)) is a comb of coloured slivers and dots",
+  "detail": "Near z = 0 the top of the tower in e^{1/z} (Re and Im) and sin(1/z) (Re and Im) shows a dense row of thin multicoloured slivers and dots. It is clearer than round 1, which had a speckled curtain, and better than before, which had red dots. It still reads as noise at article grade, in light and dark. These walls are narrower than a sixteenth of a cell, so the refinement cap stops there (AS-BUILT, open items). Nothing marks where the picture stops being accurate.",
+  "evidence": "notes/landscape-walls/r2/review-pictures/essential-crest-logz3-loglog.png (top left sin(1/z) Re light, top middle e^{1/z} Im dark, bottom left sin(1/z) Im dark, bottom middle e^{1/z} Re light); expinv-loglog-before-r1-r2.png (top row: before, round 1, round 2).",
+  "fix": "Near a declared singular point, stop drawing inside the radius where the walls fall below the sub-cell cap. Cut a clean disc out of the mesh with the box-edge treatment, so the tower ends in a clean rim instead of a fringe of slivers. Or raise the cap locally for that disc only, within the 6 M evaluation budget."
+ },
+ {
+  "id": "pictures-5",
+  "severity": "low",
+  "title": "log(z^3), power bracketed, near t = 0: nearly coincident top plates show a dark V-shaped crease",
+  "detail": "At t = 0.05 the top plate (Im H at the box top) shows two thin dark slits running from the centre. The cuts of the nearly coincident sheets sit at slightly different angles, and the plate below shows through. Because the tint does not separate the sheets (pictures-1), it reads as a crack in one plate, not as two sheets. At t = 0.4 and 1 the plates separate and read correctly. Light and dark are the same.",
+  "evidence": "notes/landscape-walls/r2/review-pictures/essential-crest-logz3-loglog.png (top right, t = 0.05, light).",
+  "fix": "Mostly fixed by a readable per-sheet cue (pictures-1). In addition, the slit edges could take the cut-edge darkening only where the sheets really differ by more than a pixel."
+ },
+ {
+  "id": "pictures-6",
+  "severity": "info",
+  "title": "Checked and clean: steep walls of sec z, tan z, z/(e^z−1) and the user's case, undersides, orbit, playing, phone",
+  "detail": "Seen clean at 1440x900 DPR 1, light and dark:\n- sec z Re and Im, tan z Re (round 1's dark speckles are gone) and Im, z/(e^z−1) Re and Im: walls closed and smooth, no holes, curtains or speckles.\n- √(z(z−1)(z+1)): Im, Im with All sheets, Re with All sheets.\n- The user's case at t = 0, 0.05, 0.2, 0.5 and 1 (Im), Re at 0.05 and 0.2, log|H| at 0.2.\n- Seen from below at t = 0.05 and 0.5: undersides keep their colours and read as the same sheet.\n- Mid-orbit, and three frames of each case while playing.\n\nAlso clean: a DPR 2 desktop (user's case, sec z, tan z) and a 390x844 phone at DPR 2.625 (user's case at 0.05, 0.2 and 1 and playing; sec z Re; tan z Re; log log z with All sheets). The thin vertical line with a ring in the orbit shots is the rectangle shape's marker, not an artifact. No console errors or warnings in any run. Not covered: exports with All sheets, Android hardware.",
+  "evidence": "notes/landscape-walls/r2/review-pictures/sec-tan-walls-clean.png (top right: round 1's tan Re speckles; bottom: r2 tan Re, clean); phone-8-cases.png.",
+  "fix": "None."
+ }
+]

@@ -1,0 +1,36 @@
+{
+ "ray": {
+  "menu": [
+   "Integrate F along it"
+  ],
+  "clicked": true,
+  "sing": false,
+  "pop": [
+   "∫ along Line 2 (visible part)\n∫γ F dz\n1.0664 + 1.2194i\nRunning integral of F from 0 (○) to its value (●)",
+   "∫ along Line 2 (visible part)"
+  ]
+ },
+ "ray-whole": {
+  "menu": [
+   "Integrate F along it"
+  ],
+  "clicked": true,
+  "sing": false,
+  "pop": [
+   "∫ along Line 2 (visible part)\n∫γ F dz\n2.4387i\nRunning integral of F from 0 (○) to its value (●)",
+   "∫ along Line 2 (visible part)"
+  ]
+ },
+ "tworays": {
+  "menu": [
+   "Integrate F along it"
+  ],
+  "clicked": true,
+  "sing": false,
+  "pop": [
+   "∫ along Line 1 (visible part)\n∫γ F dz\n0\nRunning integral of F from 0 (○) to its value (●)",
+   "∫ along Line 1 (visible part)"
+  ]
+ },
+ "logs": []
+}

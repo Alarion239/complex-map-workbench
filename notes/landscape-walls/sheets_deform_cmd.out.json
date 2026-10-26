@@ -1,0 +1,294 @@
+{
+ "pass": false,
+ "fails": [
+  {
+   "name": "BUDGET60 while playing with All sheets (60 fps, p95 within 0.5 ms of the plain deformation)",
+   "got": [
+    {
+     "k": "1440x900",
+     "p95": 18.1,
+     "fps": 60,
+     "baseP95": 17.9,
+     "under184": true,
+     "ok": true
+    },
+    {
+     "k": "1440x900",
+     "p95": 17.4,
+     "fps": 60,
+     "baseP95": 17.9,
+     "under184": true,
+     "ok": true
+    },
+    {
+     "k": "390x844",
+     "p95": 18.6,
+     "fps": 60,
+     "baseP95": 17.7,
+     "under184": false,
+     "ok": false
+    },
+    {
+     "k": "390x844",
+     "p95": 17.6,
+     "fps": 60,
+     "baseP95": 17.7,
+     "under184": true,
+     "ok": true
+    }
+   ]
+  }
+ ],
+ "info": {
+  "frames": [
+   {
+    "size": "1440x900",
+    "sheets": true,
+    "drawn": 2,
+    "frames": {
+     "n": 180,
+     "fps": 60,
+     "p50": 16.6,
+     "p95": 18.1,
+     "max": 18.9
+    }
+   },
+   {
+    "size": "1440x900",
+    "sheets": false,
+    "drawn": null,
+    "frames": {
+     "n": 180,
+     "fps": 60,
+     "p50": 16.7,
+     "p95": 17.9,
+     "max": 19.4
+    }
+   },
+   {
+    "size": "1440x900",
+    "sheets": true,
+    "drawn": 2,
+    "frames": {
+     "n": 180,
+     "fps": 60,
+     "p50": 16.7,
+     "p95": 17.4,
+     "max": 18.3
+    }
+   },
+   {
+    "size": "390x844",
+    "sheets": true,
+    "drawn": 2,
+    "frames": {
+     "n": 180,
+     "fps": 60,
+     "p50": 16.7,
+     "p95": 18.6,
+     "max": 27
+    }
+   },
+   {
+    "size": "390x844",
+    "sheets": false,
+    "drawn": null,
+    "frames": {
+     "n": 180,
+     "fps": 60,
+     "p50": 16.7,
+     "p95": 17.7,
+     "max": 19.8
+    }
+   },
+   {
+    "size": "390x844",
+    "sheets": true,
+    "drawn": 2,
+    "frames": {
+     "n": 180,
+     "fps": 60,
+     "p50": 16.7,
+     "p95": 17.6,
+     "max": 18.8
+    }
+   }
+  ],
+  "twin0": [
+   [
+    -0.7568024953079282,
+    0
+   ],
+   [
+    -0.7568024953079282,
+    0
+   ]
+  ],
+  "twin0.5": [
+   [
+    0.30807174236304485,
+    0
+   ],
+   [
+    -4.410643541340483e-15,
+    -8.429861465997972
+   ]
+  ],
+  "twin1": [
+   [
+    0.9092974268256817,
+    0
+   ],
+   [
+    -0.9092974268256817,
+    -1.0192657827055095e-16
+   ]
+  ],
+  "whole": {
+   "1": {
+    "K": 2,
+    "hom": true,
+    "map": {
+     "mode": 1,
+     "hi": 2,
+     "t": 0
+    }
+   },
+   "2": {
+    "K": 2,
+    "hom": true,
+    "map": {
+     "mode": 1,
+     "hi": 2,
+     "t": 1
+    }
+   },
+   "0.5": {
+    "K": 2,
+    "hom": true,
+    "map": {
+     "mode": 1,
+     "hi": 1,
+     "t": 0.5
+    }
+   },
+   "1.5": {
+    "K": 2,
+    "hom": true,
+    "map": {
+     "mode": 1,
+     "hi": 2,
+     "t": 0.5
+    }
+   }
+  },
+  "focus1": {
+   "drawn": {
+    "K": 2,
+    "total": 2,
+    "W": 2,
+    "N": 256,
+    "infinite": false,
+    "hom": true
+   },
+   "map": {
+    "mode": 1,
+    "hi": 1,
+    "t": 0.5
+   }
+  },
+  "log": {
+   "0": {
+    "K": 5,
+    "total": 5,
+    "W": 2,
+    "N": 162,
+    "infinite": true,
+    "hom": true
+   },
+   "1": {
+    "K": 5,
+    "total": 5,
+    "W": 2,
+    "N": 162,
+    "infinite": true,
+    "hom": true
+   },
+   "0.5": {
+    "K": 5,
+    "total": 5,
+    "W": 2,
+    "N": 162,
+    "infinite": true,
+    "hom": true
+   }
+  },
+  "pair": {
+   "drawn": null,
+   "title": "<span class=\"ptitle\"><i>z</i>-plane</span><span class=\"prole\"><span class=\"rf\">landscape of Im <i>H</i><sub><i>t</i></sub></span><span class=\"rs\">landscape</span></span>",
+   "tip": "While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet."
+  },
+  "caption": "The landscape of $H_t$ over the $z$-plane: the height is $\\operatorname{Im} H_t$ and the colour $\\arg H_t$ (bar); the sheets of $H_t$ that become the sheets of $F$ are shown. Shown at $t=0.50$, where $H_t=f_{2}\\circ G_t$ deforms $f_{2}$ ($t=0$) into $F(z)=\\sin\\left(\\sqrt{z}\\right)$ ($t=1$); it is the homotopy $H_t=f_{2}\\circ G_t$, $0\\le t\\le 1$, where $G_t$ is the homotopy $G_t(z)=z^{1-(1/2)t}$ (principal branch). Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt{z}$ and $f_{2}(w)=\\sin w$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic; this is guaranteed by the chain.",
+  "captionStatic": "The landscape of $F(z)=\\sin\\left(\\sqrt{z}\\right)$ over the $z$-plane: the height is $\\operatorname{Im} F$ and the colour $\\arg F$ (bar); all sheets of the Riemann surface are shown. Here $F=f_{2}\\circ f_{1}$ with $f_{1}(z)=\\sqrt{z}$ and $f_{2}(w)=\\sin w$. On its natural domain $D=\\{z : \\arg z\\neq 180^\\circ\\}$, $F$ is analytic; this is guaranteed by the chain.",
+  "gate": [
+   {
+    "k": "1440x900",
+    "p95": 18.1,
+    "fps": 60,
+    "baseP95": 17.9,
+    "under184": true,
+    "ok": true
+   },
+   {
+    "k": "1440x900",
+    "p95": 17.4,
+    "fps": 60,
+    "baseP95": 17.9,
+    "under184": true,
+    "ok": true
+   },
+   {
+    "k": "390x844",
+    "p95": 18.6,
+    "fps": 60,
+    "baseP95": 17.7,
+    "under184": false,
+    "ok": false
+   },
+   {
+    "k": "390x844",
+    "p95": 17.6,
+    "fps": 60,
+    "baseP95": 17.7,
+    "under184": true,
+    "ok": true
+   }
+  ]
+ },
+ "shots": [
+  "sd-1440-en-light-t0",
+  "sd-1440-en-light-t0.5",
+  "sd-1440-en-light-t1",
+  "sd-1440-en-dark-t0",
+  "sd-1440-en-dark-t0.5",
+  "sd-1440-en-dark-t1",
+  "sd-1440-ru-light-t0",
+  "sd-1440-ru-light-t0.5",
+  "sd-1440-ru-light-t1",
+  "sd-1440-ru-dark-t0",
+  "sd-1440-ru-dark-t0.5",
+  "sd-1440-ru-dark-t1",
+  "sd-390-en-light-t0",
+  "sd-390-en-light-t0.5",
+  "sd-390-en-light-t1",
+  "sd-390-en-dark-t0.5",
+  "sd-390-ru-light-t0",
+  "sd-390-ru-light-t0.5",
+  "sd-390-ru-light-t1",
+  "sd-390-ru-dark-t0.5",
+  "sd-focus1-t0.5",
+  "sd-log-t0",
+  "sd-log-t0.5",
+  "sd-log-t1"
+ ]
+}

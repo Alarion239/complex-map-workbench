@@ -1859,17 +1859,20 @@ void main() { o = textureLod(uHalf, (gl_FragCoord.xy - uVp.xy) / uVp.zw * uHalfS
 
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = `
-uniform int uHMode; uniform float uH; uniform float uMu;
+uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
   bool nanx = isnan(w.x) || !(w.x < 0.0 || w.x >= 0.0), nany = isnan(w.y) || !(w.y < 0.0 || w.y >= 0.0);
   bool infv = (!nanx && abs(w.x) > 3e38) || (!nany && abs(w.y) > 3e38);
   float mu = uMu > 0.0 ? uMu : 1.0;
-  // linear Re / Im (modes 4, 5): the stacked sheets of a covering surface keep their true pitch (atan made plateaus)
+  // linear Re / Im (modes 4, 5): the stacked sheets of a covering surface keep their true pitch (atan made plateaus).
+  // The block ends at 1.25 H; the landscape's mesh (uHClip > 0) keeps heights up to uHClip H and is clipped at the
+  // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block
   if (uHMode == 4 || uHMode == 5) {
     float x = uHMode == 4 ? w.x : w.y;
     bool bad = uHMode == 4 ? nanx : nany;
-    return vec2(uH * clamp(x / mu, -1.25, 1.25), bad ? 0.0 : 1.0);
+    float lim = uHClip > 0.0 ? uHClip : 1.25;
+    return vec2(uH * clamp(x / mu, -lim, lim), bad ? 0.0 : 1.0);
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
   if (uHMode == 6 || uHMode == 7) {
@@ -1888,13 +1891,135 @@ vec2 heightW(vec2 w) {
   return vec2(uH * v, bad ? 0.0 : 1.0);
 }
 `;
+  // ---- adaptive refinement (notes/landscape-walls/DESIGN.md 3.3, r2/AS-BUILT.md) ----
+  // Each base cell has two levels (Lx, Ly), 0..4: 1, 2, 4, 8 or 16 sub-cells along x and along y, from its chord
+  // errors along each direction at the fitted camera (under 0.25 px), so a wall that runs along y is cut in strips
+  // across it, not in squares. uLv: the levels (Lx + 8 Ly), four cells per texel along x. uLst: the refined cells
+  // (cell index per texel, 1024 per row), grouped by (Lx, Ly). Positions are in 16ths of a cell (exact integers), so
+  // a vertex two cells share comes from the same numbers in both.
+  // While something moves the levels may be a frame or two older than the heights (read back fenced, never waited for:
+  // r2 review math-3): a cell that now holds a real jump (LAND_EDGE_VS, the current heights') counts as level 0 in
+  // every program, so its refined neighbours meet its base edges and the base draw splits it at the cut
+  const REFINE = `
+uniform highp sampler2D uLv; uniform highp sampler2D uLst; uniform int uM;
+uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2; uniform int uCuts;
+bool cellJump(ivec2 c) {
+  return texelFetch(uE0, c, 0).w > 0.5 || texelFetch(uE0, c + ivec2(0, 1), 0).w > 0.5 || texelFetch(uE1, c, 0).w > 0.5
+      || texelFetch(uE1, c + ivec2(1, 0), 0).w > 0.5 || texelFetch(uE2, c, 0).w > 0.5;
+}
+int lvRaw(ivec2 c) {
+  vec4 t = texelFetch(uLv, ivec2(c.x >> 2, c.y), 0);
+  int k = c.x & 3;
+  return int((k == 0 ? t.x : (k == 1 ? t.y : (k == 2 ? t.z : t.w))) + 0.5);
+}
+ivec2 lvAt(ivec2 c) {
+  if (c.x < 0 || c.y < 0 || c.x >= uM || c.y >= uM) return ivec2(-1);
+  int v = lvRaw(c);
+  if (v != 0 && uCuts > 0 && cellJump(c)) return ivec2(0);
+  return ivec2(v & 7, v >> 3);
+}
+// drawn by the refined cells' draw, not a cell that now holds a jump
+bool lvDrawnR(ivec2 c) { return lvRaw(c) != 0 && !(uCuts > 0 && cellJump(c)); }
+ivec2 lstCell(int e) {
+  int ci = int(texelFetch(uLst, ivec2(e & 1023, e >> 10), 0).x + 0.5);
+  return ivec2(ci % uM, ci / uM);
+}
+`;
+  // (the refinement's build: the levels and the refined vertices' positions; not in the draw programs, whose first
+  // compile is a formula's first Landscape)
+  const REFINE_BUILD = `
+// sub-grid vertex s (0..2^Lx, 0..2^Ly) of cell c at levels L: its position in 16ths of a cell (xy) and the levels of
+// its normal's spacing along x and y (zw; -1: a base vertex next to a base cell, whose height and normal are the base
+// passes'). A vertex on a side of the cell moves to the nearest point of the grid of the lower of the two levels
+// along that side (the level the side's own chord error asked for, which both cells reached): both cells then draw
+// the same polyline there, with no T-junction and no crack.
+ivec4 snapV(ivec2 c, ivec2 L, ivec2 s) {
+  ivec2 n = ivec2(1 << L.x, 1 << L.y);
+  ivec2 g = ivec2(s.x * (16 >> L.x), s.y * (16 >> L.y));
+  ivec2 ln = L;
+  bool sx = s.x == 0 || s.x == n.x, sy = s.y == 0 || s.y == n.y;
+  if (sx != sy) {
+    ivec2 nb = sx ? lvAt(c + ivec2(s.x == 0 ? -1 : 1, 0)) : lvAt(c + ivec2(0, s.y == 0 ? -1 : 1));
+    if (nb.x < 0) nb = L;
+    ln = min(L, nb);
+    // (nearest, ties down: the same point from both sides)
+    if (sx) { int st = 16 >> ln.y; g.y = ((2 * g.y + st - 1) / (2 * st)) * st; }
+    else { int st = 16 >> ln.x; g.x = ((2 * g.x + st - 1) / (2 * st)) * st; }
+  }
+  if ((g.x == 0 || g.x == 16) && (g.y == 0 || g.y == 16)) {
+    ivec2 q = c + (g >> 4);
+    ivec2 m = ivec2(99);
+    bool base = false;
+    for (int k = 0; k < 4; k++) {
+      ivec2 l = lvAt(q - ivec2(k & 1, k >> 1));
+      if (l.x < 0) continue;
+      m = min(m, l);
+      if (l.x == 0 && l.y == 0) base = true;
+    }
+    ln = base ? ivec2(-1) : m;
+  }
+  return ivec4(c * 16 + g, ln);
+}
+// the level a chord error e (world units) asks for at uPxW px per world unit: the error falls by 4 per level on a
+// smooth surface, so L = log4(e / 0.25 px), at most 4; sub-cells are kept over uMinPx of a pixel
+uniform float uPxW; uniform float uCellW; uniform float uMinPx;
+int levelOf(float e) {
+  float ep = e * uPxW, f = uCellW * uPxW;
+  int L = ep > 0.25 ? int(ceil(0.5 * log2(ep / 0.25))) : 0;
+  int Lp = f > uMinPx ? int(ceil(log2(f / uMinPx))) : 0;
+  return clamp(min(L, Lp), 0, 4);
+}
+// The levels (Lx + 8 Ly) of a cell from its 5 x 5 lattice of heights at quarter cells (lat, row-major from the corner
+// 00): the largest second differences along x, along y and along the drawn diagonal (that one goes with the larger of
+// the two), D in px. The chord error of a facet of side l (cells) is 2 D (l / (1/4))^2 / 16 = 2 D l^2 where the
+// surface is quadratic, under 0.25 px when 4^L >= 8 D; one level more (4^L >= 32 D), since a wall's curvature peaks
+// between the lattice's points (test/t_landwalls.js: 0.25 px is then met almost everywhere below the 16 sub-cells cap).
+// (While something moves the cheaper estimate below, from the midpoints and the centre only.)
+int levelD(float D) {
+  float dp = D * uPxW;
+  return dp > 0.03125 ? int(ceil(0.5 * log2(32.0 * dp))) : 0;
+}
+float levelsLat(float lat[25]) {
+  float dx = 0.0, dy = 0.0, dd = 0.0;
+  for (int b = 0; b < 5; b++) for (int a = 1; a < 4; a++) {
+    dx = max(dx, abs(lat[b * 5 + a - 1] - 2.0 * lat[b * 5 + a] + lat[b * 5 + a + 1]));
+    dy = max(dy, abs(lat[(a - 1) * 5 + b] - 2.0 * lat[a * 5 + b] + lat[(a + 1) * 5 + b]));
+  }
+  for (int b = 1; b < 4; b++) for (int a = 1; a < 4; a++) dd = max(dd, abs(lat[(b - 1) * 5 + a - 1] - 2.0 * lat[b * 5 + a] + lat[(b + 1) * 5 + a + 1]));
+  if (dx >= dy) dx = max(dx, dd); else dy = max(dy, dd);
+  float f = uCellW * uPxW;
+  int Lp = f > uMinPx ? int(ceil(log2(f / uMinPx))) : 0;
+  return float(clamp(min(levelD(dx), Lp), 0, 4) + 8 * clamp(min(levelD(dy), Lp), 0, 4));
+}
+// the lattice index of the p-th point a cell evaluates: uLat 1 the 21 that are not corners, 0 the bottom, top, left and
+// right midpoints and the centre
+uniform int uLat;
+int latIdx(int p) { return uLat == 1 ? p + 1 + (p >= 3 ? 1 : 0) + (p >= 18 ? 1 : 0) : (p == 0 ? 2 : (p == 1 ? 22 : (p == 2 ? 10 : (p == 3 ? 14 : 12)))); }
+// the cheaper levels from the corners (h: 00, 10, 01, 11) and the bottom, top, left and right midpoints and the centre
+// (m0..m4): along x the bottom and top sides and the centre's horizontal chord, along y the left and right sides and
+// its vertical one; the drawn diagonal goes with the larger
+float levels2(vec4 h, float m0, float m1, float m2, float m3, float m4) {
+  float ex = max(max(abs(m0 - 0.5 * (h.x + h.y)), abs(m1 - 0.5 * (h.z + h.w))), abs(m4 - 0.5 * (m2 + m3)));
+  float ey = max(max(abs(m2 - 0.5 * (h.x + h.z)), abs(m3 - 0.5 * (h.y + h.w))), abs(m4 - 0.5 * (m0 + m1)));
+  float ed = max(abs(m4 - 0.5 * (h.x + h.w)), abs(m4 - 0.5 * (h.y + h.z)));
+  if (ex >= ey) ex = max(ex, ed); else ey = max(ey, ed);
+  return float(levelOf(ex) + 8 * levelOf(ey));
+}
+`;
+  // The principal surface's chain pass, as small as it was (one call site of the chain): F and its height at the grid's
+  // vertices (uPass 0: uN x uN over the box: the mesh, or the quarter / half cells of the refinement's lattice), or at
+  // the points of uPq (uPass 1: the refined vertices and their normals' neighbours, LAND_RP_VS). Everything else of
+  // the refinement is in programs without the chain (LAND_LV_VS, LAND_RP_VS, LAND_RA_VS), compiled once per page: a
+  // formula's first Landscape compiles what it compiled before (r2 cold opens: a larger chain program held the GPU
+  // process for 0.7 to 0.9 s at its first use).
   const LAND_TF_VS = `
-uniform int uN; uniform vec4 uBox;
+uniform int uN; uniform vec4 uBox; uniform int uPass; uniform highp sampler2D uPq;
 out vec4 tfOut;
 void main() {
-  int i = gl_VertexID % uN, j = gl_VertexID / uN;
-  vec2 uv = vec2(float(i), float(j)) / float(uN - 1);
-  vec2 w = mapF(uBox.xy + uv * uBox.zw);
+  vec2 z;
+  if (uPass == 1) z = texelFetch(uPq, ivec2(gl_VertexID & 2047, gl_VertexID >> 11), 0).xy;
+  else z = uBox.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uBox.zw;
+  vec2 w = mapF(z);
   vec2 hv = heightW(w);
   vec2 wc = vec2(isnan(w.x) ? 1.0 : clamp(w.x, -3e38, 3e38), isnan(w.y) ? 0.0 : clamp(w.y, -3e38, 3e38));
   tfOut = vec4(wc, hv.y > 0.5 ? hv.x : 0.0, hv.y);
@@ -1902,21 +2027,246 @@ void main() {
   gl_PointSize = 1.0;
 }
 `;
-  // normals by central differences (one-sided across cliffs) and ambient occlusion from a 9x9 box filter
+  // The levels, four cells per invocation, from the heights at the cell's lattice (uLp: the chain pass on the grid of
+  // quarter cells, uLat 1, or of half cells while something moves, uLat 0): a cell that touches a real cut
+  // (LAND_EDGE_VS) or has a corner that is not finite on a map with cuts stays at 0; a lattice point that is not finite
+  // asks for the most
+  const LAND_LV_VS = REFINE + REFINE_BUILD + `
+uniform highp sampler2D uLp; uniform int uJ0;
+out vec4 tfOut;
+// uLat 2 (moving, a mesh over 256 cells): uLp holds the base heights; the second differences around the cell at one
+// cell's spacing (D at a quarter cell is a sixteenth of that), no evaluation of the chain (r2 review math-3)
+float d2b(ivec2 p, ivec2 e, inout bool fin) {
+  ivec2 a = clamp(p - e, ivec2(0), ivec2(uM)), b = clamp(p + e, ivec2(0), ivec2(uM));
+  vec4 ta = texelFetch(uLp, a, 0), tp = texelFetch(uLp, p, 0), tb = texelFetch(uLp, b, 0);
+  if (!(ta.w > 0.5 && tp.w > 0.5 && tb.w > 0.5)) fin = false;
+  return abs(ta.z - 2.0 * tp.z + tb.z);
+}
+float levelsBase(ivec2 c, inout bool fin) {
+  float dx = 0.0, dy = 0.0;
+  for (int b = 0; b < 2; b++) for (int a = 0; a < 2; a++) {
+    dx = max(dx, d2b(c + ivec2(a, b), ivec2(1, 0), fin));
+    dy = max(dy, d2b(c + ivec2(a, b), ivec2(0, 1), fin));
+  }
+  float dd = max(d2b(c, ivec2(1, 1), fin), d2b(c + ivec2(1, 1), ivec2(1, 1), fin));
+  if (dx >= dy) dx = max(dx, dd); else dy = max(dy, dd);
+  float f = uCellW * uPxW;
+  int Lp = f > uMinPx ? int(ceil(log2(f / uMinPx))) : 0;
+  return float(clamp(min(levelD(dx / 16.0), Lp), 0, 4) + 8 * clamp(min(levelD(dy / 16.0), Lp), 0, 4));
+}
+bool jmp(int d, ivec2 p) { return d == 0 ? texelFetch(uE0, p, 0).w > 0.5 : (d == 1 ? texelFetch(uE1, p, 0).w > 0.5 : texelFetch(uE2, p, 0).w > 0.5); }
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  // (uJ0: the first row of cells of this strip; uLp holds the lattice's rows from s uJ0 on)
+  int Mq = (uM + 3) / 4, q = gl_VertexID % Mq, j = uJ0 + gl_VertexID / Mq, s = uLat == 1 ? 4 : 2;
+  float lv[4]; float lat[25];
+  for (int k = 0; k < 4; k++) {
+    lv[k] = 0.0;
+    ivec2 c = ivec2(4 * q + k, j);
+    if (c.x >= uM) continue;
+    // (64: a cell left to the cut rule, never refined, and never filled in around a moving wall either, rfPlan; r3)
+    lv[k] = 64.0;
+    if (uCuts < 0) continue;
+    if (uCuts > 0 && (jmp(0, c) || jmp(0, c + ivec2(0, 1)) || jmp(1, c) || jmp(1, c + ivec2(1, 0)) || jmp(2, c))) continue;
+    bool fin = true, cfin = true;
+    if (uLat == 2) {
+      float l2 = levelsBase(c, fin);
+      if (!fin && uCuts > 0) continue;
+      lv[k] = !fin ? float(9 * levelOf(1e30)) : l2;
+      continue;
+    }
+    for (int b = 0; b < 5; b++) for (int a = 0; a < 5; a++) {
+      lat[b * 5 + a] = 0.0;
+      if (uLat == 0 && ((a & 1) == 1 || (b & 1) == 1)) continue;
+      vec4 t = texelFetch(uLp, c * s + ivec2(a, b) * s / 4 - ivec2(0, uJ0 * s), 0);
+      lat[b * 5 + a] = t.z;
+      if (!(t.w > 0.5)) { fin = false; if ((a == 0 || a == 4) && (b == 0 || b == 4)) cfin = false; }
+    }
+    if (!cfin && uCuts > 0) continue;
+    lv[k] = !fin ? float(9 * levelOf(1e30)) : (uLat == 1 ? levelsLat(lat) : levels2(vec4(lat[0], lat[4], lat[20], lat[24]), lat[2], lat[22], lat[10], lat[14], lat[12]));
+  }
+  tfOut = vec4(lv[0], lv[1], lv[2], lv[3]);
+}
+`;
+  // The refined vertices of one group (levels uL, its first list entry uGE, uTot vertices): RP the points to evaluate,
+  // five per vertex (the vertex, then x + d, x - d, y + d, y - d at its normal's spacing); RA, after the chain pass on
+  // them (uPv), the vertex records, two texels each: (h, valid, nx, ny), the normal by central differences, and (w, its
+  // position in 16ths of a cell). A base vertex next to a base cell takes the base passes' height, value and normal
+  const LAND_RP_VS = REFINE + REFINE_BUILD + `
+uniform vec4 uBox; uniform ivec2 uL; uniform int uGE; uniform int uTot;
+out vec4 tfOut;
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  int id = gl_VertexID / 5, k = gl_VertexID - 5 * id;
+  tfOut = vec4(0.0);
+  if (id >= uTot) return;
+  ivec2 n = ivec2(1 << uL.x, 1 << uL.y);
+  int S = (n.x + 1) * (n.y + 1), e = id / S, l = id - e * S;
+  ivec4 sv = snapV(lstCell(uGE + e), uL, ivec2(l % (n.x + 1), l / (n.x + 1)));
+  vec2 d = uBox.zw / float(uM) / vec2(float(1 << max(sv.z, 0)), float(1 << max(sv.w, 0)));
+  vec2 z = uBox.xy + vec2(sv.xy) * (uBox.zw / float(16 * uM));
+  tfOut = vec4(z + (k == 0 ? vec2(0.0) : (k == 1 ? vec2(d.x, 0.0) : (k == 2 ? vec2(-d.x, 0.0) : (k == 3 ? vec2(0.0, d.y) : vec2(0.0, -d.y))))), 0.0, 0.0);
+}
+`;
+  const LAND_RA_VS = REFINE + REFINE_BUILD + `
+uniform vec4 uBox; uniform vec2 uAspect; uniform ivec2 uL; uniform int uGE; uniform int uTot;
+uniform highp sampler2D uT1; uniform highp sampler2D uT2; uniform highp sampler2D uPv;
+out vec4 tfOut;
+vec4 pv(int i) { return texelFetch(uPv, ivec2(i & 2047, i >> 11), 0); }
+void main() {
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  int id = gl_VertexID >> 1, part = gl_VertexID & 1;
+  tfOut = vec4(0.0);
+  if (id >= uTot) return;
+  ivec2 n = ivec2(1 << uL.x, 1 << uL.y);
+  int S = (n.x + 1) * (n.y + 1), e = id / S, l = id - e * S;
+  ivec4 sv = snapV(lstCell(uGE + e), uL, ivec2(l % (n.x + 1), l / (n.x + 1)));
+  bool corner = (sv.x & 15) == 0 && (sv.y & 15) == 0;
+  vec4 p0 = corner ? texelFetch(uT1, sv.xy >> 4, 0) : pv(5 * id);
+  if (part == 1) { tfOut = vec4(p0.xy, vec2(sv.xy)); return; }
+  vec3 nrm;
+  if (sv.z < 0) nrm = texelFetch(uT2, sv.xy >> 4, 0).xyz;
+  else {
+    vec2 d = uBox.zw / float(uM) / vec2(float(1 << max(sv.z, 0)), float(1 << max(sv.w, 0)));
+    vec2 dw = d * 2.0 * uAspect / uBox.zw;   // the spacing in world units
+    vec4 r = pv(5 * id + 1), lf = pv(5 * id + 2), u = pv(5 * id + 3), dn = pv(5 * id + 4);
+    bool oR = r.w > 0.5, oL = lf.w > 0.5, oU = u.w > 0.5, oD = dn.w > 0.5;
+    float h0 = p0.z;
+    float sx = oL && oR ? (r.z - lf.z) / (2.0 * dw.x) : (oR ? (r.z - h0) / dw.x : (oL ? (h0 - lf.z) / dw.x : 0.0));
+    float sy = oD && oU ? (u.z - dn.z) / (2.0 * dw.y) : (oU ? (u.z - h0) / dw.y : (oD ? (h0 - dn.z) / dw.y : 0.0));
+    nrm = normalize(vec3(-sx, -sy, 1.0));
+  }
+  tfOut = vec4(p0.w > 0.5 ? p0.z : 0.0, p0.w, nrm.xy);
+}
+`;
+  // The real discontinuities of the principal surface (notes/landscape-walls/DESIGN.md 3.1, 3.2): a steep slope is never
+  // one. Per grid edge p -> p + d (uDir 0: d = (1, 0), 1: (0, 1), 2: (1, 1)) one transform-feedback texel
+  // (t, height on p's side, height on the far side, jump): jump 1 when a cut crosses the edge at t, with the one-sided
+  // heights of the two banks there; else (0.5, 0, 0, 0).
+  // kind 'S' / 'H' (uCutMode 1; S the stages a..b, chainSheetRange; H a deformation, chainSheetHom): values are
+  // compared with the continuation of p's branch along the edge (the cuts opposite p, combo 0, uSheetW = 0), at the
+  // far end (its principal value read from the height pass) and at the midpoint (a cut crossed twice comes back to the
+  // same branch at the far end); a different value is a cut, located by bisection with the same test. The principal
+  // value inside the edge is the continuation at its own centre (every piece on its principal branch there: cutModeOf
+  // picks this mode only then). Kind '2' (uCutMode 2): discontinuities the chain cannot continue (an inverse trig
+  // function, arg, or a d/dz after a cut): a height step that does not shrink under bisection is a jump, unless F grows
+  // without bound on both sides (a pole on the edge).
+  // (Each kind has one call site of one chain evaluation, in loops whose trip counts are uniforms: the program stays
+  // about the size of the height pass's and compiles about as fast, review pictures-1. No return inside a loop:
+  // ANGLE's Metal translation lost the result of this pass when a loop returned early.)
+  const LAND_EDGE_VS = (kind) => (kind === '2' ? `
+vec2 princAt(vec2 z) { return mapF(z); }
+vec2 contAt(vec2 zc, vec2 z) { return z; }
+` : kind === 'H' ? `
+vec2 princAt(vec2 z) { return z; }
+vec2 contAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }
+` : `
+uniform int uSheetA; uniform int uSheetB;
+vec2 princAt(vec2 z) { return z; }
+vec2 contAt(vec2 zc, vec2 z) { return chainSheetRange(zc, z, uSheetA, uSheetB, 0); }
+`) + `
+uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform int uDir; uniform int uSteps; uniform int uTwo;
+const int uCutMode = ${kind === '2' ? 2 : 1};
+out vec4 tfOut;
+vec2 zAt(ivec2 g) { return uBox.xy + vec2(g) / float(uN - 1) * uBox.zw; }
+// c (the continuation) and p (the principal value) on the same branch; a value that is not finite tells nothing
+bool sameBranch(vec2 c, vec2 p) {
+  float ac = wabs(c), ap = wabs(p);
+  if (!(ac < 1e30) || !(ap < 1e30)) return true;
+  return length(c - p) <= 1e-3 * (ac + ap) + 1e-20;
+}
+vec4 edgeJump(ivec2 p, ivec2 q) {
+  vec4 none = vec4(0.5, 0.0, 0.0, 0.0);
+  if (q.x >= uN || q.y >= uN) return none;
+  vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
+  if (a.w < 0.5 || b.w < 0.5) return none;
+  float tol = 2e-3 * uH;                 // under a pixel at the fitted camera: no visible step
+  vec2 z0 = zAt(p), z1 = zAt(q);
+  float lo = 0.0, hi = 1.0, hLo = a.z, hHi = b.z, d0 = abs(b.z - a.z), d3 = d0;
+  // kind 2 starts on a height step only; |w| at the bracket's ends (a pole: both grow without bound)
+  bool jump = uCutMode == 2 && d0 > tol, fin = true, twice = false;
+  vec2 wLo = a.xy, wHi = b.xy;
+  // kind S / H: step 0 the far end, step 1 the midpoint, then bisection while a cut is bracketed; kind 2: bisection
+  int n = uCutMode == 1 ? uSteps + 2 : (jump ? uSteps - 1 : 0);
+  for (int k = 0; k < n; k++) {
+    float m = uCutMode == 1 && k == 0 ? 1.0 : 0.5 * (lo + hi);
+    vec2 zm = mix(z0, z1, m);
+    vec2 wp = b.xy, wc = b.xy;
+    if (uCutMode == 2) wp = princAt(zm);
+    else {
+      // (the continuation from p, and the principal value at zm, the continuation at its own centre; at the far end
+      // that is the height pass's: one call site for both)
+      int nr = k == 0 ? 1 : uTwo;
+      for (int r = 0; r < nr; r++) {
+        vec2 v = contAt(r == 0 ? z0 : zm, zm);
+        if (r == 0) wc = v; else wp = v;
+      }
+    }
+    vec2 hp = heightW(wp);
+    if (uCutMode == 1) {
+      bool same = sameBranch(wc, wp);
+      if (k == 0) {
+        jump = !same;
+        // (a flat edge, under a pixel of rise, is not looked at twice)
+        if (!jump && !(d0 > tol)) break;
+      } else if (k == 1 && !jump) {
+        // (the far end on p's branch: a cut crossed twice shows at the midpoint, the bracket is then [0, 1/2])
+        if (same) break;
+        jump = true; twice = true; hi = m; if (hp.y > 0.5) hHi = hp.x;
+      } else if (jump) {
+        if (same) { lo = m; if (hp.y > 0.5) hLo = hp.x; } else { hi = m; if (hp.y > 0.5) hHi = hp.x; }
+      }
+    } else {
+      if (!(hp.y > 0.5)) { fin = false; break; }
+      if (abs(hp.x - hLo) >= abs(hHi - hp.x)) { hi = m; hHi = hp.x; wHi = wp; } else { lo = m; hLo = hp.x; wLo = wp; }
+      if (k == 2) {
+        d3 = abs(hHi - hLo);
+        // (a continuous rise shrinks under bisection, by 8 over three halvings where it is smooth: stop early)
+        if (d3 < 0.2 * d0) { jump = false; break; }
+      }
+    }
+  }
+  if (uCutMode == 1) {
+    // (a step that vanishes at the crossing is no discontinuity of the height: Re of a root across its cut)
+    jump = jump && abs(hHi - hLo) > tol;
+  } else {
+    float big = 1e3 * max(uMu, 1e-30);
+    jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
+  }
+  // (w 2: the edge crosses a cut twice, or two cuts: the far end is on the near end's branch, the midpoint is not; its
+  // triangles are left out, LAND_VS, as a cell that holds two cuts: nothing is drawn across either)
+  return jump ? vec4(0.5 * (lo + hi), hLo, hHi, twice ? 2.0 : 1.0) : none;
+}
+void main() {
+  ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+  ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  tfOut = edgeJump(p, q);
+}
+`;
+  // normals by central differences (one-sided across a real jump, LAND_EDGE_VS) and ambient occlusion from a 9x9 box
+  // filter
   const LAND_NRM_VS = `
-uniform highp sampler2D uT1; uniform int uN; uniform vec2 uAspect; uniform float uH;
+uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uN; uniform vec2 uAspect; uniform float uH;
+uniform int uCuts;
 out vec4 tfOut;
 vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
+// (uCuts -1: the edge pass still compiles, the former rule stands in: a height step over 0.3 H)
+bool jx(ivec2 p) { return uCuts > 0 ? texelFetch(uE0, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH; }
+bool jy(ivec2 p) { return uCuts > 0 ? texelFetch(uE1, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(0, 1)).z - T(p).z) > 0.3 * uH; }
 void main() {
   ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
   vec4 c = T(p);
   float h = c.z;
-  float cl = 0.3 * uH;
   vec2 dw = 2.0 * uAspect / float(uN - 1);
   vec4 L = T(max(p - ivec2(1, 0), ivec2(0))), R = T(min(p + ivec2(1, 0), ivec2(uN - 1)));
   vec4 D = T(max(p - ivec2(0, 1), ivec2(0))), U = T(min(p + ivec2(0, 1), ivec2(uN - 1)));
-  bool oL = p.x > 0 && L.w > 0.5 && abs(L.z - h) <= cl, oR = p.x < uN - 1 && R.w > 0.5 && abs(R.z - h) <= cl;
-  bool oD = p.y > 0 && D.w > 0.5 && abs(D.z - h) <= cl, oU = p.y < uN - 1 && U.w > 0.5 && abs(U.z - h) <= cl;
+  bool oL = p.x > 0 && L.w > 0.5 && !jx(p - ivec2(1, 0)), oR = p.x < uN - 1 && R.w > 0.5 && !jx(p);
+  bool oD = p.y > 0 && D.w > 0.5 && !jy(p - ivec2(0, 1)), oU = p.y < uN - 1 && U.w > 0.5 && !jy(p);
   float sx = oL && oR ? (R.z - L.z) / (2.0 * dw.x) : (oR ? (R.z - h) / dw.x : (oL ? (h - L.z) / dw.x : 0.0));
   float sy = oD && oU ? (U.z - D.z) / (2.0 * dw.y) : (oU ? (U.z - h) / dw.y : (oD ? (h - D.z) / dw.y : 0.0));
   vec3 n = normalize(vec3(-sx, -sy, 1.0));
@@ -1933,38 +2283,168 @@ void main() {
   gl_PointSize = 1.0;
 }
 `;
-  const LAND_VS = `
+  // One instance per grid triangle, 9 vertices: up to 3 output triangles. A triangle is never dropped for being steep:
+  // only a corner that is not finite drops it. A real jump (LAND_EDGE_VS) splits it along the chord between the
+  // crossing points: each bank is drawn up to the cut with its own one-sided height there, nothing across it, and the
+  // cut edge gets the cut colour's rim (vEdge). Two crossed edges: the corner they share on one bank, the other two
+  // on the other (3 triangles). One crossed edge (the cut ends inside, at a branch point): a slit from the crossing
+  // to the opposite corner. Three, or an edge crossed twice (LAND_EDGE_VS w 2: two cuts, or one cut twice, on one
+  // edge): the triangle is left out (two cuts inside one cell; nothing is drawn across either).
+  // uRef 0: the base cells (a refined cell is left to its own draw, uRefOn); uRef 1: one instance per triangle of the
+  // sub-cells of one group's cells (levels uL, list entries from uRefE, vertex records from texel uRefT of uRf; 3
+  // vertices each; vW: F at the vertex, for sub-cells under about a pixel, LAND_FS)
+  // While something moves (uSteep 1), a base triangle with a corner sloped over 1 (its normal), in a cell without a
+  // jump, is drawn by landB instead (LAND_B_VS), which has facetW; the levels come a frame or two late, and a wall that
+  // has moved past them lies on base cells (r3 review pictures-1: at the Max mesh it moved 15 to 20 cells between two
+  // reads near the domain's edge, past any fill-in around the walls of the last levels)
+  const STEEP = `
+// the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
+vec4 edgeOf(ivec2 a, ivec2 b) {
+  if (uCuts <= 0) return vec4(0.5, 0.0, 0.0, 0.0);
+  ivec2 d = b - a;
+  bool rev = d.x < 0 || d.y < 0;
+  ivec2 o = rev ? b : a, ad = abs(d);
+  vec4 e = ad.y == 0 ? texelFetch(uE0, o, 0) : (ad.x == 0 ? texelFetch(uE1, o, 0) : texelFetch(uE2, o, 0));
+  return rev ? vec4(1.0 - e.x, e.z, e.y, e.w) : e;
+}
+bool steepTri(ivec2 a, ivec2 b, ivec2 c) {
+  vec3 na = texelFetch(uT2, a, 0).xyz, nb = texelFetch(uT2, b, 0).xyz, nc = texelFetch(uT2, c, 0).xyz;
+  return length(na.xy) > abs(na.z) || length(nb.xy) > abs(nb.z) || length(nc.xy) > abs(nc.z);
+}
+`;
+  const LAND_VS = REFINE + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
-out vec2 vZ; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
-flat out vec3 vEdge;
-vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
-bool inGrid(ivec2 p) { return p.x >= 0 && p.y >= 0 && p.x < uN && p.y < uN; }
-// a triangle is drawn unless a vertex is NaN or it spans a cliff (height difference > 0.3 H)
-bool triOK(vec4 a, vec4 b, vec4 c) {
-  return a.w > 0.5 && b.w > 0.5 && c.w > 0.5 && max(max(a.z, b.z), c.z) - min(min(a.z, b.z), c.z) <= 0.3 * uH;
-}
+uniform int uRefOn; uniform int uSteep;
+` + STEEP + `
+out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
+flat out vec3 vEdge; flat out vec3 vBoxE;
 void main() {
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  vEdge = vec3(0.0); vBoxE = vec3(0.0);
   int M = uN - 1;
   int tri = gl_InstanceID % 2, cell = gl_InstanceID / 2;
   ivec2 c = ivec2(cell % M, cell / M);
-  ivec2 A = c, B = tri == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), C = tri == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
-  vec4 ta = T(A), tb = T(B), tc = T(C);
-  if (!triOK(ta, tb, tc)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  // opposite vertices of the neighbours across the edges opposite A, B and C
-  ivec2 o0 = tri == 0 ? c + ivec2(2, 1) : c + ivec2(1, 2);
-  ivec2 o1 = tri == 0 ? c + ivec2(0, 1) : c + ivec2(-1, 0);
-  ivec2 o2 = tri == 0 ? c + ivec2(0, -1) : c + ivec2(1, 0);
-  vEdge = vec3(inGrid(o0) && !triOK(tb, tc, T(o0)) ? 1.0 : 0.0,
-               inGrid(o1) && !triOK(tc, ta, T(o1)) ? 1.0 : 0.0,
-               inGrid(o2) && !triOK(ta, tb, T(o2)) ? 1.0 : 0.0);
-  int k = gl_VertexID;
-  ivec2 V = k == 0 ? A : (k == 1 ? B : C);
-  vec4 tv = k == 0 ? ta : (k == 1 ? tb : tc);
-  vec4 nv = texelFetch(uT2, V, 0);
-  vec2 uv = vec2(V) / float(M);
+  if (uRefOn == 1 && lvDrawnR(c)) return;
+  ivec2 V0 = c, V1 = tri == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = tri == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
+  vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
+  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
+  // (uCuts -1: the edge pass still compiles; the former rule stands in for a moment: a height step over 0.3 H)
+  if (uCuts < 0 && max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > 0.3 * uH) return;
+  vec4 e01 = edgeOf(V0, V1), e12 = edgeOf(V1, V2), e20 = edgeOf(V2, V0);
+  bool j01 = e01.w > 0.5, j12 = e12.w > 0.5, j20 = e20.w > 0.5;
+  int J = int(j01) + int(j12) + int(j20);
+  if (J == 3 || max(max(e01.w, e12.w), e20.w) > 1.5) return;
+  // rotate (winding kept): one jump on AB, or two on AB and AC (BC whole)
+  int r = J == 1 ? (j01 ? 0 : (j12 ? 1 : 2)) : (J == 2 ? (!j12 ? 0 : (!j20 ? 1 : 2)) : 0);
+  ivec2 A = r == 0 ? V0 : (r == 1 ? V1 : V2), B = r == 0 ? V1 : (r == 1 ? V2 : V0), C = r == 0 ? V2 : (r == 1 ? V0 : V1);
+  int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
+  // this vertex: a corner (src) or the crossing on A -> B / A -> C (x 1 / 2) on the bank of corner src
+  ivec2 src = A; int x = 0;
+  if (J == 0) { if (sub > 0 || (uSteep == 1 && steepTri(V0, V1, V2))) return; src = k == 0 ? A : (k == 1 ? B : C); }
+  else if (J == 1) {
+    if (sub > 1) return;
+    if (sub == 0) { src = A; x = k == 1 ? 1 : 0; if (k == 2) src = C; vEdge = vec3(1.0, 0.0, 0.0); }
+    else { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; vEdge = vec3(0.0, 1.0, 0.0); }
+  } else {
+    if (sub == 0) { src = A; x = k; vEdge = vec3(1.0, 0.0, 0.0); }
+    else if (sub == 1) { src = k == 0 ? B : (k == 1 ? B : C); x = k == 0 ? 1 : 0; }
+    else { src = k == 0 ? B : C; x = k == 0 ? 1 : (k == 2 ? 2 : 0); vEdge = vec3(0.0, 1.0, 0.0); }
+  }
+  vec2 g = vec2(src);
+  float h = texelFetch(uT1, src, 0).z;
+  if (x > 0) {
+    ivec2 E = x == 1 ? B : C;
+    vec4 e = edgeOf(A, E);
+    g = mix(vec2(A), vec2(E), e.x);
+    h = src == A ? e.y : e.z;
+  }
+  vec4 nv = texelFetch(uT2, src, 0);
+  vec2 uv = g / float(M);
   vZ = uBox.xy + uv * uBox.zw;
-  vPos = vec3((uv - 0.5) * 2.0 * uAspect, tv.z);
+  vW = vec2(0.0);
+  vPos = vec3((uv - 0.5) * 2.0 * uAspect, h);
+  vNor = nv.xyz; vAO = nv.w;
+  vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
+  gl_Position = uMVP * vec4(vPos, 1.0);
+}
+`;
+  // the refined cells' draw (a program without the chain, so a formula's first Landscape compiles only what it did
+  // before): one instance per triangle of the sub-cells of one group's cells (levels uL, list entries from uRefE,
+  // vertex records from texel uRefT of uRf), 3 vertices each; F at the vertices (vW), interpolated: the sub-cells are
+  // under about a pixel on screen, and in a figure the levels rise with its size
+  const LAND_R_VS = REFINE + `
+uniform highp sampler2D uT2; uniform highp sampler2D uRf;
+uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform mat4 uMVP;
+uniform ivec2 uL; uniform int uRefE; uniform int uRefT;
+out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
+flat out vec3 vEdge; flat out vec3 vBoxE;
+vec4 rfAt(int t) { return texelFetch(uRf, ivec2(t & 2047, t >> 11), 0); }
+void refined() {
+  ivec2 n = ivec2(1 << uL.x, 1 << uL.y);
+  int per = 2 * n.x * n.y;
+  int e = gl_InstanceID / per, r = gl_InstanceID - e * per;
+  int tri = r & 1, sub = r >> 1, k = gl_VertexID;
+  ivec2 s0 = ivec2(sub % n.x, sub / n.x);
+  ivec2 sA = s0, sB = tri == 0 ? s0 + ivec2(1, 0) : s0 + ivec2(1, 1), sC = tri == 0 ? s0 + ivec2(1, 1) : s0 + ivec2(0, 1);
+  int vb = uRefT + 2 * e * (n.x + 1) * (n.y + 1);
+  int iA = vb + 2 * (sA.y * (n.x + 1) + sA.x), iB = vb + 2 * (sB.y * (n.x + 1) + sB.x), iC = vb + 2 * (sC.y * (n.x + 1) + sC.x);
+  vec4 ta = rfAt(iA), tb = rfAt(iB), tc = rfAt(iC);
+  if (k > 2 || ta.y < 0.5 || tb.y < 0.5 || tc.y < 0.5) return;
+  int iv = k == 0 ? iA : (k == 1 ? iB : iC);
+  vec4 tv = k == 0 ? ta : (k == 1 ? tb : tc), t2 = rfAt(iv + 1);
+  ivec2 c = lstCell(uRefE + e);
+  if (!lvDrawnR(c)) return;   // (a cell that now holds a jump: drawn by the base cells' draw)
+  vec2 uv = t2.zw / float(16 * uM);
+  vZ = uBox.xy + uv * uBox.zw;
+  vW = t2.xy;
+  vPos = vec3((uv - 0.5) * 2.0 * uAspect, tv.x);
+  vNor = vec3(tv.zw, sqrt(max(1.0 - dot(tv.zw, tv.zw), 0.0)));
+  // (ambient occlusion: the base corners', bilinear across the cell, so two cells agree along their side)
+  vec2 f = t2.zw / 16.0 - vec2(c);
+  float a00 = texelFetch(uT2, c, 0).w, a10 = texelFetch(uT2, c + ivec2(1, 0), 0).w;
+  float a01 = texelFetch(uT2, c + ivec2(0, 1), 0).w, a11 = texelFetch(uT2, c + ivec2(1, 1), 0).w;
+  vAO = mix(mix(a00, a10, f.x), mix(a01, a11, f.x), f.y);
+  vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
+  gl_Position = uMVP * vec4(vPos, 1.0);
+}
+void main() {
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  vEdge = vec3(0.0); vBoxE = vec3(0.0);
+  refined();
+}
+`;
+  // the steep base triangles while something moves (STEEP): a program without the chain, F from the corners (vW), as
+  // landR's sub-cells, so facetW draws their contours on the facet; compiled once per page, warmed with the
+  // refinement's programs (rfWarmed)
+  const LAND_B_VS = REFINE + `
+uniform highp sampler2D uT1; uniform highp sampler2D uT2;
+uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
+uniform int uRefOn;
+` + STEEP + `
+out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
+flat out vec3 vEdge; flat out vec3 vBoxE;
+void main() {
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  vEdge = vec3(0.0); vBoxE = vec3(0.0);
+  int M = uN - 1;
+  // (not instanced: three vertices per instance filled a fraction of each SIMD group, and the draw cost 1 to 3 ms at
+  // the Max mesh)
+  int id = gl_VertexID / 3, k = gl_VertexID - 3 * id, tri = id % 2, cell = id / 2;
+  ivec2 c = ivec2(cell % M, cell / M);
+  ivec2 V0 = c, V1 = tri == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = tri == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
+  // (the partition with land's draw, LAND_VS: a triangle without a jump on its edges, sloped over 1 at a corner)
+  if (!steepTri(V0, V1, V2) || (uRefOn == 1 && lvDrawnR(c))) return;
+  if (edgeOf(V0, V1).w > 0.5 || edgeOf(V1, V2).w > 0.5 || edgeOf(V2, V0).w > 0.5) return;
+  vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
+  if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
+  if (uCuts < 0 && max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > 0.3 * uH) return;
+  ivec2 src = k == 0 ? V0 : (k == 1 ? V1 : V2);
+  vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, src, 0);
+  vec2 uv = vec2(src) / float(M);
+  vZ = uBox.xy + uv * uBox.zw;
+  vW = t.xy;
+  vPos = vec3((uv - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
   gl_Position = uMVP * vec4(vPos, 1.0);
@@ -1986,69 +2466,265 @@ vec2 mapSheet(vec2 zc, vec2 z, int combo) {
   return chainSheetRange(zc, z, uSheetA, uSheetB, combo);
 }
 `;
-  const LAND_SHEET_TF_VS = SHEET_MAP + `
+  // uPass 0: the base cells' corners (as above); the refinement: uPass 1 the levels, four cells per invocation, the largest chord
+  // errors over the sheets (one pair of levels per cell for every sheet, so a cell's neighbours know it); 2 the refined
+  // sub-cells' corners of one group (levels uL, first list entry uGE, uTot blocks), a block of 4 x 2 texels per
+  // (sub-cell, combo), 512 blocks per two rows: the corners' (h, valid, nx, ny) in its left half, (w, position in
+  // 16ths) in its right. A sub-cell takes the local cuts opposite its own centre, as a base cell does: the only cut
+  // left inside a cell is at a branch point, in the one sub-cell (under half a pixel) that holds it (the log log z fin).
+  const LAND_SHEET_TF_VS = (ref) => SHEET_MAP + (ref ? REFINE + REFINE_BUILD : '') + `
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
+${ref ? 'uniform int uPass; uniform highp sampler2D uT1; uniform ivec2 uL; uniform int uGE; uniform int uTot; uniform int uRow0;' : ''}
 out vec4 tfOut;
+${ref ? `vec2 zOfG(vec2 G) { return uBox.xy + G * (uBox.zw / float(16 * uM)); }
+ivec2 tileOf(int combo) { return ivec2(combo % uTileC, combo / uTileC) * (2 * uM); }
+` : ''}
 void main() {
   int M = uN - 1, T = 2 * M;
-  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
-  ivec2 tile = p / T, q = p - tile * T;
-  int combo = tile.y * uTileC + tile.x;
-  ivec2 cell = q / 2, cor = q - cell * 2;
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
-  if (combo >= uSheetK) { tfOut = vec4(0.0); return; }
+  tfOut = vec4(0.0);
   vec2 d = uBox.zw / float(M);
-  vec2 zc = uBox.xy + (vec2(cell) + 0.5) * d;
-  vec2 z = uBox.xy + vec2(cell + cor) * d;
-  vec2 e = 0.25 * d;
-  // one call site of the chain: the corner, then x + e, x - e, y + e, y - e
-  float h[5]; float ok[5];
-  for (int k = 0; k < 5; k++) {
-    vec2 o = k == 0 ? vec2(0.0) : (k == 1 ? vec2(e.x, 0.0) : (k == 2 ? vec2(-e.x, 0.0) : (k == 3 ? vec2(0.0, e.y) : vec2(0.0, -e.y))));
-    vec2 hv = heightW(mapSheet(zc, z + o, combo));
-    h[k] = hv.x; ok[k] = hv.y;
+  int n = 5, combo = 0, part = 0;
+  ivec2 cor = ivec2(0), G = ivec2(0);
+  vec2 z = vec2(0.0), zc = vec2(0.0), e = vec2(0.0);
+${ref ? `  int Mq = (M + 3) / 4, q = 0, j = 0;
+  if (uPass == 1) {
+    q = gl_VertexID % Mq; j = gl_VertexID / Mq; n = (uLat == 1 ? 84 : 20) * uSheetK;
+  } else if (uPass == 2) {
+    int id = gl_VertexID + uRow0 * 2048;   // (uRow0: a chunk of the group's rows, built over several frames)
+    ivec2 p = ivec2(id & 2047, id >> 11);
+    int b = (p.y >> 1) * 512 + (p.x >> 2);
+    if (b >= uTot) return;   // (uTot: the group's blocks)
+    cor = ivec2(p.x & 1, p.y & 1);
+    part = (p.x >> 1) & 1;
+    ivec2 nn = ivec2(1 << uL.x, 1 << uL.y);
+    combo = b % uSheetK;
+    int r = b / uSheetK, ns = nn.x * nn.y, en = r / ns, sub = r - en * ns;
+    ivec2 s0 = ivec2(sub % nn.x, sub / nn.x);
+    ivec2 c = lstCell(uGE + en);
+    ivec4 sv = snapV(c, uL, s0 + cor);
+    G = sv.xy;
+    vec2 sc = vec2(16 >> uL.x, 16 >> uL.y);
+    zc = zOfG(vec2(c * 16) + vec2(s0) * sc + 0.5 * sc);
+    z = zOfG(vec2(sv.xy));
+    e = 0.5 * d / vec2(float(1 << max(sv.z, 0)), float(1 << max(sv.w, 0)));
+    n = part == 1 ? 1 : 5;
+  } else {
+    ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+    ivec2 tile = p / T, qq = p - tile * T;
+    combo = tile.y * uTileC + tile.x;
+    ivec2 cell = qq / 2;
+    cor = qq - cell * 2;
+    if (combo >= uSheetK) return;
+    zc = uBox.xy + (vec2(cell) + 0.5) * d;
+    z = uBox.xy + vec2(cell + cor) * d;
+    // (the normal from one cell's span: the slope the drawn triangles have, so a wall inside a cell shades as a wall)
+    e = 0.5 * d;
   }
-  float cl = 0.3 * uH;
+  float Hc = 1.4 * uH;   // (linear heights run on past the block: their error counts up to it)
+  vec4 lv = vec4(0.0), hc = vec4(0.0);
+  bool bad = false;
+  float lat[25];
+  int per = uLat == 1 ? 21 : 5;` : `  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+  ivec2 tile = p / T, qq = p - tile * T;
+  combo = tile.y * uTileC + tile.x;
+  ivec2 cell = qq / 2;
+  cor = qq - cell * 2;
+  if (combo >= uSheetK) return;
+  zc = uBox.xy + (vec2(cell) + 0.5) * d;
+  z = uBox.xy + vec2(cell + cor) * d;
+  // (the normal from one cell's span: the slope the drawn triangles have, so a wall inside a cell shades as a wall)
+  e = 0.5 * d;`}
+  // one call site of the chain, in a loop whose trip count is not a constant (a constant one is unrolled): the corner,
+  // then x + e, x - e, y + e, y - e (part 1: the corner's value only)${ref ? '; pass 1: per cell and sheet its 5 points' : ''}
+  float h[5]; float ok[5]; vec2 w0 = vec2(0.0);
+  for (int k = 0; k < 5; k++) { h[k] = 0.0; ok[k] = 0.0; }
+  for (int it = 0; it < n; it++) {
+    int p = it, cq = combo, kc = 0;
+    vec2 zq = z, zcq = zc;
+${ref ? `    if (uPass == 1) {
+      kc = it / (per * uSheetK);
+      int rem = it - kc * per * uSheetK;
+      cq = rem / per; p = rem - per * cq;
+      ivec2 c = ivec2(4 * q + kc, j);
+      if (c.x >= M) continue;
+      if (p == 0) {
+        ivec2 b = tileOf(cq) + 2 * c;
+        vec4 a = texelFetch(uT1, b, 0), bb = texelFetch(uT1, b + ivec2(1, 0), 0), cc = texelFetch(uT1, b + ivec2(0, 1), 0), dd = texelFetch(uT1, b + ivec2(1, 1), 0);
+        bad = !(a.y > 0.5 && bb.y > 0.5 && cc.y > 0.5 && dd.y > 0.5);
+        hc = clamp(vec4(a.x, bb.x, cc.x, dd.x), -Hc, Hc);
+        for (int i = 0; i < 25; i++) lat[i] = 0.0;
+        lat[0] = hc.x; lat[4] = hc.y; lat[20] = hc.z; lat[24] = hc.w;
+      }
+      int li = latIdx(p);
+      zcq = uBox.xy + (vec2(c) + 0.5) * d;
+      zq = uBox.xy + (vec2(c) + vec2(float(li % 5), float(li / 5)) * 0.25) * d;
+    } else` : ''} {
+      zq = z + (p == 0 ? vec2(0.0) : (p == 1 ? vec2(e.x, 0.0) : (p == 2 ? vec2(-e.x, 0.0) : (p == 3 ? vec2(0.0, e.y) : vec2(0.0, -e.y)))));
+    }
+    vec2 w = mapSheet(zcq, zq, cq);
+    vec2 hv = heightW(w);
+${ref ? `    if (uPass == 1) {
+      lat[latIdx(p)] = clamp(hv.x, -Hc, Hc);
+      if (!(hv.y > 0.5)) bad = true;
+      if (p == per - 1) {
+        float l2 = bad ? float(9 * levelOf(1e30)) : (uLat == 1 ? levelsLat(lat) : levels2(hc, lat[2], lat[22], lat[10], lat[14], lat[12]));
+        float o2 = kc == 0 ? lv.x : (kc == 1 ? lv.y : (kc == 2 ? lv.z : lv.w));
+        int ox = int(o2 + 0.5), nx = int(l2 + 0.5);
+        float r2 = float(max(ox & 7, nx & 7) + 8 * max(ox >> 3, nx >> 3));
+        if (kc == 0) lv.x = r2; else if (kc == 1) lv.y = r2; else if (kc == 2) lv.z = r2; else lv.w = r2;
+      }
+      continue;
+    }` : ''}
+    if (it == 0) w0 = w;
+    h[p] = hv.x; ok[p] = hv.y;
+  }
+${ref ? `  if (uPass == 1) { tfOut = lv; return; }
+  if (part == 1) { tfOut = vec4(isnan(w0.x) ? 1.0 : clamp(w0.x, -3e38, 3e38), isnan(w0.y) ? 0.0 : clamp(w0.y, -3e38, 3e38), vec2(G)); return; }` : ''}
   vec2 sw = 2.0 * uAspect / uBox.zw;   // world units per unit of z
-  bool oR = ok[1] > 0.5 && abs(h[1] - h[0]) <= cl, oL = ok[2] > 0.5 && abs(h[2] - h[0]) <= cl;
-  bool oU = ok[3] > 0.5 && abs(h[3] - h[0]) <= cl, oD = ok[4] > 0.5 && abs(h[4] - h[0]) <= cl;
+  // (no cliff rule: the cell's own continuation is continuous, a steep slope is a wall)
+  bool oR = ok[1] > 0.5, oL = ok[2] > 0.5, oU = ok[3] > 0.5, oD = ok[4] > 0.5;
   float sx = oL && oR ? (h[1] - h[2]) / (2.0 * e.x) : (oR ? (h[1] - h[0]) / e.x : (oL ? (h[0] - h[2]) / e.x : 0.0));
   float sy = oD && oU ? (h[3] - h[4]) / (2.0 * e.y) : (oU ? (h[3] - h[0]) / e.y : (oD ? (h[0] - h[4]) / e.y : 0.0));
-  vec3 n = normalize(vec3(-sx / sw.x, -sy / sw.y, 1.0));
-  tfOut = vec4(ok[0] > 0.5 ? h[0] : 0.0, ok[0], n.x, n.y);
+  vec3 nr = normalize(vec3(-sx / sw.x, -sy / sw.y, 1.0));
+  tfOut = vec4(ok[0] > 0.5 ? h[0] : 0.0, ok[0], nr.x, nr.y);
 }
 `;
-  // one instance per (combo, cell, triangle); a triangle is dropped where a corner is not finite or it spans a cliff
-  // (a pole: height difference > 0.3 H). The fragment stage evaluates F on the same sheet with the same cuts.
-  const LAND_SHEET_VS = `
-uniform highp sampler2D uT1;
-uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC;
-out vec2 vZ; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
-flat out vec3 vEdge; flat out vec2 vZc; flat out int vCombo;
-void main() {
-  int M = uN - 1, T = 2 * M, per = 2 * M * M;
-  int combo = gl_InstanceID / per, r = gl_InstanceID - combo * per;
-  int tri = r % 2, cell = r / 2;
-  ivec2 c = ivec2(cell % M, cell / M);
-  ivec2 base = ivec2(combo % uTileC, combo / uTileC) * T + 2 * c;
-  ivec2 A = ivec2(0), B = tri == 0 ? ivec2(1, 0) : ivec2(1, 1), C = tri == 0 ? ivec2(1, 1) : ivec2(0, 1);
-  vec4 ta = texelFetch(uT1, base + A, 0), tb = texelFetch(uT1, base + B, 0), tc = texelFetch(uT1, base + C, 0);
-  if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5 && max(max(ta.x, tb.x), tc.x) - min(min(ta.x, tb.x), tc.x) <= 0.3 * uH)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  int k = gl_VertexID;
-  ivec2 V = k == 0 ? A : (k == 1 ? B : C);
-  vec4 tv = k == 0 ? ta : (k == 1 ? tb : tc);
-  vec2 uv = vec2(c + V) / float(M);
+  // One instance per (combo, cell, triangle), 9 vertices: a triangle is left out only where a corner is not finite
+  // (never for being steep: inside a cell the sheet is continuous, a steep slope is a wall). Linear heights (uClip):
+  // the sheets run on beyond the block and are clipped exactly at its top and bottom, |h| = 1.25 H, the polygon left
+  // of the triangle (up to 5 corners) drawn as a fan; the clipped edges are marked (vBoxE) for the rim. The fragment
+  // stage evaluates F on the same sheet with the same cuts. uRef 0: the base cells (a refined one left to its own
+  // draw); uRef L > 0: the level-L cells' sub-cells, one instance per (entry, sub-cell, combo, triangle), the corners
+  // from uRf. The per-sheet cue (uCue, LAND_FS): each sheet behind the one before it by a few depth units, so where
+  // two coincide (a deformation near t = 0) the first one shows, never a mix of the two.
+  // (clip: the variant for linear heights, whose triangles are clipped at the block, landSheetC; its polygon's arrays
+  // in the same program cost every vertex of every other mode too: the GPU sizes a program's registers by its largest
+  // path, and the sheets' draw at the Max mesh took twice the base's, 27 to 38 fps orbiting, r3 review speed-1)
+  const LAND_SHEET_VS = (clip) => REFINE + `
+uniform highp sampler2D uT1; uniform highp sampler2D uRf;
+uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
+uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
+out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
+flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc; flat out int vCombo;
+vec3 nrmOf(vec4 t) { return vec3(t.zw, sqrt(max(1.0 - dot(t.zw, t.zw), 0.0))); }
+// one vertex: q (grid x, grid y in 16ths of a cell, height), its normal, F (vW), the box rims
+void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L, int combo) {
+  int M = uN - 1;
+  vBoxE = boxE;
+  vec2 uv = q.xy / float(16 * M);
   vZ = uBox.xy + uv * uBox.zw;
-  vZc = uBox.xy + (vec2(c) + 0.5) / float(M) * uBox.zw;
+  vec2 sc = vec2(16 >> uL.x, 16 >> uL.y);
+  vZc = L == 0 ? uBox.xy + (vec2(c) + 0.5) / float(M) * uBox.zw
+               : uBox.xy + (vec2(c * 16) + vec2(s0) * sc + 0.5 * sc) * (uBox.zw / float(16 * M));
+  // (F at a refined corner, for the fragments of sub-cells under about a pixel, uVW; a corner the block's clip made
+  // has none, and those polygons are drawn with F at their own z)
+  vW = w;
   vCombo = combo;
-  vPos = vec3((uv - 0.5) * 2.0 * uAspect, tv.x);
-  vNor = vec3(tv.zw, sqrt(max(1.0 - dot(tv.zw, tv.zw), 0.0)));
+  vPos = vec3((uv - 0.5) * 2.0 * uAspect, q.z);
+  vNor = nrm;
   vAO = 1.0;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
-  vEdge = vec3(0.0);
   gl_Position = uMVP * vec4(vPos, 1.0);
+  gl_Position.z += uZBias * float(combo) * gl_Position.w;
 }
+void main() {
+  int M = uN - 1, T = 2 * M;
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  vEdge = vec3(0.0); vBoxE = vec3(0.0);
+  int combo, tri;
+  ivec2 c, s0 = ivec2(0);
+  int L = uRef, blk = 0;
+  ivec2 n2 = ivec2(1 << uL.x, 1 << uL.y);
+  if (L == 0) {
+    int per = 2 * M * M;
+    combo = gl_InstanceID / per;
+    int r = gl_InstanceID - combo * per, cell = r / 2;
+    tri = r % 2;
+    c = ivec2(cell % M, cell / M);
+    if (uRefOn == 1 && lvAt(c) != ivec2(0)) return;
+  } else {
+    tri = gl_InstanceID & 1;
+    int b = gl_InstanceID >> 1;
+    blk = uRefT + b;
+    combo = b % uSheetK;
+    int r = b / uSheetK, nn = n2.x * n2.y, en = r / nn, sub = r - en * nn;
+    s0 = ivec2(sub % n2.x, sub / n2.x);
+    c = lstCell(uRefE + en);
+  }
+  ivec2 A = ivec2(0), B = tri == 0 ? ivec2(1, 0) : ivec2(1, 1), C = tri == 0 ? ivec2(1, 1) : ivec2(0, 1);
+  // the corners of this triangle's (sub-)cell on its sheet: (h, valid, nx, ny), and (positions in 16ths of a cell; a
+  // refined corner's, and its value, from the right half of its block). (Two branches, not selects between the two
+  // textures: the selects fetched from both in every vertex, and the sheets' draw took about twice the base's at the
+  // Max mesh, r3 review speed-1)
+  vec4 ta, tb, tc, pA, pB, pC;
+  if (L == 0) {
+    ivec2 o = ivec2(combo % uTileC, combo / uTileC) * T + 2 * c;
+    ta = texelFetch(uT1, o + A, 0); tb = texelFetch(uT1, o + B, 0); tc = texelFetch(uT1, o + C, 0);
+    pA = vec4(0.0, 0.0, vec2((c + A) * 16)); pB = vec4(0.0, 0.0, vec2((c + B) * 16)); pC = vec4(0.0, 0.0, vec2((c + C) * 16));
+  } else {
+    ivec2 o = ivec2(4 * (blk & 511), 2 * (blk >> 9));
+    ta = texelFetch(uRf, o + A, 0); tb = texelFetch(uRf, o + B, 0); tc = texelFetch(uRf, o + C, 0);
+    pA = texelFetch(uRf, o + A + ivec2(2, 0), 0); pB = texelFetch(uRf, o + B + ivec2(2, 0), 0); pC = texelFetch(uRf, o + C + ivec2(2, 0), 0);
+  }
+  if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5)) return;
+  int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
+  // (a triangle inside the block, every one without linear heights: its own corners, without the clip's polygon,
+  // whose arrays the GPU keeps in memory; clipping every triangle took the sheets' draw at the Max mesh to twice the
+  // base's, 27 to 38 fps orbiting, r3 review speed-1)
+  if (${clip ? 'max(max(abs(ta.x), abs(tb.x)), abs(tc.x)) <= 1.25 * uH' : 'true'}) {
+    if (sub > 0) return;
+    vec4 tq = k == 0 ? ta : (k == 1 ? tb : tc), pq = k == 0 ? pA : (k == 1 ? pB : pC);
+    emitV(vec3(pq.zw, tq.x), nrmOf(tq), pq.xy, vec3(0.0), k, c, s0, L, combo);
+    return;
+  }
+${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal, plane flag (0 a corner, +1 / -1 on the top /
+  // bottom of the block)
+  vec3 Q[5]; vec3 Nn[5]; float Fl[5];
+  for (int i = 0; i < 5; i++) { Q[i] = vec3(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
+  Q[0] = vec3(pA.zw, ta.x); Q[1] = vec3(pB.zw, tb.x); Q[2] = vec3(pC.zw, tc.x);
+  vec2 Wv[3]; Wv[0] = pA.xy; Wv[1] = pB.xy; Wv[2] = pC.xy;
+  Nn[0] = nrmOf(ta); Nn[1] = nrmOf(tb); Nn[2] = nrmOf(tc);
+  int n = 3;
+  if (uClip == 1) {
+    float Hb = 1.25 * uH;
+    for (int pass = 0; pass < 2; pass++) {
+      float s = pass == 0 ? 1.0 : -1.0;
+      vec3 R[5]; vec3 RN[5]; float RF[5];
+      for (int i = 0; i < 5; i++) { R[i] = vec3(0.0); RN[i] = vec3(0.0, 0.0, 1.0); RF[i] = 0.0; }
+      int m = 0;
+      for (int i = 0; i < 5; i++) {
+        if (i >= n) break;
+        int j = i + 1 == n ? 0 : i + 1;
+        bool inI = s * Q[i].z <= Hb, inJ = s * Q[j].z <= Hb;
+        if (inI) { R[m] = Q[i]; RN[m] = Nn[i]; RF[m] = Fl[i]; m++; }
+        if (inI != inJ) {
+          // (from the lower end in grid order, so the two triangles of an edge find the same point)
+          bool fw = Q[i].x < Q[j].x || (Q[i].x == Q[j].x && Q[i].y < Q[j].y);
+          vec3 a = fw ? Q[i] : Q[j], b = fw ? Q[j] : Q[i];
+          vec3 na = fw ? Nn[i] : Nn[j], nb = fw ? Nn[j] : Nn[i];
+          // (a corner far beyond the block, both on its side, as at a pole: the crossing interpolated in 1 / h, exact
+          // to first order at a simple pole, where linear interpolation hugs the near corner; review math-4)
+          float t = s * a.z > 0.0 && s * b.z > 0.0 && max(abs(a.z), abs(b.z)) > 2.0 * Hb
+            ? (1.0 / (s * Hb) - 1.0 / a.z) / (1.0 / b.z - 1.0 / a.z) : (s * Hb - a.z) / (b.z - a.z);
+          t = clamp(t, 0.0, 1.0);
+          R[m] = vec3(mix(a.xy, b.xy, t), s * Hb); RN[m] = normalize(mix(na, nb, t) + vec3(0.0, 0.0, 1e-6)); RF[m] = s; m++;
+        }
+      }
+      for (int i = 0; i < 5; i++) { Q[i] = R[i]; Nn[i] = RN[i]; Fl[i] = RF[i]; }
+      n = m;
+    }
+  }
+  if (sub + 2 >= n) return;
+  int i1 = sub + 1, i2 = sub + 2;
+  int vi = k == 0 ? 0 : (k == 1 ? i1 : i2);
+  // box rims: a polygon edge whose two ends lie on the same plane of the block
+  vec3 boxE = vec3(Fl[i1] != 0.0 && Fl[i1] == Fl[i2] ? 1.0 : 0.0,
+                   i2 == n - 1 && Fl[i2] != 0.0 && Fl[i2] == Fl[0] ? 1.0 : 0.0,
+                   i1 == 1 && Fl[0] != 0.0 && Fl[0] == Fl[i1] ? 1.0 : 0.0);
+  emitV(Q[vi], Nn[vi], vi < 3 ? Wv[vi] : vec2(0.0), boxE, k, c, s0, L, combo);
+` : ''}}
 `;
   const LAND_COMMON = `
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
@@ -2060,32 +2736,92 @@ vec3 albedo(vec2 w) {
 }
 vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smoothstep(uFogNear, uFogFar, length(uEye - pos))); }
 `;
-  // sheet: the covering surface (All sheets): F on the triangle's own sheet, with the cuts of its cell (chainSheet)
-  const LAND_FS = (sheet) => `
-in vec2 vZ; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
-flat in vec3 vEdge;
-uniform vec3 uCut; uniform vec3 uUnder; uniform vec4 uBox;
+  // sheet: the covering surface (All sheets): F on the triangle's own sheet, with the cuts of its cell (chainSheet).
+  // The mesh follows the true surface to a quarter of a pixel where it is refined (REFINE), so F at the fragment's own
+  // z is the surface's value at its height there; where it is not (a wall coarser than its pixels while something
+  // moves, the refinement capped), the contour lines fade by how far the facet is from the true height
+  const LAND_FS = (sheet, plain, lite) => `
+in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
+flat in vec3 vEdge; flat in vec3 vBoxE;
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}
 out vec4 o;
-${sheet ? `flat in vec2 vZc; flat in int vCombo;${SHEET_MAP}
-vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }` : 'vec2 landW(vec2 z) { return mapF(z); }'}
+${plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
+// the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
+vec3 cueTint(vec3 c, float s) {
+  vec3 l = pow(max(mat3(0.4122214708, 0.2119034982, 0.0883024619, 0.5363325363, 0.6806995451, 0.2817188376,
+                        0.0514459929, 0.1073969566, 0.6299787005) * c, vec3(0.0)), vec3(1.0 / 3.0));
+  vec3 lab = mat3(0.2104542553, 1.9779984951, 0.0259040371, 0.7936177850, -2.4285922050, 0.7827717662,
+                  -0.0040720468, 0.4505937099, -0.8086757660) * l;
+  lab.x = clamp(lab.x * (1.0 + s), 0.0, 1.0);
+  l = mat3(1.0, 1.0, 1.0, 0.3963377774, -0.1055613458, -0.0894841775, 0.2158037573, -0.0638541728, -1.2914855480) * lab;
+  return clamp(mat3(4.0767416621, -1.2684380046, -0.0041960863, -3.3077115913, 2.6097574011, -0.7034186147,
+                    0.2309699292, -0.3413193965, 1.7076147010) * (l * l * l), 0.0, 1.0);
+}` : 'vec2 landW(vec2 z) { return mapF(z); }'}
+// On a steep facet (r3): the height's part of w from the facet's own height, the rest from F. A facet that is not yet
+// on the true surface (a wall while something moves, a refinement that has not arrived) puts F's contours at the
+// wrong heights: a sawtooth across its strips, and scratches where they fade. The true surface reaches the facet's
+// height a small step along the gradient, and there the height's part is the facet's while the other part (Im F for
+// Re F, arg F for |F|) is unchanged to first order: on a wall the two are conjugate (Cauchy-Riemann) and the other
+// one's gradient is across the step. So the contours are the facet's level lines, straight and continuous from one
+// strip to the next, and on a refined surface (a quarter of a pixel from the true one) nothing moves. Slopes under
+// 1 (45 degrees) keep F as it is: there the step along the gradient is not small. (Not in the base cells' program, land:
+// its fragment stage stays the base's, r3 cold opens: with this in it, a heavy formula's first Landscape held the GPU
+// process 0.7 to 0.8 s where the base did not stall; the base cells are the flat ones, a wall is refined)
+${lite ? '' : `vec2 facetW(vec2 w) {
+  vec3 nf = normalize(vNor);
+  float wt = smoothstep(1.0, 2.0, length(nf.xy) / max(abs(nf.z), 1e-4));
+  vec2 ht = heightW(w);
+  if (!(wt > 0.0) || ht.y < 0.5) return w;
+  float h = mix(ht.x, vPos.z, wt) / uH, mu = uMu > 0.0 ? uMu : 1.0, hc = clamp(h, -0.99999, 0.99999);
+  if (uHMode >= 2) {
+    // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
+    float a = abs(h), c = 0.5 / PI;
+    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
+    if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
+    return w;
+  }
+  float r = wabs(w);
+  if (!(r > 1e-30 && r < 1e30)) return w;
+  float lr = uHMode == 1 ? log(max(mu * tan(0.25 * PI * (hc + 1.0)), 1e-37)) : 1.4 * tan(0.5 * PI * hc);
+  return w * exp(clamp(lr, -85.0, 85.0) - log(r));
+}`}
 void main() {
-  vec2 w = landW(vZ);              // colour from F at the interpolated z: contours stay crisp
+  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+  // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
+${lite ? `  vec2 w0 = landW(vZ), w = w0;
+  const float la = 1.0;` : `  vec2 w0 = uVW == 1 ? vW : landW(vZ), w = facetW(w0);
+  float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
+  vec2 ht = heightW(w);
+  float la = ht.y > 0.5 ? 1.0 - smoothstep(1.0, 3.0, abs(ht.x - vPos.z) / pw) : 1.0;`}
   float r = wabs(w);
   float q = TAU / max(uSectors, 1.0);
-  float lr = log(clamp(r, 1e-37, 3e38)), flr = fwidth(lr);
+  // (the lines' widths: the smaller of w's and F's as it is. On a silhouette the helper fragments of a quad sit off the
+  // triangle, where the facet's height runs past the surface's, and w's alone made dots of the sea-level line there;
+  // on a coarse wall F's alone runs across the whole wall within a facet and smeared its lines, r3)
+  float lr = log(clamp(r, 1e-37, 3e38)), flr = min(fwidth(lr), fwidth(log(clamp(wabs(w0), 1e-37, 3e38))));
   float xm = lr / q, fm = flr / q;
-  float xp = wang(w) / q, fp = argWidth(w) / q;
+  float xp = wang(w) / q, fp = min(argWidth(w), argWidth(w0)) / q;
   vec3 fb = fwidth(vBary);
-  vec3 alb = albedo(w);
   bool plaster = uMaterial == 2;
-  vec3 a = toLin(alb);
+  vec3 a = toLin(albedo(w));
   vec3 ml = toLin(uModLine);
-  a = mix(a, ml, (plaster ? 0.65 : 0.40) * iso(xm, fm, 0.9) * dfade(fm));              // ln|F| = k 2pi/n
-  a = mix(a, plaster ? ml : toLin(uArgLine), (plaster ? 0.25 : 0.30) * iso(xp, fp, 0.7) * dfade(fp));  // arg F = k 2pi/n
+  a = mix(a, ml, la * (plaster ? 0.65 : 0.40) * iso(xm, fm, 0.9) * dfade(fm));              // ln|F| = k 2pi/n
+  a = mix(a, plaster ? ml : toLin(uArgLine), la * (plaster ? 0.25 : 0.30) * iso(xp, fp, 0.7) * dfade(fp));  // arg F = k 2pi/n
   float ds = abs(lr) / max(flr, 1e-6);                                                  // sea level |F| = 1
-  a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
-  a = mix(a, vec3(1.0), uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
-  vec3 eb = vBary / max(fb, vec3(1e-6));                                                // exposed cliff edges
+  a = mix(a, toLin(vec3(0.0431, 0.0667, 0.0784)), la * uSea * 0.35 * (1.0 - smoothstep(1.0, 2.0, ds)));
+  a = mix(a, vec3(1.0), la * uSea * 0.90 * (1.0 - smoothstep(0.375, 1.375, ds)));
+${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
+  // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
+  // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
+  // front where two coincide, had no tint, and the pair could not be told apart
+  if (uCue > 0.0) {
+    int m3 = vCombo - 3 * (vCombo / 3);
+    float sg = uCueK == 2 ? (vCombo == 0 ? 1.0 : -1.0) : (m3 == 0 ? 1.0 : (m3 == 1 ? -1.0 : 0.0));
+    a = cueTint(a, sg * uCue);
+  }
+` : ''}
+  vec3 eb = vBary / max(fb, vec3(1e-6));                                                // the banks of a real cut
   float cliff = max(max(vEdge.x * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.x)),
                         vEdge.y * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.y))),
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
@@ -2094,8 +2830,11 @@ void main() {
   vec2 uv = (vZ - uBox.xy) / uBox.zw;
   vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
+  // where the block's top or bottom clips the surface: the same rim as the domain's edges
+  rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),
+                         vBoxE.y * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.y))),
+                         vBoxE.z * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.z))));
   // an open surface, seen from both sides: the underside (the camera below the sheet, by the triangle's winding)
-  // is desaturated towards a cool grey and darker, its contours kept
   vec3 n = normalize(vNor);
   vec3 v = normalize(uEye - vPos);
   vec3 c;
@@ -2103,12 +2842,10 @@ void main() {
     a = mix(a, ml, 0.55 * rim);
     c = shade(a, n, v, vAO);
   } else {
-    // a soft headlight instead of the rig (the key light never reaches the underside): facets turned to the viewer
-    // brighter, so the shape still reads; contours and the sea level stay as darker / lighter lines
-    float g = dot(a, vec3(0.2126, 0.7152, 0.0722));
-    a = mix(mix(a, vec3(g), 0.75), toLin(uUnder), 0.3);   // a quarter of the hue left: the phase still reads
+    // its own colouring, darker, under a soft headlight (the key light never reaches the underside): a sheet reads
+    // as one surface from both sides, its contours and sea level kept (r2: round 1 desaturated it to a grey)
     a = mix(a, ml, 0.65 * rim);
-    c = a * (0.38 + 0.34 * max(dot(-n, v), 0.0));
+    c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
   o = vec4(toSrgb(fogged(c, vPos)), 1.0);
 }
@@ -2144,7 +2881,7 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
 `;
   const FLOOR_FS = `
 in vec3 vPos;
-uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ;
+uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
 uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
 uniform highp sampler2D uT1; uniform int uN; uniform int uSheetK; uniform int uTileC;
 out vec4 o;
@@ -2166,7 +2903,9 @@ void main() {
       for (int k = 0; k < 24; k++) {
         if (k >= uSheetK) break;
         vec4 t = texelFetch(uT1, ivec2(k % uTileC, k / uTileC) * 2 * M + q, 0);
-        if (t.y > 0.5) contact = max(contact, exp(-(t.x - uFloorZ) / 0.12));
+        // (linear heights run on past the block, where the surface is clipped away: no contact from there, review
+        // math-8)
+        if (t.y > 0.5 && t.x >= -1.25 * uH) contact = max(contact, exp(-(t.x - uFloorZ) / 0.12));
       }
     } else {
       ivec2 ij = clamp(ivec2(uv * float(uN - 1) + 0.5), ivec2(0), ivec2(uN - 1));
@@ -2296,7 +3035,7 @@ void main() {
 `;
 
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uPts: 4 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -2367,15 +3106,33 @@ void main() {
     cauchy: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + CAUCHY_FS },
     pre: { chain: true, vs: () => QUAD_VS, fs: () => PRE_FS('') },
     preS: { chain: true, vs: () => SPHERE_VS, fs: () => PRE_FS('', true) },
+    // (the heights, uPass 0, and the refinement, 1 and 2: one program, one call site of the chain, LAND_TF_VS)
     landTF: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_TF_VS, fs: () => TF_FS, tf: true },
+    // (the refinement's levels and vertices: no chain, compiled once per page, LAND_LV_VS / LAND_RP_VS / LAND_RA_VS)
+    landLv: { chain: false, vs: () => LAND_LV_VS, fs: () => TF_FS, tf: true },
+    landRP: { chain: false, vs: () => LAND_RP_VS, fs: () => TF_FS, tf: true },
+    landRA: { chain: false, vs: () => LAND_RA_VS, fs: () => TF_FS, tf: true },
     landNrm: { chain: false, vs: () => LAND_NRM_VS, fs: () => TF_FS, tf: true },
-    land: { chain: true, vs: () => LAND_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false) },
+    // (the edge pass, one program per kind: S the stages' sheets, H a deformation's, 2 bisection; LAND_EDGE_VS)
+    landEdgeS: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('S'), fs: () => TF_FS, tf: true },
+    landEdgeH: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('H'), fs: () => TF_FS, tf: true },
+    landEdge2: { chain: true, vs: () => UTIL_V + HEIGHT + LAND_EDGE_VS('2'), fs: () => TF_FS, tf: true },
+    // (the base cells: the base's fragment stage, F at the fragment and no fade, so a formula's first Landscape compiles
+    // what it did before the walls; r2 review math-2)
+    land: { chain: true, vs: () => LAND_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true) },
+    landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
+    landB: { chain: false, vs: () => LAND_B_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
     ulevel: { chain: false, vs: () => ULEVEL_VS, fs: () => ULEVEL_FS },
     probe: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(false), fs: () => MARK_FS },
     // All sheets (only for chains whose source has chainSheetRange: see sheetPlan)
-    landSheetTF: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_SHEET_TF_VS, fs: () => TF_FS, tf: true },
-    landSheet: { chain: true, sheet: true, vs: () => LAND_SHEET_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(true) },
+    // (its base pass, as in the base; the refinement's passes, uPass 1 and 2, in landSheetRF: inside landSheetTF they
+    // made a formula's first All-sheets surface link 2 to 3 times as long and its first draw held the GPU process for
+    // 0.5 to 1 s, r3. landSheetRF compiles once the surface is drawn and is taken into use when it has settled, sheetRF)
+    landSheetTF: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_SHEET_TF_VS(false), fs: () => TF_FS, tf: true },
+    landSheetRF: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + LAND_SHEET_TF_VS(true), fs: () => TF_FS, tf: true },
+    landSheet: { chain: true, sheet: true, vs: () => LAND_SHEET_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(true) },
+    landSheetC: { chain: true, sheet: true, vs: () => LAND_SHEET_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(true) },
     probeSheet: { chain: true, sheet: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(true), fs: () => MARK_FS },
     mark: { chain: false, vs: () => MARK_VS, fs: () => MARK_FS },
     sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE + TIERS + SPHERE_FS(false) },
@@ -2446,7 +3203,7 @@ float wabs(vec2 w) {
     if (e.state === 'pending') {
       // programs without the chain compile once at start-up; syncDepth (tests) waits as well
       if (!pcExt || !d.chain || syncDepth > 0) finishLink(e);
-      else if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && canFinish(e)) finishLink(e);
+      else if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && groupDone(e) && canFinish(e)) { finishLink(e); finishGroup(e); }
       else schedulePoll();
     }
     return e.state === 'ready' ? e : null;
@@ -2477,6 +3234,30 @@ float wabs(vec2 w) {
   // several of those in one frame held the GPU process, and so every frame on the page, for 100-250 ms (spec 8.7).
   const FRESH_MS = 48;
   let freshT = -1e9;
+  // A surface's chain programs are taken into use together, in one frame: ANGLE completes each one's Metal side at its
+  // first draw, and a formula's first Landscape drew its heights' program a frame or more before its surface's, which
+  // held the GPU process twice (r2 review math-2: a second stall of 0.85 to 1.1 s under load; the base, one stall).
+  // A member finishes only when every member of its group has compiled; the group counts as one for FRESH_MS
+  const GROUPS = [['landTF', 'land', 'floor'], ['landSheetTF', 'landSheet', 'floor']];
+  // (the floor goes with the surface it is drawn under: All sheets' when their programs were asked for, r3: through the
+  // principal group it started the principal programs alongside the sheets', a second family compiling at a cold open)
+  const groupOf = (name, key) => (name === 'floor' ? (progs.has('landSheet|' + key) ? GROUPS[1] : GROUPS[0]) : GROUPS.find((g) => g.includes(name)) || null);
+  function groupDone(e) {
+    const g = groupOf(e.name, e.key);
+    if (!g || !pcExt) return true;
+    for (const n of g) {
+      if (n === e.name) continue;
+      const q = progs.get(n + '|' + e.key);
+      if (!q) { getProg(n, e.ch, true); return false; }
+      if (q.state === 'pending' && !gl.getProgramParameter(q.p, pcExt.COMPLETION_STATUS_KHR)) return false;
+    }
+    return true;
+  }
+  function finishGroup(e) {
+    const g = groupOf(e.name, e.key);
+    if (!g) return;
+    for (const n of g) { const q = progs.get(n + '|' + e.key); if (q && q !== e && q.state === 'pending') finishLink(q); }
+  }
   function canFinish(e) {
     const now = performance.now();
     if (now - freshT < FRESH_MS && (e.side || hist.some((h) => { const q = progs.get(e.name + '|' + h.key); return q && q.state === 'ready'; }))) return false;
@@ -2503,7 +3284,7 @@ float wabs(vec2 w) {
     let main = false, sided = false, waiting = false;
     for (const e of progs.values()) {
       if (e.state !== 'pending') continue;
-      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || canFinish(e))) { (e.inv ? finishInv : finishLink)(e); if (e.side) sided = true; else main = true; } else waiting = true;
+      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || (groupDone(e) && canFinish(e)))) { (e.inv ? finishInv : finishLink)(e); if (!e.inv) finishGroup(e); if (e.side) sided = true; else main = true; } else if (e.state === 'pending') waiting = true;
     }
     if (waiting) schedulePoll();
     // which draws can now redraw: main (the current chain and its history), side (side chains)
@@ -2553,9 +3334,12 @@ float wabs(vec2 w) {
   const u2f = (P, n, a, b) => gl.uniform2f(L_(P, n), a, b);
   const u3 = (P, n, v) => gl.uniform3f(L_(P, n), v[0], v[1], v[2]);
   const u4f = (P, n, a, b, c, d) => gl.uniform4f(L_(P, n), a, b, c, d);
+  const u4i = (P, n, a, b, c, d) => gl.uniform4i(L_(P, n), a, b, c, d);
+  const u2i = (P, n, a, b) => gl.uniform2i(L_(P, n), a, b);
   const uM4 = (P, n, m) => gl.uniformMatrix4fv(L_(P, n), false, m);
   function use(P, map) {
     gl.useProgram(P.p);
+    P.used1 = true;
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapFor(map, P.ch) || {};
@@ -3221,7 +4005,9 @@ float wabs(vec2 w) {
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
         invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
-        land = landS = null;
+        lands.clear(); lastLand = landS = null;
+        // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone; r2 review math-4)
+        rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null; rdBytes = 0;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
         rtOK = !!gl.getExtension('EXT_color_buffer_float');
@@ -3975,31 +4761,625 @@ float wabs(vec2 w) {
     return o;
   }
   // height pass cache: (chain, parameters, map, box, N, height mode, H, mu) -> textures
-  let land = null;
-  function landHeights(st, N, mode, H, mu, aspect) {
+  const lands = new Map();
+  let lastLand = null;
+  // How the real discontinuities of the principal surface are found (LAND_EDGE_VS uCutMode), from the steps the map
+  // applies (GLChain cutKinds; review math-3): 0 none (no cut: the map is continuous away from its poles, no edge
+  // pass), 1 by the continuation of the chain's sheets (roots, powers, log, z^n's path), 2 by bisection (cuts the
+  // sheets cannot continue: an inverse trig or Joukowski step, arg in a formula, a formula's path through its branch
+  // points, a d/dz after a cut, the straight-line map mode 2). A step's path counts only while it runs, 0 < t < 1.
+  function cutModeOf(info, map) {
+    if (!info || !Array.isArray(info.cutKinds)) return 0;
+    const m = map || {}, mode = m.mode || 0, t = +m.t || 0;
+    const base = m.base || 0, a = m.a || 0, b = m.b || 0, hi = m.hi || 0, post = m.post || 0;
+    // (as the chain applies step k: 0 not, 1 in full, 2 its path at t; cxs0_how, MAP)
+    const how = (k) => {
+      if (mode === 0) return k > a && k <= b ? 1 : 0;
+      if (mode === 2) return k > base && k <= b ? 1 : 0;
+      if (mode === 1) { if (k > base && k < hi) return 1; if (k === hi) return 2; }
+      else if (mode === 3) { if (k > base && k <= a) return 1; if (k > a && k <= b) return 2; }
+      return post > b && k > b && k <= post ? 1 : 0;
+    };
+    let sheet = false, other = false, cut = false;
+    for (const c of info.cutKinds) {
+      const hw = how(c.k);
+      if (!hw) continue;
+      const kind = hw === 2 ? (t <= 0 ? 'none' : t >= 1 ? c.f : c.h) : c.f;
+      if (kind === 'deriv') { if (cut) other = true; continue; }
+      if (kind === 'other') other = true;
+      else if (kind === 'sheet') sheet = true;
+      if (kind !== 'none') cut = true;
+    }
+    if (!cut) return 0;
+    return other || mode === 2 ? 2 : 1;
+  }
+  const edgeName = (cm, m) => (cm === 2 ? 'landEdge2' : m && (m.mode === 1 || m.mode === 3) ? 'landEdgeH' : 'landEdgeS');
+  // A deformation at t = 0 has no cut yet: the edge pass its t > 0 will need starts compiling now, and is first drawn
+  // (a pass that writes nothing) at rest once it has settled, before the play that needs it (r3 review speed-3)
+  function edgeAhead(P1, em, st, rf, cmNow, P3now) {
+    if (P1.ch !== cur) return;
+    if (!(em.mode === 1 || em.mode === 3)) {
+      // (no deformation shown: the edge passes a deformation of each step would use start compiling in the background,
+      // at rest once this surface has been drawn, so that opening the deformation, which plays at once, finds them
+      // linked; nothing is drawn with them here. r3 verify-1: compiled only at the open, the pass was never ready in a
+      // rest frame and the whole play drew the former rule's torn walls)
+      // (after this surface's own passes have been taken into use: the refinement's programs and the edge pass it
+      // draws now, so that the cold open's links are not delayed by it)
+      if (st.motion || !rf || !rf.Lp || !rf.Lp.drawnOnce || !rfWarmAll || !Array.isArray(P1.ch.info.cutKinds)) return;
+      if (cmNow && !(P3now && P3now.used1)) return;
+      for (const c of P1.ch.info.cutKinds) {
+        if (!c || c.h === 'none' || c.h === 'deriv') continue;
+        const hm = { mode: 1, base: 0, hi: c.k, t: 0.5 }, ca = cutModeOf(P1.ch.info, hm);
+        // (its settle clock starts when its link lands, not at the open)
+        const P = ca ? getProg(edgeName(ca, hm), cur, true) : null;
+        if (P && !P.used1) settled(P);
+      }
+      return;
+    }
+    const ca = cutModeOf(P1.ch.info, Object.assign({}, em, { t: 0.5 }));
+    if (!ca) return;
+    const P = getProg(edgeName(ca, em), cur, true);
+    if (!P || P.used1 || (st.motion && !st.full) || !settled(P)) return;
+    use(P, st.map);
+    u1i(P, 'uN', 2); u1i(P, 'uSteps', 0); u1i(P, 'uTwo', 0); u1i(P, 'uDir', 0);
+    gl.activeTexture(gl.TEXTURE15);
+    if (!rfWarmTex) rfWarmTex = floatTex();
+    runTF(P, empty(), gl.POINTS, 1, 0, 16, rfWarmTex, 1, 1, gl.RGBA32F, gl.RGBA);
+  }
+  function landHeights(st, N, mode, H, mu, aspect, rf) {
     const b = st.box;
     const P1 = program('landTF'), P2 = program('landNrm');
-    if (!P1 || !P2) return land && land.N === N ? land : null;   // compiling: keep the last heights
-    const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapFor(st.map, P1.ch)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu].join('|');
-    if (land && land.key === key) return land;
-    if (!land || land.N !== N) {
-      if (land) { gl.deleteTexture(land.tex1); gl.deleteTexture(land.tex2); }
-      land = { N, tex1: floatTex(), tex2: floatTex() };
+    // (one cache per grid size: the stage cards' small landscapes no longer evict the pane's)
+    let land = lands.get(N) || null;
+    if (!P1 || !P2) return land;   // compiling: keep the last heights
+    const cm = cutModeOf(P1.ch.info, mapFor(st.map, P1.ch));
+    // the edge pass must be of the same chain version as the heights. While it compiles (a new chain), the surface is
+    // drawn at once by the former rule (a triangle across a height step over 0.3 H left out: cuts -1), and with its
+    // real cuts when the pass is ready (review pictures-1: the block stayed empty for seconds)
+    const em = mapFor(st.map, P1.ch) || {};
+    // (r3: once it has settled; a figure, a film or an export takes it as soon as it has compiled)
+    // (never first drawn while something moves: the deformation's edge pass, first drawn 0.9 s into a play, held a
+    // frame 90 to 250 ms, r3 review speed-3; at rest then)
+    const P3r = cm ? program(edgeName(cm, em)) : null;
+    // (a deformation's own pass, once it has settled, is first drawn even while it plays: the play starts at the open,
+    // and waiting for a rest frame left the whole play, every loop, to the former rule's torn walls; one first-draw
+    // instead, at the play's start when the pass was compiled ahead (edgeAhead), r3 verify-1)
+    const defo = em.mode === 1 || em.mode === 3;
+    const P3 = P3r && (rf && rf.full || (settled(P3r) && (P3r.used1 || defo || !(st.motion && !st.full)))) ? P3r : null;
+    if (P3r && !P3 && st.motion) rfLater();
+    if (!cm || !defo) edgeAhead(P1, em, st, rf, cm, P3r);
+    const cuts = cm && (!P3 || P3.ch !== P1.ch) ? -1 : cm;
+    const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapFor(st.map, P1.ch)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu, cuts].join('|');
+    if (land && land.key === key) { lastLand = land; landRefine(st, land, P1, N, mode, H, mu, aspect, rf); return land; }
+    if (!land) {
+      // (the pane's grid and the stage cards' (64) are kept, one each: a former pane size is freed, review math-5)
+      for (const [k, l] of lands) {
+        if ((k === 64) !== (N === 64)) continue;
+        rfFree(l);
+        for (const t of [l.tex1, l.tex2, ...l.edges]) gl.deleteTexture(t);
+        lands.delete(k);
+        if (lastLand === l) lastLand = null;
+      }
+      land = { N, tex1: floatTex(), tex2: floatTex(), edges: [floatTex(), floatTex(), floatTex()] };
+      lands.set(N, land);
     }
+    lastLand = land;
     const bytes = N * N * 16;
     use(P1, st.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); u1i(P1, 'uPass', 0);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, land.tex1, N, N, gl.RGBA32F, gl.RGBA);
+    // the real jumps across the grid's edges (+x, +y, the diagonal)
+    if (cuts > 0) {
+      const m = mapFor(st.map, P3.ch) || {};
+      use(P3, st.map);
+      u1i(P3, 'uN', N);
+      u4f(P3, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+      u1i(P3, 'uHMode', mode); u1f(P3, 'uH', H); u1f(P3, 'uMu', mu);
+      // (bisection steps: the cut to 2^-14 of an edge in mode 1, the step's shrinking over 12 halvings in mode 2)
+      u1i(P3, 'uSteps', 13); u1i(P3, 'uTwo', 2);
+      u1i(P3, 'uSheetA', m.a || 0); u1i(P3, 'uSheetB', m.b || 0); u1i(P3, 'uSheetW', 0);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
+      for (let d = 0; d < 3; d++) {
+        u1i(P3, 'uDir', d);
+        // (runTF binds its target on the active unit: a spare one, so unit 2 keeps the heights)
+        gl.activeTexture(gl.TEXTURE15);
+        runTF(P3, empty(), gl.POINTS, N * N, 0, bytes, land.edges[d], N, N, gl.RGBA32F, gl.RGBA);
+      }
+    }
+    land.cuts = cuts; land.P3 = P3;
     use(P2);
     u1i(P2, 'uN', N);
     u2f(P2, 'uAspect', aspect[0], aspect[1]);
     u1f(P2, 'uH', H);
+    u1i(P2, 'uCuts', cuts);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
+    for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, land.edges[d]); }
+    gl.activeTexture(gl.TEXTURE15);
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, land.tex2, N, N, gl.RGBA32F, gl.RGBA);
     land.key = key;
+    land.rkey = null;
+    landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
+  }
+  // ---- adaptive refinement (REFINE; notes/landscape-walls/r2/AS-BUILT.md) ----
+  // The levels come from the GPU (a pass of the height program); they are read back (a quarter of a float per cell)
+  // and listed here, grouped by level, worst first within the budget; the refined vertices are a third pass of the
+  // same program, and each level's sub-cells one instanced draw. The budget (evaluations of the chain) is the design's
+  // capacity: while something moves the levels are capped (the walls stay closed, a little coarser) and the full
+  // refinement follows when it stops (rfLater). A figure, a film or an export is always refined in full.
+  const RF_W = 2048;                       // the refined textures' width in texels
+  // evaluations of the chain at rest / while moving (the base passes are ~0.4 M, or 2.6 M for two sheets); at rest the
+  // refined textures stay under ~40 MB
+  const RF_REST = 6e6, RF_MOVE = 1.2e6;
+  // All sheets at rest: built over several frames (sheetRefine), at most RF_FRAME evaluations each, RF_REST_S in all
+  // (the user's case, sin sqrt z with All sheets at t = 0.2, needs about 13 M at the default mesh and 17 M at Max; its
+  // refined texture is then ~70 to 90 MB, 128 bytes per sub-cell and sheet)
+  const RF_REST_S = 18e6, RF_FRAME = 3e6;
+  // the moving budget for a pane mesh of N vertices per side: RF_MOVE up to 256 cells, then falling with the cells'
+  // count, since the base passes take the frame's GPU time as the mesh grows (at Max they take nearly all of it: the
+  // refinement then made the GPU fall behind, and each read of the levels waited for it; r2 review math-3)
+  const rfMove = (N) => RF_MOVE * Math.min(1, (256 / Math.max(N - 1, 1)) * (256 / Math.max(N - 1, 1)));
+  let rfTimer = 0;
+  // a mesh entry's refinement objects (textures, read-back buffer and fence), freed with it (r2 review math-4: a dropped
+  // mesh left them to the garbage collector, ~100 MB at Max)
+  function rfFree(o) {
+    if (!o) return;
+    for (const k of ['lvTex', 'lstTex', 'rfTex', 'latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) { gl.deleteTexture(o[k]); o[k] = null; }
+    if (o.nb) { rfFree(o.nb); o.nb = null; }
+    if (o.rbBuf) { gl.deleteBuffer(o.rbBuf); o.rbBuf = null; }
+    if (o.rbFence) { gl.deleteSync(o.rbFence); o.rbFence = null; }
+    o.rf = null; o.lvKey = o.rkey = o.rbFor = null; o.lvRaw = null; o.rfRows = 0; o.rfRaw = o.rbData = null; o.lvDim = o.lstRows = 0;
+  }
+  function rfLater() {
+    if (rfTimer || typeof setTimeout !== 'function') return;
+    rfTimer = setTimeout(() => { rfTimer = 0; if (api.onReady) api.onReady({ main: true }); }, 180);
+  }
+  // The levels are read back synchronously only while something moves and every program of the frame has run before
+  // (each read then waits for its own passes only). Otherwise, as at a new chain's first Landscape, whose Metal
+  // pipelines compile in the GPU process, a synchronous read would hold the page until they have: the levels are
+  // copied aside with a fence, the surface is drawn unrefined, and the refinement follows a frame or two later (rfPoll)
+  let pollTimer = 0;
+  function rfPoll() {
+    if (pollTimer || typeof setTimeout !== 'function') return;
+    pollTimer = setTimeout(() => { pollTimer = 0; if (api.onReady) api.onReady({ main: true }); }, 24);
+  }
+  // The refinement's programs have no chain: they compile once per page. Each one's first draw completes its Metal side
+  // in the GPU process, which holds every frame meanwhile (spec 8.7: several in one frame held it for 100-250 ms, and a
+  // formula's first Landscape, with its surface's own programs, is where they first came): they are taken into use one
+  // per frame at least 48 ms apart, each by a draw that writes nothing, and not in the frame that first draws the
+  // surface's own program. Until then the surface is drawn unrefined
+  // (they link in the background, started together once the surface has been drawn: a static program's first use
+  // otherwise linked it on the main thread, 30 to 280 ms for landLv at a cold open, r3 review speed-2)
+  const RF_PROGS = ['landLv', 'landRP', 'landRA', 'landR', 'landB'];
+  let rfWarmT = -1e9, rfWarmAll = false;
+  function rfWarmed(Lp) {
+    if (rfWarmAll) return true;
+    if (!Lp || !Lp.drawnOnce) { rfPoll(); return false; }
+    prestart(RF_PROGS);
+    for (const name of RF_PROGS) {
+      const e = progs.get(name + '|static');
+      if (e && e.state === 'pending' && pcExt && !gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR)) { rfPoll(); return false; }
+      const P = program(name);
+      if (!P) { rfPoll(); return false; }   // (still linking, in the background)
+      if (P.warm) continue;
+      if (performance.now() - rfWarmT < 48) { rfPoll(); return false; }
+      use(P);
+      if (name === 'landR' || name === 'landB') {
+        // (a triangle with all its corners at the origin of clip space: no fragment)
+        uM4(P, 'uMVP', new Float32Array(16));
+        gl.bindVertexArray(empty());
+        if (name === 'landB') gl.drawArrays(gl.TRIANGLES, 0, 3); else gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, 1);
+        gl.bindVertexArray(null);
+      } else {
+        u1i(P, 'uM', 1); u1i(P, 'uTot', 0); u1i(P, 'uCuts', -1);
+        gl.activeTexture(gl.TEXTURE15);
+        if (!rfWarmTex) rfWarmTex = floatTex();
+        runTF(P, empty(), gl.POINTS, 1, 0, 16, rfWarmTex, 1, 1, gl.RGBA32F, gl.RGBA);
+      }
+      P.warm = true; rfWarmT = performance.now();
+      rfPoll();
+      return false;
+    }
+    rfWarmAll = true;
+    return true;
+  }
+  let rfWarmTex = null;
+  // o: the mesh entry; n floats of the scratch buffer; progs: the programs this frame's passes used; returns the levels
+  // or null (pending)
+  // The read-back buffer of o for one read, bytes long: a fresh one each time, as in r2 (r3: a kept one, written again
+  // after its read, made Chrome warn that its shadow copy was discarded on every read, and the reads took 30 to 50 ms
+  // at the Max mesh instead of under 1)
+  function rbOf(o, bytes) {
+    if (o.rbBuf) gl.deleteBuffer(o.rbBuf);
+    o.rbBuf = gl.createBuffer(); o.rbBytes = bytes;
+    gl.bindBuffer(gl.COPY_WRITE_BUFFER, o.rbBuf);
+    gl.bufferData(gl.COPY_WRITE_BUFFER, bytes, gl.STREAM_READ);
+    gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+    return o.rbBuf;
+  }
+  function lvFetch(o, rkey, n, sync, progs) {
+    if (sync) return readScratch(n);
+    gl.bindBuffer(gl.COPY_WRITE_BUFFER, rbOf(o, 4 * n));
+    gl.bindBuffer(gl.COPY_READ_BUFFER, scratch);
+    gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, 0, 4 * n);
+    gl.bindBuffer(gl.COPY_READ_BUFFER, null); gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+    if (o.rbFence) gl.deleteSync(o.rbFence);
+    o.rbFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+    o.rbFor = rkey; o.rbN = n; o.rbProgs = progs; o.rbT = performance.now();
+    rfPoll();
+    return null;
+  }
+  // Reads the fenced levels of o when the GPU has them (-> true): into o.rbData, for o.rbDataFor
+  // (force: a figure, a film or an export; getBufferSubData then waits for the GPU)
+  function lvTake(o, force) {
+    if (!o || !o.rbFence) return false;
+    const st = force ? gl.ALREADY_SIGNALED : gl.clientWaitSync(o.rbFence, 0, 0);
+    if (st !== gl.ALREADY_SIGNALED && st !== gl.CONDITION_SATISFIED) return false;
+    // (read before the fence is deleted: the read is then known complete)
+    const out = new Float32Array(o.rbN);
+    const tq = performance.now();
+    gl.bindBuffer(gl.COPY_READ_BUFFER, o.rbBuf);
+    gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, out);
+    gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+    gl.deleteSync(o.rbFence); o.rbFence = null;
+    for (const P of o.rbProgs || []) if (P) P.rfWarm = true;
+    o.rbData = out; o.rbDataFor = o.rbFor;
+    return true;
+  }
+  // The levels in flight are read when the GPU has done the last Landscape frame's work (lvTail, a fence at its end),
+  // at the start of a frame or between frames (lvIdle, polled): getBufferSubData waits for the GPU process to work
+  // through what is queued before it, and read in the middle of a frame, or before the GPU had finished the one
+  // before, a read at the Max mesh while playing took 1.6 ms in the median and 9 to 30 ms one time in ten (r3, the
+  // frames that ran over the vsync)
+  let lvTail = null, lvIdleT = 0, lvIdleN = 0;
+  // (a read waits for the GPU's idle moment at most LV_LATE ms after its pass: under load that moment can be missed
+  // frame after frame, and the levels then stood still while the walls moved)
+  const LV_LATE = 60;
+  function lvCollect() {
+    // (no read in flight: the tail fence goes, r3 review speed-4)
+    if (lvTail && !lvInFlight()) { gl.deleteSync(lvTail); lvTail = null; }
+    if (lvTail) {
+      const st = gl.clientWaitSync(lvTail, 0, 0);
+      if (st !== gl.ALREADY_SIGNALED && st !== gl.CONDITION_SATISFIED) {
+        const now = performance.now();
+        for (const o of [...lands.values(), landS]) if (o && o.rbFence && now - (o.rbT || 0) > LV_LATE) lvTake(o);
+        lvIdleArm();
+        return;
+      }
+      gl.deleteSync(lvTail); lvTail = null;
+    }
+    for (const o of lands.values()) lvTake(o);
+    lvTake(landS);
+  }
+  const lvInFlight = () => { for (const o of lands.values()) if (o.rbFence) return true; return !!(landS && landS.rbFence); };
+  function lvIdleArm() {
+    if (lvIdleT || typeof setTimeout !== 'function') return;
+    lvIdleT = setTimeout(() => { lvIdleT = 0; if (!gl || lost || !lvInFlight()) return; lvCollect(); if (lvInFlight() && ++lvIdleN < 64) lvIdleArm(); else lvIdleN = 0; }, 3);
+  }
+  // (at the end of a Landscape frame that has levels in flight: the GPU is done with it when this fence signals)
+  function lvTailMark() {
+    if (!lvInFlight()) return;
+    if (lvTail) gl.deleteSync(lvTail);
+    lvTail = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+    lvIdleN = 0; lvIdleArm();
+  }
+  // the fenced levels for rkey (any key: null), once read (null while pending)
+  function lvReady(o, rkey) {
+    if (!o.rbData || (rkey !== null && o.rbDataFor !== rkey)) { if (o.rbFence) rfPoll(); return null; }
+    const out = o.rbData;
+    o.rbGot = o.rbDataFor; o.rbData = null;
+    return out;
+  }
+  // (through a buffer of its own, fenced and waited for: the scratch buffer, which every pass writes, is never read)
+  let rdBuf = null, rdBytes = 0;
+  function readScratch(n) {
+    const out = new Float32Array(n);
+    // (a fresh buffer each time, as in lvFetch: a READ buffer written again before Chrome saw its read loses its shadow)
+    if (rdBuf) gl.deleteBuffer(rdBuf);
+    rdBuf = gl.createBuffer(); rdBytes = 4 * n;
+    gl.bindBuffer(gl.COPY_WRITE_BUFFER, rdBuf); gl.bufferData(gl.COPY_WRITE_BUFFER, 4 * n, gl.STREAM_READ);
+    gl.bindBuffer(gl.COPY_READ_BUFFER, scratch);
+    gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, 0, 4 * n);
+    gl.bindBuffer(gl.COPY_READ_BUFFER, null); gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+    const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+    gl.clientWaitSync(f, gl.SYNC_FLUSH_COMMANDS_BIT, 0);
+    gl.deleteSync(f);
+    gl.bindBuffer(gl.COPY_READ_BUFFER, rdBuf);
+    gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, out, 0, n);
+    gl.bindBuffer(gl.COPY_READ_BUFFER, null);
+    return out;
+  }
+  // a transform-feedback pass of count points into rows y0.. of tex (W wide, already allocated)
+  function runTFRows(P, count, tex, W, y0) {
+    const rows = Math.ceil(count / W), bytes = rows * W * 16;
+    if (!tfObj) tfObj = gl.createTransformFeedback();
+    if (!scratch || scratchBytes < bytes) {
+      if (scratch) gl.deleteBuffer(scratch);
+      scratch = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, scratch);
+      gl.bufferData(gl.ARRAY_BUFFER, bytes, gl.DYNAMIC_COPY);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+      scratchBytes = bytes;
+    }
+    gl.bindVertexArray(empty());
+    gl.enable(gl.RASTERIZER_DISCARD);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tfObj);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, scratch);
+    gl.beginTransformFeedback(gl.POINTS);
+    gl.drawArrays(gl.POINTS, 0, rows * W);
+    gl.endTransformFeedback();
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
+    gl.disable(gl.RASTERIZER_DISCARD);
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, scratch);
+    gl.activeTexture(gl.TEXTURE15);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y0, W, rows, gl.RGBA, gl.FLOAT, 0);
+    gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+  }
+  // The refined cells, grouped by their levels (Lx, Ly): lvRaw the levels read back (Lx + 8 Ly, 4 cells per texel,
+  // Mq x M); cost(Lx, Ly) the evaluations of one such cell, rowsOf(Lx, Ly, n) the rows n such cells take; cap the
+  // budget: the levels drop by D (both directions) until the cost fits, and at rest (fill) the rest of the budget raises
+  // whole groups back. rfPlan lists them (no GL: it also runs between frames, as soon as the levels are read, lvTake);
+  // rfApply uploads the levels and the list (entries grouped, groups in order) and returns the groups {L: [Lx, Ly], n,
+  // E (first entry), y0 (first row)}
+  let nzK = new Int32Array(0), nzV = new Uint8Array(0), cutC = new Uint8Array(0);
+  // dil (the principal surface while something moves, a number of cells): the unrefined cells within dil cells of a
+  // refined one, across its wall (not a cell left to the cut rule), are refined to level 1 across the wall. The levels
+  // come a frame or two late and from the cheaper estimate, and a wall that had moved into a cell they still call
+  // flat was drawn with the base cells' chords and F at the fragment (no facetW there, see LAND_FS): the sawtooth of
+  // r2 review verify-1. Level 1 costs 30 evaluations a cell
+  function rfPlan(lvRaw, M, cost, rowsOf, cap, fill, dil) {
+    const Mq = (M + 3) >> 2, len = lvRaw.length;
+    // (one pass over the cells, the non-zero ones kept: r3, a Map per cell took 1.3 ms a build at the Max mesh, and
+    // two passes over the 262 144 cells 1.5)
+    if (nzK.length < len) { nzK = new Int32Array(len); nzV = new Uint8Array(len); }
+    if (dil && cutC.length < len) cutC = new Uint8Array(len);
+    if (dil) cutC.fill(0, 0, len);
+    const u = new Uint32Array(lvRaw.buffer, lvRaw.byteOffset, len);
+    const cnt = new Float64Array(64);
+    let nn = 0;
+    for (let k = 0; k < len; k++) if (u[k]) { const v = lvRaw[k] | 0; if (v > 0 && v < 64) { cnt[v]++; nzK[nn] = k; nzV[nn++] = v; } else if (dil && v === 64) cutC[k] = 1; }
+    const codes = [];
+    for (let v = 1; v < 64; v++) if (cnt[v]) codes.push(v);
+    // (over the budget, every cell drops by the same d levels in both directions, so the chord error grows by the
+    // same factor 4^d everywhere: a top cap left the steepest cells 16 times over and the rest exact; r2 review math-1)
+    const capOf = (v, d) => Math.max((v & 7) - d, 0) + 8 * Math.max((v >> 3) - d, 0);
+    const costOf = (w) => (w ? cost(w & 7, w >> 3) : 0);
+    const total = (d) => { let c = 0; for (const v of codes) c += cnt[v] * costOf(capOf(v, d)); return c; };
+    let D = 0;
+    while (D < 4 && total(D) > cap) D++;
+    const Lc = 4 - D;
+    // (then what the drop left of the budget goes back to whole groups of equal wanted levels, a level at a time, the
+    // steepest first: one drop is 4 times the cost, so it left up to three quarters of the budget unspent, and a finer
+    // mesh, which wants a level less everywhere, could end with fewer evaluations than the default; r2 verify-4. At
+    // rest only (fill): the moving budget keeps the uniform drop it was measured with)
+    const fin = new Int32Array(64);
+    for (const v of codes) fin[v] = capOf(v, D);
+    let spent = total(D);
+    const steep = codes.slice().sort((a, b) => Math.max(b & 7, b >> 3) - Math.max(a & 7, a >> 3) || ((b & 7) + (b >> 3)) - ((a & 7) + (a >> 3)) || a - b);
+    for (let d = D - 1; fill && d >= 0; d--) {
+      for (const v of steep) {
+        const w0 = fin[v], w1 = capOf(v, d);
+        if (w0 !== capOf(v, d + 1) || w1 === w0) continue;
+        const up = cnt[v] * (costOf(w1) - costOf(w0));
+        if (spent + up <= cap) { fin[v] = w1; spent += up; }
+      }
+    }
+    const capped = codes.some((v) => fin[v] !== v);
+    // (the levels uploaded: the cut rule's cells, 64 in the read-back, are 0 there)
+    const lv = new Float32Array(len);
+    for (let q = 0; q < nn; q++) lv[nzK[q]] = fin[nzV[q]];
+    const gcnt = new Float64Array(64);
+    for (const v of codes) if (fin[v]) gcnt[fin[v]] += cnt[v];
+    let nx = 0;
+    const ext = dil ? [] : null;
+    if (dil) {
+      // (dil cells out, across the wall: an x wall (Lx > 0) moves along x, a y wall along y)
+      const S4 = 4 * Mq, vis = new Uint8Array(len);
+      let front = [];
+      // (from the walls, cells at level 2 or more: a level 1 cell's chord error unrefined is under a pixel)
+      for (let q = 0; q < nn; q++) { const w = fin[nzV[q]]; if (Math.max(w & 7, w >> 3) >= 2) { front.push(nzK[q], ((w & 7) ? 1 : 0) + 8 * ((w >> 3) ? 1 : 0)); vis[nzK[q]] = 1; } }
+      for (let step = 0; step < dil && front.length; step++) {
+        const next = [];
+        for (let f = 0; f < front.length; f += 2) {
+          const k = front[f], add = front[f + 1], j = (k / S4) | 0, i = k - S4 * j;
+          for (let d = 0; d < 4; d++) {
+            if (d < 2 ? !(add & 7) : !(add >> 3)) continue;
+            const ii = i + (d === 0 ? 1 : d === 1 ? -1 : 0), jj = j + (d === 2 ? 1 : d === 3 ? -1 : 0);
+            if (ii < 0 || jj < 0 || ii >= M || jj >= M) continue;
+            const kk = S4 * jj + ii;
+            // (through the refined cells around the wall too: the fill-in counts from the wall itself)
+            if (vis[kk] || cutC[kk]) continue;
+            vis[kk] = 1;
+            next.push(kk, add);
+            if (lv[kk]) continue;
+            lv[kk] = add; gcnt[add]++; ext.push(kk); nx++;
+            spent += costOf(add);
+          }
+        }
+        front = next;
+      }
+    }
+    const groups = [];
+    for (let v = 1; v < 64; v++) if (gcnt[v]) groups.push({ v, L: [v & 7, v >> 3], n: gcnt[v] });
+    let e = 0, y = 0;
+    const at = new Int32Array(64);
+    for (const g of groups) { g.E = e; g.y0 = y; at[g.v] = e; e += g.n; y += rowsOf(g.L[0], g.L[1], g.n); }
+    const rows = Math.max(1, Math.ceil(e / 1024));
+    const list = new Float32Array(rows * 1024);
+    // (the cells in row-major order, as before: k = 4 j Mq + i; then the ones filled in, dil)
+    for (let q = 0; q < nn; q++) {
+      const w = fin[nzV[q]];
+      if (!w) continue;
+      const k = nzK[q], j = (k / (4 * Mq)) | 0, i = k - 4 * Mq * j;
+      list[at[w]++] = j * M + i;
+    }
+    if (ext) for (const k of ext) { const w = lv[k], j = (k / (4 * Mq)) | 0, i = k - 4 * Mq * j; list[at[w]++] = j * M + i; }
+    return { M, Mq, lv, list, lrows: rows, groups, entries: e, rows: y, capped, Lc, drop: D, evals: spent, need: total(0), filled: nx, want: codes.map((v) => (v & 7) + '' + (v >> 3) + ':' + cnt[v]).join(' ') };
+  }
+  function rfApply(o, p) {
+    const { M, Mq, lv, list, lrows: rows, rows: y } = p;
+    // (never upload levels of another grid's size: drawn unrefined instead, r3 verify-2)
+    if (lv.length !== Mq * M * 4 || list.length < 1024 * rows) return { groups: [], entries: 0, rows: 0, capped: true, Lc: 0, drop: 0, evals: 0, need: 0, want: '', filled: 0 };
+    if (!o.lvTex) { gl.activeTexture(gl.TEXTURE15); o.lvTex = floatTex(); o.lstTex = floatTex(); o.rfTex = floatTex(); }
+    gl.activeTexture(gl.TEXTURE15);
+    gl.bindTexture(gl.TEXTURE_2D, o.lvTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    // (the same sizes as the last build: written in place, r3)
+    if (o.lvDim === M) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, Mq, M, gl.RGBA, gl.FLOAT, lv);
+    else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Mq, M, 0, gl.RGBA, gl.FLOAT, lv); o.lvDim = M; }
+    gl.bindTexture(gl.TEXTURE_2D, o.lstTex);
+    if (o.lstRows === rows) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 1024, rows, gl.RED, gl.FLOAT, list);
+    else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 1024, rows, 0, gl.RED, gl.FLOAT, list); o.lstRows = rows; }
+    // (the refined texture: one allocation for all the groups' rows)
+    if (y > 0) {
+      gl.bindTexture(gl.TEXTURE_2D, o.rfTex);
+      if (o.rfRows !== y) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, RF_W, y, 0, gl.RGBA, gl.FLOAT, null); o.rfRows = y; }
+    }
+    const { groups, entries, capped, Lc, drop, evals, need, want, filled } = p;
+    return { groups, entries, rows: y, capped, Lc, drop, evals, need, want, filled };
+  }
+  function rfBuild(o, lvRaw, M, cost, rowsOf, cap, fill, dil) {
+    return rfApply(o, rfPlan(lvRaw, M, cost, rowsOf, cap, fill, dil));
+  }
+  // the principal surface's refinement for the heights in land (rf: {pxW, motion, full, minPx}): the lattice's heights
+  // (the chain pass on the grid of quarter cells), the levels (landLv), read back and listed (rfBuild); per group, the
+  // points to evaluate (landRP), the chain pass on them, the vertex records (landRA)
+  function landRefine(st, land, P0, N, mode, H, mu, aspect, rf) {
+    const M = N - 1, Mq = (M + 3) >> 2, b = st.box;
+    if (!rf || !(land.cuts >= 0)) { land.rf = null; return; }
+    // (programs without the chain: they compile once per page, in the background; drawn unrefined until they land)
+    if (!rfWarmed(rf.Lp)) { if (land.rfFor !== land.key) land.rf = null; return; }
+    const PL = program('landLv'), PP = program('landRP'), PA = program('landRA'), P1 = P0;
+    if (!PL || !PP || !PA) { land.rf = null; return; }
+    const rkey = land.key + '|' + rf.pxW.toPrecision(3) + '|' + rf.minPx;
+    const move = rf.motion && !rf.full;
+    // (moving: the levels from the half cells, capped to the budget; at rest the quarter cells' lattice, in full: a
+    // mesh built while moving is rebuilt when it stops, rfLater)
+    // (uLat: 1 at rest, the quarter cells; moving, 0 the half cells, 2 over 256 cells the base heights only, math-3)
+    const lat = !move, lmode = lat ? 1 : (M > 256 ? 2 : 0), lk = rkey + ['|c', '|L', '|b'][lmode];
+    if (land.rkey === rkey && land.rf && (move || !land.rf.partial)) return;
+    // (moving with the heights unchanged, as in an orbit or a zoom: the mesh built at rest stays, math-5)
+    if (move && land.rf && !land.rf.partial && land.rfFor === land.key) return;
+    // (moving with new heights over 256 cells, as the sheets: the base mesh, its steep triangles with facetW (landB),
+    // refined when it stops. The levels' read-back waited 40 to 100 ms for the GPU process in every moving frame that
+    // took one, 4 to 8 a second at the Max mesh (r3 review speed-3: hitches of 92 to 252 ms), and the levels came too
+    // late for walls that moved 15 to 20 cells between two reads (pictures-1))
+    if (move && M > 256) { if (land.rfFor !== land.key) land.rf = null; rfLater(); return; }
+    const common = (P) => {
+      u1i(P, 'uM', M); u4f(P, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0); u2f(P, 'uAspect', aspect[0], aspect[1]);
+      u1f(P, 'uPxW', rf.pxW); u1f(P, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P, 'uMinPx', rf.minPx);
+      u1i(P, 'uLat', lmode); u1i(P, 'uCuts', land.cuts);
+    };
+    const chain = (pass, n) => {
+      use(P1, st.map);
+      u1i(P1, 'uN', n); u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+      u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); u1i(P1, 'uPass', pass);
+    };
+    gl.activeTexture(gl.TEXTURE15);
+    for (const k of ['lvTex', 'lstTex', 'rfTex', 'latTex', 'ptsTex', 'evTex']) if (!land[k]) land[k] = floatTex();
+    for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, land.edges[d]); }
+    if (land.lvKey !== lk) {
+      // the fenced levels of this key, or while something moves of any earlier one (a frame or two late: never read
+      // synchronously while moving, which held the CPU until the GPU had drained, r2 review math-3; a cell that now
+      // holds a jump counts as level 0, REFINE)
+      const got = lvReady(land, move ? null : lk);
+      // (a read of another grid's levels is dropped: r3 verify-2)
+      if (got && got.length === Mq * M * 4) { land.lvRaw = got; land.lvKey = land.rbGot; land.lvM = M; }
+      // (a new pass once the one in flight has been read, lvCollect; meanwhile the list stands and its vertices follow
+      // the heights)
+      if (land.lvKey !== lk && !land.rbFence) {
+        // The levels' pass: the lattice (the chain on the grid of quarter cells, of half cells while moving) in strips
+        // of whole cells, each under ~8 MB, then the levels of the strip's cells, copied into the read-back buffer
+        // (the whole lattice was 67 MB at Max, and the shared scratch buffer grew to match; r2 review math-4)
+        const s = lat ? 4 : 2, sN = s * M + 1;
+        const cs = Math.max(1, Math.min(M, Math.floor((8 * 1024 * 1024 / (16 * sN) - 1) / s)));
+        rbOf(land, Mq * M * 16);
+        if (!land.lvTmp) { gl.activeTexture(gl.TEXTURE15); land.lvTmp = floatTex(); }
+        for (let j0 = 0; j0 < M; j0 += lmode === 2 ? M : cs) {
+          if (lmode === 2) {
+            use(PL); common(PL); u1i(PL, 'uJ0', 0);
+            gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
+            gl.activeTexture(gl.TEXTURE15);
+            runTF(PL, empty(), gl.POINTS, Mq * M, 0, Mq * M * 16, land.lvTmp, Mq, M, gl.RGBA32F, gl.RGBA);
+            gl.bindBuffer(gl.COPY_READ_BUFFER, scratch); gl.bindBuffer(gl.COPY_WRITE_BUFFER, land.rbBuf);
+            gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, 0, M * Mq * 16);
+            gl.bindBuffer(gl.COPY_READ_BUFFER, null); gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+            continue;
+          }
+          const nr = Math.min(cs, M - j0), R = s * nr + 1;
+          chain(0, sN);
+          u4f(P1, 'uBox', b.x0, b.y0 + (b.y1 - b.y0) * j0 / M, b.x1 - b.x0, b.y1 - b.y0);
+          gl.activeTexture(gl.TEXTURE15);
+          runTF(P1, empty(), gl.POINTS, R * sN, 0, R * sN * 16, land.latTex, sN, R, gl.RGBA32F, gl.RGBA);
+          use(PL); common(PL); u1i(PL, 'uJ0', j0);
+          gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, land.latTex);
+          gl.activeTexture(gl.TEXTURE15);
+          runTF(PL, empty(), gl.POINTS, Mq * nr, 0, Mq * nr * 16, land.lvTmp, Mq, nr, gl.RGBA32F, gl.RGBA);
+          gl.bindBuffer(gl.COPY_READ_BUFFER, scratch); gl.bindBuffer(gl.COPY_WRITE_BUFFER, land.rbBuf);
+          gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, j0 * Mq * 16, nr * Mq * 16);
+          gl.bindBuffer(gl.COPY_READ_BUFFER, null); gl.bindBuffer(gl.COPY_WRITE_BUFFER, null);
+        }
+        // (a figure, a film or an export: waited for; else fenced, picked up a frame or two later, rfPoll)
+        if (land.rbFence) gl.deleteSync(land.rbFence);
+        land.rbFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        land.rbFor = lk; land.rbN = Mq * M * 4; land.rbProgs = null; land.rbT = performance.now();
+        if (rf.full) {
+          lvTake(land, true);
+          const lv = lvReady(land, lk);
+          if (lv) { land.lvRaw = lv; land.lvKey = lk; land.lvM = M; }
+        } else rfPoll();
+      }
+      if (land.lvKey !== lk && !(move && land.lvRaw && land.lvM === M)) { if (land.rfFor !== land.key) land.rf = null; return; }
+    }
+    // (a vertex record is two texels; its normal takes 4 evaluations besides its own)
+    const nv = (lx, ly) => ((1 << lx) + 1) * ((1 << ly) + 1);
+    // (moving, with the levels it was built from: the list stands, only its vertices are evaluated again for these
+    // heights; the levels are read and listed again when the next ones land, a frame or two later)
+    const cap = move ? rfMove(N) : RF_REST;
+    const r = move && land.rf && land.rfRaw === land.lvRaw && land.rfCap === cap ? land.rf
+      : rfBuild(land, land.lvRaw, M, (lx, ly) => 5 * nv(lx, ly), (lx, ly, n) => Math.ceil(2 * n * nv(lx, ly) / RF_W), cap, !move,
+        // (moving: about 8 px either side of a wall, 2 to 4 cells, a wall playing at 1x moved that far between reads;
+        // none over 256 cells: at Fine and Max even one cell held the frame's p95 1 to 3 ms over the base's, r3)
+        !move || M > 256 ? 0 : Math.max(2, Math.min(4, Math.ceil(8 / Math.max(rf.pxW * 2 * Math.max(aspect[0], aspect[1]) / M, 0.5)))));
+    land.rfRaw = land.lvRaw; land.rfCap = cap;
+    for (const g of r.groups) {
+      const nvg = g.n * nv(g.L[0], g.L[1]), rowsP = Math.ceil(5 * nvg / RF_W);
+      const grp = (P) => { common(P); u2i(P, 'uL', g.L[0], g.L[1]); u1i(P, 'uGE', g.E); u1i(P, 'uTot', nvg); };
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, land.lvTex);
+      gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, land.lstTex);
+      use(PP); grp(PP);
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(PP, empty(), gl.POINTS, rowsP * RF_W, 0, rowsP * RF_W * 16, land.ptsTex, RF_W, rowsP, gl.RGBA32F, gl.RGBA);
+      chain(1, N);
+      gl.activeTexture(gl.TEXTURE12); gl.bindTexture(gl.TEXTURE_2D, land.ptsTex);
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(P1, empty(), gl.POINTS, rowsP * RF_W, 0, rowsP * RF_W * 16, land.evTex, RF_W, rowsP, gl.RGBA32F, gl.RGBA);
+      use(PA); grp(PA);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
+      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, land.tex2);
+      gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, land.evTex);
+      runTFRows(PA, 2 * nvg, land.rfTex, RF_W, g.y0);
+    }
+    // (built while moving, capped or from the cheaper levels: rebuilt in full when it stops)
+    r.partial = move && (r.capped || !lat);
+    land.rf = r; land.rkey = rkey; land.rfFor = land.key;
+    if (r.partial) rfLater();
+    // (at rest, built: the passes' scratch textures go, the lattice's, the points' and their values, up to ~30 MB at
+    // the Max mesh after a play; they are made again when something moves, r3 review speed-4)
+    if (!move && !rf.full) freeScratch(land);
+  }
+  function freeScratch(o) {
+    for (const k of ['latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) { gl.deleteTexture(o[k]); o[k] = null; }
   }
   // ---- All sheets ----
   const SHEET_MAX = 24;
@@ -4051,7 +5431,7 @@ float wabs(vec2 w) {
   }
   // per-cell sheet heights (LAND_SHEET_TF_VS): cache keyed like landHeights, plus the stage, window and combos
   let landS = null;
-  function sheetHeights(st, sp, N, mode, H, mu, aspect) {
+  function sheetHeights(st, sp, N, mode, H, mu, aspect, rf) {
     const P1 = program('landSheetTF');
     if (!P1 || !hasSheets(P1.ch.info)) return landS && landS.want === N && landS.K === sp.K ? landS : null;
     // cells per side: about the plain landscape's cell count in all, at least 96 per side
@@ -4062,7 +5442,7 @@ float wabs(vec2 w) {
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
     const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(st.map) : '0'].join('|');
-    if (landS && landS.key === key) return landS;
+    if (landS && landS.key === key) { sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf); return landS; }
     if (!landS) landS = { tex1: floatTex() };
     use(P1, sp.hom ? st.map : null);
     u1i(P1, 'uN', M + 1);
@@ -4070,9 +5450,149 @@ float wabs(vec2 w) {
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
+    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1i(P1, 'uPass', 0);
+    gl.activeTexture(gl.TEXTURE15);
     runTF(P1, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landS.tex1, texW, texH, gl.RGBA32F, gl.RGBA);
-    Object.assign(landS, { key, N: M + 1, want: N, K, tileC, a: sp.a, b: sp.b, W: sp.W, sheet: true });
+    Object.assign(landS, { key, N: M + 1, want: N, K, tileC, a: sp.a, b: sp.b, W: sp.W, sheet: true, rkey: null });
+    sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf);
     return landS;
+  }
+  // All sheets' refinement passes (landSheetRF, the chain program of heights ch): started once the surface has been
+  // drawn, and taken into use RF_LATE ms after its link has landed. A chain program's first draw completes its Metal
+  // side in the GPU process, and drawn at once after its link it held every frame of the page for 0.4 to 1 s; drawn
+  // later, that work has mostly been done in the background (r3 cold opens: 0.6 s later, the stalls fell to a quarter).
+  // A figure, a film or an export waits for it (the link read at once)
+  const RF_LATE = 900;
+  let rfLateT = 0;
+  // a chain program that has not run yet counts as ready RF_LATE ms after its link landed (false meanwhile; the page
+  // redraws when the time is up)
+  function settled(P) {
+    if (!P || P.used1) return !!P;
+    const now = performance.now();
+    if (!P.settleT) P.settleT = now;
+    if (now - P.settleT >= RF_LATE) return true;
+    if (!rfLateT && typeof setTimeout === 'function') rfLateT = setTimeout(() => { rfLateT = 0; if (api.onReady) api.onReady({ main: true }); }, RF_LATE - (now - P.settleT) + 8);
+    return false;
+  }
+  function sheetRF(rf, ch) {
+    if (!rf.full && !(rf.Ls && rf.Ls.drawnOnce)) { rfPoll(); return null; }
+    let P = getProg('landSheetRF', ch, ch === cur);
+    if (!P && rf.full) {
+      const e = progs.get('landSheetRF|' + ch.key);
+      if (e && e.state === 'pending') { finishLink(e); P = e.state === 'ready' ? e : null; }
+    }
+    if (!P) return null;   // (compiling: the poll redraws when it lands)
+    return rf.full || settled(P) ? P : null;
+  }
+  // All sheets' refinement: one pair of levels per cell for every sheet; a refined sub-cell is a block of 4 x 2 texels
+  // per sheet (its corners: heights and normals, then values and positions), 512 blocks per two rows
+  function sheetRefine(st, sp, o, P0, mode, H, mu, aspect, rf) {
+    const M = o.N - 1, Mq = (M + 3) >> 2, K = o.K, b = st.box;
+    if (!rf) { o.rf = null; return; }
+    // (the refinement's passes: their own program, once it has settled; until then the surface is drawn as it was for
+    // these heights, else unrefined)
+    const P1 = sheetRF(rf, P0.ch);
+    if (!P1) { if (o.rfFor !== o.key) o.rf = null; return; }
+    const rkey = o.key + '|' + rf.pxW.toPrecision(3) + '|' + rf.minPx;
+    const move = rf.motion && !rf.full;
+    // (moving: the levels from the midpoints and the centre, capped to the budget; at rest the lattice's, in full: a
+    // mesh built while moving is rebuilt when it stops, rfLater)
+    const lat = !move, lk = rkey + (lat ? '|L' : '|c');
+    // (moving with a mesh over 256 cells: the sheets' base pass alone takes the frame's GPU time at Max, and a read
+    // of the levels then waits for it; the base mesh while moving, refined when it stops; r2 review math-3)
+    if (move && !rf.full && (o.want || 0) - 1 > 256) { if (o.rfFor !== o.key) o.rf = null; rfLater(); return; }
+    if (o.rkey === rkey && o.rf && (move || !o.rf.partial)) return;
+    if (move && o.rf && !o.rf.partial && o.rfFor === o.key) return;
+    use(P1, sp.hom ? st.map : null);
+    u1i(P1, 'uN', M + 1); u1i(P1, 'uM', M);
+    u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
+    u2f(P1, 'uAspect', aspect[0], aspect[1]);
+    u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC);
+    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
+    u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
+    u1i(P1, 'uLat', move ? 0 : 1);
+    // (the textures are made before the heights are bound: floatTex binds its new texture on the active unit, and the
+    // first level pass then read an empty uT1, every cell 'not finite', level 4 everywhere, and kept it)
+    if (!o.lvTex) { gl.activeTexture(gl.TEXTURE15); o.lvTex = floatTex(); o.lstTex = floatTex(); o.rfTex = floatTex(); }
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
+    if (o.lvKey !== lk) {
+      // (as landRefine: while something moves the fenced levels of an earlier key stand in, never a synchronous read)
+      const got = lvReady(o, move ? null : lk);
+      // (a read of another grid's levels is dropped: All sheets' M follows the sheets' count, which changes between the
+      // steps of a deformation, and the levels of the former M uploaded at the new size failed every frame, r3 verify-2)
+      if (got && got.length === Mq * M * 4) { o.lvRaw = got; o.lvKey = o.rbGot; o.lvM = M; }
+      if (o.lvKey !== lk && move && o.rbFence && o.lvRaw && o.lvM === M) { /* one read in flight: the earlier levels */ }
+      else if (o.lvKey !== lk) {
+        // (pending, or a read of other levels in flight, read first (rbOf): drawn as it was for these heights, else
+        // unrefined meanwhile)
+        if (o.rbFence && !rf.full) { if (o.rfFor !== o.key) o.rf = null; return; }
+        u1i(P1, 'uPass', 1);
+        gl.activeTexture(gl.TEXTURE15);
+        if (!o.lvTmp) o.lvTmp = floatTex();
+        runTF(P1, empty(), gl.POINTS, Mq * M, 0, Mq * M * 16, o.lvTmp, Mq, M, gl.RGBA32F, gl.RGBA);
+        const lv = lvFetch(o, lk, Mq * M * 4, rf.full, [P1]);
+        if (lv) { o.lvRaw = lv; o.lvKey = lk; o.lvM = M; }
+        else if (!(move && o.lvRaw && o.lvM === M)) { if (o.rfFor !== o.key) o.rf = null; return; }
+      }
+    }
+    const nb = (lx, ly) => K << (lx + ly);
+    // (blocks of 8 texels, groups on whole pairs of rows: 512 blocks per pair, 24 evaluations each)
+    const cost = (lx, ly) => 24 * nb(lx, ly), rowsOf = (lx, ly, n) => 2 * Math.ceil(n * nb(lx, ly) / 512);
+    // the sub-cells' passes of t's groups from group t.gi, row t.row on, up to budget evaluations (a group's rows in
+    // chunks of whole pairs); -> true when every group is built
+    const passes = (t, budget) => {
+      const r = t.r;
+      u1i(P1, 'uPass', 2);
+      gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, t.lvTex);
+      gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, t.lstTex);
+      let spent = 0;
+      while (t.gi < r.groups.length) {
+        const g = r.groups[t.gi], blocks = g.n * nb(g.L[0], g.L[1]), gr = 2 * Math.ceil(blocks / 512);
+        const can = Math.max(2, 2 * Math.floor((budget - spent) / (2 * 256 * 24)));
+        if (spent > 0 && spent + can * 256 * 24 > budget) break;
+        const r1 = Math.min(gr, t.row + can);
+        u2i(P1, 'uL', g.L[0], g.L[1]); u1i(P1, 'uGE', g.E); u1i(P1, 'uTot', blocks); u1i(P1, 'uRow0', t.row);
+        runTFRows(P1, RF_W * (r1 - t.row), t.rfTex, RF_W, g.y0 + t.row);
+        spent += (r1 - t.row) * 256 * 24;
+        g.B = g.y0 / 2 * 512;   // (its first block)
+        if (r1 >= gr) { t.gi++; t.row = 0; } else { t.row = r1; break; }
+      }
+      return t.gi >= r.groups.length;
+    };
+    if (move || rf.full) {
+      // moving (the moving budget) or a figure, a film, an export (in full): one frame
+      if (o.nb) { rfFree(o.nb); o.nb = null; }
+      // (moving, with the levels it was built from: the list stands, its sub-cells are evaluated again, as landRefine)
+      const cap = move ? rfMove(o.want) : RF_REST_S;
+      const keep = move && o.rf && o.rfRaw === o.lvRaw && o.rfCap === cap;
+      const t = { r: keep ? o.rf : rfBuild(o, o.lvRaw, M, cost, rowsOf, cap, !move), gi: 0, row: 0, lvTex: o.lvTex, lstTex: o.lstTex, rfTex: o.rfTex };
+      o.rfRaw = o.lvRaw; o.rfCap = cap;
+      passes(t, Infinity);
+      const r = t.r;
+      r.partial = move && (r.capped || !lat);
+      o.rf = r; o.rkey = rkey; o.rfFor = o.key;
+      if (r.partial) rfLater();
+      return;
+    }
+    // At rest: built over several frames, at most RF_FRAME evaluations each, into textures of its own, and swapped in
+    // when complete; meanwhile the mesh drawn is kept when it is of these heights (built while moving), else the
+    // surface is drawn unrefined. The budget at rest is the user's case in full (r2 review math-1: capped at rest)
+    if (!o.nb || o.nb.rkey !== rkey) {
+      if (o.nb) rfFree(o.nb);
+      o.nb = { rkey, gi: 0, row: 0, raw: o.lvRaw };
+      o.nb.r = rfBuild(o.nb, o.lvRaw, M, cost, rowsOf, RF_REST_S, true);
+    }
+    if (o.rfFor !== o.key) o.rf = null;
+    if (!passes(o.nb, RF_FRAME)) { rfPoll(); return; }
+    for (const k of ['lvTex', 'lstTex', 'rfTex']) { if (o[k]) gl.deleteTexture(o[k]); o[k] = o.nb[k]; }
+    o.rfRows = o.nb.rfRows; o.lvDim = o.nb.lvDim; o.lstRows = o.nb.lstRows;
+    o.rf = o.nb.r; o.rf.partial = false; o.rkey = rkey; o.rfFor = o.key;
+    o.rfRaw = o.nb.raw; o.rfCap = RF_REST_S;
+    o.nb = null;
+    freeScratch(o);
   }
   const MATERIALS = { phase: 0, tiles: 1, plaster: 2 };
   // Geometry of the landscape block for a domain box and height scale (world units: the longer side spans [-1, 1]).
@@ -4096,8 +5616,16 @@ float wabs(vec2 w) {
   //      sheets:{W} (All sheets: every surface of the map's multivalued steps, see sheetPlan; info.sheets says what
   //      was drawn: {K, total, W, N, infinite}, null for the principal branch)}
   // map may be a homotopy (mode 1 / 2 at t): its heights are cached per t like any other map
+  // the pane's last Landscape (t: when one was last asked for; key: the chain whose own surface it drew), for the cards
+  const landPane = { t: -1e9, key: null };
+  let landPollT = 0;
+  function landPoll() {
+    if (landPollT || typeof setTimeout !== 'function') return;
+    landPollT = setTimeout(() => { landPollT = 0; if (api.onReady) api.onReady({ main: true }); }, 120);
+  }
   function drawLandscape(st) {
     if (!ok) return null;
+    lvCollect();
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -4121,11 +5649,52 @@ float wabs(vec2 w) {
     // All sheets (st.sheets: {W}): the covering surface, when the chain and the map allow it (else the principal
     // branch, info.sheets null); while its programs compile the principal branch stands in
     const sp = st.sheets ? sheetPlan(st.map, st.sheets.W, st.sheets.end) : null;
+    // A step card's Landscape (st.card) waits for the pane's: its programs start once the pane has drawn this chain's
+    // surface, and are taken into use once they have settled (r3: compiled alongside the pane's All sheets, they slowed
+    // its link, and their first draws in later frames stalled the GPU process again, r2 review verify-2)
+    const now = performance.now();
+    if (!st.card) landPane.t = now;
+    else if (cur.info && !sideMode) {
+      // (at most 3 s from a card's first wait for this chain: a long play or orbit no longer keeps the cards empty,
+      // r3 review speed-5)
+      if (landPane.waitKey !== cur.key) { landPane.waitKey = cur.key; landPane.wait0 = now; }
+      if (landPane.key !== cur.key && now - landPane.t < 1500 && now - landPane.wait0 < 3000) { framePending = true; landPoll(); return info; }
+      if (!settled(program('landTF')) || !settled(program('land'))) { framePending = true; return info; }
+    }
+    // (the surface's programs start compiling together; they are taken into use together, groupDone. All sheets: the
+    // sheets' programs and the floor; the principal branch's start with a view that draws it, r3)
+    if (cur.info && !sideMode) for (const n of sp ? ['landSheetTF', 'landSheet', 'floor'] : GROUPS[0]) getProg(n, cur, true);
     const Ls = sp ? program('landSheet') : null;   // (both sheet programs start compiling here)
-    let hs = sp ? sheetHeights(st, sp, N, mode, H, mu, aspect) : null;
+    // the refinement's scale: px per world unit at the camera's fitted distance for this frame's size (not the orbit's
+    // or the zoom's, so orbiting never rebuilds the mesh), quantized to quarter octaves (a resize by a few px keeps it)
+    const fitD = fitDist(landGeom(box, st.scale).radius, (st.cam && st.cam.fov) || 28 * Math.PI / 180, fw, fh, 1.05);
+    const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
+    const dbg = {};
+    // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
+    // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
+    // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights
+    // is kept (orbiting and zooming never rebuild). r2 review math-5
+    let pxS = pxW0;
+    if (!st.motion || st.full) {
+      const ga = landGeom(box, st.scale);
+      const q = [clamp(eye[0], -ga.ext[0], ga.ext[0]), clamp(eye[1], -ga.ext[1], ga.ext[1]), clamp(eye[2], ga.floorZ, ga.H)];
+      const dN = Math.max(Math.hypot(eye[0] - q[0], eye[1] - q[1], eye[2] - q[2]), 0.15 * fitD);
+      pxS = Math.max(pxW0, fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * dN));
+    }
+    const rf = st.refine === false || dbg.noRef ? null : { pxW: Math.pow(2, Math.round(4 * Math.log2(Math.max(pxS, 1))) / 4), motion: !!st.motion, full: !!st.full, minPx: dbg.minPx || 0.1, Lp: getProg('land', cur, false), Ls };
+    let hs = sp ? sheetHeights(st, sp, N, mode, H, mu, aspect, rf) : null;
     if (!Ls) hs = null;
-    const hd = hs || landHeights(st, N, mode, H, mu, aspect);
+    // (while the sheets' programs compile, the principal branch stands in only with programs that have run before, an
+    // earlier version of the chain's: a formula's first All-sheets Landscape drew its principal branch with programs of
+    // its own first, and the GPU process stalled once for them and once more for the sheets', r2 review verify-2)
+    const warm = (name) => { for (const ch of [cur, ...hist]) { const P = getProg(name, ch, false); if (P) return !!P.used1; } return false; };
+    const hd = hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     if (!hd) return info;
+    // (the pane's other surface keeps its heights, not its refinement: toggling All sheets held both, r3 review speed-4)
+    if (!st.card) {
+      if (hs) { const lp = lands.get(N); if (lp && lp.lvTex) { rfFree(lp); freeScratch(lp); } }
+      else if (landS && landS.lvTex) { rfFree(landS); freeScratch(landS); }
+    }
     if (hs) info.sheets = { K: hs.K, total: sp.total, W: sp.W, N: hs.N, infinite: sp.infinite, hom: !!sp.hom };
     const ext = [aspect[0] + 0.16, aspect[1] + 0.16];
     const camD = Math.hypot(eye[0] - (st.cam.tx || 0), eye[1] - (st.cam.ty || 0), eye[2] - (st.cam.tz || 0));
@@ -4176,14 +5745,76 @@ float wabs(vec2 w) {
     if (!below) floorPass(0.8);
     gl.disable(gl.BLEND);
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
-    const Lp = hs ? Ls : program('land');
+    const Lp = hs ? (mode === 4 || mode === 5 ? program('landSheetC') : Ls) : program('land');
+    // (asked for before Lp is bound: a program that finishes its link here binds itself)
+    const LR = Lp && hd.rf && hd.rf.groups.length && !hs ? program('landR') : null;
+    // (moving, the principal surface: its steep base triangles by landB, once the refinement's programs have run, STEEP;
+    // not while the mesh built at rest for these heights stands, an orbit or a zoom: its walls are refined)
+    const LB = Lp && !hs && rf && st.motion && !st.full && rfWarmAll && !(hd.rf && !hd.rf.partial && hd.rfFor === hd.key) ? program('landB') : null;
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
       lightUniforms(Lp, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
       u3(Lp, 'uCut', C.cut);
-      u3(Lp, 'uUnder', C.under);
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, (hs ? hs.K : 1) * 2 * (hd.N - 1) * (hd.N - 1));
+      // (principal: up to 3 triangles where a real cut splits one; All sheets with linear heights: the triangle
+      // clipped at the block, up to 3)
+      u1i(Lp, 'uHMode', mode); u1f(Lp, 'uMu', mu);
+      u2f(Lp, 'uAspect', aspect[0], aspect[1]);
+      const clip = !!hs && (mode === 4 || mode === 5);
+      if (hs) {
+        u1i(Lp, 'uClip', clip ? 1 : 0);
+        // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): strongest where a deformation's surfaces nearly
+        // coincide (t near 0), faint at t = 1 and for a map's sheets at rest
+        const cm = st.map && (st.map.mode === 1 || st.map.mode === 3) ? clamp(+st.map.t || 0, 0, 1) : 1;
+        const cue = dbg.cue || st.sheetCue || 'tint';
+        // (OKLab lightness x (1 +- uCue): +-14 % at t = 0, +-4 % at t = 1 and for a map's sheets; r2 review pictures-1)
+        u1f(Lp, 'uCue', cue === 'none' ? 0 : 0.14 - 0.10 * cm * cm * (3 - 2 * cm));
+        u1i(Lp, 'uCueK', hs.K);
+        u1f(Lp, 'uZBias', 4e-6);
+        u1i(Lp, 'uSheetK', hs.K);
+      } else {
+        u1i(Lp, 'uCuts', hd.cuts || 0);
+        for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, hd.edges[d]); }
+      }
+      // the base cells, then each group's sub-cells (REFINE). All sheets: the same program, sub-cells under about a
+      // pixel taking F from their corners (uVW) on screen; the principal surface: a program without the chain (landR,
+      // F from the vertices), drawn once it has compiled (until then the cells are drawn unrefined)
+      const R = hd.rf && hd.rf.groups.length && (hs || LR) ? hd.rf : null;
+      u1i(Lp, 'uM', hd.N - 1); u1i(Lp, 'uRef', 0); u1i(Lp, 'uRefOn', R ? 1 : 0); u1i(Lp, 'uVW', 0); u1i(Lp, 'uSteep', LB ? 1 : 0);
+      if (R) {
+        gl.activeTexture(gl.TEXTURE8); gl.bindTexture(gl.TEXTURE_2D, hd.lvTex);
+        gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, hd.lstTex);
+        gl.activeTexture(gl.TEXTURE10); gl.bindTexture(gl.TEXTURE_2D, hd.rfTex);
+      }
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, !hs || clip ? 9 : 3, (hs ? hs.K : 1) * 2 * (hd.N - 1) * (hd.N - 1));
+      const cellPx = rf ? rf.pxW * 2 * Math.max(aspect[0], aspect[1]) / (hd.N - 1) : 0;
+      if (LB) {
+        use(LB);
+        common(LB);
+        lightUniforms(LB, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        u3(LB, 'uCut', C.cut); u1i(LB, 'uHMode', mode); u1f(LB, 'uMu', mu); u2f(LB, 'uAspect', aspect[0], aspect[1]);
+        u1i(LB, 'uM', hd.N - 1); u1i(LB, 'uVW', 1); u1i(LB, 'uCuts', hd.cuts || 0); u1i(LB, 'uRefOn', R ? 1 : 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+      }
+      if (R && LR) {
+        use(LR);
+        common(LR);
+        lightUniforms(LR, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        u3(LR, 'uCut', C.cut); u1i(LR, 'uHMode', mode); u1f(LR, 'uMu', mu); u2f(LR, 'uAspect', aspect[0], aspect[1]);
+        u1i(LR, 'uM', hd.N - 1); u1i(LR, 'uVW', 1); u1i(LR, 'uCuts', hd.cuts || 0);
+      }
+      const PR = LR || Lp;
+      if (R) for (const g of R.groups) {
+        const n = 1 << (g.L[0] + g.L[1]);
+        u1i(PR, 'uRef', 1); u2i(PR, 'uL', g.L[0], g.L[1]); u1i(PR, 'uRefE', g.E); u1i(PR, 'uRefT', hs ? g.y0 / 2 * 512 : g.y0 * RF_W);
+        if (hs) u1i(PR, 'uVW', !st.full && !clip && cellPx / (1 << Math.min(g.L[0], g.L[1])) < 1.5 ? 1 : 0);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, g.n * n * 2 * (hs ? hs.K : 1));
+      }
+      info.refine = R ? { groups: R.groups.map((g) => [g.L[0], g.L[1], g.n]), capped: R.capped, Lc: R.Lc, pxW: rf && rf.pxW } : null;
+      Lp.drawnOnce = true;
+      if (hs && Ls) Ls.drawnOnce = true;
+      if (!st.card && Lp.ch === cur) landPane.key = cur.key;
+      lvTailMark();
     }
     if (below) {
       gl.enable(gl.BLEND);

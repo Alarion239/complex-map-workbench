@@ -1861,7 +1861,13 @@
   // is ready (P2 review gate: holding it back added 200-300 ms to every example load)
   function interacting() {
     const now = performance.now();
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150);
+    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin());
+  }
+  // a camera still turning after its drag was let go (its momentum) moves too: those frames were drawn as rest frames,
+  // each at a new distance, and All sheets at the Max mesh rebuilt their refinement in every one (r3 review speed-1)
+  function camSpin() {
+    try { for (const c of [cam, camL, camS]) if (c && (Math.abs(c.vyaw) > 1e-4 || Math.abs(c.vpitch) > 1e-4)) return true; } catch (e) { /* (before the cameras exist) */ }
+    return false;
   }
   // An inverse program that landed is warmed (GLR.warmInverse: a one-pixel draw with a real pass's state builds its
   // Metal pipeline, the 75-205 ms first-draw stall of the GPU process) as soon as nothing moves: at once when its compile
@@ -3679,6 +3685,8 @@
     const info = GLR.drawLandscape({
       map: hv ? hv.map : focusMap(), box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im } : null, bg: GLR.hexRGB(TH.landBottom),
+      // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
+      motion: !offRender && interacting(), full: offRender || figMode,
       colors: {
         floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
         shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
@@ -6859,7 +6867,7 @@
     GLR.begin(pane.pw, pane.ph);
     GLR.drawLandscape({
       map: stageMap(k), box, cam: view, heightMode: S.height, scale: lscale, mu: cardMedian(k, box), material: landMaterial(), unitLevel: !!S.unitLevel, sectors: S.sectors || 12,
-      cells: 64, sheets: null, outlines: shapeOutlines(stageMap(0)), probe: null, bg: GLR.hexRGB(TH.landBottom), dpr: pane.dpr,
+      cells: 64, sheets: null, card: true, outlines: shapeOutlines(stageMap(0)), probe: null, bg: GLR.hexRGB(TH.landBottom), dpr: pane.dpr,
       colors: {
         floor: GLR.hexRGB(TH.landFloor), box: GLR.hexRGB(TH.landBox), modLine: GLR.hexRGB(TH.landMod), argLine: GLR.hexRGB(TH.landArg), plaster: GLR.hexRGB(TH.plaster),
         shadow: GLR.hexRGB(TH.landShadow), shadowA: TH.landShadowA, hemiSky: GLR.hexRGB(TH.hemiSky), hemiGround: GLR.hexRGB(TH.hemiGround), accent: GLR.hexRGB(TH.accent),
@@ -7069,6 +7077,8 @@
       cc.yaw += cc.vyaw;
       cc.pitch = Math.max(pitchMin(cc), Math.min(88 * DEG, cc.pitch + cc.vpitch));
       cc.vyaw *= 0.9; cc.vpitch *= 0.9;
+      // (the turn has died away: one rest frame once nothing else moves, camSpin)
+      if (!(Math.abs(cc.vyaw) > 1e-4 || Math.abs(cc.vpitch) > 1e-4)) { cc.vyaw = cc.vpitch = 0; setTimeout(() => { if (!interacting()) requestRender(side); }, 170); }
       dirty[side] = true;
       again = true;
     }
@@ -7726,7 +7736,7 @@
       if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { S.fov = v; requestRender('R'); drawLegend(); save(); }));
       // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
       // as a value in Y (its one switch, merged-views review)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { S.wKey = v; buildRightFoot(); drawLegend(); requestRender('R'); save(); }); kl.dataset.tip = $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
+      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { S.wKey = v; buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }); kl.dataset.tip = $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
     } else if (rGlobe()) {
       f.append(
         checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { S.view.R.eq = v; requestRender('R'); save(); }),
@@ -7847,6 +7857,7 @@
     if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
     else if (!morph.open) morph.T = after;
     buildDock(); scheduleFix(); requestRender('R', lPaintsF() ? 'L' : null); save();
+    tourEmit('order-changed', { all: !!S.homAll });
   }
   const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
   // the Equator checkbox's tooltip (P2: formerly "Plane")
@@ -8281,12 +8292,15 @@
     const s = Object.assign({ id: 's' + S.nextId++, kind, ci, visible: true }, params);
     return s;
   }
+  // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
+  // else 'menu'; set around the call by the path that adds it (the tour's Sets from formulas task)
+  let shapeVia = null;
   function addShape(s, target) {
     (target ? S.targets : S.shapes).push(s);
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
-    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at });   // (v16: bound, a snapped end)
+    tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
   }
   function deleteShape(id) {
     const cmMsg = typeof Construct !== 'undefined' ? Construct.deleteMessage(id) : null;   // (v16: the cascade's toast)
@@ -8407,11 +8421,14 @@
   }
   // (v16.3 review user-9) a perpendicular or touching circle is numbered once, by the kind it was made as (def.nk): a
   // drag that turns it into a line for a moment renames neither it nor the shapes after it
+  // ([v16.4 segments] Inside C only renames nothing: its arc or ray keeps nk; one made with the chip on Inside: nk 'arc')
   function nameKind(s) {
     const nk = s.def && (s.def.op === 'perp' || s.def.op === 'touch') ? s.def.nk : null;
-    if (nk !== 'circle' && nk !== 'line') return s.kind;
+    if (nk !== 'circle' && nk !== 'line' && nk !== 'arc') return s.kind;
     const region = s.kind === 'disc' || s.kind === 'halfplane';
-    if (!region && s.kind !== 'circle' && s.kind !== 'line') return s.kind;
+    if (!region && !['circle', 'line', 'arc', 'ray'].includes(s.kind)) return s.kind;
+    if (nk === 'arc') return region ? s.kind : 'arc';
+    if (s.kind === 'arc' || s.kind === 'ray') return nk;
     return nk === 'circle' ? (region ? 'disc' : 'circle') : (region ? 'halfplane' : 'line');
   }
   function moveShape(id, d) {
@@ -8838,11 +8855,14 @@
       if (!v && typeof Params !== 'undefined') { const u = Params.unknownIn(inp.value); if (u.length === 1 && !Params.check(u[0]).error) { Params.add(u[0]); v = check(); } }
       if (!v) return;
       const w = plane() === 'w';
+      shapeVia = 'formula';
+      try {
       // a formula with names stays one formula shape (its text keeps the names; the shape draws their values)
       if (typeof Params !== 'undefined' && Params.namesIn(v).length) { if (!w && leftStage() > 0) setFocus(0); addShape(newShape(plan ? 'fcurve' : 'formula', { expr: Params.resolve(v), bind: { expr: v } }, w), w); }
       else if (plan) { if (!w && leftStage() > 0) setFocus(0); addCurveShapes(plan, w); }
       else if (w) addShape(newShape('formula', { expr: v }, true), true);
       else { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: v })); }
+      } finally { shapeVia = null; }
       inp.value = ''; check();
     };
     // a formula wider than the well fades out at its end until it is scrolled there (U-a review)
@@ -9611,6 +9631,7 @@
     setFocus(k);
     commit();
     undoToast($t('Replaced f{x} with its inverse ({x2}).', { x: sub(k), x2: defOf(st).label }));
+    tourEmit('step-replaced', { k, type: st.type });
   }
   // f⁻¹ on a card (and "Inverse of f_k" in the palette): the inverse step when the step has a single-valued one on
   // its branch; otherwise the reason, with the way to see every preimage instead
@@ -9787,7 +9808,7 @@
             // an equation: a curve in the z-plane (the app's own shapes when recognized exactly)
             const plan = curvePlan(q, viewBox(S.srcView));
             items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: $t('Add this curve'), desc: $t('Adds {what} in the z-plane', { what: plan.what }), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
-          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: q })); } }); }
+          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { shapeVia = null; } } }); }
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
@@ -9836,7 +9857,7 @@
     items.push(...(items.oneType ? fns.filter((x) => x.type !== items.oneType) : fns));
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
-      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: c })); } });
+      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { shapeVia = null; } } });
       EX.forEach((ex, i) => { if (!exOk(ex)) return; if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       S.steps.forEach((st, i) => {
@@ -9929,6 +9950,8 @@
     const opener = anchor || document.activeElement, okey = focusKey(opener);
     palState = { at: insertAt, before: explicit ? at : (S.focus > 0 ? S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0 };
     tourEmit('palette-opened', {});
+    // (v16.4) the step catalog: the add card, {+}, the palette's Add a step
+    if (opt.fnOnly) tourEmit('layer-opened', { kind: 'catalog' });
     const runItem = (it, before) => {
       const where = before ? palState.before : palState.at;
       closePalette();
@@ -10349,7 +10372,7 @@
       h, $t, $tx, $tn, ICONS, TeX, sub, fsub, wvar, Funcs, Expr, CX, BADGES, CHIP_DEFS,
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
-      paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep,
+      paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
       regionSummary, swatchStyle, kindType, requestRender, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
@@ -10626,7 +10649,10 @@
     // (phrase(c): the shape in case c; the complement names its shape in the genitive: «дополнение круга», math-4)
     const phrase = (c) => {
       const sp = (src, params) => capT(src, params, c);
-      if (typeof Construct !== 'undefined' && (s.def || s.at)) { const ph = Construct.phrase(s, P); if (ph) return sp(ph.src, ph.params); }   // (v16: constructions by their definitions)
+      // (v16: constructions by their definitions; [v16.4 review user-2, user-3] a phrase that must be closed when more text
+      // follows (a Russian participial phrase, a stacked "in the domain") ends with a closing comma, {pc}: pcTidy drops it
+      // before punctuation and at the end)
+      if (typeof Construct !== 'undefined' && (s.def || s.at)) { const ph = Construct.phrase(s, P); if (ph) { const r = sp(ph.src, ph.params); if (ph.close) r.push({ t: ',', pc: 1 }); return r; } }
       // a shape added from an equation, as recognized: by its equation
       if (s.srcTex && tex === s.srcTex && s.kind !== 'point') {
         switch (s.kind) {
@@ -10683,6 +10709,20 @@
     return out;
   };
   const cap1 = (segs) => { const s = segs.slice(); if (s[0] && s[0].t) s[0] = { t: s[0].t.charAt(0).toUpperCase() + s[0].t.slice(1) }; return s; };
+  // [v16.4 review user-2] a phrase's closing comma ({pc}) stays only before more words: it goes before punctuation, an
+  // opening bracket, another comma and at the end (keepEnd: a list that a template continues; it is left as PC_MARK,
+  // which figure.js's polish resolves the same way once the sentence is whole). [verify-1] It also goes before the
+  // English "and" (a list's or a meet's): there it would read as a list break; Russian keeps it («…, и~…»)
+  const PC_MARK = '\u2063';
+  function pcTidy(segs, keepEnd) {
+    if (!segs.some((g) => g.pc)) return segs;
+    return segs.filter((g, i) => {
+      if (!g.pc) return true;
+      const nx = segs.slice(i + 1).find((x) => x.m != null || x.b != null || (x.t != null && /\S/.test(x.t)));
+      if (!nx) return !!keepEnd;
+      return !(nx.t != null && /^\s*(?:[,.;:()]|and\b)/.test(nx.t));
+    }).map((g, i, a) => (g.pc && keepEnd && !a.slice(i + 1).some((x) => x.m != null || x.b != null || (x.t != null && /\S/.test(x.t))) ? { t: PC_MARK } : g));
+  }
   function compositeTexShort() {
     const act = activeSteps();
     let arg = { s: 'z', p: 4 };
@@ -10811,13 +10851,14 @@
     return out;
   }
   // the caption as LaTeX source (for \caption{...})
-  function captionLatex(segs) {
-    return segs.map((s) => (s.m != null ? `$${s.m}$` : s.b != null ? `\\textbf{${texEsc(s.b)}}` : texEsc(s.t).replace(/Möbius/g, 'M\\"obius'))).join('').replace(/\s+/g, ' ').trim();
+  function captionLatex(segs, keepEnd) {
+    return pcTidy(segs, keepEnd).map((s) => (s.m != null ? `$${s.m}$` : s.b != null ? `\\textbf{${texEsc(s.b)}}` : texEsc(s.t).replace(/Möbius/g, 'M\\"obius'))).join('').replace(/\s+/g, ' ').trim();
   }
   // lay the caption out in lines of width W (justified, the last line ragged); returns {markup, h}
   // ragged: ragged-right lines (the deformation's captions, morph-figure.md 5), else justified with capped gaps
   function layoutCaption(segs, x0, y0, W, px, ragged = false) {
     const items = [];
+    segs = pcTidy(segs);
     const sp = mj('\\text{a b}', px).w - mj('\\text{ab}', px).w || px * 0.33;
     for (const s of segs) {
       if (s.m != null) { items.push({ it: mj(s.m, px), glue: false }); continue; }
@@ -11190,7 +11231,7 @@
     formulaRaw: () => figCapParts().raw,
     capParts: figCapParts,
     sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
-    segsTex: (segs) => captionLatex(segs),
+    segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
     sceneMeta: () => { const used = typeof Constr !== 'undefined' && Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
     chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
@@ -11315,6 +11356,7 @@
   const evXY = (pane, e) => { const r = pane.ocanvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   let drag = null;
   const touches = new Map(); // pointerId -> [x, y] for pinch zoom
+  let pinched = null;         // (v16.4) a pinch in progress zoomed ('zoom') or turned a globe ('orbit')
   // a pane that orbits a camera (U-b): X Landscape (cam), X Sphere (camL), Y Sphere (camS)
   const is3DSide = (side) => (side === 'L' ? lLand() || lGlobe() : rGlobe());
   const is3D = () => rGlobe();
@@ -11386,6 +11428,8 @@
       const [x, y] = evXY(pane, e);
       const k = e.ctrlKey ? 0.012 : 0.0016;
       zoomPane(pane, side, x, y, Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : k)));
+      // (v16.4) a wheel zoom ends 250 ms after its last tick
+      clearTimeout(pane.tourWheelT); pane.tourWheelT = setTimeout(() => tourViewMoved(side, 'zoom'), 250);
     }, { passive: false });
     // touch has no hover: the long press (INTERFACE.md "Long-press", v15). A still finger (8 px slop) fills a ring for
     // 450 ms; then its gesture is undone and becomes a probe (readouts, gauge). Sliding on probes; a release without
@@ -11450,12 +11494,12 @@
           const now = [...touches.values()];
           const d0 = Math.hypot(prev[0][0] - prev[1][0], prev[0][1] - prev[1][1]);
           const d1 = Math.hypot(now[0][0] - now[1][0], now[0][1] - now[1][1]);
-          if (d0 > 0 && d1 > 0) zoomPane(pane, side, (now[0][0] + now[1][0]) / 2, (now[0][1] + now[1][1]) / 2, d1 / d0);
+          if (d0 > 0 && d1 > 0) { zoomPane(pane, side, (now[0][0] + now[1][0]) / 2, (now[0][1] + now[1][1]) / 2, d1 / d0); if (d1 !== d0) pinched = pinched || 'zoom'; }
           // a two-finger drag turns a globe (P3b, P6: one finger draws there)
           if (side === 'L' ? lGlobe() : rGlobe()) {
             const c = camOf(side);
             const mx = (now[0][0] + now[1][0] - prev[0][0] - prev[1][0]) / 2, my = (now[0][1] + now[1][1] - prev[0][1] - prev[1][1]) / 2;
-            if (c && (mx || my)) { c.yaw -= mx * 0.35 * DEG; c.pitch = Math.max(pitchMin(c), Math.min(88 * DEG, c.pitch + my * 0.35 * DEG)); c.vyaw = c.vpitch = 0; requestRender(side); }
+            if (c && (mx || my)) { pinched = 'orbit'; c.yaw -= mx * 0.35 * DEG; c.pitch = Math.max(pitchMin(c), Math.min(88 * DEG, c.pitch + my * 0.35 * DEG)); c.vyaw = c.vpitch = 0; requestRender(side); }
           }
           return;
         }
@@ -11468,6 +11512,8 @@
       if (rg) { ring = null; if (PM()) PM().ringStop(); }
       const dm = drag && drag.menuAt && e.type === 'pointerup' ? drag : null;
       touches.delete(e.pointerId); onUp(pane, side, e);
+      // (v16.4) a pinch (or a two-finger turn of a globe) ends when its fingers lift
+      if (pinched && touches.size < 2) { const how = pinched; pinched = null; tourViewMoved(side, how); }
       // a right press that did not move (macOS): its menu now
       if (dm && !dm.far && !dm.moved && planeMenuAt(pane, side, dm.menuAt.x, dm.menuAt.y, dm.menuAt)) setCursor(pane, side);
       // a long press released without sliding: the plane menu at the ring's point
@@ -12465,6 +12511,8 @@
     setCursor(pane, side);
     // a pan or an orbit that moved: the contextmenu that may follow its right-button release opens nothing
     if (/^(pan|orbit)/.test(d.mode)) lastPan = { t: performance.now(), moved: !!d.far };
+    // (v16.4) the user's pan or orbit, once it moved: the tour's view tasks (notes/tour/INTEGRATION.md 9)
+    if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved))) soundCue('snap');
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
@@ -12506,7 +12554,7 @@
       }
       if (kind === 'lasso' && !d.target) { if (ok) sndLoopDone(s.pts); else snd.loop = null; }
       if (typeof Construct !== 'undefined') Construct.drawEnd(ok ? s : null, !!d.target);   // (v16: the snapped ends bind)
-      if (ok) addShape(s, !!d.target); else requestRender('OL', 'OR');
+      if (ok) { shapeVia = 'draw'; try { addShape(s, !!d.target); } finally { shapeVia = null; } } else requestRender('OL', 'OR');
     }
   }
   function finishPolygon() {
@@ -12870,7 +12918,7 @@
       <h3>${$t(`Views`)}</h3>
       <p>${$t(`The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`, { x: k('1'), x2: k('2'), x3: k('3'), x4: k('⇧ 1'), x5: k('⇧ 2'), x6: k('⇧ 3'), x7: k('⇧ 4') })}</p>
       <h3>${$t(`Deformation`)}</h3>
-      <p>${$t(`<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.`, { x: k('M'), x2: k('P') })} ${guideTex($t('A step shown alone deforms in its own planes; to see it deform inside $F$, bracket it (below).'))}</p>
+      <p>${$t(`<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> starts at the identity, ends at the map and, when the step is analytic, is analytic for every <i>t</i>. Möbius maps move along their one-parameter groups; powers and roots <i>z</i><sup><i>a</i></sup> along <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (a negative integer power reaches <i>z</i><sup>|<i>a</i>|</sup> at <i>t</i> = ½, then 1/<i>z</i><sup>|<i>a</i>|</sup> through Möbius maps); log along (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; exp, sin, cos, tan, the hyperbolic functions and the inverse trigonometric and hyperbolic functions are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); polynomials, rational maps and any other analytic formula are zoomed into about a point <i>p</i>, so their critical points, poles and cuts fly in from infinity along the rays from <i>p</i>; Joukowski closes the unit circle onto [−1, 1]. A formula that is not analytic, a constant, or an analytic formula with no usable point <i>p</i> to zoom about moves along the straight line, and conjugation squashes the plane onto the real axis and out again, mirrored: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.`, { x: k('M'), x2: k('P') })} ${guideTex($t('A step shown alone deforms in its own planes; to see it deform inside $F$, bracket it (below).'))}</p>
       <p>${guideTex($t('<b>Part of the chain.</b> While the deformation shows the whole chain, a bracket stands over the cards. Drag its ends, or choose a card\'s ⋯ → <b>Deformation</b>; on a phone, use Deformed steps in the Display sheet. Steps before the bracket act first and in full, steps after it last and in full: $H_t=f_3\\circ G_t\\circ f_1$ runs from $f_3\\circ f_1$ at $t=0$ to $F$, while $G_t$ deforms the bracketed steps. Bracket the last steps to watch them deform the image $f_1(X)$ (a push-forward); bracket the first steps to watch them deform under the last ones (a pullback: for $\\sqrt{z}$ then $f$, bracket $\\sqrt{z}$ to go from $f(z)$ to $f(\\sqrt{z})$). The start is outlined, and the plane\'s title names it.'))}</p>
       <h3>${$t(`Preimages and roots`)}</h3>
       <p>${$t(`Hover a point <i>w</i> of the right pane (its plane or its sphere): the left plane marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in the right pane: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view the left plane shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes and can be edited, hidden or deleted.`)}</p>
@@ -12999,7 +13047,7 @@
     for (const [v, l, tip] of PATTERNS) {
       const cv = h('canvas', { width: 104, height: 80, 'aria-hidden': 'true' });
       const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-pat': v, 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
-        onclick: () => { S.pattern = v; buildDisplay(); requestRender('L', 'R', 'T'); save(); } }, cv, h('span', null, l));
+        onclick: () => { S.pattern = v; buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
@@ -13524,11 +13572,12 @@
   const sndToggleCue = (on) => soundCue(on ? 'toggleOn' : 'toggleOff');
   // short messages only, through one polite region (the result panels are not live regions)
   function sndSay(s) { const el = $('sndLive'); if (el) el.textContent = s; }
-  function soundToggle() { if (!SND) return; SND.toggle(); sndSay(SND.prefs().on ? $t('Sound on.') : $t('Sound off.')); }
+  function soundToggle() { if (!SND) return; tourSndMine(['on']); SND.toggle(); sndSay(SND.prefs().on ? $t('Sound on.') : $t('Sound off.')); }
   // Hear the function under the pointer: from the palette it also turns sound on
   function soundHear() {
     if (!SND) return;
     const on = !(sndP.on && sndP.sonify);
+    tourSndMine(on && !sndP.on ? ['on', 'sonify'] : ['sonify']);
     if (on && !sndP.on) SND.set({ on: true, sonify: true }); else { SND.set({ sonify: on }); sndToggleCue(on); }
     sndSay(on ? $t('Hear the function on: hover a plane.') : $t('Hear the function off.'));
   }
@@ -13626,10 +13675,10 @@
     more.addEventListener('click', () => openPop(pop.hidden));
     document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest('#soundMore'))) openPop(false); }, true);
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); openPop(false); more.focus(); } });
-    $('sndOn').addEventListener('change', (e) => { SND.set({ on: e.target.checked }); sndSay(e.target.checked ? $t('Sound on.') : $t('Sound off.')); });
+    $('sndOn').addEventListener('change', (e) => { tourSndMine(['on']); SND.set({ on: e.target.checked }); sndSay(e.target.checked ? $t('Sound on.') : $t('Sound off.')); });
     $('sndVol').addEventListener('input', (e) => SND.set({ vol: +e.target.value / 100 }));
     $('sndVol').addEventListener('change', () => SND.play('toggleOn', { force: true, audition: true }));
-    for (const [id, k] of [['sndUi', 'ui'], ['sndSnap', 'snap'], ['sndEv', 'events'], ['sndSo', 'sonify']]) $(id).addEventListener('change', (e) => { SND.set({ [k]: e.target.checked }); sndToggleCue(e.target.checked); });
+    for (const [id, k] of [['sndUi', 'ui'], ['sndSnap', 'snap'], ['sndEv', 'events'], ['sndSo', 'sonify']]) $(id).addEventListener('change', (e) => { tourSndMine([k]); SND.set({ [k]: e.target.checked }); sndToggleCue(e.target.checked); });
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('sndIos').hidden = false;
     // the keyboard probe on the X plane (focusable while sound is on), only when the plane got the focus from the
     // keyboard: after a click in it, V, L, D, O, Z … stay the tool and fit shortcuts
@@ -13992,7 +14041,12 @@
       // sound-3; the keyboard probe's steps and a still probe under a changing F keep 7.5°)
       const band = !fn && src !== 'key' && snd.ld > 0 ? snd.ld * 2.5 / vs / TAU : 0;
       if (seat || jump || swap || quiet || keyQuiet) SND.harpReset(snd.phi);
-      else SND.harp(snd.phi, { ln: la, pan, dt, h: band, shaky: !!snd.near && moved && !fn, still: !!fn && !moved });
+      else {
+        // (v16.4) a low D counted up or down: the tour's Phase lines are strings task
+        const hs0 = tourL['harp-turn'] ? SND.harpState() : null;
+        SND.harp(snd.phi, { ln: la, pan, dt, h: band, shaky: !!snd.near && moved && !fn, still: !!fn && !moved });
+        if (hs0) { const hs1 = SND.harpState(); if (hs1.up > hs0.up) tourEmit('harp-turn', { dir: 1 }); if (hs1.down > hs0.down) tourEmit('harp-turn', { dir: -1 }); }
+      }
       // a loop being drawn: the harp's state at its first point (harpClose at the release); a re-seat later in the loop
       // (a cut, a view gesture) leaves its count as it is
       const lp = snd.loop;
@@ -14238,7 +14292,10 @@
     if (closed && !Sm.cuts.length && Math.abs(turns - Wr) < 0.05 && !sndSingLoop(pts, Wr, { at: dur + 0.05, tag }, Sm) && !SND.singable(Wr)) SND.play('loopDone', { w: Wr, at: dur + 0.05, tag, force: true });
     const h = { t0: hh.t0, now: hh.now, tag, harp: hh };
     // the pointer moving more than 4 px from where it was when the playback started ends it
-    const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: !!vel, shape: shape || null, nf: 0 };
+    // (v16.4: closed and W, the rounded winding number of a closed curve, for the tour's listen-ended)
+    const Wn = closed && !Sm.cuts.length && Math.abs(turns - Wr) < 0.05 ? Wr : null;
+    const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: !!vel, shape: shape || null, nf: 0, closed: !!closed, W: Wn };
+    tourEmit('listen-started', { piece: !!vel, closed: !!closed, dur });
     updateDraftChips();
     sndSay((lead ? lead + ' ' : '') + (closed && !Sm.cuts.length ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Math.round(turns)) : $t('Listening along the curve. Esc stops.')));
     const tick = () => {
@@ -14249,7 +14306,7 @@
       probe = C(p.zs[j].re + (p.zs[j + 1].re - p.zs[j].re) * a, p.zs[j].im + (p.zs[j + 1].im - p.zs[j].im) * a);
       setReadouts(probe); sndRender();
       if (u < 1) p.raf = requestAnimationFrame(tick);
-      else setTimeout(() => { if (snd.play === p) { snd.play = null; probe = null; setReadouts(null); sndRender(); updateDraftChips(); } }, 400);
+      else setTimeout(() => { if (snd.play === p) { snd.play = null; probe = null; setReadouts(null); sndRender(); updateDraftChips(); sndPlayEnded(p, true); } }, 400);
     };
     p.raf = requestAnimationFrame(tick);
     return true;
@@ -14263,6 +14320,13 @@
     if (hushAll) SND.hush();
     probe = null; setReadouts(null); sndRender();
     updateDraftChips();
+    sndPlayEnded(p, false);
+  }
+  // (v16.4) a Listen along ended: played out (full), stopped, or cut by a scene change; heard: seconds played
+  function sndPlayEnded(p, full) {
+    let heard = 0;
+    try { heard = Math.max(0, Math.min(p.dur, p.h.now() - p.h.t0)); } catch (e) { heard = 0; }
+    tourEmit('listen-ended', { piece: !!p.piece, closed: !!p.closed, W: p.W == null ? null : p.W, heard: full ? p.dur : heard, full: !!full });
   }
   // the curve menu's "Listen along": the shape's longest piece, in the X plane's variable
   function sndListenShape(s) {
@@ -14308,7 +14372,7 @@
     const ph = document.documentElement.classList.contains('ph');
     const msg = !sndP.on ? (ph ? $t('Sound is off: turn it on here, or in the ⋯ menu.') : $t('Sound is off: turn it on here, or with Sound in the top bar ({x}).', { x: '⇧M' }))
       : $t('Mathematical events are off in the Sound menu: turn them on here.');
-    toast(msg, $t('Turn on and listen'), () => sndTurnOnListen(s), false, { sticky: true });
+    toast(msg, $t('Turn on and listen'), () => { tourSndMine(['on', 'events']); sndTurnOnListen(s); }, false, { sticky: true });
   }
   // sound and Mathematical events on, then Listen along s (the engine starts inside this click, its clock a moment later)
   function sndTurnOnListen(s) {
@@ -14500,11 +14564,78 @@
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
   let tourPics = null;    // v16.1: the chain's Pictures | Names and height before a tour step turned its pictures on
+  let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
   function tourEmit(ev, p) {
     const fs = tourL[ev];
     if (fs) for (const f of fs.slice()) { try { f(p); } catch (e) { console.warn('[tour] event', ev, e); } }
+  }
+  // (v16.4) the end of the user's pan, zoom or orbit: pane 'P' is the one wide panel of Phase and Landscape
+  function tourViewMoved(side, how) {
+    if (!tourL['view-moved']) return;
+    tourEmit('view-moved', { pane: S.view && S.view.main !== 'xy' ? 'P' : side === 'R' ? 'R' : 'L', how });
+  }
+  // (v16.4, notes/tour-r3/SPEC.md 4.3) the sound settings the tour holds for its Sound chapter: the user's own values
+  // are remembered at the first hold (and written to cmw-tour-sound, so a crash gives them back at the next start) and
+  // come back at the release, each unless the user changed it meanwhile
+  const TOUR_SND = 'cmw-tour-sound';
+  let tourSnd = null;   // { saved: { key: the user's value }, held: { key: the value the tour set } }
+  function tourSndWrite() { try { if (tourSnd && Object.keys(tourSnd.held).length) localStorage.setItem(lsk(TOUR_SND), JSON.stringify(tourSnd)); else localStorage.removeItem(lsk(TOUR_SND)); } catch (e) { /* */ } }
+  function tourSoundHold(prefs) {
+    if (!SND) return false;
+    const keys = ['on', 'events', 'sonify'];
+    if (!tourSnd) tourSnd = { saved: {}, held: {} };
+    const set = {};
+    for (const k of keys) {
+      const v = prefs == null ? null : prefs[k];
+      if (prefs != null && !(k in prefs)) continue;
+      if (v === true) {
+        if (!(k in tourSnd.held)) tourSnd.saved[k] = !!sndP[k];
+        tourSnd.held[k] = true;
+        if (!sndP[k]) set[k] = true;
+      } else if (v === null && k in tourSnd.held) {
+        // (given back only when it is still what the tour set: a change by the user meanwhile stays)
+        if (!!sndP[k] === tourSnd.held[k] && tourSnd.saved[k] !== tourSnd.held[k]) set[k] = tourSnd.saved[k];
+        delete tourSnd.held[k]; delete tourSnd.saved[k];
+      }
+    }
+    if (Object.keys(set).length) SND.set(set);
+    tourSndWrite();
+    const any = Object.keys(tourSnd.held).length > 0;
+    if (!any) tourSnd = null;
+    return any;
+  }
+  // (r3 review user-6) a sound setting the user changes while the tour holds it becomes theirs: it is not given back
+  function tourSndMine(keys) {
+    if (!tourSnd) return;
+    for (const k of keys) { delete tourSnd.held[k]; delete tourSnd.saved[k]; }
+    tourSndWrite();
+    if (!Object.keys(tourSnd.held).length) tourSnd = null;
+  }
+  // a tour cut short by a reload or a crash: the user's sound settings back (at init)
+  function tourSoundRecover() {
+    let raw = null;
+    try { raw = localStorage.getItem(lsk(TOUR_SND)); } catch (e) { return; }
+    if (!raw || !SND) return;
+    try {
+      const t = JSON.parse(raw), set = {};
+      for (const k of ['on', 'events', 'sonify']) if (t && t.held && k in t.held && !!sndP[k] === !!t.held[k] && t.saved && typeof t.saved[k] === 'boolean') set[k] = t.saved[k];
+      if (Object.keys(set).length) SND.set(set, { quiet: true });
+    } catch (e) { /* malformed: dropped */ }
+    try { localStorage.removeItem(lsk(TOUR_SND)); } catch (e) { /* */ }
+  }
+  const tourSoundReady = () => !!(SND && sndP.on && sndP.events && SND.state().audio === 'running');
+  // Listen along the current scene's curve: the shape with a melody, else its last closed curve (the tour's act button)
+  function tourListen() {
+    if (!SND || typeof (window.AudioContext || window.webkitAudioContext) !== 'function') return false;
+    const s = S.shapes.find((x) => x.listen && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || null;
+    if (!s) return false;
+    if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); }
+    if (sndP.on && sndP.events) return sndListenShape(s) !== false;
+    tourSoundHold({ on: true, events: true });
+    sndTurnOnListen(s);
+    return true;
   }
   // the end of a drag in a pane (onUp): a shape or target moved or reshaped, a zero or pole dragged, a cut dragged
   function tourDragEnd(d) {
@@ -14607,6 +14738,9 @@
     if ('phaseStyle' in lk) { S.dc = DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc; S.landPlain = false; cauchyCache.key = ''; }
     if ('paths' in lk) { S.morphPaths = lk.paths !== false; const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
+    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines: the harp's strings)
+    if ('phaseKey' in lk) S.wKey = !!lk.phaseKey;
+    if ('sectors' in lk) S.sectors = [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12;
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
     requestRender('L', 'R', 'T');
     save();
@@ -14620,7 +14754,7 @@
       renderProps();
       return undefined;
     },
-    has: (f) => (f === 'sound' ? typeof Sound !== 'undefined' : f === 'zp' ? !!Funcs.DEFS.zp : f === 'params' ? typeof Params !== 'undefined' : f === 'planeMenu' ? typeof PlaneMenu !== 'undefined' : f === 'constructions' ? typeof Construct !== 'undefined' && !!Construct.ui : true),
+    has: (f) => (f === 'sound' ? typeof Sound !== 'undefined' : f === 'song' ? typeof SEASONG !== 'undefined' && typeof Sound !== 'undefined' : f === 'zp' ? !!Funcs.DEFS.zp : f === 'params' ? typeof Params !== 'undefined' : f === 'planeMenu' ? typeof PlaneMenu !== 'undefined' : f === 'constructions' ? typeof Construct !== 'undefined' && !!Construct.ui : true),
     storageKey: lsk,
     snapshot: tourSnapshot,
     restore: tourRestore,
@@ -14656,6 +14790,27 @@
     },
     loadScene: tourLoadScene,
     setLook: tourSetLook,
+    // v16.4 (notes/tour/INTEGRATION.md 9): where the tour's strip goes ('stage': the first row of the stage, or on a
+    // phone the row under the header; 'head': a landscape phone's header), the Grieg example as a scene, the sound
+    // the Sound chapter needs
+    slot: (where) => {
+      const e = $(where === 'head' ? 'tourHeadSlot' : 'tourSlot');
+      // (r3 review regress-7: only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
+      // and a sheet that opens later measures itself)
+      if (typeof Phone !== 'undefined' && Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
+      return e || null;
+    },
+    sceneSpec: (name) => {
+      if (name !== 'song' || typeof SEASONG === 'undefined') return null;
+      const ex = EX.find((x) => x.shapes.some((sh) => sh.listen));
+      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, rightMode: ex.rightMode, dc: ex.dc } : null;
+    },
+    listen: tourListen,
+    soundHold: tourSoundHold,
+    soundStop: () => { sndStopPlay(false); return true; },
+    soundReady: tourSoundReady,
+    soundPlaying: () => !!snd.play,
+    soundState: () => ({ on: !!sndP.on, events: !!sndP.events, sonify: !!sndP.sonify, audio: SND ? SND.state().audio : 'none', playing: !!snd.play }),
     setView: (main) => setMain(main),
     setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
     setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },
@@ -14668,9 +14823,12 @@
     // shapes and the formula; 'display': the patterns); a drawer the tour opened closes with the next step's closeSheet.
     // ['panel', 'sheet', k]: a phone's sheet k only (the Display sheet holds the large plane's options and, while the
     // deformation shows, its order); nothing elsewhere
-    showPanel: (side, sheet) => {
-      if (tourPhone()) { if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
+    // (r3 review regress-2) early: a chapter's start opens the side panel one of its steps docks, so the stage keeps
+    // one place through the chapter; a drawer or a phone's sheet, which would cover the work area, waits for its step
+    showPanel: (side, sheet, early) => {
+      if (tourPhone()) { if (early) return; if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
       if (side === 'sheet') return;
+      if (early && side !== 'right' && isDrawer('L')) return;
       if (side === 'right' ? S.hideRight : S.hideLeft) {
         if (side !== 'right' && isDrawer('L')) tourDrawer = true;
         setPanels(side === 'right' ? S.hideLeft : false, side === 'right' ? false : S.hideRight);
@@ -14717,13 +14875,21 @@
     },
     hasWork: () => tourHadWork,
     // a tour starts: the coordinate pad edits a card of the user's chain, which the tour's scenes replace
-    onTour: (on) => { if (on) closePad(); else tourDrawer = false; },
+    // (r3 review regress-7: a phone's sheet geometry, written by the sheets the tour's steps open, goes when the tour
+    // ends if it was not there before it; a sheet opened later measures itself again)
+    onTour: (on) => {
+      const st = document.documentElement.style;
+      if (on) { closePad(); tourPhGeo = ['--ph-hp', '--ph-ride'].map((k) => st.getPropertyValue(k)); return; }
+      tourDrawer = false;
+      if (tourPhGeo && !(typeof Phone !== 'undefined' && Phone.sheet && Phone.sheet())) ['--ph-hp', '--ph-ride'].forEach((k, i) => { if (!tourPhGeo[i]) st.removeProperty(k); });
+      tourPhGeo = null;
+    },
   };
   function tourWire() {
     if (typeof Tour === 'undefined') return;
-    // the events the app sends from delegated listeners: a pattern swatch picked (click or arrow keys), t scrubbed
-    $('patternSeg').addEventListener('click', (e) => { if (e.target instanceof Element && e.target.closest('.pat')) tourEmit('pattern-changed', { id: S.pattern }); });
+    // the events the app sends from delegated listeners: t scrubbed (v16.4: a pattern picked is sent by its setter)
     document.addEventListener('input', (e) => { if (e.target && e.target.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
+    tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held
     Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
     if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)
   }
@@ -15247,7 +15413,7 @@
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
-    if (kc) kc.addEventListener('change', () => { S.wKey = kc.checked; buildRightFoot(); requestRender('R'); save(); });
+    if (kc) kc.addEventListener('change', () => { S.wKey = kc.checked; buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
     // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
     const mb = $('morphBtn');
     if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
@@ -15808,7 +15974,7 @@
   };
   // v16 constructions (INTERFACE): the ring, the draft, the session's Curve | Region; o.fill sets it
   window.__cmwCI = (o) => { if (o && o.gs) { const [side, P] = o.gs, gc = globeCam(side), q = gc && gScreen(gc, P), r = (side === 'R' ? paneR : paneL).ocanvas.getBoundingClientRect(); return q ? [r.left + q[0], r.top + q[1]] : null; } if (o && o.fill) Construct.fill = o.fill; if (o && o.snap) { const [side, x, y, opt] = o.snap; const t = Construct.snapAt(side, x, y, opt || {}); return t ? { cls: t.cls, z: t.z, ref: t.ref } : null; } if (o && o.names) return S.shapes.concat(S.targets).map((s) => ({ id: s.id, kind: s.kind, name: Construct.shapeLabel(s), def: Construct.defText(s), why: s.cundef ? Construct.reasonText(s.cundef) : null })); if (o && o.shapes) return { hi, n: hist.length, tool, selected, zeros: S.steps[0] ? S.steps[0].params.zeros : null, list: S.shapes.concat(S.targets).map((s) => Object.assign(JSON.parse(JSON.stringify(s, noRuntime)), { inf: !!s._atInf, A: s._g ? s._g.A : null })) }; return Construct.debug(); };
-  window.__cmwCapText = (panels) => figureCaption(panels || ['L']).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
+  window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

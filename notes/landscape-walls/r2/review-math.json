@@ -1,0 +1,58 @@
+[
+ {
+  "id": "math-1",
+  "severity": "high",
+  "title": "At rest the refinement is capped in the user's own case (All sheets): the 0.25 px walls are not built",
+  "detail": "rfBuild lowers one global cap Lc for every cell until the total cost fits RF_REST (6 M evaluations). All sheets costs 24·K·2^(Lx+Ly) per cell, so the cap is reached at rest, not only while moving. r.partial is set only when moving (r.partial = move && ...), so a capped mesh at rest is never rebuilt. Every cell that asked for level 3 or 4 is drawn at Lc. A cell that wanted 4 and got 2 has about 16 times the chord error, about 4 px instead of 0.25 px. The AS-BUILT figure 'user's case at most 0.21 px' comes from the CPU twin, which has no budget. No GPU test checks info.refine.capped.",
+  "evidence": "GLR.landRefine(false) at rest, desktop 1440×900, 4 s after the last change (notes/landscape-walls/r2/review-math-runs.out.json key 'cap', command work/xvls/test/mathrev_cdp/cmd/cap.js). sin √z with All sheets, Im, t = 0.2: default mesh capped=true, Lc=2 (21,920 refined cells, 4.46 M evaluations); Max mesh capped=true, Lc=1. Custom z^{1/5} tan 3z with All sheets, Re: default Lc=1; Max Lc=0 (0 refined cells: no refinement at all). tan z Re (principal) and log log z (K=24, small sheet mesh) were not capped.",
+  "fix": "Do not cap all cells with one Lc. Spend the budget on the worst cells first (per-cell priority by asked level and chord error), or refine progressively at rest over several frames until it is complete. Charge All sheets only for the sheets that are steep in a cell, not all K. Add capped == false at rest to landscape_walls_cmd for the user's case with All sheets, at default and Max meshes."
+ },
+ {
+  "id": "math-2",
+  "severity": "high",
+  "title": "Cold open still freezes: a second stall of 0.85 to 1.12 s at the surface program's first draw, in 6 of 6 runs (base 0 of 6)",
+  "detail": "Each run is a fresh formula's first Landscape, build and xvsh-snap alternating, timed with the builder's own method: rAF gaps in the page, and the first capture that matches the final picture, timed when the capture returns. Every build run has two stalls. The first (0.57 to 0.70 s, about 150 ms in) matches the base's only stall. The second starts at the first use of the 'land' program (GLR._lwLog: land@861..1150 ms) and lasts 849 to 1116 ms. In the base, the surface's programs pay their cost inside its one stall. The build's 'land' fragment shader now carries HEIGHT, the contour-on-wall term and the uVW branch. It is first drawn in a later frame than landTF, so its Metal pipeline stall lands as a separate freeze. Round 1's blocker (1) is therefore not fixed in this environment. Caveat: two other agents' headless Chromes shared the GPU (one GPU process at 22% CPU). Base and build alternated, so the load does not favour either side, but absolute times are higher than the builder's.",
+  "evidence": "12 runs, notes/landscape-walls/r2/review-math-runs.out.json key 'cold_A' (work/xvls/test/mathrev_cdp/cmd/cold.js). Longest gap, build: 1116, 849, 868, 903, 1002, 892 ms. Base: 513, 513, 573, 652, 572, 585 ms. First surface on screen, build: 2536, 1765, 1898, 1995, 1989, 2100 ms. Base: 1197, 984, 1052, 1052, 1083, 1016 ms. Example build gap list: [[161,572],[877,849]] with plog 'landTF@162 landNrm@162 mark@733 floor@861 land@861 landLv@1725'.",
+  "fix": "Find out why the build's 'land' program stalls about 0.9 s at its first draw while the base's whole open stalls about 0.55 s. Time its compile and link with KHR_parallel_shader_compile, and compare it with the base LAND_FS (46 lines, no HEIGHT). Either take its first draw into the frame of landTF, as the base does, or warm it earlier with a no-fragment draw. Re-run the cold test with other GPU users stopped, and with a fresh browser profile per run."
+ },
+ {
+  "id": "math-3",
+  "severity": "medium",
+  "title": "BUDGET60 regression at the Max mesh while the deformation plays (principal surface): the base holds 60 fps, the build does not",
+  "detail": "Every moving frame at N = 512 runs: the half-cell lattice through the chain ((2M+1)² = 1023² = 1.05 M evaluations, 4 times the base height pass), the level pass, a synchronous readback, then 3 transform-feedback passes per group. The readback is readScratch: clientWaitSync with timeout 0, then getBufferSubData. It stalls until the GPU has finished all earlier work, so CPU and GPU take turns instead of overlapping. All sheets at Max fails in both builds. Default mesh is borderline: run 1 failed (p95 23.9 / 22.0 against 17.5 / 17.8), run 2 passed (18.1 / 18.3 against 17.6 / 18.1). The AS-BUILT BUDGET60 claims cover the default mesh only and never measure Max.",
+  "evidence": "Desktop 1440×900, sin √z, Im, playing (notes/landscape-walls/r2/review-math-runs.out.json keys perf, perf2, perf3; work/xvls/test/mathrev_cdp/cmd/perf.js). Max mesh, principal surface: base 60.0 / 60.0 fps, p95 17.6 / 17.6. Build 38.1 / 59.5 / 57.2 fps, p95 49.6 / 19.3 / 22.8, max up to 73.8 ms. Max mesh with All sheets: base 38.9 / 54.1 / 45.0 fps, build 33.3 / 53.2 / 51.3 fps. Phone emulation (390×844, Max, principal): base 60 fps p95 17.9, build 50.2 fps p95 31.4. Orbiting by a real mouse drag stays at 60 fps everywhere (the mesh is camera-independent).",
+  "fix": "While moving, never read back synchronously. Use the fenced levels of the previous frame (one frame late), or build the list on the GPU without a readback. Scale the moving lattice and budget to N: at 512, take the levels from the base vertices and the cell centre only. Add Max-mesh playing to the BUDGET60 gate."
+ },
+ {
+  "id": "math-4",
+  "severity": "medium",
+  "title": "GPU memory: a 67 MB lattice texture plus a 67 MB scratch buffer at Max, and freed meshes leak their six refinement textures",
+  "detail": "At rest the lattice is a full (4M+1)² RGBA32F texture (latTex). That is 16.7 MB at N = 256, 37.6 MB at 384 and 66.9 MB at 512. runTF grows the shared transform-feedback scratch buffer to the same size, and it never shrinks. ptsTex and evTex are reallocated per group at 5 texels per vertex: about 23 MB each for tan z Re at Max (1.44 M evaluations). That lattice is also 4.18 M chain evaluations at Max (16 times the base pass) each time the heights change at rest. The eviction loop in landHeights (the round-1 math-5 fix) deletes only tex1, tex2 and the edges. A dropped mesh's lvTex, lstTex, rfTex, latTex, ptsTex, evTex and rbBuf are left to garbage collection, so a 512 to 256 mesh change orphans about 100 MB or more. On an Android phone this risks context loss. On context restore, rfWarmAll, rfWarmTex and rdBuf are not reset: the four refinement programs are then first drawn in one frame, which is the multi-program stall the build itself measured at 0.5 to 0.9 s, and a stale rdBuf is deleted.",
+  "evidence": "Code: gl.js landRefine (sN = (lat ? 4 : 2) * M + 1; runTF(..., sN*sN*16, land.latTex, sN, sN)), runTF (scratch grows only), and the eviction loop at about line 4607 (`for (const t of [l.tex1, l.tex2, ...l.edges]) gl.deleteTexture(t)`). webglcontextrestored at about line 3798 resets lands but not rfWarmAll or rdBuf. Sizes are computed from the code. The evaluation count for tan z Re at Max is from GLR.landRefine (evals 1,439,940).",
+  "fix": "Compute the levels without storing the whole lattice: tile the lattice pass in strips, or use half cells plus the corners (the quadratic bound with a margin). Shrink or free the scratch buffer after a large pass. Delete the refinement textures and rbBuf in the eviction loop and in landS replacement. Reset rfWarmAll, rfWarmTex and rdBuf in webglcontextrestored."
+ },
+ {
+  "id": "math-5",
+  "severity": "medium",
+  "title": "The 0.25 px criterion uses the fitted distance: zoomed in, or on the near side of the block, the facets are larger",
+  "detail": "pxW is computed at fitDist, deliberately ignoring zoom and orbit. The wheel allows 0.4 × the fitted distance (app.js about line 11064: 2.5 times the magnification), and perspective magnifies the near side of the block further. With a 28° fov and a square pane, fitD = 4.34 r. At 0.4 × fitD the nearest part of the block is at 0.74 r, 5.9 times closer than the scale used. The 0.25 px chord error becomes about 0.6 px at the target and about 1.5 px at the near edge. At the default zoom the near edge is already 1.3 times. This is before the cap of math-1 and the 16-sub-cell cap.",
+  "evidence": "gl.js about line 5085 (fitD, pxW0 from fitD only; rkey keyed on pxW). app.js 11064 (zoom clamp 0.4 to 4 × fit). Arithmetic as above: sin(14°) = 0.242, fitD = 1.05 r / 0.242.",
+  "fix": "At rest, key the refinement on the current camera distance to the block's nearest point (quantized as now), so a finished zoom rebuilds once. Keep the fitted scale only while moving."
+ },
+ {
+  "id": "math-6",
+  "severity": "low",
+  "title": "Cells that hold a cut are never refined, and their refined neighbours snap the shared side to the base chord",
+  "detail": "LAND_LV_VS sets level 0 for any cell with a jump on a side or the diagonal, or with a non-finite corner on a map with cuts. snapV then gives the neighbour's shared side min(L, 0) = 0. The comment says that is the level the side's own chord error asked for, which is false here: the neighbour is at 0 because of the cut, not because it is flat. DESIGN 3.3 says cells holding a cut or a branch point are refined by the same measure. With the per-fragment wall search gone, the steepest place, next to a branch point (√z, log z Re near 0, the user's sin √z near 0), is drawn with base-cell chords on a band one or two cells wide. Nothing is drawn across the cut, so this is a quality loss, not an invented wall.",
+  "evidence": "Code: gl.js LAND_LV_VS (`if (uCuts > 0 && (jmp(...)...)) continue;` and `if (!cfin && uCuts > 0) continue;` leave lv 0) and snapV (`ln = min(L, nb)`). The builder's mesh check excludes exactly these sides ('skip' set in landscape_walls_cmd WATERTIGHT), so it cannot see the chord error there.",
+  "fix": "Refine cut cells too: sub-cells on the continuation C0 with the crossing found per sub-edge, as in 3.2. At least, on a side whose neighbour is level 0 only because of a jump, keep the refined cell's own level and let the cut cell fan to those vertices."
+ },
+ {
+  "id": "math-7",
+  "severity": "low",
+  "title": "All sheets: the refined mesh's watertightness is untested, and sub-cells use other local cuts than their base neighbours",
+  "detail": "In LAND_SHEET_TF_VS uPass 2, a refined sub-cell evaluates its corners, including those snapped onto a base neighbour's corners, with cuts opposite its own centre zc. The base neighbour evaluated the same point with cuts opposite its own centre. Away from branch points the same combo is the same branch. Within about a cell of a branch point, the two centres see the branch point at very different angles, so the same combo index can be a different branch at a shared vertex. That gives a crack or a fin between sheets, which may be the unexplained log log z ribbon. The GPU watertight check (landscape_walls_cmd WATERTIGHT) reads only R.land, the principal surface, never R.sheets.",
+  "evidence": "Code: gl.js LAND_SHEET_TF_VS uPass 2 (zc = the sub-cell centre; corners not taken from uT1), compared with the principal path (LAND_RA_VS takes corners from uT1). AS-BUILT 'log log z ... not confirmed numerically or from other angles'. Not reproduced numerically here (time box).",
+  "fix": "Run the hole and curtain check on GLR.landRefine(true).sheets for √z, log z, log log z and the user's case near t = 0. Make a sub-cell's corner that lies on a base corner take the base pass's value for that combo, as the principal mesh does."
+ }
+]

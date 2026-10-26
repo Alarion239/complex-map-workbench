@@ -1,0 +1,20 @@
+[
+  {
+    "id": "verify-1",
+    "severity": "medium",
+    "related": "user-4",
+    "title": "On a desktop the countdown is still hard to see: only 1 px of Next's bar actually moves",
+    "detail": "The bar now has strong contrast against the button (6.1:1 light, 8.2:1 dark). But when a task is done, Next also gets the 'ready' ring (inset 2 px, var(--accent-ink)). That ring is the same colour as the bar and covers the bar's bottom 2 rows. So at 1440 the moving part is a 1 px line under a 2 px line that is already there. On a phone the bar is 4 px, so 2 px move. The ring itself shows that the task is done, but it does not show the 3 s running out.",
+    "evidence": "Headless Chrome, test/vf_cdp, the running dist. 1440 x 900, light, EN, basics/x, a pan in X, then 1.5 s. Next's bottom rows, counted up from the bottom edge: at 15 % of its width, base / white / white / white / base; at 85 %, base / white / white / base. Before the task, every row is base (10,106,135). Dark gives the same pattern with (6,18,22) on (82,183,211). Shots, 3x: notes/tour-r3/review-verify-shots/vf-bar-vf6a.png (1440 light) and vf-bar-vf6d.png (390 dark, 2 px visible).",
+    "fix": "Keep the bar clear of the ring. Either draw the ready state outside the button (outline: 2px solid var(--accent-ink); outline-offset: 2px) or leave out the ring's bottom edge while counting. Another way is to make the bar at least 4 px on the desktop and start it above the ring (bottom: 2px). Then re-measure: the filled and unfilled parts of the bar's rows should differ by at least 3 px in height."
+  },
+  {
+    "id": "verify-2",
+    "severity": "low",
+    "related": "user-7",
+    "title": "Landscape phone: there is still no visible way to end the tour (the portrait fix only)",
+    "detail": "The portrait row now has the 44 px x and the chevron. In landscape the strip ('head' in the header, or the 48 px 'row' under it) shows only the title with its chevron, the line and Next. End and Back are not shown and can only be reached in the Why panel. The chevron now shows that the title opens something, so this is smaller than user-7 was. But a user who wants out still has to guess that End is in there.",
+    "evidence": "844 x 390, touch, EN, light: basics/x and views/phase in 'head' mode; .ts-x and .ts-back are not displayed and Next is the only button. RU 844 x 390 'row' mode (basics, construct, deform, sound) is the same. Shot: notes/tour-r3/review-verify-shots/vf-land-views.png.",
+    "fix": "In 'row' mode there is room: the row is 844 px wide and its line takes 1 line. Add the 44 px x next to Next there. In 'head' mode, add the x if the header slot has 44 + 8 px to spare. If it does not, leave it in Why."
+  }
+]

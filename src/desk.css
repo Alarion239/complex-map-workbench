@@ -3,7 +3,7 @@
    F tile closes the chain, the right panel is the Inspector. build.py puts this file at the end of page.html's style.
    ====================================================================== */
 /* ---------- the chain: 188 px (36 head + 8 + 134 card + 10) ---------- */
-.stage { grid-template-rows: minmax(0, 1fr) 8px var(--chain-h, 188px); }
+.stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
 .pipe-head .compose { display: none; }
 .pipe-head #viewAllBtn:disabled { opacity: 0.5; }
 .pipeline { align-items: stretch; padding: 8px 12px 10px; scroll-snap-type: x proximity; }
@@ -184,6 +184,9 @@
   .layout { --rw: 0px; grid-template-columns: var(--lw) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 320px; row-gap: 8px; }
   .layout.hide-right { grid-template-rows: minmax(0, 1fr) 0; row-gap: 0; }
   .layout > .panel.left { grid-row: 1 / -1; }
+  /* (v16.4, r3 review fix pass) while the guided tour's strip holds the stage's first row (--tour-h), the left drawer
+     starts under it: a drawer a step opens never covers the strip. Without the tour --tour-h is unset: top 0 as before */
+  .layout:not(.hide-left) > .panel.left { top: var(--tour-h, 0px); }
   .layout > .stage { grid-row: 1; }
   .layout > .panel.right, .layout:not(.hide-right) > .panel.right {
     grid-column: 2; grid-row: 2; position: relative; z-index: auto; top: auto; bottom: auto; right: auto; width: auto;
@@ -203,6 +206,7 @@
 /* the phone keeps its stacked page until its own redesign: the Inspector is a disclosure after the chain */
 @media (max-width: 767px) {
   .stage { grid-template-rows: none; }
+  .stage > #tourSlot, .stage > .panes, .stage > #gutterRow, .stage > .pipe-wrap { grid-row: auto; }
   .card { flex: 0 0 min(180px, 56vw); width: min(180px, 56vw); max-width: none; }
   .card.region-card { flex-basis: min(160px, 50vw); width: min(160px, 50vw); }
   .ftile { flex: 0 0 88px; }

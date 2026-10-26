@@ -1,0 +1,56 @@
+{
+ "view": [
+  1440,
+  900,
+  false
+ ],
+ "sum": {
+  "prin base": {
+   "runsWithGap100": "2/4",
+   "longest": 899,
+   "gaps100": 3,
+   "gaps50": 7,
+   "firstMs": "1576,162,164,1171"
+  },
+  "prin r3": {
+   "runsWithGap100": "4/4",
+   "longest": 792,
+   "gaps100": 7,
+   "gaps50": 11,
+   "firstMs": "1157,160,168,1165"
+  },
+  "all base": {
+   "runsWithGap100": "3/4",
+   "longest": 292,
+   "gaps100": 3,
+   "gaps50": 10,
+   "firstMs": "554,274,489,592"
+  },
+  "all r3": {
+   "runsWithGap100": "4/4",
+   "longest": 416,
+   "gaps100": 11,
+   "gaps50": 14,
+   "firstMs": "798,484,826,869"
+  }
+ },
+ "runs": [
+  "base prin first 1576 longest 899 n100 2 n50 3 [295@899 1411@141] \\log(z^3+3925)\\sqrt{z^2-3926}",
+  "r3   prin first 1157 longest 792 n100 2 n50 4 [308@792 2058@164] \\log(z^3+3928)\\sqrt{z^2-3929}",
+  "r3   prin first 160 longest 102 n100 1 n50 1 [1061@102] \\sqrt{z^5+3931}\\cosh(z/4)",
+  "base prin first 162 longest 0 n100 0 n50 0 [] \\sqrt{z^5+3934}\\cosh(z/4)",
+  "base prin first 164 longest 0 n100 0 n50 0 [] \\log(z^4-3937z)\\sin(z/3)",
+  "r3   prin first 168 longest 142 n100 2 n50 3 [1098@140 3900@142] \\log(z^4-3940z)\\sin(z/3)",
+  "r3   prin first 1165 longest 730 n100 2 n50 3 [380@730 2064@213] \\sqrt{z^3-3943}\\tanh(z/2)",
+  "base prin first 1171 longest 533 n100 1 n50 4 [196@533] \\sqrt{z^3-3946}\\tanh(z/2)",
+  "base ALL  first 554 longest 292 n100 1 n50 2 [123@292] \\log(z^3+3949)\\sqrt{z^2-3950}",
+  "r3   ALL  first 798 longest 319 n100 3 n50 4 [251@179 484@287 1883@319] \\log(z^3+3952)\\sqrt{z^2-3953}",
+  "r3   ALL  first 484 longest 233 n100 2 n50 2 [229@123 1545@233] \\sqrt{z^5+3955}\\cosh(z/4)",
+  "base ALL  first 274 longest 0 n100 0 n50 1 [] \\sqrt{z^5+3958}\\cosh(z/4)",
+  "base ALL  first 489 longest 140 n100 1 n50 3 [276@140] \\log(z^4-3961z)\\sin(z/3)",
+  "r3   ALL  first 826 longest 416 n100 2 n50 4 [444@131 1944@416] \\log(z^4-3964z)\\sin(z/3)",
+  "r3   ALL  first 869 longest 372 n100 4 n50 4 [251@189 501@289 1968@372 3667@150] \\sqrt{z^3-3967}\\tanh(z/2)",
+  "base ALL  first 592 longest 252 n100 1 n50 4 [201@252] \\sqrt{z^3-3970}\\tanh(z/2)"
+ ],
+ "logs": []
+}

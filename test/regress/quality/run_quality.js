@@ -111,7 +111,7 @@ function chromePath() {
 }
 async function startChrome() {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-quality-'));
-  const ch = spawn(chromePath(), ['--headless=new', '--use-angle=metal', `--user-data-dir=${prof}`, '--remote-debugging-pipe',
+  const ch = spawn(chromePath(), ['--headless=new', '--use-angle=metal', `--user-data-dir=${prof}`, `--disk-cache-dir=${path.join(prof, 'cache')}`, '--remote-debugging-pipe',
     '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false', 'about:blank'],
   { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const wr = ch.stdio[3], rd = ch.stdio[4];

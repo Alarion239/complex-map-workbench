@@ -1,0 +1,130 @@
+{
+ "round": "landscape walls, review fixes (work/xvls), 2026-10-25",
+ "files_changed": [
+  "work/xvls/src/gl.js",
+  "work/xvls/src/glsl.js",
+  "work/xvls/src/funcs.js",
+  "work/xvls/test/t_landwalls.js",
+  "work/xvls/test/landscape_walls_cmd.js",
+  "work/xvls/test/regress/quality/run_quality.js (disk cache inside its temp profile only)"
+ ],
+ "untouched": "perf baselines, accepted.json, golden images; no new visible strings (make_ru_table.py --strict: 0 unresolved)",
+ "findings": [
+  {
+   "id": "pictures-1",
+   "severity": "high",
+   "status": "fixed (a small residual stall remains)",
+   "root_cause": "One edge program per chain with about 40 inlined chain evaluations (mapF and mapSheet at the ends, a 13-step and a 12-step loop the compiler unrolled), linked as one Metal library at its first use; the surface waited for it.",
+   "fix": "gl.js LAND_EDGE_VS: three programs by kind (S: chainSheetRange, H: chainSheetHom, 2: mapF), each with one chain call site in loops whose trip counts are uniforms; the far end's principal value read from the height pass. No edge pass at all for maps with no cut (math-3). While the edge program compiles, the surface is drawn at once by the former 0.3 H rule (cuts -1) and switches to the split mesh when it is ready.",
+   "evidence": "coldstart.out.json. Before (this build, fresh formulas): first surface after 10.2 s, 4.7 s, 1.9 s; main thread blocked 9.6 s, 4.3 s, 1.4 s. After, same formulas on base and on this build: first surface 0.15 to 1.04 s on this build against 0.68 to 1.03 s on base; longest main-thread gap base + 0.1 to 0.47 s.",
+   "residual": "The longest gap is still up to about 0.4 s over base on a formula's first Landscape. That is the extra edge program's own Metal compile at first use, plus the larger land shaders. The reviewer's 100 ms target is not met. Not measured on the Android phone."
+  },
+  {
+   "id": "pictures-2",
+   "severity": "medium",
+   "status": "partly fixed (interim; design 3.3 not built)",
+   "root_cause": "A wall steeper than a cell is one flat facet. Its fragments took F at their own z (far from the facet's height) and vertex normals from one-cell differences, so the walls pleated and their colour striped.",
+   "fix": "gl.js LAND_FS: on a facet more than half a pixel from the true height, the fragment shows the true surface at the facet's own height. It finds zs along the facet's slope within one cell where the true height equals the facet's (8 false-position steps on the chain), and takes the normal from the screen derivatives of zs and the height. Blended in from 0.5 to 1.5 px of error. Skipped on cut banks. Dropped where zs jumps between neighbouring pixels (at a pole, where every level line meets).",
+   "evidence": "after/sinsqrt-t0.2-im-sheets-{light,dark}.png: the user's walls are smooth, with no fluting and no colour stripes. after/tan-re-*.png: the main walls are smooth. GPU walls test (landscape_walls_cmd.out.json): orbiting tan Re at p95 17.6 to 18.2 ms, 60 fps, desktop and phone.",
+   "residual": "Near the poles of tan Re (the band where all level lines meet), the lookup falls back. There the tile lines are dense and slightly broken, and a little pleating is left. The facets are still one cell wide in geometry (silhouettes). Adaptive refinement (design 3.3) is the root fix and was not built in this time box."
+  },
+  {
+   "id": "pictures-3",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "Same mechanism as pictures-2. On a wall facet the contour lines are drawn from F at zs, the point at the facet's own height, so each line sits at its true height and runs straight across the wall. Where no such point exists within a cell, the lines fade by the error in pixels (1 to 3 px), no longer by a fixed world distance.",
+   "evidence": "after/sinsqrt-t0.2-im-sheets-light.png against the review crop: the wavy lines at heights 0 and -0.5 are now straight, level lines."
+  },
+  {
+   "id": "pictures-4",
+   "severity": "low",
+   "status": "partly fixed; open for the user's eye",
+   "fix": "On walls the lookup handles, the colour and tiles come from the true surface at that height, so tiles are not squeezed to grey there.",
+   "residual": "The large grey slabs of the user's case at t = 0.2 still read grey. They look like walls seen from their underside (LAND_FS's underside style keeps a quarter of the hue), visible where the n = 2 sheets of H_t end on cell boundaries mid-deformation (C8). Not changed. To show the user at t = 0.2, as the reviewer suggests."
+  },
+  {
+   "id": "pictures-5",
+   "severity": "low",
+   "status": "not fixed (deferred)",
+   "reason": "A cell that holds a branch point of a sheet (log log z near z = 1) has its local cut inside it. Removing the fin needs the monodromy test and refinement of design 3.2 and 3.3 in the sheets' TF pass. At most one cell per branch point is affected, and the tests count those cells apart."
+  },
+  {
+   "id": "pictures-6",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Phone pictures (390 x 844, Android emulation), light and dark: the user's case at rest at t = 0.2 and mid-play, and the box clip (z^i, All sheets, Im).",
+   "evidence": "after/phone-sinsqrt-t0.2-im-sheets-{light,dark}.png, after/phone-sinsqrt-playing-{light,dark}.png, after/phone-z-pow-i-im-sheets-{light,dark}.png"
+  },
+  {
+   "id": "pictures-7",
+   "severity": "info",
+   "status": "no action"
+  },
+  {
+   "id": "math-1",
+   "severity": "high",
+   "status": "fixed",
+   "root_cause": "The path of z^n, z^(1 + (n - 1)t), and the natural power path of (z - c)^n have their own principal cut for 0 < t < 1. chainSheetHom ran them on that same fixed cut, so the continuation always equalled the principal value and no edge was ever a jump.",
+   "fix": "glsl.js: these paths get a local-cut form (_hc: the cut opposite the input at the cell centre, sheet 0), used in chainSheetHom. funcs.js sheetMapEval mirrors it on the CPU (localCutHom). GLChain.cutKinds marks such a path 'sheet', so the landscape uses the exact value test. Paths with cuts that have no local form (inside a recognised formula, Joukowski's, inverse-trig zooms, a formula's path through its branch points) now go to bisection (mode 2) instead of mode 1 with a missed cut.",
+   "evidence": "t_landwalls (N = 96): z^2 at t = 0.25 and 0.5, z^-2 at t = 0.2, z^3 at t = 0.3, (z-1)^3 at t = 0.4: 0 curtains, cut found (89 to 107 crossings), 0 holes. GPU (landscape_walls_cmd, N = 256, desktop and phone, light and dark): z2-t0.5-im 231 to 243 jumps, z2-t0.25-im 232 to 243, zm2-t0.2-im 234 to 245, all with 0 curtains and cut mode 1. t_sheets_deform: 33105 checks, 0 failed. glsl-test: 0 failures in 6.1 M comparisons (the sheet and sheetHom rows included)."
+  },
+  {
+   "id": "math-2",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "No edge pass for maps with no cut (math-3). Mode 1 reads the far end from the height pass: 1 evaluation on a flat edge, 3 on a rising edge (far end and midpoint), bisection only on crossed edges. Mode 2 stops after 3 halvings when the step has shrunk 5 times.",
+   "evidence": "review-fix-perf-play.out.json (desktop 1440, playing, alternating base and this build). meshN 1920 (N = 512): sin sqrt z Im 18.5 and 18.2 ms p95 (base 18.0 and 17.8); arcsin then sqrt Im 18.3 ms at steady state (base 18.2); tan Re 18.2 and 17.8 (base 18.3 and 17.7), all at 60 fps. Before this round's fix the reviewer measured 21.1, 21.0 and 20.6 ms. meshN 240: equal to base. Exception: the first arcsin then sqrt run dropped to 42.6 fps, with a single 439 ms frame. That was the mode-2 edge program compiling while the deformation played, the residual of pictures-1.",
+   "residual": "Not measured on the Android phone."
+  },
+  {
+   "id": "math-3",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "GLChain.build exports cutKinds per live step (its map and its path: none, sheet, other, deriv), from each step's own GLSL and its parameters. gl.js cutModeOf reads the steps the map applies, counting a path only while 0 < t < 1. Mode 2 rejects a jump where |F| > 1000 mu on both sides of the bracket (a pole on the edge).",
+   "evidence": "t_landwalls cut-mode table: tan 0, 1/z 0, z^2 at rest 0, z^2/(cosh z + 3) 0, sqrt 1, z^2 at t = 0.5 1, Joukowski then sqrt at rest 1, Joukowski at t = 0.5 2, arcsin 2, user's case 1. GPU: tan, 1/z, 1/(z^2+1), Gamma-like report cut mode 0 and 0 jumps.",
+   "also_found": "A root on branch k != 0 or with its cut not at 180 degrees, and log or a power with k != 0, put every edge of mode 1 into 'jump': sheet 0 at a cell's own centre is not F there. Checked on the CPU: sqrt with k = 1 differs at 1600 of 1600 sample points. These now use mode 2. GPU sqrt-k1-im: 255 jumps, 0 curtains, 0 walls cut."
+  },
+  {
+   "id": "math-4",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "LAND_SHEET_VS: when both corners lie beyond the plane on its side and one is more than 2 Hb away, the crossing is interpolated in 1/h, which is exact at a simple pole. Otherwise it is linear, as before. Both triangles of an edge still compute it from the same end.",
+   "evidence": "t_landwalls: at a simple pole the crossing is exact to 3e-16 of an edge, where linear interpolation was off by up to 0.83 of an edge. 8000 random triangles: 0 violations, shared diagonal points identical."
+  },
+  {
+   "id": "math-5",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "landHeights keeps one pane entry and one stage-card (64) entry. The former pane size's five textures are freed when the mesh setting changes."
+  },
+  {
+   "id": "math-6",
+   "severity": "low",
+   "status": "fixed for (a) and (c); (b) remains",
+   "fix": "(c) The far-end value test runs on every edge, with no height prefilter before it. (a) An edge that rises more than tol is also tested at its midpoint, which catches a cut crossed twice; that edge is then bisected on [0, 1/2]. (b) Two different cuts on one edge: still one crossing per edge (the first). This is rare (the centre cell of (z^2-1)^(1/3) at even N) and documented.",
+   "evidence": "t_landwalls mirrors the rule: every case 0 curtains, 0 holes. GPU walls test: 0 curtains in all 48 rows."
+  },
+  {
+   "id": "math-7",
+   "severity": "low",
+   "status": "rejected, with evidence",
+   "reason": "The sliver between the chord and a curved cut is the cut's sagitta over one cell, kappa L^2 / 8. The cuts of roots, log and z^n's path are straight (kappa = 0): sqrt, log, the user's case, and log log z on (0, 1]. For a curved image cut with kappa near 1, at N = 256 in the default box (L about 0.06), it is about 4e-4 units, or about 0.03 px. It reaches a pixel only within a few cells of a branch point, where those cells are counted apart. The fix would put the sheet code in the principal land shader (a second chain in that program: the cost pictures-1 just removed)."
+  },
+  {
+   "id": "math-8",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "FLOOR_FS: a corner below the block (clipped away) adds no contact."
+  }
+ ],
+ "tests": {
+  "node": "35 of 35 test/t_*.js pass, among them t_landwalls (power paths, cut modes, the 1/h clip) and t_sheets_deform (33105 checks).",
+  "glsl": "glsl-test: 0 failures in 6.13 M comparisons (916 sheet rows, sheetHom included). glsl-test-adv: 304 failures, identical by chain on the pre-fix sources (rational (z-1)^3/(z-1)^2, (e^z-1)/z, (1-cos z)/z^2, twelve#0-2: float32 near removable points). Pre-existing, not from this round.",
+  "gpu_walls": "landscape_walls_cmd.out.json: 12 cases x (desktop, phone) x (light, dark). 0 curtains, 0 dropped, every cut found, cut modes as intended. 1 flag: z^i Im on the phone, 1 edge 3 cells from 0 (the same flag as before this round). It is a real jump of Im z^i smaller than the oracle's 0.02 H threshold (the GPU's threshold is 0.002 H), where sin(ln r) passes 0. BUDGET60: every row at 59.5 fps or more, p95 17.4 to 19.0 ms.",
+  "cold_start": "coldstart.out.json",
+  "perf_play": "review-fix-perf-play.out.json",
+  "quality": "test/regress/quality/run.sh --base-url http://127.0.0.1:9805: 81 runs, 0 failed, 28 improved, 35 unchanged, 18 NEW (not gated); targets 259 met, 0 not met. RESULT: PASS. Baseline and goldens untouched.",
+  "pictures": "after/ refreshed: 76 at rest (desktop, light and dark), 6 in motion, 6 phone (phone-*.png), filmstrip-{light,dark}.png rebuilt (top row before, bottom row after).",
+  "not_run": "deform_range_cmd, deform_nat_cmd, mv_views_cmd, export_cmd, v15_desktop_cmd, v15_phone_cmd, glsl_inverse, the perf suite (perf/run.sh); Android phone hardware."
+ }
+}

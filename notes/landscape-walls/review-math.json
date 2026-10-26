@@ -1,0 +1,66 @@
+[
+  {
+    "id": "math-1",
+    "severity": "high",
+    "title": "Curtains during the deformation of z^n (and other power paths): those cuts are never found",
+    "detail": "pown is single-valued, so it is not a sheet piece (funcs.js stepSheets). Its path, cpowr(z, 1 + (n-1)t, CX_PI, 0) (glsl.js pown h), has a real principal cut on the negative real axis for 0 < t < 1. In the edge pass (uCutMode 1), chainSheetHom applies the same P_h with the same fixed cut as mapF. So the continuation always equals the principal value, no edge is ever a jump, and the triangle is drawn across the cut. The old 0.3 H rule at least dropped those triangles, so this is a regression on exactly the user's point: a curtain across a real discontinuity. The same applies to the natural power path (funcs.js:320, (z-c)^(1+(n-1)t) with a fixed PI cut) and to every other P_h with a principal cut that is not a sheet piece.",
+    "evidence": "GPU (xvls, landMesh(256), z^2, Im, t = 0.5, cuts = 1): 127 grid edges cross the negative real axis, 94 of them step more than 0.3 H (up to 1.34 H), and 0 are marked as a jump. Screenshot: notes/landscape-walls/review-math-pown-t05.png. CPU twin (review-math-twin/run1.js, oracle as in t_landwalls): z^2 at t = 0.5: 260 curtain edges up to 1.55 H. z^2 at t = 0.25: 262 up to 1.45 H. z^-2 at t = 0.2: 261 up to 1.56 H. z^3 at t = 0.5: 0 (the exponent is 2 there). Re heights: 0. The shipped tests only deform root + sin, so they cannot see this.",
+    "fix": "Make each path that has a cut a sheet piece of chainSheetHom (the cut opposite its input at zc, sheet 0), as the root and log paths already are. The value test then finds the cut exactly. At the least, add pown / power-path deformations at 0 < t < 1 to t_landwalls and landscape_walls_cmd."
+  },
+  {
+    "id": "math-2",
+    "severity": "medium",
+    "title": "BUDGET60 fails at the Max mesh (N = 512) while the deformation plays; the snapshot passes under the same load",
+    "detail": "The edge pass is 3 transform-feedback passes of N^2 points. Each point evaluates the chain at least twice (mapSheet + mapF), more on jump edges. In mode 2 each edge with any height step is bisected 12 times. The pass reruns on every key change, so it runs every frame while the deformation plays (and while parameters are dragged). The cost goes with N^2, and the AS-BUILT measured only N = 256.",
+    "evidence": "Paired run, same machine and load, desktop 1440 x 900, playing, alternating snap / xvls / snap / xvls (notes/landscape-walls/review-math-perf.out.json). meshN 1920 (N = 512): sin sqrt z Im: snap p95 17.8 / 17.6 ms at 60 fps; xvls 21.1 ms at 55.4 fps, then 17.7 ms. arcsin then sqrt, Im (mode 2): snap 18.2 / 18.1 ms at 60 fps; xvls 21.0 ms at 53.7 fps and 19.6 ms at 58.2 fps (max 36.7 ms). tan z Re, played (continuous, still mode 1): snap 17.5 / 17.9 ms; xvls 20.6 ms at 57.3 fps and 20.4 ms at 58.5 fps (max 42.5 ms). meshN 240 (N = 256): all six pairs equal, about 17.7 ms at 60 fps. CPU replay of mode 2 at N = 256: 88k to 135k of the 197k edges are bisected (12 extra evaluations each).",
+    "fix": "Run the edge pass only where it can matter. Skip it when the chain has no cut (see math-3). In mode 1, keep the cheap far-end test and bisect only flagged edges, which it already does; also skip edges whose cell lies away from any cut by bounding the arguments of the multivalued pieces. Run mode 2 at a coarse level first, or only on edges whose step stays large after 3 bisections. Or, while playing, compute edges at N/2 and refine on rest. Re-measure at meshN 480 and 1920, and on the phone."
+  },
+  {
+    "id": "math-3",
+    "severity": "medium",
+    "title": "The cut mode is read from source text: mode 0 never happens, and path code puts continuous chains into the heuristic mode 2",
+    "detail": "(a) hasSheets tests /chainSheetRange/ in info.source. glsl.js:1131 emits chainSheetRange for every chain, including chains with no multivalued step. So cutModeOf never returns 0, and tan z, polynomials and Moebius maps all pay for the edge pass (math-2). (b) NONSHEET_CUT is matched against the whole source, including the deformation paths P_h. The forward Joukowski step's natural path uses cx_atanhS (glsl.js:482), so a chain with a forward Joukowski step is in mode 2 even at rest, where the map is meromorphic. The chain then loses the exact value test for every other cut in it (for example a root after it) and gets the heuristic: jumps under 0.02 H are bridged, and jumps small next to the slope over 1/64 of an edge fail the 0.6 ratio. (c) Mode 2 marks a pole that lies on an edge as a cut. With an even N the origin is the centre of a cell and lies on that cell's diagonal, so a pole at 0 in the default symmetric view gets a slit with the cut-colour rim.",
+    "evidence": "landscape_walls_cmd.out.json: tan-re and recip-re report cutMode 1. CPU replay of mode 2 (review-math-twin/run2.js), Joukowski Re, box +/-2, N = 256: 1 spurious jump of 2 H on the diagonal at (-0.0078, -0.0078), the cell that holds the pole. arcsin Im: all 256 real cut edges found, 0 spurious.",
+    "fix": "Decide the mode from the built steps and the map, not from source text. Mode 0 when the applied steps have no multivalued piece (and, for a deformation, no path with a cut at this t). Look at P_h only for a deformation map with 0 < t < 1, and at the step that is deforming. In mode 2, reject a 'jump' whose bracket heights both approach the same box bound (a pole), or test 1/F for a zero at the bracket."
+  },
+  {
+    "id": "math-4",
+    "severity": "medium",
+    "title": "The box clip is exact only for the linear facet: near poles the edge at 1.25 H is a cell-scale staircase",
+    "detail": "LAND_SHEET_VS places the crossing at t = (Hb - a)/(b - a) from the corner heights, and the TF keeps those up to 10^4 H (uHClip). Near a pole, the far corner's height is many times Hb, so t hugs the near corner wherever the true crossing is. Example: a simple pole along the edge with h(0) = 0.5 Hb and h(1) = 1000 Hb. The true crossing is at s = 0.5, the clip puts it at 5e-4: half a cell off. The error changes from cell to cell, so the box edge is jagged. This is what the user asked to remove. It matters wherever the level set |h| = 1.25 H comes within a few cells of a pole or a fast-growing point. For Re/Im of a simple pole the level curves pass through the pole, so every pole of a sheet chain in linear heights is affected.",
+    "evidence": "Code: LAND_SHEET_VS clip loop, the t = clamp((s*Hb - a.z)/(b.z - a.z)) line. HEIGHT: lim = uHClip = 1e4 for modes 4 and 5. Not measured on the GPU (time box).",
+    "fix": "Interpolate the crossing in 1/h when max(|a|, |b|) > 2 Hb (exact to first order at a simple pole): t = (1/Hb - 1/a)/(1/b - 1/a), with the same orientation rule. Better, find the true crossing on the sheet in the TF: a few secant steps of heightW(mapSheet(zc, ., combo)) along each cell edge, stored per edge, so both triangles share it."
+  },
+  {
+    "id": "math-5",
+    "severity": "low",
+    "title": "Per-N landscape caches are never freed: up to about 38 MB of float textures",
+    "detail": "lands keeps one entry per grid size (64, 256, 384, 512) until the context is lost. Each entry holds 5 RGBA32F N^2 textures (heights, normals, 3 edge textures) = 80 N^2 bytes: 21 MB at 512, 11.8 MB at 384, 5.2 MB at 256, 0.3 MB at 64. Before, there was one entry with 2 textures (8.4 MB at most). Changing the mesh setting keeps every size it has been at. That is extra memory pressure on Android Chrome.",
+    "evidence": "gl.js landHeights: lands.set(N, land); lands.clear() appears only in the context-restore path. app.js:3581: N is 256, 384 or 512, and stage cards use 64.",
+    "fix": "Keep at most the pane's current N plus 64. Delete the textures of any other N when a new entry is made."
+  },
+  {
+    "id": "math-6",
+    "severity": "low",
+    "title": "Mode 1 tests only the far end and finds one crossing per edge",
+    "detail": "(a) An edge that crosses the cut twice compares equal at z1 and is drawn whole. This happens where an image cut through earlier steps turns back within a cell, near a critical point of the inner map. (b) Where two cuts cross one edge, bisection splits at one of them and bridges the other. One case is the '+' of (z^2-1)^(1/3) at 0, which lies on the centre cell's diagonal for even N. (c) The endpoint-height prefilter (|b.z - a.z| > 2e-3 H) runs before the value test. That contradicts the comment that values are compared because heights can agree: a jump that a steep slope cancels exactly within one edge is skipped. A replay of 20 cases found no miss from (c), so it is theoretical.",
+    "evidence": "CPU replay (review-math-twin/run1.js): with and without the prefilter, the jumps are identical on sqrt, log, z^i, z^-1/2, sqrt z / z, (z^2-1)^(1/3) Im and sin sqrt z at t = 0.2 / 0.5 / 0.8 (panned box, N = 256). (a) and (b) are from the code: LAND_EDGE_VS takes a single sameBranch at z1, and the bisection keeps one bracket.",
+    "fix": "Also compare at the edge midpoint (one more evaluation, only on steep edges) to catch a double crossing. Drop the height prefilter in mode 1, or run it after the value test. Count edges with two crossings in the tests."
+  },
+  {
+    "id": "math-7",
+    "severity": "low",
+    "title": "The bank between the chord and a curved cut is shaded from the other branch",
+    "detail": "LAND_VS splits along the straight chord between the two crossings, but LAND_FS evaluates principal F at the interpolated vZ. Where the true cut curves inside a cell, a sliver of each bank lies across the cut. There the colour (arg F) comes from the other branch, and the contour fade (la) switches off. The width is O(curvature * cell^2), which is sub-pixel at N >= 256 except near branch points and in the images of cuts through earlier steps.",
+    "evidence": "Code: LAND_FS landW(vZ) = mapF(vZ) on the principal surface; the chord comes from the two edge crossings only.",
+    "fix": "Pass the bank's side to the fragment stage (a flat sign and the near corner's z), and evaluate F there by continuation from that corner (mapSheet(cornerZ, vZ, 0)). The colour is then the bank's own up to the chord."
+  },
+  {
+    "id": "math-8",
+    "severity": "low",
+    "title": "Floor contact counts clipped-away heights as touching the block bottom",
+    "detail": "FLOOR_FS uses max(t.x, -1.25 H). A sheet that runs below the block, and has been clipped away, gives the strongest contact at the bottom, so the floor darkens under a hole. The comment says 'no contact from there'.",
+    "evidence": "Code: FLOOR_FS, the exp(-(max(t.x, -1.25 * uH) - uFloorZ) / 0.12) line.",
+    "fix": "Skip corners with t.x < -1.25 H (or weight them 0), matching the comment."
+  }
+]

@@ -1053,6 +1053,8 @@
       if (G.A === 0) push(Object.assign(linePiece(geomOf(G).p, add(geomOf(G).p, geomOf(G).d), -Infinity, Infinity, 0) || {}, { G }));
       else { const g = geomOf(G); push(circlePiece(g.c, g.r, 0, 0, TAU, G)); }
       if (out[0] && s.def && (s.def.op === 'circle3' || s.def.op === 'perp' || (s.def.op === 'touch' && !(s.def.args[2] && s.def.args[2].inf)))) out[0].c3 = true;
+      // [v16.4 segments] Inside C only: the arc (its carrier's kind, G and c3 kept), t from 0 to 1 between its ends
+      if (out[0] && s._seg && s.def && s.def.op === 'perp' && s.def.seg) Object.assign(out[0], { seg: s._seg, closed: false, period: 0 });
       return out.filter((p) => p && p.kind);
     }
     switch (s.kind) {
@@ -1121,6 +1123,13 @@
   // chord that holds m [math-7]
   function onPiece(pc, z) {
     if (!pc || pc.kind === 'none') return false;
+    if (pc.seg) {
+      // [v16.4 segments SPEC 2.4] the ends (bitwise, or within 1e-9 of the arc's size), else by u along the arc
+      const q = pc.seg;
+      if (z === INF) return q.ends.some(isInf) || (pc.G.A === 0 && segInU(q, 0.5));
+      for (const e of q.ends) if (isXY(e) && (eqP(z, e) || abs(sub(z, e)) <= 1e-9 * q.L)) return true;
+      return segInU(q, segU(q.H, q.k, z));
+    }
     if (z === INF) return pc.kind === 'line' && (pc.hi === Infinity || pc.lo === -Infinity);
     if (pc.arc3 && pc.om !== 0) {
       const [a, , b] = pc.arc3;
@@ -1153,6 +1162,11 @@
     if (pa.kind === 'traced' || pb.kind === 'traced') return [];
     const tp = touchAt(pa, pb);
     if (tp != null) return lineByKind(pa) && lineByKind(pb) ? [{ z: tp, index: 'finite' }] : [{ z: tp, index: 0 }, { z: tp, index: 1 }];
+    const sa = segAt(pa, pb);
+    if (sa) return sa;
+    // (review math-5) two hyperbolic lines of one C that share an end are limiting parallels: their carriers touch only
+    // there, at an ideal point, which is no point of the plane, so neither index meets
+    if (segParallel(pa, pb)) return lineByKind(pa) && lineByKind(pb) ? [{ z: null, index: 'finite' }] : [{ z: null, index: 0 }, { z: null, index: 1 }];
     if (lineByKind(pa) && lineByKind(pb)) {
       const m = meets0(pa.G, pb.G);
       return [{ z: m[0], index: 'finite' }];
@@ -1274,6 +1288,8 @@
   function glide(pc, t, pts3) {
     if (!pc || !Number.isFinite(t) || pc.kind === 'none') return null;
     if (pc.kind === 'traced') return null;
+    // [v16.4 segments] the arc: its ends bitwise at t <= 0 and t >= 1, else K's glider map at u0 + t D
+    if (pc.seg) { const q = pc.seg; return t <= 0 ? cpz(q.ends[0]) : t >= 1 ? cpz(q.ends[1]) : segAtU(q, q.u0 + t * q.D); }
     if (pts3 && pts3.mr) {
       const u = (((t % 1) + 1) % 1), H = reanchorAt(pc.G, pts3.mr);
       return Math.abs(u - 0.5) < 1e-15 ? mR(H, Infinity) : mR(H, pts3.sg * pts3.s * Math.tan(Math.PI * u));
@@ -1298,7 +1314,7 @@
   }
   function tRange(pc) {
     if (!pc || pc.kind === 'none') return [0, 0];
-    if (pc.arc3) return [0, 1];
+    if (pc.seg || pc.arc3) return [0, 1];
     if (pc.kind === 'line') return pc.poly ? [0, pc.poly.closed ? Infinity : pc.poly.pts.length - 1] : [pc.lo, pc.hi];
     if (pc.kind === 'circle') return pc.closed ? [-Infinity, Infinity] : [0, 1];
     return [0, 0];
@@ -1319,6 +1335,14 @@
       if (!best) return null;
       const r = newton1(best, bc && typeof bc.g === 'function' ? bc.g : null, bh);     // [math-11] onto the level set
       return { seed: r, z: r };
+    }
+    if (pc.seg) {
+      // [v16.4 segments] the nearest point of the carrier, by its u along the arc; off the arc, the nearer end (on the sphere)
+      // (infinity, review math-2: u = 1/2; an infinite end is that end, else its t on the arc, else the nearer end)
+      const q = pc.seg, w = isInf(z) ? INF : projectForm(pc.G, z), v = isInf(w) ? span1(q.u0, 0.5) : isXY(w) ? span1(q.u0, segU(q.H, q.k, w)) : NaN;
+      const ie = isInf(z) ? q.ends.findIndex(isInf) : -1;
+      const t = ie >= 0 ? ie : v <= q.D ? v / q.D : v >= 1 - 1e-12 ? 0 : (chordal(z, q.ends[0]) <= chordal(z, q.ends[1]) ? 0 : 1);
+      return { t, z: glide(pc, t) };
     }
     if (pts3 && pts3.mr) {
       // tau of the nearest point w: w - o = i B tau / (1 - i A tau / 2), so tau = (w - o) / (i (B + A (w - o) / 2))
@@ -1374,7 +1398,7 @@
       const u = sub(z, pc.G.o), f = fOf(pc.G, z), g = 2 * Math.hypot(pc.G.A * u[0] + pc.G.B[0], pc.G.A * u[1] + pc.G.B[1]);
       return Math.abs(f) / (g / 2 + 1);
     }
-    if (pc.kind === 'line' && !pc.arc3) {
+    if (pc.kind === 'line' && !pc.arc3 && !pc.seg) {
       const d = [pc.b[0] - pc.a[0], pc.b[1] - pc.a[1]], L = d[0] * d[0] + d[1] * d[1];
       let t = ((z[0] - pc.a[0]) * d[0] + (z[1] - pc.a[1]) * d[1]) / L;
       t = Math.max(pc.lo, Math.min(pc.hi, t));
@@ -1671,6 +1695,7 @@
         return res;
       }
       if (op === 'perp') {
+        delete s._seg;
         const cr = args[0];
         if (!isCurveRef(cr)) return fail(U('argUndef', { x: null }));
         const e = ctx.idx.get(cr.s);
@@ -1693,8 +1718,19 @@
         const fin = [P, Q].filter((z) => !isInf(z));
         if (fin.length === 2) { G.e = abs(sub(fin[1], fin[0])); withPts(G, fin); }
         if (G.o[0] === 0 && G.o[1] === 0) G.thru0 = true;
+        // [v16.4 segments SPEC 2] Inside C only: the arc of K on the side seg of Gc, its ends K ∩ C
+        if ((def.seg === 1 || def.seg === -1) && def.fill !== 'in') {
+          const sd = segOf(G, pc.G, Gc, def.seg, P, Q, !!def.flip);
+          if (sd.undef) { delete s._seg; return fail(U(sd.undef)); }
+          G.sg = { G: { A: pc.G.A, B: pc.G.B.slice(), C: pc.G.C, o: pc.G.o.slice() }, ends: sd.m };
+          s._g = G; s._seg = sd;
+          const rr = setKind(s, sd.kind, sd.fields);
+          res.ch = true; res.kindChanged = rr.kindChanged;
+          return res;
+        }
+        delete s._seg;
         const ff = fieldsOfForm(G, def.fill === 'in');
-        const rr = setKind(s, ff.kind, ff.f);
+        const rr = setKind(s, ff.kind, Object.assign(ff.f, { m: undefined }));
         s._g = G;
         res.ch = true; res.kindChanged = rr.kindChanged;
         return res;
@@ -1830,6 +1866,208 @@
     const du = [p[0] - G.o[0], p[1] - G.o[1]];
     const out = Object.assign({}, G, { B: [G.B[0] + G.A * du[0], G.B[1] + G.A * du[1]], C: 0, o: p.slice() });
     return out;
+  }
+
+  // ---------------------------------------------------------------- Inside C only (notes/orthogonal-circle/segments/SPEC.md)
+  // A perpendicular circle K with def.seg = 1 | -1 is the arc of K where seg f_Gc < 0 (Gc: C's piece form, the flip of a
+  // constructed C undone), its ends K ∩ C. Runtime only: s._seg = {G, H, k, side, Gc, u0, D, ends: [start, end], m: [the
+  // meets in Intersect's order K, C], L, kind, fields}; K's glider map z(u) = mR(H, k tan(pi u)) (H: K anchored at P, or Q
+  // when P is infinity; k = sg |PQ|, as pts3In) runs from ends[0] (u0) to ends[1] (u0 + D)
+  // the u of a point w of K, in [0, 1) (infinity: 1/2)
+  function segU(H, k, w) {
+    if (isInf(w)) return 0.5;
+    const v = sub(w, H.o), den = [H.B[0] + H.A * v[0] / 2, H.B[1] + H.A * v[1] / 2], tau = div(v, [-den[1], den[0]])[0];
+    let t = Math.atan(tau / k) / Math.PI;
+    if (!Number.isFinite(t)) t = 0.5;
+    return ((t % 1) + 1) % 1;
+  }
+  function segAtU(q, u) { u = ((u % 1) + 1) % 1; return Math.abs(u - 0.5) < 1e-15 ? mR(q.H, Infinity) : mR(q.H, q.k * Math.tan(Math.PI * u)); }
+  const span1 = (a, b) => ((((b - a) % 1) + 1) % 1);
+  const cpz = (z) => (isInf(z) ? INF : z.slice());
+  // on the arc, by its u (the ends with a margin of 1e-12)
+  const segInU = (q, u) => { const v = span1(q.u0, u); return v <= q.D + 1e-12 || v >= 1 - 1e-12; };
+  // the chordal distance on the Riemann sphere (infinity included)
+  function chordal(a, b) {
+    const w = (z) => (isInf(z) ? 0 : 1 / Math.sqrt(1 + z[0] * z[0] + z[1] * z[1]));
+    if (isInf(a) && isInf(b)) return 0;
+    if (isInf(a) || isInf(b)) return 2 * w(isInf(a) ? b : a);
+    return 2 * abs(sub(a, b)) * w(a) * w(b);
+  }
+  // segOf(G, GcP, Gc, side, P, Q, flip): K's form G, C's piece form GcP (the meets: Intersect's), Gc (the side)
+  function segOf(G, GcP, Gc, side, P, Q, flip) {
+    const m = meets(G, GcP);
+    if (!m || m[0] == null || m[1] == null) return { undef: 'nomeet' };
+    const fin = [P, Q].filter((z) => !isInf(z));
+    if (!fin.length) return { undef: 'lineInf' };
+    const k = (flip ? -1 : 1) * (fin.length === 2 ? abs(sub(fin[1], fin[0])) : 1);
+    const q = { G, H: reanchorAt(G, fin[0]), k, side, Gc };
+    const u = m.map((z) => segU(q.H, k, z));
+    // the arc u0 -> u1 (u increasing) whose middle (its quarter when the middle is infinity) is on the side
+    const sideOk = (a, b) => { let z = segAtU(q, a + span1(a, b) / 2); if (!isXY(z)) z = segAtU(q, a + span1(a, b) / 4); return isXY(z) && fOf(Gc, z) * side < 0; };
+    const i0 = sideOk(u[0], u[1]) ? 0 : 1;
+    q.u0 = u[i0]; q.D = span1(u[i0], u[1 - i0]);
+    if (!(q.D > 0)) return { undef: 'nomeet' };
+    q.ends = [cpz(m[i0]), cpz(m[1 - i0])]; q.m = [cpz(m[0]), cpz(m[1])];
+    let mid = segAtU(q, q.u0 + q.D / 2);
+    if (!isXY(mid)) mid = segAtU(q, q.u0 + q.D / 4);
+    const fe = q.ends.filter(isXY);
+    q.L = Math.max(...fe.map((e) => abs(sub(e, mid))), 1e-300);
+    // the shape's fields, for code that knows only kinds (hit tests, Preimage packing, v16.2): an arc a, m, b, or a ray
+    // from the finite end when the other is infinity (C and K both lines)
+    if (fe.length === 2) { q.kind = 'arc'; q.fields = { a: q.ends[0].slice(), m: mid.slice(), b: q.ends[1].slice(), c: undefined, r: undefined, complement: undefined }; }
+    else { q.kind = 'ray'; q.fields = { a: fe[0].slice(), b: mid.slice(), m: undefined, c: undefined, r: undefined, complement: undefined }; }
+    return q;
+  }
+  // the form a perpendicular circle's side is measured against: C's piece form, a constructed C's flip undone
+  const gcOf = (C, pc) => (pc && pc.G ? (C && C.def && C.def.flip && FLIPPED.includes(C.def.op) ? flipG(pc.G) : pc.G) : null);
+  // the side drawn when the switch is turned on (SPEC 2.2): C drawn as a region, its region; a circle, its disc; a line,
+  // P's side (Q's when P is on C or infinity; else above C, or left of it when C is steeper than 45 degrees)
+  function segSideOf(C, pc, P, Q) {
+    const Gc = gcOf(C, pc);
+    if (!Gc) return 1;
+    if (C && (C.kind === 'disc' || C.kind === 'halfplane')) {
+      const R = C._g || formOfFields(C);
+      const lam = R ? (R.A !== 0 || Gc.A !== 0 ? R.A * Gc.A : dot(R.B, Gc.B)) : 0;
+      if (lam) return lam > 0 ? 1 : -1;
+    }
+    if (Gc.A !== 0) return Gc.A > 0 ? 1 : -1;
+    for (const z of [P, Q]) if (isXY(z) && !onCarrier(Gc, z, null)) return fOf(Gc, z) < 0 ? 1 : -1;
+    const g = geomOf(Gc), steep = Math.abs(g.d[1]) > Math.abs(g.d[0]);
+    return fOf(Gc, add(g.p, steep ? [-1, 0] : [0, 1])) < 0 ? 1 : -1;
+  }
+  // the two sides of a perpendicular circle's C, by their words: {line, steep, Gc, sides: [[word, seg], [word, seg]],
+  // seg (now: 0, 1, -1), dflt (segSideOf)} | null. A circle: in (bounded), out; a line: above, below (left, right when
+  // steeper than 45 degrees)
+  function segSides(state, id, env) {
+    const ctx = makeCtx(state, env, null), e = ctx.idx.get(id), s = e && e.s, d = s && s.def;
+    if (!d || d.op !== 'perp' || !isCurveRef(d.args[0])) return null;
+    const ce = ctx.idx.get(d.args[0].s), C = ce && ce.s, pc = C && ctx.piecesOf(C)[d.args[0].part];
+    if (!pc || (pc.kind !== 'line' && pc.kind !== 'circle')) return null;
+    const Gc = gcOf(C, pc);
+    if (!Gc) return null;
+    const R = d.args.slice(1).map((r) => resolveIn(ctx, r, e.plane)), pt = (r) => (r && !r.undef && !r.inf ? r.z : null);
+    const out = { line: Gc.A === 0, steep: false, Gc, seg: d.seg === 1 || d.seg === -1 ? d.seg : 0, dflt: segSideOf(C, pc, pt(R[0]), pt(R[1])) };
+    if (Gc.A !== 0) out.sides = [['in', Gc.A > 0 ? 1 : -1], ['out', Gc.A > 0 ? -1 : 1]];
+    else {
+      const g = geomOf(Gc);
+      out.steep = Math.abs(g.d[1]) > Math.abs(g.d[0]);
+      const s1 = fOf(Gc, add(g.p, out.steep ? [-1, 0] : [0, 1])) < 0 ? 1 : -1;
+      out.sides = out.steep ? [['left', s1], ['right', -s1]] : [['above', s1], ['below', -s1]];
+    }
+    out.word = out.seg ? out.sides.find((x) => x[1] === out.seg)[0] : null;
+    return out;
+  }
+  // z's mirror image in the curve of the form G, on the sphere: a circle swaps its centre and infinity; a line keeps
+  // infinity (review math-2)
+  function mirrorIn(G, z) {
+    if (isInf(z)) return G.A === 0 ? INF : geomOf(G).c.slice();
+    if (!isXY(z)) return null;
+    if (G.A === 0) { const f = fOf(G, z), b2 = dot(G.B, G.B); return b2 > 0 ? sub(z, scl(G.B, f / b2)) : null; }
+    const g = geomOf(G), v = sub(z, g.c), d2 = dot(v, v);
+    return d2 > 0 ? add(g.c, scl(v, g.r * g.r / d2)) : INF;
+  }
+  // Constr.setSeg(state, id, seg, env): Inside C only on (1 | -1) or off (0) on the perpendicular circle id, its gliders
+  // moved so none leaves the drawn curve (SPEC 4): on, a glider off the drawn side goes to its mirror image in C (on K,
+  // on the arc); the other side, every glider to its mirror image; off, every glider keeps its point. One state change
+  // (the caller records one undo step). Returns the ids of K's gliders, or null
+  function setSeg(state, id, seg, env) {
+    const e = index(state).get(id), s = e && e.s, d = s && s.def;
+    if (!d || d.op !== 'perp') return null;
+    const was = d.seg === 1 || d.seg === -1 ? d.seg : 0, now = seg === 1 || seg === -1 ? seg : 0;
+    if (was === now) return [];
+    const info = segSides(state, id, env), Gc = info && info.Gc;
+    const gl = lists(state)[e.plane].filter((g) => g && g.def && g.def.op === 'glider' && Array.isArray(g.def.args) && g.def.args[0] && g.def.args[0].s === id);
+    // (a glider at infinity is the point infinity: review math-2; f_Gc there has the sign of Gc.A, 0 for a line)
+    const want = gl.map((g) => {
+      const z = g._atInf ? INF : g.p;
+      if (g.cundef || !(isInf(z) || isXY(z))) return null;
+      if (!Gc || !now) return cpz(z);
+      if (!was && now * (isInf(z) ? Gc.A : fOf(Gc, z)) <= 0) return cpz(z);
+      return mirrorIn(Gc, z) || cpz(z);
+    });
+    if (now) { d.seg = now; d.fill = 'none'; } else delete d.seg;
+    recompute(state, { all: true }, env);
+    if (!s.cundef) {
+      const ctx = makeCtx(state, env, null), p3 = now ? null : pts3In(ctx, s, e.plane);
+      gl.forEach((g, i) => {
+        const w = want[i], pc = w && ctx.piecesOf(s)[g.def.args[0].part];
+        if (!pc) return;
+        const mr = !now && pc.c3 && p3 && p3 !== 'inf' ? p3 : null;
+        // (off, infinity: K's u = 1/2 when K's map is the M(R) one; else its t stays)
+        if (isInf(w) && !now) { if (mr && mr.mr) g.t = 0.5; return; }
+        const pr = projectPiece(pc, w, mr);
+        if (pr && Number.isFinite(pr.t)) g.t = pr.t;
+      });
+      recompute(state, { all: true }, env);
+    }
+    return gl.map((g) => g.id);
+  }
+  // the drawn curve of a seg K on a circle (SPEC 6.1; a line's arc is Region.segCurvesOf's: the chord, or the line kinds'
+  // long rays, review math-1, math-4): one open curve object. A circle no larger than 50 window diagonals (Region's
+  // MR_RATIO): f by its angle, as a whole circle is drawn, the ends exact; a larger one: f the M(R) map of K anchored at the
+  // window's foot (as Region's mrCurve), restricted to the arc, and gsamp sampleMR's samples of K (dense within 1.25x the
+  // window, geometric beyond), those on the arc in order, the ends first and last, bitwise
+  function segCurves(q, win) {
+    if (!win || !(win.x1 - win.x0 > 0)) { const c = q.ends.find(isXY) || [0, 0], h = Math.max(1, q.L); win = { x0: c[0] - h, x1: c[0] + h, y0: c[1] - h, y1: c[1] + h }; }
+    const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
+    const H = reanchor(q.G, [cx, cy]), H0 = Object.assign({}, H, { C: 0 });
+    const tauOf = (z) => { if (isInf(z)) return Infinity; const v = sub(z, H0.o), den = [H0.B[0] + H0.A * v[0] / 2, H0.B[1] + H0.A * v[1] / 2]; return div(v, [-den[1], den[0]])[0]; };
+    const phi = (z) => { const t = tauOf(z); return Number.isFinite(t) ? Math.atan(t / diag) : Math.PI / 2; };
+    const mod = (x) => (((x % Math.PI) + Math.PI) % Math.PI);
+    let mid = segAtU(q, q.u0 + q.D / 2);
+    if (!isXY(mid)) mid = segAtU(q, q.u0 + q.D / 4);
+    const C2 = (z) => (z ? { re: z[0], im: z[1] } : { re: NaN, im: NaN });
+    const g = geomOf(q.G);
+    if (!(g.r > 50 * diag)) {
+      const ang = (z) => Math.atan2(z[1] - g.c[1], z[0] - g.c[0]), m2 = (x) => (((x % TAU) + TAU) % TAU);
+      const as = ang(q.ends[0]), ae = ang(q.ends[1]), am = ang(mid);
+      const Da = m2(am - as) < m2(ae - as) ? (m2(ae - as) || TAU) : -(m2(as - ae) || TAU);
+      return [{ n0: 160, closed: false, cap: 'butt', gform: q.G, seg: true,
+        f: (x) => (x <= 0 ? C2(q.ends[0]) : x >= 1 ? C2(q.ends[1]) : C2([g.c[0] + g.r * Math.cos(as + x * Da), g.c[1] + g.r * Math.sin(as + x * Da)])) }];
+    }
+    const ps = phi(q.ends[0]), pe = phi(q.ends[1]), pm = phi(mid);
+    // the direction of increasing angle from the start: the one that meets the middle before the end
+    const up = mod(pm - ps) < mod(pe - ps);
+    const Dl = up ? mod(pe - ps) || Math.PI : -(mod(ps - pe) || Math.PI);
+    const at = (p) => { const z = mR(H0, diag * Math.tan(p)); return isInf(z) || !isXY(z) ? null : z; };
+    return [{ n0: 400, closed: false, cap: 'butt', gform: q.G, seg: true,
+      f: (x) => (x <= 0 ? C2(q.ends[0]) : x >= 1 ? C2(q.ends[1]) : C2(at(ps + x * Dl))),
+      gsamp: (w, step) => segSample(q, w || win, step) }];
+  }
+  // the samples of a seg curve on a huge circle (Float64Array [x0, y0, ...]): sampleMR's parameters at the window w
+  function segSample(q, w, step) {
+    const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2;
+    const H = reanchor(q.G, [cx, cy]), H0 = Object.assign({}, H, { C: 0 });
+    const ts = mrTaus(H, w, step);
+    const tauOf = (z) => { if (isInf(z)) return Infinity; const v = sub(z, H0.o), den = [H0.B[0] + H0.A * v[0] / 2, H0.B[1] + H0.A * v[1] / 2]; return div(v, [-den[1], den[0]])[0]; };
+    let mid = segAtU(q, q.u0 + q.D / 2);
+    if (!isXY(mid)) mid = segAtU(q, q.u0 + q.D / 4);
+    const t0 = tauOf(q.ends[0]), t1 = tauOf(q.ends[1]), tm = tauOf(mid);
+    // on the projective line: the arc from t0 to t1 through tm, increasing (wrapping through infinity) or decreasing
+    const inc = (a, b, x) => (a <= b ? x > a && x < b : x > a || x < b);
+    const up = inc(t0, t1, tm);
+    const inArc = (x) => (up ? inc(t0, t1, x) : inc(t1, t0, x));
+    // the parameters in arc order: from t0 in the arc's direction to the list's end, then (when the arc passes through
+    // infinity) from the list's other end; null marks infinity
+    const n = ts.length, out = [], seq = [];
+    const push = (z) => { out.push(z[0], z[1]); };
+    let all = true;
+    if (up) {
+      let j = 0;
+      while (j < n && !(ts[j] > t0)) j++;
+      for (; j < n; j++) { if (!inArc(ts[j])) { all = false; break; } seq.push(ts[j]); }
+      if (all && t0 > t1) { seq.push(null); for (let k = 0; k < n && inArc(ts[k]); k++) seq.push(ts[k]); }
+    } else {
+      let j = n - 1;
+      while (j >= 0 && !(ts[j] < t0)) j--;
+      for (; j >= 0; j--) { if (!inArc(ts[j])) { all = false; break; } seq.push(ts[j]); }
+      if (all && t1 > t0) { seq.push(null); for (let k = n - 1; k >= 0 && inArc(ts[k]); k--) seq.push(ts[k]); }
+    }
+    // (through the antipode: the parameter infinity, a point of the circle)
+    push(q.ends[0]);
+    for (const x of seq) push(mR(H0, x === null ? Infinity : x));
+    push(q.ends[1]);
+    return new Float64Array(out);
   }
 
   // ---------------------------------------------------------------- the perpendicular circle (notes/orthogonal-circle/SPEC.md)
@@ -2003,6 +2241,21 @@
     if (ta && tb && sameG(ta.G, tb.G) && !isInf(ta.tp) && !isInf(tb.tp) && eqP(ta.tp, tb.tp)) return ta.tp;
     return null;
   }
+  // [v16.4 segments SPEC 2.3] the meets of a seg K and the curve C it was built on: the drawn ends, bitwise (order K, C:
+  // index i is the meet i of K's form with C's; order C, K: the entering rule reverses at a right angle, so i <-> 1 - i)
+  function segAt(pa, pb) {
+    const ka = pa.seg && pa.G && pa.G.sg, kb = pb.seg && pb.G && pb.G.sg;
+    if (ka && sameG(ka.G, pb.G)) return [{ z: cpz(ka.ends[0]), index: 0 }, { z: cpz(ka.ends[1]), index: 1 }];
+    if (kb && sameG(kb.G, pa.G)) return [{ z: cpz(kb.ends[1]), index: 0 }, { z: cpz(kb.ends[0]), index: 1 }];
+    return null;
+  }
+  // two seg pieces on the same C with a common end (both infinity, or within 1e-9 of the larger arc's size)
+  function segParallel(pa, pb) {
+    const ka = pa.seg && pa.G && pa.G.sg, kb = pb.seg && pb.G && pb.G.sg;
+    if (!ka || !kb || !sameG(ka.G, kb.G)) return false;
+    const L = Math.max(pa.seg.L, pb.seg.L);
+    return pa.seg.ends.some((e) => pb.seg.ends.some((f) => (isInf(e) && isInf(f)) || (isXY(e) && isXY(f) && (eqP(e, f) || abs(sub(e, f)) <= 1e-9 * L))));
+  }
   // a point ref on a curve ref by construction (a glider on it, a meet with it, one of its defining points, a handle of
   // its shape at an end of the piece), through bound handles
   const POSK = /^(p|a|b|m|c|v\d+)$/;
@@ -2089,6 +2342,7 @@
     // a perpendicular circle: the M(R) map anchored at P, scaled by |PQ|, its sign undoing the flip
     // (z(t) = mR(K at P, sg |PQ| tan(pi t)): P at 0, the point opposite P at 1/2, infinity there for a line)
     if (cs && cs.def && cs.def.op === 'perp') {
+      if (cs.def.seg && cs._seg) return null;           // (Inside C only: the arc's own t, 0 to 1 between its ends)
       const R = cs.def.args.slice(1).map((r) => resolveIn(ctx, r, plane));
       if (R.some((x) => x.undef)) return 'inf';
       const fin = R.filter((x) => !x.inf).map((x) => x.z);
@@ -2127,7 +2381,7 @@
     const free = (s) => {
       delete s.def; delete s.at; delete s.helper; delete s.owner;
       if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; }
-      delete s.cundef; delete s._g; delete s._atInf;
+      delete s.cundef; delete s._g; delete s._atInf; delete s._seg;
       freed++;
     };
     const okPointRef = (r, plane) => {
@@ -2183,6 +2437,8 @@
           else if (d.op === 'tangent' && !(d.index === 0 || d.index === 1)) d.index = 0;
           if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.fill !== 'in') d.fill = 'none';
           if (ok && ['circle3', 'perp', 'touch', 'tangent'].includes(d.op) && d.flip != null) d.flip = !!d.flip;
+          // [v16.4 segments] Inside C only: a perpendicular circle drawn as a curve, seg 1 or -1 (Region wins)
+          if (ok && 'seg' in d && !(d.op === 'perp' && (d.seg === 1 || d.seg === -1) && d.fill !== 'in')) delete d.seg;
           if (ok && d.op === 'glider' && !Number.isFinite(s.t)) s.t = 0;
           if (ok && d.seed != null && !isXY(d.seed)) delete d.seed;
         }
@@ -2339,6 +2595,7 @@
     return {
       op: d ? d.op : (s.at ? 'bound' : null), args: d ? d.args.slice() : [], at: s.at ? Object.assign({}, s.at) : null,
       fill: d && ['circle3', 'perp', 'touch'].includes(d.op) ? (d.fill === 'in' ? 'in' : 'none') : null, flip: d ? !!d.flip : null,
+      seg: d && d.op === 'perp' ? (d.seg === 1 || d.seg === -1 ? d.seg : 0) : null,
       index: d && (d.op === 'meet' || d.op === 'tangent') ? d.index : null, family, t: d && d.op === 'glider' ? s.t : null,
       inf: !!s._atInf, undef: s.cundef || null, note: s._note || null,
     };
@@ -2346,9 +2603,18 @@
   // the M(R) samples of a huge circle or a gcircle near a window (SPEC 2.2 [C7]): Float64Array [x0, y0, ...],
   // dense (step) within the window's reach, geometric (ratio) beyond, closing through the antipode
   function sampleMR(G, win, step, far) {
-    const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
+    const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2;
     const H = reanchor(G, [cx, cy]);
     const H0 = Object.assign({}, H, { C: 0 });
+    const all = mrTaus(H, win, step, far);
+    const out = [];
+    for (const x of all) { const z = mR(H0, x); out.push(z[0], z[1]); }
+    if (H.A !== 0) { const z = mR(H0, Infinity); out.push(z[0], z[1]); const z0 = mR(H0, all[0]); out.push(z0[0], z0[1]); }
+    return new Float64Array(out);
+  }
+  // sampleMR's parameters (ascending) for the form H re-anchored at the window's centre (segSample's too)
+  function mrTaus(H, win, step, far) {
+    const cx = (win.x0 + win.x1) / 2, cy = (win.y0 + win.y1) / 2, diag = Math.hypot(win.x1 - win.x0, win.y1 - win.y0);
     const d0 = Math.hypot(H.o[0] - cx, H.o[1] - cy);
     const inner = 0.625 * diag + d0;                       // |tau| within which the curve can meet the 1.25x window
     const ts = [0];
@@ -2356,11 +2622,7 @@
     let t = inner, h = step;
     const lim = H.A === 0 ? (far || 220) * diag / 2 : 1e28;
     while (t < lim && ts.length < 6000) { h *= 1.035; if (H.A !== 0 && Math.abs(H.A * t) > 8) h = t * 0.25; t += h; ts.push(Math.min(t, lim)); }
-    const out = [];
-    const all = ts.slice(1).reverse().map((x) => -x).concat(ts);
-    for (const x of all) { const z = mR(H0, x); out.push(z[0], z[1]); }
-    if (H.A !== 0) { const z = mR(H0, Infinity); out.push(z[0], z[1]); const z0 = mR(H0, -ts[ts.length - 1]); out.push(z0[0], z0[1]); }
-    return new Float64Array(out);
+    return ts.slice(1).reverse().map((x) => -x).concat(ts);
   }
 
   return {
@@ -2376,6 +2638,8 @@
     syncSteps, zpRemoveId, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
     // v16 review fixes
     orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
+    // v16.4: Inside C only (notes/orthogonal-circle/segments/SPEC.md)
+    segOf, segAt, segSideOf, segSides, setSeg, segCurves, mirrorIn, gcOf, onCarrier,
     get lastRecompute() { return lastRecompute; },
   };
 });

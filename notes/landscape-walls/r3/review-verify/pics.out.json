@@ -1,0 +1,533 @@
+[
+ {
+  "nm": "V-r3-user-max-desk-light",
+  "rect": {
+   "x": 268,
+   "y": 44,
+   "width": 868,
+   "height": 652
+  },
+  "shots": [
+   [
+    "V-r3-user-max-desk-light-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-r3-user-max-desk-light-play0.png",
+    "play",
+    0.05,
+    0.03
+   ],
+   [
+    "V-r3-user-max-desk-light-play1.png",
+    "play",
+    0.03,
+    0.132
+   ],
+   [
+    "V-r3-user-max-desk-light-play2.png",
+    "play",
+    0.132,
+    0.307
+   ],
+   [
+    "V-r3-user-max-desk-light-play3.png",
+    "play",
+    0.307,
+    0.554
+   ],
+   [
+    "V-r3-user-max-desk-light-play4.png",
+    "play",
+    0.554,
+    0.748
+   ],
+   [
+    "V-r3-user-max-desk-light-play5.png",
+    "play",
+    0.748,
+    0.863
+   ],
+   [
+    "V-r3-user-max-desk-light-play6.png",
+    "play",
+    0.863,
+    0.936
+   ],
+   [
+    "V-r3-user-max-desk-light-play7.png",
+    "play",
+    0.936,
+    0.973
+   ],
+   [
+    "V-r3-user-max-desk-light-play8.png",
+    "play",
+    0.973,
+    0.994
+   ],
+   [
+    "V-r3-user-max-desk-light-play9.png",
+    "play",
+    0.994,
+    0.999
+   ]
+  ],
+  "logs": []
+ },
+ {
+  "nm": "V-r3-user-max-desk-dark",
+  "rect": {
+   "x": 268,
+   "y": 44,
+   "width": 868,
+   "height": 652
+  },
+  "shots": [
+   [
+    "V-r3-user-max-desk-dark-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-r3-user-max-desk-dark-play0.png",
+    "play",
+    0.05,
+    0.012
+   ],
+   [
+    "V-r3-user-max-desk-dark-play1.png",
+    "play",
+    0.012,
+    0.069
+   ],
+   [
+    "V-r3-user-max-desk-dark-play2.png",
+    "play",
+    0.069,
+    0.207
+   ],
+   [
+    "V-r3-user-max-desk-dark-play3.png",
+    "play",
+    0.207,
+    0.407
+   ],
+   [
+    "V-r3-user-max-desk-dark-play4.png",
+    "play",
+    0.407,
+    0.684
+   ],
+   [
+    "V-r3-user-max-desk-dark-play5.png",
+    "play",
+    0.684,
+    0.849
+   ],
+   [
+    "V-r3-user-max-desk-dark-play6.png",
+    "play",
+    0.863,
+    0.951
+   ],
+   [
+    "V-r3-user-max-desk-dark-play7.png",
+    "play",
+    0.951,
+    0.984
+   ],
+   [
+    "V-r3-user-max-desk-dark-play8.png",
+    "play",
+    0.984,
+    0.998
+   ],
+   [
+    "V-r3-user-max-desk-dark-play9.png",
+    "play",
+    0.998,
+    1
+   ],
+   [
+    "V-r3-user-max-desk-dark-orbit0.png",
+    "orbit",
+    0.2
+   ],
+   [
+    "V-r3-user-max-desk-dark-orbit1.png",
+    "orbit",
+    0.44
+   ],
+   [
+    "V-r3-user-max-desk-dark-orbit2.png",
+    "orbit",
+    0.67
+   ],
+   [
+    "V-r3-user-max-desk-dark-orbitrest.png",
+    "orbit-rest",
+    0.67
+   ]
+  ],
+  "logs": []
+ },
+ {
+  "nm": "V-r3-user-allsh-max-desk-light",
+  "rect": {
+   "x": 268,
+   "y": 44,
+   "width": 868,
+   "height": 652
+  },
+  "shots": [
+   [
+    "V-r3-user-allsh-max-desk-light-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play0.png",
+    "play",
+    0.05,
+    0.015
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play1.png",
+    "play",
+    0.015,
+    0.097
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play2.png",
+    "play",
+    0.097,
+    0.244
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play3.png",
+    "play",
+    0.244,
+    0.434
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play4.png",
+    "play",
+    0.434,
+    0.635
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play5.png",
+    "play",
+    0.635,
+    0.767
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play6.png",
+    "play",
+    0.786,
+    0.875
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-play7.png",
+    "play",
+    0.887,
+    0.957
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-orbit0.png",
+    "orbit",
+    0.19
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-orbit1.png",
+    "orbit",
+    0.41
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-orbit2.png",
+    "orbit",
+    0.62
+   ],
+   [
+    "V-r3-user-allsh-max-desk-light-orbitrest.png",
+    "orbit-rest",
+    0.62
+   ]
+  ],
+  "logs": []
+ },
+ {
+  "nm": "V-r3-user-def-desk-light",
+  "rect": {
+   "x": 268,
+   "y": 44,
+   "width": 868,
+   "height": 652
+  },
+  "shots": [
+   [
+    "V-r3-user-def-desk-light-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-r3-user-def-desk-light-play0.png",
+    "play",
+    0.05,
+    0.009
+   ],
+   [
+    "V-r3-user-def-desk-light-play1.png",
+    "play",
+    0.009,
+    0.03
+   ],
+   [
+    "V-r3-user-def-desk-light-play2.png",
+    "play",
+    0.03,
+    0.069
+   ],
+   [
+    "V-r3-user-def-desk-light-play3.png",
+    "play",
+    0.078,
+    0.145
+   ],
+   [
+    "V-r3-user-def-desk-light-play4.png",
+    "play",
+    0.145,
+    0.244
+   ],
+   [
+    "V-r3-user-def-desk-light-play5.png",
+    "play",
+    0.244,
+    0.38
+   ],
+   [
+    "V-r3-user-def-desk-light-play6.png",
+    "play",
+    0.38,
+    0.61
+   ],
+   [
+    "V-r3-user-def-desk-light-play7.png",
+    "play",
+    0.61,
+    0.785
+   ],
+   [
+    "V-r3-user-def-desk-light-play8.png",
+    "play",
+    0.785,
+    0.875
+   ],
+   [
+    "V-r3-user-def-desk-light-play9.png",
+    "play",
+    0.875,
+    0.936
+   ]
+  ],
+  "logs": []
+ },
+ {
+  "nm": "V-r3-user-allsh-def-desk-dark",
+  "rect": {
+   "x": 268,
+   "y": 44,
+   "width": 868,
+   "height": 652
+  },
+  "shots": [
+   [
+    "V-r3-user-allsh-def-desk-dark-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play0.png",
+    "play",
+    0.05,
+    0.006
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play1.png",
+    "play",
+    0.006,
+    0.018
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play2.png",
+    "play",
+    0.018,
+    0.041
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play3.png",
+    "play",
+    0.041,
+    0.078
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play4.png",
+    "play",
+    0.078,
+    0.132
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play5.png",
+    "play",
+    0.132,
+    0.207
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play6.png",
+    "play",
+    0.207,
+    0.307
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play7.png",
+    "play",
+    0.307,
+    0.494
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play8.png",
+    "play",
+    0.524,
+    0.66
+   ],
+   [
+    "V-r3-user-allsh-def-desk-dark-play9.png",
+    "play",
+    0.66,
+    0.767
+   ]
+  ],
+  "logs": []
+ },
+ {
+  "nm": "V-r3-user-max-phone-light",
+  "rect": {
+   "x": 0,
+   "y": 56,
+   "width": 390,
+   "height": 668
+  },
+  "shots": [
+   [
+    "V-r3-user-max-phone-light-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-r3-user-max-phone-light-play0.png",
+    "play",
+    0.05,
+    0.007
+   ],
+   [
+    "V-r3-user-max-phone-light-play1.png",
+    "play",
+    0.007,
+    0.035
+   ],
+   [
+    "V-r3-user-max-phone-light-play2.png",
+    "play",
+    0.035,
+    0.087
+   ],
+   [
+    "V-r3-user-max-phone-light-play3.png",
+    "play",
+    0.087,
+    0.175
+   ],
+   [
+    "V-r3-user-max-phone-light-play4.png",
+    "play",
+    0.175,
+    0.307
+   ],
+   [
+    "V-r3-user-max-phone-light-play5.png",
+    "play",
+    0.307,
+    0.525
+   ],
+   [
+    "V-r3-user-max-phone-light-play6.png",
+    "play",
+    0.525,
+    0.728
+   ],
+   [
+    "V-r3-user-max-phone-light-play7.png",
+    "play",
+    0.728,
+    0.849
+   ]
+  ],
+  "logs": []
+ },
+ {
+  "nm": "V-basehtml-user-max-desk-light",
+  "rect": {
+   "x": 268,
+   "y": 44,
+   "width": 868,
+   "height": 652
+  },
+  "shots": [
+   [
+    "V-basehtml-user-max-desk-light-rest.png",
+    "rest",
+    0.2
+   ],
+   [
+    "V-basehtml-user-max-desk-light-play0.png",
+    "play",
+    0.05,
+    0.012
+   ],
+   [
+    "V-basehtml-user-max-desk-light-play1.png",
+    "play",
+    0.012,
+    0.035
+   ],
+   [
+    "V-basehtml-user-max-desk-light-play2.png",
+    "play",
+    0.041,
+    0.087
+   ],
+   [
+    "V-basehtml-user-max-desk-light-play3.png",
+    "play",
+    0.097,
+    0.191
+   ],
+   [
+    "V-basehtml-user-max-desk-light-play4.png",
+    "play",
+    0.191,
+    0.307
+   ],
+   [
+    "V-basehtml-user-max-desk-light-play5.png",
+    "play",
+    0.33,
+    0.494
+   ]
+  ],
+  "logs": []
+ }
+]

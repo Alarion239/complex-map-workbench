@@ -2154,7 +2154,7 @@ const Figure = (() => {
   // [x0,x1]x[y0,y1]; in Russian a semicolon inside a bracket pair when an endpoint is a decimal (GLOSSARY 2.3)
   // (export review r3, editor-19: one separator for the whole product, ';' in both intervals once an endpoint is a decimal)
   const winTex = (b) => { if (!b) return ''; if (!capRu()) return `[${numTex(b.x0)},${numTex(b.x1)}]\\times[${numTex(b.y0)},${numTex(b.y1)}]`; const v = [b.x0, b.x1, b.y0, b.y1].map(numTex), sep = I18.texSep(v), n = (x) => I18.texNum(x); return `[${n(v[0])}${sep}${n(v[1])}]\\times[${n(v[2])}${sep}${n(v[3])}]`; };
-  const us = (segs) => segs.map((s) => (s.t != null ? { t: s.t.replace(/colour/g, 'color').replace(/Colour/g, 'Color').replace(/grey/g, 'gray').replace(/ \(bar\)/g, '') } : s));
+  const us = (segs) => segs.map((s) => (s.t != null ? Object.assign({}, s, { t: s.t.replace(/colour/g, 'color').replace(/Colour/g, 'Color').replace(/grey/g, 'gray').replace(/ \(bar\)/g, '') }) : s));   // (a phrase's closing comma keeps its pc mark)
   // a point of the plane in a Russian caption: the decimal comma (a short number formula, never a snippet)
   const cxTexL = (z) => { const s = cxTex(z); return capRu() ? s.replace(/(\d)\.(\d)/g, '$1{,}$2') : s; };
   const listTex = (zs) => zs.map((r) => `$${cxTexL(r.z)}$${(r.mult || 1) > 1 ? $t(' (order {mult})', { mult: r.mult }) : ''}`);
@@ -2333,7 +2333,10 @@ const Figure = (() => {
     return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat })) : $t('The image under %{map}.%{pat}', { map, pat });
   }
   // a Russian caption as LaTeX: Russian notation (tg, sh, ln), no-break spaces (GLOSSARY 3.6) written as ~
-  const polish = (tex, lang) => (lang === 'ru' && I18 && tex ? I18.nbspTeX(I18.nbsp(I18.notation(tex, 'ru'), 'ru')).replace(/—/g, '---') : tex);
+  // ([v16.4 review user-2] first the closing comma a shape list left open (U+2063, app.js pcTidy): a comma before more
+  // words, nothing before punctuation, an opening bracket, the English "and" or the end)
+  const pcOut = (tex) => (typeof tex === 'string' && tex.includes('\u2063') ? tex.replace(/\u2063(?=\s*(?:[,.;:()]|and\b|$))/g, '').replace(/\u2063/g, ',') : tex);
+  const polish = (tex, lang) => { tex = pcOut(tex); return lang === 'ru' && I18 && tex ? I18.nbspTeX(I18.nbsp(I18.notation(tex, 'ru'), 'ru')).replace(/—/g, '---') : tex; };
   // LaTeX caption -> typesetting segments ({t}, {m}, {b}; a Russian caption also {i}: the italic panel letters, and
   // ~ is a no-break space)
   function segsOf(tex, lang) {

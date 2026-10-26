@@ -1,0 +1,17 @@
+{
+ "out": [
+  "base/test.html  {}             first 254 longest 0 gaps [] ",
+  "test.html       {}             first 100 longest 0 gaps [] landTF@65 landNrm@65 floor@66 land@66 mark@71 landEdgeS@81 landLv@85 landRP@148 landRA@214 landR@264",
+  "test.html       {}             first 162 longest 0 gaps [] landTF@100 landNrm@100 floor@101 land@101 mark@106 landLv@134 landRP@198 landRA@265 landR@315",
+  "base/test.html  {}             first 245 longest 0 gaps [] ",
+  "base/test.html  {}             first 270 longest 0 gaps [] ",
+  "test.html       {}             first 159 longest 0 gaps [] landTF@82 landNrm@82 floor@82 land@82 mark@90 landEdgeS@106 landLv@113 landRP@172 landRA@239 landR@289",
+  "test.html       {}             first 479 longest 142 gaps [[259,142]] landTF@272 landNrm@272 floor@272 land@272 mark@401 landEdgeS@403 landLv@408 landRP@459 landRA@509 landR@559",
+  "base/test.html  {}             first 120 longest 0 gaps [] ",
+  "base/test.html  {}             first 204 longest 0 gaps [] ",
+  "test.html       {}             first 486 longest 105 gaps [[289,105]] landTF@305 landNrm@305 floor@306 land@306 mark@394 landLv@400 landRP@458 landRA@507 landR@557",
+  "test.html       {}             first 390 longest 0 gaps [] landTF@282 landNrm@282 floor@282 land@282 mark@353 landEdgeS@365 landLv@372 landRP@432 landRA@482 landR@531",
+  "base/test.html  {}             first 193 longest 0 gaps [] "
+ ],
+ "logs": []
+}

@@ -1,0 +1,160 @@
+{
+ "out": [
+  {
+   "page": "test.html",
+   "wait": 0,
+   "shots": [
+    [
+     "Q2-testhtml-w0-400.png",
+     0.055
+    ],
+    [
+     "Q2-testhtml-w0-1600.png",
+     0.978
+    ],
+    [
+     "Q2-testhtml-w0-3000.png",
+     0.001
+    ],
+    [
+     "Q2-testhtml-w0-4500.png",
+     1
+    ],
+    [
+     "Q2-testhtml-w0-6000.png",
+     0.099
+    ]
+   ],
+   "st": {
+    "open": true,
+    "T": 0.19380990677441348,
+    "playing": true
+   }
+  },
+  {
+   "page": "r2.html",
+   "wait": 0,
+   "shots": [
+    [
+     "Q2-r2html-w0-400.png",
+     0.071
+    ],
+    [
+     "Q2-r2html-w0-1600.png",
+     1
+    ],
+    [
+     "Q2-r2html-w0-3000.png",
+     0.063
+    ],
+    [
+     "Q2-r2html-w0-4500.png",
+     1
+    ],
+    [
+     "Q2-r2html-w0-6000.png",
+     0.469
+    ]
+   ],
+   "st": {
+    "open": true,
+    "T": 0.6404889390009779,
+    "playing": true
+   }
+  },
+  {
+   "page": "test.html",
+   "wait": 1200,
+   "shots": [
+    [
+     "Q2-testhtml-w1200-400.png",
+     0.071
+    ],
+    [
+     "Q2-testhtml-w1200-1600.png",
+     1
+    ],
+    [
+     "Q2-testhtml-w1200-3000.png",
+     0.055
+    ],
+    [
+     "Q2-testhtml-w1200-4500.png",
+     1
+    ],
+    [
+     "Q2-testhtml-w1200-6000.png",
+     0.469
+    ]
+   ],
+   "st": {
+    "open": true,
+    "T": 0.6648954873037103,
+    "playing": true
+   }
+  },
+  {
+   "page": "test.html",
+   "wait": 2500,
+   "shots": [
+    [
+     "Q2-testhtml-w2500-400.png",
+     0.071
+    ],
+    [
+     "Q2-testhtml-w2500-1600.png",
+     1
+    ],
+    [
+     "Q2-testhtml-w2500-3000.png",
+     0.048
+    ],
+    [
+     "Q2-testhtml-w2500-4500.png",
+     1
+    ],
+    [
+     "Q2-testhtml-w2500-6000.png",
+     0.44
+    ]
+   ],
+   "st": {
+    "open": true,
+    "T": 0.6404889390009776,
+    "playing": true
+   }
+  },
+  {
+   "page": "base.html",
+   "wait": 0,
+   "shots": [
+    [
+     "Q2-basehtml-w0-400.png",
+     0.062
+    ],
+    [
+     "Q2-basehtml-w0-1600.png",
+     1
+    ],
+    [
+     "Q2-basehtml-w0-3000.png",
+     0.055
+    ],
+    [
+     "Q2-basehtml-w0-4500.png",
+     1
+    ],
+    [
+     "Q2-basehtml-w0-6000.png",
+     0.412
+    ]
+   ],
+   "st": {
+    "open": true,
+    "T": 0.5880126953125,
+    "playing": true
+   }
+  }
+ ],
+ "logs": []
+}

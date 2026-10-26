@@ -1,0 +1,66 @@
+[
+  {
+    "id": "math-1",
+    "severity": "high",
+    "title": "Hyperbolic rays (K a line) lose v16.3's settle-time line refinement: chords in Y under exp, and the image stops short of F(inf)",
+    "detail": "When K's carrier is a line (the vertical geodesic of the half-plane model, or the two rays outside a disc), segCurves returns plain open curves with gsamp and no 'long' or 'reach'. Lines.refine therefore skips everything SPEC 9.1 (P4) added for lines: tails toward TAIL_LIM, cutUnresolved and resolveFar. The samples stop at sampleMR's FAR limit (110 window diagonals), with geometric steps of 3.5 per cent. A whole K that is a line still gets the refinement, so switching Inside on makes the same line draw worse in Y. Under exp, the vertical geodesic Re z = 1 becomes a star of chords inside |w| = e. Under 1/z its image stops visibly short of 0 = F(inf) when X is zoomed in. The globe is not affected, because it samples c.f, and f is NaN at infinity.",
+    "evidence": "Node, work/xvhs/src, real axis C, P = 1+i, Q = 1+2i, X window [-4,4]x[-3,3], Region.Lines.refine(curvesOf(K, W, {reach:'sphere'}), [F]). Whole K (seg 0): largest Im step under exp 0.248 rad; closest image to 0 under 1/z 2.9e-19. Seg K (seg 1): largest Im step 36.4 rad, so chords across |w| = e; closest image to 0 is 9.1e-4. Window of diagonal 0.25 around 1+i: the seg samples end at |z| = 28.5, a chordal gap of 0.07 to infinity, so the 1/z image ends about 0.035 from 0. segCurves' curves report long false, reach false, gsamp true; the whole line reports long true, reach true. region.js:1357 runs the refinement only when (c.long && c.reach).",
+    "fix": "Pass curvesOf's o through to segCurves. For a carrier with A === 0, build each run as Region's long ray (longOf(a, d, win, 0, o)): from the finite end in the arc's direction for the vertical ray, and outward from each end for the two rays. These rays carry long and reach, so refine, cutUnresolved, resolveFar and curvePieces' clip all apply. Keep the circle branch as it is."
+  },
+  {
+    "id": "math-2",
+    "severity": "medium",
+    "title": "A glider at infinity jumps when the switch is turned on or off",
+    "detail": "setSeg skips gliders with _atInf (want = null), so their t is kept while its meaning changes from K's u (period 1, infinity at 1/2) to the arc's fraction (or back). (a) Whole: a glider at the infinite end of the vertical ray (t = 1) becomes u = 1 = 0, which is P, so it jumps from infinity to 1+i. (b) On: a glider at infinity on the whole line K keeps t = 0.5 and moves to the arc's midpoint 1+1.414i, although infinity is an end of the drawn ray. This breaks SPEC 4 ('off: keeps its point'; 'on: keeps its point if it is on the drawn side'). The cause is the same as in projectPiece(seg, INF), which never returns infinity. For the two rays it returns an end (t = 1) instead of the t of infinity, which lies inside the arc.",
+    "evidence": "Node. Real axis, P = 1+i, Q = 1+2i, a seg ray with glider t = 1 (at inf). setSeg(0) gives t 1, p [1, 1] = P. setSeg(1) again gives t 1/3, p [1, 1]. Whole K with glider t = 0.5 (at inf): setSeg(dflt) gives t 0.5, p [1, 1.4142]. Two rays (unit circle, P = 0.3+0.2i, Q = 0.6+0.4i, seg -1): projectPiece(pc, INF) gives {t: 1, z: the end (-0.832, -0.555)}.",
+    "fix": "In setSeg, let want be INF for a glider with _atInf. In projectPiece's seg branch, map z === INF to u = 1/2. If an end is infinite, t is that end's 0 or 1. Else, if segInU(q, 0.5), t = span1(u0, 0.5) / D. Else use the nearer end. When the switch goes off, set t = 0.5 when pts3In gives the mr map."
+  },
+  {
+    "id": "math-3",
+    "severity": "medium",
+    "title": "The caption's domain for the outside side is wrong as maths: '|z|>1' should include infinity",
+    "detail": "For word 'out', phrase builds r by replacing < with > in the disc's tex, so the caption reads 'the hyperbolic line ... in the domain |z|>1'. The arc outside C is a geodesic of the disc {|z|>1} together with infinity, which is a disc on the Riemann sphere. It is not a geodesic of the planar domain {|z|>1}. That domain is conformally a punctured disc, its own hyperbolic geodesics are not circles orthogonal to C, and it does not contain infinity. In the diameter case the drawn arc runs through infinity, which is not in the stated domain at all. An article would not print this.",
+    "evidence": "construct.js phrase, perp seg branch: r = Region.KINDS.disc.tex({c, r}) ('|z|<1'), then if (info.word === 'out') r = r.replace(/</g, '>'). The two-rays scene (unit circle, P = 0.3+0.2i, Q = 0.6+0.4i, seg -1) has its arc through infinity: run 0 heads to +inf, run 1 comes back from -inf.",
+    "fix": "For 'out', write the domain on the sphere, e.g. `\\{|z|>1\\}\\cup\\{\\infty\\}` or `\\hat{\\mathbb C}\\setminus\\{|z|\\le 1\\}`. Use the same maths in Russian; there is no string change, since {r} is maths. The half-plane case (Im z > 0) is right as it is."
+  },
+  {
+    "id": "math-4",
+    "severity": "medium",
+    "title": "The line runs of a seg K are not clipped for integrals and 'Listen along': NaN at the ray's end, and the wrong side at the two rays' cut",
+    "detail": "curvePieces (app.js 6005-6031) clips long curves to clipWin. Other curves it samples by c.f over [0, 1]. The seg line runs are not long, so their polylines run out to tan(pi/2) * diag. The vertical ray's f(1) is NaN, so shapeGeom marks it bad, and the integral popover says 'The curve passes through a singularity of an earlier step'. That message is false. For the two rays, run 0's f(1) evaluates tan at pi/2 + eps and lands on the other ray at (-5.2e16, -3.4e16), so its polyline jumps back across the whole plane. A whole K line in v16.3 is a finite clipped piece here.",
+    "evidence": "Node, two rays: run 0 gives f(0.999) = (5655.9, 3770.6) and f(1) = (-5.17e16, -3.45e16), the opposite direction. Run 1 gives f(0) = the same point. Vertical ray: segCurves' f returns C2(null) = NaN for x >= 1 (constr.js segCurves). app.js:6085 sets bad on a non-finite point, and app.js:6118 shows the singularity error.",
+    "fix": "math-1's long rays fix this: curvePieces clips them to clipWin. Separately, make segCurves' line-run f return NaN exactly at the cut (x = 1 of run 0, x = 0 of run 1), not at(pi/2 +/- eps)."
+  },
+  {
+    "id": "math-5",
+    "severity": "low",
+    "title": "Limiting-parallel geodesics get a defined meet at their common ideal point, against SPEC 4, and the two models disagree",
+    "detail": "SPEC 4 says parallel geodesics have no meet. The arc's ends count as on the piece, so a shared ideal end passes onPiece. Two vertical seg rays in the half-plane model, which share infinity, get both meets defined at infinity (_atInf). Two disc geodesics sharing an end on C give index 1 defined at that end and index 0 nomeet. That end is a boundary point, not a point of the hyperbolic plane.",
+    "evidence": "Node: rays Re z = 1 and Re z = 2 over the real axis (seg 1). meet m0 and meet m1 are both atInf with no cundef. Unit circle, both K through Q = e^{0.7i}: m0 is cundef nomeet, m1 is at (0.7648, 0.6442) = Q.",
+    "fix": "Either state in the spec that the ends belong to the drawn arc, so ideal points are meets, or have meets of two seg pieces on the same C (sameG of their sg.G) that land on C report 'nomeet'. Whichever is chosen, both indices should agree."
+  },
+  {
+    "id": "math-6",
+    "severity": "low",
+    "title": "The ⋯ item 'Inside {c} only' draws the outside for a complement disc, and the row then says 'outside {c}'",
+    "detail": "The item calls setSeg(s, info.dflt). For a disc C drawn as its complement, dflt is that region, the unbounded side. segSides then names the result 'out', so the row reads 'hyperbolic line outside Disc 1', right after a menu item that promised 'Inside Disc 1 only'. AS-BUILT lists this as difference 3, but the menu and the row now disagree with each other.",
+    "evidence": "construct.js rowMenu: label 'Inside {c} only' for any circle C, run setSeg(s, info.dflt). constr.js segSideOf: a disc C with complement gives lam = R.A * Gc.A < 0, so it returns -1. segSides gives 'in' only for (Gc.A > 0 ? 1 : -1).",
+    "fix": "Choose the label from the side dflt will draw: 'Outside {c} only' when info.sides marks dflt as 'out'. Or make the item always turn on the bounded side, as its words say."
+  },
+  {
+    "id": "math-7",
+    "severity": "low",
+    "title": "The caption says 'through z0 ... in the domain |z|<1' when z0 is on C",
+    "detail": "The thru test is onPiece(kpc, P), and onPiece is true at the ends. A defining point on C, an ideal point, therefore gets cap.seg: 'the hyperbolic line through z0 and z1 in the domain |z|<1', although z0 is not in the domain. SPEC 6.2 asks for this ('or on C'), but in an article it is wrong as stated.",
+    "evidence": "construct.js phrase: thru = every(onPiece(kpc, val(x))). constr.js onPiece seg branch returns true for an end by eqP or within 1e-9 L.",
+    "fix": "Use cap.seg only when P and Q are strictly inside the side (seg * f_Gc < 0). Otherwise use cap.seg_on, or a variant that names z0 as an end."
+  },
+  {
+    "id": "math-8",
+    "severity": "low",
+    "title": "The fallback kind fields for the two rays describe the inside chord (in v16.2 and in Preimage)",
+    "detail": "The two-rays case caches kind 'arc' with a, m, b collinear and m outside [a, b]. v16.2's arc3 and gl.js's arc packing treat collinear points as seg(a, b), which is the chord inside C, the complement of what v16.4 draws. SPEC 6.1 notes this for Preimage. AS-BUILT says v16.2 'shows a plain Arc at the same place', which is wrong for this case.",
+    "evidence": "Node, two rays: kind arc, a (0.832, 0.555), m (2.646, 1.764), b (-0.832, -0.555), K.A = 0 exactly. In region.js arc3, |d| < 1e-9 scale^2 returns seg(a, b).",
+    "fix": "Document it in AS-BUILT, next to the Preimage limit. Or cache this case as kind 'ray' from one end (half the curve, on the right side) instead of a chord on the wrong side."
+  }
+]

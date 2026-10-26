@@ -1,0 +1,7 @@
+{
+ "lines": [
+  "test.html       1440 m1920 play sin √z Im AllSh     fps 60 p50 16.6 p95 18 max 19.2",
+  "base/test.html  1440 m1920 play sin √z Im AllSh     fps 56.1 p50 18.4 p95 19.4 max 20.8"
+ ],
+ "logs": []
+}

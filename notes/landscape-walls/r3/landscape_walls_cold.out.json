@@ -1,0 +1,252 @@
+{
+ "rows": [],
+ "perf": [],
+ "fails": [
+  "cold open, All sheets: longest gap 186 ms against the base's 0 ms"
+ ],
+ "speck": [],
+ "cold": [
+  {
+   "page": "base/test.html",
+   "f": "\\log(z^5+4206)\\cos(z/5)",
+   "sheets": false,
+   "firstSurfaceMs": 181,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\log(z^5+4208)\\cos(z/7)",
+   "sheets": false,
+   "firstSurfaceMs": 122,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landTF@35 +land@36 +floor@36 +landNrm@36 =landNrm@36 =landTF@58 =land@58 =floor@58 +landEdgeS@59 landTF@59 landNrm@59 floor@59 land@59 +mark@59 =mark@59 mark@63 =landEdgeS@83 landEdgeS@1010 +landLv@1010 =landLv@1010 landLv@1015 +landRP@1044 =landRP@1044 landRP@1077 +landRA@1110 =landRA@1110 landRA@1144 +landR@1177 =landR@1177 landR@1211"
+  },
+  {
+   "page": "test.html",
+   "f": "z^4/(\\sinh z+4210)",
+   "sheets": false,
+   "firstSurfaceMs": 135,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landTF@42 +land@42 +floor@42 +landNrm@42 =landNrm@42 =landTF@72 =land@72 =floor@72 landTF@72 landNrm@72 floor@73 land@73 +mark@73 =mark@73 mark@76 +landLv@99 =landLv@99 landLv@102 +landRP@133 =landRP@133 landRP@166 +landRA@200 =landRA@200 landRA@232 +landR@267 =landR@267 landR@283"
+  },
+  {
+   "page": "base/test.html",
+   "f": "z^4/(\\sinh z+4212)",
+   "sheets": false,
+   "firstSurfaceMs": 208,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^4+z+4214}\\sinh(z/5)",
+   "sheets": false,
+   "firstSurfaceMs": 186,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^4+z+4216}\\sinh(z/7)",
+   "sheets": false,
+   "firstSurfaceMs": 121,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landTF@35 +land@35 +floor@36 +landNrm@36 =landNrm@36 =landTF@55 =land@55 =floor@55 +landEdgeS@55 landTF@55 landNrm@55 floor@56 land@56 +mark@56 =mark@56 mark@59 =landEdgeS@79 landEdgeS@1011 +landLv@1012 =landLv@1012 landLv@1019 +landRP@1060 =landRP@1060 landRP@1093 +landRA@1128 =landRA@1128 landRA@1161 +landR@1195 =landR@1195 landR@1228"
+  },
+  {
+   "page": "test.html",
+   "f": "\\tanh(z^3/4)+\\sqrt{z-4218}",
+   "sheets": false,
+   "firstSurfaceMs": 140,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landTF@43 +land@44 +floor@44 +landNrm@44 =landNrm@44 =landTF@67 =land@68 =floor@68 +landEdgeS@70 landTF@70 landNrm@70 floor@71 land@71 +mark@71 =mark@71 mark@73 =landEdgeS@92 landEdgeS@1020 +landLv@1020 =landLv@1020 landLv@1025 +landRP@1055 =landRP@1055 landRP@1089 +landRA@1122 =landRA@1122 landRA@1155 +landR@1189 =landR@1189 landR@1239"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\tanh(z^3/5)+\\sqrt{z-4220}",
+   "sheets": false,
+   "firstSurfaceMs": 153,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "z^3/(\\cosh z+4222)",
+   "sheets": false,
+   "firstSurfaceMs": 207,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "z^3/(\\cosh z+4224)",
+   "sheets": false,
+   "firstSurfaceMs": 69,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landTF@14 +land@14 +floor@14 +landNrm@14 =landNrm@14 =landTF@29 =land@29 =floor@29 landTF@29 landNrm@29 floor@30 land@30 +mark@30 =mark@30 mark@33 +landLv@60 =landLv@60 landLv@63 +landRP@94 =landRP@94 landRP@125 +landRA@159 =landRA@159 landRA@193 +landR@227 =landR@227 landR@243"
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^5-4226z}\\cosh(z/5)",
+   "sheets": false,
+   "firstSurfaceMs": 73,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landTF@20 +land@20 +floor@20 +landNrm@20 =landNrm@20 =landTF@38 =land@39 =floor@39 +landEdgeS@39 landTF@39 landNrm@39 floor@39 land@39 +mark@40 =mark@40 mark@44 =landEdgeS@46 landEdgeS@977 +landLv@977 =landLv@977 landLv@982 +landRP@1010 =landRP@1010 landRP@1044 +landRA@1077 =landRA@1077 landRA@1111 +landR@1144 =landR@1144 landR@1177"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^5-4228z}\\cosh(z/6)",
+   "sheets": false,
+   "firstSurfaceMs": 179,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\log(z^2+4230)",
+   "sheets": true,
+   "firstSurfaceMs": 78,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\log(z^2+4232)",
+   "sheets": true,
+   "firstSurfaceMs": 138,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landSheetTF@32 +landSheet@32 +floor@32 =landSheetTF@59 =landSheet@59 =floor@59 landSheetTF@59 floor@59 landSheet@60 +mark@60 =mark@60 mark@63 +landSheetRF@88 =landSheetRF@106 +landTF@657 +land@674 =landTF@690 =land@690 landSheetRF@1040 +landNrm@2992 =landNrm@2992 +landEdgeS@2993 landTF@2993 landNrm@2993 land@2994 =landEdgeS@3010"
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^3+4234}\\cos z",
+   "sheets": true,
+   "firstSurfaceMs": 154,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landSheetTF@29 +landSheet@29 +floor@29 =landSheetTF@55 =landSheet@55 =floor@56 landSheetTF@56 floor@56 landSheet@56 +mark@56 =mark@56 mark@60 +landSheetRF@95 =landSheetRF@112 +landTF@647 +land@664 =landTF@682 =land@682 landSheetRF@1046 +landNrm@2979 =landNrm@2979 +landEdgeS@2981 landTF@2981 landNrm@2981 land@2981 =landEdgeS@2998"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^3+4236}\\cos z",
+   "sheets": true,
+   "firstSurfaceMs": 246,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\log(z^3+4238)+z",
+   "sheets": true,
+   "firstSurfaceMs": 120,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\log(z^3+4240)+z",
+   "sheets": true,
+   "firstSurfaceMs": 147,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landSheetTF@39 +landSheet@39 +floor@39 =landSheetTF@64 =landSheet@64 =floor@65 landSheetTF@65 floor@65 landSheet@65 +mark@65 =mark@65 mark@69 +landSheetRF@94 =landSheetRF@111 +landTF@663 +land@680 =landTF@698 =land@698 landSheetRF@1044 +landNrm@3011 =landNrm@3011 +landEdgeS@3014 landTF@3014 landNrm@3014 land@3014 =landEdgeS@3031"
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^2+4242}",
+   "sheets": true,
+   "firstSurfaceMs": 110,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landSheetTF@19 +landSheet@19 +floor@19 =landSheetTF@45 =landSheet@45 =floor@46 landSheetTF@46 floor@46 landSheet@46 +mark@46 =mark@46 mark@51 +landSheetRF@85 =landSheetRF@102 +landTF@637 +land@654 =landTF@671 =land@671 landSheetRF@1035 +landNrm@2969 =landNrm@2969 +landEdgeS@2972 landTF@2972 landNrm@2972 land@2972 =landEdgeS@2989"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^2+4244}",
+   "sheets": true,
+   "firstSurfaceMs": 256,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\log(z^4+4246)",
+   "sheets": true,
+   "firstSurfaceMs": 105,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  },
+  {
+   "page": "test.html",
+   "f": "\\log(z^4+4248)",
+   "sheets": true,
+   "firstSurfaceMs": 142,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": "+landSheetTF@29 +landSheet@29 +floor@29 =landSheetTF@60 =landSheet@60 =floor@61 landSheetTF@61 floor@61 landSheet@61 +mark@61 =mark@61 mark@65 +landSheetRF@95 =landSheetRF@112 +landTF@664 +land@680 =landTF@697 =land@697 landSheetRF@1046 +landNrm@2998 =landNrm@2998 +landEdgeS@3001 landTF@3001 landNrm@3001 land@3001 =landEdgeS@3019"
+  },
+  {
+   "page": "test.html",
+   "f": "\\sqrt{z^4+4250}\\sin z",
+   "sheets": true,
+   "firstSurfaceMs": 408,
+   "longestGapMs": 186,
+   "gaps": [
+    [
+     162,
+     151
+    ],
+    [
+     1412,
+     186
+    ]
+   ],
+   "plog": "+landSheetTF@25 +landSheet@25 +floor@25 =landSheetTF@159 =landSheet@159 =floor@160 landSheetTF@163 floor@163 landSheet@163 +mark@163 =mark@163 mark@312 +landSheetRF@330 =landSheetRF@446 +landTF@730 +land@815 =landTF@832 =land@832 landSheetRF@1362 +landNrm@3131 =landNrm@3131 +landEdgeS@3133 landTF@3133 landNrm@3133 land@3133 =landEdgeS@3258"
+  },
+  {
+   "page": "base/test.html",
+   "f": "\\sqrt{z^4+4252}\\sin z",
+   "sheets": true,
+   "firstSurfaceMs": 256,
+   "longestGapMs": 0,
+   "gaps": [],
+   "plog": null
+  }
+ ],
+ "coldSummary": {
+  "principal": {
+   "baseLongestGapMs": 0,
+   "thisLongestGapMs": 0,
+   "baseStalls": 0,
+   "thisStalls": 0
+  },
+  "allSheets": {
+   "baseLongestGapMs": 0,
+   "thisLongestGapMs": 186,
+   "baseStalls": 0,
+   "thisStalls": 2
+  }
+ },
+ "motion": [],
+ "pass": false,
+ "logs": []
+}

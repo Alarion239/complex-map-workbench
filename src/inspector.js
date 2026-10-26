@@ -414,7 +414,7 @@ const Inspector = (() => {
     function buildF() {
       const S = A.S(), act = A.activeSteps(), built = A.built();
       const copy = h('button', { class: 'icon-btn', 'data-tip': $t('Copy LaTeX'), 'aria-label': $t('Copy the formula as LaTeX'), html: ICONS.copy });
-      copy.addEventListener('click', () => { A.copyText(A.exactTexF()); copy.innerHTML = ICONS.check; setTimeout(() => { copy.innerHTML = ICONS.copy; }, 1200); });
+      copy.addEventListener('click', () => { A.copyText(A.exactTexF()); copy.innerHTML = ICONS.check; setTimeout(() => { copy.innerHTML = ICONS.copy; }, 1200); if (A.tourEmit) A.tourEmit('tex-copied', { what: 'F' }); });
       const head = h('div', { class: 'ihead' }, h('span', { class: 'fF' }, 'F'), h('span', { class: 'ttl' }, $t('The whole map')), copy);
       const ftex = h('div', { class: 'ftex' });
       const flong = h('div', { class: 'ftex long', hidden: true }, $t('The expanded formula is long; the steps below list it piece by piece.'));

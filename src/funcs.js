@@ -2666,6 +2666,21 @@ const Funcs = (() => {
     const H = bb.hom ? bb.hom(t) : linHom(bb.f)(t);
     return [H(c0), H(w0)];
   }
+  // a top-level step's path with a cut of its own at 0 < t < 1 (z^n: z^(1 + (n - 1)t), and the power path of a
+  // (z - c)^n): on the local cut opposite its input at the cell centre c0, sheet 0, so the landscape finds that cut by
+  // continuation (GPU: the step's _hc in chainSheetHom); null for any other step
+  function localCutHom(bb, c0, t) {
+    if (!(t > 0 && t < 1) || !bb || !bb.def) return null;
+    if (bb.def.id === 'pown') {
+      const n = bb.vals.n, th = Math.atan2(c0.im, c0.re) + PI;
+      if (n >= 0) return powHom(C(n, 0), th, 0)(t);
+      return t < 0.5 ? powHom(C(-n, 0), th, 0)(2 * t) : null;
+    }
+    const d = bb.nat && bb.nat.kind === 'pow' ? bb.natData : null;
+    if (!d) return null;
+    const { la, c, n } = d, u = CX.sub(c0, c), th = Math.atan2(u.im, u.re) + PI, e = C(1 + (n - 1) * t, 0), k = CX.exp(sc(la, t));
+    return (z) => CX.add(sc(c, 1 - t), CX.mul(k, CX.pow(CX.sub(z, c), e, th, 0)));
+  }
   // Funcs.sheetMapEval(steps, built, map, zc, z, combo, W, end) -> H_t(z) on surface number combo of the cell centred
   // at zc, for a deformation map (mode 1 or 3; mode 0: sheetEval of the steps (a, b]). combo's mixed-radix digits,
   // lowest first, are read for the pieces the map applies (sheetMapPieces), as sheetEval reads F's: at t = 1 every step
@@ -2690,7 +2705,7 @@ const Funcs = (() => {
       });
       if (!how) continue;
       if (how === 1 || t >= 1) pr = stepPair(b, pr, s);
-      else if (t > 0) pr = homPair(b, pr, s, t);
+      else if (t > 0) { const lc = localCutHom(b, pr[0], t); pr = lc ? [lc(pr[0]), lc(pr[1])] : homPair(b, pr, s, t); }
     }
     return pr[1];
   }

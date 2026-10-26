@@ -1,0 +1,58 @@
+[
+  {
+    "id": "regress-1",
+    "severity": "medium",
+    "title": "Sets from formulas never moves on when the set is added with Enter",
+    "detail": "If you type the set and press Enter, the formula field keeps the focus. app.js adds the shape and clears inp.value but does not blur the field. The tour's onFocus feed then holds the countdown with kind 'field' for as long as the field has the focus. The task is ticked and Next shows as held, but the step never moves on by itself until you click somewhere else. The task text says 'press Add' (clicking Add moves the focus to the button, so that path works). Enter is the usual way to submit, and it fails. The live region also says 'Next step in 3 seconds.' in this state; see regress-6.",
+    "evidence": "Headless Chrome at 1440 x 900, ns=rvp2a, Tour.start({chapter:'basics', step:6}). Focus #formulaInput, type |z-1|<2, press Enter. Then Tour.lit() gives done:true, countdown {state:'held', held:['field'], left:null}, and activeElement is formulaInput. 5.4 s later Tour.current() is still basics/formula and the countdown is still held by 'field'. Source: tour.js wire(), isField/onFocus (line 1341-1342); app.js formula add path (inp.value = ''; check();).",
+    "fix": "Hold for a field only while it has text the user has not sent, for example isField(a) && a.value.trim() !== ''. The app clears the field after an add, so the hold ends with the task. Recheck on 'input' events and on the task's done. Another option is to drop the 'field' hold on done when the task's event came from that field (shape-added with via 'formula')."
+  },
+  {
+    "id": "regress-2",
+    "severity": "medium",
+    "title": "At 1024 x 700 the strip and the panes jump 204 px left on Editing the chain > The Inspector",
+    "detail": "The strip is the first row of .stage, so it moves whenever the stage moves. At 1024 px, opening the right panel (the step's ['panel','right']) makes the app close the left rail. The stage, the strip with it, and the panes then move 204 px left and change width for the rest of the chapter. This breaks the r3 promise that the strip never moves and keeps one place per chapter, and the panes resize in the middle of the chapter. The builder recorded it as an open point (40 of the audit's 44 failures) but did not fix it. The same jump will happen at any width where the app's narrow-desktop rule closes the left rail.",
+    "evidence": "1024 x 700, ns=rvp2b. edit/cards: strip {l:256, r:972}, #panes [256,114,716,382]. edit/inspector: strip {l:52, r:744}, #panes [52,114,692,382]. edit/split: strip still at l:52. Screenshot: rv-edit1024-inspector (taken in this review). AS-BUILT Open points and the audit tally (8982/9026) say the same.",
+    "fix": "Make the layout change once, at the chapter's start: open the Inspector, or close the left rail, in the chapter's first step's before at narrow desktop widths. Or keep the left rail open during the tour when the right panel opens below about 1100 px. Or put the slot in its own full-width row of .layout above both rails, so the rails collapsing cannot move it. Then add 1024 x 700 Editing the chain to the 'one place per chapter' check as a hard pass."
+  },
+  {
+    "id": "regress-3",
+    "severity": "medium",
+    "title": "The tour audit matrix lost its spotlight-exact, layers, follow, focus and safe-area passes and most of its sizes",
+    "detail": "v16.2's tour_audit_cmd.js (639 lines) checked several things. Each lit element's visible border box had to match a drawn hole within 1 px, corner radii included, with paths mapped through getScreenCTM. A layers pass opened the palette, Examples, More, export, a toast, the sound settings, the reference guide and the Language menu, and checked that the rings were masked off each layer, with layerAll at 390, 768 and 1440. A follow pass checked that the spotlight follows scrolls, resizes and layout changes in the next frame. It also had focus and safe-area passes, and ran at widths 360-1440 plus 844 x 390, 720 x 450 and 1152 x 720. The r3 audit (107 lines) runs 3 sizes and checks only that the lit patch holds 90 % of the anchor. The shade, ring and host code still runs, and r3 changed it: it now cuts a window for the strip, the Why panel is masked, and there is no shade without an anchor. So a regression in exactness, layering or following would now go unseen. The task's lens names exactly these passes.",
+    "evidence": "Header comments: test/tour_audit_cmd.js (v16.2) against work/xvtr/test/tour_audit_cmd.js. The old CFG had widths [360..1440], layers:true, follow:true, focus:true, safe:true, layerAll:[390,768,1440]. The new CFG has sizes [[390,844],[1024,700],[1440,900]] and none of those passes. Spot checks in this review passed: the palette at 1440 and 390 is on top at its centre and four corners (5/5 'layer'), and the countdown is held. The full passes were not re-run.",
+    "fix": "Port v16.2's spotlight-exact, layers (layerAll), follow and focus passes to the strip. The strip replaces the callout as the box that must not cover a layer, and holes are matched against Tour.lit().holes plus the strip window. Restore the size list, at least 390, 844 x 390, 768, 1024, 1152 x 720 and 1440. Run it once before the merge."
+  },
+  {
+    "id": "regress-4",
+    "severity": "low",
+    "title": "On a small laptop the strip takes 17 % of the panes' height, and 40 % with Why open; every toggle resizes the GL canvases",
+    "detail": "At 1366 x 657, a typical old Windows laptop viewport, #panes is 409 px high without the tour, 339 px with the strip (70 px row), and 246 px with Why open. With Why open, --tour-h is 163 px, under a cap of 45 % of the viewport. Why's open state is remembered (rec.why) for later chapters. Each Why toggle, and each chapter start with Why open (a new measured height), resizes the panes and so the WebGL canvases, which forces a full redraw. The tour's start and end also resize them once each. The user reports lag on old Windows laptops on the first draw. Nothing covers the work area, but the work area gets small, and the extra resizes are redraws that v16.2 did not do.",
+    "evidence": "ns=rvp2c, analysis step 0. #panes heights: 409 (no tour), 339 (tour, Why folded), 246 (Why open). Strip box {t:44, b:199}. Screenshot: rv-laptop-why. Frame times on this Mac were fine (see the summary). The old laptop was not tested.",
+    "fix": "When the panes would drop below about 360 px, cap Why's extra height lower, for example 20-25 % of the viewport, and scroll inside it. Or, on short desktop viewports, show Why as the tap-opened panel the phone uses (it is opened on request, so it is not uninvited). Keep one height for the whole tour, not one per chapter, so the canvases resize at most once."
+  },
+  {
+    "id": "regress-5",
+    "severity": "low",
+    "title": "The live region says 'Next step in 3 seconds.' while the countdown is held",
+    "detail": "armTry builds the done announcement with counting = phase 'running' OR 'held'. When a task is done while something holds the countdown, screen readers hear that the next step comes in 3 seconds but nothing happens. Holds include a focused field (regress-1), the palette or catalog that the task itself opens (Add a function: layer-opened; Command palette: palette-opened), a finger down, and Grieg playing. Those tasks are done the moment the layer opens, so the promise is wrong every time.",
+    "evidence": "tour.js armTry line 2545-2547: counting = !t.advance && r.cd && (r.cd.phase === 'running' || r.cd.phase === 'held'). Probe: with the palette open (Ctrl/Cmd+K) at 1440 and 390, Tour.lit().countdown.held = ['field','layer'].",
+    "fix": "Announce 'Next step in 3 seconds.' only when the phase is 'running'. When it is 'held', say nothing about timing, or say 'Next step 3 seconds after you close it.' for a layer. Announce the 3 s later, from cdSync, when a held countdown starts running."
+  },
+  {
+    "id": "regress-6",
+    "severity": "low",
+    "title": "Doors move on even with Move on by itself turned off",
+    "detail": "The countdown reducer handles e.door before e.off. With rec.auto === false, the Three views and Deformation door steps still jump 0.7 s after done. AS-BUILT says 'Move on by itself in Why turns all of this off', and the checkbox label suggests that too. v16.2 doors also moved after 0.7 s, so this is not new behaviour. But it now contradicts a visible setting the user can turn off.",
+    "evidence": "tour.js countdown(): case 'done': if (e.door) return out({ phase: 'running', ... door: true }) comes before if (e.off). tour_auto_cmd lists 'Move on by itself off' only for task steps.",
+    "fix": "Either respect off for doors too (check e.off first: a door with auto off just ticks), or say in Why's checkbox note that steps that open something new still go on."
+  },
+  {
+    "id": "regress-7",
+    "severity": "info",
+    "title": "After the tour on a phone the root keeps --ph-hp and --ph-ride, which were unset before",
+    "detail": "stop() calls api.slot('stage'). The app's slot() calls Phone.geometry() on the next frame, which writes --ph-hp and --ph-ride inline on <html> even though no sheet is open. Before the tour these were unset, so var(--ph-hp, 300px) fell back. All measured boxes are identical, so nothing visible changes today. But the page is not exactly as it was, and the desktop root keeps an empty style attribute.",
+    "evidence": "ns=rvlifeport and rvlifeland. <html> style before the tour: null. After Tour.stop: '--ph-hp: 304px; --ph-ride: 364px;' (portrait) and '--ph-hp: 180px; --ph-ride: 38px;' (landscape). The boxes of #panes, #paneL, #paneR, .pipe-wrap, header and #viewSwitch are identical before and after.",
+    "fix": "In slot(), call Phone.geometry() only while a sheet is open (Phone.sheet()), or have stop() restore those two properties to their pre-tour values."
+  }
+]

@@ -1,0 +1,186 @@
+{
+ "_about": "v16.4 Inside C only: the review fixes (2026-10-26), built in work/xvhs. One entry per finding of review-math.json (8) and review-user.json (10). status: fixed | partly-fixed | documented | deferred (a question for the user) | rejected (with the reason) | no-action. Evidence: node test/t_constr.js (section G, 37/37: 8 new checks), test/perp_cmd.js section J (7 new checks), evidence/fix-*. Browser: perp_cmd A–J 117/117 with no console errors (evidence/fix-perp_cmd_full.json; I8 BUDGET60: frame p95 16.7 ms, rAF work p95 1.4 ms seg vs 2.4 ms whole); node: all 34 test/t_*.js exit 0 (evidence/fix-node_tests.txt); make_ru_table --strict: 2398 entries, 0 unresolved (evidence/fix-ru_strict.log). Baselines (test/regress/perf/accepted.json, quality/baseline*.json, quality/golden) byte-identical to the main tree. Also re-run: constr_cmd 115/115 (the 3-point chip's touch class), i18n_cmd 94/94 (evidence/fix-constr_cmd.json, fix-i18n_cmd.json).",
+ "findings": [
+  {
+   "id": "math-1",
+   "severity": "high",
+   "status": "fixed",
+   "fix": "A line's arc is now drawn by Region's own line curves (region.js segCurvesOf, used by curvesOf and by the preview): the chord is a segment; the vertical ray and the two rays through infinity are longOf rays (FAR clip and, with {reach: 'sphere'}, c.reach), each running from the arc's start toward its end, the finite ends bitwise. So Lines.refine's tails, cutUnresolved and resolveFar and curvePieces' clip apply as to a whole line. constr.js segCurves now draws circles only (its line runs are gone).",
+   "files": [
+    "src/region.js (segCurvesOf, curvesOf)",
+    "src/constr.js (segCurves, segSample)",
+    "src/construct.js (strokeSeg)"
+   ],
+   "evidence": "t_constr G 'seg (math-1, math-4): the vertical ray is a long ray with reach': real axis, P = 1+i, Q = 1+2i, X [-4,4]x[-3,3]: largest Im step under exp 0.25 rad (whole line 0.25; before 36.4); nearest 1/z image to 0: 3.0e-19 (whole 2.9e-19; before 9.1e-4); window of diagonal 0.25 around 1+i: 2.8e-19 (before ~0.035)."
+  },
+  {
+   "id": "math-2",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "setSeg treats a glider at infinity as the point infinity: kept when infinity is on the drawn side (f_Gc there has the sign of Gc.A; 0 for a line), else its mirror image (mirrorIn now maps infinity <-> a circle's centre, a line keeps infinity). Off, it gets t = 1/2 when K's map is the M(R) one. projectPiece's seg branch maps infinity to u = 1/2: an infinite end is that end's t, else its t on the arc, else the nearer end.",
+   "files": [
+    "src/constr.js (setSeg, mirrorIn, projectPiece)"
+   ],
+   "evidence": "t_constr G: a glider at the ray's infinite end stays at infinity off (t 0.5) and on again (t 1); a glider at infinity on the whole line K stays at infinity when the switch turns on; two rays: projectPiece(infinity) is inside (0, 1) and glides to infinity; on the chord a glider at infinity goes to the centre (|p| < 1e-15) and Other side brings it back to infinity."
+  },
+  {
+   "id": "math-3",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "The outside of a circle C is written as a disc of the sphere: '\\{|z|>1\\}\\cup\\{\\infty\\}' (the same maths in Russian). The half-plane case is unchanged.",
+   "files": [
+    "src/construct.js (phrase)"
+   ],
+   "evidence": "perp_cmd J2: '…the hyperbolic line in the domain $\\{|z|>1\\}\\cup\\{\\infty\\}$ on the circle through $z_{0}$ and $z_{1}$ perpendicular to the circle $|z|=1$, in the $z$-plane.'"
+  },
+  {
+   "id": "math-4",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "By math-1: the ray and the two rays are long curves, which curvePieces clips to clipWin, so integrals and Listen along get a finite clipped piece. The line-run f with tan(pi/2 ± eps) is gone (segCurves no longer draws lines); the long rays' f is linear and exact at 0 and 1.",
+   "files": [
+    "src/region.js",
+    "src/constr.js"
+   ],
+   "evidence": "t_constr G 'the two rays through infinity: long rays with reach, f finite and straight to their clipped ends' (f(0), f(0.999), f(1) finite and in one direction on both runs) and 'the vertical ray … f(1) finite'. Browser (evidence/fix-integral-probe.json): 'Integrate F along it' (F = 1/z) on the vertical seg ray gives 1.0664 + 1.2194i over the visible part and on the two rays 0, with no 'singularity' message; before, the popover said the curve passes through a singularity."
+  },
+  {
+   "id": "math-5",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Chose SPEC 4's reading (parallel geodesics have no meet): meetsOf returns no meet at either index for two hyperbolic lines of the same C that share an end (both infinity, or within 1e-9 of the larger arc's size). Their carriers touch only at that ideal point. Crossing geodesics are unchanged.",
+   "files": [
+    "src/constr.js (meetsOf, segParallel)"
+   ],
+   "evidence": "t_constr G 'limiting parallels … have no meet at either index; crossing geodesics still meet': two vertical rays over the real axis (Re z = 1, 2) and two disc geodesics through e^{0.7i}: m0 and m1 both nomeet."
+  },
+  {
+   "id": "math-6",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "The ⋯ item names the side it turns on: 'Outside {c} only' when SPEC 2.2's side is the outside (a disc C drawn as its complement); 'Inside {c} only' and 'One side of {c} only' as before. New string menu.seg_out (RU «Только вне кривой: {c}»).",
+   "files": [
+    "src/construct.js (rowMenu)",
+    "notes/i18n/ru/v164-segments.json"
+   ],
+   "evidence": "perp_cmd J5: C a complement disc: the item reads 'Outside the circle of Disc 1 only' ({c} names C's boundary, the v16.3 user-13 rule) and after it the row reads 'hyperbolic line outside the circle of Disc 1, …'."
+  },
+  {
+   "id": "math-7",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "cap.seg ('through z0 and z1 in the domain …') only when P and Q are both finite and strictly on the drawn side (not on C by onCarrier's tolerance, seg * f_Gc < 0); otherwise cap.seg_on ('in the domain … on the circle through …'). The rows use the same test (user-6).",
+   "files": [
+    "src/construct.js (segThru, phrase)",
+    "src/constr.js (onCarrier exported)"
+   ],
+   "evidence": "perp_cmd J3: z0 = e^{0.7i} on C: '…the hyperbolic line in the domain $|z|<1$ on the circle through $z_{0}$ and $z_{1}$ perpendicular to the circle $|z|=1$…'; row 'hyperbolic line inside Circle 1, on the circle through z₀ and z₁'."
+  },
+  {
+   "id": "math-8",
+   "severity": "low",
+   "status": "documented",
+   "fix": "AS-BUILT now says that v16.2 (like Preimage, SPEC 6.1) draws the two-rays case as the chord inside C, the complement of what v16.4 draws. The cache is not changed to a 'ray' because a ray from one end is also wrong (half the curve), the case needs the outside side and the diameter case at once, and v16.2 is an old page.",
+   "files": [
+    "notes/orthogonal-circle/segments/AS-BUILT.md"
+   ],
+   "evidence": "AS-BUILT 'Links' and 'Not checked' paragraphs."
+  },
+  {
+   "id": "user-1",
+   "severity": "high",
+   "status": "deferred",
+   "fix": "Not built: a question for the user. The approved request (review-user.json user-14, 'the arc of K inside the picked curve, the arc between its two crossings with C') is what v16.4 draws. A third state 'Between z0 and z1' (the true hyperbolic segment, «гиперболический отрезок»: SPEC 2 with ends P and Q, undefined when P and Q are on opposite sides of C; in the chip, the Inspector and the ⋯ menu) is new scope with its own strings, gliders and meets. Question for the user, with shots/review-user/ru-exp2z.png: 'Also add Between z0 and z1, so a hyperbolic triangle draws without tails?'",
+   "files": [],
+   "evidence": "SPEC 12 and AS-BUILT 'Open' already list it."
+  },
+  {
+   "id": "user-2",
+   "severity": "medium",
+   "status": "fixed",
+   "fix": "Construct.phrase marks the seg captions close: true. shapePhrase then ends them with a closing comma {pc}; pcTidy (app.js: captionLatex, layoutCaption, __cmwCapText) drops it before punctuation, an opening bracket, another comma and at the end; for a list that a figure.js template continues it is left as U+2063 and figure.js's polish (pcOut) resolves it once the sentence is whole. figure.js us() keeps the mark. Russian: «…, проходящая через $z_1$ и~$z_2$, и~гиперболическая прямая …», «…через $z_2$ и~$z_0$, в~плоскости~$z$». No string changed. Follow-up for the merge, not done here: v16.3's own perp and touch captions («окружность, проходящая через … и ортогональная …») have the same open participle in Russian; with this mechanism the fix is close: 'ru' on those phrase returns, left out so the v16.3.1 round's captions do not change under it.",
+   "files": [
+    "src/construct.js (phrase)",
+    "src/app.js (shapePhrase, pcTidy, captionLatex, layoutCaption, segsTex, __cmwCapText)",
+    "src/figure.js (us, pcOut, polish)"
+   ],
+   "evidence": "perp_cmd J1 (RU, three seg lines): '$z_{2}$, и~гиперболическая прямая', '$z_{0}$, в~плоскости~$z$', '$z_{1}$, гиперболическая', and no ',,' ',.' ', (' or U+2063 in the article or homework caption."
+  },
+  {
+   "id": "user-3",
+   "severity": "low",
+   "status": "partly-fixed",
+   "fix": "The stacked 'in … in the z-plane' now reads '…in the domain $|z|<1$, in the $z$-plane' (the same closing comma as user-2). Grouping several lines into one 'in the domain' is not done: the caption lists shapes in drawing order everywhere, points between the lines, and lines may lie in different domains; grouping would reorder the list for one kind only.",
+   "files": [
+    "src/construct.js",
+    "src/app.js",
+    "src/figure.js"
+   ],
+   "evidence": "perp_cmd J1 (EN): '…and the hyperbolic line through $z_{2}$ and $z_{0}$ in the domain $|z|<1$, in the $z$-plane.', no stray comma in the article, on-screen and homework captions."
+  },
+  {
+   "id": "user-4",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "The Orthogonal chip chooses words or icons from its actual width after each text change: words first (not on touch), icons when the text then wraps or the chip passes its plane's right edge; the plane's width is in the chip's signature, so a resize re-measures. Whole's tooltip is 'Whole: the whole circle' (RU «Целиком: вся окружность»). The 3-point chip keeps v16.3's rule.",
+   "files": [
+    "src/construct.js (syncChip)",
+    "notes/i18n/ru/v164-segments.json (chip.seg_tip_whole)"
+   ],
+   "evidence": "perp_cmd J6, 1440: before C is picked icons (the long text), after it 'Point 1 of 2 · Orthogonal · Esc cancels | Whole | Inside' in words, chip right 663.5 px inside the plane's 697 px; evidence/fix-seg-d1440-chip.png."
+  },
+  {
+   "id": "user-5",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "On touch (chipTouch, class cm-touch) the segment buttons of both chips (Orthogonal and Circle through 3 points) take taps 40 px tall through a ::after, with the same look (the group's overflow is visible, so the end buttons get the inner radius).",
+   "files": [
+    "src/construct.js (syncChip, CSS)"
+   ],
+   "evidence": "perp_cmd J7, 390 x 844 Android touch: both buttons of both chips are hit 18 px above and below their centre (buttons stay 20 px tall); evidence/fix-seg-p390-chip.png."
+  },
+  {
+   "id": "user-6",
+   "severity": "low",
+   "status": "fixed",
+   "fix": "Rows use math-7's test: when P or Q is not strictly on the drawn side, 'hyperbolic line inside {c}, on the circle through {a} and {b}' (on the line through … when K is a line). 5 new strings (row.seg_in_on, row.seg_out_on, row.seg_side_on, row.on_circle, row.on_line).",
+   "files": [
+    "src/construct.js (defText perp)",
+    "notes/i18n/ru/v164-segments.json"
+   ],
+   "evidence": "perp_cmd J4: z0 at 0.35+1.15i: 'hyperbolic line inside Circle 1, on the circle through z₀ and z₁'; the side through z1, z2 unchanged; RU «гиперболическая прямая внутри кривой: Окружность 1; на окружности через z₀ и z₁»."
+  },
+  {
+   "id": "user-7",
+   "severity": "low",
+   "status": "rejected",
+   "fix": "Kept SPEC 7.5 (the reviewer marks it optional): names are numbered by kind in order, so renaming on the switch would renumber the shapes after it, and naming every perp by its carrier would call the arcs the chip makes 'Circle n'. The row says what is drawn.",
+   "files": [],
+   "evidence": "SPEC 7.5; review-user.json user-7 'Optional'."
+  },
+  {
+   "id": "user-8",
+   "severity": "low",
+   "status": "rejected",
+   "fix": "Not v16.4 code: Y's existing auto-fit. The reviewer: 'Nothing needed for v16.4'. Left for the backlog (ignore shapes over 50 window diagonals in Y's fit, as MR_RATIO does for drawing).",
+   "files": [],
+   "evidence": "review-user.json user-8."
+  },
+  {
+   "id": "user-9",
+   "severity": "low",
+   "status": "rejected",
+   "fix": "The existing palette order, not v16.4 code; no change to the palette in this round (golden images). A palette note for later.",
+   "files": [],
+   "evidence": "review-user.json user-9."
+  },
+  {
+   "id": "user-10",
+   "severity": "info",
+   "status": "no-action",
+   "fix": "None needed.",
+   "files": [],
+   "evidence": "review-user.json user-10."
+  }
+ ]
+}

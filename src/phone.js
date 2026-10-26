@@ -338,7 +338,8 @@ const Phone = (() => {
 
   // ---------------- the sheet ----------------
   function geometry() {
-    const H = window.innerHeight;
+    // (v16.4: less the guided tour's strip under the header, --ph-tour, while it shows)
+    const H = window.innerHeight - (parseFloat(getComputedStyle(rootEl).getPropertyValue('--ph-tour')) || 0);
     const hp = Math.round(Math.max(180, Math.min(340, H * 0.36)));
     rootEl.style.setProperty('--ph-hp', hp + 'px');
     // the sheet's height less the tool row's: how far the chain bar rides up with it
@@ -518,6 +519,7 @@ const Phone = (() => {
   }
   return {
     init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, sheet: () => kind, big: () => big, nums: () => nums,
+    geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     // TEMP-DEBUG-HOOK
