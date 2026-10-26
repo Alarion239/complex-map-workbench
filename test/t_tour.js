@@ -246,6 +246,28 @@ for (let i = 0; i < 6000; i++) {
 check('fuzz: inside the viewport', bad, 0);
 check('fuzz: beside means not over', cover, 0);
 check('fuzz: sheets only on narrow screens', wide, 0);
+// v16.3.1 (gate-v163-r1): the anchor below the screen, the shape list low in a phone's More tools sheet in landscape
+// (780 x 360): no place above it below the screen; the one-line bar on a phone, else a place inside the viewport
+{
+  const v = { w: 780, h: 360 }, c = { w: 320, h: 286 }, sf = { t: 0, b: 21, l: 47, r: 47 };
+  const lit = [{ l: 47, t: 48, r: 210, b: 308 }, { l: 433, t: 108, r: 514, b: 158 }];
+  const low = { l: 433, t: 667, r: 768, b: 667 };
+  const q1 = T.place(low, c, v, { prefer: 'right', others: lit, safe: sf, mini: true });
+  check('anchor below the screen, phone landscape: the bar, not a card below the screen', q1.mode, 'mini');
+  const q2 = T.place(low, c, v, { prefer: 'right', others: lit, safe: sf });
+  ok('anchor below the screen, no bar: inside the viewport', inside(q2, c, v), q2);
+  const q3 = T.place({ l: 433, t: -400, r: 768, b: -300 }, c, v, { prefer: 'right', others: lit, safe: sf });
+  ok('anchor above the screen: inside the viewport', inside(q3, c, v), q3);
+  // fuzz: anchors partly or wholly off the screen, on any side
+  let off = 0;
+  for (let i = 0; i < 6000; i++) {
+    const vv = { w: 640 + Math.round(rnd() * 1300), h: 340 + Math.round(rnd() * 700) }, cc = { w: 320, h: 100 + Math.round(rnd() * 200) };
+    const w = 20 + rnd() * vv.w * 0.8, h = rnd() < 0.2 ? 0 : 20 + rnd() * vv.h * 0.8, l = -vv.w * 0.5 + rnd() * vv.w * 2, t = -vv.h + rnd() * vv.h * 3;
+    const q = T.place({ l, t, r: l + w, b: t + h }, cc, vv, { prefer: ['right', 'left', 'top', 'bottom'][i % 4], others: i % 3 === 0 ? [rect(vv, 0.4)] : [] });
+    if (q.mode !== 'mini' && q.mode !== 'dock' && !inside(q, cc, vv)) off++;
+  }
+  check('fuzz: anchors off the screen, the card inside the viewport', off, 0);
+}
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);

@@ -1658,6 +1658,9 @@
         if (def.flip == null) def.flip = fin.length === 3 && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(P[1], P[0])) < 0));
         if (def.flip) G = flipG(G);
         G.byInc = inc && G.A === 0;
+        // (v16.3.1, verify-1: the three points the form was built through, for perpForm's decimal mirror test; a
+        // flip keeps them, as a re-anchoring does)
+        if (fin.length === 3) G.p3 = P.map((z) => z.slice());
         // the Lambda rule's thru0 from incidence [C9]: a defining point exactly at 0 (the anchor, C = 0 exactly)
         const zi = fin.findIndex((p) => p[0] === 0 && p[1] === 0);
         if (zi >= 0) { G = reanchorAt(G, fin[zi]); G.thru0 = true; }
@@ -1895,6 +1898,24 @@
     if (fin2 && pc && pc.kind === 'circle' && Gc.A !== 0 && isXY(pc.c) && pc.r > 0 && orientD(pc.c, P, Q) === 0) {
       const v = decInts([P[0], P[1], Q[0], Q[1], pc.c[0], pc.c[1], pc.r]);
       if (v) { const [px, py, qx, qy, cx, cy, rr] = v; if ((px - cx) * (qx - cx) + (py - cy) * (qy - cy) === rr * rr) return { undef: 'pencil' }; }
+    }
+    // [v16.3.1, verify-1] C through three points p1, p2, p3 (a 3-point circle, an arc): its centre and radius are not
+    // decimals, but its form is rational in the points. Anchored at p1, f(z) = A|u|^2 + D ux + E uy (circle3's A, D,
+    // E); P, Q are mirror images when A u v* + (D - iE) u / 2 + (D + iE) v* / 2 = 0 (u = P - p1, v = Q - p1), both
+    // parts tested exactly in the decimals scaled to integers. (A 0 here and not in the form, or the reverse, by
+    // incidence: the decimals do not describe the form, and the rule is skipped)
+    const p3 = pc && (pc.kind === 'circle' || pc.kind === 'line') ? pc.arc3 || (pc.G && pc.G.p3) || (pc.G && pc.G.pts && pc.G.pts.length === 3 ? pc.G.pts : null) : null;
+    if (fin2 && p3 && p3.every(isXY)) {
+      const v = decInts([p3[0][0], p3[0][1], p3[1][0], p3[1][1], p3[2][0], p3[2][1], P[0], P[1], Q[0], Q[1]]);
+      if (v) {
+        const [x1, y1, x2, y2, x3, y3, px, py, qx, qy] = v;
+        const q1x = x2 - x1, q1y = y2 - y1, r1x = x3 - x1, r1y = y3 - y1, sq = q1x * q1x + q1y * q1y, sr = r1x * r1x + r1y * r1y;
+        const A3 = q1x * r1y - q1y * r1x, D3 = sr * q1y - sq * r1y, E3 = sq * r1x - sr * q1x;
+        const ux = px - x1, uy = py - y1, vx = qx - x1, vy = qy - y1;
+        if ((A3 === 0n) === (Gc.A === 0)
+          && 2n * A3 * (ux * vx + uy * vy) + D3 * (ux + vx) + E3 * (uy + vy) === 0n
+          && 2n * A3 * (uy * vx - ux * vy) + D3 * (uy - vy) + E3 * (vx - ux) === 0n) return { undef: 'pencil' };
+      }
     }
     if (fin2 && pc && pc.kind === 'line' && Gc.A === 0 && isXY(pc.a) && isXY(pc.b)) {
       const v = decInts([pc.a[0], pc.a[1], pc.b[0], pc.b[1], P[0], P[1], Q[0], Q[1]]);

@@ -13336,21 +13336,30 @@
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip]';
-    let lp = null, lpShown = null;
+    // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
+    // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
+    // and its click was swallowed. The release decides by the events' times instead)
+    let lp = null, lpShown = null, lpDown = null;
     const lpCancel = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
     document.addEventListener('pointerdown', (e) => {
       lpCancel();
       if (lpShown) { lpShown = null; hide(); }
+      lpDown = null;
       if (e.pointerType !== 'touch') return;
       const el = e.target.closest && e.target.closest(LP_SEL);
       if (!el) return;
+      lpDown = { id: e.pointerId, t: e.timeStamp };
       lp = { el, x: e.clientX, y: e.clientY, id: e.pointerId, t: setTimeout(() => { lp = null; cur = el; lpShown = el; show(el); }, 450) };
     });
     document.addEventListener('pointermove', (e) => { if (lp && e.pointerId === lp.id && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) lpCancel(); }, { passive: true });
     document.addEventListener('pointercancel', lpCancel);
-    document.addEventListener('pointerup', () => {
+    document.addEventListener('pointerup', (e) => {
       lpCancel();
+      const down = lpDown;
+      lpDown = null;
       if (!lpShown) return;
+      // a release less than 450 ms after the press, by the events' times, is a tap: the tip goes, the click goes through
+      if (down && e.pointerId === down.id && e.timeStamp - down.t < 450) { lpShown = null; hide(); return; }
       // the tip stays up for a moment after the finger lifts; the click that follows the release is swallowed
       const el = lpShown;
       const swallow = (ev) => { if (el.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); } };
@@ -15060,6 +15069,8 @@
   // page reloads with it; the figure before it is kept for Undo (undoOpen)
   function openFigure(state, how) {
     let st = null;
+    // (v16.3.1: constructions this build cannot read are freed here, before the reload; the toast after it says so)
+    cmLoad.freed = 0;
     try { st = sanitizeState(JSON.parse(JSON.stringify(state))); } catch (e) { st = null; }
     if (!st) { sndError(); toast(how === 'scene' ? $t('This scene could not be read.') : $t('This link does not hold a figure.')); return false; }
     try {
@@ -15067,7 +15078,7 @@
       if (prev) localStorage.setItem(lsk('cmw-before-open'), prev);
       st.hideLeft = dockPref.L; st.hideRight = dockPref.R;
       localStorage.setItem(LS_KEY, JSON.stringify(st, noRuntime));
-      sessionStorage.setItem(lsk('cmw-opened'), how);
+      sessionStorage.setItem(lsk('cmw-opened'), how + (cmLoad.freed ? ':freed' : ''));
     } catch (e) { sndError(); toast($t('The figure cannot open here: this browser blocks site storage.')); return false; }
     figureSwap = true;
     try { history.replaceState(null, '', location.href.replace(/#.*$/, '')); } catch (e) { /* the hash stays */ }
@@ -15120,7 +15131,12 @@
     // after opening a link or a scene: say so, with Undo (the figure before it)
     let opened = null;
     try { opened = sessionStorage.getItem(lsk('cmw-opened')); sessionStorage.removeItem(lsk('cmw-opened')); } catch (e) { opened = null; }
-    if (opened) setTimeout(() => toast(opened === 'scene' ? $t('Opened the scene.') : $t('Opened the figure from the link.'), $t('Undo'), undoOpen), 400);
+    // (v16.3.1: with the note that some constructions were opened as plain shapes, freed by openFigure before the
+    // reload, or by this load; this toast would replace the note's own toast)
+    if (opened) {
+      const freed = /:freed$/.test(opened) || !!cmLoad.freed, how = opened.replace(/:freed$/, '');
+      setTimeout(() => toast((how === 'scene' ? $t('Opened the scene.') : $t('Opened the figure from the link.')) + (freed ? ' ' + $t('Some constructions could not be read and were opened as plain shapes.') : ''), $t('Undo'), undoOpen), 400);
+    }
     // a link: #cmw=<payload>, when the page opens, or pasted into the address bar of the open page (a hash change)
     const fromLink = (fresh) => {
       const m = /[#&]cmw=([A-Za-z0-9_.-]+)/.exec(location.hash || '');

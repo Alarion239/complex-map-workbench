@@ -1075,12 +1075,13 @@ const Construct = (() => {
   const coarse = () => { try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } };
   const chipTouch = () => (lastEv ? touchNow() || (lastPressTouch === true && lastPressAt > lastEvAt) : lastPressTouch != null ? lastPressTouch : coarse());
   let lastPressAt = 0, lastEvAt = 0;
-  function chipText(narrow) {
+  // (noEsc: without "Esc cancels", for a chip that would wrap with it and fits one line without it [v16.3.1])
+  function chipText(narrow, noEsc) {
     const tool = A.tool();
     if (!isCTool(tool)) return '';
     // (the tile's soft hyphen never reaches the chip: it would break the chip's line there [v16.3 review user-8])
     const touch = chipTouch(), tn = (narrow || touch ? toolShort(tool) : toolName(tool)).replace(/\u00AD/g, '');
-    const tail = touch ? '' : ' · ' + $t('Esc cancels');
+    const tail = touch || noEsc ? '' : ' · ' + $t('Esc cancels');
     if (tool === 'meet') {
       const n = draftC && draftC.curve1 ? 2 : 1;
       return $t('A crossing, or curve {n} of 2', { n }) + ' · ' + tn + tail;
@@ -1121,13 +1122,14 @@ const Construct = (() => {
       }
       el.classList.add('cm-on');
       if (el.firstElementChild && el.firstElementChild !== box) el.firstElementChild.hidden = true;
-      const plot = el.parentElement, narrow = !!plot && plot.clientWidth > 0 && plot.clientWidth < 560;
+      const plot = el.parentElement, pw = plot ? plot.clientWidth : 0, narrow = pw > 0 && pw < 560;
       const txt = chipText(narrow);
-      const sig = `${txt}|${tool}|${fillMode}|${I18N.lang}|${chipTouch()}|${narrow}`;
+      const sig = `${txt}|${tool}|${fillMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
-        box.append(A.h('span', { class: 'cm-t' }, txt));
+        const tEl = A.h('span', { class: 'cm-t' }, txt);
+        box.append(tEl);
         if (tool === 'circle3') {
           // (a narrow pane or touch: two icons, a circle and a filled disc, with their names as labels)
           const icons = narrow || chipTouch();
@@ -1141,6 +1143,15 @@ const Construct = (() => {
           box.append(seg);
         }
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
+        // [v16.3.1] a chip that wraps keeps one line without "Esc cancels" when that is enough (the touching circle's
+        // "…, or a ring for a tangent" in X at 1440 x 900: "cancels" alone on a second line); when it is not, the whole
+        // text on two lines, else (it would be cut at two) the shorter one
+        const noEsc = chipText(narrow, true);
+        if (noEsc !== txt) {
+          const lines = () => { const lh = parseFloat(getComputedStyle(tEl).lineHeight) || 16; return tEl.scrollHeight / lh; };
+          const n = lines();
+          if (n > 1.5) { tEl.textContent = noEsc; if (lines() > 1.5 && n < 2.5) tEl.textContent = txt; }
+        }
       }
     }
   }
@@ -1453,11 +1464,14 @@ const Construct = (() => {
     if (f) parts.push($tn('{n} shape no longer follows it.', '{n} shapes no longer follow it.', f));
     return parts.join(' ');
   }
+  // (v16.3.1) a load before the app's adapter is set (the page opening a saved figure): its toast waits for ui()
+  let freedLater = false;
+  const freedToast = () => setTimeout(() => A.toast($t('Some constructions could not be read and were opened as plain shapes.')), 0);
   function on(type, data) {
     events.push({ type, data });
     if (events.length > 50) events.shift();
-    if (!A) return;
-    if (type === 'loadFreed') setTimeout(() => A.toast($t('Some constructions could not be read and were opened as plain shapes.')), 0);
+    if (!A) { if (type === 'loadFreed') freedLater = true; return; }
+    if (type === 'loadFreed') freedToast();
     // [review user-8] removing a zero that constructions use: the toast offers Undo, as a delete's does
     if (type === 'zpRemoved' && data && data.undef && data.undef.length) setTimeout(() => {
       const n = data.undef.length;
@@ -1938,6 +1952,7 @@ const Construct = (() => {
     window.addEventListener('keydown', keydown, true);
     window.addEventListener('pointerdown', (e) => { lastPressTouch = e.pointerType === 'touch' || e.pointerType === 'pen'; lastPressAt = performance.now(); }, true);
     if (typeof PlaneMenu !== 'undefined') PlaneMenu.register('constructions', menuItems);
+    if (freedLater) { freedLater = false; freedToast(); }
   }
   // the command palette: the six tools; Make free and Use complement for a selected construction (SPEC 5.6)
   function paletteActs() {

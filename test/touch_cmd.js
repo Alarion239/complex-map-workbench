@@ -200,7 +200,10 @@ await section('A', async () => {
   await click(cb[0] + 2, cb[1] - 2); await settle(120);
   await click(p0[0], p0[1]); await settle(120);
   d = (await CI()).draft;
-  ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && (await chipT()) === ((d.rings && d.rings.length) ? 'Touching point on Circle 1, or a ring for a tangent' : 'Touching point on Circle 1') + ' · Touching · Esc cancels', [d, await chipT()]);
+  // (v16.3.1: a chip that would wrap keeps one line without "Esc cancels"; the rings' chip in X at 1440 does)
+  const a5 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
+  const a5base = ((d && d.rings && d.rings.length) ? 'Touching point on Circle 1, or a ring for a tangent' : 'Touching point on Circle 1') + ' · Touching';
+  ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · Esc cancels' || (a5.text === a5base && a5.lines === 1)), [d, a5]);
   await click(t0[0] + 2, t0[1] + 2); await settle(400);
   st = await ST();
   const K2 = last(st);

@@ -183,3 +183,4 @@ tour, Russian) is gated.
 42. (2026-10-26) Help paragraph on the deformation: the polynomial sentence is out of date (polynomials zoom); fix with the v16.4 merge. Joukowski path stays (user).
 43. (2026-10-26) Tour round 3: lighter callouts (phones: readable without a tap, no pop-up over the work), every action step with a completion condition and auto-advance 3 s after, a Grieg/sound chapter explaining how sound is extracted. notes/tour-r3/, work/xvtr.
 44. (2026-10-26) Old Windows laptops: lag on the first draw only (shader compile); the user finds it fine. Possible later: KHR_parallel_shader_compile, warm-up compiles.
+45. (2026-10-26) Hyperbolic segments: "inside C only" option for perpendicular circles (the arc inside C). v16.4, notes/orthogonal-circle/segments/, work/xvhs.

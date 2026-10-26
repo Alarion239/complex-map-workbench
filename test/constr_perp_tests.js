@@ -374,6 +374,20 @@ module.exports = function ({ K, ok }) {
     ok(lp.slice(0, 6).every((x) => x === 'pencil') && ra === 'pencil', 'review math-3: mirror pairs in the line y = 2x on the grid, and in the real axis: all the pencil', { lp, ra });
     // a near miss stays a circle (the rule is exact in the decimals, not a tolerance)
     ok(one(U, [0.2, 0], [5.1, 0]) === 'line' && one(U, [0.3, 0.1], [2, 0.5]) === 'circle', 'review math-3: not a mirror pair: the line through the centre, or a circle');
+    // [v16.3.1, verify-1] C through three decimal points: its centre and radius are not decimals (the circle through 0,
+    // 1, i has r = 0.7071…), so the mirror test runs on the points themselves. Binary and decimal mirror pairs alike:
+    // the pencil, in either orientation (a flipped circle3), on a 3-point arc, and on collinear points (a line)
+    const c3 = (a, b, c) => [pt('a', a), pt('b', b), pt('c', c), { id: 'C', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true, def: { op: 'circle3', args: [{ s: 'a' }, { s: 'b' }, { s: 'c' }], fill: 'none' } }];
+    const many = (Cs, P, Q) => { const S0 = state([...Cs, pt('P', P), pt('Q', Q), perpShape('k', 'C', 0, { s: 'P' }, { s: 'Q' })]); rec(S0); const k = sh(S0, 'k'); return k.cundef ? k.cundef.code : k._g.A === 0 ? 'line' : 'circle'; };
+    const C01i = c3([0, 0], [1, 0], [0, 1]), C0i1 = c3([0, 0], [0, 1], [1, 0]);
+    const mp = [[[1, 0.5], [1.5, 0.5]], [[0.6, 0.5], [5.5, 0.5]], [[0.4, 0.5], [-4.5, 0.5]], [[0.5, 0.6], [0.5, 5.5]], [[0.7, 0.7], [1.75, 1.75]], [[0.3, 0.3], [-0.75, -0.75]], [[0.6, 0.6], [3, 3]]];
+    const g3 = mp.map(([P, Q]) => many(C01i, P, Q)), g3f = mp.map(([P, Q]) => many(C0i1, P, Q));
+    ok(g3.every((x) => x === 'pencil') && g3f.every((x) => x === 'pencil'), 'verify-1: the 3-point circle through 0, 1, i, binary pair 1+0.5i & 1.5+0.5i and six decimal mirror pairs: all the pencil, as drawn and flipped', { g3, g3f });
+    const other = [many(c3([0.8, -0.2], [0.3, 0.3], [-0.2, -0.2]), [0.4, -0.2], [2.8, -0.2]), many(c3([0, 0], [1, 1], [2, 2]), [0.1, 0.3], [0.3, 0.1]),
+      many([{ id: 'C', kind: 'arc', a: [0, 0], m: [1, 0], b: [0, 1], ci: 0, visible: true }], [0.6, 0.5], [5.5, 0.5])];
+    ok(other.every((x) => x === 'pencil'), 'verify-1: a 3-point circle with centre 0.3-0.2i (0.4-0.2i & 2.8-0.2i), collinear points on y = x (0.1+0.3i & 0.3+0.1i), the arc through 0, 1, i: the pencil', other);
+    const miss = [many(C01i, [0.6, 0.5], [5.6, 0.5]), many(C01i, [0.6, 0.6], [2.9, 3]), many(c3([0, 0], [1, 1], [2, 2]), [0.1, 0.3], [0.3, 0.11])];
+    ok(miss[0] === 'line' && miss[1] === 'circle' && miss[2] === 'circle', 'verify-1: near misses on those curves stay the line through the centre or a circle (the test is exact, not a tolerance)', miss);
   }
   {
     // [math-4] P, Q on a decimal perpendicular of a tilted line C: the line P Q (never a circle of radius ~1e16), the

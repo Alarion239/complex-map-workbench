@@ -17240,6 +17240,9 @@ if (typeof module !== 'undefined') module.exports = Region;
         if (def.flip == null) def.flip = fin.length === 3 && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(P[1], P[0])) < 0));
         if (def.flip) G = flipG(G);
         G.byInc = inc && G.A === 0;
+        // (v16.3.1, verify-1: the three points the form was built through, for perpForm's decimal mirror test; a
+        // flip keeps them, as a re-anchoring does)
+        if (fin.length === 3) G.p3 = P.map((z) => z.slice());
         // the Lambda rule's thru0 from incidence [C9]: a defining point exactly at 0 (the anchor, C = 0 exactly)
         const zi = fin.findIndex((p) => p[0] === 0 && p[1] === 0);
         if (zi >= 0) { G = reanchorAt(G, fin[zi]); G.thru0 = true; }
@@ -17477,6 +17480,24 @@ if (typeof module !== 'undefined') module.exports = Region;
     if (fin2 && pc && pc.kind === 'circle' && Gc.A !== 0 && isXY(pc.c) && pc.r > 0 && orientD(pc.c, P, Q) === 0) {
       const v = decInts([P[0], P[1], Q[0], Q[1], pc.c[0], pc.c[1], pc.r]);
       if (v) { const [px, py, qx, qy, cx, cy, rr] = v; if ((px - cx) * (qx - cx) + (py - cy) * (qy - cy) === rr * rr) return { undef: 'pencil' }; }
+    }
+    // [v16.3.1, verify-1] C through three points p1, p2, p3 (a 3-point circle, an arc): its centre and radius are not
+    // decimals, but its form is rational in the points. Anchored at p1, f(z) = A|u|^2 + D ux + E uy (circle3's A, D,
+    // E); P, Q are mirror images when A u v* + (D - iE) u / 2 + (D + iE) v* / 2 = 0 (u = P - p1, v = Q - p1), both
+    // parts tested exactly in the decimals scaled to integers. (A 0 here and not in the form, or the reverse, by
+    // incidence: the decimals do not describe the form, and the rule is skipped)
+    const p3 = pc && (pc.kind === 'circle' || pc.kind === 'line') ? pc.arc3 || (pc.G && pc.G.p3) || (pc.G && pc.G.pts && pc.G.pts.length === 3 ? pc.G.pts : null) : null;
+    if (fin2 && p3 && p3.every(isXY)) {
+      const v = decInts([p3[0][0], p3[0][1], p3[1][0], p3[1][1], p3[2][0], p3[2][1], P[0], P[1], Q[0], Q[1]]);
+      if (v) {
+        const [x1, y1, x2, y2, x3, y3, px, py, qx, qy] = v;
+        const q1x = x2 - x1, q1y = y2 - y1, r1x = x3 - x1, r1y = y3 - y1, sq = q1x * q1x + q1y * q1y, sr = r1x * r1x + r1y * r1y;
+        const A3 = q1x * r1y - q1y * r1x, D3 = sr * q1y - sq * r1y, E3 = sq * r1x - sr * q1x;
+        const ux = px - x1, uy = py - y1, vx = qx - x1, vy = qy - y1;
+        if ((A3 === 0n) === (Gc.A === 0)
+          && 2n * A3 * (ux * vx + uy * vy) + D3 * (ux + vx) + E3 * (uy + vy) === 0n
+          && 2n * A3 * (uy * vx - ux * vy) + D3 * (uy - vy) + E3 * (vx - ux) === 0n) return { undef: 'pencil' };
+      }
     }
     if (fin2 && pc && pc.kind === 'line' && Gc.A === 0 && isXY(pc.a) && isXY(pc.b)) {
       const v = decInts([pc.a[0], pc.a[1], pc.b[0], pc.b[1], P[0], P[1], Q[0], Q[1]]);
@@ -32072,14 +32093,16 @@ const Tour = (() => {
       for (const q of aside()) { if (!free(q.x, q.y)) continue; const o = over(q.x, q.y, lit); if (!best || o < best.o) best = Object.assign(q, { o }); }
       return best ? fin(best) : DOCK;
     }
-    // the four places beside R, centred on c (default: R's centre) along the shared edge
+    // the four places beside R, centred on c (default: R's centre) along the shared edge. Each lies wholly inside the
+    // bounds. (v16.3.1: an R below the screen, the shape list low in a phone's More tools sheet in landscape, put the
+    // card "above" it, which was below the screen too; a side is now checked at both of its ends)
     function sides(R, c) {
       const cx = c ? c.x : (R.l + R.r) / 2, cy = c ? c.y : (R.t + R.b) / 2;
       return {
-        right: R.r + GAP + card.w <= B.r && { x: R.r + GAP, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
-        left: R.l - GAP - card.w >= B.l && { x: R.l - GAP - card.w, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
-        bottom: R.b + GAP + card.h <= B.b && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.b + GAP },
-        top: R.t - GAP - card.h >= B.t && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.t - GAP - card.h },
+        right: R.r + GAP + card.w <= B.r && R.r + GAP >= B.l && { x: R.r + GAP, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
+        left: R.l - GAP - card.w >= B.l && R.l - GAP <= B.r && { x: R.l - GAP - card.w, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
+        bottom: R.b + GAP + card.h <= B.b && R.b + GAP >= B.t && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.b + GAP },
+        top: R.t - GAP - card.h >= B.t && R.t - GAP <= B.b && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.t - GAP - card.h },
       };
     }
     const order = ['right', 'left', 'bottom', 'top'];
@@ -36448,12 +36471,13 @@ const Construct = (() => {
   const coarse = () => { try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches); } catch (e) { return false; } };
   const chipTouch = () => (lastEv ? touchNow() || (lastPressTouch === true && lastPressAt > lastEvAt) : lastPressTouch != null ? lastPressTouch : coarse());
   let lastPressAt = 0, lastEvAt = 0;
-  function chipText(narrow) {
+  // (noEsc: without "Esc cancels", for a chip that would wrap with it and fits one line without it [v16.3.1])
+  function chipText(narrow, noEsc) {
     const tool = A.tool();
     if (!isCTool(tool)) return '';
     // (the tile's soft hyphen never reaches the chip: it would break the chip's line there [v16.3 review user-8])
     const touch = chipTouch(), tn = (narrow || touch ? toolShort(tool) : toolName(tool)).replace(/\u00AD/g, '');
-    const tail = touch ? '' : ' · ' + $t('Esc cancels');
+    const tail = touch || noEsc ? '' : ' · ' + $t('Esc cancels');
     if (tool === 'meet') {
       const n = draftC && draftC.curve1 ? 2 : 1;
       return $t('A crossing, or curve {n} of 2', { n }) + ' · ' + tn + tail;
@@ -36494,13 +36518,14 @@ const Construct = (() => {
       }
       el.classList.add('cm-on');
       if (el.firstElementChild && el.firstElementChild !== box) el.firstElementChild.hidden = true;
-      const plot = el.parentElement, narrow = !!plot && plot.clientWidth > 0 && plot.clientWidth < 560;
+      const plot = el.parentElement, pw = plot ? plot.clientWidth : 0, narrow = pw > 0 && pw < 560;
       const txt = chipText(narrow);
-      const sig = `${txt}|${tool}|${fillMode}|${I18N.lang}|${chipTouch()}|${narrow}`;
+      const sig = `${txt}|${tool}|${fillMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
-        box.append(A.h('span', { class: 'cm-t' }, txt));
+        const tEl = A.h('span', { class: 'cm-t' }, txt);
+        box.append(tEl);
         if (tool === 'circle3') {
           // (a narrow pane or touch: two icons, a circle and a filled disc, with their names as labels)
           const icons = narrow || chipTouch();
@@ -36514,6 +36539,15 @@ const Construct = (() => {
           box.append(seg);
         }
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
+        // [v16.3.1] a chip that wraps keeps one line without "Esc cancels" when that is enough (the touching circle's
+        // "…, or a ring for a tangent" in X at 1440 x 900: "cancels" alone on a second line); when it is not, the whole
+        // text on two lines, else (it would be cut at two) the shorter one
+        const noEsc = chipText(narrow, true);
+        if (noEsc !== txt) {
+          const lines = () => { const lh = parseFloat(getComputedStyle(tEl).lineHeight) || 16; return tEl.scrollHeight / lh; };
+          const n = lines();
+          if (n > 1.5) { tEl.textContent = noEsc; if (lines() > 1.5 && n < 2.5) tEl.textContent = txt; }
+        }
       }
     }
   }
@@ -36826,11 +36860,14 @@ const Construct = (() => {
     if (f) parts.push($tn('{n} shape no longer follows it.', '{n} shapes no longer follow it.', f));
     return parts.join(' ');
   }
+  // (v16.3.1) a load before the app's adapter is set (the page opening a saved figure): its toast waits for ui()
+  let freedLater = false;
+  const freedToast = () => setTimeout(() => A.toast($t('Some constructions could not be read and were opened as plain shapes.')), 0);
   function on(type, data) {
     events.push({ type, data });
     if (events.length > 50) events.shift();
-    if (!A) return;
-    if (type === 'loadFreed') setTimeout(() => A.toast($t('Some constructions could not be read and were opened as plain shapes.')), 0);
+    if (!A) { if (type === 'loadFreed') freedLater = true; return; }
+    if (type === 'loadFreed') freedToast();
     // [review user-8] removing a zero that constructions use: the toast offers Undo, as a delete's does
     if (type === 'zpRemoved' && data && data.undef && data.undef.length) setTimeout(() => {
       const n = data.undef.length;
@@ -37311,6 +37348,7 @@ const Construct = (() => {
     window.addEventListener('keydown', keydown, true);
     window.addEventListener('pointerdown', (e) => { lastPressTouch = e.pointerType === 'touch' || e.pointerType === 'pen'; lastPressAt = performance.now(); }, true);
     if (typeof PlaneMenu !== 'undefined') PlaneMenu.register('constructions', menuItems);
+    if (freedLater) { freedLater = false; freedToast(); }
   }
   // the command palette: the six tools; Make free and Use complement for a selected construction (SPEC 5.6)
   function paletteActs() {
@@ -51865,21 +51903,30 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { SEASONG 
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip]';
-    let lp = null, lpShown = null;
+    // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
+    // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
+    // and its click was swallowed. The release decides by the events' times instead)
+    let lp = null, lpShown = null, lpDown = null;
     const lpCancel = () => { if (lp) { clearTimeout(lp.t); lp = null; } };
     document.addEventListener('pointerdown', (e) => {
       lpCancel();
       if (lpShown) { lpShown = null; hide(); }
+      lpDown = null;
       if (e.pointerType !== 'touch') return;
       const el = e.target.closest && e.target.closest(LP_SEL);
       if (!el) return;
+      lpDown = { id: e.pointerId, t: e.timeStamp };
       lp = { el, x: e.clientX, y: e.clientY, id: e.pointerId, t: setTimeout(() => { lp = null; cur = el; lpShown = el; show(el); }, 450) };
     });
     document.addEventListener('pointermove', (e) => { if (lp && e.pointerId === lp.id && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 8) lpCancel(); }, { passive: true });
     document.addEventListener('pointercancel', lpCancel);
-    document.addEventListener('pointerup', () => {
+    document.addEventListener('pointerup', (e) => {
       lpCancel();
+      const down = lpDown;
+      lpDown = null;
       if (!lpShown) return;
+      // a release less than 450 ms after the press, by the events' times, is a tap: the tip goes, the click goes through
+      if (down && e.pointerId === down.id && e.timeStamp - down.t < 450) { lpShown = null; hide(); return; }
       // the tip stays up for a moment after the finger lifts; the click that follows the release is swallowed
       const el = lpShown;
       const swallow = (ev) => { if (el.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); } };
@@ -53589,6 +53636,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { SEASONG 
   // page reloads with it; the figure before it is kept for Undo (undoOpen)
   function openFigure(state, how) {
     let st = null;
+    // (v16.3.1: constructions this build cannot read are freed here, before the reload; the toast after it says so)
+    cmLoad.freed = 0;
     try { st = sanitizeState(JSON.parse(JSON.stringify(state))); } catch (e) { st = null; }
     if (!st) { sndError(); toast(how === 'scene' ? $t('This scene could not be read.') : $t('This link does not hold a figure.')); return false; }
     try {
@@ -53596,7 +53645,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { SEASONG 
       if (prev) localStorage.setItem(lsk('cmw-before-open'), prev);
       st.hideLeft = dockPref.L; st.hideRight = dockPref.R;
       localStorage.setItem(LS_KEY, JSON.stringify(st, noRuntime));
-      sessionStorage.setItem(lsk('cmw-opened'), how);
+      sessionStorage.setItem(lsk('cmw-opened'), how + (cmLoad.freed ? ':freed' : ''));
     } catch (e) { sndError(); toast($t('The figure cannot open here: this browser blocks site storage.')); return false; }
     figureSwap = true;
     try { history.replaceState(null, '', location.href.replace(/#.*$/, '')); } catch (e) { /* the hash stays */ }
@@ -53649,7 +53698,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { SEASONG 
     // after opening a link or a scene: say so, with Undo (the figure before it)
     let opened = null;
     try { opened = sessionStorage.getItem(lsk('cmw-opened')); sessionStorage.removeItem(lsk('cmw-opened')); } catch (e) { opened = null; }
-    if (opened) setTimeout(() => toast(opened === 'scene' ? $t('Opened the scene.') : $t('Opened the figure from the link.'), $t('Undo'), undoOpen), 400);
+    // (v16.3.1: with the note that some constructions were opened as plain shapes, freed by openFigure before the
+    // reload, or by this load; this toast would replace the note's own toast)
+    if (opened) {
+      const freed = /:freed$/.test(opened) || !!cmLoad.freed, how = opened.replace(/:freed$/, '');
+      setTimeout(() => toast((how === 'scene' ? $t('Opened the scene.') : $t('Opened the figure from the link.')) + (freed ? ' ' + $t('Some constructions could not be read and were opened as plain shapes.') : ''), $t('Undo'), undoOpen), 400);
+    }
     // a link: #cmw=<payload>, when the page opens, or pasted into the address bar of the open page (a hash change)
     const fromLink = (fresh) => {
       const m = /[#&]cmw=([A-Za-z0-9_.-]+)/.exec(location.hash || '');

@@ -490,14 +490,16 @@ const Tour = (() => {
       for (const q of aside()) { if (!free(q.x, q.y)) continue; const o = over(q.x, q.y, lit); if (!best || o < best.o) best = Object.assign(q, { o }); }
       return best ? fin(best) : DOCK;
     }
-    // the four places beside R, centred on c (default: R's centre) along the shared edge
+    // the four places beside R, centred on c (default: R's centre) along the shared edge. Each lies wholly inside the
+    // bounds. (v16.3.1: an R below the screen, the shape list low in a phone's More tools sheet in landscape, put the
+    // card "above" it, which was below the screen too; a side is now checked at both of its ends)
     function sides(R, c) {
       const cx = c ? c.x : (R.l + R.r) / 2, cy = c ? c.y : (R.t + R.b) / 2;
       return {
-        right: R.r + GAP + card.w <= B.r && { x: R.r + GAP, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
-        left: R.l - GAP - card.w >= B.l && { x: R.l - GAP - card.w, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
-        bottom: R.b + GAP + card.h <= B.b && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.b + GAP },
-        top: R.t - GAP - card.h >= B.t && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.t - GAP - card.h },
+        right: R.r + GAP + card.w <= B.r && R.r + GAP >= B.l && { x: R.r + GAP, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
+        left: R.l - GAP - card.w >= B.l && R.l - GAP <= B.r && { x: R.l - GAP - card.w, y: clamp(cy - card.h / 2, B.t, B.b - card.h) },
+        bottom: R.b + GAP + card.h <= B.b && R.b + GAP >= B.t && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.b + GAP },
+        top: R.t - GAP - card.h >= B.t && R.t - GAP <= B.b && { x: clamp(cx - card.w / 2, B.l, B.r - card.w), y: R.t - GAP - card.h },
       };
     }
     const order = ['right', 'left', 'bottom', 'top'];
