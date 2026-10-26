@@ -53948,11 +53948,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = { SEASONG 
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
     GLR.onLost = () => requestRender('L', 'R');
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
+    // once nothing compiles (the views' plain programs and the exact images have landed), the views' homotopy programs
+    // (one per map mode, gl.js MAP) compile in the background, so a deformation started later plays at once; never
+    // before, so they do not delay the first image or an inverse program (its compile waits for forward programs)
+    let modesT = 0;
+    const prestartModesIdle = () => {
+      clearTimeout(modesT);
+      modesT = setTimeout(() => { try { if (GLR.ok && GLR.prestartModes && !GLR.compiling) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the deformation starts them */ } }, 400);
+    };
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
       // (thumbnails too: one drawn forward before an inverse program landed is redrawn; the others hit their cache)
-      if (!w || w.main) { requestRender('L', 'R'); thumbsWaiting = false; requestRender('T'); }
+      if (!w || w.main) { requestRender('L', 'R'); thumbsWaiting = false; requestRender('T'); prestartModesIdle(); }
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme
