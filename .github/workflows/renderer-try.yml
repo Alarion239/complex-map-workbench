@@ -1,0 +1,47 @@
+# TEMPORARY (PR #7): which software renderer draws the app fastest on GitHub's Linux machines. Removed before merge.
+name: Renderer try
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  try:
+    name: Renderer (${{ matrix.r.id }})
+    strategy:
+      fail-fast: false
+      matrix:
+        r:
+          - { id: swiftshader, angle: swiftshader, args: '--no-sandbox', apt: '' }
+          - { id: lavapipe, angle: vulkan, args: '--no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface', apt: 'mesa-vulkan-drivers' }
+          - { id: llvmpipe-egl, angle: gl-egl, args: '--no-sandbox --use-gl=angle', apt: 'libegl-mesa0 libgl1-mesa-dri' }
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CMW_ANGLE: ${{ matrix.r.angle }}
+      CMW_CHROME_ARGS: ${{ matrix.r.args }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - if: matrix.r.apt != ''
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ${{ matrix.r.apt }} && ls /usr/share/vulkan/icd.d/ || true
+      - run: node ci/gpu_probe.js
+        continue-on-error: true
+      - run: node ci/browser.js --only '^(zp_cmd|tour_perf_cmd|deform_nat_cmd)'
+        continue-on-error: true
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: renderer-${{ matrix.r.id }}
+          path: .ci/browser/
+          if-no-files-found: ignore
+          retention-days: 3
