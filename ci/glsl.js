@@ -9,6 +9,7 @@
 // pages, slow on software rendering, into jobs); the inverse page runs whole (its chains come from one seeded
 // sequence). Exit 0 pass, 1 a failure, 2 setup problem. The pass rules are those of the command files
 // (test/glsl_inverse_cmd.js).
+const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { launch, sleep } = require('../test/regress/perf/cdp');
@@ -35,6 +36,7 @@ async function waitFor(B, expr, timeout) {
 
 async function main() {
   const pages = PAGES.filter((p) => !only || p.id === only);
+  fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });   // (the page builders write there; a fresh checkout has none)
   for (const p of pages) if (run(PY, [p.make]) !== 0) throw new Error(`${p.make} failed`);
   const srv = await serve(path.join(ROOT, 'dist'));
   const rows = [];

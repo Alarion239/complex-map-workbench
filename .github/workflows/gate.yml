@@ -90,7 +90,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: node ci/snapshots.js
@@ -120,7 +120,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
@@ -145,13 +145,13 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
       - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} --shard ${{ matrix.shard }} ${{ env.FORCE }}
       - if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: quality-${{ runner.os }}-${{ strategy.job-index }}
           path: .ci/quality/
@@ -175,14 +175,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
       # (software rendering: settling takes longer than on a GPU)
       - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --settle-timeout 60000 ${{ env.FORCE }}
       - if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: perf-${{ runner.os }}-${{ matrix.shard }}
           path: .ci/perf/

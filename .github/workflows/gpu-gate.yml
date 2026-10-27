@@ -140,7 +140,7 @@ jobs:
       # (the Mac also against the committed baseline and goldens, which were recorded on a Mac GPU)
       - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
       - if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: gpu-quality-${{ matrix.machine }}
           path: .ci/quality/
@@ -168,7 +168,7 @@ jobs:
       - run: node ci/gpu_probe.js --require-hardware
       - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
       - if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: gpu-perf-${{ matrix.machine }}-${{ matrix.shard }}
           path: .ci/perf/
