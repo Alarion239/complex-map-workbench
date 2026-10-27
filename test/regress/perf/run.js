@@ -1358,10 +1358,15 @@ async function main() {
     await openApp(sceneState('default', { meshN: 240 }));
     RES.meta.browser.gpu = await B.ev(`(() => { const gl = __perf.gls[0]; if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
   } catch (e) { RES.errors.push({ where: 'gpu-info', error: String(e) }); }
+  // paired runs: a side's browser waits on a blank page while the other side measures, so nothing it left running (a
+  // deformation still playing, a refinement) competes with the other side for the GPU and CPU (every unit opens the
+  // app itself)
+  const park = async (br) => { try { await br.nav('about:blank'); } catch (e) { /* the next unit's openApp navigates anyway */ } };
   if (B_A) {
     // the same warm-up page on the reference browser, so both start from the same state
     try { B = B_A; BASE = BASE_A; await openApp(sceneState('default', { meshN: 240 })); } catch (e) { RES.errors.push({ where: 'ref-warmup', error: String(e) }); }
     B = B_B; BASE = BASE_B;
+    await park(B_A); await park(B_B);
   }
   RES.meta.loadMax = LOAD_MAX;
   RES.meta.busyUnits = [];
@@ -1423,6 +1428,7 @@ async function main() {
         }
       } finally { clearTimeout(timer); }
       RES.meta.units[u.id] = Math.round((Date.now() - tu) / 100) / 10;
+      if (RES_A) await park(br);
     }
     RES = RES_B; BASE = BASE_B; B = B_B;
   }
