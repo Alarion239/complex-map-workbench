@@ -13,7 +13,11 @@ const CHROME_CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
   '/usr/bin/google-chrome', '/usr/bin/chromium',
+  ...(process.platform === 'win32' ? [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA]
+    .filter(Boolean).map((d) => path.join(d, 'Google', 'Chrome', 'Application', 'chrome.exe')) : []),
 ].filter(Boolean);
+// the platform's own ANGLE back end: Metal on macOS, Direct3D 11 on Windows (what Chrome uses there by default)
+const ANGLE = process.platform === 'win32' ? 'd3d11' : 'metal';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -21,7 +25,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // --disable-gpu-program-cache / --disable-gpu-shader-disk-cache: every shader compiles cold, so compile-bound
 // timings (example loading) do not depend on what an earlier run left in a cache.
 const CHROME_FLAGS = [
-  '--headless=new', '--use-angle=metal', '--remote-debugging-pipe',
+  '--headless=new', `--use-angle=${ANGLE}`, '--remote-debugging-pipe',
   '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu',
   '--disable-gpu-program-cache', '--disable-gpu-shader-disk-cache',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
@@ -32,8 +36,8 @@ const CHROME_FLAGS = [
 // opts.angle: another ANGLE backend than Metal (e.g. 'swiftshader' for the CPU-rendered WebGL2 of machines without a
 // usable GPU: swiftshader.ratio); every other flag stays the same
 function flagsFor(opts) {
-  if (!opts.angle || opts.angle === 'metal') return CHROME_FLAGS.slice();
-  const f = CHROME_FLAGS.map((x) => (x === '--use-angle=metal' ? `--use-angle=${opts.angle}` : x));
+  if (!opts.angle || opts.angle === ANGLE) return CHROME_FLAGS.slice();
+  const f = CHROME_FLAGS.map((x) => (x === `--use-angle=${ANGLE}` ? `--use-angle=${opts.angle}` : x));
   if (opts.angle === 'swiftshader') f.push('--enable-unsafe-swiftshader');
   return f;
 }

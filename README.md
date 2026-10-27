@@ -43,8 +43,8 @@ see what they do:
 - **Guided tour** from the Help button, suggested once on first opening: a docked strip that never covers the
   planes, lights the exact control each step needs and moves on by itself about 3 s after you do the task. A chapter
   plays the Grieg example and explains how a curve becomes a melody.
-- **Russian**: the interface follows the browser's language (or the globe button), with Russian notation
-  (tg, sh, ch, …) and Russian figure captions.
+- **Russian** and **Italian**: the interface follows the browser's language (or the globe button), with Russian
+  notation (tg, sh, ch, …) and Russian or Italian figure captions (decimal comma in both).
 
 ## Build
 
@@ -55,12 +55,15 @@ python3 build.py
 ```
 
 This writes `dist/complex-map-workbench.html` (the published page, test hooks stripped) and `dist/test.html` (with
-test hooks). `docs/index.html` is the published page served by GitHub Pages.
+test hooks). `docs/index.html` is the published page served by GitHub Pages. The build reads and writes UTF-8 with LF
+line endings on every platform (Windows included). The Italian table is `tools/it_table.json`; after editing it, run
+`python3 tools/make_it_table.py` (it writes `src/i18n_it.js` and reports strings the Russian table has and it lacks).
 
 ## Tests
 
 - Unit tests (Node): `node test/t_inverse.js` (and the other `test/t_*.js`).
-- GPU and app checks run in headless Chrome through `test/cdp_kit` (see its README).
+- GPU and app checks run in headless Chrome through `test/cdp_kit` (see its README); on Windows they use ANGLE's
+  Direct3D 11 back end (what Chrome uses there), as do both regression suites.
 - Regression suites in `test/regress/` (see its README): image quality against exact mathematical ground truth, and
   a paired performance gate against a reference build.
 

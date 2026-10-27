@@ -71,5 +71,18 @@ const fb = CYR.typeset('\\text{日本}', 10, '#000', math);
 ok(fb.inner.includes('<M>\\text{日本}</M>'), 'typeset: no Cyrillic, MathJax keeps the run');
 const fb2 = CYR.typeset('\\text{Ж日}', 10, '#000', math);
 ok(fb2.inner.includes('<M>\\text{Ж日}</M>'), 'typeset: a character the face lacks: the run falls back to MathJax');
+// Italian: accented letters composed from the face's own outlines (base + the CMU grave, mirrored for the acute)
+const it = CYR.word('così più è perché città È', 'rm', 10);
+ok(it !== null && !/<text/.test(it.inner), 'Italian words come from the face (no <text>)');
+const ce = rm.composed['è'], ca = rm.composed['é'], ci = rm.composed['ì'], cE = rm.composed['È'];
+ok(ce && ce[0] === rm.glyphs.e[0] && cE[0] === rm.glyphs.E[0], 'a composed letter keeps its base advance');
+ok(ce[3] > rm.glyphs.e[3] && cE[3] > ce[3] + 200, 'the accent sits above the x-height, higher over a capital');
+ok((ci[1].match(/m/g) || []).length === 2 && (rm.glyphs.i[1].match(/m/g) || []).length === 2, 'ì: the dotless stem and the accent (the dot is dropped)');
+const xs = (d) => points(d).filter((p) => p[0] !== 'Z').map((p) => p[1]);
+const span = (d, y0) => { const p = points(d).filter((q) => q[0] !== 'Z' && q[2] > y0); const v = p.map((q) => q[1]); return [Math.min(...v), Math.max(...v)]; };
+const [ga0, ga1] = span(ce[1], 460), [aa0, aa1] = span(ca[1], 460);
+ok(Math.abs((ga0 + ga1) / 2 - (aa0 + aa1) / 2) < 1 && xs(ce[1]).length === xs(ca[1]).length, 'the acute is the grave mirrored about the same centre');
+ok(CYR.needs('perché') && CYR.needs('Образ') && !CYR.needs('perche'), 'needs: Cyrillic or an accented Latin letter');
+ok(Object.keys(rm.glyphs).every((ch) => !/[àèéìòù]/.test(ch)), 'the face itself is unchanged (composed letters are kept apart)');
 console.log(fails ? `${fails} of ${checks} checks FAILED` : `all ${checks} checks pass`);
 process.exit(fails ? 1 : 0);

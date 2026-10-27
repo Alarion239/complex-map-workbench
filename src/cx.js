@@ -15,7 +15,7 @@ if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof g
     };
     const $t = (s, p) => fill(s, p), $tx = (c, s, p) => fill(s, p);
     const $tn = (one, many, n, p) => fill(n === 1 ? one : many, Object.assign({ n: String(n) }, p));
-    const I18N = { lang: 'en', t: $t, tx: $tx, tn: $tn, fill, num: (n) => String(n), fnName: (n) => n, notation: (s) => s, texNum: (x) => String(x) };
+    const I18N = { lang: 'en', t: $t, tx: $tx, tn: $tn, fill, num: (n) => String(n), fnName: (n) => n, notation: (s) => s, texNum: (x) => String(x), comma: () => false };
     Object.assign(globalThis, { I18N, $t, $tx, $tn });
   }
 }
@@ -367,8 +367,8 @@ const CX = (() => {
   // EXACT: constants are written so they parse back to the same double (used when copying LaTeX)
   let EXACT = false;
   function setTexExact(on) { EXACT = !!on; }
-  // the decimal comma of Russian print (0{,}5, I18N.texNum); copied LaTeX (EXACT) and English keep the point
-  const dec = (s) => (I18N.lang === 'ru' ? I18N.texNum(s) : s);
+  // the decimal comma of Russian and Italian print (0{,}5, I18N.texNum); copied LaTeX (EXACT) and English keep the point
+  const dec = (s) => (I18N.comma() ? I18N.texNum(s) : s);
   function texNum(x, digits = 4) {
     if (!Number.isFinite(x)) return x > 0 ? '\\infty' : (x < 0 ? '-\\infty' : '\\text{NaN}');
     if (EXACT) {

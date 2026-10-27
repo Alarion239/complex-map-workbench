@@ -4,8 +4,11 @@
 // English is the source language and the key: in English $t() returns its argument (after placeholder substitution),
 // and nothing else here runs, so English output stays byte-identical and costs no layout, no parse and no font load.
 const I18N = (() => {
-  const LANGS = ['en', 'ru'];
-  const PREF = 'cmw-lang';                       // device setting: 'en' | 'ru' (absent = Auto)
+  const LANGS = ['en', 'ru', 'it'];
+  const PREF = 'cmw-lang';                       // device setting: 'en' | 'ru' | 'it' (absent = Auto)
+  const isLang = (v) => v === 'en' || v === 'ru' || v === 'it';
+  // the languages that write a decimal comma (on screen and in print: DECIMAL_COMMA, DECIMAL_COMMA_PRINT)
+  const COMMA = new Set(['ru', 'it']);
   const CTX = '\u0004';                          // gettext's msgctxt separator: key = ctx + CTX + source
   const hasWin = typeof window !== 'undefined';
   const hasOwn = (o, k) => o != null && Object.prototype.hasOwnProperty.call(o, k);
@@ -23,26 +26,26 @@ const I18N = (() => {
   // the browser's first preferred language.
   function detect(nav) {
     const l = String((nav && ((nav.languages && nav.languages[0]) || nav.language)) || '').toLowerCase();
-    return /^ru(-|$)/.test(l) ? 'ru' : 'en';
+    return /^ru(-|$)/.test(l) ? 'ru' : /^it(-|$)/.test(l) ? 'it' : 'en';
   }
   // AUTO_DETECT: on since phase 2b (the Russian chrome is in app.js and page.html): a Russian browser gets Russian.
   // Phase 2a alone shipped it off, so a 2a-only build kept English (notes/i18n/PHASE2A.md)
   const AUTO_DETECT = true;
   function resolve({ param, pref, ns, nav, auto = AUTO_DETECT }) {
-    if (param === 'en' || param === 'ru' || param === 'pseudo') return param;
-    if (pref === 'en' || pref === 'ru') return pref;
+    if (isLang(param) || param === 'pseudo') return param;
+    if (isLang(pref)) return pref;
     if (ns) return 'en';
     return auto ? detect(nav) : 'en';
   }
   let store = null;                               // tests replace localStorage here (I18N._store)
   const ls = () => store || (hasWin ? window.localStorage : null);
-  function readPref() { try { const v = ls().getItem(lsk(PREF)); return v === 'en' || v === 'ru' ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function readPref() { try { const v = ls().getItem(lsk(PREF)); return isLang(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
   // true when the setting was written and reads back (storage can be blocked: a private window, a sandboxed frame)
   function writePref(v) {
     try {
       const s = ls();
-      if (v === 'en' || v === 'ru') s.setItem(lsk(PREF), v); else s.removeItem(lsk(PREF));
-      return readPref() === (v === 'en' || v === 'ru' ? v : 'auto') && (v !== 'auto' || s.getItem(lsk(PREF)) === null);
+      if (isLang(v)) s.setItem(lsk(PREF), v); else s.removeItem(lsk(PREF));
+      return readPref() === (isLang(v) ? v : 'auto') && (v !== 'auto' || s.getItem(lsk(PREF)) === null);
     } catch (e) { return false; }
   }
 
@@ -154,8 +157,8 @@ const I18N = (() => {
   // language's; a comma separates conditions there). With the comma on screen, a list of numbers is joined by '; '.
   const DECIMAL_COMMA = true;                      // screen
   const DECIMAL_COMMA_PRINT = true;                // captions and LaTeX
-  const numIn = (l, n) => (l === 'ru' && DECIMAL_COMMA ? String(n).replace('.', ',') : String(n));
-  const numsIn = (l, list) => list.map((x) => numIn(l, x)).join(l === 'ru' && DECIMAL_COMMA ? '; ' : ', ');
+  const numIn = (l, n) => (COMMA.has(l) && DECIMAL_COMMA ? String(n).replace('.', ',') : String(n));
+  const numsIn = (l, list) => list.map((x) => numIn(l, x)).join(COMMA.has(l) && DECIMAL_COMMA ? '; ' : ', ');
   // TeX numbers are formatted where they are made, never by a regex over finished TeX (a snippet holds dimensions
   // such as \ifdim\linewidth<469.75pt). texNum(0.5) -> 0{,}5 in Russian: the braces stop TeX's punctuation space.
   // A value that is not a plain number (\pi, -\pi/2, a TeX string) passes through.
@@ -163,12 +166,12 @@ const I18N = (() => {
   function texNumIn(l, x) {
     const s = typeof x === 'number' ? String(x) : String(x);
     if (!NUM.test(s)) return s;
-    return l === 'ru' && DECIMAL_COMMA_PRINT ? s.replace('.', '{,}') : s;
+    return COMMA.has(l) && DECIMAL_COMMA_PRINT ? s.replace('.', '{,}') : s;
   }
   const fractional = (x) => NUM.test(String(x)) && /\./.test(String(x));
   // the separator inside a bracket pair (GLOSSARY 2.3): in Russian a semicolon only when an endpoint is a decimal,
   // [0{,}5;\,1]; otherwise the comma, as in Russian books: [-1, 1], (-\pi, \pi]
-  const texSepIn = (l, vals) => (l === 'ru' && DECIMAL_COMMA_PRINT && vals.some(fractional) ? ';\\,' : ',');
+  const texSepIn = (l, vals) => (COMMA.has(l) && DECIMAL_COMMA_PRINT && vals.some(fractional) ? ';\\,' : ',');
   // an interval or a point: texInterval(-1, 1) -> [-1,1]; texInterval(0.5, 1) -> [0{,}5;\,1] in Russian
   function texIntervalIn(l, a, b, br = '[]') { return br[0] + texNumIn(l, a) + texSepIn(l, [a, b]) + texNumIn(l, b) + br[1]; }
   // "a, b and c" (en: serial comma as the app writes it) / "a, b и c"
@@ -178,7 +181,7 @@ const I18N = (() => {
     if (items.length === 2) return `${items[0]} ${w} ${items[1]}`;
     return `${items.slice(0, -1).join(', ')}${l === 'en' ? ',' : ''} ${w} ${items[items.length - 1]}`;
   }
-  const quoteIn = (l, s) => (l === 'ru' ? `«${s}»` : `“${s}”`);
+  const quoteIn = (l, s) => (l === 'ru' || l === 'it' ? `«${s}»` : `“${s}”`);
   // Russian caption typography (GLOSSARY 3.6): a no-break space after a one-letter word, before an em dash, and
   // between «Рис.» and its number. Text only: math and placeholders are not touched. English is unchanged.
   const NB = ' ';
@@ -363,7 +366,8 @@ const I18N = (() => {
 
   // ---------------- the page in another language ----------------
   // Russian sets <html lang>, the token override in page.html (:root[data-lang="ru"]), and loads the Cyrillic
-  // faces' stylesheet. English does none of this (it does not even touch <html lang>).
+  // faces' stylesheet; Italian sets <html lang> and data-lang="it" only. English does none of this (it does not even
+  // touch <html lang>).
   const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
   // "CMW Comma": the comma of a number set in the mono face, from a proportional face (page.html, review ui-4)
   const FACES = ['500 12px "Roboto Flex"', '600 13px "Roboto Flex"', '400 11px "JetBrains Mono"', '400 11px "CMW Comma"'];
@@ -379,11 +383,17 @@ const I18N = (() => {
     document.documentElement.dataset.lang = l;
     if (applied) return;
     applied = true;
+    const fire = () => { try { if (fontsHook) fontsHook(); } catch (e) { /* a redraw error must not stop the page */ } };
+    // Italian is set in the app's own faces (Archivo, B612 Mono: Latin with accents); only the decimal comma's face
+    // (CMW Comma, a local face) is loaded, and the canvas text redrawn with it
+    if (l === 'it') {
+      if (document.fonts && document.fonts.load) document.fonts.load('400 11px "CMW Comma"', ',').catch(() => []).then(fire);
+      return;
+    }
     // page.html's head script adds the link before the body is painted (review eng-1, eng-2); else it is added here
     let ln = document.getElementById('i18n-fonts');
     const had = !!ln;
     if (!ln) { ln = document.createElement('link'); ln.id = 'i18n-fonts'; ln.rel = 'stylesheet'; ln.href = FONT_CSS; }
-    const fire = () => { try { if (fontsHook) fontsHook(); } catch (e) { /* a redraw error must not stop the page */ } };
     const loaded = () => {
       if (!document.fonts || !document.fonts.load) { fire(); return; }
       Promise.all(FACES.map((f) => document.fonts.load(f, f.includes('Comma') ? ',' : 'Жж').catch(() => []))).then(fire);
@@ -422,6 +432,8 @@ const I18N = (() => {
   const t = (s, p) => tIn(L(), s, p);
   const api = {
     get lang() { return L(); }, get uiLang() { return lang; }, LANGS, NS, DECIMAL_COMMA, DECIMAL_COMMA_PRINT, CTX, ready,
+    // the language writes a decimal comma (Russian, Italian): number formatting outside this file asks this, not the language
+    comma: (l = L()) => COMMA.has(l),
     t, tx: (c, s, p) => txIn(L(), c, s, p), tn: (one, many, n, p) => tnIn(L(), one, many, n, p),
     parts: (s, p, c) => partsIn(L(), s, p, c), using, at, fill, names, pluralKey,
     list: (a, c) => listIn(L(), a, c), quote: (s) => quoteIn(L(), s), num: (n) => numIn(L(), n), nums: (a) => numsIn(L(), a),
