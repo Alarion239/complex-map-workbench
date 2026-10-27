@@ -6,8 +6,8 @@ const Region = (() => {
   const TAU = 2 * Math.PI;
   const P = (a) => C(a[0], a[1]);
   const fmt = (z) => CX.tex(z, 3);
-  // [a,b]; in Russian a semicolon when an endpoint has a decimal comma: [0{,}5;\\,1] (GLOSSARY 2.3)
-  const iv = (a, b) => `[${a}${I18N.lang === 'ru' && /\{,\}/.test(a + b) ? ';\\,' : ','}${b}]`;
+  // [a,b]; in Russian and Italian a semicolon when an endpoint has a decimal comma: [0{,}5;\\,1] (GLOSSARY 2.3)
+  const iv = (a, b) => `[${a}${I18N.comma() && /\{,\}/.test(a + b) ? ';\\,' : ','}${b}]`;
   // (a rational multiple of pi with a small denominator, exactly as stored, is written symbolically: pi, 3pi/2)
   const gcd = (a, b) => (b ? gcd(b, a % b) : a);
   const num = (x) => {
@@ -20,9 +20,9 @@ const Region = (() => {
         }
       }
     }
-    // the decimal comma of Russian print, as CX.tex writes it (0{,}5; also the mantissa of 1{,}5×10⁻⁴)
+    // the decimal comma of Russian and Italian print, as CX.tex writes it (0{,}5; also the mantissa of 1{,}5×10⁻⁴)
     const s = CX.fmtNum(x, 3);
-    return I18N.lang === 'ru' ? s.replace(/^-?[\d.]+/, (m) => I18N.texNum(m)) : s;
+    return I18N.comma() ? s.replace(/^-?[\d.]+/, (m) => I18N.texNum(m)) : s;
   };
   // the normal form of a line or half-plane whose direction b - a is a unit vector (one stored from a cap on a globe,
   // panels.md 9.3: a on the edge nearest 0, b = a - iB/|B|): the left side is Re(conj(n) z) > t with n = i(b - a) and

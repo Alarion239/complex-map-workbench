@@ -51,6 +51,8 @@ const Expr = (() => {
   const PLAIN_NAMES = Object.keys(PLAIN).concat(Object.keys(RU_NAMES)).sort((a, b) => b.length - a.length);
   // names a reader may type that the app does not have: a specific message in Russian only (English messages stay)
   const RU_ONLY = () => typeof I18N !== 'undefined' && I18N.lang === 'ru';
+  // a language whose readouts show a decimal comma (Russian, Italian): 0,5 typed for 0.5 gets the decimal-point hint
+  const COMMA_UI = () => typeof I18N !== 'undefined' && !!I18N.comma && I18N.comma();
   const UNSUPPORTED = {
     arcctg: () => $t('arcctg (arccot) is not available: write arctg(1/z)'), arccot: () => $t('arccot is not available: write arctan(1/z)'),
     acot: () => $t('acot is not available: write arctan(1/z)'), lg: () => $t('lg (the base-10 logarithm) is not available: write ln(z)/ln(10)'),
@@ -58,8 +60,8 @@ const Expr = (() => {
     arcth: () => $t('arcth (arcoth) is not available: write arth(1/z)'), arcoth: () => $t('arcoth is not available: write artanh(1/z)'),
   };
   const UNSUPPORTED_NAMES = Object.keys(UNSUPPORTED).sort((a, b) => b.length - a.length);
-  // 0,5 typed for 0.5 (Russian readouts show a decimal comma): a specific message in Russian only
-  const commaHint = (src, pos) => (RU_ONLY() && src[pos] === ',' && /\d/.test(src[pos - 1] || '') && /\d/.test(src[pos + 1] || '')
+  // 0,5 typed for 0.5 (Russian and Italian readouts show a decimal comma): a specific message in those languages only
+  const commaHint = (src, pos) => (COMMA_UI() && src[pos] === ',' && /\d/.test(src[pos - 1] || '') && /\d/.test(src[pos + 1] || '')
     ? $t('Use a decimal point: 0.5, not 0,5 (a comma separates conditions)') : null);
   const LETTERS = { z: 'v:z', w: 'v:z', x: 'v:x', y: 'v:y', r: 'v:r', i: 'c:i', e: 'c:e' };
   // ---- shared numbers (v15, src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1.1) ----
@@ -281,10 +283,10 @@ const Expr = (() => {
       try { return parseOnce(src, opts, false); } catch (e2) { throw withComma(RU_ONLY() && e2 instanceof ParseError ? e : e2, src); }
     }
   }
-  // Russian only: any error in a formula with a decimal comma between digits (0,5) also says to use the point
-  // (GLOSSARY 2.3, phase 2b); English errors are returned as they are
+  // Russian and Italian only: any error in a formula with a decimal comma between digits (0,5) also says to use the
+  // point (GLOSSARY 2.3, phase 2b); English errors are returned as they are
   function withComma(e, src) {
-    if (!RU_ONLY() || !(e instanceof ParseError) || !/\d,\d/.test(String(src))) return e;
+    if (!COMMA_UI() || !(e instanceof ParseError) || !/\d,\d/.test(String(src))) return e;
     const hint = $t('Use a decimal point: 0.5');
     return e.message.includes(hint) ? e : new ParseError(e.message.replace(/[.\s]+$/, '') + '. ' + hint, e.pos);
   }
