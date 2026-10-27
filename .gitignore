@@ -27,3 +27,5 @@ notes/**/*.synctex.gz
 notes/gate-morph-zp-r1/
 notes/v16.2-candidate/
 notes/v16.3-candidate/
+# Python bytecode (the gates' Python scripts)
+__pycache__/
