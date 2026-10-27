@@ -109,8 +109,9 @@ jobs:
     name: GLSL (${{ matrix.os }}, ${{ matrix.page }}${{ matrix.sections && format(' {0}', matrix.sections) || '' }} ${{ matrix.part }})
     # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
     # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
-    # Windows renders in software (WARP: glsl 1/8 8-24 min, inverse whole 34-35 min), so its pages run in parts (adv: its
-    # sections that do not split once, its chains in parts);
+    # Windows renders in software (WARP: glsl 1/8 8-24 min, inverse whole 34-35 min, adv's direct/keys/compile 34 min,
+    # its chains 2 min a quarter), so glsl runs in eighths and adv in two jobs (its sections; its chains, which alone
+    # split by part, are cheap);
     # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
     # shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
@@ -127,10 +128,7 @@ jobs:
           - { os: windows-latest, page: glsl, part: 7/8 }
           - { os: windows-latest, page: glsl, part: 8/8 }
           - { os: windows-latest, page: adv, part: 1/1, sections: 'direct,keys,compile' }
-          - { os: windows-latest, page: adv, part: 1/4, sections: main }
-          - { os: windows-latest, page: adv, part: 2/4, sections: main }
-          - { os: windows-latest, page: adv, part: 3/4, sections: main }
-          - { os: windows-latest, page: adv, part: 4/4, sections: main }
+          - { os: windows-latest, page: adv, part: 1/1, sections: main }
           - { os: windows-latest, page: inverse, part: 1/1 }
           - { os: macos-latest, page: glsl, part: 1/1 }
           - { os: macos-latest, page: adv, part: 1/1 }
