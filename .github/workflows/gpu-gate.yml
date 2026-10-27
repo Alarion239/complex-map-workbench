@@ -113,11 +113,14 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: node ci/gpu_probe.js --require-hardware
-      - run: node ci/glsl.js
+      # (paired with the reference; the Mac, where the tests were written, also outright)
+      - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }}
 
   quality:
     name: Quality (${{ matrix.machine }} GPU)

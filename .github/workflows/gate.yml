@@ -100,7 +100,9 @@ jobs:
 
   glsl:
     name: GLSL (${{ matrix.os }}, ${{ matrix.part.page }} ${{ matrix.part.of }})
-    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS); the long pages split into parts
+    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
+    # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities)
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
@@ -117,6 +119,8 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -124,7 +128,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      - run: node ci/glsl.js --only ${{ matrix.part.page }} --part ${{ matrix.part.of }}
+      - run: node ci/glsl.js --only ${{ matrix.part.page }} --part ${{ matrix.part.of }} --ref ${{ needs.plan.outputs.reference }}
 
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
