@@ -15,23 +15,27 @@ show results sooner and can be re-run alone).
 
 | job | time |
 |---|---|
-| Unit tests | 6–7 min |
+| Unit tests | 5–7 min |
 | Quality, each of the 9 shards | 3–6 min |
 | GLSL on macOS, each page | 2–5 min |
-| GLSL on Windows (software rendering) | `glsl` 1/8: 13–19 min; `adv` 1/4: 33–48 min (now run in eighths); `inverse`, whole: 35 min |
-| Perf on Windows, each shard | 5–15 min; up to 36 when a unit is re-run |
+| GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: see below |
+| Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
 
-The whole Gate took 48 minutes on its first complete run (every GLSL page ran, and the perf suite). A pull request
-that touches no shader code or GLSL test skips the GLSL pages and, once the GPU machines are registered, the perf
-suite: unit tests and quality, about 7 minutes. One that does is held by the Windows `inverse` page (35 minutes, one
-seeded sequence, not split).
+The `adv` page splits only its chains (`main`) into parts; its other sections (`direct`, `keys`, `compile`: 12-step
+chains and the largest shaders) run whole, so in parts they ran once per part (a quarter of the page took 33–48 min,
+an eighth 34–61). On Windows the Gate runs those sections once and the chains in quarters (`--sections`).
+
+The whole Gate took 48 and 61 minutes on its first two complete runs (every GLSL page ran, and the perf suite). A
+pull request that touches no shader code or GLSL test skips the GLSL pages and, once the GPU machines are registered,
+the perf suite: unit tests and quality, about 7 minutes. One that does is held by the Windows `inverse` page (35
+minutes, one seeded sequence, not split).
 
 ## What runs
 
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
-| **GLSL** (Windows in 17 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
+| **GLSL** (Windows in 14 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job above passed (perf: when it ran): make it the required check |

@@ -4,7 +4,7 @@
 //   dist/glsl-test.html          test/glsl_test.js      (window.__glslTest)
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
-//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--ref <commit> [--absolute] [--force]]
+//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--ref <commit> [--absolute] [--force]]
 // With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
 // reference's is not run (nothing to compare) unless --force.
 // Without --ref, every page must pass outright (the rules of the command files, test/glsl_inverse_cmd.js): what the
@@ -31,6 +31,10 @@ const only = arg('--only');
 const ref = arg('--ref');
 const absolute = !ref || argv.includes('--absolute');
 const [pi, pn] = (arg('--part') || '1/1').split('/').map(Number);
+// --sections: the adv page's sections to run (?only=: direct, keys, compile, main). --part splits only main, the
+// chains; the others run whole, so in parts they would run once per part (on Windows' software renderer a part of
+// the whole page took 34-61 min): CI runs `direct,keys,compile` once and `main` in parts
+const sections = arg('--sections');
 const TIMEOUT = 240 * 60 * 1000;   // (the job's own timeout is the real limit)
 
 async function waitFor(B, expr, timeout) {
@@ -71,7 +75,8 @@ async function runPage(base, p) {
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
       note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
     } else {
-      await B.nav(base + p.page + (pn > 1 ? `?parts=${pn}&part=${pi - 1}` : ''));
+      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : [])];
+      await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
       r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
@@ -136,7 +141,7 @@ async function main() {
       const pass = (!absolute || cur.ok) && !why.length && !(cur.r && cur.r.setup);
       if (!pass) failed++;
       renderer = renderer || (cur.r && cur.r.renderer);
-      const label = `\`${p.page}\`${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
+      const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
       const s = (cur.ms / 1000).toFixed(0);
       console.log(`${pass ? 'pass' : 'FAIL'} ${p.page} (${s} s): ${cur.note}${rf ? ` | reference: ${rf.note}` : ''}`);
       if (why.length) console.log('  worse than the reference:\n    ' + why.join('\n    '));
