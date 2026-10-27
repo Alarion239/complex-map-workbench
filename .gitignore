@@ -20,3 +20,12 @@ notes/**/*.aux
 notes/**/*.fls
 notes/**/*.fdb_latexmk
 notes/**/*.synctex.gz
+
+# CI work folders (ci/README.md): reference builds and results
+.ci/
+# old source snapshots some unit tests compare with: node ci/snapshots.js restores them from the git history
+notes/gate-morph-zp-r1/
+notes/v16.2-candidate/
+notes/v16.3-candidate/
+# Python bytecode (the gates' Python scripts)
+__pycache__/

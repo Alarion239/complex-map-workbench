@@ -130,12 +130,12 @@ class Perf(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.d, ignore_errors=True)
 
-    def gate(self, base, res):
+    def gate(self, base, res, *extra):
         b, r = os.path.join(self.d, 'b.json'), os.path.join(self.d, 'r.json')
         wj(b, {'meta': PMETA, 'metrics': base})
         wj(r, {'meta': PMETA, 'metrics': res})
         j = os.path.join(self.d, 'v.json')
-        rc, out = run_quiet(compare_perf.main, ['--baseline', b, '--results', r, '--json', j])
+        rc, out = run_quiet(compare_perf.main, ['--baseline', b, '--results', r, '--json', j, *extra])
         return rc, out, {row['metric']: row['status'] for row in rj(j)['rows']}
 
     def test_new_info_and_true_check_pass(self):
@@ -171,6 +171,39 @@ class Perf(unittest.TestCase):
     def test_baseline_check_still_gated(self):
         rc, out, st = self.gate({'a.ok': pm(True, 'check')}, {'a.ok': pm(False, 'check')})
         self.assertEqual(rc, 1, out)
+
+    def test_paired_failing_on_both_sides(self):
+        # (the CI's paired gate: the baseline is the reference app, measured in the same run)
+        chk = {'a.ok': pm(False, 'check')}
+        rc, out, st = self.gate(chk, chk)
+        self.assertEqual(rc, 1, out)
+        rc, out, st = self.gate(chk, chk, '--paired')
+        self.assertEqual((rc, st['a.ok']), (0, 'BOTH'), out)
+        rc, out, st = self.gate({'a.ok': pm(True, 'check')}, chk, '--paired')
+        self.assertEqual((rc, st['a.ok']), (1, 'FAIL'), out)
+        m = 'examples.2.inv_first_draw_ms'
+        lim = lambda v: {m: pm(v, 'limit', limit=250, unit='ms')}
+        rc, out, st = self.gate(lim(2400), lim(1900), '--paired')
+        self.assertEqual((rc, st[m]), (0, 'BOTH'), out)
+        rc, out, st = self.gate(lim(2400), lim(3100), '--paired')     # over 1.25 x the reference
+        self.assertEqual((rc, st[m]), (1, 'FAIL'), out)
+        rc, out, st = self.gate(lim(120), lim(300), '--paired')       # the reference holds the limit
+        self.assertEqual((rc, st[m]), (1, 'FAIL'), out)
+
+    def test_tol_scale(self):
+        b, r = {'a.f': pm(20.0, 'frame_ms'), 'a.fps': pm(24.0, 'throughput'), 'a.mem': pm(1e6, 'mem_bytes')}, \
+            {'a.f': pm(28.0, 'frame_ms'), 'a.fps': pm(18.0, 'throughput'), 'a.mem': pm(1.4e6, 'mem_bytes')}
+        rc, out, st = self.gate(b, r)
+        self.assertEqual(st, {'a.f': 'FAIL', 'a.fps': 'FAIL', 'a.mem': 'FAIL'}, out)
+        rc, out, st = self.gate(b, r, '--tol-scale', '3')               # frame <= 1.45 x, fps >= 0.70 x, memory <= 1.75 x
+        self.assertEqual(st, {'a.f': 'PASS', 'a.fps': 'PASS', 'a.mem': 'PASS'}, out)
+        rc, out, st = self.gate(b, dict(r, **{'a.mem': pm(2.1e6, 'mem_bytes')}), '--tol-scale', '3')
+        self.assertEqual(st['a.mem'], 'FAIL', out)
+        f = {'a.f': pm(20.0, 'frame_ms')}
+        rc, out, st = self.gate(f, {'a.f': pm(13.0, 'frame_ms')}, '--tol-scale', '3')
+        self.assertEqual(st['a.f'], 'PASS', out)                       # -35%: improved by the 1-fold margin, not by 3-fold
+        rc, out, st = self.gate(f, {'a.f': pm(12.0, 'frame_ms')}, '--tol-scale', '3')
+        self.assertEqual(st['a.f'], 'IMPROVED', out)
 
 
 if __name__ == '__main__':

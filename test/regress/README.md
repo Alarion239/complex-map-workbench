@@ -378,11 +378,13 @@ one-shot latencies and CPU work keep their relative rules. Image quality is neve
 `test/regress/perf/run.sh --paired [--quick]` needs no stored baseline. It builds the reference app from a source
 snapshot (`PERF_REF_SRC`, default `notes/backup-pre-sphere/src`, with `PERF_REF_BUILD`, default
 `notes/backup-pre-sphere/build.py`) into `perf/ref_root/dist`, then runs every unit on the reference and on the
-current app back to back, alternating which side goes first, each side in its OWN headless Chrome (own profile and GPU
-program cache, identical warm-up page), and gates current against reference with the usual tolerances. A busy machine
-slows both sides alike instead of failing the comparison. Results: `perf/results/paired-<stamp>.json` (current) and
+current app back to back, alternating which side goes first (fixed per unit by its id; `run.js --ab-flip` swaps every
+unit's order), each side in its OWN headless Chrome (own profile and GPU program cache, identical warm-up page; a side
+waits on a blank page while the other measures), and gates current against reference with the usual tolerances. A
+busy machine slows both sides alike instead of failing the comparison. Results: `perf/results/paired-<stamp>.json` (current) and
 `paired-<stamp>-ref.json` (reference); `paired-latest*.json` are copies of the last pair. A failing metric should be
-confirmed by re-running that unit's pair (`--paired --only 'unit'`) before it is called a regression.
+confirmed by re-running that unit's pair (`--paired --only 'unit'`, and once more with `--ab-flip`) before it is
+called a regression.
 **Layouts (merged views, `notes/ui-design/merged-views.md`).** The reference shows the Phase, Landscape and
 phase-sphere views in its right pane, beside the shapes plane; the current app shows them as one wide panel (the top
 bar's Phase and Landscape views). The page says where each picture is: `__cmwPaneOf(mode, sphereMode)` names the pane

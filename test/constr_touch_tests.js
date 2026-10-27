@@ -5,6 +5,8 @@
 // v16.2's validate, save and load, deletePlan, onCurveByRefs, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
+// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
+const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.2's constr.js, frozen: an older build reading a saved touching circle)
@@ -288,7 +290,7 @@ module.exports = function ({ K, ok }) {
     const a = Number(process.hrtime.bigint() - t0) / n / 1000; t0 = process.hrtime.bigint();
     for (let i = 0; i < n; i++) K.tangentForm(G, [3 + i * 1e-9, 1], i & 1);
     const b = Number(process.hrtime.bigint() - t0) / n / 1000;
-    ok(a < 5 && b < 5, 'speed: touchForm and tangentForm under 5 us', `${a.toFixed(2)} us, ${b.toFixed(2)} us`);
+    ok(a < 5 * SPEED && b < 5 * SPEED, 'speed: touchForm and tangentForm under 5 us', `${a.toFixed(2)} us, ${b.toFixed(2)} us`);
   }
 
   // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)

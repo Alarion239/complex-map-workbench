@@ -5,6 +5,8 @@
 // case, the glider remap, and the plumbing (save and load, validate, v16.3's validate, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
+// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
+const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.3's constr.js, frozen: the build before this one reading a saved seg)
@@ -233,7 +235,7 @@ module.exports = function ({ K, ok }) {
     const time = (seg) => { const s = load(scene(UNIT(), [0.3, 0.2], [-0.4, 0.1], seg, [glider('g', 0.3)])); for (let i = 0; i < 300; i++) rec(s); const t0 = process.hrtime.bigint(); for (let i = 0; i < 3000; i++) { byId(s, 'p').p = [0.3 + i * 1e-6, 0.2]; rec(s); } return Number(process.hrtime.bigint() - t0) / 3000 / 1000; };
     let a = Infinity, b = Infinity;
     for (let r = 0; r < 3; r++) { a = Math.min(a, time(0)); b = Math.min(b, time(1)); }
-    ok(b - a <= 10, `seg: a seg K adds ${(b - a).toFixed(1)} us per recompute (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; budget 10 us)`);
+    ok(b - a <= 10 * SPEED, `seg: a seg K adds ${(b - a).toFixed(1)} us per recompute (whole ${a.toFixed(1)} us, seg ${b.toFixed(1)} us; budget 10 us)`);
   }
 
   // ------------------------------------------------ 10. the review fixes (notes/orthogonal-circle/segments/ledger.json)

@@ -3,6 +3,7 @@
 // Performance regression suite for the Complex Map Workbench.
 //
 //   node test/regress/perf/run.js [--out FILE] [--reps N] [--only REGEX] [--skip REGEX] [--base URL] [--quick] [--swiftshader] [--list]
+//     [--settle-timeout MS] [--phone-cpu N] [--load-max L] [--load-wait S] [--unit-timeout S]
 //
 // Drives its own headless Chrome (real WebGL2 through ANGLE Metal) over CDP, opens dist/test.html with saved
 // states (test/regress/perf/scenes.js), performs real CDP mouse drags / wheel steps / hovers, and reads timings that
@@ -48,8 +49,12 @@ const UNIT_TIMEOUT_S = Number(opt('unit-timeout', '180'));
 // --ab DIR: a PAIRED run. DIR is the dist/ of the reference app (run.sh --paired builds it from a source snapshot);
 // every unit runs on the reference and on the current app back to back in the same browser, alternating which goes
 // first, so both see the same machine state (a busy machine slows both alike instead of failing the comparison).
+// Which side goes first is fixed per unit (by its id: a re-run of some units keeps each unit's order); --ab-flip
+// swaps it, so a confirmation re-run can cancel what going first or second costs on a machine.
 // The reference results go to --ab-out (default: OUT with -base before .json); compare OUT against them.
 const AB_DIST = opt('ab', '') ? path.resolve(opt('ab')) : null;
+const AB_FLIP = flag('ab-flip');
+const refFirst = (id) => ([...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 2 === 0) !== AB_FLIP;
 const abOut = () => path.resolve(opt('ab-out', OUT.replace(/\.json$/, '') + '-base.json'));
 const OUT = path.resolve(opt('out', path.join(HERE, 'results', 'latest.json')));
 const ONLY = opt('only', '') ? new RegExp(opt('only')) : null;
@@ -57,7 +62,7 @@ const SKIP = opt('skip', '') ? new RegExp(opt('skip')) : null;
 let BASE = opt('base', 'http://localhost:8793/');
 if (!BASE.endsWith('/')) BASE += '/';
 const QUIET_MS = 600;       // settled = no draw and no LED change for this long, no LED busy, no program pending
-const SETTLE_TIMEOUT = 20000;
+const SETTLE_TIMEOUT = Number(opt('settle-timeout', '20000'));   // (CI on software rendering: longer, ci/perf_shard.js)
 const MESHES = [240, 480, 1920];
 const VIEW_W = 1440, VIEW_H = 900;
 
@@ -1057,6 +1062,143 @@ async function hoverDimUnit() {
 // (ratio about 1; inv_draws_on 0). Runs in its own headless Chrome (--use-angle=swiftshader).
 const SS_SCENES = ['disc_cube', 'joukowski', 'annulus_log', 'poly_mobius'];
 const SS_RATIO_LIMIT = 3;
+// ---------------- the phone profile (CI: ci/README.md) ----------------
+// A phone emulated in the same headless Chrome: a 390 x 844 CSS px mobile viewport at device pixel ratio 3 (the app's
+// phone layout), touch input (one-finger drags), and the page's main thread slowed --phone-cpu times
+// (Emulation.setCPUThrottlingRate; 4 is DevTools' mid-tier mobile). It approximates a phone's screen and CPU; the GPU
+// stays the machine's. Every phone unit opens its own page, so the desktop units are unaffected.
+const PHONE = { width: 390, height: 844, dpr: 3 };
+const PHONE_CPU = Math.max(1, Number(opt('phone-cpu', '4')));
+async function asPhone(fn) {
+  await B.send('Emulation.setDeviceMetricsOverride', { width: PHONE.width, height: PHONE.height, deviceScaleFactor: PHONE.dpr, mobile: true });
+  await B.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  await B.send('Emulation.setCPUThrottlingRate', { rate: PHONE_CPU });
+  try { return await fn(); } finally {
+    await B.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await B.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await B.send('Emulation.setDeviceMetricsOverride', { width: VIEW_W, height: VIEW_H, deviceScaleFactor: 1, mobile: false });
+  }
+}
+// the plane the phone shows (the larger visible overlay): 'L' or 'R'
+const phonePane = () => B.ev(`(() => { const a = (id) => { const r = document.getElementById(id).getBoundingClientRect(); const w = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0)), h = Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)); return w * h; }; return a('overlayL') >= a('overlayR') ? 'L' : 'R'; })()`);
+// a one-finger drag on the phone's plane by (dx, dy) px, from `from` (page px; default: centred on the plane), measured
+// as dragLeg measures a mouse drag
+async function touchLeg(side, dx, dy, from = null, n = 40, dt = 16) {
+  const r = await paneRect(side);
+  const [x0, y0] = from || [r.cx - dx / 2, r.cy - dy / 2];
+  const a = await pageNow();
+  await B.touchDrag(x0, y0, x0 + dx, y0 + dy, { n, dt });
+  const b = await pageNow();
+  const w = await windowStats(a, b);
+  const s = await settle(b);
+  return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b });
+}
+// opening the app: navigation start -> the first frame that drew, REPS fresh pages
+async function phoneOpenUnit() {
+  const first = [], settled = [];
+  for (let i = 0; i < REPS; i++) {
+    const o = await asPhone(async () => {
+      const r = await openApp(sceneState('default', { rightMode: 'image', meshN: 240 }));
+      const f = await B.ev('__perf.framesSince(0).filter((f) => f[3] > 0)');
+      r.layout = await B.ev(`document.documentElement.classList.contains('ph') ? 'phone' : 'desktop'`);
+      return Object.assign(r, { first: f.length ? f[0][6] : null });
+    });
+    first.push(o.first); settled.push(o.settled);
+    detail(`phone.open.layout_${i}`, o.layout);
+    put('phone.open.phone_layout', 'check', '', [o.layout === 'phone']);
+  }
+  put('phone.open.first_frame_ms', 'oneshot_ms', 'ms', first);
+  put('phone.open.settled', 'check', '', settled);
+}
+// one-finger pans of the plane the phone shows, there and back (as panSide). A finger on a shape moves the shape, on
+// empty space it pans: the drag starts on the empty point 2.6i above the default scene's strip |Im z| < pi/2 (the
+// point stays under the finger, so the leg back starts there too)
+async function phonePanUnit() {
+  await asPhone(async () => {
+    await openApp(sceneState('default', { rightMode: 'image', meshN: 240 }));
+    const side = await phonePane();
+    detail('phone.pan.side', side);
+    const reps = [];
+    let moved = true;
+    for (let i = 0; i < REPS; i++) {
+      const w0 = await B.ev(`__cmwW2S('${side}', 0, 0)`);
+      const p0 = await B.ev(`__cmwW2S('${side}', 0, 2.6)`);
+      const leg1 = await touchLeg(side, 120, 40, p0);
+      const w1 = await B.ev(`__cmwW2S('${side}', 0, 0)`);
+      const leg2 = await touchLeg(side, -120, -40, [p0[0] + 120, p0[1] + 40]);
+      moved = moved && Math.abs(w1[0] - w0[0] - 120) < 6 && Math.abs(w1[1] - w0[1] - 40) < 6;
+      reps.push(legSummary([leg1, leg2], 'pointermove'));
+    }
+    putInteraction('phone.pan', reps);
+    put('phone.pan.view_moved', 'check', '', [moved]);
+  });
+}
+// the Landscape view: one-finger orbits
+async function phoneLandUnit() {
+  await asPhone(async () => {
+    await openApp(sceneState('default', { rightMode: 'image', meshN: 240 }));
+    await B.ev(`__cmwSetMain('land'); 1`);
+    await settle(await pageNow());
+    const side = await phonePane();
+    detail('phone.landscape.side', side);
+    const reps = [];
+    for (let i = 0; i < REPS; i++) reps.push(legSummary([await touchLeg(side, 140, 0), await touchLeg(side, -140, 0)], 'pointermove'));
+    putInteraction('phone.landscape.orbit', reps);
+  });
+}
+// the deformation playing (H_t at every frame) in the X -> Y view and in Landscape
+async function phoneMorphUnit() {
+  for (const main of ['xy', 'land']) {
+    const frame = [], fps = [];
+    for (let i = 0; i < REPS; i++) {
+      await asPhone(async () => {
+        await openApp(sceneState('default', { rightMode: 'image', meshN: 240 }));
+        if (main !== 'xy') { await B.ev(`__cmwSetMain('${main}'); 1`); await settle(await pageNow()); }
+        await B.ev('__cmwMorph({ open: true, playing: true }); 1');
+        await sleep(800);
+        const a = await pageNow();
+        await sleep(2000);
+        const b = await pageNow();
+        const w = await windowStats(a, b);
+        frame.push(quant(w.frame, 0.95));
+        fps.push(w.drawn.length * 1000 / w.dur);
+        await B.ev('__cmwMorph({ playing: false }); 1');
+      });
+    }
+    put(`phone.morph.${main}.frame_p95_ms`, 'frame_ms', 'ms', frame);
+    put(`phone.morph.${main}.fps`, 'throughput', 'frames/s', fps);
+  }
+}
+// loading examples: the call -> the first frame that drew, and -> settled
+const PHONE_EXAMPLES = [1, 2, 4, 7, 9, 12];
+async function phoneExamplesUnit() {
+  const per = new Map();
+  await asPhone(async () => {
+    for (let rep = 0; rep < REPS; rep++) {
+      await openApp(sceneState('default', { rightMode: 'image', meshN: 240 }));
+      for (const i of PHONE_EXAMPLES) {
+        const a = await B.ev(`(() => { const t0 = performance.now(); __cmwExample(${i}); return t0; })()`);
+        let first = null;
+        for (let k = 0; k < 600 && !first; k++) {
+          const f = await B.ev(`__perf.framesSince(${a}).filter((f) => f[3] > 0)`);
+          if (f.length) first = f[0]; else await sleep(10);
+        }
+        let from = a;
+        if ((await B.ev('__cmwState()')).morph?.playing) from = await B.ev(`(() => { __cmwMorph({ playing: false }); return performance.now(); })()`);
+        const s = await settle(from);
+        const rec = per.get(i) || { ttff: [], settle: [], ok: [] };
+        rec.ttff.push(first ? first[6] - a : null); rec.settle.push(s.timeout ? null : s.t - from); rec.ok.push(!s.timeout);
+        per.set(i, rec);
+      }
+    }
+  });
+  for (const [i, r] of per) {
+    put(`phone.examples.${i}.first_frame_ms`, 'oneshot_ms', 'ms', r.ttff);
+    put(`phone.examples.${i}.settle_ms`, 'settle_ms', 'ms', r.settle);
+    put(`phone.examples.${i}.settled`, 'check', '', r.ok);
+  }
+}
+
 async function swiftshaderUnit() {
   const pre = 'swiftshader.ratio';
   const reps = 1;   // one pan there and back per mode: SwiftShader frames take 50-130 ms on the suite's machine
@@ -1143,6 +1285,11 @@ unit('sphere.globeL0', 'X Sphere at stage 0: the upper half-plane on the z-globe
 unit('scrub.mobius_halfplane', 'scrub phi of a disk automorphism + (1+w)/(1-w) of the upper half-plane (the pole crosses the boundary): frames, no line resampling during the scrub', scrubMobiusUnit);
 unit('gallery.open', 'open the examples gallery: thumbnails, compiles (no inverse compiles for side chains)', galleryUnit);
 unit('hover.dim', 'hover the shape list on exp of the upper half-plane: frames, no compile, no job', hoverDimUnit);
+unit('phone.open', `phone profile (${PHONE.width}x${PHONE.height} @${PHONE.dpr}x, touch, CPU / ${PHONE_CPU}): open the app, first frame`, phoneOpenUnit);
+unit('phone.pan', 'phone profile: one-finger pans of the plane shown', phonePanUnit);
+unit('phone.landscape', 'phone profile: Landscape, one-finger orbits', phoneLandUnit);
+unit('phone.morph', 'phone profile: the deformation playing in X -> Y and Landscape', phoneMorphUnit);
+unit('phone.examples', `phone profile: load examples ${PHONE_EXAMPLES.join(', ')}: first frame, settle`, phoneExamplesUnit);
 unit('swiftshader.ratio', `(opt-in: --swiftshader) SwiftShader (own browser): pan R of ${SS_SCENES.join(', ')} with exact images on / off`, swiftshaderUnit, { optIn: true });
 
 // ---------------- meta ----------------
@@ -1215,10 +1362,15 @@ async function main() {
     await openApp(sceneState('default', { meshN: 240 }));
     RES.meta.browser.gpu = await B.ev(`(() => { const gl = __perf.gls[0]; if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
   } catch (e) { RES.errors.push({ where: 'gpu-info', error: String(e) }); }
+  // paired runs: a side's browser waits on a blank page while the other side measures, so nothing it left running (a
+  // deformation still playing, a refinement) competes with the other side for the GPU and CPU (every unit opens the
+  // app itself)
+  const park = async (br) => { try { await br.nav('about:blank'); } catch (e) { /* the next unit's openApp navigates anyway */ } };
   if (B_A) {
     // the same warm-up page on the reference browser, so both start from the same state
     try { B = B_A; BASE = BASE_A; await openApp(sceneState('default', { meshN: 240 })); } catch (e) { RES.errors.push({ where: 'ref-warmup', error: String(e) }); }
     B = B_B; BASE = BASE_B;
+    await park(B_A); await park(B_B);
   }
   RES.meta.loadMax = LOAD_MAX;
   RES.meta.busyUnits = [];
@@ -1235,7 +1387,6 @@ async function main() {
     fs.writeFileSync(OUT, JSON.stringify(RES_B, null, 1));
     if (RES_A) fs.writeFileSync(abOut(), JSON.stringify(RES_A, null, 1));
   };
-  let unitIndex = 0;
   for (const u of UNITS) {
     if (ONLY && !ONLY.test(u.id)) continue;
     if (SKIP && SKIP.test(u.id)) continue;
@@ -1255,8 +1406,7 @@ async function main() {
       log(`WARNING: machine busy (1-min load ${load} > ${LOAD_MAX}) before ${u.id}: its timings are not trustworthy`);
       RES.meta.busyUnits.push({ unit: u.id, load });
     }
-    const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (unitIndex % 2 ? [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]] : [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]]);
-    unitIndex++;
+    const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
     for (const [res, base, tag, br] of sides) {
       RES = res; BASE = base; B = br;
       const tu = Date.now();
@@ -1280,6 +1430,7 @@ async function main() {
         }
       } finally { clearTimeout(timer); }
       RES.meta.units[u.id] = Math.round((Date.now() - tu) / 100) / 10;
+      if (RES_A) await park(br);
     }
     RES = RES_B; BASE = BASE_B; B = B_B;
   }

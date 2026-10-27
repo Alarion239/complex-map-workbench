@@ -1,6 +1,8 @@
 // Section C of test/t_constr.js (v16 CORE, notes/constructions-v16/SPEC.md 18): the integration and exactness tests.
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
+// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
+const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
 module.exports = function ({ K, ok, near, nearP, Inverse }) {
   const C = CX.C;
   let seed = 20261024;
@@ -386,6 +388,6 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     const c0 = process.cpuUsage();
     for (let f = 0; f < 600; f++) { sh(S, 'a').p = [Math.cos(f / 50) * 0.1, Math.sin(f / 50) * 0.1]; K.recompute(S, { shapes: ['a'] }, env); }
     const c = process.cpuUsage(c0), ms = (c.user + c.system) / 1000 / 600;
-    ok(ms < 1, `speed: a drag with 50 dependent discs: ${ms.toFixed(3)} ms CPU per recompute`);
+    ok(ms < 1 * SPEED, `speed: a drag with 50 dependent discs: ${ms.toFixed(3)} ms CPU per recompute`);
   }
 };

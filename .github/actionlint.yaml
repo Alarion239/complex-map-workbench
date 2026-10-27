@@ -1,0 +1,4 @@
+# actionlint: the label our own GPU machines carry (ci/RUNNERS.md)
+self-hosted-runner:
+  labels:
+    - gpu

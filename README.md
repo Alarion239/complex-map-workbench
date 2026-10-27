@@ -70,6 +70,9 @@ line endings on every platform (Windows included). The Italian table is `tools/i
   Direct3D 11 back end (what Chrome uses there), as do both regression suites.
 - Regression suites in `test/regress/` (see its README): image quality against exact mathematical ground truth, and
   a paired performance gate against a reference build.
+- CI (`ci/README.md`): the whole gate runs on GitHub Actions for every pull request and push to `main`, on Linux,
+  Windows and macOS, split into short jobs; the real-GPU part runs on our own Windows laptop and Mac
+  (`ci/RUNNERS.md`).
 
 ## Design notes
 

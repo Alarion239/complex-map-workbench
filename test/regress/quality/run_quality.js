@@ -20,6 +20,8 @@
 //                                        saved state (never accepted as a baseline)
 //   node run_quality.js --reeval DIR     recompute the metrics of DIR from its renders (after editing metrics.js or a
 //                                        scene's truth; no browser)
+//   node run_quality.js --golden DIR     compare the bounded controls with DIR/<id>.png instead of golden/ (CI's paired
+//                                        gate: a reference build's renders on the same machine, ci/quality.js)
 const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -31,7 +33,7 @@ const SC = require('./scenes');
 
 const HERE = __dirname;
 const ROOT = path.resolve(HERE, '..', '..', '..');
-const GOLDEN = path.join(HERE, 'golden');
+let GOLDEN = path.join(HERE, 'golden');   // (--golden DIR: another set, e.g. a reference build's renders)
 const BASELINE = path.join(HERE, 'baseline.json');
 const VIEWPORT = { width: 1440, height: 900, dpr: 1 };
 const GOLDEN_THR = 8;   // /255 per channel after the 1 px blur
@@ -48,7 +50,8 @@ function args() {
     else if (k === '--accept') o.accept = path.resolve(v());
     else if (k === '--reeval') o.reeval = path.resolve(v());
     else if (k === '--override') o.override = JSON.parse(v());
-    else if (k === '-h' || k === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 22).join('\n')); process.exit(0); }
+    else if (k === '--golden') o.golden = path.resolve(v());
+    else if (k === '-h' || k === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 24).join('\n')); process.exit(0); }
     else { console.error('unknown argument ' + k); process.exit(2); }
   }
   return o;
@@ -111,12 +114,13 @@ function chromePath() {
   for (const p of c) if (p && fs.existsSync(p)) return p;
   throw new Error('Chrome not found (set CHROME=/path/to/chrome)');
 }
-// the platform's own ANGLE back end: Metal on macOS, Direct3D 11 on Windows
-const ANGLE = process.platform === 'win32' ? 'd3d11' : 'metal';
+// the platform's own ANGLE back end: Metal on macOS, Direct3D 11 on Windows, SwiftShader (CPU WebGL2) elsewhere;
+// CMW_ANGLE overrides it (CI: ci/README.md)
+const ANGLE = process.env.CMW_ANGLE || (process.platform === 'win32' ? 'd3d11' : process.platform === 'darwin' ? 'metal' : 'swiftshader');
 async function startChrome() {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-quality-'));
   const ch = spawn(chromePath(), ['--headless=new', `--use-angle=${ANGLE}`, `--user-data-dir=${prof}`, `--disk-cache-dir=${path.join(prof, 'cache')}`, '--remote-debugging-pipe',
-    '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false', 'about:blank'],
+    '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false', ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []), ...(process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean), 'about:blank'],
   { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const wr = ch.stdio[3], rd = ch.stdio[4];
   wr.on('error', () => { /* the browser went away: reported through 'exit' */ });
@@ -324,6 +328,7 @@ async function main() {
   const opt = args();
   if (opt.accept) { accept(opt.accept); return; }
   if (opt.reeval) { reeval(opt.reeval); return; }
+  if (opt.golden) GOLDEN = opt.golden;
   const runs = SC.runs(opt.only);
   // sensitivity checks only: merge a JSON object into every scene's saved state (e.g. '{"meshN": 80}')
   if (opt.override) for (const r of runs) Object.assign(r.state, opt.override);
