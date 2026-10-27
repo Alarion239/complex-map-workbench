@@ -195,8 +195,10 @@ class Perf(unittest.TestCase):
             {'a.f': pm(28.0, 'frame_ms'), 'a.fps': pm(18.0, 'throughput'), 'a.mem': pm(1.4e6, 'mem_bytes')}
         rc, out, st = self.gate(b, r)
         self.assertEqual(st, {'a.f': 'FAIL', 'a.fps': 'FAIL', 'a.mem': 'FAIL'}, out)
-        rc, out, st = self.gate(b, r, '--tol-scale', '3')               # frame <= 1.45 x, fps >= 0.70 x; memory as is
-        self.assertEqual(st, {'a.f': 'PASS', 'a.fps': 'PASS', 'a.mem': 'FAIL'}, out)
+        rc, out, st = self.gate(b, r, '--tol-scale', '3')               # frame <= 1.45 x, fps >= 0.70 x, memory <= 1.75 x
+        self.assertEqual(st, {'a.f': 'PASS', 'a.fps': 'PASS', 'a.mem': 'PASS'}, out)
+        rc, out, st = self.gate(b, dict(r, **{'a.mem': pm(2.1e6, 'mem_bytes')}), '--tol-scale', '3')
+        self.assertEqual(st['a.mem'], 'FAIL', out)
         f = {'a.f': pm(20.0, 'frame_ms')}
         rc, out, st = self.gate(f, {'a.f': pm(13.0, 'frame_ms')}, '--tol-scale', '3')
         self.assertEqual(st['a.f'], 'PASS', out)                       # -35%: improved by the 1-fold margin, not by 3-fold

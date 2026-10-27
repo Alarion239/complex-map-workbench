@@ -15,7 +15,7 @@ expected ('expect': true, e.g. an inverse program was linked) and has none FAILS
 --paired (the CI's paired gate, ci/perf_shard.js): the baseline is the reference app measured on the same machine in
 the same run, so a check that is false there too, or a limit the reference is over too (and this change is not worse
 than 1.25 x it), is not this change's: BOTH, reported and not failed. --tol-scale S (noisy machines: GitHub's virtual
-ones) widens the timing kinds' allowance over the base S-fold, and the margin of IMPROVED with it.
+ones) widens the timing and GPU-memory kinds' allowance over the base S-fold, and the margin of IMPROVED with it.
 Exit code: 0 when nothing failed, 1 otherwise, 2 on a usage error.
 
 Entry point for test/regress/compare.py: main(argv) -> int.
@@ -93,8 +93,9 @@ BUDGET60 = {'frame_ms': ('lower', 14.0), 'latency_ms': ('lower', 40.0), 'jank_ms
 # IMPROVED needs to beat the best baseline run / 1.05 too. Deterministic kinds (mesh quality) have no envelope.
 ENVELOPE = {'frame_ms', 'cpu_ms', 'latency_ms', 'jank_ms', 'settle_ms', 'oneshot_ms', 'throughput', 'mem_bytes'}
 ENV_MARGIN = 1.05
-# the kinds whose allowance --tol-scale widens (machine noise; memory is not noisy)
-SCALED = ENVELOPE - {'mem_bytes'}
+# the kinds whose allowance --tol-scale widens: the timings, and GPU memory (its peak depends on how far the view
+# refined during the measurement, which is timing too)
+SCALED = ENVELOPE
 
 
 def _num(x):
@@ -321,7 +322,7 @@ def main(argv=None):
     ap.add_argument('--all', action='store_true', help='also list passing and info metrics')
     ap.add_argument('--json', help='write the comparison as JSON to this file')
     ap.add_argument('--paired', action='store_true', help='the baseline is the reference measured in the same run on the same machine (CI): checks and limits that fail there too are BOTH, not FAIL')
-    ap.add_argument('--tol-scale', type=float, default=1.0, metavar='S', help="widen the timing kinds' allowance over the base S-fold (noisy machines)")
+    ap.add_argument('--tol-scale', type=float, default=1.0, metavar='S', help="widen the timing and GPU-memory kinds' allowance over the base S-fold (noisy machines)")
     ap.add_argument('--failing-units', metavar='FILE', help='write the ids of the units with failing metrics to FILE (one per line; used by perf/run.sh to re-run them)')
     a = ap.parse_args(argv)
     for f in (a.baseline, a.results):

@@ -3,9 +3,10 @@
 // checkout's app back to back on the same machine, each in its own headless Chrome (test/regress/perf/run.js --ab), and
 // this checkout is gated against the reference with the suite's tolerances (compare_perf.py --paired, the 60 fps
 // budget and perf/accepted.json included; a check or limit that fails on the reference too is reported, not failed).
-// A unit with a failing metric is run twice more on both sides; a metric then fails only when the medians of the 3
-// attempts fail and most of the attempts, each against its own reference, fail too: a real regression fails again, a
-// noise spike does not. --tol-scale S widens the timing allowances S-fold (GitHub's machines: 3).
+// A unit with a failing metric is run twice more on both sides, in the opposite order (run.js --ab-flip: on some
+// machines the side measured second is slower); a metric then fails only when the medians of the 3 attempts fail and
+// most of the attempts, each against its own reference, fail too: a real regression fails again, a noise spike or
+// the cost of going second does not. --tol-scale S widens the timing and GPU-memory allowances S-fold (GitHub's machines: 3).
 //   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--settle-timeout MS] [--force] [--no-build]
 // Exit 0 pass, 1 regression, 2 setup problem (a unit that stalls, a build that fails).
 const fs = require('fs');
@@ -40,8 +41,8 @@ async function main() {
   // CI machines are never idle: no waiting for a quiet machine (both sides of a pair see the same load); a unit may
   // take long on software rendering
   const common = ['--reps', REPS, '--load-wait', '0', '--load-max', '100000', '--unit-timeout', opt('--unit-timeout', '1800'), '--settle-timeout', opt('--settle-timeout', '20000')];
-  const paired = (only, k) => {
-    const rc = run(process.execPath, [path.join(PERF, 'run.js'), '--ab', R.dist, '--out', f(`cur-${k}.json`), '--ab-out', f(`ref-${k}.json`), '--only', only, ...common]);
+  const paired = (only, k, flip) => {
+    const rc = run(process.execPath, [path.join(PERF, 'run.js'), '--ab', R.dist, '--out', f(`cur-${k}.json`), '--ab-out', f(`ref-${k}.json`), '--only', only, ...common, ...(flip ? ['--ab-flip'] : [])]);
     if (rc !== 0) throw new Error(rc === 4 ? 'a unit stalled (run.js exit 4): see the log' : `run.js exited ${rc}`);
   };
   const compare = (b, c, json, fu) => {
@@ -59,9 +60,9 @@ async function main() {
     // ('*': a metric of no unit, suite.no_errors: a page exception, never noise)
     const units = fs.readFileSync(f('failing-units.txt'), 'utf8').split('\n').map((s) => s.trim()).filter((u) => u && u !== '*');
     if (units.length) {
-      console.log(`confirming ${units.join(', ')}: ${CONFIRM} more paired attempt(s)`);
+      console.log(`confirming ${units.join(', ')}: ${CONFIRM} more paired attempt(s), the sides in the opposite order`);
       const re = `^(${units.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
-      for (let k = 2; k <= CONFIRM + 1; k++) paired(re, k);
+      for (let k = 2; k <= CONFIRM + 1; k++) paired(re, k, true);
       const ks = Array.from({ length: CONFIRM + 1 }, (_, i) => i + 1);
       for (const side of ['cur', 'ref']) {
         if (run(PY, [path.join(PERF, 'merge_runs.py'), '--checks', 'majority', ...ks.map((k) => f(`${side}-${k}.json`)), '-o', f(`${side}.json`)]) !== 0) throw new Error('merge_runs.py failed');
@@ -89,7 +90,7 @@ async function main() {
   for (const r of v.rows) counts[r.status] = (counts[r.status] || 0) + 1;
   const lines = [`### ${title}: ${fails.length ? `❌ ${fails.length} metric(s) worse than the reference` : '✅ not slower than the reference'}`, '',
     `${shard.what}. Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`); GPU: ${esc(meta.browser && meta.browser.gpu || '?')}; ${meta.seconds || '?'} s` +
-    `${SCALE !== '1' ? `; timing allowances x ${SCALE}` : ''}${confirmed ? `; failing units re-run, medians of ${attempts} attempts` : ''}. ${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
+    `${SCALE !== '1' ? `; timing allowances x ${SCALE}` : ''}${confirmed ? `; failing units re-run with the sides swapped, medians of ${attempts} attempts` : ''}. ${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
   if (fails.length) lines.push('| metric | reference → this change |', '|---|---|', ...fails.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
   if (noise.length) lines.push(`<details><summary>${noise.length} failed once, not confirmed (noise)</summary>\n\n${noise.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (both.length) lines.push(`<details><summary>${both.length} fail on the reference too (this machine; not this change's)</summary>\n\n${both.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');

@@ -29,15 +29,17 @@ quality and perf jobs are **paired**: they build the **reference** app (a pull r
 reference and on this change back to back, on the same machine, and gate this change against the reference with the
 suites' own tolerances (`compare_perf.py --paired` with its 60 fps budget and `perf/accepted.json`;
 `compare_quality.py`, the bounded controls' golden diff taken against the reference's renders). A failure is re-run: a
-failing perf unit twice more on both sides (a metric fails only when the medians of the 3 attempts fail and most
-attempts, each against its own reference, fail too), a failing quality run once more (it fails only if it fails
+failing perf unit twice more on both sides, with the sides swapped (on GitHub's macOS machine the side measured second
+is slower), and a metric fails only when the medians of the 3 attempts fail and most attempts, each against its own
+reference, fail too, a failing quality run once more (it fails only if it fails
 twice). A perf check or absolute limit that fails on the reference too (a software renderer misses the 250 ms first
 draw of an inverse program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a
 change does not touch the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
 
 GitHub's machines are virtual and shared: two runs of the same app there differ by tens of percent (a change that does not touch rendering showed
 −90 % … +300 % on single settle times), so the Gate's perf jobs widen the timing allowances 3-fold (`--tol-scale 3`: a
-frame may take 1.45 × the reference's, frames per second may drop to 0.70 ×) and catch gross slowdowns, a shader that
+frame may take 1.45 × the reference's, frames per second may drop to 0.70 ×, GPU memory, whose peak depends on how far
+the view refined, may grow to 1.75 ×) and catch gross slowdowns, a shader that
 takes far longer to compile, a check that breaks. The suite's own tolerances (1.15 × a frame, 0.90 × the frames per
 second) apply on our own machines, in the GPU gate.
 

@@ -49,8 +49,12 @@ const UNIT_TIMEOUT_S = Number(opt('unit-timeout', '180'));
 // --ab DIR: a PAIRED run. DIR is the dist/ of the reference app (run.sh --paired builds it from a source snapshot);
 // every unit runs on the reference and on the current app back to back in the same browser, alternating which goes
 // first, so both see the same machine state (a busy machine slows both alike instead of failing the comparison).
+// Which side goes first is fixed per unit (by its id: a re-run of some units keeps each unit's order); --ab-flip
+// swaps it, so a confirmation re-run can cancel what going first or second costs on a machine.
 // The reference results go to --ab-out (default: OUT with -base before .json); compare OUT against them.
 const AB_DIST = opt('ab', '') ? path.resolve(opt('ab')) : null;
+const AB_FLIP = flag('ab-flip');
+const refFirst = (id) => ([...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 2 === 0) !== AB_FLIP;
 const abOut = () => path.resolve(opt('ab-out', OUT.replace(/\.json$/, '') + '-base.json'));
 const OUT = path.resolve(opt('out', path.join(HERE, 'results', 'latest.json')));
 const ONLY = opt('only', '') ? new RegExp(opt('only')) : null;
@@ -1383,7 +1387,6 @@ async function main() {
     fs.writeFileSync(OUT, JSON.stringify(RES_B, null, 1));
     if (RES_A) fs.writeFileSync(abOut(), JSON.stringify(RES_A, null, 1));
   };
-  let unitIndex = 0;
   for (const u of UNITS) {
     if (ONLY && !ONLY.test(u.id)) continue;
     if (SKIP && SKIP.test(u.id)) continue;
@@ -1403,8 +1406,7 @@ async function main() {
       log(`WARNING: machine busy (1-min load ${load} > ${LOAD_MAX}) before ${u.id}: its timings are not trustworthy`);
       RES.meta.busyUnits.push({ unit: u.id, load });
     }
-    const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (unitIndex % 2 ? [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]] : [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]]);
-    unitIndex++;
+    const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
     for (const [res, base, tag, br] of sides) {
       RES = res; BASE = base; B = br;
       const tu = Date.now();
