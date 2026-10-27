@@ -95,7 +95,7 @@ async function runOne(file, run, port) {
     try { out = JSON.parse(fs.readFileSync(done, 'utf8')); } catch (e) { return { error: `the result is not JSON: ${e.message}`, log, ms }; }
     return { out, log, ms };
   } finally {
-    fs.writeFileSync(path.join(Q, 'QUIT'), '');
+    try { fs.writeFileSync(path.join(Q, 'QUIT'), ''); } catch (e) { /* no queue: the daemon never got that far */ }
     await waitFor([], child, 5000);
     killTree(child);
     keepShots(file, run);
