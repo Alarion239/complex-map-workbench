@@ -13,7 +13,7 @@
 // in the unit disk and its drag, 11 a touching circle and the tangent from an outside point) on the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a viewport
 // meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state in
 // localStorage and the page's own globals (Sound) only.
-const BASEU = 'http://localhost:9889/';
+const BASEU = process.env.CMW_BASE || 'http://localhost:9889/';   // (a server of your own: CMW_BASE=http://localhost:<port>/)
 // the Orthogonal tool's first chip at 1440 (section 10), as v16.4: English, the text with the Whole | Inside icons on
 // one line; Russian, the whole text on two lines, not cut (without " · Esc — отмена" it does not fit one line next to
 // the icons either, so the v16.3.1 rule keeps the whole text)

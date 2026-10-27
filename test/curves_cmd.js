@@ -15,6 +15,8 @@
 //      |sin z| = 1 itself (sinh^2 y = cos^2 x); the preimage of the target Re w^2 = 1 under z^2 (r^4 cos 4 theta = 1,
 //      drawn per pixel by the preimage shader) and of the target lemniscate |w^2 - 1| = 1 under exp
 //      (z = log(1 + e^{i phi}) / 2 + k pi i).
+// (the daemon's port, as its load() opens it)
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const settle = async (ms = 1200) => {
@@ -114,7 +116,7 @@ await settle(1500);
   s = await shapes();
   ok('|w| = 1 adds a target circle', s.targets.length === 1 && s.targets[0].kind === 'circle' && s.targets[0].r === 1, s.targets);
   // reload keeps everything
-  await nav('http://localhost:8793/test.html?ns=curves');
+  await nav(`http://localhost:${PORT}/test.html?ns=curves`);
   await settle(2000);
   const s2 = await shapes();
   ok('a reload keeps the shapes and targets', JSON.stringify(s2.shapes.map((x) => [x.kind, x.expr || ''])) === JSON.stringify(s.shapes.map((x) => [x.kind, x.expr || ''])) && s2.targets.length === 1, s2.shapes.map((x) => x.kind));
@@ -307,7 +309,7 @@ for (const sc of SC) {
   // the right view as pinned: reload with the state the app saved (the add is in it) plus the pinned view
   await sleep(400);
   await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
-  await nav(`http://localhost:8793/test.html?ns=curves-${sc.name}`);
+  await nav(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
   await settle(2500);
   const I = await inkOf(sc.side || 'R', id, !!sc.target);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);

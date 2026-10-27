@@ -4,6 +4,8 @@
 // the first switch to X Sphere at dpr 2. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/p3_review_cmd.js
 // Prints {pass, fails, results}; pass is true when every check holds.
+// (the daemon's port, as its load() opens it)
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
@@ -243,7 +245,7 @@ for (const side of ['L', 'R']) { const o = R.exp2[side] || {}; ok(`two-globe exp
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
 R.exp2long = []; R.xswitch = [];
 for (const ex of [1, 4, 1]) {
-  await nav('http://localhost:8793/test.html?ns=p3rvX' + Date.now()); await sleep(1200);
+  await nav(`http://localhost:${PORT}/test.html?ns=p3rvX` + Date.now()); await sleep(1200);
   await ev(`__cmwExample(${ex}); 1`); await sleep(2500);
   R.xswitch.push(await ev(`await (async () => {
     const long = []; const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); });
