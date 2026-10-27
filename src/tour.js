@@ -429,6 +429,8 @@ const Tour = (() => {
     phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c ? c.closest('label') || c : null; },
     // Y's Display options button, where the Phase key goes when Y's options strip has no room for it
     rightOpts: '#rightFoot .opts-btn',
+    // X's Display options button (INTEGRATION.md: the fallback of phaseStyle)
+    leftOpts: '#leftFoot .opts-btn',
     // v15: the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
     // closes the chain; on a phone, the Sphere key in the plane's right column
     // (v15.1) the selected step's lens (Show this step alone) in the Inspector's head: in a phone's sheet

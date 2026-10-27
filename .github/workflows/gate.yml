@@ -1,0 +1,202 @@
+# The gate on GitHub's machines (ci/README.md): unit tests (Linux), GLSL conformance (Windows, macOS), image quality
+# (Linux, Windows, macOS), and the paired perf suite on Windows and macOS (desktop units, and an emulated phone), each change measured
+# against its reference (the PR's base, or the previous main) on the same machine. GitHub's machines have no usable GPU
+# (software rendering), so the perf jobs catch relative slowdowns and shader-compile costs, not real frame rates: those
+# come from the GPU gate on our own machines (.github/workflows/gpu-gate.yml).
+name: Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      reference:
+        description: Commit or branch the paired gates compare against (empty = the previous main commit, or the branch's merge base with main)
+        required: false
+        default: ''
+      force:
+        description: Run the paired gates even when the app (src/, build.py) did not change
+        type: boolean
+        default: false
+      shards:
+        description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHONUTF8: '1'
+  FORCE: ${{ inputs.force && '--force' || '' }}
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      reference: ${{ steps.ref.outputs.reference }}
+      shards: ${{ steps.shards.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - id: ref
+        name: Reference of the paired gates
+        shell: bash
+        run: |
+          set -eu
+          case "${{ github.event_name }}" in
+            pull_request) ref="${{ github.event.pull_request.base.sha }}" ;;
+            push) ref="${{ github.event.before }}"
+                  if ! git cat-file -e "$ref^{commit}" 2>/dev/null; then ref=$(git rev-parse HEAD~1); fi ;;
+            *) ref="${{ inputs.reference }}"
+               if [ -z "$ref" ]; then
+                 if [ "${{ github.ref }}" = refs/heads/main ]; then ref=$(git rev-parse HEAD~1); else ref=$(git merge-base origin/main HEAD); fi
+               fi ;;
+          esac
+          sha=$(git rev-parse --verify "$ref^{commit}")
+          echo "reference=$sha" >> "$GITHUB_OUTPUT"
+          echo "Reference of the paired gates: \`$sha\` ($ref)" >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet "$sha" -- src build.py; then echo "The app (src/, build.py) is unchanged since the reference: the paired gates have nothing to compare." >> "$GITHUB_STEP_SUMMARY"; fi
+      - id: shards
+        name: Perf shards (every unit in exactly one)
+        shell: bash
+        run: |
+          node ci/perf_shards.js check
+          if [ -n "${{ inputs.shards }}" ]; then s=$(node ci/perf_shards.js matrix --only "${{ inputs.shards }}"); else s=$(node ci/perf_shards.js matrix); fi
+          echo "shards=$s" >> "$GITHUB_OUTPUT"
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # the construction tests' absolute speed limits were set on the development Mac
+      CMW_SPEED_SCALE: '3'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node ci/snapshots.js
+      - run: node ci/unit.js
+      - name: The gates' own tests
+        run: python3 test/regress/test_compare.py
+
+  glsl:
+    name: GLSL (${{ matrix.os }}, ${{ matrix.part.page }} ${{ matrix.part.of }})
+    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS); the long pages split into parts
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        part:
+          - { page: glsl, of: 1/4 }
+          - { page: glsl, of: 2/4 }
+          - { page: glsl, of: 3/4 }
+          - { page: glsl, of: 4/4 }
+          - { page: adv, of: 1/2 }
+          - { page: adv, of: 2/2 }
+          - { page: inverse, of: 1/1 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node ci/gpu_probe.js --fallback
+      - run: node ci/glsl.js --only ${{ matrix.part.page }} --part ${{ matrix.part.of }}
+
+  quality:
+    name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        shard: ['1/3', '2/3', '3/3']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    env:
+      CMW_CHROME_ARGS: ${{ startsWith(matrix.os, 'ubuntu') && '--no-sandbox' || '' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node ci/gpu_probe.js --fallback
+      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} --shard ${{ matrix.shard }} ${{ env.FORCE }}
+      - if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: quality-${{ runner.os }}-${{ strategy.job-index }}
+          path: .ci/quality/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  perf:
+    name: Perf (${{ matrix.os }}, ${{ matrix.shard }})
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node ci/gpu_probe.js --fallback
+      # (software rendering: settling takes longer than on a GPU)
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --settle-timeout 60000 ${{ env.FORCE }}
+      - if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: perf-${{ runner.os }}-${{ matrix.shard }}
+          path: .ci/perf/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  gate:
+    name: Gate
+    if: always()
+    needs: [plan, unit, glsl, quality, perf]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job of the gate passed
+        run: echo "plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1

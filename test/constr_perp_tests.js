@@ -5,6 +5,8 @@
 // and the plumbing (validate, save and load, v16.2's validate, plans, describe, speed).
 // Not a test of its own (no t_ prefix): t_constr.js calls it with its helpers.
 'use strict';
+// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
+const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
 const path = require('path');
 module.exports = function ({ K, ok }) {
   // (v16.1's = v16.2's constr.js, frozen: an older build reading a saved perpendicular circle)
@@ -337,7 +339,7 @@ module.exports = function ({ K, ok }) {
     const c0 = process.cpuUsage();
     for (let f = 0; f < 600; f++) { sh(W, 'P').p = [0.3 + 0.1 * Math.cos(f / 50), 0.2 + 0.1 * Math.sin(f / 50)]; rec(W, { shapes: ['P'] }); }
     const cu = process.cpuUsage(c0), ms = (cu.user + cu.system) / 1000 / 600;
-    ok(per < 5000 && ms < 1, `speed: perpForm ${per.toFixed(0)} ns; a drag with 10 dependents ${ms.toFixed(3)} ms CPU per recompute`);
+    ok(per < 5000 * SPEED && ms < 1 * SPEED, `speed: perpForm ${per.toFixed(0)} ns; a drag with 10 dependents ${ms.toFixed(3)} ms CPU per recompute`);
   }
 
   // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)

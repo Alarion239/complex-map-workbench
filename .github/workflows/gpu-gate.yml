@@ -1,0 +1,187 @@
+# The gate on our own machines with real GPUs (ci/RUNNERS.md): the paired perf suite (desktop units and the emulated
+# phone), image quality and GLSL conformance on the Windows laptop and the Mac, registered as self-hosted runners with
+# the label `gpu`.
+#
+# Off until the repository variable GPU_RUNNERS is 'true' (Settings > Secrets and variables > Actions > Variables), so
+# nothing waits in the queue for a machine that is not registered. Every run waits for an approval in the
+# `gpu-runners` environment (Settings > Environments > gpu-runners > Required reviewers), and it never runs for a pull
+# request from a fork: code from outside the repository never reaches our machines.
+#
+# Runs: on every push to main; nightly; by hand (Actions > GPU gate > Run workflow); on a pull request from a branch of
+# this repository when it has the label `gpu-gate`. The machines' own Chrome, Python and Git are used (ci/RUNNERS.md).
+name: GPU gate
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * *'
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      reference:
+        description: Commit or branch to compare against (empty = the previous main commit, or the branch's merge base with main)
+        required: false
+        default: ''
+      machines:
+        description: Which machines
+        type: choice
+        options: [both, windows, mac]
+        default: both
+      shards:
+        description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
+        required: false
+        default: ''
+      force:
+        description: Run the paired gates even when the app (src/, build.py) did not change
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpu-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: '1'
+  FORCE: ${{ (inputs.force || github.event_name == 'schedule') && '--force' || '' }}
+
+jobs:
+  plan:
+    name: Plan (approval)
+    # never for a fork's pull request; on a pull request only with the gpu-gate label
+    if: >-
+      vars.GPU_RUNNERS == 'true' && (github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'gpu-gate')))
+    runs-on: ubuntu-latest
+    environment: gpu-runners
+    timeout-minutes: 10
+    outputs:
+      reference: ${{ steps.ref.outputs.reference }}
+      shards: ${{ steps.shards.outputs.shards }}
+      machines: ${{ steps.machines.outputs.machines }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - id: ref
+        shell: bash
+        run: |
+          set -eu
+          case "${{ github.event_name }}" in
+            pull_request) ref="${{ github.event.pull_request.base.sha }}" ;;
+            push) ref="${{ github.event.before }}"
+                  if ! git cat-file -e "$ref^{commit}" 2>/dev/null; then ref=$(git rev-parse HEAD~1); fi ;;
+            schedule) ref=$(git rev-parse HEAD~1) ;;
+            *) ref="${{ inputs.reference }}"
+               if [ -z "$ref" ]; then
+                 if [ "${{ github.ref }}" = refs/heads/main ]; then ref=$(git rev-parse HEAD~1); else ref=$(git merge-base origin/main HEAD); fi
+               fi ;;
+          esac
+          sha=$(git rev-parse --verify "$ref^{commit}")
+          echo "reference=$sha" >> "$GITHUB_OUTPUT"
+          echo "Reference of the paired gates: \`$sha\` ($ref)" >> "$GITHUB_STEP_SUMMARY"
+      - id: shards
+        shell: bash
+        run: |
+          node ci/perf_shards.js check
+          if [ -n "${{ inputs.shards }}" ]; then s=$(node ci/perf_shards.js matrix --only "${{ inputs.shards }}"); else s=$(node ci/perf_shards.js matrix); fi
+          echo "shards=$s" >> "$GITHUB_OUTPUT"
+      - id: machines
+        shell: bash
+        run: |
+          case "${{ inputs.machines }}" in
+            windows) echo 'machines=["Windows"]' >> "$GITHUB_OUTPUT" ;;
+            mac) echo 'machines=["macOS"]' >> "$GITHUB_OUTPUT" ;;
+            *) echo 'machines=["Windows","macOS"]' >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  glsl:
+    name: GLSL (${{ matrix.machine }} GPU)
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+    runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node ci/gpu_probe.js --require-hardware
+      - run: node ci/glsl.js
+
+  quality:
+    name: Quality (${{ matrix.machine }} GPU)
+    needs: [plan, glsl]
+    if: always() && needs.plan.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+    runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node ci/gpu_probe.js --require-hardware
+      # (the Mac also against the committed baseline and goldens, which were recorded on a Mac GPU)
+      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
+      - if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: gpu-quality-${{ matrix.machine }}
+          path: .ci/quality/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  perf:
+    name: Perf (${{ matrix.machine }} GPU, ${{ matrix.shard }})
+    needs: [plan, quality]
+    if: always() && needs.plan.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: ${{ fromJSON(needs.plan.outputs.machines) }}
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node ci/gpu_probe.js --require-hardware
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
+      - if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: gpu-perf-${{ matrix.machine }}-${{ matrix.shard }}
+          path: .ci/perf/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  gate:
+    name: GPU gate
+    if: always() && needs.plan.result != 'skipped'
+    needs: [plan, glsl, quality, perf]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "plan ${{ needs.plan.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1

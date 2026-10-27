@@ -9,6 +9,8 @@
 //  F. the Touching circle, ops touch and tangent (constr_touch_tests.js; notes/orthogonal-circle/TANGENT-SPEC.md 7)
 //  G. Inside C only, a perpendicular circle's arc on one side of C (constr_seg_tests.js; orthogonal-circle/segments/SPEC.md 11)
 'use strict';
+// the absolute speed limits are set on the development Mac; CMW_SPEED_SCALE (CI: ci/README.md) scales them for slower machines
+const SPEED = +(process.env.CMW_SPEED_SCALE || 1) || 1;
 const path = require('path');
 const SRC = path.join(__dirname, '../src');
 global.CX = require(path.join(SRC, 'cx.js'));
@@ -194,15 +196,15 @@ cur = 'A';
   const nodes = G.names().length;
   measure(60, (f) => G.drag('P1', [Math.cos(f / 10), Math.sin(f / 10)]));       // warm up
   const d = measure(600, (f) => G.drag('P1', [Math.cos(f / 10), Math.sin(f / 10)]));
-  ok(d.cpu < 0.5, `speed: dragging a point in a graph of ${nodes} objects: ${d.cpu.toFixed(3)} ms CPU per update (median wall ${d.median.toFixed(3)} ms)`);
+  ok(d.cpu < 0.5 * SPEED, `speed: dragging a point in a graph of ${nodes} objects: ${d.cpu.toFixed(3)} ms CPU per update (median wall ${d.median.toFixed(3)} ms)`);
   measure(60, (f) => G.set('a', 0.5 + f / 2000));
   const s2 = measure(600, (f) => G.set('a', 0.5 + f / 2000));
-  ok(s2.cpu < 2, `speed: a slider driving 200 circles: ${s2.cpu.toFixed(3)} ms CPU per update (median wall ${s2.median.toFixed(3)} ms)`);
+  ok(s2.cpu < 2 * SPEED, `speed: a slider driving 200 circles: ${s2.cpu.toFixed(3)} ms CPU per update (median wall ${s2.median.toFixed(3)} ms)`);
   const H = lastG = K.graph();
   H.add('b0', { kind: 'param', value: 0 });
   for (let i = 1; i <= 2000; i++) H.add('b' + i, { kind: 'value', expr: `b${i - 1} + 1` });
   const s3 = measure(30, (f) => H.set('b0', f));
-  ok(H.val('b2000') === 2029 && s3.cpu < 10, `speed: a chain of 2000 formulas, all recomputed: ${s3.cpu.toFixed(2)} ms CPU per update`);
+  ok(H.val('b2000') === 2029 && s3.cpu < 10 * SPEED, `speed: a chain of 2000 formulas, all recomputed: ${s3.cpu.toFixed(2)} ms CPU per update`);
 }
 
 // ------------------------------------------------ 7. revision 2 (review-users 1, 2, 6, 8, 9, 20; review-design 15, 17)
@@ -305,7 +307,7 @@ cur = 'A';
       for (let s = 0; s < 16; s++) { const z = H.line ? [H.p[0] + H.d[0] * (s - 8), H.p[1] + H.d[1] * (s - 8)] : [H.c[0] + H.r * Math.cos(s), H.c[1] + H.r * Math.sin(s)]; if (!st.onArc(z)) continue; const m = M(z); let e = Math.abs(Math.atan2(m[1], m[0]) - th); e = Math.min(e, 2 * Math.PI - e); worstA = Math.max(worstA, e); }
     }
     const ms = Number(process.hrtime.bigint() - t0) / 1e6 / 101;
-    ok(worst < 1e-12 && worstA < 1e-12 && ms < 1, `circles of M: |M(z)| = k and arg M(z) = θ are exact (rel. error ${worst.toExponential(1)}, ${worstA.toExponential(1)}) for 101 slider values, ${ms.toFixed(3)} ms per value`);
+    ok(worst < 1e-12 && worstA < 1e-12 && ms < 1 * SPEED, `circles of M: |M(z)| = k and arg M(z) = θ are exact (rel. error ${worst.toExponential(1)}, ${worstA.toExponential(1)}) for 101 slider values, ${ms.toFixed(3)} ms per value`);
     ok(K.geomOf(K.apollonius(a, b, c, d, 1)).line, 'circles of M: k = 1 is the perpendicular bisector of the zero and the pole (a line)');
   }
 }

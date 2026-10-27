@@ -16,8 +16,11 @@ const CHROME_CANDIDATES = [
   ...(process.platform === 'win32' ? [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA]
     .filter(Boolean).map((d) => path.join(d, 'Google', 'Chrome', 'Application', 'chrome.exe')) : []),
 ].filter(Boolean);
-// the platform's own ANGLE back end: Metal on macOS, Direct3D 11 on Windows (what Chrome uses there by default)
-const ANGLE = process.platform === 'win32' ? 'd3d11' : 'metal';
+// the platform's own ANGLE back end: Metal on macOS, Direct3D 11 on Windows (what Chrome uses there by default),
+// SwiftShader (CPU WebGL2) elsewhere; CMW_ANGLE overrides it (CI: ci/README.md)
+const ANGLE = process.env.CMW_ANGLE || (process.platform === 'win32' ? 'd3d11' : process.platform === 'darwin' ? 'metal' : 'swiftshader');
+// CMW_CHROME_ARGS: extra flags, space-separated (CI on Linux: --no-sandbox)
+const EXTRA_FLAGS = (process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -31,6 +34,8 @@ const CHROME_FLAGS = [
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
   '--disable-extensions', '--disable-component-update', '--disable-sync', '--metrics-recording-only', '--mute-audio',
   '--hide-scrollbars=false',
+  ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []),
+  ...EXTRA_FLAGS,
 ];
 
 // opts.angle: another ANGLE backend than Metal (e.g. 'swiftshader' for the CPU-rendered WebGL2 of machines without a
@@ -38,7 +43,7 @@ const CHROME_FLAGS = [
 function flagsFor(opts) {
   if (!opts.angle || opts.angle === ANGLE) return CHROME_FLAGS.slice();
   const f = CHROME_FLAGS.map((x) => (x === `--use-angle=${ANGLE}` ? `--use-angle=${opts.angle}` : x));
-  if (opts.angle === 'swiftshader') f.push('--enable-unsafe-swiftshader');
+  if (opts.angle === 'swiftshader' && !f.includes('--enable-unsafe-swiftshader')) f.push('--enable-unsafe-swiftshader');
   return f;
 }
 
@@ -140,6 +145,23 @@ async function launch(opts = {}) {
   // a key held (P3b: Space held turns an editable globe in every tool): 'keyDown' / 'keyUp' without text
   H_.key = (type, code = 'Space', key = ' ', vk = 32) => send('Input.dispatchKeyEvent', { type, code, key, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
   H_.wheel = (x, y, deltaY, deltaX = 0) => send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX, deltaY });
+  // a one-finger touch drag (the phone profile, run.js): touchStart, a first move of `slop` px (a finger is past the
+  // app's 8 px long-press slop at once; slow moves on a throttled page would otherwise turn into a held probe), then n
+  // moves dt ms apart to (x1, y1), touchEnd
+  H_.touchDrag = async (x0, y0, x1, y1, { n = 30, dt = 16, slop = 12 } = {}) => {
+    const pt = (x, y) => [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }];
+    const L = Math.hypot(x1 - x0, y1 - y0) || 1, f = Math.min(1, slop / L);
+    const xs = x0 + (x1 - x0) * f, ys = y0 + (y1 - y0) * f;
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(x0, y0) });
+    await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(xs, ys) });
+    for (let i = 1; i <= n; i++) {
+      const t = Date.now();
+      await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(xs + (x1 - xs) * i / n, ys + (y1 - ys) * i / n) });
+      const left = dt - (Date.now() - t);
+      if (left > 0) await sleep(left);
+    }
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
   H_.shot = async (clip) => {
     const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip);
     const r = await send('Page.captureScreenshot', p);
