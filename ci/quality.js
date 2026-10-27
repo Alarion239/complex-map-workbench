@@ -10,7 +10,7 @@
 // bit-identical between two runs of the same build). Exit 0 pass, 1 regression, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PY, serve, summary, run, esc } = require('./lib');
+const { ROOT, PY, serve, summary, run, runAsync, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const SC = require('../test/regress/quality/scenes');
 
@@ -31,10 +31,10 @@ function shardRuns() {
   return { names, ids: all.filter((id) => names.includes(id.split('.')[0])) };
 }
 const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
-function quality(base, out, only, golden) {
+async function quality(base, out, only, golden) {
   const a = [RUNNER, '--base-url', base.replace(/\/$/, ''), '--out', out, '--only', only.join(',')];
   if (golden) a.push('--golden', golden);
-  const rc = run(process.execPath, a);
+  const rc = await runAsync(process.execPath, a);   // (async: the servers are in this process)
   if (rc >= 2 || !fs.existsSync(path.join(out, 'metrics.json'))) throw new Error(`the quality runner failed (exit ${rc}) for ${out}`);
 }
 function compare(baseline, current, json) {
@@ -58,16 +58,16 @@ async function main() {
   const cur = await serve(path.join(ROOT, 'dist')), rf = await serve(R.dist);
   try {
     const d = (n) => path.join(OUT, n);
-    quality(rf.base, d('ref'), ids);
-    quality(cur.base, d('cur'), ids, path.join(d('ref'), 'renders'));
+    await quality(rf.base, d('ref'), ids);
+    await quality(cur.base, d('cur'), ids, path.join(d('ref'), 'renders'));
     let v = compare(path.join(d('ref'), 'metrics.json'), d('cur'), d('compare.json'));
     // a failing run is rendered again on both sides; it fails only if it fails again
     const failing = [...new Set(v.failures.map((f) => f.run).filter((r) => r !== '*'))];
     let confirmed = v.failures;
     if (failing.length) {
       console.log(`re-rendering ${failing.length} failing run(s) on both sides: ${failing.join(', ')}`);
-      quality(rf.base, d('ref2'), failing);
-      quality(cur.base, d('cur2'), failing, path.join(d('ref2'), 'renders'));
+      await quality(rf.base, d('ref2'), failing);
+      await quality(cur.base, d('cur2'), failing, path.join(d('ref2'), 'renders'));
       const v2 = compare(path.join(d('ref2'), 'metrics.json'), d('cur2'), d('compare2.json'));
       const again = new Set(v2.failures.map((f) => f.run));
       confirmed = v.failures.filter((f) => f.run === '*' || again.has(f.run));
@@ -75,7 +75,7 @@ async function main() {
     let abs = null;
     if (argv.includes('--absolute')) abs = compare(null, d('cur'), d('compare-absolute.json'));
     const lines = [`### ${title}: ${confirmed.length || (abs && !abs.pass) ? '❌ worse than the reference' : '✅ not worse than the reference'}`, '',
-      `Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`), ${scenes.length} scenes, ${v.runs.length} runs; ${v.improvements.length} metric(s) improved.`, ''];
+      `Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`), ${scenes.length} scenes, ${Object.keys(v.runs).length} runs; ${v.improvements.length} metric(s) improved.`, ''];
     if (confirmed.length) lines.push('| run | metric | reference → this change |', '|---|---|---|', ...confirmed.map((f) => `| \`${f.run}\` | ${f.metric} | ${esc(f.message)} |`), '');
     const flaky = v.failures.filter((f) => !confirmed.includes(f));
     if (flaky.length) lines.push(`Not confirmed on a second render (noise): ${[...new Set(flaky.map((f) => f.run))].join(', ')}`, '');

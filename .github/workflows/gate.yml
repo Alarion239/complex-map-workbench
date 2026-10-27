@@ -99,22 +99,26 @@ jobs:
         run: python3 test/regress/test_compare.py
 
   glsl:
-    name: GLSL (${{ matrix.os }}, ${{ matrix.part.page }} ${{ matrix.part.of }})
+    name: GLSL (${{ matrix.os }}, ${{ matrix.page }} ${{ matrix.part }})
     # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
-    # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities)
+    # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
+    # Windows renders in software (WARP: slow), so its pages run in parts; macOS has a virtual GPU (a minute a page)
+    # and few machines (5 at a time), so its pages run whole.
     needs: plan
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
-        part:
-          - { page: glsl, of: 1/4 }
-          - { page: glsl, of: 2/4 }
-          - { page: glsl, of: 3/4 }
-          - { page: glsl, of: 4/4 }
-          - { page: adv, of: 1/2 }
-          - { page: adv, of: 2/2 }
-          - { page: inverse, of: 1/1 }
+        include:
+          - { os: windows-latest, page: glsl, part: 1/4 }
+          - { os: windows-latest, page: glsl, part: 2/4 }
+          - { os: windows-latest, page: glsl, part: 3/4 }
+          - { os: windows-latest, page: glsl, part: 4/4 }
+          - { os: windows-latest, page: adv, part: 1/2 }
+          - { os: windows-latest, page: adv, part: 2/2 }
+          - { os: windows-latest, page: inverse, part: 1/1 }
+          - { os: macos-latest, page: glsl, part: 1/1 }
+          - { os: macos-latest, page: adv, part: 1/1 }
+          - { os: macos-latest, page: inverse, part: 1/1 }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240
     steps:
@@ -128,7 +132,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      - run: node ci/glsl.js --only ${{ matrix.part.page }} --part ${{ matrix.part.of }} --ref ${{ needs.plan.outputs.reference }}
+      - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} --ref ${{ needs.plan.outputs.reference }}
 
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
@@ -183,8 +187,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      # (software rendering: settling takes longer than on a GPU)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --settle-timeout 60000 ${{ env.FORCE }}
+      # (virtual machines: busy neighbours swing timings by tens of percent, so only gross slowdowns fail here, with
+      # 3-fold timing allowances; software rendering settles slower than a GPU)
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --settle-timeout 60000 ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

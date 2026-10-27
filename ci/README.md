@@ -16,7 +16,7 @@ show results sooner and can be re-run alone).
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
-| **GLSL** (Linux, Windows, macOS) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler |
+| **GLSL** (Windows in 7 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards × Windows, macOS) | the perf suite, paired: desktop units and the **emulated phone** |
 | **Gate** | passes only when every job above passed: make it the required check |
@@ -27,11 +27,19 @@ GitHub's machines differ from run to run and render in software, so a stored bas
 quality and perf jobs are **paired**: they build the **reference** app (a pull request's base commit; for a push to
 `main`, the previous `main`; by hand, any commit) in a git worktree under `.ci/`, then run every scene or unit on the
 reference and on this change back to back, on the same machine, and gate this change against the reference with the
-suites' own tolerances (`compare_perf.py` with its 60 fps budget and `perf/accepted.json`; `compare_quality.py`, the
-bounded controls' golden diff taken against the reference's renders). A failure is re-run: a failing perf unit twice
-more on both sides (the median of 3 attempts is gated, as `perf/run.sh` confirms failures), a failing quality run once
-more (it fails only if it fails twice). When a change does not touch the app (`src/`, `build.py`), the paired jobs
-report "nothing to compare" and pass.
+suites' own tolerances (`compare_perf.py --paired` with its 60 fps budget and `perf/accepted.json`;
+`compare_quality.py`, the bounded controls' golden diff taken against the reference's renders). A failure is re-run: a
+failing perf unit twice more on both sides (a metric fails only when the medians of the 3 attempts fail and most
+attempts, each against its own reference, fail too), a failing quality run once more (it fails only if it fails
+twice). A perf check or absolute limit that fails on the reference too (a software renderer misses the 250 ms first
+draw of an inverse program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a
+change does not touch the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
+
+GitHub's machines are virtual and shared: two runs of the same app there differ by tens of percent (a change that does not touch rendering showed
+−90 % … +300 % on single settle times), so the Gate's perf jobs widen the timing allowances 3-fold (`--tol-scale 3`: a
+frame may take 1.45 × the reference's, frames per second may drop to 0.70 ×) and catch gross slowdowns, a shader that
+takes far longer to compile, a check that breaks. The suite's own tolerances (1.15 × a frame, 0.90 × the frames per
+second) apply on our own machines, in the GPU gate.
 
 On the Mac with a GPU, quality is also gated against the committed baseline and goldens (`--absolute`), which were
 recorded on a Mac GPU.

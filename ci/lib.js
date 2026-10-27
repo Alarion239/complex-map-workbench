@@ -3,7 +3,7 @@
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const PY = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
@@ -39,6 +39,16 @@ function run(cmd, args, opts = {}) {
   return r.status == null ? 2 : r.status;
 }
 
+// the same without blocking this process (a server of serve() in this process must keep answering the command)
+function runAsync(cmd, args, opts = {}) {
+  console.log(`$ ${cmd} ${args.map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' ')}`);
+  return new Promise((resolve) => {
+    const c = spawn(cmd, args, Object.assign({ stdio: 'inherit', cwd: ROOT }, opts));
+    c.on('error', (e) => { console.error(e.message); resolve(2); });
+    c.on('close', (code) => resolve(code == null ? 2 : code));
+  });
+}
+
 const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-module.exports = { ROOT, PY, serve, summary, run, esc };
+module.exports = { ROOT, PY, serve, summary, run, runAsync, esc };

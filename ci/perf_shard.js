@@ -1,10 +1,12 @@
 'use strict';
 // One shard of the paired perf gate (ci/perf_shards.js): every unit of the shard runs on the reference app and on this
 // checkout's app back to back on the same machine, each in its own headless Chrome (test/regress/perf/run.js --ab), and
-// this checkout is gated against the reference with the suite's tolerances (compare_perf.py, the 60 fps budget and
-// perf/accepted.json included). A unit with a failing metric is run twice more on both sides and its metrics become the
-// median of the 3 attempts (as perf/run.sh confirms failures): a real regression fails again, a noise spike does not.
-//   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--settle-timeout MS] [--force] [--no-build]
+// this checkout is gated against the reference with the suite's tolerances (compare_perf.py --paired, the 60 fps
+// budget and perf/accepted.json included; a check or limit that fails on the reference too is reported, not failed).
+// A unit with a failing metric is run twice more on both sides; a metric then fails only when the medians of the 3
+// attempts fail and most of the attempts, each against its own reference, fail too: a real regression fails again, a
+// noise spike does not. --tol-scale S widens the timing allowances S-fold (GitHub's machines: 3).
+//   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--settle-timeout MS] [--force] [--no-build]
 // Exit 0 pass, 1 regression, 2 setup problem (a unit that stalls, a build that fails).
 const fs = require('fs');
 const path = require('path');
@@ -18,6 +20,7 @@ const shard = SHARDS.find((s) => s.id === opt('--shard'));
 const ref = opt('--ref', 'origin/main');
 const REPS = opt('--reps', '3');
 const CONFIRM = Number(opt('--confirm', '2'));
+const SCALE = opt('--tol-scale', '1');
 const PERF = path.join(ROOT, 'test', 'regress', 'perf');
 const CMP = path.join(ROOT, 'test', 'regress', 'compare_perf.py');
 
@@ -42,7 +45,7 @@ async function main() {
     if (rc !== 0) throw new Error(rc === 4 ? 'a unit stalled (run.js exit 4): see the log' : `run.js exited ${rc}`);
   };
   const compare = (b, c, json, fu) => {
-    const a = [CMP, '--baseline', b, '--results', c, '--json', json];
+    const a = [CMP, '--baseline', b, '--results', c, '--json', json, '--paired', '--tol-scale', SCALE];
     if (fu) a.push('--failing-units', fu);
     const rc = run(PY, a);
     if (rc >= 2) throw new Error(`compare_perf.py exited ${rc}`);
@@ -51,7 +54,7 @@ async function main() {
   console.log(`shard ${shard.id}: ${shard.re}; reference ${R.sha.slice(0, 12)} (${ref})`);
   paired(shard.re, 1);
   let v = compare(f('ref-1.json'), f('cur-1.json'), f('compare-1.json'), f('failing-units.txt'));
-  let confirmed = false;
+  let confirmed = false, attempts = null;
   if (v.failed && CONFIRM > 0) {
     // ('*': a metric of no unit, suite.no_errors: a page exception, never noise)
     const units = fs.readFileSync(f('failing-units.txt'), 'utf8').split('\n').map((s) => s.trim()).filter((u) => u && u !== '*');
@@ -64,16 +67,32 @@ async function main() {
         if (run(PY, [path.join(PERF, 'merge_runs.py'), '--checks', 'majority', ...ks.map((k) => f(`${side}-${k}.json`)), '-o', f(`${side}.json`)]) !== 0) throw new Error('merge_runs.py failed');
       }
       v = compare(f('ref.json'), f('cur.json'), f('compare.json'));
+      // each attempt against its own reference (attempt 1: compare-1.json)
+      const per = [JSON.parse(fs.readFileSync(f('compare-1.json'), 'utf8')), ...ks.slice(1).map((k) => compare(f(`ref-${k}.json`), f(`cur-${k}.json`), f(`compare-${k}.json`)))];
+      attempts = ks.length;
+      const failsIn = (m) => per.filter((x) => x.rows.some((r) => r.metric === m && r.status === 'FAIL')).length;
+      for (const r of v.rows) {
+        if (r.status !== 'FAIL' || r.metric.startsWith('suite.')) continue;   // (an error of the suite is never noise)
+        r.attempts = failsIn(r.metric);
+        if (r.attempts * 2 <= attempts) { r.status = 'NOISE'; r.text += ` (failed in ${r.attempts} of ${attempts} attempts: noise)`; }
+        else r.text += ` (failed in ${r.attempts} of ${attempts} attempts)`;
+      }
       confirmed = true;
     }
   }
   const meta = JSON.parse(fs.readFileSync(f('cur-1.json'), 'utf8')).meta || {};
   const fails = v.rows.filter((r) => r.status === 'FAIL');
   const improved = v.rows.filter((r) => r.status === 'IMPROVED');
+  const both = v.rows.filter((r) => r.status === 'BOTH');
+  const noise = v.rows.filter((r) => r.status === 'NOISE');
+  const counts = {};
+  for (const r of v.rows) counts[r.status] = (counts[r.status] || 0) + 1;
   const lines = [`### ${title}: ${fails.length ? `❌ ${fails.length} metric(s) worse than the reference` : '✅ not slower than the reference'}`, '',
     `${shard.what}. Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`); GPU: ${esc(meta.browser && meta.browser.gpu || '?')}; ${meta.seconds || '?'} s` +
-    `${confirmed ? '; failures re-run twice, medians of 3 attempts' : ''}. ${Object.entries(v.counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
+    `${SCALE !== '1' ? `; timing allowances x ${SCALE}` : ''}${confirmed ? `; failing units re-run, medians of ${attempts} attempts` : ''}. ${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
   if (fails.length) lines.push('| metric | reference → this change |', '|---|---|', ...fails.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
+  if (noise.length) lines.push(`<details><summary>${noise.length} failed once, not confirmed (noise)</summary>\n\n${noise.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
+  if (both.length) lines.push(`<details><summary>${both.length} fail on the reference too (this machine; not this change's)</summary>\n\n${both.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (improved.length) lines.push(`<details><summary>${improved.length} improved</summary>\n\n${improved.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));

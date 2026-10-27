@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare perf-suite results (test/regress/perf/run.js) with the stored baseline.
 
-    python3 test/regress/compare_perf.py [--baseline FILE] [--results FILE] [--all] [--json FILE]
+    python3 test/regress/compare_perf.py [--baseline FILE] [--results FILE] [--all] [--json FILE] [--paired] [--tol-scale S]
 
 Every metric carries a `kind`; the kind decides the tolerance (see TOL below and test/regress/README.md).
 A metric fails when it is worse than its tolerance allows, is missing from a full run, or became null (a timeout).
@@ -12,6 +12,10 @@ a 'check' must be true, and a 'limit' must hold. Kind 'limit' is absolute: the v
 metric's own 'limit' (SPEC 4.7 gates: the SwiftShader ratio <= 3, inverse compile + first draw <= 250 ms); a null
 value passes only when nothing was there to measure (no inverse program before P2); a metric that says a value was
 expected ('expect': true, e.g. an inverse program was linked) and has none FAILS.
+--paired (the CI's paired gate, ci/perf_shard.js): the baseline is the reference app measured on the same machine in
+the same run, so a check that is false there too, or a limit the reference is over too (and this change is not worse
+than 1.25 x it), is not this change's: BOTH, reported and not failed. --tol-scale S (noisy machines: GitHub's virtual
+ones) widens the timing kinds' allowance over the base S-fold, and the margin of IMPROVED with it.
 Exit code: 0 when nothing failed, 1 otherwise, 2 on a usage error.
 
 Entry point for test/regress/compare.py: main(argv) -> int.
@@ -89,6 +93,8 @@ BUDGET60 = {'frame_ms': ('lower', 14.0), 'latency_ms': ('lower', 40.0), 'jank_ms
 # IMPROVED needs to beat the best baseline run / 1.05 too. Deterministic kinds (mesh quality) have no envelope.
 ENVELOPE = {'frame_ms', 'cpu_ms', 'latency_ms', 'jank_ms', 'settle_ms', 'oneshot_ms', 'throughput', 'mem_bytes'}
 ENV_MARGIN = 1.05
+# the kinds whose allowance --tol-scale widens (machine noise; memory is not noisy)
+SCALED = ENVELOPE - {'mem_bytes'}
 
 
 def _num(x):
@@ -145,8 +151,8 @@ def _limit_text(m, unit):
     return f"{fmt(v, unit)} ({'within' if v <= lim else 'OVER'} the limit {fmt(lim, unit)})"
 
 
-def judge(name, base, new, partial, opt_in_skipped=()):
-    """-> (status, text) with status in FAIL, IMPROVED, PASS, INFO, NEW, SKIP"""
+def judge(name, base, new, partial, opt_in_skipped=(), paired=False, scale=1.0):
+    """-> (status, text) with status in FAIL, BOTH (paired), IMPROVED, PASS, INFO, NEW, SKIP"""
     if base is None:
         if new is None:
             return 'NEW', 'not in the baseline'
@@ -169,6 +175,8 @@ def judge(name, base, new, partial, opt_in_skipped=()):
     if kind == 'check':
         if nv is True:
             return 'PASS', 'ok'
+        if paired and bv is not True:
+            return 'BOTH', f'check failed on the reference too (value {fmt(nv)}, reference {fmt(bv)})'
         return 'FAIL', f'check failed (value {fmt(nv)}, baseline {fmt(bv)})'
     if kind == 'info':
         if _num(bv) and _num(nv):
@@ -183,6 +191,8 @@ def judge(name, base, new, partial, opt_in_skipped=()):
                 return 'FAIL', f'{fmt(bv, unit)} -> {fmt(nv, unit)} (no value although one was expected; limit {fmt(lim, unit)})'
             return 'PASS', f'{fmt(bv, unit)} -> {fmt(nv, unit)} (nothing measured; limit {fmt(lim, unit)})'
         if _num(lim) and nv > lim:
+            if paired and _num(bv) and bv > lim and nv <= bv + 0.25 * bv * scale:
+                return 'BOTH', f'{fmt(bv, unit)} -> {fmt(nv, unit)} (the reference is over the absolute limit {fmt(lim, unit)} too, and this is not worse than {1 + 0.25 * scale:g} x it)'
             return 'FAIL', f'{fmt(bv, unit)} -> {fmt(nv, unit)} (over the absolute limit {fmt(lim, unit)})'
         return 'PASS', f'{fmt(bv, unit)} -> {fmt(nv, unit)} (limit {fmt(lim, unit)})'
     if kind not in TOL:
@@ -196,6 +206,10 @@ def judge(name, base, new, partial, opt_in_skipped=()):
         return 'FAIL', f'{fmt(bv, unit)} -> {fmt(nv)} (no value: timeout or harness failure)'
     lim = limit_f(bv, base)
     better = better_f(bv, nv)
+    if scale != 1 and kind in SCALED:
+        lim = bv + (lim - bv) * scale
+        better = better_f(bv, bv + (nv - bv) / scale)
+        rule += f'; allowance x {scale:g}'
     runs = [v for v in (base.get('runs') or []) if _num(v)]
     if kind in ENVELOPE and len(runs) > 1:
         if direction == 'lower':
@@ -236,7 +250,7 @@ def _accepted():
         return {}
 
 
-def compare(baseline, results, show_all=False, out=None):
+def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0):
     out = out or sys.stdout
     bm, rm = baseline.get('metrics', {}), results.get('metrics', {})
     rmeta, bmeta = results.get('meta', {}), baseline.get('meta', {})
@@ -245,7 +259,7 @@ def compare(baseline, results, show_all=False, out=None):
     rows = []
     acc = _accepted()
     for name in sorted(set(bm) | set(rm)):
-        status, text = judge(name, bm.get(name), rm.get(name), partial, opt_in_skipped)
+        status, text = judge(name, bm.get(name), rm.get(name), partial, opt_in_skipped, paired, scale)
         if status == 'FAIL' and name in acc:
             nv = (rm.get(name) or {}).get('value')
             if _num(nv) and nv <= acc[name].get('max', -math.inf):
@@ -278,10 +292,10 @@ def compare(baseline, results, show_all=False, out=None):
         warn.append(f"the run reported {len(results['errors'])} error(s): {json.dumps(results['errors'])[:400]}")
     for w in warn:
         p('  WARNING: ' + w)
-    order = {'FAIL': 0, 'ACCEPTED': 1, 'IMPROVED': 2, 'NEW': 3, 'SKIP': 4, 'INFO': 5, 'PASS': 6}
+    order = {'FAIL': 0, 'ACCEPTED': 1, 'BOTH': 2, 'IMPROVED': 3, 'NEW': 4, 'SKIP': 5, 'INFO': 6, 'PASS': 7}
     # NEW metrics (not in the baseline yet): one line per unit, every metric with --all (a NEW check or limit that
     # fails its absolute rule is a FAIL row, listed one by one)
-    shown = [r for r in rows if r['status'] in ('FAIL', 'ACCEPTED', 'IMPROVED') or show_all]
+    shown = [r for r in rows if r['status'] in ('FAIL', 'ACCEPTED', 'BOTH', 'IMPROVED') or show_all]
     shown.sort(key=lambda r: (order[r['status']], r['metric']))
     width = max([len(r['metric']) for r in shown] + [10])
     for r in shown:
@@ -306,6 +320,8 @@ def main(argv=None):
     ap.add_argument('--results', default=DEF_RESULTS)
     ap.add_argument('--all', action='store_true', help='also list passing and info metrics')
     ap.add_argument('--json', help='write the comparison as JSON to this file')
+    ap.add_argument('--paired', action='store_true', help='the baseline is the reference measured in the same run on the same machine (CI): checks and limits that fail there too are BOTH, not FAIL')
+    ap.add_argument('--tol-scale', type=float, default=1.0, metavar='S', help="widen the timing kinds' allowance over the base S-fold (noisy machines)")
     ap.add_argument('--failing-units', metavar='FILE', help='write the ids of the units with failing metrics to FILE (one per line; used by perf/run.sh to re-run them)')
     a = ap.parse_args(argv)
     for f in (a.baseline, a.results):
@@ -316,7 +332,7 @@ def main(argv=None):
         baseline = json.load(fh)
     with open(a.results) as fh:
         results = json.load(fh)
-    rep = compare(baseline, results, show_all=a.all)
+    rep = compare(baseline, results, show_all=a.all, paired=a.paired, scale=a.tol_scale)
     if a.failing_units:
         units = set()
         for r in rep['rows']:
