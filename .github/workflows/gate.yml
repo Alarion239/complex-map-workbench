@@ -188,8 +188,10 @@ jobs:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
       # (virtual machines: busy neighbours swing timings by tens of percent, so only gross slowdowns fail here, with
-      # 3-fold timing allowances; software rendering settles slower than a GPU)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --settle-timeout 60000 ${{ env.FORCE }}
+      # 3-fold allowances; software rendering settles slower than a GPU. The macOS machine's virtual GPU swings both
+      # ways by more than that within one unit, so there the results are reported, not gated: macOS speed is gated on
+      # our Mac, in the GPU gate.)
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --settle-timeout 60000 ${{ startsWith(matrix.os, 'macos') && '--advisory' || '' }} ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

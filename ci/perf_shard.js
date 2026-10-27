@@ -7,8 +7,10 @@
 // machines the side measured second is slower); a metric then fails only when the medians of the 3 attempts fail and
 // most of the attempts, each against its own reference, fail too: a real regression fails again, a noise spike or
 // the cost of going second does not. --tol-scale S widens the timing and GPU-memory allowances S-fold (GitHub's machines: 3).
-//   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--settle-timeout MS] [--force] [--no-build]
-// Exit 0 pass, 1 regression, 2 setup problem (a unit that stalls, a build that fails).
+// --advisory: regressions are reported (the summary, a warning annotation each) and do not fail the job (GitHub's macOS
+// machine, whose timings swing both ways by more than any tolerance).
+//   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--advisory] [--settle-timeout MS] [--force] [--no-build]
+// Exit 0 pass (or advisory), 1 regression, 2 setup problem (a unit that stalls, a build that fails).
 const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, summary, run, esc } = require('./lib');
@@ -22,6 +24,7 @@ const ref = opt('--ref', 'origin/main');
 const REPS = opt('--reps', '3');
 const CONFIRM = Number(opt('--confirm', '2'));
 const SCALE = opt('--tol-scale', '1');
+const ADVISORY = argv.includes('--advisory');
 const PERF = path.join(ROOT, 'test', 'regress', 'perf');
 const CMP = path.join(ROOT, 'test', 'regress', 'compare_perf.py');
 
@@ -88,7 +91,9 @@ async function main() {
   const noise = v.rows.filter((r) => r.status === 'NOISE');
   const counts = {};
   for (const r of v.rows) counts[r.status] = (counts[r.status] || 0) + 1;
-  const lines = [`### ${title}: ${fails.length ? `❌ ${fails.length} metric(s) worse than the reference` : '✅ not slower than the reference'}`, '',
+  const verdict = !fails.length ? '✅ not slower than the reference'
+    : ADVISORY ? `⚠️ ${fails.length} metric(s) worse than the reference (advisory: not gated on this machine)` : `❌ ${fails.length} metric(s) worse than the reference`;
+  const lines = [`### ${title}: ${verdict}`, '',
     `${shard.what}. Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`); GPU: ${esc(meta.browser && meta.browser.gpu || '?')}; ${meta.seconds || '?'} s` +
     `${SCALE !== '1' ? `; timing allowances x ${SCALE}` : ''}${confirmed ? `; failing units re-run with the sides swapped, medians of ${attempts} attempts` : ''}. ${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
   if (fails.length) lines.push('| metric | reference → this change |', '|---|---|', ...fails.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
@@ -97,6 +102,7 @@ async function main() {
   if (improved.length) lines.push(`<details><summary>${improved.length} improved</summary>\n\n${improved.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));
-  return fails.length ? 1 : 0;
+  if (ADVISORY) for (const r of fails.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
+  return fails.length && !ADVISORY ? 1 : 0;
 }
 main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### Perf ${shard ? shard.id : '?'}: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });

@@ -18,7 +18,7 @@ show results sooner and can be re-run alone).
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
 | **GLSL** (Windows in 7 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
-| **Perf** (10 shards × Windows, macOS) | the perf suite, paired: desktop units and the **emulated phone** |
+| **Perf** (10 shards × Windows, macOS) | the perf suite, paired: desktop units and the **emulated phone** (macOS: advisory, see below) |
 | **Gate** | passes only when every job above passed: make it the required check |
 
 ### Paired gates
@@ -28,20 +28,23 @@ quality and perf jobs are **paired**: they build the **reference** app (a pull r
 `main`, the previous `main`; by hand, any commit) in a git worktree under `.ci/`, then run every scene or unit on the
 reference and on this change back to back, on the same machine, and gate this change against the reference with the
 suites' own tolerances (`compare_perf.py --paired` with its 60 fps budget and `perf/accepted.json`;
-`compare_quality.py`, the bounded controls' golden diff taken against the reference's renders). A failure is re-run: a
-failing perf unit twice more on both sides, with the sides swapped (on GitHub's macOS machine the side measured second
+`compare_quality.py`, the bounded controls' golden diff taken against the reference's renders). A failure is re-run.
+A failing perf unit runs twice more on both sides, with the sides swapped (on some machines the side measured second
 is slower), and a metric fails only when the medians of the 3 attempts fail and most attempts, each against its own
-reference, fail too, a failing quality run once more (it fails only if it fails
-twice). A perf check or absolute limit that fails on the reference too (a software renderer misses the 250 ms first
-draw of an inverse program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a
-change does not touch the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
+reference, fail too. A failing quality run renders once more and fails only if it fails twice. A perf check or
+absolute limit that fails on the reference too (a software renderer misses the 250 ms first draw of an inverse
+program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a change does not touch
+the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
 
-GitHub's machines are virtual and shared: two runs of the same app there differ by tens of percent (a change that does not touch rendering showed
-−90 % … +300 % on single settle times), so the Gate's perf jobs widen the timing allowances 3-fold (`--tol-scale 3`: a
-frame may take 1.45 × the reference's, frames per second may drop to 0.70 ×, GPU memory, whose peak depends on how far
-the view refined, may grow to 1.75 ×) and catch gross slowdowns, a shader that
-takes far longer to compile, a check that breaks. The suite's own tolerances (1.15 × a frame, 0.90 × the frames per
-second) apply on our own machines, in the GPU gate.
+GitHub's machines are virtual and shared: two runs of the same app there differ by tens of percent (a change that
+does not touch rendering showed −90 % … +300 % on single settle times), so the Gate's perf jobs widen the allowances
+3-fold (`--tol-scale 3`: a frame may take 1.45 × the reference's, frames per second may drop to 0.70 ×, GPU memory,
+whose peak depends on how far the view refined, may grow to 1.75 ×) and catch gross slowdowns, a shader that takes far
+longer to compile, a check that breaks. That holds on Windows (software rendering, steady). The macOS machine's
+virtual GPU swings both ways by more than that within one unit (the same app, one attempt: wheel zoom 47–77 % faster,
+pans 47–156 % slower), so its perf jobs are **advisory** (`--advisory`): they list what got worse and raise a warning,
+and do not fail the Gate. The suite's own tolerances (1.15 × a frame, 0.90 × the frames per second) gate on our own
+machines, in the GPU gate, the Mac included.
 
 On the Mac with a GPU, quality is also gated against the committed baseline and goldens (`--absolute`), which were
 recorded on a Mac GPU.
