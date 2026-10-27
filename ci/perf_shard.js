@@ -7,10 +7,11 @@
 // machines the side measured second is slower); a metric then fails only when the medians of the 3 attempts fail and
 // most of the attempts, each against its own reference, fail too: a real regression fails again, a noise spike or
 // the cost of going second does not. --tol-scale S widens the timing and GPU-memory allowances S-fold (GitHub's machines: 3).
-// --advisory: regressions are reported (the summary, a warning annotation each) and do not fail the job (GitHub's macOS
-// machine, whose timings swing both ways by more than any tolerance).
+// --advisory (GitHub's machines, whose timings swing both ways by more than any tolerance): a timing or memory metric
+// that got worse is reported (the summary, a warning annotation each) and does not fail the job; a check that fails, a
+// value that is missing or null (a timeout) and an error of the suite still do.
 //   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--advisory] [--settle-timeout MS] [--force] [--no-build]
-// Exit 0 pass (or advisory), 1 regression, 2 setup problem (a unit that stalls, a build that fails).
+// Exit 0 pass (or advisory warnings only), 1 regression, 2 setup problem (a unit that stalls, a build that fails).
 const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, summary, run, esc } = require('./lib');
@@ -25,6 +26,8 @@ const REPS = opt('--reps', '3');
 const CONFIRM = Number(opt('--confirm', '2'));
 const SCALE = opt('--tol-scale', '1');
 const ADVISORY = argv.includes('--advisory');
+// what --advisory only reports: measured timings and memory (checks and missing values still fail)
+const MEASURED = new Set(['frame_ms', 'cpu_ms', 'latency_ms', 'jank_ms', 'settle_ms', 'oneshot_ms', 'throughput', 'mem_bytes', 'limit']);
 const PERF = path.join(ROOT, 'test', 'regress', 'perf');
 const CMP = path.join(ROOT, 'test', 'regress', 'compare_perf.py');
 
@@ -85,24 +88,27 @@ async function main() {
     }
   }
   const meta = JSON.parse(fs.readFileSync(f('cur-1.json'), 'utf8')).meta || {};
+  for (const r of v.rows) if (ADVISORY && r.status === 'FAIL' && MEASURED.has(r.kind) && typeof r.new === 'number') r.status = 'WARN';
   const fails = v.rows.filter((r) => r.status === 'FAIL');
+  const warned = v.rows.filter((r) => r.status === 'WARN');
   const improved = v.rows.filter((r) => r.status === 'IMPROVED');
   const both = v.rows.filter((r) => r.status === 'BOTH');
   const noise = v.rows.filter((r) => r.status === 'NOISE');
   const counts = {};
   for (const r of v.rows) counts[r.status] = (counts[r.status] || 0) + 1;
-  const verdict = !fails.length ? '✅ not slower than the reference'
-    : ADVISORY ? `⚠️ ${fails.length} metric(s) worse than the reference (advisory: not gated on this machine)` : `❌ ${fails.length} metric(s) worse than the reference`;
+  const verdict = fails.length ? `❌ ${fails.length} metric(s) worse than the reference`
+    : warned.length ? `⚠️ ${warned.length} timing(s) worse than the reference (advisory: timings are not gated on this machine)` : '✅ not slower than the reference';
   const lines = [`### ${title}: ${verdict}`, '',
     `${shard.what}. Reference \`${R.sha.slice(0, 12)}\` (\`${ref}\`); GPU: ${esc(meta.browser && meta.browser.gpu || '?')}; ${meta.seconds || '?'} s` +
     `${SCALE !== '1' ? `; timing allowances x ${SCALE}` : ''}${confirmed ? `; failing units re-run with the sides swapped, medians of ${attempts} attempts` : ''}. ${Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(', ')}.`, ''];
   if (fails.length) lines.push('| metric | reference → this change |', '|---|---|', ...fails.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
+  if (warned.length) lines.push('Advisory (timings and memory are not gated here):', '', '| metric | reference → this change |', '|---|---|', ...warned.slice(0, 40).map((r) => `| \`${r.metric}\` | ${esc(r.text)} |`), '');
   if (noise.length) lines.push(`<details><summary>${noise.length} failed once, not confirmed (noise)</summary>\n\n${noise.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (both.length) lines.push(`<details><summary>${both.length} fail on the reference too (this machine; not this change's)</summary>\n\n${both.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (improved.length) lines.push(`<details><summary>${improved.length} improved</summary>\n\n${improved.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));
-  if (ADVISORY) for (const r of fails.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
-  return fails.length && !ADVISORY ? 1 : 0;
+  for (const r of warned.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
+  return fails.length ? 1 : 0;
 }
 main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### Perf ${shard ? shard.id : '?'}: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });

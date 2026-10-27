@@ -2,8 +2,10 @@
 # whose shader code or tests changed), image quality (Linux, Windows, macOS), each change measured against its
 # reference (the PR's base, or the previous main) on the same machine. Speed is gated on our own machines with real
 # GPUs (.github/workflows/gpu-gate.yml); until they are registered (the variable GPU_RUNNERS), the paired perf suite
-# runs here on Windows (desktop units and an emulated phone; software rendering, so it catches gross slowdowns and
-# shader-compile costs, not real frame rates). By hand (Run workflow, perf) it runs here on Windows and macOS.
+# runs here on Windows (desktop units and an emulated phone), and by hand (Run workflow, perf) on Windows and macOS.
+# GitHub's machines are shared and render in software: their timings swing by more than any tolerance, so here the
+# perf jobs gate the suite's checks (a view that does not move, a compile during a hover, a page error) and only report
+# slower timings (--advisory).
 name: Gate
 
 on:
@@ -21,7 +23,7 @@ on:
         type: boolean
         default: false
       perf:
-        description: Also run the perf suite here (Windows; macOS advisory), as when the GPU machines are not registered
+        description: Also run the perf suite here (Windows and macOS; timings advisory), as when the GPU machines are not registered
         type: boolean
         default: false
       shards:
@@ -107,7 +109,7 @@ jobs:
     name: GLSL (${{ matrix.os }}, ${{ matrix.page }} ${{ matrix.part }})
     # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
     # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
-    # Windows renders in software (WARP: 15 minutes and more for a quarter of the glsl page), so its pages run in small parts;
+    # Windows renders in software (WARP: glsl 1/8 13-19 min, adv 1/4 33-48 min, inverse whole 35 min), so its pages run in parts;
     # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
     # shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
@@ -123,10 +125,14 @@ jobs:
           - { os: windows-latest, page: glsl, part: 6/8 }
           - { os: windows-latest, page: glsl, part: 7/8 }
           - { os: windows-latest, page: glsl, part: 8/8 }
-          - { os: windows-latest, page: adv, part: 1/4 }
-          - { os: windows-latest, page: adv, part: 2/4 }
-          - { os: windows-latest, page: adv, part: 3/4 }
-          - { os: windows-latest, page: adv, part: 4/4 }
+          - { os: windows-latest, page: adv, part: 1/8 }
+          - { os: windows-latest, page: adv, part: 2/8 }
+          - { os: windows-latest, page: adv, part: 3/8 }
+          - { os: windows-latest, page: adv, part: 4/8 }
+          - { os: windows-latest, page: adv, part: 5/8 }
+          - { os: windows-latest, page: adv, part: 6/8 }
+          - { os: windows-latest, page: adv, part: 7/8 }
+          - { os: windows-latest, page: adv, part: 8/8 }
           - { os: windows-latest, page: inverse, part: 1/1 }
           - { os: macos-latest, page: glsl, part: 1/1 }
           - { os: macos-latest, page: adv, part: 1/1 }
@@ -201,11 +207,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      # (virtual machines: busy neighbours swing timings by tens of percent, so only gross slowdowns fail here, with
-      # 3-fold allowances; software rendering settles slower than a GPU. The macOS machine's virtual GPU swings both
-      # ways by more than that within one unit, so there the results are reported, not gated: macOS speed is gated on
-      # our Mac, in the GPU gate.)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --settle-timeout 60000 ${{ startsWith(matrix.os, 'macos') && '--advisory' || '' }} ${{ env.FORCE }}
+      # (shared virtual machines: a timing swings both ways by more than any tolerance between two runs of the same app, so
+      # timings and memory are reported with 3-fold allowances and not gated; the checks gate. Software rendering
+      # settles slower than a GPU.)
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

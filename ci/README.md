@@ -5,20 +5,35 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 
 | workflow | where | when | what it can tell |
 |---|---|---|---|
-| **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request, every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; speed only until the GPU machines are registered (Windows, gross slowdowns: software rendering) |
+| **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request, every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
 | **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Windows laptop and Mac ([RUNNERS.md](RUNNERS.md)) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
+
+### How long it takes (GitHub's machines, measured)
+
+| job | time |
+|---|---|
+| Unit tests | 6–7 min |
+| Quality, each of the 9 shards | 3–6 min |
+| GLSL on macOS, each page | 2–5 min |
+| GLSL on Windows (software rendering) | `glsl` 1/8: 13–19 min; `adv` 1/4: 33–48 min (now run in eighths); `inverse`, whole: 35 min |
+| Perf on Windows, each shard | 5–15 min; up to 36 when a unit is re-run |
+
+The whole Gate took 48 minutes on its first complete run (every GLSL page ran, and the perf suite). A pull request
+that touches no shader code or GLSL test skips the GLSL pages and, once the GPU machines are registered, the perf
+suite: unit tests and quality, about 7 minutes. One that does is held by the Windows `inverse` page (35 minutes, one
+seeded sequence, not split).
 
 ## What runs
 
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
-| **GLSL** (Windows in 13 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
+| **GLSL** (Windows in 17 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
-| **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too, advisory: see below) |
+| **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job above passed (perf: when it ran): make it the required check |
 
 ### Paired gates
@@ -36,15 +51,14 @@ absolute limit that fails on the reference too (a software renderer misses the 2
 program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a change does not touch
 the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
 
-GitHub's machines are virtual and shared: two runs of the same app there differ by tens of percent (a change that
-does not touch rendering showed −90 % … +300 % on single settle times), so the Gate's perf jobs widen the allowances
-3-fold (`--tol-scale 3`: a frame may take 1.45 × the reference's, frames per second may drop to 0.70 ×, GPU memory,
-whose peak depends on how far the view refined, may grow to 1.75 ×) and catch gross slowdowns, a shader that takes far
-longer to compile, a check that breaks. That holds on Windows (software rendering, steady). The macOS machine's
-virtual GPU swings both ways by more than that within one unit (the same app, one attempt: wheel zoom 47–77 % faster,
-pans 47–156 % slower), so its perf jobs are **advisory** (`--advisory`): they list what got worse and raise a warning,
-and do not fail the Gate. The suite's own tolerances (1.15 × a frame, 0.90 × the frames per second) gate on our own
-machines, in the GPU gate, the Mac included.
+GitHub's machines are virtual and shared, and their timings say little about this app's speed. Measured on changes
+that did not touch rendering: single settle times from −90 % to +300 %; on macOS, within one attempt, wheel zoom
+47–77 % faster and pans 47–156 % slower; on Windows, one input's CPU time 3.8 ms on one attempt of the reference and
+14.8 ms on the next. No tolerance separates a regression from that. So the Gate's perf jobs are **advisory** for
+timings and memory (`--advisory`, with 3-fold allowances, `--tol-scale 3`): what got worse is listed in the summary and
+raises a warning, and does not fail the Gate. Their checks still gate: a view that does not move, a shader compile
+during a hover, a missing value or a timeout, a page error. Speed is gated with the suite's own tolerances (1.15 × a
+frame, 0.90 × the frames per second) on our own machines, in the GPU gate.
 
 On the Mac with a GPU, quality is also gated against the committed baseline and goldens (`--absolute`), which were
 recorded on a Mac GPU.
