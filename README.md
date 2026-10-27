@@ -2,6 +2,10 @@
 
 **Live:** https://alarion239.github.io/complex-map-workbench/
 
+> **The guided tour will be reworked** in the next major version (v17): clearer captions, highlights that show the
+> part of the screen each step changes, and an auto-advance that works while you keep moving. The plan for the next
+> versions, with the usability audit behind it, is in [ROADMAP.md](ROADMAP.md).
+
 An interactive workbench for complex analysis. Draw regions and curves in the z-plane, chain complex functions, and
 see what they do:
 
