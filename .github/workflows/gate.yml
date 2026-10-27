@@ -1,5 +1,6 @@
-# The gate on GitHub's machines (ci/README.md): unit tests (Linux), GLSL conformance (Windows, macOS; only the pages
-# whose shader code or tests changed), image quality (Linux, Windows, macOS), each change measured against its
+# The gate on GitHub's machines (ci/README.md): unit tests (Linux), the functional browser suites (Linux), GLSL
+# conformance (Windows, macOS; only the pages whose shader code or tests changed), image quality (Linux, Windows,
+# macOS), each change measured against its
 # reference (the PR's base, or the previous main) on the same machine. Speed is gated on our own machines with real
 # GPUs (.github/workflows/gpu-gate.yml); until they are registered (the variable GPU_RUNNERS), the paired perf suite
 # runs here on Windows (desktop units and an emulated phone), and by hand (Run workflow, perf) on Windows and macOS.
@@ -50,6 +51,7 @@ jobs:
     outputs:
       reference: ${{ steps.ref.outputs.reference }}
       shards: ${{ steps.shards.outputs.shards }}
+      browser: ${{ steps.browser.outputs.shards }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -82,6 +84,12 @@ jobs:
           node ci/perf_shards.js check
           if [ -n "${{ inputs.shards }}" ]; then s=$(node ci/perf_shards.js matrix --only "${{ inputs.shards }}"); else s=$(node ci/perf_shards.js matrix); fi
           echo "shards=$s" >> "$GITHUB_OUTPUT"
+      - id: browser
+        name: Browser shards (every suite in exactly one)
+        shell: bash
+        run: |
+          node ci/browser_shards.js check
+          echo "shards=$(node ci/browser_shards.js matrix)" >> "$GITHUB_OUTPUT"
 
   unit:
     name: Unit tests
@@ -215,17 +223,53 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  browser:
+    name: Browser (${{ matrix.shard }})
+    # the functional browser suites (test/*_cmd.js: the tour, constructions, touch, phone layouts, i18n, export, sound;
+    # ci/browser.js), each in its own headless Chrome against this build, in shards of about 15 minutes
+    # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
+    # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate.
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.browser) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CMW_CHROME_ARGS: --no-sandbox
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: node ci/gpu_probe.js --fallback
+      - run: node ci/browser.js --shard ${{ matrix.shard }}
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: browser-${{ matrix.shard }}
+          path: .ci/browser/
+          if-no-files-found: ignore
+          retention-days: 14
+
   gate:
     name: Gate
     if: always()
-    needs: [plan, unit, glsl, quality, perf]
+    needs: [plan, unit, glsl, quality, perf, browser]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Every job of the gate passed
-        run: echo "plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
+        run: echo "plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}, browser ${{ needs.browser.result }}"
       # (perf is skipped when the GPU machines gate speed)
       - if: >-
           contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || needs.plan.result != 'success' ||
-          needs.unit.result != 'success' || needs.glsl.result != 'success' || needs.quality.result != 'success'
+          needs.unit.result != 'success' || needs.glsl.result != 'success' || needs.quality.result != 'success' ||
+          needs.browser.result != 'success'
         run: exit 1
