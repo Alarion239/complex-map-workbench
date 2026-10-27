@@ -5,6 +5,8 @@
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
 //   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--ref <commit> [--absolute] [--force]]
+// With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
+// reference's is not run (nothing to compare) unless --force.
 // Without --ref, every page must pass outright (the rules of the command files, test/glsl_inverse_cmd.js): what the
 // development Mac's GPU does. GPUs differ in the last bits of exp, sin and cos, and a few chains near removable
 // singularities ((e^z - 1)/z, sin z / z) miss the tolerance on some (GitHub's virtual Mac GPU). With --ref the pages
@@ -15,7 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
-const { buildReference } = require('./reference');
+const { buildReference, sameApp } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 
 const PAGES = [
@@ -39,6 +41,15 @@ async function waitFor(B, expr, timeout) {
     if (Date.now() - t0 > timeout) throw new Error(`timeout after ${Math.round(timeout / 1000)} s`);
     await sleep(500);
   }
+}
+
+// what a page is built from: its builder, and the files the builder reads (the sources it names, its test file, the
+// fixtures), read from the builder itself so the list follows it
+function inputsOf(p) {
+  const make = fs.readFileSync(path.join(ROOT, p.make), 'utf8');
+  const files = [...new Set([...make.matchAll(/'([\w.]+\.js)'/g)].map((m) => m[1]))]
+    .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : `test/${n}`));
+  return [p.make, 'ci/glsl.js', ...files, ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
 }
 
 // builds the pages in root (a checkout or the reference's worktree) with its own builders
@@ -100,7 +111,16 @@ function worse(p, cur, rf) {
 }
 
 async function main() {
-  const pages = PAGES.filter((p) => !only || p.id === only);
+  let pages = PAGES.filter((p) => !only || p.id === only);
+  if (ref && !argv.includes('--force')) {
+    const same = pages.filter((p) => sameApp(ref, inputsOf(p)));
+    for (const p of same) console.log(`${p.page}: its inputs are the same as at ${ref} (${inputsOf(p).join(', ')}): nothing to compare`);
+    pages = pages.filter((p) => !same.includes(p));
+    if (!pages.length) {
+      summary(`### GLSL conformance (${process.platform}): nothing to compare\n\nThe shader code and the tests of ${same.map((p) => `\`${p.page}\``).join(', ')} are the same as at \`${ref}\`.\n`);
+      return 0;
+    }
+  }
   buildPages(ROOT, pages);
   const R = ref ? buildReference(ref) : null;
   if (R) buildPages(R.dir, pages);

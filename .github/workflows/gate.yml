@@ -1,8 +1,9 @@
-# The gate on GitHub's machines (ci/README.md): unit tests (Linux), GLSL conformance (Windows, macOS), image quality
-# (Linux, Windows, macOS), and the paired perf suite on Windows and macOS (desktop units, and an emulated phone), each change measured
-# against its reference (the PR's base, or the previous main) on the same machine. GitHub's machines have no usable GPU
-# (software rendering), so the perf jobs catch relative slowdowns and shader-compile costs, not real frame rates: those
-# come from the GPU gate on our own machines (.github/workflows/gpu-gate.yml).
+# The gate on GitHub's machines (ci/README.md): unit tests (Linux), GLSL conformance (Windows, macOS; only the pages
+# whose shader code or tests changed), image quality (Linux, Windows, macOS), each change measured against its
+# reference (the PR's base, or the previous main) on the same machine. Speed is gated on our own machines with real
+# GPUs (.github/workflows/gpu-gate.yml); until they are registered (the variable GPU_RUNNERS), the paired perf suite
+# runs here on Windows (desktop units and an emulated phone; software rendering, so it catches gross slowdowns and
+# shader-compile costs, not real frame rates). By hand (Run workflow, perf) it runs here on Windows and macOS.
 name: Gate
 
 on:
@@ -17,6 +18,10 @@ on:
         default: ''
       force:
         description: Run the paired gates even when the app (src/, build.py) did not change
+        type: boolean
+        default: false
+      perf:
+        description: Also run the perf suite here (Windows; macOS advisory), as when the GPU machines are not registered
         type: boolean
         default: false
       shards:
@@ -102,19 +107,26 @@ jobs:
     name: GLSL (${{ matrix.os }}, ${{ matrix.page }} ${{ matrix.part }})
     # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
     # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
-    # Windows renders in software (WARP: slow), so its pages run in parts; macOS has a virtual GPU (a minute a page)
-    # and few machines (5 at a time), so its pages run whole.
+    # Windows renders in software (WARP: 15 minutes and more for a quarter of the glsl page), so its pages run in small parts;
+    # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
+    # shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, page: glsl, part: 1/4 }
-          - { os: windows-latest, page: glsl, part: 2/4 }
-          - { os: windows-latest, page: glsl, part: 3/4 }
-          - { os: windows-latest, page: glsl, part: 4/4 }
-          - { os: windows-latest, page: adv, part: 1/2 }
-          - { os: windows-latest, page: adv, part: 2/2 }
+          - { os: windows-latest, page: glsl, part: 1/8 }
+          - { os: windows-latest, page: glsl, part: 2/8 }
+          - { os: windows-latest, page: glsl, part: 3/8 }
+          - { os: windows-latest, page: glsl, part: 4/8 }
+          - { os: windows-latest, page: glsl, part: 5/8 }
+          - { os: windows-latest, page: glsl, part: 6/8 }
+          - { os: windows-latest, page: glsl, part: 7/8 }
+          - { os: windows-latest, page: glsl, part: 8/8 }
+          - { os: windows-latest, page: adv, part: 1/4 }
+          - { os: windows-latest, page: adv, part: 2/4 }
+          - { os: windows-latest, page: adv, part: 3/4 }
+          - { os: windows-latest, page: adv, part: 4/4 }
           - { os: windows-latest, page: inverse, part: 1/1 }
           - { os: macos-latest, page: glsl, part: 1/1 }
           - { os: macos-latest, page: adv, part: 1/1 }
@@ -132,7 +144,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} --ref ${{ needs.plan.outputs.reference }}
+      - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
 
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
@@ -169,10 +181,12 @@ jobs:
   perf:
     name: Perf (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
+    # speed is gated on our GPU machines once they are registered; here until then, and by hand
+    if: vars.GPU_RUNNERS != 'true' || inputs.perf
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: ${{ fromJSON(inputs.perf && '["windows-latest", "macos-latest"]' || '["windows-latest"]') }}
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
@@ -209,5 +223,8 @@ jobs:
     steps:
       - name: Every job of the gate passed
         run: echo "plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+      # (perf is skipped when the GPU machines gate speed)
+      - if: >-
+          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || needs.plan.result != 'success' ||
+          needs.unit.result != 'success' || needs.glsl.result != 'success' || needs.quality.result != 'success'
         run: exit 1

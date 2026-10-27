@@ -1,6 +1,7 @@
 # The gate on our own machines with real GPUs (ci/RUNNERS.md): the paired perf suite (desktop units and the emulated
-# phone), image quality and GLSL conformance on the Windows laptop and the Mac, registered as self-hosted runners with
-# the label `gpu`.
+# phone) with the suite's own tolerances, image quality and GLSL conformance on the Windows laptop and the Mac,
+# registered as self-hosted runners with the label `gpu`. Once they are (GPU_RUNNERS), speed is gated here, not in the
+# Gate on GitHub's machines.
 #
 # Off until the repository variable GPU_RUNNERS is 'true' (Settings > Secrets and variables > Actions > Variables), so
 # nothing waits in the queue for a machine that is not registered. Every run waits for an approval in the
@@ -120,7 +121,8 @@ jobs:
           node-version: 22
       - run: node ci/gpu_probe.js --require-hardware
       # (paired with the reference; the Mac, where the tests were written, also outright)
-      - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }}
+      # (only the pages whose shader code or tests changed; all of them nightly and with force)
+      - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute' || '' }} ${{ env.FORCE }}
 
   quality:
     name: Quality (${{ matrix.machine }} GPU)

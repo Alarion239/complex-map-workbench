@@ -30,7 +30,11 @@ All of these are on GitHub, in the repository's **Settings** tab.
    request (from a branch of this repository) asks for a GPU gate run of that pull request.
 4. **Turn the GPU gate on** *after* both machines are registered (sections 3 and 4): *Settings → Secrets and variables
    → Actions → Variables → New repository variable*, name **`GPU_RUNNERS`**, value **`true`**. While it is not `true`
-   the GPU gate is skipped, so nothing waits in the queue for a machine that is not there.
+   the GPU gate is skipped, so nothing waits in the queue for a machine that is not there, and the Gate on GitHub's
+   machines runs the perf suite itself (Windows). Once it is `true`, speed is gated on these machines and the Gate
+   drops its perf jobs, so pull requests get their result much sooner (what is left: unit tests and image quality,
+   about 5 minutes each, and the shader pages, which run only when shader code changed). A pull request's speed is
+   then measured when it carries the label `gpu-gate` (step 3), and on every push to `main` and every night.
 
 The GPU gate never runs for a pull request from a fork, whatever the settings: code from outside the repository never
 reaches our machines.
