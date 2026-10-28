@@ -34,6 +34,12 @@ const Inspector = (() => {
   const STRONG = ['mobius', 'polynomial', 'rational', 'conformal', 'entire', 'homeo', 'proper', 'analytic'];
   // types whose catalog formula, with the coefficients indexed, reads as the generic form of the step
   const GENERIC = new Set(['mul', 'add', 'affine', 'mobius']);
+  // a formula this long (TeX characters) is not typeset in a well or a row: unreadable at any size that fits, and
+  // MathJax takes a second or more for it; the well says so and the rows name it, as F's expanded formula does
+  const LONG = 700;
+  // a step's formula as the Inspector shows it: its display form when it has one (Funcs.build: params.show), else its
+  // formula; tex the same for a TeX argument a = {s, p}
+  const shownTex = (b, a) => (b.show || b.tex)(a);
 
   function create(A) {
     const { h, $t, $tx, $tn, ICONS, TeX, sub, fsub } = A;
@@ -155,7 +161,8 @@ const Inspector = (() => {
       // (the head keeps the name whole: Show alone and More; Inverse and Bypass are in More)
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl' }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
-      const form = h('div', { class: 'iform' }, ftex);
+      const flong = h('div', { class: 'ftex long', hidden: true }, $t('The formula is long; the field below holds it in full.'));
+      const form = h('div', { class: 'iform' }, ftex, flong);
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
@@ -166,7 +173,7 @@ const Inspector = (() => {
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true, role: 'region' }) : null;
       const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, split, note, nums);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, err, note, nums, det, params, split, typing: false };
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, typing: false };
       if (split) {
         split.open = foldOpen();
         // (v16.1: the tour's unfolding, below, is not the viewer's fold)
@@ -209,7 +216,9 @@ const Inspector = (() => {
       const n = sp.steps.length, one = sp.kind === 'one';
       const name = one ? A.Funcs.DEFS[sp.steps[0].type].label : '';
       // (the rows in the step's own input variable, as its heading: w₆ ↦ w₆² ↦ … for f₇, review steps-9)
-      const v = A.wvar(k - 1), rv = one ? null : A.Funcs.splitRowsVar(sp, v) || sp;
+      const v = A.wvar(k - 1), rv0 = one ? null : A.Funcs.splitRowsVar(sp, v) || sp;
+      // (a step with a display form ends its rows with that form, not with the typed formula again)
+      const rv = rv0 && b.show && rv0.rows ? { rows: rv0.rows, eq: b.show({ s: v, p: 4 }).s } : rv0;
       const key = JSON.stringify([sp.kind, sp.steps, rv && rv.eq, v, I18N.lang]);
       if (box.dataset.key !== key) {
         box.dataset.key = key;
@@ -221,11 +230,13 @@ const Inspector = (() => {
         box.append(sum);
         if (!one) {
           const ol = h('ol', { class: 'so-rows' });
-          fillRows(ol, rv.rows, rv.eq);
           box.append(ol);
           // a long chain repeats a growing expression in every row: when a row does not fit even at 70 %, the block
-          // shows each step once instead, named (u₁ = z², u₂ = u₁ + 1, w₁ = sin u₂: review steps-3)
-          fitRows(ol, () => { const sub = A.Funcs.splitSubRows(sp, v, A.wvar(k)); if (sub) { ol.classList.add('subst'); fillRows(ol, sub, null); fitRows(ol); } });
+          // shows each step once instead, named (u₁ = z², u₂ = u₁ + 1, w₁ = sin u₂: review steps-3); a row of LONG
+          // characters or more cannot fit, so that is decided before anything is typeset
+          const subst = () => { const sub = A.Funcs.splitSubRows(sp, v, A.wvar(k)); if (!sub) return false; ol.classList.add('subst'); fillRows(ol, sub, null); fitRows(ol); return true; };
+          const tooLong = rv.rows.some((r) => r.tex.length >= LONG) || (rv.eq || '').length >= LONG;
+          if (!(tooLong && subst())) { fillRows(ol, rv.rows, rv.eq); fitRows(ol, subst); }
         } else if (sp.steps[0].type === 'mobius') {
           // a fraction: the simple moves it is made of, read only (z ↦ z − 1 ↦ 1/(z − 1) ↦ 3/(z − 1) ↦ 3/(z − 1) + 2:
           // review steps-5)
@@ -266,8 +277,15 @@ const Inspector = (() => {
         const t = h('span', { class: 'so-tex' });
         const li = h('li', { class: 'so-row' }, h('span', { class: 'so-map', 'aria-hidden': 'true' }, i && !sub ? '↦' : ''), t, h('span', { class: 'so-name' }, i || sub ? r.name : ''));
         ol.append(li);
-        TeX.set(t, last && eq ? `${r.tex}=${eq}` : r.tex);
+        TeX.set(t, rowTex(last && eq ? `${r.tex}=${eq}` : r.tex));
       });
+    }
+    // a row of LONG characters or more keeps its left side (u₁ =, w₂ =) and elides the rest, so the row still names its
+    // step and is never cut mid-formula; a row without one (z ↦ …) shows the ellipsis alone
+    function rowTex(tex) {
+      if (tex.length < LONG) return tex;
+      const m = /^[a-zA-Z](?:_\{\d+\})?=/.exec(tex);
+      return (m ? m[0] : '') + '\\cdots';
     }
     // a long row: smaller, down to 70 %; tooLong() when one still does not fit there (once the TeX is typeset)
     function fitRows(ol, tooLong) {
@@ -280,9 +298,14 @@ const Inspector = (() => {
         let over = false;
         for (const t of ts) {
           t.style.fontSize = '';
-          const w = t.scrollWidth, avail = t.clientWidth;
+          const li = t.parentNode;
+          if (li) li.classList.remove('stack');
+          let w = t.scrollWidth, avail = t.clientWidth;
           if (!(avail > 0) || w <= avail + 0.5) continue;
-          const f = Math.floor((avail / w) * 100);
+          let f = Math.floor((avail / w) * 100);
+          // (a row that does not fit at 70 % puts its name on a line of its own, as on the phone, and gets the width)
+          if (f < 70 && li) { li.classList.add('stack'); w = t.scrollWidth; avail = t.clientWidth; f = Math.floor((avail / w) * 100); }
+          if (f >= 100) continue;
           if (f < 70) over = true;
           t.style.fontSize = Math.max(70, f) + '%';
         }
@@ -335,11 +358,15 @@ const Inspector = (() => {
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
         // (a field that uses shared numbers shows their names: Funcs.build keeps them, issue #11)
-        const num = b.tex({ s: A.wvar(k - 1), p: 4 }).s;
+        // (a display form stands for the formula here; a formula of LONG characters or more is not typeset: the well
+        // says that the field holds it)
+        const num = shownTex(b, { s: A.wvar(k - 1), p: 4 }).s;
+        const long = !b.show && num.length >= LONG;
+        if (E.flong.hidden !== !long) { E.flong.hidden = !long; E.ftex.hidden = long; }
         const gen = genericTex(st, k);
         const full = `w_{${k}}=` + (gen && gen.replace(/\s/g, '') !== num.replace(/\s/g, '') ? `${gen}=${num}` : num), short = `w_{${k}}=${num}`;
         // (the generic form and the values do not fit: the values alone, then smaller)
-        fitPick(E.ftex, full, full === short ? null : short);
+        if (!long) fitPick(E.ftex, full, full === short ? null : short);
         const drags = b.cuts.some((x) => x.editable) ? $t('Drag the seam in the input plane') : null;
         // (the split offer says what the note's "Same as …" says: the note drops it while the offer shows)
         const offer = fillSplit(E, k);
@@ -355,7 +382,8 @@ const Inspector = (() => {
           }
         }
         // (v16.5 UX33: the cut and the sheet are in their fields, so the note no longer repeats them: A.branchTag left out)
-        const n = [b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
+        const shortNote = b.show ? $t('Written in short; the field below holds the formula in full.') : null;
+        const n = [shortNote, b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
         const nt = n ? n + '.' : '';
         if (E.note.textContent !== nt) E.note.textContent = nt;
       } else {
@@ -455,20 +483,23 @@ const Inspector = (() => {
       const act = A.activeSteps(), built = A.built(), S = A.S();
       const P = A.Funcs.composeProps(act.map((k) => built[k - 1].props));
       const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
+      // (composed from the steps' display forms where they have one)
       let arg = { s: 'z', p: 4 };
-      for (const k of act) arg = built[k - 1].tex(arg);
-      const long = arg.s.length >= 700;
+      for (const k of act) arg = shownTex(built[k - 1], arg);
+      const long = arg.s.length >= LONG;
       E.flong.hidden = !long; E.ftex.hidden = long;
       // (review design-4: an expanded F wider than the well is written in terms of the last w, as the mockup does,
       // with the w list under it; then smaller, never cut)
       const last = act.length > 1 && E.chain.length ? act[act.length - 1] : 0;
       let byW = false;
-      if (!long) byW = fitPick(E.ftex, `F(z)=${arg.s}`, last ? `F(z)=w_{${last}}=${built[last - 1].tex({ s: A.wvar(last - 1), p: 4 }).s}` : null) === 1;
+      // (a step's line of LONG characters or more reads w_k = f_k(w_{k−1}): its own card shows it)
+      const wLine = (k) => { const s = shownTex(built[k - 1], { s: A.wvar(k - 1), p: 4 }).s; return `w_{${k}}=` + (s.length < LONG ? s : `f_{${k}}(${A.wvar(k - 1)})`); };
+      if (!long) byW = fitPick(E.ftex, `F(z)=${arg.s}`, last ? `F(z)=${wLine(last)}` : null) === 1;
       for (const [k, t] of E.chain) {
         const li = t.parentNode;
         if (li) li.hidden = byW && k === last;
         // (review verify-9: in display style, at the size of F's line, when it fits; else in text style)
-        if (!(byW && k === last)) { const wt = `w_{${k}}=${built[k - 1].tex({ s: A.wvar(k - 1), p: 4 }).s}`; fitPick(t, `\\displaystyle ${wt}`, wt, false); }
+        if (!(byW && k === last)) { const wt = wLine(k); fitPick(t, `\\displaystyle ${wt}`, wt, false); }
       }
       const warns = [];
       S.steps.forEach((st, i) => { if (st.on !== false && built[i].error) warns.push($t('Step {x} has an error and is skipped until fixed.', { x: i + 1 })); });
