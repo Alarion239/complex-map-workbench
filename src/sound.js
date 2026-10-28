@@ -37,6 +37,16 @@
 //      Sound.set({on, vol, ui, snap, events, sonify}) · Sound.toggle() · Sound.prefs() · Sound.subscribe(fn) ·
 //      Sound.state() · Sound.render(fn, dur) (offline) · Sound.cueTo(G, name, t, o) · Sound.CATALOG ·
 //      Sound.pathStep(argStep, Fat, z0, T0, g0, z1, T1, g1, opts) · Sound.turns(L, ring) (the probe's arithmetic)
+// Hear the function, the final design (the user's: "i want to hear the function, not actively just make music fit the
+// math"; perfwin/sound/polish/FINAL.md, the prototype compare.js final-notes and final-glide): everything audible is
+// caused by F through the fixed map in HT_LIB (below), plus declared timbre choices and declared safety limits (the
+// crowding gain, the merge and strum caps, the repeat gap, the crack gap, the limiter on the bus).
+//      Sound.hear.{seat, step, cut, pathless, gap, cue, query, end, state, active, log} (the live stream, sonify tier;
+//      samples {t, phi, ln, pan, n, src}) · Sound.along(smp, {tag, n, closed}) (Listen along: the function along a
+//      curve, events tier) · Sound.HT (the pure core: constants, law, crowd, copies, events, glideCtl, gate, Live,
+//      throughZP) · Sound.set({glide}) (Notes or the continuous Glide; the Glide needs the worklet engine).
+//      The pointer harp below (harp, harpReset, harpClose, the Height voice) stays until the app no longer calls it
+//      (the plan's clean-up step C); harpAlong with a score plays the composition.
 // =====================================================================================================================
 
 // The synthesis library: the parts, the texture and the singer. Its source runs twice: in the AudioWorklet (inlined
@@ -271,7 +281,542 @@ function SND_LIB() {
       },
     };
   }
-  return { sin1, prng, rc, Mode, Noise, Air, Bow, MAKE, partEnd, Tex, Singer, NH, F0 };
+
+  // ---------------------------------------------------------------- Hear the function: the Glide (spec 3.10)
+  // One continuous voice of 7 octave copies, pitch class = arg F (φ in turns, unwrapped; one octave per turn), rendered
+  // in the synth processor. Controls {k: 'gl', at, phi, mode, a, b, pan, until, rel, fade, tier, tag} from the main
+  // thread: mode 'slew' (linear from the last post to this one, then the 5 ms one-pole), 'step' (φ steps at `at`),
+  // 'cut' / 'seat' (φ and φ̃ jump; a 'seat' with fade while the voice rings: a 25 ms raised-cosine fade with f, pan
+  // and b held, 25 ms of silence, then a fresh attack), 'stop' (a 12 ms fade, then silent). a: the level
+  // (LV.glide·10^((dbV3 + GL4.db)/20)); b: brightness; until: the gate (the env attacks with τ 20 ms while the clock
+  // is before it, else decays with T60 0.8 s or rel). Per copy: w_j = exp(−d²/2), d = (log2 f_j − log2 440)/0.45,
+  // GN = sqrt(0.45·√π / Σ exp(−d_j²)) (unit summed power), a 12 ms one-pole on the amplitude, harmonics h ≤ 24 below
+  // 0.45 fs at h^−(3 − 2.5b) (the Chebyshev recurrence), an equal-power pan through 30 ms. Never ducked
+  function Glide(fs) {
+    const kPh = 1 - Math.exp(-1 / (0.005 * fs)), kA = 1 - Math.exp(-1 / (0.02 * fs)), kAmp = 1 - Math.exp(-1 / (0.012 * fs)), kPan = 1 - Math.exp(-1 / (0.03 * fs));
+    const LD2 = Math.log2(73.4162), LA4 = Math.log2(440), SIG = 0.45, NS = 0.45 * Math.sqrt(Math.PI), seatN = Math.round(0.025 * fs), stopN = Math.round(0.012 * fs);
+    const A = new Float64Array(7), W7 = new Float64Array(7), TH = new Float64Array(7), FJ = new Float64Array(7), WH = new Float64Array(25), NR = new Float64Array(7), HJ = new Float64Array(7), HOLD = new Float64Array(7);
+    const g = { q: [], cur: null, pend: null, ph: 0, env: 0, panS: 0, tier: 2, tag: undefined, untilF: -1, kd: Math.exp(-6.9078 / (0.8 * fs)), blk: 0, stop: -1, bLast: -1, live: false };
+    function take(c) { g.cur = c; g.untilF = Math.round((c.until || 0) * fs); g.kd = Math.exp(-6.9078 / ((c.rel || 0.8) * fs)); if (c.tier != null) g.tier = c.tier; g.tag = c.tag; }
+    function apply(c) {
+      // (stop: what sounds fades; a control arriving during the fade waits for its end, then starts afresh)
+      if (c.mode === 'stop') { if (g.live && g.stop < 0) g.stop = 0; return; }
+      if (g.stop >= 0) { g.after = c; return; }
+      if (c.mode === 'close') { g.untilF = Math.round((c.until || 0) * fs); return; }   // the gate closes; φ, level, pan held
+      g.stop = -1;
+      if (c.mode === 'seat' && c.fade && g.live && g.cur && g.env > 1e-4 && !g.blk) { g.blk = 2 * seatN; HOLD.set(A); take(c); g.pend = c; return; }
+      if (g.blk) { take(c); return; }
+      if (!g.live || !g.cur || c.mode === 'cut' || c.mode === 'seat') g.ph = c.phi;
+      if (!g.live) { g.panS = c.pan || 0; g.bLast = -1; }
+      g.live = true;
+      take(c);
+    }
+    return {
+      cmd(c, f) { c.f = f; let i = g.q.length; while (i > 0 && g.q[i - 1].f > c.f) i--; g.q.splice(i, 0, c); },
+      clear(tag) { if (tag != null && g.tag !== tag) return; g.q = []; if (g.live && g.stop < 0) g.stop = 0; },
+      on: () => g.live || g.q.length > 0,
+      env: () => g.env,
+      run(outs, f0, n, wet) {
+        if (!g.live && !(g.q.length && g.q[0].f < f0 + n)) return false;
+        let any = false;
+        for (let j = 0; j < n; j++) {
+          const x = f0 + j;
+          while (g.q.length && g.q[0].f <= x) apply(g.q.shift());
+          if (!g.live || !g.cur) continue;
+          const c = g.cur;
+          let mul = 1;
+          if (g.blk) {   // a seat while ringing: the fade (f, pan, b held), then silence, then the new place from env 0
+            const k = 2 * seatN - g.blk;
+            mul = k < seatN ? 0.5 * (1 + Math.cos(Math.PI * (k + 1) / seatN)) : 0;
+            if (--g.blk === 0) { g.ph = (g.pend || c).phi; g.env = 0; g.pend = null; g.panS = c.pan || 0; }
+          } else {
+            const nx = g.q.length ? g.q[0] : null;
+            const pt = nx && nx.mode === 'slew' && nx.f > c.f && c.mode !== 'close' ? c.phi + (nx.phi - c.phi) * (x - c.f) / (nx.f - c.f) : c.phi;
+            g.ph += (pt - g.ph) * kPh;
+            g.env = x < g.untilF ? g.env + (1 - g.env) * kA : g.env * g.kd;
+            g.panS += ((c.pan || 0) - g.panS) * kPan;
+          }
+          // the harmonic weights at this brightness, each copy's highest harmonic below 0.45 fs (once a block, or when b
+          // changes)
+          if (j === 0 || c.b !== g.bLast) {
+            g.bLast = c.b; const p = 3 - 2.5 * Math.max(0, Math.min(1, c.b || 0));
+            for (let h = 1; h <= 24; h++) WH[h] = Math.pow(h, -p);
+            for (let k = 0; k < 7; k++) { const fj = Math.pow(2, LD2 + ((((g.ph + k) % 7) + 7) % 7)); let H = 0, s = 0; while (H < 24 && (H + 1) * fj < 0.45 * fs) { H++; s += WH[H]; } HJ[k] = H; NR[k] = s > 0 ? 1 / s : 0; }
+          }
+          if (g.stop >= 0) { mul *= g.stop >= stopN ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * g.stop / stopN); g.stop++; }
+          let qs = 0;
+          for (let k = 0; k < 7; k++) { const lf = LD2 + ((((g.ph + k) % 7) + 7) % 7), d = (lf - LA4) / SIG, w = Math.exp(-0.5 * d * d); FJ[k] = lf; W7[k] = w; qs += w * w; }
+          const lvl = (c.a || 0) * Math.sqrt(NS / qs) * g.env;
+          let y = 0, peak = 0;
+          for (let k = 0; k < 7; k++) {
+            const tgt = g.blk ? HOLD[k] * mul : W7[k] * lvl * mul;
+            A[k] += (tgt - A[k]) * kAmp; if (A[k] > peak) peak = A[k];
+            TH[k] += Math.pow(2, FJ[k]) / fs; TH[k] -= Math.floor(TH[k]);
+            if (A[k] < 1e-8 || !HJ[k]) continue;
+            const th = 2 * Math.PI * TH[k], s1 = Math.sin(th), c2 = 2 * Math.cos(th);
+            let sm = 0, sp = s1, acc = WH[1] * s1;
+            for (let h = 2; h <= HJ[k]; h++) { const sn = c2 * sp - sm; sm = sp; sp = sn; acc += WH[h] * sn; }
+            y += A[k] * acc * NR[k];
+          }
+          const th = (Math.max(-0.4, Math.min(0.4, g.panS)) + 1) * Math.PI / 4, gl = Math.cos(th), gr = Math.sin(th);
+          const D = outs[2 * g.tier], Wt = outs[2 * g.tier + 1];
+          if (D && D[0]) { D[0][j] += y * gl; if (D[1] && D[1] !== D[0]) D[1][j] += y * gr; }
+          if (Wt && Wt[0]) { Wt[0][j] += y * gl * wet; if (Wt[1] && Wt[1] !== Wt[0]) Wt[1][j] += y * gr * wet; }
+          any = true;
+          // silent and closed: idle (no work until the next control)
+          if (g.stop >= stopN || (peak < 1e-8 && g.env < 1e-7 && !g.blk && x >= g.untilF && !g.q.length)) { g.live = false; g.cur = null; g.stop = -1; A.fill(0); g.env = 0; if (g.after) { const a = g.after; g.after = null; apply(a); } }
+        }
+        return any;
+      },
+    };
+  }
+  // ---------------------------------------------------------------- the declared safety limiter (spec 3.0, 5.2)
+  // Limiter(fs, ceil): a peak limiter on the bus (every tier and the room's return, before the master volume): ceiling
+  // ceil (linear, at its input), 2 ms look-ahead (la samples of delay), the gain the running mean over la + 1 samples
+  // of the window minimum of the needed gain, a 150 ms release. process(L, R, n) in place; st: {acted, n, minG, la}.
+  // The prototype's limiter() streamed: the same gains, la samples later
+  function Limiter(fs, ceil) {
+    const la = Math.max(1, Math.round(0.002 * fs)), W = la + 1, Q = W + 1, rel = Math.exp(-1 / (0.15 * fs));
+    const dL = new Float32Array(W), dR = new Float32Array(W), mr = new Float64Array(W).fill(1), qi = new Float64Array(Q), qv = new Float64Array(Q);
+    let i = 0, acc = W, g = 1, h = 0, t = 0;
+    const st = { acted: 0, n: 0, minG: 1, la };
+    return {
+      st,
+      process(L, R, n) {
+        for (let j = 0; j < n; j++, i++) {
+          const xl = L[j], xr = R ? R[j] : xl, p = Math.max(Math.abs(xl), Math.abs(xr)), need = p > ceil ? ceil / p : 1;
+          while (t > h && qv[(t - 1) % Q] >= need) t--;
+          qi[t % Q] = i; qv[t % Q] = need; t++;
+          while (qi[h % Q] <= i - W) h++;
+          const m = qv[h % Q], k = i % W;
+          acc += m - mr[k]; mr[k] = m;
+          const a = acc / W;
+          g = a < g ? a : a + (g - a) * rel;
+          const r = (i + 1) % W, ol = dL[r], or = dR[r];
+          dL[k] = xl; dR[k] = xr;
+          L[j] = ol * g; if (R) R[j] = or * g;
+          st.n++; if (g < 0.999) st.acted++; if (g < st.minG) st.minG = g;
+        }
+      },
+    };
+  }
+  return { sin1, prng, rc, Mode, Noise, Air, Bow, MAKE, partEnd, Tex, Singer, NH, F0, Glide, Limiter };
+}
+
+// ---------------------------------------------------------------- Hear the function: the pure core (HT_LIB)
+// The fixed map from F to sound (perfwin/sound/polish/FINAL.md, the prototype compare.js `final-notes` and
+// `final-glide`; the spec HEAR-THE-FUNCTION-SPEC.md 3.0-3.12). Main thread only, never stringified into the worklet:
+// no audio here, only decisions. Every constant is HT's; the reasons are FINAL.md's (ids in brackets).
+//   * a marimba note each time arg F crosses one of the n drawn colour lines (k/n turns, Schmitt band HB): pitch class
+//     12k/n semitones above D, octave copies under a fixed Gaussian on A4; loudness dbV3(ln|F|); each note at the
+//     crowding gain so that a stream's power follows |F|, not its event rate (R0); crossings faster than 1/minIoi merge
+//     into one onset, bunched ones are spread minIoi apart (a strum, at most one pointer step + minIoi late);
+//   * while the colour holds (no line for RE_QUIET), |F| crossing a band edge (ln|F| = 2πk/n) repeats the held note
+//     at the new loudness: at most one per repGap (a blocked one deferred), dropped inside an order cue's figure or
+//     when a colour line follows within graceGap; on one leg the level never steps back by more than repMono;
+//   * a branch cut: a crack (at most one per cutGap, at the R0 rule), then two short notes, the colours either side;
+//   * the Glide: one continuous voice of 7 octave copies, pitch class = arg F, level and brightness from dbV3, a gate
+//     with hysteresis from the motion of log F.
+// Deterministic: no randomness here; the renderer seeds every strike from (pitch class, copy).
+function HT_LIB() {
+  const TAU = 2 * Math.PI, clamp = (x, a, b) => Math.max(a, Math.min(b, x)), mod = (x, m) => ((x % m) + m) % m;
+  const fz = Object.freeze;
+  // the Glide (GL4 in compare.js): σ of its Gaussian (octaves), its level under a note (dB), attack (s, 3τ), T60 (s),
+  // the gate's windows (s) and hold fraction of a JND, the φ one-pole (s), the prototype's tail, the seat fade + hold
+  // (s); rel: the T60 of a keyboard stroke (spec 3.15)
+  const GL4 = fz({ sigma: 0.45, db: -2.5, att: 0.06, t60: 0.8, on: 0.25, hold: 0.25, holdJnd: 0.4, phSmooth: 0.005, tail: 1.2, seatFade: fz([0.025, 0.025]), rel: 0.2 });
+  // the levels, from the prototype's calibration (report.json; spec 3.0): LV.note = CAL.M2 (a marimba E at |F| = 1
+  // alone is 2 dB under today's harp E), LV.crack = 1.6·CAL.T1up, LV.glide = CAL.V3, LV.query = CAL.Q1
+  const LV = fz({ note: 0.15205475297324958, crack: 0.24638824416951875, glide: 0.03565506682311055, query: 0.06621707675973322 });
+  const HT = fz({
+    n: 12, rope: 3, ropeTouch: 5, HB: 1 / 96, D2: 73.4162, A4: 440, sigma: 0.55, fMax: 2600, wMin: 0.0316,
+    rateHalf: 0.1, minIoi: 0.005, lateMin: 0.045, keyGap: 0.1, holdMax: 0.1, RE_QUIET: 0.25, repGap: 0.125, repMono: 0.5,
+    cueWin: fz([0, 0.15]), graceGap: 0.03, cutGap: 0.125, cutDb: 3, cutHold: 0.082, cutNotes: fz([0.012, 0.082]),
+    glCrackDb: -3, glCueDb: -3, cueZeroDb: -6, cuePoleDb: 0, orderGap: 0.25, maxOrder: 8, R0: 5, lineTol: 1e-9,
+    PAN: 0.3, PAN_MAX: 0.4, short: 0.15, t60: 0.45, t60Exp: -0.6, vel: 0.6, softA: 2.6, softB: 1.2,
+    wet: fz({ note: 0.16, crack: 0.04, glide: 0.14, query: 0.12 }), crackHz: 3100, active: 0.9,
+    pathless: fz({ dphi: 0.25 }), GL4, LV,
+  });
+  // the loudness law dbV3 (dB against |F| = 1): −8 dB at zeros, +4 dB at poles, 1.91 dB per neper at |F| = 1
+  const law = (ln) => (!Number.isFinite(ln) ? (ln > 0 ? 4 : -8) : ln < 0 ? 8 * Math.tanh(ln / (8 / (12 / TAU))) : 4 * Math.tanh(ln / (4 / (12 / TAU))));
+  // the crowding gain: each event at power min(1, R0/rate), so a stream's power stays that of R0 events a second
+  const crowd = (r) => 10 * Math.log10(Math.min(1, HT.R0 / Math.max(r, 1e-9)));
+  // a note's gain at a crossing rate r: the R0 rule, and a merged burst's onset at the burst's power [A2]
+  const noteGain = (r) => crowd(r) + 10 * Math.log10(Math.max(1, r * HT.minIoi));
+  // the octave copies of pitch class c (semitones above D) under the fixed Gaussian on A4 (σ 0.55 octave), copies under
+  // −30 dB dropped, unit power
+  function copies(c) {
+    const out = [];
+    for (let k = 0; k < 7; k++) { const f = HT.D2 * Math.pow(2, c / 12 + k); if (f > HT.fMax) break; const d = Math.log2(f / HT.A4) / HT.sigma, w = Math.exp(-0.5 * d * d); if (w >= HT.wMin) out.push({ f, w }); }
+    const s = 1 / Math.sqrt(out.reduce((a, o) => a + o.w * o.w, 0));
+    for (const o of out) o.w *= s;
+    return out;
+  }
+  const seed = (a, b) => (0x51ed + 977 * a + 31 * b) >>> 0;
+  // the mallet's softness and the brightness of the Glide, both from the same dbV3 number
+  const soft = (db) => HT.softA - HT.softB * clamp((db + 12) / 18, 0, 1);
+  const bright = (db) => 0.1 + 0.2 * clamp((db + 12) / 18, 0, 1);
+  const glideAmp = (ln) => LV.glide * Math.pow(10, (law(ln) + GL4.db) / 20);
+  // a figure of an order cue: m pings or thumps from t (0.15 s apart for m ≥ 3, else 0.11 zero / 0.12 pole), plus
+  // cueWin[1] after its last one [B5]
+  const figure = (o) => [o.t - HT.cueWin[0], o.t + (Math.max(1, o.m) - 1) * (o.m >= 3 ? 0.15 : o.zero ? 0.11 : 0.12) + HT.cueWin[1]];
+  // the shared 'zp' gap of the order cues [A8], as play() keeps it
+  function cueGap(cues) { let last = -1e9; return (cues || []).filter((o) => { if (o.t - last < HT.orderGap) return false; last = o.t; return true; }); }
+
+  // ---------------------------------------------------------------- crossings (compare.js crossings())
+  // smp: [{t, phi (turns, tracked exactly), ln, pan, gap?, seat?, cut?}]; smp.onLine or o.onLine [B10]. The lines of
+  // arg F (k/n turns) and of ln|F| (2πk/n nepers), each with a Schmitt band HB; t, ln and pan interpolated in the step.
+  // A cut or a seat crosses nothing; a cut is its own event. st (Live): the running cells, carried across calls
+  function crossStep(st, q, p, N, OL, ev) {
+    const mu = p.ln / TAU;
+    if (st.ca === null || p.cut || p.seat || !q) {
+      if (p.cut && q) ev.push({ kind: 'cut', t: p.t, phi0: q.phi, ln0: q.ln, phi1: p.phi, ln1: p.ln, pan: p.pan, dir: 0 });
+      st.ca = Math.floor(p.phi * N); st.cm = Math.floor(mu * N); st.onA = st.onM = null;
+      if (OL) { const ka = Math.round(p.phi * N), km = Math.round(mu * N); if (Math.abs(p.phi * N - ka) <= HT.lineTol) { st.ca = ka; st.onA = ka; } if (Math.abs(mu * N - km) <= HT.lineTol) { st.cm = km; st.onM = km; } }
+      return;
+    }
+    const HB = HT.HB;
+    // [V2] a stroke seated on a line that leaves it upward past the band has left it
+    if (OL) { if (st.onA !== null && p.phi > st.onA / N + HB) st.onA = null; if (st.onM !== null && mu > st.onM / N + HB) st.onM = null; }
+    const at = (x0, x1, th) => (x1 === x0 ? 1 : clamp((th - x0) / (x1 - x0), 0, 1));
+    const qp = q.pan || 0, pp = p.pan || 0;
+    const push = (kind, u, line, dir, ln) => ev.push({ kind, t: q.t + u * (p.t - q.t), line, dir, ln, pan: qp + u * (pp - qp) });
+    while (p.phi > (st.ca + 1) / N + HB) { st.ca++; st.onA = null; const u = at(q.phi, p.phi, st.ca / N); push('arg', u, st.ca, 1, q.ln + u * (p.ln - q.ln)); }
+    while (p.phi < st.ca / N - HB) { if (st.ca === st.onA) { st.ca--; st.onA = null; continue; } const u = at(q.phi, p.phi, st.ca / N); push('arg', u, st.ca, -1, q.ln + u * (p.ln - q.ln)); st.ca--; }
+    const mq = q.ln / TAU;
+    while (mu > (st.cm + 1) / N + HB) { st.cm++; st.onM = null; push('mod', at(mq, mu, st.cm / N), st.cm, 1, st.cm * TAU / N); }
+    while (mu < st.cm / N - HB) { if (st.cm === st.onM) { st.cm--; st.onM = null; continue; } push('mod', at(mq, mu, st.cm / N), st.cm, -1, st.cm * TAU / N); st.cm--; }
+  }
+  function crossings(smp, N = HT.n, onLine) {
+    const ev = [], OL = onLine != null ? !!onLine : !!smp.onLine, st = { ca: null, cm: null, onA: null, onM: null };
+    let q = null;
+    for (const p of smp) {
+      if (p.gap) { st.ca = st.cm = null; q = null; continue; }
+      crossStep(st, q, p, N, OL, ev);
+      q = p;
+    }
+    return ev.sort((a, b) => a.t - b.t);
+  }
+
+  // ---------------------------------------------------------------- the decisions (compare.js finalNotes 521-630)
+  // One decider for the batch (events) and the live stream (Live): E gives what the decisions read about the stream,
+  // by time: rate(t, key, k, before) (events a second of that line family, ±rateHalf; before: just before t, for a cut),
+  // stroke(t) (its stroke id), hold(t) (the hand's step gap, the strum's span), phiAt(t), at(t) ({gap, stroke, pan}
+  // at a deferred repeat's due time) and argSoon(t) (a colour line within graceGap after t). out(entry) gets every
+  // decided event in the prototype's LOG shape (t, at = t0 + t, k, c, db, g, ln, ...) plus pan (and short).
+  function Decider(o) {
+    const N = o.n || HT.n, t0 = o.t0 || 0, E = o.env, out = o.out, figs = cueGap(o.cues).map(figure);
+    const S = { last: null, lastRep: null, lastNote: -1e9, pend: null, lastCut: -1e9, mono: null };
+    const C = { lines: 0, notes: 0, merged: 0, late: 0, reps: 0, deferred: 0, repCue: 0, repGrace: 0, cracks: 0, cutMerged: 0, dUp: 0, dDown: 0, crowdDbMin: 0 };
+    const inCue = (t) => figs.some(([a, b]) => t >= a && t <= b);
+    const play = (tt, c, db, pan, g, short, k, extra) => out(Object.assign({ t: tt, at: t0 + tt, k, c, db, g, pan }, short ? { short: true } : null, extra));
+    // [A3] a repeat crowded by the rate actually played (≤ 1/repGap: floor −2.04 dB); [B6] repMono on its leg
+    const repeat = (t, line, ln, pan, er, extra) => {
+      let g = crowd(Math.min(er, 1 / HT.repGap));
+      if (HT.repMono && extra.dir) {
+        const sk = E.stroke(t), L0 = law(ln) + g, lt = S.last ? S.last.t : -1e9, m = S.mono;
+        if (m && m.stroke === sk && m.dir === extra.dir && m.after === lt) { const cap = HT.repMono, L1 = extra.dir > 0 ? Math.max(L0, Math.min(m.lvl, L0 + cap)) : Math.min(L0, Math.max(m.lvl, L0 - cap)); if (L1 !== L0) { extra.mono = +(L1 - L0).toFixed(3); g = L1 - law(ln); } m.lvl = L1; }
+        else S.mono = { stroke: sk, dir: extra.dir, lvl: L0, after: lt };
+      }
+      C.crowdDbMin = Math.min(C.crowdDbMin, +g.toFixed(1)); C.reps++;
+      play(t, 12 * mod(line, N) / N, law(ln), pan, g, false, 'rep', Object.assign({ ln, er }, extra));
+    };
+    // [A4] a repeat the gap blocked plays at the end of the gap, if the hand is still in that stroke and no colour line
+    // or cut came first
+    const flush = (tt) => {
+      if (!S.pend || S.pend.due > tt) return;
+      const p = S.pend; S.pend = null;
+      const a = E.at(p.due);
+      if (!a || a.gap || a.stroke !== p.stroke) return;
+      if (inCue(p.due)) { C.repCue++; out({ t: p.due, at: t0 + p.due, k: 'rep-cue', defer: 1 }); return; }
+      if (HT.graceGap && E.argSoon(p.due)) { C.repGrace++; out({ t: p.due, at: t0 + p.due, k: 'rep-grace', defer: 1 }); return; }
+      C.deferred++; S.lastRep = { t: p.due, stroke: p.stroke };
+      repeat(p.due, p.line, p.ln, a.pan, p.er, { defer: 1, dir: p.dir });
+    };
+    function arg(e) {
+      const k = mod(e.line, N), at = t0 + e.t; C.lines++;
+      if (k === 0) { if (e.dir > 0) C.dUp++; else C.dDown++; }
+      S.last = { line: e.line, t: e.t, stroke: E.stroke(e.t) }; S.pend = null;
+      const r = E.rate(e.t, 'phi', 1), merge = r * HT.minIoi > 1 && e.t - S.lastNote < HT.minIoi;
+      if (merge) { C.merged++; out({ t: e.t, at, k: 'merged', c: 12 * k / N }); return; }
+      const g = noteGain(r);
+      C.crowdDbMin = Math.min(C.crowdDbMin, +g.toFixed(1));
+      const tn = Math.max(e.t, S.lastNote + HT.minIoi);   // [A2b] a strum, minIoi apart
+      // [B14] at most one pointer step (≤ holdMax) + minIoi late, never more than lateMin on a sampled pointer
+      if (tn - e.t > Math.max(HT.lateMin, Math.min(HT.holdMax, E.hold(e.t)) + HT.minIoi)) { C.merged++; C.late++; out({ t: e.t, at, k: 'merged', c: 12 * k / N, late: 1 }); return; }
+      C.notes++;
+      play(tn, 12 * k / N, law(e.ln), e.pan, g, false, 'note', { ln: e.ln, dir: e.dir, rate: r, late: +(tn - e.t).toFixed(6) });
+      S.lastNote = tn;
+    }
+    function cut(e) {
+      const at = t0 + e.t;
+      // [V4] a crack at most once per cutGap; one inside it plays nothing (the held line still follows the jump)
+      if (HT.cutGap && e.t - S.lastCut < HT.cutGap) { C.cutMerged++; out({ t: e.t, at, k: 'cut-merged' }); S.last = { line: Math.floor(e.phi1 * N + HT.lineTol), t: e.t + HT.cutHold, stroke: E.stroke(e.t) }; S.pend = null; return; }
+      const cutG = crowd(1 / Math.max(1e-6, e.t - S.lastCut)); S.lastCut = e.t;
+      C.cracks++; out({ t: e.t, at, k: 'crack', g: cutG, pan: e.pan });
+      S.last = { line: Math.floor(e.phi1 * N + HT.lineTol), t: e.t + HT.cutHold, stroke: E.stroke(e.t) }; S.pend = null;   // [A5] [V1]
+      // [A6] the two notes at the stream's crowding gain (the slower side) + cutDb, + the crack's own R0 gain
+      const cg = HT.cutDb + cutG + Math.min(crowd(E.rate(e.t, 'phi', 1, true)), crowd(E.rate(e.t, 'phi', 1)));
+      const c0 = 12 * mod(e.phi0, 1), c1 = 12 * mod(e.phi1, 1);
+      out({ t: e.t, at, k: 'cut', cg, c0, c1, db0: law(e.ln0), db1: law(e.ln1), ln0: e.ln0, ln1: e.ln1 });
+      play(e.t + HT.cutNotes[0], c0, law(e.ln0), e.pan, cg, true, 'cutnote', { ln: e.ln0, side: 0 });
+      play(e.t + HT.cutNotes[1], c1, law(e.ln1), e.pan, cg, true, 'cutnote', { ln: e.ln1, side: 1 });
+    }
+    function edge(e) {
+      const sk = E.stroke(e.t), held = S.last && S.last.stroke === sk;
+      if (held && e.t - S.last.t < HT.RE_QUIET) return;   // notes are flowing: their loudness carries |F|
+      const line = held ? S.last.line : Math.floor(E.phiAt(e.t) * N + HT.lineTol), er = E.rate(e.t, 'ln', TAU);   // [V1]
+      // (+1 µs: nine deferred repeats exactly repGap apart stay strictly under 8 a second)
+      if (S.lastRep && e.t - S.lastRep.t < HT.repGap) { S.pend = { due: S.lastRep.t + HT.repGap + 1e-6, stroke: sk, line, ln: e.ln, er, dir: e.dir }; return; }
+      if (inCue(e.t)) { C.repCue++; out({ t: e.t, at: t0 + e.t, k: 'rep-cue' }); return; }   // [B5]
+      if (HT.graceGap && E.argSoon(e.t)) { C.repGrace++; out({ t: e.t, at: t0 + e.t, k: 'rep-grace' }); return; }   // [B12]
+      S.lastRep = { t: e.t, stroke: sk };
+      repeat(e.t, line, e.ln, e.pan, er, { dir: e.dir });
+    }
+    return {
+      S, C, flush, figs,
+      take(e) { flush(e.t); if (e.kind === 'arg') arg(e); else if (e.kind === 'cut') cut(e); else if (e.kind === 'mod') edge(e); },
+      addCue(c) { const f = figure(c); figs.push(f); return f; },
+      // a gap: the stroke ends; a deferred repeat coming due later is dropped
+      gap() { S.pend = null; },
+      reset() { S.last = null; S.lastRep = null; S.lastNote = -1e9; S.pend = null; S.lastCut = -1e9; S.mono = null; figs.length = 0; },
+    };
+  }
+
+  // ---------------------------------------------------------------- the batch (Listen along, the tests)
+  // events(smp, o) → LOG (the shape of the prototype's wav/<scene>--final-notes.log.json, plus pan and short).
+  // smp: [{t, phi, ln, pan, gap?, seat?, cut?, hold?, src?, z?, zh?}] uniformly sampled (o.rate a second, default
+  // 1000, t from smp[0].t); hold: the hand's step gap there (else from z/zh as the prototype, else 1/rate; src 'key':
+  // keyGap). o: {n, cues: [{t, m, zero}], t0, onLine}. Returns the log with .counts
+  function strokesOf(smp) { const s = new Float64Array(smp.length); let k = 0; smp.forEach((p, i) => { if (p.gap || p.seat) k++; s[i] = k; }); return s; }
+  function events(smp, o = {}) {
+    const N = o.n || HT.n, RATE = o.rate || 1000, n = smp.length, T0s = n ? smp[0].t : 0, LOG = [];
+    if (!n) { LOG.counts = Decider({ n: N, env: {}, out: () => {} }).C; return LOG; }
+    if (o.onLine != null) smp.onLine = !!o.onLine;
+    const ev = crossings(smp, N);
+    const idx = (t) => clamp(Math.round((t - T0s) * RATE), 0, n - 1);
+    const stroke = strokesOf(smp), half = Math.round(HT.rateHalf * RATE);
+    // rateAt (compare.js 181-188): ±half samples, not across a gap, a seat or a cut
+    const rateAt = (i, key, k) => {
+      i = clamp(i, 0, n - 1);
+      if (smp[i].gap) return 0;
+      let a = i, b = i;
+      for (let s = 0; s < half && a > 0 && !smp[a - 1].gap && !smp[a].seat && !smp[a].cut; s++) a--;
+      for (let s = 0; s < half && b < n - 1 && !smp[b + 1].gap && !smp[b + 1].seat && !smp[b + 1].cut; s++) b++;
+      return b > a ? N * Math.abs(smp[b][key] - smp[a][key]) / ((b - a) / RATE) / k : 0;
+    };
+    // [B14] the pointer step carrying each sample (how long the hand held its last position), the longest in 100 ms
+    const hold = new Float64Array(n); {
+      let lastMove = 0, gap = 1 / RATE; const hz = (p) => p.zh || p.z;
+      for (let i = 0; i < n; i++) {
+        const a = smp[i], b = i ? smp[i - 1] : null;
+        if (a.hold != null) gap = a.hold;
+        else if (a.src === 'key') gap = HT.keyGap;
+        else if (a.gap || !b || b.gap) { lastMove = i; gap = 1 / RATE; }
+        else { const za = hz(a), zb = hz(b); if (za && zb && (za[0] !== zb[0] || za[1] !== zb[1])) { gap = (i - lastMove) / RATE; lastMove = i; } }
+        hold[i] = gap;
+      }
+      const sg = Float64Array.from(hold), W = Math.round(HT.holdMax * RATE);
+      for (let i = 0; i < n; i++) { let m = sg[i]; for (let k = Math.max(0, i - W); k < i; k++) if (sg[k] > m) m = sg[k]; hold[i] = m; }
+    }
+    const argT = ev.filter((x) => x.kind === 'arg').map((x) => x.t);
+    const argSoon = (t) => { let lo = 0, hi = argT.length; while (lo < hi) { const m = (lo + hi) >> 1; if (argT[m] < t) lo = m + 1; else hi = m; } return lo < argT.length && argT[lo] < t + HT.graceGap; };
+    const env = {
+      rate: (t, key, k, before) => { const i = idx(t); return rateAt(before ? Math.max(0, i - 1) : i, key, k); },
+      stroke: (t) => stroke[idx(t)], hold: (t) => hold[idx(t)], phiAt: (t) => smp[idx(t)].phi,
+      at: (t) => { const j = idx(t); return { gap: !!smp[j].gap, stroke: stroke[j], pan: smp[j].pan || 0 }; }, argSoon,
+    };
+    const D = Decider({ n: N, t0: o.t0 || 0, cues: o.cues, env, out: (e) => LOG.push(e) });
+    for (const e of ev) D.take(e);
+    D.flush(Infinity);
+    LOG.counts = D.C;
+    return LOG;
+  }
+
+  // ---------------------------------------------------------------- the Glide's controls (compare.js finalGlide 631-677)
+  // glideCtl(smp, o) → {ctl: posts [{at, phi, mode, a, b, pan, until, rel}], env, db (every sample), cracks (LOG),
+  // seats}. o: {n, t0, rate, step (s between posts, 0.005)}. env/db reproduce the prototype's glEnv/glDb exactly
+  function glideCtl(smp, o = {}) {
+    const RATE = o.rate || 1000, n = smp.length, t0 = o.t0 || 0, N = o.n || HT.n, LOG = [];
+    const out = { ctl: [], env: new Float64Array(n), db: new Float64Array(n), cracks: LOG, seats: [] };
+    if (!n) return out;
+    { let lastCut = -1e9;   // [V4] the crack: the same gap and R0 rule; [B11] glCrackDb in the renderer
+      for (const e of crossings(smp, N)) if (e.kind === 'cut') { if (HT.cutGap && e.t - lastCut < HT.cutGap) { LOG.push({ t: e.t, at: t0 + e.t, k: 'cut-merged' }); continue; } const g = crowd(1 / Math.max(1e-6, e.t - lastCut)); lastCut = e.t; LOG.push({ t: e.t, at: t0 + e.t, k: 'crack', g, pan: e.pan }); } }
+    // phi, ln and pan held across gaps
+    const phi = new Float64Array(n), ln = new Float64Array(n), pan = new Float64Array(n);
+    { let a = 0, b = 0, c = 0; const k0 = smp.findIndex((p) => !p.gap); if (k0 >= 0) { a = smp[k0].phi; b = smp[k0].ln; c = smp[k0].pan || 0; } smp.forEach((p, i) => { if (!p.gap) { a = p.phi; b = p.ln; c = p.pan || 0; } phi[i] = a; ln[i] = b; pan[i] = c; }); }
+    // [B3] the gate: on once log F moved ≥ 1 JND (3° or 0.05 neper) within GL4.on, held while it moved holdJnd of a
+    // JND within GL4.hold; [A13] only within the stroke (every 4th sample, as the prototype)
+    const s0 = new Float64Array(n); smp.forEach((p, i) => { s0[i] = p.gap || p.seat ? i : i ? s0[i - 1] : 0; });
+    const moved = (i, win, j = 1) => { if (smp[i].gap) return false; const W = Math.round(win * RATE); for (let k = Math.max(s0[i], i - W); k < i; k += 4) { const q = smp[k]; if (q.gap) continue; if (Math.abs(phi[i] - q.phi) * 360 >= 3 * j || Math.abs(ln[i] - q.ln) >= 0.05 * j) return true; } return false; };
+    const gateOn = new Float64Array(n); { let on = false; for (let i = 0; i < n; i++) { on = moved(i, GL4.on) || (on && moved(i, GL4.hold, GL4.holdJnd)); gateOn[i] = on ? 1 : 0; } }
+    const ka = 1 - Math.exp(-1 / (GL4.att / 3 * RATE)), kd = Math.exp(-6.9078 / (GL4.t60 * RATE));
+    const env = out.env; { let v = 0; for (let i = 0; i < n; i++) { v = gateOn[i] ? v + (1 - v) * ka : v * kd; env[i] = v; } }
+    // [A14] a re-seat while the voice rings: fade + silence, then a fresh attack
+    const sf = GL4.seatFade.map((x) => Math.round(x * RATE));
+    for (let i = 1; i < n; i++) if (smp[i].seat && env[i - 1] > 1e-4) out.seats.push(i);
+    if (out.seats.length) {
+      const blk = new Float64Array(n);
+      for (const q of out.seats) blk.fill(1, q, Math.min(n, q + sf[0] + sf[1]));
+      let v = 0; for (let i = 0; i < n; i++) { v = blk[i] ? 0 : gateOn[i] ? v + (1 - v) * ka : v * kd; env[i] = v; }
+    }
+    for (let i = 0; i < n; i++) out.db[i] = law(ln[i]) + GL4.db;
+    // the posts: every o.step (5 ms), at every gate change, seat and cut. until: the gate's next closing (the worklet's
+    // env attacks while currentTime < until), or now while it is off
+    const nextOff = new Float64Array(n); { let j = n; for (let i = n - 1; i >= 0; i--) { if (!gateOn[i]) j = i; nextOff[i] = j; } }
+    const step = Math.max(1, Math.round((o.step || 0.005) * RATE)), T = (i) => t0 + smp[0].t + i / RATE, seatSet = new Set(out.seats);
+    let lastPost = -1e9;
+    for (let i = 0; i < n; i++) {
+      const p = smp[i], mode = p.gap ? null : p.cut ? 'cut' : (p.seat || i === 0) ? 'seat' : 'slew';
+      const change = i > 0 && gateOn[i] !== gateOn[i - 1];
+      if (!(i - lastPost >= step || change || mode === 'cut' || mode === 'seat' || i === n - 1)) continue;
+      lastPost = i;
+      out.ctl.push({ at: T(i), phi: phi[i], mode: mode || 'slew', a: glideAmp(ln[i]), b: bright(law(ln[i])), pan: pan[i], until: gateOn[i] ? T(nextOff[i]) : T(i), fade: seatSet.has(i) ? 1 : 0 });
+    }
+    return out;
+  }
+  // [B3] the live gate from the stroke's history hist [{t, phi, ln}] (oldest first, this stroke only) at time t:
+  // → {on, until} (probe time; until = the latest moment 0.4 JND away + GL4.hold while on, else t)
+  function gate(hist, t, on) {
+    const cur = hist.length ? hist[hist.length - 1] : null;
+    if (!cur) return { on: false, until: t };
+    const away = (q, j) => Math.abs(cur.phi - q.phi) * 360 >= 3 * j || Math.abs(cur.ln - q.ln) >= 0.05 * j;
+    let full = false, part = -1e9;
+    for (let i = hist.length - 2; i >= 0; i--) { const q = hist[i]; if (q.t < t - GL4.on && q.t < t - GL4.hold) break; if (q.t >= t - GL4.on && away(q, 1)) full = true; if (q.t >= t - GL4.hold && part < -1e8 && away(q, GL4.holdJnd)) part = q.t; }
+    const nowOn = full || (on && part > -1e8);
+    return { on: nowOn, until: nowOn ? Math.max(t, (part > -1e8 ? part : t) + GL4.hold) : t };
+  }
+
+  // ---------------------------------------------------------------- a zero or a pole on the step, not a cut (FINAL A16)
+  // throughZPAlong(P, g0, g1): P(u) = F at the step's point u ∈ [0, 1] ({re, im}); 40 bisections toward the jump of
+  // arg F, then |F| 2^m-fold from w to 2w on both sides (a zero) or halving (a pole) at w = 64·(b − a); a cut keeps |F|
+  // smooth. At most 44 calls of P. A non-finite midpoint is true
+  const okv = (g) => !!g && Number.isFinite(g.re) && Number.isFinite(g.im) && (g.re !== 0 || g.im !== 0) && Number.isFinite(Math.hypot(g.re, g.im));
+  function throughZPAlong(P, g0, g1) {
+    const dArg = (p, q) => { let d = Math.atan2(q.im, q.re) - Math.atan2(p.im, p.re); d -= TAU * Math.round(d / TAU); return Math.abs(d); };
+    let a = 0, b = 1, ga = g0, gb = g1;
+    for (let k = 0; k < 40; k++) { const m = (a + b) / 2, gm = P(m); if (!okv(gm)) return true; if (dArg(ga, gm) >= dArg(gm, gb)) { b = m; gb = gm; } else { a = m; ga = gm; } }
+    const c = (a + b) / 2, w = 64 * (b - a), q = (s) => { const p1 = P(c + s * w), p2 = P(c + 2 * s * w); return okv(p1) && okv(p2) ? Math.hypot(p2.re, p2.im) / Math.hypot(p1.re, p1.im) : 1; };
+    const ra = q(-1), rb = q(1);
+    return (ra > 1.6 && rb > 1.6) || (ra < 0.625 && rb < 0.625);
+  }
+  const throughZP = (F, z0, g0, z1, g1) => throughZPAlong((u) => F({ re: z0.re + (z1.re - z0.re) * u, im: z0.im + (z1.im - z0.im) * u }), g0, g1);
+
+  // ---------------------------------------------------------------- the live stream (Sound.hear)
+  // new Live({n}): fed the probe's samples (t in seconds, page clock) one at a time; returns the decided events, in
+  // probe time, for the caller to schedule. The same Decider as events(); what differs is only what a live stream can
+  // know: the rate is measured over the past rateHalf and extrapolated over the next (the last step's slope; a key
+  // step's 0), and a repeat waits graceGap (or flush(t) from a timer) before its grace test runs.
+  function Live(o = {}) {
+    let N = o.n || HT.n;
+    const out = [], hist = [];   // hist: this stroke's samples {t, phi, ln, pan} (≥ 0.3 s kept)
+    let stroke = 0, prev = null, src = 'hand', w = 0, cell = { ca: null, cm: null, onA: null, onM: null }, waiting = [], args = [], holdH = [], glOn = false, open = false;
+    const valAt = (t, key) => {
+      if (!hist.length) return 0;
+      if (t >= hist[hist.length - 1].t) { const h = hist[hist.length - 1]; return h[key] + (key === 'phi' ? w * (t - h.t) : (prev && prev.wl ? prev.wl * (t - h.t) : 0)); }
+      if (t <= hist[0].t) return hist[0][key];
+      let i = hist.length - 1; while (i > 0 && hist[i - 1].t > t) i--;
+      const a = hist[i - 1], b = hist[i], u = b.t > a.t ? (t - a.t) / (b.t - a.t) : 1;
+      return a[key] + u * (b[key] - a[key]);
+    };
+    const env = {
+      rate: (t, key, k, before) => {
+        if (!hist.length) return 0;
+        const t0s = hist[0].t, a = Math.max(t0s, t - HT.rateHalf), b = before ? t : t + HT.rateHalf;
+        if (b <= a) return 0;
+        return N * Math.abs(valAt(b, key) - valAt(a, key)) / (b - a) / k;
+      },
+      stroke: () => stroke,
+      hold: (t) => { let m = 1e-3; for (const h of holdH) if (h.t >= t - HT.holdMax && h.g > m) m = h.g; return src === 'key' ? HT.keyGap : m; },
+      phiAt: (t) => valAt(t, 'phi'),
+      at: () => (open ? { gap: false, stroke, pan: prev ? prev.pan : 0 } : { gap: true, stroke: -1, pan: 0 }),
+      argSoon: (t) => args.some((x) => x >= t && x < t + HT.graceGap),
+    };
+    const D = Decider({ n: N, t0: 0, cues: [], env, out: (e) => out.push(e) });
+    // the repeats wait for graceGap of the stream (or a later colour line) before they are decided
+    // (all: the stroke ends at T: a deferred repeat due later is dropped)
+    const settle = (T, all) => {
+      while (waiting.length && (all || waiting[0].t + HT.graceGap <= T)) D.take(waiting.shift());
+      const p = D.S.pend;
+      if (p && (all ? p.due <= T : p.due + HT.graceGap <= T)) D.flush(p.due);
+      else if (p && all) D.S.pend = null;
+    };
+    function seatAt(s) {
+      settle(s.t, true);
+      stroke++; hist.length = 0; holdH.length = 0; args = []; w = 0; glOn = false; open = true;
+      cell = { ca: null, cm: null, onA: null, onM: null };
+      const p = { t: s.t, phi: s.phi, ln: s.ln, pan: s.pan || 0, seat: true };
+      crossStep(cell, null, p, N, true, []);   // [B10] seatOnLine
+      prev = p; hist.push(p); src = s.src || 'hand';
+    }
+    const glide = (mode) => { const g = gate(hist, prev.t, glOn); glOn = g.on; const db = law(prev.ln); return { phi: prev.phi, mode, a: glideAmp(prev.ln), b: bright(db), pan: prev.pan, until: g.until, rel: src === 'key' ? GL4.rel : 0 }; };
+    function feed(s, cutFlag) {
+      const ev = [];
+      let p = { t: s.t, phi: s.phi, ln: s.ln, pan: s.pan || 0, cut: !!cutFlag };
+      // a key step is a jump: the probe held its place until just before the step; a hand that rested longer than
+      // holdMax moved only in the last holdMax
+      const dt = s.t - prev.t, span = s.src === 'key' ? 0.001 : HT.holdMax;
+      if (!cutFlag && dt > span + 1e-9) { const h = { t: s.t - span, phi: prev.phi, ln: prev.ln, pan: prev.pan }; crossStep(cell, prev, h, N, true, ev); hist.push(h); prev = h; }
+      holdH.push({ t: s.t, g: Math.min(HT.holdMax, Math.max(1e-3, s.t - prev.t)) });
+      while (holdH.length && holdH[0].t < s.t - HT.holdMax - 0.05) holdH.shift();
+      crossStep(cell, prev, p, N, true, ev);
+      const dts = p.t - prev.t;
+      w = s.src === 'key' || cutFlag || dts <= 0 ? 0 : (p.phi - prev.phi) / dts;
+      p.wl = s.src === 'key' || cutFlag || dts <= 0 ? 0 : (p.ln - prev.ln) / dts;
+      src = s.src || src; prev = p; hist.push(p);
+      while (hist.length > 2 && hist[1].t < p.t - 0.3) hist.shift();
+      ev.sort((a, b) => a.t - b.t);
+      let arg = 0, modN = 0, dUp = 0, dDown = 0;
+      for (const e of ev) {
+        if (e.kind === 'arg') { arg++; args.push(e.t); if (((e.line % N) + N) % N === 0) { if (e.dir > 0) dUp++; else dDown++; } }
+        else if (e.kind === 'mod') modN++;
+        if (e.kind === 'mod') { waiting.push(e); continue; }
+        // a colour line or a cut decides every repeat waiting before it (its grace test is now known)
+        while (waiting.length && waiting[0].t <= e.t) D.take(waiting.shift());
+        D.take(e);
+      }
+      args = args.filter((x) => x > p.t - 0.5);
+      settle(p.t, false);
+      return { arg, mod: modN, dUp, dDown };
+    }
+    const take = () => out.splice(0);
+    return {
+      get n() { return N; }, get stroke() { return open; }, get src() { return src; }, D,
+      seat(s) { if (s.n && s.n !== N) N = s.n; seatAt(s); return { r: { arg: 0, mod: 0, dUp: 0, dDown: 0 }, ev: take(), gl: glide('seat') }; },
+      step(s) {
+        if (!open || (s.n && s.n !== N)) return this.seat(Object.assign({}, s, { n: s.n || N }));
+        if (s.t < prev.t) s = Object.assign({}, s, { t: prev.t });
+        const r = feed(s, false);
+        return { r, ev: take(), gl: glide(s.src === 'key' ? 'step' : 'slew') };
+      },
+      cut(s) {
+        if (!open) return this.seat(s);
+        feed(s, true);
+        return { r: { arg: 0, mod: 0, dUp: 0, dDown: 0 }, ev: take(), gl: glide('cut') };
+      },
+      // F changed with no path: the nearest turn; small → a step, else the two cut notes without a crack and a seat
+      pathless(s) {
+        if (!open) return this.seat(s);
+        const phi = s.phi + Math.round(prev.phi - s.phi), s2 = Object.assign({}, s, { phi });
+        if (Math.abs(phi - prev.phi) < HT.pathless.dphi && Math.abs(s.ln - prev.ln) < TAU / N) return this.step(s2);
+        settle(s.t, true);
+        const t = Math.max(s.t, prev.t), c0 = 12 * mod(prev.phi, 1), c1 = 12 * mod(phi, 1), cg = HT.cutDb;
+        out.push({ t, at: t, k: 'cutnote', c: c0, db: law(prev.ln), g: cg, pan: s.pan || 0, short: true, ln: prev.ln, side: 0, leap: 1 });
+        out.push({ t: t + HT.cutNotes[1] - HT.cutNotes[0], at: t + HT.cutNotes[1] - HT.cutNotes[0], k: 'cutnote', c: c1, db: law(s.ln), g: cg, pan: s.pan || 0, short: true, ln: s.ln, side: 1, leap: 1 });
+        const ev = take(), r = this.seat(s2);
+        return { r: Object.assign(r.r, { leap: true }), ev: ev.concat(r.ev), gl: r.gl };
+      },
+      gap(t) { if (open) settle(t, true); D.gap(); open = false; hist.length = 0; glOn = false; const ev = take(); return { ev, gl: null }; },
+      // a timer: decide what waits once the stream is quiet (a repeat's grace window, a deferred repeat's due time)
+      flush(t) { if (open) settle(t, false); return take(); },
+      cue(c) { return D.addCue(c); },
+      end() { D.reset(); waiting = []; args = []; open = false; hist.length = 0; glOn = false; out.length = 0; },
+      pending() { return waiting.length ? waiting[0].t + HT.graceGap : D.S.pend ? D.S.pend.due + HT.graceGap : null; },
+      state() { return { stroke: open, src, held: D.S.last ? { k: D.S.last.line, t: D.S.last.t } : null, pend: D.S.pend ? { due: D.S.pend.due, k: D.S.pend.line } : null, lastNote: D.S.lastNote, lastRep: D.S.lastRep ? D.S.lastRep.t : null, lastCrack: D.S.lastCut, glOn }; },
+    };
+  }
+
+  return { HT, law, crowd, noteGain, copies, seed, soft, bright, glideAmp, figure, cueGap, crossings, events, glideCtl, gate, throughZP, throughZPAlong, Live, Decider };
 }
 
 const Sound = (() => {
@@ -282,7 +827,8 @@ const Sound = (() => {
   // (v15, the user's defaults, notes/sound/README.md: sound on, Interface and Mathematical events on, Snap ticks and
   // Hear the function off. A ?ns= test page starts off, so the quality and perf suites stay silent unless a test turns
   // it on. These apply only when nothing is stored: a stored choice always wins.)
-  const DEFAULTS = { on: !NS, vol: 0.7, ui: true, snap: false, events: true, sonify: false };
+  // glide: Hear the function as one continuous voice instead of notes (a per-device preference; never in a link)
+  const DEFAULTS = { on: !NS, vol: 0.7, ui: true, snap: false, events: true, sonify: false, glide: false };
   const AC = window.AudioContext || window.webkitAudioContext;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const TAU = 2 * Math.PI;
@@ -300,7 +846,8 @@ const Sound = (() => {
   let ctx = null, G = null, hidden = document.visibilityState === 'hidden', activated = false, idleTimer = 0, lastGesture = -1e9, graceUsed = false, busyUntil = 0;
   const subs = new Set();
   const state = () => ({ ...P, supported: !!AC, remembered: !!store, audio: ctx ? ctx.state : 'none', rate: ctx ? ctx.sampleRate : 0,
-    latency: ctx ? (ctx.baseLatency || 0) + (ctx.outputLatency || 0) : 0, hidden, engine: G ? G.engine : 'none' });
+    latency: ctx ? (ctx.baseLatency || 0) + (ctx.outputLatency || 0) : 0, hidden, engine: G ? G.engine : 'none',
+    glide: !!(P.glide && G && G.engine === 'worklet'), glideOk: !(G && G.engine === 'nodes') && typeof AudioWorkletNode !== 'undefined' });
   // (tests) prefer.worklet = false: the main-thread fallback in a live context too
   const prefer = { worklet: true };
   const emit = () => { const s = state(); for (const f of subs) { try { f(s); } catch (e) { /* a subscriber's bug is not ours */ } } };
@@ -317,7 +864,12 @@ const Sound = (() => {
     const master = c.createGain(); master.gain.value = vol;
     if (opts.noClip) master.connect(c.destination);
     else { const clip = c.createWaveShaper(); clip.curve = SOFTCLIP; clip.oversample = '2x'; master.connect(clip); clip.connect(c.destination); }
-    const bus = c.createGain(); bus.connect(master);
+    const bus = c.createGain();
+    // the declared safety limiter between the bus (every tier, the room's return) and the master (limitOn): until the
+    // worklet loads, a 2 ms delay (the limiter's look-ahead) holds its place
+    let limit = null;
+    if (c.createDelay && !opts.noLimit) { const d = c.createDelay(0.01), dg = c.createGain(); d.delayTime.value = Math.max(1, Math.round(0.002 * c.sampleRate)) / c.sampleRate; bus.connect(d); d.connect(dg); dg.connect(master); limit = { d, dg, node: null, comp: null, lg: null }; }
+    else bus.connect(master);
     const room = c.createConvolver(); room.buffer = roomIR(c);
     // normalize = true scales this IR to about −12 dB; wet 2.0 puts the tail of a bell ~15–18 dB under its direct sound
     const wet = c.createGain(); wet.gain.value = 2.0; room.connect(wet); wet.connect(bus);
@@ -330,7 +882,7 @@ const Sound = (() => {
     // the audition bus (a settings preview): always open, still behind the master switch
     const ad = c.createGain(), aw = c.createGain(); ad.connect(bus); aw.connect(room);
     const aud = { dry: ad, wet: aw };
-    const g = { c, master, bus, tier, aud, active: new Set(), worklet: false, synth: null, engine: 'loading', offline: false, flush: [] };
+    const g = { c, master, bus, tier, aud, limit, active: new Set(), worklet: false, synth: null, engine: 'loading', offline: false, flush: [] };
     g.audition = { c, master, bus, tier: { ui: aud, events: aud, sonify: aud }, active: g.active };
     return g;
   }
@@ -402,7 +954,8 @@ const Sound = (() => {
         Pt.push({ k: 'm', d, f: fj + bb / 2, a: aj * r2, t60: tj * 0.9, tau, ph, drop: o.drop });
       } else Pt.push({ k: 'm', d, f: fj, a: aj, t60: tj, tau, ph: 0, drop: o.drop });
     }
-    if (M.knock) Pt.push({ k: 'n', d, dur: Math.max(0.002, 2.5 * tau), fc: Math.min(M.kf * (0.6 + 0.8 * vel), 6000), a: g * M.knock * (o.knock == null ? 1 : o.knock), seed: seed32() });
+    // (knock 0: no contact noise; its seed is still drawn, so the PRNG's sequence is unchanged)
+    if (M.knock) { const sd = seed32(); if (o.knock !== 0) Pt.push({ k: 'n', d, dur: Math.max(0.002, 2.5 * tau), fc: Math.min(M.kf * (0.6 + 0.8 * vel), 6000), a: g * M.knock * (o.knock == null ? 1 : o.knock), seed: sd }); }
   }
   // a plucked string as modes (the spectrum a Karplus–Strong string settles into): harmonics 1–8, slightly stretched,
   // low-passed by `bright`, the upper ones shorter, a 0.4 ms ring-in and a 2 ms contact noise. o.dark (the harp): a gut
@@ -474,9 +1027,9 @@ const Sound = (() => {
     cut: { tier: 'sonify', gap: 120, wet: 0.08, label: 'Branch cut', what: 'The probe crossed a branch cut: F jumps there. Two muted plucks stepping down',
       make: (Pt, o) => { pluck(Pt, 0, st(28), { t60: 0.09, bright: 0.22, amp: 0.16 }); if (!o.one) pluck(Pt, 0.035, st(24), { t60: 0.12, bright: 0.18, amp: 0.16 }); } },
     zero: { tier: 'sonify', gap: 250, wet: 0.2, label: 'Zero', what: 'The probe reached a zero; one glass ping per order (the argument principle on a small circle), harder when approached faster',
-      make: (Pt, o) => { const m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.11; for (let j = 0; j < m; j++) strike(Pt, sp * j, st(24), 'glass', { vel: (o.vel == null ? 0.6 : o.vel) * (j ? 0.75 : 1), soft: 0.8, t60: 0.55, amp: 0.21, detune: 2 }); } },
+      make: (Pt, o) => { const m = clamp(o.order | 0 || 1, 1, 8), sp = m >= 3 ? 0.15 : 0.11; for (let j = 0; j < m; j++) strike(Pt, sp * j, st(24), 'glass', { vel: (o.vel == null ? 0.6 : o.vel) * (j ? 0.75 : 1), soft: 0.8, t60: 0.55, amp: 0.21, detune: 2 }); } },
     pole: { tier: 'sonify', gap: 250, wet: 0.14, label: 'Pole', what: 'The probe reached a pole; one felt thump per order',
-      make: (Pt, o) => { const m = clamp(o.order | 0 || 1, 1, 6), sp = m >= 3 ? 0.15 : 0.12, v = o.vel == null ? 0.7 : o.vel; for (let j = 0; j < m; j++) { strike(Pt, sp * j, st(7), 'skin', { vel: v * (j ? 0.75 : 1), soft: 1.6, t60: 0.16, amp: 0.36, drop: 1.5, knock: 3.5 }); strike(Pt, sp * j, st(-5), 'skin', { vel: v * (j ? 0.75 : 1), soft: 2.4, t60: 0.2, amp: 0.06, drop: 1.5, knock: 0 }); strike(Pt, sp * j, st(19), 'wood', { vel: v * (j ? 0.75 : 1), soft: 1.4, t60: 0.07, amp: 0.13, drop: 1, detune: 2 }); } } },
+      make: (Pt, o) => { const m = clamp(o.order | 0 || 1, 1, 8), sp = m >= 3 ? 0.15 : 0.12, v = o.vel == null ? 0.7 : o.vel; for (let j = 0; j < m; j++) { strike(Pt, sp * j, st(7), 'skin', { vel: v * (j ? 0.75 : 1), soft: 1.6, t60: 0.16, amp: 0.36, drop: 1.5, knock: 3.5 }); strike(Pt, sp * j, st(-5), 'skin', { vel: v * (j ? 0.75 : 1), soft: 2.4, t60: 0.2, amp: 0.06, drop: 1.5, knock: 0 }); strike(Pt, sp * j, st(19), 'wood', { vel: v * (j ? 0.75 : 1), soft: 1.4, t60: 0.07, amp: 0.13, drop: 1, detune: 2 }); } } },
     dense: { tier: 'sonify', gap: 600, wet: 0.15, label: 'Many zeros or poles', what: 'More than two zeros or poles within 300 ms (a cluster): one quiet cue, then 600 ms of silence for them',
       make: (Pt) => { for (let j = 0; j < 3; j++) strike(Pt, 0.04 * j + (j ? rnd(-0.004, 0.004) : 0), penta(5 + j), 'glass', { vel: 0.35, soft: 0.8, t60: 0.2, amp: 0.085 }); } },
     contour: { tier: 'sonify', gap: 0, wet: 0.05, count: true, label: 'Contour', what: 'The probe crossed a level line of |F| (Landscape): a wooden bar on the Height note, an octave up',
@@ -508,12 +1061,12 @@ class Synth extends AudioWorkletProcessor {
     const p = (o && o.processorOptions) || {};
     this.fs = sampleRate; this.q = []; this.cues = []; this.strs = []; this.tex = new Map(); this.dying = [];
     this.y = new Float32Array(128); this.sd = new Float32Array(128); this.sw = new Float32Array(128);
-    this.sg = L.Singer(this.fs, p.seed || 4242); this.nFade = Math.round(0.012 * this.fs);
+    this.sg = L.Singer(this.fs, p.seed || 4242); this.nFade = Math.round(0.012 * this.fs); this.gl = L.Glide(this.fs);
     this.stat = { cues: 0, late: 0, maxLateMs: 0, steals: 0, maxStrings: 0, maxCues: 0 };
     for (const c of p.cmds || []) this.push(c);
     this.port.onmessage = (e) => { if (e.data === 'stat') { this.port.postMessage(this.stat); return; } for (const c of e.data) this.push(c); };
   }
-  push(c) { if (c.k === 'clear') { this.clear(c.tag); return; } c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
+  push(c) { if (c.k === 'clear') { this.clear(c.tag); return; } if (c.k === 'gl') { this.gl.cmd(c, Math.round((c.at || 0) * this.fs)); return; } c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
   // {k: 'clear'} (Esc, off, a hidden tab): queued commands are dropped, parts that have not started are dropped, and
   // what sounds fades to 0 on a 12 ms raised cosine; the texture and the singer too. {k: 'clear', tag}: only that tag's
   // cues (a "listen along" stopped)
@@ -527,6 +1080,7 @@ class Synth extends AudioWorkletProcessor {
       if (!cue.parts.length) { this.drop(ci); continue; }
       if (cue.fade < 0) { cue.fade = 0; cue.fadeN = this.nFade; }
     }
+    this.gl.clear(all ? undefined : tag);
     if (all) { for (const T of this.tex.values()) { T.fade = 0; this.dying.push(T); } this.tex.clear(); this.sg.hush(); }
     else if (this.sg.h.tag === tag) this.sg.hush();
   }
@@ -535,15 +1089,16 @@ class Synth extends AudioWorkletProcessor {
     const fs = this.fs, sh = c.f < f0 ? f0 - c.f : 0;
     if (sh) { this.stat.late++; this.stat.maxLateMs = Math.max(this.stat.maxLateMs, 1000 * sh / fs); }
     this.stat.cues++;
-    const cue = { tier: c.tier, pan: c.pan || 0, g: c.g == null ? 1 : c.g, wet: c.wet || 0, tag: c.tag, str: !!c.str, key: c.key || 0, fade: -1, fadeN: this.nFade,
+    const cue = { tier: c.tier, pan: c.pan || 0, g: c.g == null ? 1 : c.g, wet: c.wet || 0, tag: c.tag, str: !!c.str, key: c.key || 0, grp: c.grp || '', fade: -1, fadeN: this.nFade,
       parts: c.parts.map((p) => ({ sf: c.f + sh + Math.round((p.d || 0) * fs), v: L.MAKE[p.k](p, fs), live: true })) };
     // the harp's strings: at most 12 at once (c.cap: a composed piece's, notes/sea-song); the oldest fades out over
     // 30 ms (raised cosine) when one more starts. c.key (a piece's string, its MIDI note): a string plucked again is
     // damped first, as a harpist re-plucks one string (notes/sea-song/r3)
     if (cue.str) {
       const strs = this.strs;
-      if (cue.key) for (let i = strs.length - 1; i >= 0; i--) if (strs[i].key === cue.key) { const o = strs.splice(i, 1)[0]; if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
-      while (strs.length >= (c.cap || 12)) { const o = strs.shift(); if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
+      if (cue.key) for (let i = strs.length - 1; i >= 0; i--) if (strs[i].key === cue.key && strs[i].grp === cue.grp) { const o = strs.splice(i, 1)[0]; if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
+      // (c.grp: string groups, each under its own cap: Hear the function's marimba bars ('ht') damp only each other)
+      for (let cnt = strs.reduce((a, s) => a + (s.grp === cue.grp ? 1 : 0), 0); cnt >= (c.cap || 12); cnt--) { const o = strs.splice(strs.findIndex((s) => s.grp === cue.grp), 1)[0]; if (o.fade < 0) { o.fade = 0; o.fadeN = Math.round(0.03 * fs); } this.stat.steals++; }
       strs.push(cue); if (strs.length > this.stat.maxStrings) this.stat.maxStrings = strs.length;
     }
     this.cues.push(cue); if (this.cues.length > this.stat.maxCues) this.stat.maxCues = this.cues.length;
@@ -582,6 +1137,7 @@ class Synth extends AudioWorkletProcessor {
       if (T.silent(f0)) { if (T.end || f0 - T.last > 30 * fs) this.tex.delete(id); continue; }
       T.run(y, f0, n); this.mix(outs, T.tier, T.pan, 1, T.wet, y, n);
     }
+    this.gl.run(outs, f0, n, 0.14);
     const sd = this.sd, sw = this.sw;
     sd.fill(0); sw.fill(0);
     if (this.sg.run(sd, sw, n, f0)) {
@@ -593,6 +1149,18 @@ class Synth extends AudioWorkletProcessor {
   }
 }
 registerProcessor('cmw-synth', Synth);
+// the declared safety limiter on the bus (L.Limiter): every tier and the room's return, before the master volume
+class Limit extends AudioWorkletProcessor {
+  constructor(o) { super(); const p = (o && o.processorOptions) || {}; this.lim = L.Limiter(sampleRate, p.ceil || 0.363); this.port.onmessage = (e) => { if (e.data === 'stat') this.port.postMessage(this.lim.st); }; }
+  process(ins, outs) {
+    const i = ins[0] || [], o = outs[0], n = o[0].length, a = i[0], b = i[1] || i[0];
+    if (a) o[0].set(a); else o[0].fill(0);
+    if (o[1]) { if (b) o[1].set(b); else o[1].fill(0); }
+    this.lim.process(o[0], o[1] || null, n);
+    return true;
+  }
+}
+registerProcessor('cmw-limit', Limit);
 // the Height voice (the Landscape): an organ tone (harmonics 1–4 at 1/n), every sample from per-sample-smoothed
 // controls; s is log2 of the frequency, slewed linearly; gate and duck by two cascaded one-poles (zero slope at onset)
 const ORG = [1, 1 / 2, 1 / 3, 1 / 4]; let ONORM = 0;
@@ -737,7 +1305,7 @@ registerProcessor('cmw-voice', Voice);`;
       LEAD = Math.max(0.012, 2 * (ctx.baseLatency || 0.005));
       G = graph(ctx, 0);
       // the worklet loads in the background; until it is there (or where it is refused) the fallback renders cues
-      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; if (ok) g.synth = makeSynth(g); g.engine = ok ? 'worklet' : 'nodes'; emit(); }); } else G.engine = 'nodes';
+      if (prefer.worklet) { const g = G; loadWorklet(ctx).then((ok) => { g.worklet = ok; if (ok) g.synth = makeSynth(g); g.engine = ok ? 'worklet' : 'nodes'; limitOn(g); emit(); }); } else { G.engine = 'nodes'; limitOn(G); }
       applyGains(true);
     }
     if (ctx.state !== 'running') ctx.resume().then(emit, () => {});
@@ -1244,6 +1812,7 @@ registerProcessor('cmw-voice', Voice);`;
     for (const v of liveVoices) v.gate(false, undefined, 0.004);
     Q.turn.next = Q.contour.next = 0; Q.turn.due.length = Q.contour.due.length = 0;
     HP.c = null; SC.tex = false; motionOn = false; singOn = false; singTier = ''; singOffAt = 0; busyUntil = 0;
+    hearEnd();
   }
   // stop one tagged group (a "listen along"): what has not sounded is dropped, what sounds fades in 12 ms. The fallback's
   // sources fade on their own gain (a 12 ms raised cosine) and stop after it: a stop alone cut a ringing string's wave
@@ -1260,9 +1829,222 @@ registerProcessor('cmw-voice', Voice);`;
     if (singTier === 'events') { singOn = false; singTier = ''; singOffAt = 0; }
   }
 
+
+  // ---------------------------------------------------------------- Hear the function (spec 3; perfwin FINAL.md)
+  // The decisions are HT_LIB's (pure, tested against the prototype's logs); here they are rendered and scheduled.
+  // Notes: the marimba (htNote), the crack (htCrack), the query; Glide: the worklet's Glide (L.Glide) with the crack
+  // and the cues 3 dB down. Live: Sound.hear (sonify tier); Listen along: Sound.along (events tier).
+  const HTL = HT_LIB(), HT = HTL.HT;
+  const glideOk = () => !(G && G.engine === 'nodes') && typeof AudioWorkletNode !== 'undefined' && prefer.worklet;
+  const glideOn = () => !!(P.glide && G && G.engine === 'worklet');
+  // one note at pitch class c (semitones above D): 2 or 3 octave copies under the A4 Gaussian, each the app's 'wood'
+  // strike with no knock (vel 0.6, soft from dbV3, T60 0.45·(f/440)^−0.6 or 0.15 short), seeded by (pitch class, copy):
+  // the bars as damped strings (cap = the copies, group 'ht': each note damps the one before over 30 ms)
+  function htNote(g, at, c, db, gdb, pan, tier, tag, short) {
+    FS = g.c.sampleRate;
+    const cps = HTL.copies(c), sf = HTL.soft(db);
+    let end = at;
+    cps.forEach((cp, j) => {
+      R = prng(HTL.seed(3000 + Math.round(c * 100), j));
+      const Pt = [], amp = HT.LV.note * Math.pow(10, (db + gdb) / 20) * cp.w, t60 = short ? HT.short : HT.t60 * Math.pow(cp.f / HT.A4, HT.t60Exp);
+      strike(Pt, 0, cp.f, 'wood', { vel: HT.vel, soft: sf, t60, amp, detune: 0, var: 0, knock: 0 });
+      end = Math.max(end, emitCue(g, { tier: TI[tier], pan: clamp(pan || 0, -HT.PAN_MAX, HT.PAN_MAX), wet: HT.wet.note, g: 1, parts: Pt, tag, str: 1, cap: cps.length, grp: 'ht' }, at));
+    });
+    return end;
+  }
+  // the crack at a branch cut: a woodblock at 3100 Hz, 8 ms, seeded; gdb: the R0 gain of cracks (and −3 dB in Glide)
+  function htCrack(g, at, pan, gdb, tier, tag) {
+    FS = g.c.sampleRate; R = prng(HTL.seed(7001, 0));
+    const Pt = []; strike(Pt, 0, HT.crackHz, 'block', { vel: 1, soft: 0.4, t60: 0.008, amp: HT.LV.crack * Math.pow(10, gdb / 20), detune: 0, var: 0 });
+    return emitCue(g, { tier: TI[tier], pan: clamp(pan || 0, -HT.PAN_MAX, HT.PAN_MAX), wet: HT.wet.crack, g: 1, parts: Pt, tag }, at);
+  }
+  // the Glide's query: short bowed copies under the D5 Gaussian (σ 0.7), at the Glide's level
+  function htQueryBowed(g, at, c, db, pan, tier, tag) {
+    FS = g.c.sampleRate;
+    const out = [];
+    for (let k = 0; k < 7; k++) { const f = HT.D2 * Math.pow(2, c / 12 + k); if (f > 2600) break; const d = Math.log2(f / 587.33) / 0.7, w = Math.exp(-0.5 * d * d); if (w >= HT.wMin) out.push({ f, w }); }
+    const s = 1 / Math.sqrt(out.reduce((a, o) => a + o.w * o.w, 0));
+    let end = at;
+    out.forEach((cp, j) => { R = prng(HTL.seed(9000 + Math.round(c * 100), j)); const Pt = []; bowed(Pt, 0, cp.f, { att: 0.03, hold: 0.06, t60: 0.55, amp: HT.LV.query * Math.pow(10, (db + HT.GL4.db) / 20) * cp.w * s }); end = Math.max(end, emitCue(g, { tier: TI[tier], pan: clamp(pan || 0, -HT.PAN_MAX, HT.PAN_MAX), wet: HT.wet.query, g: 1, parts: Pt, tag }, at)); });
+    return end;
+  }
+  // a decided event (HT_LIB's LOG shape) at audio time `at`
+  function htRender(g, e, at, tier, tag, glide) {
+    if (e.k === 'crack') return htCrack(g, at, e.pan, e.g + (glide ? HT.glCrackDb : 0), tier, tag);
+    if (glide) return at;
+    if (e.k === 'note' || e.k === 'rep' || e.k === 'cutnote') return htNote(g, at, e.c, e.db, e.g, e.pan, tier, tag, !!e.short);
+    return at;
+  }
+  // an order cue (spec 3.8): m ≤ 8 pings (zero) or thumps (pole), fixed velocity, the zero 6 dB down, −3 dB more in
+  // Glide, seed 7, no repetition softening; through play()'s shared 'zp' gap and dense rule unless `at` is given
+  function htCue(c, glide, at, tier) {
+    const m = Math.round(Math.abs(c.m)), zero = !!c.zero;
+    if (m > HT.maxOrder) return 'over';
+    const o = { order: m, vel: zero ? 0.6 : 0.7, gainDb: (zero ? HT.cueZeroDb : HT.cuePoleDb) + (glide ? HT.glCueDb : 0), seed: 7, noRep: true, pan: clamp(c.pan || 0, -HT.PAN_MAX, HT.PAN_MAX) };
+    if (at != null) { cueTo(G, zero ? 'zero' : 'pole', at, Object.assign(o, { tier })); return 'played'; }
+    const r = play(zero ? 'zero' : 'pole', o);
+    return r === 'dense' ? 'dense' : r ? 'played' : 'gap';
+  }
+
+  // ---- Listen along: Sound.along(smp, o)
+  // smp: [{t (s from 0), phi, ln, pan, gap?, seat?, cut?}], one a millisecond. o: {tag, n, closed, cues?, queries?}
+  // (cues [{t, m, zero, pan}] and queries [{t, phi, ln, pan}]: for renders and tests; Listen along has neither)
+  let alongN = 0;
+  function along(smp, o = {}) {
+    if (!AC || !P.on || hidden || !P.events || !smp || smp.length < 2 || !canSchedule()) return null;
+    const N = o.n || HT.n, tag = o.tag, glide = glideOn(), t0 = ctx.currentTime + Math.max(0.03, LEAD + 0.01);
+    const T0 = smp[0].t, dur = smp[smp.length - 1].t - T0, rate = (smp.length - 1) / Math.max(1e-9, dur);
+    const cues = HTL.cueGap((o.cues || []).filter((c) => Math.abs(c.m) <= HT.maxOrder));
+    let end = t0 + dur, log;
+    const counts = { notes: 0, reps: 0, cracks: 0 };
+    if (!glide) {
+      log = HTL.events(smp, { n: N, cues, t0: t0 - T0, rate });
+      for (const e of log) end = Math.max(end, htRender(G, e, e.at, 'events', tag, false));
+      counts.notes = log.counts.notes; counts.reps = log.counts.reps; counts.cracks = log.counts.cracks;
+    } else {
+      const gc = HTL.glideCtl(smp, { n: N, t0: t0 - T0, rate });
+      log = gc.cracks;
+      for (const e of log) if (e.k === 'crack') { counts.cracks++; htRender(G, e, e.at, 'events', tag, true); }
+      G.synth.post(gc.ctl.map((c) => Object.assign({ k: 'gl', tier: TI.events, tag }, c)));
+      end += HT.GL4.tail;
+      log.glide = gc;
+    }
+    for (const c of cues) { htCue(c, glide, t0 + c.t - T0, 'events'); log.push({ t: c.t, at: t0 + c.t - T0, k: c.zero ? 'cue:zero' : 'cue:pole', m: c.m }); }
+    for (const q of o.queries || []) { const c = 12 * (((q.phi % 1) + 1) % 1), db = HTL.law(q.ln), at = t0 + q.t - T0; if (glide) htQueryBowed(G, at, c, db, q.pan, 'events', tag); else htNote(G, at, c, db, 0, q.pan, 'events', tag, false); log.push({ t: q.t, at, k: 'query', c, db }); }
+    alongN++;
+    busy(end + 1);
+    return { t0, dur, now: () => ctx.currentTime, mode: glide ? 'glide' : 'notes', counts, log };
+  }
+
+  // ---- the live stream: Sound.hear
+  const HH = { live: HTL.Live({ n: HT.n }), off: null, timer: 0, logFn: null, lastOnset: -1e9, gl: { on: false, until: 0, at: 0, rel: 0 }, counts: null };
+  const hc0 = () => ({ notes: 0, merged: 0, late: 0, reps: 0, deferred: 0, repCue: 0, repGrace: 0, cracks: 0, cutMerged: 0, dUp: 0, dDown: 0, seats: 0 });
+  HH.counts = hc0();
+  const hearOk = () => !!(AC && P.on && P.sonify && !hidden && canSchedule());
+  // A(t): the stroke's audio time for probe time t (spec 3.12): one offset per stroke, never decreasing, so that A(t)
+  // is never in the past and never more than LEAD + 0.1 s ahead
+  function hearAt(t) {
+    const now = ctx.currentTime, lo = now + LEAD - t, hi = now + LEAD + 0.1 - t;
+    if (HH.off == null) HH.off = now + LEAD + 1 / 60 - t;
+    HH.off = clamp(Math.max(HH.off, lo), lo, hi);
+    return t + HH.off;
+  }
+  function hearLog(e) { if (HH.logFn) { try { HH.logFn(e); } catch (x) { /* the subscriber's */ } } }
+  function hearOut(evs) {
+    const glide = glideOn();
+    let end = 0;
+    for (const e of evs) {
+      const at = Math.max(hearAt(e.t), ctx.currentTime + LEAD);
+      e.at = at;
+      const k = e.k, C = HH.counts;
+      if (k === 'note') C.notes++; else if (k === 'merged') { C.merged++; if (e.late) C.late++; } else if (k === 'rep') { C.reps++; if (e.defer) C.deferred++; }
+      else if (k === 'rep-cue') C.repCue++; else if (k === 'rep-grace') C.repGrace++; else if (k === 'crack') C.cracks++; else if (k === 'cut-merged') C.cutMerged++;
+      if (k === 'note' || k === 'rep' || k === 'cutnote' || k === 'crack') { end = Math.max(end, htRender(G, e, at, 'sonify', 'hear', glide)); if (!glide || k === 'crack') HH.lastOnset = Math.max(HH.lastOnset, at); }
+      hearLog(e);
+    }
+    if (end) busy(end);
+  }
+  function hearGl(gl, mode, t, fade) {
+    if (!gl || !glideOn() || !G.synth) return;
+    const at = Math.max(hearAt(t), ctx.currentTime + LEAD), until = gl.until > t ? at + (gl.until - t) : at;
+    const c = { k: 'gl', at, phi: gl.phi, mode, a: gl.a, b: gl.b, pan: clamp(gl.pan || 0, -HT.PAN_MAX, HT.PAN_MAX), until, rel: gl.rel || 0, fade: fade ? 1 : 0, tier: TI.sonify, tag: 'hear' };
+    G.synth.post([c]);
+    HH.gl = { on: until > at, until, at, rel: gl.rel || HT.GL4.t60 };
+    busy(until + 2);
+    hearLog(Object.assign({}, c, { k: 'gl' }));
+  }
+  // a timer for what waits (a repeat's 30 ms grace decision, a deferred repeat's due time), on the page clock
+  function hearTimer(tNow) {
+    clearTimeout(HH.timer); HH.timer = 0;
+    const p = HH.live.pending();
+    if (p == null) return;
+    const base = performance.now() / 1000 - tNow;
+    HH.timer = setTimeout(() => { HH.timer = 0; if (!hearOk()) return; const t = performance.now() / 1000 - base; hearOut(HH.live.flush(t)); hearTimer(t); }, Math.max(1, (p - tNow) * 1000 + 1));
+  }
+  const glEnvNow = () => { if (!ctx || !HH.gl.until) return 0; const now = ctx.currentTime; if (now < HH.gl.until) return 1; return Math.exp(-6.9078 * (now - HH.gl.until) / (HH.gl.rel || HT.GL4.t60)); };
+  function hearSmp(s) { return { t: +s.t, phi: +s.phi, ln: +s.ln, pan: clamp(+s.pan || 0, -HT.PAN_MAX, HT.PAN_MAX), n: s.n | 0 || HT.n, src: s.src || 'hand' }; }
+  const R0 = () => ({ arg: 0, mod: 0, dUp: 0, dDown: 0 });
+  function hearCall(kind, s) {
+    if (!hearOk()) { if (HH.live.stroke) hearGap(s && s.t); return null; }
+    const smp = hearSmp(s);
+    if (!Number.isFinite(smp.t) || !Number.isFinite(smp.phi) || !Number.isFinite(smp.ln)) { hearGap(smp.t); return null; }
+    const wasOpen = HH.live.stroke, ringing = glEnvNow() > 1e-4;
+    if (kind === 'seat' || !wasOpen) HH.off = null;
+    const r = HH.live[kind](smp);
+    if (kind === 'seat' || !wasOpen) HH.counts.seats++;
+    hearOut(r.ev);
+    const mode = kind === 'cut' ? 'cut' : kind === 'seat' || !wasOpen || (r.r && r.r.leap) ? 'seat' : smp.src === 'key' ? 'step' : 'slew';
+    hearGl(r.gl, mode, smp.t, mode === 'seat' && ringing);
+    HH.counts.dUp += r.r.dUp || 0; HH.counts.dDown += r.r.dDown || 0;
+    hearTimer(smp.t);
+    return Object.assign(R0(), r.r);
+  }
+  function hearGap(t) {
+    const tt = Number.isFinite(t) ? t : performance.now() / 1000;
+    // the Glide's gate closes now: it rings down (T60 0.8 s, or 0.2 s after a key stroke)
+    if (HH.live.stroke && ctx) { hearOut(HH.live.gap(tt).ev); if (glideOn() && G.synth && HH.gl.until > ctx.currentTime) { const now = ctx.currentTime + LEAD; G.synth.post([{ k: 'gl', at: now, mode: 'close', until: now }]); HH.gl.until = now; hearLog({ k: 'gl', at: now, mode: 'close', until: now }); } }
+    else HH.live.gap(tt);
+    clearTimeout(HH.timer); HH.timer = 0; HH.off = null;
+  }
+  function hearEnd() {
+    HH.live.end(); clearTimeout(HH.timer); HH.timer = 0; HH.off = null;
+    if (G && G.synth && ctx) G.synth.post([{ k: 'gl', at: ctx.currentTime + LEAD, mode: 'stop' }]);
+    HH.gl = { on: false, until: 0, at: 0, rel: 0 };
+  }
+  const hear = {
+    seat: (s) => hearCall('seat', s),
+    step: (s) => hearCall('step', s),
+    cut: (s) => hearCall('cut', s),
+    pathless: (s) => hearCall('pathless', s),
+    gap: (t) => { hearGap(t); },
+    cue(c) {
+      if (!c || !hearOk()) return null;
+      if (Math.abs(c.m) > HT.maxOrder) return 'over';
+      const r = htCue(c, glideOn());
+      if (r === 'played') { HH.live.cue({ t: +c.t, m: Math.round(Math.abs(c.m)), zero: !!c.zero }); hearLog({ k: c.zero ? 'cue:zero' : 'cue:pole', t: c.t, m: c.m }); }
+      return r;
+    },
+    query(q) {
+      if (!q || !hearOk()) return false;
+      const phi = +q.phi, ln = +q.ln;
+      if (!Number.isFinite(phi) || Number.isNaN(ln)) return false;
+      const at = ctx.currentTime + LEAD, c = 12 * (((phi % 1) + 1) % 1), db = HTL.law(ln);
+      const end = glideOn() ? htQueryBowed(G, at, c, db, q.pan, 'sonify', 'hearq') : htNote(G, at, c, db, 0, q.pan, 'sonify', 'hearq', false);
+      HH.lastOnset = at; busy(end); hearLog({ k: 'query', t: performance.now() / 1000, at, c, db });
+      return true;
+    },
+    end: hearEnd,
+    state() {
+      const s = HH.live.state();
+      return { mode: glideOn() ? 'glide' : 'notes', stroke: s.stroke, src: s.src, held: s.held, pend: s.pend, lastNote: s.lastNote, lastRep: s.lastRep, lastCrack: s.lastCrack,
+        glide: { on: glEnvNow() >= 1, until: HH.gl.until, env: glEnvNow() }, counts: Object.assign({}, HH.counts) };
+    },
+    active: () => !!ctx && (ctx.currentTime - HH.lastOnset < HT.active || (glideOn() && glEnvNow() > 0.5)),
+    log: (fn) => { HH.logFn = typeof fn === 'function' ? fn : null; },
+  };
+  // the declared limiter's placement: bus → [a 2 ms delay until the worklet loads, then cmw-limit, 12 ms crossfade]
+  // → master; without a worklet a guarded DynamicsCompressorNode; a context without DelayNode keeps bus → master
+  const LIM_CEIL = Math.pow(10, -8.8 / 20);
+  function limitOn(g) {
+    const Lm = g.limit; if (!Lm || Lm.node || Lm.comp) return;
+    const c = g.c;
+    if (g.worklet) { try { Lm.node = new AudioWorkletNode(c, 'cmw-limit', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { ceil: LIM_CEIL } }); } catch (e) { Lm.node = null; } }
+    if (!Lm.node && c.createDynamicsCompressor) { try { const k = c.createDynamicsCompressor(); k.threshold.value = -8.8; k.knee.value = 0; k.ratio.value = 20; k.attack.value = 0.002; k.release.value = 0.15; Lm.comp = k; } catch (e) { Lm.comp = null; } }
+    const nd = Lm.node || Lm.comp; if (!nd) return;
+    Lm.lg = c.createGain(); Lm.lg.gain.value = 0; g.bus.connect(nd); nd.connect(Lm.lg); Lm.lg.connect(g.master);
+    if (g.offline) { Lm.lg.gain.value = 1; Lm.dg.gain.value = 0; return; }
+    const t = c.currentTime + LEAD;
+    try { Lm.lg.gain.setValueCurveAtTime(FADE_UP, t, 0.012); Lm.dg.gain.setValueCurveAtTime(FADE_DN, t, 0.012); } catch (e) { Lm.lg.gain.value = 1; Lm.dg.gain.value = 0; }
+  }
+  function limitStat() {
+    const nd = G && G.limit && G.limit.node;
+    if (!nd || !nd.port) return Promise.resolve(null);
+    return new Promise((res) => { const prev = nd.port.onmessage; let done = false; nd.port.onmessage = (e) => { if (done) return; done = true; nd.port.onmessage = prev; res(e.data); }; nd.port.postMessage('stat'); setTimeout(() => { if (!done) { done = true; res(null); } }, 500); });
+  }
+
   // ---------------------------------------------------------------- settings
   function set(o, opts = {}) {
-    const was = P.on;
+    const was = P.on, wasGlide = P.glide, wasSonify = P.sonify;
     for (const k in o) if (k in DEFAULTS && typeof o[k] === typeof DEFAULTS[k]) P[k] = k === 'vol' ? clamp(o[k], 0, 1) : o[k];
     save();
     if (P.on && !was) { activated = true; lastGesture = performance.now(); ensure(); applyGains(true); if (!opts.quiet) play('toggleOn', { force: true, grace: true }); }
@@ -1273,6 +2055,8 @@ registerProcessor('cmw-voice', Voice);`;
       setTimeout(() => { if (!P.on && ctx && ctx.state === 'running') ctx.suspend().then(emit, () => {}); }, 60);
     } else applyGains();
     if (!P.sonify) HP.c = null;
+    // a mode change, or Hear the function off: the stroke ends (the next call seats)
+    if (P.glide !== wasGlide || (wasSonify && !P.sonify)) hearEnd();
     emit();
   }
 
@@ -1298,6 +2082,7 @@ registerProcessor('cmw-voice', Voice);`;
     const rate = opts.rate || 48000, c = new OfflineAudioContext(2, Math.ceil(dur * rate), rate), g = graph(c, opts.vol != null ? opts.vol : 1, { allOn: true, noClip: opts.noClip });
     g.offline = true; g.worklet = !opts.nodes && await loadWorklet(c); g.engine = g.worklet ? 'worklet' : 'nodes';
     if (g.worklet) g.synth = makeSynth(g);
+    limitOn(g);
     fn(g, 0.01, c);
     for (const f of g.flush) f();
     return c.startRendering();
@@ -1310,8 +2095,9 @@ registerProcessor('cmw-voice', Voice);`;
     harpStep, harpNote, pieceNote, Harp, cellOf, alongCount, curveAmps, singable, sing, singCmds, singOff, singState: () => ({ on: singOn, tier: singTier }),
     set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
     heightVoice, render, graph, cueTo, CATALOG, TRIM, MAT, LV, HV, HeightVoice, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, LIB, WORKLET_SRC,
+    hear, along, HT: HTL, htNote, htCrack,
     seed: (n) => { seedBase = n >>> 0; cueN = 0; }, cueHook: (f) => { cueHook = f || null; },
-    stat: () => (G && G.synth ? G.synth.stat() : Promise.resolve(null)),
+    stat: () => Promise.all([G && G.synth ? G.synth.stat() : Promise.resolve(null), limitStat()]).then(([a, b]) => (a || b ? Object.assign({}, a, { limit: b ? { actedPct: b.n ? 100 * b.acted / b.n : 0, minDb: 20 * Math.log10(b.minG) } : null }) : null)),
     debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, synth: !!(G && G.synth), queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
   };
 })();
