@@ -468,7 +468,6 @@ const Phone = (() => {
     rootEl.classList.remove('ph-ride');
     // this view's options go back to the app (it keeps them for its own popover)
     els.viewOpts.replaceChildren();
-    if (els.morphKids) { for (const [el, ph] of els.morphKids) { if (ph.parentNode) { ph.parentNode.insertBefore(el, ph); ph.remove(); } } els.morphKids = null; }
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
     rootEl.classList.remove('ph-sheet-on');
@@ -510,16 +509,6 @@ const Phone = (() => {
     els.dispSide = side;
     const kids = A.footKids(side);
     els.viewOpts.replaceChildren(...kids);
-    // in the deformation, its order and its loop (the transport row keeps play, the scrubber, the speed and Paths)
-    if (A.morphOn()) {
-      const dock = document.querySelector('.tdock:not([hidden])');
-      if (dock) {
-        els.morphKids = [];
-        for (const el of dock.querySelectorAll(':scope > select, :scope > .check, :scope > .trange')) {   // (v16: and the Deformed steps row)
-          const ph = document.createComment('phone'); el.parentNode.insertBefore(ph, el); els.morphKids.push([el, ph]); els.viewOpts.append(el);
-        }
-      }
-    }
     els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
   }
 
