@@ -378,7 +378,9 @@ const Params = (() => {
   const CSS = `
 .prm { display: flex; flex-direction: column; min-height: 240px; min-width: 0; }
 .prm > h2 { flex: 0 0 auto; min-height: 28px; margin: 0 0 4px; }
-.prm-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+.prm-list { flex: 0 1 auto; overflow-y: auto; min-height: 0; }
+/* ([v16.5 fix user-5] the list takes its own height, so + Number sits right under the last number or the hint, never at
+   the section's foot; a long list still scrolls) */
 .prm-row { display: grid; grid-template-rows: 24px 20px; row-gap: 4px; padding: 2px 0 6px; min-height: 56px; box-sizing: border-box; border-bottom: 1px solid var(--line); }
 .prm-row:last-child { border-bottom: 0; }
 .prm-l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -434,7 +436,14 @@ const Params = (() => {
     draw(m);
     return { el, refresh: () => draw(m), destroy: () => { mounts.delete(m); el.innerHTML = ''; } };
   }
+  // [v16.5 fix user-1] the "Not used yet" line follows the chain: which numbers nothing uses, and the step Use in would
+  // take; the app calls syncUnused when the chain or the selected step changes, and the panel redraws only when that
+  // changed (a step added with its number in one undo step, from the palette, used to leave the line stale)
+  let unusedSig = null;
+  const unusedKey = () => arr().map((p) => (usedBy(p.name).length ? '' : p.name + '>' + (((host && host.useIn && host.useIn(p.name)) || {}).label || ''))).join('|');
+  function syncUnused() { if (!mounts.size) return; const k = unusedKey(); if (k !== unusedSig) render(); }
   function render(skip) {
+    if (!skip) unusedSig = unusedKey();
     for (const m of mounts) {
       if (!m.el.isConnected) continue;   // (review regress-7: a detached mount is never drawn)
       // while a slider of the panel is dragged, only the other rows' values follow (the row being dragged keeps its DOM)
@@ -456,12 +465,13 @@ const Params = (() => {
     const el = m.el;
     const focus = document.activeElement && el.contains(document.activeElement) ? document.activeElement.dataset.prmFocus : null;
     el.innerHTML = '';
-    const sec = h('section', { class: 'psec prm', 'aria-label': $t('Parameters') });
+    // (v16.5 UX65: one name, Numbers, for the section, the key, the hint and the button)
+    const sec = h('section', { class: 'psec prm', 'aria-label': $t('Numbers') });
     // (review design-17: one add control, + Number at the end of the list)
-    sec.append(h('h2', null, h('span', { class: 'grow' }, $t('Parameters'))));
+    sec.append(h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))));
     const listEl = h('div', { class: 'prm-list', role: 'list' });
     const a = arr();
-    if (!a.length && !m.adding) listEl.append(h('div', { class: 'prm-empty', html: $t('Shared numbers: type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.') }));
+    if (!a.length && !m.adding) listEl.append(h('div', { class: 'prm-empty', html: $t('Type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.') }));
     for (const p of a) listEl.append(row(m, p));
     sec.append(listEl);
     if (m.adding) sec.append(newRow(m));
@@ -471,7 +481,8 @@ const Params = (() => {
   }
   const CSS_ESC = (s) => (typeof CSS !== 'undefined' && window.CSS && window.CSS.escape ? window.CSS.escape(s) : String(s).replace(/"/g, '\\"'));
   function newRow(m) {
-    const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), placeholder: 'a', spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
+    // (v16.5 UX32: the next free letter is there as real text, selected: Add works at once, and typing replaces it)
+    const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), value: nextFree(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
     const err = h('div', { class: 'prm-err', role: 'alert' });
     const ok = () => {
       const c = check(inp.value);
@@ -486,8 +497,13 @@ const Params = (() => {
     const box = h('div', { class: 'prm-new' }, h('span', { class: 'prm-eq' }, $t('Name')), inp,
       h('button', { class: 'btn small', type: 'button', onclick: ok }, $t('Add')),
       h('button', { class: 'btn ghost small', type: 'button', onclick: () => { m.adding = false; draw(m); } }, $t('Cancel')));
-    setTimeout(() => { if (inp.isConnected) inp.focus(); }, 0);
+    setTimeout(() => { if (inp.isConnected) { inp.focus(); inp.select(); } }, 0);
     return h('div', null, box, err);
+  }
+  // (v16.5 UX32) the first letter not taken by a number or by the app: a, b, c, …
+  function nextFree() {
+    for (const c of 'abcdghkmnpqrstuvαβγλμρ') if (!check(c).error) return c;
+    return '';
   }
   const commit = () => { if (host && host.commit) host.commit(); };
   const announce = (msg) => { if (host && host.announce) host.announce(msg); };
@@ -540,6 +556,12 @@ const Params = (() => {
     }
     if (p._err) showErr(p._err);
     r.append(err);
+    // (v16.5 UX65: a number nothing uses yet says so, and offers the way in: + a in a formula step)
+    if (!usedBy(nm).length) {
+      const use = host && host.useIn ? host.useIn(nm) : null;
+      r.append(h('div', { class: 'prm-unused' }, h('span', { class: 'prm-note' }, use ? $t('Not used yet.') : $t('Not used yet: type {x} in a formula.', { x: d })),
+        use ? h('button', { class: 'btn ghost small prm-use', type: 'button', onclick: () => use.run() }, use.label) : null));
+    }
     if (m.ask && m.ask.name === nm) r.append(askDelete(m, p));
     return r;
   }
@@ -651,7 +673,7 @@ const Params = (() => {
 
   return {
     mount, list, get, set, on, install, attach, add, remove, rename, check, canon, display, tex, namesIn, unknownIn, resolve, replaceName,
-    evalReal, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render,
+    evalReal, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused,
     encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; },
   };
 })();

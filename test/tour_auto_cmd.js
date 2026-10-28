@@ -75,6 +75,9 @@ at = await advancedAt('views/switch', t0);
 check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
 // Phase key: a check; an input at +2 s restarts the countdown
 await go('views', 4);
+// (v16.5 UX20: on a desktop Y's options are behind its Display options button in the pane head: it is opened first)
+const ob = await center('#rightFoot .opts-btn');
+if (ob) { await click(ob[0], ob[1]); await sleep(400); }
 const kc = await center('#wKeyChkR');
 check('key: the Phase key check is there', !!kc, kc);
 if (kc) {
@@ -86,6 +89,8 @@ if (kc) {
   at = await advancedAt('views/key', Date.now());
   check('key: a wheel at +2 s moves the advance to 3 s after it', near(at, 3000, 200), at);
 }
+// (v16.5: the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
+await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
 try {
 // a hold: the palette left open 6 s (Palette and keys: its task is done when it opens)
 await go('keys', 0);
@@ -288,7 +293,8 @@ const pt = await center('.ts-text');
 await tap(pt[0], pt[1]); await settle(300);
 const why = await ev(`(() => { const w = document.querySelector('#tourWhy'), b = w.getBoundingClientRect(); return { open: !w.hidden, h: b.height, max: innerHeight / 2 }; })()`);
 check('phone: Why opens a panel at most half the screen', why.open && why.h > 40 && why.h <= why.max + 1, why);
-await tdrag(a.r - 60, a.b - 160, a.r - 140, a.b - 110);
+// (v16.5 UX38: the plane's keys are one column at the bottom right of a phone's plane: the pan starts left of it)
+await tdrag(a.r - 160, a.b - 160, a.r - 240, a.b - 110);
 check('phone: a touch in X folds Why and reaches the app (the pan ticks the task)', await ev(`document.querySelector('#tourWhy').hidden && document.querySelector('.ts-l2').classList.contains('done')`));
 await ev('Tour.stop()'); await settle(300);
 

@@ -7,6 +7,10 @@
 html:not(.ph) .ph-only { display: none !important; }
 :root.ph { --ph-head: 56px; --ph-chain: 64px; --ph-row: 56px; --ph-safe-b: env(safe-area-inset-bottom, 0px); --ruler: 14px; overflow: hidden; height: 100%; }
 :root.ph body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+/* v16.5 UX13: a pinch on the app's own controls (the header, the chain bar, the tool row, a sheet, a menu) never zooms
+   the page; one finger still scrolls what scrolls. The planes keep their own pinch: their canvases take every touch
+   (touch-action: none) and zoom the plane */
+:root.ph body { touch-action: pan-x pan-y; }
 /* (fixed to the viewport: a host page that pads its root for the notch would otherwise push the app down by the inset
    a second time, under the sheets, which are placed from the viewport) */
 :root.ph #app {
@@ -57,6 +61,19 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .pane.ph-inset .ruler, :root.ph .pane.ph-inset .ruler-corner, :root.ph .pane.ph-inset .tdock,
 :root.ph .pane.ph-inset .plot > :not(canvas) { display: none !important; }
 :root.ph .pane.ph-inset .pane-body { grid-template-columns: 0 minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 0; }
+/* (v16.5 UX93) Russian tool tiles: whole words only (the short forms of long names fit a tile), never a hyphen */
+:root.ph[data-lang="ru"] .ph-tl { hyphens: none; -webkit-hyphens: none; overflow-wrap: normal; }
+/* (the tool row's tiles too: the span keeps its words for the desktop grid and its readers; a phone shows the short
+   form, data-phl, on one line) */
+:root.ph[data-lang="ru"] #secDraw .tool > span[data-phl] { font-size: 0 !important; line-height: 0 !important; }
+:root.ph[data-lang="ru"] #secDraw .tool > span[data-phl]::after { content: attr(data-phl); display: block; font-size: 11px; line-height: 12px; white-space: nowrap; }
+:root.ph[data-lang="ru"] #secDraw .tool-more .tm-label { hyphens: none; -webkit-hyphens: none; }
+/* (v16.5 UX71) the listening chip's Stop: a 44 px target on a phone */
+:root.ph .note-chip .chip-act.chip-stop { min-height: 44px; min-width: 64px; }
+/* (v16.5 V01) a preimage appears in the inset X: it pulses once, so "Shaded in X (the inset)" points somewhere */
+:root.ph .panes > .pane.ph-inset.ph-pulse { animation: ph-inset-pulse 900ms var(--ease-out) 1; }
+@keyframes ph-inset-pulse { 35% { box-shadow: 0 0 0 4px var(--accent), var(--shadow-3); } }
+@media (prefers-reduced-motion: reduce) { :root.ph .panes > .pane.ph-inset.ph-pulse { animation: none; } }
 .ph-swap { display: none; }
 :root.ph .pane.ph-inset > .ph-swap { display: block; position: absolute; inset: 0; z-index: 20; width: 100%; height: 100%; padding: 0; margin: 0; background: transparent; border: 0; border-radius: inherit; cursor: pointer; }
 .ph-swap > .ph-tag { position: absolute; left: 6px; top: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-1); background: var(--ink); color: var(--bg); font: italic 600 14px/20px var(--f-math); }
@@ -76,8 +93,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the title chip: the plane in math type, then the scale (or the probe) */
 :root.ph .chip.readout { top: 8px; left: 8px; height: 28px; line-height: 26px; max-width: calc(100% - 72px); pointer-events: none; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 72px); }
-:root.ph #leftReadout::before { content: "z"; margin-right: 8px; font: italic 500 15px/1 var(--f-math); color: var(--ink); }
-:root.ph #rightReadout::before { content: "w = F(z)"; margin-right: 8px; font: italic 500 15px/1 var(--f-math); color: var(--ink); word-spacing: -1px; }
+/* [v16.5 UX27, UX10] the big plane's chip is tagged by the plane's one name, X (Y after a swap); the readout itself says
+   z = … and w = F(z) = … (no doubled z) */
+:root.ph #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+:root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
+:root.ph .chip.readout > .rln { grid-column: 2; }
 :root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)::before { content: "z \2192  w"; }
 :root.ph:not(:has(#viewSwitch > [data-mode="xy"].on)) :is(#leftReadout, #rightReadout)::before { content: none; }
 /* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
@@ -188,6 +210,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-morph .tdock .seg::before { display: none; }
 :root.ph.ph-morph .tdock .tread { font-size: 11px; max-width: 64px; overflow: hidden; }
 :root.ph.ph-morph .tdock > .tclose { margin-left: 0; width: 44px; height: 44px; }
+/* v16.5 UX24: the tool row's Undo stays at the left end of the transport (the transport starts right of it; its long
+   press offers Redo). Below 440 px the readout t = … gives way: the scrubber and its ticks say where t is */
+:root.ph.ph-morph:not(.ph-land) #secDraw > .ph-undo { flex: 0 0 52px; }
+:root.ph.ph-morph:not(.ph-land) .tdock:not([hidden]) { left: 56px; padding-left: 2px; border-left: 1px solid var(--line); }
+@media (max-width: 439px) { :root.ph.ph-morph:not(.ph-land) .tdock > .tread { display: none; } }
 
 /* ---------- the sheet ---------- */
 .ph-scrim { position: fixed; inset: 0; z-index: 27; background: color-mix(in srgb, #000 32%, transparent); }
@@ -211,11 +238,22 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-st { position: relative; font: 600 15px/20px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .ph-x { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
 .ph-x svg { width: 18px; height: 18px; }
+/* v16.5 UX24: Undo in the sheet's head, left of × */
+.ph-hundo { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
+.ph-hundo svg { width: 18px; height: 18px; }
+.ph-hundo:disabled { opacity: 0.4; }
+/* (the keys keep their size; the title gives way, with an ellipsis: Russian at 360 px squeezed the Snap pill) */
+.ph-sh > .ph-pill, .ph-sh > .ph-hundo, .ph-sh > .ph-x { flex-shrink: 0; }
+.ph-sh > .ph-st { min-width: 0; flex-shrink: 1; }
 .ph-mark { display: none; }
 .ph-sheet[data-k="more"] .ph-mark:not([hidden]) { display: block; position: relative; width: 24px; height: 24px; border: 1.5px solid var(--ink); border-radius: 5px; background: repeating-linear-gradient(90deg, transparent 0 5px, color-mix(in srgb, var(--accent) 40%, transparent) 5px 6px); }
 .ph-pill { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 22px; background: var(--surface); color: var(--ink-2); font: 600 13px/1 var(--f-ui); }
 .ph-pill[hidden] { display: none; }
 .ph-pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+/* [v16.5 UX94] Snap is a state, so a switch ("Snap ●"), not a filled action pill */
+.ph-pill.ph-snap[aria-pressed] { background: var(--surface); border-color: var(--line-strong); color: var(--ink); }
+.ph-pill.ph-snap::after { content: ""; flex: 0 0 auto; width: 30px; height: 18px; border-radius: 9px; background: var(--line-strong); box-shadow: inset 0 0 0 2px var(--surface); background-image: radial-gradient(circle at 9px 9px, var(--surface) 6px, transparent 6.5px); }
+.ph-pill.ph-snap[aria-pressed="true"]::after { background-color: var(--accent); background-image: radial-gradient(circle at 21px 9px, var(--accent-ink) 6px, transparent 6.5px); }
 .ph-pill .ph-ic svg { width: 16px; height: 16px; display: block; }
 .ph-sb { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; }
 .ph-sb[hidden] { display: none; }
@@ -313,7 +351,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (its tap area stays 44 px tall, over the head's title, clear of the head's buttons) */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 44px; z-index: 2; }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
-.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 48px; min-height: 44px; margin-top: 0; }
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
 /* design-12: Numbers shows Parameters alone, under the sheet's own head */
 .ph-sheet.nums #propsPanel > .insp-sel { display: none !important; }
@@ -346,3 +385,37 @@ html:not(.ph) .ph-only { display: none !important; }
    phone's docked row is play 44, the readout, the speed, Paths and × (about 330 px with the gaps), so below 560 px the
    scrubber cannot keep 120 px beside a label: the bracket above the cards says the same. (app.js also measures it.) */
 @media (max-width: 559px) { :root.ph .tdock .tfix { display: none; } }
+
+/* ---------- v16.5 (notes/ux-audit, wave 1, phone) ---------- */
+/* UX29: the function list: Cancel at the right of the search row, 48 px rows, the insert position a 44 px chip */
+:root.ph .pal-head { flex-basis: 52px; padding-right: 4px; }
+:root.ph .pal-head > .pal-input { min-width: 0; flex: 1 1 auto; }
+:root.ph .pal-cancel { flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px; background: none; border: 0; border-radius: var(--r-2); color: var(--accent-text, var(--accent)); font: 600 15px/1 var(--f-ui); }
+:root.ph .pal-atrow { flex: 0 0 auto; display: flex; padding: 4px 12px 6px; border-bottom: 1px solid var(--line); }
+:root.ph .pal-at { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 14px; background: var(--well); border: 1px solid var(--line-strong); border-radius: 22px; color: var(--ink); font: 500 14px/1 var(--f-ui); }
+:root.ph .pal-at i { font: italic 500 15px/16px var(--f-math); }
+:root.ph .pal-at sub { font-size: 10px; }
+:root.ph .pal-at-ic { display: inline-grid; place-items: center; color: var(--ink-2); }
+:root.ph .pal-at-ic svg { width: 14px; height: 14px; }
+:root.ph .pal-item { height: auto; min-height: 48px; }
+/* UX45: the Shapes list in the sheet: 48 px rows, the eye and ⋯ side by side (44 px each, 4 px apart) with a 16 px
+   gutter at the right edge, the description on its own line under the name */
+:root.ph .ph-sheet .shape-row { grid-template-columns: 20px minmax(0, 1fr) 44px 44px; column-gap: 4px; height: auto; min-height: 48px; padding: 2px 16px 2px 8px; }
+:root.ph .ph-sheet .shape-row > .icon-btn { margin: 0; }
+:root.ph .ph-sheet .shape-name { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding: 4px 0; white-space: normal; -webkit-mask-image: none; mask-image: none; }
+:root.ph .ph-sheet .shape-name .k { font-size: 14px; line-height: 18px; }
+:root.ph .ph-sheet .shape-name .d { flex: 1 0 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; line-height: 16px; }
+/* UX38: the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
+   lacks leaves its slot empty, so the others never move); keys and legends of the picture stay at the top right.
+   (Wave 2 puts Both on top of this column.) */
+:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: 60px; right: 8px; }
+:root.ph .viewstack { right: 8px; bottom: 8px; }
+/* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler)); }
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler)); }
+/* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
+   end, so its last field can scroll above the keyboard */
+:root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
+/* UX40: the long press, taught inside the More tools sheet (a tip line under the tiles) */
+.ph-tip { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 8px 4px 4px; padding: 0; font: 400 13px/18px var(--f-ui); color: var(--muted); text-wrap: pretty; }
+.ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }

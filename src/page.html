@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
 <script>
 /* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
@@ -72,6 +72,8 @@
   /* type */
   --f-ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
   --f-mono: "B612 Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* [v16.5 UX105] typed input: round parentheses and a tight decimal point (B612 Mono's "(" reads as "[", "0.5" as "0. 5") */
+  --f-input: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --f-math: "STIX Two Text", "STIX Two Math", "Cambria Math", "Times New Roman", serif;
   --t-micro: 400 10px/12px var(--f-mono);
   --t-caption: semi-condensed 600 11px/14px var(--f-ui);
@@ -242,6 +244,31 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top .snd-btn { display: inline-flex; align-items: center; gap: 5px; width: auto; padding: 0 6px 0 6px; border-radius: var(--r-2) 0 0 var(--r-2); font: var(--t-label); }
 .top .snd-caret { width: 17px; margin-left: -8px; border-radius: 0 var(--r-2) var(--r-2) 0; }
 .top .snd-caret::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 1px; background: var(--line); }
+/* (v16.5 UX87) the settings caret: 26 px, 2 px from the switch, so aiming for it never turns the sound off */
+:root:not(.ph) .top .snd-caret { width: 26px; margin-left: -2px; border-radius: var(--r-2); }
+:root:not(.ph) .top .snd-caret::before { content: none; }
+:root:not(.ph) .top .snd-btn { border-radius: var(--r-2); }
+:root:not(.ph) .top .snd-caret .ic-slot svg { width: 12px; height: 12px; }
+/* (v16.5 UX70) while Hear the function is on, a small wave on the Sound button (and the phone's speaker) */
+.snd-btn[data-hear="on"]::after, .snd-ph[data-hear="on"]::after { content: ""; flex: 0 0 12px; width: 12px; height: 8px; background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M.75 4c1.4-3.6 2.6-3.6 3.5 0s2.1 3.6 3.5 0 2.6-3.6 3.5 0' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M.75 4c1.4-3.6 2.6-3.6 3.5 0s2.1 3.6 3.5 0 2.6-3.6 3.5 0' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+.snd-ph[data-hear="on"] { position: relative; }
+.snd-ph[data-hear="on"]::after { position: absolute; right: 4px; bottom: 6px; }
+/* (v16.5 UX70, UX88) Hear the function first; its music theory, and the engine's line, folded */
+.snd-hear { margin-top: 2px; border-bottom: 1px solid var(--line); }
+.snd-fine-touch { display: none; }
+@media (pointer: coarse) { .snd-fine-ptr { display: none; } .snd-fine-touch { display: inline; } .snd-keys { display: none; } }
+.snd-more, .snd-diag { margin: 2px 0 4px; font: 400 11.5px/15px var(--f-ui); color: var(--muted); }
+.snd-more > summary, .snd-diag > summary { cursor: pointer; min-height: 24px; display: flex; align-items: center; font: var(--t-label); color: var(--ink-2); }
+.snd-diag { margin-top: 6px; }
+.snd-more > .snd-fine { margin: 2px 0 6px 24px; }
+/* (a disclosure caret: "How it sounds" sits under Hear the function's words, Diagnostics at the end) */
+.snd-more > summary { margin-left: 24px; }
+.snd-more > summary, .snd-diag > summary { list-style: none; gap: 6px; }
+.snd-more > summary::-webkit-details-marker, .snd-diag > summary::-webkit-details-marker { display: none; }
+.snd-more > summary::before, .snd-diag > summary::before { content: ""; flex: 0 0 auto; width: 0; height: 0; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform var(--t-fast, 120ms) var(--ease-out, ease-out); }
+.snd-more[open] > summary::before, .snd-diag[open] > summary::before { transform: rotate(90deg); }
 .top .snd-caret .ic-slot svg { width: 11px; height: 11px; }
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
@@ -422,14 +449,20 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .led.err { background: var(--error); }
 @keyframes led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @container pane (max-width: 519px) {
-  .seg.modes > button > span { display: none; }
-  .seg.modes > button { padding: 0 7px; }
+  .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
+  .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
 }
-.pane.narrow .seg.modes > button > span { display: none; }
-.pane.narrow .seg.modes > button { padding: 0 7px; }
+.pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
+.pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
+/* [v16.5 UX37] "Plane | Sphere" in words at every width (the pane title shortens first, app.js fitTitle); a narrow pane
+   drops the icons, never the words */
+.pane.narrow :is(#leftTabs, #rightTabs) > button > svg { display: none; }
+.pane.narrow :is(#leftTabs, #rightTabs) > button { padding: 0 8px; }
+:is(#leftTabs, #rightTabs) > button { min-height: 28px; }
 /* the right title stays beside the icon-only modes while it fits (app.js fitRightTitle): first the role text
    goes (it would be cut to a few letters), then the whole title on a very narrow plate */
 .pane-title.terse .prole { display: none; }
+.pane-title.notag .ptag { display: none; }   /* (wave 1 merge: the X / Y tag gives way before the title, fitTitle) */
 .prole .rs, .pane-title.short .prole .rf { display: none; }
 .pane-title.short .prole .rs { display: inline; }
 .pane.tiny .pane-title { display: none; }
@@ -468,6 +501,14 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   cursor: copy; transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 .chip.readout:empty { display: none; }
+/* [v16.5 UX10] the probe's one readout: z on the first line, w = F(z) on the second */
+.chip.readout:has(> .rln) { height: auto; line-height: 18px; padding-top: 2px; padding-bottom: 2px; }
+:root.ph .chip.readout:has(> .rln) { height: auto; line-height: 20px; padding-top: 3px; padding-bottom: 3px; }
+.chip.readout > .rln { display: block; overflow: hidden; text-overflow: ellipsis; }
+.chip.readout .rteach { margin-left: 8px; }
+/* ([v16.5 fix user-4] the hold-and-slide line is never cut: it drops to a second line of the chip, whole) */
+.chip.readout:has(> .rteach) { height: auto; white-space: normal; line-height: 20px; padding-top: 2px; padding-bottom: 2px; }
+.chip.readout .rteach { display: inline-block; white-space: nowrap; }
 .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 164px); }
 /* On a plate narrower than readout + legend (about 560px), the readout takes the full top row and the
    legend drops below it, so the probe values are never cut off. */
@@ -689,6 +730,18 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot:has(> .draft-chip:not([hidden])) > .empty-chip:not(.draft-chip) { visibility: hidden; }
 /* below the legend chip (8 + 72 + 8) when it shows, so the two never overlap on a narrow plate */
 .plot:has(> .legend-chip:not([hidden], .collapsed)) > .empty-chip { top: 88px; }
+/* [v16.5 UX10] X's readout may take two lines (z, then w = F(z)) while the pointer is over X: what floats below it there
+   always starts below both lines, so nothing moves when the pointer comes and goes */
+:root:not(.ph) #plotL > .empty-chip { top: 58px; }
+:root:not(.ph) #plotL:has(> .legend-chip:not([hidden], .collapsed)) > .empty-chip { top: 88px; }
+/* [v16.5 UX14] the phone's polygon chip sits where the construction chip does: at the left, clear of the plane's round
+   buttons, on two lines rather than under them */
+:root.ph :is(#draftChipL, #draftChipR):not(.cm-on) { left: 8px; translate: none; max-width: calc(100% - 68px); width: max-content; height: auto; min-height: 32px; padding-top: 4px; padding-bottom: 4px; white-space: normal; line-height: 1.3; text-wrap: balance; }
+@container pane (max-width: 559px) {
+  :root:not(.ph) .pane #plotL > .legend-chip { top: 58px; }
+  :root:not(.ph) .pane #plotL:has(> .legend-chip:not([hidden], .collapsed)) > .empty-chip { top: 138px; }
+  :root:not(.ph) .pane #plotL:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 138px; }
+}
 
 /* ---------- 5.9 Function chain ---------- */
 .pipe-wrap {
@@ -794,6 +847,19 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pf .inp, .card .inp { height: 24px; width: 100%; padding: 0 6px; }
 .pf select.sel { height: 24px; width: 100%; }
 .pair { position: relative; display: flex; align-items: center; min-width: 0; }
+/* [v16.5 UX94] Snap says its state in a word: accent-filled when on, outlined when off */
+#snapBtn { display: inline-flex; align-items: center; width: auto; gap: 4px; padding: 0 7px 0 5px; border: 1px solid var(--line-strong); white-space: nowrap; }
+#snapBtn > .snap-w { font: 600 11.5px/1 var(--f-ui); letter-spacing: .01em; }
+#snapBtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+#snapBtn[aria-pressed="false"] { background: transparent; color: var(--ink-2); }
+/* [v16.5 UX67] ‹ 0 of 2 › · Show all sheets beside a step's sheet field */
+.pair > .sheet-ctl { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; flex: 0 0 auto; white-space: nowrap; }
+.sheet-ctl > .icon-btn, .pair > .sh-prev { width: 24px; height: 24px; font: 600 15px/1 var(--f-ui); color: var(--ink-2); flex: 0 0 auto; }
+.pair > .sh-prev { margin-right: 2px; }
+.sheet-ctl > .sh-of { font: var(--t-label); color: var(--ink-2); margin: 0 2px; }
+.sheet-ctl > .sh-all { margin-left: 6px; }
+:root.ph .sheet-ctl > .icon-btn, :root.ph .pair > .sh-prev { width: 44px; height: 44px; }
+:root.ph .sheet-ctl > .sh-all { min-height: 44px; }
 .pair > .inp { flex: 1 1 auto; width: 100%; }
 .pair > .inp:has(+ .argand) { padding-right: 22px; }
 .icon-btn.argand { position: absolute; right: 2px; top: 50%; translate: 0 -50%; width: 20px; height: 20px; color: var(--ink-2); }
@@ -1002,7 +1068,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .inp {
   height: 28px; min-width: 0; padding: 0 8px;
   background: var(--well); border: 1px solid var(--line); border-radius: var(--r-2);
-  font: var(--t-readout); color: var(--ink); outline: none;
+  font: var(--t-readout); font-family: var(--f-input); font-variant-numeric: tabular-nums; color: var(--ink); outline: none;
   transition: border-color var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out);
 }
 .inp::placeholder { color: var(--muted); opacity: 1; }
@@ -1165,6 +1231,9 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .pat { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 0; color: var(--muted); font: var(--t-caption); white-space: nowrap; transition: color var(--t-fast) var(--ease-out); }
 .pat > canvas { display: block; width: 52px; height: 40px; border-radius: var(--r-2); background: var(--plane); outline: 1px solid var(--line); outline-offset: -1px; }
 .pat > span { max-width: 58px; overflow: hidden; text-overflow: ellipsis; }
+/* [v16.5 UX95, UX86] a pattern's name wraps to two lines rather than being cut ("Sphere checker", "Square grid") */
+.pat { white-space: normal; }
+.pat > span { max-width: 62px; text-align: center; line-height: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .pat:hover { color: var(--ink); }
 .pat:hover > canvas { outline-color: var(--line-strong); }
 .pat.on, .pat[aria-checked="true"] { color: var(--ink); }
@@ -1202,6 +1271,13 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .shape.hidden-shape .swatch[data-kind="curve"], .shape.hidden-shape .swatch[data-kind="point"] { opacity: 0.5; }
 .shape-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .shape-edit .inp { height: 24px; padding: 0 6px; }
+/* [v16.5 UX95] the phone's Display sheet has its own title: the regions' section in it is "Regions", not "Display" again */
+#secDisplay .sd-ph { display: none; }
+:root.ph #secDisplay .sd-ph { display: inline; }
+:root.ph #secDisplay .sd-desk { display: none; }
+/* [v16.5 UX44] a complex point takes the editor's full width; numbers in figures of one width */
+.shape-edit > .field.cxf { grid-column: 1 / -1; }
+.shape-edit .inp.mono { font-variant-numeric: tabular-nums; }
 .shape-edit > .check, .shape-edit > .note, .shape-edit > .lbl, .shape-edit > .err-msg, .shape-edit > .row { grid-column: 1 / -1; }
 .shape-edit > .note, .shape-edit > .lbl { font: var(--t-label); color: var(--muted); }
 .empty-note { display: grid; gap: 8px; padding: 4px 0 2px; font: var(--t-body); color: var(--muted); text-wrap: pretty; }
@@ -1334,6 +1410,9 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .ex-thumb { display: block; flex: 0 0 48px; width: 48px; height: 32px; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--plane); }
 .ex-text { display: flex; flex-direction: column; min-width: 0; }
 .ex-name { font: 500 13px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-nl { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+.ex-snd { flex: none; font: 500 13px/18px var(--f-ui); color: var(--ink); }
+.ex-item.on .ex-snd, .ex-item[aria-current="true"] .ex-snd { color: var(--accent); }
 .ex-blurb { font: 400 11.5px/16px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ex-item.on .ex-name, .ex-item[aria-current="true"] .ex-name { color: var(--accent); }
 
@@ -1993,7 +2072,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <!-- Desktop: display:contents, so these sit in the header row (CSS order puts Examples after the divider).
          Phone: the popover is the "more" menu. popovertargetaction="hide" closes it after a choice. -->
     <div class="hdr-menu" id="hdrMenu" popover>
-      <button class="btn ghost menu-btn" id="examplesBtn" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="mlabel">Examples</span><span class="exlabel">Examples</span><span class="ic-slot" data-icon="chevD"></span></button>
+      <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
       <button class="cmd-field" id="cmdBtn" aria-label="Add function or command" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function or command</span><span class="kbd" id="cmdKbd">⌘K</span></button>
       <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Region tools  [" aria-label="Show or hide region tools" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Region tools panel</span></button>
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
@@ -2021,7 +2100,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         <span class="rail-label">Region tools</span>
       </div>
       <section class="psec" id="secDraw">
-        <h2><span class="grow">Draw</span><button class="icon-btn small" id="snapBtn" aria-pressed="true" data-tip="Snap while drawing (both panes)" aria-label="Snap while drawing"><span class="ic-slot" data-icon="snap"></span></button><button class="icon-btn" id="leftCollapse" title="Hide this panel  [" aria-label="Hide region tools"><span class="ic-slot" data-icon="chevL"></span></button></h2>
+        <h2><span class="grow">Draw</span><button class="icon-btn small" id="snapBtn" aria-pressed="true" data-tip="Snap to the grid and to figures (both panes). Hold Alt to place freely." aria-label="Snap to grid and figures"><span class="ic-slot" data-icon="snap"></span><span class="snap-w">Snap</span></button><button class="icon-btn" id="leftCollapse" title="Hide this panel  [" aria-label="Hide region tools"><span class="ic-slot" data-icon="chevL"></span></button></h2>
         <div class="tools" id="tools" role="toolbar" aria-label="Drawing tools"></div>
         <details class="tool-more" id="toolMore"><summary aria-label="More tools"><span class="ic-slot" data-icon="more"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg></span><span class="tm-label"><span class="tm-open">More</span><span class="tm-close">Done</span></span></summary></details>
       </section>
@@ -2029,7 +2108,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         <summary><h2>Region from a formula</h2></summary>
         <div class="psec-body">
           <div class="formula-row">
-            <input id="formulaInput" class="inp math-src" placeholder="|z-1| < 2" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Region formula">
+            <input id="formulaInput" class="inp math-src" placeholder="such as |z−1| < 2" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Region formula">
             <button class="btn primary" id="formulaAdd" title="Add the set (an equation adds a curve): in z as a shape, in w as a target">Add</button>
           </div>
           <div class="texprev-row"><div class="texprev" id="formulaPrev"></div><span class="btag" id="formulaPlane"></span></div>
@@ -2043,7 +2122,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
         </div>
       </details>
       <details class="psec" id="secDisplay" open>
-        <summary><h2>Display</h2></summary>
+        <summary><h2><span class="sd-desk">Display</span><span class="sd-ph">Regions</span></h2></summary>
         <div class="psec-body field-col">
           <div class="lbl">Pattern carried by the map</div>
           <div class="patterns" id="patternSeg" role="radiogroup" aria-label="Region pattern"></div>
@@ -2076,7 +2155,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerLY" aria-hidden="true"></canvas>
             <div class="plot" id="plotL">
-              <canvas id="canvasL"></canvas><canvas id="overlayL" class="overlay" aria-label="Domain plane" role="img"></canvas>
+              <canvas id="canvasL"></canvas><canvas id="overlayL" class="overlay" aria-label="X, the z-plane: domain of F" role="img"></canvas>
               <div class="hairline" id="hairL" hidden></div>
               <button class="chip readout" id="leftReadout" title="Click to copy">Hover to probe a point</button>
               <div class="legend-chip" id="leftLegend" hidden><canvas id="legendCanvasL" width="272" height="144"></canvas><label class="check key-sw" id="wKeyRow" data-tip="Paint these colours in the w-plane on the right"><input type="checkbox" id="wKeyChk"><span data-i18n="html">Key in the <i>w</i>-plane</span></label></div>
@@ -2106,7 +2185,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerRY" aria-hidden="true"></canvas>
             <div class="plot" id="plotR">
-              <canvas id="canvasR"></canvas><canvas id="overlayR" class="overlay" aria-label="Image plane" role="img"></canvas>
+              <canvas id="canvasR"></canvas><canvas id="overlayR" class="overlay" aria-label="Y, the w-plane: image of F" role="img"></canvas>
               <div class="hairline" id="hairR" hidden></div>
               <button class="chip readout" id="rightReadout" title="Click to copy"></button>
               <div class="legend-chip" id="rightLegend" hidden><canvas id="legendCanvas" width="272" height="144"></canvas></div>
@@ -2133,7 +2212,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="compose" id="composeTex"></div>
           <div class="grow"></div>
           <div class="seg small" id="chainMode" role="radiogroup" aria-label="Cards show"><button data-mode="cards" class="on" role="radio" aria-checked="true">Pictures</button><button data-mode="compact" role="radio" aria-checked="false">Names</button></div>
-          <button class="btn small" id="viewAllBtn" aria-pressed="true">Whole chain</button>
+          <button class="btn small" id="viewAllBtn" aria-pressed="true">Show F</button>
           <button class="btn ghost small" id="clearChain">Clear chain</button>
         </div>
         <div class="pipeline" id="pipeline"></div>
@@ -2152,18 +2231,21 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 </div>
 <div class="snd-pop" id="sndPop" role="dialog" aria-label="Sound settings" hidden>
   <label class="snd-row snd-main"><span>Sound</span><input type="checkbox" class="snd-switch" id="sndOn" role="switch"></label>
+  <!-- (v16.5 UX70) Hear the function first, with one line; it stays off by default. The music theory is under "How it sounds" -->
+  <label class="snd-chk snd-hear"><input type="checkbox" id="sndSo"><span><b>Hear the function</b><small><span class="snd-fine-ptr">Notes as you move the pointer over X: round a zero they rise, round a pole they fall.</span><span class="snd-fine-touch">Notes as you drag over X: round a zero they rise, round a pole they fall.</span></small></span></label>
+  <details class="snd-more"><summary>How it sounds</summary><p class="snd-fine"><span data-i18n="html">Silent while you rest; a plucked note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B): a loop round a zero plays a rising scale, round a pole a falling one, and the low Ds count its turns. A closed loop sings its winding number as one note. Cuts, zeros and poles, contours</span></p></details>
   <label class="snd-row"><span>Volume</span><input type="range" id="sndVol" min="0" max="100" step="1" aria-describedby="sndVolOut"><output id="sndVolOut">70 %</output></label>
   <fieldset class="snd-tiers"><legend>What you hear</legend>
     <p class="snd-offnote" id="sndOffNote">Sound is off: these take effect when it is on.</p>
     <label class="snd-chk"><input type="checkbox" id="sndUi"><span><b>Interface</b><small>Steps, toggles, views, export, errors: controls you operate</small></span></label>
     <label class="snd-chk sub"><input type="checkbox" id="sndSnap"><span><b>Snap ticks</b><small>A tick when a drawn point settles on the grid</small></span></label>
     <label class="snd-chk"><input type="checkbox" id="sndEv"><span><b>Mathematical events</b><small>Things you start: the deformation, a closed loop&rsquo;s winding, listening along a curve</small></span></label>
-    <label class="snd-chk"><input type="checkbox" id="sndSo"><span><b>Hear the function under the pointer</b><small><span data-i18n="html">Silent while you rest; a plucked note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B): a loop round a zero plays a rising scale, round a pole a falling one, and the low Ds count its turns. A closed loop sings its winding number as one note. Cuts, zeros and poles, contours</span></small></span></label>
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
-  <p class="snd-fine">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <!-- (v16.5 UX88) no keyboard help on a touch screen; the engine line under Diagnostics -->
+  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
-  <p class="snd-fine mono" id="sndState">Audio engine: not started</p>
+  <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>
 <div id="sndLive" class="sr-only" aria-live="polite"></div>
 <div id="popHost"></div>
