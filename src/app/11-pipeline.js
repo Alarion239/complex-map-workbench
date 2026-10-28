@@ -150,7 +150,12 @@
     const cur = homRangeOk() || { a: 1, b: nSteps() };
     if (c.a === cur.a && c.b === cur.b) return false;
     setHomRange({ a: c.a, b: c.b }, { preview });
+    if (!preview) playNewRange();
     return true;
+  }
+  // ([v17 UX64]) a bracket the user just chose plays from its start, so the change shows; not under reduced motion
+  function playNewRange() {
+    if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
   }
   function brKey(e, side, el) {
     const n = nSteps(), r = homRangeOk() || { a: 1, b: n }, v = side === 'l' ? r.a : r.b;
@@ -188,7 +193,7 @@
       const L = $('chainBracket'); if (L) L.classList.remove('drag'); el.classList.remove('drag');
       const held = brDrag && brDrag.held;
       brDrag = null;
-      if (commit) { const r = homRangeOk(); setHomRange(r ? { a: r.a, b: r.b } : null, { force: true }); }
+      if (commit) { const r = homRangeOk(); setHomRange(r ? { a: r.a, b: r.b } : null, { force: true }); playNewRange(); }
       else setHomRange(held, { force: true });
     };
     const up = () => end(true), cancel = () => end(true);
@@ -227,6 +232,7 @@
     if (S.focus > 0) setFocus(0);
     setHomRange(r);
     if (!morph.open) openTransport();
+    playNewRange();
     return null;
   }
   function regionSummary() {
