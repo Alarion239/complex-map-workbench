@@ -20,7 +20,7 @@ show results sooner and can be re-run alone).
 | GLSL on macOS, each page | 2–5 min |
 | GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: `direct,keys,compile` 34 min, its chains 2 min a quarter (see below) |
 | Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
-| Browser, each shard (Linux, lavapipe) | 7–15 min: a minute of setup and 6–14 min of suites (each suite's time is in `ci/browser_shards.js`) |
+| Browser, each of the 24 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
 
 The `adv` page splits only its chains (`main`) into parts; its other sections (`direct`, `keys`, `compile`: 12-step
 chains and the largest shaders) run whole, so in parts they ran once per part (a quarter of the page took 33–48 min,

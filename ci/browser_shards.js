@@ -14,10 +14,10 @@ const path = require('path');
 const SHARDS = [
   // (seconds of suite time on lavapipe, the fourth run of pull request #7; a job adds about a minute)
   { id: 'perp', suites: ['perp_cmd.js', 'fix163_cmd.js'] },                                                  // 447 + 336
-  { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5'] },                                // 355 + 369
-  { id: 'export-2', suites: ['export_cmd.js#4a'] },                                                        // section 4: 1114 in all
-  { id: 'export-4', suites: ['export_cmd.js#4b'] },
-  { id: 'export-3', suites: ['export_cmd.js#preview'] },                                                    // 561
+  // (export_cmd.js: the fifth run's times)
+  { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5'] },                                // 453 + 265
+  { id: 'export-2', suites: ['export_cmd.js#4a'] },                                                        // 920
+  { id: 'export-3', suites: ['export_cmd.js#preview', 'export_cmd.js#4b'] },                               // 571 + 167
   { id: 'smoke-desktop', suites: ['rel1641_smoke_cmd.js#en-1440', 'rel1641_smoke_cmd.js#ru-1440-dark'] },   // 230 + 218
   { id: 'smoke-phone', suites: ['rel1641_smoke_cmd.js#en-390-dark', 'rel1641_smoke_cmd.js#ru-390'] },        // 254 + 248
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js'] },                                       // 480 + 295
