@@ -361,12 +361,15 @@
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
-      onclick: () => { selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R'); },
+      onclick: () => { selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R', 'P'); },
       onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L', 'R'); },
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
     const box = h('div', { class: 'shape' + (selected === s.id ? ' sel' : '') + (hidden ? ' hidden-shape' : ''), 'data-id': s.id }, row);
-    const ed = selected === s.id && !s.def ? shapeEditor(s) : null;   // (v16: a construction's fields are its definition: the Inspector, ⋯)
+    // (v16: a construction's fields are its definition: the Inspector, ⋯. [v17 D4] on the laptop the Inspector edits a free
+    // shape; the row keeps its editor on a phone, with the panel hidden, and for a shape with bound handles, whose
+    // Inspector view is its construction's)
+    const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
     shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row });
     return box;
@@ -562,6 +565,49 @@
       box.append(h('div', { class: 'row snd-edit' }, h('button', { type: 'button', class: 'btn', 'data-act': 'listen-along',
         onclick: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) }, $t('Listen along it'))));
     return box;
+  }
+  // ---------------- [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4, issue #26) ----------------
+  // On the laptop the selected free shape is edited in the Inspector, with full-width fields, its Used by list and a way
+  // back to the step it replaced there; a construction keeps its own view (construct.js). The Shapes list keeps the
+  // editor under the row on a phone (its sheets) and while the Inspector panel is hidden.
+  const inspEditsShapes = () => !S.hideRight && !document.documentElement.classList.contains('ph');
+  let shapeEdWhere = null;   // (applyLayout: where the editor was last built)
+  function shapeInspSel() {
+    if (selected == null || !inspEditsShapes()) return null;
+    const s = findShape(selected);
+    return s && !s.def && !s.at ? s : null;
+  }
+  const shapeInspSig = () => { const s = shapeInspSel(); return s ? `SH#${s.id}#${rowKind(s)}#${isTarget(s) ? 'y' : 'x'}#${I18N.lang}#${selOf()}` : null; };
+  function shapeInspBuild() {
+    const s = shapeInspSel();
+    const label = Construct.shapeLabel(s);
+    const back = selOf();
+    // (‹ Back to f₂: the step, or F, the Inspector showed before the shape was selected)
+    const backBtn = back ? h('button', { type: 'button', class: 'linkbtn sh-back', onclick: () => { selected = null; buildShapeList(); requestRender('L', 'R', 'P'); },
+      html: '‹ ' + (back === 'F' ? $t('Back to {f}', { f: '<i>F</i>' }) : $t('Back to {f}', { f: fsub(back) })) }) : null;
+    const crumbs = h('div', { class: 'sh-crumbs' }, h('span', { class: 'sh-path' }, isTarget(s) ? $t('Targets') : $t('Shapes'), ' › ', label), backBtn);
+    const head = h('div', { class: 'ihead sh-ihead' }, h('span', { class: 'swatch', 'data-kind': kindType(s), style: swatchStyle(s) }), h('span', { class: 'ttl' }, label),
+      h('span', { class: 'sh-in' }, isTarget(s) ? $t('in Y') : $t('in X')));
+    const ed = shapeEditor(s);
+    const used = h('div', { class: 'cm-ichips sh-used' });
+    const acts = h('div', { class: 'sh-acts' },
+      h('button', { type: 'button', class: 'btn', onclick: () => duplicateShape(s) }, $t('Duplicate')),
+      h('button', { type: 'button', class: 'btn', onclick: () => deleteShape(s.id) }, $t('Delete')));
+    const root = h('div', { class: 'sh-insp', 'data-id': s.id }, crumbs, head, ed, h('div', { class: 'cm-ilabel' }, $t('Used by')), used, acts);
+    return { kind: 'shape', id: s.id, root, ed, used, head };
+  }
+  function shapeInspFill(E) {
+    const s = findShape(E.id);
+    if (!s) return;
+    if (E.ed._sync) E.ed._sync();
+    const sw = E.head.querySelector('.swatch'), st = swatchStyle(s);
+    if (sw.style.cssText !== st) sw.style.cssText = st;
+    const us = Construct.usedBy(s.id);
+    const sig = us.join(',') + '|' + I18N.lang;
+    if (E.used.dataset.sig === sig) return;
+    E.used.dataset.sig = sig;
+    E.used.replaceChildren(...(us.length ? us.map((id) => { const u = findShape(id); return h('button', { type: 'button', class: 'cm-chipbtn', onclick: () => { selected = id; buildShapeList(); requestRender('L', 'R', 'P'); } }, u ? Construct.shapeLabel(u) : id); })
+      : [h('span', { class: 'cm-none' }, $t('nothing yet'))]));
   }
 
   // ---------------- formula region input ----------------
