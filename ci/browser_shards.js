@@ -12,27 +12,28 @@ const path = require('path');
 
 // (a suite's runs, SUITES[f].runs in ci/browser_suites.js, may go to different shards: 'file#label')
 const SHARDS = [
-  { id: 'perp', suites: ['perp_cmd.js'] },
+  // (seconds of suite time on lavapipe, the third run of pull request #7; a job adds about a minute)
+  { id: 'perp', suites: ['perp_cmd.js', 'fix163_cmd.js'] },                                                  // 452 + 231
   { id: 'export', suites: ['export_cmd.js'] },
-  { id: 'smoke-desktop', suites: ['rel1641_smoke_cmd.js#en-1440', 'rel1641_smoke_cmd.js#ru-1440-dark'] },
-  { id: 'smoke-phone', suites: ['rel1641_smoke_cmd.js#en-390-dark', 'rel1641_smoke_cmd.js#ru-390'] },
-  { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'fix163_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },
-  { id: 'deform-range', suites: ['deform_range_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js'] },
-  { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_nat_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },
-  { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },
-  { id: 'tour', suites: ['tour_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },
-  { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },
-  { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },
-  { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },
-  { id: 'i18n', suites: ['i18n_cmd.js', 'i18n_walk_cmd.js#1440'] },
-  { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark', 'v15_phone_cmd.js'] },
-  { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate'] },
-  { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#views', 'phone_swap_cmd.js#deform'] },
-  { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#sphere', 'phone_swap_cmd.js#lang', 'phone_swap_cmd.js#tablet', 'phone_swap_cmd.js#review'] },
-  { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js'] },
-  { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js'] },
-  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'v15_params_cmd.js'] },
-  { id: 'exact', suites: ['p5_accept_cmd.js'] },
+  { id: 'smoke-desktop', suites: ['rel1641_smoke_cmd.js#en-1440', 'rel1641_smoke_cmd.js#ru-1440-dark'] },   // 229 + 217
+  { id: 'smoke-phone', suites: ['rel1641_smoke_cmd.js#en-390-dark', 'rel1641_smoke_cmd.js#ru-390'] },        // about 260 + 260
+  { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },           // 349 + 223 + 50 + 24
+  { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js'] },   // 298 + 268 + 111 + 20 + 24
+  { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 195 + 99 + 93
+  { id: 'tour', suites: ['tour_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 234 + 312 + 133 + 50
+  { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },                   // 551 + 17 + 44
+  { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 588
+  { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 559
+  { id: 'i18n', suites: ['i18n_cmd.js', 'v15_phone_cmd.js', 'phone_swap_cmd.js#lang'] },                    // 334 + 163 + 113
+  { id: 'i18n-desktop', suites: ['i18n_walk_cmd.js#1440'] },                                                // 690
+  { id: 'i18n-phone', suites: ['i18n_walk_cmd.js#390-dark'] },                                              // 594
+  { id: 'phone-swap-1', suites: ['phone_swap_cmd.js#deform', 'phone_swap_cmd.js#views'] },                  // 411 + 323
+  { id: 'phone-swap-2', suites: ['phone_swap_cmd.js#sheet', 'phone_swap_cmd.js#rotate', 'phone_swap_cmd.js#sphere'] },   // 334 + 247 + 209
+  { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet'] },   // 226 + 258 + 197 + 41
+  { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js'] },                    // 285 + 112 + 74
+  { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },   // 230 + 201 + 37 + 35 + 53
+  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'v15_params_cmd.js'] },   // 243 + 94 + 111 + 66
+  { id: 'exact', suites: ['p5_accept_cmd.js'] },                                                            // 491
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },
 ];
 
