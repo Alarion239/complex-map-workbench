@@ -274,7 +274,7 @@ const Tour = (() => {
           body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
           touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
           try: { text: 'Click Paths twice, or press {P} twice.', touch: 'Tap Paths twice.', on: 'paths-toggled', count: 2, then: 'Each path runs from $z$ to $F(z)$.' } },
-        // (on a phone the order select is in the Display sheet while the deformation shows)
+        // (on a phone the order select is in the deformation bar's Steps picker, which the step opens)
         { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
           try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
