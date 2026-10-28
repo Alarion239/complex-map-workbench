@@ -124,7 +124,7 @@
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
-    if (m) { S.hideLeft = !!m.hideLeft; S.hideRight = !!m.hideRight; } else { if (isDrawer('R')) S.hideRight = true; if (isDrawer('L')) S.hideLeft = true; }
+    if (m) { setHidden('L', !!m.hideLeft); setHidden('R', !!m.hideRight); } else { if (isDrawer('R')) setHidden('R', true); if (isDrawer('L')) setHidden('L', true); }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
     dropAllGPU();
     cauchyCache.key = '';

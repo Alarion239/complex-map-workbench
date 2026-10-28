@@ -202,6 +202,8 @@
   // the whole state replaced (a saved session loaded, a reset, the tour's practice, an example's thumbnail drawn in a
   // scratch state): the one place S itself is reassigned (#20 phase 3, step 5)
   function setState(next) { S = next; }
+  // a pane hidden or shown: side 'L' (the tools and X) or 'R' (Y and the chain); the caller lays out and saves
+  function setHidden(side, on) { if (side === 'L') S.hideLeft = on; else S.hideRight = on; }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
