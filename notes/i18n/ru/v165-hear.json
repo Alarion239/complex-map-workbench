@@ -177,7 +177,7 @@
  },
  "tour.song.cap2": {
   "en": "Each step is two branch points, one each side of the circle.",
-  "ru": "Каждая ступень — две точки ветвления, по одной с каждой стороны окружности.",
+  "ru": "Каждая ступень — две точки ветвления, по обе стороны окружности.",
   "note": "The tour's song step, a caption at 0.2 of the function's Listen along (capFrac): a step of the theme wheel (mk-app.patch, round 2)."
  },
  "tour.song.cap3": {
