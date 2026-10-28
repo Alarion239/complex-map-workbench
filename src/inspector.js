@@ -515,7 +515,7 @@ const Inspector = (() => {
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
       // (v16.5 UX17: on a touch screen, the phone's places)
-      const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left; the Shapes list edits them. Select a step in the chain to edit it here.'));
+      const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.'));
       return { kind: 'region', root: h('div', { class: 'iregion' }, head, sum, sw, hint), sum, sw };
     }
     function fillRegion(E) {
@@ -544,7 +544,9 @@ const Inspector = (() => {
       const sel = A.sel();
       // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
       const cmSig = typeof Construct !== 'undefined' && (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
-      const sig = cmSig || sigOf(sel);
+      // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
+      const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
+      const sig = cmSig || shSig || sigOf(sel);
       if (sig !== cur.sig || cur.stale || !cur.el || !selSec.contains(cur.el.root)) {
         // (a field being typed in keeps its place: a zero emptied while typing drops out of the list until the
         // field is left, so the editor waits for that instead of rebuilding under the caret)
@@ -554,13 +556,13 @@ const Inspector = (() => {
         } else {
           selSec.innerHTML = '';
           cur.stale = false;
-          cur.el = cmSig ? Construct.inspectorBuild() : sel === 'F' ? buildF() : sel ? buildStep(sel) : buildRegion();
+          cur.el = cmSig ? Construct.inspectorBuild() : shSig ? A.shapeInspBuild() : sel === 'F' ? buildF() : sel ? buildStep(sel) : buildRegion();
           selSec.append(cur.el.root);
           cur.sig = sig;
         }
       }
       const E = cur.el;
-      if (E.kind === 'construct') Construct.inspectorFill(E); else if (E.kind === 'step') fillStep(E); else if (E.kind === 'F') fillF(E); else fillRegion(E);
+      if (E.kind === 'construct') Construct.inspectorFill(E); else if (E.kind === 'shape') A.shapeInspFill(E); else if (E.kind === 'step') fillStep(E); else if (E.kind === 'F') fillF(E); else fillRegion(E);
     }
     // the step editor's parameter block again (zeros or poles added or removed)
     function refreshParams(k) {
