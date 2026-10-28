@@ -21,7 +21,7 @@ Russian or Italian changes here is marked *(new)* and goes through tools/ru_extr
 | The reference document | Guide | | Руководство | Guida | Reference guide, Using the Workbench |
 | The tour | Guided tour | Tour | Обучение | Tour guidato | |
 | The Construct tool through three points | Circle through 3 points | 3-pt circle | Окружность по трём точкам | Circonferenza per 3 punti | 3 points (as the tile's name) |
-| The Construct tool for a circle meeting another at right angles | Perpendicular circle | Perpendicular | Ортогональная окружность (the Russian mathematical term stays) | Circonferenza ortogonale | Orthogonal (in English) |
+| The Construct tool for a circle meeting another at right angles | Perpendicular circle | Perpendicular (the chip), ⊥ circle (the tile) | Ортогональная окружность (the Russian mathematical term stays) | Circonferenza ortogonale | Orthogonal (in English) |
 | The view toggle | Deformation | | Деформация | Deformazione | |
 | A pane's display options, and Settings' Display | Display | | Оформление *(new for the plain key; «Вид» is the view switch only)* | Aspetto *(new for the plain key, review)* | |
 | The header's rarely changed settings | Settings | | Настройки | Impostazioni | |
@@ -46,7 +46,7 @@ the mathematical term.
 | Show or hide the Draw panel | Mostra o nascondi il pannello Disegna | the [ key's tooltip |
 | Insert at the end | Inserisci alla fine | the palette's position, was "Append to the chain" |
 | 3-pt circle | Per 3 punti | the Construct tile (his "Per 3 punti" kept) |
-| Perpendicular (tile) | Ortogonale / Ortogon. | his "Ortogonale" kept for the tool |
+| ⊥ circle (the tile), Perpendicular (the chip) | Ortogonale / Ortogon. | his "Ortogonale" kept for the tool |
 | Add function (the header field) | Aggiungi funzione; short form Cerca | |
 | Share; Share: a link to this figure, scene files | Condividi; Condividi: un link a questa figura, file di scena | v17 D5 |
 | Sound settings… | Impostazioni del suono… | v17 D5 |
