@@ -449,6 +449,9 @@
   // TEMP-DEBUG-HOOK
   function init() {
     SoundHooks.init(soundHooksApi());   // the sound hooks (src/soundhooks.js), before anything can make a sound
+    Export.init(exportApi());   // export and captions (src/export.js)
+    MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)
+    Integrals.init(integralsApi());   // the integrals (src/integrals.js)
     // TEMP-DEBUG-HOOK (removed before publishing)
     // (v15: the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
@@ -705,14 +708,9 @@
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
     $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; S.focus = 0; chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
-    // (v15, review design-18: Clear chain lives under the chain head's ⋯, not as a word button beside Whole chain)
-    {
-      const cb = $('clearChain');
-      cb.hidden = true;
-      const mb = h('button', { class: 'icon-btn', id: 'chainMoreBtn', type: 'button', 'aria-haspopup': 'menu', 'aria-label': $t('More for the chain'), 'data-tip': $t('More'), html: ICONS.more,
-        onclick: (e) => openMenu(e.currentTarget, [{ label: $t('Clear chain'), icon: 'trash', danger: true, disabled: !S.steps.length, run: () => cb.click() }]) });
-      cb.after(mb);
-    }
+    // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
+    // had been under a ⋯ there since v15, review design-18)
+    $('clearChain').hidden = !S.steps.length;
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => {
@@ -826,6 +824,14 @@
       if (mod && key === 'k') { e.preventDefault(); if (popEl && popEl.classList.contains('palette')) closePalette(); else openPalette(null); return; }
       if ((e.key === '/' || I18N.isPaletteSlash(e)) && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
       if (typing) return;
+      // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual
+      if (e.key === 'Tab' && !mod && !e.altKey && t.matches('.plot > canvas.overlay')) {
+        const list = t.id === 'overlayR' ? S.targets : S.shapes;
+        const i = list.findIndex((x) => x.id === selected), n = i + (e.shiftKey ? -1 : 1);
+        if (list.length && n >= 0 && n < list.length && !(i < 0 && e.shiftKey)) {
+          e.preventDefault(); selected = list[n].id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'P'); return;
+        }
+      }
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;

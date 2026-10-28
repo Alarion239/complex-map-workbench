@@ -57,7 +57,7 @@
       defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
       integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
       morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints,
-      renumberZp, robustBox, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels,
+      renumberZp, replaceSteps, robustBox, lsk, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels,
       setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop,
       soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox,
       get S() { return S; },
