@@ -268,11 +268,17 @@
     // (r3 review regress-2) early: a chapter's start opens the side panel one of its steps docks, so the stage keeps
     // one place through the chapter; a drawer or a phone's sheet, which would cover the work area, waits for its step
     showPanel: (side, sheet, early) => {
-      if (tourPhone()) { if (early) return; if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
+      // ('steps': the deformation bar's Steps picker, which holds the order, Loop and the range, opens over the bar)
+      if (tourPhone()) { if (early) return; if (sheet === 'steps') { const p = $('stepsPick'), b = $('stepsBtn'); if (p && b && p.hidden) b.click(); return; } if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
       if (side === 'sheet') return;
-      // ([v17 D4] the regions' display is behind Y's Display ▾ on the laptop: its step opens that popover)
+      // ([v17 D4] the regions' display is behind Y's Display ▾ on the laptop: its step opens that popover, which is the
+      // step's own layer, as a phone's sheet is: it carries the step's id (data-tour-layer), and the next step that does
+      // not ask for it closes it, closeSheet)
       if (side === 'left' && sheet === 'display') {
-        if (!early && !document.querySelector('.disp-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#rightFoot .disp-btn')); if (b) b.click(); }
+        if (early) return;
+        if (!document.querySelector('.disp-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#rightFoot .disp-btn')); if (b) b.click(); }
+        const p = /** @type {HTMLElement | null} */ (document.querySelector('.disp-pop')), c = Tour.current();
+        if (p && c) p.dataset.tourLayer = c.chapter + '/' + c.id;
         return;
       }
       if (early && side !== 'right' && isDrawer('L')) return;
@@ -285,7 +291,7 @@
     selectStep: (k) => { if (!S.steps.length) return false; k = k === 'F' ? 'F' : Math.max(1, Math.min(S.steps.length, k | 0)); selectStep(k); renderProps(); return true; },
     showPlane: (pane) => { if (tourPhone() && (pane === 'L' || pane === 'R') && Phone.big() !== pane) Phone.swap(); },
     closeSheet: () => {
-      if (tourPhone()) { if (Phone.sheet()) Phone.close(true); return; }
+      if (tourPhone()) { const p = $('stepsPick'), b = $('stepsBtn'); if (p && b && !p.hidden) b.click(); if (Phone.sheet()) Phone.close(true); return; }
       if (document.querySelector('.disp-pop')) closePalette();
       if (tourDrawer) { tourDrawer = false; if (isDrawer('L') && !S.hideLeft) setPanels(true, S.hideRight); }
     },
