@@ -39,17 +39,26 @@ ok('Phase is full width', Lp.wL > 2 * split, { wL: Lp.wL, split });
 const chrome = await ev(`({ paneR: getComputedStyle(document.getElementById('paneR')).display, gutter: getComputedStyle(document.getElementById('gutterCol')).display, leftSolo: document.getElementById('leftSolo').hidden, title: document.getElementById('leftTitle').textContent })`);
 ok('Phase: no second pane, no gutter, no expand button', chrome.paneR === 'none' && chrome.gutter === 'none' && chrome.leftSolo === true, chrome);
 ok('Phase title', /z-plane\s*phase of F/.test(chrome.title), chrome.title);
-ok('Phase strip inline: the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
+// (v16.5 UX20: on a desktop the plane's option bar left the picture: its controls are in the Display options popover
+// of the pane head; a real click opens it, and it is closed again after the checks)
+const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .opts-btn'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
+const closeOpts = async () => { await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200); };
+await openOpts();
+ok('Phase strip (v16.5 UX20: in Display options): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
+await closeOpts();
 ok('Phase legend, no Key switch there (review: it acted on a hidden pane)', await ev(`!document.getElementById('leftLegend').hidden && document.getElementById('wKeyRow').hidden`), null);
 await key('3'); await settle(900);
 v = await vw(); Lp = await lay();
 ok('key 3: Landscape', v.main === 'land' && Lp.merged === 'L' && Lp.wL > 2 * split, { v, Lp });
 ok('Landscape: no surface switch', await ev(`document.getElementById('leftTabs').parentElement.hidden`), null);
+await openOpts();
 const lp = await ev(`({ paint: (document.querySelector('#landPaint > button.on') || {}).dataset?.v, height: !!document.getElementById('heightSeg'), dc: !!document.getElementById('dcSeg') })`);
 ok('Landscape strip: height and one colouring control (Tiles · Plain · Plaster)', lp.height && !lp.dc && ['tiles', 'phase'].includes(lp.paint), lp);
 await clickSel('#landPaint > button[data-v="plaster"]'); await settle(300);
 ok('Plaster: the landscape paints no phase', (await vw()).D.phase === false && (await ev('__cmwState().mode')) === '3d', await vw());
 await clickSel('#landPaint > button[data-v="tiles"]'); await settle(300);
+await closeOpts();
 await key('1'); await settle(600);
 L0 = await lay();
 ok('key 1: X → Y split again', L0.main === 'xy' && L0.merged === null && Math.abs(L0.wL - split) < 2, L0);
@@ -98,7 +107,7 @@ await ev('__cmwMorph({ T: 0.55 }); 1'); await settle(900);
 let Ld = await lay();
 ok('X → Y + Deformation: one plane (the right pane, full width)', Ld.deform && Ld.merged === 'R' && Ld.shown.join() === 'R' && Ld.wR > 2 * split, Ld);
 const rt = await ev(`document.getElementById('rightTitle').textContent`);
-ok('deformation title', /→/.test(rt) && /deformation/.test(rt), rt);
+ok('deformation title (v16.5 UX103: in words)', /^Deformation\s*from z to w$/.test(rt), rt);
 const dockR = await rect('tdockR'), plotR = await rect('plotR');
 ok('transport docked under the plot, full width of the panel', dockR && plotR && dockR[1] >= plotR[1] + plotR[3] && dockR[2] > plotR[2], { dockR, plotR });
 ok('transport is not in the options strip', await ev(`!document.querySelector('#rightFoot #morphPlay') && !!document.querySelector('#tdockR #morphPlay') && !!document.getElementById('pathsBtn')`), null);
@@ -128,7 +137,7 @@ ok('draw tools dimmed in the merged plane', await ev(`(() => { const b = documen
 await key('4', 8); await settle(1200);
 Ld = await lay();
 ok('X → Y Sphere + Deformation: one globe', Ld.merged === 'R' && (await vw()).R.surf === 'sphere', Ld);
-ok('globe: the Paths toggle and the same title as the plane', !!(await ev(`!!document.getElementById('pathsBtn')`)) && /→/.test(await ev(`document.getElementById('rightTitle').textContent`)) && /deformation/.test(await ev(`document.getElementById('rightTitle').textContent`)), await ev(`document.getElementById('rightTitle').textContent`));
+ok('globe: the Paths toggle and the same title as the plane', !!(await ev(`!!document.getElementById('pathsBtn')`)) && /^Deformation\s*from /.test(await ev(`document.getElementById('rightTitle').textContent`)), await ev(`document.getElementById('rightTitle').textContent`));
 for (let i = 0; i < 40 && !(await ev('__cmwMorphCache().ready')); i++) await sleep(150);
 await settle(400);
 ok('globe: live paths chosen', ((await ev('__cmwMorphCache()')).zs || []).length > 0, await ev('__cmwMorphCache()'));
@@ -169,7 +178,7 @@ ok('M turns it off: the panes split again', !Ld.deform && Ld.merged === null && 
 await ev(`(() => { const c = document.querySelector('.card[data-k="2"]'); if (c) c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(500);
 await key('m'); await settle(700);
 const fst = await ev("__cmwState()");
-ok("focused step: its own deformation", fst.focus === 2 && fst.morph.open && /t = [0-9.]+ \/ 1/.test(await ev(`document.getElementById('morphLabel').textContent`)), { focus: fst.focus, label: await ev(`document.getElementById('morphLabel').textContent`) });
+ok("focused step: its own deformation", fst.focus === 2 && fst.morph.open && /^Step 1 of 1 · (f\S+|d\/dz) · \d+ %$/.test(await ev(`document.getElementById('morphLabel').textContent`)), { focus: fst.focus, label: await ev(`document.getElementById('morphLabel').textContent`) });
 // the half-plane source e^X is clipped to the image's frame (review: a 25 px blob and one path at 10 / div)
 await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(400);
 const fsel = await ev('await __cmwMorphSel({ force: true })', 60000);

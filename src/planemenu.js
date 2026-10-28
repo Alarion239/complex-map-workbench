@@ -264,13 +264,18 @@ const PlaneMenu = (() => {
       }
     }
     // the line integral along the curves there (the menu of earlier versions, unchanged)
-    for (const it of api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy)) out.push({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run });
-    // the shape under the pointer
+    const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy).map((it) => ({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run }));
+    // the shape under the pointer ([v16.5 UX56] a point is the menu's subject: its items come before the curve's integral)
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
+    if (!(s && s.kind === 'point')) out.push(...integrals);
     if (s) {
-      if (!s.selected) out.push({ id: 'shape-select', icon: 'select', label: $t('Select {name}', { name: s.name }), run: () => api.select(s.id) });
+      // ([v16.5 UX56] a point on a curve says so on its first line: "z₁ · on Arc 1")
+      const on = s.on && s.on.length ? $t('lies on {x}', { x: s.on.join(', ') }) : null;
+      if (!s.selected) out.push({ id: 'shape-select', icon: 'select', label: $t('Select {name}', { name: s.name }), sub: on, run: () => api.select(s.id) });
+      else if (on) out.push({ id: 'shape-on', icon: 'select', label: s.name, sub: on, disabled: true });
       out.push({ id: 'shape-hide', icon: 'hide', label: $t('Hide {name}', { name: s.name }), run: () => api.hide(s.id) });
       out.push({ id: 'shape-delete', icon: 'trash', danger: true, label: $t('Delete {name}', { name: s.name }), run: () => api.del(s.id) });
+      if (s.kind === 'point') out.push(...integrals);
     }
     return out;
   }
@@ -318,7 +323,9 @@ const PlaneMenu = (() => {
         } });
       }
     }
-    if (api.canAddPoint(ctx.side)) out.push({ id: 'point-add', icon: 'point', label: $t('Add point here'), run: () => api.addPoint(ctx.side, ctx.pick()) });
+    // ([v16.5 UX56] not over a point: a point is already there)
+    const there = api.shapeAt ? api.shapeAt(ctx.side, ctx.x, ctx.y) : null;
+    if (api.canAddPoint(ctx.side) && !(there && there.kind === 'point')) out.push({ id: 'point-add', icon: 'point', label: $t('Add point here'), run: () => api.addPoint(ctx.side, ctx.pick()) });
     return out;
   }
   function viewItems(ctx) {

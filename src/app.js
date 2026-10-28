@@ -243,6 +243,8 @@
   let selected = null;
   let tool = 'select';
   let draft = null;
+  // [v16.5 UX09, UX14] the last press on a plane was a finger (or a pen): larger handles, grab and close radii
+  let ptrTouch = null;
   let probe = null; // {z (in left plane)}
   // the deformation transport (open: the right plane shows the homotopy at T in every view; closed: t = end)
   const morph = { T: 0, playing: false, last: 0, hold: 0, open: false };
@@ -250,6 +252,7 @@
   // undo history of {s: shapes, steps and nextId as JSON, focus}. The focus of the current entry follows
   // the live focus at the start of every user input (noteFocus), so undo returns to the step focused before the action.
   let hist = [], hi = -1;
+  let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
   // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange && typeof HR !== 'undefined') HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
   const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy() });
@@ -262,7 +265,7 @@
     if (hist.length > 200) hist.shift();
     hi = hist.length - 1;
     dismissUndoToast();
-    updateUndo();
+    updateUndo(); exLabelSync();
     save();
   }
   function restore(e) {
@@ -285,11 +288,155 @@
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
     if (typeof HR !== 'undefined') { HR.resolve(S, true); buildDock(); updateBracket(); }
-    updateUndo(); save();
+    updateUndo(); exLabelSync(); save(); histSay();
   }
-  function updateUndo() { $('undoBtn').disabled = hi <= 0; $('redoBtn').disabled = hi >= hist.length - 1; }
+  // [v16.5 UX14, UX15] an open polygon's points and a construction's own picks are undone first, one at a time
+  const polyDraftOpen = () => !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
+  const draftUndoable = () => polyDraftOpen() || (typeof Construct !== 'undefined' && !!Construct.undoPickable());
+  // ([v16.5 fix regress-7] it runs in every overlay frame (a pick or a polygon point changes Undo): the buttons are
+  // touched only when what they show changed)
+  let undoKey = '';
+  function updateUndo() {
+    const u = hi <= 0 && !draftUndoable(), r = hi >= hist.length - 1, k = (u ? 1 : 0) + '|' + (r ? 1 : 0);
+    if (k === undoKey) return;
+    undoKey = k;
+    const ub = $('undoBtn'), rb = $('redoBtn');
+    if (ub && ub.disabled !== u) ub.disabled = u;
+    if (rb && rb.disabled !== r) rb.disabled = r;
+  }
+  // the last point of an open polygon goes (Undo, Backspace); the draft goes with its last point
+  function polyBack() {
+    if (!polyDraftOpen()) return false;
+    draft.pts.pop();
+    if (draft.cmAt && typeof draft.cmAt === 'object') delete draft.cmAt[draft.pts.length];
+    if (!draft.pts.length) draft = null;
+    requestRender('OL', 'OR', lGlobe() ? 'L' : null, rGlobe() ? 'R' : null);
+    updateUndo();
+    return true;
+  }
   let saveT = 0, storageWarned = false;
   let figureSwap = false;   // v15: a link or a scene was written for the reload that opens it (nothing else is saved)
+  // ([v16.5 check app-1, app-2] the header search's words are never cut: where its field is too narrow for them (an
+  // example's name beside Examples, Italian's longer label, "Ctrl K"), it shows its short label (Russian, Italian) when
+  // that fits, else its icon and shortcut alone (named by its aria-label and tooltip), and the example's name takes the
+  // room. Measured in a frame when the header's width, the example's name or the fonts change; a phone has no field)
+  let hdrFitRaf = 0;
+  function hdrFit() {
+    hdrFitRaf = 0;
+    const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
+    if (!top) return;
+    top.classList.remove('cmd-short', 'cmd-cut');
+    if (document.documentElement.classList.contains('ph')) return;
+    const t = f.querySelector('.cmd-text');
+    const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
+    if (!cut()) return;
+    if (f.querySelector('.ct-s')) { top.classList.add('cmd-short'); if (!cut()) return; top.classList.remove('cmd-short'); }
+    top.classList.add('cmd-cut');
+  }
+  const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
+  function hdrFitInit() {
+    const f = $('cmdBtn'), top = f && f.closest('.top'), xl = document.querySelector('#examplesBtn .exlabel');
+    if (!top) return;
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(hdrFitSoon).observe(top);
+    if (xl && typeof MutationObserver !== 'undefined') new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(hdrFitSoon);
+    hdrFitSoon();
+  }
+  // (v16.5 UX25: the open example's name shows after Examples until the first edit; exAt is the entry it opened at)
+  function exLabelSync() {
+    const xl = document.querySelector('#examplesBtn .exlabel');
+    if (xl) xl.classList.toggle('stale', hi !== exAt);
+  }
+  // (v16.5 UX79) what one undo step did, in words, from its two snapshots: "add f₃ Sine", "add pole p₂ of f₁",
+  // "delete Disc 1", "change a"; '' when it cannot be said briefly
+  function histWhat(a, b) {
+    if (!a || !b) return '';
+    let A, B;
+    try { A = JSON.parse(a.s); B = JSON.parse(b.s); } catch (e) { return ''; }
+    const js = JSON.stringify, sa = A.steps || [], sb = B.steps || [], nm = (st) => defOf(st).label;
+    if (sb.length !== sa.length) {
+      const more = sb.length > sa.length, L = more ? sb : sa, Sh = more ? sa : sb, n = L.length - Sh.length;
+      let i = 0;
+      while (i < Sh.length && js(Sh[i]) === js(L[i])) i++;
+      if (n === 1) return more ? $t('add f{x} {name}', { x: sub(i + 1), name: nm(L[i]) }) : $t('remove f{x} {name}', { x: sub(i + 1), name: nm(L[i]) });
+      return more ? $t('add f{x}–f{x2}', { x: sub(i + 1), x2: sub(i + n) }) : $tn('remove {n} step', 'remove {n} steps', n, { n });
+    }
+    const diff = [];
+    sa.forEach((st, i) => { if (js(st) !== js(sb[i])) diff.push(i); });
+    if (diff.length > 1 && sa.map((x) => js(x)).sort().join('|') === sb.map((x) => js(x)).sort().join('|')) return $t('reorder the steps');
+    if (diff.length === 1) {
+      const i = diff[0], x = sa[i], y = sb[i], f = sub(i + 1);
+      if (x.type !== y.type) return $t('replace f{x} with {name}', { x: f, name: nm(y) });
+      if ((x.on === false) !== (y.on === false)) return y.on === false ? $t('bypass f{x}', { x: f }) : $t('turn f{x} back on', { x: f });
+      if (y.type === 'zp') {
+        const cnt = (st, kind) => (String(st.params[kind] || '').trim() ? Funcs.splitList(st.params[kind]).length : 0);
+        for (const kind of ['zeros', 'poles']) {
+          const ca = cnt(x, kind), cb = cnt(y, kind), z = kind === 'zeros';
+          if (cb > ca) return z ? $t('add zero ζ{i} of f{x}', { i: sub(cb), x: f }) : $t('add pole p{i} of f{x}', { i: sub(cb), x: f });
+          if (cb < ca) return z ? $t('remove a zero of f{x}', { x: f }) : $t('remove a pole of f{x}', { x: f });
+        }
+        if (String(x.params.zeros) !== String(y.params.zeros)) return $t('move a zero of f{x}', { x: f });
+        if (String(x.params.poles) !== String(y.params.poles)) return $t('move a pole of f{x}', { x: f });
+      }
+      return $t('change f{x} {name}', { x: f, name: nm(y) });
+    }
+    if (diff.length) return $t('change the chain');
+    const pa = new Map((A.params || []).map((q) => [q.name, q])), pb = new Map((B.params || []).map((q) => [q.name, q]));
+    const dn = (n) => (typeof Params !== 'undefined' ? Params.display(n) : n);
+    for (const n of pb.keys()) if (!pa.has(n)) return $t('add the number {x}', { x: dn(n) });
+    for (const n of pa.keys()) if (!pb.has(n)) return $t('delete the number {x}', { x: dn(n) });
+    for (const n of pb.keys()) if (js(pa.get(n)) !== js(pb.get(n))) return $t('change {x}', { x: dn(n) });
+    const namesA = shapeNames(A.shapes || []), namesB = shapeNames(B.shapes || []);
+    for (const key of ['shapes', 'targets']) {
+      const ma = new Map((A[key] || []).map((q) => [q.id, q])), mb = new Map((B[key] || []).map((q) => [q.id, q]));
+      const nameOf = (q) => namesB.get(q.id) || namesA.get(q.id) || (Region.KINDS[q.kind] ? Region.KINDS[q.kind].label : String(q.kind));
+      // ([v16.5 check app-8] the unit circle or an axis made a shape for a point put on it goes with that point: one
+      // undo step "add z0", not "add 2 shapes")
+      const disp = (q) => !!(q && q.fixed && !q.def && !q.at);
+      const only = (ids, m) => { const own = ids.filter((id) => !disp(m.get(id))); return own.length && own.length < ids.length ? own : ids; };
+      const add = only([...mb.keys()].filter((id) => !ma.has(id)), mb), del = only([...ma.keys()].filter((id) => !mb.has(id)), ma);
+      const ch = [...mb.keys()].filter((id) => ma.has(id) && js(ma.get(id)) !== js(mb.get(id)));
+      if (add.length === 1 && !del.length) return $t('add {name}', { name: nameOf(mb.get(add[0])) });
+      if (del.length === 1 && !add.length) return $t('delete {name}', { name: nameOf(ma.get(del[0])) });
+      if (add.length > 1 && !del.length) return $tn('add {n} shape', 'add {n} shapes', add.length, { n: add.length });
+      if (del.length > 1 && !add.length) return $tn('delete {n} shape', 'delete {n} shapes', del.length, { n: del.length });
+      if (ch.length === 1 && !add.length && !del.length) return $t('edit {name}', { name: nameOf(mb.get(ch[0])) });
+      if (add.length || del.length || ch.length) return $t('change the shapes');
+    }
+    return '';
+  }
+  // which of Undo and Redo is running: every way in (the buttons, the keys, the phone's Undo, a toast) clicks #undoBtn or
+  // #redoBtn, so a capturing listener notes it before their own listeners restore an entry, and it is cleared after them
+  let histDir = '';
+  document.addEventListener('click', (e) => { const b = e.target && e.target.closest ? e.target.closest('#undoBtn, #redoBtn') : null; histDir = b ? b.id : ''; }, true);
+  document.addEventListener('click', () => { histDir = ''; });
+  // restore() ends here: an undo or a redo says what it did
+  function histSay() {
+    const d = histDir;
+    histDir = '';
+    if (d === 'undoBtn' && hist[hi + 1]) histToast(histWhat(hist[hi], hist[hi + 1]), true);
+    else if (d === 'redoBtn' && hi > 0) histToast(histWhat(hist[hi - 1], hist[hi]), false);
+  }
+  // the Undo and Redo tooltips name the action, set when the pointer or the keyboard reaches them
+  document.addEventListener('pointerover', (e) => { const b = e.target && e.target.closest ? e.target.closest('#undoBtn, #redoBtn') : null; if (b) undoTip(b.id === 'undoBtn'); });
+  document.addEventListener('focusin', (e) => { if (e.target && (e.target.id === 'undoBtn' || e.target.id === 'redoBtn')) undoTip(e.target.id === 'undoBtn'); });
+  // the toast after an undo or a redo: what it did, and the way back (Redo is visible on a phone too)
+  function histToast(what, undo) {
+    const at = hi;
+    const msg = undo ? (what ? $t('Undid: {what}.', { what }) : $t('Undone.')) : (what ? $t('Redid: {what}.', { what }) : $t('Redone.'));
+    toast(msg, undo ? $t('Redo') : $t('Undo'), () => { if (hi === at) $(undo ? 'redoBtn' : 'undoBtn').click(); }, true, { ms: 4000 });
+  }
+  // the Undo and Redo tooltips name the action ("Undo: add f₃ Sine  ⌘Z"), set when the pointer or the keyboard comes
+  function undoTip(undo) {
+    const b = $(undo ? 'undoBtn' : 'redoBtn');
+    if (!b) return;
+    const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    const what = undo ? (hi > 0 ? histWhat(hist[hi - 1], hist[hi]) : '') : (hi < hist.length - 1 ? histWhat(hist[hi], hist[hi + 1]) : '');
+    const key = undo ? (mac ? '⌘Z' : 'Ctrl Z') : (mac ? '⇧⌘Z' : 'Ctrl Y');
+    const t = (what ? (undo ? $t('Undo: {what}', { what }) : $t('Redo: {what}', { what })) : (undo ? $t('Undo') : $t('Redo'))) + '  ' + key;
+    b.removeAttribute('title');
+    if (b.dataset.tip !== t) b.dataset.tip = t;
+  }
   // the panels the user chose at docked widths; narrow windows close the drawers at run time only
   const dockPref = { L: false, R: false };
   const noRuntime = (k, v) => (typeof k === 'string' && k[0] === '_' ? undefined : v);
@@ -1546,12 +1693,15 @@
   // ---------------- drawing ----------------
   // Pattern cell size depends on the shapes (not the view), so it stays put while panning and zooming.
   let cellBase = 0, cellKey = '';
+  let cellSay = false, cellSaid = false;   // [v16.5 UX91] an added shape may refit the cell: said once a session
   // (v16 review picture-2) a constructed region far larger than the window (a 3-point disc near collinear) counts as
   // unbounded, as its limit the half-plane does: the cell then stays continuous through the collinear case, never
   // "cell 1×10⁶" (the threshold is the M(R) one, Region.MR_RATIO window diagonals)
   const cmHuge = (s, b) => !!(s._g && b && Math.max(b.x1 - b.x0, b.y1 - b.y0) > (Region.MR_RATIO || 50) * Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0));
   function patternCell() {
-    const key = S.shapes.map((s) => { if (!s._g || kindType(s) !== 'area') return shapeKey(s); let b = null; try { b = Region.bboxOf(s); } catch (e) { b = null; } return shapeKey(s) + (cmHuge(s, b) ? '~' : ''); }).join('|');
+    // ([v16.5 fix user-3] keyed on the regions alone, which are all it is fitted to: a curve, a point or a construction
+    // added never refits it, which with no bounded region read the window of that moment)
+    const key = S.shapes.filter((s) => kindType(s) === 'area').map((s) => { if (!s._g) return shapeKey(s); let b = null; try { b = Region.bboxOf(s); } catch (e) { b = null; } return shapeKey(s) + (cmHuge(s, b) ? '~' : ''); }).join('|');
     if (key !== cellKey || !cellBase) {
       cellKey = key;
       let size = 0;
@@ -1562,7 +1712,15 @@
         if (b && !cmHuge(s, b)) size = Math.max(size, b.x1 - b.x0, b.y1 - b.y0);
       }
       if (!size) size = Math.max(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
+      const was = cellBase;
       cellBase = Axes.niceStep(size / 10);
+      // [v16.5 UX91] a shape the user just added refits the pattern on everything: said once, with where to change it
+      if (cellSay && was && was !== cellBase && S.pattern !== 'sphere') {
+        const x = I18N.num(CX.fmtNum(cellBase * (S.patternScale || 1), 4).replace('-', '−'));
+        setTimeout(() => toast($t('The pattern cell is now {x}, fitted to the shapes; Display → Cell changes it.', { x })), 0);
+        cellSaid = true;
+      }
+      cellSay = false;
     }
     return cellBase * (S.patternScale || 1);
   }
@@ -2919,17 +3077,31 @@
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
     return cardButton(k);
   }
+  // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
+  // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger
+  const fingerNow = () => (ptrTouch != null ? ptrTouch : touchUI());
+  function handleAt(pane, sel, x, y) {
+    const finger = ptrTouch;
+    let best = null, bd = Infinity;
+    for (const [key, hz] of Region.handlesOf(sel)) {
+      if (typeof Construct !== 'undefined' && (sel.def || sel.fixed || (sel.at && sel.at[key]))) continue;   // (v16: a bound handle is no handle; v16.3: nor a fixed shape's)
+      const [hx, hy] = pane.w2s(hz);
+      if (finger) { const d = Math.hypot(hx - x, hy - y); if (d < 22 && d < bd) { bd = d; best = key; } }
+      else if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) return key;
+    }
+    return best;
+  }
   function drawHandles(pane, list) {
     const s = (list || S.shapes).find((x) => x.id === selected);
     if (!s) return;
     const ctx = pane.octx;
-    const k = shapeInk(s).edge;
+    const k = shapeInk(s).edge, hr = fingerNow() ? 6 : 3.5;
     for (const [key, z] of Region.handlesOf(s)) {
       if (typeof Construct !== 'undefined' && (s.def || s.fixed || (s.at && s.at[key]))) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
       ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
       ctx.beginPath();
-      if (key === 'c' || key === 'm') ctx.arc(x, y, 3.5, 0, TAU); else ctx.rect(x - 3.5, y - 3.5, 7, 7);
+      if (key === 'c' || key === 'm') ctx.arc(x, y, hr, 0, TAU); else ctx.rect(x - hr, y - hr, 2 * hr, 2 * hr);
       ctx.fill(); ctx.stroke();
     }
   }
@@ -3067,6 +3239,9 @@
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
+      // ([v16.5 fix user-3] the curves and points of a construction, and the unit circle or an axis made a shape, are
+      // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
+      if ((s.def || s.fixed) && t !== 'area') continue;
       if (t === 'point') { push(F(C(s.p[0], s.p[1]))); continue; }
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
@@ -3171,6 +3346,12 @@
     const cmSide = typeof Construct !== 'undefined' ? Construct.chipSide() : null;   // (v16: a construction tool's chip)
     if (cl) { const on = (poly && !draft.target) || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
     if (cr) { const on = (poly && !!draft.target) || cmSide === 'R'; if (cr.hidden === on) cr.hidden = !on; }
+    // [v16.5 UX14, UX95] how to close and back up, in the words of the pointer in use (a finger has no Enter)
+    if (poly) {
+      const sp = (draft.target ? cr : cl) && (draft.target ? cr : cl).firstElementChild;
+      const txt = fingerNow() ? $t('Tap the first point to close · Undo removes the last point') : $t('Click the first point or press Enter to close · ⌫ removes the last point');
+      if (sp && sp.textContent !== txt) sp.textContent = txt;
+    }
     if (typeof Construct !== 'undefined') Construct.syncChip();
     // P3b: the globes take drawing (panels.md 9). What still draws nothing says so: the landscape, a planar-centred
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane'), the z-globe at a focused stage (P4)
@@ -3182,18 +3363,22 @@
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
-      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('Shapes are drawn in the z-plane; choose Whole chain to draw.');
-      if (!msg) msg = listenChipMsg();
+      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('Shapes are drawn in the z-plane; choose Show F to draw.');
+      // (v16.5 UX71) listening: the chip says what plays, and its Stop button ends it (Esc too)
+      let act = null;
+      if (!msg) { msg = listenChipMsg(); if (msg) act = { stop: true }; }
       // (review v16 verify-7: the Mountain King's hint, with its Listen button, in X's title row, over no plane; only
       // where that row is not shown, here, while nothing else is said here)
-      let act = null;
       const q = pieceHint(), inHead = syncPieceHint(q);
       if (!msg && q && !inHead) { act = q; msg = q.msg; }
       const on = !!msg;
       if (sc.firstChild.textContent !== msg) sc.firstChild.textContent = msg;
       let ab = sc.querySelector('.chip-act');
+      const kind = act ? (act.stop ? 'stop' : 'listen') : '';
+      if (ab && ab.dataset.kind !== kind) { ab.remove(); ab = null; }
       if (act && !ab) {
-        ab = h('button', { class: 'toast-act chip-act', type: 'button', onclick: () => { const q = pieceHint(); snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); if (q) q.go(); } }, $t('Listen'));
+        ab = act.stop ? h('button', { class: 'toast-act chip-act chip-stop', type: 'button', 'data-kind': 'stop', 'data-tip': $t('Stop listening  Esc'), 'aria-label': $t('Stop listening'), onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
+          : h('button', { class: 'toast-act chip-act', type: 'button', 'data-kind': 'listen', onclick: () => { const q = pieceHint(); snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); if (q) q.go(); } }, $t('Listen'));
         sc.append(ab);
       } else if (!act && ab) ab.remove();
       sc.classList.toggle('has-act', !!act);
@@ -3204,8 +3389,14 @@
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       // (the merged deformation plane or globe draws nothing: said, merged-views review)
       const on = tool !== 'select' && solo() !== 'L' && (morphOn() || (rGlobe() && GLOBE_OFF.has(tool)));
-      const msg = !on ? '' : morphOn() ? $t('Drawing is off in the deformation: press M to turn it off.') : $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName });
+      const msg = !on ? '' : morphOn() ? $t('Drawing is off in the deformation (M).') : $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName });
       if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
+      // (v16.5 UX102) the way out is a button: the deformation turns off and the chosen tool stays
+      const want = on && morphOn();
+      let ab = sr.querySelector('.chip-act');
+      if (want && !ab) { ab = h('button', { class: 'toast-act chip-act chip-draw', type: 'button', 'data-tip': $t('Turn the deformation off and draw  M'), onclick: () => { const tl = tool; closeTransport(); if (tool !== tl) setTool(tl); updateDraftChips(); } }, $t('Turn off and draw')); sr.append(ab); }
+      else if (!want && ab) ab.remove();
+      sr.classList.toggle('has-act', want);
       if (sr.hidden === on) sr.hidden = !on;
     }
     syncGlobeTools();
@@ -3229,6 +3420,7 @@
   function renderOverlays() {
     const showL = solo() !== 'R', showR = solo() !== 'L';
     updateDraftChips();
+    updateUndo();
     if (showL) { paneL.setView(leftView()); paneL.beginOverlay(); }
     if (showR) {
       paneR.setView(V.right);
@@ -3309,6 +3501,18 @@
     const m = raw / p;
     return (m <= 1 + 1e-9 ? 1 : m <= 2 + 1e-9 ? 2 : m <= 5 + 1e-9 ? 5 : 10) * p;
   }
+  // an imaginary ruler label centred at (0, 0): its number in the ruler's face, its i in the maths italic
+  function imLabel(ctx, t, small) {
+    if (!/i$/.test(t)) { ctx.fillText(t, 0, 0); return; }
+    const num = t.slice(0, -1), f0 = ctx.font, fi = `italic 500 ${small ? 10 : 11}px ${TH.math}`;
+    const wn = num ? ctx.measureText(num).width : 0;
+    ctx.font = fi; const wi = ctx.measureText('i').width; ctx.font = f0;
+    const x0 = -(wn + wi + (num ? 0.5 : 0)) / 2;
+    ctx.textAlign = 'left';
+    if (num) ctx.fillText(num, x0, 0);
+    ctx.font = fi; ctx.fillText('i', x0 + wn + (num ? 0.5 : 0), 0); ctx.font = f0;
+    ctx.textAlign = 'center';
+  }
   function drawRulers(pane, side, markersOnly) {
     if (artMode) return;
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
@@ -3336,7 +3540,9 @@
       const len = horiz ? W : Hh;
       const toPx = (val) => (horiz ? pane.w / 2 + (val - v.cx) * v.s : pane.h / 2 - (val - v.cy) * v.s);
       const lo = horiz ? v.cx - pane.w / 2 / v.s : v.cy - pane.h / 2 / v.s, hi = horiz ? v.cx + pane.w / 2 / v.s : v.cy + pane.h / 2 / v.s;
-      ctx.font = `${small ? 9 : 10}px ${TH.mono}`;
+      // ([v16.5 UX105] the UI face: "0.5", not B612 Mono's "0. 5"; an imaginary label's i in the maths italic, so the
+      // turned label "2i" never reads "21")
+      ctx.font = `${small ? 9 : 10}px ${TH.ui}`;
       // labels at the 1-2-5 step that keeps them >= 72px (bottom) or 48px (left) apart, rounded up, and further up
       // when the widest label would not fit its slot
       let major = ceilStep((horiz ? 72 : 48) / v.s);
@@ -3394,7 +3600,7 @@
         const t = label(i * major), hw = ctx.measureText(t).width / 2;
         if (p - hw < 1 || p + hw > len - 1) continue;
         if (horiz) ctx.fillText(t, p, base);
-        else { ctx.save(); ctx.translate(base, p); ctx.rotate(-Math.PI / 2); ctx.fillText(t, 0, 0); ctx.restore(); }
+        else { ctx.save(); ctx.translate(base, p); ctx.rotate(-Math.PI / 2); imLabel(ctx, t, small); ctx.restore(); }
       }
     };
     // the static part is drawn once per view into offscreen canvases; every call then blits it
@@ -3670,7 +3876,7 @@
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
-    refitCam(cam, CAM3, GLR.fitDist(geo.radius, CAM3.fov, pane.w, pane.h, 1.05));
+    refitCam(cam, CAM3, landFitDist(geo, pane));
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     GLR.begin(pane.pw, pane.ph);
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
@@ -4337,7 +4543,10 @@
         const el = $(id);
         if (!el || el.hidden || el.offsetParent === null) continue;
         const q = el.getBoundingClientRect();
-        if (q.width > 0 && q.height > 0) out.push({ x0: q.left - r.left - 4, x1: q.right - r.left + 4, y0: q.top - r.top - 4, y1: q.bottom - r.top + 4 });
+        // ([v16.5 fix regress-8] only where it lies over the plane: since UX20 a desktop's legend and options sit in the
+        // pane head, above the overlay, and a rectangle outside it rules out nothing)
+        const b = { x0: q.left - r.left - 4, x1: q.right - r.left + 4, y0: q.top - r.top - 4, y1: q.bottom - r.top + 4 };
+        if (q.width > 0 && q.height > 0 && b.x1 > 0 && b.y1 > 0 && b.x0 < r.width && b.y0 < r.height) out.push(b);
       }
     } catch (e) { /* no layout: no rectangles */ }
     return out;
@@ -5507,11 +5716,25 @@
     if (fs) { const w = sl.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of fs.querySelectorAll('.tfix')) x.hidden = true; delete fs.dataset.fit; } }
     syncPlaying();
     const lab = $('morphLabel');
-    if (lab) setText(lab, `t = ${I18N.num(morph.T.toFixed(2))} / ${morphLen()}`);
+    if (lab) setText(lab, morphReadout(lab.dataset.short === '1'));
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) {
       const w = faderW.get(sl) || 0, span = (+sl.max || 1) - (+sl.min || 0) || 1;
       if (!(morph.playing && w > 0 && Math.abs(morph.T - +sl.value) * w / span < 0.5)) { sl.value = morph.T; paintFader(sl); }
     }
+  }
+  // (v16.5 UX103) the deformation's readout in words: "Step 1 of 3 · f₂ · 84 %", the step and its function as the ticks
+  // name it (it read "t = 0.84 / 3", like a page count); t itself is in its tooltip. All at once: "All steps · 84 %"
+  // ([v16.5 fix regress-1] the percentage is padded to three figures with figure spaces, so the row never reflows while
+  // it plays; short: "1/2 · f₁ · 53 %", the form a tight row takes (the words stay in the tooltip), so the close button
+  // keeps its place on the row and the plane keeps its height)
+  function morphReadout(short) {
+    const m = morphLen(), T = Math.max(0, Math.min(m, morph.T));
+    if (!(m > 0)) return '';
+    const pc = (v) => String(v).padStart(3, '\u2007');
+    if (allAtOnce()) return short ? `${pc(Math.round(100 * T))} %` : $t('All steps at once · {p} %', { p: pc(Math.round(100 * T)) });
+    const i = Math.min(m, Math.floor(T) + 1), p = Math.round(100 * (T - (i - 1))), k = morphRange().steps[i - 1];
+    const f = k == null ? '' : isDeriv(k) ? 'd/dz' : 'f' + sub(k);
+    return short ? `${i}/${m} · ${f} · ${pc(p)} %` : $t('Step {k} of {m} · {f} · {p} %', { k: i, m, f, p: pc(p) });
   }
   // a text that changes every frame: its Text node's data (a characterData change), never a new node (a childList change)
   function setText(el, s) {
@@ -5570,8 +5793,9 @@
     const er = $('emptyRight');
     if (er) {
       const show = !S.steps.length && rImage();
-      er.hidden = !show;
-      if (show && !er.firstChild) er.append(h('span', null, $t('Add a function to map the region')), h('button', { class: 'btn primary small', onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) }, $t('Add function')));
+      if (show && !er.firstChild) er.append(h('span', null, $t('Add a function to map the region')), h('button', { class: 'btn primary small', 'data-tip': $t('Add a function to map the region'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) }, $t('Add function')));
+      // (v16.5 UX20: in Y's head the title is fitted with the button in place, so its role is whole, short or gone)
+      if (er.hidden === show) { er.hidden = !show; if (er.parentNode && er.parentNode.classList.contains('pane-head')) fitTitle('R'); }
     }
     updateCalcChip();
   }
@@ -6059,15 +6283,23 @@
     return out;
   }
   // the shapes' names as their rows show them ("Circle 1")
-  function shapeNames() {
+  // ([v16.5 fix regress-10] of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
+  // rows did when it existed)
+  function shapeNames(list) {
     const counts = {}, names = new Map(), pv = { n: 0 };
-    for (const s of S.shapes) { const nk = nameKind(s); counts[nk] = (counts[nk] || 0) + 1; names.set(s.id, rowName(s, counts, pv, false)); }
+    for (const s of list || S.shapes) { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; names.set(s.id, rowName(s, counts, pv, false)); }
     return names;
   }
   // (v16 review user-4, picture-8) a point's row is named as the plane labels it (z₀, or the user's label), so the names
   // in the definitions ("midpoint of z₀, z₂") are the names in the list; a helper (no label in the plane) by its
   // meet; a hidden point, which has no plane label, keeps "Point n". pv counts the visible points as drawPoints does
+  // ([v16.5 fix rail-4] the unit circle or an axis made a fixed shape: by that name, "The unit circle" as a row title, and
+  // no number, so the user's own circles stay Circle 1, 2, …; Construct.fixedName is the one rule)
+  const fixedNm = (s) => (typeof Construct !== 'undefined' && Construct.fixedName ? Construct.fixedName(s) : null);
+  const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
   function rowName(s, counts, pv, row = true) {
+    const fx = fixedNm(s);
+    if (fx) return row ? capFirst(fx) : fx;
     if (s.kind !== 'point') return shapeName(s, counts);
     const helper = typeof Construct !== 'undefined' && Construct.pointMark && Construct.pointMark(s) === 'helper';
     // (a labelled point takes a plane index too, as in drawPoints: the next free point is z₁ after it, not z₀)
@@ -6314,15 +6546,8 @@
     const near = curvesNear(pane, side, x, y);
     if (!near.length) return [];
     const names = shapeNames();
-    // the popover's variable (the left plane's: z, or wₖ with a step focused) and its closed-curve test (every
-    // piece of the curve closed, after the cut to the meshing window)
-    const dv = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
-    const items = near.map(({ s }) => {
-      let closed = false;
-      try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }
-      const name = names.get(s.id) || Region.KINDS[s.kind].label;
-      return { label: closed ? $t('∮ {x} d{dv} around {name}', { x: fnText(), dv, name }) : $t('Integrate {x} along {name}', { x: fnText(), name }), run: () => openIntegralPop(s.id, cx, cy) };
-    });
+    // (v16.5 V03: the label, its variable and its closed-curve test are intLabel's, shared with the palette)
+    const items = near.map(({ s }) => ({ label: intLabel(s, names), run: () => openIntegralPop(s.id, cx, cy) }));
     if (SND) for (const { s } of near) if ((sndP.on && sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
     return items;
   }
@@ -6408,14 +6633,21 @@
         const pane = paneOf(side);
         pane.setView(viewOf(side));
         const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : S.shapes, win = target ? targetWin() : clipWin;
-        const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => (kindType(a) === 'area') - (kindType(b) === 'area'));
+        // ([v16.5 UX56] a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
+        // other shapes there are named as where it lies)
+        const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
+        const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => rank(a) - rank(b));
         const names = shapeNames();
+        const nm = (s) => (typeof Construct !== 'undefined' && s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || (target ? targetLabel(s, S.targets.indexOf(s)) : Region.KINDS[s.kind].label);
+        const hits = [];
         for (const s of cands) {
           let hit = false;
           try { hit = Region.hitTest(s, z, tol, win); } catch (e) { hit = false; }
-          if (hit) return { id: s.id, name: names.get(s.id) || (target ? targetLabel(s, S.targets.indexOf(s)) : Region.KINDS[s.kind].label), selected: selected === s.id };
+          if (hit) hits.push(s);
         }
-        return null;
+        if (!hits.length) return null;
+        const s = hits[0];
+        return { id: s.id, name: nm(s), kind: s.kind, selected: selected === s.id, on: s.kind === 'point' ? hits.slice(1).filter((x) => kindType(x) === 'curve').map(nm) : [] };
       },
       select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); },
       hide(id) {
@@ -6461,14 +6693,14 @@
     const re = Math.abs(w.re) <= tol ? 0 : w.re, im = Math.abs(w.im) <= tol ? 0 : w.im;
     return CX.fmt(C(re, im), 12).replace(/\s/g, '');
   };
-  function openIntegralPop(id, cx, cy) {
+  function openIntegralPop(id, cx, cy, o) {
     closePalette();
     const s = S.shapes.find((x) => x.id === id);
     if (!s) return null;
     const pop = h('div', { class: 'pop int-pop', role: 'dialog', 'aria-label': $t('Line integral') });
     $('popHost').append(pop);
     popEl = pop;
-    intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0 };
+    intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0, beside: !!(o && o.beside), bx0: o && o.bx0 != null ? o.bx0 : null };
     tourEmit('integral-opened', { shape: id });
     pop._onClose = () => {
       if (!intPop || intPop.el !== pop) return;
@@ -6493,6 +6725,11 @@
     let x = intPop.cx + 12, y = intPop.cy + 12;
     if (x + pw > window.innerWidth - 12) x = Math.max(12, intPop.cx - pw - 12);
     if (y + ph > window.innerHeight - 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, intPop.cy - ph - 12));
+    // (v16.5 V03: opened from the palette, the result sits beside its curve in X, never over Y, where its image is)
+    if (intPop.beside) {
+      const R = $('paneR').getBoundingClientRect();
+      if (R.width > 0 && R.left > pw + 24 && x + pw > R.left - 8) x = Math.max(12, Math.min(intPop.bx0 != null ? intPop.bx0 - pw - 12 : x, R.left - 8 - pw));
+    }
     // keep the planes' legend chips clear (merged-views review: on the wide Phase panel it covered the colour key):
     // a popover that would overlap one moves to its left, or below it when there is no room on the left
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -6634,9 +6871,10 @@
   function integrateSelected() {
     const s = S.shapes.find((x) => x.id === selected && x.visible !== false && kindType(x) !== 'point');
     const list = s ? [s] : S.shapes.filter((x) => x.visible !== false && kindType(x) !== 'point' && x.kind !== 'cgrid' && x.kind !== 'pgrid');
-    if (!list.length) { toast($t('Draw a curve or a region first: right-click a curve to integrate along it.')); return null; }
-    const r = paneL.ocanvas.getBoundingClientRect();
-    return openIntegralPop(list[0].id, r.left + r.width / 2, r.top + r.height / 2);
+    if (!list.length) { toast(touchUI() ? $t('Draw a curve or a region first: hold a finger on a curve, then choose Integrate.') : $t('Draw a curve or a region first: right-click a curve to integrate along it.')); return null; }   // (v16.5 UX17: a phone's words)
+    // (v16.5 V03: with several curves and none selected, ask; never integrate along a curve chosen for you)
+    if (!s && list.length > 1) { toast(touchUI() ? $t('Pick a curve to integrate along: hold a finger on it, then choose Integrate.') : $t('Pick a curve to integrate along: select it, or right-click it.')); return null; }
+    return integrateShape(list[0].id);
   }
   // GPU Cauchy style of the Phase view: N nodes on the subject's boundary, shared by its components by length
   const cauchyCache = { key: '', val: null };
@@ -6735,18 +6973,8 @@
         if (shown > 6) rows.push($tn('<div class="cm">and {n} more</div>', '<div class="cm">and {n} more</div>', shown - 6));
         if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
       }
-      if (others) {
-        if (rows.length) rows.push('<hr>');
-        // areas are shaded on the left, curves drawn (their preimage curves)
-        const vis = S.targets.filter((s) => s.visible !== false && s.kind !== 'point');
-        const na = vis.filter((s) => kindType(s) === 'area').length, nc = vis.length - na;
-        const theArea = (k) => (k === 1 ? $t('the target area') : $tn('the {n} target area', 'the {n} target areas', k));
-        const theCurve = (k) => (k === 1 ? $t('the target curve') : $tn('the {n} target curve', 'the {n} target curves', k));
-        const theTarget = (k) => (k === 1 ? $t('the target') : $tn('the {n} target', 'the {n} targets', k));
-        if (na && nc) rows.push($t('<div class="cn">On the left: shaded where {fxHtml} lands in {na}, and drawn the curves it maps onto {nc}.</div>', { fxHtml: fxHtml(), na: theArea(na), nc: theCurve(nc) }));
-        else if (nc) rows.push($t('<div class="cn">Drawn on the left: the curves {fxHtml} maps onto {nc}.</div>', { fxHtml: fxHtml(), nc: theTarget(nc) }));
-        else rows.push($t('<div class="cn">Shaded on the left: where {fxHtml} lands in {choice}.</div>', { fxHtml: fxHtml(), choice: theTarget(others) }));
-      }
+      // (v16.5 UX20, V01: what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
+      // chip, never a row over the plane: targetNote)
       // over the w-globe the chip keeps to its headings, so the scene stays visible
       const compact = rGlobe();
       html = (compact ? rows.filter((r) => r.startsWith('<div class="ch">') || r.includes('cn err')) : rows).join('');
@@ -6754,6 +6982,49 @@
     if (html !== calcChipState.html) { calcChipState.html = html; el.innerHTML = html; }
     const show = want && !!html;
     if (el.hidden === show) el.hidden = !show;
+    targetNote(want);
+  }
+  // (v16.5 UX20, V01) the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
+  // in X"); on a phone in Y's title chip ("Shaded in X (the inset)", idleRight), and the inset pulses once when a
+  // preimage first appears in it
+  function targetText(o) {
+    const vis = S.targets.filter((s) => s.visible !== false && s.kind !== 'point');
+    if (!vis.length) return '';
+    const na = vis.filter((s) => kindType(s) === 'area').length, nc = vis.length - na;
+    const ph = document.documentElement.classList.contains('ph'), inset = ph && $('paneL') && $('paneL').classList.contains('ph-inset');
+    if (o && o.phone) return na && nc ? (inset ? $t('Shaded and drawn in X (the inset)') : $t('Shaded and drawn in X')) : nc ? (inset ? $t('Drawn in X (the inset)') : $t('Drawn in X')) : inset ? $t('Shaded in X (the inset)') : $t('Shaded in X');
+    // (a desktop's head note is short, so it keeps its place beside the title: what is shaded or drawn is its tooltip)
+    return $t('Preimage in X');
+  }
+  // ([v16.5 fix regress-7] it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
+  // it returns at once while that is unchanged)
+  let targetNoteKey = '';
+  function targetNote(want) {
+    const ph = document.documentElement.classList.contains('ph');
+    let nv = 0, na = 0;
+    if (want) for (const s of S.targets) if (s.visible !== false && s.kind !== 'point') { nv++; if (kindType(s) === 'area') na++; }
+    const key = `${want ? 1 : 0}|${ph ? 1 : 0}|${nv}|${na}|${I18N.lang}|${S.focus}|${chainSig[nSteps()]}|${!!$('rightNote')}`;
+    if (key === targetNoteKey) return;
+    targetNoteKey = key;
+    const head = document.querySelector('#paneR .pane-head');
+    let el = $('rightNote');
+    const txt = want && !ph ? targetText() : '';
+    if (!el && txt && head) { el = h('span', { class: 'head-note', id: 'rightNote', role: 'status' }); const g = head.querySelector(':scope > .grow'); head.insertBefore(el, g ? g.nextSibling : null); }
+    if (el) {
+      const tip = txt ? $t('Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.', { x: fnText() }) : '';
+      let fit = false;
+      if (el.textContent !== txt || el.dataset.tip !== tip) { el.textContent = txt; el.dataset.tip = tip; fit = true; }
+      if (el.hidden === !!txt) { el.hidden = !txt; fit = true; }
+      if (fit) fitTitle('R');
+    }
+    // (a phone: the inset X pulses once when a preimage first appears in it)
+    const n = want ? S.targets.filter((s) => s.visible !== false && s.kind !== 'point').length : 0;
+    const was = calcChipState.nOthers || 0;
+    calcChipState.nOthers = n;
+    if (n > was && ph) {
+      const pl = $('paneL');
+      if (pl && pl.classList.contains('ph-inset')) { pl.classList.remove('ph-pulse'); void pl.offsetWidth; pl.classList.add('ph-pulse'); setTimeout(() => pl.classList.remove('ph-pulse'), 1000); }
+    }
   }
 
   // ---------------- thumbnails ----------------
@@ -6947,7 +7218,8 @@
         // above the real axis (the empty view is centered on 0) and cased in the plane color, so nothing strikes it
         const ctx = pane.ctx;
         ctx.font = `12px ${TH.ui}`; ctx.fillStyle = TH.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
+        // (v16.5 UX83: only where it fits: a phone's 44 px picture showed it cut, 'lo shape'; the axes alone say it)
+        if (ctx.measureText($t('No shapes')).width <= pane.w - 8) haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
       }
     }
     if (waiting || thumbNotFinal) { thumbNotFinal = false; thumbsWaiting = true; return; } // drawn with a stand-in: not final, not cached
@@ -7001,6 +7273,26 @@
   const camSide = (c) => (c === camS ? 'R' : 'L');
   const camTweens = [];
   // a new fit distance (pane resized, box aspect or height scale changed) rescales the user's zoom with it
+  // v16.5 UX106: the Landscape camera's fitted distance. The block's bounding sphere fits the pane's narrower side; on a
+  // portrait phone that left the surface a small picture in the middle (about 230 × 330 px of a 412 × 680 plane). There
+  // the block's own corners, as the default camera sees them, are fitted to the width and to the height, never farther
+  // than the sphere's fit. Every other pane keeps the sphere's fit, and every picture it drew.
+  function landFitDist(geo, pane) {
+    const sph = GLR.fitDist(geo.radius, CAM3.fov, pane.w, pane.h, 1.05);
+    if (!(typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) || !(pane.w > 0 && pane.h > pane.w * 1.05)) return sph;
+    const y = CAM3.yaw, p = CAM3.pitch;
+    const u = [Math.cos(p) * Math.cos(y), Math.cos(p) * Math.sin(y), Math.sin(p)];   // from the target to the eye
+    const rl = Math.hypot(u[0], u[1]) || 1, r = [-u[1] / rl, u[0] / rl, 0];        // the screen's right (f × z, f = -u)
+    const up = [-r[1] * u[2], r[0] * u[2], r[1] * u[0] - r[0] * u[1]];               // the screen's up (r × f)
+    const tv = Math.tan(CAM3.fov / 2), th = tv * pane.w / pane.h, m = 1.02;          // (the plate holds the labels)
+    let d = 0;
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const z of [geo.floorZ, geo.H]) {
+      const q = [sx * geo.ext[0], sy * geo.ext[1], z - geo.center[2]];
+      const dot = (a) => a[0] * q[0] + a[1] * q[1] + a[2] * q[2];
+      d = Math.max(d, dot(u) + Math.abs(dot(r)) * m / th, dot(u) + Math.abs(dot(up)) * m / tv);
+    }
+    return d > 0 && isFinite(d) ? Math.min(sph, d) : sph;
+  }
   function refitCam(c, base, fit) {
     if (!(fit > 0 && fit < 1e6) || Math.abs(fit - base.dist) <= 1e-9 * fit) return;   // (a collapsed pane gives no fit)
     const k = fit / base.dist;
@@ -7198,6 +7490,7 @@
     scheduleFix();
     updateLeds();
     refreshIntPop();
+    if (typeof Params !== 'undefined' && Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
     requestRender('L', 'R', 'T', 'P');
   }
   function shapesChangedAll(structural) { shapesChanged(structural); }
@@ -7285,7 +7578,7 @@
     const shift = Math.hypot(b.cx - a.cx, b.cy - a.cy) * a.s;
     return shift + Math.abs(b.s / a.s - 1) * half <= px;
   }
-  function setFocus(k) {
+  function setFocus(k, quiet) {
     phHold();
     S.focus = k;
     if (k > 0) S.sel = k;   // (v15: showing a step alone selects it)
@@ -7304,7 +7597,7 @@
     refreshIntPop();
     requestRender('L', 'R', 'P');
     save();
-    tourEmit('step-focused', { k });
+    if (!quiet) tourEmit('step-focused', { k });
   }
 
   // ---------------- pane titles & option strips ----------------
@@ -7313,17 +7606,27 @@
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side) {
+  function fitTitle(side, noNote) {
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
-    t.classList.remove('terse', 'short'); pane.classList.remove('tiny');
+    t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
+    // (v16.5 UX20: Y's one-time note in the head gives way before the title itself does; never cut)
+    const note = side === 'R' ? $('rightNote') : null;
+    if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
     if (!(grow.offsetWidth + t.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
     const pt = t.querySelector('.ptitle'), pr = t.querySelector('.prole');
-    const ptw = pt ? pt.scrollWidth : 0;
-    if (pt && ptw > room) { pane.classList.add('tiny'); return; }
+    let ptw = pt ? pt.scrollWidth : 0;
+    if (pt && ptw > room) {
+      if (note && !note.hidden && !noNote) { fitTitle(side, true); return; }
+      // (wave 1 merge) then the plane's "Y · " tag (UX27) gives way, before the title itself: with the chain empty, Y's
+      // head also holds Add function (UX20), and at 1366 px the tagged title no longer fitted, so it vanished
+      const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
+      if (!(tag && ptw - tw <= room)) { pane.classList.add('tiny'); return; }
+      t.classList.add('notag'); ptw -= tw;
+    }
     // the role is shown whole, or in its short form (its first words: "landscape", "phase of F" without the
     // formula), or not at all: it is never cut inside a formula
     if (!pr || room - ptw - 8 >= pr.scrollWidth) return;
@@ -7359,15 +7662,19 @@
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
-    const left = T(xName, roleL + def, def ? undefined : shortL);
+    // ([v16.5 UX27] one name per plane everywhere: "X · z-plane, domain of F", "Y · w = F(z), image")
+    const XT = '<span class="ptag"><i>X</i> · </span>', YT = '<span class="ptag"><i>Y</i> · </span>';
+    const left = T(XT + xName, roleL + def, def ? undefined : shortL);
     let right;
     // (the deformation keeps Y's surface: the arrow form on the plane, the w-sphere's own title on the globe)
     // (one title for the merged plane and the merged globe)
-    if (morphOn()) right = T(S.focus === 0 && rangeParts() ? `${rangeStart('html')} → <i>w</i>` : S.focus === 0 || dk ? `${wHtml(0)} → ${S.focus === 0 ? '<i>w</i>' : wHtml(rk)}` : `${wHtml(lk)} → ${wHtml(rk)}`, $tx('role', 'deformation'), '');
-    else if (rGlobe()) right = T($t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
-    else if (S.focus === 0) right = T(n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>', $tn('image, after {n} step', 'image, after {n} steps', n), $tx('role', 'image'));
-    else if (dk) right = T(`${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
-    else right = T(`${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
+    // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
+    // carry the "Y · " tag)
+    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T($t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
+    else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
+    else if (S.focus === 0) right = T(YT + (n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>'), $tn('image, after {n} step', 'image, after {n} steps', n), $tx('role', 'image'));
+    else if (dk) right = T(YT + `${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
+    else right = T(YT + `${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
     return { left, right };
   }
   // (v16) where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
@@ -7468,7 +7775,7 @@
     inp.checked = !!checked;
     return h('label', { class: 'check' }, inp, h('span', null, label));
   }
-  const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
+  const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Pulled-back grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
   // the idle hint of a globe (panels.md 3, 9): on an editable globe a drawing tool's drag draws, so the hint names the
   // tool's gesture and how to turn; Select drags shapes and turns on empty space; a tool that does not draw here
   // (Annulus, Sector, Polar grid: the pane chip says so) and a globe that takes no drawing turn with a drag
@@ -7478,10 +7785,12 @@
     if (tool === 'select') return $t('Drag to turn, a shape to move it; ∞ is at the north pole');
     const lab = ((TOOLS.find((t) => t[0] === tool) || [])[1] || '').toLowerCase();
     const tg = side === 'R' ? $t('target ') : '';
-    const g = tool === 'point' ? $t('Click to place a {tg}point', { tg }) : tool === 'polygon' ? $t('Click the vertices')
+    // (v16.5 UX17: on a touch screen a tap places, and two fingers turn)
+    const tch = touchUI();
+    const g = tool === 'point' ? (tch ? $t('Tap to place a {tg}point', { tg }) : $t('Click to place a {tg}point', { tg })) : tool === 'polygon' ? (tch ? $t('Tap the vertices') : $t('Click the vertices'))
       : tool === 'curve' ? $t('Hold and draw a {tg}curve', { tg }) : tool === 'lasso' ? $t('Hold and draw a {tg}region', { tg })
         : tg ? $t('Drag to draw a target {tool}', { tool: lab }) : /^[aeiou]/.test(lab) ? $t('Drag to draw an {tool}', { tool: lab }) : $t('Drag to draw a {tool}', { tool: lab });
-    return $t('{g}; Space or the middle button turns', { g });
+    return tch ? $t('{g}; two fingers turn', { g }) : $t('{g}; Space or the middle button turns', { g });
   }
   // the idle left readout: the scale, or how to draw on or turn the globe, or orbit the landscape (which takes no
   // drawing, panels.md 9.1)
@@ -7495,13 +7804,31 @@
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : focusDeriv() ? `${fnHtml()}(<i>z</i>)` : fnHtml();
     return heightHtml(of) + sheetsClause(shw, 'html');
   };
+  // [v16.5 UX10] on a phone the scale chip teaches the hold-and-slide that reads z and F(z), until it is first used
+  let probeLearnedV = null;
+  const probeLearned = () => { if (probeLearnedV == null) { try { probeLearnedV = localStorage.getItem('cmw-probe-learned') === '1'; } catch (e) { probeLearnedV = false; } } return probeLearnedV; };
+  // ([v16.5 fix regress-4] once a session, for 8 s from the first idle readout of a phone, never a standing part of the
+  // chip: the rule "no always-on hint"; a phone that probed once never sees it again)
+  let probeTeachUntil = 0;
+  const probeTeach = () => {
+    if (!document.documentElement.classList.contains('ph') || probeLearned()) return '';
+    const now = performance.now();
+    if (!probeTeachUntil) {
+      let seen = false;
+      try { seen = sessionStorage.getItem('cmw-probe-taught') === '1'; sessionStorage.setItem('cmw-probe-taught', '1'); } catch (e) { seen = false; }
+      probeTeachUntil = seen ? -1 : now + 8000;
+      if (!seen) setTimeout(() => { const lr = $('leftReadout'); if (lr && lr.querySelector('.rteach')) lr.innerHTML = idleLeft(); }, 8050);
+    }
+    return probeTeachUntil > now ? `<span class="rhint rteach">${$t('Hold and slide to read F(z)')}</span>` : '';
+  };
   const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
-    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : ''));
+    : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in Archivo)
   function idleRight() {
     // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
     const v = rGlobe() ? { hint: mfGlobeAway() ? $t('Paths: X is on the far side; drag to turn') : globeHint('R') }
-      : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in the {x}-plane', { x: yHtml() }) } : scaleText(paneR);
+      : document.documentElement.classList.contains('ph') && hasTargets() && targetText() ? { hint: targetText({ phone: true }) }
+        : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in Y (the {x}-plane)', { x: yHtml() }) } : scaleText(paneR);
     return v && v.hint ? `<span class="rhint">${v.hint}</span>` : rk('', v);
   }
   function scaleText(pane) { return pane ? $t('{x} / div', { x: I18N.num(CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')) }) : ''; }
@@ -7517,9 +7844,13 @@
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     if (!f || !pane || !ft.kids.length) return;
     const phone = phoneMQ.matches;
-    if (!force && ft.w === pane.w && ft.phone === phone) return;
+    // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys; there every option is behind the Display
+    // options button, so no bar lies over the plot)
+    const inHead = !!(f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead) return;
+    ft.head = inHead;
     let n = ft.kids.length;
-    if (phone) n = 0;
+    if (phone || inHead) n = 0;
     else {
       if (!ft.widths) {
         // natural widths, measured once per build with every control inline on one row
@@ -7574,8 +7905,10 @@
     }
     // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
     const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    const x0 = (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
-    let y = r.top - ph - 6;
+    // (v16.5 UX20: from the pane head, the popover hangs under the button, its right edge on the button's)
+    const fromHead = !!btn.closest('.pane-head');
+    const x0 = fromHead ? r.right - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
+    let y = fromHead ? -1 : r.top - ph - 6;
     if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
     pop.dataset.side = y < r.top ? 'top' : 'bottom';
     pop.style.left = Math.max(12, Math.min(window.innerWidth - pw - 12, x0)) + 'px';
@@ -7722,6 +8055,18 @@
     else if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
     return lab;
   }
+  // [v16.5 UX92] a region formula has no box (Region.bboxOf is null), so its note asked whether it is bounded: no point
+  // of it on circles far out (radius 10³ and 10⁵ about 0, 4096 directions each), and it is taken as bounded (|z+1| < 1
+  // is; a strip, a half-plane, the outside of a disc are not). A complement is unbounded
+  function formulaBounded(s) {
+    if (!s || s.kind !== 'formula' || s.complement) return false;
+    let f;
+    try { f = Expr.compileLevel(Expr.parse((s.bind && s.bind.expr) || s.expr, { allowRel: true })); } catch (e) { return false; }
+    try { for (const R of [1e3, 1e5]) for (let i = 0; i < 4096; i++) { const a = (i + 0.5) * TAU / 4096; if (!(f(C(R * Math.cos(a), R * Math.sin(a))) < 0)) return false; } } catch (e) { return false; }
+    return true;
+  }
+  // [v16.5 UX67] the step editor's "Show all sheets": Landscape (3) with All sheets on
+  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); }
   function setSheets(on) {
     S.sheets = !!on;
     // the sheets of a root share |F|: they separate in Re F and Im F
@@ -7776,7 +8121,7 @@
       // steps at once), t, speed, the order of the steps (two or more), Loop and the Paths toggle (P); × closes it
       // and the view returns to t = end
       const m = morphLen(), nSt = morphRange().steps.length, hasD = morphHasDeriv();
-      const play = h('button', { class: 'icon-btn play', id: 'morphPlay', title: morph.playing ? $t('Pause') : $t('Play'), 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
+      const play = h('button', { class: 'icon-btn play', id: 'morphPlay', 'data-tip': (morph.playing ? $t('Pause') : $t('Play')) + '  K', 'aria-label': morph.playing ? $t('Pause') : $t('Play'), html: morph.playing ? ICONS.pause : ICONS.play, onclick: () => togglePlay() });
       const rng = h('input', { type: 'range', id: 'morphRange', min: 0, max: Math.max(m, 0.001), step: 0.001, value: morph.T, 'aria-label': $t('Deformation time'),
         onchange: () => sndScrubEnd(), onpointerup: () => sndScrubEnd(),
         // (v16.2: the readout follows a paused scrub in every view; in Landscape or Phase alone Y's pane, whose render
@@ -7830,8 +8175,8 @@
           h('span', { class: 'tr-from', html: $t('from {v}', { v: subTags(rangeStart('html')) }) }),
           dd > 1 ? h('span', { class: 'tr-note' }, $t('A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.')) : null);
       }
-      f.append(play, scrub, h('span', { class: 'tread mono', id: 'morphLabel' }, `t = ${morph.T.toFixed(2)} / ${m}`),
-        seg('speedSeg', String(S.morphSecs), [['3.2', '0.5×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed')),
+      f.append(play, scrub, h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout()),
+        seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed')),
         ...(order ? [order] : []),
         checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); }),
         // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
@@ -7840,6 +8185,10 @@
         h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
       watchFader(rng);
+      // ([v16.5 fix regress-1] a row too tight for the readout in words: the short form, measured once here, where the
+      // dock is laid out anyway)
+      { const lab = f.querySelector('#morphLabel'), tc = f.querySelector('.tclose');
+        if (lab && tc && play.getClientRects().length && tc.getBoundingClientRect().top > play.getBoundingClientRect().bottom - 4) { lab.dataset.short = '1'; setText(lab, morphReadout(true)); } }
       // (v16: a phone's transport labels, measured once the dock is laid out: here, then on the next frames and renders)
       if (scrub.dataset.fit) { const w = rng.getBoundingClientRect().width; if (w > 0 && w < 120) { for (const x of scrub.querySelectorAll('.tfix')) x.hidden = true; delete scrub.dataset.fit; } }
     }
@@ -7968,8 +8317,12 @@
     const b = $('morphPlay');
     if (!b) return;
     b.innerHTML = morph.playing ? ICONS.pause : ICONS.play;
-    b.title = morph.playing ? $t('Pause') : $t('Play');
-    b.setAttribute('aria-label', b.title);
+    // (v16.5 UX104: the tooltip reads data-tip, which a title set later never reached, so it kept saying Pause; the
+    // tooltip is written itself, with the key)
+    const lab = morph.playing ? $t('Pause') : $t('Play');
+    b.removeAttribute('title');
+    b.setAttribute('data-tip', lab + '  K');
+    b.setAttribute('aria-label', lab);
     // (v16.1: paused, the scrubber shows T exactly; while playing syncTransport moves it in half-pixel steps)
     const sl = !morph.playing ? $('morphRange') : null;
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
@@ -7998,6 +8351,45 @@
     return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
   }
   function legendWanted(side = 'R') { return !!legendKind(side); }
+  // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
+  // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
+  // after a click, the options behind the Display options button (wave 2's D4 turns it into a Display popover). A phone
+  // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
+  function placeKeys() {
+    const ph = document.documentElement.classList.contains('ph');
+    let moved = false;
+    for (const side of ['L', 'R']) {
+      const pane = side === 'L' ? $('paneL') : $('paneR'), head = pane && pane.querySelector('.pane-head'), plot = $(side === 'L' ? 'plotL' : 'plotR');
+      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend'), ft = $(side === 'L' ? 'leftFoot' : 'rightFoot'), led = $(side === 'L' ? 'leftLed' : 'rightLed');
+      if (!head || !plot || !leg || !ft) continue;
+      if (!ph) {
+        if (leg.parentNode !== head) { head.insertBefore(leg, led && led.parentNode === head ? led : null); leg.classList.remove('collapsed'); moved = true; }
+        if (ft.parentNode !== head) head.insertBefore(ft, led && led.parentNode === head ? led : null);
+        // (the empty chain's call to action too: "Add function" in Y's head, not over the picture)
+        const er = side === 'R' ? $('emptyRight') : null;
+        if (er && er.parentNode !== head) head.insertBefore(er, leg);
+      } else {
+        const ro = $(side === 'L' ? 'leftReadout' : 'rightReadout'), vs = plot.querySelector(':scope > .viewstack');
+        if (leg.parentNode !== plot) {
+          // (the head's words and tooltip go: on the plane the key is the folded glyph, a tap unfolds it)
+          leg.classList.remove('open'); plot.insertBefore(leg, ro ? ro.nextSibling : vs);
+          const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
+          leg.removeAttribute('aria-label');
+          try { if (matchMedia('(pointer: coarse)').matches) leg.classList.add('collapsed'); } catch (e) { /* */ }
+        }
+        if (ft.parentNode !== plot) plot.insertBefore(ft, vs);
+        const er = side === 'R' ? $('emptyRight') : null;
+        if (er && er.parentNode !== plot) plot.insertBefore(er, $('draftChipR'));
+      }
+    }
+    if (foot.L.kids.length || foot.R.kids.length) layoutFoot(true);
+    if (moved) drawLegend();   // (the chip's words, written when it is in the head)
+  }
+  // the key chip's words in the pane head: the pattern's cell (Y), or what X's colours show
+  function legendSum(kind) {
+    if (kind === 'image') return S.pattern === 'stretch' ? $t('Scale |F′|') : S.pattern === 'sphere' ? $t('Sphere cells') : $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) });
+    return kind === '3d' ? $t('Height key') : $t('Colour key');
+  }
   function drawLegend() { drawLegendSide('L'); drawLegendSide('R'); }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
@@ -8011,6 +8403,15 @@
     if (box.hidden === want) box.hidden = !want;
     // (the folded chip on a phone shows a glyph of its key: the hue wheel, arg increasing counterclockwise from red at
     // 1, or a checker for the Pattern key)
+    if (kind && box.parentNode && box.parentNode.classList && box.parentNode.classList.contains('pane-head')) {
+      let sm = box.querySelector(':scope > .lg-sum');
+      if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
+      const tx = legendSum(kind);
+      if (sm.textContent !== tx) sm.textContent = tx;
+      const tip = kind === 'image' ? $t('Pattern key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open');
+      // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
+      if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
+    }
     if (kind && box.dataset.kind !== kind) {
       box.dataset.kind = kind;
       if (!box.style.getPropertyValue('--wheel')) box.style.setProperty('--wheel', `conic-gradient(from 90deg, ${[0, ...WHEEL_STOPS.map((_, i) => 12 - i).slice(1), 12].map((i) => WHEEL_STOPS[i % 12]).join(', ')})`);
@@ -8137,7 +8538,7 @@
         }
         return;
       }
-      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('left view'), 30, y); }
+      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
       return;
     }
     // hue ring: arg increases counterclockwise from red at 1
@@ -8200,6 +8601,15 @@
     const Fn = homL ? 'Hₜ' : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : $t('arg and |{Fn}|', { Fn }));
   }
+  // (v16.5 UX97) the deformation's time to the previous or next step's tick (t at a whole step), paused
+  function morphTick(d) {
+    const m = morphLen(), T = morph.T, eps = 1e-6;
+    let to = d > 0 ? Math.floor(T + eps) + 1 : Math.ceil(T - eps) - 1;
+    to = Math.max(0, Math.min(m, to));
+    if (morph.playing) { morph.playing = false; snd.morphArm = false; }
+    morph.T = to; morph.seg = null; morph.u = 0; morph.hold = 0;
+    setPlayIcon(); syncTransport(); scheduleFix(); requestRender('R', 'L');
+  }
   function togglePlay() {
     morph.playing = !morph.playing;
     morph.last = 0;
@@ -8247,13 +8657,14 @@
     ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
     ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],
     ['rect', $tx('tool', 'Rectangle'), 'B', $t('Drag between opposite corners.')],
-    ['polygon', $tx('tool', 'Polygon'), 'G', $t('Click the vertices; click the first one or press Enter to close.')],
+    ['polygon', $tx('tool', 'Polygon'), 'G', $t('Click the vertices; click the first one or press Enter to close. Backspace removes the last point.')],
     ['lasso', $t('Lasso'), 'O', $t('Hold and draw a closed region.')],
     ['halfplane', $tx('tool', 'Half-plane'), 'H', $t('Drag along the boundary; the region is to the left of the arrow.')],
     ['annulus', $t('Annulus'), 'N', $t('Drag from the center to the outer radius.')],
     ['sector', $t('Sector'), 'K', $t('Drag from the vertex; edit the angles in the shape list.')],
     ['formula', $t('Formula'), 'T', $t('Type a set such as |z − 1| < 2, or a curve such as Re z = 0, below.')],
-    ['cgrid', $t('Grid'), '', $t('Drag a rectangle to fill with grid lines.')],
+    // ([v16.5 UX86] one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
+    ['cgrid', $t('Line grid'), '', $t('Drag a rectangle to fill with grid lines.')],
     ['pgrid', $t('Polar grid'), '', $t('Drag from the center to set the radius.')],
   ].concat(typeof Construct !== 'undefined' ? Construct.toolRows() : []);   // (v16: the Construct group, construct.js)
   if (typeof Construct !== 'undefined') Object.assign(ICON, Construct.ICON);
@@ -8270,8 +8681,16 @@
       if (rail && group === 'construct' && id === 'circle3') rail.append(h('span', { class: 'rail-sep', 'aria-hidden': 'true' }));
       if (rail) rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
     }
+    // (v16.5 UX93) a phone's tool tile (58 px) shows the name on one line: in Russian a short form where the full name,
+    // which the desktop grid hyphenates, is wider than the tile (phone.js reads data-phl)
+    if (I18N.lang !== 'en') {
+      const PHL = { circle: $tx('phone tile', 'Circle'), rect: $tx('phone tile', 'Rectangle'), polygon: $tx('phone tile', 'Polygon'), halfplane: $tx('phone tile', 'Half-plane'),
+        meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Orthogonal'),
+        hyper: $tx('phone tile', 'Hyperbolic') };   // (wave 1 merge: the plane piece's seventh Construct tool, UX55)
+      for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
+    }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
-    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap while drawing'), 'aria-label': $t('Snap while drawing'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
+    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
   }
   function setTool(id) {
@@ -8308,6 +8727,7 @@
   // else 'menu'; set around the call by the path that adds it (the tour's Sets from formulas task)
   let shapeVia = null;
   function addShape(s, target) {
+    if (!target && !cellSaid && kindType(s) === 'area') cellSay = true;
     (target ? S.targets : S.shapes).push(s);
     selected = s.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
@@ -8429,19 +8849,44 @@
     // (an example's named curve: the melody's spiral, notes/sea-song)
     if (s.kind === 'curve' && s.nameKey === 'spiral') return $t('Spiral');
     const nk = nameKind(s);
-    return $t('{kind} {n}', { kind: Region.KINDS[nk].label, n: counts[nk] });
+    return $t('{kind} {n}', { kind: kindLabel(nk), n: counts[nk] });
   }
   // (v16.3 review user-9) a perpendicular or touching circle is numbered once, by the kind it was made as (def.nk): a
   // drag that turns it into a line for a moment renames neither it nor the shapes after it
   // ([v16.4 segments] Inside C only renames nothing: its arc or ray keeps nk; one made with the chip on Inside: nk 'arc')
+  // ([v16.5 UX55] made as a hyperbolic line, def.nk 'hyper': numbered and named as one, 'Hyperbolic line 1')
+  const colorName = (i) => [$tx('color', 'Blue'), $tx('color', 'Orange'), $tx('color', 'Teal'), $tx('color', 'Pink'), $tx('color', 'Green'), $tx('color', 'Purple'), $tx('color', 'Olive'), $tx('color', 'Slate')][i] || $t('Preset {x}', { x: i + 1 });
+  const kindLabel = (nk) => (nk === 'hyper' ? $t('Hyperbolic line') : Region.KINDS[nk].label);
   function nameKind(s) {
     const nk = s.def && (s.def.op === 'perp' || s.def.op === 'touch') ? s.def.nk : null;
-    if (nk !== 'circle' && nk !== 'line' && nk !== 'arc') return s.kind;
+    if (nk !== 'circle' && nk !== 'line' && nk !== 'arc' && nk !== 'hyper') return s.kind;
     const region = s.kind === 'disc' || s.kind === 'halfplane';
     if (!region && !['circle', 'line', 'arc', 'ray'].includes(s.kind)) return s.kind;
-    if (nk === 'arc') return region ? s.kind : 'arc';
+    if (nk === 'arc' || nk === 'hyper') return region ? s.kind : nk;
     if (s.kind === 'arc' || s.kind === 'ray') return nk;
     return nk === 'circle' ? (region ? 'disc' : 'circle') : (region ? 'halfplane' : 'line');
+  }
+  // (v16.5 UX97) a menu's key for ⌘ or Ctrl with k (wave 1 merge: none on a touch screen, the phone piece's UX17 rule
+  // that touch words name no keys)
+  const modK = (k) => (touchUI() ? '' : (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘' : 'Ctrl ') + k);
+  // a copy of s beside it, selected (the row menu's Duplicate, ⌘D)
+  function duplicateShape(s) {
+    const target = isTarget(s), list = target ? S.targets : S.shapes;
+    const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null;
+    if (target) targetsChanged(true); else shapesChanged(true);
+    commit();
+  }
+  // (v16.5 UX97) the arrows move the selected shape by one step of the drawn grid (Shift: ten), as a drag would
+  function nudgeShape(s, dx, dy, big) {
+    const pane = isTarget(s) ? paneR : paneL;
+    if (!pane || (typeof Construct !== 'undefined' && s.def)) return false;
+    // (wave 1 merge: the step of the grid as drawn, halves included, the rail piece's Constr.gridStep, as snapping uses)
+    const sc = pane.view.s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
+    const step = (typeof Constr !== 'undefined' && Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
+    try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
+    if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
+    commit();
+    return true;
   }
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
@@ -8480,20 +8925,22 @@
     }
     // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
     // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
-    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span><i>z</i>-plane</span>') }));
+    // ([v16.5 UX27] the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
+    host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
     const counts = {}, pv = { n: 0 };
-    S.shapes.forEach((s) => { const nk = nameKind(s); counts[nk] = (counts[nk] || 0) + 1; host.append(shapeRow(s, rowName(s, counts, pv), false)); });
+    S.shapes.forEach((s) => { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; host.append(shapeRow(s, rowName(s, counts, pv), false)); });
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     {
       const out = S.focus === 0 ? '<i>w</i>' : wHtml(rightStage());
-      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>{out}-plane</span>', { out }) }));
-      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in the {out}-plane.', { out }) }))));
+      host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
+      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tc = {};
       S.targets.forEach((s, i) => {
-        const nk = nameKind(s);
-        tc[nk] = (tc[nk] || 0) + 1;
+        const nk = nameKind(s), fx = fixedNm(s);
+        if (!fx) tc[nk] = (tc[nk] || 0) + 1;
         // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
-        const label = s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: Region.KINDS[nk].label.toLowerCase(), x2: tc[nk] });
+        // ([v16.5 fix rail-4] the unit circle or an axis of Y: by that name)
+        const label = fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] });
         host.append(shapeRow(s, label, true, i));
       });
     }
@@ -8515,15 +8962,19 @@
         // a curve of the domain: its line integral (as a right click on the curve opens it)
         if (!target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid') {
           const anchor = e.currentTarget;
-          items.push({ label: $t('Integrate {x} along it', { x: fnText() }), run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } }, 'sep');
+          items.push({ label: $t('Integrate {x} along it', { x: fnText() }), run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } });
+          // (v16.5 UX72: Listen along, as in the plane's menu, with the same verb; sound off: it offers to turn it on)
+          if (SND) items.push({ label: snd.play ? $t('Stop listening') : $t('Listen along it'), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
+          items.push('sep');
         }
         if (kindType(s) === 'area') items.push({ label: s.complement ? $t('Use the set itself') : $t('Use complement'), run: () => { s.complement = !s.complement; changed(); commit(); } });
-        items.push({ label: $t('Duplicate'), run: () => { const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null; changed(); commit(); } });
-        items.push({ label: $t('Color'), kids: [...TH.c.map((cc, i) => ({ label: $t('Preset {x}', { x: i + 1 }), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom color…'), run: () => pickColor(s) }] });
-        items.push({ label: $t('Bring forward'), disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
-        items.push({ label: $t('Send backward'), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
+        items.push({ label: $t('Duplicate'), key: modK('D'), run: () => duplicateShape(s) });
+        // ([v16.5 UX95] the colours by their names, not "Preset 1"–"Preset 8")
+        items.push({ label: $t('Color'), kids: [...TH.c.map((cc, i) => ({ label: colorName(i), swatch: cc, run: () => { s.ci = i; delete s.color; changed(); commit(); } })), { label: $t('Custom color…'), run: () => pickColor(s) }] });
+        items.push({ label: $t('Bring forward'), key: modK(']'), disabled: list.indexOf(s) === list.length - 1, run: () => moveShape(s.id, 1) });
+        items.push({ label: $t('Send backward'), key: modK('['), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
         items.push('sep');
-        items.push({ label: target ? $t('Clear targets') : $t('Clear shapes'), run: () => clearGroup(!target, target) });
+        // ([v16.5 UX95] Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
         items.push({ label: $t('Delete'), icon: 'trash', key: '⌫', danger: true, run: () => deleteShape(s.id) });
         if (typeof Construct !== 'undefined') Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
         openMenu(e.currentTarget, items);
@@ -8611,13 +9062,16 @@
       const bf = boundField(key, label);
       if (bf) return bf;
       // (v15: a field may hold a formula of the shared numbers, kept in s.bind)
-      const ptText = () => (s.bind && s.bind[key]) || CX.fmt(C(s[key][0], s[key][1]), 6);
-      const inp = h('input', { class: 'inp mono', value: ptText(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
-      follow(inp, () => (s[key] ? ptText() : null));
-      const f = h('div', { class: 'field' }, lab(label), inp);
+      // ([v16.5 UX44] a point takes the full row and reads 4 significant digits until it is clicked into, then 6)
+      const sig4 = (x) => +(+x).toPrecision(4);
+      const ptText = (dp = 6) => (s.bind && s.bind[key]) || (dp === 4 ? CX.fmt(C(sig4(s[key][0]), sig4(s[key][1])), 6) : CX.fmt(C(s[key][0], s[key][1]), dp));
+      const inp = h('input', { class: 'inp mono', value: ptText(4), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+      follow(inp, () => (s[key] ? ptText(4) : null));
+      const f = h('div', { class: 'field cxf' }, lab(label), inp);
       const now = () => JSON.stringify([s[key], s.bind && s.bind[key]]);
       let start = now();
-      inp.addEventListener('focus', () => { start = now(); });
+      inp.addEventListener('focus', () => { start = now(); if (!inp.classList.contains('bad') && s[key]) inp.value = ptText(); });
+      inp.addEventListener('blur', () => { if (!inp.classList.contains('bad') && s[key] && now() === start) inp.value = ptText(4); });
       inp.addEventListener('input', () => {
         try { const v = Expr.constValue(inp.value); s[key] = [v.re, v.im]; bindField(s, key, inp.value); showErr(f, inp, ''); shapesChanged(false); } catch (e) { showErr(f, inp, e.unknown ? e.message : $t('Expected a number like 1+2i or e^{i\\pi/4}')); }
       });
@@ -8635,14 +9089,15 @@
       const bf = boundField(key, label);
       if (bf) return bf;
       // (v15: a text field, so that it takes formulas of the shared numbers: 2a, ρ/2)
-      const numText = () => (s.bind && s.bind[key]) || fmtNumIn(s[key]);
-      const inp = h('input', { class: 'inp mono', type: 'text', step, value: numText(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
-      follow(inp, () => (s[key] != null ? numText() : null));
+      const numText = (sig) => (s.bind && s.bind[key]) || (sig ? String(+(+s[key]).toPrecision(sig)) : fmtNumIn(s[key]));
+      const inp = h('input', { class: 'inp mono', type: 'text', step, value: numText(4), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+      follow(inp, () => (s[key] != null ? numText(4) : null));
       const l = lab(label);
       const f = h('div', { class: 'field' }, l, inp);
       const now = () => JSON.stringify([s[key], s.bind && s.bind[key]]);
       let start = now();
-      inp.addEventListener('focus', () => { start = now(); });
+      inp.addEventListener('focus', () => { start = now(); if (!inp.classList.contains('bad') && s[key] != null) inp.value = numText(); });
+      inp.addEventListener('blur', () => { if (!inp.classList.contains('bad') && s[key] != null && now() === start) inp.value = numText(4); });
       const readNum = (t) => { const n = Number(t); return Number.isFinite(n) ? n : typeof Params !== 'undefined' ? Params.evalReal(t) : NaN; };
       const check = (v) => {
         if (!Number.isFinite(v)) return $t('Enter a number');
@@ -8721,8 +9176,14 @@
     }
     if (kindType(s) === 'area') box.append(checkEl('cmp_' + s.id, s.complement, $t('Use complement'), (v) => { s.complement = v; shapesChanged(true); commit(); }));
     let unb = false;
-    try { unb = kindType(s) === 'area' && !Region.bboxOf(s); } catch (e) { unb = true; }
-    if (unb) box.append(h('div', { class: 'lbl note' }, $t('Unbounded: drawn about 200 view-widths out, faded at the edge.')));
+    try { unb = kindType(s) === 'area' && !Region.bboxOf(s) && !formulaBounded(s); } catch (e) { unb = true; }
+    // ([v16.5 UX92] only for a region that goes on forever; UX95 in plain words)
+    if (unb) box.append(h('div', { class: 'lbl note', 'data-unb': '' }, $t('Goes on forever; drawn faded towards the edge.')));
+    // (v16.5 UX72) Listen along from the selected curve's editor too, as in its ⋯ (sound off: it offers to turn it on);
+    // on a phone this is the way in without a long press on a thin line
+    if (SND && !target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid')
+      box.append(h('div', { class: 'row snd-edit' }, h('button', { type: 'button', class: 'btn', 'data-act': 'listen-along',
+        onclick: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) }, $t('Listen along it'))));
     return box;
   }
 
@@ -8862,6 +9323,8 @@
       }
     };
     const add = () => {
+      // (v16.5 UX32: Add on an empty field puts the cursor there and says what to type)
+      if (!inp.value.trim()) { inp.focus(); setNote($t('Type a set, such as |z − 1| < 2, or a curve, such as Re z = 0.')); return; }
       let v = check();
       // v15: one new name in the formula (Re z = a) adds the number, then the shape
       if (!v && typeof Params !== 'undefined') { const u = Params.unknownIn(inp.value); if (u.length === 1 && !Params.check(u[0]).error) { Params.add(u[0]); v = check(); } }
@@ -9133,8 +9596,8 @@
     host.append(connector(S.steps.length + 1));
     host.lastChild.classList.add('conn-last');
     updateBracket();   // (v16: the deformation's bracket, a tab stop after the cards and before the Add tile)
-    host.append(h('button', { class: 'add-card', id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
-      h('span', { html: ICONS.plus }), h('span', null, S.steps.length ? $t('Add function') : $t('Add the first function')), h('span', { class: 'kbd' }, '+')));
+    host.append(h('button', { class: 'add-card' + (S.steps.length <= 3 ? ' labelled' : ''), id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
+      h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (v16.5 UX22: the label the short chain shows, desk.css)
     host.append(fTile());
     // (v15 review design-14: the listbox owns the options only, the region card, the step cards and F, through
     // aria-owns; the connectors are aria-hidden and the Add tile is its own tab stop after the listbox, not an item in it)
@@ -9162,8 +9625,10 @@
       items.push({ label: st.on === false ? $t('Turn this step back on') : $t('Bypass this step'), icon: 'bypass', run: () => toggleBypass(k) }, 'sep');
     }
     items.push(
-      { label: $t('Move left'), icon: 'chevL', disabled: k === 1, run: () => moveStep(k, -1) },
-      { label: $t('Move right'), icon: 'chevR', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
+      // (v16.5 UX97 / UX81: the keys a focused card takes, Alt+← / Alt+→; added by the wave 1 merge, as the learn piece asked;
+      // none on a touch screen)
+      { label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
+      { label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
       { label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
       { label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
@@ -9186,10 +9651,23 @@
   // v15 (DESIGN.md 2.4): a click selects (the Inspector edits it); Show alone is its own action (a double-click, L,
   // the lens in the Inspector's head)
   function cardClick(k) { selectStep(k); }
+  // (v16.5 UX81) move step k one place and keep the keyboard on its card (the chain is drawn again)
+  function moveCard(k, d) {
+    if (!moveStep(k, d)) return;
+    const c = document.querySelector(`#pipeline .card[data-k="${k + d}"]`);
+    if (c) c.focus({ preventScroll: true });
+  }
   function chainKey(e, k) {
     if (e.target !== e.currentTarget) return;
     const n = S.steps.length, cur = k === 'F' ? n + 1 : k;
     const go = (j) => { e.preventDefault(); const el = j === n + 1 ? document.querySelector('#pipeline .ftile') : document.querySelector(`#pipeline .card[data-k="${j}"]`); if (el) { el.focus(); selectStep(j === n + 1 ? 'F' : j); } };
+    // (v16.5 UX81 / UX97: Alt+← / Alt+→ moves the step one place, as its ⋯ menu's Move left / right, and the moved card
+    // keeps the keyboard; the chain and learn pieces built the same key, merged as one)
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault(); e.stopPropagation();
+      if (k > 0 && k !== 'F') moveCard(k, e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(Math.min(n + 1, cur + 1));
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(Math.max(0, cur - 1));
     else if (e.key === 'Home') go(0);
@@ -9259,7 +9737,7 @@
     for (const [key, name] of BADGES) fl.append(h('span', { class: 'lamp', 'data-lamp': key, hidden: true }, h('span', { class: 'lampname' }, W[key] || name), ' ', h('span', { class: 'lampq' })));
     const t = h('div', { class: 'ftile', role: 'option', tabindex: 0, 'aria-selected': 'false', 'data-tip': $t('F, the whole map: its formula and guarantees'),
       onclick: () => selectStep('F'), onkeydown: (e) => chainKey(e, 'F') },
-    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F'), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
+    h('span', { class: 'fF', 'aria-hidden': 'true' }, 'F', h('span', { class: 'fid' }, '\u2009=\u2009z')), fl, h('span', { class: 'fnone', hidden: true }, $t('No guarantees')));
     return t;
   }
   // the lit names on the F tile: the two strongest (the tooltip and the Inspector list them all)
@@ -9284,7 +9762,11 @@
     for (const key of lit.slice(0, 2).reverse()) { const el = fl.querySelector(`.lamp[data-lamp="${key}"]`); if (el) fl.prepend(el); }
     t.querySelector('.fnone').hidden = lit.length > 0;
     const names = BADGES.filter(([key]) => words[key]).map(([, n]) => n);
-    t.setAttribute('aria-label', names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
+    // (v16.5 UX84: an empty chain is the identity: the tile says F = z, not its guarantees)
+    const id = !act.length;
+    t.classList.toggle('ident', id);
+    if (id) for (const el of t.querySelectorAll('.lamp, .fnone')) el.hidden = true;
+    t.setAttribute('aria-label', id ? $t('F = z: no steps yet') : names.length ? $t('F: {list}', { list: names.join(', ') }) : $t('F: no guarantees'));
   }
   // dragging horizontally on a label changes a numeric field
   function scrubbable(label, input, step, isInt) {
@@ -9416,7 +9898,7 @@
   function paramField(st, k, q, pre = 'p') {
     const val = st.params[q.key] ?? q.def;
     const upd = (v) => { st.params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
-    let input, extra = null;
+    let input, extra = null, before = null;
     const id = `${pre}${k}_${q.key}`;
     if (q.type === 'choice') {
       input = h('select', { class: 'inp', id, onchange: (e) => { upd(e.target.value); commit(); } }, ...q.choices.map(([v, l]) => h('option', { value: v }, l)));
@@ -9445,6 +9927,17 @@
         commit();
       });
       if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
+      // [v16.5 UX67] a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
+      // with All sheets on, the one view that draws them
+      if (q.key === 'k' && q.type === 'int') {
+        const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
+        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); };
+        before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
+        extra = h('div', { class: 'sheet-ctl' },
+          n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
+          h('button', { class: 'icon-btn sh-next', type: 'button', 'aria-label': $t('Next sheet'), 'data-tip': $t('Next sheet'), onclick: (e) => { e.preventDefault(); go(1); } }, '›'),
+          h('button', { class: 'btn ghost small sh-all', type: 'button', 'data-tip': $t('Landscape draws every sheet of the map as one surface'), onclick: (e) => { e.preventDefault(); showAllSheets(); } }, $t('Show all sheets')));
+      }
     } else {
       // (review verify-4: a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
       // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
@@ -9464,9 +9957,22 @@
     const wide = q.type === 'expr' || q.type === 'coeffs';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
-    const lab = h('label', { class: 'pl', for: id, 'data-tip': sym ? sym[1] : q.label }, labelText);
+    // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
+    // says what the field is; the symbol keeps its own span, where a step's index goes)
+    const word = paramWord(st, q);
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
     if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
-    return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') }, lab, extra ? h('div', { class: 'pair' }, input, extra) : input);
+    return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
+  }
+  // (v16.5 UX33) the word before a field's symbol: the cut, the sheet, the power or root index, the zeros-and-poles factor
+  function paramWord(st, q) {
+    if (q.key === 'cut') return $t('Cut angle');
+    if (q.key === 'k') return $t('Sheet');
+    if (q.key === 'n') return st.type === 'root' ? $t('Root index') : $t('Power');
+    if (q.key === 'phi') return $t('Angle');
+    if (q.key === 'alpha') return $t('Exponent');
+    if (q.key === 'a' && st.type === 'zp') return $t('Factor');
+    return '';
   }
   // keep the card's field and the compact popover's field in step
   function syncParam(k, key, from) {
@@ -9499,9 +10005,11 @@
       c.root.classList.toggle('off', st.on === false);
       c.root.classList.toggle('bad', bad);
       const d = defOf(st);
-      const lab = `f${sub(k)}, ${d.label}` + (S.focus === k ? $t(', shown alone') : '') + (st.on === false ? $t(', bypassed') : '') + (bad ? $t(', error: {msg}', { msg: b.error }) : '');
+      // (v16.5 UX84: a typed step is a "Formula"; its formula is in the tooltip and the aria label, never on the card)
+      const fx = st.type === 'custom' && st.params && st.params.expr ? String(st.params.expr) : '';
+      const lab = `f${sub(k)}, ${d.label}` + (fx ? ` ${fx}` : '') + (S.focus === k ? $t(', shown alone') : '') + (st.on === false ? $t(', bypassed') : '') + (bad ? $t(', error: {msg}', { msg: b.error }) : '');
       if (c.root.getAttribute('aria-label') !== lab) c.root.setAttribute('aria-label', lab);
-      const tip = bad ? `f${sub(k)} (${b.def ? b.def.label : d.label}): ${b.error}` : null;
+      const tip = bad ? `f${sub(k)} (${b.def ? b.def.label : d.label}): ${b.error}` : fx ? `f${sub(k)}(z) = ${fx}` : null;
       if ((c.root.dataset.tip || null) !== tip) { if (tip) c.root.dataset.tip = tip; else delete c.root.dataset.tip; }
       c.invBtn.disabled = !b || bad;
     });
@@ -9522,37 +10030,56 @@
     }
     TeX.set(el, `F=${acc}`);
   }
-  function addStep(type, params, at) {
+  function addStep(type, params, at, o) {
     const st = { type, params: Object.assign(Funcs.defaults(type), params || {}), on: true };
     if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
     at = Math.max(0, Math.min(S.steps.length, at));
     S.steps.splice(at, 0, st);
     chainChanged(true);
-    setFocus(at + 1);
+    // (v16.5 UX01: the planes keep what they showed, F or the step shown alone; the new card is selected, and the
+    // toast offers Show alone: Show alone is its own choice, ui-redesign-2)
+    keepShown(at + 1, 1);
     commit();
     startTransition(at + 1);
     noteRecent(type);
     soundCue('stepAdd');
-    const card = document.querySelector(`#pipeline .card[data-k="${at + 1}"]`);
-    if (card) card.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    bornCards(at + 1, 1);
+    addedToast(at + 1, 1, null, o && o.msg);
     return cardButton(at + 1);
   }
-  // v15.2: a formula added as its steps (the palette's Add as n steps): one commit, the first new step shown alone; into
-  // an empty chain, F is the formula the user typed, so the planes show F with its parts on the cards (review steps-1)
+  // (UX01) after a step is added, moved or duplicated: the step shown alone, if any, stays shown (its index moved by
+  // the n new cards at k, or by the move), and card k is selected for the Inspector
+  function keepShown(k, n, from) {
+    let f = S.focus;
+    if (from != null) f = f === from ? k : f > from && f <= k ? f - 1 : f < from && f >= k ? f + 1 : f;
+    else if (f >= k) f += n;
+    setFocus(Math.max(0, Math.min(S.steps.length, f)), f === S.focus);
+    S.sel = k;
+    syncSel();
+    requestRender('P');
+  }
+  // "Added f₃ Sine · Show alone · Undo" (the toast's Show alone shows the first new step; one undo for all n)
+  function addedToast(k, n, verb, msgOf) {
+    const name = n === 1 ? defOf(S.steps[k - 1]).label : '';
+    const msg = msgOf ? msgOf(k) : verb === 'dup' ? $t('Duplicated f{x} as f{x2}.', { x: sub(k - 1), x2: sub(k) })
+      : n === 1 ? $t('Added f{x} {name}.', { x: sub(k), name }) : $t('Added f{x}–f{x2}.', { x: sub(k), x2: sub(k + n - 1) });
+    undoToast(msg, S.focus === k ? null : [$t('Show alone'), () => { if (S.steps[k - 1]) { setFocus(k); requestRender('P'); } }]);
+  }
+  // v15.2: a formula added as its steps (the palette's Add as n steps): one commit; the planes keep what they showed
+  // (v16.5 UX01), so into an empty chain F is the formula the user typed, with its parts on the cards (review steps-1)
   function addSteps(list, at) {
     if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
     at = Math.max(0, Math.min(S.steps.length, at));
     const news = list.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: true }));
-    const empty = !S.steps.length;
     S.steps.splice(at, 0, ...news);
     chainChanged(true);
-    setFocus(empty ? 0 : at + 1);
-    if (empty) { S.sel = 1; syncSel(); }
+    keepShown(at + 1, news.length);   // (v16.5 UX01: the planes keep F, the first new card is selected)
     commit();
     startTransition(at + 1);
     for (const s of news) noteRecent(s.type);
     soundCue('stepAdd');
     bornCards(at + 1, news.length);
+    addedToast(at + 1, news.length);
     return cardButton(at + 1);
   }
   // the new cards unfold (200 ms; none with reduced motion), and the first one scrolls into view
@@ -9619,8 +10146,10 @@
     const st = S.steps[k - 1];
     S.steps.splice(k, 0, JSON.parse(JSON.stringify(st)));
     chainChanged(true);
-    setFocus(k + 1);
+    keepShown(k + 1, 1);   // (v16.5 UX01)
     commit();
+    bornCards(k + 1, 1);
+    addedToast(k + 1, 1, 'dup');
     return cardButton(k + 1); // the new card takes the keyboard focus
   }
   function moveStep(k, d) {
@@ -9629,8 +10158,9 @@
     const [st] = S.steps.splice(k - 1, 1);
     S.steps.splice(j, 0, st);
     chainChanged(true);
-    setFocus(j + 1);
+    keepShown(j + 1, 0, k);   // (v16.5 UX01: a step shown alone stays shown, wherever it moved)
     commit();
+    undoToast($t('Moved {name} to f{x}.', { name: defOf(st).label, x: sub(j + 1) }));
     return cardButton(j + 1); // the moved card keeps the keyboard focus
   }
   function invertStep(k) {
@@ -9767,6 +10297,35 @@
     if (palState) { clearTimeout(palState.pvTimer); palState = null; }
     if (back && back.isConnected && document.activeElement === document.body) back.focus({ preventScroll: true });
   }
+  // v16.5 UX29: the palette on a phone: Cancel at the right of the search row (it had no visible way out), and the
+  // insert position a chip on its own row: a tap moves the new step's place along the chain (at the start, after f₁,
+  // …, at the end), the chip saying where. (Wave 2's Replace joins it there.)
+  function phonePalette(pop, input, opener, okey) {
+    const head = pop.querySelector('.pal-head'), ctx = head && head.querySelector('.pal-ctx');
+    if (!head) return;
+    head.append(h('button', { class: 'pal-cancel', type: 'button', onclick: () => { closePalette(); focusBack(opener, okey); } }, $t('Cancel')));
+    const n = S.steps.length;
+    if (!ctx || !palState || n < 1) return;
+    const at0 = palState;
+    const label = (at) => (at <= 0 ? $t('Insert at the start') : at >= n ? $t('Append to the chain') : $t('Insert after f{x}', { x: sub(at) }));
+    // (a press keeps the focus, and the phone's keyboard, in the search field)
+    const chip = h('button', { class: 'pal-at', type: 'button', onpointerdown: (e) => e.preventDefault(), onmousedown: (e) => e.preventDefault() });
+    const paint = () => {
+      const t = label(palState.at);
+      chip.innerHTML = t.replace(/f([₀-₉]+)/, (m, d) => `<i>f</i><sub>${[...d].map((c) => SUB.indexOf(c)).join('')}</sub>`) + `<span class="pal-at-ic" aria-hidden="true">${ICONS.chevR || '›'}</span>`;
+      chip.setAttribute('aria-label', $t('Where the new step goes: {place}. Tap to move it', { place: t }));
+    };
+    chip.addEventListener('click', () => {
+      if (!palState || palState !== at0) return;
+      const at = (palState.at + 1) % (n + 1);
+      palState.at = at; palState.before = Math.max(0, at - 1);
+      paint();
+      if (document.activeElement !== input) input.focus({ preventScroll: true });
+    });
+    paint();
+    ctx.remove();
+    head.after(h('div', { class: 'pal-atrow' }, chip));
+  }
   // the English source of a translated label: the palette scores it too, so English names still find things
   // (DESIGN.md 1). English never builds the map
   let enRev = null;
@@ -9827,7 +10386,7 @@
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
-          const formula = { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Custom formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) };
+          const formula = { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: `f(z)=${Expr.toTex(ast).s}`, label: $t('Formula'), desc: cb.error ? cb.error : $t('Adds this formula as a step'), props: cb.error ? {} : cb.props, run: (at) => addStep('custom', { expr: q }, at) };
           // v15.2 (notes/formula-steps/DESIGN.md 4): a query that reads as exactly one catalog step is that step, with its
           // parameters written from the query, listed first (Enter adds it); the formula is the second choice. A query
           // of several steps keeps the formula first and offers it as those steps second.
@@ -9843,7 +10402,25 @@
             items.push(formula, { kind: 'fn', type: 'custom', params: { expr: q }, group: 'Custom formula', tex: formula.tex, label: $tn('Add as {n} step', 'Add as {n} steps', n, { n }), desc: sp.names.join(' → '), props: formula.props, rows: sp.rows, run: (at) => addSteps(sp.steps, at) });
           } else items.push(formula);
         }
-      } catch (e) { items.parseErr = e.message; } // shown when nothing else matches
+      } catch (e) {
+        // (v16.5 UX16: one new letter, "z^2 + a", is a row like any other: the formula with a new number a = 1, added
+        // together as one undo step; the region box and the Inspector's fields already work this way)
+        const nc = e.unknown && e.unknown.length === 1 && typeof Params !== 'undefined' ? Params.check(e.unknown[0]) : null;
+        let row = null;
+        if (nc && !nc.error) {
+          try {
+            const a2 = withNewName(nc.name, () => Expr.parse(q, { allowRel: true }));
+            if (!Expr.hasBool(a2) && Expr.depends(a2) && [...Expr.usesVars(a2)].every((v) => v === 'z')) {
+              const x = Params.display(nc.name);
+              row = { kind: 'fn', type: 'custom', params: { expr: q }, newName: nc.name, group: 'Custom formula', tex: `f(z)=${Expr.toTex(a2).s}`, label: $t('Formula, with a new number {x} = 1', { x }), desc: $t('Adds the number {x} and the step; one Undo removes both', { x }), props: {},
+                run: (at) => { Params.add(nc.name); return addStep('custom', { expr: q }, at, { msg: (k) => $t('Added f{k} Formula and the number {x}.', { k: sub(k), x }) }); } };
+              items.push(row);
+            }
+          } catch (e2) { /* not a formula with that number either: the parser's message below */ }
+        }
+        // (v16.5 UX23: the message, where it went wrong, and the repairs that read as a formula)
+        if (!row) { items.parseErr = e.message; items.parseErrPos = e.pos; for (const f of formulaFixes(q)) items.push({ kind: 'fix', group: $t('Fix the formula'), label: f.label, fixTo: f.t, run: () => null }); }
+      }
     }
     const fnItem = (d, group, sc) => {
       const [desc] = FN_INFO[d.id] || [''];
@@ -9873,7 +10450,7 @@
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
       for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { shapeVia = null; } } });
-      EX.forEach((ex, i) => { if (!exOk(ex)) return; if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
+      EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (v16.5 UX03: searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       S.steps.forEach((st, i) => {
         const k = i + 1, nm = defOf(st).label;
@@ -9881,7 +10458,7 @@
         for (const [inv, run] of [[true, () => inverseAction(k)], [false, () => derivativeAction(k)]]) {
           const label = inv ? $t('Inverse of f{k} ({nm})', { k: sub(k), nm }) : $t('Derivative of f{k} ({nm})', { k: sub(k), nm });
           const plain = inv ? $t('Inverse of f{k} {nm}', { k, nm }) : $t('Derivative of f{k} {nm}', { k, nm });
-          if (!ql || score(plain) || score(label)) items.push({ kind: 'cmd', group: $t('Steps'), label, key: '', run });
+          if (!ql || score(plain) || score(label) || score($t('replace'))) items.push({ kind: 'cmd', group: $t('Steps'), label, key: '', run });
         }
       });
       // the views are also found by what they are for (roots, contour integrals, …)
@@ -9916,12 +10493,12 @@
             [$t('Deformation: steps {f1}–{f2}', { f1: fUni(1), f2: fUni(k) }), () => chooseRange(HR.normal(1, k)), '', al],
             [$t('Deformation: every step'), () => chooseRange(null), '', al]];
         })() : []),
-        [$t('Integrate along the selected curve'), () => integrateSelected(), '', $t('contour line integral integrate residue residues winding number argument principle cauchy')],
+        ...integrateRows(),
         [$t('Show the roots: a target at 0'), () => { if (S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
         ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, S.focus > 0 ? S.focus : S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
         [$t('Fit both planes'), () => $('leftFit').click() || $('rightFit').click(), 'Z'],
         [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
-        [$t('Snap while drawing on or off'), () => $('snapBtn').click(), ''],
+        [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
         [$t('Region tools panel'), () => setPanels(!S.hideLeft, S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(S.hideLeft, !S.hideRight), ']'],
@@ -9934,16 +10511,145 @@
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
         [$t('Clear the chain'), () => $('clearChain').click(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
-        [$t('Open the guide'), () => openGuide(), '?'],
+        [$t('Open the guide'), () => openGuide(), '?', $t('help, guide, manual, documentation, docs, reference, how to')],
+        // (v16.5 UX03: the header's and the menus' commands, listed when searched, each with its key)
+        [$t('Export figure…'), () => Figure.open(), /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', $t('export, png, pdf, svg, picture, image, save image, download, print, video, movie'), 1],
+        [$t('Copy LaTeX with guarantees'), () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); }, '', $t('latex, tex, overleaf, copy formula, guarantees'), 1],
+        [$t('Copy link to this figure'), () => { copyFigureLink(); }, '', $t('link, share, url, copy link, send'), 1],
+        [$t('Save scene (.cmw.json)'), () => { saveScene(); }, '', $t('save, scene, file, download, keep'), 1],
+        [$t('Open scene…'), () => { pickScene(); }, '', $t('open, load, scene, file, import'), 1],
+        [$t('New: empty canvas'), () => loadExample(0), '', $t('new, empty, blank, reset, start over, clear all, fresh'), 1],
+        [$t('Examples…'), () => { const b = $('examplesBtn'); openGallery(b && b.getClientRects().length ? b : $('cmdBtn')); }, '', $t('example, examples, gallery, demo, samples'), 1],
+        [$t('Theme: {name}', { name: $t('Dark') }), () => setTheme('dark'), '', $t('dark, night, black, theme'), 1],
+        [$t('Theme: {name}', { name: $t('Light') }), () => setTheme('light'), '', $t('light, day, white, theme'), 1],
+        [$t('Theme: {name}', { name: $t('Auto') }), () => setTheme('auto'), '', $t('auto, system, theme'), 1],
+        [$t('Keyboard shortcuts'), () => openGuideAt($t('Keys')), '?', $t('keys, shortcuts, keyboard, hotkeys'), 1],
+        ...(Number.isInteger(selOf()) && selOf() > 0 && S.focus !== selOf() ? [[$t('Show f{x} alone', { x: sub(selOf()) }), () => toggleAlone(selOf()), 'L', $t('alone, solo, isolate, only, show alone, step alone'), 1]] : []),
+        ...(S.focus > 0 ? [[$t('Show F'), () => setFocus(0), '', $t('show f, whole chain, all steps, back, alone'), 1]] : []),
         [$t('Sound on/off'), () => soundToggle(), '⇧M'],
         [$t('Hear the function on/off'), () => soundHear(), ''],
         [$t('Stop sound'), () => soundStop(), 'Esc'],
         ...(typeof Tour !== 'undefined' ? Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']) : []),
         ...(typeof Construct !== 'undefined' ? Construct.paletteActs() : []),   // (v16: the four tools; Make free, Use complement)
       ];
-      for (const [label, run, key] of acts) if (!ql || score(label)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
+      for (const [label, run, key, alias, searched] of acts) if (!ql ? !searched : score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
+      // (v16.5 UX03: the drawing tools, with their keys, and the guide's sections, found by what they are for)
+      if (ql) {
+        for (const [id, label, key, , group] of TOOLS) {
+          if (group === 'construct') continue;   // (Construct.paletteActs lists those)
+          const lab = $t('Tool: {name}', { name: label }), al = TOOL_ALIAS()[id];
+          if (score(label) >= 2 || score(lab) >= 2 || (al && aliasScore(al) >= 2)) items.push({ kind: 'cmd', group: $t('Tools'), label: lab, key, run: () => setTool(id) });
+        }
+        for (const [t, al] of GUIDE_SECS()) {
+          const lab = $t('Guide: {title}', { title: t });
+          if (score(t) >= 2 || aliasScore(al) >= 2) items.push({ kind: 'cmd', group: $t('Guide'), label: lab, key: '', run: () => openGuideAt(t) });
+        }
+      }
+      // (a plain word that names a command more than a function lists the commands first)
+      if (ql && !/[()^\\|<>+\-*/=0-9]/.test(q) && !items.some((x) => x.kind === 'fn' && (x.sc || 0) >= 2)) {
+        const cmds = items.filter((x) => x.kind === 'cmd'), rest = items.filter((x) => x.kind !== 'cmd');
+        items.length = 0; items.push(...cmds, ...rest);
+      }
     }
     return items;
+  }
+  // (v16.5 UX03) the words people use for the drawing tools and the guide's sections (translated: Russian finds them too)
+  const TOOL_ALIAS = () => ({
+    select: $t('select, move, pointer, arrow, pan'), point: $t('point, dot, mark'), segment: $t('segment, line segment'), line: $t('line, straight line'),
+    ray: $t('ray, half-line'), circle: $t('circle, round curve'), arc: $t('arc, circular arc'), curve: $t('freehand, pen, sketch, curve'),
+    disc: $t('disc, disk, circle, round region'), rect: $t('rectangle, box, square'), polygon: $t('polygon, triangle'), lasso: $t('lasso, freehand region'),
+    halfplane: $t('half-plane, half plane'), annulus: $t('annulus, ring, donut'), sector: $t('sector, wedge, pie'), formula: $t('formula, region formula, set, equation'),
+    cgrid: $t('grid, grid lines'), pgrid: $t('polar grid, rays and circles'),
+  });
+  const GUIDE_SECS = () => [
+    [$t('Regions'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
+    [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
+    [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
+    [$t('Deformation'), $t('deformation, homotopy, morph, animate, play')], [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
+    [$t('Inverses and derivatives'), $t('inverse, derivative, replace')], [$t('Integrals'), $t('integral, integrate, residue, contour, winding')],
+    [$t('Sound'), $t('sound, audio, listen, hear, music')], [$t('Guarantees'), $t('guarantee, guarantees, property, conformal, injective, analytic')],
+    [$t('Keys'), $t('keys, shortcuts, keyboard, hotkeys, help')],
+  ];
+  // (v16.5 UX03) a guide section found in the palette: the guide opens at its heading
+  function openGuideAt(sec) {
+    openGuide();
+    const m = document.querySelector('.modal-bg .modal');
+    const hd = m && [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === sec);
+    if (hd) hd.scrollIntoView({ block: 'start' });
+  }
+  // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
+  function withNewName(name, fn) {
+    if (typeof Params === 'undefined' || typeof Expr.setNames !== 'function') return fn();
+    Expr.setNames({ get: (n) => (n === name ? 1 : Params.get(n)), display: Params.display });
+    try { return fn(); } finally { Params.install(); }
+  }
+  // (v16.5 UX23) the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
+  // or a set: close the brackets, drop a trailing operator, one operator for a doubled one, the nearest function name
+  const FIX_FN = ['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh', 'coth', 'exp', 'log', 'ln', 'sqrt', 'abs', 'arg', 'conj', 'arcsin', 'arccos', 'arctan', 'arsinh', 'arcosh', 'artanh', 'Re', 'Im'];
+  function editDist(a, b) {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);   // two letters swapped: one slip ("sni")
+    }
+    return d[a.length][b.length];
+  }
+  function formulaFixes(q) {
+    const out = [], seen = new Set([q]);
+    const reads = (t) => { try { const a = Expr.parse(t, { allowRel: true }); return Expr.hasBool(a) || (Expr.depends(a) && [...Expr.usesVars(a)].every((v) => v === 'z')); } catch (e) { return false; } };
+    const offer = (label, t) => { if (t && !seen.has(t) && reads(t)) { seen.add(t); out.push({ label, t }); } };
+    const open = (q.match(/\(/g) || []).length - (q.match(/\)/g) || []).length;
+    if (open > 0) { const t = q + ')'.repeat(open); offer($t('Close the bracket: {f}', { f: t }), t); }
+    const cut = q.replace(/[\s+\-*/^·,]+$/, '');
+    if (cut !== q) offer($t('Drop the trailing {x}: {f}', { x: q.slice(cut.length).trim(), f: cut }), cut);
+    const one = q.replace(/([+\-*/^])(\s*\1)+/g, '$1');
+    if (one !== q) offer($t('Did you mean {f}?', { f: one }), one);
+    const named = q.replace(/(^|[^\\A-Za-z])([A-Za-z]{2,})/g, (m, pre, w) => {
+      if (FIX_FN.includes(w) || /^z+$/i.test(w) || w === 'pi') return m;
+      let best = null, bd = w.length > 4 ? 3 : 2;
+      for (const f of FIX_FN) { const dd = editDist(w.toLowerCase(), f.toLowerCase()); if (dd < bd) { bd = dd; best = f; } }
+      return best ? pre + best : m;
+    });
+    if (named !== q) offer($t('Did you mean {f}?', { f: named }), named);
+    return out.slice(0, 3);
+  }
+  // (v16.5 UX82) the strongest properties of a palette row, in words, on the highlighted row only (like the F tile)
+  function propWords(P) {
+    if (!P) return '';
+    const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective }), W = FT_WORD();
+    return Inspector.STRONG.filter((key) => words[key]).slice(0, 2).map((key) => W[key]).join(' · ');
+  }
+  // (v16.5 V03) one name for the integral in the palette and the planes' menu: ∮ F dz around Disc 1, Integrate F along Line 1
+  function intLabel(s, names) {
+    let closed = false;
+    try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }
+    const name = names.get(s.id) || Region.KINDS[s.kind].label, dv = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
+    return closed ? $t('∮ {x} d{dv} around {name}', { x: fnText(), dv, name }) : $t('Integrate {x} along {name}', { x: fnText(), name });
+  }
+  // the palette's integrals: the selected curve's, else one row per curve to pick from (never a curve picked for you)
+  function integrateRows() {
+    const ok = (x) => x.visible !== false && kindType(x) !== 'point' && x.kind !== 'cgrid' && x.kind !== 'pgrid';
+    const al = $t('contour line integral integrate residue residues winding number argument principle cauchy');
+    const sel = S.shapes.find((x) => x.id === selected && ok(x));
+    const list = sel ? [sel] : S.shapes.filter(ok).slice(0, 6);
+    if (!list.length) return [[$t('Integrate along a curve'), () => integrateSelected(), '', al]];
+    const names = shapeNames();
+    return list.map((x) => [intLabel(x, names), () => integrateShape(x.id), '', al + ', ' + (names.get(x.id) || '')]);
+  }
+  // the result opens beside its curve in X, never over Y, where the curve's image is
+  function integrateShape(id) {
+    const s = S.shapes.find((x) => x.id === id);
+    if (!s || !paneL) return null;
+    const r = paneL.ocanvas.getBoundingClientRect();
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    if (lFlat()) {
+      paneL.setView(leftView());
+      try { for (const [, z] of Region.handlesOf(s)) { const [x, y] = paneL.w2s(z); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); } } catch (e) { /* no handles */ }
+    }
+    const ok = Number.isFinite(x1) && x1 > -1e4 && x0 < 1e4;
+    const cx = ok ? r.left + Math.min(r.width - 8, Math.max(8, x1)) : r.left + r.width / 2, cy = ok ? r.top + Math.max(8, Math.min(r.height - 8, y0)) : r.top + r.height / 3;
+    return openIntegralPop(id, cx, cy, { beside: true, bx0: ok ? r.left + Math.max(0, x0) : null });
   }
   const PROP_LETTERS = CHIP_DEFS;
   function openPalette(anchor, at, opt = {}) {
@@ -9961,13 +10667,20 @@
     const pop = h('div', { class: 'pop palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': opt.fnOnly ? $t('Add a function') : $t('Command palette') },
       h('div', { class: 'pal-head' }, h('span', { class: 'pal-icon', html: ICONS.search }), input, h('span', { class: 'pal-ctx', html: ctxText.replace(/f([₀-₉]+)/, (m, d) => `<i>f</i><sub>${[...d].map((c) => SUB.indexOf(c)).join('')}</sub>`) }), h('span', { class: 'kbd' }, 'Esc')),
       h('div', { class: 'pal-body' }, list, preview),
-      h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), $t(' to move')), h('span', null, h('span', { class: 'kbd' }, 'Enter'), $t(' to add')), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), $t(' to insert before')), h('span', null, h('span', { class: 'kbd' }, 'Esc'), $t(' to close'))));
+      h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), $t(' to move')), h('span', { class: 'pal-enter' }, h('span', { class: 'kbd' }, 'Enter'), h('span', { class: 'pal-verb' }, $t(' to add'))), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), $t(' to insert before')), h('span', null, h('span', { class: 'kbd' }, 'Esc'), $t(' to close'))));
     const opener = anchor || document.activeElement, okey = focusKey(opener);
     palState = { at: insertAt, before: explicit ? at : (S.focus > 0 ? S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0 };
     tourEmit('palette-opened', {});
     // (v16.4) the step catalog: the add card, {+}, the palette's Add a step
     if (opt.fnOnly) tourEmit('layer-opened', { kind: 'catalog' });
     const runItem = (it, before) => {
+      // (v16.5 UX23: a repair puts the repaired formula in the field and adds it as Enter would)
+      if (it.kind === 'fix') {
+        input.value = it.fixTo; palState.sel = 0; render();
+        const f = palState.items[0];
+        if (f && (f.kind === 'fn' || f.kind === 'region')) runItem(f, before); else input.focus();
+        return;
+      }
       const where = before ? palState.before : palState.at;
       closePalette();
       const r = it.run(where);
@@ -9983,13 +10696,14 @@
       let group = null;
       items.forEach((it, i) => {
         // (four groups stay English as data: items.parseErr below looks for them)
-        if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group === 'Custom formula' ? $t('Custom formula') : group === 'Region formulas' ? $t('Region formulas') : group === 'Curve formulas' ? $t('Curve formulas') : group === 'Calculus' ? $t('Calculus') : group)); }
+        if (it.group !== group) { group = it.group; list.append(h('div', { class: 'pal-group', role: 'presentation' }, group === 'Custom formula' ? $t('Formula') : group === 'Region formulas' ? $t('Region formulas') : group === 'Curve formulas' ? $t('Curve formulas') : group === 'Calculus' ? $t('Calculus') : group)); }
         const t = h('span', { class: 'pal-tex' });
         // (Add as n steps: the start of its own derivation, not the formula row's TeX again: review verify-4)
         if (it.rows) t.append(drvStart(it.rows));
         else if (it.tex) TeX.set(t, it.tex);
         const props = h('span', { class: 'pal-props' });
-        if (it.props) for (const [key, ab, title] of PROP_LETTERS) props.append(h('span', { class: 'pp' + (it.props[key] ? ' on' : ''), title }, ab));
+        // (v16.5 UX82: no row of letters; the highlighted row names its strongest properties in words)
+        if (it.props) { const w = propWords(it.props); if (w) props.append(h('span', { class: 'pal-pw' }, w)); }
         else if (it.key) props.append(h('span', { class: 'kbd' }, it.key));
         const row = h('div', { class: 'pal-item' + (i === palState.sel ? ' sel' : ''), role: 'option', id: `pal-o${i}`, 'aria-selected': String(i === palState.sel), 'data-i': i,
           onpointermove: () => { if (palState.sel !== i) { palState.sel = i; mark(false); } },
@@ -10001,8 +10715,15 @@
         list.append(row);
       });
       fitPalTex(list, items);
-      // a query that looks like a formula but does not parse gets the parser's message and its suggestions
-      if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas')) list.prepend(h('div', { class: 'pal-empty', role: 'presentation' }, h('span', { class: 'err' }, $t('Not a formula yet: {parseErr}', { parseErr: items.parseErr }))));
+      // a query that looks like a formula but does not parse gets the parser's message, in grey, with the place it stopped
+      // marked; a plain word that finds commands or functions gets none (v16.5 UX23, UX03)
+      const raw = Expr.typed(input.value.trim()), fl = /[()^\\|<>+\-*/=0-9]/.test(raw);
+      if (items.parseErr && !items.some((x) => x.group === 'Custom formula' || x.group === 'Region formulas' || x.group === 'Curve formulas') && (fl || !items.some((x) => x.kind !== 'fix'))) {
+        const at = Math.max(0, Math.min(raw.length, items.parseErrPos | 0));
+        list.prepend(h('div', { class: 'pal-empty pal-err', role: 'presentation' },
+          h('span', { class: 'pe-q' }, raw.slice(0, at), h('span', { class: 'pe-bad' }, raw.slice(at, at + 1) || '\u2002'), raw.slice(at + 1)),
+          h('span', { class: 'pe-msg' }, $t('Not a formula yet: {parseErr}', { parseErr: items.parseErr }))));
+      }
       else if (!items.length) list.append(h('div', { class: 'pal-empty' }, opt.fnOnly ? $t('No match. Type a formula in z, such as e^{z^2}, to add it as a step.') : $t('No match. Type a formula in z to add it as a step, a set such as |z| < 1, or a curve such as Re z = 0.')));
       mark(false);
     };
@@ -10014,6 +10735,13 @@
         if (on && scroll) el.scrollIntoView({ block: 'nearest' });
       }
       input.setAttribute('aria-activedescendant', `pal-o${palState.sel}`);
+      // (v16.5 UX03, UX23: Enter says what it does to the highlighted row, and is grey when there is nothing to run)
+      const it = palState.items[palState.sel], en = pop.querySelector('.pal-enter'), vb = pop.querySelector('.pal-verb');
+      if (en && vb) {
+        const verb = !it ? '' : it.kind === 'cmd' ? $t(' to run') : it.kind === 'ex' ? $t(' to open') : it.kind === 'fix' ? $t(' to fix') : $t(' to add');
+        en.classList.toggle('off', !verb);
+        if (verb && vb.textContent !== verb) vb.textContent = verb;
+      }
       schedulePreview();
     };
     const schedulePreview = () => {
@@ -10041,6 +10769,7 @@
     });
     $('popHost').append(pop);
     popEl = pop;
+    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey);   // (v16.5 UX29)
     render();
     // centred 14vh from the top; a bottom sheet on phones
     if (window.innerWidth < 768) pop.classList.add('sheet');
@@ -10068,7 +10797,9 @@
       if (url) { const img = new Image(); img.onload = () => { const s = Math.min(W / img.width, Hh / img.height); ctx.drawImage(img, (W - img.width * s) / 2, (Hh - img.height * s) / 2, img.width * s, img.height * s); }; img.src = url; }
       return;
     }
-    const b = Funcs.build({ type: it.type, params: Object.assign(Funcs.defaults(it.type), it.params || {}), on: true });
+    // (v16.5 UX16: a formula with a new number is previewed with that number = 1, as it will be added)
+    const mk = () => Funcs.build({ type: it.type, params: Object.assign(Funcs.defaults(it.type), it.params || {}), on: true });
+    const b = it.newName ? withNewName(it.newName, mk) : mk();
     if (!b || b.error) { ctx.fillStyle = TH.plane; ctx.fillRect(0, 0, W, Hh); cap.textContent = b ? b.error : ''; return; }
     const pre = stageF(palState ? palState.at : S.steps.length), f = b.f;
     // d/dz differentiates the chain up to the insertion point
@@ -10298,7 +11029,7 @@
       const nav = (d) => h('button', { class: 'icon-btn ac-nav ' + (d < 0 ? 'prev' : 'next'), type: 'button', 'aria-label': d < 0 ? $t('Show the previous step alone') : $t('Show the next step alone'), 'data-tip': d < 0 ? $t('Show the previous step alone') : $t('Show the next step alone'),
         onclick: () => { const j = S.focus + d; if (j >= 1 && j <= S.steps.length) { setFocus(j); requestRender('P'); } } }, d < 0 ? '‹' : '›');
       chip = h('span', { class: 'alone-chip', id: 'aloneChip', hidden: true }, nav(-1), h('span', { class: 'ac-t' }), nav(1),
-        h('button', { class: 'icon-btn', type: 'button', 'aria-label': $t('Show the whole chain'), 'data-tip': $t('Show the whole chain'), html: ICONS.close, onclick: () => setFocus(0) }));
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': $t('Show F'), 'data-tip': $t('Show F'), html: ICONS.close, onclick: () => setFocus(0) }));
       head.insertBefore(chip, $('leftLed'));
     }
     const k = S.focus;
@@ -10314,6 +11045,7 @@
   function selectStep(k) {
     S.sel = k;
     syncSel();
+    if (typeof Params !== 'undefined' && Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
       if (underChain()) setPanels(S.hideLeft, false);
       else if (window.innerWidth >= 1024) openTemp();
@@ -10387,6 +11119,7 @@
       h, $t, $tx, $tn, ICONS, TeX, sub, fsub, wvar, Funcs, Expr, CX, BADGES, CHIP_DEFS,
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
+      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
       regionSummary, swatchStyle, kindType, requestRender, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
@@ -11230,6 +11963,9 @@
   const viewBoxOf = (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return panelBox(side, effW(side), real.h > 20 ? real.h : other.h); };
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
+    // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
+    canDeform: () => morphRange().steps.length > 0,
+    deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
@@ -11341,11 +12077,12 @@
     // Russian notation (tg, sh, ...) at the export boundary (DESIGN.md 6); English is unchanged
     return I18N.notation(out.join('\n'));
   }
-  function openExportMenu(anchor) {
+  // (v16.5 V02: the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
+  function exportMenuItems() {
     const items = [
-      { label: $t('Export figure…'), key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
-      { label: $t('Copy figure again'), icon: 'copy', disabled: !Figure.settings().last, run: () => { Figure.again('copy').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
-      { label: $t('Save figure again'), save: true, disabled: !Figure.settings().last, run: () => { Figure.again('save').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
+      { label: $t('Export figure…'), fig: true, key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
+      { label: $t('Copy figure again'), icon: 'copy', again: true, disabled: !Figure.settings().last, run: () => { Figure.again('copy').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
+      { label: $t('Save figure again'), save: true, again: true, disabled: !Figure.settings().last, run: () => { Figure.again('save').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
       'sep',
       { label: $t('Copy LaTeX with guarantees'), icon: 'copy', run: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); } },
       { label: $t('Save LaTeX with guarantees (.txt)'), save: true, run: () => saveFile('complex-map.txt', latexDocument()) },
@@ -11358,22 +12095,27 @@
     // files cannot be offered in this view: only the copy remains
     // (by a flag, not by the label: the label is translated)
     if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
-    openMenu(anchor, items);
+    return items;
   }
+  function openExportMenu(anchor) { openMenu(anchor, exportMenuItems()); }
   // highlight a step in the panel, the matrix and the chain at once
   function hiStep(k, on) {
     for (const el of document.querySelectorAll(`[data-k="${k}"]`)) el.classList.toggle('hi', on);
   }
 
   // ---------------- interaction ----------------
-  function snapZ(pane, z, force) {
+  function snapZ(pane, z, force, touch) {
     if (!S.snap && !force) return z;
-    // the finest graph-paper tier that is clearly drawn (tiers are 1, 5, 10, 50, ... times a power of ten)
-    const sc = pane.view.s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
-    const step = [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100;
+    if (!force && (altHeld || (typeof Construct !== 'undefined' && Construct.altNow && Construct.altNow()))) return z;   // ([v16.5 rail] Alt: raw)
+    // the finest graph-paper tier that is clearly drawn: [v16.5 rail SPEC 1.3] gl.js's tiers, halves included (0.5, 1, 5,
+    // 10, 50, 100 times a power of ten), at least 14 px apart; within 9 px of a lattice point (12 px for a finger)
+    const sc = pane.view.s;
+    const step = typeof Constr !== 'undefined' && Constr.gridStep ? Constr.gridStep(sc) : (() => { const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc))); return [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100; })();
     const gx = Math.round(z.re / step) * step, gy = Math.round(z.im / step) * step;
     const [x, y] = pane.w2sxy(gx, gy), [x0, y0] = pane.w2s(z);
-    if (Math.hypot(x - x0, y - y0) < 9) return C(+gx.toPrecision(12), +gy.toPrecision(12));
+    // (wave 1 merge: the press's own pointer, UX09's ptrTouch, where there was one; else Construct's last pointer)
+    const fing = touch != null ? touch : ptrTouch != null ? ptrTouch : typeof Construct !== 'undefined' && Construct.touchNow ? Construct.touchNow() : false;
+    if (Math.hypot(x - x0, y - y0) < (fing ? 12 : 9)) return C(+gx.toPrecision(12), +gy.toPrecision(12));
     return z;
   }
   const evXY = (pane, e) => { const r = pane.ocanvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
@@ -11391,6 +12133,16 @@
   const leftCamBase = () => (typeof CAML !== 'undefined' ? CAML : CAMS);
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
+  // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
+  function emptyAt(pane, side, x, y) {
+    if (side === 'L' ? !lFlat() : !rImage()) return false;
+    pane.setView(side === 'L' ? leftView() : V.right);
+    if (side === 'L' && (cutHandlesL.some((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || (zpStep() && zpHit(x, y, 11)))) return false;
+    const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : leftStage() === 0 ? S.shapes : [];
+    const z = pane.s2w(x, y), tol = 7 / pane.view.s, win = target ? targetWin() : clipWin;
+    for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, win)) return false; } catch (e) { /* */ } }
+    return true;
+  }
   function zoomPane(pane, side, x, y, f) {
     if (is3DSide(side)) { const c = camOf(side); if (c) { const fit = camBaseOf(c).dist; c.dist = Math.min(4 * fit, Math.max(0.4 * fit, c.dist / f)); requestRender(side); } return; }
     if (side === 'L') {
@@ -11466,8 +12218,10 @@
         if (touches.size === 2) {
           ring = null;
           endHold();
-          // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step
-          if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
+          // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step ([v16.5 rail
+          // SPEC 2.6] a point's or a shape's move goes back to its press state, no step)
+          if (drag && (drag.mode === 'move' || drag.mode === 'handle') && typeof Construct !== 'undefined' && Construct.cancelDrag && Construct.cancelDrag()) { /* cancelled */ }
+          else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
           drag = null; draft = draft && draft.kind === 'polygon' ? draft : null; return;
         }
@@ -11477,7 +12231,11 @@
       // (the landscape too with the plane menu: its hold probes the relief like a mouse hover; a still finger on a zero
       // or a pole of X gets the menu of that mark)
       const probeable = side === 'L' ? !lLand() || !!PM() : true;
-      if (e.pointerType === 'touch' && drag && probeable && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && (drag.mode !== 'zp' || (PM() && !drag.added))) {
+      // (v16.5 UX49: with a construction tool, a finger on something it picks (a point, a line, a circle) picks it when
+      // it lifts, however long it was held: a slow, careful tap opened the plane's menu and lost the pick. Over empty
+      // space the long press still opens the menu)
+      const cPick = e.pointerType === 'touch' && typeof Construct !== 'undefined' && Construct.isTool(tool) && (() => { const [px, py] = evXY(pane, e); return !!Construct.snapAt(side, px, py, { points: true, cross: true, curves: true }); })();
+      if (e.pointerType === 'touch' && drag && probeable && !cPick && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && (drag.mode !== 'zp' || (PM() && !drag.added))) {
         const d0 = drag, [x0, y0] = evXY(pane, e);
         endHold();
         ring = null;
@@ -11550,17 +12308,11 @@
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
       // shape on an editable globe keeps the user's view
       if (is3DSide(side)) { const c = camOf(side); if (c && (!globeEdit(side) || gTurnPress[side])) tweenCam(c, camBaseOf(c)); return; }
-      if (side === 'L' && tool === 'select') {
-        // double-click points the editable cut of the next step toward the cursor
-        const k = leftStage() + 1;
-        const b = built[k - 1];
-        const c = b && !b.error && b.cuts.find((x) => x.editable);
-        if (c && S.steps[k - 1].on !== false) {
-          const [x, y] = evXY(pane, e);
-          const z = pane.s2w(x, y);
-          setCut(k, Math.atan2(z.im - c.p.im, z.re - c.p.re) / DEG, true);
-          commit();
-        }
+      // [v16.5 UX66] with Select, a double-click on empty plane zooms ×2 about that point (Shift: out); it never turns a
+      // branch cut (the cut moves by its red handle only)
+      if (tool === 'select') {
+        const [x, y] = evXY(pane, e);
+        if (emptyAt(pane, side, x, y)) zoomPane(pane, side, x, y, e.shiftKey ? 0.5 : 2);
       }
     });
   }
@@ -11624,8 +12376,8 @@
       }
     }
     st.params.cut = d;
-    const inp = document.querySelector(`input[data-cut-step="${k}"]`);
-    if (inp && document.activeElement !== inp) inp.value = d;
+    // (v16.5 UX33: every θ field of step k follows the seam, the Inspector's too, not only the cards')
+    syncParam(k, 'cut', '');
     chainChanged(false);
   }
   function setCursor(pane, side) {
@@ -11654,6 +12406,7 @@
   }
   function onDown(pane, side, e) {
     const [x, y] = evXY(pane, e);
+    ptrTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
     if (typeof Construct !== 'undefined') Construct.pointer(e);   // (v16: touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
     const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey);
@@ -11695,7 +12448,7 @@
     if (zpStep()) {
       // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
       const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
-      const onSel = !!selSh && Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; });
+      const onSel = !!selSh && (ptrTouch ? !!handleAt(pane, selSh, x, y) : Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; }));
       const zh = onSel || (typeof Construct !== 'undefined' && tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (v16 [C1]: other tools pick a zero)
       if (zh) {
         zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
@@ -11733,7 +12486,7 @@
       if (!draft || !!draft.target !== target) draft = { kind: 'polygon', pts: [], target };
       if (draft.pts.length >= 3) {
         const [fx, fy] = pane.w2sxy(draft.pts[0][0], draft.pts[0][1]);
-        if (Math.hypot(fx - x, fy - y) < 9) { finishPolygon(); return true; }
+        if (Math.hypot(fx - x, fy - y) < (ptrTouch ? 24 : 12)) { finishPolygon(); return true; }
       }
       const cmT = typeof Construct !== 'undefined' ? Construct.vertexPick(draft, side, x, y) : null;   // (v16: a vertex binds to a point)
       const zz = cmT || snapZ(pane, z);
@@ -11742,7 +12495,13 @@
       return true;
     }
     if (tool !== 'select') {
-      if (tool === 'point' && typeof Construct !== 'undefined' && Construct.pointDown(pane, side, x, y)) return true;   // (v16: a crossing, a curve, a point)
+      if (tool === 'point' && typeof Construct !== 'undefined') {
+        const pd = Construct.pointDown(pane, side, x, y);   // (v16: a crossing, a curve, a point)
+        // ([v16.5 rail SPEC 6] a press on an existing point selects it, and a drag from there moves it as the Select tool
+        // would: along its curve, off it by a pull, or a free point with snapping. A click alone changes nothing)
+        if (pd === 'existing') { const ps = list.find((s) => s.id === selected && s.kind === 'point'); if (ps) drag = { mode: 'move', shape: ps, z0: z, moved: false, target, cmTell: Construct.touchNow() }; }   // ([v16.5 fix rail-6] cmTell: a finger's tap that does not move says how to place another, at the release)
+        if (pd) return true;
+      }
       const cmZ = typeof Construct !== 'undefined' && tool !== 'point' ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
       const zz = cmZ || snapZ(pane, z);
       if (tool === 'point') { addShape(newShape('point', { p: [zz.re, zz.im] }, target), target); return true; }
@@ -11757,13 +12516,11 @@
     const cmU = sel && typeof Construct !== 'undefined' ? Construct.boundUnder(sel, pane, x, y) : null;   // (v16: a bound handle's press goes to what is beneath)
     if (cmU) { if (cmU.key) { drag = { mode: 'handle', shape: cmU.shape, key: cmU.key, target }; return true; } selected = cmU.shape.id; zpSel = null; buildShapeList(); drag = { mode: 'move', shape: cmU.shape, z0: z, moved: false, target }; requestRender(ov); return true; }
     if (sel) {
-      for (const [key, hz] of Region.handlesOf(sel)) {
-        if (typeof Construct !== 'undefined' && (sel.def || sel.fixed || (sel.at && sel.at[key]))) continue;   // (v16: a bound handle is no handle; v16.3: nor a fixed shape's)
-        const [hx, hy] = pane.w2s(hz);
-        if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) { drag = { mode: 'handle', shape: sel, key, target }; return true; }
-      }
+      const hk = handleAt(pane, sel, x, y);
+      if (hk) { drag = { mode: 'handle', shape: sel, key: hk, target }; return true; }
     }
-    const tol = 7 / pane.view.s;
+    // [v16.5 UX09] a finger picks a line or a curve within 18 px (a mouse within 7)
+    const tol = (ptrTouch ? 18 : 7) / pane.view.s;
     // topmost first, points before curves (a 3-point circle passes through its points: v16 verify-1), filled areas last
     const hitRank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
     const cands = list.filter((s) => s.visible !== false).reverse()
@@ -11875,7 +12632,7 @@
     if (!q0) return g;
     const dist = (P) => { const q = gScreen(gc, P); return q ? Math.hypot(q[0] - q0[0], q[1] - q0[1]) : Infinity; };
     const best = (cands, rad) => { let b = null, bd = rad; for (const P of cands) { const d = dist(P); if (d <= bd) { bd = d; b = P; } } return b; };
-    const out = (P) => { const Pn = GL3.norm3(P); gSnapMark = { side, P: Pn }; return { P: Pn, z: GL3.finiteOf(Pn), snapped: true }; };
+    const out = (P) => { const Pn = GL3.norm3(P); gSnapMark = { side, P: Pn }; return { P: Pn, z: GL3.finiteOf(Pn), snapped: true, pt: true }; };
     const others = [];
     for (const s of side === 'R' ? S.targets : S.shapes) {
       if (s === self || s.visible === false) continue;
@@ -11894,8 +12651,9 @@
       const eps = 1e-4 * Math.max(1, CX.abs(z));
       const sx = dist(GL3.lift(z.re + eps, z.im)) / eps, sy = dist(GL3.lift(z.re, z.im + eps)) / eps, sc = Math.min(sx, sy);
       if (!(sc > 0) || !Number.isFinite(sc)) return g;
+      // ([v16.5 rail SPEC 1.3] the drawn tiers, halves included, as the lifted lattice draws them: Constr.gridStep)
       const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
-      const step = [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100;
+      const step = typeof Constr !== 'undefined' && Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100;
       const gx = +(Math.round(z.re / step) * step).toPrecision(12), gy = +(Math.round(z.im / step) * step).toPrecision(12);
       const Pg = GL3.lift(gx, gy);
       if (dist(Pg) < 9) { gSnapMark = { side, P: Pg }; return { P: Pg, z: C(gx, gy), snapped: true }; }
@@ -11998,7 +12756,7 @@
       if (!draft || draft.kind !== 'polygon' || draft.globe !== side) draft = { kind: 'polygon', pts: [], target, globe: side };
       if (draft.pts.length >= 3) {
         const q = gScreen(gc, GL3.lift(draft.pts[0][0], draft.pts[0][1]));
-        if (q && Math.hypot(q[0] - x, q[1] - y) < 9) { finishPolygon(); return; }
+        if (q && Math.hypot(q[0] - x, q[1] - y) < (ptrTouch ? 24 : 12)) { finishPolygon(); return; }
       }
       draft.pts.push([gs.z.re, gs.z.im]);
       requestRender(ov, 'O' + side);
@@ -12010,6 +12768,12 @@
       if (!gs.z) return;
       // the second press of a double-click places no second point on the first
       const last = list[list.length - 1], now = performance.now();
+      // ([v16.5 rail SPEC 1.2 (c)] on a drawn curve (no point or mark took the press): a point on that curve)
+      if (!gs.pt && typeof Construct !== 'undefined' && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
+        const pl = list[list.length - 1];
+        lastGlobePoint = pl ? { id: pl.id, t: now } : null; gSnapMark = null;
+        return;
+      }
       if (lastGlobePoint && last && lastGlobePoint.id === last.id && now - lastGlobePoint.t < 600) {
         const Pl = GL3.lift(last.p[0], last.p[1]);
         if (Math.hypot(Pl[0] - gs.P[0], Pl[1] - gs.P[1], Pl[2] - gs.P[2]) < 1e-9) return;
@@ -12137,6 +12901,11 @@
           rimPhi.set(s.id, GL3.rimAngle(cap.C, gs.P));
         }
       } else {
+        // ([v16.5 rail SPEC 1.2 (b)] a selected point on a curve dragged by its handle: the same slide and pull as by its
+        // body; once pulled off it drags as a free point's handle)
+        if (s.kind === 'point' && s.def && s.def.op === 'glider' && typeof Construct !== 'undefined' && Construct.globeSlide) {
+          if (Construct.globeSlide(d, side, g, x, y, gc)) { d.moved = true; changed(s); return; }
+        }
         const vertex = s.kind === 'point' || /^v\d/.test(d.key);
         setGInf(pane, side, vertex && nearInf(gc, x, y));
         if (gInf[side]) return;
@@ -12151,6 +12920,13 @@
     if (d.mode === 'gmove') {
       const s = d.shape;
       if (!d.moved && Math.hypot(x - d.x, y - d.y) < 3) return;
+      // ([v16.5 rail SPEC 1.2 (b)] a point on a curve slides on its rail on the globe too; a pull frees it, and the drag
+      // goes on as a free point's from where it came off)
+      if (s.kind === 'point' && s.def && s.def.op === 'glider' && typeof Construct !== 'undefined' && Construct.globeSlide) {
+        const r = Construct.globeSlide(d, side, g, x, y, gc);
+        if (r === 'freed') { d.s0 = JSON.parse(JSON.stringify(s)); d.P0 = g.P; }
+        if (r) { d.moved = true; changed(s); return; }
+      }
       if (s.kind === 'point' || GL3.capFamily(s)) {
         // the rotation about P0 x P1 that takes the press point to the pointer, applied to the shape as pressed (the
         // kind follows the geometry: a disc slid over ∞ becomes the complement of a disc, a line slid off ∞ a circle)
@@ -12175,6 +12951,7 @@
   }
   // the end of a globe gesture: a draft becomes a shape (or a target) when it has a size on screen; an edit is one undo step
   function globeUp(pane, side, d) {
+    if ((d.mode === 'gmove' || d.mode === 'ghandle') && d.cmGlobe && typeof Construct !== 'undefined' && Construct.moveUp) Construct.moveUp(d);   // ([v16.5 rail] a slide's last frame)
     gSnapMark = null; gInf[side] = false;
     setReadouts(null);
     if (d.mode === 'gdraw' && draft) {
@@ -12252,6 +13029,19 @@
     const t = Object.assign({}, s, { color: GLR.hexRGB(area ? ink.c0 : ink.edge), edge: GLR.hexRGB(ink.edge), alpha: area ? 0.35 : 1, width: 1.5 * (side === 'L' ? paneL : paneR).dpr });
     return { map: IDENT, targets: [t], halo: GLR.hexRGB(TH.halo) };
   }
+  // ([v16.5 check app-7] while a point of X is dragged, the readout reads the point, not the place it was pressed at; in
+  // the frame, after a point on a curve has been put where the drag leaves it)
+  let dragProbeRaf = 0;
+  function dragProbe() {
+    if (dragProbeRaf) return;
+    dragProbeRaf = requestAnimationFrame(() => {
+      dragProbeRaf = 0;
+      const d = drag, s = d && d.shape;
+      if (!d || d.mode !== 'move' || d.target || !d.moved || !s || s.kind !== 'point' || !Array.isArray(s.p)) return;
+      probe = { re: s.p[0], im: s.p[1] };
+      setReadouts(probe);
+    });
+  }
   function onMove(pane, side, e) {
     const [x, y] = evXY(pane, e);
     if (drag && drag.mode !== 'probe') { // a touch probe (long press) moves like a hover
@@ -12322,7 +13112,7 @@
       if (drag.mode === 'move' && typeof Construct !== 'undefined') {   // (v16 [C18]: built shapes)
         const r = Construct.moveDrag(drag, pane, drag.target ? 'R' : 'L', x, y);
         if (r === 'pan') { const v = drag.target ? V.right : leftView(); Object.assign(drag, { mode: drag.target ? 'panR' : 'panL', x, y, cx: v.cx, cy: v.cy, pane }); setCursor(pane, side); return; }
-        if (r) return;
+        if (r) { dragProbe(); return; }
       }
       if (drag.mode === 'move') {
         const dz = CX.sub(z, drag.z0);
@@ -12330,6 +13120,7 @@
         Region.translate(drag.shape, dz);
         drag.z0 = z; drag.moved = true;
         if (drag.target) targetsChanged(false); else shapesChanged(false);
+        dragProbe();
         return;
       }
       if (drag.mode === 'draw' && draft) {
@@ -12462,6 +13253,7 @@
     copyValue.L = CX.fmt(z, 6).replace(/\s/g, '');
     // X Phase: the painted function (F, or its homotopy at t while the deformation transport is open) as modulus and
     // angle, with a swatch of its colour; the legend's needle and modulus tick follow it
+    let wOnce;   // ([v16.5 fix regress-6] F(z) of the probe, evaluated once per move for both readouts)
     if (lPhase()) {
       const hv = homView();
       const wl = (hv ? hv.F : focusF())(z);
@@ -12480,9 +13272,30 @@
         if (i === forms.length - 1 || lr.scrollWidth <= lr.clientWidth + 1) break;
       }
       legendNeedle = ok ? Math.atan2(wl.im, wl.re) : null; legendMod = CX.abs(wl); requestRender('G'); // needle on the next frame
-    } else lr.innerHTML = rk(vin, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)));
+    } else {
+      // [v16.5 UX10] one readout: "z = …" (with |z| and arg when they fit) and, on a second line, "w = F(z) = …", so F(z)
+      // is read beside z (the phone, where Y is an inset; X expanded, where Y is hidden)
+      // (the key's "=" and parentheses in the maths face, as its letters: B612 Mono's "(" reads as "[" [UX105])
+      const wz = wOnce = focusF()(z), wv = S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(S.focus)}`, m = (t) => `<span class="rm">${t}</span>`;
+      const wl = (dp) => `<span class="rln">${rk(`${wv} ${m('=')} ${fnHtml()}${m('(')}${vin}${m(')')} ${m('=')}`, CX.isFin(wz) ? fmtCxHtml(wz, dp) : '∞')}</span>`;
+      const forms = [
+        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr))) + rk('arg', degs(Math.atan2(zr.im, zr.re)))}</span>` + wl(4),
+        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol)) + rk(`|${vin}|`, fmtR(CX.abs(zr), 3)) + rk('arg', degs(Math.atan2(zr.im, zr.re), 2))}</span>` + wl(4),
+        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 4, zTol))}</span>` + wl(4),
+        () => `<span class="rln">${rk(`${vin} ${m('=')}`, fmtCxHtml(z, 3, zTol))}</span>` + wl(3),
+      ];
+      // (a line fits when its text, measured to the fraction of a pixel, does: scrollWidth rounds, and a line 0.4 px too
+      // long was cut with an ellipsis at 1366 px)
+      const fits = (c) => { const rg = document.createRange(); rg.selectNodeContents(c); return rg.getBoundingClientRect().width <= c.getBoundingClientRect().width + 0.01; };
+      for (let i = 0; i < forms.length; i++) {
+        lr.innerHTML = forms[i]();
+        if (i === forms.length - 1 || [...lr.children].every(fits)) break;
+      }
+      // (a finger found the hold-and-slide: the scale chip stops teaching it)
+      if (ptrTouch && !probeLearned()) { try { localStorage.setItem('cmw-probe-learned', '1'); } catch (e) { /* */ } probeLearnedV = true; }
+    }
     // Y: the image of the probe (F at t = end)
-    const w = focusF()(z);
+    const w = wOnce !== undefined ? wOnce : focusF()(z);
     copyValue.R = CX.isFin(w) ? CX.fmt(w, 6).replace(/\s/g, '') : '';
     const vout = S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(S.focus)}`;
     if (rImage()) {
@@ -12536,7 +13349,7 @@
     if (/^(pan|orbit)/.test(d.mode)) lastPan = { t: performance.now(), moved: !!d.far };
     // (v16.4) the user's pan or orbit, once it moved: the tour's view tasks (notes/tour/INTEGRATION.md 9)
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
-    if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved))) soundCue('snap');
+    if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
     if (typeof Construct !== 'undefined') { if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.menuAt && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); } }   // (v16: bind a dropped handle; a click picks)
@@ -12651,7 +13464,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: $t('A residue by integration'), tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
@@ -12682,12 +13495,14 @@
   let exFitKey = '';
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
-    const f = $('leftFoot'), pr = paneL.ocanvas && paneL.ocanvas.getBoundingClientRect(), fr = f && !f.hidden ? f.getBoundingClientRect() : null;
+    // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
+    // same 48 px, the examples' views unchanged; measured from the head it took the whole plane and the fit went NaN)
+    const f = $('leftFoot'), pr = paneL.ocanvas && paneL.ocanvas.getBoundingClientRect(), fr = f && !f.hidden && f.parentNode === $('plotL') ? f.getBoundingClientRect() : null;
     return Math.max(40, fr && pr && fr.height > 0 ? pr.bottom - fr.top : 0) + 8;
   }
   function exFitTo(ex) {
     const fb = ex.fit;
-    if (fb && paneL.w > 20 && paneL.h > 20) {
+    if (fb && paneL.w > 20 && paneL.h > 20 + exFitBarPx()) {
       const bar = exFitBarPx(), s = Math.min(ex.view.s, paneL.w / (fb.x1 - fb.x0), (paneL.h - bar) / (fb.y1 - fb.y0));
       Object.assign(S.srcView, { cx: (fb.x0 + fb.x1) / 2, cy: (fb.y0 + fb.y1) / 2 - bar / 2 / s, s });
     }
@@ -12704,10 +13519,12 @@
     if (!ex) return;
     // what plays along a curve belongs to the scene it was started in (notes/sea-song review ui-1)
     sndStopPlay(false);
+    // (v16.5 UX74) an example's Try line goes with the example
+    if (typeof Tour !== 'undefined' && Tour.laneHide) Tour.laneHide('example');
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
-    if (xl && !spec) xl.textContent = ex.name;
+    if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
     S.shapes = []; S.steps = [];
     S.sel = null;   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
@@ -12723,7 +13540,12 @@
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
     defMem.y = null; defMem.d = null; defMem.dkey = '';
+    // (v16.5 UX74) an example with a melody shows its Try line before the layout, so its plane is fitted with the
+    // line's room already taken (shown after the fit, the line pushed the spiral's top out of the plane)
+    const laned = !spec && ex.shapes.some((sh) => sh.listen) && sndPieceHint(true);
     applyLayout();
+    // (the planes take their new height at once, as for a merge, not at the next ResizeObserver callback)
+    if (laned && paneL && paneR) onPaneResize();
     S.srcView = Object.assign({}, ex.view);
     // an example's box that must be in view (a phone's narrow plane): its view's scale at most, centred on the box
     exFitTo(ex);
@@ -12758,8 +13580,10 @@
     buildPipeline();
     setFocus(ex.focus || 0);
     commit();
+    // (v16.5 UX25: what opened, with Undo, when there is work to go back to; the button names it until an edit)
+    if (!spec) { exAt = hi; exLabelSync(); if (hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
     if (ex.morph || ev.deform) openTransport();
-    if (piece && !spec) sndPieceHint();
+    if (piece && !spec && !laned) sndPieceHint();
     // the line integral the example is about, once the planes have their size
     if (ex.integrate != null) requestAnimationFrame(() => { const s = S.shapes[ex.integrate]; if (s && paneL) { const r = paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
@@ -12830,8 +13654,9 @@
     const okey = focusKey(anchor);
     const items = EX.map((ex, i) => {
       const img = h('img', { class: 'ex-thumb', alt: '', width: 48, height: 32 });
-      const b = h('button', { class: 'ex-item', role: 'menuitem', hidden: !exOk(ex) || null, 'aria-current': i === currentExample ? 'true' : null, onclick: () => { closePalette(); loadExample(i); focusBack(anchor, okey); } }, img,
-        h('span', { class: 'ex-text' }, h('span', { class: 'ex-name' }, ex.name), h('span', { class: 'ex-blurb' }, ex.blurb || '')));
+      // (v16.5 UX25: the empty canvas is "New", first, the way to start fresh)
+      const b = h('button', { class: 'ex-item' + (i === 0 ? ' ex-new' : ''), role: 'menuitem', hidden: !exOk(ex) || null, 'aria-current': i === currentExample ? 'true' : null, onclick: () => { closePalette(); loadExample(i); focusBack(anchor, okey); } }, img,
+        h('span', { class: 'ex-text' }, h('span', { class: 'ex-nl' }, h('span', { class: 'ex-name' }, i === 0 ? $t('New: empty canvas') : ex.name), ex.shapes.some((sh) => sh.listen) ? h('span', { class: 'ex-snd', title: $t('With sound'), 'aria-label': $t('With sound') }, '♫') : null), h('span', { class: 'ex-blurb' }, ex.blurb || '')));   // (v16.5 UX74: ♫ beside the name, not in it: .ex-name stays the example's name)
       return { b, img, i };
     });
     closePalette();
@@ -12887,6 +13712,50 @@
   // ---------------- guide ----------------
   // (v16) the guide's TeX in $…$ as typeset spans (the guide sets every [data-tex] after it is built)
   const guideTex = (s) => s.replace(/\$([^$]+)\$/g, (_, x) => `<span class="gtex" data-tex="${x.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></span>`);
+  // v16.5 UX17: the guide on a touch screen (the tour's touch check: a coarse pointer). Each paragraph that names a place
+  // or a gesture of the desktop (the tools on the left, the right pane, the Inspector, a double-click, a right-click,
+  // Shift, a key) is given in a phone's words. A paragraph is found by its section's heading and its place in the
+  // section, so the desktop wording can change without this list. The Deformation section gets a line on where its
+  // controls are on a phone, and the Keys section is left out.
+  const GUIDE_TOUCH = [
+    [null, 0, `Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. <i>X</i> is always the domain (or the input of a step shown alone) and <i>Y</i> its output: <i>X</i> shows the shapes, <i>Y</i> their images. One of them fills the screen and the other is the small picture in its corner: tap that picture to swap them. With a panel open, or with the phone turned, they stand side by side.`],
+    [`Regions`, 0, `Draw with the tools of the bottom row (its More key holds the others and a formula box), or type a set in that box, such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears in <i>Y</i>; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.`],
+    [`Function chain`, 0, `Add a step with the + in the chain bar; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in its search to add it directly. Tap a card: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.`],
+    [`Function chain`, 2, `A typed formula that is a chain of catalog steps, such as <span class="chip ftag" data-tex="\\sin(z^2+1)"></span>, shows in its editor how it is built: <span class="chip ftag" data-tex="z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class="chip ftag" data-tex="z^2+\\sin z"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.`],
+    [`Shared numbers|Numbers`, 0, `Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Numbers</b>, the <i>a</i> = key at the start of the chain bar, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the ⋯ menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.`],
+    [`Shared numbers|Numbers`, 1, `<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; shown alone, its <i>X</i> is the <i>z</i>-plane.`],
+    [`Branch cuts`, 0, `Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone). The hatched side is the side the cut belongs to. The sheet number, in the step's editor, picks the branch.`],
+    [`Branch cuts`, 1, `<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in its editor, or from the plane's menu: hold a finger on the plane (below). Drag one off the plane, or hold it and choose Remove, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.`],
+    [`The planes' menu`, 0, `Hold a finger on any plane until the ring fills, then lift it: the plane's menu opens. Its head gives the point and the map there. Below that come the items for what is under your finger (a zero or pole, a shape, a cut handle), then <b>Add zero of <i>f</i><sub><i>k</i></sub> here</b> and <b>Add pole of <i>f</i><sub><i>k</i></sub> here</b> on <i>X</i>, Copy coordinates and Center view here. A zero added on <i>X</i> goes where the point lands after the earlier steps, so the point becomes a zero of <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> exactly, and of <i>F</i> when <i>f</i><sub><i>k</i></sub> is the last step; the menu says where else it appears and, when steps follow, what <i>F</i> is there. Points snap to the ruler while Snap is on. Slide the finger instead of lifting it, and you read the values under it.`],
+    [`Views`, 0, `The switch at the top picks the view. <b><i>X</i> → <i>Y</i></b> shows the two planes: the shapes in <i>X</i>, their images in <i>Y</i>, each with its own <b>Sphere</b> key in the column at its bottom right. <i>Y</i> has a derivative gauge under the probe. <b>Phase</b> fills the screen with <i>X</i>, each point coloured by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b>, in the Display panel, draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a plane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes in <i>X</i>, targets in <i>Y</i>; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool two fingers turn it. The <b>Phase key</b> check, in the Display panel of <i>Y</i> in <i>X</i> → <i>Y</i>, paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`],
+    [`Preimages and roots`, 0, `Hold a finger on a point <i>w</i> of <i>Y</i> (its plane or its sphere) and slide it: <i>X</i> marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in <i>Y</i>: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view <i>X</i> shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes, under More, and can be edited, hidden or deleted.`],
+    [`Inverses and derivatives`, 0, `<b>Replace with the inverse</b>, in the ⋯ menu of a step's editor, replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the command says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the search as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.`],
+    [`Integrals`, 0, `Hold a finger on a curve or a region's boundary in <i>X</i>, on its image in <i>Y</i>, or on its outline on the phase portrait, lift it, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`],
+    [`Sound`, 0, `<b>Sound</b>, in the ⋯ menu, is on by default and starts with your first tap; your choice stays on this device. Its Settings set the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on; then hold a finger on a plane and slide it. It is a harp: silent while you rest, it plucks a note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B), so a loop around a zero of order <i>m</i> plays a rising scale <i>m</i> times, around a pole a falling one, and the low Ds, counted up minus down, are the winding number. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it.`],
+    [`Guarantees`, 0, `The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Tap the tile, and its editor shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`],
+  ];
+  const GUIDE_TOUCH_DEFORM = `On a phone, <b>Deformation</b> is the key at the end of the chain bar. While it plays, the row along the bottom holds Undo, play, the time <i>t</i>, the speed (tap it: 1×, 2×, ½×), Paths and ×; the plane's Display key holds the order, Loop and the deformed steps.`;
+  function guideTouch(m) {
+    const hs = [...m.querySelectorAll('h3')];
+    // (a section may go by another name in a later build: 'Shared numbers|Numbers' finds either)
+    const head = (name) => hs.find((x) => name.split('|').some((nm) => x.textContent.trim() === $t(nm))) || null;
+    const paras = (hh) => {
+      const out = [];
+      const first = hh ? hh.nextElementSibling : (m.querySelector('.modal-head') || {}).nextElementSibling;
+      for (let e = first; e && e.tagName !== 'H3'; e = e.nextElementSibling) if (e.tagName === 'P') out.push(e);
+      return out;
+    };
+    for (const [sec, i, text] of GUIDE_TOUCH) {
+      const hh = sec == null ? null : head(sec);
+      if (sec != null && !hh) continue;
+      const p = paras(hh)[i];
+      if (p) p.innerHTML = $t(text);
+    }
+    const dh = head('Deformation');
+    if (dh) { const p = document.createElement('p'); p.className = 'guide-touch'; p.innerHTML = $t(GUIDE_TOUCH_DEFORM); dh.after(p); }
+    const kh = head('Keys');
+    if (kh) { for (let e = kh.nextElementSibling; e && e.tagName !== 'H3';) { const nx = e.nextElementSibling; e.remove(); e = nx; } kh.remove(); }
+  }
   function openGuide() {
     if (document.querySelector('.modal-bg')) return;
     const opener = document.activeElement, okey = focusKey(opener);
@@ -12927,11 +13796,11 @@
       <h3>${$t(`Regions`)}</h3>
       <p>${$t(`Draw with the tools on the left, or type a set such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.`)}</p>
       <h3>${$t(`Function chain`)}</h3>
-      <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. Double-click a card, or press the lens in the Inspector, to show that step alone. Drag a card's header onto a connector to reorder.`, { x: k('+') })}</p>
+      <p>${$t(`Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class="chip ftag" data-tex="e^{z^2}"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a number of the Numbers section. Double-click a card, or press <b>Show alone</b> in the Inspector, to show that step alone. Drag a card's header onto a connector, or press Alt+← or Alt+→, to reorder.`, { x: k('+') })}</p>
       <p>${$t(`Each card's picture follows the open view: card <i>k</i> shows <i>F</i><sub><i>k</i></sub>, the map up to its step, as an image in <i>X</i> → <i>Y</i>, a phase portrait in Phase and a relief in Landscape, so the last card is the main picture. The <b>F</b> tile closes the chain: see Guarantees.`)}</p>
       <p>${$t(`A typed formula that is a chain of catalog steps, such as <span class="chip ftag" data-tex="\\sin(z^2+1)"></span>, shows in the Inspector how it is built: <span class="chip ftag" data-tex="z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class="chip ftag" data-tex="z^2+\\sin z"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.`)}</p>
-      <h3>${$t(`Shared numbers`)}</h3>
-      <p>${$t(`Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Parameters</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.`)}</p>
+      <h3>${$t(`Numbers`)}</h3>
+      <p>${$t(`Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Numbers</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.`)}</p>
       <p>${$t(`<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.`)}</p>
       <h3>${$t(`Branch cuts`)}</h3>
       <p>${$t(`Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone); it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number, in the Inspector, picks the branch.`)}</p>
@@ -12957,6 +13826,7 @@
       <p>${$t(`The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Select the tile, and the Inspector shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`)}</p>
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
+    if (touchUI()) guideTouch(m);   // (v16.5 UX17)
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');
     if (pb) pb.addEventListener('click', () => { close(); sndPlayPiece(); });
@@ -12976,7 +13846,7 @@
     ['checker', $t('Checker'), $t('Checkerboard in z-coordinates: shows how squares are bent and scaled')],
     ['polar', $t('Log-polar'), $t('Checkerboard in log|z| and arg z: conformal maps keep these cells square')],
     ['tiles', $t('Tiles'), $t('Tiles with an F glyph: shows rotation, scaling and reflection')],
-    ['grid', $t('Grid'), $t('Cartesian grid lines of z carried by the map')],
+    ['grid', $t('Square grid'), $t('Cartesian grid lines of z carried by the map')],
     ['polargrid', $t('Polar grid'), $t('Circles |z| = const and rays arg z = const carried by the map')],
     ['phase', $t('Arg z'), $t('Colored by the argument of the source point z')],
     ['stretch', $t('Stretch'), $t('Local scale factor |F′(z)|: blue shrinks, amber grows')],
@@ -13128,6 +13998,7 @@
   }
   function applyLayout() {
     const lay = document.querySelector('.layout');
+    placeKeys();
     if (oneDock() && !S.hideLeft && !S.hideRight) S.hideLeft = true;   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
     lay.classList.toggle('hide-left', !!S.hideLeft);
@@ -13364,16 +14235,27 @@
   function setupTooltips() {
     const tip = $('tip');
     if (!tip) return;
-    let timer = 0, cur = null, lastHide = 0;
+    let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
+    // (v16.5 UX17) the tool descriptions that say click, in touch words (the others drag, hold or pick)
+    const TOUCH_DESC = {
+      point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
+      polygon: () => $t('Tap the vertices; tap the first one to close.'),
+      meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
+      touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
+    };
     const show = (el) => {
       const text = el.getAttribute('data-tip');
-      if (!text) return;
+      // (v16.5 UX34: never for an element that went away, or one the mouse already left)
+      if (!text || !el.isConnected || (el !== lpShown && el !== kbdTip && !el.matches(':hover'))) return;
       const [label, key] = text.split(/\s{2,}/);
+      // (v16.5 UX17: a long-press tip on touch names no key and says tap, not click)
+      const byTouch = el === lpShown;
       tip.innerHTML = '';
       tip.append(document.createTextNode(label));
-      if (key) tip.append(h('span', { class: 'tip-key' }, key));
+      if (key && !byTouch) tip.append(h('span', { class: 'tip-key' }, key));
       // a tool's description: the tooltip's second line (items 3 and 6 moved the descriptions here)
-      const desc = el.getAttribute('data-desc');
+      const tdesc = byTouch && TOUCH_DESC[el.getAttribute('data-tool')];
+      const desc = tdesc ? tdesc() : el.getAttribute('data-desc');
       if (desc) tip.append(h('span', { class: 'tip-desc' }, desc));
       tip.hidden = false;
       const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
@@ -13381,7 +14263,7 @@
       tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
       tip.style.top = y + 'px';
     };
-    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; };
+    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
       let el = e.target.closest && e.target.closest('[data-tip],[title]');
@@ -13394,16 +14276,25 @@
     document.addEventListener('pointerout', (e) => { if (cur && !lpShown && (!e.relatedTarget || !cur.contains(e.relatedTarget))) hide(); });
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('keydown', hide, true);
-    // keyboard focus shows the same tip (only for focus the user can see: :focus-visible)
+    // v16.5 UX34 (restores 'tooltips never stick'): a tip shows on hover only, never after a focus (a focus the app
+    // moves, after a palette or a dialog closes, left the tip over the planes); it goes when its element goes, on a
+    // scroll and when the window loses the pointer
+    document.addEventListener('pointermove', () => { if (cur && !cur.isConnected) hide(); }, { passive: true, capture: true });
+    document.addEventListener('scroll', (e) => { if (!tip.hidden && cur && (e.target === document || (e.target instanceof Element && e.target.contains(cur)))) { lpShown = null; hide(); } }, { passive: true, capture: true });
+    window.addEventListener('blur', () => { lpCancel(); lpShown = null; hide(); });
+    // ([v16.5 fix regress-9] a keyboard user's Tab still names an icon and its key: a tip after a focus that Tab, Shift+Tab
+    // or an arrow key moved, on :focus-visible; a focus the app moves itself (after a click, a palette, a dialog, Enter or
+    // Esc) shows none, as UX34 asks. It goes with the focus, on any key and on any press)
+    document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || /^Arrow/.test(e.key)) navKeyAt = performance.now(); }, true);
     document.addEventListener('focusin', (e) => {
-      const el = e.target;
-      if (!(el instanceof Element) || !(el.hasAttribute('data-tip') || el.hasAttribute('title')) || !el.matches(':focus-visible')) return;
+      const el = e.target && e.target.closest ? e.target.closest('[data-tip],[title]') : null;
+      if (!el || performance.now() - navKeyAt > 300 || !el.matches(':focus-visible')) return;
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();
-      cur = el;
-      timer = setTimeout(() => { if (document.activeElement === el) show(el); }, 450);
+      cur = el; kbdTip = el;
+      timer = setTimeout(() => show(el), 300);
     });
-    document.addEventListener('focusout', (e) => { if (cur && cur === e.target) hide(); });
+    document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
     const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip]';
@@ -13431,12 +14322,12 @@
       if (!lpShown) return;
       // a release less than 450 ms after the press, by the events' times, is a tap: the tip goes, the click goes through
       if (down && e.pointerId === down.id && e.timeStamp - down.t < 450) { lpShown = null; hide(); return; }
-      // the tip stays up for a moment after the finger lifts; the click that follows the release is swallowed
+      // (v16.5 UX34) the tip goes when the finger lifts; the click that follows the release is swallowed
       const el = lpShown;
       const swallow = (ev) => { if (el.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); } };
       document.addEventListener('click', swallow, { capture: true, once: true });
       setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 400);
-      setTimeout(() => { if (lpShown === el) { lpShown = null; hide(); } }, 1500);
+      lpShown = null; hide();
     });
     // the long-press must not open the system's context menu over the tip
     document.addEventListener('contextmenu', (e) => { if (lpShown || (lp && e.target.closest && e.target.closest(LP_SEL))) e.preventDefault(); });
@@ -13534,13 +14425,76 @@
   // toast with an optional action (used instead of confirmation dialogs).
   // An Undo toast is bound to the history entry it announces: it undoes exactly that action, and the next
   // undoable action, undo or redo dismisses it
-  function undoToast(msg) {
+  function undoToast(msg, also) {
     const at = hi;
-    toast(msg, $t('Undo'), () => { if (hi === at) $('undoBtn').click(); }, true);
+    const t = toast(msg, $t('Undo'), () => { if (hi === at) $('undoBtn').click(); }, true);
+    // (v16.5 UX01: a second action before Undo, "Added f₃ Sine · Show alone · Undo")
+    if (t && also) { const u = t.querySelector('.toast-act'); u.before(h('button', { class: 'toast-act', onclick: () => { t.remove(); also[1](); } }, also[0])); }
+    return t;
   }
   function dismissUndoToast() {
     const host = $('toastHost');
     if (host) for (const t of host.querySelectorAll('.toast[data-undo]')) t.remove();
+  }
+  // (v16.5 UX80, restores "nothing covers uninvited": a message never lands on a control) A desktop's messages sit
+  // above the chain, centred between X's and Y's button columns (and above the deformation's transport), as wide as
+  // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
+  // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
+  // on the host) and when the layout changes.
+  function placeToasts() {
+    const host = $('toastHost');
+    if (!host) return;
+    const st = host.style;
+    const clear = () => { if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    if (!host.firstElementChild) return;
+    const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
+    const chain = box(document.querySelector('.pipe-wrap'));
+    if (!chain || !(chain.width > 0)) { clear(); return; }
+    const H = window.innerHeight, W = window.innerWidth;
+    let lo = 8, hi = W - 8, top = chain.top;
+    const dock = [...document.querySelectorAll('.tdock:not([hidden])')].map(box).filter(Boolean);
+    for (const d of dock) top = Math.min(top, d.top);
+    const inset = box(document.querySelector('.panes > .pane.ph-inset'));
+    if (inset) {
+      // a phone with the inset: right of it, left of the large plane's keys at the bottom
+      const big = document.querySelector('.panes > .pane:not(.ph-inset):not([hidden])');
+      const keys = big ? [...big.querySelectorAll('.viewstack, .ph-col')].map(box).filter((r) => r && r.width > 0 && r.bottom > inset.top) : [];
+      lo = inset.right + 8;
+      for (const r of keys) hi = Math.min(hi, r.left - 8);
+      if (hi - lo < 200) {
+        lo = 8; hi = W - 8; top = inset.top;
+        for (const r of keys) if (r.bottom > top - 80) hi = Math.min(hi, r.left - 8);
+      }
+    } else {
+      // ([v16.5 fix regress-3, the user's rule "nothing covers the work area uninvited"] a desktop's message goes in the
+      // chain head's free middle, between its title and Pictures | Names, when it fits there whole on one line: it then
+      // covers neither a plane nor a control. Only a message too long for it goes above the chain, as UX80 placed it)
+      const hd = document.querySelector('.pipe-head'), grow = hd && hd.querySelector(':scope > .grow'), hb = box(hd);
+      if (hb && grow && hb.height > 0 && hb.height < 60 && host.children.length === 1) {
+        const kids = [...hd.children].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none'), gi = kids.indexOf(grow);
+        const a = gi > 0 ? Math.max(...kids.slice(0, gi).map((e) => e.getBoundingClientRect().right)) : hb.left;
+        const b = gi >= 0 && gi < kids.length - 1 ? Math.min(...kids.slice(gi + 1).map((e) => e.getBoundingClientRect().left)) : hb.right;
+        host.setAttribute('data-placed', 'head'); st.maxWidth = 'none';
+        const tw = host.firstElementChild.getBoundingClientRect(), room = b - a - 24;
+        if (room >= 160 && tw.width <= room && tw.height <= hb.height) {
+          st.left = Math.round((a + b) / 2) + 'px';
+          st.bottom = Math.round(H - hb.bottom + (hb.height - tw.height) / 2) + 'px';
+          st.maxWidth = Math.round(room) + 'px';
+          return;
+        }
+        host.setAttribute('data-placed', '');
+      }
+      // the planes side by side: between X's and Y's button columns; one plane: left of its own
+      const stacks = ['paneL', 'paneR'].map((id) => { const p = $(id); return p && p.getClientRects().length ? box(p.querySelector('.viewstack')) : null; });
+      const plots = ['plotL', 'plotR'].map((id) => box($(id)));
+      if (stacks[0] && stacks[1] && stacks[1].left > stacks[0].right) { lo = stacks[0].right + 8; hi = stacks[1].left - 8; }
+      else { const k = stacks[1] ? 1 : 0, st2 = stacks[k], pl = plots[k]; if (st2 && pl && pl.width > 0) { lo = pl.left + 8; hi = st2.left - 8; } }
+    }
+    if (!(hi - lo >= 160)) { clear(); return; }
+    host.setAttribute('data-placed', '');
+    st.left = Math.round((lo + hi) / 2) + 'px';
+    st.bottom = Math.round(H - top + 8) + 'px';
+    st.maxWidth = Math.round(hi - lo) + 'px';
   }
   // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
   // o.ms: how long an ordinary one stays)
@@ -13602,7 +14556,7 @@
     const on = !(sndP.on && sndP.sonify);
     tourSndMine(on && !sndP.on ? ['on', 'sonify'] : ['sonify']);
     if (on && !sndP.on) SND.set({ on: true, sonify: true }); else { SND.set({ sonify: on }); sndToggleCue(on); }
-    sndSay(on ? $t('Hear the function on: hover a plane.') : $t('Hear the function off.'));
+    sndSay(on ? (touchUI() ? $t('Hear the function on: hold a finger on a plane and slide it.') : $t('Hear the function on: hover a plane.')) : $t('Hear the function off.'));
   }
   // Esc (after the dispatcher's own Esc handling) and "Stop sound": everything playing stops now; the setting stays
   function soundStop() {
@@ -13635,6 +14589,9 @@
       if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
       const ic = b.querySelector('.snd-ic');
       if (ic && ic.dataset.on !== String(on)) { ic.dataset.on = String(on); ic.innerHTML = on ? SND_ICON_ON : SND_ICON_OFF; }
+      // (v16.5 UX70) a small wave on the button while Hear the function is on
+      const hv = on && s.sonify ? 'on' : 'off';
+      if (b.dataset.hear !== hv) { b.dataset.hear = hv; if (hv === 'on') b.setAttribute('aria-description', $t('Hear the function is on')); else b.removeAttribute('aria-description'); }
     }
     const ph = $('soundPh'); if (ph && ph.hidden === on) ph.hidden = !on;
     const top = $('top'); if (top) top.dataset.snd = on ? 'on' : 'off';
@@ -13801,14 +14758,14 @@
   }
   // the hover paths of onMove: z under the pointer (x: its CSS px in its pane); src 'pointer' | 'loop' | 'key' |
   // 'merged' (the deformation plane of X → Y, DEFORMATION.md: its point read as a point of X, where the paths
-  // t → H_t(z) start; none on a focused d/dz step, whose plane is not X's). A playback ("listen along") ends when the
-  // pointer moves more than 4 px.
+  // t → H_t(z) start; none on a focused d/dz step, whose plane is not X's). (v16.5 UX73) A playback ("listen along")
+  // plays to its end, as the melody always did: a pointer move no longer cuts it (it ended at 4 px, silently, and the
+  // menu item that starts it sits over the plane); Stop in its chip, Esc or another action end it.
   function sndMove(x, y, z, src) {
     if (!sndP.on) return;
     const p = snd.play;
     if (src !== 'key') snd.px = [x, y];
-    if (p && p.piece && src !== 'key') return;
-    if (p && src !== 'key') { if (!p.from) p.from = [x, y]; if (Math.hypot(x - p.from[0], y - p.from[1]) <= 4) return; sndStopPlay(true); }
+    if (p && src !== 'key') return;
     if (src === 'loop' && !snd.loop && sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
     // (silent too when the bracket holds a live d/dz: its segment is a line between two functions of z, so a point of
     // w_{a-1} is not in G_t's domain from that step on: review v16 math-3)
@@ -14350,10 +15307,14 @@
     let heard = 0;
     try { heard = Math.max(0, Math.min(p.dur, p.h.now() - p.h.t0)); } catch (e) { heard = 0; }
     tourEmit('listen-ended', { piece: !!p.piece, closed: !!p.closed, W: p.W == null ? null : p.W, heard: full ? p.dur : heard, full: !!full });
+    // ([v16.5 fix regress-5] the example's Try line leaves its slot when the melody is over, never while it plays: the
+    // planes, and the curve being heard, do not move under the eyes)
+    if (typeof Tour !== 'undefined' && Tour.laneHide) Tour.laneHide('example');
   }
   // the curve menu's "Listen along": the shape's longest piece, in the X plane's variable
   function sndListenShape(s) {
     if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); }   // (the open's hint is answered)
+    // (v16.5 UX74: and its Try line, [v16.5 fix regress-5] once the melody ends: sndPlayEnded)
     let pieces = [];
     try { pieces = curvePieces(s, false); } catch (e) { pieces = []; }
     let best = null, bl = -1;
@@ -14405,12 +15366,22 @@
     go();
   }
   // (review v16 user-5) an example with a melody says, once it opens, how to hear it, with the action itself
-  function sndPieceHint() {
-    if (!SND) return;
+  // (early: from loadExample before its shapes exist, the Try line only; true when it is shown)
+  function sndPieceHint(early) {
+    if (!SND) return false;
     const s = S.shapes.find((x) => x.listen);
-    if (!s) return;
+    if (!s && !early) return false;
     const ph = document.documentElement.classList.contains('ph');
-    const go = () => { if (!S.shapes.includes(s)) return; if (sndP.on && sndP.events) sndListenShape(s); else sndTurnOnListen(s); };
+    // (the melody's shape when the button is pressed: an early line is shown before the shapes are made)
+    const go = () => { const q = s && S.shapes.includes(s) ? s : !s && S.shapes.find((x) => x.listen); if (!q) return; if (sndP.on && sndP.events) sndListenShape(q); else sndTurnOnListen(q); };
+    // (v16.5 UX74, the learning lane of wave 2's D7) the example's Try line in the tour's docked slot, Listen its
+    // button: it covers nothing and stays until it is played or closed, or the example is left (it went after 9 s)
+    const exN = typeof currentExample === 'number' && EX[currentExample] ? EX[currentExample].name : '';
+    if (typeof Tour !== 'undefined' && Tour.lane && Tour.lane({ id: 'example', title: (exN ? exN + ' ' : '') + '♫', label: $t('Try this example'),
+      body: ph ? $t('Try: press Listen, or hold the spiral and choose Listen along.') : $t('Try: press Listen, or right-click the spiral and choose Listen along.'),
+      icon: '<svg viewBox="0 0 16 16" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5V3.5l7-1.5v9"/><circle cx="4.3" cy="12.5" r="1.7"/><circle cx="11.3" cy="11" r="1.7"/></svg>',
+      acts: [{ label: $t('Listen'), primary: true, run: () => go() }], drop: 'title', onClose: () => {} })) return true;
+    if (early) return false;
     // (review v16 verify-7: in X's note chip at the top of the plane, not a toast over the spiral; it goes after 9 s,
     // on Listen, or when the example is left)
     clearTimeout(snd.hintT);
@@ -14451,7 +15422,7 @@
       const p = snd.play;
       if (!p || !p.shape || !S.shapes.includes(p.shape)) return '';
       const name = shapeNames().get(p.shape.id) || Region.KINDS[p.shape.kind].label;
-      return document.documentElement.classList.contains('ph') ? $t('Listening along {name}', { name }) : $t('Listening along {name} · Esc stops', { name });
+      return $t('Listening along {name}', { name });   // (v16.5 UX71: its Stop button says the rest; Esc in its tooltip)
     } catch (e) { return ''; }
   }
   // the guide's button: the example with a melody, opened and played
@@ -14726,7 +15697,7 @@
       [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
-      if (xl && m.exLabel != null) xl.textContent = m.exLabel;
+      if (xl && m.exLabel != null) { xl.textContent = m.exLabel; xl.title = m.exLabel; }
       if (m.selected && (S.shapes.some((s) => s.id === m.selected) || S.targets.some((s) => s.id === m.selected))) selected = m.selected;
       if (m.cell) [cellBase, cellKey] = m.cell;
       if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.setBig(m.phBig);
@@ -15138,7 +16109,7 @@
         // (v16.3 review user-4: a glider's live drag frame is not structural: the rows are updated, not rebuilt)
         done([id], !!patch.live, !patch.live || !!patch.def);
       },
-      makeFree(id) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], false, true); },
+      makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // ([v16.5 rail] live: a pull mid-drag, the release commits)
       // a gesture moved a source (live: a motion frame; the gesture's end calls end())
       moved(changed, o = {}) { cmGesture = cmGesture || !!o.live; const r = cmSync(changed || { all: true }); if (r && r.ids.length) { shapesChanged(!!(r.kindChanged.length || r.undefChanged.length)); targetsChanged(false); } return r; },
       end() { cmGesture = false; commit(); if (rightAuto && autoFit()) fitRight(); requestRender('L', 'R', 'T'); },
@@ -15166,11 +16137,14 @@
       S: () => S, h, TH: () => TH, sub,
       setView: (side) => { const p = paneOf(side); p.setView(side === 'R' ? V.right : leftView()); return p; },
       win: (side) => (side === 'R' ? targetWin() : clipWin),
-      globeEdit, globePick: (side, x, y) => { const gc = globeCam(side); const g = gc ? pickGlobe(side === 'R' ? paneR : paneL, camOf(side), x, y) : null; return gc && g ? { gc, g } : null; }, gScreen,
+      globeEdit, globePick: (side, x, y) => { const gc = globeCam(side); const g = gc ? pickGlobe(side === 'R' ? paneR : paneL, camOf(side), x, y) : null; return gc && g ? { gc, g, hit: (s, tol) => globeCurveHit(gc, s, x, y, tol) } : null; }, gScreen,
       tool: () => tool, setTool, selected: () => selected, dragging: () => !!drag && /^(move|handle|zp)$/.test(drag.mode) && !!drag.moved,
       select: (id) => { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR', 'P'); },
       hoverShape: (id) => { hoverShape = id; requestRender('L', 'R'); },
       snapZ, snapOn: () => !!S.snap, altHeld: () => altHeld,
+      // [v16.5 rail] the drag in progress; ending it without its release; back to the last undo step (Esc, a second
+      // finger: the press state, no step); a sound cue
+      drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
       leftStage, lFlat, targetsEditable, zpStep,
       yWhole: () => S.focus === 0 && !morphOn() && rImage(),
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, targetLabel,
@@ -15186,6 +16160,29 @@
     const names = shapeNames();
     for (const x of S.shapes.concat(S.targets)) if (x.bind) for (const key of Object.keys(x.bind)) out.push({ label: names.get(x.id) || $t('a target'), get: () => x.bind[key], set: (t) => { x.bind[key] = t; } });
     return out;
+  }
+  // (v16.5 UX65) an unused number's way into a formula: + a appended to the selected formula step, else the last one
+  function paramUseIn(nm) {
+    const ks = [];
+    S.steps.forEach((st, i) => { if (st.type === 'custom') ks.push(i + 1); });
+    if (!ks.length) return null;
+    const k = Number.isInteger(S.sel) && ks.includes(S.sel) ? S.sel : ks[ks.length - 1];
+    return { label: $t('Use in f{x}', { x: sub(k) }), run: () => {
+      const st = S.steps[k - 1];
+      if (!st) return;
+      st.params.expr = `${String(st.params.expr || 'z').trim()} + ${nm}`;
+      chainChanged(true); selectStep(k); commit(); Params.render();
+      undoToast($t('f{x} now adds {a}.', { x: sub(k), a: Params.display(nm) }));
+    } };
+  }
+  // the numbers step k uses, with their values, for its editor ("Numbers: a = 1.2")
+  function stepNumbers(k) {
+    const st = S.steps[k - 1];
+    if (typeof Params === 'undefined' || !st) return '';
+    const ns = [];
+    for (const [key] of stepTexts(st)) for (const n of Params.namesIn(st.params[key])) if (!ns.includes(n)) ns.push(n);
+    const val = (n) => { const v = Params.get(n); return v == null ? '?' : I18N.num(String(+(+v).toPrecision(4))).replace('-', '−'); };
+    return ns.length ? $t('Numbers: {list}', { list: ns.map((n) => `${Params.display(n)} = ${val(n)}`).join(', ') }) : '';
   }
   function paramsRestored() { if (typeof Params !== 'undefined') { zpParsed.clear(); Params.render(); } }
   // a number changed (a slider, play, a field, undo): the steps and the shapes that use it follow; a drag or play
@@ -15219,6 +16216,7 @@
       announce: (m) => toast(m),
       undoToast: (m) => undoToast(m),
       openMenu: (a, items) => openMenu(a, items),
+      useIn: (nm) => paramUseIn(nm),
     });
     if (!attachParams.on) { attachParams.on = true; Params.on('change', onParamChange); }
   }
@@ -15422,6 +16420,7 @@
     for (const el of document.querySelectorAll('.ic-slot[data-icon]')) el.innerHTML = ICONS[el.dataset.icon] || '';
     $('cmdKbd').textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K';
     $('cmdBtn').addEventListener('click', (e) => openPalette(e.currentTarget));
+    hdrFitInit();
     // the view controls: the top bar's view switch (merged-views.md) and the panes' Plane | Sphere radios (U4)
     const vsw = $('viewSwitch');
     if (vsw) {
@@ -15455,6 +16454,7 @@
     $('linesChk').addEventListener('change', (e) => { S.lines = e.target.checked; requestRender('L', 'R', 'T'); save(); });
     $('chevChk').addEventListener('change', (e) => { S.chev = e.target.checked; requestRender('L', 'R'); save(); });
     // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
+    // ([v16.5 rail SPEC 4.3] the button was "Snap while drawing": it now names what it snaps to, the grid and figures)
     $('snapBtn').addEventListener('click', () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); });
     $('unitChk').addEventListener('change', (e) => { S.unit = e.target.checked; requestRender('L', 'R', 'T'); save(); });
     $('alphaRange').addEventListener('input', (e) => { S.alpha = +e.target.value; $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
@@ -15494,6 +16494,35 @@
     // write pending changes (and the right-plane view) when the page is hidden or closed
     window.addEventListener('pagehide', writeState);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeState(); });
+    // (v16.5 UX99) a right click on a chain card or a Shapes row opens its ⋯ menu at the pointer, as on the planes
+    // (a mouse only: a phone's long press keeps its own meaning)
+    document.addEventListener('contextmenu', (e) => {
+      const t = e.target instanceof Element ? e.target : null;
+      if (!t || document.documentElement.classList.contains('ph') || (e.pointerType && e.pointerType !== 'mouse')) return;
+      const card = t.closest('#pipeline .card[data-k]'), row = !card && t.closest('.shape-row');
+      const more = card ? card.querySelector('.card-head .more') : row ? row.querySelector(':scope > .more') : null;
+      if (!more || more.disabled) return;
+      e.preventDefault();
+      if (popEl && popEl._opener === more) closePalette();
+      more.click();
+      const pop = popEl && popEl._opener === more ? popEl : null;
+      if (!pop) return;
+      const pw = pop.offsetWidth, ph = pop.offsetHeight;
+      let px = e.clientX + 2, py = e.clientY + 2;
+      if (px + pw > window.innerWidth - 12) px = Math.max(12, e.clientX - pw - 2);
+      if (py + ph > window.innerHeight - 12) py = Math.max(12, e.clientY - ph - 2);
+      pop.style.left = px + 'px'; pop.style.top = py + 'px';
+    });
+    // (v16.5 UX80) a message is placed clear of the planes' controls when it shows and when the layout changes
+    { const th = $('toastHost'); if (th) new MutationObserver(() => placeToasts()).observe(th, { childList: true }); window.addEventListener('resize', () => requestAnimationFrame(placeToasts));
+      // ([v16.5 fix regress-2] and whenever the layout under a toast changes while it stays up: the deformation's dock
+      // opening or closing, the learning lane showing or hiding, a panel: each resizes a plot or the chain; one rAF, and
+      // only while a toast shows)
+      if (typeof ResizeObserver !== 'undefined' && th) {
+        let q = 0;
+        const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); });
+        for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);
+      } }
     // crossing a drawer breakpoint: a drawer starts closed, a docked panel follows the user's choice
     let drawerWas = { L: isDrawer('L'), R: isDrawer('R') }, wideWas = window.innerWidth >= 768, oneWas = oneDock();
     window.addEventListener('resize', () => {
@@ -15544,8 +16573,8 @@
     for (const id of ['leftLegend', 'rightLegend']) {
       const el = $(id);
       if (!el) continue;
-      try { if (matchMedia('(pointer: coarse) and (max-width: 767px)').matches) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
-      el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; el.classList.toggle('collapsed'); });
+      try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !el.parentNode.classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
+      el.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.key-sw')) return; if (el.parentNode && el.parentNode.classList.contains('pane-head')) el.classList.toggle('open'); else el.classList.toggle('collapsed'); });
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
       $(side + 'ZoomIn').innerHTML = ICONS.plus;
@@ -15576,7 +16605,15 @@
     }
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
-    $('undoBtn').addEventListener('click', () => { if (hi > 0) { hi--; restore(hist[hi]); } });
+    $('undoBtn').addEventListener('click', () => {
+      // [v16.5 UX15] a construction's last pick, [UX14] an open polygon's last point, before any finished work
+      if (typeof Construct !== 'undefined') {
+        const w = Construct.undoPick();
+        if (w != null) { toast(w ? $t('Undid the pick: {x}', { x: w }) : $t('Undid the last pick')); updateUndo(); return; }
+      }
+      if (polyBack()) return;
+      if (hi > 0) { hi--; restore(hist[hi]); }
+    });
     $('redoBtn').addEventListener('click', () => { if (hi < hist.length - 1) { hi++; restore(hist[hi]); } });
     $('helpBtn').addEventListener('click', (e) => { if (typeof Tour !== 'undefined') Tour.openHelpMenu(e.currentTarget); else openGuide(); });
     sndInit();
@@ -15639,7 +16676,20 @@
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
+      // (v16.5 UX97) ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
+      if (mod && !e.altKey && selected && (key === 'd' || kk === ']' || kk === '[')) {
+        const s = findShape(selected);
+        if (s) { e.preventDefault(); if (key === 'd') duplicateShape(s); else moveShape(s.id, kk === ']' ? 1 : -1); return; }
+      }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // (v16.5 UX97) the deformation: K plays or pauses, Shift+← and Shift+→ go to the previous or next step's tick
+      if (morph.open && key === 'k') { e.preventDefault(); togglePlay(); return; }
+      if (morph.open && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); morphTick(e.key === 'ArrowRight' ? 1 : -1); return; }
+      // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
+      if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('#pipeline, [role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
+        const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
+        if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }
+      }
       if (e.shiftKey && key === 'm') { e.preventDefault(); soundToggle(); return; }
       // views (merged-views.md): 1 X → Y, 2 Phase, 3 Landscape. One map for the surfaces in every view (merged-views
       // review): Shift 1, 2 Plane, Sphere of the left or only panel (X in X → Y, the portrait in Phase), Shift 3, 4 of
@@ -15655,6 +16705,7 @@
       }
       if (kk === '[') setPanels(!S.hideLeft, S.hideRight);
       if (kk === ']') setPanels(S.hideLeft, !S.hideRight);
+      if (e.key === 'Backspace' && polyDraftOpen()) { e.preventDefault(); polyBack(); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && zpSel && zpStep() && zpStep().k === zpSel.k) { e.preventDefault(); zpRemove(zpSel.k, zpSel.kind, zpSel.i); return; }
       if (e.key === 'Escape' && zpSel) { zpSel = null; requestRender('OL'); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteShape(selected); return; }
@@ -15770,6 +16821,27 @@
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
+      exportItems: () => exportMenuItems(),   // (v16.5 V02)
+      // v16.5 UX12: the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
+      // first: the coordinate pad, the popover (the palette, a menu, a plane's menu, the integral, the options), the
+      // tour's chapter menu, the sound settings, a dialog (Export, the guide), a popover of the top layer, the sheet
+      backLayer: () => {
+        if (padEl) return () => closePad();
+        if (popEl) return () => closePalette();
+        const tm = document.querySelector('#popHost > .tour-menu');
+        if (tm) return () => { if (typeof Tour !== 'undefined' && Tour.closeHelpMenu) Tour.closeHelpMenu(); else tm.remove(); };
+        const sp = $('sndPop');
+        if (sp && !sp.hidden) return () => { sp.hidden = true; const m = $('soundMore'); if (m) m.setAttribute('aria-expanded', 'false'); };
+        const bgs = document.querySelectorAll('.modal-bg');
+        if (bgs.length) { const bg = bgs[bgs.length - 1]; return () => bg.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+        let po = null;
+        try { po = [...document.querySelectorAll(':popover-open')].find((e) => !e.closest('[data-tour]') && !e.classList.contains('tour-top')); } catch (e) { po = null; }
+        if (po) return () => { try { po.hidePopover(); } catch (e) { /* */ } };
+        if (typeof Phone !== 'undefined' && Phone.sheet && Phone.sheet()) return () => Phone.close();
+        const tmo = $('toolMore');
+        if (tmo && tmo.open) return () => { tmo.open = false; };
+        return null;
+      },
     });
     // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
     // (v15.1: and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
@@ -15995,6 +17067,9 @@
   window.__cmwPrepareExport = (panels, alive) => prepareExport(panels || ['L', 'R'], alive);
   window.__cmwRenderOff = (side, w, h, dpr) => renderOff(side, w, h, dpr).toDataURL('image/png');
   // client coordinates of plane point (re, im) in the left ('L') or right ('R') plane, as last drawn
+  // v16.5 wave 1 plane (test/ux165_plane_cmd.js): the open draft, the handle size in use
+  window.__cmwDraft = () => (draft ? { kind: draft.kind, pts: (draft.pts || []).map((p) => p.slice()) } : null);
+  window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
   // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
   window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { harp: SND ? SND.harpState() : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, voice: !!snd.voice, kind: snd.kind, engine: snd.voice ? snd.voice.engine : '', phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
@@ -16011,6 +17086,7 @@
   window.__cmwCI = (o) => { if (o && o.gs) { const [side, P] = o.gs, gc = globeCam(side), q = gc && gScreen(gc, P), r = (side === 'R' ? paneR : paneL).ocanvas.getBoundingClientRect(); return q ? [r.left + q[0], r.top + q[1]] : null; } if (o && o.fill) Construct.fill = o.fill; if (o && o.snap) { const [side, x, y, opt] = o.snap; const t = Construct.snapAt(side, x, y, opt || {}); return t ? { cls: t.cls, z: t.z, ref: t.ref } : null; } if (o && o.names) return S.shapes.concat(S.targets).map((s) => ({ id: s.id, kind: s.kind, name: Construct.shapeLabel(s), def: Construct.defText(s), why: s.cundef ? Construct.reasonText(s.cundef) : null })); if (o && o.shapes) return { hi, n: hist.length, tool, selected, zeros: S.steps[0] ? S.steps[0].params.zeros : null, list: S.shapes.concat(S.targets).map((s) => Object.assign(JSON.parse(JSON.stringify(s, noRuntime)), { inf: !!s._atInf, A: s._g ? s._g.A : null })) }; return Construct.debug(); };
   window.__cmwCapText = (panels) => pcTidy(figureCaption(panels || ['L'])).map((x) => (x.t != null ? x.t : x.m != null ? `$${x.m}$` : x.b || '')).join('');
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
+  window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (v16.5 test/ux165_chain_cmd.js)
   window.__cmwState = () => ({ mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEMP-DEBUG-HOOK
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

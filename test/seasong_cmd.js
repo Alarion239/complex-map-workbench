@@ -137,6 +137,9 @@ ok('L again stops it', !(await listenState()));
 await ev('document.activeElement && document.activeElement.blur && document.activeElement.blur(); 1');
 // sound off: the item stays, says how to turn sound on, and does
 await ev(`Sound.set({ on: false }); 1`); await settle(200);
+// (v16.5 UX74: the example's Try line left the docked slot when the melody played, so the planes got its room back
+// and the spiral moved with its plane: the point is read again)
+p = await curveXY(300);
 await rclick(p[0], p[1]);
 items = await menuItems();
 ok('sound off: the curve menu still offers Listen along', !!items && items.some((x) => x.id === 'listen'), items);

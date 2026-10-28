@@ -1,0 +1,78 @@
+{
+ "_about": "v16.5 wave 1, the rail piece (work/xu1-rail, notes/ux-build/rail/SPEC.md 4.2, notes/ux-build/w1-rail-AS-BUILT.md): snapping points to the grid and to figures, railing on curves, the pull that frees a point. id -> {en, ru, ctx?, note}. Read after every v16.4 table by tools/make_ru_table.py (V165_RAIL_HERE). Terms: GLOSSARY.md (привязка, узел сетки, отвязать). Edit by read-modify-write only.",
+ "chip.grid": {
+  "en": "grid point {z}",
+  "ru": "узел сетки {z}",
+  "note": "Snap ring's chip on a lattice point: grid point 0.5 + i («узел сетки 0,5 + i»: z is written with the decimal comma)."
+ },
+ "chip.on_at": {
+  "en": "on {c} at {a}",
+  "ru": "привязка: {c}, {a}",
+  "note": "Snap chip at a detent of a curve: on the unit circle at i, on Circle 1 at 30°, on Line 1 at 0.5 + i. c is a curve name, a a place (an angle, a number)."
+ },
+ "chip.pull": {
+  "en": "Pull further to free {x}",
+  "ru": "Тяните дальше, чтобы отвязать {x}",
+  "note": "Chip while a point on a curve is pulled away from it (the stretch zone); x is a point name (z₂)."
+ },
+ "chip.free": {
+  "en": "{x} is free",
+  "ru": "Точка {x} отвязана",
+  "note": "Chip for 1.2 s after a pull freed a point from its curve; x is a point name. «Отвязать» is Make free's verb."
+ },
+ "chip.follows": {
+  "en": "{x} follows {a}: change {a}",
+  "ru": "{x} задана через {a}: меняйте {a}",
+  "note": "Chip when a point whose position on its curve is a shared number a is dragged: it does not slide; change a."
+ },
+ "snap.tip": {
+  "en": "Snap to the grid and to figures (both panes). Hold Alt to place freely.",
+  "ru": "Привязка к сетке и фигурам (обе панели). Удерживайте Alt, чтобы ставить без привязки.",
+  "note": "Tooltip of the Snap button (laptop) and of the tablet rail's Snap."
+ },
+ "snap.aria": {
+  "en": "Snap to grid and figures",
+  "ru": "Привязка к сетке и фигурам",
+  "note": "aria-label of the Snap button."
+ },
+ "snap.palette": {
+  "en": "Snap to grid and figures on or off",
+  "ru": "Привязка к сетке и фигурам: вкл. или выкл.",
+  "note": "Command palette line."
+ },
+ "sound.attach": {
+  "en": "Point attached",
+  "ru": "Точка привязана",
+  "note": "Sound list: the cue when a dropped point lands on a curve or a crossing."
+ },
+ "sound.attach_what": {
+  "en": "A point landed on a curve or a crossing",
+  "ru": "Точка встала на кривую или в пересечение",
+  "note": "Sound list: what the attach cue means."
+ },
+ "sound.detach": {
+  "en": "Point freed",
+  "ru": "Точка отвязана",
+  "note": "Sound list: the cue when a pull frees a point from its curve."
+ },
+ "sound.detach_what": {
+  "en": "A point was pulled off its curve",
+  "ru": "Точку оттянули с её кривой",
+  "note": "Sound list: what the detach cue means."
+ },
+ "tour.meet_body": {
+  "en": "Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Hold Alt to place freely; Intersect marks a crossing.",
+  "ru": "Инструменты и перетаскиваемые точки привязываются к точкам, нулям, пересечениям и узлам сетки. «Точка» ставит точку и на кривую или единичную окружность: её можно вести вдоль кривой, а рывком — отвязать. Удерживайте Alt, чтобы ставить свободно; «Пересечение» отмечает точку пересечения.",
+  "note": "Tour step 'meet' body (chapter construct): the v16.5 snap rules."
+ },
+ "tour.meet_touch": {
+  "en": "Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.",
+  "ru": "Инструменты и перетаскиваемые точки привязываются к точкам, нулям, пересечениям и узлам сетки. «Точка» ставит точку и на кривую или единичную окружность: её можно вести вдоль кривой, а рывком — отвязать. Чтобы ставить свободно, отключите привязку в панели инструментов.",
+  "note": "Tour step 'meet' body on touch (no Alt)."
+ },
+ "help.deformation.v164snap": {
+  "en": "<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups; powers and roots <i>z</i><sup><i>a</i></sup> along <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (a negative integer power reaches <i>z</i><sup>|<i>a</i>|</sup> at <i>t</i> = ½, then 1/<i>z</i><sup>|<i>a</i>|</sup> through Möbius maps); log along (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; exp, sin, cos, tan, the hyperbolic functions and the inverse trigonometric and hyperbolic functions are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); polynomials, rational maps and any other analytic formula are zoomed into about a point <i>p</i>, so their critical points, poles and cuts fly in from infinity along the rays from <i>p</i>; Joukowski closes the unit circle onto [−1, 1]. A formula that is not analytic, or a constant, moves along the straight line, and conjugation squashes the plane onto the real axis and out again, mirrored: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.",
+  "ru": "Кнопка <b>Деформация</b> в верхней панели ({x}) воспроизводит гомотопию от <i>z</i> к <i>F</i>(<i>z</i>) шаг за шагом, во всех видах. В виде <i>X</i> → <i>Y</i> две панели сливаются в одну плоскость (в одну сферу, если правая панель в режиме «Сфера»): <i>X</i> серым цветом, движущийся образ <i>H</i><sub><i>t</i></sub>(<i>X</i>) и пути <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) равномерно расставленных точек. В видах «Фаза» и «Рельеф» раскрашивается <i>H</i><sub><i>t</i></sub>. Каждый шаг деформируется по своему естественному пути: отображение <i>H</i><sub><i>t</i></sub> аналитично при каждом <i>t</i>, начинается с тождественного и заканчивается отображением шага. Дробно-линейные отображения движутся по своим однопараметрическим группам; степени и корни <i>z</i><sup><i>a</i></sup> — по <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (отрицательная целая степень при <i>t</i> = ½ доходит до <i>z</i><sup>|<i>a</i>|</sup>, затем через дробно-линейные отображения — до 1/<i>z</i><sup>|<i>a</i>|</sup>); логарифм — по (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; для exp, sin, cos, tg, гиперболических функций, обратных тригонометрических и обратных гиперболических функций используется гомотопия масштабирования, поэтому их нули, полюсы и разрезы приходят из бесконечности (sin(<i>tz</i>)/<i>t</i>); для многочленов, рациональных функций и любой другой аналитической формулы это гомотопия масштабирования с центром в точке <i>p</i>, поэтому их критические точки, полюсы и разрезы приходят из бесконечности вдоль лучей, выходящих из точки <i>p</i>; функция Жуковского стягивает единичную окружность в отрезок [−1, 1]. Неаналитическая формула и постоянная деформируются по прямолинейной гомотопии, а сопряжение сплющивает плоскость на вещественную ось и снова раскрывает её зеркально: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>. Элементы управления воспроизведением под панелью позволяют перемещать <i>t</i>, задавать скорость, а при двух шагах и более — порядок: по очереди (0 ≤ <i>t</i> ≤ <i>m</i>) или все сразу (0 ≤ <i>t</i> ≤ 1, все шаги при одном и том же <i>t</i>). Кнопка <b>Пути</b> ({x2}) показывает или скрывает пути. Если выключить деформацию, панели снова разделяются, а <i>t</i> возвращается в конец. Если какой-то шаг сделан текущим, деформируется только он.",
+  "note": "The Help's Deformation paragraph as the v16.4 snapshot's app.js has it (notes/i18n/ru/v164-help.json was changed after the snapshot, so its key no longer matches this tree). The same restore line as the plane, chain and phone pieces' tables; identical en and ru, so the merge keeps one."
+ }
+}

@@ -6,6 +6,19 @@
 > part of the screen each step changes, and an auto-advance that works while you keep moving. The plan for the next
 > versions, with the usability audit behind it, is in [ROADMAP.md](ROADMAP.md).
 
+**New in v16.5** (27 October 2026):
+
+- **Snapping and railing of points**: points snap to points and handles, zeros and poles, crossings, curves (the unit
+  circle and the axes included) and the grid. A point placed on a curve rides it when dragged; pull it hard to free
+  it (Alt places freely on a laptop).
+- Two points on one circle are no longer refused as "needs distinct points": picks are compared by where they are.
+- **Phone**: Undo in every sheet and in the deformation bar, and Android Back closes the open sheet instead of leaving
+  the app.
+- **⌘K finds everything**: commands, tools, examples and help, by everyday words ("dark", "png", "help", "zero").
+- The first-run invitation to the tour is one line in the tour's strip, not a card over the planes.
+- Messages cover nothing: legends and one-time notes sit in the plane's title row, and messages never land on
+  controls.
+
 An interactive workbench for complex analysis. Draw regions and curves in the z-plane, chain complex functions, and
 see what they do:
 
