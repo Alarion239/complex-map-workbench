@@ -82,7 +82,8 @@ const MAP = [
   ['src/i18n*.js', ui('i18n')],                                               // the languages and their tables
   ['src/{inspector,planemenu,params}.js', ui('views')],                       // views and formulas
   ['src/commands.js', ui('desktop', 'i18n')],
-  ['src/soundhooks.js', ui('sound')],                                 // the command palette (desktop: formulas too)
+  ['src/soundhooks.js', ui('sound')],
+  ['src/export.js', ui('export', 'i18n')],                                 // the command palette (desktop: formulas too)
   ['src/page.html', ui('desktop', 'phone')],                                  // the page's markup: both layouts
   ['src/desk.css', ui('desktop')],                                            // the desktop styles
   // the maths and the renderer: T2, and the shards that draw or compute exactly
