@@ -203,6 +203,15 @@
     cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
+      // a double-click on an edge of a closed polygon adds a vertex there
+      if (!is3DSide(side) && !Construct.isTool(tool) && (side === 'L' ? lFlat() && leftStage() === 0 : rImage() && targetsEditable())) {
+        const [ex, ey] = evXY(pane, e);
+        pane.setView(side === 'R' ? V.right : leftView());
+        for (const s of (side === 'R' ? S.targets : S.shapes).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+          const eg = polyEdgeAt(pane, s, ex, ey, 7);
+          if (eg && polyAddVertex(s, eg.i, eg.z)) { selected = s.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); undoToast($t('Vertex added.')); return; }
+        }
+      }
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
       // shape on an editable globe keeps the user's view
       if (is3DSide(side)) { const c = camOf(side); if (c && (!globeEdit(side) || gTurnPress[side])) tweenCam(c, camBaseOf(c)); return; }

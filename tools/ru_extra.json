@@ -149,5 +149,10 @@
  "In ⋯, choose Replace…, then pick a function.": "В ⋯ выберите «Заменить…», затем функцию.",
  "Only $f_2$ changed; Undo brings the old one back.": "Изменился только $f_2$; отмена вернёт прежний.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
- "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)"
+ "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
+ "Remove vertex": "Удалить вершину",
+ "Remove vertex {i}": "Удалить вершину %{i}",
+ "Vertex added.": "Вершина добавлена.",
+ "Vertex removed.": "Вершина удалена.",
+ "Vertices ({n})": "Вершины (%{n})"
 }

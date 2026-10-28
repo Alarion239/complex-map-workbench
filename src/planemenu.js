@@ -208,6 +208,8 @@ const PlaneMenu = (() => {
     }
     // the shape under the pointer: the line integral along one curve there (that shape's when it is a curve near the
     // pointer, else the nearest) and its Listen along, then Hide and Delete (a left click already selects; issue #13)
+    const vtx = ctx.surface === 'flat' && api.vertexAt ? api.vertexAt(ctx.side, ctx.x, ctx.y, ctx.touch) : null;
+    if (vtx) out.push({ id: 'vertex-remove', icon: 'trash', label: $t('Remove vertex'), disabled: vtx.n <= 3, run: () => api.removeVertex(vtx.id, vtx.i) });
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
     const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id).map((it) => ({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run }));
     // ([v16.5 UX56] a point is the menu's subject: its items come before the curve's integral)
