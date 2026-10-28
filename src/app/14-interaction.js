@@ -367,6 +367,7 @@
         const kind = e.metaKey || e.ctrlKey ? 'poles' : 'zeros', k = zpStep().k;
         const i = zpAdd(k, kind, zpRound(pane, snapZ(pane, z)));
         if (i >= 0) { drag = { mode: 'zp', k, kind, i, x0: x, y0: y, x, y, moved: true, off: false, added: true }; setCursor(pane, side); requestRender('OL'); return; }
+        return;   // (refused at the cap, with a toast: still a zero gesture, so it selects no shape and keeps the step's Inspector)
       }
       if (zpSel) { zpSel = null; requestRender('OL'); }
     }

@@ -102,5 +102,18 @@
  "Symbols": "Символы",
  "All steps": "Все шаги",
  "Deform every step": "Деформировать все шаги",
- "Deforming {steps}": "Деформируются {steps}"
+ "Deforming {steps}": "Деформируются {steps}",
+ "button\u0004Display": "Оформление",
+ "This view": "Этот вид",
+ "Back to {f}": "Назад к {f}",
+ "Targets": "Цели",
+ "in Y": "в Y",
+ "in X": "в X",
+ "nothing yet": "пока ничего",
+ "Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.": "Рисуйте фигуры в X инструментами слева. Выберите фигуру или шаг цепочки, чтобы изменить его здесь.",
+ "Region tools panel": "Панель инструментов областей",
+ "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Следующая или предыдущая область: верхняя панель, инструменты, X, Y, цепочка, Инспектор",
+ "Move between the tools and the chain's cards": "Переход между инструментами и карточками цепочки",
+ "Name of {label}": "Имя: %{label}",
+ "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{слева от прямой из } %{a} \\text{ в } %{b}"
 }

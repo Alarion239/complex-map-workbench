@@ -57,7 +57,7 @@ H.shot = async (name, clip) => {
   const f = path.join(DIR, 'shots', name + '.png'); fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, Buffer.from(r.data, 'base64')); return f;
 };
-const KEYS = { Enter: [13, '\r'], Escape: [27, ''], Tab: [9, ''], Backspace: [8, ''], Delete: [46, ''], ArrowDown: [40, ''], ArrowUp: [38, ''], ArrowLeft: [37, ''], ArrowRight: [39, ''], ' ': [32, ' '] };
+const KEYS = { Enter: [13, '\r'], Escape: [27, ''], Tab: [9, ''], Backspace: [8, ''], Delete: [46, ''], ArrowDown: [40, ''], ArrowUp: [38, ''], ArrowLeft: [37, ''], ArrowRight: [39, ''], F6: [117, ''], Home: [36, ''], End: [35, ''], ' ': [32, ' '] };
 H.key = async (k, mods = 0) => {
   const kc = KEYS[k] ? KEYS[k][0] : k.toUpperCase().charCodeAt(0);
   const text = KEYS[k] ? KEYS[k][1] : (mods & ~8 ? '' : k);

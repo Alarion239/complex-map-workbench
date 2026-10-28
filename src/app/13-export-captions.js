@@ -88,6 +88,8 @@
   let tempInsp = false;
   function selectStep(k) {
     S.sel = k;
+    // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
+    if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     syncSel();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
@@ -165,7 +167,7 @@
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
-      regionSummary, swatchStyle, kindType, requestRender, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
