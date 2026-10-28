@@ -356,12 +356,14 @@ const Params = (() => {
   }
 
   // ---------------- play ----------------
-  // bounce between min and max in 4 s (a number by formula does not play); a frame is a live change (no undo step)
+  // bounce between min and max in 4 s (a number by formula does not play); a complex number circles the origin once in
+  // 6 s, keeping its modulus; a frame is a live change (no undo step)
   const playing = new Map();     // name -> {dir, last}
+  const ORBIT_S = 6;             // seconds a complex number takes for one turn about the origin
   let playRaf = 0;
   function togglePlay(name) {
     const p = find(name);
-    if (!p || p.expr || isComplex(p)) return;
+    if (!p || p.expr) return;
     if (playing.has(name)) { stopPlay(name); return; }
     playing.set(name, { dir: 1, last: 0 });
     if (!playRaf) playRaf = requestAnimationFrame(playFrame);
@@ -381,6 +383,13 @@ const Params = (() => {
       if (!p || p.expr) { playing.delete(nm); continue; }
       const dt = st.last ? Math.min(0.1, (ts - st.last) / 1000) : 0;
       st.last = ts;
+      if (isComplex(p)) {
+        const r = Math.hypot(p.value, p.im), th = Math.atan2(p.im, p.value) + dt * 2 * Math.PI / ORBIT_S;
+        p.value = +(r * Math.cos(th)).toPrecision(12); p.im = +(r * Math.sin(th)).toPrecision(12);
+        names.push(nm);
+        syncRow(nm);
+        continue;
+      }
       const span = p.max - p.min, speed = span / 4;
       let v = p.value + st.dir * speed * dt;
       if (p.play === 'loop') { if (v > p.max) v = p.min + (v - p.max); } else {
@@ -517,18 +526,20 @@ const Params = (() => {
     // (v16.5 UX32: the next free letter is there as real text, selected: Add works at once, and typing replaces it)
     const inp = h('input', { class: 'inp mono', 'aria-label': $t('Name of the new number'), value: nextFree(), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-prm-focus': 'new' });
     const err = h('div', { class: 'prm-err', role: 'alert' });
-    const ok = () => {
+    // cx: the new number is complex (1 + i to start from), real otherwise
+    const ok = (cx) => {
       const c = check(inp.value);
       if (c.error) { err.textContent = c.error; inp.classList.add('bad'); return; }
       m.adding = false;
-      add(c.name);
+      if (cx === true) add(c.name, { value: { re: 1, im: 1 } }); else add(c.name);
       commit();
-      announce($t('Added the number {x}', { x: display(c.name) }));
+      announce(cx === true ? $t('Added the complex number {x}', { x: display(c.name) }) : $t('Added the number {x}', { x: display(c.name) }));
     };
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ok(); } if (e.key === 'Escape') { e.preventDefault(); m.adding = false; draw(m); } });
     inp.addEventListener('input', () => { err.textContent = ''; inp.classList.remove('bad'); });
     const box = h('div', { class: 'prm-new' }, h('span', { class: 'prm-eq' }, $t('Name')), inp,
-      h('button', { class: 'btn small', type: 'button', onclick: ok }, $t('Add')),
+      h('button', { class: 'btn small', type: 'button', onclick: () => ok() }, $t('Add')),
+      h('button', { class: 'btn small prm-addcx', type: 'button', 'data-tip': $t('Add as a complex number'), 'aria-label': $t('Add as a complex number'), onclick: () => ok(true) }, 'ℂ'),
       h('button', { class: 'btn ghost small', type: 'button', onclick: () => { m.adding = false; draw(m); } }, $t('Cancel')));
     setTimeout(() => { if (inp.isConnected) { inp.focus(); inp.select(); } }, 0);
     return h('div', null, box, err);
@@ -559,8 +570,8 @@ const Params = (() => {
     };
     val.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } if (e.key === 'Escape') { val.value = valShow(p); showErr(''); val.blur(); } });
     val.addEventListener('change', apply);
-    const playBtn = h('button', { class: 'icon-btn prm-play', type: 'button', 'aria-pressed': String(playing.has(nm)), disabled: p.expr || isComplex(p) ? true : null,
-      'data-tip': playing.has(nm) ? $t('Pause') : $t('Play: {x} runs between its ends', { x: d }), 'aria-label': playing.has(nm) ? $t('Pause {x}', { x: d }) : $t('Play {x}', { x: d }),
+    const playBtn = h('button', { class: 'icon-btn prm-play', type: 'button', 'aria-pressed': String(playing.has(nm)), disabled: p.expr ? true : null,
+      'data-tip': playing.has(nm) ? $t('Pause') : isComplex(p) ? $t('Play: {x} circles the origin', { x: d }) : $t('Play: {x} runs between its ends', { x: d }), 'aria-label': playing.has(nm) ? $t('Pause {x}', { x: d }) : $t('Play {x}', { x: d }),
       html: playing.has(nm) ? ICON.pause : ICON.play, 'data-prm-focus': 'p:' + nm, onclick: () => togglePlay(nm) });
     const moreBtn = h('button', { class: 'icon-btn prm-more', type: 'button', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for {x}', { x: d }), html: ICON.more, 'data-prm-focus': 'm:' + nm,
       onclick: (e) => menu(m, p, e.currentTarget) });

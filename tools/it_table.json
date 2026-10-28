@@ -3059,5 +3059,10 @@
  "Show as a point": "Mostra come punto",
  "New complex number here": "Nuovo numero complesso qui",
  "There is no free name left for a number.": "Non resta nessun nome libero per un numero.",
- "Added the complex number {x}": "Aggiunto il numero complesso {x}"
+ "Added the complex number {x}": "Aggiunto il numero complesso {x}",
+ "A disc map moved by a point": "Una mappa del disco mossa da un punto",
+ "Try: drag the point a, or press Play beside a under Numbers: it circles the origin.": "Prova: trascina il punto a, oppure premi Riproduci accanto ad a in Numeri: gira intorno all'origine.",
+ "The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.": "La mappa (z − a)/(1 − āz) porta il disco unitario in sé e sposta il punto a in 0. Il numero a è complesso: il suo punto sul piano è il numero, quindi trascinare il punto cambia la mappa.",
+ "Play: {x} circles the origin": "Riproduci: {x} gira intorno all'origine",
+ "Add as a complex number": "Aggiungi come numero complesso"
 }
