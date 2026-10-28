@@ -137,14 +137,18 @@ const Export = (() => {
   // (issue #72) renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
   // Direct3D 11 takes seconds: the tab froze. So the panels are first drawn small with nothing waiting (renderOff's
   // warm), the deformation's map modes started too, and the programs are awaited here, polled, while the export's
-  // progress shows; renderOff then finds them linked (or links the odd one still missing).
+  // progress shows; renderOff then finds them linked (or links the odd one still missing). Awaited: the ones this
+  // warm-up started and the current chain's; not the others compiling meanwhile (the idle warm-up's, the gallery's).
   async function warmExport(panels, alive, morphFig) {
-    if (!GLR.ok || !GLR.prestart) return true;
+    if (!GLR.ok || !GLR.pending) return true;
+    const before = new Set(GLR.pending().map((p) => p.id));
     try {
       for (const side of panels) renderOff(side, 48, 32, 1, true);
       if (morphOn() || morphFig) GLR.prestartModes(A.S.homAll ? [3] : [1]);
     } catch (e) { console.error('export warm-up', e); return alive(); }
-    while (GLR.compiling) {
+    const key = GLR.chainKey;
+    const need = new Set(GLR.pending().filter((p) => !before.has(p.id) || p.key === key).map((p) => p.id));
+    while (!GLR.lost && GLR.pending().some((p) => need.has(p.id))) {   // (a lost context drops its links)
       if (!alive()) return false;
       await new Promise((r) => setTimeout(r, 25));
     }

@@ -823,6 +823,8 @@
     frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
+    // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
+    pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },
