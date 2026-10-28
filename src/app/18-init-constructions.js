@@ -989,7 +989,7 @@
       ctxState: () => {
         if (polyDraftOpen()) return { kind: 'polygon', n: draft.pts.length };
         // (a construction tool in hand: what to pick next, with the pick it can take back)
-        if (Construct.isTool(tool)) return { kind: 'construct', text: Construct.hint(), undo: !!Construct.undoPickable() };
+        if (Construct.isTool(tool)) return { kind: 'construct', text: Construct.hint(), undo: !!Construct.undoPickable(), seg: tool === 'perp' ? Construct.seg : null };
         if (SND && snd.play) return { kind: 'listen' };
         const sel = selected && findShape(selected);
         if (!sel) return null;
@@ -1000,6 +1000,7 @@
         if (act === 'last') polyBack();
         else if (act === 'done') finishPolygon();
         else if (act === 'cancel') cancelDrawing();
+        else if (act === 'seg') { Construct.seg = id; requestRender('OL', 'OR'); }
         else if (act === 'undopick') $('undoBtn').click();
         else if (act === 'xcancel') { Construct.cancel(); setTool('select'); }
         else if (act === 'delete') deleteShape(id);

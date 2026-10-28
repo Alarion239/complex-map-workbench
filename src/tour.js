@@ -250,7 +250,7 @@ const Tour = (() => {
         // it is picked the More key, which then shows it, is lit)
         { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools']],
           body: 'Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.',
-          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', then: 'Its three points are its handles now.' } },
+          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', work: ['ctxUndo'], then: 'Its three points are its handles now.' } },
         // (after: the drag needs the circle c3 makes; without it the step is read)
         { id: 'follow', anchor: 'paneL', title: 'It follows its points', before: [['tool', 'select'], ['plane', 'L']],
           lead: 'Drag $z_2$ across the line: the disc changes family.',
@@ -417,6 +417,8 @@ const Tour = (() => {
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
+    // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
+    ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
     // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
     // or the button; on a phone the Display sheet's section)
     display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),

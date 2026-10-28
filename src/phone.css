@@ -486,3 +486,9 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }
 /* a construction's sentence ("Pick a point or an empty spot · 1 of 3") may take two lines */
 .ph-ctx[data-k="construct"] .ph-ctn { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 13px; line-height: 17px; }
+/* the orthogonal circle's bar: its sentence, ⌫ and × over Whole | Inside | Outside */
+:root.ph.ph-ctx-tall { --ph-ctx: 104px; }
+.ph-ctx.tall { height: 104px; flex-wrap: wrap; align-content: center; row-gap: 4px; }
+.ph-ctx.tall > .ph-ct { flex: 1 1 0; min-height: 44px; }
+.ph-ctseg { flex: 1 0 100%; min-width: 0; display: flex; gap: 4px; }
+.ph-ctseg > .ph-cb { flex: 1 1 0; min-width: 0; padding: 0 4px; }

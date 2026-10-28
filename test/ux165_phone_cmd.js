@@ -368,8 +368,25 @@ ok('D3 Undo pick takes it back', /1 of 3/.test(((await ctxInfo()) || {}).text ||
 await ev(`document.querySelector('.ph-ctx .ph-cb.ico').click()`); await settle(500);
 const k3 = await ctxInfo();
 ok('D3 × lets the tool go (the bar is the selection\'s again)', !k3 || k3.k !== 'construct', k3);
+// the orthogonal circle: Whole | Inside | Outside in words on a second row
+await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle(500);
+const q1 = await ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(); return { h: Math.round(r.height), seg: [...b.querySelectorAll('.ph-ctseg > button')].map((x) => ({ t: x.textContent, h: Math.round(x.getBoundingClientRect().height), on: x.getAttribute('aria-checked') })) }; })()`);
+ok('D3 the orthogonal circle: a taller bar with Whole, Inside, Outside as 44 px words', q1 && q1.h >= 100 && q1.seg.map((x) => x.t).join('|') === 'Whole|Inside|Outside' && q1.seg.every((x) => x.h >= 44) && q1.seg[0].on === 'true', q1);
+await ev(`[...document.querySelectorAll('.ph-ctseg > button')][1].click()`); await settle(500);
+ok('D3 choosing Inside sets the tool and the bar shows it', (await ev(`Construct.seg`)) === 'in' && (await ev(`[...document.querySelectorAll('.ph-ctseg > button')][1].getAttribute('aria-checked')`)) === 'true');
+await ev(`Construct.seg = 'whole'; document.querySelector('.ph-ctx .ph-cb.ico').click()`); await settle(400);
 } catch (e) { fails.push({ name: 'D3 threw', got: String(e.stack).slice(0, 600) }); }
 await ev(`document.querySelector('#secDraw .tool[data-tool="select"]').click()`); await settle(200);
+
+// D3 in Russian at 360 px: no word cut, the buttons keep their 44 px
+await fresh('d3ru', 360, 780, false, true, '&lang=ru'); await settle(900);
+await ev(`__cmwSelect(__cmwShapes().shapes[0].id)`); await settle(700);
+const ruChk = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const bt = [...b.querySelectorAll('button')]; return { over: b.scrollWidth > b.clientWidth + 1, cut: bt.filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.textContent), small: bt.filter((x) => x.getBoundingClientRect().height < 44 || x.getBoundingClientRect().width < 44).map((x) => x.textContent), t: bt.map((x) => x.textContent.trim()) }; })()`);
+const r1 = await ruChk();
+ok('D3 ru, a selected shape: Изменить, Удалить and ⋯ fit at 360 px', r1 && !r1.over && !r1.cut.length && !r1.small.length, r1);
+await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'perp').click()`); await settle(500);
+const r2 = await ruChk();
+ok('D3 ru, the orthogonal circle: its words and Отменить выбор fit at 360 px', r2 && !r2.over && !r2.cut.length && !r2.small.length, r2);
 
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
