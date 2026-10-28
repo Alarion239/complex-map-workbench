@@ -324,10 +324,7 @@ await section('A', async () => {
   const cm = await W(Math.cos(-1.9), Math.sin(-1.9));
   await clickR(cm[0] + 1, cm[1]); await settle(250);
   info.planeMenu = await menuItems();
-  ok('A11 the plane menu on a circle: "Touching circle…" after "Perpendicular circle…"', info.planeMenu.indexOf('Touching circle…') === info.planeMenu.indexOf('Perpendicular circle…') + 1 && info.planeMenu.includes('Touching circle…'), info.planeMenu);
-  await menuClick('Touching circle…'); await settle(200);
-  d = (await CI()).draft;
-  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'touch' && d && d.curve1 && d.curve1.s === C1.id && (await chipT()).startsWith('Pick the touching point on Circle 1, or a point off it · 1 of 2'), d);
+  ok('A11 the plane menu on a circle: no "Touching circle…" or "Perpendicular circle…" (issue #13: the toolbar\'s)', info.planeMenu.length > 0 && !info.planeMenu.some((t) => /^(Touching|Perpendicular) circle…/.test(t)), info.planeMenu);
   await key('Escape'); await settle(100);
   // 11. ⋯ Region on K1, Use complement; the tangent's ⋯ has no Region
   await tool('select');

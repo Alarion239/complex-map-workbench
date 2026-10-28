@@ -290,7 +290,8 @@ await section('L56', async () => {
   const p = await W(1, 0);
   await clickR(p[0], p[1]); await settle(250);
   info.m56 = await menuItems();
-  ok('UX56 the point heads the menu (Select z₀ · lies on Circle 1)', /^Select z₀/.test(info.m56[0] || '') && /lies on Circle 1/.test(info.m56[0] || ''), info.m56);
+  // (issue #13: no Select item; the point's first row names it and where it lies)
+  ok('UX56 the point heads the menu (z₀ · lies on Circle 1), no Select', /^z₀/.test(info.m56[0] || '') && /lies on Circle 1/.test(info.m56[0] || '') && !info.m56.some((t) => /^Select/.test(t)), info.m56);
   ok('UX56 Delete names the point', info.m56.some((t) => /^Delete z₀/.test(t)), info.m56);
   ok('UX56 no "Add point here" over a point', !info.m56.some((t) => /Add point here/.test(t)), info.m56);
   ok('UX56 Make free names its shape', info.m56.some((t) => /^Make z₀ free/.test(t)), info.m56);
@@ -305,11 +306,14 @@ await section('L66', async () => {
   const v0 = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   const sc = async () => { const a = await W(0, 0), b = await W(1, 0); return b[0] - a[0]; };
   const s0 = await sc();
+  const z66 = await ev(`__cmwPlaneMenu().s2w('L', ${v0[0] + 60}, ${v0[1] - 40})`);
   await dbl(v0[0] + 60, v0[1] - 40); await settle(1500);
   const after = await ev(`JSON.parse(localStorage.getItem(__qa.key()) || '{}')`);
-  info.l66 = { cut1: after.steps && after.steps[0] && after.steps[0].params.cut, s0, s1: await sc() };
+  const vw = await ev(`__cmwPlaneMenu().view('L')`);
+  info.l66 = { cut1: after.steps && after.steps[0] && after.steps[0].params.cut, s0, s1: await sc(), z66, vw };
   ok('UX66 a double-click on empty X never turns the cut', info.l66.cut1 === 180, info.l66);
-  ok('UX66 it zooms ×2', Math.abs(info.l66.s1 / info.l66.s0 - 2) < 1e-6, info.l66);
+  // (issue #13: the double-click centres the view at the point, at the same scale; it replaced v16.5's ×2 zoom)
+  ok('UX66 it centres the view there, same scale', Math.abs(vw.cx - z66[0]) < 1.5 / vw.s && Math.abs(vw.cy - z66[1]) < 1.5 / vw.s && Math.abs(info.l66.s1 / info.l66.s0 - 1) < 1e-6, info.l66);
 });
 
 // ------------------------------------------------------------------------------------------------------------ UX67
