@@ -150,10 +150,6 @@ const KNOWN = {
   'tour_audit_cmd.js': [{ re: /branches\/deriv: no lead, task, result or caption cut$/, why: 'issue #79: Linux text metrics: the inline z² (MathJax SVG, sized in ex) stands 2 px past the 18-px line of the lead (1 px on macOS); the lead does not clip it' }],
   'tour_phone_cmd.js': [{ re: /^780x360-en branches\/deriv: title and lead or task on arrival, no tap, nothing cut$/, why: 'issue #79: Linux text metrics, as tour_audit\'s branches/deriv: the z² in the lead makes its line 2 px taller than one line (open: Android has a Linux font stack; check it on a phone)',
     measured: (d) => d && d.id === 'branches/deriv' && d.leadCut === true }],
-  // (open: the views chapter's Phase key step opens the Display sheet on a phone, and the panes shrink, 600 to 279 px, in
-  // every CI run; it passed on the development Mac at v16.4. Only that one resize, logged at that step)
-  'tour_perf_cmd.js': [{ re: /^390: the panes keep their size through the steps of a chapter$/, why: 'issue #78: at 390 px the panes shrink (600 to 279 px) when the views chapter reaches its Phase key step, which opens the Display sheet; seen in every CI run, not on the development Mac at v16.4; to check on a phone',
-    measured: (d) => d && d.inChapter === 1 && Array.isArray(d.log) && d.log.filter((x) => x.step === 'Phase key').length === 1 }],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
