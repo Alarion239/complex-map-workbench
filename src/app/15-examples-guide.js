@@ -98,6 +98,29 @@
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
+    // [issue #5] series: the partial sums of e^z (N on a slider), a natural boundary, Li₂ from the Series step, ζ as a
+    // Dirichlet series
+    {
+      name: $t('Partial sums of the exponential'), try: $t('Try: drag N under Numbers: the zeros of the partial sum move out as N grows.'), tex: 'w=\\sum_{n=0}^{N}\\frac{z^n}{n!}', blurb: $t('The phase portrait of the partial sum 1 + z + z²/2! + … + zᴺ/N! of the series of eᶻ. Its N zeros lie near a curve that grows with N (Szegő’s curve), and inside it the colours are those of eᶻ.'), view: { cx: 0, cy: 0, s: 60 },
+      params: [{ name: 'N', value: 8, min: 1, max: 30, step: 1 }],
+      shapes: [{ kind: 'rect', a: [-4, -4], b: [4, 4] }],
+      steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{N} \\frac{z^n}{n!}', cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('A natural boundary'), try: $t('Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.'), tex: 'w=\\sum_{n=0}^{\\infty} z^{2^n}', blurb: $t('Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.'), view: { cx: 0, cy: 0, s: 250 },
+      shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{\\infty} z^{2^n}', cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('The dilogarithm from its series'), try: $t('Try: drag the disc past the dashed circle: outside it the series has no value.'), tex: 'w=\\sum_{n=1}^{\\infty}\\frac{z^n}{n^2}', blurb: $t('Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.'), view: { cx: 0, cy: 0, s: 140 },
+      shapes: [{ kind: 'disc', c: [0, 0], r: 0.9 }],
+      steps: [{ type: 'series', params: { kind: 'power', an: '\\frac{1}{n^2}', c: '0' } }],
+    },
+    {
+      name: $t('Zeta as a Dirichlet series'), try: $t('Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.'), tex: 'w=\\sum_{n=1}^{\\infty} n^{-z}', blurb: $t('Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.'), view: { cx: 3, cy: 0, s: 60 },
+      shapes: [{ kind: 'rect', a: [1.5, -6], b: [5, 6] }],
+      steps: [{ type: 'series', params: { kind: 'dirichlet', an: '1', c: '0' } }], rightMode: 'color',
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
@@ -955,7 +978,7 @@
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
       setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
-      undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets,
+      undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },

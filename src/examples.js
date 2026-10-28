@@ -11,7 +11,7 @@ const Examples = (() => {
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
     setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
-    pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets;
+    pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams;
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -44,6 +44,12 @@ const Examples = (() => {
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
     setShapes([]); setSteps([]);
+    // [issue #5] an example's own shared numbers (the partial sums' N): set, or in place of one of the user's of that name
+    if (!spec && Array.isArray(ex.params)) {
+      const ps = A.S.params.slice();
+      for (const p of ex.params) { const c = JSON.parse(JSON.stringify(p)), j = ps.findIndex((q) => q.name === p.name); if (j >= 0) ps[j] = c; else ps.push(c); }
+      setParams(ps);
+    }
     setSel(null);   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
@@ -81,6 +87,8 @@ const Examples = (() => {
       pushShape(ns);
     }
     for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
+    // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
+    if (!spec && Array.isArray(ex.params)) Params.render();
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) A.S.homRange = { a: ex.range.a, b: ex.range.b }; else delete A.S.homRange;   // (v16)
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find((x) => x.listen);
@@ -376,7 +384,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();
