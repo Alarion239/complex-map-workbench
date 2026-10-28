@@ -673,9 +673,22 @@
   }
   function drawProbe(pane, z, color, casing) {
     if (!z || !CX.isFin(z)) return;
-    const [x, y] = pane.w2s(z);
-    if (x < -10 || y < -10 || x > pane.w + 10 || y > pane.h + 10) return;
+    let [x, y] = pane.w2s(z);
+    const out = x < -10 || y < -10 || x > pane.w + 10 || y > pane.h + 10;
     const ctx = pane.octx;
+    // a phone's inset (116 px) is too small for the cross: a dot, hollow and held at the edge when the point is off it
+    if (pane.w <= 140 && pane.h <= 140) {
+      x = Math.max(6, Math.min(pane.w - 6, x)); y = Math.max(6, Math.min(pane.h - 6, y));
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.lineWidth = 3.5; ctx.strokeStyle = casing || TH.halo; ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = color;
+      if (!out) { ctx.fillStyle = color; ctx.fill(); }
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+    if (out) return;
     const arms = () => { ctx.beginPath(); ctx.moveTo(x - 11, y); ctx.lineTo(x - 4, y); ctx.moveTo(x + 4, y); ctx.lineTo(x + 11, y); ctx.moveTo(x, y - 11); ctx.lineTo(x, y - 4); ctx.moveTo(x, y + 4); ctx.lineTo(x, y + 11); ctx.stroke(); };
     ctx.save();
     ctx.lineCap = 'round';

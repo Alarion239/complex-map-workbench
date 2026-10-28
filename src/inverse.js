@@ -804,6 +804,7 @@ const Inverse = (() => {
           const RECIP = { cot: opTan, sec: opCos, csc: opSin, coth: opTanh };
           if (T[f]) out.push(T[f]());
           else if (RECIP[f]) { out.push(opMob([ZERO, ONE, ONE, ZERO])); out.push(RECIP[f]()); }
+          else if (f === 'gamma' || f === 'zeta' || f === 'digamma') return INEL(`${f} takes each value infinitely often`);
           else return INEL(`${f} loses information`);
           n = n.a;
           break;

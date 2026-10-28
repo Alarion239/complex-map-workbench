@@ -783,6 +783,14 @@
       if (mod && key === 'k') { e.preventDefault(); if (popEl) closePalette(); else openPalette(null); return; }
       if ((e.key === '/' || I18N.isPaletteSlash(e)) && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
       if (typing) return;
+      // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual
+      if (e.key === 'Tab' && !mod && !e.altKey && t.matches('.plot > canvas.overlay')) {
+        const list = t.id === 'overlayR' ? S.targets : S.shapes;
+        const i = list.findIndex((x) => x.id === selected), n = i + (e.shiftKey ? -1 : 1);
+        if (list.length && n >= 0 && n < list.length && !(i < 0 && e.shiftKey)) {
+          e.preventDefault(); selected = list[n].id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'P'); return;
+        }
+      }
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;

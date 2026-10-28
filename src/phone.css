@@ -52,6 +52,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .panes, :root.ph .panes.solo-L, :root.ph .panes.solo-R { position: relative; display: block; flex: 1 1 auto; min-height: 0; gap: 0; }
 :root.ph .gutter { display: none !important; }
 :root.ph .panes > .pane { position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; height: auto; width: auto; border: 0; border-radius: 0; }
+/* Both: X above Y, each half the stage (a sheet's side-by-side layout and a merged view take over while they last) */
+:root.ph:not(.ph-land):not(.ph-split) .panes.ph-both:not(.ph-one) > #paneL { inset: 0 0 50% 0; width: auto; height: auto; border-bottom: 1px solid var(--line-strong); }
+:root.ph:not(.ph-land):not(.ph-split) .panes.ph-both:not(.ph-one) > #paneR { inset: 50% 0 0 0; width: auto; height: auto; }
 :root.ph .panes.ph-one.ph-big-L > #paneR, :root.ph .panes.ph-one.ph-big-R > #paneL { display: none !important; }
 /* the inset: the other plane, live, bottom-left; a tap swaps */
 :root.ph .panes > .pane.ph-inset {

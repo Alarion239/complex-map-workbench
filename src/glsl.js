@@ -362,6 +362,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const UN = {
       sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh',
       asin: 'casin', acos: 'cacos', atan: 'catan', asinh: 'casinh', acosh: 'cacosh', atanh: 'catanh', exp: 'cexp',
+      gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad',
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
     function g(n) {
@@ -436,6 +437,128 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     }
     return g(ast);
   }
+
+
+  // ---- [issue #4] Γ, ψ, ζ and ζ′ in float32, after CX.lgamma, CX.digamma, CX.zeta, CX.zetaDeriv: put in front of a
+  // chain's (or a region formula's) source only when it calls them, so no other program compiles them (SPECIAL_RE)
+  const SPECIAL_LIB = `
+// sin(πz) and sin(πs/2) with the real part reduced by the period first (float32 keeps the phase)
+vec2 cx_pimod(vec2 z) { return vec2(CX_PI * (z.x - 2.0 * floor(0.5 * z.x)), CX_PI * z.y); }
+vec2 cx_halfpimod(vec2 s) { return vec2(CX_HALF_PI * (s.x - 4.0 * floor(0.25 * s.x)), CX_HALF_PI * s.y); }
+// log sin w, some branch, without overflow for large |Im w|
+vec2 cx_logsin(vec2 w) {
+  if (abs(w.y) <= 10.0) return clog(csin(w), CX_PI, 0.0);
+  float s = w.y > 0.0 ? 1.0 : -1.0;
+  vec2 q = cexp(vec2(-2.0 * s * w.y, 2.0 * s * w.x));
+  return vec2(s * w.y, -s * w.x) + clog(vec2(1.0, 0.0) - q, CX_PI, 0.0) + vec2(-0.6931471805599453, s * CX_HALF_PI);
+}
+// log Γ(z), Re z >= 1/2: Lanczos g = 5 (Godfrey's coefficients, accurate past float32)
+vec2 cx_lgamma1(vec2 z) {
+  vec2 t = z + vec2(5.5, 0.0);
+  vec2 tmp = t - cmul(z + vec2(0.5, 0.0), clog(t, CX_PI, 0.0));
+  vec2 ser = vec2(1.000000000190015, 0.0);
+  ser += cdiv(vec2(76.18009172947146, 0.0), z + vec2(1.0, 0.0));
+  ser += cdiv(vec2(-86.50532032941677, 0.0), z + vec2(2.0, 0.0));
+  ser += cdiv(vec2(24.01409824083091, 0.0), z + vec2(3.0, 0.0));
+  ser += cdiv(vec2(-1.231739572450155, 0.0), z + vec2(4.0, 0.0));
+  ser += cdiv(vec2(0.001208650973866179, 0.0), z + vec2(5.0, 0.0));
+  ser += cdiv(vec2(-0.000005395239384953, 0.0), z + vec2(6.0, 0.0));
+  return clog(cdiv(ser * 2.5066282746310005, z), CX_PI, 0.0) - tmp;
+}
+// log Γ(z): the reflection log π − log sin(πz) − log Γ(1 − z) for Re z < 1/2; a pole: Re = +inf
+vec2 cx_lgamma(vec2 z) {
+  if (z.x >= 0.5) return cx_lgamma1(z);
+  if (z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf(), 0.0);
+  return vec2(1.1447298858494002, 0.0) - cx_logsin(cx_pimod(z)) - cx_lgamma1(vec2(1.0, 0.0) - z);
+}
+// Γ(z): exp(log Γ); beyond float32 the point at infinity (cx_isinf)
+vec2 cx_gamma(vec2 z) {
+  if (!cfin(z)) return vec2(cx_nan());
+  vec2 L = cx_lgamma(z);
+  if (L.x > 88.7) return vec2(cx_inf());
+  return cexp(L);
+}
+// ψ(z): the reflection ψ(1 − z) − π cot(πz), the recurrence up to |z| >= 10, the asymptotic series
+vec2 cx_digamma(vec2 z) {
+  if (!cfin(z)) return vec2(cx_nan());
+  vec2 acc = vec2(0.0);
+  if (z.x < 0.5) {
+    if (z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf());
+    acc = -CX_PI * cinv(ctan(cx_pimod(z)));
+    z = vec2(1.0, 0.0) - z;
+  }
+  for (int i = 0; i < 12; i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
+  vec2 w2 = cinv(cmul(z, z));
+  vec2 ser = cmul(w2, vec2(1.0 / 12.0, 0.0) + cmul(w2, vec2(-1.0 / 120.0, 0.0) + cmul(w2, vec2(1.0 / 252.0, 0.0) + cmul(w2, vec2(-1.0 / 240.0, 0.0)))));
+  return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
+}
+// ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
+const float CX_ZETA_TMAX = 120.0;
+const float CX_EMC[6] = float[6](0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10);
+// Euler–Maclaurin, N = |Im s| + 10, six Bernoulli terms; P_j N^{1-2j} kept as one factor Q (no overflow). Re s >= 0
+vec2 cx_zetaEM(vec2 s) {
+  if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
+  int N = int(ceil(abs(s.y))) + 10;
+  vec2 sum = vec2(0.0);
+  for (int k = 1; k < 200; k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
+  float fN = float(N), lnN = log(fN);
+  vec2 Nms = cexp(-s * lnN);
+  sum += 0.5 * Nms + cdiv(Nms * fN, s - vec2(1.0, 0.0));
+  vec2 Q = s / fN, bt = CX_EMC[0] * Q;
+  for (int j = 1; j < 6; j++) {
+    Q = cmul(Q, cmul(s + vec2(float(2 * j - 1), 0.0), s + vec2(float(2 * j), 0.0))) / (fN * fN);
+    bt += CX_EMC[j] * Q;
+  }
+  return sum + cmul(bt, Nms);
+}
+// ζ′ by the same sum differentiated term by term (Q as above, R = P′_j N^{1-2j})
+vec2 cx_zetaEMd(vec2 s) {
+  if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
+  int N = int(ceil(abs(s.y))) + 10;
+  vec2 sum = vec2(0.0);
+  for (int k = 2; k < 200; k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
+  float fN = float(N), lnN = log(fN);
+  vec2 Nms = cexp(-s * lnN), r = cinv(s - vec2(1.0, 0.0));
+  sum -= 0.5 * lnN * Nms + cmul(Nms * fN, r * lnN + cmul(r, r));
+  vec2 Q = s / fN, R = vec2(1.0 / fN, 0.0), bt = CX_EMC[0] * (R - lnN * Q);
+  for (int j = 1; j < 6; j++) {
+    vec2 q = cmul(s + vec2(float(2 * j - 1), 0.0), s + vec2(float(2 * j), 0.0)), qd = 2.0 * s + vec2(float(4 * j - 1), 0.0);
+    R = (cmul(R, q) + cmul(Q, qd)) / (fN * fN);
+    Q = cmul(Q, q) / (fN * fN);
+    bt += CX_EMC[j] * (R - lnN * Q);
+  }
+  return sum + cmul(bt, Nms);
+}
+// ζ(s): Euler–Maclaurin for Re s >= 0; the functional equation 2^s π^{s-1} sin(πs/2) Γ(1 − s) ζ(1 − s), in log form
+vec2 cx_zeta(vec2 s) {
+  if (!cfin(s) || abs(s.y) > CX_ZETA_TMAX) return vec2(cx_nan());
+  if (s.x >= 0.0) return cx_zetaEM(s);
+  if (s.y == 0.0 && s.x == 2.0 * floor(0.5 * s.x)) return vec2(0.0);
+  vec2 one = vec2(1.0, 0.0) - s;
+  vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(cx_halfpimod(s)) + cx_lgamma1(one);
+  if (L.x > 88.7) return vec2(cx_inf());
+  return cmul(cexp(L), cx_zetaEM(one));
+}
+// ζ′(s): for Re s < 0, from ζ = χ ζ(1 − s): χ (L′ ζ(1 − s) − ζ′(1 − s)), near the real axis without the log form
+vec2 cx_zetad(vec2 s) {
+  if (!cfin(s) || abs(s.y) > CX_ZETA_TMAX) return vec2(cx_nan());
+  if (s.x >= 0.0) return cx_zetaEMd(s);
+  vec2 one = vec2(1.0, 0.0) - s, z1 = cx_zetaEM(one), z1d = cx_zetaEMd(one);
+  vec2 base = vec2(0.6931471805599453 + 1.1447298858494002, 0.0) - cx_digamma(one);
+  vec2 hs = cx_halfpimod(s);
+  if (abs(s.y) < 1.0) {
+    vec2 A = cexp(s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_lgamma1(one));
+    vec2 sn = csin(hs), cs = ccos(hs);
+    return cmul(A, cmul(cmul(sn, base), z1) + CX_HALF_PI * cmul(cs, z1) - cmul(sn, z1d));
+  }
+  vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(hs) + cx_lgamma1(one);
+  if (L.x > 88.7) return vec2(cx_inf());
+  vec2 Ld = base + CX_HALF_PI * cinv(ctan(hs));
+  return cmul(cexp(L), cmul(Ld, z1) - z1d);
+}
+`;
+  const SPECIAL_RE = /\bcx_(gamma|lgamma|digamma|zeta|zetad)\(/;
+  const withSpecial = (src) => (SPECIAL_RE.test(src) ? SPECIAL_LIB + src : src);
 
   // ---- natural paths (Funcs: ZOOM, joukHom, ratPath, genericZoomNat): h bodies in z and t, mirroring the CPU ----
   // nat: the built step's descriptor {kind, fn | n | dp, dq}; returns {h, write(put, b)} or null (no GPU path: the
@@ -734,6 +857,13 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       }
       case 'conj':
         return { sig: [type], f: 'return vec2(z.x, -z.y);', h: 'return vec2(z.x, z.y * (1.0 - 2.0 * t));', write() {} };
+      // [issue #4] Γ deforms along the generic zoom path (its data are uniforms), ζ along the straight line
+      case 'gamma': {
+        const np = natPlan(P, b.nat, A);
+        return { sig: [type, b.nat ? b.nat.kind : 'lin'], f: 'return cx_gamma(z);', h: np ? np.h : LIN(P), write(put) { if (np) np.write(put, b); } };
+      }
+      case 'zeta':
+        return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
       case 'poly': case 'rational': {
         const lists = type === 'poly' ? [CX.polyTrim(v.co)] : [CX.polyTrim(v.p), CX.polyTrim(v.q)];
         const cells = lists.map((co) => co.map(() => A.cell()));
@@ -873,6 +1003,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const UN = {
       sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh',
       asin: 'casin', acos: 'cacos', atan: 'catan', asinh: 'casinh', acosh: 'cacosh', atanh: 'catanh', exp: 'cexp',
+      gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad',
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
@@ -1259,6 +1390,8 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       });
     }
 
+    // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
+    if (SPECIAL_RE.test(src) || SPECIAL_RE.test(sh)) src = SPECIAL_LIB + src;
     let cache = null;
     function values() {
       if (cache) return cache;
@@ -1362,7 +1495,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
           decl.push(`  vec4 ${name}_k${c} = vec4(${lit(v0[0])}, ${lit(v0[1])}, ${lit(v1[0])}, ${lit(v1[1])});`);
         } else decl.push(`  vec2 ${name}_k${c} = vec2(${lit(v0[0])}, ${lit(v0[1])});`);
       }
-      return { source: `float ${name}(vec2 z) {\n${decl.join('\n')}\n${lines.join('\n')}\n  return ${res};\n}\n`, ok: true };
+      return { source: withSpecial(`float ${name}(vec2 z) {\n${decl.join('\n')}\n${lines.join('\n')}\n  return ${res};\n}\n`), ok: true };
     } catch (e) {
       return fallback;
     }

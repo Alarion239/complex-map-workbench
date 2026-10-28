@@ -1021,6 +1021,8 @@ const Funcs = (() => {
         case 'arcosh': ast = div(one(), mul(call('sqrt', sub(z(), one())), call('sqrt', add(z(), one())))); extra = $t('; principal branch, like the original'); break;
         case 'artanh': ast = div(one(), sub(one(), sq(z()))); break;
         case 'joukowski': ast = sub(div(one(), real(2)), div(one(), mul(real(2), sq(z())))); break;
+        case 'gamma': ast = mul(call('gamma', z()), call('digamma', z())); break;   // Γ′ = Γ ψ
+        case 'zeta': ast = call('zetad', z()); break;
         case 'ijouk': {
           const s = () => mul(call('sqrt', sub(z(), one())), call('sqrt', add(z(), one())));
           const t = div(z(), s());
@@ -1412,6 +1414,39 @@ const Funcs = (() => {
         cuts: [{ kind: 'seg', a: C(-1, 0), b: C(1, 0) }],
         domain: (v) => `${v}\\notin[-1,1]`, branchNote: branch === 'interior' ? $t('image in the unit disk') : $t('image outside the unit disk'),
         inverse: { type: 'joukowski', params: {} },
+      };
+    },
+  });
+  // [issue #4] the Gamma function and the Riemann zeta function (CX.gamma, CX.zeta). Γ deforms along the generic zoom
+  // path (about p = 2, where Γ′ = Γψ > 0); ζ has no derivative here, so it takes the straight line and says why
+  const POLES_G = Array.from({ length: 41 }, (_, k) => C(-k, 0));
+  def({
+    id: 'gamma', group: $t('Special'), label: $t('Gamma function'), menuTex: '\\Gamma(z)', params: [],
+    build() {
+      const f = CX.gamma;
+      let nat = null;
+      try { nat = genericZoomNat(Expr.parse('\\Gamma(z)'), f, 180); } catch (e) { nat = null; }
+      return {
+        f, hom: nat ? nat.hom : linHom(f), nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
+        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: $t('this formula has no usable point to zoom about, so it has no natural path') }), segment: true }),
+        tex: (a) => ({ s: `\\Gamma${paren(a.s)}`, p: 3 }),
+        props: props({ analytic: true }),
+        poles: POLES_G, domain: (v) => `${v}\\notin\\{0,-1,-2,\\dots\\}`,
+        inverseNote: $t('Γ takes each value infinitely often, so it has no single inverse; {note}', { note: NOTE_PRE }),
+      };
+    },
+  });
+  def({
+    id: 'zeta', group: $t('Special'), label: $t('Riemann zeta function'), menuTex: '\\zeta(z)', params: [],
+    build() {
+      const f = CX.zeta;
+      return {
+        f, hom: linHom(f),
+        homTex: (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: $t('the zoom path needs ζ′, which is not available') }), segment: true }),
+        tex: (a) => ({ s: `\\zeta${paren(a.s)}`, p: 3 }),
+        props: props({ analytic: true }),
+        poles: [C(1, 0)], domain: (v) => `${v}\\neq 1`,
+        inverseNote: $t('ζ takes each value infinitely often, so it has no single inverse; {note}', { note: NOTE_PRE }),
       };
     },
   });
