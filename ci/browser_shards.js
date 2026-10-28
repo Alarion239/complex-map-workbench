@@ -33,10 +33,14 @@ const SHARDS = [
   { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet'] },   // 227 + 256 + 197 + 39
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js'] },                    // 287 + 113 + 75
   { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },   // 226 + 176 + 47 + 31 + 52
+<<<<<<< HEAD
   { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'mode_chips_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
+=======
+  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
+>>>>>>> origin/claude/funny-darwin-l5uis3
   { id: 'exact', suites: ['p5_accept_cmd.js'] },                                                            // 543
   // (v16.5's suites, the seventh run's times)
-  { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js'] },            // 210 + 172 + 116
+  { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
   { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
   { id: 'smoke', suites: ['smoke_cmd.js'] },
