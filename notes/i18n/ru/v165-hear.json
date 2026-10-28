@@ -99,5 +99,45 @@
   "en": "Listening along at {speed} pixels a second: the curve is too long or too short for 250.",
   "ru": "Прослушивание вдоль кривой со скоростью {speed} пикселей в секунду: для 250 кривая слишком длинная или слишком короткая.",
   "note": "S20: Listen along outside 250 px/s (its 1 s floor or 30 s cap)"
+ },
+ "tour.scene_lines": {
+  "en": "Phase lines",
+  "ru": "Линии фазы",
+  "note": "T7: the scenes harp and harpLoop (was Phase harp)"
+ },
+ "tour.strings.title": {
+  "en": "Phase lines are notes",
+  "ru": "Линии фазы — ноты",
+  "note": "T4"
+ },
+ "tour.strings.body": {
+  "en": "The portrait's lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line the pointer crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.",
+  "ru": "Линии портрета, через каждые $30^\\circ$ по $\\arg F$, — ноты на полутон друг от друга; ре — там, где $F>0$. «Слушать функцию» играет каждую линию, которую пересекает указатель, нотой маримбы. Против часовой стрелки вокруг нуля гамма поднимается, вокруг полюса — опускается.",
+  "note": "T5"
+ },
+ "tour.strings.touch": {
+  "en": "The portrait's lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line your finger crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.",
+  "ru": "Линии портрета, через каждые $30^\\circ$ по $\\arg F$, — ноты на полутон друг от друга; ре — там, где $F>0$. «Слушать функцию» играет каждую линию, которую пересекает палец, нотой маримбы. Против часовой стрелки вокруг нуля гамма поднимается, вокруг полюса — опускается.",
+  "note": "T5 (touch)"
+ },
+ "tour.loop.body": {
+  "en": "Listen along a closed curve plays the same notes, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.",
+  "ru": "«Слушать вдоль кривой» на замкнутой кривой играет те же ноты, а затем поёт одну ноту — её число оборотов $W$: нули минус полюсы внутри. Эта окружность один раз обходит нуль $1$, поэтому $W=1$ и звучит фа-диез.",
+  "note": "T8"
+ },
+ "tour.settings.body": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно здесь или клавишами {Shift}{M}. Чтобы слушать функцию, включите это здесь: каждая цветная линия, которую пересекает $\\arg F$, звучит нотой.",
+  "note": "S17-S19"
+ },
+ "tour.settings.narrow": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. To hear the function, turn it on there: each colour line that $\\arg F$ crosses plays a note.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно в этом меню. Чтобы слушать функцию, включите это там: каждая цветная линия, которую пересекает $\\arg F$, звучит нотой.",
+  "note": "S17-S19"
+ },
+ "tour.settings.touch": {
+  "en": "Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.",
+  "ru": "Звук включён по умолчанию: тихие сигналы подтверждают ваши действия, у замкнутой петли звучит её число оборотов. Выключить его можно здесь. Чтобы слушать функцию, включите это здесь: каждая цветная линия, которую пересекает $\\arg F$, звучит нотой.",
+  "note": "S17-S19"
  }
 }
