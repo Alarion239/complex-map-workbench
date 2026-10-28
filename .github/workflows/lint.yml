@@ -1,6 +1,10 @@
 # Lint and type check (issue #20, phase 1): ESLint, TypeScript's checker on the JavaScript, ruff on the Python.
-# Report-only for now: the job lists what each tool finds in its summary and never fails on the findings, so it can
-# land while the open branches merge. Once the counts reach zero (or a baseline is recorded), drop the `|| true`s.
+# A ratchet, not a clean slate:
+#   - ruff fails on any finding (build.py is excluded until its one finding is fixed: drop --extend-exclude then);
+#   - ESLint errors and tsc errors fail the job when they grow beyond ci/lint_baseline.json. The baseline is the count
+#     the tools report today; it may only shrink: when a PR fixes findings the step says so, and that PR lowers the
+#     numbers (node ci/lint_ratchet.js update eslint.json tsc.txt). ESLint warnings are listed but not gated.
+# The tools still report everything in the job summary; only the counts above gate.
 name: Lint
 
 on:
@@ -18,7 +22,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint (report-only)
+    name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,10 +47,10 @@ jobs:
             const rows = Object.entries(rules).sort((a, b) => b[1] - a[1]).map(([k, n]) => `| \`${k}\` | ${n} |`);
             console.log(["### ESLint: " + e + " errors, " + w + " warnings", "", "| rule | count |", "|---|---|", ...rows, ""].join("\n"));
           ' >> "$GITHUB_STEP_SUMMARY"
-          npx eslint || true
+          npx eslint || true   # the full listing for the log
       - name: TypeScript (checkJs)
         run: |
-          npx tsc -p tsconfig.json > tsc.txt || true
+          npm run typecheck > tsc.txt || true
           cat tsc.txt
           {
             echo "### TypeScript: $(grep -cE '\): error TS' tsc.txt || true) errors"
@@ -56,13 +60,15 @@ jobs:
             { grep -E '^[^ ].*\([0-9]+,[0-9]+\): error TS' tsc.txt || true; } | sed -E 's/\(.*//' | sort | uniq -c | sort -rn | awk '{ print "| `" $2 "` | " $1 " |" }'
             echo
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Ratchet (ESLint and tsc errors against the baseline)
+        run: node ci/lint_ratchet.js check eslint.json tsc.txt
       - name: ruff
         run: |
-          ruff check --output-format github || true
           {
             echo '### ruff'
             echo
             echo '```'
-            ruff check --statistics || true
+            ruff check --extend-exclude build.py --statistics || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          ruff check --extend-exclude build.py --output-format github
