@@ -3021,5 +3021,11 @@
  "menu group\u0004Look": "Aspetto",
  "Search tools, functions, help…": "Cerca strumenti, funzioni, aiuto…",
  "Menu": "Menu",
- "New scene": "Nuova scena"
+ "New scene": "Nuova scena",
+ "Edit": "Modifica",
+ "Last": "Ultimo",
+ "Listening along the curve": "Ascolto lungo la curva",
+ "Undo pick": "Annulla selezione",
+ "Used by {n}": "Usato da {n}",
+ "Delete {label} and the {n} that use it": "Elimina {label} e i dipendenti ({n})"
 }

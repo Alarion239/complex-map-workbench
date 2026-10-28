@@ -209,5 +209,11 @@
  "menu group\u0004Look": "Оформление",
  "Search tools, functions, help…": "Поиск: инструменты, функции, справка…",
  "Menu": "Меню",
- "New scene": "Новая сцена"
+ "New scene": "Новая сцена",
+ "Edit": "Изменить",
+ "Last": "Последняя",
+ "Listening along the curve": "Слушаем вдоль кривой",
+ "Undo pick": "Отменить выбор",
+ "Used by {n}": "Используется: {n}",
+ "Delete {label} and the {n} that use it": "Удалить {label} и зависимые от неё объекты ({n})"
 }

@@ -990,6 +990,28 @@
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
       globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
+      // (D3) what the phone's context bar shows: the polygon being drawn, a curve being listened along, the selected shape
+      ctxState: () => {
+        if (polyDraftOpen()) return { kind: 'polygon', n: draft.pts.length };
+        // (a construction tool in hand: what to pick next, with the pick it can take back)
+        if (Construct.isTool(tool)) return { kind: 'construct', text: Construct.hint(), undo: !!Construct.undoPickable(), seg: tool === 'perp' ? Construct.seg : null };
+        if (SND && snd.play) return { kind: 'listen' };
+        const sel = selected && findShape(selected);
+        if (!sel) return null;
+        const r = shapeRows.get(sel.id);
+        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def: r ? r.d.textContent : '', used: Construct.usedBy(sel.id).length };
+      },
+      ctxAct: (act, id, anchor) => {
+        if (act === 'last') polyBack();
+        else if (act === 'done') finishPolygon();
+        else if (act === 'cancel') cancelDrawing();
+        else if (act === 'seg') { Construct.seg = id; requestRender('OL', 'OR'); }
+        else if (act === 'undopick') $('undoBtn').click();
+        else if (act === 'xcancel') { Construct.cancel(); setTool('select'); }
+        else if (act === 'delete') deleteShape(id);
+        else if (act === 'stop') sndStopPlay(true);
+        else if (act === 'more') { const r = shapeRows.get(id); if (r && r.more) r.more(anchor); }
+      },
       sound: (k, v) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on), sonify: !!(SND && SND.prefs().sonify) } : k === 'sonify' && SND ? (SND.set({ sonify: !!v }, { quiet: true }), null) : null),
       newScene: () => loadExample(0),
       exportFigure: () => Figure.open(),

@@ -80,6 +80,9 @@ const Phone = (() => {
     els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
     // the chain bar: Numbers first
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
+    // the context bar: above the tool row, only while something is selected or under way (D3)
+    els.ctx = h('div', { class: 'ph-ctx ph-only', role: 'region', 'aria-live': 'polite', hidden: true });
+    document.body.append(els.ctx);
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
@@ -341,6 +344,60 @@ const Phone = (() => {
     swap(true);
   }
 
+  // ---------------- the context bar (D3) ----------------
+  // One 56 px bar above the tool row for what is selected or under way: the selected shape (name, definition, Edit,
+  // Delete, ⋯), the polygon being drawn (Last, Done, Cancel), a curve being listened along (Stop). The planes give up the
+  // room from the bottom (--ph-ctx), so the drawing does not move. The app calls Phone.ctx from its overlay renders and
+  // its selection changes; the bar is rebuilt only when what it shows changes.
+  let ctxKey = '';
+  function ctxSync() { ctx(true); }
+  function ctx(force) {
+    if (!on || !els.ctx) return;
+    let st = null;
+    try { st = A.ctxState(); } catch (e) { st = null; }
+    // (a sheet, the deformation's transport or the tour's own layer has the bottom)
+    if (kind || A.morphOn()) st = null;
+    const key = st ? JSON.stringify(st) : '';
+    if (key === ctxKey && !force) return;
+    if (key === ctxKey && force && !!st === !els.ctx.hidden) return;
+    ctxKey = key;
+    const btn = (cls, label, run, extra) => h('button', Object.assign({ class: 'ph-cb ' + cls, type: 'button', onclick: (e) => run(e.currentTarget) }, extra || {}), label);
+    const text = (title, sub) => h('div', { class: 'ph-ct' }, h('span', { class: 'ph-ctn' }, title), sub ? h('span', { class: 'ph-cts' }, sub) : null);
+    let kids = [];
+    if (st && st.kind === 'shape') {
+      kids = [text(st.name, st.used ? st.def + ' · ' + $t('Used by {n}', { n: st.used }) : st.def),
+        btn('prim', $t('Edit'), () => open('tools', { tab: 'shapes', edit: st.id })),
+        btn('', $t('Delete'), () => A.ctxAct('delete', st.id), st.used ? { 'aria-label': $t('Delete {label} and the {n} that use it', { label: st.name, n: st.used }) } : {}),
+        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu' })];
+    } else if (st && st.kind === 'polygon') {
+      kids = [text($t('Polygon'), String(st.n)),
+        btn('', '⌫ ' + $t('Last'), () => A.ctxAct('last')),
+        btn('prim', $t('Done'), () => A.ctxAct('done'), st.n < 3 ? { disabled: true } : {}),
+        btn('', $t('Cancel'), () => A.ctxAct('cancel'))];
+    } else if (st && st.kind === 'construct') {
+      // (with the second row the key is just the symbol, its words in the label)
+      const undo = st.seg ? btn('ico', '⌫', () => A.ctxAct('undopick'), Object.assign({ 'aria-label': $t('Undo pick') }, st.undo ? {} : { disabled: true }))
+        : btn('', '⌫ ' + $t('Undo pick'), () => A.ctxAct('undopick'), st.undo ? {} : { disabled: true });
+      const x = btn('ico', '×', () => A.ctxAct('xcancel'), { 'aria-label': $t('Cancel') });
+      if (st.seg) {
+        // (the orthogonal circle: Whole, Inside or Outside, in words, on a second row)
+        const sg = h('div', { class: 'ph-ctseg', role: 'radiogroup', 'aria-label': $t('Whole or inside') });
+        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')]]) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
+        kids = [text(st.text), undo, x, sg];
+      } else kids = [text(st.text), undo, x];
+    } else if (st && st.kind === 'listen') {
+      kids = [text($t('Listening along the curve')), btn('prim', $t('Stop'), () => A.ctxAct('stop'))];
+    }
+    els.ctx.replaceChildren(...kids);
+    const was = !els.ctx.hidden, wasTall = rootEl.classList.contains('ph-ctx-tall');
+    const tall = !!(st && st.kind === 'construct' && st.seg);
+    els.ctx.hidden = !kids.length;
+    els.ctx.classList.toggle('tall', tall);
+    if (kids.length) { els.ctx.dataset.k = st.kind; }
+    // (the planes only re-fit when the bar comes, goes or changes height, not each time its words change)
+    if (was !== !!kids.length || wasTall !== tall) { rootEl.classList.toggle('ph-ctx-on', !!kids.length); rootEl.classList.toggle('ph-ctx-tall', tall); syncPanes(); A.resize(); }
+  }
+
   // ---------------- the tool row ----------------
   const ROW = ['select', 'point', 'disc', 'polygon'];
   function syncTools() {
@@ -462,9 +519,12 @@ const Phone = (() => {
     if (k === 'more') fillMore();
     if (k === 'tools') { if (opt.tab) toolTab = opt.tab; fillTiles(); syncSnap(); }
     if (k === 'display') fillDisplay(opt.side || big);
+    // (Edit in the context bar: the selected shape's row, with its editor, comes into view)
+    if (k === 'tools' && opt.edit) setTimeout(() => { const r = document.querySelector(`#shapeList .shape[data-id="${opt.edit}"]`); if (r) r.scrollIntoView({ block: 'nearest' }); }, 0);
     if (k === 'edit') A.renderInspector();
     els.sheet.hidden = false;
     els.scrim.hidden = SPLIT.has(k) || land;
+    ctxSync();
     backLater();
     const split = SPLIT.has(k);
     if (was && SPLIT.has(was) === split) { after(k, opt); return; }
@@ -510,6 +570,7 @@ const Phone = (() => {
     clearTimeout(anim);
     const k = kind;
     kind = null; full = false; nums = false; els.sheet.classList.remove('nums'); kb.grew = false;
+    queueMicrotask(ctxSync);
     rootEl.classList.remove('ph-full');
     const split = rootEl.classList.contains('ph-split');
     rootEl.classList.remove('ph-split');
@@ -783,7 +844,7 @@ const Phone = (() => {
     backInit();
   }
   return {
-    init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
