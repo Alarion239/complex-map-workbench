@@ -313,7 +313,7 @@
     // are lent from page.html's #regionsHome and go back when the popover closes; mesh quality is in Settings)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = head ? $('unitBox') : null, regions = head && S.view.main === 'xy' ? $('regionsBox') : null;
-    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions')), regions] : [])] : rest;
+    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Shapes')), regions] : [])] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);

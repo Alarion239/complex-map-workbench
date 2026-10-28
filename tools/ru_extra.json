@@ -258,5 +258,7 @@
  "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
  "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
+ "Add this shape": "Добавить эту фигуру",
+ "Add shape": "Добавить фигуру",
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе"
 }
