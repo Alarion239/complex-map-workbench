@@ -217,7 +217,8 @@ await ev(`__cmwSetMain('land')`); await settle(1500);
   ok('E Landscape: the 0.15 s swap glide at the open runs to its end (no move inside it ends sooner, review snddef-5)', R.landGlide.glides >= 1 && cuts === 0, R.landGlide);
   const z = s0.rest ? s0.rest.z : pick, q = 2 * Math.PI / 12, lr = Math.log(Math.hypot(z[0], z[1]));
   const k0 = Math.floor(lr / q), k1 = Math.floor(5 * lr / q);
-  R.land = { pick, rest: s0.rest, kind: s.kind, per: perFrame(fr, got.vset), made: got.made, ticksWant: Math.abs(k1 - k0) };
+  // (nFrames, T0, T1: how many frames the 2.6 s held and t at the first and the last, to read a failure)
+  R.land = { pick, rest: s0.rest, kind: s.kind, per: perFrame(fr, got.vset), made: got.made, ticksWant: Math.abs(k1 - k0), nFrames: fr.t.length, T0: fr.T[0], T1: fr.T[fr.T.length - 1] };
   ok('E Landscape: the Height voice, a voice update in every frame t moved', s.kind === 'height' && R.land.per.moved > 60 && R.land.per.missed === 0, R.land);
   ok('E Landscape: one contour tick per level of |H_t| crossed', count(got.made, 'contour') === Math.abs(k1 - k0) && Math.abs(k1 - k0) >= 1, R.land);
   await key('m'); await settle(400);

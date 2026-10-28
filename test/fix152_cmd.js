@@ -73,7 +73,8 @@ await open('fxA', { steps: [] });
   info.afterSplit = { focus: await focus(), steps: (await steps()).map((s) => s.type), active: await ev('document.activeElement && (document.activeElement.closest(".card") ? "card" : document.activeElement.tagName)') };
   const p1 = await planes();
   const d = diff(p0, p1);
-  ok('steps-1: palette add (focus f₁) then Split: focus 0, the planes unchanged (0 px over 8/255)', info.afterAdd.focus === 1 && info.afterSplit.focus === 0 && info.afterSplit.steps.join() === 'pown,add,sin' && d === 0, { ...info, d });
+  // (v16.5 UX01: an added step is selected, and the planes keep showing F: the focus stays 0)
+  ok('steps-1: palette add (focus stays F) then Split: focus 0, the planes unchanged (0 px over 8/255)', info.afterAdd.focus === 0 && info.afterSplit.focus === 0 && info.afterSplit.steps.join() === 'pown,add,sin' && d === 0, { ...info, d });
   ok('steps-11: after Split the keyboard focus is on a card, not the page', info.afterSplit.active === 'card', info.afterSplit.active);
   await shot('fix-steps1-after-split');
 }

@@ -13,7 +13,7 @@
 // in the unit disk and its drag, 11 a touching circle and the tangent from an outside point) on the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a viewport
 // meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state in
 // localStorage and the page's own globals (Sound) only.
-const BASEU = 'http://localhost:9889/';
+const BASEU = process.env.CMW_BASE || 'http://localhost:9889/';   // (a server of your own: CMW_BASE=http://localhost:<port>/)
 // the Orthogonal tool's first chip at 1440 (section 10), as v16.4: English, the text with the Whole | Inside icons on
 // one line; Russian, the whole text on two lines, not cut (without " · Esc — отмена" it does not fit one line next to
 // the icons either, so the v16.3.1 rule keeps the whole text)
@@ -671,7 +671,8 @@ ok('section 13: no console errors or warnings', lJ2.length === 0, lJ2.slice(0, 6
   const STf = { v3: true, v4: true, nextId: 50, focus: 0, rightMode: 'image', steps: [], shapes: [{ id: 'a', kind: 'point', p: [0, 0], ci: 0, visible: true }, { id: 'b', kind: 'point', p: [1, 0], ci: 0, visible: true }, { id: 'k', kind: 'circle', c: [0.5, 0], r: 0.5, ci: 1, visible: true, def: { op: 'future2', args: [{ s: 'a' }, { s: 'b' }] } }] };
   const WANT = CFG.lang === 'ru' ? 'Некоторые построения не удалось прочитать: они открыты как обычные фигуры.' : 'Some constructions could not be read and were opened as plain shapes.';
   const LINK = CFG.lang === 'ru' ? 'Рисунок из ссылки открыт.' : 'Opened the figure from the link.';
-  const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent)`);
+  // (a link opens in two loads, the decode and then location.reload(): a look that falls in the reload finds no page)
+  const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent)`).catch(() => null);
   const collect = async (n) => { const seen = []; for (let i = 0; i < n; i++) { await sleep(100); const t = await toasts(); if (Array.isArray(t)) for (const x of t) if (!seen.includes(x)) seen.push(x); } return seen; };
   const ns = 'smkf13' + tag + Date.now();
   await send('Page.navigate', { url: BASEU + 'blank.html' }); await sleep(300);

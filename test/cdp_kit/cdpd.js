@@ -1,4 +1,4 @@
-// QA daemon: keeps one headless Chrome (ANGLE Metal) alive over --remote-debugging-pipe and runs
+// QA daemon: keeps one headless Chrome (ANGLE Metal; Direct3D 11 on Windows, SwiftShader on Linux) alive over --remote-debugging-pipe and runs
 // command files dropped into ./q (N.js -> N.out). Each command file is the body of an async function
 // with helpers in scope (ev, shot, nav, view, key, click, drag, logs, send, S, sleep).
 const { spawn } = require('child_process');
@@ -7,12 +7,17 @@ const fs = require('fs');
 const DIR = __dirname;
 const Q = path.join(DIR, 'q');
 fs.mkdirSync(Q, { recursive: true });
-// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; CHROME_BIN overrides)
-const WIN = process.platform === 'win32';
-const CHROME = process.env.CHROME_BIN || (WIN ? path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe') : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
+// and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
+const WIN = process.platform === 'win32', MAC = process.platform === 'darwin';
+const CHROME = process.env.CHROME_BIN || (WIN ? path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe')
+  : MAC ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : ['/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p)) || 'google-chrome');
+const ANGLE = process.env.CMW_ANGLE || (WIN ? 'd3d11' : MAC ? 'metal' : 'swiftshader');
 const prof = fs.mkdtempSync(path.join(DIR, 'chprof-'));
-const ch = spawn(CHROME, ['--headless=new', `--use-angle=${WIN ? 'd3d11' : 'metal'}`, `--user-data-dir=${prof}`, '--remote-debugging-pipe',
-  '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false', 'about:blank'],
+// (the disk cache in the profile, not the system's cache folder: deleting the profile deletes it)
+const ch = spawn(CHROME, ['--headless=new', `--use-angle=${ANGLE}`, `--user-data-dir=${prof}`, `--disk-cache-dir=${path.join(prof, 'cache')}`, '--remote-debugging-pipe',
+  '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false',
+  ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []), ...(process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean), 'about:blank'],
   { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
 const wr = ch.stdio[3], rd = ch.stdio[4];
 let id = 0, buf = '';

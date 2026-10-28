@@ -118,8 +118,14 @@ await fresh('ux165d'); await settle(1800);
 await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(200);
 const pr = await box('#plotR');
 await drag(pr.l + pr.w * 0.5, pr.t + pr.h * 0.45, pr.l + pr.w * 0.55, pr.t + pr.h * 0.5); await settle(1200);
-g = await ev(`(() => { const n = document.querySelector('#paneR .pane-head #rightNote'), t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'); return { note: n && n.textContent, shown: !!n && getComputedStyle(n).display !== 'none', cut: !!n && n.scrollWidth > n.clientWidth + 1, tip: n && n.dataset.tip, roleCut: getComputedStyle(pr).display !== 'none' && pr.scrollWidth > pr.clientWidth + 1, tiny: document.querySelector('#paneR').classList.contains('tiny'), calc: document.querySelector('#calcChip').hidden, targets: __cmwState().targets }; })()`);
-check('UX20 laptop: the target\'s note is in Y\'s pane head ("Preimage in X"), whole, not over the plane; the title keeps its place', g.targets === 1 && g.note === 'Preimage in X' && g.shown && !g.cut && !g.roleCut && !g.tiny && g.calc === true, g);
+// (v16.5 UX20/V01 and the wave 1 merge, W1-MERGE.md 8: the note "gives way before the title itself would" (fitTitle,
+// class nofit). With plane's worded Plane | Sphere (UX37), the "Y · " tag (UX27) and the key chip in Y's head, a
+// 1366 px head may have no room for it: then it must be hidden by that rule only, i.e. Y's title would not fit beside
+// it (measured as fitTitle measures, with the note and the title's classes put back at once), and never cut)
+g = await ev(`(() => { const n = document.querySelector('#paneR .pane-head #rightNote'), t = document.querySelector('#rightTitle'), pr = t.querySelector('.prole'); const o = { note: n && n.textContent, shown: !!n && getComputedStyle(n).display !== 'none', cut: !!n && n.scrollWidth > n.clientWidth + 1, tip: n && n.dataset.tip, roleCut: getComputedStyle(pr).display !== 'none' && pr.scrollWidth > pr.clientWidth + 1, tiny: document.querySelector('#paneR').classList.contains('tiny'), calc: document.querySelector('#calcChip').hidden, targets: __cmwState().targets, nofit: !!n && n.classList.contains('nofit') };
+  if (n && o.nofit) { const grow = t.nextElementSibling, pt = t.querySelector('.ptitle'), tabs = document.getElementById('rightTabs'), cls = t.className; n.classList.remove('nofit'); t.classList.remove('terse', 'short', 'notag'); const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0); o.withNote = { ptw: pt ? pt.scrollWidth : 0, room, noteW: n.getBoundingClientRect().width }; t.className = cls; n.classList.add('nofit'); o.gaveWay = !!pt && o.withNote.ptw > room; }
+  return o; })()`);
+check('UX20 laptop: the target\'s note is in Y\'s pane head ("Preimage in X"), whole (or, without room beside the title, given way to it: W1-MERGE.md 8), not over the plane; the title keeps its place', g.targets === 1 && g.note === 'Preimage in X' && (g.shown || g.gaveWay === true) && !g.cut && !g.roleCut && !g.tiny && g.calc === true, g);
 check('UX20 laptop: the note\'s tooltip is plain words', /^Where F lands in the targets of Y/.test(g.tip || ''), g.tip);
 await shot('ux165-v01-laptop');
 grab();
@@ -140,8 +146,10 @@ await laptop();
 await laptop();
 await fresh('ux165e'); await settle(1800);
 await ev(`document.querySelector('#clearChain').click()`); await settle(500);
-g = await ev(`(() => { const t = document.querySelector('#toastHost .toast').getBoundingClientRect(), r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: { l: t.left, t: t.top, r: t.right, b: t.bottom }, x: r('#paneL .viewstack'), y: r('#paneR .viewstack'), chain: r('.pipe-wrap') }; })()`);
-check('UX80 laptop: the Undo message sits above the chain, between X\'s and Y\'s button columns', !meet(g.t, g.x) && !meet(g.t, g.y) && g.t.b <= g.chain.t && g.t.l >= g.x.r && g.t.r <= g.y.l, g);
+// (v16.5 fix regress-3, consented by the user 2026-10-27 (W1-MERGE-NOTES.md): a desktop message that fits whole on one
+// line goes in the chain head's free middle (#toastHost data-placed="head"); only a longer one goes above the chain)
+g = await ev(`(() => { const t = document.querySelector('#toastHost .toast').getBoundingClientRect(), r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: { l: t.left, t: t.top, r: t.right, b: t.bottom }, x: r('#paneL .viewstack'), y: r('#paneR .viewstack'), chain: r('.pipe-wrap'), head: r('.pipe-head'), placed: document.getElementById('toastHost').getAttribute('data-placed') }; })()`);
+check('UX80 laptop: the Undo message sits in the chain head (v16.5 regress-3) or above the chain, between X\'s and Y\'s button columns', !meet(g.t, g.x) && !meet(g.t, g.y) && (g.placed === 'head' ? g.t.t >= g.head.t - 1 && g.t.b <= g.head.b + 1 && g.t.l >= g.head.l && g.t.r <= g.head.r : g.t.b <= g.chain.t && g.t.l >= g.x.r && g.t.r <= g.y.l), g);
 await shot('ux165-ux80-laptop');
 g = await ev(`(() => { const e = document.querySelector('#emptyRight'), b = e.querySelector('.btn'); return { head: e.parentNode.classList.contains('pane-head'), shown: !e.hidden && !!b && b.getClientRects().length > 0, tip: b && b.dataset.tip, tiny: document.querySelector('#paneR').classList.contains('tiny') }; })()`);
 check('UX20 laptop: the empty chain\'s "Add function" is in Y\'s pane head, not over the picture', g.head && g.shown && /Add a function to map the region/.test(g.tip || '') && !g.tiny, g);
@@ -266,8 +274,10 @@ grab();
 await laptop();
 await fresh('ux165m'); await settle(1800);
 await key('m'); await settle(800);
-g = await ev(`({ ro: __qa.txt('#morphLabel'), title: __qa.txt('#rightTitle'), speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent) })`);
-check('UX103: the readout is in words ("Step k of m · fₖ · p %") and the title too ("Deformation from z to w")', /^Step \d+ of 2 · f[₁₂] · \d+ %$/.test(g.ro) && /^Deformation\s*from z to w$/.test(g.title), g);
+// (v16.5 fix regress-1: a row too tight for the words takes the short form "1/2 · f₁ · 53 %", marked data-short, the
+// words staying in the tooltip; the title's two spans read "Deformation" and "from z to w" with no space between)
+g = await ev(`({ ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null, title: __qa.txt('#rightTitle'), speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent) })`);
+check('UX103: the readout is in words ("Step k of m · fₖ · p %"; in a tight row its short form, v16.5 regress-1) and the title too ("Deformation from z to w")', (/^Step \d+ of 2 · f[₁₂] · \d+ %$/.test(g.ro) || (g.short === '1' && /^\d\/2 · f[₁₂] · \d+ %$/.test(g.ro))) && /^Deformation\s*from z to w$/.test(g.title), g);
 const pb = await box('#morphPlay');
 await move(...mid(pb)); await sleep(700);
 const tip1 = await ev(`[document.querySelector('#tip').hidden, document.querySelector('#tip').textContent]`);
@@ -281,8 +291,9 @@ await ev(`(() => { const s = document.getElementById('morphRange'); return 1; })
 await key('ArrowLeft', 8); await key('ArrowLeft', 8); await key('ArrowLeft', 8); await settle(100);
 const t0 = await ev('__cmwState().morph.T');
 await key('ArrowRight', 8); await settle(150);
-g = await ev(`({ T: __cmwState().morph.T, ro: __qa.txt('#morphLabel') })`);
-check('UX97: Shift+← goes back to t = 0, Shift+→ to the next step\'s tick', t0 === 0 && g.T === 1 && /Step 2 of 2 · f₂ · 0 %|Step 1 of 2 · f₁ · 100 %/.test(g.ro), Object.assign({ t0 }, g));
+g = await ev(`({ T: __cmwState().morph.T, ro: __qa.txt('#morphLabel'), short: (document.querySelector('#morphLabel') || { dataset: {} }).dataset.short || null })`);
+// (the readout in words, or its short form in a tight row: v16.5 regress-1)
+check('UX97: Shift+← goes back to t = 0, Shift+→ to the next step\'s tick', t0 === 0 && g.T === 1 && (/Step 2 of 2 · f₂ · 0 %|Step 1 of 2 · f₁ · 100 %/.test(g.ro) || (g.short === '1' && /^(2\/2 · f₂ · 0 %|1\/2 · f₁ · 100 %)$/.test(g.ro))), Object.assign({ t0 }, g));
 await ev(`document.querySelector('#tools [data-tool="disc"]').click()`); await settle(300);
 g = await ev(`({ chip: __qa.txt('#sphereChipR'), btn: !!document.querySelector('#sphereChipR .chip-draw') })`);
 check('UX102: a draw tool in the deformation: the chip offers "Turn off and draw"', g.btn && /Turn off and draw/.test(g.chip), g);

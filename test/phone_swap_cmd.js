@@ -59,10 +59,14 @@ const same = (a, b, tol = TOL) => !!a && !!b && Math.abs(a.u / b.u - 1) <= tol &
 const fmt = (p) => p && `${p.cx.toFixed(3)},${p.cy.toFixed(3)} u=${p.u.toPrecision(5)} w=${p.w}`;
 const ratio = (a, b) => +(a.u / b.u).toFixed(4);
 // the inset's tap target, by touch
+// (each touch carries its own time, ms apart, as a phone's do: unstamped, the touchEnd took the time it was sent, after
+// the touchStart's answer, which waits behind a frame of a second where frames are slow, and the app's long-press rule,
+// by the events' times, took the tap for a press)
 const touch = async (x, y, ms = 60) => {
-  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+  const t0 = Date.now() / 1000;
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }], timestamp: t0 });
   await sleep(ms);
-  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [], timestamp: t0 + ms / 1000 });
 };
 const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const tapSel = async (sel, wait = 450) => { const c = await center(sel); if (!c) { fails.push({ name: 'tap target missing', got: sel }); return false; } await touch(c[0], c[1]); await settle(wait); return true; };

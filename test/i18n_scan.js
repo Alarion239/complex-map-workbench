@@ -7,8 +7,8 @@
 (() => {
   if (window.__i18nScan) return;
   const ALLOW = new Set([
-    // the app's name and the English autonym in the Language menu
-    'Complex', 'Map', 'Workbench', 'English',
+    // the app's name and the English and Italian autonyms in the Language menu (Italiano: bd48ab3)
+    'Complex', 'Map', 'Workbench', 'English', 'Italiano',
     // key names (GLOSSARY 3.12)
     'Enter', 'Esc', 'Escape', 'Shift', 'Tab', 'Ctrl', 'Alt', 'Option', 'Cmd', 'Space', 'Delete', 'Backspace', 'Home', 'End', 'PgUp', 'PgDn', 'Del', 'Fn',
     // function keys (Shift+F10 opens a plane's menu; review russian-14)
@@ -17,8 +17,9 @@
     'LaTeX', 'TeX', 'PDF', 'PNG', 'SVG', 'pdf', 'png', 'svg', 'tex', 'txt', 'JSON', 'json', 'pt', 'px', 'cm', 'mm', 'in', 'dpi', 'WebGL', 'WebGL2', 'Web', 'Audio',
     'Overleaf', 'Inkscape', 'Beamer', 'Google', 'Docs', 'Slides', 'Word', 'Keynote', 'PowerPoint', 'MathJax', 'arXiv', 'pdfLaTeX', 'XeLaTeX', 'LuaLaTeX', 'CMU', 'Unicode',
     'iPhone', 'iPad', 'AudioWorklet', 'amsart', 'article', 'REVTeX', 'IEEE', 'Letter', 'A4', 'tbp', 'figure', 'linewidth', 'textwidth', 'columnwidth',
-    // key chips read out together by the tour's screen-reader line (⇧ M)
-    'ShiftM',
+    // key chips read out together by the tour's screen-reader line (⇧ M; {mod} K and {mod} Z, which are ⌘ K on Apple
+    // devices and Ctrl K elsewhere: src/tour.js modKey)
+    'ShiftM', 'CtrlK', 'CtrlZ',
     // function names and math words the formula language and the Russian notation use (GLOSSARY 1.4, 2.4)
     'Re', 'Im', 'arg', 'Arg', 'Res', 'exp', 'ln', 'Ln', 'log', 'sin', 'cos', 'tg', 'ctg', 'sec', 'cosec', 'csc', 'sh', 'ch', 'th', 'cth', 'arcsin', 'arccos', 'arctg',
     'arcctg', 'arsh', 'arch', 'arth', 'arcth', 'sqrt', 'conj', 'abs', 'mod', 'dz', 'dw', 'id', 'const', 'sinc', 'Log', 'Sqrt', 'erf', 'Gamma', 'zeta', 'pi', 'inf',
