@@ -23,8 +23,8 @@
       if (!from) return;
       const to = from < k ? k - 2 : k - 1; // index after removal
       if (to === from - 1) return;
-      const [st] = S.steps.splice(from - 1, 1);
-      S.steps.splice(to, 0, st);
+      const [st] = spliceSteps(from - 1, 1);
+      spliceSteps(to, 0, st);
       chainChanged(true); setFocus(to + 1); commit();
     });
     return el;
@@ -87,7 +87,7 @@
         h('div', { class: 'br-label' }, h('span', { class: 'br-what' }), all));
       const add = $('addStepBtn');
       if (add && add.parentNode === host) host.insertBefore(L, add); else host.append(L);
-      if (!brRO && typeof ResizeObserver !== 'undefined') { brRO = new ResizeObserver(() => requestAnimationFrame(placeBracket)); brRO.observe(host); }
+      if (!brRO) { brRO = new ResizeObserver(() => requestAnimationFrame(placeBracket)); brRO.observe(host); }
     }
     L.hidden = false;
     placeBracket();
@@ -635,7 +635,7 @@
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
-    const wide = q.type === 'expr' || q.type === 'coeffs';
+    const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
     // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
@@ -715,7 +715,7 @@
     const st = { type, params: Object.assign(Funcs.defaults(type), params || {}), on: true };
     if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
     at = Math.max(0, Math.min(S.steps.length, at));
-    S.steps.splice(at, 0, st);
+    spliceSteps(at, 0, st);
     chainChanged(true);
     // (v16.5 UX01: the planes keep what they showed, F or the step shown alone; the new card is selected, and the
     // toast offers Show alone: Show alone is its own choice, ui-redesign-2)
@@ -732,11 +732,11 @@
   // step shown alone stays shown, now the first new step when it was one of the replaced
   function replaceSteps(k0, count, run, name) {
     const f = S.focus, old = count === 1 ? defOf(S.steps[k0]).label : '', n0 = S.steps.length - count;
-    const gone = S.steps.splice(k0, count);
+    const gone = spliceSteps(k0, count);
     setFocusStep(Math.min(f, k0));
     const r = run(k0);
     const added = S.steps.length - n0;
-    if (!added) { S.steps.splice(k0, 0, ...gone); setFocusStep(f); return r; }
+    if (!added) { spliceSteps(k0, 0, ...gone); setFocusStep(f); return r; }
     if (f > k0) { setFocus(Math.min(S.steps.length, f > k0 + count ? f - count + added : k0 + 1)); commit(); }
     undoToast(count === 1 && n0 > 0 ? $t('Replaced f{x} ({old}) with {name}.', { x: sub(k0 + 1), old, name }) : $t('Replaced F with {name}.', { name }));
     tourEmit('step-replaced', { k: k0 + 1, type: S.steps[k0].type });
@@ -766,7 +766,7 @@
     if (at == null) at = S.focus > 0 ? S.focus : S.steps.length;
     at = Math.max(0, Math.min(S.steps.length, at));
     const news = list.map((s) => ({ type: s.type, params: Object.assign(Funcs.defaults(s.type), s.params), on: true }));
-    S.steps.splice(at, 0, ...news);
+    spliceSteps(at, 0, ...news);
     chainChanged(true);
     keepShown(at + 1, news.length);   // (v16.5 UX01: the planes keep F, the first new card is selected)
     commit();
@@ -803,8 +803,8 @@
     const alone = S.focus === k, only = S.steps.length === 1;
     // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
     const hr = S.homRange ? HR.resolve(S, true) : null;
-    S.steps.splice(k - 1, 1, ...news);
-    if (hr) S.homRange = { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b };
+    spliceSteps(k - 1, 1, ...news);
+    if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
     if (S.focus > k) setFocusStep(S.focus + n - 1);
     else if (alone && only) setFocusStep(0);
     chainChanged(true);
@@ -827,8 +827,8 @@
     const name = defOf(S.steps[k - 1]).label;
     // (v16: the bracket by index: a removed step leaves it, so it shrinks; a bracket of that step alone is dropped)
     const hr = S.homRange ? HR.resolve(S, true) : null;
-    S.steps.splice(k - 1, 1);
-    if (hr) { if (hr.a === k && hr.b === k) delete S.homRange; else S.homRange = { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }; }
+    spliceSteps(k - 1, 1);
+    if (hr) { if (hr.a === k && hr.b === k) deleteOpt('homRange'); else setOpt('homRange', { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }); }
     if (S.focus >= k) setFocusStep(Math.max(0, S.focus === k ? 0 : S.focus - 1));
     if (Number.isInteger(S.sel) && S.sel >= k) setSel(S.sel === k ? null : S.sel - 1);
     chainChanged(true);
@@ -839,7 +839,7 @@
   }
   function duplicateStep(k) {
     const st = S.steps[k - 1];
-    S.steps.splice(k, 0, JSON.parse(JSON.stringify(st)));
+    spliceSteps(k, 0, JSON.parse(JSON.stringify(st)));
     chainChanged(true);
     keepShown(k + 1, 1);   // (v16.5 UX01)
     commit();
@@ -850,8 +850,8 @@
   function moveStep(k, d) {
     const j = k - 1 + d;
     if (j < 0 || j >= S.steps.length) return null;
-    const [st] = S.steps.splice(k - 1, 1);
-    S.steps.splice(j, 0, st);
+    const [st] = spliceSteps(k - 1, 1);
+    spliceSteps(j, 0, st);
     chainChanged(true);
     keepShown(j + 1, 0, k);   // (v16.5 UX01: a step shown alone stays shown, wherever it moved)
     commit();
@@ -931,7 +931,7 @@
     try { r = Funcs.derivativeStep(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast((r && r.error) || $t('f{x} has no derivative here.', { x: sub(k) })); return null; }
     const type = Funcs.DEFS[r.step.type] ? r.step.type : 'custom';
-    S.steps[k - 1] = { type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false };
+    setStepAt(k - 1, { type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false });
     chainChanged(true);
     setFocus(k);
     commit();

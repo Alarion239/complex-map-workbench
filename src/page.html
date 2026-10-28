@@ -1536,7 +1536,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 
 /* toasts */
 #toastHost {
-  position: fixed; z-index: 60; left: 50%; translate: -50% 0;
+  /* above a dialog (50) but under a menu or popover over it (55): a toast never hides a menu that opens beside it */
+  position: fixed; z-index: 54; left: 50%; translate: -50% 0;
   bottom: calc(var(--chain-h, 272px) + max(8px, env(safe-area-inset-bottom, 0px)) + 12px);
   display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; width: max-content; max-width: calc(100vw - 24px);
 }
@@ -1621,6 +1622,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-facts b { color: var(--ink-2); font-weight: 500; }
 .xf-ctl { display: grid; gap: 14px; align-content: start; padding-bottom: 4px; }
 .xf-row { display: grid; gap: 6px; }
+.xf-print { display: contents; }
+.xf-printbtn { display: none; }
 .xf-h { font: var(--t-heading); color: var(--ink); }
 .xf-seg { width: 100%; }
 .xf-seg > button { flex: 1 1 0; min-width: 0; }
@@ -1668,6 +1671,9 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .modal.xf { width: calc(100vw - 24px); max-height: calc(100svh - var(--mbg-t, 12px) - var(--mbg-b, 12px)); border-radius: var(--r-3); }
   .xf-head { padding: 12px 16px 0; } .xf-body { padding: 12px 16px 0; } .xf-foot { padding: 10px 16px 12px; }
   .xf-ctl { grid-template-columns: 1fr; }
+  .xf-printbtn { display: inline-flex; justify-self: start; }
+  .xf-print[data-open="0"] { display: none; }
+  .xf-print[data-open="1"] { display: grid; gap: 10px; }
   .xf-chip { display: none; }
   .xf-scroll { height: 38svh; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
@@ -2113,8 +2119,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
          Phone: the popover is the "more" menu. popovertargetaction="hide" closes it after a choice. -->
     <div class="hdr-menu" id="hdrMenu" popover>
       <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
-      <button class="cmd-field" id="cmdBtn" aria-label="Add function or command" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function or command</span><span class="kbd" id="cmdKbd">⌘K</span></button>
-      <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Region tools  [" aria-label="Show or hide region tools" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Region tools panel</span></button>
+      <button class="cmd-field" id="cmdBtn" aria-label="Add function" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function</span><span class="kbd" id="cmdKbd">⌘K</span></button>
+      <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Draw  [" aria-label="Show or hide the Draw panel" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Draw panel</span></button>
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
       <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
@@ -2133,12 +2139,12 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </header>
 
   <main class="layout">
-    <aside class="panel left" id="leftPanel" aria-label="Region tools">
+    <aside class="panel left" id="leftPanel" aria-label="Draw">
       <div class="rail" id="leftRail">
         <button class="icon-btn rail-open" id="leftRailOpen" title="Show region tools  [" aria-label="Show region tools"><span class="ic-slot" data-icon="chevR"></span></button>
         <div class="rail-tools" id="railTools"></div>
         <span class="rail-count mono" id="railCount"></span>
-        <span class="rail-label">Region tools</span>
+        <span class="rail-label">Draw</span>
       </div>
       <section class="psec" id="secDraw">
         <h2><span class="grow">Draw</span><button class="icon-btn small" id="snapBtn" aria-pressed="true" data-tip="Snap to the grid and to figures (both panes). Hold Alt to place freely." aria-label="Snap to grid and figures"><span class="ic-slot" data-icon="snap"></span><span class="snap-w">Snap</span></button><button class="icon-btn" id="leftCollapse" title="Hide this panel  [" aria-label="Hide region tools"><span class="ic-slot" data-icon="chevL"></span></button></h2>

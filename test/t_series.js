@@ -52,10 +52,10 @@ check('Σ n^{−z} at Re z = 0.5: NaN (left of σ = 1)', nan(at(Z, C(0.5, 3))));
 close('Σ (−1)^{n+1} n^{−z} = (1 − 2^{1−z}) ζ(z) at 3', at('\\sum_{n=1}^{\\infty} (-1)^{n+1} n^{-z}', C(3, 0)), CX.mul(CX.sub(CX.ONE, C(2 ** -2, 0)), CX.zeta(C(3, 0))), 1e-10);
 
 // ---- 4. constant sums, finite sums, products
-close('Σ 1/n² = π²/6 (a constant, within 1e-4)', at('\\sum_{n=1}^{\\infty} \\frac{1}{n^2}', C(0, 0)), C(Math.PI ** 2 / 6, 0), 1e-4);
+close('Σ 1/n² = π²/6 (a constant: 2^16 terms and the rest as an integral)', at('\\sum_{n=1}^{\\infty} \\frac{1}{n^2}', C(0, 0)), C(Math.PI ** 2 / 6, 0), 1e-8);
 close('Σ_{k=0}^{3} binom(3, k) z^k = (1 + z)³', at('\\sum_{k=0}^{3} \\binom{3}{k} z^k', C(2, 1)), CX.ipow(C(3, 1), 3), 1e-15);
 close('Π_{k=1}^{5} (z − k)', at('\\prod_{k=1}^{5} (z-k)', C(0, 1)), [1, 2, 3, 4, 5].reduce((p, k) => CX.mul(p, C(-k, 1)), C(1, 0)), 1e-15);
-close('Π (1 − z²/n²) = sin(πz)/(πz), within 1e-3', at('\\prod_{n=1}^{\\infty} (1 - z^2/n^2)', C(0.5, 0)), C(2 / Math.PI, 0), 1e-3);
+for (const z of [C(0.5, 0), C(0.37, -0.81), C(2.5, 1)]) close(`Π (1 − z²/n²) = sin(πz)/(πz) at ${z.re}${z.im >= 0 ? '+' : ''}${z.im}i, within 1e-3 (512 factors and the rest as an integral)`, at('\\prod_{n=1}^{\\infty} (1 - z^2/n^2)', z), CX.div(CX.sin(CX.scale(z, Math.PI)), CX.scale(z, Math.PI)), 1e-3);
 close('an empty sum is 0, an empty product 1', at('\\sum_{n=3}^{2} z + \\prod_{n=3}^{2} z', C(5, 0)), C(1, 0), 0);
 close('a nested sum: Σ_{n=0}^{3} Σ_{k=0}^{n} z^k', at('\\sum_{n=0}^{3} \\sum_{k=0}^{n} z^k', C(2, 0)), C(1 + 3 + 7 + 15, 0), 0);
 close('the index inside a function: Σ sin(n z)/2^n', at('\\sum_{n=1}^{\\infty} \\frac{\\sin(n z)}{2^n}', C(0.3, 0)), (() => { let s = 0; for (let k = 1; k < 80; k++) s += Math.sin(0.3 * k) / 2 ** k; return C(s, 0); })(), 1e-13);
@@ -121,11 +121,30 @@ check('a sum with no terms: refused', /Missing the terms/.test(err('\\sum_{n=0}^
 check('k and m as indices; \\limits; ^ before _', err('\\sum_{k=1}^{4} \\sum\\limits^{2}_{m=0} k m z') === null);
 check('the shared numbers keep their letters outside sums (a, k)', (() => { Expr.setNames({ get: (x) => (x === 'k' ? 2 : undefined) }); try { return Expr.compile(Expr.parse('k z + \\sum_{n=0}^{2} z^n'))(C(1, 0)).re === 5; } finally { Expr.setNames(null); } })());
 
-// ---- 10. the Formula step: not drawn yet (part B), with a message
-let fb = null;
-try { Funcs.build({ type: 'custom', params: { expr: E1, cut: 180 }, on: true }); } catch (e) { fb = e.message; }
+// ---- 10. the Formula step: a series builds, with its guarantees (analytic, nothing more)
 const b0 = Funcs.build({ type: 'custom', params: { expr: E1, cut: 180 }, on: true });
-check('a Formula step with a sum says it cannot be drawn yet', (b0 && b0.error && /cannot be drawn yet/.test(b0.error)) || /cannot be drawn yet/.test(fb || ''), b0 && b0.error);
+check('a Formula step with e^z as a series builds, analytic and not claimed entire', b0 && !b0.error && b0.props.analytic && !b0.props.entire, b0 && (b0.error || b0.props));
+close('… and maps like e^z', b0.f(C(1, 1)), CX.exp(C(1, 1)), 1e-12);
+
+// ---- 11. the Series step: power (from n = 1 when a_0 is undefined), Laurent and Dirichlet; its region drawn as cuts and
+// written as the domain; its derivative term by term; its errors
+const sb = (p) => Funcs.build({ type: 'series', params: Object.assign({ kind: 'power', an: '\\frac{1}{n!}', c: '0' }, p), on: true });
+let s1 = sb({});
+close('Series step: e^z from a_n = 1/n!', s1.f(C(1, 1)), CX.exp(C(1, 1)), 1e-12);
+check('… no circle (R = ∞), no inverse, a note', !s1.cuts.length && !s1.inverse && /many times/.test(s1.inverseNote), s1.cuts);
+s1 = sb({ an: '\\frac{1}{n^2}', c: '1' });
+close('Series step: Li₂(z − 1) about c = 1, from n = 1', s1.f(C(1.5, 0)), at('\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}', C(0.5, 0)), 1e-12);
+check('… its circle |z − 1| = R ≈ 1, and its domain', s1.cuts.length === 1 && s1.cuts[0].kind === 'circle' && Math.abs(s1.cuts[0].r - 1) < 0.01 && rel(s1.cuts[0].c, C(1, 0)) < 1e-15 && /\\left\|z-1\\right\|<R\\approx 1/.test(s1.domain('z')), [s1.cuts, s1.domain('z')]);
+s1 = sb({ kind: 'laurent', an: '\\frac{1}{2^{|n|}}' });
+check('Series step: a Laurent series on the annulus 1/2 < |z| < 2 (two circles)', s1.cuts.length === 2 && /r\\approx 0\.5<\\left\|z\\right\|<R\\approx 2/.test(s1.domain('z')), [s1.cuts, s1.domain('z')]);
+s1 = sb({ kind: 'dirichlet', an: '1' });
+close('Series step: ζ as a Dirichlet series', s1.f(C(2, 1)), CX.zeta(C(2, 1)), 1e-9);
+check('… the line Re z = σ = 1, its TeX n^{−z}', s1.cuts.length === 1 && s1.cuts[0].kind === 'vline' && s1.cuts[0].x === 1 && s1.tex({ s: 'z', p: 4 }).s === '\\sum_{n=1}^{\\infty} n^{-z}', [s1.cuts, s1.tex({ s: 'z', p: 4 }).s]);
+const ds = Funcs.derivAst(sb({}));
+close('Series step: its derivative term by term (e^z)', Expr.compile(ds.ast)(C(0.3, 0.4)), CX.exp(C(0.3, 0.4)), 1e-12);
+check('Series step: a_n with z is refused', /must not depend on z/.test(sb({ an: 'z' }).error || ''), sb({ an: 'z' }).error);
+check('Series step: an empty a_n is refused', /formula in n/.test(sb({ an: '' }).error || ''), sb({ an: '' }).error);
+check('Series step: in the catalog with its words for the palette', Funcs.DEFS.series && Funcs.DEFS.series.params.map((q) => q.key).join() === 'kind,an,c');
 
 console.log(bad ? `${bad} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

@@ -1,4 +1,7 @@
-import json, pathlib, re, sys
+import json
+import pathlib
+import re
+import sys
 from tools.src_parts import source
 root = pathlib.Path(__file__).parent
 # (the summary below prints non-ASCII glyphs: a Windows console's code page made the build exit 1 after writing dist/)

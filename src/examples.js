@@ -10,7 +10,8 @@ const Examples = (() => {
   let EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit,
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
-    setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem;
+    setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
+    pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -42,7 +43,13 @@ const Examples = (() => {
     if (!spec) A.currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
-    A.S.shapes = []; A.S.steps = [];
+    setShapes([]); setSteps([]);
+    // [issue #5] an example's own shared numbers (the partial sums' N): set, or in place of one of the user's of that name
+    if (!spec && Array.isArray(ex.params)) {
+      const ps = A.S.params.slice();
+      for (const p of ex.params) { const c = JSON.parse(JSON.stringify(p)), j = ps.findIndex((q) => q.name === p.name); if (j >= 0) ps[j] = c; else ps.push(c); }
+      setParams(ps);
+    }
     setSel(null);   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
@@ -50,9 +57,9 @@ const Examples = (() => {
     // is the X pane's box, which must have its new width (a merge or a split changes it)
     const ev = Views.migrate({ rightMode: ex.rightMode || 'image', sphereMode: ex.sphereMode, leftSphere: !!ex.leftSphere, material: ex.material, spherePlane: ex.spherePlane,
       dc: ex.dc || (A.S.dc === 'cauchy' ? blankState().dc : A.S.dc) });
-    A.S.view = ev.view;
-    A.S.dc = ev.dc;
-    A.S.landPlain = !!ev.landPlain;
+    setOpt('view', ev.view);
+    setOpt('dc', ev.dc);
+    setOpt('landPlain', !!ev.landPlain);
     // (a new scene: every view starts from its own fitted plane)
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
@@ -63,35 +70,37 @@ const Examples = (() => {
     applyLayout();
     // (the planes take their new height at once, as for a merge, not at the next ResizeObserver callback)
     if (laned && A.paneL && A.paneR) onPaneResize();
-    A.S.srcView = Object.assign({}, ex.view);
+    setOpt('srcView', Object.assign({}, ex.view));
     // an example's box that must be in view (a phone's narrow plane): its view's scale at most, centred on the box
     exFitTo(ex);
     A.paneL.setView(A.S.srcView);
     // (review v16 regress-6: the window goes into the state too, so a link, a scene file or an autosave made from the
     // example carries it, and the recipient meshes in the sender's window whatever the size of their pane)
     A.clipWin = viewBox(A.S.srcView);
-    A.S.clipWin = A.clipWin;
+    setOpt('clipWin', A.clipWin);
     dropAllGPU();
     A.selected = null;
     for (const sh of ex.shapes) {
       const ns = newShape(sh.kind, JSON.parse(JSON.stringify(sh)));
       // a melody's data keeps the chain it was composed for and the key of its points (sndListenOf)
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
-      A.S.shapes.push(ns);
+      pushShape(ns);
     }
-    for (const st of ex.steps) A.S.steps.push(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
-    if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) A.S.homRange = { a: ex.range.a, b: ex.range.b }; else delete A.S.homRange;   // (v16)
+    for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
+    // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
+    if (!spec && Array.isArray(ex.params)) Params.render();
+    if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');   // (v16)
     // (an example that is played: the Phase key's n it was made for, one colour line a note)
-    if (ex.sectors) A.S.sectors = ex.sectors;
+    if (ex.sectors) setOpt('sectors', ex.sectors);
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find(sndIsSong);
     if (piece) snd.lastLoop = { pts: piece.pts, closed: false, sid: piece.id };
     else if (snd.lastLoop && snd.lastLoop.sid) snd.lastLoop = null;
     // an example brings its own w-plane targets (none unless it says so)
-    A.S.targets = [];
-    if (ex.targets) for (const t of ex.targets) A.S.targets.push(newShape(t.kind, JSON.parse(JSON.stringify(t)), true));
-    A.S.sheets = !!ex.sheets;
-    if (ex.height) A.S.height = ex.height;
+    setTargets([]);
+    if (ex.targets) for (const t of ex.targets) pushTarget(newShape(t.kind, JSON.parse(JSON.stringify(t)), true));
+    setOpt('sheets', !!ex.sheets);
+    if (ex.height) setOpt('height', ex.height);
     cauchyCache.key = '';
     closePalette();
     rebuild();
@@ -229,6 +238,7 @@ const Examples = (() => {
     [`Integrals`, 0, `Hold a finger on a curve or a region's boundary in <i>X</i>, on its image in <i>Y</i>, or on its outline on the phase portrait, lift it, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`],
     [`Sound`, 0, `<b>Sound</b>, in the ⋯ menu, is on by default and starts with your first tap; your choice stays on this device. Its Settings set the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on; then hold a finger on a plane and slide it. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Hold a still point to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it.`],
     [`Guarantees`, 0, `The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Tap the tile, and its editor shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`],
+    [`Zeros and poles`, 0, `Choose <i>Zeros and poles</i> (in Polynomial &amp; custom) to build a map by placing its zeros and poles: drag the dots (zeros) and open circles (poles) in the step's input plane, or type them in the step's editor. Hold a finger on one to remove it, turn it into a pole or a zero, or edit it. The picture shows the map at once: colors circle a zero and a pole in opposite senses.`],
   ];
   const GUIDE_TOUCH_DEFORM = `On a phone, <b>Deformation</b> is the key at the end of the chain bar. While it plays, the row along the bottom holds Undo, play, the time <i>t</i>, the speed (tap it: 1×, 2×, ½×), Paths and ×; the plane's Display key holds the order, Loop and the deformed steps.`;
   function guideTouch(m) {
@@ -307,7 +317,7 @@ const Examples = (() => {
       [k('V'), $t('Select and move shapes')], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, $t('Point, segment, line, ray')],
       [`${k('C')} ${k('A')} ${k('F')}`, $t('Circle, arc, freehand')], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, $t('Disc, rectangle, polygon, lasso')],
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
-      [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
+      [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
       [`${k('1')} ${k('2')} ${k('3')}`, $t('View: X → Y, Phase, Landscape')], [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
       [`${k('⇧ 1')} ${k('⇧ 2')}`, $t('Plane, Sphere of X (in Phase: of the portrait)')], [`${k('⇧ 3')} ${k('⇧ 4')}`, $t('Plane, Sphere of Y')], [k('Z'), $t('Fit both planes')],
@@ -317,7 +327,7 @@ const Examples = (() => {
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];
     m.innerHTML = `
-      <div class="modal-head"><svg viewBox="0 0 28 28" width="28" height="28" aria-hidden="true" class="mark">${(document.querySelector('header svg.mark') || { innerHTML: '' }).innerHTML}</svg><h2 id="guideTitle">${$t('Using the Workbench')}</h2></div>
+      <div class="modal-head"><svg viewBox="0 0 28 28" width="28" height="28" aria-hidden="true" class="mark">${(document.querySelector('header svg.mark') || { innerHTML: '' }).innerHTML}</svg><h2 id="guideTitle">${$t('Guide')}</h2></div>
       <p>${$t(`Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the domain (or the input of a step shown alone), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.`)}</p>
       <h3>${$t(`Regions`)}</h3>
       <p>${$t(`Draw with the tools on the left, or type a set such as <span class="chip ftag" data-tex="|z-1|<2"></span> or <span class="chip ftag" data-tex="0<\\Im z<\\pi"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class="chip ftag" data-tex="\\operatorname{Re} z=0"></span> is a line, <span class="chip ftag" data-tex="|z|=1,\\ \\operatorname{Im} z>0"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class="chip ftag" data-tex="|\\sin z|=1"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.`)}</p>
@@ -377,7 +387,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();
