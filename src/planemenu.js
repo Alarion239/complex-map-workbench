@@ -218,6 +218,11 @@ const PlaneMenu = (() => {
       // ([v16.5 UX56] a point on a curve says so on its first line: "z₁ · on Arc 1")
       const on = s.on && s.on.length ? $t('lies on {x}', { x: s.on.join(', ') }) : null;
       if (on) out.push({ id: 'shape-on', icon: 'select', label: s.name, sub: on, disabled: true });
+      // (UX42: shapes that cover each other: every one under the pointer can be selected from here, and the subject can
+      // go to the front or the back)
+      if (s.all && s.all.length > 1) for (const x of s.all) out.push({ id: 'shape-select', icon: 'select', label: $t('Select {name}', { name: x.name }), disabled: x.selected, run: () => api.select(x.id) });
+      if (s.canFront) out.push({ id: 'shape-front', icon: 'select', label: $t('Bring to front'), run: () => api.front(s.id) });
+      if (s.canBack) out.push({ id: 'shape-back', icon: 'select', label: $t('Send to back'), run: () => api.back(s.id) });
       out.push({ id: 'shape-hide', icon: 'hide', label: $t('Hide {name}', { name: s.name }), run: () => api.hide(s.id) });
       out.push({ id: 'shape-delete', icon: 'trash', danger: true, label: $t('Delete {name}', { name: s.name }), run: () => api.del(s.id) });
       if (s.kind === 'point') out.push(...integrals);

@@ -322,8 +322,13 @@
   }
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
-    const i = list.findIndex((x) => x.id === id), j = i + d;
-    if (i < 0 || j < 0 || j >= list.length) return;
+    moveShapeTo(id, list.findIndex((x) => x.id === id) + d);
+  }
+  // a shape to place j of its list (the last is the front): Bring to front, Send to back, a dragged row
+  function moveShapeTo(id, j) {
+    const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
+    const i = list.findIndex((x) => x.id === id);
+    if (i < 0 || j < 0 || j >= list.length || i === j) return;
     const [x] = list.splice(i, 1);
     list.splice(j, 0, x);
     if (target) targetsChanged(true); else shapesChanged(true);
@@ -379,6 +384,7 @@
     updateShapeList();
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
+  const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
     const changed = () => (target ? targetsChanged(true) : shapesChanged(true));
@@ -434,6 +440,15 @@
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
     shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name });
+    // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
+    if (!touchUI() && list.length > 1) {
+      box.draggable = true;
+      box.addEventListener('dragstart', (e) => { if (e.target !== box) return; e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; box.classList.add('dragging'); });
+      box.addEventListener('dragend', () => { box.classList.remove('dragging'); for (const b of document.querySelectorAll('#shapeList .shape.drop-over')) b.classList.remove('drop-over'); });
+      box.addEventListener('dragover', (e) => { if (!e.dataTransfer.types.includes('text/plain') || !list.some((x) => x.id === dragId())) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop-over'); });
+      box.addEventListener('dragleave', () => box.classList.remove('drop-over'));
+      box.addEventListener('drop', (e) => { e.preventDefault(); box.classList.remove('drop-over'); const id = e.dataTransfer.getData('text/plain'); if (list.some((x) => x.id === id)) moveShapeTo(id, list.indexOf(s)); });
+    }
     return box;
   }
   // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc leaves it as it was, and an empty name

@@ -452,9 +452,12 @@
     const cands = list.filter((s) => s.visible !== false).reverse()
       .sort((a, b) => hitRank(a) - hitRank(b));
     let hit = null;
+    const under = [];
     for (const s of cands) {
-      try { if (Region.hitTest(s, z, tol, win)) { hit = s; break; } } catch (e) { /* a damaged formula never hits */ }
+      try { if (Region.hitTest(s, z, tol, win)) { under.push(s); if (!altHeld) break; } } catch (e) { /* a damaged formula never hits */ }
     }
+    // (UX42: Alt-click on shapes that cover each other goes to the next one under the pointer, round again at the last)
+    hit = altHeld && under.length > 1 && under.some((s) => s.id === selected) ? under[(under.findIndex((s) => s.id === selected) + 1) % under.length] : under[0] || null;
     if (hit) {
       if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'move', shape: hit, z0: z, moved: false, target };

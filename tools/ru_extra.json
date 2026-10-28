@@ -154,5 +154,7 @@
  "Remove vertex {i}": "Удалить вершину %{i}",
  "Vertex added.": "Вершина добавлена.",
  "Vertex removed.": "Вершина удалена.",
- "Vertices ({n})": "Вершины (%{n})"
+ "Vertices ({n})": "Вершины (%{n})",
+ "Bring to front": "На передний план",
+ "Send to back": "На задний план"
 }

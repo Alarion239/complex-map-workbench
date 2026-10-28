@@ -493,8 +493,10 @@
           if (hit) hits.push(s);
         }
         if (!hits.length) return null;
-        const s = hits[0];
-        return { id: s.id, name: nm(s), kind: s.kind, selected: selected === s.id, on: s.kind === 'point' ? hits.slice(1).filter((x) => kindType(x) === 'curve').map(nm) : [] };
+        const s = hits[0], i = list.indexOf(s);
+        // (every shape under the pointer, to pick one that another covers; and whether the subject can go forward or back)
+        return { id: s.id, name: nm(s), kind: s.kind, selected: selected === s.id, on: s.kind === 'point' ? hits.slice(1).filter((x) => kindType(x) === 'curve').map(nm) : [],
+          all: hits.map((x) => ({ id: x.id, name: nm(x), selected: selected === x.id })), canFront: i < list.length - 1, canBack: i > 0 };
       },
       // the vertex of a polygon under the pointer (for Remove vertex), X's shapes at stage 0, Y's targets where edited
       vertexAt(side, x, y, touch) {
@@ -509,6 +511,9 @@
         return null;
       },
       removeVertex(id, i) { if (polyRemoveVertex(id, i)) undoToast($t('Vertex removed.')); },
+      select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); },
+      front(id) { const t = S.targets.some((x) => x.id === id); moveShapeTo(id, (t ? S.targets : S.shapes).length - 1); },
+      back(id) { moveShapeTo(id, 0); },
       hide(id) {
         const s = findShape(id);
         if (!s) return;
