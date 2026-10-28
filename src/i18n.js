@@ -91,6 +91,30 @@ const I18N = (() => {
       return k && hasOwn(p, k) ? String(p[k]) : m;
     });
   }
+  // ([v16.5 check app-4] Italian) a name filled in with its article after a simple preposition takes the articulated
+  // one, as Italian writes it: "su {c}" with "la circonferenza unitaria" reads "sulla circonferenza unitaria", "a {c}"
+  // with "l'asse reale" "all'asse reale". Only a value that starts with a definite article (the reference forms of the
+  // unit circle and the axes, ctx 'ref'), right after a whole-word a / da / di / in / su; a template with TeX is filled
+  // as it is
+  const IT_MARK = '\u0001';
+  const IT_PRE = { a: 'a', da: 'da', di: 'de', in: 'ne', su: 'su' };
+  const IT_ART = { il: 'l', lo: 'llo', la: 'lla', le: 'lle', gli: 'gli', "l'": "ll'" };
+  const IT_JOIN = /(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \u0001(il|lo|la|le|gli) |(^|[\s(«“"])(a|da|di|in|su|A|Da|Di|In|Su) \u0001l['’]/g;
+  function fillIt(s, p) {
+    if (!p || hasTeX(s)) return fill(s, p);
+    const out = s.replace(PH_ANY, (m, safe, plain) => {
+      const k = safe || plain;
+      if (!k || !hasOwn(p, k)) return m;
+      const v = String(p[k]);
+      return /^(?:il|lo|la|le|gli) |^l['’]/.test(v) ? IT_MARK + v : v;
+    });
+    if (out.indexOf(IT_MARK) < 0) return out;
+    return out.replace(IT_JOIN, (m, b1, p1, art, b2, p2) => {
+      const pre = p1 || p2, a = art ? art : "l'", w = IT_PRE[pre.toLowerCase()] + IT_ART[a];
+      return (b1 != null ? b1 : b2) + (pre[0] === pre[0].toUpperCase() ? w.charAt(0).toUpperCase() + w.slice(1) : w) + (art ? ' ' : '');
+    }).split(IT_MARK).join('');
+  }
+  const fillL = (l, s, p) => (l === 'it' ? fillIt(s, p) : fill(s, p));
   // the placeholder names of a template (tests, the extractor check)
   function names(s) { const out = []; eachPh(String(s), (m, k) => out.push(k)); return out; }
 
@@ -109,12 +133,12 @@ const I18N = (() => {
   }
   function tIn(l, src, params) {
     if (l === 'en') return params ? fill(src, params) : src;
-    return fill(str(look(l, src, src), src), params);
+    return fillL(l, str(look(l, src, src), src), params);
   }
   // context: one English word, two Russian ones ("conformal" as a predicate of a map: "конформно")
   function txIn(l, ctx, src, params) {
     if (l === 'en') return params ? fill(src, params) : src;
-    return fill(str(look(l, ctx + CTX + src, src), src), params);
+    return fillL(l, str(look(l, ctx + CTX + src, src), src), params);
   }
   // plurals: tn('{n} shape', '{n} shapes', n). The key is one + CTX + many (gettext's msgid + msgid_plural), so two
   // pairs that share a singular never collide. English picks by Intl's 'one'; Russian entries are
@@ -132,8 +156,8 @@ const I18N = (() => {
     const tb = table(l), key = pluralKey(one, many);
     const v = hasOwn(tb, key) ? tb[key] : null;
     if (v == null) { miss(key); return fill(en, p); }
-    if (typeof v === 'string') return fill(v, p);
-    return fill(v[rule(l).select(n)] || v.other, p);
+    if (typeof v === 'string') return fillL(l, v, p);
+    return fillL(l, v[rule(l).select(n)] || v.other, p);
   }
   // a sentence whose slots hold structured values (caption segments, DOM nodes): the translated template split into
   // [text, value, text, ...], so word order follows the language and the values keep their type

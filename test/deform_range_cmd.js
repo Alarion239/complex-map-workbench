@@ -50,7 +50,9 @@ async function menuPick(k, text) {
   return items;
 }
 const st = () => ev('(() => { const s = __cmwState(), h = s.homView; return { focus: s.focus, morph: s.morph, hv: h ? { map: h.map, imageMap: h.imageMap, key: h.key, range: h.range, H0Map: h.H0Map, start: h.start } : null, range: __cmwRange() }; })()');
-const title = () => ev(`document.getElementById('rightTitle').querySelector('.ptitle') ? document.getElementById('rightTitle').querySelector('.ptitle').textContent : document.getElementById('rightTitle').textContent`);
+// (v16.5 UX103: the deformation's title is in words, "Deformation" + "from A to B", where it read "A → B" + "deformation":
+// read as "A → B" so the maps it names are compared with the reference build as before)
+const title = () => ev(`(() => { const R = document.getElementById('rightTitle'), t = R.querySelector('.ptitle'); if (!t) return R.textContent; const tt = t.textContent.trim(), ro = R.querySelector('.prole'); const m = /^(Deformation|Деформация)$/.test(tt) && ro ? /^(?:from|от)\\s+(.+?)\\s+(?:to|к|до)\\s+(.+)$/.exec(ro.textContent.trim()) : null; return m ? m[1] + ' → ' + m[2] : t.textContent; })()`);
 const probesOf = (n, x0, x1, y0, y1) => { const out = []; let s = 5; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; for (let i = 0; i < n; i++) out.push([x0 + (x1 - x0) * r(), y0 + (y1 - y0) * r()]); return out; };
 const near = (u, v, tol) => (u == null && v == null) || (u && v && Math.hypot(u[0] - v[0], u[1] - v[1]) <= tol * (1 + Math.hypot(v[0], v[1])));
 // GLR.evalMap of the current image map against its CPU twin (cpuMap), at pts; returns the worst relative error
@@ -70,15 +72,22 @@ if (RUN.includes(1)) {
       await load(ns, Object.assign({ pattern: 'checker', homAll: !!sc.homAll }, sc.st));
       if (build === 'v16m') await nav(`${BASE}v16m.html?ns=${ns}`);
       await settle(1000);
+      // (v16.5 UX20: Y's key and its options bar left the picture for the pane head, so the paths' starts may use the
+      // room they kept free (mfNogo): in the reference build they are taken off the plot before the deformation opens,
+      // so both builds choose their paths in the same free plot)
+      if (build === 'v16m') await ev(`(() => { for (const id of ['rightLegend', 'rightFoot']) { const e = document.getElementById(id); if (e) e.style.display = 'none'; } return 1; })()`);
       await ev('__cmwMorph({ open: true, playing: false })'); await settle(700);
       const m = await ev('__cmwState().homView ? (__cmwState().homView.map.mode === 3 ? 1 : null) : null');
-      const len = await ev(`(() => { const s = document.getElementById('morphLabel'); return s ? +s.textContent.split('/')[1] : 1; })()`);
+      const len = await ev(`(() => { const s = document.getElementById('morphRange'); return s ? +s.max || 1 : 1; })()`);   // (v16.5 UX103: the readout is in words; the scrubber's max is the length)
       const r = { T: {}, focus: {} };
       for (const T of [0, 0.5 * len, len]) {
         await at(T, 600); await pathsReady(); await settle(300);
         const h = await ev('(() => { const h = __cmwState().homView; return h ? { map: h.map, imageMap: h.imageMap, key: h.key } : null; })()');
         r.T[T] = { h, title: await title() };
         if (T === 0.5 * len) {
+          // (v16.5 UX20: the plane's key left the picture for Y's pane head; the reference build's key box over the plot
+          // is hidden for the shot, so the frames compare the maths drawing alone)
+          if (build === 'v16m') await ev(`(() => { for (const id of ['leftLegend', 'rightLegend']) { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; } return 1; })()`);
           await snap(`today-${sc.id}-${build}`, await plotClip());
           // (the same frame without the paths: the maps, X, its images and the outline alone)
           await ev(`(() => { const b = document.getElementById('pathsBtn'); if (b && b.getAttribute('aria-pressed') === 'true') b.click(); return 1; })()`); await settle(400);
@@ -485,7 +494,7 @@ if (RUN.includes(7)) {
   // the Duplicate of f2 lands inside
   await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
   await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Duplicate'); b.click(); return 1; })()`); await settle(600);
-  await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(300);   // (Duplicate shows the copy alone)
+  await ev(`(() => { if (__cmwState().focus) { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); } return 1; })()`); await settle(300);   // (before v16.5 Duplicate showed the copy alone; since UX01 the planes keep F)
   await ev('__cmwMorph({ open: true, playing: false })'); await settle(400);
   r = await ev('__cmwRange()');
   ok('duplicate inside: joins {2, 4}', r.ok && r.ok.a === 2 && r.ok.b === 4, r);

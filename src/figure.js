@@ -3510,14 +3510,27 @@ const Figure = (() => {
     const canVideo = typeof VideoEncoder !== 'undefined';
     const fmtOf = () => (set.fmt === 'video' ? (defo && canVideo ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
-    if (defo) fOpts.push(['video', $t('Video')]);
+    // (v16.5 UX60: Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
+    // opens again on Video: a video records the deformation)
+    fOpts.push(['video', $t('Video')]);
     // (PNG: 600 dpi for an article, where journals ask for it; 300 dpi for homework and slides; remembered per For)
     const dpiOf = () => { const v = set.dpiFor && set.dpiFor[set.for]; return v === 300 || v === 600 ? v : set.for === 'article' ? 600 : 300; };
     const dpiSel = h('select', { class: 'xf-select', id: 'xfDpi', 'aria-label': $t('Resolution'), onchange: () => { set.dpiFor = Object.assign({}, set.dpiFor, { [set.for]: +dpiSel.value }); set.dpi = +dpiSel.value; saveSet(set); syncFmt(); } }, ...[300, 600].map((v) => h('option', { value: String(v) }, `${v} dpi`)));
     dpiSel.value = String(dpiOf());
-    const fmtSeg = segB('xfFmt', fmtOf(), fOpts, (v) => { set.fmt = v; saveSet(set); syncFmt(); }, $t('Format'));
+    const fmtSeg = segB('xfFmt', fmtOf(), fOpts, (v) => {
+      if (v === 'video' && !defo) {
+        if (!(A.deformOn && A.deformOn())) { syncFmt(); return; }
+        set.fmt = 'video'; saveSet(set); close();
+        toast($t('A video records the deformation: it is on now.'));
+        setTimeout(() => open(), 0);
+        return;
+      }
+      set.fmt = v; saveSet(set); syncFmt();
+    }, $t('Format'));
     const fmtRow = row($t('Format'), h('div', { class: 'xf-fmtrow' }, fmtSeg, dpiSel)); fmtRow.classList.add('wide');
-    if (defo && !canVideo) { const vb = fmtSeg.querySelector('[data-v="video"]'); if (vb) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); } }
+    { const vb = fmtSeg.querySelector('[data-v="video"]');
+      if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
+      else if (vb && !defo) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
@@ -3870,7 +3883,7 @@ const Figure = (() => {
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && !canVideo);
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && A.canDeform && !A.canDeform())));
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);

@@ -65,7 +65,7 @@ await section('A', async () => {
   await load(NS, STATE);
   await settle(800);
   await grab();
-  ok('the Construct grid has six tiles (v16.3: Perpendicular circle, Touching circle)', (await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`)) === 'circle3,meet,midpoint,bisector,perp,touch', null);
+  ok('the Construct grid has seven tiles (v16.3: Perpendicular circle, Touching circle; v16.5 UX55: Hyperbolic line)', (await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`)) === 'circle3,meet,midpoint,bisector,perp,touch,hyper', null);
   // 14. the plane menu on a crossing: Mark the intersection
   const xc = await W(1.5 + 0.8 / Math.SQRT2, -0.5 + 0.8 / Math.SQRT2);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: xc[0] + 1, y: xc[1] + 1 });
@@ -83,7 +83,7 @@ await section('A', async () => {
   await move(a[0] + 3, a[1] - 2); await settle(80);
   const r0 = await CI();
   ok('hover: the ring is on z₀ with the chip "on z₀"', r0.ring && r0.ring.cls === 'point' && r0.ring.chip === 'on z₀', r0.ring);
-  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Point 1 of 3 · 3 points · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));
+  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3 points · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -195,7 +195,9 @@ await section('A', async () => {
   st = await ST();
   ok('a meet point does not move', byId(st, m.id).p[0] === m.p[0], byId(st, m.id).p);
   info.builtToast = await toastText();
-  ok('… and says what it is built from', /is built from Circle 1, Segment 1: drag those$/.test(info.builtToast), info.builtToast);
+  // ([v16.5 rail SPEC 2.4] a meet point comes off by a pull: 30 px is the stretch zone, so it stays, with the chip
+  // "Pull further to free z₃" while held, and no "built from" toast; ux165_rail_cmd C and D test the pull itself)
+  ok('… a 30 px drag only stretches it (v16.5: a pull frees a meet point)', !/is built from/.test(info.builtToast), info.builtToast);
   // 7. Midpoint of z₀, z₁; a circle through z₀, z₁ and the midpoint: the half-plane, A = 0 exactly
   a = await W(-1.5, 0); b = await W(0.5, -1);
   await tool('midpoint');
@@ -326,7 +328,7 @@ await section('C', async () => {
   await load(NS + 'ru', STATE);
   await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].map((s) => s.textContent.replace(/\u00ad/g, ''))`);
-  ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание']), tiles);
+  ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание', 'Гиперболическая']), tiles);
   ok('RU heading', (await ev(`document.querySelector('#cmHead').textContent`)) === 'Построения', null);
   const fits = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].every((s) => s.scrollWidth <= s.clientWidth + 1)`);
   ok('RU tile labels fit', fits, tiles);
@@ -334,7 +336,7 @@ await section('C', async () => {
   const a = await W(-1.5, 0), b = await W(0.5, -1), z = await W(1, 0.5);
   await move(a[0], a[1]); await settle(80);
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
-  ok('RU draft chip', (await ev(`document.querySelector('#draftChipL .cm-t').textContent`)) === 'Точка 1 из 3 · По 3 точкам · Esc — отмена', await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  ok('RU draft chip', (await ev(`document.querySelector('#draftChipL .cm-t').textContent`)) === 'Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');
@@ -403,7 +405,7 @@ await section('E', async () => {
   const d = (await CI()).draft;
   ok('phone: taps 15 px off the points pick them', d && d.picks.length === 2 && d.picks[0].ref && d.picks[0].ref.s === 's1' && d.picks[1].ref && d.picks[1].ref.s === 's2', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  ok('phone chip: no Esc, a ×', /Point 3 of 3/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  ok('phone chip: no Esc, a ×', /· 3 of 3 ·/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   await shot('cm-p390-pick');
   await touch(e[0], e[1]); await settle(400);
   const st = await ST();

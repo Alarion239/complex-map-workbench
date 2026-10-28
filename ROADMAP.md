@@ -1,19 +1,17 @@
 # Roadmap
 
-**Live now:** v16.4.1 (26 October 2026): Landscape walls, the docked guided tour with the Grieg chapter, hyperbolic
-lines ("Inside").
+**Live now:** v16.5 (27 October 2026): a round of fixes, and snapping and railing of points.
 
-**Next:** v16.5, a round of fixes (built in part, paused), then v17, a redesign of how the app is laid out and
-learned. Both come from a usability audit of every function on laptops and Android phones:
-[plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17 of them serious, each with its fix; step counts
-for 43 common tasks; mockups of every option).
+**Next:** v17, a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
+of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
 ## Where we are
 
 | Version | What | Status |
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
-| v16.5 | The fixes that need no decision, snapping and railing of points | being built, paused until the usage limits reset |
+| v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
 | v17 | The twelve layout decisions (D1–D12) and the new guided tour | designed (options chosen), not started |
 | patch | Landscape walls redesign | planned |
 

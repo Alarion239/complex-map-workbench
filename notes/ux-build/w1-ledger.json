@@ -1,0 +1,253 @@
+{
+ "round": "v16.5 wave 1 fix",
+ "date": "2026-10-27",
+ "tree": "work/xu1",
+ "snapshot": "work/xu1-final-snap",
+ "asBuilt": "notes/ux-build/w1-fix-AS-BUILT.md",
+ "findings": [
+  {
+   "id": "rail-1",
+   "outcome": "fixed",
+   "fix": "unit circle wins an axis tie within 4 px (6 touch); no crossing target between unit circle and axes",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "t_ux165_fix rail-1; ux165_fix_cmd rail-1/2"
+  },
+  {
+   "id": "rail-2",
+   "outcome": "fixed",
+   "fix": "adaptive angle step (15/30/45/90 deg, arc >= 5 R) and lattice window <= 1/5 step: at most 40 % of a rail",
+   "files": [
+    "src/constr.js",
+    "src/construct.js"
+   ],
+   "test": "t_ux165_fix rail-2; ux165_fix_cmd rail-2 phone"
+  },
+  {
+   "id": "rail-3",
+   "outcome": "fixed",
+   "fix": "no detent at a co-argument of a construction built on the dragged point",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "ux165_fix_cmd rail-3"
+  },
+  {
+   "id": "rail-4",
+   "outcome": "fixed",
+   "fix": "fixed unit circle / axes named by their name everywhere, not numbered",
+   "files": [
+    "src/construct.js",
+    "src/app.js"
+   ],
+   "test": "t_ux165_fix rail-4; ux165_fix_cmd rail-4"
+  },
+  {
+   "id": "rail-5",
+   "outcome": "fixed",
+   "fix": "globe construction picks on a curve are gliders; curve tools on the globe say to switch to the plane",
+   "files": [
+    "src/construct.js",
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd rail-5"
+  },
+  {
+   "id": "rail-6",
+   "outcome": "fixed",
+   "fix": "Snap-off tip only at the release of a tap that did not move",
+   "files": [
+    "src/construct.js",
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd rail-6"
+  },
+  {
+   "id": "rail-7",
+   "outcome": "fixed",
+   "fix": "refusal cleared on accepted pick, Undo pick, cancel, Esc; one message after a press",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "ux165_fix_cmd rail-7"
+  },
+  {
+   "id": "rail-8",
+   "outcome": "fixed",
+   "fix": "refusal names the tool by the chip word",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "ux165_fix_cmd rail-8"
+  },
+  {
+   "id": "rail-9",
+   "outcome": "fixed",
+   "fix": "desktop chip moves to the plane foot while picks/pointer/picked circle are in its top band (interim until D10)",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "ux165_fix_cmd rail-9"
+  },
+  {
+   "id": "user-1",
+   "outcome": "fixed",
+   "fix": "Numbers unused line follows the chain and selected step (Params.syncUnused)",
+   "files": [
+    "src/params.js",
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd user-1"
+  },
+  {
+   "id": "user-2",
+   "outcome": "fixed",
+   "fix": "curve within grid radius beats lattice; placement detent window halved",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "t_ux165_fix user-2; ux165_fix_cmd user-2",
+   "note": "stronger unit circle while a tool is armed: not done (maths drawing rule)"
+  },
+  {
+   "id": "user-3",
+   "outcome": "fixed",
+   "fix": "pattern cell keyed on regions only; Y fit ignores construction curves/points and fixed curves",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd user-3",
+   "note": "UX91 note stays once a session"
+  },
+  {
+   "id": "user-4",
+   "outcome": "fixed",
+   "fix": "short Russian line; chip line never ellipsized (second line)",
+   "files": [
+    "src/page.html",
+    "notes/i18n/ru/v165-ux-fix.json"
+   ],
+   "test": "ux165_fix_cmd user-4"
+  },
+  {
+   "id": "user-5",
+   "outcome": "fixed",
+   "fix": "+ Number right under the list",
+   "files": [
+    "src/params.js"
+   ],
+   "test": "ux165_fix_cmd user-5"
+  },
+  {
+   "id": "user-6",
+   "outcome": "fixed",
+   "fix": "chip: Pick a point (on {c} or anywhere); Whole/Inside/Outside tooltips already present",
+   "files": [
+    "src/construct.js"
+   ],
+   "test": "ux165_fix_cmd user-6"
+  },
+  {
+   "id": "user-7",
+   "outcome": "no_change_needed",
+   "fix": "scorecard; review lists no wave 1 fix beyond user-1..6",
+   "files": [],
+   "test": ""
+  },
+  {
+   "id": "regress-1",
+   "outcome": "fixed",
+   "fix": "padded percentage; short readout when the close button would wrap",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd regress-1"
+  },
+  {
+   "id": "regress-2",
+   "outcome": "fixed",
+   "fix": "ResizeObserver re-places a showing toast on layout changes",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd regress-2"
+  },
+  {
+   "id": "regress-3",
+   "outcome": "fixed_differently",
+   "fix": "desktop messages placed in the chain head gap when they fit (cover nothing); phone unchanged",
+   "files": [
+    "src/app.js",
+    "src/desk.css"
+   ],
+   "test": "ux165_fix_cmd regress-3",
+   "note": "needs the user's confirmation (review said ask the user)"
+  },
+  {
+   "id": "regress-4",
+   "outcome": "fixed",
+   "fix": "phone probe hint once a session for 8 s",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd regress-4"
+  },
+  {
+   "id": "regress-5",
+   "outcome": "fixed",
+   "fix": "Try line stays while the melody plays; leaves when it ends",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd regress-5"
+  },
+  {
+   "id": "regress-6",
+   "outcome": "partly_fixed",
+   "fix": "F(z) once per probe move; other pointer paths named for CI perf gate",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "t_ux165_fix regress-6",
+   "note": "CI: Point/Orthogonal hover over many curves, Snap-on disc drag, glider slide, X probe hover"
+  },
+  {
+   "id": "regress-7",
+   "outcome": "fixed",
+   "fix": "updateUndo and targetNote memoized",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "t_ux165_fix regress-7"
+  },
+  {
+   "id": "regress-8",
+   "outcome": "fixed_and_listed",
+   "fix": "mfNogo keeps only rectangles over the plane (no pick changes); v16.4 vs now pictures for consent",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "t_ux165_fix regress-8",
+   "note": "notes/ux-build/shots/w1-fix/regress8-deform-paths-{v164,after}.png"
+  },
+  {
+   "id": "regress-9",
+   "outcome": "fixed",
+   "fix": "tips on keyboard (Tab/arrow) focus with :focus-visible only",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd regress-9"
+  },
+  {
+   "id": "regress-10",
+   "outcome": "fixed",
+   "fix": "undo/redo names shapes from the step snapshot (z2)",
+   "files": [
+    "src/app.js"
+   ],
+   "test": "ux165_fix_cmd regress-10"
+  }
+ ]
+}
