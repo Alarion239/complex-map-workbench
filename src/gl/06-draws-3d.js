@@ -220,6 +220,39 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
+  function lwRead(tex, w, h) {
+    if (!tex || !(w > 0) || !(h > 0)) return null;
+    const fb = gl.createFramebuffer(), out = new Float32Array(4 * w * h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    const done = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    if (done) gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, out);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fb);
+    return done ? out : null;
+  }
+  // GLR.landMesh(n): the n x n grid's last heights: {key (landHeights' key), h (per vertex x, y, height, finite), e (the
+  // edge passes' jump data for +x, +y and the diagonal, null without cuts)}, or null before the surface has been drawn
+  function lwMesh(n) {
+    const land = lands.get(n);
+    if (!ok || !land || !land.key) return null;
+    return { key: land.key, h: lwRead(land.tex1, n, n), e: land.cuts > 0 ? land.edges.map((t) => lwRead(t, n, n)) : null, cuts: land.cuts };
+  }
+  // GLR.landRefine(read, n): {land} of the n grid's refinement, null before one is built; read: with the vertex
+  // records, the levels (a quarter of a float per cell, in lv) and the heights (h) read back
+  function lwRefine(read, n) {
+    const land = lands.get(n);
+    if (!ok || !land || !land.rf || !land.lvRaw) return { land: null };
+    const r = land.rf, L = { N: n, entries: r.entries, groups: r.groups, rows: r.rows, capped: r.capped, partial: !!r.partial, key: land.key };
+    if (read) {
+      L.lv = land.lvRaw; L.h = lwRead(land.tex1, n, n);
+      L.rf = r.rows > 0 ? lwRead(land.rfTex, RF_W, r.rows) : new Float32Array(0);
+    }
+    return { land: L };
+  }
+  // TEMP-DEBUG-HOOK
   // ---- adaptive refinement (REFINE; notes/landscape-walls/r2/AS-BUILT.md) ----
   // The levels come from the GPU (a pass of the height program); they are read back (a quarter of a float per cell)
   // and listed here, grouped by level, worst first within the budget; the refined vertices are a third pass of the
@@ -943,6 +976,11 @@
   }
   function drawLandscape(st) {
     if (!ok) return null;
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    // (walls tests, issue #52) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
+    // the scene stands still, as the motion part measures it
+    if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
+    // TEMP-DEBUG-HOOK
     lvCollect();
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
@@ -988,6 +1026,10 @@
     const fitD = fitDist(landGeom(box, st.scale).radius, (st.cam && st.cam.fov) || 28 * Math.PI / 180, fw, fh, 1.05);
     const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
     const dbg = {};
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    // (walls tests, issue #52) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
+    Object.assign(dbg, api._lw || {});
+    // TEMP-DEBUG-HOOK
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights

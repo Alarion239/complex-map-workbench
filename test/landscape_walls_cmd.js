@@ -31,8 +31,9 @@
 //     fitted through them; moving, its largest deviation at most max(0.6 px, the rest's + 0.15) and no more columns
 //     without the line than at rest + 3 %. (Round 2 on the same frames: 2.8 to 3.6 px.) Round 2's build can be
 //     measured with the same hook patched in (globalThis.__lwMotionPages).
-const PORT = globalThis.__lwPort || 9811;
-const PARTS = globalThis.__lwParts || ['mesh', 'speck', 'cold', 'perf', 'motion'];
+// (run from ci/browser.js --include-excluded: the port is the kit copy's, LW_PARTS=mesh,motion and LW_ONLY=sqrt-im,log-im narrow it)
+const PORT = globalThis.__lwPort || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, 9811])[1];
+const PARTS = globalThis.__lwParts || (process.env.LW_PARTS ? process.env.LW_PARTS.split(',') : ['mesh', 'speck', 'cold', 'perf', 'motion']);
 const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const rect = async () => ev(`(() => { const e = document.querySelector('#paneL') || document.querySelector('.pane'); const b = e.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), width: Math.round(b.width), height: Math.round(b.height) }; })()`);
 const cx = (expr) => ({ type: 'custom', params: { expr, cut: 180 }, on: true });
@@ -52,7 +53,7 @@ const CASES = [
   { id: 'z2-t0.25-im', steps: [{ type: 'pown', params: { n: 2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.25, mode: 1 },
   { id: 'zm2-t0.2-im', steps: [{ type: 'pown', params: { n: -2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.2, mode: 1 },
 ];
-const ONLY = typeof globalThis.__lwOnly === 'object' ? globalThis.__lwOnly : null;
+const ONLY = typeof globalThis.__lwOnly === 'object' ? globalThis.__lwOnly : process.env.LW_ONLY ? process.env.LW_ONLY.split(',') : null;
 // the in-page check: the GPU mesh of the pane (N = 256) against the oracle on the CPU (the app's own Funcs)
 const CHECK = (steps, h, sing, singR, homT) => `(() => {
   const m = GLR.landMesh(256);
