@@ -225,8 +225,8 @@
       remove(ids) {
         const plan = cmDeletePlan(ids);
         const del = new Set(plan.del);
-        S.shapes = S.shapes.filter((s) => !del.has(s.id));
-        S.targets = S.targets.filter((s) => !del.has(s.id));
+        setShapes(S.shapes.filter((s) => !del.has(s.id)));
+        setTargets(S.targets.filter((s) => !del.has(s.id)));
         for (const id of del) dropShapeGPU(id);
         if (selected && del.has(selected)) selected = null;
         shapesChanged(true); targetsChanged(true); commit();
@@ -505,7 +505,7 @@
     paneR = new Pane($('canvasR'), $('overlayR'));
     const loaded = load();
     setState(loaded || blankState());
-    if (!Array.isArray(S.params)) S.params = [];
+    if (!Array.isArray(S.params)) setParams([]);
     attachParams();
     bindsAll();
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
@@ -708,7 +708,7 @@
       $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
-    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
+    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; setSteps([]); setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;

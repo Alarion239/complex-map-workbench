@@ -164,7 +164,7 @@
   function tourLoadScene(spec) {
     if (!spec || !Array.isArray(spec.steps) || !spec.steps.every((st) => st && Funcs.DEFS[st.type])) return false;
     // (v15: a scene brings its own shared numbers, none unless it says so; restore() brings the user's back)
-    S.params = Array.isArray(spec.params) ? JSON.parse(JSON.stringify(spec.params)) : [];
+    setParams(Array.isArray(spec.params) ? JSON.parse(JSON.stringify(spec.params)) : []);
     loadExample(-1, Object.assign({ shapes: [], view: { cx: 0, cy: 0, s: 60 } }, spec));
     paramsRestored();
     return true;
