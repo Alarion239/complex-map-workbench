@@ -3030,7 +3030,7 @@
  "Insert at the end": "Inserisci alla fine",
  "Draw panel": "Pannello Disegna",
  "3-pt circle": "Per 3 punti",
- "\u22a5 circle": "Ortogo\u00adnale",
+ "⊥ circle": "Ortogo­nale",
  "field-short\u0004Add function": "Cerca",
  "field\u0004Add function": "Aggiungi funzione",
  "rail\u0004Draw": "Disegna",
@@ -3053,5 +3053,6 @@
  "Open ⋯, then Search.": "Apri ⋯, poi scegli «Cerca».",
  "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.": "Questo pulsante apre il tour per capitoli, la guida e tutte le scorciatoie. {?} apre direttamente la guida.",
  "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "In questo menu, «Tour guidato» avvia il tour per capitoli; «Guida» apre la guida completa.",
- "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica"
+ "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica",
+ "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord"
 }

@@ -49,6 +49,18 @@
       pane.setView(V.right); pane.zoomAt(x, y, f); rightAuto = false; requestRender('R');
     }
   }
+  // a two-finger drag moves a flat plane by the way its midpoint went (the pinch zooms about it): every tool, on touch
+  function panPane(pane, side, dx, dy) {
+    if (is3DSide(side)) return;
+    const v = side === 'L' ? leftView() : V.right;
+    v.cx -= dx / v.s; v.cy += dy / v.s;
+    if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L'); } else { rightAuto = false; requestRender('R'); }
+  }
+  // the outer 16 px of a phone's plane only pans (or turns a globe): Android's edge-swipe Back then never cancels half a shape
+  const EDGE_PX = 16;
+  const edgeTouch = (pane, x, y) => ptrTouch && touchUI() && (x < EDGE_PX || y < EDGE_PX || x > pane.w - EDGE_PX || y > pane.h - EDGE_PX);
+  // the shape drawn last: a drawing tool's press on it moves or reshapes it, a press elsewhere draws (touch)
+  let justDrawn = null;
   // Space held turns a globe in every tool, Alt suspends snapping on it (P3b, panels.md 9.5); a field being typed in
   // keeps its Space
   const typing = (t) => !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -174,6 +186,8 @@
           const d0 = Math.hypot(prev[0][0] - prev[1][0], prev[0][1] - prev[1][1]);
           const d1 = Math.hypot(now[0][0] - now[1][0], now[0][1] - now[1][1]);
           if (d0 > 0 && d1 > 0) { zoomPane(pane, side, (now[0][0] + now[1][0]) / 2, (now[0][1] + now[1][1]) / 2, d1 / d0); if (d1 !== d0) pinched = pinched || 'zoom'; }
+          // (two fingers pan as well as pinch: the midpoint's own move)
+          { const pmx = (now[0][0] + now[1][0] - prev[0][0] - prev[1][0]) / 2, pmy = (now[0][1] + now[1][1] - prev[0][1] - prev[1][1]) / 2; if (pmx || pmy) { panPane(pane, side, pmx, pmy); pinched = pinched || 'pan'; } }
           // a two-finger drag turns a globe (P3b, P6: one finger draws there)
           if (side === 'L' ? lGlobe() : rGlobe()) {
             const c = camOf(side);
@@ -324,7 +338,7 @@
     ptrTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
     Construct.pointer(e);   // (v16: touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
-    const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey);
+    const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y);
     if (side === 'R') {
       // a press ends the hover: the preimages come back with the next hover
       if (hov.w) { setHoverW(null); requestRender('OL'); }
@@ -410,6 +424,17 @@
       requestRender(ov);
       return true;
     }
+    // (touch, a drawing tool: a press on the shape just drawn moves it, or reshapes it by a handle; a press elsewhere draws)
+    if (ptrTouch && tool !== 'select' && tool !== 'point' && justDrawn && selected === justDrawn) {
+      const js = list.find((q) => q.id === justDrawn);
+      if (js) {
+        const jk = handleAt(pane, js, x, y);
+        if (jk) { drag = { mode: 'handle', shape: js, key: jk, target }; return true; }
+        let onBody = false;
+        try { onBody = !!Region.hitTest(js, z, 18 / pane.view.s, win); } catch (e) { onBody = false; }
+        if (onBody) { drag = { mode: 'move', shape: js, z0: z, moved: false, target }; requestRender(ov); return true; }
+      }
+    }
     if (tool !== 'select') {
       if (tool === 'point') {
         const pd = Construct.pointDown(pane, side, x, y);   // (v16: a crossing, a curve, a point)
@@ -459,8 +484,11 @@
     // (UX42: Alt-click on shapes that cover each other goes to the next one under the pointer, round again at the last)
     hit = altHeld && under.length > 1 && under.some((s) => s.id === selected) ? under[(under.findIndex((s) => s.id === selected) + 1) % under.length] : under[0] || null;
     if (hit) {
+      // (touch: the first press on a shape with area or curves only selects it, and a drag from it pans; the next one moves it. A point is a small, deliberate target: a drag moves it)
+      const firstTap = ptrTouch && selected !== hit.id && kindType(hit) !== 'point';
       if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
-      drag = { mode: 'move', shape: hit, z0: z, moved: false, target };
+      if (firstTap) drag = target ? { mode: 'panR', x, y, cx: V.right.cx, cy: V.right.cy } : { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
+      else drag = { mode: 'move', shape: hit, z0: z, moved: false, target };
       requestRender(ov);
       return true;
     }
@@ -675,7 +703,7 @@
     const turn = () => { gTurnPress[side] = true; c.vyaw = 0; c.vpitch = 0; drag = { mode: e.button === 2 || e.shiftKey ? 'pan3' : 'orbit', cam: c, side, x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; };
     // the middle button, Space held or the right button turn (or pan) the globe in every tool (panels.md 9.5)
     const g = pickGlobe(pane, c, x, y);
-    if (!gc || !g || e.button === 1 || e.button === 2 || spaceHeld || (e.shiftKey && e.altKey)) { turn(); return; }
+    if (!gc || !g || e.button === 1 || e.button === 2 || spaceHeld || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y)) { turn(); return; }
     if (GLOBE_OFF.has(tool) || tool === 'formula') { turn(); return; }
     if (Construct.isTool(tool)) { turn(); drag.cmPick = true; return; }   // (v16: a click picks, onUp; a drag turns)
     if (tool === 'polygon') {
@@ -713,6 +741,17 @@
       gSnapMark = null;
       return;
     }
+    // (touch, a drawing tool: a press on the shape just drawn, on its handle or on it, moves or reshapes it; elsewhere draws)
+    if (ptrTouch && justDrawn && selected === justDrawn) {
+      const js = list.find((q) => q.id === justDrawn);
+      if (js) {
+        for (const [key, P] of globeHandles(js, gc)) {
+          const q = gScreen(gc, P);
+          if (q && Math.hypot(q[0] - x, q[1] - y) <= 18) { drag = { mode: 'ghandle', shape: js, key, target, side, x, y }; return; }
+        }
+        if (globeCurveHit(gc, js, x, y, 10) || GL3.globeInside(js, g.P)) { drag = { mode: 'gmove', shape: js, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(js)), moved: false, target, side, x, y }; requestRender('O' + side); return; }
+      }
+    }
     // [UX47] the second click of a two-click shape on this globe: its end (the rim of a circle) at the press
     if (draft && draft.pending && draft.globe === side && draft.kind === tool) {
       draft.pending = false;
@@ -746,7 +785,7 @@
     if (sel) {
       for (const [key, P] of globeHandles(sel, gc)) {
         const q = gScreen(gc, P);
-        if (q && Math.hypot(q[0] - x, q[1] - y) <= 8) { drag = { mode: 'ghandle', shape: sel, key, target, side, x, y }; return; }
+        if (q && Math.hypot(q[0] - x, q[1] - y) <= (ptrTouch ? 18 : 8)) { drag = { mode: 'ghandle', shape: sel, key, target, side, x, y }; return; }
       }
     }
     const vis = list.filter((s) => s.visible !== false).reverse();
@@ -758,6 +797,8 @@
     }
     if (!hit) for (const s of vis) if (kindType(s) !== 'point' && globeCurveHit(gc, s, x, y, 6)) { hit = s; break; }
     if (!hit) for (const s of vis) if (GL3.globeInside(s, g.P)) { hit = s; break; }
+    // (touch: a press on a shape with area or curves that is not selected turns the globe, and a tap only selects it; the selected shape moves, and so does a point)
+    if (hit && ptrTouch && selected !== hit.id && kindType(hit) !== 'point') { turn(); drag.gsel = hit.id; return; }
     if (hit) {
       if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'gmove', shape: hit, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(hit)), moved: false, target, side, x, y };
@@ -905,7 +946,7 @@
       }
       if (!ok && !d.second && TWO_CLICK.has(kind)) { holdPending(); return; }
       draft = null;
-      if (ok) addShape(s, !!d.target); else { rimPhi.delete(s.id); requestRender(side, 'OL', 'OR'); }
+      if (ok) { addShape(s, !!d.target); justDrawn = s.id; } else { rimPhi.delete(s.id); requestRender(side, 'OL', 'OR'); }
       return;
     }
     if ((d.mode === 'ghandle' || d.mode === 'gmove') && d.moved) {
@@ -1312,6 +1353,7 @@
     drag = null;
     lastPress = { side, mode: d.mode, far: !!d.far, pb: !!d.pb };
     tourDragEnd(d);
+    if (d.gsel && d.mode === 'orbit' && !d.far) { selected = d.gsel; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); }
     // a left-view change made during the press re-centres the meshing window now (gesture end)
     sourceViewChanged.flush();
     setCursor(pane, side);
@@ -1361,7 +1403,7 @@
       draft = null;
       if (kind === 'lasso' && !d.target) { if (ok) sndLoopDone(s.pts); else snd.loop = null; }
       Construct.drawEnd(ok ? s : null, !!d.target);   // (v16: the snapped ends bind)
-      if (ok) { shapeVia = 'draw'; try { addShape(s, !!d.target); } finally { shapeVia = null; } } else requestRender('OL', 'OR');
+      if (ok) { shapeVia = 'draw'; try { addShape(s, !!d.target); justDrawn = s.id; } finally { shapeVia = null; } } else requestRender('OL', 'OR');
     }
   }
   function finishPolygon() {

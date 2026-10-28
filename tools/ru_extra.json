@@ -235,7 +235,7 @@
  "Insert at the end": "Вставить в конец",
  "Draw panel": "Панель «Рисование»",
  "3-pt circle": "По 3 точкам",
- "\u22a5 circle": "\u041e\u0440\u0442\u043e\u0433\u043e\u00ad\u043d\u0430\u043b\u044c\u043d\u0430\u044f",
+ "⊥ circle": "Ортого­нальная",
  "Draw  [": "Рисование  [",
  "Show or hide the Draw panel": "Показать или скрыть панель «Рисование»",
  "field\u0004Add function": "Добавить функцию",
@@ -256,6 +256,7 @@
  "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), шаг «Ряд» вида «ряд Дирихле» с aₙ = 1, равен ζ(z) там, где сходится, — правее штриховой прямой Re z = 1. Левее ряд расходится и плоскость пуста, хотя сама ζ продолжается.",
  "Open ⋯, then Search.": "Откройте ⋯ и выберите «Поиск».",
  "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
- "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство»\u00a0— всё руководство.",
- "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая"
+ "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
+ "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
+ "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе"
 }
