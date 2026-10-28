@@ -299,7 +299,9 @@ function SND_LIB() {
     const g = { q: [], cur: null, pend: null, ph: 0, env: 0, panS: 0, gn: 1, wN: -2, tier: 2, tag: undefined, untilF: -1, kd: Math.exp(-6.9078 / (0.8 * fs)), blk: 0, stop: -1, bLast: -1, bS: 0, live: false };
     function take(c) { g.cur = c; g.untilF = Math.round((c.until || 0) * fs); g.kd = Math.exp(-6.9078 / ((c.rel || 0.8) * fs)); if (c.tier != null) g.tier = c.tier; g.tag = c.tag; }
     function apply(c) {
-      // (stop: what sounds fades; a control arriving during the fade waits for its end, then starts afresh)
+      // (stop: what sounds fades; a control arriving during the fade waits for its end, then starts afresh. A tagged
+      // stop or close is for its own group only: the live stream's never reach a Listen along's Glide, nor its theirs)
+      if ((c.mode === 'stop' || c.mode === 'close') && c.tag != null && g.tag != null && c.tag !== g.tag) return;
       if (c.mode === 'stop') { if (g.live && g.stop < 0) g.stop = 0; return; }
       if (g.stop >= 0) { g.after = c; return; }
       if (c.mode === 'close') { g.untilF = Math.round((c.until || 0) * fs); return; }   // the gate closes; φ, level, pan held
@@ -313,7 +315,12 @@ function SND_LIB() {
     }
     return {
       cmd(c, f) { c.f = f; let i = g.q.length; while (i > 0 && g.q[i - 1].f > c.f) i--; g.q.splice(i, 0, c); },
-      clear(tag) { if (tag != null && g.tag !== tag) return; g.q = []; if (g.live && g.stop < 0) g.stop = 0; },
+      // (a tag's clear drops that tag's queued controls even while another group sounds; it fades the voice only when
+      // the voice is that tag's)
+      clear(tag) {
+        if (tag != null) { g.q = g.q.filter((c) => c.tag !== tag); if (g.after && g.after.tag === tag) g.after = null; if (g.tag !== tag) return; } else { g.q = []; g.after = null; }
+        if (g.live && g.stop < 0) g.stop = 0;
+      },
       on: () => g.live || g.q.length > 0,
       env: () => g.env,
       run(outs, f0, n, wet) {
@@ -1821,6 +1828,7 @@ registerProcessor('cmw-voice', Voice);`;
       G.hushAt = t;
     }
     if (G.synth) G.synth.post([{ k: 'clear' }]);
+    HH.along = null;
     const off = Math.max(now, t + 0.013);
     for (const s of G.active) { try { s.stop(off); } catch (e) { /* not started */ } }
     // the voices fade now (τ 4 ms, zero slope at the start)
@@ -1833,6 +1841,7 @@ registerProcessor('cmw-voice', Voice);`;
   // sources fade on their own gain (a 12 ms raised cosine) and stop after it: a stop alone cut a ringing string's wave
   // (review sound-4)
   function stopTag(tag) {
+    if (HH.along && HH.along.tag === tag) HH.along = null;
     if (!ctx || !G) return;
     if (G.synth) G.synth.post([{ k: 'clear', tag }]);
     const t = ctx.currentTime + LEAD;
@@ -1922,6 +1931,7 @@ registerProcessor('cmw-voice', Voice);`;
       for (const e of log) if (e.k === 'crack') { counts.cracks++; htRender(G, e, e.at, 'events', tag, true); }
       G.synth.post(gc.ctl.map((c) => Object.assign({ k: 'gl', tier: TI.events, tag }, c)));
       end += HT.GL4.tail;
+      HH.along = { tag, end: end - HT.GL4.tail + 0.05 };
       log.glide = gc;
     }
     for (const c of cues) { htCue(c, glide, t0 + c.t - T0, 'events'); log.push({ t: c.t, at: t0 + c.t - T0, k: c.zero ? 'cue:zero' : 'cue:pole', m: c.m }); }
@@ -1932,7 +1942,7 @@ registerProcessor('cmw-voice', Voice);`;
   }
 
   // ---- the live stream: Sound.hear
-  const HH = { live: HTL.Live({ n: HT.n }), off: null, timer: 0, logFn: null, lastOnset: -1e9, gl: { on: false, until: 0, at: 0, rel: 0 }, counts: null };
+  const HH = { live: HTL.Live({ n: HT.n }), off: null, timer: 0, logFn: null, lastOnset: -1e9, gl: { on: false, until: 0, at: 0, rel: 0 }, counts: null, along: null };
   const hc0 = () => ({ notes: 0, merged: 0, late: 0, reps: 0, deferred: 0, repCue: 0, repGrace: 0, cracks: 0, cutMerged: 0, dUp: 0, dDown: 0, seats: 0 });
   HH.counts = hc0();
   const hearOk = () => !!(AC && P.on && P.sonify && !hidden && canSchedule());
@@ -1961,6 +1971,8 @@ registerProcessor('cmw-voice', Voice);`;
   }
   function hearGl(gl, mode, t, fade) {
     if (!gl || !glideOn() || !G.synth) return;
+    // (a Listen along in the Glide owns the one voice until it ends or is stopped: the live stream is not heard over it)
+    if (HH.along && ctx.currentTime < HH.along.end) return;
     const at = Math.max(hearAt(t), ctx.currentTime + LEAD), until = gl.until > t ? at + (gl.until - t) : at;
     const c = { k: 'gl', at, phi: gl.phi, mode, a: gl.a, b: gl.b, pan: clamp(gl.pan || 0, -HT.PAN_MAX, HT.PAN_MAX), until, rel: gl.rel || 0, fade: fade ? 1 : 0, tier: TI.sonify, tag: 'hear' };
     G.synth.post([c]);
@@ -1997,13 +2009,13 @@ registerProcessor('cmw-voice', Voice);`;
   function hearGap(t) {
     const tt = Number.isFinite(t) ? t : performance.now() / 1000;
     // the Glide's gate closes now: it rings down (T60 0.8 s, or 0.2 s after a key stroke)
-    if (HH.live.stroke && ctx) { hearOut(HH.live.gap(tt).ev); if (glideOn() && G.synth && HH.gl.until > ctx.currentTime) { const now = ctx.currentTime + LEAD; G.synth.post([{ k: 'gl', at: now, mode: 'close', until: now }]); HH.gl.until = now; hearLog({ k: 'gl', at: now, mode: 'close', until: now }); } }
+    if (HH.live.stroke && ctx) { hearOut(HH.live.gap(tt).ev); if (glideOn() && G.synth && HH.gl.until > ctx.currentTime) { const now = ctx.currentTime + LEAD; G.synth.post([{ k: 'gl', at: now, mode: 'close', until: now, tag: 'hear' }]); HH.gl.until = now; hearLog({ k: 'gl', at: now, mode: 'close', until: now }); } }
     else HH.live.gap(tt);
     clearTimeout(HH.timer); HH.timer = 0; HH.off = null;
   }
   function hearEnd() {
     HH.live.end(); clearTimeout(HH.timer); HH.timer = 0; HH.off = null;
-    if (G && G.synth && ctx) G.synth.post([{ k: 'gl', at: ctx.currentTime + LEAD, mode: 'stop' }]);
+    if (G && G.synth && ctx) G.synth.post([{ k: 'gl', at: ctx.currentTime + LEAD, mode: 'stop', tag: 'hear' }]);
     HH.gl = { on: false, until: 0, at: 0, rel: 0 };
   }
   const hear = {

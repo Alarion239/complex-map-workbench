@@ -289,6 +289,23 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
     G1.cmd({ at: 3.0, phi: 0, mode: 'seat', a: 0.03, b: 0.2, pan: 0, until: 4 }, 3.0 * 48000); G1.cmd({ at: 3.3, mode: 'stop' }, 3.3 * 48000);
     let after = 0; for (let b = Math.round(3 * 48000 / 128); b < Math.round(3.5 * 48000 / 128); b++) { outs[0][0].fill(0); G1.run(outs, b * 128, 128, 0.14); if (b * 128 > 3.32 * 48000) for (const v of outs[0][0]) after = Math.max(after, Math.abs(v)); }
     check('Glide: a stop is silent 20 ms later', after === 0, after);
+    // (review: the live stream's stop and close are scoped to 'hear': a Listen along's Glide plays through them)
+    const G2 = S0.LIB.Glide(48000), rms = (a, b) => { let q = 0, n = 0; for (let k = Math.round(a * 48000 / 128); k < Math.round(b * 48000 / 128); k++) { outs[0][0].fill(0); outs[0][1].fill(0); G2.run(outs, k * 128, 128, 0); for (const v of outs[0][0]) { q += v * v; n++; } } return Math.sqrt(q / Math.max(1, n)); };
+    for (let k = 0; k <= 400; k++) { const c = { at: 0.01 + k * 0.005, phi: 0.1 + k * 0.002, mode: k ? 'slew' : 'seat', a: 0.03, b: 0.2, pan: 0, until: 2.2, tier: 0, tag: 'listen1' }; G2.cmd(c, Math.round(c.at * 48000)); }
+    G2.cmd({ at: 1.0, mode: 'stop', tag: 'hear' }, 48000); G2.cmd({ at: 1.3, mode: 'close', until: 1.3, tag: 'hear' }, Math.round(1.3 * 48000));
+    const r0 = rms(0.5, 0.95);
+    let w1 = 0; for (let t = 0.95; t < 1.595; t += 0.01) w1 = Math.max(w1, Math.abs(20 * Math.log10(rms(t, t + 0.01) / r0)));
+    check('Glide: the live stream\'s stop and close leave a Listen along\'s voice (every 10 ms within 1.5 dB)', r0 > 0 && w1 < 1.5, `${r0} ${w1}`);
+    G2.clear('listen1'); rms(1.6, 1.65);   // (the 12 ms fade)
+    const r2 = rms(1.65, 2.0);
+    check('Glide: stopTag of the Listen along silences it and drops its queued controls', r2 === 0, r2);
+    const G3 = S0.LIB.Glide(48000);
+    G3.cmd({ at: 0.01, phi: 0, mode: 'seat', a: 0.03, b: 0.2, pan: 0, until: 0.02, rel: 0.05, tier: 0, tag: 'hear' }, 480);
+    for (let k = 0; k <= 100; k++) G3.cmd({ at: 0.5 + k * 0.005, phi: k * 0.002, mode: k ? 'slew' : 'seat', a: 0.03, b: 0.2, pan: 0, until: 1.5, tier: 0, tag: 'listen2' }, Math.round((0.5 + k * 0.005) * 48000));
+    for (let k = 0; k < Math.round(0.1 * 48000 / 128); k++) { outs[0][0].fill(0); G3.run(outs, k * 128, 128, 0); }
+    G3.clear('listen2');
+    let q3 = 0; for (let k = Math.round(0.45 * 48000 / 128); k < Math.round(1.5 * 48000 / 128); k++) { outs[0][0].fill(0); G3.run(outs, k * 128, 128, 0); for (const v of outs[0][0]) q3 = Math.max(q3, Math.abs(v)); }
+    check('Glide: a Listen along stopped before it starts (the live stream\'s tag last) never sounds (the live stroke rings down under -50 dB)', q3 < 1e-4, q3);
   }
 
   // ---------- 7. the Sound.hear contract ----------
