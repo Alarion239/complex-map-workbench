@@ -56,7 +56,7 @@ const rules = {
 module.exports = [
   // not linted: built pages, notes, generated tables, and the test/ files other than the unit tests (most of those are
   // *_cmd.js snippets that the browser harness runs inside the page, with a top-level return)
-  { ignores: ['dist/**', 'docs/**', 'notes/**', '.ci/**', 'node_modules/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js'] },
+  { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js'] },
   js.configs.recommended,
   { rules },
   // the app: browser scripts, one per file, joined by build.py

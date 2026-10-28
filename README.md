@@ -77,9 +77,11 @@ python3 build.py
 ```
 
 This writes `dist/complex-map-workbench.html` (the published page, test hooks stripped) and `dist/test.html` (with
-test hooks). `docs/index.html` is the published page served by GitHub Pages. The build reads and writes UTF-8 with LF
-line endings on every platform (Windows included). The Italian table is `tools/it_table.json`; after editing it, run
-`python3 tools/make_it_table.py` (it writes `src/i18n_it.js` and reports strings the Russian table has and it lacks).
+test hooks). The live page is published by GitHub Pages from CI (`.github/workflows/pages.yml`): pushing a release tag
+(`git tag v16.6 && git push origin v16.6`) builds it and deploys it; Actions > Pages > Run workflow does the same by
+hand. The build reads and writes UTF-8 with LF line endings on every platform (Windows included). The Italian table
+is `tools/it_table.json`; after editing it, run `python3 tools/make_it_table.py` (it writes `src/i18n_it.js` and
+reports strings the Russian table has and it lacks).
 
 ## Tests
 
