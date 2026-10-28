@@ -408,6 +408,16 @@
         if (pd === 'existing') { const ps = list.find((s) => s.id === selected && s.kind === 'point'); if (ps) drag = { mode: 'move', shape: ps, z0: z, moved: false, target, cmTell: Construct.touchNow() }; }   // ([v16.5 fix rail-6] cmTell: a finger's tap that does not move says how to place another, at the release)
         if (pd) return true;
       }
+      // [UX47] the second click (or tap) of a two-click shape: its end, here; a drag from it still moves the end
+      if (draft && draft.pending && !draft.globe && draft.kind === tool && !!draft.target === target) {
+        const zp = Construct.drawMove(pane, side, tool, x, y) || snapZ(pane, z);
+        Object.assign(draft.shape, Region.defaultsFor(tool, draft.z0, zp));
+        draft.pending = false;
+        drag = { mode: 'draw', target, second: true };
+        requestRender(ov);
+        return true;
+      }
+      if (draft && draft.pending) dropPending();
       const cmZ = tool !== 'point' ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
       const zz = cmZ || snapZ(pane, z);
       if (tool === 'point') { addShape(newShape('point', { p: [zz.re, zz.im] }, target), target); return true; }
@@ -690,6 +700,14 @@
       gSnapMark = null;
       return;
     }
+    // [UX47] the second click of a two-click shape on this globe: its end (the rim of a circle) at the press
+    if (draft && draft.pending && draft.globe === side && draft.kind === tool) {
+      draft.pending = false;
+      drag = { mode: 'gdraw', target, side, x, y, second: true };
+      globeMove(pane, side, e, x, y);
+      return;
+    }
+    if (draft && draft.pending) dropPending();
     if (tool === 'disc' || tool === 'circle') {
       const gs = globeSnap(gc, side, g, 'centre');
       const Cv = gs.P;
@@ -863,7 +881,6 @@
     if (d.mode === 'gdraw' && draft) {
       const s = draft.shape, kind = draft.kind, gc = globeCam(side);
       const cap = draft.cap ? GL3.capOf(s) : null;
-      draft = null;
       let ok = true;
       if (cap) ok = Math.acos(Math.max(-1, Math.min(1, cap.h))) * (gc ? gc.R : 150) > 4;
       else if (kind === 'curve' || kind === 'lasso') {
@@ -873,6 +890,8 @@
         const qs = gc ? Region.handlesOf(s).map(([, z]) => gScreen(gc, GL3.lift(z.re, z.im))).filter(Boolean) : [];
         ok = qs.length > 1 && Math.max(...qs.map((q) => Math.hypot(q[0] - qs[0][0], q[1] - qs[0][1]))) > 4;
       }
+      if (!ok && !d.second && TWO_CLICK.has(kind)) { holdPending(); return; }
+      draft = null;
       if (ok) addShape(s, !!d.target); else { rimPhi.delete(s.id); requestRender(side, 'OL', 'OR'); }
       return;
     }
@@ -1065,6 +1084,8 @@
       const gc = globeCam(side);
       setGInf(pane, side, !!gc && (tool === 'point' || tool === 'polygon') && globeEdit(side) && nearInf(gc, x, y));
     }
+    // [UX47] a two-click shape waiting for its second point follows the pointer (snapped as a drag's end is)
+    if (draft && draft.pending && !drag) pendingHover(pane, side, e, x, y);
     // a polygon draft on a globe follows the pointer (snapped as its vertices are)
     if (draft && draft.kind === 'polygon' && draft.globe === side && is3DSide(side)) {
       const gc = globeCam(side), g = pickGlobe(pane, camOf(side), x, y);
@@ -1241,6 +1262,34 @@
     const done = () => { el.classList.add('copied'); el.innerHTML = rk('', $t('Copied')); setTimeout(() => { el.classList.remove('copied'); setReadouts(probe); }, 900); };
     try { navigator.clipboard.writeText(v).then(done, done); } catch (e) { done(); }
   }
+  // [UX47] Line, Segment, Ray and Circle by two clicks (or taps) as well as by a drag: a press that does not move keeps
+  // its start (draft.pending) and says so; the dashed preview follows the pointer; the next press in the same plane is
+  // the end. Another tool, Esc, a right-click or a press elsewhere drops it
+  const TWO_CLICK = new Set(['line', 'segment', 'ray', 'circle']);
+  function holdPending() {
+    draft.pending = true;
+    toast(ptrTouch ? $t('Tap the second point, or drag') : $t('Click the second point, or drag'));
+    requestRender('OL', 'OR', draft.globe ? draft.globe : null);
+  }
+  function dropPending() {
+    if (!draft || !draft.pending) return;
+    if (!draft.globe) Construct.drawEnd(null, !!draft.target);   // (its snapped start binds nothing)
+    draft = null;
+    requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
+  }
+  function pendingHover(pane, side, e, x, y) {
+    if (draft.globe) {
+      if (draft.globe !== side || !is3DSide(side)) return;
+      drag = { mode: 'gdraw', target: !!draft.target, side, x, y };
+      try { globeMove(pane, side, e, x, y); } finally { drag = null; }
+      return;
+    }
+    if ((side === 'R') !== !!draft.target) return;
+    pane.setView(draft.target ? V.right : leftView());
+    const zp = Construct.drawMove(pane, side, draft.kind, x, y) || snapZ(pane, pane.s2w(x, y));
+    Object.assign(draft.shape, Region.defaultsFor(draft.kind, draft.z0, zp));
+    requestRender(side === 'R' ? 'OR' : 'OL');
+  }
   function onUp(pane, side, e) {
     if (!drag) return;
     const d = drag;
@@ -1283,7 +1332,6 @@
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;
-      draft = null;
       let ok = true;
       if (kind === 'curve' || kind === 'lasso') {
         ok = s.pts.length >= (kind === 'lasso' ? 3 : 2);
@@ -1293,6 +1341,8 @@
         const span = Math.max(...hs.map((p) => CX.abs(CX.sub(p, hs[0]))));
         ok = span * pane.view.s > 4;
       }
+      if (!ok && !d.second && TWO_CLICK.has(kind)) { holdPending(); return; }
+      draft = null;
       if (kind === 'lasso' && !d.target) { if (ok) sndLoopDone(s.pts); else snd.loop = null; }
       Construct.drawEnd(ok ? s : null, !!d.target);   // (v16: the snapped ends bind)
       if (ok) { shapeVia = 'draw'; try { addShape(s, !!d.target); } finally { shapeVia = null; } } else requestRender('OL', 'OR');

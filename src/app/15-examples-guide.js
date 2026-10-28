@@ -890,6 +890,10 @@
     const TOUCH_DESC = {
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
       polygon: () => $t('Tap the vertices; tap the first one to close.'),
+      segment: () => $t('Tap one end and then the other, or drag between them.'),
+      line: () => $t('Tap two points, or drag through them; the line extends to infinity.'),
+      ray: () => $t('Tap the start and then a point on the ray, or drag from the start.'),
+      circle: () => $t('Tap the center and then a point on the circle, or drag from the center.'),
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
       touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
