@@ -57,9 +57,9 @@ ruff check
 - `notes/` holds the Markdown specs and decisions, and nothing else that is large: no screenshots, PDFs, built pages or
   other large binaries in git. Attach evidence to the PR or issue instead, and link it from the spec if a decision
   rests on it. `test/` holds only what CI runs (above), never evidence or one-off scripts.
-- The size budget is two ESLint warnings in `eslint.config.js` (`max-lines`, `max-lines-per-function`). Their limits
-  are today's largest file and function, so a change that makes either bigger is flagged. Lower them when you split
-  something; never raise them.
+- The size budget is two ESLint warnings in `eslint.config.js`. `max-lines` is 1500 per file: the warnings list the
+  files still over it, and a file you touch should not grow. `max-lines-per-function` is today's largest function, so
+  a change that makes one bigger is flagged. Lower the limits when you split something; never raise them.
 
 ## Pull requests
 
