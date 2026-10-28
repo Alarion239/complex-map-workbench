@@ -610,7 +610,9 @@
   // filled part of a fader track (CSS reads --fill)
   function paintFader(r) {
     const lo = +r.min || 0, hi = r.max === '' ? 100 : +r.max, v = +r.value;
-    r.style.setProperty('--fill', `${((v - lo) / (hi - lo || 1)) * 100}%`);
+    const fill = `${((v - lo) / (hi - lo || 1)) * 100}%`;
+    r.style.setProperty('--fill', fill);
+    if (r.closest('.tscrub')) r.closest('.tscrub').style.setProperty('--fill', fill);
   }
 
   // below 1280 px the guarantees panel is an overlay drawer, below 1024 px the tools panel too
