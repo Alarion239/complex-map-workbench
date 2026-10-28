@@ -7,7 +7,6 @@
 // node test/t_ux165_plane.js
 'use strict';
 const path = require('path');
-const fs = require('fs');
 const SRC = path.join(__dirname, '..', 'src');
 global.CX = require(path.join(SRC, 'cx.js'));
 global.Expr = require(path.join(SRC, 'parse.js'));

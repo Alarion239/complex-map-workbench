@@ -3,7 +3,6 @@
 // template (with i18n.js's rule: %{name} always, {name} only in a template without TeX). A plural entry has all four
 // Russian forms, and each carries the count when the English does. Re-run after tools/make_ru_table.py.
 'use strict';
-const fs = require('fs');
 const path = require('path');
 const I18N = require('../src/i18n.js');
 const { sites, CTX } = require('./i18n_sites.js');

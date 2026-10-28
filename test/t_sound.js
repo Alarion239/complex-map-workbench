@@ -4,7 +4,7 @@
 // suspended-context rule, the silent off, Esc). v15.2 (notes/sound/AS-BUILT-v152.md): palette B's parts (variation,
 // repetition, clean edges), the scrub's landmarks, the phase harp (its low Ds count the winding number), curves sing
 // (the loudest harmonic is 4 + W). Run: node test/t_sound.js
-const fs = require('fs'), path = require('path'), vm = require('vm');
+const vm = require('vm');
 global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
 const C = CX.C, TAU = 2 * Math.PI;
