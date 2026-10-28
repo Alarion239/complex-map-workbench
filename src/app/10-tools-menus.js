@@ -386,12 +386,9 @@
     ctxChanged();
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
-<<<<<<< HEAD
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
   function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
-=======
   const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
->>>>>>> origin/claude/funny-darwin-l5uis3
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
     const changed = () => (target ? targetsChanged(true) : shapesChanged(true));
@@ -446,10 +443,7 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-<<<<<<< HEAD
     shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
-=======
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name });
     // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
     if (!touchUI() && list.length > 1) {
       box.draggable = true;
@@ -459,7 +453,6 @@
       box.addEventListener('dragleave', () => box.classList.remove('drop-over'));
       box.addEventListener('drop', (e) => { e.preventDefault(); box.classList.remove('drop-over'); const id = e.dataTransfer.getData('text/plain'); if (list.some((x) => x.id === id)) moveShapeTo(id, list.indexOf(s)); });
     }
->>>>>>> origin/claude/funny-darwin-l5uis3
     return box;
   }
   // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc leaves it as it was, and an empty name
