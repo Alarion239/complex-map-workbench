@@ -406,6 +406,10 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     const idxVar = [];
     let sums = 0;
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
+    // a loop's trip count as a uniform (a cell its writer fills with n, or with n() at write time), never a constant:
+    // D3D's FXC (ANGLE on Windows) unrolls a loop with a constant bound, so a long series body becomes hundreds of copies
+    // and minutes of compiling; a uniform bound keeps it a loop
+    const uBound = (n) => { const c = A.cell(); writers.push((put) => put(c.c, typeof n === 'function' ? n() : n, 0)); return `int(${c.x})`; };
     const UN = {
       sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh',
       asin: 'casin', acos: 'cacos', atan: 'catan', asinh: 'casinh', acosh: 'cacosh', atanh: 'catanh', exp: 'cexp',
@@ -430,18 +434,18 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         const s0 = A.slot(), sl = [s0];
         for (let k = 1; k < NG; k++) sl.push(A.slot());
         if (!sl.every((x, k) => x.s === s0.s + k)) throw new Error('GLChain: series slots not consecutive');
-        const ep = A.cell(), sc = A.cell();
+        const ep = A.cell(), sc = A.cell(), nk = uBound(() => Math.min(NG, sd.e.length));
         slots.push({ sg, sd, h, s0, ep, sc });
         const t = sg > 0 ? 'p' : 'm', u = `${id}_u${t}`, H = `${id}_H${t}`, M = `${id}_M${t}`;
         // u = w/s outside (s/w inside); Horner: H = Σ b_k v^k with v = u^p, times u^{e0}; M the same sum of |b_k| |v|^k
         out.push(`  vec2 ${u} = ${sg > 0 ? `${id}_w / ${sc.x}` : `cdiv(vec2(${sc.x}, 0.0), ${id}_w)`};`);
         if (h) {
           out.push(`  vec2 ${u}v = cx_ipowi(${u}, ${ep.y}), ${H} = vec2(0.0); float ${u}a = cx_abs(${u}v), ${M} = 0.0;
-  for (int k = ${NG - 1}; k >= 0; k--) { vec4 q = uChain[${s0.s} + k]; ${H} = cmul(${H}, ${u}v) + q.xy; ${M} = ${M} * ${u}a + cx_abs(q.xy); }
+  for (int k = ${nk} - 1; k >= 0; k--) { vec4 q = uChain[${s0.s} + k]; ${H} = cmul(${H}, ${u}v) + q.xy; ${M} = ${M} * ${u}a + cx_abs(q.xy); }
   ${H} = cmul(${H}, cx_ipowi(${u}, ${ep.x})); ${M} *= pow(max(cx_abs(${u}), 1e-30), ${ep.x});`);
         } else {
           out.push(`  vec2 ${H} = vec2(0.0), ${u}P = vec2(1.0, 0.0); float ${M} = 0.0;
-  for (int k = 0; k < ${NG}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; ${u}P = cmul(${u}P, cx_ipowi(${u}, q.z)); vec2 t = cmul(q.xy, ${u}P); ${H} += t; ${M} += cx_abs(t); }`);
+  for (int k = 0; k < ${nk}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; ${u}P = cmul(${u}P, cx_ipowi(${u}, q.z)); vec2 t = cmul(q.xy, ${u}P); ${H} += t; ${M} += cx_abs(t); }`);
         }
         return { H, M };
       };
@@ -481,11 +485,11 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       const NG = SER_GPU, s0 = A.slot(), sl = [s0];
       for (let k = 1; k < NG; k++) sl.push(A.slot());
       if (!sl.every((x, k) => x.s === s0.s + k)) throw new Error('GLChain: series slots not consecutive');
-      const g1 = A.slot(), aT = A.cell();
+      const g1 = A.slot(), aT = A.cell(), nk = uBound(() => Math.min(plan.a.length, NG));
       shape.push('D');
       const S = `${id}_S`, M = `${id}_M`;
       out.push(`  vec2 ${S} = vec2(0.0); float ${M} = 0.0;
-  for (int k = 0; k < ${NG}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; vec2 t = cmul(q.xy, cexp(-z * q.z)); ${S} += t; ${M} += cx_abs(t); }
+  for (int k = 0; k < ${nk}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; vec2 t = cmul(q.xy, cexp(-z * q.z)); ${S} += t; ${M} += cx_abs(t); }
   { vec4 g = ${g1.v}; float sp = z.x - (g.x - 1.0);
     if (g.y > 0.5) ${S} += cmul(${aT.v}, cdiv(cexp((vec2(1.0, 0.0) - z) * log(g.z + 0.5)), z - vec2(1.0, 0.0)));
     else if (!(g.w * pow(g.z, 1.0 - sp) / (sp - 1.0) <= 1e-4 * cx_abs(${S}))) ${S} = ${NAN};
@@ -511,7 +515,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     function loopGL(n, id) {
       const prod = n.op === 'prod';
       shape.push(prod ? 'Lp' : 'L');
-      const lo = g(n.lo), hi = g(n.hi);
+      const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
       out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
   float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
@@ -526,7 +530,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         // and the same over both halves, leave
         // the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
         out.push(`  { int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-  for (int j = 0; j < ${SER_GPU_LOOP}; j++) {
+  for (int j = 0; j < ${cap}; j++) {
     float ${k} = ${from} ${dir > 0 ? '+' : '-'} float(j);
     if (${lim}) { done = true; break; }
 ${inner.map((x) => '  ' + x).join('\n')}
