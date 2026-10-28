@@ -154,14 +154,6 @@ const KNOWN = {
   // every CI run; it passed on the development Mac at v16.4. Only that one resize, logged at that step)
   'tour_perf_cmd.js': [{ re: /^390: the panes keep their size through the steps of a chapter$/, why: 'issue #78: at 390 px the panes shrink (600 to 279 px) when the views chapter reaches its Phase key step, which opens the Display sheet; seen in every CI run, not on the development Mac at v16.4; to check on a phone',
     measured: (d) => d && d.inChapter === 1 && Array.isArray(d.log) && d.log.filter((x) => x.step === 'Phase key').length === 1 }],
-  // an app bug: the Language label is cut at 360 px (only the cut label; anything past the edges still fails)
-  'v15_phone_cmd.js': [
-    // (an app bug: a toast's buttons, Undo and Redo, are 28 px tall on a phone too: page.html .toast-act; seen when the
-    // undo toast is up during the check)
-    { re: /: every control 44 × 44$/, why: 'issue #77: on a phone a toast\'s action buttons (Undo, Redo) are 28 px tall, under the 44 px of every other control (page.html .toast-act, no phone size)',
-      measured: (d) => d && Array.isArray(d.small) && d.small.length > 0 && d.small.every((x) => /^toast-act /.test(x)) },
-    { re: /^360-(light|dark)-en: more sheet: nothing past the edges, no cut label$/, why: 'issue #76 (since bd48ab3, Italian): the More sheet\'s Language switch has four options, and at 360 px the label "Language" gets 47 of its 66 px (src/phone.js Language seg; .ph-seg buttons at least 52 px)',
-    measured: (d) => d && Array.isArray(d.out) && !d.out.length && Array.isArray(d.cut) && d.cut.length === 1 && /^Language \d+>\d+$/.test(d.cut[0]) }],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
