@@ -109,7 +109,7 @@ const Commands = (() => {
             // an equation: a curve in the z-plane (the app's own shapes when recognized exactly)
             const plan = curvePlan(q, viewBox(A.S.srcView));
             items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: $t('Add this curve'), desc: $t('Adds {what} in the z-plane', { what: plan.what }), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
-          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { A.shapeVia = null; } } }); }
+          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this shape'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { A.shapeVia = null; } } }); }
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
@@ -176,7 +176,7 @@ const Commands = (() => {
     items.push(...(items.oneType ? fns.filter((x) => x.type !== items.oneType) : fns));
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
-      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
+      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add shape'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
       EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (v16.5 UX03: searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       A.S.steps.forEach((st, i) => {
@@ -293,7 +293,7 @@ const Commands = (() => {
     cgrid: $t('grid, grid lines'), pgrid: $t('polar grid, rays and circles'),
   });
   const GUIDE_SECS = () => [
-    [$t('Regions'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
+    [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
     [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
     [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
     [$t('Deformation'), $t('deformation, homotopy, morph, animate, play')], [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
