@@ -329,7 +329,7 @@
     // (review regress-1: a panel the one-dock rule closed is closed at run time only; the user's choice stays)
     const forcedL = !!hideL && !reqL, forcedR = !!hideR && !reqR;
     if (sndP.on && (!!hideL !== !!S.hideLeft || !!hideR !== !!S.hideRight)) sndToggleCue(!(hideL && hideR) && (!hideL && S.hideLeft || !hideR && S.hideRight));
-    S.hideLeft = !!hideL; S.hideRight = !!hideR;
+    setHidden('L', !!hideL); setHidden('R', !!hideR);
     // only a choice made where the panel docks is the user's preference; drawers are run-time state
     if (!isDrawer('L') && !forcedL) dockPref.L = S.hideLeft;
     if (!isDrawer('R') && !forcedR) dockPref.R = S.hideRight;
@@ -350,7 +350,7 @@
   function applyLayout() {
     const lay = document.querySelector('.layout');
     placeKeys();
-    if (oneDock() && !S.hideLeft && !S.hideRight) S.hideLeft = true;   // (run time: the docked choice stays the user's)
+    if (oneDock() && !S.hideLeft && !S.hideRight) setHidden('L', true);   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
     // ([v17 D4] the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
     if (shapeEdWhere !== inspEditsShapes()) { shapeEdWhere = inspEditsShapes(); if (selected != null) buildShapeList(); }

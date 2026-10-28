@@ -510,10 +510,10 @@
     bindsAll();
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     // narrow windows start with the drawers closed (run-time only: save() writes dockPref)
-    if (isDrawer('R')) S.hideRight = true;
-    if (isDrawer('L')) S.hideLeft = true;
+    if (isDrawer('R')) setHidden('R', true);
+    if (isDrawer('L')) setHidden('L', true);
     // (v15, 1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
-    if (oneDock()) { if (S.steps.length) { S.hideLeft = true; S.hideRight = false; } else { S.hideLeft = false; S.hideRight = true; } }
+    if (oneDock()) { if (S.steps.length) { setHidden('L', true); setHidden('R', false); } else { setHidden('L', false); setHidden('R', true); } }
     if (S.clipWin) clipWin = S.clipWin;
     paneL.resize(); paneR.resize();
     paneL.setView(S.srcView);
@@ -642,15 +642,15 @@
     window.addEventListener('resize', () => {
       const now = { L: isDrawer('L'), R: isDrawer('R') }, wide = window.innerWidth >= 768;
       if (wide && wideWas && (now.L !== drawerWas.L || now.R !== drawerWas.R)) {
-        if (now.L !== drawerWas.L) S.hideLeft = now.L || dockPref.L;
-        if (now.R !== drawerWas.R) S.hideRight = now.R || dockPref.R;
+        if (now.L !== drawerWas.L) setHidden('L', now.L || dockPref.L);
+        if (now.R !== drawerWas.R) setHidden('R', now.R || dockPref.R);
         applyLayout();
       }
       drawerWas = now; wideWas = wide;
       if (oneDock() && !S.hideLeft && !S.hideRight) applyLayout();   // (v15: one docked panel from 1024 to 1279)
       // (review regress-1: back at 1280 or more, both panels follow the user's choice again)
       const one = oneDock();
-      if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; applyLayout(); }
+      if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { setHidden('L', dockPref.L); setHidden('R', dockPref.R); applyLayout(); }
       oneWas = one;
       if (tempInsp) placeTemp();
     });
@@ -958,7 +958,7 @@
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Region tools'); }
     Phone.init({
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
-      showPanels: (ph) => { if (ph) { S.hideLeft = false; S.hideRight = false; } else { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; } applyLayout(); requestRender('P'); },
+      showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
       // (v15.1, build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
       // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)

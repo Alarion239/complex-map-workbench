@@ -1,6 +1,7 @@
 // #20 phase 3, step 5: the app's state S is written through named state functions (src/app/01-core.js, the state
 // section). This test reads the app's sources and fails on a direct write of what has been put behind them so far:
-// S itself is replaced by setState only. Node, no browser.
+// S itself is replaced by setState only (5a); the panes' hideLeft and hideRight are set by setHidden only (5b). Node,
+// no browser.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -17,5 +18,10 @@ const where = [];
 for (const [f, t] of files) for (const [n, l] of writes(t, S_WRITE)) if (!/function setState\(next\) \{ S = next; \}|^\s*let S = null;/.test(l)) where.push(`${f}:${n}: ${l.trim()}`);
 ok('S is replaced by setState only', where.length === 0, where);
 ok('setState is defined once, in the state section', (appText().match(/function setState\(/g) || []).length === 1);
+// (5b) the panes' hide flags
+const HIDE_WRITE = /\bS\.hide(Left|Right)\s*=(?![=>])/;
+const hides = [];
+for (const [f, t] of files) for (const [n, l] of writes(t, HIDE_WRITE)) if (!/function setHidden\(side, on\)/.test(l)) hides.push(`${f}:${n}: ${l.trim()}`);
+ok('hideLeft and hideRight are set by setHidden only', hides.length === 0, hides);
 console.log(`t_state_writes: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
