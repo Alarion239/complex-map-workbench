@@ -218,6 +218,7 @@
   function pushStep(st) { S.steps.push(st); }
   function pushTarget(t) { S.targets.push(t); }
   function spliceSteps(at, n, ...items) { return S.steps.splice(at, n, ...items); }
+  function setStepAt(i, st) { S.steps[i] = st; }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
