@@ -9,8 +9,9 @@ const C = require(path.join(__dirname, '..', 'src', 'constr.js'));
 const { source } = require('./src_text');
 // (a src/ file as build.py reads it: src/app.js is joined from src/app/*.js)
 const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
-// (app.js with the sound hooks moved out of it, src/soundhooks.js: the Try line, sndPlayEnded)
-const APP = R('src/app.js') + '\n' + R('src/soundhooks.js'), CON = R('src/construct.js'), PRM = R('src/params.js'), PAGE = R('src/page.html'), DESK = R('src/desk.css');
+// (app.js with the modules moved out of it: src/soundhooks.js, the Try line and sndPlayEnded; src/morphpaths.js,
+// morphReadout)
+const APP = R('src/app.js') + '\n' + R('src/soundhooks.js') + '\n' + R('src/morphpaths.js'), CON = R('src/construct.js'), PRM = R('src/params.js'), PAGE = R('src/page.html'), DESK = R('src/desk.css');
 let pass = 0, fail = 0;
 const ok = (c, m, x) => { if (c) pass++; else { fail++; console.log('FAIL', m, x === undefined ? '' : JSON.stringify(x)); } };
 const fnBody = (src, name) => { const i = src.indexOf(`function ${name}(`); if (i < 0) return ''; const j = src.indexOf(') {', i) + 2; let d = 0, k = j; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return src.slice(i, k + 1); };
