@@ -28,6 +28,8 @@ check('the chain parses', !!fU && !!fG);
 check('u: no log, no exp', !/log\(|exp\(/.test(s1.params.expr), s1.params.expr);
 check('F: one exp, 29 logs', (s2.params.expr.match(/log\(/g) || []).length === 29 && (s2.params.expr.match(/exp\(/g) || []).length === 1, s2.params.expr.length);
 check('sectors 12', SEASONG.sectors === 12);
+// step 2's display form holds for its formula (a stale key would drop it silently: the Inspector would not typeset F)
+check('step 2: its display form is keyed to its formula', !!s2.params.show && !s1.params.show && s2.params.showOf === ctx.Funcs.showKey(s2.params.expr), s2.params.showOf);
 
 // the path: arc length and duration at 250 px/s
 const P = SEASONG.pts; let L = 0, rDev = 0;

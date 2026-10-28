@@ -152,10 +152,16 @@ const logs = (exprH.match(/log\(/g) || []).length;
 console.log(JSON.stringify({ chars: { u: exprU.length, F: exprH.length }, logs, pairs: des.steps.length, dur: r4(move), cuts, cutAtS: cutT.map(r4), statementsS: cutT.slice(1).map((t, k) => r4(t - cutT[k])),
   lnAbsF: [r4(lnMin), r4(lnMax)], crossings: seq.length, heardNotes: heard.length, editDistance: lev(heard, expect) }));
 
+// Step 2's display form (params.show, in z: its input, w₁ on screen), keyed by showOf = Funcs.showKey(exprH) so that
+// editing the formula drops it. The Inspector shows it in place of the 1786-character formula, which it would not
+// typeset; the map, the field and the export keep exprH. Each pair's logs, log(z − p_j) − log z − log(1 − z/p_j*),
+// are its factor; s·log(zρ) is (ρz)^s, where ρ = e^{−i(ψ−π)} places u^s's cut (the crack); c has |c₀| and arg c₀
+// plus the logs' centring rotations, of modulus 1.
+const SHOW_H = `c\\,(\\rho z)^{s}\\prod_{j=1}^{${des.steps.length}}\\left(\\frac{z-p_j}{z\\,(1-z/p_j^{*})}\\right)^{D_j/12}`;
 const SEASONG = {
   // the chain: X's z → u (the Möbius map, squared) → F (the theme wheel); custom steps, principal logs (cut 180°)
-  steps: [{ type: 'custom', params: { expr: exprU, cut: 180 } }, { type: 'custom', params: { expr: exprH, cut: 180 } }],
-  tex: 'u=\\left(\\frac{z-a}{1-az}\\right)^{2},\\quad F=c\\,u^{s}\\prod_{j=1}^{25}\\left(\\frac{(u-p_j)/u}{1-u/p_j^{*}}\\right)^{D_j/12},\\quad p_j^{*}=1/\\bar p_j',
+  steps: [{ type: 'custom', params: { expr: exprU, cut: 180 } }, { type: 'custom', params: { expr: exprH, cut: 180, show: SHOW_H, showOf: ctx.Funcs.showKey(exprH) } }],
+  tex: `u=\\left(\\frac{z-a}{1-az}\\right)^{2},\\quad F=c\\,(\\rho u)^{s}\\prod_{j=1}^{${des.steps.length}}\\left(\\frac{u-p_j}{u\\,(1-u/p_j^{*})}\\right)^{D_j/12},\\quad p_j^{*}=1/\\bar p_j`,
   view: { cx: 0, cy: 0, s: O.pxu }, fit: { x0: -1.12, x1: 1.12, y0: -1.12, y1: 1.12 },
   pts, sectors: 12, dur: r4(move),
   design: { a: O.a, dPx: O.d, off: O.off, cutOff: O.cutOff, cutLeadS: O.cutLead, s: r4(des.cut.s), pairs: des.steps.map((s) => ({ D: r4(s.D), phi: r4(s.phi) })), logs, themes: 2 * O.laps, pxPerS: O.V },
