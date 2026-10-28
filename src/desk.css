@@ -339,7 +339,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .idom .itxt { font: inherit; color: inherit; }
 /* design-5: the temporary Inspector with X and Y side by side takes the stage's right 296 px while it is open */
 .layout.temp-dock > .stage { margin-right: 296px; }
-#clearChain[hidden] { display: none !important; }
+#clearChain[hidden], #clearChain.toast-away { display: none !important; }
 /* design-16: at 768 to 1023 the zeros fill the left column and the poles the right, under a₃ */
 @media (min-width: 768px) and (max-width: 1023px) {
   #propsPanel .params.zp { grid-auto-flow: row dense; }

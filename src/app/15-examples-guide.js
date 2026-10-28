@@ -1195,6 +1195,10 @@
     if (!host) return;
     const st = host.style;
     const clear = () => { if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    // (D1, issue #23) Clear chain gives the chain head's room to a message placed there, and is back when it goes (the
+    // message has its own Undo)
+    const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
+    away(false);
     if (!host.firstElementChild) return;
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const chain = box(document.querySelector('.pipe-wrap'));
@@ -1220,6 +1224,7 @@
       // covers neither a plane nor a control. Only a message too long for it goes above the chain, as UX80 placed it)
       const hd = document.querySelector('.pipe-head'), grow = hd && hd.querySelector(':scope > .grow'), hb = box(hd);
       if (hb && grow && hb.height > 0 && hb.height < 60 && host.children.length === 1) {
+        away(true);
         const kids = [...hd.children].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none'), gi = kids.indexOf(grow);
         const a = gi > 0 ? Math.max(...kids.slice(0, gi).map((e) => e.getBoundingClientRect().right)) : hb.left;
         const b = gi >= 0 && gi < kids.length - 1 ? Math.min(...kids.slice(gi + 1).map((e) => e.getBoundingClientRect().left)) : hb.right;
@@ -1231,6 +1236,7 @@
           st.maxWidth = Math.round(room) + 'px';
           return;
         }
+        away(false);
         host.setAttribute('data-placed', '');
       }
       // the planes side by side: between X's and Y's button columns; one plane: left of its own
