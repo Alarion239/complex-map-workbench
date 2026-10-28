@@ -92,5 +92,10 @@
  "Symbols": "Символы",
  "All steps": "Все шаги",
  "Deform every step": "Деформировать все шаги",
- "Deforming {steps}": "Деформируются {steps}"
+ "Deforming {steps}": "Деформируются {steps}",
+ "Back to {f}": "Назад к {f}",
+ "Targets": "Цели",
+ "in Y": "в Y",
+ "in X": "в X",
+ "nothing yet": "пока ничего"
 }

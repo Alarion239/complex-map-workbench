@@ -2916,5 +2916,10 @@
  "Symbols": "Simboli",
  "All steps": "Tutti i passi",
  "Deform every step": "Deforma tutti i passi",
- "Deforming {steps}": "Deformazione di {steps}"
+ "Deforming {steps}": "Deformazione di {steps}",
+ "Back to {f}": "Torna a {f}",
+ "Targets": "Bersagli",
+ "in Y": "in Y",
+ "in X": "in X",
+ "nothing yet": "ancora niente"
 }
