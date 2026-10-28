@@ -218,7 +218,10 @@ while (Date.now() - t0 < 30000) {
   await sleep(40);
 }
 const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
-check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from the press: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && near(capAt(/^Each step is/), 0.2 * durMs, 300) && near(capAt(/^The crack is/), 0.29 * durMs, 300) && near(capAt(/^The second lap/), 0.51 * durMs, 300), [durMs, caps]);
+// (v16.5: the Mountain King's F is costly, so Listen along samples it first (f181c88, "Preparing to listen along")
+// and starts seconds after the press: the fractions are counted from the playback's start, its first caption)
+const capT0 = capAt(/^Each note is/);
+check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from its start: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && capT0 != null && near(capAt(/^Each step is/) - capT0, 0.2 * durMs, 300) && near(capAt(/^The crack is/) - capT0, 0.29 * durMs, 300) && near(capAt(/^The second lap/) - capT0, 0.51 * durMs, 300), [durMs, caps]);
 const endAt = capAt(/^Every note/);
 check('Grieg: no move for the whole piece, then the result line', endAt != null && endAt > durMs - 300, [durMs, caps]);
 check('Grieg: moves on 3 s after the piece ends', (await cur()) === 'sound/strings' && caps.length >= 5, caps);
@@ -301,6 +304,8 @@ await open('au3', 390, 844, true, true, 'ru');
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await go('sound', 0);
 const ra = await center('.ts-act');
+check('RU Grieg: the strip shows its Listen button', !!ra, await lit());
+if (!ra) throw new Error('no Listen button on the phone strip');
 await tap(ra[0], ra[1]); t0 = Date.now();
 await sleep(1500);
 const ruCap = await ev(`document.querySelector('#tourLead').textContent`);
@@ -310,9 +315,13 @@ check('RU Grieg: the caption fits the strip', fit);
 // stopped at 10 s: listen-ended with heard >= 9 is done; then +3 s
 await sleep(10000 - (Date.now() - t0));
 const sa = await center('.ts-act');
-await tap(sa[0], sa[1]); t0 = Date.now();
-at = await advancedAt('sound/song', t0, 6000);
-check('RU Grieg: stopped at 10 s counts (past the second drum): +3 s', near(at, 3000, 300), [at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
+// (v16.5: Listen along plays the function, whose duration is the circle's length at the zoom, 250 px/s: on a phone it
+// can end before 10 s, and then the step is done by listen-ended with full and moves on by itself)
+if (sa) {
+  await tap(sa[0], sa[1]); t0 = Date.now();
+  at = await advancedAt('sound/song', t0, 6000);
+  check('RU Grieg: stopped at 10 s counts (past the second drum): +3 s', near(at, 3000, 300), [at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
+} else check('RU Grieg: the piece ended before 10 s: the step is done and moves on', (await until(`Tour.current() && Tour.current().id !== 'song'`, 6000)) != null, [await cur(), await lit()]);
 await settle(1500);
 check('RU strings: on the strings step, with its Russian task', (await cur()) === 'sound/strings' && /Удерживайте палец/.test(await ev(`document.querySelector('#tourLead').textContent`)), await ev(`document.querySelector('#tourLead').textContent`));
 const rs = await center('.ts-act');
