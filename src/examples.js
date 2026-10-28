@@ -9,8 +9,8 @@ const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit,
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
-    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setState,
-    snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem;
+    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
+    setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem;
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -43,7 +43,7 @@ const Examples = (() => {
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
     A.S.shapes = []; A.S.steps = [];
-    A.S.sel = null;   // (v15: a new example selects its last step)
+    setSel(null);   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
     // landscape's sheets and height as it sets them. The layout comes first (merged-views.md): the meshing window below
@@ -333,7 +333,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

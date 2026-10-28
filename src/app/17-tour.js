@@ -192,7 +192,7 @@
     // are in the Inspector with the F tile selected, so asking for them selects F (and draws the Inspector at once)
     anchor: (name) => {
       if (!['composite', 'guarantees', 'domain', 'matrix'].includes(name)) return undefined;
-      if (selOf() !== 'F') { S.sel = 'F'; syncSel(); }
+      if (selOf() !== 'F') { setSel('F'); syncSel(); }
       renderProps();
       return undefined;
     },
