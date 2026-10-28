@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // Expression language: accepts common LaTeX (\frac, \sqrt, \sin, e^{z}, \overline{z}, |z|, \le ...)
 // and plain text (exp(z), sqrt(z), z**2, abs(z), Re(z) ...).
@@ -446,6 +447,7 @@ const Expr = (() => {
           if (isOp(peek(), '(') || isOp(peek(), '{') || isOp(peek(), '[')) a = parsePrimary();
           else if (peek().t === 'eof') throw new ParseError($t('Missing argument for {f}', { f: I18N.fnName(tk.v) }), tk.pos);
           else a = parseFuncArg();
+          /** @type {ParseNode} */
           let node = { t: 'call', f, a };
           if (powAfter) node = { t: 'pow', a: node, b: powAfter };
           return node;
@@ -485,7 +487,7 @@ const Expr = (() => {
     if (NAMES && NAMED.unknown.length) {
       const u = NAMED.unknown, d = (n) => (NAMES.display ? NAMES.display(n) : n);
       const e = new ParseError(u.length === 1 ? $t('{x} is not defined yet: press Enter to add the number {x}', { x: d(u[0]) }) : $t('One new name at a time: {x}', { x: u.map(d).join(', ') }), 0);
-      e.unknown = u.slice();
+      /** @type {any} */ (e).unknown = u.slice();
       throw e;
     }
     if (NAMES && opts && Array.isArray(opts.spans)) opts.spans.push(...NAMED.spans);
@@ -1016,6 +1018,7 @@ const Expr = (() => {
   // decimal, a small fraction p/q (\frac{1}{3}), or m\times 10^{n} for very large or small values.
   const lit = (s) => ({ t: 'num', v: C(parseFloat(s), 0), lit: s });
   const N_I = () => ({ t: 'num', v: C(0, 1), name: 'i' });
+  /** @type {{ [name: string]: (...args: any[]) => ParseNode }} */
   const N = {
     z: () => ({ t: 'var', n: 'z' }),
     neg: (a) => ({ t: 'neg', a }),

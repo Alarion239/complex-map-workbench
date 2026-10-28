@@ -170,7 +170,7 @@ html:not(.ph) .ph-only { display: none !important; }
   border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); white-space: normal; text-align: center;
 }
 :root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
-:root[data-lang="ru"].ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }
+:root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
 :root.ph:has(#viewSwitch > [data-mode="land"].on) .ph-sph { display: none; }
 :root.ph .pipe-wrap > #morphBtn > :is(svg, .mic) { width: 16px; height: 16px; flex: 0 0 16px; }
 
@@ -291,6 +291,10 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-row .ph-ic, .ph-srow .ph-ic { flex: 0 0 20px; display: grid; place-items: center; color: var(--ink-2); }
 .ph-row .ph-ic svg, .ph-srow .ph-ic svg { width: 18px; height: 18px; }
 .ph-rl { flex: 1 1 auto; min-width: 0; }
+/* a row's switch goes under its label when the two do not fit on one line (Language, four options, at 360 px) */
+.ph-srow { flex-wrap: wrap; row-gap: 0; }
+.ph-srow .ph-rl { min-width: max-content; }
+.ph-srow .ph-seg, .ph-srow .ph-switch, .ph-srow .ph-link { margin-left: auto; }
 /* Phase colours (issue 8): the row names the palette and shows its key */
 .ph-pv { flex: 0 1 auto; color: var(--muted); }
 .ph-row .ph-ic .pcol-ic { width: 18px; height: 18px; }
@@ -309,6 +313,9 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the menus and pickers on a phone: 44 px rows; the gallery is a bottom sheet */
 :root.ph .pop.menu .mi { min-height: 44px; height: auto; }
 :root.ph .pop.menu.examples { left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; width: 100% !important; max-width: none; max-height: 85dvh; border-radius: var(--r-4) var(--r-4) 0 0; padding-bottom: calc(8px + var(--ph-safe-b)); }
+:root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { height: auto; min-height: 44px; padding-top: 0; padding-bottom: 0; white-space: normal; }
+:root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
+:root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph #toastHost { bottom: calc(var(--ph-row) + var(--ph-chain) + var(--ph-safe-b) + 12px); }
 :root.ph .snd-pop { z-index: 46; }
 
@@ -416,6 +423,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
+/* UX46: the symbol strip sits on the keyboard's top edge (--ph-kbraw is the keyboard's own height; --ph-kb adds the strip) */
+.ph-keys { position: fixed; left: 0; right: 0; bottom: var(--ph-kbraw, 0px); z-index: 60; display: flex; gap: 2px; height: 44px; padding: 0 2px; overflow-x: auto; background: var(--surface); border-top: 1px solid var(--line); }
+.ph-keys[hidden] { display: none; }
+.ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 16px/1 var(--f-ui); }
+.ph-keys > button:active { background: var(--well); }
 /* UX40: the long press, taught inside the More tools sheet (a tip line under the tiles) */
 .ph-tip { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 8px 4px 4px; padding: 0; font: 400 13px/18px var(--f-ui); color: var(--muted); text-wrap: pretty; }
 .ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }

@@ -265,6 +265,9 @@
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
         [$t('Clear the chain'), () => $('clearChain').click(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
+        // ([UX54] names are kept when others are deleted: these make them tidy again)
+        [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
+        [$t('Renumber zeros and poles'), () => renumberZp(), '', $t('renumber, rename, numbers, names, zeros, poles, tidy'), 1],
         [$t('Open the guide'), () => openGuide(), '?', $t('help, guide, manual, documentation, docs, reference, how to')],
         // (v16.5 UX03: the header's and the menus' commands, listed when searched, each with its key)
         [$t('Export figure…'), () => Figure.open(), /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', $t('export, png, pdf, svg, picture, image, save image, download, print, video, movie'), 1],
@@ -405,7 +408,6 @@
     const cx = ok ? r.left + Math.min(r.width - 8, Math.max(8, x1)) : r.left + r.width / 2, cy = ok ? r.top + Math.max(8, Math.min(r.height - 8, y0)) : r.top + r.height / 3;
     return openIntegralPop(id, cx, cy, { beside: true, bx0: ok ? r.left + Math.max(0, x0) : null });
   }
-  const PROP_LETTERS = CHIP_DEFS;
   function openPalette(anchor, at, opt = {}) {
     // re-clicking the control that opened it closes it
     if (popEl && popEl.classList.contains('palette') && anchor && palState && palState.opener === anchor) { closePalette(); return; }

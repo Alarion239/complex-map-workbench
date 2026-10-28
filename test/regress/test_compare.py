@@ -182,7 +182,8 @@ class Perf(unittest.TestCase):
         rc, out, st = self.gate({'a.ok': pm(True, 'check')}, chk, '--paired')
         self.assertEqual((rc, st['a.ok']), (1, 'FAIL'), out)
         m = 'examples.2.inv_first_draw_ms'
-        lim = lambda v: {m: pm(v, 'limit', limit=250, unit='ms')}
+        def lim(v):
+            return {m: pm(v, 'limit', limit=250, unit='ms')}
         rc, out, st = self.gate(lim(2400), lim(1900), '--paired')
         self.assertEqual((rc, st[m]), (0, 'BOTH'), out)
         rc, out, st = self.gate(lim(2400), lim(3100), '--paired')     # over 1.25 x the reference

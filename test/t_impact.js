@@ -57,6 +57,7 @@ const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 3 && !p.browser.length && !p.quality.length; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
+ok('a paired job chosen by its runner is forced (A/A); one chosen by the app is not', (() => { const a = select(['test/regress/perf/run.js']), b = select(['ci/quality.js', 'README.md']), c = select(['src/cx.js']), d = select(['src/cx.js', 'test/regress/perf/scenes.js']); return a.forcePerf && !a.forceQuality && b.forceQuality && !b.forcePerf && !c.forcePerf && !c.forceQuality && d.forcePerf && !d.forceQuality; })());
 ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_shards.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
 
 // T3
@@ -78,6 +79,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/gl/02-glsl-inverse.js -> T2, the inverse GLSL page (src/gl is its input)', g.tier === 'T2' && g.glsl.length && g.glsl.every((j) => j.page === 'inverse') && g.perf, g.glsl);
   ok('a part: src/app/03-exact-images.js -> T2', select(['src/app/03-exact-images.js']).tier === 'T2');
   ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
+  ok('the Arb oracle (dev-only) -> T0', select(['tools/arb_reference.py', 'tools/arb_compare.js', 'notes/arb/reference.json']).tier === 'T0');
 }
 // (the name is built here, so that this file does not name it)
 ok('T3: a test file nothing names', select([`test/${['nobody', 'names', 'this'].join('_')}.json`]).tier === 'T3');

@@ -62,8 +62,14 @@
       }
     }
   }
+  // ([v17 UX64]) the bracketed cards are tinted while the bracket shows fewer than every step
+  function tintBracketed() {
+    const hr = brOn() ? homRangeOk() : null;
+    cardRefs.forEach((c, k) => { if (c && c.root) c.root.classList.toggle('br-in', !!hr && k >= hr.a && k <= hr.b); });
+  }
   function updateBracket() {
     syncRangeRows();
+    tintBracketed();
     const host = $('pipeline');
     if (!host) return;
     let L = $('chainBracket');
@@ -73,7 +79,11 @@
       return;
     }
     if (!L) {
-      L = h('div', { class: 'chain-bracket', id: 'chainBracket' }, h('div', { class: 'br-line', 'aria-hidden': 'true', 'data-tip': $t('Drag either end to choose the deformed steps') }), brHandle('l'), brHandle('r'));
+      // ([v17 UX64] the bracket says what it deforms, "Deforming f₁–f₂", with an All steps reset, while it brackets
+      // fewer than every step)
+      const all = h('button', { class: 'br-all', type: 'button', 'data-tip': $t('Deform every step'), onclick: (e) => { e.stopPropagation(); chooseRange(null); } }, $t('All steps'));
+      L = h('div', { class: 'chain-bracket', id: 'chainBracket' }, h('div', { class: 'br-line', 'aria-hidden': 'true', 'data-tip': $t('Drag either end to choose the deformed steps') }), brHandle('l'), brHandle('r'),
+        h('div', { class: 'br-label' }, h('span', { class: 'br-what' }), all));
       const add = $('addStepBtn');
       if (add && add.parentNode === host) host.insertBefore(L, add); else host.append(L);
       if (!brRO && typeof ResizeObserver !== 'undefined') { brRO = new ResizeObserver(() => requestAnimationFrame(placeBracket)); brRO.observe(host); }
@@ -100,6 +110,21 @@
     }
     for (const c of host.querySelectorAll('.conn.br-at')) if (c !== ca && c !== cb) c.classList.remove('br-at');
     ca.classList.add('br-at'); cb.classList.add('br-at');
+    // the label over the line's middle, on the phone too (its ends are drawn only there); hidden on every step
+    const lab = /** @type {HTMLElement} */ (L.querySelector('.br-label')), what = lab.querySelector('.br-what'), part = !!homRangeOk() && !ph;
+    lab.hidden = !part;
+    if (part) {
+      const html = bracketWords('html');
+      if (what.innerHTML !== html) what.innerHTML = html;
+      lab.style.left = Math.round((x0 + x1) / 2) + 'px';
+    }
+  }
+  // ([v17 UX64]) what the bracket deforms in words: "Deforming f₁–f₂" (the active steps inside it); null on every step
+  function bracketWords(fmt) {
+    const r = homRangeOk();
+    if (!r) return null;
+    const ks = activeSteps().filter((k) => k >= r.a && k <= r.b);
+    return $t('Deforming {steps}', { steps: stepRuns(ks, fmt === 'html') });
   }
   function brHandle(side) {
     const el = h('div', { class: 'br-end ' + side, role: 'slider', tabindex: 0, 'aria-orientation': 'horizontal',
@@ -125,7 +150,12 @@
     const cur = homRangeOk() || { a: 1, b: nSteps() };
     if (c.a === cur.a && c.b === cur.b) return false;
     setHomRange({ a: c.a, b: c.b }, { preview });
+    if (!preview) playNewRange();
     return true;
+  }
+  // ([v17 UX64]) a bracket the user just chose plays from its start, so the change shows; not under reduced motion
+  function playNewRange() {
+    if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
   }
   function brKey(e, side, el) {
     const n = nSteps(), r = homRangeOk() || { a: 1, b: n }, v = side === 'l' ? r.a : r.b;
@@ -163,7 +193,7 @@
       const L = $('chainBracket'); if (L) L.classList.remove('drag'); el.classList.remove('drag');
       const held = brDrag && brDrag.held;
       brDrag = null;
-      if (commit) { const r = homRangeOk(); setHomRange(r ? { a: r.a, b: r.b } : null, { force: true }); }
+      if (commit) { const r = homRangeOk(); setHomRange(r ? { a: r.a, b: r.b } : null, { force: true }); playNewRange(); }
       else setHomRange(held, { force: true });
     };
     const up = () => end(true), cancel = () => end(true);
@@ -202,6 +232,7 @@
     if (S.focus > 0) setFocus(0);
     setHomRange(r);
     if (!morph.open) openTransport();
+    playNewRange();
     return null;
   }
   function regionSummary() {

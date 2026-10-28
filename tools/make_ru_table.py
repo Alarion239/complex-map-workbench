@@ -17,7 +17,11 @@
 #      the names its context lists. The Russian always writes '%{name}', which i18n.js fills in any template.
 #      tools/ru_extra.json wins over both (templates restructured in code, Russian-only messages).
 # The table is written as one JSON string inside a JS call, I18N.define('ru', "..."): English never parses it.
-import json, re, sys, pathlib
+import json
+import pathlib
+import re
+import sys
+
 from src_parts import src_texts  # (the files of src/, app.js and gl.js joined from their parts in src/app/ and src/gl/)
 
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -121,7 +125,8 @@ def key_split(key):
     return out
 
 
-norm = lambda parts: '\u0000'.join(lit for lit, _ in parts)
+def norm(parts):
+    return '\u0000'.join(lit for lit, _ in parts)
 
 
 def rename(ru, en_names, en_order, key_order):
@@ -176,7 +181,7 @@ for en, lst in by_en.items():
     val = v.get('plural') or v['ru']
     if val != en:
         table[en] = val
-    for k2, v2 in lst:
+    for _, v2 in lst:
         if v2.get('ru_short'):
             table['short' + CTX + en] = v2['ru_short']
 for k, v in sample.items():
@@ -274,11 +279,11 @@ def rename_named(ru, t_occ, k_occ):
     """Russian placeholders of a named template (%{name}; {name} too when the Russian has no TeX) -> %{call-site name}.
     By name; occurrence by occurrence when one template name stands for two call-site names."""
     m, conflict = {}, False
-    for t, k in zip(t_occ, k_occ):
+    for t, k in zip(t_occ, k_occ, strict=False):
         if m.setdefault(t, k) != k:
             conflict = True
     queues = {}
-    for t, k in zip(t_occ, k_occ):
+    for t, k in zip(t_occ, k_occ, strict=False):
         queues.setdefault(t, []).append(k)
     used = {}
     tex = re.search(r'[$\\]', ru) is not None
@@ -318,7 +323,7 @@ for kind, key, a, b, where in sites:
         # one English text, several entries (a tool button and a shape name): the entry of the same file wins, then
         # the nearest line (the base's line numbers drift a little)
         cf, cl = where.split(':')[0], int(where.split(':')[1])
-        def rank(h):
+        def rank(h, cf=cf, cl=cl):
             f = inv.get(h[0], {}).get('file') or h[1].get('file') or ''
             fn, _, ln = f.partition(':')
             same = pathlib.Path(fn).name == cf
@@ -336,9 +341,9 @@ for kind, key, a, b, where in sites:
             unresolved.append({'key': key, 'where': where, 'why': f'{k} has no plural forms'})
             continue
         if names == 'named':
-            resolved[key] = map_val(val, lambda r: rename_named(r, order, kn))
+            resolved[key] = map_val(val, lambda r, order=order, kn=kn: rename_named(r, order, kn))
         else:
-            resolved[key] = map_val(val, lambda r: rename(r, names, order, kn))
+            resolved[key] = map_val(val, lambda r, names=names, order=order, kn=kn: rename(r, names, order, kn))
         how[key] = k
         continue
     if kind == 't' and key in table and not kn:

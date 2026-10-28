@@ -40,7 +40,7 @@ const Construct = (() => {
   let moveChipShown = false;
   let gestSnap = null;     // a drawing gesture's snaps: {start, end} targets
   let rail = null;         // [v16.5 rail] a point sliding on its curve: {side, pc, ink, stretch: {a, b, k} | null}
-  let freeChip = null;     // [v16.5 rail] "z₂ is free" by the point for 1.2 s after a pull: {side, id, text, until}
+  let freeChip = null;     // a chip by a point for 1.2 s ("z₂ is free" after a pull, "built from … drag those"): {side, id, text, until, Z}
   const pcache = new Map();
 
   // ---------------------------------------------------------------- small helpers
@@ -51,6 +51,7 @@ const Construct = (() => {
   // [v16.5 rail SPEC 1.1] the radii in screen px: points p, curves c (a finger 14, was 10), the grid lattice g, a rail's
   // detents det
   const radii = (touch) => (touch ? { p: 22, c: 14, g: 12, det: 10 } : { p: 8, c: 6, g: 9, det: 6 });
+  const TAN_EPS = 0.5;     // the touching circle's P this close to the tangent at T (px) makes the tangent line
   const altNow = () => !!(A.altHeld() || (lastEv && lastEv.altKey));
   const env = () => (api && api.cm ? api.cm.env() : {});
   const graph = () => Constr.graph(S());
@@ -101,10 +102,11 @@ const Construct = (() => {
   }
 
   // ---------------------------------------------------------------- names and texts
-  // a point shape's plane label (z₀, a user label; helpers have none), as drawPoints counts
+  // a point shape's plane label (z₀ by its stored number, a user label; helpers have none), as drawPoints names it
   function pointName(s) {
     const st = S();
     if (isT(s)) { const pts = st.targets.filter((x) => x.kind === 'point'); return A.targetLabel(s, pts.indexOf(s)); }
+    if (Number.isInteger(s.num)) return A.pointLabel(s, s.num, 0);
     let i = 0;
     for (const x of st.shapes) { if (x === s) break; if (x.kind === 'point' && x.visible !== false && !x.helper) i++; }
     return A.pointLabel(s, i, 0);
@@ -122,7 +124,9 @@ const Construct = (() => {
   const nameById = (id) => shapeLabel(find(id));
   // a name kind's word: a Region kind's label, or [v16.5 UX55] 'Hyperbolic line'
   const kindLabel = (nk) => (nk === 'hyper' ? $t('Hyperbolic line') : Region.KINDS[nk].label);
-  const zMark = (kind, i) => (kind === 'poles' ? 'p' : 'ζ') + sub(i + 1);
+  // a zero's or pole's mark by its number n (Constr.zpNum); a reason's mark {kind, i, n?} by markNum
+  const zMark = (kind, n) => (kind === 'poles' ? 'p' : 'ζ') + sub(n);
+  const markNum = (m) => (Number.isInteger(m.n) ? m.n : (m.i | 0) + 1);
   function zpIndex(ref) {
     const st = (S().steps || []).find((x) => x.uid === ref.zp);
     const ids = st && st.zpIds && st.zpIds[ref.kind];
@@ -234,7 +238,7 @@ const Construct = (() => {
   function refName(ref, cs) {
     if (!ref) return '?';
     if (ref.inf) return '∞';
-    if (typeof ref.zp === 'string') return zMark(ref.kind, zpIndex(ref));
+    if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
     if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + (S().steps.length < 4 ? ['', '′', '″', '‴'][S().steps.length] : '″') : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
@@ -251,7 +255,7 @@ const Construct = (() => {
   function reasonText(u) {
     if (!u) return '';
     const a = u.args || {};
-    const mark = a.mark ? zMark(a.mark.kind, a.mark.i | 0) : '';
+    const mark = a.mark ? zMark(a.mark.kind, markNum(a.mark)) : '';
     switch (u.code) {
       case 'coincide': return $t('The points coincide');
       case 'coincide3': return $t('Two of the points coincide');
@@ -274,7 +278,7 @@ const Construct = (() => {
       case 'stepRemoved': return $t('The step of {mark} was removed', { mark });
       case 'zpNotF1': return a.mark && a.mark.kind === 'poles' ? $t('{mark} is a pole of {f} now: only the zeros and poles of f₁ lie in the z-plane', { mark, f: 'f' + sub(a.f || 2) }) : $t('{mark} is a zero of {f} now: only the zeros and poles of f₁ lie in the z-plane', { mark, f: 'f' + sub(a.f || 2) });
       case 'argUndef': {
-        const x = a.x == null ? null : typeof a.x === 'string' ? nameById(a.x) : a.x.mark ? zMark(a.x.mark.kind, a.x.mark.i | 0) : null;
+        const x = a.x == null ? null : typeof a.x === 'string' ? nameById(a.x) : a.x.mark ? zMark(a.x.mark.kind, markNum(a.x.mark)) : null;
         return x ? $t('{x} is undefined', { x }) : $t('An argument is undefined');
       }
     }
@@ -820,7 +824,8 @@ const Construct = (() => {
     // [v16.5 rail SPEC 2.4] a meet point (a crossing the Point tool or a snap made, Intersect's): its rail is one place
     if (s.kind === 'point' && s.def && s.def.op === 'meet') return railDrag(d, pane, side, Z);
     if (s.kind === 'point' && s.def) {
-      if (!d.cmWarned) { d.cmWarned = true; lastToast = A.toast($t('{x} is built from {y}: drag those', { x: shapeLabel(s), y: rootsText(s) })); }
+      // the reason by the point being dragged, where the user is looking
+      if (!d.cmWarned) { d.cmWarned = true; pointChip(side, s.id, $t('{x} is built from {y}: drag those', { x: shapeLabel(s), y: rootsText(s) })); }
       return true;
     }
     let roots = null;
@@ -837,7 +842,7 @@ const Construct = (() => {
     d.cm = 'pan';
     if (!moveChipShown) {
       moveChipShown = true;
-      lastToast = A.toast($t('Built on {x}: drag those, or Make free', { x: rootsText(s) || shapeLabel(s) }));
+      pointChip(side, s.id, $t('Built on {x}: drag those, or Make free', { x: rootsText(s) || shapeLabel(s) }), [d.z0.re, d.z0.im]);
     }
     return 'pan';
   }
@@ -908,10 +913,16 @@ const Construct = (() => {
     s.p = Z.slice();
     d.cmFree = true; d.moved = true;
     d.fd = { p0: Z.slice(), z0: Z.slice(), ex: null };
-    const until = performance.now() + 1200;
-    if (!d.cmGlobe) freeChip = { side, id: s.id, text: $t('{x} is free', { x: pointName(s) }), until };
-    setTimeout(() => { if (freeChip && freeChip.until === until) { freeChip = null; A.requestRender('OL', 'OR'); } }, 1250);
+    if (!d.cmGlobe) pointChip(side, s.id, $t('{x} is free', { x: pointName(s) }));
     A.cue('detach');
+  }
+  // a chip by a point for 1.2 s ("z₂ is free", "m is built from z₀, z₁: drag those"); at Z (world) when the shape is
+  // not a point: there the pressed spot, which a pan keeps under the pointer
+  function pointChip(side, id, text, Z) {
+    const until = performance.now() + 1200;
+    freeChip = { side, id, text, until, Z: Z || null };
+    A.requestRender('OL', 'OR');
+    setTimeout(() => { if (freeChip && freeChip.until === until) { freeChip = null; A.requestRender('OL', 'OR'); } }, 1250);
   }
   // a free point's drag (1.2): onto a crossing, a curve (a display curve too), a zero or a handle, or the grid; a point
   // shape there gets the warn ring and no snap (no merging, C22). What is drawn is where it lands. Alt or Snap off: raw
@@ -1091,10 +1102,11 @@ const Construct = (() => {
   // at the bottom of the window); where no chip is shown, a toast. A tool change clears both
   // (wave 1 merge: the refusals say Tap on a touch screen, Click with a mouse, as the phone piece's UX17 asked of the
   // plane piece's lines; chipTouch() is the chip's own test)
-  // ([v16.5 fix rail-7] it goes as soon as a pick is taken, the draft is backed up or cancelled, or Esc; [rail-8] the tool
-  // is named by the chip's own word for it, chipTool)
+  // ([v16.5 fix rail-7] it goes as soon as a pick is taken, the draft is backed up or cancelled, or Esc; [rail-8] the
+  // refusal names the tool in full, warnTool, even where a narrow chip's label is the short one: "3 points needs distinct
+  // points" reads as nonsense)
   function pickOk() { if (pickWarnMsg) { pickWarnMsg = null; clearTimeout(pickWarnT); A.requestRender('OL', 'OR'); } }
-  const chipTool = (tool) => ((chipNarrow[chipSide() || 'L'] || chipTouch() ? toolShort(tool) : toolName(tool)) || '').replace(/\u00ad/g, '');
+  const warnTool = (tool) => (toolName(tool) || '').replace(/\u00ad/g, '');
   function pickWarn(msg) {
     if (!chipSide()) { lastToast = A.toast(msg); return; }
     pickWarnMsg = msg;
@@ -1166,7 +1178,7 @@ const Construct = (() => {
     // a co-argument pick: distinct points only ([v16.5 rail SPEC 3.2] a press on an earlier pick; two places on one curve
     // are two points)
     if (dupPick(t)) {
-      pickWarn($t('{x} needs distinct points', { x: chipTool(tool) }));   // ([v16.5 UX52] in the chip, by the pointer)
+      pickWarn($t('{x} needs distinct points', { x: warnTool(tool) }));   // ([v16.5 UX52] in the chip, by the pointer)
       setRing(side, t, true);   // ([v16.5 fix rail-7] the chip says it now; the ring only warns, without a second label)
       return true;
     }
@@ -1255,7 +1267,7 @@ const Construct = (() => {
     if (p && p.cls === 'point' && p.ref) return refName(p.ref);
     const st = S();
     if (side === 'R') return A.targetLabel({}, st.targets.filter((x) => x.kind === 'point').length);
-    return A.pointLabel({}, st.shapes.filter((x) => x.kind === 'point' && x.visible !== false && !x.helper).length, 0);
+    return A.pointLabel({ num: A.nextPointNum() }, 0, 0);
   }
   // after T: the tangent at T as a line form (C a circle), else null
   function hintForm(T) {
@@ -1263,18 +1275,29 @@ const Construct = (() => {
     if (!pc || pc.kind !== 'circle' || !pc.G || !isXY(T)) return null;
     try { const r = Constr.touchForm(pc.G, T, Constr.INF); return r && r.G ? r.G : null; } catch (e) { return null; }
   }
-  // the tangent hint at the pointer, within the curve radius (a stroke); Alt, or Snap off, skips it: P = ∞
+  // the tangent hint at the pointer, within the point radius: P = ∞. A target, not a snap: Snap off keeps it (it is drawn,
+  // so it can be clicked); Alt skips it, to place P near the tangent on purpose
   function hintAt(side, x, y, Tp) {
-    if (A.altHeld() || (lastEv && lastEv.altKey) || !A.snapOn()) return null;
-    const G = hintForm(Tp.z);
-    if (!G) return null;
-    const g = Constr.geomOf(G), L = Math.hypot(g.d[0], g.d[1]);
-    if (!(L > 0)) return null;
-    const pane = A.setView(side), zc = pane.s2w(x, y), u = [g.d[0] / L, g.d[1] / L];
-    const tt = (zc.re - g.p[0]) * u[0] + (zc.im - g.p[1]) * u[1], z = [g.p[0] + tt * u[0], g.p[1] + tt * u[1]];
-    const [sx, sy] = pane.w2sxy(z[0], z[1]);
-    if (!(Math.hypot(sx - x, sy - y) <= radii(touchNow()).c)) return null;
-    return { cls: 'hint', ref: { inf: 1 }, z, G, label: $t('the tangent at {a}', { a: pickName(Tp, side) }) };
+    if (altNow()) return null;
+    const pc = curve1Piece(draftC && draftC.curve1);
+    if (!pc || pc.kind !== 'circle' || !pc.G || !isXY(Tp.z)) return null;
+    const pane = A.setView(side), zc = pane.s2w(x, y);
+    let h = null;
+    try { h = Constr.tangentNear(pc.G, Tp.z, [zc.re, zc.im]); } catch (e) { h = null; }
+    if (!h || !(h.d * pane.view.s <= radii(touchNow()).p)) return null;
+    return { cls: 'hint', ref: { inf: 1 }, z: h.z, G: h.G, label: $t('the tangent at {a}', { a: pickName(Tp, side) }) };
+  }
+  // the tangent at T in one step, without aiming at the dashed line: the chip's Tangent line and Enter, once T is
+  // picked on a circle
+  const tangentReady = (side) => !!draftC && draftC.tool === 'touch' && (!side || draftC.side === side) && draftC.picks.length === 1 && draftC.picks[0].role === 'T' && !!hintForm(draftC.picks[0].z);
+  function tangentNow() {
+    if (!tangentReady()) return false;
+    const T = draftC.picks[0];
+    draftC.hoverT = null;
+    draftC.picks.push({ cls: 'hint', ref: { inf: 1 }, z: T.z.slice(), role: 'P' });
+    pickOk();
+    finishTouch(draftC.side, null);
+    return true;
   }
   // after P: the tangents from P to C (C a circle, P outside it), each with its touching point on C's piece
   function ringsOf(P) {
@@ -1353,8 +1376,15 @@ const Construct = (() => {
       shapes.push(...m.shapes);
       return m.ref;
     };
-    const Tp = d.picks.find((p) => p.role === 'T'), Pp = d.picks.find((p) => p.role === 'P');
-    let s, pRef = null;
+    const Tp = d.picks.find((p) => p.role === 'T');
+    let Pp = d.picks.find((p) => p.role === 'P'), s, pRef = null;
+    // P on the tangent at T (within TAN_EPS px): the touching circle is that tangent, touch(C, T, ∞), not a circle of
+    // radius ~10¹⁶
+    if (!ring && Pp && Pp.cls !== 'hint' && pc && pc.kind === 'circle' && pc.G && isXY(Tp.z) && isXY(Pp.z)) {
+      let h = null;
+      try { h = Constr.tangentNear(pc.G, Tp.z, Pp.z); } catch (e) { h = null; }
+      if (h && h.d * A.setView(side).view.s <= TAN_EPS) Pp = { cls: 'hint', ref: { inf: 1 }, z: h.z, role: 'P' };
+    }
     if (ring) {
       let g = null;
       try { g = Constr.shapeOf(ring.G); } catch (e) { g = null; }
@@ -1515,7 +1545,7 @@ const Construct = (() => {
     // ([v16.5 fix rail-5] a pick on a drawn curve is a point on it, as on the plane: the construction is exact on it)
     if (!best && !altNow()) best = globeCurveAt(side, gp.g, x, y, gp.gc, gp.hit);
     if (!best) { if (!gp.g.z) return true; best = { cls: 'free', z: [gp.g.z.re, gp.g.z.im], ref: null }; }
-    if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: chipTool(tool) })); return true; }   // ([v16.5 UX52])
+    if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: warnTool(tool) })); return true; }   // ([v16.5 UX52])
     draftC.picks.push(best); pickOk();
     if (draftC.picks.length >= NEED[tool]) finish(side); else A.requestRender('OL', 'OR');
     return true;
@@ -1646,7 +1676,8 @@ const Construct = (() => {
       // (pw, the plane's width, for every tool [v16.3.1: the one-line rule below re-measures the wrap when it changes]; it
       // also covers the Orthogonal chip's 8 px bucket that the Whole | Inside fit was rebuilt on [v16.4]. [v16.5 check
       // app-5] the chip's place too: at the plane's foot it is narrower, and the rule must measure it there)
-      const sig = `${txt}|${tool}|${fillMode}|${segMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
+      const tan = tool === 'touch' && tangentReady(side);
+      const sig = `${txt}|${tool}|${fillMode}|${segMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${tan}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
@@ -1695,6 +1726,8 @@ const Construct = (() => {
         };
         // ([v16.5 UX51] words on touch too: the chip takes two lines rather than drop them)
         if (tool === 'perp') box.append(segBox = mkSeg(false));
+        // the touching circle after T on a circle: the tangent at T in one click (or Enter)
+        if (tan) box.append(A.h('span', { class: 'cm-seg cm-tan' + (chipTouch() ? ' cm-touch' : '') }, A.h('button', { type: 'button', class: 'cm-sb', title: $t('The tangent at {a} (Enter)', { a: pickName(draftC.picks[0], side) }), onclick: (e) => { e.stopPropagation(); tangentNow(); } }, $t('Tangent line'))));
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
         if (segBox && !chipTouch() && plot) {
           // (the words fit when the text stays on one line and the chip inside its plane)
@@ -1786,11 +1819,11 @@ const Construct = (() => {
     // ghost dot at the pointer
     if (rail && rail.side === side) drawRail(pane, ctx, TH);
     if (freeChip && freeChip.side === side) {
-      const p = find(freeChip.id);
+      const p = find(freeChip.id), at = freeChip.Z || (p && isXY(p.p) ? p.p : null);
       // (one chip row higher when the ring's chip shows too: the freed point dragged over a curve or a lattice point says
       // both, "z₂ is free" above "on the real axis")
       const dy = ring && ring.side === side && !ring.held && ring.chip ? 26 : 0;
-      if (p && isXY(p.p) && performance.now() < freeChip.until) { const [fx, fy] = pane.w2sxy(p.p[0], p.p[1]); ctx.save(); drawChip(pane, ctx, TH, fx, fy - dy, 11, freeChip.text, touchNow(), false); ctx.restore(); }
+      if (at && performance.now() < freeChip.until) { const [fx, fy] = pane.w2sxy(at[0], at[1]); ctx.save(); drawChip(pane, ctx, TH, fx, fy - dy, 11, freeChip.text, touchNow(), false); ctx.restore(); }
     }
     if (!ring || ring.side !== side || ring.held) return;
     const [x, y] = pane.w2sxy(ring.z[0], ring.z[1]);
@@ -2097,7 +2130,7 @@ const Construct = (() => {
       }
       draftC.hover = t ? t.z.slice() : [z0.re, z0.im];
       // ([v16.5 fix rail-7] one message: once the press was refused the chip says it, and the ring by the pointer only warns)
-      if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: chipTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
+      if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: warnTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
       if (t && tool === 'meet' && t.cls === 'point') t = snapAt(side, x, y, { points: false, cross: true, curves: true });
       if (t && tool === 'meet' && t.cls === 'curve' && !t.ref) t = null;   // ([v16.5 rail] Intersect takes a display curve's crossings, not the curve)
       if (t && t.ref && t.ref.img && !A.yWhole()) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }
@@ -2154,7 +2187,7 @@ const Construct = (() => {
     let plan;
     try { plan = Constr.zeroRemovePlan(S(), { zp: st.uid, kind, id: st.zpIds[kind][i] }); } catch (e) { return ''; }
     const n = plan.undef.length;
-    return n ? $tn('Release to remove {mark}; {n} shape will be undefined', 'Release to remove {mark}; {n} shapes will be undefined', n, { mark: zMark(kind, i) }) : '';
+    return n ? $tn('Release to remove {mark}; {n} shape will be undefined', 'Release to remove {mark}; {n} shapes will be undefined', n, { mark: zMark(kind, Constr.zpNum(st, kind, i)) }) : '';
   }
 
   // ---------------------------------------------------------------- rows, ⋯ items, hover links
@@ -2597,7 +2630,7 @@ const Construct = (() => {
       ['midpoint', $t('Midpoint'), '', $t('Pick two points, or a segment.'), 'construct', $t('Midpoint')],
       ['bisector', $t('Perpendicular bisector'), '', $t('Pick two points, or a segment: the line of the points equally far from both.'), 'construct', $t('Bisector')],
       ['perp', $t('Perpendicular circle'), '', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('Orthogonal')],
-      ['touch', $t('Touching circle'), '', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
+      ['touch', $t('Touching circle'), '', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
       ['hyper', $t('Hyperbolic line'), '', $t('Pick the boundary (a line or a circle), then two points on one side of it: the hyperbolic line through them, the arc of the circle at right angles to the boundary. The boundary stays picked for the next one.'), 'construct', $t('Hyperbolic')],
     ];
   }
@@ -2718,6 +2751,8 @@ const Construct = (() => {
     const has = !!(draftC.picks.length || draftC.curve1);
     if (e.key === 'Escape' && has) { cancel(); e.preventDefault(); e.stopPropagation(); }
     else if (e.key === 'Backspace' && has) { back(); e.preventDefault(); e.stopPropagation(); }
+    // (Enter after the touching circle's T: nothing else is pending there; a focused button keeps its own Enter)
+    else if (e.key === 'Enter' && !(t && t.tagName === 'BUTTON') && tangentNow()) { e.preventDefault(); e.stopPropagation(); }
   }
   // the tablet rail (SPEC 5.4): when it would overflow the panel, Grid and Polar grid leave it first (they stay in the
   // drawer), then Freehand and Lasso; (v16.3, the fifth Construct tool) then the rail's vertical "Region tools" label,

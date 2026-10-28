@@ -10,7 +10,7 @@ let pass = 0, fail = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL ' + name + (got !== undefined ? ' ' + JSON.stringify(got).slice(0, 400) : '')); } };
 const APP = R('src/app.js'), CON = R('src/construct.js'), PAGE = R('src/page.html'), TOUR = R('src/tour.js'), MK = R('tools/make_ru_table.py');
 const count = (s, sub) => s.split(sub).length - 1;
-const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0, j = src.indexOf('{', i); for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0; const j = src.indexOf('{', i); for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
 
 // ---- no conflict marker left anywhere
 for (const f of ['src/app.js', 'src/construct.js', 'src/constr.js', 'src/page.html', 'src/tour.js', 'src/phone.js', 'src/phone.css', 'src/desk.css', 'src/inspector.js', 'tools/make_ru_table.py'])

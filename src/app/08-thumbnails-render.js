@@ -193,7 +193,7 @@
         if (ctx.measureText($t('No shapes')).width <= pane.w - 8) haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
       }
     }
-    if (waiting || thumbNotFinal) { thumbNotFinal = false; thumbsWaiting = true; return; } // drawn with a stand-in: not final, not cached
+    if (waiting || thumbNotFinal) { thumbNotFinal = false; return; } // drawn with a stand-in: not final, not cached
     pane.sig = sig;
     if (card) card.classList.remove('stale');
     if (window.createImageBitmap) {
@@ -203,7 +203,6 @@
       }).catch(() => {});
     }
   }
-  let thumbsWaiting = false;
   function renderThumbs() {
     // wait for a quiet moment: never during drags, pans or a playing morph
     if (drag || tweens.length || camTweens.length || (morph.playing && morph.open) || performance.now() - lastInputT < 150) {
@@ -439,7 +438,6 @@
 
   // change notifications
   let lastLeftSig = '';
-  let chainInfoKey = '';
   // a change that follows another within 150 ms, or comes from a drag, is part of a scrub: MathJax waits for a pause
   let lastChangeT = 0, scrubT = 0;
   function noteChange() {
@@ -467,6 +465,7 @@
   function shapesChangedAll(structural) { shapesChanged(structural); }
   function shapesChanged(structural) {
     if (typeof Constr !== 'undefined' && cmShapes()) structural = true;   // (v16 constructions)
+    if (numberPoints()) structural = true;
     noteChange();
     if (structural) {
       updateFocusUI();

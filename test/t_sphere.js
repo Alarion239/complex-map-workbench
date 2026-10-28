@@ -280,11 +280,9 @@ console.log('load factor', LOAD.toFixed(2));
 let nFlat = 0, flatOk = 0;
 for (const cs of sel) {
   const M = build(cs);
-  const t0 = Date.now();
   // resumable: 5 ms slices, as the app runs it
   let r, slices = 0;
   do { r = M.step(5); slices++; } while (!r.done);
-  const ms = Date.now() - t0;
   const pub = M.publish();
   const st = M.stats();
   const cd = chordDev(M, cs);

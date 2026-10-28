@@ -102,9 +102,8 @@
     }
     return out;
   }
-  // run a generator to its end (synchronously), or in slices of about `slice` ms between which the event loop runs
-  // (frames, input); alive() false stops it (null)
-  const runGen = (g) => { let r; do r = g.next(); while (!r.done); return r.value; };
+  // run a generator to its end in slices of about `slice` ms between which the event loop runs (frames, input);
+  // alive() false stops it (null)
   // (a macrotask through a MessageChannel: unlike setTimeout(0) it is not clamped to 4 ms when nested)
   const mfChan = new MessageChannel(), mfQ = [];
   mfChan.port1.onmessage = () => { const f = mfQ.shift(); if (f) f(); };
@@ -341,7 +340,7 @@
     const dirAt = (T) => ({ T, w: at(T), a: at(Math.max(0, T - h)), b: at(Math.min(Tend, T + h)) });
     return { z: at(0), e: at(Tend), arrows: mt.arrows.map(dirAt), nodes: mt.nodes.map(dirAt), dots: mt.dots.map((T) => ({ T, w: at(T) })), seq: mt.seq };
   }
-  // the selection (a generator: it yields between candidates, so it runs in slices off the frame; runGen /
+  // the selection (a generator: it yields between candidates, so it runs in slices off the frame;
   // runGenSliced). P maps the plane to px (null where a point is not shown: the globe's far side and limb), box is the
   // panel (px), win its world window. opt: scale (the spacings' factor), footPx, nogo (px rectangles to keep clear),
   // maxN, globe, fig (the exported figure: stricter about the frame and the picture's lines). Every path is traced whole
@@ -735,7 +734,7 @@
     if (!(fade > 0.01)) return;
     const flat = !P;
     if (flat) P = (w) => pane.w2s(w);
-    const ctx = pane.ctx, T = morph.T, Tend = sel.Tend || morphLen(), W = pane.w, Hh = pane.h;
+    const ctx = pane.ctx, T = morph.T, W = pane.w, Hh = pane.h;
     const inView = (q) => q[0] >= 0 && q[0] <= W && q[1] >= 0 && q[1] <= Hh;
     const LW = flat ? 1.4 : 1.6, AL = 9.5, AW = 3.2, BAR = 4;
     const lines = [], rings = [], arrows = [], bars = [], heads = [], cues = [], drawnZ = [];
@@ -1140,7 +1139,8 @@
       if (r) return r;
       return { tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,%{F}(%{v})$', { v, F: `f_{${k}}` }), segment: true };
     };
-    let inner, list = [], mob = false, seg = false;
+    let inner, mob = false, seg = false;
+    const list = [];
     if (m === 1) { const r = phrase(steps[0]); inner = texSegs(r.tex).map(toG); mob = !!r.mobius; seg = !!r.segment; }
     else if (all) {
       const own = (k, tex) => texSegs(tex).map((g) => (g.m == null ? g : { m: g.m.replace(/H_\{?([t0-9])\}?/g, (_, x) => `{H^{(${k})}_{${x}}}`) }));

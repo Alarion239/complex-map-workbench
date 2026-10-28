@@ -56,7 +56,7 @@
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
     let roleL, shortL;
-    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : '' }); shortL = $tx('role', 'landscape'); }
+    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : deformOneSheet() ? $t('; one sheet is drawn while it deforms') : '' }); shortL = $tx('role', 'landscape'); }
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
@@ -68,7 +68,7 @@
     // (one title for the merged plane and the merged globe)
     // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
     // carry the "Y · " tag)
-    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T($t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
+    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && bracketWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
     else if (S.focus === 0) right = T(YT + (n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>'), $tn('image, after {n} step', 'image, after {n} steps', n), $tx('role', 'image'));
     else if (dk) right = T(YT + `${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
@@ -339,6 +339,9 @@
     }
     return sheetsD.D > 1 ? Object.assign({}, ms, { D: sheetsD.D }) : null;
   }
+  // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
+  // check and the title say so)
+  function deformOneSheet() { return !!S.sheets && morphOn() && !deformSheetsOk(); }
   // All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md): H_t is drawn on the sheets that become
   // F's (GLChain chainSheetHom), unless a step the deformation applies has no sheet form: a d/dz, or a deformed formula
   // with branch points that is not recognised as catalog steps (Funcs.sheetMapPieces null). The test takes every step
@@ -448,8 +451,10 @@
     const span = lab && lab.querySelector('span');
     if (!span) return lab;
     const capped = !!(S.sheets && ms && ms.total > ms.K);
-    span.textContent = capped ? $t('All sheets ({K} of {total})', { K: ms.K, total: ms.total }) : $t('All sheets');
-    if (S.sheets && morphOn() && !deformSheetsOk()) lab.dataset.tip = $t('While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.');
+    const one = deformOneSheet();
+    span.textContent = one ? $t('All sheets (one while it deforms)') : capped ? $t('All sheets ({K} of {total})', { K: ms.K, total: ms.total }) : $t('All sheets');
+    lab.classList.toggle('sheets-one', one);
+    if (one) lab.dataset.tip = $t('While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.');
     else if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
     return lab;
   }
@@ -484,7 +489,6 @@
     ft.kids = []; ft.widths = null; ft.n = -1;
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length; ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
     const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
-    const Fn = fnText();
     if (morphOn() && rImage()) {
       // (the merged deformation plane: no options of its own; the transport is docked under it)
     } else if (rImage()) {
@@ -725,14 +729,6 @@
     const sl = !morph.playing ? $('morphRange') : null;
     if (sl && document.activeElement !== sl && +sl.value !== morph.T) { sl.value = morph.T; paintFader(sl); }
   }
-  // phase color as in the shaders (OKLCH wheel, arg 0 = red)
-  function oklchRGB(L, Cc, hh) {
-    const a = Cc * Math.cos(hh), b = Cc * Math.sin(hh);
-    const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.2914855480 * b;
-    const l = l_ ** 3, m = m_ ** 3, s2 = s_ ** 3;
-    const lin = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s2, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s2, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s2];
-    return lin.map((c) => { c = Math.min(1, Math.max(0, c)); return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055)); });
-  }
   let legendNeedle = null, legendMod = null;
   const WHEEL_STOPS = ['#F58C7E', '#EA9853', '#CFA93E', '#A5B953', '#6EC580', '#27C8AF', '#1CC3D8', '#53B8F7', '#8EAAFD', '#B99BF5', '#DB8FD6', '#F089AC'];
   // The legend's static part (ring, strip, words) is painted once per look into an offscreen canvas; a probe move
@@ -758,7 +754,6 @@
     if (!lPhase()) return null;
     return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
   }
-  function legendWanted(side = 'R') { return !!legendKind(side); }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
   // after a click, the options behind the Display options button (wave 2's D4 turns it into a Display popover). A phone

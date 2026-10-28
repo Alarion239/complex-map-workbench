@@ -65,6 +65,8 @@ jobs:
       glsl: ${{ steps.tier.outputs.glsl }}
       quality: ${{ steps.tier.outputs.quality }}
       perf: ${{ steps.tier.outputs.perf }}
+      quality_force: ${{ steps.tier.outputs.quality_force }}
+      perf_force: ${{ steps.tier.outputs.perf_force }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -200,7 +202,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} --shard ${{ matrix.shard }} ${{ env.FORCE }}
+      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} --shard ${{ matrix.shard }} ${{ env.FORCE || needs.plan.outputs.quality_force }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -235,7 +237,7 @@ jobs:
       # (shared virtual machines: a timing swings both ways by more than any tolerance between two runs of the same app, so
       # timings and memory are reported with 3-fold allowances and not gated; the checks gate. Software rendering
       # settles slower than a GPU.)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE }}
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE || needs.plan.outputs.perf_force }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

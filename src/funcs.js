@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // Catalog of chainable functions: evaluation, LaTeX, guaranteed properties, branch cuts, homotopies.
 const Funcs = (() => {
@@ -650,7 +651,7 @@ const Funcs = (() => {
       const g = groups.find((q) => q.r.re === r.re && q.r.im === r.im && sameTex(q.r, r));
       if (g) g.m++; else groups.push({ r, m: 1 });
     }
-    groups.sort((p, q) => zeroV(q.r) - zeroV(p.r));
+    groups.sort((p, q) => Number(zeroV(q.r)) - Number(zeroV(p.r)));
     return groups.map(({ r, m }) => {
       if (ptexOf(r)) { const base = subTex(x, r); return m === 1 ? base : powTex(base, m); }
       // x − r term by term: z − 1 − i, z + 0.5i (never z − (1 + i))
@@ -1191,6 +1192,7 @@ const Funcs = (() => {
     params: [{ key: 'a', label: 'a', type: 'cx', def: '0.5' }, { key: 'phi', label: 'φ', type: 'angle', def: 0 }],
     build({ a, phi }) {
       const e = C(Math.cos(phi * DEG), Math.sin(phi * DEG));
+      /** @type {any} */
       const r = mobiusBuild(e, CX.neg(CX.mul(e, a)), CX.neg(CX.conj(a)), C(1, 0));
       const rot = Math.abs(phi) % 360 < 1e-12;
       const ra = CX.abs(a);
@@ -1579,7 +1581,7 @@ const Funcs = (() => {
       const r = {
         ast,
         f, hom: nat ? nat.hom : linHom(f),
-        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: cls.dep && !P.constant ? $t('this formula is not analytic, so it has no natural path') : $t('a constant has no natural path') }), segment: true }),
+        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: P.constant || !cls.dep ? $t('a constant has no natural path') : cls.analytic ? $t('this formula has no usable point to zoom about, so it has no natural path') : $t('this formula is not analytic, so it has no natural path') }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData || null : null,
         tex: (a) => Expr.toTex(ast, a),
         props: P,
@@ -2387,6 +2389,7 @@ const Funcs = (() => {
   // circleRel(L) replaces the radius rule, exact: false forbids the exact chain rule.
   function stageFunctions(steps, built, opts = {}) {
     const relOf = opts.circleRel || circleRel;
+    /** @type {Array<(z: any) => any> & {levels?: number[]}} */
     const G = [(z) => z];
     const levels = [0];
     let seenD = false, L = 0;
