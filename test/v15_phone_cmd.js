@@ -76,13 +76,13 @@ const panes = () => ev(`(() => { const r = (id) => { const e = document.getEleme
 const closeSheet = async () => { await ev('Phone.close(true)'); await settle(250); };
 const loadChain = async (ns, extra) => { await load(ns, Object.assign({ shapes: SHAPES, steps: CHAIN3, srcView: { cx: 0, cy: 0, s: 52 } }, extra || {})); await settle(600); };
 
-// ---------- 1. every width, light and dark, English and Russian: one screen, 44 px, no overflow ----------
+// ---------- 1. every width, light and dark, English, Russian and Italian (issue #61): one screen, 44 px, no overflow ----------
 const SIZES = [[360, 780], [390, 844], [430, 932]];
-for (const lang of ['en', 'ru']) for (const dark of [false, true]) for (const [w, hgt] of SIZES) {
+for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) for (const [w, hgt] of SIZES) {
   const tag = `${w}-${dark ? 'dark' : 'light'}-${lang}`;
   await view(w, hgt, dark, true);
   await load('v15ph' + tag, { shapes: SHAPES, steps: CHAIN3, srcView: { cx: 0, cy: 0, s: 52 } });
-  if (lang === 'ru') { await nav(`http://localhost:${PORT}/test.html?ns=v15ph${tag}&lang=ru`); }
+  if (lang !== 'en') { await nav(`http://localhost:${PORT}/test.html?ns=v15ph${tag}&lang=${lang}`); }
   await settle(700);
   const s0 = await screen();
   info.scroll[tag] = { sh: s0.sh, ih: s0.ih, sw: s0.sw, iw: s0.iw };

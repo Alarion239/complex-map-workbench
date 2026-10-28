@@ -281,10 +281,16 @@ await section('A', async () => {
   await tool('select');
   const nBeforeDel = (await ST()).list.length;
   const b1 = await W(0.5, -1);
+  const zNames = async () => (await CI({ names: true })).filter((x) => /^z[₀-₉]+$/.test(x.name || ''));
+  const nm0 = await zNames();
   await click(b1[0], b1[1]); await settle(150);
   await key('Delete'); await settle(300);
   st = await ST();
   info.delToast = await toastText();
+  // [UX54] the other points keep their names: no z₂ becomes z₁
+  const nm1 = await zNames();
+  info.delNames = { before: nm0, after: nm1 };
+  ok('delete z₁: the other points keep their names', nm0.some((x) => x.name === 'z₂') && !nm1.some((x) => x.name === 'z₁') && nm1.every((x) => (nm0.find((y) => y.id === x.id) || {}).name === x.name), info.delNames);
   ok('delete z₁: the cascade toast', /^Deleted z₁ and \d+ shapes? built on it\./.test(info.delToast), info.delToast);
   ok('… the 3-point disc and the midpoint are gone', !byId(st, c3.id) && !byId(st, mid.id) && !byId(st, col.id), st.list.map((s) => s.id));
   await clickSel('#toastHost .toast-act'); await settle(300);
