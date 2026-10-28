@@ -162,7 +162,7 @@ const Tour = (() => {
           try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved', ctl: ['tool:select'], then: 'Y followed the line as you dragged it.' } },
         // (r3 review user-2: the task on a phone too, where the step's tools sheet holds the field and Add; its example is
         // not the field's placeholder, which reads like a filled field)
-        { id: 'formula', anchor: 'formula', title: 'Sets from formulas', before: [['panel', 'left', 'tools']],
+        { id: 'formula', anchor: 'formula', also: ['paneL'], title: 'Sets from formulas', before: [['panel', 'left', 'tools']],
           body: 'Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
           // (v16.5 UX17: a phone's words for the places and gestures, here and below)
           touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
@@ -173,7 +173,7 @@ const Tour = (() => {
           touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
           try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then Show alone in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on 3 s after it closes)
-        { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', before: [['focus', 0]],
+        { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, tap a card and use Move in its ⋯ menu.',
           try: { text: 'Press {+}, or click the add card.', touch: 'Tap the add card.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
@@ -186,7 +186,7 @@ const Tour = (() => {
     {
       id: 'views', title: 'Views', time: '1 min', rev: 2, scene: 'rational',
       steps: [
-        { id: 'switch', anchor: 'viewSwitch', title: 'Three views', before: [['deform', false], ['view', 'xy']],
+        { id: 'switch', anchor: 'viewSwitch', also: ['panes'], title: 'Three views', before: [['deform', false], ['view', 'xy']],
           body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
           touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.',
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
@@ -265,19 +265,19 @@ const Tour = (() => {
     {
       id: 'deform', title: 'Deformation', time: '1 min', rev: 3, scene: 'strip',
       steps: [
-        { id: 'toggle', anchor: 'deformToggle', title: 'Deformation', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['deform', false]],
+        { id: 'toggle', anchor: 'deformToggle', also: ['panes'], title: 'Deformation', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['deform', false]],
           body: 'Plays a homotopy $H_t$ from the identity to $F$, step by step, in every view. In X → Y the two panes merge into one plane.',
           try: { text: 'Click it, or press {M}.', touch: 'Tap it.', on: 'deformation-toggled', test: (e) => !e || e.on !== false, advance: true } },
         // (deformation-t: the user's own input on t; the deformation's own loop never sends it)
         { id: 'transport', anchor: 'transport', also: ['panes'], title: 'Play and scrub', before: [['deform', true]],
           body: 'Play, or drag $t$. Each step follows its natural path when it has one (the caption names it): $H_t$ is analytic for every $t$, so angles are kept wherever $H_t\'\\neq0$.',
           try: { text: 'Drag $t$.', on: 'deformation-t', ctl: ['playBtn', 'tSlider'], then: 'Angles are kept wherever $H_t\'\\neq0$.' } },
-        { id: 'paths', anchor: 'paths', title: 'Paths', before: [['deform', true]],
+        { id: 'paths', anchor: 'paths', also: ['panes'], title: 'Paths', before: [['deform', true]],
           body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
           touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
           try: { text: 'Click Paths twice, or press {P} twice.', touch: 'Tap Paths twice.', on: 'paths-toggled', count: 2, then: 'Each path runs from $z$ to $F(z)$.' } },
         // (on a phone the order select is in the deformation bar's Steps picker, which the step opens)
-        { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
+        { id: 'order', anchor: 'allAtOnce', also: ['panes'], needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
           try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
@@ -320,7 +320,7 @@ const Tour = (() => {
           body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
           touch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step\'s editor adds $2\\pi i k$.',
           try: { text: 'Drag the red cut.', on: 'cut-moved', ctl: ['tool:select'], then: 'The seam moved; across it the values jump by $2\\pi i$.' } },
-        { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', before: [['select', 1], ['panel', 'right']],
+        { id: 'inverse', anchor: ['invBtn', 'chain'], also: ['panes'], title: 'Inverses', before: [['select', 1], ['panel', 'right']],
           body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
           touch: 'Replace with the inverse, in the ⋯ menu of the step\'s editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
           try: { text: 'In ⋯, choose Replace with the inverse.', on: 'step-replaced', test: (e) => !e || (e.k === 1 && e.type === 'exp'), ctl: ['invBtn'], then: '$e^z$ undoes $\\log z$ on this sheet.' } },
