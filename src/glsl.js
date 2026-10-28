@@ -398,6 +398,9 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
             // other constant, and Expr.compile takes constants at their principal value whatever the cut), so only the
             // branch of cx_powk that it takes is compiled. Direct3D's FXC inlines all three branches at every call
             // site and unrolls cx_ipow32's 32 rounds: 0.5 to 1.4 s of compile per power (sound/impl/CUSTOM-PLAN.md P1).
+            // (Measured on Iris Xe, D3D11, 16 call sites in one program: cx_powk 6.8 to 16 s, cx_ipow32 alone 0.15 to
+            // 0.45 s, cpowr or cx_powg alone 0.6 to 2.2 s, so the cost is the three branches together. cx_ipow32 keeps
+            // its constant-bound loop: the same rounds with the test at the end of the loop took 0.9 to 2.1 s.)
             const a = g(n.a);
             const v = constOf(n.b, 0);
             if (v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096) {
