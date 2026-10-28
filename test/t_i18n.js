@@ -372,7 +372,7 @@ eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
   vm.createContext(ctx);
   const NAMES = { cx: 'CX', parse: 'Expr', region: 'Region' };
   for (const f of ['i18n', 'i18n_ru', 'cx', 'parse', 'region']) {
-    vm.runInContext(fs.readFileSync(path.join(XL, f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+    vm.runInContext(require('./src_text').stripEsm(fs.readFileSync(path.join(XL, f + '.js'), 'utf8')) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   const a = [-0.5, 0.25], b = [1, 1.25], c = [0.5, 0.25];
