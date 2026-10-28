@@ -22,6 +22,8 @@ import pathlib
 import re
 import sys
 
+from src_parts import src_texts  # (the files of src/, app.js and gl.js joined from their parts in src/app/ and src/gl/)
+
 root = pathlib.Path(__file__).resolve().parent.parent
 notes = root / 'notes' / 'i18n'
 CTX = '\u0004'
@@ -231,10 +233,9 @@ def read_lit(s, i):
 def call_sites(src):
     """[(kind, key, file:line)] for every $t / $tx / $tn whose arguments are string literals."""
     out = []
-    for f in sorted(src.glob('*.js')):
-        if f.name.startswith('i18n'):
+    for name, s in src_texts(src):
+        if not name.endswith('.js') or name.startswith('i18n'):
             continue
-        s = f.read_text()
         for m in re.finditer(r'(?<![A-Za-z0-9_$.])\$t(x|n)?\(', s):
             line = s.count('\n', 0, m.start()) + 1
             a = read_lit(s, m.end())
@@ -250,9 +251,9 @@ def call_sites(src):
                 if not b:
                     continue
                 key = (a[0] + CTX + b[0])
-                out.append(('tx' if m.group(1) == 'x' else 'tn', key, a[0], b[0], f'{f.name}:{line}'))
+                out.append(('tx' if m.group(1) == 'x' else 'tn', key, a[0], b[0], f'{name}:{line}'))
             else:
-                out.append(('t', a[0], a[0], None, f'{f.name}:{line}'))
+                out.append(('t', a[0], a[0], None, f'{name}:{line}'))
     return out
 
 
@@ -398,12 +399,12 @@ def js_unescape(lit):
 
 
 src_lits, src_blob, src_raw = set(), [], []
-for f in sorted((root / 'src').glob('*')):
+for name, t in src_texts(root / 'src'):
+    f = pathlib.Path(name)
     # (v16.5 merge: the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
     # source's strings: a string the source no longer calls must not be kept because the Italian table still has it)
     if f.name in ('i18n_ru.js', 'i18n_it.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
         continue
-    t = f.read_text()
     src_raw.append(t)
     if f.suffix == '.html':
         # (the page's static text as the walker reads it: entities decoded, tags and runs of white space as one space)

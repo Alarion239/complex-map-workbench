@@ -7,10 +7,14 @@
 # GitHub's machines are shared and render in software: their timings swing by more than any tolerance, so here the
 # perf jobs gate the suite's checks (a view that does not move, a compile during a hover, a page error) and only report
 # slower timings (--advisory).
+# Tiers (ci/README.md, CI tiers): a pull request into another branch than main (an integration branch) runs only the
+# plan and the unit tests; a pull request into main, a push to main, a run by hand and the label full-gate run it all.
 name: Gate
 
 on:
   pull_request:
+    # (labeled: the label full-gate runs the whole gate on any pull request; another label restarts the run as it is)
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   workflow_dispatch:
@@ -49,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
+      full: ${{ steps.tier.outputs.full }}
       reference: ${{ steps.ref.outputs.reference }}
       shards: ${{ steps.shards.outputs.shards }}
       browser: ${{ steps.browser.outputs.shards }}
@@ -59,6 +64,23 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      # (the tiers, ci/README.md: a pull request into another branch than main, e.g. an integration branch whose wave
+      # PR into main runs the whole gate, runs only the plan and the unit tests, unless it carries the label full-gate)
+      - id: tier
+        name: Tier
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full-gate') }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" != pull_request ]; then full=true why="${{ github.event_name }}"
+          elif [ "$FULL_LABEL" = true ]; then full=true why="the label full-gate"
+          elif [ "$BASE" = main ]; then full=true why="a pull request into main"
+          else full=false why="a pull request into $BASE, not main"; fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          if [ "$full" = true ]; then echo "**Tier: T3 (the whole gate)**: $why." >> "$GITHUB_STEP_SUMMARY"
+          else echo "**Tier: T0 (plan and unit tests)**: $why. Skipped: GLSL, quality, perf, browser (the label full-gate runs them)." >> "$GITHUB_STEP_SUMMARY"; fi
       - id: ref
         name: Reference of the paired gates
         shell: bash
@@ -123,6 +145,7 @@ jobs:
     # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
     # shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
+    if: needs.plan.outputs.full == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -159,6 +182,7 @@ jobs:
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
+    if: needs.plan.outputs.full == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -192,7 +216,7 @@ jobs:
     name: Perf (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     # speed is gated on our GPU machines once they are registered; here until then, and by hand
-    if: vars.GPU_RUNNERS != 'true' || inputs.perf
+    if: needs.plan.outputs.full == 'true' && (vars.GPU_RUNNERS != 'true' || inputs.perf)
     strategy:
       fail-fast: false
       matrix:
@@ -232,6 +256,7 @@ jobs:
     # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
     # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900).
     needs: plan
+    if: needs.plan.outputs.full == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -272,10 +297,21 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Every job of the gate passed
-        run: echo "plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}, browser ${{ needs.browser.result }}"
-      # (perf is skipped when the GPU machines gate speed)
-      - if: >-
-          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || needs.plan.result != 'success' ||
-          needs.unit.result != 'success' || needs.glsl.result != 'success' || needs.quality.result != 'success' ||
-          needs.browser.result != 'success'
-        run: exit 1
+        shell: bash
+        env:
+          FULL: ${{ needs.plan.outputs.full }}
+        run: |
+          set -u
+          echo "tier ${FULL:-?} (full gate), plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}, browser ${{ needs.browser.result }}"
+          bad=0
+          [ "${{ needs.plan.result }}" = success ] || { echo "::error::plan: ${{ needs.plan.result }}"; bad=1; }
+          [ "${{ needs.unit.result }}" = success ] || { echo "::error::unit: ${{ needs.unit.result }}"; bad=1; }
+          # the full gate: each of these passed (perf: or was skipped, when the GPU machines gate speed); otherwise the
+          # plan skipped them
+          for j in glsl=${{ needs.glsl.result }} quality=${{ needs.quality.result }} browser=${{ needs.browser.result }} perf=${{ needs.perf.result }}; do
+            n=${j%%=*} r=${j#*=}
+            if [ "$r" = success ]; then continue; fi
+            if [ "$r" = skipped ] && { [ "$FULL" != true ] || [ "$n" = perf ]; }; then continue; fi
+            echo "::error::$n: $r"; bad=1
+          done
+          exit $bad

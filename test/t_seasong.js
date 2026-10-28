@@ -1,7 +1,7 @@
 // The sea song (notes/sea-song/AS-BUILT.md, round 2: notes/sea-song/r2/AS-BUILT.md): the example "In the Hall of the
 // Mountain King" (src/seasong.js, made by tools/melody_curve.js) played by the app's own code is Grieg's score
 // (test/fixtures/seasong_score.json, tools/melodies/mountain-king.json):
-//  * the samples: app.js sndSample, its source text taken from src/app.js (900 points uniform in arc length, arg F
+//  * the samples: app.js sndSample, its source text taken from app.js (src/app/) (900 points uniform in arc length, arg F
 //    tracked exactly by Calc.argStep, a 'jump' is a cut tick at the crossing), F the powa step (CX.pow);
 //  * the harp: src/sound.js run in a sandbox (a mock AudioContext): Sound.alongCount, Sound.harpStep driven as
 //    harpAlong drives it on the piece's own lines with the stored velocities, and Sound.harpAlong itself (its
@@ -35,7 +35,7 @@ const funcs = fs.readFileSync(path.join(__dirname, '../src/funcs.js'), 'utf8');
 check('funcs.js powa is CX.pow(z, α, cut, k)', /powa[\s\S]{0,3000}CX\.pow\(/.test(funcs));
 
 // ---- app.js sndSample, from its source (M made a parameter for the sweep)
-const APP = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+const APP = require('./src_text').appText();   // (src/app/*.js joined, as build.py does)
 const a0 = APP.indexOf('  function sndSample(F, pts, closed) {'), a1 = APP.indexOf('\n  }\n', a0);
 check('app.js sndSample found', a0 > 0 && a1 > a0);
 const sampleSrc = APP.slice(a0, a1 + 4).replace('const M = 900,', 'const M = __M,');

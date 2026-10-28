@@ -5,7 +5,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 
 | workflow | where | when | what it can tell |
 |---|---|---|---|
-| **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request, every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
+| **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
 | **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Windows laptop and Mac ([RUNNERS.md](RUNNERS.md)) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
@@ -31,6 +31,21 @@ the last with `adv` in sections). A pull request that touches no shader code or 
 once the GPU machines are registered, the perf suite: unit tests and quality, about 7 minutes. One that does is held
 by two 34-minute jobs on Windows: the `inverse` page (one seeded sequence, not split) and `adv`'s sections.
 
+## CI tiers
+
+Agents' pull requests merge in **waves**: each goes into an integration branch, and one wave pull request from that
+branch into `main` runs the whole gate. So a pull request runs only what it can affect:
+
+| tier | when | what runs |
+|---|---|---|
+| **T0** | a pull request into any branch other than `main` (an integration branch) | the plan and the unit tests |
+| **T3** (the whole gate) | a pull request into `main` (a wave), a push to `main`, a run by hand, or any pull request with the label **`full-gate`** | everything below |
+
+The plan job decides the tier (its summary says which, and why) and the other jobs run only for T3. The **Gate** job
+passes when every job that ran passed and the plan skipped the rest. Adding the label `full-gate` to an open pull
+request starts the whole gate at once (the workflow listens to `labeled`); adding any other label restarts the run in
+its tier.
+
 ## What runs
 
 | job | what |
@@ -40,7 +55,7 @@ by two 34-minute jobs on Windows: the `inverse` page (one seeded sequence, not s
 | **GLSL** (Windows in 11 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
-| **Gate** | passes only when every job above passed (perf: when it ran): make it the required check |
+| **Gate** | passes only when every job above passed (perf: when it ran; the others: when the tier ran them): make it the required check |
 
 ### Paired gates
 
@@ -55,7 +70,7 @@ is slower), and a metric fails only when the medians of the 3 attempts fail and 
 reference, fail too. A failing quality run renders once more and fails only if it fails twice. A perf check or
 absolute limit that fails on the reference too (a software renderer misses the 250 ms first draw of an inverse
 program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a change does not touch
-the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
+the app (`src/`, `build.py`, `tools/src_parts.py`), the paired jobs report "nothing to compare" and pass.
 
 GitHub's machines are virtual and shared, and their timings say little about this app's speed. Measured on changes
 that did not touch rendering: single settle times from −90 % to +300 %; on macOS, within one attempt, wheel zoom
