@@ -156,7 +156,7 @@ function makeEnv(opts = {}) {
     URL: { createObjectURL: () => 'blob:x' }, Blob: function () {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sandbox);
+  vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
   for (const k in env.Sound.CATALOG) { const d = env.Sound.CATALOG[k], m = d.make; d.make = (Pt, o) => { env.made.push(k); return m(Pt, o); }; }
   env.fire = (t, e = {}) => { for (const f of env.listeners[t] || []) f(Object.assign({ type: t }, e)); };

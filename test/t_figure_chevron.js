@@ -9,7 +9,7 @@ global.Expr = require(R + '/src/parse.js');
 global.Funcs = require(R + '/src/funcs.js');
 global.Region = require(R + '/src/region.js');
 global.window = global;
-vm.runInThisContext(fs.readFileSync(R + '/src/figure.js', 'utf8') + '\n;globalThis.Figure = Figure;', { filename: 'figure.js' });
+vm.runInThisContext(require('./src_text').source('figure.js', R + '/src', { esm: 'strip' }) + '\n;globalThis.Figure = Figure;', { filename: 'figure.js' });
 const { senseAt, chevronAt } = Figure.geom;
 const C = CX.C;
 let pass = 0, fail = 0;

@@ -8,7 +8,7 @@ const path = require('path');
 const I18N = require('../src/i18n.js');
 const { sites, CTX } = require('./i18n_sites.js');
 const SRC = path.join(__dirname, '../src');
-const RU_JS = fs.readFileSync(path.join(SRC, 'i18n_ru.js'), 'utf8');
+const RU_JS = require('./src_text').source('i18n_ru.js', { esm: 'strip' });
 const RU = JSON.parse(new Function('let j; const I18N = { define: (l, s) => { j = s; } };' + RU_JS + '; return j;')());
 const has = (k) => Object.prototype.hasOwnProperty.call(RU, k);
 let fails = 0, checks = 0;
