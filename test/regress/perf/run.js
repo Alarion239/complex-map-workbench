@@ -299,6 +299,9 @@ async function sceneStatics(prefix) {
 const UNITS = [];
 const unit = (id, desc, fn, extra) => UNITS.push(Object.assign({ id, desc, fn }, extra || {}));
 
+// page code that presses the deformation's Play / Pause button when the app's playing state is not `play` (opening the
+// deformation starts it playing; the button's name is in its aria-label)
+const morphPlayIf = (play) => `{ const p = document.getElementById('morphPlay'); if (p && !!__cmwState().morph.playing !== ${play}) p.click(); }`;
 const zoomScale = (side) => B.ev(`(() => { const a = __cmwW2S('${side}', 0, 0), b = __cmwW2S('${side}', 1, 0); return b[0] - a[0]; })()`);
 
 // Image mode: static cost and memory, remesh through the app, pan both planes; at mesh 240 also wheel zoom.
@@ -626,7 +629,7 @@ async function scrubUnit(morph = false) {
   const o = await openApp(sceneState('scrub', { rightMode: 'image', meshN: 240 }));
   detail(`${pre}.open`, o);
   if (morph) {
-    const ok = await B.ev(`(() => { const b = document.getElementById('morphBtn'); if (!b) return false; b.click(); const p = document.getElementById('morphPlay'); if (p && /Pause/.test(p.title || '')) p.click(); return true; })()`);
+    const ok = await B.ev(`(() => { const b = document.getElementById('morphBtn'); if (!b) return false; b.click(); ${morphPlayIf(false)} return true; })()`);
     if (!ok) throw new Error('no deformation button');
     await sleep(400);
     await settle(await pageNow());
@@ -700,7 +703,7 @@ async function morphViewsUnit() {
       let view = '';
       for (let i = 0; i < REPS; i++) {
         await openApp(sceneState(scene, { rightMode: mode, meshN: 240 }));
-        const ok = await B.ev(`(() => { const b = document.getElementById('morphBtn'); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); const p = document.getElementById('morphPlay'); if (p && !/Pause/.test(p.title || '')) p.click(); return true; })()`);
+        const ok = await B.ev(`(() => { const b = document.getElementById('morphBtn'); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); ${morphPlayIf(true)} return true; })()`);
         if (!ok) throw new Error('no deformation button');
         await sleep(500);
         view = await B.ev(`typeof __cmwLayout === 'function' ? (() => { const l = __cmwLayout(); return l.main + (l.deform ? '+deformation' : '') + ':' + l.shown.join(''); })() : 'reference:' + __cmwState().mode`);
@@ -1056,6 +1059,153 @@ async function hoverDimUnit() {
   put(`${pre}.no_job`, 'check', '', [busy === 0]);
 }
 
+// ---------------- wave 1's pointer and per-frame work (issue #63) ----------------
+// Work wave 1 added to pointer paths and to the frame (notes/ux-build/w1-review-regress.json regress-6, regress-7):
+// the snap and detent search of a hover with Point or a construction tool, of a body drag with Snap on and of a rail
+// glide; the hover probe's readout on X; the Y render's target note and the overlay frame's undo state while the
+// deformation plays. On the GPU gate these meet the 60 fps budget (frames, input handlers); on GitHub's machines they
+// are reported.
+const w2s = (side, re, im) => B.ev(`__cmwW2S('${side}', ${re}, ${im})`);
+async function pickTool(id) {
+  const ok = await B.ev(`(() => { const b = [...document.querySelectorAll('[data-tool="${id}"]')].find((e) => e.offsetParent) || document.querySelector('[data-tool="${id}"]'); if (!b) return false; b.click(); return true; })()`);
+  if (!ok) throw new Error(`no tool ${id}`);
+  await settle(await pageNow());
+}
+// moves along page points 16 ms apart, with the left button held when `held` (press at the first, release at the
+// last) -> the window's stats and its settle, as dragLeg's
+async function pathLeg(pts, held = false) {
+  const btn = held ? { button: 'left', buttons: 1 } : {};
+  await B.mouse('mouseMoved', pts[0][0], pts[0][1]);
+  if (held) await B.mouse('mousePressed', pts[0][0], pts[0][1], { button: 'left', buttons: 1, clickCount: 1 });
+  const a = await pageNow();
+  for (const [x, y] of pts.slice(1)) {
+    const t = Date.now();
+    await B.mouse('mouseMoved', x, y, btn);
+    const left = 16 - (Date.now() - t);
+    if (left > 0) await sleep(left);
+  }
+  const [x1, y1] = pts[pts.length - 1];
+  if (held) await B.mouse('mouseReleased', x1, y1, { button: 'left', buttons: 0, clickCount: 1 });
+  const b = await pageNow();
+  const w = await windowStats(a, b);
+  if (!held) await B.move(5, 5);   // (leave the plane: the next sweep starts with a fresh search)
+  const s = await settle(b);
+  return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b });
+}
+// a sweep through a pane: 61 points along a wave over half its width
+async function sweepPts(side) {
+  const r = await paneRect(side);
+  return Array.from({ length: 61 }, (_, k) => { const u = k / 60; return [r.cx + (u - 0.5) * r.w * 0.5, r.cy + Math.sin(u * Math.PI * 2) * r.h * 0.15]; });
+}
+// points round a circle of the left plane (centre c, radius r; degrees a0 to a1)
+async function arcPts(c, r, a0, a1, n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) { const t = (a0 + (a1 - a0) * i / n) * Math.PI / 180; out.push(await w2s('L', c[0] + r * Math.cos(t), c[1] + r * Math.sin(t))); }
+  return out;
+}
+const shapeOf = (id) => B.ev(`(() => { const s = (__cmwCI({ shapes: true }).list || []).find((x) => x.id === ${JSON.stringify(id)}); return s ? JSON.parse(JSON.stringify(s)) : null; })()`);
+// the hover metrics: the pointermove handlers (the snap search runs in them), the frames, the input-to-frame latency
+function putPointer(pre, reps) {
+  putPooled(`${pre}.input_p50_ms`, 'cpu_ms', 'ms', reps, 'inp', 0.5, 'input_p50', { input: 'pointermove' });
+  putPooled(`${pre}.input_p95_ms`, 'cpu_ms', 'ms', reps, 'inp', 0.95, 'input_p95', { input: 'pointermove' });
+  putPooled(`${pre}.frame_p95_ms`, 'frame_ms', 'ms', reps, 'frame', 0.95, 'frame_p95');
+  putPooled(`${pre}.cpu_p95_ms`, 'frame_ms', 'ms', reps, 'cpu', 0.95, 'cpu_p95');
+  put(`${pre}.fps`, 'throughput', 'frames/s', reps.map((r) => r.fps));
+  putPooled(`${pre}.latency_p95_ms`, 'latency_ms', 'ms', reps, 'lat', 0.95, 'lat_p95');
+}
+// hovering X with a tool over the Line grid and its circles: Point (snapAt with the display curves and detentAt on
+// every move), Orthogonal (a construction tool's target search)
+async function pointerHoverUnit(pre, toolId) {
+  detail(`${pre}.open`, await openApp(sceneState('gridCircles', { rightMode: 'image', meshN: 240 })));
+  await pickTool(toolId);
+  const reps = [];
+  for (let i = 0; i < REPS; i++) reps.push(legSummary([await pathLeg(await sweepPts('L'))], 'pointermove'));
+  putPointer(pre, reps);
+  // the search ran: on a grid line inside the unit circle the ring names a target (recorded, not gated)
+  const at = await w2s('L', 0.5, 0.004);
+  await B.move(at[0], at[1]); await settle(await pageNow());
+  detail(`${pre}.ring`, await B.ev(`(() => { const d = typeof __cmwCI === 'function' && __cmwCI(null); return d && d.ring ? d.ring.chip || null : null; })()`).catch(() => null));
+  await B.move(5, 5);
+}
+// a body drag of the disc with Snap on across the grid (anchorMove's snapAt on every pointermove)
+async function pointerSnapDragUnit() {
+  const pre = 'pointer.snap_drag';
+  const reps = [];
+  let moved = true;
+  for (let i = 0; i < REPS; i++) {
+    await openApp(sceneState('gridCircles', { rightMode: 'image', meshN: 240 }));
+    await pickTool('select');
+    const d0 = await shapeOf('d1');
+    const p0 = await w2s('L', d0.c[0], d0.c[1]), p1 = await w2s('L', 1.1, -0.8);
+    const pts = Array.from({ length: 41 }, (_, k) => [p0[0] + (p1[0] - p0[0]) * k / 40, p0[1] + (p1[1] - p0[1]) * k / 40]);
+    reps.push(legSummary([await pathLeg(pts, true)], 'pointermove'));
+    const d1 = await shapeOf('d1');
+    moved = moved && !!d1 && Math.hypot(d1.c[0] - d0.c[0], d1.c[1] - d0.c[1]) > 1;
+  }
+  putPointer(pre, reps);
+  put(`${pre}.settle_ms`, 'settle_ms', 'ms', reps.map((r) => r.settle));
+  put(`${pre}.moved`, 'check', '', [moved]);
+}
+// the glider g dragged round the unit circle (railDrag: detentAt and the dwell timer on every move)
+async function pointerGliderUnit() {
+  const pre = 'pointer.glider';
+  const reps = [];
+  let glided = true;
+  for (let i = 0; i < REPS; i++) {
+    await openApp(sceneState('gridCircles', { rightMode: 'image', meshN: 240 }));
+    await pickTool('select');
+    const g0 = await shapeOf('g');
+    reps.push(legSummary([await pathLeg(await arcPts([0, 0], 1, 36, 300, 44), true)], 'pointermove'));
+    const g1 = await shapeOf('g');
+    glided = glided && !!g1 && g1.def && g1.def.op === 'glider' && Math.abs(g1.t - g0.t) > 0.5 && Math.abs(Math.hypot(g1.p[0], g1.p[1]) - 1) < 1e-9;
+  }
+  putPointer(pre, reps);
+  put(`${pre}.on_circle`, 'check', '', [glided]);
+}
+// the hover probe on X in X -> Y (the default example): setReadouts on every pointermove
+async function pointerProbeXUnit() {
+  const pre = 'pointer.probe_x';
+  detail(`${pre}.open`, await openApp(sceneState('default', { rightMode: 'image', meshN: 240 })));
+  await pickTool('select');
+  const reps = [];
+  for (let i = 0; i < REPS; i++) reps.push(legSummary([await pathLeg(await sweepPts('L'))], 'pointermove'));
+  putPointer(pre, reps);
+}
+// example 10 (Roots as preimages: targets in Y) with the deformation playing, panning Y (updateCalcChip's targetNote
+// in every Y render, updateUndo in every overlay frame)
+async function pointerRootsUnit() {
+  const pre = 'pointer.roots_morph_pan';
+  const reps = [];
+  let playing = true, targets = 0;
+  for (let i = 0; i < REPS; i++) {
+    await openApp(sceneState('default', { rightMode: 'image', meshN: 240 }));
+    await B.ev('__cmwExample(10); 1');
+    await settle(await pageNow());
+    const ok = await B.ev(`(() => { const b = document.getElementById('morphBtn'); if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); ${morphPlayIf(true)} return true; })()`);
+    if (!ok) throw new Error('no deformation button');
+    await sleep(500);
+    const st = await B.ev('__cmwState()');
+    playing = playing && !!(st.morph && st.morph.playing);
+    targets = st.targets;
+    const r = await paneRect('R');
+    const pts = Array.from({ length: 41 }, (_, k) => [r.cx - 60 + 120 * k / 40, r.cy + 30 * Math.sin(k / 40 * Math.PI)]);
+    // (a pan while the deformation plays: the view never settles, so the leg's settle is not used)
+    const btn = { button: 'left', buttons: 1 };
+    await B.mouse('mouseMoved', pts[0][0], pts[0][1]);
+    await B.mouse('mousePressed', pts[0][0], pts[0][1], Object.assign({ clickCount: 1 }, btn));
+    const a = await pageNow();
+    for (const [x, y] of pts.slice(1)) { const t = Date.now(); await B.mouse('mouseMoved', x, y, btn); const left = 16 - (Date.now() - t); if (left > 0) await sleep(left); }
+    await B.mouse('mouseReleased', pts[40][0], pts[40][1], { button: 'left', buttons: 0, clickCount: 1 });
+    const b = await pageNow();
+    const w = await windowStats(a, b);
+    reps.push(legSummary([Object.assign(w, { settle: 0, settleTimeout: false, jank: await jankIn(a, b) })], 'pointermove'));
+  }
+  putPointer(pre, reps);
+  put(`${pre}.jank_ms`, 'jank_ms', 'ms', reps.map((r) => r.jank));
+  put(`${pre}.playing`, 'check', '', [playing]);
+  put(`${pre}.targets`, 'info', '', [targets]);
+}
+
 // SwiftShader (CPU WebGL2, the renderer of machines without a usable GPU): pan-frame p50 of the right plane for the
 // quality suite's bounded golden scenes with exact images on (default) and off (__cmwSet('exactImages', false), the
 // forward path). SPEC 4.7 gate: the ratio on / off <= 3 with the cost guard active. Before P2 both draws are forward
@@ -1285,6 +1435,12 @@ unit('sphere.globeL0', 'X Sphere at stage 0: the upper half-plane on the z-globe
 unit('scrub.mobius_halfplane', 'scrub phi of a disk automorphism + (1+w)/(1-w) of the upper half-plane (the pole crosses the boundary): frames, no line resampling during the scrub', scrubMobiusUnit);
 unit('gallery.open', 'open the examples gallery: thumbnails, compiles (no inverse compiles for side chains)', galleryUnit);
 unit('hover.dim', 'hover the shape list on exp of the upper half-plane: frames, no compile, no job', hoverDimUnit);
+unit('pointer.hover_point', 'wave 1 (#63): hover X with Point over a Line grid plus circles (snap and detent search)', () => pointerHoverUnit('pointer.hover_point', 'point'));
+unit('pointer.hover_orth', 'wave 1 (#63): hover X with Orthogonal over a Line grid plus circles', () => pointerHoverUnit('pointer.hover_orth', 'perp'));
+unit('pointer.snap_drag', 'wave 1 (#63): drag a disc by its body with Snap on across a Line grid plus circles', pointerSnapDragUnit);
+unit('pointer.glider', 'wave 1 (#63): slide a glider round the unit circle among a Line grid and circles', pointerGliderUnit);
+unit('pointer.probe_x', 'wave 1 (#63): the hover probe on X in X -> Y (its readout on every move)', pointerProbeXUnit);
+unit('pointer.roots_morph_pan', 'wave 1 (#63): example 10 (Roots as preimages) with the deformation playing, panning Y', pointerRootsUnit);
 unit('phone.open', `phone profile (${PHONE.width}x${PHONE.height} @${PHONE.dpr}x, touch, CPU / ${PHONE_CPU}): open the app, first frame`, phoneOpenUnit);
 unit('phone.pan', 'phone profile: one-finger pans of the plane shown', phonePanUnit);
 unit('phone.landscape', 'phone profile: Landscape, one-finger orbits', phoneLandUnit);
