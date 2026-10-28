@@ -25,6 +25,10 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
 const snd = () => ev('__cmwSound()');
+// (v16.5, Hear the function: the marimba notes replace the pointer harp, perfwin/sound/impl/SOUND-PLAN.md 5.1. The
+// engine's Sound.hear.state().counts run since load; this reads them as harpCount() did, since the last call: up and
+// down are the red line's crossings (line k ≡ 0 mod n, the harp's low D), notes the notes played, cracks the cuts)
+const hearCount = () => ev(`(() => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, cracks: c.cracks - p.cracks }; })()`);
 const made = (clear) => ev(`(() => { const m = (window.__made || []).slice(); ${clear ? '__made.length = 0;' : ''} return m; })()`);
 const count = (list, name) => list.filter((x) => x === name).length;
 const spy = () => ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; } window.__calls = { argStep: 0 }; if (!Calc.argStep.__spy) { const a = Calc.argStep; Calc.argStep = function (...x) { __calls.argStep++; return a.apply(this, x); }; Calc.argStep.__spy = 1; } return 1; })()`);
@@ -130,14 +134,14 @@ await made(true);
 const c2 = await circle([1, 0], 0.3, 2, 48, 0.4);
 await move(c2[0][0], c2[0][1]); await settle(200);
 const phi0 = (await snd()).phi;
-await ev('Sound.harpCount()');
+await hearCount();
 await glide(c2);
 await settle(200);
 let s = await snd();
-R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await ev('Sound.harpCount()'), live: await ev('Sound.debug().live'), engine: await ev('Sound.state().engine') };
-ok('Hear F: the harp, +2 turns around the zero at 1 twice (exact): 2 low Ds up, 0 down, 9 to 10 notes, no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && Math.abs(R.hover.dphi - 2) < 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes >= 9 && R.hover.harp.notes <= 10, R.hover);
+R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await hearCount(), live: await ev('Sound.debug().live'), engine: await ev('Sound.state().engine') };
+ok('Hear F: the notes, +2 turns around the zero at 1 twice (exact): the red line 2 up, 0 down, 12 to 24 notes (24 lines crossed), no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && Math.abs(R.hover.dphi - 2) < 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes >= 12 && R.hover.harp.notes <= 24, R.hover);
 await sleep(300);
-R.still = await ev(`await (async () => { Sound.harpCount(); await new Promise((r) => setTimeout(r, 700)); return Sound.harpCount(); })()`);
+await hearCount(); await sleep(700); R.still = await hearCount();
 ok('Hear F: silent while the pointer rests', R.still.notes === 0 && R.still.up === 0, R.still);
 // round a pole: a falling scale (a step with a pole: (z − 1)/(z + 1)... here 1/(z² − 1) is not loaded: the pole case
 // is section 18)
@@ -171,17 +175,17 @@ await ev(`document.getElementById('leftFit') && document.getElementById('leftFit
 await key('o'); await settle(200);
 {
   const L = await circle([0, 0], 1.4, 1, 64, 0.4);
-  await move(L[0][0], L[0][1]); await settle(200); await made(true); await ev('Sound.harpCount()');
+  await move(L[0][0], L[0][1]); await settle(200); await made(true); await hearCount();
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L[0][0], y: L[0][1], button: 'left', clickCount: 1 });
   for (const p of L.slice(1)) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(16); }
   await sleep(300);
-  const drawing = await made(true), drawHarp = await ev('Sound.harpCount()');
+  const drawing = await made(true), drawHarp = await hearCount();
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L[L.length - 1][0], y: L[L.length - 1][1], button: 'left', clickCount: 1 });
   await sleep(250);
   s = await snd();
-  R.loop1 = { drawing, drawHarp, made: await made(true), live: s.live, play: s.play, auto: s.auto, listenHarp: s.listenHarp, sang: s.sang };
+  R.loop1 = { drawing, drawHarp, made: await made(true), live: s.live, play: s.play, auto: s.auto, listenFn: s.listenFn, sang: s.sang };
 }
-ok('loop 1: the harp\'s 2 low Ds while drawing, "Winding number 2", plays itself (the harp along it: 2 low Ds up), then sings W = 2', R.loop1.drawHarp.up - R.loop1.drawHarp.down === 2 && !R.loop1.drawing.includes('turn') && /^Winding number 2.*Listening along the loop: 2 turns/.test(R.loop1.live) && R.loop1.play && R.loop1.auto && R.loop1.listenHarp && R.loop1.listenHarp.up === 2 && R.loop1.listenHarp.down === 0 && R.loop1.sang === 2, R.loop1);
+ok('loop 1: the red line crossed twice up while drawing, "Winding number 2", plays itself (Listen along: the function\'s notes, 24 lines), then sings W = 2', R.loop1.drawHarp.up - R.loop1.drawHarp.down === 2 && !R.loop1.drawing.includes('turn') && /^Winding number 2.*Listening along the loop: 2 turns/.test(R.loop1.live) && R.loop1.play && R.loop1.auto && R.loop1.listenFn && R.loop1.listenFn.counts && R.loop1.listenFn.counts.notes >= 12 && R.loop1.sang === 2, R.loop1);
 await sleep(600);
 await key('Escape'); await sleep(150);
 R.esc = { play: (await snd()).play, active: await ev('Sound.debug().active'), on: await ev('Sound.prefs().on'), sing: await ev('Sound.singState()') };
@@ -298,9 +302,10 @@ await cutPass(40); await settle(200);
 R.cutQuiet = await made(true);
 ok('default tiers: crossing √z\'s cut 40 times makes no cue', !R.cutQuiet.length, R.cutQuiet);
 await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
+await hearCount();
 await cutPass(20); await settle(200);
-R.cutTicks = await made(true);
-ok('Hear F: the cut ticks, at most one per 120 ms', count(R.cutTicks, 'cut') >= 3 && count(R.cutTicks, 'cut') <= 20, R.cutTicks);
+R.cutTicks = { made: await made(true), hear: await hearCount() };
+ok('Hear F: the cut cracks, at most one a pass', R.cutTicks.hear.cracks >= 3 && R.cutTicks.hear.cracks <= 20, R.cutTicks);
 
 // 13. the loudness and phone targets (DESIGN §2.2), every cue rendered offline as in use, at 100 % volume
 await ev(fs.readFileSync(path.join(DIR, '..', 'sound_lab.js'), 'utf8'));
