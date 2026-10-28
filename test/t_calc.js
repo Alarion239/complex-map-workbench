@@ -11,7 +11,6 @@ let bad = 0, n = 0;
 const near = (a, b, tol) => CX.isFin(a) && CX.isFin(b) && CX.abs(CX.sub(a, b)) <= tol * (1 + CX.abs(b));
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, info); } }
 const circle = (c, r, N = 128) => Array.from({ length: N }, (_, k) => C(c.re + r * Math.cos(TAU * k / N), c.im + r * Math.sin(TAU * k / N)));
-const f = (s) => Expr.compile(Expr.parse(s));
 const fmt = (z) => CX.fmt(z, 8);
 
 // ---------- line integrals ----------

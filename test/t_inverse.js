@@ -66,7 +66,8 @@ section('(a) round trips');
     ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180]];
   for (const [e, cut] of CUSTOM) add('custom', { expr: e, cut });
   const shape = { kind: 'disc', c: [0, 0], r: 3 };
-  let fails = 0, total = 0, inel = [];
+  const inel = [];
+  let fails = 0, total = 0;
   const kinds = new Set();
   for (const cse of cases) {
     const st = St(cse.type, cse.params), b = Funcs.build(st);
@@ -75,7 +76,7 @@ section('(a) round trips');
     if (!plan.ok) { inel.push(`${cse.type} ${JSON.stringify(cse.params)}: ${plan.reason}`); continue; }
     plan.ops.forEach((o) => kinds.add(o.kind));
     const prep = Inverse.prepare(plan, { win: WIN0, shape });
-    let unsound = 0, miss = 0, dec = 0, nc = 0, tried = 0;
+    let unsound = 0, miss = 0, dec = 0, tried = 0;
     for (let t = 0; t < 200; t++) {
       const u = rc(2.5), w = b.f(u);
       if (!CX.isFin(w) || CX.abs(w) > 1e8) continue;
@@ -83,7 +84,6 @@ section('(a) round trips');
       let x = u; for (const o of plan.ops) x = o.fwd(x);
       if (!(CX.abs(CX.sub(x, w)) <= 1e-9 * (1 + CX.abs(w)))) dec++;
       const r = Inverse.enumerate(plan, prep, w, 1, { full: 40, ramp: 1e-9 });
-      nc += r.leaves.length;
       for (const lf of r.leaves) {
         if (!(lf.lvl > 1e-7) || !CX.isFin(lf.z)) continue;
         const wb = b.f(lf.z);

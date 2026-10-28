@@ -1356,7 +1356,6 @@ const Inverse = (() => {
     const [a, b, c, d] = M;
     if (isZero(c)) return null;
     const p = neg(div(d, c)), kap = neg(div(sub(mul(a, d), mul(b, c)), mul(c, c))), A0 = div(a, c);
-    let cen, rad;
     const circ = (c0, r) => {                                           // |z - c0| = r under 1/(z - p)
       const q = sub(c0, p), den = q.re * q.re + q.im * q.im - r * r;
       if (!(Math.abs(den) > 0)) return null;
@@ -1381,7 +1380,7 @@ const Inverse = (() => {
       img = line(C(s.c[0], s.c[1]), C(Math.cos(s.t1 * DEG), Math.sin(s.t1 * DEG)));
     } else return null;
     if (!img) return null;
-    cen = add(A0, mul(kap, img.c)); rad = abs(kap) * img.r;
+    const cen = add(A0, mul(kap, img.c)), rad = abs(kap) * img.r;
     if (!isFin(cen) || !Number.isFinite(rad)) return null;
     return { c: cen, r: rad };
   }
@@ -2406,14 +2405,14 @@ const Inverse = (() => {
         const ent = r.entries;
         maxEnt = Math.max(maxEnt, ent.length);
         const cols = ent.map((e) => patternColor(L, { z: e.z, dX: e.lf.dX, dY: e.lf.dY, lam: e.lam, dLX: e.lf.dLX, dLY: e.lf.dLY, J: e.lf.J, JL: e.lf.JL, anc: e.lf.anc }));
-        let T = 1, cr = 0, cg = 0, cb = 0, nComp = 0;
+        let T = 1, cr = 0, cg = 0, cb = 0;
         const par0 = cols.length ? (cols[0].mo === 0 ? cols[0].par : -1) : -1;
         for (let q = 0; q < ent.length; q++) {
           if (T < 1 / 255) break;
           const a = L.alpha * ent[q].cv / r.U, c = cols[q].col;
           if (q > 0 && cols[q].mo === 0 && ent[q].cv >= 1 && par0 >= 0 && cols[q].par !== par0 && T > 0.5) dis[k] = 1;
           cr += T * a * c[0]; cg += T * a * c[1]; cb += T * a * c[2];
-          T *= 1 - a; nComp++;
+          T *= 1 - a;
         }
         // behind the buffer (the GPU's INV_MAIN): the covering candidates it did not keep, through their transmittance
         // restT and coloured with the buffer's mean, then the tail closure of infinitely many sheets

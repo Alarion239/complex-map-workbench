@@ -349,7 +349,6 @@ const flush = () => new Promise((r) => setImmediate(r));
     e.Sound.hush();
     const T = c.currentTime;
     check('Esc: every cue source stopped within 80 ms', cues.every((s) => s.stopped != null && s.stopped <= T + 0.08), cues.map((s) => s.stopped).slice(0, 4));
-    const gl = v.engine === 'nodes' ? null : null;
     check('Esc: the voice is gated off (τ 4 ms)', e.Sound.debug().live === 1);
     check('Esc: the bus fades on raised cosines (no step)', e.Sound.debug().G.bus.gain.calls.some((x) => x[0] === 'curve'));
     check('Esc: the setting stays on', e.Sound.prefs().on === true);
@@ -372,7 +371,7 @@ const flush = () => new Promise((r) => setImmediate(r));
     const play = (m, hz, secs = 1.6) => { const Ts = [0]; for (let j = 0; j < m; j++) { const n = Math.round(secs * hz); for (let i = 1; i <= n; i++) { const u = i / n; Ts.push(j + (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)); } } return Ts; };
     // follow H_T(z) along a list of transport times; returns {phi (turns), up, down, jumps, steps, why}
     const follow = (Hat, z, Ts, opts = {}) => {
-      const L = { phi: 0, k: 0 }; let up = 0, down = 0, jumps = 0, g0 = Hat(Ts[0])(z), whys = [];
+      const L = { phi: 0, k: 0 }; let up = 0, down = 0, jumps = 0, g0 = Hat(Ts[0])(z); const whys = [];
       for (let i = 1; i < Ts.length; i++) {
         const g1 = Hat(Ts[i])(z), r = S.pathStep(A, Hat, z, Ts[i - 1], g0, z, Ts[i], g1, opts);
         if (!r.exact) { whys.push(r.why); if (r.why === 'jump') jumps++; }
@@ -530,8 +529,8 @@ const flush = () => new Promise((r) => setImmediate(r));
     k = S.harpStep(st, null, 1, 1 / 6 + 0.012, { dt: 0.02 }).length;
     check('harp: past the hysteresis it plays once', k === 1, k);
     // the D-only zone (a trembling hand within 8 px of a zero): only the Ds sound, and the count stays exact
-    const sh = S.Harp(); S.harpStep(sh, null, 0, 0.05, {}); let noted = 0;
-    for (let i = 1; i <= 20; i++) { sh.notes = 0; S.harpStep(sh, null, i * 0.02, 0.05 + 0.1 * i, { dt: 0.02, shaky: true }); noted += sh.notes; }
+    const sh = S.Harp(); S.harpStep(sh, null, 0, 0.05, {});
+    for (let i = 1; i <= 20; i++) { sh.notes = 0; S.harpStep(sh, null, i * 0.02, 0.05 + 0.1 * i, { dt: 0.02, shaky: true }); }
     check('harp: the D-only zone counts every D (2 turns: 2 up) and plays only those', sh.up === 2 && sh.down === 0, JSON.stringify(sh));
   }
   // v15.2 review fixes. math-1: whole turns hidden in one piece (|F| steady, a fast phase) are seen: e^{30z} moved up

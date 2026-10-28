@@ -10,7 +10,7 @@ const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const APP = R('src/app.js'), CON = R('src/construct.js'), PRM = R('src/params.js'), PAGE = R('src/page.html'), DESK = R('src/desk.css');
 let pass = 0, fail = 0;
 const ok = (c, m, x) => { if (c) pass++; else { fail++; console.log('FAIL', m, x === undefined ? '' : JSON.stringify(x)); } };
-const fnBody = (src, name) => { const i = src.indexOf(`function ${name}(`); if (i < 0) return ''; let j = src.indexOf(') {', i) + 2, d = 0, k = j; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return src.slice(i, k + 1); };
+const fnBody = (src, name) => { const i = src.indexOf(`function ${name}(`); if (i < 0) return ''; const j = src.indexOf(') {', i) + 2; let d = 0, k = j; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return src.slice(i, k + 1); };
 
 // ---- rail-2: the angle detents never cover more than 40 % of a rail
 const MOUSE = 6, TOUCH = 10;
