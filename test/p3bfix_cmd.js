@@ -25,6 +25,8 @@ const capShape = async (C, h, kind = 'disc') => ev(`(() => { const s = { kind: '
 // a disc cap with h = 0.5 (alpha = 60 deg) and C 100 deg from N, facing the camera
 const cam = { pitch: 0.55, yaw: -1.0 };
 const az = -2.2;   // an azimuth that faces the camera from (yaw -1.0, pitch 0.55) (checked below: on screen)
+// (capShape runs the app's Region: open the app first, as a fresh daemon's Chrome is on about:blank)
+await load('p3bfix0' + Date.now(), { shapes: [], steps: [] });
 const capD = await capShape(sph(100 * DEG, az), 0.5);
 await load('p3bfix1' + Date.now(), { shapes: [Object.assign({ id: 's1', ci: 0 }, capD)], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: false, nextId: 2 });
 await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);

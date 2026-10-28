@@ -65,8 +65,13 @@ async function openExample(lang) {
   ok(`${lang}: its tooltip is the whole description where the line is cut, none otherwise`, (it.cut ? it.title === it.blurb : !it.title) && it.blurb.length > 60, it);
   ok(`${lang}: no other example gained a tooltip (review ui-7)`, it.others === 0, it.others);
   ok(`${lang}: the description starts the same on every device (review ui-8)`, lang === 'en' ? /^Edvard Grieg, Peer Gynt \(1875\)\. Choose Listen along in the spiral's menu/.test(it.blurb) : /^Эдвард Григ, «Пер Гюнт» \(1875\)\. Выберите «Слушать вдоль кривой»/.test(it.blurb), it.blurb);
+  // (the gallery draws its thumbnails one at a time, this example last: up to 30 s for it where frames are slow)
   await sleep(1200);
-  R[lang + 'Thumb'] = await ev(`(() => { const im = document.querySelectorAll('#popHost .examples .ex-item')[${it.i}].querySelector('img'); return im && im.src ? im.src.slice(0, 22) + '… ' + im.src.length : null; })()`);
+  for (let i = 0; i < 145; i++) {
+    R[lang + 'Thumb'] = await ev(`(() => { const im = document.querySelectorAll('#popHost .examples .ex-item')[${it.i}].querySelector('img'); return im && im.src ? im.src.slice(0, 22) + '… ' + im.src.length : null; })()`);
+    if (/^data:image\/png/.test(R[lang + 'Thumb'] || '')) break;
+    await sleep(200);
+  }
   ok(`${lang}: the gallery shows its thumbnail`, !!R[lang + 'Thumb'] && /^data:image\/png/.test(R[lang + 'Thumb']), R[lang + 'Thumb']);
   if (lang === 'en') await shot('desk_en_gallery');
   await click(it.xy[0], it.xy[1]); await settle(2500);
