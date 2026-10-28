@@ -74,6 +74,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -138,6 +140,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -171,6 +175,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -198,6 +204,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -230,6 +238,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -272,6 +282,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'

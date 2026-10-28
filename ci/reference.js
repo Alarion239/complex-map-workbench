@@ -17,6 +17,9 @@ function buildReference(ref) {
   if (fs.existsSync(dir)) { try { git('worktree', 'remove', '--force', dir); } catch (e) { fs.rmSync(dir, { recursive: true, force: true }); } }
   git('worktree', 'prune');
   git('worktree', 'add', '--detach', dir, sha);
+  // (the build may run the bundler, which the worktree finds in the checkout's node_modules: npm ci has run there)
+  const nm = path.join(ROOT, 'node_modules');
+  if (fs.existsSync(nm)) fs.symlinkSync(nm, path.join(dir, 'node_modules'), 'junction');
   if (run(PY, ['build.py'], { cwd: dir }) !== 0) throw new Error(`the reference ${sha} did not build`);
   return { sha, dir, dist };
 }
