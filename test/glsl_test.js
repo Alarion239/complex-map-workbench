@@ -32,7 +32,8 @@
   const TYPES = Object.keys(Funcs.DEFS);
   // the random rows and chains draw from the types they had before the zeros-and-poles step (2026-10-22), so their
   // deterministic sequence is unchanged; 'zp' gets its own random rows with their own seed (below)
-  const RTYPES = TYPES.filter((t) => t !== 'zp');
+  // (and before Γ and ζ, issue #4, which have chains of their own below)
+  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta');
   const CUTS = [0, 90, -45, 180, 270, -180, 30];
   const EXPRS = [
     'z^2+\\frac{1}{z}', '\\sin z+\\cos(2z)', '\\tan z', '\\cot z', '\\sec z', '\\csc z', '\\sinh z-\\cosh(z/2)', '\\tanh(z)', '\\coth z',
@@ -109,6 +110,27 @@
     seed = 20261022;
     for (let i = 0; i < 6; i++) { const p = randParams('zp'); add(`rand zp ${JSON.stringify(p)}`, [S('zp', p)]); }
     seed = keep;
+  }
+  // [issue #4] Γ and ζ: the steps (Γ along its zoom path), with affine maps that reach larger arguments, the critical strip
+  // and the left half-plane; Γ, ψ, ζ, ζ′ in formulas; the derivative of each by d/dz
+  if (Funcs.DEFS.gamma) {
+    const aff = (a2, b2) => S('affine', { a: a2, b: b2 });
+    add('special gamma', [S('gamma')]);
+    add('special gamma 4z+1', [aff('4', '1'), S('gamma')]);
+    add('special gamma left half-plane 3z-6', [aff('3', '-6'), S('gamma')]);
+    add('special gamma 10iz+0.5', [aff('10i', '0.5'), S('gamma')]);
+    add('special zeta', [S('zeta')]);
+    // (the sample points reach |z| = 14: these stay below the GPU's |Im s| = 120, where it leaves ζ blank)
+    add('special zeta critical strip 0.5+6iz', [aff('6i', '0.5'), S('zeta')]);
+    add('special zeta first zeros 0.5+i(4z+20)', [aff('4i', '0.5+20i'), S('zeta')]);
+    add('special zeta left half-plane 4z-6', [aff('4', '-6'), S('zeta')]);
+    add('special zeta Re s = 1 (1 + 2pi i k / ln 2)', [aff('1i', '1+9.0647i'), S('zeta')]);
+    add('special custom Gamma(z)zeta(z)', [S('custom', { expr: '\\Gamma(z)\\zeta(z)' })]);
+    add('special custom digamma', [S('custom', { expr: '\\operatorname{\\psi}(z)+z' })]);
+    add("special custom zeta'", [S('custom', { expr: "\\zeta'(2z)" })]);
+    add('special custom 1/Gamma', [S('custom', { expr: '\\frac{1}{\\Gamma(z^2+1)}' })]);
+    add('special gamma d/dz', [S('gamma'), S('deriv')]);
+    add('special zeta d/dz', [aff('2', '0.5'), S('zeta'), S('deriv')]);
   }
   // 3. cut angles and sheets
   const cutCfg = [['root', { n: 2 }], ['root', { n: 3 }], ['root', { n: 5 }], ['powa', { alpha: '0.5' }], ['powa', { alpha: '-1.5' }], ['powa', { alpha: '0.5+0.3i' }], ['powa', { alpha: '2.5' }], ['log', {}]];
