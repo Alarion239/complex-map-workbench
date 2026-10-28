@@ -621,7 +621,7 @@
       commit();
     });
     input.addEventListener('paste', () => setTimeout(() => { if (Funcs.splitList(input.value).filter((x) => x.trim()).length > 1) { input.blur(); } }, 0));
-    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: i + 1, k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: i + 1, k: sub(k) }), html: ICONS.close,
+    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }), html: ICONS.close,
       onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
     const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': kind === 'zeros' ? $t('Zero {sym}: drag it in the input plane', { sym }) : $t('Pole {sym}: drag it in the input plane', { sym }) }, sym);
     // (v15, review design-8: every zero and pole row has its Argand button, named by the indexed symbol)
