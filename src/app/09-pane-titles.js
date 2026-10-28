@@ -56,7 +56,7 @@
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
     let roleL, shortL;
-    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : '' }); shortL = $tx('role', 'landscape'); }
+    if (lLand()) { const shw = sheetsShown(); roleL = $t('landscape of {h}{sheets}', { h: heightHtml(of), sheets: shw ? sheetsClause(shw, 'html') : deformOneSheet() ? $t('; one sheet is drawn while it deforms') : '' }); shortL = $tx('role', 'landscape'); }
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
@@ -339,6 +339,9 @@
     }
     return sheetsD.D > 1 ? Object.assign({}, ms, { D: sheetsD.D }) : null;
   }
+  // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
+  // check and the title say so)
+  function deformOneSheet() { return !!S.sheets && morphOn() && !deformSheetsOk(); }
   // All sheets while the deformation shows (notes/v16-user5/SHEETS-DESIGN.md): H_t is drawn on the sheets that become
   // F's (GLChain chainSheetHom), unless a step the deformation applies has no sheet form: a d/dz, or a deformed formula
   // with branch points that is not recognised as catalog steps (Funcs.sheetMapPieces null). The test takes every step
@@ -448,8 +451,10 @@
     const span = lab && lab.querySelector('span');
     if (!span) return lab;
     const capped = !!(S.sheets && ms && ms.total > ms.K);
-    span.textContent = capped ? $t('All sheets ({K} of {total})', { K: ms.K, total: ms.total }) : $t('All sheets');
-    if (S.sheets && morphOn() && !deformSheetsOk()) lab.dataset.tip = $t('While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.');
+    const one = deformOneSheet();
+    span.textContent = one ? $t('All sheets (one while it deforms)') : capped ? $t('All sheets ({K} of {total})', { K: ms.K, total: ms.total }) : $t('All sheets');
+    lab.classList.toggle('sheets-one', one);
+    if (one) lab.dataset.tip = $t('While this deformation shows, one sheet is drawn: a step it deforms has no path on every sheet.');
     else if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
     return lab;
   }
