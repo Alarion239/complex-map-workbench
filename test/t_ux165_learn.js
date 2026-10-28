@@ -19,7 +19,7 @@ const SRC = fs.readFileSync(path.join(__dirname, '../src/tour.js'), 'utf8');
 ok('the first-run suggestion is a lane line, not the old card', /laneShow\(\{ id: 'suggest'/.test(SRC) && !/class: 'tour-suggest'/.test(SRC));
 ok('the lane reserves its room as the strip does (--tour-h, --ph-tour)', /--tour-h', \(LANE_H \+ SLOT_GAP\)/.test(SRC) && /--ph-tour', \(mode === 'port' \? 56/.test(SRC));
 ok('UX21: the line\'s words are never cut: laneFit drops the optional part (the invitation\'s description) before cutting', /function laneFit\(\)/.test(SRC) && /drop: 'body'/.test(SRC) && /\.tour-lane\[data-mode="desk"\]:not\(\.two\) \.tl-text/.test(SRC));
-const APP = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+const APP = require('./src_text').appText();   // (src/app/*.js joined, as build.py does)
 ok('UX74: the Try line drops the example\'s name first', /drop: 'title', onClose/.test(APP));
 ok('UX20: the example fit measures X\'s bar only on the plane (it is in the head on a desktop)', /f\.parentNode === \$\('plotL'\)/.test(APP));
 ok('UX20: the head note gives way before the title (fitTitle noNote)', /function fitTitle\(side, noNote\)/.test(APP) && /\$t\('Preimage in X'\)/.test(APP));

@@ -2,7 +2,8 @@
 // A file that also exports itself to node (`module.exports = X`, for the unit tests) is a CommonJS module to
 // TypeScript, so its top-level names are not global there; they are declared here with the types of those exports.
 // Files without module.exports (gl.js, figure.js, sound.js, …) are plain scripts, and TypeScript sees their names
-// directly. Keep this list in step with the files' exports; eslint.config.js reads the same names from src/ itself.
+// directly (gl.js and app.js are checked as joined from their parts in src/gl/ and src/app/: tools/join_src.js,
+// tsconfig.json). Keep this list in step with the files' exports; eslint.config.js reads the same names from src/ itself.
 
 declare const I18N: typeof import('../src/i18n.js');
 declare const $t: typeof I18N.t;

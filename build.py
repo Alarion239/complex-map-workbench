@@ -1,4 +1,5 @@
 import json, pathlib, re
+from tools.src_parts import source
 root = pathlib.Path(__file__).parent
 # UTF-8 and LF on every platform (Windows would read the locale's code page and write CRLF)
 def save(p, s):
@@ -8,7 +9,8 @@ def save(p, s):
 
 src = root / 'src'
 page = (src / 'page.html').read_text(encoding='utf-8')
-js = '\n'.join((src / f).read_text(encoding='utf-8') for f in ['cx.js', 'parse.js', 'funcs.js', 'homrange.js', 'inverse.js', 'recognize.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'curves.js', 'sphere.js', 'palette.js', 'gl.js', 'view.js', 'figure.js', 'sound.js', 'tour.js', 'inspector.js', 'planemenu.js', 'construct.js', 'params.js', 'phone.js', 'seasong.js', 'app.js'])
+# app.js and gl.js are kept as ordered parts, src/app/ and src/gl/ (issue #20, phase 2): source() joins them
+js = '\n'.join(source(f) for f in ['cx.js', 'parse.js', 'funcs.js', 'homrange.js', 'inverse.js', 'recognize.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'curves.js', 'sphere.js', 'palette.js', 'gl.js', 'view.js', 'figure.js', 'sound.js', 'tour.js', 'inspector.js', 'planemenu.js', 'construct.js', 'params.js', 'phone.js', 'seasong.js', 'app.js'])
 # v15 desktop (notes/ui-redesign-2/build/desktop.md): the redesign's styles close the page's stylesheet
 _i = page.rindex('</style>')
 page = page[:_i] + (src / 'desk.css').read_text(encoding='utf-8') + (src / 'phone.css').read_text(encoding='utf-8') + page[_i:]
@@ -61,7 +63,7 @@ it_table = json.loads(it_text)
 # and the x-height of x), so its characters and those are kept as well
 def bold_texts(table):
     out = []
-    app = '\n'.join((src / f).read_text(encoding='utf-8') for f in ['figure.js', 'app.js'])
+    app = '\n'.join(source(f) for f in ['figure.js', 'app.js'])
     for mm in re.finditer(r'\{\s*b:\s*', app):
         i, depth = mm.end(), 1
         while i < len(app) and depth:
