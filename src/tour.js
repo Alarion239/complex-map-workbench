@@ -331,8 +331,8 @@ const Tour = (() => {
       id: 'sound', title: 'Sound', time: '1½ min', rev: 1, scene: 'song', needs: 'sound',
       steps: [
         { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
-          body: 'Grieg\'s theme as one curve: the spiral in X under $F(z)=z^{-2+24i}$. Listen along walks it at an even pace and plays $\\arg F$ as pitch, on the piece\'s own strings. Each turn is $0.77$ of the one before, so the theme comes $1.3$ times as fast.',
-          try: { text: 'Press ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= 9)), then: 'Every note was $\\arg F$ crossing one of the piece\'s strings.' },
+          body: 'Grieg\'s theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and the sound plays each colour line $\\arg F$ crosses; the branch cut on each downbeat is the drum.',
+          try: { text: 'Press ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= 9)), then: 'Every note was $\\arg F$ crossing one of its colour lines.' },
           // (the score's drum ticks are at 0.45, 8.90, 15.40 and 20.40 s of its 22.97 s: test/fixtures/seasong_score.json)
           captions: [[0, 'Each note is a phase line crossed: $\\arg F$ is the pitch.'], [8.9, 'The cut: a drum. The next turn is smaller, so faster.'], [15.4, 'Each turn is $0.77$ of the last: $1.3$ times as fast.'], [20.4, 'The ending is ours: three rolled B-minor chords.']] },
         { id: 'strings', anchor: 'panes', needs: 'zp', hear: true, act: 'sound', title: 'Phase lines are notes', before: [['scene', 'harp'], ['view', 'phase'], ['tool', 'select']],

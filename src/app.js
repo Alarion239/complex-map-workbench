@@ -8434,6 +8434,7 @@
     if (s.kind === 'point' && s.label) return exLabel(s.label);
     // (an example's named curve: the melody's spiral, notes/sea-song)
     if (s.kind === 'curve' && s.nameKey === 'spiral') return $t('Spiral');
+    if (s.kind === 'curve' && s.nameKey === 'circle') return $t('Circle');
     const nk = nameKind(s);
     return $t('{kind} {n}', { kind: Region.KINDS[nk].label, n: counts[nk] });
   }
@@ -12678,12 +12679,15 @@
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
-    // a melody on a curve (notes/sea-song): Edvard Grieg's theme (1875, public domain) in our own adaptation for the
-    // phase harp, one curve spiralling into 0 under SEASONG.tex (src/seasong.js, made by tools/melody_curve.js). Listen along
-    // plays it with its own tempo and dynamics (the shape's listen: sndListenOf); fit: the box kept in view
+    // a melody played by a function (notes/sea-song/FUNCTION.md): F = g(u(z)), src/seasong.js made by
+    // tools/mk_function.js. On |z| = 1, arg F is a staircase on Grieg's theme (one all-pass factor a note, the downbeat
+    // u^s's branch cut), so the sound's fixed map plays it: each colour line crossed is a note, the cut is the crack.
+    // No score and no special rule: the curve is two laps of the unit circle (song: the example's curve, sndIsSong),
+    // played by Listen along at 250 px/s (19.1 s at view.s 380: four statements, each lap's second faster, the warp
+    // u's). sectors: the Phase key's n (12, a line a semitone); fit: the box kept in view
     ...(typeof SEASONG !== 'undefined' ? [{
-      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
-      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
+      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle\'s menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, |F| grows through each statement, and the branch cut on every downbeat is the drum.'),
+      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, song: true, nameKey: 'circle' }], steps: SEASONG.steps, sectors: SEASONG.sectors, song: true, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
     }] : []),
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
@@ -12754,8 +12758,10 @@
     }
     for (const st of ex.steps) S.steps.push(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) S.homRange = { a: ex.range.a, b: ex.range.b }; else delete S.homRange;   // (v16)
+    // (an example that is played: the Phase key's n it was made for, one colour line a note)
+    if (ex.sectors) S.sectors = ex.sectors;
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
-    const piece = S.shapes.find((x) => x.listen);
+    const piece = S.shapes.find(sndIsSong);
     if (piece) snd.lastLoop = { pts: piece.pts, closed: false, sid: piece.id };
     else if (snd.lastLoop && snd.lastLoop.sid) snd.lastLoop = null;
     // an example brings its own w-plane targets (none unless it says so)
@@ -12963,7 +12969,7 @@
       <p>${$t(`Right-click a curve or a region's boundary (hold it on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`)}</p>
       <h3>${$t(`Sound`)}</h3>
       <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Click a still point, hold it on touch, or press {x8} on the keyboard probe, to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x8} plays the point, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L'), x8: k('Q') })}</p>
-      ${EX.some((ex) => exOk(ex) && ex.shapes.some((sh) => sh.listen)) ? `<p>${$t(`<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, plays the harp along the curve at an even pace: arg <i>F</i> is the pitch, each phase line it crosses plucks that line's string, crossing back plucks it again and a leap runs over the strings between, and |<i>F</i>| sets the register (lower near zeros, higher near poles). A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a single curve: at constant speed each turn of its spiral is shorter, so the theme speeds up by itself, and each time it crosses the branch cut the drum sounds. This example has its own strings, one for each note Grieg wrote: only those notes and the drum sound, each in its written octave.`)}</p>
+      ${EX.some((ex) => exOk(ex) && ex.song) ? `<p>${$t(`<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, walks the curve at an even pace and plays what the pointer would play there: a note for each colour line arg <i>F</i> crosses, louder where |<i>F</i>| is larger, and a crack at each branch cut. A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a function: along the unit circle its arg <i>F</i> rises in steps, one for each note of the theme, so the colour lines it crosses are the melody, and nothing else is added. Each lap of the circle plays the theme twice, the second time faster, |<i>F</i>| grows through each statement, and the branch cut on each downbeat is the drum.`)}</p>
       <p style="display:flex;align-items:center;gap:12px"><img class="guide-piece" alt="" width="96" height="64" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--well)"><button class="btn" type="button" data-play="piece">${$t('Open and play “In the Hall of the Mountain King”')}</button></p>` : ''}
       <h3>${$t(`Guarantees`)}</h3>
       <p>${$t(`The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Select the tile, and the Inspector shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`)}</p>
@@ -12974,7 +12980,7 @@
     if (pb) pb.addEventListener('click', () => { close(); sndPlayPiece(); });
     // the example's picture (the spiral, its cut): its gallery thumbnail, drawn by the real renderer once its programs
     // are compiled
-    const pim = m.querySelector('img.guide-piece'), pi = EX.findIndex((ex) => exOk(ex) && ex.shapes.some((sh) => sh.listen));
+    const pim = m.querySelector('img.guide-piece'), pi = EX.findIndex((ex) => exOk(ex) && ex.song);
     const putPic = (n) => { if (!pim.isConnected && n < 12) return; const u = renderExampleThumb(pi); if (u) pim.src = u; else if (n > 0) setTimeout(() => putPic(n - 1), 250); };
     if (pim && pi >= 0) putPic(12);
     m.append(h('div', { class: 'modal-foot' }, h('button', { class: 'btn primary', onclick: close }, $t('Close'))));
@@ -13604,6 +13610,9 @@
   const sndNow = () => performance.now() / 1000;
   // throughZP / throughZPAlong (a zero or a pole on a step that argStep calls a jump: a seat, not a cut): calc.js's
   // when it has them, else the engine's pure core (Sound.HT)
+  // Calc.throughZP / throughZPAlong / ZP_CALLS (SOUND-PLAN 2.2): one implementation, the engine's (Sound.HT, FINAL
+  // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
+  if (typeof Calc !== 'undefined' && !Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   const sndZP = () => (typeof Calc !== 'undefined' && Calc.throughZP ? Calc : SND && SND.HT && SND.HT.throughZP ? SND.HT : null);
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
@@ -14724,8 +14733,9 @@
     let pts = best.pts;
     const k = leftStage();
     if (k > 0) { const G = rangeF(0, k); pts = pts.map(([x, y]) => { const w = G(C(x, y)); return [w.re, w.im]; }).filter((q) => Number.isFinite(q[0]) && Number.isFinite(q[1])); }
+    // (piece with no score, the Mountain King as a function: its Listen along, the function itself)
     const L = sndListenOf(s), sc = SND && SND.along ? (piece ? L : null) : L;
-    if (piece && !sc) return false;
+    if (piece && !sc && !(SND && SND.along)) return false;
     if (best.closed) snd.lastLoop = { pts, closed: true };
     else if (L) snd.lastLoop = { pts, closed: false, sid: s.id };
     return sndListen(pts, !!best.closed, undefined, sc, s);
@@ -14733,6 +14743,8 @@
   // a composed curve's Listen along data (an example's melody: src/seasong.js, notes/sea-song), only on that curve as
   // it was stored (no edit or transform since: the key of its points; an edited curve loses it), under the chain it
   // was composed for, with X in z and no deformation; null otherwise (then today's rules play it)
+  // the example that is played (ex.song, its curve's song): found by its flag, whatever its score
+  function sndIsSong(x) { return !!(x && (x.song || x.listen)); }
   function sndListenOf(s) {
     const L = s && s.listen;
     if (!L || s.kind !== 'curve' || !Array.isArray(s.pts)) return null;
@@ -14766,15 +14778,15 @@
   // (review v16 user-5) an example with a melody says, once it opens, how to hear it, with the action itself
   function sndPieceHint() {
     if (!SND) return;
-    const s = S.shapes.find((x) => x.listen);
+    const s = S.shapes.find(sndIsSong);
     if (!s) return;
     const ph = document.documentElement.classList.contains('ph');
     const go = () => { if (!S.shapes.includes(s)) return; if (sndP.on && sndP.events) sndListenShape(s, true); else sndTurnOnListen(s, true); };
     // (review v16 verify-7: in X's note chip at the top of the plane, not a toast over the spiral; it goes after 9 s,
     // on Listen, or when the example is left)
     clearTimeout(snd.hintT);
-    const two = !!SND.along;
-    snd.hint = { s, msg: two ? (ph ? $t('Hold the spiral, then Listen along or Play the composition.') : $t('Right-click the spiral, then Listen along or Play the composition.')) : ph ? $t('Hold the spiral, then Listen along.') : $t('Right-click the spiral, then Listen along.'), go };
+    const two = !!SND.along && !!sndListenOf(s), circ = s.nameKey === 'circle';
+    snd.hint = { s, msg: two ? (ph ? $t('Hold the spiral, then Listen along or Play the composition.') : $t('Right-click the spiral, then Listen along or Play the composition.')) : circ ? (ph ? $t('Hold the circle, then Listen along.') : $t('Right-click the circle, then Listen along.')) : ph ? $t('Hold the spiral, then Listen along.') : $t('Right-click the spiral, then Listen along.'), go };
     snd.hintT = setTimeout(() => { snd.hint = null; updateDraftChips(); }, 9000);
     updateDraftChips();
   }
@@ -14817,10 +14829,10 @@
   }
   // the guide's button: the example with a melody, opened and played
   function sndPlayPiece() {
-    const i = EX.findIndex((ex) => exOk(ex) && ex.shapes.some((sh) => sh.listen));
+    const i = EX.findIndex((ex) => exOk(ex) && (ex.song || ex.shapes.some((sh) => sh.listen)));
     if (i < 0) return;
     loadExample(i);
-    const s = S.shapes.find((x) => x.listen);
+    const s = S.shapes.find(sndIsSong);
     snd.hint = null; clearTimeout(snd.hintT); updateDraftChips();   // (the open's hint: this button is already the answer)
     if (s) sndListenAsk(s, true);
   }
@@ -15029,11 +15041,11 @@
   function tourListen() {
     if (!SND || typeof (window.AudioContext || window.webkitAudioContext) !== 'function') return false;
     // (the example's curve: with a score, or, once the example is a function with no score, its one curve)
-    const s = S.shapes.find((x) => x.listen && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || S.shapes.find((x) => x.visible !== false && x.kind === 'curve') || null;
+    const s = S.shapes.find((x) => sndIsSong(x) && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || S.shapes.find((x) => x.visible !== false && x.kind === 'curve') || null;
     if (!s) return false;
     if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); }
     // (the composition, as the tour's song step and its captions describe it)
-    const piece = !!s.listen;
+    const piece = !!sndListenOf(s);
     if (sndP.on && sndP.events) return sndListenShape(s, piece) !== false;
     tourSoundHold({ on: true, events: true });
     sndTurnOnListen(s, piece);
@@ -15204,8 +15216,8 @@
     },
     sceneSpec: (name) => {
       if (name !== 'song' || typeof SEASONG === 'undefined') return null;
-      const ex = EX.find((x) => x.shapes.some((sh) => sh.listen));
-      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, rightMode: ex.rightMode, dc: ex.dc } : null;
+      const ex = EX.find((x) => x.song || x.shapes.some((sh) => sh.listen));
+      return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, sectors: ex.sectors, song: ex.song, rightMode: ex.rightMode, dc: ex.dc } : null;
     },
     listen: tourListen,
     soundHold: tourSoundHold,
