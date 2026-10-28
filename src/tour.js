@@ -975,7 +975,7 @@ const Tour = (() => {
 .tour-top .ts-why.ts-panel .ts-auto input { width: 20px; height: 20px; }
 .tour-top .ts-why.ts-panel .ts-wtitle { display: block; margin: 0 0 4px; font: 600 15px/20px var(--f-ui); color: var(--ink); }
 .ts-wtitle { display: none; }
-.tour-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tour-sr { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* (v16.5 UX21) the learning lane: one line in the tour's docked slot (the first-run invitation, an example's Try
    line). It sits in the layout like the strip and covers nothing: a 48 px row at the stage's top on a desktop (plus the
    8 px gap), a 56 px row under a phone's header, a landscape phone's header when it has room */
