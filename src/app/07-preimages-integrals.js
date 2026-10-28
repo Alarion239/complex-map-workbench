@@ -836,6 +836,19 @@
         const s = hits[0];
         return { id: s.id, name: nm(s), kind: s.kind, selected: selected === s.id, on: s.kind === 'point' ? hits.slice(1).filter((x) => kindType(x) === 'curve').map(nm) : [] };
       },
+      // the vertex of a polygon under the pointer (for Remove vertex), X's shapes at stage 0, Y's targets where edited
+      vertexAt(side, x, y, touch) {
+        const target = side === 'R';
+        if (target ? !(rImage() && targetsEditable()) : !(lFlat() && leftStage() === 0)) return null;
+        const pane = paneOf(side);
+        pane.setView(viewOf(side));
+        for (const s of (target ? S.targets : S.shapes).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+          const i = polyVertexAt(pane, s, x, y, touch ? 22 : 9);
+          if (i >= 0) return { id: s.id, i, n: s.pts.length };
+        }
+        return null;
+      },
+      removeVertex(id, i) { if (polyRemoveVertex(id, i)) undoToast($t('Vertex removed.')); },
       hide(id) {
         const s = findShape(id);
         if (!s) return;
