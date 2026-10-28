@@ -12,6 +12,7 @@ for (const [w, h, phone] of [[390, 844, true], [1440, 900, false]]) {
   const tag = `${w}px`;
   if (phone) {
     ok(`${tag}: the Print settings button shows and the rows are folded`, (await shown('#xfPrintBtn')) && !(await shown('#xfSize')) && !(await shown('#xfFor')), null);
+    ok(`${tag}: the folded button says aria-expanded=false (the export suite's helpers read it)`, (await ev(`document.getElementById('xfPrintBtn').getAttribute('aria-expanded')`)) === 'false', null);
     await ev(`document.getElementById('xfPrintBtn').click()`); await sleep(200);
     ok(`${tag}: pressing it shows the rows`, (await shown('#xfSize')) && (await shown('#xfFor')), await ev(`document.getElementById('xfPrintBtn').getAttribute('aria-expanded')`));
     ok(`${tag}: Save comes before Copy image`, await ev(`(() => { const b = [...document.querySelectorAll('.xf-foot .xf-dest')].filter((x) => !x.hidden).map((x) => x.id); return b.indexOf('xfSave') === 0 && b.includes('xfDocs'); })()`), null);
