@@ -292,8 +292,9 @@ await section('L56', async () => {
   const p = await W(1, 0);
   await clickR(p[0], p[1]); await settle(250);
   info.m56 = await menuItems();
-  // (issue #13: no Select item; the point's first row names it and where it lies)
-  ok('UX56 the point heads the menu (z₀ · lies on Circle 1), no Select', /^z₀/.test(info.m56[0] || '') && /lies on Circle 1/.test(info.m56[0] || '') && !info.m56.some((t) => /^Select/.test(t)), info.m56);
+  // (issue #13: no bare Select item; the point's first row names it and where it lies. #39: objects stacked under the
+  // cursor each have a "Select <name>" row, so every Select row names its object)
+  ok('UX56 the point heads the menu (z₀ · lies on Circle 1), Select rows only name an object', /^z₀/.test(info.m56[0] || '') && /lies on Circle 1/.test(info.m56[0] || '') && info.m56.filter((t) => /^Select/.test(t)).every((t) => /^Select \S/.test(t) && t !== 'Select'), info.m56);
   ok('UX56 Delete names the point', info.m56.some((t) => /^Delete z₀/.test(t)), info.m56);
   ok('UX56 no "Add point here" over a point', !info.m56.some((t) => /Add point here/.test(t)), info.m56);
   ok('UX56 Make free names its shape', info.m56.some((t) => /^Make z₀ free/.test(t)), info.m56);
@@ -490,7 +491,9 @@ await section('P51', async () => {
   info.p51 = await ev(`(() => { const c = document.getElementById('draftChipL'); const x = c.querySelector('.cm-x'), q = x.getBoundingClientRect(); const hit = (dx, dy) => document.elementFromPoint(q.left + q.width / 2 + dx, q.top + q.height / 2 + dy) === x; return { t: (c.querySelector('.cm-t') || {}).textContent, segs: [...c.querySelectorAll('.cm-sb')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width)]), x44: hit(20, 0) && hit(-20, 0) && hit(0, 20) && hit(0, -20) }; })()`);
   // (v16.5 fix user-6: after the curve, "Pick a point (on {c} or anywhere)"; the tap picks SD's Line 1)
   ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point \(on Line 1 or anywhere\) · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
-  ok('UX51 phone chip: Whole | Inside | Outside in words, each ≥ 44 px', info.p51.segs.length === 3 && info.p51.segs.every(([t, w]) => t && w >= 44), info.p51.segs);
+  // (D3: on a phone the three choices are in the context bar, in words, and the chip drops its copy: one place)
+  const barSeg = await ev(`[...document.querySelectorAll('.ph-ctseg > button')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().height)])`);
+  ok('UX51 phone: Whole | Inside | Outside in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 3 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
   ok('UX51 phone chip: the × takes taps 44 × 44', info.p51.x44, info.p51);
   await shot('ux51-phone-chip');
   // UX15 on the phone: the Undo at the thumb takes the last pick
@@ -556,7 +559,7 @@ await section('LAY', async () => {
   const v = await W(0, 1.5);
   await tap(v[0] + 30, v[1]);
   const ph = await ev(`(() => { const c = document.getElementById('draftChipL'), t = c.querySelector('.cm-t').getBoundingClientRect(), x = c.querySelector('.cm-x').getBoundingClientRect(), s = c.querySelector('.cm-seg').getBoundingClientRect(), b = c.getBoundingClientRect(), pl = c.parentElement.getBoundingClientRect(); return { xTop: Math.round(x.top), tTop: Math.round(t.top), tBot: Math.round(t.bottom), segTop: Math.round(s.top), h: Math.round(b.height), right: Math.round(b.right), plot: Math.round(pl.right) }; })()`);
-  ok('UX51 phone chip: the × on the first line, the choices below, two lines in all', ph.xTop <= ph.tBot && ph.segTop >= ph.tBot - 2 && ph.h <= 96 && ph.right <= ph.plot, ph);
+  ok('UX51 phone chip: the × on the first line of the sentence, one or two lines in all', ph.xTop <= ph.tBot && ph.h <= 96 && ph.right <= ph.plot, ph);
   await tapSel('#draftChipL .cm-x');
 });
 
