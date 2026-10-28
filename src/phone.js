@@ -623,7 +623,7 @@ const Phone = (() => {
       figRows.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
     }
     const searchRow = row(I.search, $t('Search functions and commands'), () => { close(true); $('cmdBtn').click(); });
-    group($t('Scene'), row(I.add || OPEN, $t('Empty canvas'), () => { close(true); A.newScene(); }), row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true), ...sceneRows);
+    group($t('Scene'), row(I.add || OPEN, $t('New scene'), () => { close(true); A.newScene(); }), row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true), ...sceneRows);
     group($t('Figure'), row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true), ...figRows);
     group($t('Sound'), sndRow, hearRow);
     group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Reference guide'), () => { close(true); A.openGuide(); }));
