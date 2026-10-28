@@ -417,7 +417,7 @@ const Tour = (() => {
     formula: '#secFormula', shapes: '#secShapes',
     // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
     // or the button; on a phone the Display sheet's section)
-    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#secDisplay') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
     patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.disp-pop #patternSeg') || document.querySelector('#rightFoot .opts-btn')),
     chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',

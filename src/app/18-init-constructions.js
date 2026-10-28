@@ -975,6 +975,7 @@
       },
       fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
+      xyView: () => S.view.main === 'xy',   // ([v17 D5] the regions' display is the X → Y view's)
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },

@@ -497,11 +497,12 @@
 @media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
 /* Italian too (issue #61): the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
 @media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* [v17 D4] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4): this view's options and the regions' display, which
-   leaves the left panel on the laptop (the phone keeps it in its Display sheet) */
-:root:not(.ph) #secDisplay { display: none; }
+/* [v17 D4, D5] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4, #82): this view's options and the unit circle,
+   and in the X → Y view the regions' display (page.html #regionsHome), with the pattern's swatch on the button */
 .pane-head .disp-btn { height: 26px; padding: 0 6px 0 9px; gap: 2px; font: 500 12.5px/1 var(--f-ui); white-space: nowrap; }
 .pane-head .disp-btn .disp-caret { display: inline-flex; width: 14px; height: 14px; }
+.pane-head .disp-btn .disp-sw { width: 18px; height: 14px; margin-right: 4px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+.pane-head .disp-btn.tight .disp-sw { display: none; }
 .pane-head .disp-btn .disp-caret svg { width: 14px; height: 14px; }
 .pane-head .disp-btn .disp-i { display: none; width: 15px; height: 15px; }
 .pane-head .disp-btn .disp-i svg { width: 15px; height: 15px; }

@@ -285,6 +285,8 @@
     if (inHead) {
       b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
         h('span', { class: 'disp-i', 'aria-hidden': 'true', html: ICONS.sliders }), h('span', { class: 'disp-l' }, $tx('button', 'Display')), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
+      // ([v17 D5, #82] in the X → Y view, the regions' pattern at a glance: a small swatch before the word)
+      if (S.view.main === 'xy') { const sw = h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }); b.prepend(sw); drawPatternSwatch(sw, S.pattern); }
       b.addEventListener('click', () => openFootPop(b, false, side));
     } else if (rest.length) {
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
@@ -301,12 +303,14 @@
     if (!refresh && ft.pop && ft.pop.isConnected) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
     const rest = ft.kids.slice(ft.n);
-    // ([v17 D4] from the pane head: this view's options, then the regions' display: pattern, cell, unit circle, grid
-    // lines, chevrons, opacity, mesh; that section's body is lent to the popover and goes back when it closes)
-    const head = !!btn.closest('.pane-head'), sec = $('secDisplay'), body = head && sec ? sec.querySelector('.psec-body') : null;
-    const kids = head ? [...(rest.length ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest] : []), ...(body ? [h('div', { class: 'opts-h' + (rest.length ? ' opts-sep' : '') }, $t('Regions')), body] : [])] : rest;
+    // ([v17 D4, D5 #82] from the pane head: this view's options and the unit circle, then, in the X → Y view only, the
+    // regions' display: pattern, cell, grid lines, chevrons, opacity (they change nothing in Phase or Landscape). Both
+    // are lent from page.html's #regionsHome and go back when the popover closes; mesh quality is in Settings)
+    const head = !!btn.closest('.pane-head'), home = $('regionsHome');
+    const unit = head ? $('unitBox') : null, regions = head && S.view.main === 'xy' ? $('regionsBox') : null;
+    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions')), regions] : [])] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
-    if (body) pop._onClose = () => { if (body.parentNode !== sec) sec.append(body); };
+    if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
