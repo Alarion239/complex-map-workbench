@@ -504,7 +504,7 @@
     paneL = new Pane($('canvasL'), $('overlayL'));
     paneR = new Pane($('canvasR'), $('overlayR'));
     const loaded = load();
-    S = loaded || blankState();
+    setState(loaded || blankState());
     if (!Array.isArray(S.params)) S.params = [];
     attachParams();
     bindsAll();
@@ -937,7 +937,7 @@
       } catch (err) {
         // never a dead app on every reload: fall back to the first example
         console.warn('The saved session could not be restored', err);
-        S = Object.assign(blankState(), { hideLeft: S.hideLeft, hideRight: S.hideRight });
+        setState(Object.assign(blankState(), { hideLeft: S.hideLeft, hideRight: S.hideRight }));
         selected = null; draft = null;
         dropAllGPU();
         loadExample(firstExample());

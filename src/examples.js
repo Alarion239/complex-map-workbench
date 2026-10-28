@@ -2,15 +2,15 @@
 // Examples and the guide (issue #20, phase 3: moved out of app.js): loading an example, its fitted view, the examples
 // gallery and its thumbnails, and the guide (on a desktop and on a touch screen). The app hands it what it needs once,
 // Examples.init(api) at start-up (src/app/15-examples-guide.js, examplesApi): its functions and constants as they are,
-// and the state it reassigns (S, currentExample, ...) as getters on api, read as A.S and so on. The examples
-// themselves (EX), the theme and the palettes, and the state the rest of the app reads too (currentExample, exFitKey,
-// exThumbs, exWait) stay the app's.
+// and the state it reassigns (currentExample, ...) as getters on api, read as A.S and so on; S itself is replaced
+// through the app's setState. The examples themselves (EX), the theme and the palettes, and the state the rest of the
+// app reads too (currentExample, exFitKey, exThumbs, exWait) stay the app's.
 const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit,
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
-    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, snd,
-    sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem;
+    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setState,
+    snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem;
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -118,11 +118,11 @@ const Examples = (() => {
     let url = null, key = null;
     GLR.side(true);
     try {
-      A.S = Object.assign(blankState(), {
+      setState(Object.assign(blankState(), {
         shapes: ex.shapes.map((sh, j) => Object.assign({ id: `ex${i}_${j}`, ci: j % 8, visible: true }, JSON.parse(JSON.stringify(sh)))),
         steps: ex.steps.map((st) => ({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true })),
         pattern: save.S.pattern, alpha: save.S.alpha, meshN: 160, lines: false, unit: false, chev: false,
-      });
+      }));
       A.selected = null; A.hoverShape = null;
       A.clipWin = { x0: ex.view.cx - 260 / ex.view.s, x1: ex.view.cx + 260 / ex.view.s, y0: ex.view.cy - 180 / ex.view.s, y1: ex.view.cy + 180 / ex.view.s };
       rebuild();
@@ -138,7 +138,7 @@ const Examples = (() => {
       if (GLR.frameStatus().pending) key = GLR.chainKey; else url = cv.toDataURL();
       for (const sh of A.S.shapes) dropShapeGPU(sh.id);
     } catch (e) { console.error(e); } finally {
-      A.S = save.S; A.clipWin = save.clipWin; A.selected = save.selected; A.hoverShape = save.hoverShape;
+      setState(save.S); A.clipWin = save.clipWin; A.selected = save.selected; A.hoverShape = save.hoverShape;
       GLR.side(false);
       rebuild();
       cv.remove();
@@ -333,7 +333,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

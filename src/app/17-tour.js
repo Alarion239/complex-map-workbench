@@ -122,7 +122,7 @@
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     defMem.y = null; defMem.d = null; defMem.dkey = '';
     for (const k of Object.keys(viewMem)) delete viewMem[k];
-    S = st;
+    setState(st);
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     if (m) { S.hideLeft = !!m.hideLeft; S.hideRight = !!m.hideRight; } else { if (isDrawer('R')) S.hideRight = true; if (isDrawer('L')) S.hideLeft = true; }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
