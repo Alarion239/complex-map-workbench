@@ -885,6 +885,11 @@ const Tour = (() => {
 .ts-text:focus-visible, .tour-strip button:focus-visible, .ts-why button:focus-visible, .ts-why input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ts-l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tour-strip[data-mode="desk"] .ts-count { display: none; }
+.ts-chap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px; padding: 0 8px; border: 0; border-radius: var(--r-2, 4px); background: var(--accent-soft, transparent); color: var(--accent); font: 500 12px/18px var(--f-ui); white-space: nowrap; cursor: pointer; }
+.ts-chap[hidden] { display: none; }
+.ts-chap svg { width: 12px; height: 12px; }
+.ts-chap[aria-expanded="true"] svg { rotate: 180deg; }
 .ts-count { flex: 0 0 auto; font: 400 12px/18px var(--f-ui); color: var(--muted); white-space: nowrap; }
 .ts-wl { flex: 0 0 auto; margin-left: auto; padding-left: 8px; font: 500 12px/18px var(--f-ui); color: var(--accent); white-space: nowrap; }
 .ts-wl svg { width: 12px; height: 12px; vertical-align: -2px; transition: rotate var(--t-fast, 120ms) var(--ease-out, ease-out); }
@@ -1136,11 +1141,15 @@ const Tour = (() => {
     const l2 = el('span', { class: 'ts-l2' }, ringI, el('span', { class: 'ts-lead' }, tin, lead));
     const text = el('button', { class: 'ts-text', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'tourWhy', 'aria-label': $t('Details'), 'aria-describedby': 'tourTitle tourLead' },
       el('span', { class: 'ts-l1' }, title, count, wl), l2);
+    // the chapter menu: on a wide strip the chapter and its count are a button that lists the chapters (done ones checked)
+    const chap = el('button', { class: 'ts-chap', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', hidden: true }, el('span', { class: 'ts-chapl' }));
+    chap.insertAdjacentHTML('beforeend', ICON_DOWN);
+    chap.addEventListener('click', () => openHelpMenu(chap, 'chapters'));
     const act = el('button', { class: 'btn ts-act', type: 'button', hidden: true });
     const next = el('button', { class: 'btn primary ts-next', type: 'button' }, $t('Next'));
     const x = el('button', { class: 'icon-btn ts-btn ts-x', type: 'button', 'aria-label': $t('End the tour'), title: $t('End the tour') + '  Esc' });
     x.innerHTML = ICON_X;
-    const row = el('div', { class: 'ts-row' }, back, text, act, next, x);
+    const row = el('div', { class: 'ts-row' }, back, text, chap, act, next, x);
     // Why: the body, the notes, Move on by itself; on a phone (a panel) also the title, Back and × End the tour
     const wtitle = el('span', { class: 'ts-wtitle', 'aria-hidden': 'true' });
     const body = el('p', { class: 'ts-body', id: 'tourBody' });
@@ -1157,7 +1166,7 @@ const Tour = (() => {
     const safeP = el('div', { 'aria-hidden': 'true', style: 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)' });
     top.append(safeP);
     document.body.append(root, top);
-    return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, title, count, wl, l2, ringI, tin, lead, act, next, x, why, wtitle, body, note, autoC, wBack, wEnd, prog, safeP,
+    return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, chap, title, count, wl, l2, ringI, tin, lead, act, next, x, why, wtitle, body, note, autoC, wBack, wEnd, prog, safeP,
       holes: null, raf: 0, anim: null, motion: 0, topSet: [], hosts: new Map(), hostOk: new Map(), work: [], moveT: 0, mode: null, whyOpen: false };
   }
 
@@ -1574,6 +1583,7 @@ const Tour = (() => {
     slot.hidden = false;
     const changed = ui.mode !== mode;
     ui.slot = slot; ui.mode = mode; ui.strip.dataset.mode = mode;
+    ui.chap.hidden = mode !== 'desk' || !ui.chap.firstChild.textContent;
     // (r3 verify-2: × End in the landscape header only with 44 + 8 px to spare beyond the strip's 260)
     ui.strip.classList.toggle('ts-xok', mode === 'head' && stripMode.free >= 312);
     // Why: inline in the strip on a tablet or a desktop; a panel in the tour's top layer on a phone, and (r3 review
@@ -2258,6 +2268,11 @@ const Tour = (() => {
     r.countShort = `${k}/${total}`;
     ui.count.textContent = ui.mode === 'desk' ? `${$t(ch.title)} · ${r.countText}` : r.countShort;
     ui.count.setAttribute('aria-label', `${$t(ch.title)}, ${r.countText}`);
+    // (the count in the text gives way to the chapter button where there is room for it)
+    ui.chap.hidden = ui.mode !== 'desk';
+    ui.chap.firstChild.textContent = `${$t(ch.title)} · ${r.countText}`;
+    ui.chap.setAttribute('aria-label', `${$t(ch.title)}, ${r.countText}. ${$t('Chapters')}`);
+    ui.chap.setAttribute('title', $t('Chapters'));
     ui.prog.style.width = `${(100 * k / Math.max(1, total)).toFixed(1)}%`;
     const nx = seek(r.ci, r.si + 1, 1, isAbsent);
     const nextCh = nx && nx.ci !== r.ci ? CHAPTERS[nx.ci] : null;
@@ -2967,7 +2982,7 @@ const Tour = (() => {
   }
 
   // ---------------------------------------------------------------- the help menu
-  function openHelpMenu(anchor) {
+  function openHelpMenu(anchor, only) {
     if (!doc()) return;
     if (menu) { closeMenu(true); return; }
     injectCSS();
@@ -2982,29 +2997,32 @@ const Tour = (() => {
       items.push(b);
       return b;
     };
-    const head = el('div', { class: 'menu-head', role: 'presentation' }, $t('Guided tour'));
+    // (only === 'chapters': the strip's chapter menu, the chapters alone, the running one marked)
+    const chaptersOnly = only === 'chapters';
+    const head = el('div', { class: 'menu-head', role: 'presentation' }, chaptersOnly ? $t('Chapters') : $t('Guided tour'));
     const kids = [head];
     const resume = rec.last && CHAPTERS.find((c) => c.id === rec.last.ch);
-    if (resume && !(rec.last.i === 0 && rec.last.ch === 'basics')) {
+    if (chaptersOnly) { /* the chapters follow */ } else if (resume && !(rec.last.i === 0 && rec.last.ch === 'basics')) {
       const st = resume.steps[Math.min(rec.last.i, resume.steps.length - 1)];
       kids.push(mi('tour-continue', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Continue the tour'))}<span class="tour-sub">${esc($t(resume.title))}: ${esc(stepTitle(st))}</span></span>`,
         () => start({ chapter: resume.id, step: rec.last.i, opener: anchor })));
     } else {
       kids.push(mi('', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Take the tour'))}</span><span class="mi-key">${esc($t('2 min'))}</span>`, () => start({ chapter: 'basics', opener: anchor })));
     }
-    kids.push(el('div', { class: 'msep', role: 'separator' }));
+    if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
+    const here = run && run.ci != null ? CHAPTERS[run.ci] : null;
     CHAPTERS.forEach((c, i) => {
       if (!chapterShown(c)) return;
       const done = chapterDone(rec, c), fresh = chapterNew(rec, c);
       const title = $t(c.title), time = $t(c.time);
       kids.push(mi('', `<span class="tour-num">${i + 1}</span><span class="mi-label">${esc(title)}${fresh ? ` <span class="tour-new">${esc($t('New'))}</span>` : ''}</span>${done ? `<span class="tour-done" aria-label="${esc($t('done'))}">${ICON_CHECK}</span>` : ''}<span class="tour-time">${esc(time)}</span>`,
-        () => start({ chapter: c.id, opener: anchor }), { 'aria-label': `${title}, ${time}${done ? $t(', done') : ''}` }));
+        () => start({ chapter: c.id, opener: anchor }), Object.assign({ 'aria-label': `${title}, ${time}${done ? $t(', done') : ''}` }, here === c ? { 'aria-current': 'step' } : {})));
     });
-    kids.push(el('div', { class: 'msep', role: 'separator' }));
+    if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
     const keys = !phone();
-    kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
-    if (keys) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
+    if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
+    if (keys && !chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
     const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': $t('Help'), 'data-tour': 'menu' }, ...kids);
     const host = document.getElementById('popHost') || document.body;
     host.append(pop);

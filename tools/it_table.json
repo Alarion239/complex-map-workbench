@@ -2992,5 +2992,6 @@
  "The limits of a sum must not depend on z": "Gli estremi di una somma non devono dipendere da z",
  "A product of infinitely many factors cannot be differentiated here": "Un prodotto di infiniti fattori non si può derivare qui",
  "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Una somma o un prodotto di molti termini non si risolve qui rispetto a z; la vista delle controimmagini mostra ogni soluzione di f(z) = w",
- "Sums and products cannot be drawn yet": "Somme e prodotti non si possono ancora disegnare"
+ "Sums and products cannot be drawn yet": "Somme e prodotti non si possono ancora disegnare",
+ "Chapters": "Capitoli"
 }
