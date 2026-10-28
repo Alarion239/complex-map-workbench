@@ -374,7 +374,7 @@ const Phone = (() => {
     els.ctx.hidden = !kids.length;
     if (kids.length) { els.ctx.dataset.k = st.kind; }
     // (the planes only re-fit when the bar comes or goes, not each time its words change)
-    if (was !== !!kids.length) { rootEl.classList.toggle('ph-ctx-on', !!kids.length); syncPanes(); A.resize(); }
+    if (was !== !!kids.length) { rootEl.classList.toggle('ph-ctx-on', !!kids.length); Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; } }
   }
 
   // ---------------- the tool row ----------------

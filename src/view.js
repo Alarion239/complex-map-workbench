@@ -1,6 +1,7 @@
 'use strict';
 // A 2D complex-plane pane: view transform, resizing, axes.
 class Pane {
+  static keepTop = false;
   // canvas: the drawn plane; overlay (optional): a transparent canvas on top for probes and handles
   constructor(canvas, overlay) {
     this.canvas = canvas;
@@ -21,6 +22,8 @@ class Pane {
       this.canvas.width = pw; this.canvas.height = ph;
       if (this.ocanvas !== this.canvas) { this.ocanvas.width = pw; this.ocanvas.height = ph; }
     }
+    // (Pane.keepTop: the phone's context bar took or gave back the plane's bottom rows; the drawing stays where it was)
+    if (Pane.keepTop && Math.abs(this.w - w) < 0.5 && this.h !== h && this.view && this.view.s > 0) this.view.cy += (this.h - h) / (2 * this.view.s);
     this.w = w; this.h = h; this.dpr = dpr;
     return changed;
   }
