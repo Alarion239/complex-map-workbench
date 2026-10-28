@@ -2,6 +2,9 @@
  "_about": "Phase 2a: Russian for call sites whose English template has no inventory text with the same wording (templates restructured in code, Russian-only parser messages), and the tool-label context. Keys are the $t keys (plural keys: one + U+0004 + many; context keys: ctx + U+0004 + source). Russian follows notes/i18n/GLOSSARY.md; placeholders are written %{name}. To review with the tables. The two entries that overrode the math table (phase 2a review, finding 8: the Joukowski chain caption and the zoom caption) now live in notes/i18n/ru/math.json (export.homotopy_h_t_v_2, math.zero).",
  "twice": "дважды",
  "this formula has no usable point to zoom about, so it has no natural path": "у этой формулы нет подходящего центра для масштабирования, поэтому естественного пути нет",
+ "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной или кнопка «Касательная» даёт касательную, щелчок по кольцу — касательную из точки. Кривая остаётся выбранной для следующей.",
+ "Tangent line": "Касательная",
+ "The tangent at {a} (Enter)": "Касательная в точке {a} (Enter)",
  "{n} times\u0004{n} times": {
   "one": "%{n} раз",
   "few": "%{n} раза",

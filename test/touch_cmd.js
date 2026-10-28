@@ -229,6 +229,33 @@ await section('A', async () => {
   forms = await FORMS();
   e = touchErr(forms[KT.id], T1.p, null);
   ok('A6 the tangent at T: args[2] = {inf: 1}, a line x = 1, its row', KT.def.op === 'touch' && KT.def.args[2].inf === 1 && KT.kind === 'line' && info.rowKT === `the tangent to the unit circle at z₀` && e.g <= 1e-12 && distTo(forms[KT.id], [1, 7]) < 1e-15, [KT.def, info.rowKT, f1(e.g)]);
+  // (issue #12) T, then Snap off: the tangent 7 px off the dashed line (outside the old 6 px band); by the chip's Tangent
+  // line; by Enter. Each is undone again
+  {
+    const tPick = async () => { await click(t0[0] + 2, t0[1] + 2); await settle(150); };
+    const isTan = (s) => !!s && s !== KT && s.id !== KT.id && !!s.def && s.def.op === 'touch' && s.def.args[2].inf === 1 && s.kind === 'line';
+    const snapBtn = () => ev(`(() => { const b = document.getElementById('snapBtn'); if (b) b.click(); return !!b && b.getAttribute('aria-pressed'); })()`);
+    await tPick();
+    info.snapOff = await snapBtn(); await settle(100);
+    await click(hz[0] + 7, hz[1]); await settle(400);
+    st = await ST();
+    info.tanSnapOff = last(st).def;
+    ok('A6 Snap off: a click 7 px off the dashed tangent gives the tangent line', info.snapOff === 'false' && isTan(last(st)), [info.snapOff, info.tanSnapOff]);
+    await snapBtn(); await settle(100);
+    await key('z', 4); await settle(250);
+    await tPick();
+    info.tanBtn = await ev(`(() => { const b = document.querySelector('#draftChipL .cm-tan button'); if (b) b.click(); return b ? b.textContent : null; })()`);
+    await settle(400);
+    st = await ST();
+    ok('A6 the chip\'s Tangent line after T gives the tangent line', info.tanBtn === 'Tangent line' && isTan(last(st)), [info.tanBtn, last(st).def]);
+    await key('z', 4); await settle(250);
+    await tPick();
+    await key('Enter'); await settle(400);
+    st = await ST();
+    ok('A6 Enter after T gives the tangent line', isTan(last(st)), last(st).def);
+    await key('z', 4); await settle(250);
+    ok('A6 … each undone: the tangent at T is the last shape again', last(await ST()).id === KT.id, last(await ST()).id);
+  }
   // 6. P = 2: two rings; a click on the upper one: a tangent and its touching point
   const p2 = await W(2, 0);
   await click(p2[0], p2[1]); await settle(150);

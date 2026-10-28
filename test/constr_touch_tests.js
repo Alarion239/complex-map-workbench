@@ -293,6 +293,45 @@ module.exports = function ({ K, ok }) {
     ok(a < 5 * SPEED && b < 5 * SPEED, 'speed: touchForm and tangentForm under 5 us', `${a.toFixed(2)} us, ${b.toFixed(2)} us`);
   }
 
+  // ================================================ 10. the tangent at T as a click target (issue #12)
+  // The touching circle's UI (src/construct.js): after T on a circle, a click within the point radius of the tangent at
+  // T (Constr.tangentNear) is P = ∞, Snap on or off (Alt skips it); a P within TAN_EPS px of the tangent makes the
+  // tangent too. The issue's table: C the unit circle, T = i, 52 px per unit, a click at Re z = 1.5
+  {
+    const fs = require('fs');
+    const CON = fs.readFileSync(path.join(__dirname, '../src/construct.js'), 'utf8');
+    const body = (name) => { const i = CON.indexOf(`function ${name}(`); return i < 0 ? '' : CON.slice(i, CON.indexOf('\n  }\n', i)); };
+    const rm = /const radii = \(touch\) => \(touch \? \{ p: (\d+),[^}]*\} : \{ p: (\d+),/.exec(CON), em = /const TAN_EPS = ([\d.]+);/.exec(CON);
+    ok(!!rm && !!em, 'tangent target: radii and TAN_EPS read from construct.js', [rm && rm[0], em && em[0]]);
+    const band = (touch) => +(touch ? rm[1] : rm[2]), EPS = em ? +em[1] : 0.5;
+    const G = { A: 1, B: [0, 0], C: -1, o: [0, 0] }, T = [0, 1], S = 52;
+    // what a click makes, as hintAt and finishTouch decide it (Snap is not an input: the hint is a target)
+    const click = (off, { touch = false, alt = false } = {}) => {
+      const Z = [1.5, 1 + off / S], h = K.tangentNear(G, T, Z);
+      const P = !alt && h && h.d * S <= band(touch) ? INF : h && h.d * S <= EPS ? INF : Z;
+      const r = K.touchForm(G, T, P);
+      return r.G ? K.geomOf(r.G) : null;
+    };
+    const line = (g) => !!g && g.line && Math.abs(g.p[1] - 1) < 1e-15 && g.d[1] === 0;
+    ok(line(click(0)), 'tangent target: exactly on the line, Snap on: the tangent line', click(0));
+    ok(line(click(4)), 'tangent target: 4 px off: the tangent line', click(4));
+    ok(line(click(7)), 'tangent target: 7 px off (was a circle, r ≈ 5.7): the tangent line', click(7));
+    const c12 = click(12);
+    ok(c12 && !c12.line && c12.r > 1 && c12.r < 20, 'tangent target: 12 px off with a mouse: a touching circle (outside the 8 px band)', c12);
+    ok(line(click(12, { touch: true })), 'tangent target: 12 px off on touch (22 px band): the tangent line', click(12, { touch: true }));
+    ok(line(click(0)) && !/snapOn/.test(body('hintAt')), 'tangent target: exactly on the line, Snap off: the tangent line (hintAt does not ask Snap)', body('hintAt').slice(0, 200));
+    ok(line(click(0, { alt: true })), 'tangent target: Alt, P exactly on the tangent: the line, not r ≈ 10¹⁶', click(0, { alt: true }));
+    const a4 = click(4, { alt: true });
+    ok(a4 && !a4.line && a4.r > 1, 'tangent target: Alt, 4 px off: the touching circle through P', a4);
+    ok(K.tangentNear({ A: 0, B: [0, 1], C: 0, o: [0, 0] }, [0, 0], [1, 1]) === null && K.tangentNear(G, INF, [1, 1]) === null, 'tangentNear: none for a line C or T = ∞');
+    // the code that uses it: the band, Alt, the guard, the chip's Tangent line and Enter
+    ok(/Constr\.tangentNear\(pc\.G, Tp\.z, \[zc\.re, zc\.im\]\)/.test(body('hintAt')) && /h\.d \* pane\.view\.s <= radii\(touchNow\(\)\)\.p/.test(body('hintAt')) && /if \(altNow\(\)\) return null;/.test(body('hintAt')), 'tangent target: hintAt picks within the point radius; only Alt skips it');
+    ok(/h\.d \* A\.setView\(side\)\.view\.s <= TAN_EPS\) Pp = \{ cls: 'hint', ref: \{ inf: 1 \}/.test(body('finishTouch')), 'tangent target: finishTouch makes a P on the tangent the tangent line');
+    ok(/draftC\.picks\.push\(\{ cls: 'hint', ref: \{ inf: 1 \}, z: T\.z\.slice\(\), role: 'P' \}\);[\s\S]*finishTouch\(draftC\.side, null\)/.test(body('tangentNow')), 'tangent target: tangentNow makes the tangent at T');
+    ok(/onclick: \(e\) => \{ e\.stopPropagation\(\); tangentNow\(\); \} \}, \$t\('Tangent line'\)\)/.test(body('syncChip')) && /const tan = tool === 'touch' && tangentReady\(side\);/.test(body('syncChip')), 'tangent target: the chip\'s Tangent line button after T');
+    ok(/e\.key === 'Enter' && !\(t && t\.tagName === 'BUTTON'\) && tangentNow\(\)/.test(body('keydown')), 'tangent target: Enter after T makes the tangent');
+  }
+
   // ================================================ v16.3 review fixes (notes/orthogonal-circle/ledger.json)
   {
     // [math-1] a rectangle's corner a as T on side 0; b dragged across a: a is on other sides now. K is undefined

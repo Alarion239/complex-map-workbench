@@ -51,6 +51,7 @@ const Construct = (() => {
   // [v16.5 rail SPEC 1.1] the radii in screen px: points p, curves c (a finger 14, was 10), the grid lattice g, a rail's
   // detents det
   const radii = (touch) => (touch ? { p: 22, c: 14, g: 12, det: 10 } : { p: 8, c: 6, g: 9, det: 6 });
+  const TAN_EPS = 0.5;     // the touching circle's P this close to the tangent at T (px) makes the tangent line
   const altNow = () => !!(A.altHeld() || (lastEv && lastEv.altKey));
   const env = () => (api && api.cm ? api.cm.env() : {});
   const graph = () => Constr.graph(S());
@@ -1263,18 +1264,29 @@ const Construct = (() => {
     if (!pc || pc.kind !== 'circle' || !pc.G || !isXY(T)) return null;
     try { const r = Constr.touchForm(pc.G, T, Constr.INF); return r && r.G ? r.G : null; } catch (e) { return null; }
   }
-  // the tangent hint at the pointer, within the curve radius (a stroke); Alt, or Snap off, skips it: P = ∞
+  // the tangent hint at the pointer, within the point radius: P = ∞. A target, not a snap: Snap off keeps it (it is drawn,
+  // so it can be clicked); Alt skips it, to place P near the tangent on purpose
   function hintAt(side, x, y, Tp) {
-    if (A.altHeld() || (lastEv && lastEv.altKey) || !A.snapOn()) return null;
-    const G = hintForm(Tp.z);
-    if (!G) return null;
-    const g = Constr.geomOf(G), L = Math.hypot(g.d[0], g.d[1]);
-    if (!(L > 0)) return null;
-    const pane = A.setView(side), zc = pane.s2w(x, y), u = [g.d[0] / L, g.d[1] / L];
-    const tt = (zc.re - g.p[0]) * u[0] + (zc.im - g.p[1]) * u[1], z = [g.p[0] + tt * u[0], g.p[1] + tt * u[1]];
-    const [sx, sy] = pane.w2sxy(z[0], z[1]);
-    if (!(Math.hypot(sx - x, sy - y) <= radii(touchNow()).c)) return null;
-    return { cls: 'hint', ref: { inf: 1 }, z, G, label: $t('the tangent at {a}', { a: pickName(Tp, side) }) };
+    if (altNow()) return null;
+    const pc = curve1Piece(draftC && draftC.curve1);
+    if (!pc || pc.kind !== 'circle' || !pc.G || !isXY(Tp.z)) return null;
+    const pane = A.setView(side), zc = pane.s2w(x, y);
+    let h = null;
+    try { h = Constr.tangentNear(pc.G, Tp.z, [zc.re, zc.im]); } catch (e) { h = null; }
+    if (!h || !(h.d * pane.view.s <= radii(touchNow()).p)) return null;
+    return { cls: 'hint', ref: { inf: 1 }, z: h.z, G: h.G, label: $t('the tangent at {a}', { a: pickName(Tp, side) }) };
+  }
+  // the tangent at T in one step, without aiming at the dashed line: the chip's Tangent line and Enter, once T is
+  // picked on a circle
+  const tangentReady = (side) => !!draftC && draftC.tool === 'touch' && (!side || draftC.side === side) && draftC.picks.length === 1 && draftC.picks[0].role === 'T' && !!hintForm(draftC.picks[0].z);
+  function tangentNow() {
+    if (!tangentReady()) return false;
+    const T = draftC.picks[0];
+    draftC.hoverT = null;
+    draftC.picks.push({ cls: 'hint', ref: { inf: 1 }, z: T.z.slice(), role: 'P' });
+    pickOk();
+    finishTouch(draftC.side, null);
+    return true;
   }
   // after P: the tangents from P to C (C a circle, P outside it), each with its touching point on C's piece
   function ringsOf(P) {
@@ -1353,8 +1365,15 @@ const Construct = (() => {
       shapes.push(...m.shapes);
       return m.ref;
     };
-    const Tp = d.picks.find((p) => p.role === 'T'), Pp = d.picks.find((p) => p.role === 'P');
-    let s, pRef = null;
+    const Tp = d.picks.find((p) => p.role === 'T');
+    let Pp = d.picks.find((p) => p.role === 'P'), s, pRef = null;
+    // P on the tangent at T (within TAN_EPS px): the touching circle is that tangent, touch(C, T, ∞), not a circle of
+    // radius ~10¹⁶
+    if (!ring && Pp && Pp.cls !== 'hint' && pc && pc.kind === 'circle' && pc.G && isXY(Tp.z) && isXY(Pp.z)) {
+      let h = null;
+      try { h = Constr.tangentNear(pc.G, Tp.z, Pp.z); } catch (e) { h = null; }
+      if (h && h.d * A.setView(side).view.s <= TAN_EPS) Pp = { cls: 'hint', ref: { inf: 1 }, z: h.z, role: 'P' };
+    }
     if (ring) {
       let g = null;
       try { g = Constr.shapeOf(ring.G); } catch (e) { g = null; }
@@ -1646,7 +1665,8 @@ const Construct = (() => {
       // (pw, the plane's width, for every tool [v16.3.1: the one-line rule below re-measures the wrap when it changes]; it
       // also covers the Orthogonal chip's 8 px bucket that the Whole | Inside fit was rebuilt on [v16.4]. [v16.5 check
       // app-5] the chip's place too: at the plane's foot it is narrower, and the rule must measure it there)
-      const sig = `${txt}|${tool}|${fillMode}|${segMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
+      const tan = tool === 'touch' && tangentReady(side);
+      const sig = `${txt}|${tool}|${fillMode}|${segMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${tan}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
@@ -1695,6 +1715,8 @@ const Construct = (() => {
         };
         // ([v16.5 UX51] words on touch too: the chip takes two lines rather than drop them)
         if (tool === 'perp') box.append(segBox = mkSeg(false));
+        // the touching circle after T on a circle: the tangent at T in one click (or Enter)
+        if (tan) box.append(A.h('span', { class: 'cm-seg cm-tan' + (chipTouch() ? ' cm-touch' : '') }, A.h('button', { type: 'button', class: 'cm-sb', title: $t('The tangent at {a} (Enter)', { a: pickName(draftC.picks[0], side) }), onclick: (e) => { e.stopPropagation(); tangentNow(); } }, $t('Tangent line'))));
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
         if (segBox && !chipTouch() && plot) {
           // (the words fit when the text stays on one line and the chip inside its plane)
@@ -2597,7 +2619,7 @@ const Construct = (() => {
       ['midpoint', $t('Midpoint'), '', $t('Pick two points, or a segment.'), 'construct', $t('Midpoint')],
       ['bisector', $t('Perpendicular bisector'), '', $t('Pick two points, or a segment: the line of the points equally far from both.'), 'construct', $t('Bisector')],
       ['perp', $t('Perpendicular circle'), '', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('Orthogonal')],
-      ['touch', $t('Touching circle'), '', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
+      ['touch', $t('Touching circle'), '', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
       ['hyper', $t('Hyperbolic line'), '', $t('Pick the boundary (a line or a circle), then two points on one side of it: the hyperbolic line through them, the arc of the circle at right angles to the boundary. The boundary stays picked for the next one.'), 'construct', $t('Hyperbolic')],
     ];
   }
@@ -2718,6 +2740,8 @@ const Construct = (() => {
     const has = !!(draftC.picks.length || draftC.curve1);
     if (e.key === 'Escape' && has) { cancel(); e.preventDefault(); e.stopPropagation(); }
     else if (e.key === 'Backspace' && has) { back(); e.preventDefault(); e.stopPropagation(); }
+    // (Enter after the touching circle's T: nothing else is pending there; a focused button keeps its own Enter)
+    else if (e.key === 'Enter' && !(t && t.tagName === 'BUTTON') && tangentNow()) { e.preventDefault(); e.stopPropagation(); }
   }
   // the tablet rail (SPEC 5.4): when it would overflow the panel, Grid and Polar grid leave it first (they stay in the
   // drawer), then Freehand and Lasso; (v16.3, the fifth Construct tool) then the rail's vertical "Region tools" label,
