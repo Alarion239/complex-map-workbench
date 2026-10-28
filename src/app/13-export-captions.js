@@ -83,6 +83,65 @@
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
+  // The modes Esc steps out of, innermost first: a step shown alone, an expanded plane, the deformation. Each one is a
+  // chip at the right end of the head of the plane that stays in view, with the key that leaves it and a ×; the
+  // chip of the mode Esc closes next also shows Esc.
+  const modeNext = () => {
+    if (S.focus > 0) return 'alone';
+    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
+    return morphOn() ? 'morph' : null;
+  };
+  function modeClose(m) {
+    if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
+    if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
+    if (m === 'alone') setFocus(0);
+    else if (m === 'solo') setSolo(S.solo);
+    else if (m === 'morph') closeTransport();
+  }
+  function syncModeChips() {
+    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
+    const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
+    if (!head) return;
+    let box = $('modeChips');
+    if (!box) box = h('span', { class: 'mode-chips', id: 'modeChips' });
+    const next = modeNext();
+    const want = [];
+    if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
+    if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
+    // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
+    const tc = Construct.toolChip && Construct.toolChip();
+    if (tc) want.push(['tool', tc.count ? tc.name + ' · ' + tc.count : tc.name, $t('Leave the tool'), '']);
+    // Listening along: the plane's own chip says it and has the Stop
+    const lp = snd.play;
+    if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
+    // an expanded plane leaves the other one as a labelled strip at the edge, a way back
+    const strip = $('hiddenStrip') || h('button', { type: 'button', class: 'hidden-strip', id: 'hiddenStrip', hidden: true, onclick: () => setSolo(S.solo) });
+    const hid = S.view.main === 'xy' && S.solo && !mg ? (S.solo === 'L' ? 'R' : 'L') : null;
+    if (strip.parentNode !== $('panes')) $('panes').append(strip);
+    strip.hidden = !hid;
+    if (hid) {
+      const t = hid === 'R' ? $t('Y hidden') : $t('X hidden');
+      strip.dataset.side = hid;
+      if (strip.textContent !== t) { strip.textContent = t; strip.setAttribute('aria-label', $t('Show both planes')); strip.setAttribute('data-tip', $t('Show both planes')); }
+    }
+    const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
+    if (box.dataset.sig !== sig) {
+      box.dataset.sig = sig;
+      box.replaceChildren(...want.map(([m, label, tip, key]) => h('span', { class: 'mode-chip', 'data-mode': m },
+        h('span', { class: 'mc-t' }, label),
+        ...(m === next || m === 'tool' ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
+        m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
+          : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
+    }
+    if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
+    box.hidden = !want.length;
+    const ac = $('aloneChip');
+    if (ac) {
+      let k = ac.querySelector('.kbd');
+      if (next === 'alone' && !k) { k = h('span', { class: 'kbd' }, 'Esc'); ac.insertBefore(k, ac.lastElementChild); }
+      else if (next !== 'alone' && k) k.remove();
+    }
+  }
   // the Inspector docks under the chain from 768 to 1023 px; from 1024 a hidden panel opens as the temporary Inspector
   const underChain = () => window.innerWidth >= 768 && window.innerWidth < 1024;
   let tempInsp = false;
@@ -324,5 +383,6 @@
   function latexDocument(...args) { return EXP.latexDocument(...args); }
   function exportMenuItems(...args) { return EXP.exportMenuItems(...args); }
   function openExportMenu(...args) { return EXP.openExportMenu(...args); }
+  function openShareMenu(...args) { return EXP.openShareMenu(...args); }
   function hiStep(...args) { return EXP.hiStep(...args); }
 

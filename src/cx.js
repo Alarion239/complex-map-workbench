@@ -212,6 +212,29 @@ const CX = (() => {
     if (L.re === Infinity) return INF;
     return exp(L);
   }
+  // [issue #5] z! = Γ(z + 1), exact for the integers 0 … 170 (171! overflows: +∞); a negative integer is a pole (∞)
+  function fact(z) {
+    if (z.im === 0 && Number.isInteger(z.re) && z.re >= 0) { if (z.re > 170) return C(Infinity, 0); let f = 1; for (let k = 2; k <= z.re; k++) f *= k; return C(f, 0); }
+    return gamma(add(z, ONE));
+  }
+  // the binomial coefficient (a choose b): for an integer b ≥ 0 the falling factorial a(a−1)…(a−b+1)/b!, a product of
+  // b factors (exact for small integers, any complex a); a negative integer b gives 0; otherwise
+  // Γ(a + 1)/(Γ(b + 1) Γ(a − b + 1)) in log form
+  function binom(a, b) {
+    if (b.im === 0 && Number.isInteger(b.re)) {
+      const k = b.re;
+      if (k < 0) return C(0, 0);
+      if (a.im === 0 && Number.isInteger(a.re) && a.re >= 0 && k > a.re) return C(0, 0);
+      // symmetry for integers, so C(1000, 998) takes 2 factors
+      const m = a.im === 0 && Number.isInteger(a.re) && a.re >= 0 && a.re - k < k ? a.re - k : k;
+      if (m > 4096) return C(NaN, NaN);
+      let r = C(1, 0);
+      for (let j = 0; j < m; j++) { const t = mul(r, sub(a, C(j, 0))); r = C(t.re / (j + 1), t.im / (j + 1)); }
+      return r;
+    }
+    const L = sub(lgamma(add(a, ONE)), add(lgamma(add(b, ONE)), lgamma(add(sub(a, b), ONE))));
+    return L.re === Infinity ? INF : exp(L);
+  }
   // ψ(z) = Γ′(z)/Γ(z): the reflection ψ(z) = ψ(1 − z) − π cot(πz) for Re z < 1/2, the recurrence ψ(z) = ψ(z + 1) − 1/z
   // up to |z| ≥ 10, then the asymptotic series log z − 1/(2z) − Σ B₂ₖ / (2k z²ᵏ)
   const PSI_B = [1 / 12, -1 / 120, 1 / 252, -1 / 240, 1 / 132, -691 / 32760, 1 / 12];
@@ -539,7 +562,7 @@ const CX = (() => {
   return {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
-    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, digamma, zeta, zetaDeriv, ZETA_MAX,
+    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX,
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();

@@ -869,26 +869,34 @@ const Export = (() => {
     return I18N.notation(out.join('\n'));
   }
   // (v16.5 V02: the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
-  function exportMenuItems() {
-    const items = [
+  function exportMenuItems(withShare) {
+    const items = /** @type {any[]} */ ([
       { label: $t('Export figure…'), fig: true, key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
       { label: $t('Copy figure again'), icon: 'copy', again: true, disabled: !Figure.settings().last, run: () => { Figure.again('copy').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
       { label: $t('Save figure again'), save: true, again: true, disabled: !Figure.settings().last, run: () => { Figure.again('save').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
       'sep',
       { label: $t('Copy LaTeX with guarantees'), icon: 'copy', run: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); } },
       { label: $t('Save LaTeX with guarantees (.txt)'), save: true, run: () => saveFile('complex-map.txt', latexDocument()) },
-      // v15: the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
-      'sep',
-      { label: $t('Copy link to this figure'), icon: 'copy', run: () => { copyFigureLink(); } },
-      { label: $t('Save scene (.cmw.json)'), save: true, run: () => { saveScene(); } },
-      { label: $t('Open scene…'), run: () => { pickScene(); } },
-    ];
+    ]);
+    // ([v17 D5] the link and the scene files are Share's on a laptop; the phone's sheet lists both)
+    if (withShare) items.push('sep', ...shareMenuItems());
     // files cannot be offered in this view: only the copy remains
     // (by a flag, not by the label: the label is translated)
     if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
     return items;
   }
-  function openExportMenu(anchor) { openMenu(anchor, exportMenuItems()); }
+  // v15: the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
+  function shareMenuItems() {
+    const items = [
+      { label: $t('Copy link to this figure'), icon: 'copy', run: () => { copyFigureLink(); } },
+      { label: $t('Save scene (.cmw.json)'), save: true, run: () => { saveScene(); } },
+      { label: $t('Open scene…'), run: () => { pickScene(); } },
+    ];
+    if (dlDone && !dlNs) for (const it of items) if (it.save) it.disabled = true;
+    return items;
+  }
+  function openExportMenu(anchor) { openMenu(anchor, exportMenuItems(document.documentElement.classList.contains('ph'))); }
+  function openShareMenu(anchor) { openMenu(anchor, shareMenuItems()); }
   // highlight a step in the panel, the matrix and the chain at once
   function hiStep(k, on) {
     for (const el of document.querySelectorAll(`[data-k="${k}"]`)) el.classList.toggle('hi', on);
@@ -898,5 +906,5 @@ const Export = (() => {
     A = api;
     ({ BADGES, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar } = api);
   }
-  return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, hiStep };
+  return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();
