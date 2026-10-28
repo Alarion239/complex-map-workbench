@@ -448,9 +448,9 @@
   window.__cmwPOpen = (st, how) => openFigure(st, how || 'link');
   // TEMP-DEBUG-HOOK
   function init() {
-    SoundHooks.init(soundHooksApi());
+    SoundHooks.init(soundHooksApi());   // the sound hooks (src/soundhooks.js), before anything can make a sound
     Export.init(exportApi());   // export and captions (src/export.js)
-    MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)   // the sound hooks (src/soundhooks.js), before anything can make a sound
+    MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)
     // TEMP-DEBUG-HOOK (removed before publishing)
     // (v15: the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
