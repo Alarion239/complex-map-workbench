@@ -886,7 +886,7 @@ const Tour = (() => {
 .ts-l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tour-strip[data-mode="desk"] .ts-count { display: none; }
-.ts-chap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px; padding: 0 8px; border: 0; border-radius: var(--r-2, 4px); background: var(--accent-soft, transparent); color: var(--accent); font: 500 12px/18px var(--f-ui); white-space: nowrap; cursor: pointer; }
+.ts-chap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 4px; height: 36px; min-height: 36px; margin: 0 4px; padding: 0 8px; border: 0; border-radius: var(--r-2, 4px); background: var(--accent-soft, transparent); color: var(--accent); font: 500 12px/18px var(--f-ui); white-space: nowrap; cursor: pointer; }
 .ts-chap[hidden] { display: none; }
 .ts-chap svg { width: 12px; height: 12px; }
 .ts-chap[aria-expanded="true"] svg { rotate: 180deg; }
