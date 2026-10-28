@@ -250,7 +250,7 @@
     const phone = phoneMQ.matches;
     // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys; there every option is behind the Display
     // button, so no bar lies over the plot. [v17 D4] The head always has it: it also holds the regions' display)
-    const inHead = !!(f && f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    const inHead = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (!f || !pane || (!ft.kids.length && !inHead)) return;
     if (inHead && f.hidden) f.hidden = false;
     if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead) return;
@@ -507,7 +507,7 @@
     const ft = foot[side];
     ft.kids = []; ft.widths = null; ft.n = -1;
     // ([v17 D4] a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
-    const headed = () => !!(f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
     const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
     if (morphOn() && rImage()) {

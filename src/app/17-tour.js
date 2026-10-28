@@ -272,7 +272,7 @@
       if (side === 'sheet') return;
       // ([v17 D4] the regions' display is behind Y's Display ▾ on the laptop: its step opens that popover)
       if (side === 'left' && sheet === 'display') {
-        if (!early && !document.querySelector('.disp-pop')) { const b = document.querySelector('#rightFoot .disp-btn'); if (b) b.click(); }
+        if (!early && !document.querySelector('.disp-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#rightFoot .disp-btn')); if (b) b.click(); }
         return;
       }
       if (early && side !== 'right' && isDrawer('L')) return;
