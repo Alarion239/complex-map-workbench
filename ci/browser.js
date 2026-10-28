@@ -8,13 +8,15 @@
 // shard); EXCLUDED (ci/browser_suites.js) lists the files that are not pass/fail suites and those that need the GPU
 // machines. Speed is gated only by the perf suite on our GPU machines (gpu-gate.yml), and GitHub's machines render
 // WebGL in software, so a suite's timing checks (frame budgets, BUDGET60, absolute time limits: TIMING) are reported
-// with their numbers and do not fail the job; its correctness checks do. KNOWN lists failures that are understood and
-// open (each with its reason): the summary prints them, the job does not fail on them.
+// with their numbers and do not fail the job; its correctness checks do. SOFTWARE lists the checks that fail only
+// because those machines draw in software (each with its reason, and the evidence from the check's own detail), and
+// KNOWN the failures that are understood and open (each with its reason): the summary prints both, the job does not
+// fail on them.
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
-const { SUITES, EXCLUDED, TIMING, KNOWN, PAGES, ALWAYS } = require('./browser_suites');
+const { SUITES, EXCLUDED, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS } = require('./browser_suites');
 const { suitesOf } = require('./browser_shards');
 
 const argv = process.argv.slice(2);
@@ -127,12 +129,14 @@ function failures(out) {
   if (list && list.length) return list;
   return verdict ? [] : [{ name: typeof out.pass === 'number' ? `${out.pass} of ${out.of} checks passed` : 'the suite says it failed', detail: out }];
 }
-const matches = (list, f) => (list || []).find((k) => k.re.test(f.name));
-// a timing check that missed its budget (and, when it asserts more, whose other part held)
-const isTiming = (file, f) => /BUDGET60/.test(f.name) || (TIMING[file] || []).some((k) => {
+// the entry of a list (TIMING, SOFTWARE, KNOWN) that a failed check matches: by name, and, when the entry has a
+// `measured` predicate, only when the check's detail shows that cause
+const matches = (list, f) => (list || []).find((k) => {
   if (!k.re.test(f.name)) return false;
   try { return !k.measured || !!k.measured(f.detail); } catch (e) { return false; }
 });
+// a timing check that missed its budget (and, when it asserts more, whose other part held)
+const isTiming = (file, f) => /BUDGET60/.test(f.name) || !!matches(TIMING[file], f);
 const short = (v, n = 300) => { const s = typeof v === 'string' ? v : JSON.stringify(v); return s === undefined ? '' : s.length > n ? s.slice(0, n) + '…' : s; };
 
 async function main() {
@@ -148,7 +152,7 @@ async function main() {
   const srv = await serve(dist, Number(opt('--port', 0)));
   const port = srv.server.address().port;
   console.log(`dist/ at ${srv.base}; ${runs.length} run(s)${shard ? ` of shard ${shard}` : ''}`);
-  const rows = [], timing = [], known = [];
+  const rows = [], timing = [], soft = [], known = [];
   let failed = 0, n = 0;
   const t00 = Date.now();
   try {
@@ -160,20 +164,23 @@ async function main() {
       const fl = res.error ? [{ name: res.error }] : (res.out && res.out.__daemonError ? failures(res.out) : cfg.verdict ? cfg.verdict(res.out) : failures(res.out))
         || [{ name: 'no verdict in the result (fails, ok, or pass/of)', detail: res.out }];
       const t = fl.filter((f) => isTiming(file, f));
-      const k = fl.filter((f) => !t.includes(f) && matches(KNOWN[file], f));
-      const hard = fl.filter((f) => !t.includes(f) && !k.includes(f));
+      const sw = fl.filter((f) => !t.includes(f) && matches(SOFTWARE[file], f));
+      const k = fl.filter((f) => !t.includes(f) && !sw.includes(f) && matches(KNOWN[file], f));
+      const hard = fl.filter((f) => !t.includes(f) && !sw.includes(f) && !k.includes(f));
       for (const f of t) timing.push({ name, f });
+      for (const f of sw) soft.push({ name, f, why: matches(SOFTWARE[file], f).why });
       for (const f of k) known.push({ name, f, why: matches(KNOWN[file], f).why });
       const ok = !hard.length;
       if (!ok) failed++;
       // (a passing suite's screenshots are not kept)
       if (ok) fs.rmSync(shotsDir(file, r), { recursive: true, force: true });
       fs.writeFileSync(path.join(OUT, name.replace(/[^\w.-]+/g, '_') + '.json'), JSON.stringify({ file, run: r.label, ms: res.ms, error: res.error, out: res.out }, null, 1));
-      const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${k.length ? `, ${k.length} known` : ''}`;
+      const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}`;
       console.log(gh ? `::group::${head}` : `== ${head}`);
       if (res.out && res.out.pass != null && res.out.of != null) console.log(`${res.out.pass} of ${res.out.of}`);
       for (const f of hard) console.log(`  FAIL ${f.name}${f.detail !== undefined ? ': ' + short(f.detail, 2000) : ''}`);
       for (const f of t) console.log(`  timing (not gated) ${f.name}: ${short(f.detail, 600)}`);
+      for (const f of sw) console.log(`  software renderer (not gated here) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of k) console.log(`  known ${f.name}: ${short(f.detail, 600)}`);
       if (!ok && res.log) console.log('-- daemon log --\n' + res.log.slice(-4000));
       if (!ok && res.out && res.out.logs) console.log('-- page console --\n' + short(res.out.logs, 4000));
@@ -181,14 +188,17 @@ async function main() {
       if (!ok && gh) console.log(`::error title=${name} failed::${esc(short(hard[0].name + (hard[0].detail !== undefined ? ': ' + short(hard[0].detail, 200) : ''), 300))}`);
       if (t.length && gh) console.log(`::warning title=${name}: timing (not gated)::${esc(short(t.map((f) => f.name).join('; '), 300))}`);
       const res1 = res.out && typeof res.out.pass === 'number' && typeof res.out.of === 'number' ? `${res.out.pass}/${res.out.of}` : ok ? 'pass' : '';
-      rows.push(`| ${ok ? (t.length || k.length ? '✅⚠️' : '✅') : '❌'} | \`${name}\` | ${secs(res.ms)} | ${esc(short([res1, ...hard.slice(0, 3).map((f) => f.name)].filter(Boolean).join('; '), 240))} | ${t.length || ''} | ${k.length || ''} |`);
+      rows.push(`| ${ok ? (t.length || sw.length || k.length ? '✅⚠️' : '✅') : '❌'} | \`${name}\` | ${secs(res.ms)} | ${esc(short([res1, ...hard.slice(0, 3).map((f) => f.name)].filter(Boolean).join('; '), 240))} | ${t.length || ''} | ${sw.length || ''} | ${k.length || ''} |`);
     }
   } finally { srv.server.close(); }
   const md = [`### Browser suites${shard ? ` (${shard})` : ''}: ${n - failed} of ${n} passed, ${secs(Date.now() - t00)}`, '',
     `${process.platform}${process.env.CMW_ANGLE ? ', ' + process.env.CMW_ANGLE : ''}. Timing checks are reported, not gated (speed is gated on the GPU machines).`, '',
-    '| | suite | time | result | timing | known |', '|---|---|---|---|---|---|', ...rows, ''];
+    '| | suite | time | result | timing | software | known |', '|---|---|---|---|---|---|---|', ...rows, ''];
   if (timing.length) md.push('<details><summary>Timing checks that missed their budget (not gated)</summary>', '', '| suite | check | measured |', '|---|---|---|',
     ...timing.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(short(x.f.detail, 240))} |`), '', '</details>', '');
+  if (soft.length) md.push('<details><summary>Checks that fail only on the software renderer (listed in ci/browser_suites.js SOFTWARE, not gated here)</summary>', '',
+    '| suite | check | why | detail |', '|---|---|---|---|',
+    ...soft.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} | ${esc(short(x.f.detail, 200))} |`), '', '</details>', '');
   if (known.length) md.push('**Known failures (listed in ci/browser_suites.js, not gated):**', '', '| suite | check | why |', '|---|---|---|',
     ...known.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} |`), '');
   const ex = all.filter((f) => EXCLUDED[f]);

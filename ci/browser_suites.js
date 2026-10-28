@@ -9,6 +9,10 @@
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
 //             timing one (a step that never advanced, a drag that drew no frames, still fails)
+//   SOFTWARE  per suite, checks that fail on GitHub's machines only because they draw in software (frames of tenths of
+//             a second where the check needs several in a short window, ...), each with its reason and, where the
+//             check's detail can show it, a `measured` predicate that holds only for that cause: printed, not gated
+//             here (the GPU machines run the suites at full speed)
 //   KNOWN     per suite, failures that are understood and open, each with its reason: printed, not gated
 //   PAGES     how the extra pages are made
 const fs = require('fs');
@@ -92,6 +96,9 @@ const TIMING = {
   'p5_accept_cmd.js': [t(/: no slice over 6 ms$/), t(/^8\.8: the slices of the rebuild stay within 6 ms/)],
 };
 
+const s = (re, why, measured) => ({ re, why, measured });
+const SOFTWARE = {};
+
 const KNOWN = {};
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
@@ -114,4 +121,4 @@ const PAGES = {
 // made for every run
 const ALWAYS = ['gl-helpers.html', 'blank.html'];
 
-module.exports = { EXCLUDED, SUITES, TIMING, KNOWN, PAGES, ALWAYS };
+module.exports = { EXCLUDED, SUITES, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS };
