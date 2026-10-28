@@ -493,7 +493,7 @@
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
       // (thumbnails too: one drawn forward before an inverse program landed is redrawn; the others hit their cache)
-      if (!w || w.main) { requestRender('L', 'R'); thumbsWaiting = false; requestRender('T'); prestartModesIdle(); }
+      if (!w || w.main) { requestRender('L', 'R'); requestRender('T'); prestartModesIdle(); }
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme

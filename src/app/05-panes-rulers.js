@@ -8,7 +8,7 @@
     const pick = (a0, a1, b0, b1) => ((a1 - a0) <= 2.5 * Math.max(b1 - b0, 1e-12) ? [a0, a1] : [b0, b1]);
     const [x0, x1] = pick(full.x0, full.x1, rob.x0, rob.x1);
     const [y0, y1] = pick(full.y0, full.y1, rob.y0, rob.y1);
-    let b = { x0, x1, y0, y1 };
+    const b = { x0, x1, y0, y1 };
     const w = b.x1 - b.x0, hh = b.y1 - b.y0, m = Math.max(w, hh, 1e-9);
     // (review math-9: an image that is a point up to rounding, a constant map, is framed ±1 around it, not zoomed to
     // the rounding scale; the floor is relative to the point, 1e-9 of max(1, |w|))
@@ -66,7 +66,6 @@
   // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
   let zpHandlesL = [], zpHover = null, zpSel = null;
-  let gaugeInfo = null;
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
   // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
@@ -213,7 +212,6 @@
       paneR.setView(V.right);
       paneR.beginOverlay();
     }
-    gaugeInfo = null;
     const sphL = !lFlat(); // the sphere and landscape views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
@@ -248,7 +246,7 @@
       if (rImage() && !trans.k && !morphOn()) {
         paneR.setView(V.right);
         const F = focusF();
-        if (showL && !sphL && tool === 'select') gaugeInfo = drawGauge(paneL, paneR, probe, F);
+        if (showL && !sphL && tool === 'select') drawGauge(paneL, paneR, probe, F);
         drawProbe(paneR, F(probe), TH.probe);
       }
     }

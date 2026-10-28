@@ -199,7 +199,7 @@
   function placePop(pop, anchor) {
     const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor;
     const pw = pop.offsetWidth, ph = pop.offsetHeight;
-    let x = Math.min(window.innerWidth - pw - 12, Math.max(12, r.left));
+    const x = Math.min(window.innerWidth - pw - 12, Math.max(12, r.left));
     let y = r.bottom + 6;
     if (y + ph > window.innerHeight - 12) y = Math.max(12, r.top - ph - 6);
     pop.style.left = x + 'px'; pop.style.top = y + 'px';
@@ -565,16 +565,6 @@
   }
 
   // ---------------- formula region input ----------------
-  // a spoken name for a short set formula: |\Re z|<\frac{\pi}{2}, \Im z>0 → "absolute Re z less than pi over 2, and Im z greater than 0"
-  function texSpeech(t) {
-    let s = t;
-    for (let i = 0; i < 3; i++) s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, $tx('speech', '$1 over $2'));
-    s = s.replace(/<=|\\leq?\b/g, $tx('speech', ' at most ')).replace(/>=|\\geq?\b/g, $tx('speech', ' at least ')).replace(/</g, $t(' less than ')).replace(/>/g, $t(' greater than '))
-      .replace(/\|([^|]+)\|/g, $t(' absolute $1 ')).replace(/\\(Re|Im|arg|pi|theta)\b/g, ' $1 ').replace(/\\[a-zA-Z]+/g, ' ')
-      .replace(/\^\{?([^{}\s]+)\}?/g, $t(' to the power $1 ')).replace(/,/g, $tx('speech', ', and ')).replace(/[{}]/g, '').replace(/\//g, $tx('speech', ' over '))
-      .replace(/-/g, $t(' minus ')).replace(/\+/g, $t(' plus '));
-    return s.replace(/\s+/g, ' ').replace(/\s,/g, ',').trim();
-  }
   // example sets offered by the command palette's "Region formulas" group (the sidebar has no example chips, item 4)
   const REGION_EXAMPLES = ['|z|<1', '0<\\Im z<\\pi', '1<|z|<2', '|\\arg z|<\\pi/4', '|z-1|+|z+1|<3', '\\Re z>0', '|z^2-1|<1', '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0'];
   // the plane a formula's set lives in, from its variable: 'w' (a target of the w-plane), 'z' (a shape of the
