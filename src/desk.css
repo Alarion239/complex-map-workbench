@@ -300,6 +300,11 @@
 /* a step shown alone: the chip in X's head, with its × back to the whole chain */
 .alone-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 22px; margin-right: 6px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip[hidden] { display: none; }
+.mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
+.mode-chips[hidden] { display: none; }
+.mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
+.alone-chip .kbd, .mode-chip .kbd { font-size: 10px; padding: 0 4px; }
+:root.ph .mode-chips { display: none; }
 .alone-chip i { font: italic 500 13px/1 var(--f-math); }
 .alone-chip sub { font-size: 9.5px; }
 .alone-chip .icon-btn { width: 20px; height: 20px; color: var(--accent); }
