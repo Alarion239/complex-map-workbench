@@ -18,7 +18,7 @@
 // CMW_ANGLE and CMW_CHROME_ARGS as the browser jobs do: ci/README.md, Locally).
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const { ROOT, PY, run, summary } = require('./lib');
 const { SHARDS, suitesOf } = require('./browser_shards');
 const { EXCLUDED } = require('./browser_suites');
@@ -237,6 +237,9 @@ function format(plan, md) {
 if (require.main === module) {
   const argv = process.argv.slice(2);
   const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
+  if (opt('--same-build')) {
+    try { process.exit(sameBuild(opt('--same-build')) ? 0 : 10); } catch (e) { console.error(e.message); process.exit(2); }
+  }
   const head = opt('--head', 'HEAD');
   let files, from = null;
   if (opt('--files')) files = opt('--files').split(',').map((s) => s.trim()).filter(Boolean);
@@ -246,7 +249,10 @@ if (require.main === module) {
   }
   let same = null;
   if (from && !argv.includes('--no-build') && !opt('--full') && files.some(isApp)) {
-    try { same = sameBuild(from); } catch (e) { console.error(`the same-build check failed (${e.message}): the build counts as changed`); same = false; }
+    // (in a child whose output goes to stderr, so that --json and --github print only the plan)
+    const r = spawnSync(process.execPath, [__filename, '--same-build', from], { cwd: ROOT, stdio: ['ignore', 2, 2] });
+    if (r.status === 0 || r.status === 10) same = r.status === 0;
+    else { console.error('the same-build check failed: the build counts as changed'); same = false; }
   }
   const plan = select(files, { full: opt('--full'), sameBuild: same });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
