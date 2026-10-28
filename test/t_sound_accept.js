@@ -134,7 +134,7 @@ if (require.main === module) (async () => {
     return { E, S };
   }
   const rows = [];
-  async function scene(name, glide, again) {
+  async function scene(name, glide, again, clickMax = 15) {
     const sc = H.SC[name], { E, S } = await engine(glide);
     const HTL = S.HT, smp = H.probe(sc, HTL, { rope: sc.seasong ? 0 : HTL.HT.rope });
     const cues = H.finalCues(sc, smp).map((c) => ({ t: c.t, m: c.m, zero: c.zero, pan: 0.3 * clamp(c.x / sc.halfW, -1, 1) }));
@@ -162,7 +162,7 @@ if (require.main === module) (async () => {
     check(`${tagv}: every sample finite`, finite(o) && finite(out));
     check(`${tagv}: the bus's peak ≤ −8.3 dBFS before the limiter`, row.peakDb <= -8.3, row.peakDb);
     check(`${tagv}: the limiter idle`, lim.st.acted === 0, row.limPct + '%');
-    check(`${tagv}: no clicks (third difference < 15× its local RMS)`, ck.worst < 15, `${row.clicks} at ${row.clickAt} s`);
+    check(`${tagv}: no clicks (third difference < ${clickMax}× its local RMS)`, ck.worst < clickMax, `${row.clicks} at ${row.clickAt} s`);
     check(`${tagv}: rung down 60 dB within ${glide ? '0.8' : '0.82'} + 0.4 s`, ringMax - loud <= -60, `${row.ringDb} dB`);
     check(`${tagv}: silent (≤ −80 dBFS) from 2 s after the last change`, quietMax <= -80, `${row.quietDb} dBFS`);
     if (again) {
@@ -180,6 +180,13 @@ if (require.main === module) (async () => {
     await scene(name, false, name === 'sqrt-cut');
     // the Glide on every scene: also approach, the double pole and essential, which the prototype never rendered
     await scene(name, true, name === 'sqrt-cut');
+  }
+  // the Glide where |F| changes fast (the stress suite's expz3-circle: e^(z³) round a circle of radius 6, |F| from e^-216
+  // to e^216, 65 turns of arg F a second): the brightness of each control at once clicked there (17x by stress.js's
+  // detector), smoothed now. This score reads 14.8 with the brightness stepped, 7.6 smoothed: gated at 12
+  if (!only || only.test('expz3-circle')) {
+    H.SC['expz3-circle'] = { F: (z) => CX.exp(CX.ipow(z, 3)), z: (t) => { const a = 0.1 + TAU * 0.1 * Math.min(t, 5); return [6 * Math.cos(a), 6 * Math.sin(a)]; }, dur: 5.6, pxu: 50, halfW: 500, cx: 0, marks: [] };
+    await scene('expz3-circle', true, false, 12);
   }
   // the catalog at its loudest: each cue (order 8 for the zero, pole and dense cues) alone, at the bus
   if (!only) {
