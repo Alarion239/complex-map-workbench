@@ -1056,7 +1056,7 @@
     for (const [gs, isel] of ROVE) {
       const g = document.querySelector(gs);
       if (!g) continue;
-      const items = [...g.querySelectorAll(isel)];
+      const items = /** @type {HTMLElement[]} */ ([...g.querySelectorAll(isel)]);
       if (!items.length) continue;
       if (!onLaptop()) { for (const it of items) if (it.tabIndex !== 0) it.tabIndex = 0; continue; }
       const vis = items.filter(shown), last = roveLast.get(gs);
@@ -1069,9 +1069,9 @@
     if (!onLaptop() || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     const dx = { ArrowRight: 1, ArrowLeft: -1 }[e.key], dy = { ArrowDown: 1, ArrowUp: -1 }[e.key];
     if (!dx && !dy && e.key !== 'Home' && e.key !== 'End') return;
-    const t = e.target, g = t && t.closest ? t.closest('#tools, #constructTools') : null;
+    const t = /** @type {HTMLElement} */ (e.target), g = t && t.closest ? t.closest('#tools, #constructTools') : null;
     if (!g || !t.classList.contains('tool')) return;
-    const items = [...g.querySelectorAll('.tool')].filter(shown), i = items.indexOf(t);
+    const items = /** @type {HTMLElement[]} */ ([...g.querySelectorAll('.tool')]).filter(shown), i = items.indexOf(t);
     if (i < 0) return;
     let j = i;
     if (e.key === 'Home') j = 0;
@@ -1094,7 +1094,7 @@
   // F6 and Shift+F6: the next and the previous area. Each area takes the focus where it last had it
   function areaKeys(e) {
     if (e.key !== 'F6' || e.altKey || e.ctrlKey || e.metaKey || !onLaptop() || document.querySelector('.modal-bg')) return;
-    const act = (gs) => { const g = document.querySelector(gs); return g ? [...g.querySelectorAll(ROVE.find((r) => r[0] === gs)[1])].find((el) => el.tabIndex === 0 && shown(el)) : null; };
+    const act = (gs) => { const g = document.querySelector(gs); return g ? /** @type {HTMLElement[]} */ ([...g.querySelectorAll(ROVE.find((r) => r[0] === gs)[1])]).find((el) => el.tabIndex === 0 && shown(el)) : null; };
     const plane = (p) => { const cv = p && p.ocanvas; if (cv && !cv.hasAttribute('tabindex')) cv.tabIndex = -1; return shown(cv) ? cv : null; };
     const first = (gs) => { const g = document.querySelector(gs); return g ? [...g.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex="0"]')].find(shown) || null : null; };
     const areas = [
@@ -1110,7 +1110,7 @@
     const i = areas.findIndex((r) => a && a !== document.body && r.has(a));
     const j = i < 0 ? (e.shiftKey ? areas.length - 1 : 0) : (i + (e.shiftKey ? -1 : 1) + areas.length) % areas.length;
     e.preventDefault(); e.stopPropagation();
-    areas[j].el().focus({ preventScroll: true });
+    /** @type {HTMLElement} */ (areas[j].el()).focus({ preventScroll: true });
   }
   let lastFocus = null;
   function setupFocusKeeper() {
@@ -1118,7 +1118,8 @@
     document.addEventListener('keydown', areaKeys, true);
     document.addEventListener('focusin', (e) => {
       lastFocus = { el: e.target, key: focusKey(e.target) };
-      for (const [gs, isel] of ROVE) { const g = document.querySelector(gs); if (g && e.target.closest && g.contains(e.target) && e.target.matches(isel)) { roveLast.set(gs, e.target); roveGroups(); } }
+      const t = /** @type {Element} */ (e.target);
+      for (const [gs, isel] of ROVE) { const g = document.querySelector(gs); if (g && t.closest && g.contains(t) && t.matches(isel)) { roveLast.set(gs, /** @type {HTMLElement} */ (t)); roveGroups(); } }
     });
     // a real blur (the user moved on) forgets the control; a blur by removal keeps it for the rebuild below
     document.addEventListener('focusout', (e) => { const el = e.target; queueMicrotask(() => { if (lastFocus && lastFocus.el === el && el.isConnected && document.activeElement !== el) lastFocus = null; }); });
