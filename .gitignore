@@ -32,3 +32,5 @@ __pycache__/
 # generated reports of tools/make_ru_table.py (rewritten on every run)
 tools/ru_report.json
 tools/ru_collisions.json
+# GitHub Pages artifact (ci/pages.py)
+_site/
