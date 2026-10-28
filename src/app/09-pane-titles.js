@@ -240,11 +240,12 @@
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
   function layoutFootSide(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
-    if (!f || !pane || !ft.kids.length) return;
     const phone = phoneMQ.matches;
     // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys; there every option is behind the Display
-    // options button, so no bar lies over the plot)
-    const inHead = !!(f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    // button, so no bar lies over the plot. [v17 D4] The head always has it: it also holds the regions' display)
+    const inHead = !!(f && f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    if (!f || !pane || (!ft.kids.length && !inHead)) return;
+    if (inHead && f.hidden) f.hidden = false;
     if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead) return;
     ft.head = inHead;
     let n = ft.kids.length;
@@ -273,7 +274,12 @@
     ft.n = n;
     const rest = ft.kids.slice(n);
     let b = null;
-    if (rest.length) {
+    // ([v17 D4] in the pane head a labelled Display ▾ button, plan/ux-audit/REPORT.md D4; under the plot the sliders)
+    if (inHead) {
+      b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
+        $tx('button', 'Display'), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
+      b.addEventListener('click', () => openFootPop(b, false, side));
+    } else if (rest.length) {
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
     }
@@ -287,7 +293,12 @@
     if (!refresh && ft.pop && ft.pop.isConnected) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
     const rest = ft.kids.slice(ft.n);
-    const pop = h('div', { class: 'pop opts-pop', role: 'dialog', 'aria-label': $t('Display options') }, ...rest);
+    // ([v17 D4] from the pane head: this view's options, then the regions' display: pattern, cell, unit circle, grid
+    // lines, chevrons, opacity, mesh; that section's body is lent to the popover and goes back when it closes)
+    const head = !!btn.closest('.pane-head'), sec = $('secDisplay'), body = head && sec ? sec.querySelector('.psec-body') : null;
+    const kids = head ? [...(rest.length ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest] : []), ...(body ? [h('div', { class: 'opts-h' + (rest.length ? ' opts-sep' : '') }, $t('Regions')), body] : [])] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
+    if (body) pop._onClose = () => { if (body.parentNode !== sec) sec.append(body); };
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -487,7 +498,9 @@
     f.className = 'options';
     const ft = foot[side];
     ft.kids = []; ft.widths = null; ft.n = -1;
-    if (side === 'L') { buildFootL(f); f.hidden = !f.children.length; ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
+    // ([v17 D4] a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
+    const headed = () => !!(f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
     const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
     if (morphOn() && rImage()) {
       // (the merged deformation plane: no options of its own; the transport is docked under it)
@@ -502,7 +515,7 @@
         resetCam(camS, CAMS));
       tipEq(f);
     }
-    f.hidden = !f.children.length;
+    f.hidden = !f.children.length && !headed();
     ft.kids = [...f.children]; layoutFootSide('R', true);
     drawLegend();
   }

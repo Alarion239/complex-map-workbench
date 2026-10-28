@@ -414,8 +414,12 @@ const Tour = (() => {
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
-    formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
-    patterns: '#patternSeg', chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
+    formula: '#secFormula', shapes: '#secShapes',
+    // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
+    // or the button; on a phone the Display sheet's section)
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#secDisplay') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
+    patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.disp-pop #patternSeg') || document.querySelector('#rightFoot .opts-btn')),
+    chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
     bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : document.querySelector('#pipeline'); },

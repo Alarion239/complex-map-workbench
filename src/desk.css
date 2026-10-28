@@ -497,3 +497,13 @@
 @media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
 /* Italian too (issue #61): the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
 @media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
+/* [v17 D4] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4): this view's options and the regions' display, which
+   leaves the left panel on the laptop (the phone keeps it in its Display sheet) */
+:root:not(.ph) #secDisplay { display: none; }
+.pane-head .disp-btn { height: 26px; padding: 0 6px 0 9px; gap: 2px; font: 500 12.5px/1 var(--f-ui); white-space: nowrap; }
+.pane-head .disp-btn .disp-caret { display: inline-flex; width: 14px; height: 14px; }
+.pane-head .disp-btn .disp-caret svg { width: 14px; height: 14px; }
+.disp-pop { width: 300px; max-height: calc(100vh - 120px); overflow-y: auto; }
+.disp-pop .opts-h { font: 600 12px/16px var(--f-ui); color: var(--ink-2); margin: 2px 0 4px; }
+.disp-pop .opts-h.opts-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.disp-pop > .psec-body { padding: 0; }
