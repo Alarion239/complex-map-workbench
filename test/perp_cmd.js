@@ -307,16 +307,17 @@ await section('A', async () => {
   ok('A11 a curve picked', (((await CI()).draft || {}).curve1 || {}).s === 'c3', (await CI()).draft);
   await key('Escape'); await settle(100);
   ok('A11 Esc cancels the draft, curve included', !(await CI()).draft || !(await CI()).draft.curve1, (await CI()).draft);
+  // (issue #13) a right-click cancels the draft as Esc does, and opens no menu
+  await click(cs[0] + 1, cs[1]); await settle(100);
+  ok('A11 a curve picked again', (((await CI()).draft || {}).curve1 || {}).s === 'c3', (await CI()).draft);
+  const emptyP = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width * 0.85, r.top + r.height * 0.15]; })()`);
+  await clickR(emptyP[0], emptyP[1]); await settle(250);
+  ok('A11 a right-click cancels the draft, curve included, and opens no menu', (!(await CI()).draft || !(await CI()).draft.curve1) && !(await menuItems()).length, [(await CI()).draft, await menuItems()]);
   await tool('select');
   cs = await onC3();
   await clickR(cs[0] + 1, cs[1]); await settle(250);
   info.planeMenu = await menuItems();
-  ok('A11 the plane menu on a circle has "Perpendicular circle…" next to "Point on this curve"', info.planeMenu.indexOf('Perpendicular circle…') === info.planeMenu.indexOf('Point on this curve') + 1 && info.planeMenu.includes('Perpendicular circle…'), info.planeMenu);
-  await menuClick('Perpendicular circle…'); await settle(200);
-  d = (await CI()).draft;
-  // (v16.5 fix user-6: the chip names the picked curve, "Pick a point (on Circle n or anywhere)", by c3's own name)
-  const c3name = ((await CI({ names: true })).find((x) => x.id === 'c3') || {}).name, chipA11 = await chipT();
-  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'perp' && d && d.curve1 && d.curve1.s === 'c3' && !!c3name && chipA11.startsWith(`Pick a point (on ${c3name} or anywhere) · 1 of 2`), { d, c3name, chip: chipA11 });
+  ok('A11 the plane menu on a circle: Point on this curve, and no tool launchers (issue #13)', info.planeMenu.includes('Point on this curve') && !info.planeMenu.some((t) => /^(Perpendicular circle|Touching circle|Circle through this point|Midpoint with)…/.test(t)), info.planeMenu);
   await key('Escape'); await settle(100);
   await grab();
   // 12. ⋯ Region; Use complement; the family as C's centre crosses PQ (K on a free circle C, P and Q on ℝ)

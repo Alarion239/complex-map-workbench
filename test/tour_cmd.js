@@ -195,17 +195,6 @@ await snap('tour-zp-light');
 const zh = await ev(`(__cmwZp().handles || []).find((q) => q.kind === 'zeros' || q.kind === 'zero')`);
 if (zh) { await drag(zh.x, zh.y, zh.x + 12, zh.y - 18, 10, 16); await settle(700); }
 check('Zeros and poles: dragging a zero ticks the Try it', !!zh && (await ev(`document.querySelector('.ts-l2').classList.contains('done')`)), zh);
-// (v15: Add a zero here, through the planes' menu: a right-click on X, then its first Add zero item, ticks the Try it)
-await ev('Tour.next()'); await settle(1500);
-const pz = await ev(`(() => { const r = document.querySelector('#plotL').getBoundingClientRect(); return { x: Math.round(r.left + r.width * 0.3), y: Math.round(r.top + r.height * 0.35) }; })()`);
-await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: pz.x, y: pz.y });
-await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pz.x, y: pz.y, button: 'right', buttons: 2, clickCount: 1 });
-await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pz.x, y: pz.y, button: 'right', buttons: 0, clickCount: 1 }); await settle(500);
-const mz = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .pop.menu.pm .mi')].find((x) => /Add zero of/.test(x.textContent)); if (!b) return null; const q = b.getBoundingClientRect(); return { x: Math.round(q.left + q.width / 2), y: Math.round(q.top + q.height / 2) }; })()`);
-if (mz) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mz.x, y: mz.y }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: mz.x, y: mz.y, button: 'left', buttons: 1, clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: mz.x, y: mz.y, button: 'left', buttons: 0, clickCount: 1 }); }
-await settle(700);
-g = await ev(`({ id: Tour.current().id, done: document.querySelector('.ts-l2').classList.contains('done'), n: __cmwP().steps[0].params.zeros })`);
-check('Add a zero here: the planes\' menu adds a zero and ticks the Try it', g.id === 'zpHere' && g.done && /,.*,/.test(g.n), g);
 // (v15: Shared numbers: dragging the slider of a ticks the Try it, and the circle's radius follows a)
 await ev('Tour.next()'); await settle(1800);
 const sl = await ev(`(() => { const r = document.querySelector('#propsPanel .prm input[type=range]'); if (!r) return null; const b = r.getBoundingClientRect(); return { x: Math.round(b.left + b.width * 0.5), y: Math.round(b.top + b.height / 2), r: b.right }; })()`);

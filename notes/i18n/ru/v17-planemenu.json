@@ -1,0 +1,43 @@
+{
+ "_about": "Issue #13 (plane controls): the planes' menu is a menu of objects only (no Add zero / pole here, Add point here, Copy coordinates or Center view here; a right-click on empty plane opens nothing, a right-click while drawing cancels the drawing, a double-click centres the view), so the Help's two paragraphs that described it change, and Shift+F10 over nothing says so. id -> {en, ru, note}. Read by tools/make_ru_table.py (V17_HERE, after every other table).",
+ "help.plane_menu": {
+  "en": "Right-click a zero or a pole, a shape or a cut handle (hold it on touch; Shift+F10 from the keyboard) for its menu. Its head gives the point and the map there; below come the actions for that object: Remove, Turn into a pole (or a zero) and Edit for a mark, Reset the cut for a cut handle, and for a shape its line integral and Listen along, Hide, Delete and the constructions that act on it, such as Mark the intersection and Make free. An empty plane has no menu: a right-drag pans it. While you draw (a polygon's vertices, a construction's picks, a shape you are dragging out), a right-click cancels the drawing, as Esc does. <b>Double-click</b> an empty spot of a plane to center the view there.",
+  "ru": "Щёлкните правой кнопкой мыши по нулю или полюсу, фигуре или маркеру разреза (на сенсорном экране удерживайте палец; с клавиатуры — Shift+F10), чтобы открыть его меню. В заголовке меню — точка и значение отображения в ней; ниже — команды для этого объекта: «Удалить», «Сделать полюсом» (или нулём) и «Изменить» для маркера, «Сбросить разрез» для маркера разреза, а для фигуры — интеграл вдоль неё и «Слушать вдоль кривой», «Скрыть», «Удалить» и построения, которые к ней применимы, например «Отметить пересечение» и «Отвязать». У пустой плоскости меню нет: перетаскивание правой кнопкой сдвигает её. Пока вы рисуете (вершины многоугольника, точки построения, фигуру, которую вы растягиваете), щелчок правой кнопкой отменяет рисование, как и Esc. <b>Дважды щёлкните</b> по пустому месту плоскости, чтобы поставить его в центр вида.",
+  "note": "Help, The planes' menu. Replaces the paragraph that listed Add zero of f_k here, Copy coordinates and Center view here."
+ },
+ "help.zp_step": {
+  "en": "<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in the Inspector, with Shift-click (a zero) or Shift-⌘-click (Shift-Ctrl, a pole). Drag one off the plane, or select it and press Delete, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.",
+  "ru": "<i>Нули и полюсы</i> (в группе «Многочлены и свои формулы») — это отображение <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Его нули (точки) и полюсы (крестики) — маркеры в его исходной плоскости (для первого шага это X, для остальных покажите шаг отдельно): перетаскивайте их или добавляйте кнопками <b>Нуль</b> и <b>Полюс</b> в инспекторе, щелчком с Shift (нуль) или с Shift + ⌘ (Shift + Ctrl, полюс). Чтобы удалить нуль или полюс, перетащите его за пределы плоскости или выделите и нажмите Delete. Шаг с многочленом или рациональной функцией можно переписать в таком виде через его меню <b>⋯</b> — и обратно.",
+  "note": "Help, Branch cuts: the zeros-and-poles paragraph without «or from the plane's menu (below)»."
+ },
+ "sr.plane_menu_nothing": {
+  "en": "Nothing here has a menu.",
+  "ru": "Здесь нет ничего, у чего есть меню.",
+  "note": "Screen reader: Shift+F10 or the Menu key over a plane where no object has a menu."
+ },
+ "hint.zp_mouse": {
+  "en": "Drag a mark to move it; right-click it for more.",
+  "ru": "Перетащите маркер, чтобы сдвинуть его; щёлкните его правой кнопкой мыши, чтобы открыть его меню.",
+  "note": "Inspector, zeros-and-poles step, under Add zero / Add pole (mouse). Replaces «Or right-click a plane. Marks snap to the ruler (Alt: free).»"
+ },
+ "hint.zp_touch": {
+  "en": "Drag a mark to move it; hold it for more.",
+  "ru": "Перетащите маркер, чтобы сдвинуть его; удерживайте его, чтобы открыть его меню.",
+  "note": "Inspector, zeros-and-poles step (touch). Replaces «Or long-press a plane. Marks snap to the ruler.»"
+ },
+ "help.zp_touch": {
+  "en": "<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in its editor. Drag one off the plane, or hold it and choose Remove, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.",
+  "ru": "<i>Нули и полюсы</i> (в группе «Многочлены и свои формулы») — это отображение <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Его нули (точки) и полюсы (крестики) — маркеры в его исходной плоскости (для первого шага это X, для остальных покажите шаг отдельно): перетаскивайте их или добавляйте кнопками <b>Нуль</b> и <b>Полюс</b> в редакторе шага. Чтобы удалить нуль или полюс, перетащите его за пределы плоскости или удерживайте на нём палец и выберите «Удалить». Шаг с многочленом или рациональной функцией можно переписать в таком виде через его меню <b>⋯</b> — и обратно.",
+  "note": "Help on a touch screen (GUIDE_TOUCH, v16.5 UX17), Branch cuts: without «or from the plane's menu: hold a finger on the plane (below)»."
+ },
+ "help.plane_menu_touch": {
+  "en": "Hold a finger on a zero or a pole, a shape or a cut handle until the ring fills, then lift it: its menu opens. Its head gives the point and the map there; below come the actions for that object: Remove, Turn into a pole (or a zero) and Edit for a mark, Reset the cut for a cut handle, and for a shape its line integral and Listen along, Hide, Delete and the constructions that act on it. An empty plane has no menu, and a long press while you draw cancels the drawing. Slide the finger instead of lifting it, and you read the values under it.",
+  "ru": "Удерживайте палец на нуле или полюсе, фигуре или маркере разреза, пока не заполнится кольцо, и отпустите: откроется его меню. В заголовке меню — точка и значение отображения в ней; ниже — команды для этого объекта: «Удалить», «Сделать полюсом» (или нулём) и «Изменить» для маркера, «Сбросить разрез» для маркера разреза, а для фигуры — интеграл вдоль неё и «Слушать вдоль кривой», «Скрыть», «Удалить» и построения, которые к ней применимы. У пустой плоскости меню нет, а долгое нажатие во время рисования отменяет рисование. Если не отпускать палец, а вести его, видны значения под ним.",
+  "note": "Help on a touch screen, The planes' menu: a menu of objects (issue #13)."
+ },
+ "tip.long_press": {
+  "en": "Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.",
+  "ru": "Совет: удерживайте палец на фигуре, пока не заполнится кольцо: её меню скроет или удалит фигуру и даст интеграл вдоль неё.",
+  "note": "Phone tools sheet tip (v16.5 UX40): the long press no longer adds a point or a zero."
+ }
+}

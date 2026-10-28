@@ -235,11 +235,6 @@ const Tour = (() => {
           body: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
           touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.',
           try: { text: 'Drag a zero or a pole.', on: 'zp-moved', ctl: ['tool:select'], then: '$F$ and its image followed the mark.' } },
-        // (the planes' menu, src/planemenu.js: on X the mark goes to w₀ = z, exactly; behind other steps to F_{k-1}(z))
-        { id: 'zpHere', anchor: 'paneL', title: 'Add a zero here', needs: 'planeMenu', before: [['tool', 'select'], ['select', 1], ['plane', 'L']],
-          body: 'Right-click a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
-          touch: 'Hold a finger on a point of X until the ring fills, lift it, and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
-          try: { text: 'Right-click X, then Add zero of $f_1$ here.', touch: 'Hold X, then Add zero of $f_1$ here.', on: 'zp-added', then: 'That point is now a zero of $F$.' } },
         { id: 'numbers', anchor: 'params', also: ['panes'], title: 'Numbers', before: [['scene', 'numbers'], ['view', 'phase'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'Type a new letter such as $a$ in any field, and a slider $a$ appears under Numbers. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.',
           try: { text: 'Drag the slider of $a$.', on: 'number-changed', ctl: ['paramSlider'], then: 'The zeros $\\pm a$ and the circle $|z|=a$ moved together.' } },

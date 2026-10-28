@@ -119,6 +119,16 @@ construction, a parameter.
 
 ### 2.5 The planes' context menu
 
+> **Issue #13 (plane controls) changed this menu.** It is now a menu of objects only: groups 3 (At this point) and 5
+> (The view) below are gone, a shape's group has no Select (a left click selects) and one line integral (the shape
+> under the pointer, or the nearest curve) with its Listen along, and Constructions keeps only what acts on the shape
+> there (Mark the intersection, Point on this curve, Put on this curve, Make free; the tool launchers are the
+> toolbar's). Over empty plane nothing opens and a right-click only pans. While a drawing is in progress (a polygon's
+> vertices, a construction's picks, a left-button drag that draws) a right-click cancels it as Esc does, and a long
+> press does too, opening nothing. A **double-click** on empty flat plane centres the view there (it replaces Center
+> view here; the double-click that aimed the next step's cut is gone). Shift+F10 over nothing says "Nothing here has a
+> menu." The text below is the v15 design, kept for its reasoning.
+
 Right-click on any plane, or the touch long-press (INTERFACE.md, "Long-press": 450 ms ring, release without moving).
 A right-drag still pans. Groups, empty ones left out:
 
