@@ -3579,7 +3579,7 @@ const Figure = (() => {
     // behind one button, so the sheet opens on the format and the buttons; elsewhere the rows sit in the grid as before.
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
-    printBtn.setAttribute('aria-expanded', printBox.dataset.open);
+    printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
     const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
