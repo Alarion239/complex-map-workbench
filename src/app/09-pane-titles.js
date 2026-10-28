@@ -4,17 +4,21 @@
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side, noNote) {
+  function fitTitle(side, noNote, noDisp) {
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
+    // ([v17 D4] the head's Display button shows its word unless the title needs that room: then only its icon, as
+    // narrow as the options button it replaced, e.g. Y's head at 1366 px with the chain empty and Add function there)
+    const disp = pane.querySelector('.pane-head .disp-btn');
+    if (disp && !noDisp) disp.classList.remove('tight');
     // (v16.5 UX20: Y's one-time note in the head gives way before the title itself does; never cut)
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
-    if (!(grow.offsetWidth + t.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
+    if (!(pane.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
     const pt = t.querySelector('.ptitle'), pr = t.querySelector('.prole');
     let ptw = pt ? pt.scrollWidth : 0;
     if (pt && ptw > room) {
@@ -22,7 +26,10 @@
       // (wave 1 merge) then the plane's "Y · " tag (UX27) gives way, before the title itself: with the chain empty, Y's
       // head also holds Add function (UX20), and at 1366 px the tagged title no longer fitted, so it vanished
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
-      if (!(tag && ptw - tw <= room)) { pane.classList.add('tiny'); return; }
+      if (!(tag && ptw - tw <= room)) {
+        if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }
+        pane.classList.add('tiny'); return;
+      }
       t.classList.add('notag'); ptw -= tw;
     }
     // the role is shown whole, or in its short form (its first words: "landscape", "phase of F" without the
@@ -276,8 +283,8 @@
     let b = null;
     // ([v17 D4] in the pane head a labelled Display ▾ button, plan/ux-audit/REPORT.md D4; under the plot the sliders)
     if (inHead) {
-      b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
-        $tx('button', 'Display'), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
+      b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
+        h('span', { class: 'disp-i', 'aria-hidden': 'true', html: ICONS.sliders }), h('span', { class: 'disp-l' }, $tx('button', 'Display')), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
       b.addEventListener('click', () => openFootPop(b, false, side));
     } else if (rest.length) {
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });

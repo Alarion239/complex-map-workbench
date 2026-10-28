@@ -503,6 +503,11 @@
 .pane-head .disp-btn { height: 26px; padding: 0 6px 0 9px; gap: 2px; font: 500 12.5px/1 var(--f-ui); white-space: nowrap; }
 .pane-head .disp-btn .disp-caret { display: inline-flex; width: 14px; height: 14px; }
 .pane-head .disp-btn .disp-caret svg { width: 14px; height: 14px; }
+.pane-head .disp-btn .disp-i { display: none; width: 15px; height: 15px; }
+.pane-head .disp-btn .disp-i svg { width: 15px; height: 15px; }
+.pane-head .disp-btn.tight { width: 26px; padding: 0; justify-content: center; }
+.pane-head .disp-btn.tight .disp-l, .pane-head .disp-btn.tight .disp-caret { display: none; }
+.pane-head .disp-btn.tight .disp-i { display: inline-flex; }
 .disp-pop { width: 300px; max-height: calc(100vh - 120px); overflow-y: auto; }
 .disp-pop .opts-h { font: 600 12px/16px var(--f-ui); color: var(--ink-2); margin: 2px 0 4px; }
 .disp-pop .opts-h.opts-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
