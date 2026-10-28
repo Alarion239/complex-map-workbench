@@ -963,6 +963,9 @@ if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
   for (const [w, h] of [[1440, 900], [390, 844]]) {
     for (const dark of [false, true]) {
       const tag = `${w}-${dark ? 'dark' : 'light'}`;
+      // (the page's state at each step of the keyboard part, reported whatever happens: export-1 user5 threw here in CI)
+      const snap = async (label) => { const g = await ev(`(() => { const m = document.getElementById('xfMore'); return { dialog: !!document.querySelector('.modal.xf'), menu: !!document.querySelector('#popHost .pop.menu'), focus: document.activeElement && (document.activeElement.id || document.activeElement.tagName), more: m ? { hidden: m.hidden, boxes: m.getClientRects().length } : null, saved: window.__saved ? window.__saved.length : null }; })()`); fails.push({ name: `state ${tag} ${label}`, got: g, info: true }); return g; };
+      const need = async (label) => { const c0 = await center('#xfMore'); if (!c0) { const g = await snap(`${label}: More formats missing`); fails.push({ name: `menus ${tag}: ${label}: no More formats button`, got: g }); return null; } return c0; };
       await open('xu5menu', w, h, dark);
       await ev('__cmwExample(1); 1'); await settle(1800);
       await key('e', 2); await dlgReady();
@@ -992,14 +995,18 @@ if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
       ok(`menus ${tag}: Esc after the keyboard-opened menu leaves the dialog and More formats`, afterKb.dialog && afterKb.more && !afterKb.more.hidden, afterKb);
       if (!afterKb.dialog) { await open('xu5menu-again', w, h, dark); await ev('__cmwExample(1); 1'); await settle(1800); await key('e', 2); await dlgReady(); }
       // a press outside the open menu, on the backdrop, closes the menu only
-      let c = await center('#xfMore'); await click(c[0], c[1]); await sleep(300);
+      let c = await need('before the press outside'); if (!c) return { pass: false, fails };
+      await click(c[0], c[1]); await sleep(300);
+      await snap('menu open, before the press outside');
       await click(4, 4); await sleep(300);
+      await snap('after the press outside');
       const po = await ev(`({ menu: !!document.querySelector('#popHost .pop.menu'), dialog: !!document.querySelector('.modal.xf') })`);
       ok(`menus ${tag}: a press outside the menu closes the menu, not the dialog`, !po.menu && po.dialog, po);
       // an item, clicked with the mouse where it is drawn: SVG is saved
       if (!dark) {
         await ev('window.__saved.length = 0; 1');
-        c = await center('#xfMore'); await click(c[0], c[1]); await sleep(300);
+        c = await need('before the SVG item'); if (!c) return { pass: false, fails };
+        await click(c[0], c[1]); await sleep(300);
         const it = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .pop.menu .mi')].find((x) => /^SVG/.test(x.textContent.trim())); if (!b) return null; const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
         if (it) await click(it[0], it[1]);
         for (let i = 0; i < 50; i++) { await sleep(200); if (await ev('window.__saved.length > 0')) break; }
@@ -1015,4 +1022,4 @@ if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
 
 R.logs = logs().filter((l) => /EXC|error/i.test(l.t) && !/404|favicon/.test(l.m)).slice(0, 12);
 ok('no exceptions', !R.logs.some((l) => l.t === 'EXC'), R.logs);
-return { pass: fails.length === 0, fails, ...R, figs: Object.keys(R.figs).length };
+return { pass: fails.every((f) => f.info), fails, ...R, figs: Object.keys(R.figs).length };   // (the info entries are the diagnostic states)
