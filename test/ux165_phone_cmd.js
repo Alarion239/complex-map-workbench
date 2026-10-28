@@ -207,7 +207,7 @@ await grab();
 
 // ---------------- UX38: one fixed column of keys at the bottom right ----------------
 await fresh('keys', 412, 860, false, true);
-const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-sph') ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
+const keys = () => ev(`(() => { const o = {}; for (const e of document.querySelectorAll('.ph-col .ph-key, .viewstack .vbtn')) { if (!e.getClientRects().length || getComputedStyle(e).display === 'none' || e.closest('.ph-inset')) continue; const b = e.getBoundingClientRect(); o[e.classList.contains('ph-both-key') ? 'both' : e.classList.contains('ph-sph') ? 'sphere' : e.classList.contains('ph-dsp') ? 'display' : 'fit'] = [Math.round(b.left), Math.round(b.top)]; } return o; })()`);
 const kv = {};
 kv.xy = await keys();
 await ev('Phone.swap()'); await settle(400); kv.swap = await keys(); await ev('Phone.swap()'); await settle(300);
@@ -216,6 +216,7 @@ await ev(`document.querySelector('#viewSwitch [data-mode="land"]').click()`); aw
 info.keys = kv;
 for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`UX38 ${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
 for (const v of ['swap', 'phase']) ok(`UX38 sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
+ok('D8 Both is the column\'s top key', kv.xy.both && kv.xy.both[1] < kv.xy.sphere[1] && kv.xy.both[0] === kv.xy.sphere[0], kv.xy);
 ok('UX38 the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
 // UX106: Landscape on a portrait phone: the surface uses more of the plane than the bounding sphere's fit
 const lb = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
@@ -261,6 +262,58 @@ ok('V02 the links and scene files are rows of the ⋯ sheet', ['Copy link to thi
 ok('V02 no key shortcuts and no "again" rows before a first export', !/⌘|Ctrl E|again/.test(more.text), more.text);
 await grab();
 
+// ---------------- D11: the deformation bar in two rows, a full-width scrubber, the Steps picker ----------------
+await withState('d11', 412, 860, true, { shapes: [], steps: STEPS2 });
+await ev(`document.getElementById('morphBtn').click()`); await settle(900);
+const dk = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), scrub: r(d.querySelector('.tscrub')), range: r(d.querySelector('#morphRange')), play: r(d.querySelector('#morphPlay')), steps: r(d.querySelector('#stepsBtn')), close: r(d.querySelector('.tclose')), undo: r(document.querySelector('#secDraw > .ph-undo')), read: r(d.querySelector('.tscrub > .tread')), label: (d.querySelector('#stepsBtn') || {}).textContent, picked: d.querySelector('#stepsPick') && !d.querySelector('#stepsPick').hidden }; })()`);
+ok('D11 two rows: the scrubber the full width, play, Steps and × below it, 44 px tall', dk && dk.range.w >= 412 - 24 && dk.play.t >= dk.scrub.t + dk.scrub.h - 2 && dk.steps.t === dk.play.t && dk.close.t === dk.play.t && dk.play.h >= 44 && dk.steps.h >= 44 && dk.close.h >= 44 && dk.range.h >= 44, dk);
+ok('D11 the tool row\'s Undo stays at the left end of the second row', dk && dk.undo && dk.undo.l < dk.play.l && Math.abs(dk.undo.t + dk.undo.h / 2 - (dk.play.t + dk.play.h / 2)) < 12, dk);
+ok('D11 the readout rides the scrubber, the Steps button names the range', dk && dk.read && dk.read.t < dk.range.t + 10 && /Every step|Steps/.test(dk.label), dk);
+await ev(`document.getElementById('stepsBtn').click()`); await settle(300);
+const pk = await ev(`(() => { const p = document.getElementById('stepsPick'); const b = p.getBoundingClientRect(); const c = [...p.querySelectorAll('select, input[type=checkbox]')].map((e) => ({ id: e.id || e.getAttribute('aria-label'), vis: e.getClientRects().length > 0 })); return { open: !p.hidden, bottom: Math.round(b.bottom), top: Math.round(document.querySelector('.tdock:not([hidden])').getBoundingClientRect().top), c, loop: !!p.querySelector('#loopChk'), order: !!p.querySelector('#homOrderSel') }; })()`);
+ok('D11 the Steps picker holds the range, the order and Loop, above the bar', pk.open && pk.bottom <= pk.top && pk.loop && pk.order && pk.c.length >= 4 && pk.c.every((x) => x.vis), pk);
+await ev(`document.getElementById('stepsBtn').click()`); await settle(200);
+ok('D11 the picker closes', await ev(`document.getElementById('stepsPick').hidden`));
+await ev(`document.getElementById('morphBtn').click()`); await settle(300);
+await withState('d11l', 915, 412, true, { shapes: [], steps: STEPS2 });
+await ev(`document.getElementById('morphBtn').click()`); await settle(900);
+for (let i = 0; i < 40 && !(await ev(`!!document.querySelector('.tdock:not([hidden])')`)); i++) await sleep(100);   // (the dock is built after the click's frames)
+const dlState = await ev(`({ cls: document.documentElement.className, btn: !!document.getElementById('morphBtn'), docks: [...document.querySelectorAll('.tdock')].map((d) => [d.id, d.hidden, d.children.length]) })`);
+const dl = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), range: r(d.querySelector('#morphRange')), col: r(document.getElementById('secDraw')), undo: r(document.querySelector('#secDraw > .ph-undo')), ih: innerHeight }; })()`);
+ok('D11 landscape: one row left of the tool column with a wide scrubber, Undo kept in the column', dl && dl.dock && dl.dock.t + dl.dock.h <= dl.ih + 1 && dl.dock.l + dl.dock.w <= dl.col.l + 1 && dl.range.w >= 300 && dl.undo.l >= dl.col.l - 1, { dl, dlState });
+await ev(`document.getElementById('morphBtn').click()`); await settle(300);
+
+// ---------------- D8: the Both key shows X above Y; remembered ----------------
+await withState('both', 412, 860, true, { shapes: [], steps: STEPS2 });
+const bx = () => ev(`(() => { const r = (id) => { const b = document.getElementById(id).getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), inset: document.getElementById(id).classList.contains('ph-inset') }; }; const k = document.querySelector('#paneL .ph-both-key'); const kb = k && k.getBoundingClientRect(); return { L: r('paneL'), R: r('paneR'), key: k && { w: Math.round(kb.width), h: Math.round(kb.height), vis: k.getClientRects().length > 0, pressed: k.getAttribute('aria-pressed') }, saved: (() => { try { return Object.keys(localStorage).filter((x) => /^cmw-ph-both/.test(x)).map((x) => localStorage.getItem(x)); } catch (e) { return null; } })() }; })()`);
+const b0 = await bx();
+ok('D8 the Both key: 44 px, off by default, the inset is the default', b0.key && b0.key.vis && b0.key.w >= 44 && b0.key.h >= 44 && b0.key.pressed === 'false' && b0.R.inset && b0.L.h > 500, b0);
+await tap('#paneL .ph-both-key', 700);
+const b1 = await bx();
+ok('D8 Both: X above Y, each about half the stage, no inset', b1.key.pressed === 'true' && !b1.L.inset && !b1.R.inset && b1.L.w >= 400 && b1.R.w >= 400 && b1.R.t >= b1.L.t + b1.L.h - 2 && Math.abs(b1.L.h - b1.R.h) <= 4 && b1.L.h >= 300, b1);
+ok('D8 the choice is remembered', b1.saved && b1.saved.includes('1'), b1.saved);
+await ev(`Phone.open('display')`); await settle(900);
+const b2 = await ev(`(() => { const a = document.getElementById('paneL').getBoundingClientRect(), b = document.getElementById('paneR').getBoundingClientRect(); return { sideBySide: Math.abs(a.top - b.top) < 4 && b.left > a.left }; })()`);
+ok('D8 an open sheet takes over with X | Y side by side', b2.sideBySide, b2);
+await ev(`Phone.close(true)`); await settle(900);
+const b3 = await bx();
+ok('D8 … and Both is back when the sheet closes', !b3.L.inset && !b3.R.inset && b3.R.t >= b3.L.t + b3.L.h - 2, b3);
+await tap('#paneR .ph-both-key', 700);
+const b4 = await bx();
+ok('D8 Both off: the large plane and the inset again', b4.key.pressed === 'false' && (b4.L.inset !== b4.R.inset) && b4.saved.includes('0'), b4);
+// probing X draws on the inset's overlay (the image point's dot and the gauge; the dot itself is judged on a screenshot)
+await withState('probe', 412, 860, true, { shapes: [], steps: STEPS2 });
+const ovPx = () => ev(`(() => { let n = 0; for (const c of document.querySelectorAll('#paneR canvas')) { let g = null; try { g = c.getContext('2d'); } catch (e) { /* */ } if (!g || !c.width) continue; const d = g.getImageData(0, 0, c.width, c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++; } return n; })()`);
+const px0 = await ovPx();
+await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 230, y: 300, id: 1 }] }); await sleep(750);
+for (let i = 1; i <= 4; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 230 + i * 6, y: 300 - i * 5, id: 1 }] }); await sleep(80); }
+await sleep(300);
+const px1 = await ovPx();
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(300);
+ok('D8 probing X draws on the phone\'s Y inset overlay', px1 > px0 + 20, [px0, px1]);
+await withState('bothl', 915, 412, true, { shapes: [], steps: STEPS2 });
+ok('D8 landscape has both planes already: no Both key', await ev(`[...document.querySelectorAll('.ph-both-key')].every((k) => !k.getClientRects().length)`));
+
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
 for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {
@@ -282,6 +335,26 @@ await hold(z0[0] + 120, z0[1] - 160, 700);
 ok('UX49 a long press on empty space cancels the construction and opens no menu (issue #13)', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('(() => { const d = Construct.debug().draft; return !d || (!d.picks.length && !d.curve1); })()')), await ev('Construct.debug().draft'));
 await key('Escape'); await settle(200);
 await grab();
+
+// ---------------- UX50: the last pick of a construction on touch: the preview under the finger, lift to commit ----------------
+await fresh('last', 412, 860, false, true);
+await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle(200);
+await touch(150, 250); await settle(300); await touch(260, 330); await settle(300);
+const n50 = () => ev(`__tourApi.snapshot().state.shapes.length`);
+const nBefore = await n50();
+const pk2 = await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : -1');
+await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 200, y: 450, id: 1 }] }); await sleep(200);
+for (let i = 1; i <= 5; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 + i * 10, y: 450 - i * 12, id: 1 }] }); await sleep(80); }
+await sleep(200);
+const dn = await ev(`(() => { const d = Construct.debug(); return { hover: d.hover, picks: d.draft ? d.draft.picks.length : -1, shapes: __tourApi.snapshot().state.shapes.length }; })()`);
+ok('UX50 two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
+const h1 = dn.hover;
+await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] }); await sleep(150);
+const h2 = await ev('Construct.debug().hover');
+ok('UX50 sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(500);
+ok('UX50 lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
+await key('Escape'); await settle(200);
 
 // ---------------- UX17: touch wording of the guide and the tour; no Palette and keys on touch ----------------
 const guideText = async () => { await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove()`); await ev(`__tourApi.openGuide()`); await settle(900); return ev(`(document.querySelector('.modal') || {}).innerText || ''`); };

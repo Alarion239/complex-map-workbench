@@ -15,6 +15,9 @@ const Phone = (() => {
   let A = null;
   let on = false, land = false;
   let big = 'L';                       // the large plane in X → Y; the other one is the inset
+  // "Both": X above Y, each its own half, instead of the large plane and the inset; remembered (D8)
+  const BOTH_KEY = 'cmw-ph-both' + (new URLSearchParams(location.search).get('ns') || '');
+  let both = (() => { try { return localStorage.getItem(BOTH_KEY) === '1'; } catch (e) { return false; } })();
   let kind = null, full = false;       // the open sheet and its height
   let nums = false;                    // the Editor opened by Numbers: Parameters only (review design-12)
   let anim = 0;                        // the sheet's opening or closing timer
@@ -76,10 +79,12 @@ const Phone = (() => {
     // each plane: Sphere and Display at the right; the inset's swap cover
     for (const side of ['L', 'R']) {
       const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
+      const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
       const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
       const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => open('display', { side }) });
-      plot.append(h('div', { class: 'ph-col ph-only' }, sph, dsp));
+      plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
       els['sph' + side] = sph;
+      els['both' + side] = bt;
       const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
         h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));
       pane.append(sw);
@@ -120,6 +125,7 @@ const Phone = (() => {
       t.click();
     }, true);
   }
+  const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
   const TEX = '<svg viewBox="0 0 20 16" width="18" height="16" aria-hidden="true" fill="currentColor"><text x="0" y="11" font-family="STIX Two Text, Times New Roman, serif" font-size="10">T</text><text x="5.6" y="14" font-family="STIX Two Text, Times New Roman, serif" font-size="10">E</text><text x="11.4" y="11" font-family="STIX Two Text, Times New Roman, serif" font-size="10">X</text></svg>';
   const TOUR = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 5.4v5.2L10.6 8z" fill="currentColor"/></svg>';
@@ -207,7 +213,9 @@ const Phone = (() => {
     p.classList.toggle('ph-big-R', b === 'R');
     p.classList.toggle('ph-one', !!mg);
     rootEl.classList.toggle('ph-morph', !!A.morphOn());
-    const split = land || rootEl.classList.contains('ph-split');
+    const split = twoUp();
+    p.classList.toggle('ph-both', both && !land && !mg);
+    for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
     for (const side of ['L', 'R']) $(side === 'L' ? 'paneL' : 'paneR').classList.toggle('ph-inset', !mg && !split && side !== b);
     for (const side of ['L', 'R']) {
       const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
@@ -274,7 +282,7 @@ const Phone = (() => {
   function reconcile() {
     if (!on || held || merged()) return;
     const ins = big === 'L' ? 'R' : 'L';
-    const small = !land && !rootEl.classList.contains('ph-split');
+    const small = !twoUp();
     if (small && !keep[ins]) shrink(ins, Object.assign(A.getView(ins, true), { w: A.getView(big).w }));
     else if (!small && keep[ins]) grow(ins);
   }
@@ -295,8 +303,18 @@ const Phone = (() => {
     const p = A.getView(big), hw = p.w / 2 / v.s, hh = p.h / 2 / v.s;
     return hw > 0 && hh > 0 ? { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh } : null;
   }
+  // two planes in sight: a landscape phone, an open sheet, or Both
+  const twoUp = () => land || rootEl.classList.contains('ph-split') || (both && !merged());
+  function toggleBoth() {
+    both = !both;
+    try { localStorage.setItem(BOTH_KEY, both ? '1' : '0'); } catch (e) { /* */ }
+    syncPanes();
+    A.resize();
+    reconcile();
+    A.sound('swap');
+  }
   function swap(quiet) {
-    if (merged() || rootEl.classList.contains('ph-split')) return;
+    if (merged() || both || rootEl.classList.contains('ph-split')) return;
     const now = big === 'L' ? 'R' : 'L';
     big = now;
     syncPanes();
@@ -468,7 +486,6 @@ const Phone = (() => {
     rootEl.classList.remove('ph-ride');
     // this view's options go back to the app (it keeps them for its own popover)
     els.viewOpts.replaceChildren();
-    if (els.morphKids) { for (const [el, ph] of els.morphKids) { if (ph.parentNode) { ph.parentNode.insertBefore(el, ph); ph.remove(); } } els.morphKids = null; }
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
     rootEl.classList.remove('ph-sheet-on');
@@ -510,16 +527,6 @@ const Phone = (() => {
     els.dispSide = side;
     const kids = A.footKids(side);
     els.viewOpts.replaceChildren(...kids);
-    // in the deformation, its order and its loop (the transport row keeps play, the scrubber, the speed and Paths)
-    if (A.morphOn()) {
-      const dock = document.querySelector('.tdock:not([hidden])');
-      if (dock) {
-        els.morphKids = [];
-        for (const el of dock.querySelectorAll(':scope > select, :scope > .check, :scope > .trange')) {   // (v16: and the Deformed steps row)
-          const ph = document.createComment('phone'); el.parentNode.insertBefore(ph, el); els.morphKids.push([el, ph]); els.viewOpts.append(el);
-        }
-      }
-    }
     els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
   }
 

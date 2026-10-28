@@ -414,8 +414,12 @@ const Tour = (() => {
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
-    formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
-    patterns: '#patternSeg', chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
+    formula: '#secFormula', shapes: '#secShapes',
+    // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
+    // or the button; on a phone the Display sheet's section)
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#secDisplay') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
+    patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.disp-pop #patternSeg') || document.querySelector('#rightFoot .opts-btn')),
+    chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
     bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : document.querySelector('#pipeline'); },
@@ -2156,7 +2160,10 @@ const Tour = (() => {
       const sx = /(auto|scroll|overlay)/.test(cs.overflowX) && a.scrollWidth > a.clientWidth + 1;
       if (!sy && !sx) continue;
       const q = a.getBoundingClientRect(), b = e.getBoundingClientRect(), m = 8;
-      const top = q.top + a.clientTop, left = q.left + a.clientLeft, bot = top + a.clientHeight, right = left + a.clientWidth;
+      // (the container's scroll-padding is room that something over it takes, such as the phone chain's pinned + and F)
+      const sp = (k) => parseFloat(cs[k]) || 0;
+      const top0 = q.top + a.clientTop, left0 = q.left + a.clientLeft;
+      const top = top0 + sp('scrollPaddingTop'), left = left0 + sp('scrollPaddingLeft'), bot = top0 + a.clientHeight - sp('scrollPaddingBottom'), right = left0 + a.clientWidth - sp('scrollPaddingRight');
       // (a part that fits only without the 8 px margins is placed whole, with equal margins)
       const need = (lo, hi, a0, a1) => {
         if (hi - lo <= a1 - a0 - 2 * m) return lo < a0 + m ? lo - a0 - m : hi > a1 - m ? hi - a1 + m : 0;
