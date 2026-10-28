@@ -896,7 +896,7 @@ const Tour = (() => {
 .ts-text[aria-expanded="true"] .ts-wl svg, .ts-text[aria-expanded="true"] .ts-tdn svg { rotate: 180deg; }
 .ts-tdn svg { width: 11px; height: 11px; vertical-align: -1px; color: var(--accent); transition: rotate var(--t-fast, 120ms) var(--ease-out, ease-out); }
 .ts-l2 { display: flex; align-items: flex-start; gap: 6px; min-width: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); }
-.ts-lead { flex: 1 1 auto; min-width: 0; text-wrap: pretty; }
+.ts-lead { flex: 1 1 auto; min-width: 0; text-wrap: pretty; padding-block: 2px; margin-block: -2px; } /* room for an inline formula (sized in ex) that stands a pixel or two past the line; layout-neutral */
 .ts-tin { display: none; font-weight: 600; color: var(--ink); }
 .ts-lead mjx-container { font-size: 104% !important; color: var(--ink); }
 .ts-ring { flex: 0 0 13px; width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--accent); box-sizing: border-box; display: grid; place-items: center; }
