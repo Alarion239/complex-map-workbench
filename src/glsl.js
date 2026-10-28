@@ -969,9 +969,10 @@ vec2 cx_zetad(vec2 s) {
     return JSON.stringify(n, (k, x) => (k === 'pos' || k === 'len' || k === 'lit' || k === 's' || k === 'name' ? undefined
       : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : '#') : x));
   }
-  // What the sheet code (genCustomPair) builds from the values of constant exponents without a shared number, in tree
-  // order: Funcs.branchNode null (an integer, |n| <= 4096) writes the integer into cipow; any other exponent is a
-  // branch node, 'n', whose value and sheet count are uniforms
+  // What the sheet code (genCustomPair) builds from the values of constant exponents, in tree order: Funcs.branchNode
+  // null (an integer, |n| <= 4096) writes the integer into cipow; any other exponent is a branch node, 'n', whose
+  // value and sheet count are uniforms. A shared number's exponent too: branchNode reads its current value, so a
+  // slider that moves it onto or off an integer (or between integers) compiles again; between other values it does not
   function pairBaked(ast) {
     const out = [];
     const walk = (n) => {
@@ -979,7 +980,7 @@ vec2 cx_zetad(vec2 s) {
       if (Array.isArray(n)) { n.forEach(walk); return; }
       if (!n.t) return;
       for (const k of Object.keys(n)) if (n[k] && typeof n[k] === 'object') walk(n[k]);
-      if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && !hasParam(n.b)) {
+      if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b)) {
         const bn = typeof Funcs !== 'undefined' && Funcs.branchNode ? Funcs.branchNode(n) : null;
         out.push(bn ? 'n' : Expr.compile(n.b)(C(0, 0)).re);
       }

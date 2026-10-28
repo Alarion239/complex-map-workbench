@@ -102,13 +102,26 @@ for (const [a, b, same] of EDITS) {
   const fa = Array.from(a.fill(new Float32Array(a.slots * 4))), fb = Array.from(b.fill(new Float32Array(b.slots * 4)));
   ok(fa.includes(2) && fb.includes(3) && !fb.includes(2), `the coefficient is in the uniforms: ${fa} / ${fb}`);
 }
-// (c) a shared number by its name, its value not in the key
+// (c) a shared number by its name, its value not in the key; as an exponent, the sheet code (genCustomPair) is built
+// from its current value (cipow for an integer, a branch node else), so one key must still mean one text over values
 {
   const k1 = one('\\sin(z)^{a}+3z').key;
-  P.set('a', 2);
+  P.set('a', 0.7);
   const k2 = one('\\sin(z)^{a}+3z').key;
   P.set('a', 0.5);
   ok(k1 === k2 && JSON.parse(k1)[1][0][1].includes('["#","a"]'), 'a shared number: its name in the key');
+  for (const f of ['\\sin(z)^{a}+3z', 'z^{a}+\\sin z', '\\sqrt{z}+z^{a}', '\\log(z)+z^{a}', 'a\\sin(z)+z']) {
+    const byKey = new Map();
+    for (const v of [2, 2.5, 3, 0.5, -1]) {
+      P.set('a', v);
+      const c = one(f), g = byKey.get(c.key);
+      if (!g) byKey.set(c.key, { code: c.code, vals: [v] });
+      else { g.vals.push(v); ok(g.code === c.code, `${f}: a = ${g.vals.join(', ')} share a key but not the code`); }
+    }
+    P.set('a', 0.5);
+    if (f.startsWith('a')) ok(byKey.size === 1, `${f}: a shared coefficient keeps the key`);
+    else ok(byKey.get(one(f).key).vals.length >= 2, `${f}: a = 2.5 and 0.5 share a key`);
+  }
 }
 // a polynomial: a coefficient keeps the key; its degree (the natural path's, ratzoom) and its exponents are in it
 {
