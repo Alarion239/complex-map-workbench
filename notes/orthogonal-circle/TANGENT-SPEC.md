@@ -248,7 +248,7 @@ cancels. All of this is as perp.
 |---|---|---|
 | Touching circle | Касающаяся окружность | tool name |
 | Touching | Касание | tile, like «Пере­сечение» |
-| Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one. | Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной или кнопка «Касательная» даёт касательную, щелчок по кольцу — касательную из точки. Кривая остаётся выбранной для следующей. | tooltip |
+| Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one. | Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной или кнопка «Касательная» даёт касательную, щелчок по кольцу — касательную из точки. Кривая остаётся выбранной для следующей. | tooltip |
 | Tangent line | Касательная | chip button after T |
 | Touching circle… | Касающаяся окружность… | plane menu |
 | Point {n} of {m}, or the tangent | Точка {n} из {m} или касательная | chip after T |
