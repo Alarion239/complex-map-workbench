@@ -357,7 +357,7 @@ const Phone = (() => {
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     if (ct.length) tiles.push(h('h3', { class: 'ph-h cm-ph' }, $t('Construct')), ...ct);
     // v16.5 UX40: the long press, taught where people look (never on the plane)
-    tiles.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on the plane until the ring fills: its menu adds a point or a zero there, and hides or deletes the shape under your finger.'))));
+    tiles.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
     els.tiles.replaceChildren(...tiles);
   }
   function syncSnap() { const s = $('snapBtn'); if (s && els.snap) els.snap.setAttribute('aria-pressed', s.getAttribute('aria-pressed') || 'false'); }

@@ -258,7 +258,7 @@ const SPOT = String.raw`(() => {
     'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn'),
     'views/patterns': () => q1('#patternSeg .pat[data-pat="stretch"]'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
-    'edit/zpHere': () => 'none', 'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
+    'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
     'construct/c3': () => 'none', 'construct/follow': () => selTool(), 'construct/meet': () => tool('line'),
     'deform/toggle': () => 'none', 'deform/transport': () => [q1('#morphPlay'), q1('#morphRange')], 'deform/paths': () => 'none', 'deform/order': () => q1('#homOrderSel'),
     'deform/range': () => 'none', 'analysis/integral': () => 'none',

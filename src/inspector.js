@@ -81,7 +81,8 @@ const Inspector = (() => {
         if (ab) ab.setAttribute('aria-label', $t('Pick {label} on an Argand diagram', { label: t + sub(k) }));
       }
     }
-    // the zeros-and-poles hint by input: a long press on touch, a right-click and Alt with a mouse (review design-9)
+    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (review design-9; issue #13:
+    // the planes' menu acts on a mark, it adds none)
     const touchUI = () => document.documentElement.classList.contains('ph') || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
     // a formula wider than its well: the same formula smaller, down to 70 % (review design-4); true when it fits
     function fitTex(node, minScale = 0.7) {
@@ -137,55 +138,6 @@ const Inspector = (() => {
       return tex.replace(/\\[a-zA-Z]+|[a-zA-Z]/g, (m) => (m.length > 1 ? m : m === 'z' ? wv : letters.has(m) ? `${m}_{${k}}` : m));
     }
     function cxv(s) { try { return A.Expr.constValue(String(s)); } catch (e) { return null; } }
-    // the step's formula with its shared numbers kept as names (review math-11): the step is built again with a
-    // sentinel number in place of each field (or list item) that holds names, and each sentinel of the TeX is replaced
-    // by that field's own TeX, so (w₁ + 1)/(a w₁ + 1) shows what a controls. null when a sentinel does not come
-    // through as a plain number (the step folded it into another value): the formula then shows the values.
-    const SENT = [7919, 7927, 7933, 7937, 7949, 7951, 7963, 7993, 8009, 8011, 8017, 8039];
-    const namedMemo = { key: null, val: null };
-    function namedTex(st, k) {
-      if (typeof Params === 'undefined' || !Params.namesIn || !st || !st.params) return null;
-      const mk = `${k}|${st.type}|${JSON.stringify(st.params)}|${I18N.lang}`;   // (a slider frame changes no text: the same formula)
-      if (namedMemo.key === mk) return namedMemo.val;
-      namedMemo.key = mk;
-      namedMemo.val = namedTex0(st, k);
-      return namedMemo.val;
-    }
-    function namedTex0(st, k) {
-      const d = A.defOf(st), types = {};
-      for (const q of d.params || []) types[q.key] = q.type;
-      const has = (src) => typeof src === 'string' && Params.namesIn(src).length > 0;
-      const keys = Object.keys(st.params).filter((key) => has(st.params[key]));
-      if (!keys.length) return null;
-      const subs = [], p2 = Object.assign({}, st.params);
-      const texOf = (src) => {
-        const t0 = A.Expr.toTex(A.Expr.parse(src)), t = t0 && typeof t0 === 'object' ? t0.s : t0;   // (toTex gives { s, p })
-        if (typeof t !== 'string' || !t) throw new Error('no TeX');
-        return Params.namesIn(src).length === 1 && /^\s*[^\s+\-*/^()]+\s*$/.test(src) ? t : `\\left(${t}\\right)`;
-      };
-      try {
-        for (const key of keys) {
-          const list = st.type === 'zp' ? key === 'zeros' || key === 'poles' : types[key] === 'cxlist' || types[key] === 'coeffs';
-          const items = list ? A.Funcs.splitList(st.params[key]) : [st.params[key]];
-          const out = items.map((it) => {
-            if (!has(it) || subs.length >= SENT.length) return it;
-            const neg = /^\s*-/.test(it), n = SENT[subs.length];
-            subs.push([n, texOf(neg ? it.replace(/^\s*-/, '') : it)]);
-            return String(neg ? -n : n);
-          });
-          p2[key] = out.join(', ');
-        }
-        const b2 = A.Funcs.build({ type: st.type, params: p2, on: true });
-        if (!b2 || b2.error) return null;
-        let t = b2.tex({ s: A.wvar(k - 1), p: 4 }).s;
-        for (const [n, tx] of subs) {
-          const re = new RegExp(`(?<![\\d.])${n}(?![\\d.])`, 'g');
-          if (!re.test(t)) return null;
-          t = t.replace(re, `{${tx}}`);
-        }
-        return /(?<![\d.])(79\d\d|80[0-3]\d)(?![\d.])/.test(t) ? null : t;
-      } catch (e) { return null; }
-    }
     // ---- a step ----
     function buildStep(k) {
       const S = A.S(), st = S.steps[k - 1], d = A.defOf(st), b = A.built()[k - 1];
@@ -347,8 +299,7 @@ const Inspector = (() => {
         if (adds) {
           // the big buttons first, then the hint, then a and one row per zero and pole
           params.prepend(adds);
-          // (v16.5 UX40: on touch the tip names the gesture and what it gives)
-          adds.after(h('div', { class: 'zp-hint' }, touchUI() ? $t('Or hold a finger on X until the ring fills: its menu adds a zero or a pole right there. Marks snap to the ruler.') : $t('Or right-click a plane. Marks snap to the ruler (Alt: free).')));
+          adds.after(h('div', { class: 'zp-hint' }, touchUI() ? $t('Drag a mark to move it; hold it for more.') : $t('Drag a mark to move it; right-click it for more.')));
           for (const b of adds.querySelectorAll('.zp-add')) {
             const kind = b.classList.contains('zeros') ? 'zeros' : 'poles';
             const txt = [...b.childNodes].find((n) => n.nodeType === 3);
@@ -383,7 +334,8 @@ const Inspector = (() => {
       const errT = bad ? b.error : '';
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
-        const num = namedTex(st, k) || b.tex({ s: A.wvar(k - 1), p: 4 }).s;
+        // (a field that uses shared numbers shows their names: Funcs.build keeps them, issue #11)
+        const num = b.tex({ s: A.wvar(k - 1), p: 4 }).s;
         const gen = genericTex(st, k);
         const full = `w_{${k}}=` + (gen && gen.replace(/\s/g, '') !== num.replace(/\s/g, '') ? `${gen}=${num}` : num), short = `w_{${k}}=${num}`;
         // (the generic form and the values do not fit: the values alone, then smaller)

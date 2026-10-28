@@ -16,6 +16,7 @@
   else root.Palette = M;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   // [id, Arb mode]; the index is the shaders' uPal
+  /** @type {[string, number][]} */
   const LIST = [['wheel', -1], ['arb', 0], ['arbPhase', 1], ['arbDodge', 2], ['chrome', 3], ['warm', 4], ['cold', 5], ['tomato', 6]];
   const W = 512, H = 256;
   const CL = (y) => Math.max(0, Math.min(y, 1));
