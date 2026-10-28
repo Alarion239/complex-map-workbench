@@ -110,10 +110,11 @@ await section('A', async () => {
   ok('A1 the Construct grid has seven tiles, Perpendicular circle fifth (v16.3: Touching circle; v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().height, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('A1 tooltip: Perpendicular circle + its description', info.tile.tip === 'Perpendicular circle  W' && /^Pick a line or a circle, then two points/.test(info.tile.desc), info.tile);
-  ok('A1 the tile label «Orthogonal» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === 'Orthogonal' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
+  // (#35: the tool is the Perpendicular circle; its tile, too narrow for the word, reads ⊥ circle)
+  ok('A1 the tile label «⊥ circle» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === '⊥ circle' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
   await tool('perp');
   // (the left pane is 427 px wide at 1440, under 560: the chip names the tool by its tile text)
-  ok('A1 the chip before the curve', (await chipT()) === 'Pick a line or a circle · Orthogonal · Esc cancels', await chipT());
+  ok('A1 the chip before the curve', (await chipT()) === 'Pick a line or a circle · Perpendicular · Esc cancels', await chipT());
   // refusals before any curve is picked: empty space and a freehand curve give the toast, the draft stays; Esc
   const nA = (await ST()).list.length;
   const em = await W(-0.5, -1.2);
@@ -503,7 +504,7 @@ await section('D', async () => {
   ok('D phone: a tap 8 px off the circle picks it', d && d.curve1 && d.curve1.s === 'pc', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
   // (v16.5 fix user-6: "Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
-  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Orthogonal/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Perpendicular/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   const pp = await W(0.4, 0.3);
   await touch(pp[0] + 12, pp[1] - 9); await settle(200);
   d = (await CI()).draft;

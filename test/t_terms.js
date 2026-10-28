@@ -24,8 +24,8 @@ const RETIRED = {
 // ('Empty canvas' is also the first example's name, which the guide's Examples section names (#34): both of its
 // hits are that name; #35 part 2 settles whether the example is renamed)
 const KNOWN = {
-  'Region tools': 7, 'Add function or command': 4, 'Search functions and commands': 2, 'Append to the chain': 3,
-  'Reference guide': 4, 'Using the Workbench': 1, 'Clear the chain': 1, 'Empty canvas': 2, 'Orthogonal': 3, "'3 points'": 3,
+  'Region tools': 0, 'Add function or command': 0, 'Search functions and commands': 1, 'Append to the chain': 0,
+  'Reference guide': 2, 'Using the Workbench': 1, 'Clear the chain': 0, 'Empty canvas': 2, 'Orthogonal': 0, "'3 points'": 0,
 };
 const count = {}, where = {};
 for (const f of files) {

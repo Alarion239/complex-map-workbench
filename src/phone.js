@@ -410,7 +410,7 @@ const Phone = (() => {
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
-    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3 points')
+    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3-pt circle')
     else if (ic.dataset.ph !== 'more') { ic.innerHTML = els.moreIc; lab.textContent = els.moreLab; }
     ic.dataset.ph = extra ? id : 'more';
     if (kind === 'tools') fillTiles();
@@ -683,11 +683,11 @@ const Phone = (() => {
       sceneRows.push(row(I.copy, $t('Links, scenes and LaTeX'), () => { close(true); $('exportBtn').click(); }, true));
       figRows.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
     }
-    const searchRow = row(I.search, $t('Search functions and commands'), () => { close(true); $('cmdBtn').click(); });
+    const searchRow = row(I.search, $t('Search'), () => { close(true); $('cmdBtn').click(); });
     group($t('Scene'), row(I.add || OPEN, $t('New scene'), () => { close(true); A.newScene(); }), row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true), ...sceneRows);
     group($t('Figure'), row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true), ...figRows);
     group($t('Sound'), sndRow, hearRow);
-    group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Reference guide'), () => { close(true); A.openGuide(); }));
+    group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }));
     group($tx('menu group', 'Look'), seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
       seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
     const field = h('input', { class: 'ph-search', type: 'search', enterkeyhint: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: $t('Search tools, functions, help…'), 'aria-label': $t('Search tools, functions, help…') });

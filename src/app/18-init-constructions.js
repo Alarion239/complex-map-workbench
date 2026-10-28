@@ -462,7 +462,7 @@
     I18N.applyStatic($('app'));
     // the command field shows the short form (DESIGN.md 8.3); its aria-label keeps the whole phrase
     // (and «Поиск» where the header is short of room: page.html, review ui-9)
-    if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function or command')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function or command'))); } }
+    if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function'))); } }
     I18N.reveal();
     // the switch reloads only when the work was written and reads back (review i18n-3); while a tour holds the canvas
     // the saved state is the user's own work, and the tour's scenes are never stashed as undo history
@@ -776,11 +776,11 @@
         c.addEventListener('change', () => set(c.checked));
         return h('label', { class: 'check' }, c, h('span', null, label), h('span', { class: 'kbd' }, key));
       };
-      kids.push(sep($t('Panels')), panel($t('Region tools'), '[', !S.hideLeft, (v) => setPanels(!v, S.hideRight)), panel($t('Inspector'), ']', !S.hideRight, (v) => setPanels(S.hideLeft, !v)));
+      kids.push(sep($t('Panels')), panel($t('Draw'), '[', !S.hideLeft, (v) => setPanels(!v, S.hideRight)), panel($t('Inspector'), ']', !S.hideRight, (v) => setPanels(S.hideLeft, !v)));
       const mesh = $('meshGroup');
       if (mesh) kids.push(sep(''), mesh);   // (the fader names itself: Mesh quality)
       const help = (label, run) => h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); run(); } }, label);
-      kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Reference guide'), () => openGuide()),
+      kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Guide'), () => openGuide()),
         help($t('Keyboard shortcuts'), () => { openGuide(); const k = [...document.querySelectorAll('.modal h3')].find((x) => ['Keys', $t('Keys')].includes(x.textContent.trim())); if (k) k.scrollIntoView({ block: 'start' }); })));
       const pop = h('div', { class: 'pop opts-pop set-pop', role: 'dialog', 'aria-label': $t('Settings') }, ...kids);
       pop._onClose = () => { btn.setAttribute('aria-expanded', 'false'); const home = $('settingsHome'); if (mesh && home && mesh.parentNode === pop) home.append(mesh); };
@@ -960,7 +960,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(); requestRender('L', 'R', 'T'); });
     // v15: the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
-    { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Region tools'); }
+    { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
     Phone.init({
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },

@@ -126,7 +126,6 @@
  "nothing yet": "пока ничего",
  "Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.": "Рисуйте фигуры в X инструментами слева. Выберите фигуру или шаг цепочки, чтобы изменить его здесь.",
  "Add a function": "Добавить функцию",
- "Region tools panel": "Панель инструментов областей",
  "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Следующая или предыдущая область: верхняя панель, инструменты, X, Y, цепочка, Инспектор",
  "Move between the tools and the chain's cards": "Переход между инструментами и карточками цепочки",
  "Name of {label}": "Имя: %{label}",
@@ -215,5 +214,16 @@
  "Listening along the curve": "Слушаем вдоль кривой",
  "Undo pick": "Отменить выбор",
  "Used by {n}": "Используется: {n}",
- "Delete {label} and the {n} that use it": "Удалить {label} и зависимые от неё объекты ({n})"
+ "Delete {label} and the {n} that use it": "Удалить {label} и зависимые от неё объекты ({n})",
+ "phone tile\u0004Perpendicular": "Ортогон.",
+ "Insert at the end": "Вставить в конец",
+ "Draw panel": "Панель «Рисование»",
+ "3-pt circle": "По 3 точкам",
+ "\u22a5 circle": "\u041e\u0440\u0442\u043e\u0433\u043e\u00ad\u043d\u0430\u043b\u044c\u043d\u0430\u044f",
+ "Draw  [": "Рисование  [",
+ "Show or hide the Draw panel": "Показать или скрыть панель «Рисование»",
+ "field\u0004Add function": "Добавить функцию",
+ "field-short\u0004Add function": "Поиск",
+ "Display": "Оформление",
+ "Perpendicular": "Ортогональная"
 }
