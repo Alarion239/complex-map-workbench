@@ -129,10 +129,10 @@
     dropAllGPU();
     cauchyCache.key = '';
     applyLayout();
-    S.srcView = Object.assign({}, S.srcView);
+    setOpt('srcView', Object.assign({}, S.srcView));
     paneL.setView(S.srcView);
     clipWin = m && m.clipWin ? Object.assign({}, m.clipWin) : S.clipWin ? Object.assign({}, S.clipWin) : viewBox(S.srcView);
-    if (!S.clipWin && goodWin(clipWin)) S.clipWin = clipWin;   // (review v16 regress-6: saved from here on)
+    if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (review v16 regress-6: saved from here on)
     rebuild(); buildShapeList(); buildPipeline(); buildDisplay();
     setFocus(Math.min(S.focus || 0, S.steps.length));
     const xl = document.querySelector('#examplesBtn .exlabel');
@@ -173,16 +173,16 @@
   function tourSetLook(lk) {
     if (!lk || typeof lk !== 'object') return;
     const d0 = blankState();
-    if ('pattern' in lk) S.pattern = PATTERNS.some((p) => p[0] === lk.pattern) ? lk.pattern : d0.pattern;
-    if ('alpha' in lk) S.alpha = isNum(lk.alpha) ? Math.max(0.2, Math.min(1, lk.alpha)) : d0.alpha;
-    if ('height' in lk) S.height = ['log', 'abs', 're', 'im'].includes(lk.height) ? lk.height : d0.height;
-    if ('sheets' in lk) S.sheets = !!lk.sheets;
-    if ('phaseStyle' in lk) { S.dc = DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc; S.landPlain = false; cauchyCache.key = ''; }
-    if ('paths' in lk) { S.morphPaths = lk.paths !== false; const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
+    if ('pattern' in lk) setOpt('pattern', PATTERNS.some((p) => p[0] === lk.pattern) ? lk.pattern : d0.pattern);
+    if ('alpha' in lk) setOpt('alpha', isNum(lk.alpha) ? Math.max(0.2, Math.min(1, lk.alpha)) : d0.alpha);
+    if ('height' in lk) setOpt('height', ['log', 'abs', 're', 'im'].includes(lk.height) ? lk.height : d0.height);
+    if ('sheets' in lk) setOpt('sheets', !!lk.sheets);
+    if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
+    if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
     // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines: the harp's strings)
-    if ('phaseKey' in lk) S.wKey = !!lk.phaseKey;
-    if ('sectors' in lk) S.sectors = [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12;
+    if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
+    if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
     requestRender('L', 'R', 'T');
     save();
@@ -215,7 +215,7 @@
         const hNow = root.style.getPropertyValue('--chain-h'), short = (parseFloat(getComputedStyle($('stage')).getPropertyValue('--chain-h')) || 188) < 140;
         if (!S.compact && !short) return false;
         tourPics = { compact: !!S.compact, h: hNow };
-        S.compact = false;
+        setOpt('compact', false);
         if (short) root.style.setProperty('--chain-h', '188px');
         applyLayout(); requestRender('T');
         return true;
@@ -224,7 +224,7 @@
       const p = tourPics;
       tourPics = null;
       if (!S.compact) {
-        S.compact = p.compact;
+        setOpt('compact', p.compact);
         if (p.h) root.style.setProperty('--chain-h', p.h); else root.style.removeProperty('--chain-h');
         applyLayout(); requestRender('T');
       }

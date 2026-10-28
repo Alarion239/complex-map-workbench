@@ -11,7 +11,7 @@ const Examples = (() => {
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
     setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
-    pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets;
+    pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setOpt, deleteOpt;
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -51,9 +51,9 @@ const Examples = (() => {
     // is the X pane's box, which must have its new width (a merge or a split changes it)
     const ev = Views.migrate({ rightMode: ex.rightMode || 'image', sphereMode: ex.sphereMode, leftSphere: !!ex.leftSphere, material: ex.material, spherePlane: ex.spherePlane,
       dc: ex.dc || (A.S.dc === 'cauchy' ? blankState().dc : A.S.dc) });
-    A.S.view = ev.view;
-    A.S.dc = ev.dc;
-    A.S.landPlain = !!ev.landPlain;
+    setOpt('view', ev.view);
+    setOpt('dc', ev.dc);
+    setOpt('landPlain', !!ev.landPlain);
     // (a new scene: every view starts from its own fitted plane)
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
@@ -64,14 +64,14 @@ const Examples = (() => {
     applyLayout();
     // (the planes take their new height at once, as for a merge, not at the next ResizeObserver callback)
     if (laned && A.paneL && A.paneR) onPaneResize();
-    A.S.srcView = Object.assign({}, ex.view);
+    setOpt('srcView', Object.assign({}, ex.view));
     // an example's box that must be in view (a phone's narrow plane): its view's scale at most, centred on the box
     exFitTo(ex);
     A.paneL.setView(A.S.srcView);
     // (review v16 regress-6: the window goes into the state too, so a link, a scene file or an autosave made from the
     // example carries it, and the recipient meshes in the sender's window whatever the size of their pane)
     A.clipWin = viewBox(A.S.srcView);
-    A.S.clipWin = A.clipWin;
+    setOpt('clipWin', A.clipWin);
     dropAllGPU();
     A.selected = null;
     for (const sh of ex.shapes) {
@@ -81,7 +81,7 @@ const Examples = (() => {
       pushShape(ns);
     }
     for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
-    if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) A.S.homRange = { a: ex.range.a, b: ex.range.b }; else delete A.S.homRange;   // (v16)
+    if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');   // (v16)
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find((x) => x.listen);
     if (piece) snd.lastLoop = { pts: piece.pts, closed: false, sid: piece.id };
@@ -89,8 +89,8 @@ const Examples = (() => {
     // an example brings its own w-plane targets (none unless it says so)
     setTargets([]);
     if (ex.targets) for (const t of ex.targets) pushTarget(newShape(t.kind, JSON.parse(JSON.stringify(t)), true));
-    A.S.sheets = !!ex.sheets;
-    if (ex.height) A.S.height = ex.height;
+    setOpt('sheets', !!ex.sheets);
+    if (ex.height) setOpt('height', ex.height);
     cauchyCache.key = '';
     closePalette();
     rebuild();
@@ -375,7 +375,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

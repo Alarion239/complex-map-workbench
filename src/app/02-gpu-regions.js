@@ -188,7 +188,7 @@
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
   function shapeGPU(s) {
-    if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; S.clipWin = clipWin; }
+    if (!goodWin(clipWin)) { clipWin = viewBox(S.srcView); if (!goodWin(clipWin)) clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 }; setOpt('clipWin', clipWin); }
     let r = gpu.get(s.id);
     if (!r) { r = { fix: {} }; gpu.set(s.id, r); }
     const t = kindType(s);
@@ -328,7 +328,7 @@
   // at t = 0 as for a new focus (the play state is kept); saved unless a preview (a drag's snaps); not an undo step
   function setHomRange(r, opt = {}) {
     const before = rangeKey();
-    if (r && Number.isInteger(r.a) && Number.isInteger(r.b)) { const nr = HR.normal(r.a, r.b); if (nr) HR.write(S, nr); else delete S.homRange; } else delete S.homRange;
+    if (r && Number.isInteger(r.a) && Number.isInteger(r.b)) { const nr = HR.normal(r.a, r.b); if (nr) HR.write(S, nr); else deleteOpt('homRange'); } else deleteOpt('homRange');
     const after = rangeKey();
     if (before !== after || opt.force) {
       morph.T = 0; morph.seg = null; morph.u = 0;

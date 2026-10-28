@@ -288,7 +288,7 @@
     for (const [v, l, tip] of PATTERNS) {
       const cv = h('canvas', { width: 104, height: 80, 'aria-hidden': 'true' });
       const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-pat': v, 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
-        onclick: () => { S.pattern = v; buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
+        onclick: () => { setOpt('pattern', v); buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
@@ -343,7 +343,7 @@
   }
   function setSolo(which) {
     if (Views.merged(S.view, morphOn())) return; // a merged view is one panel: nothing to expand
-    S.solo = S.solo === which ? null : which;
+    setOpt('solo', S.solo === which ? null : which);
     applyLayout();
     save();
   }
@@ -420,7 +420,7 @@
   function setMesh(n) {
     n = Math.max(MESH_MIN, Math.min(MESH_MAX, Math.round(n)));
     if (n === S.meshN) return;
-    S.meshN = n;
+    setOpt('meshN', n);
     dropAllGPU();
     $('meshRange').value = meshToPos(n);
     showMeshVal(n);
@@ -467,7 +467,7 @@
     if (main !== 'land' && (main === 'phase' ? S.view.P.surf : S.view.L.surf) === 'sphere') prestartGlobe();
     cancelTweens();
     viewMem[from] = { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left), leftAuto, camL: camKeys(camL) };
-    S.view.main = main;
+    setViewOpt(null, 'main', main);
     const m = viewMem[main];
     if (m) {
       Object.assign(S.srcView, m.src); Object.assign(V.left, m.left); leftAuto = m.leftAuto;
@@ -488,8 +488,8 @@
   // U-b's Phase toggle, kept for the test hooks: on, the Phase view on X's surface; off, X → Y on the phase panel's
   function setPhase(on) {
     if (!!on === (S.view.main === 'phase')) return;
-    if (on) { if (S.view.main === 'xy') S.view.P.surf = S.view.L.surf; setMain('phase'); }
-    else { S.view.L.surf = S.view.P.surf; setMain('xy'); }
+    if (on) { if (S.view.main === 'xy') setViewOpt('P', 'surf', S.view.L.surf); setMain('phase'); }
+    else { setViewOpt('L', 'surf', S.view.P.surf); setMain('xy'); }
   }
   function viewChanged(side) {
     if (side === 'R') {
@@ -573,7 +573,7 @@
       hgt = Math.max(96, Math.min(r.height * 0.5, hgt));
       for (const snapTo of [96, 188]) if (Math.abs(hgt - snapTo) < 12) hgt = snapTo;
       document.documentElement.style.setProperty('--chain-h', Math.round(hgt) + 'px');
-      S.compact = hgt < 140; $('pipeline').classList.toggle('compact', S.compact); setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
+      setOpt('compact', hgt < 140); $('pipeline').classList.toggle('compact', S.compact); setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
     }, () => store('cmw-chain-h2', parseInt(getComputedStyle(stage).getPropertyValue('--chain-h')) || 188));
     const col = $('gutterCol');
     if (col) {
@@ -956,6 +956,7 @@
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
       setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets,
+      setOpt, deleteOpt,
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },
