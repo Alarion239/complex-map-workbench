@@ -1,7 +1,10 @@
 // #20 phase 3, step 5: the app's state S is written through named state functions (src/app/01-core.js, the state
 // section). This test reads the app's sources and fails on a direct write of what has been put behind them so far:
 // S itself is replaced by setState only (5a); the panes' hideLeft and hideRight are set by setHidden only (5b); the
-// chain's selection and focused step by setSel and setFocusStep only (5c). Node, no browser.
+// chain's selection and focused step by setSel and setFocusStep only (5c); the shapes, steps, targets and parameters
+// lists by setShapes, setSteps, setTargets, setParams, pushShape, pushStep, pushTarget, spliceSteps and setStepAt only
+// (5d); and nothing else in S is written outside the state section: the rest goes through setOpt, deleteOpt,
+// setViewOpt and takeId (5e). Node, no browser.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -28,5 +31,22 @@ const SEL_WRITE = /(^|[^\w$.])(A\.)?S\.(sel|focus)\s*([-+*]?=(?![=>])|\+\+|--)/;
 const sels = [];
 for (const [f, t] of files) for (const [n, l] of writes(t, SEL_WRITE)) if (!/function (setSel\(v\)|setFocusStep\(k\))/.test(l)) sels.push(`${f}:${n}: ${l.trim()}`);
 ok('S.sel and S.focus are set by setSel and setFocusStep only', sels.length === 0, sels);
+// (5d) the lists: replaced, or changed in place by an array method
+const LIST_WRITE = /(^|[^\w$.])(A\.)?S\.(shapes|steps|targets|params)(\s*=(?![=>])|\[[^\]]+\]\s*=(?![=>])|\.(push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)\(|\.length\s*=(?![=>]))/;
+const LIST_FNS = /function (setShapes|setSteps|setTargets|setParams|pushShape|pushStep|pushTarget|spliceSteps|setStepAt)\(/;
+const lists = [];
+for (const [f, t] of files) for (const [n, l] of writes(t, LIST_WRITE)) if (!LIST_FNS.test(l)) lists.push(`${f}:${n}: ${l.trim()}`);
+ok('the shapes, steps, targets and parameters lists are changed by their state functions only', lists.length === 0, lists);
+// (5e) the rest: no write of any part of S (an assignment, a compound one, ++ or --, delete) outside the state
+// section of src/app/01-core.js, from its first state function to takeId
+const app = appText(), a0 = app.indexOf('  function setState(next)'), a1 = app.indexOf('\n', app.indexOf('  function takeId()'));
+const ANY_WRITE = /(^|[^\w$.])(A\.)?S\.[a-zA-Z_$][\w$]*(\.[a-zA-Z_$][\w$]*|\[[^\]]+\])*\s*([-+*/%]?=(?![=>])|\+\+|--)|(\+\+|--|delete\s+)(A\.)?S\.[a-zA-Z_$]/;
+const rest = [];
+ok('the state section is found', a0 > 0 && a1 > a0);
+for (const [f, t] of files) {
+  const text = f === 'src/app.js' ? t.slice(0, a0) + '\n'.repeat(t.slice(a0, a1).split('\n').length - 1) + t.slice(a1) : t;
+  for (const [n, l] of writes(text, ANY_WRITE)) if (!/^\s*let S = null;/.test(l)) rest.push(`${f}:${n}: ${l.trim()}`);
+}
+ok('nothing in S is written outside the state section', rest.length === 0, rest);
 console.log(`t_state_writes: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

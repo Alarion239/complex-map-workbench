@@ -160,7 +160,7 @@ await view(1440, 900, false, false);
   await settle(400);
   await send('Emulation.setTouchEmulationEnabled', { enabled: false });
   info.u12 = { chip: await chipT(), x: await ev(`!!document.querySelector('#draftChipL .cm-x')`), tool: (await ST()).tool };
-  ok('U12 a tile tapped by touch: the chip has no "Esc cancels" and has a × before the curve', info.u12.tool === 'perp' && info.u12.chip === 'Pick a line or a circle · Orthogonal' && info.u12.x, info.u12);
+  ok('U12 a tile tapped by touch: the chip has no "Esc cancels" and has a × before the curve', info.u12.tool === 'perp' && info.u12.chip === 'Pick a line or a circle · Perpendicular' && info.u12.x, info.u12);
   await grab();
 }
 

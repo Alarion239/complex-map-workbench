@@ -1,4 +1,6 @@
-import json, pathlib, re
+import json
+import pathlib
+import re
 from tools.src_parts import source
 root = pathlib.Path(__file__).parent
 # UTF-8 and LF on every platform (Windows would read the locale's code page and write CRLF)

@@ -175,7 +175,8 @@ await section('P2', async () => {
   // More tools: every tile's name on one line and whole (learn UX93), the new Hyperbolic tile too («Гиперб.»)
   const more = await box('#secDraw .tool-more > summary');
   if (more) { await tap(...mid(more)); await settle(800); }
-  const tiles = await ev(`[...document.querySelectorAll('.ph-tile')].filter((t) => t.getClientRects().length).map((t) => { const l = t.querySelector('.ph-tl'); return { t: l.textContent, fits: l.scrollWidth <= t.clientWidth + 0.5, soft: /\\u00ad/.test(l.textContent), lines: Math.round(l.getBoundingClientRect().height / 12) }; })`);
+  const readTiles = () => ev(`[...document.querySelectorAll('.ph-tile')].filter((t) => t.getClientRects().length).map((t) => { const l = t.querySelector('.ph-tl'); return { t: l.textContent, fits: l.scrollWidth <= t.clientWidth + 0.5, soft: /\\u00ad/.test(l.textContent), lines: Math.round(l.getBoundingClientRect().height / 12) }; })`);
+  const tiles = await readTiles(); await ev(`Phone.tab('construct')`); await settle(300); tiles.push(...(await readTiles()));   // (Draw tab, then the Construct tab with Hyperbolic)
   info.P2 = { more: !!more, tiles };
   const hy = (tiles || []).find((x) => /Гиперб/.test(x.t));
   ok('P2 Russian phone: the Hyperbolic tile reads «Гиперб.», whole, on one line', hy && hy.t === 'Гиперб.' && hy.fits && !hy.soft && hy.lines === 1, info.P2);

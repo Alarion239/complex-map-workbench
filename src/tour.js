@@ -155,14 +155,14 @@ const Tour = (() => {
           body: 'Pick a tool and drag in X to add a shape. The same tools in Y add a target in $w$ instead.',
           try: { text: 'Choose Disc, then drag in X.', on: 'shape-added', then: 'Y shows its image under $F$.' } },
         // (tryWide: on a phone the list and X are a screen apart, so the drag is not asked for there)
-        { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', before: [['tool', 'select'], ['panel', 'left', 'tools']], tryWide: true,
+        { id: 'shapes', anchor: 'shapes', also: ['paneL'], title: 'Your shapes', before: [['tool', 'select'], ['panel', 'left', 'tools:shapes']], tryWide: true,
           lead: 'Each shape is listed with its equation.',
           body: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select {V}, drag a shape or a handle and the image follows; {mod}{Z} undoes.',
           touch: 'Each shape is listed with its equation; the eye hides it and ⋯ has the rest: duplicate, delete, integrate. With Select, drag a shape or a handle and the image follows.',
           try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved', ctl: ['tool:select'], then: 'Y followed the line as you dragged it.' } },
         // (r3 review user-2: the task on a phone too, where the step's tools sheet holds the field and Add; its example is
         // not the field's placeholder, which reads like a filled field)
-        { id: 'formula', anchor: 'formula', also: ['paneL'], title: 'Sets from formulas', before: [['panel', 'left', 'tools']],
+        { id: 'formula', anchor: 'formula', also: ['paneL'], title: 'Sets from formulas', before: [['panel', 'left', 'tools:shapes']],
           body: 'Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
           // (v16.5 UX17: a phone's words for the places and gestures, here and below)
           touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
@@ -248,15 +248,15 @@ const Tour = (() => {
       steps: [
         // (v16.1: the Circle through 3 points tool itself; on a phone the More tools sheet opens with its tile, and once
         // it is picked the More key, which then shows it, is lit)
-        { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools']],
+        { id: 'c3', anchor: 'tool:circle3', also: ['paneL'], live: true, title: 'Circle through three points', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'L'], ['panel', 'sheet', 'tools:construct']],
           body: 'Pick three points: points already on the page, crossings, or empty spots. The circle and its disc follow them.',
-          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', then: 'Its three points are its handles now.' } },
+          try: { text: 'Choose Circle through 3 points and click $z_0$, $z_1$, $z_2$.', touch: 'Choose Circle through 3 points in More, then tap $z_0$, $z_1$, $z_2$.', on: 'construct-added', test: (e) => !e || e.op === 'circle3', work: ['ctxUndo'], then: 'Its three points are its handles now.' } },
         // (after: the drag needs the circle c3 makes; without it the step is read)
         { id: 'follow', anchor: 'paneL', title: 'It follows its points', before: [['tool', 'select'], ['plane', 'L']],
           lead: 'Drag $z_2$ across the line: the disc changes family.',
           body: 'Drag $z_2$ across the line through $z_0$ and $z_1$: the disc becomes a half-plane, then the outside of the circle. Its image under $1/z$ follows.',
           try: { text: 'Drag $z_2$ across the line.', on: 'construct-family', test: (e) => !e || e.kind === 'halfplane' || e.kind === 'complement', ctl: ['tool:select'], after: 'c3', then: 'Disc, half-plane, outside: one family, and Y followed.' } },
-        { id: 'meet', anchor: 'paneL', title: 'Intersections', before: [['plane', 'L'], ['panel', 'sheet', 'tools']],
+        { id: 'meet', anchor: 'paneL', title: 'Intersections', before: [['plane', 'L'], ['panel', 'sheet', 'tools:construct']],
           body: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Hold Alt to place freely; Intersect marks a crossing.',
           touch: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.',
           try: { text: 'Draw a line from a crossing.', on: 'shape-added', test: (e) => !e || !!e.bound, ctl: ['tool:line'], then: 'Its end is tied to the crossing and follows it.' } },
@@ -379,11 +379,11 @@ const Tour = (() => {
         { id: 'palette', anchor: ['palette', 'moreBtn'], title: 'Command palette',
           body: 'Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.',
           narrow: 'Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.',
-          try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Search functions and commands.', on: 'palette-opened' } },
+          try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Search.', on: 'palette-opened' } },
         { id: 'help', anchor: ['helpBtn', 'moreBtn'], title: 'Help is here',
           lead: 'The tour by chapter, the guide and every shortcut.',
-          body: 'This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.',
-          narrow: 'Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.' },
+          body: 'This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.',
+          narrow: 'Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.' },
       ],
     },
   ];
@@ -417,6 +417,8 @@ const Tour = (() => {
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
     formula: '#secFormula', shapes: '#secShapes',
+    // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
+    ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
     // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
     // or the button; on a phone the Display sheet's section)
     display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
@@ -897,6 +899,7 @@ const Tour = (() => {
 .ts-tdn svg { width: 11px; height: 11px; vertical-align: -1px; color: var(--accent); transition: rotate var(--t-fast, 120ms) var(--ease-out, ease-out); }
 .ts-l2 { display: flex; align-items: flex-start; gap: 6px; min-width: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); }
 .ts-lead { flex: 1 1 auto; min-width: 0; text-wrap: pretty; }
+.ts-lead:has(mjx-container) { padding-bottom: 2px; } /* an inline formula (sized in ex) stands a pixel or two below the line: the lead's box holds it */
 .ts-tin { display: none; font-weight: 600; color: var(--ink); }
 .ts-lead mjx-container { font-size: 104% !important; color: var(--ink); }
 .ts-ring { flex: 0 0 13px; width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--accent); box-sizing: border-box; display: grid; place-items: center; }
@@ -3021,7 +3024,7 @@ const Tour = (() => {
     if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
     const keys = !phone();
-    if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
+    if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
     if (keys && !chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
     const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': $t('Help'), 'data-tour': 'menu' }, ...kids);
     const host = document.getElementById('popHost') || document.body;

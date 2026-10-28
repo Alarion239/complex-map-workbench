@@ -36,6 +36,7 @@ const Commands = (() => {
     // [issue #4] (the aliases are searched in every language: the Greek letters and the plain names too)
     gamma: [$t('Meromorphic; poles at 0, −1, −2, …; Γ(n + 1) = n!'), $t('gamma Γ factorial euler special function')],
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
+    series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
     poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
     rational: [$t('Quotient of two polynomials'), $t('rational p/q')],
@@ -62,7 +63,7 @@ const Commands = (() => {
     const n = A.S.steps.length;
     if (!ctx || !palState || n < 1) return;
     const at0 = palState;
-    const label = (at) => (at <= 0 ? $t('Insert at the start') : at >= n ? $t('Append to the chain') : $t('Insert after f{x}', { x: sub(at) }));
+    const label = (at) => (at <= 0 ? $t('Insert at the start') : at >= n ? $t('Insert at the end') : $t('Insert after f{x}', { x: sub(at) }));
     // (a press keeps the focus, and the phone's keyboard, in the search field)
     const chip = h('button', { class: 'pal-at', type: 'button', onpointerdown: (e) => e.preventDefault(), onmousedown: (e) => e.preventDefault() });
     const paint = () => {
@@ -227,7 +228,7 @@ const Commands = (() => {
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
         ...(ql ? Palette.LIST.map(([id]) => [$t('Phase colours: {name}', { name: PAL_NAMES()[id][0] }), () => setPalette(id), '', 'palette, colours, colors, цвета, палитра, colori, arb, chrome']) : []),
-        [$t('Region tools panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
+        [$t('Draw panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(A.S.hideLeft, !A.S.hideRight), ']'],
         // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
         ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, lingua, russian, русский, english, английский, italian, italiano'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, lingua, english, английский, inglese', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, lingua, russian, русский, russo', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })], [$t('Language: {name}', { name: 'Italiano' }), () => pickLang('it'), '', 'language, язык, lingua, italian, итальянский, italiano', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'it' }, 'Italiano') })]] : []),
@@ -236,7 +237,7 @@ const Commands = (() => {
       const acts = [
         [$t('Undo'), () => $('undoBtn').click(), '⌘Z'],
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
-        [$t('Clear the chain'), () => $('clearChain').click(), ''],
+        [$t('Clear chain'), () => $('clearChain').click(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
         // ([UX54] names are kept when others are deleted: these make them tidy again)
         [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
@@ -373,7 +374,7 @@ const Commands = (() => {
     closePalette();
     const explicit = at != null;
     const insertAt = explicit ? at : (A.S.focus > 0 ? A.S.focus : A.S.steps.length);
-    const ctxText = explicit ? (at === 0 ? $t('Insert at the start') : $t('Insert after f{x}', { x: sub(at) })) : (A.S.focus > 0 ? $t('Insert after f{x}', { x: sub(A.S.focus) }) : $t('Append to the chain'));
+    const ctxText = explicit ? (at === 0 ? $t('Insert at the start') : $t('Insert after f{x}', { x: sub(at) })) : (A.S.focus > 0 ? $t('Insert after f{x}', { x: sub(A.S.focus) }) : $t('Insert at the end'));
     const input = h('input', { class: 'pal-input', id: 'palInput', placeholder: opt.fnOnly ? $t('Search functions, or type a formula in z') : $t('Search functions, regions, examples, commands'), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': $t('Search'), role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palList' });
     const list = h('div', { class: 'pal-list', role: 'listbox', id: 'palList' });
     const pvCanvas = h('canvas', { width: 368, height: 368 });
@@ -396,7 +397,7 @@ const Commands = (() => {
     const target = Math.max(1, Math.min(n0, opt.replace || insertAt));
     palState = { at: insertAt, before: explicit ? at : (A.S.focus > 0 ? A.S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0, mode, modes, target };
     const fx = (t) => t.replace(/f([₀-₉]+)/, (m, d) => `<i>f</i><sub>${[...d].map((c) => SUB.indexOf(c)).join('')}</sub>`);
-    const atText = (a) => (a <= 0 ? $t('Insert at the start') : a >= n0 ? $t('Append to the chain') : $t('Insert after f{x}', { x: sub(a) }));
+    const atText = (a) => (a <= 0 ? $t('Insert at the start') : a >= n0 ? $t('Insert at the end') : $t('Insert after f{x}', { x: sub(a) }));
     const whereText = (m) => (m === 'replaceF' ? $t('Replace F') : m === 'replace' ? $t('Replace f{x}', { x: sub(target) }) : document.documentElement.classList.contains('ph') ? $t('Insert') : atText(palState.at));
     const where = modes.length > 1 ? h('button', { class: 'pal-ctx pal-where', type: 'button', onpointerdown: (e) => e.preventDefault(), onmousedown: (e) => e.preventDefault(), onclick: () => { cycleWhere(1); input.focus({ preventScroll: true }); } }) : null;
     const paintWhere = () => {

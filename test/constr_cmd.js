@@ -83,7 +83,7 @@ await section('A', async () => {
   await move(a[0] + 3, a[1] - 2); await settle(80);
   const r0 = await CI();
   ok('hover: the ring is on z₀ with the chip "on z₀"', r0.ring && r0.ring.cls === 'point' && r0.ring.chip === 'on z₀', r0.ring);
-  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3 points · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
+  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3-pt circle · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -407,8 +407,9 @@ await section('E', async () => {
   await settle(1200);
   const more = await center('#toolMore > summary');
   await touch(more[0], more[1]); await settle(500);
-  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles > *')].map((e) => e.tagName === 'H3' ? '#' + e.textContent : e.dataset.tool)`);
-  ok('phone: More tools has the Construct heading and six tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
+  await ev(`Phone.tab('construct')`); await settle(200);   // (the Construct tools are on their own tab of the Tools sheet)
+  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles[data-tab="construct"] > .ph-tile')].map((e) => e.dataset.tool)`);
+  ok('phone: More tools has the Construct tab with its six tiles', (info.phTiles || []).join().includes('circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
   await shot('cm-p390-more');
   const t3 = await center('.ph-tiles .ph-tile[data-tool="circle3"]');
   await touch(t3[0], t3[1]); await settle(600);
@@ -432,6 +433,7 @@ await section('E', async () => {
   await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
+  await ev(`Phone.tab('construct')`); await settle(200);
   info.phTilesRu = await ev(`[...document.querySelectorAll('.ph-tiles .ph-tile .ph-tl')].slice(-4).map((s) => [s.textContent, s.scrollWidth <= s.clientWidth + 1])`);
   await shot('cm-p390-more-ru');
   await send('Emulation.setUserAgentOverride', { userAgent: ua0 });
