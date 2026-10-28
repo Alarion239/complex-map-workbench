@@ -13,8 +13,9 @@ name: Gate
 
 on:
   pull_request:
-    # (labeled: the label full-gate runs the whole gate on any pull request; another label restarts the run in its tier)
-    types: [opened, synchronize, reopened, labeled]
+    # (labeled: the label full-gate runs the whole gate on any pull request; another label restarts the run in its tier.
+    # ready_for_review: a pull request into main runs the whole gate once it is not a draft)
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
   push:
     branches: [main]
   # the nightly whole gate (on main, against the previous main)
@@ -59,6 +60,7 @@ jobs:
       reference: ${{ steps.ref.outputs.reference }}
       shards: ${{ steps.shards.outputs.shards }}
       tier: ${{ steps.tier.outputs.tier }}
+      why: ${{ steps.tier.outputs.why }}
       browser: ${{ steps.tier.outputs.browser }}
       glsl: ${{ steps.tier.outputs.glsl }}
       quality: ${{ steps.tier.outputs.quality }}
@@ -101,18 +103,23 @@ jobs:
       - name: Browser shards (every suite in exactly one)
         run: node ci/browser_shards.js check
       # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
-      # nightly run, a run by hand and the label full-gate run everything
+      # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
+      # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
+      # tier
       - id: tier
         name: Tier
         shell: bash
         env:
           FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full-gate') }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BASE: ${{ github.event.pull_request.base.ref }}
           REF: ${{ steps.ref.outputs.reference }}
         run: |
           set -eu
           full=''
           if [ "${{ github.event_name }}" != pull_request ]; then full="${{ github.event_name }}"
-          elif [ "$FULL_LABEL" = true ]; then full="the label full-gate"; fi
+          elif [ "$FULL_LABEL" = true ]; then full="the label full-gate"
+          elif [ "$BASE" = main ] && [ "$DRAFT" != true ]; then full="a pull request into main, ready for review"; fi
           if [ -n "$full" ]; then node ci/impact.js --ref "$REF" --full "$full" --github; else node ci/impact.js --ref "$REF" --github; fi
 
   unit:
@@ -290,12 +297,15 @@ jobs:
         shell: bash
         env:
           TIER: ${{ needs.plan.outputs.tier }}
+          WHY: ${{ needs.plan.outputs.why }}
+          BROWSER: ${{ needs.plan.outputs.browser }}
           SEL_GLSL: ${{ needs.plan.outputs.glsl != '[]' }}
           SEL_QUALITY: ${{ needs.plan.outputs.quality != '[]' }}
           SEL_BROWSER: ${{ needs.plan.outputs.browser != '[]' }}
         run: |
           set -u
           echo "tier ${TIER:-?}, plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}, browser ${{ needs.browser.result }}"
+          printf '**Tier %s**: %s\n\nBrowser shards: %s\n' "${TIER:-?}" "${WHY:-}" "${BROWSER:-[]}" >> "$GITHUB_STEP_SUMMARY"
           bad=0
           [ "${{ needs.plan.result }}" = success ] || { echo "::error::plan: ${{ needs.plan.result }}"; bad=1; }
           [ "${{ needs.unit.result }}" = success ] || { echo "::error::unit: ${{ needs.unit.result }}"; bad=1; }

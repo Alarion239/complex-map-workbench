@@ -257,7 +257,9 @@ if (require.main === module) {
   const plan = select(files, { full: opt('--full'), sameBuild: same });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
   else if (argv.includes('--github')) {
-    const out = [`tier=${plan.tier}`, `browser=${JSON.stringify(plan.browser)}`, `glsl=${JSON.stringify(plan.glsl)}`, `quality=${JSON.stringify(plan.quality)}`, `perf=${plan.perf}`];
+    // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)
+    const why = plan.full ? plan.why.join('; ') : plan.reasons.map((r) => `${r.path}: ${r.effect}`).join('; ');
+    const out = [`tier=${plan.tier}`, `why=${why.replace(/[\r\n]+/g, ' ').slice(0, 4000)}`, `browser=${JSON.stringify(plan.browser)}`, `glsl=${JSON.stringify(plan.glsl)}`, `quality=${JSON.stringify(plan.quality)}`, `perf=${plan.perf}`];
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n');
     console.log(out.join('\n'));
     console.log(format(plan, false));

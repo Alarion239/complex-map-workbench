@@ -110,8 +110,8 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
 - **Each issue is a small PR** with its tier: the Gate runs only the jobs the change can affect
   ([ci/README.md, CI tiers](ci/README.md#ci-tiers)): unit tests always, the browser suites of the areas a UI change
   touches, GLSL, image quality and the perf suite's checks for a change to the renderer or the maths.
-- **PRs merge in waves.** Each goes into an integration branch; one wave PR from that branch into `main` carries the
-  label `full-gate` and runs the whole gate (unit tests, the browser suites, GLSL tests on Direct3D 11 and Metal, the
+- **PRs merge in waves.** Each goes into an integration branch; one wave PR from that branch into `main`, a draft until
+  the wave is complete, runs the whole gate once it is marked ready for review (unit tests, the browser suites, GLSL tests on Direct3D 11 and Metal, the
   quality suite, the perf suite's checks).
 - **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Windows
   laptop and Mac: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.

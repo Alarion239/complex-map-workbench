@@ -34,15 +34,15 @@ by two 34-minute jobs on Windows: the `inverse` page (one seeded sequence, not s
 ## CI tiers
 
 Agents' pull requests merge in **waves**: each goes into an integration branch, and one wave pull request from that
-branch into `main` carries the label `full-gate` and runs the whole gate. So a pull request runs only what it can
-affect. The plan job's **Tier** step (`ci/impact.js`) reads the files changed since the reference and picks the jobs:
+branch into `main` runs the whole gate once it is marked ready for review (or carries the label `full-gate`). So a
+pull request runs only what it can affect. The plan job's **Tier** step (`ci/impact.js`) reads the files changed since the reference and picks the jobs:
 
 | tier | for | what runs |
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
 | **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
-| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, `src/app.js`, `src/gl.js`, `build.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
+| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app.js`, `src/gl.js`, `build.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
   first row whose pattern matches a path decides what it selects. A test helper or fixture selects the suites and
@@ -54,6 +54,11 @@ affect. The plan job's **Tier** step (`ci/impact.js`) reads the files changed si
 - **The summary** of the plan job shows the tier, each changed path with the row that matched and what it selected,
   the jobs that run, and what was skipped. The **Gate** job passes when every job the plan chose passed and the rest
   were skipped.
+- **A wave PR** (the integration branch into `main`) can stay open as a **draft**: a draft runs its tier like any
+  other pull request; marking it *ready for review* (the workflow listens to `ready_for_review`) runs the whole gate,
+  and so does every later push while it is not a draft.
+- **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
+  `browser` (the shards) are also in the **Gate** job's summary.
 - **The label `full-gate`** on a pull request forces T3 (the workflow listens to `labeled`, so adding it starts the
   whole gate at once; adding another label restarts the run in its tier).
 
