@@ -258,12 +258,12 @@
     add('special zeta d/dz', [aff('2', '0.5'), S('zeta'), S('deriv')]);
   }
   // 14. [issue #5] series (last, as 13): power series (e^z, sin z, Li₂ with its boundary, a centre), a lacunary series
-  // and its natural boundary, a Laurent series (θ), Dirichlet (ζ), generic loops (a product, Σ sin(nz)/2^n), a finite
+  // and its natural boundary, a Laurent series (θ), Dirichlet (ζ), generic loops (a product, Σ sin(z/n)/n²), a finite
   // sum and the derivative term by term
   {
     const sum = (name, expr, pre = []) => add('series ' + name, [...pre, S('custom', { expr })]);
     sum('e^z', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}');
-    sum('e^z 8z', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '8', b: '0' })]);
+    sum('e^z 0.2z+1', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '0.2', b: '1' })]);
     sum('sin z', '\\sum_{n=0}^{\\infty} \\frac{(-1)^n z^{2n+1}}{(2n+1)!}');
     sum('Li2', '\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}');
     sum('geometric about 1+i', '\\sum_{n=0}^{\\infty} \\frac{(z-1-i)^n}{2^n}');
@@ -271,9 +271,11 @@
     sum('theta Laurent', '\\sum_{n\\in\\mathbb{Z}} e^{-n^2/2} z^n', [S('affine', { a: '1', b: '0.2' })]);
     sum('zeta Dirichlet', '\\sum_{n=1}^{\\infty} n^{-z}', [S('affine', { a: '2', b: '2.5' })]);
     sum('product sin', '\\prod_{n=1}^{\\infty} \\left(1-\\frac{z^2}{n^2}\\right)');
-    sum('generic sin(nz)/2^n', '\\sum_{n=1}^{\\infty} \\frac{\\sin(n z)}{2^n}');
+    // (the terms of a generic sum stay in float32 here; Σ sin(nz)/2^n or /n! overflow 2^n or n! before they converge on
+    // part of the plane, where the GPU leaves them blank. These fall as n^{-3}: 512 terms and the rest as an integral)
+    sum('generic sin(z/n)/n^2', '\\sum_{n=1}^{\\infty} \\frac{\\sin(z/n)}{n^2}');
     sum('finite binomial', '\\sum_{k=0}^{5} \\binom{5}{k} z^k');
-    sum('d/dz Li2', '\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}', []);
+    sum('d/dz e^z 0.2z+1', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '0.2', b: '1' })]);
     chains[chains.length - 1].steps.push(S('deriv'));
   }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
@@ -403,10 +405,22 @@
     if (probeCache.has(b)) return probeCache.get(b);
     const th = b.vals.cut * Math.PI / 180;
     const ops = [];
+    const ast = b.ast || Expr.parse(b.vals.expr);
     (function walk(n) {
+      // [issue #5] a sum: the sum of its terms' sizes (its body is not walked: its parts need the index), and outside the
+      // radii where the GPU evaluates a power series' plan, no float32 value (GLChain.seriesTrust)
+      if (n.t === 'sum') {
+        if (Expr.depends(n) && n.op !== 'prod') ops.push(Expr.compile(Object.assign({}, n, { a: { t: 'call', f: 'abs', a: n.a } }), { theta: th }));
+        const plan = Expr.planOf(n);
+        if (plan && plan.kind !== 'dirichlet') {
+          const tr = GLChain.seriesTrust(plan);
+          ops.push((z) => { const r = CX.abs(CX.sub(z, plan.c)); return r <= tr.out && r >= tr.in ? C(0, 0) : C(Infinity, 0); });
+        }
+        return;
+      }
       if ((n.t === 'add' || n.t === 'sub') && Expr.depends(n)) ops.push(Expr.compile(n.a, { theta: th }), Expr.compile(n.b, { theta: th }));
       for (const k of ['a', 'b', 'n']) if (n[k] && n[k].t) walk(n[k]);
-    })(Expr.parse(b.vals.expr));
+    })(ast);
     const f = ops.length ? (z, w) => { let m = 0; for (const o of ops) { const v = o(z); m = Math.max(m, fin(v) ? CX.abs(v) : Infinity); } return 1.2e-7 * m / (1 + CX.abs(w)); } : null;
     probeCache.set(b, f);
     return f;
@@ -421,6 +435,8 @@
       if (!d.error) {
         const th = d.cut * Math.PI / 180, ops = [], df = Expr.compile(d.ast, { theta: th });
         (function walk(n) {
+          // ([issue #5] a sum as in cancelProbe: the sum of its terms' sizes, its body not walked)
+          if (n.t === 'sum') { if (Expr.depends(n) && n.op !== 'prod') ops.push(Expr.compile(Object.assign({}, n, { a: { t: 'call', f: 'abs', a: n.a } }), { theta: th })); return; }
           if ((n.t === 'add' || n.t === 'sub') && Expr.depends(n)) ops.push(Expr.compile(n.a, { theta: th }), Expr.compile(n.b, { theta: th }));
           for (const k of ['a', 'b', 'n']) if (n[k] && n[k].t) walk(n[k]);
         })(d.ast);

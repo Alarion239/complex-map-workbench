@@ -354,19 +354,32 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
   // [issue #5] a series on the GPU: SER_GPU terms of a power or Dirichlet series in uniforms (half each way for a
-  // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable
-  const SER_GPU = 96, SER_GPU_LOOP = 128;
+  // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable (as many as the CPU takes, so both
+  // stop at the same point and agree where the series converges slowly)
+  const SER_GPU = 96, SER_GPU_LOOP = 512;
+  // the terms' float32 rounding (about 1.2e-7 of the sum of their sizes M) above 5e-4 of 1 + |S|: cancelled (the GLSL
+  // test skips the same points: its cancellation probe)
+  const SER_CANCEL = (M, S) => `${M} * 1.2e-7 > 5e-4 * (1.0 + cx_abs(${S}))`;
   // the trusted radius of one side of a power series (sg 1: |w| ≤ r; sg −1: |w| ≥ r) with ng terms kept: past it the
-  // terms dropped (up to the CPU's) exceed 1e-6 of those kept, in logs; never past the radius of convergence R
+  // terms dropped (up to the CPU's) exceed 1e-6 of those kept, or the terms exceed 1e18, in logs; never past the radius
+  // of convergence R
   function trustedR(sd, sg, ng, R) {
     const e = sd.e.map((x) => x * sg), la = sd.a.map((a) => Math.log(CX.abs(a)));
     const conv = sg > 0 ? R : (R > 0 ? 1 / R : Infinity);
     if (sd.done && sd.a.length <= ng) return sg > 0 ? Infinity : 0;
+    // coefficients that underflowed to 0 in float64 after the last finite ones (1/(2n+1)! past n = 85) are not 0: their
+    // logs continue the line through the last two finite ones (an overestimate where they fall faster than geometric)
+    const fi = la.map((x, k) => (Number.isFinite(x) ? k : -1)).filter((k) => k >= 0);
+    if (!sd.done && fi.length >= 2 && fi[fi.length - 1] < la.length - 1) {
+      const k1 = fi[fi.length - 2], k2 = fi[fi.length - 1], sl = (la[k2] - la[k1]) / (e[k2] - e[k1]);
+      for (let k = k2 + 1; k < la.length; k++) la[k] = la[k2] + sl * (e[k] - e[k2]);
+    }
     const lse = (x, y) => (x === -Infinity ? y : y === -Infinity ? x : Math.max(x, y) + Math.log1p(Math.exp(-Math.abs(x - y))));
     const ok = (lr) => {
       let head = -Infinity, tail = -Infinity;
       for (let k = 0; k < la.length; k++) { if (la[k] === -Infinity) continue; const v = la[k] + e[k] * lr; if (k < ng) head = lse(head, v); else tail = lse(tail, v); }
-      return tail <= head + Math.log(1e-6);
+      // (and float32 holds the terms there, and their squares: |b| above 1e18 overflows cx_abs)
+      return tail <= head + Math.log(1e-6) && head <= Math.log(1e18);
     };
     let lo = -60, hi = Math.log(Math.min(conv, 1e12));
     if (!(hi > lo)) return sg > 0 ? 0 : Infinity;
@@ -374,6 +387,11 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
     else for (let i = 0; i < 50; i++) { const m = 0.5 * (lo + hi); if (ok(m)) lo = m; else hi = m; }
     const r = lo <= -60 ? 0 : Math.exp(lo);
     return sg > 0 ? r : (r > 0 ? 1 / r : Infinity);
+  }
+  // the radii between which the GPU evaluates a power or Laurent series' plan: {out, in}
+  function seriesTrust(plan) {
+    const two = plan.up && plan.down, NG = two ? SER_GPU / 2 : SER_GPU;
+    return { out: plan.up ? trustedR(plan.up, 1, NG, plan.R) : Infinity, in: plan.down ? trustedR(plan.down, -1, NG, plan.r) : 0 };
   }
   // ---- custom formulas: mirror Expr.compile ----
   function genCustom(ast, P, A, TH, writers, lines, shape = []) {
@@ -427,13 +445,12 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       const S = `${id}_S`, M = `${id}_M`;
       out.push(`  vec2 ${S} = ${parts.map((x) => x.H).join(' + ')}; float ${M} = ${parts.map((x) => x.M).join(' + ')};
   float ${id}_aw = cx_abs(${id}_w);
-  if (!(${id}_aw <= ${rho.x}) || !(${id}_aw >= ${rho.y}) || ${M} > 1e3 * cx_abs(${S})) ${S} = ${NAN};`);
+  if (!(${id}_aw <= ${rho.x}) || !(${id}_aw >= ${rho.y}) || ${SER_CANCEL(M, S)}) ${S} = ${NAN};`);
       writers.push((put) => {
         put(geo.c, plan.c.re, plan.c.im);
-        let rOut = Infinity, rIn = 0;
+        const tr = seriesTrust(plan), rOut = tr.out, rIn = tr.in;
         for (const x of slots) {
-          const t = trustedR(x.sd, x.sg, NG, x.sg > 0 ? plan.R : plan.r);
-          if (x.sg > 0) rOut = t; else rIn = t;
+          const t = x.sg > 0 ? rOut : rIn;
           // the scale: the trusted radius (1 for a series without one, or one past float32)
           const sc = Number.isFinite(t) && t > 1e-30 && t < 1e30 ? t : 1;
           put(x.sc.c, sc, 0);
@@ -442,12 +459,15 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
           for (let k = 0; k < NG; k++) {
             const a = x.sd.a[k], c = x.s0.c + 2 * k;
             if (!a || k >= e.length) { put(c, 0, 0); put(c + 1, 0, 0); continue; }
-            const m = CX.abs(a), lm = Math.log(m) + e[k] * Math.log(sc), b = m > 0 && lm > -700 && lm < 700 ? CX.scale(a, Math.exp(lm) / m) : C(0, 0);
+            // (outside u = w/s: b_k = a_k s^{e_k}; inside u = s/w: b_k = a_k s^{−e_k})
+            const m = CX.abs(a), lm = Math.log(m) + e[k] * x.sg * Math.log(sc), b = m > 0 && lm > -700 && lm < 700 ? CX.scale(a, Math.exp(lm) / m) : C(0, 0);
             put(c, Math.fround(b.re) || 0, Math.fround(b.im) || 0);
             put(c + 1, x.h ? 0 : e[k] - (k ? e[k - 1] : 0), 1);
           }
         }
-        put(rho.c, Math.min(rOut, 3e38), rIn);
+        // (in float32 rounded inwards: a radius just below 1 must not become 1, the natural boundary of Σ z^{2^n})
+        const f32 = (x, up) => { const f = Math.fround(x); return f === x || !Number.isFinite(f) ? f : (f > x) === up ? f : f + (up ? 1 : -1) * Math.max(Math.abs(f), 1e-38) * 1.2e-7; };
+        put(rho.c, f32(Math.min(rOut, 3e38), false), f32(rIn, true));
       });
       return S;
     }
@@ -465,7 +485,7 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   { vec4 g = ${g1.v}; float sp = z.x - (g.x - 1.0);
     if (g.y > 0.5) ${S} += cmul(${aT.v}, cdiv(cexp((vec2(1.0, 0.0) - z) * log(g.z + 0.5)), z - vec2(1.0, 0.0)));
     else if (!(g.w * pow(g.z, 1.0 - sp) / (sp - 1.0) <= 1e-4 * cx_abs(${S}))) ${S} = ${NAN};
-    if (!(z.x > g.x + 1e-6) || ${M} > 1e3 * cx_abs(${S})) ${S} = ${NAN}; }`);
+    if (!(z.x > g.x + 1e-6) || ${SER_CANCEL(M, S)}) ${S} = ${NAN}; }`);
       writers.push((put) => {
         const K = Math.min(plan.a.length, NG), lo = Math.round(Math.exp(plan.L[0]));
         const tail = plan.a.slice(Math.max(0, K - 16), K), last = tail[tail.length - 1];
@@ -498,23 +518,29 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         let t;
         try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
         const lim = dir > 0 ? `${k} > ${id}_hi` : `${k} < ${id}_lo`, inf = dir > 0 ? `${id}_hi > 1e30` : `${id}_lo < -1e30`;
-        // (at the cap: terms falling as k^{-p}, p > 1.5 from the terms at N/2 and N, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1),
-        // added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
-        out.push(`  { int run = 0; bool done = false; float mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0; vec2 tl = vec2(0.0);
+        // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
+        // and the same over both halves, leave
+        // the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
+        out.push(`  { int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
   for (int j = 0; j < ${SER_GPU_LOOP}; j++) {
     float ${k} = ${from} ${dir > 0 ? '+' : '-'} float(j);
     if (${lim}) { done = true; break; }
 ${inner.map((x) => '  ' + x).join('\n')}
     vec2 t = ${t};
-    ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u);` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
-    if (j == ${SER_GPU_LOOP / 2 - 1}) { mh = d; kh = abs(${k}); }
-    tl = u; dl = d; kl = abs(${k});
+    ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
+    if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
+    if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
+    if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
+    tl = u; kl = abs(${k});
+    // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
+    if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
+    if (d > 0.0) dz = d;
     if (${inf} && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
   }
-  if (!done && ${inf} && dl > 0.0 && mh > dl && kl > kh && kh > 0.0) {
-    float p = log(mh / dl) / log(kl / kh);
+  if (!done && ${inf} && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
+    float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
     vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
-    if (p > 1.5 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
+    if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
   }
   if (!done) ${OK} = false; }`);
       };
@@ -525,7 +551,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
       out.push('  } else {');
       run(`${id}_lo`, 1);
       out.push('  }');
-      out.push(`  if (!${OK}${prod ? '' : ` || ${M} > 1e3 * cx_abs(${S})`}) ${S} = ${NAN};`);
+      out.push(`  if (!${OK}${prod ? '' : ` || ${SER_CANCEL(M, S)}`}) ${S} = ${NAN};`);
       return S;
     }
     function genSum(n) {
@@ -2142,6 +2168,6 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB };
+  return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
 })();
 if (typeof module !== 'undefined') module.exports = GLChain;

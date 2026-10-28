@@ -1612,7 +1612,8 @@ const Funcs = (() => {
       // a formula that is a chain of catalog steps renders, deforms and reports as that chain (recognizeCustom)
       const rec = part || !cls.dep || P.constant ? null : recChain(ast, cut, f);
       let nat = null;
-      try { nat = !rec && cls.dep && !P.constant ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
+      // ([issue #5] a series deforms along the straight line for now: its zoom path waits for its GPU twin)
+      try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
       const r = {
         ast,
         f, hom: nat ? nat.hom : linHom(f),
