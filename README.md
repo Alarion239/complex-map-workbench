@@ -29,6 +29,9 @@ see what they do:
 - **Phase** and **Landscape**: full-width phase portraits and 3D landscapes of the chain. Landscape walls stay
   closed wherever |F| is continuous, however steep, and break only at real discontinuities (cuts and sheet seams);
   All sheets tints each sheet so you can tell them apart.
+- **Phase colours** (the colour disc in the bar): the workbench's hue wheel, or one of the color functions of Fredrik
+  Johansson's [Arb](https://fredrikj.net/blog/2018/04/new-color-functions/) (Arb, gold and blue, the blend, chrome,
+  warm, cold, tomato). One setting for every view, its keys and the figure export.
 - **The function chain**: each step is a card with a picture that follows the open view; the **Inspector** edits the
   selected step (with large Add zero / Add pole buttons for a zeros-and-poles step), and the **F** tile holds the
   formula of F, its guarantees and its domain. Right-click a shape, a zero or a pole (or hold it on a phone) for its

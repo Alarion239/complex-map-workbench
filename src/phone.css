@@ -291,6 +291,9 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-row .ph-ic, .ph-srow .ph-ic { flex: 0 0 20px; display: grid; place-items: center; color: var(--ink-2); }
 .ph-row .ph-ic svg, .ph-srow .ph-ic svg { width: 18px; height: 18px; }
 .ph-rl { flex: 1 1 auto; min-width: 0; }
+/* Phase colours (issue 8): the row names the palette and shows its key */
+.ph-pv { flex: 0 1 auto; color: var(--muted); }
+.ph-row .ph-ic .pcol-ic { width: 18px; height: 18px; }
 .ph-chev { color: var(--muted); display: grid; place-items: center; }
 .ph-chev svg { width: 16px; height: 16px; }
 .ph-sep { height: 1px; margin: 6px 0; background: var(--line); }

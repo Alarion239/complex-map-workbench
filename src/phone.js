@@ -533,7 +533,7 @@ const Phone = (() => {
     els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
   }
 
-  // More (⋯): sound, theme, language; examples, export, LaTeX, search, the tour and the guide
+  // More (⋯): sound, theme, phase colours, language; examples, export, LaTeX, search, the tour and the guide
   function fillMore() {
     const I = A.icons, b = els.body.more;
     const row = (icon, label, run, chev, extra) => h('button', { class: 'ph-row', type: 'button', onclick: run },
@@ -549,6 +549,12 @@ const Phone = (() => {
     const kids = [];
     if (snd.has) kids.push(h('div', { class: 'ph-srow' }, h('span', { class: 'ph-ic', html: A.soundIcon() }), h('span', { class: 'ph-rl' }, $t('Sound')), sndSet, sw));
     kids.push(seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme));
+    // Phase colours (issue 8): the palette's menu, with a preview of each, over the sheet
+    const pc = row(A.palIcon(), $t('Phase colours'), (e) => A.palMenu(e.currentTarget, () => { pcName.textContent = A.palName(); pc.querySelector('.ph-ic').innerHTML = A.palIcon(); }), true);
+    const pcName = h('span', { class: 'ph-pv' }, A.palName());
+    pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
+    pc.setAttribute('aria-haspopup', 'menu');
+    kids.push(pc);
     const lang = A.langPref();
     kids.push(seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
     kids.push(h('div', { class: 'ph-sep' }));

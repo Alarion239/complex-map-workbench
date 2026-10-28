@@ -156,9 +156,23 @@ float wabs(vec2 w) {
 }
 float wang(vec2 w) { return (w.x == 0.0 && w.y == 0.0) ? 0.0 : atan(w.y, w.x); }
 `;
-  // domain coloring styles (spec 6.8); needs UTIL
+  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.js): uPal is the chosen
+  // palette's index in Palette.LIST, 0 the wheel; an Arb palette is baked in uPalT (Palette.bake): column i is
+  // arg 2pi i / W, row j is 1 - 1/(1 + |w|^0.2) = j / (H - 1)
   const DCOLOR = `
 uniform int uStyle; uniform float uSectors; uniform float uGrid; uniform vec3 uPlane; uniform vec3 uInk; uniform float uDark; uniform float uDpr; uniform float uPhaseLines;
+uniform int uPal; uniform sampler2D uPalT;
+// the Arb palette's color of w with arg th and ln|w| = lr
+vec3 arbc(float th, float lr) {
+  float m = 1.0 / (1.0 + exp(-0.2 * lr));
+  return textureLod(uPalT, vec2(th * (1.0 / TAU) + ${0.5 / Palette.W}, (0.5 + ${Palette.H - 1}.0 * m) / ${Palette.H}.0), 0.0).rgb;
+}
+// a style's wheel(th, L) in the chosen palette, ref the style's neutral lightness: the wheel itself, or the Arb color
+// pb darkened below ref and lightened above it (Palette.shade)
+vec3 pwheel(float th, float L, float ref, vec3 pb) {
+  if (uPal == 0) return wheel(th, L);
+  return L <= ref ? pb * (L / ref) : mix(pb, vec3(1.0), (L - ref) / (1.0 - ref));
+}
 vec3 dcolor(vec2 w) {
   // every derivative first, in uniform control flow
   float r = wabs(w);
@@ -171,42 +185,44 @@ vec3 dcolor(vec2 w) {
   vec2 g = w / max(uGrid, 1e-30);
   vec2 gw = fwidth(g);
   vec2 fw0 = fwidth(w);
+  vec3 pb = uPal == 0 ? vec3(0.0) : arbc(th, lr);
   if (!(abs(w.x) < 3e38 && abs(w.y) < 3e38)) {
     if (abs(w.x) > 3e38 || abs(w.y) > 3e38) return vec3(0.96078);  // +-infinity: #F5F5F5
     float h = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);  // NaN: #7F7F7F, 45 deg hatch #6A6A6A
     return mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * uDpr), uDpr));
   }
   if (uStyle == 2) {        // Phase
-    vec3 c = wheel(th, 0.75);
+    vec3 c = pwheel(th, 0.75, 0.75, pb);
     if (uPhaseLines > 0.5) c = mix(c, vec3(0.0), 0.20 * iso(xp, fp, 1.0) * dfade(fp));
     return c;
   }
   if (uStyle == 1) {        // Modulus (classic): zeros black, poles white
     float u = (2.0 / PI) * atan(r);
     float L = 0.08 + 0.88 * u;
-    vec3 c = mix(gray(L), wheel(th, L), min(1.0, 5.2 * u * (1.0 - u)));
+    // (an Arb palette carries |F| itself, all but the phase-only one)
+    vec3 c = uPal == 0 ? mix(gray(L), wheel(th, L), min(1.0, 5.2 * u * (1.0 - u))) : uPal == 2 ? pwheel(th, L, 0.52, pb) : pb;
     float l2 = lr * 1.4426950408889634, f2 = flr * 1.4426950408889634;
     return mix(c, vec3(0.0), 0.15 * iso(l2, f2, 1.0) * dfade(f2));
   }
   if (uStyle == 4) {        // Contours
-    vec3 c = mix(uPlane, wheel(th, 0.75), 0.12);
+    vec3 c = mix(uPlane, pwheel(th, 0.75, 0.75, pb), 0.12);
     c = mix(c, uInk, 0.5 * iso(xm, fm, uDpr) * dfade(fm));
-    c = mix(c, wheel(th, uDark > 0.5 ? 0.80 : 0.55), iso(xp, fp, 1.25 * uDpr) * dfade(fp));
+    c = mix(c, pwheel(th, uDark > 0.5 ? 0.80 : 0.55, 0.75, pb), iso(xp, fp, 1.25 * uDpr) * dfade(fp));
     return mix(c, uInk, iso0(lr, flr, 1.75 * uDpr));
   }
   if (uStyle == 3) {        // Grid: pullback of the image's coordinate net
-    vec3 c = mix(wheel(th, 0.90), uPlane, 0.35);
+    vec3 c = mix(pwheel(th, 0.90, 0.75, pb), uPlane, 0.35);
     float l1 = max(iso(g.x, gw.x, uDpr) * dfade(gw.x), iso(g.y, gw.y, uDpr) * dfade(gw.y));
     float l5 = max(iso(g.x / 5.0, gw.x / 5.0, 1.75 * uDpr) * dfade(gw.x / 5.0), iso(g.y / 5.0, gw.y / 5.0, 1.75 * uDpr) * dfade(gw.y / 5.0));
     float l0 = max(iso0(w.x, fw0.x, 1.75 * uDpr), iso0(w.y, fw0.y, 1.75 * uDpr));
-    c = mix(c, wheel(th, 0.45), 0.85 * l1);
-    return mix(c, wheel(th, 0.30), max(l5, l0));
+    c = mix(c, pwheel(th, 0.45, 0.75, pb), 0.85 * l1);
+    return mix(c, pwheel(th, 0.30, 0.75, pb), max(l5, l0));
   }
   // Tiles (enhanced): conformal squares, modulus x e^(2pi/n) and phase 2pi/n per tile
   float sm = sawAA(xm, fm), sp = sawAA(xp, fp);
   float d = 1.0 - smoothstep(0.25, 0.6, max(fm, fp));
   float L = 0.62 + d * (0.20 * (sm - 0.5) + 0.07 * (sp - 0.5));
-  return mix(wheel(th, L), vec3(1.0), 0.6 * iso0(lr, flr, 1.25));
+  return mix(pwheel(th, L, 0.62, pb), vec3(1.0), 0.6 * iso0(lr, flr, 1.25));
 }
 `;
   // fixed-in-world light rig (spec 6.9), all in linear light
@@ -2739,7 +2755,8 @@ uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 vec3 albedo(vec2 w) {
   if (uMaterial == 2) return uPlaster;
   if (uMaterial == 1) return dcolor(w);
-  return wheel(wang(w), 0.72);
+  float th = wang(w);
+  return pwheel(th, 0.72, 0.72, uPal == 0 ? vec3(0.0) : arbc(th, log(clamp(wabs(w), 1e-37, 3e38))));
 }
 vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smoothstep(uFogNear, uFogFar, length(uEye - pos))); }
 `;
@@ -3042,7 +3059,7 @@ void main() {
 `;
 
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13 };
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uLp: 11, uPq: 12, uPv: 13, uPalT: 14 };
   function shader(type, src) {
     const s = gl.createShader(type);
     gl.shaderSource(s, src);
@@ -3408,7 +3425,7 @@ float wabs(vec2 w) {
       const m = mapIn(P, map) || {};
       u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
     }
-    if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
+    bindLut(P);
   }
   // a float64 value as a float32 pair (hi + lo)
   const hi32 = Math.fround;
@@ -3469,6 +3486,44 @@ float wabs(vec2 w) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return lutTex;
   }
+  // ---------------- Phase colors (issue 8): the chosen palette, an Arb one baked in its own texture (unit 14) ----------------
+  let palId = 0, palData = null, palTex = null, palUp = false;
+  // id: one of Palette.LIST's; true when the choice changed
+  function setPalette(id) {
+    const i = Palette.indexOf(id);
+    if (i === palId) return false;
+    palId = i; palData = i ? Palette.bake(id) : null; palUp = false;
+    return true;
+  }
+  const palette = () => Palette.LIST[palId][0];
+  // bind the LUT (unit 0) and the palette's texels (unit 14), and set the program's uPal
+  function bindLut(P) {
+    if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
+    if (P.loc.uPal) gl.uniform1i(P.loc.uPal, palId);
+    if (P.loc.uPalT && palData) {
+      gl.activeTexture(gl.TEXTURE14);
+      if (!palTex) {
+        palTex = gl.createTexture(); palUp = false;
+        gl.bindTexture(gl.TEXTURE_2D, palTex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      } else gl.bindTexture(gl.TEXTURE_2D, palTex);
+      if (!palUp) {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, Palette.W, Palette.H, 0, gl.RGBA, gl.UNSIGNED_BYTE, palData);
+        palUp = true;
+      }
+    }
+  }
+  // JS mirrors of the shaders' arbc and pwheel (the same texels, bilinear), for legends, keys and readouts: the
+  // palette's color of w at a style's neutral lightness (lr = ln|w|; the wheel does not read it), and pwheel(arg, L,
+  // ref): sRGB floats
+  function paletteRGB(arg, lr) { return palId ? Palette.sample(palData, arg, lr) : phaseRGB(arg, 0.75); }
+  function palRGB(arg, L, ref, lr) { return palId ? Palette.shade(Palette.sample(palData, arg, lr), L, ref) : phaseRGB(arg, L); }
   // JS mirror of wheel(arg, L) (same texels, bilinear), for legends and readout swatches: sRGB floats
   function phaseRGB(arg, L) {
     const d = lutBytes();
@@ -4066,7 +4121,7 @@ float wabs(vec2 w) {
       canvas.addEventListener('webglcontextrestored', () => {
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
-        sphereGeo = emptyVAO = markVAO = markBuf = lutTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
+        sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
         invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
@@ -6952,7 +7007,7 @@ float wabs(vec2 w) {
     _src: { REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, dropCached, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, PATTERNS, STYLES,
+    createMesh, createSkip, setSkip, createLines, destroy, dropCached, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows)

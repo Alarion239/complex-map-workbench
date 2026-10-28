@@ -112,7 +112,9 @@ for (const [k, v] of Object.entries(RU)) {
       'Escape', 'pdf', 'png', 'svg', 'txt', 'tex', 'pt', 'in', 'cm', 'mm', 'Overleaf', 'Beamer', 'Docs', 'Slides', 'Google', 'WebGL', 'Web', 'Audio', 'AudioWorklet',
       'arXiv', 'tbp', 'figure', 'amsart', 'Letter', 'REVTeX', 'IEEE', 'iPhone', 'iPad', 'pdfLaTeX', 'XeLaTeX', 'LuaLaTeX', 'exp', 'const', 'az', 'cz', 'arg', 'Res', 'sin', 'cos', 'fontenc',
       // export round 3: a unit, Inkscape and its --shell-escape (the svg package), the browsers that encode video
-      'dpi', 'Inkscape', 'shell', 'escape', 'Chrome', 'Edge', 'Safari']);
+      'dpi', 'Inkscape', 'shell', 'escape', 'Chrome', 'Edge', 'Safari',
+      // Phase colours (issue 8): Fredrik Johansson's library, whose color functions the palettes are
+      'Arb']);
     const rest = f.replace(MATH, ' ').replace(/<(i|var|sub|sup|kbd)>.*?<\/\1>/g, ' ').replace(/<[^>]*>/g, ' ').replace(PH, ' ').replace(/\\[A-Za-z]+(\{[^}]*\})?/g, ' ');
     // a LaTeX comment's package options, arguments and font files are code
     const rest2 = latexComment ? rest.replace(/\[[^\]]*\]/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/[\w-]+\.otf/g, ' ') : rest;
