@@ -183,7 +183,7 @@
     if ('phaseStyle' in lk) { S.dc = DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc; S.landPlain = false; cauchyCache.key = ''; }
     if ('paths' in lk) { S.morphPaths = lk.paths !== false; const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines: the harp's strings)
+    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines)
     if ('phaseKey' in lk) S.wKey = !!lk.phaseKey;
     if ('sectors' in lk) S.sectors = [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12;
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();

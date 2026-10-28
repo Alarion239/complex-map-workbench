@@ -6,16 +6,13 @@
 // ("I like everything except for hearing the function"): every cue is a list of small struck, plucked, blown or bowed
 // parts (wood, kalimba tine, woodblock, felt, glass, a metal bar), each play a new strike (a PRNG per play: level, mallet,
 // decay, a few cents of pitch where pitch carries no meaning), softer when repeated, harder when the gesture was fast.
-// Hearing the function, the user's choice (notes/sound/hearf, options 2 and 4):
-//   * the phase harp for the pointer: silent while still; a plucked note each time arg F crosses one of five phase
-//     lines (0°, 60°, 120°, 210°, 270°: D, E, F♯, A, B); a loop round a zero plays a rising scale, round a pole a falling
-//     one; the low Ds counted up minus down are the winding number;
+// Hearing the function: Sound.hear and Sound.along (the final design, below); and
 //   * curves sing: a closed curve's phase signal e^{2πiφ(s)} played as one sung note whose harmonic 4 + W of D3 is its
 //     winding number W (D5 for 0, F♯5 for 1, A5 for 2, A4 for −1, …).
 // The engine: one AudioWorklet node ("cmw-synth") renders every one-shot part, the scrub and motion texture, the
-// harp's strings (12 at most; the oldest fades in 30 ms) and the singer, sample by sample: the main thread posts
+// composition's harp strings (12 at most; the oldest fades in 30 ms) and the singer, sample by sample: the main thread posts
 // parameters only, every part starts and ends at exactly 0 (raised cosines), a late message adds latency, never a step.
-// No AudioParam automation for any of them. The Height voice (the Landscape) keeps its own worklet node ("cmw-voice").
+// No AudioParam automation for any of them.
 // Where no AudioWorklet is allowed (a CSP without blob:/data: scripts), one-shots and harp strings are rendered into a
 // buffer on the main thread from the same code; the texture and the singer then stay silent (the loop pings play).
 //   Sound is on by default (Interface and Mathematical events; Snap ticks and Hear the function off), except on a test
@@ -28,12 +25,12 @@
 //   ui      Interface: a control the user operated (snap ticks are a separate switch, off by default)
 //   events  Mathematical events: a deliberate action with mathematical content (deformation play / scrub, a loop
 //           closed and its winding, listen along a curve)
-//   sonify  Hear the function under the pointer (opt-in): the harp, the loop's note while the deformation plays, and
+//   sonify  Hear the function under the pointer (opt-in): Sound.hear, the loop's note while the deformation plays, and
 //           every cue driven by pointer position (branch cut, zero/pole order, contour, preimages collide)
 // API: Sound.play(name, {pan, order, k, q, w, vel, at, force, tier, tag}) · Sound.turn(o) · Sound.tick(o) (queued,
-//      count-bearing) · Sound.harp(phi, o) · Sound.harpReset(phi) · Sound.harpAlong(phi, la, dur, o) · Sound.alongCount(phi, closed, lines) ·
+//      count-bearing) · Sound.harpAlong(phi, la, dur, o) · Sound.alongCount(phi, closed, lines) (Play the composition) ·
 //      Sound.sing(A, n0, o) · Sound.singOff(o) · Sound.curveAmps(ph, W) · Sound.scrub(u0, u1) · Sound.scrubEnd() ·
-//      Sound.motion(u, rate) · Sound.motionEnd() · Sound.heightVoice() · Sound.hush() (Esc) · Sound.stopTag(tag) ·
+//      Sound.motion(u, rate) · Sound.motionEnd() · Sound.hush() (Esc) · Sound.stopTag(tag) ·
 //      Sound.set({on, vol, ui, snap, events, sonify}) · Sound.toggle() · Sound.prefs() · Sound.subscribe(fn) ·
 //      Sound.state() · Sound.render(fn, dur) (offline) · Sound.cueTo(G, name, t, o) · Sound.CATALOG ·
 //      Sound.pathStep(argStep, Fat, z0, T0, g0, z1, T1, g1, opts) · Sound.turns(L, ring) (the probe's arithmetic)
@@ -45,8 +42,7 @@
 //      samples {t, phi, ln, pan, n, src}) · Sound.along(smp, {tag, n, closed}) (Listen along: the function along a
 //      curve, events tier) · Sound.HT (the pure core: constants, law, crowd, copies, events, glideCtl, gate, Live,
 //      throughZP) · Sound.set({glide}) (Notes or the continuous Glide; the Glide needs the worklet engine).
-//      The pointer harp below (harp, harpReset, harpClose, the Height voice) stays until the app no longer calls it
-//      (the plan's clean-up step C); harpAlong with a score plays the composition.
+//      harpAlong with a score plays the composition (the old pointer harp and the Height voice are gone).
 // =====================================================================================================================
 
 // The synthesis library: the parts, the texture and the singer. Its source runs twice: in the AudioWorklet (inlined
@@ -1203,57 +1199,7 @@ class Limit extends AudioWorkletProcessor {
     return true;
   }
 }
-registerProcessor('cmw-limit', Limit);
-// the Height voice (the Landscape): an organ tone (harmonics 1–4 at 1/n), every sample from per-sample-smoothed
-// controls; s is log2 of the frequency, slewed linearly; gate and duck by two cascaded one-poles (zero slope at onset)
-const ORG = [1, 1 / 2, 1 / 3, 1 / 4]; let ONORM = 0;
-for (let i = 0; i < 4096; i++) { const a = 2 * Math.PI * i / 4096; let s = 0; for (let h = 0; h < 4; h++) s += ORG[h] * Math.sin((h + 1) * a); ONORM = Math.max(ONORM, Math.abs(s)); }
-ONORM = 1 / ONORM;
-class Voice extends AudioWorkletProcessor {
-  constructor(o) {
-    super();
-    const p = (o && o.processorOptions) || {};
-    this.q = []; this.fs = sampleRate; this.s = 0; this.sFrom = 0; this.sTo = 0; this.sLen = 0; this.sPos = 0; this.fresh = true; this.ph = 0;
-    this.pan = 0; this.panT = 0; this.g = 0; this.g1 = 0; this.gT = 0; this.gA = this.coef(0.01); this.dk = 1; this.dk1 = 1; this.dkT = 1; this.dkA = this.coef(0.005); this.dkEnd = -1;
-    this.aPan = this.coef(0.03); this.aAmp = this.coef(0.012); this.end = -1; this.amp = 0; this.ampT = 0;
-    for (const c of p.cmds || []) this.push(c);
-    this.port.onmessage = (e) => { for (const c of e.data) this.push(c); };
-  }
-  coef(tau) { return tau > 0 ? 1 - Math.exp(-1 / (tau * this.fs)) : 1; }
-  quiet() { return this.g < 1e-4 && this.g1 < 1e-4; }
-  push(c) { c.f = Math.round((c.at || 0) * this.fs); let i = this.q.length; while (i > 0 && this.q[i - 1].f > c.f) i--; this.q.splice(i, 0, c); }
-  apply(c, frame) {
-    if (c.lf != null) { if (this.fresh || this.quiet()) { this.s = this.sTo = c.lf; this.sLen = 0; } else { this.sFrom = this.s; this.sTo = c.lf; this.sLen = Math.max(1, Math.round((c.dur || 0.008) * this.fs)); this.sPos = 0; } }
-    if (c.pan != null) { this.panT = c.pan; if (this.fresh) this.pan = c.pan; }
-    if (c.amp != null) { this.ampT = c.amp; if (this.fresh || this.quiet()) this.amp = c.amp; }
-    if (c.gate != null) { this.gT = c.gate; this.gA = this.coef(c.tau / 2); }
-    if (c.duck != null) { this.dkT = 0.5; this.dkA = this.coef(0.005); this.dkEnd = frame + Math.round(c.duck * this.fs); }
-    if (c.stop) { this.gT = 0; this.gA = this.coef((c.tau || 0.05) / 2); this.end = frame + Math.round(0.5 * this.fs); }
-    this.fresh = false;
-  }
-  process(_, outputs) {
-    const out = outputs[0], Lc = out[0], Rc = out[1] || out[0], n = Lc.length, f0 = currentFrame, fs = this.fs, inv = 1 / fs;
-    for (let i = 0; i < n; i++) {
-      const fr = f0 + i;
-      while (this.q.length && this.q[0].f <= fr) this.apply(this.q.shift(), fr);
-      if (this.dkEnd >= 0 && fr >= this.dkEnd) { this.dkT = 1; this.dkA = this.coef(0.04); this.dkEnd = -1; }
-      if (this.sLen > 0) { this.sPos++; if (this.sPos >= this.sLen) { this.s = this.sTo; this.sLen = 0; } else this.s = this.sFrom + (this.sTo - this.sFrom) * (this.sPos / this.sLen); }
-      this.pan += (this.panT - this.pan) * this.aPan;
-      this.g1 += (this.gT - this.g1) * this.gA; this.g += (this.g1 - this.g) * this.gA;
-      this.dk1 += (this.dkT - this.dk1) * this.dkA; this.dk += (this.dk1 - this.dk) * this.dkA; this.amp += (this.ampT - this.amp) * this.aAmp;
-      let y = 0;
-      if (this.g > 1e-6 || this.g1 > 1e-6 || this.gT > 0) {
-        const f = Math.pow(2, this.s); let p = this.ph + f * inv; p -= Math.floor(p); this.ph = p;
-        let acc = 0; for (let h = 0; h < 4; h++) { const fh = f * (h + 1); if (fh < 0.45 * fs) { let q = p * (h + 1); q -= Math.floor(q); acc += ORG[h] * L.sin1(q); } }
-        y = acc * ONORM * this.amp * this.g * this.dk;
-      }
-      const th = (this.pan + 1) * Math.PI / 4;
-      Lc[i] = y * Math.cos(th); if (Rc !== Lc) Rc[i] = y * Math.sin(th);
-    }
-    return this.end < 0 || f0 < this.end;
-  }
-}
-registerProcessor('cmw-voice', Voice);`;
+registerProcessor('cmw-limit', Limit);`;
   let workletURL = null;
   const workletURLs = () => {
     const u = [];
@@ -1380,7 +1326,7 @@ registerProcessor('cmw-voice', Voice);`;
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       if (!ctx || ctx.state !== 'running') return;
-      if (liveVoices.size || G.active.size || singOn || ctx.currentTime < busyUntil) { touchIdle(5000); return; }
+      if (G.active.size || singOn || ctx.currentTime < busyUntil) { touchIdle(5000); return; }
       ctx.suspend().then(emit, () => {});
     }, ms);
   }
@@ -1413,8 +1359,6 @@ registerProcessor('cmw-voice', Voice);`;
     if (!sched && recent.length >= 14 && name !== 'error') return false;
     lastStart.set(name, now); if (!sched) recent.push(now);
     const t = ctx.currentTime + LEAD + (o.at || 0), end = cueTo(G, name, t, o);
-    // the Height voice gives way: −6 dB for the cue's first 250 ms
-    for (const v of liveVoices) v.duck(t, Math.min(0.25, end - t));
     busy(end);
     return true;
   }
@@ -1504,25 +1448,8 @@ registerProcessor('cmw-voice', Voice);`;
     while (P1 < thrL(L, st.c) - h) { fired.push({ i: st.c, dir: -1, u: tAt(thrL(L, st.c)) }); st.c--; }
     return fired;
   }
-  // a seated probe's lap (v15.2.1, review verify-1): a probe seated inside a line's band (a long press, a first point)
-  // that comes back to its seat's arg k whole turns on finds the trigger still a line short there (it waits for the
-  // band), so a lap that stops where it began never sounded its D (a touch 15 px from a zero, from 3° or 8° above the
-  // D line; at 6 px, inside the D-only zone, the lap was silent). Arriving within the band of φ_s + k, the trigger is
-  // brought to its seat's cell + 5k in the direction of travel (5: the pointer's lines; st.L.length), plucking the line
-  // between, as harpClose does for drawn loops; once per arrival (a hand held at the lap's end does not chatter). The
-  // count is the state's, so nothing is counted twice. Only the pointer's harp (HP) has a lap: lap = {phi, c, k}
-  function lapClose(st, P0, P1, h, fired) {
-    const L = st.lap, k = Math.round(P1 - L.phi);
-    if (k === L.k || !(Math.abs(P1 - (L.phi + k)) <= h)) return;
-    L.k = k;
-    const c = L.c + st.L.length * k;
-    if (P1 > P0) while (st.c < c) { st.c++; fired.push({ i: st.c, dir: 1, u: 1 }); }
-    else if (P1 < P0) while (st.c > c) { fired.push({ i: st.c, dir: -1, u: 1 }); st.c--; }
-  }
-  const lapSeat = (st, phi) => { if (st.lap) st.lap = st.c === null ? { phi: 0, c: null, k: 0 } : { phi, c: st.c, k: 0 }; };
-  // Harp(lines): a piece's own lines (notes/sea-song); Harp(true): the pointer's harp, on HARP_LINES and with a lap
-  function Harp(lines) { return { c: null, phi: 0, recent: [], up: 0, down: 0, notes: 0, k: 0, L: linesOk(lines) ? lines.slice() : HARP_LINES, lap: lines === true ? { phi: 0, c: null, k: 0 } : null }; }
-  const HP = Harp(true);
+  // Harp(lines): a piece's own lines (notes/sea-song), or HARP_LINES
+  function Harp(lines) { return { c: null, phi: 0, recent: [], up: 0, down: 0, notes: 0, k: 0, L: linesOk(lines) ? lines.slice() : HARP_LINES }; }
   // one note: the pitch class (s semitones above D) in octave copies (D2 … 2.4 kHz) under a Gaussian over log2 f
   // (σ 0.7 octave, centred on D5 + 0.5·tanh(ln|F| / 2.5): lower near zeros, higher near poles), copies under −30 dB
   // dropped (usually 3 remain); each a dark plucked string (T60 1.8 s at D5, ∝ f^−0.5), in tune: one detune (±1.5 cents)
@@ -1575,10 +1502,9 @@ registerProcessor('cmw-voice', Voice);`;
   // piece's theme keeps one note ringing, its chords four, notes/sea-song/r3). The lines are the harp's own (st.L).
   // Returns the crossings (tests count the Ds)
   function harpStep(st, g, t0, phi, o) {
-    if (st.c === null) { st.c = cellL(phi, st.L); st.phi = phi; lapSeat(st, phi); return []; }
+    if (st.c === null) { st.c = cellL(phi, st.L); st.phi = phi; return []; }
     const h = o.h > HARP_H ? Math.min(0.125, o.h) : HARP_H;
     const P0 = st.phi, dt = clamp(o.dt || 0.016, 0.008, 0.1), fired = harpCross(st, P0, phi, h);
-    if (st.lap && st.lap.c !== null) lapClose(st, P0, phi, h, fired);
     st.phi = phi;
     if (!fired.length) return fired;
     const rateT = Math.abs(phi - P0) / dt;   // turns per second
@@ -1606,22 +1532,6 @@ registerProcessor('cmw-voice', Voice);`;
     }
     return fired;
   }
-  // the pointer's harp (Hear the function): phi is the probe's unwrapped arg in turns
-  function harp(phi, o = {}) {
-    if (!AC || !P.on || hidden || !P.sonify || !canSchedule(false)) { HP.c = null; return null; }
-    return harpStep(HP, G, ctx.currentTime + LEAD, phi, o);
-  }
-  // a loop drawn with the pointer or the keys closed (review math-4): the trigger is brought to the state it had at the
-  // loop's first point, shifted by the loop's W whole turns (c = c0 + 5W, five lines), and the lines between are plucked now. Its low
-  // Ds counted up minus down are then exactly W wherever the loop began: a start inside a line's band no longer loses
-  // (or doubles) that line's D. The caller re-seats on the probe's own arg afterwards (harpReset)
-  function harpClose(c, o = {}) {
-    if (HP.c === null || !Number.isInteger(c) || c === HP.c) return [];
-    if (!AC || !P.on || hidden || !P.sonify || !canSchedule(false)) { HP.c = null; return []; }
-    return harpStep(HP, G, ctx.currentTime + LEAD, 0.5 * (thrL(HP.L, c) + thrL(HP.L, c + 1)), Object.assign({ dt: 0.1 }, o));
-  }
-  // a fresh start, a cut or a swap: re-seat on the colour under the probe, without a note
-  function harpReset(phi) { HP.c = phi == null || !Number.isFinite(phi) ? null : cellOf(phi); HP.phi = phi; lapSeat(HP, phi); }
   // a closed curve (listen along): seated as if it had arrived at its start from its own end (shifted by its whole
   // turns), so a curve that starts exactly on a line sounds that line once, at the start, and not again when it closes
   // there: its low Ds are its winding number wherever it starts
@@ -1721,74 +1631,6 @@ registerProcessor('cmw-voice', Voice);`;
     singOn = false; singTier = ''; singOffAt = 0;
   }
 
-  // ---------------------------------------------------------------- the Height voice (the Landscape)
-  // an organ tone (harmonics 1–4 at 1/n, so it survives phone speakers) on the Height scale: u = ln|F| / (2π/S), one
-  // contour of the drawn lines = one pentatonic step, |F| = 1 on D5, A3 … A6
-  const liveVoices = new Set(), Gl = () => G;
-  const ORGAN = [1, 1 / 2, 1 / 3, 1 / 4];
-  const lnc = (x) => (Number.isFinite(x) ? x : x > 0 ? 50 : -50);
-  const HV = { amp: 0.042 };
-  function HeightVoice(g, T = 'sonify') {
-    const c = g.c, worklet = !!g.worklet && (g.offline || prefer.worklet), be = worklet ? WorkletBackend(g, T, 0.06) : NodeHeight(g, T);
-    let dead = false, last = -1, lastWall = 0, loud = 1, on = false, started = false, gEnd = 0;
-    const v = {
-      engine: worklet ? 'worklet' : 'nodes',
-      // glide: at least this long (s) for this move (a function swapped under a still probe), kept to its end
-      set(lnAbs, pn = 0, t, sectors = 12, glide = 0) {
-        if (dead) return;
-        const explicit = t != null; if (!explicit) t = c.currentTime;
-        const wall = performance.now();
-        const dt = explicit ? (last < 0 ? 0 : clamp(t - last, 0.008, 0.05)) : (last < 0 ? 0 : clamp((wall - lastWall) / 1000, 0.008, 0.05));
-        last = t; lastWall = wall;
-        const f = hNote(lnc(lnAbs) / (2 * Math.PI / sectors));
-        loud = Math.min(1.5, Math.pow(587.33 / f, 0.35));   // a tilt: low notes a little louder (small speakers)
-        if (!started) { started = true; be.start(t, Math.log2(f), HV.amp * loud, clamp(pn, -0.3, 0.3), explicit); return; }
-        const clk = explicit ? t : wall / 1000;
-        if (glide > 0) gEnd = clk + glide;
-        be.moveH(t, Math.log2(f), Math.max(dt, 0.008, glide, gEnd - clk), HV.amp * loud, clamp(pn, -0.3, 0.3), explicit);
-      },
-      gate(gt, t, tau) { if (!dead) { on = !!gt; be.gate(on ? 1 : 0, t, tau != null ? tau : on ? 0.02 : 0.08); } },
-      duck: (t, hold) => { if (!dead && hold > 0) be.duck(t, hold); },
-      sounding: () => on && !dead,
-      silence() { v.gate(false, undefined, 0.01); }, reset() { last = -1; },
-      stop(t) { if (dead) return; on = false; be.stop(t); dead = true; liveVoices.delete(v); if (g === Gl()) touchIdle(); },
-    };
-    liveVoices.add(v);
-    return v;
-  }
-  function outStereo(g, T, wet) {
-    const c = g.c, inp = c.createGain();
-    inp.connect(g.tier[T].dry);
-    if (wet) { const s = c.createGain(); s.gain.value = wet; inp.connect(s); s.connect(g.tier[T].wet); }
-    return inp;
-  }
-  function WorkletBackend(g, T, wet) {
-    const c = g.c, o = outStereo(g, T, wet), pend = [];
-    let node = null, stopT = null;
-    const make = () => {
-      node = new AudioWorkletNode(c, 'cmw-voice', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], processorOptions: { cmds: pend.splice(0) } });
-      node.connect(o);
-    };
-    const post = (cmd) => { if (node) node.port.postMessage([cmd]); else pend.push(cmd); };
-    if (g.offline) g.flush.push(make); else make();
-    const now = (t) => (t != null ? t : c.currentTime);
-    return {
-      start(t, s, amp, pan) { post({ at: t, lf: s, amp, pan }); },
-      moveH(t, lf, dur, amp, pan) { post({ at: t, lf, dur, amp, pan }); },
-      gate(gt, t, tau) { post({ at: now(t), gate: gt, tau }); },
-      duck(t, hold) { post({ at: now(t), duck: hold }); },
-      stop(t) { post({ at: now(t), stop: 1, tau: 0.05 }); stopT = now(t); if (!g.offline) setTimeout(() => { try { o.disconnect(); } catch (e) { /* gone */ } }, 800 + Math.max(0, stopT - c.currentTime) * 1000); },
-    };
-  }
-  // the fallback: native nodes with anchored, append-only automation (no AudioWorklet here). A move starts at
-  // max(now + LEAD, end), anchored with setValueAtTime(end value) when there is a gap, and is never cancelled
-  function Lane(p, v0) { p.value = v0; return { p, end: 0, v: v0 }; }
-  function laneTo(Ln, v, T0, T1) {
-    if (T0 > Ln.end + 1e-7) Ln.p.setValueAtTime(Ln.v, T0);
-    if (T1 > T0 + 1e-7) Ln.p.linearRampToValueAtTime(v, T1); else Ln.p.setValueAtTime(v, T0);
-    Ln.end = Math.max(T0, T1); Ln.v = v;
-  }
-  function laneSet(Ln, v, T) { Ln.p.setValueAtTime(v, T); Ln.end = T; Ln.v = v; }
   const leadOf = (c) => (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext ? 0 : LEAD);
   // a target curve from wherever the param is, starting no earlier than now + LEAD
   function follow(c, p, v, tau, t = 0) {
@@ -1797,43 +1639,6 @@ registerProcessor('cmw-voice', Voice);`;
     if (tau > 0) p.setTargetAtTime(v, T, tau); else p.setValueAtTime(v, T);
     return T;
   }
-  function NodeHeight(g, T) {
-    const c = g.c, o = out(g, T, 0, 0.06, 0.3), vg = c.createGain(), dk = c.createGain();
-    vg.gain.value = 0; vg.connect(dk); dk.connect(o);
-    let stopped = false;
-    const os = c.createOscillator(), lg = c.createGain();
-    os.setPeriodicWave(c.createPeriodicWave(new Float32Array([0, 0, 0, 0, 0]), new Float32Array([0, ...ORGAN])));
-    os.frequency.value = 440; os.connect(lg); lg.connect(vg); os.start();
-    const det = Lane(os.detune, 0), amp = Lane(lg.gain, 0);
-    const cents2 = (lf) => 1200 * (lf - Math.log2(440));
-    const pan = (pn, t) => { if (o.panner) follow(c, o.panner.pan, pn, 0.03, t); };
-    let want = null, timer = 0;
-    const be = {
-      start(t, lf, a, pn, explicit) { const T0 = explicit ? t : c.currentTime + LEAD; laneSet(det, cents2(lf), T0); laneSet(amp, a, T0); pan(pn, T0); },
-      moveH(t, lf, dur, a, pn, explicit) {
-        if (explicit) { const T0 = Math.max(t, det.end); laneTo(det, cents2(lf), T0, T0 + dur); laneTo(amp, a, T0, T0 + dur); pan(pn, T0); return; }
-        want = { lf, dur, a, pn }; be.pump();
-      },
-      pump() {
-        if (!want) return;
-        const now = c.currentTime + LEAD, ahead = det.end - now;
-        if (ahead > 0.02) { clearTimeout(timer); timer = setTimeout(be.pump, (ahead - 0.015) * 1000); return; }
-        const w = want; want = null; const T0 = Math.max(now, det.end), T1 = Math.max(now + w.dur, T0 + 0.004);
-        laneTo(det, cents2(w.lf), T0, T1); laneTo(amp, w.a, T0, T1); pan(w.pn, T0);
-      },
-      gate(gt, t, tau) { if (!stopped) follow(c, vg.gain, gt, tau, t); },
-      duck(t, hold) { const T0 = follow(c, dk.gain, 0.5, 0.01, t); dk.gain.setTargetAtTime(1, T0 + hold, 0.08); },
-      stop(t) { clearTimeout(timer); want = null; const T0 = follow(c, vg.gain, 0, 0.05, t); stopped = true; os.stop(T0 + 0.5); },
-    };
-    return be;
-  }
-  function heightVoice() {
-    if (!P.on || !P.sonify || hidden || !AC) return null;
-    if (!canSchedule(false)) return null;
-    clearTimeout(idleTimer);
-    return HeightVoice(G);
-  }
-
   // Esc, hidden, off: everything stops now, queues are emptied, the voices are gated off; the setting is unchanged.
   // The synth drops what is queued and fades what sounds in 12 ms (raised cosine); the bus dips on a 12 ms raised cosine
   // and comes back on a 30 ms one 50 ms later; every fallback source stops inside the silent window. A hush during a
@@ -1852,10 +1657,8 @@ registerProcessor('cmw-voice', Voice);`;
     HH.along = null;
     const off = Math.max(now, t + 0.013);
     for (const s of G.active) { try { s.stop(off); } catch (e) { /* not started */ } }
-    // the voices fade now (τ 4 ms, zero slope at the start)
-    for (const v of liveVoices) v.gate(false, undefined, 0.004);
     Q.turn.next = Q.contour.next = 0; Q.turn.due.length = Q.contour.due.length = 0;
-    HP.c = null; SC.tex = false; motionOn = false; singOn = false; singTier = ''; singOffAt = 0; busyUntil = 0;
+    SC.tex = false; motionOn = false; singOn = false; singTier = ''; singOffAt = 0; busyUntil = 0;
     hearEnd();
   }
   // stop one tagged group (a "listen along"): what has not sounded is dropped, what sounds fades in 12 ms. The fallback's
@@ -2095,11 +1898,10 @@ registerProcessor('cmw-voice', Voice);`;
     if (P.on && !was) { activated = true; lastGesture = performance.now(); ensure(); applyGains(true); if (!opts.quiet) play('toggleOn', { force: true, grace: true }); }
     else if (!P.on && was && ctx) {
       // off is immediate and silent: the icon and aria-pressed confirm it
-      hush(); for (const v of [...liveVoices]) v.stop();
+      hush();
       follow(ctx, G.master.gain, 0, 0.003);
       setTimeout(() => { if (!P.on && ctx && ctx.state === 'running') ctx.suspend().then(emit, () => {}); }, 60);
     } else applyGains();
-    if (!P.sonify) HP.c = null;
     // a mode change, or Hear the function off: the stroke ends (the next call seats)
     if (P.glide !== wasGlide || (wasSonify && !P.sonify)) hearEnd();
     emit();
@@ -2137,14 +1939,14 @@ registerProcessor('cmw-voice', Voice);`;
   return {
     play, turn: (o = {}) => queued('turn', o), tick: (o = {}) => queued('contour', o), hush, stopTag,
     scrub, scrubEnd, scrubState: () => ({ v: SC.v, tex: SC.tex }), motion, motionEnd,
-    harp, harpReset, harpClose, harpAlong, harpState: () => ({ up: HP.up, down: HP.down, notes: HP.notes, c: HP.c }), harpCount: () => { const r = { up: HP.up, down: HP.down, notes: HP.notes }; HP.up = HP.down = HP.notes = 0; return r; },
+    harpAlong,
     harpStep, harpNote, pieceNote, Harp, cellOf, alongCount, curveAmps, singable, sing, singCmds, singOff, singState: () => ({ on: singOn, tier: singTier }),
     set, toggle: () => set({ on: !P.on }), prefs: () => ({ ...P }), state, subscribe: (f) => { subs.add(f); return () => subs.delete(f); },
-    heightVoice, render, graph, cueTo, CATALOG, TRIM, MAT, LV, HV, HeightVoice, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, LIB, WORKLET_SRC,
+    render, graph, cueTo, CATALOG, TRIM, MAT, LV, hNote, loadWorklet, prefer, lead: () => LEAD, pathStep, turns, LIB, WORKLET_SRC,
     hear, along, HT: HTL, htNote, htCrack,
     seed: (n) => { seedBase = n >>> 0; cueN = 0; }, cueHook: (f) => { cueHook = f || null; },
     stat: () => Promise.all([G && G.synth ? G.synth.stat() : Promise.resolve(null), limitStat()]).then(([a, b]) => (a || b ? Object.assign({}, a, { limit: b ? { actedPct: b.n ? 100 * b.acted / b.n : 0, minDb: 20 * Math.log10(b.minG) } : null }) : null)),
-    debug: () => ({ ctx, G, live: liveVoices.size, activated, active: G ? G.active.size : 0, synth: !!(G && G.synth), queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
+    debug: () => ({ ctx, G, activated, active: G ? G.active.size : 0, synth: !!(G && G.synth), queue: ctx ? { turn: Math.max(0, Q.turn.next - ctx.currentTime), contour: Math.max(0, Q.contour.next - ctx.currentTime) } : null }),
   };
 })();
 // the sound popover (page.html #sndPop) sits outside #app, which the app's walker translates: in another interface

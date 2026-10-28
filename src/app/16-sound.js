@@ -7,7 +7,7 @@
   const SND = Sound;
   let sndP = SND ? SND.prefs() : { on: false, vol: 0.7, ui: false, snap: false, events: false, sonify: false };
   const snd = {
-    voice: null, kind: '', last: null, g: null, phi: 0, fKey: '', vKey: '', gestT: -1e9, near: 0, idleT: 0, sleepT: 0,
+    last: null, g: null, phi: 0, fKey: '', vKey: '', gestT: -1e9, near: 0, idleT: 0,
     perEval: 0.002, loop: null, lastLoop: null, play: null, auto: false, morphArm: false, kz: null, kloop: null, lm: -1,
     lms: null, lmKey: '', annT: 0, collide: '', tracker: false, ptrT: -1e9, kbd: false, px: null,
     // the function under a still probe (notes/sound/DEFORMATION.md): rest, the probe's last point {z, src, px};
@@ -19,9 +19,9 @@
     // the last change of F a person made (not the transport's own frames); path, the paths of the changes since the
     // last evaluation (soundFunctionChanged({ at })); said, the last speech
     ptrOn: false, cxy: null, press: null, rp: null, userT: -1e9, path: null, said: null,
-    // v15.2: hT, the harp's last step (its dt); spd, the probe's speed (px per ms, for how hard a ping is struck); cv,
-    // the last loop singing while the function changes (curves sing); listenN, a tag per "listen along"
-    hT: 0, spd: 0, cv: { key: '', W: null, bad: null, idle: 0, on: false, hushed: false }, listenN: 0,
+    // spd, the probe's speed (px per ms, for how hard a ping is struck); cv, the last loop singing while the function
+    // changes (curves sing); listenN, a tag per "listen along"
+    spd: 0, cv: { key: '', W: null, bad: null, idle: 0, on: false, hushed: false }, listenN: 0,
     // Hear the function (notes/sound/AS-BUILT, Sound.hear): rope, the roped point {x, y, src} in its pane's CSS px (3 px
     // behind a mouse or pen, 5 px behind a finger; null when let go); lastSrc, the probe's last source (a change is a
     // stroke start); ptype, the last pointer's type on a plane

@@ -73,7 +73,6 @@ const SoundHooks = (() => {
     // the live stream: the stroke, a pending repeat and the Glide end now; the rope lets go
     if (sndHear()) sndHear().end();
     snd.rope = null;
-    if (snd.voice) snd.voice.gate(false, undefined, 0.01);
     clearTimeout(snd.idleT);
     clearTimeout(snd.cv.idle); snd.cv.on = false; snd.cv.key = '';
     // Esc means silence now: a still probe stops following the function until the pointer moves or the keyboard probe
@@ -266,11 +265,6 @@ const SoundHooks = (() => {
     morph.T = T;
     try { return sndF(); } finally { morph.T = T0; }
   }
-  function sndVoice(kind) {
-    if (snd.voice && snd.kind !== kind) { snd.voice.stop(); snd.voice = null; }
-    if (!snd.voice) { snd.voice = SND.heightVoice(); snd.kind = kind; }
-    return snd.voice;
-  }
   function sndVoiceOff(release) {
     clearTimeout(snd.idleT);
     // the live stream: the stroke ends (a gap: no point, the pointer gone or lifted); sound or Hear the function off
@@ -278,10 +272,6 @@ const SoundHooks = (() => {
     const H = sndHear();
     if (H) { if (release) { const hs = H.state(); if (hs.stroke || H.active() || hs.glide.env > 1e-4) H.end(); } else H.gap(sndNow()); }
     snd.rope = null;
-    if (snd.voice) {
-      if (release) { clearTimeout(snd.sleepT); snd.voice.stop(); snd.voice = null; }
-      else { snd.voice.gate(false); clearTimeout(snd.sleepT); snd.sleepT = setTimeout(() => { if (snd.voice && !snd.loop) { snd.voice.stop(); snd.voice = null; } }, 6000); }
-    }
     snd.last = null; snd.near = 0; snd.rest = null; snd.run = null;
   }
   // the hover paths of onMove: z under the pointer (x: its CSS px in its pane); src 'pointer' | 'loop' | 'key' |
@@ -421,7 +411,7 @@ const SoundHooks = (() => {
   // when its 40 evaluations would cost more than 1 ms.
   function sndOverlay() {
     const r = snd.rest;
-    const sounding = sndHear() ? sndHear().active() : !!snd.voice && snd.voice.sounding();
+    const sounding = !!sndHear() && sndHear().active();
     if (!A.sndP.on || !A.sndP.sonify || !r || r.src !== 'merged' || !sounding || A.drag || solo() !== 'R' || !morphOn() || !rImage()) return;
     const pane = A.paneR, T1 = morph.T, p = r.z;
     pane.setView(V.right);
@@ -457,155 +447,7 @@ const SoundHooks = (() => {
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.tracker || !z) return;
     // the engine's stream (Sound.hear: the marimba notes or the Glide) once it is there
     const H = sndHear();
-    if (H) { sndHearAt(H, z, px, src, fn, zh || z); return; }
-    const t0 = performance.now();
-    const F = sndF(src), fk = sndFrameKey(), ck = `${A.chainSig[nSteps()]}#${snd.fcGen}`, vk = sndVKey(src);
-    const T = morph.open ? morph.T : null, merged = src === 'merged';
-    const pan = sndClamp(0.4 * (2 * px / Math.max(1, merged ? A.paneR.w : A.paneL.w) - 1), -0.4, 0.4);
-    if (!fn) { snd.rest = { z, src, px, nk: sndVKey(src, true) }; sndUnhush(); }
-    // a view change: cues wait 250 ms, and the track starts afresh, since the probe's point moved with the view.
-    // Except under a still needle (the relief's or X's globe's camera refitted while the function changes, as when the
-    // deformation opens on the Landscape): the point is the same, so the track goes on, and the swap's glide with it
-    // (review snddef-5: a fresh start there cut the 0.15 s glide after one frame)
-    if (vk !== snd.vKey) { if (snd.vKey) snd.gestT = t0; snd.vKey = vk; if (!(fn && snd.last && z.re === snd.last.re && z.im === snd.last.im)) snd.last = null; }
-    // swap: the function under a still probe was replaced (the transport opened or closed: F ↔ H_t; the focus; one
-    // after another ↔ all at once), or t ran back while playing (a loop repeat, Play again from the end). No path
-    // joins the two: the voice glides to the nearest turn (never a path back, no cue, a new run)
-    let swap = !!snd.last && T != null && snd.T != null && T < snd.T && morph.playing;
-    if (fk !== snd.fKey) { if (fn && snd.last && snd.fKey) swap = true; else snd.last = null; snd.fKey = fk; snd.near = 0; }
-    if (swap) snd.run = null;
-    // the paths of the changes since the last evaluation (soundFunctionChanged({ at })), followed in turn; with t
-    // moving too, no single path joins the two functions: the nearest turn
-    const dT = T !== snd.T, paths = Array.isArray(snd.path) && snd.path.length ? snd.path : null;
-    snd.path = null;
-    const gen = (ck !== snd.cKey && !paths) || (paths && dT) || swap;
-    const moved = !!snd.last && (z.re !== snd.last.re || z.im !== snd.last.im);
-    if (fn && snd.last && !gen && !dT && !paths && !moved) return;   // nothing new
-    snd.cKey = ck;
-    const T0 = snd.T;
-    snd.T = T;
-    if (fn) snd.fcN++;
-    const quiet = t0 - snd.gestT < 250 || !!snd.play;
-    const height = lLand();
-    let g = null;
-    try { g = F(z); } catch (e) { g = null; }
-    // the 3 ms hold twice: a count of calls from the measured cost of one call, and a wall-clock deadline checked
-    // inside the tracker (performance.now() may tick in 0.1 ms steps, too coarse to time one event's few calls)
-    const deadline = t0 + 3;
-    let jump = false, seat = false, budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
-    // the probe's speed in px per ms (how hard a zero's ping or a contour's bar is struck; DESIGN v2 §1.3)
-    const vs = merged ? V.right.s : leftView().s, dtp = t0 - (snd.pT || 0);
-    snd.pT = t0;
-    if (!fn) snd.spd = moved && dtp > 0 && dtp < 250 ? CX.abs(CX.sub(z, snd.last)) * vs / dtp : 0;
-    // the run: arg's turns since the function under the probe began to change (bells, as a loop's). A run of the
-    // transport's t lasts while the transport is open and the probe stays: a slow scrub or a pause keeps it (review
-    // snddef-6). It ends at a swap, a new chain value, a play started from 0 (sndMorphStart) or a move of the probe
-    // while nothing plays. Any other run ends 1.6 s after the function stops changing (the tone's own stillness).
-    const fnMoved = (gen || dT || !!paths) && !swap, tMove = dT && !gen;
-    if (snd.run && (snd.run.tp ? gen || (!fn && moved && !morph.playing) : t0 - snd.run.t > 1600)) snd.run = null;
-    if (snd.last && sndOk(g) && sndOk(snd.g)) {
-      let r;
-      // a new chain value (or a swap): no path joins the two functions, so the nearest turn (exact while it moves
-      // less than half a turn a frame); t alone: the exact path in (z, t); the pointer alone: the exact segment in z
-      if (gen) r = { d: Math.atan2(snd.g.re * g.im - snd.g.im * g.re, snd.g.re * g.re + snd.g.im * g.im), exact: false, why: 'chain', evals: 0 };
-      else if (dT) r = SND.pathStep(Calc.argStep, sndFAt, snd.last, T0, snd.g, z, T, g, { budget, deadline });
-      else if (paths) {
-        // one path after another, each from u = 0 to 1 (the probe moves along the last one)
-        r = { d: 0, exact: true, why: '', evals: 0 };
-        let za = snd.last, ga = snd.g;
-        for (let i = 0; i < paths.length; i++) {
-          const lastP = i === paths.length - 1, zb = lastP ? z : za;
-          let gb = g;
-          if (!lastP) { try { gb = paths[i](1)(zb); } catch (e) { gb = null; } r.evals++; }
-          if (!sndOk(gb)) { r = { d: 0, exact: false, why: 'budget', evals: r.evals }; break; }
-          const q = SND.pathStep(Calc.argStep, paths[i], za, 0, ga, zb, 1, gb, { budget: budget - r.evals, deadline });
-          r.d += q.d; r.evals += q.evals;
-          if (!q.exact && r.why !== 'budget') { r.exact = false; r.why = q.why; }
-          if (q.why === 'budget') break;
-          za = zb; ga = gb;
-        }
-      } else r = Calc.argStep(F, snd.last, snd.g, z, g, { budget, deadline });
-      const dt = performance.now() - t0;
-      // the cost of a call: total time over total calls, across events (decaying), so the clock's steps average out.
-      // A path step (t or a parameter) makes few calls (2 to 6 a frame): it counts too, and the estimate is used from 15
-      // decayed calls (about 15 frames), or a heavy chain's cost is never learnt (review snddef-10)
-      if (r.evals >= 4 || ((dT || paths) && r.evals >= 1)) { const c = snd.cost || (snd.cost = { dt: 0, n: 0 }); c.dt = 0.95 * c.dt + dt; c.n = 0.95 * c.n + r.evals + 1; if (c.n > 15) snd.perEval = Math.max(2e-5, c.dt / c.n); }
-      budget -= r.evals;
-      // over budget: the voice holds where it is and nothing fires; the next event starts afresh
-      if (!r.exact && r.why === 'budget') { snd.last = null; snd.run = null; return; }
-      if (!r.exact && r.why === 'jump') { jump = true; if (!quiet) SND.play('cut', { pan }); }
-      if (fnMoved && !snd.run) snd.run = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), t: t0, tp: tMove };
-      else if (snd.run && tMove) snd.run.tp = true;
-      snd.phi += r.d / TAU;
-      if (snd.loop) { snd.loop.phi += r.d / TAU; if (jump) snd.loop.jumps++; sndTurnBells(snd.loop, pan); }
-      // (a run under a loop being drawn counts silently: one bell per turn, the loop's)
-      if (snd.run) { if (fnMoved) snd.run.t = t0; snd.run.phi += r.d / TAU; if (jump) snd.run.jumps++; sndTurnBells(snd.run, pan, !!snd.loop); }
-      // Height: |F| crossed a drawn level line e^(2πk/S): one tick per line, queued by the engine, never dropped
-      // (not across a swap: no path joins the two functions)
-      if (height && !quiet && !swap) {
-        const q = TAU / (A.S.sectors || 12), k0 = Math.floor(Math.log(CX.abs(snd.g)) / q), k1 = Math.floor(Math.log(CX.abs(g)) / q);
-        if (k0 !== k1 && Number.isFinite(k0) && Number.isFinite(k1)) {
-          const up = k1 > k0, n = Math.min(24, Math.abs(k1 - k0));
-          const vel = fn ? undefined : sndClamp(0.3 + 0.3 * Math.log2(1 + snd.spd), 0.3, 0.85);
-          for (let j = 1; j <= n; j++) SND.tick({ k: up ? k0 + j : k0 - j + 1, pan, vel });
-        }
-      }
-    } else if (sndOk(g)) {
-      // a fresh start (a new function, a view change, a lost track): the nearest equivalent pitch class
-      const a = Math.atan2(g.im, g.re) / TAU;
-      snd.phi = a + Math.round(snd.phi - a);
-      snd.run = null;
-      seat = true;
-      if (snd.voice) snd.voice.reset();
-    }
-    snd.last = z; snd.g = g;
-    if (!sndOk(g)) return;   // F is 0 or ∞ here: the harp re-seats on the next point
-    snd.ld = 0;
-    if (!quiet && budget > 48 && performance.now() < deadline) sndNear(F, z, g, pan, budget, deadline, vs, fn); else if (quiet) snd.near = 0;
-    const la = Math.log(CX.abs(g));
-    // (the merged plane draws the head H_t(p) of the probe's path: sndOverlay)
-    if (merged) requestRender('OR');
-    if (!height) {
-      // the phase harp (v15.2, notes/sound/hearf option 2): silent while still; a plucked note at each of the five
-      // phase lines arg F crosses (D E F♯ A B; the low Ds counted up minus down are the winding number). A fresh start,
-      // a cut, a swap (no path joins the two functions), the 250 ms after a view gesture, and the keyboard probe while
-      // the transport plays by itself (it does not talk over a screen reader) re-seat it without a note. Within 8 px of
-      // a zero or pole, while the pointer moves (a trembling hand), only the Ds sound, each with its direction's fifth.
-      const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
-      const dt = snd.hT ? (t0 - snd.hT) / 1000 : 0.016;
-      snd.hT = t0;
-      // (a moving pointer, mouse or finger: the band is what 2.5 px of it turn arg F, so a hand held still near a zero
-      // plucks nothing (a 9 Hz tremor of ±1.5 px: 0 notes in 10 s at 6 to 40 px from a zero, was up to 149), review
-      // sound-3; the keyboard probe's steps and a still probe under a changing F keep 7.5°)
-      const band = !fn && src !== 'key' && snd.ld > 0 ? snd.ld * 2.5 / vs / TAU : 0;
-      if (seat || jump || swap || quiet || keyQuiet) SND.harpReset(snd.phi);
-      else {
-        // (v16.4) a low D counted up or down: the tour's Phase lines are strings task
-        const hs0 = tourL['hear-turn'] ? SND.harpState() : null;
-        SND.harp(snd.phi, { ln: la, pan, dt, h: band, shaky: !!snd.near && moved && !fn, still: !!fn && !moved });
-        if (hs0) { const hs1 = SND.harpState(); if (hs1.up > hs0.up) tourEmit('hear-turn', { dir: 1 }); if (hs1.down > hs0.down) tourEmit('hear-turn', { dir: -1 }); }
-      }
-      // a loop being drawn: the harp's state at its first point (harpClose at the release); a re-seat later in the loop
-      // (a cut, a view gesture) leaves its count as it is
-      const lp = snd.loop;
-      if (lp) { const hc = SND.harpState().c; if (lp.hc === undefined && hc !== null) lp.hc = hc; else if (seat || jump || swap || quiet || keyQuiet || hc === null) lp.hc = null; }
-      return;
-    }
-    // the Landscape: the Height voice (an organ on the pentatonic staircase of |F|)
-    const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
-    if (keyQuiet && !snd.voice) return;
-    const v = sndVoice('height');
-    if (!v) return;
-    v.set(la, pan, undefined, A.S.sectors || 12, swap ? 0.15 : 0);
-    if (keyQuiet) return;
-    v.gate(true);
-    // stillness: the tone fades after 1.6 s without movement (of the probe or of the function under it) and is
-    // released after 6 s; a keyboard step sounds a 280 ms sample, so the tone does not talk over a screen reader
-    clearTimeout(snd.idleT);
-    const still = src === 'key' && !snd.kloop ? 280 : 1600;
-    snd.idleT = setTimeout(() => { if (snd.voice && !snd.loop) snd.voice.gate(false, undefined, src === 'key' ? 0.04 : 0.35); }, still);
-    clearTimeout(snd.sleepT);
-    snd.sleepT = setTimeout(() => { if (snd.voice && !snd.loop) { snd.voice.stop(); snd.voice = null; } }, 6000);
+    if (H) sndHearAt(H, z, px, src, fn, zh || z);
   }
   // Hear the function (spec 3.1, 3.14, 3.15; the engine is Sound.hear, notes/sound/AS-BUILT): the probe's samples
   // {t, phi, ln, pan, n, src}, one per event, each told to the engine as what it is. z: the roped point (the stream's),
@@ -775,7 +617,7 @@ const SoundHooks = (() => {
     const onZP = !!H && !!g && !sndOk(g) && !Number.isNaN(g.re) && !Number.isNaN(g.im) && (CX.abs(g) === 0 || !CX.isFin(g));
     let ld = 0;
     if (!onZP) { try { const a = F(C(z.re + hh, z.im)), b = F(C(z.re - hh, z.im)); ld = CX.abs(CX.sub(a, b)) / (2 * hh) / CX.abs(g); } catch (e) { ld = 0; } }
-    // (|F'/F| here, per unit: the harp's band, sndHover)
+    // (|F'/F| here, per unit)
     snd.ld = Number.isFinite(ld) ? ld : 0;
     if (snd.near) { if ((!onZP && !(ld > 1 / (14 * px))) || !Calc.orderAt(F, z, 14 * px, { budget, deadline })) snd.near = 0; return; }
     if (!onZP && !(ld > 1 / (8 * px))) return;
@@ -827,7 +669,6 @@ const SoundHooks = (() => {
   // (the harp along it, then its note); later loops sing their note W (with Hear the function on; notes/sound/hearf
   // option 4), or sound palette B's |W| pings, and wait for L or the curve's menu
   function sndLoopDone(pts) {
-    const lp = snd.loop;
     snd.loop = null;
     if (!A.sndP.on || !SND || !pts || pts.length < 3) return;
     snd.lastLoop = { pts: pts.slice(), closed: true };
@@ -837,9 +678,7 @@ const SoundHooks = (() => {
     try { r = Calc.argPrinciple(sndF(), pts, 0, { budget: 120000 }); } catch (e) { r = { ok: false, turn: NaN, winding: 0 }; }
     if (!Number.isFinite(r.turn)) { SND.play('cut', { tier: 'events' }); sndSay($t('No winding number: F jumps, vanishes or is infinite on the loop.')); return; }
     const W = r.winding, say = $t('Winding number {W}: zeros minus poles inside, counted with multiplicity.', { W });
-    // the harp under the pointer closes the loop: its low Ds come to exactly W (review math-4)
-    // (with the engine's stream there is no closure: nothing marks D any more, and W is announced from argPrinciple)
-    if (!sndHear() && lp && Number.isInteger(lp.hc) && A.sndP.sonify && Number.isInteger(W)) { SND.harpClose(lp.hc + 5 * W, { pan: 0 }); SND.harpReset(snd.phi); }
+    // (the stream has no closure: nothing marks D, and W is announced from argPrinciple)
     sndSay(say);
     // (one message: a polite live region would read only the last of two)
     if (!snd.auto && !matchMedia('(prefers-reduced-motion: reduce)').matches) { snd.auto = true; if (sndListen(pts, true, say, null, null, { auto: true })) return; }
@@ -1041,7 +880,6 @@ const SoundHooks = (() => {
     // from "Play the composition") keeps the path below
     if (SND.along && !listen) return sndListenFn(pts, closed, lead, shape, o || {});
     sndStopPlay(false);
-    if (snd.voice) snd.voice.gate(false, undefined, 0.02);
     const Sm = sndSample(sndF(), pts, closed);
     if (!Sm) { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; }
     const n = Sm.phi.length, turns = Sm.phi[n - 1] - Sm.phi[0];
@@ -1095,7 +933,6 @@ const SoundHooks = (() => {
     const key = `${sndFKey()}|${M}|${closed ? 1 : 0}|${pts.length}|${ha}|${hb}`;
     if (snd.prep && snd.prep.key === key) return true;
     sndStopPlay(false);
-    if (snd.voice) snd.voice.gate(false, undefined, 0.02);
     if (snd.prepR && snd.prepR.key === key) return sndListenGo(snd.prepR.R, pts, closed, lead, shape, raw, dur, L * v.s);
     const sm = sndSampler(sndF(), pts, closed, M);
     const fail = () => { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; };

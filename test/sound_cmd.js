@@ -138,10 +138,10 @@ await hearCount();
 await glide(c2);
 await settle(200);
 let s = await snd();
-R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await hearCount(), live: await ev('Sound.debug().live'), engine: await ev('Sound.state().engine') };
+R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await hearCount(), engine: await ev('Sound.state().engine') };
 // (v16.5: the probe is roped, spec 3.1: it trails the pointer by up to 3 px, so after the pointer's two exact turns
 // the probe's arg is short by up to 3 px of the 0.3 circle, about 0.02 turn here)
-ok('Hear F: the notes, +2 turns around the zero at 1 twice (the probe roped 3 px behind): the red line 2 up, 0 down, 23 or 24 lines crossed (notes + merged; the rope can leave out the last), no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && R.hover.dphi > 1.97 && R.hover.dphi <= 2 + 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes + R.hover.harp.merged >= 23 && R.hover.harp.notes + R.hover.harp.merged <= 24, R.hover);
+ok('Hear F: the notes, +2 turns around the zero at 1 twice (the probe roped 3 px behind): the red line 2 up, 0 down, 23 or 24 lines crossed (notes + merged; the rope can leave out the last), no voice', R.hover.engine === 'worklet' && R.hover.dphi > 1.97 && R.hover.dphi <= 2 + 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes + R.hover.harp.merged >= 23 && R.hover.harp.notes + R.hover.harp.merged <= 24, R.hover);
 await sleep(300);
 await hearCount(); await sleep(700); R.still = await hearCount();
 ok('Hear F: silent while the pointer rests', R.still.notes === 0 && R.still.up === 0, R.still);
