@@ -529,6 +529,11 @@
   }
   // the deformation transport (spec 6.11; merged-views.md: docked at the bottom of the view's panel, under the plot):
   // play, the scrubber with a tick per step, t, speed, the path, Loop and Paths; x turns the deformation off
+  // the phone's Steps picker: which steps deform, as the button names it
+  function stepsLabel() {
+    const r = homRangeOk();
+    return r ? $t('Steps {f1}–{f2}', { f1: fUni(r.a), f2: fUni(r.b) }) : $t('Every step');
+  }
   function buildDock() {
     const side = S.view.main === 'xy' ? 'R' : 'L';
     for (const sd of ['L', 'R']) {
@@ -598,13 +603,21 @@
           h('span', { class: 'tr-from', html: $t('from {v}', { v: subTags(rangeStart('html')) }) }),
           dd > 1 ? h('span', { class: 'tr-note' }, $t('A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.')) : null);
       }
-      f.append(play, scrub, h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout()),
-        seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed')),
-        ...(order ? [order] : []),
-        checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); }),
-        // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
-        ...(side === 'R' ? [pathsToggle(hasD)] : []),
-        ...(trow ? [trow] : []),
+      const tread = h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout());
+      const speed = seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed'));
+      const loop = checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); });
+      // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
+      const paths = side === 'R' ? [pathsToggle(hasD)] : [];
+      // a phone: two rows (the scrubber the full width with the readout on its handle; below it play, the speed, Paths
+      // and the Steps picker, which holds the range, the order and Loop, and ×)
+      let kids;
+      if (brPhone()) {
+        const pick = h('div', { class: 'tpick', id: 'stepsPick', hidden: true }, ...(trow ? [trow] : []), ...(order ? [order] : []), loop);
+        const open = h('button', { class: 'tsteps', id: 'stepsBtn', type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': 'stepsPick', onclick: () => { pick.hidden = !pick.hidden; open.setAttribute('aria-expanded', String(!pick.hidden)); } }, stepsLabel());
+        scrub.append(tread);
+        kids = [play, scrub, speed, ...paths, open, pick];
+      } else kids = [play, scrub, tread, speed, ...(order ? [order] : []), loop, ...paths, ...(trow ? [trow] : [])];
+      f.append(...kids,
         h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
       watchFader(rng);
