@@ -24,7 +24,7 @@ ok('UX21: the line\'s words are never cut: laneFit drops the optional part (the 
 const APP = require('./src_text').appText() + '\n' + require('./src_text').source('soundhooks.js') + '\n' + require('./src_text').source('morphpaths.js');
 ok('UX74: the Try line drops the example\'s name first', /drop: 'title', onClose/.test(APP));
 ok('UX20: the example fit measures X\'s bar only on the plane (it is in the head on a desktop)', /f\.parentNode === \$\('plotL'\)/.test(APP));
-ok('UX20: the head note gives way before the title (fitTitle noNote)', /function fitTitle\(side, noNote\)/.test(APP) && /\$t\('Preimage in X'\)/.test(APP));
+ok('UX20: the head note gives way before the title (fitTitle noNote)', /function fitTitle\(side, noNote[,)]/.test(APP) && /\$t\('Preimage in X'\)/.test(APP));
 ok('UX20: the empty chain\'s call to action goes into Y\'s head on a desktop', /head\.insertBefore\(er, leg\)/.test(APP));
 ok('UX103: the readout names the step\'s function', /\$t\('Step \{k\} of \{m\} · \{f\} · \{p\} %'/.test(APP) && /\$t\('All steps at once · \{p\} %'/.test(APP));
 ok('UX72: Listen along in the row menu and in the selected curve\'s editor, both through sndListenAsk', (() => {
