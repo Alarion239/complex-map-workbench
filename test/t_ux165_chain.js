@@ -1,9 +1,8 @@
 // node test/t_ux165_chain.js : the logic of the v16.5 wave-1 chain piece (notes/ux-build/w1-chain-AS-BUILT.md) that
-// runs without a page, read from src/app.js as it is: UX23's formula repairs (formulaFixes, editDist) and UX79's
+// runs without a page, read from app.js as it is (src/app/): UX23's formula repairs (formulaFixes, editDist) and UX79's
 // "what one undo step did" (histWhat, from two history snapshots). The page-level behaviour is test/ux165_chain_cmd.js.
 'use strict';
-const fs = require('fs'), vm = require('vm'), path = require('path');
-const ROOT = path.join(__dirname, '..');
+const vm = require('vm');
 global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');

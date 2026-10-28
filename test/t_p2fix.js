@@ -1,7 +1,7 @@
 // Node checks of the fixes for the P2 review findings (notes/sphere-design/SPEC.md 13.12, 15 "P2 review"), CPU side
 // (the GPU twins: test/glsl_inverse_test.js 'anchors', test/p2fix_cdp/cmd/*.js). Each block would have caught its
 // finding. Run: node test/t_p2fix.js
-const fs = require('fs'), vm = require('vm'), path = require('path');
+const vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);

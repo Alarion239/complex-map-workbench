@@ -59,7 +59,7 @@ function inputsOf(p) {
   const make = fs.readFileSync(path.join(ROOT, p.make), 'utf8');
   const files = [...new Set([...make.matchAll(/'([\w.]+\.js)'/g)].map((m) => m[1]))]
     .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : srcParts(n) ? `src/${n.replace(/\.js$/, '')}` : `test/${n}`));
-  return [p.make, 'ci/glsl.js', ...files, ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
+  return [p.make, 'ci/glsl.js', ...files, ...(/src_parts/.test(make) ? ['tools/src_parts.py'] : []), ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
 }
 
 // builds the pages in root (a checkout or the reference's worktree) with its own builders

@@ -1,7 +1,7 @@
 // The sea song (notes/sea-song/AS-BUILT.md, round 2: notes/sea-song/r2/AS-BUILT.md): the example "In the Hall of the
 // Mountain King" (src/seasong.js, made by tools/melody_curve.js) played by the app's own code is Grieg's score
 // (test/fixtures/seasong_score.json, tools/melodies/mountain-king.json):
-//  * the samples: app.js sndSample, its source text taken from src/app.js (900 points uniform in arc length, arg F
+//  * the samples: app.js sndSample, its source text taken from app.js (src/app/) (900 points uniform in arc length, arg F
 //    tracked exactly by Calc.argStep, a 'jump' is a cut tick at the crossing), F the powa step (CX.pow);
 //  * the harp: src/sound.js run in a sandbox (a mock AudioContext): Sound.alongCount, Sound.harpStep driven as
 //    harpAlong drives it on the piece's own lines with the stored velocities, and Sound.harpAlong itself (its

@@ -41,7 +41,7 @@ ruff check
 
 - **One subject per file, and keep files small.** Aim for under about 1,500 lines (ESLint's `max-lines` warns above
   that). A new feature gets its own file with an explicit API, like `Tour.init(api)` or `Inspector.create(...)`,
-  rather than another section in `app.js`.
+  rather than another section in `app.js` (whose ordered parts are `src/app/NN-subject.js`, joined by `build.py`).
 - **No new globals without a reason.** A file exposes one name (`const Tour = (() => { ... return api; })()`); the
   linter reads those names from `src/` itself. A file that also runs in the node unit tests exports itself with
   `module.exports` and is then listed in `types/globals.d.ts`.

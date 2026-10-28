@@ -5,7 +5,7 @@
 // zeros-and-poles and derivative messages, the parser's messages, inverses and derivatives, the relation classifier,
 // region shapes (labels and TeX), curve notes and errors, the integrals' errors, and the number formatters.
 'use strict';
-const fs = require('fs'), vm = require('vm'), path = require('path');
+const vm = require('vm'), path = require('path');
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does; a snapshot holds it whole)
 const ROOT = path.join(__dirname, '..');
 const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
