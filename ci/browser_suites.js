@@ -52,8 +52,8 @@ const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
 const SUITES = {
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'] },
-  // (it did not finish in 30 min on SwiftShader)
-  'export_cmd.js': { timeoutMin: 60 },
+  // (in four parts, by its own CMW_ONLY: it did not finish in 30 min whole on SwiftShader)
+  'export_cmd.js': { timeoutMin: 40, runs: [['1-3', '1-3'], ['4', '4'], ['preview', 'preview'], ['user5', 'user5']].map(([label, only]) => ({ label, env: { CMW_ONLY: only } })) },
   // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
   // repository: work/xv16-merged-snap; v16's own build differs from it by design)
   'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },

@@ -11,7 +11,8 @@
 // Writes every file to test/regress/export/out/ (<name>.pdf|.svg|.png|.tex and <name>-boxes.json for the preflight)
 // and the dialog screenshots to <daemon>/shots/export-dlg-*.png. Prints {pass, fails, ...}.
 // Section 5 (notes/export-design/VIDEO-PREVIEW.md): the video preview in the dialog; 5b, the review's findings (vp-1 to
-// vp-8). CMW_ONLY=preview runs them alone.
+// vp-8). CMW_ONLY=preview runs them alone; CMW_ONLY=1-3, 4 and user5 run sections 1 to 3, section 4 and section 6
+// alone (the CI runs it in these four parts: ci/browser_suites.js).
 const BASE = process.env.CMW_BASE || 'http://localhost:8793/'; // (a daemon of your own: CMW_BASE=http://localhost:<port>/)
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -80,6 +81,8 @@ const build = async (tag, opts, fmts = ['pdf', 'svg', 'png', 'tex']) => {
   ok(`${tag}: snippet`, opts.for === 'homework' ? /\\begin\{figure\}\[H\]/.test(r.tex) && /\\ifdim\\linewidth</.test(r.tex) : opts.for === 'slides' ? /\\begin\{frame\}/.test(r.tex) : (r.star ? /\\begin\{figure\*\}\[tbp\]/.test(r.tex) : /\\begin\{figure\}\[tbp\]/.test(r.tex)) && /\\includegraphics\{/.test(r.tex), r.tex.slice(0, 400));
   return r;
 };
+// (CMW_ONLY=1-3: sections 1 to 3 alone; CMW_ONLY=4: section 4 alone. Section 4 shares only build with them)
+if (process.env.CMW_ONLY !== '4') {
 await open('xrexport');
 // X -> Y: the strip (a formula area, a line, a point), the Cayley map then the cube, the quarter plane squared
 for (const [ex, nm] of [[1, 'strip'], [8, 'cayleycube'], [2, 'quarter']]) {
@@ -238,6 +241,8 @@ ok('the dialog opens with storage blocked', await dlgReady(), null);
 await key('Escape'); await settle(300);
 await ev(`(() => { const p = Storage.prototype; [p.getItem, p.setItem] = window.__ls; return 1; })()`);
 
+} // (CMW_ONLY=4 skips sections 1 to 3)
+if (process.env.CMW_ONLY !== '1-3') {
 // 4. round 3: the deformation in every view, the formats, the display-style F, the video
 R.r3 = { figs: {}, videos: {}, dialog: {} };
 await open('xvr3');
@@ -559,6 +564,7 @@ await build3('r3-ru-xy-strip-article1', { for: 'article', lang: 'ru', view: 'xy'
 await key('2'); await settle(1500);
 await build3('r3-ru-film-phase-homework', { for: 'homework', lang: 'ru' });
 
+} // (CMW_ONLY=1-3 skips section 4)
 } // (CMW_ONLY=preview skips sections 1 to 4)
 
 // 5. (2026-10-24, notes/export-design/VIDEO-PREVIEW.md) the video preview: with Format = Video the dialog plays the video
@@ -567,7 +573,7 @@ await build3('r3-ru-film-phase-homework', { for: 'homework', lang: 'ru' });
 // motion, it restarts on an option change, it stops when the format changes and when the dialog closes, and the page
 // keeps its frames while it fills and plays (no task of 50 ms or more; the animation frames on time)
 R.pv = {};
-if (process.env.CMW_ONLY !== 'user5') {
+if (!['user5', '1-3', '4'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
@@ -695,7 +701,7 @@ if (process.env.CMW_ONLY !== 'user5') {
 // frame, the button and the scrubber during a restart, a bigger window, reduced motion drawing only what is seen, the
 // scrubber quiet for a screen reader while it plays, a hidden page, a small device
 R.pv2 = {};
-if (process.env.CMW_ONLY !== 'user5') {
+if (!['user5', '1-3', '4'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !cv.hidden, cssW: Math.round(cv.getBoundingClientRect().width || parseFloat(cv.style.width) || 0), dpr: devicePixelRatio, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
@@ -835,7 +841,7 @@ if (process.env.CMW_ONLY !== 'user5') {
 // (b) the Export figure dialog's menus (More formats, Size) open over the dialog, inside the viewport, take the focus,
 // move with the arrows, close with Esc (the dialog stays) and with a press outside (the dialog stays); an item works
 // with a real click. At 1440 and 390 px (phone), light and dark.
-if (process.env.CMW_ONLY !== 'preview') {
+if (!['preview', '1-3', '4'].includes(process.env.CMW_ONLY)) {
   R.u5 = { caps: {}, menus: {} };
   // (as the daemon's load(): the state is written from another page of the origin, so the app cannot save over it)
   const loadSt = async (ns, st) => {

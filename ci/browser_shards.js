@@ -14,7 +14,10 @@ const path = require('path');
 const SHARDS = [
   // (seconds of suite time on lavapipe, the third run of pull request #7; a job adds about a minute)
   { id: 'perp', suites: ['perp_cmd.js', 'fix163_cmd.js'] },                                                  // 452 + 231
-  { id: 'export', suites: ['export_cmd.js'] },
+  { id: 'export-1', suites: ['export_cmd.js#1-3'] },
+  { id: 'export-2', suites: ['export_cmd.js#4'] },
+  { id: 'export-3', suites: ['export_cmd.js#preview'] },
+  { id: 'export-4', suites: ['export_cmd.js#user5'] },
   { id: 'smoke-desktop', suites: ['rel1641_smoke_cmd.js#en-1440', 'rel1641_smoke_cmd.js#ru-1440-dark'] },   // 229 + 217
   { id: 'smoke-phone', suites: ['rel1641_smoke_cmd.js#en-390-dark', 'rel1641_smoke_cmd.js#ru-390'] },        // about 260 + 260
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },           // 349 + 223 + 50 + 24
