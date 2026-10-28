@@ -66,8 +66,12 @@ const Phone = (() => {
     grabber(head);
     // the Editor: the Inspector's host comes in when the phone layout starts
     // More tools: the tiles, then the region formula and the shapes (moved in)
-    els.tiles = h('div', { class: 'ph-tiles', role: 'group', 'aria-label': $t('Drawing tools') });
-    els.body.tools.append(els.tiles);
+    // (D6) three tabs: Draw, Construct, Shapes with its count; the sheet reopens on the last one
+    els.tabs = h('div', { class: 'ph-tabs', role: 'tablist', 'aria-label': $t('More tools') }, ...TOOL_TABS.map((t) => h('button', { type: 'button', role: 'tab', 'data-tab': t, onclick: () => setTab(t) })));
+    els.tiles = h('div', { class: 'ph-tiles', role: 'tabpanel', 'data-tab': 'draw', 'aria-label': $t('Drawing tools') });
+    els.ctiles = h('div', { class: 'ph-tiles', role: 'tabpanel', 'data-tab': 'construct', 'aria-label': $t('Construct') });
+    els.shapesPane = h('div', { class: 'ph-tabpane', role: 'tabpanel', 'data-tab': 'shapes', 'aria-label': $t('Shapes') });
+    els.body.tools.append(els.tabs, els.tiles, els.ctiles, els.shapesPane);
     // Display: this view's options, then the region display (moved in)
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts);
@@ -102,6 +106,10 @@ const Phone = (() => {
     });
     // the tool row follows the tool: a tool from More tools lights the More key with its icon and name
     new MutationObserver(() => syncTools()).observe($('tools'), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    { const sum = document.querySelector('#toolMore > summary'), rc = $('railCount');
+      if (sum) { els.badge = h('span', { class: 'ph-badge', 'aria-hidden': 'true', hidden: true }); sum.append(els.badge); }
+      if (rc) new MutationObserver(() => { if (els.tabs) setTab(toolTab); syncBadge(); }).observe(rc, { childList: true, characterData: true, subtree: true });
+      syncBadge(); }
     if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });   // (v16 [C20])
     new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = $('undoBtn').disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
     els.undo.disabled = els.sundo.disabled = $('undoBtn').disabled;
@@ -179,8 +187,8 @@ const Phone = (() => {
     // the Inspector's host goes into the Editor, the region sections into More tools and Display; the Deformation
     // toggle closes the chain bar; Numbers opens it
     park($('propsPanel'), els.body.edit);
-    park($('secFormula'), els.body.tools);
-    park($('secShapes'), els.body.tools);
+    park($('secShapes'), els.shapesPane);
+    park($('secFormula'), els.shapesPane);
     park($('secDisplay'), els.body.display);
     const wrap = document.querySelector('.pipe-wrap');
     park(els.nums, wrap, $('pipeline'));
@@ -355,19 +363,44 @@ const Phone = (() => {
       t.addEventListener('click', () => {
         const id = b.dataset.tool;
         b.click();
-        if (id === 'formula') { const f = $('formulaInput'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); } return; }
+        // (the formula field is on the Shapes tab)
+        if (id === 'formula') { setTab('shapes'); const f = $('formulaInput'); if (f) { f.scrollIntoView({ block: 'center' }); f.focus(); } return; }
         close();
       });
       return t;
     };
     const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
-    // (v16: the Construct group after the drawing tiles, under its heading; a tile closes the sheet as the others do)
+    // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
-    if (ct.length) tiles.push(h('h3', { class: 'ph-h cm-ph' }, $t('Construct')), ...ct);
     // v16.5 UX40: the long press, taught where people look (never on the plane)
-    tiles.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
+    ct.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
     els.tiles.replaceChildren(...tiles);
+    els.ctiles.replaceChildren(...ct);
+    setTab(toolTab);
   }
+  // the Tools sheet's tabs (D6)
+  const TOOL_TABS = ['draw', 'construct', 'shapes'];
+  let toolTab = 'draw';
+  const shapeCount = () => parseInt((($('railCount') || {}).textContent || '0'), 10) || 0;
+  function setTab(t) {
+    if (!TOOL_TABS.includes(t)) t = 'draw';
+    const moved = t !== toolTab;
+    toolTab = t;
+    const names = { draw: $t('Draw'), construct: $t('Construct'), shapes: $t('Shapes') + ' ' + shapeCount() };
+    for (const b of els.tabs.children) { const on = b.dataset.tab === t; b.textContent = names[b.dataset.tab]; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; b.classList.toggle('on', on); }
+    els.tiles.hidden = t !== 'draw'; els.ctiles.hidden = t !== 'construct'; els.shapesPane.hidden = t !== 'shapes';
+    if (moved) els.body.tools.scrollTop = 0;
+    syncBadge();
+  }
+  // the More key shows how many shapes there are
+  function syncBadge() {
+    if (!els.badge) return;
+    const n = shapeCount();
+    els.badge.textContent = n ? String(n) : '';
+    els.badge.hidden = !n;
+  }
+  // the tab a tool's tile is on (the tour opens it first)
+  const tabOf = (tool) => (els.ctiles.querySelector(`[data-tool="${tool}"]`) ? 'construct' : 'draw');
   function syncSnap() { const s = $('snapBtn'); if (s && els.snap) els.snap.setAttribute('aria-pressed', s.getAttribute('aria-pressed') || 'false'); }
   // Undo: a tap undoes; a long press offers Redo
   function undoKey(b) {
@@ -408,6 +441,7 @@ const Phone = (() => {
     if (!on) return;
     const wantNums = k === 'edit' && !!opt.params;
     if (kind === k && k === 'edit' && wantNums !== nums) { setNums(wantNums); A.renderInspector(); return; }
+    if (kind === k && k === 'tools' && opt.tab) { setTab(opt.tab); return; }
     if (kind === k && !opt.params && !opt.side) { if (k !== 'edit') close(); return; }
     clearTimeout(anim);
     const was = kind;
@@ -424,7 +458,7 @@ const Phone = (() => {
     els.snap.hidden = k !== 'tools';
     els.mark.hidden = k !== 'more';
     if (k === 'more') fillMore();
-    if (k === 'tools') { fillTiles(); syncSnap(); }
+    if (k === 'tools') { if (opt.tab) toolTab = opt.tab; fillTiles(); syncSnap(); }
     if (k === 'display') fillDisplay(opt.side || big);
     if (k === 'edit') A.renderInspector();
     els.sheet.hidden = false;
@@ -520,7 +554,7 @@ const Phone = (() => {
     const guard = () => { clearTimeout(gT); els.sheet.dataset.guard = '1'; gT = setTimeout(() => { delete els.sheet.dataset.guard; }, 400); };
     for (const ev of ['mousedown', 'click']) els.sheet.addEventListener(ev, (e) => { if (els.sheet.dataset.guard && !e.target.closest('.ph-sh')) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
-  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('More') });
+  const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu') });
 
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
   function fillDisplay(side) {
@@ -543,39 +577,56 @@ const Phone = (() => {
     const snd = A.sound('state');
     const sw = h('button', { class: 'ph-switch', type: 'button', role: 'switch', 'aria-checked': String(!!snd.on), 'aria-label': $t('Sound'), onclick: () => { $('soundBtn').click(); sw.setAttribute('aria-checked', String(!!A.sound('state').on)); } });
     const sndSet = h('button', { class: 'ph-link', type: 'button', onclick: () => { close(true); $('soundMore').click(); } }, $t('Settings'));
-    const kids = [];
-    if (snd.has) kids.push(h('div', { class: 'ph-srow' }, h('span', { class: 'ph-ic', html: A.soundIcon() }), h('span', { class: 'ph-rl' }, $t('Sound')), sndSet, sw));
-    kids.push(seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme));
+    // (D6) grouped by task, with a search field on top: Scene, Figure, Sound, Help, Look
+    const groups = [];
+    const group = (title, ...rows) => groups.push({ title, rows: rows.filter(Boolean) });
+    const sndRow = snd.has ? h('div', { class: 'ph-srow' }, h('span', { class: 'ph-ic', html: A.soundIcon() }), h('span', { class: 'ph-rl' }, $t('Sound')), sndSet, sw) : null;
+    const hearSw = snd.has ? h('button', { class: 'ph-switch', type: 'button', role: 'switch', 'aria-checked': String(!!snd.sonify), 'aria-label': $t('Hear the function'), onclick: () => { A.sound('sonify', hearSw.getAttribute('aria-checked') !== 'true'); hearSw.setAttribute('aria-checked', String(!!A.sound('state').sonify)); } }) : null;
+    const hearRow = hearSw ? h('div', { class: 'ph-srow' }, h('span', { class: 'ph-ic', html: A.soundIcon() }), h('span', { class: 'ph-rl' }, $t('Hear the function')), hearSw) : null;
     // Phase colours (issue 8): the palette's menu, with a preview of each, over the sheet
     const pc = row(A.palIcon(), $t('Phase colours'), (e) => A.palMenu(e.currentTarget, () => { pcName.textContent = A.palName(); pc.querySelector('.ph-ic').innerHTML = A.palIcon(); }), true);
     const pcName = h('span', { class: 'ph-pv' }, A.palName());
     pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
     pc.setAttribute('aria-haspopup', 'menu');
-    kids.push(pc);
     const lang = A.langPref();
-    kids.push(seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
-    kids.push(h('div', { class: 'ph-sep' }));
-    kids.push(row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true));
-    kids.push(row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true));
     // v16.5 V02: the links, the scene files and the LaTeX are rows of this sheet (it opened a desktop menu over the
     // plane, with a key a phone has not got); "… again" only once a figure was made
+    const sceneRows = [], figRows = [];
     const xs = typeof A.exportItems === 'function' ? A.exportItems() : [];
     if (xs.length) {
       for (const it of xs) {
         if (it === 'sep' || it.fig || (it.again && it.disabled)) continue;
-        const ic = /LaTeX/.test(it.label) ? TEX : it.save ? I.download : it.icon && I[it.icon] ? I[it.icon] : OPEN;
+        const isTex = /LaTeX/.test(it.label);
+        const ic = isTex ? TEX : it.save ? I.download : it.icon && I[it.icon] ? I[it.icon] : OPEN;
         const r = row(ic, it.label, () => { close(true); it.run(); });
         if (it.disabled) r.disabled = true;
-        kids.push(r);
+        (isTex ? figRows : sceneRows).push(r);
       }
     } else {
-      kids.push(row(I.copy, $t('Links, scenes and LaTeX'), () => { close(true); $('exportBtn').click(); }, true));
-      kids.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
+      sceneRows.push(row(I.copy, $t('Links, scenes and LaTeX'), () => { close(true); $('exportBtn').click(); }, true));
+      figRows.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
     }
-    kids.push(row(I.search, $t('Search functions and commands'), () => { close(true); $('cmdBtn').click(); }));
-    kids.push(row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true));
-    kids.push(row(I.help, $t('Reference guide'), () => { close(true); A.openGuide(); }));
-    b.replaceChildren(...kids);
+    const searchRow = row(I.search, $t('Search functions and commands'), () => { close(true); $('cmdBtn').click(); });
+    group($t('Scene'), row(I.add || OPEN, $t('Empty canvas'), () => { close(true); A.newScene(); }), row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true), ...sceneRows);
+    group($t('Figure'), row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true), ...figRows);
+    group($t('Sound'), sndRow, hearRow);
+    group($t('Help'), searchRow, row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true), row(I.help, $t('Reference guide'), () => { close(true); A.openGuide(); }));
+    group($tx('menu group', 'Look'), seg($t('Theme'), [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], A.theme(), (v) => A.setTheme(v), I.theme), pc,
+      seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
+    const field = h('input', { class: 'ph-search', type: 'search', enterkeyhint: 'search', autocomplete: 'off', spellcheck: 'false', placeholder: $t('Search tools, functions, help…'), 'aria-label': $t('Search tools, functions, help…') });
+    const blocks = groups.filter((g) => g.rows.length).map((g) => ({ g, head: h('h3', { class: 'ph-h' }, g.title) }));
+    const filter = () => {
+      const q = field.value.trim().toLowerCase();
+      for (const { g, head } of blocks) {
+        let any = false;
+        // (the row that opens the command palette stays while there is a query: what the menu lacks, the palette may have)
+        for (const r of g.rows) { const hit = !q || r === searchRow || r.textContent.toLowerCase().includes(q) || g.title.toLowerCase().includes(q); r.hidden = !hit; if (hit) any = true; }
+        head.hidden = !any;
+      }
+    };
+    field.addEventListener('input', filter);
+    b.replaceChildren(field, ...blocks.flatMap(({ g, head }) => [head, ...g.rows]));
+    filter();
   }
 
   // ---------------- the on-screen keyboard (v16.5 UX69) ----------------
@@ -716,7 +767,7 @@ const Phone = (() => {
     backInit();
   }
   return {
-    init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
