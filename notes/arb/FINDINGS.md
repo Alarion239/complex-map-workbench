@@ -100,11 +100,15 @@ The CPU and the GPU must agree: the GLSL conformance pages (ci/glsl.js) compare 
 `funcs.js`, so a CPU formula changes only together with its GLSL twin, and only where the twin can change the same way
 cheaply and safely on Direct3D 11 and Metal. A first attempt fixed all five places on the CPU alone; the paired GLSL
 pages then counted more GPU-vs-CPU mismatches (a twelve-step chain of the inverse functions: 32 failed values against
-12), so four of the five were taken back.
+12), so they were taken back. The sixth, the power's angle by quarter turns, went to both: on Direct3D 11 its GLSL
+twin counted more mismatches than the reference on the paired adv page (z^{1/4096}: about 290 values), so it was
+taken back too and nothing of cx.js or glsl.js changes yet.
 
-**Fixed, on both:** the small part of a power next to its cut (finding 5). `CX.powReal` and the GPU's `cpowr` take
-the angle as whole quarter turns plus a remainder from the component ratio, with exact cos and sin of the quarter
-turns: √ and z^1.5 keep their tiny component next to the cut, and √(−1) is exactly −i.
+**Waiting for a GPU twin that is bit-safe on Direct3D 11 and Metal:** the small part of a power next to its cut
+(finding 5). `CX.powReal` and `cpowr` would take the angle as whole quarter turns plus a remainder from the component
+ratio, with exact cos and sin of the quarter turns: √ and z^1.5 would keep their tiny component next to the cut, and
+√(−1) would be exactly −i. On D3D11 the twin's atan of the ratio and the floor of the turns did not match the CPU
+closely enough (PR #110, GLSL windows adv).
 
 **Waiting for a float log1p and an error-free product on the GPU** (WebGL2 has neither `log1p` nor `fma`, and a
 shader compiler may fuse a Dekker split into an fma, which breaks it); each was written and measured on the CPU, then

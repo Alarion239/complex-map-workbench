@@ -81,28 +81,12 @@ const CX = (() => {
     return C(Math.log(Math.hypot(a.re, a.im)), argCut(a, theta) + TAU * k);
   }
   // z^s for real s, branch as in log
-  // The angle s·arg z is taken as s·q·π/2 + s·ρ, q an integer (the quadrant, with the cut's and the sheet's turns) and
-  // |ρ| <= π/4 from the components themselves: next to a cut, where arg z is π less a tiny δ, the small part of z^s
-  // (m sin(sδ) for a square root) keeps its digits instead of the rounding of cos(s·arg z) near π/2 (it read 4e-17
-  // for 7e-301 next to the cut of √; notes/arb/FINDINGS.md). cos and sin of an exact multiple of π/2 are exact. The
-  // GPU's cpowr (glsl.js) takes the angle the same way.
   function powReal(a, s, theta = Math.PI, k = 0) {
     const r = Math.hypot(a.re, a.im);
     if (r === 0) return s > 0 ? C(0, 0) : (s === 0 ? C(1, 0) : INF);
-    const x = a.re, y = a.im;
-    let q, rho;
-    if (Math.abs(x) >= Math.abs(y)) { rho = Math.atan(y / x); q = x > 0 ? 0 : Object.is(y, -0) || y < 0 ? -2 : 2; }
-    else { rho = -Math.atan(x / y); q = y > 0 ? 1 : -1; }
-    // (the turns argCut and the sheet add: whole multiples of 2π, 4 quarters each)
-    q += 4 * Math.round((argCut(a, theta) + TAU * k - (q * Math.PI / 2 + rho)) / TAU);
+    const t = (argCut(a, theta) + TAU * k) * s;
     const m = Math.pow(r, s);
-    // s·q/2 half-turns, reduced mod 2; exact cos and sin at the multiples of 1/2
-    let h = s * q / 2;
-    h -= 2 * Math.round(h / 2);
-    const H = 2 * h, Q4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-    const [ch, sh] = Number.isInteger(H) ? Q4[((H % 4) + 4) % 4] : [Math.cos(Math.PI * h), Math.sin(Math.PI * h)];
-    const v = s * rho, cv = Math.cos(v), sv = Math.sin(v);
-    return C(m * (ch * cv - sh * sv), m * (sh * cv + ch * sv));
+    return C(m * Math.cos(t), m * Math.sin(t));
   }
   // z^w for complex w
   function pow(a, w, theta = Math.PI, k = 0) {

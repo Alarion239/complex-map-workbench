@@ -130,9 +130,7 @@ const a = probe(base, BASE), b = probe(now, path.join(ROOT, 'src'));
 let fails = 0;
 // (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
 // notes/ux-build/w1-chain-AS-BUILT.md)
-// (and of a value: √−1 is exactly -i now, where cos(π/2) rounded to 6.1e-17 had been its real part; CX.powReal's
-// angle by quadrants, notes/arb/FINDINGS.md)
-const intended = (s) => s.replace(/Custom formula/g, 'Formula').replace('{"re":6.123233995736766e-17,"im":-1}', '{"re":0,"im":-1}');
+const intended = (s) => s.replace(/Custom formula/g, 'Formula');
 // (#38, another intended change: a half-plane reads in words, "left of the line from a to b", no longer as
 // Im((z − a)/(b − a)) > 0)
 const inWords = (k, s) => /^tex halfplane /.test(k) && /^\\text\{left of the line from \} \S+ \\text\{ to \} \S+$/.test(s);

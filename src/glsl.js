@@ -101,25 +101,12 @@ vec2 clog(vec2 z, float theta, float k) {
   float r = cx_abs(z);
   return vec2(r == 0.0 ? -cx_inf() : log(r), cx_argcut(z, theta) + CX_TAU * k);
 }
-// (the angle as cx.js powReal takes it: whole quarter turns q, from the components and the cut's and sheet's turns,
-// plus a remainder |rho| <= pi/4 from the component ratio; cos and sin of the quarter turns exact, so the small part of
-// z^s next to a cut keeps its digits)
 vec2 cpowr(vec2 z, float s, float theta, float k) {
   float r = cx_abs(z);
   if (r == 0.0) return s > 0.0 ? vec2(0.0) : (s == 0.0 ? vec2(1.0, 0.0) : vec2(cx_inf()));
-  float q, rho;
-  if (abs(z.x) >= abs(z.y)) { rho = atan(z.y / z.x); q = z.x > 0.0 ? 0.0 : (z.y < 0.0 ? -2.0 : 2.0); }
-  else { rho = -atan(z.x / z.y); q = z.y > 0.0 ? 1.0 : -1.0; }
-  q += 4.0 * floor((cx_argcut(z, theta) + CX_TAU * k - (q * CX_HALF_PI + rho)) / CX_TAU + 0.5);
+  float t = (cx_argcut(z, theta) + CX_TAU * k) * s;
   float m = pow(r, s);
-  float hh = s * q * 0.5;
-  hh -= 2.0 * floor(hh * 0.5 + 0.5);
-  float H = 2.0 * hh;
-  vec2 cs;
-  if (H == floor(H)) { float i = mod(H, 4.0); cs = i < 0.5 ? vec2(1.0, 0.0) : i < 1.5 ? vec2(0.0, 1.0) : i < 2.5 ? vec2(-1.0, 0.0) : vec2(0.0, -1.0); }
-  else cs = vec2(cx_cos(CX_PI * hh), cx_sin(CX_PI * hh));
-  float v = s * rho, cv = cx_cos(v), sv = cx_sin(v);
-  return m * vec2(cs.x * cv - cs.y * sv, cs.y * cv + cs.x * sv);
+  return vec2(m * cx_cos(t), m * cx_sin(t));
 }
 vec2 cx_powg(vec2 z, vec2 w, float theta, float k) {
   if (z.x == 0.0 && z.y == 0.0) return w.x > 0.0 ? vec2(0.0) : vec2(cx_inf());
