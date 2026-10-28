@@ -68,7 +68,65 @@
     const hr = brOn() ? homRangeOk() : null;
     cardRefs.forEach((c, k) => { if (c && c.root) c.root.classList.toggle('br-in', !!hr && k >= hr.a && k <= hr.b); });
   }
+  // ---------------- [issue #6] Repeat × N: a bracket under the cards of each block, with its N ----------------
+  // step.repeat = {n, len} on a block's last step (Funcs.applyRepeats). The line runs under the block's cards; its
+  // chip holds N (1 … Funcs.REPEAT_MAX: typed, or the arrow keys) and a button that ends the repeat.
+  const repeatBlocks = () => S.steps.map((st, i) => { const rp = Funcs.repeatOk(S.steps, i + 1); return rp ? { a: i + 2 - rp.len, b: i + 1, n: rp.n } : null; }).filter(Boolean);
+  function setRepeat(k, rp) {
+    const st = S.steps[k - 1];
+    if (!st) return;
+    if (rp) st.repeat = rp; else delete st.repeat;
+    chainChanged(true); commit();
+  }
+  let repRO = null;
+  function updateRepeats() {
+    const host = $('pipeline');
+    if (!host) return;
+    const blocks = repeatBlocks(), els = /** @type {HTMLElement[]} */ ([...host.querySelectorAll(':scope > .rep-bracket')]);
+    if (blocks.length && !repRO && typeof ResizeObserver !== 'undefined') { repRO = new ResizeObserver(() => requestAnimationFrame(updateRepeats)); repRO.observe(host); }
+    els.slice(blocks.length).forEach((e) => e.remove());
+    blocks.forEach((r, i) => {
+      let L = els[i];
+      if (!L) {
+        const inp = h('input', { class: 'rep-n', type: 'number', min: '1', max: String(Funcs.REPEAT_MAX), step: '1', inputmode: 'numeric' });
+        inp.addEventListener('input', () => {
+          const v = Math.round(Number(inp.value)), k = +L.dataset.k, st = S.steps[k - 1];
+          if (!st || !st.repeat || !Number.isFinite(v) || v < 1 || v > Funcs.REPEAT_MAX || v === st.repeat.n) return;
+          st.repeat = { n: v, len: st.repeat.len };
+          chainChanged(false);
+        });
+        inp.addEventListener('change', () => { const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) inp.value = String(st.repeat.n); commit(); });
+        const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
+        L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
+          h('div', { class: 'rep-chip' }, h('span', { class: 'rep-x', 'aria-hidden': 'true' }, '×'), inp, off));
+        const add = $('addStepBtn');
+        if (add && add.parentNode === host) host.insertBefore(L, add); else host.append(L);
+      }
+      L.dataset.k = String(r.b);
+      const inp = /** @type {HTMLInputElement} */ (L.querySelector('.rep-n'));
+      if (document.activeElement !== inp) inp.value = String(r.n);
+      inp.setAttribute('aria-label', r.a === r.b ? $t('Repeat f{k}: times', { k: sub(r.b) }) : $t('Repeat f{a}–f{b}: times', { a: sub(r.a), b: sub(r.b) }));
+      const ca = /** @type {HTMLElement} */ (host.querySelector(`.card[data-k="${r.a}"]`)), cb = /** @type {HTMLElement} */ (host.querySelector(`.card[data-k="${r.b}"]`));
+      if (!ca || !cb) { L.hidden = true; return; }
+      L.hidden = false;
+      const x0 = ca.offsetLeft + 4, x1 = cb.offsetLeft + cb.offsetWidth - 4, y = cb.offsetTop + cb.offsetHeight;
+      Object.assign(/** @type {HTMLElement} */ (L.querySelector('.rep-line')).style, { left: x0 + 'px', width: Math.max(8, x1 - x0) + 'px', top: (y + 2) + 'px' });
+      Object.assign(/** @type {HTMLElement} */ (L.querySelector('.rep-chip')).style, { left: Math.round((x0 + x1) / 2) + 'px', top: (y - 9) + 'px' });
+    });
+  }
+  // the ⋯ menu's Repeat: the blocks that may end at step k (back to a d/dz or another repeat), or N and End for its own
+  function repeatItems(k) {
+    const own = repeatBlocks().find((r) => r.a <= k && k <= r.b);
+    if (own) return [{ label: $t('End the repeat'), run: () => setRepeat(own.b, null) }];
+    const kids = [], prevEnd = Math.max(0, ...repeatBlocks().filter((r) => r.b < k).map((r) => r.b));
+    for (let j = k; j > prevEnd && j >= Math.max(1, k - 5); j--) {
+      if (isDerivStep(S.steps[j - 1], built[j - 1])) break;
+      kids.push({ label: j === k ? $t('This step, twice') : $t('f{a}–f{b}, twice', { a: sub(j), b: sub(k) }), run: () => { setRepeat(k, { n: 2, len: k - j + 1 }); const c = document.querySelector(`#pipeline .rep-bracket[data-k="${k}"] .rep-n`); return c || null; } });
+    }
+    return kids;
+  }
   function updateBracket() {
+    updateRepeats();
     syncRangeRows();
     tintBracketed();
     const host = $('pipeline');
@@ -316,6 +374,8 @@
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     // (v16: which steps the deformation deforms, SPEC 6.5)
     if (activeSteps().length >= 2) items.push({ label: $t('Deformation'), kids: deformItems(k) });
+    // ([issue #6] Repeat × N)
+    if (!isDerivStep(st, built[k - 1])) { const rk = repeatItems(k); if (rk.length) items.push({ label: $t('Repeat'), kids: rk }); }
     if (d.presets) items.push({ label: $t('Presets'), kids: d.presets.map((p) => ({ label: p.label, run: () => { Object.assign(st.params, p.params); chainChanged(true); commit(); } })) });
     const bk = built[k - 1];
     // v15.2: a formula that is a chain of catalog steps, split into them (or, read as one step, replaced by it)
@@ -839,7 +899,9 @@
   }
   function duplicateStep(k) {
     const st = S.steps[k - 1];
-    S.steps.splice(k, 0, JSON.parse(JSON.stringify(st)));
+    const cp = JSON.parse(JSON.stringify(st));
+    delete cp.repeat;   // ([issue #6] the copy is a step after the block, not a second repeat)
+    S.steps.splice(k, 0, cp);
     chainChanged(true);
     keepShown(k + 1, 1);   // (v16.5 UX01)
     commit();
