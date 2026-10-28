@@ -67,7 +67,9 @@ during a hover, a missing value or a timeout, a page error. Speed is gated with 
 frame, 0.90 × the frames per second) on our own machines, in the GPU gate.
 
 On the Mac with a GPU, quality is also gated against the committed baseline and goldens (`--absolute`), which were
-recorded on a Mac GPU.
+recorded on a Mac GPU, and the GLSL pages `glsl` and `inverse` must also pass outright (`--absolute glsl,inverse`).
+`adv` is paired only: it fails 304 values on the Mac, in 10 chains near removable singularities ((e^z − 1)/z,
+(1 − cos z)/z², a cancelled rational, twelve#0–2), as every release since v14 did.
 
 ### The phone
 
