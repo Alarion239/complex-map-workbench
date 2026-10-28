@@ -304,6 +304,26 @@ ok('UX49 a long press on empty space cancels the construction and opens no menu 
 await key('Escape'); await settle(200);
 await grab();
 
+// ---------------- UX50: the last pick of a construction on touch: the preview under the finger, lift to commit ----------------
+await fresh('last', 412, 860, false, true);
+await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle(200);
+await touch(150, 250); await settle(300); await touch(260, 330); await settle(300);
+const n50 = () => ev(`__tourApi.snapshot().state.shapes.length`);
+const nBefore = await n50();
+const pk2 = await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : -1');
+await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 200, y: 450, id: 1 }] }); await sleep(200);
+for (let i = 1; i <= 5; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 + i * 10, y: 450 - i * 12, id: 1 }] }); await sleep(80); }
+await sleep(200);
+const dn = await ev(`(() => { const d = Construct.debug(); return { hover: d.hover, picks: d.draft ? d.draft.picks.length : -1, shapes: __tourApi.snapshot().state.shapes.length }; })()`);
+ok('UX50 two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
+const h1 = dn.hover;
+await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] }); await sleep(150);
+const h2 = await ev('Construct.debug().hover');
+ok('UX50 sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(500);
+ok('UX50 lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
+await key('Escape'); await settle(200);
+
 // ---------------- UX17: touch wording of the guide and the tour; no Palette and keys on touch ----------------
 const guideText = async () => { await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove()`); await ev(`__tourApi.openGuide()`); await settle(900); return ev(`(document.querySelector('.modal') || {}).innerText || ''`); };
 await fresh('guide', 412, 860, false, true);
