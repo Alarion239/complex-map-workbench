@@ -50,7 +50,7 @@ for (const dark of [false, true]) {
     if (!dark) {
       await ev(SCAN); await ev(`__i18nScan('first screen')`);
       // the header's menus, through More where the bar folds
-      for (const id of ['langBtn', 'helpBtn', 'exportBtn', 'examplesBtn', 'soundMore']) {
+      for (const id of ['settingsBtn', 'helpBtn', 'exportBtn', 'shareBtn', 'examplesBtn', 'soundMore']) {
         if (await ev(`getComputedStyle(document.getElementById('hdrMoreBtn')).display !== 'none'`)) { await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(300); await ev(`__i18nScan('more')`); }
         await ev(`(() => { const b = document.getElementById(${JSON.stringify(id)}); b && b.click(); })()`); await settle(500); await ev(`__i18nScan(${JSON.stringify('menu ' + id)})`);
         await key('Escape'); await key('Escape'); await settle(200);
@@ -72,15 +72,17 @@ for (const dark of [false, true]) {
     check(`overflow ${w}${dark ? ' dark' : ''} (it): nothing clipped beyond English`, extra.length === 0, extra.slice(0, 8));
   }
 }
-// ---- 3: the globe, the tablet bar, the palette rows ----
+// ---- 3: Language in Settings, the tablet bar, the palette rows ----
+// ([v17 D5, the owner's decision of 2026-10-28, notes/i18n/USER-DECISIONS.md] the header's globe went: Language is a
+// four-way switch in ⚙ Settings, and in the phone's More sheet)
+const setLang = async (v) => { await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(400); return ev(`(() => { const b = document.querySelector('.set-pop #setLang [data-v="${v}"]'); if (!b) return false; b.click(); return true; })()`); };
 await open('ru', 1440, false);
-check('globe in the bar at 1440', await ev(`(() => { const b = document.getElementById('langBtn'); const r = b.getBoundingClientRect(); return !!b.offsetParent && r.right <= innerWidth && r.top < 60; })()`));
-check('globe labelled', (await ev(`document.getElementById('langBtn').getAttribute('aria-label')`)) === 'Язык: Авто');
-await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
-const items = await ev(`[...document.querySelectorAll('#popHost .menu .mi .mi-label')].map((e) => e.textContent)`);
-check('globe menu: Auto (resolved), English, Русский, Italiano', JSON.stringify(items) === JSON.stringify(['Авто (English)', 'English', 'Русский', 'Italiano']) || JSON.stringify(items) === JSON.stringify(['Авто (Русский)', 'English', 'Русский', 'Italiano']), items);
-const mrect = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
-check('globe menu inside the window', mrect && mrect.l >= 0 && mrect.r <= 1440 && mrect.t >= 0, mrect);
+check('no globe in the bar: Language is in Settings', await ev(`!document.getElementById('langBtn') && !!document.getElementById('settingsBtn').offsetParent`));
+await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(500);
+const items = await ev(`[...document.querySelectorAll('.set-pop #setLang button')].map((e) => e.textContent)`);
+check('Settings: Language Авто, English, Русский, Italiano', JSON.stringify(items) === JSON.stringify(['Авто', 'English', 'Русский', 'Italiano']), items);
+const mrect = await ev(`(() => { const m = document.querySelector('.set-pop'); if (!m) return null; const r = m.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
+check('Settings inside the window', mrect && mrect.l >= 0 && mrect.r <= 1440 && mrect.t >= 0, mrect);
 await key('Escape'); await settle(200);
 for (const q of ['язык', 'language']) {
   await key('k', 4); await settle(300); await type(q); await settle(500);
@@ -88,23 +90,24 @@ for (const q of ['язык', 'language']) {
   check(`palette "${q}": the four Language rows`, rows.length === 4, rows);
   await key('Escape'); await settle(200);
 }
-// (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the globe and the
-// secondary buttons are in the bar, inside the window, and the Language menu opens from the globe there)
+// (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the secondary buttons are
+// in the bar, inside the window, and Settings, with Language, opens there)
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
   const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-    const ids = ['examplesBtn', 'cmdBtn', 'toggleLeft', 'toggleRight', 'exportBtn', 'themeBtn', 'soundBtn', 'langBtn', 'helpBtn'];
+    // ([v17 D5] Theme and the panel buttons are in Settings: the bar has Share and Settings instead)
+    const ids = ['examplesBtn', 'cmdBtn', 'exportBtn', 'shareBtn', 'soundBtn', 'settingsBtn', 'helpBtn'];
     const inBar = ids.filter((id) => { const e = document.getElementById(id), r = e && e.getBoundingClientRect(); return vis(e) && r.top < 60 && r.right <= innerWidth - 4 && r.left >= 0; });
     return { more: vis(document.getElementById('hdrMoreBtn')), inBar, over: document.documentElement.scrollWidth - innerWidth }; })()`);
-  check(`tablet ${w}: no More button; the globe and the secondary buttons in the bar, inside the window`, !st.more && st.inBar.length === 9 && st.over <= 0, st);
-  await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
-  const lm = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('.mi').length, l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
-  check(`tablet ${w}: the Language menu opens from the globe in the bar, inside the window`, lm && lm.n === 4 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
+  check(`tablet ${w}: no More button; the secondary buttons in the bar, inside the window`, !st.more && st.inBar.length === 7 && st.over <= 0, st);
+  await ev(`document.getElementById('settingsBtn').click(), 1`); await settle(500);
+  const lm = await ev(`(() => { const m = document.querySelector('.set-pop'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('#setLang button').length, l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
+  check(`tablet ${w}: Settings, with Language, opens from the bar, inside the window`, lm && lm.n === 4 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
   await key('Escape'); await settle(200);
 }
 for (const w of [1024, 1440]) {
   await open('en', w, false);
-  check(`${w}: no More button, globe in the bar (English)`, await ev(`getComputedStyle(document.getElementById('hdrMoreBtn')).display === 'none' && !!document.getElementById('langBtn').offsetParent`));
+  check(`${w}: no More button, Settings in the bar (English)`, await ev(`getComputedStyle(document.getElementById('hdrMoreBtn')).display === 'none' && !!document.getElementById('settingsBtn').offsetParent`));
 }
 // ---- 4: switching round-trips through the UI ----
 {
@@ -123,8 +126,7 @@ for (const w of [1024, 1440]) {
   // in software, and the snapshot threw)
   const snap = async () => { for (let i = 0; i < 300 && (await ev(`typeof __cmwState === 'function' && !!document.getElementById('undoBtn')`)) !== true; i++) await sleep(200); return JSON.parse(await ev(snapOf)); };
   const before = await snap();
-  await ev(`document.getElementById('langBtn').click(), 1`); await settle(400);
-  await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((m) => m.textContent.includes('Русский')); b && b.click(); })()`);
+  await setLang('ru');
   await sleep(4500); await settle(1500);
   const after = await snap();
   check('switch en→ru: Russian after the reload', (await ev('I18N.lang')) === 'ru' && (await ev('document.documentElement.lang')) === 'ru');
@@ -136,8 +138,7 @@ for (const w of [1024, 1440]) {
   check('switch en→ru: undo undoes the step added before the switch', (await ev(`document.querySelectorAll('#pipeline .card').length`)) === before.cards - 1);
   await ev(`document.getElementById('redoBtn').click(), 1`); await settle(800);
   const before2 = await snap();
-  await ev(`document.getElementById('langBtn').click(), 1`); await settle(400);
-  await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((m) => m.textContent.startsWith('Авто')); b && b.click(); })()`);
+  await setLang('auto');
   await sleep(4500); await settle(1500);
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.cards === before2.cards && after2.morph === before2.morph);

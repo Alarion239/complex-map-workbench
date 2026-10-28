@@ -724,6 +724,7 @@
     $('helpBtn').addEventListener('click', (e) => Tour.openHelpMenu(e.currentTarget));
     sndInit();
     $('exportBtn').addEventListener('click', (e) => openExportMenu(e.currentTarget));
+    $('shareBtn').addEventListener('click', (e) => openShareMenu(e.currentTarget));
     getDownloads(); // resolves the save capability early (no prompt until a save)
     $('examplesBtn').addEventListener('click', (e) => openGallery(e.currentTarget));
     // the cycle runs on the theme in use, so it still reaches Dark when storage is blocked
@@ -746,17 +747,53 @@
       });
       syncPalBtn();
     }
-    // the Language setting (device only): Auto, English, Русский, Italiano; a choice that changes the language reloads. The
-    // globe button is page.html's; the menus and the palette reach the same items
-    const lb = $('langBtn');
-    if (lb) {
-      lb.setAttribute('aria-expanded', 'false');
-      lb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, langItems());
-        lb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { lb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
-      syncLangLabel();
+    // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
+    // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
+    // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
+    // the header's globe went (notes/i18n/USER-DECISIONS.md, 2026-10-28)
+    const sb = $('settingsBtn');
+    if (sb) sb.addEventListener('click', () => openSettings(sb));
+    function openSettings(btn) {
+      if (popEl && popEl.classList.contains('set-pop')) { closePalette(); btn.focus(); return; }   // (a re-click closes)
+      closePalette();
+      const sep = (t, first) => h('div', { class: 'opts-h' + (first ? '' : ' opts-sep') }, t);
+      // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English, review eng-12; the languages'
+      // own names are never translated)
+      const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
+      const kids = [sep($t('Theme'), true), seg('setTheme', curTheme, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], (v) => { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }, $t('Theme')),
+        sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
+      if (SND) {
+        const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });
+        sw.checked = !!SND.prefs().on;
+        sw.addEventListener('change', () => { $('soundBtn').click(); sw.checked = !!SND.prefs().on; });
+        kids.push(sep($t('Sound')), h('div', { class: 'set-row' }, h('span', { class: 'fl' }, $t('Sound (Shift+M)')), sw),
+          h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); $('soundMore').click(); } }, $t('Sound settings…')));
+      }
+      const panel = (label, key, on, set) => {
+        const c = h('input', { type: 'checkbox' });
+        c.checked = on;
+        c.addEventListener('change', () => set(c.checked));
+        return h('label', { class: 'check' }, c, h('span', null, label), h('span', { class: 'kbd' }, key));
+      };
+      kids.push(sep($t('Panels')), panel($t('Region tools'), '[', !S.hideLeft, (v) => setPanels(!v, S.hideRight)), panel($t('Inspector'), ']', !S.hideRight, (v) => setPanels(S.hideLeft, !v)));
+      const mesh = $('meshGroup');
+      if (mesh) kids.push(sep(''), mesh);   // (the fader names itself: Mesh quality)
+      const help = (label, run) => h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); run(); } }, label);
+      kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Reference guide'), () => openGuide()),
+        help($t('Keyboard shortcuts'), () => { openGuide(); const k = [...document.querySelectorAll('.modal h3')].find((x) => ['Keys', $t('Keys')].includes(x.textContent.trim())); if (k) k.scrollIntoView({ block: 'start' }); })));
+      const pop = h('div', { class: 'pop opts-pop set-pop', role: 'dialog', 'aria-label': $t('Settings') }, ...kids);
+      pop._onClose = () => { btn.setAttribute('aria-expanded', 'false'); const home = $('settingsHome'); if (mesh && home && mesh.parentNode === pop) home.append(mesh); };
+      $('popHost').append(pop);
+      popEl = pop;
+      btn.setAttribute('aria-expanded', 'true');
+      // (under the button, its right edge on the button's, inside the window)
+      const r = btn.getBoundingClientRect(), pw = pop.offsetWidth;
+      pop.style.left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.right - pw)) + 'px';
+      pop.style.top = (r.bottom + 6) + 'px';
+      pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
+      const first = pop.querySelector('.seg > .on') || pop.querySelector('button, input');
+      if (first) first.focus({ preventScroll: true });
+      armOutside(btn);
     }
     // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
     // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a
@@ -890,8 +927,8 @@
           if (swUi.lamp) openLamp = swUi.lamp;
           if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
           if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
-          // focus returns to the control that switched (review eng-5): the globe, or the More button it folds into
-          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('langBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
+          // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
+          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
         // the right plane reopens at the view the user left it at
         if (loaded.rightView && autoFit()) { Object.assign(V.right, loaded.rightView); rightAuto = false; requestRender('R'); }
@@ -944,13 +981,13 @@
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
-      globeIcon: ($('langBtn') && $('langBtn').querySelector('svg') || {}).outerHTML || '',
+      globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
       sound: (k) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on) } : null),
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
-      exportItems: () => exportMenuItems(),   // (v16.5 V02)
+      exportItems: () => exportMenuItems(true),   // (v16.5 V02)
       // v16.5 UX12: the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
       // first: the coordinate pad, the popover (the palette, a menu, a plane's menu, the integral, the options), the
       // tour's chapter menu, the sound settings, a dialog (Export, the guide), a popover of the top layer, the sheet

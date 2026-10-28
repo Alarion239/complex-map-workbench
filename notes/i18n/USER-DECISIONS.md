@@ -14,6 +14,11 @@
   globe must not make that worse; where the bar is short of room it folds into the More menu like the other
   secondary buttons.
 
+- 2026-10-28, the Language setting, superseding the decision above (the owner, for v17 D5 and #82): the
+  globe goes. Language lives only in the header's ⚙ Settings on the laptop (a four-way switch: Auto, English, Русский,
+  Italiano) and in its counterpart on the phone, the More sheet; the command palette keeps its Language rows.
+  plan/ux-audit/REPORT.md D5, issues #27 and #82.
+
 Still defaults, not yet confirmed by the user: detection by the browser's first preferred language (the setting is stored on the
 device); captions and LaTeX following the interface with a
 caption-language switch in the export dialog; the decimal separator; the fonts.

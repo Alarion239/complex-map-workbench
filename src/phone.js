@@ -528,6 +528,10 @@ const Phone = (() => {
     const kids = A.footKids(side);
     els.viewOpts.replaceChildren(...kids);
     els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
+    // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
+    // More sheet has no room left for it at 360 px; page.html's #meshGroup)
+    const mesh = $('meshGroup');
+    if (mesh) els.body.display.append(mesh);
   }
 
   // More (⋯): sound, theme, phase colours, language; examples, export, LaTeX, search, the tour and the guide

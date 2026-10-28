@@ -383,5 +383,6 @@
   function latexDocument(...args) { return EXP.latexDocument(...args); }
   function exportMenuItems(...args) { return EXP.exportMenuItems(...args); }
   function openExportMenu(...args) { return EXP.openExportMenu(...args); }
+  function openShareMenu(...args) { return EXP.openShareMenu(...args); }
   function hiStep(...args) { return EXP.hiStep(...args); }
 
