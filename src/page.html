@@ -1305,9 +1305,6 @@ input[type="range"]:disabled { opacity: 0.4; cursor: default; }
 .shape-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; padding: 8px; border-top: 1px solid var(--line); }
 .shape-edit .inp { height: 24px; padding: 0 6px; }
 /* [v16.5 UX95] the phone's Display sheet has its own title: the regions' section in it is "Regions", not "Display" again */
-#secDisplay .sd-ph { display: none; }
-:root.ph #secDisplay .sd-ph { display: inline; }
-:root.ph #secDisplay .sd-desk { display: none; }
 /* [v16.5 UX44] a complex point takes the editor's full width; numbers in figures of one width */
 .shape-edit > .field.cxf { grid-column: 1 / -1; }
 .shape-edit .inp.mono { font-variant-numeric: tabular-nums; }
@@ -2155,18 +2152,19 @@ table.keys th { font: var(--t-label); color: var(--muted); }
           <div class="shapes" id="shapeList"></div>
         </div>
       </details>
-      <details class="psec" id="secDisplay" open>
-        <summary><h2><span class="sd-desk">Display</span><span class="sd-ph">Regions</span></h2></summary>
-        <div class="psec-body field-col">
+      <!-- [v17 D5, #82] the regions' display: the pattern and its cell, grid lines, chevrons and opacity belong to the
+           X → Y view and live in its Display ▾ (the phone's Display sheet); the unit circle in every view's. Lent from here -->
+      <div id="regionsHome" hidden>
+        <div id="unitBox" class="field-col"><label class="check"><input type="checkbox" id="unitChk" checked><span>Unit circle</span></label></div>
+        <div id="regionsBox" class="field-col">
           <div class="lbl">Pattern carried by the map</div>
           <div class="patterns" id="patternSeg" role="radiogroup" aria-label="Region pattern"></div>
           <label class="fader-row"><span class="fl">Cell</span><input type="range" id="patScale" min="-2" max="2" step="1" aria-label="Pattern cell size"><span class="fval mono" id="patScaleVal"></span></label>
-          <label class="check"><input type="checkbox" id="unitChk" checked><span>Unit circle</span></label>
           <label class="check"><input type="checkbox" id="linesChk"><span>Grid lines on regions</span></label>
           <label class="check"><input type="checkbox" id="chevChk"><span>Orientation chevrons</span></label>
           <label class="fader-row"><span class="fl">Opacity</span><input type="range" id="alphaRange" min="0.2" max="1" step="0.01" aria-label="Fill opacity"><span class="fval mono" id="alphaVal"></span></label>
         </div>
-      </details>
+      </div>
       <!-- [v17 D5, #82] mesh quality is the whole app's: it lives in the header's Settings (and the phone's More sheet),
            lent from here while that is open -->
       <div id="settingsHome" hidden><div id="meshGroup" class="field-col">

@@ -611,6 +611,7 @@
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
+    for (const sw of document.querySelectorAll('.disp-btn .disp-sw')) drawPatternSwatch(sw, S.pattern);   // ([v17 D5] the Display buttons')
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
