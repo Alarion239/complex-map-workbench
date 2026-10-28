@@ -19,18 +19,55 @@ const Funcs = (() => {
   const fn = (name, a) => (a.p >= 4 && a.s.length <= 4 ? { s: `${name} ${a.s}`, p: 3, bare: true } : { s: `${name}${paren(a.s)}`, p: 3 });
   const powTex = (a, e) => ({ s: `${a.p >= 4 && !a.s.startsWith('\\frac') ? a.s : paren(a.s)}^{${e}}`, p: 3 });
   const compoundTex = Expr.compoundTex;
+  // ---- shared numbers kept as names (issue #11) ----
+  // A field that uses a shared number (c = a, α = 2a + 1, a zero at -a) keeps its TeX next to its value: build() gives
+  // the value (a complex number, or each item of a list) a hidden .ptex = {s, p} (Expr.toTex of the field as typed,
+  // which prints a name as its name), and the TeX helpers below print it instead of the number. A named value is never
+  // simplified by its current value (a coefficient 1 dropped, a term 0 left out, a sign folded): F's formula stays the
+  // same while a slider moves, and only the picture follows the value. Values without names render as before.
+  const ptexOf = (c) => (c && c.ptex) || null;
+  // the field's TeX when it holds names, else the value's
+  const valTex = (c) => { const t = ptexOf(c); return t ? t.s : CX.tex(c); };
+  // exactly 0 by value, and written without names (a name is never dropped)
+  const zeroV = (c) => !ptexOf(c) && CX.isZero(c);
+  function keepName(raw, v) {
+    if (!v || typeof v !== 'object') return v;
+    let ast;
+    try { ast = Expr.parse(String(raw ?? '')); } catch (e) { return v; }
+    if (!splitNames(ast).size) return v;
+    const w = C(v.re, v.im);
+    Object.defineProperty(w, 'ptex', { value: Expr.toTex(ast), enumerable: false });
+    return w;
+  }
+  const keepNames = (raw, vs) => { const items = splitList(raw); return items.length === vs.length ? vs.map((v, i) => keepName(items[i], v)) : vs; };
+  // x − c: a named c as written, in brackets only when it needs them (z − a, z + a for c = −a, z − (a + 1))
+  function subTex(x, c) {
+    const t = ptexOf(c);
+    if (t.p === 2 && t.s.startsWith('-')) return { s: `${x.s}+${t.s.slice(1)}`, p: 0 };
+    return { s: `${x.s}-${t.p <= 0 ? paren(t.s) : t.s}`, p: 0 };
+  }
   function coefTex(c) {
+    const t = ptexOf(c);
+    if (t) return t.p <= 0 ? paren(t.s) : t.s;
     const s = CX.tex(c);
     return compoundTex(s) ? paren(s) : s;
   }
   function mulTex(c, a) {
-    if (CX.eq(c, C(1, 0), 1e-12)) return a;
-    if (CX.eq(c, C(-1, 0), 1e-12)) return { s: '-' + (a.p <= 1 ? paren(a.s) : a.s), p: 2, bare: a.bare && a.p > 1 };
+    const t = ptexOf(c);
+    if (!t && CX.eq(c, C(1, 0), 1e-12)) return a;
+    if (!t && CX.eq(c, C(-1, 0), 1e-12)) return { s: '-' + (a.p <= 1 ? paren(a.s) : a.s), p: 2, bare: a.bare && a.p > 1 };
     const cs = coefTex(c);
     const as = a.p <= 2 ? paren(a.s) : a.s;
-    return { s: `${cs}${/^[0-9.]/.test(as) ? '\\cdot ' : '\\,'}${as}`, p: cs.startsWith('-') ? 2 : 1, bare: a.bare && a.p > 2 };
+    // (a named coefficient that ends in a bare function, \sin a, is continued with \cdot, as Expr.toTex does)
+    const dot = /^[0-9.]/.test(as) || (t && t.bare && t.p >= 1);
+    return { s: `${cs}${dot ? '\\cdot ' : '\\,'}${as}`, p: cs.startsWith('-') ? 2 : 1, bare: a.bare && a.p > 2 };
   }
   function addTex(a, c) {
+    const t = ptexOf(c);
+    if (t) {
+      if (t.p === 2 && t.s.startsWith('-')) return { s: `${a.s}${t.s}`, p: 0 };
+      return { s: `${a.s}+${t.p <= 0 ? paren(t.s) : t.s}`, p: 0 };
+    }
     if (CX.isZero(c)) return a;
     const s = CX.tex(c);
     const compound = compoundTex(s);
@@ -594,10 +631,12 @@ const Funcs = (() => {
   // a value as a list item: the exact shortest decimal, no spaces (parses back to exactly v)
   const zpItem = (v) => CX.fmtExact(C(v.re === 0 ? 0 : v.re, v.im === 0 ? 0 : v.im)).replace(/\s+/g, '');
   // a zero and a pole at exactly the same point cancel (a removable singularity, filled in): what is left
-  function zpCancel(zeros, poles) {
+  // (written: only a zero and a pole written alike, the same value without names or the same names)
+  const sameTex = (p, q) => (ptexOf(p) ? ptexOf(p).s : '') === (ptexOf(q) ? ptexOf(q).s : '');
+  function zpCancel(zeros, poles, written) {
     const zs = zeros.slice(), ps = [], gone = [];
     for (const p of poles) {
-      const i = zs.findIndex((z) => z.re === p.re && z.im === p.im);
+      const i = zs.findIndex((z) => z.re === p.re && z.im === p.im && (!written || sameTex(z, p)));
       if (i >= 0) { gone.push(zs.splice(i, 1)[0]); } else ps.push(p);
     }
     return { zs, ps, gone };
@@ -608,11 +647,12 @@ const Funcs = (() => {
   function zpFactors(list, x) {
     const groups = [];
     for (const r of list) {
-      const g = groups.find((q) => q.r.re === r.re && q.r.im === r.im);
+      const g = groups.find((q) => q.r.re === r.re && q.r.im === r.im && sameTex(q.r, r));
       if (g) g.m++; else groups.push({ r, m: 1 });
     }
-    groups.sort((p, q) => CX.isZero(q.r) - CX.isZero(p.r));
+    groups.sort((p, q) => zeroV(q.r) - zeroV(p.r));
     return groups.map(({ r, m }) => {
+      if (ptexOf(r)) { const base = subTex(x, r); return m === 1 ? base : powTex(base, m); }
       // x − r term by term: z − 1 − i, z + 0.5i (never z − (1 + i))
       let t = x.s;
       for (const part of [C(-r.re, 0), C(0, -r.im)]) {
@@ -630,7 +670,7 @@ const Funcs = (() => {
     return { s: fs.map((f) => (f.p >= 3 ? f.s : paren(f.s))).join(''), p: 3 };
   }
   function zpTex(a, zs, ps, x) {
-    if (!zs.length && !ps.length) { const s = CX.tex(a); return { s, p: compoundTex(s) ? 0 : 4 }; }
+    if (!zs.length && !ps.length) { const t = ptexOf(a), s = valTex(a); return { s, p: t ? t.p : compoundTex(s) ? 0 : 4 }; }
     const num = zpProd(zpFactors(zs, x), true), den = zpProd(zpFactors(ps, x), true);
     const body = den ? { s: `\\frac{${num ? num.s : '1'}}{${den.s}}`, p: 4 } : num;
     return mulTex(a, body);
@@ -683,19 +723,23 @@ const Funcs = (() => {
   }
 
   function polyTex(co, a) {
-    co = CX.polyTrim(co);
+    // (a leading coefficient that is 0 by value but written with a name stays: its term is part of the formula)
+    let i0 = 0;
+    while (i0 < co.length - 1 && zeroV(co[i0])) i0++;
+    co = co.slice(i0);
     const n = co.length - 1;
     const terms = [];
     co.forEach((c, i) => {
       const k = n - i;
-      if (CX.isZero(c)) return;
+      if (zeroV(c)) return;
+      const t = ptexOf(c);
       let v = k === 0 ? '' : k === 1 ? atom(a) : `${atom(a)}^{${k}}`;
-      let cs = CX.tex(c);
-      const compound = compoundTex(cs);
-      if (k > 0 && cs === '1') cs = '';
-      else if (k > 0 && cs === '-1') cs = '-';
+      let cs = valTex(c);
+      const compound = t ? t.p <= 0 : compoundTex(cs);
+      if (k > 0 && !t && cs === '1') cs = '';
+      else if (k > 0 && !t && cs === '-1') cs = '-';
       else if (compound && (k > 0 || terms.length)) cs = paren(cs);
-      if (k > 0 && cs && cs !== '-' && /^[0-9.]/.test(v)) cs += '\\cdot ';
+      if (k > 0 && cs && cs !== '-' && (/^[0-9.]/.test(v) || (t && t.bare && !compound))) cs += '\\cdot ';
       else if (k > 0 && cs && cs !== '-') cs += '\\,';
       terms.push(cs + v);
     });
@@ -1109,8 +1153,10 @@ const Funcs = (() => {
       homTex: mob ? (v) => mobHomTex(m, v) : null,
       tex: (x) => {
         // (v15.2: a zero a drops its term, \frac{1}{e^{-z}+1}, never \frac{0\,e^{-z}+1}{…}: the split's rows show it)
-        const num = CX.isZero(a) ? { s: CX.tex(b), p: 4 } : addTex(mulTex(a, x), b);
-        if (cz) {
+        const num = zeroV(a) ? { s: valTex(b), p: ptexOf(b) ? ptexOf(b).p : 4 } : addTex(mulTex(a, x), b);
+        if (zeroV(c)) {
+          // (a named entry is not divided out: (a z + b)/d, or a z + b for d = 1)
+          if (ptexOf(a) || ptexOf(b) || ptexOf(d)) return !ptexOf(d) && CX.eq(d, C(1, 0), 0) ? num : { s: `\\frac{${num.s}}{${valTex(d)}}`, p: 4 };
           const dinv = CX.inv(d);
           return addTex(mulTex(CX.mul(a, dinv), x), CX.mul(b, dinv));
         }
@@ -1149,11 +1195,13 @@ const Funcs = (() => {
       const rot = Math.abs(phi) % 360 < 1e-12;
       const ra = CX.abs(a);
       if (ra >= 1) r.branchNote = ra === 1 ? $t('|a| = 1 makes this map degenerate') : $t('|a| > 1: this map swaps the disk with its exterior, so it is not an automorphism of the disk');
+      const at = ptexOf(a);
       r.tex = (x) => {
-        const num = addTex(x, CX.neg(a));
+        const num = at ? subTex(x, a) : addTex(x, CX.neg(a));
         const ac = CX.conj(a);
-        const den = CX.isZero(ac) ? { s: '1', p: 4 } : addTex(mulTex(CX.neg(ac), x), C(1, 0));
-        const fr = CX.isZero(ac) ? num : { s: `\\frac{${num.s}}{${den.s}}`, p: 4 };
+        const den = at ? { s: `1-\\overline{${at.s}}\\,${x.p <= 2 ? paren(x.s) : x.s}`, p: 0 }
+          : CX.isZero(ac) ? { s: '1', p: 4 } : addTex(mulTex(CX.neg(ac), x), C(1, 0));
+        const fr = !at && CX.isZero(ac) ? num : { s: `\\frac{${num.s}}{${den.s}}`, p: 4 };
         return rot ? fr : { s: `e^{${CX.texNum(phi * DEG, 4)}i}${fr.p >= 4 ? fr.s : paren(fr.s)}`, p: 1 };
       };
       // the inverse is again a disk automorphism: a' = −e^{iφ} a, φ' = −φ
@@ -1244,7 +1292,7 @@ const Funcs = (() => {
         f: (z) => CX.pow(z, alpha, th, k),
         hom: powHom(alpha, th, k),
         homTex: (v = 'z', o) => ({ tex: alpha.im === 0 ? $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ (%{cut})', { v, e: expoTex(alpha.re), cut: branchOr(o, cut, k) }) : $t('the homotopy $H_t(%{v})=%{v}^{1+(\\alpha-1)t}$, $\\alpha=%{alpha}$ (%{cut})', { v, alpha: CX.tex(alpha, 3), cut: branchOr(o, cut, k) }) }),
-        tex: (a) => powTex(a, CX.tex(alpha)),
+        tex: (a) => powTex(a, valTex(alpha)),
         props: props({ analytic: true, injective: inj }),
         cuts: [{ kind: 'ray', p: C(0, 0), ang: th, editable: true }],
         domain: (v) => `\\arg ${v}\\neq ${CX.texNum(cut, 2)}^\\circ`,
@@ -1392,7 +1440,7 @@ const Funcs = (() => {
       return {
         f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (a constant has no natural path)', { v }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
-        tex: (a) => polyTex(c, a), props: P,
+        tex: (a) => polyTex(co, a), props: P,
         ...polyInverse(c),
       };
     },
@@ -1401,6 +1449,7 @@ const Funcs = (() => {
     id: 'rational', group: $t('Polynomial & custom'), label: $t('Rational'), menuTex: '\\frac{p(z)}{q(z)}',
     params: [{ key: 'p', label: $t('numerator p: coefficients'), type: 'coeffs', def: '1, 0, 1' }, { key: 'q', label: $t('denominator q: coefficients'), type: 'coeffs', def: '1, 0' }],
     build({ p, q }) {
+      const p0 = p, q0 = q;
       p = CX.polyTrim(p); q = CX.polyTrim(q);
       const dp = p.length - 1, dq = q.length - 1;
       const f = (z) => CX.div(CX.polyEval(p, z), CX.polyEval(q, z));
@@ -1431,7 +1480,7 @@ const Funcs = (() => {
       return {
         f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (this map has no natural path)', { v }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
-        tex: (a) => ({ s: `\\frac{${polyTex(p, a).s}}{${polyTex(q, a).s}}`, p: 4 }),
+        tex: (a) => ({ s: `\\frac{${polyTex(p0, a).s}}{${polyTex(q0, a).s}}`, p: 4 }),
         props: P, poles, domain: dq > 0 ? (v) => `q(${v})\\neq 0` : null,
         ...rationalInverse(p, q, P),
       };
@@ -1446,6 +1495,9 @@ const Funcs = (() => {
     build({ a, zeros, poles }) {
       if (zeros.length > ZP_MAX || poles.length > ZP_MAX) throw new Error($tn('At most {n} zeros and {n} poles', 'At most {n} zeros and {n} poles', ZP_MAX));
       const { zs, ps, gone } = zpCancel(zeros, poles);
+      // (the formula cancels a zero and a pole only when they are written alike: a zero at a and a pole at c stay in it
+      // while a slider makes them equal)
+      const shown = zpCancel(zeros, poles, true);
       const nz = zs.length, np = ps.length, deg = Math.max(nz, np);
       const aZero = CX.isZero(a);
       const P = zpExpand(a, zs), Q = zpExpand(C(1, 0), ps);
@@ -1476,7 +1528,7 @@ const Funcs = (() => {
       return {
         f, hom: nat ? nat.hom : linHom(f), homTex,
         nat: nat ? nat.nat : null, natData: nat ? nat.natData : null,
-        tex: (x) => (aZero ? { s: '0', p: 4 } : zpTex(a, zs, ps, x)),
+        tex: (x) => (zeroV(a) ? { s: '0', p: 4 } : zpTex(a, shown.zs, shown.ps, x)),
         props: Pr, poles: aZero ? [] : ps.slice(), domain,
         zp: { a, zeros: zs, poles: ps, gone, P, Q },
         branchNote: notes.length ? notes.join('; ') : null,
@@ -2198,7 +2250,7 @@ const Funcs = (() => {
       for (const q of d.params) {
         const raw = step.params[q.key] ?? q.def;
         switch (q.type) {
-          case 'cx': try { v[q.key] = Expr.constValue(raw); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
+          case 'cx': try { v[q.key] = keepName(raw, Expr.constValue(raw)); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
           case 'int': {
             const x = Math.round(Number(raw));
             if (!Number.isFinite(x)) throw new Error($t('{label} must be an integer', { label: q.label }));
@@ -2206,8 +2258,8 @@ const Funcs = (() => {
             break;
           }
           case 'angle': { const x = Number(raw); if (!Number.isFinite(x)) throw new Error($t('{label} must be a number', { label: q.label })); v[q.key] = x; break; }
-          case 'coeffs': try { v[q.key] = parseCoeffs(raw, typedHere(step, q.key, raw)); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
-          case 'cxlist': try { v[q.key] = parseCxList(raw, typedHere(step, q.key, raw)); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
+          case 'coeffs': try { v[q.key] = keepNames(raw, parseCoeffs(raw, typedHere(step, q.key, raw))); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
+          case 'cxlist': try { v[q.key] = keepNames(raw, parseCxList(raw, typedHere(step, q.key, raw))); } catch (e) { throw new Error(`${q.label}: ${e.message}`); } break;
           default: v[q.key] = raw;
         }
       }
