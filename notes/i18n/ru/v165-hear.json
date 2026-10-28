@@ -199,5 +199,20 @@
   "en": "Preparing to listen along: F takes a moment here.",
   "ru": "Готовим прослушивание вдоль кривой: здесь F считается не сразу.",
   "note": "Listen along on a costly F (the Mountain King's): its samples are made in slices between frames; said once before it plays."
+ },
+ "hear.prep.chip": {
+  "en": "Preparing to listen along: {p} %",
+  "ru": "Готовим прослушивание: {p} %",
+  "note": "X's chip while Listen along prepares a costly F's samples (phone: no room for Esc)."
+ },
+ "hear.prep.chipEsc": {
+  "en": "Preparing to listen along: {p} % · Esc stops",
+  "ru": "Готовим прослушивание: {p} % · Esc — стоп",
+  "note": "X's chip while Listen along prepares a costly F's samples (desktop)."
+ },
+ "hear.qoff": {
+  "en": "Hear the function under the pointer is off: turn it on in the Sound menu to hear the point.",
+  "ru": "«Слушать функцию под указателем» выключено: включите в меню звука, чтобы услышать точку.",
+  "note": "Q pressed on the keyboard probe while Hear the function is off; said by the screen reader."
  }
 }

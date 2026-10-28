@@ -81,6 +81,7 @@ for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/for
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
 const RU = (() => { let tab = {}; const src = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const IT = (() => { let tab = {}; const src = fs.readFileSync(path.join(__dirname, '../src/i18n_it.js'), 'utf8'); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 const sentences = (s) => s.replace(/\$[^$]*\$/g, 'M').replace(/\b(e\.g|i\.e)\./g, '').split(/(?<=[.!?])\s+(?=[A-Z])/).filter(Boolean).length;
 const EVENTS_USED = new Set();
 for (const s of steps) {
@@ -117,6 +118,8 @@ for (const s of steps) {
   for (const t of [s.lead, s.try && s.try.text, s.try && s.try.touch, s.try && s.try.then, ...(s.captions || []).map((c) => c[1])].filter(Boolean)) {
     const ru = RU[t];
     ok(`${id}: Russian of "${t.slice(0, 30)}" at most 64 as read`, typeof ru === 'string' && T.plainCopy(ru, 'Ctrl').length <= 64, ru);
+    // (the Italian too, in the Sound chapter, whose strings are this branch's)
+    if (s.ch === 'sound') { const it = IT[t]; ok(`${id}: Italian of "${t.slice(0, 30)}" at most 64 as read`, typeof it === 'string' && T.plainCopy(it, 'Ctrl').length <= 64, it); }
   }
   for (const a of s.before || []) {
     ok(`${id}: action ${a[0]} known`, ['view', 'surface', 'deform', 'focus', 'panel', 'scene', 'tool', 'look', 'select', 'plane', 'range'].includes(a[0]), a);

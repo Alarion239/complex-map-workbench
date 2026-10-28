@@ -309,22 +309,28 @@ await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRe
 const ra = await center('.ts-act');
 check('RU Grieg: the strip shows its Listen button', !!ra, await lit());
 if (!ra) throw new Error('no Listen button on the phone strip');
-await tap(ra[0], ra[1]); t0 = Date.now();
+await tap(ra[0], ra[1]);
+// (the Mountain King's F is costly: Listen along prepares its samples first, so the times count from the playback's
+// start, which the function's own Listen along marks: __cmwSound().listenFn)
+const ruWait = await until(`(() => { const s = __cmwSound(); return !!s.listenFn; })()`, 25000);
+t0 = Date.now();
+const ruDur = await ev(`(() => { const s = __cmwSound(); return s.listenFn ? s.listenFn.dur : null; })()`);
+check('RU Grieg: the function plays within 25 s of the press', ruWait != null && ruDur > 0, [ruWait, ruDur, await lit()]);
 await sleep(1500);
 const ruCap = await ev(`document.querySelector('#tourLead').textContent`);
 check('RU Grieg: the first caption in Russian', /Нота/.test(ruCap), ruCap);
 const fit = await ev(`(() => { const e = document.querySelector('.ts-lead'); return e.scrollHeight <= e.clientHeight + 1 && e.scrollWidth <= e.clientWidth + 1 && document.querySelector('.ts-l2').scrollHeight <= document.querySelector('.ts-l2').clientHeight + 1; })()`);
 check('RU Grieg: the caption fits the strip', fit);
-// stopped at 10 s: listen-ended with heard >= 9 is done; then +3 s
-await sleep(10000 - (Date.now() - t0));
+// stopped at 60 % of the piece (at most 10 s) from its start: listen-ended with heard >= min(9 s, 45 % of it) is done;
+// then +3 s. The function's duration is the circle's length at the zoom, 250 px/s: 7.5 s on this phone
+const stopAt = Math.min(10000, 600 * (ruDur || 10));
+await sleep(Math.max(0, stopAt - (Date.now() - t0)));
 const sa = await center('.ts-act');
-// (v16.5: Listen along plays the function, whose duration is the circle's length at the zoom, 250 px/s: on a phone it
-// can end before 10 s, and then the step is done by listen-ended with full and moves on by itself)
-if (sa) {
-  await tap(sa[0], sa[1]); t0 = Date.now();
-  at = await advancedAt('sound/song', t0, 6000);
-  check('RU Grieg: stopped at 10 s counts (past the second drum): +3 s', near(at, 3000, 300), [at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
-} else check('RU Grieg: the piece ended before 10 s: the step is done and moves on', (await until(`Tour.current() && Tour.current().id !== 'song'`, 6000)) != null, [await cur(), await lit()]);
+check('RU Grieg: the strip shows Stop while it plays', !!sa, await lit());
+if (!sa) throw new Error('no Stop button on the phone strip');
+await tap(sa[0], sa[1]); t0 = Date.now();
+at = await advancedAt('sound/song', t0, 6000);
+check(`RU Grieg: stopped at ${(stopAt / 1000).toFixed(1)} s counts: +3 s`, near(at, 3000, 300), [at, await lit(), await ev('document.activeElement && document.activeElement.outerHTML.slice(0, 80)')]);
 await settle(1500);
 check('RU strings: on the strings step, with its Russian task', (await cur()) === 'sound/strings' && /Удерживайте палец/.test(await ev(`document.querySelector('#tourLead').textContent`)), await ev(`document.querySelector('#tourLead').textContent`));
 const rs = await center('.ts-act');

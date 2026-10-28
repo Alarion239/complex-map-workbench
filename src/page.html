@@ -2157,7 +2157,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <label class="snd-chk"><input type="checkbox" id="sndSo"><span><b>Hear the function under the pointer</b><small><span data-i18n="html">Silent while you rest. Each time arg <i>F</i> crosses one of the picture's colour lines, a marimba note sounds: red is D, and each line round the Phase key is the next step of a circular scale (a semitone with 12 sectors), so a loop round a zero climbs and round a pole falls. Louder where |<i>F</i>| is larger; while the colour holds, the note sounds again at each band edge of |<i>F</i>|. A branch cut cracks, then plays the colours on either side; glass pings mark a zero, felt thumps a pole. Click a still point (on touch, hold it) to hear it. A closed loop sings its winding number as one note.</span></small></span></label>
     <div class="snd-mode" role="radiogroup" aria-label="Hear the function as">
       <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndNotes" value="notes" checked><span><b>Notes</b><small>A marimba note at each colour line</small></span></label>
-      <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndGlide" value="glide"><span><b>Glide</b><small>One continuous voice whose pitch is the colour, while F changes</small></span></label>
+      <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndGlide" aria-describedby="sndGlideNo" value="glide"><span><b>Glide</b><small>One continuous voice whose pitch is the colour, while F changes</small></span></label>
       <p class="snd-fine snd-sub" id="sndGlideNo" hidden>Glide needs a browser with AudioWorklet.</p>
     </div>
   </fieldset>

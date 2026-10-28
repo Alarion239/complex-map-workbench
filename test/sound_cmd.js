@@ -28,7 +28,7 @@ const snd = () => ev('__cmwSound()');
 // (v16.5, Hear the function: the marimba notes replace the pointer harp, perfwin/sound/impl/SOUND-PLAN.md 5.1. The
 // engine's Sound.hear.state().counts run since load; this reads them as harpCount() did, since the last call: up and
 // down are the red line's crossings (line k ≡ 0 mod n, the harp's low D), notes the notes played, cracks the cuts)
-const hearCount = () => ev(`(() => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, cracks: c.cracks - p.cracks }; })()`);
+const hearCount = () => ev(`(() => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; })()`);
 const made = (clear) => ev(`(() => { const m = (window.__made || []).slice(); ${clear ? '__made.length = 0;' : ''} return m; })()`);
 const count = (list, name) => list.filter((x) => x === name).length;
 const spy = () => ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; } window.__calls = { argStep: 0 }; if (!Calc.argStep.__spy) { const a = Calc.argStep; Calc.argStep = function (...x) { __calls.argStep++; return a.apply(this, x); }; Calc.argStep.__spy = 1; } return 1; })()`);
@@ -141,7 +141,7 @@ let s = await snd();
 R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await hearCount(), live: await ev('Sound.debug().live'), engine: await ev('Sound.state().engine') };
 // (v16.5: the probe is roped, spec 3.1: it trails the pointer by up to 3 px, so after the pointer's two exact turns
 // the probe's arg is short by up to 3 px of the 0.3 circle, about 0.02 turn here)
-ok('Hear F: the notes, +2 turns around the zero at 1 twice (the probe roped 3 px behind): the red line 2 up, 0 down, 12 to 24 notes (24 lines crossed), no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && R.hover.dphi > 1.97 && R.hover.dphi <= 2 + 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes >= 12 && R.hover.harp.notes <= 24, R.hover);
+ok('Hear F: the notes, +2 turns around the zero at 1 twice (the probe roped 3 px behind): the red line 2 up, 0 down, 23 or 24 lines crossed (notes + merged; the rope can leave out the last), no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && R.hover.dphi > 1.97 && R.hover.dphi <= 2 + 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes + R.hover.harp.merged >= 23 && R.hover.harp.notes + R.hover.harp.merged <= 24, R.hover);
 await sleep(300);
 await hearCount(); await sleep(700); R.still = await hearCount();
 ok('Hear F: silent while the pointer rests', R.still.notes === 0 && R.still.up === 0, R.still);
