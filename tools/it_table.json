@@ -681,7 +681,6 @@
  "Drag from the vertex; edit the angles in the shape list.": "Trascina dal vertice; modifica gli angoli nell'elenco delle figure.",
  "Drag its zeros and poles in the input plane": "Trascina i suoi zeri e poli nel piano di partenza",
  "Drag the bracket's left end past $f_1$.": "Trascina l'estremo sinistro della parentesi oltre $f_1$.",
- "Drag the line $\\operatorname{Im} z=0.8$ up or down.": "Trascina la retta $\\operatorname{Im} z=0{,}8$ verso l'alto o verso il basso.",
  "Drag the point, or use the arrow keys. Hold Shift for fine steps.": "Trascina il punto o usa i tasti freccia. Tieni premuto Shift per spostamenti fini.",
  "Drag the red cut.": "Trascina il taglio rosso.",
  "Drag the seam in the input plane": "Trascina il taglio nel piano di partenza",
@@ -3054,5 +3053,6 @@
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica",
  "Add this shape": "Aggiungi questa figura",
  "Add shape": "Aggiungi figura",
- "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord"
+ "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
+ "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso."
 }

@@ -633,5 +633,54 @@ await section('RU', async () => {
   await ev(`localStorage.setItem('cmw-lang', 'en'); 1`);
 });
 
+// ------------------------------------------------------------------------------------------------------------ D9 (touch)
+await section('D9', async () => {
+  let stage = 'start';
+  try {
+  await phone();
+  await load(NS + 'dn', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, { id: 'p1', kind: 'point', p: [1.5, -1.2], ci: 2, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 60 }, snap: false, nextId: 60 });
+  await settle(900);
+  const sh = async (id) => (await ST()).list.find((s) => s.id === id);
+  const o0 = await W(0, 0);
+  stage = 'first'; // the first press on a disc only selects it; a drag from it pans the plane
+  await tdrag(o0[0], o0[1], o0[0] + 40, o0[1] + 30, 8);
+  const o1 = await W(0, 0), d = await sh('d1');
+  ok('D9 touch: a drag from an unselected disc selects it and pans the plane (the disc stays)', (await ST()).selected === 'd1' && d.c[0] === 0 && d.c[1] === 0 && Math.abs(o1[0] - o0[0] - 40) < 4, [o0, o1, d]);   // (x only: the context bar that the selection brings makes the plane shorter)
+  stage = 'second';
+  await tdrag(o1[0], o1[1], o1[0] + 30, o1[1], 8);
+  const d2 = await sh('d1'), o2 = await W(0, 0);
+  ok('D9 touch: the selected disc then moves with a drag', d2.c[0] > 0.3 && Math.abs(o2[0] - o1[0]) < 4, [d2.c, o1, o2]);
+  stage = 'point'; //: a drag moves it at once
+  const pp = await W(1.5, -1.2);
+  await tdrag(pp[0], pp[1], pp[0] + 30, pp[1] - 20, 8);
+  const p1 = await sh('p1');
+  ok('D9 touch: a drag from an unselected point moves it', p1.p[0] > 1.8, p1.p);
+  stage = 'two'; // in hand, and draw nothing
+  await tool('disc');
+  const n0 = (await ST()).list.length, o3 = await W(0, 0);
+  await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 150, y: 330, id: 1 }, { x: 250, y: 330, id: 2 }] });
+  for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 150, y: 330 + i * 6, id: 1 }, { x: 250, y: 330 + i * 6, id: 2 }] }); await sleep(16); }
+  await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(200);
+  const o4 = await W(0, 0);
+  ok('D9 touch: two fingers pan with a drawing tool, and draw nothing', Math.abs(o4[1] - o3[1] - 48) < 6 && (await ST()).list.length === n0, [o3, o4, n0, (await ST()).list.length]);
+  stage = 'edge';
+  const box = await ev(`(() => { const b = document.getElementById('paneL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
+  await tdrag(box[0] + 6, box[1] + 200, box[0] + 60, box[1] + 240, 8);
+  ok('D9 touch: a press in the outer 16 px draws nothing (it pans)', (await ST()).list.length === n0, (await ST()).list.length);
+  stage = 'drawn'; //; a press elsewhere draws
+  const q = await W(-2, 0.5), q2 = await W(-1.4, 1.1);
+  await tdrag(q[0], q[1], q2[0], q2[1], 8);
+  const n1 = (await ST()).list.length, dr = (await ST()).list[n1 - 1];
+  info.d9dr = dr; info.d9n = [n0, n1];
+  const mid = await W(dr.c[0], dr.c[1]);
+  await tdrag(mid[0], mid[1], mid[0] + 24, mid[1] + 24, 8);
+  const dr2 = (await ST()).list.find((x) => x.id === dr.id);
+  ok('D9 touch: a drawing tool, a press on the disc just drawn moves it (no new shape)', n1 === n0 + 1 && (await ST()).list.length === n1 && Math.abs(dr2.c[0] - dr.c[0]) > 0.2, [n0, n1, dr.c, dr2.c]);
+  const far = await W(1.6, 1.6), far2 = await W(2.2, 1.9);
+  await tdrag(far[0], far[1], far2[0], far2[1], 8);
+  ok('D9 touch: a press elsewhere draws', (await ST()).list.length === n1 + 1, [(await ST()).list.length, n1]);
+  } catch (e) { fails.push({ name: 'D9 stage ' + stage, got: String(e && e.message || e).slice(0, 300) }); }
+});
+
 await grab();
 return { checks, fails: fails.length, failed: fails, info, errs: errs.slice(0, 12) };

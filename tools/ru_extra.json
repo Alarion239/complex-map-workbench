@@ -260,5 +260,6 @@
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
  "Add this shape": "Добавить эту фигуру",
  "Add shape": "Добавить фигуру",
- "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе"
+ "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе",
+ "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз."
 }
