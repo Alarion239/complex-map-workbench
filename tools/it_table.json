@@ -1684,7 +1684,7 @@
  "The saved session could not be restored, so the first example was loaded.": "Non è stato possibile ripristinare la sessione salvata, quindi è stato caricato il primo esempio.",
  "The seam moved; across it the values jump by $2\\pi i$.": "Il taglio si è spostato; attraversandolo i valori saltano di $2\\pi i$.",
  "The search stopped early; there may be more inside.": "La ricerca si è interrotta in anticipo; all'interno potrebbero esserci altri zeri o poli.",
- "The slit plane maps onto a half-plane; change the sheet to flip it.": "Il piano tagliato viene trasformato in un semipiano; cambia foglio per ottenere il semipiano opposto.",
+ "The slit plane maps onto a half-plane. In the step's card, ‹ › flips the sheet and Show all sheets draws both.": "Il piano tagliato viene trasformato in un semipiano. Nella scheda del passo, ‹ › cambia foglio e Mostra tutti i fogli li disegna entrambi.",
  "The snippet includes the figure at its natural size, so its labels match your text.": "Il frammento include la figura alle sue dimensioni naturali, così le sue etichette corrispondono al tuo testo.",
  "The snippet keeps the figure under your solution and shrinks it only if your page is narrower.": "Il frammento mantiene la figura sotto la tua soluzione e la rimpicciolisce solo se la pagina è più stretta.",
  "The sphere view of this plane is not available in this build.": "La vista sulla sfera di questo piano non è disponibile in questa versione.",

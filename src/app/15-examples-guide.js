@@ -40,7 +40,7 @@
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: $t('Square root and its sheets'), tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane; change the sheet to flip it.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. In the step's card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
