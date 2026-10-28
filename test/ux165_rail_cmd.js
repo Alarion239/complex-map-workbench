@@ -167,16 +167,21 @@ await section('B', async () => {
   ok('B at 90° with Snap on: exactly i', at90 && at90.p[0] === 0 && at90.p[1] === 1, at90);
   const n1 = (await ST()).n;
   // the snap tick (its own switch, off by default): silent by default; switched on, a detent caught ticks once
+  // ([v16.5 fix rail-2] the angle step follows the zoom: at 1366 × 768's default view a mouse has 30° detents, so the
+  // drags end exactly on a quarter turn (270°, then 180°), a detent at every step (15°, 30°, 45°, 90°) and on the axes;
+  // the old ends, 255° and 250°, were 15° detents only. A frame passes after each move, so no move is coalesced away
+  // on a slow renderer)
+  const perFrame = { sample: async () => 0 };
   await spyCues();
   const g9 = byId(await ST(), 'g');
-  await mdrag([await A(g9.t * 360), await A(g9.t * 360 - 20), await A(g9.t * 360 - 30)]); await settle();
+  await mdrag([await A(g9.t * 360), await A(290), await A(270)], perFrame); await settle();
   const c0 = await cues();
   await ev(`Sound.set({ snap: true }), window.__cues = [], 1`);
   const g8 = byId(await ST(), 'g');
-  await mdrag([await A(g8.t * 360), await A(g8.t * 360 - 25), await A(g8.t * 360 - 30)]); await settle();
+  await mdrag([await A(g8.t * 360), await A(225), await A(180)], perFrame); await settle();
   const c1 = await cues();
   await ev(`Sound.set({ snap: false }), 1`);
-  info.Btick = { c0, c1, t: [g9.t * 360, g8.t * 360] };
+  info.Btick = { c0, c1, t: [g9.t * 360, g8.t * 360], end: (byId(await ST(), 'g') || {}).t * 360 };
   ok('B the detent tick: none by default, one per detent with Snap ticks on', !c0.includes('snap') && c1.filter((x) => x === 'snap').length >= 1, info.Btick);
   // Snap off: no detent (the pointer 2° from 90°)
   await ev(`document.getElementById('snapBtn').click(), 1`); await settle(100);

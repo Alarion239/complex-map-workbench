@@ -185,8 +185,10 @@ await section('L48', async () => {
   ok('UX48 3 points: what to pick, the count, the tool, Esc', /^Pick a point or an empty spot · 1 of 3 · .*Esc cancels$/.test(info.c3chip), info.c3chip);
   const a = await W(-1.5, -1.5);
   await click(a[0], a[1]); await settle(120);
-  info.c3chip2 = await chipT();
-  ok('UX48 after a pick: 2 of 3 and "⌫ undo pick · Esc"', /^Pick a point or an empty spot · 2 of 3 · .*⌫ undo pick · Esc$/.test(info.c3chip2), info.c3chip2);
+  // (v16.5 merge, V16.5-MERGE.md: v16.3.1's rule kept: a chip that would wrap with its keyboard tail drops it when it
+  // then fits one line; so the tail, or no tail on one line, as touch_cmd A5 accepts)
+  info.c3chip2 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
+  ok('UX48 after a pick: 2 of 3 and "⌫ undo pick · Esc" (or no tail, on one line)', !!info.c3chip2 && (/^Pick a point or an empty spot · 2 of 3 · .*⌫ undo pick · Esc$/.test(info.c3chip2.text) || (/^Pick a point or an empty spot · 2 of 3 · [^·]+$/.test(info.c3chip2.text) && info.c3chip2.lines === 1)), info.c3chip2);
   await clickSel('#draftChipL .cm-q'); await settle(150);
   info.how = await ev(`(document.querySelector('#draftChipL .cm-how') || {}).textContent || ''`);
   ok('UX48 the ? unfolds the how-to inside the chip', /^Pick three points/.test(info.how), info.how);
@@ -367,7 +369,9 @@ await section('L10', async () => {
 
 await section('P10', async () => {
   await phone();
-  await load(NS + 'l', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } }, `localStorage.removeItem('cmw-probe-learned')`);
+  await load(NS + 'l', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } }, `localStorage.removeItem('cmw-probe-learned'); sessionStorage.removeItem('cmw-probe-taught')`);
+  // (v16.5 fix regress-4: the line shows once a session, for 8 s; this suite's earlier phone sections were that once,
+  // so the session's mark is cleared with the learned one, as ux165_fix_cmd's regress-4 clears the session)
   await settle(1000);
   info.p10idle = await ev(`document.getElementById('leftReadout').textContent`);
   ok('UX10 phone: the scale chip teaches the hold-and-slide', /Hold and slide to read F\(z\)/.test(info.p10idle), info.p10idle);
@@ -461,8 +465,13 @@ await section('L86', async () => {
   ok('UX92/UX95 a strip: "Goes on forever; drawn faded towards the edge."', gId !== fId && n2 === 'Goes on forever; drawn faded towards the edge.', { n2, fId, gId });
   // UX86: the Phase style
   await key('2'); await settle(900);
-  const ph = await ev(`[...document.querySelectorAll('[data-dc], .options button, .options [role=radio]')].map((b) => b.textContent.trim()).filter((t) => /grid/i.test(t))`);
+  // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
+  // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
+  const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
+  const ph = await ev(`[...document.querySelectorAll('[data-dc], .options button, .options [role=radio], #dcSeg > button')].map((b) => b.textContent.trim()).filter((t) => /grid/i.test(t))`);
   ok('UX86 the Phase style is "Pulled-back grid"', ph.includes('Pulled-back grid'), ph);
+  await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200);
   await key('1'); await settle(400);
 });
 
@@ -475,7 +484,8 @@ await section('P51', async () => {
   const u = await W(0, 1.5);
   await tap(u[0] + 30, u[1]);
   info.p51 = await ev(`(() => { const c = document.getElementById('draftChipL'); const x = c.querySelector('.cm-x'), q = x.getBoundingClientRect(); const hit = (dx, dy) => document.elementFromPoint(q.left + q.width / 2 + dx, q.top + q.height / 2 + dy) === x; return { t: (c.querySelector('.cm-t') || {}).textContent, segs: [...c.querySelectorAll('.cm-sb')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width)]), x44: hit(20, 0) && hit(-20, 0) && hit(0, 20) && hit(0, -20) }; })()`);
-  ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point or an empty spot · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
+  // (v16.5 fix user-6: after the curve, "Pick a point (on {c} or anywhere)"; the tap picks SD's Line 1)
+  ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point \(on Line 1 or anywhere\) · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
   ok('UX51 phone chip: Whole | Inside | Outside in words, each ≥ 44 px', info.p51.segs.length === 3 && info.p51.segs.every(([t, w]) => t && w >= 44), info.p51.segs);
   ok('UX51 phone chip: the × takes taps 44 × 44', info.p51.x44, info.p51);
   await shot('ux51-phone-chip');

@@ -1,7 +1,9 @@
 // v16.5 wave 1 fix round (notes/ux-build/w1-fix-AS-BUILT.md): the browser look of the review fixes, laptop 1366 × 768
 // and phone 412 × 860 (Android emulation, real touch events). A cdp_kit command file (test/cdp_kit/README.md): copy the
-// kit, serve dist/ and run: q.sh test/ux165_fix_cmd.js. BASE is the server; the kit's load() uses its own port.
-const BASE = 'http://localhost:9891';
+// kit, serve dist/ and run: q.sh test/ux165_fix_cmd.js. BASE is the server: the port the kit's load() uses, read from
+// the daemon copy's cdpd.js as the other suites do (ci/browser.js rewrites it to its own server; a fixed port reached
+// no server there, so rail-9's page had no __cmwW2S and a click went out with no x)
+const BASE = `http://localhost:${(/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1]}`;
 let checks = 0; const fails = [];
 const ok = (name, cond, got) => { checks++; if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 250) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };

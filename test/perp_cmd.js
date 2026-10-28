@@ -135,7 +135,9 @@ await section('A', async () => {
   await click(u[0] + 3, u[1] - 2); await settle(150);
   let d = (await CI()).draft;
   st = await ST();
-  ok('A2 the unit circle is picked; no shape yet', d && d.tool === 'perp' && d.curve1 === null && st.list.length === n0 && (await chipT()).startsWith('Pick a point or an empty spot · 1 of 2'), { d, n: st.list.length });
+  // (v16.5 fix user-6: after the curve the chip says a point on it will do, "Pick a point (on {c} or anywhere)")
+  const chipA2 = await chipT();
+  ok('A2 the unit circle is picked; no shape yet', d && d.tool === 'perp' && d.curve1 === null && st.list.length === n0 && chipA2.startsWith('Pick a point (on the unit circle or anywhere) · 1 of 2'), { d, n: st.list.length, chip: chipA2 });
   // 3. z₀ (snapped 0.3 + 0.2i), then an empty spot: K
   const a = await W(0.3, 0.2), b = await W(-0.6, 0.5);
   await click(a[0] + 2, a[1] + 1); await settle(100);
@@ -153,7 +155,9 @@ await section('A', async () => {
   const nm = (id) => (names.find((x) => x.id === id) || {}).name;
   info.rowK1 = await rowD(K1.id);
   info.namesK1 = [nm(P1.id), nm(Q1.id), nm(C1.id)];
-  ok('A3 the row: through z₃ and z₄, perpendicular to Circle 2 (the state has z₀–z₂ and Circle 1)', info.rowK1 === `perpendicular to ${nm(C1.id)}, through ${nm(P1.id)} and ${nm(Q1.id)}` && nm(C1.id) === 'Circle 2', [info.rowK1, info.namesK1]);
+  // (v16.5 fix rail-4: the unit circle made a shape is "the unit circle" and takes no number; the state's own circle
+  // stays Circle 1)
+  ok('A3 the row: through z₃ and z₄, perpendicular to the unit circle (v16.5 rail-4; the state has z₀–z₂ and Circle 1)', info.rowK1 === `perpendicular to ${nm(C1.id)}, through ${nm(P1.id)} and ${nm(Q1.id)}` && nm(C1.id) === 'the unit circle', [info.rowK1, info.namesK1]);
   info.inspK1 = await ev(`(document.querySelector('.cm-idef') || {}).textContent`);
   ok('A3 the Inspector reads the long form (v16.3 review user-10: the row puts the curve first)', info.inspK1 === `through ${nm(P1.id)} and ${nm(Q1.id)}, perpendicular to ${nm(C1.id)}`, info.inspK1);
   let forms = await FORMS();
@@ -310,7 +314,9 @@ await section('A', async () => {
   ok('A11 the plane menu on a circle has "Perpendicular circle…" next to "Point on this curve"', info.planeMenu.indexOf('Perpendicular circle…') === info.planeMenu.indexOf('Point on this curve') + 1 && info.planeMenu.includes('Perpendicular circle…'), info.planeMenu);
   await menuClick('Perpendicular circle…'); await settle(200);
   d = (await CI()).draft;
-  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'perp' && d && d.curve1 && d.curve1.s === 'c3' && (await chipT()).startsWith('Pick a point or an empty spot · 1 of 2'), d);
+  // (v16.5 fix user-6: the chip names the picked curve, "Pick a point (on Circle n or anywhere)", by c3's own name)
+  const c3name = ((await CI({ names: true })).find((x) => x.id === 'c3') || {}).name, chipA11 = await chipT();
+  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'perp' && d && d.curve1 && d.curve1.s === 'c3' && !!c3name && chipA11.startsWith(`Pick a point (on ${c3name} or anywhere) · 1 of 2`), { d, c3name, chip: chipA11 });
   await key('Escape'); await settle(100);
   await grab();
   // 12. ⋯ Region; Use complement; the family as C's centre crosses PQ (K on a free circle C, P and Q on ℝ)
@@ -412,7 +418,11 @@ await section('C', async () => {
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
   await click(u[0] + 3, u[1] - 2); await settle(100);
-  ok('C RU chip after the curve', (await chipT()) === 'Выберите точку или пустое место · 1 из 2 · Ортогональная · ⌫ — отменить выбор · Esc', await chipT());
+  // (v16.5 fix user-6: «Выберите точку (на кривой: … или в любом месте)»; v16.3.1/v16.5: a chip that would wrap with its
+  // keyboard tail drops it when it then fits one line, as touch_cmd A5 accepts)
+  const ruChip2 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
+  const ruBase2 = 'Выберите точку (на кривой: единичная окружность или в любом месте) · 1 из 2 · Ортогональная';
+  ok('C RU chip after the curve', !!ruChip2 && (ruChip2.text === ruBase2 + ' · ⌫\u00a0— отменить выбор · Esc' || (ruChip2.text === ruBase2 && ruChip2.lines === 1)), ruChip2);
   const a = await W(0.3, 0.2), b = await W(-0.6, 0.5);
   await click(a[0], a[1]); await settle(80); await move(b[0], b[1]); await settle(100);
   await shot('perp-d1440-ru-preview');
@@ -420,7 +430,8 @@ await section('C', async () => {
   let st = await ST();
   const K = last(st);
   info.ruRow = await rowD(K.id);
-  ok('C RU row: через z₃ и z₄, ортогонально кривой: Окружность 2', info.ruRow === 'ортогональна кривой: Окружность 2; через z₃ и z₄', info.ruRow);
+  // (v16.5 fix rail-4: the unit circle made a shape is «единичная окружность», no number)
+  ok('C RU row: через z₃ и z₄, ортогонально кривой: единичная окружность', info.ruRow === 'ортогональна кривой: единичная окружность; через z₃ и z₄', info.ruRow);
   // the pencil's reason
   const m1 = await W(0.5, 0.5), m2 = await W(1, 1);
   await click(m1[0], m1[1]); await settle(80); await click(m2[0], m2[1]); await settle(350);
@@ -487,7 +498,8 @@ await section('D', async () => {
   let d = (await CI()).draft;
   ok('D phone: a tap 8 px off the circle picks it', d && d.curve1 && d.curve1.s === 'pc', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point or an empty spot · 1 of 2 · Orthogonal/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  // (v16.5 fix user-6: "Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
+  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Orthogonal/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   const pp = await W(0.4, 0.3);
   await touch(pp[0] + 12, pp[1] - 9); await settle(200);
   d = (await CI()).draft;
@@ -663,11 +675,12 @@ await section('I', async () => {
   let st = await ST();
   const Ks = st.list.filter((s) => s.def && s.def.op === 'perp'), C1 = byId(st, Ks[0].def.args[0].s);
   const names = await CI({ names: true }), nm = (id) => (names.find((x) => x.id === id) || {}).name;
-  ok('I1 three geodesics, each an arc with seg 1 and nk hyper, named Hyperbolic line 1–3 (v16.5 UX55); C is Circle 1', Ks.length === 3 && Ks.every((k, i) => k.kind === 'arc' && k.def.seg === 1 && k.def.nk === 'hyper' && nm(k.id) === `Hyperbolic line ${i + 1}`) && nm(C1.id) === 'Circle 1', Ks.map((k) => [k.kind, k.def.seg, k.def.nk, nm(k.id)]));
+  // (v16.5 fix rail-4: the shown unit circle made the shape C is "the unit circle", no number)
+  ok('I1 three geodesics, each an arc with seg 1 and nk hyper, named Hyperbolic line 1–3 (v16.5 UX55); C is the unit circle (v16.5 rail-4)', Ks.length === 3 && Ks.every((k, i) => k.kind === 'arc' && k.def.seg === 1 && k.def.nk === 'hyper' && nm(k.id) === `Hyperbolic line ${i + 1}`) && nm(C1.id) === 'the unit circle', Ks.map((k) => [k.kind, k.def.seg, k.def.nk, nm(k.id)]).concat([['C', nm(C1.id)]]));
   const rows = [];
   for (const k of Ks) rows.push(await rowD(k.id));
   info.segRows = rows;
-  ok('I1 rows: "hyperbolic line inside Circle 1, through z₀ and z₁"', rows[0] === 'hyperbolic line inside Circle 1, through z₀ and z₁' && rows.every((r) => /^hyperbolic line inside Circle 1, through z. and z.$/.test(r)), rows);
+  ok('I1 rows: "hyperbolic line inside the unit circle, through z₀ and z₁" (v16.5 rail-4)', rows[0] === 'hyperbolic line inside the unit circle, through z₀ and z₁' && rows.every((r) => /^hyperbolic line inside the unit circle, through z. and z.$/.test(r)), rows);
   // Intersect(K, C) in both orders: the hooks' ends, bitwise
   const mk = Ks.flatMap((k, i) => [[k.id, C1.id, 0], [k.id, C1.id, 1], [C1.id, k.id, 0], [C1.id, k.id, 1]].map(([a, b, x], j) => ({ id: `im${i}${j}`, kind: 'point', p: [0, 0], visible: true, helper: false, def: { op: 'meet', args: [{ s: a, part: 0 }, { s: b, part: 0 }], index: x } })));
   await ev(`__cmwC({ call: 'create', args: [${JSON.stringify(mk)}] })`); await settle(300);
@@ -882,7 +895,8 @@ await section('I', async () => {
   await rowMenuOf(KR[0].id);
   info.ruMenu = await menuItems();
   await key('Escape');
-  ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри","Снаружи"]' && /^гиперболическая прямая внутри кривой: Окружность 1; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
+  // (v16.5 fix rail-4: C, the shown unit circle made a shape, is «единичная окружность» in the row, no number)
+  ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри","Снаружи"]' && /^гиперболическая прямая внутри кривой: единичная окружность; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
   await shot('seg-d1440-light-ru');
   await view(1440, 900, true, false); await settle(500);
   await shot('seg-d1440-dark-ru');

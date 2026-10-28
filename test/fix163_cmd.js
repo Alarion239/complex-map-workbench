@@ -25,6 +25,7 @@ const last = (st) => st.list[st.list.length - 1];
 const tool = async (id) => { const r = await clickSel(`#tools .tool[data-tool="${id}"], #constructTools .tool[data-tool="${id}"]`); await settle(120); return r; };
 const chipT = (side = 'L') => ev(`(document.querySelector('#draftChip${side} .cm-t') || {}).textContent || ''`);
 const rowD = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .d') || {}).textContent`);
+const rowK = (id) => ev(`(document.querySelector('.shape[data-id="${id}"] .shape-name .k') || {}).textContent`);
 const toastAll = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()).join(' | ')`);
 const names = async () => { const n = await CI({ names: true }); return (id) => (n.find((x) => x.id === id) || {}).name; };
 const menuItems = () => ev(`[...document.querySelectorAll('.menu .mi, [role="menuitem"]')].filter((b) => b.getClientRects().length).map((b) => b.textContent.trim())`);
@@ -51,8 +52,9 @@ await view(1440, 900, false, false);
   let st = await ST();
   const K = last(st), C = byId(st, K.def.args[0].s);
   ok('U1 the unit circle picked as C: a fixed shape (fixed: unit), K on it', C && C.fixed === 'unit' && C.kind === 'circle' && K.def.op === 'perp' && K.def.nk === 'circle', [C, K.def]);
-  info.u1row = await rowD(C.id);
-  ok('U1 its row reads "the unit circle"', info.u1row === 'the unit circle', info.u1row);
+  // (v16.5 fix rail-4: the row's name is "The unit circle", no number, and its description is its equation)
+  info.u1row = { name: await rowK(C.id), d: await rowD(C.id) };
+  ok('U1 its row reads "the unit circle"', info.u1row.name === 'The unit circle' && /^\|z\|\s*=\s*1$/.test(info.u1row.d || ''), info.u1row);
   await tool('select');
   const a = await W(Math.cos(-2.4), Math.sin(-2.4));
   await click(a[0], a[1]); await settle(200);
@@ -69,7 +71,7 @@ await view(1440, 900, false, false);
   ok('U1 its ⋯ has Make free', info.u1menu.includes('Make free'), info.u1menu);
   await menuClick('Make free'); await settle(300);
   st = await ST();
-  ok('U1 Make free unlocks it (no fixed), and its row is a plain circle again', !byId(st, C.id).fixed && (await rowD(C.id)) !== 'the unit circle', byId(st, C.id));
+  ok('U1 Make free unlocks it (no fixed), and its row is a plain circle again', !byId(st, C.id).fixed && (await rowK(C.id)) !== 'The unit circle', [byId(st, C.id), await rowK(C.id)]);
   await grab();
 }
 
@@ -101,7 +103,8 @@ await view(1440, 900, false, false);
   ok('U5 one click on the other ring: the second tangent through the same P', st.list.length === n1 + 2 && L2.def.op === 'tangent' && L2.def.index === r1.k && L2.def.args[1].s === L1.def.args[1].s && M2.def.op === 'meet', [L2.def, M2.def]);
   const nm = await names();
   info.u2rows = [await rowD(L1.id), await rowD(L2.id)];
-  ok('U2 each tangent reads by its touching point', info.u2rows[0] === `tangent to Circle 1 at ${nm(M1.id)}, through ${nm(L1.def.args[1].s)}` && info.u2rows[1] === `tangent to Circle 1 at ${nm(M2.id)}, through ${nm(L1.def.args[1].s)}`, info.u2rows);
+  // (v16.5 fix rail-4: C is the shown unit circle made a shape, "the unit circle", no number)
+  ok('U2 each tangent reads by its touching point', info.u2rows[0] === `tangent to the unit circle at ${nm(M1.id)}, through ${nm(L1.def.args[1].s)}` && info.u2rows[1] === `tangent to the unit circle at ${nm(M2.id)}, through ${nm(L1.def.args[1].s)}`, info.u2rows);
   // a click off C now starts the next circle (P is no longer refused there)
   d = (await CI()).draft;
   const q = await W(-1.5, 1.2);

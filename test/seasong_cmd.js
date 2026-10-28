@@ -189,6 +189,8 @@ p = await curveXY(300);
 await click(p[0], p[1]); await settle(250);   // (selects the curve; the click does not stop a melody)
 R.selBeforeDelete = await ev(`({ play: __cmwSound().play, selected: __cmwShapes().selected })`);
 await key('Delete'); await settle(400);
+// (the saved state follows the delete a moment later: up to 10 s for it where frames are slow)
+for (let i = 0; i < 50 && (await ev('__qa.state().shapes.length')) !== 0; i++) await sleep(200);
 R.deleted = await ev(`({ play: __cmwSound().play, shapes: __qa.state().shapes.length })`);
 ok('ui-1: deleting the curve stops it', R.selBeforeDelete.play && R.deleted.shapes === 0 && !R.deleted.play, { before: R.selBeforeDelete, after: R.deleted });
 await key('z', 2); await settle(400);
