@@ -197,6 +197,9 @@ for (let i = 0; i < 60; i++) { await sleep(200); if (await ev('window.__saved.le
 const ol = await ev(`(() => ({ saved: window.__saved.map((s) => s.name), copied: window.__copied.filter((c) => c.type === 'text').map((c) => c.t), btn: document.getElementById('xfOverleaf').textContent, note: document.querySelector('.xf-after2').textContent }))()`);
 ok('For Overleaf: copies the snippet with the edited caption, then saves the PDF', ol.saved.some((n) => /\.pdf$/.test(n)) && ol.copied.some((t) => /My own caption with \$w=f\(z\)\$\./.test(t) && /\\begin\{figure\}\[tbp\]/.test(t)), ol);
 R.overleaf = ol;
+// the plain Save names the format and copies nothing (D12 #33); Copy image and the LaTeX button are beside it
+const sv = await ev(`(() => ({ save: document.getElementById('xfSave').textContent, docs: document.getElementById('xfDocs').textContent, ol: document.getElementById('xfOverleaf').textContent, order: [...document.querySelectorAll('.xf-foot .xf-dest')].filter((b) => !b.hidden).map((b) => b.id), share: document.getElementById('xfShare').hidden }))()`);
+ok('the footer says Save PDF first, then Copy image and Save + copy LaTeX', /^Save PDF$/.test(sv.save) && sv.docs === 'Copy image' && /^Save \+ copy LaTeX for/.test(sv.ol) && sv.order.join() === 'xfSave,xfDocs,xfOverleaf' && sv.share, sv);
 // the saved PDF is the file a user gets: check it too
 const pdfB64 = await ev(`await (async () => { const s = window.__saved.find((x) => /\\.pdf$/.test(x.name)); const b = await (await fetch(s.href)).blob(); const u8 = new Uint8Array(await b.arrayBuffer()); let q = ''; for (let i = 0; i < u8.length; i += 0x8000) q += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(q); })()`, 60000);
 if (typeof pdfB64 === 'string') { fs.writeFileSync(path.join(OUT, 'dialog-overleaf.pdf'), Buffer.from(pdfB64, 'base64')); fs.writeFileSync(path.join(OUT, 'dialog-overleaf-boxes.json'), JSON.stringify({ target: 246, boxes: [], lines: [] })); }

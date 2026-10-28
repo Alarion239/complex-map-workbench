@@ -113,5 +113,10 @@
  "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Следующая или предыдущая область: верхняя панель, инструменты, X, Y, цепочка, Инспектор",
  "Move between the tools and the chain's cards": "Переход между инструментами и карточками цепочки",
  "Name of {label}": "Имя: %{label}",
- "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{слева от прямой из } %{a} \\text{ в } %{b}"
+ "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{слева от прямой из } %{a} \\text{ в } %{b}",
+ "Save {format}": "Сохранить %{format}",
+ "Share PNG…": "Поделиться PNG…",
+ "Save + copy LaTeX for Overleaf": "Сохранить и скопировать LaTeX для Overleaf",
+ "Save + copy LaTeX for Beamer": "Сохранить и скопировать LaTeX для Beamer",
+ "Saved {name}.png": "Сохранено: %{name}.png"
 }
