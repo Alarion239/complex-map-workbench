@@ -35,7 +35,9 @@ the tour rework (#34), and `test/t_terms.js` then strict (every count 0).
 
 ## Italian changes for review (Pietro, #60)
 
-Written by us, not by Pietro; each keeps his existing term where one exists. Please confirm or correct:
+Written by us, not by Pietro; each keeps his existing term where one exists. Please confirm or correct. Confirmed for
+v17 (2026-10-28): Display = Aspetto in Italian, and the Russian Perpendicular circle keeps «Ортогональная окружность»,
+the mathematical term.
 
 | English | Italian now | Note |
 |---|---|---|
