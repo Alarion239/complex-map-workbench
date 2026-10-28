@@ -125,8 +125,9 @@ await T("See F's formula and guarantees", 1, async () => { await tap('#pipeline 
 await T('Drag a shared number and watch X and Y', 2, async () => { await ev(`Params.add('a', { value: 0.5, min: -2, max: 2, step: 0.01 })`); await settle(300); const nm = await ev(`document.querySelector('.ph-nums').textContent`); await tap('.ph-nums', 600); const sl = await ev(`(() => { const e = document.querySelector('#propsPanel input[type=range]'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return [b.left + 6, b.top + b.height / 2, b.right - 6]; })()`); if (!sl) return 'no slider'; taps++; await drag(sl[0] + (sl[2] - sl[0]) / 2, sl[1], sl[0] + (sl[2] - sl[0]) * 0.8, sl[1], 6, 16); await settle(300); const v = await ev(`Params.get('a')`); const p = await panes(); return (/a/.test(nm) && v !== 0.5 && p.L && p.R && p.L.b <= p.sheetTop) || { nm, v, p }; });
 // (issue #13: the long-press menu is an object's; a held empty plane opens nothing)
 await T('Hide a shape (long-press it)', 2, async () => {
-  // (empty plane above the rectangle s1, then a point of its top edge; the first hold is not part of the task)
-  const pe = await ev(`__cmwPlaneMenu().w2s('L', 0.5, 2.5)`);
+  // (empty plane below the rectangle s1, then a point of its top edge; the first hold is not part of the task. Not above
+  // it: the disc of "Draw a disc and watch its image", about 0.1 + 3.35i, r 0.96 at this view, covers 0.5 + 2.5i)
+  const pe = await ev(`__cmwPlaneMenu().w2s('L', 0.5, -2.5)`);
   await hold(pe[0], pe[1], 650);
   if (await ev(`!!document.querySelector('#popHost .pop.menu')`)) return 'a menu over empty plane';
   await sleep(700);

@@ -423,7 +423,9 @@ await section('C', async () => {
   // keyboard tail drops it when it then fits one line, as touch_cmd A5 accepts)
   const ruChip2 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   const ruBase2 = 'Выберите точку (на кривой: единичная окружность или в любом месте) · 1 из 2 · Ортогональная';
-  ok('C RU chip after the curve', !!ruChip2 && (ruChip2.text === ruBase2 + ' · ⌫\u00a0— отменить выбор · Esc' || (ruChip2.text === ruBase2 && ruChip2.lines === 1)), ruChip2);
+  // (construct.js syncChip, v16.3.1: without the tail when that is one line, or when the whole text would be cut at
+  // the lines its place allows: then the shorter text, on two lines)
+  ok('C RU chip after the curve', !!ruChip2 && (ruChip2.text === ruBase2 + ' · ⌫\u00a0— отменить выбор · Esc' || (ruChip2.text === ruBase2 && ruChip2.lines <= 2)), ruChip2);
   const a = await W(0.3, 0.2), b = await W(-0.6, 0.5);
   await click(a[0], a[1]); await settle(80); await move(b[0], b[1]); await settle(100);
   await shot('perp-d1440-ru-preview');

@@ -160,7 +160,12 @@ const KNOWN = {
   'curves_cmd.js': [{ re: /^the legend of curve targets says drawn, not shaded$/, why: 'app (v16.5 UX20, open): with curve targets only, the desktop head note "Preimage in X" has the one tooltip "… is shaded in X; the curves it maps onto them are drawn there"; v16.4 said only "Drawn on the left", and the phone still says "Drawn in X"',
     measured: (d) => Array.isArray(d) && d.length === 2 && /is shaded in X/.test(d[1]) && /drawn there/.test(d[1]) }],
   // an app bug: the Language label is cut at 360 px (only the cut label; anything past the edges still fails)
-  'v15_phone_cmd.js': [{ re: /^360-(light|dark)-en: more sheet: nothing past the edges, no cut label$/, why: 'app bug since bd48ab3 (Italian): the More sheet\'s Language switch has four options, and at 360 px the label "Language" gets 47 of its 66 px (src/phone.js Language seg; .ph-seg buttons at least 52 px)',
+  'v15_phone_cmd.js': [
+    // (an app bug: a toast's buttons, Undo and Redo, are 28 px tall on a phone too: page.html .toast-act; seen when the
+    // undo toast is up during the check)
+    { re: /: every control 44 × 44$/, why: 'app bug: on a phone a toast\'s action buttons (Undo, Redo) are 28 px tall, under the 44 px of every other control (page.html .toast-act, no phone size)',
+      measured: (d) => d && Array.isArray(d.small) && d.small.length > 0 && d.small.every((x) => /^toast-act /.test(x)) },
+    { re: /^360-(light|dark)-en: more sheet: nothing past the edges, no cut label$/, why: 'app bug since bd48ab3 (Italian): the More sheet\'s Language switch has four options, and at 360 px the label "Language" gets 47 of its 66 px (src/phone.js Language seg; .ph-seg buttons at least 52 px)',
     measured: (d) => d && Array.isArray(d.out) && !d.out.length && Array.isArray(d.cut) && d.cut.length === 1 && /^Language \d+>\d+$/.test(d.cut[0]) }],
 };
 
