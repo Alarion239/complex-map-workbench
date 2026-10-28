@@ -35,7 +35,8 @@ const secs = (ms) => `${(ms / 1000).toFixed(0)} s`;
 // shard may take some of them, 'file#label')
 function selected() {
   const all = fs.readdirSync(path.join(ROOT, 'test')).filter((f) => /_cmd\.js$/.test(f)).sort();
-  const suites = all.filter((f) => !EXCLUDED[f]);
+  // (--include-excluded: the EXCLUDED files that --only names, run by hand: test/landscape_walls_cmd.js, ci/README.md)
+  const suites = all.filter((f) => !EXCLUDED[f] || (only && argv.includes('--include-excluded') && only.test(f)));
   const entries = (shard ? suitesOf(shard, suites) : suites).filter((e) => !only || only.test(e));
   const runs = [];
   for (const e of entries) {

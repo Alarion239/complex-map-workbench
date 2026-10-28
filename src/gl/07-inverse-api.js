@@ -878,6 +878,8 @@
     },
     // (v16 tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
+    // (walls tests, issue #52) the landscape's grid and refinement read back
+    landMesh: lwMesh, landRefine: lwRefine,
     // TEMP-DEBUG-HOOK
     sheetInfo(map, W, end) { const p = ok ? sheetPlan(map, W, end) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)

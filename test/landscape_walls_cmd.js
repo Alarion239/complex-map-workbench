@@ -31,8 +31,9 @@
 //     fitted through them; moving, its largest deviation at most max(0.6 px, the rest's + 0.15) and no more columns
 //     without the line than at rest + 3 %. (Round 2 on the same frames: 2.8 to 3.6 px.) Round 2's build can be
 //     measured with the same hook patched in (globalThis.__lwMotionPages).
-const PORT = globalThis.__lwPort || 9811;
-const PARTS = globalThis.__lwParts || ['mesh', 'speck', 'cold', 'perf', 'motion'];
+// (run from ci/browser.js --include-excluded: the port is the kit copy's, LW_PARTS=mesh,motion and LW_ONLY=sqrt-im,log-im narrow it)
+const PORT = globalThis.__lwPort || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, 9811])[1];
+const PARTS = globalThis.__lwParts || (process.env.LW_PARTS ? process.env.LW_PARTS.split(',') : ['mesh', 'speck', 'cold', 'perf', 'motion']);
 const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const rect = async () => ev(`(() => { const e = document.querySelector('#paneL') || document.querySelector('.pane'); const b = e.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), width: Math.round(b.width), height: Math.round(b.height) }; })()`);
 const cx = (expr) => ({ type: 'custom', params: { expr, cut: 180 }, on: true });
@@ -52,7 +53,7 @@ const CASES = [
   { id: 'z2-t0.25-im', steps: [{ type: 'pown', params: { n: 2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.25, mode: 1 },
   { id: 'zm2-t0.2-im', steps: [{ type: 'pown', params: { n: -2 }, on: true }], v: { cx: 0.2, cy: 0.1, s: 80 }, h: 'im', cuts: true, sing: [[0, 0]], singR: 1, homT: 0.2, mode: 1 },
 ];
-const ONLY = typeof globalThis.__lwOnly === 'object' ? globalThis.__lwOnly : null;
+const ONLY = typeof globalThis.__lwOnly === 'object' ? globalThis.__lwOnly : process.env.LW_ONLY ? process.env.LW_ONLY.split(',') : null;
 // the in-page check: the GPU mesh of the pane (N = 256) against the oracle on the CPU (the app's own Funcs)
 const CHECK = (steps, h, sing, singR, homT) => `(() => {
   const m = GLR.landMesh(256);
@@ -206,6 +207,9 @@ for (const [vw, vh, mobile] of [[1440, 900, false], [390, 844, true]]) for (cons
     await settle(1200);
     await ev('__cmwSetMain("land")'); await settle(1200);
     if (c.homT != null) { await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 } })'); await settle(900); await ev(`__cmwMorph({ T: ${c.homT} })`); await settle(1500); }
+    // (a map with a cut: until its edge pass has compiled and settled the surface is drawn by the former rule, key ending in
+    // -1; a first page on a software renderer takes tens of seconds for it)
+    if (c.cuts) for (let k = 0; k < 120; k++) { if (await ev('(() => { const m = GLR.landMesh(256); return !!(m && !/\\|-1$/.test(m.key)); })()')) break; await sleep(500); }
     const r = await ev(CHECK(c.steps, c.h, c.sing || [], c.singR || 0, c.homT), 120000);
     // (the refinement follows the surface by a frame or two, its programs one per frame on a fresh page: wait for it)
     for (let k = 0; k < 40; k++) { if (await ev('(() => { const q = GLR.landRefine(false, 256); return !!(q && q.land); })()')) break; await sleep(150); }
@@ -402,7 +406,7 @@ const lineOf = (I, box, ref, thr = 6) => {
 out.motion = [];
 // (r3 review pictures-1: the Max mesh too, and T stepped as real play steps it, about 0.013 a frame at 1x and 0.026
 // at 2x, besides the former 0.006)
-const MOTION = globalThis.__lwMotion || [[240, 0.006], [1920, 0.006], [1920, 0.013], [1920, 0.026], [240, 0.026]];
+const MOTION = globalThis.__lwMotion || (process.env.LW_MOTION ? process.env.LW_MOTION.split(',').map((x) => x.split(':').map(Number)) : [[240, 0.006], [1920, 0.006], [1920, 0.013], [1920, 0.026], [240, 0.026]]);   // LW_MOTION=240:0.006,240:0.026: mesh:dT
 if (PARTS.includes('motion')) for (const page of globalThis.__lwMotionPages || ['test.html']) for (const dark of [false, true]) for (const sh of [true, false]) for (const [meshN, dT] of MOTION) {
   await view(1440, 900, dark, false);
   await ld(page, 'mo' + Date.now(), { meshN, shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps: [sq0, sn0], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 60 }, view: { main: 'land' }, sheets: sh, height: 'im' });
