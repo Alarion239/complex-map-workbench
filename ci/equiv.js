@@ -39,6 +39,42 @@ function headOf(script) {
   return i < 0 ? '' : script.slice(0, i + end.length);
 }
 
+// two programs the same up to a consistent renaming of the names they declare (esbuild renames a local that would
+// clash in the bundle's one scope, as h to h2 in sound.js's SND_LIB, the audio worklet's source): the same syntax tree,
+// each declared name of the reference mapped to one name here, and every other name (a free one: the worklet's
+// globals) unchanged. -> null when they are, else what differs
+function sameProgram(ta, tb) {
+  const espree = require(path.join(ROOT, 'node_modules', 'espree'));
+  const scope = require(path.join(ROOT, 'node_modules', 'eslint-scope'));
+  const parse = (t) => { const ast = espree.parse(t, { ecmaVersion: 'latest', sourceType: 'script', range: true }); const sm = scope.analyze(ast, { ecmaVersion: 2022, sourceType: 'script' }); const v = new Map(); for (const sc of sm.scopes) { for (const x of sc.variables) for (const id of x.identifiers) v.set(id, x); for (const r of sc.references) if (r.resolved) v.set(r.identifier, r.resolved); } return { ast, v }; };
+  let A, B;
+  try { A = parse(ta); B = parse(tb); } catch (e) { return 'does not parse: ' + e.message; }
+  // (what esbuild prints differently and means the same: void 0 for undefined)
+  const isVoid0 = (n) => n && n.type === 'UnaryExpression' && n.operator === 'void' && n.argument && n.argument.type === 'Literal' && n.argument.value === 0;
+  const map = new Map(), back = new Map();
+  let why = null;
+  (function eq(a, b, at) {
+    if (why) return;
+    if (a && a.type === 'Identifier' && a.name === 'undefined' && isVoid0(b)) return;
+    if (a === null || typeof a !== 'object' || b === null || typeof b !== 'object') { if (a !== b) why = `${at}: ${JSON.stringify(a)} against ${JSON.stringify(b)}`; return; }
+    if (Array.isArray(a) !== Array.isArray(b) || (Array.isArray(a) && a.length !== b.length)) { why = `${at}: lengths differ`; return; }
+    if (a.type === 'Identifier' && b.type === 'Identifier') {
+      const va = A.v.get(a), vb = B.v.get(b);
+      if (!va || !vb) { if (va || vb || a.name !== b.name) why = `${at}: the name ${a.name} against ${b.name} (a free name must stay)`; return; }
+      if ((map.has(va) && map.get(va) !== vb) || (back.has(vb) && back.get(vb) !== va)) { why = `${a.name}: one variable here is two there`; return; }
+      map.set(va, vb); back.set(vb, va); return;
+    }
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (k === 'start' || k === 'end' || k === 'range' || k === 'raw' || k === 'shorthand') continue;
+      // (a property's name is no variable: x.h and { h: … } keep their names)
+      const named = !a.computed && ((a.type === 'MemberExpression' && k === 'property') || ((a.type === 'Property' || a.type === 'MethodDefinition' || a.type === 'PropertyDefinition') && k === 'key'));
+      if (named && a[k] && a[k].type === 'Identifier') { if (!b[k] || a[k].name !== b[k].name) why = `${at}: the property ${a[k].name} became ${b[k] && b[k].name}`; continue; }
+      eq(a[k], b[k], a.type ? `${at}.${a.type}.${k}` : at);
+    }
+  })(A.ast, B.ast, 'program');
+  return why;
+}
+
 const rows = [];
 let bad = 0;
 const check = (what, pass, detail = '') => { rows.push([pass ? '✅' : '❌', what, detail]); if (!pass) bad++; };
@@ -64,6 +100,19 @@ const INIT = `(() => {
 })();`;
 const GLOBALS0 = new Set();   // the names of an empty page: left out of the comparison
 
+// the reference script's top-level names: a classic script's top-level const and let are globals that are not properties
+// of window, so the globals compared are window's own properties and these names, wherever typeof finds them
+let TOP = [];
+function topNames(script) {
+  const acorn = require(path.join(ROOT, 'node_modules', 'acorn'));
+  const out = new Set();
+  for (const n of acorn.parse(script, { ecmaVersion: 'latest', sourceType: 'script' }).body) {
+    if (n.type === 'VariableDeclaration') for (const d of n.declarations) { if (d.id.type === 'Identifier') out.add(d.id.name); }
+    else if ((n.type === 'FunctionDeclaration' || n.type === 'ClassDeclaration') && n.id) out.add(n.id.name);
+  }
+  return [...out];
+}
+
 async function probe(base, page, scenes) {
   const B = await launch({ width: 1280, height: 800, dpr: 1 });
   try {
@@ -71,10 +120,16 @@ async function probe(base, page, scenes) {
     for (const n of await B.ev('Object.getOwnPropertyNames(window)')) GLOBALS0.add(n);
     await B.addInit(INIT);
     await B.nav(base + page); await sleep(6000);
-    const out = { shots: [], globals: (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n)).sort() };
+    const own = (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n));
+    const lex = await B.ev(`${JSON.stringify(TOP)}.filter((n) => { try { return typeof (0, eval)(n) !== 'undefined'; } catch (e) { return false; } })`);
+    const out = { shots: [], globals: [...new Set([...own, ...lex])].sort() };
     for (const [name, js] of scenes) {
       if (js) { try { await B.ev(js); } catch (e) { out.shots.push([name, null, String(e.message).slice(0, 200)]); continue; } }
-      await sleep(2500);
+      await sleep(1500);
+      // (a picture of a moment: a deformation an example plays is stopped at t = 0.5, and the shader compiles land)
+      await B.ev(`(() => { try { const m = __cmwState().morph; if (m && m.open) __cmwMorph({ playing: false, T: 0.5 }); } catch (e) { /* a page without the hooks */ } return 1; })()`);
+      for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
+      await sleep(1500);
       out.shots.push([name, await B.shot(), null]);
     }
     if (scenes.length) {
@@ -102,17 +157,24 @@ async function behaviour(refDist, curDist) {
   const scenes = [['default scene', null]];
   for (let i = 0; i < N_EX; i++) scenes.push([`example ${i}`, `__cmwExample(${i}); 1`]);
   for (const i of VIEWS) for (const v of ['phase', 'land']) scenes.push([`example ${i}, ${v}`, `__cmwExample(${i}); __cmwSetMain('${v}'); 1`]);
+  TOP = topNames(splitPage(fs.readFileSync(path.join(refDist, 'test.html'), 'utf8')).script);
   const [sa, sb] = [await serve(refDist), await serve(curDist)];
   try {
     const a = await probe(sa.base, 'test.html', scenes), b = await probe(sb.base, 'test.html', scenes);
     check('test page: the same globals', JSON.stringify(a.globals) === JSON.stringify(b.globals), `${a.globals.length} names` + diffNames(a.globals, b.globals));
     check('test page: no exception', b.errors.length === 0, b.errors.slice(0, 3).join(' | '));
     check('every shader source, the same set', JSON.stringify(a.shaders) === JSON.stringify(b.shaders), `${a.shaders.length} sources` + (a.shaders.length === b.shaders.length ? '' : ` against ${b.shaders.length}`));
-    check('the audio worklet and other JavaScript Blobs, the same text', JSON.stringify(a.blobs) === JSON.stringify(b.blobs), `${a.blobs.length} blobs`);
+    if (process.env.EQUIV_SHOTS) { fs.mkdirSync(process.env.EQUIV_SHOTS, { recursive: true }); a.blobs.forEach((t, i) => fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `blob${i}-ref.js`), t)); b.blobs.forEach((t, i) => fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `blob${i}-cur.js`), t)); }
+    {
+      const why = a.blobs.length !== b.blobs.length ? `${a.blobs.length} blobs against ${b.blobs.length}` : a.blobs.map((t, i) => (t === b.blobs[i] ? null : sameProgram(t, b.blobs[i]))).find((x) => x) || null;
+      const same = a.blobs.every((t, i) => t === b.blobs[i]);
+      check('the audio worklet and other JavaScript Blobs, the same program', !why, `${a.blobs.length} blobs` + (why ? `: ${why}` : same ? ', the same text' : ', the same program up to the renaming of its own names'));
+    }
     for (let k = 0; k < scenes.length; k++) {
       const [name, pa, ea] = a.shots[k], [, pb, eb] = b.shots[k];
       if (ea || eb) { check(`${name}: the scene`, false, ea || eb); continue; }
       const d = pixels(pa, pb);
+      if (d > LIMIT && process.env.EQUIV_SHOTS) { fs.mkdirSync(process.env.EQUIV_SHOTS, { recursive: true }); fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `${name.replace(/\W+/g, '_')}-ref.png`), pa); fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `${name.replace(/\W+/g, '_')}-cur.png`), pb); }
       check(`${name}: the picture`, d <= LIMIT, `${(d * 100).toFixed(3)} % of pixels differ (at most ${(LIMIT * 100).toFixed(3)} %)`);
     }
     const pa = await probe(sa.base, 'complex-map-workbench.html', []), pb = await probe(sb.base, 'complex-map-workbench.html', []);
