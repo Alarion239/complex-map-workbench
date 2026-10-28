@@ -14,7 +14,8 @@ Russian or Italian changes here is marked *(new)* and goes through tools/ru_extr
 | A region the user draws | Shape | | Фигура | Figura | region (in UI text), figure (for a shape) |
 | Clearing the shapes | Clear shapes | Clear (in the Shapes head) | Очистить фигуры | Cancella figure | Empty canvas |
 | Clearing the chain | Clear chain | Clear (in the chain head) | Очистить цепочку | Svuota catena | Clear the chain |
-| The header's function field and the palette's add mode | Add function | | Добавить функцию | Aggiungi funzione | Add function or command, Append to the chain |
+| The header's function field and the palette's add mode | Add function | | Добавить функцию | Aggiungi funzione | Add function or command |
+| The palette's insert position at the end of the chain | Insert at the end | | Вставить в конец | Inserisci alla fine | Append to the chain |
 | The phone's search row | Search | | Поиск | Cerca | Search functions and commands |
 | The ? menu | Help | | Справка | Aiuto | |
 | The reference document | Guide | | Руководство | Guida | Reference guide, Using the Workbench |

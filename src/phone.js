@@ -345,7 +345,7 @@ const Phone = (() => {
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
-    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3 points')
+    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3-pt circle')
     else if (ic.dataset.ph !== 'more') { ic.innerHTML = els.moreIc; lab.textContent = els.moreLab; }
     ic.dataset.ph = extra ? id : 'more';
     if (kind === 'tools') fillTiles();
@@ -588,9 +588,9 @@ const Phone = (() => {
       kids.push(row(I.copy, $t('Links, scenes and LaTeX'), () => { close(true); $('exportBtn').click(); }, true));
       kids.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
     }
-    kids.push(row(I.search, $t('Search functions and commands'), () => { close(true); $('cmdBtn').click(); }));
+    kids.push(row(I.search, $t('Search'), () => { close(true); $('cmdBtn').click(); }));
     kids.push(row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true));
-    kids.push(row(I.help, $t('Reference guide'), () => { close(true); A.openGuide(); }));
+    kids.push(row(I.help, $t('Guide'), () => { close(true); A.openGuide(); }));
     b.replaceChildren(...kids);
   }
 

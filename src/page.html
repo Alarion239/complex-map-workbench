@@ -2103,8 +2103,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
          Phone: the popover is the "more" menu. popovertargetaction="hide" closes it after a choice. -->
     <div class="hdr-menu" id="hdrMenu" popover>
       <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
-      <button class="cmd-field" id="cmdBtn" aria-label="Add function or command" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function or command</span><span class="kbd" id="cmdKbd">⌘K</span></button>
-      <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Region tools  [" aria-label="Show or hide region tools" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Region tools panel</span></button>
+      <button class="cmd-field" id="cmdBtn" aria-label="Add function" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function</span><span class="kbd" id="cmdKbd">⌘K</span></button>
+      <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Draw  [" aria-label="Show or hide the Draw panel" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Draw panel</span></button>
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
       <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
@@ -2123,12 +2123,12 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </header>
 
   <main class="layout">
-    <aside class="panel left" id="leftPanel" aria-label="Region tools">
+    <aside class="panel left" id="leftPanel" aria-label="Draw">
       <div class="rail" id="leftRail">
         <button class="icon-btn rail-open" id="leftRailOpen" title="Show region tools  [" aria-label="Show region tools"><span class="ic-slot" data-icon="chevR"></span></button>
         <div class="rail-tools" id="railTools"></div>
         <span class="rail-count mono" id="railCount"></span>
-        <span class="rail-label">Region tools</span>
+        <span class="rail-label">Draw</span>
       </div>
       <section class="psec" id="secDraw">
         <h2><span class="grow">Draw</span><button class="icon-btn small" id="snapBtn" aria-pressed="true" data-tip="Snap to the grid and to figures (both panes). Hold Alt to place freely." aria-label="Snap to grid and figures"><span class="ic-slot" data-icon="snap"></span><span class="snap-w">Snap</span></button><button class="icon-btn" id="leftCollapse" title="Hide this panel  [" aria-label="Hide region tools"><span class="ic-slot" data-icon="chevL"></span></button></h2>

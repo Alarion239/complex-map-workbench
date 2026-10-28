@@ -125,7 +125,6 @@
  "in X": "в X",
  "nothing yet": "пока ничего",
  "Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.": "Рисуйте фигуры в X инструментами слева. Выберите фигуру или шаг цепочки, чтобы изменить его здесь.",
- "Region tools panel": "Панель инструментов областей",
  "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Следующая или предыдущая область: верхняя панель, инструменты, X, Y, цепочка, Инспектор",
  "Move between the tools and the chain's cards": "Переход между инструментами и карточками цепочки",
  "Name of {label}": "Имя: %{label}",
@@ -176,5 +175,14 @@
  "The limits of a sum must not depend on z": "Пределы суммы не должны зависеть от z",
  "A product of infinitely many factors cannot be differentiated here": "Произведение бесконечного числа множителей здесь не дифференцируется",
  "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Сумма или произведение многих членов здесь не решается относительно z; все решения f(z) = w покажет команда «Показать прообразы»",
- "Sums and products cannot be drawn yet": "Суммы и произведения пока нельзя нарисовать"
+ "Sums and products cannot be drawn yet": "Суммы и произведения пока нельзя нарисовать",
+ "phone tile\u0004Perpendicular": "Ортого­нальная",
+ "Insert at the end": "Вставить в конец",
+ "Draw panel": "Панель «Рисование»",
+ "3-pt circle": "По 3 точкам",
+ "Perpendicular": "Ортогональная",
+ "Draw  [": "Рисование  [",
+ "Show or hide the Draw panel": "Показать или скрыть панель «Рисование»",
+ "field\u0004Add function": "Добавить функцию",
+ "field-short\u0004Add function": "Поиск"
 }
