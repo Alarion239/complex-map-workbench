@@ -88,7 +88,9 @@ function plan(order, info) {
     for (const [re, kind] of CJS) { const m = re.exec(I.text); if (m) { cjs = { kind, names: m[1].split(', '), re }; break; } }
     if (!cjs && /module\.exports/.test(I.text.replace(UMD, '').replace(/^[ \t]*\/\/.*$/gm, ''))) problems.push(`${f}: module.exports in a form the codemod does not know`);
     const used = [...I.decl].filter((n) => order.some((o) => o !== f && info[o].through.has(n))).sort();
-    out[f] = { imports, cjs, used, umdName: I.umdName };
+    // (every top-level name: a classic script made each one a global, and the test page keeps them, expose.js)
+    const all = [...I.decl].sort();
+    out[f] = { imports, cjs, used, all, umdName: I.umdName };
   }
   return { out, problems };
 }
@@ -96,7 +98,7 @@ function plan(order, info) {
 function moduleBlock(f, p, order, eol) {
   const lines = [];
   for (const from of order) if (p.imports.has(from)) lines.push(`import { ${p.imports.get(from).join(', ')} } from './${from}';`);
-  const names = new Set(p.used);
+  const names = new Set(p.all);
   if (p.umdName) names.add(p.umdName);
   if (p.cjs) for (const n of p.cjs.names) names.add(n);
   const ex = [...names].sort();
@@ -141,7 +143,7 @@ function main() {
   // src/expose.js: the test page's globals. A classic script's top-level names were globals, and the browser suites
   // (CDP evaluate, test/cdp_kit) reach CX, GLR, Region, … by name; the test bundle puts every module's exports on
   // globalThis, before app.js runs. tools/bundle.mjs gives it no text in the published bundle.
-  const exposed = order.flatMap((f) => out[f].used.concat(out[f].umdName ? [out[f].umdName] : []).map((n) => [f, n]));
+  const exposed = order.flatMap((f) => out[f].all.concat(out[f].umdName ? [out[f].umdName] : []).map((n) => [f, n]));
   const byFile = new Map();
   for (const [f, n] of exposed) { if (!byFile.has(f)) byFile.set(f, []); if (!byFile.get(f).includes(n)) byFile.get(f).push(n); }
   const expose = [`// The test page's globals (issue #20, phase 4; written by tools/to_esm.js): the names a classic script made global, for`,
