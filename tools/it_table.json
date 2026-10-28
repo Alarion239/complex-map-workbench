@@ -2928,6 +2928,8 @@
  "in X": "in X",
  "nothing yet": "ancora niente",
  "Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.": "Disegna le forme in X con gli strumenti a sinistra. Seleziona una forma, o un passo della catena, per modificarlo qui.",
+ "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Area successiva o precedente: barra superiore, strumenti, X, Y, catena, Ispettore",
+ "Move between the tools and the chain's cards": "Spostarsi tra gli strumenti e le schede della catena",
  "Name of {label}": "Nome di {label}",
  "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{a sinistra della retta da } %{a} \\text{ a } %{b}"
 }
