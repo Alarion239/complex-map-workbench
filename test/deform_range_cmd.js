@@ -52,7 +52,7 @@ async function menuPick(k, text) {
 const st = () => ev('(() => { const s = __cmwState(), h = s.homView; return { focus: s.focus, morph: s.morph, hv: h ? { map: h.map, imageMap: h.imageMap, key: h.key, range: h.range, H0Map: h.H0Map, start: h.start } : null, range: __cmwRange() }; })()');
 // (v16.5 UX103: the deformation's title is in words, "Deformation" + "from A to B", where it read "A → B" + "deformation":
 // read as "A → B" so the maps it names are compared with the reference build as before)
-const title = () => ev(`(() => { const R = document.getElementById('rightTitle'), t = R.querySelector('.ptitle'); if (!t) return R.textContent; const tt = t.textContent.trim(), ro = R.querySelector('.prole'); const m = /^(Deformation|Деформация)$/.test(tt) && ro ? /^(?:from|от)\\s+(.+?)\\s+(?:to|к|до)\\s+(.+)$/.exec(ro.textContent.trim()) : null; return m ? m[1] + ' → ' + m[2] : t.textContent; })()`);
+const title = () => ev(`(() => { const R = document.getElementById('rightTitle'), t = R.querySelector('.ptitle'); if (!t) return R.textContent; const tt = t.textContent.trim(), ro = R.querySelector('.prole'); const m = /^(Deformation|Деформация|Deforming .+|Деформируются .+)$/.test(tt) && ro ? /^(?:from|от)\\s+(.+?)\\s+(?:to|к|до)\\s+(.+)$/.exec(ro.textContent.trim()) : null; return m ? m[1] + ' → ' + m[2] : t.textContent; })()`);
 const probesOf = (n, x0, x1, y0, y1) => { const out = []; let s = 5; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; for (let i = 0; i < n; i++) out.push([x0 + (x1 - x0) * r(), y0 + (y1 - y0) * r()]); return out; };
 const near = (u, v, tol) => (u == null && v == null) || (u && v && Math.hypot(u[0] - v[0], u[1] - v[1]) <= tol * (1 + Math.hypot(v[0], v[1])));
 // GLR.evalMap of the current image map against its CPU twin (cpuMap), at pts; returns the worst relative error
@@ -173,6 +173,9 @@ if (RUN.includes(2)) {
   ok('push: map mode 1, hi 2, no post', s.hv && s.hv.imageMap.mode === 1 && s.hv.imageMap.hi === 2 && !('post' in s.hv.imageMap), s.hv && s.hv.imageMap);
   ok('push: H_0 is not the identity (start)', s.hv && s.hv.start === true, s.hv);
   ok('push: title w₁ → w', /^w\s*(1|₁)\s*→\s*w$/.test((await title()).replace(/\s+/g, ' ').trim()), await title());
+  // ([v17 UX64] the title names the bracketed steps in words, and the bracket says the same with an All steps reset)
+  const words = await ev(`(() => { const t = document.querySelector('#rightTitle .ptitle'), l = document.querySelector('#chainBracket .br-label'); return { title: t && t.textContent.trim(), label: l && !l.hidden ? l.textContent.trim() : null, tinted: [...document.querySelectorAll('.card.br-in')].map((c) => c.dataset.k) }; })()`);
+  ok('push: the title and the bracket read "Deforming f₂–f₃", with All steps; f₂ and f₃ tinted', words.title === 'Deforming f₂–f₃' && words.label === 'Deforming f₂–f₃All steps' && JSON.stringify(words.tinted) === '["2","3"]', words);
   info.pushTitle = await title();
   // the start: H_0 = e^z on the strip's boundary (the imaginary axis at Im z = ±π/2)
   const zs = [[-1, 1.5707], [0.5, 1.5707], [1.2, -1.5707], [-0.3, -1.5707]];
@@ -212,6 +215,11 @@ if (RUN.includes(2)) {
   await snap('push-light');
   await deskView(1440, 900, true); await settle(900); await snap('push-dark'); await deskView(1440, 900, false); await settle(500);
   await grab();
+  // ([v17 UX64]) All steps on the bracket's label resets it: every step deformed, the label and the tint gone, and the
+  // deformation plays from its start
+  await ev(`(() => { const b = document.querySelector('#chainBracket .br-all'); if (b) b.click(); return 1; })()`); await settle(400);
+  const reset = await ev(`({ range: __cmwState().homRange || null, label: (() => { const l = document.querySelector('#chainBracket .br-label'); return l ? l.hidden : null; })(), tinted: document.querySelectorAll('.card.br-in').length, playing: __cmwState().morph.playing })`);
+  ok('push: All steps resets the bracket (no range, no label, no tint) and plays', reset.label === true && reset.tinted === 0 && reset.playing === true && !(await st()).range.stored, reset);
 }
 
 // ---------------- 3. pullback: chain3, f2's ⋯ → Steps f1–f2 ----------------

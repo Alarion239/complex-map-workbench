@@ -346,6 +346,8 @@
         requestRender('L', 'R', 'T');
         updateFocusUI();
         updateCards();
+        // ([v17 UX64] a new bracket plays from its start, so the change shows; not under reduced motion)
+        if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
       }
     }
     updateBracket();

@@ -75,5 +75,8 @@
  "The Arb blend with a red colour balance": "Смесь Arb с красным цветовым балансом",
  "ref\u0004the unit circle": "единичная окружность",
  "ref\u0004the real axis": "действительная ось",
- "ref\u0004the imaginary axis": "мнимая ось"
+ "ref\u0004the imaginary axis": "мнимая ось",
+ "All steps": "Все шаги",
+ "Deform every step": "Деформировать все шаги",
+ "Deforming {steps}": "Деформируются {steps}"
 }
