@@ -32,8 +32,8 @@
   const TYPES = Object.keys(Funcs.DEFS);
   // the random rows and chains draw from the types they had before the zeros-and-poles step (2026-10-22), so their
   // deterministic sequence is unchanged; 'zp' gets its own random rows with their own seed (below)
-  // (and before Γ and ζ, issue #4, which have chains of their own below)
-  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta');
+  // (and before Γ and ζ, issue #4, and the Series step, issue #5, which have chains of their own below)
+  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series');
   const CUTS = [0, 90, -45, 180, 270, -180, 30];
   const EXPRS = [
     'z^2+\\frac{1}{z}', '\\sin z+\\cos(2z)', '\\tan z', '\\cot z', '\\sec z', '\\csc z', '\\sinh z-\\cosh(z/2)', '\\tanh(z)', '\\coth z',
@@ -411,9 +411,11 @@
   // 1.2e-7 * that bounds the float32 rounding error of the sum (e.g. sin^2 z + cos^2 z at Im z = 13:
   // operands ~1e11, result 1), which no float32 evaluation can avoid.
   const probeCache = new WeakMap();
+  // the steps built as a formula (b.ast): a Series step too ([issue #5])
+  const FORMULA = new Set(['custom', 'series']);
   function cancelProbe(b) {
     if (probeCache.has(b)) return probeCache.get(b);
-    const th = b.vals.cut * Math.PI / 180;
+    const th = (b.vals.cut ?? 180) * Math.PI / 180;
     const ops = [];
     const ast = b.ast || Expr.parse(b.vals.expr);
     (function walk(n) {
@@ -467,7 +469,7 @@
   }
   // steps whose homotopy is (1-t) z + t f(z) in funcs.js (no natural path: a constant, a formula that is not
   // recognisably a catalog map), so f(z) is an intermediate value of the homotopy
-  const LINEAR_HOM = new Set(['poly', 'rational', 'zp', 'custom']);
+  const LINEAR_HOM = new Set(['poly', 'rational', 'zp', 'custom', 'series']);
   const isLinHom = (b) => !b.hom || (LINEAR_HOM.has(b.def.id) && !b.nat);
   // returns z => {mag: largest |intermediate|, cancel: largest relative float32 cancellation error of a custom step}
   function rowStages(steps, built, row) {
@@ -515,7 +517,7 @@
               E = d;
             }
             E += 1.2e-7 * (fin(w) ? CX.abs(w) : Infinity);
-            if (bb.def.id === 'custom') { const pr = cancelProbe(bb); if (pr) E += pr(w0, w) * (1 + (fin(w) ? CX.abs(w) : 0)); }
+            if (FORMULA.has(bb.def.id)) { const pr = cancelProbe(bb); if (pr) E += pr(w0, w) * (1 + (fin(w) ? CX.abs(w) : 0)); }
           }
           mag = Math.max(mag, fin(w) ? CX.abs(w) : Infinity, fin(w0) ? CX.abs(w0) : Infinity);
         }
@@ -556,7 +558,7 @@
       for (let k = row.b + 1; k <= row.post; k++) if (live(steps, built, k)) post.push(built[k - 1]);
       return (z) => {
         let mag = 0, cancel = 0;
-        const step = (b, w) => { if (b.def.id === 'custom') { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); } z = w; mag = Math.max(mag, fin(z) ? CX.abs(z) : Infinity); };
+        const step = (b, w) => { if (FORMULA.has(b.def.id)) { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); } z = w; mag = Math.max(mag, fin(z) ? CX.abs(z) : Infinity); };
         for (const b of pre) step(b, b.f(z));
         for (const b of his) { if (isLinHom(b)) { const w = b.f(z); mag = Math.max(mag, fin(w) ? CX.abs(w) : Infinity); } step(b, (b.hom ? b.hom(row.t) : (zz) => { const w = b.f(zz); return C((1 - row.t) * zz.re + row.t * w.re, (1 - row.t) * zz.im + row.t * w.im); })(z)); }
         for (const b of post) step(b, b.f(z));
@@ -571,7 +573,7 @@
       return (z) => {
         let mag = 0, cancel = 0;
         for (const b of hs) {
-          if (row.t !== 0 && isLinHom(b)) { const w = b.f(z); mag = Math.max(mag, fin(w) ? CX.abs(w) : Infinity); if (b.def.id === 'custom') { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); } }
+          if (row.t !== 0 && isLinHom(b)) { const w = b.f(z); mag = Math.max(mag, fin(w) ? CX.abs(w) : Infinity); if (FORMULA.has(b.def.id)) { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); } }
           z = (b.hom ? b.hom(row.t) : (zz) => zz)(z);
           mag = Math.max(mag, fin(z) ? CX.abs(z) : Infinity);
         }
@@ -584,7 +586,7 @@
       for (const k of ks) {
         const b = built[k - 1];
         const w = b.f(z);
-        if (b.def.id === 'custom') { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); }
+        if (FORMULA.has(b.def.id)) { const pr = cancelProbe(b); if (pr) cancel = Math.max(cancel, pr(z, w)); }
         z = w;
         mag = Math.max(mag, fin(z) ? CX.abs(z) : Infinity);
       }
