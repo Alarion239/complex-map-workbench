@@ -384,7 +384,8 @@
   // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
   // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
   const ZP_KINDS = ['zeros', 'poles'];
-  const zpSym = (kind, i) => (kind === 'zeros' ? 'ζ' : 'p') + sub(i + 1);
+  // [UX54] by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
+  const zpSym = (kind, i, st) => (kind === 'zeros' ? 'ζ' : 'p') + sub(Constr.zpNum(st, kind, i));
   // (the marks are drawn with every overlay frame: a field's text is parsed once)
   const zpParsed = new Map();
   const zpParse = (s) => {
@@ -448,7 +449,7 @@
         ctx.strokeStyle = col; ctx.lineWidth = 2.5; cross();
       }
       if (hot || sel) { ctx.strokeStyle = col; ctx.lineWidth = sel ? 1.5 : 1; ctx.beginPath(); ctx.arc(x, y, 10.5, 0, TAU); ctx.stroke(); }
-      const t = zpSym(kind, i);
+      const t = zpSym(kind, i, S.steps[zs.k - 1]);
       // (no label where handles crowd: closer than 18 px to one drawn before, unless it is held or selected)
       const crowd = !hot && !sel && zpHandlesL.slice(0, -1).some((q) => Math.hypot(q.x - x, q.y - y) < 18);
       ctx.font = `italic 500 13px ${TH.math}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -557,7 +558,7 @@
     if (i < 0) return;
     commit();
     requestRender('OL');
-    sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: `ζ${sub(i + 1)}`, f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: `p${sub(i + 1)}`, f: `f${sub(k)}` }));
+    sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }));
     const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"], #pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
     if (inp) inp.scrollIntoView({ block: 'nearest' });
   }
@@ -600,7 +601,7 @@
     return frag;
   }
   function zpItemField(st, k, kind, i, raw, pre) {
-    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i), what = kind === 'zeros' ? 'zero' : 'pole';
+    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i, st), what = kind === 'zeros' ? 'zero' : 'pole';
     const input = h('input', { class: 'inp', id, value: zpShow(raw), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
     input.dataset.zp = `${kind}:${i}`;
     // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)

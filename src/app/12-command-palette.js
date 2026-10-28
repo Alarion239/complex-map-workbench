@@ -265,6 +265,9 @@
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
         [$t('Clear the chain'), () => $('clearChain').click(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
+        // ([UX54] names are kept when others are deleted: these make them tidy again)
+        [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
+        [$t('Renumber zeros and poles'), () => renumberZp(), '', $t('renumber, rename, numbers, names, zeros, poles, tidy'), 1],
         [$t('Open the guide'), () => openGuide(), '?', $t('help, guide, manual, documentation, docs, reference, how to')],
         // (v16.5 UX03: the header's and the menus' commands, listed when searched, each with its key)
         [$t('Export figure…'), () => Figure.open(), /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', $t('export, png, pdf, svg, picture, image, save image, download, print, video, movie'), 1],

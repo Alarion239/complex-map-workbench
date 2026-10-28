@@ -787,6 +787,7 @@
         max: Funcs.ZP_MAX,
         count: (k, kind) => { const st = zpStepK(k); return st ? zpItems(st, kind).length : 0; },
         remove: (k, kind, i) => zpRemove(k, kind, i),
+        num: (k, kind, i) => Constr.zpNum(zpStepK(k), kind, i),
         // a zero becomes a pole at the same value (or back): one undo step
         swap(k, kind, i) {
           const st = zpStepK(k);

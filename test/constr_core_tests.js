@@ -53,6 +53,28 @@ module.exports = function ({ K, ok, near, nearP, Inverse }) {
     st.params.zeros = '-1, 4i'; K.syncSteps(S, env);
     ok(st.zpIds.zeros[0] === ids3[1] && st.zpIds.zeros[1] === ids3[2], 'refs: a text edit that deletes the first zero keeps the others\' ids (nearest value)', [ids3, st.zpIds.zeros]);
   }
+  // ------------------------------------------------ [UX54] zeros and poles keep their numbers (zpNums)
+  {
+    const S = state([], [{ type: 'zp', params: { a: '1', zeros: '1, 2, 3', poles: '5i' }, on: true }]);
+    K.syncSteps(S, env);
+    const st = S.steps[0], nz = () => st.zpNums.zeros.join();
+    ok(nz() === '1,2,3' && st.zpNums.poles.join() === '1' && K.zpNum(st, 'zeros', 2) === 3, 'zpNums: an earlier save (none) numbers by place', st.zpNums);
+    K.zpRemoveId(st, 'zeros', 0); st.params.zeros = '2, 3'; K.syncSteps(S, env);
+    ok(nz() === '2,3', 'zpNums: removing ζ1 leaves ζ2, ζ3', st.zpNums.zeros);
+    st.params.zeros = '2, 3, 7'; K.syncSteps(S, env);
+    ok(nz() === '2,3,4', 'zpNums: a new zero takes the next after the largest', st.zpNums.zeros);
+    st.params.zeros = '3, 7'; K.syncSteps(S, env);
+    ok(nz() === '3,4', 'zpNums: a text edit deleting the first zero keeps the others\' numbers (nearest value)', st.zpNums.zeros);
+    // saved and loaded: zpIds dropped (nothing refers to the step), zpNums kept
+    const L = JSON.parse(JSON.stringify({ shapes: [], targets: [], steps: [{ type: 'zp', params: st.params, on: true, zpNums: st.zpNums }], nextId: 1 }));
+    K.syncSteps(L, env);
+    ok(L.steps[0].zpNums.zeros.join() === '3,4' && L.steps[0].zpNums.poles.join() === '1', 'zpNums: a save keeps the numbers without the ids', L.steps[0].zpNums);
+    // damaged numbers (not distinct): by place
+    const D = state([], [{ type: 'zp', params: { a: '1', zeros: '1, 2', poles: '' }, on: true, zpNums: { zeros: [2, 2], poles: [] } }]);
+    K.syncSteps(D, env);
+    ok(D.steps[0].zpNums.zeros.join() === '1,2', 'zpNums: duplicates are dropped for numbers by place', D.steps[0].zpNums);
+    ok(K.zpRenumber(st) && nz() === '1,2' && !K.zpRenumber(st), 'zpRenumber: by place again, once', st.zpNums.zeros);
+  }
   {
     // a v15.1-stripped state (no uid, no zpIds) rebinds to f1 by the stored index [C29]
     const S = state([pt('s1', [0, 0]), pt('s2', [2, 0]),

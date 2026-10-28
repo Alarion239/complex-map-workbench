@@ -907,6 +907,9 @@
   // syncSteps(state, env): every step gets a unique uid; every zeros-and-poles step zpIds parallel to its lists. A list
   // whose length changed is matched to its ids greedily by nearest value (ties by index) against the last values seen
   // (st._zpv, runtime); values left over get fresh ids, ids left over are removed. Returns true if anything changed.
+  // [UX54] zpNums, parallel too, are the numbers the zeros and poles are called by (ζ₃, p₁): each keeps its number while
+  // others come and go, a new one takes the next after the largest, and they are saved (a save without them, from an
+  // earlier build, numbers by place, as that build did)
   function syncSteps(state, env) {
     let ch = false;
     const steps = Array.isArray(state.steps) ? state.steps : [];
@@ -919,11 +922,16 @@
       if (!st.zpIds || typeof st.zpIds !== 'object') { st.zpIds = { zeros: [], poles: [] }; ch = true; }
       const prevV = st._zpv || {};
       const nowV = {};
+      const nums0 = st.zpNums && typeof st.zpNums === 'object' ? st.zpNums : {};
+      const nums = {};
       for (const kind of ['zeros', 'poles']) {
         const vals = env && env.zpAll ? env.zpAll(st, kind) : [];
         nowV[kind] = vals;
         let ids = Array.isArray(st.zpIds[kind]) ? st.zpIds[kind].filter((x) => typeof x === 'string') : [];
         if (new Set(ids).size !== ids.length) ids = [...new Set(ids)];
+        // (the saved numbers, when they are a list of distinct positive integers as long as ids, or as the values)
+        const n0 = Array.isArray(nums0[kind]) && nums0[kind].every((x) => Number.isInteger(x) && x > 0) && new Set(nums0[kind]).size === nums0[kind].length ? nums0[kind] : null;
+        let nk = n0 && n0.length === ids.length ? n0.slice() : null;
         if (ids.length !== vals.length) {
           const old = Array.isArray(prevV[kind]) && prevV[kind].length === ids.length ? prevV[kind] : null;
           const out = new Array(vals.length).fill(null);
@@ -940,10 +948,21 @@
             for (const [d, i, j] of pairs) { if (!(d < Infinity) || usedI.has(i) || out[j]) continue; usedI.add(i); out[j] = ids[i]; }
           } else for (let j = 0; j < Math.min(ids.length, vals.length); j++) out[j] = ids[j];
           for (let j = 0; j < out.length; j++) if (!out[j]) { out[j] = freshId(state, 'q', taken); rebindZero(state, st, kind, out[j], vals[j], ids); }
+          // the numbers follow the ids; a load (no ids yet) keeps the saved ones; the new take the next after the largest
+          if (!ids.length && n0 && n0.length === vals.length) nk = n0.slice();
+          else {
+            const byId = new Map(nk ? ids.map((id, i) => [id, nk[i]]) : []);
+            nk = out.map((id) => (byId.has(id) ? byId.get(id) : null));
+            let next = Math.max(0, ...nk.filter((x) => x != null)) + 1;
+            nk = nk.map((x) => (x != null ? x : next++));
+          }
           ids = out; ch = true;
         }
+        if (!nk) nk = vals.map((v, i) => i + 1);
         st.zpIds[kind] = ids;
+        nums[kind] = nk;
       }
+      if (JSON.stringify(nums) !== JSON.stringify(nums0)) { st.zpNums = nums; ch = true; }
       st._zpv = nowV;
     }
     return ch;
@@ -966,12 +985,32 @@
     if (!st || !st.zpIds || !Array.isArray(st.zpIds[kind])) return null;
     const [id] = st.zpIds[kind].splice(i, 1);
     if (st._zpv && Array.isArray(st._zpv[kind])) st._zpv[kind].splice(i, 1);
+    if (st.zpNums && Array.isArray(st.zpNums[kind])) st.zpNums[kind].splice(i, 1);
     return id || null;
+  }
+  // the number zero (pole) i of a 'zp' step is called by: ζₙ, pₙ (zpNums, else its place, 1-based)
+  function zpNum(st, kind, i) {
+    const a = st && st.zpNums && st.zpNums[kind];
+    return a && Number.isInteger(a[i]) ? a[i] : i + 1;
+  }
+  // renumber the zeros and poles of a 'zp' step by their places again (the card's Renumber)
+  function zpRenumber(st) {
+    if (!st || st.type !== 'zp' || !st.zpNums) return false;
+    let ch = false;
+    for (const kind of ['zeros', 'poles']) {
+      const a = st.zpNums[kind];
+      if (Array.isArray(a) && a.some((x, i) => x !== i + 1)) { st.zpNums[kind] = a.map((x, i) => i + 1); ch = true; }
+    }
+    return ch;
   }
 
   // ---------------------------------------------------------------- resolving a point ref
   // ctx: {state, idx (index()), env: {zp(st, kind, i) -> [x, y] | null, F(z) -> [x, y] | INF | null}}
-  function zpMark(ref, st, i) { return { kind: ref.kind, i: Number.isInteger(i) ? i : (Number.isInteger(ref.i) ? ref.i : 0), step: st ? (ctxStepIndex(st) + 1) : null }; }
+  function zpMark(ref, st, i) {
+    const j = Number.isInteger(i) ? i : (Number.isInteger(ref.i) ? ref.i : 0);
+    // (n: its number now, so a reason still names a zero after it is removed)
+    return { kind: ref.kind, i: j, n: zpNum(st, ref.kind, j), step: st ? (ctxStepIndex(st) + 1) : null };
+  }
   let ctxSteps = null;
   // [review user-6] the last value each zero ref resolved to (run time): the reason names a removed zero by its value,
   // and a zero added back at that value takes the ref again (syncSteps)
@@ -2708,7 +2747,7 @@
     formOf, formOfFields, level, reanchor, mob3: mob3obj, mR, sampleMR,
     pieces, meets: (a, b) => (a && a.G ? meetsPieces(a, b) : meets(a, b)), meetNear, project2: projectPiece, projectPiece, glide, onPiece, tRange,
     resolve, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
-    syncSteps, zpRemoveId, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
+    syncSteps, zpRemoveId, zpNum, zpRenumber, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
     // v16.5 rail (notes/ux-build/rail/SPEC.md)
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
     // v16 review fixes

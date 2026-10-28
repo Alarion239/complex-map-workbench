@@ -1,6 +1,14 @@
 {
  "_about": "Phase 2a: Russian for call sites whose English template has no inventory text with the same wording (templates restructured in code, Russian-only parser messages), and the tool-label context. Keys are the $t keys (plural keys: one + U+0004 + many; context keys: ctx + U+0004 + source). Russian follows notes/i18n/GLOSSARY.md; placeholders are written %{name}. To review with the tables. The two entries that overrode the math table (phase 2a review, finding 8: the Joukowski chain caption and the zoom caption) now live in notes/i18n/ru/math.json (export.homotopy_h_t_v_2, math.zero).",
  "twice": "дважды",
+ "Renumber points": "Перенумеровать точки",
+ "Renumber zeros and poles": "Перенумеровать нули и полюсы",
+ "renumber, rename, numbers, names, points, tidy": "перенумеровать, номера, имена, точки",
+ "renumber, rename, numbers, names, zeros, poles, tidy": "перенумеровать, номера, имена, нули, полюсы",
+ "The points are numbered in order already.": "Точки уже пронумерованы по порядку.",
+ "Points renumbered.": "Точки перенумерованы.",
+ "The zeros and poles are numbered in order already.": "Нули и полюсы уже пронумерованы по порядку.",
+ "Zeros and poles renumbered.": "Нули и полюсы перенумерованы.",
  "this formula has no usable point to zoom about, so it has no natural path": "у этой формулы нет подходящего центра для масштабирования, поэтому естественного пути нет",
  "{n} times\u0004{n} times": {
   "one": "%{n} раз",
