@@ -17,7 +17,15 @@ What it writes:
 
 Needs npm (the registry) and fontTools (pip install fonttools brotli).
 """
-import hashlib, io, json, pathlib, re, subprocess, sys, tarfile, tempfile
+import hashlib
+import io
+import json
+import pathlib
+import re
+import subprocess
+import sys
+import tarfile
+import tempfile
 
 root = pathlib.Path(__file__).resolve().parent.parent
 VENDOR = root / 'vendor'
