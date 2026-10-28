@@ -153,19 +153,114 @@ float levels2(vec4 h, float m0, float m1, float m2, float m3, float m4) {
   // the refinement is in programs without the chain (LAND_LV_VS, LAND_RP_VS, LAND_RA_VS), compiled once per page: a
   // formula's first Landscape compiles what it compiled before (r2 cold opens: a larger chain program held the GPU
   // process for 0.7 to 0.9 s at its first use).
-  const LAND_TF_VS = `
+  // The heights pass (uPass 0: the grid), the refinement's chain pass (uPass 1: the points in uPq) and, in the same
+  // program, the edge pass (uPass 3, LAND_EDGE_VS's work for the cut kind this program was built for, issue #47): one
+  // call site of the chain, evalAt, in one loop whose trip count is a uniform, so the program stays about the size of
+  // the height pass's and the edge pass costs no second program's link and first draw. kind 'P': the principal map
+  // (mapF), for no cut or the cuts the sheets cannot continue (kind 2, bisection on the height step); 'S' / 'H': the
+  // continuation of the stages' sheets (chainSheetRange) or the deformation's (chainSheetHom), for a chain whose every
+  // cut is one the sheets continue (kind 1): the principal value at z is the continuation at its own centre, so the
+  // heights come from the same call. (No return inside a loop: ANGLE's Metal translation lost results, LAND_EDGE_VS.)
+  const LAND_TF_VS = (kind = 'P') => (kind === 'H' ? `
+vec2 evalAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi, uB, uPost, uT, 0, 0); }
+` : kind === 'S' ? `
+uniform int uSheetA; uniform int uSheetB;
+vec2 evalAt(vec2 zc, vec2 z) { return chainSheetRange(zc, z, uSheetA, uSheetB, 0); }
+` : `
+vec2 evalAt(vec2 zc, vec2 z) { return mapF(z); }
+`) + `
 uniform int uN; uniform vec4 uBox; uniform int uPass; uniform highp sampler2D uPq;
+uniform highp sampler2D uT1; uniform int uDir; uniform int uSteps; uniform int uTwo;
+const int uCutMode = ${kind === 'P' ? 2 : 1};
 out vec4 tfOut;
+vec2 zAt(ivec2 g) { return uBox.xy + vec2(g) / float(uN - 1) * uBox.zw; }
+bool sameBranch(vec2 c, vec2 p) {
+  float ac = wabs(c), ap = wabs(p);
+  if (!(ac < 1e30) || !(ap < 1e30)) return true;
+  return length(c - p) <= 1e-3 * (ac + ap) + 1e-20;
+}
 void main() {
-  vec2 z;
-  if (uPass == 1) z = texelFetch(uPq, ivec2(gl_VertexID & 2047, gl_VertexID >> 11), 0).xy;
-  else z = uBox.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uBox.zw;
-  vec2 w = mapF(z);
-  vec2 hv = heightW(w);
-  vec2 wc = vec2(isnan(w.x) ? 1.0 : clamp(w.x, -3e38, 3e38), isnan(w.y) ? 0.0 : clamp(w.y, -3e38, 3e38));
-  tfOut = vec4(wc, hv.y > 0.5 ? hv.x : 0.0, hv.y);
   gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
   gl_PointSize = 1.0;
+  bool edge = uPass == 3;
+  vec4 none = vec4(0.5, 0.0, 0.0, 0.0);
+  // the point of the height passes, or the edge's ends (p, q: +x, +y or the diagonal, uDir) and its bracket
+  vec2 z0 = vec2(0.0), z1 = vec2(0.0), wLo = vec2(0.0), wHi = vec2(0.0), wB = vec2(0.0), wc = vec2(0.0), wp = vec2(0.0);
+  float lo = 0.0, hi = 1.0, hLo = 0.0, hHi = 0.0, d0 = 0.0, d3 = 0.0, tol = 2e-3 * uH;
+  bool jump = false, fin = true, twice = false, done = false;
+  int n = 1;
+  if (edge) {
+    ivec2 p = ivec2(gl_VertexID % uN, gl_VertexID / uN);
+    ivec2 q = p + (uDir == 0 ? ivec2(1, 0) : (uDir == 1 ? ivec2(0, 1) : ivec2(1, 1)));
+    n = 0;
+    if (q.x < uN && q.y < uN) {
+      vec4 a = texelFetch(uT1, p, 0), b = texelFetch(uT1, q, 0);
+      if (a.w > 0.5 && b.w > 0.5) {
+        z0 = zAt(p); z1 = zAt(q);
+        hLo = a.z; hHi = b.z; d0 = abs(b.z - a.z); d3 = d0;
+        wLo = a.xy; wHi = b.xy; wB = b.xy; wc = wB; wp = wB;
+        // kind S / H: step 0 the far end, step 1 the midpoint, then bisection while a cut is bracketed (two calls a
+        // step after the first: the continuation from p, then the principal value, the continuation at zm's own
+        // centre); kind 2: bisection, only on a height step
+        jump = uCutMode == 2 && d0 > tol;
+        n = uCutMode == 1 ? 1 + (uSteps + 1) * max(uTwo, 1) : (jump ? uSteps - 1 : 0);
+      }
+    }
+  } else if (uPass == 1) z0 = texelFetch(uPq, ivec2(gl_VertexID & 2047, gl_VertexID >> 11), 0).xy;
+  else z0 = uBox.xy + vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)) / float(uN - 1) * uBox.zw;
+  vec2 wOut = vec2(0.0);
+  for (int it = 0; it < n; it++) {
+    int k = it, r = 0, nr = 1;
+    if (edge && uCutMode == 1 && it > 0) { nr = max(uTwo, 1); k = 1 + (it - 1) / nr; r = it - 1 - (k - 1) * nr; }
+    float m = edge ? (uCutMode == 1 && k == 0 ? 1.0 : 0.5 * (lo + hi)) : 0.0;
+    vec2 zm = edge ? mix(z0, z1, m) : z0;
+    vec2 v = evalAt(edge && uCutMode == 1 && r == 0 ? z0 : zm, zm);
+    if (!edge) { wOut = v; break; }
+    if (uCutMode == 1) {
+      if (r == 0) wc = v; else wp = v;
+      if (r < nr - 1) continue;
+      vec2 hp = heightW(wp);
+      bool same = sameBranch(wc, wp);
+      if (k == 0) {
+        jump = !same;
+        // (a flat edge, under a pixel of rise, is not looked at twice)
+        if (!jump && !(d0 > tol)) done = true;
+      } else if (k == 1 && !jump) {
+        // (the far end on p's branch: a cut crossed twice shows at the midpoint, the bracket is then [0, 1/2])
+        if (same) done = true;
+        else { jump = true; twice = true; hi = m; if (hp.y > 0.5) hHi = hp.x; }
+      } else if (jump) {
+        if (same) { lo = m; if (hp.y > 0.5) hLo = hp.x; } else { hi = m; if (hp.y > 0.5) hHi = hp.x; }
+      }
+      // (a step's values start from the far end's, the height pass's principal value there, as LAND_EDGE_VS's do)
+      wc = wB; wp = wB;
+    } else {
+      wp = v;
+      vec2 hp = heightW(wp);
+      if (!(hp.y > 0.5)) { fin = false; done = true; }
+      else {
+        if (abs(hp.x - hLo) >= abs(hHi - hp.x)) { hi = m; hHi = hp.x; wHi = wp; } else { lo = m; hLo = hp.x; wLo = wp; }
+        // (a continuous rise shrinks under bisection, by 8 over three halvings where it is smooth: stop early)
+        if (k == 2) { d3 = abs(hHi - hLo); if (d3 < 0.2 * d0) { jump = false; done = true; } }
+      }
+    }
+    if (done) break;
+  }
+  if (!edge) {
+    vec2 hv = heightW(wOut);
+    vec2 wcl = vec2(isnan(wOut.x) ? 1.0 : clamp(wOut.x, -3e38, 3e38), isnan(wOut.y) ? 0.0 : clamp(wOut.y, -3e38, 3e38));
+    tfOut = vec4(wcl, hv.y > 0.5 ? hv.x : 0.0, hv.y);
+    return;
+  }
+  if (uCutMode == 1) {
+    // (a step that vanishes at the crossing is no discontinuity of the height: Re of a root across its cut)
+    jump = jump && abs(hHi - hLo) > tol;
+  } else {
+    float big = 1e3 * max(uMu, 1e-30);
+    jump = jump && fin && abs(hHi - hLo) > 0.6 * d3 && abs(hHi - hLo) > 0.02 * uH && !(wabs(wLo) > big && wabs(wHi) > big);
+  }
+  // (w 2: the edge crosses a cut twice, or two cuts: its triangles are left out, LAND_VS)
+  tfOut = jump ? vec4(0.5 * (lo + hi), hLo, hHi, twice ? 2.0 : 1.0) : none;
 }
 `;
   // The levels, four cells per invocation, from the heights at the cell's lattice (uLp: the chain pass on the grid of

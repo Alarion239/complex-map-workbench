@@ -108,6 +108,9 @@
     return other || mode === 2 ? 2 : 1;
   }
   const edgeName = (cm, m) => (cm === 2 ? 'landEdge2' : m && (m.mode === 1 || m.mode === 3) ? 'landEdgeH' : 'landEdgeS');
+  // (issue #47) landTF of chain version ch in map mode `mode` runs the edge pass of cut mode cm itself (uPass 3): then
+  // no edge program is compiled or first drawn for it
+  const ownEdge = (ch, mode, cm) => !!cm && tfKind(ch, mode) === (cm === 2 ? 'P' : mode === 1 || mode === 3 ? 'H' : 'S');
   // A deformation at t = 0 has no cut yet: the edge pass its t > 0 will need starts compiling now, and is first drawn
   // (a pass that writes nothing) at rest once it has settled, before the play that needs it (r3 review speed-3)
   function edgeAhead(P1, em, st, rf, cmNow, P3now) {
@@ -127,13 +130,13 @@
         if (!c || c.h === 'none' || c.h === 'deriv') continue;
         const hm = all ? { mode: 3, base: 0, a: 0, b: n, t: 0.5 } : { mode: 1, base: 0, hi: c.k, t: 0.5 }, ca = cutModeOf(P1.ch.info, hm);
         // (its settle clock starts when its link lands, not at the open)
-        const P = ca ? getProg(edgeName(ca, hm), cur, true, hm) : null;
+        const P = ca && !ownEdge(cur, hm.mode, ca) ? getProg(edgeName(ca, hm), cur, true, hm) : null;
         if (P && !P.used1) settled(P);
       }
       return;
     }
     const ca = cutModeOf(P1.ch.info, Object.assign({}, em, { t: 0.5 }));
-    if (!ca) return;
+    if (!ca || ownEdge(cur, em.mode || 0, ca)) return;
     const P = getProg(edgeName(ca, em), cur, true, em);
     if (!P || P.used1 || (st.motion && !st.full) || !settled(P)) return;
     use(P, st.map);
@@ -157,12 +160,13 @@
     // (r3: once it has settled; a figure, a film or an export takes it as soon as it has compiled)
     // (never first drawn while something moves: the deformation's edge pass, first drawn 0.9 s into a play, held a
     // frame 90 to 250 ms, r3 review speed-3; at rest then)
-    const P3r = cm ? program(edgeName(cm, em), em) : null;
+    const own = ownEdge(P1.ch, P1.mode, cm);
+    const P3r = cm && !own ? program(edgeName(cm, em), em) : null;
     // (a deformation's own pass, once it has settled, is first drawn even while it plays: the play starts at the open,
     // and waiting for a rest frame left the whole play, every loop, to the former rule's torn walls; one first-draw
     // instead, at the play's start when the pass was compiled ahead (edgeAhead), r3 verify-1)
     const defo = em.mode === 1 || em.mode === 3;
-    const P3 = P3r && (rf && rf.full || (settled(P3r) && (P3r.used1 || defo || !(st.motion && !st.full)))) ? P3r : null;
+    const P3 = own ? P1 : P3r && (rf && rf.full || (settled(P3r) && (P3r.used1 || defo || !(st.motion && !st.full)))) ? P3r : null;
     if (P3r && !P3 && st.motion) rfLater();
     if (!cm || !defo) edgeAhead(P1, em, st, rf, cm, P3r);
     const cuts = cm && (!P3 || P3.ch !== P1.ch || P3.mode !== P1.mode) ? -1 : cm;
@@ -186,6 +190,9 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); u1i(P1, 'uPass', 0);
+    // (landTF built on the stages' sheets, issue #47: its heights are the continuation at each point's own centre over
+    // the stages the map applies, a..b)
+    if (tfKind(P1.ch, P1.mode) === 'S') { const m0 = mapIn(P1, st.map) || {}; u1i(P1, 'uSheetA', m0.a || 0); u1i(P1, 'uSheetB', m0.b || 0); }
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, land.tex1, N, N, gl.RGBA32F, gl.RGBA);
     // the real jumps across the grid's edges (+x, +y, the diagonal)
     if (cuts > 0) {
@@ -196,6 +203,7 @@
       u1i(P3, 'uHMode', mode); u1f(P3, 'uH', H); u1f(P3, 'uMu', mu);
       // (bisection steps: the cut to 2^-14 of an edge in mode 1, the step's shrinking over 12 halvings in mode 2)
       u1i(P3, 'uSteps', 13); u1i(P3, 'uTwo', 2);
+      if (P3 === P1) u1i(P3, 'uPass', 3);   // (landTF's own edge pass, issue #47)
       u1i(P3, 'uSheetA', m.a || 0); u1i(P3, 'uSheetB', m.b || 0); u1i(P3, 'uSheetW', 0);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
       for (let d = 0; d < 3; d++) {

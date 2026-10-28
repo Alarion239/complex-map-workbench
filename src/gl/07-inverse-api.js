@@ -880,6 +880,14 @@
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
     // (walls tests, issue #52) the landscape's grid and refinement read back
     landMesh: lwMesh, landRefine: lwRefine, landHeld: lwHeld,
+    // (issue #47: the programs compiled so far, name|chain|mode and state)
+    landProgs: () => [...progs.values()].map((e) => `${e.id} ${e.state}`),
+    // (issue #47: a program's sources for the current chain, landTF of a given kind, to time its link)
+    landSrc: (name, mode, kind) => {
+      const d = DEFS[name], save = d.vs;
+      if (kind) d.vs = () => UTIL_V + HEIGHT + LAND_TF_VS(kind);
+      try { return sources(name, cur, mode || 0); } finally { d.vs = save; }
+    },
     // TEMP-DEBUG-HOOK
     sheetInfo(map, W, end) { const p = ok ? sheetPlan(map, W, end) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
