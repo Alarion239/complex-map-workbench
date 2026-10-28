@@ -1,7 +1,7 @@
 // v16.4 (notes/tour-r3/SPEC.md 7.6): the tour's completion conditions and its auto-advance, with real CDP input, at
 // 1440 × 900 (mouse, English) and 390 × 844 (touch, English), and the Sound chapter at 390 × 844 (touch, Russian) and
 // 1440 (mouse laps round the zero and the pole). Each task: no advance without input; the tick within 300 ms of the
-// event; the advance 3000 ± 150 ms after the last input (doors 700 ± 100); restarts, holds and cancels; the sound
+// event; the advance 3000 ± 150 ms after the event, whatever the pointer or keys do next (doors 700 ± 100); holds and cancels; the sound
 // settings back after the chapter, after Esc and after a reload. Run: test/<you>_cdp/q.sh test/tour_auto_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -45,7 +45,7 @@ let tk = await until(`document.querySelector('.ts-l2').classList.contains('done'
 check('x: the tick within 300 ms of the pan', tk != null && tk <= 300, tk);
 let at = await advancedAt('basics/x', t0);
 check('x: moves on 3000 ± 150 ms after the release', near(at, 3000, 150), at);
-// Draw: the disc; an input at +2 s moves the advance to +5 s
+// Draw: the disc; an input at +2 s changes nothing: the advance stays at 3 s after the event
 await go('basics', 4);
 const disc = await center('#tools > .tool[data-tool="disc"]');
 await click(disc[0], disc[1]); await settle(200);
@@ -56,9 +56,8 @@ await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000,
 await sleep(2000 - (Date.now() - t0));
 const hd = await center('header .wordmark');
 await click(hd[0], hd[1]);
-const t1 = Date.now();
-at = await advancedAt('basics/draw', t1);
-check('draw: an input at +2 s moves the advance to 3 s after it', near(at, 3000, 150), at);
+at = await advancedAt('basics/draw', t0);
+check('draw: an input at +2 s changes nothing: 3 s after the event', near(at, 3000, 150), at);
 // live region: the result line once, then "Next step in 3 seconds."
 await go('basics', 4);
 await click(disc[0], disc[1]); await settle(200);
@@ -73,7 +72,7 @@ const ph = await center('#viewSwitch > [data-mode="phase"]');
 await click(ph[0], ph[1]); t0 = Date.now();
 at = await advancedAt('views/switch', t0);
 check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
-// Phase key: a check; an input at +2 s restarts the countdown
+// Phase key: a check; an input at +2 s does not restart the countdown
 await go('views', 4);
 // (v16.5 UX20: on a desktop Y's options are behind its Display options button in the pane head: it is opened first)
 const ob = await center('#rightFoot .opts-btn');
@@ -86,8 +85,8 @@ if (kc) {
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
   await sleep(2000 - (Date.now() - t0));
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 });
-  at = await advancedAt('views/key', Date.now());
-  check('key: a wheel at +2 s moves the advance to 3 s after it', near(at, 3000, 200), at);
+  at = await advancedAt('views/key', t0);
+  check('key: a wheel at +2 s changes nothing: 3 s after the event', near(at, 3000, 200), at);
 }
 // (v16.5: the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
@@ -135,16 +134,15 @@ if (fi) {
 } else check('formula: the field is there', false);
 } catch (e) { check('a focused text field holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// a finger, here the mouse, held down 6 s holds it
+// a finger, here the mouse, held down does not hold it: it moves on 3 s after the task's event
 await go('basics', 1);
 a = await plane(); x = a.l + 150; y = a.b - 90;
-await mdrag(x, y, x + 50, y - 20);
+await mdrag(x, y, x + 50, y - 20); t0 = Date.now();
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x + 50, y: y - 20, button: 'left', clickCount: 1 });
-check('held down: no advance in 6 s', await stays('basics/x', 6000));
-await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + 50, y: y - 20, button: 'left', clickCount: 1 }); t0 = Date.now();
 at = await advancedAt('basics/x', t0);
-check('held down: moves on 3 s after the release', near(at, 3000, 200), at);
-} catch (e) { check('a finger, here the mouse, held down 6 s' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
+check('held down: moves on 3 s after the event all the same', near(at, 3000, 250), at);
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + 50, y: y - 20, button: 'left', clickCount: 1 });
+} catch (e) { check('a finger, here the mouse, held down' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // the page hidden holds it (document.hidden and visibilitychange, as a switch of tabs gives them; a frozen page in
 // headless Chrome stops its frames for good, so it is not used here)
