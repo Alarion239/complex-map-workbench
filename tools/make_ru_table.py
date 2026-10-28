@@ -56,9 +56,12 @@ V164_SEG_HERE = {'v164-segments.json'}
 V164_HERE = {'v164-tour.json'}
 # (v16.4: the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
 V164_HELP_HERE = {'v164-help.json'}
+# (v17, issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: notes/i18n/ru/v17-planemenu.json,
+# read after every other table)
+V17_HERE = {'v17-planemenu.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue

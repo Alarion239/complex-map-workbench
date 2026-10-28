@@ -27,6 +27,10 @@ From the desktop designer to the constructions designer. Short on purpose. Full 
 
 ## The planes' context menu (right-click, or the long-press below)
 
+(Issue #13: a menu of objects only. "At this point" and the view items are gone, a shape has no Select, Constructions
+keeps what acts on the shape there, empty plane opens nothing, a right-click or a long press while drawing cancels the
+drawing, and a double-click on empty plane centres the view: DESIGN.md §2.5.)
+
 One menu for every plane. Its groups, top to bottom (empty groups are left out):
 1. **The object under the pointer**: Select, then its own actions (shapes: Integrate along it, Hide, Delete; a zero
    or pole: Turn into a pole/zero, Remove).
@@ -87,7 +91,7 @@ One menu for every plane. Its groups, top to bottom (empty groups are left out):
 | Pending | the press | moved > 8 px: pan, drag or draw (as today); a second finger: pinch (never the menu) |
 | Ring | 450 ms without moving: a ring fills under the finger (Android: 10 ms vibration) | — |
 | Probe | from Ring, the finger slides: live readout of *z* and *F*(*z*) in the title chip | release: the readout stays until the next pan |
-| Menu | from Ring, release without sliding | the context menu opens, headed by the point and *F* there |
+| Menu | from Ring, release without sliding | the context menu of the object there opens, headed by the point and *F* there; over empty plane, or when the long press cancelled a drawing, nothing opens (issue #13) |
 
 - The mouse never needs it (right-click). A pen behaves like a finger.
 - The same numbers everywhere: 8 px slop, 450 ms, 44 px rows on touch.
@@ -99,7 +103,7 @@ One menu for every plane. Its groups, top to bottom (empty groups are left out):
 - **Each card has a name**: "f₂, Möbius", plus ", shown alone", ", bypassed", ", error: …". The picture is decorative.
 - **The plane menu without a pointer:** Shift+F10 or the Menu key opens it at the keyboard probe (the crosshair that the
   arrow keys move; sound stage 2 already plans it). Items are `menuitem`s, arrows move, Enter acts, Esc closes and
-  returns focus.
+  returns focus. With no object there (issue #13), nothing opens and a live region says "Nothing here has a menu."
 - **Popovers, sheets and the temporary Inspector** take focus when they open and return it when they close. Sheets are
   non-modal on the phone, so Tab can leave them; Esc closes them.
 - **Announcements** (`aria-live="polite"`): "Added slider a", "Added zero of f₃ at 0.39 + 0.27i", "X₁: they meet only

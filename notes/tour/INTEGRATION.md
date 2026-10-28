@@ -268,9 +268,11 @@ setDeformation, ...) is harmless, because a step starts listening only after its
 
 | event | payload | emit when |
 |---|---|---|
-| `zp-added` | `{ k, kind: 'zero' \| 'pole', i }` | a zero or a pole is added to step k (the Inspector's buttons, Shift-click, the planes' menu: `zpAdd`) |
 | `number-changed` | `{ names, live }` | a shared number changes (its slider, Play, its field, undo: `Params.on('change')`) |
 | `formula-split` | `{ k, n }` | v15.2: formula step k is split into the n catalog steps it is (`splitStep`: the Inspector's offer or the step's ⋯ menu) |
+
+(Issue #13: `zp-added`, which the step Add a zero here waited for, is gone with that step: the planes' menu no longer
+adds zeros, and a zero is added from the zeros-and-poles step's own card or Inspector.)
 
 ### The scenes the tour loads
 

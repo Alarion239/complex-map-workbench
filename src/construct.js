@@ -1071,6 +1071,8 @@ const Construct = (() => {
     return true;
   }
   function cancel() { if (!draftC) return false; draftC = null; A.requestRender('OL', 'OR'); return true; }
+  // a construction in progress: picks made, or its curve picked (what Esc and a right-click cancel)
+  const drafting = () => !!(draftC && (draftC.picks.length || draftC.curve1));
   function back() {
     if (!draftC) return false;
     if (draftC.tool === 'meet') { if (!draftC.curve1) return cancel(); draftC.curve1 = null; }
@@ -1696,15 +1698,9 @@ const Construct = (() => {
     const target = side === 'R';
     if (t && t.cls === 'cross') items.push({ label: $t('Mark the intersection'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'meet' }); } });
     if (t && t.cls === 'curve') items.push({ label: $t('Point on this curve'), run: () => { const m = materialize(t, side, {}); api.cm.create(m.shapes, { target }); A.tourEmit('construct-added', { op: 'glider' }); } });
-    // (an exact line or circle: the Perpendicular circle tool with this curve picked)
-    if (t && t.cls === 'curve' && t.pc && (t.pc.kind === 'line' || t.pc.kind === 'circle') && t.pc.G) {
-      items.push({ label: $t('Perpendicular circle…'), run: () => { A.setTool('perp'); draftC = { tool: 'perp', side, picks: [], curve1: t, hover: null }; A.requestRender('OL', 'OR'); } });
-      items.push({ label: $t('Touching circle…'), run: () => { A.setTool('touch'); draftC = { tool: 'touch', side, picks: [], curve1: t, hover: null }; A.requestRender('OL', 'OR'); } });
-    }
+    // (issue #13: only what acts on the shape there; the tools that start from it, Perpendicular circle, Touching
+    // circle, Circle through 3 points and Midpoint, are the toolbar's)
     if (t && t.cls === 'point') {
-      const start = (tool) => () => { A.setTool(tool); draftC = { tool, side, picks: [t], curve1: null, hover: null }; A.requestRender('OL', 'OR'); };
-      items.push({ label: $t('Circle through this point…'), run: start('circle3') });
-      items.push({ label: $t('Midpoint with…'), run: start('midpoint') });
       // a free point on a curve: put it on the curve
       const p = t.ref.s && !t.ref.h ? find(t.ref.s) : null;
       if (p && !p.def && !p.at) {
@@ -2116,7 +2112,7 @@ const Construct = (() => {
     init(a) { api = a; },
     on, ui, toolRows, ICON, buildGrid, CTOOLS, isTool: isCTool,
     vertexPick: g(vertexPick, null), bindVertices: g(bindVertices), globeClick: g(globeClick, false), boundUnder: g(boundUnder, null), snapAt: g(snapAt, null), drawStart: g(drawStart, null), drawMove: g(drawMove, null), drawEnd: g(drawEnd), pointDown: g(pointDown, false),
-    handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false),
+    handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false), drafting: g(drafting, false),
     hover: g(hover), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
     defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),

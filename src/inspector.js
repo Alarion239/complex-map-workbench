@@ -79,7 +79,8 @@ const Inspector = (() => {
         if (ab) ab.setAttribute('aria-label', $t('Pick {label} on an Argand diagram', { label: t + sub(k) }));
       }
     }
-    // the zeros-and-poles hint by input: a long press on touch, a right-click and Alt with a mouse (review design-9)
+    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (review design-9; issue #13:
+    // the planes' menu acts on a mark, it adds none)
     const touchUI = () => document.documentElement.classList.contains('ph') || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
     // a formula wider than its well: the same formula smaller, down to 70 % (review design-4); true when it fits
     function fitTex(node, minScale = 0.7) {
@@ -339,7 +340,7 @@ const Inspector = (() => {
         if (adds) {
           // the big buttons first, then the hint, then a and one row per zero and pole
           params.prepend(adds);
-          adds.after(h('div', { class: 'zp-hint' }, touchUI() ? $t('Or long-press a plane. Marks snap to the ruler.') : $t('Or right-click a plane. Marks snap to the ruler (Alt: free).')));
+          adds.after(h('div', { class: 'zp-hint' }, touchUI() ? $t('Drag a mark to move it; hold it for more.') : $t('Drag a mark to move it; right-click it for more.')));
           for (const b of adds.querySelectorAll('.zp-add')) {
             const kind = b.classList.contains('zeros') ? 'zeros' : 'poles';
             const txt = [...b.childNodes].find((n) => n.nodeType === 3);

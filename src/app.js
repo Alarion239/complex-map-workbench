@@ -2822,7 +2822,6 @@
     if (selected) { selected = null; buildShapeList(); }
     chainChanged(false);
     refreshZpCard(k);
-    tourEmit('zp-added', { k, kind: kind === 'zeros' ? 'zero' : 'pole', i: list.length - 1 });
     return list.length - 1;
   }
   // the Inspector's Add zero / Add pole (v15, DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
@@ -6309,10 +6308,13 @@
     }
     return true;
   }
-  // the line integral items of the curves near pane pixel (x, y): [{label, run, listen?}]
-  function integralItems(pane, side, x, y, cx, cy) {
-    const near = curvesNear(pane, side, x, y);
-    if (!near.length) return [];
+  // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?}]. The curve
+  // is the shape prefer (the one under the pointer) when it passes there, else the nearest (issue #13: one integral,
+  // not one per curve in reach)
+  function integralItems(pane, side, x, y, cx, cy, prefer) {
+    const all = curvesNear(pane, side, x, y);
+    if (!all.length) return [];
+    const near = [all.find((n) => n.s.id === prefer) || all[0]];
     const names = shapeNames();
     // the popover's variable (the left plane's: z, or wₖ with a step focused) and its closed-curve test (every
     // piece of the curve closed, after the cut to the meshing window)
@@ -6354,26 +6356,12 @@
       },
       toClient(side, z) { if (!flatSide(side)) return null; const p = paneOf(side); p.setView(viewOf(side)); const [x, y] = p.w2s(z), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; },
       scale: (side) => (flatSide(side) ? viewOf(side).s : null),
-      // new marks snap to the bottom ruler's finest drawn division (drawRulers: major = ceilStep(72 / s), minor = major / 10)
-      snapOn: () => !!S.snap,
-      snap(side, z) {
-        const s = viewOf(side).s, major = ceilStep(72 / s);
-        const st = [major / 10, major / 2, major].find((q) => q * s >= 6) || major;
-        const r = (x) => +(Math.round(x / st) * st).toPrecision(12);
-        return C(r(z.re), r(z.im));
-      },
       round: (side, z) => { const p = paneOf(side); p.setView(viewOf(side)); return zpRound(p, z); },
-      yHtml, fnHtml, mapF: () => focusF(), focus: () => S.focus,
-      chain: () => S.steps.map((st, i) => {
-        const b = built[i], pr = (b && !b.error && b.props) || {};
-        return { k: i + 1, type: st.type, on: st.on !== false, ok: !!b && !b.error, active: stepActive(i + 1), deriv: isDeriv(i + 1), injective: !!pr.injective, deg: pr.deg, degExact: !!pr.degExact, constant: !!pr.constant, n: st.params && st.params.n };
-      }),
-      rangeF, derivIn,
+      yHtml, fnHtml, mapF: () => focusF(),
       // the zeros and poles: the same functions as the card's (and the Inspector's) buttons and fields
       zp: {
         max: Funcs.ZP_MAX,
         count: (k, kind) => { const st = zpStepK(k); return st ? zpItems(st, kind).length : 0; },
-        add(k, kind, v) { const i = zpAdd(k, kind, v); if (i >= 0) { commit(); requestRender('OL'); } return i; },
         remove: (k, kind, i) => zpRemove(k, kind, i),
         // a zero becomes a pole at the same value (or back): one undo step
         swap(k, kind, i) {
@@ -6394,8 +6382,6 @@
         field: (k, kind, i) => [...document.querySelectorAll(`[data-k="${k}"] input[data-zp="${kind}:${i}"]`)].find((el) => el.getClientRects().length > 0) || null,
         // (the fields are the Inspector's: Edit opens step k there, the temporary Inspector when the panel is hidden)
         edit(k, kind, i) { inspectStep(k); const el = this.field(k, kind, i); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
-        // a new zeros-and-poles step at the end of the chain with this zero; the whole chain stays shown
-        addStep(v) { const f = S.focus; addStep('zp', { a: '1', zeros: Funcs.zpItem(v), poles: '' }, S.steps.length); if (S.focus !== f) { setFocus(f); noteFocus(); } },
       },
       cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
       // step k in the Inspector (v15: a click on its card does the same)
@@ -6417,7 +6403,6 @@
         }
         return null;
       },
-      select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); },
       hide(id) {
         const s = findShape(id);
         if (!s) return;
@@ -6429,28 +6414,46 @@
         undoToast($t('Shape hidden.'));
       },
       del: (id) => deleteShape(id),
-      integralItems: (side, x, y, cx, cy) => integralItems(paneOf(side), side, x, y, cx, cy),
-      canAddPoint: (side) => (side === 'L' ? (lFlat() || globeEdit('L')) && leftStage() === 0 : targetsEditable()),
-      addPoint(side, z) { const target = side === 'R'; addShape(newShape('point', { p: [z.re, z.im] }, target), target); },
-      center(side, z) {
-        if (!flatSide(side)) return;
-        if (side === 'L') { const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR'); }
-        else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
-        save();
-      },
+      integralItems: (side, x, y, cx, cy, prefer) => integralItems(paneOf(side), side, x, y, cx, cy, prefer),
       // the keyboard probe of a focused X plane (sound's arrow-key probe), in pane pixels
       kbPoint(side) { if (side !== 'L' || !snd.kz || !lFlat()) return null; paneL.setView(leftView()); return paneL.w2s(snd.kz); },
-      copyValue: (z) => CX.fmt(z, 12).replace(/\s/g, ''),
-      copy: (t) => copyText(t), toast: (m) => toast(m), undoToast: (m) => undoToast(m),
+      undoToast: (m) => undoToast(m),
       openMenu: (anchor, items, cls) => { closePalette(); return openMenu(anchor, items, cls); },
       armOutside: () => armOutside(null), close: () => closePalette(),
     };
   }
   // a right click or a long press at pane pixel (x, y): the plane menu (the integral menu where planemenu.js is absent)
-  function planeMenuAt(pane, side, x, y, e, touch) {
+  function planeMenuAt(pane, side, x, y, touch) {
     const r = pane.ocanvas.getBoundingClientRect();
     if (typeof PlaneMenu === 'undefined') return openIntegralMenu(pane, side, x, y, r.left + x, r.top + y);
-    return PlaneMenu.open(side, null, { x, y, clientX: r.left + x, clientY: r.top + y, altKey: !!(e && e.altKey), touch: !!touch });
+    return PlaneMenu.open(side, null, { x, y, clientX: r.left + x, clientY: r.top + y, touch: !!touch });
+  }
+  // a drawing in progress: a polygon's vertices, a shape being dragged out (on a plane or a globe), a construction's
+  // picks (or its picked curve)
+  const drawing = () => !!draft || !!(drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) || (typeof Construct !== 'undefined' && Construct.drafting());
+  // a right-click (or a long press) while drawing cancels the drawing, as Esc does, and opens no menu (issue #13).
+  // True when there was one
+  function cancelDrawing() {
+    if (!drawing()) return false;
+    if (drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) {
+      if (drag.mode === 'draw' && typeof Construct !== 'undefined') Construct.drawEnd(null, !!drag.target);   // (its snapped start binds nothing)
+      if (drag.mode === 'gdraw') gSnapMark = null;
+      drag = null;
+    }
+    if (draft && draft.kind === 'lasso' && !draft.target) snd.loop = null;
+    draft = null;
+    if (typeof Construct !== 'undefined') Construct.cancel();
+    requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
+    return true;
+  }
+  // a right-click that did not pan: it cancels a drawing, else opens the plane menu there
+  const rightClickAt = (pane, side, x, y, touch) => cancelDrawing() || planeMenuAt(pane, side, x, y, touch);
+  // centre a flat plane's view at z (a double-click on the plane, issue #13)
+  function centerView(side, z) {
+    if (side === 'L' ? !lFlat() : !rImage()) return;
+    if (side === 'L') { const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR'); }
+    else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
+    save();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)
   window.__cmwPlaneMenu = () => ({ stage: (k, re, im) => { const w = stageF(k)(C(re, im)); return [w.re, w.im]; }, w2s: (side, re, im) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const [x, y] = p.w2s(C(re, im)), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; }, s2w: (side, cx, cy) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const r = p.ocanvas.getBoundingClientRect(), w = p.s2w(cx - r.left, cy - r.top); return [w.re, w.im]; }, view: (side) => Object.assign({}, side === 'R' ? V.right : leftView()), steps: () => JSON.parse(JSON.stringify(S.steps)), hist: () => ({ hi, n: hist.length }), shapes: () => JSON.parse(JSON.stringify(S.shapes)), targets: () => JSON.parse(JSON.stringify(S.targets)), selected: () => selected, drag: () => (drag ? drag.mode : null), focus: () => S.focus });
@@ -11432,19 +11435,21 @@
   window.addEventListener('blur', () => { spaceHeld = false; altHeld = false; });
   function setupPane(pane, side) {
     const cv = pane.ocanvas;
-    // a right click near a curve: the menu of its line integral (a right-button pan that moved opens nothing; a
-    // touch opens it with a long press, below)
+    // a right click: the plane menu of the object there (a right-button pan that moved opens nothing; a touch opens it
+    // with a long press, below). While drawing, it cancels the drawing instead (issue #13)
     cv.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (touches.size || performance.now() - holdMenuT < 900) return;
+      // (the right button pressed during a left-button drag that draws: that drawing goes)
+      if (drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) { cancelDrawing(); setCursor(pane, side); return; }
       if ((lastPan.moved && performance.now() - lastPan.t < 500) || (drag && (drag.moved || drag.far))) return;
       // (the menu a key opened: the contextmenu event the key sends after it opens nothing more)
       if (typeof PlaneMenu !== 'undefined' && PlaneMenu.justOpened()) return;
       const [x, y] = evXY(pane, e);
       // (macOS sends contextmenu at the right button's press: the menu waits for its release, so a right-drag still
       // pans; up, below, opens it when the press did not move)
-      if (typeof PlaneMenu !== 'undefined' && drag && (e.buttons & 2)) { drag.menuAt = { x, y, altKey: e.altKey }; return; }
-      if (planeMenuAt(pane, side, x, y, e)) { drag = null; setCursor(pane, side); }
+      if (typeof PlaneMenu !== 'undefined' && drag && (e.buttons & 2)) { drag.menuAt = { x, y }; return; }
+      if (rightClickAt(pane, side, x, y)) { drag = null; setCursor(pane, side); }
     });
     cv.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -11487,15 +11492,16 @@
           hold = null;
           if (drag !== d0 || d0.moved || touches.size !== 1) { if (PM()) PM().ringStop(); return; }
           // undo what the touch began (a draft, a small pan), then probe under the finger, or open the integral
-          // menu of a curve there
-          if (d0.mode === 'draw' || d0.mode === 'gdraw') { draft = null; requestRender('OL', 'OR', d0.mode === 'gdraw' ? side : null); }
+          // menu of a curve there. A drawing in progress (this touch's, a polygon's, a construction's picks) is
+          // cancelled, and the release opens no menu (issue #13)
+          const cancelled = cancelDrawing();
           if (d0.mode === 'panL') { const v = leftView(); v.cx = d0.cx; v.cy = d0.cy; requestRender('L', 'R'); }
           if (d0.mode === 'panR') { V.right.cx = d0.cx; V.right.cy = d0.cy; requestRender('R'); }
           if (d0.mode === 'orbit') { const c = d0.cam || camOf(side); c.yaw = d0.yaw; c.pitch = d0.pitch; c.vyaw = c.vpitch = 0; requestRender(side); }
           const r = cv.getBoundingClientRect();
-          if (!PM() && openIntegralMenu(pane, side, x0, y0, r.left + x0, r.top + y0)) { drag = null; holdMenuT = performance.now(); setCursor(pane, side); return; }
+          if (!PM() && !cancelled && openIntegralMenu(pane, side, x0, y0, r.left + x0, r.top + y0)) { drag = null; holdMenuT = performance.now(); setCursor(pane, side); return; }
           // the ring is full: a release without sliding opens the plane menu (up, below); sliding probes
-          if (PM()) { ring = { id: ev.pointerId, x: x0, y: y0, slid: false }; PM().ringFull(); }
+          if (PM()) { ring = { id: ev.pointerId, x: x0, y: y0, slid: false, cancelled }; PM().ringFull(); }
           drag = { mode: 'probe' };
           onMove(pane, side, ev);
         }, PM() ? 450 : 500) };
@@ -11538,9 +11544,9 @@
       // (v16.4) a pinch (or a two-finger turn of a globe) ends when its fingers lift
       if (pinched && touches.size < 2) { const how = pinched; pinched = null; tourViewMoved(side, how); }
       // a right press that did not move (macOS): its menu now
-      if (dm && !dm.far && !dm.moved && planeMenuAt(pane, side, dm.menuAt.x, dm.menuAt.y, dm.menuAt)) setCursor(pane, side);
-      // a long press released without sliding: the plane menu at the ring's point
-      if (rg && !rg.slid && e.type === 'pointerup' && !touches.size && planeMenuAt(pane, side, rg.x, rg.y, e, true)) { holdMenuT = performance.now(); setCursor(pane, side); }
+      if (dm && !dm.far && !dm.moved && rightClickAt(pane, side, dm.menuAt.x, dm.menuAt.y)) setCursor(pane, side);
+      // a long press released without sliding: the plane menu at the ring's point (none after it cancelled a drawing)
+      if (rg && !rg.slid && !rg.cancelled && e.type === 'pointerup' && !touches.size && planeMenuAt(pane, side, rg.x, rg.y, true)) { holdMenuT = performance.now(); setCursor(pane, side); }
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
@@ -11550,18 +11556,15 @@
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
       // shape on an editable globe keeps the user's view
       if (is3DSide(side)) { const c = camOf(side); if (c && (!globeEdit(side) || gTurnPress[side])) tweenCam(c, camBaseOf(c)); return; }
-      if (side === 'L' && tool === 'select') {
-        // double-click points the editable cut of the next step toward the cursor
-        const k = leftStage() + 1;
-        const b = built[k - 1];
-        const c = b && !b.error && b.cuts.find((x) => x.editable);
-        if (c && S.steps[k - 1].on !== false) {
-          const [x, y] = evXY(pane, e);
-          const z = pane.s2w(x, y);
-          setCut(k, Math.atan2(z.im - c.p.im, z.re - c.p.re) / DEG, true);
-          commit();
-        }
-      }
+      // a flat plane: centre the view at the point (issue #13), when the press pressed empty plane (a left pan that
+      // did not move); one that drew, picked, or moved a shape, a mark or a cut handle leaves the view where it is
+      const lp = lastPress;
+      if (!lp || lp.side !== side || (lp.mode !== 'panL' && lp.mode !== 'panR') || lp.far || lp.pb) return;
+      if (typeof Construct !== 'undefined' && Construct.isTool(tool)) return;
+      const [x, y] = evXY(pane, e);
+      pane.setView(side === 'R' ? V.right : leftView());
+      const z = pane.s2w(x, y);
+      if (CX.isFin(z)) centerView(side, z);
     });
   }
   // The z-window used for meshing unbounded regions follows the left view, with some slack.
@@ -11652,7 +11655,10 @@
     else c = tool === 'select' ? 'default' : 'crosshair';
     pane.ocanvas.style.cursor = c;
   }
+  // the last press that ended on a plane: {side, mode, far, pb} (a double-click centres only after an empty-plane press)
+  let lastPress = null;
   function onDown(pane, side, e) {
+    lastPress = null;
     const [x, y] = evXY(pane, e);
     if (typeof Construct !== 'undefined') Construct.pointer(e);   // (v16: touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
@@ -11672,7 +11678,7 @@
           pane.setView(V.right);
           if (editDown(pane, 'R', pane.s2w(x, y), x, y)) { setCursor(pane, side); return; }
         }
-        drag = { mode: 'panR', x, y, cx: V.right.cx, cy: V.right.cy };
+        drag = { mode: 'panR', x, y, cx: V.right.cx, cy: V.right.cy, pb: panBtn };
       }
       setCursor(pane, side);
       return;
@@ -11689,7 +11695,7 @@
     }
     pane.setView(leftView());
     const z = pane.s2w(x, y);
-    if (panBtn) { drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane }; setCursor(pane, side); return; }
+    if (panBtn) { drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane, pb: true }; setCursor(pane, side); return; }
     // the zeros and poles of a zeros-and-poles step acting here: a press drags one (and selects it: Delete removes it);
     // Shift-click adds a zero, Shift-⌘ (Ctrl) click a pole, and the press goes on dragging it
     if (zpStep()) {
@@ -12528,6 +12534,7 @@
     if (!drag) return;
     const d = drag;
     drag = null;
+    lastPress = { side, mode: d.mode, far: !!d.far, pb: !!d.pb };
     tourDragEnd(d);
     // a left-view change made during the press re-centres the meshing window now (gesture end)
     sourceViewChanged.flush();
@@ -12539,7 +12546,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved))) soundCue('snap');
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (typeof Construct !== 'undefined') { if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.menuAt && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); } }   // (v16: bind a dropped handle; a click picks)
+    if (typeof Construct !== 'undefined') { if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); } }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
@@ -12935,9 +12942,9 @@
       <p>${$t(`<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; focused, its left plane is the <i>z</i>-plane.`)}</p>
       <h3>${$t(`Branch cuts`)}</h3>
       <p>${$t(`Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone); it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number, in the Inspector, picks the branch.`)}</p>
-      <p>${$t(`<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in the Inspector, with Shift-click (a zero) or Shift-⌘-click (Shift-Ctrl, a pole), or from the plane's menu (below). Drag one off the plane, or select it and press Delete, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.`)}</p>
+      <p>${$t(`<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in the Inspector, with Shift-click (a zero) or Shift-⌘-click (Shift-Ctrl, a pole). Drag one off the plane, or select it and press Delete, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.`)}</p>
       <h3>${$t(`The planes' menu`)}</h3>
-      <p>${$t(`Right-click any plane (hold it on touch; Shift+F10 from the keyboard) for its menu. Its head gives the point and the map there. Below that come the items for what is under the pointer (a zero or pole, a shape, a cut handle), then <b>Add zero of <i>f</i><sub><i>k</i></sub> here</b> and <b>Add pole of <i>f</i><sub><i>k</i></sub> here</b> on <i>X</i>, Copy coordinates and Center view here. A zero added on <i>X</i> goes where the point lands after the earlier steps, so the point becomes a zero of <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> exactly, and of <i>F</i> when <i>f</i><sub><i>k</i></sub> is the last step; the menu says where else it appears and, when steps follow, what <i>F</i> is there. Points snap to the ruler while Snap is on; hold Alt to place them freely.`)}</p>
+      <p>${$t(`Right-click a zero or a pole, a shape or a cut handle (hold it on touch; Shift+F10 from the keyboard) for its menu. Its head gives the point and the map there; below come the actions for that object: Remove, Turn into a pole (or a zero) and Edit for a mark, Reset the cut for a cut handle, and for a shape its line integral and Listen along, Hide, Delete and the constructions that act on it, such as Mark the intersection and Make free. An empty plane has no menu: a right-drag pans it. While you draw (a polygon's vertices, a construction's picks, a shape you are dragging out), a right-click cancels the drawing, as Esc does. <b>Double-click</b> an empty spot of a plane to center the view there.`)}</p>
       <h3>${$t(`Views`)}</h3>
       <p>${$t(`The switch in the middle of the top bar picks the view ({x} {x2} {x3}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x4} {x5} for the left pane, {x6} {x7} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.`, { x: k('1'), x2: k('2'), x3: k('3'), x4: k('⇧ 1'), x5: k('⇧ 2'), x6: k('⇧ 3'), x7: k('⇧ 4') })}</p>
       <h3>${$t(`Deformation`)}</h3>
