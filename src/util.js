@@ -1,9 +1,9 @@
 'use strict';
 // Small helpers the browser-only files share (issue #20, phase 3). build.py puts this file first, so every file after
 // it sees these names. The files that also run in the node unit tests (cx.js, calc.js, region.js, funcs.js, sphere.js,
-// curves.js, constr.js, recognize.js, sound.js, construct.js, glsl.js, gl.js) keep their own TAU and DEG: a test that
-// loads one of them alone has no util.js. glsl.js's DEG must stay the same expression as funcs.js's (bit-identical
-// cut angles).
+// curves.js, constr.js, recognize.js, sound.js, construct.js, glsl.js, gl.js) keep their own TAU and DEG until Phase
+// 4's imports make the dependency explicit: a test that loads one of them alone has no util.js.
+// glsl.js's DEG must stay the same expression as funcs.js's (bit-identical cut angles).
 const TAU = 2 * Math.PI;
 const DEG = Math.PI / 180;
 const $ = (id) => document.getElementById(id);
