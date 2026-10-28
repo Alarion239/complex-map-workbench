@@ -355,8 +355,8 @@
   function hdrFitInit() {
     const f = $('cmdBtn'), top = f && f.closest('.top'), xl = document.querySelector('#examplesBtn .exlabel');
     if (!top) return;
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(hdrFitSoon).observe(top);
-    if (xl && typeof MutationObserver !== 'undefined') new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    new ResizeObserver(hdrFitSoon).observe(top);
+    if (xl) new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(hdrFitSoon);
     hdrFitSoon();
   }
