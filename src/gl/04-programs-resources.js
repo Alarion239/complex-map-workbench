@@ -302,9 +302,10 @@ float wabs(vec2 w) {
     if (P) return P;
     const e = progs.get(progId(name, cur, map));
     if (e && e.state === 'error') { frameErr = friendly(e.error); return null; }
-    if (!DEFS[name].chain) { if (e && e.state === 'pending') framePending = true; return null; }
+    if (!DEFS[name].chain) { if (e && e.state === 'pending') { framePending = true; standIn(e.id); } return null; }
     if (!cur.info) return null;
     framePending = true;
+    if (e && e.state === 'pending') standIn(e.id);
     if (sideMode) return null;   // a side chain draws only with its own programs
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
