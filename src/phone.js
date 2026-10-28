@@ -79,6 +79,14 @@ const Phone = (() => {
     // the context bar: above the tool row, only while something is selected or under way (D3)
     els.ctx = h('div', { class: 'ph-ctx ph-only', role: 'region', 'aria-live': 'polite', hidden: true });
     document.body.append(els.ctx);
+    // a message (a toast, with its Undo) takes that row for as long as it shows, and the planes give it up: the drawing stays put
+    const th = $('toastHost');
+    if (th) new MutationObserver(() => {
+      const had = rootEl.classList.contains('ph-toast-on'), now = on && !!th.firstElementChild;
+      if (had === now) return;
+      rootEl.classList.toggle('ph-toast-on', now);
+      Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; }
+    }).observe(th, { childList: true });
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
@@ -202,7 +210,7 @@ const Phone = (() => {
     // (v15.1: the desktop gets each plane's large view back; no view is drawn small while merged or held)
     for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
-    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph');
+    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
     $('panes').classList.remove('ph-big-L', 'ph-big-R', 'ph-one');
     unparkAll();
     A.showPanels(false);

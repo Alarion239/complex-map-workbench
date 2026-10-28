@@ -340,6 +340,9 @@ const n0 = (await ev(`__cmwShapes().shapes.length`));
 await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Delete/.test(b.textContent)).click()`); await settle(700);
 ok('D3 Delete removes the shape and the bar goes', (await ev(`__cmwShapes().shapes.length`)) === n0 - 1 && (await ctxInfo()) === null, [n0, await ev(`__cmwShapes().shapes.length`)]);
 try {
+// #66: the Undo message takes the bar's row, under the planes, so it covers none of them
+const ts = await ev(`(() => { const t = document.querySelector('#toastHost .toast'); if (!t) return null; const r = t.getBoundingClientRect(), p = document.getElementById('paneL').getBoundingClientRect(), a = t.querySelector('.toast-act'); return { top: Math.round(r.top), h: Math.round(r.height), paneBottom: Math.round(p.bottom), act: a ? Math.round(a.getBoundingClientRect().height) : 0, w: Math.round(r.width) }; })()`);
+ok('D3 the Delete message is a 56 px row under the planes (#66), its Undo 44 px', ts && ts.h === 56 && ts.top >= ts.paneBottom - 1 && ts.act >= 44 && ts.w >= 358, ts);
 await ev(`document.querySelector('#secDraw .tool[data-tool="polygon"]').click()`); await settle(300);
 const pc = await center('#paneL');
 await touch(pc[0] - 80, pc[1] - 60); await settle(600); await touch(pc[0] + 60, pc[1] - 40); await settle(600);
