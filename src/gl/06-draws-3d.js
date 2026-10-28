@@ -247,7 +247,8 @@
     if (!ok || !land || !land.rf || !land.lvRaw) return { land: null };
     const r = land.rf, L = { N: n, entries: r.entries, groups: r.groups, rows: r.rows, capped: r.capped, partial: !!r.partial, key: land.key };
     if (read) {
-      L.lv = land.lvRaw; L.h = lwRead(land.tex1, n, n);
+      // (a code of 64 or more marks a cell that holds a jump: the refinement leaves it at level 0, as rfPlan does)
+      L.lv = land.lvRaw.map((v) => ((v | 0) >= 64 ? 0 : v)); L.h = lwRead(land.tex1, n, n);
       L.rf = r.rows > 0 ? lwRead(land.rfTex, RF_W, r.rows) : new Float32Array(0);
     }
     return { land: L };
