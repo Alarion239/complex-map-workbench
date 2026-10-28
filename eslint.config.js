@@ -3,8 +3,9 @@
 //   npm run lint                    every file below
 //   npx eslint src/view.js          one file (src/app/*.js: the parts of app.js)
 // The app's files are plain scripts that build.py joins into one <script>, so a file sees the globals the other
-// files declare at their top level (const CX = ..., class Pane, and the UMD modules' root.HomRange = M). They are
-// read from src/ here, so the list never goes stale; each file gets the others' names, not its own.
+// files declare at their top level (const CX = ..., class Pane, and the UMD modules' root.HomRange = M, also written
+// (root).HomRange = M with a JSDoc cast). They are read from src/ here, so the list never goes stale; each file gets
+// the others' names, not its own.
 //
 // app.js and gl.js are kept as ordered parts (issue #20, phase 2; test/src_text.js): src/<name>/wrap.js holds the
 // closure's first and last lines, and the parts src/<name>/NN-*.js its body, which build.py joins in order. A part is
@@ -35,7 +36,7 @@ for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
     if (n.type === 'VariableDeclaration') for (const d of n.declarations) { if (d.id.type === 'Identifier') names.add(d.id.name); }
     else if ((n.type === 'FunctionDeclaration' || n.type === 'ClassDeclaration') && n.id) names.add(n.id.name);
   }
-  for (const m of text.matchAll(/\broot\.([A-Za-z_$][\w$]*) = M\b/g)) names.add(m[1]);
+  for (const m of text.matchAll(/\broot\)?\.([A-Za-z_$][\w$]*) = M\b/g)) names.add(m[1]);
   own[f] = { names, text };
 }
 // a split file towards the others: its joined text and its top-level names (gl.js's GLR)

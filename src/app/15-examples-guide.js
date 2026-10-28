@@ -916,7 +916,7 @@
     const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
-      let el = e.target.closest && e.target.closest('[data-tip],[title]');
+      const el = e.target.closest && e.target.closest('[data-tip],[title]');
       if (!el || el === cur) return;
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();

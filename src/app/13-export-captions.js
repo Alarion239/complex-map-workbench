@@ -9,9 +9,7 @@
     ['homeo', $t('Homeomorphism onto image'), $t('Injective and continuous on the open set D, so a homeomorphism D → F(D) by invariance of domain.')],
     ['conformal', $t('Conformal onto image'), $t('Analytic and injective: a biholomorphism D → F(D), with F′ ≠ 0.')],
   ];
-  // which matrix column backs each lamp
-  const LAMP_COL = { analytic: 'analytic', entire: 'entire', rational: 'rational', polynomial: 'polynomial', mobius: 'mobius', proper: 'proper', homeo: 'injective', conformal: 'injective' };
-  let lastWords = null, openLamp = null;
+  let openLamp = null;
   function copyText(t) {
     try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).catch(() => fallbackCopy(t)); } catch (e) { /* fall through */ }
     fallbackCopy(t);
@@ -22,10 +20,6 @@
     ta.value = t; document.body.append(ta); ta.select();
     try { document.execCommand('copy'); } catch (e) { /* ignore */ }
     ta.remove();
-  }
-  function hiCol(col, on) {
-    for (const el of document.querySelectorAll(`#propsPanel [data-col="${col}"]`)) el.classList.toggle('hi-col', on);
-    for (const [key] of BADGES) if (LAMP_COL[key] === col) { const li = document.querySelector(`#propsPanel .lamp[data-lamp="${key}"]`); if (li) li.classList.toggle('hi', on); }
   }
   // The panel is built once per chain structure (steps, on/off, errors) and then updated in place: lamps, count,
   // qualifiers and matrix cells are set on every change, so a lit lamp never outlives the chain that implied it;
@@ -346,7 +340,6 @@
   }
   // a plane drawn off-screen at print size: views scaled so the same window shows; selection, hover and probe off
   function renderOff(side, w, h, dpr) {
-    const real = side === 'L' ? paneL : paneR;
     const cv = document.createElement('canvas'), ov = document.createElement('canvas');
     const off = new Pane(cv, ov);
     off.w = w; off.h = h; off.dpr = dpr;
@@ -385,7 +378,6 @@
   }
   // the world window a plane panel shows at width w (figure px)
   function panelBox(side, w, h) {
-    const real = side === 'L' ? paneL : paneR;
     const v = side === 'L' ? leftView() : V.right;
     const s = v.s * w / effW(side);
     return { x0: v.cx - w / 2 / s, x1: v.cx + w / 2 / s, y0: v.cy - h / 2 / s, y1: v.cy + h / 2 / s };
