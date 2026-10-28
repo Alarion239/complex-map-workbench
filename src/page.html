@@ -2070,6 +2070,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
    («Corona circolare», «Circon­ferenza» are 5-25 px wider than a cell) */
 :root[data-lang="it"] .tools > .tool:not(.rail-tool) { height: 56px; }
 :root[data-lang="it"] .tool > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
+/* (#35) in English too, the Perpendicular tile wraps at its soft hyphen: longer than Orthogonal, its one line overflowed */
+.tool[data-tool="perp"] > span { top: 27px; bottom: auto; white-space: normal; hyphens: manual; line-height: 11px; }
 :root[data-lang="it"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
 /* pattern captions take two lines («Griglia polare», «Scacchiera sferica»: DESIGN.md 8.10), and the export size
    button names the paper only (ui-16: «Margini di 1 pollice · Letter»), as in Russian */
