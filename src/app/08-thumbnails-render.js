@@ -203,6 +203,20 @@
       }).catch(() => {});
     }
   }
+  // (issue #49) while the morph plays renderThumbs waits (it is put off past every frame), so a card with no picture
+  // of its own yet, a fresh Landscape's, stayed empty until the pause; such a card draws now, one pass at most every
+  // 200 ms and only while nothing else moves (outside Deformation, the cards' pictures do not change with t)
+  let missT = -1e9;
+  function missingCards() {
+    const now = performance.now();
+    if (now - missT < 200 || drag || tweens.length || camTweens.length || now - lastInputT < 150 || cardKind() === 'def') return;
+    const want = [...thumbs.entries()].filter(([, p]) => !p.sig && p.canvas.isConnected);
+    if (!want.length) return;
+    missT = now;
+    thumbShapesSig = S.shapes.map((x) => shapeKey(x) + (x.visible === false ? 'h' : '') + (x.ci ?? '') + (x.color || '')).join('|');
+    for (const [, p] of want) thumbDims(p.canvas);   // (all reads before any canvas resize)
+    for (const [k] of want) { try { renderThumb(k); } catch (e) { console.error(e); } }
+  }
   function renderThumbs() {
     // wait for a quiet moment: never during drags, pans or a playing morph
     if (drag || tweens.length || camTweens.length || (morph.playing && morph.open) || performance.now() - lastInputT < 150) {
@@ -368,6 +382,7 @@
       dirty.T = false;
       clearTimeout(thumbT);
       thumbT = setTimeout(renderThumbs, 150);
+      if (morph.playing && morph.open) missingCards();
     }
     if (dirty.P) { dirty.P = false; renderProps(); }
     // a shape drag whose frames run over the 60 fps budget twice takes the drag-time mesh cap (baseRes)
@@ -550,8 +565,8 @@
   }
   function setFocus(k, quiet) {
     phHold();
-    S.focus = k;
-    if (k > 0) S.sel = k;   // (v15: showing a step alone selects it)
+    setFocusStep(k);
+    if (k > 0) setSel(k);   // (v15: showing a step alone selects it)
     leftAuto = true; rightAuto = true;
     // (Y's split view, put aside by the deformation, is fitted again for the new focus when the deformation closes)
     if (defMem.y) defMem.y.auto = true;
