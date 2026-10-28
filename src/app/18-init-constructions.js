@@ -14,14 +14,14 @@
   // the names a step's fields use, with their values: part of the chain signature, so every cache keyed by it (cards,
   // fits, paths) sees a new value; the GPU programs keep their structure (the values are uniforms)
   function paramSig(st) {
-    if (typeof Params === 'undefined' || !S.params || !S.params.length) return '';
+    if (!S.params || !S.params.length) return '';
     let out = '';
     for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) out += `;${nm}=${Params.get(nm)}`;
     return out;
   }
   const stepUses = (st, names) => stepTexts(st).some(([, v]) => Params.namesIn(v).some((n) => names.has(n)));
   function bindField(s, key, text) {
-    if (typeof Params !== 'undefined' && Params.namesIn(text).length) (s.bind || (s.bind = {}))[key] = String(text).trim();
+    if (Params.namesIn(text).length) (s.bind || (s.bind = {}))[key] = String(text).trim();
     else if (s.bind && key in s.bind) { delete s.bind[key]; if (!Object.keys(s.bind).length) delete s.bind; }
   }
   function setExprBind(s, text) {
@@ -69,7 +69,7 @@
   // every bound field and every number by formula from the numbers' current values (review math-3: a state, a link or a
   // scene opens with its formulas as the truth; the stored values are only a cache)
   function bindsAll() {
-    if (typeof Params === 'undefined' || !S) return;
+    if (!S) return;
     try { Params.recompute(); } catch (e) { /* a cycle keeps the stored values */ }
     for (const x of S.shapes.concat(S.targets || [])) { try { applyBinds(x, null); } catch (e) { /* */ } }
   }
@@ -80,7 +80,7 @@
   // every chain change (zeros of f1, image refs), so every path that moves a source (a drag, a number, undo, load, a
   // zero) recomputes what is built on it before the frame is drawn. Function declarations: sanitizeState calls them
   // while the app loads. The interface (construct.js) uses cmApi() and Construct.on(type, data).
-  function cmOn() { return typeof Constr !== 'undefined' && !!S; }
+  function cmOn() { return !!S; }
   // the values Constr reads: f1's zeros and poles (parsed like the marks), F(z0) of the whole chain, traced curves
   function cmEnv() {
     const val = (raw) => { let v = null; try { v = typeof zpParse === 'function' ? zpParse(raw) : Expr.constValue(raw); } catch (e) { v = null; } return v && CX.isFin(v) ? [v.re, v.im] : null; };
@@ -107,7 +107,7 @@
       },
     };
   }
-  function cmEmit(type, data) { if (typeof Construct !== 'undefined' && Construct.on) { try { Construct.on(type, data); } catch (e) { console.error('Construct.on', e); } } }
+  function cmEmit(type, data) { if (Construct.on) { try { Construct.on(type, data); } catch (e) { console.error('Construct.on', e); } } }
   // recompute (changed: Constr.recompute's {all} | {shapes, zp, chain}); returns its result or null
   function cmSync(changed) {
     if (!cmOn() || !(S.shapes.some((s) => s.at || s.def) || (S.targets || []).some((s) => s.at || s.def))) return null;
@@ -136,7 +136,6 @@
   }
   // load (sanitizeState): steps keep uid and zpIds, refs are validated (fallbacks [C29]), one recompute
   function cmLoad(o) {
-    if (typeof Constr === 'undefined') return;
     const env = cmEnv();
     try {
       Constr.syncSteps(o, env);
@@ -288,13 +287,13 @@
   // the numbers step k uses, with their values, for its editor ("Numbers: a = 1.2")
   function stepNumbers(k) {
     const st = S.steps[k - 1];
-    if (typeof Params === 'undefined' || !st) return '';
+    if (!st) return '';
     const ns = [];
     for (const [key] of stepTexts(st)) for (const n of Params.namesIn(st.params[key])) if (!ns.includes(n)) ns.push(n);
     const val = (n) => { const v = Params.get(n); return v == null ? '?' : I18N.num(String(+(+v).toPrecision(4))).replace('-', '−'); };
     return ns.length ? $t('Numbers: {list}', { list: ns.map((n) => `${Params.display(n)} = ${val(n)}`).join(', ') }) : '';
   }
-  function paramsRestored() { if (typeof Params !== 'undefined') { zpParsed.clear(); Params.render(); } }
+  function paramsRestored() { zpParsed.clear(); Params.render(); }
   // a number changed (a slider, play, a field, undo): the steps and the shapes that use it follow; a drag or play
   // frame is motion (motion-quality frames; the renderer's rest pass follows when it stops)
   function onParamChange(ev) {
@@ -317,7 +316,6 @@
     tourEmit('number-changed', { names: ev.names || [], live: !!ev.live });
   }
   function attachParams() {
-    if (typeof Params === 'undefined') return;
     Params.attach({
       list: () => (S && Array.isArray(S.params) ? S.params : []),
       formulas: paramFormulas,
@@ -401,7 +399,6 @@
     host.append(t);
   }
   function setupParams(hadSaved) {
-    if (typeof Params === 'undefined') return;
     // (the Parameters component lives in the Inspector's Parameters slot: inspector.js calls Params.mount)
     // a new name typed in a formula field: Enter (or leaving the field) adds the number before the field reads its text
     document.addEventListener('change', (e) => {
@@ -471,7 +468,7 @@
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
       if (!ok) return false;
       // the open panels come back too: the deformation (at its t, paused), the open lamp, the selected shape
-      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: typeof Phone !== 'undefined' && Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
+      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
@@ -524,9 +521,9 @@
     buildDisplay();
     setupPane(paneL, 'L');
     setupPane(paneR, 'R');
-    if (typeof PlaneMenu !== 'undefined') PlaneMenu.init(planeMenuApi());   // the planes' context menu (v15)
-    if (typeof Construct !== 'undefined') Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
-    if (typeof Construct !== 'undefined' && Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
+    PlaneMenu.init(planeMenuApi());   // the planes' context menu (v15)
+    Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
+    if (Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
     // right tabs
     for (const el of document.querySelectorAll('.ic-slot[data-icon]')) el.innerHTML = ICONS[el.dataset.icon] || '';
     $('cmdKbd').textContent = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K';
@@ -718,15 +715,13 @@
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => {
       // [v16.5 UX15] a construction's last pick, [UX14] an open polygon's last point, before any finished work
-      if (typeof Construct !== 'undefined') {
-        const w = Construct.undoPick();
-        if (w != null) { toast(w ? $t('Undid the pick: {x}', { x: w }) : $t('Undid the last pick')); updateUndo(); return; }
-      }
+      const w = Construct.undoPick();
+      if (w != null) { toast(w ? $t('Undid the pick: {x}', { x: w }) : $t('Undid the last pick')); updateUndo(); return; }
       if (polyBack()) return;
       if (hi > 0) { hi--; restore(hist[hi]); }
     });
     $('redoBtn').addEventListener('click', () => { if (hi < hist.length - 1) { hi++; restore(hist[hi]); } });
-    $('helpBtn').addEventListener('click', (e) => { if (typeof Tour !== 'undefined') Tour.openHelpMenu(e.currentTarget); else openGuide(); });
+    $('helpBtn').addEventListener('click', (e) => Tour.openHelpMenu(e.currentTarget));
     sndInit();
     $('exportBtn').addEventListener('click', (e) => openExportMenu(e.currentTarget));
     getDownloads(); // resolves the save capability early (no prompt until a save)
@@ -770,7 +765,7 @@
       if (e.key !== 'Escape') return;
       const playing = !!snd.play;
       soundStop();
-      if (playing && typeof Tour !== 'undefined' && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
+      if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
     document.addEventListener('keydown', (e) => {
       // nothing reaches the app behind a modal dialog; a handled key, or one in a popover or menu, stays there
@@ -912,7 +907,7 @@
     // v15: the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Region tools'); }
-    if (typeof Phone !== 'undefined') Phone.init({
+    Phone.init({
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
       showPanels: (ph) => { if (ph) { S.hideLeft = false; S.hideRight = false; } else { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
@@ -952,7 +947,7 @@
         if (padEl) return () => closePad();
         if (popEl) return () => closePalette();
         const tm = document.querySelector('#popHost > .tour-menu');
-        if (tm) return () => { if (typeof Tour !== 'undefined' && Tour.closeHelpMenu) Tour.closeHelpMenu(); else tm.remove(); };
+        if (tm) return () => { if (Tour.closeHelpMenu) Tour.closeHelpMenu(); else tm.remove(); };
         const sp = $('sndPop');
         if (sp && !sp.hidden) return () => { sp.hidden = true; const m = $('soundMore'); if (m) m.setAttribute('aria-expanded', 'false'); };
         const bgs = document.querySelectorAll('.modal-bg');
@@ -960,7 +955,7 @@
         let po = null;
         try { po = [...document.querySelectorAll(':popover-open')].find((e) => !e.closest('[data-tour]') && !e.classList.contains('tour-top')); } catch (e) { po = null; }
         if (po) return () => { try { po.hidePopover(); } catch (e) { /* */ } };
-        if (typeof Phone !== 'undefined' && Phone.sheet && Phone.sheet()) return () => Phone.close();
+        if (Phone.sheet && Phone.sheet()) return () => Phone.close();
         const tmo = $('toolMore');
         if (tmo && tmo.open) return () => { tmo.open = false; };
         return null;
@@ -969,7 +964,7 @@
     // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
     // (v15.1: and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
     // build/phone-swap.md)
-    if (swPhone && typeof Phone !== 'undefined' && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
+    if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     tourWire();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)

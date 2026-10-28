@@ -249,7 +249,7 @@
   // than the sphere's fit. Every other pane keeps the sphere's fit, and every picture it drew.
   function landFitDist(geo, pane) {
     const sph = GLR.fitDist(geo.radius, CAM3.fov, pane.w, pane.h, 1.05);
-    if (!(typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) || !(pane.w > 0 && pane.h > pane.w * 1.05)) return sph;
+    if (!(Phone.isOn && Phone.isOn()) || !(pane.w > 0 && pane.h > pane.w * 1.05)) return sph;
     const y = CAM3.yaw, p = CAM3.pitch;
     const u = [Math.cos(p) * Math.cos(y), Math.cos(p) * Math.sin(y), Math.sin(p)];   // from the target to the eye
     const rl = Math.hypot(u[0], u[1]) || 1, r = [-u[1] / rl, u[0] / rl, 0];        // the screen's right (f × z, f = -u)
@@ -448,7 +448,7 @@
   function chainChanged(structural) {
     noteChange();
     rebuild();
-    if (typeof Constr !== 'undefined') cmChain();   // (v16: step uids, zero ids, constructions on f1's zeros and F(z0))
+    cmChain();   // (v16: step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
     if (structural) buildPipeline(); else updateCards();
     if (rightAuto && autoFit()) fitRight();
@@ -459,12 +459,12 @@
     scheduleFix();
     updateLeds();
     refreshIntPop();
-    if (typeof Params !== 'undefined' && Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
+    if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] "Not used yet" follows the chain)
     requestRender('L', 'R', 'T', 'P');
   }
   function shapesChangedAll(structural) { shapesChanged(structural); }
   function shapesChanged(structural) {
-    if (typeof Constr !== 'undefined' && cmShapes()) structural = true;   // (v16 constructions)
+    if (cmShapes()) structural = true;   // (v16 constructions)
     if (numberPoints()) structural = true;
     noteChange();
     if (structural) {
@@ -473,7 +473,7 @@
       updateRegionCard();
     } else { updateShapeList(); updateRegionCard(); }
     // (v16 [C3a]: not while a pointer gesture moves shapes, points or zeros: onUp fits Y once at the gesture's end)
-    if (rightAuto && autoFit() && !(typeof Construct !== 'undefined' && !structural && drag && /^(move|handle|zp)$/.test(drag.mode))) fitRight();
+    if (rightAuto && autoFit() && !(!structural && drag && /^(move|handle|zp)$/.test(drag.mode))) fitRight();
     scheduleFix();
     refreshIntPop();
     requestRender('L', 'R', 'T');

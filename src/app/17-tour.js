@@ -106,7 +106,7 @@
     };
   }
   // v15: the phone layout (src/phone.js) is on: its sheets and its large plane
-  const tourPhone = () => typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn();
+  const tourPhone = () => Phone.isOn && Phone.isOn();
   // put the user's work back in place (opt.fromStash: after a reload or a crash, from the persisted state only)
   function tourRestore(sn, opt) {
     if (!sn || !sn.state || typeof sn.state !== 'object') return false;
@@ -164,7 +164,7 @@
   function tourLoadScene(spec) {
     if (!spec || !Array.isArray(spec.steps) || !spec.steps.every((st) => st && Funcs.DEFS[st.type])) return false;
     // (v15: a scene brings its own shared numbers, none unless it says so; restore() brings the user's back)
-    S.params = Array.isArray(spec.params) && typeof Params !== 'undefined' ? JSON.parse(JSON.stringify(spec.params)) : [];
+    S.params = Array.isArray(spec.params) ? JSON.parse(JSON.stringify(spec.params)) : [];
     loadExample(-1, Object.assign({ shapes: [], view: { cx: 0, cy: 0, s: 60 } }, spec));
     paramsRestored();
     return true;
@@ -196,7 +196,7 @@
       renderProps();
       return undefined;
     },
-    has: (f) => (f === 'sound' ? typeof Sound !== 'undefined' : f === 'song' ? typeof SEASONG !== 'undefined' && typeof Sound !== 'undefined' : f === 'zp' ? !!Funcs.DEFS.zp : f === 'params' ? typeof Params !== 'undefined' : f === 'planeMenu' ? typeof PlaneMenu !== 'undefined' : f === 'constructions' ? typeof Construct !== 'undefined' && !!Construct.ui : true),
+    has: (f) => (f === 'zp' ? !!Funcs.DEFS.zp : f === 'constructions' ? !!Construct.ui : true),
     storageKey: lsk,
     snapshot: tourSnapshot,
     restore: tourRestore,
@@ -239,11 +239,11 @@
       const e = $(where === 'head' ? 'tourHeadSlot' : 'tourSlot');
       // (r3 review regress-7: only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
       // and a sheet that opens later measures itself)
-      if (typeof Phone !== 'undefined' && Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
+      if (Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
       return e || null;
     },
     sceneSpec: (name) => {
-      if (name !== 'song' || typeof SEASONG === 'undefined') return null;
+      if (name !== 'song') return null;
       const ex = EX.find((x) => x.shapes.some((sh) => sh.listen));
       return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, rightMode: ex.rightMode, dc: ex.dc } : null;
     },
@@ -323,12 +323,11 @@
       const st = document.documentElement.style;
       if (on) { closePad(); tourPhGeo = ['--ph-hp', '--ph-ride'].map((k) => st.getPropertyValue(k)); return; }
       tourDrawer = false;
-      if (tourPhGeo && !(typeof Phone !== 'undefined' && Phone.sheet && Phone.sheet())) ['--ph-hp', '--ph-ride'].forEach((k, i) => { if (!tourPhGeo[i]) st.removeProperty(k); });
+      if (tourPhGeo && !(Phone.sheet && Phone.sheet())) ['--ph-hp', '--ph-ride'].forEach((k, i) => { if (!tourPhGeo[i]) st.removeProperty(k); });
       tourPhGeo = null;
     },
   };
   function tourWire() {
-    if (typeof Tour === 'undefined') return;
     // the events the app sends from delegated listeners: t scrubbed (v16.4: a pattern picked is sent by its setter)
     document.addEventListener('input', (e) => { if (e.target && e.target.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
     tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held

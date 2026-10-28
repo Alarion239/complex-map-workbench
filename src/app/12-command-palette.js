@@ -129,7 +129,7 @@
       try {
         const ast = Expr.parse(q, { allowRel: true });
         if (Expr.hasBool(ast)) {
-          const dm = !fnOnly && typeof Curves !== 'undefined' ? Curves.dimOf(ast) : { dim: 'area' };
+          const dm = !fnOnly ? Curves.dimOf(ast) : { dim: 'area' };
           if (dm.dim === 'error') throw new Error(dm.error);
           if (!fnOnly && dm.dim === 'curve') {
             // an equation: a curve in the z-plane (the app's own shapes when recognized exactly)
@@ -158,7 +158,7 @@
       } catch (e) {
         // (v16.5 UX16: one new letter, "z^2 + a", is a row like any other: the formula with a new number a = 1, added
         // together as one undo step; the region box and the Inspector's fields already work this way)
-        const nc = e.unknown && e.unknown.length === 1 && typeof Params !== 'undefined' ? Params.check(e.unknown[0]) : null;
+        const nc = e.unknown && e.unknown.length === 1 ? Params.check(e.unknown[0]) : null;
         let row = null;
         if (nc && !nc.error) {
           try {
@@ -286,8 +286,8 @@
         [$t('Sound on/off'), () => soundToggle(), '⇧M'],
         [$t('Hear the function on/off'), () => soundHear(), ''],
         [$t('Stop sound'), () => soundStop(), 'Esc'],
-        ...(typeof Tour !== 'undefined' ? Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']) : []),
-        ...(typeof Construct !== 'undefined' ? Construct.paletteActs() : []),   // (v16: the four tools; Make free, Use complement)
+        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
+        ...Construct.paletteActs(),   // (v16: the four tools; Make free, Use complement)
       ];
       for (const [label, run, key, alias, searched] of acts) if (!ql ? !searched : score(label) || (alias && aliasScore(alias) >= 2)) items.push({ kind: 'cmd', group: $t('Actions'), label, key, run });
       // (v16.5 UX03: the drawing tools, with their keys, and the guide's sections, found by what they are for)
@@ -336,7 +336,7 @@
   }
   // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
   function withNewName(name, fn) {
-    if (typeof Params === 'undefined' || typeof Expr.setNames !== 'function') return fn();
+    if (typeof Expr.setNames !== 'function') return fn();
     Expr.setNames({ get: (n) => (n === name ? 1 : Params.get(n)), display: Params.display });
     try { return fn(); } finally { Params.install(); }
   }
