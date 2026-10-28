@@ -189,7 +189,7 @@ await section('P2', async () => {
   await settle(500);
   const keys = await ev(`[...document.querySelectorAll('.mi-key')].filter((k) => k.getClientRects().length).map((k) => k.textContent).filter(Boolean)`);
   info.P2keys = { row, keys };
-  ok('P2 phone: a shape\'s ⋯ shows no Ctrl / ⌘ keys', row === null || !keys.some((k) => /Ctrl|⌘/.test(k)), info.P2keys);
+  ok('P2 phone: a shape\'s ⋯ shows no Ctrl / ⌘ / ⌫ keys', row === null || !keys.some((k) => /Ctrl|⌘|⌫/.test(k)), info.P2keys);
   await key('Escape'); await settle(200);
 });
 

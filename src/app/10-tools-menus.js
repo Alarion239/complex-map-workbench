@@ -352,7 +352,7 @@
         items.push({ label: $t('Send backward'), key: modK('['), disabled: list.indexOf(s) === 0, run: () => moveShape(s.id, -1) });
         items.push('sep');
         // ([v16.5 UX95] Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
-        items.push({ label: $t('Delete'), icon: 'trash', key: '⌫', danger: true, run: () => deleteShape(s.id) });
+        items.push({ label: $t('Delete'), icon: 'trash', key: touchUI() ? '' : '⌫', danger: true, run: () => deleteShape(s.id) });
         if (typeof Construct !== 'undefined') Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
         openMenu(e.currentTarget, items);
       } });
