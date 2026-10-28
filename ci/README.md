@@ -198,6 +198,27 @@ node ci/impact.js --base origin/main --print       # the tier of this branch (CI
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```
 
+### The Landscape walls suite, by hand
+
+`test/landscape_walls_cmd.js` stays in `EXCLUDED` (`ci/browser_suites.js`): its speckle, cold-open and perf parts need
+`r1/` and `base/` builds (the base is v16.3.1, `ci/reference.js` builds it) and a GPU, and the whole suite takes about
+25 min on a Mac GPU. Its mesh and motion parts read the Landscape grid back through the hooks in `src/gl/`
+(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEMP-DEBUG-HOOK` blocks that `build.py`
+strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
+and the motion part (on this build only) run on lavapipe:
+
+```sh
+python3 build.py
+LW_PARTS=mesh node ci/browser.js --no-build --only landscape_walls_cmd --include-excluded        # 12 cases, 4 pages each (~7 min)
+LW_PARTS=mesh LW_ONLY=sqrt-im,log-im node ci/browser.js --no-build --only landscape_walls_cmd --include-excluded
+LW_PARTS=motion LW_MOTION=240:0.006,240:0.026 node ci/browser.js --no-build --only landscape_walls_cmd --include-excluded   # mesh:T step
+```
+
+`--include-excluded` runs the `EXCLUDED` files that `--only` names; `LW_PARTS` is a list of `mesh`, `speck`, `cold`, `perf`,
+`motion`, `LW_ONLY` the mesh cases, `LW_MOTION` the motion part's `mesh:dT` pairs (default: the full set, up to the 1920 mesh).
+The result is `.ci/browser/landscape_walls_cmd.js.json`. `GLR._lwT` and `GLR._lwF` were hooks of round 3 whose code and use
+are not in the repository; they are not restored.
+
 Settings (environment variables):
 
 | variable | meaning |

@@ -406,7 +406,7 @@ const lineOf = (I, box, ref, thr = 6) => {
 out.motion = [];
 // (r3 review pictures-1: the Max mesh too, and T stepped as real play steps it, about 0.013 a frame at 1x and 0.026
 // at 2x, besides the former 0.006)
-const MOTION = globalThis.__lwMotion || [[240, 0.006], [1920, 0.006], [1920, 0.013], [1920, 0.026], [240, 0.026]];
+const MOTION = globalThis.__lwMotion || (process.env.LW_MOTION ? process.env.LW_MOTION.split(',').map((x) => x.split(':').map(Number)) : [[240, 0.006], [1920, 0.006], [1920, 0.013], [1920, 0.026], [240, 0.026]]);   // LW_MOTION=240:0.006,240:0.026: mesh:dT
 if (PARTS.includes('motion')) for (const page of globalThis.__lwMotionPages || ['test.html']) for (const dark of [false, true]) for (const sh of [true, false]) for (const [meshN, dT] of MOTION) {
   await view(1440, 900, dark, false);
   await ld(page, 'mo' + Date.now(), { meshN, shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps: [sq0, sn0], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 60 }, view: { main: 'land' }, sheets: sh, height: 'im' });
