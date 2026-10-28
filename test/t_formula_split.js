@@ -125,7 +125,8 @@ const ONE_TYPES = new Set(Object.keys(Funcs.DEFS).filter((t) => !['poly', 'ratio
 for (const inp of inputs) {
   for (const cut of CUTS) {
     A = 0.7;
-    let st = stOf(inp.tex, cut), b;
+    const st = stOf(inp.tex, cut);
+    let b;
     try { b = Funcs.build(st); } catch (e) { continue; }
     if (b.error) continue;
     const sp = Funcs.splitSteps(st, b);

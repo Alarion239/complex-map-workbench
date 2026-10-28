@@ -32,7 +32,7 @@ console.log('expected areas: pi=', Math.PI.toFixed(4), 'strip 6*pi=', (6 * Math.
 // curve mapping
 const view = { cx: 0, cy: 0, s: 100, w: 600, h: 600 };
 const circ = Region.curvesOf({ kind: 'circle', c: [0, 0], r: 1 }, win)[0];
-let t0 = Date.now();
+const t0 = Date.now();
 let pl = Region.mapCurve(circ, (z) => CX.log(z), view);
 console.log('log of unit circle: polylines', pl.length, pl.map((p) => p.length / 2), (Date.now() - t0) + 'ms');
 pl = Region.mapCurve(circ, (z) => CX.inv(CX.sub(z, C(1, 0))), view);

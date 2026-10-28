@@ -870,7 +870,8 @@ const Figure = (() => {
       const tn = tonesOf(s, o);
       const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const open = t === 'area' && Region.isOpen && Region.isOpen(s);
-      let { pts, cs } = shapeCurves(s, F, box, wpt, srcWin);
+      const curves = shapeCurves(s, F, box, wpt, srcWin), cs = curves.cs;
+      let pts = curves.pts;
       let dash = open && P.dashOpen ? '3 2' : null;
       if (dash && cs.length) {
         // pieces of an open boundary that a drawn curve lies on are the curve's: they are left to it
@@ -1062,7 +1063,6 @@ const Figure = (() => {
       boxes[side] = fitBox(cb, ref, roughW);
       touches[side] = cb && cb.touch;
     }
-    const box = P.axes === 'box' && o.axes !== 'cross' && o.axes !== 'none' ? 'box' : (o.axes || P.axes);
     const axes = o.axes || P.axes;
     const two = panels.length === 2;
     const mirror = two && axes === 'box' && W < 300;
@@ -1264,7 +1264,6 @@ const Figure = (() => {
     try { return (Calc.zerosPoles(F, box, { target: null, max: 24, budget: 120000, grid: 24, deadline: performance.now() + 400 }) || []).filter((r) => r && r.z && fin(r.z)); } catch (e) { return []; }
   }
   async function figPhase(o, P, W, T) {
-    const st = A.state();
     const [tp, lp] = T;
     const F = A.plotF();
     const scr = A.screenBox('L');
@@ -1324,7 +1323,7 @@ const Figure = (() => {
   async function figLand(o, P, W, T) {
     const [tp, lp] = T;
     const asp = A.paneAspect('L');
-    let wpt = W - 8, hpt = wpt * Math.min(asp, 0.8);
+    const wpt = W - 8, hpt = wpt * Math.min(asp, 0.8);
     // the window: the screen's, with its edges rounded (to a step of about an eighth of each side), so the caption and
     // the floor labels read [-8, 8] x [-5, 5], not [-8.33, 8.33] x [-5.13, 5.13]
     let landBox = null;
@@ -2747,7 +2746,7 @@ const Figure = (() => {
     const fam = '"Latin Modern Roman", "CMU Serif", "Times New Roman", serif';
     const fonts = parts.map(([, it, sub]) => `${it ? 'italic ' : ''}${sub ? Math.round(0.7 * fs) : fs}px ${fam}`);
     const ws = parts.map(([s], i) => { ctx.font = fonts[i]; return ctx.measureText(s).width; }), tw = ws.reduce((a, b) => a + b, 0);
-    let x0 = align === 'right' ? x - tw : align === 'center' ? x - tw / 2 : x;
+    const x0 = align === 'right' ? x - tw : align === 'center' ? x - tw / 2 : x;
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.lineJoin = 'round';
     for (const pass of [0, 1]) {
       let xx = x0;

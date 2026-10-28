@@ -299,7 +299,8 @@ cur = 'A';
   {
     const a = [1, 0], b = [-1, 0], c = [1, 0], d = [1, 0];      // M(z) = (z - 1) / (z + 1)
     const M = (z) => { const n = [z[0] - 1, z[1]], dd = [z[0] + 1, z[1]], q = dd[0] * dd[0] + dd[1] * dd[1]; return [(n[0] * dd[0] + n[1] * dd[1]) / q, (n[1] * dd[0] - n[0] * dd[1]) / q]; };
-    let worst = 0, worstA = 0, t0 = process.hrtime.bigint();
+    const t0 = process.hrtime.bigint();
+    let worst = 0, worstA = 0;
     for (let j = 0; j <= 100; j++) {
       const k = 0.2 + j * 0.03, g = K.apollonius(a, b, c, d, k), G = K.geomOf(g);
       for (let s = 0; s < 16; s++) { const z = G.line ? [G.p[0] + G.d[0] * (s - 8), G.p[1] + G.d[1] * (s - 8)] : [G.c[0] + G.r * Math.cos(s), G.c[1] + G.r * Math.sin(s)]; const m = M(z); worst = Math.max(worst, Math.abs(Math.hypot(m[0], m[1]) - k) / k); }
