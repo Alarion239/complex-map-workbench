@@ -34,7 +34,7 @@
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone; r2 review math-4)
-        rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null; rdBytes = 0;
+        rfWarmAll = false; rfWarmT = -1e9; rfWarmTex = null; rdBuf = null;
         maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
         pcExt = gl.getExtension('KHR_parallel_shader_compile');
         rtOK = !!gl.getExtension('EXT_color_buffer_float');

@@ -589,7 +589,11 @@ const Phone = (() => {
   // still changes as you type), and only when that cannot do it, by opening the sheet to its full height with the field
   // near the top of its body. The sheet goes back to its height when the keyboard goes or the focus leaves its fields.
   const TEXTY = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="color"], [type="file"]), textarea, [contenteditable="true"]';
-  const kb = { grew: false, t: 0, h: 0 };
+  const kb = { grew: false, t: 0, h: 0, v: 0 };
+  // a row of symbols above the keyboard while a formula field has the focus (UX46): symbols only, never templates;
+  // a press keeps the focus in the field and puts the symbol at the caret
+  const KEYS_H = 44, KEYS = ['z', '|', '<', '>', '≤', 'π', 'i', 'Re', 'Im', 'arg', '(', ')'];
+  const keys = { el: null };
   function kbHeight(h) {
     let v = 0;
     if (h != null) v = h;
@@ -597,8 +601,18 @@ const Phone = (() => {
     v = v > 80 ? v : 0;   // (a small difference is the browser's own bar, not a keyboard)
     if (v === kb.h) return;
     kb.h = v;
+    kbApply();
+  }
+  // the room the keyboard takes: its height, and the symbol strip's above it while a formula field has the focus
+  function kbApply() {
+    const strip = !!kb.h && !!document.activeElement && document.activeElement.matches('.math-src');
+    const v = kb.h ? kb.h + (strip ? KEYS_H : 0) : 0;
+    keys.el.hidden = !strip;
+    if (strip) rootEl.style.setProperty('--ph-kbraw', kb.h + 'px');
     if (v) rootEl.style.setProperty('--ph-kb', v + 'px'); else rootEl.style.removeProperty('--ph-kb');
     rootEl.classList.toggle('ph-kb', !!v);
+    if (v === kb.v) return;
+    kb.v = v;
     const f = document.activeElement;
     if (v && kind && f && els.sheet.contains(f)) setTimeout(() => kbFit(f), 0);
     if (!v && kb.grew && kind && full) { kb.grew = false; setFull(false); }   // (the keyboard went, the field may keep the focus)
@@ -607,10 +621,10 @@ const Phone = (() => {
     if (!on || !kind || !f || document.activeElement !== f) return;
     const body = els.body[kind];
     if (!body || !body.contains(f)) return;
-    const vis = window.innerHeight - kb.h - 8;   // the lowest y the user sees
+    const vis = window.innerHeight - kb.v - 8;   // the lowest y the user sees
     const fb = f.getBoundingClientRect(), bb = body.getBoundingClientRect();
     if (grown) { body.scrollTop = Math.max(0, body.scrollTop + (fb.top - bb.top) - 48); return; }
-    if (!kb.h) { if (fb.bottom > bb.bottom || fb.top < bb.top) try { f.scrollIntoView({ block: 'nearest' }); } catch (e) { /* */ } return; }
+    if (!kb.v) { if (fb.bottom > bb.bottom || fb.top < bb.top) try { f.scrollIntoView({ block: 'nearest' }); } catch (e) { /* */ } return; }
     if (fb.bottom <= vis && fb.top >= bb.top) return;
     // scroll: the field's bottom just above the keyboard, its top never above the body's top
     // (rounded up and compared with 1 px to spare: scrollTop lands on whole pixels, a field's edges need not)
@@ -620,6 +634,16 @@ const Phone = (() => {
     setTimeout(() => kbFit(f, true), reduced() ? 0 : DUR + 20);
   }
   function kbInit() {
+    keys.el = h('div', { class: 'ph-keys ph-only', role: 'toolbar', 'aria-label': $t('Symbols'), hidden: true },
+      ...KEYS.map((k) => h('button', { type: 'button', tabindex: '-1', 'aria-label': k, onpointerdown: (e) => e.preventDefault(), onclick: () => {
+        const f = document.activeElement;
+        if (!f || !f.matches('.math-src')) return;
+        f.setRangeText(k, f.selectionStart, f.selectionEnd, 'end');
+        f.dispatchEvent(new Event('input', { bubbles: true }));
+      } }, k)));
+    rootEl.append(keys.el);
+    document.addEventListener('focusin', () => kbApply());
+    document.addEventListener('focusout', () => setTimeout(kbApply, 0));
     els.sheet.addEventListener('focusin', (e) => {
       const f = e.target;
       if (!on || !kind || !(f instanceof Element) || !f.matches(TEXTY)) return;

@@ -405,7 +405,6 @@
     const cx = ok ? r.left + Math.min(r.width - 8, Math.max(8, x1)) : r.left + r.width / 2, cy = ok ? r.top + Math.max(8, Math.min(r.height - 8, y0)) : r.top + r.height / 3;
     return openIntegralPop(id, cx, cy, { beside: true, bx0: ok ? r.left + Math.max(0, x0) : null });
   }
-  const PROP_LETTERS = CHIP_DEFS;
   function openPalette(anchor, at, opt = {}) {
     // re-clicking the control that opened it closes it
     if (popEl && popEl.classList.contains('palette') && anchor && palState && palState.opener === anchor) { closePalette(); return; }

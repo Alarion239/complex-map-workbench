@@ -1139,7 +1139,7 @@
   }
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
   let rHover = null; // a point hovered in the right (image) plane
-  let copyValue = { L: '', R: '' };
+  const copyValue = { L: '', R: '' };
   function setReadouts(z) {
     const lr = $('leftReadout'), ro = $('rightReadout');
     if (!lr || !ro) return;
