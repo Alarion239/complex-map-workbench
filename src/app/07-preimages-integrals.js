@@ -496,6 +496,7 @@
   const fixedNm = (s) => (Construct.fixedName ? Construct.fixedName(s) : null);
   const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
   function rowName(s, counts, pv, row = true) {
+    if (s.name && s.kind !== 'point') return s.name;   // (a point's own name is its label, in the plane too)
     const fx = fixedNm(s);
     if (fx) return row ? capFirst(fx) : fx;
     if (s.kind !== 'point') return shapeName(s, counts);

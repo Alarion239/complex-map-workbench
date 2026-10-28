@@ -222,6 +222,8 @@
     return `--c0:${ink.c0};--c1:${ink.alt};--k:${ink.edge}`;
   }
   function shapeName(s, counts) {
+    // (a name the user gave it: Rename)
+    if (s.name && s.kind !== 'point') return s.name;
     if (s.kind === 'point' && s.label) return exLabel(s.label);
     // (an example's named curve: the melody's spiral, notes/sea-song)
     if (s.kind === 'curve' && s.nameKey === 'spiral') return $t('Spiral');
@@ -317,7 +319,7 @@
         if (!fx) tc[nk] = (tc[nk] || 0) + 1;
         // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
         // ([v16.5 fix rail-4] the unit circle or an axis of Y: by that name)
-        const label = fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] });
+        const label = s.name && s.kind !== 'point' ? s.name : fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] });
         host.append(shapeRow(s, label, true, i));
       });
     }
@@ -344,6 +346,7 @@
           if (SND) items.push({ label: snd.play ? $t('Stop listening') : $t('Listen along it'), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
           items.push('sep');
         }
+        items.push({ label: $t('Rename'), run: () => startRename(s) });
         if (kindType(s) === 'area') items.push({ label: s.complement ? $t('Use the set itself') : $t('Use complement'), run: () => { s.complement = !s.complement; changed(); commit(); } });
         items.push({ label: $t('Duplicate'), key: modK('D'), run: () => duplicateShape(s) });
         // ([v16.5 UX95] the colours by their names, not "Preset 1"–"Preset 8")
@@ -361,7 +364,13 @@
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
-      onclick: () => { selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R', 'P'); },
+      onclick: (e) => {
+        // a second click on the name within 450 ms renames it (a laptop; the row is rebuilt by the first click, so the
+        // pair is counted here, not by dblclick)
+        const now = performance.now();
+        if (!touchUI() && e && e.target && e.target.closest && e.target.closest('.shape-name .k') && lastNameClick.id === s.id && now - lastNameClick.t < 450) { lastNameClick = { id: null, t: 0 }; startRename(s); return; }
+        lastNameClick = { id: s.id, t: now };
+        selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R', 'P'); },
       onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L', 'R'); },
       onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
@@ -371,8 +380,35 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row });
+    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name });
     return box;
+  }
+  // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc leaves it as it was, and an empty name
+  // goes back to the automatic one ("Circle 1"). A point's name is its label (it names the point in the plane too)
+  let lastNameClick = { id: null, t: 0 };
+  function startRename(s) {
+    const r = shapeRows.get(s.id);
+    if (!r || !r.k || r.k.querySelector('input')) return;
+    const target = isTarget(s), field = s.kind === 'point' ? 'label' : 'name', cur = r.k.textContent;
+    const inp = h('input', { class: 'rename-in', type: 'text', value: s[field] ? (field === 'label' ? exLabel(s[field]) : s[field]) : cur, maxlength: 40, spellcheck: false, 'aria-label': $t('Name of {label}', { label: cur }) });
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      const v = inp.value.trim().slice(0, 40);
+      if (keep && v !== cur && (v || s[field])) {
+        if (v) s[field] = v; else delete s[field];
+        if (target) targetsChanged(true); else shapesChanged(true);
+        commit();
+      }
+      buildShapeList();
+    };
+    inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); finish(false); } });
+    inp.addEventListener('blur', () => finish(true));
+    for (const t of ['click', 'pointerdown', 'dblclick']) inp.addEventListener(t, (e) => e.stopPropagation());
+    r.k.textContent = '';
+    r.k.append(inp);
+    inp.focus(); inp.select();
   }
   function pickColor(s) {
     const inp = h('input', { type: 'color', value: s.color || shapeInk(s).c0, style: 'position:fixed;left:-100px;top:0;opacity:0' });
@@ -400,7 +436,7 @@
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
       if (isTarget(s)) { const yv = S.focus === 0 ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
-      r.d.title = I18N.lang === 'en' ? tex : texTitle(tex);
+      r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
       if (Construct.row(s, r)) continue;   // (v16: definitions, reasons)
       const er = s.undef || s._err;
       if (er) { r.d.innerHTML = ''; r.d.dataset.tex = ''; r.d.append(h('span', { class: 'err-msg' }, er)); } else TeX.set(r.d, tex);
