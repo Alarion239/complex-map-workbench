@@ -1126,6 +1126,14 @@ const Construct = (() => {
     const z0 = pane.s2w(x, y), z = A.snapOn() && !A.altHeld() ? A.snapZ(pane, z0) : z0;
     return { cls: 'free', z: [z.re, z.im], ref: null, tool };
   }
+  // the next pick of a construction tool is the last one (the touch screen shows its preview under the finger while it is
+  // down); the perpendicular's and the touching circle's curve is not counted among the picks
+  function finalPick(side) {
+    const tool = A.tool();
+    if (!isCTool(tool) || !draftC || draftC.tool !== tool || draftC.side !== side) return false;
+    if (CURVE1.has(tool) && !curve1Ok()) return false;
+    return draftC.picks.length === NEED[tool] - 1;
+  }
   // a click with a construction tool
   function click(pane, side, x, y) {
     const tool = A.tool();
@@ -1937,6 +1945,17 @@ const Construct = (() => {
       const [x, y] = pane.w2sxy(p.z[0], p.z[1]);
       if (d.tool === 'touch') { ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, TAU); ctx.stroke(); ctx.lineWidth = 1.5; ctx.strokeStyle = color; }
       ctx.fillStyle = mark; ctx.beginPath(); ctx.arc(x, y, d.tool === 'touch' ? 4 : 3.5, 0, TAU); ctx.fill();
+    }
+    // a finger hides what it picked, so each pick wears a ring and its number (UX50)
+    if (touchNow()) {
+      ctx.font = `600 11px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      d.picks.forEach((p, i) => {
+        const [x, y] = pane.w2sxy(p.z[0], p.z[1]);
+        ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.stroke();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = mark; ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.stroke();
+        ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(String(i + 1), x + 13, y - 13);
+        ctx.fillStyle = mark; ctx.fillText(String(i + 1), x + 13, y - 13);
+      });
     }
     if (d.tool === 'meet' && d.curve1) {
       const s = find(d.curve1.ref.s), pc = s && piecesOf(s)[d.curve1.ref.part];
@@ -2817,7 +2836,7 @@ const Construct = (() => {
     on, ui, toolRows, ICON, buildGrid, CTOOLS, isTool: isCTool,
     vertexPick: g(vertexPick, null), bindVertices: g(bindVertices), globeClick: g(globeClick, false), boundUnder: g(boundUnder, null), snapAt: g(snapAt, null), drawStart: g(drawStart, null), drawMove: g(drawMove, null), drawEnd: g(drawEnd), pointDown: g(pointDown, false),
     handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), cancelDrag: g(cancelDrag, false), globeSlide: g(globeSlide, null), globePoint: g(globePoint, false), touchNow: () => touchNow(), altNow: () => !!A && altNow(), samePick, click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false), drafting: g(drafting, false), undoPick: g(undoPick, null), undoPickable: g(undoPickable, false),
-    hover: g(hover), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
+    hover: g(hover), finalPick: g(finalPick, false), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
     fixedName: (s) => (A ? fixedName(s) : null), defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),
     inspectorSig: g(inspectorSig, null), inspectorBuild, inspectorFill, usedBy: g((id) => { try { return [...graph().users(id)]; } catch (e) { return []; } }, []), setFill, paletteActs: g(paletteActs, []), CAPTIONS,

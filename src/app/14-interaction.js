@@ -992,6 +992,9 @@
         requestRender(drag.side === 'L' ? 'L' : 'R');
         return;
       }
+      // a construction tool's last pick on a touch screen: the finger slides to adjust it, the dashed preview follows, and
+      // lifting makes the pick (the view stays put)
+      if ((drag.mode === 'panR' || drag.mode === 'panL') && ptrTouch && Construct.isTool(tool) && Construct.finalPick(side)) { drag.cdrag = true; Construct.hover(pane, side, x, y, e); return; }
       if (drag.mode === 'panR') {
         V.right.cx = drag.cx - (x - drag.x) / V.right.s;
         V.right.cy = drag.cy + (y - drag.y) / V.right.s;
@@ -1307,7 +1310,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
+    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
