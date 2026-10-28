@@ -315,6 +315,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* More (⋯) rows */
 .ph-row, .ph-srow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: 400 15px/20px var(--f-ui); text-align: left; }
 .ph-row:active { background: var(--well); }
+.ph-row[hidden], .ph-srow[hidden] { display: none; }
+.ph-search { box-sizing: border-box; width: 100%; height: 44px; margin: 0 0 4px; padding: 0 12px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-2); color: var(--ink); font: 400 15px/20px var(--f-ui); }
 .ph-row .ph-ic, .ph-srow .ph-ic { flex: 0 0 20px; display: grid; place-items: center; color: var(--ink-2); }
 .ph-row .ph-ic svg, .ph-srow .ph-ic svg { width: 18px; height: 18px; }
 .ph-rl { flex: 1 1 auto; min-width: 0; }
@@ -467,6 +469,14 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-keys[hidden] { display: none; }
 .ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 16px/1 var(--f-ui); }
 .ph-keys > button:active { background: var(--well); }
+/* D6: the Tools sheet's tabs (Draw, Construct, Shapes N) and the More key's shape count */
+.ph-tabs { display: flex; gap: 2px; padding: 2px; margin: 0 0 8px; background: var(--well); border-radius: var(--r-2); }
+.ph-tabs > button { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink-2); font: 500 14px/1 var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-tabs > button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.ph-tiles[hidden], .ph-tabpane[hidden] { display: none; }
+:root.ph #secDraw > .tool-more > summary { position: relative; }
+.ph-badge { position: absolute; top: 2px; right: calc(50% - 26px); min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: 600 10px/16px var(--f-ui); text-align: center; pointer-events: none; }
+.ph-badge[hidden] { display: none; }
 /* UX40: the long press, taught inside the More tools sheet (a tip line under the tiles) */
 .ph-tip { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 8px 4px 4px; padding: 0; font: 400 13px/18px var(--f-ui); color: var(--muted); text-wrap: pretty; }
 .ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }

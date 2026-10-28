@@ -407,8 +407,9 @@ await section('E', async () => {
   await settle(1200);
   const more = await center('#toolMore > summary');
   await touch(more[0], more[1]); await settle(500);
-  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles > *')].map((e) => e.tagName === 'H3' ? '#' + e.textContent : e.dataset.tool)`);
-  ok('phone: More tools has the Construct heading and six tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
+  await ev(`Phone.tab('construct')`); await settle(200);   // (the Construct tools are on their own tab of the Tools sheet)
+  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles[data-tab="construct"] > .ph-tile')].map((e) => e.dataset.tool)`);
+  ok('phone: More tools has the Construct tab with its six tiles', (info.phTiles || []).join().includes('circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
   await shot('cm-p390-more');
   const t3 = await center('.ph-tiles .ph-tile[data-tool="circle3"]');
   await touch(t3[0], t3[1]); await settle(600);
@@ -432,6 +433,7 @@ await section('E', async () => {
   await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
+  await ev(`Phone.tab('construct')`); await settle(200);
   info.phTilesRu = await ev(`[...document.querySelectorAll('.ph-tiles .ph-tile .ph-tl')].slice(-4).map((s) => [s.textContent, s.scrollWidth <= s.clientWidth + 1])`);
   await shot('cm-p390-more-ru');
   await send('Emulation.setUserAgentOverride', { userAgent: ua0 });

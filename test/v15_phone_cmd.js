@@ -40,7 +40,8 @@ const screen = () => ev(`(() => {
   for (const e of document.querySelectorAll('.top *, #secDraw *, .pipe-wrap > :not(#pipeline), .ph-col *, .viewstack *, .chip.readout, .ph-sheet .ph-sh *, .ph-sheet .ph-row, .ph-sheet .ph-srow, .tdock *')) {
     if (!vis(e)) continue;
     const r = e.getBoundingClientRect();
-    if (r.right > iw + 1 || r.left < -1 || r.bottom > ih + 1) out.push((e.id || e.className || e.tagName).toString().slice(0, 40) + ' ' + Math.round(r.left) + '..' + Math.round(r.right) + ' / ' + Math.round(r.bottom));
+    // (a sheet's body scrolls: what lies below the fold in it is reached by scrolling, as the grouped ⋯ menu's later groups)
+    if (r.right > iw + 1 || r.left < -1 || (r.bottom > ih + 1 && !e.closest('.ph-sb'))) out.push((e.id || e.className || e.tagName).toString().slice(0, 40) + ' ' + Math.round(r.left) + '..' + Math.round(r.right) + ' / ' + Math.round(r.bottom));
   }
   const cut = [];
   for (const e of document.querySelectorAll('#viewSwitch > button > span, #secDraw .tool > span, #secDraw .tm-label, .pipe-wrap > #morphBtn > span, .ph-sheet .ph-rl, .ph-sheet .ph-seg > button, .ph-tl')) {

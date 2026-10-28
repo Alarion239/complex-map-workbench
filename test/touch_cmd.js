@@ -530,8 +530,9 @@ await section('D', async () => {
   await load(NS + 'ph', SP); await settle(1200);
   const more = await center('#toolMore > summary');
   await touch(more[0], more[1]); await settle(500);
-  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles > *')].map((e) => e.tagName === 'H3' ? '#' + e.textContent : e.dataset.tool)`);
-  ok('D phone: More has the Construct heading and six tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
+  await ev(`Phone.tab('construct')`); await settle(200);   // (the Construct tools are on their own tab of the Tools sheet)
+  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles[data-tab="construct"] > .ph-tile')].map((e) => e.dataset.tool)`);
+  ok('D phone: More has the Construct tab with its six tiles', (info.phTiles || []).join().includes('circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
   info.phTile = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="touch"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent, sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh }; })()`);
   ok('D phone: the tile label fits', info.phTile && info.phTile.sw <= info.phTile.w + 1 && info.phTile.h <= 2 * info.phTile.lh + 1, info.phTile);
   await shot('touch-p390-more');
@@ -572,6 +573,7 @@ await section('D', async () => {
   await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
+  await ev(`Phone.tab('construct')`); await settle(200);
   info.phTileRu = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="touch"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent, sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh }; })()`);
   ok('D phone RU: «Касание» fits', info.phTileRu && info.phTileRu.text === 'Касание' && info.phTileRu.sw <= info.phTileRu.w + 1 && info.phTileRu.h <= 2 * info.phTileRu.lh + 1, info.phTileRu);
   await shot('touch-p390-more-ru');

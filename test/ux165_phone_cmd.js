@@ -244,6 +244,7 @@ await grab();
 // ---------------- UX45 and V02 and UX40: the Shapes list, the ⋯ sheet, the long-press tips ----------------
 await withState('rows', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: [{ type: 'zp', params: { a: '1', zeros: '0.5', poles: '-0.5' }, on: true }] });
 await ev(`Phone.open('tools')`); await settle(500);
+await ev(`Phone.tab('shapes')`); await settle(200);
 const rows = await ev(`[...document.querySelectorAll('.ph-sheet .shape-row')].map((r) => { const b = r.getBoundingClientRect(), e = r.querySelector('.eye').getBoundingClientRect(), m = r.querySelector('.more').getBoundingClientRect(); return { h: Math.round(b.height), eyeR: Math.round(e.right), moreL: Math.round(m.left), moreR: Math.round(m.right), eh: Math.round(e.height), mh: Math.round(m.height) }; })`);
 ok('UX45 rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
 ok('UX45 the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
@@ -314,6 +315,28 @@ ok('D8 probing X draws on the phone\'s Y inset overlay', px1 > px0 + 20, [px0, p
 await withState('bothl', 915, 412, true, { shapes: [], steps: STEPS2 });
 ok('D8 landscape has both planes already: no Both key', await ev(`[...document.querySelectorAll('.ph-both-key')].every((k) => !k.getClientRects().length)`));
 
+// ---------------- D6: the Tools sheet's tabs; the ⋯ menu grouped and searchable ----------------
+await withState('d6', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });
+await ev(`Phone.open('tools')`); await settle(600);
+const tabInfo = async () => ev(`(() => { const tabs = [...document.querySelectorAll('.ph-sheet .ph-tabs > button')]; const body = document.querySelector('.ph-sheet .ph-sb[data-k="tools"]'); return { names: tabs.map((b) => b.textContent), on: tabs.filter((b) => b.getAttribute('aria-selected') === 'true').map((b) => b.dataset.tab), h: tabs.map((b) => Math.round(b.getBoundingClientRect().height)), w: tabs.map((b) => Math.round(b.getBoundingClientRect().width)), fits: body.scrollHeight <= body.clientHeight + 1, cut: tabs.some((b) => b.scrollWidth > b.clientWidth + 1), badge: (document.querySelector('#toolMore .ph-badge') || {}).textContent }; })()`);
+const t0 = await tabInfo();
+ok('D6 three tabs: Draw, Construct, Shapes with its count; 44 px, none cut', JSON.stringify(t0.names) === JSON.stringify(['Draw', 'Construct', 'Shapes 2']) && t0.h.every((x) => x >= 44) && !t0.cut, t0);
+ok('D6 the Draw tab fits at 360 × 780 without scrolling; the More key shows the shape count', t0.on[0] === 'draw' && t0.fits && t0.badge === '2', t0);
+await tap('.ph-tabs > button[data-tab="construct"]', 300);
+const t1 = await tabInfo();
+ok('D6 the Construct tab fits without scrolling and lists the construction tools', t1.on[0] === 'construct' && t1.fits && (await ev(`!![...document.querySelectorAll('.ph-sheet .ph-tiles[data-tab="construct"] .ph-tile')].find((t) => t.dataset.tool === 'circle3')`)), t1);
+await tap('.ph-tabs > button[data-tab="shapes"]', 300);
+const t2 = await tabInfo();
+ok('D6 the Shapes tab holds the shapes and the formula field', t2.on[0] === 'shapes' && (await ev(`document.querySelectorAll('.ph-sheet .shape-row').length`)) === 2 && (await ev(`!!document.querySelector('.ph-sheet .ph-tabpane #formulaInput')`)), t2);
+await ev(`Phone.close(true)`); await settle(300);
+await ev(`Phone.open('tools')`); await settle(500);
+ok('D6 the sheet reopens on the last tab', (await tabInfo()).on[0] === 'shapes');
+await ev(`Phone.close(true)`); await settle(300);
+await ev(`Phone.open('more')`); await settle(500);
+const mn = await ev(`(() => { const b = document.querySelector('.ph-sb[data-k="more"]'); const q = b.querySelector('.ph-search'); const vis = () => [...b.querySelectorAll('.ph-row, .ph-srow')].filter((r) => !r.hidden).map((r) => r.textContent.trim().slice(0, 30)); const heads = () => [...b.querySelectorAll('.ph-h')].filter((h) => !h.hidden).map((h) => h.textContent); const o = { heads: heads(), q: q && Math.round(q.getBoundingClientRect().height), all: vis().length }; q.value = 'theme'; q.dispatchEvent(new Event('input')); o.theme = vis(); o.headsT = heads(); q.value = ''; q.dispatchEvent(new Event('input')); o.back = vis().length; return o; })()`);
+ok('D6 the ⋯ menu: Scene, Figure, Sound, Help, Look, with a 44 px search field', JSON.stringify(mn.heads) === JSON.stringify(['Scene', 'Figure', 'Sound', 'Help', 'Look']) && mn.q >= 44, mn);
+ok('D6 searching "theme" leaves the Theme row (and the command search), and clearing restores every row', mn.theme.some((r) => /^Theme/.test(r)) && mn.theme.length <= 3 && mn.back === mn.all, mn);
+await ev(`Phone.close(true)`); await settle(300);
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
 for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {

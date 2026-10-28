@@ -126,7 +126,7 @@ for (const s of steps) {
     if (a[0] === 'surface') ok(`${id}: surface value`, ['L', 'R'].includes(a[1]) && ['plane', 'sphere'].includes(a[2]), a);
     if (a[0] === 'deform') ok(`${id}: deform value`, typeof a[1] === 'boolean', a);
     // (v15: 'sheet', a phone's sheet only; a third value names the phone's sheet: tools, display)
-    if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || ['tools', 'display', 'steps'].includes(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
+    if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || /^(tools|display|steps)(:(draw|construct|shapes))?$/.test(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
   }
   // TeX: balanced braces and dollars, nothing the plain reading leaves as a command
   const texs = T.parseCopy(s.body + ' ' + (s.try ? s.try.text : '')).filter((t) => t.t === 'tex').map((t) => t.v);
@@ -172,10 +172,10 @@ ok('scenes: Checker by default', Object.values(T.SCENES).every((sc) => sc.look.p
 check('the Landscape sheets scene: Im height and all sheets', [T.SCENES.logSheets.look.height, T.SCENES.logSheets.look.sheets], ['im', true]);
 const stepOf = (c, i) => CH.find((x) => x.id === c).steps.find((x) => x.id === i);
 ok('Draw a shape lights the Disc tool itself', [].concat(stepOf('basics', 'draw').anchor)[0] === 'tool:disc' && stepOf('basics', 'draw').live === true);
-ok('Circle through three points lights its tool, and opens a phone\'s More tools', [].concat(stepOf('construct', 'c3').anchor)[0] === 'tool:circle3' && stepOf('construct', 'c3').before.some((a) => a[0] === 'panel' && a[1] === 'sheet' && a[2] === 'tools'));
+ok('Circle through three points lights its tool, and opens a phone\'s More tools', [].concat(stepOf('construct', 'c3').anchor)[0] === 'tool:circle3' && stepOf('construct', 'c3').before.some((a) => a[0] === 'panel' && a[1] === 'sheet' && a[2] === 'tools:construct'));   // (on the sheet's Construct tab)
 ok('Cards follow the view shows the pictures', stepOf('edit', 'cards').pictures === true && CH.flatMap((c) => c.steps).filter((x) => x.pictures).length === 1);
 // (v15: and opens the left panel, a drawer on a narrow desktop, or a phone's Tools sheet, where the list is)
-ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
+ok('Your shapes switches to Select first, and its Try it says V', eq(stepOf('basics', 'shapes').before, [['tool', 'select'], ['panel', 'left', 'tools:shapes']]) && /\{V\}/.test(stepOf('basics', 'shapes').try.text));
 ok('Patterns sets Checker first, so Choose Stretch can always tick', stepOf('views', 'patterns').before.some((a) => a[0] === 'look' && a[1].pattern === 'checker'));
 ok('Phase key starts it off, so Turn on Phase key can always tick', stepOf('views', 'key').before.some((a) => a[0] === 'look' && a[1].phaseKey === false));
 ok('All steps at once starts it off', stepOf('deform', 'order').before.some((a) => a[0] === 'look' && a[1].allAtOnce === false));

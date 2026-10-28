@@ -3016,5 +3016,10 @@
  "Try: turn All sheets on and off in the Landscape.": "Prova: attiva e disattiva Tutti i fogli nel Paesaggio.",
  "Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.": "Prova: passa al Paesaggio e cerca gli zeri sulla retta Re z = 1/2.",
  "Try: hover a pole in Y: X marks the point with that value.": "Prova: passa su un polo in Y: X segna il punto con quel valore.",
- "Choose <i>Zeros and poles</i> (in Polynomial &amp; custom) to build a map by placing its zeros and poles: drag the dots (zeros) and open circles (poles) in the step's input plane, or type them in the step's editor. Hold a finger on one to remove it, turn it into a pole or a zero, or edit it. The picture shows the map at once: colors circle a zero and a pole in opposite senses.": "Scegli <i>Zeri e poli</i> (in Polinomiali &amp; personalizzate) per costruire una mappa ponendo i suoi zeri e poli: trascina i punti (zeri) e i cerchietti (poli) nel piano di ingresso del passo, o scrivili nel suo editor. Tieni il dito su uno per rimuoverlo, farne un polo o uno zero, o modificarlo. L'immagine mostra subito la mappa: i colori girano attorno a uno zero e a un polo in sensi opposti."
+ "Choose <i>Zeros and poles</i> (in Polynomial &amp; custom) to build a map by placing its zeros and poles: drag the dots (zeros) and open circles (poles) in the step's input plane, or type them in the step's editor. Hold a finger on one to remove it, turn it into a pole or a zero, or edit it. The picture shows the map at once: colors circle a zero and a pole in opposite senses.": "Scegli <i>Zeri e poli</i> (in Polinomiali &amp; personalizzate) per costruire una mappa ponendo i suoi zeri e poli: trascina i punti (zeri) e i cerchietti (poli) nel piano di ingresso del passo, o scrivili nel suo editor. Tieni il dito su uno per rimuoverlo, farne un polo o uno zero, o modificarlo. L'immagine mostra subito la mappa: i colori girano attorno a uno zero e a un polo in sensi opposti.",
+ "Scene": "Scena",
+ "menu group\u0004Look": "Aspetto",
+ "Search tools, functions, help…": "Cerca strumenti, funzioni, aiuto…",
+ "Menu": "Menu",
+ "New scene": "Nuova scena"
 }
