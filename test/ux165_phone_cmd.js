@@ -276,8 +276,10 @@ ok('D11 the picker closes', await ev(`document.getElementById('stepsPick').hidde
 await ev(`document.getElementById('morphBtn').click()`); await settle(300);
 await withState('d11l', 915, 412, true, { shapes: [], steps: STEPS2 });
 await ev(`document.getElementById('morphBtn').click()`); await settle(900);
-const dl = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), range: r(d.querySelector('#morphRange')), col: r(document.getElementById('secDraw')), undo: r(document.querySelector('#secDraw > .ph-undo')), ih: innerHeight }; })()`);
-ok('D11 landscape: one row left of the tool column with a wide scrubber, Undo kept in the column', dl.dock && dl.dock.t + dl.dock.h <= dl.ih + 1 && dl.dock.l + dl.dock.w <= dl.col.l + 1 && dl.range.w >= 300 && dl.undo.l >= dl.col.l - 1, dl);
+for (let i = 0; i < 40 && !(await ev(`!!document.querySelector('.tdock:not([hidden])')`)); i++) await sleep(100);   // (the dock is built after the click's frames)
+const dlState = await ev(`({ cls: document.documentElement.className, btn: !!document.getElementById('morphBtn'), docks: [...document.querySelectorAll('.tdock')].map((d) => [d.id, d.hidden, d.children.length]) })`);
+const dl = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), range: r(d.querySelector('#morphRange')), col: r(document.getElementById('secDraw')), undo: r(document.querySelector('#secDraw > .ph-undo')), ih: innerHeight }; })()`);
+ok('D11 landscape: one row left of the tool column with a wide scrubber, Undo kept in the column', dl && dl.dock && dl.dock.t + dl.dock.h <= dl.ih + 1 && dl.dock.l + dl.dock.w <= dl.col.l + 1 && dl.range.w >= 300 && dl.undo.l >= dl.col.l - 1, { dl, dlState });
 await ev(`document.getElementById('morphBtn').click()`); await settle(300);
 
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
