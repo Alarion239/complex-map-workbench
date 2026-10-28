@@ -208,6 +208,12 @@ for (const w of [1024, 1440]) {
   const pal = await ev(`document.querySelector('#popHost .pal-item') ? [...document.querySelectorAll('#popHost .pal-item')].slice(0, 4).map((e) => e.textContent).join(' | ') : ''`);
   check('ru palette: "tan" finds the tangent', /тангенс|tg/.test(pal), pal.slice(0, 160));
   await key('Escape');
+  for (const [q, re, what] of [['дзета', /ζ/, 'ζ'], ['факториал', /Γ/, 'Γ']]) {
+    await key('k', 4); await settle(300); await type(q); await settle(600);
+    const p2 = await ev(`[...document.querySelectorAll('#popHost .pal-item')].slice(0, 4).map((e) => e.textContent).join(' | ')`);
+    check(`ru palette: "${q}" finds ${what}`, re.test(p2), p2.slice(0, 160));
+    await key('Escape');
+  }
   await open('en', 1440, false);
   const e = await ev(`(() => { try { Expr.parse('0,5'); return null; } catch (e) { return e.message; } })()`);
   check('en: "0,5" keeps its English message', e === "Unexpected ','", e);

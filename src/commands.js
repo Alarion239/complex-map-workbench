@@ -33,6 +33,9 @@ const Commands = (() => {
     arsinh: [$t('Principal branch'), 'asinh'], arcosh: [$t('Principal branch'), 'acosh'], artanh: [$t('Principal branch'), 'atanh'],
     joukowski: [$t('Circles through ±1 to airfoils'), $t('joukowski joukowsky airfoil')],
     ijouk: [$t('Branch of the inverse Joukowski map'), $t('inverse joukowski joukowsky')],
+    // [issue #4] (the aliases are searched in every language: the Greek letters and the plain names too)
+    gamma: [$t('Meromorphic; poles at 0, −1, −2, …; Γ(n + 1) = n!'), $t('gamma Γ factorial euler special function')],
+    zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
     poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
     rational: [$t('Quotient of two polynomials'), $t('rational p/q')],
