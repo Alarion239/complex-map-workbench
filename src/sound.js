@@ -296,7 +296,7 @@ function SND_LIB() {
     const kPh = 1 - Math.exp(-1 / (0.005 * fs)), kA = 1 - Math.exp(-1 / (0.02 * fs)), kAmp = 1 - Math.exp(-1 / (0.012 * fs)), kPan = 1 - Math.exp(-1 / (0.03 * fs));
     const LD2 = Math.log2(73.4162), LA4 = Math.log2(440), SIG = 0.45, NS = 0.45 * Math.sqrt(Math.PI), seatN = Math.round(0.025 * fs), stopN = Math.round(0.012 * fs);
     const P2 = [1, 2, 4, 8, 16, 32, 64], A = new Float64Array(7), W7 = new Float64Array(7), TH = new Float64Array(7), WH = new Float64Array(25), NR = new Float64Array(7), HJ = new Float64Array(7), HOLD = new Float64Array(7);
-    const g = { q: [], cur: null, pend: null, ph: 0, env: 0, panS: 0, gn: 1, wN: -2, tier: 2, tag: undefined, untilF: -1, kd: Math.exp(-6.9078 / (0.8 * fs)), blk: 0, stop: -1, bLast: -1, live: false };
+    const g = { q: [], cur: null, pend: null, ph: 0, env: 0, panS: 0, gn: 1, wN: -2, tier: 2, tag: undefined, untilF: -1, kd: Math.exp(-6.9078 / (0.8 * fs)), blk: 0, stop: -1, bLast: -1, bS: 0, live: false };
     function take(c) { g.cur = c; g.untilF = Math.round((c.until || 0) * fs); g.kd = Math.exp(-6.9078 / ((c.rel || 0.8) * fs)); if (c.tier != null) g.tier = c.tier; g.tag = c.tag; }
     function apply(c) {
       // (stop: what sounds fades; a control arriving during the fade waits for its end, then starts afresh)
@@ -307,7 +307,7 @@ function SND_LIB() {
       if (c.mode === 'seat' && c.fade && g.live && g.cur && g.env > 1e-4 && !g.blk) { g.blk = 2 * seatN; HOLD.set(A); take(c); g.pend = c; return; }
       if (g.blk) { take(c); return; }
       if (!g.live || !g.cur || c.mode === 'cut' || c.mode === 'seat') g.ph = c.phi;
-      if (!g.live) { g.panS = c.pan || 0; g.bLast = -1; }
+      if (!g.live) { g.panS = c.pan || 0; g.bS = c.b || 0; g.bLast = -1; }
       g.live = true;
       take(c);
     }
@@ -328,19 +328,21 @@ function SND_LIB() {
           if (g.blk) {   // a seat while ringing: the fade (f, pan, b held), then silence, then the new place from env 0
             const k = 2 * seatN - g.blk;
             mul = k < seatN ? 0.5 * (1 + Math.cos(Math.PI * (k + 1) / seatN)) : 0;
-            if (--g.blk === 0) { g.ph = (g.pend || c).phi; g.env = 0; g.pend = null; g.panS = c.pan || 0; }
+            if (--g.blk === 0) { g.ph = (g.pend || c).phi; g.env = 0; g.pend = null; g.panS = c.pan || 0; g.bS = c.b || 0; }
           } else {
             const nx = g.q.length ? g.q[0] : null;
             const pt = nx && nx.mode === 'slew' && nx.f > c.f && c.mode !== 'close' ? c.phi + (nx.phi - c.phi) * (x - c.f) / (nx.f - c.f) : c.phi;
             g.ph += (pt - g.ph) * kPh;
             g.env = x < g.untilF ? g.env + (1 - g.env) * kA : g.env * g.kd;
             g.panS += ((c.pan || 0) - g.panS) * kPan;
+            g.bS += ((c.b || 0) - g.bS) * kPh;
           }
-          // the harmonic weights at this brightness, each copy's highest harmonic below 0.45 fs (once a block, or when b
-          // changes); a seat's fade holds the old brightness with its pitch and pan (compare.js [A14]: f, p, b held;
-          // the new control's b at once was a step in the waveform, a click)
-          const bNow = g.blk ? g.bLast : c.b;
-          if (j === 0 || bNow !== g.bLast) {
+          // the harmonic weights at the brightness b̃ (b smoothed over 5 ms, as φ̃: a control's b at once was a step in
+          // the waveform's harmonics, a click at fast changes of |F|), each copy's highest harmonic below 0.45 fs: once a
+          // block, or when b̃ moved 0.002 (the 24th harmonic by under 2 %). A seat's fade holds b̃ with the pitch and pan
+          // (compare.js [A14]: f, p, b held)
+          const bNow = g.bS;
+          if (j === 0 || Math.abs(bNow - g.bLast) > 0.002) {
             g.bLast = bNow; const p = 3 - 2.5 * Math.max(0, Math.min(1, bNow || 0));
             for (let h = 1; h <= 24; h++) WH[h] = Math.pow(h, -p);
             for (let k = 0; k < 7; k++) { const fj = Math.pow(2, LD2 + ((((g.ph + k) % 7) + 7) % 7)); let H = 0, s = 0; while (H < 24 && (H + 1) * fj < 0.45 * fs) { H++; s += WH[H]; } HJ[k] = H; NR[k] = s > 0 ? 1 / s : 0; }
