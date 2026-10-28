@@ -194,5 +194,10 @@
   "en": "<b>Reading the sound.</b> Silence means nothing is changing under the probe. More notes a second means arg <i>F</i> is turning faster; a faster run is never louder, and the note repeated while the colour holds comes at most 8 times a second. The lines heard are the Phase key's sectors, which <b>Tiles</b> and <b>Contours</b> draw. Left and right are only where the probe is on the screen: they say nothing about <i>F</i>. On <i>Y</i>, two glasses gliding into one mean that two preimages of <i>w</i> meet. In Glide the voice is louder where |<i>F</i>| is larger. <b>Listen along</b> walks a curve at 250 screen pixels a second at the current zoom. Everything you hear is caused by <i>F</i> through this fixed map; the instruments, the room and a safety limiter are the only choices added.",
   "ru": "<b>Как читать звук.</b> Тишина значит, что под указателем ничего не меняется. Больше нот в секунду значит, что arg <i>F</i> поворачивается быстрее; быстрый пробег никогда не звучит громче, а нота, повторяемая, пока цвет не меняется, звучит не чаще 8 раз в секунду. Слышимые линии — это секторы шкалы фазы, их рисуют стили <b>Плитки</b> и <b>Линии уровня</b>. Слева и справа — только положение указателя на экране: об <i>F</i> это ничего не говорит. На <i>Y</i> два стеклянных звука, сливающиеся в один, означают, что встречаются два прообраза <i>w</i>. В режиме «Скольжение» голос громче там, где |<i>F</i>| больше. <b>Слушать вдоль кривой</b> проходит кривую со скоростью 250 экранных пикселей в секунду при текущем масштабе. Всё, что вы слышите, вызвано <i>F</i> через этот неизменный закон; добавлены только инструменты, акустика комнаты и защитный ограничитель.",
   "note": "The guide's Sound section, the legend (spec 2): what each thing heard means, after the Sound paragraph."
+ },
+ "hear.prep": {
+  "en": "Preparing to listen along: F takes a moment here.",
+  "ru": "Готовим прослушивание вдоль кривой: здесь F считается не сразу.",
+  "note": "Listen along on a costly F (the Mountain King's): its samples are made in slices between frames; said once before it plays."
  }
 }

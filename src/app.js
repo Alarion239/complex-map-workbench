@@ -14565,16 +14565,37 @@
   // in X's pane), gap?, seat?, cut?}, as the pointer's probe has them: argStep with a budget of 6000 a step, a `jump`
   // a cut unless |ln|F|| ≥ 700 or Calc.throughZP finds a zero or pole on it, any other failure a seat, the finite test
   // and the bridge rule. {smp, zs, W (closed: the rounded turns, null if a cut or a gap), turns}; null when F is too
-  // costly here (more than 1.5 s) or fails at every point
-  function sndSampleAt(F, pts, closed, M) {
+  // costly here (more than ms, 1.5 s by default, of the main thread at once) or fails at every point
+  function sndSampleAt(F, pts, closed, M, ms) {
+    const sm = sndSampler(F, pts, closed, M);
+    return sm && sm.run(ms == null ? 1500 : ms) ? sm.result() : null;
+  }
+  // the same, resumable (Listen along on a costly F, the Mountain King's 26 logs: about 4 evaluations a sample, 19 000
+  // samples, seconds of work): run(ms) samples on for ms and says whether it is done; result() as sndSampleAt's. null
+  // when the curve has no length
+  function sndSampler(F, pts, closed, M) {
     const ring = closed ? pts.concat([pts[0]]) : pts, seg = [];
     let Lt = 0;
     for (let i = 0; i + 1 < ring.length; i++) { const l = Math.hypot(ring[i + 1][0] - ring[i][0], ring[i + 1][1] - ring[i][1]); seg.push(l); Lt += l; }
     if (!(Lt > 0) || !(M >= 2)) return null;
-    const v = leftView(), w = Math.max(1, paneL.w), t0 = performance.now();
+    const v = leftView(), w = Math.max(1, paneL.w);
     const smp = new Array(M), zs = new Array(M);
-    let i = 0, acc = 0, zp = null, gp = null, phi = 0, seat = true, any = false, cuts = 0, gaps = 0, phi0 = null;
-    for (let j = 0; j < M; j++) {
+    let i = 0, acc = 0, zp = null, gp = null, phi = 0, seat = true, any = false, cuts = 0, gaps = 0, phi0 = null, j = 0;
+    const run = (ms) => {
+      const t0 = performance.now();
+      for (; j < M; j++) {
+        if ((j & 63) === 0 && j && performance.now() - t0 > ms) return false;
+        sample(j);
+      }
+      return true;
+    };
+    const result = () => {
+      if (!any) return null;
+      const turns = phi - (phi0 || 0), Wr = Math.round(turns);
+      return { smp, zs, turns, W: closed && !cuts && !gaps && Math.abs(turns - Wr) < 0.05 ? Wr : null };
+    };
+    return { run, result, done: () => j >= M, frac: () => j / M };
+    function sample(j) {
       const s = (j / (M - 1)) * Lt;
       while (i < seg.length - 1 && acc + seg[i] < s) { acc += seg[i]; i++; }
       const a = seg[i] ? sndClamp((s - acc) / seg[i], 0, 1) : 0;
@@ -14585,7 +14606,7 @@
       try { g = F(z); } catch (e) { g = null; }
       const bz = sndBridge(F, z, g), zc = bz.z;
       g = bz.g;
-      if (!sndOk(g)) { smp[j] = { t, gap: true }; zp = null; seat = true; gaps++; continue; }
+      if (!sndOk(g)) { smp[j] = { t, gap: true }; zp = null; seat = true; gaps++; return; }
       const ar = Math.atan2(g.im, g.re) / TAU, o = { t, phi: 0, ln: Math.log(Math.hypot(g.re, g.im)), pan };
       if (!zp) { phi = ar + Math.round(phi - ar); if (any || seat) o.seat = true; }
       else {
@@ -14602,11 +14623,7 @@
       if (phi0 == null) phi0 = phi;
       smp[j] = o; any = true; seat = false;
       zp = zc; gp = g;
-      if ((j & 255) === 0 && performance.now() - t0 > 1500) return null;
     }
-    if (!any) return null;
-    const turns = phi - (phi0 || 0), Wr = Math.round(turns);
-    return { smp, zs, turns, W: closed && !cuts && !gaps && Math.abs(turns - Wr) < 0.05 ? Wr : null };
   }
   // play F along a curve (Mathematical events): the probe travels the curve in X and its image in Y; Esc, L, the
   // menu again, or a pointer move of more than 4 px stop it (on a 12 ms fade, never mid-waveform). listen: a composed
@@ -14668,8 +14685,31 @@
     if (!(dur > 0) || (o.auto && raw > 7)) return false;
     sndStopPlay(false);
     if (snd.voice) snd.voice.gate(false, undefined, 0.02);
-    const R = sndSampleAt(sndF(), pts, closed, Math.ceil(1000 * dur) + 1);
-    if (!R) { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; }
+    const sm = sndSampler(sndF(), pts, closed, Math.ceil(1000 * dur) + 1);
+    const fail = () => { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; };
+    if (!sm) return fail();
+    // the samples: at once when F is cheap; else in slices of 12 ms between frames (the Mountain King's F: seconds of
+    // work), said once, given up after 20 s; another Listen along, Esc, the shape gone or F changed (the chain, t)
+    // drop it silently
+    if (!sm.run(60)) {
+      const prep = snd.prep = { fk: sndFKey(), t0: performance.now() };
+      sndSay((lead ? lead + ' ' : '') + $t('Preparing to listen along: F takes a moment here.'));
+      const slice = () => {
+        if (snd.prep !== prep) return;
+        if (!sndP.on || !sndP.events || sndFKey() !== prep.fk || (shape && !S.shapes.includes(shape))) { snd.prep = null; return; }
+        if (!sm.run(12)) { if (performance.now() - prep.t0 > 20000) { snd.prep = null; fail(); } else setTimeout(slice, 0); return; }
+        snd.prep = null;
+        const R = sm.result();
+        if (!R) fail(); else sndListenGo(R, pts, closed, '', shape, raw, dur, L * v.s);
+      };
+      setTimeout(slice, 0);
+      return true;
+    }
+    const R = sm.result();
+    return R ? sndListenGo(R, pts, closed, lead, shape, raw, dur, L * v.s) : fail();
+  }
+  // Listen along starts once its samples are ready (R: sndSampleAt's): the engine plays them, the probe walks the curve
+  function sndListenGo(R, pts, closed, lead, shape, raw, dur, Lpx) {
     const tag = 'listen' + (++snd.listenN);
     const hh = SND.along(R.smp, { tag, n: S.sectors || 12, closed: !!closed });
     if (!hh) return false;
@@ -14680,7 +14720,7 @@
     const p = snd.play = { h, zs: R.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: false, fn: true, shape: shape || null, nf: 0, closed: !!closed, W: Wr, T: morph.open ? morph.T : null };
     tourEmit('listen-started', { piece: false, fn: true, closed: !!closed, dur });
     updateDraftChips();
-    const speed = raw !== dur ? $t('Listening along at {speed} pixels a second: the curve is too long or too short for 250.', { speed: I18N.num(Math.round(L * v.s / dur)) }) + ' ' : '';
+    const speed = raw !== dur ? $t('Listening along at {speed} pixels a second: the curve is too long or too short for 250.', { speed: I18N.num(Math.round(Lpx / dur)) }) + ' ' : '';
     sndSay((lead ? lead + ' ' : '') + speed + (closed && Wr != null ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Wr) : $t('Listening along the curve. Esc stops.')));
     sndPlayRun(p);
     return true;
@@ -14702,6 +14742,7 @@
     p.raf = requestAnimationFrame(tick);
   }
   function sndStopPlay(hushAll) {
+    snd.prep = null;   // (a Listen along still preparing its samples: dropped)
     const p = snd.play;
     if (!p) return;
     snd.play = null;
