@@ -796,12 +796,16 @@
       if (first) first.focus({ preventScroll: true });
       armOutside(btn);
     }
+    let escSound = false;   // (set by the first Esc handler below, read by the one after it)
     // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
     // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a
     // Listen along does only that: the next Esc ends the tour
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       const playing = !!snd.play;
+      // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
+      // the sound and goes no further; the next one steps out of the modes)
+      escSound = !!(sndP && sndP.on && (snd.play || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
       soundStop();
       if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
@@ -838,6 +842,7 @@
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
         else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
         else if (tool !== 'select') setTool('select');
+        else if (escSound) { /* the sound was this Esc's level */ }
         else if (modeNext()) modeClose(modeNext());
         soundStop();
       }
