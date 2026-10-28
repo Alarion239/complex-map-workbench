@@ -113,5 +113,7 @@
  "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Следующая или предыдущая область: верхняя панель, инструменты, X, Y, цепочка, Инспектор",
  "Move between the tools and the chain's cards": "Переход между инструментами и карточками цепочки",
  "Name of {label}": "Имя: %{label}",
- "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{слева от прямой из } %{a} \\text{ в } %{b}"
+ "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{слева от прямой из } %{a} \\text{ в } %{b}",
+ "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
+ "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)"
 }

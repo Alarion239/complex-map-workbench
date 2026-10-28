@@ -2635,13 +2635,13 @@ const Construct = (() => {
   };
   function toolRows() {
     return [
-      ['circle3', $t('Circle through 3 points'), '', $t('Pick three points: points on the page, crossings, or empty spots. The circle and its disc follow them.'), 'construct', $t('3 points')],
-      ['meet', $t('Intersect'), '', $t('Click a crossing of two curves, or one curve and then another.'), 'construct', $t('Intersect')],
-      ['midpoint', $t('Midpoint'), '', $t('Pick two points, or a segment.'), 'construct', $t('Midpoint')],
-      ['bisector', $t('Perpendicular bisector'), '', $t('Pick two points, or a segment: the line of the points equally far from both.'), 'construct', $t('Bisector')],
-      ['perp', $t('Perpendicular circle'), '', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('Orthogonal')],
-      ['touch', $t('Touching circle'), '', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
-      ['hyper', $t('Hyperbolic line'), '', $t('Pick the boundary (a line or a circle), then two points on one side of it: the hyperbolic line through them, the arc of the circle at right angles to the boundary. The boundary stays picked for the next one.'), 'construct', $t('Hyperbolic')],
+      ['circle3', $t('Circle through 3 points'), 'E', $t('Pick three points: points on the page, crossings, or empty spots. The circle and its disc follow them.'), 'construct', $t('3 points')],
+      ['meet', $t('Intersect'), 'I', $t('Click a crossing of two curves, or one curve and then another.'), 'construct', $t('Intersect')],
+      ['midpoint', $t('Midpoint'), 'U', $t('Pick two points, or a segment.'), 'construct', $t('Midpoint')],
+      ['bisector', $t('Perpendicular bisector'), 'Q', $t('Pick two points, or a segment: the line of the points equally far from both.'), 'construct', $t('Bisector')],
+      ['perp', $t('Perpendicular circle'), 'W', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('Orthogonal')],
+      ['touch', $t('Touching circle'), 'J', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
+      ['hyper', $t('Hyperbolic line'), 'Y', $t('Pick the boundary (a line or a circle), then two points on one side of it: the hyperbolic line through them, the arc of the circle at right angles to the boundary. The boundary stays picked for the next one.'), 'construct', $t('Hyperbolic')],
     ];
   }
   const CSS = `

@@ -2931,5 +2931,7 @@
  "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Area successiva o precedente: barra superiore, strumenti, X, Y, catena, Ispettore",
  "Move between the tools and the chain's cards": "Spostarsi tra gli strumenti e le schede della catena",
  "Name of {label}": "Nome di {label}",
- "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{a sinistra della retta da } %{a} \\text{ a } %{b}"
+ "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{a sinistra della retta da } %{a} \\text{ a } %{b}",
+ "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica",
+ "On a focused plane: the next shape (⇧ Tab: the previous)": "Su un piano a fuoco: la forma successiva (⇧ Tab: la precedente)"
 }
