@@ -515,7 +515,7 @@ const Inspector = (() => {
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
       // (v16.5 UX17: on a touch screen, the phone's places)
-      const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left; the Shapes list edits them. Select a step in the chain to edit it here.'));
+      const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.'));
       return { kind: 'region', root: h('div', { class: 'iregion' }, head, sum, sw, hint), sum, sw };
     }
     function fillRegion(E) {
