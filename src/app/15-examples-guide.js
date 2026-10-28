@@ -903,6 +903,8 @@
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
+    // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
+    if (document.documentElement.classList.contains('ph')) { clear(); return; }
     if (!host.firstElementChild) return;
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const chain = box(document.querySelector('.pipe-wrap'));

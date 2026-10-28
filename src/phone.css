@@ -345,7 +345,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { height: auto; min-height: 44px; padding-top: 0; padding-bottom: 0; white-space: normal; }
 :root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
 :root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
-:root.ph #toastHost { bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-chain) + var(--ph-safe-b) + 12px); }
 :root.ph .snd-pop { z-index: 46; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
@@ -479,7 +478,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-badge[hidden] { display: none; }
 /* D3: the context bar above the tool row; the planes give up its height from the bottom */
 :root.ph { --ph-ctx: 0px; }
-:root.ph.ph-ctx-on { --ph-ctx: 56px; }
+:root.ph.ph-ctx-on, :root.ph.ph-toast-on { --ph-ctx: 56px; }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
 :root.ph.ph-land .ph-ctx { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
@@ -504,3 +503,9 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctseg > .ph-cb { flex: 1 1 0; min-width: 0; padding: 0 4px; }
 /* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
 :root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
+/* the phone's messages (a toast with its Undo) take the context bar's row over the tool row, which the planes give up
+   while one shows: a message covers no part of a plane */
+:root.ph #toastHost { left: 0; right: 0; translate: none; width: auto; max-width: none; align-items: stretch; gap: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); }
+:root.ph.ph-land #toastHost { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { box-sizing: border-box; height: 56px; min-height: 56px; border: 0; border-top: 2px solid var(--accent); border-radius: 0; box-shadow: none; background: var(--panel); padding: 0 8px 0 12px; }
+:root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }

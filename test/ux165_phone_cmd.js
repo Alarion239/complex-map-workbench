@@ -342,8 +342,11 @@ await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0
 const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
 const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 nothing selected: no bar', (await ctxInfo()) === null);
+const zA = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 await ev(`__cmwSelect('s1')`); await settle(600);
+const zB = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 const c1 = await ctxInfo();
+ok('D3 the bar coming does not move the drawing under the finger', Math.abs(zA[0] - zB[0]) < 1 && Math.abs(zA[1] - zB[1]) < 1, [zA, zB]);
 const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 a selected shape: a 56 px bar over the tool row with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
 ok('D3 the plane gives up the bar\'s height from the bottom', d0 - d1 >= 50 && d0 - d1 <= 60, [d0, d1]);
@@ -360,6 +363,9 @@ const n0 = (await ev(`__cmwShapes().shapes.length`));
 await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Delete/.test(b.textContent)).click()`); await settle(700);
 ok('D3 Delete removes the shape and the bar goes', (await ev(`__cmwShapes().shapes.length`)) === n0 - 1 && (await ctxInfo()) === null, [n0, await ev(`__cmwShapes().shapes.length`)]);
 try {
+// #66: the Undo message takes the bar's row, under the planes, so it covers none of them
+const ts = await ev(`(() => { const t = document.querySelector('#toastHost .toast'); if (!t) return null; const r = t.getBoundingClientRect(), p = document.getElementById('paneL').getBoundingClientRect(), a = t.querySelector('.toast-act'); return { top: Math.round(r.top), h: Math.round(r.height), paneBottom: Math.round(p.bottom), act: a ? Math.round(a.getBoundingClientRect().height) : 0, w: Math.round(r.width) }; })()`);
+ok('D3 the Delete message is a 56 px row under the planes (#66), its Undo 44 px', ts && ts.h === 56 && ts.top >= ts.paneBottom - 1 && ts.act >= 44 && ts.w >= 358, ts);
 await ev(`document.querySelector('#secDraw .tool[data-tool="polygon"]').click()`); await settle(300);
 const pc = await center('#paneL');
 await touch(pc[0] - 80, pc[1] - 60); await settle(600); await touch(pc[0] + 60, pc[1] - 40); await settle(600);
