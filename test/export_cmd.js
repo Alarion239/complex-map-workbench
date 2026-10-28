@@ -986,6 +986,11 @@ if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
       const kb = await ev(MP);
       ok(`menus ${tag}: Enter on More formats opens it with the focus inside`, kb.open && kb.onTop && !!kb.focus, kb);
       await key('Escape'); await sleep(250);
+      // (what is on the page after that Esc: the dialog, the menu, the focus, the More button's box; a dialog that is gone
+      // is a failure with its state, not a thrown TypeError)
+      const afterKb = await ev(`(() => { const m = document.getElementById('xfMore'); return { dialog: !!document.querySelector('.modal.xf'), menu: !!document.querySelector('#popHost .pop.menu'), focus: document.activeElement && (document.activeElement.id || document.activeElement.tagName), more: m ? { hidden: m.hidden, rect: m.getClientRects().length } : null, keb: kb.open }; })()`);
+      ok(`menus ${tag}: Esc after the keyboard-opened menu leaves the dialog and More formats`, afterKb.dialog && afterKb.more && !afterKb.more.hidden, afterKb);
+      if (!afterKb.dialog) { await open('xu5menu-again', w, h, dark); await ev('__cmwExample(1); 1'); await settle(1800); await key('e', 2); await dlgReady(); }
       // a press outside the open menu, on the backdrop, closes the menu only
       let c = await center('#xfMore'); await click(c[0], c[1]); await sleep(300);
       await click(4, 4); await sleep(300);
