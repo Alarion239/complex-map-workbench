@@ -733,10 +733,10 @@
   function replaceSteps(k0, count, run, name) {
     const f = S.focus, old = count === 1 ? defOf(S.steps[k0]).label : '', n0 = S.steps.length - count;
     const gone = S.steps.splice(k0, count);
-    S.focus = Math.min(f, k0);
+    setFocusStep(Math.min(f, k0));
     const r = run(k0);
     const added = S.steps.length - n0;
-    if (!added) { S.steps.splice(k0, 0, ...gone); S.focus = f; return r; }
+    if (!added) { S.steps.splice(k0, 0, ...gone); setFocusStep(f); return r; }
     if (f > k0) { setFocus(Math.min(S.steps.length, f > k0 + count ? f - count + added : k0 + 1)); commit(); }
     undoToast(count === 1 && n0 > 0 ? $t('Replaced f{x} ({old}) with {name}.', { x: sub(k0 + 1), old, name }) : $t('Replaced F with {name}.', { name }));
     tourEmit('step-replaced', { k: k0 + 1, type: S.steps[k0].type });
@@ -749,7 +749,7 @@
     if (from != null) f = f === from ? k : f > from && f <= k ? f - 1 : f < from && f >= k ? f + 1 : f;
     else if (f >= k) f += n;
     setFocus(Math.max(0, Math.min(S.steps.length, f)), f === S.focus);
-    S.sel = k;
+    setSel(k);
     syncSel();
     requestRender('P');
   }
@@ -805,11 +805,11 @@
     const hr = S.homRange ? HR.resolve(S, true) : null;
     S.steps.splice(k - 1, 1, ...news);
     if (hr) S.homRange = { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b };
-    if (S.focus > k) S.focus += n - 1;
-    else if (alone && only) S.focus = 0;
+    if (S.focus > k) setFocusStep(S.focus + n - 1);
+    else if (alone && only) setFocusStep(0);
     chainChanged(true);
     setFocus(S.focus);
-    S.sel = k;
+    setSel(k);
     if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
     syncSel();
     commit();
@@ -829,8 +829,8 @@
     const hr = S.homRange ? HR.resolve(S, true) : null;
     S.steps.splice(k - 1, 1);
     if (hr) { if (hr.a === k && hr.b === k) delete S.homRange; else S.homRange = { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }; }
-    if (S.focus >= k) S.focus = Math.max(0, S.focus === k ? 0 : S.focus - 1);
-    if (Number.isInteger(S.sel) && S.sel >= k) S.sel = S.sel === k ? null : S.sel - 1;
+    if (S.focus >= k) setFocusStep(Math.max(0, S.focus === k ? 0 : S.focus - 1));
+    if (Number.isInteger(S.sel) && S.sel >= k) setSel(S.sel === k ? null : S.sel - 1);
     chainChanged(true);
     setFocus(S.focus);
     commit();

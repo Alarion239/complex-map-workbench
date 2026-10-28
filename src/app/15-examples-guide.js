@@ -2,7 +2,7 @@
   const EX = [
     { name: $t('Empty canvas'), tex: '', blurb: $t('No shapes and no functions: start from scratch.'), view: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [] },
     {
-      name: $t('Strip to disk'), tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
+      name: $t('Strip to disk'), try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
       shapes: [
         { kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' },
         { kind: 'line', a: [0, 0.8], b: [1, 0.8] },
@@ -11,12 +11,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: $t('Quarter plane squared'), tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: $t('Joukowski airfoil'), tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), try: $t('Try: drag the circle through 1, then press Deformation.'), tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -25,54 +25,54 @@
       steps: [{ type: 'joukowski', params: {} }],
     },
     {
-      name: $t('Logarithm of an annulus'), tex: 'w=\\log z', blurb: $t('The annulus becomes a rectangle. Drag the red cut to move the seam.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Logarithm of an annulus'), try: $t('Try: drag the red cut and watch the seam move.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('The annulus becomes a rectangle. Drag the red cut to move the seam.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }, { kind: 'circle', c: [0, 0], r: 1 }, { kind: 'segment', a: [0.5, 0.5], b: [1.5, 1.5] }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Disk automorphism'), tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), try: $t('Try: press Deformation: the disk turns into itself.'), tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
       steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
     },
     {
-      name: $t('Sine of a half-strip'), tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
+      name: $t('Sine of a half-strip'), try: $t('Try: switch to Phase and look for the zeros of sin z.'), tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
       shapes: [{ kind: 'formula', expr: '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0' }, { kind: 'cgrid', a: [-1.5, 0], b: [1.5, 2.4], n: 6 }],
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: $t('Square root and its sheets'), tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), try: $t('Try: on the step card, press ‹ or › to flip the sheet.'), tour: 'branches', tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Cayley, then cube'), tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
     {
-      name: $t('A formula in LaTeX'), tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('A formula in LaTeX'), try: $t('Try: edit the formula in the Inspector and watch the plot follow.'), tour: 'edit', tex: 'w=\\frac{z^2-1}{z^2+1}', blurb: $t('A custom step shown as a color plot: zeros at ±1, poles at ±i.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'rect', a: [-1.5, -1.5], b: [1.5, 1.5] }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), try: $t('Try: drag the target 0 in Y and see its preimages in X.'), tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: $t('A residue by integration'), tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), try: $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
     {
-      name: $t('The derivative in the chain'), tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('The derivative in the chain'), try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), try: $t('Try: turn All sheets on and off in the Landscape.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -85,7 +85,7 @@
     },
     // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
-      name: $t('Zeros of the zeta function'), tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
+      name: $t('Zeros of the zeta function'), try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
       shapes: [
         { kind: 'formula', expr: '0<\\Re z<1' },
         { kind: 'line', a: [0.5, 0], b: [0.5, 1] },
@@ -94,7 +94,7 @@
       steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Poles of the Gamma function'), tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      name: $t('Poles of the Gamma function'), try: $t('Try: hover a pole in Y: X marks the point with that value.'), tour: 'views', tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
@@ -329,7 +329,7 @@
     // (review regress-1: a panel the one-dock rule closed is closed at run time only; the user's choice stays)
     const forcedL = !!hideL && !reqL, forcedR = !!hideR && !reqR;
     if (sndP.on && (!!hideL !== !!S.hideLeft || !!hideR !== !!S.hideRight)) sndToggleCue(!(hideL && hideR) && (!hideL && S.hideLeft || !hideR && S.hideRight));
-    S.hideLeft = !!hideL; S.hideRight = !!hideR;
+    setHidden('L', !!hideL); setHidden('R', !!hideR);
     // only a choice made where the panel docks is the user's preference; drawers are run-time state
     if (!isDrawer('L') && !forcedL) dockPref.L = S.hideLeft;
     if (!isDrawer('R') && !forcedR) dockPref.R = S.hideRight;
@@ -350,7 +350,7 @@
   function applyLayout() {
     const lay = document.querySelector('.layout');
     placeKeys();
-    if (oneDock() && !S.hideLeft && !S.hideRight) S.hideLeft = true;   // (run time: the docked choice stays the user's)
+    if (oneDock() && !S.hideLeft && !S.hideRight) setHidden('L', true);   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
     // ([v17 D4] the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
     if (shapeEdWhere !== inspEditsShapes()) { shapeEdWhere = inspEditsShapes(); if (selected != null) buildShapeList(); }
@@ -954,8 +954,8 @@
       EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
-      setFocus, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast,
-      viewBox, viewMem,
+      setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
+      undoToast, viewBox, viewMem,
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },
