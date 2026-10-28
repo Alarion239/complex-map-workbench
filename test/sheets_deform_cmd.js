@@ -158,6 +158,15 @@ for (const [w, h, phone] of [[1440, 900, false], [390, 844, true]]) {
 }
 // the gate: 60 fps (>= 58) with All sheets, and its p95 no worse than the plain deformation's (All sheets off, the same
 // chain and size, alternated with the sheet runs) by more than 0.5 ms, medians of the 3 windows each; the AS-BUILT bar
+// (issue #53: an export with All sheets, never checked before) the article figure of the All-sheets Landscape at rest:
+// one panel of the Landscape, drawn (not a blank picture), and its caption says which sheets it shows
+await setView(1440, 900, false, false);
+await open(NS + 'fig', state());
+await ev('window.__sdFig = null; __cmwFig.build({ for: \'article\', cols: 1 }).then(async (f) => { if (!f) { window.__sdFig = { err: \'no figure\' }; return; } const b = await __cmwFig.png(f); const bm = await createImageBitmap(b); const c = new OffscreenCanvas(bm.width, bm.height), x = c.getContext(\'2d\'); x.drawImage(bm, 0, 0); const d = x.getImageData(0, 0, bm.width, bm.height).data, cols = new Set(); for (let i = 0; i < d.length; i += 4 * 97) cols.add((d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | d[i + 2] >> 4); window.__sdFig = { view: f.view, images: (f.svg.match(/<image/g) || []).length, cap: f.captionTex, cols: cols.size }; }).catch((e) => { window.__sdFig = { err: String(e) }; }); 1');
+let fig = null;
+for (let i = 0; i < 200 && !(fig = await ev('window.__sdFig')); i++) await sleep(150);
+info.fig = fig && Object.assign({}, fig, { cap: fig.cap && fig.cap.slice(0, 300) });
+ok('export with All sheets: the article figure is the Landscape, one picture, drawn, its caption names the sheets', !!fig && !fig.err && fig.view === 'land' && fig.images === 1 && fig.cols > 40 && /sheet/i.test(fig.cap || ''), info.fig);
 // p95 <= 18.4 ms is reported (the Mac is shared: the plain runs miss it too under load)
 const gate = ['1440x900', '390x844'].map((k) => {
   const on = info.frames.filter((r) => r.sheets && r.size === k), off = info.frames.filter((r) => !r.sheets && r.size === k);
