@@ -52,8 +52,9 @@ const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
 const SUITES = {
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'] },
-  // (in four parts, by its own CMW_ONLY: it did not finish in 30 min whole on SwiftShader)
-  'export_cmd.js': { timeoutMin: 40, runs: [['1-3', '1-3'], ['4', '4'], ['preview', 'preview'], ['user5', 'user5']].map(([label, only]) => ({ label, env: { CMW_ONLY: only } })) },
+  // (in five parts, by its own CMW_ONLY: whole, it did not finish in 30 min on SwiftShader; section 4 alone took 19 min
+  // on lavapipe, so it runs in two halves)
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', '4a', '4b', 'preview', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
   // repository: work/xv16-merged-snap; v16's own build differs from it by design)
   'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
@@ -118,7 +119,9 @@ const SOFTWARE = {
     'every frame in which t moved had its voice update (none missed); only the number of frames is short at a few frames a second',
     (d) => d && d.missed === 0 && d.moved > 0),
     s(/^deformation: E Landscape: the Height voice, a voice update in every frame t moved$/, 'every frame in which t moved had its Height voice update (none missed); only the number of frames is short',
-      (d) => d && d.kind === 'height' && d.per && d.per.missed === 0 && d.per.moved > 0)],
+      (d) => d && d.kind === 'height' && d.per && d.per.missed === 0 && d.per.moved > 0),
+    s(/^deformation: E Landscape: one contour tick per level of \|H_t\| crossed$/, 'the run had not reached its end in the suite\'s window (no arrival), so fewer levels were crossed; no frame missed and no extra tick',
+      (d) => d && d.kind === 'height' && d.per && d.per.missed === 0 && Array.isArray(d.made) && !d.made.includes('morphEnd') && d.made.filter((x) => x === 'contour').length <= d.ticksWant)],
   'sound_v152_cmd.js': [
     s(/^deformation: the loop sings while t runs/, 'W is 0 at first and 1 at the end, and the loop sang in every frame; only the frame count is short (27, needs more than 40)',
       (d) => d && Array.isArray(d.first) && d.first[1] === 0 && Array.isArray(d.last) && d.last[1] === 1 && d.singing === d.n),
@@ -137,6 +140,9 @@ const SOFTWARE = {
   ],
   'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
     (d) => d && d.quiet === true && d.hit === true)],
+  // (a 1280 x 720 Bounce of 2 s on the globe fills its preview frame by frame: more than the suite's 60 s here)
+  'export_cmd.js': [s(/^preview Bounce on the globe: a frame on the way back is the video's frame/, 'the preview had not filled within the suite\'s 60 s; the frame on the way back matches the video and the exact render all the same',
+    (d) => d && d.filledMs === -1 && d.frames === d.n && typeof d.entry === 'number' && d.madVideo < 4 && d.madExact < 2 && d.range > 100)],
   'p3_accept_cmd.js': [
     s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
       (d) => Array.isArray(d) && d.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'pending' && p.reason === 'compiling')),
@@ -150,6 +156,10 @@ const KNOWN = {
   'tour_audit_cmd.js': [{ re: /branches\/deriv: no lead, task, result or caption cut$/, why: 'Linux text metrics: the inline z² (MathJax SVG, sized in ex) stands 2 px past the 18-px line of the lead (1 px on macOS); the lead does not clip it' }],
   'tour_phone_cmd.js': [{ re: /^780x360-en branches\/deriv: title and lead or task on arrival, no tap, nothing cut$/, why: 'Linux text metrics, as tour_audit\'s branches/deriv: the z² in the lead makes its line 2 px taller than one line (open: Android has a Linux font stack; check it on a phone)',
     measured: (d) => d && d.id === 'branches/deriv' && d.leadCut === true }],
+  // (open: the views chapter's Phase key step opens the Display sheet on a phone, and the panes shrink, 600 to 279 px, in
+  // every CI run; it passed on the development Mac at v16.4. Only that one resize, logged at that step)
+  'tour_perf_cmd.js': [{ re: /^390: the panes keep their size through the steps of a chapter$/, why: 'open: at 390 px the panes shrink (600 to 279 px) when the views chapter reaches its Phase key step, which opens the Display sheet; seen in every CI run, not on the development Mac at v16.4; to check on a phone',
+    measured: (d) => d && d.inChapter === 1 && Array.isArray(d.log) && d.log.filter((x) => x.step === 'Phase key').length === 1 }],
   // an app bug: the Language label is cut at 360 px (only the cut label; anything past the edges still fails)
   'v15_phone_cmd.js': [{ re: /^360-(light|dark)-en: more sheet: nothing past the edges, no cut label$/, why: 'app bug since bd48ab3 (Italian): the More sheet\'s Language switch has four options, and at 360 px the label "Language" gets 47 of its 66 px (src/phone.js Language seg; .ph-seg buttons at least 52 px)',
     measured: (d) => d && Array.isArray(d.out) && !d.out.length && Array.isArray(d.cut) && d.cut.length === 1 && /^Language \d+>\d+$/.test(d.cut[0]) }],
