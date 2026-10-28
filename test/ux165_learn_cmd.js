@@ -232,9 +232,10 @@ check('UX71: Stop stops it, and the chip goes', !(await ev('__cmwSound().play'))
 // UX72: and in the selected curve's editor (a real click on the row's name, then on the button)
 const nameB = await box('#shapeList .shape[data-id="s2"] .shape-name');
 if (nameB) { await click(...mid(nameB)); await settle(400); }
-await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-along"]'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
-const edB = await box('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-along"]');
-g = { btn: edB, text: await ev(`(document.querySelector('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-along"]') || {}).textContent || null`) };
+// ([v17 D4] on the laptop the selected shape's editor is in the Inspector)
+await ev(`(() => { const e = document.querySelector('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
+const edB = await box('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]');
+g = { btn: edB, text: await ev(`(document.querySelector('#propsPanel .sh-insp[data-id="s2"] .shape-edit [data-act="listen-along"]') || {}).textContent || null`) };
 if (edB) { await click(...mid(edB)); await settle(900); }
 g.play = await ev('__cmwSound().play');
 check('UX72: the selected curve\'s editor has "Listen along it", and it plays', edB && g.text === 'Listen along it' && g.play, g);
