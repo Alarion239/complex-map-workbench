@@ -515,46 +515,47 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
       out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
   float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
-      const run = (from, dir) => {
-        const k = `${id}_k${dir > 0 ? 'p' : 'm'}`, saved = out, inner = [];
-        out = inner;
-        idxVar.push({ v: n.v, k });
-        let t;
-        try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
-        const lim = dir > 0 ? `${k} > ${id}_hi` : `${k} < ${id}_lo`, inf = dir > 0 ? `${id}_hi > 1e30` : `${id}_lo < -1e30`;
-        // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
-        // and the same over both halves, leave
-        // the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
-        out.push(`  { int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-  for (int j = 0; j < ${cap}; j++) {
-    float ${k} = ${from} ${dir > 0 ? '+' : '-'} float(j);
-    if (${lim}) { done = true; break; }
-${inner.map((x) => '  ' + x).join('\n')}
-    vec2 t = ${t};
-    ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
-    if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
-    if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
-    if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
-    tl = u; kl = abs(${k});
-    // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
-    if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
-    if (d > 0.0) dz = d;
-    if (${inf} && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
-  }
-  if (!done && ${inf} && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
-    float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
-    vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
-    if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
-  }
-  if (!done) ${OK} = false; }`);
-      };
-      out.push(`  if (${id}_lo < -1e30 && ${id}_hi > 1e30) {`);
-      run('0.0', 1); run('-1.0', -1);
-      out.push(`  } else if (${id}_lo < -1e30) {`);
-      run(`${id}_hi`, -1);
-      out.push('  } else {');
-      run(`${id}_lo`, 1);
-      out.push('  }');
+      // one loop body for every case (a constant-bound loop written out per case was four copies of the term code, which
+      // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
+      // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
+      // values, not constants, so the loops stay loops
+      const k = `${id}_k`, saved = out, inner = [];
+      out = inner;
+      idxVar.push({ v: n.v, k });
+      let t;
+      try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
+      // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
+      // the sum, as the CPU does: Expr's tailOf)
+      out.push(`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
+  for (int sd = 0; sd < ${id}_nsd; sd++) {
+    float from = ${id}_nsd == 2 ? (sd == 0 ? 0.0 : -1.0) : ${LO} < -1e30 ? ${HI} : ${LO};
+    float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
+    bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
+    int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
+    for (int j = 0; j < ${cap}; j++) {
+      float ${k} = from + dir * float(j);
+      if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
+${inner.map((x) => '    ' + x).join('\n')}
+      vec2 t = ${t};
+      ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
+      if (j > ${SER_GPU_LOOP / 4 - 6} && j <= ${SER_GPU_LOOP / 4}) { mq = max(mq, d); kq = abs(${k}); }
+      if (j > ${SER_GPU_LOOP / 2 - 6} && j <= ${SER_GPU_LOOP / 2}) { mh = max(mh, d); kh = abs(${k}); }
+      if (j > ${SER_GPU_LOOP - 7}) dl = max(dl, d);
+      tl = u; kl = abs(${k});
+      // (a term exactly 0 right after terms that were not small is float32's overflow, 2^k past k = 127: NaN, not a sum)
+      if (d == 0.0 && dz > 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${OK} = false; done = true; break; }
+      if (d > 0.0) dz = d;
+      if (inf && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
+    }
+    if (!done && inf && dl > 0.0 && mh > dl && mq > mh && kl > kh && kh > kq && kq > 0.0) {
+      float p = log(mh / dl) / log(kl / kh), p1 = log(mq / mh) / log(kh / kq);
+      vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
+      if (p > 1.5 && p <= 1.25 * p1 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
+    }
+    if (!done) ${OK} = false;
+  }`);
       out.push(`  if (!${OK}${prod ? '' : ` || ${SER_CANCEL(M, S)}`}) ${S} = ${NAN};`);
       return S;
     }
