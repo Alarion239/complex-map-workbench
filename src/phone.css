@@ -291,6 +291,10 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-row .ph-ic, .ph-srow .ph-ic { flex: 0 0 20px; display: grid; place-items: center; color: var(--ink-2); }
 .ph-row .ph-ic svg, .ph-srow .ph-ic svg { width: 18px; height: 18px; }
 .ph-rl { flex: 1 1 auto; min-width: 0; }
+/* a row's switch goes under its label when the two do not fit on one line (Language, four options, at 360 px) */
+.ph-srow { flex-wrap: wrap; row-gap: 0; }
+.ph-srow .ph-rl { min-width: max-content; }
+.ph-srow .ph-seg, .ph-srow .ph-switch, .ph-srow .ph-link { margin-left: auto; }
 /* Phase colours (issue 8): the row names the palette and shows its key */
 .ph-pv { flex: 0 1 auto; color: var(--muted); }
 .ph-row .ph-ic .pcol-ic { width: 18px; height: 18px; }
@@ -309,6 +313,9 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the menus and pickers on a phone: 44 px rows; the gallery is a bottom sheet */
 :root.ph .pop.menu .mi { min-height: 44px; height: auto; }
 :root.ph .pop.menu.examples { left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; width: 100% !important; max-width: none; max-height: 85dvh; border-radius: var(--r-4) var(--r-4) 0 0; padding-bottom: calc(8px + var(--ph-safe-b)); }
+:root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { height: auto; min-height: 44px; padding-top: 0; padding-bottom: 0; white-space: normal; }
+:root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
+:root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph #toastHost { bottom: calc(var(--ph-row) + var(--ph-chain) + var(--ph-safe-b) + 12px); }
 :root.ph .snd-pop { z-index: 46; }
 
