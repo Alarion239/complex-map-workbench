@@ -1,5 +1,5 @@
 // node test/t_ux165_chain.js : the logic of the v16.5 wave-1 chain piece (notes/ux-build/w1-chain-AS-BUILT.md) that
-// runs without a page, read from app.js as it is (src/app/): UX23's formula repairs (formulaFixes, editDist) and UX79's
+// runs without a page, read from the source as it is (src/app/, src/commands.js): UX23's formula repairs (formulaFixes, editDist) and UX79's
 // "what one undo step did" (histWhat, from two history snapshots). The page-level behaviour is test/ux165_chain_cmd.js.
 'use strict';
 const vm = require('vm');
@@ -7,7 +7,8 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
-const APP = require('./src_text').appText();   // (src/app/*.js joined, as build.py does)
+// (src/app/*.js joined, as build.py does, and the command palette's src/commands.js: formulaFixes, editDist)
+const APP = require('./src_text').appText() + '\n' + require('./src_text').source('commands.js');
 let n = 0, fails = 0;
 const ok = (c, msg, got) => { n++; if (!c) { fails++; console.log('FAIL', msg, got === undefined ? '' : JSON.stringify(got)); } };
 // one top-level function (or const) of app.js, from its first line to the line that closes it at the same indent
