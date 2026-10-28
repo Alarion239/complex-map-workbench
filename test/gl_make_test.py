@@ -8,7 +8,7 @@ import pathlib
 
 root = pathlib.Path(__file__).resolve().parent.parent
 src = root / 'src'
-parts = [(src / f).read_text() for f in ['cx.js', 'parse.js', 'funcs.js', 'glsl.js', 'region.js', 'gl.js']]
+parts = [(src / f).read_text() for f in ['cx.js', 'parse.js', 'funcs.js', 'glsl.js', 'region.js', 'palette.js', 'gl.js']]
 parts.append((root / 'test' / 'gl_test.js').read_text())
 js = '\n'.join(parts).replace('</script', '<\\/script')
 html = f"""<!doctype html>

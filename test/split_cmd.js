@@ -344,7 +344,8 @@ await open('fsTour', { steps: [] });
   await ev(`Tour.start({ chapter: 'edit' })`); await settle(2000);
   const seen = [];
   for (let i = 0; i < 6; i++) {
-    const cur = await ev(`(() => { const t = document.querySelector('.tour-card h2, .tour-card .tc-title, [class*=tour] h2'); return t ? t.textContent : null; })()`);
+    // (v16.4: the step's title is in the docked strip, #tourTitle; the pop-up card and its h2 are gone)
+    const cur = await ev(`(() => { const t = document.querySelector('.tour-strip #tourTitle'); return t ? t.textContent : null; })()`);
     const b = await block();
     seen.push([cur, b ? !b.hidden : false]);
     if (/A formula in steps/.test(cur || '')) {
@@ -358,7 +359,7 @@ await open('fsTour', { steps: [] });
     await key('ArrowRight'); await settle(1500);
   }
   info.tourSeen = seen;
-  ok('tour: the offer shows only at its stop', seen.every(([t, v]) => (/A formula in steps/.test(t || '') ? v : !v)), seen);
+  ok('tour: the offer shows only at its stop', seen.some(([t]) => /A formula in steps/.test(t || '')) && seen.every(([t, v]) => (/A formula in steps/.test(t || '') ? v : !v)), seen);
   await key('Escape'); await settle(800);
 }
 await grab();

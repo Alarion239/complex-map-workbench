@@ -12,6 +12,7 @@ declare const CX: typeof import('../src/cx.js');
 declare const Expr: typeof import('../src/parse.js');
 declare const Funcs: typeof import('../src/funcs.js');
 declare const HomRange: typeof import('../src/homrange.js');
+declare const Palette: typeof import('../src/palette.js');
 declare const Inverse: typeof import('../src/inverse.js');
 declare const Recognize: typeof import('../src/recognize.js');
 declare const Calc: typeof import('../src/calc.js');

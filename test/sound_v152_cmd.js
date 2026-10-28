@@ -185,6 +185,8 @@ await ev(`Sound.set({ sonify: true }); 1`);
     await T('touchStart', [P(a0)]); await sleep(650);
     await ev('Sound.harpCount()');
     for (let i = 1; i <= n; i++) { await T('touchMove', [P(a0 + 2 * Math.PI * i / n)]); await sleep(16); }
+    // (touchmoves reach the page at its next frame, merged: where frames are slow the lap's last ones are still queued)
+    await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
     const h = await ev('Sound.harpCount()');
     const [x0, y0] = P(a0);
     for (let k = 0; k < 90; k++) { const t = k / 60; await T('touchMove', [[x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)]]); await sleep(16); }

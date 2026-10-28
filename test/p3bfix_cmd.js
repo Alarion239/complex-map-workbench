@@ -25,6 +25,8 @@ const capShape = async (C, h, kind = 'disc') => ev(`(() => { const s = { kind: '
 // a disc cap with h = 0.5 (alpha = 60 deg) and C 100 deg from N, facing the camera
 const cam = { pitch: 0.55, yaw: -1.0 };
 const az = -2.2;   // an azimuth that faces the camera from (yaw -1.0, pitch 0.55) (checked below: on screen)
+// (capShape runs the app's Region: open the app first, as a fresh daemon's Chrome is on about:blank)
+await load('p3bfix0' + Date.now(), { shapes: [], steps: [] });
 const capD = await capShape(sph(100 * DEG, az), 0.5);
 await load('p3bfix1' + Date.now(), { shapes: [Object.assign({ id: 's1', ci: 0 }, capD)], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: false, nextId: 2 });
 await ev('__cmwSetView("L", "sphere"); 1'); await settle(1500);
@@ -168,7 +170,8 @@ await M('mouseReleased', sB[0], sB[1], { button: 'left', clickCount: 1 });
 await settle(300);
 R.slide = seen;
 const nameOk = seen.every((v) => (v.kind === 'halfplane' ? /^Half-plane/.test(v.name) : /^Disc/.test(v.name)));
-const edOk = seen.filter((v) => v.kind === 'disc' && v.ed && v.ed.length >= 2).every((v) => Math.abs(parseFloat(v.ed[1]) - v.r) < 1e-4 * Math.max(1, v.r));
+// (v16.5 UX44: a number field shows 4 significant digits until it is clicked into)
+const edOk = seen.filter((v) => v.kind === 'disc' && v.ed && v.ed.length >= 2).every((v) => parseFloat(v.ed[1]) === +v.r.toPrecision(4));
 ok('during the slide the row name follows the kind', nameOk, seen.map((v) => [v.kind, v.name]));
 ok('during the slide the open editor shows the stored radius', edOk, seen.map((v) => [v.kind, v.r, v.ed]));
 

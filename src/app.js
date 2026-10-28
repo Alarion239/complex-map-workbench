@@ -7184,7 +7184,7 @@
       : kind === 'land' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${cam.yaw.toFixed(4)},${cam.pitch.toFixed(4)},${(cam.dist / CAM3.dist).toFixed(4)},${cam.tx},${cam.ty}|${S.height}|${S.lscale || 1}|${landMaterial()}|${S.dc}|${S.unitLevel}`
       : kind === 'def' ? `t${t.toFixed(4)}|${S.homAll}` : `${selOf() === k + 1 ? 'cuts' : ''}`;
     // (with exact images: whether the inverse program is ready, so a thumbnail drawn forward before it was is redrawn)
-    const sig = `${kind}|${k}|${chainSig[k]}|${thumbShapesSig}|${S.pattern}|${S.patternScale}|${S.alpha}|${S.lines}|${TH.plane}|${TH.dark}|${pane.pw}x${pane.ph}|${vk}|${S.exactImages !== false && GLR.ok && GLR.inverseStatus ? GLR.inverseStatus(S.alpha, 'flat') === 'ready' : ''}`;
+    const sig = `${kind}|${k}|${chainSig[k]}|${thumbShapesSig}|${GLR.palette()}|${S.pattern}|${S.patternScale}|${S.alpha}|${S.lines}|${TH.plane}|${TH.dark}|${pane.pw}x${pane.ph}|${vk}|${S.exactImages !== false && GLR.ok && GLR.inverseStatus ? GLR.inverseStatus(S.alpha, 'flat') === 'ready' : ''}`;
     if (card) { const tl = card.querySelector('.tlab'); if (tl) { const tt = kind === 'def' ? `t = ${I18N.num(t.toFixed(2))}` : ''; if (tl.textContent !== tt) tl.textContent = tt; } }
     if (pane.sig === sig) { if (card) card.classList.remove('stale'); return; }
     const hit = thumbCache.get(sig);
@@ -8343,6 +8343,16 @@
   // The legend's static part (ring, strip, words) is painted once per look into an offscreen canvas; a probe move
   // only blits it and draws the needle and the modulus tick, on the next frame (requestRender('G')).
   const WHEEL_RGB = WHEEL_STOPS.map((c) => GLR.hexRGB(c));
+  // the colour keys' colour of arg a (radians): the legend wheel's stops, or an Arb palette's colour at |F| = 1
+  function keyRGB(a) {
+    if (GLR.palette() !== 'wheel') return GLR.paletteRGB(a, 0);
+    const deg = ((a / DEG) % 360 + 360) % 360, f = deg / 30, k = Math.floor(f) % 12, t = f - Math.floor(f);
+    const c0 = WHEEL_RGB[k], c1 = WHEEL_RGB[(k + 1) % 12];
+    return c0.map((v, j) => v + (c1[j] - v) * t);
+  }
+  const keyHex = (a) => '#' + keyRGB(a).map((x) => Math.round(255 * x).toString(16).padStart(2, '0')).join('');
+  // the key as a CSS conic gradient: arg increasing counterclockwise from 1 (the folded legend chip, the header button)
+  const keyConic = () => `conic-gradient(from 90deg, ${Array.from({ length: 25 }, (_, i) => keyHex(-i * 15 * DEG)).join(', ')})`;
   const LEG = { W: 136, H: 72, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
@@ -8415,9 +8425,9 @@
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
-    if (kind && box.dataset.kind !== kind) {
-      box.dataset.kind = kind;
-      if (!box.style.getPropertyValue('--wheel')) box.style.setProperty('--wheel', `conic-gradient(from 90deg, ${[0, ...WHEEL_STOPS.map((_, i) => 12 - i).slice(1), 12].map((i) => WHEEL_STOPS[i % 12]).join(', ')})`);
+    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
+      box.dataset.kind = kind; box.dataset.pal = GLR.palette();
+      box.style.setProperty('--wheel', keyConic());
     }
     if (side === 'L') {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
@@ -8438,7 +8448,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, S.sectors, S.height, S.pattern, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, S.dc, GLR.palette(), S.sectors, S.height, S.pattern, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -8548,9 +8558,7 @@
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
     for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
-      const f = i / 30, k = Math.floor(f) % 12, t = f - Math.floor(f);
-      const c0 = WHEEL_RGB[k], c1 = WHEEL_RGB[(k + 1) % 12];
-      ctx.fillStyle = `rgb(${c0.map((v, j) => Math.round(255 * (v + (c1[j] - v) * t))).join(',')})`;
+      ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
     ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
@@ -8774,7 +8782,7 @@
     const add = (host, list) => {
       for (const it of list) {
         if (it === 'sep') { host.append(h('div', { class: 'msep', role: 'separator' })); continue; }
-        const ic = it.swatch ? `<span class="swatch" style="--c0:${it.swatch.c0};--c1:${it.swatch.alt};--k:${it.swatch.edge}"></span>` : it.icon ? ICONS[it.icon] || '' : '';
+        const ic = it.swatch ? `<span class="swatch" style="--c0:${it.swatch.c0};--c1:${it.swatch.alt};--k:${it.swatch.edge}"></span>` : it.iconHtml || (it.icon ? ICONS[it.icon] || '' : '');
         const b = h('button', { class: 'mi' + (it.danger ? ' danger' : '') + (it.kids ? ' has-sub' : ''), role: it.radio ? 'menuitemradio' : 'menuitem', 'aria-checked': it.radio ? String(!!it.checked) : null, disabled: it.disabled || null, 'aria-haspopup': it.kids ? 'menu' : null, 'data-tip': it.tip || null, 'aria-description': it.tip || null,
           onclick: (e) => {
             e.stopPropagation();
@@ -10503,6 +10511,7 @@
         [$t('Unit circle on or off'), () => $('unitChk').click(), ''],
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
+        ...(ql ? Palette.LIST.map(([id]) => [$t('Phase colours: {name}', { name: PAL_NAMES()[id][0] }), () => setPalette(id), '', 'palette, colours, colors, цвета, палитра, colori, arb, chrome']) : []),
         [$t('Region tools panel'), () => setPanels(!S.hideLeft, S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(S.hideLeft, !S.hideRight), ']'],
         // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
@@ -11367,11 +11376,7 @@
   // the colour key of a panel, when colour carries a value: arg F (phase), the stretch factor (Image, Stretch)
   function panelKey(side) {
     const stopsFrom = (f) => Array.from({ length: 25 }, (_, i) => [i / 24, f(i / 24)]);
-    const hueAt = (t) => { // t in [0, 1] -> arg from -pi to pi, colours of the legend wheel (OKLCH stops every 30 deg)
-      const deg = (((t * 360 - 180) % 360) + 360) % 360, f = deg / 30, i = Math.floor(f) % 12, u = f - Math.floor(f);
-      const a = GLR.hexRGB(WHEEL_STOPS[i]), b = GLR.hexRGB(WHEEL_STOPS[(i + 1) % 12]);
-      return '#' + a.map((x, j) => Math.round(255 * (x + (b[j] - x) * u)).toString(16).padStart(2, '0')).join('');
-    };
+    const hueAt = (t) => keyHex((2 * t - 1) * Math.PI); // t in [0, 1] -> arg from -pi to pi, colours of the legend wheel
     const Fn = side === 'L' && morphOn() && lPaintsF() ? 'H_t' : S.focus === 0 ? 'F' : focusDeriv() ? `w_{${S.focus}}` : `f_{${S.focus}}`;
     if (side === 'L' && lColor() && S.dc !== 'classic') return { title: `\\arg ${Fn}`, stops: stopsFrom(hueAt), ticks: [[0, '-\\pi'], [0.25, '-\\frac{\\pi}{2}'], [0.5, '0'], [0.75, '\\frac{\\pi}{2}'], [1, '\\pi']] };
     if (side === 'L' && lColor()) return { title: `|${Fn}|`, stops: [[0, '#000000'], [0.5, '#8a8f93'], [1, '#ffffff']], ticks: [[0, '0'], [0.5, '1'], [1, '\\infty']] };
@@ -11958,11 +11963,8 @@
     return { shapeList, shapeListGen, nShapes: vis.length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
       pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: S.height, phase: lPhase(), dc: S.dc, sectors: S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
   }
-  const hueBytes = (t) => { // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
-    const deg = (((t * 360 - 180) % 360) + 360) % 360, f = deg / 30, i = Math.floor(f) % 12, u = f - Math.floor(f);
-    const a = GLR.hexRGB(WHEEL_STOPS[i]), b = GLR.hexRGB(WHEEL_STOPS[(i + 1) % 12]);
-    return a.map((x, j) => Math.round(255 * (x + (b[j] - x) * u)));
-  };
+  // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
+  const hueBytes = (t) => keyRGB((2 * t - 1) * Math.PI).map((x) => Math.round(255 * x));
   const viewBoxOf = (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return panelBox(side, effW(side), real.h > 20 ? real.h : other.h); };
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
@@ -13328,11 +13330,9 @@
       ro.innerHTML = rk(vout, fmtCxHtml(w)) + rk(`|${vout}|`, fmtR(CX.abs(w)));
     }
   }
-  // the phase colour of w as a CSS colour (the legend wheel's stops, arg 0 = red at 1)
+  // the phase colour of w as a CSS colour (the legend wheel's, arg 0 = red at 1)
   function phaseCss(w) {
-    const a = ((Math.atan2(w.im, w.re) / DEG) % 360 + 360) % 360, f = a / 30, k = Math.floor(f) % 12, t = f - Math.floor(f);
-    const c0 = WHEEL_RGB[k], c1 = WHEEL_RGB[(k + 1) % 12];
-    return `rgb(${c0.map((v, j) => Math.round(255 * (v + (c1[j] - v) * t))).join(',')})`;
+    return `rgb(${keyRGB(Math.atan2(w.im, w.re)).map((v) => Math.round(255 * v)).join(',')})`;
   }
   // idle readouts show the scale; refreshed after every render when nothing is probed (the left readout keeps the
   // preimage count while the right plane is hovered)
@@ -13718,6 +13718,59 @@
       b.setAttribute('data-tip', $t('Theme: {name}', { name })); b.setAttribute('aria-label', $t('Theme: {name}', { name })); b.removeAttribute('title');
       const tl = b.querySelector('.tlabel'); if (tl) tl.textContent = name; // the markup already reads "Theme: "
     }
+  }
+  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.js): the
+  // wheel or one of Arb's color functions. The header's button opens a menu with a preview of each
+  const PAL_NAMES = () => ({
+    wheel: [$t('Wheel'), $t('The workbench\'s hue wheel: every phase equally bright')],
+    arb: ['Arb', $t('Arb\'s colours: hue from the phase, zeros black, poles white')],
+    arbPhase: [$t('Gold and blue'), $t('Arb\'s phase colours: white at arg 0, gold, black at ±π, blue')],
+    arbDodge: [$t('Arb blend'), $t('Arb\'s colours and its phase colours blended')],
+    chrome: [$t('Chrome'), $t('The Arb blend with a shiny colour balance')],
+    warm: [$t('Warm'), $t('The Arb blend with a warm colour balance')],
+    cold: [$t('Cold'), $t('The Arb blend with a cold colour balance')],
+    tomato: [$t('Tomato'), $t('The Arb blend with a red colour balance')],
+  });
+  function palPref() { try { const v = localStorage.getItem(lsk('cmw-palette')); return Palette.LIST.some((p) => p[0] === v) ? v : 'wheel'; } catch (e) { return 'wheel'; } }
+  // a disc whose |w| runs from 10^-3 at the centre to 10^3 at the rim, arg w the angle: the palette as Plain paints it
+  const palPreviews = new Map();
+  function palPreview(id) {
+    if (palPreviews.has(id)) return palPreviews.get(id);
+    const n = 40, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const x = cv.getContext('2d'), img = x.createImageData(n, n), mode = Palette.modeOf(id);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n * 2 - 1, v = 1 - (j + 0.5) / n * 2, rho = Math.hypot(u, v), o = 4 * (j * n + i);
+      if (rho > 1) continue;
+      const a = Math.atan2(v, u), c = mode < 0 ? GLR.phaseRGB(a, 0.75) : Palette.arb(mode, a, Math.pow(10, 6 * rho - 3));
+      img.data[o] = Math.round(255 * c[0]); img.data[o + 1] = Math.round(255 * c[1]); img.data[o + 2] = Math.round(255 * c[2]); img.data[o + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    const url = cv.toDataURL('image/png');
+    palPreviews.set(id, url);
+    return url;
+  }
+  // done: after a choice (the phone's More sheet relabels its row)
+  function palItems(done) {
+    const cur = GLR.palette(), names = PAL_NAMES();
+    const list = Palette.LIST.map(([id]) => ({ label: names[id][0], tip: names[id][1], radio: true, checked: cur === id, iconHtml: `<img class="pcol-prev" alt="" src="${palPreview(id)}">`, run: () => { setPalette(id); if (done) done(); } }));
+    list.menuLabel = $t('Phase colours'); list.focusChecked = true;
+    return list;
+  }
+  function setPalette(id) {
+    try { localStorage.setItem(lsk('cmw-palette'), id); } catch (e) { /* storage unavailable */ }
+    const changed = GLR.setPalette(id);
+    syncPalBtn();
+    if (!changed || !paneL) return;
+    drawLegend();
+    requestRender('L', 'R', 'T');
+  }
+  function syncPalBtn() {
+    const b = $('palBtn');
+    if (!b) return;
+    const name = PAL_NAMES()[GLR.palette()][0];
+    b.setAttribute('data-tip', $t('Phase colours: {name}', { name })); b.setAttribute('aria-label', $t('Phase colours: {name}', { name })); b.removeAttribute('title');
+    const pl = b.querySelector('.plabel'); if (pl) pl.textContent = name;
+    const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
   }
   function viewBox(v) {
     const w = paneL ? paneL.w : 500, hh = paneL ? paneL.h : 500;
@@ -16402,6 +16455,7 @@
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme
+    GLR.setPalette(palPref());
     readTheme();
     paneL = new Pane($('canvasL'), $('overlayL'));
     paneR = new Pane($('canvasR'), $('overlayR'));
@@ -16644,6 +16698,17 @@
       sndToggleCue(curTheme !== 'light');
     });
     setTheme(curTheme);
+    // Phase colors (issue 8): the palette menu, with a preview of each
+    const pb = $('palBtn');
+    if (pb) {
+      pb.setAttribute('aria-expanded', 'false');
+      pb.addEventListener('click', (e) => {
+        const pop = openMenu(e.currentTarget, palItems());
+        pb.setAttribute('aria-expanded', String(!!pop));
+        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { pb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
+      });
+      syncPalBtn();
+    }
     // the Language setting (device only): Auto, English, Русский, Italiano; a choice that changes the language reloads. The
     // globe button is page.html's; the menus and the palette reach the same items
     const lb = $('langBtn');
@@ -16830,6 +16895,7 @@
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
+      palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
       globeIcon: ($('langBtn') && $('langBtn').querySelector('svg') || {}).outerHTML || '',
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
       sound: (k) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on) } : null),

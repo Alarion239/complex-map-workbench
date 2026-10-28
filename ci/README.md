@@ -20,6 +20,7 @@ show results sooner and can be re-run alone).
 | GLSL on macOS, each page | 2–5 min |
 | GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: `direct,keys,compile` 34 min, its chains 2 min a quarter (see below) |
 | Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
+| Browser, each of the 23 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
 
 The `adv` page splits only its chains (`main`) into parts; its other sections (`direct`, `keys`, `compile`: 12-step
 chains and the largest shaders) run whole, so in parts they ran once per part (a quarter of the page took 33–48 min,
@@ -35,6 +36,7 @@ by two 34-minute jobs on Windows: the `inverse` page (one seeded sequence, not s
 | job | what |
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
+| **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build; their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
 | **GLSL** (Windows in 11 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
@@ -65,7 +67,9 @@ during a hover, a missing value or a timeout, a page error. Speed is gated with 
 frame, 0.90 × the frames per second) on our own machines, in the GPU gate.
 
 On the Mac with a GPU, quality is also gated against the committed baseline and goldens (`--absolute`), which were
-recorded on a Mac GPU.
+recorded on a Mac GPU, and the GLSL pages `glsl` and `inverse` must also pass outright (`--absolute glsl,inverse`).
+`adv` is paired only: it fails 304 values on the Mac, in 10 chains near removable singularities ((e^z − 1)/z,
+(1 − cos z)/z², a cancelled rational, twelve#0–2), as every release since v14 did.
 
 ### The phone
 
@@ -74,6 +78,41 @@ ratio 3 (the app's phone layout), touch input, and the page's main thread slowed
 GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, the deformation playing,
 loading examples (`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an
 approximation of a phone, not a phone.
+
+## Browser suites
+
+The functional suites in `test/*_cmd.js` (command files for the headless-Chrome daemon of `test/cdp_kit`) run in the
+**Browser** jobs on GitHub's Linux machines, on every pull request and every push to `main`. `ci/browser.js` builds
+the app, serves `dist/` on a free port, and runs each suite in a fresh copy of the daemon (its own Chrome and profile)
+pointed at that server (the kit's port in the copy's `cdpd.js`, and `CMW_PORT` / `CMW_BASE` for the suites that read
+them). It reads each suite's verdict from its result (`{ pass, fails }`, `{ pass, of }`), writes one summary row per
+suite, an error annotation per failing suite, and the results (JSON; a failing suite's screenshots) as the job's
+artifact.
+
+- **New suites run with no edit:** every `test/*_cmd.js` runs unless `ci/browser_suites.js` excludes it (each with
+  its reason: benchmarks, recorders and screenshot writers that give no verdict, suites another job runs, superseded
+  release smokes, and suites that need the GPU machines). One not listed in `ci/browser_shards.js` runs in the shard
+  `new`; move it to a shard once its time is known. The plan job checks that every suite is in exactly one shard.
+- **Timing is reported, not gated.** Speed is gated by the perf suite on our GPU machines; GitHub's machines render
+  WebGL in software (the browser jobs use Mesa's lavapipe, ANGLE's Vulkan back end on llvmpipe, which drew the app
+  2-4 times faster there than Chrome's own SwiftShader: frames of 0.15-0.6 s at 1440 x 900). A suite's timing checks
+  (BUDGET60 frame budgets, long tasks, the tour's 3 s advance to ±150 ms, …: `TIMING` in `ci/browser_suites.js`) are
+  listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
+  something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
+  Every other check gates.
+- **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
+  in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
+  a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
+  cause (no frame missed, t still moving, the program still compiling), is printed in the summary, and does not fail
+  the job; the GPU machines run the suites at full speed.
+- **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
+  long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
+  sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
+- **Extra pages:** the v16.2 and v16.3 test pages some suites compare with are built from their release commits
+  (`ci/reference.js`), and the published page is wrapped as a host serves it (`smk_pub.html`, the release smoke).
+- **Known failures** (`KNOWN` in `ci/browser_suites.js`): app bugs and open questions, each with its reason (and a
+  predicate where the check's name covers more than the bug), are printed in the summary and do not fail the job.
+  Fix the app, and remove the entry.
 
 ## Reading the results
 
@@ -108,6 +147,8 @@ node ci/glsl.js                                    # GLSL conformance in headles
 node ci/quality.js --ref origin/main               # image quality, paired against main (--shard 1/3 for a part)
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
+node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
+node ci/browser_shards.js check                    # every browser suite in exactly one shard
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
 ```
 
@@ -115,10 +156,11 @@ Settings (environment variables):
 
 | variable | meaning |
 |---|---|
-| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering) |
-| `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`) |
+| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
+| `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
 | `CMW_SPEED_SCALE` | scales the construction tests' absolute speed limits (set on the development Mac); CI uses 3 |
+| `CMW_PORT`, `CMW_BASE` | the server some browser suites open (`ci/browser.js` sets both to its own) |
 | `PYTHON` | the Python the scripts call (default `python3`; `python` on Windows) |
 
 ## Files
@@ -126,6 +168,7 @@ Settings (environment variables):
 | file | |
 |---|---|
 | `ci/unit.js` | all unit tests, one summary row each |
+| `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |

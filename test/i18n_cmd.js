@@ -4,8 +4,8 @@
 //      scrolls sideways, the top bar fits, and no element is clipped in Russian that is not clipped in English.
 //   2. No English left in the first screen and the header's menus at every width (test/i18n_scan.js). The full walk of
 //      every view, dialog and tour step is test/i18n_walk_cmd.js.
-//   3. The globe: in the bar at 768 px and up (v15.1, frame f6; before, folded into More below 1024); its menu Auto (resolved), English, Русский; the
-//      same rows in the palette ("язык", "language"). The secondary buttons are in the bar from 768 too.
+//   3. The globe: in the bar at 768 px and up (v15.1, frame f6; before, folded into More below 1024); its menu Auto (resolved), English, Русский,
+//      Italiano (bd48ab3 added Italian); the same rows in the palette ("язык", "language"). The secondary buttons are in the bar from 768 too.
 //   4. Switching round-trips: work, view, undo history and open panels come back, in both directions, through the UI.
 //   5. ЙЦУКЕН shortcuts through e.code; typing in a text field is never taken.
 //   6. Detection: a ru-RU browser gets Russian; ?ns= pages stay English; uk-UA stays English.
@@ -66,14 +66,14 @@ check('globe in the bar at 1440', await ev(`(() => { const b = document.getEleme
 check('globe labelled', (await ev(`document.getElementById('langBtn').getAttribute('aria-label')`)) === 'Язык: Авто');
 await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
 const items = await ev(`[...document.querySelectorAll('#popHost .menu .mi .mi-label')].map((e) => e.textContent)`);
-check('globe menu: Auto (resolved), English, Русский', JSON.stringify(items) === JSON.stringify(['Авто (English)', 'English', 'Русский']) || JSON.stringify(items) === JSON.stringify(['Авто (Русский)', 'English', 'Русский']), items);
+check('globe menu: Auto (resolved), English, Русский, Italiano', JSON.stringify(items) === JSON.stringify(['Авто (English)', 'English', 'Русский', 'Italiano']) || JSON.stringify(items) === JSON.stringify(['Авто (Русский)', 'English', 'Русский', 'Italiano']), items);
 const mrect = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
 check('globe menu inside the window', mrect && mrect.l >= 0 && mrect.r <= 1440 && mrect.t >= 0, mrect);
 await key('Escape'); await settle(200);
 for (const q of ['язык', 'language']) {
   await key('k', 4); await settle(300); await type(q); await settle(500);
   const rows = await ev(`[...document.querySelectorAll('.pal-item .pal-label')].map((e) => e.textContent).filter((t) => /^Язык:/.test(t))`);
-  check(`palette "${q}": the three Language rows`, rows.length === 3, rows);
+  check(`palette "${q}": the four Language rows`, rows.length === 4, rows);
   await key('Escape'); await settle(200);
 }
 // (v15.1, verify-6: from 768 to 1023 the bar follows frame f6, as from 1024: no More button; the globe and the
@@ -87,7 +87,7 @@ for (const w of [768, 900, 1023]) {
   check(`tablet ${w}: no More button; the globe and the secondary buttons in the bar, inside the window`, !st.more && st.inBar.length === 9 && st.over <= 0, st);
   await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
   const lm = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('.mi').length, l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
-  check(`tablet ${w}: the Language menu opens from the globe in the bar, inside the window`, lm && lm.n === 3 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
+  check(`tablet ${w}: the Language menu opens from the globe in the bar, inside the window`, lm && lm.n === 4 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);
   await key('Escape'); await settle(200);
 }
 for (const w of [1024, 1440]) {
@@ -107,11 +107,14 @@ for (const w of [1024, 1440]) {
   const snapOf = `JSON.stringify({ st: __cmwState(), hist: document.getElementById('undoBtn').disabled, cards: document.querySelectorAll('#pipeline .card').length, morph: !!document.getElementById('morphPlay'), right: document.getElementById('toggleRight').getAttribute('aria-pressed'), view: (() => { const o = JSON.parse(localStorage.getItem(__qa.key()) || 'null'); return o && JSON.stringify({ view: o.view, rightView: o.rightView, l: o.leftView || o.lview || null, shapes: o.shapes, steps: o.steps }); })() })`;
   // the saved work is written now (the switch writes it too); the same JSON must come back
   await ev(`document.getElementById('undoBtn').disabled, 1`);
-  const before = JSON.parse(await ev(snapOf));
+  // (reads it once the page has booted: after a load or a language switch, fixed sleeps ran out on a machine that draws
+  // in software, and the snapshot threw)
+  const snap = async () => { for (let i = 0; i < 300 && (await ev(`typeof __cmwState === 'function' && !!document.getElementById('undoBtn')`)) !== true; i++) await sleep(200); return JSON.parse(await ev(snapOf)); };
+  const before = await snap();
   await ev(`document.getElementById('langBtn').click(), 1`); await settle(400);
   await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((m) => m.textContent.includes('Русский')); b && b.click(); })()`);
   await sleep(4500); await settle(1500);
-  const after = JSON.parse(await ev(snapOf));
+  const after = await snap();
   check('switch en→ru: Russian after the reload', (await ev('I18N.lang')) === 'ru' && (await ev('document.documentElement.lang')) === 'ru');
   check('switch en→ru: the work and view come back', JSON.stringify(after.st) === JSON.stringify(before.st), { before: before.st && Object.keys(before.st).length, after: after.st && Object.keys(after.st).length });
   check('switch en→ru: chain, deformation and panels', after.cards === before.cards && after.morph && after.morph === before.morph && after.right === 'false' && after.right === before.right, { before: { cards: before.cards, morph: before.morph, right: before.right }, after: { cards: after.cards, morph: after.morph, right: after.right } });
@@ -120,21 +123,21 @@ for (const w of [1024, 1440]) {
   await ev(`document.getElementById('undoBtn').click(), 1`); await settle(1000);
   check('switch en→ru: undo undoes the step added before the switch', (await ev(`document.querySelectorAll('#pipeline .card').length`)) === before.cards - 1);
   await ev(`document.getElementById('redoBtn').click(), 1`); await settle(800);
-  const before2 = JSON.parse(await ev(snapOf));
+  const before2 = await snap();
   await ev(`document.getElementById('langBtn').click(), 1`); await settle(400);
   await ev(`(() => { const b = [...document.querySelectorAll('#popHost .menu .mi')].find((m) => m.textContent.startsWith('Авто')); b && b.click(); })()`);
   await sleep(4500); await settle(1500);
-  const after2 = JSON.parse(await ev(snapOf));
+  const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.cards === before2.cards && after2.morph === before2.morph);
-  // the phone (v15 phone layout: More is a sheet, Language a three-way switch in it): More → Русский
+  // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
   await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await settle(3500);
-  const b3 = JSON.parse(await ev(snapOf));
+  const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
   const pm = await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); if (!b) return null; const m = b.parentElement, r = m.getBoundingClientRect(); return { n: m.querySelectorAll('button').length, l: r.left, r: r.right, t: r.top }; })()`);
-  check('phone: the Language switch in the More sheet, inside the window', pm && pm.n === 3 && pm.l >= 0 && pm.r <= 390 && pm.t >= 0, pm);
+  check('phone: the Language switch in the More sheet, inside the window', pm && pm.n === 4 && pm.l >= 0 && pm.r <= 390 && pm.t >= 0, pm);
   await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); b && b.click(); })()`);
   await sleep(4500); await settle(1500);
-  const a3 = JSON.parse(await ev(snapOf));
+  const a3 = await snap();
   check('phone switch: Russian, same work', (await ev('I18N.lang')) === 'ru' && JSON.stringify(a3.st) === JSON.stringify(b3.st) && a3.cards === b3.cards, { cards: [b3.cards, a3.cards] });
   await ev(`I18N.setPref('auto'), 1`); await sleep(4000);
 }

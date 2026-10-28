@@ -114,7 +114,8 @@ const layers = [
   ['the Export dialog', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Export figure/.test(b.textContent)).click()`); await settle(1200); }, (s) => s.modal],
   ['the guide', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Reference guide/.test(b.textContent)).click()`); await settle(800); }, (s) => s.modal],
   ['the tour\'s chapter menu', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Guided tour/.test(b.textContent)).click()`); await settle(700); }, (s) => s.pop],
-  ['a plane\'s menu', async () => { await hold(150, 250, 700); }, (s) => s.pop],
+  // (issue #13: a plane's menu is an object's, here the line Im z = 0.8 of the first scene; held empty plane opens nothing)
+  ['a plane\'s menu', async () => { const p = await ev(`__cmwPlaneMenu().w2s('L', 1.5, 0.8)`); await hold(p[0], p[1], 700); }, (s) => s.pop],
 ];
 for (const [name, openIt, isOpen] of layers) {
   await openIt();
@@ -236,7 +237,8 @@ ok('UX40 More tools teaches the long press', /hold a finger/i.test(tip), tip);
 await ev(`Phone.close(true)`); await settle(200);
 await tap('#pipeline .card:not(.region-card)', 700);
 const zh = await ev(`(document.querySelector('.ph-sheet .zp-hint') || {}).textContent || ''`);
-ok('UX40 the zeros-and-poles editor teaches the long press', /hold a finger on X/i.test(zh), zh);
+// (issue #13: the long press is a mark's, "Drag a mark to move it; hold it for more.")
+ok('UX40 the zeros-and-poles editor teaches the long press', /hold it for more/i.test(zh), zh);
 await ev(`Phone.close(true)`); await settle(200);
 await ev(`Phone.open('more')`); await settle(500);
 const more = await ev(`({ text: document.querySelector('.ph-sheet[data-k="more"]').innerText, rows: [...document.querySelectorAll('.ph-sheet[data-k="more"] .ph-row')].map((r) => r.textContent.trim()) })`);
@@ -260,7 +262,9 @@ const z0 = await ev(`(() => { const p = window.__cmwPlaneMenu && __cmwPlaneMenu(
 await hold(z0[0], z0[1], 700);
 ok('UX49 a 700 ms tap on z₀ picks it, no menu', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : 0')) === 1, await ev('Construct.debug().draft && Construct.debug().draft.picks.length'));
 await hold(z0[0] + 120, z0[1] - 160, 700);
-ok('UX49 a long press on empty space still opens the menu', await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`));
+// (issue #13: a long press while drawing cancels the drawing, as Esc does, and opens no menu)
+// (as Esc: the picks and the picked curve go, the tool stays armed)
+ok('UX49 a long press on empty space cancels the construction and opens no menu (issue #13)', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('(() => { const d = Construct.debug().draft; return !d || (!d.picks.length && !d.curve1); })()')), await ev('Construct.debug().draft'));
 await key('Escape'); await settle(200);
 await grab();
 
