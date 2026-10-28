@@ -356,6 +356,18 @@ await touch(pc[0] - 60, pc[1]); await settle(600);
 await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Cancel/.test(b.textContent)).click()`); await settle(500);
 const cc = await ctxInfo();
 ok('D3 Cancel drops the polygon (the finished one is still the selection)', !cc || cc.k !== 'polygon', cc);
+// a construction: what to pick next, Undo pick, ×
+await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle(500);
+const k1 = await ctxInfo();
+ok('D3 a construction tool: the bar says what to pick (1 of 3), Undo pick waits, × is 44 px', k1 && k1.k === 'construct' && /Pick a point/.test(k1.text) && /1 of 3/.test(k1.text) && k1.btn.length === 2 && k1.btn[0].dis && k1.btn.every((x) => x.h >= 44 && x.w >= 44), k1);
+await touch(pc[0] - 60, pc[1] - 20); await settle(700);
+const k2 = await ctxInfo();
+ok('D3 after a pick: 2 of 3 and Undo pick is on', k2 && /2 of 3/.test(k2.text) && !k2.btn[0].dis, k2);
+await ev(`document.querySelector('.ph-ctx .ph-cb').click()`); await settle(500);
+ok('D3 Undo pick takes it back', /1 of 3/.test(((await ctxInfo()) || {}).text || ''), await ctxInfo());
+await ev(`document.querySelector('.ph-ctx .ph-cb.ico').click()`); await settle(500);
+const k3 = await ctxInfo();
+ok('D3 × lets the tool go (the bar is the selection\'s again)', !k3 || k3.k !== 'construct', k3);
 } catch (e) { fails.push({ name: 'D3 threw', got: String(e.stack).slice(0, 600) }); }
 await ev(`document.querySelector('#secDraw .tool[data-tool="select"]').click()`); await settle(200);
 

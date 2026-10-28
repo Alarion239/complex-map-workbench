@@ -2996,5 +2996,8 @@
  "Chapters": "Capitoli",
  "Edit": "Modifica",
  "Last": "Ultimo",
- "Listening along the curve": "Ascolto lungo la curva"
+ "Listening along the curve": "Ascolto lungo la curva",
+ "Undo pick": "Annulla selezione",
+ "Used by {n}": "Usato da {n}",
+ "Delete {label} and the {n} that use it": "Elimina {label} e i dipendenti ({n})"
 }

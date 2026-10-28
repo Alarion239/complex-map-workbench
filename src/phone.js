@@ -357,15 +357,19 @@ const Phone = (() => {
     const text = (title, sub) => h('div', { class: 'ph-ct' }, h('span', { class: 'ph-ctn' }, title), sub ? h('span', { class: 'ph-cts' }, sub) : null);
     let kids = [];
     if (st && st.kind === 'shape') {
-      kids = [text(st.name, st.def),
+      kids = [text(st.name, st.used ? st.def + ' · ' + $t('Used by {n}', { n: st.used }) : st.def),
         btn('prim', $t('Edit'), () => open('tools', { tab: 'shapes', edit: st.id })),
-        btn('', $t('Delete'), () => A.ctxAct('delete', st.id)),
+        btn('', $t('Delete'), () => A.ctxAct('delete', st.id), st.used ? { 'aria-label': $t('Delete {label} and the {n} that use it', { label: st.name, n: st.used }) } : {}),
         btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu' })];
     } else if (st && st.kind === 'polygon') {
       kids = [text($t('Polygon'), String(st.n)),
         btn('', '⌫ ' + $t('Last'), () => A.ctxAct('last')),
         btn('prim', $t('Done'), () => A.ctxAct('done'), st.n < 3 ? { disabled: true } : {}),
         btn('', $t('Cancel'), () => A.ctxAct('cancel'))];
+    } else if (st && st.kind === 'construct') {
+      kids = [text(st.text),
+        btn('', '⌫ ' + $t('Undo pick'), () => A.ctxAct('undopick'), st.undo ? {} : { disabled: true }),
+        btn('ico', '×', () => A.ctxAct('xcancel'), { 'aria-label': $t('Cancel') })];
     } else if (st && st.kind === 'listen') {
       kids = [text($t('Listening along the curve')), btn('prim', $t('Stop'), () => A.ctxAct('stop'))];
     }

@@ -181,5 +181,8 @@
  "Chapters": "Главы",
  "Edit": "Изменить",
  "Last": "Последняя",
- "Listening along the curve": "Слушаем вдоль кривой"
+ "Listening along the curve": "Слушаем вдоль кривой",
+ "Undo pick": "Отменить выбор",
+ "Used by {n}": "Используется: {n}",
+ "Delete {label} and the {n} that use it": "Удалить {label} и зависимые от неё объекты ({n})"
 }
