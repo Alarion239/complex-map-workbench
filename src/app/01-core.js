@@ -429,6 +429,9 @@
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
     if (S.homRange) HR.resolve(S, true);   // (v16: the bracket's indices current, SPEC 7)
+    // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
+    // numbers, so the saved work comes back as it was written)
+    numberPoints();
     const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
     // (v15.1: the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
