@@ -94,64 +94,38 @@ with the wrong size, where the truth is nonzero. Every case above 10 ulp was che
 So the CPU maths needs precision in five known places, and a double-precision fix exists for each: `log1p`, small-|z|
 series, factored forms. None of these needs ball arithmetic at runtime.
 
-## Fixed (the precision follow-up)
+## Fixed, and waiting (the precision follow-up)
 
-The five places are fixed in `src/cx.js` and `src/funcs.js`, and `test/t_arb_reference.js` gates every step against
-`reference.json` with a normwise and a per-component limit that only tighten:
+The CPU and the GPU must agree: the GLSL conformance pages (ci/glsl.js) compare the shaders with `cx.js` and
+`funcs.js`, so a CPU formula changes only together with its GLSL twin, and only where the twin can change the same way
+cheaply and safely on Direct3D 11 and Metal. A first attempt fixed all five places on the CPU alone; the paired GLSL
+pages then counted more GPU-vs-CPU mismatches (a twelve-step chain of the inverse functions: 32 failed values against
+12), so four of the five were taken back.
 
-- **log near |z| = 1**: Re log z = log|z| as ½ log1p(|z|² − 1) with |z|² − 1 summed error-free (twoProd, twoSum).
-- **The inverse functions at small arguments**: a complex `log1p` (`CX.log1p`) for asin, atan and acosh near their
-  zero; acos near 1 as 2 asin √((1 − z)/2); Im atan z as ¼ log1p(4y / (x² + (1 − y)²)) where that ratio is small; and
-  just off the real segment (or the imaginary axis) the first-order form f(x) + i y f′(x), exact to double there.
-- **Cancellation near zeros**: compensated Horner (`CX.polyEvalComp`) for the polynomial and rational steps;
-  Joukowski as ½ (x (1 + 1/r²), y (1 − 1/r²)) with r² − 1 summed error-free (`CX.jouk`).
-- **The small part next to a cut**: `powReal` takes the angle as a multiple of π/2 plus a remainder computed from the
-  components, so the root and power steps keep the tiny component next to their cut.
-- No cut side changed (a differential test of every function over a grid with ±0 on the axes against the old code).
-- The reference now raises the precision where one component is far below the other (it had certified a Re of
-  ~1e-300 at 256 bits that only 1024 bits resolve): all 1020 values certify.
+**Fixed, on both:** the small part of a power next to its cut (finding 5). `CX.powReal` and the GPU's `cpowr` take
+the angle as whole quarter turns plus a remainder from the component ratio, with exact cos and sin of the quarter
+turns: √ and z^1.5 keep their tiny component next to the cut, and √(−1) is exactly −i.
 
-Against the same reference, before → after (bold: changed):
+**Waiting for a float log1p and an error-free product on the GPU** (WebGL2 has neither `log1p` nor `fma`, and a
+shader compiler may fuse a Dekker split into an fma, which breaks it); each was written and measured on the CPU, then
+reverted:
 
-| step | normwise before → after (ulp) | per component before → after (ulp) |
-|---|---|---|
-| mul | 0.0 | 0.0 |
-| add | 0.6 | 0.6 |
-| affine | 0.5 | 0.5 |
-| recip | 1.0 | 1.0 |
-| mobius | 1.0 | 5.0e+17 |
-| blaschke | 1.0 | 2.3e+7 |
-| pown | 0.5 | 0.7 |
-| root | **0.7 → 0.9** | **2.8e+299 → 1.1** |
-| powa | **3.3 → 1.2** | **2.8e+299 → 3.8** |
-| exp | 0.9 | 1.0 |
-| log | **1.6e+7 → 0.8** | **4.5e+15 → 0.9** |
-| sin | 1.0 | 1.4 |
-| cos | 0.6 | 0.9 |
-| tan | 1.4 | 1.7 |
-| sinh | 0.9 | 1.0 |
-| cosh | 0.8 | 1.1 |
-| tanh | 0.7 | 1.6 |
-| arcsin | **4.0e+11 → 32** | **4.5e+15 → 1.1e+6** |
-| arccos | **1.1e+6 → 1.0** | **4.5e+15 → 2.5e+11** |
-| arctan | **1.5e+11 → 0.7** | **4.5e+15 → 1.0** |
-| arsinh | **4.5e+15 → 32** | **4.5e+15 → 1.1e+6** |
-| arcosh | **16701 → 1.1** | **4.5e+15 → 4.0e+8** |
-| artanh | **4.5e+15 → 0.9** | **4.5e+15 → 1.3** |
-| joukowski | **2.5e+8 → 1.0** | **4.5e+15 → 1.7** |
-| ijouk | 0.8 | 1.3e+11 |
-| conj | 0.0 | 0.0 |
-| poly | **2.3e+6 → 0.0** | **1.5e+15 → 0.0** |
-| rational | **2.3e+6 → 0.8** | 4.5e+15 |
-| zp | 1.3 | 4.5e+15 |
-| custom | 1.2e+8 | 1.7e+8 |
+- **log near |z| = 1**: Re log z = ½ log1p(|z|² − 1), |z|² − 1 summed error-free (normwise 1.6e7 → 0.8 ulp).
+- **The inverse functions at small arguments**: a complex log1p for asin, atan and acosh near their zero; acos near 1
+  as 2 asin √((1 − z)/2); Im atan z as ¼ log1p(4y / (x² + (1 − y)²)) where that ratio is small (arcsin 4e11 → 32,
+  arctan 1.5e11 → 0.7, artanh 4.5e15 → 0.9 ulp).
+- **Just off the real segment** (or the imaginary axis): f(x) + i y f′(x), exact to double there. Cheap on the GPU
+  (GLSL ES 3.0 has the real inverse functions), but it changes the side small noise lands on in long chains, which
+  the twelve-step chain counted; it should come with the rest.
+- **Compensated Horner** for the polynomial and rational steps (poly 2.3e6 → 0.0 ulp): its twin needs an error-free
+  product in float.
+- **Joukowski** with r² − 1 summed error-free (2.5e8 → 1.0 ulp); the factored (z − i)(z + i)/(2z) would be cheap on
+  both and fixes the normwise loss, if wanted on its own.
 
-Left as they are (each has a large per-component limit in the test): a Möbius map's or a rational's tiny component
-near the unit circle (normwise 1 ulp), asin and asinh next to their branch points (normwise 32 ulp), acos just off
-x > 1, acosh's tiny Re near 0, and `custom` (the formula parser's own z² + 1/z, 1.2e8 normwise near −1). The GLSL
-twins of log, asin, atan, acosh and the real power (`src/glsl.js` clog, cx_asin0, catan, cacosh, cpowr) have the same
-cancellations in float32; their fixes need log1p and an error-free product without fma in WebGL2, so they are a GLSL
-change of their own.
+`test/t_arb_reference.js` gates every step against `reference.json` with limits that only tighten: today's numbers,
+the five above included, so a change that makes any step worse fails, and each fix above lowers its limits.
+The reference now raises the precision where one component is far below the other (it had certified a Re of
+~1e-300 at 256 bits that only 1024 bits resolve): all 1020 values certify.
 
 ## Speed (measured, this container, one core)
 

@@ -1387,8 +1387,7 @@ const Funcs = (() => {
   def({
     id: 'joukowski', group: $t('Special'), label: $t('Joukowski'), menuTex: '\\tfrac12\\left(z+\\tfrac1z\\right)', params: [],
     build() {
-      // (CX.jouk: z + 1/z cancelled near the zeros ±i, 2.5e8 ulp there, notes/arb/FINDINGS.md)
-      const f = (z) => CX.jouk(z);
+      const f = (z) => CX.scale(CX.add(z, CX.inv(z)), 0.5);
       return {
         f, hom: ends(f, joukHom), nat: { kind: 'jouk' }, homTex: joukTex,
         tex: (a) => ({ s: `\\frac{1}{2}\\left(${a.s}+\\frac{1}{${a.s}}\\right)`, p: 1 }),
@@ -1438,8 +1437,7 @@ const Funcs = (() => {
       const c = CX.polyTrim(co);
       const d = c.length - 1;
       const P = d === 0 ? CONSTANT : props({ analytic: true, entire: true, rational: true, polynomial: true, proper: true, injective: d === 1, mobius: d === 1, deg: d, degExact: true });
-      // (compensated Horner: near its roots a polynomial keeps its digits)
-      const f = (z) => CX.polyEvalComp(c, z);
+      const f = (z) => CX.polyEval(c, z);
       const nat = d >= 1 ? polyNat(c, f) : null;
       return {
         f, hom: nat ? nat.hom : linHom(f), homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (a constant has no natural path)', { v }), segment: true }),
@@ -1456,7 +1454,7 @@ const Funcs = (() => {
       const p0 = p, q0 = q;
       p = CX.polyTrim(p); q = CX.polyTrim(q);
       const dp = p.length - 1, dq = q.length - 1;
-      const f = (z) => CX.div(CX.polyEvalComp(p, z), CX.polyEvalComp(q, z));
+      const f = (z) => CX.div(CX.polyEval(p, z), CX.polyEval(q, z));
       if (q.length === 1 && CX.isZero(q[0])) throw new Error($t('Denominator is zero'));
       const pZero = p.length === 1 && CX.isZero(p[0]);
       let coprime = false, poles = [];
