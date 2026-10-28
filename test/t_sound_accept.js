@@ -123,7 +123,9 @@ function clickScore(o) {
   return { worst, at };
 }
 
-(async () => {
+// (required as a module, by a harness outside the repo: the sandbox, the synth and the measures, without the run)
+module.exports = { H, play, windows, clickScore, peakOf, finite, dbfs, FS };
+if (require.main === module) (async () => {
   async function engine(glide) {
     const E = H.makeEnv({ worklet: true }), S = E.Sound;
     S.set({ on: true, sonify: true, events: true, glide }, { quiet: true });
