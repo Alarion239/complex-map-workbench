@@ -240,6 +240,26 @@
     if (!ok || !land || !land.key) return null;
     return { key: land.key, h: lwRead(land.tex1, n, n), e: land.cuts > 0 ? land.edges.map((t) => lwRead(t, n, n)) : null, cuts: land.cuts };
   }
+  // GLR.landHeld(): the bytes of the landscape textures held now, by kind (the scratch textures of a pass, freed at rest,
+  // are counted apart by number)
+  function lwHeld() {
+    const by = { heights: 0, edges: 0, levels: 0, list: 0, refined: 0, sheets: 0 }, scratch = { n: 0 };
+    const own = (o, sheet) => {
+      if (!o) return;
+      const N = o.N || 0;
+      if (o.tex1) by[sheet ? 'sheets' : 'heights'] += N * N * 16 * (o.tex2 ? 2 : 1);
+      if (o.edges) for (const t of o.edges) if (t) by.edges += N * N * 16;
+      if (o.lvTex && o.lvDim) by.levels += ((o.lvDim + 3) >> 2) * o.lvDim * 16;
+      if (o.lstTex && o.lstRows) by.list += 1024 * o.lstRows * 4;
+      if (o.rfTex && o.rfRows) by.refined += RF_W * o.rfRows * 16;
+      for (const k of ['latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) scratch.n++;
+      if (o.nb) own(o.nb, sheet);
+    };
+    for (const [n, l] of lands) if (n !== 64) own(l, false);   // (the stage cards' small grid is not the pane's)
+    own(landS, true);
+    const total = Object.values(by).reduce((a, b) => a + b, 0);
+    return { total, by, scratch: scratch.n };
+  }
   // GLR.landRefine(read, n): {land} of the n grid's refinement, null before one is built; read: with the vertex
   // records, the levels (a quarter of a float per cell, in lv) and the heights (h) read back
   function lwRefine(read, n) {
@@ -727,6 +747,14 @@
     // (at rest, built: the passes' scratch textures go, the lattice's, the points' and their values, up to ~30 MB at
     // the Max mesh after a play; they are made again when something moves, r3 review speed-4)
     if (!move && !rf.full) freeScratch(land);
+  }
+  // The pane's Landscape is not on the screen (the app calls this from each frame of the left pane that draws another view):
+  // its refinement goes with its textures and buffers, ~47 MB after a play at the default mesh against the heights' 8 MB
+  // (issue #50). The heights stay; the refinement is built again, as at a first open, when Landscape comes back. The
+  // stage cards' small grid (64) is left alone
+  function landRelease() {
+    for (const [n, l] of lands) if (n !== 64 && (l.lvTex || l.rbBuf)) { rfFree(l); freeScratch(l); }
+    if (landS && (landS.lvTex || landS.rbBuf)) { rfFree(landS); freeScratch(landS); }
   }
   function freeScratch(o) {
     for (const k of ['latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) { gl.deleteTexture(o[k]); o[k] = null; }

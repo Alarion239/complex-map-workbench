@@ -82,6 +82,8 @@
   function renderLeft() {
     const pane = paneL;
     pane.setView(leftView());
+    // (Landscape is not on this pane now: its refinement's textures go, issue #50)
+    if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
     // X Plane + Phase: the phase portrait of the map in focus (U-b; earlier the right pane's Phase view)
     // (its shapes outlined, the target preimages, the points and the editable cuts drawn over it, as in X Plane)
     if (lColor()) { leftSphereInfo = null; cutHandlesL = renderColor(pane) || []; if (hasTargets()) { updateRoots(); drawRoots(pane); } return; }
