@@ -5,10 +5,13 @@ Open http://localhost:8793/gl-test.html (optionally ?theme=dark, ?only=grid|patt
 Results (pixel comparisons, timings, errors) are in window.__glTest and in the <pre id="out"> block.
 """
 import pathlib
+import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root))
+from tools.src_parts import source  # noqa: E402  (gl.js is joined from src/gl/, as build.py does)
 src = root / 'src'
-parts = [(src / f).read_text() for f in ['cx.js', 'parse.js', 'funcs.js', 'glsl.js', 'region.js', 'palette.js', 'gl.js']]
+parts = [source(f, src) for f in ['cx.js', 'parse.js', 'funcs.js', 'glsl.js', 'region.js', 'palette.js', 'gl.js']]
 parts.append((root / 'test' / 'gl_test.js').read_text())
 js = '\n'.join(parts).replace('</script', '<\\/script')
 html = f"""<!doctype html>

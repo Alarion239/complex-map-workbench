@@ -5,7 +5,8 @@
 // zeros-and-poles and derivative messages, the parser's messages, inverses and derivatives, the relation classifier,
 // region shapes (labels and TeX), curve notes and errors, the integrals' errors, and the number formatters.
 'use strict';
-const fs = require('fs'), vm = require('vm'), path = require('path');
+const vm = require('vm'), path = require('path');
+const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does; a snapshot holds it whole)
 const ROOT = path.join(__dirname, '..');
 const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
 const MODS = ['cx', 'parse', 'funcs', 'inverse', 'calc', 'glsl', 'region', 'curves'];
@@ -13,11 +14,11 @@ const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', cal
 function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
-  for (const f of files) vm.runInContext(fs.readFileSync(path.join(dir, f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+  for (const f of files) vm.runInContext(source(f + '.js', dir) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
 // gl.js's friendly() is not exported: its body is taken from the source and run in each context
-const friendlySrc = (dir) => /function friendly\(err\) \{[\s\S]*?\n {2}\}/.exec(fs.readFileSync(path.join(dir, 'gl.js'), 'utf8'))[0];
+const friendlySrc = (dir) => /function friendly\(err\) \{[\s\S]*?\n {2}\}/.exec(source('gl.js', dir))[0];
 
 // the probe: runs in a context, returns [label, value] pairs (value: a string, or JSON of a structure)
 function probe(ctx, dir) {
@@ -143,7 +144,7 @@ const ruCtx = (() => {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
   for (const f of ['i18n', 'i18n_ru', ...MODS]) {
-    vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+    vm.runInContext(source(f + '.js', path.join(ROOT, 'src')) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   return ctx;

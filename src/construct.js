@@ -40,7 +40,7 @@ const Construct = (() => {
   let moveChipShown = false;
   let gestSnap = null;     // a drawing gesture's snaps: {start, end} targets
   let rail = null;         // [v16.5 rail] a point sliding on its curve: {side, pc, ink, stretch: {a, b, k} | null}
-  let freeChip = null;     // [v16.5 rail] "z₂ is free" by the point for 1.2 s after a pull: {side, id, text, until}
+  let freeChip = null;     // a chip by a point for 1.2 s ("z₂ is free" after a pull, "built from … drag those"): {side, id, text, until, Z}
   const pcache = new Map();
 
   // ---------------------------------------------------------------- small helpers
@@ -821,7 +821,8 @@ const Construct = (() => {
     // [v16.5 rail SPEC 2.4] a meet point (a crossing the Point tool or a snap made, Intersect's): its rail is one place
     if (s.kind === 'point' && s.def && s.def.op === 'meet') return railDrag(d, pane, side, Z);
     if (s.kind === 'point' && s.def) {
-      if (!d.cmWarned) { d.cmWarned = true; lastToast = A.toast($t('{x} is built from {y}: drag those', { x: shapeLabel(s), y: rootsText(s) })); }
+      // the reason by the point being dragged, where the user is looking
+      if (!d.cmWarned) { d.cmWarned = true; pointChip(side, s.id, $t('{x} is built from {y}: drag those', { x: shapeLabel(s), y: rootsText(s) })); }
       return true;
     }
     let roots = null;
@@ -838,7 +839,7 @@ const Construct = (() => {
     d.cm = 'pan';
     if (!moveChipShown) {
       moveChipShown = true;
-      lastToast = A.toast($t('Built on {x}: drag those, or Make free', { x: rootsText(s) || shapeLabel(s) }));
+      pointChip(side, s.id, $t('Built on {x}: drag those, or Make free', { x: rootsText(s) || shapeLabel(s) }), [d.z0.re, d.z0.im]);
     }
     return 'pan';
   }
@@ -909,10 +910,16 @@ const Construct = (() => {
     s.p = Z.slice();
     d.cmFree = true; d.moved = true;
     d.fd = { p0: Z.slice(), z0: Z.slice(), ex: null };
-    const until = performance.now() + 1200;
-    if (!d.cmGlobe) freeChip = { side, id: s.id, text: $t('{x} is free', { x: pointName(s) }), until };
-    setTimeout(() => { if (freeChip && freeChip.until === until) { freeChip = null; A.requestRender('OL', 'OR'); } }, 1250);
+    if (!d.cmGlobe) pointChip(side, s.id, $t('{x} is free', { x: pointName(s) }));
     A.cue('detach');
+  }
+  // a chip by a point for 1.2 s ("z₂ is free", "m is built from z₀, z₁: drag those"); at Z (world) when the shape is
+  // not a point: there the pressed spot, which a pan keeps under the pointer
+  function pointChip(side, id, text, Z) {
+    const until = performance.now() + 1200;
+    freeChip = { side, id, text, until, Z: Z || null };
+    A.requestRender('OL', 'OR');
+    setTimeout(() => { if (freeChip && freeChip.until === until) { freeChip = null; A.requestRender('OL', 'OR'); } }, 1250);
   }
   // a free point's drag (1.2): onto a crossing, a curve (a display curve too), a zero or a handle, or the grid; a point
   // shape there gets the warn ring and no snap (no merging, C22). What is drawn is where it lands. Alt or Snap off: raw
@@ -1092,10 +1099,11 @@ const Construct = (() => {
   // at the bottom of the window); where no chip is shown, a toast. A tool change clears both
   // (wave 1 merge: the refusals say Tap on a touch screen, Click with a mouse, as the phone piece's UX17 asked of the
   // plane piece's lines; chipTouch() is the chip's own test)
-  // ([v16.5 fix rail-7] it goes as soon as a pick is taken, the draft is backed up or cancelled, or Esc; [rail-8] the tool
-  // is named by the chip's own word for it, chipTool)
+  // ([v16.5 fix rail-7] it goes as soon as a pick is taken, the draft is backed up or cancelled, or Esc; [rail-8] the
+  // refusal names the tool in full, warnTool, even where a narrow chip's label is the short one: "3 points needs distinct
+  // points" reads as nonsense)
   function pickOk() { if (pickWarnMsg) { pickWarnMsg = null; clearTimeout(pickWarnT); A.requestRender('OL', 'OR'); } }
-  const chipTool = (tool) => ((chipNarrow[chipSide() || 'L'] || chipTouch() ? toolShort(tool) : toolName(tool)) || '').replace(/\u00ad/g, '');
+  const warnTool = (tool) => (toolName(tool) || '').replace(/\u00ad/g, '');
   function pickWarn(msg) {
     if (!chipSide()) { lastToast = A.toast(msg); return; }
     pickWarnMsg = msg;
@@ -1167,7 +1175,7 @@ const Construct = (() => {
     // a co-argument pick: distinct points only ([v16.5 rail SPEC 3.2] a press on an earlier pick; two places on one curve
     // are two points)
     if (dupPick(t)) {
-      pickWarn($t('{x} needs distinct points', { x: chipTool(tool) }));   // ([v16.5 UX52] in the chip, by the pointer)
+      pickWarn($t('{x} needs distinct points', { x: warnTool(tool) }));   // ([v16.5 UX52] in the chip, by the pointer)
       setRing(side, t, true);   // ([v16.5 fix rail-7] the chip says it now; the ring only warns, without a second label)
       return true;
     }
@@ -1534,7 +1542,7 @@ const Construct = (() => {
     // ([v16.5 fix rail-5] a pick on a drawn curve is a point on it, as on the plane: the construction is exact on it)
     if (!best && !altNow()) best = globeCurveAt(side, gp.g, x, y, gp.gc, gp.hit);
     if (!best) { if (!gp.g.z) return true; best = { cls: 'free', z: [gp.g.z.re, gp.g.z.im], ref: null }; }
-    if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: chipTool(tool) })); return true; }   // ([v16.5 UX52])
+    if (dupPick(best)) { pickWarn($t('{x} needs distinct points', { x: warnTool(tool) })); return true; }   // ([v16.5 UX52])
     draftC.picks.push(best); pickOk();
     if (draftC.picks.length >= NEED[tool]) finish(side); else A.requestRender('OL', 'OR');
     return true;
@@ -1808,11 +1816,11 @@ const Construct = (() => {
     // ghost dot at the pointer
     if (rail && rail.side === side) drawRail(pane, ctx, TH);
     if (freeChip && freeChip.side === side) {
-      const p = find(freeChip.id);
+      const p = find(freeChip.id), at = freeChip.Z || (p && isXY(p.p) ? p.p : null);
       // (one chip row higher when the ring's chip shows too: the freed point dragged over a curve or a lattice point says
       // both, "z₂ is free" above "on the real axis")
       const dy = ring && ring.side === side && !ring.held && ring.chip ? 26 : 0;
-      if (p && isXY(p.p) && performance.now() < freeChip.until) { const [fx, fy] = pane.w2sxy(p.p[0], p.p[1]); ctx.save(); drawChip(pane, ctx, TH, fx, fy - dy, 11, freeChip.text, touchNow(), false); ctx.restore(); }
+      if (at && performance.now() < freeChip.until) { const [fx, fy] = pane.w2sxy(at[0], at[1]); ctx.save(); drawChip(pane, ctx, TH, fx, fy - dy, 11, freeChip.text, touchNow(), false); ctx.restore(); }
     }
     if (!ring || ring.side !== side || ring.held) return;
     const [x, y] = pane.w2sxy(ring.z[0], ring.z[1]);
@@ -2119,7 +2127,7 @@ const Construct = (() => {
       }
       draftC.hover = t ? t.z.slice() : [z0.re, z0.im];
       // ([v16.5 fix rail-7] one message: once the press was refused the chip says it, and the ring by the pointer only warns)
-      if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: chipTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
+      if (dupPick(t)) { const w = $t('{x} needs distinct points', { x: warnTool(tool) }); setRing(side, t, pickWarnMsg === w ? true : w); return; }
       if (t && tool === 'meet' && t.cls === 'point') t = snapAt(side, x, y, { points: false, cross: true, curves: true });
       if (t && tool === 'meet' && t.cls === 'curve' && !t.ref) t = null;   // ([v16.5 rail] Intersect takes a display curve's crossings, not the curve)
       if (t && t.ref && t.ref.img && !A.yWhole()) { setRing(side, t, $t('Draw in X to use {x}', { x: pointName(find(t.ref.img)) })); return; }

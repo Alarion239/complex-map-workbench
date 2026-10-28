@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // homrange.js: the deformation's arithmetic (notes/deform-range/SPEC.md 3.1), pure (no DOM), so the node tests run the
 // shipped code. The chain is f_1 … f_n with f_1 acting first; a bracket a…b (S.homRange) deforms the steps a…b while
@@ -9,7 +10,7 @@
 (function (root, factory) {
   const M = factory();
   if (typeof module === 'object' && module.exports) module.exports = M;
-  else root.HomRange = M;
+  else /** @type {any} */ (root).HomRange = M;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   function make(env) {
     const C = env.C;
@@ -76,7 +77,7 @@
     function write(S, r) {
       const n = N(), ua = r.a === 1 ? null : uidOf(S, r.a), ub = r.b === n ? null : uidOf(S, r.b), h = S.homRange;
       // (the same setting keeps its object: no garbage on every read)
-      if (h && typeof h === 'object' && h.a === r.a && h.b === r.b && h.ua === ua && h.ub === ub && Object.keys(h).length === 2 + (ua !== undefined) + (ub !== undefined)) return;
+      if (h && typeof h === 'object' && h.a === r.a && h.b === r.b && h.ua === ua && h.ub === ub && Object.keys(h).length === 2 + Number(ua !== undefined) + Number(ub !== undefined)) return;
       const o = { a: r.a, b: r.b };
       if (ua !== undefined) o.ua = ua;
       if (ub !== undefined) o.ub = ub;

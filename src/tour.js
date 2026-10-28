@@ -1028,7 +1028,6 @@ const Tour = (() => {
     document.head.append(el('style', { id: 'tourCSS' }, CSS));
   }
   const ICON_X = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-  const ICON_UP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>';
   const ICON_LEFT = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>';
   const ICON_DOWN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
   const ICON_RIGHT = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
@@ -1157,9 +1156,6 @@ const Tour = (() => {
     return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, title, count, wl, l2, ringI, tin, lead, act, next, x, why, wtitle, body, note, autoC, wBack, wEnd, prog, safeP,
       holes: null, raf: 0, anim: null, motion: 0, topSet: [], hosts: new Map(), hostOk: new Map(), work: [], moveT: 0, mode: null, whyOpen: false };
   }
-  function safeArea(ui) {
-    try { const cs = getComputedStyle(ui.safeP); return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; } catch (e) { return { t: 0, r: 0, b: 0, l: 0 }; }
-  }
 
   // ---------------------------------------------------------------- the app's layers
   // What the user can open over the app: its popovers (#popHost: the palette, menus, the integral popover, the
@@ -1178,18 +1174,6 @@ const Tour = (() => {
     // it is lit, not kept clear, and its rings are not masked off)
     const lit = run && run.el && run.el.isConnected ? run.el : null;
     return [...els].filter((e) => e && e.closest && !e.closest('[data-tour="root"], [data-tour="top"]') && visible(e) && !(lit && e.contains(lit)));
-  }
-  // the controls of the open layers (a docked callout over a full-screen dialog keeps off them)
-  function layerControls() {
-    const out = [];
-    for (const k of layerEls()) {
-      for (const c of k.querySelectorAll('button, input, select, textarea, a[href], summary, [role="button"], [role="option"], [role="menuitem"], [tabindex]:not([tabindex="-1"])')) {
-        const b = c.getBoundingClientRect();
-        if (b.width > 1 && b.height > 1) out.push({ l: b.left, t: b.top, r: b.right, b: b.bottom });
-        if (out.length > 300) return out;
-      }
-    }
-    return out;
   }
   function appLayers() {
     return layerEls().map((e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, rad: radii(e) }; });
@@ -2258,7 +2242,7 @@ const Tour = (() => {
       // scrolls first, so the whole target shows when it fits
       if (panelsReveal(target) | ctlsReveal()) await frames(1);
       // the lit area: the anchor, and its second lit element when both can be brought in
-      let b = target.getBoundingClientRect();
+      const b = target.getBoundingClientRect();
       const box = { top: b.top, bottom: b.bottom };
       for (const e of also) { const q = e.getBoundingClientRect(); box.top = Math.min(box.top, q.top); box.bottom = Math.max(box.bottom, q.bottom); }
       const band = freeBand(), room = band.bot - band.top - 16;
@@ -2644,14 +2628,6 @@ const Tour = (() => {
     const dx = outX ? (b.left < l ? b.left - l - m : b.right - rr + m) : 0, dy = outY ? (b.top < t ? b.top - t - m : b.bottom - bb + m) : 0;
     try { H.scrollBy({ left: dx, top: dy, behavior: reduced() ? 'auto' : 'smooth' }); } catch (e) { H.scrollLeft += dx; H.scrollTop += dy; }
   }
-  // (v15.1) the visual viewport at the page's own scale (a phone's keyboard, its URL bar): what lies outside it counts
-  // as unsafe, so the callout stays in sight. Pinch-zoomed in, the page is the user's to pan: the callout is not chased.
-  function viewSafe(sf, vp) {
-    const v = typeof visualViewport !== 'undefined' ? visualViewport : null;
-    if (!v || !(v.scale <= 1.01)) return sf;
-    return { t: Math.max(sf.t || 0, v.offsetTop), l: Math.max(sf.l || 0, v.offsetLeft), b: Math.max(sf.b || 0, vp.h - v.offsetTop - v.height), r: Math.max(sf.r || 0, vp.w - v.offsetLeft - v.width) };
-  }
-  const inRects = (x, y, rs) => (rs || []).some((h) => x >= h.l && x <= h.r && y >= h.t && y <= h.b);
   // A second lit area the app itself covers (v15, a short desktop window: the chain under the Inspector) is not lit:
   // at its centre and four inner points the topmost element of the app, the tour and the open layers aside, is
   // another element. (The anchor is never dropped this way.)

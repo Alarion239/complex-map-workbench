@@ -6,11 +6,13 @@ const fs = require('fs');
 const path = require('path');
 global.self = global;
 const C = require(path.join(__dirname, '..', 'src', 'constr.js'));
-const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+const { source } = require('./src_text');
+// (a src/ file as build.py reads it: src/app.js is joined from src/app/*.js)
+const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 const APP = R('src/app.js'), CON = R('src/construct.js'), PRM = R('src/params.js'), PAGE = R('src/page.html'), DESK = R('src/desk.css');
 let pass = 0, fail = 0;
 const ok = (c, m, x) => { if (c) pass++; else { fail++; console.log('FAIL', m, x === undefined ? '' : JSON.stringify(x)); } };
-const fnBody = (src, name) => { const i = src.indexOf(`function ${name}(`); if (i < 0) return ''; let j = src.indexOf(') {', i) + 2, d = 0, k = j; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return src.slice(i, k + 1); };
+const fnBody = (src, name) => { const i = src.indexOf(`function ${name}(`); if (i < 0) return ''; const j = src.indexOf(') {', i) + 2; let d = 0, k = j; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) break; } return src.slice(i, k + 1); };
 
 // ---- rail-2: the angle detents never cover more than 40 % of a rail
 const MOUSE = 6, TOUCH = 10;
@@ -59,7 +61,7 @@ ok(/if \(tool === 'meet' \|\| CURVE1\.has\(tool\)\) \{ pickWarn\(\$t\('Switch to
 ok(!/A\.toast\(\$t\('To place a point next to another/.test(fnBody(CON, 'pointDown')) && /d\.cmTell && !d\.moved && !pointDown\.told/.test(fnBody(CON, 'moveUp')) && /cmTell: Construct\.touchNow\(\)/.test(APP), 'rail-6: the Snap-off tip comes at the release of a tap that did not move, never at a press');
 ok(/function pickOk\(\)/.test(CON) && (CON.match(/pickOk\(\);/g) || []).length >= 7 && /if \(e\.key === 'Escape' && A\) pickOk\(\);/.test(CON), 'rail-7: the refusal goes on an accepted pick, Undo pick, cancel and Esc');
 ok(/setRing\(side, t, pickWarnMsg === w \? true : w\)/.test(CON) && /setRing\(side, t, true\);/.test(fnBody(CON, 'click')) && /chip: typeof warn === 'string' \? warn : warn \? '' : chipOf\(t\)/.test(CON), 'rail-7: after a press the chip says it, the ring only warns');
-ok((CON.match(/pickWarn\(\$t\('\{x\} needs distinct points', \{ x: chipTool\(tool\) \}\)\)/g) || []).length === 2 && !/needs distinct points', \{ x: toolName\(tool\)/.test(CON), 'rail-8: the refusal names the tool by the chip\'s own word');
+ok((CON.match(/pickWarn\(\$t\('\{x\} needs distinct points', \{ x: warnTool\(tool\) \}\)\)/g) || []).length === 2 && /const warnTool = \(tool\) => \(toolName\(tool\)/.test(CON) && !/needs distinct points', \{ x: chipTool\(tool\)/.test(CON), 'rail-8: the refusal names the tool in full (the chip\'s label may be the short one)');
 ok(/el\.classList\.add\('cm-low'\)/.test(CON) && /\.draft-chip\.cm-on\.cm-low \{ top: auto !important; bottom: 32px; left: 8px; translate: none; max-width: calc\(100% - 64px\); \}/.test(CON), 'rail-9: a desktop\'s chip moves to the plane\'s foot when the picks are under it');
 ok(/\$t\('Pick a point \(on \{c\} or anywhere\)', \{ c: curve1Name\(\) \}\)/.test(fnBody(CON, 'chipText')), 'user-6: the chip says a point on the picked curve will do');
 

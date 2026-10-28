@@ -13,7 +13,6 @@
 // and the hook (install()). Also: add, remove, rename, check, display, tex, namesIn, unknownIn, resolve, evalReal,
 // attach(host), and the links and scene files (encodeLink, decodeLink, scene, readScene).
 const Params = (() => {
-  const C = CX.C;
   let host = null;                 // the app: {list(), formulas(), commit(), toast(), undoToast(), openMenu(), ...}
   let local = [];                  // the list without the app
   const arr = () => (host && typeof host.list === 'function' ? host.list() : local);

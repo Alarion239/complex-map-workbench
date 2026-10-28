@@ -65,7 +65,7 @@ const inside = (s, x, y) => Region.levelOf(s)(CX.C(x, y)) > 0;
   const s = { kind: 'disc', c: [0, 1.5], r: 0.5 };
   const cap0 = G.capOf(s);
   // slide the disc toward N (along the meridian of its centre) by twice its distance to N
-  const zc = G.unlift(cap0.C), P0 = cap0.C;
+  const P0 = cap0.C;
   const ang = Math.acos(Math.min(1, P0[2]));   // the centre onto N: the cap now holds infinity
   const ax = G.norm3(G.cross3(P0, [0, 0, 1]));
   const R = G.rotAxis(ax, ang);
