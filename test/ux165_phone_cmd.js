@@ -177,6 +177,21 @@ ok('UX69 the sheet goes back to its height when the keyboard goes', !(await phSt
 await ev('Phone._kb(330)'); await sleep(700); await ev('document.activeElement.blur()'); await sleep(500);
 ok('UX69 … or when the field is left', !(await phSt()).full);
 await ev('Phone._kb(0)');
+// UX46: a formula field with the keyboard up has a strip of symbols above the keyboard; a press types at the caret and the field keeps the focus
+await ev(`Phone.open('tools')`); await sleep(500);
+await ev(`document.querySelector('.ph-tile[data-tool="formula"]').click()`); await sleep(500);
+await ev(`(() => { const f = document.getElementById('formulaInput'); f.focus(); f.value = '|z'; f.setSelectionRange(2, 2); })()`); await sleep(200);
+const noKb = await ev(`!!document.querySelector('.ph-keys:not([hidden])')`);
+await ev('Phone._kb(330)'); await sleep(500);
+const ks = await ev(`(() => { const e = document.querySelector('.ph-keys'); const r = e.getBoundingClientRect(); return { shown: !e.hidden, bottom: Math.round(innerHeight - r.bottom), h: Math.round(r.height), labels: [...e.children].map((b) => b.textContent), small: [...e.children].filter((b) => { const q = b.getBoundingClientRect(); return q.width < 44 || q.height < 44; }).length, focus: document.activeElement.id }; })()`);
+ok('UX46 a formula field: no strip without the keyboard; with it, a 44 px row on the keyboard\'s edge', !noKb && ks.shown && ks.bottom === 330 && ks.h === 44 && ks.small === 0 && ks.focus === 'formulaInput', [noKb, ks]);
+ok('UX46 the strip is symbols only', ks.labels.join(' ') === 'z | < > ≤ π i Re Im arg ( )', ks.labels);
+await ev(`[...document.querySelectorAll('.ph-keys button')].find((b) => b.textContent === '<').click()`); await sleep(100);
+const ty = await ev(`(() => { const f = document.getElementById('formulaInput'); return { v: f.value, c: f.selectionStart, focus: document.activeElement === f }; })()`);
+ok('UX46 a press types the symbol at the caret and the field keeps the focus', ty.v === '|z<' && ty.c === 3 && ty.focus, ty);
+await ev('Phone._kb(0)'); await sleep(300);
+ok('UX46 the strip goes with the keyboard', await ev(`document.querySelector('.ph-keys').hidden`));
+await ev('document.activeElement.blur()');
 // the Editor (split: X and Y above it): a coefficient with a short keyboard is lifted by a scroll, the planes stay
 await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2 });
 const mobK = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
