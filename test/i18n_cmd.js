@@ -1,6 +1,6 @@
 // Browser acceptance of the Russian interface (phase 2b, notes/i18n/PHASE2B.md). Serve dist/ on the kit's port and run
 // with a copy of test/cdp_kit: test/<you>_cdp/q.sh test/i18n_cmd.js. Result: { pass, of, fails: [[name, false, detail]] }.
-//   1. Overflow, Russian against English, at 360, 390, 768, 900, 1024 and 1440 px, light and dark: the page never
+//   1. Overflow, Russian and Italian against English, at 360, 390, 768, 900, 1024 and 1440 px, light and dark: the page never
 //      scrolls sideways, the top bar fits, and no element is clipped in Russian that is not clipped in English.
 //   2. No English left in the first screen and the header's menus at every width (test/i18n_scan.js). The full walk of
 //      every view, dialog and tour step is test/i18n_walk_cmd.js.
@@ -58,6 +58,18 @@ for (const dark of [false, true]) {
       const left = await ev(`__i18nLeft()`);
       check(`no English left ${w}`, left.length === 0, left.slice(0, 10).map((l) => `${l.text.slice(0, 80)} [${l.words.join(',')}] ${l.where} (${l.state})`));
     }
+  }
+}
+// ---- 1b: Italian against English (issue #61: wave 1's fitting rules are Russian-only; Italian gets the overflow checks too,
+// from a phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
+for (const dark of [false, true]) {
+  for (const w of [...WIDTHS, 1600, 1920]) {
+    await open('en', w, dark); const en = await ev(CLIP);
+    await open('it', w, dark); const it = await ev(CLIP);
+    const extra = it.els.filter((x) => !en.els.includes(x));
+    check(`overflow ${w}${dark ? ' dark' : ''} (it): page`, !it.page, it.page);
+    check(`overflow ${w}${dark ? ' dark' : ''} (it): top bar`, !it.bar && !en.bar, { it: it.bar, en: en.bar });
+    check(`overflow ${w}${dark ? ' dark' : ''} (it): nothing clipped beyond English`, extra.length === 0, extra.slice(0, 8));
   }
 }
 // ---- 3: the globe, the tablet bar, the palette rows ----

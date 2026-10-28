@@ -96,8 +96,11 @@
  "ref\u0004the imaginary axis": "мнимая ось",
  "All sheets (one while it deforms)": "Все листы (при деформации один)",
  "; one sheet is drawn while it deforms": "; пока идёт деформация, нарисован один лист",
- "The curves that {x} maps onto the targets of Y are drawn in X.": "Кривые, которые %{x} переводит в\u00a0цели в\u00a0Y, нарисованы в\u00a0X.",
- "Where {x} lands in the targets of Y is shaded in X.": "Там, где %{x} попадает в\u00a0цели в\u00a0Y, плоскость X закрашена.",
- "The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.": "Слитая плоскость переходит в\u00a0полуплоскость. В\u00a0карточке шага ‹ › переключает лист, а\u00a0«Показать все листы» рисует оба.",
- "Symbols": "Символы"
+ "The curves that {x} maps onto the targets of Y are drawn in X.": "Кривые, которые %{x} переводит в цели в Y, нарисованы в X.",
+ "Where {x} lands in the targets of Y is shaded in X.": "Там, где %{x} попадает в цели в Y, плоскость X закрашена.",
+ "The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.": "Слитая плоскость переходит в полуплоскость. В карточке шага ‹ › переключает лист, а «Показать все листы» рисует оба.",
+ "Symbols": "Символы",
+ "All steps": "Все шаги",
+ "Deform every step": "Деформировать все шаги",
+ "Deforming {steps}": "Деформируются {steps}"
 }

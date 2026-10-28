@@ -170,7 +170,7 @@ html:not(.ph) .ph-only { display: none !important; }
   border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); white-space: normal; text-align: center;
 }
 :root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
-:root[data-lang="ru"].ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }
+:root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
 :root.ph:has(#viewSwitch > [data-mode="land"].on) .ph-sph { display: none; }
 :root.ph .pipe-wrap > #morphBtn > :is(svg, .mic) { width: 16px; height: 16px; flex: 0 0 16px; }
 
