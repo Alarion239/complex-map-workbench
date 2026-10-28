@@ -175,7 +175,9 @@ await tool('midpoint');
   ok('regress-10: "Undid: add z₂."', /Undid: add z₂\./.test(await tstxt()), await tstxt()); }
 // regress-4, user-4: the phone's hold-and-slide line once a session, whole, in Russian
 await view(412, 860, true, true);
-await ev(`sessionStorage.clear(), 1`);
+// (a phone that has not probed yet: the Point taps above, on a phone, count as a finger on the plane, cmw-probe-learned,
+// which ends the teaching for good; ux165_plane_cmd.js clears it the same way)
+await ev(`sessionStorage.clear(), localStorage.removeItem('cmw-probe-learned'), 1`);
 await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
 { const c = await ev(`(() => { const e = document.getElementById('leftReadout'); return [e.textContent, e.scrollWidth <= e.clientWidth + 1]; })()`);
   ok('user-4: the Russian line is whole', /Удерживайте палец\s— F\(z\)/.test(c[0]) && c[1], c);
