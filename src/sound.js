@@ -360,9 +360,10 @@ function SND_LIB() {
           for (let k = 0; k < 7; k++) {
             TH[k] += base * P2[(((fl + k) % 7) + 7) % 7]; TH[k] -= Math.floor(TH[k]);
             if (A[k] <= floorA || A[k] < 1e-9 || !HJ[k]) continue;
-            const th = 2 * Math.PI * TH[k], s1 = Math.sin(th), c2 = 2 * Math.cos(th);
-            let sm = 0, sp = s1, acc = WH[1] * s1;
-            for (let h = 2; h <= HJ[k]; h++) { const sn = c2 * sp - sm; sm = sp; sp = sn; acc += WH[h] * sn; }
+            const th = 2 * Math.PI * TH[k], s1 = Math.sin(th);
+            let acc = WH[1] * s1;
+            // (a copy under 1e-3 of the loudest, −60 dB, sounds its fundamental only: its harmonics are under −80 dB)
+            if (A[k] >= 1e3 * floorA) { const c2 = 2 * Math.cos(th); let sm = 0, sp = s1; for (let h = 2; h <= HJ[k]; h++) { const sn = c2 * sp - sm; sm = sp; sp = sn; acc += WH[h] * sn; } }
             y += A[k] * acc * NR[k];
           }
           const th = (Math.max(-0.4, Math.min(0.4, g.panS)) + 1) * Math.PI / 4, gl = Math.cos(th), gr = Math.sin(th);
