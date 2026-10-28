@@ -25,6 +25,8 @@ const rclick = async (x, y) => { await send('Input.dispatchMouseEvent', { type: 
 // a fresh first visit (no ?ns=, nothing saved): the app's own rule for the first-run line
 // a namespace's saved state is cleared first, so every run starts from the default scene
 // (from another namespace's page: a page saves its own state when it is left)
+// (the app is up: its state hook answers and the chain is drawn; a fresh page on a slow runner takes a few seconds)
+const ready = async () => { for (let i = 0; i < 40 && !(await ev(`typeof __cmwState === 'function' && !!document.querySelector('#pipeline')`)); i++) await sleep(250); };
 const fresh = async (ns, q = '') => { await nav(U + '?ns=ux165clean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
 const firstVisit = async (q = '') => { await fresh('ux165x'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (!/:/.test(k)) localStorage.removeItem(k); return 1; })()`); await nav(U + q); for (let i = 0; i < 40 && !(await ev(`!!document.querySelector('.tour-lane')`)); i++) await sleep(200); };
 logs();
@@ -48,7 +50,10 @@ check('UX90: the welcome lead says what is cleared', /Practice freely: what you 
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(500); await ev('Tour.stop()'); await settle(300);
 await laptop(1440, 900);
 await fresh('ux165w'); await settle(1500);
+// (a fresh page on a slow runner: the app up before the tour starts, and the step lit before it is read)
+await ready();
 await ev(`Tour.start({ chapter: 'views' })`); await settle(1500);
+for (let i = 0; i < 20 && !(await ev('!!Tour.lit()')); i++) await sleep(250);
 check('UX77: Details folded at 1440 x 900 too (it opened from 1280 x 800 up)', (await ev('Tour.lit() && Tour.lit().why')) === false);
 await ev('Tour.stop()'); await settle(300);
 await laptop();
@@ -316,7 +321,9 @@ await ev(`(() => { try { const s = JSON.parse(localStorage.getItem('cmw-figure-v
 grab();
 // Russian: 0,5×
 await fresh('ux165m', '&lang=ru'); await settle(2000);
+await ready();
 await key('m'); await settle(600);
+for (let i = 0; i < 12 && !(await ev(`!!document.querySelector('#speedSeg > button')`)); i++) await sleep(250);
 g = await ev(`({ speed: [...document.querySelectorAll('#speedSeg > button')].map((b) => b.textContent), ro: __qa.txt('#morphLabel') })`);
 check('UX103 Russian: «0,5×» and «Шаг k из m · fₖ · p %»', g.speed[0] === '0,5×' && /^Шаг \d+ из\s2 · f[₁₂] · \d+\s%$/.test(g.ro), g);
 await shot('ux165-ux103-ru');

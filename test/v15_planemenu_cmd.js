@@ -60,6 +60,7 @@ const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.5, -1], b: [-0.9, -0.4] }, { id
 const CHAIN = [{ type: 'exp', params: {}, on: true }, { type: 'zp', params: { a: '1', zeros: '0.5', poles: '-0.5i' }, on: true }];
 const ns = 'pm' + Date.now();
 const ids = (mm) => (mm ? mm.items.map((i) => i.id) : []);
+// (a Select item is offered only where shapes cover each other: UX42)
 const NONE = /^(zp-add|zp-step|point-add|copy|center|shape-select)/;
 const dbl = async (x, y) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
@@ -381,6 +382,42 @@ await closeAll();
 const missing = await ev(`[...(I18N.missing || [])].filter((k) => /menu|Remove|Turn|Hide|Delete|Reset|Integrate|around|Listen|Shape hidden/i.test(k))`);
 ok('Russian: no lookup misses for the menu', Array.isArray(missing) && missing.length === 0, missing);
 await grab();
+
+// ---- UX42: shapes that cover each other: the menu lists every one under the pointer, Bring to front / Send to back;
+// Alt-click cycles; list rows drag to reorder
+await load(ns + 'o', { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.8 }, { id: 'd2', kind: 'disc', c: [0.3, 0], r: 0.8 }], steps: CHAIN, srcView: { cx: 0, cy: 0, s: 110 } });
+await settle(900);
+const ov = await w2s('L', 0.1, 0);
+await rclick(ov[0], ov[1]);
+m = await menu();
+const sel = m ? m.items.filter((i) => i.id === 'shape-select') : [];
+ok('UX42 two discs under the pointer: "Select …" for each, by name', sel.length === 2 && sel.every((i) => /^Select Disc \d/.test(i.text.trim())), m && m.items.map((i) => i.text));
+ok('UX42 the top disc: Send to back, no Bring to front', ids(m).includes('shape-back') && !ids(m).includes('shape-front'), ids(m));
+const hOv = await hist();
+await pick('shape-back');
+const ord = (await ev('__cmwShapes()')).shapes.map((x) => x.id);
+ok('UX42 Send to back puts the top disc first in the list, one undo step', JSON.stringify(ord) === JSON.stringify(['d2', 'd1']) && (await hist()).hi === hOv.hi + 1, [ord, await hist()]);
+await rclick(ov[0], ov[1]);
+m = await menu();
+ok('UX42 the disc now on top has Send to back again, and no Bring to front', ids(m).includes('shape-back') && !ids(m).includes('shape-front'), ids(m));
+const pickOther = m && m.items.find((i) => i.id === 'shape-select' && !i.disabled);
+await closeAll();
+const aclick = async (x, y, alt) => {
+  const mods = alt ? 1 : 0;
+  if (alt) await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18, modifiers: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, modifiers: mods });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1, modifiers: mods });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1, modifiers: mods });
+  if (alt) await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18, modifiers: 0 });
+  await settle(250);
+  return (await ev('__cmwShapes()')).selected;
+};
+await ev(`__cmwSelect(null)`); await settle(200);
+const c0 = await aclick(ov[0], ov[1], false), c1 = await aclick(ov[0], ov[1], true), c2 = await aclick(ov[0], ov[1], true);
+ok('UX42 Alt-click cycles through the shapes under the pointer and round again', !!c0 && !!c1 && c1 !== c0 && c2 === c0, [c0, c1, c2]);
+ok('UX42 a pick from the menu is a selection', !!pickOther, pickOther);
+const dnd = await ev(`(() => { const box = (id) => document.querySelector('#shapeList .shape[data-id="' + id + '"]'); const a = box('d2'), b = box('d1'); if (!a || !b) return null; const dt = new DataTransfer(); const ev = (t, el) => el.dispatchEvent(new DragEvent(t, { bubbles: true, cancelable: true, dataTransfer: dt })); ev('dragstart', a); ev('dragover', b); ev('drop', b); ev('dragend', a); return __cmwShapes().shapes.map((x) => x.id); })()`);
+ok('UX42 a dragged shape row dropped on another takes its place', JSON.stringify(dnd) === JSON.stringify(['d1', 'd2']), dnd);
 
 ok('no console errors', errs.length === 0, errs.slice(0, 6));
 return { pass: fails.length === 0, fails, info: { x: info.x && info.x.items.map((i) => i.text), ru: info.ru && info.ru.items.map((i) => i.text), mark: info.mark && info.mark.items.map((i) => i.text), touch: info.touch && info.touch.items.map((i) => i.text), phonePane: info.phonePane }, shots };

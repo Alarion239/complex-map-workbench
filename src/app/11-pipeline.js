@@ -7,7 +7,7 @@
     // the arrow between stage k-1 and stage k; its + inserts a new step at that position
     const where = k === 1 ? $t('at the start') : $t('after f{x}', { x: sub(k - 1) });
     const plus = h('button', { class: 'conn-add', tabindex: -1, 'data-tip': $t('Insert a function {where}', { where }), 'aria-label': $t('Insert a function {where}', { where }), html: ICONS.plus,
-      onclick: (e) => { e.stopPropagation(); openPalette(e.currentTarget, k - 1, { fnOnly: true }); } });
+      onclick: (e) => { e.stopPropagation(); openPalette(e.currentTarget, k - 1, { fnOnly: true, insert: true }); } });
     // (v15, review design-14: the connectors are pictures in the listbox, not options; their + is a pointer
     // shortcut, the keyboard has Insert a function after it in a step's ⋯)
     const el = h('div', { class: 'conn', 'data-conn': k, 'aria-hidden': 'true' },
@@ -278,6 +278,7 @@
     host.append(h('button', { class: 'add-card' + (S.steps.length <= 3 ? ' labelled' : ''), id: 'addStepBtn', 'data-tip': $t('Add a function  +'), 'aria-label': S.steps.length ? $t('Add function') : $t('Add the first function'), onclick: (e) => openPalette(e.currentTarget, S.steps.length, { fnOnly: true }) },
       h('span', { html: ICONS.plus }), h('span', null, $tx('addcard', 'Add function')), h('span', { class: 'kbd' }, '+')));   // (v16.5 UX22: the label the short chain shows, desk.css)
     host.append(fTile());
+    { const cc = $('clearChain'); if (cc) cc.hidden = !S.steps.length; }   // (D1, issue #23: Clear chain in words, with a chain to clear)
     // (v15 review design-14: the listbox owns the options only, the region card, the step cards and F, through
     // aria-owns; the connectors are aria-hidden and the Add tile is its own tab stop after the listbox, not an item in it)
     host.removeAttribute('role'); host.removeAttribute('aria-label');
@@ -296,7 +297,8 @@
   const cardButton = (k) => document.querySelector(`#pipeline .card[data-k="${k}"] .nm`);
   function stepMenu(anchor, k, opt) {
     const st = S.steps[k - 1], d = defOf(st);
-    const items = [];
+    // (D1, issue #23: Replace… first: the palette, ready to replace this step)
+    const items = /** @type {any[]} */ ([{ label: $t('Replace…'), run: () => openPalette(anchor, null, { fnOnly: true, replace: k }) }]);
     // (v15: the Inspector's menu also holds Inverse and Bypass, which the card shows on hover)
     if (opt && opt.full) {
       const b0 = built[k - 1];
@@ -309,7 +311,7 @@
       { label: $t('Move left'), icon: 'chevL', key: touchUI() ? '' : 'Alt ←', disabled: k === 1, run: () => moveStep(k, -1) },
       { label: $t('Move right'), icon: 'chevR', key: touchUI() ? '' : 'Alt →', disabled: k === S.steps.length, run: () => moveStep(k, 1) },
       { label: $t('Duplicate'), icon: 'copy', run: () => duplicateStep(k) },
-      { label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true }) },
+      { label: $t('Insert a function after it'), icon: 'plus', run: () => openPalette(anchor, k, { fnOnly: true, insert: true }) },
       { label: $t('Replace with derivative'), disabled: isDerivStep(st, built[k - 1]), run: () => derivativeAction(k) },
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     // (v16: which steps the deformation deforms, SPEC 6.5)
@@ -726,6 +728,20 @@
     addedToast(at + 1, 1, null, o && o.msg);
     return cardButton(at + 1);
   }
+  // (D1, issue #23) the palette's Replace: steps k0+1 … k0+count give way to what run(k0) inserts, as one undo step; a
+  // step shown alone stays shown, now the first new step when it was one of the replaced
+  function replaceSteps(k0, count, run, name) {
+    const f = S.focus, old = count === 1 ? defOf(S.steps[k0]).label : '', n0 = S.steps.length - count;
+    const gone = S.steps.splice(k0, count);
+    setFocusStep(Math.min(f, k0));
+    const r = run(k0);
+    const added = S.steps.length - n0;
+    if (!added) { S.steps.splice(k0, 0, ...gone); setFocusStep(f); return r; }
+    if (f > k0) { setFocus(Math.min(S.steps.length, f > k0 + count ? f - count + added : k0 + 1)); commit(); }
+    undoToast(count === 1 && n0 > 0 ? $t('Replaced f{x} ({old}) with {name}.', { x: sub(k0 + 1), old, name }) : $t('Replaced F with {name}.', { name }));
+    tourEmit('step-replaced', { k: k0 + 1, type: S.steps[k0].type });
+    return cardButton(k0 + 1) || r;
+  }
   // (UX01) after a step is added, moved or duplicated: the step shown alone, if any, stays shown (its index moved by
   // the n new cards at k, or by the move), and card k is selected for the Inspector
   function keepShown(k, n, from) {
@@ -733,7 +749,7 @@
     if (from != null) f = f === from ? k : f > from && f <= k ? f - 1 : f < from && f >= k ? f + 1 : f;
     else if (f >= k) f += n;
     setFocus(Math.max(0, Math.min(S.steps.length, f)), f === S.focus);
-    S.sel = k;
+    setSel(k);
     syncSel();
     requestRender('P');
   }
@@ -789,11 +805,11 @@
     const hr = S.homRange ? HR.resolve(S, true) : null;
     S.steps.splice(k - 1, 1, ...news);
     if (hr) S.homRange = { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b };
-    if (S.focus > k) S.focus += n - 1;
-    else if (alone && only) S.focus = 0;
+    if (S.focus > k) setFocusStep(S.focus + n - 1);
+    else if (alone && only) setFocusStep(0);
     chainChanged(true);
     setFocus(S.focus);
-    S.sel = k;
+    setSel(k);
     if (T1 != null && morph.open) { morph.T = T1; requestRender('L', 'R'); }
     syncSel();
     commit();
@@ -813,8 +829,8 @@
     const hr = S.homRange ? HR.resolve(S, true) : null;
     S.steps.splice(k - 1, 1);
     if (hr) { if (hr.a === k && hr.b === k) delete S.homRange; else S.homRange = { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }; }
-    if (S.focus >= k) S.focus = Math.max(0, S.focus === k ? 0 : S.focus - 1);
-    if (Number.isInteger(S.sel) && S.sel >= k) S.sel = S.sel === k ? null : S.sel - 1;
+    if (S.focus >= k) setFocusStep(Math.max(0, S.focus === k ? 0 : S.focus - 1));
+    if (Number.isInteger(S.sel) && S.sel >= k) setSel(S.sel === k ? null : S.sel - 1);
     chainChanged(true);
     setFocus(S.focus);
     commit();

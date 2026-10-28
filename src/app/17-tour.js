@@ -122,9 +122,9 @@
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     defMem.y = null; defMem.d = null; defMem.dkey = '';
     for (const k of Object.keys(viewMem)) delete viewMem[k];
-    S = st;
+    setState(st);
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
-    if (m) { S.hideLeft = !!m.hideLeft; S.hideRight = !!m.hideRight; } else { if (isDrawer('R')) S.hideRight = true; if (isDrawer('L')) S.hideLeft = true; }
+    if (m) { setHidden('L', !!m.hideLeft); setHidden('R', !!m.hideRight); } else { if (isDrawer('R')) setHidden('R', true); if (isDrawer('L')) setHidden('L', true); }
     if (m && m.viewMem) Object.assign(viewMem, m.viewMem);
     dropAllGPU();
     cauchyCache.key = '';
@@ -192,7 +192,7 @@
     // are in the Inspector with the F tile selected, so asking for them selects F (and draws the Inspector at once)
     anchor: (name) => {
       if (!['composite', 'guarantees', 'domain', 'matrix'].includes(name)) return undefined;
-      if (selOf() !== 'F') { S.sel = 'F'; syncSel(); }
+      if (selOf() !== 'F') { setSel('F'); syncSel(); }
       renderProps();
       return undefined;
     },
@@ -315,7 +315,7 @@
     },
     // something Escape cancels in the app: a drawing, a drag, a selection (a shape, a zero or pole), the coordinate
     // pad, the tools' More menu, an open overlay drawer
-    busy: () => !!(draft || drag || selected || zpSel || padEl || snd.play || snd.kloop || ($('toolMore') && $('toolMore').open) || (isDrawer('L') && !S.hideLeft) || (isDrawer('R') && !S.hideRight)),
+    busy: () => !!(draft || drag || selected || modeNext() || zpSel || padEl || snd.play || snd.kloop || ($('toolMore') && $('toolMore').open) || (isDrawer('L') && !S.hideLeft) || (isDrawer('R') && !S.hideRight)),
     // a menu, the palette, the coordinate pad or a dialog is open: Escape and Tab are theirs
     layerOpen: () => !!(popEl || padEl || document.querySelector('#popHost > .pop, .modal-bg, [popover]:popover-open')),
     // v15's layers, which the callout keeps clear of and the rings are masked off: the popovers (#popHost: the palette,

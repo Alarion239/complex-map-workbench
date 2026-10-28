@@ -23,6 +23,9 @@ for (const cs of CASES) {
   if (cs.example != null) {
     await load('morphfig', { pattern: 'checker' });
     await ev(`__cmwExample(${cs.example})`);
+    // (issue #34, D7: an example's Try line docks above the planes and takes 56 px of their height; the counts below
+    // were set for the full planes, where the strip keeps its 3 hooks, so the line is closed as a user would)
+    await ev(`(Tour.laneHide && Tour.laneHide('example'), 1)`);
   } else {
     await load('morphfig', { shapes: cs.shapes, steps: cs.steps, pattern: 'checker' });
   }

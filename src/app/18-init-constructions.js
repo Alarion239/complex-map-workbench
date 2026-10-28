@@ -449,6 +449,10 @@
   // TEMP-DEBUG-HOOK
   function init() {
     SoundHooks.init(soundHooksApi());   // the sound hooks (src/soundhooks.js), before anything can make a sound
+    Export.init(exportApi());   // export and captions (src/export.js)
+    MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)
+    Integrals.init(integralsApi());   // the integrals (src/integrals.js)
+    Examples.init(examplesApi());   // the examples and the guide (src/examples.js)
     // TEMP-DEBUG-HOOK (removed before publishing)
     // (v15: the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
@@ -500,16 +504,16 @@
     paneL = new Pane($('canvasL'), $('overlayL'));
     paneR = new Pane($('canvasR'), $('overlayR'));
     const loaded = load();
-    S = loaded || blankState();
+    setState(loaded || blankState());
     if (!Array.isArray(S.params)) S.params = [];
     attachParams();
     bindsAll();
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     // narrow windows start with the drawers closed (run-time only: save() writes dockPref)
-    if (isDrawer('R')) S.hideRight = true;
-    if (isDrawer('L')) S.hideLeft = true;
+    if (isDrawer('R')) setHidden('R', true);
+    if (isDrawer('L')) setHidden('L', true);
     // (v15, 1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
-    if (oneDock()) { if (S.steps.length) { S.hideLeft = true; S.hideRight = false; } else { S.hideLeft = false; S.hideRight = true; } }
+    if (oneDock()) { if (S.steps.length) { setHidden('L', true); setHidden('R', false); } else { setHidden('L', false); setHidden('R', true); } }
     if (S.clipWin) clipWin = S.clipWin;
     paneL.resize(); paneR.resize();
     paneL.setView(S.srcView);
@@ -638,15 +642,15 @@
     window.addEventListener('resize', () => {
       const now = { L: isDrawer('L'), R: isDrawer('R') }, wide = window.innerWidth >= 768;
       if (wide && wideWas && (now.L !== drawerWas.L || now.R !== drawerWas.R)) {
-        if (now.L !== drawerWas.L) S.hideLeft = now.L || dockPref.L;
-        if (now.R !== drawerWas.R) S.hideRight = now.R || dockPref.R;
+        if (now.L !== drawerWas.L) setHidden('L', now.L || dockPref.L);
+        if (now.R !== drawerWas.R) setHidden('R', now.R || dockPref.R);
         applyLayout();
       }
       drawerWas = now; wideWas = wide;
       if (oneDock() && !S.hideLeft && !S.hideRight) applyLayout();   // (v15: one docked panel from 1024 to 1279)
       // (review regress-1: back at 1280 or more, both panels follow the user's choice again)
       const one = oneDock();
-      if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; applyLayout(); }
+      if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { setHidden('L', dockPref.L); setHidden('R', dockPref.R); applyLayout(); }
       oneWas = one;
       if (tempInsp) placeTemp();
     });
@@ -704,15 +708,10 @@
       $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
-    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; S.focus = 0; chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
-    // (v15, review design-18: Clear chain lives under the chain head's ⋯, not as a word button beside Whole chain)
-    {
-      const cb = $('clearChain');
-      cb.hidden = true;
-      const mb = h('button', { class: 'icon-btn', id: 'chainMoreBtn', type: 'button', 'aria-haspopup': 'menu', 'aria-label': $t('More for the chain'), 'data-tip': $t('More'), html: ICONS.more,
-        onclick: (e) => openMenu(e.currentTarget, [{ label: $t('Clear chain'), icon: 'trash', danger: true, disabled: !S.steps.length, run: () => cb.click() }]) });
-      cb.after(mb);
-    }
+    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
+    // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
+    // had been under a ⋯ there since v15, review design-18)
+    $('clearChain').hidden = !S.steps.length;
     // Clear in the Shapes heading removes both groups (P15); each row menu clears its own group
     $('clearShapes').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); clearGroup(true, true); });
     $('undoBtn').addEventListener('click', () => {
@@ -726,6 +725,7 @@
     $('helpBtn').addEventListener('click', (e) => Tour.openHelpMenu(e.currentTarget));
     sndInit();
     $('exportBtn').addEventListener('click', (e) => openExportMenu(e.currentTarget));
+    $('shareBtn').addEventListener('click', (e) => openShareMenu(e.currentTarget));
     getDownloads(); // resolves the save capability early (no prompt until a save)
     $('examplesBtn').addEventListener('click', (e) => openGallery(e.currentTarget));
     // the cycle runs on the theme in use, so it still reaches Dark when storage is blocked
@@ -748,24 +748,64 @@
       });
       syncPalBtn();
     }
-    // the Language setting (device only): Auto, English, Русский, Italiano; a choice that changes the language reloads. The
-    // globe button is page.html's; the menus and the palette reach the same items
-    const lb = $('langBtn');
-    if (lb) {
-      lb.setAttribute('aria-expanded', 'false');
-      lb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, langItems());
-        lb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { lb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
-      syncLangLabel();
+    // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
+    // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
+    // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
+    // the header's globe went (notes/i18n/USER-DECISIONS.md, 2026-10-28)
+    const sb = $('settingsBtn');
+    if (sb) sb.addEventListener('click', () => openSettings(sb));
+    function openSettings(btn) {
+      if (popEl && popEl.classList.contains('set-pop')) { closePalette(); btn.focus(); return; }   // (a re-click closes)
+      closePalette();
+      const sep = (t, first) => h('div', { class: 'opts-h' + (first ? '' : ' opts-sep') }, t);
+      // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English, review eng-12; the languages'
+      // own names are never translated)
+      const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
+      const kids = [sep($t('Theme'), true), seg('setTheme', curTheme, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], (v) => { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }, $t('Theme')),
+        sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
+      if (SND) {
+        const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });
+        sw.checked = !!SND.prefs().on;
+        sw.addEventListener('change', () => { $('soundBtn').click(); sw.checked = !!SND.prefs().on; });
+        kids.push(sep($t('Sound')), h('div', { class: 'set-row' }, h('span', { class: 'fl' }, $t('Sound (Shift+M)')), sw),
+          h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); $('soundMore').click(); } }, $t('Sound settings…')));
+      }
+      const panel = (label, key, on, set) => {
+        const c = h('input', { type: 'checkbox' });
+        c.checked = on;
+        c.addEventListener('change', () => set(c.checked));
+        return h('label', { class: 'check' }, c, h('span', null, label), h('span', { class: 'kbd' }, key));
+      };
+      kids.push(sep($t('Panels')), panel($t('Region tools'), '[', !S.hideLeft, (v) => setPanels(!v, S.hideRight)), panel($t('Inspector'), ']', !S.hideRight, (v) => setPanels(S.hideLeft, !v)));
+      const mesh = $('meshGroup');
+      if (mesh) kids.push(sep(''), mesh);   // (the fader names itself: Mesh quality)
+      const help = (label, run) => h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); run(); } }, label);
+      kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Reference guide'), () => openGuide()),
+        help($t('Keyboard shortcuts'), () => { openGuide(); const k = [...document.querySelectorAll('.modal h3')].find((x) => ['Keys', $t('Keys')].includes(x.textContent.trim())); if (k) k.scrollIntoView({ block: 'start' }); })));
+      const pop = h('div', { class: 'pop opts-pop set-pop', role: 'dialog', 'aria-label': $t('Settings') }, ...kids);
+      pop._onClose = () => { btn.setAttribute('aria-expanded', 'false'); const home = $('settingsHome'); if (mesh && home && mesh.parentNode === pop) home.append(mesh); };
+      $('popHost').append(pop);
+      popEl = pop;
+      btn.setAttribute('aria-expanded', 'true');
+      // (under the button, its right edge on the button's, inside the window)
+      const r = btn.getBoundingClientRect(), pw = pop.offsetWidth;
+      pop.style.left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.right - pw)) + 'px';
+      pop.style.top = (r.bottom + 6) + 'px';
+      pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
+      const first = pop.querySelector('.seg > .on') || pop.querySelector('button, input');
+      if (first) first.focus({ preventScroll: true });
+      armOutside(btn);
     }
+    let escSound = false;   // (set by the first Esc handler below, read by the one after it)
     // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
     // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a
     // Listen along does only that: the next Esc ends the tour
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       const playing = !!snd.play;
+      // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
+      // the sound and goes no further; the next one steps out of the modes)
+      escSound = !!(sndP && sndP.on && (snd.play || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
       soundStop();
       if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
@@ -801,6 +841,9 @@
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
         else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (tool !== 'select') setTool('select');
+        else if (escSound) { /* the sound was this Esc's level */ }
+        else if (modeNext()) modeClose(modeNext());
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
@@ -871,7 +914,7 @@
         // keeps the selection, review russian-6 and verify-8)
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
-        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { S.sel = sel0; syncSel(); requestRender('P'); save(); }
+        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { delete S.deform; openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
@@ -890,8 +933,8 @@
           if (swUi.lamp) openLamp = swUi.lamp;
           if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
           if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
-          // focus returns to the control that switched (review eng-5): the globe, or the More button it folds into
-          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('langBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
+          // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
+          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
         // the right plane reopens at the view the user left it at
         if (loaded.rightView && autoFit()) { Object.assign(V.right, loaded.rightView); rightAuto = false; requestRender('R'); }
@@ -899,16 +942,16 @@
       } catch (err) {
         // never a dead app on every reload: fall back to the first example
         console.warn('The saved session could not be restored', err);
-        S = Object.assign(blankState(), { hideLeft: S.hideLeft, hideRight: S.hideRight });
+        setState(Object.assign(blankState(), { hideLeft: S.hideLeft, hideRight: S.hideRight }));
         selected = null; draft = null;
         dropAllGPU();
-        loadExample(firstExample());
+        loadExample(firstExample(), undefined, { quiet: true });
         buildDisplay(); applyLayout();
         hist = [snap()]; hi = 0; updateUndo();
         toast($t('The saved session could not be restored, so the first example was loaded.'));
       }
     } else {
-      loadExample(firstExample());
+      loadExample(firstExample(), undefined, { quiet: true });
       hist = [snap()]; hi = 0; updateUndo();
     }
     try { const k = lsk('cmw-probe'); localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { warnStorage(); }
@@ -920,7 +963,7 @@
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Region tools'); }
     Phone.init({
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
-      showPanels: (ph) => { if (ph) { S.hideLeft = false; S.hideRight = false; } else { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; } applyLayout(); requestRender('P'); },
+      showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
       // (v15.1, build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
       // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
@@ -939,18 +982,19 @@
       },
       fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
+      xyView: () => S.view.main === 'xy',   // ([v17 D5] the regions' display is the X → Y view's)
       renderInspector: () => renderProps(),
       openMenu: (a, items) => openMenu(a, items), closePops: () => closePalette(),
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
-      globeIcon: ($('langBtn') && $('langBtn').querySelector('svg') || {}).outerHTML || '',
+      globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
       sound: (k) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on) } : null),
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
-      exportItems: () => exportMenuItems(),   // (v16.5 V02)
+      exportItems: () => exportMenuItems(true),   // (v16.5 V02)
       // v16.5 UX12: the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
       // first: the coordinate pad, the popover (the palette, a menu, a plane's menu, the integral, the options), the
       // tour's chapter menu, the sound settings, a dialog (Export, the guide), a popover of the top layer, the sheet
