@@ -92,14 +92,24 @@ artifact.
   `new`; move it to a shard once its time is known. The plan job checks that every suite is in exactly one shard.
 - **Timing is reported, not gated.** Speed is gated by the perf suite on our GPU machines; GitHub's machines render
   WebGL in software (the browser jobs use Mesa's lavapipe, ANGLE's Vulkan back end on llvmpipe, which drew the app
-  2-4 times faster there than Chrome's own SwiftShader). A suite's timing checks (BUDGET60 frame budgets, long tasks, the tour's 3 s
-  advance to ±150 ms, …: `TIMING` in `ci/browser_suites.js`) are listed with their numbers in the summary and a
-  warning, and do not fail the job. Where one condition also asserts something else (the drag drew frames, the step
-  did advance), the check counts as timing only when that part held. Every other check gates.
+  2-4 times faster there than Chrome's own SwiftShader: frames of 0.15-0.6 s at 1440 x 900). A suite's timing checks
+  (BUDGET60 frame budgets, long tasks, the tour's 3 s advance to ±150 ms, …: `TIMING` in `ci/browser_suites.js`) are
+  listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
+  something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
+  Every other check gates.
+- **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
+  in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
+  a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
+  cause (no frame missed, t still moving, the program still compiling), is printed in the summary, and does not fail
+  the job; the GPU machines run the suites at full speed.
+- **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
+  long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
+  sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
 - **Extra pages:** the v16.2 and v16.3 test pages some suites compare with are built from their release commits
   (`ci/reference.js`), and the published page is wrapped as a host serves it (`smk_pub.html`, the release smoke).
-- **Known failures** (`KNOWN` in `ci/browser_suites.js`) are printed in the summary with their reasons and do not
-  fail the job.
+- **Known failures** (`KNOWN` in `ci/browser_suites.js`): app bugs and open questions, each with its reason (and a
+  predicate where the check's name covers more than the bug), are printed in the summary and do not fail the job.
+  Fix the app, and remove the entry.
 
 ## Reading the results
 
@@ -155,7 +165,7 @@ Settings (environment variables):
 | file | |
 |---|---|
 | `ci/unit.js` | all unit tests, one summary row each |
-| `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, extra pages, timing checks, known failures) |
+| `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history |
 | `ci/glsl.js` | the GLSL conformance pages |
 | `ci/quality.js` | the paired image-quality gate |
