@@ -21,7 +21,7 @@ s = await st();
 ok('Esc 2 shows both planes', !s.chips.some((c) => /hidden/.test(c)) && s.solo === 'falsefalse', s);
 // a step alone, then the expanded plane: alone goes first
 await ev(`document.querySelector('#pipeline .card').click()`); await settle(300);
-await clickText('button', '/Show alone/'); await settle(600);
+await ev(`(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Show f\\d+ alone$/.test(x.getAttribute('aria-label') || '') || /Show alone/.test(x.textContent)); if (b) b.click(); return !!b; })()`); await settle(600);
 await ev(`document.getElementById('rightSolo').click()`); await settle(400);
 s = await st();
 ok('a step alone and an expanded plane both show', s.chips.some((c) => /alone/.test(c)) && s.chips.some((c) => /hidden/.test(c)), s);
