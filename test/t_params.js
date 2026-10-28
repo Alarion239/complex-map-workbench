@@ -191,6 +191,58 @@ P._local(list);
     try { P.readScene(bad); } catch (e) { msg = e.message; }
     ok(re.test(msg), `bad scene ${bad}: ${msg}`);
   }
+  // (h) complex numbers: a = 1 + i, formulas, real-only fields, resolve and save round trips
+  list.length = 0;
+  ok(P.add('a', { value: 1 }) && P.get('a') === 1 && !P.isComplex('a'), 'a real number stays real');
+  eq(P.set('a', '1 + i'), '', 'a free number can be typed as a complex number');
+  eq(P.getC('a'), { re: 1, im: 1 }, 'getC reads {re, im}');
+  eq(P.get('a'), 1, 'get keeps the real part');
+  ok(P.isComplex('a') && P.list()[0].im === 1, 'the entry holds im');
+  eq(val('a'), [1, 1], 'a formula reads a as 1 + i');
+  eq(val('a^2'), [0, 2], 'a² = 2i');
+  eq(val('Re a'), [1, 0], 'Re a'); eq(val('Im a'), [1, 0], 'Im a');
+  ok(Math.abs(val('|a|')[0] - Math.SQRT2) < 1e-12, '|a|');
+  ok(Math.abs(val('arg a')[0] - Math.PI / 4) < 1e-12, 'arg a');
+  eq(val('conj a'), [1, -1], 'conj a');
+  eq(val('\\bar{a}'), [1, -1], '\\bar{a}');
+  eq(val('\\overline{a}'), [1, -1], '\\overline{a}');
+  eq(P.add('b', { value: 2 }) && P.set('b', 'a^2'), '', 'a number by formula may be complex');
+  eq(P.getC('b'), { re: 0, im: 2 }, 'b = a² = 2i');
+  P.set('a', '1 - i');
+  eq(P.getC('b'), { re: 0, im: -2 }, 'b follows a');
+  let e = ''; try { P.evalReal('a'); } catch (x) { e = x.message; }
+  ok(/a is complex: use Re a, Im a or \|a\|/.test(e), 'a real-only field names the number: ' + e);
+  e = ''; try { P.evalReal('i'); } catch (x) { e = x.message; }
+  ok(/must be real/.test(e), 'a complex constant without a name keeps the old message');
+  eq(P.evalReal('Re a + Im a'), 0, 'real-only fields read Re a and Im a');
+  eq(P.evalVal('a + 1'), { re: 2, im: -1 }, 'evalVal');
+  eq(P.set('a', 0.5), '', 'a real value clears the imaginary part');
+  ok(!('im' in P.list()[0]) && !P.isComplex('a'), 'back to real: no im saved');
+  P.set('a', { re: -0.5, im: 0.3 });
+  for (const [re, im, txt] of [[0.5, 0.3, '0.5+0.3'], [-0.5, -0.3, '-0.5-0.3'], [0, 0.3, '0.3'], [0, 1, ''], [0, -1, '-'], [2, 1, '2+'], [1e-7, -2e-9, '1e-7-2e-9'], [-0, 0.5, '0.5']]) {
+    P.set('a', { re, im });
+    const r = P.resolve('a');
+    ok(r === `(${txt}i)`, `resolve ${re},${im}: ${r}`);
+    const v = Expr.constValue(r);
+    ok(v.re === re && v.im === im, `resolve round trip ${re},${im}: ${v.re},${v.im}`);
+  }
+  P.set('a', 0.5);
+  eq(P.resolve('2a'), '2(0.5)', 'a real number resolves as before');
+  eq(P.resolve('a', { a: { re: 1, im: -1 } }), '(1-i)', 'resolve with a value override');
+  P.set('a', { re: 1, im: 2 });
+  const san2 = P.sanitize(JSON.parse(JSON.stringify(P.list())));
+  eq(san2.find((q) => q.name === 'a').im, 2, 'sanitize keeps im');
+  eq(P.sanitize([{ name: 'k', value: 1, im: 'x' }, { name: 'm', value: 1, im: 0 }]).map((q) => 'im' in q), [false, false], 'sanitize drops a bad or zero im');
+  eq(P.sanitize(san2), san2, 'sanitize with im is idempotent');
+  const cstate = { shapes: [], steps: [{ type: 'custom', params: { expr: 'a z' }, on: true }], params: san2 };
+  eq(await P.decodeLink(await P.encodeLink(cstate)), cstate, 'a link with a complex number round-trips');
+  eq(P.readScene(P.scene(cstate)), cstate, 'a scene with a complex number round-trips');
+  // an older build reads the real part only: value is still the real part, nothing else is required of it
+  eq(san2.find((q) => q.name === 'a').value, 1, 'the real part is the saved value');
+  // inline: deleting a complex number writes its value into the formulas
+  P.inline('a');
+  eq(P.list().find((q) => q.name === 'b').expr, '(1+2i)^2', 'inline writes the complex value');
+  ok(P.tex('a') !== undefined, 'tex of a name');
   console.log(`${n - fails}/${n} passed`);
   if (fails) process.exit(1);
 })().catch((e) => { console.error(e); process.exit(1); });

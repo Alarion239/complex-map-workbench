@@ -16,7 +16,7 @@
   function paramSig(st) {
     if (!S.params || !S.params.length) return '';
     let out = '';
-    for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) out += `;${nm}=${Params.get(nm)}`;
+    for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
     return out;
   }
   const stepUses = (st, names) => stepTexts(st).some(([, v]) => Params.namesIn(v).some((n) => names.has(n)));
@@ -290,7 +290,12 @@
     if (!st) return '';
     const ns = [];
     for (const [key] of stepTexts(st)) for (const n of Params.namesIn(st.params[key])) if (!ns.includes(n)) ns.push(n);
-    const val = (n) => { const v = Params.get(n); return v == null ? '?' : I18N.num(String(+(+v).toPrecision(4))).replace('-', '−'); };
+    const num4 = (v) => I18N.num(String(+(+v).toPrecision(4))).replace('-', '−');
+    const val = (n) => {
+      const c = Params.getC(n);
+      if (!c) return '?';
+      return c.im ? `${c.re ? num4(c.re) : ''}${c.re ? (c.im < 0 ? ' − ' : ' + ') : c.im < 0 ? '−' : ''}${Math.abs(c.im) === 1 ? '' : num4(Math.abs(c.im))}i` : num4(c.re);
+    };
     return ns.length ? $t('Numbers: {list}', { list: ns.map((n) => `${Params.display(n)} = ${val(n)}`).join(', ') }) : '';
   }
   function paramsRestored() { zpParsed.clear(); Params.render(); }

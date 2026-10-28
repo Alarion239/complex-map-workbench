@@ -95,7 +95,9 @@ const Expr = (() => {
     const v = NAMES.get(name);
     if (v === undefined && !NAMED.unknown.includes(name)) NAMED.unknown.push(name);
     NAMED.spans.push({ pos, len, name });
-    return { t: 'num', v: v === undefined ? 0 : v, s: '', pos, param: name };
+    // the hook gives a real number or {re, im}: a complex shared number reads as that complex constant
+    const re = v === undefined ? 0 : typeof v === 'object' ? v.re : v;
+    return { t: 'num', v: re, vi: v && typeof v === 'object' ? v.im || 0 : 0, s: '', pos, param: name };
   }
   // the base tokenizer reads the whole run of letters (functions and z w x y r i e)
   function baseRun(run, ru) {
@@ -529,7 +531,7 @@ const Expr = (() => {
     function parsePrimary() {
       const tk = next();
       switch (tk.t) {
-        case 'num': return tk.param ? { t: 'num', v: C(tk.v, 0), param: tk.param } : { t: 'num', v: C(tk.v, 0), lit: tk.s };
+        case 'num': return tk.param ? { t: 'num', v: C(tk.v, tk.vi || 0), param: tk.param } : { t: 'num', v: C(tk.v, 0), lit: tk.s };
         case 'const':
           if (tk.v === 'inf') {
             if (!limDepth) throw new ParseError($t('∞ can only be a limit of a sum'), tk.pos);

@@ -311,7 +311,7 @@ const Commands = (() => {
   // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
   function withNewName(name, fn) {
     if (typeof Expr.setNames !== 'function') return fn();
-    Expr.setNames({ get: (n) => (n === name ? 1 : Params.get(n)), display: Params.display });
+    Expr.setNames({ get: (n) => (n === name ? 1 : Params.read(n)), display: Params.display });
     try { return fn(); } finally { Params.install(); }
   }
   // (v16.5 UX23) the repairs of a formula that does not parse, each offered only when the repaired text reads as a step

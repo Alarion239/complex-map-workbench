@@ -71,7 +71,23 @@ const Params = (() => {
   const find = (nm) => arr().find((p) => p.name === nm) || null;
   const list = () => arr().map((p) => Object.assign({}, p));
   const isNum = (x) => typeof x === 'number' && Number.isFinite(x);
+  // a shared number is its real part p.value plus an imaginary part p.im, kept only when it is not 0 (a real number saves
+  // exactly as before; a build that predates complex numbers reads the real part and ignores the rest)
+  const imOf = (p) => (p && isNum(p.im) ? p.im : 0);
+  const isComplex = (nm) => { const p = typeof nm === 'string' ? find(nm) : nm; return imOf(p) !== 0; };
+  // the real part (what a real-only field reads)
   function get(nm) { const p = find(nm); return p && isNum(p.value) ? p.value : undefined; }
+  // {re, im}
+  function getC(nm) { const p = find(nm); return p && isNum(p.value) ? { re: p.value, im: imOf(p) } : undefined; }
+  // what the formula parser reads: a real number as a number, a complex one as {re, im}
+  function valueOf(nm) { const c = getC(nm); return c && c.im !== 0 ? c : c && c.re; }
+  const isVal = (x) => x && typeof x === 'object' && isNum(x.re) && isNum(x.im);
+  // a number, {re, im} or a text of a constant, read as {re, im} (a throw is a message)
+  function toC(x) {
+    if (isNum(x)) return { re: x, im: 0 };
+    if (isVal(x)) return { re: x.re, im: x.im };
+    return null;
+  }
   // names in a text (in order, without repeats) and the ones not defined yet
   function namesIn(src) {
     if (src == null || typeof Expr.nameSpans !== 'function') return [];
@@ -95,8 +111,16 @@ const Params = (() => {
   // the value of a real constant formula (the names read as their values); throws a message
   function evalReal(src) {
     const v = Expr.constValue(String(src));
-    if (Math.abs(v.im) > 1e-12 * Math.max(1, Math.abs(v.re))) throw new Error($t('A number here must be real'));
+    if (Math.abs(v.im) > 1e-12 * Math.max(1, Math.abs(v.re))) {
+      const c = namesIn(src).find(isComplex);
+      throw new Error(c ? $t('{x} is complex: use Re {x}, Im {x} or |{x}|', { x: display(c) }) : $t('A number here must be real'));
+    }
     return v.re;
+  }
+  // the value of a constant formula as {re, im}; a rounding-size imaginary part of a real result is dropped
+  function evalVal(src) {
+    const v = Expr.constValue(String(src));
+    return { re: v.re, im: Math.abs(v.im) > 1e-12 * Math.max(1, Math.abs(v.re)) ? v.im : 0 };
   }
   // the text with each name replaced by its value in parentheses (the exact shortest decimal): what the shapes'
   // renderer reads, so every cache keyed by the text sees a new value (Re z = a -> Re z = (0.5))
@@ -106,13 +130,20 @@ const Params = (() => {
     if (!sp.length) return s;
     let out = '', at = 0;
     for (const x of sp) {
-      const v = values && x.name in values ? values[x.name] : get(x.name);
-      out += s.slice(at, x.pos) + (v === undefined ? s.slice(x.pos, x.pos + x.len) : `(${repr(v)})`);
+      const v = values && x.name in values ? values[x.name] : valueOf(x.name);
+      out += s.slice(at, x.pos) + (v === undefined ? s.slice(x.pos, x.pos + x.len) : `(${reprC(v)})`);
       at = x.pos + x.len;
     }
     return out + s.slice(at);
   }
   const repr = (v) => (Object.is(v, -0) ? '0' : String(v));
+  // a value as text the parser reads back exactly: 0.5, 0.5+0.3i, -0.5-0.3i, 0.3i (v: a number or {re, im})
+  function reprC(v) {
+    if (!isVal(v) || v.im === 0) return repr(isVal(v) ? v.re : v);
+    const im = v.im === 1 ? 'i' : v.im === -1 ? '-i' : `${repr(v.im)}i`;
+    if (v.re === 0) return im;
+    return `${repr(v.re)}${im[0] === '-' ? '' : '+'}${im}`;
+  }
   // the text with name old written as text instead (rename, or the value when a number is deleted)
   function replaceName(src, old, text) {
     const s = String(src);
@@ -138,9 +169,11 @@ const Params = (() => {
   function add(name, o = {}) {
     const c = check(name);
     if (c.error) throw new Error(c.error);
-    const v = isNum(o.value) ? o.value : 1;
+    const cv = toC(o.value) || { re: 1, im: 0 };
+    const v = cv.re;
     const [lo, hi] = isNum(o.min) && isNum(o.max) && o.max > o.min ? [o.min, o.max] : niceRange(v);
     const p = { name: c.name, value: v, min: Math.min(lo, v), max: Math.max(hi, v), step: isNum(o.step) && o.step > 0 ? o.step : 0.01 };
+    if (cv.im !== 0) p.im = cv.im;
     if (typeof o.expr === 'string' && o.expr.trim()) { p.expr = o.expr.trim(); }
     arr().push(p);
     if (p.expr) recompute();
@@ -183,9 +216,13 @@ const Params = (() => {
     for (const p of o.order) {
       if (!p.expr) continue;
       let v;
-      try { v = evalReal(p.expr); } catch (e) { p._err = e.message; continue; }
+      try { v = evalVal(p.expr); } catch (e) { p._err = e.message; continue; }
       delete p._err;
-      if (v !== p.value) { p.value = v; changed.push(p.name); }
+      if (v.re !== p.value || v.im !== imOf(p)) {
+        p.value = v.re;
+        if (v.im !== 0) p.im = v.im; else delete p.im;
+        changed.push(p.name);
+      }
     }
     return changed;
   }
@@ -215,23 +252,28 @@ const Params = (() => {
         p.expr = txt;
         const ord = order();
         if (ord.cycle) { if (was) p.expr = was; else delete p.expr; return $t('{x} would depend on itself: {path}', { x: display(name), path: ord.cycle.map(display).join(' → ') }); }
-        try { evalReal(txt); } catch (e) { if (was) p.expr = was; else delete p.expr; return e.message; }
+        try { evalVal(txt); } catch (e) { if (was) p.expr = was; else delete p.expr; return e.message; }
         const ch = recompute();
         fire(closure([name]).concat(ch), o);
         render();
         return '';
       }
       let v;
-      try { v = evalReal(txt); } catch (e) { return e.message; }
-      value = v;
+      try { v = evalVal(txt); } catch (e) { return e.message; }
+      value = v.im !== 0 ? v : v.re;
     }
-    if (!isNum(value)) return $t('Enter a number');
+    const cv = toC(value);
+    if (!cv) return $t('Enter a number');
     const freed = !!p.expr;
     delete p.expr; delete p._err;
-    if (value < p.min) p.min = value;
-    if (value > p.max) p.max = value;
-    if (p.value === value && !freed) return '';
-    p.value = value;
+    // (the range belongs to the real part: a complex number is moved on the plane, not by the slider)
+    if (cv.im === 0) {
+      if (cv.re < p.min) p.min = cv.re;
+      if (cv.re > p.max) p.max = cv.re;
+    }
+    if (p.value === cv.re && imOf(p) === cv.im && !freed) return '';
+    p.value = cv.re;
+    if (cv.im !== 0) p.im = cv.im; else delete p.im;
     recompute();
     fire(closure([name]), o);
     if (!o.live || o.fromUI !== true) render(o.live ? name : null);
@@ -276,7 +318,7 @@ const Params = (() => {
   function inline(name) {
     const p = find(name);
     if (!p) return;
-    const t = `(${repr(p.value)})`;
+    const t = `(${reprC({ re: p.value, im: imOf(p) })})`;
     for (const f of formulas()) { const s = f.get(); const r = replaceName(s, name, t); if (r !== s) f.set(r); }
     for (const q of arr()) if (q.expr) q.expr = replaceName(q.expr, name, t);
   }
@@ -294,6 +336,7 @@ const Params = (() => {
       let min = isNum(q.min) ? q.min : niceRange(v)[0], max = isNum(q.max) ? q.max : niceRange(v)[1];
       if (!(max > min)) [min, max] = niceRange(v);
       const p = { name: c, value: v, min: Math.min(min, v), max: Math.max(max, v), step: isNum(q.step) && q.step > 0 ? q.step : 0.01 };
+      if (isNum(q.im) && q.im !== 0) p.im = q.im;
       if (typeof q.expr === 'string' && q.expr.trim()) p.expr = q.expr.trim().slice(0, 500);
       if (q.play === 'bounce' || q.play === 'loop') p.play = q.play;
       out.push(p);
@@ -303,7 +346,7 @@ const Params = (() => {
 
   // ---------------- the formula hook ----------------
   function install() {
-    if (typeof Expr.setNames === 'function') Expr.setNames({ get, display });
+    if (typeof Expr.setNames === 'function') Expr.setNames({ get: valueOf, display });
   }
   function attach(h) {
     host = h;
@@ -316,7 +359,7 @@ const Params = (() => {
   let playRaf = 0;
   function togglePlay(name) {
     const p = find(name);
-    if (!p || p.expr) return;
+    if (!p || p.expr || isComplex(p)) return;
     if (playing.has(name)) { stopPlay(name); return; }
     playing.set(name, { dir: 1, last: 0 });
     if (!playRaf) playRaf = requestAnimationFrame(playFrame);
@@ -412,7 +455,7 @@ const Params = (() => {
     return (typeof I18N !== 'undefined' && I18N.lang !== 'en' && I18N.num ? I18N.num(s) : s).replace(/-/g, '−');
   };
   // the text of a value field: the formula of a number by formula, else the value (the exact value when short)
-  const valText = (p) => (p.expr ? p.expr : String(+p.value.toPrecision(12)));
+  const valText = (p) => (p.expr ? p.expr : isComplex(p) ? reprC({ re: +p.value.toPrecision(12), im: +p.im.toPrecision(12) }) : String(+p.value.toPrecision(12)));
   // (as shown in an idle field: the true minus; the parser reads it back, review math-14)
   const valShow = (p) => valText(p).replace(/-/g, '−');
   function mount(el) {
@@ -512,7 +555,7 @@ const Params = (() => {
     };
     val.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } if (e.key === 'Escape') { val.value = valShow(p); showErr(''); val.blur(); } });
     val.addEventListener('change', apply);
-    const playBtn = h('button', { class: 'icon-btn prm-play', type: 'button', 'aria-pressed': String(playing.has(nm)), disabled: p.expr ? true : null,
+    const playBtn = h('button', { class: 'icon-btn prm-play', type: 'button', 'aria-pressed': String(playing.has(nm)), disabled: p.expr || isComplex(p) ? true : null,
       'data-tip': playing.has(nm) ? $t('Pause') : $t('Play: {x} runs between its ends', { x: d }), 'aria-label': playing.has(nm) ? $t('Pause {x}', { x: d }) : $t('Play {x}', { x: d }),
       html: playing.has(nm) ? ICON.pause : ICON.play, 'data-prm-focus': 'p:' + nm, onclick: () => togglePlay(nm) });
     const moreBtn = h('button', { class: 'icon-btn prm-more', type: 'button', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for {x}', { x: d }), html: ICON.more, 'data-prm-focus': 'm:' + nm,
@@ -521,9 +564,12 @@ const Params = (() => {
     if (m.open && m.open.name === nm && m.open.what === 'rename') l1.replaceChild(renameEd(m, p), nameBtn);
     r.append(l1);
     if (m.open && m.open.name === nm && m.open.what === 'range') r.append(rangeEd(m, p));
-    else if (p.expr) {
+    else if (isComplex(p) && !p.expr) {
+      // a complex number has no slider: the real range does not describe it
+      r.append(h('div', { class: 'prm-l2' }, h('span', { class: 'prm-note' }, $t('A complex number'))));
+    } else if (p.expr) {
       const used = namesIn(p.expr).map(display).join(', ');
-      r.append(h('div', { class: 'prm-l2' }, h('span', { class: 'prm-note' }, $t('= {v}, from {x}', { v: fmt(p.value), x: used }))));
+      r.append(h('div', { class: 'prm-l2' }, h('span', { class: 'prm-note' }, $t('= {v}, from {x}', { v: isComplex(p) ? valText(p).replace(/-/g, '−') : fmt(p.value), x: used }))));
     } else {
       const rg = h('input', { type: 'range', min: String(p.min), max: String(p.max), step: String(p.step || 'any'), value: String(p.value), 'aria-label': $t('{x} from {min} to {max}', { x: d, min: fmt(p.min), max: fmt(p.max) }), 'data-prm-focus': 'r:' + nm });
       let start = null;
@@ -660,7 +706,7 @@ const Params = (() => {
 
   return {
     mount, list, get, set, on, install, attach, add, remove, rename, check, canon, display, tex, namesIn, unknownIn, resolve, replaceName,
-    evalReal, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused,
+    evalReal, evalVal, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused,
     encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; },
   };
 })();
