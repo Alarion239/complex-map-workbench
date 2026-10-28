@@ -146,18 +146,18 @@
   "note": "S16: the guide, Sound (the harp sentences replaced; {x8}: Q plays the point)"
  },
  "mk.blurb": {
-  "en": "Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle's menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, |F| grows through each statement, and the branch cut on every downbeat is the drum.",
-  "ru": "Эдвард Григ, «Пер Гюнт» (1875) в исполнении функции. Вдоль единичной окружности arg F поднимается ступенями, по одной на каждую ноту темы, и звук играет каждую цветовую линию, которую он пересекает. Выберите «Слушать вдоль кривой» в меню окружности (щелчок правой кнопкой, на сенсорном экране — долгое нажатие): за каждый оборот тема звучит дважды, во второй раз быстрее, |F| растёт в каждом проведении, а разрез на каждой сильной доле — это барабан.",
+  "en": "Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle's menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, and the branch cut just before every downbeat is the drum.",
+  "ru": "Эдвард Григ, «Пер Гюнт» (1875) в исполнении функции. Вдоль единичной окружности arg F поднимается ступенями, по одной на каждую ноту темы, и звук играет каждую цветовую линию, которую он пересекает. Выберите «Слушать вдоль кривой» в меню окружности (щелчок правой кнопкой, на сенсорном экране — долгое нажатие): за каждый оборот тема звучит дважды, во второй раз быстрее, а разрез перед каждой сильной долей — это барабан.",
   "note": "The Mountain King example's blurb: a function now (mk-app.patch)."
  },
  "mk.guide": {
-  "en": "<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, walks the curve at an even pace and plays what the pointer would play there: a note for each colour line arg <i>F</i> crosses, louder where |<i>F</i>| is larger, and a crack at each branch cut. A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a function: along the unit circle its arg <i>F</i> rises in steps, one for each note of the theme, so the colour lines it crosses are the melody, and nothing else is added. Each lap of the circle plays the theme twice, the second time faster, |<i>F</i>| grows through each statement, and the branch cut on each downbeat is the drum.",
-  "ru": "<b>Кривая как мелодия.</b> Пункт <b>Слушать вдоль кривой</b> в меню кривой проходит кривую в ровном темпе и играет то, что играл бы там указатель: ноту на каждую цветную линию, которую пересекает arg <i>F</i>, громче там, где |<i>F</i>| больше, и треск на каждом разрезе. Последняя нота замкнутой петли — её число оборотов. Пример «В пещере горного короля» (по Эдварду Григу) — это функция: вдоль единичной окружности её arg <i>F</i> растёт ступенями, по одной на каждую ноту темы, поэтому пересекаемые цветовые линии и есть мелодия, и ничего не добавлено. Каждый оборот окружности играет тему дважды, во второй раз быстрее, |<i>F</i>| растёт в каждом проведении, а разрез на каждой сильной доле — это барабан.",
+  "en": "<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, walks the curve at an even pace and plays what the pointer would play there: a note for each colour line arg <i>F</i> crosses, louder where |<i>F</i>| is larger, and a crack at each branch cut. A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a function: along the unit circle its arg <i>F</i> rises in steps, one for each note of the theme, so the colour lines it crosses are the melody, and nothing else is added. Each step is a pair of branch points, one just inside the circle and one just outside, so |<i>F</i>| stays constant along it. Each lap of the circle plays the theme twice, the second time faster, and the branch cut just before each downbeat is the drum.",
+  "ru": "<b>Кривая как мелодия.</b> Пункт <b>Слушать вдоль кривой</b> в меню кривой проходит кривую в ровном темпе и играет то, что играл бы там указатель: ноту на каждую цветную линию, которую пересекает arg <i>F</i>, громче там, где |<i>F</i>| больше, и треск на каждом разрезе. Последняя нота замкнутой петли — её число оборотов. Пример «В пещере горного короля» (по Эдварду Григу) — это функция: вдоль единичной окружности её arg <i>F</i> растёт ступенями, по одной на каждую ноту темы, поэтому пересекаемые цветовые линии и есть мелодия, и ничего не добавлено. Каждая ступень — пара точек ветвления, одна чуть внутри окружности, другая чуть снаружи, поэтому |<i>F</i>| на ней постоянен. Каждый оборот окружности играет тему дважды, во второй раз быстрее, а разрез перед каждой сильной долей — это барабан.",
   "note": "The guide's melody paragraph: Listen along plays the function (the harp sentences replaced); the Mountain King a function."
  },
  "mk.tour_body": {
-  "en": "Grieg's theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut on each downbeat is the drum.",
-  "ru": "Тема Грига в исполнении функции: вдоль единичной окружности $\\arg F$ поднимается ступенями, по одной на каждую ноту. «Слушать вдоль кривой» проходит окружность в ровном темпе и играет каждую цветовую линию, которую пересекает $\\arg F$; разрез на каждой сильной доле — барабан.",
+  "en": "Grieg's theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut before each downbeat is the drum.",
+  "ru": "Тема Грига в исполнении функции: вдоль единичной окружности $\\arg F$ поднимается ступенями, по одной на каждую ноту. «Слушать вдоль кривой» проходит окружность в ровном темпе и играет каждую цветовую линию, которую пересекает $\\arg F$; разрез перед каждой сильной долей — барабан.",
   "note": "The tour's song step body (mk-app.patch)."
  },
  "mk.tour_then": {
@@ -176,9 +176,9 @@
   "note": "The same on a phone; as fix.mk_hint_ph."
  },
  "tour.song.cap2": {
-  "en": "Louder as $|F|$ grows; it falls back at each cut.",
-  "ru": "Громче, пока растёт $|F|$; на каждом разрезе $|F|$ падает.",
-  "note": "The tour's song step, a caption at 0.2 of the function's Listen along (capFrac)."
+  "en": "Each step is two branch points, one each side of the circle.",
+  "ru": "Каждая ступень — две точки ветвления, по одной с каждой стороны окружности.",
+  "note": "The tour's song step, a caption at 0.2 of the function's Listen along (capFrac): a step of the theme wheel (mk-app.patch, round 2)."
  },
  "tour.song.cap3": {
   "en": "The crack is the branch cut. The theme again, faster.",
