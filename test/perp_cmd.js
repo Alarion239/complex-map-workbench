@@ -415,7 +415,9 @@ await section('C', async () => {
   // v16.4.1: with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
   // keeps the whole text on two lines, not cut, as v16.4 showed it)
   const ruChip = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`);
-  ok('C RU chip before the curve (one line without «Esc — отмена» when that fits; with the Whole | Inside icons it does not, so the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
+  // (#35: a chip that would wrap drops the tool's name first, which the pane head's chip shows, and keeps «Esc — отмена»
+  // when that fits one line; else, as before, without «Esc — отмена» on one line, or the whole text on two)
+  ok('C RU chip before the curve (one line without the tool\'s name, else without «Esc — отмена», when that fits; with the Whole | Inside icons the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Esc — отмена' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
   const u = await W(Math.cos(0.9), Math.sin(0.9));
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
