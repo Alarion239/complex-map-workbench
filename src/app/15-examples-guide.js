@@ -448,6 +448,7 @@
       [k('V'), $t('Select and move shapes')], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, $t('Point, segment, line, ray')],
       [`${k('C')} ${k('A')} ${k('F')}`, $t('Circle, arc, freehand')], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, $t('Disc, rectangle, polygon, lasso')],
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
+      [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
       [`${k('1')} ${k('2')} ${k('3')}`, $t('View: X → Y, Phase, Landscape')], [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
       [`${k('⇧ 1')} ${k('⇧ 2')}`, $t('Plane, Sphere of X (in Phase: of the portrait)')], [`${k('⇧ 3')} ${k('⇧ 4')}`, $t('Plane, Sphere of Y')], [k('Z'), $t('Fit both planes')],

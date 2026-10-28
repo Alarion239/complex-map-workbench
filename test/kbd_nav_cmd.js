@@ -5,7 +5,7 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const where = () => ev(`(() => { const a = document.activeElement; if (!a) return null; return { tag: a.tagName, id: a.id || '', cls: String(a.className).slice(0, 40), tool: a.dataset && a.dataset.tool || '', k: a.dataset && a.dataset.k || '', inTop: !!a.closest('#top'), inTools: !!a.closest('#tools'), inChain: !!a.closest('#pipeline'), inProps: !!a.closest('#propsPanel'), xCanvas: !!(a.parentElement && a.closest('#paneL')), yCanvas: !!a.closest('#paneR') }; })()`);
 await view(1440, 900, false, false);
-await load('kbdnav' + Date.now(), { shapes: [{ id: 'a', kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'recip', params: {}, on: true }, { type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
+await load('kbdnav' + Date.now(), { shapes: [{ id: 'a', kind: 'disc', c: [0, 0], r: 1 }, { id: 'b', kind: 'disc', c: [2, 0], r: 0.5 }], steps: [{ type: 'recip', params: {}, on: true }, { type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } });
 await settle(1500);
 // one Tab stop per group
 const stops = await ev(`({ tools: [...document.querySelectorAll('#tools .tool')].filter((t) => t.tabIndex >= 0).length, all: document.querySelectorAll('#tools .tool').length, chain: [...document.querySelectorAll('#pipeline .card, #pipeline .ftile')].filter((t) => t.tabIndex >= 0).length, cards: document.querySelectorAll('#pipeline .card, #pipeline .ftile').length })`);
@@ -41,4 +41,23 @@ await key('ArrowRight'); await settle(300);
 const cw = await where();
 const ct = await ev(`[...document.querySelectorAll('#pipeline .card, #pipeline .ftile')].filter((t) => t.tabIndex >= 0).length`);
 ok('the chain keeps one Tab stop after an arrow', cw && cw.inChain && ct === 1, [cw, ct]);
+// Tab on a focused plane steps through its shapes (the plane takes focus from F6 once it is a stop: sound on, as in the sound suite)
+await load('kbdnav2' + Date.now(), { shapes: [{ id: 'a', kind: 'disc', c: [0, 0], r: 1 }, { id: 'b', kind: 'disc', c: [2, 0], r: 0.5 }], steps: [{ type: 'sin', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } }); await settle(1500);
+await ev(`(() => { const c = document.getElementById('overlayL'); c.tabIndex = 0; c.focus(); })()`); await settle(200);
+const sel = () => ev(`(document.querySelector('#propsPanel') || document.body).textContent.replace(/\\s+/g, ' ').slice(0, 60)`);
+await key('Tab'); await settle(900);
+const t1 = await sel();
+await key('Tab'); await settle(900);
+const t2 = await sel();
+ok('Tab on a plane selects a shape, then the next', /Disc 2/.test(t2), [t1, t2]);
+await key('Tab', 8); await settle(900);
+ok('Shift+Tab goes back to the first shape', /Disc 1/.test(await sel()), await sel());
+// the Construct tools have letters
+const letters = { E: 'circle3', I: 'meet', U: 'midpoint', Q: 'bisector', W: 'perp', J: 'touch', Y: 'hyper' };
+await ev(`document.activeElement.blur()`);
+for (const [k, tool] of Object.entries(letters)) {
+  await key(k.toLowerCase()); await settle(150);
+  const on = await ev(`(document.querySelector('.tool[data-tool][aria-pressed="true"]') || { dataset: {} }).dataset.tool`);
+  ok('the letter ' + k + ' picks ' + tool, on === tool, on);
+}
 return { pass: fails.length === 0, fails, info };

@@ -203,6 +203,15 @@
     cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
+      // a double-click on an edge of a closed polygon adds a vertex there
+      if (!is3DSide(side) && !Construct.isTool(tool) && (side === 'L' ? lFlat() && leftStage() === 0 : rImage() && targetsEditable())) {
+        const [ex, ey] = evXY(pane, e);
+        pane.setView(side === 'R' ? V.right : leftView());
+        for (const s of (side === 'R' ? S.targets : S.shapes).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+          const eg = polyEdgeAt(pane, s, ex, ey, 7);
+          if (eg && polyAddVertex(s, eg.i, eg.z)) { selected = s.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR'); undoToast($t('Vertex added.')); return; }
+        }
+      }
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
       // shape on an editable globe keeps the user's view
       if (is3DSide(side)) { const c = camOf(side); if (c && (!globeEdit(side) || gTurnPress[side])) tweenCam(c, camBaseOf(c)); return; }
@@ -443,9 +452,12 @@
     const cands = list.filter((s) => s.visible !== false).reverse()
       .sort((a, b) => hitRank(a) - hitRank(b));
     let hit = null;
+    const under = [];
     for (const s of cands) {
-      try { if (Region.hitTest(s, z, tol, win)) { hit = s; break; } } catch (e) { /* a damaged formula never hits */ }
+      try { if (Region.hitTest(s, z, tol, win)) { under.push(s); if (!altHeld) break; } } catch (e) { /* a damaged formula never hits */ }
     }
+    // (UX42: Alt-click on shapes that cover each other goes to the next one under the pointer, round again at the last)
+    hit = altHeld && under.length > 1 && under.some((s) => s.id === selected) ? under[(under.findIndex((s) => s.id === selected) + 1) % under.length] : under[0] || null;
     if (hit) {
       if (selected !== hit.id) { selected = hit.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); }
       drag = { mode: 'move', shape: hit, z0: z, moved: false, target };
@@ -992,6 +1004,9 @@
         requestRender(drag.side === 'L' ? 'L' : 'R');
         return;
       }
+      // a construction tool's last pick on a touch screen: the finger slides to adjust it, the dashed preview follows, and
+      // lifting makes the pick (the view stays put)
+      if ((drag.mode === 'panR' || drag.mode === 'panL') && ptrTouch && Construct.isTool(tool) && Construct.finalPick(side)) { drag.cdrag = true; Construct.hover(pane, side, x, y, e); return; }
       if (drag.mode === 'panR') {
         V.right.cx = drag.cx - (x - drag.x) / V.right.s;
         V.right.cy = drag.cy + (y - drag.y) / V.right.s;
@@ -1307,7 +1322,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
+    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
