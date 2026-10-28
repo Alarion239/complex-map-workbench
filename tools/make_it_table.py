@@ -7,7 +7,10 @@
 #                                                Italian one lacks, which then show in English)
 #     python3 tools/make_it_table.py --strict   (also fails on a missing key or a placeholder / TeX / HTML mismatch)
 # Re-run it when tools/it_table.json changes; a new $t() string needs an Italian entry there (its key: the English).
-import json, re, sys, pathlib
+import json
+import pathlib
+import re
+import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 CTX = '\u0004'

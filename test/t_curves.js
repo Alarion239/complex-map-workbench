@@ -341,7 +341,6 @@ const WIN = { x0: -3, x1: 3, y0: -3, y1: 3 };
 {
   const cls = (s) => Expr.classifyRelation(P(s));
   const W2 = { x0: -2, x1: 2, y0: -2, y1: 2 }, COARSE = { x0: -7.3, x1: 9.1, y0: -5.2, y1: 6.4 };
-  const len = (p) => { let L = 0; for (let i = 2; i < p.length; i += 2) L += Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]); return L; };
   const allPts = (r) => r.polys.flatMap((c) => Array.from({ length: c.pts.length / 2 }, (_, i) => [c.pts[2 * i], c.pts[2 * i + 1]]));
   const tol = (x, y) => Math.max(1e-9 * Math.hypot(x, y), 1e-12);
 

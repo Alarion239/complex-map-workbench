@@ -1,8 +1,9 @@
+// @ts-check
 'use strict';
 // The interface strings: $t, $tx, $tn and I18N come from i18n.js, first in the build. A node test that loads cx.js
 // without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
 // (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
-if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof globalThis.$t !== 'function') {
+if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof /** @type {any} */ (globalThis).$t !== 'function') {
   if (typeof require === 'function') require('./i18n.js');
   else {
     const fill = (s, p) => {
@@ -173,6 +174,139 @@ const CX = (() => {
     return sg < 0 ? inv(e) : e;
   }
 
+  // ---- the Gamma function, the digamma function and the Riemann zeta function (issue #4) ----
+  // log sin w, without overflow for large |Im w|: sin w = ∓(e^{∓iw} / 2i)(1 − e^{±2iw}) for ±Im w > 20, so the branch
+  // of the result is arbitrary (its exponential is sin w)
+  function logSin(w) {
+    if (Math.abs(w.im) <= 20) return log(sin(w));
+    const s = w.im > 0 ? 1 : -1;
+    // log(e^{-isw} (1 - e^{2isw}) / (2i)) with s = sign(Im w): sin w = -s e^{-isw} (1 - e^{2isw}) / (2i)
+    const q = exp(C(-2 * s * w.im, 2 * s * w.re));
+    const L = add(C(s * w.im, -s * w.re), log(sub(ONE, q)));
+    // − log(2i) and the sign −s: log(−s/(2i)) = log(s i / 2)
+    return add(L, C(Math.log(0.5), s * Math.PI / 2));
+  }
+  // log Γ(z) (some branch: exp of it is Γ(z)). Lanczos, g = 7, n = 9, for Re z ≥ 1/2; the reflection
+  // Γ(z) Γ(1 − z) = π / sin(πz) otherwise. A pole (z = 0, −1, −2, …) gives Re = +∞
+  const LZ_G = 7;
+  const LZ = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+    12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  const LOG_2PI_2 = 0.5 * Math.log(TAU), LOG_PI = Math.log(Math.PI);
+  function lgamma(z) {
+    if (z.re < 0.5) {
+      // log Γ(z) = log π − log sin(πz) − log Γ(1 − z)
+      if (z.im === 0 && Number.isInteger(z.re)) return C(Infinity, 0);
+      return sub(sub(C(LOG_PI, 0), logSin(scale(z, Math.PI))), lgamma(sub(ONE, z)));
+    }
+    const x = sub(z, ONE);
+    let A = C(LZ[0], 0);
+    for (let k = 1; k < LZ.length; k++) A = add(A, div(C(LZ[k], 0), add(x, C(k, 0))));
+    const t = add(x, C(LZ_G + 0.5, 0));
+    // ½ log 2π + (x + ½) log t − t + log A
+    return add(add(C(LOG_2PI_2, 0), mul(add(x, C(0.5, 0)), log(t))), sub(log(A), t));
+  }
+  function gamma(z) {
+    // (n − 1)! exactly for the positive integers whose factorial is finite
+    if (z.im === 0 && Number.isInteger(z.re) && z.re >= 1 && z.re <= 171) { let f = 1; for (let k = 2; k < z.re; k++) f *= k; return C(f, 0); }
+    const L = lgamma(z);
+    if (L.re === Infinity) return INF;
+    return exp(L);
+  }
+  // ψ(z) = Γ′(z)/Γ(z): the reflection ψ(z) = ψ(1 − z) − π cot(πz) for Re z < 1/2, the recurrence ψ(z) = ψ(z + 1) − 1/z
+  // up to |z| ≥ 10, then the asymptotic series log z − 1/(2z) − Σ B₂ₖ / (2k z²ᵏ)
+  const PSI_B = [1 / 12, -1 / 120, 1 / 252, -1 / 240, 1 / 132, -691 / 32760, 1 / 12];
+  function digamma(z) {
+    if (z.re < 0.5) {
+      if (z.im === 0 && Number.isInteger(z.re)) return INF;
+      const pz = scale(z, Math.PI);
+      return sub(digamma(sub(ONE, z)), scale(inv(tan(pz)), Math.PI));
+    }
+    let acc = ZERO;
+    let w = z;
+    while (abs(w) < 10) { acc = sub(acc, inv(w)); w = add(w, ONE); }
+    const w2 = inv(mul(w, w));
+    let p = w2, ser = ZERO;
+    for (const b of PSI_B) { ser = add(ser, scale(p, b)); p = mul(p, w2); }
+    return add(acc, sub(sub(log(w), scale(inv(w), 0.5)), ser));
+  }
+  // ζ(s): Euler–Maclaurin for Re s ≥ 0, ζ(s) = Σ_{k<N} k^{−s} + N^{1−s}/(s − 1) + N^{−s}/2
+  // + Σ_{j≤M} B₂ⱼ/(2j)! s(s+1)…(s+2j−2) N^{−s−2j+1}, with N = |Im s| + 15 and M = 10 (the remainder is below
+  // (|s|/2πN)^{2M+2}, about 10⁻¹⁸); no 0/0 on Re s = 1, as the alternating-series route has; the pole at s = 1 is ∞.
+  // Re s < 0: the functional equation ζ(s) = 2^s π^{s−1} sin(πs/2) Γ(1 − s) ζ(1 − s), its first factors combined in
+  // log form (sin and Γ over- and underflow separately). |Im s| > ZETA_MAX: NaN (not computed, never a wrong value)
+  const ZETA_MAX = 5000;
+  const EM_C = (() => {
+    // B₂ⱼ/(2j)! for j = 1 … 10
+    const B = [1 / 6, -1 / 30, 1 / 42, -1 / 30, 5 / 66, -691 / 2730, 7 / 6, -3617 / 510, 43867 / 798, -174611 / 330];
+    let f = 1;
+    return B.map((b, j) => { f *= (2 * j + 1) * (2 * j + 2); return b / f; });
+  })();
+  function zetaEM(s) {
+    if (s.re === 1 && s.im === 0) return INF;
+    const N = Math.ceil(Math.abs(s.im)) + 15;
+    const ms = neg(s);
+    let sum = ZERO;
+    for (let k = 1; k < N; k++) sum = add(sum, exp(scale(ms, Math.log(k))));
+    const lnN = Math.log(N), Nms = exp(scale(ms, lnN));   // N^{−s}
+    sum = add(sum, scale(Nms, 0.5));
+    sum = add(sum, div(scale(Nms, N), sub(s, ONE)));
+    // the Bernoulli terms: P_j = s(s+1)…(s+2j−2), N^{−s−2j+1}
+    let P = s, Np = scale(Nms, 1 / N);
+    for (let j = 0; j < EM_C.length; j++) {
+      if (j) { P = mul(P, mul(add(s, C(2 * j - 1, 0)), add(s, C(2 * j, 0)))); Np = scale(Np, 1 / (N * N)); }
+      sum = add(sum, scale(mul(P, Np), EM_C[j]));
+    }
+    return sum;
+  }
+  // ζ′(s): the same Euler–Maclaurin sum differentiated term by term for Re s ≥ 0; for Re s < 0, from ζ(s) = χ(s) ζ(1 − s):
+  // ζ′(s) = χ(s) (L′(s) ζ(1 − s) − ζ′(1 − s)), L′ = log 2 + log π + (π/2) cot(πs/2) − ψ(1 − s), in log form except near
+  // the real axis, where χ cot(πs/2) is taken as 2^s π^{s−1} (π/2) cos(πs/2) Γ(1 − s) (finite at the trivial zeros)
+  function zetaEMd(s) {
+    if (s.re === 1 && s.im === 0) return INF;
+    const N = Math.ceil(Math.abs(s.im)) + 15;
+    const ms = neg(s);
+    let sum = ZERO;
+    for (let k = 2; k < N; k++) { const lk = Math.log(k); sum = sub(sum, scale(exp(scale(ms, lk)), lk)); }
+    const lnN = Math.log(N), Nms = exp(scale(ms, lnN)), s1 = sub(s, ONE);
+    sum = sub(sum, scale(Nms, 0.5 * lnN));
+    // d/ds N^{1−s}/(s − 1) = −N^{1−s} (log N/(s − 1) + 1/(s − 1)²)
+    const r = inv(s1);
+    sum = sub(sum, mul(scale(Nms, N), add(scale(r, lnN), mul(r, r))));
+    let P = s, Pd = ONE, Np = scale(Nms, 1 / N);
+    for (let j = 0; j < EM_C.length; j++) {
+      if (j) {
+        const q = mul(add(s, C(2 * j - 1, 0)), add(s, C(2 * j, 0))), qd = add(scale(s, 2), C(4 * j - 1, 0));
+        Pd = add(mul(Pd, q), mul(P, qd)); P = mul(P, q); Np = scale(Np, 1 / (N * N));
+      }
+      sum = add(sum, scale(mul(sub(Pd, scale(P, lnN)), Np), EM_C[j]));
+    }
+    return sum;
+  }
+  function zetaDeriv(s) {
+    if (!isFin(s) || Math.abs(s.im) > ZETA_MAX) return C(NaN, NaN);
+    if (s.re >= 0) return zetaEMd(s);
+    const one = sub(ONE, s), z1 = zetaEM(one), z1d = zetaEMd(one);
+    const base = sub(C(Math.LN2 + LOG_PI, 0), digamma(one));
+    const hs = scale(s, Math.PI / 2);
+    if (Math.abs(s.im) < 1) {
+      // χ = A sin(πs/2), A = 2^s π^{s−1} Γ(1 − s)
+      const A = mul(exp(add(scale(s, Math.LN2), scale(sub(s, ONE), LOG_PI))), gamma(one));
+      const sn = sin(hs), cs = cos(hs);
+      return mul(A, sub(add(mul(mul(sn, base), z1), scale(mul(cs, z1), Math.PI / 2)), mul(sn, z1d)));
+    }
+    const chi = exp(add(add(add(scale(s, Math.LN2), scale(sub(s, ONE), LOG_PI)), logSin(hs)), lgamma(one)));
+    const Ld = add(base, scale(inv(tan(hs)), Math.PI / 2));
+    return mul(chi, sub(mul(Ld, z1), z1d));
+  }
+  function zeta(s) {
+    if (!isFin(s) || Math.abs(s.im) > ZETA_MAX) return C(NaN, NaN);
+    if (s.re >= 0) return zetaEM(s);
+    // the trivial zeros −2, −4, …: exactly 0
+    if (s.im === 0 && s.re % 2 === 0) return ZERO;
+    const one = sub(ONE, s);
+    const L = add(add(add(scale(s, Math.LN2), scale(sub(s, ONE), LOG_PI)), logSin(scale(s, Math.PI / 2))), lgamma(one));
+    return mul(exp(L), zetaEM(one));
+  }
   // Möbius matrices [a,b,c,d] and the one-parameter path A^t (A normalised to SL2).
   // The same map scaled by a power of two (exact), so that its largest entry has magnitude about 1.
   function mobScaled(m) {
@@ -405,7 +539,7 @@ const CX = (() => {
   return {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
-    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk,
+    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, digamma, zeta, zetaDeriv, ZETA_MAX,
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();

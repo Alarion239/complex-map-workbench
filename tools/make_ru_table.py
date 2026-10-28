@@ -17,7 +17,12 @@
 #      the names its context lists. The Russian always writes '%{name}', which i18n.js fills in any template.
 #      tools/ru_extra.json wins over both (templates restructured in code, Russian-only messages).
 # The table is written as one JSON string inside a JS call, I18N.define('ru', "..."): English never parses it.
-import json, re, sys, pathlib
+import json
+import pathlib
+import re
+import sys
+
+from src_parts import src_texts  # (the files of src/, app.js and gl.js joined from their parts in src/app/ and src/gl/)
 
 root = pathlib.Path(__file__).resolve().parent.parent
 notes = root / 'notes' / 'i18n'
@@ -56,12 +61,22 @@ V164_SEG_HERE = {'v164-segments.json'}
 V164_HERE = {'v164-tour.json'}
 # (v16.4: the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
 V164_HELP_HERE = {'v164-help.json'}
+# (v16.5 wave 1: each piece wrote notes/i18n/ru/v165-ux-<piece>.json (learn, chain, plane, rail, phone), read after
+# every v16.4 table; the wave 1 merge (notes/ux-build/W1-MERGE.md) reads them as one set, in name order)
+V165_HERE = {'v165-ux-learn.json', 'v165-ux-chain.json', 'v165-ux-plane.json', 'v165-ux-rail.json', 'v165-ux-phone.json',
+             'v165-ux-merge.json'}   # (v165-ux-merge.json: the strings the merge itself changed, keys of its own)
+# (v16.5 wave 1 fix round, notes/ux-build/w1-fix-AS-BUILT.md: notes/i18n/ru/v165-ux-fix.json, read after every other
+# v16.5 table, so a Russian it changes wins)
+V165_FIX_HERE = {'v165-ux-fix.json'}
+# (v17, issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: notes/i18n/ru/v17-planemenu.json,
+# read after every other table)
+V17_HERE = {'v17-planemenu.json'}
 # (v16.5: Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
-# read last, so it overrides v152-sound.json and v164-tour.json)
+# read after the v16.5 tables, so it overrides v152-sound.json and v164-tour.json; before v17's, which is read last)
 V165_HEAR_HERE = {'v165-hear.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HEAR_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_FIX_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HEAR_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue
@@ -113,7 +128,8 @@ def key_split(key):
     return out
 
 
-norm = lambda parts: '\u0000'.join(lit for lit, _ in parts)
+def norm(parts):
+    return '\u0000'.join(lit for lit, _ in parts)
 
 
 def rename(ru, en_names, en_order, key_order):
@@ -168,7 +184,7 @@ for en, lst in by_en.items():
     val = v.get('plural') or v['ru']
     if val != en:
         table[en] = val
-    for k2, v2 in lst:
+    for _, v2 in lst:
         if v2.get('ru_short'):
             table['short' + CTX + en] = v2['ru_short']
 for k, v in sample.items():
@@ -220,10 +236,9 @@ def read_lit(s, i):
 def call_sites(src):
     """[(kind, key, file:line)] for every $t / $tx / $tn whose arguments are string literals."""
     out = []
-    for f in sorted(src.glob('*.js')):
-        if f.name.startswith('i18n'):
+    for name, s in src_texts(src):
+        if not name.endswith('.js') or name.startswith('i18n'):
             continue
-        s = f.read_text()
         for m in re.finditer(r'(?<![A-Za-z0-9_$.])\$t(x|n)?\(', s):
             line = s.count('\n', 0, m.start()) + 1
             a = read_lit(s, m.end())
@@ -239,9 +254,9 @@ def call_sites(src):
                 if not b:
                     continue
                 key = (a[0] + CTX + b[0])
-                out.append(('tx' if m.group(1) == 'x' else 'tn', key, a[0], b[0], f'{f.name}:{line}'))
+                out.append(('tx' if m.group(1) == 'x' else 'tn', key, a[0], b[0], f'{name}:{line}'))
             else:
-                out.append(('t', a[0], a[0], None, f'{f.name}:{line}'))
+                out.append(('t', a[0], a[0], None, f'{name}:{line}'))
     return out
 
 
@@ -267,11 +282,11 @@ def rename_named(ru, t_occ, k_occ):
     """Russian placeholders of a named template (%{name}; {name} too when the Russian has no TeX) -> %{call-site name}.
     By name; occurrence by occurrence when one template name stands for two call-site names."""
     m, conflict = {}, False
-    for t, k in zip(t_occ, k_occ):
+    for t, k in zip(t_occ, k_occ, strict=False):
         if m.setdefault(t, k) != k:
             conflict = True
     queues = {}
-    for t, k in zip(t_occ, k_occ):
+    for t, k in zip(t_occ, k_occ, strict=False):
         queues.setdefault(t, []).append(k)
     used = {}
     tex = re.search(r'[$\\]', ru) is not None
@@ -311,7 +326,7 @@ for kind, key, a, b, where in sites:
         # one English text, several entries (a tool button and a shape name): the entry of the same file wins, then
         # the nearest line (the base's line numbers drift a little)
         cf, cl = where.split(':')[0], int(where.split(':')[1])
-        def rank(h):
+        def rank(h, cf=cf, cl=cl):
             f = inv.get(h[0], {}).get('file') or h[1].get('file') or ''
             fn, _, ln = f.partition(':')
             same = pathlib.Path(fn).name == cf
@@ -329,9 +344,9 @@ for kind, key, a, b, where in sites:
             unresolved.append({'key': key, 'where': where, 'why': f'{k} has no plural forms'})
             continue
         if names == 'named':
-            resolved[key] = map_val(val, lambda r: rename_named(r, order, kn))
+            resolved[key] = map_val(val, lambda r, order=order, kn=kn: rename_named(r, order, kn))
         else:
-            resolved[key] = map_val(val, lambda r: rename(r, names, order, kn))
+            resolved[key] = map_val(val, lambda r, names=names, order=order, kn=kn: rename(r, names, order, kn))
         how[key] = k
         continue
     if kind == 't' and key in table and not kn:
@@ -387,10 +402,12 @@ def js_unescape(lit):
 
 
 src_lits, src_blob, src_raw = set(), [], []
-for f in sorted((root / 'src').glob('*')):
-    if f.name in ('i18n_ru.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
+for name, t in src_texts(root / 'src'):
+    f = pathlib.Path(name)
+    # (v16.5 merge: the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
+    # source's strings: a string the source no longer calls must not be kept because the Italian table still has it)
+    if f.name in ('i18n_ru.js', 'i18n_it.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
         continue
-    t = f.read_text()
     src_raw.append(t)
     if f.suffix == '.html':
         # (the page's static text as the walker reads it: entities decoded, tags and runs of white space as one space)

@@ -128,6 +128,32 @@ of our users have. To pin one: *Settings → System → Display → Graphics →
 
 5. On GitHub, *Settings → Actions → Runners* lists **mac-gpu** as *Idle*.
 
+### Replacing an x64 runner with the arm64 build
+
+On Apple silicon the runner must be the **ARM64** package. The **x64** one also runs there, under Rosetta: then the
+jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's timings are not the machine's. The
+**gpu probe** step warns when it runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`). To replace it:
+
+1. Make sure no job is running on it (*Actions*: nothing *In progress* on `mac-gpu`), or set `GPU_RUNNERS` to
+   `false` for the time being (section 1, step 4).
+2. Stop and remove the old runner, in its folder:
+
+   ```sh
+   cd ~/actions-runner
+   ./svc.sh stop && ./svc.sh uninstall
+   ./config.sh remove --token <TOKEN>
+   ```
+
+   (the token: *Settings → Actions → Runners → mac-gpu → Remove* shows the command with a fresh one). Then move the
+   folder aside: `mv ~/actions-runner ~/actions-runner-x64`.
+3. Install the **ARM64** package as in steps 1–4 above (*New self-hosted runner* → **macOS** → **ARM64**), with the
+   same name `mac-gpu` and the label `gpu`.
+4. Check that Node is a native build too (an x64 Node installed from the Intel package runs under Rosetta as well):
+   `file "$(which node)"` should say `arm64`, and `node -p process.arch` should print `arm64`. If not, install the
+   arm64 Node 22 and restart the runner (`./svc.sh stop && ./svc.sh start`).
+5. Run the GPU gate once by hand (section 5): **gpu probe** shows `darwin arm64` and the Metal renderer, and no
+   Rosetta warning. Then delete `~/actions-runner-x64`, and set `GPU_RUNNERS` back to `true` if you turned it off.
+
 ## 5. Check the GPU, then turn it on
 
 1. Set the variable `GPU_RUNNERS` to `true` (section 1, step 4).

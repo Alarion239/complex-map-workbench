@@ -306,7 +306,7 @@ R.dlg = await ev(`await (async () => {
   await new Promise((r) => setTimeout(r, 100));
   po.disconnect();
   const d = __cmwFig.dialog(), on = document.querySelector('#xfCols [aria-checked="true"]');
-  return { long, cols: d && d.fig ? d.fig.cols : null, checked: on ? on.dataset.v : null, last: !!(d && d.fig && String(d.fig.cols) === '1' && on && on.dataset.v === '1') };
+  return { long, cols: d && d.fig ? d.fig.cols : null, checked: on ? on.dataset.v : null, last: !!(d && d.fig && String(d.fig.cols) === '1' && on && on.dataset.v === '1'), building: !!(d && d.building) };
 })()`, 60000);
 await key('Escape'); await sleep(300);
 ok('(h) the dialog: the last option wins', R.dlgFirst && R.dlg.last, R.dlg);

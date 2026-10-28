@@ -203,7 +203,7 @@ await settle(3500);
 b = await bound();
 const ru = await ev(`({ head: document.querySelector('.prm h2')?.textContent, lang: I18N.lang, row: !!document.querySelector('.prm-row[data-name="a"]') })`);
 ok('the language switch keeps the numbers', ru.lang === 'ru' && b.a === A && b.b === 'a i' && b.fcurve.bind.expr === 'Re z = a', { ru, a: b.a });
-ok('Parameters in Russian', ru.head === 'Параметры' && ru.row, ru);
+ok('Parameters in Russian', ru.head === 'Числа' && ru.row, ru);   // (v16.5 UX65: Numbers, «Числа»)
 await shot('v15p-3-ru');
 await view(1440, 900, true, false);
 await settle(800);

@@ -1,0 +1,243 @@
+{
+ "_about": "v16.5 wave 1, the phone piece (notes/ux-audit/REPORT.md; built in work/xu1-phone; notes/ux-build/w1-phone-AS-BUILT.md): Back, the palette's Cancel and insert chip, the long-press tips (UX40), the touch wording of the guide and the tour (UX17). id -> {en, ru, note}. Read after every v16.4 table by tools/make_ru_table.py (V165_HERE). Tour tasks: at most 64 characters as read (two lines at 360 px). Terms: GLOSSARY.md (the bottom sheet is «панель», a tap «коснитесь», a long press «удерживайте палец»). Edit by read-modify-write only.",
+ "pal.at.label": {
+  "en": "Where the new step goes: {place}. Tap to move it",
+  "ru": "Куда встанет новый шаг: %{place}. Коснитесь, чтобы переместить",
+  "note": "UX29: aria-label of the phone palette's insert-position chip; {place} is \"Insert after f₂\" etc."
+ },
+ "zp.hint.touch": {
+  "en": "Or hold a finger on X until the ring fills: its menu adds a zero or a pole right there. Marks snap to the ruler.",
+  "ru": "Или удерживайте палец на X, пока не заполнится кольцо: его меню добавит нуль или полюс прямо там. Метки привязываются к линейке.",
+  "note": "UX40: Inspector hint under Add zero / Add pole on touch screens (replaces \"Or long-press a plane…\")."
+ },
+ "tools.tip.hold": {
+  "en": "Tip: hold a finger on the plane until the ring fills: its menu adds a point or a zero there, and hides or deletes the shape under your finger.",
+  "ru": "Совет: удерживайте палец на плоскости, пока не заполнится кольцо: её меню добавит там точку или нуль, а также скроет или удалит фигуру под пальцем.",
+  "note": "UX40: the tip line under the tiles of the More tools panel (phone)."
+ },
+ "guide.touch.intro": {
+  "en": "Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. <i>X</i> is always the domain (or the input of a step shown alone) and <i>Y</i> its output: <i>X</i> shows the shapes, <i>Y</i> their images. One of them fills the screen and the other is the small picture in its corner: tap that picture to swap them. With a panel open, or with the phone turned, they stand side by side.",
+  "ru": "Постройте область в плоскости <i>z</i>, пропустите её через цепочку функций <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, … и следите за всеми промежуточными образами. <i>X</i> — всегда область определения (или вход шага, показанного отдельно), а <i>Y</i> — плоскость образов: в <i>X</i> фигуры, в <i>Y</i> их образы. Одна из плоскостей занимает экран, другая видна маленькой картинкой в углу: коснитесь картинки, чтобы поменять их местами. Когда открыта панель или телефон повёрнут, они стоят рядом.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Build a region\" on the desktop, in a phone's words."
+ },
+ "guide.touch.regions": {
+  "en": "Draw with the tools of the bottom row (its More key holds the others and a formula box), or type a set in that box, such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears in <i>Y</i>; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.",
+  "ru": "Рисуйте инструментами нижнего ряда (его кнопка «Ещё» открывает остальные и поле формулы) или введите в этом поле множество, например <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> или <span class=\"chip ftag\" data-tex=\"0<\\operatorname{Im} z<\\pi\"></span>. В формулах можно использовать <i>and</i>, <i>or</i>, <i>not</i>, запятые, двойные неравенства и переменные <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. Уравнение задаёт кривую: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> — прямая, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> — дуга; прямые, лучи, отрезки, окружности и дуги становятся фигурами с маркерами, а остальные кривые, например <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span>, строятся точно. Множество или кривая, заданные через <i>w</i>, — это цель в плоскости <i>w</i>. Неограниченные области триангулируются далеко за пределами видимой части, поэтому в <i>Y</i> виден весь их образ; заливка бледнеет там, где кончается триангуляция. Узор нарисован в координатах <i>z</i> и переносится отображением, так что за каждой его клеткой можно проследить.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Draw with the tools\" on the desktop, in a phone's words."
+ },
+ "guide.touch.chain": {
+  "en": "Add a step with the + in the chain bar; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in its search to add it directly. Tap a card: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show this step alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.",
+  "ru": "Шаг добавляет кнопка + в панели цепочки; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в её поиске, и она станет шагом. Коснитесь карточки: внизу откроется панель с её редактором — формула целиком, поле для каждого коэффициента и меню ⋯, которое заменяет шаг обратной функцией, отключает, перемещает, дублирует или удаляет его. Собственные коэффициенты шага помечены его номером (<i>a</i><sub>2</sub>); буква без номера — это общее число. Кнопка <b>Показать только этот шаг</b> в редакторе показывает только этот шаг. Порядок меняют пункты «Сдвинуть» в меню ⋯.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Add a step with\" on the desktop, in a phone's words."
+ },
+ "guide.touch.split": {
+  "en": "A typed formula that is a chain of catalog steps, such as <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, shows in its editor how it is built: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. <b>Split into steps</b> turns it into those steps, each with its own card and picture; Undo returns the formula. A sum or product of two functions of <i>z</i>, such as <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, is not a chain and stays one step. In the search, a formula that is one catalog function, such as sin z or z^i, adds that function directly.",
+  "ru": "Если введённая формула — цепочка шагов каталога, например <span class=\"chip ftag\" data-tex=\"\\sin(z^2+1)\"></span>, её редактор показывает, из чего она составлена: <span class=\"chip ftag\" data-tex=\"z\\mapsto z^2\\mapsto z^2+1\\mapsto \\sin(z^2+1)\"></span>. Пункт <b>Разложить на шаги</b> превращает её в эти шаги, у каждого своя карточка и картинка; «Отменить» возвращает формулу. Сумма или произведение двух функций от <i>z</i>, например <span class=\"chip ftag\" data-tex=\"z^2+\\sin z\"></span>, — не цепочка: такая формула остаётся одним шагом. В поиске формула, которая совпадает с одной функцией каталога, например sin z или z^i, сразу добавляет эту функцию.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"A typed formula that is a chain\" on the desktop, in a phone's words."
+ },
+ "guide.touch.numbers": {
+  "en": "Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Numbers</b>, the <i>a</i> = key at the start of the chain bar, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the ⋯ menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.",
+  "ru": "Введите новую букву, например <i>a</i>, в любое поле (коэффициент, нуль, радиус, формулу области вроде Re <i>z</i> = <i>a</i>), и число <i>a</i> появится в разделе <b>Числа</b> (кнопка <i>a</i> = в начале панели цепочки), с ползунком и воспроизведением. Измените его один раз, и всё, что его использует, изменится следом. <b>Скопировать ссылку на этот рисунок</b> в меню ⋯ помещает весь рисунок в ссылку; <b>Сохранить сцену</b> и <b>Открыть сцену</b> работают с файлом.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Type a new letter such as\" on the desktop, in a phone's words."
+ },
+ "guide.touch.ddz": {
+  "en": "<b>d/dz</b> is a step too: it differentiates the chain so far, so [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] maps <i>z</i> to <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), and two in a row give the second derivative. Every view shows it like any other step; shown alone, its <i>X</i> is the <i>z</i>-plane.",
+  "ru": "<b>d/dz</b> — тоже шаг: он дифференцирует всю цепочку перед ним, так что [<i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, d/dz, <i>f</i><sub>3</sub>] переводит <i>z</i> в <i>f</i><sub>3</sub>((<i>f</i><sub>2</sub> ∘ <i>f</i><sub>1</sub>)′(<i>z</i>)), а два таких шага подряд дают вторую производную. Все виды показывают его как любой другой шаг; если он показан отдельно, его плоскость <i>X</i> — плоскость <i>z</i>.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"<b>d/dz</b> is a step\" on the desktop, in a phone's words."
+ },
+ "guide.touch.cuts": {
+  "en": "Logarithms, roots and complex powers cut along a ray from 0. Drag the seam's handle in the step's input plane (<i>X</i> for the first step, else show the step alone). The hatched side is the side the cut belongs to. The sheet number, in the step's editor, picks the branch.",
+  "ru": "У логарифмов, корней и комплексных степеней разрез идёт по лучу из 0. Перетащите маркер линии разреза в исходной плоскости шага (для первого шага это <i>X</i>, для остальных покажите шаг отдельно). Заштрихованная сторона — та, к которой относится разрез. Номер листа в редакторе шага выбирает ветвь.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Logarithms, roots\" on the desktop, in a phone's words."
+ },
+ "guide.touch.zp": {
+  "en": "<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else show the step alone): drag them, or add one with <b>Add zero</b> and <b>Add pole</b> in its editor, or from the plane's menu: hold a finger on the plane (below). Drag one off the plane, or hold it and choose Remove, to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.",
+  "ru": "<i>Нули и полюсы</i> (в группе «Многочлены и свои формулы») — это отображение <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Его нули (точки) и полюсы (крестики) — маркеры в его исходной плоскости (для первого шага это X, для остальных покажите шаг отдельно): перетаскивайте их или добавляйте кнопками <b>Нуль</b> и <b>Полюс</b> в редакторе шага либо из меню плоскости: удерживайте палец на плоскости (см. ниже). Чтобы удалить нуль или полюс, перетащите его за пределы плоскости или удерживайте на нём палец и выберите «Удалить». Шаг с многочленом или рациональной функцией можно переписать в таком виде через его меню <b>⋯</b> — и обратно.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"<i>Zeros and poles</i>\" on the desktop, in a phone's words."
+ },
+ "guide.touch.menu": {
+  "en": "Hold a finger on any plane until the ring fills, then lift it: the plane's menu opens. Its head gives the point and the map there. Below that come the items for what is under your finger (a zero or pole, a shape, a cut handle), then <b>Add zero of <i>f</i><sub><i>k</i></sub> here</b> and <b>Add pole of <i>f</i><sub><i>k</i></sub> here</b> on <i>X</i>, Copy coordinates and Center view here. A zero added on <i>X</i> goes where the point lands after the earlier steps, so the point becomes a zero of <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> exactly, and of <i>F</i> when <i>f</i><sub><i>k</i></sub> is the last step; the menu says where else it appears and, when steps follow, what <i>F</i> is there. Points snap to the ruler while Snap is on. Slide the finger instead of lifting it, and you read the values under it.",
+  "ru": "Удерживайте палец на любой плоскости, пока не заполнится кольцо, и отпустите: откроется меню плоскости. В заголовке меню — точка и значение отображения в ней. Ниже идут команды для того, что под пальцем (нуль или полюс, фигура, маркер разреза), затем <b>Добавить нуль функции <i>f</i><sub><i>k</i></sub> здесь</b> и <b>Добавить полюс функции <i>f</i><sub><i>k</i></sub> здесь</b> на <i>X</i>, «Скопировать координаты» и «Центрировать здесь». Нуль, добавленный на <i>X</i>, ставится туда, куда точку переводят предыдущие шаги, поэтому точка становится нулём <i>f</i><sub><i>k</i></sub> ∘ … ∘ <i>f</i><sub>1</sub> точно, а нулём <i>F</i> — если <i>f</i><sub><i>k</i></sub> последний шаг; меню пишет, где ещё он появится, и, если дальше есть шаги, чему там равна <i>F</i>. Пока включена привязка, точки привязываются к делениям линейки. Если не отпускать палец, а вести его, видны значения под ним.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Right-click any plane\" on the desktop, in a phone's words."
+ },
+ "guide.touch.views": {
+  "en": "The switch at the top picks the view. <b><i>X</i> → <i>Y</i></b> shows the two planes: the shapes in <i>X</i>, their images in <i>Y</i>, each with its own <b>Sphere</b> key in the column at its bottom right. <i>Y</i> has a derivative gauge under the probe. <b>Phase</b> fills the screen with <i>X</i>, each point coloured by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b>, in the Display panel, draws its sheets instead of the cut principal branch (all of them when there are finitely many, else a window of them; best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a plane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes in <i>X</i>, targets in <i>Y</i>; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool two fingers turn it. The <b>Phase key</b> check, in the Display panel of <i>Y</i> in <i>X</i> → <i>Y</i>, paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.",
+  "ru": "Переключатель вверху выбирает вид. <b><i>X</i> → <i>Y</i></b> показывает две плоскости: в <i>X</i> фигуры, в <i>Y</i> их образы; у каждой своя кнопка <b>Сфера</b> в столбце кнопок справа внизу. На плоскости <i>Y</i> у указателя виден индикатор производной. <b>Фаза</b> занимает весь экран: каждая точка <i>X</i> окрашена по arg <i>F</i>, с линиями уровня модуля, на плоскости или на сфере Римана; фигуры обведены. <b>Рельеф</b> строит над <i>X</i> поверхность |<i>F</i>| в цветах фазы или в стиле «Гипс»: нули — ямы, полюсы — пики; для отображения с разрезом флажок <b>Все листы</b> на панели «Вид» рисует его листы вместо главной ветви с разрезом (все, если их конечное число, иначе окно из них; лучше всего с высотой Re <i>F</i> или Im <i>F</i>). У каждого вида своя камера и своё положение плоскости. <b>Сфера</b> переносит плоскость на сферу Римана, ∞ — в северном полюсе. На ней рисуют так же, как на плоскости (в <i>X</i> фигуры, в <i>Y</i> цели; Кольцо, Сектор и Полярная сетка рисуются только на плоскости): «Круг» на сфере — это шапочка, «Окружность» — её край; если край проходит через ∞, круг становится полуплоскостью, а окружность — прямой. Инструментом «Выбор» перетаскивайте фигуру, чтобы сдвинуть её (переходя через ∞, она меняет тип), а пустое место — чтобы вращать сферу; при любом инструменте сферу вращают двумя пальцами. Флажок <b>Шкала фазы</b> на панели «Вид» плоскости <i>Y</i> в виде <i>X</i> → <i>Y</i> подкладывает под образы цвета фазового портрета, так что по цвету портрета можно прочесть значение <i>w</i>.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"The switch in the middle\" on the desktop, in a phone's words."
+ },
+ "guide.touch.preimages": {
+  "en": "Hold a finger on a point <i>w</i> of <i>Y</i> (its plane or its sphere) and slide it: <i>X</i> marks every <i>z</i> in view with <i>F</i>(<i>z</i>) = <i>w</i>, and its readout counts them. In its plane the drawing tools also work in <i>Y</i>: what you draw there is a <i>target</i> in the <i>w</i>-plane. In every view <i>X</i> shades every <i>z</i> with <i>F</i>(<i>z</i>) in a target area and traces the curves <i>F</i>(<i>z</i>) on a target curve; a target point <i>p</i> marks the solutions of <i>F</i>(<i>z</i>) = <i>p</i> as <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … with their multiplicity, and the poles of <i>F</i> (a target at 0 shows the roots). Targets are listed under the shapes, under More, and can be edited, hidden or deleted.",
+  "ru": "Удерживайте палец на точке <i>w</i> плоскости <i>Y</i> (на плоскости или на сфере) и ведите его: <i>X</i> отмечает все <i>z</i> в видимой части, для которых <i>F</i>(<i>z</i>) = <i>w</i>, а её показания сообщают их число. На плоскости инструменты рисования работают и в <i>Y</i>: всё, что вы рисуете там, — <i>цель</i> в плоскости <i>w</i>. Во всех видах <i>X</i> закрашивает все <i>z</i>, для которых <i>F</i>(<i>z</i>) лежит в целевой области, и проводит кривые, на которых <i>F</i>(<i>z</i>) лежит на целевой кривой; целевая точка <i>p</i> отмечает решения уравнения <i>F</i>(<i>z</i>) = <i>p</i> как <i>z</i><sub>1</sub>, <i>z</i><sub>2</sub>, … с указанием кратности, а также полюсы функции <i>F</i> (цель в точке 0 показывает корни). Цели перечислены под фигурами (под «Ещё»); их можно изменить, скрыть или удалить.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Hover a point <i>w</i>\" on the desktop, in a phone's words."
+ },
+ "guide.touch.inverse": {
+  "en": "<b>Replace with the inverse</b>, in the ⋯ menu of a step's editor, replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the command says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the search as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.",
+  "ru": "Пункт <b>Заменить обратной</b> в меню ⋯ редактора шага заменяет шаг обратной функцией на той же ветви. У шага, который принимает некоторые значения более одного раза (например, у многочлена степени 2 и выше), нет однозначной обратной: команда объясняет почему и предлагает вместо неё прообразы. Пункт <b>Заменить производной</b> в меню ⋯ заменяет отдельный шаг его производной <i>f</i>′ (а шаг d/dz дифференцирует всю цепочку перед ним); обе команды есть и в поиске — <b>Обратная к <i>f</i><sub><i>k</i></sub></b> и <b>Производная <i>f</i><sub><i>k</i></sub></b>, — и обе можно отменить.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"<b>Replace with the inverse</b>\" on the desktop, in a phone's words."
+ },
+ "guide.touch.integral": {
+  "en": "Hold a finger on a curve or a region's boundary in <i>X</i>, on its image in <i>Y</i>, or on its outline on the phase portrait, lift it, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.",
+  "ru": "Удерживайте палец на кривой или на границе области в <i>X</i>, на её образе в <i>Y</i> или на её обводке на фазовом портрете, отпустите и выберите <b>Вычислить интеграл</b>: во всплывающем окне появятся ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> и график интеграла с переменным верхним пределом, начиная с 0; граница области обходится так, что область остаётся слева. Для замкнутой кривой добавляются (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, число оборотов <i>F</i>∘<i>γ</i> вокруг 0 и найденные внутри нули и полюсы: по принципу аргумента число оборотов равно числу нулей минус число полюсов. Пока окно открыто, кривая подсвечена и на ней показано направление обхода. Стиль <b>Интеграл Коши</b> строит фазовый портрет интеграла Коши по выделенной замкнутой кривой: внутри он равен <i>F</i>, снаружи 0.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"Right-click a curve\" on the desktop, in a phone's words."
+ },
+ "guide.touch.sound": {
+  "en": "<b>Sound</b>, in the ⋯ menu, is on by default and starts with your first tap; your choice stays on this device. Its Settings set the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on; then hold a finger on a plane and slide it. It is a harp: silent while you rest, it plucks a note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B), so a loop around a zero of order <i>m</i> plays a rising scale <i>m</i> times, around a pole a falling one, and the low Ds, counted up minus down, are the winding number. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it.",
+  "ru": "<b>Звук</b> (в меню ⋯) включён по умолчанию и начинает звучать после вашего первого касания; ваш выбор хранится только на этом устройстве. Его «Настройки» задают громкость и состав звуков: интерфейс и математические события (деформация, число оборотов замкнутой петли), оба включены по умолчанию, и <b>Слушать функцию под указателем</b> (выключено, пока вы это не включите; затем удерживайте палец на плоскости и ведите его). Это арфа: пока палец стоит, она молчит, а всякий раз, когда arg <i>F</i> пересекает одну из пяти линий фазы (ре, ми, фа-диез, ля, си), звучит щипок струны. Поэтому петля вокруг нуля порядка <i>m</i> играет восходящую гамму <i>m</i> раз, вокруг полюса — нисходящую, а низкие ре, посчитанные как восходящие минус нисходящие, и есть число оборотов. Затем замкнутая петля поёт своё число оборотов одной нотой (ре для 0, фа-диез для 1, ля для 2, ля ниже для −1), а пока идёт деформация, нота последней петли меняется в тот момент, когда её пересекает нуль или полюс.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"<b>Sound</b> in the top bar\" on the desktop, in a phone's words."
+ },
+ "guide.touch.guarantees": {
+  "en": "The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Tap the tile, and its editor shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.",
+  "ru": "Плитка <b>F</b> в конце цепочки называет то, чем <i>F</i> гарантированно является. Свойство названо, только если им обладает каждый шаг и композиция его сохраняет, поэтому оно всегда верно; если свойство не названо, оно не следует из цепочки, хотя может и выполняться. Коснитесь плитки, и её редактор покажет <i>F</i> в явном виде с кнопкой «Скопировать LaTeX», её естественную область определения и раздел «По шагам»: какой шаг даёт какое свойство.",
+  "note": "UX17: the guide on a touch screen, the paragraph that starts \"The <b>F</b> tile at the end\" on the desktop, in a phone's words."
+ },
+ "guide.touch.deform": {
+  "en": "On a phone, <b>Deformation</b> is the key at the end of the chain bar. While it plays, the row along the bottom holds Undo, play, the time <i>t</i>, the speed (tap it: 1×, 2×, ½×), Paths and ×; the plane's Display key holds the order, Loop and the deformed steps.",
+  "ru": "На телефоне <b>Деформация</b> — кнопка в конце панели цепочки. Пока она идёт, в нижней строке — «Отменить», воспроизведение, время <i>t</i>, скорость (коснитесь её: 1×, 2×, ½×), «Пути» и ×; кнопка «Вид» на плоскости открывает порядок, «Цикл» и деформируемые шаги.",
+  "note": "UX17: the guide on a touch screen, a line under the Deformation heading: where its controls are on a phone."
+ },
+ "tour.formula.touch": {
+  "en": "Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.",
+  "ru": "Введите множество, например $|z-1|<2$ или $0<\\operatorname{Im} z<\\pi$, и коснитесь «Добавить». Уравнение вроде $|z|=1$ добавляет кривую, а формула от $w$ — цель.",
+  "note": "Tour body, touch."
+ },
+ "tour.formula.try.touch": {
+  "en": "Type $|z+1|<1$ and tap Add.",
+  "ru": "Введите $|z+1|<1$ и коснитесь «Добавить».",
+  "note": "Strip task, touch (64 as read)."
+ },
+ "tour.chain.touch": {
+  "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; there, Show this step alone makes X and Y its input and output.",
+  "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Коснитесь карточки, и внизу откроется панель с её редактором; там кнопка «Показать только этот шаг» делает X и Y его входом и выходом.",
+  "note": "Tour body, touch (was \"the lens there\": UX17, UX85)."
+ },
+ "tour.chain.try.touch": {
+  "en": "Tap the card $f_1$, then Show this step alone.",
+  "ru": "Коснитесь $f_1$, затем «Показать только этот шаг».",
+  "note": "Strip task, touch (64 as read)."
+ },
+ "tour.add.touch": {
+  "en": "Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, tap a card and use Move in its ⋯ menu.",
+  "ru": "Коснитесь здесь, чтобы добавить шаг: выберите функцию из каталога или введите формулу, например $\\sin(z^2)$. Порядок меняют пункты «Сдвинуть» в меню ⋯ карточки.",
+  "note": "Tour body, touch (a phone cannot drag cards: UX17)."
+ },
+ "tour.switch.touch": {
+  "en": "X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.",
+  "ru": "X → Y показывает две плоскости. «Фаза» и «Рельеф» изображают саму функцию $F$ над X, каждый вид — на весь экран.",
+  "note": "Tour body, touch."
+ },
+ "tour.land.touch": {
+  "en": "The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.",
+  "ru": "График $\\ln|F|$ над X: нули — ямы, полюсы — пики. Перетаскивайте, чтобы вращать, двумя пальцами меняйте масштаб; высоту и раскраску задаёт кнопка «Вид».",
+  "note": "Tour body, touch."
+ },
+ "tour.key.touch": {
+  "en": "Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.",
+  "ru": "Флажок «Шкала фазы» на панели «Вид» плоскости Y подкладывает под образы цвета фазы самой точки $w$, так что по цвету фазового портрета можно прочесть значение $w=F(z)$.",
+  "note": "Tour body, touch."
+ },
+ "tour.split.touch": {
+  "en": "This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.",
+  "ru": "Эта формула — цепочка шагов каталога, и её редактор показывает, из чего она составлена. Разложите её, и у каждого шага появится своя карточка: ряд карточек покажет все преобразования по очереди, а деформация пройдёт их одно за другим. «Отменить» вернёт формулу.",
+  "note": "Tour body, touch."
+ },
+ "tour.zpHere.touch": {
+  "en": "Hold a finger on a point of X until the ring fills, lift it, and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.",
+  "ru": "Удерживайте палец на точке X, пока не заполнится кольцо, отпустите и выберите «Добавить нуль функции $f_1$ здесь»: эта точка станет нулём $F$. Если перед шагом стоят другие шаги, нуль ставится туда, куда они переводят точку, поэтому он точный.",
+  "note": "Tour body, touch (UX40: the gesture named)."
+ },
+ "tour.domain.touch": {
+  "en": "Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads \"the formula is defined at $z$\": here every $z$ except the poles $\\pm i$.",
+  "ru": "Коснитесь плитки F в конце цепочки, и её редактор покажет, где определены все шаги. Для введённой формулы он пишет «формула определена в точке $z$»: здесь это все $z$, кроме полюсов $\\pm i$.",
+  "note": "Tour body, touch."
+ },
+ "tour.cut.touch": {
+  "en": "$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step's editor adds $2\\pi i k$.",
+  "ru": "Для $\\ln z$ нужен разрез: на красном луче в X значения логарифма меняются скачком на $2\\pi i$. Перетащите луч, чтобы сдвинуть линию разреза; лист $k$ в редакторе шага прибавляет $2\\pi i k$.",
+  "note": "Tour body, touch."
+ },
+ "tour.inverse.touch": {
+  "en": "Replace with the inverse, in the ⋯ menu of the step's editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.",
+  "ru": "Пункт «Заменить обратной» в меню ⋯ редактора шага заменяет шаг обратной функцией, если у шага есть однозначная обратная, как $e^z$ для $\\ln z$. Если её нет, как у $z^2$, он объясняет почему и предлагает вместо этого прообразы.",
+  "note": "Tour body, touch."
+ },
+ "tour.listen.try.touch": {
+  "en": "Tap ▶ to listen.",
+  "ru": "Коснитесь ▶, чтобы слушать.",
+  "note": "Strip task, touch (the Sound chapter's song and loop)."
+ },
+ "tour.formulaTex.touch": {
+  "en": "With the F tile tapped, its editor shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.",
+  "ru": "Когда выбрана плитка F, её редактор показывает $F$ в явном виде; кнопка копирования помещает LaTeX-код формулы в буфер обмена.",
+  "note": "Tour body, touch."
+ },
+ "tour.inspector.titleTouch": {
+  "en": "The editor",
+  "ru": "Редактор",
+  "note": "UX17: the Inspector step's title on a touch screen (the card's editor in the sheet)."
+ },
+ "tour.inspector.leadTouch": {
+  "en": "The editor edits the tapped step, here $f_2$.",
+  "ru": "Редактор правит выбранный шаг, здесь $f_2$.",
+  "note": "UX17: strip line of the Inspector step on touch; at most 60 (64 in Russian) as read."
+ },
+ "tour.domain.residueZp.touch": {
+  "en": "Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.",
+  "ru": "Коснитесь плитки F в конце цепочки, и её редактор покажет, где определены все шаги: здесь это все $z$, кроме полюсов $\\pm i$, что записано как $z\\notin\\{i,-i\\}$.",
+  "note": "UX17: the Natural domain step, scene residueZp, on touch."
+ },
+ "example.residue.touch": {
+  "en": "Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.",
+  "ru": "Удерживайте палец на окружности и выберите «Вычислить интеграл»: при обходе полюса i интеграл с переменным верхним пределом не возвращается к начальному значению — разность равна 2πi · Res = π.",
+  "note": "UX17: the Examples blurb of \"A residue by integration\" on touch."
+ },
+ "integrate.none.touch": {
+  "en": "Draw a curve or a region first: hold a finger on a curve, then choose Integrate.",
+  "ru": "Сначала нарисуйте кривую или область: удерживайте палец на кривой и выберите «Вычислить интеграл».",
+  "note": "UX17: toast on touch (integrate with nothing drawn)."
+ },
+ "sound.hear.on.touch": {
+  "en": "Hear the function on: hold a finger on a plane and slide it.",
+  "ru": "Прослушивание функции включено: удерживайте палец на плоскости и ведите его.",
+  "note": "UX17: screen-reader line on touch when Hear the function turns on."
+ },
+ "region.hint.touch": {
+  "en": "Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.",
+  "ru": "Рисуйте фигуры на плоскости X инструментами нижнего ряда; список «Фигуры» в «Других инструментах» их редактирует. Коснитесь шага в цепочке, чтобы изменить его здесь.",
+  "note": "UX17: the Region editor's note on a phone."
+ },
+ "globe.hint.point.touch": {
+  "en": "Tap to place a {tg}point",
+  "ru": "Коснитесь, чтобы поставить %{tg}точку",
+  "note": "UX17: the sphere's idle readout with Point, on touch; {tg} is \"target \" or empty."
+ },
+ "globe.hint.polygon.touch": {
+  "en": "Tap the vertices",
+  "ru": "Касайтесь вершин",
+  "note": "UX17: the sphere's idle readout with Polygon, on touch."
+ },
+ "globe.hint.turn.touch": {
+  "en": "{g}; two fingers turn",
+  "ru": "%{g}; два пальца — поворот",
+  "note": "UX17: the sphere's idle readout on touch: the tool's gesture, then how to turn the globe."
+ },
+ "tooltip.point.touch": {
+  "en": "Tap to place a point; its images are labelled a′, a″, …",
+  "ru": "Коснитесь, чтобы поставить точку; её образы обозначаются a′, a″, …",
+  "note": "UX17: the Point tool's long-press tip on touch (the laptop's tip says Click)."
+ },
+ "tooltip.polygon.touch": {
+  "en": "Tap the vertices; tap the first one to close.",
+  "ru": "Касайтесь вершин; чтобы замкнуть, коснитесь первой вершины.",
+  "note": "UX17: the Polygon tool's long-press tip on touch (no Enter key on a phone)."
+ },
+ "tooltip.meet.touch": {
+  "en": "Tap a crossing of two curves, or one curve and then another.",
+  "ru": "Коснитесь пересечения двух кривых или сначала одной кривой, затем другой.",
+  "note": "UX17: the Intersect tool's long-press tip on touch."
+ },
+ "tooltip.touch.touch": {
+  "en": "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.",
+  "ru": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Касание пунктирной касательной даёт касательную, кольца — касательную из точки. Кривая остаётся выбранной для следующей.",
+  "note": "UX17: the Touching circle tool's long-press tip on touch (\"Click the dashed tangent\" -> tap)."
+ }
+}

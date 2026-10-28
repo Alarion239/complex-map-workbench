@@ -5,7 +5,8 @@
 // zeros-and-poles and derivative messages, the parser's messages, inverses and derivatives, the relation classifier,
 // region shapes (labels and TeX), curve notes and errors, the integrals' errors, and the number formatters.
 'use strict';
-const fs = require('fs'), vm = require('vm'), path = require('path');
+const vm = require('vm'), path = require('path');
+const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does; a snapshot holds it whole)
 const ROOT = path.join(__dirname, '..');
 const BASE = path.join(ROOT, 'notes/gate-morph-zp-r1/src');
 const MODS = ['cx', 'parse', 'funcs', 'inverse', 'calc', 'glsl', 'region', 'curves'];
@@ -13,11 +14,11 @@ const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', cal
 function load(dir, files) {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
-  for (const f of files) vm.runInContext(fs.readFileSync(path.join(dir, f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+  for (const f of files) vm.runInContext(source(f + '.js', dir) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
   return ctx;
 }
 // gl.js's friendly() is not exported: its body is taken from the source and run in each context
-const friendlySrc = (dir) => /function friendly\(err\) \{[\s\S]*?\n {2}\}/.exec(fs.readFileSync(path.join(dir, 'gl.js'), 'utf8'))[0];
+const friendlySrc = (dir) => /function friendly\(err\) \{[\s\S]*?\n {2}\}/.exec(source('gl.js', dir))[0];
 
 // the probe: runs in a context, returns [label, value] pairs (value: a string, or JSON of a structure)
 function probe(ctx, dir) {
@@ -125,11 +126,21 @@ function probe(ctx, dir) {
 
 const base = load(BASE, MODS);
 const now = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', ...MODS]);
-const a = probe(base, BASE), b = probe(now, path.join(ROOT, 'src'));
+const a = probe(base, BASE);
+// (catalog steps added since the base, e.g. Γ and ζ (issue #4), have nothing to compare with: their outputs are left out)
+const newIds = Object.keys(vm.runInContext('Funcs.DEFS', now)).filter((id) => !Object.prototype.hasOwnProperty.call(vm.runInContext('Funcs.DEFS', base), id));
+const isNew = (label) => newIds.some((id) => label === `def ${id}` || label.startsWith(`${id}#`));
+const b = probe(now, path.join(ROOT, 'src')).filter(([label]) => !isNew(label));
 let fails = 0;
+// (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
+// notes/ux-build/w1-chain-AS-BUILT.md)
+const intended = (s) => s.replace(/Custom formula/g, 'Formula');
+// (#38, another intended change: a half-plane reads in words, "left of the line from a to b", no longer as
+// Im((z − a)/(b − a)) > 0)
+const inWords = (k, s) => /^tex halfplane /.test(k) && /^\\text\{left of the line from \} \S+ \\text\{ to \} \S+$/.test(s);
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }
 for (let i = 0; i < Math.min(a.length, b.length); i++) {
-  if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) {
+  if (a[i][0] !== b[i][0] || (intended(a[i][1]) !== b[i][1] && !inWords(b[i][0], b[i][1]))) {
     fails++;
     if (fails <= 20) console.log('FAIL', a[i][0], '\n  base:', a[i][1].slice(0, 300), '\n  now: ', b[i][1].slice(0, 300));
   }
@@ -140,12 +151,12 @@ const ruCtx = (() => {
   const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout, Intl };
   vm.createContext(ctx);
   for (const f of ['i18n', 'i18n_ru', ...MODS]) {
-    vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+    vm.runInContext(source(f + '.js', path.join(ROOT, 'src')) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   return ctx;
 })();
-const r = probe(ruCtx, path.join(ROOT, 'src'));
+const r = probe(ruCtx, path.join(ROOT, 'src')).filter(([label]) => !isNew(label));
 const shape = (v) => { if (v.startsWith('THROW')) return 'THROW'; try { return JSON.stringify(JSON.parse(v), (k, x) => (typeof x === 'string' ? '' : x)); } catch (e) { return 'str'; } };
 let ruDiff = 0, ruText = 0;
 for (let i = 0; i < Math.min(b.length, r.length); i++) {

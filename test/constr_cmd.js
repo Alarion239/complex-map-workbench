@@ -65,7 +65,7 @@ await section('A', async () => {
   await load(NS, STATE);
   await settle(800);
   await grab();
-  ok('the Construct grid has six tiles (v16.3: Perpendicular circle, Touching circle)', (await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`)) === 'circle3,meet,midpoint,bisector,perp,touch', null);
+  ok('the Construct grid has seven tiles (v16.3: Perpendicular circle, Touching circle; v16.5 UX55: Hyperbolic line)', (await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`)) === 'circle3,meet,midpoint,bisector,perp,touch,hyper', null);
   // 14. the plane menu on a crossing: Mark the intersection
   const xc = await W(1.5 + 0.8 / Math.SQRT2, -0.5 + 0.8 / Math.SQRT2);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: xc[0] + 1, y: xc[1] + 1 });
@@ -83,7 +83,7 @@ await section('A', async () => {
   await move(a[0] + 3, a[1] - 2); await settle(80);
   const r0 = await CI();
   ok('hover: the ring is on z₀ with the chip "on z₀"', r0.ring && r0.ring.cls === 'point' && r0.ring.chip === 'on z₀', r0.ring);
-  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Point 1 of 3 · 3 points · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));
+  ok('the draft chip names the pick', (await ev(`document.querySelector('#draftChipL .cm-t') && document.querySelector('#draftChipL .cm-t').textContent`)) === 'Pick a point or an empty spot · 1 of 3 · 3 points · Esc cancels', await ev(`(document.querySelector('#draftChipL') || {}).textContent`));   // (v16.5 UX48: what to pick, then the count)
   const hi0 = (await ST()).hi;
   await click(a[0] + 3, a[1] - 2); await settle(80);
   await click(b[0], b[1] + 4); await settle(80);
@@ -185,7 +185,10 @@ await section('A', async () => {
   ok('the Point tool on a stroke: a point on the curve', gl.def && gl.def.op === 'glider' && gl.def.args[0].s === 's4' && Number.isFinite(gl.t), gl);
   ok('… on the circle', near(dist(gl.p, [1.5, -0.5]), 0.8, 1e-12), gl.p);
   await tool('select');
-  await drag(g0[0], g0[1], g0[0] + 30, g0[1] + 50, 8, 16); await settle(300);
+  // ([v16.5 rail SPEC 2.3] a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
+  // within the glide zone; the old drag, 58 px straight off the stroke, now frees it at the drop point)
+  const g1 = await W(1.5 + 0.8 * Math.cos(5.85), -0.5 + 0.8 * Math.sin(5.85));
+  await drag(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
   st = await ST();
   const gl2 = byId(st, gl.id);
   ok('dragged, it slides along the circle', !!gl2 && gl2.t !== gl.t && near(dist(gl2.p, [1.5, -0.5]), 0.8, 1e-12), [gl.t, gl2.t, gl2.p]);
@@ -195,7 +198,9 @@ await section('A', async () => {
   st = await ST();
   ok('a meet point does not move', byId(st, m.id).p[0] === m.p[0], byId(st, m.id).p);
   info.builtToast = await toastText();
-  ok('… and says what it is built from', /is built from Circle 1, Segment 1: drag those$/.test(info.builtToast), info.builtToast);
+  // ([v16.5 rail SPEC 2.4] a meet point comes off by a pull: 30 px is the stretch zone, so it stays, with the chip
+  // "Pull further to free z₃" while held, and no "built from" toast; ux165_rail_cmd C and D test the pull itself)
+  ok('… a 30 px drag only stretches it (v16.5: a pull frees a meet point)', !/is built from/.test(info.builtToast), info.builtToast);
   // 7. Midpoint of z₀, z₁; a circle through z₀, z₁ and the midpoint: the half-plane, A = 0 exactly
   a = await W(-1.5, 0); b = await W(0.5, -1);
   await tool('midpoint');
@@ -219,6 +224,12 @@ await section('A', async () => {
   ok('after a drag of z₀: still A = 0, the midpoint follows', col2.kind === 'halfplane' && col2.A === 0 && mid2.p[0] === (z0[0] + 0.5) / 2, [col2.kind, col2.A, mid2.p, z0]);
   const cr = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
   ok('… its edge passes through z₀ and z₁', !!col2.a && Math.abs(cr(col2.a, col2.b, z0)) < 1e-12 && Math.abs(cr(col2.a, col2.b, [0.5, -1])) < 1e-12, [col2.a, col2.b]);
+  // a drag of the midpoint says what it is built from by the point, not in a toast
+  const mp2 = await W(mid2.p[0], mid2.p[1]);
+  await drag(mp2[0], mp2[1], mp2[0] + 30, mp2[1], 6, 16); await settle(250);
+  info.builtChip = { chip: (await CI()).freeChip, toast: await toastText() };
+  ok('a drag of the midpoint: "built from … drag those" by the point, no toast', / is built from .*: drag those$/.test(info.builtChip.chip || '') && !/is built from/.test(info.builtChip.toast), info.builtChip);
+  ok('… and the midpoint stays', byId(await ST(), mid.id).p[0] === mid2.p[0], byId(await ST(), mid.id).p);
   await shot('cm-d1440-collinear');
   // 8. undo and redo
   const nBefore = st.list.length, hiB = st.hi;
@@ -270,10 +281,16 @@ await section('A', async () => {
   await tool('select');
   const nBeforeDel = (await ST()).list.length;
   const b1 = await W(0.5, -1);
+  const zNames = async () => (await CI({ names: true })).filter((x) => /^z[₀-₉]+$/.test(x.name || ''));
+  const nm0 = await zNames();
   await click(b1[0], b1[1]); await settle(150);
   await key('Delete'); await settle(300);
   st = await ST();
   info.delToast = await toastText();
+  // [UX54] the other points keep their names: no z₂ becomes z₁
+  const nm1 = await zNames();
+  info.delNames = { before: nm0, after: nm1 };
+  ok('delete z₁: the other points keep their names', nm0.some((x) => x.name === 'z₂') && !nm1.some((x) => x.name === 'z₁') && nm1.every((x) => (nm0.find((y) => y.id === x.id) || {}).name === x.name), info.delNames);
   ok('delete z₁: the cascade toast', /^Deleted z₁ and \d+ shapes? built on it\./.test(info.delToast), info.delToast);
   ok('… the 3-point disc and the midpoint are gone', !byId(st, c3.id) && !byId(st, mid.id) && !byId(st, col.id), st.list.map((s) => s.id));
   await clickSel('#toastHost .toast-act'); await settle(300);
@@ -326,7 +343,7 @@ await section('C', async () => {
   await load(NS + 'ru', STATE);
   await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].map((s) => s.textContent.replace(/\u00ad/g, ''))`);
-  ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание']), tiles);
+  ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание', 'Гиперболическая']), tiles);
   ok('RU heading', (await ev(`document.querySelector('#cmHead').textContent`)) === 'Построения', null);
   const fits = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].every((s) => s.scrollWidth <= s.clientWidth + 1)`);
   ok('RU tile labels fit', fits, tiles);
@@ -334,7 +351,8 @@ await section('C', async () => {
   const a = await W(-1.5, 0), b = await W(0.5, -1), z = await W(1, 0.5);
   await move(a[0], a[1]); await settle(80);
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
-  ok('RU draft chip', (await ev(`document.querySelector('#draftChipL .cm-t').textContent`)) === 'Точка 1 из 3 · По 3 точкам · Esc — отмена', await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it)
+  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');
@@ -403,7 +421,7 @@ await section('E', async () => {
   const d = (await CI()).draft;
   ok('phone: taps 15 px off the points pick them', d && d.picks.length === 2 && d.picks[0].ref && d.picks[0].ref.s === 's1' && d.picks[1].ref && d.picks[1].ref.s === 's2', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  ok('phone chip: no Esc, a ×', /Point 3 of 3/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  ok('phone chip: no Esc, a ×', /· 3 of 3 ·/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   await shot('cm-p390-pick');
   await touch(e[0], e[1]); await settle(400);
   const st = await ST();

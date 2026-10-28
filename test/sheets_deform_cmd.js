@@ -112,10 +112,16 @@ await setView(1440, 900, false, false);
   await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 } })'); await settle(800);
   await ev('__cmwMorph({ T: 0.5 })'); await settle(800);
   const s = await ls();
+  // (v16.5 UX20: on a desktop the pane's options, All sheets among them, are in its Display options popover)
+  const opts = (open) => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && (b.getAttribute('aria-expanded') === 'true') !== ${open}) b.click(); return 1; })()`);
+  await opts(true); await settle(300);
   const tip = await ev(`(() => { const c = document.getElementById('sheetsChk'); const l = c && c.closest('label'); return l ? l.dataset.tip || '' : null; })()`);
-  info.pair = { drawn: s.drawn, title: s.title, tip };
-  ok('no sheet form: one surface, no sheet clause in the title', !s.drawn && !/sheet/.test(s.title), info.pair);
+  const lab = await ev(`(() => { const c = document.getElementById('sheetsChk'); const l = c && c.closest('label'); return l ? [l.textContent, l.classList.contains('sheets-one')] : null; })()`);
+  await opts(false); await settle(200);
+  info.pair = { drawn: s.drawn, title: s.title, tip, lab };
+  ok('no sheet form: one surface, the title says one sheet is drawn while it deforms (no sheets clause of F)', !s.drawn && /; one sheet is drawn while it deforms/.test(s.title) && !/sheets of/.test(s.title), info.pair);
   ok('no sheet form: the check says why', /one sheet is drawn/.test(tip || ''), tip);
+  ok('no sheet form: the check is annotated and dimmed (issue #51)', lab && /one while it deforms/.test(lab[0]) && lab[1] === true, lab);
   await ev('__cmwMorph({ open: false })'); await settle(300);
   await grab();
 }

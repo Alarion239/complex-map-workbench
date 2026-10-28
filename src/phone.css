@@ -7,6 +7,10 @@
 html:not(.ph) .ph-only { display: none !important; }
 :root.ph { --ph-head: 56px; --ph-chain: 64px; --ph-row: 56px; --ph-safe-b: env(safe-area-inset-bottom, 0px); --ruler: 14px; overflow: hidden; height: 100%; }
 :root.ph body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+/* v16.5 UX13: a pinch on the app's own controls (the header, the chain bar, the tool row, a sheet, a menu) never zooms
+   the page; one finger still scrolls what scrolls. The planes keep their own pinch: their canvases take every touch
+   (touch-action: none) and zoom the plane */
+:root.ph body { touch-action: pan-x pan-y; }
 /* (fixed to the viewport: a host page that pads its root for the notch would otherwise push the app down by the inset
    a second time, under the sheets, which are placed from the viewport) */
 :root.ph #app {
@@ -48,6 +52,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .panes, :root.ph .panes.solo-L, :root.ph .panes.solo-R { position: relative; display: block; flex: 1 1 auto; min-height: 0; gap: 0; }
 :root.ph .gutter { display: none !important; }
 :root.ph .panes > .pane { position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; height: auto; width: auto; border: 0; border-radius: 0; }
+/* Both: X above Y, each half the stage (a sheet's side-by-side layout and a merged view take over while they last) */
+:root.ph:not(.ph-land):not(.ph-split) .panes.ph-both:not(.ph-one) > #paneL { inset: 0 0 50% 0; width: auto; height: auto; border-bottom: 1px solid var(--line-strong); }
+:root.ph:not(.ph-land):not(.ph-split) .panes.ph-both:not(.ph-one) > #paneR { inset: 50% 0 0 0; width: auto; height: auto; }
 :root.ph .panes.ph-one.ph-big-L > #paneR, :root.ph .panes.ph-one.ph-big-R > #paneL { display: none !important; }
 /* the inset: the other plane, live, bottom-left; a tap swaps */
 :root.ph .panes > .pane.ph-inset {
@@ -57,6 +64,19 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .pane.ph-inset .ruler, :root.ph .pane.ph-inset .ruler-corner, :root.ph .pane.ph-inset .tdock,
 :root.ph .pane.ph-inset .plot > :not(canvas) { display: none !important; }
 :root.ph .pane.ph-inset .pane-body { grid-template-columns: 0 minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 0; }
+/* (v16.5 UX93) Russian tool tiles: whole words only (the short forms of long names fit a tile), never a hyphen */
+:root.ph[data-lang="ru"] .ph-tl { hyphens: none; -webkit-hyphens: none; overflow-wrap: normal; }
+/* (the tool row's tiles too: the span keeps its words for the desktop grid and its readers; a phone shows the short
+   form, data-phl, on one line) */
+:root.ph[data-lang="ru"] #secDraw .tool > span[data-phl] { font-size: 0 !important; line-height: 0 !important; }
+:root.ph[data-lang="ru"] #secDraw .tool > span[data-phl]::after { content: attr(data-phl); display: block; font-size: 11px; line-height: 12px; white-space: nowrap; }
+:root.ph[data-lang="ru"] #secDraw .tool-more .tm-label { hyphens: none; -webkit-hyphens: none; }
+/* (v16.5 UX71) the listening chip's Stop: a 44 px target on a phone */
+:root.ph .note-chip .chip-act.chip-stop { min-height: 44px; min-width: 64px; }
+/* (v16.5 V01) a preimage appears in the inset X: it pulses once, so "Shaded in X (the inset)" points somewhere */
+:root.ph .panes > .pane.ph-inset.ph-pulse { animation: ph-inset-pulse 900ms var(--ease-out) 1; }
+@keyframes ph-inset-pulse { 35% { box-shadow: 0 0 0 4px var(--accent), var(--shadow-3); } }
+@media (prefers-reduced-motion: reduce) { :root.ph .panes > .pane.ph-inset.ph-pulse { animation: none; } }
 .ph-swap { display: none; }
 :root.ph .pane.ph-inset > .ph-swap { display: block; position: absolute; inset: 0; z-index: 20; width: 100%; height: 100%; padding: 0; margin: 0; background: transparent; border: 0; border-radius: inherit; cursor: pointer; }
 .ph-swap > .ph-tag { position: absolute; left: 6px; top: 6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-1); background: var(--ink); color: var(--bg); font: italic 600 14px/20px var(--f-math); }
@@ -76,8 +96,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the title chip: the plane in math type, then the scale (or the probe) */
 :root.ph .chip.readout { top: 8px; left: 8px; height: 28px; line-height: 26px; max-width: calc(100% - 72px); pointer-events: none; }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 72px); }
-:root.ph #leftReadout::before { content: "z"; margin-right: 8px; font: italic 500 15px/1 var(--f-math); color: var(--ink); }
-:root.ph #rightReadout::before { content: "w = F(z)"; margin-right: 8px; font: italic 500 15px/1 var(--f-math); color: var(--ink); word-spacing: -1px; }
+/* [v16.5 UX27, UX10] the big plane's chip is tagged by the plane's one name, X (Y after a swap); the readout itself says
+   z = … and w = F(z) = … (no doubled z) */
+:root.ph #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+:root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
+:root.ph .chip.readout > .rln { grid-column: 2; }
 :root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)::before { content: "z \2192  w"; }
 :root.ph:not(:has(#viewSwitch > [data-mode="xy"].on)) :is(#leftReadout, #rightReadout)::before { content: none; }
 /* the right column: Sphere, Display; Fit bottom-right; the zoom buttons give way to the pinch */
@@ -112,26 +137,28 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #pipeline::-webkit-scrollbar { display: none; }
 :root.ph #pipeline > * { flex: 0 0 auto; }
 :root.ph #pipeline .card, :root.ph #pipeline.compact .card, :root.ph #pipeline .card.region-card {
-  display: grid; grid-template-columns: 44px auto; align-items: center; column-gap: 6px; width: auto; min-width: 0; max-width: 136px;
-  flex: 0 0 auto; height: 52px; min-height: 52px; padding: 3px 8px 3px 3px; border-radius: var(--r-3); overflow: hidden;
+  display: grid; grid-template-columns: 1fr; grid-template-rows: 24px auto; align-content: center; row-gap: 1px; width: 88px; min-width: 88px; max-width: 88px;
+  flex: 0 0 auto; height: 52px; min-height: 52px; padding: 3px; border-radius: var(--r-3); overflow: hidden;
 }
-:root.ph #pipeline .card > .thumb { grid-column: 1; grid-row: 1; display: block; position: relative; width: 44px; height: 44px; min-height: 0; margin: 0; padding: 0; border-radius: var(--r-2); overflow: hidden; border: 0; }
-:root.ph #pipeline .card > .thumb > canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+:root.ph #pipeline .card > .thumb { grid-column: 1; grid-row: 1; display: block; position: relative; width: 100%; height: 24px; min-height: 0; margin: 0; padding: 0; border-radius: var(--r-1); overflow: hidden; border: 0; }
+:root.ph #pipeline .card > .thumb > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 :root.ph #pipeline .card > .thumb > :not(canvas) { display: none; }
-:root.ph #pipeline .card > .card-head {
-  grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 0 4px;
-  height: auto; min-height: 0; padding: 0; margin: 0; border: 0; background: none; min-width: 0; max-width: 80px;
-}
+:root.ph #pipeline .card > .card-head { display: contents; }
 :root.ph #pipeline .card .grip, :root.ph #pipeline .card .acts, :root.ph #pipeline .card > .note, :root.ph #pipeline .card > .swatches,
 :root.ph #pipeline .card > :not(.thumb, .card-head) { display: none !important; }
-:root.ph #pipeline .card .idx { font: italic 500 15px/18px var(--f-math); }
-:root.ph #pipeline .card .ty { display: inline-flex; width: 14px; height: 14px; color: var(--ink-2); }
-:root.ph #pipeline .card .ty svg { width: 14px; height: 14px; }
-:root.ph #pipeline .card .nm { flex: 1 0 100%; min-width: 0; font: 500 11px/13px var(--f-ui); color: var(--ink-2); white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; hyphens: manual; overflow-wrap: break-word; }
+/* the step's letter is a badge on the picture's corner, so the name has the card's whole width, two lines of it */
+:root.ph #pipeline .card .idx { grid-column: 1; grid-row: 1; justify-self: start; align-self: start; z-index: 1; margin: 1px 0 0 1px; padding: 0 3px; border-radius: 3px; background: color-mix(in srgb, var(--panel) 85%, transparent); font: italic 500 12px/14px var(--f-math); }
+:root.ph #pipeline .card .ty { display: none; }
+:root.ph #pipeline .card .nm { grid-column: 1; grid-row: 2; min-width: 0; padding: 0 2px; font: 500 10.5px/12px var(--f-ui); color: var(--ink-2); white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; hyphens: manual; overflow-wrap: break-word; }
 :root.ph #pipeline .conn { flex: 0 0 12px; width: 12px; height: 52px; --conn-y: 26px; }
 :root.ph #pipeline .conn > :not(.conn-line) { display: none !important; }
 :root.ph #pipeline .conn-line svg { width: 12px; }
 :root.ph #pipeline .add-card { display: grid; place-items: center; width: 44px; min-width: 44px; height: 52px; padding: 0; border-radius: var(--r-3); }
+/* + and F stay at the chain's right end however far the cards scroll (UX04): sticky in the scroller, over the cards */
+:root.ph #pipeline .add-card, :root.ph #pipeline .ftile { position: sticky; z-index: 3; background: var(--panel); }
+:root.ph #pipeline { scroll-padding-inline-end: 104px; }
+:root.ph #pipeline .ftile { right: 0; }
+:root.ph #pipeline .add-card { right: 50px; }
 :root.ph #pipeline .add-card > :not(:first-child) { display: none; }
 :root.ph #pipeline .ftile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 48px; min-width: 48px; height: 52px; padding: 0; border-radius: var(--r-3); }
 :root.ph #pipeline .ftile .fl { display: flex; gap: 0; }
@@ -148,7 +175,7 @@ html:not(.ph) .ph-only { display: none !important; }
   border-radius: var(--r-3); font: 600 10px/12px var(--f-ui); white-space: normal; text-align: center;
 }
 :root.ph .pipe-wrap > #morphBtn > span { display: block !important; max-width: 100%; hyphens: manual; }
-:root[data-lang="ru"].ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }
+:root:is([data-lang="ru"], [data-lang="it"]).ph .pipe-wrap > #morphBtn { width: 74px; min-width: 74px; font-size: 9.5px; }   /* (Italian "Deformazione" was cut at 65 > 58 px: issue #61) */
 :root.ph:has(#viewSwitch > [data-mode="land"].on) .ph-sph { display: none; }
 :root.ph .pipe-wrap > #morphBtn > :is(svg, .mic) { width: 16px; height: 16px; flex: 0 0 16px; }
 
@@ -173,21 +200,48 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .tool-more .tm-open { display: inline !important; }
 :root[data-lang="ru"].ph #secDraw .tool > span, :root[data-lang="ru"].ph #secDraw .tool-more .tm-label { top: auto; bottom: 3px; }
 :root[data-lang="ru"].ph #secDraw .tool > svg, :root[data-lang="ru"].ph #secDraw .tool-more > summary > .ic-slot { top: 4px; }
-/* the deformation: the row is the transport (play, the scrubber, the speed, Paths, close) */
+/* the deformation: two rows. The scrubber has the full width, the readout riding its handle; below it play, the speed
+   (tap to cycle), Paths, the Steps picker (range, order, Loop) and close, with the tool row's Undo at the left end */
+:root.ph.ph-morph:not(.ph-land) { --ph-row: calc(var(--ph-r1) + 52px); }
+:root.ph { --ph-r1: 58px; }
 :root.ph.ph-morph .tdock:not([hidden]) {
-  position: fixed; z-index: 22; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
-  height: calc(var(--ph-row) + var(--ph-safe-b)); padding: 4px 6px var(--ph-safe-b); background: var(--panel); border: 0; border-top: 1px solid var(--line-strong); border-radius: 0;
+  position: fixed; z-index: 22; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 0 4px;
+  height: calc(var(--ph-row) + var(--ph-safe-b)); padding: 0 6px var(--ph-safe-b); background: var(--panel); border: 0; border-top: 1px solid var(--line-strong); border-radius: 0;
 }
 :root.ph.ph-morph .tdock > :is(select, .check) { display: none !important; }
 :root.ph.ph-morph .tdock > * { flex: 0 0 auto; order: 0; }
-:root.ph.ph-morph .tdock > .tscrub { order: 0; flex: 1 1 auto; flex-basis: auto; min-width: 72px; height: 44px; }
+:root.ph.ph-morph .tdock > .tscrub { order: -1; flex: 0 0 100%; position: relative; height: var(--ph-r1); padding-top: 14px; box-sizing: border-box; }
 :root.ph.ph-morph .tdock input[type="range"] { height: 44px; }
 :root.ph.ph-morph .tdock :is(button, .phbtn) { min-width: 44px; height: 44px; }
 :root.ph.ph-morph .tdock .seg { height: 44px; }
 :root.ph.ph-morph .tdock .seg > button:not(.on) { display: none; }
 :root.ph.ph-morph .tdock .seg::before { display: none; }
-:root.ph.ph-morph .tdock .tread { font-size: 11px; max-width: 64px; overflow: hidden; }
-:root.ph.ph-morph .tdock > .tclose { margin-left: 0; width: 44px; height: 44px; }
+/* the readout rides the handle: its left edge follows the fill (--fill, set on the scrubber with the range's) */
+:root.ph.ph-morph .tdock .tscrub > .tread {
+  position: absolute; top: 0; left: clamp(0px, calc(var(--fill, 0%) - 70px), calc(100% - 140px)); width: 140px; padding: 0; text-align: center; font: 600 11px/14px var(--f-ui); color: var(--ink); pointer-events: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+:root.ph.ph-morph .tdock > .tclose { margin-left: auto; width: 44px; height: 44px; }
+:root.ph.ph-morph .tdock > .tsteps { min-width: 0; padding: 0 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); color: var(--ink); font: 600 12px/1 var(--f-ui); white-space: nowrap; }
+:root.ph.ph-morph .tdock > .tsteps::after { content: " \25BE"; }
+/* the picker opens above the bar */
+:root.ph.ph-morph .tdock > .tpick:not([hidden]) {
+  position: fixed; left: 8px; right: 8px; bottom: calc(var(--ph-row) + var(--ph-safe-b) + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3);
+}
+:root.ph.ph-morph .tdock > .tpick > :is(select, .check) { display: flex !important; min-height: 44px; align-items: center; }
+:root.ph.ph-morph .tdock > .tpick > .trange { display: flex !important; }
+/* the tool row's Undo stays at the left end of the second row; the other tools wait behind the transport */
+:root.ph.ph-morph:not(.ph-land) #secDraw { right: auto; width: 56px; height: calc(52px + var(--ph-safe-b)); z-index: 23; border-top: 0; background: none; }
+:root.ph.ph-morph:not(.ph-land) #secDraw > :is(.tools, .tool-more) { display: none !important; }
+:root.ph.ph-morph:not(.ph-land) #secDraw > .ph-undo { flex: 0 0 52px; }
+:root.ph.ph-morph:not(.ph-land) .tdock > .play { margin-left: 52px; }
+/* landscape: one row left of the tool column, the scrubber the rest of it (Undo stays in the column) */
+:root.ph.ph-land.ph-morph { --ph-row: 52px; }
+:root.ph.ph-land.ph-morph #app { padding-bottom: var(--ph-row); }
+:root.ph.ph-land.ph-morph .tdock:not([hidden]) { right: var(--ph-col); flex-wrap: nowrap; align-content: center; height: var(--ph-row); padding: 4px 6px; }
+:root.ph.ph-land.ph-morph .tdock > .tscrub { order: 0; flex: 1 1 auto; min-width: 120px; height: 44px; padding-top: 0; }
+:root.ph.ph-land.ph-morph .tdock .tscrub > .tread { display: none; }
+:root.ph.ph-land.ph-morph .tdock > .tclose { margin-left: 0; }
 
 /* ---------- the sheet ---------- */
 .ph-scrim { position: fixed; inset: 0; z-index: 27; background: color-mix(in srgb, #000 32%, transparent); }
@@ -211,11 +265,22 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-st { position: relative; font: 600 15px/20px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .ph-x { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
 .ph-x svg { width: 18px; height: 18px; }
+/* v16.5 UX24: Undo in the sheet's head, left of × */
+.ph-hundo { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
+.ph-hundo svg { width: 18px; height: 18px; }
+.ph-hundo:disabled { opacity: 0.4; }
+/* (the keys keep their size; the title gives way, with an ellipsis: Russian at 360 px squeezed the Snap pill) */
+.ph-sh > .ph-pill, .ph-sh > .ph-hundo, .ph-sh > .ph-x { flex-shrink: 0; }
+.ph-sh > .ph-st { min-width: 0; flex-shrink: 1; }
 .ph-mark { display: none; }
 .ph-sheet[data-k="more"] .ph-mark:not([hidden]) { display: block; position: relative; width: 24px; height: 24px; border: 1.5px solid var(--ink); border-radius: 5px; background: repeating-linear-gradient(90deg, transparent 0 5px, color-mix(in srgb, var(--accent) 40%, transparent) 5px 6px); }
 .ph-pill { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 22px; background: var(--surface); color: var(--ink-2); font: 600 13px/1 var(--f-ui); }
 .ph-pill[hidden] { display: none; }
 .ph-pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+/* [v16.5 UX94] Snap is a state, so a switch ("Snap ●"), not a filled action pill */
+.ph-pill.ph-snap[aria-pressed] { background: var(--surface); border-color: var(--line-strong); color: var(--ink); }
+.ph-pill.ph-snap::after { content: ""; flex: 0 0 auto; width: 30px; height: 18px; border-radius: 9px; background: var(--line-strong); box-shadow: inset 0 0 0 2px var(--surface); background-image: radial-gradient(circle at 9px 9px, var(--surface) 6px, transparent 6.5px); }
+.ph-pill.ph-snap[aria-pressed="true"]::after { background-color: var(--accent); background-image: radial-gradient(circle at 21px 9px, var(--accent-ink) 6px, transparent 6.5px); }
 .ph-pill .ph-ic svg { width: 16px; height: 16px; display: block; }
 .ph-sb { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; }
 .ph-sb[hidden] { display: none; }
@@ -253,6 +318,13 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-row .ph-ic, .ph-srow .ph-ic { flex: 0 0 20px; display: grid; place-items: center; color: var(--ink-2); }
 .ph-row .ph-ic svg, .ph-srow .ph-ic svg { width: 18px; height: 18px; }
 .ph-rl { flex: 1 1 auto; min-width: 0; }
+/* a row's switch goes under its label when the two do not fit on one line (Language, four options, at 360 px) */
+.ph-srow { flex-wrap: wrap; row-gap: 0; }
+.ph-srow .ph-rl { min-width: max-content; }
+.ph-srow .ph-seg, .ph-srow .ph-switch, .ph-srow .ph-link { margin-left: auto; }
+/* Phase colours (issue 8): the row names the palette and shows its key */
+.ph-pv { flex: 0 1 auto; color: var(--muted); }
+.ph-row .ph-ic .pcol-ic { width: 18px; height: 18px; }
 .ph-chev { color: var(--muted); display: grid; place-items: center; }
 .ph-chev svg { width: 16px; height: 16px; }
 .ph-sep { height: 1px; margin: 6px 0; background: var(--line); }
@@ -268,31 +340,44 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the menus and pickers on a phone: 44 px rows; the gallery is a bottom sheet */
 :root.ph .pop.menu .mi { min-height: 44px; height: auto; }
 :root.ph .pop.menu.examples { left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; width: 100% !important; max-width: none; max-height: 85dvh; border-radius: var(--r-4) var(--r-4) 0 0; padding-bottom: calc(8px + var(--ph-safe-b)); }
+:root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { height: auto; min-height: 44px; padding-top: 0; padding-bottom: 0; white-space: normal; }
+:root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
+:root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
 :root.ph #toastHost { bottom: calc(var(--ph-row) + var(--ph-chain) + var(--ph-safe-b) + 12px); }
 :root.ph .snd-pop { z-index: 46; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
    sheets a 360 px side sheet on the right, both planes still in sight ---------- */
-:root.ph.ph-land { --ph-chain: 52px; --ph-row: 0px; }
+:root.ph.ph-land { --ph-chain: 52px; --ph-row: 0px; --ph-col: 58px; }
 :root.ph.ph-land #app { padding-bottom: 0; }
 :root.ph.ph-land .top { padding-top: 0; padding-bottom: 0; }
 :root.ph.ph-land .top > #viewSwitch { height: 46px; padding: 0; max-width: 420px; }
 :root.ph.ph-land { --ph-head: 48px; }
 :root.ph.ph-land .panes:not(.ph-one) > #paneL { inset: 0 50% 0 0; width: auto; height: auto; border-right: 1px solid var(--line-strong); }
 :root.ph.ph-land .panes:not(.ph-one) > #paneR { inset: 0 0 0 50%; width: auto; height: auto; }
-:root.ph.ph-land .pipe-wrap { height: 52px; flex-basis: 52px; padding-right: calc(6 * 56px + 12px); }
+:root.ph.ph-land .pipe-wrap { height: 52px; flex-basis: 52px; }
 :root.ph.ph-land #pipeline .card, :root.ph.ph-land #pipeline .add-card, :root.ph.ph-land #pipeline .ftile, :root.ph.ph-land .ph-nums, :root.ph.ph-land .pipe-wrap > #morphBtn { height: 46px; min-height: 46px; }
-:root.ph.ph-land #pipeline .card > .thumb { width: 40px; height: 40px; }
-:root.ph.ph-land #pipeline .card { grid-template-columns: 40px auto; }
-:root.ph.ph-land #secDraw { left: auto; right: 0; width: calc(6 * 56px + 8px); height: 52px; padding: 2px 4px; z-index: 27; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line); }
-:root.ph.ph-land #secDraw > .tools > .tool, :root.ph.ph-land #secDraw > .ph-undo, :root.ph.ph-land #secDraw > .tool-more > summary { height: 46px; }
+/* the tools are a column on the right edge, Undo at the bottom under the thumb (UX05); the planes and the chain bar leave it room */
+:root.ph.ph-land #pipeline .card { grid-template-rows: 18px auto; padding: 2px 3px; }
+:root.ph.ph-land #pipeline .card > .thumb { height: 18px; }
+:root.ph #secDraw > .tool-more > summary { list-style: none; }
+:root.ph #secDraw > .tool-more > summary::-webkit-details-marker { display: none; }
+:root.ph.ph-land .layout { margin-right: var(--ph-col); }
+:root.ph.ph-land #secDraw {
+  left: auto; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
+  padding: 4px 2px 4px 2px; border-top: 0; border-left: 1px solid var(--line-strong);
+}
+:root.ph.ph-land #secDraw > .tools { display: flex !important; flex: 0 0 auto; flex-direction: column-reverse; gap: 2px; width: 100%; }
+:root.ph.ph-land #secDraw > .tools > .tool:is([data-tool="select"], [data-tool="point"], [data-tool="disc"], [data-tool="polygon"]) { flex: 0 0 auto; width: 100%; height: 46px; }
+:root.ph.ph-land #secDraw > .ph-undo, :root.ph.ph-land #secDraw > .tool-more { flex: 0 0 auto; width: 100%; height: 46px; }
+:root.ph.ph-land #secDraw > .tool-more > summary { height: 46px; }
 :root.ph.ph-land .ph-sheet { left: auto; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px)); width: 360px; transform: translateX(100%); border-top: 0; border-left: 1px solid var(--line-strong); }
 :root.ph.ph-land .ph-sheet.open { transform: none; }
 :root.ph.ph-land .ph-sheet.opening { transform: translateX(100%); }
 :root.ph.ph-land .ph-sheet[data-k="more"] { max-height: none; border-radius: 0; }
 :root.ph.ph-land.ph-split .layout { margin-right: 360px; }
 :root.ph.ph-land.ph-split #secDraw { display: none; }
-:root.ph.ph-land.ph-split .pipe-wrap { padding-right: 8px; }
+
 :root.ph.ph-land .ph-grab { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .ph-sheet, :root.ph .pipe-wrap { transition: none !important; }
@@ -310,7 +395,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (its tap area stays 44 px tall, over the head's title, clear of the head's buttons) */
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-grab { left: 26%; right: 44%; height: 44px; z-index: 2; }
 .ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-x { position: absolute; z-index: 3; right: 4px; top: 34px; background: var(--surface); }
-.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 48px; min-height: 44px; margin-top: 0; }
+.ph-sheet[data-k="edit"]:not(.nums) > .ph-sh > .ph-hundo { position: absolute; z-index: 3; right: 52px; top: 34px; background: var(--surface); }
+.ph-sheet[data-k="edit"]:not(.nums) #propsPanel .ihead { padding-right: 96px; min-height: 44px; margin-top: 0; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
 /* design-12: Numbers shows Parameters alone, under the sheet's own head */
 .ph-sheet.nums #propsPanel > .insp-sel { display: none !important; }
@@ -337,9 +423,47 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .chain-bracket .br-end { pointer-events: none; }
 :root.ph .chain-bracket .br-end::before { display: none; }
 :root.ph .chain-bracket .br-line::before { pointer-events: none; }
-:root.ph.ph-morph .tdock > .trange { display: none !important; }
 :root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)[data-mtitle]::before { content: attr(data-mtitle); padding-right: 8px; border-right: 1px solid var(--line-strong); }
 /* v16 (SPEC 6.6): the transport's "f₁ →" / "→ f₄" labels are left out when the range input would be under 120 px. The
    phone's docked row is play 44, the readout, the speed, Paths and × (about 330 px with the gaps), so below 560 px the
    scrubber cannot keep 120 px beside a label: the bracket above the cards says the same. (app.js also measures it.) */
 @media (max-width: 559px) { :root.ph .tdock .tfix { display: none; } }
+
+/* ---------- v16.5 (notes/ux-audit, wave 1, phone) ---------- */
+/* UX29: the function list: Cancel at the right of the search row, 48 px rows, the insert position a 44 px chip */
+:root.ph .pal-head { flex-basis: 52px; padding-right: 4px; }
+:root.ph .pal-head > .pal-input { min-width: 0; flex: 1 1 auto; }
+:root.ph .pal-cancel { flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px; background: none; border: 0; border-radius: var(--r-2); color: var(--accent-text, var(--accent)); font: 600 15px/1 var(--f-ui); }
+:root.ph .pal-atrow { flex: 0 0 auto; display: flex; padding: 4px 12px 6px; border-bottom: 1px solid var(--line); }
+:root.ph .pal-at { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px 0 14px; background: var(--well); border: 1px solid var(--line-strong); border-radius: 22px; color: var(--ink); font: 500 14px/1 var(--f-ui); }
+:root.ph .pal-at i { font: italic 500 15px/16px var(--f-math); }
+:root.ph .pal-at sub { font-size: 10px; }
+:root.ph .pal-at-ic { display: inline-grid; place-items: center; color: var(--ink-2); }
+:root.ph .pal-at-ic svg { width: 14px; height: 14px; }
+:root.ph .pal-item { height: auto; min-height: 48px; }
+/* UX45: the Shapes list in the sheet: 48 px rows, the eye and ⋯ side by side (44 px each, 4 px apart) with a 16 px
+   gutter at the right edge, the description on its own line under the name */
+:root.ph .ph-sheet .shape-row { grid-template-columns: 20px minmax(0, 1fr) 44px 44px; column-gap: 4px; height: auto; min-height: 48px; padding: 2px 16px 2px 8px; }
+:root.ph .ph-sheet .shape-row > .icon-btn { margin: 0; }
+:root.ph .ph-sheet .shape-name { flex-wrap: wrap; align-items: baseline; row-gap: 0; padding: 4px 0; white-space: normal; -webkit-mask-image: none; mask-image: none; }
+:root.ph .ph-sheet .shape-name .k { font-size: 14px; line-height: 18px; }
+:root.ph .ph-sheet .shape-name .d { flex: 1 0 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; line-height: 16px; }
+/* UX38: the plane's keys in one fixed column at the bottom right, in every view: Sphere, Display, then Fit (a key a view
+   lacks leaves its slot empty, so the others never move); keys and legends of the picture stay at the top right.
+   (Wave 2 puts Both on top of this column.) */
+:root.ph .pane:not(.ph-inset) .ph-col, :root.ph .plot:has(> .legend-chip:not([hidden])) > .ph-col { top: auto; bottom: 60px; right: 8px; }
+:root.ph .viewstack { right: 8px; bottom: 8px; }
+/* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler)); }
+:root.ph:has(#viewSwitch > [data-mode="land"].on) .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler)); }
+/* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
+   end, so its last field can scroll above the keyboard */
+:root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
+/* UX46: the symbol strip sits on the keyboard's top edge (--ph-kbraw is the keyboard's own height; --ph-kb adds the strip) */
+.ph-keys { position: fixed; left: 0; right: 0; bottom: var(--ph-kbraw, 0px); z-index: 60; display: flex; gap: 2px; height: 44px; padding: 0 2px; overflow-x: auto; background: var(--surface); border-top: 1px solid var(--line); }
+.ph-keys[hidden] { display: none; }
+.ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 16px/1 var(--f-ui); }
+.ph-keys > button:active { background: var(--well); }
+/* UX40: the long press, taught inside the More tools sheet (a tip line under the tiles) */
+.ph-tip { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 8px 4px 4px; padding: 0; font: 400 13px/18px var(--f-ui); color: var(--muted); text-wrap: pretty; }
+.ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }

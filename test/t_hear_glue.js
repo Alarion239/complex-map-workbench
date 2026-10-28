@@ -1,6 +1,7 @@
 'use strict';
-// Hear the function, the app's side (src/app.js; perfwin/sound/impl/SOUND-PLAN.md 2, 3.2): the glue's own functions,
-// taken from app.js's text and run against the engine's contract, with the app around them stubbed:
+// Hear the function, the app's side (src/soundhooks.js, the app's sound hooks; perfwin/sound/impl/SOUND-PLAN.md 2, 3.2):
+// the glue's own functions, taken from the module's text and run against the engine's contract, with the app around
+// them stubbed (the state the app hands the hooks as getters, read as A.S, A.sndP and so on, from the stubs here):
 //  * the rope (sndMove, spec 3.16): a resting hand's tremor inside 3 px (5 px for a finger) moves nothing; a moving hand
 //    is followed 3 px behind; the stream gets the roped point, the order cues and the query the hand's own; no rope on
 //    the keyboard probe;
@@ -20,8 +21,8 @@ const C = CX.C, TAU = 2 * Math.PI;
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } else if (process.env.V) console.log('ok  ', name); }
 
-const APP = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
-// a function of app.js by its name: from `function name(` to its closing brace (the glue's strings hold balanced braces)
+const APP = require('./src_text').source('soundhooks.js');   // (the app's sound hooks, src/soundhooks.js)
+// a function of the hooks by its name: from `function name(` to its closing brace (the glue's strings hold balanced braces)
 function fnText(name) {
   const i = APP.indexOf(`  function ${name}(`);
   if (i < 0) throw new Error('no function ' + name);
@@ -29,7 +30,7 @@ function fnText(name) {
   for (let k = j; k < APP.length; k++) { const c = APP[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return APP.slice(i, k + 1); }
   throw new Error('unbalanced ' + name);
 }
-// a one-line const of app.js by its name
+// a one-line const of the hooks by its name
 function constText(name) { const m = APP.match(new RegExp(`\\n  const ${name} = [^\\n]*;\\n`)); if (!m) throw new Error('no const ' + name); return m[0]; }
 
 // ---------- the engine, in a sandbox with no audio (its pure core and the contract's shape) ----------
@@ -58,7 +59,10 @@ function glue(o = {}) {
   };
   const ctx = {
     CX, Calc, C, TAU, Math, Number, Array, console, performance: { now: () => ctx.clock },
-    clock: 1000, calls, said, H,
+    // (the glue's clock, ms; far ahead of the process's own performance.now(), which Calc.argStep reads for the 3 ms
+    // deadline the glue gives it: on a loaded machine the test reaches √z's cut more than a second in, and a clock of
+    // 1000 made that deadline already past)
+    clock: 1e7, calls, said, H,
     SND: { hear: H, HT: Sound.HT, pathStep: Sound.pathStep },
     sndP: { on: true, sonify: true, events: true },
     S: { sectors: o.n || 12 },
@@ -76,12 +80,14 @@ function glue(o = {}) {
     leftView: () => ({ cx: 0, cy: 0, s: 100 }), V: { right: { s: 100 } },
     paneL: { w: 800 }, paneR: { w: 800 },
     sndPickAt: (src, x, y) => C((x - 400) / 100, (200 - y) / 100),
+    // (the app's state as soundHooksApi hands it: getters, so a test's reassignment is seen)
+    A: { get S() { return ctx.S; }, get sndP() { return ctx.sndP; }, get paneL() { return ctx.paneL; }, get paneR() { return ctx.paneR; }, get chainSig() { return ctx.chainSig; } },
   };
   vm.createContext(ctx);
   const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText('sndBridge'), fnText('sndHearAt'), fnText('sndQueryAt'), fnText('sndSampleAt'), fnText('sndSampler'), fnText('sndMove'),
     'globalThis.G = { sndHearAt, sndSampleAt, sndSampler, sndMove, sndQueryAt, sndOk };'].join('\n');
   vm.runInContext(code, ctx);
-  // sndHover → sndHearAt (as app.js's sndHover does once the engine has Sound.hear)
+  // sndHover → sndHearAt (as the hooks' sndHover does once the engine has Sound.hear)
   ctx.sndHover = (z, px, src, fn, zh) => ctx.G.sndHearAt(H, z, px, src, fn, zh || z);
   vm.runInContext('sndHover = globalThis.sndHover;', ctx);
   return ctx;

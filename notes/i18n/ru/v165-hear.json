@@ -214,5 +214,20 @@
   "en": "Hear the function under the pointer is off: turn it on in the Sound menu to hear the point.",
   "ru": "«Слушать функцию под указателем» выключено: включите в меню звука, чтобы услышать точку.",
   "note": "Q pressed on the keyboard probe while Hear the function is off; said by the screen reader."
+ },
+ "guide.touch.sound": {
+  "en": "<b>Sound</b>, in the ⋯ menu, is on by default and starts with your first tap; your choice stays on this device. Its Settings set the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on; then hold a finger on a plane and slide it. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Hold a still point to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it.",
+  "ru": "<b>Звук</b> (в меню ⋯) включён по умолчанию и начинает звучать после вашего первого касания; ваш выбор хранится только на этом устройстве. Его «Настройки» задают громкость и состав звуков: интерфейс и математические события (деформация, число оборотов замкнутой петли), оба включены по умолчанию, и <b>Слушать функцию под указателем</b> (выключено, пока вы это не включите; затем удерживайте палец на плоскости и ведите его). Пока палец стоит, звука нет. В режиме <b>Ноты</b> всякий раз, когда arg <i>F</i> пересекает одну из цветных линий картинки, звучит нота маримбы: красная линия — ре, а каждая следующая — следующая ступень круговой гаммы, поэтому петля вокруг нуля порядка <i>m</i> <i>m</i> раз поднимается по кругу гаммы, а вокруг полюса опускается. Чем больше |<i>F</i>|, тем громче (примерно от −8 дБ в нулях до +4 дБ в полюсах, без роста дальше примерно 10<sup>±3</sup>), а пока цвет не меняется, нота звучит снова всякий раз, когда |<i>F</i>| пересекает границу полосы. Разрез — это треск, а затем цвета по обе его стороны; стеклянный звон отмечает нуль, глухой удар — полюс, по одному на порядок. В режиме <b>Скольжение</b> один голос поёт сам цвет, пока <i>F</i> меняется. Чтобы услышать неподвижную точку, удерживайте её. Затем замкнутая петля поёт своё число оборотов одной нотой (ре для 0, фа-диез для 1, ля для 2, ля ниже для −1), а пока идёт деформация, нота последней петли меняется в тот момент, когда её пересекает нуль или полюс.",
+  "note": "the phone guide's Sound paragraph (v16.5 UX17, guideTouch), the marimba: the desktop paragraph's middle without the keyboard"
+ },
+ "ex.try.circle.touch": {
+  "en": "Try: press Listen, or hold the circle and choose Listen along.",
+  "ru": "Попробуйте: нажмите «Слушать» или удерживайте окружность и выберите «Слушать вдоль кривой».",
+  "note": "UX74, the example's Try line: the Mountain King played by its function is a circle"
+ },
+ "ex.try.circle": {
+  "en": "Try: press Listen, or right-click the circle and choose Listen along.",
+  "ru": "Попробуйте: нажмите «Слушать» или щёлкните окружность правой кнопкой и выберите «Слушать вдоль кривой».",
+  "note": "UX74, the example's Try line: the Mountain King played by its function is a circle"
  }
 }

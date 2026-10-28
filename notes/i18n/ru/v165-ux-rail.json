@@ -1,0 +1,73 @@
+{
+ "_about": "v16.5 wave 1, the rail piece (work/xu1-rail, notes/ux-build/rail/SPEC.md 4.2, notes/ux-build/w1-rail-AS-BUILT.md): snapping points to the grid and to figures, railing on curves, the pull that frees a point. id -> {en, ru, ctx?, note}. Read after every v16.4 table by tools/make_ru_table.py (V165_RAIL_HERE). Terms: GLOSSARY.md (привязка, узел сетки, отвязать). Edit by read-modify-write only.",
+ "chip.grid": {
+  "en": "grid point {z}",
+  "ru": "узел сетки {z}",
+  "note": "Snap ring's chip on a lattice point: grid point 0.5 + i («узел сетки 0,5 + i»: z is written with the decimal comma)."
+ },
+ "chip.on_at": {
+  "en": "on {c} at {a}",
+  "ru": "привязка: {c}, {a}",
+  "note": "Snap chip at a detent of a curve: on the unit circle at i, on Circle 1 at 30°, on Line 1 at 0.5 + i. c is a curve name, a a place (an angle, a number)."
+ },
+ "chip.pull": {
+  "en": "Pull further to free {x}",
+  "ru": "Тяните дальше, чтобы отвязать {x}",
+  "note": "Chip while a point on a curve is pulled away from it (the stretch zone); x is a point name (z₂)."
+ },
+ "chip.free": {
+  "en": "{x} is free",
+  "ru": "Точка {x} отвязана",
+  "note": "Chip for 1.2 s after a pull freed a point from its curve; x is a point name. «Отвязать» is Make free's verb."
+ },
+ "chip.follows": {
+  "en": "{x} follows {a}: change {a}",
+  "ru": "{x} задана через {a}: меняйте {a}",
+  "note": "Chip when a point whose position on its curve is a shared number a is dragged: it does not slide; change a."
+ },
+ "snap.tip": {
+  "en": "Snap to the grid and to figures (both panes). Hold Alt to place freely.",
+  "ru": "Привязка к сетке и фигурам (обе панели). Удерживайте Alt, чтобы ставить без привязки.",
+  "note": "Tooltip of the Snap button (laptop) and of the tablet rail's Snap."
+ },
+ "snap.aria": {
+  "en": "Snap to grid and figures",
+  "ru": "Привязка к сетке и фигурам",
+  "note": "aria-label of the Snap button."
+ },
+ "snap.palette": {
+  "en": "Snap to grid and figures on or off",
+  "ru": "Привязка к сетке и фигурам: вкл. или выкл.",
+  "note": "Command palette line."
+ },
+ "sound.attach": {
+  "en": "Point attached",
+  "ru": "Точка привязана",
+  "note": "Sound list: the cue when a dropped point lands on a curve or a crossing."
+ },
+ "sound.attach_what": {
+  "en": "A point landed on a curve or a crossing",
+  "ru": "Точка встала на кривую или в пересечение",
+  "note": "Sound list: what the attach cue means."
+ },
+ "sound.detach": {
+  "en": "Point freed",
+  "ru": "Точка отвязана",
+  "note": "Sound list: the cue when a pull frees a point from its curve."
+ },
+ "sound.detach_what": {
+  "en": "A point was pulled off its curve",
+  "ru": "Точку оттянули с её кривой",
+  "note": "Sound list: what the detach cue means."
+ },
+ "tour.meet_body": {
+  "en": "Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Hold Alt to place freely; Intersect marks a crossing.",
+  "ru": "Инструменты и перетаскиваемые точки привязываются к точкам, нулям, пересечениям и узлам сетки. «Точка» ставит точку и на кривую или единичную окружность: её можно вести вдоль кривой, а рывком — отвязать. Удерживайте Alt, чтобы ставить свободно; «Пересечение» отмечает точку пересечения.",
+  "note": "Tour step 'meet' body (chapter construct): the v16.5 snap rules."
+ },
+ "tour.meet_touch": {
+  "en": "Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.",
+  "ru": "Инструменты и перетаскиваемые точки привязываются к точкам, нулям, пересечениям и узлам сетки. «Точка» ставит точку и на кривую или единичную окружность: её можно вести вдоль кривой, а рывком — отвязать. Чтобы ставить свободно, отключите привязку в панели инструментов.",
+  "note": "Tour step 'meet' body on touch (no Alt)."
+ }
+}

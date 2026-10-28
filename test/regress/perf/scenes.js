@@ -160,6 +160,27 @@ const SCENES = {
       srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
     },
   },
+  // wave 1's pointer paths (issue #63; notes/ux-build/w1-review-regress.json regress-6): a Line grid plus several
+  // circles, so the snap and detent search of a hover, a drag or a glide has many curves near the pointer; the unit
+  // circle C carries a glider g, and the disc d1 is dragged with Snap on
+  gridCircles: {
+    label: 'Line grid plus circles (snap and detent targets)',
+    state: {
+      shapes: [
+        { id: 's1', kind: 'cgrid', a: [-2, -1.5], b: [2, 1.5], n: 8 },
+        { id: 'C', kind: 'circle', c: [0, 0], r: 1 },
+        { id: 'c2', kind: 'circle', c: [0.8, 0.4], r: 0.6 },
+        { id: 'c3', kind: 'circle', c: [-0.9, -0.3], r: 0.75 },
+        { id: 'c4', kind: 'circle', c: [0.2, -0.9], r: 0.45 },
+        { id: 'c5', kind: 'circle', c: [-0.4, 0.8], r: 0.5 },
+        { id: 'c6', kind: 'circle', c: [1.3, -0.6], r: 0.35 },
+        { id: 'd1', kind: 'disc', c: [-1.2, 0.9], r: 0.3 },
+        { id: 'g', kind: 'point', p: [Math.cos(0.2 * Math.PI), Math.sin(0.2 * Math.PI)], t: 0.1, def: { op: 'glider', args: [{ s: 'C', part: 0 }] } },
+      ],
+      steps: [{ type: 'pown', params: { n: 2 }, on: true }],
+      srcView: { cx: 0, cy: 0, s: 110 },
+    },
+  },
 };
 
 // the pole of mobius_halfplane's chain, z_p(phi) = blaschke^-1(1) = (a + e^{-i phi}) / (1 + conj(a) e^{-i phi}) (phi in

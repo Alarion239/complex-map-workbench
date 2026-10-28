@@ -1,12 +1,13 @@
 // Node checks of the fixes for the P2 review findings (notes/sphere-design/SPEC.md 13.12, 15 "P2 review"), CPU side
 // (the GPU twins: test/glsl_inverse_test.js 'anchors', test/p2fix_cdp/cmd/*.js). Each block would have caught its
 // finding. Run: node test/t_p2fix.js
-const fs = require('fs'), vm = require('vm'), path = require('path');
+const vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
-const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', gl: 'GLR' };
-for (const f of Object.keys(NAMES)) vm.runInContext(fs.readFileSync(path.join(root, 'src', f + '.js'), 'utf8') + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
+const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does)
+const NAMES = { cx: 'CX', parse: 'Expr', funcs: 'Funcs', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', region: 'Region', palette: 'Palette', gl: 'GLR' };
+for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src')) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { CX, Funcs, Inverse: I, Region, GLR } = ctx;
 const C = CX.C, PI = Math.PI;
 let bad = 0, n = 0;

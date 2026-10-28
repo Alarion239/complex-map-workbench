@@ -67,8 +67,9 @@ const PROBE = `(() => {
   // the lit patch holds the anchor
   let frac = null;
   if (L && L.anchor && L.holes[0]) { const a = L.anchor, v = { l: Math.max(2, a.l), t: Math.max(2, a.t), r: Math.min(innerWidth - 2, a.r), b: Math.min(innerHeight - 2, a.b) }, h = L.holes[0]; const ar = Math.max(0, v.r - v.l) * Math.max(0, v.b - v.t); frac = ar ? Math.max(0, Math.min(h.r, v.r) - Math.max(h.l, v.l)) * Math.max(0, Math.min(h.b, v.b) - Math.max(h.t, v.t)) / ar : 1; }
-  // the app's layers left open (a phone's sheet a step opens is part of the step)
-  const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]')).length;
+  // the app's layers left open (a phone's sheet a step opens is part of the step, and so is the laptop's popover a step
+  // opens, data-tour-layer naming that step: [v17 D4] the patterns step's Display ▾; still open at a later step, it counts)
+  const layers = [...document.querySelectorAll('#popHost > *, .modal-bg > *, dialog[open]')].filter((e) => e.getClientRects().length && !e.closest('[data-tour]') && !(c && /** @type {HTMLElement} */ (e).dataset.tourLayer === c.chapter + '/' + c.id)).length;
   const pn = rb(document.querySelector('#panes'));
   return { id: c.chapter + '/' + c.id, ch: c.chapter, mode: strip.dataset.mode, strip: S && [S.l, S.t, S.r, S.b].map((v) => Math.round(v)), panes: pn && [pn.l, pn.t, pn.r, pn.b].map(Math.round), hits, cut, titleOk, btns: btns.map((b) => [b.n, Math.round(b.w), Math.round(b.h)]), minW: Math.min(...btns.map((b) => b.w)), minH: Math.min(...btns.map((b) => b.h)), gap: gap === Infinity ? null : +gap.toFixed(1), con, frac, layers, lead: document.querySelector('#tourLead').textContent };
 })()`;
@@ -126,7 +127,8 @@ for (const cfg of runs) {
   }
   // every step this build has was visited
   const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
-  check(`${tag}: every step visited (47, less what the layout leaves out)`, n >= 45, n);
+  // (46 steps since issue #13 took out edit/zpHere, the planes' menu's "Add zero of f₁ here")
+  check(`${tag}: every step visited (46, less what the layout leaves out)`, n >= 44, n);
   await ev('Tour.isActive() && Tour.stop()'); await sleep(250);
   }
   // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app
@@ -166,7 +168,9 @@ for (const cfg of runs) {
     const X = { chapter: 'basics', step: 1 };
     const toastOpen = async () => ev(`(() => { __tourApi.toast('Deleted: circle 3. A long message so the toast is wide'); return true; })()`);
     const toastClose = async () => ev(`(() => { document.querySelector('#toastHost').innerHTML = ''; return true; })()`);
-    await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
+    // (v16.5 UX17: "Palette and keys" is a chapter for the keyboard, not offered on a touch screen: there the palette is
+    // checked at the next step only)
+    if (await ev(`Tour._t.chapterShown(Tour._t.CHAPTERS.find((c) => c.id === 'keys'))`)) await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
     await runLayer(X, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
     await runLayer(X, 'examples', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); const narrow = m && m.checkVisibility(); if (narrow) m.click(); const e = document.querySelector('#examplesBtn'); if (!e || !e.checkVisibility()) return 'na'; e.click(); return true; })()`), esc, '#popHost > .pop');
     await runLayer(X, 'more', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); if (!m || !m.checkVisibility()) return 'na'; m.click(); return true; })()`), esc, '#hdrMenu:popover-open, .ph-sheet[data-k="more"]:not([hidden])');
@@ -177,7 +181,7 @@ for (const cfg of runs) {
     await runLayer(X, 'guide', async () => ev(`(() => { __tourApi.openGuide(); return true; })()`), esc, '.modal-bg > .modal');
     await runLayer(X, 'language', async () => ev(`await (async () => { const m = document.querySelector('#hdrMoreBtn'), lb = document.querySelector('#langBtn'); if (!lb) return 'na'; if (!lb.checkVisibility() && m && m.checkVisibility()) { m.click(); await new Promise((r) => setTimeout(r, 200)); } if (!lb.checkVisibility()) return 'na'; lb.click(); return true; })()`), esc, '#popHost > .pop');
     if ((CFG.layerAll || []).includes(w) && lang === 'ru') {
-      const all = await ev(`Tour._t.CHAPTERS.flatMap((c, i) => c.steps.map((s, j) => ({ chapter: c.id, step: j, id: c.id + '/' + s.id, absent: Tour._t.absent(i, j, true) })))`);
+      const all = await ev(`Tour._t.CHAPTERS.flatMap((c, i) => c.steps.map((s, j) => ({ chapter: c.id, step: j, id: c.id + '/' + s.id, absent: Tour._t.absent(i, j, true) || !Tour._t.chapterShown(c) })))`);
       for (const at of all.filter((x) => !x.absent)) {
         const st = { chapter: at.chapter, step: at.step };
         await runLayer(st, 'palette*', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');

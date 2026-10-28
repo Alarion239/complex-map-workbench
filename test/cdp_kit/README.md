@@ -1,7 +1,8 @@
-# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11)
+# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux SwiftShader)
 
 On Windows (or anywhere without zsh) use `node test/<you>_cdp/q.js /path/to/cmd.js` in place of `q.sh`; `CHROME_BIN`
-overrides the browser's path.
+overrides the browser's path, `CMW_ANGLE` its ANGLE back end and `CMW_CHROME_ARGS` adds flags (ci/README.md). CI runs
+every suite this way, each in a fresh copy on its own port: `node ci/browser.js` (ci/README.md, Browser suites).
 
 The in-app Browser pane currently has no WebGL2, so GPU views must be tested here.
 

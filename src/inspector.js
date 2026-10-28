@@ -28,7 +28,8 @@ const Inspector = (() => {
   const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
   const s16 = (inner, fill) => `<svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-  const LENS = s16('<circle cx="7" cy="7" r="4.25"/><path d="M10.25 10.25l3.25 3.25"/><circle cx="7" cy="7" r="1.4" fill="currentColor" stroke="none"/>');
+  // (v16.5 UX85: Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
+  const LENS = s16('<rect x="5.25" y="4.75" width="5.5" height="6.5" rx="1"/><path d="M2 5V3.25C2 2.56 2.56 2 3.25 2H5M11 2h1.75C13.44 2 14 2.56 14 3.25V5M14 11v1.75c0 .69-.56 1.25-1.25 1.25H11M5 14H3.25C2.56 14 2 13.44 2 12.75V11"/>');
   // the specificity order of the lit names on the F tile (the strongest first)
   const STRONG = ['mobius', 'polynomial', 'rational', 'conformal', 'entire', 'homeo', 'proper', 'analytic'];
   // types whose catalog formula, with the coefficients indexed, reads as the generic form of the step
@@ -50,7 +51,7 @@ const Inspector = (() => {
       selSec = h('section', { class: 'psec insp-sel', 'aria-label': $t('Selection') });
       // (the shared numbers bring their own section: its heading, + and label; the slot only places it)
       parSec = typeof Params !== 'undefined' ? h('div', { class: 'insp-params' }, h('div', { class: 'params-mount' }))
-        : h('section', { class: 'psec insp-params', 'aria-label': $t('Parameters') }, h('h2', null, h('span', { class: 'grow' }, $t('Parameters'))), h('div', { class: 'params-mount' }));
+        : h('section', { class: 'psec insp-params', 'aria-label': $t('Numbers') }, h('h2', null, h('span', { class: 'grow' }, $t('Numbers'))), h('div', { class: 'params-mount' }));
       host.append(tbar, selSec, parSec);
       cur.sig = null; mounted = false;
       return true;
@@ -69,17 +70,19 @@ const Inspector = (() => {
       for (const lab of el.querySelectorAll('label.pl:not(.zp-sym)')) {
         const inp = el.querySelector('#' + CSS.escape(lab.htmlFor || ''));
         const key = inp && inp.dataset.pkey;
-        const t = lab.textContent;
-        if (!key || SPECIAL.has(key) || [...t].length !== 1 || lab.dataset.ix) continue;
+        const sym = lab.querySelector('.ps') || lab;   // (v16.5 UX33: "Factor a₃", the word and its symbol)
+        const t = sym.textContent;
+        if (!key || SPECIAL.has(key) || [...t].length !== 1 || lab.dataset.ix || (sym === lab && lab.classList.contains('worded'))) continue;
         lab.dataset.ix = '1';
-        lab.innerHTML = '';
-        lab.append(t, h('sub', null, String(k)));
+        sym.innerHTML = '';
+        sym.append(t, h('sub', null, String(k)));
         // (review design-8: the Argand button names the indexed coefficient, a₃, never the plain a of a shared number)
         const ab = lab.parentNode && lab.parentNode.querySelector('.argand');
         if (ab) ab.setAttribute('aria-label', $t('Pick {label} on an Argand diagram', { label: t + sub(k) }));
       }
     }
-    // the zeros-and-poles hint by input: a long press on touch, a right-click and Alt with a mouse (review design-9)
+    // the zeros-and-poles hint by input: a long press on touch, a right-click with a mouse (review design-9; issue #13:
+    // the planes' menu acts on a mark, it adds none)
     const touchUI = () => document.documentElement.classList.contains('ph') || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
     // a formula wider than its well: the same formula smaller, down to 70 % (review design-4); true when it fits
     function fitTex(node, minScale = 0.7) {
@@ -135,78 +138,35 @@ const Inspector = (() => {
       return tex.replace(/\\[a-zA-Z]+|[a-zA-Z]/g, (m) => (m.length > 1 ? m : m === 'z' ? wv : letters.has(m) ? `${m}_{${k}}` : m));
     }
     function cxv(s) { try { return A.Expr.constValue(String(s)); } catch (e) { return null; } }
-    // the step's formula with its shared numbers kept as names (review math-11): the step is built again with a
-    // sentinel number in place of each field (or list item) that holds names, and each sentinel of the TeX is replaced
-    // by that field's own TeX, so (w₁ + 1)/(a w₁ + 1) shows what a controls. null when a sentinel does not come
-    // through as a plain number (the step folded it into another value): the formula then shows the values.
-    const SENT = [7919, 7927, 7933, 7937, 7949, 7951, 7963, 7993, 8009, 8011, 8017, 8039];
-    const namedMemo = { key: null, val: null };
-    function namedTex(st, k) {
-      if (typeof Params === 'undefined' || !Params.namesIn || !st || !st.params) return null;
-      const mk = `${k}|${st.type}|${JSON.stringify(st.params)}|${I18N.lang}`;   // (a slider frame changes no text: the same formula)
-      if (namedMemo.key === mk) return namedMemo.val;
-      namedMemo.key = mk;
-      namedMemo.val = namedTex0(st, k);
-      return namedMemo.val;
-    }
-    function namedTex0(st, k) {
-      const d = A.defOf(st), types = {};
-      for (const q of d.params || []) types[q.key] = q.type;
-      const has = (src) => typeof src === 'string' && Params.namesIn(src).length > 0;
-      const keys = Object.keys(st.params).filter((key) => has(st.params[key]));
-      if (!keys.length) return null;
-      const subs = [], p2 = Object.assign({}, st.params);
-      const texOf = (src) => {
-        const t0 = A.Expr.toTex(A.Expr.parse(src)), t = t0 && typeof t0 === 'object' ? t0.s : t0;   // (toTex gives { s, p })
-        if (typeof t !== 'string' || !t) throw new Error('no TeX');
-        return Params.namesIn(src).length === 1 && /^\s*[^\s+\-*/^()]+\s*$/.test(src) ? t : `\\left(${t}\\right)`;
-      };
-      try {
-        for (const key of keys) {
-          const list = st.type === 'zp' ? key === 'zeros' || key === 'poles' : types[key] === 'cxlist' || types[key] === 'coeffs';
-          const items = list ? A.Funcs.splitList(st.params[key]) : [st.params[key]];
-          const out = items.map((it) => {
-            if (!has(it) || subs.length >= SENT.length) return it;
-            const neg = /^\s*-/.test(it), n = SENT[subs.length];
-            subs.push([n, texOf(neg ? it.replace(/^\s*-/, '') : it)]);
-            return String(neg ? -n : n);
-          });
-          p2[key] = out.join(', ');
-        }
-        const b2 = A.Funcs.build({ type: st.type, params: p2, on: true });
-        if (!b2 || b2.error) return null;
-        let t = b2.tex({ s: A.wvar(k - 1), p: 4 }).s;
-        for (const [n, tx] of subs) {
-          const re = new RegExp(`(?<![\\d.])${n}(?![\\d.])`, 'g');
-          if (!re.test(t)) return null;
-          t = t.replace(re, `{${tx}}`);
-        }
-        return /(?<![\d.])(79\d\d|80[0-3]\d)(?![\d.])/.test(t) ? null : t;
-      } catch (e) { return null; }
-    }
     // ---- a step ----
     function buildStep(k) {
       const S = A.S(), st = S.steps[k - 1], d = A.defOf(st), b = A.built()[k - 1];
       const deriv = A.isDerivStep(st, b);
       const lens = h('button', { class: 'icon-btn alone-btn', 'aria-pressed': 'false', html: LENS, onclick: () => A.toggleAlone(k) });
+      lens.append(h('span', { class: 'ab-l' }));   // (v16.5 UX85: "Show alone" / "Show F" in words where there is no hover)
+      // (v16.5 UX81: ← → move the step one place, in a phone's editor sheet; the laptop has Alt+← / Alt+→ on the card)
+      const n = S.steps.length;
+      const mvL = h('button', { class: 'icon-btn mv-btn', 'data-tip': $t('Move left'), 'aria-label': $t('Move f{x} left', { x: sub(k) }), disabled: k <= 1 || null, onclick: () => A.moveStep(k, -1) }, '←');
+      const mvR = h('button', { class: 'icon-btn mv-btn', 'data-tip': $t('Move right'), 'aria-label': $t('Move f{x} right', { x: sub(k) }), disabled: k >= n || null, onclick: () => A.moveStep(k, 1) }, '→');
       const inv = h('button', { class: 'icon-btn txt', 'data-tip': $t('Replace with the inverse'), 'aria-label': $t('Replace with the inverse function'), html: '<i>f</i><sup>−1</sup>', onclick: () => A.inverseAction(k) });
       if (deriv) inv.hidden = true;
       const byp = h('button', { class: 'icon-btn bypass', html: ICONS.bypass, onclick: () => A.toggleBypass(k) });
       const more = h('button', { class: 'icon-btn more', 'aria-haspopup': 'menu', 'data-tip': $t('Inverse, bypass, move, duplicate, presets, remove'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), html: ICONS.more, onclick: (e) => A.stepMenu(e.currentTarget, k, { full: true }) });
       // (the head keeps the name whole: Show alone and More; Inverse and Bypass are in More)
-      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl' }, d.label), lens, more);
+      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl' }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
       const form = h('div', { class: 'iform' }, ftex);
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
       const note = h('div', { class: 'inote' });
+      const nums = h('div', { class: 'inote inums', hidden: true });   // (v16.5 UX65: the numbers this step uses)
       const det = h('div', { class: 'isub' });
       // v15.2 (notes/formula-steps/DESIGN.md 6): a formula that is a chain of catalog steps shows how it is built, after
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true, role: 'region' }) : null;
-      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, split, note);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, err, note, det, params, split, typing: false };
+      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, det, split, note, nums);
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, err, note, nums, det, params, split, typing: false };
       if (split) {
         split.open = foldOpen();
         // (v16.1: the tour's unfolding, below, is not the viewer's fold)
@@ -339,15 +299,21 @@ const Inspector = (() => {
         if (adds) {
           // the big buttons first, then the hint, then a and one row per zero and pole
           params.prepend(adds);
-          adds.after(h('div', { class: 'zp-hint' }, touchUI() ? $t('Or long-press a plane. Marks snap to the ruler.') : $t('Or right-click a plane. Marks snap to the ruler (Alt: free).')));
+          adds.after(h('div', { class: 'zp-hint' }, touchUI() ? $t('Drag a mark to move it; hold it for more.') : $t('Drag a mark to move it; right-click it for more.')));
           for (const b of adds.querySelectorAll('.zp-add')) {
             const kind = b.classList.contains('zeros') ? 'zeros' : 'poles';
             const txt = [...b.childNodes].find((n) => n.nodeType === 3);
             if (txt) txt.textContent = kind === 'zeros' ? $tx('zp', 'Add zero') : $tx('zp', 'Add pole');
           }
         }
-      } else for (const q of d.params || []) params.append(A.paramField(st, k, q, 'i'));
+      } else for (const q of d.params || []) if (q.key !== 'cut' || hasCut(st, k)) params.append(A.paramField(st, k, q, 'i'));
       indexLabels(params, k);
+    }
+    // (v16.5 UX33) a formula step shows its cut angle only when the formula has a cut to move (log, roots, powers)
+    function hasCut(st, k) {
+      if (st.type !== 'custom') return true;
+      const b = A.built()[k - 1];
+      return !!(b && !b.error && b.cuts && b.cuts.some((c) => c.editable));
     }
     function fillStep(E) {
       const S = A.S(), k = E.k, st = S.steps[k - 1], b = A.built()[k - 1];
@@ -355,8 +321,12 @@ const Inspector = (() => {
       const bad = !!(b && b.error), off = st.on === false;
       const alone = S.focus === k;
       E.lens.setAttribute('aria-pressed', String(alone));
-      const lt = alone ? $t('Show the whole chain  L') : $t('Show this step alone  L');
-      if (E.lens.dataset.tip !== lt) { E.lens.dataset.tip = lt; E.lens.setAttribute('aria-label', alone ? $t('Show the whole chain') : $t('Show this step alone')); }
+      // (v16.5 UX85: one name, Show alone; while it is on, the same button reads Show F)
+      const lt = alone ? $t('Show F  L') : $t('Show alone  L');
+      if (E.lens.dataset.tip !== lt) {
+        E.lens.dataset.tip = lt; E.lens.setAttribute('aria-label', alone ? $t('Show F') : $t('Show f{x} alone', { x: sub(k) }));
+        const ab = E.lens.querySelector('.ab-l'); if (ab) ab.textContent = alone ? $t('Show F') : $t('Show alone');
+      }
       E.byp.setAttribute('aria-pressed', String(off));
       const bt = off ? $t('Turn this step back on') : $t('Bypass this step');
       if (E.byp.dataset.tip !== bt) { E.byp.dataset.tip = bt; E.byp.setAttribute('aria-label', bt); }
@@ -364,7 +334,8 @@ const Inspector = (() => {
       const errT = bad ? b.error : '';
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
-        const num = namedTex(st, k) || b.tex({ s: A.wvar(k - 1), p: 4 }).s;
+        // (a field that uses shared numbers shows their names: Funcs.build keeps them, issue #11)
+        const num = b.tex({ s: A.wvar(k - 1), p: 4 }).s;
         const gen = genericTex(st, k);
         const full = `w_{${k}}=` + (gen && gen.replace(/\s/g, '') !== num.replace(/\s/g, '') ? `${gen}=${num}` : num), short = `w_{${k}}=${num}`;
         // (the generic form and the values do not fit: the values alone, then smaller)
@@ -383,7 +354,8 @@ const Inspector = (() => {
             rn = rn.replace(/\.$/, '') + '; ' + $t('it stays one step: {why}', { why: why.charAt(0).toLowerCase() + why.slice(1) });
           }
         }
-        const n = [b.branchNote, drags, A.branchTag(st, b), rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
+        // (v16.5 UX33: the cut and the sheet are in their fields, so the note no longer repeats them: A.branchTag left out)
+        const n = [b.branchNote, drags, rn].filter(Boolean).map((x) => x.replace(/\.$/, '')).join('. ');
         const nt = n ? n + '.' : '';
         if (E.note.textContent !== nt) E.note.textContent = nt;
       } else {
@@ -409,6 +381,10 @@ const Inspector = (() => {
         }
       }
       if (E.det.dataset.h !== dt) { E.det.dataset.h = dt; E.det.innerHTML = dt; }
+      // (v16.5 UX65) the numbers the step uses, with their values
+      const nt = A.numbersOf ? A.numbersOf(k) : '';
+      if (E.nums.textContent !== nt) E.nums.textContent = nt;
+      E.nums.hidden = !nt;
     }
     // ---- F ----
     function buildF() {
@@ -538,7 +514,8 @@ const Inspector = (() => {
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: ICON.region }), h('span', { class: 'ttl' }, $t('Region')));
       const sum = h('div', { class: 'idom' });
       const sw = h('div', { class: 'swatches' });
-      const hint = h('div', { class: 'inote' }, $t('Draw shapes in X with the tools on the left; the Shapes list edits them. Select a step in the chain to edit it here.'));
+      // (v16.5 UX17: on a touch screen, the phone's places)
+      const hint = h('div', { class: 'inote' }, touchUI() ? $t('Draw shapes in X with the tools of the bottom row; the Shapes list, in More tools, edits them. Tap a step in the chain to edit it here.') : $t('Draw shapes in X with the tools on the left. Select a shape, or a step in the chain, to edit it here.'));
       return { kind: 'region', root: h('div', { class: 'iregion' }, head, sum, sw, hint), sum, sw };
     }
     function fillRegion(E) {
@@ -559,7 +536,7 @@ const Inspector = (() => {
       if (!sel) return 'R';
       const st = S.steps[sel - 1];
       const zp = st.type === 'zp' ? A.zpCounts(st) : '';
-      return `S${sel}#${st.type}#${zp}#${I18N.lang}#${st.type === 'zp' && touchUI() ? 't' : ''}`;
+      return `S${sel}#${st.type}#${zp}#${I18N.lang}#${st.type === 'zp' && touchUI() ? 't' : ''}#${hasCut(st, sel) ? 'c' : ''}#${S.steps.length}`;
     }
     function render() {
       if (!skeleton()) return;
@@ -567,7 +544,9 @@ const Inspector = (() => {
       const sel = A.sel();
       // (v16: a selected construction shows its Construction view while the selection is the region; construct.js)
       const cmSig = typeof Construct !== 'undefined' && (A.S().sel == null || A.S().sel === 0) ? Construct.inspectorSig() : null;
-      const sig = cmSig || sigOf(sel);
+      // ([v17 D4] a selected free shape is edited here, on the laptop: the app's shape view)
+      const shSig = !cmSig && A.shapeInspSig ? A.shapeInspSig() : null;
+      const sig = cmSig || shSig || sigOf(sel);
       if (sig !== cur.sig || cur.stale || !cur.el || !selSec.contains(cur.el.root)) {
         // (a field being typed in keeps its place: a zero emptied while typing drops out of the list until the
         // field is left, so the editor waits for that instead of rebuilding under the caret)
@@ -577,13 +556,13 @@ const Inspector = (() => {
         } else {
           selSec.innerHTML = '';
           cur.stale = false;
-          cur.el = cmSig ? Construct.inspectorBuild() : sel === 'F' ? buildF() : sel ? buildStep(sel) : buildRegion();
+          cur.el = cmSig ? Construct.inspectorBuild() : shSig ? A.shapeInspBuild() : sel === 'F' ? buildF() : sel ? buildStep(sel) : buildRegion();
           selSec.append(cur.el.root);
           cur.sig = sig;
         }
       }
       const E = cur.el;
-      if (E.kind === 'construct') Construct.inspectorFill(E); else if (E.kind === 'step') fillStep(E); else if (E.kind === 'F') fillF(E); else fillRegion(E);
+      if (E.kind === 'construct') Construct.inspectorFill(E); else if (E.kind === 'shape') A.shapeInspFill(E); else if (E.kind === 'step') fillStep(E); else if (E.kind === 'F') fillF(E); else fillRegion(E);
     }
     // the step editor's parameter block again (zeros or poles added or removed)
     function refreshParams(k) {

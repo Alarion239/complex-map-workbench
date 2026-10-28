@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // Regions: shapes (points, curves, areas), meshing of areas, adaptive mapping of curves.
 const Region = (() => {
@@ -282,7 +283,8 @@ const Region = (() => {
       const c = longOf(a, d, win, -Infinity, o);
       return c ? [c] : [];
     },
-    tex: (s) => normalTex(s, '>') || `\\operatorname{Im}\\frac{z-(${fmt(P(s.a))})}{${fmt(CX.sub(P(s.b), P(s.a)))}}>0`,
+    // (a half-plane with no unit normal is said in words: the side to the left of the line from a to b)
+    tex: (s) => normalTex(s, '>') || $t('\\text{left of the line from } %{a} \\text{ to } %{b}', { a: fmt(P(s.a)), b: fmt(P(s.b)) }),
   };
   K.annulus = {
     type: 'area', label: $t('Annulus'),
@@ -799,6 +801,7 @@ const Region = (() => {
       if (x1 >= x0) { ox = (x0 + x1) / 2; oy = (y0 + y1) / 2; }
     }
     if (!Number.isFinite(ox) || !Number.isFinite(oy)) ox = oy = 0;
+    /** @type {Float32Array & {origin?: number[]}} */
     const out = new Float32Array(n * 6);
     for (let t = 0; t < n; t++) {
       for (let k = 0; k < 3; k++) { const v = T[3 * t + k]; out[6 * t + 2 * k] = S[2 * v] - ox; out[6 * t + 2 * k + 1] = S[2 * v + 1] - oy; }
@@ -1562,6 +1565,7 @@ const Region = (() => {
         const disc = { t: 'disc', c, r: s.r };
         if (span >= 360) return { in: s.r > 0 ? [disc] : [], hole: null, exact: true };
         if (span <= 180) {
+          /** @type {any[]} */
           const pcs = [{ t: 'half', a: c, d: u1 }, { t: 'half', a: c, d: [-u2[0], -u2[1]] }];
           if (s.r > 0) pcs.push(disc);
           return { in: pcs, hole: null, exact: true };

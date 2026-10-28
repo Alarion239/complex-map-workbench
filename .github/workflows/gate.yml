@@ -1,17 +1,26 @@
-# The gate on GitHub's machines (ci/README.md): unit tests (Linux), GLSL conformance (Windows, macOS; only the pages
-# whose shader code or tests changed), image quality (Linux, Windows, macOS), each change measured against its
+# The gate on GitHub's machines (ci/README.md): unit tests (Linux), the functional browser suites (Linux), GLSL
+# conformance (Windows, macOS; only the pages whose shader code or tests changed), image quality (Linux, Windows,
+# macOS), each change measured against its
 # reference (the PR's base, or the previous main) on the same machine. Speed is gated on our own machines with real
 # GPUs (.github/workflows/gpu-gate.yml); until they are registered (the variable GPU_RUNNERS), the paired perf suite
 # runs here on Windows (desktop units and an emulated phone), and by hand (Run workflow, perf) on Windows and macOS.
 # GitHub's machines are shared and render in software: their timings swing by more than any tolerance, so here the
 # perf jobs gate the suite's checks (a view that does not move, a compile during a hover, a page error) and only report
 # slower timings (--advisory).
+# Tiers (ci/README.md, CI tiers): a pull request runs the jobs it can affect (ci/impact.js chooses them in the plan
+# job); a push to main, the nightly run, a run by hand and the label full-gate run them all.
 name: Gate
 
 on:
   pull_request:
+    # (labeled: the label full-gate runs the whole gate on any pull request; another label restarts the run in its tier.
+    # ready_for_review: a pull request into main runs the whole gate once it is not a draft)
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
   push:
     branches: [main]
+  # the nightly whole gate (on main, against the previous main)
+  schedule:
+    - cron: '37 2 * * *'
   workflow_dispatch:
     inputs:
       reference:
@@ -50,6 +59,14 @@ jobs:
     outputs:
       reference: ${{ steps.ref.outputs.reference }}
       shards: ${{ steps.shards.outputs.shards }}
+      tier: ${{ steps.tier.outputs.tier }}
+      why: ${{ steps.tier.outputs.why }}
+      browser: ${{ steps.tier.outputs.browser }}
+      glsl: ${{ steps.tier.outputs.glsl }}
+      quality: ${{ steps.tier.outputs.quality }}
+      perf: ${{ steps.tier.outputs.perf }}
+      quality_force: ${{ steps.tier.outputs.quality_force }}
+      perf_force: ${{ steps.tier.outputs.perf_force }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -57,6 +74,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
       - id: ref
         name: Reference of the paired gates
         shell: bash
@@ -74,7 +94,7 @@ jobs:
           sha=$(git rev-parse --verify "$ref^{commit}")
           echo "reference=$sha" >> "$GITHUB_OUTPUT"
           echo "Reference of the paired gates: \`$sha\` ($ref)" >> "$GITHUB_STEP_SUMMARY"
-          if git diff --quiet "$sha" -- src build.py; then echo "The app (src/, build.py) is unchanged since the reference: the paired gates have nothing to compare." >> "$GITHUB_STEP_SUMMARY"; fi
+          if git diff --quiet "$sha" -- src build.py tools/src_parts.py; then echo "The app (src/, build.py, tools/src_parts.py) is unchanged since the reference: the paired gates have nothing to compare." >> "$GITHUB_STEP_SUMMARY"; fi
       - id: shards
         name: Perf shards (every unit in exactly one)
         shell: bash
@@ -82,6 +102,27 @@ jobs:
           node ci/perf_shards.js check
           if [ -n "${{ inputs.shards }}" ]; then s=$(node ci/perf_shards.js matrix --only "${{ inputs.shards }}"); else s=$(node ci/perf_shards.js matrix); fi
           echo "shards=$s" >> "$GITHUB_OUTPUT"
+      - name: Browser shards (every suite in exactly one)
+        run: node ci/browser_shards.js check
+      # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
+      # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
+      # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
+      # tier
+      - id: tier
+        name: Tier
+        shell: bash
+        env:
+          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full-gate') }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          REF: ${{ steps.ref.outputs.reference }}
+        run: |
+          set -eu
+          full=''
+          if [ "${{ github.event_name }}" != pull_request ]; then full="${{ github.event_name }}"
+          elif [ "$FULL_LABEL" = true ]; then full="the label full-gate"
+          elif [ "$BASE" = main ] && [ "$DRAFT" != true ]; then full="a pull request into main, ready for review"; fi
+          if [ -n "$full" ]; then node ci/impact.js --ref "$REF" --full "$full" --github; else node ci/impact.js --ref "$REF" --github; fi
 
   unit:
     name: Unit tests
@@ -115,24 +156,12 @@ jobs:
     # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
     # shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
+    if: needs.plan.outputs.glsl != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: windows-latest, page: glsl, part: 1/8 }
-          - { os: windows-latest, page: glsl, part: 2/8 }
-          - { os: windows-latest, page: glsl, part: 3/8 }
-          - { os: windows-latest, page: glsl, part: 4/8 }
-          - { os: windows-latest, page: glsl, part: 5/8 }
-          - { os: windows-latest, page: glsl, part: 6/8 }
-          - { os: windows-latest, page: glsl, part: 7/8 }
-          - { os: windows-latest, page: glsl, part: 8/8 }
-          - { os: windows-latest, page: adv, part: 1/1, sections: 'direct,keys,compile' }
-          - { os: windows-latest, page: adv, part: 1/1, sections: main }
-          - { os: windows-latest, page: inverse, part: 1/1 }
-          - { os: macos-latest, page: glsl, part: 1/1 }
-          - { os: macos-latest, page: adv, part: 1/1 }
-          - { os: macos-latest, page: inverse, part: 1/1 }
+        # (the jobs: GLSL_JOBS in ci/impact.js; only the pages this change can affect, all of them for the whole gate)
+        include: ${{ fromJSON(needs.plan.outputs.glsl) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240
     steps:
@@ -151,10 +180,12 @@ jobs:
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
+    # (Linux only, unless the whole gate runs)
+    if: needs.plan.outputs.quality != '[]'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(needs.plan.outputs.quality) }}
         shard: ['1/3', '2/3', '3/3']
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
@@ -171,7 +202,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} --shard ${{ matrix.shard }} ${{ env.FORCE }}
+      - run: node ci/quality.js --ref ${{ needs.plan.outputs.reference }} --shard ${{ matrix.shard }} ${{ env.FORCE || needs.plan.outputs.quality_force }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -184,7 +215,7 @@ jobs:
     name: Perf (${{ matrix.os }}, ${{ matrix.shard }})
     needs: plan
     # speed is gated on our GPU machines once they are registered; here until then, and by hand
-    if: vars.GPU_RUNNERS != 'true' || inputs.perf
+    if: needs.plan.outputs.perf == 'true' && (vars.GPU_RUNNERS != 'true' || inputs.perf)
     strategy:
       fail-fast: false
       matrix:
@@ -206,7 +237,7 @@ jobs:
       # (shared virtual machines: a timing swings both ways by more than any tolerance between two runs of the same app, so
       # timings and memory are reported with 3-fold allowances and not gated; the checks gate. Software rendering
       # settles slower than a GPU.)
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE }}
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --reps 2 --tol-scale 3 --advisory --settle-timeout 60000 ${{ env.FORCE || needs.plan.outputs.perf_force }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -215,17 +246,76 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  browser:
+    name: Browser (${{ matrix.shard }})
+    # the functional browser suites (test/*_cmd.js: the tour, constructions, touch, phone layouts, i18n, export, sound;
+    # ci/browser.js), each in its own headless Chrome against this build, in shards of about 15 minutes
+    # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
+    # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
+    # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900).
+    needs: plan
+    if: needs.plan.outputs.browser != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.browser) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CMW_ANGLE: vulkan
+      CMW_CHROME_ARGS: --no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Mesa's Vulkan drivers (lavapipe)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers
+      # (fails when Chrome has no WebGL2 with these flags: no fallback, so the suites never run on another renderer)
+      - run: node ci/gpu_probe.js
+      - run: node ci/browser.js --shard ${{ matrix.shard }}
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: browser-${{ matrix.shard }}
+          path: .ci/browser/
+          if-no-files-found: ignore
+          retention-days: 14
+
   gate:
     name: Gate
     if: always()
-    needs: [plan, unit, glsl, quality, perf]
+    needs: [plan, unit, glsl, quality, perf, browser]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every job of the gate passed
-        run: echo "plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}"
-      # (perf is skipped when the GPU machines gate speed)
-      - if: >-
-          contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || needs.plan.result != 'success' ||
-          needs.unit.result != 'success' || needs.glsl.result != 'success' || needs.quality.result != 'success'
-        run: exit 1
+      - name: Every job the plan chose passed
+        shell: bash
+        env:
+          TIER: ${{ needs.plan.outputs.tier }}
+          WHY: ${{ needs.plan.outputs.why }}
+          BROWSER: ${{ needs.plan.outputs.browser }}
+          SEL_GLSL: ${{ needs.plan.outputs.glsl != '[]' }}
+          SEL_QUALITY: ${{ needs.plan.outputs.quality != '[]' }}
+          SEL_BROWSER: ${{ needs.plan.outputs.browser != '[]' }}
+        run: |
+          set -u
+          echo "tier ${TIER:-?}, plan ${{ needs.plan.result }}, unit ${{ needs.unit.result }}, glsl ${{ needs.glsl.result }}, quality ${{ needs.quality.result }}, perf ${{ needs.perf.result }}, browser ${{ needs.browser.result }}"
+          printf '**Tier %s**: %s\n\nBrowser shards: %s\n' "${TIER:-?}" "${WHY:-}" "${BROWSER:-[]}" >> "$GITHUB_STEP_SUMMARY"
+          bad=0
+          [ "${{ needs.plan.result }}" = success ] || { echo "::error::plan: ${{ needs.plan.result }}"; bad=1; }
+          [ "${{ needs.unit.result }}" = success ] || { echo "::error::unit: ${{ needs.unit.result }}"; bad=1; }
+          # a job the plan chose passed; one it did not choose was skipped (perf may be skipped either way: the GPU
+          # machines gate speed once they are registered)
+          for j in glsl=${{ needs.glsl.result }}=$SEL_GLSL quality=${{ needs.quality.result }}=$SEL_QUALITY browser=${{ needs.browser.result }}=$SEL_BROWSER perf=${{ needs.perf.result }}=any; do
+            IFS== read -r n r sel <<< "$j"
+            if [ "$r" = success ] || { [ "$r" = skipped ] && [ "$sel" != true ]; }; then continue; fi
+            echo "::error::$n: $r"; bad=1
+          done
+          exit $bad

@@ -66,7 +66,7 @@ await view(1440, 900, false, false);
 await open('fsA', { steps: [] });
 {
   const l = await pal('sin z');
-  ok('search sin z: item 0 is Sine, item 1 the formula', rowsOf(l)[0] === 'Sine' && rowsOf(l)[1] === 'Custom formula' && rowsOf(l).filter((x) => x === 'Sine').length === 1, l);
+  ok('search sin z: item 0 is Sine, item 1 the formula', rowsOf(l)[0] === 'Sine' && rowsOf(l)[1] === 'Formula' && rowsOf(l).filter((x) => x === 'Sine').length === 1, l);
   await shot('split-search-sinz');
   await key('Enter'); await settle(700);
   const s = await steps();
@@ -75,7 +75,7 @@ await open('fsA', { steps: [] });
 for (const [q, type, want] of [['\\frac{2z+1}{z-1}', 'mobius', { a: '2', b: '1', c: '1', d: '-1' }], ['z^{i}', 'powa', { alpha: 'i' }], ['2z+1', 'affine', { a: '2', b: '1' }], ['tg z', 'tan', {}], ['e^z', 'exp', {}], ['\\sqrt[3]{z}', 'root', { n: 3 }], ['conj z', 'conj', {}]]) {
   await open('fsA', { steps: [] });
   const l = await pal(q);
-  ok(`search ${q}: one step first`, rowsOf(l)[1] === 'Custom formula', l);
+  ok(`search ${q}: one step first`, rowsOf(l)[1] === 'Formula', l);
   await key('Enter'); await settle(600);
   const s = await steps();
   ok(`search ${q}: adds ${type} with ${JSON.stringify(want)}`, s.length === 1 && s[0].type === type && Object.entries(want).every(([k, v]) => String(s[0].params[k]) === String(v)), s);
@@ -83,7 +83,7 @@ for (const [q, type, want] of [['\\frac{2z+1}{z-1}', 'mobius', { a: '2', b: '1',
 for (const [q, n] of [['z+1/z', 2], ['\\sin(z^2+1)', 3]]) {
   await open('fsA', { steps: [] });
   const l = await pal(q);
-  ok(`search ${q}: the formula first, Add as ${n} steps second`, rowsOf(l)[0] === 'Custom formula' && rowsOf(l)[1] === `Add as ${n} steps`, l);
+  ok(`search ${q}: the formula first, Add as ${n} steps second`, rowsOf(l)[0] === 'Formula' && rowsOf(l)[1] === `Add as ${n} steps`, l);
   if (q === '\\sin(z^2+1)') { await key('ArrowDown'); await settle(300); info.capRows = await ev(`document.querySelector('.pal-cap').textContent`); await shot('split-search-asSteps'); }
   else await key('ArrowDown');
   await key('Enter'); await settle(700);
@@ -93,10 +93,10 @@ for (const [q, n] of [['z+1/z', 2], ['\\sin(z^2+1)', 3]]) {
 {
   await open('fsA', { steps: [] });
   const l = await pal('z^2+\\sin z');
-  ok('search z^2+\\sin z: the formula only', rowsOf(l)[0] === 'Custom formula' && !rowsOf(l).some((x) => /^Add as/.test(x)), l);
+  ok('search z^2+\\sin z: the formula only', rowsOf(l)[0] === 'Formula' && !rowsOf(l).some((x) => /^Add as/.test(x)), l);
   await key('Escape');
   const l2 = await pal('sin z', true);
-  ok('add-step menu: sin z lists Sine first', rowsOf(l2)[0] === 'Sine' && rowsOf(l2)[1] === 'Custom formula', l2);
+  ok('add-step menu: sin z lists Sine first', rowsOf(l2)[0] === 'Sine' && rowsOf(l2)[1] === 'Formula', l2);
   await key('Escape');
   // the slowest palette input handler while typing a formula
   await clickSel('#cmdBtn'); await settle(200);
@@ -262,7 +262,7 @@ await grab();
 await open('fsR', { steps: [] }, '&lang=ru');
 {
   const l = await pal('tg z');
-  ok('ru: tg z lists Тангенс first', rowsOf(l)[0] === 'Тангенс' && rowsOf(l)[1] === 'Своя формула', l);
+  ok('ru: tg z lists Тангенс first', rowsOf(l)[0] === 'Тангенс' && rowsOf(l)[1] === 'Формула', l);
   await key('Escape');
   const l2 = await pal('\\sin(z^2+1)');
   ok('ru: Добавить как 3 шага', rowsOf(l2)[1] === 'Добавить как 3 шага', l2);
@@ -344,7 +344,8 @@ await open('fsTour', { steps: [] });
   await ev(`Tour.start({ chapter: 'edit' })`); await settle(2000);
   const seen = [];
   for (let i = 0; i < 6; i++) {
-    const cur = await ev(`(() => { const t = document.querySelector('.tour-card h2, .tour-card .tc-title, [class*=tour] h2'); return t ? t.textContent : null; })()`);
+    // (v16.4: the step's title is in the docked strip, #tourTitle; the pop-up card and its h2 are gone)
+    const cur = await ev(`(() => { const t = document.querySelector('.tour-strip #tourTitle'); return t ? t.textContent : null; })()`);
     const b = await block();
     seen.push([cur, b ? !b.hidden : false]);
     if (/A formula in steps/.test(cur || '')) {
@@ -358,7 +359,7 @@ await open('fsTour', { steps: [] });
     await key('ArrowRight'); await settle(1500);
   }
   info.tourSeen = seen;
-  ok('tour: the offer shows only at its stop', seen.every(([t, v]) => (/A formula in steps/.test(t || '') ? v : !v)), seen);
+  ok('tour: the offer shows only at its stop', seen.some(([t]) => /A formula in steps/.test(t || '')) && seen.every(([t, v]) => (/A formula in steps/.test(t || '') ? v : !v)), seen);
   await key('Escape'); await settle(800);
 }
 await grab();

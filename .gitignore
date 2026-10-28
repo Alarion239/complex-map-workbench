@@ -9,6 +9,7 @@ test/cdp_kit/q/
 test/regress/perf/results/
 test/regress/perf/ref_root/
 test/regress/quality/out/
+test/regress/export/out/
 test/regress/tmp/
 *.bak*
 .DS_Store
@@ -29,3 +30,8 @@ notes/v16.2-candidate/
 notes/v16.3-candidate/
 # Python bytecode (the gates' Python scripts)
 __pycache__/
+# generated reports of tools/make_ru_table.py (rewritten on every run)
+tools/ru_report.json
+tools/ru_collisions.json
+# GitHub Pages artifact (ci/pages.py)
+_site/

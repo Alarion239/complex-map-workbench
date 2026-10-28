@@ -1,0 +1,380 @@
+{
+ "_about": "v16.5 wave 1, the learn piece (work/xu1-learn; notes/ux-audit/REPORT.md: UX20, UX21, UX60, UX70-UX74, UX77, UX78, UX80, UX88-UX90, UX93, UX97, UX99, UX102-UX104, V01). id -> {en, ru, note}. Read after every v16.4 table by tools/make_ru_table.py (V165_HERE). UX93 (user-approved): the tour is «обучение», not «обзор» (GLOSSARY 1.13 updated). Edit by read-modify-write only.",
+ "tour.name": {
+  "en": "Guided tour",
+  "ru": "Обучение",
+  "note": "UX93: the tour's name everywhere."
+ },
+ "tour.continue": {
+  "en": "Continue the tour",
+  "ru": "Продолжить обучение",
+  "note": ""
+ },
+ "tour.end": {
+  "en": "End the tour",
+  "ru": "Завершить обучение",
+  "note": ""
+ },
+ "tour.end.key": {
+  "en": "End the tour  Esc",
+  "ru": "Завершить обучение  Esc",
+  "note": "Tooltip: label, two spaces, key."
+ },
+ "tour.menu.help": {
+  "en": "Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.",
+  "ru": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
+  "note": ""
+ },
+ "tour.newhere": {
+  "en": "New here? Take a 2-minute tour",
+  "ru": "Впервые здесь? Обучение за две минуты",
+  "note": "UX21: the lane's title on a first visit."
+ },
+ "tour.press.play": {
+  "en": "Press ▶ to turn sound on and listen.",
+  "ru": "Нажмите ▶, чтобы включить звук и послушать.",
+  "note": ""
+ },
+ "tour.start": {
+  "en": "Start the tour",
+  "ru": "Начать обучение",
+  "note": ""
+ },
+ "tour.take2": {
+  "en": "Take the 2-minute tour",
+  "ru": "Обучение за две минуты",
+  "note": ""
+ },
+ "tour.take": {
+  "en": "Take the tour",
+  "ru": "Начать обучение",
+  "note": ""
+ },
+ "tour.bychapter": {
+  "en": "The tour by chapter, the guide and every shortcut.",
+  "ru": "Обучение по главам, справочник и все сочетания клавиш.",
+  "note": ""
+ },
+ "tour.na": {
+  "en": "The tour is not available in this build.",
+  "ru": "Обучение недоступно в этой сборке.",
+  "note": ""
+ },
+ "tour.under": {
+  "en": "The tour is under {helpWhere} whenever you want it.",
+  "ru": "Обучение можно открыть в любой момент в меню «%{helpWhere}».",
+  "note": ""
+ },
+ "tour.stays": {
+  "en": "The tour stays under {where}.",
+  "ru": "Обучение всегда доступно в меню «%{where}».",
+  "note": ""
+ },
+ "tour.hearnote": {
+  "en": "The tour turns Hear the function on for this step; your setting comes back after it.",
+  "ru": "На этом шаге обучение включает «Слушать функцию»; ваша настройка вернётся после него.",
+  "note": ""
+ },
+ "tour.helpbtn": {
+  "en": "This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.",
+  "ru": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
+  "note": ""
+ },
+ "tour.finished": {
+  "en": "Tour finished. Your work is back, and the tour stays under {where}.",
+  "ru": "Обучение завершено. Ваша работа на месте, а обучение всегда доступно в меню «%{where}».",
+  "note": ""
+ },
+ "tour.suggestion": {
+  "en": "Tour suggestion",
+  "ru": "Предложение пройти обучение",
+  "note": ""
+ },
+ "tour.suggestion.say": {
+  "en": "Tour suggestion: {title}. Start the tour or Not now.",
+  "ru": "Предложение пройти обучение: {title}. Кнопки «Начать обучение» и «Не сейчас».",
+  "note": "Screen reader."
+ },
+ "tour.title": {
+  "en": "Tour: {title}",
+  "ru": "Обучение: %{title}",
+  "note": ""
+ },
+ "tour.back": {
+  "en": "Your work is back. The tour stays under {where}.",
+  "ru": "Ваша работа на месте. Обучение всегда доступно в меню «%{where}».",
+  "note": ""
+ },
+ "tour.where.phone": {
+  "en": "⋯ › Guided tour",
+  "ru": "⋯ › Обучение",
+  "note": ""
+ },
+ "tour.welcome.title": {
+  "en": "Welcome to the Workbench",
+  "ru": "Добро пожаловать",
+  "note": "UX93: the phone strip cut the old title («Добро пожаловать в Со…»)."
+ },
+ "tour.auto": {
+  "en": "Move on by itself",
+  "ru": "Дальше автоматически",
+  "note": "UX78: the old «Переходить дальше самому» read as the opposite."
+ },
+ "lane.suggest.body": {
+  "en": "Draw a region, send it through a chain of functions and watch its image.",
+  "ru": "Нарисуйте область, пропустите её через цепочку функций и посмотрите на образ.",
+  "note": "UX21: the first-run line's text after its title."
+ },
+ "tour.details": {
+  "en": "Details",
+  "ru": "Подробнее",
+  "note": "UX77: the strip's Why, renamed."
+ },
+ "lead.welcome2": {
+  "en": "Practice freely: what you draw here is cleared at the end.",
+  "ru": "Пробуйте смело: нарисованное здесь в конце сотрётся.",
+  "note": "UX90: welcome lead, at most 64 as read."
+ },
+ "body.welcome2": {
+  "en": "Draw a set in the $z$-plane, send it through a chain of functions and watch its image: about two minutes. What you draw during the tour is cleared when it ends, and your own work comes back exactly as it was.",
+  "ru": "Нарисуйте множество в плоскости $z$, пропустите его через цепочку функций и посмотрите на его образ: это займёт около двух минут. Всё, что вы нарисуете во время обучения, в конце сотрётся, а ваша собственная работа вернётся в точности такой, какой была.",
+  "note": "UX90, UX77: the welcome's Details."
+ },
+ "try.key.desk": {
+  "en": "In Display options, turn on Phase key.",
+  "ru": "В «Настройках вида» отметьте «Шкала фазы».",
+  "note": "UX20: Y's options are behind its Display options button on a desktop."
+ },
+ "key.cell": {
+  "en": "cell {x}",
+  "ru": "клетка %{x}",
+  "note": "UX20: the pattern key's chip in Y's pane head."
+ },
+ "key.sphere": {
+  "en": "Sphere cells",
+  "ru": "Клетки сферы",
+  "note": ""
+ },
+ "key.height": {
+  "en": "Height key",
+  "ru": "Шкала высоты",
+  "note": "X's chip in Landscape."
+ },
+ "key.colour": {
+  "en": "Colour key",
+  "ru": "Шкала цвета",
+  "note": "X's chip in Phase."
+ },
+ "key.tip.pattern": {
+  "en": "Pattern key: point at it to unfold, click to keep it open",
+  "ru": "Шкала узора: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+  "note": ""
+ },
+ "key.tip.colour": {
+  "en": "Colour key: point at it to unfold, click to keep it open",
+  "ru": "Шкала цвета: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+  "note": ""
+ },
+ "key.edge": {
+  "en": "edge of X's view",
+  "ru": "край вида X",
+  "note": "UX20: the legend row of the dashed outline (was «left view»). Fits 100 px at 11 px."
+ },
+ "note.ph.both.inset": {
+  "en": "Shaded and drawn in X (the inset)",
+  "ru": "Закрашено и нарисовано в X (врезка)",
+  "note": "V01: Y's title chip on a phone."
+ },
+ "note.ph.both": {
+  "en": "Shaded and drawn in X",
+  "ru": "Закрашено и нарисовано в X",
+  "note": ""
+ },
+ "note.ph.curves.inset": {
+  "en": "Drawn in X (the inset)",
+  "ru": "Нарисовано в X (врезка)",
+  "note": ""
+ },
+ "note.ph.curves": {
+  "en": "Drawn in X",
+  "ru": "Нарисовано в X",
+  "note": ""
+ },
+ "note.ph.area.inset": {
+  "en": "Shaded in X (the inset)",
+  "ru": "Закрашено в X (врезка)",
+  "note": "V01"
+ },
+ "note.ph.area": {
+  "en": "Shaded in X",
+  "ru": "Закрашено в X",
+  "note": ""
+ },
+ "note.tip": {
+  "en": "Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.",
+  "ru": "Там, где %{x} попадает в цели в Y, плоскость X закрашена; кривые, которые она переводит в них, нарисованы там же.",
+  "note": "Tooltip of the note."
+ },
+ "listen.it": {
+  "en": "Listen along it",
+  "ru": "Слушать вдоль неё",
+  "note": "UX72: the Shapes row's ⋯, under Integrate."
+ },
+ "listen.stop.tip": {
+  "en": "Stop listening  Esc",
+  "ru": "Остановить прослушивание  Esc",
+  "note": "UX71: tooltip of the chip's Stop."
+ },
+ "listen.stop": {
+  "en": "Stop",
+  "ru": "Стоп",
+  "note": "UX71: the listening chip's button."
+ },
+ "deform.drawoff": {
+  "en": "Drawing is off in the deformation (M).",
+  "ru": "Во время деформации рисовать нельзя (M).",
+  "note": "UX102"
+ },
+ "deform.turnoff": {
+  "en": "Turn off and draw",
+  "ru": "Выключить и рисовать",
+  "note": "UX102: the chip's button."
+ },
+ "deform.turnoff.tip": {
+  "en": "Turn the deformation off and draw  M",
+  "ru": "Выключить деформацию и рисовать  M",
+  "note": ""
+ },
+ "deform.readout": {
+  "en": "Step {k} of {m} · {f} · {p} %",
+  "ru": "Шаг %{k} из %{m} · %{f} · %{p} %",
+  "note": "UX103: the transport's readout (was «t = 0,84 / 3»); f is the step's function as its tick names it (f₂, d/dz)."
+ },
+ "deform.readout.tip": {
+  "en": "The step t is in, and how far along it: t runs from 0 to {m}, one unit per step",
+  "ru": "Шаг, на котором сейчас t, и насколько он пройден: t идёт от 0 до %{m}, по единице на шаг",
+  "note": ""
+ },
+ "deform.fromto": {
+  "en": "from {a} to {b}",
+  "ru": "от %{a} до %{b}",
+  "note": "UX103: the title in words, after «Деформация»."
+ },
+ "ex.withsound": {
+  "en": "With sound",
+  "ru": "Со звуком",
+  "note": "UX74: the ♫ mark in Examples."
+ },
+ "ex.try.label": {
+  "en": "Try this example",
+  "ru": "Попробуйте этот пример",
+  "note": "Region label of the lane line."
+ },
+ "ex.try.touch": {
+  "en": "Try: press Listen, or hold the spiral and choose Listen along.",
+  "ru": "Попробуйте: нажмите «Слушать» или удерживайте спираль и выберите «Слушать вдоль кривой».",
+  "note": "UX74, touch."
+ },
+ "ex.try": {
+  "en": "Try: press Listen, or right-click the spiral and choose Listen along.",
+  "ru": "Попробуйте: нажмите «Слушать» или щёлкните спираль правой кнопкой и выберите «Слушать вдоль кривой».",
+  "note": "UX74"
+ },
+ "snd.hear": {
+  "en": "Hear the function",
+  "ru": "Слушать функцию",
+  "note": "UX70: the first row of the sound settings."
+ },
+ "snd.hear.ptr": {
+  "en": "Notes as you move the pointer over X: round a zero they rise, round a pole they fall.",
+  "ru": "Ноты звучат, когда вы ведёте указатель по X: вокруг нуля они поднимаются, вокруг полюса опускаются.",
+  "note": ""
+ },
+ "snd.hear.touch": {
+  "en": "Notes as you drag over X: round a zero they rise, round a pole they fall.",
+  "ru": "Ноты звучат, когда вы ведёте пальцем по X: вокруг нуля они поднимаются, вокруг полюса опускаются.",
+  "note": ""
+ },
+ "snd.how": {
+  "en": "How it sounds",
+  "ru": "Как это звучит",
+  "note": "UX88: the music theory, folded."
+ },
+ "snd.diag": {
+  "en": "Diagnostics",
+  "ru": "Диагностика",
+  "note": "UX88: the engine line, folded."
+ },
+ "snd.hear.on": {
+  "en": "Hear the function is on",
+  "ru": "Прослушивание функции включено",
+  "note": "aria-description of the Sound button."
+ },
+ "video.on": {
+  "en": "A video records the deformation: it is on now.",
+  "ru": "Видео записывает деформацию: она включена.",
+  "note": "UX60"
+ },
+ "video.tip": {
+  "en": "A video records the deformation: choosing it turns the deformation on",
+  "ru": "Видео записывает деформацию: при выборе она включится",
+  "note": "UX60"
+ },
+ "video.tip.none": {
+  "en": "A video records the deformation: add a function to the chain first",
+  "ru": "Видео записывает деформацию: сначала добавьте функцию в цепочку",
+  "note": "UX60"
+ },
+ "tile.circle": {
+  "en": "Circle",
+  "ru": "Окружн.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "tile.rect": {
+  "en": "Rectangle",
+  "ru": "Прямоуг.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "tile.polygon": {
+  "en": "Polygon",
+  "ru": "Многоуг.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "tile.halfplane": {
+  "en": "Half-plane",
+  "ru": "Полупл.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "tile.meet": {
+  "en": "Intersect",
+  "ru": "Пересеч.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "tile.bisector": {
+  "en": "Bisector",
+  "ru": "Серед. перп.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "tile.perp": {
+  "en": "Orthogonal",
+  "ru": "Ортогон.",
+  "ctx": "phone tile",
+  "note": "UX93: a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps the full name."
+ },
+ "deform.readout.once": {
+  "en": "All steps at once · {p} %",
+  "ru": "Все шаги сразу · %{p} %",
+  "note": "UX103: the readout when the steps deform all at once."
+ },
+ "note.head": {
+  "en": "Preimage in X",
+  "ru": "Прообраз в X",
+  "note": "UX20, V01: Y's pane-head note on a desktop once a target is drawn (its tooltip says what is shaded and drawn)."
+ }
+}

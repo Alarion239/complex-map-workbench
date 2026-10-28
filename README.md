@@ -6,6 +6,19 @@
 > part of the screen each step changes, and an auto-advance that works while you keep moving. The plan for the next
 > versions, with the usability audit behind it, is in [ROADMAP.md](ROADMAP.md).
 
+**New in v16.5** (27 October 2026):
+
+- **Snapping and railing of points**: points snap to points and handles, zeros and poles, crossings, curves (the unit
+  circle and the axes included) and the grid. A point placed on a curve rides it when dragged; pull it hard to free
+  it (Alt places freely on a laptop).
+- Two points on one circle are no longer refused as "needs distinct points": picks are compared by where they are.
+- **Phone**: Undo in every sheet and in the deformation bar, and Android Back closes the open sheet instead of leaving
+  the app.
+- **⌘K finds everything**: commands, tools, examples and help, by everyday words ("dark", "png", "help", "zero").
+- The first-run invitation to the tour is one line in the tour's strip, not a card over the planes.
+- Messages cover nothing: legends and one-time notes sit in the plane's title row, and messages never land on
+  controls.
+
 An interactive workbench for complex analysis. Draw regions and curves in the z-plane, chain complex functions, and
 see what they do:
 
@@ -16,11 +29,16 @@ see what they do:
 - **Phase** and **Landscape**: full-width phase portraits and 3D landscapes of the chain. Landscape walls stay
   closed wherever |F| is continuous, however steep, and break only at real discontinuities (cuts and sheet seams);
   All sheets tints each sheet so you can tell them apart.
+- **Phase colours** (the colour disc in the bar): the workbench's hue wheel, or one of the color functions of Fredrik
+  Johansson's [Arb](https://fredrikj.net/blog/2018/04/new-color-functions/) (Arb, gold and blue, the blend, chrome,
+  warm, cold, tomato). One setting for every view, its keys and the figure export.
 - **The function chain**: each step is a card with a picture that follows the open view; the **Inspector** edits the
   selected step (with large Add zero / Add pole buttons for a zeros-and-poles step), and the **F** tile holds the
-  formula of F, its guarantees and its domain. Right-click a plane (or hold on a phone) for "Add zero here" and more.
-- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it. Copy link and scene files
-  hand the whole figure on.
+  formula of F, its guarantees and its domain. Right-click a shape, a zero or a pole (or hold it on a phone) for its
+  menu; a right-click while drawing cancels the drawing, and a double-click centres the view.
+- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it, and the formulas keep its
+  name (F(z) = z + c, not z + 0.25), so a slider moves the picture and leaves the formula as it is. Copy link and scene
+  files hand the whole figure on.
 - **Typed formulas** (LaTeX or plain) are recognized as the catalog steps they are made of, so `\sin(z^2+1)` runs as
   fast as the catalog and is offered as its steps (z ↦ z² ↦ z²+1 ↦ sin(z²+1)) in one click; in the search, `sin z`
   is the Sine step.
@@ -63,10 +81,17 @@ The app is a single HTML file built from `src/`:
 python3 build.py
 ```
 
+`build.py` joins the files of `src/` in a fixed order into one `<script>`. `app.js` and `gl.js` are kept as ordered
+parts: `src/app/` and `src/gl/` hold a `wrap.js` (the closure's first and last lines) and the parts `NN-subject.js`,
+which take the place of its `// @parts` line in file name order (`tools/src_parts.py`; `test/src_text.js` joins them
+the same way for the tests).
+
 This writes `dist/complex-map-workbench.html` (the published page, test hooks stripped) and `dist/test.html` (with
-test hooks). `docs/index.html` is the published page served by GitHub Pages. The build reads and writes UTF-8 with LF
-line endings on every platform (Windows included). The Italian table is `tools/it_table.json`; after editing it, run
-`python3 tools/make_it_table.py` (it writes `src/i18n_it.js` and reports strings the Russian table has and it lacks).
+test hooks). The live page is published by GitHub Pages from CI (`.github/workflows/pages.yml`): pushing a release tag
+(`git tag v16.6 && git push origin v16.6`) builds it and deploys it; Actions > Pages > Run workflow does the same by
+hand. The build reads and writes UTF-8 with LF line endings on every platform (Windows included). The Italian table
+is `tools/it_table.json`; after editing it, run `python3 tools/make_it_table.py` (it writes `src/i18n_it.js` and
+reports strings the Russian table has and it lacks).
 
 ## Tests
 

@@ -131,7 +131,7 @@ ok('arrows move the selection along the chain', (await cards()).sel === 3, await
 
 // 4. zeros and poles: big buttons, never Show alone, × removes
 let insz = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="3"]'); return e ? { adds: [...e.querySelectorAll('.zp-add')].map((b) => [b.textContent.replace(/\\d+$/, ''), Math.round(b.getBoundingClientRect().height)]), syms: [...e.querySelectorAll('.zp-sym')].map((x) => x.textContent), a: e.querySelector('label.pl:not(.zp-sym)').textContent } : null; })()`);
-ok('Inspector: Add zero / Add pole are 36 px; a3, ζ1 ζ2 p1', insz && insz.adds.map((x) => x.join(':')).join() === 'Add zero:36,Add pole:36' && insz.syms.join('') === 'ζ₁ζ₂p₁' && insz.a === 'a3', insz);
+ok('Inspector: Add zero / Add pole are 36 px; a3, ζ1 ζ2 p1', insz && insz.adds.map((x) => x.join(':')).join() === 'Add zero:36,Add pole:36' && insz.syms.join('') === 'ζ₁ζ₂p₁' && insz.a === 'Factor a3', insz);
 await clickSel('#propsPanel .insp-step[data-k="3"] .zp-add.zeros'); await settle(700);
 let s3 = await ev('__qa.state()');
 ok('Add zero adds a zero and keeps the whole chain', s3.steps[2].params.zeros.split(',').length === 3 && (await cards()).focus === 0, { zeros: s3.steps[2].params.zeros, focus: (await cards()).focus });

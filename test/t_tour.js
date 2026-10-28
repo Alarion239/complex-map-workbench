@@ -76,7 +76,7 @@ for (const c of CH) {
 const ids = new Set(steps.map((s) => `${s.ch}/${s.id}`));
 for (const id of ['basics/examples', 'basics/draw', 'basics/shapes', 'basics/formula', 'basics/chain', 'basics/add', 'basics/x', 'basics/y', 'basics/preimages',
   'views/phase', 'views/land', 'views/sphere', 'views/patterns', 'deform/toggle', 'deform/paths', 'deform/order',
-  'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/zpHere', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
+  'analysis/targets', 'analysis/integral', 'analysis/guarantees', 'analysis/domain', 'edit/zp', 'edit/cards', 'edit/inspector', 'edit/numbers', 'branches/cut', 'branches/inverse', 'branches/deriv', 'branches/sheets',
   'export/figure', 'export/formula-tex', 'keys/palette', 'sound/settings', 'keys/help', 'views/key', 'analysis/cauchy', 'sound/song', 'sound/strings', 'sound/loop'])
   ok(`covers ${id}`, ids.has(id));
 // (v16.4) the shipped Russian table, src/i18n_ru.js, for the lengths of the strip's lines
@@ -132,7 +132,7 @@ for (const s of steps) {
     if (a[0] === 'surface') ok(`${id}: surface value`, ['L', 'R'].includes(a[1]) && ['plane', 'sphere'].includes(a[2]), a);
     if (a[0] === 'deform') ok(`${id}: deform value`, typeof a[1] === 'boolean', a);
     // (v15: 'sheet', a phone's sheet only; a third value names the phone's sheet: tools, display)
-    if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || ['tools', 'display'].includes(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
+    if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || ['tools', 'display', 'steps'].includes(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
   }
   // TeX: balanced braces and dollars, nothing the plain reading leaves as a command
   const texs = T.parseCopy(s.body + ' ' + (s.try ? s.try.text : '')).filter((t) => t.t === 'tex').map((t) => t.v);
@@ -206,7 +206,7 @@ check('the zeros-and-poles scene needs the zp step', [T.SCENES.zp.needs, T.SCENE
 const CHA = CH.find((c) => c.id === 'analysis'), CHE = CH.find((c) => c.id === 'edit');
 const ixA = (id) => CHA.steps.findIndex((s) => s.id === id), ixE = (id) => CHE.steps.findIndex((s) => s.id === id);
 check('the scene a step shows: its chapter scene, or the last scene action before it', ['targets', 'cauchy', 'integral', 'domain'].map((id) => T.sceneAt(CHA, ixA(id))), ['roots', 'roots', 'residueZp', 'residueZp']);
-check('Editing: the strip, then zeros and poles, then the shared number', ['cards', 'inspector', 'zp', 'zpHere', 'numbers'].map((id) => T.sceneAt(CHE, ixE(id))), ['strip', 'strip', 'zp', 'zp', 'numbers']);
+check('Editing: the strip, then zeros and poles, then the shared number', ['cards', 'inspector', 'zp', 'numbers'].map((id) => T.sceneAt(CHE, ixE(id))), ['strip', 'strip', 'zp', 'numbers']);
 ok('the shared-number scene binds the circle to a', T.SCENES.numbers.params[0].name === 'a' && T.SCENES.numbers.shapes.some((sh) => sh.bind && sh.bind.r === 'a') && T.SCENES.numbers.needs === 'params');
 
 // ---- copy markup
@@ -235,7 +235,7 @@ const CD = (evs) => { let st = T.cdInit(); for (const [t, e] of evs) st = T.coun
 // the time the countdown fires: the first t (ms, in 50 ms ticks) at which left() reaches 0, else null within 20 s
 const fireAt = (evs) => { const sorted = evs.slice().sort((a, b) => a[0] - b[0]); let st = T.cdInit(), k = 0; for (let t = 0; t <= 20000; t += 50) { while (k < sorted.length && sorted[k][0] <= t) st = T.countdown(st, sorted[k++][1], sorted[k - 1][0]); const L = T.cdLeft(st, t); if (L === 0) return t; } return null; };
 check('countdown: done -> 3000', fireAt([[0, { type: 'done' }]]), 3000);
-check('countdown: input at 2000 -> 5000', fireAt([[0, { type: 'done' }], [2000, { type: 'input' }]]), 5000);
+check('countdown: input at 2000 changes nothing (3000; the pointer or keys never restart it)', fireAt([[0, { type: 'done' }], [2000, { type: 'input' }]]), 3000);
 check('countdown: hold from 1000 to 4000 -> 7000', fireAt([[0, { type: 'done' }], [1000, { type: 'hold', kind: 'pointer' }], [4000, { type: 'release', kind: 'pointer' }]]), 7000);
 check('countdown: two holds, the last release starts it', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'layer' }], [800, { type: 'hold', kind: 'pointer' }], [1500, { type: 'release', kind: 'pointer' }], [2500, { type: 'release', kind: 'layer' }]]), 5500);
 check('countdown: done while held (the palette open) -> 3 s after the release', fireAt([[0, { type: 'hold', kind: 'layer' }], [200, { type: 'done' }], [4000, { type: 'release', kind: 'layer' }]]), 7000);
@@ -261,8 +261,9 @@ check('CD_MS', T.CD_MS, 3000);
 // the harp's laps: a low D up and one down, whichever point gave which
 { const m = {}; check('harp: a bare event ticks; up alone does not; up then down does', [T.harpUpDown(undefined), T.harpUpDown({ dir: 1 }, m), T.harpUpDown({ dir: 1 }, m), T.harpUpDown({ dir: -1 }, m)], [true, false, false, true]); }
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
-// the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read
-check('47 steps: 34 tasks (2 doors), 13 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [47, 34, 2, 13]);
+// the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
+// adds no zeros)
+check('46 steps: 33 tasks (2 doors), 13 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [46, 33, 2, 13]);
 
 // ---- lit areas
 let L = T.litAreas([{ l: 10, t: 10, r: 110, b: 40 }]);
@@ -368,14 +369,13 @@ ok('broken storage is reported on the console', warned >= 2, warned);
 Tour.init({ has: (f) => !['zp', 'allAtOnce'].includes(f) });
 const ai = CH.findIndex((c) => c.id === 'analysis'), di = CH.findIndex((c) => c.id === 'deform'), ei = CH.findIndex((c) => c.id === 'edit');
 ok('the zeros-and-poles step is absent without the zp feature', T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'zp')));
-ok('Add a zero here is absent without the zp feature (its scene)', T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'zpHere')));
 ok('Shared numbers is not absent without zp (its own scene)', !T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'numbers')));
 ok('All at once is absent without it', T.absent(di, CH[di].steps.findIndex((s) => s.id === 'order')));
 ok('a step after the zp scene is not absent (it loads its own scene)', !T.absent(ai, CH[ai].steps.findIndex((s) => s.id === 'integral')));
 Tour.init({});
 ok('no api.has: nothing is absent', !T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'zp')));
-Tour.init({ has: (f) => !['params', 'planeMenu'].includes(f) });
-ok('without Params or the planes\' menu their steps are absent', T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'numbers')) && T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'zpHere')) && !T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'inspector')));
+Tour.init({ has: (f) => !['params'].includes(f) });
+ok('without Params its step is absent', T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'numbers')) && !T.absent(ei, CH[ei].steps.findIndex((s) => s.id === 'inspector')));
 Tour.init({ has: () => { throw new Error('x'); } });
 ok('a throwing api.has: nothing is absent', !T.absent(ai, 1));
 check('seek next within a chapter', T.seek(0, 1, 1), { ci: 0, si: 1 });

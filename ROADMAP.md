@@ -1,19 +1,17 @@
 # Roadmap
 
-**Live now:** v16.4.1 (26 October 2026): Landscape walls, the docked guided tour with the Grieg chapter, hyperbolic
-lines ("Inside").
+**Live now:** v16.5 (27 October 2026): a round of fixes, and snapping and railing of points.
 
-**Next:** v16.5, a round of fixes (built in part, paused), then v17, a redesign of how the app is laid out and
-learned. Both come from a usability audit of every function on laptops and Android phones:
-[plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17 of them serious, each with its fix; step counts
-for 43 common tasks; mockups of every option).
+**Next:** v17, a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
+of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
 ## Where we are
 
 | Version | What | Status |
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
-| v16.5 | The fixes that need no decision, snapping and railing of points | being built, paused until the usage limits reset |
+| v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
 | v17 | The twelve layout decisions (D1–D12) and the new guided tour | designed (options chosen), not started |
 | patch | Landscape walls redesign | planned |
 
@@ -109,8 +107,15 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
 
 ## How a version is made
 
-Each round is built in parallel copies, merged, reviewed by independent agents (as the user on laptop and phone,
-for regressions, and for the round's own subject), fixed, and smoke-checked in English and Russian, light and dark,
-at 1440 and 390 px. Then it is published here and on the shared artifact, and a full gate (unit tests, GLSL tests,
-the quality suite of 81 runs, frame-time budgets at 60 fps) runs; its fixes ship as patches. Design notes for every
-round are in [notes/](notes/).
+- **Each issue is a small PR** with its tier: the Gate runs only the jobs the change can affect
+  ([ci/README.md, CI tiers](ci/README.md#ci-tiers)): unit tests always, the browser suites of the areas a UI change
+  touches, GLSL, image quality and the perf suite's checks for a change to the renderer or the maths.
+- **PRs merge in waves.** Each goes into an integration branch; one wave PR from that branch into `main`, a draft until
+  the wave is complete, runs the whole gate once it is marked ready for review (unit tests, the browser suites, GLSL tests on Direct3D 11 and Metal, the
+  quality suite, the perf suite's checks).
+- **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Windows
+  laptop and Mac: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
+- **A release tag deploys the page:** the live page is deployed by CI on a release tag (`v*`,
+  `.github/workflows/pages.yml`), never committed.
+
+Design notes for every round are in [notes/](notes/).

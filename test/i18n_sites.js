@@ -4,7 +4,7 @@
 // source, one + U+0004 + many), src the English template whose placeholders the call fills.
 'use strict';
 const fs = require('fs');
-const path = require('path');
+const { parts, source } = require('./src_text');
 const CTX = '\u0004';
 // a JS string literal at s[i] (after spaces): [value, end] or null (a template literal with ${...})
 function lit(s, i) {
@@ -22,8 +22,10 @@ function lit(s, i) {
 }
 function sites(dir) {
   const out = [];
-  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.js') && !n.startsWith('i18n')).sort()) {
-    const s = fs.readFileSync(path.join(dir, f), 'utf8');
+  // (a file kept as parts, src/app/ and src/gl/, as one: its joined text and line numbers, as build.py joins it)
+  const names = fs.readdirSync(dir).map((n) => (parts(n + '.js', dir) ? n + '.js' : n));
+  for (const f of names.filter((n) => n.endsWith('.js') && !n.startsWith('i18n')).sort()) {
+    const s = source(f, dir);
     for (const m of s.matchAll(/(?<![A-Za-z0-9_$.])\$t(x|n)?\(/g)) {
       const where = `${f}:${s.slice(0, m.index).split('\n').length}`;
       const a = lit(s, m.index + m[0].length);

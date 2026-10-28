@@ -64,7 +64,7 @@ await view(1440, 900, false, false);
 await open('fxA', { steps: [] });
 {
   // the formula added as one step from the search (it is then shown alone), then split: the planes stay those of F
-  const r = await palPick('\\sin(z^2+1)', 'Custom formula');
+  const r = await palPick('\\sin(z^2+1)', 'Formula');
   await key('Enter'); await settle(1200);
   info.afterAdd = { focus: await focus(), steps: (await steps()).length };
   const p0 = await planes();
@@ -73,7 +73,8 @@ await open('fxA', { steps: [] });
   info.afterSplit = { focus: await focus(), steps: (await steps()).map((s) => s.type), active: await ev('document.activeElement && (document.activeElement.closest(".card") ? "card" : document.activeElement.tagName)') };
   const p1 = await planes();
   const d = diff(p0, p1);
-  ok('steps-1: palette add (focus f₁) then Split: focus 0, the planes unchanged (0 px over 8/255)', info.afterAdd.focus === 1 && info.afterSplit.focus === 0 && info.afterSplit.steps.join() === 'pown,add,sin' && d === 0, { ...info, d });
+  // (v16.5 UX01: an added step is selected, and the planes keep showing F: the focus stays 0)
+  ok('steps-1: palette add (focus stays F) then Split: focus 0, the planes unchanged (0 px over 8/255)', info.afterAdd.focus === 0 && info.afterSplit.focus === 0 && info.afterSplit.steps.join() === 'pown,add,sin' && d === 0, { ...info, d });
   ok('steps-11: after Split the keyboard focus is on a card, not the page', info.afterSplit.active === 'card', info.afterSplit.active);
   await shot('fix-steps1-after-split');
 }

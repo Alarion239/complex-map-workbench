@@ -1,0 +1,19 @@
+{
+  "name": "complex-map-workbench",
+  "private": true,
+  "description": "Development tools only (lint, type check); the app itself is built by build.py into one HTML file",
+  "scripts": {
+    "build": "python3 build.py",
+    "test": "node ci/snapshots.js && node ci/unit.js",
+    "lint": "eslint",
+    "typecheck": "node tools/join_src.js && tsc -p tsconfig.json",
+    "prepare": "node tools/join_src.js",
+    "lint:py": "ruff check"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "globals": "17.13.0",
+    "typescript": "7.0.2"
+  }
+}

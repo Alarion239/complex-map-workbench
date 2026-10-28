@@ -50,7 +50,9 @@ async function menuPick(k, text) {
   return items;
 }
 const st = () => ev('(() => { const s = __cmwState(), h = s.homView; return { focus: s.focus, morph: s.morph, hv: h ? { map: h.map, imageMap: h.imageMap, key: h.key, range: h.range, H0Map: h.H0Map, start: h.start } : null, range: __cmwRange() }; })()');
-const title = () => ev(`document.getElementById('rightTitle').querySelector('.ptitle') ? document.getElementById('rightTitle').querySelector('.ptitle').textContent : document.getElementById('rightTitle').textContent`);
+// (v16.5 UX103: the deformation's title is in words, "Deformation" + "from A to B", where it read "A → B" + "deformation":
+// read as "A → B" so the maps it names are compared with the reference build as before)
+const title = () => ev(`(() => { const R = document.getElementById('rightTitle'), t = R.querySelector('.ptitle'); if (!t) return R.textContent; const tt = t.textContent.trim(), ro = R.querySelector('.prole'); const m = /^(Deformation|Деформация|Deforming .+|Деформируются .+)$/.test(tt) && ro ? /^(?:from|от)\\s+(.+?)\\s+(?:to|к|до)\\s+(.+)$/.exec(ro.textContent.trim()) : null; return m ? m[1] + ' → ' + m[2] : t.textContent; })()`);
 const probesOf = (n, x0, x1, y0, y1) => { const out = []; let s = 5; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; for (let i = 0; i < n; i++) out.push([x0 + (x1 - x0) * r(), y0 + (y1 - y0) * r()]); return out; };
 const near = (u, v, tol) => (u == null && v == null) || (u && v && Math.hypot(u[0] - v[0], u[1] - v[1]) <= tol * (1 + Math.hypot(v[0], v[1])));
 // GLR.evalMap of the current image map against its CPU twin (cpuMap), at pts; returns the worst relative error
@@ -70,15 +72,22 @@ if (RUN.includes(1)) {
       await load(ns, Object.assign({ pattern: 'checker', homAll: !!sc.homAll }, sc.st));
       if (build === 'v16m') await nav(`${BASE}v16m.html?ns=${ns}`);
       await settle(1000);
+      // (v16.5 UX20: Y's key and its options bar left the picture for the pane head, so the paths' starts may use the
+      // room they kept free (mfNogo): in the reference build they are taken off the plot before the deformation opens,
+      // so both builds choose their paths in the same free plot)
+      if (build === 'v16m') await ev(`(() => { for (const id of ['rightLegend', 'rightFoot']) { const e = document.getElementById(id); if (e) e.style.display = 'none'; } return 1; })()`);
       await ev('__cmwMorph({ open: true, playing: false })'); await settle(700);
       const m = await ev('__cmwState().homView ? (__cmwState().homView.map.mode === 3 ? 1 : null) : null');
-      const len = await ev(`(() => { const s = document.getElementById('morphLabel'); return s ? +s.textContent.split('/')[1] : 1; })()`);
+      const len = await ev(`(() => { const s = document.getElementById('morphRange'); return s ? +s.max || 1 : 1; })()`);   // (v16.5 UX103: the readout is in words; the scrubber's max is the length)
       const r = { T: {}, focus: {} };
       for (const T of [0, 0.5 * len, len]) {
         await at(T, 600); await pathsReady(); await settle(300);
         const h = await ev('(() => { const h = __cmwState().homView; return h ? { map: h.map, imageMap: h.imageMap, key: h.key } : null; })()');
         r.T[T] = { h, title: await title() };
         if (T === 0.5 * len) {
+          // (v16.5 UX20: the plane's key left the picture for Y's pane head; the reference build's key box over the plot
+          // is hidden for the shot, so the frames compare the maths drawing alone)
+          if (build === 'v16m') await ev(`(() => { for (const id of ['leftLegend', 'rightLegend']) { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; } return 1; })()`);
           await snap(`today-${sc.id}-${build}`, await plotClip());
           // (the same frame without the paths: the maps, X, its images and the outline alone)
           await ev(`(() => { const b = document.getElementById('pathsBtn'); if (b && b.getAttribute('aria-pressed') === 'true') b.click(); return 1; })()`); await settle(400);
@@ -164,6 +173,9 @@ if (RUN.includes(2)) {
   ok('push: map mode 1, hi 2, no post', s.hv && s.hv.imageMap.mode === 1 && s.hv.imageMap.hi === 2 && !('post' in s.hv.imageMap), s.hv && s.hv.imageMap);
   ok('push: H_0 is not the identity (start)', s.hv && s.hv.start === true, s.hv);
   ok('push: title w₁ → w', /^w\s*(1|₁)\s*→\s*w$/.test((await title()).replace(/\s+/g, ' ').trim()), await title());
+  // ([v17 UX64] the title names the bracketed steps in words, and the bracket says the same with an All steps reset)
+  const words = await ev(`(() => { const t = document.querySelector('#rightTitle .ptitle'), l = document.querySelector('#chainBracket .br-label'); return { title: t && t.textContent.trim(), label: l && !l.hidden ? l.textContent.trim() : null, tinted: [...document.querySelectorAll('.card.br-in')].map((c) => c.dataset.k) }; })()`);
+  ok('push: the title and the bracket read "Deforming f₂–f₃", with All steps; f₂ and f₃ tinted', words.title === 'Deforming f₂–f₃' && words.label === 'Deforming f₂–f₃All steps' && JSON.stringify(words.tinted) === '["2","3"]', words);
   info.pushTitle = await title();
   // the start: H_0 = e^z on the strip's boundary (the imaginary axis at Im z = ±π/2)
   const zs = [[-1, 1.5707], [0.5, 1.5707], [1.2, -1.5707], [-0.3, -1.5707]];
@@ -203,6 +215,11 @@ if (RUN.includes(2)) {
   await snap('push-light');
   await deskView(1440, 900, true); await settle(900); await snap('push-dark'); await deskView(1440, 900, false); await settle(500);
   await grab();
+  // ([v17 UX64]) All steps on the bracket's label resets it: every step deformed, the label and the tint gone, and the
+  // deformation plays from its start
+  await ev(`(() => { const b = document.querySelector('#chainBracket .br-all'); if (b) b.click(); return 1; })()`); await settle(400);
+  const reset = await ev(`({ range: __cmwState().homRange || null, label: (() => { const l = document.querySelector('#chainBracket .br-label'); return l ? l.hidden : null; })(), tinted: document.querySelectorAll('.card.br-in').length, playing: __cmwState().morph.playing })`);
+  ok('push: All steps resets the bracket (no range, no label, no tint) and plays', reset.label === true && reset.tinted === 0 && reset.playing === true && !(await st()).range.stored, reset);
 }
 
 // ---------------- 3. pullback: chain3, f2's ⋯ → Steps f1–f2 ----------------
@@ -428,12 +445,12 @@ if (RUN.includes(6)) {
     const cover = await ev(`(() => { const p = document.querySelector('#paneR .plot') || document.getElementById('paneR'); const pr = p.getBoundingClientRect(); const hit = []; for (const e of document.querySelectorAll('#chainBracket, #chainBracket *, .tfix, .trange')) { const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue; if (r.left < pr.right && r.right > pr.left && r.top < pr.bottom && r.bottom > pr.top && getComputedStyle(e).display !== 'none' && !e.closest('.ph-sheet, .sheet')) hit.push(e.className); } return hit; })()`);
     ok(`phone ${tag}: nothing new covers the planes`, cover.length === 0, cover);
     await snap(`phone-${tag}`);
-    // the Display sheet's Deformed steps row
-    const opened = await ev(`(() => { if (typeof Phone !== 'undefined' && Phone.open) { Phone.open('display'); return 2; } return 0; })()`);
+    // the Steps picker's Deformed steps row
+    const opened = await ev(`(() => { const b = document.getElementById('stepsBtn'); if (b) { b.click(); return 2; } return 0; })()`);
     await settle(700);
     const row = await ev(`(() => { const r = document.querySelector('.trange'); if (!r) return null; const rr = r.getBoundingClientRect(); const s = [...r.querySelectorAll('select')]; const sheet = r.closest('[class*="sheet"]') || r.parentElement; const lab = r.querySelector('.tr-label').getBoundingClientRect(), s0 = s[0].getBoundingClientRect(); return { vis: rr.width > 0 && getComputedStyle(r).display !== 'none', h: s.map((x) => Math.round(x.getBoundingClientRect().height)), sel: s.map((x) => x.value), labAbove: lab.bottom <= s0.top + 1, over: sheet ? sheet.scrollWidth - sheet.clientWidth : 0, rw: rr.width, vw: innerWidth }; })()`);
     info['phoneRow' + tag] = row;
-    ok(`phone ${tag}: the Deformed steps row with two 44 px selects`, row && row.vis && row.h.length === 2 && row.h.every((x) => x >= 44), { row, opened });
+    ok(`phone ${tag}: the Steps picker's Deformed steps row with two 44 px selects`, row && row.vis && row.h.length === 2 && row.h.every((x) => x >= 44), { row, opened });
     ok(`phone ${tag}: the row does not overflow`, row && row.over <= 0 && row.rw <= row.vw, row);
     if (lang === 'ru' && w === 360) ok(`phone ${tag}: the label wraps above the selects`, row && row.labAbove, row);
     await snap(`phone-display-${tag}`);
@@ -485,7 +502,7 @@ if (RUN.includes(7)) {
   // the Duplicate of f2 lands inside
   await ev(`(() => { document.querySelector('#pipeline .card[data-k="2"] .more').click(); return 1; })()`); await settle(200);
   await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu .mi')].find((x) => x.querySelector('.mi-label').textContent === 'Duplicate'); b.click(); return 1; })()`); await settle(600);
-  await ev(`(() => { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(300);   // (Duplicate shows the copy alone)
+  await ev(`(() => { if (__cmwState().focus) { const c = document.querySelector('#pipeline .card[data-k="3"]'); c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); } return 1; })()`); await settle(300);   // (before v16.5 Duplicate showed the copy alone; since UX01 the planes keep F)
   await ev('__cmwMorph({ open: true, playing: false })'); await settle(400);
   r = await ev('__cmwRange()');
   ok('duplicate inside: joins {2, 4}', r.ok && r.ok.a === 2 && r.ok.b === 4, r);

@@ -65,8 +65,13 @@ async function openExample(lang) {
   ok(`${lang}: its tooltip is the whole description where the line is cut, none otherwise`, (it.cut ? it.title === it.blurb : !it.title) && it.blurb.length > 60, it);
   ok(`${lang}: no other example gained a tooltip (review ui-7)`, it.others === 0, it.others);
   ok(`${lang}: the description starts the same on every device (review ui-8)`, lang === 'en' ? /^Edvard Grieg, Peer Gynt \(1875\)\. Choose Listen along in the spiral's menu/.test(it.blurb) : /^Эдвард Григ, «Пер Гюнт» \(1875\)\. Выберите «Слушать вдоль кривой»/.test(it.blurb), it.blurb);
+  // (the gallery draws its thumbnails one at a time, this example last: up to 30 s for it where frames are slow)
   await sleep(1200);
-  R[lang + 'Thumb'] = await ev(`(() => { const im = document.querySelectorAll('#popHost .examples .ex-item')[${it.i}].querySelector('img'); return im && im.src ? im.src.slice(0, 22) + '… ' + im.src.length : null; })()`);
+  for (let i = 0; i < 145; i++) {
+    R[lang + 'Thumb'] = await ev(`(() => { const im = document.querySelectorAll('#popHost .examples .ex-item')[${it.i}].querySelector('img'); return im && im.src ? im.src.slice(0, 22) + '… ' + im.src.length : null; })()`);
+    if (/^data:image\/png/.test(R[lang + 'Thumb'] || '')) break;
+    await sleep(200);
+  }
   ok(`${lang}: the gallery shows its thumbnail`, !!R[lang + 'Thumb'] && /^data:image\/png/.test(R[lang + 'Thumb']), R[lang + 'Thumb']);
   if (lang === 'en') await shot('desk_en_gallery');
   await click(it.xy[0], it.xy[1]); await settle(2500);
@@ -132,6 +137,9 @@ ok('L again stops it', !(await listenState()));
 await ev('document.activeElement && document.activeElement.blur && document.activeElement.blur(); 1');
 // sound off: the item stays, says how to turn sound on, and does
 await ev(`Sound.set({ on: false }); 1`); await settle(200);
+// (v16.5 UX74: the example's Try line left the docked slot when the melody played, so the planes got its room back
+// and the spiral moved with its plane: the point is read again)
+p = await curveXY(300);
 await rclick(p[0], p[1]);
 items = await menuItems();
 ok('sound off: the curve menu still offers Listen along', !!items && items.some((x) => x.id === 'listen'), items);
@@ -176,10 +184,13 @@ await ev(`__cmwExample(${EXI}); 1`); await settle(1500);
 L = await listenFromMenu();
 ok('ui-1: it plays again', L && L.piece, L);
 await ev(`(() => { const s = __qa.state().shapes[0]; return 1; })()`);
+await settle(600);   // (and the plane moves over frames, a few a second on CI's software renderer)
 p = await curveXY(300);
 await click(p[0], p[1]); await settle(250);   // (selects the curve; the click does not stop a melody)
-R.selBeforeDelete = await ev(`({ play: __cmwSound().play })`);
+R.selBeforeDelete = await ev(`({ play: __cmwSound().play, selected: __cmwShapes().selected })`);
 await key('Delete'); await settle(400);
+// (the saved state follows the delete a moment later: up to 10 s for it where frames are slow)
+for (let i = 0; i < 50 && (await ev('__qa.state().shapes.length')) !== 0; i++) await sleep(200);
 R.deleted = await ev(`({ play: __cmwSound().play, shapes: __qa.state().shapes.length })`);
 ok('ui-1: deleting the curve stops it', R.selBeforeDelete.play && R.deleted.shapes === 0 && !R.deleted.play, { before: R.selBeforeDelete, after: R.deleted });
 await key('z', 2); await settle(400);

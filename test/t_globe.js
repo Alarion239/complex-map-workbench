@@ -65,7 +65,7 @@ const inside = (s, x, y) => Region.levelOf(s)(CX.C(x, y)) > 0;
   const s = { kind: 'disc', c: [0, 1.5], r: 0.5 };
   const cap0 = G.capOf(s);
   // slide the disc toward N (along the meridian of its centre) by twice its distance to N
-  const zc = G.unlift(cap0.C), P0 = cap0.C;
+  const P0 = cap0.C;
   const ang = Math.acos(Math.min(1, P0[2]));   // the centre onto N: the cap now holds infinity
   const ax = G.norm3(G.cross3(P0, [0, 0, 1]));
   const R = G.rotAxis(ax, ang);
@@ -169,7 +169,7 @@ const inside = (s, x, y) => Region.levelOf(s)(CX.C(x, y)) > 0;
   const lt = Region.KINDS.line.tex(lnS);
   ok('a line from a cap prints its equation Re(e^{-i phi} z) = t', lnS.kind === 'line' && /^\\operatorname\{Re\}\\left\(e\^\{-?[0-9.]+\^\\circ i\}z\\right\)=/.test(lt), lt);
   ok('a line drawn by two points in the plane keeps "line through"', /line through/.test(Region.KINDS.line.tex({ kind: 'line', a: [0, 0], b: [2, 1] })));
-  ok('a half-plane drawn in the plane with |b - a| != 1 keeps its quotient form', /frac/.test(Region.KINDS.halfplane.tex({ kind: 'halfplane', a: [0, 0], b: [2, 1] })));
+  ok('a half-plane drawn in the plane with |b - a| != 1 keeps its two points (in words since #38)', /^\\text\{left of the line from \} 0 \\text\{ to \} 2\+i$/.test(Region.KINDS.halfplane.tex({ kind: 'halfplane', a: [0, 0], b: [2, 1] })));
   // setGlobeHandle 'C' with the ∞ snap callback: a centre whose rim would pass 0.01 deg from N stores the half-plane
   const capD = { kind: 'disc', c: [0, 0], r: 1 }; G.applyCap(capD, G.lift(0.3, -0.2), 0.5);
   const al = Math.acos(0.5), near = al + 0.01 * Math.PI / 180, Pn = [Math.sin(near), 0, Math.cos(near)];

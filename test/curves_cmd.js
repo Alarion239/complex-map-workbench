@@ -15,6 +15,8 @@
 //      |sin z| = 1 itself (sinh^2 y = cos^2 x); the preimage of the target Re w^2 = 1 under z^2 (r^4 cos 4 theta = 1,
 //      drawn per pixel by the preimage shader) and of the target lemniscate |w^2 - 1| = 1 under exp
 //      (z = log(1 + e^{i phi}) / 2 + k pi i).
+// (the daemon's port, as its load() opens it)
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const settle = async (ms = 1200) => {
@@ -63,7 +65,8 @@ await settle(1500);
   const line = s.shapes[s.shapes.length - 1];
   ok('Re z = 0 adds the line through 0 and i (unit direction)', line && line.kind === 'line' && line.a[0] === 0 && line.a[1] === 0 && line.b[0] === 0 && line.b[1] === 1, line);
   R.rowTex = await ev(`document.querySelector('#shapeList .d') ? document.querySelector('#shapeList .d').title : null`);
-  ok("the line's row shows its equation", R.rowTex === '\\operatorname{Re} z = 0', R.rowTex);
+  // (issue #38: a row's tooltip is the spoken text, not the LaTeX)
+  ok("the line's row shows its equation (its tooltip in words)", R.rowTex === 'Re z = 0', R.rowTex);
   const n0 = s.shapes.length;
   await addFormula('|z - 1| = 2 or Re z = 3');
   s = await shapes();
@@ -85,7 +88,7 @@ await settle(1500);
   const fc = s.shapes[s.shapes.length - 1];
   ok('Re z^2 = 1 adds a curve formula holding its source', fc.kind === 'fcurve' && fc.expr === 'Re z^2 = 1', fc);
   const rows = await ev(`[...document.querySelectorAll('#shapeList .d')].map((d) => d.title)`);
-  ok("the curve formula's row shows its TeX", rows.includes('\\operatorname{Re}\\left(z^{2}\\right) = 1') || rows.some((t) => /operatorname\{Re\}/.test(t) && /z\^\{2\}/.test(t)), rows);
+  ok("the curve formula's row says its equation (the tooltip, not the LaTeX)", rows.includes('Re (z²) = 1') && rows.every((t) => !/\\\\operatorname/.test(t)), rows);
   // the equation editor: an area keeps the last good equation; a new equation is taken
   const ed = await ev(`(() => { const i = [...document.querySelectorAll('.shape-edit input.math-src')].pop(); if (!i) return null; i.value = '|z| < 1'; i.dispatchEvent(new Event('input')); const bad = i.classList.contains('bad'); i.value = 'Re z^2 = 2'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); return { bad, now: i.classList.contains('bad') }; })()`);
   await sleep(300);
@@ -114,7 +117,7 @@ await settle(1500);
   s = await shapes();
   ok('|w| = 1 adds a target circle', s.targets.length === 1 && s.targets[0].kind === 'circle' && s.targets[0].r === 1, s.targets);
   // reload keeps everything
-  await nav('http://localhost:8793/test.html?ns=curves');
+  await nav(`http://localhost:${PORT}/test.html?ns=curves`);
   await settle(2000);
   const s2 = await shapes();
   ok('a reload keeps the shapes and targets', JSON.stringify(s2.shapes.map((x) => [x.kind, x.expr || ''])) === JSON.stringify(s.shapes.map((x) => [x.kind, x.expr || ''])) && s2.targets.length === 1, s2.shapes.map((x) => x.kind));
@@ -307,7 +310,7 @@ for (const sc of SC) {
   // the right view as pinned: reload with the state the app saved (the add is in it) plus the pinned view
   await sleep(400);
   await ev(`(() => { const k = 'complex-map-workbench-v1:curves-${sc.name}'; const st = JSON.parse(localStorage.getItem(k)); st.rightView = ${JSON.stringify(sc.rv)}; st.srcView = ${JSON.stringify(sc.srcView || { cx: 0, cy: 0, s: 60 })}; st.clipWin = null; localStorage.setItem(k, JSON.stringify(st)); return 1; })()`);
-  await nav(`http://localhost:8793/test.html?ns=curves-${sc.name}`);
+  await nav(`http://localhost:${PORT}/test.html?ns=curves-${sc.name}`);
   await settle(2500);
   const I = await inkOf(sc.side || 'R', id, !!sc.target);
   score(sc.name, I, sc.truth(), 8, sc.maxFar || 0);
@@ -329,8 +332,10 @@ for (const sc of SC) {
   await addFormula('|w| = 1');
   await addFormula('Re w^2 = 1');
   await settle(1200);
-  R.legend = await ev(`Array.from(document.querySelectorAll('.cn')).map((e) => e.textContent).filter((t) => /on the left/i.test(t))`);
-  ok('the legend of curve targets says drawn, not shaded', R.legend.some((t) => /^Drawn on the left/.test(t)) && !R.legend.some((t) => /Shaded/.test(t)), R.legend);
+  // (v16.5 UX20: on a desktop the target note is Y's head note, "Preimage in X", and what is shaded or drawn is its
+  // tooltip: with curve targets only, it says they are drawn, and nothing is shaded)
+  R.legend = await ev(`(() => { const e = document.getElementById('rightNote'); return e && !e.hidden ? [e.textContent, e.dataset.tip || ''] : []; })()`);
+  ok('the legend of curve targets says drawn, not shaded', R.legend.some((t) => /drawn/i.test(t)) && !R.legend.some((t) => /shaded/i.test(t)), R.legend);
   await addFormula('|z^{30}-1| = 0');
   await addFormula('Re z^2 = 1');
   await settle(800);

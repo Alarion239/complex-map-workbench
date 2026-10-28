@@ -1,7 +1,7 @@
 // Hear the function in Russian and Italian (perfwin/sound/impl/SOUND-PLAN.md 5.4): every text of the sound popover
 // (page.html #sndPop, translated by its exact English at load: I18N.applyStatic), its attributes, every $t string of
-// the sound glue in src/app.js (the block from "---- Hear the function under the pointer" to the keyboard probe's
-// end) and every string of the tour's Sound chapter has an entry in both tables, with the same placeholders.
+// the sound glue (the app's sound hooks, src/soundhooks.js, and the app's sound part, src/app/16-sound.js) and every
+// string of the tour's Sound chapter has an entry in both tables, with the same placeholders.
 //   node test/t_i18n_it_sound.js
 'use strict';
 const fs = require('fs');
@@ -29,10 +29,11 @@ const check = (where, key) => {
 const page = read('src/page.html');
 const pop = page.slice(page.indexOf('<div class="snd-pop" id="sndPop"'), page.indexOf('<div id="sndLive"'));
 ok('the popover is found', pop.length > 500, pop.length);
-const html = pop.match(/<span data-i18n="html">([\s\S]*?)<\/span><\/small>/);
+// (v16.5 UX70: under "How it sounds", a <p>; before it, in the checkbox's <small>)
+const html = pop.match(/<span data-i18n="html">([\s\S]*?)<\/span><\/(?:small|p)>/);
 ok('the Hear the function description is one html key', !!html);
 if (html) check('popover html', html[1].trim());
-const bare = pop.replace(/<span data-i18n="html">[\s\S]*?<\/span><\/small>/, '</small>');
+const bare = pop.replace(/<span data-i18n="html">[\s\S]*?<\/span><\/(small|p)>/, '</$1>');
 for (const m of bare.matchAll(/>([^<>]+)</g)) {
   const k = m[1].trim();
   if (!k || !/[A-Za-z]{2,}/.test(k) || /^Audio engine: not started$/.test(k)) continue;
@@ -42,10 +43,12 @@ for (const m of bare.matchAll(/(?:aria-label|title)="([^"]+)"/g)) if (/[A-Za-z]{
 for (const id of ['sndNotes', 'sndGlide', 'sndGlideNo']) ok(`the popover has #${id}`, pop.includes(`id="${id}"`));
 
 // 2. the sound glue's own strings
-const app = read('src/app.js');
-const a0 = app.indexOf('// ---- Hear the function under the pointer ----'), a1 = app.indexOf('// ---------------- guided tour');
-ok('the sound glue is found', a0 > 0 && a1 > a0, [a0, a1]);
-const glue = app.slice(app.indexOf('// ---------------- sound ('), a1);
+// (src/app/*.js joined, and the palette's commands, src/commands.js: the Notes / Glide commands)
+const app = require('./src_text').appText() + read('src/commands.js');
+const hooks = read('src/soundhooks.js');
+const a0 = hooks.indexOf('// ---- Hear the function under the pointer ----'), a1 = app.indexOf('// ---------------- sound ('), a2 = app.indexOf('// ---------------- guided tour', a1);
+ok('the sound glue is found', a0 > 0 && a1 > 0 && a2 > a1, [a0, a1, a2]);
+const glue = hooks + app.slice(a1, a2);
 const unq = (q, s) => (q === "'" ? s.replace(/\\'/g, "'") : s);
 let sites = 0;
 for (const m of glue.matchAll(/\$t\((['`])((?:\\.|(?!\1).)*?)\1/g)) { sites++; check('app.js $t', unq(m[1], m[2])); }

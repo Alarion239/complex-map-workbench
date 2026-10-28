@@ -1,0 +1,699 @@
+{
+ "_about": "v16.5 wave 1, the chain piece (work/xu1-chain; notes/ux-build/w1-chain-AS-BUILT.md): UX01, UX03, UX16, UX22, UX23, UX25, UX32, UX33, UX65, UX79, UX81, UX82, UX84, UX85, V03. id -> {en, ru, note}; plurals {en_plural, plural}. Read after every v164 table by tools/make_ru_table.py (V165_CHAIN_HERE). Terms: GLOSSARY.md (Числа, Отменить/Повторить, Примеры, Руководство). Edit by read-modify-write only.",
+ "undo.add_step": {
+  "en": "add f{x} {name}",
+  "ru": "добавление f{x} ({name})",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.remove_step": {
+  "en": "remove f{x} {name}",
+  "ru": "удаление f{x} ({name})",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.add_steps": {
+  "en": "add f{x}–f{x2}",
+  "ru": "добавление f{x}–f{x2}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.remove_steps": {
+  "en": "remove {n} step",
+  "ru": "удаление шагов: {n}",
+  "en_plural": [
+   "remove {n} step",
+   "remove {n} steps"
+  ],
+  "plural": {
+   "one": "удаление шагов: {n}",
+   "few": "удаление шагов: {n}",
+   "many": "удаление шагов: {n}",
+   "other": "удаление шагов: {n}"
+  },
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase. The count after a colon: no agreement needed."
+ },
+ "undo.reorder": {
+  "en": "reorder the steps",
+  "ru": "перестановка шагов",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.replace": {
+  "en": "replace f{x} with {name}",
+  "ru": "замена f{x}: {name}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.bypass": {
+  "en": "bypass f{x}",
+  "ru": "отключение f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.on": {
+  "en": "turn f{x} back on",
+  "ru": "включение f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.add_zero": {
+  "en": "add zero ζ{i} of f{x}",
+  "ru": "добавление нуля ζ{i} у f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.add_pole": {
+  "en": "add pole p{i} of f{x}",
+  "ru": "добавление полюса p{i} у f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.rm_zero": {
+  "en": "remove a zero of f{x}",
+  "ru": "удаление нуля у f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.rm_pole": {
+  "en": "remove a pole of f{x}",
+  "ru": "удаление полюса у f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.mv_zero": {
+  "en": "move a zero of f{x}",
+  "ru": "перемещение нуля у f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.mv_pole": {
+  "en": "move a pole of f{x}",
+  "ru": "перемещение полюса у f{x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.change_step": {
+  "en": "change f{x} {name}",
+  "ru": "изменение f{x} ({name})",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.change_chain": {
+  "en": "change the chain",
+  "ru": "изменение цепочки",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.add_num": {
+  "en": "add the number {x}",
+  "ru": "добавление числа {x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.del_num": {
+  "en": "delete the number {x}",
+  "ru": "удаление числа {x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.change_num": {
+  "en": "change {x}",
+  "ru": "изменение {x}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase. {x}: a number's name (a)."
+ },
+ "undo.add_shape": {
+  "en": "add {name}",
+  "ru": "добавление: {name}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase. {name}: a shape (Disc 1)."
+ },
+ "undo.del_shape": {
+  "en": "delete {name}",
+  "ru": "удаление: {name}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.add_shapes": {
+  "en": "add {n} shape",
+  "ru": "добавление фигур: {n}",
+  "en_plural": [
+   "add {n} shape",
+   "add {n} shapes"
+  ],
+  "plural": {
+   "one": "добавление фигур: {n}",
+   "few": "добавление фигур: {n}",
+   "many": "добавление фигур: {n}",
+   "other": "добавление фигур: {n}"
+  },
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.del_shapes": {
+  "en": "delete {n} shape",
+  "ru": "удаление фигур: {n}",
+  "en_plural": [
+   "delete {n} shape",
+   "delete {n} shapes"
+  ],
+  "plural": {
+   "one": "удаление фигур: {n}",
+   "few": "удаление фигур: {n}",
+   "many": "удаление фигур: {n}",
+   "other": "удаление фигур: {n}"
+  },
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.edit_shape": {
+  "en": "edit {name}",
+  "ru": "изменение: {name}",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.change_shapes": {
+  "en": "change the shapes",
+  "ru": "изменение фигур",
+  "note": "UX79: what one undo step did, after «Отменено:» / «Повторено:» and in the Undo tooltip; a noun phrase."
+ },
+ "undo.undid": {
+  "en": "Undid: {what}.",
+  "ru": "Отменено: {what}.",
+  "note": "UX79 toast after Undo; its button is Redo."
+ },
+ "undo.undone": {
+  "en": "Undone.",
+  "ru": "Отменено.",
+  "note": "UX79 toast after Undo when the change cannot be named."
+ },
+ "undo.redid": {
+  "en": "Redid: {what}.",
+  "ru": "Повторено: {what}.",
+  "note": "UX79 toast after Redo; its button is Undo."
+ },
+ "undo.redone": {
+  "en": "Redone.",
+  "ru": "Повторено.",
+  "note": "UX79 toast after Redo."
+ },
+ "undo.tip": {
+  "en": "Undo: {what}",
+  "ru": "Отменить: {what}",
+  "note": "UX79 tooltip of Undo; the key follows."
+ },
+ "redo.tip": {
+  "en": "Redo: {what}",
+  "ru": "Повторить: {what}",
+  "note": "UX79 tooltip of Redo."
+ },
+ "add.toast1": {
+  "en": "Added f{x} {name}.",
+  "ru": "Добавлен шаг f{x}: {name}.",
+  "note": "UX01 toast after a step is added; buttons «Показать отдельно» and «Отменить»."
+ },
+ "add.toastn": {
+  "en": "Added f{x}–f{x2}.",
+  "ru": "Добавлены шаги f{x}–f{x2}.",
+  "note": "UX01 toast after several steps are added (Add as n steps)."
+ },
+ "add.dup": {
+  "en": "Duplicated f{x} as f{x2}.",
+  "ru": "Шаг f{x} продублирован как f{x2}.",
+  "note": "UX01 toast after Duplicate."
+ },
+ "add.moved": {
+  "en": "Moved {name} to f{x}.",
+  "ru": "Шаг «{name}» перемещён на место f{x}.",
+  "note": "UX01/UX81 toast after Move left/right or Alt+arrow."
+ },
+ "alone.show": {
+  "en": "Show alone",
+  "ru": "Показать отдельно",
+  "note": "UX85: the one name of Show this step alone (toast button, the Inspector button's words on a phone)."
+ },
+ "alone.show_tip": {
+  "en": "Show alone  L",
+  "ru": "Показать отдельно  L",
+  "note": "UX85 tooltip with its key."
+ },
+ "alone.showF": {
+  "en": "Show F",
+  "ru": "Показать F",
+  "note": "UX85: the way back to the whole map: the Inspector button while a step is alone, the chain head button, the alone chip's ×."
+ },
+ "alone.showF_tip": {
+  "en": "Show F  L",
+  "ru": "Показать F  L",
+  "note": "UX85 tooltip with its key."
+ },
+ "alone.show_fx": {
+  "en": "Show f{x} alone",
+  "ru": "Показать f{x} отдельно",
+  "note": "UX85 aria label; UX03 palette row."
+ },
+ "alone.draw_msg": {
+  "en": "Shapes are drawn in the z-plane; choose Show F to draw.",
+  "ru": "Фигуры рисуются на плоскости z; чтобы рисовать, выберите «Показать F».",
+  "note": "Note on X while a step is alone on the sphere (was: choose Whole chain)."
+ },
+ "pal.newnum": {
+  "en": "Formula, with a new number {x} = 1",
+  "ru": "Формула с новым числом {x} = 1",
+  "note": "UX16 palette row for z^2 + a."
+ },
+ "pal.newnum_desc": {
+  "en": "Adds the number {x} and the step; one Undo removes both",
+  "ru": "Добавляет число {x} и шаг; одна отмена убирает оба",
+  "note": "UX16 the row's second line."
+ },
+ "pal.newnum_toast": {
+  "en": "Added f{k} Formula and the number {x}.",
+  "ru": "Добавлены шаг f{k} (формула) и число {x}.",
+  "note": "UX16 toast."
+ },
+ "pal.fixgroup": {
+  "en": "Fix the formula",
+  "ru": "Исправить формулу",
+  "note": "UX23 palette group of the repairs."
+ },
+ "pal.fix_bracket": {
+  "en": "Close the bracket: {f}",
+  "ru": "Закрыть скобку: {f}",
+  "note": "UX23 repair row; {f} the repaired formula as typed."
+ },
+ "pal.fix_trailing": {
+  "en": "Drop the trailing {x}: {f}",
+  "ru": "Убрать {x} в конце: {f}",
+  "note": "UX23 repair row; {x} the operator (+)."
+ },
+ "pal.fix_mean": {
+  "en": "Did you mean {f}?",
+  "ru": "Вы имели в виду {f}?",
+  "note": "UX23 repair row."
+ },
+ "pal.to_run": {
+  "en": " to run",
+  "ru": " — выполнить",
+  "note": "UX03 palette footer after the Enter key, on a command row (cf. « — добавить»)."
+ },
+ "pal.to_open": {
+  "en": " to open",
+  "ru": " — открыть",
+  "note": "UX03 footer on an example row."
+ },
+ "pal.to_fix": {
+  "en": " to fix",
+  "ru": " — исправить",
+  "note": "UX23 footer on a repair row."
+ },
+ "pal.tools": {
+  "en": "Tools",
+  "ru": "Инструменты",
+  "note": "UX03 palette group."
+ },
+ "pal.tool": {
+  "en": "Tool: {name}",
+  "ru": "Инструмент: {name}",
+  "note": "UX03 palette row."
+ },
+ "pal.guide": {
+  "en": "Guide: {title}",
+  "ru": "Руководство: {title}",
+  "note": "UX03 palette row: a section of the guide."
+ },
+ "pal.new": {
+  "en": "New: empty canvas",
+  "ru": "Новое: пустой холст",
+  "note": "UX03/UX25: the empty canvas, first in Examples and in the palette."
+ },
+ "pal.examples": {
+  "en": "Examples…",
+  "ru": "Примеры…",
+  "note": "UX03 palette row: opens the Examples menu."
+ },
+ "pal.keys": {
+  "en": "Keyboard shortcuts",
+  "ru": "Сочетания клавиш",
+  "note": "UX03 palette row: opens the guide at Keys."
+ },
+ "pal.int_any": {
+  "en": "Integrate along a curve",
+  "ru": "Интеграл вдоль кривой",
+  "note": "V03 palette row when there is no curve yet."
+ },
+ "pal.replace": {
+  "en": "replace",
+  "ru": "заменить",
+  "note": "UX03: the word that finds Inverse of f_k / Derivative of f_k."
+ },
+ "pal.alias00": {
+  "en": "help, guide, manual, documentation, docs, reference, how to",
+  "ru": "справка, помощь, руководство, документация, как",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias01": {
+  "en": "export, png, pdf, svg, picture, image, save image, download, print, video, movie",
+  "ru": "экспорт, png, pdf, svg, картинка, изображение, рисунок, сохранить, скачать, печать, видео",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias02": {
+  "en": "latex, tex, overleaf, copy formula, guarantees",
+  "ru": "латех, tex, скопировать формулу, гарантии",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias03": {
+  "en": "link, share, url, copy link, send",
+  "ru": "ссылка, поделиться, отправить",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias04": {
+  "en": "save, scene, file, download, keep",
+  "ru": "сохранить, сцена, файл, скачать",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias05": {
+  "en": "open, load, scene, file, import",
+  "ru": "открыть, загрузить, сцена, файл, импорт",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias06": {
+  "en": "new, empty, blank, reset, start over, clear all, fresh",
+  "ru": "новое, пусто, пустой, сначала, сбросить, очистить всё",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias07": {
+  "en": "example, examples, gallery, demo, samples",
+  "ru": "пример, примеры, галерея, демо",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias08": {
+  "en": "dark, night, black, theme",
+  "ru": "тёмная, темная, ночь, тема",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias09": {
+  "en": "light, day, white, theme",
+  "ru": "светлая, день, тема",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias10": {
+  "en": "auto, system, theme",
+  "ru": "авто, системная, тема",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias11": {
+  "en": "keys, shortcuts, keyboard, hotkeys",
+  "ru": "клавиши, сочетания, горячие клавиши, клавиатура",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias12": {
+  "en": "alone, solo, isolate, only, show alone, step alone",
+  "ru": "отдельно, только, один шаг, показать отдельно",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias13": {
+  "en": "show f, whole chain, all steps, back, alone",
+  "ru": "показать f, вся цепочка, все шаги, назад",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias14": {
+  "en": "select, move, pointer, arrow, pan",
+  "ru": "выбор, выбрать, переместить, указатель",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias15": {
+  "en": "point, dot, mark",
+  "ru": "точка, метка",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias16": {
+  "en": "segment, line segment",
+  "ru": "отрезок",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias17": {
+  "en": "line, straight line",
+  "ru": "прямая, линия",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias18": {
+  "en": "ray, half-line",
+  "ru": "луч",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias19": {
+  "en": "circle, round curve",
+  "ru": "окружность",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias20": {
+  "en": "arc, circular arc",
+  "ru": "дуга",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias21": {
+  "en": "freehand, pen, sketch, curve",
+  "ru": "от руки, кривая, карандаш",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias22": {
+  "en": "disc, disk, circle, round region",
+  "ru": "круг, диск",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias23": {
+  "en": "rectangle, box, square",
+  "ru": "прямоугольник, квадрат",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias24": {
+  "en": "polygon, triangle",
+  "ru": "многоугольник, треугольник",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias25": {
+  "en": "lasso, freehand region",
+  "ru": "лассо, область от руки",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias26": {
+  "en": "half-plane, half plane",
+  "ru": "полуплоскость",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias27": {
+  "en": "annulus, ring, donut",
+  "ru": "кольцо",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias28": {
+  "en": "sector, wedge, pie",
+  "ru": "сектор",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias29": {
+  "en": "formula, region formula, set, equation",
+  "ru": "формула, область по формуле, множество, уравнение",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias30": {
+  "en": "grid, grid lines",
+  "ru": "сетка, линии сетки",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias31": {
+  "en": "polar grid, rays and circles",
+  "ru": "полярная сетка, лучи и окружности",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias32": {
+  "en": "region, regions, shape, shapes, draw, set",
+  "ru": "область, фигура, фигуры, рисовать, множество",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias33": {
+  "en": "chain, step, steps, card, cards, add function, insert, move, reorder, alone",
+  "ru": "цепочка, шаг, шаги, карточка, добавить функцию, вставить, переместить, порядок, отдельно",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias34": {
+  "en": "number, numbers, parameter, parameters, slider, letter",
+  "ru": "число, числа, параметр, параметры, ползунок, буква",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias35": {
+  "en": "cut, cuts, branch, sheet, sheets, seam",
+  "ru": "разрез, ветвь, лист, листы, шов",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias36": {
+  "en": "right-click, menu, long-press, zero, zeros, pole, poles, add zero",
+  "ru": "меню, правый щелчок, долгое нажатие, нуль, нули, полюс, полюсы, добавить нуль",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias37": {
+  "en": "view, views, phase, landscape, sphere, plane",
+  "ru": "вид, виды, фаза, рельеф, сфера, плоскость",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias38": {
+  "en": "deformation, homotopy, morph, animate, play",
+  "ru": "деформация, гомотопия, анимация, воспроизвести",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias39": {
+  "en": "preimage, preimages, root, roots, solve, target",
+  "ru": "прообраз, прообразы, корень, корни, решить, цель",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias40": {
+  "en": "inverse, derivative, replace",
+  "ru": "обратная, производная, заменить",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias41": {
+  "en": "integral, integrate, residue, contour, winding",
+  "ru": "интеграл, вычет, контур, число оборотов",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias42": {
+  "en": "sound, audio, listen, hear, music",
+  "ru": "звук, слушать, услышать, музыка",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias43": {
+  "en": "guarantee, guarantees, property, conformal, injective, analytic",
+  "ru": "гарантии, свойство, конформное, инъективное, аналитическое",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "pal.alias44": {
+  "en": "keys, shortcuts, keyboard, hotkeys, help",
+  "ru": "клавиши, сочетания, клавиатура, справка",
+  "note": "UX03 search words (comma-separated phrases); Russian words that find the same row; English still finds it."
+ },
+ "fld.cut": {
+  "en": "Cut angle",
+  "ru": "Угол разреза",
+  "note": "UX33 the word before θ in a step's fields."
+ },
+ "fld.sheet": {
+  "en": "Sheet",
+  "ru": "Лист",
+  "note": "UX33 the word before k."
+ },
+ "fld.root": {
+  "en": "Root index",
+  "ru": "Степень корня",
+  "note": "UX33 the word before n of the n-th root."
+ },
+ "fld.power": {
+  "en": "Power",
+  "ru": "Степень",
+  "note": "UX33 the word before n of z^n."
+ },
+ "fld.angle": {
+  "en": "Angle",
+  "ru": "Угол",
+  "note": "UX33 the word before φ (disk automorphism)."
+ },
+ "fld.exp": {
+  "en": "Exponent",
+  "ru": "Показатель",
+  "note": "UX33 the word before α (z^α)."
+ },
+ "fld.factor": {
+  "en": "Factor",
+  "ru": "Множитель",
+  "note": "UX33 the word before a of Zeros and poles."
+ },
+ "card.add": {
+  "en": "Add function",
+  "ctx": "addcard",
+  "ru": "Добавить шаг",
+  "note": "UX22: the + card's vertical label while the chain has three steps or fewer (about 100 px tall at most: «Добавить функцию» does not fit)."
+ },
+ "reg.empty": {
+  "en": "Type a set, such as |z − 1| < 2, or a curve, such as Re z = 0.",
+  "ru": "Введите множество, например |z − 1| < 2, или кривую, например Re z = 0.",
+  "note": "UX32 note after Add on an empty region field."
+ },
+ "reg.ph": {
+  "en": "such as |z−1| < 2",
+  "ru": "например, |z−1| < 2",
+  "note": "UX32 placeholder of the region formula field (page.html), in hint style."
+ },
+ "f.ident": {
+  "en": "F = z: no steps yet",
+  "ru": "F = z: шагов пока нет",
+  "note": "UX84 aria label of the F tile of an empty chain."
+ },
+ "mv.l": {
+  "en": "Move f{x} left",
+  "ru": "Сдвинуть f{x} влево",
+  "note": "UX81 aria label of ← in a phone's step sheet."
+ },
+ "mv.r": {
+  "en": "Move f{x} right",
+  "ru": "Сдвинуть f{x} вправо",
+  "note": "UX81 aria label of →."
+ },
+ "num.hint": {
+  "en": "Type a new letter in any formula, such as <i>Re z = a</i>, or press + Number.",
+  "ru": "Введите новую букву в любую формулу, например <i>Re z = a</i>, или нажмите «+ Число».",
+  "note": "UX65 empty Numbers section (was Shared numbers)."
+ },
+ "num.unused": {
+  "en": "Not used yet.",
+  "ru": "Пока нигде не используется.",
+  "note": "UX65 under a number nothing uses, before its Use in f_k button."
+ },
+ "num.unused2": {
+  "en": "Not used yet: type {x} in a formula.",
+  "ru": "Пока нигде не используется: введите {x} в формулу.",
+  "note": "UX65 the same with no formula step to offer."
+ },
+ "num.use": {
+  "en": "Use in f{x}",
+  "ru": "Использовать в f{x}",
+  "note": "UX65 button: appends + a to formula step f_k."
+ },
+ "num.used": {
+  "en": "f{x} now adds {a}.",
+  "ru": "К f{x} добавлено {a}.",
+  "note": "UX65 toast after Use in f_k."
+ },
+ "num.list": {
+  "en": "Numbers: {list}",
+  "ru": "Числа: {list}",
+  "note": "UX65 line in a step's editor: the numbers it uses with their values (a = 1.2)."
+ },
+ "ex.opened": {
+  "en": "Opened {name}.",
+  "ru": "Открыт пример «{name}».",
+  "note": "UX25 toast after an example opens; button Undo."
+ },
+ "ex.tip": {
+  "en": "Worked examples",
+  "ru": "Готовые примеры",
+  "note": "UX25 tooltip of the Examples button (page.html title)."
+ },
+ "int.pick": {
+  "en": "Pick a curve to integrate along: select it, or right-click it.",
+  "ru": "Выберите кривую для интеграла: выделите её или щёлкните по ней правой кнопкой.",
+  "note": "V03 when several curves could be meant and none is selected."
+ },
+ "int.pick.touch": {
+  "en": "Pick a curve to integrate along: hold a finger on it, then choose Integrate.",
+  "ru": "Выберите кривую для интеграла: удерживайте на ней палец и выберите «Вычислить интеграл».",
+  "note": "V03 on touch (several curves, none selected); «Вычислить интеграл» as the phone piece's integrate.none.touch."
+ },
+ "guide.chain": {
+  "en": "Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in the palette to add it directly. Click a card to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a number of the Numbers section. Double-click a card, or press <b>Show alone</b> in the Inspector, to show that step alone. Drag a card's header onto a connector, or press Alt+← or Alt+→, to reorder.",
+  "ru": "Добавить шаг можно клавишей {x}, карточкой «Добавить функцию» или кнопкой вставки между карточками; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в палитре команд, и она станет шагом. Нажмите на карточку, чтобы выбрать шаг: его редактирует <b>инспектор</b> справа — формула целиком, поле для каждого коэффициента и меню ⋯, которое заменяет шаг обратной функцией, отключает, перемещает, дублирует или удаляет его. Собственные коэффициенты шага помечены его номером (<i>a</i><sub>2</sub>); буква без номера — это число из раздела «Числа». Двойной щелчок по карточке или кнопка <b>Показать отдельно</b> в инспекторе показывает только этот шаг. Чтобы изменить порядок, перетащите карточку за заголовок на кнопку вставки или нажмите Alt+← или Alt+→.",
+  "note": "Guide, Function chain (UX85: Show alone, not the lens; UX65: Numbers; UX81: Alt+arrows). Edited from the v16.4 Russian."
+ },
+ "guide.numbers": {
+  "en": "Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Numbers</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.",
+  "ru": "Введите новую букву, например <i>a</i>, в любое поле (коэффициент, нуль, радиус, формулу области вроде Re <i>z</i> = <i>a</i>), и число <i>a</i> появится в разделе <b>Числа</b> инспектора, с ползунком и воспроизведением. Измените его один раз, и всё, что его использует, изменится следом. <b>Скопировать ссылку на этот рисунок</b> в меню «Экспорт» помещает весь рисунок в ссылку; <b>Сохранить сцену</b> и <b>Открыть сцену</b> работают с файлом.",
+  "note": "Guide, Numbers (UX65: was Parameters). Edited from the v16.4 Russian."
+ },
+ "tour.chain_touch": {
+  "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.",
+  "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Нажмите на карточку, и в панели откроется её редактор; кнопка «Показать отдельно» там показывает только этот шаг: X и Y становятся его входом и выходом.",
+  "note": "Tour Basics, The function chain, touch body (UX85: Show alone, not the lens)."
+ },
+ "tour.chain_try": {
+  "en": "Tap the card $f_1$, then Show alone in the sheet.",
+  "ru": "Нажмите на карточку $f_1$, затем «Показать отдельно» в панели.",
+  "note": "Tour task, touch (UX85)."
+ },
+ "tour.numbers_title": {
+  "en": "Numbers",
+  "ru": "Числа",
+  "note": "Tour Editing the chain, step title (UX65: was Shared numbers); also the guide heading and the Inspector section."
+ },
+ "tour.numbers_body": {
+  "en": "Type a new letter such as $a$ in any field, and a slider $a$ appears under Numbers. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.",
+  "ru": "Введите новую букву, например $a$, в любое поле, и в разделе «Числа» появится ползунок $a$. Здесь $a$ задаёт оба нуля $\\pm a$ функции $F$ и окружность $|z|=a$: двигайте ползунок, и они сдвинутся вместе.",
+  "note": "Tour Editing the chain, Numbers, body (UX65: was \"under Parameters\"). Edited from v15-tour.json v15t.numbers."
+ }
+}

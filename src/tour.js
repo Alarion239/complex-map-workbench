@@ -133,8 +133,8 @@ const Tour = (() => {
       id: 'basics', title: 'Basics', time: '2 min', rev: 3, scene: 'strip',
       steps: [
         { id: 'welcome', anchor: null, title: 'Welcome to the Workbench', before: [['view', 'xy'], ['deform', false], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select']],
-          lead: 'About two minutes; your own work comes back at the end.',
-          body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image. This takes about two minutes, and your own work comes back when the tour ends.' },
+          lead: 'Practice freely: what you draw here is cleared at the end.',
+          body: 'Draw a set in the $z$-plane, send it through a chain of functions and watch its image: about two minutes. What you draw during the tour is cleared when it ends, and your own work comes back exactly as it was.' },
         { id: 'x', anchor: 'paneL', title: 'X: the domain', before: [['plane', 'L'], ['tool', 'select']],
           body: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.',
           touch: 'X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.',
@@ -165,16 +165,18 @@ const Tour = (() => {
         // not the field's placeholder, which reads like a filled field)
         { id: 'formula', anchor: 'formula', title: 'Sets from formulas', before: [['panel', 'left', 'tools']],
           body: 'Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
-          try: { text: 'Type $|z+1|<1$ and press Add.', on: 'shape-added', test: (e) => !e || e.via === 'formula', then: 'A set from a formula is a shape like any other.' } },
+          // (v16.5 UX17: a phone's words for the places and gestures, here and below)
+          touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
+          try: { text: 'Type $|z+1|<1$ and press Add.', touch: 'Type $|z+1|<1$ and tap Add.', on: 'shape-added', test: (e) => !e || e.via === 'formula', then: 'A set from a formula is a shape like any other.' } },
         { id: 'chain', anchor: 'chain', title: 'The function chain', before: [['focus', 0]],
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
-          touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; the lens there shows that step alone, with X and Y as its input and output.',
-          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then the lens in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
+          touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
+          try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then Show alone in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on 3 s after it closes)
         { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
-          touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
+          touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, tap a card and use Move in its ⋯ menu.',
           try: { text: 'Press {+}, or click the add card.', touch: 'Tap the add card.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
         { id: 'examples', anchor: ['examples', 'moreBtn'], title: 'Examples',
           lead: 'Worked examples, from Joukowski to a residue.',
@@ -187,22 +189,24 @@ const Tour = (() => {
       steps: [
         { id: 'switch', anchor: 'viewSwitch', title: 'Three views', before: [['deform', false], ['view', 'xy']],
           body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
-          touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each in one wide panel.',
+          touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.',
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
         { id: 'phase', anchor: 'panes', title: 'Phase portrait', before: [['view', 'phase'], ['surface', 'L', 'plane']],
           lead: 'Colour is $\\arg F$; all colours meet at zeros and poles.',
           body: 'Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.' },
         { id: 'land', anchor: 'panes', title: 'Landscape', before: [['view', 'land'], ['tool', 'select']], wait: 120,
           body: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit; the panel\'s options set the height and the colouring.',
+          touch: 'The graph of $\\log|F|$ over X: zeros are pits and poles are peaks. Drag to orbit, pinch to zoom; the Display key sets the height and the colouring.',
           try: { text: 'Drag to orbit.', on: 'view-moved', test: orbit, then: 'Zeros are pits and poles are peaks: $\\pm1$ and $\\pm i$.' } },
         { id: 'sphere', anchor: ['surfaceL', 'sphereKey'], also: ['panes'], title: 'The Riemann sphere', before: [['view', 'phase'], ['surface', 'L', 'sphere'], ['tool', 'select']],
           body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.',
           try: { text: 'Drag the sphere to turn it.', on: 'view-moved', test: orbit, ctl: ['panes'], then: '$\\infty$ is the north pole; here $F(\\infty)=1$.' } },
-        // (when Y's strip is too short for it, it is in the Display options button, which is lit instead; on a phone,
-        // Y is the large plane and its options are in the Display sheet)
+        // (v16.5 UX20: on a desktop Y's options are behind the Display options button in its pane head, which is lit;
+        // on a phone, Y is the large plane and its options are in the Display sheet)
         { id: 'key', anchor: ['phaseKey', 'rightOpts'], also: ['paneR'], title: 'Phase key', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { phaseKey: false }], ['plane', 'R'], ['panel', 'sheet', 'display']],
+          touch: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
           body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
-          try: { text: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
+          try: { text: 'In Display options, turn on Phase key.', touch: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
         { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }], ['panel', 'left', 'display']],
           body: 'The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F\'(z)|$: blue shrinks, amber grows.',
           try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch', ctl: ['patStretch'], then: 'Blue shrinks, amber grows: $|F\'|$ at each point.' } },
@@ -218,25 +222,22 @@ const Tour = (() => {
           body: 'Each card shows $F_k$, the map up to its step, in the open view: here its phase portrait. So the last card is the main picture, and the row shows how $F$ is built.',
           try: { text: 'Press {3}, or choose Landscape.', touch: 'Choose Landscape.', on: 'view-changed', test: (e) => !e || e.main === 'land', ctl: ['viewLand'], then: 'Each card now shows its own landscape.' } },
         // (on a phone the panel action opens the Editor sheet, with X and Y side by side above it)
-        { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
-          lead: 'The Inspector edits the selected step, here $f_2$.',
+        // (v16.5 UX17: on a touch screen the step is the editor's: its title and line say so)
+        { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', titleTouch: 'The editor', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
+          lead: 'The Inspector edits the selected step, here $f_2$.', leadTouch: 'The editor edits the tapped step, here $f_2$.',
           body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
           touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.' },
         // (v15.2: the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
         { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
+          touch: 'This formula is a chain of catalog steps; its editor shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
           try: { text: 'Press Split into 3 steps.', touch: 'Tap Split into 3 steps.', on: 'formula-split', ctl: ['splitBtn'], then: 'One card for each transform; undo brings the formula back.' } },
         { id: 'zp', anchor: 'zpCard', also: ['paneL'], title: 'Zeros and poles', before: [['scene', 'zp'], ['view', 'xy'], ['tool', 'select'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This step is built from its zeros and poles. Drag one in X, or press Add zero or Add pole for a new one: the map and its image follow. The axes button beside a coefficient picks a value on a small Argand diagram.',
           touch: 'This step is built from its zeros and poles. Drag one in X, or tap Add zero or Add pole for a new one: the map and its image follow.',
           try: { text: 'Drag a zero or a pole.', on: 'zp-moved', ctl: ['tool:select'], then: '$F$ and its image followed the mark.' } },
-        // (the planes' menu, src/planemenu.js: on X the mark goes to w₀ = z, exactly; behind other steps to F_{k-1}(z))
-        { id: 'zpHere', anchor: 'paneL', title: 'Add a zero here', needs: 'planeMenu', before: [['tool', 'select'], ['select', 1], ['plane', 'L']],
-          body: 'Right-click a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
-          touch: 'Hold a point of X and choose Add zero of $f_1$ here: that point becomes a zero of $F$. After earlier steps, the zero goes where the point lands, so it stays exact.',
-          try: { text: 'Right-click X, then Add zero of $f_1$ here.', touch: 'Hold X, then Add zero of $f_1$ here.', on: 'zp-added', then: 'That point is now a zero of $F$.' } },
-        { id: 'numbers', anchor: 'params', also: ['panes'], title: 'Shared numbers', before: [['scene', 'numbers'], ['view', 'phase'], ['select', 1], ['panel', 'right']], wait: 120,
-          body: 'Type a new letter such as $a$ in any field, and a slider $a$ appears under Parameters. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.',
+        { id: 'numbers', anchor: 'params', also: ['panes'], title: 'Numbers', before: [['scene', 'numbers'], ['view', 'phase'], ['select', 1], ['panel', 'right']], wait: 120,
+          body: 'Type a new letter such as $a$ in any field, and a slider $a$ appears under Numbers. Here $a$ sets both zeros $\\pm a$ of $F$ and the circle $|z|=a$: drag the slider, and they move together.',
           try: { text: 'Drag the slider of $a$.', on: 'number-changed', ctl: ['paramSlider'], then: 'The zeros $\\pm a$ and the circle $|z|=a$ moved together.' } },
       ],
     },
@@ -255,8 +256,8 @@ const Tour = (() => {
           body: 'Drag $z_2$ across the line through $z_0$ and $z_1$: the disc becomes a half-plane, then the outside of the circle. Its image under $1/z$ follows.',
           try: { text: 'Drag $z_2$ across the line.', on: 'construct-family', test: (e) => !e || e.kind === 'halfplane' || e.kind === 'complement', ctl: ['tool:select'], after: 'c3', then: 'Disc, half-plane, outside: one family, and Y followed.' } },
         { id: 'meet', anchor: 'paneL', title: 'Intersections', before: [['plane', 'L'], ['panel', 'sheet', 'tools']],
-          body: 'Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Hold Alt to place freely. Intersect marks a crossing.',
-          touch: 'Drawing tools, the Point tool and dragged handles snap to points, zeros and crossings, and what snaps follows them; the Point tool also snaps to curves. Turn Snap off in the tools sheet to place freely.',
+          body: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Hold Alt to place freely; Intersect marks a crossing.',
+          touch: 'Tools and dragged points snap to points, zeros, crossings and the grid. The Point tool also puts a point on a curve or the unit circle: drag it along, or pull hard to free it. Turn Snap off in the tools sheet to place freely.',
           try: { text: 'Draw a line from a crossing.', on: 'shape-added', test: (e) => !e || !!e.bound, ctl: ['tool:line'], then: 'Its end is tied to the crossing and follows it.' } },
       ],
     },
@@ -274,8 +275,8 @@ const Tour = (() => {
           body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
           touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
           try: { text: 'Click Paths twice, or press {P} twice.', touch: 'Tap Paths twice.', on: 'paths-toggled', count: 2, then: 'Each path runs from $z$ to $F(z)$.' } },
-        // (on a phone the order select is in the Display sheet while the deformation shows)
-        { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'display']],
+        // (on a phone the order select is in the deformation bar's Steps picker, which the step opens)
+        { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
           try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
@@ -290,7 +291,8 @@ const Tour = (() => {
         { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
           lead: 'The target $0$ marks the three cube roots of unity.',
           body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.' },
-        { id: 'cauchy', anchor: ['phaseStyle', 'panes'], also: ['panes'], title: 'Cauchy integral', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
+        // (v16.5 UX20: on a desktop the style control is behind X's Display options button in its pane head, lit then)
+        { id: 'cauchy', anchor: ['phaseStyle', 'leftOpts', 'panes'], also: ['panes'], title: 'Cauchy integral', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
           lead: 'Cauchy\'s integral is $F$ inside $\\gamma$ and $0$ outside.',
           body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. With several closed curves, the selected one is used.' },
         // (the open popover holds the countdown: it moves on 3 s after it closes)
@@ -302,7 +304,9 @@ const Tour = (() => {
         { id: 'domain', anchor: 'domain', also: ['fTile'], title: 'Natural domain', before: [['panel', 'right']],
           lead: 'Here $F$ is defined for every $z$ except $\\pm i$.',
           body: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
-          byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' } },
+          touch: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined. For a typed formula it reads "the formula is defined at $z$": here every $z$ except the poles $\\pm i$.',
+          byScene: { residueZp: 'Select the F tile at the end of the chain, and the Inspector shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' },
+          touchByScene: { residueZp: 'Tap the F tile at the end of the chain, and its editor shows where every step is defined: here every $z$ except the poles $\\pm i$, written $z\\notin\\{i,-i\\}$.' } },
         { id: 'guarantees', anchor: 'guarantees', also: ['fTile'], title: 'Guarantees', before: [['panel', 'right']],
           lead: 'What the chain guarantees: always true when listed.',
           body: 'The F tile names what the chain guarantees. A property is listed only when every step has it and composition keeps it, so it is always true; one not listed is not implied, but may hold. Step by step shows which step brings which.' },
@@ -313,9 +317,11 @@ const Tour = (() => {
       steps: [
         { id: 'cut', anchor: 'paneL', title: 'Branch cuts', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['tool', 'select'], ['plane', 'L']],
           body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
+          touch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step\'s editor adds $2\\pi i k$.',
           try: { text: 'Drag the red cut.', on: 'cut-moved', ctl: ['tool:select'], then: 'The seam moved; across it the values jump by $2\\pi i$.' } },
         { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', before: [['select', 1], ['panel', 'right']],
           body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
+          touch: 'Replace with the inverse, in the ⋯ menu of the step\'s editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
           try: { text: 'In ⋯, choose Replace with the inverse.', on: 'step-replaced', test: (e) => !e || (e.k === 1 && e.type === 'exp'), ctl: ['invBtn'], then: '$e^z$ undoes $\\log z$ on this sheet.' } },
         { id: 'deriv', anchor: 'paneL', also: ['chain'], title: 'The derivative as a step', before: [['scene', 'deriv'], ['view', 'xy'], ['plane', 'L']],
           lead: 'Here $F=3z^2-3$; the target $0$ marks its zeros $\\pm1$.',
@@ -333,7 +339,7 @@ const Tour = (() => {
       steps: [
         { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
           body: 'Grieg\'s theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut before each downbeat is the drum.',
-          try: { text: 'Press ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= Math.min(9, 0.45 * (e.dur || 20)))), then: 'Every note was $\\arg F$ crossing one of its colour lines.' },
+          try: { text: 'Press ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= Math.min(9, 0.45 * (e.dur || 20)))), then: 'Every note was $\\arg F$ crossing one of its colour lines.' },
           // (v16.5, Hear the function: Listen along plays the function, so the captions are fractions of its duration
           // (capFrac), which is the path's length at 250 px/s and so the zoom's: the cuts, each statement's downbeat, at
           // 0.004, 0.283, 0.503 and 0.782 of the two laps (test/t_seasong.js's path), each 82 ms before its downbeat;
@@ -346,7 +352,7 @@ const Tour = (() => {
           try: { text: 'Circle the zero $1$, then the pole $-1$.', touch: 'Hold near $1$, slide round it, then round $-1$.', on: 'hear-turn', test: harpUpDown, then: 'A scale up and a scale down: one turn of $\\arg F$ each.' } },
         { id: 'loop', anchor: 'panes', needs: 'zp', act: 'listen', title: 'A loop sings its number', before: [['scene', 'harpLoop'], ['view', 'phase'], ['tool', 'select']],
           body: 'Listen along a closed curve plays the same notes, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.',
-          try: { text: 'Press ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || (!!e.closed && e.W === 1 && !!e.full), then: '$W=1$: one turn of $\\arg F$, sung as F♯.' } },
+          try: { text: 'Press ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || (!!e.closed && e.W === 1 && !!e.full), then: '$W=1$: one turn of $\\arg F$, sung as F♯.' } },
         { id: 'settings', anchor: ['soundBtn', 'soundBar', 'moreBtn'], needs: 'sound', title: 'Sound settings',
           lead: 'Turn sound, or Hear the function, on or off here.',
           body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.',
@@ -364,11 +370,13 @@ const Tour = (() => {
         // (v16.1: and the copy button the copy names, in the head of F's Inspector)
         { id: 'formula-tex', anchor: 'composite', also: ['fTile', 'copyTex'], title: 'The formula in LaTeX', before: [['panel', 'right']],
           body: 'With the F tile selected, the Inspector shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.',
+          touch: 'With the F tile tapped, its editor shows $F$ in closed form; the copy button puts its LaTeX on the clipboard.',
           try: { text: 'Press the copy button of $F$.', touch: 'Tap the copy button of $F$.', on: 'tex-copied', ctl: ['copyTex'], then: '$F$\'s LaTeX is on your clipboard.' } },
       ],
     },
     {
-      id: 'keys', title: 'Palette and keys', time: '30 s', rev: 3, scene: null,
+      // (v16.5 UX17: keys are for a keyboard: on a touch screen the chapter is not offered, and the tour ends before it)
+      id: 'keys', title: 'Palette and keys', time: '30 s', rev: 3, scene: null, desk: true,
       steps: [
         // (the open palette holds the countdown)
         { id: 'palette', anchor: ['palette', 'moreBtn'], title: 'Command palette',
@@ -412,8 +420,12 @@ const Tour = (() => {
     viewSwitch: '#viewSwitch', deformToggle: '#morphBtn', tools: '#secDraw', toolsRail: '#railTools',
     // (v16: the Construct grid under Draw; hidden on a phone, where the tool row's More key leads to it)
     constructTools: () => { const e = document.querySelector('#constructTools'); return e && e.offsetParent ? e : null; },
-    formula: '#secFormula', shapes: '#secShapes', display: '#secDisplay',
-    patterns: '#patternSeg', chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
+    formula: '#secFormula', shapes: '#secShapes',
+    // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
+    // or the button; on a phone the Display sheet's section)
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#secDisplay') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
+    patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.disp-pop #patternSeg') || document.querySelector('#rightFoot .opts-btn')),
+    chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
     bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : document.querySelector('#pipeline'); },
@@ -435,11 +447,12 @@ const Tour = (() => {
     phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c ? c.closest('label') || c : null; },
     // Y's Display options button, where the Phase key goes when Y's options strip has no room for it
     rightOpts: '#rightFoot .opts-btn',
-    // X's Display options button (INTEGRATION.md: the fallback of phaseStyle)
+    // (v16.5 UX20) X's Display options button, in its pane head on a desktop (the Phase style, Landscape's options);
+    // INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn',
     // v15: the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
     // closes the chain; on a phone, the Sphere key in the plane's right column
-    // (v15.1) the selected step's lens (Show this step alone) in the Inspector's head: in a phone's sheet
+    // (v15.1) the selected step's Show alone button (v16.5 UX85: no longer a lens) in the Inspector's head: in a phone's sheet
     lens: '#propsPanel .insp-step .ihead .alone-btn',
     inspector: '#propsPanel .insp-sel', params: () => document.querySelector('#propsPanel .prm') || document.querySelector('#propsPanel .insp-params'),
     fTile: '#pipeline .ftile', sphereKey: () => [...document.querySelectorAll('.ph-col .ph-sph')].find((e) => e.offsetParent) || null,
@@ -518,7 +531,7 @@ const Tour = (() => {
   // v16.4 (notes/tour-r3/SPEC.md 2): the countdown after a task is done, a pure reducer. state: { phase: 'idle' |
   // 'running' | 'held' | 'cancelled' | 'off' | 'fired', t0 (when the current run started), dur, door, holds: [kinds] }.
   // Events: { type: 'done', door, reduced, off (Move on by itself is off), never (the chapter's last step, a step
-  // reached with Back) }, 'input' (restarts a running countdown), 'hold' / 'release' { kind } (paused while any hold
+  // reached with Back) }, 'hold' / 'release' { kind } (paused while any hold
   // lasts; the last release starts it again from its full length), 'cancel' (no auto for this showing), 'off' (Move on
   // by itself turned off), 'fire'. A door (try.advance) moves on 0.7 s after done (0.3 s with reduced motion), held by
   // nothing; with Move on by itself off it only ticks, like any task (r3 review regress-6). left(state, now): the ms to
@@ -537,8 +550,6 @@ const Tour = (() => {
         if (s.phase !== 'idle') return s;
         if (e.never) return out({ phase: 'cancelled' });
         return out({ phase: holds.length ? 'held' : 'running', t0: now, dur: CD_MS, door: false });
-      case 'input':
-        return s.phase === 'running' && !s.door ? out({ t0: now }) : s;
       case 'hold':
         if (!e.kind || holds.includes(e.kind)) return s;
         holds.push(e.kind);
@@ -644,12 +655,15 @@ const Tour = (() => {
   // a touch screen: no hover, no right-click, no key hints
   const coarse = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
   const phone = () => narrow() || coarse();
+  // (v16.5 UX17) a chapter this screen offers: one for the keyboard (desk) is not offered on a touch screen
+  const chapterShown = (c) => !(c && c.desk && coarse());
   // where the tour lives: the help button, or the ⋯ menu that holds it on a phone
   // (v15: on a phone the ⋯ sheet lists Guided tour)
   const helpWhere = () => (anchorEl('helpBtn') ? $t('Help') : anchorEl('moreBtn') ? $t('⋯ › Guided tour') : $t('Help'));
   // the copy a step shows here: by the scene shown, on a touch screen, below 640 px, else its body
   function copyFor(step, scene, o = {}) {
     const isCoarse = o.coarse != null ? o.coarse : coarse(), isNarrow = o.narrow != null ? o.narrow : narrow();
+    if (isCoarse && step.touchByScene && scene != null && step.touchByScene[scene]) return $t(step.touchByScene[scene]);   // (v16.5 UX17)
     if (step.byScene && scene != null && step.byScene[scene]) return $t(step.byScene[scene]);
     // the anchor found was the ⋯ menu (the control itself lives in it here): the copy that says "in this menu"
     if (o.menu && step.narrow) return $t(step.narrow);
@@ -657,6 +671,8 @@ const Tour = (() => {
     if ((isNarrow || isCoarse) && step.narrow) return $t(step.narrow);
     return $t(step.body);
   }
+  // (v16.5 UX17) a step's lead and title on a touch screen, where it has its own
+  const leadFor = (st, o = {}) => ((o.coarse != null ? o.coarse : coarse()) && st.leadTouch ? st.leadTouch : st.lead);
   const tryFor = (t, o = {}) => $t((o.coarse != null ? o.coarse : coarse()) && t.touch ? t.touch : t.text);
   // a step's Try it here (tryWide: not below 640 px, where what it asks for is off-screen)
   // (v16.4, try.after: only when that step's task of the same chapter was done in this run; else the step is read)
@@ -898,6 +914,9 @@ const Tour = (() => {
 .tour-strip:not([data-mode="desk"]) .ts-wl { display: none; }
 /* (r3 review user-7: a phone's text block shows that it opens: a chevron after the count) */
 .tour-strip[data-mode="port"] .ts-wl { display: inline; margin-left: 0; padding-left: 0; }
+/* (v16.5 UX93: the count and its chevron closer, so «Добро пожаловать» is whole on a 360 px phone) */
+.tour-strip[data-mode="port"] .ts-l1 { gap: 6px; }
+.tour-strip[data-mode="port"] .ts-wl { margin-left: -3px; }
 .tour-strip[data-mode="port"] .ts-wlw { display: none; }
 /* (r3 review user-3, user-10: a chapter whose line needs three lines here gets a taller row) */
 .tour-strip[data-mode="port"][data-lines="3"] .ts-row { height: 75px; }
@@ -964,34 +983,35 @@ const Tour = (() => {
 .tour-top .ts-why.ts-panel .ts-auto input { width: 20px; height: 20px; }
 .tour-top .ts-why.ts-panel .ts-wtitle { display: block; margin: 0 0 4px; font: 600 15px/20px var(--f-ui); color: var(--ink); }
 .ts-wtitle { display: none; }
-.tour-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-/* the first-run suggestion: a quiet card under the help button, never modal */
-.tour-suggest {
-  position: fixed; z-index: 35; width: 340px; max-width: calc(100vw - 24px); padding: 14px 14px 12px 16px;
-  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-4, 6px); box-shadow: var(--shadow-3);
-  color: var(--ink); font: var(--t-body); animation: pop-in var(--t-med) var(--ease-out);
+.tour-sr { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* (v16.5 UX21) the learning lane: one line in the tour's docked slot (the first-run invitation, an example's Try
+   line). It sits in the layout like the strip and covers nothing: a 48 px row at the stage's top on a desktop (plus the
+   8 px gap), a 56 px row under a phone's header, a landscape phone's header when it has room */
+.tour-lane {
+  position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; height: 100%; min-width: 0; padding: 0 6px 0 10px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3, 4px); color: var(--ink); font: var(--t-body);
+  animation: fade-in var(--t-med, 200ms) var(--ease-out, ease-out);
 }
-.tour-suggest .tour-caret { top: -7px; left: calc(var(--caret, 300px) - 6px); border-bottom: 0; border-right: 0; }
-.tour-suggest.no-caret .tour-caret { display: none; }
-.tour-sg-row { display: flex; gap: 12px; align-items: flex-start; }
-.tour-sg-mark { flex: 0 0 28px; width: 28px; height: 28px; margin-top: 1px; }
-.tour-sg-text { flex: 1 1 auto; min-width: 0; }
-.tour-sg-title { margin: 0 0 4px; font: 600 14px/19px var(--f-ui); color: var(--ink); }
-.tour-sg-body { margin: 0; font: 400 13px/18px var(--f-ui); color: var(--ink-2); text-wrap: pretty; }
-.tour-sg-acts { display: flex; gap: 6px; margin-top: 12px; }
-.tour-sg-x { margin: -6px -6px 0 0; }
-.tour-suggest .tour-sg-pill { display: none; }
-.tour-suggest.compact { width: auto; padding: 4px; }
-.tour-suggest.compact .tour-sg-row { display: none; }
-.tour-suggest.compact .tour-sg-pill { display: inline-flex; align-items: center; gap: 6px; }
-.tour-sg-pill svg { width: 14px; height: 14px; color: var(--accent); }
-.tour-sg-pill .tour-time { font: 400 11px/16px var(--f-mono); color: var(--faint); }
-.tour-suggest.closing { animation: fade-out var(--t-fast) linear forwards; }
-@media (max-width: 639px) {
-  .tour-suggest { left: max(12px, env(safe-area-inset-left, 0px)) !important; right: max(12px, env(safe-area-inset-right, 0px)); width: auto; max-width: none; }
-  .tour-suggest.compact { left: auto !important; }
-  .tour-suggest .tour-caret { display: none; }
-}
+#tourSlot:has(> .tour-lane[data-mode="desk"]) { padding-bottom: 8px; box-sizing: border-box; }
+.tour-lane[data-mode="port"], .tour-lane[data-mode="row"] { border-width: 0 0 1px; border-radius: 0; padding: 0 4px 0 8px; gap: 8px; }
+.tour-lane[data-mode="head"] { border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; padding: 0 2px 0 8px; gap: 6px; }
+:root.ph.ph-land .stage > #tourSlot > .tour-lane[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
+.tl-mark { flex: 0 0 24px; width: 24px; height: 24px; }
+.tl-mark svg { width: 24px; height: 24px; display: block; }
+.tour-lane:not([data-mode="desk"]) .tl-mark { display: none; }
+.tl-text { flex: 1 1 auto; min-width: 0; margin: 0; font: 400 13px/17px var(--f-ui); color: var(--ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-wrap: pretty; }
+.tour-lane[data-mode="desk"]:not(.two) .tl-text { -webkit-line-clamp: 1; line-clamp: 1; display: block; white-space: nowrap; text-overflow: ellipsis; }
+.tl-title { font-weight: 600; color: var(--ink); }
+.tl-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.tour-lane .tl-act { height: 32px; min-height: 32px; padding: 0 12px; white-space: nowrap; }
+.tour-lane .tl-x { width: 32px; height: 32px; }
+.tour-lane .tl-short { display: none; }
+@media (pointer: coarse) { .tour-lane .tl-act { height: 44px; min-height: 44px; } .tour-lane .tl-x { width: 44px; height: 44px; } }
+.tour-lane:not([data-mode="desk"]) .tl-act { height: 44px; min-height: 44px; padding: 0 10px; }
+.tour-lane:not([data-mode="desk"]) .tl-x { width: 44px; height: 44px; }
+.tour-lane:not([data-mode="desk"]) .tl-long { display: none; }
+.tour-lane:not([data-mode="desk"]) .tl-short { display: inline; }
+.tour-lane .tl-text mjx-container { color: var(--ink); }
 /* the help menu (the app's menu component, plus a chapter row) */
 .pop.menu.tour-menu { min-width: 264px; }
 .tour-menu .mi { gap: 10px; }
@@ -1002,7 +1022,7 @@ const Tour = (() => {
 .tour-menu .tour-new { font: var(--t-caption); color: var(--accent); }
 .tour-menu .mi.tour-continue { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
 .tour-menu .tour-sub { display: block; font: 400 11.5px/16px var(--f-ui); color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .ts-prog, .ts-ring svg, .ts-wl svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-suggest, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ts-prog, .ts-ring svg, .ts-wl svg, .ts-tdn svg, .tour-dim, .tour-dim.tour-quiet { transition: none; } .ts-l2.pulse, .tour-lane, .tour-rings g.pulse .tour-glow, .tour-strip .ts-next.counting::before { animation: none; } .tour-strip .ts-next::before { display: none; } }
 `;
   // a polite announcement outside the tour (the suggestion): one shared live region
   function say(text) {
@@ -1016,7 +1036,6 @@ const Tour = (() => {
     document.head.append(el('style', { id: 'tourCSS' }, CSS));
   }
   const ICON_X = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-  const ICON_UP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>';
   const ICON_LEFT = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>';
   const ICON_DOWN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
   const ICON_RIGHT = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
@@ -1112,14 +1131,14 @@ const Tour = (() => {
     back.innerHTML = ICON_LEFT;
     const title = el('span', { class: 'ts-title', id: 'tourTitle' });
     const count = el('span', { class: 'ts-count' });
-    const wl = el('span', { class: 'ts-wl', 'aria-hidden': 'true' }, el('span', { class: 'ts-wlw' }, $t('Why') + ' '));
+    const wl = el('span', { class: 'ts-wl', 'aria-hidden': 'true' }, el('span', { class: 'ts-wlw' }, $t('Details') + ' '));
     wl.insertAdjacentHTML('beforeend', ICON_DOWN);
     const ringI = el('span', { class: 'ts-ring', 'aria-hidden': 'true', hidden: true });
     ringI.innerHTML = ICON_CHECK;
     const tin = el('span', { class: 'ts-tin', 'aria-hidden': 'true' });
     const lead = el('span', { id: 'tourLead' });
     const l2 = el('span', { class: 'ts-l2' }, ringI, el('span', { class: 'ts-lead' }, tin, lead));
-    const text = el('button', { class: 'ts-text', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'tourWhy', 'aria-label': $t('Why'), 'aria-describedby': 'tourTitle tourLead' },
+    const text = el('button', { class: 'ts-text', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'tourWhy', 'aria-label': $t('Details'), 'aria-describedby': 'tourTitle tourLead' },
       el('span', { class: 'ts-l1' }, title, count, wl), l2);
     const act = el('button', { class: 'btn ts-act', type: 'button', hidden: true });
     const next = el('button', { class: 'btn primary ts-next', type: 'button' }, $t('Next'));
@@ -1145,9 +1164,6 @@ const Tour = (() => {
     return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, title, count, wl, l2, ringI, tin, lead, act, next, x, why, wtitle, body, note, autoC, wBack, wEnd, prog, safeP,
       holes: null, raf: 0, anim: null, motion: 0, topSet: [], hosts: new Map(), hostOk: new Map(), work: [], moveT: 0, mode: null, whyOpen: false };
   }
-  function safeArea(ui) {
-    try { const cs = getComputedStyle(ui.safeP); return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; } catch (e) { return { t: 0, r: 0, b: 0, l: 0 }; }
-  }
 
   // ---------------------------------------------------------------- the app's layers
   // What the user can open over the app: its popovers (#popHost: the palette, menus, the integral popover, the
@@ -1166,18 +1182,6 @@ const Tour = (() => {
     // it is lit, not kept clear, and its rings are not masked off)
     const lit = run && run.el && run.el.isConnected ? run.el : null;
     return [...els].filter((e) => e && e.closest && !e.closest('[data-tour="root"], [data-tour="top"]') && visible(e) && !(lit && e.contains(lit)));
-  }
-  // the controls of the open layers (a docked callout over a full-screen dialog keeps off them)
-  function layerControls() {
-    const out = [];
-    for (const k of layerEls()) {
-      for (const c of k.querySelectorAll('button, input, select, textarea, a[href], summary, [role="button"], [role="option"], [role="menuitem"], [tabindex]:not([tabindex="-1"])')) {
-        const b = c.getBoundingClientRect();
-        if (b.width > 1 && b.height > 1) out.push({ l: b.left, t: b.top, r: b.right, b: b.bottom });
-        if (out.length > 300) return out;
-      }
-    }
-    return out;
   }
   function appLayers() {
     return layerEls().map((e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, rad: radii(e) }; });
@@ -1261,6 +1265,7 @@ const Tour = (() => {
     if (lastToast && lastToast.isConnected) lastToast.remove();
     lastToast = null;
     hideSuggest(false);
+    laneHide(null, false);
     closeMenu(false);
     const ci = chapterIndex(opt.chapter);
     // a chapter started from inside a running tour (its help step lights the help button): the snapshot taken when the
@@ -1295,7 +1300,7 @@ const Tour = (() => {
     run = r;
     // (v16.4: the strip is mounted and sized before the first scene loads, which fits its view to the panes' size; a
     // desktop's Why starts open on a large window unless the user chose)
-    r.ui.whyOpen = rec.why != null ? rec.why : vpSize().w >= 1280 && vpSize().h >= 800;
+    r.ui.whyOpen = rec.why != null ? rec.why : false;   // (v16.5 UX77: Details starts folded on every size)
     r.ui.why.hidden = true;
     mountStrip(r);
     if (r.ui.whyPanel) r.ui.whyOpen = false;
@@ -1330,7 +1335,14 @@ const Tour = (() => {
     ui.x.addEventListener('click', end);
     ui.wEnd.addEventListener('click', end);
     // a press on the text block opens or closes Why, and cancels this showing's countdown (the user is reading)
-    ui.text.addEventListener('click', () => { if (run !== r) return; cdFeed(r, { type: 'cancel' }); setWhy(r, !ui.whyOpen, true); });
+    // (v16.5 UX89: a tap that closes an open layer, the function list say, does nothing else: it neither opens Details
+    // nor stops the countdown)
+    const openLayers = () => { try { return [...document.querySelectorAll('#popHost > .pop, .modal-bg, .ph-sheet:not([hidden]), [popover]:popover-open:not([data-tour])')]; } catch (e) { return []; } };
+    const onDownL = () => { ui.downLayers = openLayers(); ui.downT = performance.now(); };
+    document.addEventListener('pointerdown', onDownL, true);
+    r.offs.push(() => document.removeEventListener('pointerdown', onDownL, true));
+    const closedByTap = () => { const was = ui.downLayers || [], now = openLayers(); ui.downLayers = null; return performance.now() - (ui.downT || 0) < 1500 && was.some((x) => !now.includes(x)); };
+    ui.text.addEventListener('click', () => { if (run !== r) return; if (closedByTap()) return; cdFeed(r, { type: 'cancel' }); setWhy(r, !ui.whyOpen, true); });
     ui.act.addEventListener('click', () => { if (run === r) actPress(r); });
     ui.autoC.addEventListener('change', () => { if (run === r) setAuto(ui.autoC.checked); });
     ui.shade.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); nudge(); });
@@ -1338,8 +1350,6 @@ const Tour = (() => {
       if (run !== r || e === fwdKey) return;
       const a = document.activeElement, inS = inStrip(a);
       const idle = a === document.body || a == null || inS;
-      // (any key but a lone modifier is input: a running countdown starts again)
-      if (!/^(Shift|Control|Alt|Meta|CapsLock|Fn|OS)$/.test(e.key)) cdFeed(r, { type: 'input' });
       if (e.key === 'Escape') {
         // The app's own layer comes first, wherever the focus is: a menu, the palette or a dialog closes and the tour
         // stays. Then Escape in the strip ends the tour. Elsewhere the app's own Escape comes first: a field being
@@ -1361,28 +1371,11 @@ const Tour = (() => {
     };
     document.addEventListener('keydown', onKey, true);
     r.offs.push(() => document.removeEventListener('keydown', onKey, true));
-    // (SPEC 2.2) a press outside the strip is input and holds the countdown until it lifts; on a phone a touch in the
-    // work area folds an open Why panel, and the touch goes on to the app
+    // (SPEC 2.2) on a phone a touch in the work area folds an open Why panel, and the touch goes on to the app. The
+    // countdown ignores the pointer: it runs 3 s from the event whatever the user does next
     const onDown = (e) => {
       if (run !== r || inStrip(e.target)) return;
-      cdFeed(r, { type: 'input' });
-      cdFeed(r, { type: 'hold', kind: 'pointer' });
-      ui.hov = null;
       if (ui.whyOpen && ui.whyPanel) setWhy(r, false);
-    };
-    const onUpP = () => { if (run === r) cdFeed(r, { type: 'release', kind: 'pointer' }); };
-    const onWheel = () => { if (run === r) cdFeed(r, { type: 'input' }); };
-    // a move with a button down is input; hover travel of more than 8 px over the work area (X, Y, the chain) is too:
-    // Preimages and the harp are explored by hovering. Hovering the strip neither holds nor restarts
-    const onPMove = (e) => {
-      if (run !== r || !r.cd || (r.cd.phase !== 'running' && r.cd.phase !== 'held')) return;
-      if (e.buttons) { cdFeed(r, { type: 'input' }); return; }
-      const x = e.clientX, y = e.clientY, h = ui.hov;
-      ui.hov = { x, y, d: h ? h.d : 0 };
-      if (!h || inStrip(e.target)) return;
-      if (!inWork(x, y)) return;
-      ui.hov.d += Math.hypot(x - h.x, y - h.y);
-      if (ui.hov.d > 8) { ui.hov.d = 0; cdFeed(r, { type: 'input' }); }
     };
     // a focused text field holds the countdown while it holds text not yet sent (the user may still be typing); the app
     // empties a field it has taken in (a set added with Enter), which ends the hold (r3 review regress-1). Checked on
@@ -1393,18 +1386,13 @@ const Tour = (() => {
     ui.syncField = onFocus;
     const onVis = () => { if (run === r) cdFeed(r, { type: document.hidden ? 'hold' : 'release', kind: 'hidden' }); };
     document.addEventListener('pointerdown', onDown, true);
-    for (const t of ['pointerup', 'pointercancel']) { addEventListener(t, onUpP, true); r.offs.push(() => removeEventListener(t, onUpP, true)); }
-    addEventListener('blur', onUpP);
-    document.addEventListener('wheel', onWheel, { capture: true, passive: true });
-    document.addEventListener('pointermove', onPMove, { capture: true, passive: true });
     document.addEventListener('focusin', onFocus, true);
     document.addEventListener('input', onFocus, true);
     r.offs.push(() => document.removeEventListener('input', onFocus, true));
     const onBlurF = () => setTimeout(onFocus, 0);
     document.addEventListener('focusout', onBlurF, true);
     document.addEventListener('visibilitychange', onVis);
-    r.offs.push(() => document.removeEventListener('pointerdown', onDown, true), () => removeEventListener('blur', onUpP),
-      () => document.removeEventListener('wheel', onWheel, { capture: true, passive: true }), () => document.removeEventListener('pointermove', onPMove, { capture: true, passive: true }),
+    r.offs.push(() => document.removeEventListener('pointerdown', onDown, true),
       () => document.removeEventListener('focusin', onFocus, true), () => document.removeEventListener('focusout', onBlurF, true), () => document.removeEventListener('visibilitychange', onVis));
     if (document.hidden) cdFeed(r, { type: 'hold', kind: 'hidden' });
     // Listen along: the step's piece holds the countdown while it plays, and its captions run from its start
@@ -1504,16 +1492,6 @@ const Tour = (() => {
       mo.observe(tip, { attributes: true, attributeFilter: ['hidden', 'style', 'class'], childList: true });
       r.offs.push(() => { mo.disconnect(); if (tip.dataset.tourHid) { tip.style.visibility = ''; delete tip.dataset.tourHid; } });
     }
-  }
-  // the work area: X, Y (the panes) and the chain, where hover travel counts as input
-  function inWork(x, y) {
-    for (const sel of ['#panes', '.pipe-wrap']) {
-      const e = document.querySelector(sel);
-      if (!e) continue;
-      const b = e.getBoundingClientRect();
-      if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return true;
-    }
-    return false;
   }
   function guardTip(r) {
     const tip = document.querySelector(TIP_SEL);
@@ -1653,7 +1631,7 @@ const Tour = (() => {
   function lineTexts(st) {
     const out = [];
     const t = st.try && !(st.tryWide && narrow()) ? st.try : null;
-    if (st.lead) out.push([st.lead, false]);
+    if (st.lead) out.push([leadFor(st), false]);
     if (t) {
       out.push([coarse() && t.touch ? t.touch : t.text, true], [t.then || 'Done.', true]);
       if (t.off) out.push([t.off, true]);
@@ -1842,11 +1820,10 @@ const Tour = (() => {
     ui.act.title = label;
     paintNext(ui);
   }
-  // the act button's press: the user gesture the audio engine needs. It is input (a running countdown starts again)
+  // the act button's press: the user gesture the audio engine needs
   function actPress(r) {
     const step = r.step;
     if (!step || !step.act) return;
-    cdFeed(r, { type: 'input' });
     if (step.act === 'listen') {
       if (soundState().playing) { call('soundStop'); syncAct(r); return; }
       const was = soundState();
@@ -1956,6 +1933,8 @@ const Tour = (() => {
   function seek(ci, si, dir, skip) {
     const d = dir < 0 ? -1 : 1;
     while (ci >= 0 && ci < CHAPTERS.length) {
+      // (v16.5 UX17: a chapter for the keyboard is passed over on a touch screen, unless the tour is in it)
+      if (!chapterShown(CHAPTERS[ci]) && !(run && run.ci === ci)) { ci += d; si = d < 0 ? (ci >= 0 ? CHAPTERS[ci].steps.length - 1 : -1) : 0; continue; }
       const st = CHAPTERS[ci].steps;
       if (si < 0) { ci--; if (ci >= 0) si = CHAPTERS[ci].steps.length - 1; continue; }
       if (si >= st.length) { ci++; si = 0; continue; }
@@ -2190,7 +2169,10 @@ const Tour = (() => {
       const sx = /(auto|scroll|overlay)/.test(cs.overflowX) && a.scrollWidth > a.clientWidth + 1;
       if (!sy && !sx) continue;
       const q = a.getBoundingClientRect(), b = e.getBoundingClientRect(), m = 8;
-      const top = q.top + a.clientTop, left = q.left + a.clientLeft, bot = top + a.clientHeight, right = left + a.clientWidth;
+      // (the container's scroll-padding is room that something over it takes, such as the phone chain's pinned + and F)
+      const sp = (k) => parseFloat(cs[k]) || 0;
+      const top0 = q.top + a.clientTop, left0 = q.left + a.clientLeft;
+      const top = top0 + sp('scrollPaddingTop'), left = left0 + sp('scrollPaddingLeft'), bot = top0 + a.clientHeight - sp('scrollPaddingBottom'), right = left0 + a.clientWidth - sp('scrollPaddingRight');
       // (a part that fits only without the 8 px margins is placed whole, with equal margins)
       const need = (lo, hi, a0, a1) => {
         if (hi - lo <= a1 - a0 - 2 * m) return lo < a0 + m ? lo - a0 - m : hi > a1 - m ? hi - a1 + m : 0;
@@ -2239,7 +2221,7 @@ const Tour = (() => {
       // scrolls first, so the whole target shows when it fits
       if (panelsReveal(target) | ctlsReveal()) await frames(1);
       // the lit area: the anchor, and its second lit element when both can be brought in
-      let b = target.getBoundingClientRect();
+      const b = target.getBoundingClientRect();
       const box = { top: b.top, bottom: b.bottom };
       for (const e of also) { const q = e.getBoundingClientRect(); box.top = Math.min(box.top, q.top); box.bottom = Math.max(box.bottom, q.bottom); }
       const band = freeBand(), room = band.bot - band.top - 16;
@@ -2302,8 +2284,9 @@ const Tour = (() => {
     ui.act.dataset.sig = '';
     syncAct(r, step);
     fillWhy(r, ch, step);
-    // a desktop's Why: open on a large window unless the user chose (rec.why); a panel starts folded at every step
-    if (!ui.whyPanel) { const want = rec.why != null ? rec.why : vpSize().w >= 1280 && vpSize().h >= 800; if (want !== ui.whyOpen) setWhy(r, want); }
+    // a desktop's Details (Why): folded unless the user opened it (rec.why; v16.5 UX77: folded on every size at first);
+    // a panel starts folded at every step
+    if (!ui.whyPanel) { const want = rec.why != null ? rec.why : false; if (want !== ui.whyOpen) setWhy(r, want); }
     paintLead(r, step);
     paintNext(ui);
   }
@@ -2327,7 +2310,7 @@ const Tour = (() => {
     else if (tr && r.done) { text = tr.then ? $t(tr.then) : $t('Done.'); ring = true; done = true; }
     else if (tr && r.hint) { text = $t(r.hint); ring = true; }
     else if (tr) { text = tr.off && step.act === 'listen' && !(soundState().on && soundState().events) ? $t(tr.off) : tryFor(tr); ring = true; }
-    else text = step.lead ? $t(step.lead) : '';
+    else text = step.lead ? $t(leadFor(step)) : '';
     const sig = [text, ring, done, cap].join('|');
     if (ui.leadSig === sig) return;
     ui.leadSig = sig;
@@ -2345,7 +2328,7 @@ const Tour = (() => {
   function announce(r, ch, step) {
     const tr = tryOf(step);
     const end = (t) => (/[.!?…]\s*$/.test(t) ? t.trim() : t.trim() + '.');
-    const line = tr ? plainCopy(tryFor(tr), modKey()) : step.lead ? plainCopy($t(step.lead), modKey()) : '';
+    const line = tr ? plainCopy(tryFor(tr), modKey()) : step.lead ? plainCopy($t(leadFor(step)), modKey()) : '';
     r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k: r.countText, title: stepTitle(step) }) + (line ? end(line) : '')
       + (r.ui.whyOpen ? ' ' + plainCopy(copyFor(step, r.scene, { menu: r.inMenu }) + picNote(r, step), modKey()) : '');
   }
@@ -2608,7 +2591,7 @@ const Tour = (() => {
   // back just far enough to show the anchor again
   // a step's title starts with a capital letter: a key shared with a phrase used mid-sentence ('Cauchy integral',
   // «интеграл Коши» in a pane's title) is capitalized here; review-phone-verify extra-ru-cauchy
-  const stepTitle = (st) => { const t = $t(st.title); return /^[а-яё]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t; };
+  const stepTitle = (st) => { const t = $t(coarse() && st.titleTouch ? st.titleTouch : st.title); return /^[а-яё]/.test(t) ? t[0].toUpperCase() + t.slice(1) : t; };
   const BACK_MS = 1800;   // (after the last scroll of the panel, or the finger's lift)
   function bringBack(r, H) {
     const ui = r.ui;
@@ -2624,14 +2607,6 @@ const Tour = (() => {
     const dx = outX ? (b.left < l ? b.left - l - m : b.right - rr + m) : 0, dy = outY ? (b.top < t ? b.top - t - m : b.bottom - bb + m) : 0;
     try { H.scrollBy({ left: dx, top: dy, behavior: reduced() ? 'auto' : 'smooth' }); } catch (e) { H.scrollLeft += dx; H.scrollTop += dy; }
   }
-  // (v15.1) the visual viewport at the page's own scale (a phone's keyboard, its URL bar): what lies outside it counts
-  // as unsafe, so the callout stays in sight. Pinch-zoomed in, the page is the user's to pan: the callout is not chased.
-  function viewSafe(sf, vp) {
-    const v = typeof visualViewport !== 'undefined' ? visualViewport : null;
-    if (!v || !(v.scale <= 1.01)) return sf;
-    return { t: Math.max(sf.t || 0, v.offsetTop), l: Math.max(sf.l || 0, v.offsetLeft), b: Math.max(sf.b || 0, vp.h - v.offsetTop - v.height), r: Math.max(sf.r || 0, vp.w - v.offsetLeft - v.width) };
-  }
-  const inRects = (x, y, rs) => (rs || []).some((h) => x >= h.l && x <= h.r && y >= h.t && y <= h.b);
   // A second lit area the app itself covers (v15, a short desktop window: the chain under the Inspector) is not lit:
   // at its centre and four inner points the topmost element of the app, the tour and the open layers aside, is
   // another element. (The anchor is never dropped this way.)
@@ -2829,7 +2804,8 @@ const Tour = (() => {
     if (opt.finished) {
       rec.done[CHAPTERS[r.ci].id] = CHAPTERS[r.ci].rev;
       // "Continue the tour" picks up at the next chapter, or nowhere after the last
-      rec.last = r.ci + 1 < CHAPTERS.length ? { ch: CHAPTERS[r.ci + 1].id, i: 0 } : null;
+      const nc = CHAPTERS.findIndex((c, j) => j > r.ci && chapterShown(c));
+      rec.last = nc > 0 ? { ch: CHAPTERS[nc].id, i: 0 } : null;
     }
     save();
     const ui = r.ui;
@@ -2866,6 +2842,8 @@ const Tour = (() => {
   }
 
   // ---------------------------------------------------------------- the first-run suggestion
+  // (v16.5 UX21, notes/ux-audit REPORT 3.1: the invitation is one line in the tour's own docked slot, never a card over
+  // the planes; the slot is the learning lane of wave 2's D7, which also takes an example's Try line: lane())
   function suggest(opt = {}) {
     if (!doc()) return false;
     load();
@@ -2874,7 +2852,7 @@ const Tour = (() => {
     let tries = 0;
     const attempt = () => {
       if (run || !sugg || !sugg.pending) return;
-      // never over a menu or a dialog: wait for it to close (about 15 s at most, then until the next opening)
+      // (not while a menu or a dialog is open: wait for it to close, about 15 s at most, then until the next opening)
       if (appLayerOpen() && !opt.force) { if (++tries > 15) { sugg = null; return; } sugg.pending = setTimeout(attempt, 1000); return; }
       sugg = null;
       showSuggest();
@@ -2888,99 +2866,111 @@ const Tour = (() => {
     // a returning user (saved work) is not "new here"
     const returning = call('hasWork') === true;
     const title = returning ? $t('Take the 2-minute tour') : $t('New here? Take a 2-minute tour');
-    const close = el('button', { class: 'icon-btn small tour-sg-x', type: 'button', 'aria-label': $t('Dismiss the tour suggestion') });
-    close.innerHTML = ICON_X;
-    const startB = el('button', { class: 'btn primary', type: 'button' }, $t('Start the tour'));
-    const later = el('button', { class: 'btn ghost', type: 'button' }, $t('Not now'));
-    const markWrap = el('span', { class: 'tour-sg-mark', 'aria-hidden': 'true' });
-    markWrap.innerHTML = mark();
-    // the compact form: once the user starts working, the card shrinks to a pill under Help (it no longer covers the
-    // composite map), until Start, × or the next opening
-    const pill = el('button', { class: 'btn ghost tour-sg-pill', type: 'button', 'aria-label': title });
-    pill.innerHTML = `${ICON_PLAY}<span>${$t('Take the tour')}</span><span class="tour-time">${$t('2 min')}</span>`;
-    const box = el('section', { class: 'tour-suggest', role: 'region', 'aria-label': $t('Tour suggestion'), 'data-tour': 'suggest' },
-      el('span', { class: 'tour-caret', 'aria-hidden': 'true' }),
-      el('div', { class: 'tour-sg-row' }, markWrap,
-        el('div', { class: 'tour-sg-text' },
-          el('h2', { class: 'tour-sg-title' }, title),
-          el('p', { class: 'tour-sg-body' }, $t('Draw a region, send it through a chain of functions and watch its image. About two minutes, and your work is kept.')),
-          el('div', { class: 'tour-sg-acts' }, startB, later)),
-        close),
-      pill);
-    const go1 = () => { hideSuggest(true); start({ chapter: 'basics', opener: anchorEl(['helpBtn', 'moreBtn']) }); };
-    startB.addEventListener('click', go1);
-    pill.addEventListener('click', go1);
+    const go1 = () => { hideSuggest(false); start({ chapter: 'basics', opener: anchorEl(['helpBtn', 'moreBtn']) }); };
     const dismiss = () => { rec.outcome = 'dismissed'; rec.v = Math.max(rec.v, VERSION); save(); hideSuggest(true); call('toast', $t('The tour is under {helpWhere} whenever you want it.', { helpWhere: helpWhere() })); };
-    later.addEventListener('click', dismiss);
-    close.addEventListener('click', dismiss);
-    box.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); hideSuggest(true); } });
-    const onDown = (e) => {
-      if (!sugg || sugg.box !== box || box.classList.contains('compact')) return;
-      const t = e.target;
-      if (box.contains(t) || (t.closest && t.closest('#helpBtn, #hdrMoreBtn, .tour-menu'))) return;
-      box.classList.add('compact');
-      positionSuggest();
-    };
-    document.addEventListener('pointerdown', onDown, true);
-    // the keyboard: the card is the next Tab stop after Help (and Shift+Tab goes back to Help); Escape on the page
-    // hides it for this session, unless a menu, a dialog, a field or something of the app's takes that Escape
-    const onKeySg = (e) => {
-      if (!sugg || sugg.box !== box || e.altKey || e.ctrlKey || e.metaKey) return;
-      const help = anchorEl(['helpBtn', 'moreBtn']), a = document.activeElement;
-      if (e.key === 'Tab') {
-        const fs = [...box.querySelectorAll('button')].filter(visible);
-        if (!fs.length || !help) return;
-        if (!e.shiftKey && a === help) { e.preventDefault(); fs[0].focus(); }
-        else if (e.shiftKey && a === fs[0]) { e.preventDefault(); help.focus(); }
-        else if (!e.shiftKey && a === fs[fs.length - 1]) {
-          const all = [...document.querySelectorAll('button, [href], input, select, textarea, [tabindex]')].filter((x) => !x.disabled && x.tabIndex >= 0 && !box.contains(x) && !x.closest('[data-tour]') && visible(x));
-          const i = all.indexOf(help);
-          if (i >= 0 && all[i + 1]) { e.preventDefault(); all[i + 1].focus(); }
-        }
-        return;
-      }
-      if (e.key === 'Escape' && !box.contains(a)) {
-        if (run || appLayerOpen() || appBusy()) return;
-        if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
-        hideSuggest(true);
-      }
-    };
-    document.addEventListener('keydown', onKeySg, true);
-    document.body.append(box);
-    sugg = { box, off: () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKeySg, true); } };
-    say($t('Tour suggestion: {title}. Start the tour or Not now.', { title }) + (anchorEl('helpBtn') ? ' ' + $t('Tab from Help reaches it; Escape hides it.') : '') + ' ' + $t('The tour stays under {where}.', { where: helpWhere() }));
-    positionSuggest();
-    addEventListener('resize', positionSuggest);
+    const box = laneShow({ id: 'suggest', title, body: $t('Draw a region, send it through a chain of functions and watch its image.'),
+      acts: [{ label: $t('Start the tour'), short: $t('Start'), primary: true, run: go1 }, { label: $t('Not now'), run: dismiss }],
+      label: $t('Tour suggestion'), drop: 'body', onEsc: () => hideSuggest(true) });
+    if (!box) return;
+    sugg = { box, lane: true };
+    say($t('Tour suggestion: {title}. Start the tour or Not now.', { title }) + ' ' + $t('The tour stays under {where}.', { where: helpWhere() }));
     call('onSuggest', true);
-  }
-  function positionSuggest() {
-    if (!sugg || !sugg.box) return;
-    const box = sugg.box, help = anchorEl(['helpBtn', 'moreBtn']);
-    if (narrow() || !help) {
-      // on a phone: under the top bar, clear of the tool bar along the bottom
-      const hdr = document.querySelector('header');
-      const top = hdr ? Math.round(hdr.getBoundingClientRect().bottom + 8) : 64;
-      box.classList.add('no-caret'); box.style.left = ''; box.style.right = '12px'; box.style.top = top + 'px';
-      return;
-    }
-    const b = help.getBoundingClientRect(), w = box.offsetWidth;
-    const left = Math.max(12, Math.min(innerWidth - w - 12, b.left + b.width / 2 - w + (box.classList.contains('compact') ? 22 : 28)));
-    box.classList.remove('no-caret');
-    box.style.left = left + 'px'; box.style.right = 'auto'; box.style.top = Math.round(b.bottom + 12) + 'px';
-    box.style.setProperty('--caret', Math.round(b.left + b.width / 2 - left) + 'px');
   }
   function hideSuggest(anim) {
     if (!sugg) return;
     if (sugg.pending) clearTimeout(sugg.pending);
-    if (sugg.off) sugg.off();
     const box = sugg.box;
     sugg = null;
-    removeEventListener('resize', positionSuggest);
     if (!box) return;
-    const focusWasIn = box.contains(document.activeElement);
-    if (anim && !reduced()) { box.classList.add('closing'); setTimeout(() => box.remove(), 100); } else box.remove();
-    if (focusWasIn) { const h = anchorEl(['helpBtn', 'moreBtn']); try { if (h) h.focus({ preventScroll: true }); } catch (e) { /* */ } }
+    laneHide('suggest', anim);
     call('onSuggest', false);
+  }
+
+  // ---------------------------------------------------------------- v16.5: the learning lane
+  // One line at a time in the tour's own docked slot (UX21; wave 2's D7 lane): the first-run invitation, an example's
+  // Try line (UX74). It covers nothing: the layout makes room for it as it does for the strip (--tour-h, the stage's
+  // first row on a desktop; --ph-tour, a phone's row under the header; a landscape phone's header when it has room).
+  // The tour takes the slot while it runs; × or the line's own action ends a line.
+  // o: { id, title, body, acts: [{ label, short, primary, run }], label, drop: 'body' | 'title' (what goes first when the
+  // line has no room: laneFit), icon, onEsc, onClose }
+  const LANE_H = 48;
+  let lane = null;
+  function laneShow(o) {
+    if (!doc() || run) return null;
+    injectCSS();
+    if (lane) laneHide(lane.id, false);
+    const box = el('section', { class: 'tour-lane', role: 'region', 'aria-label': o.label || $t('Guided tour'), 'data-tour': o.id === 'suggest' ? 'suggest' : 'lane', 'data-lane': o.id });
+    const markWrap = el('span', { class: 'tl-mark', 'aria-hidden': 'true' });
+    markWrap.innerHTML = o.icon || mark();
+    const text = el('p', { class: 'tl-text' }, el('b', { class: 'tl-title tour-sg-title' }, o.title || ''));
+    if (o.body) text.append(' ', el('span', { class: 'tl-body tour-sg-body' }, richText(o.body)));
+    const acts = el('div', { class: 'tl-acts' });
+    for (const a of o.acts || []) {
+      const b = el('button', { class: 'btn ' + (a.primary ? 'primary' : 'ghost') + ' tl-act', type: 'button', 'data-short': a.short || a.label }, el('span', { class: 'tl-long' }, a.label), el('span', { class: 'tl-short' }, a.short || a.label));
+      b.addEventListener('click', () => a.run());
+      acts.append(b);
+    }
+    if (o.onClose) {
+      const x = el('button', { class: 'icon-btn tl-x', type: 'button', 'aria-label': $t('Close') });
+      x.innerHTML = ICON_X;
+      x.addEventListener('click', () => { laneHide(o.id, true); o.onClose(); });
+      acts.append(x);
+    }
+    box.append(markWrap, text, acts);
+    box.addEventListener('keydown', (e) => { if (e.key === 'Escape' && o.onEsc) { e.stopPropagation(); o.onEsc(); } });
+    lane = { id: o.id, box, o, slot: null, mode: null };
+    laneMount();
+    addEventListener('resize', laneMount);
+    return box;
+  }
+  function laneMount() {
+    if (!lane || run) return;
+    let mode = stripMode();
+    const where = mode === 'head' ? 'head' : 'stage';
+    let slot = call('slot', where);
+    if (!(slot && slot.nodeType === 1)) slot = document.getElementById(where === 'head' ? 'tourHeadSlot' : 'tourSlot');
+    if (!slot && where === 'head') { mode = 'row'; slot = document.getElementById('tourSlot'); }
+    if (!slot) return;
+    if (lane.slot && lane.slot !== slot) lane.slot.hidden = true;
+    if (lane.box.parentNode !== slot) slot.append(lane.box);
+    slot.hidden = false;
+    lane.slot = slot; lane.mode = mode; lane.box.dataset.mode = mode;
+    const st = document.documentElement.style;
+    if (mode === 'desk') { st.removeProperty('--ph-tour'); st.setProperty('--tour-h', (LANE_H + SLOT_GAP) + 'px'); }
+    else { st.removeProperty('--tour-h'); st.setProperty('--ph-tour', (mode === 'port' ? 56 : mode === 'row' ? 48 : 0) + 'px'); }
+    call('slot', where);
+    laneFit();
+  }
+  // the line's words are never cut mid-sentence: on a desktop one line, else without its optional part (o.drop: the
+  // invitation's description, an example's name), else two lines; on a phone two lines, else without the optional part
+  function laneFit() {
+    if (!lane) return;
+    const box = lane.box, tx = box.querySelector('.tl-text');
+    if (!tx) return;
+    const opt = tx.querySelector(lane.o.drop === 'title' ? '.tl-title' : '.tl-body'), desk = box.dataset.mode === 'desk';
+    box.classList.remove('two');
+    if (opt) opt.hidden = false;
+    const over = () => tx.scrollWidth > tx.clientWidth + 1 || tx.scrollHeight > tx.clientHeight + 1;
+    if (!over()) return;
+    if (opt) { opt.hidden = true; if (!over()) return; if (desk) opt.hidden = false; }
+    if (desk) box.classList.add('two');
+  }
+  function laneHide(id, anim) {
+    if (!lane || (id && lane.id !== id)) return false;
+    const l = lane;
+    lane = null;
+    removeEventListener('resize', laneMount);
+    const focusWasIn = l.box.contains(document.activeElement);
+    l.box.remove();
+    if (l.slot && !run) l.slot.hidden = true;
+    if (!run) {
+      const st = document.documentElement.style;
+      st.removeProperty('--tour-h'); st.removeProperty('--ph-tour');
+      if (document.documentElement.getAttribute('style') === '') document.documentElement.removeAttribute('style');
+      call('slot', 'stage');
+    }
+    if (focusWasIn) { const h = anchorEl(['helpBtn', 'moreBtn']); try { if (h) h.focus({ preventScroll: true }); } catch (e) { /* */ } }
+    return true;
   }
 
   // ---------------------------------------------------------------- the help menu
@@ -3011,6 +3001,7 @@ const Tour = (() => {
     }
     kids.push(el('div', { class: 'msep', role: 'separator' }));
     CHAPTERS.forEach((c, i) => {
+      if (!chapterShown(c)) return;
       const done = chapterDone(rec, c), fresh = chapterNew(rec, c);
       const title = $t(c.title), time = $t(c.time);
       kids.push(mi('', `<span class="tour-num">${i + 1}</span><span class="mi-label">${esc(title)}${fresh ? ` <span class="tour-new">${esc($t('New'))}</span>` : ''}</span>${done ? `<span class="tour-done" aria-label="${esc($t('done'))}">${ICON_CHECK}</span>` : ''}<span class="tour-time">${esc(time)}</span>`,
@@ -3110,7 +3101,9 @@ const Tour = (() => {
 
   const Tour = {
     VERSION, init, start, stop: (o) => Promise.resolve(stop(o || {})), next: () => go(1), back: () => go(-1),
-    suggest, dismissSuggestion: () => hideSuggest(false), openHelpMenu, closeHelpMenu: () => closeMenu(false),
+    suggest, dismissSuggestion: () => hideSuggest(false), openHelpMenu,
+    // (v16.5) the learning lane: one closable line in the tour's docked slot (an example's Try line, UX74)
+    lane: (o) => !!laneShow(o || {}), laneHide: (id) => laneHide(id || null, false), laneId: () => (lane ? lane.id : null), closeHelpMenu: () => closeMenu(false),
     isSeen: () => seenRec(load()), isActive: () => !!run, reset,
     chapters: () => CHAPTERS.map((c) => ({ id: c.id, title: c.title, time: c.time, steps: c.steps.length, done: chapterDone(rec, c) })),
     current: () => (run ? { chapter: CHAPTERS[run.ci].id, step: run.si, id: CHAPTERS[run.ci].steps[run.si].id } : null),
@@ -3130,7 +3123,7 @@ const Tour = (() => {
     // the steps the running (else the last) tour skipped: [{ id: 'chapter/step', why: 'missing' | 'clipped' | 'scene' }]
     skipped: skippedList,
     // internals for the tests and the design tables
-    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
+    _t: { CHAPTERS, SCENES, ANCHORS, LOOK, parseCopy, texPlain, plainCopy, rrPath, litAreas, ms, normRec, seenRec, shouldSuggest, chapterDone, chapterNew, seek, absent, sceneAt, pickScene, copyFor, tryFor, leadFor, chapterShown, probeInOut, harpUpDown, countdown, cdLeft, cdInit, CD_MS, SUGGEST_MAX, KEY, STASH, LIVE, clippedAway,
       // (r3 review: the lines the running chapter's strip line needs here, for the browser checks)
       needLines: (dbg) => (run ? needLines(run, dbg) : null) },
   };

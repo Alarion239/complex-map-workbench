@@ -1029,6 +1029,12 @@ const Sound = (() => {
       make: (Pt) => { for (const [u, a, c] of [[0, 1, 0], [0.088 + rnd(-0.005, 0.005), 0.85, -25]]) { strike(Pt, u, st0(0) * cents(c), 'block', { vel: 0.8 * a, soft: 0.9, t60: 0.09, amp: 0.26, knock: 5 }); strike(Pt, u, st0(12) * cents(c), 'block', { vel: 0.7 * a, soft: 0.9, t60: 0.06, amp: 0.40, knock: 0 }); } } },
     edge: { tier: 'ui', gap: 150, wet: 0.05, label: 'Edge', what: 'The keyboard probe reached the edge of the view: a felt tap and a block tick',
       make: (Pt) => { strike(Pt, 0, st0(7), 'skin', { vel: 0.6, soft: 1.8, t60: 0.1, amp: 0.17, drop: 1, knock: 3.5 }); strike(Pt, 0, st0(19), 'block', { vel: 0.5, soft: 0.8, t60: 0.05, amp: 0.34 }); } },
+    // [v16.5 rail SPEC 4.4] a point put on a curve or a crossing by a drop, and one pulled off its curve (one per gesture)
+    attach: { tier: 'ui', gap: 150, wet: 0.06, label: 'Point attached', what: 'A point landed on a curve or a crossing: tines E5 then A5, 30 ms apart',
+      make: (Pt) => { strike(Pt, 0, st0(14), 'tine', { vel: 0.45, soft: 1.4, t60: 0.14, amp: 0.2, detune: 6 }); strike(Pt, 0.03 + rnd(-0.003, 0.003), st0(19), 'tine', { vel: 0.5, soft: 1.2, t60: 0.18, amp: 0.2, detune: 6 }); } },
+    // (E5, not edge's A4: a lone skin strike at A4 loses 7.5 dB through the phone-speaker model, E5 stays audible there)
+    detach: { tier: 'ui', gap: 150, wet: 0.05, label: 'Point freed', what: 'A point was pulled off its curve: a felt tap with a pitch drop, E5',
+      make: (Pt) => strike(Pt, 0, st0(14), 'skin', { vel: 0.6, soft: 1.8, t60: 0.1, amp: 0.17, drop: 1.5, knock: 3.5 }) },
 
     morphStart: { tier: 'events', gap: 200, wet: 0.22, label: 'Deformation plays', what: 'H_t starts from t = 0 (once per play you start; never on loop repeats): an inhale under two bowed glasses',
       make: (Pt) => { air(Pt, 0, 0.6, 600, 2600, 0.9, 0.04, { att: 0.45, fl: 0.3 }); bowed(Pt, 0, st(12), { att: 0.22, hold: 0.12, t60: 0.7, amp: 0.05 }); bowed(Pt, 0.03, st(19), { att: 0.25, hold: 0.1, t60: 0.7, amp: 0.04 }); } },
@@ -1065,7 +1071,7 @@ const Sound = (() => {
       make: (Pt) => { const f = st(19); bowed(Pt, 0, f * Math.pow(2, 2 / 12), { f1: f, glide: 0.22, att: 0.04, hold: 0.1, t60: 0.5, amp: 0.06 }); bowed(Pt, 0, f / Math.pow(2, 2 / 12), { f1: f, glide: 0.22, att: 0.04, hold: 0.1, t60: 0.5, amp: 0.06 }); } },
   };
   // level trims (dB) from the level match against v15's palette (notes/sound/v2/MEASUREMENTS.md, board.html)
-  const TRIM = { toggleOn: -1.07, toggleOff: -0.4, stepAdd: 0.06, stepRemove: -0.72, view: 2.75, exportDone: -1.8, error: -0.82, edge: -2.23, snap: -2.85, morphStart: 1.91, morphEnd: -0.59, loopDone: 0.48, zero: -0.35, pole: 0.1, dense: 0.35, cut: -3.25, turn: -0.43, turnMany: -1.43, contour: -1.52, collide: 0.5 };
+  const TRIM = { toggleOn: -1.07, toggleOff: -0.4, stepAdd: 0.06, stepRemove: -0.72, view: 2.75, exportDone: -1.8, error: -0.82, edge: -2.23, snap: -2.85, attach: 0.71, detach: 0.01, morphStart: 1.91, morphEnd: -0.59, loopDone: 0.48, zero: -0.35, pole: 0.1, dense: 0.35, cut: -3.25, turn: -0.43, turnMany: -1.43, contour: -1.52, collide: 0.5 };
   // the calibrated levels of hearing the function (notes/sound/hearf/PROTOTYPE.md): one harp note at velocity 0.7 and
   // |F| = 1 is −32 ± 2.5 LUFS-M, a D (with its accent) 2 to 5 dB over E; the singer's unit-energy spectrum at lvl 1 is
   // −32 LUFS-M (the release note +1 dB). The harp's copies now have fixed phases (pluck: their coinciding partials in

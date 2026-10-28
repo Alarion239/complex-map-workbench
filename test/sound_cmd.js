@@ -204,7 +204,8 @@ await key('o'); await settle(200);
   R.loop2 = { made: await made(true), live: s.live, play: s.play, sang: s.sang, sing: await ev('Sound.singState()') };
 }
 ok('loop 2 (Hear F on): "Winding number 1", the loop sings W = 1 (no pings), no playback', /Winding number 1/.test(R.loop2.live) && R.loop2.sang === 1 && R.loop2.sing.on && R.loop2.sing.tier === 'events' && !R.loop2.made.includes('loopDone') && !R.loop2.play, R.loop2);
-// Listen along a curve, from the shape's menu (right-click), and the pointer moving > 4 px ends it
+// Listen along a curve, from the shape's menu (right-click); (v16.5 UX73) a pointer move no longer ends it: it plays to
+// its end, Stop in its chip, Esc or another action
 {
   const p = await W(-1.4, 0);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1] });
@@ -217,7 +218,8 @@ ok('loop 2 (Hear F on): "Winding number 1", the loop sings W = 1 (no pings), no 
   await move(p[0] + 30, p[1] + 10); await sleep(150);
   R.listenMenu = { item: it, playing, after: (await snd()).play };
 }
-ok('curve menu: "Listen along …" plays; a pointer move ends it', /^Listen along/.test(R.listenMenu.item) && R.listenMenu.playing && !R.listenMenu.after, R.listenMenu);
+ok('curve menu: "Listen along …" plays; a pointer move does not end it (v16.5 UX73)', /^Listen along/.test(R.listenMenu.item) && R.listenMenu.playing && R.listenMenu.after, R.listenMenu);
+await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`); await sleep(150);
 await key('v'); await settle(200); await made(true);
 
 // 9. the keyboard probe on a keyboard-focused X plane: arrows, Z, O, D, Enter (a loop), L, Esc
@@ -318,7 +320,9 @@ R.lab = lab && lab.voices;
 // level varies by a few dB from one to the next: a wider band)
 // (palette B, notes/sound/v2/DESIGN.md §2, column B, about ±2 dB: every play is a new strike. Pole and edge lose 7.8 and
 // 5.6 dB through the phone model, as measured on the board: DESIGN v2 §8, open; their phone limit is 8 dB)
-const GROUP = { snap: [-47, -40], landmark: [-48, -36], cut: [-41, -35], contour: [-43, -36], toggleOn: [-35, -30.5], toggleOff: [-36, -31.5], stepAdd: [-34, -29.5], stepRemove: [-34.5, -30], view: [-35, -30.5], edge: [-43, -38.5], morphStart: [-34, -30], morphEnd: [-33.5, -29], zero: [-33, -27], pole: [-35, -28.5], collide: [-34, -30], exportDone: [-31, -26.5], error: [-32.5, -28.5], turn: [-31.5, -27.5], turnMany: [-42, -35], dense: [-44.5, -39.5] };
+const GROUP = { snap: [-47, -40], landmark: [-48, -36], cut: [-41, -35], contour: [-43, -36], toggleOn: [-35, -30.5], toggleOff: [-36, -31.5], stepAdd: [-34, -29.5], stepRemove: [-34.5, -30], view: [-35, -30.5], edge: [-43, -38.5], morphStart: [-34, -30], morphEnd: [-33.5, -29], zero: [-33, -27], pole: [-35, -28.5], collide: [-34, -30], exportDone: [-31, -26.5], error: [-32.5, -28.5], turn: [-31.5, -27.5], turnMany: [-42, -35], dense: [-44.5, -39.5],
+  // ([v16.5 rail SPEC 4.4] a point attached: under toggleOn; a point freed: at edge's level)
+  attach: [-37, -33], detach: [-41.5, -37.5] };
 // (contours: the low ones, k ≤ −5, sit under the phone model's 550 Hz, as their Height notes do)
 const PHONE = { pole: 8, edge: 7, contour: 8.5 };
 for (const r of (lab && lab.rows) || []) {
@@ -327,7 +331,8 @@ for (const r of (lab && lab.rows) || []) {
   ok(`phone ${r.name} ${JSON.stringify(r.o)}: loses ≤ ${PHONE[r.name] || 5} dB`, r.loss <= (PHONE[r.name] || 5), r.loss);
   // (palette B's air and its woodblock and felt contacts carry more above 14 kHz than v15's cues did: −25 to −38 dB of
   // the total, as on the board the user heard; the pure strikes stay under −40)
-  const hfLim = /^(view|exportDone|morphStart|error|edge|pole)$/.test(r.name) ? -24 : -40;
+  // ([v16.5 rail] detach is edge's felt tap: −35.6 dB, a felt contact like edge's)
+  const hfLim = /^(view|exportDone|morphStart|error|edge|pole|detach)$/.test(r.name) ? -24 : -40;
   ok(`envelope ${r.name} ${JSON.stringify(r.o)}: peak < −6 dBFS, soft onset, ends at exactly 0, HF ≤ ${hfLim} dB`, r.peak < -6 && r.first < 0.35 && r.end === 0 && r.hf <= hfLim, r);
 }
 ok('lab: every cue measured', lab && lab.rows && lab.rows.length >= 28, lab && lab.rows && lab.rows.length);

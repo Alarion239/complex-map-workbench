@@ -66,7 +66,8 @@ section('(a) round trips');
     ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180]];
   for (const [e, cut] of CUSTOM) add('custom', { expr: e, cut });
   const shape = { kind: 'disc', c: [0, 0], r: 3 };
-  let fails = 0, total = 0, inel = [];
+  const inel = [];
+  let fails = 0, total = 0;
   const kinds = new Set();
   for (const cse of cases) {
     const st = St(cse.type, cse.params), b = Funcs.build(st);
@@ -75,7 +76,7 @@ section('(a) round trips');
     if (!plan.ok) { inel.push(`${cse.type} ${JSON.stringify(cse.params)}: ${plan.reason}`); continue; }
     plan.ops.forEach((o) => kinds.add(o.kind));
     const prep = Inverse.prepare(plan, { win: WIN0, shape });
-    let unsound = 0, miss = 0, dec = 0, nc = 0, tried = 0;
+    let unsound = 0, miss = 0, dec = 0, tried = 0;
     for (let t = 0; t < 200; t++) {
       const u = rc(2.5), w = b.f(u);
       if (!CX.isFin(w) || CX.abs(w) > 1e8) continue;
@@ -83,7 +84,6 @@ section('(a) round trips');
       let x = u; for (const o of plan.ops) x = o.fwd(x);
       if (!(CX.abs(CX.sub(x, w)) <= 1e-9 * (1 + CX.abs(w)))) dec++;
       const r = Inverse.enumerate(plan, prep, w, 1, { full: 40, ramp: 1e-9 });
-      nc += r.leaves.length;
       for (const lf of r.leaves) {
         if (!(lf.lvl > 1e-7) || !CX.isFin(lf.z)) continue;
         const wb = b.f(lf.z);
@@ -104,7 +104,9 @@ section('(a) round trips');
   check('every op kind is exercised', ALL_KINDS.every((k) => kinds.has(k)), ALL_KINDS.filter((k) => !kinds.has(k)).join(' '));
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
-  check('every catalog type except d/dz is round-tripped', Object.keys(Funcs.DEFS).every((id) => id === 'deriv' || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => id !== 'deriv' && !covered.has(id)).join(' '));
+  // (d/dz, Γ and ζ are ineligible by rule: below)
+  const byRule = new Set(['deriv', 'gamma', 'zeta']);
+  check('every catalog type except d/dz, Γ and ζ is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
     ['poly', { co: '1, 0, -1, 0' }, 'polynomial of degree 3'], ['rational', { p: '1, 0, 0, 1', q: '1, 0' }, 'rational map of degree 3'],
@@ -112,6 +114,8 @@ section('(a) round trips');
     ['custom', { expr: '|z|^2' }, 'lose'], ['custom', { expr: '\\arg(z)' }, 'lose'], ['deriv', {}, 'd/dz'], ['pown', { n: 17 }, '|n| > 16'], ['custom', { expr: 'z^{20}' }, '|n| > 16'],
     ['poly', { co: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1' }, '|n| > 16'], ['custom', { expr: 'z^{z}' }, 'variable base and exponent'], ['custom', { expr: '(1+z)^{\\sin z}' }, ''], ['custom', { expr: 'z\\cdot\\overline{z}' }, 'more than once'],
     ['mul', { c: '0' }, 'constant'], ['powa', { alpha: '0' }, 'constant'], ['mobius', { a: '1', b: '2', c: '2', d: '4' }, ''],
+    // (issue #4) Γ and ζ take each value infinitely often: X → Y uses the sphere-mesh fallback
+    ['gamma', {}, 'no inverse enumerator'], ['zeta', {}, 'no inverse enumerator'], ['custom', { expr: '\\Gamma(z)+1' }, 'infinitely often'],
   ];
   for (const [type, params, why] of INELIGIBLE) {
     const st = St(type, params), b = Funcs.build(st);

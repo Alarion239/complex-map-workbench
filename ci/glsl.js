@@ -4,7 +4,7 @@
 //   dist/glsl-test.html          test/glsl_test.js      (window.__glslTest)
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
-//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--ref <commit> [--absolute] [--force]]
+//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--ref <commit> [--absolute [PAGES]] [--force]]
 // With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
 // reference's is not run (nothing to compare) unless --force.
 // Without --ref, every page must pass outright (the rules of the command files, test/glsl_inverse_cmd.js): what the
@@ -12,13 +12,16 @@
 // singularities ((e^z - 1)/z, sin z / z) miss the tolerance on some (GitHub's virtual Mac GPU). With --ref the pages
 // of the reference commit (built from its own tests and sources) run on the same machine too, and this change fails
 // only where it is worse: a chain that fails more often, a new error, a check that held and no longer does.
-// --absolute with --ref: both. --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse
-// page runs whole (its chains come from one seeded sequence). Exit 0 pass, 1 a failure, 2 setup problem.
+// --absolute with --ref: both; --absolute glsl,inverse: both for those pages, paired only for the others (the
+// self-hosted Mac: adv fails 304 values there, in 10 chains near removable singularities, as every release since v14
+// and the reference do). --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse page
+// runs whole (its chains come from one seeded sequence). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
+const { parts: srcParts } = require('../test/src_text');
 
 const PAGES = [
   { id: 'glsl', make: 'test/make_glsl_test.py', page: 'glsl-test.html' },
@@ -29,7 +32,10 @@ const argv = process.argv.slice(2);
 const arg = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : null);
 const only = arg('--only');
 const ref = arg('--ref');
-const absolute = !ref || argv.includes('--absolute');
+const absArg = arg('--absolute');
+const absPages = absArg && !absArg.startsWith('--') ? absArg.split(',') : null;   // (null: every page)
+if (absPages && absPages.some((id) => !PAGES.some((p) => p.id === id))) { console.error(`--absolute: pages are ${PAGES.map((p) => p.id).join(', ')}`); process.exit(2); }
+const absolute = (p) => !ref || (argv.includes('--absolute') && (!absPages || absPages.includes(p.id)));
 const [pi, pn] = (arg('--part') || '1/1').split('/').map(Number);
 // --sections: the adv page's sections to run (?only=: direct, keys, compile, main). --part splits only main, the
 // chains; the others run whole, so in parts they would run once per part (on Windows' software renderer a part of
@@ -48,12 +54,12 @@ async function waitFor(B, expr, timeout) {
 }
 
 // what a page is built from: its builder, and the files the builder reads (the sources it names, its test file, the
-// fixtures), read from the builder itself so the list follows it
+// fixtures), read from the builder itself so the list follows it; a source kept as parts (gl.js) is its folder, src/gl
 function inputsOf(p) {
   const make = fs.readFileSync(path.join(ROOT, p.make), 'utf8');
   const files = [...new Set([...make.matchAll(/'([\w.]+\.js)'/g)].map((m) => m[1]))]
-    .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : `test/${n}`));
-  return [p.make, 'ci/glsl.js', ...files, ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
+    .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : srcParts(n) ? `src/${n.replace(/\.js$/, '')}` : `test/${n}`));
+  return [p.make, 'ci/glsl.js', ...files, ...(/src_parts/.test(make) ? ['tools/src_parts.py'] : []), ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
 }
 
 // builds the pages in root (a checkout or the reference's worktree) with its own builders
@@ -138,7 +144,7 @@ async function main() {
       const cur = await runPage(srv.base, p);
       const rf = R ? await runPage(rsrv.base, p) : null;
       const why = rf ? worse(p, cur, rf) : [];
-      const pass = (!absolute || cur.ok) && !why.length && !(cur.r && cur.r.setup);
+      const pass = (!absolute(p) || cur.ok) && !why.length && !(cur.r && cur.r.setup);
       if (!pass) failed++;
       renderer = renderer || (cur.r && cur.r.renderer);
       const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
@@ -155,4 +161,6 @@ async function main() {
     `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...details, ''].join('\n'));
   return failed ? 1 : 0;
 }
-main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### GLSL conformance: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });
+// (ci/impact.js reads the pages and their inputs)
+if (require.main === module) main().then((rc) => process.exit(rc), (e) => { console.error(e); summary(`### GLSL conformance: setup problem\n\n\`${esc(String(e.message || e))}\`\n`); process.exit(2); });
+module.exports = { PAGES, inputsOf };

@@ -1,0 +1,65 @@
+[
+ {
+  "id": "user-1",
+  "severity": "medium",
+  "device": "laptop 1366x768 (both)",
+  "title": "A number just added with its step says \"Not used yet. Use in f₂\"",
+  "detail": "R06 replay: ⌘K, type z^2 + a, Enter. The palette row promises \"Formula, with a new number a = 1\" and the toast says \"Added f₃ Formula and the number a\"; f₃'s own section reads \"Numbers: a = 1\". But the Inspector's Numbers section under it says \"Not used yet.\" with an offer \"Use in f₂\" (f₂ is z^2 + 3, which has no a). It stays wrong after clicking other cards and back; only a page reload clears it. A person reads that the number is linked to nothing (exactly UX65's complaint) and is offered to rewrite the wrong step.",
+  "evidence": "notes/ux-build/shots/w1-review-user/L03-a-added.png; Numbers text before reload 'a = [−2..2] Not used yet. Use in f₂', after reload 'a = [−2..2]' (no line).",
+  "fix": "Recompute the Numbers usage line from the current chain whenever the chain changes (the palette's step+number add in one undo step does not trigger it); the \"Use in\" offer should name only a step that could take the number, never when a step already uses it. Add a unit check: add 'z^2 + a' via the palette, the Numbers section has no 'Not used yet'."
+ },
+ {
+  "id": "user-2",
+  "severity": "medium",
+  "device": "laptop 1366x768; phone (same rule)",
+  "title": "Near the unit circle the half grid wins: a click just off the circle makes a free grid point",
+  "detail": "The user's own request: putting a point on the unit circle should be easy. At the default view (52 px per unit, half grid every 26 px) the Point tool clicked 6 px outside the circle at 30° snapped to \"grid point 1 + 0.5i\" (a free point, not on the circle). Exactly on the stroke it works (\"on the unit circle at 30°\"). In the opening scene the unit circle in X is only a faint dotted line under the region, so aiming within a few px of it is hard. Also the 15° detents capture about ±5° when placing (5°→1, 25°→30°, 35°→30°), so with Snap on two thirds of the circle can only be reached by sliding or Alt; the hover chip does tell the angle.",
+  "evidence": "notes/ux-build/shots/w1-review-user/L05-point-hover.png, notes/ux-build/shots/w1-review-user/L05-sheet-place-slide.png; hover chips at 0 px off: 5°→'at 1', 25°→'at 30°', 45°→'Line 1 ∩ the unit circle'; 6 px off at 30°→'grid point 1 + 0.5i'.",
+  "fix": "Rank curve targets above grid points when the pointer is within the curve's capture band (grid points only when no curve is within ~8 px, or when the grid point also lies on that curve); keep the detents for sliding but make the placement detent narrower (±2°). Consider drawing the shown unit circle a little stronger while a point/construct tool is armed."
+ },
+ {
+  "id": "user-3",
+  "severity": "low",
+  "device": "phone 412x860 (touch)",
+  "title": "After an Orthogonal circle on the phone, X's pattern refits and Y's inset zooms out, without a word",
+  "detail": "Orthogonal on the shown unit circle with two taps on it works (3 taps after arming, circle orthogonal and through both points; the user's \"needs distinct points\" bug is gone on laptop and phone). But the moment the circle is made, X's checker cells double and turn pale, and the Y inset re-fits to the new circle's large image so the region's image shrinks to a blob in the corner. No message showed (UX91's once-per-session toast was already used earlier in the tab). The person sees their picture change because they drew a construction line.",
+  "evidence": "notes/ux-build/shots/w1-review-user/P09-sheet-orthogonal.png (4 frames), notes/ux-build/shots/w1-review-user/P10-made-later.png",
+  "fix": "Do not refit the pattern cell or Y's view for construction curves (circles/lines from Construct are not regions); at most refit for regions, and keep UX91's note per change, not per session."
+ },
+ {
+  "id": "user-4",
+  "severity": "low",
+  "device": "phone 412x860, Russian (and English with a sheet open)",
+  "title": "The X chip's \"Hold and slide to read F(z)\" is cut; in Russian the key words are lost",
+  "detail": "UX10's teaching line lives in X's scale chip. In Russian at 412 px it reads «2 / дел. Удерживайте и ведите палец, чтобы …»: «прочитать F(z)», the point of the hint, is cut. In English it fits at full height, but with the More tools sheet open (split view) it reads 'Hold and slid…'.",
+  "evidence": "notes/ux-build/shots/w1-review-user/P12-ru-dark-first.png; notes/ux-build/shots/w1-review-user/P09-sheet-orthogonal.png (first frame)",
+  "fix": "A shorter Russian line that fits (e.g. «Удерживайте палец — F(z)») or let the hint drop to a second line / drop to an icon + 'F(z)' when the chip is narrow; never ellipsize it."
+ },
+ {
+  "id": "user-5",
+  "severity": "low",
+  "device": "laptop 1366x768 and 1440x900",
+  "title": "The Inspector's \"+ Number\" floats far below its section",
+  "detail": "In the Numbers section the \"+ Number\" button sits 100–150 px below the hint or the last number, with empty space between (more when the tour's first-run line takes its 48 px). It reads as belonging to nothing.",
+  "evidence": "notes/ux-build/shots/w1-review-user/L02-pub-first.png (hint at y≈345, button at y≈492), notes/ux-build/shots/w1-review-user/L03-a-added.png (button at y≈594)",
+  "fix": "Place + Number directly under the last number or the hint (no flex push to the panel's bottom)."
+ },
+ {
+  "id": "user-6",
+  "severity": "low",
+  "device": "laptop and phone",
+  "title": "Orthogonal's prompt for the second pick does not say a tap on the circle is fine",
+  "detail": "After picking the circle, the chip says \"Pick a point or an empty spot · 1 of 2 · Orthogonal\". The user's case is two points ON that circle; the words suggest the circle itself is not a valid place and a tap on it might re-pick the curve. It works, but a person has to try it. The chip also offers 'Whole | Inside | Outside' with no word of what they do.",
+  "evidence": "notes/ux-build/shots/w1-review-user/L05-sheet-pull-perp.png, notes/ux-build/shots/w1-review-user/P09-sheet-orthogonal.png",
+  "fix": "\"Pick a point (on Circle 1 or anywhere)\"; a tooltip/aria for Whole/Inside/Outside (e.g. 'Draw the whole circle / only inside / only outside Circle 1')."
+ },
+ {
+  "id": "user-7",
+  "severity": "low",
+  "device": "laptop 1366x768 and phone",
+  "title": "Scorecard replays: counts now, and what is still above ideal",
+  "detail": "Replayed in the running app: R02 laptop 5 (chain ⋯, Clear chain, ⌘K, sin, Enter; ideal 2; X stays on the left after the add, UX01 fixed; Replace is wave 2 D1). R05 laptop 1 (Enter applies 'Drop the trailing *'; was 0) — the message still starts with the parser's 'Unexpected end of expression'. R06 laptop 3 (⌘K, z^2 + a, Enter; was 7) but see user-1. R11 phone 6 (Polygon, 4 taps, tap first point; Undo at the thumb removes the last point; no Done/Cancel until D3). R15 laptop 2: the pane head's Display options holds only View outline / Phase key, pattern and opacity are still at the bottom of Region tools (D4). R23-like (Orthogonal on the unit circle) laptop 4, phone 5 (More, Orthogonal, circle, 2 taps). R25: the chip's ⌫ undo pick and Undo at the thumb undo the pick, not earlier work. R34 laptop 2 (caret, first row 'Hear the function'; ideal 1). The pull to free a glider works with a mouse ('Pull further to free z₁' at 30 px, 'z₁ is free' at 60 px held). NOT replayed in this time box: R09 (Undo/Redo words), R10, R17, R30, R35, R36 (the Examples popover did not open from my script after Escape closed the Sound popover; not judged), R38; Android Back and keyboard (need the real phone).",
+  "evidence": "notes/ux-build/shots/w1-review-user/L05-sheet-place-slide.png, notes/ux-build/shots/w1-review-user/L05-sheet-pull-perp.png, notes/ux-build/shots/w1-review-user/L07-pull30.png, notes/ux-build/shots/w1-review-user/P13-polygon-4.png, notes/ux-build/shots/w1-review-user/D11-sound.png",
+  "fix": "None in wave 1 beyond user-1..user-6; R02, R11, R15, R34 reach their ideals with wave 2's D1, D3, D4, D5."
+ }
+]
