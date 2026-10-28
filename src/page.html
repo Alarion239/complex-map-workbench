@@ -1673,6 +1673,13 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .btn.xf-dest { flex: 1 1 0; padding: 0 8px; }
 }
 .modal p, .modal li { max-width: 68ch; }
+.guide-nav { display: grid; gap: 8px; margin: 12px 0 4px; }
+.guide-find { max-width: 320px; }
+.guide-toc { display: flex; flex-wrap: wrap; gap: 6px; }
+.guide-toc-b { border: 0; border-radius: var(--r-2, 4px); background: var(--accent-soft, transparent); color: var(--accent); font: var(--t-label); padding: 3px 10px; cursor: pointer; }
+.guide-toc-b[hidden], .guide-sec[hidden] { display: none; }
+.guide-show { margin: 8px 0 4px; }
+.guide-none { color: var(--muted); }
 .modal p + p { margin-top: 8px; }
 .modal ul, .modal ol { padding-left: 18px; margin: 4px 0 0; display: grid; gap: 4px; }
 .modal .kbd, table.keys .kbd { height: 20px; min-width: 20px; padding: 0 5px; font: 400 11px/16px var(--f-mono); color: var(--ink-2); background: var(--surface-2); }

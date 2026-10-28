@@ -146,7 +146,7 @@
   const underChain = () => window.innerWidth >= 768 && window.innerWidth < 1024;
   let tempInsp = false;
   function selectStep(k) {
-    S.sel = k;
+    setSel(k);
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     syncSel();

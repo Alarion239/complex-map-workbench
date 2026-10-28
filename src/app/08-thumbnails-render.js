@@ -565,8 +565,8 @@
   }
   function setFocus(k, quiet) {
     phHold();
-    S.focus = k;
-    if (k > 0) S.sel = k;   // (v15: showing a step alone selects it)
+    setFocusStep(k);
+    if (k > 0) setSel(k);   // (v15: showing a step alone selects it)
     leftAuto = true; rightAuto = true;
     // (Y's split view, put aside by the deformation, is fitted again for the new focus when the deformation closes)
     if (defMem.y) defMem.y.auto = true;

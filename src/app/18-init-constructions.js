@@ -510,10 +510,10 @@
     bindsAll();
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
     // narrow windows start with the drawers closed (run-time only: save() writes dockPref)
-    if (isDrawer('R')) S.hideRight = true;
-    if (isDrawer('L')) S.hideLeft = true;
+    if (isDrawer('R')) setHidden('R', true);
+    if (isDrawer('L')) setHidden('L', true);
     // (v15, 1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
-    if (oneDock()) { if (S.steps.length) { S.hideLeft = true; S.hideRight = false; } else { S.hideLeft = false; S.hideRight = true; } }
+    if (oneDock()) { if (S.steps.length) { setHidden('L', true); setHidden('R', false); } else { setHidden('L', false); setHidden('R', true); } }
     if (S.clipWin) clipWin = S.clipWin;
     paneL.resize(); paneR.resize();
     paneL.setView(S.srcView);
@@ -642,15 +642,15 @@
     window.addEventListener('resize', () => {
       const now = { L: isDrawer('L'), R: isDrawer('R') }, wide = window.innerWidth >= 768;
       if (wide && wideWas && (now.L !== drawerWas.L || now.R !== drawerWas.R)) {
-        if (now.L !== drawerWas.L) S.hideLeft = now.L || dockPref.L;
-        if (now.R !== drawerWas.R) S.hideRight = now.R || dockPref.R;
+        if (now.L !== drawerWas.L) setHidden('L', now.L || dockPref.L);
+        if (now.R !== drawerWas.R) setHidden('R', now.R || dockPref.R);
         applyLayout();
       }
       drawerWas = now; wideWas = wide;
       if (oneDock() && !S.hideLeft && !S.hideRight) applyLayout();   // (v15: one docked panel from 1024 to 1279)
       // (review regress-1: back at 1280 or more, both panels follow the user's choice again)
       const one = oneDock();
-      if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; applyLayout(); }
+      if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { setHidden('L', dockPref.L); setHidden('R', dockPref.R); applyLayout(); }
       oneWas = one;
       if (tempInsp) placeTemp();
     });
@@ -708,7 +708,7 @@
       $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
-    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; S.focus = 0; chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
+    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;
@@ -796,12 +796,16 @@
       if (first) first.focus({ preventScroll: true });
       armOutside(btn);
     }
+    let escSound = false;   // (set by the first Esc handler below, read by the one after it)
     // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
     // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a
     // Listen along does only that: the next Esc ends the tour
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       const playing = !!snd.play;
+      // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
+      // the sound and goes no further; the next one steps out of the modes)
+      escSound = !!(sndP && sndP.on && (snd.play || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
       soundStop();
       if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
@@ -838,6 +842,7 @@
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
         else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
         else if (tool !== 'select') setTool('select');
+        else if (escSound) { /* the sound was this Esc's level */ }
         else if (modeNext()) modeClose(modeNext());
         soundStop();
       }
@@ -909,7 +914,7 @@
         // keeps the selection, review russian-6 and verify-8)
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
-        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { S.sel = sel0; syncSel(); requestRender('P'); save(); }
+        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { delete S.deform; openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
@@ -940,13 +945,13 @@
         setState(Object.assign(blankState(), { hideLeft: S.hideLeft, hideRight: S.hideRight }));
         selected = null; draft = null;
         dropAllGPU();
-        loadExample(firstExample());
+        loadExample(firstExample(), undefined, { quiet: true });
         buildDisplay(); applyLayout();
         hist = [snap()]; hi = 0; updateUndo();
         toast($t('The saved session could not be restored, so the first example was loaded.'));
       }
     } else {
-      loadExample(firstExample());
+      loadExample(firstExample(), undefined, { quiet: true });
       hist = [snap()]; hi = 0; updateUndo();
     }
     try { const k = lsk('cmw-probe'); localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { warnStorage(); }
@@ -958,7 +963,7 @@
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Region tools'); }
     Phone.init({
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
-      showPanels: (ph) => { if (ph) { S.hideLeft = false; S.hideRight = false; } else { S.hideLeft = dockPref.L; S.hideRight = dockPref.R; } applyLayout(); requestRender('P'); },
+      showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR', 'T'); },
       // (v15.1, build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
       // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
