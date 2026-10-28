@@ -2298,9 +2298,13 @@ const Funcs = (() => {
     const s = v === 'z' ? tex : tex.replace(/\\(?:text|textit|textbf|mathrm|operatorname|mbox)\s*\{[^{}]*\}|\\[a-zA-Z]+|z/g, (m) => (m === 'z' ? v : m));
     return { s, p: 0 };
   }
+  // (a link or a scene carries params.show as it was written, and MathJax typesets it as soon as it opens: a display
+  // form that links, styles, names DOM nodes, loads extensions, defines macros or writes MathML is refused, and the
+  // formula itself is shown)
+  const SHOW_BAD = /\\(?:href|url|style|class|cssId|data|html|require|unicode|newcommand|renewcommand|newenvironment|renewenvironment|def|let|edef|gdef|mmlToken|tag|label|ref|eqref|begingroup|endgroup)(?![a-zA-Z])/;
   function withShow(b, p) {
     const t = p && typeof p.show === 'string' ? p.show.trim() : '';
-    if (!t || !b || b.error || p.showOf !== showKey(p.expr)) return b;
+    if (!t || !b || b.error || p.showOf !== showKey(p.expr) || SHOW_BAD.test(t)) return b;
     b.show = (a) => showIn(t, a);
     return b;
   }

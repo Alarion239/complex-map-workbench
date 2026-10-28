@@ -63,5 +63,13 @@ check('not a string: none', none({ expr: 'z^2', cut: 180, show: 7, showOf: K('z^
 check('an error: none', Funcs.build({ type: 'custom', params: { expr: 'z^2+x', cut: 180, show: 'z^2', showOf: K('z^2+x') } }).error && none({ expr: 'z^2+x', cut: 180, show: 'z^2', showOf: K('z^2+x') }));
 check('a catalog step: none', none({ a: '2', b: '0', show: 'z', showOf: K('') }, 'affine') && none({ a: '2', show: 'z', showOf: K(undefined) }, 'mul'));
 
+// a display form from a link or a scene is typeset as it opens: one that links, styles, names DOM nodes, loads an
+// extension, defines a macro or writes MathML is refused (the formula is shown)
+for (const bad of ['\\href{javascript:alert(1)}{z^2}', '\\style{color:red}{z^2}', '\\class{x}{z}', '\\cssId{x}{z}', '\\require{html}z',
+  '\\newcommand{\\f}{z}\\f', '\\def\\f{z}\\f', '\\mmlToken{mi}{z}', '\\unicode{65}', '\\data{a=1}{z}', 'z\\tag{1}']) {
+  check(`a display form refused: ${bad}`, none({ expr: 'z^2', cut: 180, show: bad, showOf: K('z^2') }));
+}
+check('an ordinary display form is kept (\\frac, \\text{class}, \\left)', !none({ expr: 'z^2', cut: 180, show: '\\frac{z}{2}\\,\\text{class}\\left(z\\right)', showOf: K('z^2') }));
+
 console.log(`t_custom_show: ${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
