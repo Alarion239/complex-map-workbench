@@ -35,6 +35,7 @@ jobs:
       - name: ESLint
         run: |
           npx eslint -f json -o eslint.json || true
+          if [ ! -f eslint.json ]; then echo '### ESLint: crashed before reporting (see the log)' >> "$GITHUB_STEP_SUMMARY"; npx eslint || true; exit 0; fi
           node -e '
             const r = require("./eslint.json");
             let e = 0, w = 0; const rules = {};
@@ -48,11 +49,11 @@ jobs:
           npx tsc -p tsconfig.json > tsc.txt || true
           cat tsc.txt
           {
-            echo "### TypeScript: $(grep -c 'error TS' tsc.txt) errors"
+            echo "### TypeScript: $(grep -cE '\): error TS' tsc.txt || true) errors"
             echo
             echo '| file | errors |'
             echo '|---|---|'
-            grep -oE '^[^(]+' tsc.txt | sort | uniq -c | sort -rn | awk '{ print "| `" $2 "` | " $1 " |" }'
+            { grep -E '^[^ ].*\([0-9]+,[0-9]+\): error TS' tsc.txt || true; } | sed -E 's/\(.*//' | sort | uniq -c | sort -rn | awk '{ print "| `" $2 "` | " $1 " |" }'
             echo
           } >> "$GITHUB_STEP_SUMMARY"
       - name: ruff

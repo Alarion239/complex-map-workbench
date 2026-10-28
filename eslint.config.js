@@ -16,16 +16,29 @@ const own = {};
 for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
   const text = fs.readFileSync(path.join(SRC, f), 'utf8');
   const names = new Set();
-  for (const n of espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body) {
+  let body = [];
+  try {
+    body = espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body;
+  } catch (e) {
+    // a file that does not parse: ESLint reports the syntax error itself, the other files are still linted
+  }
+  for (const n of body) {
     if (n.type === 'VariableDeclaration') for (const d of n.declarations) { if (d.id.type === 'Identifier') names.add(d.id.name); }
     else if ((n.type === 'FunctionDeclaration' || n.type === 'ClassDeclaration') && n.id) names.add(n.id.name);
   }
   for (const m of text.matchAll(/\broot\.([A-Za-z_$][\w$]*) = M\b/g)) names.add(m[1]);
-  own[f] = names;
+  own[f] = { names, text };
 }
+// a file's own top-level names that another file uses are its exports, not unused variables
+const exported = (file) => [...own[file].names].filter((k) =>
+  Object.entries(own).some(([f, o]) => f !== file && new RegExp(`(^|[^\\w$.])${k.replace(/\$/g, '\\$')}\\b`).test(o.text)));
+const unusedRule = (file) => {
+  const names = exported(file);
+  return ['error', { args: 'none', caughtErrors: 'none', ...(names.length && { varsIgnorePattern: `^(${names.map((k) => k.replace(/\$/g, '\\$')).join('|')})$` }) }];
+};
 const appGlobals = (file) => {
   const out = {};
-  for (const [f, names] of Object.entries(own)) if (f !== file) for (const k of names) out[k] = 'readonly';
+  for (const [f, o] of Object.entries(own)) if (f !== file) for (const k of o.names) out[k] = 'readonly';
   return out;
 };
 
@@ -60,9 +73,10 @@ module.exports = [
         MathJax: 'readonly',    // loaded from the CDN by the page (build.py)
       },
     },
+    rules: { 'no-unused-vars': unusedRule(f) },
   })),
   // the template of src/cyr.js (tools/make_cyr_module.py): a browser script like the files it becomes
-  { files: ['tools/cyr_template.js'], languageOptions: { sourceType: 'script', globals: { ...globals.browser, ...appGlobals('cyr.js'), module: 'readonly' } } },
+  { files: ['tools/cyr_template.js'], languageOptions: { sourceType: 'script', globals: { ...globals.browser, ...appGlobals('cyr.js'), module: 'readonly' } }, rules: { 'no-unused-vars': unusedRule('cyr.js') } },
   // CI, tools and the unit tests: node scripts (the tests also put the app's modules on global)
   {
     files: ['ci/**/*.js', 'tools/**/*.js', 'test/t_*.js', 'eslint.config.js'],
