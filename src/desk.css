@@ -94,6 +94,13 @@
 .ihead .ty { display: inline-grid; place-items: center; width: 14px; height: 14px; color: var(--ink-2); flex: 0 0 14px; }
 .ihead .ty svg { width: 14px; height: 14px; display: block; }
 .ihead .ttl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+/* (D1, issue #23) the step's title opens the search ready to replace it: "Möbius ▾" */
+.ihead .ttl-btn { padding: 2px 4px; margin-left: -4px; border-radius: var(--r-1); cursor: pointer; }
+.ihead .ttl-btn::after { content: ' ▾'; color: var(--ink-2); font-size: 11px; }
+.ihead .ttl-btn:hover { background: var(--well); }
+button.pal-ctx { border: 1px solid var(--line-strong); cursor: pointer; color: var(--ink); }
+button.pal-ctx:hover { background: var(--hover, var(--well)); }
+.pal-ctx .pal-at-ic svg { width: 12px; height: 12px; }
 .ihead .icon-btn { width: 28px; height: 28px; flex: 0 0 auto; }
 .ihead .icon-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
 .ihead .fF { font: italic 500 15px/1 var(--f-math); padding: 0 4px; }
@@ -284,6 +291,8 @@
 /* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
 .pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
 .pane-head > .empty-chip[hidden] { display: none; }
+.pane-head > .empty-chip.tight > .btn { font-size: 0; width: 26px; padding: 0; }
+.pane-head > .empty-chip.tight > .btn::before { content: "+"; font: 600 16px/1 var(--f-ui, inherit); }
 .pane-head > .empty-chip > span { display: none; }
 .pane-head > .empty-chip > .btn { height: 24px; min-height: 24px; }
 /* (V01) a one-time note about the plane, in its head: the targets' preimages are shaded in X; it gives way before the
@@ -300,6 +309,14 @@
 /* a step shown alone: the chip in X's head, with its × back to the whole chain */
 .alone-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 22px; margin-right: 6px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip[hidden] { display: none; }
+/* a long Russian or Italian pick sentence may take a third line on a laptop before it is cut (the chip is one of the plane's, over the picture) */
+@media (min-width: 1280px) and (max-width: 1440px) { :root:is([data-lang="ru"], [data-lang="it"]) .cm-chip > .cm-t { -webkit-line-clamp: 3; } }
+.mc-stop { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0 8px; height: 22px; cursor: pointer; }
+.mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
+.mode-chips[hidden] { display: none; }
+.mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
+.alone-chip .kbd, .mode-chip .kbd { font-size: 10px; padding: 0 4px; }
+:root.ph .mode-chips { display: none; }
 .alone-chip i { font: italic 500 13px/1 var(--f-math); }
 .alone-chip sub { font-size: 9.5px; }
 .alone-chip .icon-btn { width: 20px; height: 20px; color: var(--accent); }
@@ -322,8 +339,7 @@
 .idom .itxt { font: inherit; color: inherit; }
 /* design-5: the temporary Inspector with X and Y side by side takes the stage's right 296 px while it is open */
 .layout.temp-dock > .stage { margin-right: 296px; }
-#clearChain[hidden] { display: none !important; }
-.pipe-head #chainMoreBtn { width: 28px; height: 28px; }
+#clearChain[hidden], #clearChain.toast-away { display: none !important; }
 /* design-16: at 768 to 1023 the zeros fill the left column and the poles the right, under a₃ */
 @media (min-width: 768px) and (max-width: 1023px) {
   #propsPanel .params.zp { grid-auto-flow: row dense; }
@@ -497,11 +513,12 @@
 @media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
 /* Italian too (issue #61): the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
 @media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* [v17 D4] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4): this view's options and the regions' display, which
-   leaves the left panel on the laptop (the phone keeps it in its Display sheet) */
-:root:not(.ph) #secDisplay { display: none; }
+/* [v17 D4, D5] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4, #82): this view's options and the unit circle,
+   and in the X → Y view the regions' display (page.html #regionsHome), with the pattern's swatch on the button */
 .pane-head .disp-btn { height: 26px; padding: 0 6px 0 9px; gap: 2px; font: 500 12.5px/1 var(--f-ui); white-space: nowrap; }
 .pane-head .disp-btn .disp-caret { display: inline-flex; width: 14px; height: 14px; }
+.pane-head .disp-btn .disp-sw { width: 18px; height: 14px; margin-right: 4px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+.pane-head .disp-btn.tight .disp-sw { display: none; }
 .pane-head .disp-btn .disp-caret svg { width: 14px; height: 14px; }
 .pane-head .disp-btn .disp-i { display: none; width: 15px; height: 15px; }
 .pane-head .disp-btn .disp-i svg { width: 15px; height: 15px; }

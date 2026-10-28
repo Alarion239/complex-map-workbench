@@ -20,7 +20,7 @@ const center = async (sel) => ev(`(() => { const e = document.querySelector(${JS
 const more = async () => { const vis = await ev(`getComputedStyle(document.getElementById('hdrMoreBtn')).display !== 'none'`); if (vis) { await clickId('hdrMoreBtn'); await sleep(300); } return vis; };
 await S('start');
 // the header and its menus (through More where the bar folds)
-for (const id of ['langBtn', 'exportBtn', 'helpBtn', 'soundMore', 'examplesBtn']) {
+for (const id of ['settingsBtn', 'exportBtn', 'shareBtn', 'helpBtn', 'soundMore', 'examplesBtn']) {   // ([v17 D5] Language is in Settings)
   if (await more()) await S('more menu');
   await clickId(id); await S('menu ' + id, 500); await esc(); await esc();
 }

@@ -4,7 +4,7 @@
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side, noNote, noDisp) {
+  function fitTitle(side, noNote, noDisp, noEmpty) {
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
@@ -12,6 +12,9 @@
     // narrow as the options button it replaced, e.g. Y's head at 1366 px with the chain empty and Add function there)
     const disp = pane.querySelector('.pane-head .disp-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
+    // (and Y's Add function button, in the head while the chain is empty, shrinks to its plus after the Display button)
+    const emp = side === 'R' ? $('emptyRight') : null;
+    if (emp && !noEmpty) emp.classList.remove('tight');
     // (v16.5 UX20: Y's one-time note in the head gives way before the title itself does; never cut)
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
@@ -28,6 +31,7 @@
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
       if (!(tag && ptw - tw <= room)) {
         if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }
+        if (emp && !emp.hidden && emp.parentNode === pane.querySelector('.pane-head') && !noEmpty) { emp.classList.add('tight'); fitTitle(side, noNote, true, true); return; }
         pane.classList.add('tiny'); return;
       }
       t.classList.add('notag'); ptw -= tw;
@@ -107,6 +111,7 @@
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
+    syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
     // (the last active step turned off or removed ends the deformation, and with it the merge)
     if (morph.open && !morphRange().steps.length) { closeTransport(); return; }
@@ -285,6 +290,8 @@
     if (inHead) {
       b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
         h('span', { class: 'disp-i', 'aria-hidden': 'true', html: ICONS.sliders }), h('span', { class: 'disp-l' }, $tx('button', 'Display')), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
+      // ([v17 D5, #82] in the X → Y view, the regions' pattern at a glance: a small swatch before the word)
+      if (S.view.main === 'xy') { const sw = h('canvas', { class: 'disp-sw', width: 52, height: 40, 'aria-hidden': 'true' }); b.prepend(sw); drawPatternSwatch(sw, S.pattern); }
       b.addEventListener('click', () => openFootPop(b, false, side));
     } else if (rest.length) {
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
@@ -301,12 +308,14 @@
     if (!refresh && ft.pop && ft.pop.isConnected) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
     const rest = ft.kids.slice(ft.n);
-    // ([v17 D4] from the pane head: this view's options, then the regions' display: pattern, cell, unit circle, grid
-    // lines, chevrons, opacity, mesh; that section's body is lent to the popover and goes back when it closes)
-    const head = !!btn.closest('.pane-head'), sec = $('secDisplay'), body = head && sec ? sec.querySelector('.psec-body') : null;
-    const kids = head ? [...(rest.length ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest] : []), ...(body ? [h('div', { class: 'opts-h' + (rest.length ? ' opts-sep' : '') }, $t('Regions')), body] : [])] : rest;
+    // ([v17 D4, D5 #82] from the pane head: this view's options and the unit circle, then, in the X → Y view only, the
+    // regions' display: pattern, cell, grid lines, chevrons, opacity (they change nothing in Phase or Landscape). Both
+    // are lent from page.html's #regionsHome and go back when the popover closes; mesh quality is in Settings)
+    const head = !!btn.closest('.pane-head'), home = $('regionsHome');
+    const unit = head ? $('unitBox') : null, regions = head && S.view.main === 'xy' ? $('regionsBox') : null;
+    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions')), regions] : [])] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
-    if (body) pop._onClose = () => { if (body.parentNode !== sec) sec.append(body); };
+    if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');

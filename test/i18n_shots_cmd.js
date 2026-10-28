@@ -28,7 +28,7 @@ for (const w of [1440, 390]) {
     await key('k', 4); await settle(400); await type('tg'); await settle(700); await snap('07-palette'); await esc();
     await ev(`(() => { if (getComputedStyle(document.getElementById('hdrMoreBtn')).display !== 'none') document.getElementById('hdrMoreBtn').click(); })()`); await settle(400);
     if (phone) { await snap('08-more-menu'); }
-    await ev(`document.getElementById('langBtn').click(), 1`); await settle(600); await snap('09-language-menu'); await esc();
+    await ev(`(document.getElementById('settingsBtn') || {}).click && document.getElementById('settingsBtn').click(), 1`); await settle(600); await snap('09-language-menu'); await esc();   // ([v17 D5] Language is in Settings)
     await ev(`document.getElementById('examplesBtn').click(), 1`); await settle(1500); await snap('10-examples'); await esc();
     await key('?'); await settle(1500); await snap('11-guide'); await esc();
     await key('e', 4); await settle(3500); await snap('12-export-dialog'); await esc(); await settle(500);

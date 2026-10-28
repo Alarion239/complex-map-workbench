@@ -21,7 +21,7 @@ const SHARDS = [
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js'] },                                       // 480 + 295
   { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js'] },   // 340 + 292 + 114 + 22 + 24
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
-  { id: 'tour', suites: ['tour_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
+  { id: 'tour', suites: ['tour_cmd.js', 'tour_chapters_cmd.js', 'tour_auto_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js'] },                   // 552 + 16 + 44
   { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone'] },                                          // 557
   { id: 'tour-audit-desktop', suites: ['tour_audit_cmd.js#desktop'] },                                      // 612
@@ -33,10 +33,10 @@ const SHARDS = [
   { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet'] },   // 227 + 256 + 197 + 39
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js'] },                    // 287 + 113 + 75
   { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },   // 226 + 176 + 47 + 31 + 52
-  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
+  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'mode_chips_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
   { id: 'exact', suites: ['p5_accept_cmd.js'] },                                                            // 543
   // (v16.5's suites, the seventh run's times)
-  { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js'] },            // 210 + 172 + 116
+  { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
   { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
   // (the smoke suite: every tier that runs browser suites runs it too, ci/impact.js; 34 s locally)
   { id: 'smoke', suites: ['smoke_cmd.js'] },
