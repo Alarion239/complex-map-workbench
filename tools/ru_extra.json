@@ -133,5 +133,7 @@
  "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
  "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
  "Y hidden": "Y скрыта",
- "X hidden": "X скрыта"
+ "X hidden": "X скрыта",
+ "Listening along {name}": "Слушаем: %{name}",
+ "Listening along": "Слушаем вдоль кривой"
 }

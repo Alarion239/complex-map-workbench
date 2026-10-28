@@ -92,6 +92,7 @@
     return morphOn() ? 'morph' : null;
   };
   function modeClose(m) {
+    if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
     else if (m === 'solo') setSolo(S.solo);
     else if (m === 'morph') closeTransport();
@@ -106,13 +107,27 @@
     const want = [];
     if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
     if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
+    // Listening along: the plane's own chip says it and has the Stop
+    const lp = snd.play;
+    if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
+    // an expanded plane leaves the other one as a labelled strip at the edge, a way back
+    const strip = $('hiddenStrip') || h('button', { type: 'button', class: 'hidden-strip', id: 'hiddenStrip', hidden: true, onclick: () => setSolo(S.solo) });
+    const hid = S.view.main === 'xy' && S.solo && !mg ? (S.solo === 'L' ? 'R' : 'L') : null;
+    if (strip.parentNode !== $('panes')) $('panes').append(strip);
+    strip.hidden = !hid;
+    if (hid) {
+      const t = hid === 'R' ? $t('Y hidden') : $t('X hidden');
+      strip.dataset.side = hid;
+      if (strip.textContent !== t) { strip.textContent = t; strip.setAttribute('aria-label', $t('Show both planes')); strip.setAttribute('data-tip', $t('Show both planes')); }
+    }
     const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key]) => h('span', { class: 'mode-chip', 'data-mode': m },
         h('span', { class: 'mc-t' }, label),
         ...(m === next ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
-        h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
+        m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
+          : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
     if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
     box.hidden = !want.length;
