@@ -1582,8 +1582,6 @@ const Funcs = (() => {
     build({ expr, cut, ast: given, part }) {
       const ast = given || Expr.parse(expr);
       if (Expr.hasBool(ast)) throw new Error($t('A function cannot contain comparisons'));
-      // [issue #5] sums and products are read and computed (Expr), but not drawn on the GPU yet
-      if (Expr.hasSeries(ast)) throw new Error($t('Sums and products cannot be drawn yet'));
       const vars = Expr.usesVars(ast);
       for (const v of vars) if (v !== 'z') throw new Error($t('Use z (or w) as the variable{hint}', { hint: v === 'x' || v === 'y' ? $t('; write Re z, Im z for real parts') : '' }));
       const th = cut * DEG;

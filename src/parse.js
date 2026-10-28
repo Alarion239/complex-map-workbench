@@ -808,8 +808,17 @@ const Expr = (() => {
   // the terms term(k) for k from k0 by dk (±1), at most cap of them, or to k1: their sum (or product)
   // a sum whose terms are far larger than the sum lost its digits to cancellation (e^z's series at Re z = −40): NaN
   const cancelled = (A, S) => A * SER_EPS > SER_LOOSE * CX.abs(S);
+  // the rest of a series whose terms fall as k^{−p} (p from the windows at N/2 and N): Σ_{i>k} C i^{−p} ≈ t_k k^p
+  // (k + ½)^{1−p}/(p − 1) = t_k (k + ½) (k/(k + ½))^p/(p − 1); null when they do not fall like that (p ≤ 1.5)
+  function tailOf(t, k, mN, mH, kH) {
+    const ak = Math.abs(k), ah = Math.abs(kH);
+    if (!(mN > 0) || !(mH > mN) || !(ak > ah) || !(ah > 0)) return mN === 0 ? C(0, 0) : null;
+    const p = Math.log(mH / mN) / Math.log(ak / ah);
+    if (!(p > 1.5)) return null;
+    return CX.scale(t, (ak + 0.5) * Math.pow(ak / (ak + 0.5), p) / (p - 1));
+  }
   function runOne(term, k0, dk, k1, prod, capInf = SER_CAP) {
-    let S = prod ? C(1, 0) : C(0, 0), mH = 0, A = 0;
+    let S = prod ? C(1, 0) : C(0, 0), mH = 0, kH = 0, A = 0;
     const win = [];
     const infinite = !Number.isFinite(k1);
     const cap = infinite ? capInf : Math.abs(k1 - k0) + 1;
@@ -825,8 +834,14 @@ const Expr = (() => {
       if (win.length > SER_WIN) win.shift();
       const big = Math.max(...win), ref = prod ? 1 : CX.abs(S);
       if (j >= 8 && big <= SER_TOL * ref) return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
-      if (j === cap >> 1) mH = big;
-      if (j === cap - 1) return tailOk(big, mH, cap, ref) && !(!prod && cancelled(A, S)) ? S : C(NaN, NaN);
+      if (j === cap >> 1) { mH = big; kH = k; }
+      if (j === cap - 1) {
+        // the rest, added as its integral when the terms fall as a power (a product: its log); kept when it is under a tenth of the sum (its own error is about 1/N of it)
+        const r = tailOf(prod ? CX.sub(t, CX.ONE) : t, k, big, mH, kH);
+        if (!r || CX.abs(r) > 0.1 * Math.max(ref, 1e-300)) return C(NaN, NaN);
+        S = prod ? CX.mul(S, CX.exp(r)) : CX.add(S, r);
+        return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
+      }
     }
     return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
   }
@@ -928,7 +943,7 @@ const Expr = (() => {
     };
     const kind = lo === -Infinity && hi === Infinity ? 'laurent' : 'power';
     return {
-      kind, c, R, r,
+      kind, c, R, r, up, down,
       at: (z) => {
         const w = CX.sub(z, c);
         let S = C(0, 0), A = 0;
@@ -958,7 +973,7 @@ const Expr = (() => {
     const flat = tail.every((x) => CX.abs(CX.sub(x, aT)) <= 1e-14 * CX.abs(aT));
     const K = lo + DIR_CAP - 1;
     return {
-      kind: 'dirichlet', sigma,
+      kind: 'dirichlet', sigma, a, L, flat, aT, K,
       at: (z) => {
         if (!(z.re > sigma + 1e-12)) return C(NaN, NaN);
         let S = C(0, 0), A = 0;
@@ -980,6 +995,8 @@ const Expr = (() => {
       },
     };
   }
+  // the plan of a sum node compiled before (GLChain reads its coefficients), or null
+  const planOf = (n) => PLANS.get(n) || null;
   // the region where a formula's series converge: [{kind, c, R, r, sigma}] for each sum with a plan (compile builds them)
   function seriesInfo(ast) {
     try { compile(ast); } catch (e) { return []; }
@@ -1863,6 +1880,6 @@ const Expr = (() => {
     return q;
   }
   const hasSeries = (n) => hasT(n, 'sum');
-  return { parse, typed, compile, compileLevel, seriesInfo, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, compileLevel, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;

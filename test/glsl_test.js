@@ -257,6 +257,25 @@
     add('special gamma d/dz', [S('gamma'), S('deriv')]);
     add('special zeta d/dz', [aff('2', '0.5'), S('zeta'), S('deriv')]);
   }
+  // 14. [issue #5] series (last, as 13): power series (e^z, sin z, Li₂ with its boundary, a centre), a lacunary series
+  // and its natural boundary, a Laurent series (θ), Dirichlet (ζ), generic loops (a product, Σ sin(nz)/2^n), a finite
+  // sum and the derivative term by term
+  {
+    const sum = (name, expr, pre = []) => add('series ' + name, [...pre, S('custom', { expr })]);
+    sum('e^z', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}');
+    sum('e^z 8z', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '8', b: '0' })]);
+    sum('sin z', '\\sum_{n=0}^{\\infty} \\frac{(-1)^n z^{2n+1}}{(2n+1)!}');
+    sum('Li2', '\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}');
+    sum('geometric about 1+i', '\\sum_{n=0}^{\\infty} \\frac{(z-1-i)^n}{2^n}');
+    sum('lacunary', '\\sum_{n=0}^{\\infty} z^{2^n}');
+    sum('theta Laurent', '\\sum_{n\\in\\mathbb{Z}} e^{-n^2/2} z^n', [S('affine', { a: '1', b: '0.2' })]);
+    sum('zeta Dirichlet', '\\sum_{n=1}^{\\infty} n^{-z}', [S('affine', { a: '2', b: '2.5' })]);
+    sum('product sin', '\\prod_{n=1}^{\\infty} \\left(1-\\frac{z^2}{n^2}\\right)');
+    sum('generic sin(nz)/2^n', '\\sum_{n=1}^{\\infty} \\frac{\\sin(n z)}{2^n}');
+    sum('finite binomial', '\\sum_{k=0}^{5} \\binom{5}{k} z^k');
+    sum('d/dz Li2', '\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}', []);
+    chains[chains.length - 1].steps.push(S('deriv'));
+  }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 
   // ---------- sample points (float32-exact) ----------

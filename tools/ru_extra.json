@@ -142,6 +142,5 @@
  "{x} is the index of a sum: use it inside the sum": "%{x} — индекс суммы: используйте его внутри суммы",
  "The limits of a sum must not depend on z": "Пределы суммы не должны зависеть от z",
  "A product of infinitely many factors cannot be differentiated here": "Произведение бесконечного числа множителей здесь не дифференцируется",
- "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Сумма или произведение многих членов здесь не решается относительно z; все решения f(z) = w покажет команда «Показать прообразы»",
- "Sums and products cannot be drawn yet": "Суммы и произведения пока нельзя нарисовать"
+ "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Сумма или произведение многих членов здесь не решается относительно z; все решения f(z) = w покажет команда «Показать прообразы»"
 }

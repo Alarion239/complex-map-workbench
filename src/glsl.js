@@ -353,18 +353,190 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
 
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
+  // [issue #5] a series on the GPU: SER_GPU terms of a power or Dirichlet series in uniforms (half each way for a
+  // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable
+  const SER_GPU = 96, SER_GPU_LOOP = 128;
+  // the trusted radius of one side of a power series (sg 1: |w| ≤ r; sg −1: |w| ≥ r) with ng terms kept: past it the
+  // terms dropped (up to the CPU's) exceed 1e-6 of those kept, in logs; never past the radius of convergence R
+  function trustedR(sd, sg, ng, R) {
+    const e = sd.e.map((x) => x * sg), la = sd.a.map((a) => Math.log(CX.abs(a)));
+    const conv = sg > 0 ? R : (R > 0 ? 1 / R : Infinity);
+    if (sd.done && sd.a.length <= ng) return sg > 0 ? Infinity : 0;
+    const lse = (x, y) => (x === -Infinity ? y : y === -Infinity ? x : Math.max(x, y) + Math.log1p(Math.exp(-Math.abs(x - y))));
+    const ok = (lr) => {
+      let head = -Infinity, tail = -Infinity;
+      for (let k = 0; k < la.length; k++) { if (la[k] === -Infinity) continue; const v = la[k] + e[k] * lr; if (k < ng) head = lse(head, v); else tail = lse(tail, v); }
+      return tail <= head + Math.log(1e-6);
+    };
+    let lo = -60, hi = Math.log(Math.min(conv, 1e12));
+    if (!(hi > lo)) return sg > 0 ? 0 : Infinity;
+    if (ok(hi)) lo = hi;
+    else for (let i = 0; i < 50; i++) { const m = 0.5 * (lo + hi); if (ok(m)) lo = m; else hi = m; }
+    const r = lo <= -60 ? 0 : Math.exp(lo);
+    return sg > 0 ? r : (r > 0 ? 1 / r : Infinity);
+  }
   // ---- custom formulas: mirror Expr.compile ----
-  function genCustom(ast, P, A, TH, writers, lines) {
-    let tmp = 0;
+  function genCustom(ast, P, A, TH, writers, lines, shape = []) {
+    let tmp = 0, out = lines;
     const dep = Expr.depends;
-    const tv = (expr) => { const nm = `${P}_${tmp++}`; lines.push(`  vec2 ${nm} = ${expr};`); return nm; };
+    const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
+    // [issue #5] the loop variables of the sums being generated, innermost last
+    const idxVar = [];
+    let sums = 0;
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
     const UN = {
       sin: 'csin', cos: 'ccos', tan: 'ctan', sinh: 'csinh', cosh: 'ccosh', tanh: 'ctanh',
       asin: 'casin', acos: 'cacos', atan: 'catan', asinh: 'casinh', acosh: 'cacosh', atanh: 'catanh', exp: 'cexp',
-      gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad',
+      gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad', fact: 'cx_fact',
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
+    const NAN = 'vec2(cx_nan())';
+    // ---- [issue #5] sums and products ----
+    // A power or Laurent series (Expr's plan): its coefficients, computed on the CPU in float64, scaled to the trusted
+    // radius s (b_k = a_k s^{e_k}), in uniform slots, so |u| = |w|/s <= 1 and float32 neither overflows nor loses the
+    // small coefficients; Horner's rule in u^p when the exponents step by p, else the powers one after another. NaN
+    // beyond the trusted radii (where the first terms leave a tail above 1e-6 of them, or past the radius of convergence)
+    // and where the terms cancel by more than three digits.
+    function powerGL(n, plan, id) {
+      const sides = [plan.up ? 1 : 0, plan.down ? -1 : 0].filter(Boolean), NG = sides.length === 2 ? SER_GPU / 2 : SER_GPU;
+      const arith = (sd, sg) => { const e = sd.e.map((x) => x * sg), p = e.length > 1 ? e[1] - e[0] : 1; return p >= 1 && e.every((x, k) => x === e[0] + p * k); };
+      const geo = A.cell(), rho = A.cell(), slots = [];
+      shape.push('P' + sides.map((sg) => (arith(sg > 0 ? plan.up : plan.down, sg) ? 'h' : 's') + sg).join(''));
+      out.push(`  vec2 ${id}_w = z - ${geo.v};`);
+      const sideGL = (sg) => {
+        const sd = sg > 0 ? plan.up : plan.down, h = arith(sd, sg);
+        const s0 = A.slot(), sl = [s0];
+        for (let k = 1; k < NG; k++) sl.push(A.slot());
+        if (!sl.every((x, k) => x.s === s0.s + k)) throw new Error('GLChain: series slots not consecutive');
+        const ep = A.cell(), sc = A.cell();
+        slots.push({ sg, sd, h, s0, ep, sc });
+        const t = sg > 0 ? 'p' : 'm', u = `${id}_u${t}`, H = `${id}_H${t}`, M = `${id}_M${t}`;
+        // u = w/s outside (s/w inside); Horner: H = Σ b_k v^k with v = u^p, times u^{e0}; M the same sum of |b_k| |v|^k
+        out.push(`  vec2 ${u} = ${sg > 0 ? `${id}_w / ${sc.x}` : `cdiv(vec2(${sc.x}, 0.0), ${id}_w)`};`);
+        if (h) {
+          out.push(`  vec2 ${u}v = cx_ipowi(${u}, ${ep.y}), ${H} = vec2(0.0); float ${u}a = cx_abs(${u}v), ${M} = 0.0;
+  for (int k = ${NG - 1}; k >= 0; k--) { vec4 q = uChain[${s0.s} + k]; ${H} = cmul(${H}, ${u}v) + q.xy; ${M} = ${M} * ${u}a + cx_abs(q.xy); }
+  ${H} = cmul(${H}, cx_ipowi(${u}, ${ep.x})); ${M} *= pow(max(cx_abs(${u}), 1e-30), ${ep.x});`);
+        } else {
+          out.push(`  vec2 ${H} = vec2(0.0), ${u}P = vec2(1.0, 0.0); float ${M} = 0.0;
+  for (int k = 0; k < ${NG}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; ${u}P = cmul(${u}P, cx_ipowi(${u}, q.z)); vec2 t = cmul(q.xy, ${u}P); ${H} += t; ${M} += cx_abs(t); }`);
+        }
+        return { H, M };
+      };
+      const parts = sides.map(sideGL);
+      const S = `${id}_S`, M = `${id}_M`;
+      out.push(`  vec2 ${S} = ${parts.map((x) => x.H).join(' + ')}; float ${M} = ${parts.map((x) => x.M).join(' + ')};
+  float ${id}_aw = cx_abs(${id}_w);
+  if (!(${id}_aw <= ${rho.x}) || !(${id}_aw >= ${rho.y}) || ${M} > 1e3 * cx_abs(${S})) ${S} = ${NAN};`);
+      writers.push((put) => {
+        put(geo.c, plan.c.re, plan.c.im);
+        let rOut = Infinity, rIn = 0;
+        for (const x of slots) {
+          const t = trustedR(x.sd, x.sg, NG, x.sg > 0 ? plan.R : plan.r);
+          if (x.sg > 0) rOut = t; else rIn = t;
+          // the scale: the trusted radius (1 for a series without one, or one past float32)
+          const sc = Number.isFinite(t) && t > 1e-30 && t < 1e30 ? t : 1;
+          put(x.sc.c, sc, 0);
+          const e = x.sd.e.map((v) => v * x.sg);
+          put(x.ep.c, e[0] || 0, e.length > 1 ? e[1] - e[0] : 1);
+          for (let k = 0; k < NG; k++) {
+            const a = x.sd.a[k], c = x.s0.c + 2 * k;
+            if (!a || k >= e.length) { put(c, 0, 0); put(c + 1, 0, 0); continue; }
+            const m = CX.abs(a), lm = Math.log(m) + e[k] * Math.log(sc), b = m > 0 && lm > -700 && lm < 700 ? CX.scale(a, Math.exp(lm) / m) : C(0, 0);
+            put(c, Math.fround(b.re) || 0, Math.fround(b.im) || 0);
+            put(c + 1, x.h ? 0 : e[k] - (k ? e[k - 1] : 0), 1);
+          }
+        }
+        put(rho.c, Math.min(rOut, 3e38), rIn);
+      });
+      return S;
+    }
+    // Σ a(n) n^{−z} (Expr's dirichlet plan): SER_GPU terms, a_k and log k in slots; the rest as the integral when the
+    // coefficients are constant along the tail, else NaN where it may exceed 1e-4 of the sum; NaN for Re z ≤ σ
+    function dirichletGL(n, plan, id) {
+      const NG = SER_GPU, s0 = A.slot(), sl = [s0];
+      for (let k = 1; k < NG; k++) sl.push(A.slot());
+      if (!sl.every((x, k) => x.s === s0.s + k)) throw new Error('GLChain: series slots not consecutive');
+      const g1 = A.slot(), aT = A.cell();
+      shape.push('D');
+      const S = `${id}_S`, M = `${id}_M`;
+      out.push(`  vec2 ${S} = vec2(0.0); float ${M} = 0.0;
+  for (int k = 0; k < ${NG}; k++) { vec4 q = uChain[${s0.s} + k]; if (q.w < 0.5) break; vec2 t = cmul(q.xy, cexp(-z * q.z)); ${S} += t; ${M} += cx_abs(t); }
+  { vec4 g = ${g1.v}; float sp = z.x - (g.x - 1.0);
+    if (g.y > 0.5) ${S} += cmul(${aT.v}, cdiv(cexp((vec2(1.0, 0.0) - z) * log(g.z + 0.5)), z - vec2(1.0, 0.0)));
+    else if (!(g.w * pow(g.z, 1.0 - sp) / (sp - 1.0) <= 1e-4 * cx_abs(${S}))) ${S} = ${NAN};
+    if (!(z.x > g.x + 1e-6) || ${M} > 1e3 * cx_abs(${S})) ${S} = ${NAN}; }`);
+      writers.push((put) => {
+        const K = Math.min(plan.a.length, NG), lo = Math.round(Math.exp(plan.L[0]));
+        const tail = plan.a.slice(Math.max(0, K - 16), K), last = tail[tail.length - 1];
+        const flat = tail.every((x) => CX.abs(CX.sub(x, last)) <= 1e-14 * CX.abs(last));
+        for (let k = 0; k < NG; k++) {
+          const c = s0.c + 2 * k;
+          if (k >= K) { put(c, 0, 0); put(c + 1, 0, 0); continue; }
+          put(c, plan.a[k].re, plan.a[k].im); put(c + 1, plan.L[k], 1);
+        }
+        put(g1.c, plan.sigma, flat ? 1 : 0); put(g1.c + 1, lo + K - 1, Math.max(...tail.map((x) => CX.abs(x))));
+        put(aT.c, last.re, last.im);
+      });
+      return S;
+    }
+    // any other sum or product: a loop over the index (a float), at most SER_GPU_LOOP terms (each way for n ∈ ℤ), its
+    // terms generated inside the loop; an infinite one stops when three terms in a row are below 1e-7 of the sum (factors
+    // within 1e-7 of 1). NaN when an infinite one reaches the cap first, when a finite one has more terms than the cap,
+    // and where the terms cancel by more than three digits.
+    function loopGL(n, id) {
+      const prod = n.op === 'prod';
+      shape.push(prod ? 'Lp' : 'L');
+      const lo = g(n.lo), hi = g(n.hi);
+      const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
+      out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
+  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
+      const run = (from, dir) => {
+        const k = `${id}_k${dir > 0 ? 'p' : 'm'}`, saved = out, inner = [];
+        out = inner;
+        idxVar.push({ v: n.v, k });
+        let t;
+        try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+        const lim = dir > 0 ? `${k} > ${id}_hi` : `${k} < ${id}_lo`, inf = dir > 0 ? `${id}_hi > 1e30` : `${id}_lo < -1e30`;
+        // (at the cap: terms falling as k^{-p}, p > 1.5 from the terms at N/2 and N, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1),
+        // added when it is under a tenth of the sum, as the CPU does: Expr's tailOf)
+        out.push(`  { int run = 0; bool done = false; float mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0; vec2 tl = vec2(0.0);
+  for (int j = 0; j < ${SER_GPU_LOOP}; j++) {
+    float ${k} = ${from} ${dir > 0 ? '+' : '-'} float(j);
+    if (${lim}) { done = true; break; }
+${inner.map((x) => '  ' + x).join('\n')}
+    vec2 t = ${t};
+    ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u);` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
+    if (j == ${SER_GPU_LOOP / 2 - 1}) { mh = d; kh = abs(${k}); }
+    tl = u; dl = d; kl = abs(${k});
+    if (${inf} && d <= 1e-7 * ${prod ? '1.0' : `cx_abs(${S})`}) { run++; if (run >= 3) { done = true; break; } } else run = 0;
+  }
+  if (!done && ${inf} && dl > 0.0 && mh > dl && kl > kh && kh > 0.0) {
+    float p = log(mh / dl) / log(kl / kh);
+    vec2 r = tl * ((kl + 0.5) * pow(kl / (kl + 0.5), p) / (p - 1.0));
+    if (p > 1.5 && cx_abs(r) <= 0.1 * ${prod ? '1.0' : `cx_abs(${S})`}) { ${S} = ${prod ? `cmul(${S}, cexp(r))` : `${S} + r`}; done = true; }
+  }
+  if (!done) ${OK} = false; }`);
+      };
+      out.push(`  if (${id}_lo < -1e30 && ${id}_hi > 1e30) {`);
+      run('0.0', 1); run('-1.0', -1);
+      out.push(`  } else if (${id}_lo < -1e30) {`);
+      run(`${id}_hi`, -1);
+      out.push('  } else {');
+      run(`${id}_lo`, 1);
+      out.push('  }');
+      out.push(`  if (!${OK}${prod ? '' : ` || ${M} > 1e3 * cx_abs(${S})`}) ${S} = ${NAN};`);
+      return S;
+    }
+    function genSum(n) {
+      const id = `${P}_s${sums++}`;
+      let plan = Expr.planOf(n);
+      if (!plan && !idxVar.length) { try { Expr.compile(n); } catch (e) { /* summed as it is */ } plan = Expr.planOf(n); }
+      // (a plan's terms never involve an outer index: inside another sum the loop is used)
+      if (plan && !idxVar.length) return plan.kind === 'dirichlet' ? dirichletGL(n, plan, id) : powerGL(n, plan, id);
+      return loopGL(n, id);
+    }
+
     function g(n) {
       if (!dep(n)) {
         const cell = A.cell();
@@ -372,6 +544,13 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         return cell.v;
       }
       switch (n.t) {
+        case 'idx': {
+          const e = [...idxVar].reverse().find((x) => x.v === n.v);
+          if (!e) throw new Error(`GLChain: index ${n.v} outside its sum`);
+          return `vec2(${e.k}, 0.0)`;
+        }
+        case 'binom': { const a = g(n.a), b = g(n.b); return tv(`cx_binom(${a}, ${b})`); }
+        case 'sum': return genSum(n);
         case 'var':
           switch (n.n) {
             case 'z': return 'z';
@@ -557,8 +736,28 @@ vec2 cx_zetad(vec2 s) {
   return cmul(cexp(L), cmul(Ld, z1) - z1d);
 }
 `;
-  const SPECIAL_RE = /\bcx_(gamma|lgamma|digamma|zeta|zetad)\(/;
-  const withSpecial = (src) => (SPECIAL_RE.test(src) ? SPECIAL_LIB + src : src);
+  // [issue #5] the series' helpers: w^e for an integer e held as a float (binary powers, at most 31 squarings; |e| past
+  // 2^31 only for |w| <= 1, where it is 0, or 1 on the circle), n! and the binomial coefficient
+  const SERIES_LIB = `
+vec2 cx_ipowi(vec2 w, float e) {
+  if (e == 0.0) return vec2(1.0, 0.0);
+  if (e == 1.0) return w;
+  float n = abs(e);
+  vec2 r = vec2(1.0, 0.0), b = w;
+  if (n > 2147483647.0) { float a = cx_abs(w); r = a < 1.0 ? vec2(0.0) : a == 1.0 ? vec2(1.0, 0.0) : vec2(cx_inf()); return r; }
+  for (int i = 0; i < 31; i++) {
+    if (mod(n, 2.0) == 1.0) r = cmul(r, b);
+    n = floor(0.5 * n);
+    if (n == 0.0) break;
+    b = cmul(b, b);
+  }
+  return e < 0.0 ? cinv(r) : r;
+}
+vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
+vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_lgamma(b + vec2(1.0, 0.0)) - cx_lgamma(a - b + vec2(1.0, 0.0))); }
+`;
+  const SPECIAL_RE = /\bcx_(gamma|lgamma|digamma|zeta|zetad|ipowi|fact|binom)\(/;
+  const withSpecial = (src) => (SPECIAL_RE.test(src) ? SPECIAL_LIB + SERIES_LIB + src : src);
 
   // ---- natural paths (Funcs: ZOOM, joukHom, ratPath, genericZoomNat): h bodies in z and t, mirroring the CPU ----
   // nat: the built step's descriptor {kind, fn | n | dp, dq}; returns {h, write(put, b)} or null (no GPU path: the
@@ -908,11 +1107,11 @@ vec2 cx_zetad(vec2 s) {
         const ast = b.ast || Expr.parse(v.expr);
         const cut = A.cell();
         const TH = cut.x;
-        const writers = [], lines = [];
-        const res = genCustom(ast, P, A, TH, writers, lines);
+        const writers = [], lines = [], shape = [];
+        const res = genCustom(ast, P, A, TH, writers, lines, shape);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
@@ -1391,7 +1590,7 @@ vec2 cx_zetad(vec2 s) {
     }
 
     // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
-    if (SPECIAL_RE.test(src) || SPECIAL_RE.test(sh)) src = SPECIAL_LIB + src;
+    if (SPECIAL_RE.test(src) || SPECIAL_RE.test(sh)) src = SPECIAL_LIB + SERIES_LIB + src;
     let cache = null;
     function values() {
       if (cache) return cache;

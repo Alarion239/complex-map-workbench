@@ -52,10 +52,10 @@ check('Σ n^{−z} at Re z = 0.5: NaN (left of σ = 1)', nan(at(Z, C(0.5, 3))));
 close('Σ (−1)^{n+1} n^{−z} = (1 − 2^{1−z}) ζ(z) at 3', at('\\sum_{n=1}^{\\infty} (-1)^{n+1} n^{-z}', C(3, 0)), CX.mul(CX.sub(CX.ONE, C(2 ** -2, 0)), CX.zeta(C(3, 0))), 1e-10);
 
 // ---- 4. constant sums, finite sums, products
-close('Σ 1/n² = π²/6 (a constant, within 1e-4)', at('\\sum_{n=1}^{\\infty} \\frac{1}{n^2}', C(0, 0)), C(Math.PI ** 2 / 6, 0), 1e-4);
+close('Σ 1/n² = π²/6 (a constant: 2^16 terms and the rest as an integral)', at('\\sum_{n=1}^{\\infty} \\frac{1}{n^2}', C(0, 0)), C(Math.PI ** 2 / 6, 0), 1e-8);
 close('Σ_{k=0}^{3} binom(3, k) z^k = (1 + z)³', at('\\sum_{k=0}^{3} \\binom{3}{k} z^k', C(2, 1)), CX.ipow(C(3, 1), 3), 1e-15);
 close('Π_{k=1}^{5} (z − k)', at('\\prod_{k=1}^{5} (z-k)', C(0, 1)), [1, 2, 3, 4, 5].reduce((p, k) => CX.mul(p, C(-k, 1)), C(1, 0)), 1e-15);
-close('Π (1 − z²/n²) = sin(πz)/(πz), within 1e-3', at('\\prod_{n=1}^{\\infty} (1 - z^2/n^2)', C(0.5, 0)), C(2 / Math.PI, 0), 1e-3);
+for (const z of [C(0.5, 0), C(0.37, -0.81), C(2.5, 1)]) close(`Π (1 − z²/n²) = sin(πz)/(πz) at ${z.re}${z.im >= 0 ? '+' : ''}${z.im}i, within 1e-3 (512 factors and the rest as an integral)`, at('\\prod_{n=1}^{\\infty} (1 - z^2/n^2)', z), CX.div(CX.sin(CX.scale(z, Math.PI)), CX.scale(z, Math.PI)), 1e-3);
 close('an empty sum is 0, an empty product 1', at('\\sum_{n=3}^{2} z + \\prod_{n=3}^{2} z', C(5, 0)), C(1, 0), 0);
 close('a nested sum: Σ_{n=0}^{3} Σ_{k=0}^{n} z^k', at('\\sum_{n=0}^{3} \\sum_{k=0}^{n} z^k', C(2, 0)), C(1 + 3 + 7 + 15, 0), 0);
 close('the index inside a function: Σ sin(n z)/2^n', at('\\sum_{n=1}^{\\infty} \\frac{\\sin(n z)}{2^n}', C(0.3, 0)), (() => { let s = 0; for (let k = 1; k < 80; k++) s += Math.sin(0.3 * k) / 2 ** k; return C(s, 0); })(), 1e-13);
@@ -121,11 +121,10 @@ check('a sum with no terms: refused', /Missing the terms/.test(err('\\sum_{n=0}^
 check('k and m as indices; \\limits; ^ before _', err('\\sum_{k=1}^{4} \\sum\\limits^{2}_{m=0} k m z') === null);
 check('the shared numbers keep their letters outside sums (a, k)', (() => { Expr.setNames({ get: (x) => (x === 'k' ? 2 : undefined) }); try { return Expr.compile(Expr.parse('k z + \\sum_{n=0}^{2} z^n'))(C(1, 0)).re === 5; } finally { Expr.setNames(null); } })());
 
-// ---- 10. the Formula step: not drawn yet (part B), with a message
-let fb = null;
-try { Funcs.build({ type: 'custom', params: { expr: E1, cut: 180 }, on: true }); } catch (e) { fb = e.message; }
+// ---- 10. the Formula step: a series builds, with its guarantees (analytic, nothing more)
 const b0 = Funcs.build({ type: 'custom', params: { expr: E1, cut: 180 }, on: true });
-check('a Formula step with a sum says it cannot be drawn yet', (b0 && b0.error && /cannot be drawn yet/.test(b0.error)) || /cannot be drawn yet/.test(fb || ''), b0 && b0.error);
+check('a Formula step with e^z as a series builds, analytic and not claimed entire', b0 && !b0.error && b0.props.analytic && !b0.props.entire, b0 && (b0.error || b0.props));
+close('… and maps like e^z', b0.f(C(1, 1)), CX.exp(C(1, 1)), 1e-12);
 
 console.log(bad ? `${bad} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);
