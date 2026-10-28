@@ -220,6 +220,60 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (walls tests, issue #52; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
+  function lwRead(tex, w, h) {
+    if (!tex || !(w > 0) || !(h > 0)) return null;
+    const fb = gl.createFramebuffer(), out = new Float32Array(4 * w * h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    const done = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    if (done) gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, out);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fb);
+    return done ? out : null;
+  }
+  // GLR.landMesh(n): the n x n grid's last heights: {key (landHeights' key), h (per vertex x, y, height, finite), e (the
+  // edge passes' jump data for +x, +y and the diagonal, null without cuts)}, or null before the surface has been drawn
+  function lwMesh(n) {
+    const land = lands.get(n);
+    if (!ok || !land || !land.key) return null;
+    return { key: land.key, h: lwRead(land.tex1, n, n), e: land.cuts > 0 ? land.edges.map((t) => lwRead(t, n, n)) : null, cuts: land.cuts };
+  }
+  // GLR.landHeld(): the bytes of the landscape textures held now, by kind (the scratch textures of a pass, freed at rest,
+  // are counted apart by number)
+  function lwHeld() {
+    const by = { heights: 0, edges: 0, levels: 0, list: 0, refined: 0, sheets: 0 }, scratch = { n: 0 };
+    const own = (o, sheet) => {
+      if (!o) return;
+      const N = o.N || 0;
+      if (o.tex1) by[sheet ? 'sheets' : 'heights'] += N * N * 16 * (o.tex2 ? 2 : 1);
+      if (o.edges) for (const t of o.edges) if (t) by.edges += N * N * 16;
+      if (o.lvTex && o.lvDim) by.levels += ((o.lvDim + 3) >> 2) * o.lvDim * 16;
+      if (o.lstTex && o.lstRows) by.list += 1024 * o.lstRows * 4;
+      if (o.rfTex && o.rfRows) by.refined += RF_W * o.rfRows * 16;
+      for (const k of ['latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) scratch.n++;
+      if (o.nb) own(o.nb, sheet);
+    };
+    for (const [n, l] of lands) if (n !== 64) own(l, false);   // (the stage cards' small grid is not the pane's)
+    own(landS, true);
+    const total = Object.values(by).reduce((a, b) => a + b, 0);
+    return { total, by, scratch: scratch.n };
+  }
+  // GLR.landRefine(read, n): {land} of the n grid's refinement, null before one is built; read: with the vertex
+  // records, the levels (a quarter of a float per cell, in lv) and the heights (h) read back
+  function lwRefine(read, n) {
+    const land = lands.get(n);
+    if (!ok || !land || !land.rf || !land.lvRaw) return { land: null };
+    const r = land.rf, L = { N: n, entries: r.entries, groups: r.groups, rows: r.rows, capped: r.capped, partial: !!r.partial, key: land.key };
+    if (read) {
+      // (a code of 64 or more marks a cell that holds a jump: the refinement leaves it at level 0, as rfPlan does)
+      L.lv = land.lvRaw.map((v) => ((v | 0) >= 64 ? 0 : v)); L.h = lwRead(land.tex1, n, n);
+      L.rf = r.rows > 0 ? lwRead(land.rfTex, RF_W, r.rows) : new Float32Array(0);
+    }
+    return { land: L };
+  }
+  // TEMP-DEBUG-HOOK
   // ---- adaptive refinement (REFINE; notes/landscape-walls/r2/AS-BUILT.md) ----
   // The levels come from the GPU (a pass of the height program); they are read back (a quarter of a float per cell)
   // and listed here, grouped by level, worst first within the budget; the refined vertices are a third pass of the
@@ -694,6 +748,14 @@
     // the Max mesh after a play; they are made again when something moves, r3 review speed-4)
     if (!move && !rf.full) freeScratch(land);
   }
+  // The pane's Landscape is not on the screen (the app calls this from each frame of the left pane that draws another view):
+  // its refinement goes with its textures and buffers, ~47 MB after a play at the default mesh against the heights' 8 MB
+  // (issue #50). The heights stay; the refinement is built again, as at a first open, when Landscape comes back. The
+  // stage cards' small grid (64) is left alone
+  function landRelease() {
+    for (const [n, l] of lands) if (n !== 64 && (l.lvTex || l.rbBuf)) { rfFree(l); freeScratch(l); }
+    if (landS && (landS.lvTex || landS.rbBuf)) { rfFree(landS); freeScratch(landS); }
+  }
   function freeScratch(o) {
     for (const k of ['latTex', 'ptsTex', 'evTex', 'lvTmp']) if (o[k]) { gl.deleteTexture(o[k]); o[k] = null; }
   }
@@ -943,6 +1005,11 @@
   }
   function drawLandscape(st) {
     if (!ok) return null;
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    // (walls tests, issue #52) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
+    // the scene stands still, as the motion part measures it
+    if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
+    // TEMP-DEBUG-HOOK
     lvCollect();
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
@@ -988,6 +1055,10 @@
     const fitD = fitDist(landGeom(box, st.scale).radius, (st.cam && st.cam.fov) || 28 * Math.PI / 180, fw, fh, 1.05);
     const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
     const dbg = {};
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    // (walls tests, issue #52) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
+    Object.assign(dbg, api._lw || {});
+    // TEMP-DEBUG-HOOK
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights

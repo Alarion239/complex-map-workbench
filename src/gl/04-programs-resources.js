@@ -358,6 +358,10 @@ float wabs(vec2 w) {
   const uM4 = (P, n, m) => gl.uniformMatrix4fv(L_(P, n), false, m);
   function use(P, map) {
     gl.useProgram(P.p);
+    // TEMP-DEBUG-HOOK (removed before publishing)
+    // (walls tests, issue #52) api._lwLog = []: [name, time] of each program's first use, for the cold-open timing
+    try { if (api._lwLog && !P.used1) api._lwLog.push([P.name || '', performance.now()]); } catch (e) { /* api is not built yet */ }
+    // TEMP-DEBUG-HOOK
     P.used1 = true;
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);

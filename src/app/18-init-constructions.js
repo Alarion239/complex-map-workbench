@@ -522,6 +522,7 @@
     setupPane(paneL, 'L');
     setupPane(paneR, 'R');
     PlaneMenu.init(planeMenuApi());   // the planes' context menu (v15)
+    Commands.init(commandsApi());   // the command palette (src/commands.js)
     Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
     if (Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
     // right tabs
