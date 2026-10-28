@@ -69,6 +69,7 @@
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
     if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
+    syncModeChips();
   }
   function setTool(id) {
     if (id === 'formula') { setPanels(false, S.hideRight); const f = $('formulaInput'); f.focus(); f.select(); return; }

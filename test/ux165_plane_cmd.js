@@ -507,8 +507,9 @@ await section('P51', async () => {
   ok('UX94 phone: Snap is a switch (a track after the word), not a filled pill', sw && sw.after === '""' && sw.w === '30px', sw);
   await shot('ux94-phone-snap');
   await key('Escape'); await settle(200);
-  // UX95: the Display sheet's region section is "Regions"
-  const disp = await ev(`(() => { const s = document.querySelector('#secDisplay summary h2'); return s ? [...s.children].filter((c) => getComputedStyle(c).display !== 'none').map((c) => c.textContent).join('') : null; })()`);
+  // UX95: the Display sheet's region section is "Regions" ([v17 D5, #82]: a heading of the sheet, no longer the left
+  // panel's #secDisplay)
+  const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
   ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
 });
 

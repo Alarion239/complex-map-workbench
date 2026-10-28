@@ -39,4 +39,23 @@ for (const s of ['\\frac{z-i}{z+i}', 'e^{z}+\\sin^2 z', '-z^2', 'z-(1+z)', '2\\c
 // branch cut
 console.log('log(-1) principal', ev('\\log z', C(-1, 0)), 'cut at 0 deg:', ev('\\log z', C(-1, 0.0001), { theta: 0 }), ev('\\log z', C(1, -0.0001), { theta: 0 }));
 for (const bad1 of ['\\foo z', 'z+', '(z', 'q', '|z']) { try { Expr.parse(bad1); console.log('no error?', bad1); } catch (e) { console.log('err ok:', bad1, '->', e.message); } }
+// [issue #5] outside a sum, n, k and m are still shared numbers, read exactly as before: names in the AST (no index),
+// their values, their spans (saved scenes and links that use them must not change)
+{
+  const V = { n: 3, k: 2, m: 5 };
+  Expr.setNames({ get: (x) => V[x], display: (x) => x });
+  try {
+    for (const [src, want] of [['n z + k^2 - m', C(3 * 0.3 + 4 - 5, 3 * 0.7)], ['z^n', CX.ipow(z0, 3)], ['nz', C(0.9, 2.1)], ['\\frac{z}{k}+m', C(0.15 + 5, 0.35)], ['k!', C(2, 0)]]) {
+      const ast = Expr.parse(src), js = JSON.stringify(ast), got = Expr.compile(ast)(z0);
+      if (/"idx"|"sum"/.test(js) || CX.abs(CX.sub(got, want)) > 1e-12) { bad++; console.log('SHARED NAME CHANGED', src, js, got); }
+    }
+    const spans = [];
+    Expr.parse('n z + k - m', { spans });
+    if (spans.map((x) => x.name).join() !== 'n,k,m') { bad++; console.log('SHARED NAME SPANS', JSON.stringify(spans)); }
+    // and inside a sum the same letter is the index, while the others stay numbers
+    const v = Expr.compile(Expr.parse('\\sum_{n=0}^{2} k z^n'))(C(1, 0));
+    if (v.re !== 6) { bad++; console.log('INDEX AND NAME', v); }
+  } finally { Expr.setNames(null); }
+}
 console.log('bad:', bad);
+process.exit(bad ? 1 : 0);
