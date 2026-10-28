@@ -208,6 +208,24 @@
   // setFocus (src/app/08-thumbnails-render.js) is the user's action, with its selection and redraw
   function setSel(v) { S.sel = v; }
   function setFocusStep(k) { S.focus = k; }
+  // the lists: the shapes in X, the chain's steps, the targets in Y, the parameters. A list replaced, an item added at
+  // the end, and the chain edited as Array.prototype.splice does (it returns the steps taken out)
+  function setShapes(list) { S.shapes = list; }
+  function setSteps(list) { S.steps = list; }
+  function setTargets(list) { S.targets = list; }
+  function setParams(list) { S.params = list; }
+  function pushShape(s) { S.shapes.push(s); }
+  function pushStep(st) { S.steps.push(st); }
+  function pushTarget(t) { S.targets.push(t); }
+  function spliceSteps(at, n, ...items) { return S.steps.splice(at, n, ...items); }
+  function setStepAt(i, st) { S.steps[i] = st; }
+  // the rest of S: the display and view options (pattern, dc, landPlain, height, sheets, view, srcView, clipWin,
+  // homRange, ...) set or removed by name, a part of the view (pane null: the view's own key, as main), and the next
+  // shape's id taken (the old S.nextId++)
+  function setOpt(key, v) { S[key] = v; }
+  function deleteOpt(key) { delete S[key]; }
+  function setViewOpt(pane, key, v) { if (pane) S.view[pane][key] = v; else S.view[key] = v; }
+  function takeId() { return S.nextId++; }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
@@ -265,10 +283,10 @@
   }
   function restore(e) {
     const o = JSON.parse(e.s), was = S.steps;
-    S.shapes = o.shapes; S.steps = o.steps; S.nextId = o.nextId;
+    setShapes(o.shapes); setSteps(o.steps); setOpt('nextId', o.nextId);
     Funcs.typedKeep(was, S.steps); // (Russian: a list text typed and refused stays refused after an undo: verify-1)
-    S.targets = Array.isArray(o.targets) ? o.targets : [];
-    S.params = Array.isArray(o.params) ? o.params : [];
+    setTargets(Array.isArray(o.targets) ? o.targets : []);
+    setParams(Array.isArray(o.params) ? o.params : []);
     bindsAll();
     paramsRestored();
     // shapes that no longer exist give back their GPU meshes, lines and map caches
@@ -278,7 +296,7 @@
     zpSel = null; zpHover = null;
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     setFocusStep(f);
-    if (e.range && typeof e.range === 'object') S.homRange = JSON.parse(JSON.stringify(e.range)); else delete S.homRange;
+    if (e.range && typeof e.range === 'object') setOpt('homRange', JSON.parse(JSON.stringify(e.range))); else deleteOpt('homRange');
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
@@ -337,8 +355,8 @@
   function hdrFitInit() {
     const f = $('cmdBtn'), top = f && f.closest('.top'), xl = document.querySelector('#examplesBtn .exlabel');
     if (!top) return;
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(hdrFitSoon).observe(top);
-    if (xl && typeof MutationObserver !== 'undefined') new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    new ResizeObserver(hdrFitSoon).observe(top);
+    if (xl) new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(hdrFitSoon);
     hdrFitSoon();
   }
@@ -639,7 +657,8 @@
         if (alive) delete m.holder.repeat;
         if (!ix.length) continue;
         const lo = Math.min(...ix), hi = Math.max(...ix);
-        S.steps[hi].repeat = { n: nn, len: hi - lo + 1 };
+        const holder = S.steps[hi];
+        holder.repeat = { n: nn, len: hi - lo + 1 };
       }
     }
     // blocks never overlap: a later one that reaches into an earlier one is dropped

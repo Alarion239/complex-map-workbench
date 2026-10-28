@@ -689,7 +689,8 @@ const Expr = (() => {
     arg: (a) => C(Math.atan2(a.im, a.re), 0),
     gamma: CX.gamma, zeta: CX.zeta, digamma: CX.digamma, zetad: CX.zetaDeriv, fact: CX.fact,
   };
-  // [issue #6] a recurrence: at most ITER_CAP steps (the GPU's loop), ∞ past ITER_ESC
+  // [issue #6] a recurrence: at most ITER_CAP steps (the GPU's loop), ∞ past ITER_ESC. The GPU's limit is 1e18 (float32
+  // squares |u| in cx_abs), so between 1e18 and 1e150 the CPU keeps a value the GPU reads as ∞: both far off any picture
   const ITER_CAP = 256, ITER_ESC = 1e150;
   // [issue #5] the plans of the sums compiled so far (seriesInfo reads them)
   const PLANS = new WeakMap();

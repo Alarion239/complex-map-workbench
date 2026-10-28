@@ -38,7 +38,8 @@ const clr = await ev(`(() => { const b = document.getElementById('clearChain'); 
 ok('Clear chain is a word button in the chain head (no ⋯ there)', clr.shown && clr.text === 'Clear chain' && !clr.more, clr);
 await key('k', 4); await settle(400);
 let p = await pal();
-ok('the chip says where: Append to the chain (Insert by default)', p && /^Append to the chain/.test(p.where), p);
+// (#35: "Insert at the end", beside "Insert at the start" and "Insert after f₂", for Append to the chain)
+ok('the chip says where: Insert at the end (Insert by default)', p && /^Insert at the end/.test(p.where), p);
 await palQ('sin z');
 p = await pal();
 ok('sin z: the best match three ways, Insert (the row as it was) first', p.rows.slice(0, 3).join(' | ') === 'Sine | Replace F with Sine | Replace f₂ Möbius with Sine', p.rows);
@@ -110,7 +111,7 @@ await openApp({ shapes: [DISC], steps: CHAIN }, 412, 860, true);
 await ev(`document.getElementById('addStepBtn').scrollIntoView({ inline: 'center' })`); await settle(300);
 await ev(`document.getElementById('addStepBtn').click()`); await settle(700);
 p = await pal();
-ok('phone: the position row holds the Replace chip and the position chip', p && p.where && /^Insert/.test(p.where) && /Append to the chain/.test(p.at || ''), p);
+ok('phone: the position row holds the Replace chip and the position chip', p && p.where && /^Insert/.test(p.where) && /Insert at the end/.test(p.at || ''), p);
 await ev(`document.querySelector('.pal-atrow .pal-where').click()`); await settle(300);
 p = await pal();
 ok('phone: a tap on it says Replace F; the position chip goes', /^Replace F/.test(p.where) && p.at === null, p);

@@ -22,7 +22,7 @@
     'ShiftM', 'CtrlK', 'CtrlZ',
     // function names and math words the formula language and the Russian notation use (GLOSSARY 1.4, 2.4)
     'Re', 'Im', 'arg', 'Arg', 'Res', 'exp', 'ln', 'Ln', 'log', 'sin', 'cos', 'tg', 'ctg', 'sec', 'cosec', 'csc', 'sh', 'ch', 'th', 'cth', 'arcsin', 'arccos', 'arctg',
-    'arcctg', 'arsh', 'arch', 'arth', 'arcth', 'sqrt', 'conj', 'abs', 'mod', 'dz', 'dw', 'id', 'const', 'sinc', 'Log', 'Sqrt', 'erf', 'Gamma', 'zeta', 'pi', 'inf',
+    'arcctg', 'arsh', 'arch', 'arth', 'arcth', 'sqrt', 'conj', 'abs', 'mod', 'dz', 'dw', 'id', 'const', 'sinc', 'Log', 'Sqrt', 'erf', 'Gamma', 'zeta', 'Li', 'pi', 'inf',
     'and', 'or', 'not', 'ad', 'bc', 'az', 'cz', 'lg', 'tan', 'cot', 'sinh', 'cosh', 'tanh', 'coth', 'arctan', 'asin', 'acos', 'atan', 'acot', 'arccot',
   ]);
   const ATTRS = ['title', 'aria-label', 'placeholder', 'data-tip', 'data-desc', 'alt', 'aria-description', 'aria-roledescription', 'aria-valuetext'];

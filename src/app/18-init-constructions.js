@@ -193,7 +193,7 @@
         const ids = [];
         for (const s0 of shapes) {
           const s = s0.id ? s0 : Object.assign(newShape(s0.kind, {}, !!o.target), s0, { id: undefined });
-          if (!s.id) s.id = 's' + S.nextId++;
+          if (!s.id) s.id = 's' + takeId();
           if (s.visible == null) s.visible = true;
           (o.target ? S.targets : S.shapes).push(s);
           ids.push(s.id);
@@ -225,8 +225,8 @@
       remove(ids) {
         const plan = cmDeletePlan(ids);
         const del = new Set(plan.del);
-        S.shapes = S.shapes.filter((s) => !del.has(s.id));
-        S.targets = S.targets.filter((s) => !del.has(s.id));
+        setShapes(S.shapes.filter((s) => !del.has(s.id)));
+        setTargets(S.targets.filter((s) => !del.has(s.id)));
         for (const id of del) dropShapeGPU(id);
         if (selected && del.has(selected)) selected = null;
         shapesChanged(true); targetsChanged(true); commit();
@@ -462,12 +462,12 @@
     I18N.applyStatic($('app'));
     // the command field shows the short form (DESIGN.md 8.3); its aria-label keeps the whole phrase
     // (and «Поиск» where the header is short of room: page.html, review ui-9)
-    if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function or command')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function or command'))); } }
+    if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function'))); } }
     I18N.reveal();
     // the switch reloads only when the work was written and reads back (review i18n-3); while a tour holds the canvas
     // the saved state is the user's own work, and the tour's scenes are never stashed as undo history
     I18N.onSwitch(() => {
-      const held = typeof tourHold !== 'undefined' && !!tourHold;
+      const held = tourHold;
       const wrote = held ? null : writeState();
       let ok = false;
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
@@ -505,7 +505,7 @@
     paneR = new Pane($('canvasR'), $('overlayR'));
     const loaded = load();
     setState(loaded || blankState());
-    if (!Array.isArray(S.params)) S.params = [];
+    if (!Array.isArray(S.params)) setParams([]);
     attachParams();
     bindsAll();
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
@@ -519,7 +519,7 @@
     paneL.setView(S.srcView);
     // (v16 review picture-1) a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
-    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; S.clipWin = clipWin; } }
+    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; setOpt('clipWin', clipWin); } }
     buildTools();
     setupFormula();
     setupParams(!!loaded);
@@ -557,7 +557,7 @@
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
-    if (kc) kc.addEventListener('change', () => { S.wKey = kc.checked; buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
+    if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
     // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
     const mb = $('morphBtn');
     if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
@@ -565,19 +565,19 @@
     // so its first frames do not wait for them (the pointer or focus on the toggle, as prestartGlobe)
     const prestartMorph = () => { try { if (!morph.open && GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } };
     if (mb) { mb.addEventListener('pointerenter', prestartMorph); mb.addEventListener('focus', prestartMorph); }
-    $('linesChk').addEventListener('change', (e) => { S.lines = e.target.checked; requestRender('L', 'R', 'T'); save(); });
-    $('chevChk').addEventListener('change', (e) => { S.chev = e.target.checked; requestRender('L', 'R'); save(); });
+    $('linesChk').addEventListener('change', (e) => { setOpt('lines', e.target.checked); requestRender('L', 'R', 'T'); save(); });
+    $('chevChk').addEventListener('change', (e) => { setOpt('chev', e.target.checked); requestRender('L', 'R'); save(); });
     // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
     // ([v16.5 rail SPEC 4.3] the button was "Snap while drawing": it now names what it snaps to, the grid and figures)
-    $('snapBtn').addEventListener('click', () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); });
-    $('unitChk').addEventListener('change', (e) => { S.unit = e.target.checked; requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { S.alpha = +e.target.value; $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
+    $('snapBtn').addEventListener('click', () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); });
+    $('unitChk').addEventListener('change', (e) => { setOpt('unit', e.target.checked); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => { setOpt('alpha', +e.target.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
     $('meshRange').addEventListener('input', (e) => { showMeshVal(posToMesh(+e.target.value)); });
-    $('patScale').addEventListener('input', (e) => { S.patternScale = 2 ** +e.target.value; cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
+    $('patScale').addEventListener('input', (e) => { setOpt('patternScale', 2 ** +e.target.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
     for (const b of $('chainMode').children) b.addEventListener('click', () => {
-      S.compact = b.dataset.mode === 'compact';
+      setOpt('compact', b.dataset.mode === 'compact');
       const hgt = S.compact ? 96 : 188;
       document.documentElement.style.setProperty('--chain-h', hgt + 'px');
       try { localStorage.setItem(lsk('cmw-chain-h2'), String(hgt)); } catch (e) { /* ignore */ }
@@ -632,7 +632,7 @@
       // ([v16.5 fix regress-2] and whenever the layout under a toast changes while it stays up: the deformation's dock
       // opening or closing, the learning lane showing or hiding, a panel: each resizes a plot or the chain; one rAF, and
       // only while a toast shows)
-      if (typeof ResizeObserver !== 'undefined' && th) {
+      if (th) {
         let q = 0;
         const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); });
         for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);
@@ -708,7 +708,7 @@
       $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
-    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
+    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; setSteps([]); setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;
@@ -776,11 +776,11 @@
         c.addEventListener('change', () => set(c.checked));
         return h('label', { class: 'check' }, c, h('span', null, label), h('span', { class: 'kbd' }, key));
       };
-      kids.push(sep($t('Panels')), panel($t('Region tools'), '[', !S.hideLeft, (v) => setPanels(!v, S.hideRight)), panel($t('Inspector'), ']', !S.hideRight, (v) => setPanels(S.hideLeft, !v)));
+      kids.push(sep($t('Panels')), panel($t('Draw'), '[', !S.hideLeft, (v) => setPanels(!v, S.hideRight)), panel($t('Inspector'), ']', !S.hideRight, (v) => setPanels(S.hideLeft, !v)));
       const mesh = $('meshGroup');
       if (mesh) kids.push(sep(''), mesh);   // (the fader names itself: Mesh quality)
       const help = (label, run) => h('button', { class: 'set-link', type: 'button', onclick: () => { closePalette(); run(); } }, label);
-      kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Reference guide'), () => openGuide()),
+      kids.push(sep($t('Help')), h('div', { class: 'set-help' }, help($t('Guided tour'), () => Tour.openHelpMenu($('helpBtn'))), help($t('Guide'), () => openGuide()),
         help($t('Keyboard shortcuts'), () => { openGuide(); const k = [...document.querySelectorAll('.modal h3')].find((x) => ['Keys', $t('Keys')].includes(x.textContent.trim())); if (k) k.scrollIntoView({ block: 'start' }); })));
       const pop = h('div', { class: 'pop opts-pop set-pop', role: 'dialog', 'aria-label': $t('Settings') }, ...kids);
       pop._onClose = () => { btn.setAttribute('aria-expanded', 'false'); const home = $('settingsHome'); if (mesh && home && mesh.parentNode === pop) home.append(mesh); };
@@ -916,16 +916,16 @@
         setFocus(Math.min(S.focus || 0, S.steps.length));
         if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
-        if (S.deform) { delete S.deform; openTransport(); }
+        if (S.deform) { deleteOpt('deform'); openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
         if (S.figCam) {
           const c = S.figCam;
           if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { cam.yaw = c.yaw; cam.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); cam.dist = c.d * CAM3.dist; cam.tx = Number.isFinite(c.tx) ? c.tx : 0; cam.ty = Number.isFinite(c.ty) ? c.ty : 0; }
-          delete S.figCam;
+          deleteOpt('figCam');
         }
         if ('figMorph' in S) {
           const fm = S.figMorph;
-          delete S.figMorph;
+          deleteOpt('figMorph');
           if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); } }
         }
         if (swUi) {
@@ -960,7 +960,7 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitRightTitle(); requestRender('L', 'R', 'T'); });
     // v15: the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
     // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
-    { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Region tools'); }
+    { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
     Phone.init({
       icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
@@ -990,7 +990,30 @@
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
       globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
-      sound: (k) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on) } : null),
+      // (D3) what the phone's context bar shows: the polygon being drawn, a curve being listened along, the selected shape
+      ctxState: () => {
+        if (polyDraftOpen()) return { kind: 'polygon', n: draft.pts.length };
+        // (a construction tool in hand: what to pick next, with the pick it can take back)
+        if (Construct.isTool(tool)) return { kind: 'construct', text: Construct.hint(), undo: !!Construct.undoPickable(), seg: tool === 'perp' ? Construct.seg : null };
+        if (SND && snd.play) return { kind: 'listen' };
+        const sel = selected && findShape(selected);
+        if (!sel) return null;
+        const r = shapeRows.get(sel.id);
+        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def: r ? r.d.textContent : '', used: Construct.usedBy(sel.id).length };
+      },
+      ctxAct: (act, id, anchor) => {
+        if (act === 'last') polyBack();
+        else if (act === 'done') finishPolygon();
+        else if (act === 'cancel') cancelDrawing();
+        else if (act === 'seg') { Construct.seg = id; requestRender('OL', 'OR'); }
+        else if (act === 'undopick') $('undoBtn').click();
+        else if (act === 'xcancel') { Construct.cancel(); setTool('select'); }
+        else if (act === 'delete') deleteShape(id);
+        else if (act === 'stop') sndStopPlay(true);
+        else if (act === 'more') { const r = shapeRows.get(id); if (r && r.more) r.more(anchor); }
+      },
+      sound: (k, v) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on), sonify: !!(SND && SND.prefs().sonify) } : k === 'sonify' && SND ? (SND.set({ sonify: !!v }, { quiet: true }), null) : null),
+      newScene: () => loadExample(0),
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
@@ -1055,11 +1078,11 @@
     if (Views.LEGACY.includes(k)) {
       const o = Object.assign(Views.toLegacy(S.view, S.dc, S.landPlain), { [k]: v, dc: S.dc });
       Views.migrate(o);
-      S.view = o.view; S.dc = o.dc; S.landPlain = !!o.landPlain;
+      setOpt('view', o.view); setOpt('dc', o.dc); setOpt('landPlain', !!o.landPlain);
       applyLayout(); viewChanged('L'); viewChanged('R');
       return;
     }
-    if (k === 'view') { S.view = Views.clean(v); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
+    if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
     S[k] = v; if (k === 'meshN') { dropAllGPU(); } if (k === 'exactImages') scheduleFix(); requestRender('L', 'R', 'T');
   };
   // U-b: the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
