@@ -58,7 +58,7 @@ ok('touch copy names no desktop place or gesture', bad.length === 0, bad);
 COARSE = false;
 
 // every new string of this piece has its Russian (notes/i18n/ru/v165-ux-phone.json, through tools/make_ru_table.py)
-const SRC = ['app.js', 'inspector.js', 'phone.js', 'tour.js'].map((f) => fs.readFileSync(path.join(__dirname, '../src', f), 'utf8')).join('\n');
+const SRC = ['app.js', 'inspector.js', 'phone.js', 'tour.js'].map((f) => require('./src_text').source(f)).join('\n');   // (app.js: src/app/*.js joined)
 const table = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-phone.json'), 'utf8'));
 const missing = [];
 for (const [k, v] of Object.entries(table)) {

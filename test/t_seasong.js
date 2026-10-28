@@ -35,7 +35,7 @@ const funcs = fs.readFileSync(path.join(__dirname, '../src/funcs.js'), 'utf8');
 check('funcs.js powa is CX.pow(z, α, cut, k)', /powa[\s\S]{0,3000}CX\.pow\(/.test(funcs));
 
 // ---- app.js sndSample, from its source (M made a parameter for the sweep)
-const APP = fs.readFileSync(path.join(__dirname, '../src/app.js'), 'utf8');
+const APP = require('./src_text').appText();   // (src/app/*.js joined, as build.py does)
 const a0 = APP.indexOf('  function sndSample(F, pts, closed) {'), a1 = APP.indexOf('\n  }\n', a0);
 check('app.js sndSample found', a0 > 0 && a1 > a0);
 const sampleSrc = APP.slice(a0, a1 + 4).replace('const M = 900,', 'const M = __M,');

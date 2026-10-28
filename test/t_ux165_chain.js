@@ -8,7 +8,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
-const APP = fs.readFileSync(path.join(ROOT, 'src/app.js'), 'utf8');
+const APP = require('./src_text').appText();   // (src/app/*.js joined, as build.py does)
 let n = 0, fails = 0;
 const ok = (c, msg, got) => { n++; if (!c) { fails++; console.log('FAIL', msg, got === undefined ? '' : JSON.stringify(got)); } };
 // one top-level function (or const) of app.js, from its first line to the line that closes it at the same indent
