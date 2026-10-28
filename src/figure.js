@@ -3574,8 +3574,11 @@ const Figure = (() => {
     fitName();
     const extEl = h('span', { class: 'xf-ext' }, '.pdf');
     const moreBtn = h('button', { type: 'button', class: 'btn quiet xf-more', id: 'xfMore', 'aria-haspopup': 'menu' }, $t('More formats '), h('span', { html: ICON.down }));
-    const docsBtn = h('button', { type: 'button', class: 'btn xf-dest', id: 'xfDocs' }, $t('For Docs'));
-    const olBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfOverleaf' }, $t('For Overleaf'));
+    // the plain Save names the format; Copy image and the LaTeX button are the two others (the phone also gets Share first)
+    const saveBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfSave' }, $t('Save {format}', { format: 'PDF' }));
+    const shareBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfShare', hidden: !canShareFiles() }, $t('Share PNG…'));
+    const docsBtn = h('button', { type: 'button', class: 'btn xf-dest', id: 'xfDocs' }, $t('Copy image'));
+    const olBtn = h('button', { type: 'button', class: 'btn xf-dest', id: 'xfOverleaf' }, $t('Save + copy LaTeX for Overleaf'));
     const after2 = h('div', { class: 'xf-after2', hidden: true });
     const vidBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfVideo' }, $t('Save video'));
     const meter = h('i'), progTxt = h('span', { class: 'xf-progtxt', 'aria-hidden': 'true' }), progSr = h('span', { class: 'xf-sr', role: 'status' });
@@ -3583,7 +3586,7 @@ const Figure = (() => {
     const meterEl = h('div', { class: 'xf-meter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
     const prog = h('div', { class: 'xf-prog', hidden: true }, meterEl, progTxt, cancelBtn);
     const nameLab = h('label', { class: 'xf-name' }, nameInp, extEl), footSp = h('span', { class: 'xf-sp' });
-    const foot = h('div', { class: 'xf-foot' }, nameLab, prog, footSp, moreBtn, docsBtn, olBtn, vidBtn, after2, progSr);
+    const foot = h('div', { class: 'xf-foot' }, nameLab, prog, footSp, moreBtn, shareBtn, saveBtn, docsBtn, olBtn, vidBtn, after2, progSr);
     const chip = h('span', { class: 'xf-chip' }); chip.innerHTML = A.chipHTML(view);
     const m = h('div', { class: 'modal xf', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'xfTitle' },
       h('div', { class: 'xf-head' }, h('h2', { id: 'xfTitle' }, $t('Export figure')), chip, h('span', { class: 'xf-sp' }), iconBtn('icon-btn xf-x', ICON.close, null, close)),
@@ -3602,8 +3605,8 @@ const Figure = (() => {
       if (sz.id === 'custom') customInp.value = `${sz.pt}pt`;
       textSel.value = String(set.text[set.for] || (set.for === 'article' ? 10 : 11));
       const nax = axesSeg(); axesEl.replaceWith(nax); axesEl = nax;
-      docsBtn.textContent = set.for === 'slides' ? $t('For Slides') : $t('For Docs');
-      olBtn.textContent = set.for === 'slides' ? $t('For Beamer') : $t('For Overleaf');
+      olBtn.textContent = set.for === 'slides' ? $t('Save + copy LaTeX for Beamer') : $t('Save + copy LaTeX for Overleaf');
+      saveBtn.textContent = fmtOf() === 'video' ? $t('Save video') : $t('Save {format}', { format: fmtOf().toUpperCase() });
       const T = TYPE[set.for][set.text[set.for] || (set.for === 'article' ? 10 : 11)];
       hint.textContent = $t('{label}, {pt} pt text · Fit column', { label: $t(sz.label), pt: set.text[set.for] || (set.for === 'article' ? 10 : 11) });
       st.hintText = hint.textContent;
@@ -3731,7 +3734,8 @@ const Figure = (() => {
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
       greyBtn.hidden = vid; loupeBtn.hidden = vid; facts.hidden = vid;
-      for (const b of [moreBtn, docsBtn, olBtn]) b.hidden = vid;
+      for (const b of [moreBtn, docsBtn, olBtn, saveBtn]) b.hidden = vid;
+      shareBtn.hidden = vid || !canShareFiles();
       vidBtn.hidden = !vid;
       dpiSel.value = String(dpiOf());
       // (the default name follows the figure until it is edited: export review r3, editor-2)
@@ -3863,6 +3867,25 @@ const Figure = (() => {
         if (ok !== false) { set.last = set.lastFig = { kind: 'save', fmt, dpi }; saveSet(set); }
       } catch (e) { console.error(e); cueError(); toast(fmt === 'pdf' ? $t('The PDF could not be made here; try SVG.') : $t('The figure could not be saved.')); }
     };
+    saveBtn.addEventListener('click', async () => {
+      if (!fig) return;
+      const fmt = fmtOf();
+      saveBtn.disabled = true;
+      try { await saveAs(fmt, dpiOf()); } finally { saveBtn.disabled = false; }
+    });
+    // Share PNG…: the system share sheet with the picture (a phone); where it cannot take a file, the PNG is saved
+    shareBtn.addEventListener('click', async () => {
+      if (!fig) return;
+      shareBtn.disabled = true;
+      try {
+        const f = await full({ capInImage: set.for === 'homework' });
+        if (!f) return;
+        const file = new File([await png(f, 300)], `${f.name}.png`, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: f.name }); set.last = set.lastFig = { kind: 'save', fmt: 'png', dpi: 300 }; saveSet(set); }
+        else if (await A.saveFile(file.name, file) !== false) toast($t('Saved {name}.png', { name: f.name }));
+      } catch (e) { if (!(e && e.name === 'AbortError')) { console.error(e); cueError(); toast($t('The figure could not be saved.')); } }
+      finally { shareBtn.disabled = false; }
+    });
     moreBtn.addEventListener('click', () => {
       A.openMenu(moreBtn, [
         { label: 'PDF', key: $tx('format', 'vector'), run: () => saveAs('pdf') },
@@ -3920,10 +3943,12 @@ const Figure = (() => {
     const obs = new MutationObserver(() => { if (!bg.isConnected) { pv.stop(); window.removeEventListener('resize', onResize); if (dq) dq.removeEventListener('change', onDpr); document.removeEventListener('visibilitychange', onVis); obs.disconnect(); } });
     obs.observe(document.body, { childList: true });
     sync();
-    olBtn.focus({ preventScroll: true });
+    (canShareFiles() ? shareBtn : saveBtn).focus({ preventScroll: true });
     setTimeout(rebuild, 30);
     pdfLib();
   }
+  // the share sheet takes files here (a phone's browser); a laptop keeps Save
+  const canShareFiles = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && matchMedia('(pointer: coarse)').matches;
   // the export menu's Copy figure again / Save figure again: the last destination, with the remembered settings
   async function again(what) {
     const set = loadSet();
