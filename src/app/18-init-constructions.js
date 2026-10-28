@@ -485,12 +485,21 @@
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
     // once nothing compiles (the views' plain programs and the exact images have landed), the views' homotopy programs
     // (one per map mode, gl.js MAP) compile in the background, so a deformation started later plays at once; never
-    // before, so they do not delay the first image or an inverse program (its compile waits for forward programs)
-    let modesT = 0;
-    const prestartModesIdle = () => {
-      clearTimeout(modesT);
-      modesT = setTimeout(() => { try { if (GLR.ok && GLR.prestartModes && !GLR.compiling) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the deformation starts them */ } }, 400);
+    // before, so they do not delay the first image or an inverse program (its compile waits for forward programs).
+    // (issue #72) Then, one group at a time, each once the one before has landed and the user has paused for a second,
+    // the globes' and the Landscape's: a cold link on Direct3D 11 takes seconds, and the browser keeps the programs for
+    // later visits. Each group starts only the programs not started yet.
+    let modesT = 0, warmI = 0;
+    const WARM = [() => GLR.prestartModes(S.homAll ? [3] : [1]), () => prestartGlobe(), () => GLR.prestartLand()];
+    const warmNext = () => {
+      try {
+        if (!GLR.ok || !GLR.prestartModes || warmI >= WARM.length) return;
+        if (GLR.compiling || (warmI && performance.now() - lastInputT < 1000)) { modesT = setTimeout(warmNext, 400); return; }
+        WARM[warmI++]();
+        modesT = setTimeout(warmNext, 400);
+      } catch (e) { /* the views start them */ }
     };
+    const prestartModesIdle = () => { clearTimeout(modesT); warmI = 0; modesT = setTimeout(warmNext, 400); };
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);

@@ -227,6 +227,19 @@ float wabs(vec2 w) {
     }
     return n;
   }
+  // (issue #72) the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
+  // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
+  // -> the number started
+  function prestartLand() {
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    let n = prestart(['landNrm']);
+    for (const name of ['landTF', 'land']) {
+      if (progs.has(progId(name, cur, { mode: 0 }))) continue;
+      getProg(name, cur, true, { mode: 0 });
+      n++;
+    }
+    return n;
+  }
   // the static programs of the 2D views' first frame (the grid, cached fills and curves, identity fills and curves),
   // started at init and after a context restore: that frame needs them anyway, and their links overlap the app's
   // start-up instead of each other

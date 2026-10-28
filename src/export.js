@@ -117,7 +117,7 @@ const Export = (() => {
       }
       try { if (!(await smPrepareExport(panes, alive, dims.gen || 0))) return false; } catch (e) { console.error('SphereMesh export', e); }
     }
-    if (!GLR.ok || !GLR.inverseRequest || A.S.exactImages === false) return true;
+    if (!GLR.ok || !GLR.inverseRequest || A.S.exactImages === false) return warmExport(panels, alive, morphFig);
     const kinds = new Set();
     const need = (role, kind, map) => {
       if (!PHASE[role][kind]) return;
@@ -130,6 +130,22 @@ const Export = (() => {
     while (kinds.size && performance.now() - t0 < 4000) {
       if (!alive()) return false;
       if (![...kinds].map((k) => GLR.inverseRequest(A.S.alpha, k)).includes('pending')) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return alive() && warmExport(panels, alive, morphFig);
+  }
+  // (issue #72) renderOff links the forward programs it lacks synchronously (syncPrograms), and a cold link on
+  // Direct3D 11 takes seconds: the tab froze. So the panels are first drawn small with nothing waiting (renderOff's
+  // warm), the deformation's map modes started too, and the programs are awaited here, polled, while the export's
+  // progress shows; renderOff then finds them linked (or links the odd one still missing).
+  async function warmExport(panels, alive, morphFig) {
+    if (!GLR.ok || !GLR.prestart) return true;
+    try {
+      for (const side of panels) renderOff(side, 48, 32, 1, true);
+      if (morphOn() || morphFig) GLR.prestartModes(A.S.homAll ? [3] : [1]);
+    } catch (e) { console.error('export warm-up', e); return alive(); }
+    while (GLR.compiling) {
+      if (!alive()) return false;
       await new Promise((r) => setTimeout(r, 25));
     }
     return alive();
@@ -154,7 +170,8 @@ const Export = (() => {
     return real.w > 20 || !(other.w > 20) ? real.w : Math.max(1, (other.w - 8) / 2);
   }
   // a plane drawn off-screen at print size: views scaled so the same window shows; selection, hover and probe off
-  function renderOff(side, w, h, dpr) {
+  // warm: a draw only to start the programs it needs, in the background (prepareExport); nothing waits for them
+  function renderOff(side, w, h, dpr, warm = false) {
     const cv = document.createElement('canvas'), ov = document.createElement('canvas');
     const off = new Pane(cv, ov);
     off.w = w; off.h = h; off.dpr = dpr;
@@ -170,10 +187,10 @@ const Export = (() => {
     const mono = A.TH.mono; A.TH.mono = A.TH.math;
     // exact images (SPEC 10.6): prepareExport has waited for the inverse programs; one still compiling (normally
     // none) is waited for here, and only then
-    const wait = GLR.ok && GLR.inverseStatus && (GLR.inverseStatus(A.S.alpha, 'flat') === 'pending' || GLR.inverseStatus(A.S.alpha, 'globe') === 'pending');
+    const wait = !warm && GLR.ok && GLR.inverseStatus && (GLR.inverseStatus(A.S.alpha, 'flat') === 'pending' || GLR.inverseStatus(A.S.alpha, 'globe') === 'pending');
     // the forward programs are always waited for: a deformation frame may need a map mode the screen never drew
     // (gl.js MAP compiles one program per mode), and a static program's first use no longer waits on screen
-    const waitFwd = GLR.ok;
+    const waitFwd = !warm && GLR.ok;
     A.offRender = true;
     if (wait) GLR.syncCompile = true;
     if (waitFwd) GLR.syncPrograms = true;
