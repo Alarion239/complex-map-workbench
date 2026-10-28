@@ -91,7 +91,8 @@ artifact.
   release smokes, and suites that need the GPU machines). One not listed in `ci/browser_shards.js` runs in the shard
   `new`; move it to a shard once its time is known. The plan job checks that every suite is in exactly one shard.
 - **Timing is reported, not gated.** Speed is gated by the perf suite on our GPU machines; GitHub's machines render
-  WebGL in software (SwiftShader). A suite's timing checks (BUDGET60 frame budgets, long tasks, the tour's 3 s
+  WebGL in software (the browser jobs use Mesa's lavapipe, ANGLE's Vulkan back end on llvmpipe, which drew the app
+  2-4 times faster there than Chrome's own SwiftShader). A suite's timing checks (BUDGET60 frame budgets, long tasks, the tour's 3 s
   advance to ±150 ms, …: `TIMING` in `ci/browser_suites.js`) are listed with their numbers in the summary and a
   warning, and do not fail the job. Where one condition also asserts something else (the drag drew frames, the step
   did advance), the check counts as timing only when that part held. Every other check gates.
@@ -142,8 +143,8 @@ Settings (environment variables):
 
 | variable | meaning |
 |---|---|
-| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering) |
-| `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`) |
+| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
+| `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
 | `CMW_SPEED_SCALE` | scales the construction tests' absolute speed limits (set on the development Mac); CI uses 3 |
 | `CMW_PORT`, `CMW_BASE` | the server some browser suites open (`ci/browser.js` sets both to its own) |

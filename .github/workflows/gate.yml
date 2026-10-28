@@ -228,7 +228,9 @@ jobs:
     # the functional browser suites (test/*_cmd.js: the tour, constructions, touch, phone layouts, i18n, export, sound;
     # ci/browser.js), each in its own headless Chrome against this build, in shards of about 15 minutes
     # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
-    # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate.
+    # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
+    # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900).
     needs: plan
     strategy:
       fail-fast: false
@@ -237,7 +239,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      CMW_CHROME_ARGS: --no-sandbox
+      CMW_ANGLE: vulkan
+      CMW_CHROME_ARGS: --no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface
     steps:
       - uses: actions/checkout@v5
         with:
@@ -248,7 +251,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - run: node ci/gpu_probe.js --fallback
+      - name: Mesa's Vulkan drivers (lavapipe)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers
+      # (fails when Chrome has no WebGL2 with these flags: no fallback, so the suites never run on another renderer)
+      - run: node ci/gpu_probe.js
       - run: node ci/browser.js --shard ${{ matrix.shard }}
       - if: always()
         uses: actions/upload-artifact@v6
