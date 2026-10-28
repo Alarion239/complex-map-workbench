@@ -2673,5 +2673,18 @@
  "✓ Copied · paste it": "✓ Copiato · incollalo",
  "✓ Saved": "✓ Salvato",
  "✓ Saved PNG": "✓ PNG salvato",
- "✓ Saved · LaTeX copied": "✓ Salvato · LaTeX copiato"
+ "✓ Saved · LaTeX copied": "✓ Salvato · LaTeX copiato",
+ "Silent while you rest. Each time arg <i>F</i> crosses one of the picture's colour lines, a marimba note sounds: red is D, and each line round the Phase key is the next step of a circular scale (a semitone with 12 sectors), so a loop round a zero climbs and round a pole falls. Louder where |<i>F</i>| is larger; while the colour holds, the note sounds again at each band edge of |<i>F</i>|. A branch cut cracks, then plays the colours on either side; glass pings mark a zero, felt thumps a pole. Click a still point (on touch, hold it) to hear it. A closed loop sings its winding number as one note.": "Silenzio mentre il puntatore è fermo. Ogni volta che arg <i>F</i> attraversa una delle linee colorate dell'immagine suona una nota di marimba: il rosso è re, e ogni linea attorno alla legenda della fase è il grado successivo di una scala circolare (un semitono con 12 settori), così un laccio attorno a uno zero sale e attorno a un polo scende. Più forte dove |<i>F</i>| è più grande; finché il colore resta lo stesso, la nota risuona a ogni bordo di fascia di |<i>F</i>|. Un taglio fa uno schiocco, poi suona i colori dai due lati; rintocchi di vetro segnano uno zero, colpi di feltro un polo. Fai clic su un punto fermo (al tocco, tienilo premuto) per ascoltarlo. Un laccio chiuso canta il suo indice di avvolgimento con una sola nota.",
+ "Hear the function as": "Ascolta la funzione come",
+ "Notes": "Note",
+ "A marimba note at each colour line": "Una nota di marimba a ogni linea colorata",
+ "Glide": "Glissando",
+ "One continuous voice whose pitch is the colour, while F changes": "Una voce continua la cui altezza è il colore, mentre F cambia",
+ "Glide needs a browser with AudioWorklet.": "Il glissando richiede un browser con AudioWorklet.",
+ "Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.": "Shift+M attiva o disattiva il suono; Esc interrompe qualsiasi riproduzione. Con il focus su un piano: le frecce spostano una sonda, Q suona il punto, Z trova lo zero o il polo successivo, O indica l'ordine in quel punto, D descrive la vista, Enter traccia un laccio, L lo fa suonare.",
+ "Hear the function: notes": "Ascolta la funzione: note",
+ "Hear the function: glide": "Ascolta la funzione: glissando",
+ "Hear the function: notes.": "Ascolta la funzione: note.",
+ "Hear the function: glide.": "Ascolta la funzione: glissando.",
+ "Branch cut: F jumps by a factor {factor}.": "Taglio: F salta di un fattore {factor}."
 }

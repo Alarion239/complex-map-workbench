@@ -1,0 +1,68 @@
+{
+ "_about": "v16.5: Hear the function (the marimba notes and the Glide, perfwin/sound/impl/SOUND-PLAN.md 4.2): the popover, the palette, the announcements. id -> {en, ru, note}. Read last by tools/make_ru_table.py (V165_HEAR_HERE), so it overrides v152-sound.json and v164-tour.json. Note names in solfege (re for D).",
+ "hear.popover": {
+  "en": "Silent while you rest. Each time arg <i>F</i> crosses one of the picture's colour lines, a marimba note sounds: red is D, and each line round the Phase key is the next step of a circular scale (a semitone with 12 sectors), so a loop round a zero climbs and round a pole falls. Louder where |<i>F</i>| is larger; while the colour holds, the note sounds again at each band edge of |<i>F</i>|. A branch cut cracks, then plays the colours on either side; glass pings mark a zero, felt thumps a pole. Click a still point (on touch, hold it) to hear it. A closed loop sings its winding number as one note.",
+  "ru": "Тишина, пока указатель стоит. Всякий раз, когда arg <i>F</i> пересекает одну из цветных линий картинки, звучит нота маримбы: красная линия — ре, а каждая следующая линия по кругу шкалы фазы — следующая ступень круговой гаммы (полутон при 12 секторах), так что петля вокруг нуля поднимается, а вокруг полюса опускается. Чем больше |<i>F</i>|, тем громче; пока цвет не меняется, нота звучит снова на каждой границе полосы |<i>F</i>|. Разрез трещит, затем звучат цвета по обе его стороны; стеклянный звон отмечает нуль, глухой удар — полюс. Щёлкните по неподвижной точке (на сенсорном экране — удерживайте её), чтобы услышать её. Замкнутая петля поёт своё число оборотов одной нотой.",
+  "note": "S1: #sndSo's line (data-i18n=html), replaces v152s.popover_hear"
+ },
+ "hear.as": {
+  "en": "Hear the function as",
+  "ru": "Слушать функцию как",
+  "note": "S2: the Notes / Glide radiogroup's label"
+ },
+ "hear.notes": {
+  "en": "Notes",
+  "ru": "Ноты",
+  "note": "S3: the radio"
+ },
+ "hear.notes_d": {
+  "en": "A marimba note at each colour line",
+  "ru": "Нота маримбы на каждой цветной линии",
+  "note": "S3: its line"
+ },
+ "hear.glide": {
+  "en": "Glide",
+  "ru": "Скольжение",
+  "note": "S4: the radio"
+ },
+ "hear.glide_d": {
+  "en": "One continuous voice whose pitch is the colour, while F changes",
+  "ru": "Один непрерывный голос, высота которого — цвет, пока F меняется",
+  "note": "S4: its line"
+ },
+ "hear.glide_no": {
+  "en": "Glide needs a browser with AudioWorklet.",
+  "ru": "Для скольжения нужен браузер с AudioWorklet.",
+  "note": "S5"
+ },
+ "hear.keys": {
+  "en": "Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.",
+  "ru": "Shift + M включает и выключает звук; Esc останавливает воспроизведение. На активной плоскости: стрелки перемещают указатель, Q — сыграть точку, Z — перейти к следующему нулю или полюсу, O — назвать порядок в этой точке, D — описать вид, Enter — нарисовать петлю, L — прослушать вдоль неё.",
+  "note": "S6: the popover's key hint (the old one, phase2b fx.snd.keys, stays shipped)"
+ },
+ "hear.pal_notes": {
+  "en": "Hear the function: notes",
+  "ru": "Слушать функцию: ноты",
+  "note": "S7: palette"
+ },
+ "hear.pal_glide": {
+  "en": "Hear the function: glide",
+  "ru": "Слушать функцию: скольжение",
+  "note": "S7: palette"
+ },
+ "hear.say_notes": {
+  "en": "Hear the function: notes.",
+  "ru": "Слушать функцию: ноты.",
+  "note": "S8: announcement"
+ },
+ "hear.say_glide": {
+  "en": "Hear the function: glide.",
+  "ru": "Слушать функцию: скольжение.",
+  "note": "S8: announcement"
+ },
+ "hear.cut": {
+  "en": "Branch cut: F jumps by a factor {factor}.",
+  "ru": "Разрез: F скачком умножается на {factor}.",
+  "note": "S21: a branch cut on the probe (at most once per 1.5 s)"
+ }
+}
