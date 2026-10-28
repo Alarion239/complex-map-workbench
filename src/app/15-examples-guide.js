@@ -693,6 +693,7 @@
       b.setAttribute('data-tip', S.solo === w ? $t('Show both planes') : $t('Expand plane')); b.removeAttribute('title');
       b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
     }
+    syncModeChips();
     if (mg !== layoutMg || one !== layoutOne) { layoutMg = mg; layoutOne = one; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }
   let layoutMg = null, layoutOne = null;

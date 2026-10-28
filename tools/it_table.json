@@ -2973,5 +2973,7 @@
  "Vertices ({n})": "Vertici ({n})",
  "Bring to front": "Porta in primo piano",
  "Send to back": "Manda in secondo piano",
- "Select {name}": "Seleziona {name}"
+ "Select {name}": "Seleziona {name}",
+ "Y hidden": "Y nascosto",
+ "X hidden": "X nascosto"
 }

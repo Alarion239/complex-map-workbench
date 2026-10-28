@@ -315,7 +315,7 @@
     },
     // something Escape cancels in the app: a drawing, a drag, a selection (a shape, a zero or pole), the coordinate
     // pad, the tools' More menu, an open overlay drawer
-    busy: () => !!(draft || drag || selected || zpSel || padEl || snd.play || snd.kloop || ($('toolMore') && $('toolMore').open) || (isDrawer('L') && !S.hideLeft) || (isDrawer('R') && !S.hideRight)),
+    busy: () => !!(draft || drag || selected || modeNext() || zpSel || padEl || snd.play || snd.kloop || ($('toolMore') && $('toolMore').open) || (isDrawer('L') && !S.hideLeft) || (isDrawer('R') && !S.hideRight)),
     // a menu, the palette, the coordinate pad or a dialog is open: Escape and Tab are theirs
     layerOpen: () => !!(popEl || padEl || document.querySelector('#popHost > .pop, .modal-bg, [popover]:popover-open')),
     // v15's layers, which the callout keeps clear of and the rings are masked off: the popovers (#popHost: the palette,

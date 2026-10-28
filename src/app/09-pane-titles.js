@@ -107,6 +107,7 @@
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
+    syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
     // (the last active step turned off or removed ends the deformation, and with it the merge)
     if (morph.open && !morphRange().steps.length) { closeTransport(); return; }

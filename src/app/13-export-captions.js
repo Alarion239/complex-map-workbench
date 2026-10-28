@@ -83,6 +83,46 @@
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
+  // The modes Esc steps out of, innermost first: a step shown alone, an expanded plane, the deformation. Each one is a
+  // chip at the right end of the head of the plane that stays in view, with the key that leaves it and a ×; the
+  // chip of the mode Esc closes next also shows Esc.
+  const modeNext = () => {
+    if (S.focus > 0) return 'alone';
+    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
+    return morphOn() ? 'morph' : null;
+  };
+  function modeClose(m) {
+    if (m === 'alone') setFocus(0);
+    else if (m === 'solo') setSolo(S.solo);
+    else if (m === 'morph') closeTransport();
+  }
+  function syncModeChips() {
+    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
+    const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
+    if (!head) return;
+    let box = $('modeChips');
+    if (!box) box = h('span', { class: 'mode-chips', id: 'modeChips' });
+    const next = modeNext();
+    const want = [];
+    if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
+    if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
+    const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
+    if (box.dataset.sig !== sig) {
+      box.dataset.sig = sig;
+      box.replaceChildren(...want.map(([m, label, tip, key]) => h('span', { class: 'mode-chip', 'data-mode': m },
+        h('span', { class: 'mc-t' }, label),
+        ...(m === next ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
+        h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
+    }
+    if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
+    box.hidden = !want.length;
+    const ac = $('aloneChip');
+    if (ac) {
+      let k = ac.querySelector('.kbd');
+      if (next === 'alone' && !k) { k = h('span', { class: 'kbd' }, 'Esc'); ac.insertBefore(k, ac.lastElementChild); }
+      else if (next !== 'alone' && k) k.remove();
+    }
+  }
   // the Inspector docks under the chain from 768 to 1023 px; from 1024 a hidden panel opens as the temporary Inspector
   const underChain = () => window.innerWidth >= 768 && window.innerWidth < 1024;
   let tempInsp = false;

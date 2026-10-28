@@ -156,5 +156,7 @@
  "Vertex removed.": "Вершина удалена.",
  "Vertices ({n})": "Вершины (%{n})",
  "Bring to front": "На передний план",
- "Send to back": "На задний план"
+ "Send to back": "На задний план",
+ "Y hidden": "Y скрыта",
+ "X hidden": "X скрыта"
 }
