@@ -258,6 +258,7 @@ const Params = (() => {
     for (const f of formulas()) { const s = f.get(); const r = replaceName(s, old, t); if (r !== s) f.set(r); }
     for (const q of arr()) if (q.expr) q.expr = replaceName(q.expr, old, t);
     p.name = nn;
+    delete p.ex;   // a number the user names is theirs, not the example's
     if (playing.has(old)) { playing.set(nn, playing.get(old)); playing.delete(old); }
     emit('structure', { renamed: [old, nn] });
     emit('change', { names: [nn], renamed: true });
@@ -296,6 +297,7 @@ const Params = (() => {
       const p = { name: c, value: v, min: Math.min(min, v), max: Math.max(max, v), step: isNum(q.step) && q.step > 0 ? q.step : 0.01 };
       if (typeof q.expr === 'string' && q.expr.trim()) p.expr = q.expr.trim().slice(0, 500);
       if (q.play === 'bounce' || q.play === 'loop') p.play = q.play;
+      if (q.ex === true) p.ex = true;   // an example's own number: the next example takes it away (examples.js)
       out.push(p);
     }
     return out;
