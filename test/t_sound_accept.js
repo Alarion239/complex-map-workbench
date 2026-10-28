@@ -176,7 +176,8 @@ function clickScore(o) {
   for (const name of Object.keys(H.SC)) {
     if (only && !only.test(name)) continue;
     await scene(name, false, name === 'sqrt-cut');
-    if (H.SC[name].glide) await scene(name, true, name === 'sqrt-cut');
+    // the Glide on every scene: also approach, the double pole and essential, which the prototype never rendered
+    await scene(name, true, name === 'sqrt-cut');
   }
   // the catalog at its loudest: each cue (order 8 for the zero, pole and dense cues) alone, at the bus
   if (!only) {

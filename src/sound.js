@@ -337,9 +337,11 @@ function SND_LIB() {
             g.panS += ((c.pan || 0) - g.panS) * kPan;
           }
           // the harmonic weights at this brightness, each copy's highest harmonic below 0.45 fs (once a block, or when b
-          // changes)
-          if (j === 0 || c.b !== g.bLast) {
-            g.bLast = c.b; const p = 3 - 2.5 * Math.max(0, Math.min(1, c.b || 0));
+          // changes); a seat's fade holds the old brightness with its pitch and pan (compare.js [A14]: f, p, b held;
+          // the new control's b at once was a step in the waveform, a click)
+          const bNow = g.blk ? g.bLast : c.b;
+          if (j === 0 || bNow !== g.bLast) {
+            g.bLast = bNow; const p = 3 - 2.5 * Math.max(0, Math.min(1, bNow || 0));
             for (let h = 1; h <= 24; h++) WH[h] = Math.pow(h, -p);
             for (let k = 0; k < 7; k++) { const fj = Math.pow(2, LD2 + ((((g.ph + k) % 7) + 7) % 7)); let H = 0, s = 0; while (H < 24 && (H + 1) * fj < 0.45 * fs) { H++; s += WH[H]; } HJ[k] = H; NR[k] = s > 0 ? 1 / s : 0; }
           }
@@ -355,7 +357,10 @@ function SND_LIB() {
           g.wN = x;
           const lvl = (c.a || 0) * g.gn * g.env;
           let y = 0, peak = 0;
-          for (let k = 0; k < 7; k++) { const tgt = g.blk ? HOLD[k] * mul : W7[k] * lvl * mul; A[k] += (tgt - A[k]) * kAmp; if (A[k] > peak) peak = A[k]; }
+          // (a seat's fade is the raised cosine itself, from the held amplitudes to exactly 0, then exactly 0: smoothed
+          // over 12 ms it still sounded 2-3 % at the end of the silence, where pitch, pan and brightness move to the new
+          // place, a click)
+          for (let k = 0; k < 7; k++) { const tgt = g.blk ? HOLD[k] * mul : W7[k] * lvl * mul; A[k] = g.blk ? tgt : A[k] + (tgt - A[k]) * kAmp; if (A[k] > peak) peak = A[k]; }
           const floorA = 1e-5 * peak;
           for (let k = 0; k < 7; k++) {
             TH[k] += base * P2[(((fl + k) % 7) + 7) % 7]; TH[k] -= Math.floor(TH[k]);
