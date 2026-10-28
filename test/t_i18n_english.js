@@ -130,7 +130,9 @@ const a = probe(base, BASE), b = probe(now, path.join(ROOT, 'src'));
 let fails = 0;
 // (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
 // notes/ux-build/w1-chain-AS-BUILT.md)
-const intended = (s) => s.replace(/Custom formula/g, 'Formula');
+// (and of a value: √−1 is exactly -i now, where cos(π/2) rounded to 6.1e-17 had been its real part; CX.powReal's
+// angle by quadrants, notes/arb/FINDINGS.md)
+const intended = (s) => s.replace(/Custom formula/g, 'Formula').replace('{"re":6.123233995736766e-17,"im":-1}', '{"re":0,"im":-1}');
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }
 for (let i = 0; i < Math.min(a.length, b.length); i++) {
   if (a[i][0] !== b[i][0] || intended(a[i][1]) !== b[i][1]) {

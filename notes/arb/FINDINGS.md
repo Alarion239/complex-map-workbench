@@ -17,7 +17,7 @@ the single HTML file.
   `notes/arb/reference.json`. The hard points sit near zeros, poles, branch points and both sides of cuts, at tiny and
   huge |z|, just off the unit circle, near the real zeros of sin and the poles of tan, and where exp nearly over- or
   underflows. Each value is a ball (midpoint with 40 digits, radius ~1e-76); a ball that straddles a cut or a pole is
-  written null, a value past the double range "overflow". 1018 of the 1020 values are certified.
+  written null, a value past the double range "overflow". All 1020 values are certified (a component far below the other is retried at 4 and 16 times the precision).
 - `tools/arb_compare.js`: builds each step with `Funcs.build` (the app's CPU path, `cx.js` underneath), evaluates it at
   the same doubles, and reports the worst error per step in ulp (units of 2^-52):
   - **normwise**: |f − ref| / |ref|, what matters for drawing a point;
@@ -93,6 +93,65 @@ with the wrong size, where the truth is nonzero. Every case above 10 ulp was che
 
 So the CPU maths needs precision in five known places, and a double-precision fix exists for each: `log1p`, small-|z|
 series, factored forms. None of these needs ball arithmetic at runtime.
+
+## Fixed (the precision follow-up)
+
+The five places are fixed in `src/cx.js` and `src/funcs.js`, and `test/t_arb_reference.js` gates every step against
+`reference.json` with a normwise and a per-component limit that only tighten:
+
+- **log near |z| = 1**: Re log z = log|z| as ½ log1p(|z|² − 1) with |z|² − 1 summed error-free (twoProd, twoSum).
+- **The inverse functions at small arguments**: a complex `log1p` (`CX.log1p`) for asin, atan and acosh near their
+  zero; acos near 1 as 2 asin √((1 − z)/2); Im atan z as ¼ log1p(4y / (x² + (1 − y)²)) where that ratio is small; and
+  just off the real segment (or the imaginary axis) the first-order form f(x) + i y f′(x), exact to double there.
+- **Cancellation near zeros**: compensated Horner (`CX.polyEvalComp`) for the polynomial and rational steps;
+  Joukowski as ½ (x (1 + 1/r²), y (1 − 1/r²)) with r² − 1 summed error-free (`CX.jouk`).
+- **The small part next to a cut**: `powReal` takes the angle as a multiple of π/2 plus a remainder computed from the
+  components, so the root and power steps keep the tiny component next to their cut.
+- No cut side changed (a differential test of every function over a grid with ±0 on the axes against the old code).
+- The reference now raises the precision where one component is far below the other (it had certified a Re of
+  ~1e-300 at 256 bits that only 1024 bits resolve): all 1020 values certify.
+
+Against the same reference, before → after (bold: changed):
+
+| step | normwise before → after (ulp) | per component before → after (ulp) |
+|---|---|---|
+| mul | 0.0 | 0.0 |
+| add | 0.6 | 0.6 |
+| affine | 0.5 | 0.5 |
+| recip | 1.0 | 1.0 |
+| mobius | 1.0 | 5.0e+17 |
+| blaschke | 1.0 | 2.3e+7 |
+| pown | 0.5 | 0.7 |
+| root | **0.7 → 0.9** | **2.8e+299 → 1.1** |
+| powa | **3.3 → 1.2** | **2.8e+299 → 3.8** |
+| exp | 0.9 | 1.0 |
+| log | **1.6e+7 → 0.8** | **4.5e+15 → 0.9** |
+| sin | 1.0 | 1.4 |
+| cos | 0.6 | 0.9 |
+| tan | 1.4 | 1.7 |
+| sinh | 0.9 | 1.0 |
+| cosh | 0.8 | 1.1 |
+| tanh | 0.7 | 1.6 |
+| arcsin | **4.0e+11 → 32** | **4.5e+15 → 1.1e+6** |
+| arccos | **1.1e+6 → 1.0** | **4.5e+15 → 2.5e+11** |
+| arctan | **1.5e+11 → 0.7** | **4.5e+15 → 1.0** |
+| arsinh | **4.5e+15 → 32** | **4.5e+15 → 1.1e+6** |
+| arcosh | **16701 → 1.1** | **4.5e+15 → 4.0e+8** |
+| artanh | **4.5e+15 → 0.9** | **4.5e+15 → 1.3** |
+| joukowski | **2.5e+8 → 1.0** | **4.5e+15 → 1.7** |
+| ijouk | 0.8 | 1.3e+11 |
+| conj | 0.0 | 0.0 |
+| poly | **2.3e+6 → 0.0** | **1.5e+15 → 0.0** |
+| rational | **2.3e+6 → 0.8** | 4.5e+15 |
+| zp | 1.3 | 4.5e+15 |
+| custom | 1.2e+8 | 1.7e+8 |
+
+Left as they are (each has a large per-component limit in the test): a Möbius map's or a rational's tiny component
+near the unit circle (normwise 1 ulp), asin and asinh next to their branch points (normwise 32 ulp), acos just off
+x > 1, acosh's tiny Re near 0, and `custom` (the formula parser's own z² + 1/z, 1.2e8 normwise near −1). The GLSL
+twins of log, asin, atan, acosh and the real power (`src/glsl.js` clog, cx_asin0, catan, cacosh, cpowr) have the same
+cancellations in float32; their fixes need log1p and an error-free product without fma in WebGL2, so they are a GLSL
+change of their own.
 
 ## Speed (measured, this container, one core)
 

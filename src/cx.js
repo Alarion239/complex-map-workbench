@@ -40,6 +40,16 @@ const CX = (() => {
   const eq = (a, b, eps = 0) => Math.abs(a.re - b.re) <= eps && Math.abs(a.im - b.im) <= eps;
   const isZero = (a) => a.re === 0 && a.im === 0;
 
+  // log|1 + w| for w = u + iv, without the cancellation of log(hypot(1 + u, v)) when |1 + w| is near 1
+  // (notes/arb/FINDINGS.md): ½ log1p(2u + u² + v²), the sum taken with its rounding errors (twoProd and twoSum, below:
+  // about twice the precision); past the split's range (about 1e±150) the plain form
+  function log1pAbs(u, v) {
+    const [p1, e1] = twoProd(u, u), [p2, e2] = twoProd(v, v);
+    const [s1, f1] = twoSum(2 * u, p1), [s2, f2] = twoSum(s1, p2);
+    const t = s2 + (f1 + f2 + e1 + e2);
+    return Number.isFinite(t) ? 0.5 * Math.log1p(t) : Math.log(Math.hypot(1 + u, v));
+  }
+
   function div(a, b) {
     // Smith's algorithm
     if (b.re === 0 && b.im === 0) {
@@ -77,16 +87,44 @@ const CX = (() => {
     return t;
   }
   // log with branch cut along the ray at angle theta, on sheet k.
+  // log|z|, near |z| = 1 without the cancellation of Math.log(Math.hypot(...)) (log(1 + 1e-9 i) had Re 0 where it is
+  // 5e-19): with the larger component x, |x| - 1 is exact there (Sterbenz) and log1pAbs keeps the rest
+  function logAbs(x, y) {
+    const ax = Math.abs(x), ay = Math.abs(y), a = Math.max(ax, ay), b = Math.min(ax, ay);
+    const r2 = a * a + b * b;
+    return r2 > 0.5 && r2 < 2 ? log1pAbs(a - 1, b) : Math.log(Math.hypot(x, y));
+  }
   function log(a, theta = Math.PI, k = 0) {
-    return C(Math.log(Math.hypot(a.re, a.im)), argCut(a, theta) + TAU * k);
+    return C(logAbs(a.re, a.im), argCut(a, theta) + TAU * k);
+  }
+  // log(1 + w), for the inverse trig and hyperbolic functions at small arguments: for |w| < 1/2 by log1pAbs and the
+  // angle of 1 + w, otherwise log(1 + w)
+  function log1p(w) {
+    if (Math.abs(w.re) < 0.5 && Math.abs(w.im) < 0.5) return C(log1pAbs(w.re, w.im), Math.atan2(w.im, 1 + w.re));
+    return log(C(1 + w.re, w.im));
   }
   // z^s for real s, branch as in log
+  // The angle s·arg z is taken as s·q·π/2 + s·ρ, q an integer (the quadrant, with the cut's and the sheet's turns) and
+  // |ρ| <= π/4 from the components themselves: next to a cut, where arg z is π less a tiny δ, the small part of z^s
+  // (m sin(sδ) for a square root) keeps its digits instead of the rounding of cos(s·arg z) near π/2 (it read 4e-17
+  // for 7e-301 next to the cut of √). cos and sin of an exact multiple of π/2 are exact.
   function powReal(a, s, theta = Math.PI, k = 0) {
     const r = Math.hypot(a.re, a.im);
     if (r === 0) return s > 0 ? C(0, 0) : (s === 0 ? C(1, 0) : INF);
-    const t = (argCut(a, theta) + TAU * k) * s;
+    const x = a.re, y = a.im;
+    let q, rho;
+    if (Math.abs(x) >= Math.abs(y)) { rho = Math.atan(y / x); q = x > 0 ? 0 : Object.is(y, -0) || y < 0 ? -2 : 2; }
+    else { rho = -Math.atan(x / y); q = y > 0 ? 1 : -1; }
+    // (the turns argCut and the sheet add: whole multiples of 2π, 4 quarters each)
+    q += 4 * Math.round((argCut(a, theta) + TAU * k - (q * Math.PI / 2 + rho)) / TAU);
     const m = Math.pow(r, s);
-    return C(m * Math.cos(t), m * Math.sin(t));
+    // s·q/2 half-turns, reduced mod 2; exact cos and sin at the multiples of 1/2
+    let h = s * q / 2;
+    h -= 2 * Math.round(h / 2);
+    const H = 2 * h, Q4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    const [ch, sh] = Number.isInteger(H) ? Q4[((H % 4) + 4) % 4] : [Math.cos(Math.PI * h), Math.sin(Math.PI * h)];
+    const v = s * rho, cv = Math.cos(v), sv = Math.sin(v);
+    return C(m * (ch * cv - sh * sv), m * (sh * cv + ch * sv));
   }
   // z^w for complex w
   function pow(a, w, theta = Math.PI, k = 0) {
@@ -139,34 +177,77 @@ const CX = (() => {
     return C(t.im, -t.re);
   }
   // Principal inverse trig functions (standard cuts).
+  // (small |z|: the log's argument is 1 + w with w = iz + (s - 1), s - 1 = -z²/(s + 1), and log1p keeps the digits
+  // log(1 + w) loses; asin 1e-12 i was 9e-5 off, notes/arb/FINDINGS.md)
   function asin0(a) { // -i log(iz + sqrt(1 - z^2))
     const iz = C(-a.im, a.re);
-    const s = sqrt(sub(ONE, mul(a, a)));
-    const l = log(add(iz, s));
+    const z2 = mul(a, a), s = sqrt(sub(ONE, z2));
+    const l = abs(a) < 0.5 ? log1p(add(iz, div(neg(z2), add(s, ONE)))) : log(add(iz, s));
     return C(l.im, -l.re);
   }
   // asin is odd off its cuts: iz and sqrt(1 - z^2) nearly cancel where Im z > 0 (and on the cut z < -1), losing about
   // 2 log10|z| digits; there it is evaluated as -asin0(-z), whose sum does not cancel. The same values (the GPU's
   // casin uses this form); on the cuts the sides are those of asin0.
-  function asin(a) { return a.im > 0 || (a.im === 0 && a.re < 0) ? neg(asin0(neg(a))) : asin0(a); }
-  const acos = (a) => sub(C(Math.PI / 2, 0), asin(a));
-  function atan(a) { // (i/2)(log(1 - iz) - log(1 + iz))
-    const iz = C(-a.im, a.re);
-    const d = sub(log(sub(ONE, iz)), log(add(ONE, iz)));
-    return C(-d.im / 2, d.re / 2);
+  // Just off the real segment where a function is analytic (|y| below 1e-9 of the distance to its branch points), the
+  // log forms lose the small imaginary part entirely (asin(-0.5 + 1e-300 i) had Im ~1e-16); there f(x + iy) =
+  // f(x) + i y f'(x) to double precision (the next term is y²), with f(x) from Math. offReal gives that or null.
+  function offReal(a, ok, f, d) {
+    const x = a.re, y = a.im;
+    if (!(Math.abs(y) < 1e-9 * ok(x))) return null;
+    return C(f(x), y * d(x));
+  }
+  // (and just off the imaginary axis, through asin z = -i asinh(iz), atan z = -i atanh(iz) and back)
+  const asinR = (a) => offReal(a, (x) => 1 - Math.abs(x), Math.asin, (x) => 1 / Math.sqrt((1 - x) * (1 + x)));
+  const asinhR = (a) => offReal(a, () => 1, Math.asinh, (x) => 1 / Math.sqrt(1 + x * x));
+  const atanR = (a) => offReal(a, () => 1, Math.atan, (x) => 1 / (1 + x * x));
+  const atanhR = (a) => offReal(a, (x) => 1 - Math.abs(x), Math.atanh, (x) => 1 / ((1 - x) * (1 + x)));
+  const viaI = (t) => (t ? C(t.im, -t.re) : null);   // -i t
+  function asin(a) { return asinR(a) || viaI(asinhR(C(-a.im, a.re))) || (a.im > 0 || (a.im === 0 && a.re < 0) ? neg(asin0(neg(a))) : asin0(a)); }
+  // (near 1, π/2 − asin z cancels: there acos z = 2 asin √((1 − z)/2), whose asin is at a small argument)
+  const acos = (a) => (abs(sub(a, ONE)) < 0.5 ? scale(asin(sqrt(scale(sub(ONE, a), 0.5))), 2) : sub(C(Math.PI / 2, 0), asin(a)));
+  function atan(a) { // (i/2)(log(1 - iz) - log(1 + iz)); at small |z| by log1p (the two logs' Re cancelled)
+    const iz = C(-a.im, a.re), r = atanR(a) || viaI(atanhR(iz));
+    if (r) return r;
+    const d = abs(a) < 0.5 ? sub(log1p(neg(iz)), log1p(iz)) : sub(log(sub(ONE, iz)), log(add(ONE, iz)));
+    // Im atan z, ½ (log|1 + iz| - log|1 - iz|), as ¼ log1p(4y / (x² + (1 - y)²)) where that ratio is small, so the two
+    // logs' close Re do not cancel (atan(π + 1e-9 i), atanh of large z); near ±i (the ratio near -1) the difference
+    const x = a.re, y = a.im, q = 4 * y / (x * x + (1 - y) * (1 - y));
+    return C(-d.im / 2, Math.abs(q) < 0.5 ? 0.25 * Math.log1p(q) : d.re / 2);
   }
   function asinh(a) { // log(z + sqrt(z^2+1))  = -i asin(iz)
+    const r = asinhR(a);
+    if (r) return r;
     const s = asin(C(-a.im, a.re));
     return C(s.im, -s.re);
   }
-  function acosh(a) { // log(z + sqrt(z-1) sqrt(z+1))
-    return log(add(a, mul(sqrt(sub(a, ONE)), sqrt(add(a, ONE)))));
+  function acosh(a) { // log(z + sqrt(z-1) sqrt(z+1)); near 1 as log1p((z - 1) + sqrt(z-1) sqrt(z+1))
+    const r0 = offReal(a, (x) => (x > 1 ? x - 1 : 0), Math.acosh, (x) => 1 / Math.sqrt((x - 1) * (x + 1)));
+    if (r0) return r0;
+    // (just off the segment -1 < x < 1, its cut's inner part: acosh(x ± i0) = ±i acos x, and Re = |y| / √(1 - x²); on
+    // the segment itself +i acos x for -0 too, as the log form gives)
+    const x = a.re, y = a.im;
+    if (Math.abs(y) < 1e-9 * (1 - Math.abs(x))) return C(Math.abs(y) / Math.sqrt((1 - x) * (1 + x)), (y < 0 ? -1 : 1) * Math.acos(x));
+    const zm = sub(a, ONE), r = mul(sqrt(zm), sqrt(add(a, ONE)));
+    return abs(zm) < 0.5 ? log1p(add(zm, r)) : log(add(a, r));
   }
   function atanh(a) { // -i atan(iz)
+    const r = atanhR(a);
+    if (r) return r;
     const t = atan(C(-a.im, a.re));
     return C(t.im, -t.re);
   }
 
+  // the Joukowski map (z + 1/z)/2 as ½ (x (1 + 1/r²), y (1 - 1/r²)), r² = |z|², with r² - 1 summed with its rounding
+  // errors: z + 1/z cancels near its zeros ±i and its Im near the unit circle (notes/arb/FINDINGS.md); past the
+  // split's range (about 1e±150) the plain form, which does not cancel there
+  function jouk(z) {
+    const x = z.re, y = z.im, r2 = x * x + y * y;
+    if (!(r2 > 1e-280 && r2 < 1e280)) return scale(add(z, inv(z)), 0.5);
+    const [p1, e1] = twoProd(x, x), [p2, e2] = twoProd(y, y);
+    const [s1, f1] = twoSum(p1, -1), [s2, f2] = twoSum(s1, p2);
+    const m1 = s2 + (f1 + f2 + e1 + e2);   // r² - 1
+    return C(0.5 * x * (2 + m1) / r2, 0.5 * y * m1 / r2);
+  }
   // the inverse Joukowski map z + sg sqrt(z - 1) sqrt(z + 1) (principal roots): the interior branch (sg < 0) as
   // 1 / (z + s), equal to z - s since (z - s)(z + s) = z^2 - s^2 = 1, without the cancellation of z - s at large |z|
   function ijouk(z, sg) {
@@ -258,6 +339,27 @@ const CX = (() => {
     let r = C(0, 0);
     for (let i = 0; i < co.length; i++) r = add(mul(r, z), co[i]);
     return r;
+  }
+  // Horner's scheme with its rounding errors carried along (compensated Horner, Graillat, Langlois and Louvet 2005, in
+  // complex arithmetic): as accurate as Horner in twice the precision, so a polynomial near its roots keeps its digits
+  // (z³ - z at 1 + 1e-10 i was 5e-10 relative off; notes/arb/FINDINGS.md). About 10 times Horner's work: for the
+  // catalog's polynomial and rational steps, not the meshes' inner loops. Past the split's range (about 1e±150) the
+  // plain result.
+  function polyEvalComp(co, z) {
+    const x = z.re, y = z.im;
+    let rr = 0, ri = 0, cr = 0, ci = 0;
+    for (let i = 0; i < co.length; i++) {
+      // r·z exactly as four products, their sums with their errors, then + a_i
+      const [p1, e1] = twoProd(rr, x), [p2, e2] = twoProd(ri, y), [p3, e3] = twoProd(rr, y), [p4, e4] = twoProd(ri, x);
+      const [s1, f1] = twoSum(p1, -p2), [s2, f2] = twoSum(p3, p4);
+      const [t1, g1] = twoSum(s1, co[i].re), [t2, g2] = twoSum(s2, co[i].im);
+      // the error's own Horner step (plain arithmetic)
+      const er = e1 - e2 + f1 + g1, ei = e3 + e4 + f2 + g2;
+      const nr = cr * x - ci * y + er, ni = cr * y + ci * x + ei;
+      rr = t1; ri = t2; cr = nr; ci = ni;
+    }
+    const r = C(rr + cr, ri + ci);
+    return isFin(r) ? r : polyEval(co, z);
   }
   function polyTrim(co) {
     let i = 0;
@@ -406,8 +508,8 @@ const CX = (() => {
   return {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
-    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk,
-    mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
+    exp, log, log1p, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, jouk, ijouk,
+    mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyEvalComp, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
 if (typeof module !== 'undefined') module.exports = CX;
