@@ -2643,6 +2643,7 @@
  "their image": "la loro immagine",
  "their images": "le loro immagini",
  "this formula is not analytic, so it has no natural path": "questa formula non è analitica, quindi non ha un percorso naturale",
+ "this formula has no usable point to zoom about, so it has no natural path": "questa formula non ha un punto utilizzabile per lo zoom, quindi non ha un percorso naturale",
  "through {a} and {b}, perpendicular to {c}": "passante per {a} e {b}, perpendicolare a {c}",
  "through {a}, {b}, {c}": "passante per {a}, {b}, {c}",
  "through {b}, touching {c} at {a}": "passante per {b}, tangente a {c} in {a}",

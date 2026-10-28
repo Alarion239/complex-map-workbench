@@ -154,6 +154,9 @@ const cst = S('poly', { co: '3' });
 check('a constant: the straight line, said so', !cst.nat && /straight-line/.test(cst.homTex('z').tex) && /no natural path/.test(cst.homTex('z').tex));
 const odd = S('custom', { expr: '\\overline{z}+z' });
 check('a formula that is not analytic: the straight line, said so', !odd.nat && /not analytic/.test(odd.homTex('z').tex), odd.homTex && odd.homTex('z').tex);
+// an analytic formula with no usable zoom centre (genericZoomNat null: |f'| < 10⁻⁶ everywhere) is analytic: the caption says why, not "not analytic"
+const nop = S('custom', { expr: '10^{-8}\\sin(z)' });
+check('an analytic formula with no zoom centre: the straight line, said why', !nop.nat && /no usable point to zoom about/.test(nop.homTex('z').tex) && !/not analytic/.test(nop.homTex('z').tex), nop.homTex && nop.homTex('z').tex);
 // all at once (finding: one letter, two meanings): the caption names f_k and p_k when asked
 const rt = S('rational', { p: '1, 0, -1', q: '1, 0, 1' }).homTex('u', { f: 'f_{2}', p: 'p_{2}' }).tex, ct = S('cosh').homTex('u', { p: 'p_{1}' }).tex;
 check('captions take the names f_k, p_k', /zoom/.test(rt) && !/[^_]f\(|[(+]p[)+-]/.test(rt.replace(/f_\{2\}/g, 'F').replace(/p_\{2\}/g, 'P')) && /p_\{1\}=/.test(ct), { rt, ct });

@@ -5,7 +5,9 @@
 # Compact: the outlines are rewritten with relative commands (same points, fewer digits), the italic face keeps only
 # the panel letters а б в г д е ж з и к л м, and each face is one JSON string that the page parses on the first
 # Russian caption only (English never does).
-import json, re, pathlib
+import json
+import pathlib
+import re
 
 root = pathlib.Path(__file__).resolve().parent.parent
 cyr = root / 'notes' / 'i18n' / 'proto' / 'cyr'
@@ -14,7 +16,7 @@ TOK = re.compile(r'[MLHVCZmlhvcz]|-?\d+(?:\.\d+)?')
 
 
 def num(x):
-    s = ('%.2f' % x).rstrip('0').rstrip('.')
+    s = f'{x:.2f}'.rstrip('0').rstrip('.')
     return '0' if s in ('-0', '') else s
 
 
