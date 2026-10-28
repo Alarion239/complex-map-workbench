@@ -79,6 +79,7 @@ ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && s
   ok('a part: src/gl/02-glsl-inverse.js -> T2, the inverse GLSL page (src/gl is its input)', g.tier === 'T2' && g.glsl.length && g.glsl.every((j) => j.page === 'inverse') && g.perf, g.glsl);
   ok('a part: src/app/03-exact-images.js -> T2', select(['src/app/03-exact-images.js']).tier === 'T2');
   ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
+  ok('the Arb oracle (dev-only) -> T0', select(['tools/arb_reference.py', 'tools/arb_compare.js', 'notes/arb/reference.json']).tier === 'T0');
 }
 // (the name is built here, so that this file does not name it)
 ok('T3: a test file nothing names', select([`test/${['nobody', 'names', 'this'].join('_')}.json`]).tier === 'T3');

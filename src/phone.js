@@ -626,7 +626,7 @@ const Phone = (() => {
   function kbInit() {
     keys.el = h('div', { class: 'ph-keys ph-only', role: 'toolbar', 'aria-label': $t('Symbols'), hidden: true },
       ...KEYS.map((k) => h('button', { type: 'button', tabindex: '-1', 'aria-label': k, onpointerdown: (e) => e.preventDefault(), onclick: () => {
-        const f = document.activeElement;
+        const f = /** @type {HTMLInputElement | null} */ (document.activeElement);
         if (!f || !f.matches('.math-src')) return;
         f.setRangeText(k, f.selectionStart, f.selectionEnd, 'end');
         f.dispatchEvent(new Event('input', { bubbles: true }));
