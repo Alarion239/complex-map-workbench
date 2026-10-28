@@ -295,8 +295,8 @@ function SND_LIB() {
   function Glide(fs) {
     const kPh = 1 - Math.exp(-1 / (0.005 * fs)), kA = 1 - Math.exp(-1 / (0.02 * fs)), kAmp = 1 - Math.exp(-1 / (0.012 * fs)), kPan = 1 - Math.exp(-1 / (0.03 * fs));
     const LD2 = Math.log2(73.4162), LA4 = Math.log2(440), SIG = 0.45, NS = 0.45 * Math.sqrt(Math.PI), seatN = Math.round(0.025 * fs), stopN = Math.round(0.012 * fs);
-    const A = new Float64Array(7), W7 = new Float64Array(7), TH = new Float64Array(7), FJ = new Float64Array(7), WH = new Float64Array(25), NR = new Float64Array(7), HJ = new Float64Array(7), HOLD = new Float64Array(7);
-    const g = { q: [], cur: null, pend: null, ph: 0, env: 0, panS: 0, tier: 2, tag: undefined, untilF: -1, kd: Math.exp(-6.9078 / (0.8 * fs)), blk: 0, stop: -1, bLast: -1, live: false };
+    const P2 = [1, 2, 4, 8, 16, 32, 64], A = new Float64Array(7), W7 = new Float64Array(7), TH = new Float64Array(7), WH = new Float64Array(25), NR = new Float64Array(7), HJ = new Float64Array(7), HOLD = new Float64Array(7);
+    const g = { q: [], cur: null, pend: null, ph: 0, env: 0, panS: 0, gn: 1, wN: -2, tier: 2, tag: undefined, untilF: -1, kd: Math.exp(-6.9078 / (0.8 * fs)), blk: 0, stop: -1, bLast: -1, live: false };
     function take(c) { g.cur = c; g.untilF = Math.round((c.until || 0) * fs); g.kd = Math.exp(-6.9078 / ((c.rel || 0.8) * fs)); if (c.tier != null) g.tier = c.tier; g.tag = c.tag; }
     function apply(c) {
       // (stop: what sounds fades; a control arriving during the fade waits for its end, then starts afresh)
@@ -344,15 +344,22 @@ function SND_LIB() {
             for (let k = 0; k < 7; k++) { const fj = Math.pow(2, LD2 + ((((g.ph + k) % 7) + 7) % 7)); let H = 0, s = 0; while (H < 24 && (H + 1) * fj < 0.45 * fs) { H++; s += WH[H]; } HJ[k] = H; NR[k] = s > 0 ? 1 / s : 0; }
           }
           if (g.stop >= 0) { mul *= g.stop >= stopN ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * g.stop / stopN); g.stop++; }
-          let qs = 0;
-          for (let k = 0; k < 7; k++) { const lf = LD2 + ((((g.ph + k) % 7) + 7) % 7), d = (lf - LA4) / SIG, w = Math.exp(-0.5 * d * d); FJ[k] = lf; W7[k] = w; qs += w * w; }
-          const lvl = (c.a || 0) * Math.sqrt(NS / qs) * g.env;
+          // the copies' frequencies (one pow: f_k = D2·2^frac(φ̃)·2^((⌊φ̃⌋ + k) mod 7)) every sample; their weights and
+          // the unit-power gain every 16 samples (φ̃ moves little in 0.33 ms; the amplitude is smoothed over 12 ms)
+          const fl = Math.floor(g.ph), base = 73.4162 * Math.pow(2, g.ph - fl) / fs;
+          if ((j & 15) === 0 || g.wN !== x - 1) {
+            let qs = 0;
+            for (let k = 0; k < 7; k++) { const lf = LD2 + ((((g.ph + k) % 7) + 7) % 7), d = (lf - LA4) / SIG, w = Math.exp(-0.5 * d * d); W7[k] = w; qs += w * w; }
+            g.gn = Math.sqrt(NS / qs);
+          }
+          g.wN = x;
+          const lvl = (c.a || 0) * g.gn * g.env;
           let y = 0, peak = 0;
+          for (let k = 0; k < 7; k++) { const tgt = g.blk ? HOLD[k] * mul : W7[k] * lvl * mul; A[k] += (tgt - A[k]) * kAmp; if (A[k] > peak) peak = A[k]; }
+          const floorA = 1e-5 * peak;
           for (let k = 0; k < 7; k++) {
-            const tgt = g.blk ? HOLD[k] * mul : W7[k] * lvl * mul;
-            A[k] += (tgt - A[k]) * kAmp; if (A[k] > peak) peak = A[k];
-            TH[k] += Math.pow(2, FJ[k]) / fs; TH[k] -= Math.floor(TH[k]);
-            if (A[k] < 1e-8 || !HJ[k]) continue;
+            TH[k] += base * P2[(((fl + k) % 7) + 7) % 7]; TH[k] -= Math.floor(TH[k]);
+            if (A[k] <= floorA || A[k] < 1e-9 || !HJ[k]) continue;
             const th = 2 * Math.PI * TH[k], s1 = Math.sin(th), c2 = 2 * Math.cos(th);
             let sm = 0, sp = s1, acc = WH[1] * s1;
             for (let h = 2; h <= HJ[k]; h++) { const sn = c2 * sp - sm; sm = sp; sp = sn; acc += WH[h] * sn; }
