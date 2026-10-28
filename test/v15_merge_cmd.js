@@ -1,7 +1,7 @@
 // v15 merge of the desktop redesign (Inspector), the plane menu and the shared numbers (work/xva). Checks what joins
-// them: the Parameters component sits in the Inspector's slot (one heading, no testing-only mount); the plane menu and
-// the Inspector change the same zeros and poles (an add from the menu shows in the Inspector, the Inspector's × and
-// the menu's Remove are each one undo step); the menu's "Edit ζ₁" opens the step in the Inspector (the temporary one
+// them: the Parameters component sits in the Inspector's slot (one heading, no testing-only mount); the plane, the plane
+// menu and the Inspector change the same zeros and poles (a Shift-click's zero shows in the Inspector, the Inspector's ×
+// and the menu's Remove are each one undo step; issue #13: the menu itself adds none); the menu's "Edit ζ₁" opens the step in the Inspector (the temporary one
 // when the panel is hidden) with the field focused; after an undo the Inspector edits the live step (its fields are
 // rebuilt with the chain); renaming a number rewrites the Inspector's step field.
 // A command file for a CDP daemon (test/cdp_kit README):
@@ -37,7 +37,8 @@ const typeIn = async (sel, text) => {
   const r = await ev(`(()=>{const el=document.querySelector(${JSON.stringify(sel)}); if(!el) return null; el.scrollIntoView({block:'nearest'}); el.focus(); el.select && el.select(); return true})()`);
   if (!r) return false;
   await ev(`(()=>{const el=document.activeElement; el.value=''; el.dispatchEvent(new Event('input',{bubbles:true})); return 1})()`);
-  await type(text);
+  // (a key at a time: a field the Inspector rebuilds while the text arrives in one burst keeps only its first character)
+  for (const ch of text) { await type(ch); await sleep(40); }
   await key('Enter');
   await ev(`(()=>{const el=document.activeElement; if (el && el.blur) el.blur(); return 1})()`);
   await settle(400);
@@ -54,16 +55,21 @@ await settle(1200); await grab();
 const slot = await ev(`(() => ({ inInsp: !!document.querySelector('#propsPanel .insp-params .params-mount.prm-host .prm'), hosts: document.querySelectorAll('.prm-host').length, testSlot: !!document.getElementById('paramsSlot'), heads: [...document.querySelectorAll('#propsPanel h2')].filter((x) => /^Parameters/.test(x.textContent.trim())).length, nested: !!document.querySelector('#propsPanel .psec .psec') }))()`);
 ok('Parameters is in the Inspector slot, once, with one heading and no nested section', slot.inInsp && slot.hosts === 1 && !slot.testSlot && slot.heads === 1 && !slot.nested, slot);
 
-// 2. the plane menu adds a zero: the Inspector (step 1 selected) shows it at once
+// 2. a Shift-click on the plane adds a zero: the Inspector (step 1 selected) shows it at once; the plane menu over empty
+// plane offers no Add zero here (issue #13: it opens nothing there)
 await clickSel('#pipeline .card[data-k="1"]'); await settle(500);
 let f0 = await zpFields(1);
 let h0 = await hist();
 let p = await w2s('L', 0.3, -0.7);
 await rclick(p[0], p[1]);
-ok('the plane menu offers Add zero here', ids(await menu()).includes('zp-add-zeros-1'), ids(await menu()));
-await pick('zp-add-zeros-1');
+ok('the plane menu opens nothing over empty plane', !(await menu()), ids(await menu()));
+await key('Escape'); await settle(150);
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], modifiers: 8 });
+await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p[0], y: p[1], button: 'left', buttons: 1, clickCount: 1, modifiers: 8 });
+await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p[0], y: p[1], button: 'left', buttons: 0, clickCount: 1, modifiers: 8 });
+await settle(400);
 let f1 = await zpFields(1);
-ok('a zero added from the menu shows in the Inspector, one undo step', f1.length === f0.length + 1 && f1.some((x) => /^zeros:2=/.test(x)) && (await hist()).hi === h0.hi + 1, { f0, f1 });
+ok('a zero added with Shift-click shows in the Inspector, one undo step', f1.length === f0.length + 1 && f1.some((x) => /^zeros:2=/.test(x)) && (await hist()).hi === h0.hi + 1, { f0, f1 });
 // the Inspector's × removes it (the same zpRemove: one undo step), and Undo brings it back
 h0 = await hist();
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:2"] ~ .zp-del'); await settle(500);

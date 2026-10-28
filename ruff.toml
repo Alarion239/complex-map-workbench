@@ -1,0 +1,10 @@
+# ruff (issue #20, phase 1): the Python of build.py, tools/ and the test generators. Report-only for now.
+#   ruff check
+extend-exclude = ["notes", "dist", "docs", ".ci"]
+line-length = 120
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "W", "B", "UP"]
+# the scripts put several short statements on a line on purpose (build.py)
+ignore = ["E701", "E702", "E501"]   # (and long lines: the repo wraps at 120 by hand, with long tables)

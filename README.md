@@ -31,9 +31,11 @@ see what they do:
   All sheets tints each sheet so you can tell them apart.
 - **The function chain**: each step is a card with a picture that follows the open view; the **Inspector** edits the
   selected step (with large Add zero / Add pole buttons for a zeros-and-poles step), and the **F** tile holds the
-  formula of F, its guarantees and its domain. Right-click a plane (or hold on a phone) for "Add zero here" and more.
-- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it. Copy link and scene files
-  hand the whole figure on.
+  formula of F, its guarantees and its domain. Right-click a shape, a zero or a pole (or hold it on a phone) for its
+  menu; a right-click while drawing cancels the drawing, and a double-click centres the view.
+- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it, and the formulas keep its
+  name (F(z) = z + c, not z + 0.25), so a slider moves the picture and leaves the formula as it is. Copy link and scene
+  files hand the whole figure on.
 - **Typed formulas** (LaTeX or plain) are recognized as the catalog steps they are made of, so `\sin(z^2+1)` runs as
   fast as the catalog and is offered as its steps (z ↦ z² ↦ z²+1 ↦ sin(z²+1)) in one click; in the search, `sin z`
   is the Sine step.

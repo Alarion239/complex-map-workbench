@@ -123,19 +123,26 @@ await ev(`document.getElementById('undoBtn').click()`); await settle(400);
 await T('Change the pattern', 2, async () => { const p0 = (await st()).pattern; await tap('#plotL .ph-dsp', 500); const t = await center(`.ph-sheet #patternSeg .pat:not(.on)`); if (!t) return 'no swatch'; taps++; await touch(t[0], t[1]); await settle(400); const p1 = (await st()).pattern; const pn = await panes(); return (p1 !== p0 && pn.L.b <= pn.sheetTop && pn.R && pn.R.w > 150) || { p0, p1, pn }; });
 await T("See F's formula and guarantees", 1, async () => { await tap('#pipeline .ftile', 500); const t = await ev(`(() => { const e = document.querySelector('#propsPanel'); return e ? e.innerText : ''; })()`); return /Analytic|Not implied|Natural domain|domain/i.test(t) || t.slice(0, 200); });
 await T('Drag a shared number and watch X and Y', 2, async () => { await ev(`Params.add('a', { value: 0.5, min: -2, max: 2, step: 0.01 })`); await settle(300); const nm = await ev(`document.querySelector('.ph-nums').textContent`); await tap('.ph-nums', 600); const sl = await ev(`(() => { const e = document.querySelector('#propsPanel input[type=range]'); if (!e) return null; e.scrollIntoView({ block: 'center' }); const b = e.getBoundingClientRect(); return [b.left + 6, b.top + b.height / 2, b.right - 6]; })()`); if (!sl) return 'no slider'; taps++; await drag(sl[0] + (sl[2] - sl[0]) / 2, sl[1], sl[0] + (sl[2] - sl[0]) * 0.8, sl[1], 6, 16); await settle(300); const v = await ev(`Params.get('a')`); const p = await panes(); return (/a/.test(nm) && v !== 0.5 && p.L && p.R && p.L.b <= p.sheetTop) || { nm, v, p }; });
-await T('Add a zero at a chosen point of X (long-press)', 2, async () => {
-  const z0 = String((await st()).params[2].zeros).split(',').length;
-  const L = await panes(); const x = L.L.l + L.L.w * 0.3, y = L.L.t + L.L.h * 0.35;
-  taps++; await hold(x, y, 650);
+// (issue #13: the long-press menu is an object's; a held empty plane opens nothing)
+await T('Hide a shape (long-press it)', 2, async () => {
+  // (empty plane above the rectangle s1, then a point of its top edge; the first hold is not part of the task)
+  const pe = await ev(`__cmwPlaneMenu().w2s('L', 0.5, 2.5)`);
+  await hold(pe[0], pe[1], 650);
+  if (await ev(`!!document.querySelector('#popHost .pop.menu')`)) return 'a menu over empty plane';
+  await sleep(700);
+  const s0 = await ev(`__cmwPlaneMenu().shapes().filter((s) => s.visible !== false).length`);
+  const pt = await ev(`__cmwPlaneMenu().w2s('L', 0.5, 1.5)`);
+  taps++; await hold(pt[0], pt[1], 650);
   const m = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu.pm'); if (!p) return null; return { ids: [...p.querySelectorAll('.mi')].map((b) => b.dataset.pm), hs: [...p.querySelectorAll('.mi')].map((b) => b.getBoundingClientRect().height) }; })()`);
-  if (!m || !m.ids.includes('zp-add-zeros-3')) return { m };
+  if (!m || !m.ids.includes('shape-hide')) return { m };
   ok('long-press menu: 44 px rows', m.hs.every((h) => h >= 43.5), m.hs);
   const a = await audit('#popHost'); ok('long-press menu: every control 44 × 44', a.n === 0, a);
   await shot('v15ph-ctx-390-light-en');
-  await tap('#popHost .pop.menu.pm .mi[data-pm="zp-add-zeros-3"]', 500);
-  const z1 = String((await st()).params[2].zeros).split(',').length;
-  return z1 === z0 + 1 || { z0, z1 };
+  await tap('#popHost .pop.menu.pm .mi[data-pm="shape-hide"]', 500);
+  const s1 = await ev(`__cmwPlaneMenu().shapes().filter((s) => s.visible !== false).length`);
+  return s1 === s0 - 1 || { s0, s1 };
 });
+await ev(`document.getElementById('undoBtn').click()`); await settle(400);
 await T('Long-press then slide: no menu', 1, async () => { const L = await panes(); taps++; await hold(L.L.l + L.L.w * 0.5, L.L.t + L.L.h * 0.6, 650, [50, 30]); const any = await ev(`!!document.querySelector('#popHost .pop.menu')`); return !any || 'menu opened'; });
 await T('Play the deformation', 1, async () => { await tap('.pipe-wrap > #morphBtn', 900); const on = await ev(`document.documentElement.classList.contains('ph-morph')`); const dock = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const b = d.getBoundingClientRect(); return { top: Math.round(b.top), h: Math.round(b.height) }; })()`); const a = await audit('body'); ok('deformation: every control 44 × 44', a.n === 0, a); const s = await screen(); ok('deformation: nothing past the edges, no cut label', !s.out.length && !s.cut.length, s); await shot('v15ph-def-390-light-en'); await ev(`document.getElementById('morphBtn').click()`); await settle(500); return (on && dock && dock.top > 760) || { on, dock }; });
 await T('Export a figure (to the dialog)', 3, async () => { await tap('#hdrMoreBtn', 450); const rows = await ev(`[...document.querySelectorAll('.ph-sheet .ph-row')].map((b) => b.textContent)`); const i = rows.findIndex((t) => /Export figure/.test(t)); if (i < 0) return rows; await tap(`.ph-sheet .ph-row:nth-of-type(${i + 1})`, 900); const open = await ev(`!!document.querySelector('.modal.xf')`); return open || 'no dialog'; });
