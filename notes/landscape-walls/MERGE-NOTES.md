@@ -146,3 +146,27 @@ after the reviews), `r3/review-verify.json` (what the verifier found after them)
 - verify-7 (low, pre-existing, UI backlog): z^{1/5} tan 3z, All sheets stays ticked while the deformation shows one sheet.
 - Older lows: e^{1/z} comb at the box; cut cells not refined; two cuts on one grid edge; DPR 2, Android hardware,
   exports with All sheets not checked.
+
+## Round 4 checks (issue #53, 2026-10-28)
+
+Each of round 3's older lows and unchecked cases, checked on the integration branch (3b6aa8c) in software Vulkan
+(ANGLE), desktop 1440 x 900, unless noted. Pictures in `r4/`.
+
+- **DPR 2: checked, fine.** The user's case (√ then sin, All sheets, Im) at device pixel ratio 2 against 1: the same
+  picture, 0.27 % of pixels differing, all on edges.
+- **Exports with All sheets: now gated.** `sheets_deform_cmd` builds the article figure of the All-sheets Landscape at
+  rest and checks one picture of the Landscape, drawn (not blank), whose caption names the sheets. (The export needs
+  MathJax, which this container cannot load; CI runs it.)
+- **e^{1/z} comb at the height box: reproduced, recorded.** Re e^{1/z} near 0 (`r4/e1z-re.png`, box ±0.3): a fringe of
+  thin spikes where the surface meets the top of the box. It is aliasing of the essential singularity's unbounded
+  oscillation, not a wall rule: no grid resolves it, and the refinement leaves cells that touch a non-finite corner to
+  the cut rule. A fix would fade cells whose height varies faster than the grid can sample (a Nyquist mask); not done.
+- **log log z, All sheets, the fin near z = 1: still there, recorded.** The twisted ribbon at the branch-point cell
+  (review-pictures "a twisted fin", `r4/loglog.png`, 24 of 25 combinations, Im). Removing it needs the monodromy test
+  and the refinement of DESIGN 3.2 and 3.3 in the sheets' pass, the same programs as #47 (landSheetRF), whose stalls
+  need the GPU machine to measure; left for that patch.
+- **Cut cells not refined; two cuts on one grid edge: by design, recorded.** A cell that touches a real cut stays at
+  level 64 (left to the cut rule, LAND_LV_VS), and an edge that crosses two cuts (or one twice) is marked w = 2 and its
+  triangles are left out (LAND_EDGE_VS, LAND_VS): nothing is drawn across either. Refining them is #47's territory.
+- **Real Android hardware: not checkable here** (no device; Android Chrome emulation only, which the suites cover).
+

@@ -8,7 +8,9 @@ const { source } = require('./src_text');
 const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 let pass = 0, fail = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL ' + name + (got !== undefined ? ' ' + JSON.stringify(got).slice(0, 400) : '')); } };
-const APP = R('src/app.js'), CON = R('src/construct.js'), PAGE = R('src/page.html'), TOUR = R('src/tour.js'), MK = R('tools/make_ru_table.py');
+// (the modules first: their integrateSelected and openGallery, not app.js's wrappers of them)
+const APP = R('src/integrals.js') + '\n' + R('src/examples.js') + '\n' + R('src/app.js'), CON = R('src/construct.js'), PAGE = R('src/page.html'), TOUR = R('src/tour.js'),
+  MK = R('tools/make_ru_table.py');
 const count = (s, sub) => s.split(sub).length - 1;
 const fnBody = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0; const j = src.indexOf('{', i); for (let k = j; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
 

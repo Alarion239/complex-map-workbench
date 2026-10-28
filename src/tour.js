@@ -163,7 +163,7 @@ const Tour = (() => {
           try: { text: 'Press {V}, then drag the line $\\operatorname{Im} z=0.8$ up or down.', touch: 'Drag the line $\\operatorname{Im} z=0.8$ up or down.', on: 'shape-moved', ctl: ['tool:select'], then: 'Y followed the line as you dragged it.' } },
         // (r3 review user-2: the task on a phone too, where the step's tools sheet holds the field and Add; its example is
         // not the field's placeholder, which reads like a filled field)
-        { id: 'formula', anchor: 'formula', title: 'Sets from formulas', before: [['panel', 'left', 'tools']],
+        { id: 'formula', anchor: 'formula', also: ['paneL'], title: 'Sets from formulas', before: [['panel', 'left', 'tools']],
           body: 'Type a set and press Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
           // (v16.5 UX17: a phone's words for the places and gestures, here and below)
           touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
@@ -174,7 +174,7 @@ const Tour = (() => {
           touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
           try: { text: 'Double-click the card $f_1$.', touch: 'Tap the card $f_1$, then Show alone in the sheet.', on: 'step-focused', test: (e) => !e || e.k === 1, work: ['lens'], ctl: ['card1'], then: 'X and Y are now $f_1$\'s input and output.' } },
         // (the open catalog holds the countdown: it moves on 3 s after it closes)
-        { id: 'add', anchor: ['addStep', 'chain'], title: 'Add a function', before: [['focus', 0]],
+        { id: 'add', anchor: ['addStep', 'chain'], also: ['paneR'], title: 'Add a function', before: [['focus', 0]],
           body: 'Press {+} or click here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. Drag a card by its header to reorder.',
           touch: 'Tap here to add a step: pick one from the catalog or type a formula such as $\\sin(z^2)$. To reorder, tap a card and use Move in its ⋯ menu.',
           try: { text: 'Press {+}, or click the add card.', touch: 'Tap the add card.', on: 'layer-opened', test: (e) => !e || e.kind === 'catalog', ctl: ['addStep'] } },
@@ -187,7 +187,7 @@ const Tour = (() => {
     {
       id: 'views', title: 'Views', time: '1 min', rev: 2, scene: 'rational',
       steps: [
-        { id: 'switch', anchor: 'viewSwitch', title: 'Three views', before: [['deform', false], ['view', 'xy']],
+        { id: 'switch', anchor: 'viewSwitch', also: ['panes'], title: 'Three views', before: [['deform', false], ['view', 'xy']],
           body: 'X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.',
           touch: 'X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each filling the screen.',
           try: { text: 'Choose Phase.', on: 'view-changed', test: (e) => !e || e.main === 'phase', advance: true, ctl: ['viewPhase'] } },
@@ -214,7 +214,7 @@ const Tour = (() => {
     },
     {
       // v15 (notes/ui-redesign-2): the cards' pictures, the Inspector, zeros and poles, the planes' menu, shared numbers
-      id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 3, scene: 'strip',
+      id: 'edit', title: 'Editing the chain', time: '1½ min', rev: 4, scene: 'strip',
       steps: [
         // (v16.1, pictures: the chain shows its cards' pictures for this step, Pictures rather than Names and tall enough;
         // the user's setting comes back when the tour leaves the step, and a note says so when it was changed)
@@ -226,7 +226,9 @@ const Tour = (() => {
         { id: 'inspector', anchor: 'inspector', also: ['chain'], title: 'The Inspector', titleTouch: 'The editor', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 2], ['panel', 'right']], wait: 120,
           lead: 'The Inspector edits the selected step, here $f_2$.', leadTouch: 'The editor edits the tapped step, here $f_2$.',
           body: 'The Inspector edits the selected step: its formula in full, a roomy field per coefficient, and ⋯ for the inverse, bypass, move and remove. A step\'s own coefficients carry its index, as $a_2$ here.',
-          touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.' },
+          touch: 'A tapped card opens its editor in the sheet, with X and Y side by side above it, so the image changes as you type. A step\'s own coefficients carry its index, as $a_2$ here.',
+          // (D1, issue #23: Replace… is the first item of ⋯; the search then replaces this step)
+          try: { text: 'In ⋯, choose Replace…, then pick a function.', on: 'step-replaced', test: (e) => !e || e.k === 2, ctl: ['invBtn'], then: 'Only $f_2$ changed; Undo brings the old one back.' } },
         // (v15.2: the Inspector shows how a typed formula is built from catalog steps; split: the offer shows in the tour)
         { id: 'split', anchor: 'splitOffer', also: ['chain'], title: 'A formula in steps', split: true, before: [['scene', 'splitFormula'], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['select', 1], ['panel', 'right']], wait: 120,
           body: 'This formula is a chain of catalog steps; the Inspector shows how it is built. Split it, and each step gets its own card: the row then shows every transform in turn, and the deformation plays them one by one. Undo brings the formula back.',
@@ -264,19 +266,19 @@ const Tour = (() => {
     {
       id: 'deform', title: 'Deformation', time: '1 min', rev: 3, scene: 'strip',
       steps: [
-        { id: 'toggle', anchor: 'deformToggle', title: 'Deformation', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['deform', false]],
+        { id: 'toggle', anchor: 'deformToggle', also: ['panes'], title: 'Deformation', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['deform', false]],
           body: 'Plays a homotopy $H_t$ from the identity to $F$, step by step, in every view. In X → Y the two panes merge into one plane.',
           try: { text: 'Click it, or press {M}.', touch: 'Tap it.', on: 'deformation-toggled', test: (e) => !e || e.on !== false, advance: true } },
         // (deformation-t: the user's own input on t; the deformation's own loop never sends it)
         { id: 'transport', anchor: 'transport', also: ['panes'], title: 'Play and scrub', before: [['deform', true]],
           body: 'Play, or drag $t$. Each step follows its natural path when it has one (the caption names it): $H_t$ is analytic for every $t$, so angles are kept wherever $H_t\'\\neq0$.',
           try: { text: 'Drag $t$.', on: 'deformation-t', ctl: ['playBtn', 'tSlider'], then: 'Angles are kept wherever $H_t\'\\neq0$.' } },
-        { id: 'paths', anchor: 'paths', title: 'Paths', before: [['deform', true]],
+        { id: 'paths', anchor: 'paths', also: ['panes'], title: 'Paths', before: [['deform', true]],
           body: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$. Key {P}.',
           touch: 'Paths draws $t\\mapsto H_t(z)$ for well-spread points $z$ of X, from $z$ to $F(z)$.',
           try: { text: 'Click Paths twice, or press {P} twice.', touch: 'Tap Paths twice.', on: 'paths-toggled', count: 2, then: 'Each path runs from $z$ to $F(z)$.' } },
         // (on a phone the order select is in the deformation bar's Steps picker, which the step opens)
-        { id: 'order', anchor: 'allAtOnce', needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
+        { id: 'order', anchor: 'allAtOnce', also: ['panes'], needs: 'allAtOnce', title: 'All steps at once', before: [['deform', true], ['look', { allAtOnce: false }], ['panel', 'sheet', 'steps']],
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
           try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
@@ -319,7 +321,7 @@ const Tour = (() => {
           body: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the Inspector adds $2\\pi i k$.',
           touch: '$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ in the step\'s editor adds $2\\pi i k$.',
           try: { text: 'Drag the red cut.', on: 'cut-moved', ctl: ['tool:select'], then: 'The seam moved; across it the values jump by $2\\pi i$.' } },
-        { id: 'inverse', anchor: ['invBtn', 'chain'], title: 'Inverses', before: [['select', 1], ['panel', 'right']],
+        { id: 'inverse', anchor: ['invBtn', 'chain'], also: ['panes'], title: 'Inverses', before: [['select', 1], ['panel', 'right']],
           body: 'Replace with the inverse, in the step\'s ⋯ menu in the Inspector, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
           touch: 'Replace with the inverse, in the ⋯ menu of the step\'s editor, replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.',
           try: { text: 'In ⋯, choose Replace with the inverse.', on: 'step-replaced', test: (e) => !e || (e.k === 1 && e.type === 'exp'), ctl: ['invBtn'], then: '$e^z$ undoes $\\log z$ on this sheet.' } },
@@ -423,7 +425,7 @@ const Tour = (() => {
     formula: '#secFormula', shapes: '#secShapes',
     // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
     // or the button; on a phone the Display sheet's section)
-    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#secDisplay') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
     patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.disp-pop #patternSeg') || document.querySelector('#rightFoot .opts-btn')),
     chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
@@ -889,6 +891,11 @@ const Tour = (() => {
 .ts-text:focus-visible, .tour-strip button:focus-visible, .ts-why button:focus-visible, .ts-why input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .ts-l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tour-strip[data-mode="desk"] .ts-count { display: none; }
+.ts-chap { flex: 0 0 auto; align-self: center; display: inline-flex; align-items: center; gap: 4px; height: 24px; margin: 0 4px; padding: 0 8px; border: 0; border-radius: var(--r-2, 4px); background: var(--accent-soft, transparent); color: var(--accent); font: 500 12px/18px var(--f-ui); white-space: nowrap; cursor: pointer; }
+.ts-chap[hidden] { display: none; }
+.ts-chap svg { width: 12px; height: 12px; }
+.ts-chap[aria-expanded="true"] svg { rotate: 180deg; }
 .ts-count { flex: 0 0 auto; font: 400 12px/18px var(--f-ui); color: var(--muted); white-space: nowrap; }
 .ts-wl { flex: 0 0 auto; margin-left: auto; padding-left: 8px; font: 500 12px/18px var(--f-ui); color: var(--accent); white-space: nowrap; }
 .ts-wl svg { width: 12px; height: 12px; vertical-align: -2px; transition: rotate var(--t-fast, 120ms) var(--ease-out, ease-out); }
@@ -1140,11 +1147,15 @@ const Tour = (() => {
     const l2 = el('span', { class: 'ts-l2' }, ringI, el('span', { class: 'ts-lead' }, tin, lead));
     const text = el('button', { class: 'ts-text', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'tourWhy', 'aria-label': $t('Details'), 'aria-describedby': 'tourTitle tourLead' },
       el('span', { class: 'ts-l1' }, title, count, wl), l2);
+    // the chapter menu: on a wide strip the chapter and its count are a button that lists the chapters (done ones checked)
+    const chap = el('button', { class: 'ts-chap', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', hidden: true }, el('span', { class: 'ts-chapl' }));
+    chap.insertAdjacentHTML('beforeend', ICON_DOWN);
+    chap.addEventListener('click', () => openHelpMenu(chap, 'chapters'));
     const act = el('button', { class: 'btn ts-act', type: 'button', hidden: true });
     const next = el('button', { class: 'btn primary ts-next', type: 'button' }, $t('Next'));
     const x = el('button', { class: 'icon-btn ts-btn ts-x', type: 'button', 'aria-label': $t('End the tour'), title: $t('End the tour') + '  Esc' });
     x.innerHTML = ICON_X;
-    const row = el('div', { class: 'ts-row' }, back, text, act, next, x);
+    const row = el('div', { class: 'ts-row' }, back, text, chap, act, next, x);
     // Why: the body, the notes, Move on by itself; on a phone (a panel) also the title, Back and × End the tour
     const wtitle = el('span', { class: 'ts-wtitle', 'aria-hidden': 'true' });
     const body = el('p', { class: 'ts-body', id: 'tourBody' });
@@ -1161,7 +1172,7 @@ const Tour = (() => {
     const safeP = el('div', { 'aria-hidden': 'true', style: 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)' });
     top.append(safeP);
     document.body.append(root, top);
-    return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, title, count, wl, l2, ringI, tin, lead, act, next, x, why, wtitle, body, note, autoC, wBack, wEnd, prog, safeP,
+    return { root, top, svg, rsvg, ringG: g, shade, glow, ring, mark: markP, maskEl, maskRect, maskHoles, live, strip, row, back, text, chap, title, count, wl, l2, ringI, tin, lead, act, next, x, why, wtitle, body, note, autoC, wBack, wEnd, prog, safeP,
       holes: null, raf: 0, anim: null, motion: 0, topSet: [], hosts: new Map(), hostOk: new Map(), work: [], moveT: 0, mode: null, whyOpen: false };
   }
 
@@ -1578,6 +1589,7 @@ const Tour = (() => {
     slot.hidden = false;
     const changed = ui.mode !== mode;
     ui.slot = slot; ui.mode = mode; ui.strip.dataset.mode = mode;
+    ui.chap.hidden = mode !== 'desk' || !ui.chap.firstChild.textContent;
     // (r3 verify-2: × End in the landscape header only with 44 + 8 px to spare beyond the strip's 260)
     ui.strip.classList.toggle('ts-xok', mode === 'head' && stripMode.free >= 312);
     // Why: inline in the strip on a tablet or a desktop; a panel in the tour's top layer on a phone, and (r3 review
@@ -2265,6 +2277,11 @@ const Tour = (() => {
     r.countShort = `${k}/${total}`;
     ui.count.textContent = ui.mode === 'desk' ? `${$t(ch.title)} · ${r.countText}` : r.countShort;
     ui.count.setAttribute('aria-label', `${$t(ch.title)}, ${r.countText}`);
+    // (the count in the text gives way to the chapter button where there is room for it)
+    ui.chap.hidden = ui.mode !== 'desk';
+    ui.chap.firstChild.textContent = `${$t(ch.title)} · ${r.countText}`;
+    ui.chap.setAttribute('aria-label', `${$t(ch.title)}, ${r.countText}. ${$t('Chapters')}`);
+    ui.chap.setAttribute('title', $t('Chapters'));
     ui.prog.style.width = `${(100 * k / Math.max(1, total)).toFixed(1)}%`;
     const nx = seek(r.ci, r.si + 1, 1, isAbsent);
     const nextCh = nx && nx.ci !== r.ci ? CHAPTERS[nx.ci] : null;
@@ -2974,7 +2991,7 @@ const Tour = (() => {
   }
 
   // ---------------------------------------------------------------- the help menu
-  function openHelpMenu(anchor) {
+  function openHelpMenu(anchor, only) {
     if (!doc()) return;
     if (menu) { closeMenu(true); return; }
     injectCSS();
@@ -2989,29 +3006,32 @@ const Tour = (() => {
       items.push(b);
       return b;
     };
-    const head = el('div', { class: 'menu-head', role: 'presentation' }, $t('Guided tour'));
+    // (only === 'chapters': the strip's chapter menu, the chapters alone, the running one marked)
+    const chaptersOnly = only === 'chapters';
+    const head = el('div', { class: 'menu-head', role: 'presentation' }, chaptersOnly ? $t('Chapters') : $t('Guided tour'));
     const kids = [head];
     const resume = rec.last && CHAPTERS.find((c) => c.id === rec.last.ch);
-    if (resume && !(rec.last.i === 0 && rec.last.ch === 'basics')) {
+    if (chaptersOnly) { /* the chapters follow */ } else if (resume && !(rec.last.i === 0 && rec.last.ch === 'basics')) {
       const st = resume.steps[Math.min(rec.last.i, resume.steps.length - 1)];
       kids.push(mi('tour-continue', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Continue the tour'))}<span class="tour-sub">${esc($t(resume.title))}: ${esc(stepTitle(st))}</span></span>`,
         () => start({ chapter: resume.id, step: rec.last.i, opener: anchor })));
     } else {
       kids.push(mi('', `<span class="mi-ic">${ICON_PLAY}</span><span class="mi-label">${esc($t('Take the tour'))}</span><span class="mi-key">${esc($t('2 min'))}</span>`, () => start({ chapter: 'basics', opener: anchor })));
     }
-    kids.push(el('div', { class: 'msep', role: 'separator' }));
+    if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
+    const here = run && run.ci != null ? CHAPTERS[run.ci] : null;
     CHAPTERS.forEach((c, i) => {
       if (!chapterShown(c)) return;
       const done = chapterDone(rec, c), fresh = chapterNew(rec, c);
       const title = $t(c.title), time = $t(c.time);
       kids.push(mi('', `<span class="tour-num">${i + 1}</span><span class="mi-label">${esc(title)}${fresh ? ` <span class="tour-new">${esc($t('New'))}</span>` : ''}</span>${done ? `<span class="tour-done" aria-label="${esc($t('done'))}">${ICON_CHECK}</span>` : ''}<span class="tour-time">${esc(time)}</span>`,
-        () => start({ chapter: c.id, opener: anchor }), { 'aria-label': `${title}, ${time}${done ? $t(', done') : ''}` }));
+        () => start({ chapter: c.id, opener: anchor }), Object.assign({ 'aria-label': `${title}, ${time}${done ? $t(', done') : ''}` }, here === c ? { 'aria-current': 'step' } : {})));
     });
-    kids.push(el('div', { class: 'msep', role: 'separator' }));
+    if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
     const keys = !phone();
-    kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
-    if (keys) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
+    if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
+    if (keys && !chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
     const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': $t('Help'), 'data-tour': 'menu' }, ...kids);
     const host = document.getElementById('popHost') || document.body;
     host.append(pop);

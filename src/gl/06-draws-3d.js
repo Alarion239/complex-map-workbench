@@ -997,7 +997,8 @@
   //      was drawn: {K, total, W, N, infinite}, null for the principal branch)}
   // map may be a homotopy (mode 1 / 2 at t): its heights are cached per t like any other map
   // the pane's last Landscape (t: when one was last asked for; key: the chain whose own surface it drew), for the cards
-  const landPane = { t: -1e9, key: null };
+  // (the pane's last draw and chain; per card chain, the start of its wait and whether it has drawn: issue #49)
+  const landPane = { t: -1e9, key: null, wait: new Map(), drawn: new Set(), first: -1e9 };
   let landPollT = 0;
   function landPoll() {
     if (landPollT || typeof setTimeout !== 'function') return;
@@ -1040,11 +1041,19 @@
     const now = performance.now();
     if (!st.card) landPane.t = now;
     else if (cur.info && !sideMode) {
-      // (at most 3 s from a card's first wait for this chain: a long play or orbit no longer keeps the cards empty,
-      // r3 review speed-5)
-      if (landPane.waitKey !== cur.key) { landPane.waitKey = cur.key; landPane.wait0 = now; }
-      if (landPane.key !== cur.key && now - landPane.t < 1500 && now - landPane.wait0 < 3000) { framePending = true; landPoll(); return info; }
+      // (at most 3 s from a card's first wait for its chain: a long play or orbit no longer keeps the cards empty, r3
+      // review speed-5. The start is kept per card's chain: with one start for all, two cards reset each other's every
+      // frame and stayed empty through a play started early, issue #49)
+      let w0 = landPane.wait.get(cur.key);
+      if (w0 == null) {
+        landPane.wait.set(cur.key, w0 = now);
+        if (landPane.wait.size > 64) landPane.wait.delete(landPane.wait.keys().next().value);
+      }
+      if (landPane.key !== cur.key && now - landPane.t < 1500 && now - w0 < 3000) { framePending = true; landPoll(); return info; }
       if (!settled(program('landTF', st.map)) || !settled(program('land', st.map))) { framePending = true; return info; }
+      // (a card's first draw of its chain's surface, the one that may stall the GPU process, waits for 2 frames after
+      // another card's: cards released together no longer stall one moving frame, issue #48's cold open)
+      if (!landPane.drawn.has(cur.key) && now - landPane.first < 34) { framePending = true; return info; }
     }
     // (the surface's programs start compiling together; they are taken into use together, groupDone. All sheets: the
     // sheets' programs and the floor; the principal branch's start with a view that draws it, r3)
@@ -1203,6 +1212,10 @@
       Lp.drawnOnce = true;
       if (hs && Ls) Ls.drawnOnce = true;
       if (!st.card && Lp.ch === cur) landPane.key = cur.key;
+      else if (st.card && !landPane.drawn.has(cur.key)) {
+        landPane.drawn.add(cur.key); landPane.first = now;
+        if (landPane.drawn.size > 64) landPane.drawn.delete(landPane.drawn.values().next().value);
+      }
       lvTailMark();
     }
     if (below) {

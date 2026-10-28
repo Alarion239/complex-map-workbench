@@ -1631,7 +1631,16 @@ const Construct = (() => {
         : CURVE1.has(tool) && d && curve1Ok() ? $t('Pick a point (on {c} or anywhere)', { c: curve1Name() }) : $t('Pick a point or an empty spot');
       cnt = of(n, m);
     }
+    lastCnt = cnt.replace(/^ · /, '');
     return what + cnt + ' · ' + tn + tail;
+  }
+  // the head's chip for the tool in use (the sentence stays on the plane): its name and how far the picks have got
+  let lastCnt = '';
+  function toolChip() {
+    const tool = A && A.tool();
+    if (!tool || !isCTool(tool)) return null;
+    chipText(true, true);
+    return { name: toolName(tool).replace(/\u00ad/g, ''), count: lastCnt };
   }
   const howTo = (tool) => { const r = toolRows().find((x) => x[0] === tool); return r ? r[3] : ''; };
   // the plane whose draft chip a construction tool uses (updateDraftChips shows it)
@@ -2833,7 +2842,7 @@ const Construct = (() => {
   const g = (f, d) => (...a) => (A && api ? f(...a) : d);
   return {
     init(a) { api = a; },
-    on, ui, toolRows, ICON, buildGrid, CTOOLS, isTool: isCTool,
+    on, ui, toolRows, toolChip: () => toolChip(), ICON, buildGrid, CTOOLS, isTool: isCTool,
     vertexPick: g(vertexPick, null), bindVertices: g(bindVertices), globeClick: g(globeClick, false), boundUnder: g(boundUnder, null), snapAt: g(snapAt, null), drawStart: g(drawStart, null), drawMove: g(drawMove, null), drawEnd: g(drawEnd), pointDown: g(pointDown, false),
     handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), cancelDrag: g(cancelDrag, false), globeSlide: g(globeSlide, null), globePoint: g(globePoint, false), touchNow: () => touchNow(), altNow: () => !!A && altNow(), samePick, click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false), drafting: g(drafting, false), undoPick: g(undoPick, null), undoPickable: g(undoPickable, false),
     hover: g(hover), finalPick: g(finalPick, false), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),

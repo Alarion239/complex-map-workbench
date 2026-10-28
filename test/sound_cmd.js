@@ -58,8 +58,9 @@ R.off = await ev(`({ ac: __acN, ctx: !!Sound.debug().ctx, argStep: __calls.argSt
 ok('sound off: hover, drag and click create no AudioContext and do no work', R.off.ac === 0 && !R.off.ctx && R.off.argStep === 0 && R.off.made === 0 && R.off.pressed === 'false' && !R.off.tab, R.off);
 
 // 2. the header button turns it on: running, the "on" key, aria-pressed, the settings under lsk('cmw-sound')
-const btn = await ev(`(() => { const b = document.getElementById('soundBtn'), t = document.getElementById('themeBtn'), g = document.getElementById('helpBtn'); const x = (e) => e.getBoundingClientRect().left; return { label: b.innerText.trim(), title: b.title, keys: b.getAttribute('aria-keyshortcuts'), order: x(t) < x(b) && x(b) < x(g) }; })()`);
-ok('Sound button: labelled Sound, Shift+M, between Theme and Guide', btn.label === 'Sound' && /Shift\+M/.test(btn.title) && btn.keys === 'Shift+M' && btn.order, btn);
+const btn = await ev(`(() => { const b = document.getElementById('soundBtn'), t = document.getElementById('exportBtn'), g = document.getElementById('settingsBtn'); const x = (e) => e.getBoundingClientRect().left; return { label: b.innerText.trim(), title: b.title, keys: b.getAttribute('aria-keyshortcuts'), order: x(t) < x(b) && x(b) < x(g) }; })()`);
+// ([v17 D5] Theme moved into Settings: Sound sits between Export ▾ and ⚙ Settings)
+ok('Sound button: labelled Sound, Shift+M, between Export and Settings', btn.label === 'Sound' && /Shift\+M/.test(btn.title) && btn.keys === 'Shift+M' && btn.order, btn);
 await clickSel('#soundBtn');
 await settle(600);
 st = await ev('Sound.state()');
@@ -111,7 +112,8 @@ await key('1'); await settle(500);
 await key('2'); await settle(500);
 R.viewCue = await made(true);
 ok('view switch: the view key', count(R.viewCue, 'view') >= 1, R.viewCue);
-await clickSel('#themeBtn'); await settle(200); await clickSel('#themeBtn'); await settle(200); await clickSel('#themeBtn'); await settle(300);
+// ([v17 D5] the theme button is in Settings on a laptop: its cycle, which the palette's Switch theme uses, still cues)
+for (let i = 0; i < 3; i++) { await ev(`document.getElementById('themeBtn').click(), 1`); await settle(i < 2 ? 200 : 300); }
 R.themeCue = await made(true);
 ok('theme: a toggle key', R.themeCue.some((x) => x === 'toggleOn' || x === 'toggleOff'), R.themeCue);
 await clickSel('#exportBtn'); await settle(400);

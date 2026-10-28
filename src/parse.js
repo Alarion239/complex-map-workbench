@@ -17,7 +17,7 @@ const Expr = (() => {
     exp: 'f:exp', log: 'f:log', ln: 'f:log', Log: 'f:log',
     Re: 'f:re', Im: 'f:im', arg: 'f:arg', Arg: 'f:arg', abs: 'f:abs', conj: 'f:conj',
     sqrt: 'sqrt', frac: 'frac', dfrac: 'frac', tfrac: 'frac', overline: 'conj', bar: 'conj',
-    pi: 'c:pi', theta: 'v:theta', vartheta: 'v:theta',
+    pi: 'c:pi', theta: 'v:theta', vartheta: 'v:theta', binom: 'binom', dbinom: 'binom', tbinom: 'binom',
     cdot: 'op:*', times: 'op:*', ast: 'op:*', div: 'op:/',
     le: 'op:<=', leq: 'op:<=', leqslant: 'op:<=', ge: 'op:>=', geq: 'op:>=', geqslant: 'op:>=', lt: 'op:<', gt: 'op:>',
     land: 'and', wedge: 'and', cap: 'and', lor: 'or', vee: 'or', cup: 'or', lnot: 'not', neg: 'not',
@@ -104,7 +104,7 @@ const Expr = (() => {
     while (j < run.length) {
       const r = run.slice(j), nm = names.find((x) => r.startsWith(x));
       if (nm) { j += nm.length; continue; }
-      if (!LETTERS[run[j]]) return false;
+      if (!LETTERS[run[j]] && !BOUND.has(run[j])) return false;
       j++;
     }
     return true;
@@ -146,12 +146,87 @@ const Expr = (() => {
   const callsAt = (src, j) => /^\s*(\(|\\left\s*\(|\\left\b)/.test(src.slice(j));
   // ζ′ as \zeta'(s), ζ'(s) or zeta'(s) (the derivative step writes it so): the length of the prime and the call, or 0
   const primeAt = (src, j) => { const m = /^\s*(?:'|′|\^\{?\\prime\}?)/.exec(src.slice(j)); return m && callsAt(src, j + m[0].length) ? m[0].length : 0; };
+  // [issue #5] sums and products: \sum_{n=0}^{\infty} …, \prod_{k=1}^{N} …, Σ_{n≥1} …, \sum_{n\in\mathbb{Z}} …, and the plain
+  // sum(expr, n, a, b) and prod(…). The index (a letter other than z w x y r i e) is bound inside its sum: a scan of
+  // the text finds the indices first, and the tokenizer reads those letters as the index everywhere (Expr.parse then
+  // refuses one used outside its sum), so a formula without a sum reads exactly as before.
+  let BOUND = new Set();
+  const SUM_CMD = { sum: 'sum', prod: 'prod', 'Σ': 'sum', '∑': 'sum', '∏': 'prod' };
+  function scanIdx(src) {
+    const out = new Set();
+    for (const m of src.matchAll(/(?:\\sum|\\prod|[Σ∑∏])\s*(?:\\(?:no)?limits\s*)?(?:\^\s*(?:\{[^{}]*\}|\\[A-Za-z]+|\S)\s*)?_\s*\{?\s*([A-Za-z])(?![A-Za-z])/g)) if (!LETTERS[m[1]]) out.add(m[1]);
+    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod)\s*\(/g)) {
+      let d = 0, j = (m.index || 0) + m[0].length;
+      for (; j < src.length; j++) {
+        const c = src[j];
+        if ('([{'.includes(c)) d++;
+        else if (')]}'.includes(c)) { if (!d) break; d--; } else if (c === ',' && !d) break;
+      }
+      const mm = /^,\s*([A-Za-z])\s*,/.exec(src.slice(j));
+      if (mm && !LETTERS[mm[1]]) out.add(mm[1]);
+    }
+    return out;
+  }
+  // the limits of \sum at j (after the command): _{…} and ^{…} in either order, each a braced group or one token
+  function sumHeader(src, j) {
+    let k = j, lo = null, hi = null;
+    const ws = () => { while (k < src.length && /\s/.test(src[k])) k++; };
+    const grab = () => {
+      ws();
+      if (src[k] === '{') {
+        let d = 0;
+        const s0 = k;
+        for (; k < src.length; k++) {
+          if (src[k] === '{') d++;
+          else if (src[k] === '}' && --d === 0) { k++; return { at: s0 + 1, text: src.slice(s0 + 1, k - 1) }; }
+        }
+        throw new ParseError($t("Expected '{x}'", { x: '}' }), s0);
+      }
+      const m = /^(\\[A-Za-z]+|\S)/.exec(src.slice(k));
+      if (!m) throw new ParseError($t('Unexpected end of expression'), k);
+      const r = { at: k, text: m[0] };
+      k += m[0].length;
+      return r;
+    };
+    ws();
+    const lm = /^\\(?:no)?limits/.exec(src.slice(k));
+    if (lm) k += lm[0].length;
+    for (let pass = 0; pass < 2; pass++) {
+      ws();
+      if (src[k] === '_' && !lo) { k++; lo = grab(); } else if (src[k] === '^' && !hi) { k++; hi = grab(); }
+    }
+    return { lo, hi, end: k };
+  }
   // rel: region formulas (parse with allowRel), where '=' (also '==' and the full-width '＝') is an equation; elsewhere
   // '=' stays an unexpected character
-  function tokenize(src, rel = false, ru = true) {
+  function tokenize(src, rel = false, ru = true, nested = false) {
+    if (!nested) BOUND = scanIdx(src);
     const toks = [];
     let i = 0;
     const n = src.length;
+    // [issue #5] the tokens of a sum's header: the sum, then (lower limit) (upper limit), each tokenized in place
+    const sub = (text, at) => {
+      const sp = NAMED ? NAMED.spans.length : 0;
+      const out = tokenize(text, false, ru, true).slice(0, -1).map((tk) => Object.assign(tk, { pos: tk.pos + at }));
+      if (NAMED) for (const x of NAMED.spans.slice(sp)) x.pos += at;
+      return out;
+    };
+    const INF_T = (pos) => ({ t: 'const', v: 'inf', pos });
+    const pushSum = (op, pos, j) => {
+      const hd = sumHeader(src, j);
+      if (!hd.lo) throw new ParseError($t('A sum needs its index, as in \\sum_{n=0}^{\\infty}'), pos);
+      const lt = hd.lo.text;
+      let m = /^\s*([A-Za-z])\s*(=|\\geq?(?:slant)?|≥|>=)\s*/.exec(lt), v, lo, hi = null;
+      if (m) { v = m[1]; lo = sub(lt.slice(m[0].length), hd.lo.at + m[0].length); } else if ((m = /^\s*([A-Za-z])\s*(?:\\in|∈)\s*(?:\\mathbb\s*\{?\s*Z\s*\}?|ℤ)\s*$/.exec(lt))) {
+        v = m[1]; lo = [{ t: 'op', v: '-', pos: hd.lo.at }, INF_T(hd.lo.at)]; hi = [INF_T(hd.lo.at)];
+      } else if ((m = /^\s*([A-Za-z])\s*$/.exec(lt))) { v = m[1]; lo = [{ t: 'num', v: 0, s: '0', pos: hd.lo.at }]; } else throw new ParseError($t('Write the index of the sum as n = 0'), hd.lo.at);
+      if (LETTERS[v]) throw new ParseError($t('{x} cannot be the index of a sum: use n, k or m', { x: v }), hd.lo.at);
+      BOUND.add(v);
+      if (!hi) hi = hd.hi ? sub(hd.hi.text, hd.hi.at) : [INF_T(pos)];
+      if (!lo.length || !hi.length) throw new ParseError($t('A limit of the sum is empty'), pos);
+      toks.push({ t: 'sum', v, op, pos }, { t: 'op', v: '(', pos }, ...lo, { t: 'op', v: ')', pos }, { t: 'op', v: '(', pos }, ...hi, { t: 'op', v: ')', pos });
+      return hd.end;
+    };
     while (i < n) {
       const ch = src[i];
       if (/\s/.test(ch) || ch === '~') { i++; continue; }
@@ -166,6 +241,8 @@ const Expr = (() => {
           throw new ParseError($t("Unexpected '\\%{x}'", { x: nx ?? '' }), i);
         }
         const name = m[1];
+        if (name === 'sum' || name === 'prod') { i = pushSum(SUM_CMD[name], i, i + m[0].length); continue; }
+        if (name === 'infty' && BOUND.size) { toks.push(INF_T(i)); i += m[0].length; continue; }
         if ((name === 'Gamma' || name === 'zeta') && callsAt(src, i + m[0].length)) { toks.push({ t: 'func', v: SPECIAL_FN[name], pos: i }); i += m[0].length; continue; }
         const zp = name === 'zeta' ? primeAt(src, i + m[0].length) : 0;
         if (zp) { toks.push({ t: 'func', v: 'zetad', pos: i }); i += m[0].length + zp; continue; }
@@ -223,6 +300,13 @@ const Expr = (() => {
       if (num) { toks.push({ t: 'num', v: parseFloat(num[0]), s: num[0], pos: i }); i += num[0].length; continue; }
       if (/[A-Za-z]/.test(ch)) {
         const rest = src.slice(i);
+        // [issue #5] sum( prod( binom( (only so, a call), inf as a sum's limit, and a sum's index (not where a name of
+        // the plain language starts: n in "not")
+        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom)(?=\s*\()/.exec(rest);
+        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom' }[fw[1]], pos: i }); i += fw[1].length; continue; }
+        const iw = BOUND.size && !/[A-Za-z]/.test(src[i - 1] || '') && /^inf(?:inity)?(?![A-Za-z])/.exec(rest);
+        if (iw) { toks.push(INF_T(i)); i += iw[0].length; continue; }
+        if (BOUND.has(ch) && !PLAIN_NAMES.some((nm) => rest.startsWith(nm))) { toks.push({ t: 'idx', v: ch, pos: i }); i++; continue; }
         const sf = !/[A-Za-z]/.test(src[i - 1] || '') && /^(digamma|Gamma|gamma|zeta)/.exec(rest);
         if (sf && callsAt(src, i + sf[1].length)) { toks.push({ t: 'func', v: SPECIAL_FN[sf[1]], pos: i }); i += sf[1].length; continue; }
         const zq = sf && sf[1] === 'zeta' ? primeAt(src, i + 4) : 0;
@@ -265,6 +349,11 @@ const Expr = (() => {
       if (ch === '≤') { toks.push({ t: 'op', v: '<=', pos: i }); i++; continue; }
       if (ch === '≥') { toks.push({ t: 'op', v: '>=', pos: i }); i++; continue; }
       if (ch === 'π') { toks.push({ t: 'const', v: 'pi', pos: i }); i++; continue; }
+      if (ch === '∞' && BOUND.size) { toks.push(INF_T(i)); i++; continue; }
+      if (SUM_CMD[ch] && /^\s*[_^]/.test(src.slice(i + 1))) { i = pushSum(SUM_CMD[ch], i, i + 1); continue; }
+      // n! after an operand only (elsewhere '!' stays an unexpected character)
+      const pv = toks[toks.length - 1];
+      if (ch === '!' && src[i + 1] !== '=' && pv && (['num', 'idx', 'var', 'const'].includes(pv.t) || (pv.t === 'op' && ')]}!'.includes(pv.v)))) { toks.push({ t: 'op', v: '!', pos: i }); i++; continue; }
       if ((ch === 'Γ' || ch === 'ζ') && callsAt(src, i + 1)) { toks.push({ t: 'func', v: SPECIAL_FN[ch], pos: i }); i++; continue; }
       if (ch === 'ζ' && primeAt(src, i + 1)) { const k = primeAt(src, i + 1); toks.push({ t: 'func', v: 'zetad', pos: i }); i += 1 + k; continue; }
       if (ch === '·' || ch === '×') { toks.push({ t: 'op', v: '*', pos: i }); i++; continue; }
@@ -315,7 +404,7 @@ const Expr = (() => {
     if (!src || !src.trim()) throw new ParseError($t('Empty expression'), 0);
     if (NAMES) { src = latinize(String(src)); NAMED = { unknown: [], spans: [] }; }
     const toks = tokenize(src, allowRel, ru);
-    let p = 0, absDepth = 0, digitComma = false;
+    let p = 0, absDepth = 0, digitComma = false, limDepth = 0;
     const peek = () => toks[p];
     const next = () => toks[p++];
     const isOp = (tk, v) => tk.t === 'op' && tk.v === v;
@@ -324,7 +413,7 @@ const Expr = (() => {
       if (!isOp(tk, v)) throw new ParseError($t("Expected '{x}'", { x: v }), tk.pos);
     };
     const startsPrimary = (tk) => {
-      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj'].includes(tk.t)) return true;
+      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom'].includes(tk.t)) return true;
       if (tk.t === 'op' && (tk.v === '(' || tk.v === '{' || tk.v === '[')) return true;
       if (tk.t === 'op' && tk.v === '|' && absDepth === 0) return true;
       return false;
@@ -396,7 +485,9 @@ const Expr = (() => {
       return parsePow();
     }
     function parsePow() {
-      const base = parsePrimary();
+      let base = parsePrimary();
+      // [issue #5] n! (postfix, before a power: n!^2 is (n!)^2)
+      while (isOp(peek(), '!')) { next(); base = { t: 'call', f: 'fact', a: base }; }
       if (isOp(peek(), '^')) { next(); return { t: 'pow', a: base, b: parseExponent() }; }
       return base;
     }
@@ -408,7 +499,8 @@ const Expr = (() => {
         return e;
       }
       if (isOp(peek(), '-')) { next(); return { t: 'neg', a: parseExponent() }; }
-      const b = parsePrimary();
+      let b = parsePrimary();
+      while (isOp(peek(), '!')) { next(); b = { t: 'call', f: 'fact', a: b }; }
       if (isOp(peek(), '^')) { next(); return { t: 'pow', a: b, b: parseExponent() }; }
       return b;
     }
@@ -439,10 +531,42 @@ const Expr = (() => {
       switch (tk.t) {
         case 'num': return tk.param ? { t: 'num', v: C(tk.v, 0), param: tk.param } : { t: 'num', v: C(tk.v, 0), lit: tk.s };
         case 'const':
+          if (tk.v === 'inf') {
+            if (!limDepth) throw new ParseError($t('∞ can only be a limit of a sum'), tk.pos);
+            return { t: 'num', v: C(Infinity, 0), name: 'inf' };
+          }
           if (tk.v === 'i') return { t: 'num', v: C(0, 1), name: 'i' };
           if (tk.v === 'e') return { t: 'num', v: C(Math.E, 0), name: 'e' };
           return { t: 'num', v: C(Math.PI, 0), name: 'pi' };
         case 'var': return { t: 'var', n: tk.v };
+        // [issue #5] a sum's index, a sum or product (its body: the factors that follow, up to + or −), binomials
+        case 'idx': return { t: 'idx', v: tk.v };
+        case 'sum': {
+          expect('('); limDepth++; const lo = parseAdd(); limDepth--; expect(')');
+          expect('('); limDepth++; const hi = parseAdd(); limDepth--; expect(')');
+          if (peek().t === 'eof' || (peek().t === 'op' && !startsPrimary(peek()) && !isOp(peek(), '-'))) throw new ParseError($t('Missing the terms of the sum'), tk.pos);
+          return { t: 'sum', op: tk.op, v: tk.v, lo, hi, a: parseMul() };
+        }
+        case 'sumfn': case 'prodfn': {
+          expect('(');
+          const a = parseAdd();
+          expect(',');
+          const ix = next();
+          if (ix.t !== 'idx') throw new ParseError($t('Expected the index of the sum, such as n'), ix.pos);
+          expect(',');
+          limDepth++;
+          const lo = parseAdd();
+          let hi = { t: 'num', v: C(Infinity, 0), name: 'inf' };
+          if (isOp(peek(), ',')) { next(); hi = parseAdd(); }
+          limDepth--;
+          expect(')');
+          return { t: 'sum', op: tk.t === 'sumfn' ? 'sum' : 'prod', v: ix.v, lo, hi, a };
+        }
+        case 'binom': {
+          if (isOp(peek(), '(')) { next(); const a = parseAdd(); expect(','); const b = parseAdd(); expect(')'); return { t: 'binom', a, b }; }
+          const a = parseGroup(), b = parseGroup();
+          return { t: 'binom', a, b };
+        }
         case 'frac': { const a = parseGroup(); const b = parseGroup(); return { t: 'div', a, b }; }
         case 'sqrt': {
           if (isOp(peek(), '[')) {
@@ -498,6 +622,7 @@ const Expr = (() => {
       }
     }
     const ast = parseOr();
+    if (BOUND.size) checkIdx(ast, []);
     if (peek().t !== 'eof') throw new ParseError(commaHint(src, peek().pos) || $t("Unexpected '{x}'", { x: peek().v ?? peek().src ?? peek().t }), peek().pos);
     // Russian only (verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
     // and 5<|z|) is kept, but a caller that passes opts.notes gets a warning to show under its field
@@ -513,6 +638,12 @@ const Expr = (() => {
     return ast;
   }
 
+  // [issue #5] every index inside a sum that binds it; the limits of a sum may use the indices of the sums around it
+  function checkIdx(n, scope) {
+    if (n.t === 'idx' && !scope.includes(n.v)) throw new ParseError($t('{x} is the index of a sum: use it inside the sum', { x: n.v }), 0);
+    if (n.t === 'sum') { checkIdx(n.lo, scope); checkIdx(n.hi, scope); checkIdx(n.a, scope.concat(n.v)); return; }
+    for (const k of ['a', 'b', 'n']) if (n[k]) checkIdx(n[k], scope);
+  }
   const INV_FN = { sin: 'asin', cos: 'acos', tan: 'atan', sinh: 'asinh', cosh: 'acosh', tanh: 'atanh' };
   const RECIP_FN = ['cot', 'sec', 'csc', 'coth'];
   function isMinusOne(n) {
@@ -522,13 +653,19 @@ const Expr = (() => {
 
   // ---------- analysis ----------
   const isBool = (n) => ['cmp', 'and', 'or', 'not'].includes(n.t);
-  function depends(n) {
+  // a node depends on z, or on the index of a sum around it: such a node is never folded to a constant (a sum's own
+  // index does not count for the sum itself, so Σ 1/n² is a constant)
+  function depends(n, bound = null) {
     switch (n.t) {
       case 'num': return false;
       case 'var': return true;
-      default: return ['a', 'b', 'n'].some((k) => n[k] && depends(n[k]));
+      case 'idx': return !bound || !bound.includes(n.v);
+      case 'sum': return depends(n.lo, bound) || depends(n.hi, bound) || depends(n.a, (bound || []).concat(n.v));
+      default: return ['a', 'b', 'n'].some((k) => n[k] && depends(n[k], bound));
     }
   }
+  const kids = (n) => ['a', 'b', 'n', 'lo', 'hi'].map((k) => n[k]).filter((x) => x && typeof x === 'object' && x.t);
+  const hasT = (n, t) => n.t === t || kids(n).some((x) => hasT(x, t));
   function usesVars(n, set = new Set()) {
     if (n.t === 'var') set.add(n.n);
     for (const k of ['a', 'b', 'n']) if (n[k]) usesVars(n[k], set);
@@ -546,9 +683,13 @@ const Expr = (() => {
     asin: CX.asin, acos: CX.acos, atan: CX.atan, asinh: CX.asinh, acosh: CX.acosh, atanh: CX.atanh,
     exp: CX.exp, abs: (a) => C(CX.abs(a), 0), conj: CX.conj, re: (a) => C(a.re, 0), im: (a) => C(a.im, 0),
     arg: (a) => C(Math.atan2(a.im, a.re), 0),
-    gamma: CX.gamma, zeta: CX.zeta, digamma: CX.digamma, zetad: CX.zetaDeriv,
+    gamma: CX.gamma, zeta: CX.zeta, digamma: CX.digamma, zetad: CX.zetaDeriv, fact: CX.fact,
   };
+  // [issue #5] the plans of the sums compiled so far (seriesInfo reads them)
+  const PLANS = new WeakMap();
   function compile(ast, { theta = Math.PI } = {}) {
+    // the indices of the sums being built, innermost last: each a cell its terms read
+    const scope = [];
     function build(n) {
       if (isBool(n)) throw new ParseError($t('Comparisons are only allowed in region formulas'), 0);
       if (!depends(n)) {
@@ -586,6 +727,8 @@ const Expr = (() => {
           }
           if (!depends(n.a)) {
             const base = A(C(0, 0));
+            // [issue #5] an exponent made of a sum's index (2^n, (−1)^n): exact at the integers
+            if (!usesZ(n.b)) return (z) => { const b = B(z); return b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1100 ? CX.ipow(base, b.re) : CX.exp(CX.mul(b, CX.log(base))); };
             if (base.re === Math.E && base.im === 0) return (z) => CX.exp(B(z));
             const L = CX.log(base); // principal log of a constant base: 2^{z} = e^{z \ln 2} for every cut
             return (z) => CX.exp(CX.mul(B(z), L));
@@ -600,6 +743,14 @@ const Expr = (() => {
           if (s.im === 0) return (z) => CX.powReal(A(z), s.re, theta);
           return (z) => CX.pow(A(z), s, theta);
         }
+        case 'idx': {
+          const e = [...scope].reverse().find((x) => x.v === n.v);
+          if (!e) throw new ParseError($t('{x} is the index of a sum: use it inside the sum', { x: n.v }), 0);
+          const cell = e.cell;
+          return () => cell.v;
+        }
+        case 'binom': { const A = build(n.a), B = build(n.b); return (z) => CX.binom(A(z), B(z)); }
+        case 'sum': return buildSum(n);
         case 'call': {
           const A = build(n.a);
           if (n.f === 'log') return (z) => CX.log(A(z), theta);
@@ -611,7 +762,234 @@ const Expr = (() => {
       }
       throw new ParseError($t("Cannot evaluate '{x}'", { x: n.t }), 0);
     }
+    // n's subtree as a function of the index v (with z = 0: for the parts of a term without z)
+    function ofIdx(node, v) {
+      const cell = { v: C(0, 0) };
+      scope.push({ v, cell });
+      try { const f = build(node); return (k) => { cell.v = C(k, 0); return f(C(0, 0)); }; } finally { scope.pop(); }
+    }
+    function buildSum(n) {
+      const LO = build(n.lo), HI = build(n.hi);
+      const cell = { v: C(0, 0) };
+      scope.push({ v: n.v, cell });
+      let T;
+      try { T = build(n.a); } finally { scope.pop(); }
+      const prod = n.op === 'prod';
+      const plan = !prod && !depends(n.lo) && !depends(n.hi) ? seriesPlan(n, ofIdx) : null;
+      if (plan) PLANS.set(n, plan);
+      const lim = (v) => (CX.isFin(v) || (v.im === 0 && Math.abs(v.re) === Infinity) ? (Number.isFinite(v.re) ? (Math.abs(v.re - Math.round(v.re)) < 1e-9 && v.im === 0 ? Math.round(v.re) : NaN) : v.re) : NaN);
+      if (plan) return (z) => plan.at(z);
+      const cap = usesZ(n) ? SER_CAP : SER_CAP_CONST;
+      return (z) => {
+        const lo = lim(LO(z)), hi = lim(HI(z));
+        if (Number.isNaN(lo) || Number.isNaN(hi)) return C(NaN, NaN);
+        const term = (k) => { cell.v = C(k, 0); return T(z); };
+        return runSeries(term, lo, hi, prod, cap);
+      };
+    }
     return build(ast);
+  }
+
+  // ---------- [issue #5] series ----------
+  // A sum of an infinite number of terms stops when the last SER_WIN terms are below SER_TOL of the sum (a product:
+  // its factors within SER_TOL of 1). After SER_CAP terms (SER_CAP_CONST for a sum without z, computed once) it is kept
+  // only when its terms fall like those of a convergent series (tailOk), otherwise it is NaN: never a partial sum of a
+  // series that has not converged there. A finite sum of more than SER_FINITE terms is NaN.
+  const SER_CAP = 512, SER_CAP_CONST = 1 << 16, SER_TOL = 1e-13, SER_LOOSE = 1e-3, SER_WIN = 6, SER_FINITE = 1e6, SER_EPS = 1e-15;
+  // at the cap: from the window at N/2 (largest term mH) to the last one (mN) the terms fell geometrically or as k^{−p}
+  // with p > 1.5, and the rest, at most about N mN/(p − 1), is within SER_LOOSE of the sum (a fraction of a pixel's
+  // colour step; inside a power series' disc it is far smaller)
+  function tailOk(mN, mH, N, ref) {
+    if (mN === 0) return true;
+    if (!(mN < mH)) return false;
+    const p = Math.log(mH / mN) / Math.LN2;
+    return p > 1.5 && mN * N / (p - 1) <= SER_LOOSE * Math.max(ref, 1e-300);
+  }
+  // the terms term(k) for k from k0 by dk (±1), at most cap of them, or to k1: their sum (or product)
+  // a sum whose terms are far larger than the sum lost its digits to cancellation (e^z's series at Re z = −40): NaN
+  const cancelled = (A, S) => A * SER_EPS > SER_LOOSE * CX.abs(S);
+  function runOne(term, k0, dk, k1, prod, capInf = SER_CAP) {
+    let S = prod ? C(1, 0) : C(0, 0), mH = 0, A = 0;
+    const win = [];
+    const infinite = !Number.isFinite(k1);
+    const cap = infinite ? capInf : Math.abs(k1 - k0) + 1;
+    if (cap > SER_FINITE) return C(NaN, NaN);
+    for (let j = 0, k = k0; j < cap; j++, k += dk) {
+      const t = term(k);
+      if (!CX.isFin(t)) return C(NaN, NaN);
+      S = prod ? CX.mul(S, t) : CX.add(S, t);
+      if (!prod) A += CX.abs(t);
+      if (!infinite) continue;
+      if (prod && CX.isZero(S)) return S;
+      win.push(prod ? CX.abs(CX.sub(t, CX.ONE)) : CX.abs(t));
+      if (win.length > SER_WIN) win.shift();
+      const big = Math.max(...win), ref = prod ? 1 : CX.abs(S);
+      if (j >= 8 && big <= SER_TOL * ref) return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
+      if (j === cap >> 1) mH = big;
+      if (j === cap - 1) return tailOk(big, mH, cap, ref) && !(!prod && cancelled(A, S)) ? S : C(NaN, NaN);
+    }
+    return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
+  }
+  function runSeries(term, lo, hi, prod, cap) {
+    if (lo > hi) return prod ? C(1, 0) : C(0, 0);
+    if (lo === -Infinity && hi === Infinity) {
+      const a = runOne(term, 0, 1, Infinity, prod, cap), b = runOne(term, -1, -1, -Infinity, prod, cap);
+      return prod ? CX.mul(a, b) : CX.add(a, b);
+    }
+    if (lo === -Infinity) return runOne(term, hi, -1, -Infinity, prod, cap);
+    return runOne(term, lo, 1, hi, prod, cap);
+  }
+  // the factors of a product: [{node, e: ±1}] and the sign
+  function factorsOf(n, out, e) {
+    if (n.t === 'mul') { factorsOf(n.a, out, e); factorsOf(n.b, out, e); } else if (n.t === 'div') { factorsOf(n.a, out, e); factorsOf(n.b, out, -e); } else if (n.t === 'neg') { out.neg = !out.neg; factorsOf(n.a, out, e); } else out.push({ node: n, e });
+    return out;
+  }
+  const usesZ = (n) => n.t === 'var' || kids(n).some(usesZ);
+  // z − c for a constant c (z, z − 2, z + i, 1 + z): c, else null
+  function centreOf(n) {
+    if (hasT(n, 'idx') || hasT(n, 'sum')) return null;
+    let P;
+    try { P = polyExpand(n, 1); } catch (e) { return null; }
+    if (P.c.length !== 2 || P.c[1].re !== 1 || P.c[1].im !== 0) return null;
+    return CX.neg(P.c[0]);
+  }
+  // A sum with constant limits whose term is a(n) (z − c)^{e(n)} (a power or Laurent series, e(n) an integer) or a(n) n^{−z}
+  // (a Dirichlet series): its coefficients, computed once, and the region where it converges, estimated from them.
+  // {kind: 'power' | 'laurent' | 'dirichlet', c, R, r, sigma, at(z)}; null for any other term (summed as it is).
+  function seriesPlan(n, ofIdx) {
+    let lo, hi;
+    try { lo = compile(n.lo)(C(0, 0)).re; hi = compile(n.hi)(C(0, 0)).re; } catch (e) { return null; }
+    if ((Number.isFinite(lo) && !Number.isInteger(lo)) || (Number.isFinite(hi) && !Number.isInteger(hi)) || lo === Infinity || hi === -Infinity) return null;
+    if (Number.isFinite(lo) && Number.isFinite(hi) && hi - lo + 1 > SER_CAP) return null;
+    const fs = factorsOf(n.a, [], 1), zf = fs.filter((f) => usesZ(f.node));
+    if (zf.length !== 1) return null;
+    const f = zf[0], coefNodes = fs.filter((x) => x !== f);
+    const coef = coefNodes.map((x) => ({ g: ofIdx(x.node, n.v), e: x.e }));
+    const aOf = (k) => { let a = fs.neg ? C(-1, 0) : C(1, 0); for (const x of coef) { const v = x.g(k); a = x.e > 0 ? CX.mul(a, v) : CX.div(a, v); } return a; };
+    const zn = f.node;
+    // a(n) n^{−z}: the base is the index itself, the exponent −z (or z in a denominator)
+    if (zn.t === 'pow' && !usesZ(zn.a) && zn.a.t === 'idx' && zn.a.v === n.v && ((zn.b.t === 'neg' && zn.b.a.t === 'var' && zn.b.a.n === 'z' && f.e > 0) || (zn.b.t === 'var' && zn.b.n === 'z' && f.e < 0))) {
+      if (!(lo >= 1) || hi !== Infinity) return null;
+      return dirichletPlan(lo, aOf);
+    }
+    let c = centreOf(zn), E = null;
+    if (c) E = { t: 'num', v: C(f.e, 0) };
+    else if (zn.t === 'pow' && !usesZ(zn.b) && (c = centreOf(zn.a))) E = f.e > 0 ? zn.b : { t: 'neg', a: zn.b };
+    if (!c) return null;
+    const eOf = ofIdx(E, n.v);
+    const side = (k0, dk) => {
+      const a = [], e = [];
+      for (let j = 0, k = k0; j < SER_CAP && (dk > 0 ? k <= hi : k >= lo); j++, k += dk) {
+        const ev = eOf(k), av = aOf(k);
+        if (ev.im !== 0 || !Number.isFinite(ev.re) || Math.abs(ev.re - Math.round(ev.re)) > 1e-9) return null;
+        a.push(av); e.push(Math.round(ev.re));
+      }
+      return { a, e, done: dk > 0 ? k0 + a.length - 1 >= hi : k0 - a.length + 1 <= lo };
+    };
+    const up = lo === -Infinity ? (hi === Infinity ? side(0, 1) : null) : side(lo, 1);
+    const down = lo === -Infinity ? (hi === Infinity ? side(-1, -1) : side(hi, -1)) : null;
+    if ((up === null && lo !== -Infinity) || (down === null && lo === -Infinity)) return null;
+    // the radius from the tail of the coefficients (Cauchy–Hadamard, log|a_k| ≈ −e_k log R): the slope of the upper
+    // envelope of log|a_k| against e_k between the third and the last quarter. A slope still falling (as for 1/n!, whose
+    // coefficients shrink faster than any geometric sequence) means no bound: R = ∞ (r = 0 for the inner side)
+    const radius = (sd, sgn) => {
+      if (!sd || sd.done) return sgn > 0 ? Infinity : 0;
+      const pts = [];
+      sd.a.forEach((a, j) => { const ee = sd.e[j] * sgn; if (ee > 0 && !CX.isZero(a) && CX.isFin(a)) pts.push([ee, Math.log(CX.abs(a))]); });
+      if (pts.length < 16) return sgn > 0 ? Infinity : 0;
+      const q = Math.floor(pts.length / 4);
+      const top = (lst) => lst.reduce((m, x) => (x[1] > m[1] ? x : m));
+      const p2 = top(pts.slice(q, 2 * q)), p3 = top(pts.slice(2 * q, 3 * q)), p4 = top(pts.slice(3 * q));
+      const s3 = (p3[1] - p2[1]) / (p3[0] - p2[0]), s4 = (p4[1] - p3[1]) / (p4[0] - p3[0]);
+      if (!Number.isFinite(s4) || s4 < s3 - 0.05) return sgn > 0 ? Infinity : 0;
+      return sgn > 0 ? Math.exp(-s4) : Math.exp(s4);
+    };
+    const R = radius(up, 1), r = radius(down, -1);
+    const sum1 = (sd, w, finite) => {
+      let S = C(0, 0), P = null, pe = 0, mH = 0, A = 0;
+      const win = [];
+      for (let j = 0; j < sd.a.length; j++) {
+        const e = sd.e[j];
+        P = P && e >= pe ? (e === pe ? P : CX.mul(P, CX.ipow(w, e - pe))) : CX.ipow(w, e);
+        pe = e;
+        const t = CX.mul(sd.a[j], P);
+        if (!CX.isFin(t)) return null;
+        S = CX.add(S, t);
+        A += CX.abs(t);
+        if (finite) continue;
+        win.push(CX.abs(t));
+        if (win.length > SER_WIN) win.shift();
+        const big = Math.max(...win);
+        if (j >= 8 && big <= SER_TOL * CX.abs(S)) return { S, A };
+        if (j === sd.a.length >> 1) mH = big;
+        if (j === sd.a.length - 1) return tailOk(big, mH, sd.a.length, CX.abs(S)) ? { S, A } : null;
+      }
+      return { S, A };
+    };
+    const kind = lo === -Infinity && hi === Infinity ? 'laurent' : 'power';
+    return {
+      kind, c, R, r,
+      at: (z) => {
+        const w = CX.sub(z, c);
+        let S = C(0, 0), A = 0;
+        for (const sd of [up, down]) {
+          if (!sd) continue;
+          const r = sum1(sd, w, sd.done);
+          if (!r) return C(NaN, NaN);
+          S = CX.add(S, r.S); A += r.A;
+        }
+        return cancelled(A, S) ? C(NaN, NaN) : S;
+      },
+    };
+  }
+  // Σ a(n) n^{−z} from n = lo: absolutely convergent for Re z > σ (σ = 1 + the growth order of a(n), from the tail);
+  // up to DIR_CAP terms, and for coefficients constant along the tail the rest as the integral (K + ½)^{1−z}/(z − 1)
+  // (the midpoint rule: the error is below |z(z + 1)| K^{−Re z − 2}/24). Re z ≤ σ: NaN
+  const DIR_CAP = 4096;
+  function dirichletPlan(lo, aOf) {
+    const a = [], L = [];
+    for (let k = lo; k < lo + DIR_CAP; k++) { a.push(aOf(k)); L.push(Math.log(k)); }
+    if (!a.every(CX.isFin)) return null;
+    const ord = [];
+    a.forEach((x, j) => { if (!CX.isZero(x) && j + lo > 1) ord.push(Math.log(CX.abs(x)) / L[j]); });
+    const q = Math.floor(ord.length / 4);
+    const sigma = ord.length >= 16 ? 1 + Math.max(...ord.slice(3 * q)) : 1;
+    const tail = a.slice(-64), aT = tail[tail.length - 1];
+    const flat = tail.every((x) => CX.abs(CX.sub(x, aT)) <= 1e-14 * CX.abs(aT));
+    const K = lo + DIR_CAP - 1;
+    return {
+      kind: 'dirichlet', sigma,
+      at: (z) => {
+        if (!(z.re > sigma + 1e-12)) return C(NaN, NaN);
+        let S = C(0, 0), A = 0;
+        const win = [];
+        for (let j = 0; j < a.length; j++) {
+          if (CX.isZero(a[j])) continue;
+          const t = CX.mul(a[j], CX.exp(CX.scale(z, -L[j])));
+          S = CX.add(S, t);
+          A += CX.abs(t);
+          win.push(CX.abs(t));
+          if (win.length > SER_WIN) win.shift();
+          if (j >= 8 && Math.max(...win) <= SER_TOL * CX.abs(S)) return cancelled(A, S) ? C(NaN, NaN) : S;
+        }
+        if (cancelled(A, S)) return C(NaN, NaN);
+        if (flat) return CX.add(S, CX.mul(aT, CX.div(CX.exp(CX.scale(CX.sub(CX.ONE, z), Math.log(K + 0.5))), CX.sub(z, CX.ONE))));
+        // the rest is at most max|a| K^{1−σ'}/(σ' − 1), σ' = Re z − (σ − 1): kept when it is small against the sum
+        const sp = z.re - (sigma - 1), amax = Math.max(...tail.map((x) => CX.abs(x)));
+        return amax * Math.pow(K, 1 - sp) / (sp - 1) <= 1e-4 * CX.abs(S) ? S : C(NaN, NaN);
+      },
+    };
+  }
+  // the region where a formula's series converge: [{kind, c, R, r, sigma}] for each sum with a plan (compile builds them)
+  function seriesInfo(ast) {
+    try { compile(ast); } catch (e) { return []; }
+    const out = [];
+    const walk = (n) => {
+      if (n.t === 'sum' && PLANS.has(n)) { const p = PLANS.get(n); out.push({ kind: p.kind, c: p.c, R: p.R, r: p.r, sigma: p.sigma }); }
+      for (const k of ['a', 'b', 'n', 'lo', 'hi']) if (n[k]) walk(n[k]);
+    };
+    walk(ast);
+    return out;
   }
 
   // Region formulas compile to a real "level" function, positive inside.
@@ -844,8 +1222,35 @@ const Expr = (() => {
     return v;
   }
 
+  // [issue #5] a sum or product with constant limits and at most UNROLL terms, written out (its index replaced by each
+  // value): so a finite sum of powers is a polynomial to classify and polyExpand. Anything else stays as it is.
+  const UNROLL = 4096;
+  function subst(n, v, k) {
+    if (n.t === 'idx') return n.v === v ? { t: 'num', v: C(k, 0), lit: String(k) } : n;
+    if (n.t === 'sum' && n.v === v) return Object.assign({}, n, { lo: subst(n.lo, v, k), hi: subst(n.hi, v, k) });
+    const o = Object.assign({}, n);
+    for (const key of ['a', 'b', 'n', 'lo', 'hi']) if (n[key] && typeof n[key] === 'object' && n[key].t) o[key] = subst(n[key], v, k);
+    return o;
+  }
+  function unroll(n) {
+    if (n.t === 'sum' && !depends(n.lo) && !depends(n.hi)) {
+      let lo, hi;
+      try { lo = compile(n.lo)(C(0, 0)).re; hi = compile(n.hi)(C(0, 0)).re; } catch (e) { return n; }
+      if (Number.isInteger(lo) && Number.isInteger(hi) && hi - lo + 1 <= UNROLL) {
+        let r = null;
+        for (let k = lo; k <= hi; k++) { const t = unroll(subst(n.a, n.v, k)); r = r ? { t: n.op === 'prod' ? 'mul' : 'add', a: r, b: t } : t; }
+        return r || { t: 'num', v: C(n.op === 'prod' ? 1 : 0, 0), lit: n.op === 'prod' ? '1' : '0' };
+      }
+      return n;
+    }
+    if (!hasT(n, 'sum')) return n;
+    const o = Object.assign({}, n);
+    for (const key of ['a', 'b', 'n']) if (n[key] && typeof n[key] === 'object' && n[key].t) o[key] = unroll(n[key]);
+    return o;
+  }
   // Structural classification of a function expression, used for guaranteed properties.
   function classify(ast) {
+    if (hasT(ast, 'sum')) ast = unroll(ast);
     const K = (o) => Object.assign({ dep: true, analytic: false, entire: false, rational: false, poly: false, deg: 0, branch: false }, o);
     const CONST = K({ dep: false, analytic: true, entire: true, rational: true, poly: true, deg: 0 });
     // a constant subexpression that is not a finite number (1/0, log 0, ...) makes nothing guaranteed
@@ -897,6 +1302,13 @@ const Expr = (() => {
           const a = go(n.a);
           return K({ analytic: a.analytic, branch: true });
         }
+        // [issue #5] an infinite power, Laurent or Dirichlet series is analytic where it converges; nothing more is
+        // claimed (entire only if R = ∞ were proven); any other sum guarantees nothing
+        case 'sum': {
+          try { compile(n); } catch (e) { return K({}); }
+          const p = PLANS.get(n);
+          return K({ analytic: !!p && !usesZ(n.lo) && !usesZ(n.hi) });
+        }
         case 'call': {
           const a = go(n.a);
           if (['exp', 'sin', 'cos', 'sinh', 'cosh'].includes(n.f)) return K({ analytic: a.analytic, entire: a.entire, branch: a.branch });
@@ -918,6 +1330,7 @@ const Expr = (() => {
   // nonzero one. When every constant is a Gaussian integer and every m stays below 2^53 the arithmetic is exact
   // (exact: true) and c[k] = 0 means exactly 0. Throws a RangeError above maxDeg or on overflow.
   function polyExpand(ast, maxDeg = 4096) {
+    if (hasT(ast, 'sum')) ast = unroll(ast);
     const BIG = 2 ** 53;
     const isGI = (v) => Number.isInteger(v.re) && Number.isInteger(v.im) && Math.abs(v.re) < BIG && Math.abs(v.im) < BIG;
     const konst = (v, exact) => {
@@ -1011,8 +1424,9 @@ const Expr = (() => {
           return pw(go(n.a), v.re);
         }
       }
-      // any other constant subexpression (\sqrt{2}, \log 3, ...) is a plain number
-      if (!depends(n)) return konst(compile(n)(C(0, 0)), false);
+      // any other constant subexpression (\sqrt{2}, \log 3, ...) is a plain number; a binomial or factorial of integers is
+      // an exact integer
+      if (!depends(n)) { const v = compile(n)(C(0, 0)); return konst(v, (n.t === 'binom' || (n.t === 'call' && n.f === 'fact')) && isGI(v) && !hasT(n, 'var') && [n.a, n.b].every((x) => !x || x.t === 'num' && isGI(x.v))); }
       throw new RangeError(`not a polynomial: ${n.t}`);
     }
     return go(ast);
@@ -1086,7 +1500,9 @@ const Expr = (() => {
     if (!a || !b || a.t !== b.t) return false;
     if (a.t === 'num') return a.v.re === b.v.re && a.v.im === b.v.im;
     if (a.t === 'var') return a.n === b.n;
+    if (a.t === 'idx') return a.v === b.v;
     if (a.f !== b.f || a.op !== b.op) return false;
+    if (a.t === 'sum' && (a.v !== b.v || !sameAst(a.lo, b.lo) || !sameAst(a.hi, b.hi))) return false;
     return ['a', 'b', 'n'].every((k) => (a[k] ? sameAst(a[k], b[k]) : !b[k]));
   }
   // bottom-up: constant folding (when the result prints short) and the 0 / 1 / sign rules; constants move to
@@ -1160,6 +1576,7 @@ const Expr = (() => {
       }
       case 'root': r = N.root(S(n.n), S(n.a)); break;
       case 'call': r = N.call(n.f, S(n.a)); break;
+      case 'sum': r = Object.assign({}, n, { a: S(n.a) }); break;
       default: return n;
     }
     if (!depends(r) && !hasBool(r)) {
@@ -1180,8 +1597,14 @@ const Expr = (() => {
     const sq = (a) => pow(a, TWO());
     function D(n) {
       if (isBool(n)) throw new Error($t('A comparison has no derivative'));
-      if (!depends(n)) return lit('0');
+      if (!depends(n) || n.t === 'idx') return lit('0');
       switch (n.t) {
+        // [issue #5] term by term (with the same limits: a power series keeps its radius)
+        case 'sum':
+          if (usesZ(n.lo) || usesZ(n.hi)) throw new Error($t('The limits of a sum must not depend on z'));
+          if (n.op === 'prod') { const u = unroll(n); if (u !== n) return D(u); throw new Error($t('A product of infinitely many factors cannot be differentiated here')); }
+          return Object.assign({}, n, { a: D(n.a) });
+        case 'binom': throw new Error($t('No derivative known for {f}', { f: 'binom' }));
         case 'var':
           if (n.n === 'z') return ONE();
           throw NH({ x: 'Re z', y: 'Im z', r: '|z|', theta: 'arg z' }[n.n] || n.n);
@@ -1238,6 +1661,7 @@ const Expr = (() => {
             case 'atanh': return div(Da, sub(ONE(), sq(a)));
             case 'gamma': return mul(Da, mul(n, call('digamma', a)));   // Γ′ = Γ ψ
             case 'zeta': return mul(Da, call('zetad', a));
+            case 'fact': return mul(Da, mul(n, call('digamma', add(a, ONE()))));   // (z!)′ = z! ψ(z + 1)
             case 'abs': throw NH('|z|');
             case 'conj': throw NH($t('Conjugation z̄'));
             case 're': throw NH('Re z');
@@ -1258,6 +1682,7 @@ const Expr = (() => {
   // message says why there is none.
   function invert(ast, { theta = Math.PI } = {}) {
     if (hasBool(ast)) throw new Error($t('A comparison has no inverse'));
+    if (hasT(ast, 'sum')) throw new Error($t('A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w'));
     for (const v of usesVars(ast)) if (v !== 'z') throw new Error($t('Re z, Im z, |z| and arg z lose information, so the formula has no inverse'));
     const count = (n) => (n.t === 'var' ? 1 : ['a', 'b', 'n'].reduce((s, k) => s + (n[k] ? count(n[k]) : 0), 0));
     const nz = count(ast);
@@ -1355,6 +1780,7 @@ const Expr = (() => {
   function numTex(v, name, lit) {
     if (name === 'pi') return { s: '\\pi', p: 4 };
     if (name === 'e') return { s: 'e', p: 4 };
+    if (name === 'inf') return { s: v.re < 0 ? '-\\infty' : '\\infty', p: v.re < 0 ? 2 : 4 };
     // a literal as typed; scientific notation as m\times 10^{n}
     let s = lit && /^[\d.]+([eE][+-]?\d+)?$/.test(lit) ? lit : CX.tex(v);
     const sc = /^([\d.]+)[eE]\+?(-?\d+)$/.exec(s);
@@ -1391,12 +1817,22 @@ const Expr = (() => {
           return { s: `${a.p < 4 || n.a.t === 'div' ? paren(a.s) : a.s}^{${b.s}}`, p: 3 };
         }
         case 'root': return { s: `\\sqrt[${go(n.n).s}]{${go(n.a).s}}`, p: 4 };
+        // [issue #5] the sum takes the factors after it, so it is wrapped as a factor (p 0); −∞ … ∞ is n ∈ ℤ
+        case 'idx': return { s: n.v, p: 4 };
+        case 'binom': return { s: `\\binom{${go(n.a).s}}{${go(n.b).s}}`, p: 4 };
+        case 'sum': {
+          const cmd = n.op === 'prod' ? '\\prod' : '\\sum', b = go(n.a), body = b.p <= 0 ? paren(b.s) : b.s;
+          const isInf = (x, sg) => (x.t === 'num' && x.name === 'inf' && Math.sign(x.v.re) === sg) || (sg < 0 && x.t === 'neg' && isInf(x.a, 1));
+          if (isInf(n.lo, -1) && isInf(n.hi, 1)) return { s: `${cmd}_{${n.v}\\in\\mathbb{Z}} ${body}`, p: 0 };
+          return { s: `${cmd}_{${n.v}=${go(n.lo).s}}^{${go(n.hi).s}} ${body}`, p: 0 };
+        }
         case 'call': {
           const a = go(n.a);
           if (n.f === 'sqrt') return { s: `\\sqrt{${a.s}}`, p: 4 };
           if (n.f === 'abs') return { s: `\\left|${a.s}\\right|`, p: 4 };
           if (n.f === 'conj') return { s: `\\overline{${a.s}}`, p: 4 };
           if (n.f === 'exp') return { s: `e^{${a.s}}`, p: 3 };
+          if (n.f === 'fact') return { s: `${a.p < 4 ? paren(a.s) : a.s}!`, p: 4 };
           const nm = FNTEX[n.f] || `\\operatorname{${n.f}}`;
           // (Γ, ζ, ψ always take parentheses: without them they read back as Greek names)
           const bare = a.p === 4 && a.s.length <= 3 && !['gamma', 'zeta', 'digamma', 'zetad'].includes(n.f);
@@ -1426,6 +1862,7 @@ const Expr = (() => {
     q = q.replace(/^(\s*)Z(?![A-Za-z_])/, '$1z');
     return q;
   }
-  return { parse, typed, compile, compileLevel, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  const hasSeries = (n) => hasT(n, 'sum');
+  return { parse, typed, compile, compileLevel, seriesInfo, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
 })();
 if (typeof module !== 'undefined') module.exports = Expr;
