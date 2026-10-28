@@ -517,6 +517,10 @@ const Phone = (() => {
     els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg;
+    // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
+    // More sheet has no room left for it at 360 px; page.html's #meshGroup)
+    const mesh = $('meshGroup');
+    if (mesh) els.body.display.append(mesh);
   }
   function homeDisplay() {
     const home = $('regionsHome');
@@ -548,9 +552,6 @@ const Phone = (() => {
     kids.push(pc);
     const lang = A.langPref();
     kids.push(seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
-    // ([v17 D5, #82] mesh quality, the whole app's setting, here as in the laptop's Settings; page.html's #meshGroup)
-    const mesh = $('meshGroup');
-    if (mesh) kids.push(h('div', { class: 'ph-mesh' }, mesh));
     kids.push(h('div', { class: 'ph-sep' }));
     kids.push(row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true));
     kids.push(row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true));
