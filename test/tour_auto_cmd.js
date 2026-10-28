@@ -205,6 +205,8 @@ try {
 // ---------------- the Sound chapter at 1440 (mouse): Grieg, the phase lines' laps, a loop; the settings come back
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await go('sound', 0);
+// (v16.5: the strip shows Listen once the song scene is in, 1.5 to 3 s after the start on a loaded machine)
+await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 const ab = await center('.ts-act');
 await click(ab[0], ab[1]); t0 = Date.now();
 const caps = [];
@@ -303,6 +305,7 @@ try {
 await open('au3', 390, 844, true, true, 'ru');
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await go('sound', 0);
+await until(`[...document.querySelectorAll('.ts-act')].some((e) => e.getClientRects().length && e.offsetParent !== null)`, 6000);
 const ra = await center('.ts-act');
 check('RU Grieg: the strip shows its Listen button', !!ra, await lit());
 if (!ra) throw new Error('no Listen button on the phone strip');
