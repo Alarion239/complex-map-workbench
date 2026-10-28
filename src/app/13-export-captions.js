@@ -88,6 +88,8 @@
   let tempInsp = false;
   function selectStep(k) {
     S.sel = k;
+    // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
+    if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     syncSel();
     if (typeof Params !== 'undefined' && Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
