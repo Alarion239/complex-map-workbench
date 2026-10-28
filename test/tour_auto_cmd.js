@@ -205,6 +205,25 @@ await ev('Tour.stop()'); await settle(400);
 
 } catch (e) { check('reduced motion: Next counts down' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
+// ---------------- the Constructions chapter at 1440 (mouse): "Drag z2 across the line" is done by a disc turning into a
+// half-plane or its outside, and the outside is only a complement flip (issue #34, T4)
+await go('construct', 0);
+const w2s = (x, y) => ev(`__cmwPlaneMenu().w2s('L', ${x}, ${y})`);
+const c3b = await center('#constructTools .tool[data-tool="circle3"], #tools .tool[data-tool="circle3"]');
+if (c3b) await click(c3b[0], c3b[1]);
+await settle(300);
+for (const p of [[-1.5, -0.5], [1, -1], [0.25, 1.25]]) { const q = await w2s(p[0], p[1]); await click(q[0], q[1]); await settle(250); }
+check('construct: the circle task is done', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+check('construct: the tour moves on to the family step', (await advancedAt('construct/c3', Date.now() - 200, 6000)) != null && (await cur()) === 'construct/follow', await cur());
+const sel = await center('#tools .tool[data-tool="select"]');
+if (sel) { await click(sel[0], sel[1]); await settle(200); }
+const z2a = await w2s(0.25, 1.25), z2b = await w2s(0.25, -0.85), z2c = await w2s(0.25, -2.2);
+await mdrag(z2a[0], z2a[1], z2b[0], z2b[1]); await settle(300);
+await mdrag(z2b[0], z2b[1], z2c[0], z2c[1]);
+check('construct: dragging z2 across the line ticks the step (the half-plane, then the outside)', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+await ev('Tour.stop()'); await settle(300);
+} catch (e) { check('the Constructions chapter at 1440' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
+try {
 // ---------------- the Sound chapter at 1440 (mouse): Grieg, the harp's laps, a loop; the settings come back
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await go('sound', 0);
