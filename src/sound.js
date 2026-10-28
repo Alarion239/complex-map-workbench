@@ -728,11 +728,15 @@ function HT_LIB() {
   // new Live({n}): fed the probe's samples (t in seconds, page clock) one at a time; returns the decided events, in
   // probe time, for the caller to schedule. The same Decider as events(); what differs is only what a live stream can
   // know: the rate is measured over the past rateHalf and extrapolated over the next (the last step's slope; a key
-  // step's 0), and a repeat waits graceGap (or flush(t) from a timer) before its grace test runs.
+  // step's 0; a cut's 0: its step is the jump, so the cut's notes take the rate before it), and a repeat waits
+  // graceGap (or flush(t) from a timer) before its grace test runs. As the batch's window, the rate's never spans a
+  // cut (spec 3.12: lo ≥ the last cut; a cut's "before" rate, and a window that reaches a later cut, end at the value
+  // just before its jump, the last step's slope carried to the cut).
   function Live(o = {}) {
     let N = o.n || HT.n;
     const out = [], hist = [];   // hist: this stroke's samples {t, phi, ln, pan} (≥ 0.3 s kept)
     let stroke = 0, prev = null, src = 'hand', w = 0, cell = { ca: null, cm: null, onA: null, onM: null }, waiting = [], args = [], holdH = [], glOn = false, open = false;
+    let cuts = [];   // this stroke's cuts {t, phi, ln}: the values just before the jump (the last 0.5 s kept)
     const valAt = (t, key) => {
       if (!hist.length) return 0;
       if (t >= hist[hist.length - 1].t) { const h = hist[hist.length - 1]; return h[key] + (key === 'phi' ? w * (t - h.t) : (prev && prev.wl ? prev.wl * (t - h.t) : 0)); }
@@ -744,9 +748,13 @@ function HT_LIB() {
     const env = {
       rate: (t, key, k, before) => {
         if (!hist.length) return 0;
-        const t0s = hist[0].t, a = Math.max(t0s, t - HT.rateHalf), b = before ? t : t + HT.rateHalf;
+        let a = Math.max(hist[0].t, t - HT.rateHalf), b = before ? t : t + HT.rateHalf, vb = null;
+        for (const c of cuts) {
+          if (before ? c.t < t : c.t <= t) a = Math.max(a, c.t);
+          else if (c.t <= b) { b = c.t; vb = c[key]; break; }
+        }
         if (b <= a) return 0;
-        return N * Math.abs(valAt(b, key) - valAt(a, key)) / (b - a) / k;
+        return N * Math.abs((vb == null ? valAt(b, key) : vb) - valAt(a, key)) / (b - a) / k;
       },
       stroke: () => stroke,
       hold: (t) => { let m = 1e-3; for (const h of holdH) if (h.t >= t - HT.holdMax && h.g > m) m = h.g; return src === 'key' ? HT.keyGap : m; },
@@ -765,7 +773,7 @@ function HT_LIB() {
     };
     function seatAt(s) {
       settle(s.t, true);
-      stroke++; hist.length = 0; holdH.length = 0; args = []; w = 0; glOn = false; open = true;
+      stroke++; hist.length = 0; holdH.length = 0; args = []; cuts = []; w = 0; glOn = false; open = true;
       cell = { ca: null, cm: null, onA: null, onM: null };
       const p = { t: s.t, phi: s.phi, ln: s.ln, pan: s.pan || 0, seat: true };
       crossStep(cell, null, p, N, true, []);   // [B10] seatOnLine
@@ -783,6 +791,13 @@ function HT_LIB() {
       while (holdH.length && holdH[0].t < s.t - HT.holdMax - 0.05) holdH.shift();
       crossStep(cell, prev, p, N, true, ev);
       const dts = p.t - prev.t;
+      if (cutFlag) {
+        // the values just before the jump: the last step's slope carried to the cut (at most holdMax: a hand that
+        // rested moved only in the last holdMax)
+        const u = Math.min(Math.max(0, dts), HT.holdMax);
+        cuts.push({ t: p.t, phi: prev.phi + w * u, ln: prev.ln + (prev.wl || 0) * u });
+        while (cuts.length > 1 && cuts[0].t < p.t - 0.5) cuts.shift();
+      }
       w = s.src === 'key' || cutFlag || dts <= 0 ? 0 : (p.phi - prev.phi) / dts;
       p.wl = s.src === 'key' || cutFlag || dts <= 0 ? 0 : (p.ln - prev.ln) / dts;
       src = s.src || src; prev = p; hist.push(p);

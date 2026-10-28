@@ -229,7 +229,10 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
       // the levels at matched crossings: the live rate is measured over the past 100 ms and extrapolated over the next
       // (the batch sees the future), so where the rate changes within 100 ms (the end of a run, a pass by a zero, the
       // spiral of e^(1/z)) the live note differs. Measured (engine-check.md): median ≤ 0.6 dB, p90 ≤ 1.6 dB. The spec's
-      // ±1 dB per note is not met there (open: a better live estimate)
+      // ±1 dB per note is not met there: every note over 1 dB is within 100 ms before the path stops at once (the circles
+      // at 3 s, essential at 1.7 s), or where a pass by a zero changes the rate within the window (pass-zero, deform),
+      // which no causal estimate sees (a quadratic fit of the past did worse); spec 3.12's declared fallback (each
+      // onset 100 ms later, the centred window) would meet it
       if (fps === 60 && bn.length === ln.length && name !== 'mountain-king') { const d = bn.map((e, k) => Math.abs(e.db + e.g - ln[k].db - ln[k].g)).sort((a, b) => a - b); check(`live ${name} at 60 fps: note levels near the batch's (median ≤ 0.6 dB, p90 ≤ 1.6 dB)`, d[d.length >> 1] <= 0.6 && d[Math.floor(0.9 * (d.length - 1))] <= 1.6, `${d[d.length >> 1].toFixed(2)} ${d[Math.floor(0.9 * (d.length - 1))].toFixed(2)} max ${d[d.length - 1].toFixed(2)}`); }
       check(`live ${name} at ${fps} fps: repeats ≥ 124 ms apart`, lr.every((e, k) => !k || e.t - lr[k - 1].t >= 0.124));
     }
@@ -237,6 +240,25 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
     // (a 100 ms frame on the Mountain King's spiral misses the wiggles of arg F inside it: up to 3% fewer crossings)
     const bnm = batch.filter((e) => e.k === 'note' || e.k === 'merged').length;
     check(`live ${name}, irregular frames: crossings as the batch (±1; ±3% on the spiral), late ≤ 105 ms`, Math.abs(irn - bnm) <= Math.max(1, name === 'mountain-king' ? 0.03 * bnm : 1) && irr.every((e) => !(e.late > 0.105 + 1e-9)), `${irn}/${bnm}`);
+  }
+  // the live rate's window stops where the batch's does (spec 3.12): at a cut (√z's: the crack's two notes, which the
+  // window across the jump made 10.6 dB too quiet) and at a lift and a seat (approach). Every note, repeat and cut note
+  // of the batch has its live one (the same kind and pitch, within 60 ms) at its level within ±1 dB, at every frame rate
+  for (const name of ['sqrt-cut', 'approach']) {
+    const K3 = new Set(['note', 'rep', 'cutnote']), want = HTL.events(SMP[name], { n: 12 }).filter((e) => K3.has(e.k));
+    for (const fps of [30, 60, 120, 240]) {
+      const live = liveRun(name, [1 / fps]).filter((e) => K3.has(e.k)), used = new Set();
+      let matched = 0, worst = 0, what = '';
+      for (const b of want) {
+        let best = -1;
+        live.forEach((l, k) => { if (!used.has(k) && l.k === b.k && Math.abs(l.c - b.c) < 1e-6 && Math.abs(l.t - b.t) < 0.06 && (best < 0 || Math.abs(l.t - b.t) < Math.abs(live[best].t - b.t))) best = k; });
+        if (best < 0) continue;
+        used.add(best); matched++;
+        const d = Math.abs(live[best].db + live[best].g - b.db - b.g);
+        if (d > worst) { worst = d; what = `${b.k} at ${b.t.toFixed(3)} s`; }
+      }
+      check(`live ${name} at ${fps} fps: every note, repeat and cut note at the batch's level (±1 dB)`, matched === want.length && worst <= 1, `${matched}/${want.length}, worst ${worst.toFixed(2)} dB ${what}`);
+    }
   }
   { // a key path: a step is a jump; the strum within 105 ms, the first note at once
     const L = HTL.Live({ n: 12 }); L.seat({ t: 1, phi: 0.5 / 12, ln: 0, pan: 0, src: 'key' });
