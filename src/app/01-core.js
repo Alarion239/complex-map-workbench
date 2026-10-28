@@ -1,20 +1,4 @@
   const { C } = CX;
-  const DEG = Math.PI / 180;
-  const TAU = 2 * Math.PI;
-  const $ = (id) => document.getElementById(id);
-  function h(tag, attrs, ...kids) {
-    const e = document.createElement(tag);
-    if (attrs) for (const [k, v] of Object.entries(attrs)) {
-      if (v == null || v === false) continue;
-      if (k === 'class') e.className = v;
-      else if (k === 'html') e.innerHTML = v;
-      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
-      else if (k === 'style') e.style.cssText = v;
-      else e.setAttribute(k, v === true ? '' : v);
-    }
-    for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(String(k)));
-    return e;
-  }
   const SUB = '₀₁₂₃₄₅₆₇₈₉';
   const sub = (k) => String(k).split('').map((d) => SUB[+d] ?? d).join('');
   const wvar = (k) => (k === 0 ? 'z' : `w_{${k}}`);
