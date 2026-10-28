@@ -651,6 +651,8 @@
     placeKeys();
     if (oneDock() && !S.hideLeft && !S.hideRight) S.hideLeft = true;   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
+    // ([v17 D4] the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
+    if (shapeEdWhere !== inspEditsShapes()) { shapeEdWhere = inspEditsShapes(); if (selected != null) buildShapeList(); }
     lay.classList.toggle('hide-left', !!S.hideLeft);
     lay.classList.toggle('hide-right', !!S.hideRight);
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
