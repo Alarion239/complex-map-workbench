@@ -40,9 +40,13 @@ see what they do:
   columns) and homework, black-and-white versions, LaTeX snippets for Overleaf, images for Docs, deformation
   filmstrips for every view, and MP4/WebM videos of the deformation.
 - **Sound**: small struck, plucked and blown interface and event cues (on by default after the first click), and an
-  optional "hear the function": a phase harp plucks a note each time arg F under the pointer crosses one of five
-  phase lines (a rising scale round a zero, a falling one round a pole; the low Ds count the winding number), also
-  while the deformation plays; a closed curve sings its winding number as one note. The example "In the Hall of the Mountain King"
+  optional "hear the function", where everything heard is caused by F through a fixed map: in Notes, a marimba note
+  each time arg F under the pointer crosses one of the picture's colour lines (red is D, each line the next step of a
+  circular scale, so a loop climbs round a zero and falls round a pole), louder where |F| is larger, the held note
+  repeated at each band edge of |F|, a crack at a branch cut, glass pings and felt thumps for zeros and poles; in
+  Glide, one continuous voice whose pitch is arg F. Also while the deformation plays, and along a curve (Listen
+  along, 250 screen pixels a second); a click (or Q) plays a still point; a declared limiter guards the output; a
+  closed curve sings its winding number as one note. The example "In the Hall of the Mountain King"
   plays Grieg's theme (public domain) along one spiral under z^(−2+24i).
 - **Guided tour** from the Help button, suggested once on first opening: a docked strip that never covers the
   planes, lights the exact control each step needs and moves on by itself about 3 s after you do the task. A chapter
