@@ -286,6 +286,7 @@
     const open = ft.pop && ft.pop.isConnected;
     f.replaceChildren(...ft.kids.slice(0, n), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
+    if (inHead) fitTitle(side);   // (the head's room changed with the button: the title is fitted again)
     if (open) { if (b) openFootPop(b, true, side); else closePalette(); }
   }
   function openFootPop(btn, refresh, side = 'R') {
