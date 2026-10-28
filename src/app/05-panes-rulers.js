@@ -129,6 +129,7 @@
   // (a level-2 chip at the top centre of the pane it is drawn in; it goes with the draft)
   // (an empty plane shows nothing over it, at the user's request of 2026-10-22)
   function updateDraftChips() {
+    syncModeChips();
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
     const cl = $('draftChipL'), cr = $('draftChipR');
     const cmSide = Construct.chipSide();   // (v16: a construction tool's chip)

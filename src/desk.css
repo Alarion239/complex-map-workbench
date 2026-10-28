@@ -291,6 +291,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
 .pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
 .pane-head > .empty-chip[hidden] { display: none; }
+.pane-head > .empty-chip.tight > .btn { font-size: 0; width: 26px; padding: 0; }
+.pane-head > .empty-chip.tight > .btn::before { content: "+"; font: 600 16px/1 var(--f-ui, inherit); }
 .pane-head > .empty-chip > span { display: none; }
 .pane-head > .empty-chip > .btn { height: 24px; min-height: 24px; }
 /* (V01) a one-time note about the plane, in its head: the targets' preimages are shaded in X; it gives way before the
@@ -307,6 +309,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* a step shown alone: the chip in X's head, with its × back to the whole chain */
 .alone-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 22px; margin-right: 6px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip[hidden] { display: none; }
+/* a long Russian or Italian pick sentence may take a third line on a laptop before it is cut (the chip is one of the plane's, over the picture) */
+@media (min-width: 1280px) and (max-width: 1440px) { :root:is([data-lang="ru"], [data-lang="it"]) .cm-chip > .cm-t { -webkit-line-clamp: 3; } }
+.mc-stop { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0 8px; height: 22px; cursor: pointer; }
 .mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
 .mode-chips[hidden] { display: none; }
 .mode-chip { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }

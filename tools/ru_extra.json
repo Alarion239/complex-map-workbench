@@ -158,5 +158,8 @@
  "Bring to front": "На передний план",
  "Send to back": "На задний план",
  "Y hidden": "Y скрыта",
- "X hidden": "X скрыта"
+ "X hidden": "X скрыта",
+ "Listening along {name}": "Слушаем: %{name}",
+ "Listening along": "Слушаем вдоль кривой",
+ "Leave the tool": "Выйти из инструмента"
 }
