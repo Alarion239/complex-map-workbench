@@ -536,6 +536,9 @@ const Phone = (() => {
     kids.push(pc);
     const lang = A.langPref();
     kids.push(seg($t('Language'), [['auto', $t('Auto')], ['en', 'English', 'en'], ['ru', 'Русский', 'ru'], ['it', 'Italiano', 'it']], lang, (v) => A.setLang(v), A.globeIcon));
+    // ([v17 D5, #82] mesh quality, the whole app's setting, here as in the laptop's Settings; page.html's #meshGroup)
+    const mesh = $('meshGroup');
+    if (mesh) kids.push(h('div', { class: 'ph-mesh' }, mesh));
     kids.push(h('div', { class: 'ph-sep' }));
     kids.push(row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true));
     kids.push(row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true));

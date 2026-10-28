@@ -93,10 +93,11 @@ for (const q of ['язык', 'language']) {
 for (const w of [768, 900, 1023]) {
   await open('ru', w, false);
   const st = await ev(`(() => { const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
-    const ids = ['examplesBtn', 'cmdBtn', 'toggleLeft', 'toggleRight', 'exportBtn', 'themeBtn', 'soundBtn', 'langBtn', 'helpBtn'];
+    // ([v17 D5] Theme and the panel buttons are in Settings: the bar has Share and Settings instead)
+    const ids = ['examplesBtn', 'cmdBtn', 'exportBtn', 'shareBtn', 'soundBtn', 'langBtn', 'settingsBtn', 'helpBtn'];
     const inBar = ids.filter((id) => { const e = document.getElementById(id), r = e && e.getBoundingClientRect(); return vis(e) && r.top < 60 && r.right <= innerWidth - 4 && r.left >= 0; });
     return { more: vis(document.getElementById('hdrMoreBtn')), inBar, over: document.documentElement.scrollWidth - innerWidth }; })()`);
-  check(`tablet ${w}: no More button; the globe and the secondary buttons in the bar, inside the window`, !st.more && st.inBar.length === 9 && st.over <= 0, st);
+  check(`tablet ${w}: no More button; the globe and the secondary buttons in the bar, inside the window`, !st.more && st.inBar.length === 8 && st.over <= 0, st);
   await ev(`document.getElementById('langBtn').click(), 1`); await settle(500);
   const lm = await ev(`(() => { const m = document.querySelector('#popHost .menu'); if (!m) return null; const r = m.getBoundingClientRect(); return { n: m.querySelectorAll('.mi').length, l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
   check(`tablet ${w}: the Language menu opens from the globe in the bar, inside the window`, lm && lm.n === 4 && lm.l >= 0 && lm.r <= w && lm.t >= 0, lm);

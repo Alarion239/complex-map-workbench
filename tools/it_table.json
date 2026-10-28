@@ -2946,5 +2946,8 @@
  "Next or previous area: top bar, tools, X, Y, chain, Inspector": "Area successiva o precedente: barra superiore, strumenti, X, Y, catena, Ispettore",
  "Move between the tools and the chain's cards": "Spostarsi tra gli strumenti e le schede della catena",
  "Name of {label}": "Nome di {label}",
- "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{a sinistra della retta da } %{a} \\text{ a } %{b}"
+ "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{a sinistra della retta da } %{a} \\text{ a } %{b}",
+ "Sound settings…": "Impostazioni del suono…",
+ "Share": "Condividi",
+ "Share: a link to this figure, scene files": "Condividi: un link a questa figura, file di scena"
 }
