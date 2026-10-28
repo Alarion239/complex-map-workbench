@@ -226,5 +226,14 @@
  "Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.": "Li₂(z) = Σ zⁿ/n², шаг «Ряд» с aₙ = 1/n². Штриховая окружность — его круг сходимости |z| = 1, оценённый по коэффициентам; образ круга рисуется только там, где ряд сходится.",
  "Zeta as a Dirichlet series": "Дзета как ряд Дирихле",
  "Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.": "Попробуйте: откройте «Нули дзета-функции» и сравните цвета правее Re z = 1.",
- "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), шаг «Ряд» вида «ряд Дирихле» с aₙ = 1, равен ζ(z) там, где сходится, — правее штриховой прямой Re z = 1. Левее ряд расходится и плоскость пуста, хотя сама ζ продолжается."
+ "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), шаг «Ряд» вида «ряд Дирихле» с aₙ = 1, равен ζ(z) там, где сходится, — правее штриховой прямой Re z = 1. Левее ряд расходится и плоскость пуста, хотя сама ζ продолжается.",
+ "Recurrence": "Рекуррентность",
+ "Write the start u₀ as a formula in z": "Запишите начало u₀ формулой от z",
+ "Write the rule as a formula in u and z, such as u^2+z": "Запишите правило формулой от u и z, например u^2+z",
+ "N must be a whole number from 0 to {max}": "N должно быть целым числом от 0 до %{max}",
+ "u₀ is a formula in z: u is the letter of the rule": "u₀ — формула от z: буква u — для правила",
+ "A recurrence usually takes each value many times, so it has no single inverse; {note}": "Рекуррентность обычно принимает каждое значение много раз, поэтому однозначной обратной нет; %{note}",
+ "z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method": "z ↦ u_N: из u₀ правилом u ↦ g(u, z) N раз; итерации Мандельброта и Жюлиа, метод Ньютона",
+ "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "рекуррентность итерация итерировать орбита мандельброт жюлиа ньютон неподвижная точка последовательность u_n",
+ "This recurrence has too many steps to be differentiated here": "У этой рекуррентности слишком много шагов, чтобы её здесь продифференцировать"
 }

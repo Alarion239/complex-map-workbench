@@ -554,6 +554,28 @@ ${inner.map((x) => '  ' + x).join('\n')}
       out.push(`  if (!${OK}${prod ? '' : ` || ${SER_CANCEL(M, S)}`}) ${S} = ${NAN};`);
       return S;
     }
+    // [issue #6] a recurrence, as Expr's: N (a uniform, so dragging it never recompiles) steps of at most ITER_CAP, its
+    // rule generated inside the loop; ∞ once |u| passes 1e18 (float32 squares it in cx_abs), NaN for a bad N
+    function genIter(n) {
+      const id = `${P}_r${sums++}`, u = `${id}_u`, N = `${id}_n`;
+      shape.push('I');
+      const u0 = g(n.lo), nn = g(n.hi);
+      const saved = out, inner = [];
+      out = inner;
+      idxVar.push({ v: n.v, k: u, cx: true });
+      let t;
+      try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      out.push(`  vec2 ${u} = ${u0}; float ${N} = ${nn}.x;
+  if (!(${N} >= 0.0 && ${N} <= ${Expr.ITER_CAP}.0 && ${N} == floor(${N}))) ${u} = ${NAN};
+  else for (int j = 0; j < ${Expr.ITER_CAP}; j++) {
+    if (float(j) >= ${N}) break;
+    float m = cx_abs(${u});
+    if (!(m <= 1e18)) { ${u} = m > 1e18 ? vec2(cx_inf()) : ${NAN}; break; }
+${inner.map((x) => '  ' + x).join('\n')}
+    ${u} = ${t};
+  }`);
+      return u;
+    }
     function genSum(n) {
       const id = `${P}_s${sums++}`;
       let plan = Expr.planOf(n);
@@ -573,8 +595,9 @@ ${inner.map((x) => '  ' + x).join('\n')}
         case 'idx': {
           const e = [...idxVar].reverse().find((x) => x.v === n.v);
           if (!e) throw new Error(`GLChain: index ${n.v} outside its sum`);
-          return `vec2(${e.k}, 0.0)`;
+          return e.cx ? e.k : `vec2(${e.k}, 0.0)`;
         }
+        case 'iter': return genIter(n);
         case 'binom': { const a = g(n.a), b = g(n.b); return tv(`cx_binom(${a}, ${b})`); }
         case 'sum': return genSum(n);
         case 'var':
@@ -1129,6 +1152,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
         };
       }
       case 'series':
+      case 'recurrence':
       case 'custom': {
         if (b.rec) return recPlan(P, b, A);
         const ast = b.ast || Expr.parse(v.expr);
@@ -1151,7 +1175,9 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
   // integer exponent)
   function astSig(n) {
     return JSON.stringify(n, (k, x) => (k === 'pos' || k === 'len' || k === 'lit' || k === 's' || k === 'name' ? undefined
-      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : [x.v.re, x.v.im]) : x));
+      : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : [x.v.re, x.v.im])
+        // ([issue #6] a recurrence's constant N is a uniform: a new N is the same program)
+        : x && typeof x === 'object' && x.t === 'iter' && !Expr.depends(x.hi) ? Object.assign({}, x, { hi: '#N' }) : x));
   }
   // A formula recognized as catalog steps (Funcs: b.rec): each step's own plan, as functions of their own (P r j), and
   // the step as their composition; its homotopy runs the steps' own homotopies in turn, step j on [j/n, (j+1)/n]

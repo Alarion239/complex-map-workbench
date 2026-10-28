@@ -281,6 +281,12 @@
     add('series step power 1/n^2 about 0.5', [S('series', { kind: 'power', an: '\\frac{1}{n^2}', c: '0.5' })]);
     add('series step Laurent', [S('series', { kind: 'laurent', an: '\\frac{1}{2^{|n|}+n^2}', c: '0' })]);
     add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
+    // [issue #6] the Recurrence step: Mandelbrot's u² + z near its main cardioid, Newton's method for z³ − 1, a contraction
+    // with sin, and a short one differentiated
+    add('recurrence u^2+z from 0', [S('affine', { a: '0.15', b: '0' }), S('recurrence', { u0: '0', g: 'u^2+z', N: 6, cut: 180 })]);
+    add('recurrence Newton z^3-1', [S('recurrence', { u0: 'z', g: 'u-\\frac{u^3-1}{3u^2}', N: 12, cut: 180 })]);
+    add('recurrence u/2+sin z', [S('recurrence', { u0: 'z', g: '\\frac{u}{2}+\\sin z', N: 20, cut: 180 })]);
+    add('recurrence d/dz u^2+z', [S('affine', { a: '0.3', b: '0' }), S('recurrence', { u0: 'z', g: 'u^2+z', N: 3, cut: 180 }), S('deriv')]);
   }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 

@@ -37,6 +37,7 @@ const Commands = (() => {
     gamma: [$t('Meromorphic; poles at 0, −1, −2, …; Γ(n + 1) = n!'), $t('gamma Γ factorial euler special function')],
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
+    recurrence: [$t('z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method'), $t('recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
     poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
     rational: [$t('Quotient of two polynomials'), $t('rational p/q')],

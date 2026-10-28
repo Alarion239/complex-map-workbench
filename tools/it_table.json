@@ -3038,5 +3038,14 @@
  "Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.": "Li₂(z) = Σ zⁿ/n², un passo Serie con aₙ = 1/n². La circonferenza tratteggiata è il suo cerchio di convergenza, |z| = 1, stimato dai coefficienti; l'immagine del disco è disegnata solo dove la serie converge.",
  "Zeta as a Dirichlet series": "Zeta come serie di Dirichlet",
  "Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.": "Prova: apri Zeri della funzione zeta e confronta i colori a destra di Re z = 1.",
- "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), un passo Serie di tipo Dirichlet con aₙ = 1, è ζ(z) dove converge, a destra della retta tratteggiata Re z = 1. A sinistra la serie diverge e il piano resta vuoto, mentre ζ stessa prosegue."
+ "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), un passo Serie di tipo Dirichlet con aₙ = 1, è ζ(z) dove converge, a destra della retta tratteggiata Re z = 1. A sinistra la serie diverge e il piano resta vuoto, mentre ζ stessa prosegue.",
+ "Recurrence": "Ricorrenza",
+ "Write the start u₀ as a formula in z": "Scrivi l'inizio u₀ come formula in z",
+ "Write the rule as a formula in u and z, such as u^2+z": "Scrivi la regola come formula in u e z, per esempio u^2+z",
+ "N must be a whole number from 0 to {max}": "N deve essere un intero da 0 a {max}",
+ "u₀ is a formula in z: u is the letter of the rule": "u₀ è una formula in z: la lettera u è della regola",
+ "A recurrence usually takes each value many times, so it has no single inverse; {note}": "Una ricorrenza di solito assume ogni valore molte volte, quindi non ha un'inversa unica; {note}",
+ "z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method": "z ↦ u_N: da u₀ con la regola u ↦ g(u, z) N volte; iterazioni di Mandelbrot e di Julia, metodo di Newton",
+ "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "ricorrenza iterare iterazione orbita mandelbrot julia newton punto fisso successione u_n",
+ "This recurrence has too many steps to be differentiated here": "Questa ricorrenza ha troppi passi per essere derivata qui"
 }

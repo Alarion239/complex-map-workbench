@@ -1048,6 +1048,8 @@ const Funcs = (() => {
         }
         // ([issue #5] a series step: its formula, term by term)
         case 'series': ast = Expr.diff(b.ast); cut = 180; break;
+        // ([issue #6] a recurrence: the derivative of the formula it writes out, when it is short enough)
+        case 'recurrence': ast = Expr.diff(b.ast, { theta: v.cut * DEG }); cut = v.cut; break;
         case 'custom': {
           cut = v.cut;
           const src = Expr.parse(v.expr);
@@ -1590,7 +1592,8 @@ const Funcs = (() => {
       const f = Expr.compile(ast, { theta: th });
       // a formula that is undefined at every generic point (z/0, log 0, ...) is an error, not a map
       const probes = [C(0.37, -0.81), C(-1.3, 0.6), C(2.1, 1.7), C(-0.45, -2.2), C(0.9, 0.05)];
-      if (!probes.some((p) => CX.isFin(f(p)))) throw new Error($t('The formula is undefined for every z (check for a division by zero or a logarithm of 0)'));
+      // (a recurrence whose orbits escape is ∞ there, not undefined)
+      if (!probes.some((p) => CX.isFin(f(p))) && !Expr.hasIter(ast)) throw new Error($t('The formula is undefined for every z (check for a division by zero or a logarithm of 0)'));
       const cls = Expr.classify(ast);
       let P;
       if (!cls.dep) P = CONSTANT;
@@ -1614,8 +1617,9 @@ const Funcs = (() => {
       // a formula that is a chain of catalog steps renders, deforms and reports as that chain (recognizeCustom)
       const rec = part || !cls.dep || P.constant ? null : recChain(ast, cut, f);
       let nat = null;
-      // ([issue #5] a series deforms along the straight line for now: its zoom path waits for its GPU twin)
-      try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
+      // ([issue #5, #6] a series or a recurrence deforms along the straight line for now: its zoom path waits for its
+      // GPU twin)
+      try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) && !Expr.hasIter(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
       const r = /** @type {any} */ ({
         ast,
         f, hom: nat ? nat.hom : linHom(f),
@@ -1681,6 +1685,31 @@ const Funcs = (() => {
       const sa = Expr.simplify(r.ast);
       r.tex = (x) => Expr.toTex(sa, x);
       r.inverseNote = $t('A series takes most values many times, so it has no single inverse; {note}', { note: NOTE_PRE });
+      return r;
+    },
+  });
+  // [issue #6] a recurrence: u_0 a formula in z, u_{k+1} = g(u_k, z), and the map z ↦ u_N (N from 0 to Expr.ITER_CAP);
+  // ∞ where the orbit escapes. Built as the formula it writes (Expr's iter node): its values, guarantees (a polynomial
+  // of exact degree when it is short enough to write out), d/dz and the GPU's loop.
+  def({
+    id: 'recurrence', group: $t('Polynomial & custom'), label: $t('Recurrence'), menuTex: 'u_{k+1}=g(u_k,z)',
+    params: [
+      { key: 'u0', label: 'u_0 =', type: 'seq', def: 'z' },
+      { key: 'g', label: 'u_{k+1} =', type: 'seq', def: 'u^2+z' },
+      { key: 'N', label: 'N', type: 'int', def: 8, min: 0, max: Expr.ITER_CAP },
+      { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 },
+    ],
+    hasCut: 'maybe',
+    build({ u0, g, N, cut }) {
+      if (!String(u0 || '').trim()) throw new Error($t('Write the start u₀ as a formula in z'));
+      if (!String(g || '').trim()) throw new Error($t('Write the rule as a formula in u and z, such as u^2+z'));
+      if (!(Number.isInteger(N) && N >= 0 && N <= Expr.ITER_CAP)) throw new Error($t('N must be a whole number from 0 to {max}', { max: Expr.ITER_CAP }));
+      if (/(^|[^A-Za-z\\])u(?![A-Za-z])/.test(u0)) throw new Error($t('u₀ is a formula in z: u is the letter of the rule'));
+      const a0 = Expr.parse(u0);
+      const ast = Expr.iterate(a0, Expr.parse(g, { bound: ['u'] }), { t: 'num', v: C(N, 0), lit: String(N) });
+      const r = DEFS.custom.build({ expr: '', cut, ast });
+      r.inverse = null;
+      r.inverseNote = $t('A recurrence usually takes each value many times, so it has no single inverse; {note}', { note: NOTE_PRE });
       return r;
     },
   });
