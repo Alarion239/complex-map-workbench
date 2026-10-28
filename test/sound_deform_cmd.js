@@ -235,7 +235,7 @@ await ev(`__cmwSetMain('land')`); await settle(1500);
   // (nFrames, T0, T1: how many frames the 2.6 s held and t at the first and the last, to read a failure)
   R.land = { pick, rest: s0.rest, kind: s.kind, per: perFrame(fr, got.vset), made: got.made, harp: got.harp, ticksWant: Math.abs(k1 - k0), nFrames: fr.t.length, T0: fr.T[0], T1: fr.T[fr.T.length - 1] };
   ok('E Landscape: H_t at the still probe heard as on the planes, a hear update in every frame t moved', s.kind !== 'height' && R.land.per.moved > 60 && R.land.per.missed === 0 && got.harp.notes >= 1, R.land);
-  ok('E Landscape: no contour tick (|H_t| is heard as the notes' loudness)', count(got.made, 'contour') === 0, R.land);
+  ok("E Landscape: no contour tick (|H_t| is heard as the notes' loudness)", count(got.made, 'contour') === 0, R.land);
   await key('m'); await settle(400);
 }
 
