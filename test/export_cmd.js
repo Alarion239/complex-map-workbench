@@ -192,6 +192,9 @@ await clickSel('.xf-cap'); await settle(200);
 const ta = await ev(`(() => { const t = document.querySelector('.xf-capsrc'); return t ? t.value.length : -1; })()`);
 ok('the caption opens as its LaTeX source on the paper', ta > 20, ta);
 await ev(`(() => { const t = document.querySelector('.xf-capsrc'); t.value = 'My own caption with $w=f(z)$.'; t.dispatchEvent(new Event('input')); t.blur(); return 1; })()`); await settle(400);
+// the plain Save names the format and copies nothing (D12 #33); Copy image and the LaTeX button are beside it
+const sv = await ev(`(() => ({ save: document.getElementById('xfSave').textContent, docs: document.getElementById('xfDocs').textContent, ol: document.getElementById('xfOverleaf').textContent, order: [...document.querySelectorAll('.xf-foot .xf-dest')].filter((b) => !b.hidden).map((b) => b.id), share: document.getElementById('xfShare').hidden }))()`);
+ok('the footer says Save PDF first, then Copy image and Save + copy LaTeX', /^Save PDF$/.test(sv.save) && sv.docs === 'Copy image' && /^Save \+ copy LaTeX for/.test(sv.ol) && sv.order.join() === 'xfSave,xfDocs,xfOverleaf' && sv.share, sv);
 await clickSel('#xfOverleaf');
 for (let i = 0; i < 60; i++) { await sleep(200); if (await ev('window.__saved.length > 0')) break; }
 const ol = await ev(`(() => ({ saved: window.__saved.map((s) => s.name), copied: window.__copied.filter((c) => c.type === 'text').map((c) => c.t), btn: document.getElementById('xfOverleaf').textContent, note: document.querySelector('.xf-after2').textContent }))()`);
@@ -955,8 +958,8 @@ if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
   const MP = `(() => { const p = document.querySelector('#popHost .pop.menu'), m = document.querySelector('.modal.xf'); if (!p) return { open: false, dialog: !!m };
     const r = p.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2), e2 = document.elementFromPoint(r.left + 8, r.top + 8);
     return { open: true, dialog: !!m, rect: [r.left, r.top, r.width, r.height].map(Math.round), z: +getComputedStyle(p).zIndex, zm: +getComputedStyle(document.querySelector('.modal-bg')).zIndex,
-      onTop: !!(e && p.contains(e)) && !!(e2 && p.contains(e2)), inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: p.contains(document.activeElement) ? document.activeElement.textContent.trim() : null }; })()`;
-  const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.hidden) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+      onTop: !!(e && p.contains(e)) && !!(e2 && p.contains(e2)), hit: [e, e2].map((x) => x && (x.tagName + '.' + String(x.className).slice(0, 30) + '#' + x.id)), toasts: [...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.slice(0, 60) + '@' + Math.round(t.getBoundingClientRect().top)), inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: p.contains(document.activeElement) ? document.activeElement.textContent.trim() : null }; })()`;
+  const center = (sel) => ev(`(() => { const pb = document.getElementById('xfPrintBtn'); if (pb && pb.getAttribute('aria-expanded') === 'false') pb.click(); const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.hidden) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   for (const [w, h] of [[1440, 900], [390, 844]]) {
     for (const dark of [false, true]) {
       const tag = `${w}-${dark ? 'dark' : 'light'}`;

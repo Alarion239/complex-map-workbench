@@ -313,7 +313,7 @@
     // are lent from page.html's #regionsHome and go back when the popover closes; mesh quality is in Settings)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = head ? $('unitBox') : null, regions = head && S.view.main === 'xy' ? $('regionsBox') : null;
-    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Regions')), regions] : [])] : rest;
+    const kids = head ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest, ...(unit ? [unit] : []), ...(regions ? [h('div', { class: 'opts-h opts-sep' }, $t('Shapes')), regions] : [])] : rest;
     const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
     if (head && home) pop._onClose = () => { for (const b of [unit, regions]) if (b && b.parentNode === pop) home.append(b); };
     $('popHost').append(pop);
@@ -499,9 +499,9 @@
   // [v16.5 UX67] the step editor's "Show all sheets": Landscape (3) with All sheets on
   function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); }
   function setSheets(on) {
-    S.sheets = !!on;
+    setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
-    if (on && (S.height === 'log' || S.height === 'abs')) { S.height = 'im'; toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: fnText() })); }
+    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
@@ -522,13 +522,13 @@
     if (morphOn() && rImage()) {
       // (the merged deformation plane: no options of its own; the transport is docked under it)
     } else if (rImage()) {
-      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { S.fov = v; requestRender('R'); drawLegend(); save(); }));
+      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }));
       // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
       // as a value in Y (its one switch, merged-views review)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { S.wKey = v; buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }); kl.dataset.tip = $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
+      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }); kl.dataset.tip = $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
     } else if (rGlobe()) {
       f.append(
-        checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { S.view.R.eq = v; requestRender('R'); save(); }),
+        checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { setViewOpt('R', 'eq', v); requestRender('R'); save(); }),
         resetCam(camS, CAMS));
       tipEq(f);
     }
@@ -613,8 +613,8 @@
           dd > 1 ? h('span', { class: 'tr-note' }, $t('A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.')) : null);
       }
       const tread = h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout());
-      const speed = seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed'));
-      const loop = checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); });
+      const speed = seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { setOpt('morphSecs', +v); save(); }, $t('Speed'));
+      const loop = checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { setOpt('loop', v); save(); sndToggleCue(!!v); });
       // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
       const paths = side === 'R' ? [pathsToggle(hasD)] : [];
       // a phone: two rows (the scrubber the full width with the readout on its handle; below it play, the speed, Paths
@@ -649,7 +649,7 @@
   }
   function setMorphPaths(on) {
     if (sndP.on && !!on !== (S.morphPaths !== false)) sndToggleCue(!!on);
-    S.morphPaths = !!on;
+    setOpt('morphPaths', !!on);
     const b = $('pathsBtn');
     if (b) { b.setAttribute('aria-pressed', String(!!on)); b.dataset.tip = on ? $t('Hide the paths t ↦ H_t(z)  P') : $t('Show the paths t ↦ H_t(z)  P'); }
     requestRender('R'); drawLegend(); save();
@@ -658,7 +658,7 @@
   // one after another <-> all at once: the same moment of the deformation, rescaled to the new range of t
   function setHomAll(all) {
     const before = morphLen();
-    S.homAll = !!all;
+    setOpt('homAll', !!all);
     const after = morphLen();
     if (morph.open && before !== after) { morph.T = morph.T * after / before; morph.seg = null; morph.u = 0; }
     else if (!morph.open) morph.T = after;
@@ -678,24 +678,24 @@
     if (lLand()) {
       const paint = !S.view.D.phase ? 'plaster' : landMaterial() === 'phase' ? 'phase' : 'tiles';
       f.append(
-        seg('heightSeg', S.height, [['log', `${I18N.fnName('log')} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { S.height = v; updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
+        seg('heightSeg', S.height, [['log', `${I18N.fnName('log')} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
         seg('landPaint', paint, [['tiles', $t('Tiles'), $t('Phase colours with modulus contours')], ['phase', $t('Plain'), $t('Phase colours only')], ['plaster', $t('Plaster'), $t('The relief alone, lit')]], (v) => {
-          S.view.D.phase = v !== 'plaster';
-          if (v === 'phase') S.landPlain = S.dc !== 'phase';
-          else if (v === 'tiles') { S.landPlain = false; if (S.dc === 'phase') S.dc = 'enhanced'; }
+          setViewOpt('D', 'phase', v !== 'plaster');
+          if (v === 'phase') setOpt('landPlain', S.dc !== 'phase');
+          else if (v === 'tiles') { setOpt('landPlain', false); if (S.dc === 'phase') setOpt('dc', 'enhanced'); }
           buildRightFoot(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
     if (lPhase()) {
       const land = lLand();
-      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => { S.dc = v; S.landPlain = false; buildRightFoot(); updateFocusUI(); paintChanged(); save(); }, $t('Phase style')));
+      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => { setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save(); }, $t('Phase style')));
       if (S.dc === 'cauchy' && lColor()) {
         const cp = cauchyPlot(), Fh = fnHtml();
         f.append(h('span', { class: 'foot-note', html: cp ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name }) : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') }));
       }
-      f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { S.sectors = +v; paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { S.dcGrid = +v; paintChanged(); save(); }, $t('Grid step'))));
-      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { S.outline = v; requestRender('L'); save(); }));
+      f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+      if (S.dc === 'grid' && !land) f.append(h('div', { class: 'scrub' }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel', String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+      if (lColor()) f.append(checkEl('outlineChk', S.outline, $t('Outlines'), (v) => { setOpt('outline', v); requestRender('L'); save(); }));
     }
     if (lGlobe()) {
       f.append(checkEl('eqChkL', xView().eq, $t('Equator'), (v) => { xView().eq = v; requestRender('L'); save(); }), resetCamBtn(camL, CAML));
@@ -706,9 +706,9 @@
       const ms = multiSheet();
       f.append(
         ...(ms ? [sheetsLabel(checkEl('sheetsChk', S.sheets, $t('All sheets'), (v) => setSheets(v)), ms)] : []),
-        ...(ms && S.sheets && ms.infinite ? [h('div', { class: 'scrub', 'data-tip': $t('Sheets shown on each side of the principal one') }, h('span', { class: 'pl' }, $t('sheets ±')), selectEl('sheetWSel', String(S.sheetW || 2), [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], (v) => { S.sheetW = +v; const c = $('sheetsChk'); if (c) sheetsLabel(c.closest('label'), multiSheet()); requestRender('L'); save(); }, $t('Sheets on each side')))] : []),
-        h('label', { class: 'fader-row compact' }, h('span', { class: 'fl' }, $t('Scale')), h('input', { type: 'range', id: 'lscaleRange', min: 0.25, max: 2, step: 0.05, value: S.lscale || 1, 'aria-label': $t('Height scale'), oninput: (e) => { S.lscale = +e.target.value; requestRender('L'); save(); } })),
-        checkEl('unitLevelChk', S.unitLevel, $t('Unit level'), (v) => { S.unitLevel = v; requestRender('L'); save(); }),
+        ...(ms && S.sheets && ms.infinite ? [h('div', { class: 'scrub', 'data-tip': $t('Sheets shown on each side of the principal one') }, h('span', { class: 'pl' }, $t('sheets ±')), selectEl('sheetWSel', String(S.sheetW || 2), [['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], (v) => { setOpt('sheetW', +v); const c = $('sheetsChk'); if (c) sheetsLabel(c.closest('label'), multiSheet()); requestRender('L'); save(); }, $t('Sheets on each side')))] : []),
+        h('label', { class: 'fader-row compact' }, h('span', { class: 'fl' }, $t('Scale')), h('input', { type: 'range', id: 'lscaleRange', min: 0.25, max: 2, step: 0.05, value: S.lscale || 1, 'aria-label': $t('Height scale'), oninput: (e) => { setOpt('lscale', +e.target.value); requestRender('L'); save(); } })),
+        checkEl('unitLevelChk', S.unitLevel, $t('Unit level'), (v) => { setOpt('unitLevel', v); requestRender('L'); save(); }),
         seg('viewSeg', '', [['iso', '3/4'], ['top', $t('Top')], ['front', $t('Front')]], (v) => tweenCam(cam, { iso: { yaw: -38 * DEG, pitch: 30 * DEG }, top: { yaw: -90 * DEG, pitch: 88 * DEG }, front: { yaw: -90 * DEG, pitch: 8 * DEG } }[v]), $t('View')),
         resetCamBtn(cam, CAM3));
     }

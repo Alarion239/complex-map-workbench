@@ -62,12 +62,12 @@
     // which the desktop grid hyphenates, is wider than the tile (phone.js reads data-phl)
     if (I18N.lang !== 'en') {
       const PHL = { circle: $tx('phone tile', 'Circle'), rect: $tx('phone tile', 'Rectangle'), polygon: $tx('phone tile', 'Polygon'), halfplane: $tx('phone tile', 'Half-plane'),
-        meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Orthogonal'),
+        meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Perpendicular'),
         hyper: $tx('phone tile', 'Hyperbolic') };   // (wave 1 merge: the plane piece's seventh Construct tool, UX55)
       for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
-    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
+    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
     syncModeChips();
   }
@@ -98,7 +98,7 @@
   // target: a shape of the w-plane (Preimage), kept in S.targets; its colors start further along the palette
   function newShape(kind, params, target) {
     const ci = target ? TARGET_CI[S.targets.length % TARGET_CI.length] : S.shapes.length % 8;
-    const s = Object.assign({ id: 's' + S.nextId++, kind, ci, visible: true }, params);
+    const s = Object.assign({ id: 's' + takeId(), kind, ci, visible: true }, params);
     return s;
   }
   // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
@@ -114,10 +114,10 @@
   }
   function deleteShape(id) {
     const cmMsg = Construct.deleteMessage(id);   // (v16: the cascade's toast)
-    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); S.shapes = S.shapes.filter((s) => !del.has(s.id) || s.id === id); S.targets = S.targets.filter((s) => !del.has(s.id) || s.id === id); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
+    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); setShapes(S.shapes.filter((s) => !del.has(s.id) || s.id === id)); setTargets(S.targets.filter((s) => !del.has(s.id) || s.id === id)); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
     const target = S.targets.some((s) => s.id === id);
-    if (target) S.targets = S.targets.filter((s) => s.id !== id);
-    else { S.shapes = S.shapes.filter((s) => s.id !== id); dropShapeGPU(id); }
+    if (target) setTargets(S.targets.filter((s) => s.id !== id));
+    else { setShapes(S.shapes.filter((s) => s.id !== id)); dropShapeGPU(id); }
     if (selected === id) selected = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
@@ -252,7 +252,7 @@
   // a copy of s beside it, selected (the row menu's Duplicate, ⌘D)
   function duplicateShape(s) {
     const target = isTarget(s), list = target ? S.targets : S.shapes;
-    const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null;
+    const c = JSON.parse(JSON.stringify(s)); c.id = 's' + takeId(); c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }
@@ -341,8 +341,8 @@
     if (!ds && !dt) return;
     // (the selection goes only with its own group: 'Clear targets' keeps a selected shape selected)
     if (selected && ((ds && S.shapes.some((s) => s.id === selected)) || (dt && S.targets.some((s) => s.id === selected)))) selected = null;
-    if (ds) { S.shapes = []; dropAllGPU(); }
-    if (dt) S.targets = [];
+    if (ds) { setShapes([]); dropAllGPU(); }
+    if (dt) setTargets([]);
     if (ds) shapesChanged(true);
     if (dt) targetsChanged(true);
     buildPipeline(); commit();
@@ -383,8 +383,11 @@
       });
     }
     updateShapeList();
+    ctxChanged();
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
+  // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
+  function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
   const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
@@ -394,13 +397,11 @@
     const d = h('span', { class: 'd' });
     const eye = h('button', { class: 'icon-btn eye', 'aria-label': `${hidden ? $t('Show') : $t('Hide')} ${label}`, 'data-tip': hidden ? $t('Show') : $t('Hide'), html: hidden ? ICONS.eyeOff : ICONS.eye,
       onclick: (e) => { e.stopPropagation(); s.visible = hidden; changed(); commit(); } });
-    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
-      onclick: (e) => {
-        e.stopPropagation();
+    // the ⋯ menu, from the row's button or (a phone) the context bar's
+    const openMore = (anchor) => {
         const items = [];
         // a curve of the domain: its line integral (as a right click on the curve opens it)
         if (!target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid') {
-          const anchor = e.currentTarget;
           items.push({ label: $t('Integrate {x} along it', { x: fnText() }), run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } });
           // (v16.5 UX72: Listen along, as in the plane's menu, with the same verb; sound off: it offers to turn it on)
           if (SND) items.push({ label: snd.play ? $t('Stop listening') : $t('Listen along it'), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
@@ -417,8 +418,10 @@
         // ([v16.5 UX95] Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
         items.push({ label: $t('Delete'), icon: 'trash', key: touchUI() ? '' : '⌫', danger: true, run: () => deleteShape(s.id) });
         Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
-        openMenu(e.currentTarget, items);
-      } });
+        openMenu(anchor, items);
+    };
+    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
+      onclick: (e) => { e.stopPropagation(); openMore(e.currentTarget); } });
     const name = h('span', { class: 'k' }, label);
     // the name is the row's button; the eye and ⋯ buttons sit beside it, not inside it
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
@@ -440,7 +443,7 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name });
+    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
     // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
     if (!touchUI() && list.length > 1) {
       box.draggable = true;

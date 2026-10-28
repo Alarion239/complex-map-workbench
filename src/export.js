@@ -13,7 +13,7 @@ const Export = (() => {
     morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
     pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
     runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
-    smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar;
+    smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
   // Files go through the viewer's downloads capability in claude.ai (the viewer confirms each save); a copy of the
   // page opened on its own saves with a plain download link.
@@ -30,7 +30,7 @@ const Export = (() => {
       const url = URL.createObjectURL(blob), a = h('a', { href: url, download: filename });
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
-      toast($t('Saved {filename}.', { filename }));
+      toast(matchMedia('(pointer: coarse)').matches ? $t('Saved to Downloads: {filename}', { filename }) : $t('Saved {filename}.', { filename }));
       sndExportDone();
       return true;
     }
@@ -165,7 +165,7 @@ const Export = (() => {
     // (the outline of the left view in the image is a screen aid, not part of a figure; so is the colour key under the
     // Y plane (the Key switch): a figure's Y panel would carry colours its caption and key do not explain)
     const keep = { L: A.paneL, R: A.paneR, probe: A.probe, rHover: A.rHover, selected: A.selected, hoverShape: A.hoverShape, draft: A.draft, hw: hov.w, hl: hov.list, fov: A.S.fov, wKey: A.S.wKey };
-    A.probe = null; A.rHover = null; A.selected = null; A.hoverShape = null; A.draft = null; hov.w = null; hov.list = null; A.S.fov = false; A.S.wKey = false; A.figMode = true;
+    A.probe = null; A.rHover = null; A.selected = null; A.hoverShape = null; A.draft = null; hov.w = null; hov.list = null; setOpt('fov', false); setOpt('wKey', false); A.figMode = true;
     // numbers drawn inside the plot (landscape axes, labels) in the serif of the figure, not the app's monospace
     const mono = A.TH.mono; A.TH.mono = A.TH.math;
     // exact images (SPEC 10.6): prepareExport has waited for the inverse programs; one still compiling (normally
@@ -187,7 +187,7 @@ const Export = (() => {
       A.offRender = false;
       A.paneL = keep.L; A.paneR = keep.R;
       for (const [v, s] of scaled) v.s = s;
-      A.probe = keep.probe; A.rHover = keep.rHover; A.selected = keep.selected; A.hoverShape = keep.hoverShape; A.draft = keep.draft; hov.w = keep.hw; hov.list = keep.hl; A.S.fov = keep.fov; A.S.wKey = keep.wKey; A.figMode = false; A.TH.mono = mono;
+      A.probe = keep.probe; A.rHover = keep.rHover; A.selected = keep.selected; A.hoverShape = keep.hoverShape; A.draft = keep.draft; hov.w = keep.hw; hov.list = keep.hl; setOpt('fov', keep.fov); setOpt('wKey', keep.wKey); A.figMode = false; A.TH.mono = mono;
     }
     return cv;
   }
@@ -904,7 +904,7 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar } = api);
+    ({ BADGES, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
   }
   return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();

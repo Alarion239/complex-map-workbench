@@ -98,6 +98,29 @@
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
+    // [issue #5] series: the partial sums of e^z (N on a slider), a natural boundary, Li₂ from the Series step, ζ as a
+    // Dirichlet series
+    {
+      name: $t('Partial sums of the exponential'), try: $t('Try: drag N under Numbers: the zeros of the partial sum move out as N grows.'), tex: 'w=\\sum_{n=0}^{N}\\frac{z^n}{n!}', blurb: $t('The phase portrait of the partial sum 1 + z + z²/2! + … + zᴺ/N! of the series of eᶻ. Its N zeros lie near a curve that grows with N (Szegő’s curve), and inside it the colours are those of eᶻ.'), view: { cx: 0, cy: 0, s: 60 },
+      params: [{ name: 'N', value: 8, min: 1, max: 30, step: 1 }],
+      shapes: [{ kind: 'rect', a: [-4, -4], b: [4, 4] }],
+      steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{N} \\frac{z^n}{n!}', cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('A natural boundary'), try: $t('Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.'), tex: 'w=\\sum_{n=0}^{\\infty} z^{2^n}', blurb: $t('Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.'), view: { cx: 0, cy: 0, s: 250 },
+      shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
+      steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{\\infty} z^{2^n}', cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('The dilogarithm from its series'), try: $t('Try: drag the disc past the dashed circle: outside it the series has no value.'), tex: 'w=\\sum_{n=1}^{\\infty}\\frac{z^n}{n^2}', blurb: $t('Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.'), view: { cx: 0, cy: 0, s: 140 },
+      shapes: [{ kind: 'disc', c: [0, 0], r: 0.9 }],
+      steps: [{ type: 'series', params: { kind: 'power', an: '\\frac{1}{n^2}', c: '0' } }],
+    },
+    {
+      name: $t('Zeta as a Dirichlet series'), try: $t('Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.'), tex: 'w=\\sum_{n=1}^{\\infty} n^{-z}', blurb: $t('Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.'), view: { cx: 3, cy: 0, s: 60 },
+      shapes: [{ kind: 'rect', a: [1.5, -6], b: [5, 6] }],
+      steps: [{ type: 'series', params: { kind: 'dirichlet', an: '1', c: '0' } }], rightMode: 'color',
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
@@ -288,7 +311,7 @@
     for (const [v, l, tip] of PATTERNS) {
       const cv = h('canvas', { width: 104, height: 80, 'aria-hidden': 'true' });
       const b = h('button', { class: 'pat' + (S.pattern === v ? ' on' : ''), role: 'radio', 'aria-checked': String(S.pattern === v), 'data-pat': v, 'data-tip': typeof tip === 'function' ? tip() : tip, 'aria-label': l,
-        onclick: () => { S.pattern = v; buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
+        onclick: () => { setOpt('pattern', v); buildDisplay(); requestRender('L', 'R', 'T'); save(); tourEmit('pattern-changed', { id: S.pattern }); } }, cv, h('span', null, l));
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
@@ -343,7 +366,7 @@
   }
   function setSolo(which) {
     if (Views.merged(S.view, morphOn())) return; // a merged view is one panel: nothing to expand
-    S.solo = S.solo === which ? null : which;
+    setOpt('solo', S.solo === which ? null : which);
     applyLayout();
     save();
   }
@@ -420,7 +443,7 @@
   function setMesh(n) {
     n = Math.max(MESH_MIN, Math.min(MESH_MAX, Math.round(n)));
     if (n === S.meshN) return;
-    S.meshN = n;
+    setOpt('meshN', n);
     dropAllGPU();
     $('meshRange').value = meshToPos(n);
     showMeshVal(n);
@@ -467,7 +490,7 @@
     if (main !== 'land' && (main === 'phase' ? S.view.P.surf : S.view.L.surf) === 'sphere') prestartGlobe();
     cancelTweens();
     viewMem[from] = { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left), leftAuto, camL: camKeys(camL) };
-    S.view.main = main;
+    setViewOpt(null, 'main', main);
     const m = viewMem[main];
     if (m) {
       Object.assign(S.srcView, m.src); Object.assign(V.left, m.left); leftAuto = m.leftAuto;
@@ -488,8 +511,8 @@
   // U-b's Phase toggle, kept for the test hooks: on, the Phase view on X's surface; off, X → Y on the phase panel's
   function setPhase(on) {
     if (!!on === (S.view.main === 'phase')) return;
-    if (on) { if (S.view.main === 'xy') S.view.P.surf = S.view.L.surf; setMain('phase'); }
-    else { S.view.L.surf = S.view.P.surf; setMain('xy'); }
+    if (on) { if (S.view.main === 'xy') setViewOpt('P', 'surf', S.view.L.surf); setMain('phase'); }
+    else { setViewOpt('L', 'surf', S.view.P.surf); setMain('xy'); }
   }
   function viewChanged(side) {
     if (side === 'R') {
@@ -573,7 +596,7 @@
       hgt = Math.max(96, Math.min(r.height * 0.5, hgt));
       for (const snapTo of [96, 188]) if (Math.abs(hgt - snapTo) < 12) hgt = snapTo;
       document.documentElement.style.setProperty('--chain-h', Math.round(hgt) + 'px');
-      S.compact = hgt < 140; $('pipeline').classList.toggle('compact', S.compact); setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
+      setOpt('compact', hgt < 140); $('pipeline').classList.toggle('compact', S.compact); setSeg($('chainMode'), S.compact ? 'compact' : 'cards');
     }, () => store('cmw-chain-h2', parseInt(getComputedStyle(stage).getPropertyValue('--chain-h')) || 188));
     const col = $('gutterCol');
     if (col) {
@@ -880,6 +903,8 @@
     // message has its own Undo)
     const cc = $('clearChain'), away = (on) => { if (cc) cc.classList.toggle('toast-away', on); };
     away(false);
+    // (a phone's messages have their own row over the tool row, where the context bar sits: CSS places them, and they cover nothing)
+    if (document.documentElement.classList.contains('ph')) { clear(); return; }
     if (!host.firstElementChild) return;
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const chain = box(document.querySelector('.pipe-wrap'));
@@ -955,7 +980,8 @@
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
       setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
-      undoToast, viewBox, viewMem,
+      undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
+      setOpt, deleteOpt,
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },
