@@ -870,8 +870,8 @@ const Figure = (() => {
       const tn = tonesOf(s, o);
       const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const open = t === 'area' && Region.isOpen && Region.isOpen(s);
-      const curves = shapeCurves(s, F, box, wpt, srcWin), cs = curves.cs;
-      let pts = curves.pts;
+      const sc = shapeCurves(s, F, box, wpt, srcWin), cs = sc.cs;
+      let pts = sc.pts;
       let dash = open && P.dashOpen ? '3 2' : null;
       if (dash && cs.length) {
         // pieces of an open boundary that a drawn curve lies on are the curve's: they are left to it
