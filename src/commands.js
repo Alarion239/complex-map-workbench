@@ -360,13 +360,12 @@ const Commands = (() => {
     const names = shapeNames();
     return list.map((x) => [intLabel(x, names), () => integrateShape(x.id), '', al + ', ' + (names.get(x.id) || '')]);
   }
-  // (D1) a row's function in words, for Replace F with …; and the three ways a row can go
+  // (D1) a row's function in words, for Replace F with …; and the Replace rows' labels
   function fnName(it) { return it.rows ? $t('these steps') : it.type === 'custom' ? $t('this formula') : it.label; }
   function whereLabel(m, it) {
-    const name = fnName(it), n = A.S.steps.length, at = palState.at, k = palState.target;
+    const name = fnName(it), k = palState.target;
     if (m === 'replaceF') return $t('Replace F with {name}', { name });
-    if (m === 'replace') return $t('Replace f{x} {old} with {name}', { x: sub(k), old: defOf(A.S.steps[k - 1]).label, name });
-    return at <= 0 ? $t('Insert {name} at the start', { name }) : at >= n ? $t('Append {name} to the chain', { name }) : $t('Insert {name} after f{x}', { name, x: sub(at) });
+    return $t('Replace f{x} {old} with {name}', { x: sub(k), old: defOf(A.S.steps[k - 1]).label, name });
   }
   function openPalette(anchor, at, opt = {}) {
     // re-clicking the control that opened it closes it
@@ -428,7 +427,7 @@ const Commands = (() => {
       const at = before ? palState.before : palState.at;
       const m = it.kind === 'fn' ? it.mode || palState.mode : 'insert';
       closePalette();
-      const r = m === 'insert' ? it.run(at) : replaceSteps(m === 'replaceF' ? 0 : target - 1, m === 'replaceF' ? n0 : 1, it.run, fnName(it));
+      const r = m === 'insert' ? it.run(at) : replaceSteps(m === 'replaceF' ? 0 : target - 1, m === 'replaceF' ? n0 : 1, it.run, it.name || fnName(it));
       // a new step's card takes the focus; anything else returns it to the opener when the run rebuilt it away
       if (r instanceof Element && r.isConnected && (it.kind === 'fn' || document.activeElement === document.body)) r.focus({ preventScroll: true });
       else focusBack(opener, okey);
@@ -437,10 +436,11 @@ const Commands = (() => {
       const items = paletteItems(input.value, opt.fnOnly);
       // (D1) a search with an answer lists its best function three ways, the chosen way first: Replace F with sin z,
       // Insert sin z after f₂, Replace f₂ Möbius with sin z; the other matches go the chosen way
+      // (the Insert row keeps the row's own label, the chip saying where; a new number's row is not repeated)
       const i0 = modes.length > 1 && input.value.trim() ? items.findIndex((x) => x.kind === 'fn') : -1;
-      if (i0 >= 0) {
+      if (i0 >= 0 && !items[i0].newName) {
         const it = items[i0], order = modes.slice(modes.indexOf(palState.mode)).concat(modes.slice(0, modes.indexOf(palState.mode)));
-        items.splice(i0, 1, ...order.map((m) => Object.assign({}, it, { mode: m, label: whereLabel(m, it), labelParts: null, desc: m === 'insert' ? it.desc : m === 'replaceF' ? $t('F becomes this alone; Undo brings the chain back') : $t('The other steps stay') })));
+        items.splice(i0, 1, ...order.map((m) => (m === 'insert' ? Object.assign({}, it, { mode: m }) : Object.assign({}, it, { mode: m, name: fnName(it), label: whereLabel(m, it), labelParts: null, desc: m === 'replaceF' ? $t('F becomes this alone; Undo brings the chain back') : $t('The other steps stay') }))));
       }
       palState.items = items;
       palState.sel = Math.min(palState.sel, Math.max(0, items.length - 1));
@@ -709,7 +709,7 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, robustBox, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();

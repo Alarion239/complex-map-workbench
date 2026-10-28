@@ -26,9 +26,9 @@ async function openApp(st, w = 1366, h = 768, mobile = false, q = '') {
 const P = () => ev('__cmwP()');
 const types = async () => (await P()).steps.map((s) => s.type);
 const toasts = () => ev('__qa.toasts()');
-const type = async (q) => { await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settle(300); };
+const palQ = async (q) => { await ev(`(() => { const i = document.getElementById('palInput'); i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event('input')); })()`); await settle(300); };
 const pal = () => ev(`(() => { const p = document.querySelector('#popHost .palette'); if (!p) return null; const w = p.querySelector('.pal-where'), at = p.querySelector('.pal-at'), head = p.querySelector('.pal-head');
-  return { where: w ? w.textContent : null, whereLabel: w ? w.getAttribute('aria-label') : null, at: at && !at.hidden ? at.textContent : null, verb: (p.querySelector('.pal-verb') || {}).textContent || '',
+  return { where: w ? (w.getAttribute('aria-label') || '').replace(/^Where it goes: |^Куда: /, '') : null, whereLabel: w ? w.getAttribute('aria-label') : null, at: at && !at.hidden ? at.textContent : null, verb: (p.querySelector('.pal-verb') || {}).textContent || '',
     rows: [...p.querySelectorAll('.pal-item .pal-label')].slice(0, 4).map((e) => e.textContent), headFits: head.scrollWidth <= head.clientWidth + 1, whereFits: !w || w.scrollWidth <= w.clientWidth + 1 }; })()`);
 const clickMenu = (label) => ev(`(() => { const b = [...document.querySelectorAll('#popHost .mi')].find((e) => e.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b) return false; b.click(); return true; })()`);
 
@@ -39,9 +39,9 @@ ok('Clear chain is a word button in the chain head (no ⋯ there)', clr.shown &&
 await key('k', 4); await settle(400);
 let p = await pal();
 ok('the chip says where: Append to the chain (Insert by default)', p && /^Append to the chain/.test(p.where), p);
-await type('sin z');
+await palQ('sin z');
 p = await pal();
-ok('sin z: the best match three ways, Insert first', p.rows.slice(0, 3).join(' | ') === 'Append Sine to the chain | Replace F with Sine | Replace f₂ Möbius with Sine', p.rows);
+ok('sin z: the best match three ways, Insert (the row as it was) first', p.rows.slice(0, 3).join(' | ') === 'Sine | Replace F with Sine | Replace f₂ Möbius with Sine', p.rows);
 ok('Enter adds', p.verb === ' to add', p.verb);
 await key('Tab'); await settle(300);
 p = await pal();
@@ -59,7 +59,7 @@ ok('the palette remembers Replace F', /^Replace F/.test(p.where), p);
 await key('Tab'); await settle(250);
 p = await pal();
 ok('Tab again: Replace f₂', /^Replace f₂/.test(p.where), p);
-await type('cos');
+await palQ('cos');
 p = await pal();
 ok('Replace f₂ first: Replace f₂ Möbius with Cosine', p.rows[0] === 'Replace f₂ Möbius with Cosine', p.rows);
 await key('Enter'); await settle(900);
@@ -74,7 +74,7 @@ ok('a card\'s ⋯ starts with Replace…', first === 'Replace…', first);
 await clickMenu('Replace…'); await settle(400);
 p = await pal();
 ok('Replace… opens the search on Replace f₁', p && /^Replace f₁/.test(p.where), p);
-await type('tan');
+await palQ('tan');
 p = await pal();
 ok('Replace f₁ Exponential with Tangent is first', p.rows[0] === 'Replace f₁ Exponential with Tangent', p.rows);
 await key('Enter'); await settle(900);
@@ -82,12 +82,12 @@ ok('Replace f₁: tan, mobius', (await types()).join() === 'tan,mobius', await t
 await ev(`document.getElementById('undoBtn').click()`); await settle(700);
 // the Inspector's title
 await ev(`document.querySelector('#pipeline .card[data-k="2"]').click()`); await settle(600);
-const ttl = await ev(`(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .ttl'); return b ? { tag: b.tagName, text: b.textContent, after: getComputedStyle(b, '::after').content } : null; })()`);
-ok('the Inspector\'s title is a button, "Möbius ▾"', ttl && ttl.tag === 'BUTTON' && ttl.text === 'Möbius' && /▾/.test(ttl.after), ttl);
+const ttl = await ev(`(() => { const b = document.querySelector('#propsPanel .insp-step .ihead .ttl'); return b ? { role: b.getAttribute('role'), text: b.textContent, after: getComputedStyle(b, '::after').content } : null; })()`);
+ok('the Inspector\'s title is a button, "Möbius ▾"', ttl && ttl.role === 'button' && ttl.text === 'Möbius' && /▾/.test(ttl.after), ttl);
 await ev(`document.querySelector('#propsPanel .insp-step .ihead .ttl').click()`); await settle(400);
 p = await pal();
 ok('the title opens the search on Replace f₂', p && /^Replace f₂/.test(p.where), p);
-await type('sinh');
+await palQ('sinh');
 await key('Enter'); await settle(900);
 ok('the title\'s replace: exp, sinh', (await types()).join() === 'exp,sinh', await types());
 // a connector's + always inserts, whatever was remembered
@@ -114,7 +114,7 @@ ok('phone: the position row holds the Replace chip and the position chip', p && 
 await ev(`document.querySelector('.pal-atrow .pal-where').click()`); await settle(300);
 p = await pal();
 ok('phone: a tap on it says Replace F; the position chip goes', /^Replace F/.test(p.where) && p.at === null, p);
-await type('sin z');
+await palQ('sin z');
 p = await pal();
 ok('phone: Replace F with Sine first', p.rows[0] === 'Replace F with Sine', p.rows);
 await key('Enter'); await settle(900);
@@ -129,7 +129,7 @@ for (let i = 0; i < 3; i++) {
   ok(`ru: the head fits (${p && p.where})`, p && p.headFits && p.whereFits, p);
   await key('Tab'); await settle(250);
 }
-await type('синус');
+await palQ('синус');
 p = await pal();
 info.ru = p;
 ok('ru: the rows say Заменить', p.rows.some((r) => /^Заменить F → /.test(r)), p.rows);
