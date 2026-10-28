@@ -133,9 +133,12 @@ let fails = 0;
 // (and of a value: √−1 is exactly -i now, where cos(π/2) rounded to 6.1e-17 had been its real part; CX.powReal's
 // angle by quadrants, notes/arb/FINDINGS.md)
 const intended = (s) => s.replace(/Custom formula/g, 'Formula').replace('{"re":6.123233995736766e-17,"im":-1}', '{"re":0,"im":-1}');
+// (#38, another intended change: a half-plane reads in words, "left of the line from a to b", no longer as
+// Im((z − a)/(b − a)) > 0)
+const inWords = (k, s) => /^tex halfplane /.test(k) && /^\\text\{left of the line from \} \S+ \\text\{ to \} \S+$/.test(s);
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }
 for (let i = 0; i < Math.min(a.length, b.length); i++) {
-  if (a[i][0] !== b[i][0] || intended(a[i][1]) !== b[i][1]) {
+  if (a[i][0] !== b[i][0] || (intended(a[i][1]) !== b[i][1] && !inWords(b[i][0], b[i][1]))) {
     fails++;
     if (fails <= 20) console.log('FAIL', a[i][0], '\n  base:', a[i][1].slice(0, 300), '\n  now: ', b[i][1].slice(0, 300));
   }
