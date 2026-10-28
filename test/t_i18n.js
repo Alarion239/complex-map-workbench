@@ -116,7 +116,7 @@ for (const [k, v] of Object.entries(RU)) {
       // Phase colours (issue 8): Fredrik Johansson's library, whose color functions the palettes are
       'Arb',
       // (issue #5) the dilogarithm's name, Li₂
-      'Li']);
+      'Li', 'iter']);
     const rest = f.replace(MATH, ' ').replace(/<(i|var|sub|sup|kbd)>.*?<\/\1>/g, ' ').replace(/<[^>]*>/g, ' ').replace(PH, ' ').replace(/\\[A-Za-z]+(\{[^}]*\})?/g, ' ');
     // a LaTeX comment's package options, arguments and font files are code
     const rest2 = latexComment ? rest.replace(/\[[^\]]*\]/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/[\w-]+\.otf/g, ' ') : rest;

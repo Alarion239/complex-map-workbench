@@ -3058,5 +3058,18 @@
  "Repeat f{a}–f{b}: times": "Ripeti f{a}–f{b}: volte",
  "This step, twice": "Questo passo, due volte",
  "f{a}–f{b}, twice": "f{a}–f{b}, due volte",
- "Repeat": "Ripeti"
+ "Repeat": "Ripeti",
+ "The Mandelbrot set": "L'insieme di Mandelbrot",
+ "Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.": "Prova: ingrandisci il bordo della regione: oltre circa 10⁻⁵ il float32 della GPU lo sfoca.",
+ "The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.": "La regione è l'insieme di Mandelbrot M: i c per cui l'orbita 0, c, c² + c, … resta limitata, disegnato dal suo test di fuga |iter(u² + z, u, 0, 64)| ≤ 2. La mappa è il dodicesimo termine di quell'orbita, un passo Ricorrenza: porta M nel disco |w| ≤ 2, e fuori da M i suoi colori girano sempre più in fretta verso il bordo.",
+ "A Julia set that its map keeps": "Un insieme di Julia che la sua mappa conserva",
+ "Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.": "Prova: sulla scheda ⋯ → Ripeti, poi aumenta N: l'immagine resta lo stesso insieme.",
+ "The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.": "L'insieme di Julia pieno K di z² − 0.75: i punti le cui orbite sotto z ↦ z² − 0.75 restano limitate. La mappa porta K su sé stesso, due a uno, quindi l'immagine in Y è di nuovo K.",
+ "Douady’s rabbit": "Il coniglio di Douady",
+ "Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.": "Prova: sulla scheda ⋯ → Ripeti, N = 3: ogni orecchio fa il giro delle tre e torna su sé stesso.",
+ "The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.": "L'insieme di Julia pieno di z² + c per c ≈ −0.123 + 0.745i, dove l'orbita critica ha periodo 3: in ogni punto di strozzatura si incontrano tre orecchie, e la mappa le fa girare, una nella successiva. La mappa conserva l'insieme.",
+ "Newton’s method for z³ − 1": "Il metodo di Newton per z³ − 1",
+ "Try: lower N to 1, 2, 3 and watch the basins form.": "Prova: abbassa N a 1, 2, 3 e guarda formarsi i bacini.",
+ "Twenty steps of Newton’s method for z³ − 1 from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).": "Venti passi del metodo di Newton per z³ − 1 da ogni punto di partenza z. Quasi ogni z finisce in una delle tre radici cubiche di 1, e il ritratto di fase colora il piano secondo dove finisce: tre bacini, il cui bordo comune è un frattale (un insieme di Julia).",
+ "Expected the letter of the recurrence, such as u": "Atteso la lettera della ricorrenza, per esempio u"
 }

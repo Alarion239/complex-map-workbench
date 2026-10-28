@@ -121,6 +121,28 @@
       shapes: [{ kind: 'rect', a: [1.5, -6], b: [5, 6] }],
       steps: [{ type: 'series', params: { kind: 'dirichlet', an: '1', c: '0' } }], rightMode: 'color',
     },
+    // [issue #6] iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
+    // and Newton's method for z³ − 1 as a Recurrence step
+    {
+      name: $t('The Mandelbrot set'), try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
+      steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('A Julia set that its map keeps'), try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.75, u, z, 64)|\\le 2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.75' } }],
+    },
+    {
+      name: $t('Douady’s rabbit'), try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.1226+0.7449i, u, z, 96)|\\le 2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.1226+0.7449i' } }],
+    },
+    {
+      name: $t('Newton’s method for z³ − 1'), try: $t('Try: lower N to 1, 2, 3 and watch the basins form.'), tex: 'w=u_{20},\\ u_0=z,\\ u_{k+1}=u_k-\\frac{u_k^3-1}{3u_k^2}', blurb: $t('Twenty steps of Newton’s method for z³ − 1 from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
+      shapes: [{ kind: 'rect', a: [-2, -2], b: [2, 2] }],
+      steps: [{ type: 'recurrence', params: { u0: 'z', g: 'u-\\frac{u^3-1}{3u^2}', N: 20, cut: 180 } }], rightMode: 'color',
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).

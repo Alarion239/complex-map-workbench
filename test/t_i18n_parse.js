@@ -56,8 +56,8 @@ for (const s of corpus) {
       // a refused formula keeps its English message, unless it is written with a Russian form and now parses
       const ruForm = /\b(tg|ctg|cth|sh|ch|th|arctg|arsh|arch|arth|cosec|Ln)\b|\{,\}|\\text\{(или|и|не)\}/.test(s);
       // (issue #4: Γ, ζ and ψ are functions now, so a formula that names them may parse, or stop at a later place)
-      // (issue #4: Γ, ζ, ψ; issue #5: sums, products, n!, binom: new syntax, so their messages are new too)
-      const special = /Γ|ζ|\\Gamma|\\zeta|Gamma|gamma|zeta|digamma|\\psi|\\sum|\\prod|[Σ∑∏]|\\binom|\b(?:sum|prod|binom)\s*\(|[\w)}]!/.test(s);
+      // (issue #4: Γ, ζ, ψ; issue #5: sums, products, n!, binom; issue #6: iter: new syntax, so their messages are new too)
+      const special = /Γ|ζ|\\Gamma|\\zeta|Gamma|gamma|zeta|digamma|\\psi|\\sum|\\prod|[Σ∑∏]|\\binom|\b(?:sum|prod|binom|iter)\s*\(|\\operatorname\{iter\}|[\w)}]!/.test(s);
       ok(b === a || (ruForm && !b.startsWith('ERR')) || special, `English message for ${JSON.stringify(s)}: base ${a}, now ${b}`);
       if (ruForm && !b.startsWith('ERR')) newly.add(s);
       ok(c.startsWith('ERR') === b.startsWith('ERR') && (!b.startsWith('ERR') || c === tree(ru.Expr, s, o)), `Russian refuses what English refuses: ${JSON.stringify(s)}: ${c}`);
