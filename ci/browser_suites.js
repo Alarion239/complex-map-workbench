@@ -146,10 +146,6 @@ const SOFTWARE = {
 };
 
 const KNOWN = {
-  // (open: is a 2-px overflow of the lead's line a cut? nothing clips it)
-  'tour_audit_cmd.js': [{ re: /branches\/deriv: no lead, task, result or caption cut$/, why: 'issue #79: Linux text metrics: the inline z² (MathJax SVG, sized in ex) stands 2 px past the 18-px line of the lead (1 px on macOS); the lead does not clip it' }],
-  'tour_phone_cmd.js': [{ re: /^780x360-en branches\/deriv: title and lead or task on arrival, no tap, nothing cut$/, why: 'issue #79: Linux text metrics, as tour_audit\'s branches/deriv: the z² in the lead makes its line 2 px taller than one line (open: Android has a Linux font stack; check it on a phone)',
-    measured: (d) => d && d.id === 'branches/deriv' && d.leadCut === true }],
 };
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
