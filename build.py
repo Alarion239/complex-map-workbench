@@ -1,5 +1,10 @@
-import json, pathlib, re
+import json, pathlib, re, sys
 root = pathlib.Path(__file__).parent
+# (the summary below prints non-ASCII glyphs: a Windows console's code page made the build exit 1 after writing dist/)
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 # UTF-8 and LF on every platform (Windows would read the locale's code page and write CRLF)
 def save(p, s):
     with open(p, 'w', encoding='utf-8', newline='\n') as f:
