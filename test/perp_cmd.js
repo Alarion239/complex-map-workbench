@@ -110,8 +110,9 @@ await section('A', async () => {
   ok('A1 the Construct grid has seven tiles, Perpendicular circle fifth (v16.3: Touching circle; v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().height, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('A1 tooltip: Perpendicular circle + its description', info.tile.tip === 'Perpendicular circle  W' && /^Pick a line or a circle, then two points/.test(info.tile.desc), info.tile);
-  // (#35: the tile's short name is Perpendicular, as the tool's Perpendicular circle)
-  ok('A1 the tile label «Perpendicular» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === 'Perpendicular' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
+  // (#35: the tile's short name is Perpendicular, as the tool's Perpendicular circle; longer than Orthogonal, it breaks
+  // at its soft hyphen onto two lines, as the Russian tile does)
+  ok('A1 the tile label «Perpendicular» fits on two lines at most, inside the tile (v16.3 review user-7)', info.tile.label.replace(/\u00ad/g, '') === 'Perpendicular' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= 2 * info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
   await tool('perp');
   // (the left pane is 427 px wide at 1440, under 560: the chip names the tool by its tile text)
   ok('A1 the chip before the curve', (await chipT()) === 'Pick a line or a circle · Perpendicular · Esc cancels', await chipT());

@@ -2989,11 +2989,12 @@
  "Insert at the end": "Inserisci alla fine",
  "Draw panel": "Pannello Disegna",
  "3-pt circle": "Per 3 punti",
- "Perpendicular": "Ortogonale",
+ "Perpen\u00addicular": "Ortogo\u00adnale",
  "field-short\u0004Add function": "Cerca",
  "field\u0004Add function": "Aggiungi funzione",
  "rail\u0004Draw": "Disegna",
  "Show or hide the Draw panel": "Mostra o nascondi il pannello Disegna",
  "Draw  [": "Disegna  [",
- "field-short\u0004Add function or command": "Cerca"
+ "field-short\u0004Add function or command": "Cerca",
+ "Perpendicular": "Ortogonale"
 }
