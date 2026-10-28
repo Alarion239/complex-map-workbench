@@ -2160,7 +2160,10 @@ const Tour = (() => {
       const sx = /(auto|scroll|overlay)/.test(cs.overflowX) && a.scrollWidth > a.clientWidth + 1;
       if (!sy && !sx) continue;
       const q = a.getBoundingClientRect(), b = e.getBoundingClientRect(), m = 8;
-      const top = q.top + a.clientTop, left = q.left + a.clientLeft, bot = top + a.clientHeight, right = left + a.clientWidth;
+      // (the container's scroll-padding is room that something over it takes, such as the phone chain's pinned + and F)
+      const sp = (k) => parseFloat(cs[k]) || 0;
+      const top0 = q.top + a.clientTop, left0 = q.left + a.clientLeft;
+      const top = top0 + sp('scrollPaddingTop'), left = left0 + sp('scrollPaddingLeft'), bot = top0 + a.clientHeight - sp('scrollPaddingBottom'), right = left0 + a.clientWidth - sp('scrollPaddingRight');
       // (a part that fits only without the 8 px margins is placed whole, with equal margins)
       const need = (lo, hi, a0, a1) => {
         if (hi - lo <= a1 - a0 - 2 * m) return lo < a0 + m ? lo - a0 - m : hi > a1 - m ? hi - a1 + m : 0;
