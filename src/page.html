@@ -1589,6 +1589,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-facts b { color: var(--ink-2); font-weight: 500; }
 .xf-ctl { display: grid; gap: 14px; align-content: start; padding-bottom: 4px; }
 .xf-row { display: grid; gap: 6px; }
+.xf-print { display: contents; }
+.xf-printbtn { display: none; }
 .xf-h { font: var(--t-heading); color: var(--ink); }
 .xf-seg { width: 100%; }
 .xf-seg > button { flex: 1 1 0; min-width: 0; }
@@ -1636,6 +1638,9 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .modal.xf { width: calc(100vw - 24px); max-height: calc(100svh - var(--mbg-t, 12px) - var(--mbg-b, 12px)); border-radius: var(--r-3); }
   .xf-head { padding: 12px 16px 0; } .xf-body { padding: 12px 16px 0; } .xf-foot { padding: 10px 16px 12px; }
   .xf-ctl { grid-template-columns: 1fr; }
+  .xf-printbtn { display: inline-flex; justify-self: start; }
+  .xf-print[data-open="0"] { display: none; }
+  .xf-print[data-open="1"] { display: grid; gap: 10px; }
   .xf-chip { display: none; }
   .xf-scroll { height: 38svh; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }

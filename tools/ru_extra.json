@@ -136,5 +136,7 @@
  "Save + copy LaTeX for Beamer": "Сохранить и скопировать LaTeX для Beamer",
  "Saved {name}.png": "Сохранено: %{name}.png",
  "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
- "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)"
+ "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
+ "Print settings": "Параметры печати",
+ "Saved to Downloads: {filename}": "Сохранено в «Загрузки»: %{filename}"
 }

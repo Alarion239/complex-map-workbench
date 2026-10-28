@@ -2953,5 +2953,7 @@
  "Save + copy LaTeX for Beamer": "Salva e copia il LaTeX per Beamer",
  "Saved {name}.png": "Salvato: {name}.png",
  "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica",
- "On a focused plane: the next shape (⇧ Tab: the previous)": "Su un piano a fuoco: la forma successiva (⇧ Tab: la precedente)"
+ "On a focused plane: the next shape (⇧ Tab: the previous)": "Su un piano a fuoco: la forma successiva (⇧ Tab: la precedente)",
+ "Print settings": "Impostazioni di stampa",
+ "Saved to Downloads: {filename}": "Salvato in Download: {filename}"
 }
