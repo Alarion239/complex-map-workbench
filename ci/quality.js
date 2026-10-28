@@ -2,9 +2,10 @@
 // The image-quality gate, paired: the quality suite (test/regress/quality) renders its scenes with the reference app
 // and with this checkout's app on the same machine, and this checkout must not score worse than the reference
 // (compare_quality.py with the reference's metrics as the baseline; the bounded controls' golden diff is taken against
-// the reference's renders). The committed baseline and goldens were recorded on a Mac GPU and do not carry over to
-// other renderers (software rendering scores some scenes differently); --absolute also gates against them (the
-// self-hosted Mac).
+// the reference's renders). The committed baseline (test/regress/quality/baseline.json) was recorded on a Mac GPU and
+// does not carry over to other renderers (software rendering scores some scenes differently); --absolute (the
+// self-hosted Mac) also gates this run's metrics against it. That reuses the current run, whose golden diff was taken
+// against the reference's renders: the committed golden/*.png are not diffed here, only baseline.json's metrics read.
 //   node ci/quality.js --ref <commit> [--shard i/n] [--absolute] [--force] [--no-build]
 // A run that fails is rendered again on both sides; it fails only when it fails twice (renders are not always
 // bit-identical between two runs of the same build). Exit 0 pass, 1 regression, 2 setup problem.
