@@ -361,8 +361,10 @@ const Phone = (() => {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (a sheet, the deformation's transport or the tour's own layer has the bottom)
-    if (kind || A.morphOn()) st = null;
+    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
+    // one is no second layout change for the planes)
+    if (A.morphOn()) st = null;
+    els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;
     if (key === ctxKey && force && !!st === !els.ctx.hidden) return;

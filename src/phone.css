@@ -494,3 +494,4 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctseg > .ph-cb { flex: 1 1 0; min-width: 0; padding: 0 4px; }
 /* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
 :root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
+.ph-ctx.under { visibility: hidden; }
