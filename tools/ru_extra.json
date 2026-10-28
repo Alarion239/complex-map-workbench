@@ -71,5 +71,7 @@
  "The Arb blend with a red colour balance": "Смесь Arb с красным цветовым балансом",
  "ref\u0004the unit circle": "единичная окружность",
  "ref\u0004the real axis": "действительная ось",
- "ref\u0004the imaginary axis": "мнимая ось"
+ "ref\u0004the imaginary axis": "мнимая ось",
+ "The curves that {x} maps onto the targets of Y are drawn in X.": "Кривые, которые %{x} переводит в\u00a0цели в\u00a0Y, нарисованы в\u00a0X.",
+ "Where {x} lands in the targets of Y is shaded in X.": "Там, где %{x} попадает в\u00a0цели в\u00a0Y, плоскость X закрашена."
 }

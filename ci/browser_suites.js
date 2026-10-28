@@ -154,9 +154,6 @@ const KNOWN = {
   // every CI run; it passed on the development Mac at v16.4. Only that one resize, logged at that step)
   'tour_perf_cmd.js': [{ re: /^390: the panes keep their size through the steps of a chapter$/, why: 'issue #78: at 390 px the panes shrink (600 to 279 px) when the views chapter reaches its Phase key step, which opens the Display sheet; seen in every CI run, not on the development Mac at v16.4; to check on a phone',
     measured: (d) => d && d.inChapter === 1 && Array.isArray(d.log) && d.log.filter((x) => x.step === 'Phase key').length === 1 }],
-  // (v16.5: reported for v16.5.1)
-  'curves_cmd.js': [{ re: /^the legend of curve targets says drawn, not shaded$/, why: 'issue #75 (v16.5 UX20): with curve targets only, the desktop head note "Preimage in X" has the one tooltip "… is shaded in X; the curves it maps onto them are drawn there"; v16.4 said only "Drawn on the left", and the phone still says "Drawn in X"',
-    measured: (d) => Array.isArray(d) && d.length === 2 && /is shaded in X/.test(d[1]) && /drawn there/.test(d[1]) }],
   // an app bug: the Language label is cut at 360 px (only the cut label; anything past the edges still fails)
   'v15_phone_cmd.js': [
     // (an app bug: a toast's buttons, Undo and Redo, are 28 px tall on a phone too: page.html .toast-act; seen when the
