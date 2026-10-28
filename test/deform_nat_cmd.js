@@ -91,7 +91,7 @@ st = await ev('__cmwState()');
 ok('all at once: map mode 3 over (0, 3]', st.homView && st.homView.map.mode === 3 && st.homView.map.a === 0 && st.homView.map.b === 3, st.homView && st.homView.map);
 ok('all at once: the same moment, rescaled (1.5 / 3 = 0.5)', Math.abs(st.morph.T - 0.5) < 1e-9, st.morph.T);
 const dock = await ev(`({ max: document.getElementById('morphRange').max, label: document.getElementById('morphLabel').textContent, ticks: [...document.querySelectorAll('#tdockR .ttick')].map((e) => e.textContent) })`);
-ok('all at once: the scrubber runs over [0, 1], one tick', +dock.max === 1 && /^All steps at once · \d+ %$/.test(dock.label) && dock.ticks.length === 1, dock);
+ok('all at once: the scrubber runs over [0, 1], one tick', +dock.max === 1 && /^All steps at once · \u2007*\d+ %$/.test(dock.label) && dock.ticks.length === 1, dock);
 sv = await saved(NS + 'a');
 ok('all at once is saved', sv.homAll === true, sv.homAll);
 await at(0.5);

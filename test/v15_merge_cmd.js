@@ -51,7 +51,8 @@ const CHAIN = [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on:
 await view(1440, 900, false);
 await load(ns + 'a', { shapes: [{ id: 's1', kind: 'disc', c: [0, 1.2], r: 0.8 }], steps: CHAIN, srcView: { cx: 0, cy: 0, s: 110 } });
 await settle(1200); await grab();
-const slot = await ev(`(() => ({ inInsp: !!document.querySelector('#propsPanel .insp-params .params-mount.prm-host .prm'), hosts: document.querySelectorAll('.prm-host').length, testSlot: !!document.getElementById('paramsSlot'), heads: [...document.querySelectorAll('#propsPanel h2')].filter((x) => /^Parameters/.test(x.textContent.trim())).length, nested: !!document.querySelector('#propsPanel .psec .psec') }))()`);
+const slot = await ev(`(() => ({ inInsp: !!document.querySelector('#propsPanel .insp-params .params-mount.prm-host .prm'), hosts: document.querySelectorAll('.prm-host').length, testSlot: !!document.getElementById('paramsSlot'), heads: [...document.querySelectorAll('#propsPanel h2')].filter((x) => /^Numbers/.test(x.textContent.trim())).length, nested: !!document.querySelector('#propsPanel .psec .psec') }))()`);
+// (v16.5 UX65: the section is Numbers)
 ok('Parameters is in the Inspector slot, once, with one heading and no nested section', slot.inInsp && slot.hosts === 1 && !slot.testSlot && slot.heads === 1 && !slot.nested, slot);
 
 // 2. the plane menu adds a zero: the Inspector (step 1 selected) shows it at once

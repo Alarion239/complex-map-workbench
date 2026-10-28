@@ -185,7 +185,10 @@ await section('A', async () => {
   ok('the Point tool on a stroke: a point on the curve', gl.def && gl.def.op === 'glider' && gl.def.args[0].s === 's4' && Number.isFinite(gl.t), gl);
   ok('… on the circle', near(dist(gl.p, [1.5, -0.5]), 0.8, 1e-12), gl.p);
   await tool('select');
-  await drag(g0[0], g0[1], g0[0] + 30, g0[1] + 50, 8, 16); await settle(300);
+  // ([v16.5 rail SPEC 2.3] a point on a curve comes off with a pull of 40 px: the drag follows the circle, 0.35 rad on,
+  // within the glide zone; the old drag, 58 px straight off the stroke, now frees it at the drop point)
+  const g1 = await W(1.5 + 0.8 * Math.cos(5.85), -0.5 + 0.8 * Math.sin(5.85));
+  await drag(g0[0], g0[1], g1[0], g1[1], 8, 16); await settle(300);
   st = await ST();
   const gl2 = byId(st, gl.id);
   ok('dragged, it slides along the circle', !!gl2 && gl2.t !== gl.t && near(dist(gl2.p, [1.5, -0.5]), 0.8, 1e-12), [gl.t, gl2.t, gl2.p]);
@@ -336,7 +339,8 @@ await section('C', async () => {
   const a = await W(-1.5, 0), b = await W(0.5, -1), z = await W(1, 0.5);
   await move(a[0], a[1]); await settle(80);
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
-  ok('RU draft chip', (await ev(`document.querySelector('#draftChipL .cm-t').textContent`)) === 'Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it)
+  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');

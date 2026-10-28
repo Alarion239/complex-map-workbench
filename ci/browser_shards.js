@@ -18,8 +18,6 @@ const SHARDS = [
   { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5'] },                                // 453 + 265
   { id: 'export-2', suites: ['export_cmd.js#4a'] },                                                        // 920
   { id: 'export-3', suites: ['export_cmd.js#preview', 'export_cmd.js#4b'] },                               // 571 + 167
-  { id: 'smoke-desktop', suites: ['rel1641_smoke_cmd.js#en-1440', 'rel1641_smoke_cmd.js#ru-1440-dark'] },   // 230 + 218
-  { id: 'smoke-phone', suites: ['rel1641_smoke_cmd.js#en-390-dark', 'rel1641_smoke_cmd.js#ru-390'] },        // 254 + 248
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js'] },                                       // 480 + 295
   { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js'] },   // 340 + 292 + 114 + 22 + 24
   { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
@@ -37,6 +35,9 @@ const SHARDS = [
   { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },   // 226 + 176 + 47 + 31 + 52
   { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
   { id: 'exact', suites: ['p5_accept_cmd.js'] },                                                            // 543
+  // (v16.5's suites, the seventh run's times)
+  { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js'] },            // 210 + 172 + 116
+  { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
   { id: 'new', rest: true, suites: [], what: 'every suite not listed in another shard' },
 ];
 

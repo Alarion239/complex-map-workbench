@@ -170,7 +170,8 @@ await M('mouseReleased', sB[0], sB[1], { button: 'left', clickCount: 1 });
 await settle(300);
 R.slide = seen;
 const nameOk = seen.every((v) => (v.kind === 'halfplane' ? /^Half-plane/.test(v.name) : /^Disc/.test(v.name)));
-const edOk = seen.filter((v) => v.kind === 'disc' && v.ed && v.ed.length >= 2).every((v) => Math.abs(parseFloat(v.ed[1]) - v.r) < 1e-4 * Math.max(1, v.r));
+// (v16.5 UX44: a number field shows 4 significant digits until it is clicked into)
+const edOk = seen.filter((v) => v.kind === 'disc' && v.ed && v.ed.length >= 2).every((v) => parseFloat(v.ed[1]) === +v.r.toPrecision(4));
 ok('during the slide the row name follows the kind', nameOk, seen.map((v) => [v.kind, v.name]));
 ok('during the slide the open editor shows the stored radius', edOk, seen.map((v) => [v.kind, v.r, v.ed]));
 

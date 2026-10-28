@@ -178,7 +178,7 @@ ok('M turns it off: the panes split again', !Ld.deform && Ld.merged === null && 
 await ev(`(() => { const c = document.querySelector('.card[data-k="2"]'); if (c) c.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); return 1; })()`); await settle(500);
 await key('m'); await settle(700);
 const fst = await ev("__cmwState()");
-ok("focused step: its own deformation", fst.focus === 2 && fst.morph.open && /^Step 1 of 1 · (f\S+|d\/dz) · \d+ %$/.test(await ev(`document.getElementById('morphLabel').textContent`)), { focus: fst.focus, label: await ev(`document.getElementById('morphLabel').textContent`) });
+ok("focused step: its own deformation", fst.focus === 2 && fst.morph.open && /^Step 1 of 1 · (f\S+|d\/dz) · \u2007*\d+ %$/.test(await ev(`document.getElementById('morphLabel').textContent`)), { focus: fst.focus, label: await ev(`document.getElementById('morphLabel').textContent`) });
 // the half-plane source e^X is clipped to the image's frame (review: a 25 px blob and one path at 10 / div)
 await ev('__cmwMorph({ T: 0.5 }); 1'); await settle(400);
 const fsel = await ev('await __cmwMorphSel({ force: true })', 60000);

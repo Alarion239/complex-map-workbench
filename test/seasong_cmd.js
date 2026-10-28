@@ -184,9 +184,10 @@ await ev(`__cmwExample(${EXI}); 1`); await settle(1500);
 L = await listenFromMenu();
 ok('ui-1: it plays again', L && L.piece, L);
 await ev(`(() => { const s = __qa.state().shapes[0]; return 1; })()`);
+await settle(600);   // (and the plane moves over frames, a few a second on CI's software renderer)
 p = await curveXY(300);
 await click(p[0], p[1]); await settle(250);   // (selects the curve; the click does not stop a melody)
-R.selBeforeDelete = await ev(`({ play: __cmwSound().play })`);
+R.selBeforeDelete = await ev(`({ play: __cmwSound().play, selected: __cmwShapes().selected })`);
 await key('Delete'); await settle(400);
 R.deleted = await ev(`({ play: __cmwSound().play, shapes: __qa.state().shapes.length })`);
 ok('ui-1: deleting the curve stops it', R.selBeforeDelete.play && R.deleted.shapes === 0 && !R.deleted.play, { before: R.selBeforeDelete, after: R.deleted });

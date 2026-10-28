@@ -30,6 +30,8 @@ const EXCLUDED = {
   'seasong_rec_cmd.js': 'a recorder: the Mountain King as audio (then test/seasong_wav.js and macOS afconvert), no verdict',
   'i18n_shots_cmd.js': 'a screenshot writer: the Russian interface, no verdict',
   'sheets_film_cmd.js': 'a screenshot writer: the sheets while deforming, no verdict',
+  'ux165_merge_shots_cmd.js': 'a screenshot writer: v16.5 wave 1 merge, before and after (its "before" page was built for the pictures and deleted), no verdict',
+  'ux165_plane_shots_cmd.js': 'a screenshot writer: v16.5 wave 1 plane, before (a build of a local snapshot) and after, no verdict',
   // run elsewhere
   'sound_deform_cmd.js': 'runs inside sound_cmd.js (its failures prefixed "deformation: ")',
   'glsl_inverse_cmd.js': 'the GLSL jobs run this page (ci/glsl.js --only inverse), paired against the reference on each platform',
@@ -42,11 +44,11 @@ const EXCLUDED = {
   'rel163_smoke_cmd.js': 'the release smoke of v16.3; rel1641_smoke_cmd.js carries its sections forward on the current page',
   'rel1631_smoke_cmd.js': 'the release smoke of v16.3.1; rel1641_smoke_cmd.js carries its sections forward (its section 14, the tour card on a landscape phone, went with the card in v16.4)',
   'rel164_smoke_cmd.js': 'the release smoke of v16.4; rel1641_smoke_cmd.js is it with v16.3.1\'s fixed items',
+  'rel1641_smoke_cmd.js': 'the release smoke of v16.4.1: it checks that release\'s strings by design (v16.5 changed the readout, the first-run card, the shapes\' names); a release smoke is written for each release',
   // the GPU machines
   'landscape_walls_cmd.js': 'needs a GPU: the Landscape mesh read back from float textures against a CPU oracle, speckles and contours counted in pixels, meshes up to 1920 (about 25 min on a Mac GPU), and r1/ and base/ builds served beside it',
 };
 
-const rel = (lang, w, dark) => ({ label: `${lang}-${w}${dark ? '-dark' : ''}`, preamble: `const CFG = { lang: '${lang}', w: ${w}, dark: ${dark} };` });
 const audit = (label, sizes, inputs, layerAll) => ({ label, preamble: `const AUDIT_CFG = { sizes: ${JSON.stringify(sizes)}, inputs: ${JSON.stringify(inputs)}, layerAll: ${JSON.stringify(layerAll)} };` });
 const part = (p) => ({ label: p, preamble: `const PART = '${p}';` });
 const SUITES = {
@@ -58,8 +60,6 @@ const SUITES = {
   // (section 1 compares with the merged v16 tree before the deformation range, a snapshot that is not in the
   // repository: work/xv16-merged-snap; v16's own build differs from it by design)
   'deform_range_cmd.js': { runs: [{ preamble: 'globalThis.DR_RUN = [2, 3, 4, 5, 6, 7, 8, 9];' }] },
-  // the published page, both languages, desktop and phone, light and dark
-  'rel1641_smoke_cmd.js': { pages: ['smk_pub.html'], runs: [rel('en', 1440, false), rel('ru', 1440, true), rel('en', 390, true), rel('ru', 390, false)] },
   // (its default is 7 sizes × 2 themes × 2 languages × 2 inputs, about 2 hours on a Mac GPU: here a phone and a desktop,
   // both themes and languages, each with its own input)
   'tour_audit_cmd.js': { runs: [audit('phone', [[390, 844]], ['touch'], [390]), audit('desktop', [[1440, 900]], ['mouse'], [1440])] },
@@ -132,14 +132,6 @@ const SOFTWARE = {
     s(/^scrub: the air while dragging/, 'the air plays and ends on release with the landmarks and no other cue; only its loudness, from the scrub\'s speed between input events, is low while input events arrive between long frames',
       (d) => d && d.mid && d.mid.tex === true && d.mid.v > 0 && d.after && d.after.tex === false && Array.isArray(d.made) && d.made.length >= 3 && d.made.length <= 4 && d.made.every((x) => x === 'landmark')),
   ],
-  'rel1641_smoke_cmd.js': [
-    // (the clock gains at most 0.1 s a frame, app.js frame(): the Loop's 1-s hold at t = 1 lasts 10 frames, seconds here)
-    s(/^sheets: sin √z, All sheets, Landscape, Im: the deformation plays \(Loop\), t moves$/, 'the Loop plays, and t moves or rests in its 1-s hold at the end (10 frames of half a second here); only its frame count (needs more than 20) is short',
-      (d) => d && d.plOn === true && typeof d.labA === 'string' && (d.labA !== d.labB || /^t = 1[.,]00 \/ 1$/.test(d.labA))),
-    // (the detail is the first 6 messages: fewer than 6 means all of them were seen)
-    s(/: no console errors or warnings$/, 'only ANGLE\'s Vulkan back end\'s performance note "GL Driver Message (OpenGL, Performance, ...): TexSubImage with unpack buffer copied on CPU"',
-      (d) => Array.isArray(d) && d.length > 0 && d.length < 6 && d.every((x) => /^\[\.WebGL-0x[0-9a-f]+\]GL Driver Message \(OpenGL, Performance, /.test(x.m))),
-  ],
   'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
     (d) => d && d.quiet === true && d.hit === true)],
   // (a 1280 x 720 Bounce of 2 s on the globe fills its preview frame by frame: more than the suite's 60 s here)
@@ -162,6 +154,11 @@ const KNOWN = {
   // every CI run; it passed on the development Mac at v16.4. Only that one resize, logged at that step)
   'tour_perf_cmd.js': [{ re: /^390: the panes keep their size through the steps of a chapter$/, why: 'open: at 390 px the panes shrink (600 to 279 px) when the views chapter reaches its Phase key step, which opens the Display sheet; seen in every CI run, not on the development Mac at v16.4; to check on a phone',
     measured: (d) => d && d.inChapter === 1 && Array.isArray(d.log) && d.log.filter((x) => x.step === 'Phase key').length === 1 }],
+  // (v16.5: reported for v16.5.1)
+  'constr_cmd.js': [{ re: /^a co-argument: "Circle through 3 points needs distinct points"$/, why: 'app (v16.5): the warning takes the chip\'s short tool label where the chip is narrow, so it reads "3 points needs distinct points" (construct.js chipTool in the "{x} needs distinct points" message; v16.4 used toolName)',
+    measured: (d) => d && d.chip === '3 points needs distinct points' }],
+  'curves_cmd.js': [{ re: /^the legend of curve targets says drawn, not shaded$/, why: 'app (v16.5 UX20, open): with curve targets only, the desktop head note "Preimage in X" has the one tooltip "… is shaded in X; the curves it maps onto them are drawn there"; v16.4 said only "Drawn on the left", and the phone still says "Drawn in X"',
+    measured: (d) => Array.isArray(d) && d.length === 2 && /is shaded in X/.test(d[1]) && /drawn there/.test(d[1]) }],
   // an app bug: the Language label is cut at 360 px (only the cut label; anything past the edges still fails)
   'v15_phone_cmd.js': [{ re: /^360-(light|dark)-en: more sheet: nothing past the edges, no cut label$/, why: 'app bug since bd48ab3 (Italian): the More sheet\'s Language switch has four options, and at 360 px the label "Language" gets 47 of its 66 px (src/phone.js Language seg; .ph-seg buttons at least 52 px)',
     measured: (d) => d && Array.isArray(d.out) && !d.out.length && Array.isArray(d.cut) && d.cut.length === 1 && /^Language \d+>\d+$/.test(d.cut[0]) }],

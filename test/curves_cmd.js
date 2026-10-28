@@ -331,8 +331,10 @@ for (const sc of SC) {
   await addFormula('|w| = 1');
   await addFormula('Re w^2 = 1');
   await settle(1200);
-  R.legend = await ev(`Array.from(document.querySelectorAll('.cn')).map((e) => e.textContent).filter((t) => /on the left/i.test(t))`);
-  ok('the legend of curve targets says drawn, not shaded', R.legend.some((t) => /^Drawn on the left/.test(t)) && !R.legend.some((t) => /Shaded/.test(t)), R.legend);
+  // (v16.5 UX20: on a desktop the target note is Y's head note, "Preimage in X", and what is shaded or drawn is its
+  // tooltip: with curve targets only, it says they are drawn, and nothing is shaded)
+  R.legend = await ev(`(() => { const e = document.getElementById('rightNote'); return e && !e.hidden ? [e.textContent, e.dataset.tip || ''] : []; })()`);
+  ok('the legend of curve targets says drawn, not shaded', R.legend.some((t) => /drawn/i.test(t)) && !R.legend.some((t) => /shaded/i.test(t)), R.legend);
   await addFormula('|z^{30}-1| = 0');
   await addFormula('Re z^2 = 1');
   await settle(800);
