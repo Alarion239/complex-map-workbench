@@ -270,6 +270,11 @@
     showPanel: (side, sheet, early) => {
       if (tourPhone()) { if (early) return; if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
       if (side === 'sheet') return;
+      // ([v17 D4] the regions' display is behind Y's Display ▾ on the laptop: its step opens that popover)
+      if (side === 'left' && sheet === 'display') {
+        if (!early && !document.querySelector('.disp-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#rightFoot .disp-btn')); if (b) b.click(); }
+        return;
+      }
       if (early && side !== 'right' && isDrawer('L')) return;
       if (side === 'right' ? S.hideRight : S.hideLeft) {
         if (side !== 'right' && isDrawer('L')) tourDrawer = true;
@@ -281,6 +286,7 @@
     showPlane: (pane) => { if (tourPhone() && (pane === 'L' || pane === 'R') && Phone.big() !== pane) Phone.swap(); },
     closeSheet: () => {
       if (tourPhone()) { if (Phone.sheet()) Phone.close(true); return; }
+      if (document.querySelector('.disp-pop')) closePalette();
       if (tourDrawer) { tourDrawer = false; if (isDrawer('L') && !S.hideLeft) setPanels(true, S.hideRight); }
     },
     on(ev, fn) { (tourL[ev] = tourL[ev] || []).push(fn); return () => { tourL[ev] = (tourL[ev] || []).filter((g) => g !== fn); }; },
