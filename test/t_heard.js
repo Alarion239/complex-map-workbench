@@ -26,7 +26,7 @@ function makeEnv(opts = {}) {
     createConvolver() { return this.node({ buffer: null }); }
     createWaveShaper() { return this.node({ curve: null }); }
     createBuffer(ch, len, fs) { const d = Array.from({ length: ch }, () => new Float32Array(len)); return { length: len, sampleRate: fs, numberOfChannels: ch, getChannelData: (i) => d[i] }; }
-    createBufferSource() { const c = this; return this.node({ buffer: null, start() {}, stop() {} }); }
+    createBufferSource() { return this.node({ buffer: null, start() {}, stop() {} }); }
     resume() { this.state = 'running'; return Promise.resolve(); }
     suspend() { this.state = 'suspended'; return Promise.resolve(); }
   }
@@ -196,7 +196,7 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
   // ---------- 4. the live stream against the batch ----------
   // HT.Live fed as pointer events at 30, 60, 120, 240 fps (the probe's samples at each frame), and irregular frames
   function liveRun(name, frames, src = 'hand') {
-    const sc = SC[name], smp = SMP[name], L = HTL.Live({ n: 12 }), out = [];
+    const smp = SMP[name], L = HTL.Live({ n: 12 }), out = [];
     let i = 0, fi = 0, open = false, lastT = 0;
     while (i < smp.length) {
       const p = smp[i];

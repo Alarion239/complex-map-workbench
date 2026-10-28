@@ -449,7 +449,7 @@ function HT_LIB() {
   const GL4 = fz({ sigma: 0.45, db: -2.5, att: 0.06, t60: 0.8, on: 0.25, hold: 0.25, holdJnd: 0.4, phSmooth: 0.005, tail: 1.2, seatFade: fz([0.025, 0.025]), rel: 0.2 });
   // the levels, from the prototype's calibration (report.json; spec 3.0): LV.note = CAL.M2 (a marimba E at |F| = 1
   // alone is 2 dB under today's harp E), LV.crack = 1.6·CAL.T1up, LV.glide = CAL.V3, LV.query = CAL.Q1
-  const LV = fz({ note: 0.15205475297324958, crack: 0.24638824416951875, glide: 0.03565506682311055, query: 0.06621707675973322 });
+  const LV = fz({ note: 0.15205475297324958, crack: 0.24638824416951874, glide: 0.03565506682311055, query: 0.06621707675973322 });
   const HT = fz({
     n: 12, rope: 3, ropeTouch: 5, HB: 1 / 96, D2: 73.4162, A4: 440, sigma: 0.55, fMax: 2600, wMin: 0.0316,
     rateHalf: 0.1, minIoi: 0.005, lateMin: 0.045, keyGap: 0.1, holdMax: 0.1, RE_QUIET: 0.25, repGap: 0.125, repMono: 0.5,
@@ -1865,7 +1865,6 @@ registerProcessor('cmw-voice', Voice);`;
   // Notes: the marimba (htNote), the crack (htCrack), the query; Glide: the worklet's Glide (L.Glide) with the crack
   // and the cues 3 dB down. Live: Sound.hear (sonify tier); Listen along: Sound.along (events tier).
   const HTL = HT_LIB(), HT = HTL.HT;
-  const glideOk = () => !(G && G.engine === 'nodes') && typeof AudioWorkletNode !== 'undefined' && prefer.worklet;
   const glideOn = () => !!(P.glide && G && G.engine === 'worklet');
   // one note at pitch class c (semitones above D): 2 or 3 octave copies under the A4 Gaussian, each the app's 'wood'
   // strike with no knock (vel 0.6, soft from dbV3, T60 0.45·(f/440)^−0.6 or 0.15 short), seeded by (pitch class, copy):
@@ -1919,7 +1918,6 @@ registerProcessor('cmw-voice', Voice);`;
   // ---- Listen along: Sound.along(smp, o)
   // smp: [{t (s from 0), phi, ln, pan, gap?, seat?, cut?}], one a millisecond. o: {tag, n, closed, cues?, queries?}
   // (cues [{t, m, zero, pan}] and queries [{t, phi, ln, pan}]: for renders and tests; Listen along has neither)
-  let alongN = 0;
   function along(smp, o = {}) {
     if (!AC || !P.on || hidden || !P.events || !smp || smp.length < 2 || !canSchedule()) return null;
     const N = o.n || HT.n, tag = o.tag, glide = glideOn(), t0 = ctx.currentTime + Math.max(0.03, LEAD + 0.01);
@@ -1942,7 +1940,6 @@ registerProcessor('cmw-voice', Voice);`;
     }
     for (const c of cues) { htCue(c, glide, t0 + c.t - T0, 'events'); log.push({ t: c.t, at: t0 + c.t - T0, k: c.zero ? 'cue:zero' : 'cue:pole', m: c.m }); }
     for (const q of o.queries || []) { const c = 12 * (((q.phi % 1) + 1) % 1), db = HTL.law(q.ln), at = t0 + q.t - T0; if (glide) htQueryBowed(G, at, c, db, q.pan, 'events', tag); else htNote(G, at, c, db, 0, q.pan, 'events', tag, false); log.push({ t: q.t, at, k: 'query', c, db }); }
-    alongN++;
     busy(end + 1);
     return { t0, dur, now: () => ctx.currentTime, mode: glide ? 'glide' : 'notes', counts, log };
   }
