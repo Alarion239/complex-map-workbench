@@ -1544,6 +1544,10 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
   font: var(--t-body); color: var(--ink); white-space: nowrap;
   animation: pop-in-up var(--t-med) var(--ease-out);
 }
+/* over a dialog a message never takes a click meant for the dialog under it (a phone's lies across the dialog's footer, over
+   More formats): only its own buttons (Undo, close) stay live */
+:root:has(.modal-bg) #toastHost .toast { pointer-events: none; }
+:root:has(.modal-bg) #toastHost .toast button { pointer-events: auto; }
 .toast:not(:has(.toast-act)) { padding-right: 12px; }
 .toast .toast-x { flex: 0 0 auto; width: 28px; height: 28px; margin-left: -8px; }
 .toast > span { overflow: hidden; text-overflow: ellipsis; }
