@@ -43,8 +43,9 @@ for (const m of bare.matchAll(/(?:aria-label|title)="([^"]+)"/g)) if (/[A-Za-z]{
 for (const id of ['sndNotes', 'sndGlide', 'sndGlideNo']) ok(`the popover has #${id}`, pop.includes(`id="${id}"`));
 
 // 2. the sound glue's own strings
-// (src/app/*.js joined, and the palette's commands, src/commands.js: the Notes / Glide commands)
-const app = require('./src_text').appText() + read('src/commands.js');
+// (src/app/*.js joined; the palette's commands, src/commands.js: the Notes / Glide commands; the curve menu's Listen
+// along and Play the composition, src/integrals.js; the examples and the guide, src/examples.js)
+const app = require('./src_text').appText() + read('src/commands.js') + read('src/integrals.js') + read('src/examples.js');
 const hooks = read('src/soundhooks.js');
 const a0 = hooks.indexOf('// ---- Hear the function under the pointer ----'), a1 = app.indexOf('// ---------------- sound ('), a2 = app.indexOf('// ---------------- guided tour', a1);
 ok('the sound glue is found', a0 > 0 && a1 > 0 && a2 > a1, [a0, a1, a2]);
