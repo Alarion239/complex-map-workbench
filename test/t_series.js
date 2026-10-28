@@ -36,6 +36,7 @@ close('Σ z^{2^n} at 0.5+0.3i (a lacunary series)', at('\\sum_{n=0}^{\\infty} z^
 // outside the disc: NaN, never a partial sum
 check('Σ z^n/n² at 1.2: NaN (outside the disc)', nan(at('\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}', C(1.2, 0))));
 check('Σ z^n at 1.01: NaN', nan(at('\\sum_{n=0}^{\\infty} z^n', C(1.01, 0))));
+check('Σ z^n = 1/(1 − z) outside R: NaN at 2, −1.5, 1.2i (1/(1 − z) is finite there, the series is not)', [C(2, 0), C(-1.5, 0), C(0, 1.2)].every((z) => nan(at('\\sum_{n=0}^{\\infty} z^n', z))));
 check('Σ z^{2^n} at 1.001: NaN (its natural boundary is |z| = 1)', nan(at('\\sum_{n=0}^{\\infty} z^{2^n}', C(1.001, 0))));
 check('e^z at z = 1000: NaN (more than the cap of terms)', nan(at(E1, C(1000, 0))));
 check('e^z at z = −40: NaN (the terms cancel: e^{40} against e^{−40})', nan(at(E1, C(-40, 0))));
