@@ -111,7 +111,7 @@
     for (const c of host.querySelectorAll('.conn.br-at')) if (c !== ca && c !== cb) c.classList.remove('br-at');
     ca.classList.add('br-at'); cb.classList.add('br-at');
     // the label over the line's middle, on the phone too (its ends are drawn only there); hidden on every step
-    const lab = L.querySelector('.br-label'), what = lab.querySelector('.br-what'), part = !!homRangeOk() && !ph;
+    const lab = /** @type {HTMLElement} */ (L.querySelector('.br-label')), what = lab.querySelector('.br-what'), part = !!homRangeOk() && !ph;
     lab.hidden = !part;
     if (part) {
       const html = bracketWords('html');
