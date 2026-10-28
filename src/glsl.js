@@ -969,10 +969,10 @@ vec2 cx_zetad(vec2 s) {
     return JSON.stringify(n, (k, x) => (k === 'pos' || k === 'len' || k === 'lit' || k === 's' || k === 'name' ? undefined
       : x && typeof x === 'object' && x.t === 'num' ? (x.param != null ? ['#', x.param] : '#') : x));
   }
-  // What the sheet code (genCustomPair) builds from the values of constant exponents, in tree order: Funcs.branchNode
-  // null (an integer, |n| <= 4096) writes the integer into cipow; any other exponent is a branch node, 'n', whose
-  // value and sheet count are uniforms. A shared number's exponent too: branchNode reads its current value, so a
-  // slider that moves it onto or off an integer (or between integers) compiles again; between other values it does not
+  // What the sheet code (genCustomPair) builds from the values of constant exponents without a shared number, in tree
+  // order: Funcs.branchNode null (an integer, |n| <= 4096) writes the integer into cipow; any other exponent is a
+  // branch node, 'n', whose value and sheet count are uniforms. An exponent with a shared number is always a branch
+  // node there (paramPow), whatever its value, so the code does not depend on it and a slider never compiles again
   function pairBaked(ast) {
     const out = [];
     const walk = (n) => {
@@ -980,7 +980,7 @@ vec2 cx_zetad(vec2 s) {
       if (Array.isArray(n)) { n.forEach(walk); return; }
       if (!n.t) return;
       for (const k of Object.keys(n)) if (n[k] && typeof n[k] === 'object') walk(n[k]);
-      if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b)) {
+      if (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && !hasParam(n.b)) {
         const bn = typeof Funcs !== 'undefined' && Funcs.branchNode ? Funcs.branchNode(n) : null;
         out.push(bn ? 'n' : Expr.compile(n.b)(C(0, 0)).re);
       }
@@ -1067,6 +1067,13 @@ vec2 cx_zetad(vec2 s) {
       gamma: 'cx_gamma', zeta: 'cx_zeta', digamma: 'cx_digamma', zetad: 'cx_zetad',
     };
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
+    // (an exponent with a shared number, z^{a}: a branch node whatever a is, its value and sheet count read when the
+    // uniforms are filled; an integer a is one sheet, a digit of radix 1 that takes nothing from c, and cpow on any
+    // sheet is z^a. So the code, and the key (astSig, pairBaked), do not depend on a)
+    const paramPow = (b) => {
+      const vOf = () => constOf(b), intOf = (v) => v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096;
+      return { kind: 'powc', get v() { return vOf(); }, get n() { const v = vOf(); return intOf(v) ? 1 : Funcs.sheetCount(v); } };
+    };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
     // (v16.1 review math-3: the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
     function node(bn, inC) {
@@ -1099,7 +1106,7 @@ vec2 cx_zetad(vec2 s) {
           return pair(op(a[0], b[0]), op(a[1], b[1]));
         }
         case 'pow': {
-          const bn = Funcs.branchNode(n);
+          const bn = !dep(n.b) && hasParam(n.b) ? paramPow(n.b) : Funcs.branchNode(n);
           if (!dep(n.b)) {
             const a = g(n.a);
             if (!bn) { const k = constOf(n.b).re; return both((x) => `cipow(${x}, ${k})`, a); }
@@ -1215,7 +1222,8 @@ vec2 cx_zetad(vec2 s) {
     }
     const ast = b.ast || Expr.parse(v.expr);
     // no branch node: single-valued, both points go through P_f (and no uniforms are spent on a pair version)
-    const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || ['a', 'b'].some((k) => hasNode(n[k])));
+    // (an exponent with a shared number is a node whatever its value: genCustomPair's paramPow)
+    const hasNode = (n) => !!n && typeof n === 'object' && !!n.t && (!!Funcs.branchNode(n) || (n.t === 'pow' && Expr.depends(n) && !Expr.depends(n.b) && hasParam(n.b)) || ['a', 'b'].some((k) => hasNode(n[k])));
     if (!hasNode(ast)) return null;
     const writers = [], lines = [];
     const { res, rads } = genCustomPair(ast, `${P}_p`, A, writers, lines, (v.cut ?? 180) * Math.PI / 180);
