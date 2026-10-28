@@ -467,7 +467,7 @@
     // the switch reloads only when the work was written and reads back (review i18n-3); while a tour holds the canvas
     // the saved state is the user's own work, and the tour's scenes are never stashed as undo history
     I18N.onSwitch(() => {
-      const held = typeof tourHold !== 'undefined' && !!tourHold;
+      const held = tourHold;
       const wrote = held ? null : writeState();
       let ok = false;
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
@@ -632,7 +632,7 @@
       // ([v16.5 fix regress-2] and whenever the layout under a toast changes while it stays up: the deformation's dock
       // opening or closing, the learning lane showing or hiding, a panel: each resizes a plot or the chain; one rAF, and
       // only while a toast shows)
-      if (typeof ResizeObserver !== 'undefined' && th) {
+      if (th) {
         let q = 0;
         const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; placeToasts(); }); });
         for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);

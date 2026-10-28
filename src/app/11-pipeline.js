@@ -87,7 +87,7 @@
         h('div', { class: 'br-label' }, h('span', { class: 'br-what' }), all));
       const add = $('addStepBtn');
       if (add && add.parentNode === host) host.insertBefore(L, add); else host.append(L);
-      if (!brRO && typeof ResizeObserver !== 'undefined') { brRO = new ResizeObserver(() => requestAnimationFrame(placeBracket)); brRO.observe(host); }
+      if (!brRO) { brRO = new ResizeObserver(() => requestAnimationFrame(placeBracket)); brRO.observe(host); }
     }
     L.hidden = false;
     placeBracket();
