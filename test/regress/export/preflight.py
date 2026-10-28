@@ -19,7 +19,14 @@
 # --latex now compiles every snippet (PDF and PNG) with pdfLaTeX and XeLaTeX, the English ones in English documents
 #         and the Russian ones (-ru-) in Russian ones, with \listoffigures (the short captions).
 # Exit status 1 on any failure. Options: --dir DIR (default: out/ next to this file), --latex.
-import argparse, json, pathlib, re, shutil, struct, subprocess, sys
+import argparse
+import json
+import pathlib
+import re
+import shutil
+import struct
+import subprocess
+import sys
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--dir', default=str(pathlib.Path(__file__).resolve().parent / 'out'))
@@ -52,9 +59,9 @@ for pdf in sorted(OUT.glob('*.pdf')):
         check(n, not fonts, f'fonts: {len(fonts)}')
     if have['pdfimages']:
         imgs = run(['pdfimages', '-list', str(pdf)]).stdout.strip().splitlines()[2:]
-        kinds = sorted({l.split()[2] + '/' + l.split()[5] for l in imgs})
-        check(n, not any(' smask ' in f' {l} ' for l in imgs), f'images {len(imgs)} {kinds}, no smask')
-        check(n, not any(l.split()[9] == 'yes' for l in imgs), 'images not interpolated')
+        kinds = sorted({ln.split()[2] + '/' + ln.split()[5] for ln in imgs})
+        check(n, not any(' smask ' in f' {ln} ' for ln in imgs), f'images {len(imgs)} {kinds}, no smask')
+        check(n, not any(ln.split()[9] == 'yes' for ln in imgs), 'images not interpolated')
     ca = [float(v) for v in re.findall(rb'/(?:CA|ca) ([0-9.]+)', d)]
     check(n, all(v >= 1 for v in ca), f'ExtGState alpha values {sorted(set(ca)) or "none"}')
     check(n, b'/SMask' not in d, 'no /SMask')
@@ -161,7 +168,9 @@ def mp4_boxes(b, start=0, end=None, path=''):
 for mp4 in sorted(OUT.glob('*.mp4')):
     b = mp4.read_bytes()
     bx = {p: (s0, d0, e0) for p, s0, d0, e0 in mp4_boxes(b)}
-    g = lambda p: bx.get(p)
+    def g(p, bx=bx):
+        return bx.get(p)
+
     try:
         _, d, _ = g('/moov/mvhd'); mts, mdur = struct.unpack('>II', b[d + 12:d + 20])
         _, d, _ = g('/moov/trak/mdia/mdhd'); tts, tdur = struct.unpack('>II', b[d + 12:d + 20])
@@ -195,8 +204,8 @@ for mp4 in sorted(OUT.glob('*.mp4')):
 # WebM (the fallback): the EBML header's DocType, the track's codec and size, one SimpleBlock per frame, key frames
 def ebml(b, i, end):
     while i < end:
-        l = 8 - b[i].bit_length() + 1; eid = int.from_bytes(b[i:i + l], 'big'); i += l
-        l = 8 - b[i].bit_length() + 1; sz = int.from_bytes(b[i:i + l], 'big') & ((1 << (7 * l)) - 1); i += l
+        wl = 8 - b[i].bit_length() + 1; eid = int.from_bytes(b[i:i + wl], 'big'); i += wl
+        wl = 8 - b[i].bit_length() + 1; sz = int.from_bytes(b[i:i + wl], 'big') & ((1 << (7 * wl)) - 1); i += wl
         yield eid, i, i + sz
         i += sz
 
@@ -205,7 +214,7 @@ for wm in sorted(OUT.glob('*.webm')):
     b = wm.read_bytes()
     try:
         info = {'doctype': None, 'codec': None, 'W': None, 'H': None, 'blocks': 0, 'keys': 0, 'cues': [], 'seek': {}, 'seg': None}
-        def walk(i, end):
+        def walk(i, end, b=b, info=info):
             for eid, a, z in ebml(b, i, end):
                 # (review r3, video-9: the Cues, one CuePoint per cluster, and the SeekHead that finds them)
                 if eid == 0x18538067: info['seg'] = a
@@ -219,7 +228,7 @@ for wm in sorted(OUT.glob('*.webm')):
                                     for e4, a4, z4 in ebml(b, a3, z3):
                                         if e4 == 0xF1: info['cues'].append(int.from_bytes(b[a4:z4], 'big'))
                 elif eid == 0x114D9B74:
-                    for e2, a2, z2 in ebml(b, a, z):
+                    for _, a2, z2 in ebml(b, a, z):
                         sid = pos = None
                         for e3, a3, z3 in ebml(b, a2, z2):
                             if e3 == 0x53AB: sid = int.from_bytes(b[a3:z3], 'big')
@@ -242,8 +251,8 @@ for wm in sorted(OUT.glob('*.webm')):
         i = seg
         while i < len(b):
             h0 = i
-            l = 8 - b[i].bit_length() + 1; eid = int.from_bytes(b[i:i + l], 'big'); i += l
-            l = 8 - b[i].bit_length() + 1; sz = int.from_bytes(b[i:i + l], 'big') & ((1 << (7 * l)) - 1); i += l
+            wl = 8 - b[i].bit_length() + 1; eid = int.from_bytes(b[i:i + wl], 'big'); i += wl
+            wl = 8 - b[i].bit_length() + 1; sz = int.from_bytes(b[i:i + wl], 'big') & ((1 << (7 * wl)) - 1); i += wl
             if eid == 0x1F43B675: starts.append(h0 - seg)
             if eid == 0x1C53BB6B: cues_at = h0 - seg
             i += sz
@@ -285,7 +294,7 @@ if args.latex:
     else:
         tdir = OUT / 'latex'
         tdir.mkdir(exist_ok=True)
-        for kind, (pre0, macro), engine, lang in [(k, d, e, l) for k, d in DOCS.items() for e in ('pdflatex', 'xelatex') for l in ('en', 'ru')]:
+        for kind, (pre0, macro), engine, lang in [(k, d, e, lg) for k, d in DOCS.items() for e in ('pdflatex', 'xelatex') for lg in ('en', 'ru')]:
             texs = sorted(p for p in OUT.glob(f'*-{kind}.tex')) + sorted(p for p in OUT.glob(f'*-{kind}-bw.tex'))
             texs = [t for t in texs if ('-ru-' in t.name) == (lang == 'ru')]
             if not texs:

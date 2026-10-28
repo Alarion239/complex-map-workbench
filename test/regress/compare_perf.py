@@ -265,7 +265,7 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
             nv = (rm.get(name) or {}).get('value')
             if _num(nv) and nv <= acc[name].get('max', -math.inf):
                 status = 'ACCEPTED'
-                text = text + '; accepted exception (max %s, %s): %s' % (acc[name]['max'], acc[name].get('date', ''), acc[name].get('reason', ''))
+                text = text + f"; accepted exception (max {acc[name]['max']}, {acc[name].get('date', '')}): {acc[name].get('reason', '')}"
         rows.append({'metric': name, 'status': status, 'text': text, 'kind': (bm.get(name) or rm.get(name) or {}).get('kind'),
                      'base': (bm.get(name) or {}).get('value'), 'new': (rm.get(name) or {}).get('value'),
                      'name': (bm.get(name) or rm.get(name) or {}).get('name')})
@@ -273,10 +273,12 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
     for r in rows:
         counts[r['status']] = counts.get(r['status'], 0) + 1
 
-    p = lambda *a: print(*a, file=out)
+    def p(*a):
+        print(*a, file=out)
+
     p('=' * 100)
-    p('PERF  baseline: %s (%s)' % (bmeta.get('date', '?'), bmeta.get('app', {}).get('src', '?')))
-    p('      results:  %s (%s)%s' % (rmeta.get('date', '?'), rmeta.get('app', {}).get('src', '?'), '  [partial run]' if partial else ''))
+    p(f"PERF  baseline: {bmeta.get('date', '?')} ({bmeta.get('app', {}).get('src', '?')})")
+    p(f"      results:  {rmeta.get('date', '?')} ({rmeta.get('app', {}).get('src', '?')}){'  [partial run]' if partial else ''}")
     warn = []
     bb, rb = bmeta.get('browser', {}), rmeta.get('browser', {})
     bmc, rmc = bmeta.get('machine', {}), rmeta.get('machine', {})
