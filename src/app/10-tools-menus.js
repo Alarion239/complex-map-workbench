@@ -69,6 +69,7 @@
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
     if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
+    syncModeChips();
   }
   function setTool(id) {
     if (id === 'formula') { setPanels(false, S.hideRight); const f = $('formulaInput'); f.focus(); f.select(); return; }
@@ -256,6 +257,59 @@
     commit();
   }
   // (v16.5 UX97) the arrows move the selected shape by one step of the drawn grid (Shift: ten), as a drag would
+  // A closed polygon gains a vertex by a double-click on an edge and loses one from its menu or its vertex list. A bound
+  // vertex (a construction's point) moves its binding with its index; a derived or fixed polygon is left as it is.
+  const polyEditable = (s) => !!s && s.kind === 'polygon' && !s.def && !s.fixed;
+  const shiftBinds = (s, from, d) => {
+    if (!s.at) return;
+    const at = {};
+    for (const k of Object.keys(s.at)) { const m = /^v(\d+)$/.exec(k); at[m && +m[1] >= from ? 'v' + (+m[1] + d) : k] = s.at[k]; }
+    s.at = at;
+  };
+  // the vertex of polygon s under pane pixel (x, y), or -1
+  function polyVertexAt(pane, s, x, y, tol) {
+    let best = -1, bd = tol;
+    s.pts.forEach((p, i) => { const [px, py] = pane.w2s(C(p[0], p[1])), d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  // the edge of polygon s nearest pane pixel (x, y) within tol: the vertex it follows (the last edge closes the polygon)
+  // and the foot of the point on it, in the plane; null near a vertex, where the press belongs to the handle
+  function polyEdgeAt(pane, s, x, y, tol) {
+    const n = s.pts.length;
+    if (n < 3 || n >= 256) return null;
+    let best = null, bd = tol;
+    for (let i = 0; i < n; i++) {
+      const a = pane.w2s(C(s.pts[i][0], s.pts[i][1])), b = pane.w2s(C(s.pts[(i + 1) % n][0], s.pts[(i + 1) % n][1]));
+      const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+      if (!(L2 > 0)) continue;
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L2)), fx = a[0] + t * dx, fy = a[1] + t * dy, d = Math.hypot(fx - x, fy - y);
+      if (d < bd) { bd = d; best = { i, t, sx: fx, sy: fy }; }
+    }
+    if (!best) return null;
+    if (polyVertexAt(pane, s, x, y, 9) >= 0) return null;
+    return { i: best.i, z: pane.s2w(best.sx, best.sy) };
+  }
+  function polyAddVertex(s, i, z) {
+    if (!polyEditable(s) || s.pts.length >= 256 || !CX.isFin(z)) return false;
+    s.pts.splice(i + 1, 0, [z.re, z.im]);
+    shiftBinds(s, i + 1, 1);
+    if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
+    commit();
+    requestRender('P');
+    return true;
+  }
+  function polyRemoveVertex(id, i) {
+    const s = findShape(id);
+    if (!polyEditable(s) || s.pts.length <= 3 || !(i >= 0 && i < s.pts.length)) return false;
+    s.pts.splice(i, 1);
+    if (s.at) delete s.at['v' + i];
+    shiftBinds(s, i + 1, -1);
+    if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
+    buildShapeList();
+    commit();
+    requestRender('P');
+    return true;
+  }
   function nudgeShape(s, dx, dy, big) {
     const pane = isTarget(s) ? paneR : paneL;
     if (!pane || s.def) return false;
@@ -269,8 +323,13 @@
   }
   function moveShape(id, d) {
     const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
-    const i = list.findIndex((x) => x.id === id), j = i + d;
-    if (i < 0 || j < 0 || j >= list.length) return;
+    moveShapeTo(id, list.findIndex((x) => x.id === id) + d);
+  }
+  // a shape to place j of its list (the last is the front): Bring to front, Send to back, a dragged row
+  function moveShapeTo(id, j) {
+    const target = S.targets.some((x) => x.id === id), list = target ? S.targets : S.shapes;
+    const i = list.findIndex((x) => x.id === id);
+    if (i < 0 || j < 0 || j >= list.length || i === j) return;
     const [x] = list.splice(i, 1);
     list.splice(j, 0, x);
     if (target) targetsChanged(true); else shapesChanged(true);
@@ -327,8 +386,12 @@
     ctxChanged();
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
+<<<<<<< HEAD
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
   function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
+=======
+  const dragId = () => { const b = document.querySelector('#shapeList .shape.dragging'); return b ? b.getAttribute('data-id') : null; };
+>>>>>>> origin/claude/funny-darwin-l5uis3
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
     const changed = () => (target ? targetsChanged(true) : shapesChanged(true));
@@ -383,7 +446,20 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
+<<<<<<< HEAD
     shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
+=======
+    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name });
+    // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
+    if (!touchUI() && list.length > 1) {
+      box.draggable = true;
+      box.addEventListener('dragstart', (e) => { if (e.target !== box) return; e.dataTransfer.setData('text/plain', s.id); e.dataTransfer.effectAllowed = 'move'; box.classList.add('dragging'); });
+      box.addEventListener('dragend', () => { box.classList.remove('dragging'); for (const b of document.querySelectorAll('#shapeList .shape.drop-over')) b.classList.remove('drop-over'); });
+      box.addEventListener('dragover', (e) => { if (!e.dataTransfer.types.includes('text/plain') || !list.some((x) => x.id === dragId())) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; box.classList.add('drop-over'); });
+      box.addEventListener('dragleave', () => box.classList.remove('drop-over'));
+      box.addEventListener('drop', (e) => { e.preventDefault(); box.classList.remove('drop-over'); const id = e.dataTransfer.getData('text/plain'); if (list.some((x) => x.id === id)) moveShapeTo(id, list.indexOf(s)); });
+    }
+>>>>>>> origin/claude/funny-darwin-l5uis3
     return box;
   }
   // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc leaves it as it was, and an empty name
@@ -547,6 +623,19 @@
       case 'annulus': box.append(ptField('c', $t('center <i>c</i>')), numField('r1', '<i>r</i>₁'), numField('r2', '<i>r</i>₂')); break;
       case 'sector': box.append(ptField('c', $t('vertex <i>c</i>')), numField('t1', '<i>θ</i>₁ (°)'), numField('t2', '<i>θ</i>₂ (°)'), numField('r', $t('radius (0 = ∞)'))); break;
       case 'arc': box.append(ptField('a', $tx('arc', 'start')), ptField('m', $tx('arc', 'through')), ptField('b', $tx('arc', 'end'))); break;
+      case 'polygon': {
+        // the vertices, folded: each with its place and a way to remove it (a polygon keeps at least three)
+        const list = h('div', { class: 'poly-verts' });
+        const fill = () => {
+          list.replaceChildren(...s.pts.map((p, i) => h('div', { class: 'poly-vert' },
+            h('span', { class: 'mono' }, `${i + 1}: ${CX.fmt(C(p[0], p[1]), 4)}`),
+            h('button', { type: 'button', class: 'icon-btn', 'aria-label': $t('Remove vertex {i}', { i: i + 1 }), 'data-tip': $t('Remove vertex'), disabled: s.pts.length <= 3 || !polyEditable(s), html: ICONS.close,
+              onclick: () => polyRemoveVertex(s.id, i) }))));
+        };
+        fill();
+        box.append(h('details', { class: 'field wide poly-det' }, h('summary', null, $t('Vertices ({n})', { n: s.pts.length })), list));
+        break;
+      }
       case 'cgrid': box.append(ptField('a', $t('corner <i>a</i>')), ptField('b', $t('corner <i>b</i>')), numField('n', $t('divisions'), 1)); break;
       case 'pgrid': box.append(ptField('c', $t('center <i>c</i>')), numField('r', $t('radius <i>r</i>')), numField('nc', $t('circles'), 1), numField('nr', $t('rays'), 1)); break;
       case 'formula': {
@@ -616,7 +705,7 @@
     const s = findShape(selected);
     return s && !s.def && !s.at ? s : null;
   }
-  const shapeInspSig = () => { const s = shapeInspSel(); return s ? `SH#${s.id}#${rowKind(s)}#${isTarget(s) ? 'y' : 'x'}#${I18N.lang}#${selOf()}` : null; };
+  const shapeInspSig = () => { const s = shapeInspSel(); return s ? `SH#${s.id}#${rowKind(s)}#${isTarget(s) ? 'y' : 'x'}#${I18N.lang}#${selOf()}#${s.kind === 'polygon' ? s.pts.length : ''}` : null; };
   function shapeInspBuild() {
     const s = shapeInspSel();
     const label = Construct.shapeLabel(s);

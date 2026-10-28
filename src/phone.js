@@ -68,9 +68,12 @@ const Phone = (() => {
     // More tools: the tiles, then the region formula and the shapes (moved in)
     els.tiles = h('div', { class: 'ph-tiles', role: 'group', 'aria-label': $t('Drawing tools') });
     els.body.tools.append(els.tiles);
-    // Display: this view's options, then the region display (moved in)
+    // Display: this view's options and the unit circle, then (in the X → Y view) the regions' display, lent from
+    // page.html's #regionsHome ([v17 D5, #82]: no longer a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
-    els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts);
+    els.regions = h('div', { class: 'ph-regions' });
+    els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
+    els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
     // the chain bar: Numbers first
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
     // the context bar: above the tool row, only while something is selected or under way (D3)
@@ -184,12 +187,11 @@ const Phone = (() => {
     park($('propsPanel'), els.body.edit);
     park($('secFormula'), els.body.tools);
     park($('secShapes'), els.body.tools);
-    park($('secDisplay'), els.body.display);
     const wrap = document.querySelector('.pipe-wrap');
     park(els.nums, wrap, $('pipeline'));
     park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
-    for (const id of ['secFormula', 'secShapes', 'secDisplay']) { const d = $(id); if (d) d.open = true; }
+    for (const id of ['secFormula', 'secShapes']) { const d = $(id); if (d) d.open = true; }
     A.showPanels(true);
     syncPanes(); syncTools(); syncNums(); syncSnap();
     A.resize();
@@ -532,7 +534,9 @@ const Phone = (() => {
       if (!land && !now) requestAnimationFrame(() => rootEl.classList.remove('ph-ride'));
     }
     rootEl.classList.remove('ph-ride');
-    // this view's options go back to the app (it keeps them for its own popover)
+    // this view's options go back to the app (it keeps them for its own popover), the unit circle and the regions'
+    // display to their home
+    homeDisplay();
     els.viewOpts.replaceChildren();
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
@@ -573,9 +577,21 @@ const Phone = (() => {
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
   function fillDisplay(side) {
     els.dispSide = side;
-    const kids = A.footKids(side);
-    els.viewOpts.replaceChildren(...kids);
+    const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
+    homeDisplay();
+    els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
     els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
+    if (reg) els.regions.append(reg);
+    els.regionsH.hidden = !reg;
+    // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
+    // More sheet has no room left for it at 360 px; page.html's #meshGroup)
+    const mesh = $('meshGroup');
+    if (mesh) els.body.display.append(mesh);
+  }
+  function homeDisplay() {
+    const home = $('regionsHome');
+    if (!home) return;
+    for (const id of ['unitBox', 'regionsBox']) { const b = $(id); if (b && b.parentNode !== home && els.body.display.contains(b)) home.append(b); }
   }
 
   // More (⋯): sound, theme, phase colours, language; examples, export, LaTeX, search, the tour and the guide

@@ -25,30 +25,8 @@
     if (!enRev) { enRev = new Map(); const tb = I18N._table(I18N.lang) || {}; for (const k in tb) if (typeof tb[k] === 'string') enRev.set(tb[k], k.slice(k.indexOf(I18N.CTX) + 1)); }
     return enRev.get(s) || s;
   };
-  // the languages' own names (never translated: each is found under its own name)
-  const LANG_NAMES = { en: 'English', ru: 'Русский', it: 'Italiano' };
-  // the Language setting's items: the globe button's menu, the More menu and the palette (Auto, English, Русский,
-  // Italiano)
-  function langItems() {
-    // Auto names what it would pick here (a test page's ?ns= stays English: review eng-12); each name carries its own
-    // lang for a screen reader (eng-3); the menu is named and opens on the checked item (eng-7)
-    const pref = I18N.readPref(), autoLang = I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator });
-    const auto = LANG_NAMES[autoLang] || LANG_NAMES.en;
-    const mk = (v, label, lang, labelEl) => ({ label, lang, labelEl, radio: true, checked: pref === v, run: () => pickLang(v) });
-    const autoEl = h('span', { class: 'mi-label' }, ...I18N.parts('Auto ({name})', { name: h('span', { lang: LANG_NAMES[autoLang] ? autoLang : 'en' }, auto) }));
-    const list = [mk('auto', $t('Auto ({name})', { name: auto }), null, autoEl), mk('en', LANG_NAMES.en, 'en'), mk('ru', LANG_NAMES.ru, 'ru'), mk('it', LANG_NAMES.it, 'it')];
-    list.menuLabel = $t('Language'); list.focusChecked = true;
-    return list;
-  }
-  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload: the globe's label follows (eng-6)
-  function pickLang(v) { const r = I18N.setPref(v); if (r && !r.reload) syncLangLabel(); return r; }
-  function syncLangLabel() {
-    const lb = $('langBtn');
-    if (!lb) return;
-    const pref = I18N.readPref(), nm = LANG_NAMES[pref] || $t('Auto');
-    lb.setAttribute('aria-label', $t('Language: {name}', { name: nm }));
-    const ll = lb.querySelector('.llabel'); if (ll) { ll.textContent = nm; if (pref === 'auto') ll.removeAttribute('lang'); else ll.setAttribute('lang', pref); }
-  }
+  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload (eng-6)
+  function pickLang(v) { return I18N.setPref(v); }
   // (v16.5 V03) one name for the integral in the palette and the planes' menu: ∮ F dz around Disc 1, Integrate F along Line 1
   function intLabel(s, names) {
     let closed = false;
@@ -79,7 +57,7 @@
       defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
       integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
       morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints,
-      renumberZp, robustBox, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels,
+      renumberZp, replaceSteps, robustBox, lsk, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels,
       setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop,
       soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox,
       get S() { return S; },
