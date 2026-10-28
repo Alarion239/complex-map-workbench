@@ -314,6 +314,51 @@ ok('D8 probing X draws on the phone\'s Y inset overlay', px1 > px0 + 20, [px0, p
 await withState('bothl', 915, 412, true, { shapes: [], steps: STEPS2 });
 ok('D8 landscape has both planes already: no Both key', await ev(`[...document.querySelectorAll('.ph-both-key')].every((k) => !k.getClientRects().length)`));
 
+// ---------------- D3: the context bar for what is selected or under way ----------------
+await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: STEPS2 });
+const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
+const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
+ok('D3 nothing selected: no bar', (await ctxInfo()) === null);
+await ev(`__cmwSelect('s1')`); await settle(600);
+const c1 = await ctxInfo();
+const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
+ok('D3 a selected shape: a 56 px bar over the tool row with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
+ok('D3 the plane gives up the bar\'s height from the bottom', d0 - d1 >= 50 && d0 - d1 <= 60, [d0, d1]);
+await ev(`__cmwSelect('s2')`); await settle(500);
+ok('D3 a new selection updates the bar', /Rectangle|Rect/i.test((await ctxInfo()).text), await ctxInfo());
+await ev(`document.querySelector('.ph-ctx .ph-cb.ico').click()`); await settle(500);
+ok('D3 ⋯ opens the shape\'s menu (Rename … Delete)', await ev(`(() => { const m = document.querySelector('#popHost .pop.menu'); return !!m && /Rename/.test(m.innerText) && /Delete/.test(m.innerText); })()`));
+await key('Escape'); await settle(300);
+await ev(`document.querySelector('.ph-ctx .ph-cb.prim').click()`); await settle(900);
+ok('D3 Edit opens the Tools sheet at the shape, and the bar gives way', (await phSt()).kind === 'tools' && (await ctxInfo()) === null, await phSt());
+await ev(`Phone.close(true)`); await settle(600);
+ok('D3 the bar is back when the sheet closes', !!(await ctxInfo()));
+const n0 = (await ev(`__cmwShapes().shapes.length`));
+await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Delete/.test(b.textContent)).click()`); await settle(700);
+ok('D3 Delete removes the shape and the bar goes', (await ev(`__cmwShapes().shapes.length`)) === n0 - 1 && (await ctxInfo()) === null, [n0, await ev(`__cmwShapes().shapes.length`)]);
+try {
+await ev(`document.querySelector('#secDraw .tool[data-tool="polygon"]').click()`); await settle(300);
+const pc = await center('#paneL');
+await touch(pc[0] - 80, pc[1] - 60); await settle(600); await touch(pc[0] + 60, pc[1] - 40); await settle(600);
+const p2 = await ctxInfo();
+ok('D3 a polygon in progress: Last, Done (not yet), Cancel', p2 && p2.k === 'polygon' && p2.btn.map((x) => x.t).join('|') === '⌫ Last|Done|Cancel' && p2.btn[1].dis, p2);
+await touch(pc[0] + 20, pc[1] + 30); await settle(600);
+const p3 = await ctxInfo(); 
+ok('D3 three points: Done is on', p3 && !p3.btn[1].dis, p3);
+await ev(`document.querySelector('.ph-ctx .ph-cb').click()`); await settle(300);
+ok('D3 Last takes the last point back', (await ctxInfo()).btn[1].dis === true, await ctxInfo());
+await touch(pc[0] + 20, pc[1] + 30); await settle(600);
+const sh0 = await ev(`__cmwShapes().shapes.length`);
+await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Done/.test(b.textContent)).click()`); await settle(600);
+ok('D3 Done makes the polygon', (await ev(`__cmwShapes().shapes.length`)) === sh0 + 1, [sh0, await ev(`__cmwShapes().shapes.length`)]);
+await ev(`document.querySelector('#secDraw .tool[data-tool="polygon"]').click()`); await settle(200);
+await touch(pc[0] - 60, pc[1]); await settle(600);
+await ev(`[...document.querySelectorAll('.ph-ctx .ph-cb')].find((b) => /Cancel/.test(b.textContent)).click()`); await settle(500);
+const cc = await ctxInfo();
+ok('D3 Cancel drops the polygon (the finished one is still the selection)', !cc || cc.k !== 'polygon', cc);
+} catch (e) { fails.push({ name: 'D3 threw', got: String(e.stack).slice(0, 600) }); }
+await ev(`document.querySelector('#secDraw .tool[data-tool="select"]').click()`); await settle(200);
+
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
 for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {

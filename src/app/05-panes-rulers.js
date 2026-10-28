@@ -209,6 +209,7 @@
     const showL = solo() !== 'R', showR = solo() !== 'L';
     updateDraftChips();
     updateUndo();
+    ctxChanged();
     if (showL) { paneL.setView(leftView()); paneL.beginOverlay(); }
     if (showR) {
       paneR.setView(V.right);

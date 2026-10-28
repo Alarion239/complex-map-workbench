@@ -946,6 +946,23 @@
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
       globeIcon: ($('langBtn') && $('langBtn').querySelector('svg') || {}).outerHTML || '',
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
+      // (D3) what the phone's context bar shows: the polygon being drawn, a curve being listened along, the selected shape
+      ctxState: () => {
+        if (polyDraftOpen()) return { kind: 'polygon', n: draft.pts.length };
+        if (SND && snd.play) return { kind: 'listen' };
+        const sel = selected && findShape(selected);
+        if (!sel) return null;
+        const r = shapeRows.get(sel.id);
+        return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def: r ? r.d.textContent : '' };
+      },
+      ctxAct: (act, id, anchor) => {
+        if (act === 'last') polyBack();
+        else if (act === 'done') finishPolygon();
+        else if (act === 'cancel') cancelDrawing();
+        else if (act === 'delete') deleteShape(id);
+        else if (act === 'stop') sndStopPlay(true);
+        else if (act === 'more') { const r = shapeRows.get(id); if (r && r.more) r.more(anchor); }
+      },
       sound: (k) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on) } : null),
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },

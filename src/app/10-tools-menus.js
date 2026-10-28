@@ -324,8 +324,11 @@
       });
     }
     updateShapeList();
+    ctxChanged();
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
+  // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
+  function ctxChanged() { if (typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn()) Phone.ctx(); }
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
     const changed = () => (target ? targetsChanged(true) : shapesChanged(true));
@@ -334,13 +337,11 @@
     const d = h('span', { class: 'd' });
     const eye = h('button', { class: 'icon-btn eye', 'aria-label': `${hidden ? $t('Show') : $t('Hide')} ${label}`, 'data-tip': hidden ? $t('Show') : $t('Hide'), html: hidden ? ICONS.eyeOff : ICONS.eye,
       onclick: (e) => { e.stopPropagation(); s.visible = hidden; changed(); commit(); } });
-    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
-      onclick: (e) => {
-        e.stopPropagation();
+    // the ⋯ menu, from the row's button or (a phone) the context bar's
+    const openMore = (anchor) => {
         const items = [];
         // a curve of the domain: its line integral (as a right click on the curve opens it)
         if (!target && kindType(s) !== 'point' && s.kind !== 'cgrid' && s.kind !== 'pgrid') {
-          const anchor = e.currentTarget;
           items.push({ label: $t('Integrate {x} along it', { x: fnText() }), run: () => { const r = anchor.getBoundingClientRect(); return openIntegralPop(s.id, r.right, r.top); } });
           // (v16.5 UX72: Listen along, as in the plane's menu, with the same verb; sound off: it offers to turn it on)
           if (SND) items.push({ label: snd.play ? $t('Stop listening') : $t('Listen along it'), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
@@ -357,8 +358,10 @@
         // ([v16.5 UX95] Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
         items.push({ label: $t('Delete'), icon: 'trash', key: touchUI() ? '' : '⌫', danger: true, run: () => deleteShape(s.id) });
         Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
-        openMenu(e.currentTarget, items);
-      } });
+        openMenu(anchor, items);
+    };
+    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
+      onclick: (e) => { e.stopPropagation(); openMore(e.currentTarget); } });
     const name = h('span', { class: 'k' }, label);
     // the name is the row's button; the eye and ⋯ buttons sit beside it, not inside it
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
@@ -380,7 +383,7 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name });
+    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
     return box;
   }
   // Rename: the name becomes a field in its row; Enter or leaving keeps it, Esc leaves it as it was, and an empty name
