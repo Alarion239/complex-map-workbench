@@ -189,8 +189,8 @@
         // above the real axis (the empty view is centered on 0) and cased in the plane color, so nothing strikes it
         const ctx = pane.ctx;
         ctx.font = `12px ${TH.ui}`; ctx.fillStyle = TH.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        // (v16.5 UX83: only where it fits: a phone's 44 px picture showed it cut, 'lo shape'; the axes alone say it)
-        if (ctx.measureText($t('No shapes')).width <= pane.w - 8) haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
+        // (only where it fits: a phone's 44 px picture showed it cut, 'lo shape', and a strip 28 px high would cut it at the top; the axes alone say it)
+        if (pane.h >= 40 && ctx.measureText($t('No shapes')).width <= pane.w - 8) haloText(ctx, $t('No shapes'), pane.w / 2, pane.h / 2 - 7, TH.plane);
       }
     }
     if (waiting || thumbNotFinal) { thumbNotFinal = false; return; } // drawn with a stand-in: not final, not cached
