@@ -338,7 +338,7 @@ const Tour = (() => {
         { id: 'strings', anchor: 'panes', needs: 'zp', hear: true, act: 'sound', title: 'Phase lines are strings', before: [['scene', 'harp'], ['view', 'phase'], ['tool', 'select']],
           body: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are strings a semitone apart, with D where $F>0$. Hear the function plucks five, D, E, F♯, A and B, as the pointer crosses them. Anticlockwise round a zero the scale rises; round a pole it falls.',
           touch: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are strings a semitone apart, with D where $F>0$. Hear the function plucks five, D, E, F♯, A and B, as your finger crosses them. Anticlockwise round a zero the scale rises; round a pole it falls.',
-          try: { text: 'Circle the zero $1$, then the pole $-1$.', touch: 'Hold near $1$, slide round it, then round $-1$.', on: 'harp-turn', test: harpUpDown, then: 'A scale up and a scale down: one turn of $\\arg F$ each.' } },
+          try: { text: 'Circle the zero $1$, then the pole $-1$.', touch: 'Hold near $1$, slide round it, then round $-1$.', on: 'hear-turn', test: harpUpDown, then: 'A scale up and a scale down: one turn of $\\arg F$ each.' } },
         { id: 'loop', anchor: 'panes', needs: 'zp', act: 'listen', title: 'A loop sings its number', before: [['scene', 'harpLoop'], ['view', 'phase'], ['tool', 'select']],
           body: 'Listen along a closed curve plucks the same strings, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.',
           try: { text: 'Press ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || (!!e.closed && e.W === 1 && !!e.full), then: '$W=1$: one turn of $\\arg F$, sung as F♯.' } },
@@ -377,7 +377,8 @@ const Tour = (() => {
       ],
     },
   ];
-  // the Phase lines are strings task: a lap up and a lap down (a low D counted each way), whichever point gave which
+  // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
+  // point gave which
   function harpUpDown(e, m) {
     if (!e) return true;
     m = m || {};

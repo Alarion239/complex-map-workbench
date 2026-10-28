@@ -233,6 +233,8 @@ const PlaneMenu = (() => {
     cut: svg('<path d="M2.5 8h11" stroke-dasharray="2 2"/><path d="M8 4.5a3.5 3.5 0 1 1-3.5 3.5"/><path d="M4.5 5.5v2.5H7"/>'),
     integral: '<span class="pm-glyph">∮</span>',
     listen: svg('<path d="M3 6.5v3h2.25L8.5 12V4L5.25 6.5z"/><path d="M10.75 6a2.75 2.75 0 0 1 0 4M12.5 4.25a5 5 0 0 1 0 7.5"/>'),
+    // (a composed curve's "Play the composition": a beamed pair of notes)
+    piece: svg('<path d="M6 11.5V4.25l6-1.5v7.25"/><circle cx="4.6" cy="11.6" r="1.4"/><circle cx="10.6" cy="10.1" r="1.4"/>'),
     stepzp: '<span class="pm-mk zeros"></span>',
   };
 
@@ -264,7 +266,7 @@ const PlaneMenu = (() => {
       }
     }
     // the line integral along the curves there (the menu of earlier versions, unchanged)
-    for (const it of api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy)) out.push({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run });
+    for (const it of api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy)) out.push({ id: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', icon: it.listen ? 'listen' : it.piece ? 'piece' : 'integral', label: it.label, run: it.run });
     // the shape under the pointer
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
     if (s) {

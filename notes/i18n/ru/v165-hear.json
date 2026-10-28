@@ -64,5 +64,40 @@
   "en": "Branch cut: F jumps by a factor {factor}.",
   "ru": "Разрез: F скачком умножается на {factor}.",
   "note": "S21: a branch cut on the probe (at most once per 1.5 s)"
+ },
+ "hear.piece_item": {
+  "en": "Play the composition (Grieg, arranged on this curve)",
+  "ru": "Сыграть композицию (Григ, переложенный на эту кривую)",
+  "note": "S9: the curve menu, a composed curve"
+ },
+ "hear.piece_chip": {
+  "en": "Playing the composition · Esc stops",
+  "ru": "Звучит композиция · Esc — стоп",
+  "note": "S10: the chip over X (desktop)"
+ },
+ "hear.piece_chip_ph": {
+  "en": "Playing the composition",
+  "ru": "Звучит композиция",
+  "note": "S10: the chip over X (phone)"
+ },
+ "hear.piece_say": {
+  "en": "Playing the composition: Grieg's theme, arranged on this curve. Listen along plays the function itself. Esc stops.",
+  "ru": "Звучит композиция: тема Грига, переложенная на эту кривую. «Слушать вдоль кривой» играет саму функцию. Esc — стоп.",
+  "note": "S11: announcement"
+ },
+ "hear.hint_desk": {
+  "en": "Right-click the spiral, then Listen along or Play the composition.",
+  "ru": "Правой кнопкой по спирали: «Слушать вдоль кривой» или «Сыграть композицию».",
+  "note": "S13: the example's hint (desktop)"
+ },
+ "hear.hint_ph": {
+  "en": "Hold the spiral, then Listen along or Play the composition.",
+  "ru": "Удерживайте спираль: «Слушать вдоль кривой» или «Сыграть композицию».",
+  "note": "S13: the example's hint (touch)"
+ },
+ "hear.speed": {
+  "en": "Listening along at {speed} pixels a second: the curve is too long or too short for 250.",
+  "ru": "Прослушивание вдоль кривой со скоростью {speed} пикселей в секунду: для 250 кривая слишком длинная или слишком короткая.",
+  "note": "S20: Listen along outside 250 px/s (its 1 s floor or 30 s cap)"
  }
 }

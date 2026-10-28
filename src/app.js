@@ -6323,7 +6323,13 @@
       const name = names.get(s.id) || Region.KINDS[s.kind].label;
       return { label: closed ? $t('∮ {x} d{dv} around {name}', { x: fnText(), dv, name }) : $t('Integrate {x} along {name}', { x: fnText(), name }), run: () => openIntegralPop(s.id, cx, cy) };
     });
-    if (SND) for (const { s } of near) if ((sndP.on && sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
+    if (SND) {
+      for (const { s } of near) {
+        if ((sndP.on && sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
+        // (a composed curve, once Listen along plays the function: its score has its own item)
+        if (SND.along && !snd.play && sndListenOf(s)) items.push({ piece: true, label: $t('Play the composition (Grieg, arranged on this curve)'), run: () => sndListenAsk(s, true) });
+      }
+    }
     return items;
   }
   // ---- the planes' context menu (v15, src/planemenu.js): what it needs from the app ----
@@ -13596,6 +13602,9 @@
   // the engine's live stream (Sound.hear) once it is there; until then today's harp (each side builds on its own)
   const sndHear = () => (SND && SND.hear ? SND.hear : null);
   const sndNow = () => performance.now() / 1000;
+  // throughZP / throughZPAlong (a zero or a pole on a step that argStep calls a jump: a seat, not a cut): calc.js's
+  // when it has them, else the engine's pure core (Sound.HT)
+  const sndZP = () => (typeof Calc !== 'undefined' && Calc.throughZP ? Calc : SND && SND.HT && SND.HT.throughZP ? SND.HT : null);
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
   const sndClamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -14159,9 +14168,9 @@
       if (seat || jump || swap || quiet || keyQuiet) SND.harpReset(snd.phi);
       else {
         // (v16.4) a low D counted up or down: the tour's Phase lines are strings task
-        const hs0 = tourL['harp-turn'] ? SND.harpState() : null;
+        const hs0 = tourL['hear-turn'] ? SND.harpState() : null;
         SND.harp(snd.phi, { ln: la, pan, dt, h: band, shaky: !!snd.near && moved && !fn, still: !!fn && !moved });
-        if (hs0) { const hs1 = SND.harpState(); if (hs1.up > hs0.up) tourEmit('harp-turn', { dir: 1 }); if (hs1.down > hs0.down) tourEmit('harp-turn', { dir: -1 }); }
+        if (hs0) { const hs1 = SND.harpState(); if (hs1.up > hs0.up) tourEmit('hear-turn', { dir: 1 }); if (hs1.down > hs0.down) tourEmit('hear-turn', { dir: -1 }); }
       }
       // a loop being drawn: the harp's state at its first point (harpClose at the release); a re-seat later in the loop
       // (a cut, a view gesture) leaves its count as it is
@@ -14264,10 +14273,11 @@
         // a branch cut, unless F overflows beside it (|ln|F|| ≥ 700) or the step runs through a zero or a pole
         const l0 = Math.log(Math.hypot(snd.g.re, snd.g.im)), l1 = Math.log(Math.hypot(g.re, g.im));
         let zp = !(Math.abs(l0) < 700 && Math.abs(l1) < 700) || budget < 45;
-        if (!zp && Calc.throughZP) {
+        const ZP = sndZP();
+        if (!zp && ZP) {
           try {
-            zp = dT ? Calc.throughZPAlong((u) => sndFAt(T0 + u * (T - T0))(C(za0.re + (zc.re - za0.re) * u, za0.im + (zc.im - za0.im) * u)), snd.g, g)
-              : paths ? (r.P ? Calc.throughZPAlong(r.P, r.ga, r.gb) : true) : Calc.throughZP(F, za0, snd.g, zc, g);
+            zp = dT ? ZP.throughZPAlong((u) => sndFAt(T0 + u * (T - T0))(C(za0.re + (zc.re - za0.re) * u, za0.im + (zc.im - za0.im) * u)), snd.g, g)
+              : paths ? (r.P ? ZP.throughZPAlong(r.P, r.ga, r.gb) : true) : ZP.throughZP(F, za0, snd.g, zc, g);
           } catch (e) { zp = true; }
         }
         act = zp ? 'seat' : 'cut';
@@ -14418,7 +14428,7 @@
     if (!sndHear() && lp && Number.isInteger(lp.hc) && sndP.sonify && Number.isInteger(W)) { SND.harpClose(lp.hc + 5 * W, { pan: 0 }); SND.harpReset(snd.phi); }
     sndSay(say);
     // (one message: a polite live region would read only the last of two)
-    if (!snd.auto && !matchMedia('(prefers-reduced-motion: reduce)').matches) { snd.auto = true; if (sndListen(pts, true, say)) return; }
+    if (!snd.auto && !matchMedia('(prefers-reduced-motion: reduce)').matches) { snd.auto = true; if (sndListen(pts, true, say, null, null, { auto: true })) return; }
     if (sndP.sonify && sndSingLoop(pts, W)) return;
     SND.play('loopDone', { w: W });
   }
@@ -14540,14 +14550,65 @@
     }
     return { zs, phi, la, cuts };
   }
+  // Listen along's samples for the engine (Sound.along, spec 3.13): the curve (X plane coordinates) at M points evenly
+  // in arc length, one a millisecond: {t (s from the start), phi (turns, tracked exactly), ln, pan (from the point's x
+  // in X's pane), gap?, seat?, cut?}, as the pointer's probe has them: argStep with a budget of 6000 a step, a `jump`
+  // a cut unless |ln|F|| ≥ 700 or Calc.throughZP finds a zero or pole on it, any other failure a seat, the finite test
+  // and the bridge rule. {smp, zs, W (closed: the rounded turns, null if a cut or a gap), turns}; null when F is too
+  // costly here (more than 1.5 s) or fails at every point
+  function sndSampleAt(F, pts, closed, M) {
+    const ring = closed ? pts.concat([pts[0]]) : pts, seg = [];
+    let Lt = 0;
+    for (let i = 0; i + 1 < ring.length; i++) { const l = Math.hypot(ring[i + 1][0] - ring[i][0], ring[i + 1][1] - ring[i][1]); seg.push(l); Lt += l; }
+    if (!(Lt > 0) || !(M >= 2)) return null;
+    const v = leftView(), w = Math.max(1, paneL.w), t0 = performance.now();
+    const smp = new Array(M), zs = new Array(M);
+    let i = 0, acc = 0, zp = null, gp = null, phi = 0, seat = true, any = false, cuts = 0, gaps = 0, phi0 = null;
+    for (let j = 0; j < M; j++) {
+      const s = (j / (M - 1)) * Lt;
+      while (i < seg.length - 1 && acc + seg[i] < s) { acc += seg[i]; i++; }
+      const a = seg[i] ? sndClamp((s - acc) / seg[i], 0, 1) : 0;
+      const z = C(ring[i][0] + (ring[i + 1][0] - ring[i][0]) * a, ring[i][1] + (ring[i + 1][1] - ring[i][1]) * a);
+      zs[j] = z;
+      const t = j / 1000, pan = 0.3 * sndClamp(2 * (w / 2 + (z.re - v.cx) * v.s) / w - 1, -1, 1);
+      let g = null;
+      try { g = F(z); } catch (e) { g = null; }
+      const bz = sndBridge(F, z, g), zc = bz.z;
+      g = bz.g;
+      if (!sndOk(g)) { smp[j] = { t, gap: true }; zp = null; seat = true; gaps++; continue; }
+      const ar = Math.atan2(g.im, g.re) / TAU, o = { t, phi: 0, ln: Math.log(Math.hypot(g.re, g.im)), pan };
+      if (!zp) { phi = ar + Math.round(phi - ar); if (any || seat) o.seat = true; }
+      else {
+        const r = Calc.argStep(F, zp, gp, zc, g, { budget: 6000 });
+        phi += r.d / TAU;
+        if (!r.exact) {
+          let cut = r.why === 'jump' && Math.abs(Math.log(Math.hypot(gp.re, gp.im))) < 700 && Math.abs(o.ln) < 700;
+          const ZP = sndZP();
+          if (cut && ZP) { try { cut = !ZP.throughZP(F, zp, gp, zc, g); } catch (e) { cut = false; } }
+          if (cut) { o.cut = true; cuts++; } else o.seat = true;
+        }
+      }
+      o.phi = phi;
+      if (phi0 == null) phi0 = phi;
+      smp[j] = o; any = true; seat = false;
+      zp = zc; gp = g;
+      if ((j & 255) === 0 && performance.now() - t0 > 1500) return null;
+    }
+    if (!any) return null;
+    const turns = phi - (phi0 || 0), Wr = Math.round(turns);
+    return { smp, zs, turns, W: closed && !cuts && !gaps && Math.abs(turns - Wr) < 0.05 ? Wr : null };
+  }
   // play F along a curve (Mathematical events): the probe travels the curve in X and its image in Y; Esc, L, the
   // menu again, or a pointer move of more than 4 px stop it (on a 12 ms fade, never mid-waveform). listen: a composed
   // curve's own duration, velocities, register and drum (sndListenOf; an example's melody, notes/sea-song), used only
   // while the harp would play exactly its crossings here; a pointer move does not stop a melody. shape: the shape it
   // plays: it stops when that shape is gone (deleted, another example, undo) or, for a melody, no longer the melody
   // (edited, another chain, notes/sea-song review ui-1)
-  function sndListen(pts, closed, lead, listen, shape) {
+  function sndListen(pts, closed, lead, listen, shape, o) {
     if (!sndP.on || !sndP.events || !SND || !snd.tracker || !pts || pts.length < 2) return false;
+    // the function itself (Sound.along: the notes or the Glide), once the engine has it; a composed score (listen,
+    // from "Play the composition") keeps the path below
+    if (SND.along && !listen) return sndListenFn(pts, closed, lead, shape, o || {});
     sndStopPlay(false);
     if (snd.voice) snd.voice.gate(false, undefined, 0.02);
     const Sm = sndSample(sndF(), pts, closed);
@@ -14576,13 +14637,52 @@
     // (v16.4: closed and W, the rounded winding number of a closed curve, for the tour's listen-ended)
     const Wn = closed && !Sm.cuts.length && Math.abs(turns - Wr) < 0.05 ? Wr : null;
     const p = snd.play = { h, zs: Sm.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: !!vel, shape: shape || null, nf: 0, closed: !!closed, W: Wn };
-    tourEmit('listen-started', { piece: !!vel, closed: !!closed, dur });
+    tourEmit('listen-started', { piece: !!vel, fn: false, closed: !!closed, dur });
     updateDraftChips();
-    sndSay((lead ? lead + ' ' : '') + (closed && !Sm.cuts.length ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Math.round(turns)) : $t('Listening along the curve. Esc stops.')));
+    // (the composition, once Listen along plays the function: it says which of the two plays)
+    const what = vel && SND.along ? $t('Playing the composition: Grieg\'s theme, arranged on this curve. Listen along plays the function itself. Esc stops.')
+      : closed && !Sm.cuts.length ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Math.round(turns)) : $t('Listening along the curve. Esc stops.');
+    sndSay((lead ? lead + ' ' : '') + what);
+    sndPlayRun(p);
+    return true;
+  }
+  // Listen along plays the function (spec 3.13): the probe walks the curve at 250 screen pixels a second of X's view
+  // (1 to 30 s; outside that the speed is said), and the engine plays what the pointer would play there (the notes,
+  // repeats and cracks, or the Glide; no cues, no query), then a closed curve with a winding number sings it.
+  // o.auto: the first loop's own playback, only when it lasts at most 7 s
+  function sndListenFn(pts, closed, lead, shape, o) {
+    const v = leftView(), ring = closed ? pts.concat([pts[0]]) : pts;
+    let L = 0;
+    for (let i = 1; i < ring.length; i++) L += Math.hypot(ring[i][0] - ring[i - 1][0], ring[i][1] - ring[i - 1][1]);
+    const raw = L * v.s / 250, dur = sndClamp(raw, 1, 30);
+    if (!(dur > 0) || (o.auto && raw > 7)) return false;
+    sndStopPlay(false);
+    if (snd.voice) snd.voice.gate(false, undefined, 0.02);
+    const R = sndSampleAt(sndF(), pts, closed, Math.ceil(1000 * dur) + 1);
+    if (!R) { sndSay($t('This curve cannot be played here: F is too costly, or vanishes or is infinite at its start.')); return false; }
+    const tag = 'listen' + (++snd.listenN);
+    const hh = SND.along(R.smp, { tag, n: S.sectors || 12, closed: !!closed });
+    if (!hh) return false;
+    const Wr = R.W;
+    // (a W the singer has no note for, 4 + W outside 1 … 24: its |W| pings instead, review sound-2)
+    if (Wr != null && !sndSingLoop(pts, Wr, { at: dur + 0.05, tag }) && !SND.singable(Wr)) SND.play('loopDone', { w: Wr, at: dur + 0.05, tag, force: true });
+    const h = { t0: hh.t0, now: hh.now, tag, along: hh, mode: hh.mode || '', counts: hh.counts || null };
+    const p = snd.play = { h, zs: R.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: false, fn: true, shape: shape || null, nf: 0, closed: !!closed, W: Wr, T: morph.open ? morph.T : null };
+    tourEmit('listen-started', { piece: false, fn: true, closed: !!closed, dur });
+    updateDraftChips();
+    const speed = raw !== dur ? $t('Listening along at {speed} pixels a second: the curve is too long or too short for 250.', { speed: I18N.num(Math.round(L * v.s / dur)) }) + ' ' : '';
+    sndSay((lead ? lead + ' ' : '') + speed + (closed && Wr != null ? $tn('Listening along the loop: {n} turn of arg F. Esc stops.', 'Listening along the loop: {n} turns of arg F. Esc stops.', Wr) : $t('Listening along the curve. Esc stops.')));
+    sndPlayRun(p);
+    return true;
+  }
+  // the probe travels the curve while it plays (X's readouts and its image in Y); it stops when what it plays changed:
+  // the shape gone, a melody's curve or chain changed (its key checked every 8th frame), or, for the function, t moved
+  function sndPlayRun(p) {
+    const h = p.h, dur = p.dur;
     const tick = () => {
       if (snd.play !== p) return;
-      // what it plays changed: the shape gone, or a melody's curve or chain changed (its key checked every 8th frame)
       if (p.shape && (!S.shapes.includes(p.shape) || (p.piece && (++p.nf % 8 === 0 || !p.shape.listen) && !sndListenOf(p.shape)))) { sndStopPlay(false); return; }
+      if (p.fn && p.T !== (morph.open ? morph.T : null)) { sndStopPlay(false); return; }
       const u = sndClamp((h.now() - h.t0) / dur, 0, 1), x = u * (p.zs.length - 1), j = Math.min(p.zs.length - 2, Math.floor(x)), a = x - j;
       probe = C(p.zs[j].re + (p.zs[j + 1].re - p.zs[j].re) * a, p.zs[j].im + (p.zs[j + 1].im - p.zs[j].im) * a);
       setReadouts(probe); sndRender();
@@ -14590,7 +14690,6 @@
       else setTimeout(() => { if (snd.play === p) { snd.play = null; probe = null; setReadouts(null); sndRender(); updateDraftChips(); sndPlayEnded(p, true); } }, 400);
     };
     p.raf = requestAnimationFrame(tick);
-    return true;
   }
   function sndStopPlay(hushAll) {
     const p = snd.play;
@@ -14607,10 +14706,11 @@
   function sndPlayEnded(p, full) {
     let heard = 0;
     try { heard = Math.max(0, Math.min(p.dur, p.h.now() - p.h.t0)); } catch (e) { heard = 0; }
-    tourEmit('listen-ended', { piece: !!p.piece, closed: !!p.closed, W: p.W == null ? null : p.W, heard: full ? p.dur : heard, full: !!full });
+    tourEmit('listen-ended', { piece: !!p.piece, fn: !!p.fn, closed: !!p.closed, W: p.W == null ? null : p.W, heard: full ? p.dur : heard, full: !!full });
   }
-  // the curve menu's "Listen along": the shape's longest piece, in the X plane's variable
-  function sndListenShape(s) {
+  // the curve menu's "Listen along": the shape's longest piece, in the X plane's variable. piece: "Play the
+  // composition" (the curve's score, sndListenOf); without it, once the engine has Sound.along, the function itself
+  function sndListenShape(s, piece) {
     if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); }   // (the open's hint is answered)
     let pieces = [];
     try { pieces = curvePieces(s, false); } catch (e) { pieces = []; }
@@ -14624,10 +14724,11 @@
     let pts = best.pts;
     const k = leftStage();
     if (k > 0) { const G = rangeF(0, k); pts = pts.map(([x, y]) => { const w = G(C(x, y)); return [w.re, w.im]; }).filter((q) => Number.isFinite(q[0]) && Number.isFinite(q[1])); }
-    const L = sndListenOf(s);
+    const L = sndListenOf(s), sc = SND && SND.along ? (piece ? L : null) : L;
+    if (piece && !sc) return false;
     if (best.closed) snd.lastLoop = { pts, closed: true };
     else if (L) snd.lastLoop = { pts, closed: false, sid: s.id };
-    return sndListen(pts, !!best.closed, undefined, L, s);
+    return sndListen(pts, !!best.closed, undefined, sc, s);
   }
   // a composed curve's Listen along data (an example's melody: src/seasong.js, notes/sea-song), only on that curve as
   // it was stored (no edit or transform since: the key of its points; an edited curve loses it), under the chain it
@@ -14647,19 +14748,19 @@
   }
   // Listen along from a menu or the guide: with sound or Mathematical events off, a toast says so and turns them on
   // (then plays: the engine starts inside that click, its clock a moment later)
-  function sndListenAsk(s) {
+  function sndListenAsk(s, piece) {
     if (!SND) return;
-    if (sndP.on && sndP.events) { sndListenShape(s); return; }
+    if (sndP.on && sndP.events) { sndListenShape(s, piece); return; }
     const ph = document.documentElement.classList.contains('ph');
     const msg = !sndP.on ? (ph ? $t('Sound is off: turn it on here, or in the ⋯ menu.') : $t('Sound is off: turn it on here, or with Sound in the top bar ({x}).', { x: '⇧M' }))
       : $t('Mathematical events are off in the Sound menu: turn them on here.');
-    toast(msg, $t('Turn on and listen'), () => { tourSndMine(['on', 'events']); sndTurnOnListen(s); }, false, { sticky: true });
+    toast(msg, $t('Turn on and listen'), () => { tourSndMine(['on', 'events']); sndTurnOnListen(s, piece); }, false, { sticky: true });
   }
   // sound and Mathematical events on, then Listen along s (the engine starts inside this click, its clock a moment later)
-  function sndTurnOnListen(s) {
+  function sndTurnOnListen(s, piece) {
     SND.set({ on: true, events: true });
     let n = 0;
-    const go = () => { if (!S.shapes.includes(s)) return; if (SND.state().audio === 'running' || ++n > 12) sndListenShape(s); else setTimeout(go, 100); };
+    const go = () => { if (!S.shapes.includes(s)) return; if (SND.state().audio === 'running' || ++n > 12) sndListenShape(s, piece); else setTimeout(go, 100); };
     go();
   }
   // (review v16 user-5) an example with a melody says, once it opens, how to hear it, with the action itself
@@ -14668,11 +14769,12 @@
     const s = S.shapes.find((x) => x.listen);
     if (!s) return;
     const ph = document.documentElement.classList.contains('ph');
-    const go = () => { if (!S.shapes.includes(s)) return; if (sndP.on && sndP.events) sndListenShape(s); else sndTurnOnListen(s); };
+    const go = () => { if (!S.shapes.includes(s)) return; if (sndP.on && sndP.events) sndListenShape(s, true); else sndTurnOnListen(s, true); };
     // (review v16 verify-7: in X's note chip at the top of the plane, not a toast over the spiral; it goes after 9 s,
     // on Listen, or when the example is left)
     clearTimeout(snd.hintT);
-    snd.hint = { s, msg: ph ? $t('Hold the spiral, then Listen along.') : $t('Right-click the spiral, then Listen along.'), go };
+    const two = !!SND.along;
+    snd.hint = { s, msg: two ? (ph ? $t('Hold the spiral, then Listen along or Play the composition.') : $t('Right-click the spiral, then Listen along or Play the composition.')) : ph ? $t('Hold the spiral, then Listen along.') : $t('Right-click the spiral, then Listen along.'), go };
     snd.hintT = setTimeout(() => { snd.hint = null; updateDraftChips(); }, 9000);
     updateDraftChips();
   }
@@ -14709,6 +14811,7 @@
       const p = snd.play;
       if (!p || !p.shape || !S.shapes.includes(p.shape)) return '';
       const name = shapeNames().get(p.shape.id) || Region.KINDS[p.shape.kind].label;
+      if (p.piece && SND && SND.along) return document.documentElement.classList.contains('ph') ? $t('Playing the composition') : $t('Playing the composition · Esc stops');
       return document.documentElement.classList.contains('ph') ? $t('Listening along {name}', { name }) : $t('Listening along {name} · Esc stops', { name });
     } catch (e) { return ''; }
   }
@@ -14719,7 +14822,7 @@
     loadExample(i);
     const s = S.shapes.find((x) => x.listen);
     snd.hint = null; clearTimeout(snd.hintT); updateDraftChips();   // (the open's hint: this button is already the answer)
-    if (s) sndListenAsk(s);
+    if (s) sndListenAsk(s, true);
   }
 
   // ---- the keyboard probe (a focused X plane): arrows in round steps, Z / Shift+Z the next or previous zero or pole,
@@ -14928,9 +15031,11 @@
     const s = S.shapes.find((x) => x.listen && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || null;
     if (!s) return false;
     if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); }
-    if (sndP.on && sndP.events) return sndListenShape(s) !== false;
+    // (the composition, as the tour's song step and its captions describe it)
+    const piece = !!s.listen;
+    if (sndP.on && sndP.events) return sndListenShape(s, piece) !== false;
     tourSoundHold({ on: true, events: true });
-    sndTurnOnListen(s);
+    sndTurnOnListen(s, piece);
     return true;
   }
   // the end of a drag in a pane (onUp): a shape or target moved or reshaped, a zero or pole dragged, a cut dragged

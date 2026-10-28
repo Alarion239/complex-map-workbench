@@ -573,7 +573,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 | `step-replaced` | `{ k, type }` | a step is replaced by its inverse (`invertStep`); `type` is the new step's type |
 | `tex-copied` | `{ what: 'F' }` | F's LaTeX is copied (the Inspector's copy button with the F tile selected) |
 | `listen-ended` | `{ piece, closed, W, heard, full }` | a Listen along ends: played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
-| `harp-turn` | `{ dir: 1 \| -1 }` | the pointer's harp counts a low D, up or down (Hear the function) |
+| `hear-turn` | `{ dir: 1 \| -1 }` | Hear the function: a step of the probe crosses red's line (D, arg F ≡ 0) upward or downward (`Sound.hear` step `dUp` / `dDown`; with today's harp, a low D counted). Was `harp-turn` (v16.4) |
 
 `shape-added` gains `via: 'draw' | 'formula' | 'paste' | 'menu'`. `pattern-changed` is sent by the pattern setter itself
 (a swatch clicked or picked with the keys).

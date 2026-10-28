@@ -2686,5 +2686,12 @@
  "Hear the function: glide": "Ascolta la funzione: glissando",
  "Hear the function: notes.": "Ascolta la funzione: note.",
  "Hear the function: glide.": "Ascolta la funzione: glissando.",
- "Branch cut: F jumps by a factor {factor}.": "Taglio: F salta di un fattore {factor}."
+ "Branch cut: F jumps by a factor {factor}.": "Taglio: F salta di un fattore {factor}.",
+ "Play the composition (Grieg, arranged on this curve)": "Suona la composizione (Grieg, arrangiato su questa curva)",
+ "Playing the composition · Esc stops": "Suona la composizione · Esc la ferma",
+ "Playing the composition": "Suona la composizione",
+ "Playing the composition: Grieg's theme, arranged on this curve. Listen along plays the function itself. Esc stops.": "Suona la composizione: il tema di Grieg, arrangiato su questa curva. «Ascolta lungo la curva» suona la funzione stessa. Esc la ferma.",
+ "Right-click the spiral, then Listen along or Play the composition.": "Clic destro sulla spirale: «Ascolta lungo la curva» o «Suona la composizione».",
+ "Hold the spiral, then Listen along or Play the composition.": "Tieni premuta la spirale: «Ascolta lungo la curva» o «Suona la composizione».",
+ "Listening along at {speed} pixels a second: the curve is too long or too short for 250.": "Ascolto lungo la curva a {speed} pixel al secondo: la curva è troppo lunga o troppo corta per 250."
 }
