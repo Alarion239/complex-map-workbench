@@ -1,8 +1,9 @@
+// @ts-check
 'use strict';
 // The interface strings: $t, $tx, $tn and I18N come from i18n.js, first in the build. A node test that loads cx.js
 // without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
 // (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
-if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof globalThis.$t !== 'function') {
+if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof /** @type {any} */ (globalThis).$t !== 'function') {
   if (typeof require === 'function') require('./i18n.js');
   else {
     const fill = (s, p) => {

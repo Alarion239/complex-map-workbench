@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // Exact images through infinity: the CPU preimage enumerator (notes/sphere-design/SPEC.md, section 3).
 //
@@ -401,6 +402,7 @@ const Inverse = (() => {
     const d = (re[1] * im[1]) / bgcd(re[1], im[1]);
     return { n: [[re[0] * (d / re[1]), im[0] * (d / im[1])]], d };
   }
+  /** @param {ExactPart | null} X @returns {ExactPart | null} */
   function xRed(X) {
     let g = X.d;
     for (const [a, b] of X.n) { if (g === 1n) break; g = bgcd(bgcd(g, a), b); }
@@ -408,6 +410,7 @@ const Inverse = (() => {
     if (bbits(X.d) > RAT_XBITS || X.n.some(([a, b]) => bbits(a) > RAT_XBITS || bbits(b) > RAT_XBITS)) return null;
     return X;
   }
+  /** @param {ExactPart | null} A @param {ExactPart | null} B @returns {ExactPart | null} */
   function xLin(A, B, sg) {
     if (!A || !B) return null;
     const n = [], len = Math.max(A.n.length, B.n.length), s = BigInt(sg);
@@ -417,8 +420,10 @@ const Inverse = (() => {
     }
     return xRed({ n, d: A.d * B.d });
   }
+  /** @param {ExactPart | null} A @param {ExactPart | null} B @returns {ExactPart | null} */
   function xMul(A, B) {
     if (!A || !B) return null;
+    /** @type {GInt[]} */
     const n = Array.from({ length: A.n.length + B.n.length - 1 }, () => [0n, 0n]);
     for (let i = 0; i < A.n.length; i++) {
       const [a, b] = A.n[i];
@@ -428,22 +433,33 @@ const Inverse = (() => {
     return xRed({ n, d: A.d * B.d });
   }
   // Gaussian integers [re, im]: products, exact quotients, gcd (Euclid with the rounded quotient)
+  /** @param {GInt} x @param {GInt} y @returns {GInt} */
   const gMul = (x, y) => [x[0] * y[0] - x[1] * y[1], x[0] * y[1] + x[1] * y[0]];
+  /** @param {GInt} x @param {GInt} y @returns {GInt} */
   const gSub = (x, y) => [x[0] - y[0], x[1] - y[1]];
+  /** @param {GInt} x */
   const gZ = (x) => x[0] === 0n && x[1] === 0n;
+  /** @param {bigint} a @param {bigint} b */
   const fdiv = (a, b) => { const q = a / b; return (a % b !== 0n && (a < 0n) !== (b < 0n)) ? q - 1n : q; };
+  /** @param {bigint} a @param {bigint} b */
   const rdiv = (a, b) => fdiv(2n * a + b, 2n * b);                   // nearest integer to a / b (b > 0)
+  /** @param {GInt} x @param {GInt} y @returns {GInt} */
   function gDivR(x, y) {                                                // x / y rounded (Gaussian), y != 0
     const N = y[0] * y[0] + y[1] * y[1], t0 = x[0] * y[0] + x[1] * y[1], t1 = x[1] * y[0] - x[0] * y[1];
     return [rdiv(t0, N), rdiv(t1, N)];
   }
+  /** @param {GInt} x @param {GInt} y @returns {GInt | null} */
   function gDivX(x, y) {                                                // x / y exactly, or null
     const N = y[0] * y[0] + y[1] * y[1], t0 = x[0] * y[0] + x[1] * y[1], t1 = x[1] * y[0] - x[0] * y[1];
     return t0 % N === 0n && t1 % N === 0n ? [t0 / N, t1 / N] : null;
   }
+  /** @param {GInt} x @param {GInt} y @returns {GInt} */
   function gGcd(x, y) { while (!gZ(y)) [x, y] = [y, gSub(x, gMul(gDivR(x, y), y))]; return x; }
+  /** @param {GInt[]} A */
   const xTrim = (A) => { const a = A.slice(); while (a.length && gZ(a[a.length - 1])) a.pop(); return a; };
+  /** @param {GInt[]} A */
   function xPrim(A) {                                                   // A / its content (Z[i] gcd of the coefficients)
+    /** @type {GInt} */
     let g = [0n, 0n];
     for (const c of A) { g = gGcd(c, g); if (babs(g[0]) + babs(g[1]) === 1n) return A; }
     return gZ(g) ? A : A.map((c) => gDivX(c, g));
@@ -2378,6 +2394,7 @@ const Inverse = (() => {
     const W = view.W || 410, H = view.H || 516, s = view.s, pix = 1 / s;
     const t0 = Date.now();
     const pr = list.map((sh, i) => (preps && preps[i]) || prepare(plan, { win: view.win, shape: sh }));
+    /** @type {any[]} */
     const lk = looks.map((l) => ({
       alpha: l.alpha ?? 1, pattern: l.pattern ?? 'solid', cell: l.cell || 1, lines: !!l.lines, origin: l.origin || [0, 0], sphN: l.sphN || 16, dpr: l.dpr || 1,
       c0: hexRGB(l.color, '#3B6FD4'), c1: hexRGB(l.color2, '#8CABE5'), k: hexRGB(l.ink || l.edge, '#093B9B'), stretch: l.stretch,
