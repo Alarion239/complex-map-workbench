@@ -1,6 +1,6 @@
 // The one glossary (notes/i18n/TERMS.md, issue #35, UX28): a retired name of a thing must not come back into the UI's
 // sources. Counts each retired variant in the strings of src/ and page.html (comment lines and the generated tables
-// left out); a count may only go down: KNOWN holds today's, lower it as the terms are applied (it prints which).
+// left out); since #35 part 3 every count is 0, and a retired name that comes back fails (it prints where).
 //   node test/t_terms.js
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
@@ -17,14 +17,11 @@ const RETIRED = {
   'Reference guide': ['Guide', /Reference guide/g],
   'Using the Workbench': ['Guide', /Using the Workbench/g],
   'Clear the chain': ['Clear chain', /Clear the chain/g],
-  'Empty canvas': ['Clear shapes', /Empty canvas/g],
   'Orthogonal': ['Perpendicular circle', /\bOrthogonal\b/g],
   "'3 points'": ['Circle through 3 points (tile: 3-pt circle)', /(['"`>])3 points(['"`<])/g],
 };
-const KNOWN = {
-  'Region tools': 0, 'Add function or command': 0, 'Search functions and commands': 1, 'Append to the chain': 0,
-  'Reference guide': 2, 'Using the Workbench': 1, 'Clear the chain': 0, 'Empty canvas': 1, 'Orthogonal': 0, "'3 points'": 0,
-};
+// ('Empty canvas' is retired as a name for clearing the shapes, not counted here: it stays the name of the blank
+// example, the gallery's first card)
 const count = {}, where = {};
 for (const f of files) {
   const lines = fs.readFileSync(f, 'utf8').split('\n');
@@ -41,10 +38,9 @@ for (const f of files) {
 }
 let fails = 0;
 for (const [k, [use]] of Object.entries(RETIRED)) {
-  const n = count[k] || 0, was = KNOWN[k] || 0;
-  if (n > was) { fails++; console.log(`FAIL "${k}" came back: ${n} > ${was} (say "${use}")`, where[k]); }
-  else if (n < was) console.log(`lower KNOWN["${k}"] to ${n} (was ${was})`);
+  const n = count[k] || 0;
+  if (n) { fails++; console.log(`FAIL "${k}" is back: ${n} (say "${use}")`, where[k]); }
 }
-console.log(fails ? `${fails} retired names grew` : 'retired names: none grew');
+console.log(fails ? `${fails} retired names are back` : 'retired names: none in the sources');
 if (process.argv.includes('--counts')) console.log(JSON.stringify(count));
 process.exit(fails ? 1 : 0);
