@@ -22,7 +22,8 @@
   let frameCompiling = false;
   function standIn(id) { if (!sideMode && id) { waitOn.set(id, cur.key); frameCompiling = true; } }
   function waitingNow() {
-    for (const [id, k] of waitOn) { const e = progs.get(id); if (!e || e.state !== 'pending' || k !== cur.key) waitOn.delete(id); }
+    const mk = sideMode && side ? side.cur.key : cur.key;   // (in GLR.side mode, cur is the side chain's: the main chain's waits stay)
+    for (const [id, k] of waitOn) { const e = progs.get(id); if (!e || e.state !== 'pending' || k !== mk) waitOn.delete(id); }
     return waitOn.size > 0;
   }
   const live = new Set(); // resources that may hold map caches (freed on context loss)
