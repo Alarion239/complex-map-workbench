@@ -16,6 +16,7 @@ const SHARDS = [
   { id: 'views', re: '^(phase|landscape|sphere)\\.', what: 'Phase, Landscape and Sphere views' },
   { id: 'examples', re: '^(examples|gallery)', what: 'loading the examples, the gallery' },
   { id: 'interaction', re: '^(mesh|scrub|morph|hover)', what: 'meshing, scrubs, the deformation, hover' },
+  { id: 'pointer', re: '^pointer\\.', what: 'wave 1\'s pointer and per-frame work (#63): snap, detents, gliders, the probe, targets' },
   { id: 'phone', re: '^phone\\.', what: 'the emulated phone (390 x 844 @3x, touch, CPU / 4)' },
 ];
 

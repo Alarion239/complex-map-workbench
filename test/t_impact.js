@@ -57,6 +57,7 @@ const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
 ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 3 && !p.browser.length && !p.quality.length; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
+ok('a paired job chosen by its runner is forced (A/A); one chosen by the app is not', (() => { const a = select(['test/regress/perf/run.js']), b = select(['ci/quality.js', 'README.md']), c = select(['src/cx.js']), d = select(['src/cx.js', 'test/regress/perf/scenes.js']); return a.forcePerf && !a.forceQuality && b.forceQuality && !b.forcePerf && !c.forcePerf && !c.forceQuality && d.forcePerf && !d.forceQuality; })());
 ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_shards.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
 
 // T3

@@ -163,6 +163,9 @@ function select(files, opts = {}) {
   const reasons = [];   // { path, rule, effect: text }
   const browser = new Set(), glsl = new Set();
   let core = false, quality = false, perf = false, unknown = false, wantSmoke = false;
+  // a paired job chosen by a path outside the app (its runner, its scenes) runs even when the app is the same as the
+  // reference's (--force: an A/A run), or it would only report "nothing to compare" and never run the change
+  let forceQuality = false, forcePerf = false;
   const fullWhy = [];
   if (opts.full) fullWhy.push(opts.full);
   const say = (p, rule, effect) => reasons.push({ path: p, rule, effect });
@@ -178,8 +181,8 @@ function select(files, opts = {}) {
     if (e.areas) { for (const a of e.areas) for (const id of AREAS[a]) browser.add(id); got.push(`${e.areas.join(', ')} shards`); wantSmoke = true; }
     if (e.core) { core = quality = perf = true; for (const id of AREAS.core) browser.add(id); wantSmoke = true; got.push('T2: quality, perf, the core shards'); }
     if (e.glsl === 'all') { for (const p of GLSL.PAGES) glsl.add(p.id); got.push('every GLSL page'); }
-    if (e.quality && !e.core) { quality = true; got.push('quality'); }
-    if (e.perf && !e.core) { perf = true; got.push('perf'); }
+    if (e.quality && !e.core) { quality = true; forceQuality = forceQuality || !isApp(f); got.push(isApp(f) ? 'quality' : 'quality (A/A when the app is unchanged)'); }
+    if (e.perf && !e.core) { perf = true; forcePerf = forcePerf || !isApp(f); got.push(isApp(f) ? 'perf' : 'perf (A/A when the app is unchanged)'); }
     if (e.harness) { wantSmoke = true; got.push('the smoke shard'); }
     if (e.suite) {
       const base = path.basename(f);
@@ -210,6 +213,7 @@ function select(files, opts = {}) {
   const plan = {
     tier, full: isFull, why: fullWhy, unknown, sameBuild: opts.sameBuild ?? null, reasons,
     browser: shards, glsl: glslJobs, quality: quality ? (isFull ? QUALITY_OS : ['ubuntu-latest']) : [], perf,
+    forceQuality: quality && forceQuality, forcePerf: perf && forcePerf,
   };
   plan.skipped = [
     ...allShards.filter((id) => !browser.has(id)).map((id) => `browser ${id}`),
@@ -248,8 +252,8 @@ function format(plan, md) {
     ['unit tests', 'yes'],
     ['browser shards', plan.browser.length ? plan.browser.map(code).join(', ') : 'none'],
     ['GLSL', glslJobs.length ? glslJobs.join(', ') : 'none'],
-    ['quality', plan.quality.length ? plan.quality.join(', ') : 'none'],
-    ['perf', plan.perf ? 'yes (Windows; skipped when the GPU machines gate speed)' : 'none'],
+    ['quality', plan.quality.length ? plan.quality.join(', ') + (plan.forceQuality ? ' (--force)' : '') : 'none'],
+    ['perf', plan.perf ? `yes (Windows; skipped when the GPU machines gate speed)${plan.forcePerf ? ' (--force)' : ''}` : 'none'],
   ];
   if (md) L.push('', '| job | |', '|---|---|', ...runs.map(([k, v]) => `| ${k} | ${v} |`));
   else for (const [k, v] of runs) L.push(`  ${k}: ${v}`);
@@ -282,7 +286,8 @@ if (require.main === module) {
   else if (argv.includes('--github')) {
     // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)
     const why = plan.full ? plan.why.join('; ') : plan.reasons.map((r) => `${r.path}: ${r.effect}`).join('; ');
-    const out = [`tier=${plan.tier}`, `why=${why.replace(/[\r\n]+/g, ' ').slice(0, 4000)}`, `browser=${JSON.stringify(plan.browser)}`, `glsl=${JSON.stringify(plan.glsl)}`, `quality=${JSON.stringify(plan.quality)}`, `perf=${plan.perf}`];
+    const out = [`tier=${plan.tier}`, `why=${why.replace(/[\r\n]+/g, ' ').slice(0, 4000)}`, `browser=${JSON.stringify(plan.browser)}`, `glsl=${JSON.stringify(plan.glsl)}`, `quality=${JSON.stringify(plan.quality)}`, `perf=${plan.perf}`,
+      `quality_force=${plan.forceQuality ? '--force' : ''}`, `perf_force=${plan.forcePerf ? '--force' : ''}`];
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join('\n') + '\n');
     console.log(out.join('\n'));
     console.log(format(plan, false));
