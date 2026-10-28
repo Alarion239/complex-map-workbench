@@ -31,7 +31,7 @@ const Examples = (() => {
   const exOk = (ex) => ex.steps.every((st) => Funcs.DEFS[st.type]);
   // a first visit opens a worked example, not the empty canvas listed first
   const firstExample = () => Math.max(0, EX.findIndex((e) => e.shapes.length && e.steps.length));
-  function loadExample(i, spec) {
+  function loadExample(i, spec, opt) {
     phHold();
     const ex = spec || EX[i];
     if (!ex) return;
@@ -102,6 +102,12 @@ const Examples = (() => {
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
     if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
+    // (issue #34, D7) every other example says what to try, in the tour's docked line, Show me starting the chapter about
+    // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
+    if (!spec && !piece && !(opt && opt.quiet) && ex.try && Tour.lane && !laned) {
+      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: ex.try, drop: 'title', onClose: () => {},
+        acts: [{ label: $t('Show me'), primary: true, run: () => { if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: ex.tour || 'basics' }); } }] });
+    }
     // the line integral the example is about, once the planes have their size
     if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
@@ -245,6 +251,34 @@ const Examples = (() => {
     const kh = head('Keys');
     if (kh) { for (let e = kh.nextElementSibling; e && e.tagName !== 'H3';) { const nx = e.nextElementSibling; e.remove(); e = nx; } kh.remove(); }
   }
+  // The guide's sections are the h3 blocks. Each is wrapped, so the contents row can jump to it and the search can fold
+  // the others away; a section about something the tour teaches ends in Show me, which starts that chapter
+  function guideNav(m, close) {
+    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), 'views'], [$t('Deformation'), 'deform'], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
+      [$t('Zeros and poles'), 'edit'], [$t('Export'), 'export']];
+    const secs = [];
+    for (const hd of [...m.querySelectorAll('h3')]) {
+      const sec = document.createElement('section');
+      sec.className = 'guide-sec';
+      hd.before(sec);
+      sec.append(hd);
+      for (let e = sec.nextElementSibling; e && e.tagName !== 'H3' && !e.classList.contains('modal-foot');) { const nx = e.nextElementSibling; sec.append(e); e = nx; }
+      const show = SHOW.find(([t]) => t === hd.textContent.trim());
+      if (show && typeof Tour !== 'undefined' && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1] }); } }, $t('Show me'))));
+      secs.push(sec);
+    }
+    if (secs.length < 4) return;
+    const none = h('p', { class: 'guide-none', hidden: true }, $t('No section matches.'));
+    const find = h('input', { type: 'search', class: 'inp guide-find', 'aria-label': $t('Search the guide'), placeholder: $t('Search the guide'), autocomplete: 'off', spellcheck: 'false' });
+    const toc = h('nav', { class: 'guide-toc', 'aria-label': $t('Contents') }, ...secs.map((s) => h('button', { type: 'button', class: 'guide-toc-b', onclick: () => s.scrollIntoView({ block: 'start' }) }, s.querySelector('h3').textContent)));
+    find.addEventListener('input', () => {
+      const q = find.value.trim().toLowerCase();
+      let n = 0;
+      secs.forEach((s, i) => { const on = !q || s.textContent.toLowerCase().includes(q); s.hidden = !on; toc.children[i].hidden = !on; if (on) n++; });
+      none.hidden = n > 0;
+    });
+    secs[0].before(h('div', { class: 'guide-nav' }, find, toc), none);
+  }
   function openGuide() {
     if (document.querySelector('.modal-bg')) return;
     const opener = document.activeElement, okey = focusKey(opener);
@@ -315,9 +349,16 @@ const Examples = (() => {
       <p style="display:flex;align-items:center;gap:12px"><img class="guide-piece" alt="" width="96" height="64" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--well)"><button class="btn" type="button" data-play="piece">${$t('Open and play “In the Hall of the Mountain King”')}</button></p>` : ''}
       <h3>${$t(`Guarantees`)}</h3>
       <p>${$t(`The <b>F</b> tile at the end of the chain names what <i>F</i> is guaranteed to be. A property is named only when every step has it and composition preserves it, so it is always true; a property not named is not implied, though it may still hold. Select the tile, and the Inspector shows <i>F</i> in closed form with Copy LaTeX, its natural domain, and Step by step: which step brings which property.`)}</p>
+      <h3>${$t(`Zeros and poles`)}</h3>
+      <p>${$t(`Choose <i>Zeros and poles</i> (in Polynomial &amp; custom) to build a map by placing its zeros and poles: drag the dots (zeros) and open circles (poles) in the step's input plane, or type them in the Inspector. Right-click one to remove it, turn it into a pole or a zero, or edit it. The picture shows the map at once: colors circle a zero and a pole in opposite senses.`)}</p>
+      <h3>${$t(`Examples`)}</h3>
+      <p>${$t(`<b>Examples</b> in the top bar opens a worked example: its shapes, its chain and the views it needs. Each one says what to try, in a line over the planes with a Show me that does it; the line goes when you do it, close it, or leave the example. Open the Empty canvas to start from nothing.`)}</p>
+      <h3>${$t(`Export`)}</h3>
+      <p>${$t(`<b>Export</b> in the top bar (or {x}) makes a figure of the open view: Save PDF, PNG or SVG, Copy image for a document, or Save + copy LaTeX for Overleaf, with a caption that states exactly what is drawn. On a phone the sheet offers Share first and keeps the print settings folded.`, { x: k(mod.trim() + ' E') })}</p>
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
     if (touchUI()) guideTouch(m);   // (v16.5 UX17)
+    guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');
     if (pb) pb.addEventListener('click', () => { close(); sndPlayPiece(); });

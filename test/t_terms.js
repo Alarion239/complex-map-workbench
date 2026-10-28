@@ -21,9 +21,11 @@ const RETIRED = {
   'Orthogonal': ['Perpendicular circle', /\bOrthogonal\b/g],
   "'3 points'": ['Circle through 3 points (tile: 3-pt circle)', /(['"`>])3 points(['"`<])/g],
 };
+// ('Empty canvas' is also the first example's name, which the guide's Examples section names (#34): both of its
+// hits are that name; #35 part 2 settles whether the example is renamed)
 const KNOWN = {
   'Region tools': 7, 'Add function or command': 4, 'Search functions and commands': 2, 'Append to the chain': 3,
-  'Reference guide': 4, 'Using the Workbench': 1, 'Clear the chain': 1, 'Empty canvas': 1, 'Orthogonal': 3, "'3 points'": 3,
+  'Reference guide': 4, 'Using the Workbench': 1, 'Clear the chain': 1, 'Empty canvas': 2, 'Orthogonal': 3, "'3 points'": 3,
 };
 const count = {}, where = {};
 for (const f of files) {

@@ -29,10 +29,16 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
       const v = { l: Math.max(2, a.l), t: Math.max(2, a.t), r: Math.min(innerWidth - 2, a.r), b: Math.min(innerHeight - 2, a.b) };   // (the tour keeps 2 px from the edges)
       const h = L.holes[0], ar = Math.max(0, v.r - v.l) * Math.max(0, v.b - v.t);
       const ov = Math.max(0, Math.min(h.r, v.r) - Math.max(h.l, v.l)) * Math.max(0, Math.min(h.b, v.b) - Math.max(h.t, v.t));
-      return { id: c.chapter + '/' + c.id, win, frac: ar ? ov / ar : 0, area: ar, hole: [h.l, h.t, h.r, h.b].map(Math.round), anchor: [a.l, a.t, a.r, a.b].map(Math.round) };
+      return { id: c.chapter + '/' + c.id, win, nHoles: L.holes.length, frac: ar ? ov / ar : 0, area: ar, hole: [h.l, h.t, h.r, h.b].map(Math.round), anchor: [a.l, a.t, a.r, a.b].map(Math.round) };
     })()`);
     seen.push(`${w}:${g.id}`);
     if (!g.centred && !g.none) check(`${w}×${h} ${g.id}: the lit patch holds the anchor`, g.frac >= 0.9 && g.area > 40, g);
+    // (issue #34 T2: a step whose control changes a plane or a card lights that too, not the button alone: two lit
+    // areas, or one that holds both the control and what it changes)
+    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'views/switch', 'deform/toggle', 'deform/paths', 'deform/order', 'branches/inverse'].includes(g.id) && w === 1440) {
+      const more = g.nHoles >= 2 || (g.hole[2] - g.hole[0]) > 3 * (g.anchor[2] - g.anchor[0]);
+      check(`${w}×${h} ${g.id}: the control and what it changes are lit`, more, g);
+    }
     if (g.centred) check(`${w}×${h} ${g.id}: no shade at all on the welcome step`, g.noShade, g);
     if (!g.none) check(`${w}×${h} ${g.id}: the strip is a window of the shade`, g.win, g);
     const before = JSON.stringify(await ev('Tour.current()'));
