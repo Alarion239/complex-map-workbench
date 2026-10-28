@@ -46,11 +46,8 @@ def C(x, y):
     return acb(arb(x), arb(y))
 
 
-I = acb(0, 1)
+IU = acb(0, 1)   # i
 
-
-def principal_root(z, n):
-    return (z.log() / n).exp() if z != 0 else acb(0)
 
 
 # the catalog's steps at their default parameters (Funcs.defaults), as Arb expressions; the principal branches (cut 180,
@@ -62,7 +59,7 @@ def steps():
         'add': lambda z: z + 1,
         'affine': lambda z: acb(1, 1) * z,
         'recip': lambda z: 1 / z,
-        'mobius': lambda z: (z - I) / (z + I),
+        'mobius': lambda z: (z - IU) / (z + IU),
         'blaschke': lambda z: (z - a) / (1 - a.conjugate() * z),
         'pown': lambda z: z ** 2,
         'root': lambda z: z.sqrt(),
@@ -103,7 +100,7 @@ def main():
     ap.add_argument('--prec', type=int, default=256)
     o = ap.parse_args()
     flint.ctx.prec = o.prec
-    out = {'about': 'tools/arb_reference.py: certified values (Arb ball arithmetic, python-flint %s, %d bits) of the catalog steps at their default parameters' % (flint.__version__, o.prec),
+    out = {'about': f'tools/arb_reference.py: certified values (Arb ball arithmetic, python-flint {flint.__version__}, {o.prec} bits) of the catalog steps at their default parameters',
            'points': [[n, x, y] for n, x, y in PTS], 'steps': {}}
     for sid, f in steps().items():
         vals = []
