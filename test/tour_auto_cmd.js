@@ -295,15 +295,14 @@ a = await paneBox('#paneL');
 await tdrag(a.r - 160, a.t + 100, a.r - 100, a.t + 160); t0 = Date.now();
 at = await advancedAt('basics/draw', t0);
 check('phone draw: a touch disc, then 3000 ± 150 ms', near(at, 3000, 150), at);
-// a finger held down 6 s
+// a finger held down does not hold it: 3 s after the task's event
 await go('basics', 1);
 a = await plane();
-await tdrag(a.r - 60, a.t + 120, a.r - 140, a.t + 170);
+await tdrag(a.r - 60, a.t + 120, a.r - 140, a.t + 170); t0 = Date.now();
 await T('touchStart', [[a.r - 140, a.t + 170]]); await T('touchMove', [[a.r - 120, a.t + 190]]); await T('touchMove', [[a.r - 100, a.t + 210]]);
-check('phone: a finger held down 6 s (a pan, then still), no advance', await stays('basics/x', 6000));
-await T('touchEnd', []); t0 = Date.now();
 at = await advancedAt('basics/x', t0);
-check('phone: 3 s after the finger lifts', near(at, 3000, 250), at);
+check('phone: a finger held down: 3 s after the event all the same', near(at, 3000, 300), at);
+await T('touchEnd', []);
 // the Why panel holds it, and a touch in X folds it (and reaches the app)
 await go('basics', 1);
 const pt = await center('.ts-text');
