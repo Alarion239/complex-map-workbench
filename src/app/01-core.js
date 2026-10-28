@@ -38,7 +38,8 @@
     snap: svgI('<path d="M4 2.5v5.5a4 4 0 0 0 8 0V2.5M4 5h2.5M9.5 5H12"/>'),
     unit: svgI('<circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2"/><circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/>'),
     sliders: svgI('<path d="M2.5 5h11M2.5 11h11"/><circle cx="6" cy="5" r="1.75" fill="var(--surface)"/><circle cx="10" cy="11" r="1.75" fill="var(--surface)"/>'),
-    // ([v17 D5] the header's Settings and Share)
+    // ([v17 D5] the header's Settings and Share; the Language setting's globe, in Settings and the phone's sheet)
+    globe: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M2.25 8h11.5M8 2.25c-2.2 2.9-2.2 8.6 0 11.5M8 2.25c2.2 2.9 2.2 8.6 0 11.5"/>'),
     gear: svgI('<circle cx="8" cy="8" r="2.1"/><path d="M8 1.75v1.6M8 12.65v1.6M14.25 8h-1.6M3.35 8h-1.6M12.42 3.58l-1.13 1.13M4.71 11.29l-1.13 1.13M12.42 12.42l-1.13-1.13M4.71 4.71L3.58 3.58"/><circle cx="8" cy="8" r="4.4"/>'),
     share: svgI('<circle cx="4.25" cy="8" r="1.9"/><circle cx="11.75" cy="3.9" r="1.9"/><circle cx="11.75" cy="12.1" r="1.9"/><path d="M5.9 7.1l4.2-2.3M5.9 8.9l4.2 2.3"/>'),
     copy: svgI('<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.75c0-.7-.55-1.25-1.25-1.25h-5.5c-.7 0-1.25.55-1.25 1.25v5.5c0 .7.55 1.25 1.25 1.25H5.5"/>'),

@@ -259,9 +259,6 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 /* Sound (notes/sound/DESIGN.md §2.1): a split button between Theme and Guide, its settings popover, and on a phone
    the speaker in the bar while sound is on (one tap silences it) */
 #soundBtn, #soundMore { order: 12; }
-/* the Language setting (notes/i18n/USER-DECISIONS.md): the globe, after Sound and before Help; app.js opens its menu
-   (Auto, English, Русский, Italiano) */
-#langBtn { order: 12; }
 /* Phase colors (issue 8): the button shows the palette's key as a small disc; its menu, a preview of each palette */
 #palBtn { order: 12; }
 .pcol-ic { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, conic-gradient(from 90deg, #F58C7E, #F089AC, #DB8FD6, #B99BF5, #8EAAFD, #53B8F7, #1CC3D8, #27C8AF, #6EC580, #A5B953, #CFA93E, #EA9853, #F58C7E)); box-shadow: inset 0 0 0 1px var(--line-strong); }
@@ -2111,7 +2108,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
-      <button class="icon-btn" id="langBtn" title="Language" aria-label="Language" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.75"/><path d="M2.25 8h11.5M8 2.25c-2.2 2.9-2.2 8.6 0 11.5M8 2.25c2.2 2.9 2.2 8.6 0 11.5"/></svg></span><span class="mlabel">Language: <span class="llabel">Auto</span></span></button>
       <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-expanded="false"><span class="ic-slot" data-icon="gear"></span></button>
       <button class="icon-btn" id="helpBtn" title="Help  ?" aria-label="Help" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="help"></span><span class="mlabel">Help</span></button>
     </div>
