@@ -61,4 +61,5 @@ ruff check
 
 - One PR per feature or fix, small enough to review, rather than one commit per release. The CI gates compare
   each change with its base, so a small PR also tells you exactly what changed the numbers.
-- `docs/index.html` (the live page) is the published build; update it only when releasing.
+- The live page is deployed by CI on a release tag (`v*`, `.github/workflows/pages.yml`), never committed. Don't tag
+  a commit whose message contains `[skip ci]`: GitHub skips tag-triggered workflows for it too.

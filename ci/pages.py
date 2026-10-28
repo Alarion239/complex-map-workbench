@@ -2,8 +2,8 @@
 
     python3 build.py && python3 ci/pages.py [OUT_DIR]
 
-Writes OUT_DIR/index.html (default _site/): dist/complex-map-workbench.html between the shell below, the same file
-docs/index.html held when it was committed by hand, and an empty .nojekyll so Pages serves the file as it is.
+Writes OUT_DIR/index.html (default _site/): dist/complex-map-workbench.html between the shell below (the same file
+the hand-committed docs/index.html was, before Pages deployed from CI), and an empty .nojekyll.
 """
 import pathlib
 import sys
