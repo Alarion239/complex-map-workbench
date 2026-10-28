@@ -79,6 +79,8 @@ const Phone = (() => {
     // the context bar: above the tool row, only while something is selected or under way (D3)
     els.ctx = h('div', { class: 'ph-ctx ph-only', role: 'region', 'aria-live': 'polite', hidden: true });
     document.body.append(els.ctx);
+    document.addEventListener('pointerdown', () => { fingers++; }, true);
+    for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
@@ -343,6 +345,18 @@ const Phone = (() => {
   // its selection changes; the bar is rebuilt only when what it shows changes.
   let ctxKey = '';
   function ctxSync() { ctx(true); }
+  // The planes give the bar its room (and a message its row) only while no finger is down: a plane that shrinks under a
+  // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
+  let fingers = 0, layoutT = 0;
+  function barLayout() {
+    if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
+    clearTimeout(layoutT);
+    const th = $('toastHost'), c = rootEl.classList;
+    const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
+    if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
+    c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
+    syncPanes(); A.resize();
+  }
   function ctx(force) {
     if (!on || !els.ctx) return;
     let st = null;
@@ -381,13 +395,11 @@ const Phone = (() => {
       kids = [text($t('Listening along the curve')), btn('prim', $t('Stop'), () => A.ctxAct('stop'))];
     }
     els.ctx.replaceChildren(...kids);
-    const was = !els.ctx.hidden, wasTall = rootEl.classList.contains('ph-ctx-tall');
     const tall = !!(st && st.kind === 'construct' && st.seg);
     els.ctx.hidden = !kids.length;
     els.ctx.classList.toggle('tall', tall);
     if (kids.length) { els.ctx.dataset.k = st.kind; }
-    // (the planes only re-fit when the bar comes, goes or changes height, not each time its words change)
-    if (was !== !!kids.length || wasTall !== tall) { rootEl.classList.toggle('ph-ctx-on', !!kids.length); rootEl.classList.toggle('ph-ctx-tall', tall); Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; } }
+    barLayout();
   }
 
   // ---------------- the tool row ----------------

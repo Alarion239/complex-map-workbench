@@ -319,11 +319,8 @@ await withState('d3', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: [0
 const ctxInfo = () => ev(`(() => { const b = document.querySelector('.ph-ctx'); if (!b || b.hidden) return null; const r = b.getBoundingClientRect(), row = document.getElementById('secDraw').getBoundingClientRect(); const bt = [...b.querySelectorAll('button')].map((x) => { const q = x.getBoundingClientRect(); return { t: x.textContent.trim(), w: Math.round(q.width), h: Math.round(q.height), dis: x.disabled }; }); const pr = document.getElementById('paneL').getBoundingClientRect(); return { k: b.dataset.k, text: b.querySelector('.ph-ct') && b.querySelector('.ph-ct').innerText.replace(/\\n/g, ' | '), h: Math.round(r.height), above: Math.round(row.top - r.bottom), btn: bt, paneBottom: Math.round(pr.bottom), barTop: Math.round(r.top) }; })()`);
 const d0 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 nothing selected: no bar', (await ctxInfo()) === null);
-const zA = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 await ev(`__cmwSelect('s1')`); await settle(600);
-const zB = await ev(`__cmwPlaneMenu().w2s('L', 0, 0)`);
 const c1 = await ctxInfo();
-ok('D3 the bar coming does not move the drawing under the finger', Math.abs(zA[0] - zB[0]) < 1 && Math.abs(zA[1] - zB[1]) < 1, [zA, zB]);
 const d1 = await ev(`(() => { const p = document.getElementById('paneL').getBoundingClientRect(); return Math.round(p.height); })()`);
 ok('D3 a selected shape: a 56 px bar over the tool row with its name and definition, Edit, Delete and ⋯ at 44 px', c1 && c1.k === 'shape' && c1.h === 56 && c1.above === 0 && /Disc 1 \|/.test(c1.text) && c1.btn.length === 3 && c1.btn.every((x) => x.h >= 44 && x.w >= 44), c1);
 ok('D3 the plane gives up the bar\'s height from the bottom', d0 - d1 >= 50 && d0 - d1 <= 60, [d0, d1]);
