@@ -958,13 +958,8 @@ if (!['preview', '1-3', '4', '4a', '4b'].includes(process.env.CMW_ONLY)) {
   const MP = `(() => { const p = document.querySelector('#popHost .pop.menu'), m = document.querySelector('.modal.xf'); if (!p) return { open: false, dialog: !!m };
     const r = p.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2), e2 = document.elementFromPoint(r.left + 8, r.top + 8);
     return { open: true, dialog: !!m, rect: [r.left, r.top, r.width, r.height].map(Math.round), z: +getComputedStyle(p).zIndex, zm: +getComputedStyle(document.querySelector('.modal-bg')).zIndex,
-<<<<<<< HEAD
-      onTop: !!(e && p.contains(e)) && !!(e2 && p.contains(e2)), hit: [e, e2].map((x) => x && (x.tagName + '.' + String(x.className).slice(0, 30) + '#' + x.id)), inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: p.contains(document.activeElement) ? document.activeElement.textContent.trim() : null }; })()`;
-  const center = (sel) => ev(`(() => { const pb = document.getElementById('xfPrintBtn'); if (pb && pb.getAttribute('aria-expanded') === 'false') pb.click(); const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.hidden) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-=======
       onTop: !!(e && p.contains(e)) && !!(e2 && p.contains(e2)), hit: [e, e2].map((x) => x && (x.tagName + '.' + String(x.className).slice(0, 30) + '#' + x.id)), toasts: [...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.slice(0, 60) + '@' + Math.round(t.getBoundingClientRect().top)), inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: p.contains(document.activeElement) ? document.activeElement.textContent.trim() : null }; })()`;
-  const center = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.hidden) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
->>>>>>> claude/w0-lint-types-33
+  const center = (sel) => ev(`(() => { const pb = document.getElementById('xfPrintBtn'); if (pb && pb.getAttribute('aria-expanded') === 'false') pb.click(); const e = document.querySelector(${JSON.stringify(sel)}); if (!e || e.hidden) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   for (const [w, h] of [[1440, 900], [390, 844]]) {
     for (const dark of [false, true]) {
       const tag = `${w}-${dark ? 'dark' : 'light'}`;
