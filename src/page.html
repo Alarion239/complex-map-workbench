@@ -234,6 +234,11 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 /* the Language setting (notes/i18n/USER-DECISIONS.md): the globe, after Sound and before Help; app.js opens its menu
    (Auto, English, Русский, Italiano) */
 #langBtn { order: 12; }
+/* Phase colors (issue 8): the button shows the palette's key as a small disc; its menu, a preview of each palette */
+#palBtn { order: 12; }
+.pcol-ic { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, conic-gradient(from 90deg, #F58C7E, #F089AC, #DB8FD6, #B99BF5, #8EAAFD, #53B8F7, #1CC3D8, #27C8AF, #6EC580, #A5B953, #CFA93E, #EA9853, #F58C7E)); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.mi-ic:has(.pcol-prev) { width: 22px; height: 22px; flex-basis: 22px; }
+.mi-ic .pcol-prev { display: block; width: 22px; height: 22px; border-radius: 50%; }
 .top .snd-btn { display: inline-flex; align-items: center; gap: 5px; width: auto; padding: 0 6px 0 6px; border-radius: var(--r-2) 0 0 var(--r-2); font: var(--t-label); }
 .top .snd-caret { width: 17px; margin-left: -8px; border-radius: 0 var(--r-2) var(--r-2) 0; }
 .top .snd-caret::before { content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 1px; background: var(--line); }
@@ -1994,6 +1999,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
       <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span></button>
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
+      <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
+      <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
