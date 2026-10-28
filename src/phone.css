@@ -423,6 +423,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* UX69: while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
+/* UX46: the symbol strip sits on the keyboard's top edge (--ph-kbraw is the keyboard's own height; --ph-kb adds the strip) */
+.ph-keys { position: fixed; left: 0; right: 0; bottom: var(--ph-kbraw, 0px); z-index: 60; display: flex; gap: 2px; height: 44px; padding: 0 2px; overflow-x: auto; background: var(--surface); border-top: 1px solid var(--line); }
+.ph-keys[hidden] { display: none; }
+.ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 16px/1 var(--f-ui); }
+.ph-keys > button:active { background: var(--well); }
 /* UX40: the long press, taught inside the More tools sheet (a tip line under the tiles) */
 .ph-tip { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 8px 4px 4px; padding: 0; font: 400 13px/18px var(--f-ui); color: var(--muted); text-wrap: pretty; }
 .ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }

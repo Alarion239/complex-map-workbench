@@ -2909,5 +2909,6 @@
  "All sheets (one while it deforms)": "Tutti i fogli (uno durante la deformazione)",
  "; one sheet is drawn while it deforms": "; durante la deformazione viene disegnato un solo foglio",
  "The curves that {x} maps onto the targets of Y are drawn in X.": "In X sono disegnate le curve che {x} manda sui bersagli di Y.",
- "Where {x} lands in the targets of Y is shaded in X.": "In X è ombreggiata la zona dove {x} cade nei bersagli di Y."
+ "Where {x} lands in the targets of Y is shaded in X.": "In X è ombreggiata la zona dove {x} cade nei bersagli di Y.",
+ "Symbols": "Simboli"
 }
