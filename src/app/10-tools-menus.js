@@ -26,10 +26,10 @@
   const TOOLS = [
     ['select', $t('Select'), 'V', $t('Drag a shape to move it and its handles to reshape. Drag empty space to pan (on a sphere, to turn it).')],
     ['point', $t('Point'), 'P', $t('Click to place a point; its images are labelled a′, a″, …')],
-    ['segment', $t('Segment'), 'S', $t('Drag from one end to the other.')],
-    ['line', $t('Line'), 'L', $t('Drag through two points; the line extends to infinity.')],
-    ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray.')],
-    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward.')],
+    ['segment', $t('Segment'), 'S', $t('Drag from one end to the other, or click one end and then the other.')],
+    ['line', $t('Line'), 'L', $t('Drag through two points, or click one and then the other; the line extends to infinity.')],
+    ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray, or click the start and then a point on the ray.')],
+    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward, or click the center and then a point on the circle.')],
     ['arc', $t('Arc'), 'A', $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.')],   // (v16 [C24])
     ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
     ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],

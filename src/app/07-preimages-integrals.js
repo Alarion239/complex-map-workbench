@@ -872,6 +872,7 @@
       drag = null;
     }
     if (draft && draft.kind === 'lasso' && !draft.target) snd.loop = null;
+    if (draft && draft.pending) dropPending();   // ([UX47] a two-click shape's snapped start binds nothing)
     draft = null;
     Construct.cancel();
     requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
