@@ -263,7 +263,8 @@ await hold(z0[0], z0[1], 700);
 ok('UX49 a 700 ms tap on z₀ picks it, no menu', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('Construct.debug().draft ? Construct.debug().draft.picks.length : 0')) === 1, await ev('Construct.debug().draft && Construct.debug().draft.picks.length'));
 await hold(z0[0] + 120, z0[1] - 160, 700);
 // (issue #13: a long press while drawing cancels the drawing, as Esc does, and opens no menu)
-ok('UX49 a long press on empty space cancels the construction and opens no menu (issue #13)', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && !(await ev('Construct.debug().draft')), await ev('Construct.debug().draft'));
+// (as Esc: the picks and the picked curve go, the tool stays armed)
+ok('UX49 a long press on empty space cancels the construction and opens no menu (issue #13)', !(await ev(`!!document.querySelector('#popHost > .pop.menu.pm')`)) && (await ev('(() => { const d = Construct.debug().draft; return !d || (!d.picks.length && !d.curve1); })()')), await ev('Construct.debug().draft'));
 await key('Escape'); await settle(200);
 await grab();
 
