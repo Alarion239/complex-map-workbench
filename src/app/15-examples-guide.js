@@ -83,6 +83,21 @@
       name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
       view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
     },
+    // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
+    {
+      name: $t('Zeros of the zeta function'), tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
+      shapes: [
+        { kind: 'formula', expr: '0<\\Re z<1' },
+        { kind: 'line', a: [0.5, 0], b: [0.5, 1] },
+        { kind: 'point', p: [0.5, 14.134725] }, { kind: 'point', p: [0.5, 21.022040] }, { kind: 'point', p: [0.5, 25.010858] },
+      ],
+      steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
+    },
+    {
+      name: $t('Poles of the Gamma function'), tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
+      steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
