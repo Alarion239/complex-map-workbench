@@ -12,7 +12,7 @@ const Commands = (() => {
     defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
     integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
     morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
-    robustBox, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
+    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
     setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle,
     stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox;
   const FN_INFO = {
@@ -50,8 +50,9 @@ const Commands = (() => {
   }
   // v16.5 UX29: the palette on a phone: Cancel at the right of the search row (it had no visible way out), and the
   // insert position a chip on its own row: a tap moves the new step's place along the chain (at the start, after f₁,
-  // …, at the end), the chip saying where. (Wave 2's Replace joins it there.)
-  function phonePalette(pop, input, opener, okey) {
+  // …, at the end), the chip saying where. (D1, issue #23: the Replace chip, when there is one, comes first on that row,
+  // and the position chip shows only while the choice is Insert)
+  function phonePalette(pop, input, opener, okey, where) {
     const head = pop.querySelector('.pal-head'), ctx = head && head.querySelector('.pal-ctx');
     if (!head) return;
     head.append(h('button', { class: 'pal-cancel', type: 'button', onclick: () => { closePalette(); focusBack(opener, okey); } }, $t('Cancel')));
@@ -71,11 +72,14 @@ const Commands = (() => {
       const at = (palState.at + 1) % (n + 1);
       palState.at = at; palState.before = Math.max(0, at - 1);
       paint();
+      if (palState.render) palState.render();
       if (document.activeElement !== input) input.focus({ preventScroll: true });
     });
     paint();
     ctx.remove();
-    head.after(h('div', { class: 'pal-atrow' }, chip));
+    head.after(h('div', { class: 'pal-atrow' }, where || '', chip));
+    palState.atChip = chip;
+    chip.hidden = palState.mode !== 'insert';
   }
   function paletteItems(q, fnOnly) {
     q = Expr.typed(q.trim());
@@ -353,6 +357,14 @@ const Commands = (() => {
     const names = shapeNames();
     return list.map((x) => [intLabel(x, names), () => integrateShape(x.id), '', al + ', ' + (names.get(x.id) || '')]);
   }
+  // (D1) a row's function in words, for Replace F with …; and the three ways a row can go
+  function fnName(it) { return it.rows ? $t('these steps') : it.type === 'custom' ? $t('this formula') : it.label; }
+  function whereLabel(m, it) {
+    const name = fnName(it), n = A.S.steps.length, at = palState.at, k = palState.target;
+    if (m === 'replaceF') return $t('Replace F with {name}', { name });
+    if (m === 'replace') return $t('Replace f{x} {old} with {name}', { x: sub(k), old: defOf(A.S.steps[k - 1]).label, name });
+    return at <= 0 ? $t('Insert {name} at the start', { name }) : at >= n ? $t('Append {name} to the chain', { name }) : $t('Insert {name} after f{x}', { name, x: sub(at) });
+  }
   function openPalette(anchor, at, opt = {}) {
     // re-clicking the control that opened it closes it
     if (A.popEl && A.popEl.classList.contains('palette') && anchor && palState && palState.opener === anchor) { closePalette(); return; }
@@ -370,7 +382,35 @@ const Commands = (() => {
       h('div', { class: 'pal-body' }, list, preview),
       h('div', { class: 'pal-foot' }, h('span', null, h('span', { class: 'kbd' }, '↑'), h('span', { class: 'kbd' }, '↓'), $t(' to move')), h('span', { class: 'pal-enter' }, h('span', { class: 'kbd' }, 'Enter'), h('span', { class: 'pal-verb' }, $t(' to add'))), h('span', null, h('span', { class: 'kbd' }, 'Shift Enter'), $t(' to insert before')), h('span', null, h('span', { class: 'kbd' }, 'Esc'), $t(' to close'))));
     const opener = anchor || document.activeElement, okey = focusKey(opener);
-    palState = { at: insertAt, before: explicit ? at : (A.S.focus > 0 ? A.S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0 };
+    // (D1, issue #23) where a function goes: inserted, F replaced by it, or step f_k replaced by it. A chip in the search
+    // row says which (Tab or a click changes it) and remembers the last choice; a card's "Insert a function after it"
+    // always inserts, and its "Replace…" and the Inspector's title always replace that step
+    const n0 = A.S.steps.length;
+    const modes = n0 < 1 ? ['insert'] : n0 === 1 ? ['insert', 'replaceF'] : ['insert', 'replaceF', 'replace'];
+    let mode = 'insert';
+    try { const m = localStorage.getItem(lsk('cmw-pal-where')); if (modes.includes(m)) mode = m; } catch (e) { /* ignore */ }
+    if (opt.insert) mode = 'insert';
+    if (opt.replace) mode = n0 === 1 ? 'replaceF' : 'replace';
+    const target = Math.max(1, Math.min(n0, opt.replace || insertAt));
+    palState = { at: insertAt, before: explicit ? at : (A.S.focus > 0 ? A.S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0, mode, modes, target };
+    const fx = (t) => t.replace(/f([₀-₉]+)/, (m, d) => `<i>f</i><sub>${[...d].map((c) => SUB.indexOf(c)).join('')}</sub>`);
+    const atText = (a) => (a <= 0 ? $t('Insert at the start') : a >= n0 ? $t('Append to the chain') : $t('Insert after f{x}', { x: sub(a) }));
+    const whereText = (m) => (m === 'replaceF' ? $t('Replace F') : m === 'replace' ? $t('Replace f{x}', { x: sub(target) }) : document.documentElement.classList.contains('ph') ? $t('Insert') : atText(palState.at));
+    const where = modes.length > 1 ? h('button', { class: 'pal-ctx pal-where', type: 'button', onpointerdown: (e) => e.preventDefault(), onmousedown: (e) => e.preventDefault(), onclick: () => { cycleWhere(1); input.focus({ preventScroll: true }); } }) : null;
+    const paintWhere = () => {
+      if (!where) return;
+      const t = whereText(palState.mode);
+      where.innerHTML = fx(t) + `<span class="pal-at-ic" aria-hidden="true">${ICONS.chevD || '▾'}</span>`;
+      where.setAttribute('aria-label', $t('Where it goes: {place}. Tab changes it', { place: t }));
+      if (palState.atChip) palState.atChip.hidden = palState.mode !== 'insert';
+    };
+    const cycleWhere = (d) => {
+      const i = modes.indexOf(palState.mode);
+      palState.mode = modes[(i + d + modes.length) % modes.length];
+      try { localStorage.setItem(lsk('cmw-pal-where'), palState.mode); } catch (e) { /* ignore */ }
+      paintWhere();
+      palState.sel = 0; render();
+    };
     tourEmit('palette-opened', {});
     // (v16.4) the step catalog: the add card, {+}, the palette's Add a step
     if (opt.fnOnly) tourEmit('layer-opened', { kind: 'catalog' });
@@ -382,15 +422,23 @@ const Commands = (() => {
         if (f && (f.kind === 'fn' || f.kind === 'region')) runItem(f, before); else input.focus();
         return;
       }
-      const where = before ? palState.before : palState.at;
+      const at = before ? palState.before : palState.at;
+      const m = it.kind === 'fn' ? it.mode || palState.mode : 'insert';
       closePalette();
-      const r = it.run(where);
+      const r = m === 'insert' ? it.run(at) : replaceSteps(m === 'replaceF' ? 0 : target - 1, m === 'replaceF' ? n0 : 1, it.run, fnName(it));
       // a new step's card takes the focus; anything else returns it to the opener when the run rebuilt it away
       if (r instanceof Element && r.isConnected && (it.kind === 'fn' || document.activeElement === document.body)) r.focus({ preventScroll: true });
       else focusBack(opener, okey);
     };
     const render = () => {
       const items = paletteItems(input.value, opt.fnOnly);
+      // (D1) a search with an answer lists its best function three ways, the chosen way first: Replace F with sin z,
+      // Insert sin z after f₂, Replace f₂ Möbius with sin z; the other matches go the chosen way
+      const i0 = modes.length > 1 && input.value.trim() ? items.findIndex((x) => x.kind === 'fn') : -1;
+      if (i0 >= 0) {
+        const it = items[i0], order = modes.slice(modes.indexOf(palState.mode)).concat(modes.slice(0, modes.indexOf(palState.mode)));
+        items.splice(i0, 1, ...order.map((m) => Object.assign({}, it, { mode: m, label: whereLabel(m, it), labelParts: null, desc: m === 'insert' ? it.desc : m === 'replaceF' ? $t('F becomes this alone; Undo brings the chain back') : $t('The other steps stay') })));
+      }
       palState.items = items;
       palState.sel = Math.min(palState.sel, Math.max(0, items.length - 1));
       list.innerHTML = '';
@@ -439,7 +487,7 @@ const Commands = (() => {
       // (v16.5 UX03, UX23: Enter says what it does to the highlighted row, and is grey when there is nothing to run)
       const it = palState.items[palState.sel], en = pop.querySelector('.pal-enter'), vb = pop.querySelector('.pal-verb');
       if (en && vb) {
-        const verb = !it ? '' : it.kind === 'cmd' ? $t(' to run') : it.kind === 'ex' ? $t(' to open') : it.kind === 'fix' ? $t(' to fix') : $t(' to add');
+        const verb = !it ? '' : it.kind === 'cmd' ? $t(' to run') : it.kind === 'ex' ? $t(' to open') : it.kind === 'fix' ? $t(' to fix') : it.kind === 'fn' && (it.mode || palState.mode) !== 'insert' ? $t(' to replace') : $t(' to add');
         en.classList.toggle('off', !verb);
         if (verb && vb.textContent !== verb) vb.textContent = verb;
       }
@@ -458,8 +506,9 @@ const Commands = (() => {
       else if (e.key === 'Enter') { e.preventDefault(); const it = palState.items[palState.sel]; if (it) runItem(it, e.shiftKey); }
       else if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(opener, okey); }
       else if (e.key === 'Tab') {
-        // Tab cycles groups
+        // Tab changes where the function goes (D1); with nothing to replace, it cycles groups
         e.preventDefault();
+        if (where) { cycleWhere(e.shiftKey ? -1 : 1); return; }
         if (!n) return;
         const g = palState.items[palState.sel].group;
         const order = [...new Set(palState.items.map((x) => x.group))];
@@ -470,7 +519,10 @@ const Commands = (() => {
     });
     $('popHost').append(pop);
     A.popEl = pop;
-    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey);   // (v16.5 UX29)
+    if (document.documentElement.classList.contains('ph')) phonePalette(pop, input, opener, okey, where);   // (v16.5 UX29)
+    else if (where) pop.querySelector('.pal-ctx').replaceWith(where);
+    palState.render = render;
+    paintWhere();
     render();
     // centred 14vh from the top; a bottom sheet on phones
     if (window.innerWidth < 768) pop.classList.add('sheet');

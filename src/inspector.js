@@ -153,7 +153,7 @@ const Inspector = (() => {
       const byp = h('button', { class: 'icon-btn bypass', html: ICONS.bypass, onclick: () => A.toggleBypass(k) });
       const more = h('button', { class: 'icon-btn more', 'aria-haspopup': 'menu', 'data-tip': $t('Inverse, bypass, move, duplicate, presets, remove'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), html: ICONS.more, onclick: (e) => A.stepMenu(e.currentTarget, k, { full: true }) });
       // (the head keeps the name whole: Show alone and More; Inverse and Bypass are in More)
-      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl' }, d.label), mvL, mvR, lens, more);
+      const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('button', { class: 'ttl', type: 'button', 'data-tip': $t('Replace this step'), 'aria-label': $t('Replace f{x} {name}', { x: sub(k), name: d.label }), 'aria-haspopup': 'dialog', onclick: (e) => A.replacePalette(e.currentTarget, k) }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
       const form = h('div', { class: 'iform' }, ftex);
       const err = h('div', { class: 'ierr', role: 'status' });

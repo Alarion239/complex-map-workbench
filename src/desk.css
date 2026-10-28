@@ -94,6 +94,13 @@
 .ihead .ty { display: inline-grid; place-items: center; width: 14px; height: 14px; color: var(--ink-2); flex: 0 0 14px; }
 .ihead .ty svg { width: 14px; height: 14px; display: block; }
 .ihead .ttl { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+/* (D1, issue #23) the step's title opens the search ready to replace it: "Möbius ▾" */
+.ihead button.ttl { padding: 2px 4px; margin-left: -4px; background: none; border: 0; border-radius: var(--r-1); color: inherit; font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.ihead button.ttl::after { content: ' ▾'; color: var(--ink-2); font-size: 11px; }
+.ihead button.ttl:hover { background: var(--well); }
+button.pal-ctx { border: 1px solid var(--line-strong); cursor: pointer; color: var(--ink); }
+button.pal-ctx:hover { background: var(--hover, var(--well)); }
+.pal-ctx .pal-at-ic svg { width: 12px; height: 12px; }
 .ihead .icon-btn { width: 28px; height: 28px; flex: 0 0 auto; }
 .ihead .icon-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
 .ihead .fF { font: italic 500 15px/1 var(--f-math); padding: 0 4px; }
@@ -323,7 +330,6 @@
 /* design-5: the temporary Inspector with X and Y side by side takes the stage's right 296 px while it is open */
 .layout.temp-dock > .stage { margin-right: 296px; }
 #clearChain[hidden] { display: none !important; }
-.pipe-head #chainMoreBtn { width: 28px; height: 28px; }
 /* design-16: at 768 to 1023 the zeros fill the left column and the poles the right, under a₃ */
 @media (min-width: 768px) and (max-width: 1023px) {
   #propsPanel .params.zp { grid-auto-flow: row dense; }
