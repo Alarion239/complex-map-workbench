@@ -1616,7 +1616,7 @@ const Funcs = (() => {
       let nat = null;
       // ([issue #5] a series deforms along the straight line for now: its zoom path waits for its GPU twin)
       try { nat = !rec && cls.dep && !P.constant && !Expr.hasSeries(ast) ? customNat(ast, f, cut, cls.analytic) : null; } catch (e) { nat = null; }
-      const r = {
+      const r = /** @type {any} */ ({
         ast,
         f, hom: nat ? nat.hom : linHom(f),
         homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: P.constant || !cls.dep ? $t('a constant has no natural path') : cls.analytic ? $t('this formula has no usable point to zoom about, so it has no natural path') : $t('this formula is not analytic, so it has no natural path') }), segment: true }),
@@ -1627,7 +1627,7 @@ const Funcs = (() => {
         domain: cls.branch ? (v) => $t('%{v}\\ \\text{off the branch cuts of the formula}', { v }) : (cls.entire ? null : (v) => $t('\\text{the formula is defined at } %{v}', { v })),
         branchNote: cls.branch ? $t('log, √ and powers use arg ∈ {iv}', { iv: degIv(cut - 360, cut) }) : null,
         ...(part ? { inverse: null } : customInverse(ast, th)),
-      };
+      });
       if (rec) asChain(r, rec);
       // [issue #5] where its series converge: dashed circles (|z − c| = R, and r for a Laurent series) or the line
       // Re z = σ, drawn with the cuts, and the domain in words; R, r and σ are estimated from the coefficients

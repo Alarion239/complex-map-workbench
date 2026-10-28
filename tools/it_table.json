@@ -3026,5 +3026,17 @@
  "Try: move the d/dz card along the chain and watch the picture change.": "Prova: sposta la scheda d/dz lungo la catena e guarda cambiare l'immagine.",
  "Try: turn All sheets on and off in the Landscape.": "Prova: attiva e disattiva Tutti i fogli nel Paesaggio.",
  "Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.": "Prova: passa al Paesaggio e cerca gli zeri sulla retta Re z = 1/2.",
- "Try: hover a pole in Y: X marks the point with that value.": "Prova: passa su un polo in Y: X segna il punto con quel valore."
+ "Try: hover a pole in Y: X marks the point with that value.": "Prova: passa su un polo in Y: X segna il punto con quel valore.",
+ "Partial sums of the exponential": "Somme parziali dell'esponenziale",
+ "Try: drag N under Numbers: the zeros of the partial sum move out as N grows.": "Prova: trascina N in Numeri: gli zeri della somma parziale si allontanano al crescere di N.",
+ "The phase portrait of the partial sum 1 + z + z²/2! + … + zᴺ/N! of the series of eᶻ. Its N zeros lie near a curve that grows with N (Szegő’s curve), and inside it the colours are those of eᶻ.": "Il ritratto di fase della somma parziale 1 + z + z²/2! + … + zᴺ/N! della serie di eᶻ. I suoi N zeri stanno vicino a una curva che cresce con N (la curva di Szegő), e al suo interno i colori sono quelli di eᶻ.",
+ "A natural boundary": "Una frontiera naturale",
+ "Try: zoom in on the unit circle: the colours turn faster and faster towards it, all along it.": "Prova: ingrandisci la circonferenza unitaria: i colori girano sempre più in fretta avvicinandosi, lungo tutta la circonferenza.",
+ "Σ z^(2ⁿ) converges in the unit disc and has no analytic continuation anywhere across the circle |z| = 1: every arc of it is a natural boundary. Outside the disc the series has no value and the plane is blank.": "Σ z^(2ⁿ) converge nel disco unitario e non si prolunga analiticamente attraverso nessun punto della circonferenza |z| = 1: ogni suo arco è una frontiera naturale. Fuori dal disco la serie non ha valore e il piano resta vuoto.",
+ "The dilogarithm from its series": "Il dilogaritmo dalla sua serie",
+ "Try: drag the disc past the dashed circle: outside it the series has no value.": "Prova: trascina il disco oltre la circonferenza tratteggiata: fuori la serie non ha valore.",
+ "Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.": "Li₂(z) = Σ zⁿ/n², un passo Serie con aₙ = 1/n². La circonferenza tratteggiata è il suo cerchio di convergenza, |z| = 1, stimato dai coefficienti; l'immagine del disco è disegnata solo dove la serie converge.",
+ "Zeta as a Dirichlet series": "Zeta come serie di Dirichlet",
+ "Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.": "Prova: apri Zeri della funzione zeta e confronta i colori a destra di Re z = 1.",
+ "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), un passo Serie di tipo Dirichlet con aₙ = 1, è ζ(z) dove converge, a destra della retta tratteggiata Re z = 1. A sinistra la serie diverge e il piano resta vuoto, mentre ζ stessa prosegue."
 }
