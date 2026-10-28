@@ -114,10 +114,10 @@
   }
   function deleteShape(id) {
     const cmMsg = Construct.deleteMessage(id);   // (v16: the cascade's toast)
-    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); S.shapes = S.shapes.filter((s) => !del.has(s.id) || s.id === id); S.targets = S.targets.filter((s) => !del.has(s.id) || s.id === id); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
+    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); setShapes(S.shapes.filter((s) => !del.has(s.id) || s.id === id)); setTargets(S.targets.filter((s) => !del.has(s.id) || s.id === id)); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
     const target = S.targets.some((s) => s.id === id);
-    if (target) S.targets = S.targets.filter((s) => s.id !== id);
-    else { S.shapes = S.shapes.filter((s) => s.id !== id); dropShapeGPU(id); }
+    if (target) setTargets(S.targets.filter((s) => s.id !== id));
+    else { setShapes(S.shapes.filter((s) => s.id !== id)); dropShapeGPU(id); }
     if (selected === id) selected = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
@@ -341,8 +341,8 @@
     if (!ds && !dt) return;
     // (the selection goes only with its own group: 'Clear targets' keeps a selected shape selected)
     if (selected && ((ds && S.shapes.some((s) => s.id === selected)) || (dt && S.targets.some((s) => s.id === selected)))) selected = null;
-    if (ds) { S.shapes = []; dropAllGPU(); }
-    if (dt) S.targets = [];
+    if (ds) { setShapes([]); dropAllGPU(); }
+    if (dt) setTargets([]);
     if (ds) shapesChanged(true);
     if (dt) targetsChanged(true);
     buildPipeline(); commit();

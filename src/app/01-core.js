@@ -208,6 +208,16 @@
   // setFocus (src/app/08-thumbnails-render.js) is the user's action, with its selection and redraw
   function setSel(v) { S.sel = v; }
   function setFocusStep(k) { S.focus = k; }
+  // the lists: the shapes in X, the chain's steps, the targets in Y, the parameters. A list replaced, an item added at
+  // the end, and the chain edited as Array.prototype.splice does (it returns the steps taken out)
+  function setShapes(list) { S.shapes = list; }
+  function setSteps(list) { S.steps = list; }
+  function setTargets(list) { S.targets = list; }
+  function setParams(list) { S.params = list; }
+  function pushShape(s) { S.shapes.push(s); }
+  function pushStep(st) { S.steps.push(st); }
+  function pushTarget(t) { S.targets.push(t); }
+  function spliceSteps(at, n, ...items) { return S.steps.splice(at, n, ...items); }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
@@ -265,10 +275,10 @@
   }
   function restore(e) {
     const o = JSON.parse(e.s), was = S.steps;
-    S.shapes = o.shapes; S.steps = o.steps; S.nextId = o.nextId;
+    setShapes(o.shapes); setSteps(o.steps); S.nextId = o.nextId;
     Funcs.typedKeep(was, S.steps); // (Russian: a list text typed and refused stays refused after an undo: verify-1)
-    S.targets = Array.isArray(o.targets) ? o.targets : [];
-    S.params = Array.isArray(o.params) ? o.params : [];
+    setTargets(Array.isArray(o.targets) ? o.targets : []);
+    setParams(Array.isArray(o.params) ? o.params : []);
     bindsAll();
     paramsRestored();
     // shapes that no longer exist give back their GPU meshes, lines and map caches

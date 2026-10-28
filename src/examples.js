@@ -10,7 +10,8 @@ const Examples = (() => {
   let EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit,
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
-    setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem;
+    setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
+    pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets;
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -42,7 +43,7 @@ const Examples = (() => {
     if (!spec) A.currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
-    A.S.shapes = []; A.S.steps = [];
+    setShapes([]); setSteps([]);
     setSel(null);   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
     // leftSphere, migrated to the panes' views as a saved state is), a phase style that needs no selected curve, the
@@ -77,17 +78,17 @@ const Examples = (() => {
       const ns = newShape(sh.kind, JSON.parse(JSON.stringify(sh)));
       // a melody's data keeps the chain it was composed for and the key of its points (sndListenOf)
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
-      A.S.shapes.push(ns);
+      pushShape(ns);
     }
-    for (const st of ex.steps) A.S.steps.push(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
+    for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) A.S.homRange = { a: ex.range.a, b: ex.range.b }; else delete A.S.homRange;   // (v16)
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find((x) => x.listen);
     if (piece) snd.lastLoop = { pts: piece.pts, closed: false, sid: piece.id };
     else if (snd.lastLoop && snd.lastLoop.sid) snd.lastLoop = null;
     // an example brings its own w-plane targets (none unless it says so)
-    A.S.targets = [];
-    if (ex.targets) for (const t of ex.targets) A.S.targets.push(newShape(t.kind, JSON.parse(JSON.stringify(t)), true));
+    setTargets([]);
+    if (ex.targets) for (const t of ex.targets) pushTarget(newShape(t.kind, JSON.parse(JSON.stringify(t)), true));
     A.S.sheets = !!ex.sheets;
     if (ex.height) A.S.height = ex.height;
     cauchyCache.key = '';
@@ -333,7 +334,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();
