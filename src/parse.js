@@ -139,6 +139,13 @@ const Expr = (() => {
     return { t, pos };
   }
 
+  // [issue #4] Γ, ζ (and ψ, written digamma) are functions when an opening parenthesis follows them (\Gamma(z),
+  // \zeta\left(s\right), Γ(z), zeta(s), Gamma(z), gamma(z), digamma(z)); otherwise a Greek letter stays a shared
+  // number's name, so ζ₁ and γ keep reading as before
+  const SPECIAL_FN = { Gamma: 'gamma', gamma: 'gamma', zeta: 'zeta', digamma: 'digamma', 'Γ': 'gamma', 'ζ': 'zeta' };
+  const callsAt = (src, j) => /^\s*(\(|\\left\s*\(|\\left\b)/.test(src.slice(j));
+  // ζ′ as \zeta'(s), ζ'(s) or zeta'(s) (the derivative step writes it so): the length of the prime and the call, or 0
+  const primeAt = (src, j) => { const m = /^\s*(?:'|′|\^\{?\\prime\}?)/.exec(src.slice(j)); return m && callsAt(src, j + m[0].length) ? m[0].length : 0; };
   // rel: region formulas (parse with allowRel), where '=' (also '==' and the full-width '＝') is an equation; elsewhere
   // '=' stays an unexpected character
   function tokenize(src, rel = false, ru = true) {
@@ -159,6 +166,12 @@ const Expr = (() => {
           throw new ParseError($t("Unexpected '\\%{x}'", { x: nx ?? '' }), i);
         }
         const name = m[1];
+        if ((name === 'Gamma' || name === 'zeta') && callsAt(src, i + m[0].length)) { toks.push({ t: 'func', v: SPECIAL_FN[name], pos: i }); i += m[0].length; continue; }
+        const zp = name === 'zeta' ? primeAt(src, i + m[0].length) : 0;
+        if (zp) { toks.push({ t: 'func', v: 'zetad', pos: i }); i += m[0].length + zp; continue; }
+        // ψ as \operatorname{\psi}(z) (a bare \psi stays a name)
+        const op = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*\\psi\s*\}/.exec(src.slice(i + m[0].length));
+        if (op && callsAt(src, i + m[0].length + op[0].length)) { toks.push({ t: 'func', v: 'digamma', pos: i }); i += m[0].length + op[0].length; continue; }
         const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
         if (!spec && NAMES && GREEK_TEX[name]) {
           const sb = subAt(src, i + m[0].length);
@@ -193,7 +206,7 @@ const Expr = (() => {
           if (!mm) throw new ParseError($t('\\%{name} needs a name in braces', { name }), i);
           i += mm[0].length;
           const inner = mm[1];
-          const s2 = LATEX_CMDS[inner] && LATEX_CMDS[inner].startsWith('f:') ? LATEX_CMDS[inner] : (PLAIN[inner] || LETTERS[inner] || (ru ? ruName(inner) : undefined));
+          const s2 = LATEX_CMDS[inner] && LATEX_CMDS[inner].startsWith('f:') ? LATEX_CMDS[inner] : (PLAIN[inner] || (SPECIAL_FN[inner] && 'f:' + SPECIAL_FN[inner]) || LETTERS[inner] || (ru ? ruName(inner) : undefined));
           if (!s2) throw new ParseError((RU_ONLY() && Object.prototype.hasOwnProperty.call(UNSUPPORTED, inner) && UNSUPPORTED[inner]()) || $t("Unknown name '{x}'", { x: inner }), i);
           toks.push(tokFrom(s2, i));
           continue;
@@ -210,6 +223,10 @@ const Expr = (() => {
       if (num) { toks.push({ t: 'num', v: parseFloat(num[0]), s: num[0], pos: i }); i += num[0].length; continue; }
       if (/[A-Za-z]/.test(ch)) {
         const rest = src.slice(i);
+        const sf = !/[A-Za-z]/.test(src[i - 1] || '') && /^(digamma|Gamma|gamma|zeta)/.exec(rest);
+        if (sf && callsAt(src, i + sf[1].length)) { toks.push({ t: 'func', v: SPECIAL_FN[sf[1]], pos: i }); i += sf[1].length; continue; }
+        const zq = sf && sf[1] === 'zeta' ? primeAt(src, i + 4) : 0;
+        if (zq) { toks.push({ t: 'func', v: 'zetad', pos: i }); i += 4 + zq; continue; }
         if (NAMES && !/[A-Za-z]/.test(src[i - 1] || '')) {
           const nr = nameRun(src, i, ru);
           if (nr) { toks.push(...nr.toks); i = nr.end; continue; }
@@ -248,6 +265,8 @@ const Expr = (() => {
       if (ch === '≤') { toks.push({ t: 'op', v: '<=', pos: i }); i++; continue; }
       if (ch === '≥') { toks.push({ t: 'op', v: '>=', pos: i }); i++; continue; }
       if (ch === 'π') { toks.push({ t: 'const', v: 'pi', pos: i }); i++; continue; }
+      if ((ch === 'Γ' || ch === 'ζ') && callsAt(src, i + 1)) { toks.push({ t: 'func', v: SPECIAL_FN[ch], pos: i }); i++; continue; }
+      if (ch === 'ζ' && primeAt(src, i + 1)) { const k = primeAt(src, i + 1); toks.push({ t: 'func', v: 'zetad', pos: i }); i += 1 + k; continue; }
       if (ch === '·' || ch === '×') { toks.push({ t: 'op', v: '*', pos: i }); i++; continue; }
       if (ch === '−') { toks.push({ t: 'op', v: '-', pos: i }); i++; continue; }
       if ('+-*/^()[]{}|,<>'.includes(ch)) { toks.push({ t: 'op', v: ch, pos: i }); i++; continue; }
@@ -527,6 +546,7 @@ const Expr = (() => {
     asin: CX.asin, acos: CX.acos, atan: CX.atan, asinh: CX.asinh, acosh: CX.acosh, atanh: CX.atanh,
     exp: CX.exp, abs: (a) => C(CX.abs(a), 0), conj: CX.conj, re: (a) => C(a.re, 0), im: (a) => C(a.im, 0),
     arg: (a) => C(Math.atan2(a.im, a.re), 0),
+    gamma: CX.gamma, zeta: CX.zeta, digamma: CX.digamma, zetad: CX.zetaDeriv,
   };
   function compile(ast, { theta = Math.PI } = {}) {
     function build(n) {
@@ -677,7 +697,7 @@ const Expr = (() => {
           case 'conj': return R(a.real, a.nonneg);
           case 'exp': case 'cosh': return R(a.real, true);
           case 'sin': case 'cos': case 'tan': case 'cot': case 'sec': case 'csc':
-          case 'sinh': case 'tanh': case 'coth': case 'atan': case 'asinh': return R(a.real);
+          case 'sinh': case 'tanh': case 'coth': case 'atan': case 'asinh': case 'gamma': case 'zeta': case 'digamma': case 'zetad': return R(a.real);
           case 'sqrt': return R(a.nonneg, true);
           case 'log': return R(a.nonneg);
         }
@@ -880,7 +900,7 @@ const Expr = (() => {
         case 'call': {
           const a = go(n.a);
           if (['exp', 'sin', 'cos', 'sinh', 'cosh'].includes(n.f)) return K({ analytic: a.analytic, entire: a.entire, branch: a.branch });
-          if (['tan', 'cot', 'sec', 'csc', 'tanh', 'coth'].includes(n.f)) return K({ analytic: a.analytic, branch: a.branch });
+          if (['tan', 'cot', 'sec', 'csc', 'tanh', 'coth', 'gamma', 'zeta', 'digamma', 'zetad'].includes(n.f)) return K({ analytic: a.analytic, branch: a.branch });
           if (['log', 'sqrt'].includes(n.f)) return K({ analytic: a.analytic, branch: true });
           if (['asin', 'acos', 'atan', 'asinh', 'acosh', 'atanh'].includes(n.f)) return K({ analytic: a.analytic, branch: true, fixedCut: true });
           return K({ branch: a.branch });
@@ -1216,6 +1236,8 @@ const Expr = (() => {
             case 'asinh': return div(Da, principal ? call('sqrt', add(sq(a), ONE())) : call('cosh', n));
             case 'acosh': return div(Da, principal ? mul(call('sqrt', sub(a, ONE())), call('sqrt', add(a, ONE()))) : call('sinh', n));
             case 'atanh': return div(Da, sub(ONE(), sq(a)));
+            case 'gamma': return mul(Da, mul(n, call('digamma', a)));   // Γ′ = Γ ψ
+            case 'zeta': return mul(Da, call('zetad', a));
             case 'abs': throw NH('|z|');
             case 'conj': throw NH($t('Conjugation z̄'));
             case 're': throw NH('Re z');
@@ -1306,6 +1328,7 @@ const Expr = (() => {
           if (n.f === 'sqrt') { w = pow(w, TWO()); L(); }
           else if (INV[n.f]) { w = call(INV[n.f][0], w); INV[n.f][1](); }
           else if (RECIP[n.f]) { w = call(RECIP[n.f], div(ONE(), w)); R(); }
+          else if (['gamma', 'zeta', 'digamma', 'zetad'].includes(n.f)) throw new Error($t('Γ, ζ and ψ take each value infinitely often, so the formula has no inverse'));
           else throw new Error($t('|·|, Re, Im and arg lose information, so the formula has no inverse'));
           n = n.a;
           break;
@@ -1324,7 +1347,7 @@ const Expr = (() => {
   const FNTEX = {
     sin: '\\sin', cos: '\\cos', tan: '\\tan', cot: '\\cot', sec: '\\sec', csc: '\\csc', sinh: '\\sinh', cosh: '\\cosh', tanh: '\\tanh', coth: '\\coth',
     asin: '\\arcsin', acos: '\\arccos', atan: '\\arctan', asinh: '\\operatorname{arsinh}', acosh: '\\operatorname{arcosh}', atanh: '\\operatorname{artanh}',
-    log: '\\log', re: '\\operatorname{Re}', im: '\\operatorname{Im}', arg: '\\arg',
+    log: '\\log', re: '\\operatorname{Re}', im: '\\operatorname{Im}', arg: '\\arg', gamma: '\\Gamma', zeta: '\\zeta', digamma: '\\operatorname{\\psi}', zetad: "\\zeta'",
   };
   const paren = (x) => `\\left(${x}\\right)`;
   // a sum or difference at the top level (the minus of an exponent 10^{-5} does not count)
@@ -1375,7 +1398,8 @@ const Expr = (() => {
           if (n.f === 'conj') return { s: `\\overline{${a.s}}`, p: 4 };
           if (n.f === 'exp') return { s: `e^{${a.s}}`, p: 3 };
           const nm = FNTEX[n.f] || `\\operatorname{${n.f}}`;
-          const bare = a.p === 4 && a.s.length <= 3;
+          // (Γ, ζ, ψ always take parentheses: without them they read back as Greek names)
+          const bare = a.p === 4 && a.s.length <= 3 && !['gamma', 'zeta', 'digamma', 'zetad'].includes(n.f);
           return { s: bare ? `${nm} ${a.s}` : `${nm}${paren(a.s)}`, p: 3, bare };
         }
         case 'cmp': {

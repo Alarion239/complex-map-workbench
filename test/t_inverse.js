@@ -104,7 +104,9 @@ section('(a) round trips');
   check('every op kind is exercised', ALL_KINDS.every((k) => kinds.has(k)), ALL_KINDS.filter((k) => !kinds.has(k)).join(' '));
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
-  check('every catalog type except d/dz is round-tripped', Object.keys(Funcs.DEFS).every((id) => id === 'deriv' || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => id !== 'deriv' && !covered.has(id)).join(' '));
+  // (d/dz, Γ and ζ are ineligible by rule: below)
+  const byRule = new Set(['deriv', 'gamma', 'zeta']);
+  check('every catalog type except d/dz, Γ and ζ is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
     ['poly', { co: '1, 0, -1, 0' }, 'polynomial of degree 3'], ['rational', { p: '1, 0, 0, 1', q: '1, 0' }, 'rational map of degree 3'],
@@ -112,6 +114,8 @@ section('(a) round trips');
     ['custom', { expr: '|z|^2' }, 'lose'], ['custom', { expr: '\\arg(z)' }, 'lose'], ['deriv', {}, 'd/dz'], ['pown', { n: 17 }, '|n| > 16'], ['custom', { expr: 'z^{20}' }, '|n| > 16'],
     ['poly', { co: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1' }, '|n| > 16'], ['custom', { expr: 'z^{z}' }, 'variable base and exponent'], ['custom', { expr: '(1+z)^{\\sin z}' }, ''], ['custom', { expr: 'z\\cdot\\overline{z}' }, 'more than once'],
     ['mul', { c: '0' }, 'constant'], ['powa', { alpha: '0' }, 'constant'], ['mobius', { a: '1', b: '2', c: '2', d: '4' }, ''],
+    // (issue #4) Γ and ζ take each value infinitely often: X → Y uses the sphere-mesh fallback
+    ['gamma', {}, 'no inverse enumerator'], ['zeta', {}, 'no inverse enumerator'], ['custom', { expr: '\\Gamma(z)+1' }, 'infinitely often'],
   ];
   for (const [type, params, why] of INELIGIBLE) {
     const st = St(type, params), b = Funcs.build(st);

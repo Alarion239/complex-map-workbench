@@ -9,6 +9,7 @@ test/cdp_kit/q/
 test/regress/perf/results/
 test/regress/perf/ref_root/
 test/regress/quality/out/
+test/regress/export/out/
 test/regress/tmp/
 *.bak*
 .DS_Store
