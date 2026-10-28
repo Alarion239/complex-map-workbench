@@ -104,14 +104,14 @@ await tool('perp'); await pick(200); await pick(100); await pick(150);
   const smp = await mdrag([await W(P.p[0], P.p[1])].concat(await arc(100, 250, 3)), { dt: 20, sample: async () => { const s2 = await ST(); const k = s2.list.find((x) => x.id === K.id), p = s2.list.find((x) => x.id === P.id); return [deg(p.p), !!k.cundef]; } });
   await settle(200);
   ok('rail-3: P never rests on Q (150°) and K stays defined', !smp.some((x) => x[1]) && !smp.some((x) => Math.abs(x[0] - 150) < 0.01), smp.map((x) => x.join(':')).join(' ')); }
-// rail-7, rail-8, user-6: the refusal in the chip (one name), cleared by the next pick and by Esc
+// rail-7, rail-8, user-6: the refusal in the chip (the tool's full name), cleared by the next pick and by Esc
 await load(NS + 'k7', U0()); await settle(900);
 await tool('perp'); await pick(200);
 ok('user-6: the chip says a point on the curve will do', /Pick a point \(on the unit circle or anywhere\)/.test(await mchip()), await mchip());
 await pick(300);
 { const p = await A(302); await move(p[0], p[1]); await settle(100); await click(p[0], p[1]); await settle(150);
   const r = (await DBG()).ring, c = await mchip();
-  ok('rail-8: one name for the tool in the chip and the refusal', /Orthogonal needs distinct points/.test(c) && !/Perpendicular circle/.test(c), c);
+  ok('rail-8: the refusal names the tool in full', /Perpendicular circle needs distinct points/.test(c) && !/Orthogonal needs distinct points/.test(c), c);
   ok('rail-7: after the press the ring only warns (no second label)', r && r.warn && r.chip === '', r);
   await pick(60);
   ok('rail-7: an accepted pick clears the refusal', !/needs distinct points/.test(await mchip()), await mchip()); }
