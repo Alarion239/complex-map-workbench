@@ -1579,7 +1579,7 @@ const Funcs = (() => {
       const r = {
         ast,
         f, hom: nat ? nat.hom : linHom(f),
-        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: cls.dep && !P.constant ? $t('this formula is not analytic, so it has no natural path') : $t('a constant has no natural path') }), segment: true }),
+        homTex: nat ? nat.homTex : (v = 'z') => ({ tex: $t('the straight-line homotopy $H_t(%{v})=(1-t)%{v}+t\\,f(%{v})$ (%{why})', { v, why: P.constant || !cls.dep ? $t('a constant has no natural path') : cls.analytic ? $t('this formula has no usable point to zoom about, so it has no natural path') : $t('this formula is not analytic, so it has no natural path') }), segment: true }),
         nat: nat ? nat.nat : null, natData: nat ? nat.natData || null : null,
         tex: (a) => Expr.toTex(ast, a),
         props: P,
