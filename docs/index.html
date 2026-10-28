@@ -34613,8 +34613,9 @@ registerProcessor('cmw-voice', Voice);`;
   }
 
   // offline rendering, for tests (no output device, no activation needed). opts.nodes: the main-thread fallback
+  // (opts.noLimit: the graph without the declared limiter, whose 2 ms look-ahead delays everything: a cue's own envelope)
   async function render(fn, dur, opts = {}) {
-    const rate = opts.rate || 48000, c = new OfflineAudioContext(2, Math.ceil(dur * rate), rate), g = graph(c, opts.vol != null ? opts.vol : 1, { allOn: true, noClip: opts.noClip });
+    const rate = opts.rate || 48000, c = new OfflineAudioContext(2, Math.ceil(dur * rate), rate), g = graph(c, opts.vol != null ? opts.vol : 1, { allOn: true, noClip: opts.noClip, noLimit: opts.noLimit });
     g.offline = true; g.worklet = !opts.nodes && await loadWorklet(c); g.engine = g.worklet ? 'worklet' : 'nodes';
     if (g.worklet) g.synth = makeSynth(g);
     limitOn(g);

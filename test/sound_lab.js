@@ -65,7 +65,8 @@
         let endAt = 0;
         const buf = await Sound.render((G, t) => { endAt = Sound.cueTo(G, name, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });
         const a = analyse(buf, 0.01, null);
-        const dry = await Sound.render((G, t) => { G.tier[d.tier].wet.gain.value = 0; endAt = Sound.cueTo(G, name, t, o); }, 2.2, { noClip: true, nodes: opts.nodes });
+        // (the envelope before the declared limiter: its 2 ms look-ahead would put the end 96 samples late)
+        const dry = await Sound.render((G, t) => { G.tier[d.tier].wet.gain.value = 0; endAt = Sound.cueTo(G, name, t, o); }, 2.2, { noClip: true, noLimit: true, nodes: opts.nodes });
         const ad = analyse(dry, 0.01, endAt);
         const L = lufsM(buf, false), Lp = lufsM(buf, true);
         rows.push({ name, o, tier: d.tier, peak: +dB(a.peak).toFixed(2), lufs: +L.toFixed(2), phone: +Lp.toFixed(2), loss: +(L - Lp).toFixed(2), first: +a.first.toFixed(3), end: ad.end, hf: +a.hf.toFixed(1), len: +a.len.toFixed(3) });
