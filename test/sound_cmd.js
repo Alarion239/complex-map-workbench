@@ -139,7 +139,9 @@ await glide(c2);
 await settle(200);
 let s = await snd();
 R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await hearCount(), live: await ev('Sound.debug().live'), engine: await ev('Sound.state().engine') };
-ok('Hear F: the notes, +2 turns around the zero at 1 twice (exact): the red line 2 up, 0 down, 12 to 24 notes (24 lines crossed), no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && Math.abs(R.hover.dphi - 2) < 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes >= 12 && R.hover.harp.notes <= 24, R.hover);
+// (v16.5: the probe is roped, spec 3.1: it trails the pointer by up to 3 px, so after the pointer's two exact turns
+// the probe's arg is short by up to 3 px of the 0.3 circle, about 0.02 turn here)
+ok('Hear F: the notes, +2 turns around the zero at 1 twice (the probe roped 3 px behind): the red line 2 up, 0 down, 12 to 24 notes (24 lines crossed), no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && R.hover.dphi > 1.97 && R.hover.dphi <= 2 + 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes >= 12 && R.hover.harp.notes <= 24, R.hover);
 await sleep(300);
 await hearCount(); await sleep(700); R.still = await hearCount();
 ok('Hear F: silent while the pointer rests', R.still.notes === 0 && R.still.up === 0, R.still);
@@ -245,16 +247,17 @@ R.kbClick = { tool: await ev(`document.querySelector('[data-tool].active, [data-
 ok('after a click in the plane, L is the Line tool again', !R.kbClick.play && !R.kbClick.kbd, R.kbClick);
 await key('v'); await settle(150);
 
-// 10. Height contours in the Landscape: the Height voice and its contour ticks
-await key('3'); await settle(1500); await made(true);
+// 10. The Landscape (v16.5, Hear the function, SOUND-PLAN G1: the Height voice and its contour ticks are retired; the
+// Landscape's probe (pickLand) is heard as on the planes: notes at the colour lines, no voice, no contour tick)
+await key('3'); await settle(1500); await made(true); await hearCount();
 {
   const r = await ev(`(() => { const b = document.getElementById('overlayL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
   for (let i = 0; i <= 60; i++) { const u = i / 60; await move(r[0] + r[2] * (0.3 + 0.4 * u), r[1] + r[3] * (0.5 + 0.12 * Math.sin(6 * u))); await sleep(20); }
   await settle(400);
   s = await snd();
-  R.height = { kind: s.kind, made: await made(true) };
+  R.height = { kind: s.kind, voice: s.voice, made: await made(true), hear: await hearCount() };
 }
-ok('Landscape: the Height voice and contour ticks', R.height.kind === 'height' && count(R.height.made, 'contour') >= 2, R.height);
+ok('Landscape: the probe on the relief is heard as on the planes (notes at its lines, no Height voice, no contour tick)', !R.height.voice && R.height.kind !== 'height' && !R.height.made.includes('contour') && R.height.hear.notes >= 2, R.height);
 await key('2'); await settle(800);
 
 // 11. the engine's guards in the live context: 12 turns → 8 bells and one flourish; an Interface cue right after

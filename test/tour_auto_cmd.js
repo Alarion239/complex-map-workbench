@@ -218,7 +218,7 @@ while (Date.now() - t0 < 30000) {
   await sleep(40);
 }
 const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
-check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from the press: the |F| swell, the second downbeat crack, the second lap)', durMs > 0 && near(capAt(/^Louder as/), 0.2 * durMs, 300) && near(capAt(/^The crack is/), 0.29 * durMs, 300) && near(capAt(/^The second lap/), 0.51 * durMs, 300), [durMs, caps]);
+check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from the press: the branch-point pairs, the second downbeat crack, the second lap)', durMs > 0 && near(capAt(/^Each step is/), 0.2 * durMs, 300) && near(capAt(/^The crack is/), 0.29 * durMs, 300) && near(capAt(/^The second lap/), 0.51 * durMs, 300), [durMs, caps]);
 const endAt = capAt(/^Every note/);
 check('Grieg: no move for the whole piece, then the result line', endAt != null && endAt > durMs - 300, [durMs, caps]);
 check('Grieg: moves on 3 s after the piece ends', (await cur()) === 'sound/strings' && caps.length >= 5, caps);
