@@ -102,10 +102,11 @@ const Construct = (() => {
   }
 
   // ---------------------------------------------------------------- names and texts
-  // a point shape's plane label (z₀, a user label; helpers have none), as drawPoints counts
+  // a point shape's plane label (z₀ by its stored number, a user label; helpers have none), as drawPoints names it
   function pointName(s) {
     const st = S();
     if (isT(s)) { const pts = st.targets.filter((x) => x.kind === 'point'); return A.targetLabel(s, pts.indexOf(s)); }
+    if (Number.isInteger(s.num)) return A.pointLabel(s, s.num, 0);
     let i = 0;
     for (const x of st.shapes) { if (x === s) break; if (x.kind === 'point' && x.visible !== false && !x.helper) i++; }
     return A.pointLabel(s, i, 0);
@@ -123,7 +124,9 @@ const Construct = (() => {
   const nameById = (id) => shapeLabel(find(id));
   // a name kind's word: a Region kind's label, or [v16.5 UX55] 'Hyperbolic line'
   const kindLabel = (nk) => (nk === 'hyper' ? $t('Hyperbolic line') : Region.KINDS[nk].label);
-  const zMark = (kind, i) => (kind === 'poles' ? 'p' : 'ζ') + sub(i + 1);
+  // a zero's or pole's mark by its number n (Constr.zpNum); a reason's mark {kind, i, n?} by markNum
+  const zMark = (kind, n) => (kind === 'poles' ? 'p' : 'ζ') + sub(n);
+  const markNum = (m) => (Number.isInteger(m.n) ? m.n : (m.i | 0) + 1);
   function zpIndex(ref) {
     const st = (S().steps || []).find((x) => x.uid === ref.zp);
     const ids = st && st.zpIds && st.zpIds[ref.kind];
@@ -235,7 +238,7 @@ const Construct = (() => {
   function refName(ref, cs) {
     if (!ref) return '?';
     if (ref.inf) return '∞';
-    if (typeof ref.zp === 'string') return zMark(ref.kind, zpIndex(ref));
+    if (typeof ref.zp === 'string') return zMark(ref.kind, Constr.zpNum((S().steps || []).find((x) => x.uid === ref.zp), ref.kind, zpIndex(ref)));
     if (typeof ref.img === 'string') { const s = find(ref.img); return s ? pointName(s) + (S().steps.length < 4 ? ['', '′', '″', '‴'][S().steps.length] : '″') : '?'; }
     if (ref.meet) return `${curveName(ref.meet[0])} ∩ ${curveName(ref.meet[1])}`;
     if (ref.part != null) return curveName(ref);
@@ -252,7 +255,7 @@ const Construct = (() => {
   function reasonText(u) {
     if (!u) return '';
     const a = u.args || {};
-    const mark = a.mark ? zMark(a.mark.kind, a.mark.i | 0) : '';
+    const mark = a.mark ? zMark(a.mark.kind, markNum(a.mark)) : '';
     switch (u.code) {
       case 'coincide': return $t('The points coincide');
       case 'coincide3': return $t('Two of the points coincide');
@@ -275,7 +278,7 @@ const Construct = (() => {
       case 'stepRemoved': return $t('The step of {mark} was removed', { mark });
       case 'zpNotF1': return a.mark && a.mark.kind === 'poles' ? $t('{mark} is a pole of {f} now: only the zeros and poles of f₁ lie in the z-plane', { mark, f: 'f' + sub(a.f || 2) }) : $t('{mark} is a zero of {f} now: only the zeros and poles of f₁ lie in the z-plane', { mark, f: 'f' + sub(a.f || 2) });
       case 'argUndef': {
-        const x = a.x == null ? null : typeof a.x === 'string' ? nameById(a.x) : a.x.mark ? zMark(a.x.mark.kind, a.x.mark.i | 0) : null;
+        const x = a.x == null ? null : typeof a.x === 'string' ? nameById(a.x) : a.x.mark ? zMark(a.x.mark.kind, markNum(a.x.mark)) : null;
         return x ? $t('{x} is undefined', { x }) : $t('An argument is undefined');
       }
     }
@@ -1264,7 +1267,7 @@ const Construct = (() => {
     if (p && p.cls === 'point' && p.ref) return refName(p.ref);
     const st = S();
     if (side === 'R') return A.targetLabel({}, st.targets.filter((x) => x.kind === 'point').length);
-    return A.pointLabel({}, st.shapes.filter((x) => x.kind === 'point' && x.visible !== false && !x.helper).length, 0);
+    return A.pointLabel({ num: A.nextPointNum() }, 0, 0);
   }
   // after T: the tangent at T as a line form (C a circle), else null
   function hintForm(T) {
@@ -2184,7 +2187,7 @@ const Construct = (() => {
     let plan;
     try { plan = Constr.zeroRemovePlan(S(), { zp: st.uid, kind, id: st.zpIds[kind][i] }); } catch (e) { return ''; }
     const n = plan.undef.length;
-    return n ? $tn('Release to remove {mark}; {n} shape will be undefined', 'Release to remove {mark}; {n} shapes will be undefined', n, { mark: zMark(kind, i) }) : '';
+    return n ? $tn('Release to remove {mark}; {n} shape will be undefined', 'Release to remove {mark}; {n} shapes will be undefined', n, { mark: zMark(kind, Constr.zpNum(st, kind, i)) }) : '';
   }
 
   // ---------------------------------------------------------------- rows, ⋯ items, hover links

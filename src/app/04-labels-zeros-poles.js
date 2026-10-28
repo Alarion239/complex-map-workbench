@@ -383,7 +383,8 @@
   // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
   // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
   const ZP_KINDS = ['zeros', 'poles'];
-  const zpSym = (kind, i) => (kind === 'zeros' ? 'ζ' : 'p') + sub(i + 1);
+  // [UX54] by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
+  const zpSym = (kind, i, st) => (kind === 'zeros' ? 'ζ' : 'p') + sub(Constr.zpNum(st, kind, i));
   // (the marks are drawn with every overlay frame: a field's text is parsed once)
   const zpParsed = new Map();
   const zpParse = (s) => {
@@ -447,7 +448,7 @@
         ctx.strokeStyle = col; ctx.lineWidth = 2.5; cross();
       }
       if (hot || sel) { ctx.strokeStyle = col; ctx.lineWidth = sel ? 1.5 : 1; ctx.beginPath(); ctx.arc(x, y, 10.5, 0, TAU); ctx.stroke(); }
-      const t = zpSym(kind, i);
+      const t = zpSym(kind, i, S.steps[zs.k - 1]);
       // (no label where handles crowd: closer than 18 px to one drawn before, unless it is held or selected)
       const crowd = !hot && !sel && zpHandlesL.slice(0, -1).some((q) => Math.hypot(q.x - x, q.y - y) < 18);
       ctx.font = `italic 500 13px ${TH.math}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -556,7 +557,7 @@
     if (i < 0) return;
     commit();
     requestRender('OL');
-    sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: `ζ${sub(i + 1)}`, f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: `p${sub(i + 1)}`, f: `f${sub(k)}` }));
+    sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }));
     const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"], #pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
     if (inp) inp.scrollIntoView({ block: 'nearest' });
   }
@@ -599,7 +600,7 @@
     return frag;
   }
   function zpItemField(st, k, kind, i, raw, pre) {
-    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i);
+    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i, st);
     const input = h('input', { class: 'inp', id, value: zpShow(raw), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
     input.dataset.zp = `${kind}:${i}`;
     // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)
@@ -619,7 +620,7 @@
       commit();
     });
     input.addEventListener('paste', () => setTimeout(() => { if (Funcs.splitList(input.value).filter((x) => x.trim()).length > 1) { input.blur(); } }, 0));
-    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: i + 1, k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: i + 1, k: sub(k) }), html: ICONS.close,
+    const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }), html: ICONS.close,
       onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
     const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': kind === 'zeros' ? $t('Zero {sym}: drag it in the input plane', { sym }) : $t('Pole {sym}: drag it in the input plane', { sym }) }, sym);
     // (v15, review design-8: every zero and pole row has its Argand button, named by the indexed symbol)

@@ -2324,6 +2324,14 @@
  "linear affine": "linear affine lineare affine",
  "lines": "linee",
  "link, share, url, copy link, send": "link, share, url, copy link, send, condividi, copia link, invia",
+ "Renumber points": "Rinumera i punti",
+ "Renumber zeros and poles": "Rinumera zeri e poli",
+ "renumber, rename, numbers, names, points, tidy": "renumber, rename, numbers, names, points, tidy, rinumera, numeri, nomi, punti",
+ "renumber, rename, numbers, names, zeros, poles, tidy": "renumber, rename, numbers, names, zeros, poles, tidy, rinumera, numeri, nomi, zeri, poli",
+ "The points are numbered in order already.": "I punti sono già numerati in ordine.",
+ "Points renumbered.": "Punti rinumerati.",
+ "The zeros and poles are numbered in order already.": "Zeri e poli sono già numerati in ordine.",
+ "Zeros and poles renumbered.": "Zeri e poli rinumerati.",
  "list\u0004 and ": " e ",
  "list\u0004, and ": "​ e ",
  "log, √ and powers use arg ∈ {iv}": "log, √ e le potenze usano arg ∈ {iv}",
@@ -2904,5 +2912,8 @@
  "; one sheet is drawn while it deforms": "; durante la deformazione viene disegnato un solo foglio",
  "The curves that {x} maps onto the targets of Y are drawn in X.": "In X sono disegnate le curve che {x} manda sui bersagli di Y.",
  "Where {x} lands in the targets of Y is shaded in X.": "In X è ombreggiata la zona dove {x} cade nei bersagli di Y.",
- "Symbols": "Simboli"
+ "Symbols": "Simboli",
+ "All steps": "Tutti i passi",
+ "Deform every step": "Deforma tutti i passi",
+ "Deforming {steps}": "Deformazione di {steps}"
 }

@@ -654,9 +654,48 @@
   // the other language and a save reopened in the other language read right (review math-5); a user's label is as typed
   const EX_LABELS = new Set(['trailing edge']);
   const exLabel = (l) => (l && EX_LABELS.has(l) ? $t(l) : l);
+  // [UX54] a point keeps its subscript for life (gaps allowed): s.num, stored with the shape. Helpers have none. A save
+  // with no numbers (earlier builds) takes them from the order, as those builds named the points (the visible ones,
+  // then the hidden ones); a point without one (new, pasted, a helper made visible) or with a copy's takes the next
+  // after the largest. renumber: every point by its order again (the command palette's Renumber points)
+  const numbered = (s) => !!s && s.kind === 'point' && !s.helper;
+  function numberPoints(list = S.shapes, renumber = false) {
+    const pts = list.filter(numbered);
+    let ch = false;
+    const set = (s, n) => { if (s.num !== n) { s.num = n; ch = true; } };
+    if (renumber || !pts.some((s) => Number.isInteger(s.num))) {
+      let n = 0;
+      for (const s of pts) if (s.visible !== false) set(s, n++);
+      for (const s of pts) if (s.visible === false) set(s, n++);
+      return ch;
+    }
+    const used = new Set(), need = [];
+    for (const s of pts) {
+      if (Number.isInteger(s.num) && s.num >= 0 && !used.has(s.num)) used.add(s.num);
+      else need.push(s);
+    }
+    let n = used.size ? Math.max(...used) + 1 : 0;
+    for (const s of need) set(s, n++);
+    return ch;
+  }
+  // Renumber points, Renumber zeros and poles (the command palette): tidy names again, by order; one undo step
+  function renumberPoints() {
+    if (!numberPoints(S.shapes, true)) { toast($t('The points are numbered in order already.')); return; }
+    shapesChanged(true); commit(); requestRender('L', 'R', 'OL', 'OR');
+    undoToast($t('Points renumbered.'));
+  }
+  function renumberZp() {
+    let ch = false;
+    for (const st of S.steps) if (Constr.zpRenumber(st)) ch = true;
+    if (!ch) { toast($t('The zeros and poles are numbered in order already.')); return; }
+    buildPipeline(); updateFocusUI(); commit(); requestRender('L', 'R', 'OL', 'OR');
+    undoToast($t('Zeros and poles renumbered.'));
+  }
+  // the number the next new point takes
+  const nextPointNum = () => { let n = -1; for (const s of S.shapes) if (numbered(s) && Number.isInteger(s.num)) n = Math.max(n, s.num); return n + 1; };
   function pointLabel(s, idx, primes) {
     // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
-    const base = exLabel(s.label) || 'z' + sub(idx);
+    const base = exLabel(s.label) || 'z' + sub(Number.isInteger(s.num) ? s.num : idx);
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)

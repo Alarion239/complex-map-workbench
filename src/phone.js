@@ -24,16 +24,6 @@ const Phone = (() => {
   const MQP = '(max-width: 767px)';
   const MQL = '(orientation: landscape) and (max-height: 500px) and (max-width: 1023px) and (pointer: coarse)';
   const DUR = 220;
-  const $ = (id) => document.getElementById(id);
-  const h = (tag, attrs, ...kids) => {
-    const e = document.createElement(tag);
-    for (const [k, v] of Object.entries(attrs || {})) {
-      if (v == null || v === false) continue;
-      if (k === 'html') e.innerHTML = v; else if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v === true ? '' : v);
-    }
-    for (const c of kids) if (c != null) e.append(c);
-    return e;
-  };
   const reduced = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
   const rootEl = document.documentElement;
 

@@ -465,6 +465,7 @@
   function shapesChangedAll(structural) { shapesChanged(structural); }
   function shapesChanged(structural) {
     if (cmShapes()) structural = true;   // (v16 constructions)
+    if (numberPoints()) structural = true;
     noteChange();
     if (structural) {
       updateFocusUI();

@@ -356,18 +356,6 @@ const Params = (() => {
   // Params.mount(el): a section with one 56 px row per number (line 1: the name, "=", the value field, play, ⋯; line 2:
   // the slider with its range ends) and "+ Number" (constructions/DESIGN.md 3, INTERFACE.md).
   const mounts = new Set();
-  function h(tag, attrs, ...kids) {
-    const e = document.createElement(tag);
-    if (attrs) for (const [k, v] of Object.entries(attrs)) {
-      if (v == null || v === false) continue;
-      if (k === 'class') e.className = v;
-      else if (k === 'html') e.innerHTML = v;
-      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
-      else e.setAttribute(k, v === true ? '' : v);
-    }
-    for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(String(k)));
-    return e;
-  }
   const ICON = {
     play: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M5 3.5v9l7-4.5z"/></svg>',
     pause: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor"><rect x="4.25" y="3.5" width="2.5" height="9" rx=".5"/><rect x="9.25" y="3.5" width="2.5" height="9" rx=".5"/></svg>',
