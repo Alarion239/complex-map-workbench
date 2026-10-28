@@ -236,7 +236,7 @@
   let hist = [], hi = -1;
   let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
   // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
-  const rangeCopy = () => { if (S.homRange && typeof HR !== 'undefined') HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
+  const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
   const snap = () => ({ s: JSON.stringify({ shapes: S.shapes, steps: S.steps, nextId: S.nextId, targets: S.targets, params: S.params || [] }), focus: S.focus, range: rangeCopy() });
   function noteFocus() { if (S && hist[hi]) { hist[hi].focus = S.focus; hist[hi].range = rangeCopy(); } }
   function commit() {
@@ -269,12 +269,12 @@
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
-    if (typeof HR !== 'undefined') { HR.resolve(S, true); buildDock(); updateBracket(); }
+    HR.resolve(S, true); buildDock(); updateBracket();
     updateUndo(); exLabelSync(); save(); histSay();
   }
   // [v16.5 UX14, UX15] an open polygon's points and a construction's own picks are undone first, one at a time
   const polyDraftOpen = () => !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
-  const draftUndoable = () => polyDraftOpen() || (typeof Construct !== 'undefined' && !!Construct.undoPickable());
+  const draftUndoable = () => polyDraftOpen() || !!Construct.undoPickable();
   // ([v16.5 fix regress-7] it runs in every overlay frame (a pick or a polygon point changes Undo): the buttons are
   // touched only when what they show changed)
   let undoKey = '';
@@ -364,7 +364,7 @@
     }
     if (diff.length) return $t('change the chain');
     const pa = new Map((A.params || []).map((q) => [q.name, q])), pb = new Map((B.params || []).map((q) => [q.name, q]));
-    const dn = (n) => (typeof Params !== 'undefined' ? Params.display(n) : n);
+    const dn = (n) => Params.display(n);
     for (const n of pb.keys()) if (!pa.has(n)) return $t('add the number {x}', { x: dn(n) });
     for (const n of pa.keys()) if (!pb.has(n)) return $t('delete the number {x}', { x: dn(n) });
     for (const n of pb.keys()) if (js(pa.get(n)) !== js(pb.get(n))) return $t('change {x}', { x: dn(n) });
@@ -424,7 +424,7 @@
   const noRuntime = (k, v) => (typeof k === 'string' && k[0] === '_' ? undefined : v);
   // (v16 review regress-1) noRuntime, and the uid and zero ids of steps no shape refers to are left out of saves,
   // links and scene files, so a scene without constructions saves the same bytes as in v15.1
-  const cmSaveReplacer = (o) => (typeof Constr !== 'undefined' && Constr.idReplacer ? Constr.idReplacer(o) : noRuntime);
+  const cmSaveReplacer = (o) => (Constr.idReplacer ? Constr.idReplacer(o) : noRuntime);
   function writeState() {
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
@@ -435,7 +435,7 @@
     const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
     // (v15.1: the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
-    if (typeof Phone !== 'undefined' && Phone.largeView) {
+    if (Phone.largeView) {
       const lv = Phone.largeView('L'), rv = Phone.largeView('R');
       if (lv && leftStage() === 0) out.srcView = Object.assign({}, S.srcView, lv);
       if (rv && out.rightView) out.rightView = rv;
@@ -534,7 +534,7 @@
     let next = Math.max(isNum(o.nextId) ? Math.floor(o.nextId) : 1, maxId + 1);
     for (const sh of shapes.concat(targets)) if (!sh.id) { while (ids.has('s' + next)) next++; sh.id = 's' + next++; ids.add(sh.id); }
     o.shapes = shapes; o.steps = steps; o.nextId = next; o.targets = targets;
-    if (typeof Constr !== 'undefined') cmLoad(o);   // (v16 constructions: refs, fallbacks, one recompute)
+    cmLoad(o);   // (v16 constructions: refs, fallbacks, one recompute)
     numberPoints(shapes);
     // the views of earlier builds (rightMode, sphereMode, leftSphere, material, spherePlane) -> o.view (panels.md 10)
     Views.migrate(o);
@@ -564,7 +564,7 @@
     delete st.deriv;
     st.sheets = !!st.sheets;
     st.exactImages = st.exactImages !== false;
-    st.params = typeof Params !== 'undefined' ? Params.sanitize(o.params) : [];
+    st.params = Params.sanitize(o.params);
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
     st.v5 = true;
     if (!PATTERNS.some((p) => p[0] === st.pattern)) st.pattern = d0.pattern;
@@ -610,7 +610,7 @@
     stageFns = null;
     if (typeof Funcs.stageFunctions === 'function') { try { stageFns = Funcs.stageFunctions(S.steps, built); } catch (e) { console.error('stageFunctions', e); stageFns = null; } }
     if (!Array.isArray(stageFns) || stageFns.length !== S.steps.length + 1) stageFns = localStageFunctions();
-    if (GLR.ok && typeof GLChain !== 'undefined') {
+    if (GLR.ok) {
       try { GLR.setChain(GLChain.build(S.steps, built)); } catch (e) { console.error('GLChain', e); }
     }
   }

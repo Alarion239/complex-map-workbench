@@ -106,7 +106,7 @@
     };
   }
   // v15: the phone layout (src/phone.js) is on: its sheets and its large plane
-  const tourPhone = () => typeof Phone !== 'undefined' && Phone.isOn && Phone.isOn();
+  const tourPhone = () => Phone.isOn && Phone.isOn();
   // put the user's work back in place (opt.fromStash: after a reload or a crash, from the persisted state only)
   function tourRestore(sn, opt) {
     if (!sn || !sn.state || typeof sn.state !== 'object') return false;
@@ -164,7 +164,7 @@
   function tourLoadScene(spec) {
     if (!spec || !Array.isArray(spec.steps) || !spec.steps.every((st) => st && Funcs.DEFS[st.type])) return false;
     // (v15: a scene brings its own shared numbers, none unless it says so; restore() brings the user's back)
-    S.params = Array.isArray(spec.params) && typeof Params !== 'undefined' ? JSON.parse(JSON.stringify(spec.params)) : [];
+    S.params = Array.isArray(spec.params) ? JSON.parse(JSON.stringify(spec.params)) : [];
     loadExample(-1, Object.assign({ shapes: [], view: { cx: 0, cy: 0, s: 60 } }, spec));
     paramsRestored();
     return true;
@@ -196,7 +196,7 @@
       renderProps();
       return undefined;
     },
-    has: (f) => (f === 'sound' ? typeof Sound !== 'undefined' : f === 'song' ? typeof SEASONG !== 'undefined' && typeof Sound !== 'undefined' : f === 'zp' ? !!Funcs.DEFS.zp : f === 'params' ? typeof Params !== 'undefined' : f === 'planeMenu' ? typeof PlaneMenu !== 'undefined' : f === 'constructions' ? typeof Construct !== 'undefined' && !!Construct.ui : true),
+    has: (f) => (f === 'zp' ? !!Funcs.DEFS.zp : f === 'constructions' ? !!Construct.ui : true),
     storageKey: lsk,
     snapshot: tourSnapshot,
     restore: tourRestore,
@@ -239,11 +239,11 @@
       const e = $(where === 'head' ? 'tourHeadSlot' : 'tourSlot');
       // (r3 review regress-7: only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
       // and a sheet that opens later measures itself)
-      if (typeof Phone !== 'undefined' && Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
+      if (Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
       return e || null;
     },
     sceneSpec: (name) => {
-      if (name !== 'song' || typeof SEASONG === 'undefined') return null;
+      if (name !== 'song') return null;
       const ex = EX.find((x) => x.shapes.some((sh) => sh.listen));
       return ex ? { name: ex.name, tex: ex.tex, view: ex.view, fit: ex.fit, shapes: ex.shapes, steps: ex.steps, rightMode: ex.rightMode, dc: ex.dc } : null;
     },
@@ -268,8 +268,19 @@
     // (r3 review regress-2) early: a chapter's start opens the side panel one of its steps docks, so the stage keeps
     // one place through the chapter; a drawer or a phone's sheet, which would cover the work area, waits for its step
     showPanel: (side, sheet, early) => {
-      if (tourPhone()) { if (early) return; if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
+      // ('steps': the deformation bar's Steps picker, which holds the order, Loop and the range, opens over the bar)
+      if (tourPhone()) { if (early) return; if (sheet === 'steps') { const p = $('stepsPick'), b = $('stepsBtn'); if (p && b && p.hidden) b.click(); return; } if (side === 'right') { Phone.open('edit'); renderProps(); } else if (sheet && Phone.sheet() !== sheet) Phone.open(sheet); return; }
       if (side === 'sheet') return;
+      // ([v17 D4] the regions' display is behind Y's Display ▾ on the laptop: its step opens that popover, which is the
+      // step's own layer, as a phone's sheet is: it carries the step's id (data-tour-layer), and the next step that does
+      // not ask for it closes it, closeSheet)
+      if (side === 'left' && sheet === 'display') {
+        if (early) return;
+        if (!document.querySelector('.disp-pop')) { const b = /** @type {HTMLElement | null} */ (document.querySelector('#rightFoot .disp-btn')); if (b) b.click(); }
+        const p = /** @type {HTMLElement | null} */ (document.querySelector('.disp-pop')), c = Tour.current();
+        if (p && c) p.dataset.tourLayer = c.chapter + '/' + c.id;
+        return;
+      }
       if (early && side !== 'right' && isDrawer('L')) return;
       if (side === 'right' ? S.hideRight : S.hideLeft) {
         if (side !== 'right' && isDrawer('L')) tourDrawer = true;
@@ -280,7 +291,8 @@
     selectStep: (k) => { if (!S.steps.length) return false; k = k === 'F' ? 'F' : Math.max(1, Math.min(S.steps.length, k | 0)); selectStep(k); renderProps(); return true; },
     showPlane: (pane) => { if (tourPhone() && (pane === 'L' || pane === 'R') && Phone.big() !== pane) Phone.swap(); },
     closeSheet: () => {
-      if (tourPhone()) { if (Phone.sheet()) Phone.close(true); return; }
+      if (tourPhone()) { const p = $('stepsPick'), b = $('stepsBtn'); if (p && b && !p.hidden) b.click(); if (Phone.sheet()) Phone.close(true); return; }
+      if (document.querySelector('.disp-pop')) closePalette();
       if (tourDrawer) { tourDrawer = false; if (isDrawer('L') && !S.hideLeft) setPanels(true, S.hideRight); }
     },
     on(ev, fn) { (tourL[ev] = tourL[ev] || []).push(fn); return () => { tourL[ev] = (tourL[ev] || []).filter((g) => g !== fn); }; },
@@ -323,12 +335,11 @@
       const st = document.documentElement.style;
       if (on) { closePad(); tourPhGeo = ['--ph-hp', '--ph-ride'].map((k) => st.getPropertyValue(k)); return; }
       tourDrawer = false;
-      if (tourPhGeo && !(typeof Phone !== 'undefined' && Phone.sheet && Phone.sheet())) ['--ph-hp', '--ph-ride'].forEach((k, i) => { if (!tourPhGeo[i]) st.removeProperty(k); });
+      if (tourPhGeo && !(Phone.sheet && Phone.sheet())) ['--ph-hp', '--ph-ride'].forEach((k, i) => { if (!tourPhGeo[i]) st.removeProperty(k); });
       tourPhGeo = null;
     },
   };
   function tourWire() {
-    if (typeof Tour === 'undefined') return;
     // the events the app sends from delegated listeners: t scrubbed (v16.4: a pattern picked is sent by its setter)
     document.addEventListener('input', (e) => { if (e.target && e.target.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
     tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held

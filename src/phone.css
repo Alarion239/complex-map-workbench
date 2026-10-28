@@ -52,6 +52,9 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .panes, :root.ph .panes.solo-L, :root.ph .panes.solo-R { position: relative; display: block; flex: 1 1 auto; min-height: 0; gap: 0; }
 :root.ph .gutter { display: none !important; }
 :root.ph .panes > .pane { position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; height: auto; width: auto; border: 0; border-radius: 0; }
+/* Both: X above Y, each half the stage (a sheet's side-by-side layout and a merged view take over while they last) */
+:root.ph:not(.ph-land):not(.ph-split) .panes.ph-both:not(.ph-one) > #paneL { inset: 0 0 50% 0; width: auto; height: auto; border-bottom: 1px solid var(--line-strong); }
+:root.ph:not(.ph-land):not(.ph-split) .panes.ph-both:not(.ph-one) > #paneR { inset: 50% 0 0 0; width: auto; height: auto; }
 :root.ph .panes.ph-one.ph-big-L > #paneR, :root.ph .panes.ph-one.ph-big-R > #paneL { display: none !important; }
 /* the inset: the other plane, live, bottom-left; a tap swaps */
 :root.ph .panes > .pane.ph-inset {
@@ -134,26 +137,28 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #pipeline::-webkit-scrollbar { display: none; }
 :root.ph #pipeline > * { flex: 0 0 auto; }
 :root.ph #pipeline .card, :root.ph #pipeline.compact .card, :root.ph #pipeline .card.region-card {
-  display: grid; grid-template-columns: 44px auto; align-items: center; column-gap: 6px; width: auto; min-width: 0; max-width: 136px;
-  flex: 0 0 auto; height: 52px; min-height: 52px; padding: 3px 8px 3px 3px; border-radius: var(--r-3); overflow: hidden;
+  display: grid; grid-template-columns: 1fr; grid-template-rows: 24px auto; align-content: center; row-gap: 1px; width: 88px; min-width: 88px; max-width: 88px;
+  flex: 0 0 auto; height: 52px; min-height: 52px; padding: 3px; border-radius: var(--r-3); overflow: hidden;
 }
-:root.ph #pipeline .card > .thumb { grid-column: 1; grid-row: 1; display: block; position: relative; width: 44px; height: 44px; min-height: 0; margin: 0; padding: 0; border-radius: var(--r-2); overflow: hidden; border: 0; }
-:root.ph #pipeline .card > .thumb > canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+:root.ph #pipeline .card > .thumb { grid-column: 1; grid-row: 1; display: block; position: relative; width: 100%; height: 24px; min-height: 0; margin: 0; padding: 0; border-radius: var(--r-1); overflow: hidden; border: 0; }
+:root.ph #pipeline .card > .thumb > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 :root.ph #pipeline .card > .thumb > :not(canvas) { display: none; }
-:root.ph #pipeline .card > .card-head {
-  grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 0 4px;
-  height: auto; min-height: 0; padding: 0; margin: 0; border: 0; background: none; min-width: 0; max-width: 80px;
-}
+:root.ph #pipeline .card > .card-head { display: contents; }
 :root.ph #pipeline .card .grip, :root.ph #pipeline .card .acts, :root.ph #pipeline .card > .note, :root.ph #pipeline .card > .swatches,
 :root.ph #pipeline .card > :not(.thumb, .card-head) { display: none !important; }
-:root.ph #pipeline .card .idx { font: italic 500 15px/18px var(--f-math); }
-:root.ph #pipeline .card .ty { display: inline-flex; width: 14px; height: 14px; color: var(--ink-2); }
-:root.ph #pipeline .card .ty svg { width: 14px; height: 14px; }
-:root.ph #pipeline .card .nm { flex: 1 0 100%; min-width: 0; font: 500 11px/13px var(--f-ui); color: var(--ink-2); white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; hyphens: manual; overflow-wrap: break-word; }
+/* the step's letter is a badge on the picture's corner, so the name has the card's whole width, two lines of it */
+:root.ph #pipeline .card .idx { grid-column: 1; grid-row: 1; justify-self: start; align-self: start; z-index: 1; margin: 1px 0 0 1px; padding: 0 3px; border-radius: 3px; background: color-mix(in srgb, var(--panel) 85%, transparent); font: italic 500 12px/14px var(--f-math); }
+:root.ph #pipeline .card .ty { display: none; }
+:root.ph #pipeline .card .nm { grid-column: 1; grid-row: 2; min-width: 0; padding: 0 2px; font: 500 10.5px/12px var(--f-ui); color: var(--ink-2); white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; hyphens: manual; overflow-wrap: break-word; }
 :root.ph #pipeline .conn { flex: 0 0 12px; width: 12px; height: 52px; --conn-y: 26px; }
 :root.ph #pipeline .conn > :not(.conn-line) { display: none !important; }
 :root.ph #pipeline .conn-line svg { width: 12px; }
 :root.ph #pipeline .add-card { display: grid; place-items: center; width: 44px; min-width: 44px; height: 52px; padding: 0; border-radius: var(--r-3); }
+/* + and F stay at the chain's right end however far the cards scroll (UX04): sticky in the scroller, over the cards */
+:root.ph #pipeline .add-card, :root.ph #pipeline .ftile { position: sticky; z-index: 3; background: var(--panel); }
+:root.ph #pipeline { scroll-padding-inline-end: 104px; }
+:root.ph #pipeline .ftile { right: 0; }
+:root.ph #pipeline .add-card { right: 50px; }
 :root.ph #pipeline .add-card > :not(:first-child) { display: none; }
 :root.ph #pipeline .ftile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 48px; min-width: 48px; height: 52px; padding: 0; border-radius: var(--r-3); }
 :root.ph #pipeline .ftile .fl { display: flex; gap: 0; }
@@ -195,26 +200,48 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #secDraw > .tool-more .tm-open { display: inline !important; }
 :root[data-lang="ru"].ph #secDraw .tool > span, :root[data-lang="ru"].ph #secDraw .tool-more .tm-label { top: auto; bottom: 3px; }
 :root[data-lang="ru"].ph #secDraw .tool > svg, :root[data-lang="ru"].ph #secDraw .tool-more > summary > .ic-slot { top: 4px; }
-/* the deformation: the row is the transport (play, the scrubber, the speed, Paths, close) */
+/* the deformation: two rows. The scrubber has the full width, the readout riding its handle; below it play, the speed
+   (tap to cycle), Paths, the Steps picker (range, order, Loop) and close, with the tool row's Undo at the left end */
+:root.ph.ph-morph:not(.ph-land) { --ph-row: calc(var(--ph-r1) + 52px); }
+:root.ph { --ph-r1: 58px; }
 :root.ph.ph-morph .tdock:not([hidden]) {
-  position: fixed; z-index: 22; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: 4px;
-  height: calc(var(--ph-row) + var(--ph-safe-b)); padding: 4px 6px var(--ph-safe-b); background: var(--panel); border: 0; border-top: 1px solid var(--line-strong); border-radius: 0;
+  position: fixed; z-index: 22; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 0 4px;
+  height: calc(var(--ph-row) + var(--ph-safe-b)); padding: 0 6px var(--ph-safe-b); background: var(--panel); border: 0; border-top: 1px solid var(--line-strong); border-radius: 0;
 }
 :root.ph.ph-morph .tdock > :is(select, .check) { display: none !important; }
 :root.ph.ph-morph .tdock > * { flex: 0 0 auto; order: 0; }
-:root.ph.ph-morph .tdock > .tscrub { order: 0; flex: 1 1 auto; flex-basis: auto; min-width: 72px; height: 44px; }
+:root.ph.ph-morph .tdock > .tscrub { order: -1; flex: 0 0 100%; position: relative; height: var(--ph-r1); padding-top: 14px; box-sizing: border-box; }
 :root.ph.ph-morph .tdock input[type="range"] { height: 44px; }
 :root.ph.ph-morph .tdock :is(button, .phbtn) { min-width: 44px; height: 44px; }
 :root.ph.ph-morph .tdock .seg { height: 44px; }
 :root.ph.ph-morph .tdock .seg > button:not(.on) { display: none; }
 :root.ph.ph-morph .tdock .seg::before { display: none; }
-:root.ph.ph-morph .tdock .tread { font-size: 11px; max-width: 64px; overflow: hidden; }
-:root.ph.ph-morph .tdock > .tclose { margin-left: 0; width: 44px; height: 44px; }
-/* v16.5 UX24: the tool row's Undo stays at the left end of the transport (the transport starts right of it; its long
-   press offers Redo). Below 440 px the readout t = … gives way: the scrubber and its ticks say where t is */
+/* the readout rides the handle: its left edge follows the fill (--fill, set on the scrubber with the range's) */
+:root.ph.ph-morph .tdock .tscrub > .tread {
+  position: absolute; top: 0; left: clamp(0px, calc(var(--fill, 0%) - 70px), calc(100% - 140px)); width: 140px; padding: 0; text-align: center; font: 600 11px/14px var(--f-ui); color: var(--ink); pointer-events: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+:root.ph.ph-morph .tdock > .tclose { margin-left: auto; width: 44px; height: 44px; }
+:root.ph.ph-morph .tdock > .tsteps { min-width: 0; padding: 0 8px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); color: var(--ink); font: 600 12px/1 var(--f-ui); white-space: nowrap; }
+:root.ph.ph-morph .tdock > .tsteps::after { content: " \25BE"; }
+/* the picker opens above the bar */
+:root.ph.ph-morph .tdock > .tpick:not([hidden]) {
+  position: fixed; left: 8px; right: 8px; bottom: calc(var(--ph-row) + var(--ph-safe-b) + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3);
+}
+:root.ph.ph-morph .tdock > .tpick > :is(select, .check) { display: flex !important; min-height: 44px; align-items: center; }
+:root.ph.ph-morph .tdock > .tpick > .trange { display: flex !important; }
+/* the tool row's Undo stays at the left end of the second row; the other tools wait behind the transport */
+:root.ph.ph-morph:not(.ph-land) #secDraw { right: auto; width: 56px; height: calc(52px + var(--ph-safe-b)); z-index: 23; border-top: 0; background: none; }
+:root.ph.ph-morph:not(.ph-land) #secDraw > :is(.tools, .tool-more) { display: none !important; }
 :root.ph.ph-morph:not(.ph-land) #secDraw > .ph-undo { flex: 0 0 52px; }
-:root.ph.ph-morph:not(.ph-land) .tdock:not([hidden]) { left: 56px; padding-left: 2px; border-left: 1px solid var(--line); }
-@media (max-width: 439px) { :root.ph.ph-morph:not(.ph-land) .tdock > .tread { display: none; } }
+:root.ph.ph-morph:not(.ph-land) .tdock > .play { margin-left: 52px; }
+/* landscape: one row left of the tool column, the scrubber the rest of it (Undo stays in the column) */
+:root.ph.ph-land.ph-morph { --ph-row: 52px; }
+:root.ph.ph-land.ph-morph #app { padding-bottom: var(--ph-row); }
+:root.ph.ph-land.ph-morph .tdock:not([hidden]) { right: var(--ph-col); flex-wrap: nowrap; align-content: center; height: var(--ph-row); padding: 4px 6px; }
+:root.ph.ph-land.ph-morph .tdock > .tscrub { order: 0; flex: 1 1 auto; min-width: 120px; height: 44px; padding-top: 0; }
+:root.ph.ph-land.ph-morph .tdock .tscrub > .tread { display: none; }
+:root.ph.ph-land.ph-morph .tdock > .tclose { margin-left: 0; }
 
 /* ---------- the sheet ---------- */
 .ph-scrim { position: fixed; inset: 0; z-index: 27; background: color-mix(in srgb, #000 32%, transparent); }
@@ -321,26 +348,36 @@ html:not(.ph) .ph-only { display: none !important; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
    sheets a 360 px side sheet on the right, both planes still in sight ---------- */
-:root.ph.ph-land { --ph-chain: 52px; --ph-row: 0px; }
+:root.ph.ph-land { --ph-chain: 52px; --ph-row: 0px; --ph-col: 58px; }
 :root.ph.ph-land #app { padding-bottom: 0; }
 :root.ph.ph-land .top { padding-top: 0; padding-bottom: 0; }
 :root.ph.ph-land .top > #viewSwitch { height: 46px; padding: 0; max-width: 420px; }
 :root.ph.ph-land { --ph-head: 48px; }
 :root.ph.ph-land .panes:not(.ph-one) > #paneL { inset: 0 50% 0 0; width: auto; height: auto; border-right: 1px solid var(--line-strong); }
 :root.ph.ph-land .panes:not(.ph-one) > #paneR { inset: 0 0 0 50%; width: auto; height: auto; }
-:root.ph.ph-land .pipe-wrap { height: 52px; flex-basis: 52px; padding-right: calc(6 * 56px + 12px); }
+:root.ph.ph-land .pipe-wrap { height: 52px; flex-basis: 52px; }
 :root.ph.ph-land #pipeline .card, :root.ph.ph-land #pipeline .add-card, :root.ph.ph-land #pipeline .ftile, :root.ph.ph-land .ph-nums, :root.ph.ph-land .pipe-wrap > #morphBtn { height: 46px; min-height: 46px; }
-:root.ph.ph-land #pipeline .card > .thumb { width: 40px; height: 40px; }
-:root.ph.ph-land #pipeline .card { grid-template-columns: 40px auto; }
-:root.ph.ph-land #secDraw { left: auto; right: 0; width: calc(6 * 56px + 8px); height: 52px; padding: 2px 4px; z-index: 27; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line); }
-:root.ph.ph-land #secDraw > .tools > .tool, :root.ph.ph-land #secDraw > .ph-undo, :root.ph.ph-land #secDraw > .tool-more > summary { height: 46px; }
+/* the tools are a column on the right edge, Undo at the bottom under the thumb (UX05); the planes and the chain bar leave it room */
+:root.ph.ph-land #pipeline .card { grid-template-rows: 18px auto; padding: 2px 3px; }
+:root.ph.ph-land #pipeline .card > .thumb { height: 18px; }
+:root.ph #secDraw > .tool-more > summary { list-style: none; }
+:root.ph #secDraw > .tool-more > summary::-webkit-details-marker { display: none; }
+:root.ph.ph-land .layout { margin-right: var(--ph-col); }
+:root.ph.ph-land #secDraw {
+  left: auto; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); bottom: 0; width: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); height: auto; z-index: 27; flex-direction: column-reverse; justify-content: flex-start; gap: 2px;
+  padding: 4px 2px 4px 2px; border-top: 0; border-left: 1px solid var(--line-strong);
+}
+:root.ph.ph-land #secDraw > .tools { display: flex !important; flex: 0 0 auto; flex-direction: column-reverse; gap: 2px; width: 100%; }
+:root.ph.ph-land #secDraw > .tools > .tool:is([data-tool="select"], [data-tool="point"], [data-tool="disc"], [data-tool="polygon"]) { flex: 0 0 auto; width: 100%; height: 46px; }
+:root.ph.ph-land #secDraw > .ph-undo, :root.ph.ph-land #secDraw > .tool-more { flex: 0 0 auto; width: 100%; height: 46px; }
+:root.ph.ph-land #secDraw > .tool-more > summary { height: 46px; }
 :root.ph.ph-land .ph-sheet { left: auto; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px)); width: 360px; transform: translateX(100%); border-top: 0; border-left: 1px solid var(--line-strong); }
 :root.ph.ph-land .ph-sheet.open { transform: none; }
 :root.ph.ph-land .ph-sheet.opening { transform: translateX(100%); }
 :root.ph.ph-land .ph-sheet[data-k="more"] { max-height: none; border-radius: 0; }
 :root.ph.ph-land.ph-split .layout { margin-right: 360px; }
 :root.ph.ph-land.ph-split #secDraw { display: none; }
-:root.ph.ph-land.ph-split .pipe-wrap { padding-right: 8px; }
+
 :root.ph.ph-land .ph-grab { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .ph-sheet, :root.ph .pipe-wrap { transition: none !important; }
@@ -386,7 +423,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .chain-bracket .br-end { pointer-events: none; }
 :root.ph .chain-bracket .br-end::before { display: none; }
 :root.ph .chain-bracket .br-line::before { pointer-events: none; }
-:root.ph.ph-morph .tdock > .trange { display: none !important; }
 :root.ph.ph-morph:has(#viewSwitch > [data-mode="xy"].on) :is(#leftReadout, #rightReadout)[data-mtitle]::before { content: attr(data-mtitle); padding-right: 8px; border-right: 1px solid var(--line-strong); }
 /* v16 (SPEC 6.6): the transport's "f₁ →" / "→ f₄" labels are left out when the range input would be under 120 px. The
    phone's docked row is play 44, the readout, the speed, Paths and × (about 330 px with the gaps), so below 560 px the

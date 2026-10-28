@@ -234,7 +234,7 @@ await section('L55', async () => {
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`);
   ok('UX55 a seventh Construct tile: Hyperbolic line', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.htip = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="hyper"]'); return b ? { tip: b.dataset.tip, label: b.textContent.trim() } : null; })()`);
-  ok('UX55 its tooltip and label', info.htip && info.htip.tip === 'Hyperbolic line' && /Hyperbolic/.test(info.htip.label), info.htip);
+  ok('UX55 its tooltip and label', info.htip && info.htip.tip === 'Hyperbolic line  Y' && /Hyperbolic/.test(info.htip.label), info.htip);
   await tool('hyper');
   ok('UX55 the chip asks for the boundary first', /^Pick the boundary: a line or a circle/.test(await chipT()), await chipT());
   const c = await W(1.5, 0);
@@ -557,6 +557,56 @@ await section('LAY', async () => {
   const ph = await ev(`(() => { const c = document.getElementById('draftChipL'), t = c.querySelector('.cm-t').getBoundingClientRect(), x = c.querySelector('.cm-x').getBoundingClientRect(), s = c.querySelector('.cm-seg').getBoundingClientRect(), b = c.getBoundingClientRect(), pl = c.parentElement.getBoundingClientRect(); return { xTop: Math.round(x.top), tTop: Math.round(t.top), tBot: Math.round(t.bottom), segTop: Math.round(s.top), h: Math.round(b.height), right: Math.round(b.right), plot: Math.round(pl.right) }; })()`);
   ok('UX51 phone chip: the × on the first line, the choices below, two lines in all', ph.xTop <= ph.tBot && ph.segTop >= ph.tBot - 2 && ph.h <= 96 && ph.right <= ph.plot, ph);
   await tapSel('#draftChipL .cm-x');
+});
+
+// ------------------------------------------------------------------------------------------------------------ UX47
+// Line, Segment, Ray and Circle by two clicks or taps: a press without movement keeps the start and says so; the next
+// press is the end; Esc drops it; a drag still works
+await section('L47', async () => {
+  await laptop();
+  await load(NS + 'l47', { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: false, nextId: 10 });
+  await settle(700);
+  const n = async () => (await ST()).list.length;
+  const last = async () => { const l = (await ST()).list; return l[l.length - 1]; };
+  const near = (p, q) => !!p && Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.02;
+  await tool('segment');
+  let a = await W(-1, 0), b = await W(1, 0.5);
+  await click(a[0], a[1]); await settle(150);
+  info.l47hint = await toastText();
+  ok('UX47 a click without movement draws nothing yet and says what to do', (await n()) === 0 && info.l47hint === 'Click the second point, or drag', [await n(), info.l47hint]);
+  await move(b[0], b[1]); await settle(120);
+  await click(b[0], b[1]); await settle(250);
+  let s = await last();
+  ok('UX47 Segment by two clicks: from the first to the second', (await n()) === 1 && s.kind === 'segment' && near(s.a, [-1, 0]) && near(s.b, [1, 0.5]), s);
+  // Esc drops the start
+  await tool('line');
+  await click(a[0], a[1]); await settle(150);
+  await key('Escape'); await settle(150);
+  await click(b[0], b[1]); await settle(250);
+  ok('UX47 Esc drops a waiting start: the next click starts again', (await n()) === 1, (await ST()).list.map((x) => x.kind));
+  await key('Escape'); await settle(150);
+  // Circle: the centre, then a point on it
+  await tool('circle');
+  const c = await W(0, -1), r = await W(1.2, -1);
+  await click(c[0], c[1]); await settle(150);
+  await click(r[0], r[1]); await settle(250);
+  s = await last();
+  ok('UX47 Circle by two clicks: centre, then radius', s.kind === 'circle' && near(s.c, [0, -1]) && Math.abs(s.r - 1.2) < 0.02, s);
+  // a drag still works
+  await tool('line');
+  const d0 = await W(-1.5, 1), d1 = await W(1.5, 1.5);
+  await drag(d0[0], d0[1], d1[0], d1[1], 8, 16); await settle(250);
+  s = await last();
+  ok('UX47 Line by a drag, as before', s.kind === 'line' && near(s.a, [-1.5, 1]) && near(s.b, [1.5, 1.5]), s);
+  // a finger: two taps make a ray
+  await tool('ray');
+  const t0 = await W(-1, -2), t1 = await W(0.5, -2);
+  await tap(t0[0], t0[1]); await settle(150);
+  info.l47tap = await toastText();
+  await tap(t1[0], t1[1]); await settle(250);
+  s = await last();
+  ok('UX47 two taps make a Ray; the first tap says "Tap the second point, or drag"', info.l47tap === 'Tap the second point, or drag' && s.kind === 'ray' && near(s.a, [-1, -2]) && near(s.b, [0.5, -2]), [info.l47tap, s]);
+  await tool('select');
 });
 
 // ------------------------------------------------------------------------------------------------------------ Russian

@@ -69,7 +69,7 @@
   function leftView() { return leftStage() === 0 ? S.srcView : V.left; }
   // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
-  function phHold() { if (typeof Phone !== 'undefined' && Phone.hold) Phone.hold(); }
+  function phHold() { if (Phone.hold) Phone.hold(); }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
   function noGL(pane) {
     paneNote(pane, GLR.lost ? $t('The graphics card was reset. Restoring the view…') : $t('This view needs WebGL2, which this browser does not provide.'));
@@ -82,6 +82,8 @@
   function renderLeft() {
     const pane = paneL;
     pane.setView(leftView());
+    // (Landscape is not on this pane now: its refinement's textures go, issue #50)
+    if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
     // X Plane + Phase: the phase portrait of the map in focus (U-b; earlier the right pane's Phase view)
     // (its shapes outlined, the target preimages, the points and the editable cuts drawn over it, as in X Plane)
     if (lColor()) { leftSphereInfo = null; cutHandlesL = renderColor(pane) || []; if (hasTargets()) { updateRoots(); drawRoots(pane); } return; }
@@ -129,7 +131,7 @@
   function updateDraftChips() {
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
     const cl = $('draftChipL'), cr = $('draftChipR');
-    const cmSide = typeof Construct !== 'undefined' ? Construct.chipSide() : null;   // (v16: a construction tool's chip)
+    const cmSide = Construct.chipSide();   // (v16: a construction tool's chip)
     if (cl) { const on = (poly && !draft.target) || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
     if (cr) { const on = (poly && !!draft.target) || cmSide === 'R'; if (cr.hidden === on) cr.hidden = !on; }
     // [v16.5 UX14, UX95] how to close and back up, in the words of the pointer in use (a finger has no Enter)
@@ -138,7 +140,7 @@
       const txt = fingerNow() ? $t('Tap the first point to close · Undo removes the last point') : $t('Click the first point or press Enter to close · ⌫ removes the last point');
       if (sp && sp.textContent !== txt) sp.textContent = txt;
     }
-    if (typeof Construct !== 'undefined') Construct.syncChip();
+    Construct.syncChip();
     // P3b: the globes take drawing (panels.md 9). What still draws nothing says so: the landscape, a planar-centred
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane'), the z-globe at a focused stage (P4)
     const sc = $('sphereChipL');
@@ -218,7 +220,7 @@
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
       drawZpHandles(paneL);
-      if (leftStage() === 0) { drawHandles(paneL); if (!draft || !draft.target) drawDraft(paneL); if (typeof Construct !== 'undefined') Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      if (leftStage() === 0) { drawHandles(paneL); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
@@ -236,7 +238,7 @@
       paneR.setView(V.right);
       drawHandles(paneR, S.targets);
       if (draft && draft.target) drawDraft(paneR);
-      if (typeof Construct !== 'undefined') Construct.drawOverlay(paneR, 'R');   // (v16)
+      Construct.drawOverlay(paneR, 'R');   // (v16)
       if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
     }
     if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
@@ -974,7 +976,7 @@
     const stretch = { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) };
     const smR = imageMode ? globeRpx(pane, c, base) : 0;   // the globe's radius, device px (SphereMesh's view)
     let recs = null;
-    if (imageMode && GLR.packShapes && GLR.drawInverse && typeof Inverse !== 'undefined' && S.exactImages !== false && PHASE[role].globe
+    if (imageMode && GLR.packShapes && GLR.drawInverse && S.exactImages !== false && PHASE[role].globe
       && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area')) {
       const m0 = normalizeMap(map);
       if ((m0.mode || 0) === 0 && invPlan(m0.a || 0, m0.b || 0).ok) {

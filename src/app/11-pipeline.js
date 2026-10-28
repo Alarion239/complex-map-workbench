@@ -47,6 +47,7 @@
   // (review v16 verify-1) the phone's Deformed steps row lives in the Display sheet once moved there, so a rebuilt
   // dock does not replace it: every such row follows the bracket here (its selects and its 'from ...' line)
   function syncRangeRows() {
+    for (const b of document.querySelectorAll('.tsteps')) { const t = stepsLabel(); if (b.textContent !== t) b.textContent = t; }
     const rows = document.querySelectorAll('.trange');
     if (!rows.length) return;
     const r = homRangeOk() || { a: 1, b: nSteps() };
@@ -352,7 +353,7 @@
     else if (e.key === 'End') go(n + 1);
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStep(k); }
     // (the physical L key on any layout: «д» on ЙЦУКЕН; review russian-5)
-    else if (String((typeof I18N !== 'undefined' && I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
+    else if (String((I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
   }
   function makeCard(st, k) {

@@ -68,7 +68,7 @@ const Recognize = (() => {
 
   // ---- the spine: a node with one operand depending on z becomes one catalog step after the steps of that operand ----
   const TRIG = { sin: 'sin', cos: 'cos', tan: 'tan', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh', exp: 'exp',
-    asin: 'arcsin', acos: 'arccos', atan: 'arctan', asinh: 'arsinh', acosh: 'arcosh', atanh: 'artanh', conj: 'conj' };
+    asin: 'arcsin', acos: 'arccos', atan: 'arctan', asinh: 'arsinh', acosh: 'arcosh', atanh: 'artanh', conj: 'conj', gamma: 'gamma', zeta: 'zeta' };
   const RECIP = { cot: 'tan', sec: 'cos', csc: 'sin', coth: 'tanh' };   // Expr.compile: 1/tan, 1/cos, 1/sin, 1/tanh
   const INV = () => M([ZERO, ONE, ONE, ZERO]);
   // z^v for a constant v, as Expr.compile evaluates it: ipow for an integer |v| <= 4096, else powReal / pow on cut θ

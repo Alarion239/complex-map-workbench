@@ -79,10 +79,25 @@
     // a melody on a curve (notes/sea-song): Edvard Grieg's theme (1875, public domain) in our own adaptation for the
     // phase harp, one curve spiralling into 0 under SEASONG.tex (src/seasong.js, made by tools/melody_curve.js). Listen along
     // plays it with its own tempo and dynamics (the shape's listen: sndListenOf); fit: the box kept in view
-    ...(typeof SEASONG !== 'undefined' ? [{
+    {
       name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
       view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
-    }] : []),
+    },
+    // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
+    {
+      name: $t('Zeros of the zeta function'), tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
+      shapes: [
+        { kind: 'formula', expr: '0<\\Re z<1' },
+        { kind: 'line', a: [0.5, 0], b: [0.5, 1] },
+        { kind: 'point', p: [0.5, 14.134725] }, { kind: 'point', p: [0.5, 21.022040] }, { kind: 'point', p: [0.5, 25.010858] },
+      ],
+      steps: [{ type: 'zeta', params: {} }], rightMode: 'color',
+    },
+    {
+      name: $t('Poles of the Gamma function'), tex: 'w=\\Gamma(z)', blurb: $t('The phase portrait of Γ: its poles at 0, −1, −2, … sit in a row on the negative real axis, and Γ(n + 1) = n! grows fast to the right.'), view: { cx: -1.5, cy: 0, s: 60 },
+      shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
+      steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
@@ -117,7 +132,7 @@
     // what plays along a curve belongs to the scene it was started in (notes/sea-song review ui-1)
     sndStopPlay(false);
     // (v16.5 UX74) an example's Try line goes with the example
-    if (typeof Tour !== 'undefined' && Tour.laneHide) Tour.laneHide('example');
+    if (Tour.laneHide) Tour.laneHide('example');
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
@@ -433,10 +448,12 @@
       [k('V'), $t('Select and move shapes')], [`${k('P')} ${k('S')} ${k('L')} ${k('R')}`, $t('Point, segment, line, ray')],
       [`${k('C')} ${k('A')} ${k('F')}`, $t('Circle, arc, freehand')], [`${k('D')} ${k('B')} ${k('G')} ${k('O')}`, $t('Disc, rectangle, polygon, lasso')],
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
+      [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
       [`${k('1')} ${k('2')} ${k('3')}`, $t('View: X → Y, Phase, Landscape')], [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
       [`${k('⇧ 1')} ${k('⇧ 2')}`, $t('Plane, Sphere of X (in Phase: of the portrait)')], [`${k('⇧ 3')} ${k('⇧ 4')}`, $t('Plane, Sphere of Y')], [k('Z'), $t('Fit both planes')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
+      [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
       [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];
@@ -610,7 +627,9 @@
   // filled part of a fader track (CSS reads --fill)
   function paintFader(r) {
     const lo = +r.min || 0, hi = r.max === '' ? 100 : +r.max, v = +r.value;
-    r.style.setProperty('--fill', `${((v - lo) / (hi - lo || 1)) * 100}%`);
+    const fill = `${((v - lo) / (hi - lo || 1)) * 100}%`;
+    r.style.setProperty('--fill', fill);
+    if (r.closest('.tscrub')) r.closest('.tscrub').style.setProperty('--fill', fill);
   }
 
   // below 1280 px the guarantees panel is an overlay drawer, below 1024 px the tools panel too
@@ -651,6 +670,8 @@
     placeKeys();
     if (oneDock() && !S.hideLeft && !S.hideRight) S.hideLeft = true;   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
+    // ([v17 D4] the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
+    if (shapeEdWhere !== inspEditsShapes()) { shapeEdWhere = inspEditsShapes(); if (selected != null) buildShapeList(); }
     lay.classList.toggle('hide-left', !!S.hideLeft);
     lay.classList.toggle('hide-right', !!S.hideRight);
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
@@ -890,6 +911,10 @@
     const TOUCH_DESC = {
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
       polygon: () => $t('Tap the vertices; tap the first one to close.'),
+      segment: () => $t('Tap one end and then the other, or drag between them.'),
+      line: () => $t('Tap two points, or drag through them; the line extends to infinity.'),
+      ray: () => $t('Tap the start and then a point on the ray, or drag from the start.'),
+      circle: () => $t('Tap the center and then a point on the circle, or drag from the center.'),
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
       touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
@@ -1039,13 +1064,85 @@
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
     }
   }
+  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between
+  // the areas (the top bar, the tools, X, Y, the chain, the Inspector). A phone keeps every control a stop
+  const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
+  const roveLast = new Map();   // group selector -> the item that last had the focus
+  const onLaptop = () => !document.documentElement.classList.contains('ph');
+  const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
+  function roveGroups() {
+    for (const [gs, isel] of ROVE) {
+      const g = document.querySelector(gs);
+      if (!g) continue;
+      const items = /** @type {HTMLElement[]} */ ([...g.querySelectorAll(isel)]);
+      if (!items.length) continue;
+      if (!onLaptop()) { for (const it of items) if (it.tabIndex !== 0) it.tabIndex = 0; continue; }
+      const vis = items.filter(shown), last = roveLast.get(gs);
+      const on = (last && vis.includes(last) ? last : null) || vis.find((el) => el.classList.contains('on') || el.classList.contains('focus')) || vis[0];
+      for (const it of items) { const t = it === on ? 0 : -1; if (it.tabIndex !== t) it.tabIndex = t; }
+    }
+  }
+  // arrows inside a tool grid: left and right to the next tool, up and down to the nearest tool in the next row
+  function toolKeys(e) {
+    if (!onLaptop() || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const dx = { ArrowRight: 1, ArrowLeft: -1 }[e.key], dy = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (!dx && !dy && e.key !== 'Home' && e.key !== 'End') return;
+    const t = /** @type {HTMLElement} */ (e.target), g = t && t.closest ? t.closest('#tools, #constructTools') : null;
+    if (!g || !t.classList.contains('tool')) return;
+    const items = /** @type {HTMLElement[]} */ ([...g.querySelectorAll('.tool')]).filter(shown), i = items.indexOf(t);
+    if (i < 0) return;
+    let j = i;
+    if (e.key === 'Home') j = 0;
+    else if (e.key === 'End') j = items.length - 1;
+    else if (dx) j = Math.max(0, Math.min(items.length - 1, i + dx));
+    else {
+      const r = t.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      let best = null, bd = Infinity;
+      for (const o of items) {
+        const q = o.getBoundingClientRect(), oy = q.top + q.height / 2;
+        if (dy > 0 ? oy <= cy + r.height / 2 : oy >= cy - r.height / 2) continue;
+        const d = Math.abs(oy - cy) * 4 + Math.abs(q.left + q.width / 2 - cx);
+        if (d < bd) { bd = d; best = o; }
+      }
+      if (best) j = items.indexOf(best);
+    }
+    e.preventDefault(); e.stopPropagation();
+    if (j !== i) items[j].focus({ preventScroll: true });
+  }
+  // F6 and Shift+F6: the next and the previous area. Each area takes the focus where it last had it
+  function areaKeys(e) {
+    if (e.key !== 'F6' || e.altKey || e.ctrlKey || e.metaKey || !onLaptop() || document.querySelector('.modal-bg')) return;
+    const act = (gs) => { const g = document.querySelector(gs); return g ? /** @type {HTMLElement[]} */ ([...g.querySelectorAll(ROVE.find((r) => r[0] === gs)[1])]).find((el) => el.tabIndex === 0 && shown(el)) : null; };
+    const plane = (p) => { const cv = p && p.ocanvas; if (cv && !cv.hasAttribute('tabindex')) cv.tabIndex = -1; return shown(cv) ? cv : null; };
+    const first = (gs) => { const g = document.querySelector(gs); return g ? [...g.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex="0"]')].find(shown) || null : null; };
+    const areas = [
+      { id: 'top', el: () => first('#top'), has: (el) => !!el.closest('#top') },
+      { id: 'tools', el: () => act('#tools'), has: (el) => !!el.closest('#secDraw, #railTools') },
+      { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
+      { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
+      { id: 'chain', el: () => act('#pipeline'), has: (el) => !!el.closest('#pipeline') },
+      { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
+    ].filter((a) => a.el());
+    if (!areas.length) return;
+    const a = document.activeElement;
+    const i = areas.findIndex((r) => a && a !== document.body && r.has(a));
+    const j = i < 0 ? (e.shiftKey ? areas.length - 1 : 0) : (i + (e.shiftKey ? -1 : 1) + areas.length) % areas.length;
+    e.preventDefault(); e.stopPropagation();
+    /** @type {HTMLElement} */ (areas[j].el()).focus({ preventScroll: true });
+  }
   let lastFocus = null;
   function setupFocusKeeper() {
-    document.addEventListener('focusin', (e) => { lastFocus = { el: e.target, key: focusKey(e.target) }; });
+    document.addEventListener('keydown', toolKeys, true);
+    document.addEventListener('keydown', areaKeys, true);
+    document.addEventListener('focusin', (e) => {
+      lastFocus = { el: e.target, key: focusKey(e.target) };
+      const t = /** @type {Element} */ (e.target);
+      for (const [gs, isel] of ROVE) { const g = document.querySelector(gs); if (g && t.closest && g.contains(t) && t.matches(isel)) { roveLast.set(gs, /** @type {HTMLElement} */ (t)); roveGroups(); } }
+    });
     // a real blur (the user moved on) forgets the control; a blur by removal keeps it for the rebuild below
     document.addEventListener('focusout', (e) => { const el = e.target; queueMicrotask(() => { if (lastFocus && lastFocus.el === el && el.isConnected && document.activeElement !== el) lastFocus = null; }); });
     const mo = new MutationObserver(() => {
-      roveRadios();
+      roveRadios(); roveGroups();
       const a = document.activeElement;
       if ((a && a !== document.body) || !lastFocus || lastFocus.el.isConnected || document.querySelector('.modal-bg')) return;
       const el = findByKey(lastFocus.key);
@@ -1055,7 +1152,7 @@
       const el = $(id);
       if (el) mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-checked'] });
     }
-    roveRadios();
+    roveRadios(); roveGroups();
   }
   // radiogroups without their own handler: arrows (and Home/End) move the checked radio and the focus with it
   function radioKeys(group) {

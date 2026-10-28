@@ -4,17 +4,21 @@
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side, noNote) {
+  function fitTitle(side, noNote, noDisp) {
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
+    // ([v17 D4] the head's Display button shows its word unless the title needs that room: then only its icon, as
+    // narrow as the options button it replaced, e.g. Y's head at 1366 px with the chain empty and Add function there)
+    const disp = pane.querySelector('.pane-head .disp-btn');
+    if (disp && !noDisp) disp.classList.remove('tight');
     // (v16.5 UX20: Y's one-time note in the head gives way before the title itself does; never cut)
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
     // (a view control squeezed by the title, if any, takes its room back first)
     const room = grow.offsetWidth + t.offsetWidth - (tabs ? Math.max(0, tabs.scrollWidth - tabs.clientWidth) : 0);
-    if (!(grow.offsetWidth + t.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
+    if (!(pane.offsetWidth > 0)) return;   // not laid out (hidden plane): measured again on the next resize
     const pt = t.querySelector('.ptitle'), pr = t.querySelector('.prole');
     let ptw = pt ? pt.scrollWidth : 0;
     if (pt && ptw > room) {
@@ -22,7 +26,10 @@
       // (wave 1 merge) then the plane's "Y · " tag (UX27) gives way, before the title itself: with the chain empty, Y's
       // head also holds Add function (UX20), and at 1366 px the tagged title no longer fitted, so it vanished
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
-      if (!(tag && ptw - tw <= room)) { pane.classList.add('tiny'); return; }
+      if (!(tag && ptw - tw <= room)) {
+        if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }
+        pane.classList.add('tiny'); return;
+      }
       t.classList.add('notag'); ptw -= tw;
     }
     // the role is shown whole, or in its short form (its first words: "landscape", "phase of F" without the
@@ -240,11 +247,12 @@
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
   function layoutFootSide(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
-    if (!f || !pane || !ft.kids.length) return;
     const phone = phoneMQ.matches;
     // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys; there every option is behind the Display
-    // options button, so no bar lies over the plot)
-    const inHead = !!(f.parentNode && f.parentNode.classList && f.parentNode.classList.contains('pane-head'));
+    // button, so no bar lies over the plot. [v17 D4] The head always has it: it also holds the regions' display)
+    const inHead = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
+    if (!f || !pane || (!ft.kids.length && !inHead)) return;
+    if (inHead && f.hidden) f.hidden = false;
     if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead) return;
     ft.head = inHead;
     let n = ft.kids.length;
@@ -273,13 +281,19 @@
     ft.n = n;
     const rest = ft.kids.slice(n);
     let b = null;
-    if (rest.length) {
+    // ([v17 D4] in the pane head a labelled Display ▾ button, plan/ux-audit/REPORT.md D4; under the plot the sliders)
+    if (inHead) {
+      b = h('button', { class: 'btn opts-btn disp-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false' },
+        h('span', { class: 'disp-i', 'aria-hidden': 'true', html: ICONS.sliders }), h('span', { class: 'disp-l' }, $tx('button', 'Display')), h('span', { class: 'disp-caret', 'aria-hidden': 'true', html: ICONS.chevD }));
+      b.addEventListener('click', () => openFootPop(b, false, side));
+    } else if (rest.length) {
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
     }
     const open = ft.pop && ft.pop.isConnected;
     f.replaceChildren(...ft.kids.slice(0, n), ...(b ? [b] : []));
     f.classList.toggle('collapsed', !n);
+    if (inHead) fitTitle(side);   // (the head's room changed with the button: the title is fitted again)
     if (open) { if (b) openFootPop(b, true, side); else closePalette(); }
   }
   function openFootPop(btn, refresh, side = 'R') {
@@ -287,7 +301,12 @@
     if (!refresh && ft.pop && ft.pop.isConnected) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
     const rest = ft.kids.slice(ft.n);
-    const pop = h('div', { class: 'pop opts-pop', role: 'dialog', 'aria-label': $t('Display options') }, ...rest);
+    // ([v17 D4] from the pane head: this view's options, then the regions' display: pattern, cell, unit circle, grid
+    // lines, chevrons, opacity, mesh; that section's body is lent to the popover and goes back when it closes)
+    const head = !!btn.closest('.pane-head'), sec = $('secDisplay'), body = head && sec ? sec.querySelector('.psec-body') : null;
+    const kids = head ? [...(rest.length ? [h('div', { class: 'opts-h' }, $t('This view')), ...rest] : []), ...(body ? [h('div', { class: 'opts-h' + (rest.length ? ' opts-sep' : '') }, $t('Regions')), body] : [])] : rest;
+    const pop = h('div', { class: 'pop opts-pop' + (head ? ' disp-pop' : ''), role: 'dialog', 'aria-label': $t('Display options') }, ...kids);
+    if (body) pop._onClose = () => { if (body.parentNode !== sec) sec.append(body); };
     $('popHost').append(pop);
     popEl = pop; ft.pop = pop;
     btn.setAttribute('aria-expanded', 'true');
@@ -487,7 +506,9 @@
     f.className = 'options';
     const ft = foot[side];
     ft.kids = []; ft.widths = null; ft.n = -1;
-    if (side === 'L') { buildFootL(f); f.hidden = !f.children.length; ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
+    // ([v17 D4] a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
+    const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
+    if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
     const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
     if (morphOn() && rImage()) {
       // (the merged deformation plane: no options of its own; the transport is docked under it)
@@ -502,12 +523,17 @@
         resetCam(camS, CAMS));
       tipEq(f);
     }
-    f.hidden = !f.children.length;
+    f.hidden = !f.children.length && !headed();
     ft.kids = [...f.children]; layoutFootSide('R', true);
     drawLegend();
   }
   // the deformation transport (spec 6.11; merged-views.md: docked at the bottom of the view's panel, under the plot):
   // play, the scrubber with a tick per step, t, speed, the path, Loop and Paths; x turns the deformation off
+  // the phone's Steps picker: which steps deform, as the button names it
+  function stepsLabel() {
+    const r = homRangeOk();
+    return r ? $t('Steps {f1}–{f2}', { f1: fUni(r.a), f2: fUni(r.b) }) : $t('Every step');
+  }
   function buildDock() {
     const side = S.view.main === 'xy' ? 'R' : 'L';
     for (const sd of ['L', 'R']) {
@@ -577,13 +603,21 @@
           h('span', { class: 'tr-from', html: $t('from {v}', { v: subTags(rangeStart('html')) }) }),
           dd > 1 ? h('span', { class: 'tr-note' }, $t('A d/dz step differentiates the whole chain before it, so it cannot come after the deformed steps.')) : null);
       }
-      f.append(play, scrub, h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout()),
-        seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed')),
-        ...(order ? [order] : []),
-        checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); }),
-        // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
-        ...(side === 'R' ? [pathsToggle(hasD)] : []),
-        ...(trow ? [trow] : []),
+      const tread = h('span', { class: 'tread mono', id: 'morphLabel', 'data-tip': $t('The step t is in, and how far along it: t runs from 0 to {m}, one unit per step', { m }) }, morphReadout());
+      const speed = seg('speedSeg', String(S.morphSecs), [['3.2', I18N.num('0.5') + '×'], ['1.6', '1×'], ['0.8', '2×']], (v) => { S.morphSecs = +v; save(); }, $t('Speed'));
+      const loop = checkEl('loopChk', S.loop !== false, $t('Loop'), (v) => { S.loop = v; save(); sndToggleCue(!!v); });
+      // (the paths t -> H_t(z) are drawn in the merged deformation plane and on its globe)
+      const paths = side === 'R' ? [pathsToggle(hasD)] : [];
+      // a phone: two rows (the scrubber the full width with the readout on its handle; below it play, the speed, Paths
+      // and the Steps picker, which holds the range, the order and Loop, and ×)
+      let kids;
+      if (brPhone()) {
+        const pick = h('div', { class: 'tpick', id: 'stepsPick', hidden: true }, ...(trow ? [trow] : []), ...(order ? [order] : []), loop);
+        const open = h('button', { class: 'tsteps', id: 'stepsBtn', type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-controls': 'stepsPick', onclick: () => { pick.hidden = !pick.hidden; open.setAttribute('aria-expanded', String(!pick.hidden)); } }, stepsLabel());
+        scrub.append(tread);
+        kids = [play, scrub, speed, ...paths, open, pick];
+      } else kids = [play, scrub, tread, speed, ...(order ? [order] : []), loop, ...paths, ...(trow ? [trow] : [])];
+      f.append(...kids,
         h('button', { class: 'icon-btn tclose', 'data-tip': $t('Deformation off  M'), 'aria-label': $t('Turn the deformation off'), html: ICONS.close, onclick: () => { closeTransport(); const b = $('morphBtn'); if (b) b.focus({ preventScroll: true }); } }));
       paintFader(rng);
       watchFader(rng);

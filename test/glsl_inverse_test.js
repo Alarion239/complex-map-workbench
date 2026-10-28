@@ -56,7 +56,8 @@ window.__invTestRun = async (opts = {}) => {
     ['z^{17.5}', 180], ['-\\tanh(z)', 180], ['\\cosh(z/2)', 180], ['\\arctan z', 180], ['\\operatorname{arcosh} z', 180], ['\\arccos(z)', 180], ['\\operatorname{arsinh}(z)', 180],
     ['\\exp(z)-1', 180], ['\\sinh(z)', 180], ['\\sqrt[2.5]{z}', 180], ['z', 180], ['(2-z)^{-1}', 180]];
   // (the zeros-and-poles step, 2026-10-22, has its own chains below: the random catalog chains keep their sequence)
-  const TYPES = Object.keys(Funcs.DEFS).filter((t) => t !== 'deriv' && t !== 'custom' && t !== 'zp');
+  // (and Γ and ζ, issue #4: no inverse enumerator, X → Y uses the sphere-mesh fallback)
+  const TYPES = Object.keys(Funcs.DEFS).filter((t) => t !== 'deriv' && t !== 'custom' && t !== 'zp' && t !== 'gamma' && t !== 'zeta');
   const chains = [];
   for (const [e, cut] of CUSTOM) chains.push({ name: `custom ${e}`, steps: [St('custom', { expr: e, cut })] });
   for (const t of TYPES) chains.push({ name: `default ${t}`, steps: [St(t)] });
