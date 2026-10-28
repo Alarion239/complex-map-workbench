@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // Numerical complex calculus on a map F: z -> w ({re, im} in and out): line integrals along polygons, the argument
 // principle, Cauchy integrals, residues, and the zeros and poles of F in a box.
@@ -438,6 +439,7 @@ const Calc = (() => {
   // .incomplete when the count or the work budget ran out.
   function zerosPoles(F, box, opts = {}) {
     const B = normBox(box || {});
+    /** @type {ZeroPoleList} */
     const out = [];
     const W = B.x1 - B.x0, H = B.y1 - B.y0;
     if (!(W > 0 && H > 0) || !Number.isFinite(W + H)) return out;
