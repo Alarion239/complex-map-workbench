@@ -1046,7 +1046,7 @@
       for (const r of rs) { const t = r === on ? 0 : -1; if (r.tabIndex !== t) r.tabIndex = t; }
     }
   }
-  // [v17 UX98] a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between
+  // a laptop's tool grids and the chain are one Tab stop each, the arrows move inside, and F6 moves between
   // the areas (the top bar, the tools, X, Y, the chain, the Inspector). A phone keeps every control a stop
   const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool'], ['#pipeline', '.card, .ftile']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
