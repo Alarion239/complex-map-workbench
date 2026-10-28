@@ -14,6 +14,17 @@
   let sideMode = false, side = null;
   const sideChs = new Map();
   let frameErr = '', framePending = false;
+  // the programs of the current chain that a draw drew a stand-in for (an earlier version, the deformation's start, or
+  // nothing), program id -> chain key, until each lands, fails or is dropped: frameStatus().waiting, over every pane of
+  // the frame (pending is only the last begin's or viewport's: the Sphere view draws two panes); frameCompiling: since
+  // the last begin or viewport (pending also holds a ready program's deferred first draw, which is no compile)
+  const waitOn = new Map();
+  let frameCompiling = false;
+  function standIn(id) { if (!sideMode && id) { waitOn.set(id, cur.key); frameCompiling = true; } }
+  function waitingNow() {
+    for (const [id, k] of waitOn) { const e = progs.get(id); if (!e || e.state !== 'pending' || k !== cur.key) waitOn.delete(id); }
+    return waitOn.size > 0;
+  }
   const live = new Set(); // resources that may hold map caches (freed on context loss)
 
   const clamp = (x, a, b) => Math.min(b, Math.max(a, x));

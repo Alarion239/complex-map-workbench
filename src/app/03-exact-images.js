@@ -401,10 +401,37 @@
     lines.forEach((t, i) => ctx.fillText(t, pane.w / 2, y0 + 7 + 9 + i * 18));
     ctx.restore();
   }
-  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6)
+  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6), and that the picture is
+  // not the new one yet while a program of it compiles (frameStatus().compiling: an earlier version, the deformation's
+  // start or nothing stands in; on Direct3D 11 a cold program takes 0.5 to 3 s). That note waits 300 ms, so a quick
+  // link shows none, and goes when the program lands (onReady draws the pane again).
+  const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
   function glStatusNote(pane) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); return; }
+    const now = performance.now(), t0 = compileT.get(pane);
+    if (t0 === undefined) {
+      compileT.set(pane, now);
+      const role = pane === paneL ? 'L' : 'R';
+      setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
+    } else if (now - t0 >= 300) compileNote(pane);
+  }
+  // the compiling note: small and quiet, in the pane's lower left corner
+  function compileNote(pane) {
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const text = $t('Compiling…');
+    const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
+    ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
+    ctx.fillStyle = TH.muted;
+    ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
+    ctx.restore();
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes)}
