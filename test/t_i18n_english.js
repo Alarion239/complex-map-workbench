@@ -127,9 +127,12 @@ const base = load(BASE, MODS);
 const now = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', ...MODS]);
 const a = probe(base, BASE), b = probe(now, path.join(ROOT, 'src'));
 let fails = 0;
+// (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
+// notes/ux-build/w1-chain-AS-BUILT.md)
+const intended = (s) => s.replace(/Custom formula/g, 'Formula');
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }
 for (let i = 0; i < Math.min(a.length, b.length); i++) {
-  if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) {
+  if (a[i][0] !== b[i][0] || intended(a[i][1]) !== b[i][1]) {
     fails++;
     if (fails <= 20) console.log('FAIL', a[i][0], '\n  base:', a[i][1].slice(0, 300), '\n  now: ', b[i][1].slice(0, 300));
   }

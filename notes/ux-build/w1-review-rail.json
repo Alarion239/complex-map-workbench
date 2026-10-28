@@ -1,0 +1,83 @@
+[
+ {
+  "id": "rail-1",
+  "severity": "high",
+  "device": "laptop and phone",
+  "title": "A press right on 1, i, -1 or -i of the unit circle makes a point on an axis, not on the circle",
+  "detail": "The user's own example is putting a point on the unit circle and moving it round. The natural places to aim for are 1, i, -1 and -i. A Point-tool press exactly there makes the fixed imaginary (or real) axis and puts the glider on it. Dragging the point 'round the circle' then slides it along the axis. A press 4 degrees away (about 4 px) goes to the circle, and the 90-degree detent puts it at exactly i. So whether you get the circle or the axis depends on which line the press is nearer to. A real press aimed at i lands about half the time nearer the axis line (any press closer to the vertical line than to the circle). SPEC 1.1 says 'the nearer display curve takes the press' and does not cover this tie. The chip says 'on the imaginary axis', but the user aimed at the circle.",
+  "evidence": "Merged build work/xu1/dist/test.html, headless Chrome. Script notes/ux-build/shots/w1-review-rail/scripts/t10.js. Phone 412x860 tap and laptop 1366x768 click with the Point tool, unit circle shown, Snap on. At 90 deg: 's10 line imag; s11 glider on s10 at (0,1)'. At 0 deg: 's10 line real; s11 glider on s10 at (1,0)'. At 86 deg: 's10 circle unit; s11 glider on s10 at (0,1)'. At 3 deg: circle unit at (1,0). Same on both devices.",
+  "fix": "construct.js snapAt, display curves: when the unit circle and an axis are both inside the curve radius and within a few px of each other (for example within 4 px, or 6 px on touch), give the press to the unit circle. Its detent then puts the point exactly at 1/i/-1/-i on the circle. The axis still wins a press clearly on the axis away from the circle. The hover chip already says what will be made. Add a t_ux165_rail check that a press at exactly i makes a glider on the fixed unit circle."
+ },
+ {
+  "id": "rail-2",
+  "severity": "high",
+  "device": "phone (high), laptop (medium)",
+  "title": "The 15-degree detents cover the whole default unit circle on the phone and 3/4 of it on the laptop: placing and sliding are quantized and jumpy",
+  "detail": "At the default zoom (60 px per unit at both 1366x768 and 412x860), one 15-degree step of the unit circle is 15.7 px of arc. The detent radius is 6 px with a mouse, which catches 12 of every 15.7 px (76% of the rail). With a finger it is 10 px, which catches 20 px, more than the whole step. On the phone, with Snap on, a point on the unit circle can therefore only be at a multiple of 15 degrees. A tap at 37 degrees places the point at 30, a tap at 80 places it at 75, and a finger slide moves in 15-degree jumps. The only way to reach another angle is Snap off, which also stops the Point tool putting the point on the circle at all. On the laptop the slide sticks (45, 45, 45, 52.9, 60, 60, 60 ...). That is the 'jumpy/sticky' feel the user should never get, on the very curve the user named. Line lattice detents (1.4 item 4) have the same risk wherever the grid step is small against 2x the detent radius.",
+  "evidence": "Script t4.js (phone): tap 10 px off the circle at 37 deg gave t = 0.083333 (30 deg). A finger slide from 37 to 200 deg in 2-degree steps sampled only 30, 45, 60, 75, ..., 180, -165. Script t10.js: phone tap at 80 deg gave (0.2588, 0.9659) = 75 deg. Script t1.js (laptop): Point-tool drag 37 to 300 deg sampled 45,45,45,52.94,60,60,60,68.88,75,75,80.83,90,90,90,... Screenshot notes/ux-build/shots/w1-review-rail/t4-phone-after-drag.png.",
+  "fix": "Pick the detent step the way gridStep picks the grid tier: use the finest of 15, 30, 45, 90 degrees whose arc length on screen is at least about 4x the detent radius (24 px mouse, 40 px touch). At 60 px per unit that gives 30 degrees with a mouse and 45 or 90 with a finger, and 15 degrees again once zoomed in. Or cap the detent radius at about 20% of the spacing, so at least 60% of the rail stays free. Apply the same rule to the line lattice detents. In construct.js detentAt (item 3 and item 4) and radii().det. Add t_ux165_rail checks: at 60 px per unit a finger can rest at 37 degrees, and every detent window covers at most 40% of the rail."
+ },
+ {
+  "id": "rail-3",
+  "severity": "medium",
+  "device": "laptop and phone",
+  "title": "A sliding point stops exactly on its partner, so a construction built on both becomes undefined",
+  "detail": "Both points of a Perpendicular circle (or 3 points, a segment and so on) are placed at detents, so they sit on multiples of 15 degrees. When you slide P past Q, P catches the 15-degree detent that is exactly Q's position. P = Q bitwise, and the perpendicular circle through them is undefined for every frame P rests there. It blinks out mid-drag, and if you let go in that window, the construction stays undefined. Without detents an exact landing on Q is practically impossible. The detent creates it. detentAt already leaves out the curves built on the point (ex), but not the positions of its co-arguments.",
+  "evidence": "Script t7.js (laptop): Orthogonal on the unit circle, picks at 100 and 132 give P = 105 deg, Q = 135 deg, and K is a circle. Select P and drag it from 105 to 250 deg in 3-degree steps. Samples: '135 glider circle [object Object]' three times in a row, which is K.cundef set while P sits at exactly 135 deg. Before and after that, K is a circle with orthogonality error <= 9e-16.",
+  "fix": "construct.js detentAt: drop any detent whose point coincides (within 1e-12 of the scale) with a co-argument of a construction that uses the dragged point (graph() dependents' other args). Equivalently, never offer a detent at another point's exact position on the same rail. Q is still reachable with Snap off or Alt if wanted. Add a check: dragging P across Q never produces a cundef dependent."
+ },
+ {
+  "id": "rail-4",
+  "severity": "medium",
+  "device": "laptop and phone; English and Russian",
+  "title": "The unit circle made into a shape is called 'Circle 1' (RU «Окружность 2») everywhere except the snap chip",
+  "detail": "Since the rail piece, every Point-tool press or construction pick on the shown unit circle (or an axis) turns it into a fixed shape. That shape is named 'Circle N' in the Shapes list title, in every definition ('z₀ on Circle 1', 'through z₀ and z₁, perpendicular to Circle 1'), in the Inspector ('Construction: on Circle 1', 'Uses: Circle 1') and in the construction chip ('on Circle 1 ×'). The snap chip says 'on the unit circle'. It also takes a number. The user's own first circle drawn afterwards becomes 'Circle 2', and in a scene that already has a circle the unit circle is 'Circle 2' («Окружность 2»). In Y it is 'Target circle 1' / 'on Target circle 1'. Only the row's subtitle says 'the unit circle'. This was already so for perpCurveAt (v16.3), but it now happens on the most common gesture.",
+  "evidence": "Screenshot notes/ux-build/shots/w1-review-rail/t1-after-drag.png (Shapes: 'Circle 1 / the unit circle', 'z₀ on Circle 1'; Inspector 'on Circle 1', 'Uses Circle 1'). t5.js names: s10 'Circle 1', z₀ 'on Circle 1', s13 'through z₀ and z₁, perpendicular to Circle 1'. t11.js (RU, scene with Circle C): C 'Окружность 1', unit circle 'Окружность 2', z₀ 'на кривой: Окружность 2'; ring chip 'привязка: единичная окружность'. t8.js (Y): 'Target circle 1', 'on Target circle 1'. Mode chip in t5: 'on Circle 1×' after the first circle.",
+  "fix": "construct.js shapeLabel (and app.js shapeNames): return fixedName(s) ('the unit circle', 'the real axis', 'the imaginary axis'; RU «единичная окружность», «действительная ось», «мнимая ось») for a fixed shape, and leave fixed shapes out of the per-kind numbering, so the user's circles keep Circle 1, 2, .... Definitions then read 'z₀ on the unit circle' and 'perpendicular to the unit circle', matching the chip. Check i18n case forms in RU («на кривой: единичная окружность» reads fine)."
+ },
+ {
+  "id": "rail-5",
+  "severity": "medium",
+  "device": "laptop (sphere), phone (sphere)",
+  "title": "On the sphere, construction picks on a curve are free points off the curve, and the curve-first tools refuse with wrong words",
+  "detail": "On the globe, globeClick has only two classes, points and free. A '3 points' pick on a drawn circle becomes a free point at the pointer, not a point on the circle. The result is not exact: three picks on a circle of r = 0.8 give |p| = 0.80364, 0.80002, 0.79651 and a circle of r = 0.80015 instead of the circle itself. On the plane the same picks are gliders and the result is the circle exactly. So T2 is fixed on the plane only, while the Point tool on the globe (globePoint) does make gliders. Also, Perpendicular circle, Touching circle and Hyperbolic line on the globe always say 'Click a line or a circle.' (RU «Щёлкните прямую или окружность.»), even when the press is on a circle. This is v16 behaviour, but the words are wrong and the user's case cannot be done there.",
+  "evidence": "Script t12.js: sphere view on X, circle C r = 0.8, 3 points tool, three clicks 2 px off C at 20, 60, 100 deg gave s30..s32 free points (no def) with |p| = 0.803642, 0.800022, 0.796508 and s33 circle3 with r = 0.8001505. Script t8.js: Orthogonal on the globe with three presses on C made nothing. construct.js globeClick lines 1459-1460 (pickWarn 'Click a line or a circle.' for every CURVE1 press).",
+  "fix": "construct.js globeClick: add the curve class as globePoint does (globeCurveHit within 6 px, or 14 px with a finger, then Constr.projectPiece of g.z) so a pick on a curve is {cls: 'curve', ref: {s, part}, t}, and finish makes a glider. For CURVE1 tools, either take the curve under the press with the same hit test, or say what is true ('Switch to the plane to pick the curve' / RU «Переключитесь на плоскость, чтобы выбрать кривую»)."
+ },
+ {
+  "id": "rail-6",
+  "severity": "medium",
+  "device": "phone",
+  "title": "Dragging the point you just placed (Point tool) pops the toast 'To place a point next to another, turn Snap off'",
+  "detail": "The user asked to 'place a point on the unit circle, then move it around'. On the phone, the first drag of that point with the Point tool still on shows the toast 'To place a point next to another, turn Snap off in the tools sheet.' at the bottom of X. The user did not try to place another point. The toast is wrong for a drag, it covers the bottom of the work area uninvited, and it tells them to turn off the very snapping they rely on. It comes from pointDown, which fires at the press before the gesture is known (once a session).",
+  "evidence": "Script t10.js (phone 412x860): Point tool, tap at 60 deg, then a one-finger drag from the point to 140 deg. The point slid to (-0.7071, 0.7071) as intended, and the toast read 'To place a point next to another, turn Snap off in the tools sheet.' Screenshot notes/ux-build/shots/w1-review-rail/t4-phone-after-drag.png (toast over the X pane above the cards).",
+  "fix": "construct.js pointDown: do not toast at the press. Show it (and the 'z₀ is already here' ring) only when the press ends as a tap with no movement on an existing point (app.js onUp for the 'existing' Point-tool drag with !moved)."
+ },
+ {
+  "id": "rail-7",
+  "severity": "low",
+  "device": "laptop",
+  "title": "'... needs distinct points' stays in the construction chip after Esc and after the next accepted picks, and shows twice",
+  "detail": "After a refused press, the refusal line stays in the mode chip through Esc and through the next two accepted picks (for its 2 s). The chip then says 'needs distinct points' while the construction is going fine. At the press it shows twice: the warn ring's label by the pointer and the chip line (W1-MERGE.md already lists the double).",
+  "evidence": "Script t3.js: picks at 300 and 304 deg on Circle 1 (5.4 px apart) are refused. Esc, an accepted pick at 200 and a pick on the existing z₀ (circle made) follow, and the chip text still ends 'Perpendicular circle needs distinct points' after each of them.",
+  "fix": "construct.js pickWarn: clear its line on cancel()/back()/Esc and when a pick is accepted. Keep only one of the two messages (the warn ring while hovering; the chip after a press, as SPEC 6 / UX52 intend)."
+ },
+ {
+  "id": "rail-8",
+  "severity": "low",
+  "device": "laptop and phone; English and Russian",
+  "title": "One tool, two names: the chip says 'Orthogonal', the refusal says 'Perpendicular circle'",
+  "detail": "The tile and the mode chip say 'Orthogonal' (RU «Ортогональная»). The refusal the user quoted says 'Perpendicular circle needs distinct points', and the definitions say 'perpendicular to'. The user calls the tool 'perpendicular circle'. When one chip shows both names, it reads as two tools.",
+  "evidence": "Script t3.js chip text: 'Pick a point or an empty spot · 2 of 2 · Orthogonal · ... Perpendicular circle needs distinct points'. RU (t11.js): 'Ортогональная' in the chip.",
+  "fix": "Use one name in the chip, the tile tooltip and the refusal (toolName(tool) the same as the chip's tool word), in English and Russian. If the tile must stay short, make the refusal say '{tile name} needs distinct points'."
+ },
+ {
+  "id": "rail-9",
+  "severity": "low",
+  "device": "laptop 1366x768",
+  "title": "The construction chip covers the top-left of X, where picks on a circle land; a press there is lost silently",
+  "detail": "With Orthogonal on and a circle of r = 1.3 at 0.5 + 0.3i, the chip panel ('Pick a point or an empty spot · 1 of 2 · Orthogonal ...', 'on Circle 1 ×', Whole/Inside/Outside) covers about y 135-222 px of X. A press on the circle at 100 degrees falls on the panel: no pick and no message. Wave 2 D10 moves this into the pane head. Until then, the user's case (two picks on one circle) fails here with no feedback.",
+  "evidence": "Script t11.js (RU, dark): the presses at 100 deg and 100 deg + 2 px made no pick (the chip still says '1 из 2'). Screenshot notes/ux-build/shots/w1-review-rail/t11-ru-dark-refusal.png.",
+  "fix": "Wave 2 D10, the mode chip in the pane head. Before that, place the chip away from the pending picks and the picked curve (or let presses through its empty parts), and make it compact."
+ }
+]

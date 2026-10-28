@@ -107,7 +107,7 @@ await section('A', async () => {
   await grab();
   // 1. the fifth tile, its tooltip, its label on two lines at most (52 px)
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`);
-  ok('A1 the Construct grid has six tiles, Perpendicular circle fifth (v16.3: Touching circle last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch', tiles);
+  ok('A1 the Construct grid has seven tiles, Perpendicular circle fifth (v16.3: Touching circle; v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().height, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('A1 tooltip: Perpendicular circle + its description', info.tile.tip === 'Perpendicular circle' && /^Pick a line or a circle, then two points/.test(info.tile.desc), info.tile);
   ok('A1 the tile label «Orthogonal» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === 'Orthogonal' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
@@ -118,12 +118,13 @@ await section('A', async () => {
   const nA = (await ST()).list.length;
   const em = await W(-0.5, -1.2);
   await click(em[0], em[1]); await settle(150);
-  const t1s = await toastText();
+  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (v16.5 UX52: a refusal is said in the chip)
+  const t1s = await chipWarn();
   const fz = await W(-0.5, -1.9);
   await click(fz[0], fz[1] + 1); await settle(150);
-  const t2s = await toastText();
+  const t2s = await chipWarn();
   let d0 = (await CI()).draft;
-  ok('A11 empty space and a freehand curve: the toast, the draft stays, nothing made', t1s === 'Click a line or a circle.' && t2s === 'Click a line or a circle.' && d0 && d0.tool === 'perp' && d0.curve1 === null && (await ST()).list.length === nA && (await ev('__cmwCI({shapes:true}).tool')) === 'perp', [t1s, t2s, d0]);
+  ok('A11 empty space and a freehand curve: the refusal in the chip (v16.5 UX52), the draft stays, nothing made', t1s === 'Click a line or a circle.' && t2s === 'Click a line or a circle.' && d0 && d0.tool === 'perp' && d0.curve1 === null && (await ST()).list.length === nA && (await ev('__cmwCI({shapes:true}).tool')) === 'perp', [t1s, t2s, d0]);
   // 2. the shown unit circle as the curve: the ring and chip on hover, no shape until K is made
   let st = await ST();
   const n0 = st.list.length, hi0 = st.hi;
@@ -134,7 +135,7 @@ await section('A', async () => {
   await click(u[0] + 3, u[1] - 2); await settle(150);
   let d = (await CI()).draft;
   st = await ST();
-  ok('A2 the unit circle is picked; no shape yet', d && d.tool === 'perp' && d.curve1 === null && st.list.length === n0 && (await chipT()).startsWith('Point 1 of 2'), { d, n: st.list.length });
+  ok('A2 the unit circle is picked; no shape yet', d && d.tool === 'perp' && d.curve1 === null && st.list.length === n0 && (await chipT()).startsWith('Pick a point or an empty spot · 1 of 2'), { d, n: st.list.length });
   // 3. z₀ (snapped 0.3 + 0.2i), then an empty spot: K
   const a = await W(0.3, 0.2), b = await W(-0.6, 0.5);
   await click(a[0] + 2, a[1] + 1); await settle(100);
@@ -271,9 +272,20 @@ await section('A', async () => {
   ok('A10 its row names the side', /^perpendicular to side 1 of Polygon 1, through /.test(await rowD(K7.id) || ''), await rowD(K7.id));
   info.rowK7 = await rowD(K7.id);
   await key('Escape'); await settle(100);
-  const c3 = byId(st, 'c3'), c3s = await W(c3.c[0] + c3.r * Math.cos(-0.3), c3.c[1] + c3.r * Math.sin(-0.3));
+  // (v16.5: every click clear of the construction chip, which takes two lines with Whole | Inside | Outside [UX51, UX55]:
+  // a click on its buttons is the chip's, not the plane's)
+  const chipBox = () => ev(`(() => { const c = document.getElementById('draftChipL'); if (c.hidden) return null; const r = c.getBoundingClientRect(); return [r.left - 8, r.top - 8, r.right + 8, r.bottom + 8]; })()`);
+  const clear = (q, b) => !b || !(q[0] >= b[0] && q[0] <= b[2] && q[1] >= b[1] && q[1] <= b[3]);
+  const c3 = byId(st, 'c3');
+  let cb = await chipBox(), c3s = null;
+  for (const a of [-0.5, -1, -1.5, -2, -2.5, 0, 3]) { const q = await W(c3.c[0] + c3.r * Math.cos(a), c3.c[1] + c3.r * Math.sin(a)); if (clear(q, cb)) { c3s = q; break; } }
   await click(c3s[0] + 1, c3s[1]); await settle(100);
-  const t1 = await W(-1.3, 0.9), t2 = await W(-0.4, 1.3);
+  cb = await chipBox();
+  // (and inside the plane, 16 px clear of its edges: at 1440 with the Inspector open, -1.5 lies left of X)
+  const pb = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + 16, r.top + 16, r.right - 16, r.bottom - 16]; })()`);
+  const tq = [];
+  for (const [a, b] of [[-1.3, 0.9], [-0.4, 1.3], [-1.5, -0.4], [-0.9, -1.1], [-1.9, 0.3], [-1.1, -0.2]]) { const q = await W(a, b); if (clear(q, cb) && q[0] >= pb[0] && q[0] <= pb[2] && q[1] >= pb[1] && q[1] <= pb[3]) tq.push(q); }
+  const [t1, t2] = tq;
   await click(t1[0], t1[1]); await settle(80); await click(t2[0], t2[1]); await settle(350);
   st = await ST();
   const K8 = last(st);
@@ -298,7 +310,7 @@ await section('A', async () => {
   ok('A11 the plane menu on a circle has "Perpendicular circle…" next to "Point on this curve"', info.planeMenu.indexOf('Perpendicular circle…') === info.planeMenu.indexOf('Point on this curve') + 1 && info.planeMenu.includes('Perpendicular circle…'), info.planeMenu);
   await menuClick('Perpendicular circle…'); await settle(200);
   d = (await CI()).draft;
-  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'perp' && d && d.curve1 && d.curve1.s === 'c3' && (await chipT()).startsWith('Point 1 of 2'), d);
+  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'perp' && d && d.curve1 && d.curve1.s === 'c3' && (await chipT()).startsWith('Pick a point or an empty spot · 1 of 2'), d);
   await key('Escape'); await settle(100);
   await grab();
   // 12. ⋯ Region; Use complement; the family as C's centre crosses PQ (K on a free circle C, P and Q on ℝ)
@@ -400,7 +412,7 @@ await section('C', async () => {
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
   await click(u[0] + 3, u[1] - 2); await settle(100);
-  ok('C RU chip after the curve', (await chipT()) === 'Точка 1 из 2 · Ортогональная · Esc — отмена', await chipT());
+  ok('C RU chip after the curve', (await chipT()) === 'Выберите точку или пустое место · 1 из 2 · Ортогональная · ⌫ — отменить выбор · Esc', await chipT());
   const a = await W(0.3, 0.2), b = await W(-0.6, 0.5);
   await click(a[0], a[1]); await settle(80); await move(b[0], b[1]); await settle(100);
   await shot('perp-d1440-ru-preview');
@@ -475,7 +487,7 @@ await section('D', async () => {
   let d = (await CI()).draft;
   ok('D phone: a tap 8 px off the circle picks it', d && d.curve1 && d.curve1.s === 'pc', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  ok('D phone chip: the tile text, no Esc, a ×', /^Point 1 of 2 · Orthogonal/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point or an empty spot · 1 of 2 · Orthogonal/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   const pp = await W(0.4, 0.3);
   await touch(pp[0] + 12, pp[1] - 9); await settle(200);
   d = (await CI()).draft;
@@ -495,7 +507,8 @@ await section('D', async () => {
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
   info.phTileRu = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="perp"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent.replace(/\\u00ad/g, '-'), sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh }; })()`);
-  ok('D phone RU: «Ортого­нальная» fits on two lines at most', info.phTileRu && info.phTileRu.text === 'Ортого-нальная' && info.phTileRu.sw <= info.phTileRu.w + 1 && info.phTileRu.h <= 2 * info.phTileRu.lh + 1, info.phTileRu);
+  // (v16.5 UX93: a phone tile shows a whole short form on one line, never a hyphenated word)
+  ok('D phone RU: the tile reads «Ортогон.», whole, on one line', info.phTileRu && info.phTileRu.text === 'Ортогон.' && info.phTileRu.sw <= info.phTileRu.w + 1 && info.phTileRu.h <= info.phTileRu.lh + 1, info.phTileRu);
   await shot('perp-p390-more-ru');
   await view(390, 844, true, true); await settle(600);
   await shot('perp-p390-more-ru-dark');
@@ -633,7 +646,7 @@ await section('I', async () => {
   await load(NS + 'i1', SD); await settle(900);
   await tool('perp');
   info.segChip = await ev(`[...document.querySelectorAll('#draftChipL .cm-sb')].map((b) => [b.getAttribute('aria-label'), b.title, b.getAttribute('aria-pressed')])`);
-  ok('I1 the chip has Whole | Inside (Whole on), with its tooltip', JSON.stringify(info.segChip.map((x) => x[0])) === '["Whole","Inside"]' && info.segChip[0][2] === 'true' && /^Inside: only the arc inside the curve/.test(info.segChip[1][1]), info.segChip);
+  ok('I1 the chip has Whole | Inside | Outside (Whole on; v16.5 UX55: the Inspector\'s three), with its tooltip', JSON.stringify(info.segChip.map((x) => x[0])) === '["Whole","Inside","Outside"]' && info.segChip[0][2] === 'true' && /^Inside: only the arc inside the curve/.test(info.segChip[1][1]), info.segChip);
   await segOn('Inside');
   const u = await W(Math.cos(0.9), Math.sin(0.9));
   await click(u[0] + 2, u[1] - 1); await settle(150);
@@ -650,7 +663,7 @@ await section('I', async () => {
   let st = await ST();
   const Ks = st.list.filter((s) => s.def && s.def.op === 'perp'), C1 = byId(st, Ks[0].def.args[0].s);
   const names = await CI({ names: true }), nm = (id) => (names.find((x) => x.id === id) || {}).name;
-  ok('I1 three geodesics, each an arc with seg 1 and nk arc, named Arc 1–3; C is Circle 1', Ks.length === 3 && Ks.every((k, i) => k.kind === 'arc' && k.def.seg === 1 && k.def.nk === 'arc' && nm(k.id) === `Arc ${i + 1}`) && nm(C1.id) === 'Circle 1', Ks.map((k) => [k.kind, k.def.seg, k.def.nk, nm(k.id)]));
+  ok('I1 three geodesics, each an arc with seg 1 and nk hyper, named Hyperbolic line 1–3 (v16.5 UX55); C is Circle 1', Ks.length === 3 && Ks.every((k, i) => k.kind === 'arc' && k.def.seg === 1 && k.def.nk === 'hyper' && nm(k.id) === `Hyperbolic line ${i + 1}`) && nm(C1.id) === 'Circle 1', Ks.map((k) => [k.kind, k.def.seg, k.def.nk, nm(k.id)]));
   const rows = [];
   for (const k of Ks) rows.push(await rowD(k.id));
   info.segRows = rows;
@@ -738,7 +751,9 @@ await section('I', async () => {
   // a glider on the arc stops at the ends
   await ev(`__cmwC({ call: 'create', args: [[{ id: 'ig', kind: 'point', p: [0, 0], t: 0.5, visible: true, def: { op: 'glider', args: [{ s: '${K1}', part: 0 }] } }]] })`); await settle(300);
   st = await ST();
-  const kk = byId(st, K1), g0 = byId(st, 'ig').p, gEnd = await W(kk.a[0] * 1.6, kk.a[1] * 1.6);
+  // ([v16.5 rail SPEC 2.3] 30 px past the end: the stretch zone, so it stays on its arc; a pull of 40 px held frees it)
+  const sI = (await W(1, 0))[0] - (await W(0, 0))[0];
+  const kk = byId(st, K1), g0 = byId(st, 'ig').p, kEnd = 1 + 30 / (sI * Math.hypot(kk.a[0], kk.a[1])), gEnd = await W(kk.a[0] * kEnd, kk.a[1] * kEnd);
   const gs = await W(g0[0], g0[1]);
   await drag(gs[0], gs[1], gEnd[0], gEnd[1], 20, 16); await settle(300);
   st = await ST();
@@ -867,7 +882,7 @@ await section('I', async () => {
   await rowMenuOf(KR[0].id);
   info.ruMenu = await menuItems();
   await key('Escape');
-  ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри"]' && /^гиперболическая прямая внутри кривой: Окружность 1; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
+  ok('I7 Russian: the chip (Целиком | Внутри), the row, the Inspector control and the ⋯ items', JSON.stringify(info.ruChip.map((x) => x[0])) === '["Целиком","Внутри","Снаружи"]' && /^гиперболическая прямая внутри кривой: Окружность 1; через z₀ и z₁$/.test(info.ruRow || '') && info.ruInsp && JSON.stringify(info.ruInsp.labels) === '["Целиком","Внутри","Снаружи"]' && info.ruInsp.right <= info.ruInsp.pr + 0.5 && info.ruMenu.includes('Другая сторона') && info.ruMenu.includes('Окружность целиком'), { chip: info.ruChip, row: info.ruRow, insp: info.ruInsp, menu: info.ruMenu });
   await shot('seg-d1440-light-ru');
   await view(1440, 900, true, false); await settle(500);
   await shot('seg-d1440-dark-ru');
@@ -978,7 +993,7 @@ await section('J', async () => {
   await click(u[0] + 1, u[1]); await settle(250);
   info.jChip1 = await ev(`(() => { const s = document.querySelector('#draftChipL .cm-seg'), el = document.querySelector('#draftChipL'), pl = el && el.parentElement; return s && { cls: s.className, txt: [...s.querySelectorAll('.cm-sb')].map((b) => b.textContent), chip: document.querySelector('#draftChipL .cm-t').textContent, right: el.getBoundingClientRect().right, plot: pl.getBoundingClientRect().right }; })()`);
   await shot('seg-fix-d1440-chip', { x: 0, y: 0, width: 760, height: 160, scale: 1 });
-  ok('J6 1440: once C is picked the chip reads "Whole | Inside" in words, inside its plane; Whole\'s tooltip says what it does (user-4)', info.jChip1 && !/cm-icons/.test(info.jChip1.cls) && JSON.stringify(info.jChip1.txt) === '["Whole","Inside"]' && info.jChip1.right <= info.jChip1.plot && info.jChip0 && info.jChip0.txt[0][1] === 'Whole: the whole circle', [info.jChip0, info.jChip1]);
+  ok('J6 1440: once C is picked the chip reads "Whole | Inside" in words, inside its plane; Whole\'s tooltip says what it does (user-4)', info.jChip1 && !/cm-icons/.test(info.jChip1.cls) && JSON.stringify(info.jChip1.txt) === '["Whole","Inside","Outside"]' && info.jChip1.right <= info.jChip1.plot && info.jChip0 && info.jChip0.txt[0][1] === 'Whole: the whole circle', [info.jChip0, info.jChip1]);
   await key('Escape'); await tool('select');
   // J7 the phone: the chips' segment buttons take taps 40 px tall (user-5), the 3-point chip too
   await view(390, 844, false, true);
@@ -995,7 +1010,7 @@ await section('J', async () => {
   await key('Escape'); await settle(200);
   await tile('circle3');
   info.jPhone.c3 = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), hits: await hits('#draftChipL .cm-sb') };
-  ok('J7 phone: the Orthogonal chip\'s buttons take taps 18 px above and below their centre (40 px tall), same look (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 2 && info.jPhone.perp.every((b) => b.up && b.down && b.h <= 24) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
+  ok('J7 phone: the Orthogonal chip\'s buttons take taps 18 px above and below their centre (40 px tall), same look (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h <= 24) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
   // list break), keeps it before "in the z-plane"; Russian keeps it before «и»

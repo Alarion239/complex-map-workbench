@@ -1,0 +1,34 @@
+{
+ "_about": "v16.5 wave 1 merge (notes/ux-build/W1-MERGE.md, built in work/xu1): the strings the merge itself changed when it joined the five pieces. id -> {en, ru, note}. Read after every v16.4 table, with the pieces' v165-ux-*.json tables (tools/make_ru_table.py, V165_HERE). Terms: GLOSSARY.md. Edit by read-modify-write only.",
+ "guide.touch.chain": {
+  "en": "Add a step with the + in the chain bar; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in its search to add it directly. Tap a card: its editor opens in a panel at the bottom, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a shared number. The editor's <b>Show alone</b> button shows that step alone. To reorder, use Move in the ⋯ menu.",
+  "ru": "Шаг добавляет кнопка + в панели цепочки; формулу, например <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span>, можно ввести прямо в её поиске, и она станет шагом. Коснитесь карточки: внизу откроется панель с её редактором — формула целиком, поле для каждого коэффициента и меню ⋯, которое заменяет шаг обратной функцией, отключает, перемещает, дублирует или удаляет его. Собственные коэффициенты шага помечены его номером (<i>a</i><sub>2</sub>); буква без номера — это общее число. Кнопка <b>Показать отдельно</b> в редакторе показывает только этот шаг. Порядок меняют пункты «Сдвинуть» в меню ⋯.",
+  "note": "The phone guide's Function chain paragraph (phone piece, UX17) with the button's one name since UX85 (chain piece): Show alone, «Показать отдельно»."
+ },
+ "cm.tap.curve": {
+  "en": "Tap a line or a circle.",
+  "ru": "Коснитесь прямой или окружности.",
+  "note": "A construction's refusal on a touch screen (phone piece UX17 on the plane piece's UX52 lines): «коснитесь» for a tap (GLOSSARY), the curve's name after a colon as the v16.3 strings have it."
+ },
+ "cm.tap.meet": {
+  "en": "Tap a crossing of two curves, or a curve.",
+  "ru": "Коснитесь пересечения двух кривых или кривой.",
+  "note": "A construction's refusal on a touch screen (phone piece UX17 on the plane piece's UX52 lines): «коснитесь» for a tap (GLOSSARY), the curve's name after a colon as the v16.3 strings have it."
+ },
+ "cm.tap.off": {
+  "en": "Tap a point off {c}.",
+  "ru": "Коснитесь точки вне кривой: {c}.",
+  "note": "A construction's refusal on a touch screen (phone piece UX17 on the plane piece's UX52 lines): «коснитесь» for a tap (GLOSSARY), the curve's name after a colon as the v16.3 strings have it."
+ },
+ "cm.tap.on": {
+  "en": "Tap a point on {c}.",
+  "ru": "Коснитесь точки на кривой: {c}.",
+  "note": "A construction's refusal on a touch screen (phone piece UX17 on the plane piece's UX52 lines): «коснитесь» for a tap (GLOSSARY), the curve's name after a colon as the v16.3 strings have it."
+ },
+ "tile.hyper": {
+  "en": "Hyperbolic",
+  "ru": "Гиперб.",
+  "ctx": "phone tile",
+  "note": "UX93 (learn piece) for the plane piece's Hyperbolic line tool (UX55): a phone tool tile (58 px at 360 px, 11 px type): one line, no hyphen; the desktop keeps «Гиперболическая»."
+ }
+}

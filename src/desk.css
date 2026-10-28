@@ -232,15 +232,67 @@
 /* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1440 in
    English, 1600 in Russian); Examples keeps its word */
 @media (min-width: 1024px) and (max-width: 1439px) {
-  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; }
+  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
   .top .cmd-field .cmd-text { display: none; }
-  #examplesBtn { flex-shrink: 0; }
+  /* ([v16.5 check app-1] the icon and its shortcut are never cut, "Ctrl K" included: the open example's name after
+     Examples gives way instead, ending in an ellipsis) */
+  #examplesBtn { flex-shrink: 1; min-width: 0; }
+  #examplesBtn > .mlabel, #examplesBtn > .ic-slot { flex-shrink: 0; }
 }
+/* ([v16.5 check app-2] app.js hdrFit: where the search's words would be cut, its short label, else its icon and
+   shortcut alone) */
+:root:not(.ph) .top.cmd-short #cmdBtn .ct-l { display: none; }
+:root:not(.ph) .top.cmd-short #cmdBtn .ct-s { display: inline; }
+:root:not(.ph) .top.cmd-cut .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
+:root:not(.ph) .top.cmd-cut .cmd-field .cmd-text { display: none; }
 @media (min-width: 1440px) and (max-width: 1599px) {
   :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; }
   :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
 }
 .pane.under-insp .legend-chip:not(.calc-chip) { right: calc(8px + var(--insp-w, 288px)); margin-right: 0; }
+/* (v16.5 UX20, restores "nothing covers the work uninvited") the plane's key and its display options in the pane head
+   (app.js placeKeys): the key a short chip (glyph and words) that unfolds under the head while pointed at, focused or
+   clicked open; the options behind the Display options button. A phone keeps them on the plane (phone.css) */
+.pane-head { position: relative; z-index: 11; overflow: visible; }
+.pane-head > .legend-chip { position: relative; top: auto; right: auto; margin: 0 0 0 4px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 4px; line-height: normal;
+  background: transparent; border: 1px solid var(--line); box-shadow: none; overflow: visible; cursor: pointer; font: var(--t-label); color: var(--ink-2); flex: 0 1 auto; min-width: 0; }
+.pane-head > .legend-chip:hover, .pane-head > .legend-chip.open { border-color: var(--line-strong); color: var(--ink); background: var(--well, transparent); }
+.pane-head > .legend-chip::before { content: ""; flex: 0 0 14px; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, var(--ink-2));
+  -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4.5px); mask: radial-gradient(circle, transparent 3.5px, #000 4.5px); }
+.pane-head > .legend-chip[data-kind="image"]::before { border-radius: 2px; opacity: 0.7; -webkit-mask: none; mask: none;
+  background: repeating-conic-gradient(var(--ink-2) 0 25%, transparent 0 50%) 0 0 / 7px 7px; box-shadow: inset 0 0 0 1px var(--ink-2); }
+.pane-head > .legend-chip.collapsed::after { content: none; }
+.pane-head > .legend-chip > .lg-sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px); right: -1px; box-sizing: content-box;
+  background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
+.pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
+.pane-head > .legend-chip > .key-sw { display: none; }
+.pane-head > .options { position: static; display: inline-flex; flex: 0 0 auto; min-height: 0; max-width: none; padding: 0; margin-left: 2px; background: none; border: 0; box-shadow: none; }
+.pane-head > .options > :not(.opts-btn) { display: none; }
+.pane.under-insp .pane-head > .legend-chip, .pane.under-insp .pane-head > .options { margin-right: 0; right: auto; }
+/* (the temporary Inspector over the plane's right part: the head's chips and button stay left of it) */
+.pane.under-insp > .pane-head { padding-right: calc(var(--insp-w, 288px) + 6px); }
+/* (v16.5 UX80) a placed message (app.js placeToasts) takes the room between the planes' button columns: it wraps
+   rather than growing over them */
+#toastHost[data-placed] { translate: -50% 0; }
+#toastHost[data-placed] .toast { height: auto; min-height: 36px; padding-top: 4px; padding-bottom: 4px; white-space: normal; }
+#toastHost[data-placed] .toast > span { text-wrap: pretty; line-height: 18px; }
+#toastHost[data-placed] .toast .toast-act { flex: 0 0 auto; white-space: nowrap; }
+/* ([v16.5 fix regress-3] in the chain head's free middle: one line, the head's height, no shadow; it covers nothing) */
+#toastHost[data-placed="head"] .toast { height: 30px; min-height: 0; padding-top: 0; padding-bottom: 0; white-space: nowrap; box-shadow: none; }
+#toastHost[data-placed="head"] .toast .toast-act { height: 24px; }
+/* (UX20) the empty chain's call to action in Y's head: its button alone (the words are its tooltip) */
+.pane-head > .empty-chip { position: static; translate: none; flex: 0 0 auto; height: auto; max-width: none; margin: 0 2px 0 4px; padding: 0; background: none; border: 0; box-shadow: none; }
+.pane-head > .empty-chip[hidden] { display: none; }
+.pane-head > .empty-chip > span { display: none; }
+.pane-head > .empty-chip > .btn { height: 24px; min-height: 24px; }
+/* (V01) a one-time note about the plane, in its head: the targets' preimages are shaded in X; it gives way before the
+   key chip, whose words are short and never cut */
+.pane-head > .legend-chip { flex-shrink: 0; }
+.pane-head > .head-note.nofit { display: none; }
+.pane-head > .head-note { flex: 0 0 auto; min-width: 0; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--t-label); color: var(--muted); }
+.pane-head > .head-note[hidden] { display: none; }
+.pane-head > .head-note i { font: var(--t-math-s); color: var(--ink-2); }
 /* (a long lit name breaks by syllables in the narrow tile, in the page's language) */
 .ftile .lamp .lampname { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word; min-width: 0; }
 .ftile .fl { min-width: 0; }
@@ -376,3 +428,60 @@
 .trange .tr-from { flex: 1 1 100%; font: 400 14px/18px var(--f-math); color: var(--muted); }
 .trange .tr-from i { font-style: italic; }
 .trange .tr-from sub { font-size: 0.72em; line-height: 0; }
+/* ---- v16.5 wave 1, the chain (notes/ux-build/w1-chain-AS-BUILT.md) ---- */
+/* UX22: the + card says Add function while the chain has three steps or fewer: a vertical label in the same 44 px */
+.add-card.labelled > span:nth-child(2) { display: block; writing-mode: vertical-rl; transform: rotate(180deg); font: 500 12px/14px var(--f-ui); font-stretch: 87.5%; white-space: nowrap; max-height: 104px; overflow: hidden; text-overflow: ellipsis; }
+.add-card.labelled { gap: 8px; }
+.pipeline.compact .add-card.labelled > span:nth-child(2) { display: none; }
+/* UX81: the insert ⊕ between cards is 24 px, and shows after a card that has the keyboard too */
+.conn-add { width: 24px; height: 24px; top: calc(var(--conn-y) - 12px); margin-left: -3px; }
+.conn-add svg { width: 14px; height: 14px; }
+.card:focus-visible + .conn .conn-add, .card:focus-within + .conn .conn-add { opacity: 1; }
+.mv-btn { display: none; }
+:root.ph .ph-sheet #propsPanel .ihead .mv-btn { display: inline-grid; place-items: center; font: 500 17px/1 var(--f-ui); }
+/* UX85: Show alone in words where there is no hover (a phone's editor sheet) */
+.alone-btn .ab-l { display: none; }
+:root.ph .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { width: auto; padding: 0 10px; gap: 6px; display: inline-flex; align-items: center; }
+/* (on a phone the step's name keeps its line; ← → Show alone ⋯ take ONE line under it, so the head grows by the name's
+   line only and the editor still fits its sheet; where that line is too narrow for the words (360 px, Russian below
+   412 px, a landscape sheet) the button keeps its 44 px icon and its name for the screen reader) */
+:root.ph .ph-sheet #propsPanel .insp-step .ihead { flex-wrap: wrap; row-gap: 2px; column-gap: 4px; container-type: inline-size; }
+:root.ph .ph-sheet #propsPanel .insp-step .ihead .ttl { flex: 1 1 calc(100% - 64px); }
+:root.ph .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { padding: 0 8px; gap: 4px; }
+:root.ph .ph-sheet #propsPanel .ihead .alone-btn .ab-l { display: inline; font: 500 14px/20px var(--f-ui); white-space: nowrap; }
+@container (max-width: 259px) { :root.ph .ph-sheet #propsPanel .ihead .alone-btn .ab-l { display: none; } :root.ph .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { width: 44px; padding: 0; justify-content: center; } }
+@container (max-width: 311px) { :root.ph[data-lang="ru"] .ph-sheet #propsPanel .ihead .alone-btn .ab-l { display: none; } :root.ph[data-lang="ru"] .ph-sheet #propsPanel .ihead .icon-btn.alone-btn { width: 44px; padding: 0; justify-content: center; } }
+/* UX84: an empty chain's F tile reads F = z */
+.ftile .fid { display: none; }
+.ftile.ident .fid { display: inline; }
+.ftile.ident .fF { font-size: 20px; white-space: nowrap; }
+:root.ph .ftile .fid { display: none !important; }
+/* UX82: no row of letters; the highlighted row names its properties in words */
+.pal-pw { display: none; font: 500 11.5px/14px var(--f-ui); color: var(--good); white-space: nowrap; }
+.pal-item.sel .pal-pw { display: inline; }
+:root.ph .pal-pw { display: none !important; }
+/* UX23: a formula error in grey, the place it stopped marked; Enter greyed while there is nothing to run. The typed
+   text in the palette input's face (B612 Mono draws "(" like "[": "sin[z") */
+.pal-err { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; color: var(--muted); }
+.pal-err .pe-q { font: 500 15px/20px var(--f-ui); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pal-err .pe-bad { text-decoration: underline wavy var(--warn); text-underline-offset: 4px; background: var(--warn-soft); border-radius: 2px; }
+.pal-enter.off { opacity: 0.45; }
+/* UX33: a word before a field's symbol */
+.pf.worded, #propsPanel .params .pf.worded { grid-template-columns: max-content minmax(0, 1fr); }
+.pl .pw { font: 500 12px/16px var(--f-ui); font-style: normal; color: var(--muted); }
+.pl.worded { overflow: visible; }
+/* UX32: a placeholder reads as a hint, not as typed text */
+#formulaInput::placeholder, .prm-new .inp::placeholder { font: italic 400 13px/1 var(--f-ui); color: var(--muted); opacity: 0.8; }
+/* UX65: an unused number, and the numbers a step uses */
+.prm-unused { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 0; }
+.prm-unused .prm-note { color: var(--muted); font: 400 12px/16px var(--f-ui); }
+.inote.inums { color: var(--ink-2); }
+/* UX25: Examples ▾ keeps its name; the open example's name is muted after it until the first edit */
+@media (min-width: 1024px) {
+  :root:not(.ph) .top #examplesBtn > .mlabel { display: inline; white-space: nowrap; }
+  :root:not(.ph) .top #examplesBtn > .ic-slot { order: 1; }
+  :root:not(.ph) .top #examplesBtn > .exlabel { order: 2; color: var(--muted); font-weight: 400; display: inline; }
+  :root:not(.ph) .top #examplesBtn > .exlabel.stale, :root:not(.ph) .top #examplesBtn > .exlabel:empty { display: none; }
+}
+.examples .ex-item.ex-new { border-bottom: 1px solid var(--line); }
+@media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
