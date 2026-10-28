@@ -1022,12 +1022,12 @@ await section('J', async () => {
   await tile('perp');
   const cp = await W(Math.cos(2.2), Math.sin(2.2));
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cp[0], y: cp[1], id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(300);
-  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await hits('#draftChipL .cm-sb') };
+  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await ev(`[...document.querySelectorAll('.ph-ctseg > .ph-cb')].map((b) => { const q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2; const at = (dy) => { const e = document.elementFromPoint(x, y + dy); return !!e && e.closest('.ph-cb') === b; }; return { h: Math.round(q.height), up: at(-18), down: at(18) }; })`) };   // (D3: on a phone the three choices are in the context bar's second row; the chip drops its copy)
   await shot('seg-fix-p390-chip');
   await key('Escape'); await settle(200);
   await tile('circle3');
   info.jPhone.c3 = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), hits: await hits('#draftChipL .cm-sb') };
-  ok('J7 phone: the Orthogonal chip\'s buttons take taps 18 px above and below their centre (40 px tall), same look (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h <= 24) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
+  ok('J7 phone: the Orthogonal choices (in the context bar) take taps 18 px above and below their centre, 44 px tall; the 3-point chip keeps its 40 px buttons (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h >= 44) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
   // list break), keeps it before "in the z-plane"; Russian keeps it before «и»
