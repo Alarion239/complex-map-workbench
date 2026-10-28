@@ -204,6 +204,10 @@
   function setState(next) { S = next; }
   // a pane hidden or shown: side 'L' (the tools and X) or 'R' (Y and the chain); the caller lays out and saves
   function setHidden(side, on) { if (side === 'L') S.hideLeft = on; else S.hideRight = on; }
+  // the selection in the chain (a step k >= 1, 'F', or null) and the focused step (0: the whole map): the bare writes;
+  // setFocus (src/app/08-thumbnails-render.js) is the user's action, with its selection and redraw
+  function setSel(v) { S.sel = v; }
+  function setFocusStep(k) { S.focus = k; }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
@@ -273,7 +277,7 @@
     if (selected && !keep.has(selected) && !S.targets.some((x) => x.id === selected)) selected = null;
     zpSel = null; zpHover = null;
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
-    S.focus = f;
+    setFocusStep(f);
     if (e.range && typeof e.range === 'object') S.homRange = JSON.parse(JSON.stringify(e.range)); else delete S.homRange;
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);

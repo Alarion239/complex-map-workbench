@@ -708,7 +708,7 @@
       $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
     }
     $('viewAllBtn').addEventListener('click', () => setFocus(0));
-    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; S.focus = 0; chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
+    $('clearChain').addEventListener('click', () => { if (!S.steps.length) return; S.steps = []; setFocusStep(0); chainChanged(true); setFocus(0); commit(); undoToast($t('Chain cleared.')); });
     // (D1, issue #23: Clear chain is a word button in the chain head again, shown while there is a chain to clear; it
     // had been under a ⋯ there since v15, review design-18)
     $('clearChain').hidden = !S.steps.length;
@@ -914,7 +914,7 @@
         // keeps the selection, review russian-6 and verify-8)
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
-        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { S.sel = sel0; syncSel(); requestRender('P'); save(); }
+        if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { delete S.deform; openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
