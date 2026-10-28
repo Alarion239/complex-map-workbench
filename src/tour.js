@@ -337,7 +337,7 @@ const Tour = (() => {
     {
       // v16.4 (notes/tour-r3/SPEC.md 4): hear, then how, then a closed curve; the sound settings step moved in from
       // Palette and keys. No step plays on arrival: music starts only from the strip's Listen
-      id: 'sound', title: 'Sound', time: '1½ min', rev: 1, scene: 'song', needs: 'sound',
+      id: 'sound', title: 'Sound', time: '1½ min', rev: 2, scene: 'song', needs: 'sound',
       steps: [
         { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
           body: 'Grieg\'s theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut before each downbeat is the drum.',
