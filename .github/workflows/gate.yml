@@ -92,7 +92,7 @@ jobs:
           sha=$(git rev-parse --verify "$ref^{commit}")
           echo "reference=$sha" >> "$GITHUB_OUTPUT"
           echo "Reference of the paired gates: \`$sha\` ($ref)" >> "$GITHUB_STEP_SUMMARY"
-          if git diff --quiet "$sha" -- src build.py; then echo "The app (src/, build.py) is unchanged since the reference: the paired gates have nothing to compare." >> "$GITHUB_STEP_SUMMARY"; fi
+          if git diff --quiet "$sha" -- src build.py tools/src_parts.py; then echo "The app (src/, build.py, tools/src_parts.py) is unchanged since the reference: the paired gates have nothing to compare." >> "$GITHUB_STEP_SUMMARY"; fi
       - id: shards
         name: Perf shards (every unit in exactly one)
         shell: bash

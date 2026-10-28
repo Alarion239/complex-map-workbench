@@ -60,13 +60,25 @@ ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.j
 ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_shards.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
 
 // T3
-for (const f of ['src/app.js', 'src/gl.js', 'build.py']) {
+for (const f of ['src/app/wrap.js', 'src/gl/wrap.js', 'src/app/01-core.js', 'build.py', 'tools/src_parts.py']) {
   const p = select([f]);
   ok(`T3: ${f}`, p.tier === 'T3' && p.full && same(p.browser, ALL) && p.glsl.length === 14 && p.quality.length === 3 && p.perf, p.tier);
 }
 const unk = select(['LICENSE', 'README.md']);
 ok('T3: a path no row knows (fail safe)', unk.tier === 'T3' && unk.unknown && same(unk.browser, ALL) && unk.quality.length === 3, unk.why);
-ok('T3: a new src/ file no row knows', select(['src/app/core.js']).tier === 'T3');
+ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && select(['src/app/19-new-part.js']).tier === 'T3');
+// the split files' parts (src/app/, src/gl/): every one has a row of its own
+{
+  const fs = require('fs'), path = require('path');
+  const parts = ['app', 'gl'].flatMap((d) => { try { return fs.readdirSync(path.join(__dirname, '..', 'src', d)).map((f) => `src/${d}/${f}`); } catch (e) { return []; } });
+  ok('every part of src/app/ and src/gl/ has a row', parts.length > 20 && parts.every((f) => rowOf(f) && !/\*\*/.test(rowOf(f).glob)), parts.filter((f) => !rowOf(f)));
+  ok('a part: src/app/17-tour.js -> the tour shards', same(select(['src/app/17-tour.js']).browser, [...AREAS.tour, 'smoke']));
+  ok('a part: src/app/16-sound.js -> sound', same(select(['src/app/16-sound.js']).browser, ['sound', 'smoke']));
+  const g = select(['src/gl/02-glsl-inverse.js']);
+  ok('a part: src/gl/02-glsl-inverse.js -> T2, the inverse GLSL page (src/gl is its input)', g.tier === 'T2' && g.glsl.length && g.glsl.every((j) => j.page === 'inverse') && g.perf, g.glsl);
+  ok('a part: src/app/03-exact-images.js -> T2', select(['src/app/03-exact-images.js']).tier === 'T2');
+  ok('tools/join_src.js (tsc only) -> T0', select(['tools/join_src.js']).tier === 'T0');
+}
 // (the name is built here, so that this file does not name it)
 ok('T3: a test file nothing names', select([`test/${['nobody', 'names', 'this'].join('_')}.json`]).tier === 'T3');
 const lab = select(['README.md'], { full: 'the label full-gate' });
@@ -74,18 +86,18 @@ ok('T3: the label full-gate (or a push, the nightly run, a run by hand) forces e
 ok('T3: one unknown path among known ones still forces everything', select(['src/tour.js', 'Makefile']).tier === 'T3');
 
 // the same build
-const sb = select(['src/app.js', 'src/tour.js', 'src/cx.js'], { sameBuild: true });
+const sb = select(['src/app/wrap.js', 'src/app/17-tour.js', 'src/tour.js', 'src/cx.js', 'tools/src_parts.py'], { sameBuild: true });
 ok('same build: app paths select nothing (T0)', sb.tier === 'T0' && nothing(sb) && sb.reasons.every((r) => /same as the reference/.test(r.effect)), sb);
-const sb2 = select(['src/app.js', 'test/tour_cmd.js'], { sameBuild: true });
+const sb2 = select(['src/app/wrap.js', 'test/tour_cmd.js'], { sameBuild: true });
 ok('same build: a test path still selects its suite', sb2.tier === 'T1' && same(sb2.browser, ['tour', 'smoke']), sb2);
-ok('same build: a non-app unknown path still forces T3', select(['src/app.js', 'LICENSE'], { sameBuild: true }).tier === 'T3');
-ok('a different build: the map decides', select(['src/app.js'], { sameBuild: false }).tier === 'T3');
+ok('same build: a non-app unknown path still forces T3', select(['src/app/wrap.js', 'LICENSE'], { sameBuild: true }).tier === 'T3');
+ok('a different build: the map decides', select(['src/app/wrap.js'], { sameBuild: false }).tier === 'T3');
 
 // the most of several paths, and what is skipped
 const mix = select(['src/tour.js', 'src/sound.js', 'README.md']);
 ok('several paths: the union of their shards', mix.tier === 'T1' && same(mix.browser, [...AREAS.tour, 'sound', 'smoke']));
 ok('skipped lists what does not run', mix.skipped.includes('perf') && mix.skipped.includes('GLSL inverse') && mix.skipped.includes('browser phone-swap-1') && !mix.skipped.includes('browser tour'), mix.skipped);
-ok('rowOf: the first matching row wins (src/app.js is not a maths row)', rowOf('src/app.js').effect.full && rowOf('test/regress/README.md').glob === '**/*.md');
+ok('rowOf: the first matching row wins', rowOf('src/app/wrap.js').effect.full && rowOf('test/regress/README.md').glob === '**/*.md');
 
 console.log(`${n - fails}/${n} passed`);
 process.exit(fails ? 1 : 0);

@@ -41,14 +41,14 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
-| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
-| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app.js`, `src/gl.js`, `build.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
+| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
+| **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-init-constructions.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
   first row whose pattern matches a path decides what it selects. A test helper or fixture selects the suites and
   unit tests whose source names it; a path nothing matches is T3 (fail safe). Every GLSL page whose inputs
   (`ci/glsl.js`: its builder, its test file, the sources it reads) include a changed path runs, on both platforms.
-- **The same build:** when a change touches the app (`src/`, `build.py`), the plan builds the reference and this
+- **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
   the app's paths select nothing, so such a change costs T0.
 - **The summary** of the plan job shows the tier, each changed path with the row that matched and what it selected,

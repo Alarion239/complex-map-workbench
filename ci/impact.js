@@ -7,7 +7,7 @@
 //            checks, the core browser shards and the smoke shard
 //   T3       everything: a push to main, the nightly run, a run by hand, the label full-gate, or a path this file
 //            does not know (fail safe)
-// The same build: when the change touches the app (src/, build.py) and the reference's dist/ files are byte for byte
+// The same build: when the change touches the app (src/, build.py, tools/src_parts.py) and the reference's dist/ files are byte for byte
 // the same as this checkout's (a comment, a move, a refactor), the rows of those paths select nothing.
 //   node ci/impact.js [--base REF | --ref SHA] [--head REF] [--files a,b,...] [--full REASON] [--no-build]
 //                     [--print | --json | --github | --run]
@@ -30,6 +30,7 @@ const AREAS = {
   tour: ['tour', 'tour-phone', 'tour-audit-phone', 'tour-audit-desktop'],
   export: ['export-1', 'export-2', 'export-3', 'images'],
   sound: ['sound'],
+  deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
   i18n: ['i18n', 'i18n-desktop', 'i18n-phone'],
   views: ['views', 'formulas'],
@@ -48,10 +49,30 @@ const T0 = { t0: true };
 const HARNESS = { harness: true };
 const MAP = [
   // the app
-  ['src/app.js', full('the app; being split into src/app/*.js, whose parts will map to their areas')],
-  ['src/gl.js', full('the WebGL renderer; being split into src/gl/*.js')],
+  // the app (src/app/: app.js in parts, joined in name order by build.py; a part not listed here is T3)
+  ['src/{app,gl}/wrap.js', full('the closure around the parts')],
+  ['src/app/01-core.js', full('the app\'s state and its core, under every area')],
+  ['src/app/18-init-constructions.js', full('the app\'s start-up and the test hooks')],
+  ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
+  ['src/app/04-labels-zeros-poles.js', ui('views', 'constructions')],                     // labels, zeros and poles
+  ['src/app/05-panes-rulers.js', ui('views', 'desktop', 'phone')],                         // view fitting, panes, rulers
+  ['src/app/06-deformation.js', ui('deform')],                                             // the deformation
+  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // thumbnails, the render loop
+  ['src/app/09-pane-titles.js', ui('desktop', 'phone')],                                   // pane titles, option strips
+  ['src/app/10-tools-menus.js', ui('constructions', 'desktop', 'phone')],                  // the tools and menus
+  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's cards
+  ['src/app/12-command-palette.js', ui('desktop', 'i18n')],                                // the command palette
+  ['src/app/13-export-captions.js', ui('export', 'i18n')],                                 // guarantees, export, captions
+  ['src/app/14-interaction.js', ui('constructions', 'desktop', 'phone')],                  // pointer and keys
+  ['src/app/15-examples-guide.js', ui('desktop', 'phone', 'tour')],                        // examples, the guide
+  ['src/app/16-sound.js', ui('sound')],
+  ['src/app/17-tour.js', ui('tour')],
+  // the WebGL renderer (src/gl/: gl.js in parts): T2, and the views shards where it draws the 3D scenes
+  ['src/gl/{01-state-glsl-2d,02-glsl-inverse,04-programs-resources,05-frames-2d-draws,07-inverse-api}.js', { core: true }],
+  ['src/gl/{03-glsl-3d,06-draws-3d}.js', { core: true, areas: ['views'] }],                // the Landscape, the sphere
   ['src/view.js', full('the planes\' view transform, under every area')],
   ['build.py', full('the build itself')],
+  ['tools/src_parts.py', full('how build.py joins the split files')],
   ['src/phone.*', ui('phone')],                                               // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
   ['src/figure.js', ui('export')],                                            // exported figures, and the images shard
@@ -69,6 +90,7 @@ const MAP = [
   ['tools/make_{ru,it}_table.py', ui('i18n')],
   ['tools/{cyr_template.js,make_cyr_module.py}', ui('export', 'i18n')],
   ['tools/melodies/**', ui('sound')],
+  ['tools/join_src.js', T0],                                                  // joins the parts for tsc only (lint)
   ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
   // the docs (a README beside the tests or the CI scripts too)
   ['**/*.md', T0],
@@ -122,7 +144,8 @@ const GLSL_JOBS = [
   { os: 'macos-latest', page: 'inverse', part: '1/1' },
 ];
 const QUALITY_OS = ['ubuntu-latest', 'windows-latest', 'macos-latest'];
-const isApp = (f) => f.startsWith('src/') || f === 'build.py';
+// (the build's inputs: what the same-build check covers)
+const isApp = (f) => f.startsWith('src/') || f === 'build.py' || f === 'tools/src_parts.py';
 const fileOf = (e) => e.split('#')[0];
 
 function testFiles() { return fs.readdirSync(path.join(ROOT, 'test')).filter((f) => /\.js$/.test(f)); }
