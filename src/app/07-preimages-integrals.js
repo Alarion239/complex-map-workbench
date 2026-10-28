@@ -1134,7 +1134,6 @@
     let html = '';
     if (want) {
       const pts = S.targets.filter((s) => s.visible !== false && s.kind === 'point');
-      const others = S.targets.filter((s) => s.visible !== false && s.kind !== 'point').length;
       const rows = [];
       if (pts.length && !hasCalc('zerosPoles')) rows.push($t('<div class="cn">Root finding is not available in this build.</div>'));
       else if (pts.length && roots.sig !== rootsSig()) rows.push($t('<div class="ch">Solving {x} = <i>p</i> in view…</div>', { x: fxHtml() }));
@@ -1213,7 +1212,10 @@
     const txt = want && !ph ? targetText() : '';
     if (!el && txt && head) { el = h('span', { class: 'head-note', id: 'rightNote', role: 'status' }); const g = head.querySelector(':scope > .grow'); head.insertBefore(el, g ? g.nextSibling : null); }
     if (el) {
-      const tip = txt ? $t('Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.', { x: fnText() }) : '';
+      // (areas are shaded, curves drawn: the tip says only what the targets are)
+      const tip = !txt ? '' : !na ? $t('The curves that {x} maps onto the targets of Y are drawn in X.', { x: fnText() })
+        : na === nv ? $t('Where {x} lands in the targets of Y is shaded in X.', { x: fnText() })
+        : $t('Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.', { x: fnText() });
       let fit = false;
       if (el.textContent !== txt || el.dataset.tip !== tip) { el.textContent = txt; el.dataset.tip = tip; fit = true; }
       if (el.hidden === !!txt) { el.hidden = !txt; fit = true; }

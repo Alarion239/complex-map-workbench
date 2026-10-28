@@ -19,7 +19,7 @@
     }
     return 1 + 2 * (ins.length + holes.length);       // texels: the header, then 2 per piece
   }
-  let invTex = null, invTexKey = '', invTexRows = 0;
+  let invTex = null, invTexKey = '';
   let pack = null;                      // the frame's records: {recs: Map(id -> rec), forms, formsKey, data}
   // formula bundle (4.4): the first four visible formula shapes take slots 0-3; an edit is debounced 300 ms
   const FORM_DEBOUNCE = 300;
@@ -108,7 +108,7 @@
     buf.set(pack.data.subarray(0, Math.min(pack.data.length, buf.length)));
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PACK_W, rows, 0, gl.RGBA, gl.FLOAT, buf);
-    invTexKey = key; invTexRows = rows;
+    invTexKey = key;
   }
   const formsSrc = (srcs) => (srcs.length ? srcs.join('') + 'float formulaLevel(int f, vec2 z) {\n' + srcs.map((_, i) => `  if (f == ${i}) return ilev${i}(z);\n`).join('') + '  return -1.0;\n}\n' : '');
 
@@ -225,7 +225,7 @@
   const passCache = new WeakMap();
   const isFinC = (z) => !!z && Number.isFinite(z.re) && Number.isFinite(z.im);
   function passData(inv, plan, prep) {
-    let c = passCache.get(prep);
+    const c = passCache.get(prep);
     if (c && c.inv === inv && c.plan === plan) return c.d;
     const N = Math.max(1, inv.nOps), ops = inv.ops;
     const d = { ref: new Float32Array(2 * N), N: new Int32Array(N).fill(1), RK: new Int32Array(N), AB: new Float32Array(4 * N), box: new Float32Array(4 * N),
@@ -584,7 +584,7 @@
   function warmInverse(half = true) {
     if (!ok || lost) return 0;
     flushHalf();
-    let n = 0, nFull = 0;
+    let nFull = 0;
     const one = (e, half) => {
       if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, halfTarget(Math.max(1, halfW), Math.max(1, halfH))); gl.viewport(0, 0, 1, 1); }
       gl.useProgram(e.p);
@@ -597,7 +597,6 @@
       gl.bindVertexArray(null);
       gl.disable(gl.SCISSOR_TEST);
       if (half) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(vpX, vpY, fw, fh); }
-      n++;
     };
     for (const e of progs.values()) {
       if (!invWarmable(e) || !e.p) continue;
@@ -645,7 +644,7 @@
 
   // ---- GPU timing for the cost guard (10.12): EXT_disjoint_timer_query_webgl2 around a pane's inverse passes ----
   let tqExt = null, tqChecked = false;
-  const tqPending = [], tqDone = [];
+  const tqPending = [];
   let tqActive = null;
   function tq() { if (!tqChecked && gl) { tqChecked = true; tqExt = gl.getExtension('EXT_disjoint_timer_query_webgl2'); } return tqExt; }
   const timer = {

@@ -419,6 +419,13 @@ check('1366 × 657: Why opens as a panel over the work area, the panes keep thei
 check('1366 × 657: the panes keep at least 330 px with the strip', p0.b - p0.t >= 330, p0);
 await ev('Tour.stop()'); await settle(300);
 } catch (e) { check('r3 review regress-4' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
+try {
+// the screen-reader line of the tour (class tour-sr, #tourSay) is out of the flow: at 1366 × 768 the page is not taller than the window
+await open('au8', 1366, 768, false, false);
+await go('analysis', 0); await ev('Tour.stop()'); await settle(300); // the tour's CSS is injected on first use
+const sh = await ev(`(() => { const n = document.createElement('div'); n.className = 'tour-sr'; n.textContent = 'x'; document.body.append(n); const r = { sh: document.documentElement.scrollHeight, ih: innerHeight, top: Math.round(n.getBoundingClientRect().top) }; n.remove(); return r; })()`);
+check('1366 × 768: a tour-sr line at the end of the body does not make the page taller than the window', sh.sh <= sh.ih, sh);
+} catch (e) { check('1366 × 768 page height' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 await view(1440, 900, false, false);
 const L = logs().filter((l) => /EXC|\[tour\]/i.test(l.t + l.m)).slice(0, 12);
 check('no exceptions or tour warnings', !L.length, L);

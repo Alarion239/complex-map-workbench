@@ -95,14 +95,13 @@
       else if (mode === 3) { if (k > base && k <= a) return 1; if (k > a && k <= b) return 2; }
       return post > b && k > b && k <= post ? 1 : 0;
     };
-    let sheet = false, other = false, cut = false;
+    let other = false, cut = false;
     for (const c of info.cutKinds) {
       const hw = how(c.k);
       if (!hw) continue;
       const kind = hw === 2 ? (t <= 0 ? 'none' : t >= 1 ? c.f : c.h) : c.f;
       if (kind === 'deriv') { if (cut) other = true; continue; }
       if (kind === 'other') other = true;
-      else if (kind === 'sheet') sheet = true;
       if (kind !== 'none') cut = true;
     }
     if (!cut) return 0;
@@ -338,7 +337,6 @@
     if (st !== gl.ALREADY_SIGNALED && st !== gl.CONDITION_SATISFIED) return false;
     // (read before the fence is deleted: the read is then known complete)
     const out = new Float32Array(o.rbN);
-    const tq = performance.now();
     gl.bindBuffer(gl.COPY_READ_BUFFER, o.rbBuf);
     gl.getBufferSubData(gl.COPY_READ_BUFFER, 0, out);
     gl.bindBuffer(gl.COPY_READ_BUFFER, null);
@@ -393,12 +391,12 @@
     return out;
   }
   // (through a buffer of its own, fenced and waited for: the scratch buffer, which every pass writes, is never read)
-  let rdBuf = null, rdBytes = 0;
+  let rdBuf = null;
   function readScratch(n) {
     const out = new Float32Array(n);
     // (a fresh buffer each time, as in lvFetch: a READ buffer written again before Chrome saw its read loses its shadow)
     if (rdBuf) gl.deleteBuffer(rdBuf);
-    rdBuf = gl.createBuffer(); rdBytes = 4 * n;
+    rdBuf = gl.createBuffer();
     gl.bindBuffer(gl.COPY_WRITE_BUFFER, rdBuf); gl.bufferData(gl.COPY_WRITE_BUFFER, 4 * n, gl.STREAM_READ);
     gl.bindBuffer(gl.COPY_READ_BUFFER, scratch);
     gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, 0, 4 * n);
