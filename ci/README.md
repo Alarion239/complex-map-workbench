@@ -51,6 +51,9 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **The same build:** when a change touches the app (`src/`, `build.py`, `tools/src_parts.py`), the plan builds the reference and this
   change; when both `dist/` files are byte for byte the same (a move, a refactor that keeps the concatenated sources),
   the app's paths select nothing, so such a change costs T0.
+- **A/A runs:** a paired job (quality, perf) chosen by a path outside the app (its runner, its scenes, `ci/quality.js`,
+  `ci/perf_shard.js`) runs with `--force` when the app is unchanged, the same app on both sides, so the changed suite
+  runs instead of reporting "nothing to compare" (the plan's outputs `quality_force`, `perf_force`).
 - **The summary** of the plan job shows the tier, each changed path with the row that matched and what it selected,
   the jobs that run, and what was skipped. The **Gate** job passes when every job the plan chose passed and the rest
   were skipped.
