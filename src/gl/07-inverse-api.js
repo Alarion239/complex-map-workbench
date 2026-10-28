@@ -823,6 +823,8 @@
     frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
+    // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)
+    get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },

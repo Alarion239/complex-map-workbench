@@ -199,10 +199,13 @@ const Examples = (() => {
       if (e.key === 'Escape') { e.preventDefault(); closePalette(); focusBack(anchor, okey); }
     });
     armOutside(anchor);
-    // fill thumbnails one per frame so the menu opens at once
+    // fill thumbnails one per frame so the menu opens at once; (issue #72) one example's programs compile at a time:
+    // the next thumbnail waits until the one before has landed (a cold Direct3D 11 link takes seconds, and many at once
+    // held the GPU from the user's own view)
     let q = 0;
     const next = () => {
       if (A.popEl !== pop || q >= items.length) return;
+      if ([...exWait.values()].some((key) => !GLR.ready(key))) { setTimeout(next, 100); return; }
       const it = items[q++];
       if (it.b.hidden) { setTimeout(next, 0); return; }
       const url = renderExampleThumb(it.i);
