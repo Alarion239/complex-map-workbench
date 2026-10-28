@@ -279,6 +279,8 @@ const Params = (() => {
     if (!o.live || o.fromUI !== true) render(o.live ? name : null);
     return '';
   }
+  // a drag of a number's point ended: the picture at rest quality (the slider's release does the same)
+  function rest(name) { if (find(name)) emit('change', { names: closure([name]), rest: true }); }
   function fire(names, o) { emit('change', Object.assign({ names }, o && o.live ? { live: true } : {}, o && o.play ? { play: true } : {})); }
   function setRange(name, min, max, step) {
     const p = find(name);
@@ -417,6 +419,7 @@ const Params = (() => {
 .prm-name { font: italic 500 15px/20px var(--f-math); color: var(--ink); min-width: 14px; white-space: nowrap; background: none; border: 0; padding: 0 2px; cursor: pointer; border-radius: var(--r-1, 3px); }
 .prm-name:hover { background: var(--well); }
 .prm-eq { font: 400 13px/20px var(--f-math); color: var(--ink-2); }
+.prm-cx { font: 400 13px/20px var(--f-math); color: var(--accent); margin-left: -2px; }
 .prm-val { width: 72px; flex: 0 0 72px; height: 24px; font: 400 12px/16px var(--f-mono); }
 .prm-val.expr { flex: 1 1 auto; width: auto; }
 .prm-sp { flex: 1 1 auto; }
@@ -540,6 +543,7 @@ const Params = (() => {
   function row(m, p) {
     const nm = p.name, d = display(nm);
     const r = h('div', { class: 'prm-row', role: 'listitem', 'data-name': nm });
+    const cxBadge = isComplex(p) ? h('span', { class: 'prm-cx', 'data-tip': $t('A complex number'), 'aria-hidden': 'true' }, 'ℂ') : null;
     const nameBtn = h('button', { class: 'prm-name', type: 'button', 'data-tip': $t('Rename'), 'aria-label': $t('Rename {x}', { x: d }), 'data-prm-focus': 'n:' + nm, onclick: () => { m.open = { name: nm, what: 'rename' }; draw(m); } }, d);
     const val = h('input', { class: 'inp mono prm-val' + (p.expr ? ' expr' : ''), value: valShow(p), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': $t('Value of {x}', { x: d }), 'data-prm-focus': 'v:' + nm });
     const err = h('div', { class: 'prm-err', role: 'alert', hidden: true });
@@ -560,7 +564,7 @@ const Params = (() => {
       html: playing.has(nm) ? ICON.pause : ICON.play, 'data-prm-focus': 'p:' + nm, onclick: () => togglePlay(nm) });
     const moreBtn = h('button', { class: 'icon-btn prm-more', type: 'button', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for {x}', { x: d }), html: ICON.more, 'data-prm-focus': 'm:' + nm,
       onclick: (e) => menu(m, p, e.currentTarget) });
-    const l1 = h('div', { class: 'prm-l1' }, nameBtn, h('span', { class: 'prm-eq' }, '='), val, playBtn, h('span', { class: 'prm-sp' }), moreBtn);
+    const l1 = h('div', { class: 'prm-l1' }, nameBtn, cxBadge, h('span', { class: 'prm-eq' }, '='), val, playBtn, h('span', { class: 'prm-sp' }), moreBtn);
     if (m.open && m.open.name === nm && m.open.what === 'rename') l1.replaceChild(renameEd(m, p), nameBtn);
     r.append(l1);
     if (m.open && m.open.name === nm && m.open.what === 'range') r.append(rangeEd(m, p));
@@ -639,6 +643,7 @@ const Params = (() => {
   }
   function menu(m, p, anchor) {
     const items = [
+      ...(isComplex(p) && host && host.showPoint ? [{ label: $t('Show as a point'), disabled: !!(host.pointOf && host.pointOf(p.name)), run: () => host.showPoint(p.name) }, 'sep'] : []),
       { label: $t('Range…'), run: () => { m.open = { name: p.name, what: 'range' }; draw(m); } },
       { label: $t('Rename…'), run: () => { m.open = { name: p.name, what: 'rename' }; draw(m); } },
       { label: p.play === 'loop' ? $t('Play back and forth') : $t('Play in a loop'), disabled: !!p.expr, run: () => { p.play = p.play === 'loop' ? 'bounce' : 'loop'; commit(); } },
@@ -706,7 +711,7 @@ const Params = (() => {
 
   return {
     mount, list, get, set, on, install, attach, add, remove, rename, check, canon, display, tex, namesIn, unknownIn, resolve, replaceName,
-    evalReal, evalVal, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused,
+    evalReal, evalVal, rest, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused,
     encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; },
   };
 })();

@@ -695,7 +695,8 @@
   const nextPointNum = () => { let n = -1; for (const s of S.shapes) if (numbered(s) && Number.isInteger(s.num)) n = Math.max(n, s.num); return n + 1; };
   function pointLabel(s, idx, primes) {
     // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
-    const base = exLabel(s.label) || 'z' + sub(Number.isInteger(s.num) ? s.num : idx);
+    const bn = s.bind ? boundNumber(s) : '';
+    const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)

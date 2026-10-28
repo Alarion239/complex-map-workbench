@@ -1045,6 +1045,14 @@
       if (drag.mode === 'handle') {
         const cmZ = Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y);   // (v16: onto a point, binds at the release)
         pane.setView(drag.target ? V.right : leftView());
+        // a point bound to a free number moves the number (the point follows through the number's change)
+        const bn = !drag.target && drag.shape.kind === 'point' ? boundNumber(drag.shape, drag.key) : '';
+        if (bn && !Params.list().find((p) => p.name === bn).expr) {
+          const zn = cmZ || snapZ(pane, z);
+          drag.boundNum = bn; drag.moved = true;
+          Params.set(bn, { re: zn.re, im: zn.im }, { live: true });
+          return;
+        }
         Region.setHandle(drag.shape, drag.key, cmZ || snapZ(pane, z));
         drag.moved = true;
         if (drag.target) targetsChanged(false); else shapesChanged(false);
@@ -1344,7 +1352,7 @@
     }
     if (d.mode === 'orbit') { requestRender('R'); return; }
     if (d.mode === 'cut') { commit(); return; }
-    if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { shapesChanged(true); commit(); } return; }
+    if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;

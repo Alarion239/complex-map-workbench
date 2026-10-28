@@ -66,6 +66,37 @@
     } else if (s.undef) { delete s.undef; if (s.undefHid && !s.cHid) s.visible = true; delete s.undefHid; ch = true; }
     return ch;
   }
+  // the shared number a field of shape s is exactly (a point bound to a: bind.p = 'a'), or '': dragging that point moves
+  // the number, and the point is named after it
+  function boundNumber(s, key = 'p') {
+    const t = s && s.bind && s.bind[key];
+    if (typeof t !== 'string') return '';
+    const nm = Params.namesIn(t)[0];
+    return nm && Params.resolve(t, { [nm]: 0 }) === '(0)' && Params.getC(nm) ? nm : '';
+  }
+  // a point on the plane that shows the number nm (its position bound to it); the add is one undo step
+  function addNumberPoint(nm) {
+    const c = Params.getC(nm);
+    if (!c) return null;
+    const s = newShape('point', { p: [c.re, c.im], bind: { p: nm } });
+    addShape(s);
+    return s;
+  }
+  const numberPoint = (nm) => S.shapes.find((s) => s.kind === 'point' && boundNumber(s) === nm) || null;
+  // the first name for a new number that the name field would accept: a, b, c, …
+  function freeNumberName() {
+    for (const c of 'abcdfghjklmnpqstuv'.split('').concat('αβγδεζηθικλμνξπρστυφχψω'.split(''))) { if (!Params.check(c).error) return c; }
+    return '';
+  }
+  // the plane menu's "New complex number here": a number at z and its point, one undo step
+  function newNumberHere(z) {
+    const nm = freeNumberName();
+    if (!nm) { toast($t('There is no free name left for a number.')); return null; }
+    Params.add(nm, { value: { re: z.re, im: z.im } });
+    addNumberPoint(nm);
+    undoToast($t('Added the complex number {x}', { x: Params.display(nm) }));
+    return nm;
+  }
   // every bound field and every number by formula from the numbers' current values (review math-3: a state, a link or a
   // scene opens with its formulas as the truth; the stored values are only a cache)
   function bindsAll() {
@@ -330,6 +361,8 @@
       undoToast: (m) => undoToast(m),
       openMenu: (a, items) => openMenu(a, items),
       useIn: (nm) => paramUseIn(nm),
+      pointOf: (nm) => numberPoint(nm),
+      showPoint: (nm) => { if (!numberPoint(nm)) addNumberPoint(nm); },
     });
     if (!attachParams.on) { attachParams.on = true; Params.on('change', onParamChange); }
   }
