@@ -940,13 +940,13 @@
         S = Object.assign(blankState(), { hideLeft: S.hideLeft, hideRight: S.hideRight });
         selected = null; draft = null;
         dropAllGPU();
-        loadExample(firstExample());
+        loadExample(firstExample(), undefined, { quiet: true });
         buildDisplay(); applyLayout();
         hist = [snap()]; hi = 0; updateUndo();
         toast($t('The saved session could not be restored, so the first example was loaded.'));
       }
     } else {
-      loadExample(firstExample());
+      loadExample(firstExample(), undefined, { quiet: true });
       hist = [snap()]; hi = 0; updateUndo();
     }
     try { const k = lsk('cmw-probe'); localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { warnStorage(); }
