@@ -64,7 +64,7 @@ const Commands = (() => {
     const n = A.S.steps.length;
     if (!ctx || !palState || n < 1) return;
     const at0 = palState;
-    const label = (at) => (at <= 0 ? $t('Insert at the start') : at >= n ? $t('Append to the chain') : $t('Insert after f{x}', { x: sub(at) }));
+    const label = (at) => (at <= 0 ? $t('Insert at the start') : at >= n ? $t('Insert at the end') : $t('Insert after f{x}', { x: sub(at) }));
     // (a press keeps the focus, and the phone's keyboard, in the search field)
     const chip = h('button', { class: 'pal-at', type: 'button', onpointerdown: (e) => e.preventDefault(), onmousedown: (e) => e.preventDefault() });
     const paint = () => {
@@ -110,7 +110,7 @@ const Commands = (() => {
             // an equation: a curve in the z-plane (the app's own shapes when recognized exactly)
             const plan = curvePlan(q, viewBox(A.S.srcView));
             items.push({ kind: 'region', group: 'Curve formulas', tex: Expr.toTex(ast).s, label: $t('Add this curve'), desc: $t('Adds {what} in the z-plane', { what: plan.what }), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); addCurveShapes(plan, false); } });
-          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this region'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { A.shapeVia = null; } } }); }
+          } else if (!fnOnly) { Expr.compileLevel(ast); items.push({ kind: 'region', group: 'Region formulas', tex: Expr.toTex(ast).s, label: $t('Add this shape'), desc: $t('A set in the z-plane'), q: q.replace(/\s+/g, ''), run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: q })); } finally { A.shapeVia = null; } } }); }
         } else if (Expr.depends(ast) && [...Expr.usesVars(ast)].every((v) => v === 'z')) {
           const cst = { type: 'custom', params: { expr: q, cut: 180 }, on: true };
           const cb = Funcs.build(cst);
@@ -177,7 +177,7 @@ const Commands = (() => {
     items.push(...(items.oneType ? fns.filter((x) => x.type !== items.oneType) : fns));
     if (!fnOnly) {
       const typed = items.find((x) => x.kind === 'region');
-      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add region'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
+      for (const c of REGION_EXAMPLES) if ((!ql || score(c)) && !(typed && typed.q === c.replace(/\s+/g, ''))) items.push({ kind: 'region', group: 'Region formulas', tex: c, label: $t('Add shape'), desc: '', run: () => { if (leftStage() > 0) setFocus(0); A.shapeVia = 'formula'; try { addShape(newShape('formula', { expr: c })); } finally { A.shapeVia = null; } } });
       EX.forEach((ex, i) => { if (!exOk(ex) || (ql && i === 0)) return; /* (v16.5 UX03: searched, the empty canvas is the New command) */ if (!ql || score(ex.name.replace(/\\[a-z]+/g, ' ')) || score(ex.blurb || '')) items.push({ kind: 'ex', i, group: $t('Examples'), tex: ex.tex || '', label: ex.name.replace(/\$/g, ''), desc: ex.blurb || '', run: () => loadExample(i) }); });
       // every step's inverse and derivative (a d/dz step has neither)
       A.S.steps.forEach((st, i) => {
@@ -229,7 +229,7 @@ const Commands = (() => {
         [$t('Snap to grid and figures on or off'), () => $('snapBtn').click(), ''],
         [$t('Switch theme'), () => $('themeBtn').click(), ''],
         ...(ql ? Palette.LIST.map(([id]) => [$t('Phase colours: {name}', { name: PAL_NAMES()[id][0] }), () => setPalette(id), '', 'palette, colours, colors, цвета, палитра, colori, arb, chrome']) : []),
-        [$t('Region tools panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
+        [$t('Draw panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(A.S.hideLeft, !A.S.hideRight), ']'],
         // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
         ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, lingua, russian, русский, english, английский, italian, italiano'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, lingua, english, английский, inglese', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, lingua, russian, русский, russo', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })], [$t('Language: {name}', { name: 'Italiano' }), () => pickLang('it'), '', 'language, язык, lingua, italian, итальянский, italiano', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'it' }, 'Italiano') })]] : []),
@@ -238,7 +238,7 @@ const Commands = (() => {
       const acts = [
         [$t('Undo'), () => $('undoBtn').click(), '⌘Z'],
         [$t('Redo'), () => $('redoBtn').click(), '⇧⌘Z'],
-        [$t('Clear the chain'), () => $('clearChain').click(), ''],
+        [$t('Clear chain'), () => $('clearChain').click(), ''],
         [$t('Clear all shapes and targets'), () => $('clearShapes').click(), ''],
         // ([UX54] names are kept when others are deleted: these make them tidy again)
         [$t('Renumber points'), () => renumberPoints(), '', $t('renumber, rename, numbers, names, points, tidy'), 1],
@@ -294,7 +294,7 @@ const Commands = (() => {
     cgrid: $t('grid, grid lines'), pgrid: $t('polar grid, rays and circles'),
   });
   const GUIDE_SECS = () => [
-    [$t('Regions'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
+    [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
     [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
     [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
     [$t('Deformation'), $t('deformation, homotopy, morph, animate, play')], [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
@@ -375,7 +375,7 @@ const Commands = (() => {
     closePalette();
     const explicit = at != null;
     const insertAt = explicit ? at : (A.S.focus > 0 ? A.S.focus : A.S.steps.length);
-    const ctxText = explicit ? (at === 0 ? $t('Insert at the start') : $t('Insert after f{x}', { x: sub(at) })) : (A.S.focus > 0 ? $t('Insert after f{x}', { x: sub(A.S.focus) }) : $t('Append to the chain'));
+    const ctxText = explicit ? (at === 0 ? $t('Insert at the start') : $t('Insert after f{x}', { x: sub(at) })) : (A.S.focus > 0 ? $t('Insert after f{x}', { x: sub(A.S.focus) }) : $t('Insert at the end'));
     const input = h('input', { class: 'pal-input', id: 'palInput', placeholder: opt.fnOnly ? $t('Search functions, or type a formula in z') : $t('Search functions, regions, examples, commands'), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'aria-label': $t('Search'), role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palList' });
     const list = h('div', { class: 'pal-list', role: 'listbox', id: 'palList' });
     const pvCanvas = h('canvas', { width: 368, height: 368 });
@@ -398,7 +398,7 @@ const Commands = (() => {
     const target = Math.max(1, Math.min(n0, opt.replace || insertAt));
     palState = { at: insertAt, before: explicit ? at : (A.S.focus > 0 ? A.S.focus - 1 : 0), sel: 0, items: [], opener, pvTimer: 0, mode, modes, target };
     const fx = (t) => t.replace(/f([₀-₉]+)/, (m, d) => `<i>f</i><sub>${[...d].map((c) => SUB.indexOf(c)).join('')}</sub>`);
-    const atText = (a) => (a <= 0 ? $t('Insert at the start') : a >= n0 ? $t('Append to the chain') : $t('Insert after f{x}', { x: sub(a) }));
+    const atText = (a) => (a <= 0 ? $t('Insert at the start') : a >= n0 ? $t('Insert at the end') : $t('Insert after f{x}', { x: sub(a) }));
     const whereText = (m) => (m === 'replaceF' ? $t('Replace F') : m === 'replace' ? $t('Replace f{x}', { x: sub(target) }) : document.documentElement.classList.contains('ph') ? $t('Insert') : atText(palState.at));
     const where = modes.length > 1 ? h('button', { class: 'pal-ctx pal-where', type: 'button', onpointerdown: (e) => e.preventDefault(), onmousedown: (e) => e.preventDefault(), onclick: () => { cycleWhere(1); input.focus({ preventScroll: true }); } }) : null;
     const paintWhere = () => {

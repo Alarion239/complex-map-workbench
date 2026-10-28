@@ -21,7 +21,7 @@
   "note": "Tooltip: label, two spaces, key."
  },
  "tour.menu.help": {
-  "en": "Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.",
+  "en": "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.",
   "ru": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
   "note": ""
  },
@@ -76,7 +76,7 @@
   "note": ""
  },
  "tour.helpbtn": {
-  "en": "This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.",
+  "en": "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.",
   "ru": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
   "note": ""
  },

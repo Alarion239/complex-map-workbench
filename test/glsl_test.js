@@ -65,9 +65,9 @@
     }
   }
   // 1. defaults
-  // ([issue #6] and the Recurrence step: its default chain is with its own chains at the end, so every chain before
-  // keeps its index and its part)
-  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'recurrence') add(`default ${t}`, [S(t)]);
+  // (Γ, ζ, the Series step and the Recurrence step have their own chains at the end, so the catalog's chains keep their
+  // sequence and parts)
+  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence') add(`default ${t}`, [S(t)]);
   add('ijouk interior', [S('ijouk', { branch: 'interior' })]);
   // natural paths (2026-10-22): zoom paths, Joukowski's Cayley power, roots and rational zoom paths, all at once
   add('nat joukowski > cos > rational', [S('joukowski'), S('cos'), S('rational')]);
@@ -281,6 +281,7 @@
     sum('d/dz e^z 0.2z+1', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '0.2', b: '1' })]);
     chains[chains.length - 1].steps.push(S('deriv'));
     // the Series step (a power series about a centre, a Laurent and a Dirichlet series from their a_n)
+    add('default series', [S('series')]);
     add('series step power 1/n^2 about 0.5', [S('series', { kind: 'power', an: '\\frac{1}{n^2}', c: '0.5' })]);
     add('series step Laurent', [S('series', { kind: 'laurent', an: '\\frac{1}{2^{|n|}+n^2}', c: '0' })]);
     add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
