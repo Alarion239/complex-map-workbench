@@ -207,6 +207,9 @@ for (const [vw, vh, mobile] of [[1440, 900, false], [390, 844, true]]) for (cons
     await settle(1200);
     await ev('__cmwSetMain("land")'); await settle(1200);
     if (c.homT != null) { await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 } })'); await settle(900); await ev(`__cmwMorph({ T: ${c.homT} })`); await settle(1500); }
+    // (a map with a cut: until its edge pass has compiled and settled the surface is drawn by the former rule, key ending in
+    // -1; a first page on a software renderer takes tens of seconds for it)
+    if (c.cuts) for (let k = 0; k < 120; k++) { if (await ev('(() => { const m = GLR.landMesh(256); return !!(m && !/\\|-1$/.test(m.key)); })()')) break; await sleep(500); }
     const r = await ev(CHECK(c.steps, c.h, c.sing || [], c.singR || 0, c.homT), 120000);
     // (the refinement follows the surface by a frame or two, its programs one per frame on a fresh page: wait for it)
     for (let k = 0; k < 40; k++) { if (await ev('(() => { const q = GLR.landRefine(false, 256); return !!(q && q.land); })()')) break; await sleep(150); }
