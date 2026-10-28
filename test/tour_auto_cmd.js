@@ -217,10 +217,10 @@ check('construct: the circle task is done', (await until(`document.querySelector
 check('construct: the tour moves on to the family step', (await advancedAt('construct/c3', Date.now() - 200, 6000)) != null && (await cur()) === 'construct/follow', await cur());
 const sel = await center('#tools .tool[data-tool="select"]');
 if (sel) { await click(sel[0], sel[1]); await settle(200); }
-const z2a = await w2s(0.25, 1.25), z2b = await w2s(0.25, -0.85), z2c = await w2s(0.25, -2.2);
-await mdrag(z2a[0], z2a[1], z2b[0], z2b[1]); await settle(300);
-await mdrag(z2b[0], z2b[1], z2c[0], z2c[1]);
-check('construct: dragging z2 across the line ticks the step (the half-plane, then the outside)', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+// (one drag from above the line to well below it: the disc turns into its outside in a step, never being a half-plane)
+const z2a = await w2s(0.25, 1.25), z2c = await w2s(0.25, -2.2);
+await mdrag(z2a[0], z2a[1], z2c[0], z2c[1]);
+check('construct: dragging z2 across the line ticks the step (the disc becomes its outside)', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
 await ev('Tour.stop()'); await settle(300);
 } catch (e) { check('the Constructions chapter at 1440' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
