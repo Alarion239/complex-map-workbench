@@ -219,6 +219,13 @@
   function pushTarget(t) { S.targets.push(t); }
   function spliceSteps(at, n, ...items) { return S.steps.splice(at, n, ...items); }
   function setStepAt(i, st) { S.steps[i] = st; }
+  // the rest of S: the display and view options (pattern, dc, landPlain, height, sheets, view, srcView, clipWin,
+  // homRange, ...) set or removed by name, a part of the view (pane null: the view's own key, as main), and the next
+  // shape's id taken (the old S.nextId++)
+  function setOpt(key, v) { S[key] = v; }
+  function deleteOpt(key) { delete S[key]; }
+  function setViewOpt(pane, key, v) { if (pane) S.view[pane][key] = v; else S.view[key] = v; }
+  function takeId() { return S.nextId++; }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
@@ -276,7 +283,7 @@
   }
   function restore(e) {
     const o = JSON.parse(e.s), was = S.steps;
-    setShapes(o.shapes); setSteps(o.steps); S.nextId = o.nextId;
+    setShapes(o.shapes); setSteps(o.steps); setOpt('nextId', o.nextId);
     Funcs.typedKeep(was, S.steps); // (Russian: a list text typed and refused stays refused after an undo: verify-1)
     setTargets(Array.isArray(o.targets) ? o.targets : []);
     setParams(Array.isArray(o.params) ? o.params : []);
@@ -289,7 +296,7 @@
     zpSel = null; zpHover = null;
     const f = Math.max(0, Math.min(S.steps.length, e.focus | 0)), refocus = f !== S.focus;
     setFocusStep(f);
-    if (e.range && typeof e.range === 'object') S.homRange = JSON.parse(JSON.stringify(e.range)); else delete S.homRange;
+    if (e.range && typeof e.range === 'object') setOpt('homRange', JSON.parse(JSON.stringify(e.range))); else deleteOpt('homRange');
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);

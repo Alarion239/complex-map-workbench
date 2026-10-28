@@ -67,7 +67,7 @@
       for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed (P3)
-    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
+    if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
     syncModeChips();
   }
@@ -98,7 +98,7 @@
   // target: a shape of the w-plane (Preimage), kept in S.targets; its colors start further along the palette
   function newShape(kind, params, target) {
     const ci = target ? TARGET_CI[S.targets.length % TARGET_CI.length] : S.shapes.length % 8;
-    const s = Object.assign({ id: 's' + S.nextId++, kind, ci, visible: true }, params);
+    const s = Object.assign({ id: 's' + takeId(), kind, ci, visible: true }, params);
     return s;
   }
   // (v16.4) how the shape came: 'draw' (a tool in a plane), 'formula' (the formula field or the palette's region), 'paste',
@@ -252,7 +252,7 @@
   // a copy of s beside it, selected (the row menu's Duplicate, ⌘D)
   function duplicateShape(s) {
     const target = isTarget(s), list = target ? S.targets : S.shapes;
-    const c = JSON.parse(JSON.stringify(s)); c.id = 's' + S.nextId++; c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null;
+    const c = JSON.parse(JSON.stringify(s)); c.id = 's' + takeId(); c.ci = target ? TARGET_CI[list.length % TARGET_CI.length] : list.length % 8; delete c.color; delete c.label; Region.translate(c, C(0.25, -0.25)); list.push(c); selected = c.id; zpSel = null;
     if (target) targetsChanged(true); else shapesChanged(true);
     commit();
   }

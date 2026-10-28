@@ -804,7 +804,7 @@
     // (v16: the bracket by index: an end on the split step moves to the new steps' outer one, so all n stay bracketed)
     const hr = S.homRange ? HR.resolve(S, true) : null;
     spliceSteps(k - 1, 1, ...news);
-    if (hr) S.homRange = { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b };
+    if (hr) setOpt('homRange', { a: hr.a > k ? hr.a + n - 1 : hr.a, b: hr.b >= k ? hr.b + n - 1 : hr.b });
     if (S.focus > k) setFocusStep(S.focus + n - 1);
     else if (alone && only) setFocusStep(0);
     chainChanged(true);
@@ -828,7 +828,7 @@
     // (v16: the bracket by index: a removed step leaves it, so it shrinks; a bracket of that step alone is dropped)
     const hr = S.homRange ? HR.resolve(S, true) : null;
     spliceSteps(k - 1, 1);
-    if (hr) { if (hr.a === k && hr.b === k) delete S.homRange; else S.homRange = { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }; }
+    if (hr) { if (hr.a === k && hr.b === k) deleteOpt('homRange'); else setOpt('homRange', { a: hr.a > k ? hr.a - 1 : hr.a, b: hr.b >= k ? hr.b - 1 : hr.b }); }
     if (S.focus >= k) setFocusStep(Math.max(0, S.focus === k ? 0 : S.focus - 1));
     if (Number.isInteger(S.sel) && S.sel >= k) setSel(S.sel === k ? null : S.sel - 1);
     chainChanged(true);

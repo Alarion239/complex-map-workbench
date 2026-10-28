@@ -262,7 +262,7 @@
       const aspect = Math.abs((nb.y1 - nb.y0) / nw - (clipWin.y1 - clipWin.y0) / ow);
       if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
         clipWin = nb;
-        S.clipWin = clipWin;
+        setOpt('clipWin', clipWin);
         if (rightAuto && rImage()) fitRight(true);
         requestRender('L', 'R', 'T');
       }

@@ -193,7 +193,7 @@
         const ids = [];
         for (const s0 of shapes) {
           const s = s0.id ? s0 : Object.assign(newShape(s0.kind, {}, !!o.target), s0, { id: undefined });
-          if (!s.id) s.id = 's' + S.nextId++;
+          if (!s.id) s.id = 's' + takeId();
           if (s.visible == null) s.visible = true;
           (o.target ? S.targets : S.shapes).push(s);
           ids.push(s.id);
@@ -519,7 +519,7 @@
     paneL.setView(S.srcView);
     // (v16 review picture-1) a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
-    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; S.clipWin = clipWin; } }
+    if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; setOpt('clipWin', clipWin); } }
     buildTools();
     setupFormula();
     setupParams(!!loaded);
@@ -557,7 +557,7 @@
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
-    if (kc) kc.addEventListener('change', () => { S.wKey = kc.checked; buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
+    if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
     // the Deformation toggle in the top bar (M; merged-views.md): it modifies the active view
     const mb = $('morphBtn');
     if (mb) { mb.innerHTML = $t('{iconMorph}<span>Deformation</span>', { iconMorph: MODE_ICONS.morph }); mb.addEventListener('click', () => toggleTransport()); }
@@ -565,19 +565,19 @@
     // so its first frames do not wait for them (the pointer or focus on the toggle, as prestartGlobe)
     const prestartMorph = () => { try { if (!morph.open && GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } };
     if (mb) { mb.addEventListener('pointerenter', prestartMorph); mb.addEventListener('focus', prestartMorph); }
-    $('linesChk').addEventListener('change', (e) => { S.lines = e.target.checked; requestRender('L', 'R', 'T'); save(); });
-    $('chevChk').addEventListener('change', (e) => { S.chev = e.target.checked; requestRender('L', 'R'); save(); });
+    $('linesChk').addEventListener('change', (e) => { setOpt('lines', e.target.checked); requestRender('L', 'R', 'T'); save(); });
+    $('chevChk').addEventListener('change', (e) => { setOpt('chev', e.target.checked); requestRender('L', 'R'); save(); });
     // Snap: in the Draw heading and the last button of the collapsed rail (P3); Unit circle: in Display
     // ([v16.5 rail SPEC 4.3] the button was "Snap while drawing": it now names what it snaps to, the grid and figures)
-    $('snapBtn').addEventListener('click', () => { S.snap = !S.snap; syncSnapUnit(); save(); sndToggleCue(S.snap); });
-    $('unitChk').addEventListener('change', (e) => { S.unit = e.target.checked; requestRender('L', 'R', 'T'); save(); });
-    $('alphaRange').addEventListener('input', (e) => { S.alpha = +e.target.value; $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
+    $('snapBtn').addEventListener('click', () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); });
+    $('unitChk').addEventListener('change', (e) => { setOpt('unit', e.target.checked); requestRender('L', 'R', 'T'); save(); });
+    $('alphaRange').addEventListener('input', (e) => { setOpt('alpha', +e.target.value); $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2)); paintFader(e.target); requestRender('L', 'R', 'T'); save(); });
     $('meshRange').addEventListener('input', (e) => { showMeshVal(posToMesh(+e.target.value)); });
-    $('patScale').addEventListener('input', (e) => { S.patternScale = 2 ** +e.target.value; cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
+    $('patScale').addEventListener('input', (e) => { setOpt('patternScale', 2 ** +e.target.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
     for (const b of $('chainMode').children) b.addEventListener('click', () => {
-      S.compact = b.dataset.mode === 'compact';
+      setOpt('compact', b.dataset.mode === 'compact');
       const hgt = S.compact ? 96 : 188;
       document.documentElement.style.setProperty('--chain-h', hgt + 'px');
       try { localStorage.setItem(lsk('cmw-chain-h2'), String(hgt)); } catch (e) { /* ignore */ }
@@ -916,16 +916,16 @@
         setFocus(Math.min(S.focus || 0, S.steps.length));
         if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); syncSel(); requestRender('P'); save(); }
         // an old save's Morph view opens with the deformation on (merged-views.md migration)
-        if (S.deform) { delete S.deform; openTransport(); }
+        if (S.deform) { deleteOpt('deform'); openTransport(); }
         // a link's or a scene's camera and deformation time (figureState, review math-10)
         if (S.figCam) {
           const c = S.figCam;
           if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { cam.yaw = c.yaw; cam.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); cam.dist = c.d * CAM3.dist; cam.tx = Number.isFinite(c.tx) ? c.tx : 0; cam.ty = Number.isFinite(c.ty) ? c.ty : 0; }
-          delete S.figCam;
+          deleteOpt('figCam');
         }
         if ('figMorph' in S) {
           const fm = S.figMorph;
-          delete S.figMorph;
+          deleteOpt('figMorph');
           if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); } }
         }
         if (swUi) {
@@ -1078,11 +1078,11 @@
     if (Views.LEGACY.includes(k)) {
       const o = Object.assign(Views.toLegacy(S.view, S.dc, S.landPlain), { [k]: v, dc: S.dc });
       Views.migrate(o);
-      S.view = o.view; S.dc = o.dc; S.landPlain = !!o.landPlain;
+      setOpt('view', o.view); setOpt('dc', o.dc); setOpt('landPlain', !!o.landPlain);
       applyLayout(); viewChanged('L'); viewChanged('R');
       return;
     }
-    if (k === 'view') { S.view = Views.clean(v); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
+    if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
     S[k] = v; if (k === 'meshN') { dropAllGPU(); } if (k === 'exactImages') scheduleFix(); requestRender('L', 'R', 'T');
   };
   // U-b: the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
