@@ -57,7 +57,8 @@ window.__invTestRun = async (opts = {}) => {
     ['\\exp(z)-1', 180], ['\\sinh(z)', 180], ['\\sqrt[2.5]{z}', 180], ['z', 180], ['(2-z)^{-1}', 180]];
   // (the zeros-and-poles step, 2026-10-22, has its own chains below: the random catalog chains keep their sequence)
   // (and Γ and ζ, issue #4: no inverse enumerator, X → Y uses the sphere-mesh fallback)
-  const TYPES = Object.keys(Funcs.DEFS).filter((t) => t !== 'deriv' && t !== 'custom' && t !== 'zp' && t !== 'gamma' && t !== 'zeta');
+  // (and the Series step, issue #5: left out so the random chains keep their sequence, as in glsl_test.js)
+  const TYPES = Object.keys(Funcs.DEFS).filter((t) => t !== 'deriv' && t !== 'custom' && t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series');
   const chains = [];
   for (const [e, cut] of CUSTOM) chains.push({ name: `custom ${e}`, steps: [St('custom', { expr: e, cut })] });
   for (const t of TYPES) chains.push({ name: `default ${t}`, steps: [St(t)] });
