@@ -64,7 +64,7 @@
     }
   }
   // 1. defaults
-  for (const t of TYPES) add(`default ${t}`, [S(t)]);
+  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta') add(`default ${t}`, [S(t)]);
   add('ijouk interior', [S('ijouk', { branch: 'interior' })]);
   // natural paths (2026-10-22): zoom paths, Joukowski's Cayley power, roots and rational zoom paths, all at once
   add('nat joukowski > cos > rational', [S('joukowski'), S('cos'), S('rational')]);
@@ -110,27 +110,6 @@
     seed = 20261022;
     for (let i = 0; i < 6; i++) { const p = randParams('zp'); add(`rand zp ${JSON.stringify(p)}`, [S('zp', p)]); }
     seed = keep;
-  }
-  // [issue #4] Γ and ζ: the steps (Γ along its zoom path), with affine maps that reach larger arguments, the critical strip
-  // and the left half-plane; Γ, ψ, ζ, ζ′ in formulas; the derivative of each by d/dz
-  if (Funcs.DEFS.gamma) {
-    const aff = (a2, b2) => S('affine', { a: a2, b: b2 });
-    add('special gamma', [S('gamma')]);
-    add('special gamma 4z+1', [aff('4', '1'), S('gamma')]);
-    add('special gamma left half-plane 3z-6', [aff('3', '-6'), S('gamma')]);
-    add('special gamma 10iz+0.5', [aff('10i', '0.5'), S('gamma')]);
-    add('special zeta', [S('zeta')]);
-    // (the sample points reach |z| = 14: these stay below the GPU's |Im s| = 120, where it leaves ζ blank)
-    add('special zeta critical strip 0.5+6iz', [aff('6i', '0.5'), S('zeta')]);
-    add('special zeta first zeros 0.5+i(4z+20)', [aff('4i', '0.5+20i'), S('zeta')]);
-    add('special zeta left half-plane 4z-6', [aff('4', '-6'), S('zeta')]);
-    add('special zeta Re s = 1 (1 + 2pi i k / ln 2)', [aff('1i', '1+9.0647i'), S('zeta')]);
-    add('special custom Gamma(z)zeta(z)', [S('custom', { expr: '\\Gamma(z)\\zeta(z)' })]);
-    add('special custom digamma', [S('custom', { expr: '\\operatorname{\\psi}(z)+z' })]);
-    add("special custom zeta'", [S('custom', { expr: "\\zeta'(2z)" })]);
-    add('special custom 1/Gamma', [S('custom', { expr: '\\frac{1}{\\Gamma(z^2+1)}' })]);
-    add('special gamma d/dz', [S('gamma'), S('deriv')]);
-    add('special zeta d/dz', [aff('2', '0.5'), S('zeta'), S('deriv')]);
   }
   // 3. cut angles and sheets
   const cutCfg = [['root', { n: 2 }], ['root', { n: 3 }], ['root', { n: 5 }], ['powa', { alpha: '0.5' }], ['powa', { alpha: '-1.5' }], ['powa', { alpha: '0.5+0.3i' }], ['powa', { alpha: '2.5' }], ['log', {}]];
@@ -257,6 +236,27 @@
   add('sheets branch powa cut k', [S('powa', { alpha: '0.6666666666666666', cut: -120, k: 2 }), S('sin')]);
   add('sheets branch log cut k', [S('log', { cut: 60, k: 3 }), S('root', { n: 3, cut: 30, k: 1 })]);
   add('sheets branch custom cut', [S('custom', { expr: '\\sqrt{z}+\\log(z+1)', cut: -45 }), S('sin')]);
+  // 13. [issue #4] Γ and ζ (last, so every chain above keeps its place and its --part): the steps (Γ along its zoom path), with affine maps that reach larger arguments, the critical strip
+  // and the left half-plane; Γ, ψ, ζ, ζ′ in formulas; the derivative of each by d/dz
+  if (Funcs.DEFS.gamma) {
+    const aff = (a2, b2) => S('affine', { a: a2, b: b2 });
+    add('special gamma', [S('gamma')]);
+    add('special gamma 4z+1', [aff('4', '1'), S('gamma')]);
+    add('special gamma left half-plane 3z-6', [aff('3', '-6'), S('gamma')]);
+    add('special gamma 10iz+0.5', [aff('10i', '0.5'), S('gamma')]);
+    add('special zeta', [S('zeta')]);
+    // (the sample points reach |z| = 14: these stay below the GPU's |Im s| = 120, where it leaves ζ blank)
+    add('special zeta critical strip 0.5+6iz', [aff('6i', '0.5'), S('zeta')]);
+    add('special zeta first zeros 0.5+i(4z+20)', [aff('4i', '0.5+20i'), S('zeta')]);
+    add('special zeta left half-plane 4z-6', [aff('4', '-6'), S('zeta')]);
+    add('special zeta Re s = 1 (1 + 2pi i k / ln 2)', [aff('1i', '1+9.0647i'), S('zeta')]);
+    add('special custom Gamma(z)zeta(z)', [S('custom', { expr: '\\Gamma(z)\\zeta(z)' })]);
+    add('special custom digamma', [S('custom', { expr: '\\operatorname{\\psi}(z)+z' })]);
+    add("special custom zeta'", [S('custom', { expr: "\\zeta'(2z)" })]);
+    add('special custom 1/Gamma', [S('custom', { expr: '\\frac{1}{\\Gamma(z^2+1)}' })]);
+    add('special gamma d/dz', [S('gamma'), S('deriv')]);
+    add('special zeta d/dz', [aff('2', '0.5'), S('zeta'), S('deriv')]);
+  }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 
   // ---------- sample points (float32-exact) ----------
