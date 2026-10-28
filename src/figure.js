@@ -33,6 +33,12 @@ const Figure = (() => {
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
+  XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
+    const t0 = Date.now();
+    const tick = () => { if (XD.ready()) resolve(true); else if (!alive() || Date.now() - t0 > ms) resolve(false); else setTimeout(tick, 100); };
+    tick();
+  });
 
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
@@ -2405,7 +2411,11 @@ const Figure = (() => {
   // captionTex, name, view, Wtex, ...} or null when cancelled
   async function build(opts) {
     if (!A) throw new Error('Figure is not attached');
-    if (!XD.ready()) throw new Error('MathJax is still loading');
+    // (an export or a rebuild that comes before MathJax is ready waits for it; null when the caller has gone, an error after the timeout)
+    if (!XD.ready() && !(await XD.whenReady(20000, (opts && opts.alive) || undefined))) {
+      if (opts && opts.alive && !opts.alive()) return null;
+      throw new Error('MathJax did not load in time');
+    }
     const o = Object.assign(defaults(), opts || {});
     const P = Object.assign({}, PRESET[o.for] || PRESET.article);
     const size = sizeOf(o), Wtex = size.pt, W = XD.bp(Wtex);
@@ -3803,6 +3813,7 @@ const Figure = (() => {
     const rebuild = async () => {
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
+      wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));
         if (my !== token || !f) return;
@@ -3820,7 +3831,8 @@ const Figure = (() => {
         facts.append(h('b', null, dims), $t(' · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}', { x: I18 ? I18.num(T[0]) : T[0], x2: I18 ? I18.num(T[1]) : T[1], tsz, choice: f.ink === 'bw' ? $t('gray only') : $t('print color'), choice2: f.for === 'homework' ? $t('stays under its problem ([H])') : f.star ? $t('figure* across both columns') : $t('floats [tbp]') }));
         if (f.info && f.info.hiddenZP) facts.append(h('div', { class: 'xf-warn' }, $t('Most zeros and poles are on the far side of the sphere in these frames: turn the globe so they face you, then export again.')));
       } catch (e) {
-        console.error(e);
+        // (MathJax that never came is a known condition the message below reports, not an error of the page)
+        (/MathJax/.test(String(e && e.message)) ? console.warn : console.error)(e);
         if (my === token) { wait.hidden = false; wait.textContent = /MathJax/.test(String(e && e.message)) ? $t('The typesetter is still loading; try again in a moment.') : $t('The figure could not be made.'); }
         return;
       } finally { if (my === token) { st.building = false; scroll.classList.remove('busy'); } }
