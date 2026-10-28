@@ -555,7 +555,8 @@ ${inner.map((x) => '  ' + x).join('\n')}
       return S;
     }
     // [issue #6] a recurrence, as Expr's: N (a uniform, so dragging it never recompiles) steps of at most ITER_CAP, its
-    // rule generated inside the loop; ∞ once |u| passes 1e18 (float32 squares it in cx_abs), NaN for a bad N
+    // rule generated inside the loop; ∞ once |u| passes 1e18 (float32 squares it in cx_abs), NaN for a bad N. The loop's
+    // bound is N itself, not a constant, so a compiler that unrolls constant loops (FXC behind ANGLE) cannot
     function genIter(n) {
       const id = `${P}_r${sums++}`, u = `${id}_u`, N = `${id}_n`;
       shape.push('I');
@@ -567,8 +568,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
       out.push(`  vec2 ${u} = ${u0}; float ${N} = ${nn}.x;
   if (!(${N} >= 0.0 && ${N} <= ${Expr.ITER_CAP}.0 && ${N} == floor(${N}))) ${u} = ${NAN};
-  else for (int j = 0; j < ${Expr.ITER_CAP}; j++) {
-    if (float(j) >= ${N}) break;
+  else for (int j = 0; j < int(${N}); j++) {
     float m = cx_abs(${u});
     if (!(m <= 1e18)) { ${u} = m > 1e18 ? vec2(cx_inf()) : ${NAN}; break; }
 ${inner.map((x) => '  ' + x).join('\n')}

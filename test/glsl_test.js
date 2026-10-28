@@ -65,7 +65,9 @@
     }
   }
   // 1. defaults
-  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta') add(`default ${t}`, [S(t)]);
+  // ([issue #6] and the Recurrence step: its default chain is with its own chains at the end, so every chain before
+  // keeps its index and its part)
+  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'recurrence') add(`default ${t}`, [S(t)]);
   add('ijouk interior', [S('ijouk', { branch: 'interior' })]);
   // natural paths (2026-10-22): zoom paths, Joukowski's Cayley power, roots and rational zoom paths, all at once
   add('nat joukowski > cos > rational', [S('joukowski'), S('cos'), S('rational')]);
@@ -284,6 +286,7 @@
     add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
     // [issue #6] the Recurrence step: Mandelbrot's u² + z near its main cardioid, Newton's method for z³ − 1, a contraction
     // with sin, and a short one differentiated
+    add('default recurrence', [S('recurrence')]);
     add('recurrence u^2+z from 0', [S('affine', { a: '0.15', b: '0' }), S('recurrence', { u0: '0', g: 'u^2+z', N: 6, cut: 180 })]);
     add('recurrence Newton z^3-1', [S('recurrence', { u0: 'z', g: 'u-\\frac{u^3-1}{3u^2}', N: 12, cut: 180 })]);
     add('recurrence u/2+sin z', [S('recurrence', { u0: 'z', g: '\\frac{u}{2}+\\sin z', N: 20, cut: 180 })]);
