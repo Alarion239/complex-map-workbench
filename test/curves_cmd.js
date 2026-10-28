@@ -65,7 +65,8 @@ await settle(1500);
   const line = s.shapes[s.shapes.length - 1];
   ok('Re z = 0 adds the line through 0 and i (unit direction)', line && line.kind === 'line' && line.a[0] === 0 && line.a[1] === 0 && line.b[0] === 0 && line.b[1] === 1, line);
   R.rowTex = await ev(`document.querySelector('#shapeList .d') ? document.querySelector('#shapeList .d').title : null`);
-  ok("the line's row shows its equation", R.rowTex === '\\operatorname{Re} z = 0', R.rowTex);
+  // (issue #38: a row's tooltip is the spoken text, not the LaTeX)
+  ok("the line's row shows its equation (its tooltip in words)", R.rowTex === 'Re z = 0', R.rowTex);
   const n0 = s.shapes.length;
   await addFormula('|z - 1| = 2 or Re z = 3');
   s = await shapes();
@@ -87,7 +88,7 @@ await settle(1500);
   const fc = s.shapes[s.shapes.length - 1];
   ok('Re z^2 = 1 adds a curve formula holding its source', fc.kind === 'fcurve' && fc.expr === 'Re z^2 = 1', fc);
   const rows = await ev(`[...document.querySelectorAll('#shapeList .d')].map((d) => d.title)`);
-  ok("the curve formula's row shows its TeX", rows.includes('\\operatorname{Re}\\left(z^{2}\\right) = 1') || rows.some((t) => /operatorname\{Re\}/.test(t) && /z\^\{2\}/.test(t)), rows);
+  ok("the curve formula's row says its equation (the tooltip, not the LaTeX)", rows.includes('Re (z²) = 1') && rows.every((t) => !/\\\\operatorname/.test(t)), rows);
   // the equation editor: an area keeps the last good equation; a new equation is taken
   const ed = await ev(`(() => { const i = [...document.querySelectorAll('.shape-edit input.math-src')].pop(); if (!i) return null; i.value = '|z| < 1'; i.dispatchEvent(new Event('input')); const bad = i.classList.contains('bad'); i.value = 'Re z^2 = 2'; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); return { bad, now: i.classList.contains('bad') }; })()`);
   await sleep(300);
