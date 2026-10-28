@@ -749,29 +749,21 @@
       });
       syncPalBtn();
     }
-    // the Language setting (device only): Auto, English, Русский, Italiano; a choice that changes the language reloads. The
-    // globe button is page.html's; the menus and the palette reach the same items
-    const lb = $('langBtn');
-    if (lb) {
-      lb.setAttribute('aria-expanded', 'false');
-      lb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, langItems());
-        lb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { lb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
-      syncLangLabel();
-    }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
-    // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The globe stays in the
-    // header too (notes/i18n/USER-DECISIONS.md)
+    // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
+    // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
+    // the header's globe went (notes/i18n/USER-DECISIONS.md, 2026-10-28)
     const sb = $('settingsBtn');
     if (sb) sb.addEventListener('click', () => openSettings(sb));
     function openSettings(btn) {
       if (popEl && popEl.classList.contains('set-pop')) { closePalette(); btn.focus(); return; }   // (a re-click closes)
       closePalette();
       const sep = (t, first) => h('div', { class: 'opts-h' + (first ? '' : ' opts-sep') }, t);
+      // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English, review eng-12; the languages'
+      // own names are never translated)
+      const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
       const kids = [sep($t('Theme'), true), seg('setTheme', curTheme, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], (v) => { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }, $t('Theme')),
-        sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto')], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
+        sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
       if (SND) {
         const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });
         sw.checked = !!SND.prefs().on;
@@ -926,8 +918,8 @@
           if (swUi.lamp) openLamp = swUi.lamp;
           if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
           if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; setPlayIcon(); syncTransport(); }
-          // focus returns to the control that switched (review eng-5): the globe, or the More button it folds into
-          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('langBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
+          // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
+          if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
         // the right plane reopens at the view the user left it at
         if (loaded.rightView && autoFit()) { Object.assign(V.right, loaded.rightView); rightAuto = false; requestRender('R'); }
@@ -981,7 +973,7 @@
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
-      globeIcon: ($('langBtn') && $('langBtn').querySelector('svg') || {}).outerHTML || '',
+      globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
       sound: (k) => (k === 'state' ? { has: !!SND, on: !!(SND && SND.prefs().on) } : null),
       exportFigure: () => Figure.open(),
