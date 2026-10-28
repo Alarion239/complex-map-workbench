@@ -90,7 +90,8 @@ const MAP = [
   ['tools/make_{ru,it}_table.py', ui('i18n')],
   ['tools/{cyr_template.js,make_cyr_module.py}', ui('export', 'i18n')],
   ['tools/melodies/**', ui('sound')],
-  ['tools/join_src.js', T0],                                                  // joins the parts for tsc only (lint)
+  ['tools/join_src.js', T0],
+  ['tools/arb_{reference.py,compare.js}', T0],                                // the Arb oracle (notes/arb/): dev-only                                                  // joins the parts for tsc only (lint)
   ['notes/i18n/**', ui('i18n')],                                              // the i18n design, read by the i18n tests
   // the docs (a README beside the tests or the CI scripts too)
   ['**/*.md', T0],
