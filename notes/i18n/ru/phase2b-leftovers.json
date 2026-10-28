@@ -168,10 +168,10 @@
   "note": "app.js: the guarantees lamp and chip name. The catalog label (funcs.js, the card) stays «Дробно-линейная», which fits the card."
  },
  "lo.field.cmd": {
-  "en": "Add function or command",
+  "en": "Add function",
   "ctx": "field",
-  "ru": "Функция или команда",
-  "note": "The visible text of the header command field (GLOSSARY: placeholder; DESIGN.md 8.3). Its aria-label keeps «Добавить функцию или команду»."
+  "ru": "Добавить функцию",
+  "note": "The visible text of the header command field (GLOSSARY: placeholder; DESIGN.md 8.3). Since #35 part 2 the glossary's 'Add function' (notes/i18n/TERMS.md); phase 2b shipped 'Add function or command' as «Функция или команда»."
  },
  "lo.readout.at": {
   "en": "at",
