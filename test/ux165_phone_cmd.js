@@ -261,6 +261,25 @@ ok('V02 the links and scene files are rows of the ⋯ sheet', ['Copy link to thi
 ok('V02 no key shortcuts and no "again" rows before a first export', !/⌘|Ctrl E|again/.test(more.text), more.text);
 await grab();
 
+// ---------------- D11: the deformation bar in two rows, a full-width scrubber, the Steps picker ----------------
+await withState('d11', 412, 860, true, { shapes: [], steps: STEPS2 });
+await ev(`document.getElementById('morphBtn').click()`); await settle(900);
+const dk = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), scrub: r(d.querySelector('.tscrub')), range: r(d.querySelector('#morphRange')), play: r(d.querySelector('#morphPlay')), steps: r(d.querySelector('#stepsBtn')), close: r(d.querySelector('.tclose')), undo: r(document.querySelector('#secDraw > .ph-undo')), read: r(d.querySelector('.tscrub > .tread')), label: (d.querySelector('#stepsBtn') || {}).textContent, picked: d.querySelector('#stepsPick') && !d.querySelector('#stepsPick').hidden }; })()`);
+ok('D11 two rows: the scrubber the full width, play, Steps and × below it, 44 px tall', dk && dk.range.w >= 412 - 24 && dk.play.t >= dk.scrub.t + dk.scrub.h - 2 && dk.steps.t === dk.play.t && dk.close.t === dk.play.t && dk.play.h >= 44 && dk.steps.h >= 44 && dk.close.h >= 44 && dk.range.h >= 44, dk);
+ok('D11 the tool row\'s Undo stays at the left end of the second row', dk && dk.undo && dk.undo.l < dk.play.l && Math.abs(dk.undo.t + dk.undo.h / 2 - (dk.play.t + dk.play.h / 2)) < 12, dk);
+ok('D11 the readout rides the scrubber, the Steps button names the range', dk && dk.read && dk.read.t < dk.range.t + 10 && /Every step|Steps/.test(dk.label), dk);
+await ev(`document.getElementById('stepsBtn').click()`); await settle(300);
+const pk = await ev(`(() => { const p = document.getElementById('stepsPick'); const b = p.getBoundingClientRect(); const c = [...p.querySelectorAll('select, input[type=checkbox]')].map((e) => ({ id: e.id || e.getAttribute('aria-label'), vis: e.getClientRects().length > 0 })); return { open: !p.hidden, bottom: Math.round(b.bottom), top: Math.round(document.querySelector('.tdock:not([hidden])').getBoundingClientRect().top), c, loop: !!p.querySelector('#loopChk'), order: !!p.querySelector('#homOrderSel') }; })()`);
+ok('D11 the Steps picker holds the range, the order and Loop, above the bar', pk.open && pk.bottom <= pk.top && pk.loop && pk.order && pk.c.length >= 4 && pk.c.every((x) => x.vis), pk);
+await ev(`document.getElementById('stepsBtn').click()`); await settle(200);
+ok('D11 the picker closes', await ev(`document.getElementById('stepsPick').hidden`));
+await ev(`document.getElementById('morphBtn').click()`); await settle(300);
+await withState('d11l', 915, 412, true, { shapes: [], steps: STEPS2 });
+await ev(`document.getElementById('morphBtn').click()`); await settle(900);
+const dl = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), range: r(d.querySelector('#morphRange')), col: r(document.getElementById('secDraw')), undo: r(document.querySelector('#secDraw > .ph-undo')), ih: innerHeight }; })()`);
+ok('D11 landscape: one row left of the tool column with a wide scrubber, Undo kept in the column', dl.dock && dl.dock.t + dl.dock.h <= dl.ih + 1 && dl.dock.l + dl.dock.w <= dl.col.l + 1 && dl.range.w >= 300 && dl.undo.l >= dl.col.l - 1, dl);
+await ev(`document.getElementById('morphBtn').click()`); await settle(300);
+
 // ---------------- UX83: no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
 await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
 for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {
