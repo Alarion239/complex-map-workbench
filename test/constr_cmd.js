@@ -351,8 +351,9 @@ await section('C', async () => {
   const a = await W(-1.5, 0), b = await W(0.5, -1), z = await W(1, 0.5);
   await move(a[0], a[1]); await settle(80);
   ok('RU ring chip', (await CI()).ring.chip === 'привязка: z₀', (await CI()).ring);
-  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it)
-  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
+  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it; #35: it first drops the
+  // tool's name, which the pane head's chip shows, and keeps the tail when that fits)
+  ok('RU draft chip', ['Выберите точку или пустое место · 1 из 3 · По 3 точкам · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · Esc — отмена', 'Выберите точку или пустое место · 1 из 3 · По 3 точкам'].includes(await ev(`document.querySelector('#draftChipL .cm-t').textContent`)), await ev(`document.querySelector('#draftChipL .cm-t').textContent`));
   await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80);
   await move(z[0], z[1]); await settle(80);
   await shot('cm-d1440-ru-pick');
