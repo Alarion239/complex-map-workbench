@@ -32,3 +32,19 @@ Russian or Italian changes here is marked *(new)* and goes through tools/ru_extr
 Order of work: 1. this list and `test/t_terms.js`; 2. labels and tooltips (page.html, the app parts, phone.js,
 commands.js) with the tables regenerated and the suites that match on these words; 3. the guide and the tour, after
 the tour rework (#34), and `test/t_terms.js` then strict (every count 0).
+
+## Italian changes for review (Pietro, #60)
+
+Written by us, not by Pietro; each keeps his existing term where one exists. Please confirm or correct:
+
+| English | Italian now | Note |
+|---|---|---|
+| Display (plain key, Settings and the pane's popover) | Aspetto | was Visualizzazione; the button already said Aspetto |
+| Draw panel | Pannello Disegna | the palette row, was "Strumenti per le regioni" |
+| Show or hide the Draw panel | Mostra o nascondi il pannello Disegna | the [ key's tooltip |
+| Insert at the end | Inserisci alla fine | the palette's position, was "Append to the chain" |
+| 3-pt circle | Per 3 punti | the Construct tile (his "Per 3 punti" kept) |
+| Perpendicular (tile) | Ortogonale / Ortogon. | his "Ortogonale" kept for the tool |
+| Add function (the header field) | Aggiungi funzione; short form Cerca | |
+| Share; Share: a link to this figure, scene files | Condividi; Condividi: un link a questa figura, file di scena | v17 D5 |
+| Sound settings… | Impostazioni del suono… | v17 D5 |
