@@ -26,11 +26,11 @@
   const TOOLS = [
     ['select', $t('Select'), 'V', $t('Drag a shape to move it and its handles to reshape. Drag empty space to pan (on a sphere, to turn it).')],
     ['point', $t('Point'), 'P', $t('Click to place a point; its images are labelled a′, a″, …')],
-    ['segment', $t('Segment'), 'S', $t('Drag from one end to the other.')],
-    ['line', $t('Line'), 'L', $t('Drag through two points; the line extends to infinity.')],
-    ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray.')],
-    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward.')],
-    ['arc', $t('Arc'), 'A', typeof Construct !== 'undefined' ? $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.') : $t('Drag between the ends, then move the middle handle to bend it.')],   // (v16 [C24])
+    ['segment', $t('Segment'), 'S', $t('Drag from one end to the other, or click one end and then the other.')],
+    ['line', $t('Line'), 'L', $t('Drag through two points, or click one and then the other; the line extends to infinity.')],
+    ['ray', $t('Ray'), 'R', $t('Drag from the start in the direction of the ray, or click the start and then a point on the ray.')],
+    ['circle', $tx('tool', 'Circle'), 'C', $t('Drag from the center outward, or click the center and then a point on the circle.')],
+    ['arc', $t('Arc'), 'A', $t('An arc through 3 points: drag from the start to the end, then move the middle handle. Each of the three can snap to a point.')],   // (v16 [C24])
     ['curve', $t('Freehand'), 'F', $t('Hold and draw an open curve.')],
     ['disc', $t('Disc'), 'D', $t('Drag from the center outward.')],
     ['rect', $tx('tool', 'Rectangle'), 'B', $t('Drag between opposite corners.')],
@@ -43,13 +43,13 @@
     // ([v16.5 UX86] one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
     ['cgrid', $t('Line grid'), '', $t('Drag a rectangle to fill with grid lines.')],
     ['pgrid', $t('Polar grid'), '', $t('Drag from the center to set the radius.')],
-  ].concat(typeof Construct !== 'undefined' ? Construct.toolRows() : []);   // (v16: the Construct group, construct.js)
-  if (typeof Construct !== 'undefined') Object.assign(ICON, Construct.ICON);
+  ].concat(Construct.toolRows());   // (v16: the Construct group, construct.js)
+  Object.assign(ICON, Construct.ICON);
   function buildTools() {
     const host = $('tools'), rail = $('railTools');
     host.innerHTML = '';
     if (rail) rail.innerHTML = '';
-    const cmGrid = typeof Construct !== 'undefined' ? Construct.buildGrid() : null;   // (v16: the Construct grid under Draw)
+    const cmGrid = Construct.buildGrid();   // (v16: the Construct grid under Draw)
     if (cmGrid) cmGrid.innerHTML = '';
     for (const [id, label, key, desc, group, tile] of TOOLS) {
       const tip = key ? `${label}  ${key}` : label;
@@ -74,7 +74,7 @@
     if (id === 'formula') { setPanels(false, S.hideRight); const f = $('formulaInput'); f.focus(); f.select(); return; }
     tool = id;
     draft = null;
-    if (typeof Construct !== 'undefined') Construct.toolChanged();   // (v16)
+    Construct.toolChanged();   // (v16)
     for (const b of document.querySelectorAll('.tool[data-tool]')) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     // shapes are drawn in the z-plane (Image also draws targets in the right plane at any focus)
     if (id !== 'select' && leftStage() > 0 && !targetsEditable()) setFocus(0);
@@ -112,8 +112,8 @@
     tourEmit('shape-added', { kind: s.kind, plane: target ? 'w' : 'z', bound: !!s.at, via: shapeVia || 'menu' });   // (v16: bound, a snapped end)
   }
   function deleteShape(id) {
-    const cmMsg = typeof Construct !== 'undefined' ? Construct.deleteMessage(id) : null;   // (v16: the cascade's toast)
-    if (typeof Constr !== 'undefined' && (S.shapes.concat(S.targets).some((s) => s.at || s.def))) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); S.shapes = S.shapes.filter((s) => !del.has(s.id) || s.id === id); S.targets = S.targets.filter((s) => !del.has(s.id) || s.id === id); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
+    const cmMsg = Construct.deleteMessage(id);   // (v16: the cascade's toast)
+    if (S.shapes.concat(S.targets).some((s) => s.at || s.def)) { const plan = cmDeletePlan([id]); if (plan.del.length > 1) { const del = new Set(plan.del); S.shapes = S.shapes.filter((s) => !del.has(s.id) || s.id === id); S.targets = S.targets.filter((s) => !del.has(s.id) || s.id === id); for (const x of del) if (x !== id) dropShapeGPU(x); cmEmit('deleted', plan); } }   // (v16 [C17])
     const target = S.targets.some((s) => s.id === id);
     if (target) S.targets = S.targets.filter((s) => s.id !== id);
     else { S.shapes = S.shapes.filter((s) => s.id !== id); dropShapeGPU(id); }
@@ -124,7 +124,7 @@
   }
   // targets change only the preimages and the right plane's targets: no meshes, no refit
   function targetsChanged(structural) {
-    if (typeof Constr !== 'undefined' && cmShapes()) structural = true;   // (v16 constructions)
+    if (cmShapes()) structural = true;   // (v16 constructions)
     noteChange();
     if (structural) { buildShapeList(); updateFocusUI(); } else updateShapeList();
     requestRender('L', 'R');
@@ -256,10 +256,10 @@
   // (v16.5 UX97) the arrows move the selected shape by one step of the drawn grid (Shift: ten), as a drag would
   function nudgeShape(s, dx, dy, big) {
     const pane = isTarget(s) ? paneR : paneL;
-    if (!pane || (typeof Construct !== 'undefined' && s.def)) return false;
+    if (!pane || s.def) return false;
     // (wave 1 merge: the step of the grid as drawn, halves included, the rail piece's Constr.gridStep, as snapping uses)
     const sc = pane.view.s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
-    const step = (typeof Constr !== 'undefined' && Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
+    const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
     commit();
@@ -322,7 +322,7 @@
       });
     }
     updateShapeList();
-    if (typeof Construct !== 'undefined') { Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P'); }   // (v16 [C21]; helpers under their owner; the Construction view)
+    Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (v16 [C21]; helpers under their owner; the Construction view)
   }
   function shapeRow(s, label, target) {
     const list = target ? S.targets : S.shapes;
@@ -353,7 +353,7 @@
         items.push('sep');
         // ([v16.5 UX95] Clear shapes, which deletes them all, is the Shapes heading's, not one shape's)
         items.push({ label: $t('Delete'), icon: 'trash', key: touchUI() ? '' : '⌫', danger: true, run: () => deleteShape(s.id) });
-        if (typeof Construct !== 'undefined') Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
+        Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
         openMenu(e.currentTarget, items);
       } });
     const name = h('span', { class: 'k' }, label);
@@ -362,12 +362,14 @@
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
       onclick: () => { selected = selected === s.id ? null : s.id; zpSel = null; if (leftStage() > 0 && !target) setFocus(0); buildShapeList(); requestRender('L', 'R', 'P'); },
-      onpointerenter: () => { hoverShape = s.id; if (typeof Construct !== 'undefined') Construct.markLinks(s.id); requestRender('L', 'R'); },
-      onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; if (typeof Construct !== 'undefined') Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
+      onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L', 'R'); },
+      onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
     sw, nameBtn, eye, more);
     const box = h('div', { class: 'shape' + (selected === s.id ? ' sel' : '') + (hidden ? ' hidden-shape' : ''), 'data-id': s.id }, row);
-    // ([v17 D4] on the laptop the Inspector edits it; the row keeps its editor on a phone and with the panel hidden)
-    const ed = selected === s.id && !(typeof Construct !== 'undefined' && s.def) && !inspEditsShapes() ? shapeEditor(s) : null;   // (v16: a construction's fields are its definition: the Inspector, ⋯)
+    // (v16: a construction's fields are its definition: the Inspector, ⋯. [v17 D4] on the laptop the Inspector edits a free
+    // shape; the row keeps its editor on a phone, with the panel hidden, and for a shape with bound handles, whose
+    // Inspector view is its construction's)
+    const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
     shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row });
     return box;
@@ -399,7 +401,7 @@
       // X shades (the stored target is unchanged)
       if (isTarget(s)) { const yv = S.focus === 0 ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
       r.d.title = I18N.lang === 'en' ? tex : texTitle(tex);
-      if (typeof Construct !== 'undefined' && Construct.row(s, r)) continue;   // (v16: definitions, reasons)
+      if (Construct.row(s, r)) continue;   // (v16: definitions, reasons)
       const er = s.undef || s._err;
       if (er) { r.d.innerHTML = ''; r.d.dataset.tex = ''; r.d.append(h('span', { class: 'err-msg' }, er)); } else TeX.set(r.d, tex);
       const eye = r.row && r.row.querySelector('.eye');
@@ -430,7 +432,7 @@
     // (v16 review user-3) a handle bound to a point is not typed into: its field reads "= z₀" (read-only, with the link
     // glyph) and offers Make free, which unbinds that handle only (one undo step)
     const boundField = (key, label) => {
-      if (!(s.at && s.at[key]) || typeof Construct === 'undefined') return null;
+      if (!(s.at && s.at[key])) return null;
       const nm = Construct.refName(s.at[key]);
       const inp = h('input', { class: 'inp mono cm-bound', value: '= ' + nm, readonly: '', 'aria-readonly': 'true', title: $t('follows {x}', { x: nm }), tabindex: -1 });
       const free = h('button', { type: 'button', class: 'btn cm-free', onclick: () => cmApi().unbind(s.id, key) }, $t('Make free'));
@@ -476,7 +478,7 @@
       let start = now();
       inp.addEventListener('focus', () => { start = now(); if (!inp.classList.contains('bad') && s[key] != null) inp.value = numText(); });
       inp.addEventListener('blur', () => { if (!inp.classList.contains('bad') && s[key] != null && now() === start) inp.value = numText(4); });
-      const readNum = (t) => { const n = Number(t); return Number.isFinite(n) ? n : typeof Params !== 'undefined' ? Params.evalReal(t) : NaN; };
+      const readNum = (t) => { const n = Number(t); return Number.isFinite(n) ? n : Params.evalReal(t); };
       const check = (v) => {
         if (!Number.isFinite(v)) return $t('Enter a number');
         const lim = LIMITS[key];
@@ -573,12 +575,12 @@
   function shapeInspSel() {
     if (selected == null || !inspEditsShapes()) return null;
     const s = findShape(selected);
-    return s && !(typeof Construct !== 'undefined' && (s.def || s.at)) ? s : null;
+    return s && !s.def && !s.at ? s : null;
   }
   const shapeInspSig = () => { const s = shapeInspSel(); return s ? `SH#${s.id}#${rowKind(s)}#${isTarget(s) ? 'y' : 'x'}#${I18N.lang}#${selOf()}` : null; };
   function shapeInspBuild() {
     const s = shapeInspSel();
-    const label = typeof Construct !== 'undefined' ? Construct.shapeLabel(s) : s.label || s.kind;
+    const label = Construct.shapeLabel(s);
     const back = selOf();
     // (‹ Back to f₂: the step, or F, the Inspector showed before the shape was selected)
     const backBtn = back ? h('button', { type: 'button', class: 'linkbtn sh-back', onclick: () => { selected = null; buildShapeList(); requestRender('L', 'R', 'P'); },
@@ -600,11 +602,11 @@
     if (E.ed._sync) E.ed._sync();
     const sw = E.head.querySelector('.swatch'), st = swatchStyle(s);
     if (sw.style.cssText !== st) sw.style.cssText = st;
-    const us = typeof Construct !== 'undefined' ? Construct.usedBy(s.id) : [];
+    const us = Construct.usedBy(s.id);
     const sig = us.join(',') + '|' + I18N.lang;
     if (E.used.dataset.sig === sig) return;
     E.used.dataset.sig = sig;
-    E.used.replaceChildren(...(us.length ? us.map((id) => { const u = findShape(id); return h('button', { type: 'button', class: 'cm-chipbtn', onclick: () => { selected = id; buildShapeList(); requestRender('L', 'R', 'P'); } }, u && typeof Construct !== 'undefined' ? Construct.shapeLabel(u) : id); })
+    E.used.replaceChildren(...(us.length ? us.map((id) => { const u = findShape(id); return h('button', { type: 'button', class: 'cm-chipbtn', onclick: () => { selected = id; buildShapeList(); requestRender('L', 'R', 'P'); } }, u ? Construct.shapeLabel(u) : id); })
       : [h('span', { class: 'cm-none' }, $t('nothing yet'))]));
   }
 
@@ -713,7 +715,7 @@
         const warn = [];
         const ast = Expr.parse(v, { allowRel: true, notes: warn });
         // an equation is a curve (Curves), inequalities an area (as before); anything else says why not
-        const dm = typeof Curves !== 'undefined' ? Curves.dimOf(ast) : { dim: 'area' };
+        const dm = Curves.dimOf(ast);
         if (dm.dim === 'curve') {
           plan = curvePlan(v, pl === 'w' ? targetWin() : viewBox(S.srcView));
           setNote((pl === 'w' ? $t('Adds {what} as a target.', { what: plan.what }) : $t('Adds {what}.', { what: plan.what })) + (plan.notes.length ? ' ' + plan.notes.join(' ') : '') + (warn.length ? ' ' + warn.join(' ') : ''));
@@ -738,13 +740,13 @@
       if (!inp.value.trim()) { inp.focus(); setNote($t('Type a set, such as |z − 1| < 2, or a curve, such as Re z = 0.')); return; }
       let v = check();
       // v15: one new name in the formula (Re z = a) adds the number, then the shape
-      if (!v && typeof Params !== 'undefined') { const u = Params.unknownIn(inp.value); if (u.length === 1 && !Params.check(u[0]).error) { Params.add(u[0]); v = check(); } }
+      if (!v) { const u = Params.unknownIn(inp.value); if (u.length === 1 && !Params.check(u[0]).error) { Params.add(u[0]); v = check(); } }
       if (!v) return;
       const w = plane() === 'w';
       shapeVia = 'formula';
       try {
       // a formula with names stays one formula shape (its text keeps the names; the shape draws their values)
-      if (typeof Params !== 'undefined' && Params.namesIn(v).length) { if (!w && leftStage() > 0) setFocus(0); addShape(newShape(plan ? 'fcurve' : 'formula', { expr: Params.resolve(v), bind: { expr: v } }, w), w); }
+      if (Params.namesIn(v).length) { if (!w && leftStage() > 0) setFocus(0); addShape(newShape(plan ? 'fcurve' : 'formula', { expr: Params.resolve(v), bind: { expr: v } }, w), w); }
       else if (plan) { if (!w && leftStage() > 0) setFocus(0); addCurveShapes(plan, w); }
       else if (w) addShape(newShape('formula', { expr: v }, true), true);
       else { if (leftStage() > 0) setFocus(0); addShape(newShape('formula', { expr: v })); }

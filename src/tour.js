@@ -521,7 +521,7 @@ const Tour = (() => {
   // v16.4 (notes/tour-r3/SPEC.md 2): the countdown after a task is done, a pure reducer. state: { phase: 'idle' |
   // 'running' | 'held' | 'cancelled' | 'off' | 'fired', t0 (when the current run started), dur, door, holds: [kinds] }.
   // Events: { type: 'done', door, reduced, off (Move on by itself is off), never (the chapter's last step, a step
-  // reached with Back) }, 'input' (restarts a running countdown), 'hold' / 'release' { kind } (paused while any hold
+  // reached with Back) }, 'hold' / 'release' { kind } (paused while any hold
   // lasts; the last release starts it again from its full length), 'cancel' (no auto for this showing), 'off' (Move on
   // by itself turned off), 'fire'. A door (try.advance) moves on 0.7 s after done (0.3 s with reduced motion), held by
   // nothing; with Move on by itself off it only ticks, like any task (r3 review regress-6). left(state, now): the ms to
@@ -540,8 +540,6 @@ const Tour = (() => {
         if (s.phase !== 'idle') return s;
         if (e.never) return out({ phase: 'cancelled' });
         return out({ phase: holds.length ? 'held' : 'running', t0: now, dur: CD_MS, door: false });
-      case 'input':
-        return s.phase === 'running' && !s.door ? out({ t0: now }) : s;
       case 'hold':
         if (!e.kind || holds.includes(e.kind)) return s;
         holds.push(e.kind);
@@ -1342,8 +1340,6 @@ const Tour = (() => {
       if (run !== r || e === fwdKey) return;
       const a = document.activeElement, inS = inStrip(a);
       const idle = a === document.body || a == null || inS;
-      // (any key but a lone modifier is input: a running countdown starts again)
-      if (!/^(Shift|Control|Alt|Meta|CapsLock|Fn|OS)$/.test(e.key)) cdFeed(r, { type: 'input' });
       if (e.key === 'Escape') {
         // The app's own layer comes first, wherever the focus is: a menu, the palette or a dialog closes and the tour
         // stays. Then Escape in the strip ends the tour. Elsewhere the app's own Escape comes first: a field being
@@ -1365,28 +1361,11 @@ const Tour = (() => {
     };
     document.addEventListener('keydown', onKey, true);
     r.offs.push(() => document.removeEventListener('keydown', onKey, true));
-    // (SPEC 2.2) a press outside the strip is input and holds the countdown until it lifts; on a phone a touch in the
-    // work area folds an open Why panel, and the touch goes on to the app
+    // (SPEC 2.2) on a phone a touch in the work area folds an open Why panel, and the touch goes on to the app. The
+    // countdown ignores the pointer: it runs 3 s from the event whatever the user does next
     const onDown = (e) => {
       if (run !== r || inStrip(e.target)) return;
-      cdFeed(r, { type: 'input' });
-      cdFeed(r, { type: 'hold', kind: 'pointer' });
-      ui.hov = null;
       if (ui.whyOpen && ui.whyPanel) setWhy(r, false);
-    };
-    const onUpP = () => { if (run === r) cdFeed(r, { type: 'release', kind: 'pointer' }); };
-    const onWheel = () => { if (run === r) cdFeed(r, { type: 'input' }); };
-    // a move with a button down is input; hover travel of more than 8 px over the work area (X, Y, the chain) is too:
-    // Preimages and the harp are explored by hovering. Hovering the strip neither holds nor restarts
-    const onPMove = (e) => {
-      if (run !== r || !r.cd || (r.cd.phase !== 'running' && r.cd.phase !== 'held')) return;
-      if (e.buttons) { cdFeed(r, { type: 'input' }); return; }
-      const x = e.clientX, y = e.clientY, h = ui.hov;
-      ui.hov = { x, y, d: h ? h.d : 0 };
-      if (!h || inStrip(e.target)) return;
-      if (!inWork(x, y)) return;
-      ui.hov.d += Math.hypot(x - h.x, y - h.y);
-      if (ui.hov.d > 8) { ui.hov.d = 0; cdFeed(r, { type: 'input' }); }
     };
     // a focused text field holds the countdown while it holds text not yet sent (the user may still be typing); the app
     // empties a field it has taken in (a set added with Enter), which ends the hold (r3 review regress-1). Checked on
@@ -1397,18 +1376,13 @@ const Tour = (() => {
     ui.syncField = onFocus;
     const onVis = () => { if (run === r) cdFeed(r, { type: document.hidden ? 'hold' : 'release', kind: 'hidden' }); };
     document.addEventListener('pointerdown', onDown, true);
-    for (const t of ['pointerup', 'pointercancel']) { addEventListener(t, onUpP, true); r.offs.push(() => removeEventListener(t, onUpP, true)); }
-    addEventListener('blur', onUpP);
-    document.addEventListener('wheel', onWheel, { capture: true, passive: true });
-    document.addEventListener('pointermove', onPMove, { capture: true, passive: true });
     document.addEventListener('focusin', onFocus, true);
     document.addEventListener('input', onFocus, true);
     r.offs.push(() => document.removeEventListener('input', onFocus, true));
     const onBlurF = () => setTimeout(onFocus, 0);
     document.addEventListener('focusout', onBlurF, true);
     document.addEventListener('visibilitychange', onVis);
-    r.offs.push(() => document.removeEventListener('pointerdown', onDown, true), () => removeEventListener('blur', onUpP),
-      () => document.removeEventListener('wheel', onWheel, { capture: true, passive: true }), () => document.removeEventListener('pointermove', onPMove, { capture: true, passive: true }),
+    r.offs.push(() => document.removeEventListener('pointerdown', onDown, true),
       () => document.removeEventListener('focusin', onFocus, true), () => document.removeEventListener('focusout', onBlurF, true), () => document.removeEventListener('visibilitychange', onVis));
     if (document.hidden) cdFeed(r, { type: 'hold', kind: 'hidden' });
     // Listen along: the step's piece holds the countdown while it plays, and its captions run from its start
@@ -1508,16 +1482,6 @@ const Tour = (() => {
       mo.observe(tip, { attributes: true, attributeFilter: ['hidden', 'style', 'class'], childList: true });
       r.offs.push(() => { mo.disconnect(); if (tip.dataset.tourHid) { tip.style.visibility = ''; delete tip.dataset.tourHid; } });
     }
-  }
-  // the work area: X, Y (the panes) and the chain, where hover travel counts as input
-  function inWork(x, y) {
-    for (const sel of ['#panes', '.pipe-wrap']) {
-      const e = document.querySelector(sel);
-      if (!e) continue;
-      const b = e.getBoundingClientRect();
-      if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) return true;
-    }
-    return false;
   }
   function guardTip(r) {
     const tip = document.querySelector(TIP_SEL);
@@ -1846,11 +1810,10 @@ const Tour = (() => {
     ui.act.title = label;
     paintNext(ui);
   }
-  // the act button's press: the user gesture the audio engine needs. It is input (a running countdown starts again)
+  // the act button's press: the user gesture the audio engine needs
   function actPress(r) {
     const step = r.step;
     if (!step || !step.act) return;
-    cdFeed(r, { type: 'input' });
     if (step.act === 'listen') {
       if (soundState().playing) { call('soundStop'); syncAct(r); return; }
       const was = soundState();

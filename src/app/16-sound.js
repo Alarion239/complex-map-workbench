@@ -4,7 +4,7 @@
   // AudioContext) before the page's first click or key. The settings live in lsk('cmw-sound') (the
   // engine's own key), never in S, a saved session or a shared link. Three tiers: Interface (controls you operate),
   // Mathematical events (things you start), Hear the function under the pointer (opt-in: the probe below).
-  const SND = typeof Sound !== 'undefined' ? Sound : null;
+  const SND = Sound;
   let sndP = SND ? SND.prefs() : { on: false, vol: 0.7, ui: false, snap: false, events: false, sonify: false };
   const snd = {
     voice: null, kind: '', last: null, g: null, phi: 0, fKey: '', vKey: '', gestT: -1e9, near: 0, idleT: 0, sleepT: 0,
@@ -122,7 +122,7 @@
   }
   function sndInit() {
     if (!SND) { for (const id of ['soundBtn', 'soundMore']) { const b = $(id); if (b) b.hidden = true; } return; }
-    snd.tracker = !!(typeof Calc !== 'undefined' && Calc.argStep && Calc.orderAt);
+    snd.tracker = !!(Calc.argStep && Calc.orderAt);
     SND.subscribe(sndSync); sndSync(SND.state());
     document.addEventListener('pointerdown', sndUnhush, true);
     document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') sndUnhush(); }, true);
@@ -795,7 +795,7 @@
     tourEmit('listen-ended', { piece: !!p.piece, closed: !!p.closed, W: p.W == null ? null : p.W, heard: full ? p.dur : heard, full: !!full });
     // ([v16.5 fix regress-5] the example's Try line leaves its slot when the melody is over, never while it plays: the
     // planes, and the curve being heard, do not move under the eyes)
-    if (typeof Tour !== 'undefined' && Tour.laneHide) Tour.laneHide('example');
+    if (Tour.laneHide) Tour.laneHide('example');
   }
   // the curve menu's "Listen along": the shape's longest piece, in the X plane's variable
   function sndListenShape(s) {
@@ -863,7 +863,7 @@
     // (v16.5 UX74, the learning lane of wave 2's D7) the example's Try line in the tour's docked slot, Listen its
     // button: it covers nothing and stays until it is played or closed, or the example is left (it went after 9 s)
     const exN = typeof currentExample === 'number' && EX[currentExample] ? EX[currentExample].name : '';
-    if (typeof Tour !== 'undefined' && Tour.lane && Tour.lane({ id: 'example', title: (exN ? exN + ' ' : '') + '♫', label: $t('Try this example'),
+    if (Tour.lane && Tour.lane({ id: 'example', title: (exN ? exN + ' ' : '') + '♫', label: $t('Try this example'),
       body: ph ? $t('Try: press Listen, or hold the spiral and choose Listen along.') : $t('Try: press Listen, or right-click the spiral and choose Listen along.'),
       icon: '<svg viewBox="0 0 16 16" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5V3.5l7-1.5v9"/><circle cx="4.3" cy="12.5" r="1.7"/><circle cx="11.3" cy="11" r="1.7"/></svg>',
       acts: [{ label: $t('Listen'), primary: true, run: () => go() }], drop: 'title', onClose: () => {} })) return true;

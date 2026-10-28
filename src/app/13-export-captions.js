@@ -91,7 +91,7 @@
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     syncSel();
-    if (typeof Params !== 'undefined' && Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
+    if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
       if (underChain()) setPanels(S.hideLeft, false);
       else if (window.innerWidth >= 1024) openTemp();
@@ -445,7 +445,7 @@
       // (v16: constructions by their definitions; [v16.4 review user-2, user-3] a phrase that must be closed when more text
       // follows (a Russian participial phrase, a stacked "in the domain") ends with a closing comma, {pc}: pcTidy drops it
       // before punctuation and at the end)
-      if (typeof Construct !== 'undefined' && (s.def || s.at)) { const ph = Construct.phrase(s, P); if (ph) { const r = sp(ph.src, ph.params); if (ph.close) r.push({ t: ',', pc: 1 }); return r; } }
+      if (s.def || s.at) { const ph = Construct.phrase(s, P); if (ph) { const r = sp(ph.src, ph.params); if (ph.close) r.push({ t: ',', pc: 1 }); return r; } }
       // a shape added from an equation, as recognized: by its equation
       if (s.srcTex && tex === s.srcTex && s.kind !== 'point') {
         switch (s.kind) {
@@ -490,7 +490,7 @@
       }
     };
     // (v16: a 3-point region and a bound half-plane say their side themselves: "the outside of the circle through …")
-    if (s.complement && kindType(s) === 'area' && !(typeof Construct !== 'undefined' && (s.def || (s.at && s.kind === 'halfplane')))) return capT('the complement of %{segs}', { segs: phrase('gen') }, cs);
+    if (s.complement && kindType(s) === 'area' && !(s.def || (s.at && s.kind === 'halfplane'))) return capT('the complement of %{segs}', { segs: phrase('gen') }, cs);
     return phrase(cs);
   }
   const joinList = (items) => { // [[segs], ...] -> segs joined with commas and "and"
@@ -1026,7 +1026,7 @@
     sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
-    sceneMeta: () => { const used = typeof Constr !== 'undefined' && Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
+    sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
     chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
     hue: hueBytes,
     // (export round 3) the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
