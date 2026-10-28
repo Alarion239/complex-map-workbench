@@ -47,12 +47,6 @@ for (const dark of [false, true]) {
     check(`overflow ${w}${dark ? ' dark' : ''}: page`, !ru.page, ru.page);
     check(`overflow ${w}${dark ? ' dark' : ''}: top bar`, !ru.bar && !en.bar, { ru: ru.bar, en: en.bar });
     check(`overflow ${w}${dark ? ' dark' : ''}: nothing clipped beyond English`, extra.length === 0, extra.slice(0, 8));
-    // Italian against English too (issue #61: wave 1's fitting rules are Russian-only; Italian gets the same checks)
-    await open('it', w, dark); const it = await ev(CLIP);
-    const extraIt = it.els.filter((x) => !en.els.includes(x));
-    check(`overflow ${w}${dark ? ' dark' : ''} (it): page`, !it.page, it.page);
-    check(`overflow ${w}${dark ? ' dark' : ''} (it): top bar`, !it.bar, it.bar);
-    check(`overflow ${w}${dark ? ' dark' : ''} (it): nothing clipped beyond English`, extraIt.length === 0, extraIt.slice(0, 8));
     if (!dark) {
       await ev(SCAN); await ev(`__i18nScan('first screen')`);
       // the header's menus, through More where the bar folds
@@ -64,6 +58,18 @@ for (const dark of [false, true]) {
       const left = await ev(`__i18nLeft()`);
       check(`no English left ${w}`, left.length === 0, left.slice(0, 10).map((l) => `${l.text.slice(0, 80)} [${l.words.join(',')}] ${l.where} (${l.state})`));
     }
+  }
+}
+// ---- 1b: Italian against English (issue #61: wave 1's fitting rules are Russian-only; Italian gets the overflow checks too,
+// from a phone to a wide desktop; its text is longer than English, shorter than Russian in most labels) ----
+for (const dark of [false, true]) {
+  for (const w of [...WIDTHS, 1600, 1920]) {
+    await open('en', w, dark); const en = await ev(CLIP);
+    await open('it', w, dark); const it = await ev(CLIP);
+    const extra = it.els.filter((x) => !en.els.includes(x));
+    check(`overflow ${w}${dark ? ' dark' : ''} (it): page`, !it.page, it.page);
+    check(`overflow ${w}${dark ? ' dark' : ''} (it): top bar`, !it.bar && !en.bar, { it: it.bar, en: en.bar });
+    check(`overflow ${w}${dark ? ' dark' : ''} (it): nothing clipped beyond English`, extra.length === 0, extra.slice(0, 8));
   }
 }
 // ---- 3: the globe, the tablet bar, the palette rows ----
