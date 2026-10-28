@@ -116,11 +116,13 @@ function keepShots(file, run) {
 }
 
 // the checks that failed, from a suite's return value ({ pass, fails: [{ name, got }] }, fails as [name, false, detail]
-// or names, { ok }, { pass, of }); null when it has no verdict this runner can read
+// or names with the details in info, { ok }, { pass, of }); null when it has no verdict this runner can read
 function failures(out) {
   if (out == null || typeof out !== 'object' || Array.isArray(out)) return null;
   if (out.__daemonError) return [{ name: 'the suite threw', detail: out.__daemonError }];
-  const item = (f) => (Array.isArray(f) ? { name: String(f[0]), detail: f[2] } : typeof f === 'string' ? { name: f }
+  // (a suite whose fails are names keeps each check's detail in out.info[name]: the release smokes)
+  const info = out.info && typeof out.info === 'object' && !Array.isArray(out.info) ? out.info : {};
+  const item = (f) => (Array.isArray(f) ? { name: String(f[0]), detail: f[2] } : typeof f === 'string' ? { name: f, detail: info[f] }
     : { name: String(f.name || f.check || f.msg || JSON.stringify(f)), detail: f.got !== undefined ? f.got : f.info !== undefined ? f.info : f.detail });
   const list = Array.isArray(out.fails) ? out.fails.map(item) : Array.isArray(out.failed) ? out.failed.map(item) : null;
   const verdict = typeof out.pass === 'boolean' ? out.pass : typeof out.ok === 'boolean' ? out.ok

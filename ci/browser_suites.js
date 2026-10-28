@@ -88,8 +88,11 @@ const TIMING = {
     t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, (d) => Array.isArray(d) && [/^The cut/, /^Each turn is/, /^The ending/].every((re) => d.some((c) => re.test(c[1]))))],
   'morphfig_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/), t(/^12 sines, the deformation playing: p95/)],
-  'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/)],
-  'p3_review_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/)],
+  'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
+    t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
+  // (the export completed with both globes inverse; only its long tasks missed)
+  'p3_review_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
+    t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
   'v15_desktop_cmd.js': [t(/^dragging a (zero|shape): p95 frame/, (d) => d && d.n > 20)],
   'zp_cmd.js': [t(/^drag at 60 fps/), t(/^deformation plays at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
@@ -97,9 +100,60 @@ const TIMING = {
 };
 
 const s = (re, why, measured) => ({ re, why, measured });
-const SOFTWARE = {};
+const SOFTWARE = {
+  // (the tour masks its rings off an open layer frame by frame; the audit looks once, 450 ms and 2 frames after the
+  // layer opens, during its 4-px pop-in, which here is 1-3 frames: the mask is an earlier frame's. Only when the layer is
+  // on top at all its points, the tour stays and the layer closes)
+  'tour_audit_cmd.js': [
+    s(/ layer (palette|export|toast)\*?: the tour covers none of it, its rings masked off it, the tour stays$/, 'one look during the layer\'s pop-in, which takes 1-3 frames here: the rings\' mask is from an earlier frame',
+      (d) => d && JSON.stringify(d.kinds) === '["ringOverLayer"]' && d.g && Array.isArray(d.g.lay) && d.g.lay.every((x) => x === 'ok') && d.g.strip === true && d.after && d.after.active === true && d.after.layer === false),
+    s(/ layer toast\*?: the tour covers none of it/, 'the toast leaves after 5 s, before the audit\'s look (450 ms and 2 frames of seconds each)',
+      (d) => d && JSON.stringify(d.kinds) === '["noLayer"]'),
+  ],
+  'tour_cmd.js': [s(/^Sphere: one lit panel \(and the strip's window\) and a ring on its surface control$/, 'the ring comes once the shade\'s morph ends, seconds later here (the CI screenshot right after shows it)',
+    (d) => d && d.id === 'sphere' && d.holes === 2 && d.mark === false)],
+  // (the deformation's clock gains at most 0.1 a frame, app.js: at a few frames a second the per-frame checks see few
+  // frames, though every frame in which t moved had its voice update)
+  'sound_cmd.js': [s(/^deformation: (A Phase, still pointer, M|A Phase, Play|D merged plane): a voice update in every frame t moved$|^deformation: B the tone follows every frame$/,
+    'every frame in which t moved had its voice update (none missed); only the number of frames is short at a few frames a second',
+    (d) => d && d.missed === 0 && d.moved > 0),
+    s(/^deformation: E Landscape: the Height voice, a voice update in every frame t moved$/, 'every frame in which t moved had its Height voice update (none missed); only the number of frames is short',
+      (d) => d && d.kind === 'height' && d.per && d.per.missed === 0 && d.per.moved > 0)],
+  'sound_v152_cmd.js': [
+    s(/^deformation: the loop sings while t runs/, 'W is 0 at first and 1 at the end, and the loop sang in every frame; only the frame count is short (27, needs more than 40)',
+      (d) => d && Array.isArray(d.first) && d.first[1] === 0 && Array.isArray(d.last) && d.last[1] === 1 && d.singing === d.n),
+    s(/^deformation: the note steps 0 → 1 when the zero enters the loop/, 'the note steps in the frame that crosses t = 0.45; only the gap between two frames (0.14) is wider than the check\'s 0.05',
+      (d) => d && Array.isArray(d.before) && Array.isArray(d.step) && d.before[0] <= 0.45 && d.step[0] >= 0.45 && d.before[1] === 0 && d.step[1] === 1),
+    s(/^scrub: the air while dragging/, 'the air plays and ends on release with the landmarks and no other cue; only its loudness, from the scrub\'s speed between input events, is low while input events arrive between long frames',
+      (d) => d && d.mid && d.mid.tex === true && d.mid.v > 0 && d.after && d.after.tex === false && Array.isArray(d.made) && d.made.length >= 3 && d.made.length <= 4 && d.made.every((x) => x === 'landmark')),
+  ],
+  'rel1641_smoke_cmd.js': [
+    // (the clock gains at most 0.1 s a frame, app.js frame(): the Loop's 1-s hold at t = 1 lasts 10 frames, seconds here)
+    s(/^sheets: sin √z, All sheets, Landscape, Im: the deformation plays \(Loop\), t moves$/, 'the Loop plays, and t moves or rests in its 1-s hold at the end (10 frames of half a second here); only its frame count (needs more than 20) is short',
+      (d) => d && d.plOn === true && typeof d.labA === 'string' && (d.labA !== d.labB || /^t = 1[.,]00 \/ 1$/.test(d.labA))),
+    // (the detail is the first 6 messages: fewer than 6 means all of them were seen)
+    s(/: no console errors or warnings$/, 'only ANGLE\'s Vulkan back end\'s performance note "GL Driver Message (OpenGL, Performance, ...): TexSubImage with unpack buffer copied on CPU"',
+      (d) => Array.isArray(d) && d.length > 0 && d.length < 6 && d.every((x) => /^\[\.WebGL-0x[0-9a-f]+\]GL Driver Message \(OpenGL, Performance, /.test(x.m))),
+  ],
+  'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
+    (d) => d && d.quiet === true && d.hit === true)],
+  'p3_accept_cmd.js': [
+    s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
+      (d) => Array.isArray(d) && d.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'pending' && p.reason === 'compiling')),
+    s(/^\(h\) the dialog: the last option wins$/, 'the last option is the one checked, but the figure is still being rebuilt when the suite\'s 10 s wait ends (a figure takes 25-40 s to build here); a finished figure with other columns still fails',
+      (d) => d && d.checked === '1' && (d.cols === null || d.building === true)),
+  ],
+};
 
-const KNOWN = {};
+const KNOWN = {
+  // (open: is a 2-px overflow of the lead's line a cut? nothing clips it)
+  'tour_audit_cmd.js': [{ re: /branches\/deriv: no lead, task, result or caption cut$/, why: 'Linux text metrics: the inline z² (MathJax SVG, sized in ex) stands 2 px past the 18-px line of the lead (1 px on macOS); the lead does not clip it' }],
+  'tour_phone_cmd.js': [{ re: /^780x360-en branches\/deriv: title and lead or task on arrival, no tap, nothing cut$/, why: 'Linux text metrics, as tour_audit\'s branches/deriv: the z² in the lead makes its line 2 px taller than one line (open: Android has a Linux font stack; check it on a phone)',
+    measured: (d) => d && d.id === 'branches/deriv' && d.leadCut === true }],
+  // an app bug: the Language label is cut at 360 px (only the cut label; anything past the edges still fails)
+  'v15_phone_cmd.js': [{ re: /^360-(light|dark)-en: more sheet: nothing past the edges, no cut label$/, why: 'app bug since bd48ab3 (Italian): the More sheet\'s Language switch has four options, and at 360 px the label "Language" gets 47 of its 66 px (src/phone.js Language seg; .ph-seg buttons at least 52 px)',
+    measured: (d) => d && Array.isArray(d.out) && !d.out.length && Array.isArray(d.cut) && d.cut.length === 1 && /^Language \d+>\d+$/.test(d.cut[0]) }],
+};
 
 // an old version's page, from the build of its commit (ci/reference.js: a git worktree under .ci/; needs the history)
 const old = (commit) => (dist, name) => {
@@ -112,6 +166,10 @@ const PAGES = {
   // (the kit's load() and some suites open a page of the origin only to write its localStorage)
   'gl-helpers.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
   'blank.html': (dist, name) => fs.writeFileSync(path.join(dist, name), '<!doctype html><title>blank</title>\n'),
+  // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
+  // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
+  // long before)
+  'favicon.ico': (dist, name) => fs.writeFileSync(path.join(dist, name), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')),
   'v162-test.html': old('d07ae97'),   // v16.2
   'v163-test.html': old('c8221ff'),   // v16.3
   // the published page as a host serves it: a UTF-8 doctype and a viewport meta around it (the release smokes)
@@ -119,6 +177,6 @@ const PAGES = {
     + fs.readFileSync(path.join(dist, 'complex-map-workbench.html'), 'utf8') + '</body></html>\n'),
 };
 // made for every run
-const ALWAYS = ['gl-helpers.html', 'blank.html'];
+const ALWAYS = ['gl-helpers.html', 'blank.html', 'favicon.ico'];
 
 module.exports = { EXCLUDED, SUITES, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS };
