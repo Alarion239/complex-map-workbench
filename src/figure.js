@@ -3565,7 +3565,12 @@ const Figure = (() => {
     if (view !== 'land') ftBody.append(axesRow);
     if (view === 'xy') ftBody.append(fr($t('Panels'), segB('xfPanels', set.panels || 'both', [['both', $t('Both')], ['L', $t('X only')], ['R', $t('Y only')]], (v) => { set.panels = v; changed(); }, $t('Panels'))));
     const ftWrap = h('div', { class: 'xf-ftwrap' }, ftBtn, ftBody);
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), ...(deformRow ? [deformRow] : []), vidRow, texRow, ftWrap);
+    // On a phone the print settings (what the figure is for, its size, ink, caption language, the LaTeX) are folded
+    // behind one button, so the sheet opens on the format and the buttons; elsewhere the rows sit in the grid as before.
+    const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
+    const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
+    printBtn.setAttribute('aria-expanded', printBox.dataset.open);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });
@@ -3730,7 +3735,7 @@ const Figure = (() => {
       const f = fmtOf(), vid = f === 'video';
       for (const b of fmtSeg.children) b.setAttribute('aria-checked', String(b.dataset.v === f));
       dpiSel.hidden = f !== 'png';
-      for (const r of [forRow, sizeRow, inkRow, capLangRow, deformRow, texRow, ftWrap]) if (r) r.hidden = vid;
+      for (const r of [forRow, sizeRow, inkRow, capLangRow, deformRow, texRow, ftWrap, printBox, printBtn]) if (r) r.hidden = vid;
       vidRow.hidden = !vid;
       scroll.classList.toggle('video', vid);
       greyBtn.hidden = vid; loupeBtn.hidden = vid; facts.hidden = vid;

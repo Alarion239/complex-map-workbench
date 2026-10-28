@@ -30,7 +30,7 @@ const Export = (() => {
       const url = URL.createObjectURL(blob), a = h('a', { href: url, download: filename });
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
-      toast($t('Saved {filename}.', { filename }));
+      toast(matchMedia('(pointer: coarse)').matches ? $t('Saved to Downloads: {filename}', { filename }) : $t('Saved {filename}.', { filename }));
       sndExportDone();
       return true;
     }
