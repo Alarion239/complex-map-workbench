@@ -15028,7 +15028,8 @@
   // Listen along the current scene's curve: the shape with a melody, else its last closed curve (the tour's act button)
   function tourListen() {
     if (!SND || typeof (window.AudioContext || window.webkitAudioContext) !== 'function') return false;
-    const s = S.shapes.find((x) => x.listen && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || null;
+    // (the example's curve: with a score, or, once the example is a function with no score, its one curve)
+    const s = S.shapes.find((x) => x.listen && x.visible !== false) || [...S.shapes].reverse().find((x) => x.visible !== false && ['circle', 'disc', 'polygon', 'rect', 'lasso', 'ellipse'].includes(x.kind)) || S.shapes.find((x) => x.visible !== false && x.kind === 'curve') || null;
     if (!s) return false;
     if (snd.hint) { snd.hint = null; clearTimeout(snd.hintT); updateDraftChips(); }
     // (the composition, as the tour's song step and its captions describe it)
