@@ -1,0 +1,282 @@
+{
+ "_about": "v16.5 wave 1, the plane piece (work/xu1-plane, notes/ux-build/w1-plane-AS-BUILT.md). id -> {en, ru, ctx?, note}. Read after every v16.4 table by tools/make_ru_table.py (V165_PLANE_HERE). Edit by read-modify-write only.",
+ "cell.refit": {
+  "en": "The pattern cell is now {x}, fitted to the shapes; Display → Cell changes it.",
+  "ru": "Клетка узора теперь {x}: она подобрана по фигурам; изменить её можно в «Вид → Клетка».",
+  "note": "UX91 toast, once per session when an added shape refits the cell."
+ },
+ "poly.chip.touch": {
+  "en": "Tap the first point to close · Undo removes the last point",
+  "ru": "Коснитесь первой точки, чтобы замкнуть · «Отменить» убирает последнюю точку",
+  "note": "UX14 polygon draft chip, touch: never Enter."
+ },
+ "poly.chip.mouse": {
+  "en": "Click the first point or press Enter to close · ⌫ removes the last point",
+  "ru": "Щёлкните первую точку или нажмите Enter, чтобы замкнуть · ⌫ убирает последнюю точку",
+  "note": "UX14 polygon draft chip, mouse and keys."
+ },
+ "poly.tip": {
+  "en": "Click the vertices; click the first one or press Enter to close. Backspace removes the last point.",
+  "ru": "Щёлкайте по вершинам; чтобы замкнуть, щёлкните первую вершину или нажмите Enter. ⌫ убирает последнюю точку.",
+  "note": "UX14 Polygon tool tooltip."
+ },
+ "dc.grid": {
+  "en": "Pulled-back grid",
+  "ru": "Прообраз сетки",
+  "note": "UX86 the Phase style that pulls back the Re/Im grid (was «Сетка»)."
+ },
+ "tool.cgrid": {
+  "en": "Line grid",
+  "ru": "Сетка линий",
+  "note": "UX86 the drawing tool (was «Сетка»)."
+ },
+ "pat.grid": {
+  "en": "Square grid",
+  "ru": "Квадратная сетка",
+  "note": "UX86 the pattern (was «Сетка»)."
+ },
+ "probe.teach": {
+  "en": "Hold and slide to read F(z)",
+  "ru": "Удерживайте и ведите палец, чтобы прочитать F(z)",
+  "note": "UX10 phone scale chip, until the hold-and-slide is first used."
+ },
+ "target.draw": {
+  "en": "Draw a target in Y (the {x}-plane)",
+  "ru": "Нарисуйте цель в Y (плоскость {x})",
+  "note": "UX27 idle hint in Y with a drawing tool."
+ },
+ "hyper.kind": {
+  "en": "Hyperbolic line",
+  "ru": "Гиперболическая прямая",
+  "note": "UX55 the tool and the name kind: «Гиперболическая прямая 1»."
+ },
+ "hyper.short": {
+  "en": "Hyperbolic",
+  "ru": "Гипербо­лическая",
+  "note": "UX55 the Construct tile label (soft hyphen, like «Ортого­нальная»)."
+ },
+ "shapes.x": {
+  "en": "<span>In <i>X</i> (<i>z</i>-plane)</span>",
+  "ru": "<span>В <i>X</i> (плоскость <i>z</i>)</span>",
+  "note": "UX27 Shapes list heading."
+ },
+ "shapes.y": {
+  "en": "<span>Targets in <i>Y</i> ({out}-plane)</span>",
+  "ru": "<span>Цели в <i>Y</i> (плоскость {out})</span>",
+  "note": "UX27 Shapes list heading of the targets."
+ },
+ "unbounded": {
+  "en": "Goes on forever; drawn faded towards the edge.",
+  "ru": "Уходит в бесконечность; к краю рисуется бледнее.",
+  "note": "UX92/UX95 note in the shape editor of an unbounded region."
+ },
+ "sheet.prev": {
+  "en": "Previous sheet",
+  "ru": "Предыдущий лист",
+  "note": "UX67 step editor ‹."
+ },
+ "sheet.next": {
+  "en": "Next sheet",
+  "ru": "Следующий лист",
+  "note": "UX67 step editor ›."
+ },
+ "sheet.of": {
+  "en": "of {n}",
+  "ru": "из {n}",
+  "note": "UX67 «0 из 2» beside the sheet field."
+ },
+ "sheet.all.tip": {
+  "en": "Landscape draws every sheet of the map as one surface",
+  "ru": "Рельеф рисует все листы отображения одной поверхностью",
+  "note": "UX67 tooltip."
+ },
+ "sheet.all": {
+  "en": "Show all sheets",
+  "ru": "Показать все листы",
+  "note": "UX67 button in the step editor."
+ },
+ "undo.pick.x": {
+  "en": "Undid the pick: {x}",
+  "ru": "Выбор отменён: {x}",
+  "note": "UX15 toast after Undo removes a construction pick."
+ },
+ "undo.pick": {
+  "en": "Undid the last pick",
+  "ru": "Последний выбор отменён",
+  "note": "UX15 toast, a pick without a name."
+ },
+ "parallel": {
+  "en": "These lines are parallel: they meet only at ∞",
+  "ru": "Эти прямые параллельны: они пересекаются только в ∞",
+  "note": "UX101 Intersect on two parallel lines."
+ },
+ "pick.on": {
+  "en": "a point on {c}",
+  "ru": "точка на кривой: {c}",
+  "note": "UX15 the pick named in the toast."
+ },
+ "chip.undo": {
+  "en": "⌫ undo pick · Esc",
+  "ru": "⌫ — отменить выбор · Esc",
+  "note": "UX48 chip tail once the draft has picks."
+ },
+ "chip.meet1": {
+  "en": "Pick where two curves cross, or the first curve",
+  "ru": "Выберите пересечение двух кривых или первую кривую",
+  "note": "UX48 Intersect, first pick."
+ },
+ "chip.meet2": {
+  "en": "Pick the second curve",
+  "ru": "Выберите вторую кривую",
+  "note": "UX48 Intersect, second pick."
+ },
+ "chip.hyper": {
+  "en": "Pick the boundary: a line or a circle",
+  "ru": "Выберите границу: прямую или окружность",
+  "note": "UX48/UX55 Hyperbolic line, first pick."
+ },
+ "chip.touchP.ring": {
+  "en": "Pick the touching point on {c}, or a ring for a tangent",
+  "ru": "Выберите точку касания (на кривой: {c}) или кольцо для касательной",
+  "note": "UX48 Touching circle after P."
+ },
+ "chip.touchP": {
+  "en": "Pick the touching point on {c}",
+  "ru": "Выберите точку касания на кривой: {c}",
+  "note": "UX48 Touching circle after P."
+ },
+ "chip.touchT.tan": {
+  "en": "Pick a point off {c}, or the dashed tangent",
+  "ru": "Выберите точку вне кривой ({c}) или штриховую касательную",
+  "note": "UX48 Touching circle after T."
+ },
+ "chip.touchT": {
+  "en": "Pick a point off {c}",
+  "ru": "Выберите точку вне кривой: {c}",
+  "note": "UX48 Touching circle after T, C a line."
+ },
+ "chip.touch1": {
+  "en": "Pick the touching point on {c}, or a point off it",
+  "ru": "Выберите точку касания (на кривой: {c}) или точку вне её",
+  "note": "UX48 Touching circle, first point."
+ },
+ "chip.mid1": {
+  "en": "Pick a point, an empty spot or a segment",
+  "ru": "Выберите точку, пустое место или отрезок",
+  "note": "UX48 Midpoint, Bisector first pick."
+ },
+ "chip.pt": {
+  "en": "Pick a point or an empty spot",
+  "ru": "Выберите точку или пустое место",
+  "note": "UX48 a point pick."
+ },
+ "chip.tok": {
+  "en": "on {c}",
+  "ru": "на кривой: {c}",
+  "note": "UX100 the kept curve token in the chip."
+ },
+ "chip.tok.x": {
+  "en": "Pick another curve",
+  "ru": "Выбрать другую кривую",
+  "note": "UX100 the token’s ×."
+ },
+ "chip.how": {
+  "en": "How to use {x}",
+  "ru": "Как пользоваться: {x}",
+  "note": "UX48 the chip’s ? button."
+ },
+ "chip.out.tip": {
+  "en": "Outside: only the arc outside the curve (for a line, on the other side from the first point)",
+  "ru": "Снаружи: только дуга вне кривой (для прямой — по другую сторону от первой точки)",
+  "note": "UX55 chip’s Outside tooltip."
+ },
+ "menu.free": {
+  "en": "Make {x} free",
+  "ru": "Отвязать: {x}",
+  "note": "UX56 plane menu, named."
+ },
+ "menu.lies": {
+  "en": "lies on {x}",
+  "ru": "лежит на кривой: {x}",
+  "note": "UX56 plane menu: a point on a curve, second line."
+ },
+ "hyper.tip": {
+  "en": "Pick the boundary (a line or a circle), then two points on one side of it: the hyperbolic line through them, the arc of the circle at right angles to the boundary. The boundary stays picked for the next one.",
+  "ru": "Выберите границу (прямую или окружность), затем две точки по одну сторону от неё: гиперболическая прямая через них — дуга окружности, перпендикулярной границе. Граница остаётся выбранной для следующей прямой.",
+  "note": "UX55 Hyperbolic line tooltip and chip how-to."
+ },
+ "page.x.aria": {
+  "en": "X, the z-plane: domain of F",
+  "ru": "X, плоскость z: область определения F",
+  "note": "UX27 page.html aria-label of X’s canvas."
+ },
+ "page.y.aria": {
+  "en": "Y, the w-plane: image of F",
+  "ru": "Y, плоскость w: образ при отображении F",
+  "note": "UX27 page.html aria-label of Y’s canvas."
+ },
+ "color.blue": {
+  "en": "Blue",
+  "ru": "Синий",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.orange": {
+  "en": "Orange",
+  "ru": "Оранжевый",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.teal": {
+  "en": "Teal",
+  "ru": "Бирюзовый",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.pink": {
+  "en": "Pink",
+  "ru": "Розовый",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.green": {
+  "en": "Green",
+  "ru": "Зелёный",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.purple": {
+  "en": "Purple",
+  "ru": "Фиолетовый",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.olive": {
+  "en": "Olive",
+  "ru": "Оливковый",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "color.slate": {
+  "en": "Slate",
+  "ru": "Серо-синий",
+  "ctx": "color",
+  "note": "UX95 a shape colour by its name (was «Вариант n»)."
+ },
+ "hyper.gen": {
+  "en": "Hyperbolic line",
+  "ru": "гиперболической прямой",
+  "ctx": "gen-kind",
+  "note": "UX55 genitive, as «дуги»."
+ },
+ "help.deformation.restore": {
+  "en": "<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups; powers and roots <i>z</i><sup><i>a</i></sup> along <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (a negative integer power reaches <i>z</i><sup>|<i>a</i>|</sup> at <i>t</i> = ½, then 1/<i>z</i><sup>|<i>a</i>|</sup> through Möbius maps); log along (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; exp, sin, cos, tan, the hyperbolic functions and the inverse trigonometric and hyperbolic functions are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); polynomials, rational maps and any other analytic formula are zoomed into about a point <i>p</i>, so their critical points, poles and cuts fly in from infinity along the rays from <i>p</i>; Joukowski closes the unit circle onto [−1, 1]. A formula that is not analytic, or a constant, moves along the straight line, and conjugation squashes the plane onto the real axis and out again, mirrored: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x2}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.",
+  "ru": "Кнопка <b>Деформация</b> в верхней панели ({x}) воспроизводит гомотопию от <i>z</i> к <i>F</i>(<i>z</i>) шаг за шагом, во всех видах. В виде <i>X</i> → <i>Y</i> две панели сливаются в одну плоскость (в одну сферу, если правая панель в режиме «Сфера»): <i>X</i> серым цветом, движущийся образ <i>H</i><sub><i>t</i></sub>(<i>X</i>) и пути <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) равномерно расставленных точек. В видах «Фаза» и «Рельеф» раскрашивается <i>H</i><sub><i>t</i></sub>. Каждый шаг деформируется по своему естественному пути: отображение <i>H</i><sub><i>t</i></sub> аналитично при каждом <i>t</i>, начинается с тождественного и заканчивается отображением шага. Дробно-линейные отображения движутся по своим однопараметрическим группам; степени и корни <i>z</i><sup><i>a</i></sup> — по <i>z</i><sup>1+(<i>a</i>−1)<i>t</i></sup> (отрицательная целая степень при <i>t</i> = ½ доходит до <i>z</i><sup>|<i>a</i>|</sup>, затем через дробно-линейные отображения — до 1/<i>z</i><sup>|<i>a</i>|</sup>); логарифм — по (<i>z</i><sup>1−<i>t</i></sup> − 1)/(1 − <i>t</i>) + 1 − <i>t</i>; для exp, sin, cos, tg, гиперболических функций, обратных тригонометрических и обратных гиперболических функций используется гомотопия масштабирования, поэтому их нули, полюсы и разрезы приходят из бесконечности (sin(<i>tz</i>)/<i>t</i>); для многочленов, рациональных функций и любой другой аналитической формулы это гомотопия масштабирования с центром в точке <i>p</i>, поэтому их критические точки, полюсы и разрезы приходят из бесконечности вдоль лучей, выходящих из точки <i>p</i>; функция Жуковского стягивает единичную окружность в отрезок [−1, 1]. Неаналитическая формула и постоянная деформируются по прямолинейной гомотопии, а сопряжение сплющивает плоскость на вещественную ось и снова раскрывает её зеркально: Re <i>z</i> + <i>i</i>(1 − 2<i>t</i>) Im <i>z</i>. Элементы управления воспроизведением под панелью позволяют перемещать <i>t</i>, задавать скорость, а при двух шагах и более — порядок: по очереди (0 ≤ <i>t</i> ≤ <i>m</i>) или все сразу (0 ≤ <i>t</i> ≤ 1, все шаги при одном и том же <i>t</i>). Кнопка <b>Пути</b> ({x2}) показывает или скрывает пути. Если выключить деформацию, панели снова разделяются, а <i>t</i> возвращается в конец. Если какой-то шаг сделан текущим, деформируется только он.",
+  "note": "Not a v16.5 change: the Help Deformation paragraph as v16.4 ships it (src unchanged). notes/i18n/ru/v164-help.json now holds a newer English for it, so the table lost this entry; restored from the v16.4 merge snapshot's src/i18n_ru.js."
+ },
+ "shapes.y.empty": {
+  "en": "No targets yet. Draw one in <i>Y</i> (the {out}-plane).",
+  "ru": "Целей пока нет. Нарисуйте цель в <i>Y</i> (плоскость {out}).",
+  "note": "UX27 the Shapes list's note under 'Targets in Y' when there are none (was 'Draw one in the {out}-plane')."
+ }
+}

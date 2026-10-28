@@ -112,7 +112,7 @@ await section('A', async () => {
   await grab();
   // 1. the sixth tile, its tooltip, its label (52 px)
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`);
-  ok('A1 the Construct grid has six tiles, Touching circle last', tiles === 'circle3,meet,midpoint,bisector,perp,touch', tiles);
+  ok('A1 the Construct grid has seven tiles, Touching circle sixth (v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="touch"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().width, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('A1 tooltip: Touching circle + its description', info.tile.tip === 'Touching circle' && /^Pick a line or a circle, then the point where the new circle touches it/.test(info.tile.desc), info.tile);
   ok('A1 the tile label «Touching» fits the tile', info.tile.label === 'Touching' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
@@ -122,12 +122,13 @@ await section('A', async () => {
   const nA = (await ST()).list.length;
   const em = await W(-1.2, -1.4);
   await click(em[0], em[1]); await settle(150);
-  const t1s = await toastText();
+  const chipWarn = () => ev(`(document.querySelector('#draftChipL .cm-warn') || {}).textContent || ''`);   // (v16.5 UX52: a refusal is said in the chip)
+  const t1s = await chipWarn();
   const fz = await W(-0.4, -2.65);
   await click(fz[0], fz[1] + 1); await settle(150);
-  const t2s = await toastText();
+  const t2s = await chipWarn();
   let d = (await CI()).draft;
-  ok('A10 a non-curve first: empty space and a freehand curve give the toast; nothing made', t1s === 'Click a line or a circle.' && t2s === 'Click a line or a circle.' && d && d.tool === 'touch' && d.curve1 === null && !d.picks.length && (await ST()).list.length === nA, [t1s, t2s, d]);
+  ok('A10 a non-curve first: empty space and a freehand curve are refused in the chip (v16.5 UX52); nothing made', t1s === 'Click a line or a circle.' && t2s === 'Click a line or a circle.' && d && d.tool === 'touch' && d.curve1 === null && !d.picks.length && (await ST()).list.length === nA, [t1s, t2s, d]);
   // 2. the shown unit circle, then T on its stroke at 1, then 2 + i
   let st = await ST();
   const n0 = st.list.length, hi0 = st.hi;
@@ -135,14 +136,14 @@ await section('A', async () => {
   await move(u[0] + 2, u[1] - 2); await settle(120);
   ok('A2 hover: the ring on the unit circle', ((await CI()).ring || {}).chip === 'on the unit circle', (await CI()).ring);
   await click(u[0] + 2, u[1] - 2); await settle(150);
-  ok('A2 the unit circle is picked (no shape yet); the chip', (await ST()).list.length === n0 && (await chipT()) === 'Point 1 of 2 · Touching · Esc cancels', await chipT());
+  ok('A2 the unit circle is picked (no shape yet); the chip', (await ST()).list.length === n0 && (await chipT()) === 'Pick the touching point on the unit circle, or a point off it · 1 of 2 · Touching · ⌫ undo pick · Esc', await chipT());   // (v16.5 UX48)
   const t0 = await W(1, 0);
   // (on the real axis, 3 px outside: the projection onto the circle is 1 exactly)
   await move(t0[0] + 3, t0[1]); await settle(120);
   info.ringT = (await CI()).ring;
   await click(t0[0] + 3, t0[1]); await settle(150);
   d = (await CI()).draft;
-  ok('A3 a click on the stroke at 1: T (on the unit circle), the chip offers the tangent', d && d.picks.length === 1 && d.picks[0].role === 'T' && d.picks[0].z[0] === 1 && d.picks[0].z[1] === 0 && (await chipT()) === 'Point 2 of 2, or the tangent · Touching · Esc cancels', [d, await chipT()]);
+  ok('A3 a click on the stroke at 1: T (on the unit circle), the chip offers the tangent', d && d.picks.length === 1 && d.picks[0].role === 'T' && d.picks[0].z[0] === 1 && d.picks[0].z[1] === 0 && (await chipT()) === 'Pick a point off the unit circle, or the dashed tangent · 2 of 2 · Touching · ⌫ undo pick · Esc', [d, await chipT()]);
   ok('A6 after T: the hint is the tangent at 1 (x = 1)', d && d.hint && d.hint.A === 0 && d.hint.B[1] === 0 && d.hint.o[0] === 1 && d.hint.o[1] === 0, d && d.hint);
   await leaveAll();
   await shot('touch-d1440-light-hint');
@@ -200,10 +201,11 @@ await section('A', async () => {
   await click(cb[0] + 2, cb[1] - 2); await settle(120);
   await click(p0[0], p0[1]); await settle(120);
   d = (await CI()).draft;
-  // (v16.3.1: a chip that would wrap keeps one line without "Esc cancels"; the rings' chip in X at 1440 does)
+  // (v16.3.1: a chip that would wrap keeps one line without its keyboard tail; the rings' chip in X at 1440 does.
+  // v16.5 UX48 wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const a5 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
-  const a5base = ((d && d.rings && d.rings.length) ? 'Touching point on Circle 1, or a ring for a tangent' : 'Touching point on Circle 1') + ' · Touching';
-  ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · Esc cancels' || (a5.text === a5base && a5.lines === 1)), [d, a5]);
+  const a5base = ((d && d.rings && d.rings.length) ? 'Pick the touching point on Circle 1, or a ring for a tangent' : 'Pick the touching point on Circle 1') + ' · 2 of 2 · Touching';
+  ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · ⌫ undo pick · Esc' || (a5.text === a5base && a5.lines === 1)), [d, a5]);
   await click(t0[0] + 2, t0[1] + 2); await settle(400);
   st = await ST();
   const K2 = last(st);
@@ -247,9 +249,11 @@ await section('A', async () => {
   forms = await FORMS();
   nm = await names();
   info.tangent = { L2: L2.def, M2: M2.def, p: M2.p, tp: up.tp, row: await rowD(M2.id), rowL: await rowD(L2.id) };
-  ok('A7 the ring: a free z₂ = 2, a tangent (index ' + up.k + ') and its touching point, one undo step', st.list.length === nB + 3 && st.hi === hiB + 1 && L2.def.op === 'tangent' && L2.def.index === up.k && P2.p[0] === 2 && M2.def.op === 'meet' && M2.def.args[0].s === L2.id, info.tangent);
+  // ([v16.5 rail SPEC 1.1] P clicked at 2 on the real axis is a point on the real axis, which becomes a fixed shape in
+  // the same step: one shape more than in v16.4, and the tangent is Line 3)
+  ok('A7 the ring: z₂ = 2 on the real axis, a tangent (index ' + up.k + ') and its touching point, one undo step', st.list.length === nB + 4 && st.hi === hiB + 1 && L2.def.op === 'tangent' && L2.def.index === up.k && P2.p[0] === 2 && P2.p[1] === 0 && P2.def && P2.def.op === 'glider' && byId(st, P2.def.args[0].s).fixed === 'real' && M2.def.op === 'meet' && M2.def.args[0].s === L2.id, info.tangent);
   ok('A7 the touching point equals tp exactly', M2.p[0] === up.tp[0] && M2.p[1] === up.tp[1] && !M2.cundef, info.tangent);
-  ok('A7 its row: "Line 2 ∩ Circle 1, where they touch"; the tangent\'s row', info.tangent.row === 'Line 2 ∩ Circle 1, where they touch' && info.tangent.rowL === `tangent to Circle 1 at ${nm(M2.id)}, through z₂`, info.tangent);
+  ok('A7 its row: "Line 3 ∩ Circle 1, where they touch"; the tangent\'s row', info.tangent.row === 'Line 3 ∩ Circle 1, where they touch' && info.tangent.rowL === `tangent to Circle 1 at ${nm(M2.id)}, through z₂`, info.tangent);
   e = touchErr(forms[L2.id], M2.p, P2.p);
   ok('A7 the tangent: g / S ≤ 1e-12, P and tp on it', e.g <= 1e-12 && e.inc <= 1e-15, { g: f1(e.g), inc: f1(e.inc) });
   await clickSel(`.shape[data-id="${M2.id}"] .icon-btn.more`); await settle(250);
@@ -294,16 +298,16 @@ await section('A', async () => {
   await click(t0[0] + 2, t0[1] + 2); await settle(100);
   const mz = await W(M2.p[0], M2.p[1]);
   await click(mz[0] + 1, mz[1] + 1); await settle(150);
-  const r1 = await toastText();
+  const r1 = await chipWarn();
   await click(t0[0] + 2, t0[1] + 2); await settle(150);
-  const r2 = await toastText();
+  const r2 = await chipWarn();
   d = (await CI()).draft;
   ok('A10 after T: a point on C is refused; the same point twice is refused; the draft stays', r1 === 'Click a point off Circle 1.' && r2 === 'Touching circle needs distinct points' && d && d.picks.length === 1, [r1, r2, d]);
   await key('Backspace'); await settle(100);
   await click(p0[0], p0[1]); await settle(100);
   const ez = await W(-1.5, 1.6);
   await click(ez[0], ez[1]); await settle(150);
-  const r3 = await toastText();
+  const r3 = await chipWarn();
   d = (await CI()).draft;
   ok('A10 after P: a click off C is refused', r3 === 'Click a point on Circle 1.' && d && d.picks.length === 1 && d.picks[0].role === 'P', [r3, d]);
   // 10. Backspace drops the point, then the curve; Esc; the plane menu
@@ -323,7 +327,7 @@ await section('A', async () => {
   ok('A11 the plane menu on a circle: "Touching circle…" after "Perpendicular circle…"', info.planeMenu.indexOf('Touching circle…') === info.planeMenu.indexOf('Perpendicular circle…') + 1 && info.planeMenu.includes('Touching circle…'), info.planeMenu);
   await menuClick('Touching circle…'); await settle(200);
   d = (await CI()).draft;
-  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'touch' && d && d.curve1 && d.curve1.s === C1.id && (await chipT()).startsWith('Point 1 of 2'), d);
+  ok('A11 it starts the tool with that curve', (await ev('__cmwCI({shapes:true}).tool')) === 'touch' && d && d.curve1 && d.curve1.s === C1.id && (await chipT()).startsWith('Pick the touching point on Circle 1, or a point off it · 1 of 2'), d);
   await key('Escape'); await settle(100);
   // 11. ⋯ Region on K1, Use complement; the tangent's ⋯ has no Region
   await tool('select');
@@ -441,9 +445,10 @@ await section('C', async () => {
   const M = last(st), L = st.list[st.list.length - 2];
   info.ruRows = { K: info.ruRow, L: await rowD(L.id), M: await rowD(M.id) };
   const N = ' ';
-  ok('C RU chips', info.ruChips[0] === `Выберите прямую или окружность · Касание · ${esc}` && info.ruChips[1] === `Точка 1 из 2 · Касание · ${esc}` && info.ruChips[2] === `Точка 2 из 2 или касательная · Касание · ${esc}` && info.ruChips[3] === `Точка касания на кривой: Окружность 1 или кольцо${N}— касательная · Касание · ${esc}`, info.ruChips);
+  const ub = `⌫${N}— отменить выбор · Esc`;   // (v16.5 UX48: what to pick, the count, then how to back up)
+  ok('C RU chips', info.ruChips[0] === `Выберите прямую или окружность · Касание · ${esc}` && info.ruChips[1] === `Выберите точку касания (на кривой: единичная окружность) или точку вне её · 1 из 2 · Касание · ${ub}` && info.ruChips[2] === `Выберите точку вне кривой (единичная окружность) или штриховую касательную · 2 из 2 · Касание · ${ub}` && info.ruChips[3] === `Выберите точку касания (на кривой: Окружность 1) или кольцо для касательной · 2 из 2 · Касание · ${ub}`, info.ruChips);
   ok('C RU ring chips: привязка: касательная в точке z₀ / касательная из z₂', info.ruHint === 'привязка: касательная в точке z₀' && info.ruRing === 'привязка: касательная из z₂', [info.ruHint, info.ruRing]);
-  ok('C RU rows', info.ruRows.K === `через z₁, касается кривой: Окружность 1; точка касания${N}— z₀` && /^касательная к кривой: Окружность 1 в точке z., через z₂$/.test(info.ruRows.L) && info.ruRows.M === 'Прямая 1 ∩ Окружность 1, точка касания', info.ruRows);
+  ok('C RU rows', info.ruRows.K === `через z₁, касается кривой: Окружность 1; точка касания${N}— z₀` && /^касательная к кривой: Окружность 1 в точке z., через z₂$/.test(info.ruRows.L) && info.ruRows.M === 'Прямая 2 ∩ Окружность 1, точка касания', info.ruRows);   // ([v16.5 rail] P = 2 lies on the real axis, a fixed shape now: the tangent is Line 2)
   await shot('touch-d1440-ru-made');
   // the reason: the tangent's P dragged inside
   await tool('select');
@@ -517,7 +522,7 @@ await section('D', async () => {
   d = (await CI()).draft;
   ok('D phone: the glider is T; the hint exists', d && d.picks.length === 1 && d.picks[0].role === 'T' && d.picks[0].ref.s === 'pt' && d.hint && d.hint.A === 0, d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  ok('D phone chip: the tile text, no Esc, a ×', /^Point 2 of 2, or the tangent · Touching/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point off Circle 1, or the dashed tangent · 2 of 2 · Touching/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   await shot('touch-p390-hint');
   const hz = await W(-1.6, 1);
   await touch(hz[0], hz[1] + 8); await settle(400);
@@ -551,7 +556,7 @@ await section('D', async () => {
   await touch(cp[0] - 8 * Math.cos(-2.4), cp[1] + 8 * Math.sin(-2.4)); await settle(250);
   await touch(ppz[0] + 5, ppz[1] - 5); await settle(250);
   info.phChipRu = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
-  ok('D phone RU chip after P', /^Точка касания на кривой: Окружность 1 или кольцо\s— касательная · Касание/.test(info.phChipRu || ''), info.phChipRu);
+  ok('D phone RU chip after P', /^Выберите точку касания \(на кривой: Окружность 1\) или кольцо для касательной · 2 из 2 · Касание/.test(info.phChipRu || ''), info.phChipRu);
   await view(390, 844, true, true); await settle(600);
   await shot('touch-p390-rings-ru-dark');
   await send('Emulation.setUserAgentOverride', { userAgent: ua0 });

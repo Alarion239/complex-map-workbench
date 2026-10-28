@@ -49,5 +49,8 @@
  " Curves are the paths %{p} of %{parts}, from %{z} (circle) to %{end} (dot), with an arrowhead at %{qa}%{clause}.": " Кривые — пути %{p} для %{parts}: от %{z} (кружок) до %{end} (точка), со стрелкой при %{qa}%{clause}.",
  " Arrowheads mark $t=%{a}$, the middle of each step, and bars $t=%{n}$, where one step ends and the next begins.": " Стрелки отмечают $t=%{a}$ (середина каждого шага), чёрточки — $t=%{n}$, где один шаг сменяется следующим.",
  " An arrowhead marks $t=%{a}$.": " Стрелка отмечает $t=%{a}$.",
- "Paths: X is on the far side; drag to turn": "Пути: X на обратной стороне; перетащите, чтобы повернуть"
+ "Paths: X is on the far side; drag to turn": "Пути: X на обратной стороне; перетащите, чтобы повернуть",
+ "ref\u0004the unit circle": "единичная окружность",
+ "ref\u0004the real axis": "действительная ось",
+ "ref\u0004the imaginary axis": "мнимая ось"
 }

@@ -1537,7 +1537,8 @@ const Funcs = (() => {
     },
   });
   def({
-    id: 'custom', group: $t('Polynomial & custom'), label: $t('Custom formula'), menuTex: 'f(z)\\ \\text{(LaTeX)}',
+    // (v16.5 UX84: the type is "Formula"; the formula is in the card's tooltip)
+    id: 'custom', group: $t('Polynomial & custom'), label: $t('Formula'), menuTex: 'f(z)\\ \\text{(LaTeX)}',
     params: [{ key: 'expr', label: 'f(z) =', type: 'expr', def: 'z^2+\\frac{1}{z}' }, { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 }],
     hasCut: 'maybe',
     // (ast, part: a part of a recognized formula, built from its tree by buildVals; it is never recognized again)

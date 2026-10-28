@@ -1,0 +1,92 @@
+[
+  {
+    "id": "regress-1",
+    "severity": "medium",
+    "device": "laptop",
+    "title": "The deformation bar wraps at 1366 x 768: the close button sits alone on a second row, so the plane loses 28 px",
+    "detail": "The readout is now in words (morphReadout, UX103): \"Step 1 of 2 · f1 · 53 %\". In v16.4 it was \"t = 0.53 / 2\". At 1366 x 768 the longer readout no longer fits the transport row (.tdock). The x close button wraps onto a second row by itself. The bar grows from 41 px to 69 px and takes that height from the plane whenever the deformation is open. The readout uses the mono class and its width follows the digit count (9 %, 53 %, 100 %), so the controls after it can also shift while it plays.",
+    "evidence": "Example 8 (Cayley, then cube), then M. New build: .tdock is 269,494 to 1061,563 (69 px) and x is on row 2. Base: 269,522 to 1061,563 (41 px), one row. Pictures: notes/ux-build/shots/w1-review-regress/toast_transport_n.png and toast_transport_b.png.",
+    "fix": "Give the readout a short form when the row is tight, the way layoutFoot hides .tfix (for example \"1/2 · 53 %\", with the words in its tooltip), or keep x on the first row (nowrap, readout min-width 0 with an ellipsis). Give the percentage a fixed width (tabular figures, padded) so the row does not reflow every frame."
+  },
+  {
+    "id": "regress-2",
+    "severity": "medium",
+    "device": "laptop",
+    "title": "A toast is placed only once, so the deformation bar or the Try line can open under it later",
+    "detail": "placeToasts (UX80) runs only when #toastHost gains or loses a child, or on window resize. The layout can change while a toast stays up: the deformation transport opens or closes, or the learning lane (the Try line) shows or hides. The toast keeps its old place. With a sticky undo toast such as \"Opened …\" from loadExample (UX25), the deformation opened with M lies under the toast. The step readout, the scrubber end and the speed control are covered and cannot be clicked. This breaks UX80's own rule: \"a message never lands on a control\".",
+    "evidence": "Russian, dark, 1366 x 768: open example 10 (Roots as preimages), then press M. The \"Открыт пример …\" toast sits on the transport row (\"Шаг 1 из …\", speed). Picture: notes/ux-build/shots/w1-review-regress/dark_ru_roots_deform.png.",
+    "fix": "Call placeToasts after every layout change too: from applyLayout and onPaneResize, from openTransport and closeTransport, and from Tour lane show and hide. A ResizeObserver on .pipe-wrap, .tdock and .panes would also cover these cases."
+  },
+  {
+    "id": "regress-3",
+    "severity": "medium",
+    "device": "laptop",
+    "title": "Routine actions now raise toasts that cover the bottom of the plot (user rule: nothing may cover the work area uninvited)",
+    "detail": "Several actions that showed no message in v16.4 now raise a toast: every Undo and Redo (histSay to histToast, \"Undid: …\" plus Redo), every Add, Insert, Duplicate or Move step (addedToast, \"Added f3 … · Show alone · Undo\"), and every example opened (\"Opened …\"). placeToasts puts them 8 px above the chain, centred between X's and Y's button columns. In X → Y that is over Y's plot and its ruler labels. In a single-plane view (Phase, Landscape, the merged deformation) it is over the plane's bottom. These are the most frequent actions in the app, so something now sits over the image most of the time. The user's rule is that nothing covers the work area uninvited.",
+    "evidence": "1366 x 768, example 1, then ⌘K, z^2, Enter. The toast is at 685,526 to 993,564; Y's plot is 688,77 to 1061,545, so the toast lies over Y's bottom and ruler. v16.4 shows no toast for this action. Pictures: notes/ux-build/shots/w1-review-regress/toast_add_n.png and grieg_n.png (the \"Opened …\" toast over X's ruler in Phase).",
+    "fix": "Ask the user. Options: say these in a place that covers nothing (the chain head row, or the learning lane D7 will use); keep toasts for destructive actions only (Clear, Delete); drop the Undo and Redo toasts, since the Undo and Redo tooltips already name the action (undoTip)."
+  },
+  {
+    "id": "regress-4",
+    "severity": "medium",
+    "device": "phone",
+    "title": "The phone's scale chip shows \"Hold and slide to read F(z)\" until the user first probes (rule: no always-on hint)",
+    "detail": "UX10 (probeTeach in idleLeft) adds a teaching line to X's scale chip on a phone. It stays there in every session until a finger probe sets localStorage cmw-probe-learned. Someone who never probes sees it on the plane forever. This is the kind of idle, always-on hint the user removed (\"no always-on Select hint\"). The chip is also wider, so it covers more of the plane.",
+    "evidence": "Phone, 412 x 860, Android emulation, fresh namespace: the chip reads \"X 2 / div Hold and slide to read F(z)\". Picture: notes/ux-build/shots/w1-review-regress/ph_0.png.",
+    "fix": "Show the line once (a few seconds, once per session), or move it to the learning lane, the tour or the guide. Do not keep it as a standing part of the chip."
+  },
+  {
+    "id": "regress-5",
+    "severity": "low",
+    "device": "laptop",
+    "title": "Pressing Listen on the Try line moves the whole workspace up 56 px while the melody starts",
+    "detail": "The example's Try line (UX74) lives in the tour's docked slot. Listen calls Tour.laneHide('example'), which collapses the slot. The pane heads and planes jump up 56 px while the spiral is already playing, so the curve being heard moves under the user's eyes. The pointer stays still, so the Colour key chip lands under it and unfolds over the plot (measured :hover = true right after the click). In v16.4 the hint was a chip inside X and nothing moved. The seasong test had to be changed to read the moved spiral again (\"the spiral moved with its plane\").",
+    "evidence": "Example 14, laptop: leftLegend top is 105 before Listen and 49 after; plotL top is 133 before and 77 after. Picture: notes/ux-build/shots/w1-review-regress/grieg_play_n.png (the key unfolded over the plot).",
+    "fix": "Keep the slot while the melody plays (it can say \"Listening · Stop\") and collapse it when playback ends or the example is left. Or hide the line without collapsing the row until the next layout change."
+  },
+  {
+    "id": "regress-6",
+    "severity": "medium",
+    "device": "laptop, phone",
+    "title": "Work added to pointer paths that could cost frames (BUDGET60): name these for CI's perf gate",
+    "detail": "Not measured here; read from the diff. (a) construct.js snapAt now also scans the display curves (unit circle, axes) and, for curve targets, runs detentAt. detentAt calls meetNear and projectPiece against every nearby piece and display curve, plus the 15° and lattice candidates. This runs on every hover move with Point or a construction tool, on every frame of a rail glide (railDrag), and on every frame of a free point drag (freeDrag). railDrag also clears and sets a dwell timer on each event. (b) Dragging any free shape by its body now goes through anchorMove, which calls snapAt with points, crossings and grid on every pointermove. In v16.4 this was a plain Region.translate. (c) setReadouts, the hover probe readout, rebuilds the readout HTML up to 4 times per pointermove. It measures each line with Range.getBoundingClientRect, which forces a layout, and evaluates focusF()(z) twice.",
+    "evidence": "construct.js snapAt / detentAt / railDrag / freeDrag / anchorMove; app.js setReadouts (the new 'forms' loop with fits(): createRange + getBoundingClientRect).",
+    "fix": "For CI: hover with the Point tool and with Orthogonal over a scene with many curves (a Line grid plus several circles); drag a disc with Snap on in that scene; slide a glider round the unit circle; hover-probe X in X → Y. If over budget: cache detent candidates per gesture (the rail does not change during a glide); limit anchorMove's snapAt to one rAF per frame; measure the readout once per layout (cache which form fits by text length) instead of on every move."
+  },
+  {
+    "id": "regress-7",
+    "severity": "low",
+    "device": "laptop",
+    "title": "Work added to the per-frame render path: updateUndo in every overlay frame, targetNote in every Y render",
+    "detail": "renderOverlays now calls updateUndo() each frame: two getElementById lookups, two disabled reads and Construct.undoPickable(). updateCalcChip runs at the end of every Y render, so every deformation frame and every pan frame. It now calls targetNote(): document.querySelector('#paneR .pane-head'), $('rightNote'), two S.targets filters, and, when there are targets, a $t(...) tooltip string built with fnText(). Each call is cheap, but they run in the frame.",
+    "evidence": "app.js renderOverlays (the added updateUndo()), updateCalcChip, then targetNote / targetText.",
+    "fix": "For CI's perf gate: example 10 (Roots as preimages, which has targets) with the deformation playing, and panning Y. If needed, key targetNote on (target count, fn signature, phone) and return early when unchanged; call updateUndo from the draft and pick changes instead of from the frame."
+  },
+  {
+    "id": "regress-8",
+    "severity": "low",
+    "device": "laptop",
+    "title": "The deformation's paths now start in different places than in v16.4; this change to the drawing is not listed in the AS-BUILT",
+    "detail": "mfNogo still keeps path starts clear of #rightFoot and #rightLegend. On a desktop those now sit in the pane head (placeKeys, UX20), above the overlay canvas, so their no-go rectangles fall outside the plot. The paths t → H_t(z) are now chosen in a larger free area, so a deformation draws different paths than v16.4 at the same view. deform_range_cmd.js was changed to hide the reference build's legend before comparing, so its picks would match. This is a change to what the maths drawing shows, and the merge AS-BUILT says no picture changed.",
+    "evidence": "app.js mfNogo; test/deform_range_cmd.js (the added rightLegend/rightFoot display:none for build 'v16m').",
+    "fix": "List it for the user's consent (before/after of one deformation with Paths on), or drop no-go rectangles that do not intersect the overlay. That makes the change explicit; it does not keep v16.4's picks."
+  },
+  {
+    "id": "regress-9",
+    "severity": "low",
+    "device": "laptop",
+    "title": "A keyboard focus no longer shows a tooltip, so keyboard users lose icon names and keys",
+    "detail": "UX34 removed the focusin/focusout tooltip handlers (and the title-to-data-tip conversion on focus) so that a tooltip never sticks after the app moves the focus. Now a Tab to an icon-only button shows nothing. Examples: the header's view toggles, pane head icons, Undo \"⌘Z\", the Display options button, zoom. In v16.4 these showed on :focus-visible.",
+    "evidence": "app.js tooltip block: the focusin listener was replaced by pointermove/scroll/blur listeners.",
+    "fix": "Restore the focus tip only for focus that came from the keyboard (lastInput === 'key', which the app already tracks) and :focus-visible. Focus that the app moves itself shows no tip."
+  },
+  {
+    "id": "regress-10",
+    "severity": "low",
+    "device": "laptop",
+    "title": "The new undo and redo wording names constructed points by kind (\"Undid: add Point.\") instead of their label (z6)",
+    "detail": "histWhat names a shape with shapeNames().get(id), then the kind's label. shapeNames has no entries for points, so undoing a Midpoint, an Intersect point or a placed point says \"add Point\". The rest of the app (the rows, the chips, the Inspector) calls them z6 and so on.",
+    "evidence": "Laptop, Midpoint of two points, then ⌘Z: the toast says \"Undid: add Point.\" (c4 run).",
+    "fix": "In histWhat's nameOf, use Construct.shapeLabel(s) (or pointLabel) for points, as the planes' menu does (UX56's nm)."
+  }
+]

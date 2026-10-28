@@ -824,6 +824,11 @@
   function refKey(r) {
     if (!r) return '?';
     if (r.inf) return 'inf';
+    // [v16.5 rail SPEC 3.2] a construction's pending pick (a point target while the draft is open); a shown display curve
+    // not yet a shape ({disp}); a crossing by its two curves and its index or seed (never 's:undefined')
+    if (Number.isInteger(r.pend)) return `pend:${r.pend}`;
+    if (typeof r.disp === 'string') return `d:${r.disp}`;
+    if (Array.isArray(r.meet)) return `m:${r.meet.map(refKey).sort().join('|')}:${r.index != null ? r.index : isXY(r.seed) ? r.seed.map((v) => +v.toPrecision(12)).join(',') : '?'}`;
     if (typeof r.zp === 'string') return `zp:${r.zp}:${r.id}`;
     if (typeof r.img === 'string') return `img:${r.img}`;
     if (r.part != null) return `c:${r.s}:${r.part}`;
@@ -1310,7 +1315,73 @@
     }
     if (pc.kind === 'line') return [pc.a[0] + t * (pc.b[0] - pc.a[0]), pc.a[1] + t * (pc.b[1] - pc.a[1])];
     const u = pc.closed ? (((t % 1) + 1) % 1) : t, an = pc.a0 + u * (pc.closed ? TAU : pc.span);
+    // [v16.5 rail SPEC 3.4] a whole circle from 0: cos and sin of the turn u, exact at the quarter turns, and the half-turn
+    // partner the bitwise negation (a detent at i is i; t and t + 1/2 are antipodes)
+    if (pc.closed && pc.a0 === 0) { const [cu, su] = turnCS(u); return [pc.c[0] + pc.r * cu, pc.c[1] + pc.r * su]; }
     return [pc.c[0] + pc.r * Math.cos(an), pc.c[1] + pc.r * Math.sin(an)];
+  }
+  // [v16.5 rail SPEC 3.4] the perpendicular circle through two gliders on C's own plain circle (no pts3, its t a turn
+  // fraction) whose parameters are half a turn apart (to 2^-40): the line through C's centre and P, its normal on the side
+  // of K's normal at P (the orientation of the circle it is the limit of). ctx: {idx}; G: perpForm's form. null: not that
+  function antipodeLine(ctx, pc, cr, ra, rb, P, G) {
+    if (!pc || pc.kind !== 'circle' || !pc.closed || pc.c3 || pc.arc3 || pc.seg || pc.a0 !== 0) return null;
+    const tOf = (r) => {
+      if (!r || typeof r.s !== 'string' || r.h || r.part != null) return null;
+      const e = ctx.idx.get(r.s), d = e && e.s.def;
+      if (!d || d.op !== 'glider' || !Array.isArray(d.args) || !d.args[0] || d.args[0].s !== cr.s || (d.args[0].part | 0) !== (cr.part | 0)) return null;
+      return Number.isFinite(e.s.t) ? e.s.t : null;
+    };
+    const ta = tOf(ra), tb = tOf(rb);
+    if (ta == null || tb == null) return null;
+    const dt = tb - ta, f = dt - Math.floor(dt);
+    if (!(Math.abs(f - 0.5) <= Math.pow(2, -40))) return null;
+    const o = pc.c, v = sub(P, o), L = abs(v);
+    if (!(L > 0)) return null;
+    let n = [-v[1] / L, v[0] / L];
+    if (n[0] * G.B[0] + n[1] * G.B[1] < 0) n = [-n[0], -n[1]];
+    return gc(0, n, 0, o);
+  }
+  // (cos 2 pi u, sin 2 pi u) for u in [0, 1): reduced to a half turn and a quarter turn first
+  function turnCS(u) {
+    let sg = 1;
+    if (u >= 0.5) { u -= 0.5; sg = -1; }
+    let c, s;
+    if (u < 0.25) { if (u === 0) { c = 1; s = 0; } else { const a = TAU * u; c = Math.cos(a); s = Math.sin(a); } }
+    else { const v = u - 0.25; if (v === 0) { c = 0; s = 1; } else { const a = TAU * v; c = -Math.sin(a); s = Math.cos(a); } }
+    return [sg * c + 0, sg * s + 0];
+  }
+  // ---------------------------------------------------------------- [v16.5 rail] the grid lattice and the pull off a rail
+  // the finest drawn grid tier at least 14 px apart (gl.js drawGrid's tiers: 0.5, 1, 5, 10, 50, 100 times d0)
+  const GRID_TIERS = [0.5, 1, 5, 10, 50, 100];
+  function gridStep(s) {
+    if (!(s > 0)) return 1;
+    const d0 = Math.pow(10, Math.ceil(Math.log10(8 / s)));
+    for (const m of GRID_TIERS) if (d0 * m * s >= 14) return +(d0 * m).toPrecision(12);
+    return +(d0 * 100).toPrecision(12);
+  }
+  // [v16.5 fix rail-2, user-2] the detents may never quantize a rail: a circle drawn rPx px in radius takes the finest of
+  // 15°, 30°, 45° and 90° whose arc is at least 5 detent radii R on screen, so one detent's window covers at most 40 % of
+  // the rail (60 px per unit: 30° with a mouse, 90° with a finger, which then rests at 37°; 15° again zoomed in).
+  // {deg, R} | null (a circle too small for any). A line's lattice detents: R capped at a fifth of the step
+  const DETENT_DEG = [15, 30, 45, 90];
+  function angleDetent(rPx, R) {
+    if (!(rPx > 0) || !(R > 0)) return null;
+    for (const deg of DETENT_DEG) { const arc = rPx * deg * Math.PI / 180; if (arc >= 5 * R) return { deg, R: Math.min(R, 0.2 * arc) }; }
+    return null;
+  }
+  const latticeDetentR = (stepPx, R) => Math.max(0, Math.min(R, 0.2 * stepPx));
+  // the zones of a pull (SPEC 2.3), in screen px: glide below glide; stretch up to free; let go at free held for dwell
+  // ms, or at yank at once
+  const RAIL = { mouse: { glide: 16, free: 40, yank: 80 }, touch: { glide: 24, free: 64, yank: 128 }, dwell: 120 };
+  // railPull(state, d, now, touch) -> {zone: 'glide' | 'stretch' | 'free', state}: state is {since} (the time d first
+  // reached free in the current run) or null; pure
+  function railPull(state, d, now, touch) {
+    const R = touch ? RAIL.touch : RAIL.mouse;
+    if (!(d >= R.glide)) return { zone: 'glide', state: null };
+    if (d >= R.yank) return { zone: 'free', state: null };
+    if (d < R.free) return { zone: 'stretch', state: null };
+    const since = state && Number.isFinite(state.since) ? state.since : now;
+    return now - since >= RAIL.dwell ? { zone: 'free', state: null } : { zone: 'stretch', state: { since } };
   }
   function tRange(pc) {
     if (!pc || pc.kind === 'none') return [0, 0];
@@ -1712,6 +1783,8 @@
         const r = perpForm(Gc, P, Q, pc);
         if (r.undef) return fail(U(r.undef));
         let G = r.G;
+        // [v16.5 rail SPEC 3.4] P and Q gliders on C's own plain circle, half a turn apart by their parameters: the diameter
+        if (G.A !== 0 && !isInf(P) && !isInf(Q)) { const L = antipodeLine(ctx, pc, cr, args[1], args[2], P, G); if (L) G = L; }
         // at creation (SPEC 2.3, as circle3): the disc; a line keeps the left side of P -> Q
         if (def.flip == null) def.flip = !isInf(P) && !isInf(Q) && (G.A < 0 || (G.A === 0 && dot(geomOf(G).d, sub(Q, P)) < 0));
         if (def.flip) G = flipG(G);
@@ -2636,6 +2709,8 @@
     pieces, meets: (a, b) => (a && a.G ? meetsPieces(a, b) : meets(a, b)), meetNear, project2: projectPiece, projectPiece, glide, onPiece, tRange,
     resolve, graphOf: graph2, recompute, validate, deletePlan, zeroRemovePlan, applyFreed, moveRoots, describe,
     syncSteps, zpRemoveId, refKey, isPointRef, isCurveRef, OPS, POINT_OPS,
+    // v16.5 rail (notes/ux-build/rail/SPEC.md)
+    gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
     // v16 review fixes
     orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
     // v16.4: Inside C only (notes/orthogonal-circle/segments/SPEC.md)

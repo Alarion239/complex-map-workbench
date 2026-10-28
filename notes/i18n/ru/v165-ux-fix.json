@@ -1,0 +1,18 @@
+{
+ "_about": "v16.5 wave 1 fix round (notes/ux-build/w1-fix-AS-BUILT.md, built in work/xu1): the strings the fixes of the three wave 1 reviews added or changed. id -> {en, ru, note}. Read after every other v16.5 table (tools/make_ru_table.py, V165_FIX_HERE), so a changed Russian here wins. Terms: GLOSSARY.md. Edit by read-modify-write only.",
+ "construct.globe_curve": {
+  "en": "Switch to the plane to pick the curve",
+  "ru": "Переключитесь на плоскость, чтобы выбрать кривую",
+  "note": "rail-5: Intersect, Orthogonal, Touching and Hyperbolic on the Riemann sphere (their curves are picked in the plane). Chip line, 2 s."
+ },
+ "construct.pick_point_on": {
+  "en": "Pick a point (on {c} or anywhere)",
+  "ru": "Выберите точку (на кривой: {c} или в любом месте)",
+  "note": "user-6: the construction chip after the curve of Orthogonal or Hyperbolic is picked; {c} = the curve's name in the nominative («Окружность 1», «единичная окружность»), after «на кривой:» as elsewhere."
+ },
+ "probe.teach": {
+  "en": "Hold and slide to read F(z)",
+  "ru": "Удерживайте палец — F(z)",
+  "note": "user-4: the phone's scale chip, once a session for 8 s. The v16.5 plane piece's «Удерживайте и ведите палец, чтобы прочитать F(z)» was cut at 412 px before «F(z)», the point of it; this short form fits beside «2 / дел.»."
+ }
+}
