@@ -21,6 +21,7 @@ const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
+const { parts: srcParts } = require('../test/src_text');
 
 const PAGES = [
   { id: 'glsl', make: 'test/make_glsl_test.py', page: 'glsl-test.html' },
@@ -53,11 +54,11 @@ async function waitFor(B, expr, timeout) {
 }
 
 // what a page is built from: its builder, and the files the builder reads (the sources it names, its test file, the
-// fixtures), read from the builder itself so the list follows it
+// fixtures), read from the builder itself so the list follows it; a source kept as parts (gl.js) is its folder, src/gl
 function inputsOf(p) {
   const make = fs.readFileSync(path.join(ROOT, p.make), 'utf8');
   const files = [...new Set([...make.matchAll(/'([\w.]+\.js)'/g)].map((m) => m[1]))]
-    .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : `test/${n}`));
+    .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : srcParts(n) ? `src/${n.replace(/\.js$/, '')}` : `test/${n}`));
   return [p.make, 'ci/glsl.js', ...files, ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
 }
 

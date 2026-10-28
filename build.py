@@ -1,4 +1,5 @@
 import json, pathlib, re
+from tools.src_parts import source
 root = pathlib.Path(__file__).parent
 # UTF-8 and LF on every platform (Windows would read the locale's code page and write CRLF)
 def save(p, s):
@@ -7,23 +8,8 @@ def save(p, s):
 
 
 src = root / 'src'
-# app.js and gl.js are kept as ordered parts (issue #20, phase 2): src/<name>/wrap.js holds the closure's first and
-# last lines around an "// @parts" line, and the parts src/<name>/NN-*.js take that line's place, joined in file name
-# order. The joined text is the old file byte for byte (test/src_text.js joins them the same way for the tests)
-PARTS_RE = re.compile(r'^ *// @parts\b.*\n', re.M)
-
-
-def source(f):
-    d = src / f.removesuffix('.js')
-    if not (d / 'wrap.js').is_file():
-        return (src / f).read_text(encoding='utf-8')
-    wrap = (d / 'wrap.js').read_text(encoding='utf-8')
-    m = PARTS_RE.search(wrap)
-    assert m, f'{d}/wrap.js: no // @parts line'
-    return wrap[:m.start()] + ''.join(p.read_text(encoding='utf-8') for p in sorted(d.glob('[0-9][0-9]-*.js'))) + wrap[m.end():]
-
-
 page = (src / 'page.html').read_text(encoding='utf-8')
+# app.js and gl.js are kept as ordered parts, src/app/ and src/gl/ (issue #20, phase 2): source() joins them
 js = '\n'.join(source(f) for f in ['cx.js', 'parse.js', 'funcs.js', 'homrange.js', 'inverse.js', 'recognize.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'curves.js', 'sphere.js', 'palette.js', 'gl.js', 'view.js', 'figure.js', 'sound.js', 'tour.js', 'inspector.js', 'planemenu.js', 'construct.js', 'params.js', 'phone.js', 'seasong.js', 'app.js'])
 # v15 desktop (notes/ui-redesign-2/build/desktop.md): the redesign's styles close the page's stylesheet
 _i = page.rindex('</style>')
