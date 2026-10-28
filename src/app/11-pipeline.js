@@ -47,6 +47,7 @@
   // (review v16 verify-1) the phone's Deformed steps row lives in the Display sheet once moved there, so a rebuilt
   // dock does not replace it: every such row follows the bracket here (its selects and its 'from ...' line)
   function syncRangeRows() {
+    for (const b of document.querySelectorAll('.tsteps')) { const t = stepsLabel(); if (b.textContent !== t) b.textContent = t; }
     const rows = document.querySelectorAll('.trange');
     if (!rows.length) return;
     const r = homRangeOk() || { a: 1, b: nSteps() };

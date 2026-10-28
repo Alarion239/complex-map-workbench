@@ -445,12 +445,12 @@ if (RUN.includes(6)) {
     const cover = await ev(`(() => { const p = document.querySelector('#paneR .plot') || document.getElementById('paneR'); const pr = p.getBoundingClientRect(); const hit = []; for (const e of document.querySelectorAll('#chainBracket, #chainBracket *, .tfix, .trange')) { const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue; if (r.left < pr.right && r.right > pr.left && r.top < pr.bottom && r.bottom > pr.top && getComputedStyle(e).display !== 'none' && !e.closest('.ph-sheet, .sheet')) hit.push(e.className); } return hit; })()`);
     ok(`phone ${tag}: nothing new covers the planes`, cover.length === 0, cover);
     await snap(`phone-${tag}`);
-    // the Display sheet's Deformed steps row
-    const opened = await ev(`(() => { if (typeof Phone !== 'undefined' && Phone.open) { Phone.open('display'); return 2; } return 0; })()`);
+    // the Steps picker's Deformed steps row
+    const opened = await ev(`(() => { const b = document.getElementById('stepsBtn'); if (b) { b.click(); return 2; } return 0; })()`);
     await settle(700);
     const row = await ev(`(() => { const r = document.querySelector('.trange'); if (!r) return null; const rr = r.getBoundingClientRect(); const s = [...r.querySelectorAll('select')]; const sheet = r.closest('[class*="sheet"]') || r.parentElement; const lab = r.querySelector('.tr-label').getBoundingClientRect(), s0 = s[0].getBoundingClientRect(); return { vis: rr.width > 0 && getComputedStyle(r).display !== 'none', h: s.map((x) => Math.round(x.getBoundingClientRect().height)), sel: s.map((x) => x.value), labAbove: lab.bottom <= s0.top + 1, over: sheet ? sheet.scrollWidth - sheet.clientWidth : 0, rw: rr.width, vw: innerWidth }; })()`);
     info['phoneRow' + tag] = row;
-    ok(`phone ${tag}: the Deformed steps row with two 44 px selects`, row && row.vis && row.h.length === 2 && row.h.every((x) => x >= 44), { row, opened });
+    ok(`phone ${tag}: the Steps picker's Deformed steps row with two 44 px selects`, row && row.vis && row.h.length === 2 && row.h.every((x) => x >= 44), { row, opened });
     ok(`phone ${tag}: the row does not overflow`, row && row.over <= 0 && row.rw <= row.vw, row);
     if (lang === 'ru' && w === 360) ok(`phone ${tag}: the label wraps above the selects`, row && row.labAbove, row);
     await snap(`phone-display-${tag}`);
