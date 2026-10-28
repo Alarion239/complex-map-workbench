@@ -365,8 +365,7 @@ const row = await ev(`(() => { const s = document.querySelector('.tour-strip'), 
 check('phone: × End in the portrait row (44 px), a chevron after the count, Next an arrow named "Next"', row.x && row.chev && row.next === 'Next' && row.w >= 44, row);
 // user-1: the chain, the card then the lens in the sheet: ticked, nothing holds it, the sheet's × works, moves on
 await go('basics', 7);
-// (the chain bar scrolls between the pinned Numbers and + | F: the card is brought clear of them first, as a finger would)
-await ev(`document.querySelector('#pipeline .card[data-k="1"]').scrollIntoView({ block: 'nearest', inline: 'nearest' })`); await settle(200);
+// (the tour has scrolled the lit card clear of the chain bar's pinned + and F)
 const c1 = await center('#pipeline .card[data-k="1"]');
 await tap(c1[0], c1[1]); await settle(1000);
 const ln = await center('#propsPanel .insp-step .ihead .alone-btn');

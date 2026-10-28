@@ -6,9 +6,9 @@ ships, and CI does not run it.
     pip install python-flint
     python3 tools/arb_reference.py [-o notes/arb/reference.json] [--prec 256]
 
-Each point is evaluated at --prec bits (default 256); every value is a ball, its midpoint written with 40 significant
-digits and its radius, so a comparison can check that the radius is far below a double's rounding (it is, by about 60
-orders of magnitude at 256 bits). A value beyond the double range is written "overflow". A value whose ball contains a branch cut or a pole is written null: the point sits on
+Each point is evaluated at --prec bits (default 256), and at 4 and 16 times that where a component is far smaller than
+the other; every value is a ball, its midpoint written with 40 significant digits and its radius, and each component
+is known to 30 digits (or is below the smallest double). A value beyond the double range is written "overflow". A value whose ball contains a branch cut or a pole is written null: the point sits on
 it, and the function's side there is a convention, not a number to certify. tools/arb_compare.js compares cx.js and
 funcs.js with this file.
 """
@@ -80,18 +80,23 @@ def steps():
     }
 
 
+def tight(x):
+    """an arb component known to 30 digits, or so small that a double holds it as 0"""
+    m, r = abs(float(x.mid())), float(x.rad())
+    return r <= 1e-30 * m or m + r < 1e-320
+
+
 def ball(v):
-    """(midpoint re, im as 40-digit strings, radius) of an acb, or None when it is not finite or not tight"""
+    """(midpoint re, im as 40-digit strings, radius) of an acb; 'overflow'; or None when it is not finite or a
+    component is not tight (the caller retries at a higher precision)"""
     if not v.is_finite():
         return None
     re, im = v.real, v.imag
     if math.isinf(float(re.mid())) or math.isinf(float(im.mid())):
         return 'overflow'   # (beyond the double range: a double can only be infinite here)
-    rad = max(float(re.rad()), float(im.rad()))
-    mag = max(abs(float(re.mid())), abs(float(im.mid())), 1e-308)
-    if rad > 1e-30 * mag:   # (a ball this wide straddles a cut or a pole: no certified number)
+    if not (tight(re) and tight(im)):
         return None
-    return [re.mid().str(40, radius=False), im.mid().str(40, radius=False), rad]
+    return [re.mid().str(40, radius=False), im.mid().str(40, radius=False), max(float(re.rad()), float(im.rad()))]
 
 
 def main():
@@ -105,10 +110,18 @@ def main():
     for sid, f in steps().items():
         vals = []
         for _, x, y in PTS:
-            try:
-                vals.append(ball(f(C(x, y))))
-            except (ZeroDivisionError, ValueError):
-                vals.append(None)
+            # (a component far below the other, e.g. 1e-300 next to 0.35, needs more bits than --prec: up to 16x, then
+            # null: a ball still this wide straddles a cut or a pole)
+            v = None
+            for prec in (o.prec, 4 * o.prec, 16 * o.prec):
+                flint.ctx.prec = prec
+                try:
+                    v = ball(f(C(x, y)))
+                except (ZeroDivisionError, ValueError):
+                    v = None
+                if v is not None:
+                    break
+            vals.append(v)
         out['steps'][sid] = vals
     p = pathlib.Path(o.out)
     p.parent.mkdir(parents=True, exist_ok=True)

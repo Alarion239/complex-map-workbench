@@ -126,7 +126,11 @@ function probe(ctx, dir) {
 
 const base = load(BASE, MODS);
 const now = load(path.join(ROOT, 'src'), ['i18n', 'i18n_ru', ...MODS]);
-const a = probe(base, BASE), b = probe(now, path.join(ROOT, 'src'));
+const a = probe(base, BASE);
+// (catalog steps added since the base, e.g. Γ and ζ (issue #4), have nothing to compare with: their outputs are left out)
+const newIds = Object.keys(vm.runInContext('Funcs.DEFS', now)).filter((id) => !Object.prototype.hasOwnProperty.call(vm.runInContext('Funcs.DEFS', base), id));
+const isNew = (label) => newIds.some((id) => label === `def ${id}` || label.startsWith(`${id}#`));
+const b = probe(now, path.join(ROOT, 'src')).filter(([label]) => !isNew(label));
 let fails = 0;
 // (v16.5 UX84, an intended change of the English: a typed step is a "Formula", no longer a "Custom formula";
 // notes/ux-build/w1-chain-AS-BUILT.md)
@@ -152,7 +156,7 @@ const ruCtx = (() => {
   }
   return ctx;
 })();
-const r = probe(ruCtx, path.join(ROOT, 'src'));
+const r = probe(ruCtx, path.join(ROOT, 'src')).filter(([label]) => !isNew(label));
 const shape = (v) => { if (v.startsWith('THROW')) return 'THROW'; try { return JSON.stringify(JSON.parse(v), (k, x) => (typeof x === 'string' ? '' : x)); } catch (e) { return 'str'; } };
 let ruDiff = 0, ruText = 0;
 for (let i = 0; i < Math.min(b.length, r.length); i++) {

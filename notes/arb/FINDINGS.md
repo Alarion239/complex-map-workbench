@@ -17,7 +17,7 @@ the single HTML file.
   `notes/arb/reference.json`. The hard points sit near zeros, poles, branch points and both sides of cuts, at tiny and
   huge |z|, just off the unit circle, near the real zeros of sin and the poles of tan, and where exp nearly over- or
   underflows. Each value is a ball (midpoint with 40 digits, radius ~1e-76); a ball that straddles a cut or a pole is
-  written null, a value past the double range "overflow". 1018 of the 1020 values are certified.
+  written null, a value past the double range "overflow". All 1020 values are certified (a component far below the other is retried at 4 and 16 times the precision).
 - `tools/arb_compare.js`: builds each step with `Funcs.build` (the app's CPU path, `cx.js` underneath), evaluates it at
   the same doubles, and reports the worst error per step in ulp (units of 2^-52):
   - **normwise**: |f − ref| / |ref|, what matters for drawing a point;
@@ -93,6 +93,43 @@ with the wrong size, where the truth is nonzero. Every case above 10 ulp was che
 
 So the CPU maths needs precision in five known places, and a double-precision fix exists for each: `log1p`, small-|z|
 series, factored forms. None of these needs ball arithmetic at runtime.
+
+## Fixed, and waiting (the precision follow-up)
+
+The CPU and the GPU must agree: the GLSL conformance pages (ci/glsl.js) compare the shaders with `cx.js` and
+`funcs.js`, so a CPU formula changes only together with its GLSL twin, and only where the twin can change the same way
+cheaply and safely on Direct3D 11 and Metal. A first attempt fixed all five places on the CPU alone; the paired GLSL
+pages then counted more GPU-vs-CPU mismatches (a twelve-step chain of the inverse functions: 32 failed values against
+12), so they were taken back. The sixth, the power's angle by quarter turns, went to both: on Direct3D 11 its GLSL
+twin counted more mismatches than the reference on the paired adv page (z^{1/4096}: about 290 values), so it was
+taken back too and nothing of cx.js or glsl.js changes yet.
+
+**Waiting for a GPU twin that is bit-safe on Direct3D 11 and Metal:** the small part of a power next to its cut
+(finding 5). `CX.powReal` and `cpowr` would take the angle as whole quarter turns plus a remainder from the component
+ratio, with exact cos and sin of the quarter turns: √ and z^1.5 would keep their tiny component next to the cut, and
+√(−1) would be exactly −i. On D3D11 the twin's atan of the ratio and the floor of the turns did not match the CPU
+closely enough (PR #110, GLSL windows adv).
+
+**Waiting for a float log1p and an error-free product on the GPU** (WebGL2 has neither `log1p` nor `fma`, and a
+shader compiler may fuse a Dekker split into an fma, which breaks it); each was written and measured on the CPU, then
+reverted:
+
+- **log near |z| = 1**: Re log z = ½ log1p(|z|² − 1), |z|² − 1 summed error-free (normwise 1.6e7 → 0.8 ulp).
+- **The inverse functions at small arguments**: a complex log1p for asin, atan and acosh near their zero; acos near 1
+  as 2 asin √((1 − z)/2); Im atan z as ¼ log1p(4y / (x² + (1 − y)²)) where that ratio is small (arcsin 4e11 → 32,
+  arctan 1.5e11 → 0.7, artanh 4.5e15 → 0.9 ulp).
+- **Just off the real segment** (or the imaginary axis): f(x) + i y f′(x), exact to double there. Cheap on the GPU
+  (GLSL ES 3.0 has the real inverse functions), but it changes the side small noise lands on in long chains, which
+  the twelve-step chain counted; it should come with the rest.
+- **Compensated Horner** for the polynomial and rational steps (poly 2.3e6 → 0.0 ulp): its twin needs an error-free
+  product in float.
+- **Joukowski** with r² − 1 summed error-free (2.5e8 → 1.0 ulp); the factored (z − i)(z + i)/(2z) would be cheap on
+  both and fixes the normwise loss, if wanted on its own.
+
+`test/t_arb_reference.js` gates every step against `reference.json` with limits that only tighten: today's numbers,
+the five above included, so a change that makes any step worse fails, and each fix above lowers its limits.
+The reference now raises the precision where one component is far below the other (it had certified a Re of
+~1e-300 at 256 bits that only 1024 bits resolve): all 1020 values certify.
 
 ## Speed (measured, this container, one core)
 
