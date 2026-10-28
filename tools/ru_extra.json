@@ -9,7 +9,11 @@
  "Points renumbered.": "Точки перенумерованы.",
  "The zeros and poles are numbered in order already.": "Нули и полюсы уже пронумерованы по порядку.",
  "Zeros and poles renumbered.": "Нули и полюсы перенумерованы.",
+ "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Касание пунктирной касательной или кнопка «Касательная» даёт касательную, касание кольца — касательную из точки. Кривая остаётся выбранной для следующей.",
  "this formula has no usable point to zoom about, so it has no natural path": "у этой формулы нет подходящего центра для масштабирования, поэтому естественного пути нет",
+ "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной или кнопка «Касательная» даёт касательную, щелчок по кольцу — касательную из точки. Кривая остаётся выбранной для следующей.",
+ "Tangent line": "Касательная",
+ "The tangent at {a} (Enter)": "Касательная в точке {a} (Enter)",
  "{n} times\u0004{n} times": {
   "one": "%{n} раз",
   "few": "%{n} раза",

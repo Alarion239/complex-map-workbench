@@ -55,9 +55,10 @@ I changed these points:
    same Region controls as perp, and its half-plane (when it is a line for an instant) reuses "the half-plane left of
    {a} → {b}" through `hpOrder`.
 6. **`NEED.touch = 2`, as perp:** the curve is `draftC.curve1`.
-7. **The tangent hint is picked at the curve radius**, 6 px (mouse) or 10 px (touch), as every stroke is. DESIGN's
-   8 or 22 px would make a 44 px band across the whole pane swallow taps meant for a free point. The rings use the
-   point radius, 8 or 22 px.
+7. **The tangent hint is picked at the point radius**, 8 px (mouse) or 22 px (touch), as the rings are (issue #12).
+   The curve radius, 6 or 10 px, was too thin a target for a dashed line at 50 % opacity, and a click just outside it
+   made a huge touching circle. Along the tangent the hint is the only meaningful target; Alt skips it to place a free
+   point there.
 8. **A second point on C is refused after T** ("Click a point off {c}."). If T and P are both on C, K is C itself.
 9. **The `inside` reason has no names**, as perp's `pencil`: "The point is inside the circle, so no line through it
    touches the circle".
@@ -171,9 +172,13 @@ All comparisons go through `canonKey`, so bound handles count. A free point that
    Otherwise X is P.
 3. **After T.**
    - Candidates, in order: point and crossing targets; then the **tangent hint**; then strokes; then a free point.
-     - The hint exists only when C's piece is a circle. It is the line `touchForm(Gc, T, INF)`, picked within the
-       curve radius.
-     - The hint gives P = `{inf: 1}`. Alt, or Snap off, skips it.
+     - The hint exists only when C's piece is a circle. It is the line `touchForm(Gc, T, INF)`
+       (`Constr.tangentNear`), picked within the point radius.
+     - The hint gives P = `{inf: 1}`. It is a target, not a snap: Snap off keeps it. Alt skips it.
+   - The tangent in one step, without aiming at the line: the chip's **Tangent line** button, or **Enter**.
+   - A P within 0.5 px of the tangent at T (`TAN_EPS`, as with Alt) makes the tangent, `touch(C, T, ∞)`, not a circle
+     of radius ~10¹⁶. The guard is in `finishTouch`; `constr.js` evaluates `touch(C, T, P)` as it is, continuous as P
+     crosses the tangent.
    - A pick on C (by the T test) shows the toast "Click a point off {c}." and keeps the draft.
 4. **After P.**
    - **Rings** exist when C's piece is a circle and P is outside it. They are `tangentForm(Gc, P, 0 | 1).tp`, picked
@@ -192,7 +197,8 @@ All comparisons go through `canonKey`, so bound handles count. A free point that
 
 - Before the curve: perp's "Pick a line or a circle · Touching circle · Esc cancels".
 - No point yet: "Point 1 of 2 · …".
-- After T: "Point 2 of 2, or the tangent · …", or perp's "Point 2 of 2" when C is a line.
+- After T: "Point 2 of 2, or the tangent · …" and the **Tangent line** button, or perp's "Point 2 of 2" when C is a
+  line.
 - After P: "Touching point on {c} · …".
 - A narrow pane or touch shows the tile text and drops "Esc cancels".
 
@@ -242,7 +248,8 @@ cancels. All of this is as perp.
 |---|---|---|
 | Touching circle | Касающаяся окружность | tool name |
 | Touching | Касание | tile, like «Пере­сечение» |
-| Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one. | Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной даёт касательную, по кольцу — касательную из точки. Кривая остаётся выбранной для следующей. | tooltip |
+| Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one. | Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной или кнопка «Касательная» даёт касательную, щелчок по кольцу — касательную из точки. Кривая остаётся выбранной для следующей. | tooltip |
+| Tangent line | Касательная | chip button after T |
 | Touching circle… | Касающаяся окружность… | plane menu |
 | Point {n} of {m}, or the tangent | Точка {n} из {m} или касательная | chip after T |
 | Touching point on {c} | Точка касания на кривой: {c} | chip after P [C26] |
@@ -371,7 +378,7 @@ section 5.
 - Phone 390 × 844, Android Chrome user agent, touch:
   - More tools shows 6 Construct tiles, and a tile closes the sheet;
   - the hint and the rings are drawn without hover;
-  - a tap within 10 px picks the hint, and within 22 px picks a ring;
+  - a tap within 22 px picks the hint or a ring;
   - the chip's ×;
   - Russian.
 

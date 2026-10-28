@@ -2327,6 +2327,18 @@
     const G = gc(a, [bx, by], 0, o);
     return G ? { G, tp: T.slice() } : { undef: 'coincide' };
   }
+  // tangentNear(Gc, T, Z): the tangent at T to the circle Gc as a click target of the touching circle (TANGENT-SPEC.md
+  // 4): {G, z, d}, the tangent, the foot of Z on it and Z's distance to it (world units). null: Gc a line or no tangent
+  function tangentNear(Gc, T, Z) {
+    if (!Gc || Gc.A === 0 || isInf(T) || isInf(Z)) return null;
+    const r = touchForm(Gc, T, INF);
+    if (!r.G) return null;
+    const g = geomOf(r.G), L = Math.hypot(g.d[0], g.d[1]);
+    if (!(L > 0)) return null;
+    const u = [g.d[0] / L, g.d[1] / L], w = sub(Z, g.p), tt = dot(w, u);
+    const z = [g.p[0] + tt * u[0], g.p[1] + tt * u[1]];
+    return { G: r.G, z, d: Math.hypot(Z[0] - z[0], Z[1] - z[1]) };
+  }
   // tangentForm(Gc, P, k): the line through P touching the circle Gc; k = 0 touches left of the ray P -> centre, k = 1
   // right. B', s^2 = A f(P), N^2 = |B'|^2 - s^2 exact; n = (N B' + sg s J B') / |B'|^2. A line Gc: its parallel, at INF
   function tangentForm(Gc, P, k) {
@@ -2751,7 +2763,7 @@
     // v16.5 rail (notes/ux-build/rail/SPEC.md)
     gridStep, GRID_TIERS, DETENT_DEG, angleDetent, latticeDetentR, RAIL, railPull, turnCS, antipodeLine,
     // v16 review fixes
-    orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
+    orientD, projectForm, pieceDist, pieceBox, pts3, perpForm, touchForm, tangentForm, tangentNear, onCurveByRefs, touchAt, setFlip, wouldCycle, dragRoots, idReplacer, referencedSteps,
     // v16.4: Inside C only (notes/orthogonal-circle/segments/SPEC.md)
     segOf, segAt, segSideOf, segSides, setSeg, segCurves, mirrorIn, gcOf, onCarrier,
     get lastRecompute() { return lastRecompute; },

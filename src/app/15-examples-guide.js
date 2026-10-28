@@ -891,7 +891,7 @@
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
       polygon: () => $t('Tap the vertices; tap the first one to close.'),
       meet: () => $t('Tap a crossing of two curves, or one curve and then another.'),
-      touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
+      touch: () => $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Tap the dashed tangent or Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'),
     };
     const show = (el) => {
       const text = el.getAttribute('data-tip');
