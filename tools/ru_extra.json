@@ -131,5 +131,7 @@
  "Name of {label}": "Имя: %{label}",
  "\\text{left of the line from } %{a} \\text{ to } %{b}": "\\text{слева от прямой из } %{a} \\text{ в } %{b}",
  "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
- "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)"
+ "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
+ "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
+ "Written in short; the field below holds the formula in full.": "Записано кратко; поле ниже содержит формулу целиком."
 }
