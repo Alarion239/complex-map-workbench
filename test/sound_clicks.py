@@ -12,7 +12,12 @@
 # channels; the first and last 30 ms are skipped). Reported per file: clicks, the worst level (dB re the full-band RMS),
 # counts per level band, the HF background, and (with the .json event log) where clicks fall relative to the pointer
 # events. The same metric on a clean reference (per-sample synthesis) and on injected steps calibrates it (--selftest).
-import numpy as np, sys, os, glob, json
+import glob
+import json
+import os
+import sys
+
+import numpy as np
 
 def load(p):
     return np.fromfile(p, dtype=np.float32).reshape(-1, 2).astype(np.float64)
@@ -62,8 +67,8 @@ def detect(x, fs, crest_db=12.0, floor_db=-60.0, B=64, skip=0.03):
 def bands(cl):
     b = {'-60..-50': 0, '-50..-40': 0, '-40..-30': 0, '>=-30': 0}
     for c in cl:
-        l = c[2]
-        b['>=-30' if l >= -30 else '-40..-30' if l >= -40 else '-50..-40' if l >= -50 else '-60..-50'] += 1
+        lvl = c[2]
+        b['>=-30' if lvl >= -30 else '-40..-30' if lvl >= -40 else '-50..-40' if lvl >= -50 else '-60..-50'] += 1
     return b
 
 def main():
