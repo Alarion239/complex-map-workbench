@@ -1046,6 +1046,8 @@ const Funcs = (() => {
           else ast = div(polyAst(CX.polyTrim(polySub(polyMul(polyDer(P), Q), polyMul(P, polyDer(Q))))), sq(polyAst(Q)));
           break;
         }
+        // ([issue #5] a series step: its formula, term by term)
+        case 'series': ast = Expr.diff(b.ast); cut = 180; break;
         case 'custom': {
           cut = v.cut;
           const src = Expr.parse(v.expr);
@@ -1627,6 +1629,58 @@ const Funcs = (() => {
         ...(part ? { inverse: null } : customInverse(ast, th)),
       };
       if (rec) asChain(r, rec);
+      // [issue #5] where its series converge: dashed circles (|z − c| = R, and r for a Laurent series) or the line
+      // Re z = σ, drawn with the cuts, and the domain in words; R, r and σ are estimated from the coefficients
+      const si = !rec && Expr.hasSeries(ast) ? Expr.seriesInfo(ast) : [];
+      if (si.length) {
+        const fx = (x) => CX.texNum(Number(x.toPrecision(2)), 4);
+        const disc = (v, c) => { const t = CX.tex(c); return CX.isZero(c) ? `\\left|${v}\\right|` : `\\left|${v}-${Expr.compoundTex(t) || t.startsWith('-') ? paren(t) : t}\\right|`; };
+        const parts = [];
+        r.cuts = [];
+        for (const x of si) {
+          if (x.kind === 'dirichlet') { r.cuts.push({ kind: 'vline', x: x.sigma }); parts.push((v) => `\\operatorname{Re} ${v}>\\sigma\\approx ${fx(x.sigma)}`); continue; }
+          const R = Number.isFinite(x.R) ? x.R : null, rr = x.r > 0 ? x.r : null;
+          if (R) r.cuts.push({ kind: 'circle', c: x.c, r: R });
+          if (rr) r.cuts.push({ kind: 'circle', c: x.c, r: rr });
+          if (R || rr) parts.push((v) => `${rr ? `r\\approx ${fx(rr)}<` : ''}${disc(v, x.c)}${R ? `<R\\approx ${fx(R)}` : ''}`);
+        }
+        if (parts.length) r.domain = (v) => parts.map((g) => g(v)).join(',\\ ');
+      }
+      return r;
+    },
+  });
+  // [issue #5] a series: a power series Σ a_n (z − c)^n, a Laurent series Σ_{n ∈ ℤ} a_n (z − c)^n or a Dirichlet series
+  // Σ a_n n^{−z}, from the formula a_n in n; built as the formula it writes (Expr's series: its values, the region where
+  // it converges, drawn with the cuts, and the GPU's coefficients)
+  const seriesExpr = (kind, an, c) => {
+    // (c arrives as a number: a 'cx' parameter is read by build)
+    const cv = c && typeof c === 'object' ? c : C(0, 0);
+    if (!CX.isFin(cv)) throw new Error($t('The centre c must be a number'));
+    const a = `\\left(${an}\\right)`, w = CX.isZero(cv) ? 'z' : `\\left(z-\\left(${CX.tex(cv)}\\right)\\right)`;
+    if (kind === 'dirichlet') return `\\sum_{n=1}^{\\infty} ${a}\\,n^{-z}`;
+    if (kind === 'laurent') return `\\sum_{n\\in\\mathbb{Z}} ${a}\\,${w}^{n}`;
+    // (from n = 1 when a_0 is undefined, as for 1/n²)
+    let a0 = null;
+    try { a0 = Expr.compile(Expr.parse(`\\sum_{n=0}^{0} ${a}`))(C(0, 0)); } catch (e) { a0 = null; }
+    return `\\sum_{n=${a0 && CX.isFin(a0) ? 0 : 1}}^{\\infty} ${a}\\,${w}^{n}`;
+  };
+  def({
+    id: 'series', group: $t('Polynomial & custom'), label: $t('Series'), menuTex: '\\sum a_n (z-c)^n',
+    params: [
+      { key: 'kind', label: $t('kind'), type: 'choice', def: 'power', choices: [['power', $t('power series')], ['laurent', $t('Laurent series')], ['dirichlet', $t('Dirichlet series')]] },
+      { key: 'an', label: 'a_n =', type: 'seq', def: '\\frac{1}{n!}' },
+      { key: 'c', label: 'c =', type: 'cx', def: '0' },
+    ],
+    build({ kind, an, c }) {
+      if (!String(an || '').trim()) throw new Error($t('Write the coefficients a_n as a formula in n'));
+      const r = DEFS.custom.build({ expr: seriesExpr(kind, an, kind === 'dirichlet' ? null : c), cut: 180 });
+      if (!Expr.seriesInfo(r.ast).length) throw new Error($t('The coefficients a_n must not depend on z'));
+      r.usesCut = false;
+      r.inverse = null;
+      // (its TeX simplified: a_n = 1 writes n^{−z}, not 1·n^{−z})
+      const sa = Expr.simplify(r.ast);
+      r.tex = (x) => Expr.toTex(sa, x);
+      r.inverseNote = $t('A series takes most values many times, so it has no single inverse; {note}', { note: NOTE_PRE });
       return r;
     },
   });

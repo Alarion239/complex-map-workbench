@@ -277,6 +277,10 @@
     sum('finite binomial', '\\sum_{k=0}^{5} \\binom{5}{k} z^k');
     sum('d/dz e^z 0.2z+1', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}', [S('affine', { a: '0.2', b: '1' })]);
     chains[chains.length - 1].steps.push(S('deriv'));
+    // the Series step (a power series about a centre, a Laurent and a Dirichlet series from their a_n)
+    add('series step power 1/n^2 about 0.5', [S('series', { kind: 'power', an: '\\frac{1}{n^2}', c: '0.5' })]);
+    add('series step Laurent', [S('series', { kind: 'laurent', an: '\\frac{1}{2^{|n|}+n^2}', c: '0' })]);
+    add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
   }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 

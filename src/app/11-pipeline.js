@@ -635,7 +635,7 @@
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;
-    const wide = q.type === 'expr' || q.type === 'coeffs';
+    const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
     const sym = PSYM[q.key];
     const labelText = sym ? sym[0] : q.label;
     // (v16.5 UX33: a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,

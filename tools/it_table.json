@@ -2988,5 +2988,16 @@
  "{x} is the index of a sum: use it inside the sum": "{x} è l'indice di una somma: usalo dentro la somma",
  "The limits of a sum must not depend on z": "Gli estremi di una somma non devono dipendere da z",
  "A product of infinitely many factors cannot be differentiated here": "Un prodotto di infiniti fattori non si può derivare qui",
- "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Una somma o un prodotto di molti termini non si risolve qui rispetto a z; la vista delle controimmagini mostra ogni soluzione di f(z) = w"
+ "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Una somma o un prodotto di molti termini non si risolve qui rispetto a z; la vista delle controimmagini mostra ogni soluzione di f(z) = w",
+ "The centre c must be a number": "Il centro c deve essere un numero",
+ "Series": "Serie",
+ "kind": "tipo",
+ "power series": "serie di potenze",
+ "Laurent series": "serie di Laurent",
+ "Dirichlet series": "serie di Dirichlet",
+ "Write the coefficients a_n as a formula in n": "Scrivi i coefficienti a_n come formula in n",
+ "The coefficients a_n must not depend on z": "I coefficienti a_n non devono dipendere da z",
+ "A series takes most values many times, so it has no single inverse; {note}": "Una serie assume la maggior parte dei valori molte volte, quindi non ha un'inversa unica; {note}",
+ "A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges": "Una serie di potenze, di Laurent o di Dirichlet dai coefficienti aₙ; disegnata dove converge",
+ "series sum power series taylor laurent dirichlet coefficients sigma Σ": "serie somma serie di potenze taylor laurent dirichlet coefficienti sigma Σ"
 }

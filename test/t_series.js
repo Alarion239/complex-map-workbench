@@ -126,5 +126,25 @@ const b0 = Funcs.build({ type: 'custom', params: { expr: E1, cut: 180 }, on: tru
 check('a Formula step with e^z as a series builds, analytic and not claimed entire', b0 && !b0.error && b0.props.analytic && !b0.props.entire, b0 && (b0.error || b0.props));
 close('… and maps like e^z', b0.f(C(1, 1)), CX.exp(C(1, 1)), 1e-12);
 
+// ---- 11. the Series step: power (from n = 1 when a_0 is undefined), Laurent and Dirichlet; its region drawn as cuts and
+// written as the domain; its derivative term by term; its errors
+const sb = (p) => Funcs.build({ type: 'series', params: Object.assign({ kind: 'power', an: '\\frac{1}{n!}', c: '0' }, p), on: true });
+let s1 = sb({});
+close('Series step: e^z from a_n = 1/n!', s1.f(C(1, 1)), CX.exp(C(1, 1)), 1e-12);
+check('… no circle (R = ∞), no inverse, a note', !s1.cuts.length && !s1.inverse && /many times/.test(s1.inverseNote), s1.cuts);
+s1 = sb({ an: '\\frac{1}{n^2}', c: '1' });
+close('Series step: Li₂(z − 1) about c = 1, from n = 1', s1.f(C(1.5, 0)), at('\\sum_{n=1}^{\\infty} \\frac{z^n}{n^2}', C(0.5, 0)), 1e-12);
+check('… its circle |z − 1| = R ≈ 1, and its domain', s1.cuts.length === 1 && s1.cuts[0].kind === 'circle' && Math.abs(s1.cuts[0].r - 1) < 0.01 && rel(s1.cuts[0].c, C(1, 0)) < 1e-15 && /\\left\|z-1\\right\|<R\\approx 1/.test(s1.domain('z')), [s1.cuts, s1.domain('z')]);
+s1 = sb({ kind: 'laurent', an: '\\frac{1}{2^{|n|}}' });
+check('Series step: a Laurent series on the annulus 1/2 < |z| < 2 (two circles)', s1.cuts.length === 2 && /r\\approx 0\.5<\\left\|z\\right\|<R\\approx 2/.test(s1.domain('z')), [s1.cuts, s1.domain('z')]);
+s1 = sb({ kind: 'dirichlet', an: '1' });
+close('Series step: ζ as a Dirichlet series', s1.f(C(2, 1)), CX.zeta(C(2, 1)), 1e-9);
+check('… the line Re z = σ = 1, its TeX n^{−z}', s1.cuts.length === 1 && s1.cuts[0].kind === 'vline' && s1.cuts[0].x === 1 && s1.tex({ s: 'z', p: 4 }).s === '\\sum_{n=1}^{\\infty} n^{-z}', [s1.cuts, s1.tex({ s: 'z', p: 4 }).s]);
+const ds = Funcs.derivAst(sb({}));
+close('Series step: its derivative term by term (e^z)', Expr.compile(ds.ast)(C(0.3, 0.4)), CX.exp(C(0.3, 0.4)), 1e-12);
+check('Series step: a_n with z is refused', /must not depend on z/.test(sb({ an: 'z' }).error || ''), sb({ an: 'z' }).error);
+check('Series step: an empty a_n is refused', /formula in n/.test(sb({ an: '' }).error || ''), sb({ an: '' }).error);
+check('Series step: in the catalog with its words for the palette', Funcs.DEFS.series && Funcs.DEFS.series.params.map((q) => q.key).join() === 'kind,an,c');
+
 console.log(bad ? `${bad} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

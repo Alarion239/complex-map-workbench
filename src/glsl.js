@@ -1128,6 +1128,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
           },
         };
       }
+      case 'series':
       case 'custom': {
         if (b.rec) return recPlan(P, b, A);
         const ast = b.ast || Expr.parse(v.expr);

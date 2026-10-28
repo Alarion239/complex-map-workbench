@@ -172,5 +172,16 @@
  "{x} is the index of a sum: use it inside the sum": "%{x} — индекс суммы: используйте его внутри суммы",
  "The limits of a sum must not depend on z": "Пределы суммы не должны зависеть от z",
  "A product of infinitely many factors cannot be differentiated here": "Произведение бесконечного числа множителей здесь не дифференцируется",
- "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Сумма или произведение многих членов здесь не решается относительно z; все решения f(z) = w покажет команда «Показать прообразы»"
+ "A sum or product of many terms is not solved for z here; the Preimage view shows every solution of f(z) = w": "Сумма или произведение многих членов здесь не решается относительно z; все решения f(z) = w покажет команда «Показать прообразы»",
+ "The centre c must be a number": "Центр c должен быть числом",
+ "Series": "Ряд",
+ "kind": "вид",
+ "power series": "степенной ряд",
+ "Laurent series": "ряд Лорана",
+ "Dirichlet series": "ряд Дирихле",
+ "Write the coefficients a_n as a formula in n": "Запишите коэффициенты a_n формулой от n",
+ "The coefficients a_n must not depend on z": "Коэффициенты a_n не должны зависеть от z",
+ "A series takes most values many times, so it has no single inverse; {note}": "Ряд принимает большинство значений много раз, поэтому однозначной обратной нет; %{note}",
+ "A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges": "Степенной ряд, ряд Лорана или Дирихле по коэффициентам aₙ; рисуется там, где сходится",
+ "series sum power series taylor laurent dirichlet coefficients sigma Σ": "ряд сумма степенной ряд тейлор лоран дирихле коэффициенты сигма Σ"
 }
