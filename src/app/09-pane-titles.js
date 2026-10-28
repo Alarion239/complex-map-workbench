@@ -4,7 +4,7 @@
   // Each pane says what it shows after its view control (icon-only below 520px): the whole title when it fits the
   // free head, the math part alone when the role text would be cut short, nothing when even that does not fit (U4: the
   // control comes first, so it never moves when the title changes with the focus)
-  function fitTitle(side, noNote, noDisp) {
+  function fitTitle(side, noNote, noDisp, noEmpty) {
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && t.nextElementSibling;
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
@@ -12,6 +12,9 @@
     // narrow as the options button it replaced, e.g. Y's head at 1366 px with the chain empty and Add function there)
     const disp = pane.querySelector('.pane-head .disp-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
+    // (and Y's Add function button, in the head while the chain is empty, shrinks to its plus after the Display button)
+    const emp = side === 'R' ? $('emptyRight') : null;
+    if (emp && !noEmpty) emp.classList.remove('tight');
     // (v16.5 UX20: Y's one-time note in the head gives way before the title itself does; never cut)
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
@@ -28,6 +31,7 @@
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
       if (!(tag && ptw - tw <= room)) {
         if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }
+        if (emp && !emp.hidden && emp.parentNode === pane.querySelector('.pane-head') && !noEmpty) { emp.classList.add('tight'); fitTitle(side, noNote, true, true); return; }
         pane.classList.add('tiny'); return;
       }
       t.classList.add('notag'); ptw -= tw;
@@ -107,6 +111,7 @@
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
+    syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
     // (the last active step turned off or removed ends the deformation, and with it the merge)
     if (morph.open && !morphRange().steps.length) { closeTransport(); return; }

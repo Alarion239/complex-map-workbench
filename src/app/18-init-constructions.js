@@ -449,6 +449,9 @@
   // TEMP-DEBUG-HOOK
   function init() {
     SoundHooks.init(soundHooksApi());   // the sound hooks (src/soundhooks.js), before anything can make a sound
+    Export.init(exportApi());   // export and captions (src/export.js)
+    MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)
+    Integrals.init(integralsApi());   // the integrals (src/integrals.js)
     // TEMP-DEBUG-HOOK (removed before publishing)
     // (v15: the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
@@ -780,7 +783,8 @@
       }
       if (mod && key === 'y' && !textEntry) { e.preventDefault(); $('redoBtn').click(); return; }
       if (mod && key === 'e' && !e.shiftKey && !e.altKey && !textEntry) { e.preventDefault(); Figure.open(); return; }
-      if (mod && key === 'k') { e.preventDefault(); if (popEl) closePalette(); else openPalette(null); return; }
+      // (Ctrl K a second time closes the palette; over another popover, a step's Display ▾ or a menu, it opens the palette)
+      if (mod && key === 'k') { e.preventDefault(); if (popEl && popEl.classList.contains('palette')) closePalette(); else openPalette(null); return; }
       if ((e.key === '/' || I18N.isPaletteSlash(e)) && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
       if (typing) return;
       // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual
@@ -795,6 +799,8 @@
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
         else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (tool !== 'select') setTool('select');
+        else if (modeNext()) modeClose(modeNext());
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();

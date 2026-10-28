@@ -234,7 +234,7 @@ await section('L55', async () => {
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`);
   ok('UX55 a seventh Construct tile: Hyperbolic line', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.htip = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="hyper"]'); return b ? { tip: b.dataset.tip, label: b.textContent.trim() } : null; })()`);
-  ok('UX55 its tooltip and label', info.htip && info.htip.tip === 'Hyperbolic line' && /Hyperbolic/.test(info.htip.label), info.htip);
+  ok('UX55 its tooltip and label', info.htip && info.htip.tip === 'Hyperbolic line  Y' && /Hyperbolic/.test(info.htip.label), info.htip);
   await tool('hyper');
   ok('UX55 the chip asks for the boundary first', /^Pick the boundary: a line or a circle/.test(await chipT()), await chipT());
   const c = await W(1.5, 0);
