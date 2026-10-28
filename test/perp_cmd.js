@@ -487,8 +487,9 @@ await section('D', async () => {
   await load(NS + 'ph', SP); await settle(1200);
   const more = await center('#toolMore > summary');
   await touch(more[0], more[1]); await settle(500);
-  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles > *')].map((e) => e.tagName === 'H3' ? '#' + e.textContent : e.dataset.tool)`);
-  ok('D phone: More has the Construct heading and six tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
+  await ev(`Phone.tab('construct')`); await settle(200);   // (the Construct tools are on their own tab of the Tools sheet)
+  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles[data-tab="construct"] > .ph-tile')].map((e) => e.dataset.tool)`);
+  ok('D phone: More has the Construct tab with its six tiles', (info.phTiles || []).join().includes('circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
   info.phTile = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="perp"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent.replace(/\\u00ad/g, '-'), sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh, tw: t.getBoundingClientRect().width }; })()`);
   ok('D phone: the tile label fits on two lines at most', info.phTile && info.phTile.sw <= info.phTile.w + 1 && info.phTile.h <= 2 * info.phTile.lh + 1, info.phTile);
   await shot('perp-p390-more');
@@ -521,6 +522,7 @@ await section('D', async () => {
   await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
+  await ev(`Phone.tab('construct')`); await settle(200);
   info.phTileRu = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="perp"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent.replace(/\\u00ad/g, '-'), sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh }; })()`);
   // (v16.5 UX93: a phone tile shows a whole short form on one line, never a hyphenated word)
   ok('D phone RU: the tile reads «Ортогон.», whole, on one line', info.phTileRu && info.phTileRu.text === 'Ортогон.' && info.phTileRu.sw <= info.phTileRu.w + 1 && info.phTileRu.h <= info.phTileRu.lh + 1, info.phTileRu);
@@ -1018,7 +1020,7 @@ await section('J', async () => {
   const hits = (sel) => ev(`(() => { return [...document.querySelectorAll(${JSON.stringify(sel)})].map((b) => { const q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2; const at = (dy) => { const e = document.elementFromPoint(x, y + dy); return !!e && e.closest('.cm-sb') === b; }; return { h: Math.round(q.height), up: at(-18), down: at(18) }; }); })()`);
   const ctr = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   const tch = async (x, y) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-  const tile = async (t) => { const mo = await ctr('#toolMore > summary'); if (mo) { await tch(mo[0], mo[1]); await settle(500); } const tp = await ctr(`.ph-tiles .ph-tile[data-tool="${t}"]`); if (tp) { await tch(tp[0], tp[1]); await settle(600); } };
+  const tile = async (t) => { const mo = await ctr('#toolMore > summary'); if (mo) { await tch(mo[0], mo[1]); await settle(500); await ev(`Phone.tab(Phone.tabOf('${t}'))`); await settle(200); } const tp = await ctr(`.ph-tiles .ph-tile[data-tool="${t}"]`); if (tp) { await tch(tp[0], tp[1]); await settle(600); } };
   await tile('perp');
   const cp = await W(Math.cos(2.2), Math.sin(2.2));
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cp[0], y: cp[1], id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(300);

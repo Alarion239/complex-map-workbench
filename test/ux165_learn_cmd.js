@@ -189,7 +189,8 @@ check('UX93: the tour is «Обучение», the welcome title «Добро п
 g = await ev(`[...document.querySelectorAll('#secDraw > .tools > .tool')].filter((b) => b.getClientRects().length).map((b) => { const sp = b.querySelector(':scope > span'), a = getComputedStyle(sp, '::after').content, shown = sp.dataset.phl ? a.replace(/^"|"$/g, '') : sp.textContent; return { t: b.dataset.tool, shown, h: Math.round(sp.getBoundingClientRect().height), soft: /\u00ad|-$/.test(shown) }; })`);
 check('UX93 Russian phone tool row: one line each, Polygon «Многоуг.» (no «Много-угольник»)', g.length === 4 && g.every((x) => x.h <= 13 && !x.soft) && (g.find((x) => x.t === 'polygon') || {}).shown === 'Многоуг.', g);
 await tapSel('#secDraw .tool-more > summary'); await settle(800);
-g = await ev(`[...document.querySelectorAll('.ph-tile')].filter((t) => t.getClientRects().length).map((t) => { const l = t.querySelector('.ph-tl'); return { t: l.textContent, fits: l.scrollWidth <= t.clientWidth + 0.5, soft: /\\u00ad/.test(l.textContent), words: l.textContent.split(' ').every((w) => true), lines: Math.round(l.getBoundingClientRect().height / 12) }; })`);
+const readTiles = () => ev(`[...document.querySelectorAll('.ph-tile')].filter((t) => t.getClientRects().length).map((t) => { const l = t.querySelector('.ph-tl'); return { t: l.textContent, fits: l.scrollWidth <= t.clientWidth + 0.5, soft: /\\u00ad/.test(l.textContent), words: l.textContent.split(' ').every((w) => true), lines: Math.round(l.getBoundingClientRect().height / 12) }; })`);
+g = await readTiles(); await ev(`Phone.tab('construct')`); await settle(300); g.push(...(await readTiles()));   // (the Draw tab, then the Construct tab)
 check('UX93 Russian phone tiles: no hyphenated tool name, every name fits its tile', g.length > 10 && g.every((x) => x.fits && !x.soft) && g.filter((x) => x.lines > 1).every((x) => / /.test(x.t)), g.filter((x) => !x.fits || x.soft || (x.lines > 1 && !/ /.test(x.t))));
 await shot('ux165-ux93-ru-tiles');
 await ev(`Tour.start({ chapter: 'basics', step: 0 })`); await settle(1500);
@@ -263,6 +264,7 @@ await fresh('ux165s2'); await settle(2000);
 check('UX88 phone: the sound settings show no keyboard help on touch', await ev(`getComputedStyle(document.querySelector('.snd-keys')).display === 'none'`));
 // UX72 phone: More, then the curve's row in Shapes (real taps): its editor has Listen along, a 44 px button
 await tapSel('#toolMore'); await settle(600);
+await ev(`Phone.tab('shapes')`); await settle(300);   // (the Shapes tab of the Tools sheet)
 await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-name'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
 await tapSel('#shapeList .shape[data-id="s2"] .shape-name'); await settle(500);
 await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-along"]'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
