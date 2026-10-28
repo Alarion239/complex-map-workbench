@@ -572,7 +572,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 | `order-changed` | `{ all }` | One after another / All at once changes (`setHomAll`) |
 | `step-replaced` | `{ k, type }` | a step is replaced by its inverse (`invertStep`); `type` is the new step's type |
 | `tex-copied` | `{ what: 'F' }` | F's LaTeX is copied (the Inspector's copy button with the F tile selected) |
-| `listen-ended` | `{ piece, closed, W, heard, full }` | a Listen along ends: played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
+| `listen-ended` | `{ piece, fn, closed, W, heard, full }` | a Listen along ends (v16.5: `fn` true when it played the function, `piece` true for the composition): played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |
 | `hear-turn` | `{ dir: 1 \| -1 }` | Hear the function: a step of the probe crosses red's line (D, arg F ≡ 0) upward or downward (`Sound.hear` step `dUp` / `dDown`; with today's harp, a low D counted). Was `harp-turn` (v16.4) |
 
 `shape-added` gains `via: 'draw' | 'formula' | 'paste' | 'menu'`. `pattern-changed` is sent by the pattern setter itself
@@ -582,7 +582,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 
 | event | payload | emit when |
 |---|---|---|
-| `listen-started` | `{ piece, closed, dur }` | `sndListen` starts: the tour holds its countdown while it plays and runs the step's captions from it |
+| `listen-started` | `{ piece, fn, closed, dur }` | `sndListen` starts (v16.5: `fn`, the function's Listen along; `piece`, the composition): the tour holds its countdown while it plays and runs the step's captions from it (either kind) |
 
 ### Step fields and API added in v16.4
 
@@ -590,7 +590,7 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
   `try.after`. The strip shows it when there is no task.
 - `try.then` (at most 60): the result line once the task is done. `try.after`: an earlier step of the chapter whose
   task must have been done in this run (else the step is read).
-- `act: 'listen' | 'sound'`, `hear: true`, `captions: [[seconds, text], …]` (ascending, within the piece's length).
+- `act: 'listen' | 'sound'`, `hear: true`, `captions: [[seconds, text], …]` (ascending, within the piece's length; v16.5: with `capFrac: true`, fractions of the playback in [0, 1), scaled by `listen-started`'s `dur`, for the function's Listen along, whose length is the curve's at the zoom).
 - Look keys `phaseKey` (Y's Phase key) and `sectors` (8, 12, 16 or 24; the phase sectors of Tiles).
 - A scene with `app: name` is loaded from `api.sceneSpec(name)`; with no answer it is absent and its steps are left out.
 - `Tour.auto(on?)`: Move on by itself, read or set. `Tour.lit()` adds `strip: { l, t, r, b }`, `mode` (`desk`, `port`,

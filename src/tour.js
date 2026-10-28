@@ -20,7 +20,7 @@ const Tour = (() => {
   // (api.has(feature) === false: a step falls back to the next scene of its list, or is left out). `look` is the
   // display the copy assumes; the tour applies it with api.setLook right after api.loadScene, so a user's own pattern,
   // opacity or Landscape height never makes the copy false (restore() brings the user's look back).
-  // (v16.4: phaseKey, Y's Phase key; sectors, the phase sectors of Tiles: 12 lines 30° apart, the harp's strings)
+  // (v16.4: phaseKey, Y's Phase key; sectors, the phase sectors of Tiles: 12 lines 30° apart, Hear the function's notes)
   const LOOK = { pattern: 'checker', alpha: null, height: 'log', sheets: false, phaseStyle: 'enhanced', paths: true, allAtOnce: false, phaseKey: false, sectors: 12 };
   const look = (o) => Object.assign({}, LOOK, o || {});
   const SCENES = {
@@ -122,7 +122,8 @@ const Tour = (() => {
   // step with no task, with tryWide or with try.after); try.then, the result line once the task is done; try.after, an
   // earlier step of the chapter whose task must have been done in this run for this one to show; act: 'listen' (the
   // strip's Listen button) or 'sound' (Turn on sound, while the sound is not ready); hear: the step turns Hear the
-  // function on (the user's setting comes back); captions: [[seconds, text]] shown while the step's piece plays.
+  // function on (the user's setting comes back); captions: [[seconds, text]] shown while the step's piece plays
+  // (capFrac: [[fraction of the playback, text]], for a Listen along whose duration is the curve's length at the zoom).
   // A task step moves on by itself 3 s after it is done (SPEC 2); try.advance (a door) after 0.7 s.
   // (r3 review: try.off, the task while the sound is off, on a step whose act button turns it on; try.hint { on, test,
   // text, touch }, a line shown in place of the task when that event says the attempt went wrong)
@@ -333,8 +334,11 @@ const Tour = (() => {
         { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
           body: 'Grieg\'s theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut on each downbeat is the drum.',
           try: { text: 'Press ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= 9)), then: 'Every note was $\\arg F$ crossing one of its colour lines.' },
-          // (the score's drum ticks are at 0.45, 8.90, 15.40 and 20.40 s of its 22.97 s: test/fixtures/seasong_score.json)
-          captions: [[0, 'Each note is a phase line crossed: $\\arg F$ is the pitch.'], [8.9, 'The cut: a drum. The next turn is smaller, so faster.'], [15.4, 'Each turn is $0.77$ of the last: $1.3$ times as fast.'], [20.4, 'The ending is ours: three rolled B-minor chords.']] },
+          // (v16.5, Hear the function: Listen along plays the function, so the captions are fractions of its duration
+          // (capFrac), which is the path's length at 250 px/s and so the zoom's: the cuts, each statement's downbeat, at
+          // 0.011, 0.291, 0.511 and 0.791 of the two laps (test/t_seasong.js's path); |F| grows through each statement)
+          capFrac: true,
+          captions: [[0, 'Each note is a phase line crossed: $\\arg F$ is the pitch.'], [0.2, 'Louder as $|F|$ grows; it falls back at each cut.'], [0.29, 'The crack is the branch cut. The theme again, faster.'], [0.51, 'The second lap is the same circle: the same notes.']] },
         { id: 'strings', anchor: 'panes', needs: 'zp', hear: true, act: 'sound', title: 'Phase lines are notes', before: [['scene', 'harp'], ['view', 'phase'], ['tool', 'select']],
           body: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line the pointer crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.',
           touch: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line your finger crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.',
@@ -1872,11 +1876,14 @@ const Tour = (() => {
   function startCaptions(r, e) {
     stopCaptions(r);
     const step = r.step;
-    if (!step || !step.captions || !(e && e.piece)) return;
+    // (the step's piece: the composition, or the function's own Listen along; capFrac scales by its duration)
+    if (!step || !step.captions || !(e && (e.piece || e.fn))) return;
+    const k = step.capFrac ? (Number.isFinite(e.dur) && e.dur > 0 ? e.dur : 0) : 1;
+    if (!(k > 0)) return;
     const t0 = performance.now();
     r.capT = [];
     for (const [sec, text] of step.captions) {
-      const at = Math.max(0, sec * 1000 - (performance.now() - t0));
+      const at = Math.max(0, sec * k * 1000 - (performance.now() - t0));
       r.capT.push(setTimeout(() => { if (run !== r || r.step !== step) return; r.caption = text; paintLead(r); r.ui.live.textContent = plainCopy($t(text), modKey()); }, at));
     }
   }

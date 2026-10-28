@@ -174,5 +174,25 @@
   "en": "Hold the circle, then Listen along.",
   "ru": "Удерживайте палец на окружности и выберите «Слушать вдоль кривой».",
   "note": "The same on a phone; as fix.mk_hint_ph."
+ },
+ "tour.song.cap2": {
+  "en": "Louder as $|F|$ grows; it falls back at each cut.",
+  "ru": "Громче, пока растёт $|F|$; на каждом разрезе $|F|$ падает.",
+  "note": "The tour's song step, a caption at 0.2 of the function's Listen along (capFrac)."
+ },
+ "tour.song.cap3": {
+  "en": "The crack is the branch cut. The theme again, faster.",
+  "ru": "Треск — это разрез. Снова тема, быстрее.",
+  "note": "The tour's song step, a caption at 0.29 (the second statement's downbeat, the crack)."
+ },
+ "tour.song.cap4": {
+  "en": "The second lap is the same circle: the same notes.",
+  "ru": "Второй круг — та же окружность, и те же ноты.",
+  "note": "The tour's song step, a caption at 0.51 (the second lap)."
+ },
+ "guide.reading": {
+  "en": "<b>Reading the sound.</b> Silence means nothing is changing under the probe. More notes a second means arg <i>F</i> is turning faster; a faster run is never louder, and the note repeated while the colour holds comes at most 8 times a second. The lines heard are the Phase key's sectors, which <b>Tiles</b> and <b>Contours</b> draw. Left and right are only where the probe is on the screen: they say nothing about <i>F</i>. On <i>Y</i>, two glasses gliding into one mean that two preimages of <i>w</i> meet. In Glide the voice is louder where |<i>F</i>| is larger. <b>Listen along</b> walks a curve at 250 screen pixels a second at the current zoom. Everything you hear is caused by <i>F</i> through this fixed map; the instruments, the room and a safety limiter are the only choices added.",
+  "ru": "<b>Как читать звук.</b> Тишина значит, что под указателем ничего не меняется. Больше нот в секунду значит, что arg <i>F</i> поворачивается быстрее; быстрый пробег никогда не звучит громче, а нота, повторяемая, пока цвет не меняется, звучит не чаще 8 раз в секунду. Слышимые линии — это секторы шкалы фазы, их рисуют стили <b>Плитки</b> и <b>Линии уровня</b>. Слева и справа — только положение указателя на экране: об <i>F</i> это ничего не говорит. На <i>Y</i> два стеклянных звука, сливающиеся в один, означают, что встречаются два прообраза <i>w</i>. В режиме «Скольжение» голос громче там, где |<i>F</i>| больше. <b>Слушать вдоль кривой</b> проходит кривую со скоростью 250 экранных пикселей в секунду при текущем масштабе. Всё, что вы слышите, вызвано <i>F</i> через этот неизменный закон; добавлены только инструменты, акустика комнаты и защитный ограничитель.",
+  "note": "The guide's Sound section, the legend (spec 2): what each thing heard means, after the Sound paragraph."
  }
 }

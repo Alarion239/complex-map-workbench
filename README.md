@@ -46,11 +46,12 @@ see what they do:
   repeated at each band edge of |F|, a crack at a branch cut, glass pings and felt thumps for zeros and poles; in
   Glide, one continuous voice whose pitch is arg F. Also while the deformation plays, and along a curve (Listen
   along, 250 screen pixels a second); a click (or Q) plays a still point; a declared limiter guards the output; a
-  closed curve sings its winding number as one note. The example "In the Hall of the Mountain King"
-  plays Grieg's theme (public domain) along one spiral under z^(−2+24i).
+  closed curve sings its winding number as one note. The guide's Sound section says what each sound means. The
+  example "In the Hall of the Mountain King" is a function made so that the colour lines it crosses along one
+  curve are Grieg's theme (public domain): Listen along plays it through the same map, with nothing added.
 - **Guided tour** from the Help button, suggested once on first opening: a docked strip that never covers the
   planes, lights the exact control each step needs and moves on by itself about 3 s after you do the task. A chapter
-  plays the Grieg example and explains how a curve becomes a melody.
+  plays the Grieg example and explains what each note of it means.
 - **Russian** and **Italian**: the interface follows the browser's language (or the globe button), with Russian
   notation (tg, sh, ch, …) and Russian or Italian figure captions (decimal comma in both).
 

@@ -202,23 +202,25 @@ await ev('Tour.stop()'); await settle(400);
 
 } catch (e) { check('reduced motion: Next counts down' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// ---------------- the Sound chapter at 1440 (mouse): Grieg, the harp's laps, a loop; the settings come back
+// ---------------- the Sound chapter at 1440 (mouse): Grieg, the phase lines' laps, a loop; the settings come back
 await ev(`Sound.set({ on: false, sonify: false }, { quiet: true }); 1`);
 await go('sound', 0);
 const ab = await center('.ts-act');
 await click(ab[0], ab[1]); t0 = Date.now();
 const caps = [];
-let last = '';
+let last = '', durMs = 0;
 while (Date.now() - t0 < 30000) {
   const t = await ev(`document.querySelector('#tourLead').textContent`);
   if (t !== last) { caps.push([Date.now() - t0, t.slice(0, 24)]); last = t; }
+  // (v16.5: the function's Listen along; its duration is the circle's length at the zoom, 250 px/s)
+  if (!durMs) durMs = 1000 * ((await ev(`(() => { const s = __cmwSound(); return s.listenFn ? s.listenFn.dur : 0; })()`)) || 0);
   if ((await cur()) !== 'sound/song') break;
   await sleep(40);
 }
 const capAt = (re) => (caps.find((c) => re.test(c[1])) || [null])[0];
-check('Grieg: captions change at 8.9, 15.4 and 20.4 s (± 300 ms, from the press)', near(capAt(/^The cut/), 8900, 300) && near(capAt(/^Each turn is/), 15400, 300) && near(capAt(/^The ending/), 20400, 300), caps);
+check('Grieg: captions change at 0.2, 0.29 and 0.51 of the playback (± 300 ms, from the press: the |F| swell, the second downbeat crack, the second lap)', durMs > 0 && near(capAt(/^Louder as/), 0.2 * durMs, 300) && near(capAt(/^The crack is/), 0.29 * durMs, 300) && near(capAt(/^The second lap/), 0.51 * durMs, 300), [durMs, caps]);
 const endAt = capAt(/^Every note/);
-check('Grieg: no move for the whole piece, then the result line', endAt != null && endAt > 22500, caps);
+check('Grieg: no move for the whole piece, then the result line', endAt != null && endAt > durMs - 300, [durMs, caps]);
 check('Grieg: moves on 3 s after the piece ends', (await cur()) === 'sound/strings' && caps.length >= 5, caps);
 // the strings: Hear the function on (held), laps of radius 0.4 round 1 anticlockwise, then round -1
 check('Strings: the tour holds Hear the function on', await ev(`Sound.prefs().sonify === true`));
