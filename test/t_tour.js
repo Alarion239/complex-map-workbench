@@ -126,7 +126,7 @@ for (const s of steps) {
     if (a[0] === 'surface') ok(`${id}: surface value`, ['L', 'R'].includes(a[1]) && ['plane', 'sphere'].includes(a[2]), a);
     if (a[0] === 'deform') ok(`${id}: deform value`, typeof a[1] === 'boolean', a);
     // (v15: 'sheet', a phone's sheet only; a third value names the phone's sheet: tools, display)
-    if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || /^(tools|display)(:(draw|construct|shapes))?$/.test(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
+    if (a[0] === 'panel') ok(`${id}: panel value`, ['left', 'right', 'sheet'].includes(a[1]) && (a[2] == null || /^(tools|display|steps)(:(draw|construct|shapes))?$/.test(a[2])) && (a[1] !== 'sheet' || a[2] != null), a);
   }
   // TeX: balanced braces and dollars, nothing the plain reading leaves as a command
   const texs = T.parseCopy(s.body + ' ' + (s.try ? s.try.text : '')).filter((t) => t.t === 'tex').map((t) => t.v);

@@ -109,7 +109,7 @@ await section('A', async () => {
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`);
   ok('A1 the Construct grid has seven tiles, Perpendicular circle fifth (v16.3: Touching circle; v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().height, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
-  ok('A1 tooltip: Perpendicular circle + its description', info.tile.tip === 'Perpendicular circle' && /^Pick a line or a circle, then two points/.test(info.tile.desc), info.tile);
+  ok('A1 tooltip: Perpendicular circle + its description', info.tile.tip === 'Perpendicular circle  W' && /^Pick a line or a circle, then two points/.test(info.tile.desc), info.tile);
   ok('A1 the tile label «Orthogonal» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === 'Orthogonal' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
   await tool('perp');
   // (the left pane is 427 px wide at 1440, under 560: the chip names the tool by its tile text)
@@ -408,7 +408,7 @@ await section('C', async () => {
   await load(NS + 'ru', SA);
   await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
   info.ruTile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { label: s.textContent.replace(/\\u00ad/g, '-'), w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, tip: b.dataset.tip, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
-  ok('C RU tile «Ортого­нальная» fits on two lines at most', info.ruTile.label === 'Ортого-нальная' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Ортогональная окружность', info.ruTile);
+  ok('C RU tile «Ортого­нальная» fits on two lines at most', info.ruTile.label === 'Ортого-нальная' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Ортогональная окружность  W', info.ruTile);
   await tool('perp');
   // (v16.3.1: at 1440 the chip with «Esc — отмена» took two lines in X's 427 px; it now keeps one line without it.
   // v16.4.1: with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule

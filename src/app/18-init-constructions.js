@@ -785,7 +785,8 @@
       }
       if (mod && key === 'y' && !textEntry) { e.preventDefault(); $('redoBtn').click(); return; }
       if (mod && key === 'e' && !e.shiftKey && !e.altKey && !textEntry) { e.preventDefault(); Figure.open(); return; }
-      if (mod && key === 'k') { e.preventDefault(); if (popEl) closePalette(); else openPalette(null); return; }
+      // (Ctrl K a second time closes the palette; over another popover, a step's Display ▾ or a menu, it opens the palette)
+      if (mod && key === 'k') { e.preventDefault(); if (popEl && popEl.classList.contains('palette')) closePalette(); else openPalette(null); return; }
       if ((e.key === '/' || I18N.isPaletteSlash(e)) && !typing && !popEl) { e.preventDefault(); openPalette(null); return; }
       if (typing) return;
       // Tab on a focused plane steps through its shapes (Shift+Tab backwards); past the last one Tab leaves the plane as usual

@@ -114,7 +114,7 @@ await section('A', async () => {
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool')].map((b) => b.dataset.tool).join()`);
   ok('A1 the Construct grid has seven tiles, Touching circle sixth (v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="touch"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().width, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
-  ok('A1 tooltip: Touching circle + its description', info.tile.tip === 'Touching circle' && /^Pick a line or a circle, then the point where the new circle touches it/.test(info.tile.desc), info.tile);
+  ok('A1 tooltip: Touching circle + its description', info.tile.tip === 'Touching circle  J' && /^Pick a line or a circle, then the point where the new circle touches it/.test(info.tile.desc), info.tile);
   ok('A1 the tile label «Touching» fits the tile', info.tile.label === 'Touching' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
   await tool('touch');
   ok('A1 the chip before the curve', (await chipT()) === 'Pick a line or a circle · Touching · Esc cancels', await chipT());
@@ -438,7 +438,7 @@ await section('C', async () => {
   await load(NS + 'ru', SA);
   await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
   info.ruTile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="touch"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, tip: b.dataset.tip, bw: b.getBoundingClientRect().width, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
-  ok('C RU tile «Касание» fits the 52 px tile', info.ruTile.label === 'Касание' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Касающаяся окружность' && info.ruTile.bw <= 56, info.ruTile);
+  ok('C RU tile «Касание» fits the 52 px tile', info.ruTile.label === 'Касание' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Касающаяся окружность  J' && info.ruTile.bw <= 56, info.ruTile);
   await tool('touch');
   const esc = (await chipT()).split(' · ').pop();
   info.ruChips = [await chipT()];
