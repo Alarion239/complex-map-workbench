@@ -90,7 +90,7 @@ is slower), and a metric fails only when the medians of the 3 attempts fail and 
 reference, fail too. A failing quality run renders once more and fails only if it fails twice. A perf check or
 absolute limit that fails on the reference too (a software renderer misses the 250 ms first draw of an inverse
 program, or a 6 ms mesh slice, whatever the change) is listed as such and does not fail. When a change does not touch
-the app (`src/`, `build.py`), the paired jobs report "nothing to compare" and pass.
+the app (`src/`, `build.py`, `tools/src_parts.py`), the paired jobs report "nothing to compare" and pass.
 
 GitHub's machines are virtual and shared, and their timings say little about this app's speed. Measured on changes
 that did not touch rendering: single settle times from −90 % to +300 %; on macOS, within one attempt, wheel zoom

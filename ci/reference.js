@@ -21,9 +21,9 @@ function buildReference(ref) {
   return { sha, dir, dist };
 }
 
-// true when the app (src/, build.py; or the given paths) is the same at ref as in the checkout: a paired gate then has
-// nothing to compare
-function sameApp(ref, paths = ['src', 'build.py']) {
+// true when the app (src/, build.py and its tools/src_parts.py; or the given paths) is the same at ref as in the
+// checkout: a paired gate then has nothing to compare
+function sameApp(ref, paths = ['src', 'build.py', 'tools/src_parts.py']) {
   try { execFileSync('git', ['diff', '--quiet', ref, '--', ...paths], { cwd: ROOT }); return true; } catch (e) { return false; }
 }
 

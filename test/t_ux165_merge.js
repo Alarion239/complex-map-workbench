@@ -3,7 +3,9 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+const { source } = require('./src_text');
+// (a src/ file as build.py reads it: src/app.js is joined from src/app/*.js)
+const R = (f) => (f.startsWith('src/') ? source(f.slice(4)) : fs.readFileSync(path.join(__dirname, '..', f), 'utf8'));
 let pass = 0, fail = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL ' + name + (got !== undefined ? ' ' + JSON.stringify(got).slice(0, 400) : '')); } };
 const APP = R('src/app.js'), CON = R('src/construct.js'), PAGE = R('src/page.html'), TOUR = R('src/tour.js'), MK = R('tools/make_ru_table.py');
