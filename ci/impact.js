@@ -73,6 +73,8 @@ const MAP = [
   ['src/view.js', full('the planes\' view transform, under every area')],
   ['build.py', full('the build itself')],
   ['tools/src_parts.py', full('how build.py joins the split files')],
+  ['vendor/**', full('the vendored typesetter and faces, in every page')],
+  ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone')],                                               // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
   ['src/figure.js', ui('export')],                                            // exported figures, and the images shard

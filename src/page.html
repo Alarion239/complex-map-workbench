@@ -1,13 +1,10 @@
 <title>Complex Map Workbench</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..700&family=B612+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
 <script>
 /* i18n (notes/i18n/DESIGN.md 2; review eng-1, eng-2): the language is known before the first paint. The rule is
    I18N's resolve (src/i18n.js): ?lang= (tests), the device setting, English under ?ns=, the browser's first language.
    Russian and Italian mark <html> and keep #app hidden until init() has translated the static text (I18N.reveal);
-   Russian also starts the Cyrillic faces' stylesheet now. English returns at once. */
+   Russian also adds the Cyrillic faces now (inline, build.py's #cmw-fonts-ru). English returns at once. */
 (function () {
   try {
     var q = new URLSearchParams(location.search), l = q.get('lang'), ns = q.get('ns') || '', p = null, n = '';
@@ -18,13 +15,12 @@
       else { n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); l = /^ru(-|$)/.test(n) ? 'ru' : /^it(-|$)/.test(n) ? 'it' : 'en'; }
     }
     if (l === 'en') return;
-    var d = document.documentElement, k = document.createElement('link');
+    var d = document.documentElement, k = document.createElement('style'), f = document.getElementById('cmw-fonts-ru');
     l = l === 'pseudo' ? 'ru' : l;
     d.lang = l; d.setAttribute('data-lang', l); d.classList.add('i18n-wait');
     addEventListener('load', function () { d.classList.remove('i18n-wait'); });
-    if (l !== 'ru') return;
-    k.id = 'i18n-fonts'; k.rel = 'stylesheet';
-    k.href = 'https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,400..700&family=JetBrains+Mono:wght@400..700&display=swap';
+    if (l !== 'ru' || !f) return;
+    k.id = 'i18n-fonts'; k.textContent = f.textContent;   // (the Russian faces, inline: build.py's #cmw-fonts-ru)
     document.head.appendChild(k);
   } catch (e) { /* the page shows as before */ }
 })();

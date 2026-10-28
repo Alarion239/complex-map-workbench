@@ -18,7 +18,6 @@ js = js.replace('</script', '<\\/script')
 mj = """<script>
 window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false }, svg: { fontCache: 'local' }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
 </script>
-<script async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.min.js"></script>
 """
 
 # ---- the Russian data as JSON blocks (notes/i18n/USER-DECISIONS.md, page size) ----
@@ -102,6 +101,35 @@ for k in ['rm', 'bx', 'ti']:
 # (the Italian table: parsed on the first Italian lookup only)
 data += block('cmw-i18n-it', it_text)
 
+# ---- the vendored typesetter and faces (issue #21; tools/vendor.py writes vendor/, the build reads it only) ----
+# MathJax's tex-svg.js goes in as a JSON block (never run while the page parses), started once the page has loaded
+# and painted, as the CDN's async script arrived: its compile delays neither the app's start nor the first paint. The faces are @font-face rules with the
+# woff2 inline, subset to the characters the app uses (test/t_vendor.js); the Russian set (Roboto Flex) is a text
+# block that i18n.js (or page.html's head script) turns into a stylesheet with the language.
+import base64
+vendor = root / 'vendor'
+vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
+data += block('cmw-mathjax', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8')))
+mj += """<script>
+(function () {
+  var go = function () { try { var b = document.getElementById('cmw-mathjax'), s = document.createElement('script'); s.textContent = JSON.parse(b.textContent); document.head.appendChild(s); } catch (e) { /* the TeX source shows */ } };
+  var later = function () { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); else setTimeout(go, 0); };
+  if (document.readyState === 'complete') later(); else addEventListener('load', later);
+})();
+</script>
+"""
+
+
+def font_face(f):
+    b64 = base64.b64encode((vendor / f['file']).read_bytes()).decode()
+    return ('@font-face{font-family:"%s";font-style:%s;font-weight:%s;%sfont-display:swap;src:url(data:font/woff2;base64,%s) format("woff2");unicode-range:%s}\n'
+            % (f['family'], f['style'], f['weight'], 'font-stretch:%s;' % f['stretch'] if 'stretch' in f else '', b64, f['unicodeRange']))
+
+
+fonts = '<style id="cmw-fonts">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'main') + '</style>\n'
+fonts += '<script type="text/plain" id="cmw-fonts-ru">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'ru') + '</script>\n'
+page = fonts + page
+
 # the interface language first (notes/i18n/DESIGN.md 1): i18n.js before cx.js, so the language is known before
 # funcs.js builds its catalog; the table and the faces are the data blocks above
 js = '\n'.join([(src / 'i18n.js').read_text(encoding='utf-8'), cyr_js]).replace('</script', '<\\/script') + '\n' + js
@@ -120,4 +148,4 @@ test = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 </head><body>
 """ + body + "</body></html>\n"
 save(dist / 'test.html', test)
-print('built', len(body), 'bytes; Russian and Italian data blocks', len(data.encode()), 'bytes; bold glyphs', ''.join(keep) or 'none')
+print('built', len(body), 'bytes; data blocks', len(data.encode()), 'bytes (MathJax', len(block('x', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8'))).encode()), '); faces', len(fonts.encode()), 'bytes; bold glyphs', ''.join(keep) or 'none')

@@ -1,0 +1,395 @@
+{
+ "note": "written by tools/vendor.py; build.py reads vendor/ only",
+ "packages": {
+  "mathjax": {
+   "version": "3.2.2",
+   "sha256": "1b9c0a1c44df864e915690558e72adb9cc5203360daefd385084ced3b6c64c09"
+  },
+  "@fontsource-variable/archivo": {
+   "version": "5.3.0",
+   "sha256": "20c4384ed6219fc792761ad56fd578a70ba8758374b307f2f8da3db2009924a9"
+  },
+  "@fontsource-variable/stix-two-text": {
+   "version": "5.3.0",
+   "sha256": "bce477b122769580029cf905bd175a112e616af857aa500ba5eaa05a7bd3e921"
+  },
+  "@fontsource/b612-mono": {
+   "version": "5.3.0",
+   "sha256": "49683ba1241403530a957ac8cbaadd83af55002446f9bdfd08161e6c2355b87c"
+  },
+  "@fontsource-variable/jetbrains-mono": {
+   "version": "5.3.0",
+   "sha256": "996fe6368a480c9ce15d4de22a2682b7c40b403718fee2b15e7272f244fd993f"
+  },
+  "@fontsource-variable/roboto-flex": {
+   "version": "5.3.0",
+   "sha256": "0bab192f3e83e6660ecb1b96bc29e012ae1d605b2bda4928d760feb819ac5c27"
+  }
+ },
+ "outputs": {
+  "js/tex-svg.js": {
+   "sha256": "d4295dc33744836935c1399feece5159577b34c5c8ffb9f1c6324cd82e03a882",
+   "bytes": 2108580
+  },
+  "fonts/archivo-latin-ext-standard-normal.woff2": {
+   "sha256": "2780bdc8fbd9361ea04e2e99bd2a7bb2281654488eec9776b62febe05286834e",
+   "bytes": 3848
+  },
+  "fonts/archivo-latin-standard-normal.woff2": {
+   "sha256": "faea9dbcd4927089d027bc572ab87ccf0312514d7e8fe228132a78d199e082cf",
+   "bytes": 73100
+  },
+  "fonts/archivo-vietnamese-standard-normal.woff2": {
+   "sha256": "4fe088975bf19cd0cd48444e8c29988de687a9be238bbafe398380e9f075b60f",
+   "bytes": 2784
+  },
+  "fonts/stix-two-text-cyrillic-ext-wght-normal.woff2": {
+   "sha256": "884917c21ba6f5dcbc0b8f49a4a82b60f5b4b12e5915be404b244586427ee481",
+   "bytes": 968
+  },
+  "fonts/stix-two-text-cyrillic-wght-normal.woff2": {
+   "sha256": "3aaf2b533d2230b507ae4eec73459e9c2d5577e8cb4c4150a66ec6a1450488bb",
+   "bytes": 15436
+  },
+  "fonts/stix-two-text-greek-wght-normal.woff2": {
+   "sha256": "98098cc3d2cb087eade9a394bf45a83ed3fbdf50c047a9a8595e6b95b8376faf",
+   "bytes": 11160
+  },
+  "fonts/stix-two-text-latin-ext-wght-normal.woff2": {
+   "sha256": "1bc30154232e00d921c3b4cf01fab691bd52fdcd1c0657f303548464bcd02f44",
+   "bytes": 2240
+  },
+  "fonts/stix-two-text-latin-wght-normal.woff2": {
+   "sha256": "0095a460fb31d9f9d6635579c78694028d34dec37b2daa39b35d0ca18abf3d3c",
+   "bytes": 25316
+  },
+  "fonts/stix-two-text-vietnamese-wght-normal.woff2": {
+   "sha256": "64dfae02933a6d0dbca3f67eabf8bb7694fd343d8d1fe0cc84fe8e9f6d542b11",
+   "bytes": 1420
+  },
+  "fonts/stix-two-text-cyrillic-ext-wght-italic.woff2": {
+   "sha256": "0fed16720771eecd637319edb79bf01770a77857d18d0728940a01b2e5bd4bee",
+   "bytes": 1028
+  },
+  "fonts/stix-two-text-cyrillic-wght-italic.woff2": {
+   "sha256": "24e4dd1b2b37e4d184c549210668fe53c672333dde014ae9d4566d4e2c03048a",
+   "bytes": 18612
+  },
+  "fonts/stix-two-text-greek-wght-italic.woff2": {
+   "sha256": "51a564e0377b4b6290f8079bda38aab9fa94557703fce9c9a8cb1a23e5e5b80d",
+   "bytes": 12144
+  },
+  "fonts/stix-two-text-latin-ext-wght-italic.woff2": {
+   "sha256": "5338c98525b0fcf0ccab3913bc6a762b7047eaee1045b925847b30c7f955a269",
+   "bytes": 2428
+  },
+  "fonts/stix-two-text-latin-wght-italic.woff2": {
+   "sha256": "ce9faef60eae5ba03848b2884402bd9529ffba4396025691f824b24488b9bd25",
+   "bytes": 27528
+  },
+  "fonts/stix-two-text-vietnamese-wght-italic.woff2": {
+   "sha256": "ff5b37946eaf71687867d76ea39bce7defb93fa7973e8184e610e99a73f9d207",
+   "bytes": 1528
+  },
+  "fonts/b612-mono-latin-400-normal.woff2": {
+   "sha256": "d80b4959ea24bdf8f440fe755666a75b0a7eafafe3229e72d4f98cd531899f7e",
+   "bytes": 18256
+  },
+  "fonts/b612-mono-latin-700-normal.woff2": {
+   "sha256": "a08f46ccc8a3d42215e486d95faf78cbf4362ee321d2fc3a54ba12f3b1601b1c",
+   "bytes": 17972
+  },
+  "fonts/jetbrains-mono-cyrillic-ext-wght-normal.woff2": {
+   "sha256": "7cdb43f9fc4e6821153281542db914d06ec9b00dde299b3878a67ce6417fe4d2",
+   "bytes": 900
+  },
+  "fonts/jetbrains-mono-cyrillic-wght-normal.woff2": {
+   "sha256": "e1e33d2c0ece522aaf73ba470997fef412c8e28336de23223b9072d3cd2d6152",
+   "bytes": 7920
+  },
+  "fonts/jetbrains-mono-greek-wght-normal.woff2": {
+   "sha256": "b1926150e47419f5514987703e20a6d8e2aeed3584df9114f51a63353dbd36ba",
+   "bytes": 5404
+  },
+  "fonts/jetbrains-mono-latin-ext-wght-normal.woff2": {
+   "sha256": "623805ed17ba08b3c16a2add3403d6002126b3b1220d3bbfc20ede441630f45f",
+   "bytes": 1608
+  },
+  "fonts/jetbrains-mono-latin-wght-normal.woff2": {
+   "sha256": "a3c8bc7b19a7006670073d32e9ea1806bc14af4257bf080c62e3f263fa7b1f94",
+   "bytes": 28116
+  },
+  "fonts/jetbrains-mono-vietnamese-wght-normal.woff2": {
+   "sha256": "4a1fd2d754fdf395bf1543943ac365bc50b183aa498315b29f75e57a077d7cb0",
+   "bytes": 1192
+  },
+  "fonts/roboto-flex-cyrillic-ext-full-normal.woff2": {
+   "sha256": "e5e2dcb5f6fb152222aa32980fac05b77c067ed987bc30e95ffb2c9bd1e5e964",
+   "bytes": 2268
+  },
+  "fonts/roboto-flex-cyrillic-full-normal.woff2": {
+   "sha256": "255a0370c80c68d8ec7100aadc1b2c9adfa1da61df1321c907300350ad88de35",
+   "bytes": 59852
+  },
+  "fonts/roboto-flex-greek-full-normal.woff2": {
+   "sha256": "592ac1d1ea645e48d484497430e5d4ef2fd77b53969faf5322e94daceedf5b11",
+   "bytes": 36988
+  },
+  "fonts/roboto-flex-latin-ext-full-normal.woff2": {
+   "sha256": "55e290fe194faaa0300b4aae1040f4c78095b5014939385fc53fbf7731542624",
+   "bytes": 3588
+  },
+  "fonts/roboto-flex-latin-full-normal.woff2": {
+   "sha256": "d86be2829c65d9992a261399b9914934df039d981b01c32bd315f6a05002d778",
+   "bytes": 112136
+  },
+  "fonts/roboto-flex-vietnamese-full-normal.woff2": {
+   "sha256": "ac9b17f8c47ba596181f07d6b78ed1cb26a1dd1a7a4f516c3829507b483fade3",
+   "bytes": 2472
+  }
+ },
+ "faces": [
+  {
+   "family": "Archivo",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "stretch": "75% 125%",
+   "file": "fonts/archivo-latin-ext-standard-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+142, U+303-304, U+2020, U+2113"
+  },
+  {
+   "family": "Archivo",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "stretch": "75% 125%",
+   "file": "fonts/archivo-latin-standard-normal.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
+  },
+  {
+   "family": "Archivo",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "stretch": "75% 125%",
+   "file": "fonts/archivo-vietnamese-standard-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+303-304"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-cyrillic-ext-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-cyrillic-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+400-45F, U+2116"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-greek-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+391-3A1, U+3A3-3C9, U+3D1, U+3D5, U+3F1, U+3F5"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-latin-ext-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+142, U+2B2, U+303-304, U+2020, U+2113"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-latin-wght-normal.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2212"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-vietnamese-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+303-304"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "italic",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-cyrillic-ext-wght-italic.woff2",
+   "unicodeRange": "U+20, U+41, U+A0"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "italic",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-cyrillic-wght-italic.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+400-45F, U+2116"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "italic",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-greek-wght-italic.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+391-3A1, U+3A3-3C9, U+3D1, U+3D5, U+3F1, U+3F5"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "italic",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-latin-ext-wght-italic.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+142, U+2B2, U+303-304, U+2020, U+2113"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "italic",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-latin-wght-italic.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2212"
+  },
+  {
+   "family": "STIX Two Text",
+   "style": "italic",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/stix-two-text-vietnamese-wght-italic.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+303-304"
+  },
+  {
+   "family": "B612 Mono",
+   "style": "normal",
+   "weight": "400",
+   "set": "main",
+   "file": "fonts/b612-mono-latin-400-normal.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2191, U+2193, U+2212"
+  },
+  {
+   "family": "B612 Mono",
+   "style": "normal",
+   "weight": "700",
+   "set": "main",
+   "file": "fonts/b612-mono-latin-700-normal.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2191, U+2193, U+2212"
+  },
+  {
+   "family": "JetBrains Mono",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/jetbrains-mono-cyrillic-ext-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1"
+  },
+  {
+   "family": "JetBrains Mono",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/jetbrains-mono-cyrillic-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+401-40C, U+40E-44F, U+451-45C, U+45E-45F, U+2116"
+  },
+  {
+   "family": "JetBrains Mono",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/jetbrains-mono-greek-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+391-3A1, U+3A3-3C9"
+  },
+  {
+   "family": "JetBrains Mono",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/jetbrains-mono-latin-ext-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+142, U+303-304, U+2020, U+2113"
+  },
+  {
+   "family": "JetBrains Mono",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/jetbrains-mono-latin-wght-normal.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
+  },
+  {
+   "family": "JetBrains Mono",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "main",
+   "file": "fonts/jetbrains-mono-vietnamese-wght-normal.woff2",
+   "unicodeRange": "U+20, U+41, U+A0, U+C1, U+303-304"
+  },
+  {
+   "family": "Roboto Flex",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "ru",
+   "stretch": "75% 125%",
+   "file": "fonts/roboto-flex-cyrillic-ext-full-normal.woff2",
+   "unicodeRange": "U+20, U+A0, U+4FF"
+  },
+  {
+   "family": "Roboto Flex",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "ru",
+   "stretch": "75% 125%",
+   "file": "fonts/roboto-flex-cyrillic-full-normal.woff2",
+   "unicodeRange": "U+20, U+A0, U+401-44F, U+451-45F, U+2116"
+  },
+  {
+   "family": "Roboto Flex",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "ru",
+   "stretch": "75% 125%",
+   "file": "fonts/roboto-flex-greek-full-normal.woff2",
+   "unicodeRange": "U+20, U+A0, U+391-3A1, U+3A3-3C9"
+  },
+  {
+   "family": "Roboto Flex",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "ru",
+   "stretch": "75% 125%",
+   "file": "fonts/roboto-flex-latin-ext-full-normal.woff2",
+   "unicodeRange": "U+20, U+A0, U+142, U+303-304, U+2020"
+  },
+  {
+   "family": "Roboto Flex",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "ru",
+   "stretch": "75% 125%",
+   "file": "fonts/roboto-flex-latin-full-normal.woff2",
+   "unicodeRange": "U+20-7E, U+A0-FF, U+131, U+303-304, U+200B, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026, U+2032-2033, U+2039-203A, U+2044, U+2191, U+2193, U+2212"
+  },
+  {
+   "family": "Roboto Flex",
+   "style": "normal",
+   "weight": "400 700",
+   "set": "ru",
+   "stretch": "75% 125%",
+   "file": "fonts/roboto-flex-vietnamese-full-normal.woff2",
+   "unicodeRange": "U+20, U+A0, U+303-304"
+  }
+ ],
+ "chars": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿıłʲ̃̄ͰΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡ΢ΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϑϕϱϵϿЀЁЂЃЄЅІЇЈЉЊЋЌЍЎЏАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяѐёђѓєѕіїјљњћќѝўџӿᵏᵢᶻ​‐‑‒–—―‖‗‘’‚‛“”„‟†‡•‣․‥…‧ ‰‱′″‴‵‶‷‸‹›※‼‽‾‿⁀⁁⁂⁃⁄⁅⁆⁇⁈⁉⁊⁋⁌⁍⁎⁏⁐⁑⁒⁓⁔⁕⁖⁗⁘⁙⁚⁛⁜⁝⁞⁰ⁱ⁴⁵⁶⁷⁸⁹⁺⁻⁽⁾ⁿ₀₁₂₃₄₅₆₇₈₉₍₎ₖₙₜℂℓ№ℤ⅛←↑→↓↔↦⇧∂∈∉∏∑−∓∖∘√∝∞∠∩∫∮≈≠≤≥⊂⊕⋯⌘⌫▶▸▾○●♫♯⚙✓ⱼ＝"
+}
