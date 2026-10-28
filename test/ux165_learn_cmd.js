@@ -105,11 +105,12 @@ grab();
 // ---------------------------------------------------------------- V01 (phone): the target's note
 await phone(412, 860);
 await fresh('ux165c'); await settle(2200);
-await ev(`(() => { const L = document.querySelector('#paneL'); window.__pulse = 0; new MutationObserver(() => { if (L.classList.contains('ph-pulse')) window.__pulse++; }).observe(L, { attributes: true, attributeFilter: ['class'] }); return 1; })()`);
+// (a pulse is the class going on: a record that only rewrites the pane's classes, as a resize does, is not one)
+await ev(`(() => { const L = document.querySelector('#paneL'); window.__olds = []; new MutationObserver((ms) => { for (const m of ms) window.__olds.push(m.oldValue || ''); }).observe(L, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); return 1; })()`);
 await tapSel('.pane.ph-inset .ph-swap'); await settle(600);
 await tapSel('#secDraw [data-tool="disc"]'); await settle(300);
 await tdrag(200, 330, 250, 380); await settle(1200);
-g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#calcChip') || {}).hidden, pulse: window.__pulse, targets: __cmwState().targets })`);
+g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#calcChip') || {}).hidden, pulse: (() => { const v = window.__olds.concat(document.querySelector('#paneL').className); let n = 0; for (let i = 0; i + 1 < v.length; i++) if (!/ph-pulse/.test(v[i]) && /ph-pulse/.test(v[i + 1])) n++; return n; })(), targets: __cmwState().targets })`);
 check('V01 phone: after a target, Y\'s chip says "Shaded in X (the inset)", no note over Y, and the inset pulsed once', g.targets === 1 && /Shaded in X \(the inset\)/.test(g.ro) && g.calc === true && g.pulse === 1, g);
 await shot('ux165-v01-phone');
 // laptop: the note is in Y's pane head
