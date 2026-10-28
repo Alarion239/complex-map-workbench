@@ -294,7 +294,7 @@ await section('A', async () => {
   // (issue #13) a right-click cancels the draft as Esc does, and opens no menu
   await click(cs[0] + 1, cs[1]); await settle(100);
   ok('A11 a curve picked again', (((await CI()).draft || {}).curve1 || {}).s === 'c3', (await CI()).draft);
-  const emptyP = await W(-1.6, 1.4);
+  const emptyP = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width * 0.85, r.top + r.height * 0.15]; })()`);
   await clickR(emptyP[0], emptyP[1]); await settle(250);
   ok('A11 a right-click cancels the draft, curve included, and opens no menu', (!(await CI()).draft || !(await CI()).draft.curve1) && !(await menuItems()).length, [(await CI()).draft, await menuItems()]);
   await tool('select');
