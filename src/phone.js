@@ -83,14 +83,11 @@ const Phone = (() => {
     // the context bar: above the tool row, only while something is selected or under way (D3)
     els.ctx = h('div', { class: 'ph-ctx ph-only', role: 'region', 'aria-live': 'polite', hidden: true });
     document.body.append(els.ctx);
-    // a message (a toast, with its Undo) takes that row for as long as it shows, and the planes give it up: the drawing stays put
+    // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
-    if (th) new MutationObserver(() => {
-      const had = rootEl.classList.contains('ph-toast-on'), now = on && !!th.firstElementChild;
-      if (had === now) return;
-      rootEl.classList.toggle('ph-toast-on', now);
-      Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; }
-    }).observe(th, { childList: true });
+    if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
+    document.addEventListener('pointerdown', () => { fingers++; }, true);
+    for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
@@ -359,12 +356,26 @@ const Phone = (() => {
   // its selection changes; the bar is rebuilt only when what it shows changes.
   let ctxKey = '';
   function ctxSync() { ctx(true); }
+  // The planes give the bar its room (and a message its row) only while no finger is down: a plane that shrinks under a
+  // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
+  let fingers = 0, layoutT = 0;
+  function barLayout() {
+    if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
+    clearTimeout(layoutT);
+    const th = $('toastHost'), c = rootEl.classList;
+    const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
+    if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
+    c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
+    syncPanes(); A.resize();
+  }
   function ctx(force) {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (a sheet, the deformation's transport or the tour's own layer has the bottom)
-    if (kind || A.morphOn()) st = null;
+    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
+    // one is no second layout change for the planes)
+    if (A.morphOn()) st = null;
+    els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;
     if (key === ctxKey && force && !!st === !els.ctx.hidden) return;
@@ -397,13 +408,11 @@ const Phone = (() => {
       kids = [text($t('Listening along the curve')), btn('prim', $t('Stop'), () => A.ctxAct('stop'))];
     }
     els.ctx.replaceChildren(...kids);
-    const was = !els.ctx.hidden, wasTall = rootEl.classList.contains('ph-ctx-tall');
     const tall = !!(st && st.kind === 'construct' && st.seg);
     els.ctx.hidden = !kids.length;
     els.ctx.classList.toggle('tall', tall);
     if (kids.length) { els.ctx.dataset.k = st.kind; }
-    // (the planes only re-fit when the bar comes, goes or changes height, not each time its words change)
-    if (was !== !!kids.length || wasTall !== tall) { rootEl.classList.toggle('ph-ctx-on', !!kids.length); rootEl.classList.toggle('ph-ctx-tall', tall); Pane.keepTop = true; try { syncPanes(); A.resize(); } finally { Pane.keepTop = false; } }
+    barLayout();
   }
 
   // ---------------- the tool row ----------------
