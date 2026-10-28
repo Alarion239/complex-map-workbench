@@ -53,16 +53,13 @@ const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'u
 ok('make_ru_table.py reads the table after every v16.4 one', /V165_HERE = \{[^}]*'v165-ux-learn\.json'[^}]*\}/.test(MK) && MK.indexOf("glob('v165-*.json')") > MK.lastIndexOf("glob('v164-*.json')"));
 const TABLE = (() => { const s = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
 const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;
-// (v16.5 merge, notes/ux-build/V16.5-MERGE.md: the table's "Stopgap" entry, help.deformation.snap, is the v16.4 merge
-// snapshot's older Help "Deformation" paragraph, not this piece's string; with the release's app.js merged the app calls
-// the release's paragraph (its Russian comes from v164-help.json), so make_ru_table.py drops the stopgap by itself)
-const stop = ents.filter(([, v]) => /^Stopgap/.test(v.note || ''));
-const missing = ents.filter(([, v]) => !/^Stopgap/.test(v.note || '') && !(keyOf(v) in TABLE));
+// (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the release's paragraph, whose
+// Russian comes from v164-help.json)
+const missing = ents.filter(([, v]) => !(keyOf(v) in TABLE));
 ok('every string of the piece is in the shipped table', missing.length === 0, missing.map(([k]) => k));
-ok('the stopgap is the older Help paragraph: the app no longer calls it, and the release\'s paragraph is in the table',
-  stop.length === 1 && stop[0][0] === 'help.deformation.snap' && !APP.includes(stop[0][1].en) && !(keyOf(stop[0][1]) in TABLE)
-  && Object.keys(TABLE).some((k) => k.startsWith('<b>Deformation</b> in the top bar') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)),
-  stop.map(([k]) => k));
+ok('no stopgap entry is left for the older Help "Deformation" paragraph, and the release\'s paragraph is in the table',
+  !ents.some(([, v]) => /^Stopgap/.test(v.note || '')) && !ents.some(([k]) => /^help\.deformation\./.test(k))
+  && Object.keys(TABLE).some((k) => k.startsWith('<b>Deformation</b> in the top bar') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
 ok('UX78: «Дальше автоматически»', TABLE['Move on by itself'] === 'Дальше автоматически', TABLE['Move on by itself']);
 ok('UX93: the tour is «Обучение»', TABLE['Guided tour'] === 'Обучение' && TABLE['⋯ › Guided tour'] === '⋯ › Обучение');
 const obzor = Object.entries(TABLE).filter(([k, v]) => /tour|Tour/.test(k) && (typeof v === 'string' ? [v] : Object.values(v)).some((x) => /[Оо]бзор/.test(x)));
