@@ -657,7 +657,7 @@
   // [UX54] a point keeps its subscript for life (gaps allowed): s.num, stored with the shape. Helpers have none. A save
   // with no numbers (earlier builds) takes them from the order, as those builds named the points (the visible ones,
   // then the hidden ones); a point without one (new, pasted, a helper made visible) or with a copy's takes the next
-  // after the largest. renumber: every point by its order again (the Shapes ⋯ Renumber points)
+  // after the largest. renumber: every point by its order again (the command palette's Renumber points)
   const numbered = (s) => !!s && s.kind === 'point' && !s.helper;
   function numberPoints(list = S.shapes, renumber = false) {
     const pts = list.filter(numbered);
