@@ -164,7 +164,7 @@
     insp = Inspector.create({
       h, $t, $tx, $tn, ICONS, TeX, sub, fsub, wvar, Funcs, Expr, CX, BADGES, CHIP_DEFS,
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
-      defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
+      defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, replacePalette: (el, k) => openPalette(el, null, { fnOnly: true, replace: k }), toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       paramField, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
       regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
@@ -201,6 +201,7 @@
     } finally { CX.setTexExact(false); }
     return `F(z)=${arg.s}` + (notes.length ? `\\quad(${notes.join(',\\ ')})` : '');
   }
+<<<<<<< HEAD
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
   // Files go through the viewer's downloads capability in claude.ai (the viewer confirms each save); a copy of the
   // page opened on its own saves with a plain download link.
@@ -695,193 +696,13 @@
     }
     return { markup, h: lines.length ? (lines.length - 1) * lineH + px * 1.35 : 0 };
   }
+=======
+>>>>>>> claude/w0-lint-types-33
   // the whole figure as an SVG document; opt: {panels: ['L'] | ['R'] | ['L', 'R'], widthIn, caption, morph, upTo}
   // opt.alive(): false once the figure is no longer wanted (the dialog's token moved on): -> null, nothing drawn after
   // opt.morph (the deformation open, morph-figure.md 5): the right panel is the deformation, one plane with X, its
   // image and the paths, for 0 <= t <= end (or up to the current t with opt.upTo), whatever the scrubber shows
   const mfFigCache = { key: '', sel: null };
-  // the paths figure's own choice (figure.js figPaths): the points kept in the world window o.box drawn o.w x o.h pt
-  // (pathsGen at the figure's spacing), and the caption that names them, in o.lang; o.paths false: none (the caption
-  // without its paths sentence). -> {kept: [{z, kind}], captionTex} or null (cancelled, or no deformation picture)
-  async function figMorphPaths(o) {
-    const alive = o.alive || (() => true);
-    if (!(morphOn() && rImage() && !morphHasDeriv())) return null;
-    const Tend = morphLen(), b = o.box, w = o.w * 96 / 72, h = o.h * 96 / 72;
-    const P = (z) => [(z.re - b.x0) / (b.x1 - b.x0) * w, (b.y1 - z.im) / (b.y1 - b.y0) * h];
-    const key = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false), Tend, b.x0, b.x1, b.y0, b.y1, w, h]);
-    let sel = mfFigCache.key === key ? mfFigCache.sel : null;
-    if (!sel) {
-      sel = await runGenSliced(pathsGen(P, { x: 0, y: 0, w, h }, b, Tend, { scale: PATHS.figK, maxN: PATHS.figMax, fig: true }), alive);
-      if (!sel || !alive()) return null;
-      mfFigCache.key = key; mfFigCache.sel = sel;
-    }
-    if (o.paths === false) sel = Object.assign({}, sel, { kept: [] });
-    let capSegs;
-    I18N.using(o.lang || I18N.lang, () => {
-      const keepT = morph.T;
-      morph.T = Tend;
-      try { capSegs = morphCaption(sel, Tend); } finally { morph.T = keepT; }
-    });
-    return { kept: sel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind })), captionTex: captionLatex(capSegs) };
-  }
-  // (the export meshes of smPrepareExport live only while the figure draws; f.partial counts the forward images whose
-  // mesh ended on a budget, which the dialog's note reports)
-  // (each call tags its export meshes with its own generation, so a cancelled call's cleanup never drops the meshes
-  // of the call that replaced it)
-  async function buildFigure(opt) {
-    const gen = ++sm.exportGen;
-    try {
-      const f = await buildFigureNow(Object.assign({}, opt, { expGen: gen }));
-      if (f) f.partial = sm.exportPartial | 0;
-      return f;
-    } finally { smDropExport(gen); }
-  }
-  async function buildFigureNow(opt) {
-    const alive = opt.alive || (() => true);
-    const panels = opt.panels, W = Math.round(opt.widthIn * 96), dpr = FIG_DPI / 96;
-    const isMorph = !!opt.morph && morphOn() && rImage() && !morphHasDeriv();
-    const mEnd = morphLen(), Tend = isMorph ? (opt.upTo ? Math.max(1e-3, morph.T) : mEnd) : 0;
-    const TICK = 8 * PT, LAB = 9 * PT, CAP = 9 * PT;
-    const black = '#000', frameW = 0.75, tickW = 0.6;
-    // margins (px): left room for tick numbers and the rotated axis title; bottom for numbers and the title
-    const mL = (side) => (isPlanePanel(side) ? 40 : 0), mB = (side) => (isPlanePanel(side) ? 30 : 0);
-    const both = panels.length === 2, arrowGap = both && rImage() && isPlanePanel('L') && !isMorph ? 40 : both ? 18 : 0;
-    const topLetter = both ? 16 : 4, right = 6;
-    const sumMargins = panels.reduce((a, s) => a + mL(s), 0) + arrowGap + right;
-    const pw = (W - sumMargins) / panels.length;
-    // the inverse programs the panels draw with, before the theme switch (no frame runs while it is in effect)
-    if (!(await prepareExport(panels, alive, isMorph && !opt.upTo, { pw, dpr, gen: opt.expGen || 0 }))) return null;
-    // One panel per task, in the light theme for print (switched for that panel only, so no frame on screen runs in
-    // it), and every raster's encoding in a task of its own: toBlob reads the pixels back synchronously and waits
-    // for the GPU to finish what was drawn before. Two 300 dpi globe panels and the first readback in one task
-    // blocked the main thread for 51-60 ms (P3 review); a task here is one panel's draw, or one readback.
-    const nextTask = () => new Promise((r) => setTimeout(r, 0));
-    const drawn = [];
-    for (const side of panels) {
-      if (drawn.length) { await nextTask(); if (!alive()) return null; }
-      const real = side === 'L' ? paneL : paneR;
-      const ph = pw * real.h / effW(side);
-      const wasDark = TH.dark, attr = document.documentElement.getAttribute('data-theme');
-      if (wasDark) { document.documentElement.setAttribute('data-theme', 'light'); readTheme(); }
-      // the deformation panel is drawn at t = Tend, paused (the region exact at the end, normalizeMap)
-      const mKeep = { T: morph.T, playing: morph.playing };
-      if (isMorph && side === 'R') { morph.T = Tend; morph.playing = false; }
-      figVec = isMorph && side === 'R';
-      try {
-        drawn.push({ side, ph, cv: renderOff(side, pw, ph, dpr) });
-      } finally {
-        figVec = false;
-        morph.T = mKeep.T; morph.playing = mKeep.playing;
-        if (wasDark) { if (attr == null) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', attr); readTheme(); }
-        requestRender('L', 'R');
-      }
-    }
-    // the rasters are encoded after the theme is restored, off the main thread, once the GPU has finished the panels
-    // (the first readback waited for every panel's passes: 51-58 ms of main thread for two 300 dpi globes)
-    if (GLR.gpuDone) await GLR.gpuDone();
-    if (!alive()) return null;
-    const rasters = [];
-    for (const d of drawn) {
-      await nextTask();
-      if (!alive()) return null;
-      rasters.push({ side: d.side, ph: d.ph, url: await canvasURL(d.cv), w: d.cv.width, h: d.cv.height });
-    }
-    if (!alive()) return null;
-    const keyH = panels.some((s) => panelKey(s)) ? 34 : 0;
-    const PH = Math.max(...rasters.map((r) => r.ph));
-    let body = '';
-    let x = 0;
-    const panelTop = topLetter;
-    let mSel = null;
-    for (const [i, r] of rasters.entries()) {
-      const side = r.side, plane = isPlanePanel(side);
-      x += mL(side);
-      const y = panelTop + (PH - r.ph) / 2;
-      body += `<image x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${pw.toFixed(2)}" height="${r.ph.toFixed(2)}" preserveAspectRatio="none" href="${r.url}" xlink:href="${r.url}"/>`;
-      if (isMorph && side === 'R') {
-        // the vector layers of the deformation: X's outline, the paths, arrowheads, dots, the labels
-        const b = panelBox('R', pw, r.ph);
-        const P = (w) => [x + (w.re - b.x0) / (b.x1 - b.x0) * pw, y + (b.y1 - w.im) / (b.y1 - b.y0) * r.ph];
-        // chosen in slices (the dialog stays live; a newer option cancels it), and kept for the same chain, shapes,
-        // panel and time, so the Caption switch or a repeated build reuses it
-        const fkey = JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false), opt.widthIn, Tend, b, pw, r.ph, x, y]);
-        if (mfFigCache.key === fkey) mSel = mfFigCache.sel;
-        else {
-          mSel = await runGenSliced(pathsGen(P, { x, y, w: pw, h: r.ph }, b, Tend, { scale: PATHS.figK, maxN: PATHS.figMax, fig: true }), alive);
-          if (!mSel || !alive()) return null;
-          mfFigCache.key = fkey; mfFigCache.sel = mSel;
-        }
-        // Paths off (the figure's Paths row): X's outline and the image only, no arrows (and no arrow sentence)
-        if (opt.paths === false) mSel = Object.assign({}, mSel, { kept: [], labelled: null });
-        const lay = morphFigureLayers(mSel, P, { x, y, w: pw, h: r.ph, wx0: b.x0, wx1: b.x1, wy0: b.y0, wy1: b.y1 }, `mfclip${i}`);
-        mSel.labelled = lay.labelled;
-        body += lay.svg;
-      }
-      if (plane) {
-        const b = panelBox(side, pw, r.ph), v = isMorph && side === 'R' ? '' : panelVar(side);
-        const step = Axes.niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0) / 5), minor = step / (String(step / 10 ** Math.floor(Math.log10(step)))[0] === '2' ? 4 : 5);
-        const X = (t) => x + (t - b.x0) / (b.x1 - b.x0) * pw, Y = (t) => y + (b.y1 - t) / (b.y1 - b.y0) * r.ph;
-        let d = '';
-        const tick = (len, step2) => {
-          for (let i2 = Math.ceil(b.x0 / step2); i2 <= Math.floor(b.x1 / step2); i2++) { const px = X(i2 * step2); d += `M${px.toFixed(2)} ${(y + r.ph).toFixed(2)}v${-len}M${px.toFixed(2)} ${y.toFixed(2)}v${len}`; }
-          for (let j = Math.ceil(b.y0 / step2); j <= Math.floor(b.y1 / step2); j++) { const py = Y(j * step2); d += `M${x.toFixed(2)} ${py.toFixed(2)}h${len}M${(x + pw).toFixed(2)} ${py.toFixed(2)}h${-len}`; }
-        };
-        tick(4, step); tick(2.2, minor);
-        body += `<path d="${d}" stroke="${black}" stroke-width="${tickW}" fill="none"/>`;
-        body += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${pw.toFixed(2)}" height="${r.ph.toFixed(2)}" fill="none" stroke="${black}" stroke-width="${frameW}"/>`;
-        // tick numbers below and left
-        for (let i2 = Math.ceil(b.x0 / step); i2 <= Math.floor(b.x1 / step); i2++) body += mjAt(mj(tickTex(i2 * step, step), TICK), X(i2 * step), y + r.ph + 4 + TICK * 0.95, 'middle');
-        for (let j = Math.ceil(b.y0 / step); j <= Math.floor(b.y1 / step); j++) { const it = mj(tickTex(j * step, step), TICK); body += mjAt(it, x - 4, Y(j * step) + TICK * 0.33, 'end'); }
-        // axis titles
-        body += mjAt(mj(`\\operatorname{Re} ${v}`, LAB), x + pw / 2, y + r.ph + 4 + TICK + 4 + LAB * 0.9, 'middle');
-        const it = mj(`\\operatorname{Im} ${v}`, LAB), cx = x - 30, cy = y + r.ph / 2;
-        body += `<g transform="rotate(-90 ${cx.toFixed(2)} ${cy.toFixed(2)})">${mjAt(it, cx, cy + LAB * 0.32, 'middle')}</g>`;
-      }
-      if (both) body += mjAt(mj(`\\text{(${String.fromCharCode(97 + i)})}`, LAB), x - (plane ? mL(side) - 2 : 0), panelTop - 5);
-      // colour key, under the panel
-      const key = panelKey(side);
-      if (key) {
-        const kw = Math.min(pw * 0.62, 190), kx = x + (pw - kw) / 2, ky = panelTop + PH + mB(side) + 8, gid = `kg${i}`;
-        body += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">${key.stops.map(([o, c]) => `<stop offset="${o.toFixed(4)}" stop-color="${c}"/>`).join('')}</linearGradient></defs>`;
-        body += `<rect x="${kx.toFixed(2)}" y="${ky.toFixed(2)}" width="${kw.toFixed(2)}" height="6" fill="url(#${gid})" stroke="${black}" stroke-width="0.5"/>`;
-        let kd = '';
-        for (const [o, t] of key.ticks) { const tx = kx + o * kw; kd += `M${tx.toFixed(2)} ${(ky + 6).toFixed(2)}v2.5`; body += mjAt(mj(t, TICK), tx, ky + 8.5 + TICK * 0.95, 'middle'); }
-        body += `<path d="${kd}" stroke="${black}" stroke-width="0.5"/>`;
-        body += mjAt(mj(key.title, LAB), kx - 6, ky + 6, 'end');
-      }
-      // the map arrow between domain and image
-      if (both && i === 0 && arrowGap >= 24 && !isMorph) {
-        const ax0 = x + pw + 5, ax1 = x + pw + arrowGap - 3, ay = panelTop + PH / 2;
-        body += `<path d="M${ax0.toFixed(2)} ${ay.toFixed(2)}H${ax1.toFixed(2)}M${(ax1 - 4).toFixed(2)} ${(ay - 2.6).toFixed(2)}L${ax1.toFixed(2)} ${ay.toFixed(2)}L${(ax1 - 4).toFixed(2)} ${(ay + 2.6).toFixed(2)}" stroke="${black}" stroke-width="0.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
-        body += mjAt(mj(S.focus === 0 ? 'F' : `f_{${S.focus}}`, LAB), (ax0 + ax1) / 2, ay - 5, 'middle');
-      }
-      x += pw + (i === 0 ? arrowGap : 0);
-    }
-    let H = panelTop + PH + Math.max(...panels.map(mB)) + keyH + 6;
-    let capSegs;
-    I18N.using(opt.lang || I18N.lang, () => { // (review math-2: the caption in the figure's language)
-    if (isMorph && panels.includes('R')) {
-      const keepT = morph.T;
-      morph.T = Tend;
-      try {
-        if (both) {
-          const vis = S.shapes.filter((s) => s.visible !== false);
-          let pi = 0;
-          const list = joinList(vis.map((s) => { const r = shapePhrase(s, s.kind === 'point' ? pi : 0); if (s.kind === 'point') pi++; return r; }));
-          capSegs = [{ b: '(a)' }, { t: ' ' }, ...capT('%{set} in the %{z}-plane. ', { set: list.length ? cap1(list) : capT('The plane', {}), z: { m: 'z' } }), { b: '(b)' }, ...capT(' The deformation %{H}: ', { H: { m: String.raw`H_t,\ 0\le t\le ` + I18N.texNum(CX.fmtNum(Tend, 2)) } }), ...morphCaption(mSel || { kept: [] }, Tend, { both: true })].map((g) => (g.m != null ? { m: inlineFrac(g.m) } : g));
-        } else capSegs = morphCaption(mSel || { kept: [] }, Tend);
-      } finally { morph.T = keepT; }
-    } else capSegs = figureCaption(panels);
-    });
-    let capMarkup = '';
-    if (opt.caption) {
-      const c = layoutCaption(capSegs, 0, H + 4, W, CAP, isMorph && panels.includes('R'));
-      capMarkup = c.markup; H += 4 + c.h + 4;
-    }
-    H = Math.ceil(H);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${(W / 96).toFixed(3)}in" height="${(H / 96).toFixed(3)}in" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${body}${capMarkup}</svg>`;
-    return { svg, W, H, captionTex: captionLatex(capSegs), morph: mSel ? { kept: mSel.kept.map((k) => ({ z: [k.sp.z.re, k.sp.z.im], kind: k.sp.kind, start: k.l[0], end: k.l[k.l.length - 1], meet: !!k.meet })), budget: mSel.budget, nCands: mSel.nCands, labelled: mSel.labelled ? [mSel.labelled.sp.z.re, mSel.labelled.sp.z.im] : null, log: mSel.log.map(([c, why]) => [c.sp.z.re, c.sp.z.im, c.sp.kind, why]) } : null };
-  }
   // ---- the figure export (src/figure.js; notes/export-design/AS-BUILT.md): the renderer and the state it reads ----
   // artRender(side, o): one plane drawn off-screen in the art layer (fills only) for the exact world window o.box at
   // o.wpt points wide (a globe or the landscape: the pane's picture at o.wpt x o.hpt), in the light theme on white
@@ -889,115 +710,6 @@
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
   // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
   let artLandBox = null;
-  // (export review r3, video-1) the light theme's tokens, read once per class list: an export render in the dark theme
-  // swaps TH in memory instead of flipping data-theme (each flip recalculated every style and, through the theme
-  // observer, rebuilt the panels: 78-440 ms tasks per video frame). The one flip here is undone in the same block,
-  // and themeChanged skips a notice whose theme is unchanged.
-  let lightTH = null, lightKey = null;
-  function lightTheme() {
-    const de = document.documentElement, key = de.className;
-    if (lightTH && lightKey === key) return lightTH;
-    const keep = TH, attr = de.getAttribute('data-theme');
-    de.setAttribute('data-theme', 'light'); readTheme(); lightTH = TH; lightKey = key;
-    if (attr == null) de.removeAttribute('data-theme'); else de.setAttribute('data-theme', attr);
-    TH = keep; inkCache.clear();
-    return lightTH;
-  }
-  async function artRender(side, o) {
-    const alive = o.alive || (() => true);
-    const real = side === 'L' ? paneL : paneR, v = side === 'L' ? leftView() : V.right;
-    const wpx = o.wpt * 96 / 72, dpr = o.dpi / 96;
-    const hpx = o.box ? wpx * (o.box.y1 - o.box.y0) / (o.box.x1 - o.box.x0) : o.hpt ? o.hpt * 96 / 72 : wpx * real.h / effW(side);
-    const fv = o.box ? { cx: (o.box.x0 + o.box.x1) / 2, cy: (o.box.y0 + o.box.y1) / 2, s: wpx / (o.box.x1 - o.box.x0), ph: hpx } : null;
-    const atEnd = o.T == null || o.T >= morphLen() - 1e-9;
-    const gen = ++sm.exportGen;
-    try {
-      if (!(await prepareExport([side], alive, atEnd, { pw: wpx, dpr, gen, views: fv ? { [side]: fv } : null }))) return null;
-      const keep = { cx: v.cx, cy: v.cy, s: v.s, T: morph.T, playing: morph.playing };
-      const thKeep = TH, light = TH.dark ? lightTheme() : TH;
-      let cv;
-      try {
-        if (fv) { const k = wpx / effW(side); v.cx = fv.cx; v.cy = fv.cy; v.s = fv.s / k; }
-        if (o.T != null) { morph.T = o.T; morph.playing = false; }
-        // (o.look 'light': the screen's look in the light theme, for a video; else the art layer on white paper)
-        artMode = o.look !== 'light'; printInk = artMode ? o.ink || null : null; artLand = null; artGlobe = null; artLandBox = o.landBox || null; artCam = true; artSkip = o.skipLines ? new Set(o.skipLines) : null; artNoLab = !!o.noGlobeLabels;
-        TH = Object.assign({}, light); inkCache.clear();
-        if (artMode) { TH.plane = '#ffffff'; TH.planeRGB = GLR.hexRGB('#ffffff'); }
-        cv = renderOff(side, wpx, hpx, dpr);
-      } finally {
-        artMode = false; printInk = null; artLandBox = null; artCam = false; artSkip = null; artNoLab = false;
-        Object.assign(v, { cx: keep.cx, cy: keep.cy, s: keep.s });
-        morph.T = keep.T; morph.playing = keep.playing;
-        TH = thKeep; inkCache.clear();
-        requestRender('L', 'R');
-      }
-      const land = artLand, globe = artGlobe;
-      if (GLR.gpuDone) await GLR.gpuDone();
-      if (!alive()) return null;
-      // (a video frame: the canvas itself, no readback)
-      if (o.raw) return { w: cv.width, h: cv.height, cv, land, globe };
-      const id = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, n = cv.width * cv.height, rgb = new Uint8Array(n * 3);
-      // flattened on white. An opaque pixel (nearly all of them) is copied: the formula gives the same bytes there, and
-      // the copy keeps this step short (the export dialog's preview: no main-thread task near 50 ms)
-      for (let i = 0; i < n; i++) {
-        const al = id[4 * i + 3];
-        if (al === 255) { rgb[3 * i] = id[4 * i]; rgb[3 * i + 1] = id[4 * i + 1]; rgb[3 * i + 2] = id[4 * i + 2]; continue; }
-        const a = al / 255; for (let c = 0; c < 3; c++) rgb[3 * i + c] = Math.round(id[4 * i + c] * a + 255 * (1 - a));
-      }
-      return { w: cv.width, h: cv.height, rgb, land, globe };
-    } finally { smDropExport(gen); }
-  }
-  // what the figure shows: the view's picture (merged-views.md: export follows the view)
-  function figViewKind() {
-    const main = S.view.main;
-    if (main === 'land' && lLand()) return 'land';
-    if (main === 'phase') return lColor() ? 'phase' : 'xyL';
-    if (morphOn()) return rImage() && !morphHasDeriv() ? 'morph' : 'xyR';
-    return 'xy';
-  }
-  const slugOf = (t) => String(t || '').normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  function figSceneName() {
-    // the file name comes from the English name in every language: an ASCII name that pdfLaTeX's \includegraphics takes
-    const ex = typeof currentExample === 'number' && EX[currentExample] ? enOf(EX[currentExample].name) : null;
-    const base = slugOf(ex) || slugOf(activeSteps().map((k) => S.steps[k - 1].type).slice(0, 2).join('-')) || 'plane';
-    const v = figViewKind();
-    return base + (v === 'phase' ? '-phase' : v === 'land' ? '-landscape' : v === 'morph' ? '-deformation' : '');
-  }
-  // the pieces of a caption, from the scene (figure.js writes the sentences)
-  // (o.letters: points named A, B, C... as the Homework figure names them)
-  function figCapParts(o = {}) {
-    const vis = S.shapes.filter((s) => s.visible !== false);
-    // (export review r3, verify2-new-1) o.skip: the points a globe figure cannot show (on the far side of the sphere)
-    // are left out of the list of what it shows; the caption says they are hidden. The other points keep their names.
-    const skipped = (s) => !!(o.skip && s.kind === 'point' && s.p && o.skip.some((z) => z.re === s.p[0] && z.im === s.p[1]));
-    const skipAll = vis.every(skipped);
-    const listOf = (gen) => {
-      let pk = 0;
-      return joinList(vis.map((s) => { const k = s.kind === 'point' ? pk : 0; if (s.kind === 'point') pk++; return !skipAll && skipped(s) ? null : shapePhrase(o.letters && s.kind === 'point' ? Object.assign({}, s, { label: String.fromCharCode(65 + (k % 26)) }) : s, k, gen); }).filter((r) => r != null));
-    };
-    const shapeList = listOf();
-    // the same list in the genitive ("the images of ..."): Russian needs the case, English is the same
-    const shapeListGen = listOf('gen');
-    const lv = panelVar('L'), Fname = S.focus === 0 ? 'F' : `f_{${S.focus}}`;
-    const Ftex = S.focus === 0 ? compositeTexShort() : (built[S.focus - 1] && !built[S.focus - 1].error ? built[S.focus - 1].tex({ s: lv, p: 4 }).s : null);
-    const formula = Ftex && Ftex.length < 240 ? inlineFrac(Ftex) : null;
-    // the deformation shown in one panel (Phase or Landscape of H_t): the picture is H_t at the current t
-    const hm = morphOn() && lPaintsF();
-    let hom = null;
-    if (morphOn()) { try { const m = morphLen(), hs = morphHomSegs(m); hom = { T: morph.T, m, tex: captionLatex(hs.segs), inner: hs.inner ? captionLatex(hs.inner) : null, innerShort: hs.innerShort ? captionLatex(hs.innerShort) : null }; } catch (e) { hom = null; } }
-    // (export review r3) the steps the homotopy names f_1, f_2, ...: their maps, for the caption's displayed chain
-    let chain = null;
-    if (morphOn() && S.focus === 0) {
-      const ks = morphRange().steps;
-      if (ks.length > 1 && !ks.some((k) => isDeriv(k))) chain = ks.map((k) => { const b = built[k - 1], v = k === 1 ? 'z' : `w_{${k - 1}}`; return { f: `f_{${k}}`, v, tex: b && !b.error ? b.tex({ s: v, p: 4 }).s : null }; });
-      if (chain && chain.some((q) => !q.tex)) chain = null;
-    }
-    return { shapeList, shapeListGen, nShapes: vis.length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
-      pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs(Fname) : [], height: S.height, phase: lPhase(), dc: S.dc, sectors: S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
-  }
-  // t in [0, 1] -> arg from -pi to pi, the colours of the legend wheel (as panelKey)
-  const hueBytes = (t) => keyRGB((2 * t - 1) * Math.PI).map((x) => Math.round(255 * x));
-  const viewBoxOf = (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return panelBox(side, effW(side), real.h > 20 ? real.h : other.h); };
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
     // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
@@ -1045,98 +757,69 @@
     morphPaths: (o) => figMorphPaths(o),
     globePaths: () => (rGlobe() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
   });
-  // what each lit lamp means, in LaTeX
-  const BADGE_TEX = {
-    analytic: $t('holomorphic at every point of its natural domain $D$'),
-    entire: $t('$D = \\mathbb{C}$ and $F$ is holomorphic everywhere'),
-    rational: $t('agrees on $D$ with $P(z)/Q(z)$ for polynomials $P$ and $Q$'),
-    polynomial: $t('$F$ is a polynomial in $z$'),
-    mobius: $t('$F(z) = \\frac{az+b}{cz+d}$ with $ad - bc \\neq 0$'),
-    proper: $t('preimages of compact subsets of $\\mathbb{C}$ are compact in $D$, so $|F(z)| \\to \\infty$ as $z \\to \\partial D$ or $z \\to \\infty$'),
-    homeo: $t('injective and continuous on the open set $D$, hence a homeomorphism $D \\to F(D)$ by invariance of domain'),
-    conformal: $t('holomorphic and injective, hence a biholomorphism $D \\to F(D)$ with $F\' \\neq 0$'),
-  };
-  const BADGE_NAME_TEX = { mobius: $t('M\\"obius') };
-  // a standalone LaTeX document: the composite map (constants that parse back exactly, non-principal branches
-  // noted), every step, the natural domain, and the guaranteed properties (each implied by the chain)
-  function latexDocument() {
-    const act = activeSteps();
-    const P = Funcs.composeProps(act.map((k) => built[k - 1].props));
-    const words = Object.assign({}, P, { homeo: P.injective, conformal: P.analytic && P.injective });
-    let texF = exactTexF();
-    const rows = [], conds = [];
-    CX.setTexExact(true);
-    try {
-      S.steps.forEach((st, i) => {
-        const k = i + 1, b = built[i];
-        if (st.on === false) rows.push($t('  w_{%{k}} &= w_{%{k2}} && \\text{(step %{k} bypassed)}', { k, k2: k - 1 }));
-        else if (b.error) rows.push($t('  w_{%{k}} &= w_{%{k2}} && \\text{(step %{k} skipped: it has an error)}', { k, k2: k - 1 }));
-        else rows.push(`  w_{${k}} &= ${b.tex({ s: wvar(k - 1), p: 4 }).s} && \\text{(${(b.def ? b.def.label : st.type).replace(/[&%$#_{}~^\\]/g, '')})}`);
-      });
-      for (const k of act) { const b = built[k - 1]; if (b.domain) conds.push(b.domain(wvar(k - 1))); }
-    } finally { CX.setTexExact(false); }
-    // (exact constants keep the point for copying; the Russian and Italian documents print them as 0{,}5, as their
-    // captions do)
-    if (I18N.comma()) { const dc = (t) => t.replace(/(\d)\.(\d)/g, '$1{,}$2'); texF = dc(texF); for (let i = 0; i < rows.length; i++) rows[i] = dc(rows[i]); for (let i = 0; i < conds.length; i++) conds[i] = dc(conds[i]); }
-    const deg = P.deg != null ? (P.degExact ? $t(', of degree {deg}', { deg: P.deg }) : $t(', of degree at most {deg}', { deg: P.deg })) : '';
-    const lit = BADGES.filter(([k]) => words[k]), unlit = BADGES.filter(([k]) => !words[k]);
-    const name = (k, n) => BADGE_NAME_TEX[k] || n;
-    const out = [
-      $t('% Exported from Complex Map Workbench'),
-      '\\documentclass{article}',
-      // (Russian text needs Cyrillic fonts and hyphenation: DESIGN.md 5, tested with pdfLaTeX)
-      ...(I18N.lang === 'ru' ? ['\\usepackage{iftex}', '\\ifPDFTeX', '  \\usepackage[T2A]{fontenc}', '  \\usepackage[utf8]{inputenc}', '\\else', '  \\usepackage{fontspec}', '  \\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf,BoldItalicFont=cmunbi.otf]', '\\fi', '\\usepackage[russian]{babel}'] : []),
-      // (Italian: accented letters and Italian hyphenation, pdfLaTeX, XeLaTeX and LuaLaTeX alike)
-      ...(I18N.lang === 'it' ? ['\\usepackage{iftex}', '\\ifPDFTeX', '  \\usepackage[T1]{fontenc}', '  \\usepackage[utf8]{inputenc}', '\\fi', '\\usepackage[italian]{babel}'] : []),
-      '\\usepackage{amsmath,amssymb}',
-      '\\begin{document}',
-      '',
-      $t('\\section*{The map}'),
-      '\\[',
-      `  ${texF}`,
-      '\\]',
-    ];
-    if (S.steps.length) {
-      out.push($t('built step by step from $w_0 = z$, with $F(z) = w_{%{n}}$:', { n: S.steps.length }), '\\begin{align*}', rows.join(' \\\\\n'), '\\end{align*}');
-    } else out.push($t('The chain is empty, so $F$ is the identity.'));
-    out.push('', $t('\\section*{Natural domain}'));
-    if (!conds.length) out.push(act.every((k) => built[k - 1].props.entire) ? '$D = \\mathbb{C}$.' : $t('$D$ is the set of $z$ at which every step is defined.'));
-    else out.push($t('$D$ is the set of $z$ for which'), '\\begin{itemize}', ...conds.map((c) => `  \\item $${c}$`), '\\end{itemize}', act.length > 1 ? $t('where $w_k$ is the value after step $k$ and $w_0 = z$.') : '');
-    out.push('', $t('\\section*{Guaranteed properties}'),
-      $t('Each property listed here is implied by the chain: every step has it and composition preserves it (a derivative step keeps the properties that differentiation preserves). The list is sound but not complete: a property that is not listed may still hold.'));
-    if (lit.length) {
-      out.push('\\begin{itemize}');
-      for (const [k, n] of lit) out.push(`  \\item \\textbf{${name(k, n)}}${k === 'rational' || k === 'polynomial' ? deg : ''}: ${BADGE_TEX[k]}.`);
-      out.push('\\end{itemize}');
-    } else out.push('', $t('The chain guarantees none of the tracked properties.'));
-    if (unlit.length) out.push('', $t('Not implied by the chain (they may still hold): {x}.', { x: unlit.map(([k, n]) => name(k, n).replace(/ onto image$/, ' onto its image')).map((x) => (I18N.lang === 'ru' ? x.replace(/^[А-ЯЁ]/, (c) => c.toLowerCase()) : I18N.lang === 'it' ? x.replace(/^\p{Lu}(?=\p{Ll})/u, (c) => c.toLowerCase()) : x)).join(', ') }));
-    out.push('', '\\end{document}', '');
-    // Russian notation (tg, sh, ...) at the export boundary (DESIGN.md 6); English is unchanged
-    return I18N.notation(out.join('\n'));
+  // what export and captions (src/export.js) need from the app: its functions and constants, and the state they
+  // reassign as getters (and setters for the state they write)
+  function exportApi() {
+    return {
+      BADGES, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
+      focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
+      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, morphFigureLayers,
+      morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
+      pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
+      runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
+      smPrepareExport, sndError, sndExportDone, sphN, stageMap, texSegs, toast, wDefSegs, wvar,
+      get S() { return S; },
+      get TH() { return TH; }, set TH(v) { TH = v; },
+      get artCam() { return artCam; }, set artCam(v) { artCam = v; },
+      get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
+      get artLand() { return artLand; }, set artLand(v) { artLand = v; },
+      get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },
+      get artMode() { return artMode; }, set artMode(v) { artMode = v; },
+      get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
+      get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },
+      get built() { return built; },
+      get chainSig() { return chainSig; },
+      get currentExample() { return currentExample; },
+      get draft() { return draft; }, set draft(v) { draft = v; },
+      get figMode() { return figMode; }, set figMode(v) { figMode = v; },
+      get figVec() { return figVec; }, set figVec(v) { figVec = v; },
+      get hoverShape() { return hoverShape; }, set hoverShape(v) { hoverShape = v; },
+      get offRender() { return offRender; }, set offRender(v) { offRender = v; },
+      get paneL() { return paneL; }, set paneL(v) { paneL = v; },
+      get paneR() { return paneR; }, set paneR(v) { paneR = v; },
+      get printInk() { return printInk; }, set printInk(v) { printInk = v; },
+      get probe() { return probe; }, set probe(v) { probe = v; },
+      get rHover() { return rHover; }, set rHover(v) { rHover = v; },
+      get selected() { return selected; }, set selected(v) { selected = v; },
+    };
   }
-  // (v16.5 V02: the items, for the menu and for the phone's ⋯ sheet, which lists them as its own rows)
-  function exportMenuItems() {
-    const items = [
-      { label: $t('Export figure…'), fig: true, key: /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘E' : 'Ctrl E', run: () => Figure.open() },
-      { label: $t('Copy figure again'), icon: 'copy', again: true, disabled: !Figure.settings().last, run: () => { Figure.again('copy').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
-      { label: $t('Save figure again'), save: true, again: true, disabled: !Figure.settings().last, run: () => { Figure.again('save').catch((e) => { console.error(e); sndError(); toast($t('The figure could not be made here.')); }); } },
-      'sep',
-      { label: $t('Copy LaTeX with guarantees'), icon: 'copy', run: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); } },
-      { label: $t('Save LaTeX with guarantees (.txt)'), save: true, run: () => saveFile('complex-map.txt', latexDocument()) },
-      // v15: the whole figure in a link or a scene file (constructions/DESIGN.md 1.5)
-      'sep',
-      { label: $t('Copy link to this figure'), icon: 'copy', run: () => { copyFigureLink(); } },
-      { label: $t('Save scene (.cmw.json)'), save: true, run: () => { saveScene(); } },
-      { label: $t('Open scene…'), run: () => { pickScene(); } },
-    ];
-    // files cannot be offered in this view: only the copy remains
-    // (by a flag, not by the label: the label is translated)
-    if (dlDone && !dlNs) for (const it of items) if (it !== 'sep' && it.save) it.disabled = true;
-    return items;
-  }
-  function openExportMenu(anchor) { openMenu(anchor, exportMenuItems()); }
-  // highlight a step in the panel, the matrix and the chain at once
-  function hiStep(k, on) {
-    for (const el of document.querySelectorAll(`[data-k="${k}"]`)) el.classList.toggle('hi', on);
-  }
+  // the app calls the module by the old names (as untyped calls: their types stay the module's own)
+  const EXP = /** @type {any} */ (Export);
+  function getDownloads(...args) { return EXP.getDownloads(...args); }
+  function saveFile(...args) { return EXP.saveFile(...args); }
+  function prepareExport(...args) { return EXP.prepareExport(...args); }
+  function effW(...args) { return EXP.effW(...args); }
+  function renderOff(...args) { return EXP.renderOff(...args); }
+  function panelVar(...args) { return EXP.panelVar(...args); }
+  function capT(...args) { return EXP.capT(...args); }
+  function shapePhrase(...args) { return EXP.shapePhrase(...args); }
+  function joinList(...args) { return EXP.joinList(...args); }
+  function cap1(...args) { return EXP.cap1(...args); }
+  function pcTidy(...args) { return EXP.pcTidy(...args); }
+  function compositeTexShort(...args) { return EXP.compositeTexShort(...args); }
+  function patternSegs(...args) { return EXP.patternSegs(...args); }
+  function figureCaption(...args) { return EXP.figureCaption(...args); }
+  function captionLatex(...args) { return EXP.captionLatex(...args); }
+  function figMorphPaths(...args) { return EXP.figMorphPaths(...args); }
+  function buildFigure(...args) { return EXP.buildFigure(...args); }
+  function artRender(...args) { return EXP.artRender(...args); }
+  function figViewKind(...args) { return EXP.figViewKind(...args); }
+  function figSceneName(...args) { return EXP.figSceneName(...args); }
+  function figCapParts(...args) { return EXP.figCapParts(...args); }
+  function hueBytes(...args) { return EXP.hueBytes(...args); }
+  function viewBoxOf(...args) { return EXP.viewBoxOf(...args); }
+  function latexDocument(...args) { return EXP.latexDocument(...args); }
+  function exportMenuItems(...args) { return EXP.exportMenuItems(...args); }
+  function openExportMenu(...args) { return EXP.openExportMenu(...args); }
+  function hiStep(...args) { return EXP.hiStep(...args); }
 
