@@ -18,7 +18,7 @@
 //         is the current info's lib + walker), the forward uChain layout is unchanged, every frame draws (inverse when
 //         eligible and compiled, else the forward mesh)
 window.__invTestRun = async (opts = {}) => {
-  const R = window.__invTest = { done: false, cases: 0, eligibleCases: 0, programs: new Set(), points: 0, compared: 0, leaves: 0, skipped: { discontinuous: 0, ramp: 0, nonfinite: 0, ineligible: 0 },
+  const R = window.__invTest = { done: false, cases: 0, eligibleCases: 0, programs: new Set(), waitMs: 0, points: 0, compared: 0, leaves: 0, skipped: { discontinuous: 0, ramp: 0, nonfinite: 0, ineligible: 0 },
     failCount: 0, fails: [], byChain: {}, clip: null, fs: null, flip: null, ms: 0, errors: [],
     rational: { chains: 0, cases: 0, eligibleCases: 0, compared: 0, leaves: 0, failCount: 0, kinds: {} } };   // the rational custom chains alone
   const t0 = performance.now();
@@ -187,6 +187,17 @@ void main() {
 `;
   const EXTRA_WALK = { pre: PRE, main: MAIN_WALK }, EXTRA_CLIP = { pre: PRE, main: MAIN_CLIP };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // f() (a draw) until its program is no longer 'pending', for up to WAIT_MS by the clock: Windows' software renderer
+  // (WARP) can take longer for one program than 4000 tries 3 ms apart (12-16 s), which ended random cases 'gpu pending';
+  // 'pending' after WAIT_MS stays an error. R.waitMs: the longest wait
+  const WAIT_MS = 120000;
+  async function untilCompiled(f) {
+    const t = performance.now();
+    let r = f();
+    while (r === 'pending' && performance.now() - t < WAIT_MS) { await sleep(3); r = f(); }
+    R.waitMs = Math.max(R.waitMs, Math.round(performance.now() - t));
+    return r;
+  }
   // runs the program with st.extra on n points; rows = output rows
   async function gpuRun(st, data, n, rows) {
     gl.activeTexture(gl.TEXTURE1);
@@ -203,8 +214,7 @@ void main() {
       gl.enable(gl.BLEND);
       return r;
     };
-    let r = draw();
-    for (let i = 0; i < 4000 && r === 'pending'; i++) { await sleep(3); r = draw(); }
+    const r = await untilCompiled(draw);
     if (r !== 'drawn') return { error: r };
     const out = new Float32Array(n * rows * 4);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -514,8 +524,7 @@ void main() {
           if (r !== 'drawn') GLR.drawRegion(res, Object.assign({ map: { mode: 0, a: 0, b: 1 }, view, dpr: 1, L: 4, cacheKey: null, sync: true }, look));
           return r;
         };
-        let r = frame();
-        for (let i = 0; i < 4000 && r === 'pending'; i++) { await sleep(3); r = frame(); }
+        const r = await untilCompiled(frame);
         drawn = r === 'drawn' ? 'inverse' : 'forward';
         rec.drawn = drawn;
         const px = new Uint8Array(W * H * 4);

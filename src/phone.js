@@ -61,7 +61,11 @@ const Phone = (() => {
     els.grab = h('button', { class: 'ph-grab', type: 'button', 'aria-label': $t('Resize the sheet') });
     els.close = h('button', { class: 'ph-x', type: 'button', 'aria-label': $t('Close'), html: I.close, onclick: () => close() });
     els.mark = h('span', { class: 'ph-mark', 'aria-hidden': 'true' });
-    const head = h('div', { class: 'ph-sh' }, els.grab, els.mark, els.title, h('span', { class: 'grow' }), els.snap, els.close);
+    // v16.5 UX24: Undo in every sheet's head, beside ×, where the sheet covers the tool row's Undo (its long press
+    // offers Redo, as the tool row's does)
+    els.sundo = h('button', { class: 'ph-hundo', type: 'button', 'aria-label': $t('Undo'), html: I.undo });
+    undoKey(els.sundo);
+    const head = h('div', { class: 'ph-sh' }, els.grab, els.mark, els.title, h('span', { class: 'grow' }), els.snap, els.sundo, els.close);
     els.body = {};
     for (const k of ['edit', 'tools', 'display', 'more']) els.body[k] = h('div', { class: 'ph-sb', 'data-k': k, hidden: true });
     els.sheet = h('div', { class: 'ph-sheet ph-only', role: 'dialog', 'aria-modal': 'false', hidden: true }, head, ...Object.values(els.body));
@@ -104,18 +108,33 @@ const Phone = (() => {
     // the tool row follows the tool: a tool from More tools lights the More key with its icon and name
     new MutationObserver(() => syncTools()).observe($('tools'), { subtree: true, attributes: true, attributeFilter: ['class'] });
     if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });   // (v16 [C20])
-    new MutationObserver(() => { els.undo.disabled = $('undoBtn').disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
-    els.undo.disabled = $('undoBtn').disabled;
+    new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = $('undoBtn').disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
+    els.undo.disabled = els.sundo.disabled = $('undoBtn').disabled;
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
     for (const id of ['leftTabs', 'rightTabs', 'viewSwitch']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
     if (typeof Params !== 'undefined' && Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
+    kbInit();
+    // v16.5 UX62: the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1× (it ignored taps)
+    document.addEventListener('click', (e) => {
+      if (!on) return;
+      const b = e.target.closest && e.target.closest('.tdock #speedSeg > button.on');
+      if (!b) return;
+      const ORDER = ['1.6', '0.8', '3.2'];
+      const nx = ORDER[(ORDER.indexOf(b.dataset.v) + 1) % ORDER.length];
+      const t = b.parentNode.querySelector(`button[data-v="${nx}"]`);
+      if (!t) return;
+      e.preventDefault(); e.stopPropagation();
+      t.click();
+    }, true);
   }
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
   const TEX = '<svg viewBox="0 0 20 16" width="18" height="16" aria-hidden="true" fill="currentColor"><text x="0" y="11" font-family="STIX Two Text, Times New Roman, serif" font-size="10">T</text><text x="5.6" y="14" font-family="STIX Two Text, Times New Roman, serif" font-size="10">E</text><text x="11.4" y="11" font-family="STIX Two Text, Times New Roman, serif" font-size="10">X</text></svg>';
   const TOUR = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 5.4v5.2L10.6 8z" fill="currentColor"/></svg>';
+  const OPEN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 4.5v8h11v-6H8L6.5 4.5z"/></svg>';
+  const HOLD = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5" /></svg>';
   const SWAP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/></svg>';
 
   // ---------------- mode ----------------
@@ -125,7 +144,36 @@ const Phone = (() => {
     if (want === on && l === land) return;
     // (a rotation: the panes are synced first, so a landscape layout's side-by-side panes get their inset back in
     // portrait; review-phone-swap-verify verify-1)
-    if (want && !on) enter(l); else if (!want && on) leave(); else { land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); reconcile(); }
+    if (want && !on) enter(l); else if (!want && on) leave(); else { const keepIt = keepSheet(); land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); reconcile(); keepIt(); }
+  }
+  // v16.5 UX68: a rotation (portrait <-> landscape) relays the sheet out: the same sheet opens again in the new layout,
+  // at the same scroll, and the field that had the focus gets it back with its caret (the Editor's fields are rebuilt
+  // by the reopening: the field in the same place among the sheet's fields)
+  function keepSheet() {
+    const k = kind;
+    if (!k) return () => {};
+    const o = k === 'edit' && nums ? { params: true } : k === 'display' ? { side: els.dispSide || big } : {};
+    const body = els.body[k], top = body ? body.scrollTop : 0;
+    const FIELDS = 'input:not([type="hidden"]), textarea, select';
+    const fe = document.activeElement;
+    const fIn = fe && fe !== document.body && els.sheet.contains(fe) && fe.matches(FIELDS) ? fe : null;
+    const at = fIn ? [...els.sheet.querySelectorAll(FIELDS)].indexOf(fIn) : -1;
+    let caret = null;
+    try { caret = fIn && fIn.selectionStart != null ? [fIn.selectionStart, fIn.selectionEnd] : null; } catch (e) { caret = null; }
+    return () => {
+      open(k, o);
+      const back = () => {
+        if (kind !== k) return;
+        const b = els.body[k];
+        if (b) b.scrollTop = top;
+        if (!fIn) return;
+        const f = fIn.isConnected && els.sheet.contains(fIn) ? fIn : at >= 0 ? els.sheet.querySelectorAll(FIELDS)[at] : null;
+        if (!f) return;
+        try { f.focus({ preventScroll: true }); if (caret && f.setSelectionRange) f.setSelectionRange(caret[0], caret[1]); } catch (e) { /* */ }
+        try { f.scrollIntoView({ block: 'nearest' }); } catch (e) { /* */ }
+      };
+      if (reduced()) back(); else setTimeout(back, DUR + 40);
+    };
   }
   function enter(l) {
     on = true; land = l;
@@ -287,7 +335,7 @@ const Phone = (() => {
     if (!els.moreIc) { els.moreIc = ic.innerHTML; els.moreLab = lab.textContent; }
     const extra = onB && !ROW.includes(id);
     sum.classList.toggle('ph-lit', !!extra);
-    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3 points')
+    if (extra) { ic.innerHTML = onB.querySelector('svg').outerHTML; lab.textContent = onB.dataset.phl || (onB.querySelector('span') || {}).textContent || onB.getAttribute('aria-label'); }   // (v16: the tile's short label, '3 points')
     else if (ic.dataset.ph !== 'more') { ic.innerHTML = els.moreIc; lab.textContent = els.moreLab; }
     ic.dataset.ph = extra ? id : 'more';
     if (kind === 'tools') fillTiles();
@@ -295,7 +343,7 @@ const Phone = (() => {
   function fillTiles() {
     const tile = (b) => {
       const t = h('button', { class: 'ph-tile' + (b.classList.contains('on') ? ' on' : ''), type: 'button', 'aria-pressed': String(b.classList.contains('on')), 'data-tool': b.dataset.tool, 'aria-label': b.getAttribute('aria-label') },
-        h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.querySelector('span').textContent));
+        h('span', { class: 'ph-ic', html: b.querySelector('svg').outerHTML }), h('span', { class: 'ph-tl' }, b.dataset.phl || b.querySelector('span').textContent));   // (v16.5 UX93: a short form, app.js)
       t.addEventListener('click', () => {
         const id = b.dataset.tool;
         b.click();
@@ -308,6 +356,8 @@ const Phone = (() => {
     // (v16: the Construct group after the drawing tiles, under its heading; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     if (ct.length) tiles.push(h('h3', { class: 'ph-h cm-ph' }, $t('Construct')), ...ct);
+    // v16.5 UX40: the long press, taught where people look (never on the plane)
+    tiles.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
     els.tiles.replaceChildren(...tiles);
   }
   function syncSnap() { const s = $('snapBtn'); if (s && els.snap) els.snap.setAttribute('aria-pressed', s.getAttribute('aria-pressed') || 'false'); }
@@ -371,6 +421,7 @@ const Phone = (() => {
     if (k === 'edit') A.renderInspector();
     els.sheet.hidden = false;
     els.scrim.hidden = SPLIT.has(k) || land;
+    backLater();
     const split = SPLIT.has(k);
     if (was && SPLIT.has(was) === split) { after(k, opt); return; }
     // the sheet slides in by its transform alone; the planes change size once, at the end
@@ -414,7 +465,7 @@ const Phone = (() => {
     if (!kind) return;
     clearTimeout(anim);
     const k = kind;
-    kind = null; full = false; nums = false; els.sheet.classList.remove('nums');
+    kind = null; full = false; nums = false; els.sheet.classList.remove('nums'); kb.grew = false;
     rootEl.classList.remove('ph-full');
     const split = rootEl.classList.contains('ph-split');
     rootEl.classList.remove('ph-split');
@@ -431,6 +482,7 @@ const Phone = (() => {
     els.sheet.classList.remove('open');
     els.scrim.hidden = true;
     rootEl.classList.remove('ph-sheet-on');
+    backLater();
     const fin = () => { if (!kind) { els.sheet.hidden = true; for (const b of Object.values(els.body)) b.hidden = true; } };
     if (now || reduced()) fin(); else anim = setTimeout(fin, DUR);
     void k;
@@ -446,7 +498,7 @@ const Phone = (() => {
   // The sheet also swallows a stray click and its focus for 400 ms after a resize.)
   function grabber(head) {
     let y0 = null, dy = 0, id = null, onGrab = false, tap = 0, tapT = 0;
-    head.addEventListener('pointerdown', (e) => { if (e.target.closest('.ph-x, .ph-snap')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } });
+    head.addEventListener('pointerdown', (e) => { if (e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; y0 = e.clientY; dy = 0; id = e.pointerId; onGrab = !!e.target.closest('.ph-grab'); try { head.setPointerCapture(id); } catch (er) { /* */ } });
     head.addEventListener('pointermove', (e) => { if (y0 == null || e.pointerId !== id) return; dy = e.clientY - y0; if (Math.abs(dy) > 4) els.sheet.style.transform = `translateY(${Math.max(full ? -0 : -40, dy)}px)`; });
     const end = (e) => {
       if (y0 == null || e.pointerId !== id) return;
@@ -455,7 +507,7 @@ const Phone = (() => {
       else if (Math.abs(dy) <= 4 && onGrab && e.type === 'pointerup') { tap = 1; clearTimeout(tapT); tapT = setTimeout(() => { if (tap) { tap = 0; guard(); setFull(!full); } }, 450); }
     };
     head.addEventListener('pointerup', end); head.addEventListener('pointercancel', end);
-    head.addEventListener('click', (e) => { if (!tap || e.target.closest('.ph-x, .ph-snap')) return; tap = 0; clearTimeout(tapT); guard(); setFull(!full); try { els.grab.focus({ preventScroll: true }); } catch (er) { /* */ } });
+    head.addEventListener('click', (e) => { if (!tap || e.target.closest('.ph-x, .ph-snap, .ph-hundo')) return; tap = 0; clearTimeout(tapT); guard(); setFull(!full); try { els.grab.focus({ preventScroll: true }); } catch (er) { /* */ } });
     els.grab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFull(!full); } });
     let gT = 0;
     const guard = () => { clearTimeout(gT); els.sheet.dataset.guard = '1'; gT = setTimeout(() => { delete els.sheet.dataset.guard; }, 400); };
@@ -465,6 +517,7 @@ const Phone = (() => {
 
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
   function fillDisplay(side) {
+    els.dispSide = side;
     const kids = A.footKids(side);
     els.viewOpts.replaceChildren(...kids);
     // in the deformation, its order and its loop (the transport row keeps play, the scrubber, the speed and Paths)
@@ -501,12 +554,129 @@ const Phone = (() => {
     kids.push(h('div', { class: 'ph-sep' }));
     kids.push(row(GRID, $t('Examples'), () => { close(true); $('examplesBtn').click(); }, true));
     kids.push(row(I.download, $t('Export figure'), () => { close(true); A.exportFigure(); }, true));
-    kids.push(row(I.copy, $t('Links, scenes and LaTeX'), () => { close(true); $('exportBtn').click(); }, true));
-    kids.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
+    // v16.5 V02: the links, the scene files and the LaTeX are rows of this sheet (it opened a desktop menu over the
+    // plane, with a key a phone has not got); "… again" only once a figure was made
+    const xs = typeof A.exportItems === 'function' ? A.exportItems() : [];
+    if (xs.length) {
+      for (const it of xs) {
+        if (it === 'sep' || it.fig || (it.again && it.disabled)) continue;
+        const ic = /LaTeX/.test(it.label) ? TEX : it.save ? I.download : it.icon && I[it.icon] ? I[it.icon] : OPEN;
+        const r = row(ic, it.label, () => { close(true); it.run(); });
+        if (it.disabled) r.disabled = true;
+        kids.push(r);
+      }
+    } else {
+      kids.push(row(I.copy, $t('Links, scenes and LaTeX'), () => { close(true); $('exportBtn').click(); }, true));
+      kids.push(row(TEX, $t('Copy LaTeX with guarantees'), () => { close(true); A.copyLatex(); }));
+    }
     kids.push(row(I.search, $t('Search functions and commands'), () => { close(true); $('cmdBtn').click(); }));
     kids.push(row(TOUR, $t('Guided tour'), () => { close(true); $('helpBtn').click(); }, true));
     kids.push(row(I.help, $t('Reference guide'), () => { close(true); A.openGuide(); }));
     b.replaceChildren(...kids);
+  }
+
+  // ---------------- the on-screen keyboard (v16.5 UX69) ----------------
+  // Android Chrome lays the page out as before when its keyboard opens (only the visual viewport shrinks), so a field
+  // low in a sheet went under the keyboard and Chrome panned the whole screen to show it. While the keyboard is up (the
+  // visual viewport shorter than the window), the sheet's body gets that much room at its end (--ph-kb), and the field
+  // with the focus is brought above the keyboard: by scrolling the body first (the planes stay in view, so the image
+  // still changes as you type), and only when that cannot do it, by opening the sheet to its full height with the field
+  // near the top of its body. The sheet goes back to its height when the keyboard goes or the focus leaves its fields.
+  const TEXTY = 'input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="color"], [type="file"]), textarea, [contenteditable="true"]';
+  const kb = { grew: false, t: 0, h: 0 };
+  function kbHeight(h) {
+    let v = 0;
+    if (h != null) v = h;
+    else { const vv = window.visualViewport; if (vv) v = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)); }
+    v = v > 80 ? v : 0;   // (a small difference is the browser's own bar, not a keyboard)
+    if (v === kb.h) return;
+    kb.h = v;
+    if (v) rootEl.style.setProperty('--ph-kb', v + 'px'); else rootEl.style.removeProperty('--ph-kb');
+    rootEl.classList.toggle('ph-kb', !!v);
+    const f = document.activeElement;
+    if (v && kind && f && els.sheet.contains(f)) setTimeout(() => kbFit(f), 0);
+    if (!v && kb.grew && kind && full) { kb.grew = false; setFull(false); }   // (the keyboard went, the field may keep the focus)
+  }
+  function kbFit(f, grown) {
+    if (!on || !kind || !f || document.activeElement !== f) return;
+    const body = els.body[kind];
+    if (!body || !body.contains(f)) return;
+    const vis = window.innerHeight - kb.h - 8;   // the lowest y the user sees
+    const fb = f.getBoundingClientRect(), bb = body.getBoundingClientRect();
+    if (grown) { body.scrollTop = Math.max(0, body.scrollTop + (fb.top - bb.top) - 48); return; }
+    if (!kb.h) { if (fb.bottom > bb.bottom || fb.top < bb.top) try { f.scrollIntoView({ block: 'nearest' }); } catch (e) { /* */ } return; }
+    if (fb.bottom <= vis && fb.top >= bb.top) return;
+    // scroll: the field's bottom just above the keyboard, its top never above the body's top
+    // (rounded up and compared with 1 px to spare: scrollTop lands on whole pixels, a field's edges need not)
+    body.scrollTop = Math.max(0, body.scrollTop + Math.ceil(Math.min(fb.bottom - vis, fb.top - bb.top - 8)));
+    if (f.getBoundingClientRect().bottom <= vis + 1 || full || kind === 'more') return;
+    kb.grew = true; setFull(true);
+    setTimeout(() => kbFit(f, true), reduced() ? 0 : DUR + 20);
+  }
+  function kbInit() {
+    els.sheet.addEventListener('focusin', (e) => {
+      const f = e.target;
+      if (!on || !kind || !(f instanceof Element) || !f.matches(TEXTY)) return;
+      clearTimeout(kb.t);
+      // (after the tap that focused it has made its click: the sheet must not move under the finger first)
+      setTimeout(() => kbFit(f), 60);
+    });
+    els.sheet.addEventListener('focusout', () => {
+      clearTimeout(kb.t);
+      kb.t = setTimeout(() => {
+        const a = document.activeElement;
+        if (a && els.sheet.contains(a) && a.matches(TEXTY)) return;
+        if (kb.grew && kind && full) setFull(false);
+        kb.grew = false;
+      }, 250);
+    });
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', () => kbHeight()); window.visualViewport.addEventListener('scroll', () => kbHeight()); }
+  }
+
+  // ---------------- Back (v16.5 UX12) ----------------
+  // A phone's Back (the system button or the edge gesture) closes the top layer, and the user stays in the app: a menu,
+  // the palette, the coordinate pad, the tour's chapter menu, the sound settings, a dialog, a sheet (A.backLayer says
+  // which, top first). While one is open, one history entry of ours sits on the page's own; Back pops it, the app
+  // closes the top layer and, while another is still open, a new entry goes on. A layer closed in the app takes its
+  // entry back (history.back(), whose popstate is ours and does nothing). With nothing open there is no entry of ours,
+  // so Back from the bare app leaves it, as before. On a phone, and on any touch screen (an Android tablet).
+  const back = { guard: false, skip: 0, t: 0 };
+  const coarse = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
+  const topLayer = () => (A && typeof A.backLayer === 'function' ? A.backLayer() : null);
+  function backSync() {
+    back.t = 0;
+    if (back.skip) return;   // (our own history.back() is on its way: its popstate looks again)
+    const open = !!topLayer();
+    if (open && !back.guard && (on || coarse())) {
+      try { history.pushState(Object.assign({}, history.state, { cmwLayer: 1 }), ''); back.guard = true; } catch (e) { /* no history: Back leaves */ }
+    } else if (!open && back.guard) {
+      back.guard = false; back.skip++;
+      try { history.back(); } catch (e) { back.skip--; }
+    }
+  }
+  const backLater = () => { if (!back.t) back.t = setTimeout(backSync, 0); };
+  function backInit() {
+    // (a reload while a layer was open, the language switch: the entry we stand on was ours; it is the page's now)
+    try { if (history.state && history.state.cmwLayer) { const st = Object.assign({}, history.state); delete st.cmwLayer; history.replaceState(Object.keys(st).length ? st : null, ''); } } catch (e) { /* */ }
+    window.addEventListener('popstate', (e) => {
+      if (back.skip) { back.skip--; backLater(); return; }
+      if (!back.guard) {
+        // (Forward onto an entry of ours with nothing open: step back off it)
+        if (e.state && e.state.cmwLayer && !topLayer()) { back.skip++; try { history.back(); } catch (er) { back.skip--; } }
+        return;
+      }
+      back.guard = false;
+      const c = topLayer();
+      if (c) { try { c(); } catch (er) { /* */ } }
+      backLater();
+    });
+    // the layers come and go in the app's own code: look after each change
+    const mo = new MutationObserver(backLater);
+    const host = $('popHost');
+    if (host) mo.observe(host, { childList: true });
+    mo.observe(document.body, { childList: true });
+    for (const id of ['sndPop', 'toolMore']) { const e = $(id); if (e) mo.observe(e, { attributes: true, attributeFilter: ['hidden', 'open'] }); }
+    document.addEventListener('toggle', backLater, true);   // (a popover: the header's More menu)
   }
 
   function init(api) {
@@ -516,12 +686,14 @@ const Phone = (() => {
     for (const m of mq) m.addEventListener('change', sync);
     window.addEventListener('resize', () => { if (on && kind) geometry(); });
     sync();
+    backInit();
   }
   return {
     init, open, close, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK (removed before publishing)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
+    _kb: (h) => kbHeight(h),   // (v16.5: a keyboard of h px, for the browser checks; headless Chrome has none)
     // TEMP-DEBUG-HOOK
   };
 })();

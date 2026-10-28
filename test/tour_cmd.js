@@ -131,10 +131,11 @@ await ev('Tour.next()'); await settle(1200); await ev('Tour.next()'); await sett
 g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
 check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
 await snap('tour-sphere-dark');
-// the Phase key: Y is lit, its Phase key check has a ring of its own
+// the Phase key: Y is lit, and (v16.5 UX20: Y's options are behind its Display options button in the pane head) the
+// button has a ring of its own; opened, the Phase key check is in its popover
 await ev('Tour.next()'); await settle(1600);
-g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const a = L && L.anchor, b = k && k.closest('label').getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), y: document.querySelector('#tourBody').textContent }; })()`);
-check('Phase key: Y lit, its check ringed, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && /Phase key/.test(g.y), g);
+g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn'); const a = L && L.anchor, b = (k && k.getClientRects().length ? k.closest('label') : ob).getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!(ob && ob.closest('.pane-head')), y: document.querySelector('#tourBody').textContent }; })()`);
+check('Phase key: Y lit, its Display options button (pane head) ringed, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
 await snap('tour-phasekey-dark');
 // patterns: Choose Stretch
 await ev('Tour.next()'); await settle(1600);
@@ -173,10 +174,15 @@ await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
 check('Targets: the copy names X and Y and the multiplicity', /X shades their preimages/.test(await ev(`document.querySelector('#tourBody').textContent`)) && /multiplicity/.test(await ev(`document.querySelector('#tourBody').textContent`)));
-// the Cauchy phase style: Phase view, the style control lit whole, the integral over the scene's unit circle
+// the Cauchy phase style: Phase view, the style control lit whole (v16.5 UX20: on a desktop it is behind X's Display
+// options button in the pane head, which is lit; the control and its note are read in the button's popover), the
+// integral over the scene's unit circle
 await ev(`Tour.next()`); await settle(1800);
-g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('#leftFoot .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: !!(a && r && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1), on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);
+const litOpts = await ev(`(() => { const L = Tour.lit(), a = L && L.anchor, b = document.querySelector('#leftFoot .opts-btn'), r = b && b.getBoundingClientRect(); return !!(a && r && b.closest('.pane-head') && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1); })()`);
+await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
+g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('.opts-pop .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: ${litOpts}, on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);
 check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, the integral over the unit circle', g.c && g.c.id === 'cauchy' && g.scene === 'roots' && g.main === 'phase' && g.dc === 'cauchy' && g.lit && g.on === 'Cauchy' && /inside, 0 outside/.test(g.note || '') && !/Select a closed curve/.test(g.note || ''), g);
+await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(300);
 await snap('tour-cauchy-light');
 // (v15: Zeros and poles moved to the chapter Editing the chain, step 3; v15.2: step 4, after A formula in steps)
 await ev(`Tour.start({ chapter: 'edit', step: 3 })`); await settle(1800);
@@ -215,7 +221,7 @@ check('chapter counted done on leaving it (v16.4: at its rev 3)', (await recOf('
 // 6. welcome (centred) and the end of Basics
 await open('t5', { chapter: 'basics', step: 0 }, 1440, 900, true);
 g = await ev(`({ shade: getComputedStyle(document.querySelector('.tour-root svg')).display, next: document.querySelector('.ts-next').textContent, back: document.querySelector('.ts-back').disabled && getComputedStyle(document.querySelector('.ts-back')).visibility === 'hidden', lead: document.querySelector('#tourLead').textContent })`);
-check('welcome: no shade at all, Start, no Back, its lead', g.shade === 'none' && g.next === 'Start' && g.back && /About two minutes/.test(g.lead), g);
+check('welcome: no shade at all, Start, no Back, its lead (v16.5 UX90: says the practice is cleared)', g.shade === 'none' && g.next === 'Start' && g.back && /Practice freely: what you draw here is cleared at the end/.test(g.lead), g);
 await snap('tour-welcome-dark');
 await open('t5b', { chapter: 'basics', step: 9 });
 g = await ev(`({ next: document.querySelector('.ts-next').textContent })`);
@@ -254,44 +260,43 @@ await ev(`Tour.start({ chapter: 'keys' })`); await settle(1200);
 await key('Escape'); await settle(400);
 check('a second Escape ends the tour', !(await ev('Tour.isActive()')));
 
-// 8. the suggestion: once, under the help button; Not now dismisses it for good
+// 8. the suggestion (v16.5 UX21: one line in the tour's docked slot, never a card over the planes); Not now dismisses
+// it for good
 await open('t6');
 await ev('Tour.reset(); Tour.suggest({ delay: 0, force: true })'); await settle(1200);
-g = await ev(`(() => { const s = document.querySelector('.tour-suggest'); if (!s) return null; const b = s.getBoundingClientRect(), h = document.querySelector('#helpBtn').getBoundingClientRect(); return { below: b.top > h.bottom, right: b.right <= innerWidth - 8, focusKept: !s.contains(document.activeElement), noShade: !document.querySelector('.tour-root') }; })()`);
-check('suggestion: under the help button, focus not taken, no shade', g && g.below && g.right && g.focusKept && g.noShade, g);
+g = await ev(`(() => { const s = document.querySelector('.tour-lane[data-tour="suggest"]'); if (!s) return null; const b = s.getBoundingClientRect(), p = document.querySelector('#paneL').getBoundingClientRect(), q = document.querySelector('#paneR').getBoundingClientRect(); return { docked: s.parentNode.id === 'tourSlot', above: b.bottom <= p.top + 0.5 && b.bottom <= q.top + 0.5, h: Math.round(b.height), focusKept: !s.contains(document.activeElement), noShade: !document.querySelector('.tour-root') }; })()`);
+check('suggestion: a line in the docked slot above the planes, focus not taken, no shade', g && g.docked && g.above && g.h <= 56 && g.focusKept && g.noShade, g);
 g = await ev(`({ title: document.querySelector('.tour-sg-title').textContent, body: document.querySelector('.tour-sg-body').textContent })`);
-check('suggestion: the copy promises what Basics shows, and that the work is kept', /chain of functions/.test(g.body) && /work is kept/.test(g.body) && !/guarantee/.test(g.body), g);
+check('suggestion: the copy promises what Basics shows, and nothing about keeping the practice (UX90)', /chain of functions/.test(g.body) && !/work is kept/.test(g.body) && !/guarantee/.test(g.body), g);
 await snap('tour-suggest-light');
 await view(1440, 900, true); await settle(400);
 await snap('tour-suggest-dark');
-await clickSel('.tour-suggest .btn.ghost'); await settle(300);
+await clickSel('.tour-lane .btn.ghost'); await settle(300);
 check('Not now: dismissed', (await recOf('t6')).outcome === 'dismissed');
 check('dismissed: not suggested again', (await ev('Tour.suggest({ delay: 0 })')) === false);
 await view(1440, 900, false);
 // under ?ns= (the tests, the golden images) the card never shows by itself
 await nav(U + '?ns=t6x'); await sleep(2600);
-check('under ?ns= no suggestion shows', (await ev(`!!document.querySelector('.tour-suggest')`)) === false);
+check('under ?ns= no suggestion shows', (await ev(`!!document.querySelector('.tour-lane')`)) === false);
 // a first visit (no ?ns=, nothing saved): shown and counted; ignored, it comes back, at most three times
 await fresh(); await nav(U);
-for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-suggest')`)) !== true; i++) await sleep(250);
-check('first open: the suggestion shows', (await ev(`!!document.querySelector('.tour-suggest')`)) === true);
+for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !== true; i++) await sleep(250);
+check('first open: the suggestion shows', (await ev(`!!document.querySelector('.tour-lane')`)) === true);
 check('first open: counted', JSON.parse((await st('cmw-tour')) || '{}').shown === 1);
 check('a first visit says "New here?"', /New here/.test(await ev(`document.querySelector('.tour-sg-title').textContent`)));
-// working in a pane shrinks the card to a pill under Help
+// (v16.5 UX21) working in a pane leaves the line where it is: it covers nothing
 await click(500, 400); await settle(300);
-g = await ev(`(() => { const s = document.querySelector('.tour-suggest'); const b = s.getBoundingClientRect(); return { compact: s.classList.contains('compact'), w: Math.round(b.width) }; })()`);
-check('working in a pane shrinks the suggestion to a pill', g.compact && g.w < 240, g);
-await snap('tour-suggest-pill-light');
+check('working in a pane: the line stays docked', await ev(`(() => { const s = document.querySelector('.tour-lane'); return !!s && s.parentNode.id === 'tourSlot'; })()`));
 await nav(U);
-for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-suggest')`)) !== true; i++) await sleep(250);
+for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !== true; i++) await sleep(250);
 check('a returning user (saved work) is not "new here"', /^Take the 2-minute tour$/.test(await ev(`document.querySelector('.tour-sg-title').textContent`)));
 for (let k = 3; k <= 4; k++) { await nav(U); await sleep(2200); }
 g = JSON.parse((await st('cmw-tour')) || '{}');
-check('ignored: shown on three openings, then no more', g.shown === 3 && !(await ev(`!!document.querySelector('.tour-suggest')`)), g);
+check('ignored: shown on three openings, then no more', g.shown === 3 && !(await ev(`!!document.querySelector('.tour-lane')`)), g);
 await fresh(); await nav(U);
-for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-suggest')`)) !== true; i++) await sleep(250);
+for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !== true; i++) await sleep(250);
 const w0 = await ev(`JSON.stringify(__cmwShapes())`);
-await clickSel('.tour-suggest .btn.primary'); await settle(1500);
+await clickSel('.tour-lane .btn.primary'); await settle(1500);
 check('Start: the tour runs from Basics and the outcome is taken', (await ev('Tour.isActive()')) && JSON.parse((await st('cmw-tour')) || '{}').outcome === 'taken');
 await ev(`document.querySelector('.ts-next').focus()`); await key('Escape'); await settle(600);
 check('Escape: the user\'s shapes are back', (await ev(`JSON.stringify(__cmwShapes())`)) === w0);
@@ -366,9 +371,9 @@ check('phone: the preimages step says hold, then slide', phoneText.some((t) => /
 await key('Escape'); await ev('Tour.stop()'); await settle(300);
 await open('t8c', null, 390, 844, false, true); await ev('Tour.reset(); Tour.suggest({ delay: 0, force: true })'); await settle(900);
 await sleep(400);
-g = await ev(`(() => { const s = document.querySelector('.tour-suggest').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(); return { top: s.top, hdr: h.bottom, b: innerHeight - s.bottom, w: Math.round(s.width) }; })()`);
-check('phone: the suggestion is a sheet under the top bar, clear of the tool bar', g.top >= g.hdr && g.top <= g.hdr + 20 && g.b > 120 && g.w >= 390 - 32, g);
-g = await ev(`document.querySelector('.tour-sg-body').textContent + document.querySelector('#tourSay').textContent`);
+g = await ev(`(() => { const s = document.querySelector('.tour-lane').getBoundingClientRect(), h = document.querySelector('header').getBoundingClientRect(), p = document.querySelector('.panes').getBoundingClientRect(), bs = [...document.querySelectorAll('.tour-lane button')].map((b) => b.getBoundingClientRect().height); return { top: s.top, hdr: h.bottom, panes: p.top, bot: s.bottom, w: Math.round(s.width), minB: Math.min(...bs) }; })()`);
+check('phone: the suggestion is the docked row under the top bar (v16.5 UX21), the planes start under it, 44 px buttons', Math.abs(g.top - g.hdr) <= 1 && g.panes >= g.bot - 0.5 && g.w >= 390 - 2 && g.minB >= 44, g);
+g = await ev(`document.querySelector('.tour-sg-body').textContent + document.querySelector('#tourSay').textContent`);   // (the live region says where it is)
 check('phone: the suggestion says where the tour is (⋯ › Guided tour)', /⋯ › Guided tour/.test(g), g);
 await snap('tour-phone-suggest');
 // the help menu from the ⋯ menu: the help button closes with ⋯, the menu hangs under ⋯

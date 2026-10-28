@@ -622,3 +622,17 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
   in desk.css), so a drawer a step opens never covers the strip.
 - (fix pass) A lit part beside the anchor that an open layer of `layers()` covers along one whole side (X under the left
   drawer) is lit only up to the layer's edge, its corners there square. Not on a phone, whose sheets hold the spotlight.
+
+### Step fields and API added in v16.5 wave 1 (notes/ux-build/W1-MERGE.md)
+
+- Anchor `leftOpts` (the learn piece, UX20): in the anchor table above.
+- Step fields (the phone piece, UX17), read on a touch screen (a coarse pointer): `titleTouch` (the step's title there),
+  `leadTouch` (its lead), `touchByScene: { scene: text }` (the body for that scene, before `touch`). A chapter with
+  `desk: true` ("Palette and keys") is not offered on touch: `chapterShown(c)` hides it from the chapter menu, from
+  `seek` and from Continue the tour.
+- The learning lane (the learn piece, UX21 and UX74; wave 2's D7 builds on it): the tour's docked slot holds one line
+  when no tour runs. `Tour.lane({ id, title, body, acts, drop, onClose })` shows it (the first-run invitation is
+  `suggest`, an example's Try line `example`), `Tour.laneHide(id)` takes it away, `Tour.laneId()` names the one shown. A
+  tour start takes the slot.
+- `step-focused` (the chain piece, UX01): an add, a move or a duplicate that leaves the focus where it was emits none
+  (`setFocus(k, quiet)`).

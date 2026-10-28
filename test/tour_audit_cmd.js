@@ -166,7 +166,9 @@ for (const cfg of runs) {
     const X = { chapter: 'basics', step: 1 };
     const toastOpen = async () => ev(`(() => { __tourApi.toast('Deleted: circle 3. A long message so the toast is wide'); return true; })()`);
     const toastClose = async () => ev(`(() => { document.querySelector('#toastHost').innerHTML = ''; return true; })()`);
-    await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
+    // (v16.5 UX17: "Palette and keys" is a chapter for the keyboard, not offered on a touch screen: there the palette is
+    // checked at the next step only)
+    if (await ev(`Tour._t.chapterShown(Tour._t.CHAPTERS.find((c) => c.id === 'keys'))`)) await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
     await runLayer(X, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
     await runLayer(X, 'examples', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); const narrow = m && m.checkVisibility(); if (narrow) m.click(); const e = document.querySelector('#examplesBtn'); if (!e || !e.checkVisibility()) return 'na'; e.click(); return true; })()`), esc, '#popHost > .pop');
     await runLayer(X, 'more', async () => ev(`(() => { const m = document.querySelector('#hdrMoreBtn'); if (!m || !m.checkVisibility()) return 'na'; m.click(); return true; })()`), esc, '#hdrMenu:popover-open, .ph-sheet[data-k="more"]:not([hidden])');
@@ -177,7 +179,7 @@ for (const cfg of runs) {
     await runLayer(X, 'guide', async () => ev(`(() => { __tourApi.openGuide(); return true; })()`), esc, '.modal-bg > .modal');
     await runLayer(X, 'language', async () => ev(`await (async () => { const m = document.querySelector('#hdrMoreBtn'), lb = document.querySelector('#langBtn'); if (!lb) return 'na'; if (!lb.checkVisibility() && m && m.checkVisibility()) { m.click(); await new Promise((r) => setTimeout(r, 200)); } if (!lb.checkVisibility()) return 'na'; lb.click(); return true; })()`), esc, '#popHost > .pop');
     if ((CFG.layerAll || []).includes(w) && lang === 'ru') {
-      const all = await ev(`Tour._t.CHAPTERS.flatMap((c, i) => c.steps.map((s, j) => ({ chapter: c.id, step: j, id: c.id + '/' + s.id, absent: Tour._t.absent(i, j, true) })))`);
+      const all = await ev(`Tour._t.CHAPTERS.flatMap((c, i) => c.steps.map((s, j) => ({ chapter: c.id, step: j, id: c.id + '/' + s.id, absent: Tour._t.absent(i, j, true) || !Tour._t.chapterShown(c) })))`);
       for (const at of all.filter((x) => !x.absent)) {
         const st = { chapter: at.chapter, step: at.step };
         await runLayer(st, 'palette*', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');

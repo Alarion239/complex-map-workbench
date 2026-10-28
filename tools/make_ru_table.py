@@ -56,12 +56,19 @@ V164_SEG_HERE = {'v164-segments.json'}
 V164_HERE = {'v164-tour.json'}
 # (v16.4: the Help's Deformation paragraph checked against funcs.js, notes/workflows/V16.4-MERGE.md: notes/i18n/ru/v164-help.json)
 V164_HELP_HERE = {'v164-help.json'}
+# (v16.5 wave 1: each piece wrote notes/i18n/ru/v165-ux-<piece>.json (learn, chain, plane, rail, phone), read after
+# every v16.4 table; the wave 1 merge (notes/ux-build/W1-MERGE.md) reads them as one set, in name order)
+V165_HERE = {'v165-ux-learn.json', 'v165-ux-chain.json', 'v165-ux-plane.json', 'v165-ux-rail.json', 'v165-ux-phone.json',
+             'v165-ux-merge.json'}   # (v165-ux-merge.json: the strings the merge itself changed, keys of its own)
+# (v16.5 wave 1 fix round, notes/ux-build/w1-fix-AS-BUILT.md: notes/i18n/ru/v165-ux-fix.json, read after every other
+# v16.5 table, so a Russian it changes wins)
+V165_FIX_HERE = {'v165-ux-fix.json'}
 # (v17, issue #13: the planes' menu is a menu of objects; its Help paragraphs and the keyboard's note: notes/i18n/ru/v17-planemenu.json,
 # read after every other table)
 V17_HERE = {'v17-planemenu.json'}
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
-for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
+for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_FIX_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # the review fixes last (v16: the constructions' table, read after v15.2's)
     for k, v in json.load(open(f)).items():
         if k.startswith('_') or not isinstance(v, dict) or v.get('ru') is None and not v.get('plural'):
             continue
@@ -388,7 +395,9 @@ def js_unescape(lit):
 
 src_lits, src_blob, src_raw = set(), [], []
 for f in sorted((root / 'src').glob('*')):
-    if f.name in ('i18n_ru.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
+    # (v16.5 merge: the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
+    # source's strings: a string the source no longer calls must not be kept because the Italian table still has it)
+    if f.name in ('i18n_ru.js', 'i18n_it.js', 'cyr.js') or f.suffix not in ('.js', '.html'):
         continue
     t = f.read_text()
     src_raw.append(t)

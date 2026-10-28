@@ -83,10 +83,11 @@ await view(1440, 900, false, false);
   const p = await W(2, 0.4);
   await click(p[0], p[1]); await settle(200);
   let d = (await CI()).draft;
-  // (v16.3.1: a chip that would wrap keeps one line without "Esc cancels"; this one in X at 1440 does)
+  // (v16.3.1: a chip that would wrap keeps one line without its keyboard tail; this one in X at 1440 does. v16.5 UX48
+  // wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const u6 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
-  const u6base = 'Touching point on the unit circle, or a ring for a tangent · Touching';
-  ok('U6 the chip after P with the rings', !!u6 && (u6.text === u6base + ' · Esc cancels' || (u6.text === u6base && u6.lines === 1)), u6);
+  const u6base = 'Pick the touching point on the unit circle, or a ring for a tangent · 2 of 2 · Touching';
+  ok('U6 the chip after P with the rings', !!u6 && (u6.text === u6base + ' · ⌫ undo pick · Esc' || (u6.text === u6base && u6.lines === 1)), u6);
   const r0 = d.rings[0], r1 = d.rings[1], z0 = await W(r0.tp[0], r0.tp[1]);
   await click(z0[0] + 3, z0[1] - 2); await settle(400);
   let st = await ST();

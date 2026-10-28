@@ -172,6 +172,7 @@ const PlaneMenu = (() => {
     pole: '<span class="pm-mk poles"></span>',
     trash: svg('<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.75 9h5.5l.75-9"/>'),
     hide: svg('<path d="M1.75 8s2.3-4.25 6.25-4.25S14.25 8 14.25 8s-2.3 4.25-6.25 4.25S1.75 8 1.75 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/>'),
+    select: svg('<path d="M4 2.5l8.5 5.25-3.75.9L7 12.5z"/>'),
     edit: svg('<path d="M10.5 2.75l2.75 2.75-7.5 7.5H3v-2.75z"/><path d="M9 4.25L11.75 7"/>'),
     cut: svg('<path d="M2.5 8h11" stroke-dasharray="2 2"/><path d="M8 4.5a3.5 3.5 0 1 1-3.5 3.5"/><path d="M4.5 5.5v2.5H7"/>'),
     integral: '<span class="pm-glyph">∮</span>',
@@ -206,12 +207,18 @@ const PlaneMenu = (() => {
       }
     }
     // the shape under the pointer: the line integral along one curve there (that shape's when it is a curve near the
-    // pointer, else the nearest) and its Listen along, then Hide and Delete (a left click already selects)
+    // pointer, else the nearest) and its Listen along, then Hide and Delete (a left click already selects; issue #13)
     const s = api.shapeAt(ctx.side, ctx.x, ctx.y);
-    for (const it of api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id)) out.push({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run });
+    const integrals = api.integralItems(ctx.side, ctx.x, ctx.y, ctx.cx, ctx.cy, s && s.id).map((it) => ({ id: it.listen ? 'listen' : 'integral', icon: it.listen ? 'listen' : 'integral', label: it.label, run: it.run }));
+    // ([v16.5 UX56] a point is the menu's subject: its items come before the curve's integral)
+    if (!(s && s.kind === 'point')) out.push(...integrals);
     if (s) {
+      // ([v16.5 UX56] a point on a curve says so on its first line: "z₁ · on Arc 1")
+      const on = s.on && s.on.length ? $t('lies on {x}', { x: s.on.join(', ') }) : null;
+      if (on) out.push({ id: 'shape-on', icon: 'select', label: s.name, sub: on, disabled: true });
       out.push({ id: 'shape-hide', icon: 'hide', label: $t('Hide {name}', { name: s.name }), run: () => api.hide(s.id) });
       out.push({ id: 'shape-delete', icon: 'trash', danger: true, label: $t('Delete {name}', { name: s.name }), run: () => api.del(s.id) });
+      if (s.kind === 'point') out.push(...integrals);
     }
     return out;
   }

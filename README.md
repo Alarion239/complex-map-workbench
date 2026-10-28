@@ -6,6 +6,19 @@
 > part of the screen each step changes, and an auto-advance that works while you keep moving. The plan for the next
 > versions, with the usability audit behind it, is in [ROADMAP.md](ROADMAP.md).
 
+**New in v16.5** (27 October 2026):
+
+- **Snapping and railing of points**: points snap to points and handles, zeros and poles, crossings, curves (the unit
+  circle and the axes included) and the grid. A point placed on a curve rides it when dragged; pull it hard to free
+  it (Alt places freely on a laptop).
+- Two points on one circle are no longer refused as "needs distinct points": picks are compared by where they are.
+- **Phone**: Undo in every sheet and in the deformation bar, and Android Back closes the open sheet instead of leaving
+  the app.
+- **⌘K finds everything**: commands, tools, examples and help, by everyday words ("dark", "png", "help", "zero").
+- The first-run invitation to the tour is one line in the tour's strip, not a card over the planes.
+- Messages cover nothing: legends and one-time notes sit in the plane's title row, and messages never land on
+  controls.
+
 An interactive workbench for complex analysis. Draw regions and curves in the z-plane, chain complex functions, and
 see what they do:
 
@@ -20,8 +33,9 @@ see what they do:
   selected step (with large Add zero / Add pole buttons for a zeros-and-poles step), and the **F** tile holds the
   formula of F, its guarantees and its domain. Right-click a shape, a zero or a pole (or hold it on a phone) for its
   menu; a right-click while drawing cancels the drawing, and a double-click centres the view.
-- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it. Copy link and scene files
-  hand the whole figure on.
+- **Shared numbers**: type `Re z = a` and a slider for *a* appears; every field can use it, and the formulas keep its
+  name (F(z) = z + c, not z + 0.25), so a slider moves the picture and leaves the formula as it is. Copy link and scene
+  files hand the whole figure on.
 - **Typed formulas** (LaTeX or plain) are recognized as the catalog steps they are made of, so `\sin(z^2+1)` runs as
   fast as the catalog and is offered as its steps (z ↦ z² ↦ z²+1 ↦ sin(z²+1)) in one click; in the search, `sin z`
   is the Sine step.
