@@ -3064,7 +3064,6 @@
  "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "ricorrenza iterare iterazione orbita mandelbrot julia newton punto fisso successione u_n",
  "This recurrence has too many steps to be differentiated here": "Questa ricorrenza ha troppi passi per essere derivata qui",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",
- "Repeat × N: at most {max} steps in all": "Ripeti × N: al massimo {max} passi in tutto",
  "the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$": "l'omotopia che esegue in successione i %{n} passi della ripetizione, ciascuno su una parte uguale di $0\\le t\\le 1$",
  "Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}": "I passi ripetuti non hanno un unico passo inverso; il renderer esatto li inverte copia per copia quando può; {note}",
  "A repeat has no derivative formula here; d/dz after it is computed numerically": "Per una ripetizione qui non c'è una formula della derivata; d/dz dopo di essa si calcola numericamente",
@@ -3073,5 +3072,6 @@
  "Repeat f{a}–f{b}: times": "Ripeti f{a}–f{b}: volte",
  "This step, twice": "Questo passo, due volte",
  "f{a}–f{b}, twice": "f{a}–f{b}, due volte",
- "Repeat": "Ripeti"
+ "Repeat": "Ripeti",
+ "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Ripeti × N: questo blocco è troppo pesante per disegnarlo {n} volte; al massimo N = {max}"
 }

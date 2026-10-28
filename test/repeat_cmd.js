@@ -60,6 +60,11 @@ ok('a step after the block offers itself only (blocks never overlap)', r === tru
 await key('Escape'); await settle(250);
 await ev(`document.querySelector('#pipeline .rep-bracket .rep-off').click()`); await settle(700);
 ok('the chip\'s × ends the repeat', (await chain()) === 'pown,sin,sin' && !(await ev(`!!document.querySelector('#pipeline .rep-bracket:not([hidden])')`)), await chain());
+// written another way (by its zeros and poles): the same function, so the repeat stays (lint review of #192)
+await openApp({ shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'poly', params: { co: '1, 0, -1' }, on: true, repeat: { n: 3, len: 1 } }] });
+const d0 = await fDeg();
+r = await menu(1, 'Write by zeros and poles'); await settle(900);
+ok('Write by zeros and poles keeps the repeat and F (degree 8)', (await chain()) === 'zp[3/1]' && /deg 8(?!\d)/.test(await fDeg()) && /deg 8(?!\d)/.test(d0 || ''), [r, await chain(), d0, await fDeg()]);
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };

@@ -89,13 +89,17 @@
       let L = els[i];
       if (!L) {
         const inp = h('input', { class: 'rep-n', type: 'number', min: '1', max: String(Funcs.REPEAT_MAX), step: '1', inputmode: 'numeric' });
-        inp.addEventListener('input', () => {
+        // (N applies once typing settles, so 12 compiles one program, not N = 1 then N = 12; at once on change)
+        let settle = 0;
+        const apply = () => {
+          clearTimeout(settle);
           const v = Math.round(Number(inp.value)), k = +L.dataset.k, st = S.steps[k - 1];
           if (!st || !st.repeat || !Number.isFinite(v) || v < 1 || v > Funcs.REPEAT_MAX || v === st.repeat.n) return;
           st.repeat = { n: v, len: st.repeat.len };
           chainChanged(false);
-        });
-        inp.addEventListener('change', () => { const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) inp.value = String(st.repeat.n); commit(); });
+        };
+        inp.addEventListener('input', () => { clearTimeout(settle); settle = setTimeout(apply, 400); });
+        inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) inp.value = String(st.repeat.n); commit(); });
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
           h('div', { class: 'rep-chip' }, h('span', { class: 'rep-x', 'aria-hidden': 'true' }, '×'), inp, off));
@@ -993,7 +997,8 @@
     try { r = Funcs.derivativeStep(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast((r && r.error) || $t('f{x} has no derivative here.', { x: sub(k) })); return null; }
     const type = Funcs.DEFS[r.step.type] ? r.step.type : 'custom';
-    setStepAt(k - 1, { type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false });
+    // ([issue #6] a repeat the step ended now repeats its derivative's block, as the step's place in it stays)
+    setStepAt(k - 1, Object.assign({ type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     chainChanged(true);
     setFocus(k);
     commit();

@@ -649,6 +649,9 @@
   function repeatsFollow() {
     const known = new Set(repeatMemo.flatMap((m) => m.members));
     if (repeatMemo.length && S.steps.some((st) => known.has(st))) {
+      // a step put in a holder's place with its repeat (setStepAt: written by zeros and poles, replaced by its derivative)
+      // carries the block on: its repeat stands, and the remembered block it covers is not attached elsewhere
+      const fresh = S.steps.map((st, i) => (st.repeat && !known.has(st) ? [i + 1 - st.repeat.len, i] : null)).filter(Boolean);
       for (const m of repeatMemo) {
         const alive = S.steps.includes(m.holder);
         if (alive && !m.holder.repeat) continue;
@@ -657,6 +660,7 @@
         if (alive) delete m.holder.repeat;
         if (!ix.length) continue;
         const lo = Math.min(...ix), hi = Math.max(...ix);
+        if (!alive && fresh.some(([a, b]) => a <= hi && lo <= b)) continue;
         const holder = S.steps[hi];
         holder.repeat = { n: nn, len: hi - lo + 1 };
       }

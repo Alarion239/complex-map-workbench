@@ -270,7 +270,6 @@
  "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "рекуррентность итерация итерировать орбита мандельброт жюлиа ньютон неподвижная точка последовательность u_n",
  "This recurrence has too many steps to be differentiated here": "У этой рекуррентности слишком много шагов, чтобы её здесь продифференцировать",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
- "Repeat × N: at most {max} steps in all": "Повтор × N: не более %{max} шагов всего",
  "the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$": "гомотопия, выполняющая по очереди %{n} шагов повтора, каждый на равной части $0\\le t\\le 1$",
  "Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}": "У повторённых шагов нет одного обратного шага; точный рендерер обращает их копию за копией, когда может; %{note}",
  "A repeat has no derivative formula here; d/dz after it is computed numerically": "Для повтора здесь нет формулы производной; d/dz после него вычисляется численно",
@@ -279,5 +278,6 @@
  "Repeat f{a}–f{b}: times": "Повтор f%{a}–f%{b}: число раз",
  "This step, twice": "Этот шаг, дважды",
  "f{a}–f{b}, twice": "f%{a}–f%{b}, дважды",
- "Repeat": "Повторить"
+ "Repeat": "Повторить",
+ "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Повтор × N: этот блок слишком тяжёл, чтобы нарисовать его %{n} раз; не более N = %{max}"
 }
