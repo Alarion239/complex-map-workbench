@@ -302,6 +302,8 @@
 /* a step shown alone: the chip in X's head, with its × back to the whole chain */
 .alone-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 22px; margin-right: 6px; padding: 0 1px 0 8px; border-radius: var(--r-2); background: var(--accent-soft); color: var(--accent); font: var(--t-label); }
 .alone-chip[hidden] { display: none; }
+/* a long Russian or Italian pick sentence may take a third line on a laptop before it is cut (the chip is one of the plane's, over the picture) */
+@media (min-width: 1280px) and (max-width: 1440px) { :root:is([data-lang="ru"], [data-lang="it"]) .cm-chip > .cm-t { -webkit-line-clamp: 3; } }
 .mc-stop { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; padding: 0 8px; height: 22px; cursor: pointer; }
 .mode-chips { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-right: 6px; }
 .mode-chips[hidden] { display: none; }

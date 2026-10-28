@@ -92,6 +92,7 @@
     return morphOn() ? 'morph' : null;
   };
   function modeClose(m) {
+    if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
     else if (m === 'solo') setSolo(S.solo);
@@ -107,6 +108,9 @@
     const want = [];
     if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
     if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
+    // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
+    const tc = Construct.toolChip && Construct.toolChip();
+    if (tc) want.push(['tool', tc.count ? tc.name + ' · ' + tc.count : tc.name, $t('Leave the tool'), '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
@@ -125,7 +129,7 @@
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key]) => h('span', { class: 'mode-chip', 'data-mode': m },
         h('span', { class: 'mc-t' }, label),
-        ...(m === next ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
+        ...(m === next || m === 'tool' ? [h('span', { class: 'kbd' }, 'Esc')] : key ? [h('span', { class: 'kbd' }, key)] : []),
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }

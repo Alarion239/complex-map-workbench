@@ -135,5 +135,6 @@
  "Y hidden": "Y скрыта",
  "X hidden": "X скрыта",
  "Listening along {name}": "Слушаем: %{name}",
- "Listening along": "Слушаем вдоль кривой"
+ "Listening along": "Слушаем вдоль кривой",
+ "Leave the tool": "Выйти из инструмента"
 }

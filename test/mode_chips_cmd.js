@@ -8,6 +8,13 @@ await load('modechips' + Date.now(), { shapes: [{ id: 'a', kind: 'disc', c: [0, 
 await settle(1500);
 const st = () => ev(`(() => ({ tool: (document.querySelector('.tool[data-tool][aria-pressed="true"]') || { dataset: {} }).dataset.tool, chips: [...document.querySelectorAll('.mode-chip, .alone-chip:not([hidden])')].map((c) => c.textContent.replace(/\\s+/g, ' ').trim()), solo: document.getElementById('leftSolo').getAttribute('aria-pressed') + document.getElementById('rightSolo').getAttribute('aria-pressed'), merged: document.getElementById('panes').className }))()`);
 const clickText = (sel, re) => ev(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => ${re}.test(x.textContent)); if (b) b.click(); return !!b; })()`);
+// a Construct tool shows in the head with its pick count, and Esc leaves it
+await key('e'); await settle(300);
+const s0 = await st();
+ok('a Construct tool is a chip in the head with its count', s0.tool === 'circle3' && s0.chips.some((c) => /Circle through 3 points · 1 of 3/.test(c) && /Esc/.test(c)), s0);
+await key('Escape'); await settle(300);
+const s1 = await st();
+ok('Esc leaves the Construct tool and its chip', s1.tool === 'select' && !s1.chips.some((c) => /Circle through/.test(c)), s1);
 // the tool is the first level
 await key('l'); await settle(200);
 await ev(`document.getElementById('leftSolo').click()`); await settle(400);
