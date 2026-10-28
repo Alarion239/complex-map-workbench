@@ -199,6 +199,9 @@
   const lsk = (k) => (NS ? `${k}:${NS}` : k);
   const LS_KEY = lsk('complex-map-workbench-v1');
   let S = null;
+  // the whole state replaced (a saved session loaded, a reset, the tour's practice, an example's thumbnail drawn in a
+  // scratch state): the one place S itself is reassigned (#20 phase 3, step 5)
+  function setState(next) { S = next; }
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'checker', lines: true, unit: true, snap: true,
