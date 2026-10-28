@@ -259,6 +259,8 @@ const SPOT = String.raw`(() => {
     'views/patterns': () => q1('#patternSeg .pat[data-pat="stretch"]'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
     'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
+    // (D1, issue #23: Replace… is the first item of the step's ⋯)
+    'edit/inspector': () => q1('#propsPanel .insp-step .ihead .more'),
     'construct/c3': () => 'none', 'construct/follow': () => selTool(), 'construct/meet': () => tool('line'),
     'deform/toggle': () => 'none', 'deform/transport': () => [q1('#morphPlay'), q1('#morphRange')], 'deform/paths': () => 'none', 'deform/order': () => q1('#homOrderSel'),
     'deform/range': () => 'none', 'analysis/integral': () => 'none',
