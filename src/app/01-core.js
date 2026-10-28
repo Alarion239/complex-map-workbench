@@ -513,6 +513,7 @@
       steps.push({ type: st.type, params, on: st.on !== false });
       if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (v16: step uids and zero ids)
       if (st.zpIds && typeof st.zpIds === 'object') steps[steps.length - 1].zpIds = st.zpIds;
+      if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // ([UX54] checked by Constr.syncSteps)
     }
     const shapes = [], targets = [], ids = new Set();
     let maxId = 0;
@@ -547,6 +548,7 @@
     for (const sh of shapes.concat(targets)) if (!sh.id) { while (ids.has('s' + next)) next++; sh.id = 's' + next++; ids.add(sh.id); }
     o.shapes = shapes; o.steps = steps; o.nextId = next; o.targets = targets;
     if (typeof Constr !== 'undefined') cmLoad(o);   // (v16 constructions: refs, fallbacks, one recompute)
+    numberPoints(shapes);
     // the views of earlier builds (rightMode, sphereMode, leftSphere, material, spherePlane) -> o.view (panels.md 10)
     Views.migrate(o);
     const b = blankState();

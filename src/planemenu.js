@@ -180,14 +180,14 @@ const PlaneMenu = (() => {
   };
 
   // ---- the built-in groups
-  function zpMarkHtml(kind, i) { return kind === 'zeros' ? `<i>ζ</i>${sub(i + 1)}` : `<i>p</i>${sub(i + 1)}`; }
+  function zpMarkHtml(kind, n) { return kind === 'zeros' ? `<i>ζ</i>${sub(n)}` : `<i>p</i>${sub(n)}`; }
   function objectItems(ctx) {
     const out = [];
     // a zero or pole of the zeros-and-poles step acting on X's plane
     if (ctx.plane === 'X' && ctx.surface === 'flat') {
       const m = api.zp.hit(ctx.x, ctx.y, ctx.touch ? 22 : 11);
       if (m) {
-        const nm = zpMarkHtml(m.kind, m.i), other = m.kind === 'zeros' ? 'poles' : 'zeros';
+        const nm = zpMarkHtml(m.kind, api.zp.num ? api.zp.num(m.k, m.kind, m.i) : m.i + 1), other = m.kind === 'zeros' ? 'poles' : 'zeros';
         out.push({ id: 'zp-remove', icon: 'trash', html: $t('Remove {mark}', { mark: nm }), run: () => {
           api.zp.remove(m.k, m.kind, m.i);
           api.undoToast(m.kind === 'zeros' ? $t('Removed zero {mark} of {f}.', { mark: plain(nm), f: `f${sub(m.k)}` }) : $t('Removed pole {mark} of {f}.', { mark: plain(nm), f: `f${sub(m.k)}` }));

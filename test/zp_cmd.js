@@ -180,6 +180,14 @@ z = await zp();
 ok('+ pole adds a pole in view', Funcs_split(z.params.poles).length === 2 && z.handles.some((q) => q.kind === 'poles' && q.i === 1 && q.x > pane.left && q.x < pane.left + pane.w), z);
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:1"] ~ .zp-del'); await settle(600);
 ok('x removes it', Funcs_split((await zp()).params.poles).length === 1, (await zp()).params);
+// [UX54] x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
+const zSyms = () => ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] .zp-sym.zeros')].map((e) => e.textContent)`);
+info.zSyms0 = await zSyms();
+await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"] ~ .zp-del'); await settle(600);
+info.zSyms1 = await zSyms();
+ok('x on zero 1: the other zero is still ζ₂', info.zSyms0.join() === 'ζ₁,ζ₂' && info.zSyms1.join() === 'ζ₂', [info.zSyms0, info.zSyms1]);
+await key('z', 4); await settle(500);
+ok('… Undo: ζ₁, ζ₂ again', (await zSyms()).join() === 'ζ₁,ζ₂', await zSyms());
 // typing a value
 await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:0"]'); e.value = '0.5i'; e.dispatchEvent(new Event('input')); e.dispatchEvent(new Event('change')); })()`); await settle(500);
 const pz = await handle('poles', 0), pe = await w2s(0, 0.5);
