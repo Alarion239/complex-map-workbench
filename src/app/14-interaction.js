@@ -1,15 +1,15 @@
   // ---------------- interaction ----------------
   function snapZ(pane, z, force, touch) {
     if (!S.snap && !force) return z;
-    if (!force && (altHeld || (typeof Construct !== 'undefined' && Construct.altNow && Construct.altNow()))) return z;   // ([v16.5 rail] Alt: raw)
+    if (!force && (altHeld || (Construct.altNow && Construct.altNow()))) return z;   // ([v16.5 rail] Alt: raw)
     // the finest graph-paper tier that is clearly drawn: [v16.5 rail SPEC 1.3] gl.js's tiers, halves included (0.5, 1, 5,
     // 10, 50, 100 times a power of ten), at least 14 px apart; within 9 px of a lattice point (12 px for a finger)
     const sc = pane.view.s;
-    const step = typeof Constr !== 'undefined' && Constr.gridStep ? Constr.gridStep(sc) : (() => { const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc))); return [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100; })();
+    const step = Constr.gridStep ? Constr.gridStep(sc) : (() => { const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc))); return [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100; })();
     const gx = Math.round(z.re / step) * step, gy = Math.round(z.im / step) * step;
     const [x, y] = pane.w2sxy(gx, gy), [x0, y0] = pane.w2s(z);
     // (wave 1 merge: the press's own pointer, UX09's ptrTouch, where there was one; else Construct's last pointer)
-    const fing = touch != null ? touch : ptrTouch != null ? ptrTouch : typeof Construct !== 'undefined' && Construct.touchNow ? Construct.touchNow() : false;
+    const fing = touch != null ? touch : ptrTouch != null ? ptrTouch : Construct.touchNow ? Construct.touchNow() : false;
     if (Math.hypot(x - x0, y - y0) < (fing ? 12 : 9)) return C(+gx.toPrecision(12), +gy.toPrecision(12));
     return z;
   }
@@ -88,11 +88,11 @@
       if (drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) { cancelDrawing(); setCursor(pane, side); return; }
       if ((lastPan.moved && performance.now() - lastPan.t < 500) || (drag && (drag.moved || drag.far))) return;
       // (the menu a key opened: the contextmenu event the key sends after it opens nothing more)
-      if (typeof PlaneMenu !== 'undefined' && PlaneMenu.justOpened()) return;
+      if (PlaneMenu.justOpened()) return;
       const [x, y] = evXY(pane, e);
       // (macOS sends contextmenu at the right button's press: the menu waits for its release, so a right-drag still
       // pans; up, below, opens it when the press did not move)
-      if (typeof PlaneMenu !== 'undefined' && drag && (e.buttons & 2)) { drag.menuAt = { x, y }; return; }
+      if (drag && (e.buttons & 2)) { drag.menuAt = { x, y }; return; }
       if (rightClickAt(pane, side, x, y)) { drag = null; setCursor(pane, side); }
     });
     cv.addEventListener('wheel', (e) => {
@@ -107,7 +107,7 @@
     // 450 ms; then its gesture is undone and becomes a probe (readouts, gauge). Sliding on probes; a release without
     // sliding opens the plane menu at the ring's point. A second finger, or a move before the ring is full, cancels it.
     let hold = null, ring = null;
-    const PM = () => (typeof PlaneMenu !== 'undefined' ? PlaneMenu : null);
+    const PM = () => PlaneMenu;
     const endHold = () => { if (hold) { clearTimeout(hold.t); hold = null; } if (PM()) PM().ringStop(); };
     cv.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch') {
@@ -117,7 +117,7 @@
           endHold();
           // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step ([v16.5 rail
           // SPEC 2.6] a point's or a shape's move goes back to its press state, no step)
-          if (drag && (drag.mode === 'move' || drag.mode === 'handle') && typeof Construct !== 'undefined' && Construct.cancelDrag && Construct.cancelDrag()) { /* cancelled */ }
+          if (drag && (drag.mode === 'move' || drag.mode === 'handle') && Construct.cancelDrag && Construct.cancelDrag()) { /* cancelled */ }
           else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
           drag = null; draft = draft && draft.kind === 'polygon' ? draft : null; return;
@@ -131,7 +131,7 @@
       // (v16.5 UX49: with a construction tool, a finger on something it picks (a point, a line, a circle) picks it when
       // it lifts, however long it was held: a slow, careful tap opened the plane's menu and lost the pick. Over empty
       // space the long press still opens the menu)
-      const cPick = e.pointerType === 'touch' && typeof Construct !== 'undefined' && Construct.isTool(tool) && (() => { const [px, py] = evXY(pane, e); return !!Construct.snapAt(side, px, py, { points: true, cross: true, curves: true }); })();
+      const cPick = e.pointerType === 'touch' && Construct.isTool(tool) && (() => { const [px, py] = evXY(pane, e); return !!Construct.snapAt(side, px, py, { points: true, cross: true, curves: true }); })();
       if (e.pointerType === 'touch' && drag && probeable && !cPick && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && (drag.mode !== 'zp' || (PM() && !drag.added))) {
         const d0 = drag, [x0, y0] = evXY(pane, e);
         endHold();
@@ -200,7 +200,7 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (typeof Construct !== 'undefined' && !drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; hoverCut = 0; zpHover = null; setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
@@ -211,7 +211,7 @@
       // replaces v16.5's double-click zoom, UX66; the branch cut still moves by its red handle only)
       const lp = lastPress;
       if (!lp || lp.side !== side || (lp.mode !== 'panL' && lp.mode !== 'panR') || lp.far || lp.pb) return;
-      if (typeof Construct !== 'undefined' && Construct.isTool(tool)) return;
+      if (Construct.isTool(tool)) return;
       const [x, y] = evXY(pane, e);
       if (!emptyAt(pane, side, x, y)) return;
       pane.setView(side === 'R' ? V.right : leftView());
@@ -241,7 +241,7 @@
       sourceViewChanged.pending = false;
       if (leftStage() !== 0 || solo() === 'R') return;
       // (v15.1: while X is a phone's inset, its window at its large size: review-phone-swap swap-7)
-      const b = (typeof Phone !== 'undefined' && Phone.largeBox && Phone.largeBox()) || paneL.box();
+      const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
       // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
       // collapsed deep views far from 0 to zero width)
       const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
@@ -313,7 +313,7 @@
     lastPress = null;
     const [x, y] = evXY(pane, e);
     ptrTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
-    if (typeof Construct !== 'undefined') Construct.pointer(e);   // (v16: touch radii, Alt)
+    Construct.pointer(e);   // (v16: touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
     const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey);
     if (side === 'R') {
@@ -355,7 +355,7 @@
       // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
       const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
       const onSel = !!selSh && (ptrTouch ? !!handleAt(pane, selSh, x, y) : Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; }));
-      const zh = onSel || (typeof Construct !== 'undefined' && tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (v16 [C1]: other tools pick a zero)
+      const zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (v16 [C1]: other tools pick a zero)
       if (zh) {
         zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
         if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
@@ -386,7 +386,7 @@
   function editDown(pane, side, z, x, y) {
     const target = side === 'R';
     const list = target ? S.targets : S.shapes, win = target ? targetWin() : clipWin, ov = target ? 'OR' : 'OL';
-    if (typeof Construct !== 'undefined' && Construct.isTool(tool)) return Construct.toolDown(pane, side, x, y);   // (v16: picks are clicks, onUp)
+    if (Construct.isTool(tool)) return Construct.toolDown(pane, side, x, y);   // (v16: picks are clicks, onUp)
     // polygon drafting
     if (tool === 'polygon') {
       if (!draft || !!draft.target !== target) draft = { kind: 'polygon', pts: [], target };
@@ -394,21 +394,21 @@
         const [fx, fy] = pane.w2sxy(draft.pts[0][0], draft.pts[0][1]);
         if (Math.hypot(fx - x, fy - y) < (ptrTouch ? 24 : 12)) { finishPolygon(); return true; }
       }
-      const cmT = typeof Construct !== 'undefined' ? Construct.vertexPick(draft, side, x, y) : null;   // (v16: a vertex binds to a point)
+      const cmT = Construct.vertexPick(draft, side, x, y);   // (v16: a vertex binds to a point)
       const zz = cmT || snapZ(pane, z);
       draft.pts.push([zz.re, zz.im]);
       requestRender(ov);
       return true;
     }
     if (tool !== 'select') {
-      if (tool === 'point' && typeof Construct !== 'undefined') {
+      if (tool === 'point') {
         const pd = Construct.pointDown(pane, side, x, y);   // (v16: a crossing, a curve, a point)
         // ([v16.5 rail SPEC 6] a press on an existing point selects it, and a drag from there moves it as the Select tool
         // would: along its curve, off it by a pull, or a free point with snapping. A click alone changes nothing)
         if (pd === 'existing') { const ps = list.find((s) => s.id === selected && s.kind === 'point'); if (ps) drag = { mode: 'move', shape: ps, z0: z, moved: false, target, cmTell: Construct.touchNow() }; }   // ([v16.5 fix rail-6] cmTell: a finger's tap that does not move says how to place another, at the release)
         if (pd) return true;
       }
-      const cmZ = typeof Construct !== 'undefined' && tool !== 'point' ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
+      const cmZ = tool !== 'point' ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
       const zz = cmZ || snapZ(pane, z);
       if (tool === 'point') { addShape(newShape('point', { p: [zz.re, zz.im] }, target), target); return true; }
       const shape = newShape(tool === 'lasso' ? 'polygon' : tool, tool === 'curve' || tool === 'lasso' ? { pts: [[zz.re, zz.im]] } : Region.defaultsFor(tool, zz, zz), target);
@@ -419,7 +419,7 @@
     }
     // handles of the selected shape
     const sel = list.find((s) => s.id === selected);
-    const cmU = sel && typeof Construct !== 'undefined' ? Construct.boundUnder(sel, pane, x, y) : null;   // (v16: a bound handle's press goes to what is beneath)
+    const cmU = sel ? Construct.boundUnder(sel, pane, x, y) : null;   // (v16: a bound handle's press goes to what is beneath)
     if (cmU) { if (cmU.key) { drag = { mode: 'handle', shape: cmU.shape, key: cmU.key, target }; return true; } selected = cmU.shape.id; zpSel = null; buildShapeList(); drag = { mode: 'move', shape: cmU.shape, z0: z, moved: false, target }; requestRender(ov); return true; }
     if (sel) {
       const hk = handleAt(pane, sel, x, y);
@@ -559,7 +559,7 @@
       if (!(sc > 0) || !Number.isFinite(sc)) return g;
       // ([v16.5 rail SPEC 1.3] the drawn tiers, halves included, as the lifted lattice draws them: Constr.gridStep)
       const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
-      const step = typeof Constr !== 'undefined' && Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100;
+      const step = Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100;
       const gx = +(Math.round(z.re / step) * step).toPrecision(12), gy = +(Math.round(z.im / step) * step).toPrecision(12);
       const Pg = GL3.lift(gx, gy);
       if (dist(Pg) < 9) { gSnapMark = { side, P: Pg }; return { P: Pg, z: C(gx, gy), snapped: true }; }
@@ -654,7 +654,7 @@
     const g = pickGlobe(pane, c, x, y);
     if (!gc || !g || e.button === 1 || e.button === 2 || spaceHeld || (e.shiftKey && e.altKey)) { turn(); return; }
     if (GLOBE_OFF.has(tool) || tool === 'formula') { turn(); return; }
-    if (typeof Construct !== 'undefined' && Construct.isTool(tool)) { turn(); drag.cmPick = true; return; }   // (v16: a click picks, onUp; a drag turns)
+    if (Construct.isTool(tool)) { turn(); drag.cmPick = true; return; }   // (v16: a click picks, onUp; a drag turns)
     if (tool === 'polygon') {
       if (nearInf(gc, x, y)) return;
       const gs = globeSnap(gc, side, g, 'cart');
@@ -675,7 +675,7 @@
       // the second press of a double-click places no second point on the first
       const last = list[list.length - 1], now = performance.now();
       // ([v16.5 rail SPEC 1.2 (c)] on a drawn curve (no point or mark took the press): a point on that curve)
-      if (!gs.pt && typeof Construct !== 'undefined' && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
+      if (!gs.pt && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
         const pl = list[list.length - 1];
         lastGlobePoint = pl ? { id: pl.id, t: now } : null; gSnapMark = null;
         return;
@@ -809,7 +809,7 @@
       } else {
         // ([v16.5 rail SPEC 1.2 (b)] a selected point on a curve dragged by its handle: the same slide and pull as by its
         // body; once pulled off it drags as a free point's handle)
-        if (s.kind === 'point' && s.def && s.def.op === 'glider' && typeof Construct !== 'undefined' && Construct.globeSlide) {
+        if (s.kind === 'point' && s.def && s.def.op === 'glider' && Construct.globeSlide) {
           if (Construct.globeSlide(d, side, g, x, y, gc)) { d.moved = true; changed(s); return; }
         }
         const vertex = s.kind === 'point' || /^v\d/.test(d.key);
@@ -828,7 +828,7 @@
       if (!d.moved && Math.hypot(x - d.x, y - d.y) < 3) return;
       // ([v16.5 rail SPEC 1.2 (b)] a point on a curve slides on its rail on the globe too; a pull frees it, and the drag
       // goes on as a free point's from where it came off)
-      if (s.kind === 'point' && s.def && s.def.op === 'glider' && typeof Construct !== 'undefined' && Construct.globeSlide) {
+      if (s.kind === 'point' && s.def && s.def.op === 'glider' && Construct.globeSlide) {
         const r = Construct.globeSlide(d, side, g, x, y, gc);
         if (r === 'freed') { d.s0 = JSON.parse(JSON.stringify(s)); d.P0 = g.P; }
         if (r) { d.moved = true; changed(s); return; }
@@ -857,7 +857,7 @@
   }
   // the end of a globe gesture: a draft becomes a shape (or a target) when it has a size on screen; an edit is one undo step
   function globeUp(pane, side, d) {
-    if ((d.mode === 'gmove' || d.mode === 'ghandle') && d.cmGlobe && typeof Construct !== 'undefined' && Construct.moveUp) Construct.moveUp(d);   // ([v16.5 rail] a slide's last frame)
+    if ((d.mode === 'gmove' || d.mode === 'ghandle') && d.cmGlobe && Construct.moveUp) Construct.moveUp(d);   // ([v16.5 rail] a slide's last frame)
     gSnapMark = null; gInf[side] = false;
     setReadouts(null);
     if (d.mode === 'gdraw' && draft) {
@@ -1008,14 +1008,14 @@
         return;
       }
       if (drag.mode === 'handle') {
-        const cmZ = typeof Construct !== 'undefined' ? Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y) : null;   // (v16: onto a point, binds at the release)
+        const cmZ = Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y);   // (v16: onto a point, binds at the release)
         pane.setView(drag.target ? V.right : leftView());
         Region.setHandle(drag.shape, drag.key, cmZ || snapZ(pane, z));
         drag.moved = true;
         if (drag.target) targetsChanged(false); else shapesChanged(false);
         return;
       }
-      if (drag.mode === 'move' && typeof Construct !== 'undefined') {   // (v16 [C18]: built shapes)
+      if (drag.mode === 'move') {   // (v16 [C18]: built shapes)
         const r = Construct.moveDrag(drag, pane, drag.target ? 'R' : 'L', x, y);
         if (r === 'pan') { const v = drag.target ? V.right : leftView(); Object.assign(drag, { mode: drag.target ? 'panR' : 'panL', x, y, cx: v.cx, cy: v.cy, pane }); setCursor(pane, side); return; }
         if (r) { dragProbe(); return; }
@@ -1030,7 +1030,7 @@
         return;
       }
       if (drag.mode === 'draw' && draft) {
-        const zz = (typeof Construct !== 'undefined' && Construct.drawMove(pane, drag.target ? 'R' : 'L', draft.kind, x, y)) || (pane.setView(drag.target ? V.right : leftView()), snapZ(pane, z));
+        const zz = Construct.drawMove(pane, drag.target ? 'R' : 'L', draft.kind, x, y) || (pane.setView(drag.target ? V.right : leftView()), snapZ(pane, z));
         const s = draft.shape;
         if (draft.kind === 'curve' || draft.kind === 'lasso') {
           if (draft.kind === 'lasso' && !drag.target) sndMove(x, y, z, 'loop');
@@ -1091,7 +1091,7 @@
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
     if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }
-    if (typeof Construct !== 'undefined') Construct.hover(pane, side, x, y, e);   // (v16: the snap ring before the press)
+    Construct.hover(pane, side, x, y, e);   // (v16: the snap ring before the press)
     if (side === 'L') {
       pane.setView(leftView());
       probe = pane.s2w(x, y);
@@ -1257,7 +1257,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (typeof Construct !== 'undefined') { if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); } }   // (v16: bind a dropped handle; a click picks)
+    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && !d.far && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
@@ -1294,7 +1294,7 @@
         ok = span * pane.view.s > 4;
       }
       if (kind === 'lasso' && !d.target) { if (ok) sndLoopDone(s.pts); else snd.loop = null; }
-      if (typeof Construct !== 'undefined') Construct.drawEnd(ok ? s : null, !!d.target);   // (v16: the snapped ends bind)
+      Construct.drawEnd(ok ? s : null, !!d.target);   // (v16: the snapped ends bind)
       if (ok) { shapeVia = 'draw'; try { addShape(s, !!d.target); } finally { shapeVia = null; } } else requestRender('OL', 'OR');
     }
   }
@@ -1302,7 +1302,7 @@
     if (!draft || draft.kind !== 'polygon') return;
     const pts = draft.pts, target = !!draft.target, cmAt = draft.cmAt;
     draft = null;
-    if (pts.length >= 3) { const pg = newShape('polygon', { pts }, target); if (cmAt && typeof Construct !== 'undefined') Construct.bindVertices(pg, cmAt, target); addShape(pg, target); }
+    if (pts.length >= 3) { const pg = newShape('polygon', { pts }, target); if (cmAt) Construct.bindVertices(pg, cmAt, target); addShape(pg, target); }
     else requestRender('OL', 'OR');
   }
 

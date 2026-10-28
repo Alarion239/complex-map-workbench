@@ -543,11 +543,11 @@
   // Budget (8.4, made deterministic): SphereMesh.APP's map evaluations (a stage-wise step probe counts 12) and nodes,
   // so the drawn mesh is the same whatever the machine's load; SM_MS_CAP CPU ms is a safety stop only. (The wall-clock
   // 1.5 s of 8.4 expired on every P5 scene, so the drawn meshes were partial and changed with the load.)
-  const SM_APP = (typeof SphereMesh !== 'undefined' && SphereMesh.APP) || { maxWork: 250000, maxNodes: 300000, guard: 2 };
+  const SM_APP = SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 };
   const smWork = () => (SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork);
   const SM_GUARD = SM_APP.guard, SM_SLICE = 5, SM_CPU_BYTES = 32 * 1024 * 1024, SM_LIVE_NODES = 1500000, SM_NODES = SM_APP.maxNodes, SM_MS_CAP = 10000;
   const sm = { entries: new Map(), jobs: new Map(), want: new Map(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
-  const smOn = () => GLR.ok && !!GLR.createPreMesh && typeof SphereMesh !== 'undefined';
+  const smOn = () => GLR.ok && !!GLR.createPreMesh;
   function smStretched(s) {
     let bb = null;
     try { bb = Region.bboxOf(s); } catch (e) { bb = null; }
@@ -642,7 +642,6 @@
   // accumulation set P of the chain's plan) and its tie rule, per sample, so the front sheet is the one the exact image
   // shows; null for a chain with no inverse plan (the mesh's own far-to-near leaf order, 8.6)
   function smKeyOf(map) {
-    if (typeof Inverse === 'undefined') return null;
     const m = normalizeMap(map);
     if ((m.mode || 0) !== 0 || isIdentMap(m)) return null;
     const plan = invPlan(m.a || 0, m.b || 0);
@@ -846,7 +845,7 @@
   // gives the singular points (a chain's later stages list every earlier op's points too)
   function lineSpec() {
     const ks = [...new Set([rightStage(), leftStage()])].filter((k) => k > 0 && !isIdentMap(stageMap(k))).sort((a, b) => a - b);
-    if (!ks.length || typeof Inverse === 'undefined') return null;
+    if (!ks.length) return null;
     const top = ks[ks.length - 1];
     const plan = invPlan(0, top);
     const W = Math.max(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0), q = 1e-9 * W;
@@ -1012,7 +1011,7 @@
   // dims every other shape to 30 %
   let dimMemo = { id: null, t: -1, set: null };
   function cmFocusSet() {
-    if (typeof Construct === 'undefined' || typeof Constr === 'undefined' || !S) return null;
+    if (!S) return null;
     let tu = false;
     try { tu = touchUI(); } catch (e) { tu = false; }
     const id = hoverShape || (tu ? selected : null);

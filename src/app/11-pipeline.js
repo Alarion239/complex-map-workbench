@@ -321,7 +321,7 @@
     else if (e.key === 'End') go(n + 1);
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStep(k); }
     // (the physical L key on any layout: «д» on ЙЦУКЕН; review russian-5)
-    else if (String((typeof I18N !== 'undefined' && I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
+    else if (String((I18N.keyOf ? I18N.keyOf(e) : e.key) || '').toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); toggleAlone(k); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && k > 0 && k !== 'F') { e.preventDefault(); e.stopPropagation(); removeStep(k); }
   }
   function makeCard(st, k) {

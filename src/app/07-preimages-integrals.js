@@ -287,7 +287,7 @@
   }
   // solutions of F(z) = p for the point targets, over the visible part of the left plane
   const roots = { key: '', sig: '', want: '', timer: 0, list: [], err: '' };
-  const hasCalc = (fn) => typeof Calc !== 'undefined' && Calc && typeof Calc[fn] === 'function';
+  const hasCalc = (fn) => Calc && typeof Calc[fn] === 'function';
   // sig: what the solutions depend on besides the window (a pan keeps them on screen until the new ones arrive)
   const rootsSig = () => JSON.stringify([chainSig[nSteps()], S.focus, S.targets.filter((s) => s.visible !== false && s.kind === 'point').map((s) => [s.id, s.p[0], s.p[1]])]);
   function rootsKey() {
@@ -444,7 +444,7 @@
           // an open traced curve (a curve formula) runs out toward infinity: its part in the meshing window, like a
           // line (its closed loops are counterclockwise, Curves.loops)
           if (c.traced && !c.closed) out.push(...clipPolyline(xy, false, clipWin));
-          else if (c.traced && typeof Curves !== 'undefined' && Curves.simpleLoops) {
+          else if (c.traced && Curves.simpleLoops) {
             // a traced loop that crosses itself (the figure eight |z^2 - 1| = 1) as its simple ccw lobes: an integral
             // around it does not flip sign with the trace window
             for (const q of Curves.simpleLoops(c.pts.flatMap((z) => [z.re, z.im]))) {
@@ -493,13 +493,13 @@
   // meet; a hidden point, which has no plane label, keeps "Point n". pv counts the visible points as drawPoints does
   // ([v16.5 fix rail-4] the unit circle or an axis made a fixed shape: by that name, "The unit circle" as a row title, and
   // no number, so the user's own circles stay Circle 1, 2, …; Construct.fixedName is the one rule)
-  const fixedNm = (s) => (typeof Construct !== 'undefined' && Construct.fixedName ? Construct.fixedName(s) : null);
+  const fixedNm = (s) => (Construct.fixedName ? Construct.fixedName(s) : null);
   const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
   function rowName(s, counts, pv, row = true) {
     const fx = fixedNm(s);
     if (fx) return row ? capFirst(fx) : fx;
     if (s.kind !== 'point') return shapeName(s, counts);
-    const helper = typeof Construct !== 'undefined' && Construct.pointMark && Construct.pointMark(s) === 'helper';
+    const helper = Construct.pointMark && Construct.pointMark(s) === 'helper';
     // (a labelled point takes a plane index too, as in drawPoints: the next free point is z₁ after it, not z₀)
     if (s.label) { if (!helper && s.visible !== false) pv.n++; return shapeName(s, counts); }
     // (a helper's meet name reads the curves' names, so only a row asks for it: shapeNames never recurses)
@@ -823,7 +823,7 @@
         const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
         const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => rank(a) - rank(b));
         const names = shapeNames();
-        const nm = (s) => (typeof Construct !== 'undefined' && s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || (target ? targetLabel(s, S.targets.indexOf(s)) : Region.KINDS[s.kind].label);
+        const nm = (s) => (s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || (target ? targetLabel(s, S.targets.indexOf(s)) : Region.KINDS[s.kind].label);
         const hits = [];
         for (const s of cands) {
           let hit = false;
@@ -856,24 +856,23 @@
   // a right click or a long press at pane pixel (x, y): the plane menu (the integral menu where planemenu.js is absent)
   function planeMenuAt(pane, side, x, y, touch) {
     const r = pane.ocanvas.getBoundingClientRect();
-    if (typeof PlaneMenu === 'undefined') return openIntegralMenu(pane, side, x, y, r.left + x, r.top + y);
     return PlaneMenu.open(side, null, { x, y, clientX: r.left + x, clientY: r.top + y, touch: !!touch });
   }
   // a drawing in progress: a polygon's vertices, a shape being dragged out (on a plane or a globe), a construction's
   // picks (or its picked curve)
-  const drawing = () => !!draft || !!(drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) || (typeof Construct !== 'undefined' && Construct.drafting());
+  const drawing = () => !!draft || !!(drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) || Construct.drafting();
   // a right-click (or a long press) while drawing cancels the drawing, as Esc does, and opens no menu (issue #13).
   // True when there was one
   function cancelDrawing() {
     if (!drawing()) return false;
     if (drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) {
-      if (drag.mode === 'draw' && typeof Construct !== 'undefined') Construct.drawEnd(null, !!drag.target);   // (its snapped start binds nothing)
+      if (drag.mode === 'draw') Construct.drawEnd(null, !!drag.target);   // (its snapped start binds nothing)
       if (drag.mode === 'gdraw') gSnapMark = null;
       drag = null;
     }
     if (draft && draft.kind === 'lasso' && !draft.target) snd.loop = null;
     draft = null;
-    if (typeof Construct !== 'undefined') Construct.cancel();
+    Construct.cancel();
     requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
     return true;
   }

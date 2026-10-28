@@ -79,10 +79,10 @@
     // a melody on a curve (notes/sea-song): Edvard Grieg's theme (1875, public domain) in our own adaptation for the
     // phase harp, one curve spiralling into 0 under SEASONG.tex (src/seasong.js, made by tools/melody_curve.js). Listen along
     // plays it with its own tempo and dynamics (the shape's listen: sndListenOf); fit: the box kept in view
-    ...(typeof SEASONG !== 'undefined' ? [{
+    {
       name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
       view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
-    }] : []),
+    },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
   // centred on the box, for the X pane's size now; exFitKey: the view it gave (a view seen first after it fits again).
@@ -117,7 +117,7 @@
     // what plays along a curve belongs to the scene it was started in (notes/sea-song review ui-1)
     sndStopPlay(false);
     // (v16.5 UX74) an example's Try line goes with the example
-    if (typeof Tour !== 'undefined' && Tour.laneHide) Tour.laneHide('example');
+    if (Tour.laneHide) Tour.laneHide('example');
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');

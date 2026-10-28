@@ -152,7 +152,7 @@
     if (!opt.thin) labelCurves(pane, F, opt.list || S.shapes);   // labels keep off these curves
     for (const s of opt.list || S.shapes) {
       if (s.visible === false || kindType(s) !== 'point') continue;
-      const mk = typeof Construct !== 'undefined' ? Construct.pointMark(s) : null;   // (v16: 'helper' | 'ring' | null)
+      const mk = Construct.pointMark(s);   // (v16: 'helper' | 'ring' | null)
       const idx = mk === 'helper' ? -1 : pi++;
       if (s._atInf) continue;
       const w = F(C(s.p[0], s.p[1]));
@@ -457,7 +457,7 @@
       }
       if (dr && dr.off) {
         ctx.globalAlpha = 1;
-        const msg = (typeof Construct !== 'undefined' && Construct.zpOffNote(dr.k, dr.kind, dr.i)) || $t('Release to remove {t}', { t });   // (v16 [C12])
+        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });   // (v16 [C12])
         ctx.font = `11px ${TH.mono}`;
         const cw = ctx.measureText(msg).width + 12;
         chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
@@ -565,7 +565,7 @@
     if (!st || st.type !== 'zp') return;
     const list = zpItems(st, kind);
     if (i < 0 || i >= list.length) return;
-    if (typeof Constr !== 'undefined') cmZeroRemoved(k, kind, i);   // (v16 [C12])
+    cmZeroRemoved(k, kind, i);   // (v16 [C12])
     list.splice(i, 1);
     zpWrite(st, kind, list);
     if (zpSame(zpSel, k, kind, i)) zpSel = null;
@@ -649,7 +649,7 @@
     const finger = ptrTouch;
     let best = null, bd = Infinity;
     for (const [key, hz] of Region.handlesOf(sel)) {
-      if (typeof Construct !== 'undefined' && (sel.def || sel.fixed || (sel.at && sel.at[key]))) continue;   // (v16: a bound handle is no handle; v16.3: nor a fixed shape's)
+      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (v16: a bound handle is no handle; v16.3: nor a fixed shape's)
       const [hx, hy] = pane.w2s(hz);
       if (finger) { const d = Math.hypot(hx - x, hy - y); if (d < 22 && d < bd) { bd = d; best = key; } }
       else if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) return key;
@@ -662,7 +662,7 @@
     const ctx = pane.octx;
     const k = shapeInk(s).edge, hr = fingerNow() ? 6 : 3.5;
     for (const [key, z] of Region.handlesOf(s)) {
-      if (typeof Construct !== 'undefined' && (s.def || s.fixed || (s.at && s.at[key]))) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
+      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
       ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
       ctx.beginPath();

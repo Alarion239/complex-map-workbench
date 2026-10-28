@@ -41,13 +41,13 @@
       const lo = mode === 1 ? (map.hi || 0) - 1 : map.a || 0;
       if (mode === 1) for (let j = (map.hi || 0) + 1; j <= (map.b || 0); j++) if (stepActive(j)) return map;
       for (let j = lo + 1; j <= (mode === 1 ? map.hi || 0 : map.b || 0); j++) {
-        if (stepActive(j) && (isDeriv(j) || !(typeof Inverse !== 'undefined' && Inverse.homExact(S.steps[j - 1])))) return map;
+        if (stepActive(j) && (isDeriv(j) || !(Inverse.homExact(S.steps[j - 1])))) return map;
       }
       return { mode: 0, a: base, b: map.post };
     }
     if (mode === 1) {
       const k = map.hi || 0, st = S.steps[k - 1];
-      if (st && st.on !== false && !isDeriv(k) && !(typeof Inverse !== 'undefined' && Inverse.homExact(st))) return map;
+      if (st && st.on !== false && !isDeriv(k) && !(Inverse.homExact(st))) return map;
       if (t === 1) return { mode: 0, a: base, b: k };
       if (t === 0) return { mode: 0, a: base, b: Math.max(base, k - 1) };
     } else if (mode === 2) {
@@ -57,7 +57,7 @@
       // all at once: exact at its ends when every step's homotopy is (Inverse.homExact)
       for (let k = (map.a || 0) + 1; k <= (map.b || 0); k++) {
         const st = S.steps[k - 1];
-        if (stepActive(k) && (isDeriv(k) || !(typeof Inverse !== 'undefined' && Inverse.homExact(st)))) return map;
+        if (stepActive(k) && (isDeriv(k) || !(Inverse.homExact(st)))) return map;
       }
       if (t === 0) return { mode: 0, a: base, b: map.a || 0 };
       if (t === 1) return { mode: 0, a: base, b: map.b || 0 };
@@ -333,7 +333,7 @@
   // the test hooks ask with o.status (the program's state, without starting a compile).
   function pathOf(s, map, role, viewKind = 'flat', o = {}) {
     const F = (reason) => ({ path: 'forward', reason });
-    if (!GLR.ok || typeof Inverse === 'undefined' || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
+    if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
     const m = normalizeMap(map);
     if ((m.mode || 0) !== 0) return F(morph.playing || trans.k ? 'homotopy playing' : 'paused inside a step (homotopy)');
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
@@ -364,7 +364,7 @@
   }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
-    if (!GLR.inverseRequest || !GLR.packShapes || typeof Inverse === 'undefined' || S.exactImages === false || !PHASE.R.flat) return;
+    if (!GLR.inverseRequest || !GLR.packShapes || S.exactImages === false || !PHASE.R.flat) return;
     if (isIdentMap(map) || !invPlan(map.a || 0, map.b || 0).ok) return;
     const list = S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area' && !s._err);
     if (!list.length) return;
@@ -416,7 +416,7 @@
     const live = (role === 'R' || role === 'L') && !offRender && !opt.thin;
     let recs = null, gf = null, timing = false, invN = 0;
     const halfDraws0 = GLR.inverseHalfDraws || 0;
-    if (GLR.ok && GLR.packShapes && typeof Inverse !== 'undefined' && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
+    if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       recs = GLR.packShapes(list).recs;
@@ -640,7 +640,7 @@
   // a formula as plain text for a tooltip outside English (review eng-10): Tour's reading of TeX, the screen's comma
   const texTitle = (tex) => {
     try {
-      const p = typeof Tour !== 'undefined' && Tour._t && Tour._t.texPlain;
+      const p = Tour._t && Tour._t.texPlain;
       if (!p) return tex;
       // (a fraction of two single symbols or numbers is π/2, not (π)/2: verify-8)
       const one = '(\\\\(?:pi|infty|alpha|gamma|zeta|theta)|[A-Za-z0-9]+(?:\\.[0-9]+)?)';
