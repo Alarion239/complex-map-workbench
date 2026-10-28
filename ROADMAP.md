@@ -107,8 +107,15 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
 
 ## How a version is made
 
-Each round is built in parallel copies, merged, reviewed by independent agents (as the user on laptop and phone,
-for regressions, and for the round's own subject), fixed, and smoke-checked in English and Russian, light and dark,
-at 1440 and 390 px. Then it is published here and on the shared artifact, and a full gate (unit tests, GLSL tests,
-the quality suite of 81 runs, frame-time budgets at 60 fps) runs; its fixes ship as patches. Design notes for every
-round are in [notes/](notes/).
+- **Each issue is a small PR** with its tier: the Gate runs only the jobs the change can affect
+  ([ci/README.md, CI tiers](ci/README.md#ci-tiers)): unit tests always, the browser suites of the areas a UI change
+  touches, GLSL, image quality and the perf suite's checks for a change to the renderer or the maths.
+- **PRs merge in waves.** Each goes into an integration branch; one wave PR from that branch into `main` carries the
+  label `full-gate` and runs the whole gate (unit tests, the browser suites, GLSL tests on Direct3D 11 and Metal, the
+  quality suite, the perf suite's checks).
+- **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Windows
+  laptop and Mac: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
+- **A release tag deploys the page:** the live page is deployed by CI on a release tag (`v*`,
+  `.github/workflows/pages.yml`), never committed.
+
+Design notes for every round are in [notes/](notes/).

@@ -9,7 +9,7 @@ are reported as `IMPROVED`, never as failures.
 |---|---|---|
 | one command | `test/regress/perf/run.sh` | `test/regress/quality/run.sh` |
 | runner | `perf/run.js` (own headless Chrome over CDP) | `quality/run_quality.js` |
-| baseline | `perf/baseline.json` | `quality/baseline.json` + `quality/golden/` |
+| baseline | `perf/baseline.json`, written by `perf/run.sh --update-baseline` (not committed; CI measures the reference instead) | `quality/baseline.json` + `quality/golden/` |
 | gate | `compare_perf.py` | `compare_quality.py` |
 
 `python3 test/regress/compare.py` compares the latest results of both suites with their baselines (options are routed
