@@ -399,6 +399,61 @@ SC['deform'] = Object.assign({ dur: 4.6, glide: true, Ft: (w, t) => Hd(w, hT(t))
     check('along: the events tier', E.posts.filter((c) => c.k === 'cue').every((c) => c.tier === 1));
   }
 
+  // ---------- 8. the Mountain King as a function (src/seasong.js) through the engine ----------
+  // At Listen along's settings (the glue's sndSampler): the path at 250 px/s, a sample a millisecond, n = its sectors,
+  // no cues; t_heard's probe (argStep, throughZP, the bridge; no rope). The chain is the app's own text, compiled by its
+  // parser (src/parse.js, as test/t_seasong.js, but in this context: 22 µs an evaluation here, 130 µs across a vm
+  // context). Heard notes as notes/sea-song/FUNCTION.md measures them: onsets (note, cut note, repeat) under 45 ms
+  // apart are one cluster, its last heard
+  {
+    const { SEASONG: MK } = require('../src/seasong.js');
+    for (const [f, nm] of [['parse', 'Expr'], ['funcs', 'Funcs']]) if (!globalThis[nm]) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '..', 'src', f + '.js'), 'utf8') + `\n;globalThis.${nm} = ${nm};`, { filename: f + '.js' });
+    const EX = globalThis.Expr, fU = EX.compile(EX.parse(MK.steps[0].params.expr)), fG = EX.compile(EX.parse(MK.steps[1].params.expr));
+    const F = (z) => fG(fU(z));
+    const P = MK.pts, cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const Lt = cum[cum.length - 1], pxu = MK.view.s, dur = Lt * pxu / 250;
+    const along = (s) => { let lo = 0, hi = P.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (cum[m] <= s) lo = m; else hi = m - 1; } const sg = cum[lo + 1] - cum[lo]; return lin(P[lo], P[lo + 1], sg ? clamp((s - cum[lo]) / sg, 0, 1) : 0); };
+    const sc = { F, z: (t) => along(clamp(t / dur, 0, 1) * Lt), dur, pxu, cx: MK.view.cx, halfW: 400 };
+    const smp = probe(sc, HTL, { rope: 0 }), N = MK.sectors;
+    const log = HTL.events(smp, { n: N, cues: [] }), cnt = (k) => log.filter((e) => e.k === k).length;
+    check('Mountain King: Listen along\'s samples, one seat, no gap, every value finite', smp.filter((p) => p.seat).length === 1 && !smp.some((p) => p.gap) && smp.every((p) => Number.isFinite(p.phi) && Number.isFinite(p.ln)), smp.length);
+    // the theme (Grieg's, B minor, as test/t_seasong.js), pitch classes above D
+    const THEME = [0, 2, 3, 5, 7, 3, 7, 6, 2, 6, 5, 1, 5, 0, 2, 3, 5, 7, 3, 7, 12, 10, 7, 3, 7, 10].map((s) => (s + 9) % 12);
+    const ons = log.filter((e) => e.k === 'note' || e.k === 'cutnote' || e.k === 'rep').sort((a, b) => a.t - b.t), cl = [];
+    for (const e of ons) { const l = cl[cl.length - 1]; if (l && e.t - l[l.length - 1].t < 0.045) l.push(e); else cl.push([e]); }
+    const heard = cl.map((x) => x[x.length - 1]), pcs = heard.map((e) => mod(Math.round(e.c), 12));
+    // each statement: the cut figure's re-struck A (the held note again at +12 ms), its downbeat B, the 25 notes after
+    const want = [].concat(...Array.from({ length: 4 }, () => [THEME[25]].concat(THEME)));
+    check('Mountain King: the heard notes are the theme four times, each downbeat B after the cut figure\'s re-struck A', pcs.join(' ') === want.join(' '), `${pcs.length}: ${pcs.join(' ')}`);
+    check('Mountain King: no repeat, no merge (|F| is constant on the path)', !cnt('rep') && !cnt('rep-grace') && !cnt('rep-cue') && !cnt('merged') && !cnt('cut-merged') && log.counts.reps === 0, JSON.stringify(log.counts));
+    // the cracks where the path crosses u^s's cut: found here on the path itself, 0.1 px apart (a jump of more than
+    // 1.5 lines between neighbours, as t_seasong), against the engine's crack (the first sample past it, ≤ 1 ms later)
+    const ref = [], dS = 0.1 / pxu; let a0 = null;
+    for (let k = 0, s = 0; s <= Lt; k++, s = k * dS) {
+      const z = along(s), g = F(C(z[0], z[1])), a = Math.atan2(g.im, g.re);
+      if (a0 != null) { let d = a - a0; d -= TAU * Math.round(d / TAU); if (Math.abs(d) * N / TAU > 1.5) ref.push(s / Lt * dur); }
+      a0 = a;
+    }
+    const cracks = log.filter((e) => e.k === 'crack').map((e) => e.t);
+    check('Mountain King: 4 cracks, each where the path crosses the cut (within 1 ms after)', ref.length === 4 && cracks.length === 4 && cracks.every((t, i) => t - ref[i] >= -0.0006 && t - ref[i] <= 0.0016), `${cracks.map((t) => t.toFixed(4))} | ${ref.map((t) => t.toFixed(4))}`);
+    check('Mountain King: the cracks 5.35, 4.20, 5.35 s apart (the Möbius map\'s accelerando)', cracks.length === 4 && [5.35, 4.2, 5.35].every((x, i) => Math.abs(cracks[i + 1] - cracks[i] - x) < 0.05), cracks.map((t, i) => (i ? (t - cracks[i - 1]).toFixed(3) : '')).join(' '));
+    // the cut figure: its second note is the downbeat B, heard, 82 ms after the crack (the design's cutLeadS)
+    const fig = cracks.map((t) => log.find((e) => e.k === 'cutnote' && e.side === 1 && Math.abs(e.t - t - HT.cutNotes[1]) < 1e-9));
+    check('Mountain King: each cut figure\'s second note is the downbeat B, heard, on its beat', fig.every((e) => e && mod(Math.round(e.c), 12) === 9 && heard.includes(e)) && Math.abs(MK.design.cutLeadS - HT.cutNotes[1]) < 1e-9, fig.map((e) => e && e.c.toFixed(2)).join(' '));
+    // Sound.along plays these: the same decisions, in Notes on the events tier; in Glide the four cracks
+    const E = makeEnv({ worklet: true }), S = E.Sound;
+    S.set({ on: true, sonify: true, glide: false }, { quiet: true }); E.listeners.pointerdown.forEach((f) => f({ type: 'pointerdown' }));
+    for (let k = 0; k < 5 && S.state().engine === 'loading'; k++) await flush();
+    const smpA = smp.map((p) => (p.gap ? { t: p.t, gap: true } : { t: p.t, phi: p.phi, ln: p.ln, pan: p.pan, seat: p.seat, cut: p.cut }));
+    const ra = S.along(smpA, { tag: 'mk', n: N });
+    const sameLog = ra && ra.log.filter((e) => e.k !== 'cue:zero' && e.k !== 'cue:pole').map((e) => `${e.k}@${e.t.toFixed(6)}:${e.c == null ? '' : e.c.toFixed(6)}:${e.g == null ? '' : e.g.toFixed(6)}`).join() === log.map((e) => `${e.k}@${e.t.toFixed(6)}:${e.c == null ? '' : e.c.toFixed(6)}:${e.g == null ? '' : e.g.toFixed(6)}`).join();
+    check('Mountain King: Sound.along in Notes plays the same events (notes, cut figures, no repeat)', ra && ra.mode === 'notes' && sameLog && ra.counts.notes === log.counts.notes && ra.counts.reps === 0 && ra.counts.cracks === 4 && E.posts.filter((c) => c.k === 'cue').every((c) => c.tier === 1 && c.tag === 'mk'), JSON.stringify(ra && ra.counts));
+    S.set({ glide: true }, { quiet: true });
+    const rg = S.along(smpA, { tag: 'mkg', n: N });
+    check('Mountain King: Sound.along in Glide, its four cracks at the same times', rg && rg.mode === 'glide' && rg.counts.cracks === 4 && rg.log.filter((e) => e.k === 'crack').every((e, i) => Math.abs(e.t - cracks[i]) < 1e-9), JSON.stringify(rg && rg.counts));
+  }
+
   console.log(bad ? `${bad}/${n} heard checks FAILED` : `${n}/${n} heard checks passed`);
   process.exit(bad ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
