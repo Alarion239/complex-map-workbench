@@ -354,9 +354,15 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
   // ---- custom formulas: mirror Expr.compile ----
-  function genCustom(ast, P, A, TH, writers, lines) {
+  // baked: when given (a custom step, whose key holds it), constant exponents are specialized and their kinds pushed
+  // here; without it (d/dz, whose key does not hold the exponents) they stay uniforms through cx_powk
+  function genCustom(ast, P, A, TH, writers, lines, baked = null) {
     let tmp = 0;
     const dep = Expr.depends;
+    const hasParam = (n) => (n.t === 'num' ? n.param != null : Object.keys(n).some((k) => {
+      const x = n[k];
+      return !!x && typeof x === 'object' && (Array.isArray(x) ? x.some((y) => !!y && !!y.t && hasParam(y)) : !!x.t && hasParam(x));
+    }));
     const tv = (expr) => { const nm = `${P}_${tmp++}`; lines.push(`  vec2 ${nm} = ${expr};`); return nm; };
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
     const UN = {
@@ -387,6 +393,35 @@ vec2 cx_mobpathi(vec2 u, float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, v
         case 'mul': { const a = g(n.a), b = g(n.b); return tv(`cmul(${a}, ${b})`); }
         case 'div': { const a = g(n.a), b = g(n.b); return tv(`cdiv(${a}, ${b})`); }
         case 'pow': {
+          if (!dep(n.b) && baked && !hasParam(n.b)) {
+            // a constant exponent without a shared number: its value is fixed by the program key (astSig holds every
+            // other constant, and Expr.compile takes constants at their principal value whatever the cut), so only the
+            // branch of cx_powk that it takes is compiled. Direct3D's FXC inlines all three branches at every call
+            // site and unrolls cx_ipow32's 32 rounds: 0.5 to 1.4 s of compile per power (sound/impl/CUSTOM-PLAN.md P1).
+            const a = g(n.a);
+            const v = constOf(n.b, 0);
+            if (v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096) {
+              // cx_ipow32's rounds written out for this n: the same cmul calls in the same order, so the same values
+              baked.push(['i', v.re]);
+              if (v.re === 0) return 'vec2(1.0, 0.0)';
+              let m = Math.abs(v.re), b = v.re < 0 ? tv(`cinv(${a})`) : a, r = 'vec2(1.0, 0.0)';
+              for (;;) {
+                if (m & 1) r = tv(`cmul(${r}, ${b})`);
+                m >>= 1;
+                if (m <= 0) return r;
+                b = tv(`cmul(${b}, ${b})`);
+              }
+            }
+            const cell = A.cell();
+            if (v.im === 0) {
+              baked.push(['r']);
+              writers.push((put, th) => put(cell.c, constOf(n.b, th).re, 0));
+              return tv(`cpowr(${a}, ${cell.x}, ${TH}, 0.0)`);
+            }
+            baked.push(['c']);
+            writers.push((put, th) => putC(put, cell, constOf(n.b, th)));
+            return tv(`cx_powg(${a}, ${cell.v}, ${TH}, 0.0)`);
+          }
           if (!dep(n.b)) {
             const a = g(n.a);
             const s = A.slot();
@@ -909,10 +944,11 @@ vec2 cx_zetad(vec2 s) {
         const cut = A.cell();
         const TH = cut.x;
         const writers = [], lines = [];
-        const res = genCustom(ast, P, A, TH, writers, lines);
+        const baked = [];
+        const res = genCustom(ast, P, A, TH, writers, lines, baked);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
-          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin'], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
+          sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), hc: np && np.hc,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
         };
       }
