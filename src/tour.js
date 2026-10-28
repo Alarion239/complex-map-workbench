@@ -379,11 +379,11 @@ const Tour = (() => {
         { id: 'palette', anchor: ['palette', 'moreBtn'], title: 'Command palette',
           body: 'Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.',
           narrow: 'Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step; a formula that is one catalog function, such as $\\sin z$, adds that function.',
-          try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Search functions and commands.', on: 'palette-opened' } },
+          try: { text: 'Press {mod}{K}.', touch: 'Open ⋯, then Search.', on: 'palette-opened' } },
         { id: 'help', anchor: ['helpBtn', 'moreBtn'], title: 'Help is here',
           lead: 'The tour by chapter, the guide and every shortcut.',
-          body: 'This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.',
-          narrow: 'Guided tour, in this menu, starts the tour by chapter; Reference guide opens the whole guide.' },
+          body: 'This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.',
+          narrow: 'Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.' },
       ],
     },
   ];
@@ -3024,7 +3024,7 @@ const Tour = (() => {
     if (!chaptersOnly) kids.push(el('div', { class: 'msep', role: 'separator' }));
     // on a touch screen there are no keys to show
     const keys = !phone();
-    if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Reference guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
+    if (!chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_BOOK}</span><span class="mi-label">${esc($t('Guide'))}</span>${keys ? '<span class="mi-key">?</span>' : ''}`, () => call('openGuide')));
     if (keys && !chaptersOnly) kids.push(mi('', `<span class="mi-ic">${ICON_KEYS}</span><span class="mi-label">${esc($t('Keyboard shortcuts'))}</span>`, () => call('openGuide', 'keys')));
     const pop = el('div', { class: 'pop menu tour-menu', role: 'menu', 'aria-label': $t('Help'), 'data-tour': 'menu' }, ...kids);
     const host = document.getElementById('popHost') || document.body;

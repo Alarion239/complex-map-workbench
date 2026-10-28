@@ -171,7 +171,7 @@
   "en": "Add function",
   "ctx": "field",
   "ru": "Добавить функцию",
-  "note": "The visible text of the header command field (GLOSSARY: placeholder; DESIGN.md 8.3). Since #35 part 2 the glossary's 'Add function' (notes/i18n/TERMS.md); phase 2b shipped 'Add function or command' as «Функция или команда»."
+  "note": "The visible text of the header command field (GLOSSARY: placeholder; DESIGN.md 8.3). #35: the field is Add function (notes/i18n/TERMS.md)."
  },
  "lo.readout.at": {
   "en": "at",

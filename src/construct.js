@@ -1607,7 +1607,9 @@ const Construct = (() => {
   // [v16.5 UX48] what to pick next, in one plain sentence, then the count, the tool, and on a keyboard how to back up
   // ("⌫ undo pick · Esc" once the draft has picks of its own, else "Esc cancels"); a finger has × and Undo instead
   // (noEsc: without that keyboard tail, for a chip that would wrap with it and fits one line without it [v16.3.1])
-  function chipText(narrow, noEsc) {
+  // (noName: without the tool's name, which the pane head's chip already gives: a chip that wraps drops it before its
+  // keyboard tail [#35: «3-pt circle» is longer than the retired «3 points», and at 1366 x 768 the tail went])
+  function chipText(narrow, noEsc, noName) {
     const tool = A.tool();
     if (!isCTool(tool)) return '';
     // (the tile's soft hyphen never reaches the chip: it would break the chip's line there [v16.3 review user-8])
@@ -1632,7 +1634,7 @@ const Construct = (() => {
       cnt = of(n, m);
     }
     lastCnt = cnt.replace(/^ · /, '');
-    return what + cnt + ' · ' + tn + tail;
+    return what + cnt + (noName ? '' : ' · ' + tn) + tail;
   }
   // the head's chip for the tool in use (the sentence stays on the plane): its name and how far the picks have got
   let lastCnt = '';
@@ -1760,7 +1762,11 @@ const Construct = (() => {
         if (noEsc !== txt) {
           const lines = () => { const lh = parseFloat(getComputedStyle(ct).lineHeight) || 16; return ct.scrollHeight / lh; };
           const n = lines(), most = el.classList.contains('cm-low') ? 3 : 2;   // (the lines the place allows [check app-5])
-          if (n > 1.5) { fillT(noEsc); if (lines() > 1.5 && n < most + 0.5) fillT(txt); }
+          if (n > 1.5) {
+            // (#35: first without the tool's name, which the head's chip shows: the keyboard tail stays when that fits)
+            fillT(chipText(narrow, false, true));
+            if (lines() > 1.5) { fillT(noEsc); if (lines() > 1.5 && n < most + 0.5) fillT(txt); }
+          }
         }
         // [v16.5 UX52] a refused pick, here for 2 s; [UX48] the how-to
         if (pickWarnMsg) box.append(A.h('span', { class: 'cm-warn', role: 'status' }, pickWarnMsg));
