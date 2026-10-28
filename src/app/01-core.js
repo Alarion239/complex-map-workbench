@@ -711,6 +711,5 @@
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)
   const yHtml = () => (S.focus === 0 ? '<i>w</i>' : `<i>w</i>${sub(rightStage())}`);
-  const yText = () => (S.focus === 0 ? 'w' : `w${sub(rightStage())}`);
   const fnHtml = () => (S.focus === 0 ? '<i>F</i>' : focusDeriv() ? `<i>w</i>${sub(S.focus)}` : `<i>f</i>${sub(S.focus)}`);
 

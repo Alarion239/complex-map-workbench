@@ -1134,7 +1134,6 @@
     let html = '';
     if (want) {
       const pts = S.targets.filter((s) => s.visible !== false && s.kind === 'point');
-      const others = S.targets.filter((s) => s.visible !== false && s.kind !== 'point').length;
       const rows = [];
       if (pts.length && !hasCalc('zerosPoles')) rows.push($t('<div class="cn">Root finding is not available in this build.</div>'));
       else if (pts.length && roots.sig !== rootsSig()) rows.push($t('<div class="ch">Solving {x} = <i>p</i> in view…</div>', { x: fxHtml() }));

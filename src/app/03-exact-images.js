@@ -222,7 +222,7 @@
       for (const r of paneG.R.qs.length || paneG.L.qs.length ? GLR.timer.poll() : []) {
         const q = paneG[r.tag];
         if (!q) continue;
-        let i = q.qs.findIndex((x) => Math.abs(x.t - r.t) < 2);
+        const i = q.qs.findIndex((x) => Math.abs(x.t - r.t) < 2);
         const e = i >= 0 ? q.qs[i] : null;
         if (i >= 0) q.qs.splice(0, i + 1);
         if (!e || !e.inv) continue;                            // a frame without inverse passes says nothing

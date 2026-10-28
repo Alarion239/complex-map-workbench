@@ -40,7 +40,7 @@
       steps: [{ type: 'sin', params: {} }],
     },
     {
-      name: $t('Square root and its sheets'), tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane; change the sheet to flip it.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Square root and its sheets'), tex: 'w=\\sqrt{z}', blurb: $t('The slit plane maps onto a half-plane. On the step card, ‹ › flips the sheet and Show all sheets draws both.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 2 }, { kind: 'circle', c: [0.5, 0.3], r: 0.9 }],
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
@@ -916,7 +916,7 @@
     const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
-      let el = e.target.closest && e.target.closest('[data-tip],[title]');
+      const el = e.target.closest && e.target.closest('[data-tip],[title]');
       if (!el || el === cur) return;
       if (el.hasAttribute('title') && !el.hasAttribute('data-tip')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
       hide();

@@ -7,9 +7,8 @@
     if (!pane.labels) pane.labels = { items: [], marks: [], curves: [], view: Object.assign({}, pane.view), queued: false };
     return pane.labels;
   }
-  // the curves drawn in this plane: shapes of 'list' under F (from drawPoints), or a screen polyline (labelPath)
+  // the curves drawn in this plane: shapes of 'list' under F (from drawPoints)
   function labelCurves(pane, F, list) { labelReg(pane).curves.push({ F, list }); }
-  function labelPath(pane, xy) { labelReg(pane).curves.push({ xy }); }
   // labels: STIX italic for variables, Archivo for words. it: {x, y, text, word?, rad? (marker radius)}
   function placeLabels(ctx, pane, items) {
     const r = labelReg(pane);
@@ -600,7 +599,7 @@
     return frag;
   }
   function zpItemField(st, k, kind, i, raw, pre) {
-    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i), what = kind === 'zeros' ? 'zero' : 'pole';
+    const id = `${pre}${k}_${kind}${i}`, sym = zpSym(kind, i);
     const input = h('input', { class: 'inp', id, value: zpShow(raw), spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
     input.dataset.zp = `${kind}:${i}`;
     // the list is rebuilt from this field set's own fields (an emptied field drops out until it is left)
