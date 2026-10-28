@@ -114,8 +114,18 @@ vlock = json.loads((vendor / 'LOCK.json').read_text(encoding='utf-8'))
 data += block('cmw-mathjax', json.dumps((vendor / 'js' / 'tex-svg.js').read_text(encoding='utf-8')))
 mj += """<script>
 (function () {
-  var go = function () { try { var b = document.getElementById('cmw-mathjax'), s = document.createElement('script'); s.textContent = JSON.parse(b.textContent); document.head.appendChild(s); } catch (e) { /* the TeX source shows */ } };
-  var later = function () { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); else setTimeout(go, 0); };
+  // (a Blob URL, async: the browser compiles the 2 MB off the main thread, as it did the CDN's script; inline
+  // textContent was one long task right after the first paint)
+  var done = false, go = function () {
+    if (done) return; done = true;
+    try {
+      var b = document.getElementById('cmw-mathjax'), s = document.createElement('script'), js = JSON.parse(b.textContent);
+      if (window.Blob && window.URL && URL.createObjectURL) { s.async = true; s.src = URL.createObjectURL(new Blob([js], { type: 'text/javascript' })); } else s.textContent = js;
+      document.head.appendChild(s);
+    } catch (e) { /* the TeX source shows */ }
+  };
+  // after the first paint; in a background tab (no frames) a second after the load
+  var later = function () { if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); setTimeout(go, 1000); };
   if (document.readyState === 'complete') later(); else addEventListener('load', later);
 })();
 </script>
