@@ -229,7 +229,7 @@ const CD = (evs) => { let st = T.cdInit(); for (const [t, e] of evs) st = T.coun
 // the time the countdown fires: the first t (ms, in 50 ms ticks) at which left() reaches 0, else null within 20 s
 const fireAt = (evs) => { const sorted = evs.slice().sort((a, b) => a[0] - b[0]); let st = T.cdInit(), k = 0; for (let t = 0; t <= 20000; t += 50) { while (k < sorted.length && sorted[k][0] <= t) st = T.countdown(st, sorted[k++][1], sorted[k - 1][0]); const L = T.cdLeft(st, t); if (L === 0) return t; } return null; };
 check('countdown: done -> 3000', fireAt([[0, { type: 'done' }]]), 3000);
-check('countdown: input at 2000 -> 5000', fireAt([[0, { type: 'done' }], [2000, { type: 'input' }]]), 5000);
+check('countdown: input at 2000 changes nothing (3000; the pointer or keys never restart it)', fireAt([[0, { type: 'done' }], [2000, { type: 'input' }]]), 3000);
 check('countdown: hold from 1000 to 4000 -> 7000', fireAt([[0, { type: 'done' }], [1000, { type: 'hold', kind: 'pointer' }], [4000, { type: 'release', kind: 'pointer' }]]), 7000);
 check('countdown: two holds, the last release starts it', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'layer' }], [800, { type: 'hold', kind: 'pointer' }], [1500, { type: 'release', kind: 'pointer' }], [2500, { type: 'release', kind: 'layer' }]]), 5500);
 check('countdown: done while held (the palette open) -> 3 s after the release', fireAt([[0, { type: 'hold', kind: 'layer' }], [200, { type: 'done' }], [4000, { type: 'release', kind: 'layer' }]]), 7000);

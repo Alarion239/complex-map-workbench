@@ -2164,6 +2164,8 @@ const Construct = (() => {
     return parts.join(' ');
   }
   // (v16.3.1) a load before the app's adapter is set (the page opening a saved figure): its toast waits for ui()
+  // the family (kind, or complement) of each three-point circle at its last recompute
+  const famSeen = new Map();
   let freedLater = false;
   const freedToast = () => setTimeout(() => A.toast($t('Some constructions could not be read and were opened as plain shapes.')), 0);
   function on(type, data) {
@@ -2176,8 +2178,16 @@ const Construct = (() => {
       const n = data.undef.length;
       A.undoToast($tn('{n} shape is now undefined.', '{n} shapes are now undefined.', n));
     }, 0);
-    if (type === 'recomputed' && data && data.kindChanged && data.kindChanged.length) {
-      for (const id of data.kindChanged) { const s = find(id); if (s && s.def && s.def.op === 'circle3') A.tourEmit('construct-family', { kind: s.kind === 'disc' && s.complement ? 'complement' : s.kind }); }
+    // the tour's "Drag z2 across the line": a circle's family changes when its kind does (disc, half-plane) and also when
+    // only its complement flips (disc, outside), which leaves the kind alone
+    if (type === 'recomputed' && data && data.ids) {
+      for (const id of data.ids) {
+        const s = find(id);
+        if (!s || !s.def || s.def.op !== 'circle3') continue;
+        const fam = s.kind === 'disc' && s.complement ? 'complement' : s.kind, was = famSeen.get(id);
+        famSeen.set(id, fam);
+        if (fam !== was && (was !== undefined || (data.kindChanged && data.kindChanged.includes(id)))) A.tourEmit('construct-family', { kind: fam });
+      }
     }
   }
   // the zero being dragged off the plane: what a release does to the constructions on it
@@ -2810,7 +2820,7 @@ const Construct = (() => {
     hover: g(hover), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
     fixedName: (s) => (A ? fixedName(s) : null), defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),
-    inspectorSig: g(inspectorSig, null), inspectorBuild, inspectorFill, setFill, paletteActs: g(paletteActs, []), CAPTIONS,
+    inspectorSig: g(inspectorSig, null), inspectorBuild, inspectorFill, usedBy: g((id) => { try { return [...graph().users(id)]; } catch (e) { return []; } }, []), setFill, paletteActs: g(paletteActs, []), CAPTIONS,
     // TEMP-DEBUG-HOOK (removed before publishing)
     debug,
     // TEMP-DEBUG-HOOK
