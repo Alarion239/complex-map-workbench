@@ -42,6 +42,16 @@ async function probe() {
   }
   const software = !info.webgl2 || SOFTWARE.test(`${info.renderer} ${info.vendor}`);
   const machine = `${os.platform()} ${os.arch()} · ${(os.cpus()[0] || {}).model} · ${os.cpus().length} cores`;
+  // an Intel build on Apple silicon (the x64 runner package, or an x64 Node): translated by Rosetta, so timings are not
+  // the machine's (ci/RUNNERS.md, "Replacing an x64 runner with the arm64 build")
+  if (os.platform() === 'darwin') {
+    let translated = '';
+    try { translated = require('child_process').execFileSync('sysctl', ['-n', 'sysctl.proc_translated'], { encoding: 'utf8' }).trim(); } catch (e) { /* not on Apple silicon */ }
+    if (translated === '1') {
+      console.log('::warning title=Rosetta::this job runs under Rosetta (an x64 runner or Node on Apple silicon): install the arm64 runner (ci/RUNNERS.md)');
+      summary('**Rosetta:** this job runs as an x64 process on Apple silicon; its timings are not the machine\'s (ci/RUNNERS.md).\n');
+    }
+  }
   console.log(JSON.stringify(Object.assign({ software, machine }, info), null, 1));
   summary(`**WebGL2:** ${info.webgl2 ? esc(info.renderer) : 'none'}${software ? ' (software rendering)' : ''} · parallel compile ${info.parallelCompile ? 'yes' : 'no'}  \n${esc(machine)} · \`${esc(info.flags)}\`\n`);
   if (!info.webgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); process.exit(1); }

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 // palette.js: the phase colors (issue 8), pure (no DOM), so the node tests run the shipped code. 'wheel' is the app's
 // own OKLCH wheel (gl.js's LUT); the other seven are the color functions of Arb's plotting example
@@ -13,7 +14,7 @@
 (function (root, factory) {
   const M = factory();
   if (typeof module === 'object' && module.exports) module.exports = M;
-  else root.Palette = M;
+  else /** @type {any} */ (root).Palette = M;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   // [id, Arb mode]; the index is the shaders' uPal
   /** @type {[string, number][]} */

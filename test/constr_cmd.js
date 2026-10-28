@@ -224,6 +224,12 @@ await section('A', async () => {
   ok('after a drag of z₀: still A = 0, the midpoint follows', col2.kind === 'halfplane' && col2.A === 0 && mid2.p[0] === (z0[0] + 0.5) / 2, [col2.kind, col2.A, mid2.p, z0]);
   const cr = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
   ok('… its edge passes through z₀ and z₁', !!col2.a && Math.abs(cr(col2.a, col2.b, z0)) < 1e-12 && Math.abs(cr(col2.a, col2.b, [0.5, -1])) < 1e-12, [col2.a, col2.b]);
+  // a drag of the midpoint says what it is built from by the point, not in a toast
+  const mp2 = await W(mid2.p[0], mid2.p[1]);
+  await drag(mp2[0], mp2[1], mp2[0] + 30, mp2[1], 6, 16); await settle(250);
+  info.builtChip = { chip: (await CI()).freeChip, toast: await toastText() };
+  ok('a drag of the midpoint: "built from … drag those" by the point, no toast', / is built from .*: drag those$/.test(info.builtChip.chip || '') && !/is built from/.test(info.builtChip.toast), info.builtChip);
+  ok('… and the midpoint stays', byId(await ST(), mid.id).p[0] === mid2.p[0], byId(await ST(), mid.id).p);
   await shot('cm-d1440-collinear');
   // 8. undo and redo
   const nBefore = st.list.length, hiB = st.hi;
