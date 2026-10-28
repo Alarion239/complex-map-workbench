@@ -75,7 +75,7 @@ ok('settings in lsk(cmw-sound), never in the saved work', R.store.s && R.store.s
 await glide(await circle([1, 0], 0.25, 2, 32));
 await glide(await circle([-1, 0], 0.02, 1, 16));
 await settle(300);
-R.quiet = { made: await made(true), live: await ev('Sound.debug().live'), argStep: await ev('__calls.argStep') };
+R.quiet = { made: await made(true), live: await ev('(() => { const h = Sound.hear.state(); return h.counts.notes + (h.stroke ? 1 : 0); })()'), argStep: await ev('__calls.argStep') };
 ok('default tiers: hovering zeros makes no cue, no voice, no tracking', !R.quiet.made.length && R.quiet.live === 0 && R.quiet.argStep === 0, R.quiet);
 
 // 4. Shift+M toggles sound (silently off); M alone is still the Deformation
@@ -273,9 +273,9 @@ ok('cluster: 20 entries → ≤ 3 pings and the dense cue', R.cluster.zp <= 3 &&
 // nothing is queued on a clock that is not running: a context whose resume() never resolves
 R.susp = await ev(`await (async () => {
   const c = Sound.debug().ctx; await c.suspend(); const res = c.resume; c.resume = () => new Promise(() => {});
-  __made.length = 0; const live0 = Sound.debug().live; let n = 0;
+  __made.length = 0; const live0 = Sound.hear.state().counts.notes; let n = 0;
   for (let i = 0; i < 24; i++) { if (Sound.play('toggleOn', {}) === true) n++; if (Sound.turn({ dir: 1 }) === true) n++; await new Promise((r) => setTimeout(r, 50)); }
-  const out = { n, made: __made.length, live: Sound.debug().live - live0 };
+  const out = { n, made: __made.length, live: Sound.hear.state().counts.notes - live0 };
   c.resume = res; await c.resume(); return out; })()`, 20000);
 ok('suspended context: 24 requests, none scheduled', R.susp.n === 0 && R.susp.made === 0 && R.susp.live <= 0, R.susp);
 // the silent off: six sources sounding, then off → no sound made, every source stopped, then suspended
