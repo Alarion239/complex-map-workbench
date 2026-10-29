@@ -418,7 +418,9 @@
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
-    else if (!gpuWait.has(pane)) { gpuWait.set(pane, now); setTimeout(() => requestRender(role), 1600); }
+    // (and one at 300 ms: a chain with no earlier version is drawn from a SphereMesh once its link has waited 250 ms,
+    // whether or not the frame counts as compiling)
+    else if (!gpuWait.has(pane)) { gpuWait.set(pane, now); for (const ms of [300, 1600]) setTimeout(() => requestRender(role), ms); }
     else {
       const n = GLR.pendingLinks || 0;
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
@@ -611,7 +613,11 @@
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
       const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
-      if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) { if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map)); continue; }   // (n 0: nothing of it shows)
+      if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
+        if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
+        if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
+        continue;
+      }
       let smOld = null, smOut = null;
       if (smd && smd.old && smRes(smd.old)) {
         const sc = GLR.scissorOf(smd.old.guardBox, pane.view, pane.dpr, 0);

@@ -831,6 +831,12 @@
     get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
     // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
+    // (issue #72, I) ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
+    // hold on its links
+    bareMs, holdLinks,
+    // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
+    // waits for the final picture (the quality harness's settle, onReady's redraw) still waits
+    markPending() { framePending = true; },
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },
