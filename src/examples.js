@@ -12,6 +12,7 @@ const Examples = (() => {
     nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
     setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
+  // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -44,11 +45,27 @@ const Examples = (() => {
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl && !spec) { xl.textContent = ex.name; xl.title = ex.name; }   // ([v16.5 check app-3] its tooltip: the whole name)
     setShapes([]); setSteps([]);
-    // [issue #5] an example's own shared numbers (the partial sums' N): set, or in place of one of the user's of that name
-    if (!spec && Array.isArray(ex.params)) {
-      const ps = A.S.params.slice();
-      for (const p of ex.params) { const c = JSON.parse(JSON.stringify(p)), j = ps.findIndex((q) => q.name === p.name); if (j >= 0) ps[j] = c; else ps.push(c); }
-      setParams(ps);
+    // [issue #5] an example's own shared numbers (the partial sums' N) are marked ex: the next example takes away the ones it does
+    // not define, and gives back a number of the user's that one of them stood in for; the user's other numbers stay
+    if (!spec) {
+      const mine = (ex.params || []).filter((p) => p && typeof p.name === 'string');
+      const ps = [];
+      for (const q of A.S.params) {
+        if (!q.ex || mine.some((p) => p.name === q.name)) { ps.push(q); continue; }
+        // (the user's number it stood in for is kept in the state, on its own entry: q.ex.was, so a reload, a link or a scene
+        // that opens with the example does not lose it)
+        const back = q.ex && q.ex.was ? Params.sanitize([q.ex.was])[0] : null;
+        if (back) ps.push(back);
+      }
+      for (const p of mine) {
+        const c = Object.assign(JSON.parse(JSON.stringify(p)), { ex: true }), j = ps.findIndex((q) => q.name === p.name);
+        if (j >= 0) {
+          const was = ps[j].ex ? ps[j].ex.was : JSON.parse(JSON.stringify(ps[j]));
+          if (was) c.ex = { was };
+          ps[j] = c;
+        } else ps.push(c);
+      }
+      if (mine.length || ps.length !== A.S.params.length || ps.some((q, i) => q !== A.S.params[i])) setParams(ps);
     }
     setSel(null);   // (v15: a new example selects its last step)
     // an example opens as its blurb describes: the views it names (in the fields of earlier builds, rightMode and
@@ -88,7 +105,7 @@ const Examples = (() => {
     }
     for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
-    if (!spec && Array.isArray(ex.params)) Params.render();
+    if (!spec) Params.render();
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');   // (v16)
     // the L key (the keyboard probe) replays the example's melody; another example forgets it
     const piece = A.S.shapes.find((x) => x.listen);
