@@ -1679,7 +1679,7 @@ const Funcs = (() => {
     id: 'series', group: $t('Polynomial & custom'), label: $t('Series'), menuTex: '\\sum a_n (z-c)^n',
     params: [
       { key: 'kind', label: $t('kind'), type: 'choice', def: 'power', choices: [['power', $t('power series')], ['laurent', $t('Laurent series')], ['dirichlet', $t('Dirichlet series')]] },
-      { key: 'an', label: 'a_n =', type: 'seq', def: '\\frac{1}{n!}' },
+      { key: 'an', label: 'a_n =', type: 'seq', def: '\\frac{1}{n!}', bound: ['n'] },
       { key: 'c', label: 'c =', type: 'cx', def: '0' },
     ],
     build({ kind, an, c }) {
@@ -1709,7 +1709,7 @@ const Funcs = (() => {
     id: 'recurrence', group: $t('Polynomial & custom'), label: $t('Recurrence'), menuTex: 'u_{k+1}=g(u_k,z)',
     params: [
       { key: 'u0', label: 'u_0 =', type: 'seq', def: 'z' },
-      { key: 'g', label: 'u_{k+1} =', type: 'seq', def: 'u^2+z' },
+      { key: 'g', label: 'u_{k+1} =', type: 'seq', def: 'u^2+z', bound: ['u'] },
       { key: 'N', label: 'N', type: 'int', def: 8, min: 0, max: Expr.ITER_CAP },
       { key: 'cut', label: $t('cut angle for log, √, powers'), type: 'angle', def: 180 },
     ],
@@ -2495,9 +2495,20 @@ const Funcs = (() => {
   const astSize = (n) => (n && typeof n === 'object' && n.t ? 1 + ['a', 'b', 'n', 'lo', 'hi'].reduce((s, k) => s + astSize(n[k]), 0) : 0);
   const stepWeight = (b) => (b.rec ? b.rec.built.reduce((s, x) => s + stepWeight(x), 0) : b.def && (b.def.id === 'gamma' || b.def.id === 'zeta') ? 16
     : b.ast ? Math.max(1, Math.ceil(astSize(b.ast) / 8)) : 1);
+  // repeat.by: N bound to a shared number (its value rounded, 1 … REPEAT_MAX); repeat.n is N otherwise, and the
+  // value kept when the number is gone
+  function repeatN(rp) {
+    if (rp.by != null && typeof Expr.nameValue === 'function') {
+      const v = Expr.nameValue(rp.by), re = v && typeof v === 'object' ? v.re : v;
+      if (Number.isFinite(re)) return Math.min(REPEAT_MAX, Math.max(1, Math.round(re)));
+    }
+    return rp.n;
+  }
   function repeatOk(steps, k) {
     const rp = steps[k - 1] && steps[k - 1].repeat;
-    return !!rp && Number.isInteger(rp.n) && rp.n >= 1 && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= k ? rp : null;
+    if (!rp || !Number.isInteger(rp.len) || rp.len < 1 || rp.len > k) return null;
+    const n = repeatN(rp);
+    return Number.isInteger(n) && n >= 1 ? (n === rp.n ? rp : Object.assign({}, rp, { n })) : null;
   }
   function repeatBuilt(steps, built, k) {
     const rp = repeatOk(steps, k), base = built[k - 1];
@@ -2517,7 +2528,7 @@ const Funcs = (() => {
     const f = (z) => { for (const g of fs) z = g(z); return z; };
     const names = block.length === 1 ? `f_{${k}}` : `\\left(f_{${k}}\\circ\\cdots\\circ f_{${a}}\\right)`;
     return {
-      def: DEFS.custom, vals: { expr: '', cut: 180 }, repeat: { n: rp.n, len: rp.len, a, base },
+      def: DEFS.custom, vals: { expr: '', cut: 180 }, repeat: { n: rp.n, len: rp.len, a, base, block },
       rec: { steps: seq.map((b) => ({ type: b.def.id })), built: seq },
       f,
       hom: (t) => {
@@ -2962,7 +2973,7 @@ const Funcs = (() => {
 
   return {
     DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    REPEAT_MAX, REPEAT_STEPS, repeatOk, repeatBuilt, applyRepeats, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
+    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();

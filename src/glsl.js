@@ -1224,7 +1224,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
       case 'series':
       case 'recurrence':
       case 'custom': {
-        if (b.rec) return recPlan(P, b, A);
+        if (b.rec) return b.repeat ? repPlan(P, b, A) : recPlan(P, b, A);
         const ast = b.ast || Expr.parse(v.expr);
         const cut = A.cell();
         const TH = cut.x;
@@ -1285,6 +1285,37 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
       sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { for (const { pl } of subs) pl.write(put); },
+    };
+  }
+  // [issue #6] Repeat × N (Funcs.repeatBuilt: b.rec runs the block's last step, then the block N − 1 times): the block's
+  // steps once each, as functions of their own (P r j), and a loop whose trip count N − 1 is a uniform, so a new N (a
+  // typed N, a shared number's slider) is the same program. The path runs the 1 + (N − 1) len steps in turn, each on
+  // an equal part of t, as the CPU's does
+  function repPlan(P, b, A) {
+    const rp = b.repeat, block = rp.block;
+    const subs = block.map((sb, j) => {
+      const Q = `${P}r${j}`;
+      const pl = stepPlan(Q, sb, A);
+      if (!pl) throw new Error('GLChain: no plan for a repeated step');
+      return { Q, pl };
+    });
+    const len = subs.length, last = subs[len - 1].Q, nc = A.cell();
+    let pre = '';
+    for (const { Q, pl } of subs) {
+      if (pl.pre) pre += pl.pre;
+      pre += `vec2 ${Q}_f(vec2 z) {\n  ${pl.f}\n}\n`;
+      const h = pl.h.startsWith('if (t == 0.0)') ? pl.h : `if (t == 1.0) return ${Q}_f(z);\n  ${pl.h}`;
+      pre += `vec2 ${Q}_h(vec2 z, float t) {\n  ${h}\n}\n`;
+    }
+    const passes = `int(${nc.x})`;
+    const f = `z = ${last}_f(z);\n  for (int k = 0; k < ${passes}; k++) {\n    ${subs.map(({ Q }) => `z = ${Q}_f(z);`).join('\n    ')}\n  }\n  return z;`;
+    const h = `if (t <= 0.0) return z;\n  if (t >= 1.0) return ${P}_f(z);\n  float s = t * (1.0 + ${nc.x} * ${len}.0);\n  if (s < 1.0) return ${last}_h(z, s);\n  z = ${last}_f(z); s -= 1.0;\n`
+      + `  for (int k = 0; k < ${passes}; k++) {\n${subs.map(({ Q }) => `    if (s < 1.0) return ${Q}_h(z, s);\n    z = ${Q}_f(z); s -= 1.0;`).join('\n')}\n  }\n  return z;`;
+    const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
+    return {
+      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
+      write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
     };
   }
   // A step's cuts that the sheets cannot continue (inverse trig functions, the Joukowski branches, arg in a formula):
