@@ -37,6 +37,8 @@ await drag(r[0], r[1], r[0] + 80, r[1] + 30);
 await settle(8000);
 const atPan = await ev('JSON.parse(JSON.stringify(window.__lc))');
 info.pan = atPan;
+// (links a step card starts other than its Landscape's, its Phase picture's: reported, not judged; the pane links those too)
+info.cardLinks = atLoad.links.filter((x) => x === 'card').length + atPan.links.filter((x) => x === 'card').length;
 if (info.parallel === false) {
   ok('load: no card links a Landscape program', !atLoad.links.includes('cardLand'), atLoad);
   ok('pan: no card links a Landscape program', !atPan.links.includes('cardLand'), atPan);
