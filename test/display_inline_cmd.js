@@ -35,7 +35,7 @@ const styleRow = () => ev(`(() => {
   return { inHead: !!s.closest('.pane-head'), n: s.children.length, btns: [...s.children].map((b) => { const nm = b.querySelector('.sty-n'), r = b.getBoundingClientRect(); return { v: b.dataset.v, on: b.getAttribute('aria-checked') === 'true', name: b.getAttribute('aria-label'), word: !!nm && nm.getClientRects().length > 0, glyph: !!b.querySelector('.sty-g svg'), tip: b.dataset.tip, w: r.width, h: r.height }; }) };
 })()`);
 const ctl = (id) => ev(`(() => { const i = document.getElementById('${id}'); if (!i) return null; const l = i.closest('label') || i, r = l.getBoundingClientRect(); const lab = l.querySelector(':scope > .tg-l') || l.querySelector(':scope > span:not(.tg-ic)'); return { vis: r.width > 0 && l.getClientRects().length > 0, inHead: !!l.closest('.pane-head'), inPop: !!l.closest('.pop'), w: r.width, h: r.height, name: (lab ? lab.textContent : '').trim(), checked: i.checked, tip: l.dataset ? l.dataset.tip : null }; })()`);
-const clickId = (id) => ev(`(() => { const i = document.getElementById('${id}'); i.click(); return i.checked; })()`);
+const clickId = (id) => ev(`(() => { const i = document.getElementById('${id}'); if (!i) return null; i.click(); return i.checked; })()`);
 
 // ---- laptop, English, the Phase view
 for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]) {
@@ -67,11 +67,12 @@ for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]
   for (const [id, re] of [['outlineChk', /Outlines|Контуры|Границы/], ['unitChk', /Unit circle|окружность/i]]) {
     const c = await ctl(id);
     ok(`${tag} Phase: ${id} is an icon toggle in X's head with its word as its name and tooltip`, c && c.vis && c.inHead && !c.inPop && c.w <= 30 && c.h >= 24 && re.test(c.name) && c.tip === c.name, c);
-    const was = c && c.checked;
+    if (!c) continue;   // (reported just above: not in the page)
+    const was = c.checked;
     await clickId(id); await settle(300);
-    const now = (await ctl(id)).checked;
+    const now = ((await ctl(id)) || {}).checked;
     ok(`${tag} Phase: one click on ${id} toggles it`, now === !was && (await pops()) === 0, [now, was]);
-    await clickId(id); await settle(300);
+    await ev(`(() => { const i = document.getElementById('${id}'); if (i) i.click(); return 1; })()`); await settle(300);
   }
   // keyboard: the style row takes the arrow keys
   await ev(`document.querySelector('#dcSeg button.on').focus()`);
@@ -110,7 +111,7 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
     } else ok(`${tag}: ${id} in Y's head is an icon toggle named for screen readers`, c.w <= 30 && c.name.length > 2, c);
     const was = c && c.checked;
     await clickId(id); await settle(400);
-    ok(`${tag}: ${id} toggles`, (await ev(`document.getElementById('${id}').checked`)) === !was, was);
+    ok(`${tag}: ${id} toggles`, (await ev(`(document.getElementById('${id}') || {}).checked`)) === !was, was);
     await ev(`(() => { const i = document.getElementById('${id}'); if (i) i.click(); return 1; })()`); await settle(300);
     if (opened) { await key('Escape'); await settle(300); }
   }
