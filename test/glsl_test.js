@@ -32,8 +32,9 @@
   const TYPES = Object.keys(Funcs.DEFS);
   // the random rows and chains draw from the types they had before the zeros-and-poles step (2026-10-22), so their
   // deterministic sequence is unchanged; 'zp' gets its own random rows with their own seed (below)
-  // (and before Γ and ζ, issue #4, and the Series step, issue #5, which have chains of their own below)
-  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series');
+  // (and before Γ and ζ, issue #4, the Series step, issue #5, and the Recurrence step, issue #6, which have chains of
+  // their own below)
+  const RTYPES = TYPES.filter((t) => t !== 'zp' && t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence');
   const CUTS = [0, 90, -45, 180, 270, -180, 30];
   const EXPRS = [
     'z^2+\\frac{1}{z}', '\\sin z+\\cos(2z)', '\\tan z', '\\cot z', '\\sec z', '\\csc z', '\\sinh z-\\cosh(z/2)', '\\tanh(z)', '\\coth z',
@@ -64,8 +65,9 @@
     }
   }
   // 1. defaults
-  // (Γ, ζ and the Series step have their own chains at the end, so the catalog's chains keep their sequence and parts)
-  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'series') add(`default ${t}`, [S(t)]);
+  // (Γ, ζ, the Series step and the Recurrence step have their own chains at the end, so the catalog's chains keep their
+  // sequence and parts)
+  for (const t of TYPES) if (t !== 'gamma' && t !== 'zeta' && t !== 'series' && t !== 'recurrence') add(`default ${t}`, [S(t)]);
   add('ijouk interior', [S('ijouk', { branch: 'interior' })]);
   // natural paths (2026-10-22): zoom paths, Joukowski's Cayley power, roots and rational zoom paths, all at once
   add('nat joukowski > cos > rational', [S('joukowski'), S('cos'), S('rational')]);
@@ -283,6 +285,13 @@
     add('series step power 1/n^2 about 0.5', [S('series', { kind: 'power', an: '\\frac{1}{n^2}', c: '0.5' })]);
     add('series step Laurent', [S('series', { kind: 'laurent', an: '\\frac{1}{2^{|n|}+n^2}', c: '0' })]);
     add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
+    // [issue #6] the Recurrence step: Mandelbrot's u² + z near its main cardioid, Newton's method for z³ − 1, a contraction
+    // with sin, and a short one differentiated
+    add('default recurrence', [S('recurrence')]);
+    add('recurrence u^2+z from 0', [S('affine', { a: '0.15', b: '0' }), S('recurrence', { u0: '0', g: 'u^2+z', N: 6, cut: 180 })]);
+    add('recurrence Newton z^3-1', [S('recurrence', { u0: 'z', g: 'u-\\frac{u^3-1}{3u^2}', N: 12, cut: 180 })]);
+    add('recurrence u/2+sin z', [S('recurrence', { u0: 'z', g: '\\frac{u}{2}+\\sin z', N: 20, cut: 180 })]);
+    add('recurrence d/dz u^2+z', [S('affine', { a: '0.3', b: '0' }), S('recurrence', { u0: 'z', g: 'u^2+z', N: 3, cut: 180 }), S('deriv')]);
   }
   const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
 
@@ -407,8 +416,8 @@
   // 1.2e-7 * that bounds the float32 rounding error of the sum (e.g. sin^2 z + cos^2 z at Im z = 13:
   // operands ~1e11, result 1), which no float32 evaluation can avoid.
   const probeCache = new WeakMap();
-  // the steps built as a formula (b.ast): a Series step too ([issue #5])
-  const FORMULA = new Set(['custom', 'series']);
+  // the steps built as a formula (b.ast): a Series step too ([issue #5]) and a Recurrence step ([issue #6])
+  const FORMULA = new Set(['custom', 'series', 'recurrence']);
   function cancelProbe(b) {
     if (probeCache.has(b)) return probeCache.get(b);
     const th = (b.vals.cut ?? 180) * Math.PI / 180;
@@ -426,6 +435,8 @@
         }
         return;
       }
+      // ([issue #6] a recurrence: its start only; its rule needs u)
+      if (n.t === 'iter') { walk(n.lo); return; }
       if ((n.t === 'add' || n.t === 'sub') && Expr.depends(n)) ops.push(Expr.compile(n.a, { theta: th }), Expr.compile(n.b, { theta: th }));
       for (const k of ['a', 'b', 'n']) if (n[k] && n[k].t) walk(n[k]);
     })(ast);
@@ -465,7 +476,7 @@
   }
   // steps whose homotopy is (1-t) z + t f(z) in funcs.js (no natural path: a constant, a formula that is not
   // recognisably a catalog map), so f(z) is an intermediate value of the homotopy
-  const LINEAR_HOM = new Set(['poly', 'rational', 'zp', 'custom', 'series']);
+  const LINEAR_HOM = new Set(['poly', 'rational', 'zp', 'custom', 'series', 'recurrence']);
   const isLinHom = (b) => !b.hom || (LINEAR_HOM.has(b.def.id) && !b.nat);
   // returns z => {mag: largest |intermediate|, cancel: largest relative float32 cancellation error of a custom step}
   function rowStages(steps, built, row) {

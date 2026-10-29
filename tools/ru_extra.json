@@ -235,7 +235,7 @@
  "Insert at the end": "Вставить в конец",
  "Draw panel": "Панель «Рисование»",
  "3-pt circle": "По 3 точкам",
- "\u22a5 circle": "\u041e\u0440\u0442\u043e\u0433\u043e\u00ad\u043d\u0430\u043b\u044c\u043d\u0430\u044f",
+ "⊥ circle": "Ортого­нальная",
  "Draw  [": "Рисование  [",
  "Show or hide the Draw panel": "Показать или скрыть панель «Рисование»",
  "field\u0004Add function": "Добавить функцию",
@@ -256,8 +256,17 @@
  "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), шаг «Ряд» вида «ряд Дирихле» с aₙ = 1, равен ζ(z) там, где сходится, — правее штриховой прямой Re z = 1. Левее ряд расходится и плоскость пуста, хотя сама ζ продолжается.",
  "Open ⋯, then Search.": "Откройте ⋯ и выберите «Поиск».",
  "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
- "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство»\u00a0— всё руководство.",
+ "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
  "Add this shape": "Добавить эту фигуру",
- "Add shape": "Добавить фигуру"
+ "Add shape": "Добавить фигуру",
+ "Recurrence": "Рекуррентность",
+ "Write the start u₀ as a formula in z": "Запишите начало u₀ формулой от z",
+ "Write the rule as a formula in u and z, such as u^2+z": "Запишите правило формулой от u и z, например u^2+z",
+ "N must be a whole number from 0 to {max}": "N должно быть целым числом от 0 до %{max}",
+ "u₀ is a formula in z: u is the letter of the rule": "u₀ — формула от z: буква u — для правила",
+ "A recurrence usually takes each value many times, so it has no single inverse; {note}": "Рекуррентность обычно принимает каждое значение много раз, поэтому однозначной обратной нет; %{note}",
+ "z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method": "z ↦ u_N: из u₀ правилом u ↦ g(u, z) N раз; итерации Мандельброта и Жюлиа, метод Ньютона",
+ "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "рекуррентность итерация итерировать орбита мандельброт жюлиа ньютон неподвижная точка последовательность u_n",
+ "This recurrence has too many steps to be differentiated here": "У этой рекуррентности слишком много шагов, чтобы её здесь продифференцировать"
 }
