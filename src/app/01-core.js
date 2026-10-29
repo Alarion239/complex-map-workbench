@@ -36,6 +36,9 @@
     argand: svgI('<path d="M2.5 8h11M8 2.5v11"/><circle cx="11" cy="5" r="1.6" fill="currentColor" stroke="none"/>'),
     help: svgI('<circle cx="8" cy="8" r="6"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.4"/><circle cx="8" cy="11.6" r=".8" fill="currentColor" stroke="none"/>'),
     snap: svgI('<path d="M4 2.5v5.5a4 4 0 0 0 8 0V2.5M4 5h2.5M9.5 5H12"/>'),
+    // (#247) the pane head's toggles: the shapes' outlines over the portrait, the view's outline in Y
+    outlines: svgI('<path d="M3.5 12.5L2.75 6.25 8 2.75l5.25 3.5-1 6.25z" stroke-dasharray="2.2 1.7"/>'),
+    fov: svgI('<rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1" stroke-dasharray="2.4 1.7"/>'),
     unit: svgI('<circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2"/><circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/>'),
     sliders: svgI('<path d="M2.5 5h11M2.5 11h11"/><circle cx="6" cy="5" r="1.75" fill="var(--surface)"/><circle cx="10" cy="11" r="1.75" fill="var(--surface)"/>'),
     // ([v17 D5] the header's Settings and Share; the Language setting's globe, in Settings and the phone's sheet)
@@ -561,6 +564,8 @@
         if ('undef' in sh && typeof sh.undef !== 'string') delete sh.undef;
         if ('undefHid' in sh) { if (sh.undefHid && sh.undef) sh.undefHid = true; else delete sh.undefHid; }
         // v15: fields written as formulas of the shared numbers (the fields keep their last values)
+        // ([#253] a domain shape drawn in a plane of the chain: its stage, 1 … the steps; else the z-plane)
+        if ('stage' in sh && !(out === shapes && Number.isInteger(sh.stage) && sh.stage >= 1 && sh.stage <= steps.length)) delete sh.stage;
         if ('bind' in sh) { const b = sh.bind && typeof sh.bind === 'object' && !Array.isArray(sh.bind) ? sh.bind : {}; sh.bind = {}; for (const [k, v] of Object.entries(b)) if (typeof v === 'string' && v.trim() && (k === 'expr' || k in sh)) sh.bind[k] = v.slice(0, 2000); if (!Object.keys(sh.bind).length) delete sh.bind; }
         out.push(sh);
       }
@@ -678,8 +683,23 @@
     repeatMemo = [];
     S.steps.forEach((st, i) => { if (st.repeat) repeatMemo.push({ holder: st, n: st.repeat.n, by: st.repeat.by, members: S.steps.slice(i + 1 - st.repeat.len, i + 1) }); });
   }
+  // [#253] the shapes of a plane of the chain follow its step (Funcs.stageFollow): an insert before it moves it on, a
+  // removal back; after an undo or a load the steps are new objects and the saved stages stand
+  let stageMemo = null;
+  function stagesFollow() {
+    const old = stageMemo, cur = S.steps;
+    stageMemo = cur.slice();
+    if (!old || !old.some((st) => cur.includes(st))) return;
+    for (const s of S.shapes) {
+      const k = shapeStage(s);
+      if (!k) continue;
+      const j = Funcs.stageFollow(old, cur, k);
+      if (j > 0) s.stage = j; else delete s.stage;
+    }
+  }
   function rebuild() {
     repeatsFollow();
+    stagesFollow();
     // ([issue #6] a repeat's last step runs its block n times: Funcs.applyRepeats)
     built = Funcs.applyRepeats(S.steps, S.steps.map((st) => Funcs.build(st)));
     chainSig = ['0'];

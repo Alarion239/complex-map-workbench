@@ -346,16 +346,33 @@
   function paramsRestored() { zpParsed.clear(); Params.render(); }
   // a number changed (a slider, play, a field, undo): the steps and the shapes that use it follow; a drag or play
   // frame is motion (motion-quality frames; the renderer's rest pass follows when it stops)
+  // ([#241] a slider of a number a costly chain uses (its last change took over 8 ms: a series re-planned) is applied
+  // once a frame, at its latest value, the names of the frame's events together; a change at rest applies at once)
+  const liveQ = { names: null, raf: 0 };
   function onParamChange(ev) {
+    if (ev.live) { const t = performance.now(); lastInputT = t; motionInT = t; }
+    if (liveQ.raf) {
+      cancelAnimationFrame(liveQ.raf); liveQ.raf = 0;
+      const was = liveQ.names; liveQ.names = null;
+      ev = Object.assign({}, ev, { names: [...new Set([...was, ...(ev.names || [])])] });
+    }
+    const big = !!(ev.removed || ev.renamed || ev.inlined);
+    if (ev.live && !ev.play && !big && chainCost() > 8 && S.steps.some((st) => stepUses(st, new Set(ev.names || [])))) {
+      liveQ.names = ev.names || [];
+      liveQ.raf = requestAnimationFrame(() => { const nm = liveQ.names; liveQ.raf = 0; liveQ.names = null; paramChanged({ names: nm, live: true }); });
+      return;
+    }
+    paramChanged(ev);
+  }
+  function paramChanged(ev) {
     const names = new Set(ev.names || []);
     const big = !!(ev.removed || ev.renamed || ev.inlined);
-    if (ev.live) { const t = performance.now(); lastInputT = t; motionInT = t; }
     zpParsed.clear();
     const steps = big || S.steps.some((st) => stepUses(st, names));
     let sh = false, tg = false;
     for (const x of S.shapes) if (applyBinds(x, big ? null : names)) sh = true;
     for (const x of S.targets) if (applyBinds(x, big ? null : names)) tg = true;
-    if (steps) chainChanged(big);
+    if (steps) chainChanged(big, { live: ev.live && !ev.play });
     // the tone under a still pointer follows the new function (a slider, Play, a field, undo): the pathless form, the
     // nearest turn (notes/sound/DEFORMATION.md, "The hook for v15"); however often it is called, the tone is
     // re-evaluated once a frame at most (its requestAnimationFrame), together with chainChanged's own report
@@ -549,17 +566,22 @@
     const warmNext = () => {
       try {
         if (!GLR.ok || !GLR.prestartModes || warmI >= WARM.length) return;
-        if (GLR.compiling || (warmI && performance.now() - lastInputT < 1000)) { modesT = setTimeout(warmNext, 400); return; }
+        // (no group starts while the user is active: the first after 300 ms of quiet, the later ones after a second)
+        if (GLR.compiling || performance.now() - lastInputT < (warmI ? 1000 : 300)) { modesT = setTimeout(warmNext, 400); warmKick(); return; }
         WARM[warmI++]();
         modesT = setTimeout(warmNext, 400);
+        warmKick();
       } catch (e) { /* the views start them */ }
     };
+    // (the bar reads which group the driver is in: 'modes', 'globe', 'land', then 'done')
+    warmDriver = { finished: () => warmI >= WARM.length, phase: () => (warmI >= WARM.length ? (GLR.compiling ? 'land' : 'done') : ['modes', 'globe', 'land'][Math.max(0, warmI - 1)]) };
     const prestartModesIdle = () => { clearTimeout(modesT); warmI = 0; modesT = setTimeout(warmNext, 400); };
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
       // (thumbnails too: one drawn forward before an inverse program landed is redrawn; the others hit their cache)
       if (!w || w.main) { requestRender('L', 'R'); requestRender('T'); prestartModesIdle(); }
+      warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme
@@ -567,6 +589,7 @@
     readTheme();
     paneL = new Pane($('canvasL'), $('overlayL'));
     paneR = new Pane($('canvasR'), $('overlayR'));
+    warmKick();
     const loaded = load();
     setState(loaded || blankState());
     if (!Array.isArray(S.params)) setParams([]);
@@ -877,10 +900,11 @@
     // Listen along does only that: the next Esc ends the tour
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      const playing = !!snd.play;
+      // (a Listen along still preparing its samples counts as playing: this Esc drops it and goes no further)
+      const playing = !!(snd.play || snd.prep);
       // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
       // the sound and goes no further; the next one steps out of the modes)
-      escSound = !!(sndP && sndP.on && (snd.play || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
+      escSound = !!(sndP && sndP.on && (snd.play || snd.prep || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
       soundStop();
       if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
@@ -1345,7 +1369,7 @@
   window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
   // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
-  window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { harp: SND ? SND.harpState() : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, voice: !!snd.voice, kind: snd.kind, engine: snd.voice ? snd.voice.engine : '', phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
+  window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { hear: SND && SND.hear ? SND.hear.state() : null, glide: SND ? !!SND.state().glide : false, rope: snd.rope ? [snd.rope.x, snd.rope.y, snd.rope.src] : null, ptype: snd.ptype, listenFn: snd.play && snd.play.fn ? { counts: snd.play.h.counts || null, dur: snd.play.dur, mode: snd.play.h.mode || '' } : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
   // v16 constructions (CORE): the graph's order, the forms, the last recompute, the events; o.call runs a cm call,
   // o.state(...) replaces S's shapes / targets / steps through the load path (sanitizeState), o.anchor sets the GPU anchor
   window.__cmwC = (o) => {

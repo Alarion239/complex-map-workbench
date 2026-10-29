@@ -38,7 +38,7 @@ const PROBE = `(() => {
     if (t && t.closest('.tour-strip, #tourWhy')) covered.push((e.id || e.dataset.tool || e.dataset.mode || e.className) + '<' + (t ? (t.id || t.className) : 'none'));
   }
   const p = document.querySelector('#paneL').getBoundingClientRect(), h = document.querySelector('header.top').getBoundingClientRect();
-  const xb = s.querySelector('.ts-x'), chev = s.querySelector('.ts-wl svg'), nx = s.querySelector('.ts-next');
+  const xb = s.querySelector('.ts-x'), chev = s.querySelector('.ts-chev svg'), nx = s.querySelector('.ts-next');
   return { id: c.chapter + '/' + c.id, ch: c.chapter, lines: Tour.lit() ? Tour.lit().lines : null, need: Tour._t.needLines(), x: vis(xb) && xb.getBoundingClientRect().width >= 44, xok: s.classList.contains('ts-xok'), chev: vis(chev), nextName: nx.getAttribute('aria-label') || '', nextW: Math.round(nx.getBoundingClientRect().width), mode: s.dataset.mode, strip: [b.left, b.top, b.right, b.bottom].map(Math.round), title: vis(title) && title.textContent.trim().length > 2, lead: vis(lead) && lead.textContent.trim().length > 4,
     leadCut: (() => { const e = s.querySelector('.ts-lead'); return e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1; })(), covered, paneH: Math.round(p.height), paneT: Math.round(p.top), head: Math.round(h.bottom), headTop: Math.round(h.top) };
 })()`;

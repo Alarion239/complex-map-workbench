@@ -76,12 +76,17 @@
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
-    // a melody on a curve (notes/sea-song): Edvard Grieg's theme (1875, public domain) in our own adaptation for the
-    // phase harp, one curve spiralling into 0 under SEASONG.tex (src/seasong.js, made by tools/melody_curve.js). Listen along
-    // plays it with its own tempo and dynamics (the shape's listen: sndListenOf); fit: the box kept in view
+    // a melody played by a function (notes/sea-song/FUNCTION.md): F = H(u(z)), src/seasong.js made by
+    // tools/mk_function.js. H is a theme wheel: 25 Apollonius pairs of branch points, one just inside |u| = 1 and one
+    // just outside, one pair a melodic step; on |u| = 1, |H| is constant and arg H a staircase on Grieg's theme (the
+    // downbeat is u^s's branch cut, 82 ms ahead), so the sound's fixed map plays it: each colour line crossed is a
+    // note, the cut is the crack. u = ((z - a)/(1 - az))^2, a disk automorphism squared: twice round a lap, faster
+    // near z = a. No score and no special rule: the curve is two laps of the unit circle (song: the example's curve,
+    // sndIsSong), played by Listen along at 250 px/s (19.1 s at view.s 380: four statements, 5.35 then 4.20 s a lap).
+    // sectors: the Phase key's n (12, a line a semitone); fit: the box kept in view
     {
-      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
-      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
+      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle\'s menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, and the branch cut just before every downbeat is the drum.'),
+      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, song: true, nameKey: 'circle' }], steps: SEASONG.steps, sectors: SEASONG.sectors, song: true, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
     },
     // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
@@ -393,7 +398,12 @@
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
-    for (const sw of document.querySelectorAll('.disp-btn .disp-sw')) drawPatternSwatch(sw, S.pattern);   // ([v17 D5] the Display buttons')
+    // ([v17 D5; #247] the pane heads' pattern buttons: their swatch and name)
+    for (const pb of document.querySelectorAll('.pat-btn')) {
+      const sw = pb.querySelector('.disp-sw'), p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+      if (sw) drawPatternSwatch(sw, S.pattern);
+      pb.setAttribute('aria-label', name); pb.setAttribute('data-tip', name);
+    }
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
@@ -544,7 +554,7 @@
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
   // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere). Not at start-up:
   // compiles there compete with the first scene's own (example settle times)
-  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(['sphere', 'regionSC', 'lineSC', 'disc', 'mark']); } catch (e) { /* the frame links them */ } }
+  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS); } catch (e) { /* the frame links them */ } }
   // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
   function setView(side, surf) {
     if (side === 'L' && lLand()) return;
@@ -756,7 +766,9 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip]';
+    // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
+    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip]';
     // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
@@ -1057,7 +1069,7 @@
       EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
-      setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
+      setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
       tourOn: (ev, f) => tourApi.on(ev, f),

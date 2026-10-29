@@ -47,13 +47,15 @@ function lost(f, u, w) {
 console.log('--- (a) eligibility table');
 const TABLE_ROWS = [
   // [formula, expected op kinds | 'X:' + a substring of the reason]
-  ['\\frac{z^2-1}{z^2+1}', 'RAT2'],
-  ['(z+1/z)/2', 'RAT2>AFF'],
-  ['\\frac{z+\\frac{1}{z}}{2}', 'RAT2>AFF'],
+  // (the formula as the page builds it: Recognize first rewrites the custom steps it knows, e.g. (z+1/z)/2 as Joukowski
+  // and z\cdot z as z^2, so those decompose as their catalog steps; the rest go through the rational analysis)
+  ['\\frac{z^2-1}{z^2+1}', 'IPOW>MOB'],
+  ['(z+1/z)/2', 'JOUK'],
+  ['\\frac{z+\\frac{1}{z}}{2}', 'JOUK'],
   ['z^2+2z', 'QUAD'],
-  ['z\\cdot z', 'QUAD'],
+  ['z\\cdot z', 'IPOW'],
   ['z(z+1)', 'QUAD'],
-  ['\\frac{(z-1)(z-2i)}{z-0.5}', 'RAT2'],
+  ['\\frac{(z-1)(z-2i)}{z-0.5}', 'AFF>JOUK>AFF'],
   ['\\frac{z^2+z}{z^2+1}', 'RAT2'],
   ['\\frac{1}{z}+\\frac{1}{z+1}', 'RAT2'],
   ['\\frac{z}{z^2+1}', 'RAT2'],
@@ -73,11 +75,11 @@ const TABLE_ROWS = [
   ['\\frac{(z-1)^3}{(z-1)^2(z-1.0000000001)}', 'X:nearly share a root'],
   ['\\log\\frac{z-1}{z+1}', 'MOB>LOG'],
   ['\\sqrt{z^2-1}', 'IPOW>AFF>ROOTPOW'],
-  ['\\sqrt{(z-1)(z+1)}', 'QUAD>ROOTPOW'],
+  ['\\sqrt{(z-1)(z+1)}', 'IPOW>AFF>ROOTPOW'],
   ['\\left(\\frac{z-i}{z+i}\\right)^3', 'MOB>IPOW'],
-  ['e^{z+\\frac{1}{z}}', 'RAT2>EXP'],
-  ['\\sin(z+1/z)', 'RAT2>SIN'],
-  ['z^3+\\frac{1}{z^3}', 'IPOW>RAT2'],
+  ['e^{z+\\frac{1}{z}}', 'JOUK>AFF>EXP'],
+  ['\\sin(z+1/z)', 'JOUK>AFF>SIN'],
+  ['z^3+\\frac{1}{z^3}', 'IPOW>JOUK>AFF'],
   ['\\frac{z^4-1}{z^4+1}', 'IPOW>MOB'],
   ['z^4+2z^2', 'IPOW>QUAD'],
   ['\\frac{z^{16}+1}{z^{16}-1}', 'IPOW>MOB'],
@@ -316,7 +318,8 @@ console.log('--- (e) custom vs catalog rational');
       const la = leavesOf(pa, qa, w).map((l) => l.z), lb = leavesOf(pb, qb, w).map((l) => l.z);
       if (la.length !== lb.length || !la.every((z) => lb.some((y) => near(z, y, 1e-12 * (1 + CX.abs(z)))))) diff++;
     }
-    check(`custom ${e} = catalog rational ${JSON.stringify(pq)}`, pa.ok && pb.ok && kindsOf(pa) === kindsOf(pb) && diff === 0, `${kindsOf(pa)} vs ${kindsOf(pb)}, ${diff} differ`);
+    // (the candidates, not the op kinds: Recognize may write the custom step as a chain, e.g. z^2 then a Möbius map)
+    check(`custom ${e} = catalog rational ${JSON.stringify(pq)}`, pa.ok && pb.ok && diff === 0, `${kindsOf(pa)} vs ${kindsOf(pb)}, ${diff} differ`);
   }
 }
 
