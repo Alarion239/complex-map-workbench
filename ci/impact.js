@@ -73,6 +73,7 @@ const MAP = [
   ['src/view.js', full('the planes\' view transform, under every area')],
   ['build.py', full('the build itself')],
   ['tools/src_parts.py', full('how build.py joins the split files')],
+  ['tools/bundle.mjs', full('the bundle of the app\'s modules (esbuild)')],
   ['src/phone.*', ui('phone')],                                               // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
   ['src/figure.js', ui('export')],                                            // exported figures, and the images shard
@@ -152,7 +153,7 @@ const GLSL_JOBS = [
 ];
 const QUALITY_OS = ['ubuntu-latest', 'windows-latest', 'macos-latest'];
 // (the build's inputs: what the same-build check covers)
-const isApp = (f) => f.startsWith('src/') || f === 'build.py' || f === 'tools/src_parts.py';
+const isApp = (f) => f.startsWith('src/') || f === 'build.py' || f === 'tools/src_parts.py' || f === 'tools/bundle.mjs';
 const fileOf = (e) => e.split('#')[0];
 
 function testFiles() { return fs.readdirSync(path.join(ROOT, 'test')).filter((f) => /\.js$/.test(f)); }
