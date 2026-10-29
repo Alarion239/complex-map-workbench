@@ -83,7 +83,6 @@
   --t-readout: 400 11.5px/16px var(--f-mono);
   --t-math-s: italic 500 13px/18px var(--f-math);
   --t-math: italic 500 15px/20px var(--f-math);
-  --t-wordmark: semi-expanded 640 14.5px/20px var(--f-ui);
   --t-title: 600 19px/24px var(--f-ui);
   /* spacing, radii, control heights */
   --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px; --s-9: 32px;
@@ -215,7 +214,6 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; reading-flow: flex-visual; }
 .top > * { flex: 0 0 auto; }
 .top .mark { order: 1; display: block; width: 22px; height: 22px; }
-.wordmark { order: 2; font: var(--t-wordmark); color: var(--ink); white-space: nowrap; margin-left: 2px; }
 .hdiv { order: 3; width: 1px; height: 20px; background: var(--line-strong); margin: 0 2px; }
 #examplesBtn { order: 4; }
 /* a full bar (a long example name at 1024px ran it past the edge): the search field gives way first, down to its own
@@ -303,15 +301,14 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top .snd-caret .ic-slot svg { width: 11px; height: 11px; }
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
-/* room for it on tablets: below 1340 px the speaker drops its label (as the view switch and Deformation do below
-   1280); from 768 to 1023 the wordmark hides (the bar overflowed there before, by 44 px at 900), and (v15.1, frame f6
+/* room for it on tablets: below 1100 px the speaker drops its label (as the view switch and Deformation do below
+   1280; the app's name left the bar, which gave the label back down to 1100); from 768 to 1023 (v15.1, frame f6
    of notes/ui-redesign-2/desktop, verify-6) the search is its icon alone, named by its aria-label and tooltip, and a
    long example name gives way first, ending in an ellipsis, as from 1024 */
-@media (min-width: 768px) and (max-width: 1339px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
+@media (min-width: 768px) and (max-width: 1099px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
 @media (min-width: 768px) and (max-width: 1023px) {
   :root:not(.ph) .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; padding: 0 8px; }
   :root:not(.ph) .top .cmd-field .cmd-text, .top .cmd-field .kbd { display: none; }
-  .top > .wordmark { display: none; }
   #examplesBtn { flex-shrink: 1; min-width: 0; }
 }
 .snd-pop {
@@ -353,6 +350,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 @media (max-width: 1279px) {
   .top > .vsw > button > span, .top > .defbtn > span { display: none; }
   .top > .vsw > button { padding: 0 8px; }
+  .top > .vsw > button::after { display: none; }
   .top > .defbtn { padding: 0 8px; }
 }
 .hdr-menu { display: contents; }
@@ -489,12 +487,15 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 @container pane (max-width: 519px) {
   .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
   .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
+  .seg.modes:not(#leftTabs, #rightTabs) > button::after { display: none; }
 }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
+.pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button::after { display: none; }
 /* [v16.5 UX37] "Plane | Sphere" in words at every width (the pane title shortens first, app.js fitTitle); a narrow pane
    drops the icons, never the words */
 .pane.narrow :is(#leftTabs, #rightTabs) > button > svg { display: none; }
+.pane.narrow :is(#leftTabs, #rightTabs) > button::after { display: none; }
 .pane.narrow :is(#leftTabs, #rightTabs) > button { padding: 0 8px; }
 :is(#leftTabs, #rightTabs) > button { min-height: 28px; }
 /* the right title stays beside the icon-only modes while it fits (app.js fitRightTitle): first the role text
@@ -1048,6 +1049,9 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   transition: color var(--t-fast) var(--ease-out);
 }
 .seg > button:hover { color: var(--ink); }
+/* the view tabs (Plane | Sphere, X → Y | Phase | Landscape): the word is centred in its tile, the icon hangs to its left and
+   an empty slot of the icon's width on the right balances it; where the icon or the word is hidden the slot goes too */
+.seg.modes > button::after { content: ""; flex: 0 0 14px; }
 .seg > button.on, .seg > button[aria-checked="true"] { color: var(--ink); background: var(--seg-on); border-color: var(--line-strong); }
 .seg[style*="--seg-w"] > button.on, .seg[style*="--seg-w"] > button[aria-checked="true"] { background: transparent; border-color: transparent; }
 .seg[style*="--seg-w: 0px"] > button.on, .seg[style*="--seg-w: 0px"] > button[aria-checked="true"] { background: var(--seg-on); border-color: var(--line-strong); }
@@ -1726,7 +1730,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .layout.hide-left > .panel.left > .rail, .layout.hide-right > .panel.right > .rail { display: flex; }
   .layout.hide-left > .panel.left, .layout.hide-right > .panel.right { scrollbar-width: none; }
 }
-@media (max-width: 899px) { .wordmark { display: none; } }
 
 /* 1024 to 1279: the left panel docks at 240px; the right panel keeps a 36px rail column, and showing it
    (the hide-right state that the header toggle, the rail chevron and ] flip) opens it as a 288px drawer. */
@@ -1810,11 +1813,9 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   /* header: mark, "Map Workbench", Undo, Redo, and a more menu */
   .top { position: sticky; top: 0; z-index: 15; gap: 4px; background: var(--bg); margin: 0 -4px; padding: 0 4px; }
-  .wordmark { display: block; font-size: 14px; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* the view switch and the Deformation toggle share the bar (merged-views review): the words give way first, so
      the more menu always fits; below 430 px the mark stands alone */
-  .top > .wordmark { flex: 0 1 auto; }
-  .wm-pre, .hdiv, .top > .spacer { display: none; }
+  .hdiv, .top > .spacer { display: none; }
   .top > .vsw > button { padding: 0 7px; }
   .top > .defbtn { padding: 0 7px; }
   .hdr-more { display: inline-grid !important; }
@@ -1995,7 +1996,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 }
 /* narrow phones (merged-views review: the more menu fell off the bar at 390 px and below): the mark alone */
 @media (max-width: 429px) {
-  .top > .wordmark { display: none; }
   .top > .mark { margin-right: auto; }
 }
 /* i18n (notes/i18n/DESIGN.md 4), Russian only: Archivo and B612 Mono have no Cyrillic. I18N.applyPage() sets
@@ -2024,8 +2024,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
    a phone) */
 :root[data-lang="ru"] .lampname { white-space: normal; text-overflow: clip; }
 :root[data-lang="ru"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
-/* the wordmark is the app's name, not interface text: it keeps Archivo in Russian too */
-:root[data-lang="ru"] .wordmark { font-family: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif; }
 /* «полярные» is 1.4 px wider than a 52 px swatch caption and was hyphenated to «поляр-…» */
 :root[data-lang="ru"] .pat > span { letter-spacing: -0.02em; }
 /* CSS-generated text: the empty formula preview's word */
@@ -2115,7 +2113,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       </g>
       <circle cx="14" cy="14" r="1.4" fill="var(--ink)"/>
     </svg>
-    <h1 class="wordmark" data-i18n="no"><span class="wm-pre">Complex </span>Map Workbench</h1>
+    <h1 class="sr-only" data-i18n="no">Complex Map Workbench</h1>
     <span class="hdiv" aria-hidden="true"></span>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
     <button class="icon-btn" id="redoBtn" title="Redo  ⇧⌘Z" aria-label="Redo"><span class="ic-slot" data-icon="redo"></span></button>

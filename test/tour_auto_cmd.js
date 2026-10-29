@@ -54,7 +54,7 @@ await mdrag(a.l + 120, a.b - 140, a.l + 170, a.b - 100);
 t0 = Date.now();
 await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
 await sleep(2000 - (Date.now() - t0));
-const hd = await center('header .wordmark');
+const hd = await center('header .mark');
 await click(hd[0], hd[1]);
 at = await advancedAt('basics/draw', t0);
 check('draw: an input at +2 s changes nothing: 3 s after the event', near(at, 3000, 150), at);
