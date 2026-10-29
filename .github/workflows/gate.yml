@@ -8,7 +8,9 @@
 # perf jobs gate the suite's checks (a view that does not move, a compile during a hover, a page error) and only report
 # slower timings (--advisory).
 # Tiers (ci/README.md, CI tiers): a pull request runs the jobs it can affect (ci/impact.js chooses them in the plan
-# job); a push to main, the nightly run, a run by hand and the label full-gate run them all.
+# job); a push to main, the nightly run, a run by hand and the label full-gate run them all. On Windows the GLSL
+# pages run their core tier on a pull request, every chain otherwise and with the label glsl-deep (ci/README.md, GLSL
+# tiers). Every job runs on GitHub's machines: nothing here waits for one of ours.
 name: Gate
 
 on:
@@ -39,6 +41,11 @@ on:
         description: Only these perf shards (comma-separated ids of ci/perf_shards.js; empty = all)
         required: false
         default: ''
+      glsl:
+        description: GLSL on Windows, every chain (all) or the core tier (core); macOS runs every chain either way
+        type: choice
+        options: [all, core]
+        default: all
 
 permissions:
   contents: read
@@ -113,6 +120,8 @@ jobs:
         shell: bash
         env:
           FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'full-gate') }}
+          DEEP_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'glsl-deep') }}
+          GLSL_INPUT: ${{ inputs.glsl }}
           DRAFT: ${{ github.event.pull_request.draft }}
           BASE: ${{ github.event.pull_request.base.ref }}
           REF: ${{ steps.ref.outputs.reference }}
@@ -122,7 +131,18 @@ jobs:
           if [ "${{ github.event_name }}" != pull_request ]; then full="${{ github.event_name }}"
           elif [ "$FULL_LABEL" = true ]; then full="the label full-gate"
           elif [ "$BASE" = main ] && [ "$DRAFT" != true ]; then full="a pull request into main, ready for review"; fi
-          if [ -n "$full" ]; then node ci/impact.js --ref "$REF" --full "$full" --github; else node ci/impact.js --ref "$REF" --github; fi
+          # (GLSL tiers, ci/README.md: every chain on Windows only on a push to main, the nightly run, a run by hand (its
+          # glsl input) and the label glsl-deep; a pull request, the label full-gate included, runs the core tier there)
+          deep=''
+          case "${{ github.event_name }}" in
+            push|schedule) deep="${{ github.event_name }}" ;;
+            workflow_dispatch) if [ "$GLSL_INPUT" != core ]; then deep="a run by hand"; fi ;;
+            pull_request) if [ "$DEEP_LABEL" = true ]; then deep="the label glsl-deep"; fi ;;
+          esac
+          args=(--ref "$REF" --github)
+          if [ -n "$full" ]; then args+=(--full "$full"); fi
+          if [ -n "$deep" ]; then args+=(--glsl-deep "$deep"); fi
+          node ci/impact.js "${args[@]}"
 
   unit:
     name: Unit tests
@@ -147,7 +167,7 @@ jobs:
         run: python3 test/regress/test_compare.py
 
   glsl:
-    name: GLSL (${{ matrix.os }}, ${{ matrix.page }}${{ matrix.sections && format(' {0}', matrix.sections) || '' }} ${{ matrix.part }})
+    name: GLSL (${{ matrix.os }}, ${{ matrix.page }}${{ matrix.tier == 'core' && ' core' || '' }}${{ matrix.sections && format(' {0}', matrix.sections) || '' }} ${{ matrix.part }})
     # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
     # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
     # Windows renders in software (WARP: glsl 1/8 8-24 min, inverse whole 34-35 min, adv's direct/keys/compile 34 min,
@@ -175,7 +195,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
-      - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} ${{ matrix.sections && format('--sections {0}', matrix.sections) || '' }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
+      - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} --tier ${{ matrix.tier || 'all' }} ${{ matrix.sections && format('--sections {0}', matrix.sections) || '' }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
+        env:
+          # (a page whose browser used no CPU for 20 minutes is stuck: it fails then, not at the job's timeout)
+          CMW_GLSL_STALL_MIN: '20'
 
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})

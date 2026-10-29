@@ -55,6 +55,9 @@ const TIMEOUT = 240 * 60 * 1000;   // (the job's own timeout is the real limit)
 // last line: the GPU process (ANGLE and the driver compiling shaders, then the draws), the page (its JS and the CPU
 // side of the tests), or neither (a hang)
 const PROGRESS = (+process.env.CMW_GLSL_PROGRESS_S || 60) * 1000;
+// CMW_GLSL_STALL_MIN: when neither process used 2% of a core for that many minutes, the page is stuck (a lost GPU, a
+// hung driver): the browser is closed and the page reported as stalled, instead of waiting for the job's timeout
+const STALL = (+process.env.CMW_GLSL_STALL_MIN || 0) * 60000;
 // CMW_GLSL_CACHE: a folder kept between runs (the GPU gate's own machines) for Chrome's profile with its GPU program
 // cache on. A program is cached by its source, so one compiled before, for the reference, for this change or in an
 // earlier run, is not compiled again. On Direct3D 11 compiling is nearly all of a page's time: on the Windows laptop
@@ -113,14 +116,21 @@ async function runPage(base, p, side) {
   B = B || await launch({ width: 1200, height: 800 });
   const t0 = Date.now();
   const c0 = await cpuOf(B);
-  let last = { t: t0, c: c0 }, cpu = null;
+  let last = { t: t0, c: c0 }, cpu = null, idleSince = null, stalled = false;
   console.log(`${p.page} (${side}): started`);
   const beat = setInterval(async () => {
     const c = await cpuOf(B), t = Date.now();
     if (!c || !last.c) return;
     const pct = (k) => `${Math.round((c[k] - last.c[k]) / ((t - last.t) / 1000) * 100)}%`;
     console.log(`  ${p.page} (${side}): ${Math.round((t - t0) / 60000)} min; CPU since the last line: GPU process ${pct('gpu')}, page ${pct('page')} (100% = one core)`);
+    const idle = ['gpu', 'page'].every((k) => (c[k] - last.c[k]) / ((t - last.t) / 1000) < 0.02);
     last = { t, c };
+    idleSince = idle ? idleSince || t - PROGRESS : null;
+    if (STALL && idleSince && t - idleSince >= STALL && !stalled) {
+      stalled = true;
+      console.log(`  ${p.page} (${side}): no CPU for ${Math.round((t - idleSince) / 60000)} min: stalled, closing the browser`);
+      B.close();
+    }
   }, PROGRESS);
   let r = null, ok = false, note = '';
   try {
@@ -141,7 +151,9 @@ async function runPage(base, p, side) {
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');
     if (exc.length) { ok = false; r.exception = exc[0].m.slice(0, 300); note += `; page exception: ${r.exception}`; }
-  } catch (e) { r = r || {}; r.setup = String(e.message || e); ok = false; note = r.setup; } finally {
+  } catch (e) {
+    r = r || {}; r.setup = stalled ? `stalled: no CPU in the browser for ${STALL / 60000} min` : String(e.message || e); ok = false; note = r.setup;
+  } finally {
     clearInterval(beat);
     const c = c0 && await cpuOf(B);
     if (c) cpu = { gpu: c.gpu - c0.gpu, page: c.page - c0.page };

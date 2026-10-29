@@ -139,16 +139,24 @@ function globRe(g) {
 const ROWS = MAP.map(([glob, effect]) => ({ glob, re: globRe(glob), effect }));
 const rowOf = (f) => ROWS.find((r) => r.re.test(f)) || null;
 
-// the GLSL jobs of the Gate (each platform's shader compiler; ci/README.md): Windows renders in software, so its glsl
-// page runs in eighths and adv in two jobs (its sections; its chains); macOS has few machines, so its pages run whole
+// the GLSL jobs of the Gate (each platform's shader compiler; ci/README.md, GLSL tiers). Windows renders in software
+// (Direct3D 11 compiles every program on the CPU), so a pull request runs its core tier there (test/glsl_tiers.js), the
+// glsl page in quarters; the whole set, every chain (glsl in eighths, adv in two jobs), runs on a push to main, the
+// nightly run, a run by hand and the label glsl-deep. macOS has a virtual GPU (minutes a page) and few machines: its
+// pages run whole, every chain, always
+const MAC_JOBS = ['glsl', 'adv', 'inverse'].map((page) => ({ os: 'macos-latest', page, part: '1/1', tier: 'all' }));
 const GLSL_JOBS = [
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/8` })),
-  { os: 'windows-latest', page: 'adv', part: '1/1', sections: 'direct,keys,compile' },
-  { os: 'windows-latest', page: 'adv', part: '1/1', sections: 'main' },
-  { os: 'windows-latest', page: 'inverse', part: '1/1' },
-  { os: 'macos-latest', page: 'glsl', part: '1/1' },
-  { os: 'macos-latest', page: 'adv', part: '1/1' },
-  { os: 'macos-latest', page: 'inverse', part: '1/1' },
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/8`, tier: 'all' })),
+  { os: 'windows-latest', page: 'adv', part: '1/1', sections: 'direct,keys,compile', tier: 'all' },
+  { os: 'windows-latest', page: 'adv', part: '1/1', sections: 'main', tier: 'all' },
+  { os: 'windows-latest', page: 'inverse', part: '1/1', tier: 'all' },
+  ...MAC_JOBS,
+];
+const GLSL_CORE_JOBS = [
+  ...[1, 2, 3, 4].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/4`, tier: 'core' })),
+  { os: 'windows-latest', page: 'adv', part: '1/1', tier: 'core' },
+  { os: 'windows-latest', page: 'inverse', part: '1/1', tier: 'core' },
+  ...MAC_JOBS,
 ];
 const QUALITY_OS = ['ubuntu-latest', 'windows-latest', 'macos-latest'];
 // (the build's inputs: what the same-build check covers)
@@ -165,7 +173,8 @@ function glslPagesOf(f) {
   return GLSL.PAGES.filter((p) => GLSL.inputsOf(p).some((i) => i === f || f.startsWith(i + '/'))).map((p) => p.id);
 }
 
-// files: the changed paths; opts: { full: reason, sameBuild: true | false | null (not checked) } -> the plan
+// files: the changed paths; opts: { full: reason, glslDeep: reason (every GLSL chain on Windows too), sameBuild: true |
+// false | null (not checked) } -> the plan
 function select(files, opts = {}) {
   const reasons = [];   // { path, rule, effect: text }
   const browser = new Set(), glsl = new Set();
@@ -215,10 +224,10 @@ function select(files, opts = {}) {
   if (isFull) { allShards.forEach((id) => browser.add(id)); GLSL.PAGES.forEach((p) => glsl.add(p.id)); quality = perf = true; }
   if (wantSmoke) browser.add('smoke');
   const shards = allShards.filter((id) => browser.has(id));
-  const glslJobs = GLSL_JOBS.filter((j) => glsl.has(j.page));
+  const glslJobs = (opts.glslDeep ? GLSL_JOBS : GLSL_CORE_JOBS).filter((j) => glsl.has(j.page));
   const tier = isFull ? 'T3' : core || quality || perf || glslJobs.length ? 'T2' : shards.length ? 'T1' : 'T0';
   const plan = {
-    tier, full: isFull, why: fullWhy, unknown, sameBuild: opts.sameBuild ?? null, reasons,
+    tier, full: isFull, why: fullWhy, unknown, sameBuild: opts.sameBuild ?? null, reasons, glslDeep: opts.glslDeep || null,
     browser: shards, glsl: glslJobs, quality: quality ? (isFull ? QUALITY_OS : ['ubuntu-latest']) : [], perf,
     forceQuality: quality && forceQuality, forcePerf: perf && forcePerf,
   };
@@ -249,12 +258,13 @@ function format(plan, md) {
   const code = (s) => (md ? `\`${s}\`` : s);
   L.push(md ? `### Tier ${plan.tier}${plan.full ? ' (the whole gate)' : ''}` : `tier ${plan.tier}${plan.full ? ' (the whole gate)' : ''}`);
   if (plan.why.length) L.push(`${md ? '\n' : ''}why the whole gate: ${plan.why.join('; ')}`);
+  L.push(plan.glslDeep ? `GLSL: every chain on Windows too (${plan.glslDeep})` : 'GLSL: the core tier on Windows, every chain on macOS');
   if (plan.sameBuild !== null) L.push(`the build ${plan.sameBuild ? 'is byte for byte the same as' : 'differs from'} the reference's`);
   if (md) L.push('', '| path | row of ci/impact.js | selects |', '|---|---|---|', ...plan.reasons.slice(0, 200).map((r) => `| \`${r.path}\` | \`${r.rule}\` | ${r.effect} |`));
   else for (const r of plan.reasons) L.push(`  ${r.path}  [${r.rule}]  -> ${r.effect}`);
   if (md && plan.reasons.length > 200) L.push(`| … | | ${plan.reasons.length - 200} more |`);
   L.push(md ? '' : '', md ? '**runs**' : 'runs:');
-  const glslJobs = plan.glsl.map((j) => `${j.page} ${j.part}${j.sections ? ` ${j.sections}` : ''} (${j.os.split('-')[0]})`);
+  const glslJobs = plan.glsl.map((j) => `${j.page} ${j.tier === 'core' ? 'core ' : ''}${j.part}${j.sections ? ` ${j.sections}` : ''} (${j.os.split('-')[0]})`);
   const runs = [
     ['unit tests', 'yes'],
     ['browser shards', plan.browser.length ? plan.browser.map(code).join(', ') : 'none'],
@@ -288,7 +298,7 @@ if (require.main === module) {
     if (r.status === 0 || r.status === 10) same = r.status === 0;
     else { console.error('the same-build check failed: the build counts as changed'); same = false; }
   }
-  const plan = select(files, { full: opt('--full'), sameBuild: same });
+  const plan = select(files, { full: opt('--full'), glslDeep: opt('--glsl-deep'), sameBuild: same });
   if (argv.includes('--json')) console.log(JSON.stringify(plan, null, 1));
   else if (argv.includes('--github')) {
     // (why: one line, for whoever reads the plan's outputs: the reason of the whole gate, or what each path selected)
@@ -309,4 +319,4 @@ if (require.main === module) {
     process.exit(rc);
   }
 }
-module.exports = { MAP, AREAS, GLSL_JOBS, select, rowOf, globRe };
+module.exports = { MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS, select, rowOf, globRe };
