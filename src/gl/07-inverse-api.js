@@ -133,7 +133,7 @@
       pre += `uniform float ${tag};\n`;
       main = main.replace('  invWalk(w);', `  w.x += ${tag};\n  invWalk(w);`);
     }
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + INV_HEAD(B, formsSrc(forms)) + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
@@ -517,7 +517,7 @@
         invGlobeSc++; invGlobeScPx += (x1 - x0) * (y1 - y0);
       }
       uM4(P, 'uMVP', st.sphere.MVP); u3(P, 'uEye', st.sphere.eye);
-      lightUniforms(P, sceneLight || defaultLight(false), 0.18, 40, 0.12);
+      globeLight(P, st.sphere);
       const g = sphere();
       const dt = gl.isEnabled(gl.DEPTH_TEST);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
