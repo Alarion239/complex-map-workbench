@@ -44,7 +44,19 @@ ok('no step error', s.errors.every((e) => !e), s.errors);
 ok('step 1: z + a at 0 is 1 + i', near(await stage(1, 0, 0), [1, 1]), await stage(1, 0, 0));
 ok('step 2: conj(a) (z + a) at 0 is 2', near(await stage(2, 0, 0), [2, 0]), await stage(2, 0, 0));
 ok('the row shows the value as text', (await ev(`document.querySelector('.prm-row[data-name="a"] .prm-val').value`)).replace('−', '-') === '1+i', null);
-ok('a complex number has no slider and cannot play', await ev(`(()=>{ const r = document.querySelector('.prm-row[data-name="a"]'); return !r.querySelector('input[type=range]') && r.querySelector('.prm-play').disabled; })()`), null);
+ok('a complex number has no slider; its Play is enabled', await ev(`(()=>{ const r = document.querySelector('.prm-row[data-name="a"]'); return !r.querySelector('input[type=range]') && !r.querySelector('.prm-play').disabled; })()`), null);
+// Play: the number circles the origin, its modulus unchanged; Pause stops it; the picture rests afterwards
+await ev(`document.querySelector('.prm-row[data-name="a"] .prm-play').click()`);
+// (poll: a slow machine draws a few frames a second)
+let mid = (await P()).params[0];
+for (let t = 0; t < 10000 && Math.abs(Math.atan2(mid.im, mid.value) - Math.PI / 4) <= 0.2; t += 300) { await sleep(300); mid = (await P()).params[0]; }
+await ev(`document.querySelector('.prm-row[data-name="a"] .prm-play').click()`);
+await settle(600);
+const end = (await P()).params[0], still = (await P()).params[0];
+ok('Play turns the number about the origin', Math.abs(Math.hypot(mid.value, mid.im) - Math.SQRT2) < 1e-6 && Math.abs(Math.atan2(mid.im, mid.value) - Math.PI / 4) > 0.2, mid);
+ok('Pause stops it', end.value === still.value && end.im === still.im && Math.abs(Math.hypot(end.value, end.im) - Math.SQRT2) < 1e-6, { end, still });
+await ev(`Params.set('a', '1 + i')`);
+await settle(300);
 const glKey = async () => (await ev('__cmwZp().glKey'));
 const key1 = await glKey();
 
@@ -93,8 +105,11 @@ await load(NS + 'l', STATE(-2));
 await settle(1000);
 ok('before the link the number is -2i', (await P()).params[0].im === -2, (await P()).params);
 await ev(`(async () => { __cmwPOpen(await Params.decodeLink(${JSON.stringify(payload)}), 'link'); return 1; })()`);
-await settle(2000);
-const L = await P();
+// (the figure opens by reloading the page: poll until the app is back with the opened figure)
+let L = null;
+for (let t = 0; t < 30000 && !(L && L.params && L.params.length === 1 && L.params[0].value === 0.5); t += 400) { await sleep(400); L = await ev(`typeof __cmwP === 'function' ? __cmwP() : null`); }
+await settle(500);
+L = await P();
 ok('a link opens with the imaginary part', L.params.length === 1 && L.params[0].value === 0.5 && L.params[0].im === 0.25, L.params);
 ok('the link figure equals the original', JSON.stringify(L.figure.params) === JSON.stringify(figure.params) && JSON.stringify(L.figure.steps) === JSON.stringify(figure.steps), null);
 const scene = await ev(`Params.scene(__cmwP().figure)`);

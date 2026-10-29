@@ -295,5 +295,10 @@
  "Show as a point": "Показать точкой",
  "New complex number here": "Новое комплексное число здесь",
  "There is no free name left for a number.": "Не осталось свободных имён для числа.",
- "Added the complex number {x}": "Добавлено комплексное число %{x}"
+ "Added the complex number {x}": "Добавлено комплексное число %{x}",
+ "A disc map moved by a point": "Отображение диска, управляемое точкой",
+ "Try: drag the point a, or press Play beside a under Numbers: it circles the origin.": "Попробуйте: перетащите точку a или нажмите «Воспроизвести» рядом с a в разделе «Числа»: она обходит начало координат.",
+ "The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.": "Отображение (z − a)/(1 − āz) переводит единичный круг в себя и точку a в 0. Число a комплексное: его точка на плоскости и есть число, поэтому перетаскивание точки меняет отображение.",
+ "Play: {x} circles the origin": "Воспроизвести: %{x} обходит начало координат",
+ "Add as a complex number": "Добавить как комплексное число"
 }

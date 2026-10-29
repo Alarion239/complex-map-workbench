@@ -138,6 +138,37 @@ ok('a real number has no ℂ badge', !(await ev(`!!document.querySelector('.prm-
 await ev(`document.querySelector('.prm-row[data-name="a"] .prm-more').click()`);
 await settle(300);
 ok('and no Show as a point', !(await ev(`[...document.querySelectorAll('#popHost .pop.menu .mi')].some((b) => /Show as a point/.test(b.textContent))`)), null);
+// 5b. + Number → ℂ adds a complex number (no point until the user adds one)
+await key('Escape'); await settle(200);
+await ev(`[...document.querySelectorAll('.prm .prm-add button')].find((b) => /Number/.test(b.textContent)).click()`);
+await settle(300);
+await ev(`document.querySelector('.prm-addcx').click()`);
+await settle(500);
+s = await P();
+const cxn = s.params.find((x) => x.name !== 'a');
+ok('+ Number → ℂ adds a complex number 1 + i', !!cxn && cxn.value === 1 && cxn.im === 1, s.params);
+ok('and shows no point', s.shapes.filter((x) => x.kind === 'point').length === 0, s.shapes);
+// 6. the example "A disc map moved by a point": a complex number with its point; Play circles it and the point follows
+await load(NS + 'e', { shapes: [], steps: [], srcView: { cx: 0, cy: 0, s: 110 }, v5: true, v6: true });
+await settle(800);
+let exLoaded = false;
+for (let i = 40; i >= 0 && !exLoaded; i--) {
+  await ev(`__cmwExample(${i}), 1`);
+  exLoaded = /disc map moved by a point/i.test(await ev(`document.querySelector('#examplesBtn .exlabel').textContent`));
+}
+await settle(1500);
+s = await P();
+const ea = s.params.find((x) => x.name === 'a');
+ok('the example is in the Examples menu', exLoaded, null);
+ok('it has a complex number a and a point bound to it', !!ea && ea.im === 0.3 && s.shapes.some((x) => x.kind === 'point' && x.bind && x.bind.p === 'a'), s.params);
+ok('the example\'s map has no error', s.errors.every((e) => !e), s.errors);
+await ev(`document.querySelector('.prm-row[data-name="a"] .prm-play').click()`);
+await sleep(1200);
+s = await P();
+const ea2 = s.params.find((x) => x.name === 'a'), ep = s.shapes.find((x) => x.kind === 'point');
+ok('Play moves a about the origin, its point with it', Math.abs(Math.hypot(ea2.value, ea2.im) - Math.hypot(0.5, 0.3)) < 1e-6 && (Math.abs(ea2.value - 0.5) > 0.05 || Math.abs(ea2.im - 0.3) > 0.05) && Math.abs(ep.p[0] - ea2.value) < 1e-9 && Math.abs(ep.p[1] - ea2.im) < 1e-9, { ea2, p: ep.p });
+await ev(`document.querySelector('.prm-row[data-name="a"] .prm-play').click()`);
+await settle(500);
 await grab();
 ok('no exceptions', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };
