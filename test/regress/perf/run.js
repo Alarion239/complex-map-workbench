@@ -1407,6 +1407,8 @@ unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default'
 // the escape-test region on the CPU). (No Landscape unit: on a software renderer one orbit of it outlasts the unit's
 // 180 s, which would end the shard's run; landscape.default takes 120 s there)
 unit('phase.mandel', 'Phase mode, the Mandelbrot example (u_12, escape test of 64): pan left and right planes', () => modeUnit('phase.mandel', 'mandel', 'color', 'pan'));
+// the Douady–Hubbard map (#260) at N = 64 with rays and equipotentials of M, in Phase
+unit('phase.dh', 'Phase mode, the Douady–Hubbard map Phi_M (N = 64, rays and equipotentials): pan left and right planes', () => modeUnit('phase.dh', 'dh', 'color', 'pan'));
 unit('sphere.default', 'Sphere (regions): orbit', () => modeUnit('sphere.default', 'default', 'sphere', 'orbit'));
 unit('sphere.logUHP', 'Sphere (regions), unbounded region: orbit', () => modeUnit('sphere.logUHP', 'logUHP', 'sphere', 'orbit'));
 unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, memory`, examplesUnit);

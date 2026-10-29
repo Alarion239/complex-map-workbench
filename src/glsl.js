@@ -1252,7 +1252,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
       // [issue #260] Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
       // uniform; neither loop unrolls, issue #72), then back by the square root nearest each orbit point. float32 holds
-      // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform
+      // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform. (The escape test on |w|²
+      // and the roots by length(), whose argument stays below 10⁸ here, not by cx_abs and csqrtp: 1.7 times faster on
+      // SwiftShader; the root keeps csqrtp's form, with no cancellation)
       case 'dh': case 'bottcher': {
         const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
         const NM = Funcs.DH_NMAX;
@@ -1263,7 +1265,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   int n = -1;
   for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
     orb[k] = w;
-    if (cx_abs(w) > 1e4) { n = k; break; }
+    if (dot(w, w) > 1e8) { n = k; break; }
     if (float(k) >= ${nn.x}) break;
     w = cmul(w, w) + c;
   }
@@ -1271,7 +1273,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
   vec2 p = cmul(w, csqrtp(vec2(1.0, 0.0) + cdiv(cdiv(c, w), w)));
   for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
     if (j > n) break;
-    vec2 r = csqrtp(p), o = orb[n - j];
+    float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o = orb[n - j];
     p = dot(r, o) >= 0.0 ? r : -r;
   }
   ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;`,

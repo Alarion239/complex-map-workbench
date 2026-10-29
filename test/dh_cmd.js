@@ -77,6 +77,24 @@ const eq2 = (await shapes())[1], w2 = eq2 ? await imagesOf(eq2.id) : [];
 const off2 = w2.filter((w) => w).map((w) => Math.abs(Math.hypot(w[0], w[1]) - 1.2));
 info.jeq = { n: w2.length, worst: Math.max(...off2) };
 ok('φ_a maps its equipotential 1.2 onto |w| = 1.2', w2.length >= 100 && off2.length === w2.length && info.jeq.worst < 1e-9, info.jeq);
+
+// ---- the two examples (the last of the gallery): they load with their rays and levels, which F sends where it should
+const exIdx = await ev(`(() => { const out = {}; for (let i = 0; i < 80; i++) { let ok; try { ok = __cmwExample(i); } catch (e) { break; } if (!ok) break; const st = __cmwP().steps[0]; if (st && (st.type === 'dh' || st.type === 'bottcher')) out[st.type] = i; } return out; })()`);
+ok('the gallery has the Douady–Hubbard and the Böttcher examples', exIdx.dh != null && exIdx.bottcher != null, exIdx);
+await ev(`__cmwExample(${exIdx.dh})`); await settle(1500);
+sh = await shapes();
+ok('Douady–Hubbard example: six rays and three equipotentials of M', sh.filter((x) => x.kind === 'dhray').length === 6 && sh.filter((x) => x.kind === 'dheq').length === 3 && sh.every((x) => x.c === null), sh.length);
+const exW = await imagesOf(sh.find((x) => x.kind === 'dheq').id);
+ok('… its first equipotential maps onto |w| = 1.02', exW.length > 50 && exW.every((w) => w && Math.abs(Math.hypot(w[0], w[1]) - 1.02) < 1e-9), exW.length);
+await ev(`__cmwExample(${exIdx.bottcher})`); await settle(1500);
+sh = await shapes();
+ok('Böttcher example: four rays and two levels of the basilica, c bound to the slider c', sh.length === 6 && sh.every((x) => x.bind && x.bind.c === 'c' && JSON.stringify(x.c) === '[-1,0]'), sh.map((x) => [x.kind, x.c, x.bind]));
+const bw = await imagesOf(sh.find((x) => x.kind === 'dhray' && x.theta === '1/3').id);
+const bOff = bw.filter((w) => w).map((w) => Math.abs(Math.atan2(w[1], w[0]) - 2 * Math.PI / 3));
+ok('… its ray 1/3 maps onto arg w = 2π/3', bOff.length > 20 && Math.max(...bOff) < 1e-9, [bw.length, Math.max(...bOff)]);
+await ev(`Params.set('c', 0.3)`); await settle(1500);
+info.cOut = await ev(`__cmwP().shapes.map((s) => [s.kind, Region.curvesOf(s, { x0: -2, x1: 2, y0: -2, y1: 2 }).length])`);
+ok('c = 0.3 (outside M): the shapes follow it, and nothing throws', info.cOut.length === 6, info.cOut);
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };
