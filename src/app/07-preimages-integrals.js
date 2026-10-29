@@ -65,6 +65,17 @@
     }
     for (const [st, list] of by) drawPullback(pane, { mode: 0, a: j, b: st }, pullTargets(list));
   }
+  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s
+  function stagePreList(j) {
+    const by = new Map();
+    for (const s of S.shapes) {
+      const st = shapeStage(s);
+      if (s.visible === false || st <= j || kindType(s) === 'point') continue;
+      if (!by.has(st)) by.set(st, []);
+      by.get(st).push(s);
+    }
+    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: pullTargets(list), halo: GLR.hexRGB(TH.halo) }));
+  }
   // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
   function strokeTargets(pane) {
     const ctx = pane.ctx, win = targetWin();

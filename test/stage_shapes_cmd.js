@@ -63,19 +63,45 @@ ok('the whole chain\'s Y (w₃) shows its image', yWith !== yWithout, [yWith, yW
 
 // ---- where the preimage is: a disc |w₁ − 1| < 0.5 under w₁ = z² is two lobes about z = ±1 in the z-plane, none at 0;
 // a line Re w₂ = 2 in w₂ = w₁ + 1 is the hyperbola x² − y² = 1 (through z = ±1)
+const same = (a, b) => Array.isArray(a) && Array.isArray(b) && a.every((x, i) => Math.abs(x - b[i]) <= 3);
+const px = (a) => Array.isArray(a) && a.length === 3;
 const pixel = (re, im) => ev(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), p = __cmwPlaneMenu().w2s('L', ${re}, ${im}), k = c.width / r.width;
   return [...c.getContext('2d').getImageData(Math.round((p[0] - r.left) * k), Math.round((p[1] - r.top) * k), 1, 1).data].slice(0, 3); })()`);
-const probe = async () => ({ p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), hy: await pixel(Math.SQRT2, 1) });
+const probe = async () => { for (let i = 0; i < 20; i++) { const q = { p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), hy: await pixel(Math.SQRT2, 1) }; if (Object.values(q).every(px)) return q; await sleep(300); } return {}; };
 const two = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }];
 await openApp({ focus: 0, srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [] });
 const bare = await probe();
+const offBare = await ev(`__cmwRenderOff('L', 320, 240, 1)`);
 await openApp({ focus: 0, srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [{ id: 's2', kind: 'disc', c: [1, 0], r: 0.5, ci: 1, visible: true, stage: 1 }, { id: 's3', kind: 'line', a: [2, -1], b: [2, 1], ci: 2, visible: true, stage: 2 }] });
 const pulled = await probe();
-const same = (a, b) => a.every((x, i) => Math.abs(x - b[i]) <= 3);
+const offPulled = await ev(`__cmwRenderOff('L', 320, 240, 1)`);
+ok('an export of X draws the preimages too (its offscreen render differs from the bare one)', typeof offPulled === 'string' && offPulled.length > 100 && offPulled !== offBare, [String(offBare).length, String(offPulled).length]);
+// a link round trip: the figure's link, opened on a page without shapes, brings them back in their planes
+await ev(`Params.encodeLink(__cmwP().figure).then((l) => { window.__lk = l; }); 1`);
+let link = null;
+for (let i = 0; i < 20 && !link; i++) { await sleep(150); link = await ev('window.__lk || null'); }
+await openApp({ focus: 0, steps: two, shapes: [] });
+await ev(`Params.decodeLink(${JSON.stringify(String(link))}).then((st) => { __cmwPOpen(st, 'link'); }); 1`);
+await sleep(2500); await settle(800);
+info.linked = (await shapes()).map((x) => [x.id, x.stage]);
+ok('a link round trip keeps each shape\'s plane', typeof link === 'string' && JSON.stringify(info.linked) === JSON.stringify([['s2', 1], ['s3', 2]]), [typeof link, info.linked]);
 info.pixels = { bare, pulled };
-ok('the disc of w₁ is pulled back to z = 1 and z = −1', !same(pulled.p1, bare.p1) && !same(pulled.m1, bare.m1), info.pixels);
+ok('the disc of w₁ is pulled back to z = 1 and z = −1', [bare, pulled].every((q) => px(q.p1) && px(q.m1) && px(q.o) && px(q.hy)) && !same(pulled.p1, bare.p1) && !same(pulled.m1, bare.m1), info.pixels);
 ok('… and not to z = 0.35i (w₁ = −0.12, outside it)', same(pulled.o, bare.o), info.pixels);
 ok('the line of w₂ is pulled back through two steps, onto the hyperbola x² − y² = 1', !same(pulled.hy, bare.hy), info.pixels);
+
+// ---- the z-globe too: the disc of w₁ is pulled back onto the sphere (one pass per later plane), z = 1 in view
+const gpix = (re, im) => ev(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), q = __cmwGlobeXY('L', ${re}, ${im}), k = c.width / r.width;
+  return q ? [...c.getContext('2d').getImageData(Math.round(q[0] * k), Math.round(q[1] * k), 1, 1).data].slice(0, 3) : null; })()`);
+const globe = async (shapes) => {
+  await openApp({ focus: 0, srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes });
+  await ev('__cmwSetView("L", "sphere"); 1'); await settle(600);
+  await ev('__cmwCam("L", { pitch: 0.2, yaw: 0 }); 1'); await settle(1500);
+  return { p1: await gpix(1, 0), o: await gpix(0.5, 0) };
+};
+const gBare = await globe([]), gPulled = await globe([{ id: 's2', kind: 'disc', c: [1, 0], r: 0.5, ci: 1, visible: true, stage: 1 }]);
+info.globe = { gBare, gPulled };
+ok('on the z-globe the disc of w₁ is pulled back to z = 1, not to 0.5', [gBare, gPulled].every((q) => px(q.p1) && px(q.o)) && !same(gPulled.p1, gBare.p1) && same(gPulled.o, gBare.o), info.globe);
 
 // ---- the steps change: the shape follows its plane; a saved stage loads
 await openApp(Object.assign({ focus: 2 }, base, { shapes: base.shapes.concat([{ id: 's2', kind: 'disc', c: [0.3, 0.2], r: 0.1, ci: 1, visible: true, stage: 1 }]) }));
