@@ -11,11 +11,11 @@
 // Every one is a function of (arg w, |w|) only, so gl.js bakes the chosen one into W x H texels of its LUT
 // (Palette.bake): column i is arg = 2pi i / W, row j is m = 1 - 1/(1 + |w|^0.2) = j / (H - 1). Palette.sample reads
 // the baked texels as the GPU does (bilinear), for the legends and the readouts.
-(function (root, factory) {
-  const M = factory();
-  if (typeof module === 'object' && module.exports) module.exports = M;
-  else /** @type {any} */ (root).Palette = M;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+const Palette = (function (factory) {
+  const M = factory(); if (typeof window !== 'undefined') window.Palette = M;
+  return M;
+  // (ES module: the factory's value is the module's export, Palette)
+})(function () {
   // [id, Arb mode]; the index is the shaders' uPal
   /** @type {[string, number][]} */
   const LIST = [['wheel', -1], ['arb', 0], ['arbPhase', 1], ['arbDodge', 2], ['chrome', 3], ['warm', 4], ['cold', 5], ['tomato', 6]];
@@ -124,3 +124,4 @@
   const shade = (pb, L, ref) => (L <= ref ? pb.map((x) => x * (L / ref)) : pb.map((x) => x + (1 - x) * (L - ref) / (1 - ref)));
   return { LIST, W, H, arb, bake, sample, shade, mOf, modeOf, indexOf };
 });
+export { Palette, Palette as 'module.exports' };

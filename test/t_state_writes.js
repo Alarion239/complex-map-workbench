@@ -12,7 +12,7 @@ const { appText, source } = require('./src_text');
 let pass = 0, fail = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL ' + name + (got !== undefined ? ' ' + JSON.stringify(got).slice(0, 600) : '')); } };
 // the app (src/app/*.js joined) and the modules moved out of it, which reach S through their api (A.S)
-const MODULES = fs.readFileSync(path.join(__dirname, '..', 'build.py'), 'utf8').match(/'(commands|soundhooks|export|morphpaths|integrals|examples)\.js'/g).map((s) => s.slice(1, -1));
+const MODULES = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.js'), 'utf8').match(/'\.\/(commands|soundhooks|export|morphpaths|integrals|examples)\.js'/g).map((s) => s.slice(3, -1));
 const files = [['src/app.js', appText()], ...MODULES.map((f) => ['src/' + f, source(f)])];
 // the lines that write a name: a plain assignment (not ==, =>), with no property or identifier character before it
 const writes = (text, re) => text.split('\n').map((l, i) => [i + 1, l]).filter(([, l]) => re.test(l.replace(/\/\/.*$/, '')));

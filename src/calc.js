@@ -727,4 +727,5 @@ const Calc = (() => {
 
   return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, points, argStep, orderAt };
 })();
-if (typeof module !== 'undefined') module.exports = Calc;
+import { CX } from './cx.js';
+export { Calc, Calc as 'module.exports' };

@@ -22,3 +22,9 @@
 const GLR = (() => {
   // @parts: src/gl/NN-*.js go here, in order (build.py; test/src_text.js joins them the same way)
 })();
+import { CX } from './cx.js';
+import { GLChain } from './glsl.js';
+import { Region } from './region.js';
+import { Constr } from './constr.js';
+import { Palette } from './palette.js';
+export { GLR };

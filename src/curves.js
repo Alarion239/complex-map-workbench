@@ -1461,4 +1461,7 @@ const Curves = (() => {
   }
   return { fromFormula, dimOf, trace: traceDesc, sample, curvesOf, loops, simpleLoops, isClosed, shapesOf, traceImplicit: trace, recognize, evaluator, stripTouch, normalize, clipShapes, restrictBox, zerosIn, project, critical, root1, CurveError, FAR };
 })();
-if (typeof module !== 'undefined') module.exports = Curves;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Region } from './region.js';
+export { Curves, Curves as 'module.exports' };
