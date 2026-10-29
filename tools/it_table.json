@@ -2952,7 +2952,7 @@
  "Play: {x} circles the origin": "Riproduci: {x} gira intorno all'origine",
  "Add as a complex number": "Aggiungi come numero complesso",
  "<span>In the plane {w}</span>": "<span>Nel piano {w}</span>",
- "<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane, and every later plane and card shows its image; the <i>z</i>-plane and the planes before it do not show it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.": "<b>Figure nel piano di un passo.</b> Con un passo mostrato da solo, <i>X</i> è il suo piano d'ingresso, <i>w</i><sub><i>k</i>−1</sub>. Anche lì gli strumenti disegnano: la figura appartiene a quel piano, e ogni piano e scheda successivi ne mostrano l'immagine; il piano <i>z</i> e i piani precedenti non la mostrano. L'elenco delle figure le raggruppa per piano. Le costruzioni si disegnano nel piano <i>z</i>.",
+ "<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane; every later plane and card shows its image, and the <i>z</i>-plane and the planes before it show its preimage, everything the steps between them map into it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.": "<b>Figure nel piano di un passo.</b> Con un passo mostrato da solo, <i>X</i> è il suo piano d'ingresso, <i>w</i><sub><i>k</i>−1</sub>. Anche lì gli strumenti disegnano: la figura appartiene a quel piano; ogni piano e scheda successivi ne mostrano l'immagine, e il piano <i>z</i> e i piani precedenti la sua controimmagine, tutto ciò che i passi intermedi mandano in essa. L'elenco delle figure le raggruppa per piano. Le costruzioni si disegnano nel piano <i>z</i>.",
  "On the globe, shapes are drawn in the z-plane: choose Plane to draw in this plane, or Show F.": "Sul globo le figure si disegnano nel piano z: scegli «Piano» per disegnare in questo piano, oppure «Mostra F».",
  "Tour options": "Opzioni del tour",
  "Next step in {n} s.": "Passo successivo tra {n} s.",
@@ -2981,5 +2981,8 @@
  "n is the index of a series: pick another letter": "n è l’indice di una serie: scegli un’altra lettera",
  "{x} is the variable of a recurrence in the chain: pick another letter": "{x} è la variabile di una ricorrenza nella catena: scegli un’altra lettera",
  "Pattern: {name}": "Motivo: {name}",
+ "+{n} more": "altri {n}",
+ "more": "altri",
+ "A step between uses {x}: drag {x} in its own plane": "Un passo intermedio usa {x}: trascina {x} nel suo piano",
  "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Un limite noto: a pochi pixel da uno zero arg <i>F</i> varia così in fretta che un dito tremante può attraversare una linea di colore e suonare una nota."
 }
