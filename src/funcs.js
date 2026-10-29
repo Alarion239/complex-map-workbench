@@ -1451,6 +1451,9 @@ const Funcs = (() => {
         tex: (a) => ({ s: `\\zeta${paren(a.s)}`, p: 3 }),
         props: props({ analytic: true }),
         poles: [C(1, 0)], domain: (v) => `${v}\\neq 1`,
+        // ([issue #276] all of its singular points, finitely many, for the lines of a chain with no inverse plan. Γ has
+        // none such: its poles 0, −1, −2, … run along a line's whole reach, which only the scan follows)
+        sing: () => [{ z: C(1, 0), kind: 'pole' }],
         inverseNote: $t('ζ takes each value infinitely often, so it has no single inverse; {note}', { note: NOTE_PRE }),
       };
     },
