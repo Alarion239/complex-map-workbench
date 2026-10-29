@@ -3142,4 +3142,4 @@ const Tour = (() => {
 })();
 // a global binding for the app's scripts, and window.Tour for pages and tools that look it up there
 if (typeof window !== 'undefined') window.Tour = Tour;
-if (typeof module !== 'undefined' && module.exports) module.exports = { Tour };
+export { Tour };

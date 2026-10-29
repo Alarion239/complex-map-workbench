@@ -8,10 +8,6 @@ are opened), waits for jobs labelled for it, runs them in a folder on the machin
 
 This guide sets up both machines, once. Allow about 20 minutes per machine.
 
-A friend's or relative's computer can join too: [FAMILY_RUNNER.md](FAMILY_RUNNER.md) is this procedure written for
-the AI assistant on that computer (it registers with the label `family-gpu`, so it takes no gate job until you add
-`gpu` to it in *Settings → Actions → Runners*).
-
 What you end up with:
 
 | machine | runner name | labels (the gate picks a machine by these) |
@@ -218,6 +214,17 @@ idle page: stuck).
   by-hand run anyway; a failure that comes back on the re-run is real.
 - **While a run is on the machine:** avoid heavy work on it (a build, a game, another browser test). Both sides of
   each comparison run back to back, so a busy machine slows both, but it adds noise.
+- **Shader link times (mode glprof) on the Mac:** the job builds this commit and the reference and runs them in turn
+  (this, reference, reference, this), each a cold and a warm pass, and reports every run, each side's mean and the
+  programs side by side. macOS keeps the Metal shaders it compiled for Chrome outside Chrome's profile, in
+  `$(getconf DARWIN_USER_CACHE_DIR)com.google.Chrome.helper/com.apple.metal/` (the GPU process is a Chrome helper;
+  about 13 MB after a cold pass, 23 MB after the warm one), so a fresh profile alone is not cold there: a later Chrome
+  links the same shader source about 5 times faster (#237). Before each cold pass the job empties that folder and
+  Chrome's other `com.apple.metal*` folders there, and prints each one it removed with its size; nothing else is
+  touched, and macOS recreates them as Chrome compiles. With it, two runs of the same two builds measured 12.1-12.8 s
+  and 11.8-12.4 s of cold link time (time-shared) per run; without it, the same order measured 2.3-10.3 s, depending
+  only on what the run before had compiled. (The warm pass, a second Chrome right after the cold one, does not get
+  faster from it: it measures Chrome's own program cache.) Compare the two sides of one run, not runs of different days.
 - **Updates:** the runner updates itself. Keep Chrome, Node and Python updated as usual.
 - **Removing a machine:** *Settings → Actions → Runners → (the runner) → Remove*, then on the machine
   `.\config.cmd remove --token <TOKEN>` (Windows) or `./svc.sh uninstall && ./config.sh remove --token <TOKEN>` (Mac).

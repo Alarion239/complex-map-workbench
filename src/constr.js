@@ -17,10 +17,10 @@
 // Part 2 (v16 CORE, below "v16 CORE"): the app's shapes. A shape may carry s.at (bound handles) and s.def (a
 // construction: circle3, meet, glider, midpoint, bisector); Constr.recompute writes their concrete fields, the
 // runtime form s._g, s.cundef / s.cHid (undefined) and s._atInf (a point at infinity), in topological order.
-(function (root, factory) {
-  const M = factory();
-  if (typeof module === 'object' && module.exports) module.exports = M; else root.Constr = M;
-})(typeof self !== 'undefined' ? self : this, function () {
+const Constr = (function (factory) {
+  const M = factory(); if (typeof window !== 'undefined') window.Constr = M;
+  return M;
+})(function () {
   const EPS = 2 ** -53;
   const INF = 'inf';                       // the point at infinity
   const isInf = (p) => p === INF;
@@ -2841,3 +2841,5 @@
     get lastRecompute() { return lastRecompute; },
   };
 });
+import { Region } from './region.js';
+export { Constr, Constr as 'module.exports' };

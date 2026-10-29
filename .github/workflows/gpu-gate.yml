@@ -11,7 +11,8 @@
 # Runs: on every push to main; nightly; by hand (Actions > GPU gate > Run workflow); on a pull request from a branch of
 # this repository when it has the label `gpu-gate`. The machines' own Chrome, Python and Git are used (ci/RUNNERS.md).
 # By hand with mode glprof: no gates, only the app's shader link times on each machine, cold and warm (ci/glprof.js,
-# issue #72): the table in the run's summary, the JSON as the artifact glprof-<machine>.
+# issue #72; on the Mac against the reference, the sides in turn): the table in the run's summary and log, the JSON as
+# the artifact glprof-<machine>.
 name: GPU gate
 
 on:
@@ -148,11 +149,16 @@ jobs:
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
-      - run: node ci/glprof.js
+      # (on the Mac: this commit and the reference in turn, twice each, Chrome's Metal cache emptied before each cold
+      # pass, which a fresh profile alone does not empty there (#237); Windows one side, its cold pass takes hours)
+      - run: node ci/glprof.js ${{ matrix.machine == 'macOS' && format('--ref {0} --clear-metal-cache', needs.plan.outputs.reference) || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -245,7 +251,8 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
+      # (--table: every metric's reference -> this change in the job log, which agents can read; the artifact they cannot)
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --table ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

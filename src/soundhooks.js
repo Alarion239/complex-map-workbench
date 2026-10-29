@@ -1360,3 +1360,9 @@ const SoundHooks = (() => {
   }
   return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
 })();
+import { $, DEG, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Calc } from './calc.js';
+import { Region } from './region.js';
+import { Tour } from './tour.js';
+export { SoundHooks };
