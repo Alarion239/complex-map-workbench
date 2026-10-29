@@ -500,7 +500,9 @@ const Params = (() => {
   // changed (a step added with its number in one undo step, from the palette, used to leave the line stale)
   let unusedSig = null;
   const unusedKey = () => arr().map((p) => (usedBy(p.name).length ? '' : p.name + '>' + (((host && host.useIn && host.useIn(p.name)) || {}).label || ''))).join('|');
-  function syncUnused() { if (!mounts.size) return; const k = unusedKey(); if (k !== unusedSig) render(); }
+  // (while a slider is dragged its row keeps its DOM: a redraw would end the drag; the line follows at the release)
+  let sliding = null;
+  function syncUnused() { if (!mounts.size) return; const k = unusedKey(); if (k !== unusedSig) render(sliding); }
   function render(skip) {
     if (!skip) unusedSig = unusedKey();
     for (const m of mounts) {
@@ -605,13 +607,15 @@ const Params = (() => {
     } else {
       const rg = h('input', { type: 'range', min: String(p.min), max: String(p.max), step: String(p.step || 'any'), value: String(p.value), 'aria-label': $t('{x} from {min} to {max}', { x: d, min: fmt(p.min), max: fmt(p.max) }), 'data-prm-focus': 'r:' + nm });
       let start = null;
-      rg.addEventListener('pointerdown', () => { start = p.value; });
+      rg.addEventListener('pointerdown', () => { start = p.value; sliding = nm; });
+      for (const t of ['pointerup', 'pointercancel']) rg.addEventListener(t, () => { if (sliding === nm) sliding = null; });
       rg.addEventListener('input', () => {
         if (start == null) start = p.value;
         set(nm, +rg.value, { live: true, fromUI: true });
         if (document.activeElement !== val) val.value = valShow(p);
       });
       rg.addEventListener('change', () => {
+        sliding = null;
         set(nm, +rg.value, { fromUI: true });
         emit('change', { names: closure([nm]), rest: true });
         if (start == null || p.value !== start) commit();
@@ -739,7 +743,7 @@ const Params = (() => {
 
   return {
     mount, list, get, set, on, install, attach, add, remove, rename, check, canon, display, tex, namesIn, unknownIn, resolve, replaceName,
-    evalReal, evalVal, rest, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused,
+    evalReal, evalVal, rest, getC, read: valueOf, isComplex, reprC, usedBy, inline, sanitize, recompute, order, closure, setRange, togglePlay, stopPlay, isPlaying, render, syncUnused, sliding: () => sliding,
     encodeLink, decodeLink, scene, readScene, LINK_WARN, LINK_MAX, _local: (a) => { local = a || []; },
   };
 })();

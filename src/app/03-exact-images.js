@@ -251,7 +251,8 @@
   // is ready (P2 review gate: holding it back added 200-300 ms to every example load)
   function interacting() {
     const now = performance.now();
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin());
+    // ([#241] a number's slider held: its frames come further apart than 150 ms when the chain is costly)
+    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
   // a camera still turning after its drag was let go (its momentum) moves too: those frames were drawn as rest frames,
   // each at a new distance, and All sheets at the Max mesh rebuilt their refinement in every one (r3 review speed-1)
