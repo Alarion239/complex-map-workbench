@@ -15,7 +15,7 @@
 // Exit 0 equivalent, 1 not, 2 setup problem. The summary lists each check.
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PY, run, serve, summary } = require('./lib');
+const { ROOT, PY, run, serve, summary, esc } = require('./lib');
 const { buildReference } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 const decode = require('../test/cdp_kit/png');
@@ -28,9 +28,11 @@ const LIMIT = Number(opt('--limit', '0.0001'));
 const VIEWS = opt('--views', '1,4,7').split(',').map(Number);
 const PUB_EXAMPLES = [1, 4];   // the published page's examples, by their place in the menu (it has no __cmwExample)
 
-// a page split at its app script: the largest <script> without attributes
+// a page split at its app script: the largest <script> without attributes (the data blocks, the ru/it tables, are
+// <script type="application/json"> and never the app's); any case, and the end tag as HTML ends it (</script >,
+// </SCRIPT foo>: the app's own text writes it <\/script, build.py's escape)
 function splitPage(html) {
-  const re = /<script>\n?([\s\S]*?)<\/script>/g;
+  const re = /<script\s*>\n?([\s\S]*?)<\/script[^>]*>/gi;
   let best = null, m;
   while ((m = re.exec(html))) if (!best || m[1].length > best.body.length) best = { at: m.index + m[0].indexOf(m[1]), body: m[1] };
   if (!best) return null;
@@ -121,7 +123,15 @@ async function probe(base, page, scenes, top) {
     await B.nav('about:blank');
     for (const n of await B.ev('Object.getOwnPropertyNames(window)')) GLOBALS0.add(n);
     await B.addInit(INIT);
-    await B.nav(base + page); await sleep(6000);
+    await B.nav(base + page);
+    // started: the document loaded and the chain drew its cards (a fixed wait let the published page, 4.9 MB, be
+    // measured before its app had run now and then: no globals, no worklet, another picture); then a moment to settle
+    let started = false;
+    for (let t = Date.now(); !started && Date.now() - t < 30000; await sleep(250)) {
+      try { started = await B.ev(`document.readyState === 'complete' && !!document.querySelector('#pipeline .card')`); } catch (e) { /* still loading */ }
+    }
+    if (!started) throw new Error(`${page} did not start within 30 s (no chain card)`);
+    await sleep(3000);
     const own = (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n));
     // (a name is there when evaluating it throws no ReferenceError: a top-level `let x;` is there, undefined)
     const lex = await B.ev(`${JSON.stringify(top)}.filter((n) => { try { (0, eval)(n); return true; } catch (e) { return !(e instanceof ReferenceError); } })`);
@@ -217,7 +227,7 @@ async function main() {
   console.log(`equivalence against ${R.sha.slice(0, 12)} (${REF})`);
   bytes(R.dist, path.join(ROOT, 'dist'));
   await behaviour(R.dist, path.join(ROOT, 'dist'));
-  summary(`### The app against ${R.sha.slice(0, 12)} (${REF}): ${bad ? `${bad} check(s) differ` : 'equivalent'}\n\n| | check | detail |\n|---|---|---|\n` + rows.map((r) => `| ${r[0]} | ${r[1]} | ${String(r[2]).replace(/\|/g, '\\|')} |`).join('\n') + '\n');
+  summary(`### The app against ${R.sha.slice(0, 12)} (${REF}): ${bad ? `${bad} check(s) differ` : 'equivalent'}\n\n| | check | detail |\n|---|---|---|\n` + rows.map((r) => `| ${r[0]} | ${r[1]} | ${esc(r[2])} |`).join('\n') + '\n');
   return bad ? 1 : 0;
 }
 main().then((rc) => process.exit(rc), (e) => { console.error(e); process.exit(2); });

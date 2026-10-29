@@ -49,6 +49,8 @@ function runAsync(cmd, args, opts = {}) {
   });
 }
 
-const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+// a Markdown table cell: backslashes first (a \| already in the text stays a backslash and a pipe), then the pipes that
+// would end the cell, and newlines that would end the row
+const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
 module.exports = { ROOT, PY, serve, summary, run, runAsync, esc };
