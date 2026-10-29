@@ -421,7 +421,8 @@
     for (let i = 0; i < nv; i++) {
       const w = F(C(SRC[2 * i], SRC[2 * i + 1]));
       W[2 * i] = w.re; W[2 * i + 1] = w.im;
-      if ((i & 63) === 63 && due()) { yield; t0 = performance.now(); }
+      // ([#243] every 8 images: one of a series summed to 4096 terms takes about a millisecond)
+      if ((i & 7) === 7 && due()) { yield; t0 = performance.now(); }
     }
     const LIM = 1e12;
     const ok = (x, y) => Math.abs(x) < LIM && Math.abs(y) < LIM;

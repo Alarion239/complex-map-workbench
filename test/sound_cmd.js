@@ -25,6 +25,10 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
 const snd = () => ev('__cmwSound()');
+// (v16.5, Hear the function: the marimba notes replace the pointer harp, perfwin/sound/impl/SOUND-PLAN.md 5.1. The
+// engine's Sound.hear.state().counts run since load; this reads them as harpCount() did, since the last call: up and
+// down are the red line's crossings (line k ≡ 0 mod n, the harp's low D), notes the notes played, cracks the cuts)
+const hearCount = () => ev(`(() => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; })()`);
 const made = (clear) => ev(`(() => { const m = (window.__made || []).slice(); ${clear ? '__made.length = 0;' : ''} return m; })()`);
 const count = (list, name) => list.filter((x) => x === name).length;
 const spy = () => ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; } window.__calls = { argStep: 0 }; if (!Calc.argStep.__spy) { const a = Calc.argStep; Calc.argStep = function (...x) { __calls.argStep++; return a.apply(this, x); }; Calc.argStep.__spy = 1; } return 1; })()`);
@@ -71,7 +75,7 @@ ok('settings in lsk(cmw-sound), never in the saved work', R.store.s && R.store.s
 await glide(await circle([1, 0], 0.25, 2, 32));
 await glide(await circle([-1, 0], 0.02, 1, 16));
 await settle(300);
-R.quiet = { made: await made(true), live: await ev('Sound.debug().live'), argStep: await ev('__calls.argStep') };
+R.quiet = { made: await made(true), live: await ev('(() => { const h = Sound.hear.state(); return h.counts.notes + (h.stroke ? 1 : 0); })()'), argStep: await ev('__calls.argStep') };
 ok('default tiers: hovering zeros makes no cue, no voice, no tracking', !R.quiet.made.length && R.quiet.live === 0 && R.quiet.argStep === 0, R.quiet);
 
 // 4. Shift+M toggles sound (silently off); M alone is still the Deformation
@@ -132,14 +136,16 @@ await made(true);
 const c2 = await circle([1, 0], 0.3, 2, 48, 0.4);
 await move(c2[0][0], c2[0][1]); await settle(200);
 const phi0 = (await snd()).phi;
-await ev('Sound.harpCount()');
+await hearCount();
 await glide(c2);
 await settle(200);
 let s = await snd();
-R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await ev('Sound.harpCount()'), live: await ev('Sound.debug().live'), engine: await ev('Sound.state().engine') };
-ok('Hear F: the harp, +2 turns around the zero at 1 twice (exact): 2 low Ds up, 0 down, 9 to 10 notes, no voice', !R.hover.voice && R.hover.live === 0 && R.hover.engine === 'worklet' && Math.abs(R.hover.dphi - 2) < 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes >= 9 && R.hover.harp.notes <= 10, R.hover);
+R.hover = { dphi: +(s.phi - phi0).toFixed(6), voice: s.voice, harp: await hearCount(), engine: await ev('Sound.state().engine') };
+// (v16.5: the probe is roped, spec 3.1: it trails the pointer by up to 3 px, so after the pointer's two exact turns
+// the probe's arg is short by up to 3 px of the 0.3 circle, about 0.02 turn here)
+ok('Hear F: the notes, +2 turns around the zero at 1 twice (the probe roped 3 px behind): the red line 2 up, 0 down, 23 or 24 lines crossed (notes + merged; the rope can leave out the last), no voice', R.hover.engine === 'worklet' && R.hover.dphi > 1.97 && R.hover.dphi <= 2 + 1e-6 && R.hover.harp.up === 2 && R.hover.harp.down === 0 && R.hover.harp.notes + R.hover.harp.merged >= 23 && R.hover.harp.notes + R.hover.harp.merged <= 24, R.hover);
 await sleep(300);
-R.still = await ev(`await (async () => { Sound.harpCount(); await new Promise((r) => setTimeout(r, 700)); return Sound.harpCount(); })()`);
+await hearCount(); await sleep(700); R.still = await hearCount();
 ok('Hear F: silent while the pointer rests', R.still.notes === 0 && R.still.up === 0, R.still);
 // round a pole: a falling scale (a step with a pole: (z − 1)/(z + 1)... here 1/(z² − 1) is not loaded: the pole case
 // is section 18)
@@ -173,17 +179,17 @@ await ev(`document.getElementById('leftFit') && document.getElementById('leftFit
 await key('o'); await settle(200);
 {
   const L = await circle([0, 0], 1.4, 1, 64, 0.4);
-  await move(L[0][0], L[0][1]); await settle(200); await made(true); await ev('Sound.harpCount()');
+  await move(L[0][0], L[0][1]); await settle(200); await made(true); await hearCount();
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: L[0][0], y: L[0][1], button: 'left', clickCount: 1 });
   for (const p of L.slice(1)) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(16); }
   await sleep(300);
-  const drawing = await made(true), drawHarp = await ev('Sound.harpCount()');
+  const drawing = await made(true), drawHarp = await hearCount();
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: L[L.length - 1][0], y: L[L.length - 1][1], button: 'left', clickCount: 1 });
   await sleep(250);
   s = await snd();
-  R.loop1 = { drawing, drawHarp, made: await made(true), live: s.live, play: s.play, auto: s.auto, listenHarp: s.listenHarp, sang: s.sang };
+  R.loop1 = { drawing, drawHarp, made: await made(true), live: s.live, play: s.play, auto: s.auto, listenFn: s.listenFn, sang: s.sang };
 }
-ok('loop 1: the harp\'s 2 low Ds while drawing, "Winding number 2", plays itself (the harp along it: 2 low Ds up), then sings W = 2', R.loop1.drawHarp.up - R.loop1.drawHarp.down === 2 && !R.loop1.drawing.includes('turn') && /^Winding number 2.*Listening along the loop: 2 turns/.test(R.loop1.live) && R.loop1.play && R.loop1.auto && R.loop1.listenHarp && R.loop1.listenHarp.up === 2 && R.loop1.listenHarp.down === 0 && R.loop1.sang === 2, R.loop1);
+ok('loop 1: the red line crossed twice up while drawing, "Winding number 2", plays itself (Listen along: the function\'s notes, 24 lines), then sings W = 2', R.loop1.drawHarp.up - R.loop1.drawHarp.down === 2 && !R.loop1.drawing.includes('turn') && /^Winding number 2.*Listening along the loop: 2 turns/.test(R.loop1.live) && R.loop1.play && R.loop1.auto && R.loop1.listenFn && R.loop1.listenFn.counts && R.loop1.listenFn.counts.notes >= 12 && R.loop1.sang === 2, R.loop1);
 await sleep(600);
 await key('Escape'); await sleep(150);
 R.esc = { play: (await snd()).play, active: await ev('Sound.debug().active'), on: await ev('Sound.prefs().on'), sing: await ev('Sound.singState()') };
@@ -245,16 +251,17 @@ R.kbClick = { tool: await ev(`document.querySelector('[data-tool].active, [data-
 ok('after a click in the plane, L is the Line tool again', !R.kbClick.play && !R.kbClick.kbd, R.kbClick);
 await key('v'); await settle(150);
 
-// 10. Height contours in the Landscape: the Height voice and its contour ticks
-await key('3'); await settle(1500); await made(true);
+// 10. The Landscape (v16.5, Hear the function, SOUND-PLAN G1: the Height voice and its contour ticks are retired; the
+// Landscape's probe (pickLand) is heard as on the planes: notes at the colour lines, no voice, no contour tick)
+await key('3'); await settle(1500); await made(true); await hearCount();
 {
   const r = await ev(`(() => { const b = document.getElementById('overlayL').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()`);
   for (let i = 0; i <= 60; i++) { const u = i / 60; await move(r[0] + r[2] * (0.3 + 0.4 * u), r[1] + r[3] * (0.5 + 0.12 * Math.sin(6 * u))); await sleep(20); }
   await settle(400);
   s = await snd();
-  R.height = { kind: s.kind, made: await made(true) };
+  R.height = { kind: s.kind, voice: s.voice, made: await made(true), hear: await hearCount() };
 }
-ok('Landscape: the Height voice and contour ticks', R.height.kind === 'height' && count(R.height.made, 'contour') >= 2, R.height);
+ok('Landscape: the probe on the relief is heard as on the planes (notes at its lines, no Height voice, no contour tick)', !R.height.voice && R.height.kind !== 'height' && !R.height.made.includes('contour') && R.height.hear.notes >= 2, R.height);
 await key('2'); await settle(800);
 
 // 11. the engine's guards in the live context: 12 turns → 8 bells and one flourish; an Interface cue right after
@@ -266,9 +273,9 @@ ok('cluster: 20 entries → ≤ 3 pings and the dense cue', R.cluster.zp <= 3 &&
 // nothing is queued on a clock that is not running: a context whose resume() never resolves
 R.susp = await ev(`await (async () => {
   const c = Sound.debug().ctx; await c.suspend(); const res = c.resume; c.resume = () => new Promise(() => {});
-  __made.length = 0; const live0 = Sound.debug().live; let n = 0;
+  __made.length = 0; const live0 = Sound.hear.state().counts.notes; let n = 0;
   for (let i = 0; i < 24; i++) { if (Sound.play('toggleOn', {}) === true) n++; if (Sound.turn({ dir: 1 }) === true) n++; await new Promise((r) => setTimeout(r, 50)); }
-  const out = { n, made: __made.length, live: Sound.debug().live - live0 };
+  const out = { n, made: __made.length, live: Sound.hear.state().counts.notes - live0 };
   c.resume = res; await c.resume(); return out; })()`, 20000);
 ok('suspended context: 24 requests, none scheduled', R.susp.n === 0 && R.susp.made === 0 && R.susp.live <= 0, R.susp);
 // the silent off: six sources sounding, then off → no sound made, every source stopped, then suspended
@@ -302,9 +309,10 @@ await cutPass(40); await settle(200);
 R.cutQuiet = await made(true);
 ok('default tiers: crossing √z\'s cut 40 times makes no cue', !R.cutQuiet.length, R.cutQuiet);
 await ev(`Sound.set({ sonify: true }); 1`); await settle(200);
+await hearCount();
 await cutPass(20); await settle(200);
-R.cutTicks = await made(true);
-ok('Hear F: the cut ticks, at most one per 120 ms', count(R.cutTicks, 'cut') >= 3 && count(R.cutTicks, 'cut') <= 20, R.cutTicks);
+R.cutTicks = { made: await made(true), hear: await hearCount() };
+ok('Hear F: the cut cracks, at most one a pass', R.cutTicks.hear.cracks >= 3 && R.cutTicks.hear.cracks <= 20, R.cutTicks);
 
 // 13. the loudness and phone targets (DESIGN §2.2), every cue rendered offline as in use, at 100 % volume
 await ev(fs.readFileSync(path.join(DIR, '..', 'sound_lab.js'), 'utf8'));
@@ -331,11 +339,18 @@ for (const r of (lab && lab.rows) || []) {
 }
 ok('lab: every cue measured', lab && lab.rows && lab.rows.length >= 28, lab && lab.rows && lab.rows.length);
 const V = (lab && lab.voices) || {};
-ok('harp: one note at velocity 0.7, |F| = 1 (seed 1): E and D (with its accent, +2 dB) −32 ± 2.5 LUFS-M, D 2 to 5 dB over E; phone loss ≤ 5 dB; a soft start', V.harp && Math.abs(V.harp.note + 32) <= 2.5 && Math.abs(V.harp.d + 32) <= 2.5 && V.harp.d - V.harp.note >= 2 && V.harp.d - V.harp.note <= 5 && V.harp.loss <= 5 && V.harp.first < 0.35, V.harp);
-ok('harp: a run of 10 notes a second about −30 (−33 to −27)', V.harp && V.harp.run >= -33 && V.harp.run <= -27, V.harp);
+// (v16.5, Hear the function: the marimba note replaces the harp's. LV.note = CAL.M2, a marimba E at |F| = 1 alone 2 dB
+// under the harp E (−32 here before): −34; D and E alike (no accent); the law dbV3, −8 dB at a zero and +4 at a pole,
+// with the mallet's softness following it; a stream at 10 notes a second as loud as one at 5 (the crowding gain, R0 = 5))
+ok('notes: one marimba note at |F| = 1 (seed fixed by the note): E −34 ± 2.5 LUFS-M, D within 1 dB of E; phone loss ≤ 5 dB; a soft start, peak < −6 dBFS', V.notes && Math.abs(V.notes.e + 34) <= 2.5 && Math.abs(V.notes.d - V.notes.e) <= 1 && V.notes.loss <= 5 && V.notes.first < 0.35 && V.notes.peak < -6, V.notes);
+ok('notes: the loudness law, a note at a zero 8 ± 1 dB under |F| = 1 and at a pole 4 ± 1 dB over', V.notes && Math.abs(V.notes.zero - V.notes.e + 8) <= 1 && Math.abs(V.notes.pole - V.notes.e - 4) <= 1, V.notes);
+ok('notes: a stream of 10 notes a second as loud as one of 5 (the crowding gain, R0 = 5), within 1 dB', V.notes && Math.abs(V.notes.run10 - V.notes.run5) <= 1, V.notes);
 ok('curves sing: the release note −31 ± 2 LUFS-M at W = 1 and W = −1 (the low-note make-up), phone loss ≤ 6 dB', V.sing && Math.abs(V.sing.w1 + 31) <= 2 && Math.abs(V.sing.wm1 + 31) <= 2.5 && V.sing.loss <= 6, V.sing);
 ok('curves sing: the loudest harmonic of the note is 4 + W (F♯5 for 1, A4 for −1)', V.sing && V.sing.peak1 === 5 && V.sing.peakm1 === 3, V.sing);
-ok('Height voice: −33 ± 1.5 LUFS on D5, phone range ≤ 8 dB', V.height && Math.abs(V.height.at0 + 33) <= 1.5 && V.height.phoneRange <= 8, V.height);
+// (v16.5: the Height voice is retired, the Landscape is heard as the planes are; the held voice now is the Glide, at
+// LV.glide = CAL.V3: −37.5 LUFS held on D at |F| = 1 as measured here at v16.5, the law as the notes', and the same
+// phone range limit the Height voice had)
+ok('Glide: held on D at |F| = 1 −37.5 ± 1.5 LUFS; at a zero 8 ± 1 dB under, at a pole 4 ± 1 dB over; phone range over D, F♯, B♭ ≤ 8 dB', V.glide && Math.abs(V.glide.at0 + 37.5) <= 1.5 && Math.abs(V.glide.zero - V.glide.at0 + 8) <= 1 && Math.abs(V.glide.pole - V.glide.at0 - 4) <= 1 && V.glide.phoneRange <= 8, V.glide);
 
 // 14. the tracker's cost per pointer event (synthetic pointermoves on the X plane, z² − 1 and a heavy chain): Hear F
 // on against off; the budget is about 3 ms of F calls an event

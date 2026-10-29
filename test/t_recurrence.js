@@ -69,5 +69,18 @@ check('Re z in the rule', /Re z/.test(err('z', 'u+x', 2) || ''), err('z', 'u+x',
 check('u outside the step is still an unknown symbol', (() => { try { Expr.parse('u+z'); return false; } catch (e) { return /Unknown symbol/.test(e.message); } })());
 check('a sum inside a rule keeps its own index', rel(R('z', 'u+\\sum_{n=1}^{3} n', 2).f(C(0, 0)), C(12, 0)) < 1e-15);
 
+// ---- 6. iter(g, u, u₀, N) in a formula: the Mandelbrot set and a filled Julia set as regions
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+check('iter(u^2+z, u, z, 3) is the recurrence', same(Expr.parse('iter(u^2+z, u, z, 3)'), R('z', 'u^2+z', 3).ast));
+const M64 = Expr.compileLevel(Expr.parse('|iter(u^2+z, u, 0, 64)| \\le 2', { allowRel: true }));
+check('the Mandelbrot set: −1, 0.25 and i in, 1 + i and 0.5 out', M64(C(-1, 0)) >= 0 && M64(C(0.25, 0)) >= 0 && M64(C(0, 1)) >= 0 && !(M64(C(1, 1)) >= 0) && !(M64(C(0.5, 0)) >= 0));
+const K = Expr.compileLevel(Expr.parse('|iter(u^2-0.75, u, z, 64)| \\le 2', { allowRel: true }));
+check('the filled Julia set of z² − 0.75: 0 and its fixed point 1.5 in, 1.6 out', K(C(0, 0)) >= 0 && K(C(1.5, 0)) >= 0 && !(K(C(1.6, 0)) >= 0));
+const tm = Expr.toTex(Expr.parse('|iter(u^2+z, u, 0, 64)| \\le 2', { allowRel: true })).s;
+check('inside a formula: \\operatorname{iter}(…), which reads back', tm.includes('\\operatorname{iter}\\left(u^{2}+z,\\ u,\\ 0,\\ 64\\right)') && same(Expr.parse(tm, { allowRel: true }), Expr.parse('|iter(u^2+z, u, 0, 64)| \\le 2', { allowRel: true })), tm);
+const perr = (q) => { try { Expr.parse(q); return null; } catch (e) { return e.message; } };
+check('iter: the letter must be free (z is refused)', !!perr('iter(u^2, z, 0, 3)'));
+check('iter: u in the start is refused', !!perr('iter(u^2, u, u, 3)'));
+
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

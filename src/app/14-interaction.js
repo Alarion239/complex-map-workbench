@@ -98,13 +98,15 @@
   };
   window.addEventListener('keydown', (e) => {
     if ((e.code === 'Space' || e.key === ' ') && !typing(e.target)) { spaceHeld = true; if (eatSpace(e)) spaceEaten = true; }
-    if (e.key === 'Alt') altHeld = true;
+    if (e.key === 'Alt') altHeld = altKeyDown = true;
   }, true);
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space' || e.key === ' ') { spaceHeld = false; if (spaceEaten) { e.preventDefault(); e.stopPropagation(); spaceEaten = false; } }
-    if (e.key === 'Alt') altHeld = false;
+    if (e.key === 'Alt') altHeld = altKeyDown = false;
   }, true);
-  window.addEventListener('blur', () => { spaceHeld = false; altHeld = false; });
+  window.addEventListener('blur', () => { spaceHeld = false; altHeld = altKeyDown = false; });
+  // (a press takes Alt from its own event; when it ends, Alt is what the keyboard says again, so a hover afterwards snaps)
+  for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, () => { altHeld = altKeyDown; });
   function setupPane(pane, side) {
     const cv = pane.ocanvas;
     // a right click: the plane menu of the object there (a right-button pan that moved opens nothing; a touch opens it
@@ -182,6 +184,8 @@
           if (PM()) { ring = { id: ev.pointerId, x: x0, y: y0, slid: false, cancelled }; PM().ringFull(); }
           drag = { mode: 'probe' };
           onMove(pane, side, ev);
+          // (Hear the function: the long press that engages the probe plays the pressed point, spec 3.9)
+          sndQueryClick(pane, side, x0, y0);
         }, PM() ? 450 : 500) };
       }
     });
@@ -352,6 +356,7 @@
     lastPress = null;
     const [x, y] = evXY(pane, e);
     ptrTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
+    altHeld = !!e.altKey;
     Construct.pointer(e);   // (v16: touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
     const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y);
@@ -440,14 +445,15 @@
       requestRender(ov);
       return true;
     }
-    // (touch, a drawing tool: a press on the shape just drawn moves it, or reshapes it by a handle; a press elsewhere draws)
-    if (ptrTouch && tool !== 'select' && tool !== 'point' && justDrawn && selected === justDrawn) {
+    // (a drawing tool: a press on the shape just drawn moves it, or reshapes it by a handle; a press elsewhere draws, and
+    // so does Alt, on a laptop, where it also places without snapping)
+    if (!altHeld && tool !== 'select' && tool !== 'point' && justDrawn && selected === justDrawn) {
       const js = list.find((q) => q.id === justDrawn);
       if (js) {
         const jk = handleAt(pane, js, x, y);
         if (jk) { drag = { mode: 'handle', shape: js, key: jk, target }; return true; }
         let onBody = false;
-        try { onBody = !!Region.hitTest(js, z, 18 / pane.view.s, win); } catch (e) { onBody = false; }
+        try { onBody = !!Region.hitTest(js, z, (ptrTouch ? 18 : 8) / pane.view.s, win); } catch (e) { onBody = false; }
         if (onBody) { drag = { mode: 'move', shape: js, z0: z, moved: false, target }; requestRender(ov); return true; }
       }
     }
@@ -523,7 +529,7 @@
   // the globe's graticule draws the net of the active tool (the polar net with Select)
   const ROUND_TOOLS = new Set(['select', 'point', 'circle', 'disc', 'formula', 'annulus', 'sector', 'pgrid']);
   const globeNet = () => (ROUND_TOOLS.has(tool) ? 'polar' : 'cart');
-  let spaceHeld = false, altHeld = false;
+  let spaceHeld = false, altHeld = false, altKeyDown = false;
   // per side: the last press on an editable globe turned it (a double-click then resets the camera); the last point
   // placed on a globe ({id, t})
   const gTurnPress = { L: false, R: false };
@@ -757,13 +763,14 @@
       gSnapMark = null;
       return;
     }
-    // (touch, a drawing tool: a press on the shape just drawn, on its handle or on it, moves or reshapes it; elsewhere draws)
-    if (ptrTouch && justDrawn && selected === justDrawn) {
+    // (a drawing tool: a press on the shape just drawn, on its handle or on it, moves or reshapes it; elsewhere draws, and so
+    // does Alt)
+    if (!altHeld && justDrawn && selected === justDrawn) {
       const js = list.find((q) => q.id === justDrawn);
       if (js) {
         for (const [key, P] of globeHandles(js, gc)) {
           const q = gScreen(gc, P);
-          if (q && Math.hypot(q[0] - x, q[1] - y) <= 18) { drag = { mode: 'ghandle', shape: js, key, target, side, x, y }; return; }
+          if (q && Math.hypot(q[0] - x, q[1] - y) <= (ptrTouch ? 18 : 10)) { drag = { mode: 'ghandle', shape: js, key, target, side, x, y }; return; }
         }
         if (globeCurveHit(gc, js, x, y, 10) || GL3.globeInside(js, g.P)) { drag = { mode: 'gmove', shape: js, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(js)), moved: false, target, side, x, y }; requestRender('O' + side); return; }
       }
@@ -1393,7 +1400,10 @@
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
-    if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
+    // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
+    if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
     if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }

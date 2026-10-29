@@ -206,7 +206,7 @@
     }
     if (e.state === 'ready') return { state: 'ready', P: e };
     if (e.state === 'error') return { state: 'error', reason: e.error };
-    return { state: 'pending', reason: 'compiling' };
+    return { state: 'pending', reason: 'compiling', id };
   }
   // a ready inverse program of the current chain, view kind and formula bundle for another B class (never starts a
   // compile): a larger B first (exact for any alpha), else the largest smaller one (its front B sheets exact, the rest
@@ -338,7 +338,7 @@
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -425,7 +425,7 @@
       if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
       else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
     }
-    if (pr.state === 'pending') { framePending = true; return 'pending'; }
+    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
     if (pr.state !== 'ready') return 'error';
     const P = pr.P, inv = cur.info.inverse;
     P.warm = true;
@@ -821,8 +821,10 @@
     createMesh, createSkip, setSkip, createLines, destroy, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
-    // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows)
-    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed }; },
+    // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
+    // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
+    // and that program has not landed yet
+    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
     // how many programs are compiling (issue #72: the panes' "Preparing the GPU" note counts them)

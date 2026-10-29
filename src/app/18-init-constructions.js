@@ -3,23 +3,28 @@
   // A step's text fields keep the names (Funcs.build reads them through the parser's name scope); a shape's field that
   // holds names keeps its text in s.bind[key] and its value in the field itself (s.expr: the text with the values
   // written in), so the renderers and every cache keyed by a shape see plain values.
-  const FX_TYPES = ['cx', 'coeffs', 'cxlist', 'expr'];
-  // the text fields of a step: [key, text]
+  // ([#241] seq: a series' a_n, a recurrence's u_0 and rule, whose bound letters, n and u, are never names)
+  const FX_TYPES = ['cx', 'coeffs', 'cxlist', 'expr', 'seq'];
+  // the text fields of a step: [key, text, {bound}] (the third: the options of Params.namesIn for that field)
   function stepTexts(st) {
     const d = Funcs.DEFS[st.type], out = [];
     if (!d) return out;
-    for (const q of d.params) if (FX_TYPES.includes(q.type) && typeof st.params[q.key] === 'string') out.push([q.key, st.params[q.key]]);
+    for (const q of d.params) if (FX_TYPES.includes(q.type) && typeof st.params[q.key] === 'string') out.push([q.key, st.params[q.key], { bound: q.bound || [] }]);
     return out;
   }
+  // [#240] the letters the chain's steps bind (a recurrence's u): not new numbers while it holds them
+  const chainBinds = () => [...new Set(S.steps.flatMap((st) => { const d = Funcs.DEFS[st.type]; return d ? d.params.flatMap((q) => q.bound || []) : []; }))];
   // the names a step's fields use, with their values: part of the chain signature, so every cache keyed by it (cards,
   // fits, paths) sees a new value; the GPU programs keep their structure (the values are uniforms)
   function paramSig(st) {
     if (!S.params || !S.params.length) return '';
     let out = '';
-    for (const [, v] of stepTexts(st)) for (const nm of Params.namesIn(v)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
+    for (const [, v, o] of stepTexts(st)) for (const nm of Params.namesIn(v, o)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
+    // ([issue #6] Repeat × N's N bound to a number: its value is the number of passes)
+    if (st.repeat && st.repeat.by) out += `;${st.repeat.by}=${Params.get(st.repeat.by)}`;
     return out;
   }
-  const stepUses = (st, names) => stepTexts(st).some(([, v]) => Params.namesIn(v).some((n) => names.has(n)));
+  const stepUses = (st, names) => stepTexts(st).some(([, v, o]) => Params.namesIn(v, o).some((n) => names.has(n))) || !!(st.repeat && st.repeat.by && names.has(st.repeat.by));
   function bindField(s, key, text) {
     if (Params.namesIn(text).length) (s.bind || (s.bind = {}))[key] = String(text).trim();
     else if (s.bind && key in s.bind) { delete s.bind[key]; if (!Object.keys(s.bind).length) delete s.bind; }
@@ -297,6 +302,15 @@
   function paramFormulas() {
     const out = [];
     S.steps.forEach((st, i) => { for (const [key] of stepTexts(st)) out.push({ label: `f${sub(i + 1)}`, get: () => st.params[key], set: (t) => { st.params[key] = t; } }); });
+    // ([issue #6] a repeat's N bound to a number: renamed with it; a removed number leaves its value, rounded)
+    S.steps.forEach((st, i) => {
+      if (!st.repeat || !st.repeat.by) return;
+      out.push({ label: `f${sub(i + 1)}`, get: () => st.repeat.by, set: (t) => {
+        const ns = Params.namesIn(t), v = Number(t);
+        if (ns.length === 1 && String(t).trim() === ns[0]) st.repeat = Object.assign({}, st.repeat, { by: ns[0] });
+        else st.repeat = { n: Number.isFinite(v) ? Math.min(Funcs.REPEAT_MAX, Math.max(1, Math.round(v))) : st.repeat.n, len: st.repeat.len };
+      } });
+    });
     const names = shapeNames();
     for (const x of S.shapes.concat(S.targets)) if (x.bind) for (const key of Object.keys(x.bind)) out.push({ label: names.get(x.id) || $t('a target'), get: () => x.bind[key], set: (t) => { x.bind[key] = t; } });
     return out;
@@ -320,7 +334,7 @@
     const st = S.steps[k - 1];
     if (!st) return '';
     const ns = [];
-    for (const [key] of stepTexts(st)) for (const n of Params.namesIn(st.params[key])) if (!ns.includes(n)) ns.push(n);
+    for (const [key, , o] of stepTexts(st)) for (const n of Params.namesIn(st.params[key], o)) if (!ns.includes(n)) ns.push(n);
     const num4 = (v) => I18N.num(String(+(+v).toPrecision(4))).replace('-', '−');
     const val = (n) => {
       const c = Params.getC(n);
@@ -332,16 +346,33 @@
   function paramsRestored() { zpParsed.clear(); Params.render(); }
   // a number changed (a slider, play, a field, undo): the steps and the shapes that use it follow; a drag or play
   // frame is motion (motion-quality frames; the renderer's rest pass follows when it stops)
+  // ([#241] a slider of a number a costly chain uses (its last change took over 8 ms: a series re-planned) is applied
+  // once a frame, at its latest value, the names of the frame's events together; a change at rest applies at once)
+  const liveQ = { names: null, raf: 0 };
   function onParamChange(ev) {
+    if (ev.live) { const t = performance.now(); lastInputT = t; motionInT = t; }
+    if (liveQ.raf) {
+      cancelAnimationFrame(liveQ.raf); liveQ.raf = 0;
+      const was = liveQ.names; liveQ.names = null;
+      ev = Object.assign({}, ev, { names: [...new Set([...was, ...(ev.names || [])])] });
+    }
+    const big = !!(ev.removed || ev.renamed || ev.inlined);
+    if (ev.live && !ev.play && !big && chainCost() > 8 && S.steps.some((st) => stepUses(st, new Set(ev.names || [])))) {
+      liveQ.names = ev.names || [];
+      liveQ.raf = requestAnimationFrame(() => { const nm = liveQ.names; liveQ.raf = 0; liveQ.names = null; paramChanged({ names: nm, live: true }); });
+      return;
+    }
+    paramChanged(ev);
+  }
+  function paramChanged(ev) {
     const names = new Set(ev.names || []);
     const big = !!(ev.removed || ev.renamed || ev.inlined);
-    if (ev.live) { const t = performance.now(); lastInputT = t; motionInT = t; }
     zpParsed.clear();
     const steps = big || S.steps.some((st) => stepUses(st, names));
     let sh = false, tg = false;
     for (const x of S.shapes) if (applyBinds(x, big ? null : names)) sh = true;
     for (const x of S.targets) if (applyBinds(x, big ? null : names)) tg = true;
-    if (steps) chainChanged(big);
+    if (steps) chainChanged(big, { live: ev.live && !ev.play });
     // the tone under a still pointer follows the new function (a slider, Play, a field, undo): the pathless form, the
     // nearest turn (notes/sound/DEFORMATION.md, "The hook for v15"); however often it is called, the tone is
     // re-evaluated once a frame at most (its requestAnimationFrame), together with chainChanged's own report
@@ -354,6 +385,7 @@
   function attachParams() {
     Params.attach({
       list: () => (S && Array.isArray(S.params) ? S.params : []),
+      binds: chainBinds,
       formulas: paramFormulas,
       commit: () => commit(),
       toast: (m) => toast(m),
@@ -442,10 +474,12 @@
     document.addEventListener('change', (e) => {
       const el = e.target;
       if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-fx')) return;
-      const u = Params.unknownIn(el.value);
+      // ([#240] a field's bound letters, a series' n, a recurrence's u, are its own: never new numbers)
+      const bound = el.dataset.bound ? el.dataset.bound.split(',') : [];
+      const u = Params.unknownIn(el.value, { bound });
       if (!u.length) return;
       if (u.length > 1) { sndError(); toast($t('One new name at a time: {x}', { x: u.map(Params.display).join(', ') })); return; }
-      const c = Params.check(u[0]);
+      const c = Params.check(u[0], { bound });
       if (c.error) { sndError(); toast(c.error); return; }
       Params.add(c.name);
       el.dispatchEvent(new Event('input'));
@@ -795,6 +829,17 @@
       });
       syncPalBtn();
     }
+    // the Phase style (issue #81): the header button's menu
+    const stb = $('styleBtn');
+    if (stb) {
+      stb.setAttribute('aria-expanded', 'false');
+      stb.addEventListener('click', (e) => {
+        const pop = openMenu(e.currentTarget, styleItems());
+        stb.setAttribute('aria-expanded', String(!!pop));
+        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { stb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
+      });
+      syncStyleBtn();
+    }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
     // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
     // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
@@ -849,10 +894,11 @@
     // Listen along does only that: the next Esc ends the tour
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      const playing = !!snd.play;
+      // (a Listen along still preparing its samples counts as playing: this Esc drops it and goes no further)
+      const playing = !!(snd.play || snd.prep);
       // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
       // the sound and goes no further; the next one steps out of the modes)
-      escSound = !!(sndP && sndP.on && (snd.play || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
+      escSound = !!(sndP && sndP.on && (snd.play || snd.prep || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
       soundStop();
       if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
@@ -1035,13 +1081,14 @@
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
+      styleState: () => ({ ...styleState(), svg: STYLE_SVG[S.dc] || '' }), styleMenu: (a, done) => openMenu(a, styleItems(done)),
       globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
       // (D3) what the phone's context bar shows: the polygon being drawn, a curve being listened along, the selected shape
       ctxState: () => {
         if (polyDraftOpen()) return { kind: 'polygon', n: draft.pts.length };
         // (a construction tool in hand: what to pick next, with the pick it can take back)
-        if (Construct.isTool(tool)) return { kind: 'construct', text: Construct.hint(), undo: !!Construct.undoPickable(), seg: tool === 'perp' ? Construct.seg : null };
+        if (Construct.isTool(tool)) return { kind: 'construct', text: Construct.hint(), undo: !!Construct.undoPickable(), seg: tool === 'perp' ? Construct.seg : tool === 'hyper' ? Construct.hyper : null, segs: tool === 'hyper' ? ['in', 'between'] : null };
         if (SND && snd.play) return { kind: 'listen' };
         const sel = selected && findShape(selected);
         if (!sel) return null;
@@ -1052,7 +1099,7 @@
         if (act === 'last') polyBack();
         else if (act === 'done') finishPolygon();
         else if (act === 'cancel') cancelDrawing();
-        else if (act === 'seg') { Construct.seg = id; requestRender('OL', 'OR'); }
+        else if (act === 'seg') { if (tool === 'hyper') Construct.hyper = id; else Construct.seg = id; requestRender('OL', 'OR'); }
         else if (act === 'undopick') $('undoBtn').click();
         else if (act === 'xcancel') { Construct.cancel(); setTool('select'); }
         else if (act === 'delete') deleteShape(id);
@@ -1316,7 +1363,7 @@
   window.__cmwHandles = () => ({ size: fingerNow() ? 12 : 7, touch: ptrTouch });
   window.__cmwW2S = (side, re, im) => { const p = side === 'L' ? paneL : paneR; const r = p.ocanvas.getBoundingClientRect(); const v = p.view; return [r.left + p.w / 2 + (re - v.cx) * v.s, r.top + p.h / 2 - (im - v.cy) * v.s]; };
   // sound (notes/sound): the app side of the engine, for test/sound_cmd.js
-  window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { harp: SND ? SND.harpState() : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, voice: !!snd.voice, kind: snd.kind, engine: snd.voice ? snd.voice.engine : '', phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
+  window.__cmwSound = (o) => { if (o && o.zp) { zpSet(o.zp[0], o.zp[1], o.zp[2], C(o.zp[3], o.zp[4])); return 1; } if (o && o.hAt) { const F = sndFAt(o.hAt[0]), w = F(C(o.hAt[1], o.hAt[2])); return [w.re, w.im]; } if (o && o.pick) { const r = paneL.ocanvas.getBoundingClientRect(), z = lLand() ? pickLand(o.pick[0] - r.left, o.pick[1] - r.top) : null; return z ? [z.re, z.im] : null; } if (o && o.perEval) snd.perEval = o.perEval; if (o && o.pathT) { const [T0, T1] = o.pathT; morph.T = T1; snd.T = T1; requestRender('R'); soundFunctionChanged({ at: (u) => sndFAt(T0 + u * (T1 - T0)) }); return 1; } if (o && o.listen) sndListen(o.listen, o.closed !== false); if (o && o.loop) sndLoopDone(o.loop); if (o && o.lastLoop) snd.lastLoop = { pts: o.lastLoop, closed: true }; return { hear: SND && SND.hear ? SND.hear.state() : null, glide: SND ? !!SND.state().glide : false, rope: snd.rope ? [snd.rope.x, snd.rope.y, snd.rope.src] : null, ptype: snd.ptype, listenFn: snd.play && snd.play.fn ? { counts: snd.play.h.counts || null, dur: snd.play.dur, mode: snd.play.h.mode || '' } : null, sing: SND ? SND.singState() : null, cv: { on: snd.cv.on, W: snd.cv.W, T: snd.cv.T }, sang: snd.sang, listenHarp: snd.play && snd.play.h.harp ? { up: snd.play.h.harp.up, down: snd.play.h.harp.down, notes: snd.play.h.harp.notes, dur: snd.play.dur, piece: !!snd.play.piece } : null, phi: snd.phi, near: snd.near, gestT: snd.gestT, loop: snd.loop ? { phi: snd.loop.phi, k: snd.loop.k } : null, lastLoop: !!snd.lastLoop, play: !!snd.play, auto: snd.auto, morphArm: snd.morphArm, kz: snd.kz, kbd: snd.kbd, kloop: snd.kloop ? snd.kloop.length : 0, perEval: snd.perEval, tracker: snd.tracker, live: ($('sndLive') || {}).textContent || '', run: snd.run ? { phi: snd.run.phi, k: snd.run.k, jumps: snd.run.jumps } : null, rest: snd.rest ? { z: [snd.rest.z.re, snd.rest.z.im], src: snd.rest.src } : null, T: snd.T, fcN: snd.fcN, fcGen: snd.fcGen,  g: snd.g ? [snd.g.re, snd.g.im] : null }; };
   // v16 constructions (CORE): the graph's order, the forms, the last recompute, the events; o.call runs a cm call,
   // o.state(...) replaces S's shapes / targets / steps through the load path (sanitizeState), o.anchor sets the GPU anchor
   window.__cmwC = (o) => {

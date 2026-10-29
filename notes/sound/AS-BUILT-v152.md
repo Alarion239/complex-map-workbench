@@ -1,5 +1,9 @@
 # Sound v15.2: as built
 
+> **Superseded in part (2026-10-28, v16.5).** Hear the function is now the marimba notes and the Glide, decided by
+> the user ("i want to hear the function, not actively just make music fit the math"): see README.md's decision of
+> 2026-10-28, perfwin/sound/polish/FINAL.md and perfwin/sound/impl/SOUND-PLAN.md. The phase harp, its laps and closures and the Height voice described here are retired; the singer (curves sing), the tiers and the catalog stay.
+
 Built in `work/xvsd`, a copy of v15.1. Not merged.
 
 The user's choices:

@@ -108,6 +108,7 @@
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
     const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 w`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
+    syncStyleBtn();
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
@@ -192,7 +193,7 @@
   function globeHint(side) {
     const TURN = $t('Drag to turn; ∞ is at the north pole');
     if (!globeEdit(side) || tool === 'formula' || GLOBE_OFF.has(tool)) return TURN;
-    if (tool === 'select') return touchUI() ? $t('Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole') : $t('Drag to turn, a shape to move it; ∞ is at the north pole');
+    if (tool === 'select') return touchUI() ? $t('Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole') : $t('Drag to turn, a shape to move it; Space turns; ∞ is at the north pole');
     const lab = ((TOOLS.find((t) => t[0] === tool) || [])[1] || '').toLowerCase();
     const tg = side === 'R' ? $t('target ') : '';
     // (v16.5 UX17: on a touch screen a tap places, and two fingers turn)
@@ -688,7 +689,7 @@
     }
     if (lPhase()) {
       const land = lLand();
-      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => { setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save(); }, $t('Phase style')));
+      if (!land) f.append(seg('dcSeg', S.dc, DC_STYLES, (v) => pickPhaseStyle(v), $t('Phase style')));
       if (S.dc === 'cauchy' && lColor()) {
         const cp = cauchyPlot(), Fh = fnHtml();
         f.append(h('span', { class: 'foot-note', html: cp ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name }) : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') }));

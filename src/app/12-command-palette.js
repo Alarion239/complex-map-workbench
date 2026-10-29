@@ -58,7 +58,7 @@
       integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
       morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints,
       renumberZp, replaceSteps, robustBox, lsk, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels,
-      setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop,
+      setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop,
       soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox,
       get S() { return S; },
       get TH() { return TH; },
