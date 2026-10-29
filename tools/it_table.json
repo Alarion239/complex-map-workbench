@@ -3062,5 +3062,9 @@
  "A recurrence usually takes each value many times, so it has no single inverse; {note}": "Una ricorrenza di solito assume ogni valore molte volte, quindi non ha un'inversa unica; {note}",
  "z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method": "z ↦ u_N: da u₀ con la regola u ↦ g(u, z) N volte; iterazioni di Mandelbrot e di Julia, metodo di Newton",
  "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "ricorrenza iterare iterazione orbita mandelbrot julia newton punto fisso successione u_n",
- "This recurrence has too many steps to be differentiated here": "Questa ricorrenza ha troppi passi per essere derivata qui"
+ "This recurrence has too many steps to be differentiated here": "Questa ricorrenza ha troppi passi per essere derivata qui",
+ "{chapter} done ✓": "Capitolo «{chapter}» completato ✓",
+ "Continue the tour: {chapter}": "Continua il tour: {chapter}",
+ "Continue": "Continua",
+ "Continue, or close the line.": "Continua o chiudi la riga."
 }

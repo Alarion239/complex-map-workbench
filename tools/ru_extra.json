@@ -268,5 +268,9 @@
  "A recurrence usually takes each value many times, so it has no single inverse; {note}": "Рекуррентность обычно принимает каждое значение много раз, поэтому однозначной обратной нет; %{note}",
  "z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method": "z ↦ u_N: из u₀ правилом u ↦ g(u, z) N раз; итерации Мандельброта и Жюлиа, метод Ньютона",
  "recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n": "рекуррентность итерация итерировать орбита мандельброт жюлиа ньютон неподвижная точка последовательность u_n",
- "This recurrence has too many steps to be differentiated here": "У этой рекуррентности слишком много шагов, чтобы её здесь продифференцировать"
+ "This recurrence has too many steps to be differentiated here": "У этой рекуррентности слишком много шагов, чтобы её здесь продифференцировать",
+ "{chapter} done ✓": "Глава «{chapter}» пройдена ✓",
+ "Continue the tour: {chapter}": "Продолжить обучение: {chapter}",
+ "Continue": "Продолжить",
+ "Continue, or close the line.": "Продолжите или закройте строку."
 }
