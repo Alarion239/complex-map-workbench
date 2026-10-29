@@ -1039,7 +1039,7 @@ void main() {
   vec3 grey = mix(uPlane, vec3(0.5), 0.6);
   if ((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)) { o = vec4(grey, 1.0); return; }
   vec2 pp = vec2(0.0);
-  for (int k = 0; k < 16; k++) {
+  for (int k = 0; k < max(16, uNoUnroll); k++) {   // (a bound no compiler can know: FXC links a loop, not 16 copies, #72)
     if (k >= uPoleN) break;
     vec4 P = uPole[k];
     vec2 d = zr - P.xy;

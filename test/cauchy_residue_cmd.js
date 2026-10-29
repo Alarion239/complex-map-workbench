@@ -31,6 +31,7 @@ const open = async (shapes, steps) => {
 // the plane's pixels (the left pane's canvas box), as PNG data
 const rectL = () => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; })()`);
 const pic = async () => { const r = await rectL(); const s = await send('Page.captureScreenshot', { format: 'png', clip: { x: r.x, y: r.y, width: r.w, height: r.h, scale: 1 } }); return PNG(Buffer.from(s.data, 'base64')); };
+const W = (re, im, side = 'L') => ev(`__cmwW2S('${side}', ${re}, ${im})`);   // (page pixels)
 const W2P = (re, im) => ev(`(() => { const p = __cmwW2S('L', ${re}, ${im}), r = document.getElementById('canvasL').getBoundingClientRect(); return [p[0] - r.left, p[1] - r.top]; })()`);
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const isGrey = (c) => Math.abs(c[0] - c[1]) < 14 && Math.abs(c[1] - c[2]) < 14;
@@ -94,6 +95,28 @@ ok('A2 (and the caption data says numeric)', (await ev(`Export.figCapParts().cau
 await open(CIRCLE, custom('\\frac{1}{z-1}'));
 const A5 = await optsText();
 ok('A2 a pole on the curve: the note says the integral is not defined', /not defined/.test(A5.text), A5);
+
+// ---- A3: a drag of the curve keeps the last plan's poles (no search, no check per frame) and is checked in full at rest
+{
+  await open(CIRCLE, custom('z+\\frac{1}{z}'));
+  const r0 = await ev('__cmwCauchy()');
+  ok('A3 before the drag the plan is the full one', r0 && r0.formula && !r0.fast, r0);
+  const a0 = 40 * Math.PI / 180, p0 = await W(Math.cos(a0), Math.sin(a0));
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p0[0], y: p0[1] });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p0[0], y: p0[1], button: 'left', buttons: 1, clickCount: 1 });
+  const during = [];
+  for (let i = 1; i <= 8; i++) {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p0[0] + 4 * i, y: p0[1] + 2 * i, button: 'left', buttons: 1 });
+    await sleep(60);
+    during.push(await ev('__cmwCauchy()'));
+  }
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p0[0] + 32, y: p0[1] + 16, button: 'left', buttons: 0, clickCount: 1 });
+  info.A3_during = during.map((d) => d && [d.formula, d.fast]);
+  ok('A3 during the drag the plan comes from the fast path, the formula holding', during.some((d) => d && d.formula && d.fast), info.A3_during);
+  await sleep(1200);
+  const rest = await ev('__cmwCauchy()');
+  ok('A3 at rest the plan is the full one again, with the same pole', rest && rest.formula && !rest.fast && rest.poles.length === 1 && Math.abs(rest.poles[0].z[0]) < 1e-9, rest);
+}
 
 // ---- B: a hand-drawn curve
 await open(CURVE, []);

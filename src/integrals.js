@@ -547,6 +547,8 @@ const Integrals = (() => {
     if (!s && list.length > 1) { toast(touchUI() ? $t('Pick a curve to integrate along: hold a finger on it, then choose Integrate.') : $t('Pick a curve to integrate along: select it, or right-click it.')); return null; }
     return integrateShape(list[0].id);
   }
+  // what the last full plan found (see cauchyPlot): the shape, the F it was for, its memo, a pending full check
+  const planMemo = { shape: null, fk: '', memo: null, force: false, t: 0 };
   function cauchyPlot() {
     if (!hasCalc('cauchyNodes')) return null;
     const geom = integralGeom();
@@ -567,10 +569,24 @@ const Integrals = (() => {
     for (const p of parts) { nodes.set(p, o); o += p.length; }
     // (#235) the residue theorem's data, when it holds: the poles inside, their principal parts and the winding numbers,
     // checked against the quadrature at a few points (Calc.cauchyPlan); else the nodes above draw. At most 16 poles of
-    // order 4, which the shader's uniforms hold
+    // order 4, which the shader's uniforms hold. The search and the check cost 10 to 150 ms, so a curve dragged or an F
+    // changed a little (a slider) keeps the last plan's poles, counts the winding numbers again, follows the poles by
+    // Newton's method (Calc.cauchyPlanFast, cauchyTrack) and is checked in full 300 ms after the last change
     let plan = null;
     if (n && hasCalc('cauchyPlan')) {
-      try { plan = Calc.cauchyPlan(F, { loops: g.comps.map((c) => c.flat) }); } catch (e) { plan = { ok: false, why: 'unverified' }; }
+      const fk = A.chainSig[nSteps()] + '|' + A.S.focus, loops = { loops: g.comps.map((c) => c.flat) }, pm = planMemo;
+      try {
+        if (!pm.force && pm.shape === g.s.id && pm.memo && hasCalc('cauchyPlanFast')) {
+          const memo = pm.fk === fk ? pm.memo : Calc.cauchyTrack(F, pm.memo);
+          plan = memo ? Calc.cauchyPlanFast(F, loops, memo) : null;
+          if (plan) { pm.memo = memo; pm.fk = fk; }
+        }
+        if (!plan) { plan = Calc.cauchyPlan(F, loops); pm.shape = g.s.id; pm.fk = fk; pm.memo = plan.memo || null; pm.force = false; clearTimeout(pm.t); pm.t = 0; }
+      } catch (e) { plan = { ok: false, why: 'unverified' }; pm.memo = null; }
+      if (plan.fast) {
+        clearTimeout(pm.t);
+        pm.t = setTimeout(() => { pm.t = 0; pm.force = true; cauchyCache.key = ''; A.requestRender('L'); }, 300);
+      }
       if (plan.ok && (plan.poles.length > 16 || plan.poles.some((q) => q.order > 4))) plan = { ok: false, why: 'tooMany' };
     }
     cauchyCache.key = key; cauchyCache.val = n ? { nodes, n, name: g.name, plan, edgesAt: new Map() } : null;

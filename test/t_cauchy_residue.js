@@ -150,5 +150,49 @@ agree('exp z (entire)', (z) => CX.exp(z), circle(C(0.3, 0.2), 1.4, 64), []);
   check('simplifyLoop: the winding number of every point 3 tol from the curve is the same', wrong === 0 && tested > 1000, `${wrong} of ${tested}`);
   check('simplifyLoop: a short polygon and tol 0 are returned as they are', Calc.simplifyLoop([C(0, 0), C(1, 0), C(1, 1)], 0.1).length === 3 && Calc.simplifyLoop(wob, 0).length === 1200);
 }
+// ---- (e) the fast path: the same plan for a moved curve or a slightly changed F, without the search and the check
+{
+  const F = (z) => CX.add(inv(sub(z, C(0.3, 0.1))), CX.mul(C(2, 0), inv(sub(z, C(-0.4, 0.2)))));
+  const full = Calc.cauchyPlan(F, circle(C(0, 0), 1, 128));
+  check('(e) the full plan has its memo: the box, two poles with their principal parts', full.ok && full.memo && full.memo.verdict === 'ok' && full.memo.all.length === 2, full.why);
+  // the curve moves (a drag) and grows: the fast plan equals a full one
+  let worst = 0, cnt = 0;
+  for (const [c, r] of [[C(0.1, 0), 1], [C(-0.2, 0.1), 1.1], [C(0.15, -0.1), 0.9], [C(0.3, 0.1), 0.12]]) {
+    const ring = circle(c, r, 128), fast = Calc.cauchyPlanFast(F, ring, full.memo), slow = Calc.cauchyPlan(F, ring);
+    if (!fast || !fast.ok) { worst = Infinity; continue; }
+    for (const z of [C(0.5, 0.9), C(-1.4, 0.3), C(0.05, -0.2), C(2, 2)]) {
+      if (distToRing(ring, z) < 0.05) continue;
+      cnt++; worst = Math.max(worst, CX.abs(sub(Calc.cauchyValue(F, fast, z), Calc.cauchyValue(F, slow, z))));
+    }
+    check(`(e) a curve moved to ${c.re},${c.im} r=${r}: the poles inside are the same as in the full plan`, JSON.stringify(fast.poles.map((q) => [q.z.re, q.z.im, q.n]).sort()) === JSON.stringify(slow.poles.map((q) => [q.z.re, q.z.im, q.n]).sort()), [fast.poles.length, slow.poles.length]);
+  }
+  check(`(e) the fast plan's Φ equals the full plan's at ${cnt} points (worst ${worst.toExponential(1)})`, cnt > 8 && worst < 1e-12, worst);
+  // out of the box: null (the caller plans in full)
+  check('(e) a curve that leaves the memo\'s box gets no fast plan', Calc.cauchyPlanFast(F, circle(C(0, 0), 3, 64), full.memo) === null);
+  // a curve dragged over a pole of the memo: on the curve
+  const onP = Calc.cauchyPlanFast(F, circle(C(0.3 - 0.5, 0.1), 0.5, 128, 0), full.memo);
+  check('(e) a curve passing through a pole is "onCurve" (the pole at 0.3 + 0.1i is the circle\'s point at angle 0)', onP && !onP.ok && onP.why === 'onCurve', onP);
+  // F changes a little (a slider): the poles are followed
+  const G = (z) => CX.add(inv(sub(z, C(0.32, 0.11))), CX.mul(C(2, 0), inv(sub(z, C(-0.43, 0.17)))));
+  const memoG = Calc.cauchyTrack(G, full.memo), ring = circle(C(0, 0), 1, 128), fastG = memoG && Calc.cauchyPlanFast(G, ring, memoG), slowG = Calc.cauchyPlan(G, ring);
+  check('(e) the tracked poles are the moved ones', !!memoG && memoG.all.some((q) => Math.abs(q.z.re - 0.32) < 1e-9 && Math.abs(q.z.im - 0.11) < 1e-9) && memoG.all.some((q) => Math.abs(q.z.re + 0.43) < 1e-9 && Math.abs(q.z.im - 0.17) < 1e-9), memoG && memoG.all.map((q) => [q.z.re, q.z.im]));
+  check('(e) the tracked plan equals the full one for the new F', !!fastG && fastG.ok && CX.abs(sub(Calc.cauchyValue(G, fastG, C(0.7, 0.8)), Calc.cauchyValue(G, slowG, C(0.7, 0.8)))) < 1e-12);
+  // a pole that moved far or vanished: the track gives up
+  const H = (z) => inv(sub(z, C(0.9, 0.9)));
+  check('(e) a pole that jumped far: no track (the caller plans in full)', Calc.cauchyTrack(H, full.memo) === null);
+  // unverified F stays unverified on the fast path (no search, no check)
+  const E = (z) => CX.exp(inv(z)), ue = Calc.cauchyPlan(E, circle(C(0, 0), 1, 64));
+  const fe = Calc.cauchyPlanFast(E, circle(C(0.05, 0), 1, 64), ue.memo);
+  check('(e) e^(1/z): the full plan is unverified and its memo keeps that', !ue.ok && ue.memo && ue.memo.verdict === 'unverified' && !!fe && !fe.ok && fe.why === 'unverified' && fe.fast === true, fe);
+  // speed: the fast plan of a 600-gon and 8 poles is a few milliseconds
+  const ps = Array.from({ length: 8 }, (_, k) => C(0.5 * Math.cos(k), 0.5 * Math.sin(k)));
+  const F8 = (z) => ps.reduce((a, p, k) => CX.add(a, CX.div(C(k + 1, 0), sub(z, p))), C(0, 0));
+  const big = circle(C(0, 0), 1, 600), m8 = Calc.cauchyPlan(F8, big).memo;
+  const t0 = process.hrtime.bigint();
+  for (let i = 0; i < 20; i++) Calc.cauchyPlanFast(F8, circle(C(0.01 * i, 0), 1, 600), m8);
+  const msPer = Number(process.hrtime.bigint() - t0) / 1e6 / 20;
+  check(`(e) the fast plan of a 600-gon with 8 poles takes ${msPer.toFixed(2)} ms (under 3)`, msPer < 3, msPer);
+}
+function distToRing(ring, z) { let d = Infinity; for (const p of ring) d = Math.min(d, Math.hypot(p.re - z.re, p.im - z.im)); return d; }
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
