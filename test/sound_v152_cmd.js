@@ -201,8 +201,13 @@ await ev(`Sound.set({ sonify: true }); 1`);
     const [x0, y0] = P(a0);
     for (let k = 0; k < 90; k++) { const t = k / 60; await T('touchMove', [[x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)]]); await sleep(16); }
     const held = await ev('__hearCount()');
+    // (v16.5: the probe is roped 5 px behind the finger; when the finger lifts it jumps onto the finger's point, so the
+    // lap's last crossings, its D among them, sound at the lift. The finger is back at the lap's end, then lifts: the
+    // lap's count is its stroke's and the lift's, the hold's tremor counted apart)
+    await T('touchMove', [P(a0)]); await sleep(16);
     await T('touchEnd', []); await sleep(300);
-    return { up: h.up, down: h.down, notes: h.notes, merged: h.merged, held: held.notes };
+    const lift = await ev('__hearCount()');
+    return { up: h.up + lift.up, down: h.down + lift.down, notes: h.notes + lift.notes, merged: h.merged + lift.merged, held: held.notes, lift };
   };
   R.touchLaps = {};
   // (v16.5: a lap of z crosses the 12 colour lines once, the red one, its D, last: 11 or 12 notes, the probe roped 5 px

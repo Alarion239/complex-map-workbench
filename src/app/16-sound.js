@@ -24,8 +24,9 @@
     spd: 0, cv: { key: '', W: null, bad: null, idle: 0, on: false, hushed: false }, listenN: 0,
     // Hear the function (notes/sound/AS-BUILT, Sound.hear): rope, the roped point {x, y, src} in its pane's CSS px (3 px
     // behind a mouse or pen, 5 px behind a finger; null when let go); lastSrc, the probe's last source (a change is a
-    // stroke start); ptype, the last pointer's type on a plane
-    rope: null, lastSrc: '', ptype: '',
+    // stroke start); ptype, the last pointer's type on a plane; hand, the hand's own last point {x, y, z, src}, where a
+    // lifted finger seats the probe (sndLift)
+    rope: null, hand: null, lastSrc: '', ptype: '',
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
@@ -68,6 +69,7 @@
   function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
+  function sndLift(...args) { return SH.sndLift(...args); }
   function sndHoverOff(...args) { return SH.sndHoverOff(...args); }
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }
   function sndRelayout(...args) { return SH.sndRelayout(...args); }

@@ -293,6 +293,7 @@ const SoundHooks = (() => {
     // the hand only once it is ρ px away, then ρ px behind it (ρ 3 px, 5 px for touch), so a resting hand's tremor
     // moves nothing. It feeds only the stream; the readouts, the order cues and the query keep the hand's own z
     let zr = z, xr = x;
+    snd.hand = src !== 'key' ? { x, y, z, src } : null;
     if (sndHear() && src !== 'key') {
       const rho = snd.ptype === 'touch' ? 5 : 3;
       let rp = snd.rope;
@@ -304,6 +305,16 @@ const SoundHooks = (() => {
       if (rp.x !== x || rp.y !== y) { const q = sndPickAt(src, rp.x, rp.y); if (q) { zr = q; xr = rp.x; } else { snd.rope = { x, y, src }; } }
     }
     sndHover(zr, xr, src, false, z);
+  }
+  // A finger lifts (the touch probe's release, before its stroke ends): the probe, roped 5 px behind, jumps once onto
+  // the finger's last point, so the crossings it had not reached sound, as a pointer's do. A lap round a zero that
+  // ends where it began sounds its D at the end (v15.2.1 verify-1). Only on the lift: a held finger keeps the rope, so
+  // its tremor moves nothing
+  function sndLift() {
+    const h = snd.hand, rp = snd.rope;
+    if (!h || !rp || rp.src !== h.src || (rp.x === h.x && rp.y === h.y) || !sndHear()) return;
+    snd.rope = { x: h.x, y: h.y, src: h.src };
+    sndHover(h.z, h.x, h.src, false, h.z);
   }
   // the point of the probe's plane at CSS px (x, y) of its pane, by the pane's own picker (as sndRepick)
   function sndPickAt(src, x, y) {
@@ -1297,5 +1308,5 @@ const SoundHooks = (() => {
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (typeof Calc !== 'undefined' && !Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   }
-  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
+  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
 })();
