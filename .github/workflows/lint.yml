@@ -1,6 +1,6 @@
 # Lint and type check (issue #20, phase 1): ESLint, TypeScript's checker on the JavaScript, ruff on the Python.
 # A ratchet, not a clean slate:
-#   - ruff fails on any finding (build.py is excluded until its one finding is fixed: drop --extend-exclude then);
+#   - ruff fails on any finding;
 #   - ESLint errors and tsc errors fail the job when they grow beyond ci/lint_baseline.json. The baseline is the count
 #     the tools report today; it may only shrink: when a PR fixes findings the step says so, and that PR lowers the
 #     numbers (node ci/lint_ratchet.js update eslint.json tsc.txt). ESLint warnings are listed but not gated.
@@ -68,7 +68,7 @@ jobs:
             echo '### ruff'
             echo
             echo '```'
-            ruff check --extend-exclude build.py --statistics || true
+            ruff check --statistics || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          ruff check --extend-exclude build.py --output-format github
+          ruff check --output-format github
