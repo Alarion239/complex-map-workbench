@@ -113,6 +113,15 @@ const msg = await ev(`Params.set('a', 'a')`);
 ok('a refused self reference', /depend on itself/.test(msg), msg);
 const e2 = await ev(`(()=>{ try { Params.evalReal('a'); return ''; } catch (e) { return e.message; } })()`);
 ok('a real-only field names the complex number', /a is complex: use Re a, Im a or \|a\|/.test(e2), e2);
+// a bound region formula that reads a complex number as a real says so and is not drawn (it would read Re a silently)
+await load(NS + 'u', { shapes: [{ id: 'f1', kind: 'formula', expr: 'Re z < 0.5', bind: { expr: 'Re z < a' }, ci: 0, visible: true }], steps: [], params: [{ name: 'a', value: 0.5, im: 0.3, min: -2, max: 2, step: 0.01 }], srcView: { cx: 0, cy: 0, s: 110 }, v5: true, v6: true });
+await settle(1000);
+s = await P();
+const f1 = s.shapes.find((x) => x.id === 'f1');
+ok('a comparison with a complex number is undefined, with the hint', !!f1 && /a is complex: use Re a, Im a or \|a\|/.test(f1.undef || ''), f1);
+await ev(`Params.set('a', 0.25)`);
+await settle(500);
+ok('and it is drawn again once a is real', !(await P()).shapes.find((x) => x.id === 'f1').undef, (await P()).shapes);
 await grab();
 ok('no exceptions', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };

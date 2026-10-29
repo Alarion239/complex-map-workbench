@@ -40,7 +40,7 @@
     for (const [key, src] of Object.entries(s.bind)) {
       const touched = !names || Params.namesIn(src).some((n) => names.has(n));
       try {
-        if (key === 'expr') { if (!touched) continue; const r = Params.resolve(src); if (r !== s.expr) { s.expr = r; ch = true; } continue; }
+        if (key === 'expr') { if (!touched) continue; Expr.checkRealSides(Expr.parse(src, { allowRel: true })); const r = Params.resolve(src); if (r !== s.expr) { s.expr = r; ch = true; } continue; }
         if (Array.isArray(s[key])) {
           const v = Expr.constValue(src);
           if (!CX.isFin(v)) { bad = bad || $t('{x} has no value here', { x: src }); continue; }
