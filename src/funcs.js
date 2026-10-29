@@ -1593,6 +1593,8 @@ const Funcs = (() => {
       const f = Expr.compile(ast, { theta: th });
       // a formula that is undefined at every generic point (z/0, log 0, ...) is an error, not a map
       const probes = [C(0.37, -0.81), C(-1.3, 0.6), C(2.1, 1.7), C(-0.45, -2.2), C(0.9, 0.05)];
+      // ([issue #242] and inside the half-plane where a Dirichlet series converges, which may lie right of them all)
+      if (Expr.hasSeries(ast)) for (const x of Expr.seriesInfo(ast)) if (x.kind === 'dirichlet' && Number.isFinite(x.sigma)) probes.push(C(x.sigma + 2, 0.3), C(x.sigma + 6, 0.3));
       // (a recurrence whose orbits escape is ∞ there, not undefined)
       if (!probes.some((p) => CX.isFin(f(p))) && !Expr.hasIter(ast)) throw new Error($t('The formula is undefined for every z (check for a division by zero or a logarithm of 0)'));
       const cls = Expr.classify(ast);
@@ -1643,7 +1645,11 @@ const Funcs = (() => {
         const parts = [];
         r.cuts = [];
         for (const x of si) {
-          if (x.kind === 'dirichlet') { r.cuts.push({ kind: 'vline', x: x.sigma }); parts.push((v) => `\\operatorname{Re} ${v}>\\sigma\\approx ${fx(x.sigma)}`); continue; }
+          // ([issue #242] σ exact for coefficients periodic times a power of n, else estimated from them, and said so)
+          if (x.kind === 'dirichlet') {
+            if (Number.isFinite(x.sigma)) { r.cuts.push({ kind: 'vline', x: x.sigma }); parts.push((v) => `\\operatorname{Re} ${v}>\\sigma${x.est ? '\\approx' : '='} ${fx(x.sigma)}${x.est ? $t('\\ \\text{(estimated from the coefficients)}') : ''}`); }
+            continue;
+          }
           const R = Number.isFinite(x.R) ? x.R : null, rr = x.r > 0 ? x.r : null;
           if (R) r.cuts.push({ kind: 'circle', c: x.c, r: R });
           if (rr) r.cuts.push({ kind: 'circle', c: x.c, r: rr });
@@ -1678,7 +1684,14 @@ const Funcs = (() => {
     ],
     build({ kind, an, c }) {
       if (!String(an || '').trim()) throw new Error($t('Write the coefficients a_n as a formula in n'));
-      const r = DEFS.custom.build({ expr: seriesExpr(kind, an, kind === 'dirichlet' ? null : c), cut: 180 });
+      const expr = seriesExpr(kind, an, kind === 'dirichlet' ? null : c);
+      let r;
+      // ([issue #242] a failure said in the series' own terms: a coefficient undefined at some n, or a Dirichlet series
+      // whose rest cannot be bounded where the probes look)
+      try { r = DEFS.custom.build({ expr, cut: 180 }); } catch (e) {
+        const x = Expr.seriesInfo(Expr.parse(expr))[0] || {};
+        throw x.bad != null ? new Error($t('The coefficient a_n is undefined at n = {n}', { n: x.bad })) : x.est ? new Error($t('This Dirichlet series converges too slowly to sum: a_n is not a periodic sequence times a power of n')) : e;
+      }
       if (!Expr.seriesInfo(r.ast).length) throw new Error($t('The coefficients a_n must not depend on z'));
       r.usesCut = false;
       r.inverse = null;
