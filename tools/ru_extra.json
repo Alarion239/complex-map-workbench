@@ -50,6 +50,7 @@
  "lg (the base-10 logarithm) is not available: write ln(z)/ln(10)": "Десятичного логарифма lg здесь нет: пишите ln(z)/ln(10)",
  "Use a decimal point: 0.5, not 0,5 (a comma separates conditions)": "Дробную часть отделяйте точкой: 0.5, а не 0,5 (запятая разделяет условия)",
  "\\text{grid } %{x}\\times%{y}": "\\text{сетка } %{x}\\times%{y}",
+ "style\u0004Cauchy": "Коши",
  "tool\u0004Circle": "Окруж­ность",
  "tool\u0004Rectangle": "Прямо­угольник",
  "tool\u0004Polygon": "Много­угольник",
