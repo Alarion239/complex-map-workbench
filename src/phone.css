@@ -141,7 +141,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-cchip > .ph-cf { font: italic 500 16px/18px var(--f-math); white-space: nowrap; }
 .ph-cchip > .ph-cf svg { width: 16px; height: 16px; vertical-align: -3px; }
 .ph-cchip > .ph-cn { max-width: 100%; font: 500 11px/13px var(--f-ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ph-cchip > .ph-cn:empty { display: none; }
+.ph-cchip > .ph-cn:empty, .ph-cchip > .ph-cn[hidden] { display: none; }
 .ph-crow > .ph-csteps { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; padding: 0 6px 0 8px; font: 500 12px/14px var(--f-ui); white-space: nowrap; }
 .ph-csteps > .ph-chev { display: grid; color: var(--muted); }
 .ph-csteps > .ph-chev svg { width: 14px; height: 14px; }

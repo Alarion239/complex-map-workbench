@@ -687,6 +687,15 @@ const Phone = (() => {
     els.cprev.disabled = !c.prev; els.cnext.disabled = !c.next;
     els.csteps.querySelector('.ph-cc').textContent = $tn('{n} step', '{n} steps', c.n);
     els.csteps.setAttribute('aria-label', $t('Function chain') + ', ' + $tn('{n} step', '{n} steps', c.n));
+    fitChip();
+  }
+  // (the step's name gives way when the chip has no room for it, Russian at 360 px: f₂ alone, never a cut word; the
+  // name stays the chip's accessible name and the chain sheet's row)
+  function fitChip() {
+    const cn = els.cchip && els.cchip.querySelector('.ph-cn');
+    if (!cn) return;
+    cn.hidden = false;
+    if (cn.clientWidth > 0 && cn.scrollWidth > cn.clientWidth + 1) cn.hidden = true;
   }
   // a step's row dragged by its grip, up or down the sheet: the rows it passes make room, and the drop moves the step
   // (a touch screen has no drag and drop; the laptop's cards keep theirs)
@@ -943,7 +952,7 @@ const Phone = (() => {
     els.title || void 0;
     const mq = [matchMedia(MQP), matchMedia(MQL)];
     for (const m of mq) m.addEventListener('change', sync);
-    window.addEventListener('resize', () => { if (on && kind) geometry(); });
+    window.addEventListener('resize', () => { if (on && kind) geometry(); if (on) fitChip(); });
     sync();
     backInit();
   }

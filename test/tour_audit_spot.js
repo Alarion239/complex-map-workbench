@@ -257,7 +257,7 @@ const SPOT = String.raw`(() => {
     // (#246: on a phone the card and the Add tile are rows of the chain sheet; while it is closed, the step lights the
     // chain bar's "N steps ▾" that opens it)
     'basics/chain': () => q1('#pipeline .card[data-k="1"]') || q1('.ph-csteps'), 'basics/add': () => q1('#addStepBtn') || q1('.ph-csteps'),
-    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)'),
+    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
     'views/patterns': () => q1('#patternSeg .pat[data-pat="stretch"]'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
     'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
