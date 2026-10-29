@@ -448,9 +448,12 @@ const Tour = (() => {
     soundBtn: '#soundBtn', soundBar: '#soundPh',
     // the Phase style control of the Phase view's options (Tiles, Plain, …, Cauchy)
     phaseStyle: '#dcSeg',
-    phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c ? c.closest('label') || c : null; },
-    // Y's Display options button (#247: the head's ⋯), where the Phase key goes when Y's head has no room for it
-    rightOpts: '#rightFoot .opts-btn:not(.pat-btn)',
+    // (#247: Y's Phase key is in its head, or behind its ⋯, or, when the head holds no toggle, in the pattern button's
+    // pop-up above the patterns: the check while it is in the page, else the button that holds it)
+    phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c && document.body.contains(c) ? c.closest('label') || c : yOpts(); },
+    // Y's Display options button (#247: the head's ⋯, or the pattern button when the toggles are merged into its pop-up),
+    // where the Phase key goes when Y's head has no room for it
+    rightOpts: () => yOpts(),
     // (v16.5 UX20) X's Display options button (#247: the head's ⋯, when the Phase style or Landscape's options do not fit
     // the head); INTEGRATION.md: the fallback of phaseStyle
     leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
@@ -479,6 +482,8 @@ const Tour = (() => {
   };
   // the first visible match of a selector (a control that has a copy elsewhere, hidden in this layout)
   function vis1(sel) { for (const e of document.querySelectorAll(sel)) if (visible(e)) return e; return null; }
+  // Y's display options: its ⋯ button, or the pattern button when the toggles are merged into the patterns' pop-up (#247)
+  function yOpts() { return document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn'); }
   const phoneLayout = () => document.documentElement.classList.contains('ph');
   function toolBtn(id) {
     const q = `[data-tool="${id}"]`;
