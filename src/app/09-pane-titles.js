@@ -407,9 +407,10 @@
     }
     // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
     const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (v16.5 UX20: from the pane head, the popover hangs under the button, its right edge on the button's)
-    const fromHead = !!btn.closest('.pane-head');
-    const x0 = fromHead ? r.right - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
+    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the pattern
+    // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
+    const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
+    const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
     let y = fromHead ? -1 : r.top - ph - 6;
     if (y < 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, r.bottom + 6));
     pop.dataset.side = y < r.top ? 'top' : 'bottom';
