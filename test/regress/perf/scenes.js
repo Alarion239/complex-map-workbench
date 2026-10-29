@@ -30,6 +30,25 @@ const SCENES = {
     },
   },
   // a 4-step chain with a pole, a branch cut and a power (fix-ups on the CPU)
+  // [#253] shapes of planes 1, 2 and 3 of a 3-step chain beside one of the z-plane: X (the z-plane) pulls each
+  // back per pixel through its steps (O(n²) step evaluations a pixel over the planes), Y draws them forward
+  stages3: {
+    label: 'shapes in planes 1-3 of z^2 -> +1 -> exp (preimages pulled back in X)',
+    state: {
+      shapes: [
+        { id: 's1', kind: 'disc', c: [0.2, 0.1], r: 0.5 },
+        { id: 's2', kind: 'disc', c: [1, 0.5], r: 0.6, stage: 1 },
+        { id: 's3', kind: 'halfplane', a: [1.5, 0], b: [1.5, 1], stage: 2 },
+        { id: 's4', kind: 'annulus', c: [0, 0], r1: 2, r2: 5, stage: 3 },
+      ],
+      steps: [
+        { type: 'pown', params: { n: 2 }, on: true },
+        { type: 'add', params: { c: '1' }, on: true },
+        { type: 'exp', params: {}, on: true },
+      ],
+      srcView: { cx: 0, cy: 0, s: 110 },
+    },
+  },
   chain4: {
     label: '4-step chain (translate, square, Cayley, log)',
     state: {
