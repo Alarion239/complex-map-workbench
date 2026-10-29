@@ -112,8 +112,11 @@ no other):
 | a push to `main`, the nightly GPU gate, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate's Windows laptop runs the same tiers. **A release tag** needs a green run of every chain (`all`) on the
-commit's `main`, on both systems: the push to `main` or the nightly run, or one by hand.
+The GPU gate's Windows laptop compiles on one core (FXC): the glsl page alone took over 170 minutes a side there on
+the nightly run of 2026-10-29, which its job's limit cut off. So it runs the core tier in one job on a pull request and
+on a push to `main`, and every chain on the nightly run and a run by hand, in ten jobs: the glsl page in eighths
+(`--part i/8`), adv and inverse whole. **A release tag** needs a green run of every chain (`all`) on the commit's
+`main`, on both systems: the nightly run or one by hand (and, on GitHub's machines, the Gate's push to `main`).
 
 `ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
 minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's

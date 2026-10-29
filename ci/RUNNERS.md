@@ -192,7 +192,9 @@ The first run builds two copies of the app and runs every shard on both machines
 minutes, so the whole gate takes roughly one to two hours per machine; the two machines work in parallel.
 The Windows laptop's GLSL job is the exception the first time: Direct3D 11 compiles every shader program on the CPU
 (the glsl page alone takes hours a side; one program took 12 minutes), where the Mac takes 7 minutes for all three
-pages. The first runs may hit the job's 240 minutes; each keeps what it compiled in the shader cache (section 2,
+pages. Every chain runs there only on the nightly run and by hand, in ten jobs (the glsl page in eighths, adv and
+inverse whole; ci/README.md, GLSL tiers): one job for all of it ran over 170 minutes on the glsl page's first side
+alone. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
 *Disk*), so the next goes further, and from then on only programs whose code changed compile: 1/64 of the glsl page
 took 103 s cold and 7 s warm. To warm the cache in one go, run on the laptop, in a checkout of `main` (hours; not
 while the runner has a GLSL job):
