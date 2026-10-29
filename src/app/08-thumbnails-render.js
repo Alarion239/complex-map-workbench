@@ -74,12 +74,14 @@
     cardMu.set(key, mu);
     return mu;
   }
-  function shapeOutlines(map) {
-    const out = [], mk = mapKeyOf(map);
+  function shapeOutlines(map0) {
+    const out = [];
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
+      const map = shapeMap(s, map0);   // ([#253] a later plane's shape: not in this one)
+      if (!map) continue;
       const r = shapeGPU(s);
-      if (r.lineRes) out.push({ r, res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map, cacheKey: `${r.lineKey}|${mk}` });
+      if (r.lineRes) out.push({ r, res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map, cacheKey: `${r.lineKey}|${mapKeyOf(map)}` });
     }
     return out;
   }
@@ -91,7 +93,7 @@
     if (S.outline) {
       const map = stageMap(0);
       for (const o of shapeOutlines(map)) {
-        const dash = o.r.open ? { dash: [5, 3.5], arc: arcOf(o.r, stageF(0), mapKeyOf(map)) } : null;
+        const dash = o.r.open ? { dash: [5, 3.5], arc: arcOf(o.r, stageF(0), mapKeyOf(o.map)) } : null;
         GLR.drawLines(o.res, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 2.4 * pane.dpr }, cacheKey: o.cacheKey }, dash));
       }
     }
@@ -182,7 +184,7 @@
       if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
-      drawPoints(pane, stageF(k), { thin: true });
+      drawPoints(pane, stageF(k), { thin: true, k });
       // (step k + 1's cuts show on card k only while step k + 1 is selected: a card never shows a later step's marks)
       if (selOf() === k + 1) drawCuts(pane, k, false, true);
       if (!S.shapes.some((x) => x.visible !== false)) {
@@ -524,9 +526,9 @@
       const end = S.focus > 0 ? S.focus : nSteps();
       const m = morphLen();
       const xs = [], ys = [], bx = [], by = [];
-      stageSamples(stageF(end), xs, ys);
+      stageSamples(stageF(end), xs, ys, end);
       if (withT && morph.T > 0 && morph.T < m) stageSamples(morphAt(morph.T), xs, ys);
-      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by);   // (v16: the bracket's start)
+      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by, homRangeOk() ? undefined : base);   // (v16: the bracket's start)
       const U = robustBox(xs, ys), B = robustBox(bx, by);
       const area = (b) => (b.x1 - b.x0) * (b.y1 - b.y0);
       if (U && B && area(B) > 9 * Math.max(area(U), 1e-12)) {
@@ -551,7 +553,7 @@
   const yieldFit = () => (typeof scheduler !== 'undefined' && scheduler && typeof scheduler.yield === 'function' ? scheduler.yield() : yieldTask());
   async function fitRightSliced() {
     const token = ++fitJob.token, k = rightStage(), sig = chainSig[k];
-    const xs = [], ys = [], it = stageSampler(stageF(k), xs, ys);
+    const xs = [], ys = [], it = stageSampler(stageF(k), xs, ys, k);
     let t0 = performance.now(), ms = 0;
     for (let r = it.next(); !r.done; r = it.next()) {
       if (performance.now() - t0 < FIT_SLICE) continue;
@@ -574,7 +576,7 @@
     else if (hasTargets()) {
       // the image of the domain and the w-plane targets
       const xs = [], ys = [];
-      stageSamples(stageF(rightStage()), xs, ys);
+      stageSamples(stageF(rightStage()), xs, ys, rightStage());
       for (const s of S.targets) {
         if (s.visible === false) continue;
         let b = null;
