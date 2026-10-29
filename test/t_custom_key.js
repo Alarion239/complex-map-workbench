@@ -68,7 +68,8 @@ const EDITS = [
   ['2\\sin(z)+z', '3\\sin(z)+z', true],
   ['\\sin(z)+1', '\\sin(z)+2.5', true],
   ['\\sin(z)+1', '\\sin(z)+i', true],
-  ['\\exp(z)+0', '\\exp(z)+1', true],
+  // (not exp(z)+0: the page's Recognize folds it to exp, another program; this checks a changed number, not the folding)
+  ['\\exp(z)+0.5', '\\exp(z)+1', true],
   ['z^{0.5}+\\cos(z)', 'z^{0.6}+\\cos(z)', true],
   ['z^{0.5}+z^{1/3}+z^{-3}', 'z^{0.25}+z^{1/3}+z^{-3}', true],
   ['\\sin(z)^{2i}+z^{-2}', '\\sin(z)^{3i}+z^{-2}', true],
