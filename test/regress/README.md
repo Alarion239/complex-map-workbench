@@ -301,6 +301,17 @@ Names are `<unit>.<scenario>.<metric>`; e.g. `image.logUHP.m240.zoomR.in.settle_
 | limit | new > the metric's `limit`, or null although `expect` is set (absolute: also while NEW) | – |
 | info | never | – (the change is printed with `--all`) |
 | (the relative kinds, not in the baseline) | never: reported as `NEW` with its value | – |
+| (a paired run whose reference cannot run the unit, #292) | never: reported as `NEW` with the reason | – |
+
+**A unit the reference cannot run (#292).** In a paired run (`run.js --ab`, `ci/perf_shard.js`) every scene a unit
+opens records what it built and drew once settled: the steps' errors, and the shapes with a mesh or lines. When the
+reference fails where the current build succeeds (a step that errs only there, a shape that draws only here, an
+exception only it threw, or the unit itself failed only there), the reference lacks the feature the unit measures
+(`phase.mandel` against wave 5, whose parser has no `iter()`: an empty plane). Its metrics then carry
+`ref_unsupported` with the reason, and `compare_perf.py` reports the unit's metrics as `NEW`, not compared; the summary
+lists such units with the reason, and the absolute kinds still hold. `--table` prints every metric, reference →
+this change and its verdict, one line each (the GPU gate passes it to `ci/perf_shard.js`, so the job log carries the
+numbers without the artifact).
 
 **Noise envelope.** The baseline is the per-metric median of 3 full runs and keeps every run's value (`runs`).
 For the timing and memory kinds the limit is never tighter than *the worst of those runs × 1.05* (the unchanged code
