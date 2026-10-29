@@ -2,8 +2,8 @@
 // renders every cue of Sound.CATALOG offline (OfflineAudioContext, through its panner, as in use, at 100 % volume)
 // and measures it: LUFS-M (BS.1770 K-weighting, the loudest 400 ms), the same through a phone-speaker model (a 4th-order
 // high-pass at 550 Hz), the peak, the onset and the last sample before the source stops, and the energy above 14 kHz;
-// then (v15.2) the harp's note and run, the singer's release note (curves sing), and the Height voice at contour levels
-// −7, 0, 8. window.__sndLab() → { rows, voices }.
+// then Hear the function's marimba note and a stream of notes, the singer's release note (curves sing), and the
+// Glide's held voice. window.__sndLab() → { rows, voices }.
 (() => {
   const TAU = 2 * Math.PI;
   function fft(re, im) {
@@ -73,14 +73,17 @@
       }
     }
     const voices = {};
-    // the harp (v15.2): one note E at velocity 0.7 and |F| = 1, the D with its accent, and a run of 10 notes a second
-    // (each string is a new pluck, ±1 dB: the lab plays a fixed seed; harpNote's second argument is semitones above D
-    // since notes/sea-song/r2, so note(2) is E, as this comment says, and note(0) is D; before, it was an index into
-    // [0, 2, 4, 7, 9] and note(2) played F♯)
-    const note = async (j) => { Sound.seed(1); return Sound.render((G, t) => { Sound.harpNote(G, j, 0.7, t, 0, 1, false, 0, 'sonify'); }, 2.6, { noClip: true }); };
-    const hn = await note(2), hd = await note(0), ha = analyse(hn, 0.01, 2.55);
-    const run = await Sound.render((G, t) => { const st = Sound.Harp(); Sound.harpStep(st, null, t, 0.03, {}); for (let i = 1; i <= 150; i++) Sound.harpStep(st, G, t + (i - 1) * 0.016, 0.03 + 2 * 0.016 * i, { ln: 0, dt: 0.016 }); }, 3.6, { noClip: true });
-    voices.harp = { note: +lufsM(hn, false).toFixed(2), d: +lufsM(hd, false).toFixed(2), loss: +(lufsM(hn, false) - lufsM(hn, true)).toFixed(2), run: +lufsM(run, false).toFixed(2), first: +ha.first.toFixed(3), end: ha.end, peak: +dB(ha.peak).toFixed(2) };
+    // Hear the function's notes (v16.5; the pointer harp is retired): one marimba note (Sound.htNote) at pitch class c
+    // (semitones above D) and the law's dB (dbV3: 0 at |F| = 1, −8 at a zero, +4 at a pole), seed fixed by the note;
+    // and a stream of rising notes, one a line, at 10 and at 5 a second, each at its crowding gain (noteGain: a stream's
+    // power is that of R0 = 5 events a second)
+    const HTL = Sound.HT;
+    const note = (c, db) => Sound.render((G, t) => { Sound.htNote(G, t, c, db, 0, 0, 'sonify', 'lab', false); }, 2.6, { noClip: true });
+    const ne = await note(2, 0), nd = await note(0, 0), nz = await note(2, HTL.law(-Infinity)), np = await note(2, HTL.law(Infinity)), na = analyse(ne, 0.01, null);
+    const stream = (rate) => Sound.render((G, t) => { for (let i = 0; i < 3 * rate; i++) Sound.htNote(G, t + i / rate, i % 12, 0, HTL.noteGain(rate), 0, 'sonify', 'lab', false); }, 3.8, { noClip: true });
+    const r10 = await stream(10), r5 = await stream(5);
+    voices.notes = { e: +lufsM(ne, false).toFixed(2), d: +lufsM(nd, false).toFixed(2), zero: +lufsM(nz, false).toFixed(2), pole: +lufsM(np, false).toFixed(2), loss: +(lufsM(ne, false) - lufsM(ne, true)).toFixed(2),
+      first: +na.first.toFixed(3), peak: +dB(na.peak).toFixed(2), run10: +lufsM(r10, false, 0.5, 2.5, true).toFixed(2), run5: +lufsM(r5, false, 0.5, 2.5, true).toFixed(2) };
     // curves sing: the release note of z − 0.6 (W = 1) and 1/(z − 0.6) (W = −1) on the unit circle; its level and its
     // loudest harmonic (n·D3, n = 1 … 8)
     const phase = (sign) => { const M = 512, ph = new Float64Array(M); let prev = 0, acc = 0; for (let j = 0; j < M; j++) { const th = 2 * Math.PI * j / M, a = sign * Math.atan2(Math.sin(th), Math.cos(th) - 0.6); if (j) { let d = a - prev; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); acc += d; } else acc = a; prev = a; ph[j] = acc / (2 * Math.PI); } return ph; };
@@ -88,10 +91,15 @@
     const s1 = await singR(1), sm1 = await singR(-1);
     const peakH = (b) => { let best = 0, bn = 0; for (let n = 1; n <= 8; n++) { const e = bandDb(b, 146.8324 * n, 0.5, 1.4); if (e > best || !bn) { best = e; bn = n; } } return bn; };
     voices.sing = { w1: +lufsM(s1, false).toFixed(2), wm1: +lufsM(sm1, false).toFixed(2), loss: +(lufsM(s1, false) - lufsM(s1, true)).toFixed(2), peak1: peakH(s1), peakm1: peakH(sm1) };
-    const hv = async (la) => Sound.render((G) => { const v = Sound.HeightVoice(G); v.set(la, 0, 0.1, 12); v.gate(true, 0.1, 0.02); v.set(la, 0, 0.2, 12); v.gate(false, 2.1, 0.05); v.stop(2.4); }, 2.5, { noClip: true, nodes: opts.nodes });
-    const H = {}, Hp = {};
-    for (const u of [-7, 0, 8]) { const b = await hv(u * TAU / 12); H[u] = lufsM(b, false, 0.4, 2.0, true); Hp[u] = lufsM(b, true, 0.4, 2.0, true); }
-    voices.height = { at0: +H[0].toFixed(2), all: [H[-7], H[0], H[8]].map((x) => +x.toFixed(2)), phoneRange: +(Math.max(Hp[-7], Hp[0], Hp[8]) - Math.min(Hp[-7], Hp[0], Hp[8])).toFixed(2) };
+    // the Glide (v16.5; the Height voice is retired: the Landscape is heard as the planes are): one held voice at
+    // |F| = 1 on D, F♯ (4 semitones above D) and B♭ (8), and on D at a zero and at a pole (the worklet's 'gl' command, as
+    // Sound.hear posts it), the integrated loudness of its hold
+    const gl = (c, ln) => Sound.render((G, t) => { G.synth.post([{ k: 'gl', at: t + 0.1, phi: c / 12, mode: 'slew', a: HTL.glideAmp(ln), b: HTL.bright(HTL.law(ln)), pan: 0, until: t + 2.0, rel: 0, fade: 0, tier: 2, tag: 'lab' }]); }, 2.6, { noClip: true });
+    const GLv = {}, GLp = {};
+    for (const c of [0, 4, 8]) { const b = await gl(c, 0); GLv[c] = lufsM(b, false, 0.5, 1.9, true); GLp[c] = lufsM(b, true, 0.5, 1.9, true); }
+    const gz = await gl(0, -Infinity), gp = await gl(0, Infinity);
+    voices.glide = { at0: +GLv[0].toFixed(2), all: [GLv[0], GLv[4], GLv[8]].map((x) => +x.toFixed(2)), phoneRange: +(Math.max(GLp[0], GLp[4], GLp[8]) - Math.min(GLp[0], GLp[4], GLp[8])).toFixed(2),
+      zero: +lufsM(gz, false, 0.5, 1.9, true).toFixed(2), pole: +lufsM(gp, false, 0.5, 1.9, true).toFixed(2) };
     return { rows, voices };
   };
 })();

@@ -61,6 +61,10 @@ const inView = () => ev(`(() => {
 })()`);
 // the playback (the function's: listenFn), X's chip and its Stop button, the live region
 const state = () => ev(`(() => { const s = __cmwSound(), c = document.getElementById('sphereChipL'); return { play: s.play, fn: s.listenFn, chip: c && !c.hidden ? c.firstChild.textContent : '', stop: !!(c && !c.hidden && c.querySelector('.chip-stop')), live: s.live }; })()`);
+// (the first preparation is the costly-F path: Listen along samples F at once when that takes under 60 ms, and on a
+// fast machine the first preparation is over before the chip is read twice. It runs with the page's CPU slowed 6×
+// (CDP), so it counts up on every machine; the frame-rate checks run at full speed)
+const slow = (on) => send('Emulation.setCPUThrottlingRate', { rate: on ? 6 : 1 });
 const frames = (ms) => ev(`await __qa.frames(${ms})`);   // (a top-level await: the daemon's replMode returns {} for a bare promise)
 // from a Listen along's start: the preparation (the chip's percentages seen) until it plays (up to maxS seconds)
 async function waitPlay(maxS = 40) {
@@ -145,6 +149,7 @@ await ev(`__cmwExample(${EXI}); 1`); await settle(1200);
 const S0 = await pxPerUnit(), DUR0 = durAt(S0);
 R.pxPerUnit = S0; R.durExpected = DUR0;
 // the circle's menu: Listen along, and no "Play the composition" (no score: the function is the music)
+await slow(true);
 let items = await listenMenu(false);
 R.menuEn = items && items.map((x) => x.text);
 ok('en: the circle menu has Listen along Circle', !!items && items.some((x) => x.id === 'listen' && x.text === 'Listen along Circle'), items);
@@ -157,6 +162,7 @@ ok('the live region says F takes a moment', /Preparing to listen along: F takes 
 await shot('desk_en_preparing');
 R.framesPrep = await frames(1500);   // (recorded: the samples are made in 12 ms slices between frames)
 let wp = await waitPlay(40);
+await slow(false);
 R.prep = { ms: wp.ms, seen: wp.seen };
 ok('the preparation counts up, then the function plays', wp.seen.length >= 2 && wp.seen.every((v, i) => !i || v >= wp.seen[i - 1]) && !!wp.s.play, R.prep);
 ok(`it plays the function: ${COUNTS.notes} notes, no repeats, ${COUNTS.cracks} cracks, 4π·s/250 s`, playsFn(wp.s, DUR0), { s: wp.s, DUR0 });
@@ -177,7 +183,12 @@ await view(1366, 768, false, false); await settle(800);
 const S1 = await pxPerUnit(), DUR1 = durAt(S1);
 items = await listenMenu(false);
 s0 = await state();
-ok('1366×768: a new preparation (another speed, new samples)', !s0.play && /^Preparing to listen along: \d+ %$/.test(s0.chip), { s0, S1 });
+// (the samples for this view: when its scale is another, the speed and the samples' key are too, and it prepares, or
+// plays at once when the new samples are ready within the sampler's first 60 ms, as they can be once F's code is
+// warm; when the scale is the same, as at 1440×900 and 1366×768 with the circle fitted to the plane's height, the kept
+// samples play at once. Either way it plays this view's duration, DUR1)
+const fresh = (s, dur) => (!s.play && /^Preparing to listen along: \d+ %$/.test(s.chip)) || playsFn(s, dur);
+ok('1366×768: this view\'s samples: it prepares, or plays DUR1 at once', fresh(s0, DUR1), { s0, S1, DUR0, DUR1 });
 let c = await curveXY(300);
 await rclick(c[0], c[1]);
 items = await menuItems();
@@ -201,7 +212,7 @@ R.kbdFocus = await ev(`(() => { const c = document.querySelector('canvas.overlay
 await settle(100);
 await key('l'); await settle(300);
 s0 = await state();
-ok('the L key starts it (preparing)', !s0.play && /^Preparing to listen along/.test(s0.chip), s0);
+ok('the L key starts it (preparing, or playing DUR1 at once)', /^Preparing to listen along/.test(s0.chip) || fresh(s0, DUR1), s0);
 wp = await waitPlay(40);
 ok('the L key plays the function', playsFn(wp.s, DUR1), { s: wp.s, DUR1 });
 await key('l'); await settle(200);
@@ -251,6 +262,8 @@ R.menuSoundOff = items && items.map((x) => x.text);   // (recorded: the item nee
 await key('Escape'); await settle(200);
 await ev(`__cmwExample(0); 1`); await settle(600);
 await key('?'); await settle(500);
+// (the button is below the guide's fold at 1440×900: brought into view, as above, so the click reaches it)
+await ev(`document.querySelector('.modal [data-play="piece"]').scrollIntoView({ block: 'center' }); 1`); await settle(300);
 await clickSel('.modal [data-play="piece"]'); await settle(900);
 const toastEn = await ev(`__qa.toasts()`);
 R.toastOff = toastEn;

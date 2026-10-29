@@ -339,11 +339,18 @@ for (const r of (lab && lab.rows) || []) {
 }
 ok('lab: every cue measured', lab && lab.rows && lab.rows.length >= 28, lab && lab.rows && lab.rows.length);
 const V = (lab && lab.voices) || {};
-ok('harp: one note at velocity 0.7, |F| = 1 (seed 1): E and D (with its accent, +2 dB) −32 ± 2.5 LUFS-M, D 2 to 5 dB over E; phone loss ≤ 5 dB; a soft start', V.harp && Math.abs(V.harp.note + 32) <= 2.5 && Math.abs(V.harp.d + 32) <= 2.5 && V.harp.d - V.harp.note >= 2 && V.harp.d - V.harp.note <= 5 && V.harp.loss <= 5 && V.harp.first < 0.35, V.harp);
-ok('harp: a run of 10 notes a second about −30 (−33 to −27)', V.harp && V.harp.run >= -33 && V.harp.run <= -27, V.harp);
+// (v16.5, Hear the function: the marimba note replaces the harp's. LV.note = CAL.M2, a marimba E at |F| = 1 alone 2 dB
+// under the harp E (−32 here before): −34; D and E alike (no accent); the law dbV3, −8 dB at a zero and +4 at a pole,
+// with the mallet's softness following it; a stream at 10 notes a second as loud as one at 5 (the crowding gain, R0 = 5))
+ok('notes: one marimba note at |F| = 1 (seed fixed by the note): E −34 ± 2.5 LUFS-M, D within 1 dB of E; phone loss ≤ 5 dB; a soft start, peak < −6 dBFS', V.notes && Math.abs(V.notes.e + 34) <= 2.5 && Math.abs(V.notes.d - V.notes.e) <= 1 && V.notes.loss <= 5 && V.notes.first < 0.35 && V.notes.peak < -6, V.notes);
+ok('notes: the loudness law, a note at a zero 8 ± 1 dB under |F| = 1 and at a pole 4 ± 1 dB over', V.notes && Math.abs(V.notes.zero - V.notes.e + 8) <= 1 && Math.abs(V.notes.pole - V.notes.e - 4) <= 1, V.notes);
+ok('notes: a stream of 10 notes a second as loud as one of 5 (the crowding gain, R0 = 5), within 1 dB', V.notes && Math.abs(V.notes.run10 - V.notes.run5) <= 1, V.notes);
 ok('curves sing: the release note −31 ± 2 LUFS-M at W = 1 and W = −1 (the low-note make-up), phone loss ≤ 6 dB', V.sing && Math.abs(V.sing.w1 + 31) <= 2 && Math.abs(V.sing.wm1 + 31) <= 2.5 && V.sing.loss <= 6, V.sing);
 ok('curves sing: the loudest harmonic of the note is 4 + W (F♯5 for 1, A4 for −1)', V.sing && V.sing.peak1 === 5 && V.sing.peakm1 === 3, V.sing);
-ok('Height voice: −33 ± 1.5 LUFS on D5, phone range ≤ 8 dB', V.height && Math.abs(V.height.at0 + 33) <= 1.5 && V.height.phoneRange <= 8, V.height);
+// (v16.5: the Height voice is retired, the Landscape is heard as the planes are; the held voice now is the Glide, at
+// LV.glide = CAL.V3: −37.5 LUFS held on D at |F| = 1 as measured here at v16.5, the law as the notes', and the same
+// phone range limit the Height voice had)
+ok('Glide: held on D at |F| = 1 −37.5 ± 1.5 LUFS; at a zero 8 ± 1 dB under, at a pole 4 ± 1 dB over; phone range over D, F♯, B♭ ≤ 8 dB', V.glide && Math.abs(V.glide.at0 + 37.5) <= 1.5 && Math.abs(V.glide.zero - V.glide.at0 + 8) <= 1 && Math.abs(V.glide.pole - V.glide.at0 - 4) <= 1 && V.glide.phoneRange <= 8, V.glide);
 
 // 14. the tracker's cost per pointer event (synthetic pointermoves on the X plane, z² − 1 and a heavy chain): Hear F
 // on against off; the budget is about 3 ms of F calls an event
