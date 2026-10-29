@@ -15,7 +15,7 @@ const SHARDS = [
   // (seconds of suite time on lavapipe, the fourth run of pull request #7; a job adds about a minute)
   { id: 'perp', suites: ['perp_cmd.js', 'fix163_cmd.js'] },                                                  // 447 + 336
   // (export_cmd.js: the fifth run's times)
-  { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5', 'export_sheet_cmd.js'] },                                // 453 + 265
+  { id: 'export-1', suites: ['export_cmd.js#1-3', 'export_cmd.js#user5', 'export_sheet_cmd.js', 'figure_wait_cmd.js'] },                                // 453 + 265
   { id: 'export-2', suites: ['export_cmd.js#4a'] },                                                        // 920
   { id: 'export-3', suites: ['export_cmd.js#preview', 'export_cmd.js#4b'] },                               // 571 + 167
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js'] },                                       // 480 + 295
