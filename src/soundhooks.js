@@ -271,7 +271,7 @@ const SoundHooks = (() => {
     // ends it all. The rope lets go
     const H = sndHear();
     if (H) { if (release) { const hs = H.state(); if (hs.stroke || H.active() || hs.glide.env > 1e-4) H.end(); } else H.gap(sndNow()); }
-    snd.rope = null;
+    snd.rope = null; snd.still = null;
     snd.last = null; snd.near = 0; snd.rest = null; snd.run = null;
   }
   // the hover paths of onMove: z under the pointer (x: its CSS px in its pane); src 'pointer' | 'loop' | 'key' |
@@ -295,6 +295,14 @@ const SoundHooks = (() => {
     let zr = z, xr = x;
     snd.hand = src !== 'key' ? { x, y, z, src } : null;
     if (sndHear() && src !== 'key') {
+      // a held finger (a minimal guard, #266 for its design): its moves within 3 px of where the stream was last fed
+      // feed nothing, so a tremor taut against the rope near a zero, where arg F turns fast, plays no note (the harp's
+      // D-only zone did this); the lift still feeds the finger's last point (sndLift)
+      if (snd.ptype === 'touch') {
+        const a = snd.still;
+        if (a && a.src === src && Math.hypot(x - a.x, y - a.y) <= 3) return;
+        snd.still = { x, y, src };
+      }
       const rho = snd.ptype === 'touch' ? 5 : 3;
       let rp = snd.rope;
       if (!rp || rp.src !== src) rp = snd.rope = { x, y, src };
@@ -308,13 +316,15 @@ const SoundHooks = (() => {
   }
   // A finger lifts (the touch probe's release, before its stroke ends): the probe, roped 5 px behind, jumps once onto
   // the finger's last point, so the crossings it had not reached sound, as a pointer's do. A lap round a zero that
-  // ends where it began sounds its D at the end (v15.2.1 verify-1). Only on the lift: a held finger keeps the rope, so
-  // its tremor moves nothing
+  // ends where it began sounds its D at the end (v15.2.1 verify-1), from any start: the step is marked lift, and the
+  // engine judges its crossings by the side of each line alone, without the Schmitt band (no jitter follows a lift).
+  // Only on the lift: a held finger keeps the rope, so its tremor moves nothing
   function sndLift() {
     const h = snd.hand, rp = snd.rope;
     if (!h || !rp || rp.src !== h.src || (rp.x === h.x && rp.y === h.y) || !sndHear()) return;
     snd.rope = { x: h.x, y: h.y, src: h.src };
-    sndHover(h.z, h.x, h.src, false, h.z);
+    snd.lifting = true;
+    try { sndHover(h.z, h.x, h.src, false, h.z); } finally { snd.lifting = false; }
   }
   // the point of the probe's plane at CSS px (x, y) of its pane, by the pane's own picker (as sndRepick)
   function sndPickAt(src, x, y) {
@@ -569,7 +579,7 @@ const SoundHooks = (() => {
     if (act === 'gap') H.gap(t);
     else if (snd.play) { if (H.state().stroke) H.gap(t); snd.phi = phi1; }   // (Listen along has the voice: the probe is silent)
     else {
-      const s = { t, phi: phi1, ln: Math.log(Math.hypot(g.re, g.im)), pan, n, src: hs };
+      const s = { t, phi: phi1, ln: Math.log(Math.hypot(g.re, g.im)), pan, n, src: hs, lift: !!snd.lifting };
       if (act === 'step') res = H.step(s);
       else if (act === 'pathless') res = H.pathless(s);
       else if (act === 'cut') {

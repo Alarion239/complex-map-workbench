@@ -485,7 +485,7 @@ function HT_LIB() {
   // smp: [{t, phi (turns, tracked exactly), ln, pan, gap?, seat?, cut?}]; smp.onLine or o.onLine [B10]. The lines of
   // arg F (k/n turns) and of ln|F| (2πk/n nepers), each with a Schmitt band HB; t, ln and pan interpolated in the step.
   // A cut or a seat crosses nothing; a cut is its own event. st (Live): the running cells, carried across calls
-  function crossStep(st, q, p, N, OL, ev) {
+  function crossStep(st, q, p, N, OL, ev, HB = HT.HB) {
     const mu = p.ln / TAU;
     if (st.ca === null || p.cut || p.seat || !q) {
       if (p.cut && q) ev.push({ kind: 'cut', t: p.t, phi0: q.phi, ln0: q.ln, phi1: p.phi, ln1: p.ln, pan: p.pan, dir: 0 });
@@ -493,7 +493,6 @@ function HT_LIB() {
       if (OL) { const ka = Math.round(p.phi * N), km = Math.round(mu * N); if (Math.abs(p.phi * N - ka) <= HT.lineTol) { st.ca = ka; st.onA = ka; } if (Math.abs(mu * N - km) <= HT.lineTol) { st.cm = km; st.onM = km; } }
       return;
     }
-    const HB = HT.HB;
     // [V2] a stroke seated on a line that leaves it upward past the band has left it
     if (OL) { if (st.onA !== null && p.phi > st.onA / N + HB) st.onA = null; if (st.onM !== null && mu > st.onM / N + HB) st.onM = null; }
     const at = (x0, x1, th) => (x1 === x0 ? 1 : clamp((th - x0) / (x1 - x0), 0, 1));
@@ -785,7 +784,8 @@ function HT_LIB() {
       if (!cutFlag && dt > span + 1e-9) { const h = { t: s.t - span, phi: prev.phi, ln: prev.ln, pan: prev.pan }; crossStep(cell, prev, h, N, true, ev); hist.push(h); prev = h; }
       holdH.push({ t: s.t, g: Math.min(HT.holdMax, Math.max(1e-3, s.t - prev.t)) });
       while (holdH.length && holdH[0].t < s.t - HT.holdMax - 0.05) holdH.shift();
-      crossStep(cell, prev, p, N, true, ev);
+      // (a finger's lift, s.lift: the side of each line alone, no Schmitt band: no jitter follows it)
+      crossStep(cell, prev, p, N, true, ev, s.lift ? 0 : HT.HB);
       const dts = p.t - prev.t;
       if (cutFlag) {
         // the values just before the jump: the last step's slope carried to the cut (at most holdMax: a hand that
@@ -1810,7 +1810,7 @@ registerProcessor('cmw-limit', Limit);`;
     HH.timer = setTimeout(() => { HH.timer = 0; if (!hearOk()) return; const t = performance.now() / 1000 - base; hearOut(HH.live.flush(t)); hearTimer(t); }, Math.max(1, (p - tNow) * 1000 + 1));
   }
   const glEnvNow = () => { if (!ctx || !HH.gl.until) return 0; const now = ctx.currentTime; if (now < HH.gl.until) return 1; return Math.exp(-6.9078 * (now - HH.gl.until) / (HH.gl.rel || HT.GL4.t60)); };
-  function hearSmp(s) { return { t: +s.t, phi: +s.phi, ln: +s.ln, pan: clamp(+s.pan || 0, -HT.PAN_MAX, HT.PAN_MAX), n: s.n | 0 || HT.n, src: s.src || 'hand' }; }
+  function hearSmp(s) { return { t: +s.t, phi: +s.phi, ln: +s.ln, pan: clamp(+s.pan || 0, -HT.PAN_MAX, HT.PAN_MAX), n: s.n | 0 || HT.n, src: s.src || 'hand', lift: !!s.lift }; }
   const R0 = () => ({ arg: 0, mod: 0, dUp: 0, dDown: 0 });
   function hearCall(kind, s) {
     if (!hearOk()) { if (HH.live.stroke) hearGap(s && s.t); return null; }

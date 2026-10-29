@@ -25,8 +25,9 @@
     // Hear the function (notes/sound/AS-BUILT, Sound.hear): rope, the roped point {x, y, src} in its pane's CSS px (3 px
     // behind a mouse or pen, 5 px behind a finger; null when let go); lastSrc, the probe's last source (a change is a
     // stroke start); ptype, the last pointer's type on a plane; hand, the hand's own last point {x, y, z, src}, where a
-    // lifted finger seats the probe (sndLift)
-    rope: null, hand: null, lastSrc: '', ptype: '',
+    // lifted finger seats the probe (sndLift; lifting while it feeds that step); still, a held finger's point where the
+    // stream was last fed (its 3 px tremor guard)
+    rope: null, hand: null, still: null, lifting: false, lastSrc: '', ptype: '',
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
