@@ -795,6 +795,17 @@
       });
       syncPalBtn();
     }
+    // the Phase style (issue #81): the header button's menu
+    const stb = $('styleBtn');
+    if (stb) {
+      stb.setAttribute('aria-expanded', 'false');
+      stb.addEventListener('click', (e) => {
+        const pop = openMenu(e.currentTarget, styleItems());
+        stb.setAttribute('aria-expanded', String(!!pop));
+        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { stb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
+      });
+      syncStyleBtn();
+    }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
     // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
     // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
@@ -1035,6 +1046,7 @@
       theme: () => curTheme, setTheme: (t) => { curTheme = t; setTheme(t); sndToggleCue(t !== 'light'); },
       langPref: () => I18N.readPref(), setLang: (v) => pickLang(v),
       palName: () => PAL_NAMES()[GLR.palette()][0], palIcon: () => `<span class="pcol-ic" style="--wheel:${keyConic()}"></span>`, palMenu: (a, done) => openMenu(a, palItems(done)),
+      styleState: () => ({ ...styleState(), svg: STYLE_SVG[S.dc] || '' }), styleMenu: (a, done) => openMenu(a, styleItems(done)),
       globeIcon: ICONS.globe,
       soundIcon: () => (($('soundBtn') || {}).querySelector && $('soundBtn').querySelector('.snd-ic') || {}).innerHTML || '',
       // (D3) what the phone's context bar shows: the polygon being drawn, a curve being listened along, the selected shape

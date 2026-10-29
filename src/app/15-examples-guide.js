@@ -214,6 +214,53 @@
     const pl = b.querySelector('.plabel'); if (pl) pl.textContent = name;
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
   }
+  // ---------------- the Phase style button (issue #81) ----------------
+  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
+  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  const STYLE_SVG = {
+    enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
+    phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
+    classic: '<svg viewBox="0 0 16 16" aria-hidden="true"><defs><radialGradient id="stySg"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient></defs><circle cx="8" cy="8" r="6.5" fill="url(#stySg)" stroke="currentColor" stroke-width="1" stroke-opacity=".5"/></svg>',
+    modulus: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="6.3"/><circle cx="8" cy="8" r="3.8"/><circle cx="8" cy="8" r="1.4"/></svg>',
+    grid: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2 4.5c4 1.5 8-1.5 12 0M2 8c4 1.5 8-1.5 12 0M2 11.5c4 1.5 8-1.5 12 0M4.5 2c-1.5 4 1.5 8 0 12M8 2c-1.5 4 1.5 8 0 12M11.5 2c-1.5 4 1.5 8 0 12"/></svg>',
+    cauchy: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="#53B8F7" fill-opacity=".35" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>',
+  };
+  const styleName = () => (DC_STYLES.find((p) => p[0] === S.dc) || DC_STYLES[0])[1];
+  // the style picked, from the header button, the phone's chip or the Display options (their control follows)
+  function pickPhaseStyle(v) {
+    setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
+    const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
+    syncStyleBtn();
+  }
+  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
+  function styleItems(done) {
+    if (lLand()) {
+      const l = [{ label: $t('Styles belong to the flat Phase view'), disabled: true }, 'sep', { label: $t('Switch to Phase'), run: () => { setMain('phase'); if (done) done(); } }];
+      l.menuLabel = $t('Phase style');
+      return l;
+    }
+    const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
+    list.menuLabel = $t('Phase style'); list.focusChecked = true;
+    return list;
+  }
+  let styleKey = '';
+  function syncStyleBtn() {
+    const b = $('styleBtn');
+    if (!b) return;
+    const st = styleState(), key = `${st.show}|${st.land}|${st.id}`;
+    if (key === styleKey) return;
+    styleKey = key;
+    b.hidden = !st.show;
+    if (!st.show) return;
+    const text = st.land ? $t('Styles belong to the flat Phase view') : $t('Phase style: {name}', { name: st.name });
+    b.setAttribute('aria-disabled', String(st.land));
+    b.setAttribute('data-tip', text); b.setAttribute('aria-label', text); b.removeAttribute('title');
+    const ic = b.querySelector('.sty-ic'); if (ic) ic.innerHTML = STYLE_SVG[st.id] || '';
+    const hw = b.querySelector('.hw'); if (hw) hw.textContent = st.name;
+    if (typeof hdrFitSoon === 'function') hdrFitSoon();
+  }
   function viewBox(v) {
     const w = paneL ? paneL.w : 500, hh = paneL ? paneL.h : 500;
     return { x0: v.cx - w / 2 / v.s, x1: v.cx + w / 2 / v.s, y0: v.cy - hh / 2 / v.s, y1: v.cy + hh / 2 / v.s };
