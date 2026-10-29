@@ -206,7 +206,7 @@ await section('L48', async () => {
   ok('UX52 a tool change clears it', !(await ev(`!!document.querySelector('#draftChipL .cm-warn')`)));
   // UX51 / UX55: the chip's three choices in words; UX100: the kept curve as a token
   const segs = await ev(`[...document.querySelectorAll('#draftChipL .cm-seg .cm-sb')].map((b) => b.getAttribute('aria-label'))`);
-  ok('UX55 the chip offers Whole | Inside | Outside, as the Inspector does', JSON.stringify(segs) === '["Whole","Inside","Outside"]', segs);
+  ok('UX55 the chip offers Whole | Inside | Outside | Between, as the Inspector does', JSON.stringify(segs) === '["Whole","Inside","Outside","Between"]', segs);
   const L = await W(0, 1.5);
   await click(L[0] + 40, L[1]); await settle(120);
   const p1 = await W(-1, -1.5), p2 = await W(1, -1.5);
@@ -493,7 +493,7 @@ await section('P51', async () => {
   ok('UX51 phone chip: no Esc, the next pick in words', /^Pick a point \(on Line 1 or anywhere\) · 1 of 2/.test(info.p51.t) && !/Esc/.test(info.p51.t), info.p51);
   // (D3: on a phone the three choices are in the context bar, in words, and the chip drops its copy: one place)
   const barSeg = await ev(`[...document.querySelectorAll('.ph-ctseg > button')].map((b) => [b.textContent, Math.round(b.getBoundingClientRect().width), Math.round(b.getBoundingClientRect().height)])`);
-  ok('UX51 phone: Whole | Inside | Outside in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 3 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
+  ok('UX51 phone: Whole | Inside | Outside | Between in words in the context bar, each ≥ 44 px, and not again in the chip', barSeg.length === 4 && barSeg.every(([t, w, h]) => t && w >= 44 && h >= 44) && info.p51.segs.every(([t, w]) => !w), [barSeg, info.p51.segs]);
   ok('UX51 phone chip: the × takes taps 44 × 44', info.p51.x44, info.p51);
   await shot('ux51-phone-chip');
   // UX15 on the phone: the Undo at the thumb takes the last pick
@@ -680,6 +680,57 @@ await section('D9', async () => {
   await tdrag(far[0], far[1], far2[0], far2[1], 8);
   ok('D9 touch: a press elsewhere draws', (await ST()).list.length === n1 + 1, [(await ST()).list.length, n1]);
   } catch (e) { fails.push({ name: 'D9 stage ' + stage, got: String(e && e.message || e).slice(0, 300) }); }
+});
+
+// ------------------------------------------------------------------------------------------------------------ D9 (laptop)
+await section('D9L', async () => {
+  let stage = 'start';
+  try {
+  await laptop();
+  await load(NS + 'dl', { shapes: [{ id: 'd1', kind: 'disc', c: [-2, -1.5], r: 0.4, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 80 }, snap: true, nextId: 60 });
+  await settle(900);
+  // a drag with Alt held throughout (the kit's drag takes no modifiers)
+  const adrag = async (x0, y0, x1, y1, mods) => {
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0, modifiers: mods });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', buttons: 1, clickCount: 1, modifiers: mods });
+    for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 8, y: y0 + (y1 - y0) * i / 8, button: 'left', buttons: 1, modifiers: mods }); await sleep(16); }
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', buttons: 0, clickCount: 1, modifiers: mods });
+    await settle(200);
+  };
+  stage = 'draw';
+  await tool('disc');
+  const n0 = (await ST()).list.length;
+  const a = await W(1, 1), a2 = await W(1.6, 1);
+  await adrag(a[0], a[1], a2[0], a2[1], 0);
+  const n1 = (await ST()).list.length, dr = (await ST()).list[n1 - 1];
+  ok('D9 laptop: a drawing tool draws a disc', n1 === n0 + 1, [n0, n1]);
+  stage = 'move';
+  const mid = await W(dr.c[0] + 0.2, dr.c[1]), mid2 = await W(dr.c[0] + 0.2, dr.c[1] + 0.8);
+  await adrag(mid[0], mid[1], mid2[0], mid2[1], 0);
+  const dr2 = (await ST()).list.find((x) => x.id === dr.id);
+  ok('D9 laptop: a press on the disc just drawn moves it (no new shape)', (await ST()).list.length === n1 && Math.abs(dr2.c[1] - dr.c[1]) > 0.5, [dr.c, dr2.c, (await ST()).list.length]);
+  stage = 'alt';
+  const cc = await W(dr2.c[0] + 0.15, dr2.c[1]), e2 = await W(dr2.c[0] + 0.55, dr2.c[1]);
+  const startZ = [dr2.c[0] + 0.15, dr2.c[1]];
+  await adrag(cc[0], cc[1], e2[0], e2[1], 1);
+  const l3 = (await ST()).list, nw = l3[l3.length - 1];
+  ok('D9 laptop: Alt + press draws a new shape even on the disc just drawn', l3.length === n1 + 1 && nw.id !== dr.id, [l3.length, n1]);
+  const off = (v) => Math.abs(v * 4 - Math.round(v * 4));   // (the grid snaps to quarters here: a raw point is off it)
+  ok('D9 laptop: what Alt places does not snap', nw && nw.c && (nw.c[0] !== startZ[0] || nw.c[1] !== startZ[1]) && Math.hypot(nw.c[0] - startZ[0], nw.c[1] - startZ[1]) < 0.05 && (off(nw.c[0]) > 0.01 || off(nw.c[1]) > 0.01), [nw && nw.c, startZ]);
+  stage = 'altselect';
+  await tool('select');
+  const hz = await W(startZ[0] + 0.12, startZ[1] + 0.1);   // (inside both discs, away from their handles)
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: hz[0], y: hz[1] });
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: hz[0], y: hz[1], button: 'left', buttons: 1, clickCount: 1, modifiers: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: hz[0], y: hz[1], button: 'left', buttons: 0, clickCount: 1, modifiers: 1 });
+  await settle(200);
+  const sel1 = (await ST()).selected;
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: hz[0], y: hz[1], button: 'left', buttons: 1, clickCount: 1, modifiers: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: hz[0], y: hz[1], button: 'left', buttons: 0, clickCount: 1, modifiers: 1 });
+  await settle(200);
+  const sel2 = (await ST()).selected;
+  ok('D9 laptop: with Select, Alt-click still cycles the shapes under it', !!sel1 && !!sel2 && sel1 !== sel2, [sel1, sel2]);
+  } catch (e) { fails.push({ name: 'D9 laptop stage ' + stage, got: String(e && e.message || e).slice(0, 300) }); }
 });
 
 await grab();

@@ -146,8 +146,10 @@ of our users have. To pin one: *Settings → System → Display → Graphics →
 ### Replacing an x64 runner with the arm64 build
 
 On Apple silicon the runner must be the **ARM64** package. The **x64** one also runs there, under Rosetta: then the
-jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's timings are not the machine's. The
-**gpu probe** step warns when it runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`). To replace it:
+jobs' Node (setup-node fetches the runner's architecture: `_work/_tool/node/<version>/x64`) and the Chrome it starts
+are Intel builds translated on the fly, so the GPU gate's timings are not the machine's. On 2026-10-28 `mac-gpu` was
+such a runner (its probe: `darwin x64 · Apple M4`; #62). The **gpu probe** step now stops every GPU gate job that
+runs under Rosetta (`sysctl -n sysctl.proc_translated` prints `1`), with the error *Rosetta*. To replace it:
 
 1. Make sure no job is running on it (*Actions*: nothing *In progress* on `mac-gpu`), or set `GPU_RUNNERS` to
    `false` for the time being (section 1, step 4).
@@ -163,11 +165,14 @@ jobs' Node and Chrome are Intel builds translated on the fly, so the GPU gate's 
    folder aside: `mv ~/actions-runner ~/actions-runner-x64`.
 3. Install the **ARM64** package as in steps 1–4 above (*New self-hosted runner* → **macOS** → **ARM64**), with the
    same name `mac-gpu` and the label `gpu`.
-4. Check that Node is a native build too (an x64 Node installed from the Intel package runs under Rosetta as well):
-   `file "$(which node)"` should say `arm64`, and `node -p process.arch` should print `arm64`. If not, install the
-   arm64 Node 22 and restart the runner (`./svc.sh stop && ./svc.sh start`).
-5. Run the GPU gate once by hand (section 5): **gpu probe** shows `darwin arm64` and the Metal renderer, and no
-   Rosetta warning. Then delete `~/actions-runner-x64`, and set `GPU_RUNNERS` back to `true` if you turned it off.
+4. Check that the runner is native: `file ~/actions-runner/bin/Runner.Listener` says `arm64`, and on GitHub
+   *Settings → Actions → Runners → mac-gpu* lists the label **ARM64** (an x64 runner shows **X64**). The jobs' Node
+   comes from the runner's own folder, so the new folder gets an arm64 one by itself; the Node installed on the Mac
+   is not what the jobs run.
+5. Run the GPU gate once by hand (section 5), machines **mac**: **gpu probe** shows `darwin arm64` and the Metal
+   renderer, and `"rosetta": false`. Then delete `~/actions-runner-x64` (it holds the x64 runner, its x64 Node and
+   its shader cache, which the Mac does not need: its GLSL pages take minutes cold), and set `GPU_RUNNERS` back to
+   `true` if you turned it off.
 
 ## 5. Check the GPU, then turn it on
 
@@ -203,6 +208,9 @@ idle page: stuck).
   every metric that got worse, and a list of improvements. The raw results (JSON) are the run's artifacts.
 - **A machine is off:** its jobs wait in the queue for up to 24 hours, then GitHub cancels them. Cancel the run if
   you know it will not come back, or turn the gate off (`GPU_RUNNERS` to `false`).
+- **A lost job** (the machine slept, rebooted or lost its GPU mid-run, or a page reports *stalled*): re-run it
+  (*Re-run failed jobs*), do not debug it. A new push or run on the same branch replaces a pull request's or a
+  by-hand run anyway; a failure that comes back on the re-run is real.
 - **While a run is on the machine:** avoid heavy work on it (a build, a game, another browser test). Both sides of
   each comparison run back to back, so a busy machine slows both, but it adds noise.
 - **Updates:** the runner updates itself. Keep Chrome, Node and Python updated as usual.
@@ -217,6 +225,7 @@ idle page: stuck).
 | Jobs stay *Queued* while the runner is online | It is busy: the runner window's last line is `Running job: …`. After the machine slept during a job, that job may already show as failed on GitHub while the runner still works on it; it lets go of it by itself (23 minutes on 2026-10-28), or close the runner window and start `run.cmd` again. Its log is in `C:\actions-runner\_diag\Worker_*.log`. |
 | A cancelled run stays *Queued* | A job that waits for a self-hosted runner is cancelled only when a runner takes it, or after 24 hours, and the run holds its concurrency group (the next push to `main` waits behind it). Force it: `gh api -X POST repos/Alarion239/complex-map-workbench/actions/runs/<run id>/force-cancel`. |
 | "No GPU" in **gpu probe** | See section 5, step 3. |
+| "Rosetta" in **gpu probe** (Mac) | The runner is the x64 package, translated on Apple silicon: install the ARM64 one (section 4, *Replacing an x64 runner with the arm64 build*). |
 | `Google Chrome not found` | Chrome is not in its usual place. Put `CHROME_BIN=<path to chrome>` and `CHROME=<same path>` in the file `.env` in the runner's folder, then restart the runner. |
 | `python` or `git` not found | Install it (section 2), then restart the runner so it sees the new PATH. |
 | Windows: PowerShell refuses to run scripts | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |

@@ -126,7 +126,7 @@ const Examples = (() => {
       if (ns.listen) ns.listen = Object.assign(ns.listen, { steps: JSON.parse(JSON.stringify(ex.steps)), key: sndPtsKey(ns.pts) });
       pushShape(ns);
     }
-    for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}));
+    for (const st of ex.steps) pushStep(Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.handleR > 0 ? { handleR: st.handleR } : {}, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
     // (the Numbers panel with the example's own numbers, drawn once its steps, which use them, are in)
     if (!spec) Params.render();
     if (ex.range && Number.isInteger(ex.range.a) && Number.isInteger(ex.range.b)) setOpt('homRange', { a: ex.range.a, b: ex.range.b }); else deleteOpt('homRange');   // (v16)
@@ -176,7 +176,7 @@ const Examples = (() => {
     try {
       setState(Object.assign(blankState(), {
         shapes: ex.shapes.map((sh, j) => Object.assign({ id: `ex${i}_${j}`, ci: j % 8, visible: true }, JSON.parse(JSON.stringify(sh)))),
-        steps: ex.steps.map((st) => ({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true })),
+        steps: ex.steps.map((st) => Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {})),
         pattern: save.S.pattern, alpha: save.S.alpha, meshN: 160, lines: false, unit: false, chev: false,
       }));
       A.selected = null; A.hoverShape = null;
