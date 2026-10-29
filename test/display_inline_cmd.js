@@ -168,24 +168,30 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   ok(`${tag}: after Phase, X → Y, Landscape, X → Y the unit circle's check is still in the page and works`, await ev(`(() => { const u = document.getElementById('unitChk'); return !!u && document.body.contains(u); })()`), await ev(`(document.getElementById('unitBox') || {}).parentElement?.id || null`));
 }
 
-// ---- a touch screen at desktop layout (a tablet at 1024 px): a long-press on an icon toggle or a style glyph shows its
-// name, and the release does not toggle or pick it (#261 review)
+// ---- a touch screen at desktop layout (a tablet, 1366 × 1024: an iPad Pro's landscape): a long-press on an icon toggle
+// or a style glyph shows its name, and the release does not toggle or pick it (#261 review). (At 1024 px option 1 sends
+// the toggles behind ⋯ before the title gives up letters, with wider fonts, as on the CI runners; the toggle checked is
+// one the head holds)
 {
-  await fresh(1024, 768, false, '');
+  await fresh(1366, 1024, false, '');
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await settle(300);
   const desk = await ev(`!document.documentElement.classList.contains('ph')`);
-  for (const [sel, re, read] of [['#outlineChk', /Outlines/, `document.getElementById('outlineChk').checked`], ['#dcSeg button[data-v="grid"]', /Pulled-back grid/, `__cmwState().dc`]]) {
-    const p = await ev(`(() => { const e = document.querySelector('${sel}'); const l = (e.closest('label') || e).getBoundingClientRect(); return l.width ? [l.left + l.width / 2, l.top + l.height / 2] : null; })()`);
-    if (!desk || !p) { ok(`touch at 1024: ${sel} in X's head`, false, { desk, p }); continue; }
+  const tg = await ev(`(() => { const i = [...document.querySelectorAll('.pane-head label.ic-tg input')].find((x) => x.closest('label').getClientRects().length); return i ? [i.id, i.closest('label').dataset.tip || ''] : null; })()`);
+  ok('touch at 1366: an icon toggle in a pane head', Array.isArray(tg), tg);
+  const cases = [['#dcSeg button[data-v="grid"]', /Pulled-back grid/, `__cmwState().dc`]];
+  if (Array.isArray(tg)) cases.unshift([`#${tg[0]}`, new RegExp(tg[1].split(':')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `document.getElementById('${tg[0]}').checked`]);
+  for (const [sel, re, read] of cases) {
+    const p = await ev(`(() => { const e = document.querySelector('${sel}'); if (!e) return null; const l = (e.closest('label') || e).getBoundingClientRect(); return l.width ? [l.left + l.width / 2, l.top + l.height / 2] : null; })()`);
+    if (!desk || !Array.isArray(p)) { ok(`touch at 1366: ${sel} in a pane head`, false, { desk, p }); continue; }
     const before = await ev(read);
     await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p[0], y: p[1], id: 1 }] });
     await sleep(750);
     const tip = await ev(`(() => { const t = document.getElementById('tip'); return t && t.getClientRects().length && getComputedStyle(t).visibility !== 'hidden' && getComputedStyle(t).opacity !== '0' ? t.textContent : null; })()`);
     await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await settle(400);
-    ok(`touch at 1024: a long-press on ${sel} shows its name`, re.test(tip || ''), tip);
-    ok(`touch at 1024: and its release changes nothing`, (await ev(read)) === before, [before, await ev(read)]);
+    ok(`touch at 1366: a long-press on ${sel} shows its name`, re.test(tip || ''), tip);
+    ok(`touch at 1366: and its release changes nothing`, (await ev(read)) === before, [before, await ev(read)]);
   }
   await send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
 }
