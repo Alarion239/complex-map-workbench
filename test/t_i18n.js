@@ -128,9 +128,9 @@ for (const [k, v] of Object.entries(RU)) {
 // every string of the static page has a translation (what the walker will look up)
 const page = fs.readFileSync(path.join(XL, 'page.html'), 'utf8');
 let body = page.slice(page.indexOf('<div id="app">')).replace(/<!--[\s\S]*?-->/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '');
-body = body.replace(/<h1 class="wordmark" data-i18n="no">[\s\S]*?<\/h1>/, '');
-// phase 2b adds the two markers to page.html (DESIGN.md 2); until then the wordmark and the inline-math label are skipped
-if (!/data-i18n="no"/.test(page)) body = body.replace(/<h1 class="wordmark"[^>]*>[\s\S]*?<\/h1>/, '');
+body = body.replace(/<h1 class="sr-only" data-i18n="no">[\s\S]*?<\/h1>/, '');   // (the app's name, the page's hidden heading)
+// phase 2b adds the two markers to page.html (DESIGN.md 2); until then the heading and the inline-math label are skipped
+if (!/data-i18n="no"/.test(page)) body = body.replace(/<h1 class="sr-only"[^>]*>[\s\S]*?<\/h1>/, '');
 if (!/data-i18n="html"/.test(page)) body = body.replace(/Key in the <i>w<\/i>-plane/g, '');
 const keys = new Set();
 body = body.replace(/<span data-i18n="html">([\s\S]*?)<\/span>/g, (m, inner) => { keys.add(inner.trim()); return ''; });
