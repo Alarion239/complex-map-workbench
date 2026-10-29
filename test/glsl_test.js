@@ -286,6 +286,15 @@
     add('series step power 1/n^2 about 0.5', [S('series', { kind: 'power', an: '\\frac{1}{n^2}', c: '0.5' })]);
     add('series step Laurent', [S('series', { kind: 'laurent', an: '\\frac{1}{2^{|n|}+n^2}', c: '0' })]);
     add('series step Dirichlet', [S('affine', { a: '1', b: '2' }), S('series', { kind: 'dirichlet', an: '(-1)^{n+1}', c: '0' })]);
+    // [issue #242] Dirichlet series by Euler–Maclaurin per residue: η across its line Re z = 0 (conditionally convergent
+    // for 0 < Re z ≤ 1), a character mod 4, 1/n² (a power), ζ up the line Re z = 1.5 and a Dirichlet polynomial. (Not log n:
+    // coefficients of no such form are partial sums, 4096 terms on the CPU and 96 on the GPU, which is blank nearer σ)
+    const dir = (name, an, a, b) => add('series step Dirichlet ' + name, [S('affine', { a, b }), S('series', { kind: 'dirichlet', an, c: '0' })]);
+    dir('eta strip', '(-1)^{n+1}', '0.15', '0.8');
+    dir('chi4', '\\sin\\frac{\\pi n}{2}', '0.2', '1.2');
+    dir('1/n^2', '\\frac{1}{n^2}', '0.25', '1');
+    dir('zeta high', '1', '0.3', '2+30i');
+    dir('polynomial', '\\binom{3}{n}', '0.1', '0');
     // [issue #6] the Recurrence step: Mandelbrot's u² + z near its main cardioid, Newton's method for z³ − 1, a contraction
     // with sin, and a short one differentiated
     add('default recurrence', [S('recurrence')]);
@@ -300,6 +309,10 @@
     add('repeat mobius x4', [S('affine', { a: '0.5', b: '0' }), Rp(S('mobius', { a: '1', b: '0.3', c: '-0.3', d: '1' }), 4, 1)]);
     add('repeat exp mul x2 d/dz', [S('mul', { c: '0.4' }), Rp(S('exp'), 2, 2), S('deriv')]);
     add('repeat with a bypassed step', [S('sin'), S('pown', { n: 3 }, false), Rp(S('mul', { c: '0.7+0.2i' }), 3, 3)]);
+    // (the block's steps once, in a loop whose trip count N − 1 is a uniform: Newton's map for z³ − 1 twenty times, and
+    // a block of two steps N = 2, one loop pass)
+    add('repeat newton x20', [Rp(S('custom', { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }), 20, 1)]);
+    add('repeat sin affine x2', [S('sin'), Rp(S('affine', { a: '0.8+0.3i', b: '0.1' }), 2, 2)]);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -438,8 +451,11 @@
       // [issue #5] a sum: the sum of its terms' sizes (its body is not walked: its parts need the index), and outside the
       // radii where the GPU evaluates a power series' plan, no float32 value (GLChain.seriesTrust)
       if (n.t === 'sum') {
-        if (Expr.depends(n) && n.op !== 'prod') ops.push(Expr.compile(Object.assign({}, n, { a: { t: 'call', f: 'abs', a: n.a } }), { theta: th }));
         const plan = Expr.planOf(n);
+        // ([issue #242] a Dirichlet series summed by Euler–Maclaurin: the sizes of what it adds, as the GPU's; Σ|terms|
+        // diverges where η converges only conditionally)
+        if (plan && plan.form) ops.push((z) => { const r = CX.dirichletEM(plan.form, z); return C(r.A, 0); });
+        else if (Expr.depends(n) && n.op !== 'prod') ops.push(Expr.compile(Object.assign({}, n, { a: { t: 'call', f: 'abs', a: n.a } }), { theta: th }));
         if (plan && plan.kind !== 'dirichlet') {
           const tr = GLChain.seriesTrust(plan);
           ops.push((z) => { const r = CX.abs(CX.sub(z, plan.c)); return r <= tr.out && r >= tr.in ? C(0, 0) : C(Infinity, 0); });
