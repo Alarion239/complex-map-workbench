@@ -228,11 +228,12 @@ ok('every step reads without a backslash', steps.every((s) => !/\\/.test(T.plain
 const CD = (evs) => { let st = T.cdInit(); for (const [t, e] of evs) st = T.countdown(st, e, t); return st; };
 // the time the countdown fires: the first t (ms, in 50 ms ticks) at which left() reaches 0, else null within 20 s
 const fireAt = (evs) => { const sorted = evs.slice().sort((a, b) => a[0] - b[0]); let st = T.cdInit(), k = 0; for (let t = 0; t <= 20000; t += 50) { while (k < sorted.length && sorted[k][0] <= t) st = T.countdown(st, sorted[k++][1], sorted[k - 1][0]); const L = T.cdLeft(st, t); if (L === 0) return t; } return null; };
-check('countdown: done -> 3000', fireAt([[0, { type: 'done' }]]), 3000);
-check('countdown: input at 2000 changes nothing (3000; the pointer or keys never restart it)', fireAt([[0, { type: 'done' }], [2000, { type: 'input' }]]), 3000);
-check('countdown: hold from 1000 to 4000 -> 7000', fireAt([[0, { type: 'done' }], [1000, { type: 'hold', kind: 'pointer' }], [4000, { type: 'release', kind: 'pointer' }]]), 7000);
-check('countdown: two holds, the last release starts it', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'layer' }], [800, { type: 'hold', kind: 'pointer' }], [1500, { type: 'release', kind: 'pointer' }], [2500, { type: 'release', kind: 'layer' }]]), 5500);
-check('countdown: done while held (the palette open) -> 3 s after the release', fireAt([[0, { type: 'hold', kind: 'layer' }], [200, { type: 'done' }], [4000, { type: 'release', kind: 'layer' }]]), 7000);
+const CDM = T.CD_MS;   // (the countdown's length: 1.5 s; every time below is from it)
+check('countdown: done -> CD_MS', fireAt([[0, { type: 'done' }]]), CDM);
+check('countdown: input at 1000 changes nothing (CD_MS; the pointer or keys never restart it)', fireAt([[0, { type: 'done' }], [1000, { type: 'input' }]]), CDM);
+check('countdown: hold from 1000 to 4000 -> 4000 + CD_MS', fireAt([[0, { type: 'done' }], [1000, { type: 'hold', kind: 'pointer' }], [4000, { type: 'release', kind: 'pointer' }]]), 4000 + CDM);
+check('countdown: two holds, the last release starts it', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'layer' }], [800, { type: 'hold', kind: 'pointer' }], [1500, { type: 'release', kind: 'pointer' }], [2500, { type: 'release', kind: 'layer' }]]), 2500 + CDM);
+check('countdown: done while held (the palette open) -> CD_MS after the release', fireAt([[0, { type: 'hold', kind: 'layer' }], [200, { type: 'done' }], [4000, { type: 'release', kind: 'layer' }]]), 4000 + CDM);
 check('countdown: cancel -> never', fireAt([[0, { type: 'done' }], [1000, { type: 'cancel' }]]), null);
 check('countdown: cancelled before done -> never', fireAt([[0, { type: 'cancel' }], [500, { type: 'done' }]]), null);
 check('countdown: a step reached with Back, or the last of a chapter -> never', fireAt([[0, { type: 'done', never: true }]]), null);
@@ -246,12 +247,12 @@ check('countdown: Move on by itself off -> a door only ticks', [fireAt([[0, { ty
   ok('sound/song: the task names ▶ and has a sound-off variant', /▶/.test(s1.try.text) && /sound on/.test(s1.try.off));
   ok('basics/preimages: the touch task names the ring and a hint answers a pan of Y', /ring/.test(pr.try.touch) && pr.try.hint && pr.try.hint.on === 'view-moved' && pr.try.hint.test({ pane: 'R' }) && !pr.try.hint.test({ pane: 'L' })); }
 check('countdown: a door -> 700 (300 with reduced motion), held by nothing', [fireAt([[0, { type: 'done', door: true }]]), fireAt([[0, { type: 'done', door: true, reduced: true }]]), fireAt([[0, { type: 'hold', kind: 'pointer' }], [0, { type: 'done', door: true }], [100, { type: 'input' }]])], [700, 300, 700]);
-check('countdown: an input before done changes nothing', fireAt([[0, { type: 'input' }], [100, { type: 'done' }]]), 3100);
-check('countdown: input while held changes nothing', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'listen' }], [1000, { type: 'input' }], [2000, { type: 'release', kind: 'listen' }]]), 5000);
+check('countdown: an input before done changes nothing', fireAt([[0, { type: 'input' }], [100, { type: 'done' }]]), 100 + CDM);
+check('countdown: input while held changes nothing', fireAt([[0, { type: 'done' }], [500, { type: 'hold', kind: 'listen' }], [1000, { type: 'input' }], [2000, { type: 'release', kind: 'listen' }]]), 2000 + CDM);
 { const st = CD([[0, { type: 'done' }], [100, { type: 'hold', kind: 'why' }]]); check('countdown: the state of a held countdown', [st.phase, st.holds, T.cdLeft(st, 500)], ['held', ['why'], null]); }
-check('countdown: a second done is ignored', fireAt([[0, { type: 'done' }], [2000, { type: 'done' }]]), 3000);
-check('countdown: fire only while running', [CD([[0, { type: 'fire' }]]).phase, CD([[0, { type: 'done' }], [3000, { type: 'fire' }]]).phase], ['idle', 'fired']);
-check('CD_MS', T.CD_MS, 3000);
+check('countdown: a second done is ignored', fireAt([[0, { type: 'done' }], [1000, { type: 'done' }]]), CDM);
+check('countdown: fire only while running', [CD([[0, { type: 'fire' }]]).phase, CD([[0, { type: 'done' }], [CDM, { type: 'fire' }]]).phase], ['idle', 'fired']);
+check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 // the harp's laps: a low D up and one down, whichever point gave which
 { const m = {}; check('harp: a bare event ticks; up alone does not; up then down does', [T.harpUpDown(undefined), T.harpUpDown({ dir: 1 }, m), T.harpUpDown({ dir: 1 }, m), T.harpUpDown({ dir: -1 }, m)], [true, false, false, true]); }
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }

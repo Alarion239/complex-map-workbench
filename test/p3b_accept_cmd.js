@@ -32,6 +32,14 @@ const inHP = (s, x, y) => { const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1]; re
 ok('the half-plane holds the cap centre 1.2i', hp && hp.a && inHP(hp, 0, 1.2), hp);
 
 // 2. a Disc centred on ∞ (the centre snaps to ∞): the complement of a disc around 0
+// (D9, #30 and #223: with a drawing tool a press on the shape just drawn moves it, and Alt draws without the ∞ snap this step needs.
+// N lies on the half-plane just drawn, so a user first leaves it: the Select tool, a click on empty canvas, then the Disc tool)
+await tool('select');
+let away = null;   // a point of the plane on the facing side, outside the half-plane
+for (const [x, y] of [[0, -1.2], [0, -3], [-3, -3], [3, -3], [-4, 0], [4, 0], [0, -8]]) { if (!inHP(hp, x, y)) { const q = await at('L', x, y); if (q) { away = q; break; } } }
+if (away) { await click(away[0], away[1]); await settle(300); }
+ok('a click on empty sphere with Select deselects the shape just drawn', away && (await shapes()).selected == null, { away, sel: (await shapes()).selected });
+await tool('disc');
 const p1 = await at('L', 0.3, 2.5);
 await drag(R.inf[0] + 2, R.inf[1] - 1, p1[0], p1[1], 12, 16); await settle();
 let S2 = await shapes();
