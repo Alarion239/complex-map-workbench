@@ -626,9 +626,15 @@
     for (let k = (m.a || 0) + 1; k <= (m.b || 0); k++) { if (isDeriv(k)) list.push({ deriv: true }); else if (stepFn(k)) list.push(built[k - 1].props); }
     try { return !!Funcs.composeProps(list).injective; } catch (e) { return false; }
   }
+  // (issue #72, I) a still map whose area programs have had nothing to draw this long (the chain's first version still
+  // linking: seconds on Direct3D 11) is drawn from a SphereMesh meanwhile, the CPU-mapped mesh with programs that do
+  // not carry the chain; not before, so a fast link never shows it
+  // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
+  const SM_LINKING_MS = 250, SM_LINK_WORK = 20000;
   // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null
   function smNeed(s, r, role, m) {
     if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L')) return null;
+    if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
       // (a shape drawn exactly at both ends shows today's GPU image while paused inside the step: the mesh changed
@@ -714,7 +720,8 @@
     if (!why) return null;
     const v = smView(kind, pane, R);
     if (!v) return null;
-    const ck = smContent(s, role, kind, m), ck0 = smContent(s, role, kind, m, false);
+    const lk = why === 'linking' ? '|link' : '';
+    const ck = smContent(s, role, kind, m) + lk, ck0 = smContent(s, role, kind, m, false) + lk;
     // (the stand-in during a rebuild may come from another meshing window: a left pan re-centred clipWin, which
     // changes the mesh's sheet order but not the image: still far nearer to it than today's GPU draw)
     let best = null, old = null;
@@ -729,7 +736,8 @@
       if (!offRender && sm.want.get(slot)) { const j = sm.jobs.get(sm.want.get(slot)); if (j && j.ck === ck) smCancel(j); sm.want.delete(slot); }
       return { e: best, why };
     }
-    if (allowJob && !offRender) smRequest(slot, ck, s, role, kind, m, v, why);
+    // (a linking chain's stand-in is asked for whatever the exact path's state: its own program waits on the same links)
+    if ((allowJob || why === 'linking') && !offRender) smRequest(slot, ck, s, role, kind, m, v, why);
     return old ? { old, why } : { why };
   }
   function smCancel(job) {
@@ -753,9 +761,9 @@
         left: smLeft(),
         view: v, Kmax: SphereMesh.kOf(S.alpha),
         pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
-        maxWork: smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
+        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
-      sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
+      sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
     }
     smPumpLater();
   }
