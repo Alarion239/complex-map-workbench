@@ -194,7 +194,8 @@ The Windows laptop's GLSL job is the exception the first time: Direct3D 11 compi
 (the glsl page alone takes hours a side; one program took 12 minutes), where the Mac takes 7 minutes for all three
 pages. Every chain runs there only on the nightly run and by hand, in ten jobs (the glsl page in eighths, adv and
 inverse whole; ci/README.md, GLSL tiers): one job for all of it ran over 170 minutes on the glsl page's first side
-alone. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
+alone. A cold nightly run takes about 4-6 hours of the laptop's time in all (its jobs run one after another
+on the one runner), and jobs queued behind it wait. A cold job may still hit its 240 minutes; each keeps what it compiled in the shader cache (section 2,
 *Disk*), so the next goes further, and from then on only programs whose code changed compile: 1/64 of the glsl page
 took 103 s cold and 7 s warm. To warm the cache in one go, run on the laptop, in a checkout of `main` (hours; not
 while the runner has a GLSL job):
