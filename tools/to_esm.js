@@ -16,8 +16,9 @@
 //     concatenation ran them.
 // i18n.js and cyr.js stay classic scripts before the bundle (build.py prepends them; their I18N, $t, $tx, $tn and CYR
 // stay globals). Problems (exit 1 with --check): a name declared at the top of two files, a top-level (load-time) use of
-// a name a later file declares, a file with a CommonJS line of an unknown form. Text is read and written as is: CRLF
-// files keep CRLF (the Windows runner checks out with CRLF).
+// a name a later file declares, an assignment to another file's name (read-only once imported), a top-level let/var/
+// function reassigned after its declaration (expose.js copies it once), a file with a CommonJS line of an unknown form.
+// Text is read and written as is: CRLF files keep CRLF (the Windows runner checks out with CRLF).
 const fs = require('fs');
 const path = require('path');
 
@@ -55,14 +56,17 @@ function analyze(order) {
     const umd = UMD.exec(text);
     let umdName = null;
     if (umd) { const n = /root\)?\.([A-Za-z_$][\w$]*) = M;/.exec(umd[2]); if (!n) throw new Error(`${f}: a UMD header without root.X = M`); umdName = n[1]; decl.add(umdName); }
-    const through = new Set(), top = new Set();
+    const through = new Set(), top = new Set(), writes = new Set();
     for (const r of g.through) {
       through.add(r.identifier.name);
+      if (r.isWrite()) writes.add(r.identifier.name);
       let s = r.from;
       while (s && s.type !== 'function' && s !== g) s = s.upper;
       if (s === g) top.add(r.identifier.name);
     }
-    info[f] = { text, decl, through, top, umdName };
+    // a top-level name written after its declaration: expose.js copies its value once, before app.js runs
+    const reassigned = new Set(g.variables.filter((v) => v.defs.some((d) => d.kind !== 'const') && v.references.some((r) => r.isWrite() && !r.init)).map((v) => v.name));
+    info[f] = { text, decl, through, top, writes, reassigned, umdName };
   }
   return info;
 }
@@ -81,6 +85,7 @@ function plan(order, info) {
       const from = def.get(n);
       if (!from || from === f) continue;
       if (I.top.has(n) && order.indexOf(from) > order.indexOf(f)) problems.push(`${f}: uses ${n} while it loads, but ${from} (later) declares it`);
+      if (I.writes.has(n)) problems.push(`${f}: assigns ${n}, which ${from} declares (an imported binding is read-only: a TypeError in a module)`);
       if (!imports.has(from)) imports.set(from, []);
       imports.get(from).push(n);
     }
@@ -90,6 +95,7 @@ function plan(order, info) {
     const used = [...I.decl].filter((n) => order.some((o) => o !== f && info[o].through.has(n))).sort();
     // (every top-level name: a classic script made each one a global, and the test page keeps them, expose.js)
     const all = [...I.decl].sort();
+    for (const n of I.reassigned) problems.push(`${f}: reassigns its top-level ${n} after declaring it (expose.js would keep the first value for the test page)`);
     out[f] = { imports, cjs, used, all, umdName: I.umdName };
   }
   return { out, problems };

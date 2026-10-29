@@ -1,7 +1,8 @@
 'use strict';
 // tools/to_esm.js, the phase 4 codemod of issue #20, on a copy of src/: it finds nothing it cannot convert, every line
 // above each file's module block is the file's own (the CommonJS line gone, the UMD headers rewritten line for line),
-// every file parses as a module, and require() of each node-loadable file returns what it returned before.
+// every file parses as a module, require() of each node-loadable file returns what it returned before, and --check
+// refuses the two changes a module would break on (a write to another file's name, a reassigned top-level let).
 //   node test/t_to_esm.js
 const fs = require('fs'), path = require('path'), os = require('os'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
@@ -66,5 +67,22 @@ for (const f of NODE) {
   if (Array.isArray(before[f])) ok(`require('${f}') returns every name it returned before`, before[f].every((k) => after[f].includes(k)) && (after[f].length === before[f].length || /^\{/.test(cjsKind[f] || '')), { before: String(before[f]).slice(0, 80), after: String(after[f]).slice(0, 80) });
 }
 fs.rmSync(T, { recursive: true, force: true });
+
+// 4. what --check refuses: a later change that writes another file's name (an imported binding is read-only), and one
+// that reassigns a top-level let (expose.js would keep its first value), each on a copy
+for (const [what, file, add, want] of [
+  ['an assignment to another file\'s name', 'parse.js', '\nfunction __esmProbeA() { CX = null; }\n', /PROBLEM parse\.js: assigns CX, which cx\.js declares/],
+  ['a reassigned top-level let', 'cx.js', '\nlet __esmProbeB = 1;\nfunction __esmProbeC() { __esmProbeB = 2; }\n', /PROBLEM cx\.js: reassigns its top-level __esmProbeB/],
+]) {
+  const U = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-esm-'));
+  fs.cpSync(path.join(ROOT, 'src'), path.join(U, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(U, 'test')); fs.mkdirSync(path.join(U, 'tools'));
+  for (const f of ['test/src_text.js', 'tools/to_esm.js', 'build.py']) fs.copyFileSync(path.join(ROOT, f), path.join(U, f));
+  fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(U, 'node_modules'), 'dir');
+  fs.appendFileSync(path.join(U, 'src', file), add);
+  const r = run([path.join(U, 'tools', 'to_esm.js'), '--root', U, '--check']);
+  ok(`--check refuses ${what}`, r.rc === 1 && want.test(r.out), r.out.split('\n').filter((l) => /PROBLEM/.test(l)));
+  fs.rmSync(U, { recursive: true, force: true });
+}
 console.log(fails ? `${fails} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(fails ? 1 : 0);
