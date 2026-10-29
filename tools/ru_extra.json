@@ -291,5 +291,9 @@
  "Repeat": "Повторить",
  "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Повтор × N: этот блок слишком тяжёл, чтобы нарисовать его %{n} раз; не более N = %{max}",
  "{x} is complex: use Re {x}, Im {x} or |{x}|": "%{x} комплексное: используйте Re %{x}, Im %{x} или |%{x}|",
- "A complex number": "Комплексное число"
+ "A complex number": "Комплексное число",
+ "Show as a point": "Показать точкой",
+ "New complex number here": "Новое комплексное число здесь",
+ "There is no free name left for a number.": "Не осталось свободных имён для числа.",
+ "Added the complex number {x}": "Добавлено комплексное число %{x}"
 }

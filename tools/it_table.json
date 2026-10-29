@@ -3084,5 +3084,9 @@
  "Repeat": "Ripeti",
  "Repeat × N: this block is too heavy to draw {n} times; at most N = {max}": "Ripeti × N: questo blocco è troppo pesante per disegnarlo {n} volte; al massimo N = {max}",
  "{x} is complex: use Re {x}, Im {x} or |{x}|": "{x} è complesso: usa Re {x}, Im {x} o |{x}|",
- "A complex number": "Un numero complesso"
+ "A complex number": "Un numero complesso",
+ "Show as a point": "Mostra come punto",
+ "New complex number here": "Nuovo numero complesso qui",
+ "There is no free name left for a number.": "Non resta nessun nome libero per un numero.",
+ "Added the complex number {x}": "Aggiunto il numero complesso {x}"
 }
