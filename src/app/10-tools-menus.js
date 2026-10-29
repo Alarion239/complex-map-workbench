@@ -151,7 +151,7 @@
     selected = null; zpSel = null;
     setSel(k); syncSel(); buildShapeList(); requestRender('P');
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      const el = document.getElementById(`dh${k}_${kind}`);
+      const el = /** @type {HTMLInputElement | null} */ (document.getElementById(`dh${k}_${kind}`));
       if (el && el.getClientRects().length) { el.focus(); el.select(); } else dhAddShape(k, kind, kind === 'dhray' ? '1/3' : '1.1');
     }));
   }

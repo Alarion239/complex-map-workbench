@@ -164,15 +164,15 @@
     // Julia set whose c is a slider (at the end of the list: the examples before keep their places)
     {
       name: $t('The Douady–Hubbard map'), try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
-      shapes: [['0', 0], ['1/3', 1], ['2/3', 2], ['1/7', 3], ['2/7', 4], ['1/2', 5]].map(([t, i]) => ({ kind: 'dhray', theta: t, c: null, ci: i }))
-        .concat([1.02, 1.1, 1.5].map((r, i) => ({ kind: 'dheq', r, c: null, ci: 6 + (i % 2) }))),
+      shapes: [...['0', '1/3', '2/3', '1/7', '2/7', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: null, ci: i })),
+        ...[1.02, 1.1, 1.5].map((r, i) => ({ kind: 'dheq', r, c: null, ci: 6 + (i % 2) }))],
       steps: [{ type: 'dh', params: { N: 64 } }], rightMode: 'color',
     },
     {
       name: $t('Böttcher coordinates of a Julia set'), try: $t('Try: press Play beside c under Numbers: the rays follow c; once c leaves M, φ_c is defined only outside the critical level.'), tex: 'w=\\varphi_c(z)', blurb: $t('φ_c maps the basin of ∞ of z ↦ z² + c onto the outside of a disc, z ↦ z² + c to w ↦ w². For c = −1 (the basilica) the rays of angle 1/3 and 2/3 land at the fixed point (1 − √5)/2, and the ray 0 at (1 + √5)/2.'), view: { cx: 0, cy: 0, s: 120 },
       params: [{ name: 'c', value: -1, min: -2, max: 0.5, step: 0.01 }],
-      shapes: [['0', 0], ['1/3', 1], ['2/3', 2], ['1/2', 3]].map(([t, i]) => ({ kind: 'dhray', theta: t, c: [-1, 0], bind: { c: 'c' }, ci: i }))
-        .concat([1.05, 1.3].map((r, i) => ({ kind: 'dheq', r, c: [-1, 0], bind: { c: 'c' }, ci: 6 + i }))),
+      shapes: [...['0', '1/3', '2/3', '1/2'].map((t, i) => ({ kind: 'dhray', theta: t, c: [-1, 0], bind: { c: 'c' }, ci: i })),
+        ...[1.05, 1.3].map((r, i) => ({ kind: 'dheq', r, c: [-1, 0], bind: { c: 'c' }, ci: 6 + i }))],
       steps: [{ type: 'bottcher', params: { c: 'c', N: 64 } }], rightMode: 'color',
     },
   ];
