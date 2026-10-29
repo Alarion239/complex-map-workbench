@@ -2318,6 +2318,7 @@
  "Previous step": "Passo precedente",
  "Next step": "Passo successivo",
  "{n} step\u0004{n} steps": {"one": "{n} passo", "other": "{n} passi"},
+ "style\u0004Cauchy": "Cauchy",
  "role\u0004phase": "fase",
  "roots zeros poles solve solutions equation preimages target": "roots zeros poles solve solutions equation preimages target radici zeri poli risolvi soluzioni equazione controimmagini bersaglio",
  "row\u0004the tangent to {c} at {a}": "la tangente a {c} in {a}",

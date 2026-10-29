@@ -53,6 +53,7 @@
  "Previous step": "Предыдущий шаг",
  "Next step": "Следующий шаг",
  "{n} step\u0004{n} steps": {"one": "%{n} шаг", "few": "%{n} шага", "many": "%{n} шагов", "other": "%{n} шага"},
+ "style\u0004Cauchy": "Коши",
  "tool\u0004Circle": "Окруж­ность",
  "tool\u0004Rectangle": "Прямо­угольник",
  "tool\u0004Polygon": "Много­угольник",

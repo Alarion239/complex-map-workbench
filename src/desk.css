@@ -278,14 +278,12 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
 .pane-head > .options { position: static; display: inline-flex; flex: 0 0 auto; min-height: 0; max-width: none; padding: 0; margin-left: 2px; background: none; border: 0; box-shadow: none; }
-/* (#247) the head's own controls, compact and on one row: the style's glyphs (the chosen one with its word), n, and the
-   checks with an icon as icon toggles (the word their tooltip and accessible name); what does not fit is behind ⋯ */
+/* (#247) the head's own controls, compact and on one row: the style's glyphs alone (option 1: each style's name is its
+   tooltip and accessible name, and the chosen one's the header's style button), and the checks with an icon as icon
+   toggles (the word their tooltip and accessible name); n, the grid step and what does not fit are behind ⋯ */
 .pane-head > .options { align-items: center; gap: 4px; }
-.pane-head > .options > .seg.sty-seg > button { gap: 5px; padding: 0 5px; }
-.pane-head > .options > .seg.sty-seg > button:not(.on) .sty-n { display: none; }
-.pane-head > .options > .seg.sty-seg > button.on { padding: 0 8px 0 6px; }
-.pane-head > .options.sty-compact > .seg.sty-seg > button .sty-n { display: none; }
-.pane-head > .options.sty-compact > .seg.sty-seg > button.on { padding: 0 5px; }
+.pane-head > .options > .seg.sty-seg > button { gap: 5px; padding: 0 4px; }
+.pane-head > .options > .seg.sty-seg .sty-n { display: none; }
 .seg.sty-seg > button { display: inline-flex; align-items: center; gap: 5px; }
 .sty-seg .sty-g svg { display: block; width: 15px; height: 15px; }
 .pane-head > .options > .scrub { height: 26px; padding: 0 0 0 6px; border: 1px solid var(--line); border-radius: var(--r-2, 6px); }
