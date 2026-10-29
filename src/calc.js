@@ -877,16 +877,14 @@ const Calc = (() => {
     try { found = zerosPoles(F, box, { max: max + 8, grid }).filter((f) => f.kind === 'pole'); } catch (e) { found = []; }
     if (found.length > max) return { ok: false, why: 'unverified' };
     const all = found.map((f) => ({ z: f.z, order: Math.max(1, f.mult || 1), a: null, r: 0 }));
-    for (const q of all) {
-      q.r = ringOf(q, all, box);
-      q.a = principalPart(F, q.z, q.r, q.order);
-      if (!q.a) return { ok: false, why: 'unverified' };
-    }
+    // (a pole the curve does not wind round has no term: if its principal part cannot be found (a branch point close to
+    // it) that does not spoil the plan; the fast path asks for the plan in full if the curve takes it in)
+    for (const q of all) { q.r = ringOf(q, all, box); q.a = principalPart(F, q.z, q.r, q.order); }
     const inside = [];
     for (const q of all) {
       if (distToLoops(loops, q.z) <= 1e-7 * scale) return { ok: false, why: 'onCurve' };
       const wn = windingSum(loops, q.z);
-      if (wn) inside.push({ z: q.z, order: q.order, n: wn, a: q.a });
+      if (wn) { if (!q.a) return { ok: false, why: 'unverified' }; inside.push({ z: q.z, order: q.order, n: wn, a: q.a }); }
     }
     const ppSum = (z) => { let re = 0, im = 0; for (const q of inside) { const v = ppAt(q.a, q.z, z); re += q.n * v.re; im += q.n * v.im; } return C(re, im); };
     // the check against the quadrature: four points outside γ (Φ = −Σ n PP), two inside (Φ = n F − Σ n PP). A long thin
@@ -934,7 +932,7 @@ const Calc = (() => {
     for (const q of memo.all) {
       if (distToLoops(loops, q.z) <= 1e-7 * bb.scale) return { ok: false, why: 'onCurve', fast: true, memo };
       const wn = windingSum(loops, q.z);
-      if (wn) inside.push({ z: q.z, order: q.order, n: wn, a: q.a });
+      if (wn) { if (!q.a) return null; inside.push({ z: q.z, order: q.order, n: wn, a: q.a }); }
     }
     return { ok: true, loops, poles: inside, probes: [], fast: true, memo };
   }
@@ -955,7 +953,8 @@ const Calc = (() => {
         if (!fin(g0) || !fin(gp) || !fin(gm)) return null;
         const d = C((gp.re - gm.re) / (2 * h), (gp.im - gm.im) / (2 * h));
         if (CX.abs(d) < 1e-300) return null;
-        const st = CX.div(g0, d);
+        // (1/F has a zero of the pole's order m there: Newton's step to it is 1/m of the way, so m times the step)
+        const st = CX.scale(CX.div(g0, d), q.order);
         z = C(z.re - st.re, z.im - st.im);
         if (CX.abs(st) < 1e-9 * (1 + CX.abs(z))) break;   // (Newton converges quadratically: this step leaves an error far below rounding)
         if (it === 11) return null;
@@ -966,7 +965,7 @@ const Calc = (() => {
     for (const q of all) {
       q.r = ringOf(q, all, memo.box);
       q.a = principalPart(F, q.z, q.r, q.order);
-      if (!q.a) return null;
+      if (!q.a && memo.all.find((o) => o.z && Math.hypot(o.z.re - q.z.re, o.z.im - q.z.im) < 0.3 * o.r && o.a)) return null;   // (one that had a principal part and has none: the order changed)
     }
     return { box: memo.box, all, verdict: 'ok' };
   }

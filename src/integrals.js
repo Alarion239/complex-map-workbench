@@ -548,7 +548,7 @@ const Integrals = (() => {
     return integrateShape(list[0].id);
   }
   // what the last full plan found (see cauchyPlot): the shape, the F it was for, its memo, a pending full check
-  const planMemo = { shape: null, fk: '', memo: null, force: false, t: 0 };
+  const planMemo = { shape: null, sk: '', fk: '', memo: null, force: false, t: 0 };
   function cauchyPlot() {
     if (!hasCalc('cauchyNodes')) return null;
     const geom = integralGeom();
@@ -574,14 +574,17 @@ const Integrals = (() => {
     // Newton's method (Calc.cauchyPlanFast, cauchyTrack) and is checked in full 300 ms after the last change
     let plan = null;
     if (n && hasCalc('cauchyPlan')) {
+      // (sk: the chain's structure, its steps' kinds and their formulas; fk adds the numbers: a slider changes fk, an edit of a
+      // formula or a step changes sk, and then the poles are looked for again)
+      const sk = A.S.steps.map((st) => st.type + (st.on === false ? '-' : '') + Object.values(st.params || {}).filter((v) => typeof v === 'string' && !/^[-+0-9.eE]*$/.test(v)).join('~')).join('|') + '|' + A.S.focus;
       const fk = A.chainSig[nSteps()] + '|' + A.S.focus, loops = { loops: g.comps.map((c) => c.flat) }, pm = planMemo;
       try {
-        if (!pm.force && pm.shape === g.s.id && pm.memo && hasCalc('cauchyPlanFast')) {
+        if (!pm.force && pm.shape === g.s.id && pm.sk === sk && pm.memo && hasCalc('cauchyPlanFast')) {
           const memo = pm.fk === fk ? pm.memo : Calc.cauchyTrack(F, pm.memo);
           plan = memo ? Calc.cauchyPlanFast(F, loops, memo) : null;
           if (plan) { pm.memo = memo; pm.fk = fk; }
         }
-        if (!plan) { plan = Calc.cauchyPlan(F, loops); pm.shape = g.s.id; pm.fk = fk; pm.memo = plan.memo || null; pm.force = false; clearTimeout(pm.t); pm.t = 0; }
+        if (!plan) { plan = Calc.cauchyPlan(F, loops); pm.shape = g.s.id; pm.sk = sk; pm.fk = fk; pm.memo = plan.memo || null; pm.force = false; clearTimeout(pm.t); pm.t = 0; }
       } catch (e) { plan = { ok: false, why: 'unverified' }; pm.memo = null; }
       if (plan.fast) {
         clearTimeout(pm.t);

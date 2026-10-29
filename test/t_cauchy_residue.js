@@ -194,5 +194,25 @@ agree('exp z (entire)', (z) => CX.exp(z), circle(C(0.3, 0.2), 1.4, 64), []);
   check(`(e) the fast plan of a 600-gon with 8 poles takes ${msPer.toFixed(2)} ms (under 3)`, msPer < 3, msPer);
 }
 function distToRing(ring, z) { let d = Infinity; for (const p of ring) d = Math.min(d, Math.hypot(p.re - z.re, p.im - z.im)); return d; }
+// ---- (f) tracking under a slider: poles of order 1, 2 and 3 follow a parameter, and an outside pole's bad principal part does not spoil the plan
+{
+  for (const m of [1, 2, 3]) {
+    const mk = (p) => (z) => { const d = sub(z, p); let w = C(1, 0); for (let i = 0; i < m; i++) w = CX.mul(w, d); return CX.div(C(1, 0), w); };
+    let p = C(0.2, 0.1), memo = Calc.cauchyPlan(mk(p), circle(C(0, 0), 1, 128)).memo, tracked = 0, steps = 20;
+    for (let i = 0; i < steps && memo; i++) {
+      p = C(p.re + 0.004, p.im - 0.002);
+      const mm = Calc.cauchyTrack(mk(p), memo);
+      if (mm && mm.all.length === 1 && Math.hypot(mm.all[0].z.re - p.re, mm.all[0].z.im - p.im) < 1e-9 && mm.all[0].order === m) { tracked++; memo = mm; } else break;
+    }
+    check(`(f) a pole of order ${m} is tracked through ${steps} slider steps (${tracked})`, tracked === steps, tracked);
+  }
+  // an outside pole next to a branch point has no principal part; the plan around the unit circle does not need it
+  const Fo = (z) => CX.add(inv(sub(z, C(1.3, 0))), CX.sqrt(sub(C(1.35, 0), z)));
+  const po = Calc.cauchyPlan(Fo, circle(C(0, 0), 1, 128));
+  check('(f) a pole outside the curve whose principal part cannot be found does not make the plan unverified', po.ok && po.poles.length === 0, po.why);
+  // the curve then grows over it: the fast plan asks for the full one
+  const grown = Calc.cauchyPlanFast(Fo, circle(C(0.3, 0), 1.3, 128), po.memo);
+  check('(f) ... and a curve that takes it in gets no fast plan', grown === null || !grown.ok, grown && grown.why);
+}
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
