@@ -6,9 +6,41 @@
     gl.compileShader(s);
     return s;
   }
+  // ?glprof (issue #72): every program's link timed, for slow shader compilers (ANGLE's Direct3D 11 runs FXC at link
+  // time). A record per link: the program (name, its chain version's key, map mode, inverse or not, source sizes), when
+  // it started, and when it was done: KHR_parallel_shader_compile's COMPLETION_STATUS seen by a 5 ms poll, or the
+  // return of a link read that waited (no extension, tests, exports). GLR.profile() returns them; ci/glprof.js reads them.
+  const PROF = (() => { try { return new URLSearchParams(location.search).has('glprof'); } catch (err) { return false; } })();
+  const profRecs = [];
+  let profT = 0;
+  function profStart(e, vsSrc, fsSrc) {
+    if (!PROF) return;
+    e.prof = { name: e.name, key: String(e.key).slice(0, 40), mode: e.mode || 0, inv: !!e.inv, vs: vsSrc.length, fs: fsSrc.length,
+      t0: performance.now(), ms: null, by: '' };
+    profRecs.push(e.prof);
+    if (pcExt && !profT) profT = setTimeout(profPoll, 5);
+  }
+  function profPoll() {
+    profT = 0;
+    let open = false;
+    for (const r of profRecs) {
+      if (r.ms !== null) continue;
+      const e = r.e || [...progs.values()].find((q) => q.prof === r);
+      if (!e || !e.p) { r.ms = -1; r.by = 'dropped'; continue; }
+      r.e = e;
+      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR)) { r.ms = performance.now() - r.t0; r.by = 'parallel'; } else open = true;
+    }
+    if (open) profT = setTimeout(profPoll, 5);
+  }
+  // a link read that waited (finishLink, finishInv): the program was done when it returned
+  function profWaited(e) {
+    if (PROF && e.prof && e.prof.ms === null) { e.prof.ms = performance.now() - e.prof.t0; e.prof.by = 'waited'; }
+  }
+  const profile = () => profRecs.map(({ e, ...r }) => r);
   // Starts compiling and linking. Nothing here waits for the driver: with KHR_parallel_shader_compile the work
   // runs in the background until finishLink reads the result.
   function startLink(e, vsSrc, fsSrc, tf) {
+    profStart(e, vsSrc, fsSrc);
     const p = gl.createProgram();
     e.vs = shader(gl.VERTEX_SHADER, vsSrc); e.fs = shader(gl.FRAGMENT_SHADER, fsSrc);
     gl.attachShader(p, e.vs); gl.attachShader(p, e.fs);
@@ -19,7 +51,9 @@
   // Reads the link status (blocks until the driver is done) and the uniform locations.
   function finishLink(e) {
     const p = e.p;
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const linked = gl.getProgramParameter(p, gl.LINK_STATUS);
+    profWaited(e);
+    if (!linked) {
       const log = (!gl.getShaderParameter(e.vs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.vs))
         || (!gl.getShaderParameter(e.fs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.fs)) || gl.getProgramInfoLog(p) || 'link failed';
       gl.deleteShader(e.vs); gl.deleteShader(e.fs); gl.deleteProgram(p);
@@ -224,6 +258,19 @@ float wabs(vec2 w) {
         getProg(e.name, cur, true, { mode: mm });
         n++;
       }
+    }
+    return n;
+  }
+  // (issue #72) the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
+  // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
+  // -> the number started
+  function prestartLand() {
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    let n = prestart(['landNrm']);
+    for (const name of ['landTF', 'land']) {
+      if (progs.has(progId(name, cur, { mode: 0 }))) continue;
+      getProg(name, cur, true, { mode: 0 });
+      n++;
     }
     return n;
   }

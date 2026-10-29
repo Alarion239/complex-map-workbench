@@ -512,6 +512,7 @@
       },
       removeVertex(id, i) { if (polyRemoveVertex(id, i)) undoToast($t('Vertex removed.')); },
       select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); },
+      newNumber: (z) => newNumberHere(z),
       front(id) { const t = S.targets.some((x) => x.id === id); moveShapeTo(id, (t ? S.targets : S.shapes).length - 1); },
       back(id) { moveShapeTo(id, 0); },
       hide(id) {

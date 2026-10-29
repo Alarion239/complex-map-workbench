@@ -299,7 +299,7 @@ module.exports = function ({ K, ok }) {
   // tangent too. The issue's table: C the unit circle, T = i, 52 px per unit, a click at Re z = 1.5
   {
     const fs = require('fs');
-    const CON = fs.readFileSync(path.join(__dirname, '../src/construct.js'), 'utf8');
+    const CON = require('./src_text').source('construct.js', { esm: 'strip' });
     const body = (name) => { const i = CON.indexOf(`function ${name}(`); return i < 0 ? '' : CON.slice(i, CON.indexOf('\n  }\n', i)); };
     const rm = /const radii = \(touch\) => \(touch \? \{ p: (\d+),[^}]*\} : \{ p: (\d+),/.exec(CON), em = /const TAN_EPS = ([\d.]+);/.exec(CON);
     ok(!!rm && !!em, 'tangent target: radii and TAN_EPS read from construct.js', [rm && rm[0], em && em[0]]);

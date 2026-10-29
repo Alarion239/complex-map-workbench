@@ -50,6 +50,7 @@ reaches our machines.
   [Python 3.12](https://www.python.org/downloads/) (Windows: tick *Add python.exe to PATH*), and Git
   ([git-scm.com](https://git-scm.com/) on Windows; on the Mac, `xcode-select --install`). The jobs install their own
   Node into the runner's folder; Chrome, Python and Git must be on the machine.
+  The jobs run `npm ci` themselves (the build will bundle with esbuild), so a runner needs Node and npm, nothing else to install.
 - **An account:** a separate user account for the runner is safest (a job can read what that account can read).
   Your own account works too. Either way, that account must **stay logged in**: Chrome reaches the GPU only from a
   logged-in desktop session. A locked screen is fine.

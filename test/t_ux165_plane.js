@@ -7,7 +7,6 @@
 // node test/t_ux165_plane.js
 'use strict';
 const path = require('path');
-const fs = require('fs');
 const SRC = path.join(__dirname, '..', 'src');
 global.CX = require(path.join(SRC, 'cx.js'));
 global.Expr = require(path.join(SRC, 'parse.js'));
@@ -67,7 +66,7 @@ for (const [name, mk, rp] of [
 }
 // the wiring in construct.js: the tool, its rule and its name kind
 {
-  const s = fs.readFileSync(path.join(SRC, 'construct.js'), 'utf8');
+  const s = require('./src_text').source('construct.js', { esm: 'strip' });
   ok(/const CTOOLS = \[[^\]]*'hyper'\]/.test(s), 'construct.js: Hyperbolic line is a construct tool');
   ok(/const sm = tool === 'hyper' \? 'in' : segMode;/.test(s), 'construct.js: the Hyperbolic line tool is always Inside');
   ok(/if \(sm === 'out'\) seg = -seg;/.test(s), 'construct.js: Outside is the other sign');
