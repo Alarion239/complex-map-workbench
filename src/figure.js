@@ -3107,7 +3107,8 @@ const Figure = (() => {
   function makePreview(cv, ui) {
     const g = cv.getContext('2d', { alpha: false });
     let run = null, raf = 0, clock = 0, pos0 = 0;
-    const P = { playing: false, i: 0, shown: false, drawn: -1 };
+    // (first: the frame drawn first in this run, -1 until one is)
+    const P = { playing: false, i: 0, shown: false, drawn: -1, first: -1 };
     const tkey = (t) => t.toFixed(9);
     // the next slot for a frame's render: just after the screen's frame (so a render of 5-15 ms fits before the next
     // one). A hidden page draws nothing: the fill waits until the page is shown again (review vp-7)
@@ -3163,7 +3164,7 @@ const Figure = (() => {
       g.globalAlpha = 1; g.drawImage(bs[0], 0, 0, cv.width, cv.height);
       if (bs.length > 1) { g.globalAlpha = e.k; g.drawImage(bs[1], 0, 0, cv.width, cv.height); g.globalAlpha = 1; }
       pvStats.draws++; P.drawn = i;
-      if (!P.shown) { P.shown = true; ui.shown(true); }
+      if (!P.shown) { P.shown = true; P.first = i; ui.shown(true); }
       return true;
     }
     const show = (i) => { P.i = i; P.drawn = -1; if (run) ahead(run, i); draw(i); ui.tick(i); };
@@ -3171,6 +3172,9 @@ const Figure = (() => {
       raf = 0;
       const q = run;
       if (!q || !P.playing) return;
+      // (time does not run before the first picture is shown: on a slow machine the poster's frame is still rendering, and the
+      // preview must open on it, not on a frame the clock has since passed)
+      if (!P.shown) { pos0 = P.i; clock = now; }
       const i = Math.max(0, Math.floor(pos0 + (now - clock) * q.fps / 1000)) % q.times.length;
       if (i !== P.i) { P.i = i; ui.tick(i); }
       ahead(q, i);
@@ -3223,7 +3227,7 @@ const Figure = (() => {
         mime: 'image/webp', ready: 0, pw, ph, dead: false, id: ++pvStats.runs, lazy: !!o.lazy, order: [], full: [], urgent: [], qpos: 0, wake: null, unhide: null, cssW: o.cssW,
       };
       pvStats.live++;
-      P.i = at; P.drawn = -1; P.shown = false;
+      P.i = at; P.drawn = -1; P.shown = false; P.first = -1;
       if (o.keep) { g.drawImage(o.keep, 0, 0, pw, ph); P.shown = true; } else ui.shown(false);
       ui.size(pw, ph, plan.W, plan.H, raw); ui.tick(at); ui.fill(0, U.length);
       // the order: the frame in view, both ends, then every 16th, 8th, ... frame (lazy: the frame in view only)
@@ -3305,7 +3309,7 @@ const Figure = (() => {
     return {
       start, stop, play, pause, seek, draw, resize,
       toggle: () => (P.playing ? pause() : play()),
-      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
+      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, first: P.first, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
       // (tests) the picture the preview shows at timeline index i, once its own frames are kept, as PNG data
       frame: async (i) => {
         const q = run;
