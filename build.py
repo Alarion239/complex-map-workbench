@@ -18,11 +18,18 @@ def save(p, s):
 src = root / 'src'
 page = (src / 'page.html').read_text(encoding='utf-8')
 # app.js and gl.js are kept as ordered parts, src/app/ and src/gl/ (issue #20, phase 2): source() joins them
-js = '\n'.join(source(f) for f in ['util.js', 'cx.js', 'parse.js', 'funcs.js', 'homrange.js', 'inverse.js', 'recognize.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'curves.js', 'sphere.js', 'palette.js', 'gl.js', 'view.js', 'figure.js', 'sound.js', 'tour.js', 'inspector.js', 'planemenu.js', 'construct.js', 'params.js', 'phone.js', 'seasong.js', 'commands.js', 'soundhooks.js', 'export.js', 'morphpaths.js', 'integrals.js', 'examples.js', 'app.js'])
+import subprocess
+def bundle(mode):
+    out = root / 'dist' / f'bundle-{mode}.js'
+    (root / 'dist').mkdir(exist_ok=True)
+    subprocess.run(['node', str(root / 'tools' / 'bundle.mjs'), '--mode', mode, '--out', str(out)], check=True)
+    return out.read_text(encoding='utf-8')
+js, jsp = bundle('test'), bundle('pub')
 # v15 desktop (notes/ui-redesign-2/build/desktop.md): the redesign's styles close the page's stylesheet
 _i = page.rindex('</style>')
 page = page[:_i] + (src / 'desk.css').read_text(encoding='utf-8') + (src / 'phone.css').read_text(encoding='utf-8') + page[_i:]
 js = js.replace('</script', '<\\/script')
+jsp = jsp.replace('</script', '<\\/script')
 mj = """<script>
 window.MathJax = { options: { enableAssistiveMml: false, enableMenu: false }, svg: { fontCache: 'local' }, startup: { typeset: false, ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { try { document.head.appendChild(MathJax.svgStylesheet()); } catch (e) {} if (window.__mjReady) window.__mjReady(); }); } } };
 </script>
@@ -112,10 +119,11 @@ data += block('cmw-i18n-it', it_text)
 
 # the interface language first (notes/i18n/DESIGN.md 1): i18n.js before cx.js, so the language is known before
 # funcs.js builds its catalog; the table and the faces are the data blocks above
-js = '\n'.join([(src / 'i18n.js').read_text(encoding='utf-8'), cyr_js]).replace('</script', '<\\/script') + '\n' + js
+pre = '\n'.join([(src / 'i18n.js').read_text(encoding='utf-8'), cyr_js]).replace('</script', '<\\/script') + '\n'
+js, jsp = pre + js, pre + jsp
 body = page + '\n' + data + mj + '<script>\n' + js + '\n</script>\n'
 # the published page drops the test hooks (window.__cmw*); dist/test.html keeps them for testing
-pub_js = re.sub(r'\n[ \t]*// TEMP-DEBUG-HOOK \(removed before publishing\).*?// TEMP-DEBUG-HOOK\n', '\n', js, flags=re.S)
+pub_js = re.sub(r'\n[ \t]*// TEMP-DEBUG-HOOK \(removed before publishing\).*?// TEMP-DEBUG-HOOK\n', '\n', jsp, flags=re.S)
 assert '__cmw' not in pub_js, 'test hooks left in the published page'
 # (a charset first, so the file decodes as UTF-8 even served without a charset header or opened from disk; the
 # artifact host's skeleton declares UTF-8 too)

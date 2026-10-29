@@ -2920,4 +2920,9 @@ const Construct = (() => {
     setSeg: g(setSeg), setBetween: g(setBetween),
   };
 })();
-if (typeof module !== 'undefined') module.exports = Construct;
+import { CX } from './cx.js';
+import { Region } from './region.js';
+import { Constr } from './constr.js';
+import { PlaneMenu } from './planemenu.js';
+import { Params } from './params.js';
+export { Construct, Construct as 'module.exports' };

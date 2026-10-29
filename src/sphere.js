@@ -1368,4 +1368,6 @@ const SphereMesh = (() => {
   const APP = { maxWork: 250000, maxNodes: 300000, guard: 2, workOf: (K) => Math.max(250000, 85000 * K) };
   return { create, kOf, KCAP, APP, lift, liftConj, stagewise, atInfOf, probeStep, FIN, INF, UNDEF, FINAL, PAT_POLAR, PAT_CART };
 })();
-if (typeof module !== 'undefined') module.exports = SphereMesh;
+import { CX } from './cx.js';
+import { Region } from './region.js';
+export { SphereMesh, SphereMesh as 'module.exports' };
