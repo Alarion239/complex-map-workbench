@@ -80,7 +80,8 @@ async function waitFor(B, expr, timeout) {
 function inputsOf(p) {
   const make = fs.readFileSync(path.join(ROOT, p.make), 'utf8');
   const files = [...new Set([...make.matchAll(/'([\w.]+\.js)'/g)].map((m) => m[1]))]
-    .map((n) => (fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : srcParts(n) ? `src/${n.replace(/\.js$/, '')}` : `test/${n}`));
+    // (a split file first: after phase 4 of #20, src/gl.js is a stand-in for node, and the shaders come from src/gl/)
+    .map((n) => (srcParts(n) ? `src/${n.replace(/\.js$/, '')}` : fs.existsSync(path.join(ROOT, 'src', n)) ? `src/${n}` : `test/${n}`));
   return [p.make, 'ci/glsl.js', ...files, ...(/src_parts/.test(make) ? ['tools/src_parts.py'] : []), ...(/fixtures/.test(make) ? ['test/fixtures'] : [])];
 }
 

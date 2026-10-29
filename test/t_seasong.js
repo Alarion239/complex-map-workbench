@@ -31,7 +31,7 @@ const st0 = SEASONG.steps[0], P = st0.params;
 check('the example is one powa step', SEASONG.steps.length === 1 && st0.type === 'powa', JSON.stringify(SEASONG.steps));
 const m = /^(-?[\d.]+)([+-][\d.]+)i$/.exec(P.alpha), alpha = C(+m[1], +m[2]);
 const F = (z) => CX.pow(z, alpha, P.cut * DEG, P.k);
-const funcs = fs.readFileSync(path.join(__dirname, '../src/funcs.js'), 'utf8');
+const funcs = require('./src_text').source('funcs.js', { esm: 'strip' });
 check('funcs.js powa is CX.pow(z, α, cut, k)', /powa[\s\S]{0,3000}CX\.pow\(/.test(funcs));
 
 // ---- sndSample (src/soundhooks.js), from its source (M made a parameter for the sweep)
@@ -70,7 +70,7 @@ function makeEnv() {
     setTimeout: (f, ms) => { env.timers.push(f); return env.timers.length; }, clearTimeout: () => {}, URL: { createObjectURL: () => 'blob:x' }, Blob: function () {},
   };
   vm.createContext(sandbox);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/sound.js'), 'utf8') + '\n;globalThis.Sound = Sound;', sandbox);
+  vm.runInContext(require('./src_text').source('sound.js', { esm: 'strip' }) + '\n;globalThis.Sound = Sound;', sandbox);
   env.Sound = sandbox.Sound;
   env.fire = (t) => { for (const f of env.listeners[t] || []) f({ type: t }); };
   return env;

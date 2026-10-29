@@ -81,6 +81,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -158,6 +160,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -191,14 +195,43 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: node ci/gpu_probe.js --fallback
+      # Windows compiles every shader program on the CPU (Direct3D 11's FXC behind ANGLE): nearly all of a page's time.
+      # Chrome's GPU program cache (CMW_GLSL_CACHE, ci/glsl.js) is kept between runs per job, keyed by the shader code and
+      # the test pages and restored from the nearest earlier key, so only programs whose source changed compile (the
+      # reference's, and this change's unchanged ones, come from the cache). Saved even when the job fails or times out:
+      # what it compiled is kept for the next run
+      # (a cache key may not hold a comma: the job's name in it with "+" for "," and "-" for "/")
+      - name: Shader cache key
+        if: runner.os == 'Windows'
+        id: shkey
+        shell: bash
+        run: echo "job=$(printf '%s-%s-%s' '${{ matrix.page }}' '${{ matrix.sections }}' '${{ matrix.part }}' | tr ',/' '+-')" >> "$GITHUB_OUTPUT"
+      - name: Shader cache (restore)
+        if: runner.os == 'Windows'
+        id: shaders
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/cmw-glsl-cache
+          key: glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-${{ hashFiles('src/glsl.js', 'src/gl/**', 'src/funcs.js', 'src/parse.js', 'src/inverse.js', 'test/glsl_test.js', 'test/glsl_test_adv.js', 'test/glsl_inverse_test.js') }}
+          restore-keys: |
+            glsl-${{ runner.os }}-${{ steps.shkey.outputs.job }}-
       - run: node ci/glsl.js --only ${{ matrix.page }} --part ${{ matrix.part }} --tier ${{ matrix.tier || 'all' }} ${{ matrix.sections && format('--sections {0}', matrix.sections) || '' }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
         env:
           # (a page whose browser used no CPU for 20 minutes is stuck: it fails then, not at the job's timeout)
           CMW_GLSL_STALL_MIN: '20'
+          CMW_GLSL_CACHE: ${{ runner.os == 'Windows' && format('{0}/cmw-glsl-cache', runner.temp) || '' }}
+      - name: Shader cache (save)
+        if: always() && runner.os == 'Windows' && steps.shaders.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/cmw-glsl-cache
+          key: ${{ steps.shaders.outputs.cache-primary-key }}
 
   quality:
     name: Quality (${{ matrix.os }}, ${{ matrix.shard }})
@@ -221,6 +254,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -253,6 +288,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -295,6 +332,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
