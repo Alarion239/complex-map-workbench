@@ -4021,3 +4021,9 @@ const Figure = (() => {
     geom: { senseAt, chevronAt, fitBox },
   };
 })();
+import { CX } from './cx.js';
+import { Calc } from './calc.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+import { Construct } from './construct.js';
+export { Figure };

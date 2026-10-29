@@ -1938,4 +1938,8 @@ const Region = (() => {
 })();
 // SPEC 9.1: the settle-time line refinement (Region.Lines)
 const Lines = Region.Lines;
-if (typeof module !== 'undefined') module.exports = Region;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Constr } from './constr.js';
+import { Curves } from './curves.js';
+export { Lines, Region, Region as 'module.exports' };
