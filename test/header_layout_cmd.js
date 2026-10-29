@@ -27,7 +27,8 @@ for (const lang of ['', 'ru', 'it']) {
     await load(ns, ST);
     if (lang) { await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` }); await sleep(2500); }
     await ev(`__cmwSetMain('xy'); 1`); await settle(700);
-    const p = await probe();
+    let p = await probe();
+    for (let i = 0; i < 6 && p.tabs.length < 4; i++) { await settle(500); p = await probe(); }   // (a page still drawing its panes has no tabs yet)
     info[`${lang || 'en'} ${w}`] = p;
     const at = `${lang || 'en'} ${w}`;
     ok(`${at}: no wordmark and no app name in the bar`, !p.wm && p.topText === 0 && p.mark, p);
