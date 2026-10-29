@@ -146,5 +146,48 @@ check('Series step: a_n with z is refused', /must not depend on z/.test(sb({ an:
 check('Series step: an empty a_n is refused', /formula in n/.test(sb({ an: '' }).error || ''), sb({ an: '' }).error);
 check('Series step: in the catalog with its words for the palette', Funcs.DEFS.series && Funcs.DEFS.series.params.map((q) => q.key).join() === 'kind,an,c');
 
+// ---- 12. [issue #242, #244] Dirichlet series: coefficients periodic times a power of n by Euler–Maclaurin per residue
+// (the region where they converge, conditionally too: η for Re z > 0), others by their partial sums, and the messages
+const db = (an) => sb({ kind: 'dirichlet', an });
+const etaOf = (z) => CX.mul(CX.sub(C(1, 0), CX.exp(CX.scale(CX.sub(C(1, 0), z), Math.LN2))), CX.zeta(z));
+const P10 = [C(0.1, 0), C(0.5, 14.134725141734695), C(0.5, 3), C(0.8, -2.5), C(1, 0.5), C(1, 9.064720283654388), C(1.5, 7), C(2, 1), C(3.3, -40), C(0.05, 0.4)];
+const e1 = db('(-1)^{n+1}'), e2 = db('(-1)^n');
+check('η: (−1)^{n+1} and (−1)^n build as Dirichlet series (#242)', !e1.error && !e2.error, [e1.error, e2.error]);
+for (const z of P10) {
+  // (at the zeros of ζ and of 1 − 2^{1−z} the value is about 1e-15: compared to 1 + |η|)
+  const want = etaOf(z), got = e1.f(z), got2 = e2.f(z);
+  check(`η(${z.re}${z.im >= 0 ? '+' : ''}${z.im}i) to 1e-10, and (−1)^n is −η`, CX.abs(CX.sub(got, want)) <= 1e-10 * (1 + CX.abs(want)) && CX.abs(CX.add(got2, want)) <= 1e-10 * (1 + CX.abs(want)), [got, want, got2]);
+}
+close('the alternating harmonic series: η(1) = ln 2', e1.f(C(1, 0)), C(Math.LN2, 0), 1e-14);
+close('η(2) = π²/12', e1.f(C(2, 0)), C(Math.PI * Math.PI / 12, 0), 1e-14);
+check('η is NaN for Re z ≤ 0 (where the series diverges), finite just right of it', nan(e1.f(C(0, 1))) && nan(e1.f(C(-0.5, 2))) && CX.isFin(e1.f(C(0.01, 1))));
+check('… its line Re z = σ = 0, exact', e1.cuts.length === 1 && e1.cuts[0].x === 0 && /\\sigma= 0/.test(e1.domain('z')), [e1.cuts, e1.domain('z')]);
+close('Leibniz: Σ sin(πn/2)/n = π/4 (a character mod 4, noise of 1e-13 in its zeros)', db('\\sin\\frac{\\pi n}{2}').f(C(1, 0)), C(Math.PI / 4, 0), 1e-14);
+close('Σ i^n/n = −log(1 − i)', db('i^n').f(C(1, 0)), CX.neg(CX.log(C(1, -1))), 1e-14);
+let zd = db('1');
+for (const z of [C(1.5, 0), C(1.5, 10), C(2, -3), C(3, 0.5), C(1.01, 0), C(1.2, 100), C(5, 1000)]) close(`ζ(${z.re}${z.im >= 0 ? '+' : ''}${z.im}i) from a_n = 1 against Euler–Maclaurin`, zd.f(z), CX.zeta(z), 1e-12);
+check('ζ from a_n = 1: NaN for Re z ≤ 1, σ = 1 exact', nan(zd.f(C(1, 0))) && nan(zd.f(C(0.5, 14))) && /\\sigma= 1/.test(zd.domain('z')), zd.domain('z'));
+zd = db('\\frac{1}{n^2}');
+for (const z of [C(-0.5, 0), C(0, 3), C(1, 1)]) close(`a_n = 1/n²: ζ(z + 2) at ${z.re}${z.im >= 0 ? '+' : ''}${z.im}i`, zd.f(z), CX.zeta(CX.add(z, C(2, 0))), 1e-12);
+close('a_n = n²: ζ(z − 2) at 4 + i', db('n^2').f(C(4, 1)), CX.zeta(C(2, 1)), 1e-12);
+close('a_n = (−1)^n/√n: −η(z + ½) at 0.2 + i', db('\\frac{(-1)^n}{\\sqrt{n}}').f(C(0.2, 1)), CX.neg(etaOf(C(0.7, 1))), 1e-12);
+let dp = db('\\binom{3}{n}');
+close('a Dirichlet polynomial (binom(3, n): 3 + 3·2^{−z} + 3^{−z}), everywhere', dp.f(C(-5, 1)), CX.add(C(3, 0), CX.add(CX.scale(CX.exp(CX.scale(C(5, -1), Math.LN2)), 3), CX.exp(CX.scale(C(5, -1), Math.log(3))))), 1e-13);
+check('… with no line', !dp.cuts.length, dp.cuts);
+dp = db('2^{-n}');
+close('a_n = 2^{−n} builds (2^{−1030} is 0, not NaN) and sums', dp.f(C(-3, 1)), (() => { let S = C(0, 0); for (let k = 1; k < 200; k++) S = CX.add(S, CX.scale(CX.exp(CX.scale(C(3, -1), Math.log(k))), 2 ** -k)); return S; })(), 1e-13);
+dp = db('\\log n');
+check('a_n = log n: by its partial sums, σ estimated and said so', !dp.error && /\\approx/.test(dp.domain('z')) && /estimated/.test(dp.domain('z')), dp.error || dp.domain('z'));
+close('… −ζ′(4 + i/2) to the rest of its 4096 terms', dp.f(C(4, 0.5)), CX.neg(CX.zetaDeriv(C(4, 0.5))), 1e-9);
+check('a coefficient undefined at n = 3: said so (Dirichlet and power)', /undefined at n = 3/.test(db('\\frac{1}{n-3}').error || '') && /undefined at n = 3/.test(sb({ an: '\\frac{1}{n-3}' }).error || ''), [db('\\frac{1}{n-3}').error, sb({ an: '\\frac{1}{n-3}' }).error]);
+check('a_n with z is still refused as such', /must not depend on z/.test(db('z').error || ''), db('z').error);
+// the evaluator's cost (#244): ζ at Re z in [1.5, 3] sums about 25 terms, not 4096: well under 0.1 ms per value
+{
+  const f = db('1').f, t0 = Date.now();
+  let k = 0;
+  while (Date.now() - t0 < 200) for (let j = 0; j < 100; j++, k++) f(C(1.5 + (j % 16) / 10, j / 7));
+  check('ζ as a Dirichlet series: under 0.1 ms per value', (Date.now() - t0) / k < 0.1, `${((Date.now() - t0) / k).toFixed(4)} ms`);
+}
+
 console.log(bad ? `${bad} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

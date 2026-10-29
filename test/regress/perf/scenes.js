@@ -151,6 +151,16 @@ const SCENES = {
       srcView: { cx: 0, cy: 0.5, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
     },
   },
+  // the Mandelbrot example (#6) at its default N: the region is the escape test |iter(u^2 + z, u, 0, 64)| <= 2 (a loop
+  // of 64 per pixel, its bound a uniform) and the map the Recurrence step u_12; Phase and Landscape paint F per pixel
+  mandel: {
+    label: 'the Mandelbrot example (escape-test region, Recurrence step u_12)',
+    state: {
+      shapes: [{ id: 's1', kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
+      steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 }, on: true }],
+      srcView: { cx: -0.6, cy: 0, s: 150 },
+    },
+  },
   // expH plus a small disc: hovering the disc's row in the shape list dims the half-plane (alpha / 2)
   hoverdim: {
     label: 'exp of the upper half-plane and of a disc (shape-list hover dims the other shape)',

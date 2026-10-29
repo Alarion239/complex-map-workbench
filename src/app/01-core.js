@@ -338,7 +338,7 @@
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'share-icon');
+    top.classList.remove('cmd-short', 'cmd-cut', 'sty-icon', 'share-icon');
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
     const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
@@ -349,6 +349,7 @@
     // ([v17 D5] then Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
     const ex = $('examplesBtn');
     const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
+    if (tight()) top.classList.add('sty-icon');
     if (tight()) top.classList.add('share-icon');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
@@ -537,9 +538,10 @@
       if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (v16: step uids and zero ids)
       if (st.zpIds && typeof st.zpIds === 'object') steps[steps.length - 1].zpIds = st.zpIds;
       if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // ([UX54] checked by Constr.syncSteps)
-      // ([issue #6] a repeat on its block's last step: n passes of len steps that are all in the chain)
+      // ([issue #6] a repeat on its block's last step: n passes of len steps that are all in the chain; by: N bound to a
+      // shared number)
       const rp = st.repeat;
-      if (rp && typeof rp === 'object' && Number.isInteger(rp.n) && rp.n >= 1 && rp.n <= Funcs.REPEAT_MAX && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= steps.length) steps[steps.length - 1].repeat = { n: rp.n, len: rp.len };
+      if (rp && typeof rp === 'object' && Number.isInteger(rp.n) && rp.n >= 1 && rp.n <= Funcs.REPEAT_MAX && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= steps.length) steps[steps.length - 1].repeat = Object.assign({ n: rp.n, len: rp.len }, typeof rp.by === 'string' && rp.by ? { by: rp.by } : {});
     }
     const shapes = [], targets = [], ids = new Set();
     let maxId = 0;
@@ -657,14 +659,14 @@
       for (const m of repeatMemo) {
         const alive = S.steps.includes(m.holder);
         if (alive && !m.holder.repeat) continue;
-        const nn = alive ? m.holder.repeat.n : m.n;
+        const nn = alive ? m.holder.repeat.n : m.n, by = alive ? m.holder.repeat.by : m.by;
         const ix = m.members.map((st) => S.steps.indexOf(st)).filter((i) => i >= 0);
         if (alive) delete m.holder.repeat;
         if (!ix.length) continue;
         const lo = Math.min(...ix), hi = Math.max(...ix);
         if (!alive && fresh.some(([a, b]) => a <= hi && lo <= b)) continue;
         const holder = S.steps[hi];
-        holder.repeat = { n: nn, len: hi - lo + 1 };
+        holder.repeat = Object.assign({ n: nn, len: hi - lo + 1 }, by ? { by } : {});
       }
     }
     // blocks never overlap: a later one that reaches into an earlier one is dropped
@@ -676,7 +678,7 @@
       end = i + 1;
     });
     repeatMemo = [];
-    S.steps.forEach((st, i) => { if (st.repeat) repeatMemo.push({ holder: st, n: st.repeat.n, members: S.steps.slice(i + 1 - st.repeat.len, i + 1) }); });
+    S.steps.forEach((st, i) => { if (st.repeat) repeatMemo.push({ holder: st, n: st.repeat.n, by: st.repeat.by, members: S.steps.slice(i + 1 - st.repeat.len, i + 1) }); });
   }
   // [#253] the shapes of a plane of the chain follow its step (Funcs.stageFollow): an insert before it moves it on, a
   // removal back; after an undo or a load the steps are new objects and the saved stages stand

@@ -1,8 +1,10 @@
 # Roadmap
 
-**Live now:** v16.5 (27 October 2026): a round of fixes, and snapping and railing of points.
+**Live now:** v17.0-beta.5 (waves 1–5, 29 October 2026): the redesign so far, complex shared numbers, iteration, series
+and the first shader-compile work for Windows.
 
-**Next:** v17, a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+**Next:** v17.0, when the touch rules (#30) and the guided tour rework (#34) are done; until then each merged wave is a
+beta (v17.0-beta.6, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
 every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
 of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
@@ -12,8 +14,23 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | designed (options chosen), not started |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.5 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | planned |
+
+## Releases
+
+Each merged wave is a release. Dates are the day the wave PR merged into `main` (UTC).
+
+| Version | Date | Wave PR | What it brought |
+|---|---|---|---|
+| v16.4.1 | 2026-10-27 | #1, #2 | Windows performance (ANGLE Direct3D 11) and an Italian interface |
+| v16.5 | 2026-10-27 | #14 | Snapping and railing of points, and a round of fixes |
+| v16.6 | 2026-10-28 | #80 (tag on its merge, 68c4f73) | CI and browser-suite fixes; no wave |
+| v17.0-beta.1 | 2026-10-28 | #93 | #20 phases 1–3 (lint, types, the split of `app.js` and `gl.js`) and 18 fixes |
+| v17.0-beta.2 | 2026-10-28 | #115 | Γ and ζ, the laptop keyboard, layout decisions D2, D4, D8, D11 and #37, #38, #41 |
+| v17.0-beta.3 | 2026-10-28 | #150 | Modules and state functions, Settings and the header, D1 and D10, polygons, overlapping shapes, walls, the tour and guide |
+| v17.0-beta.4 | 2026-10-29 | #182 | Series functions, phone D3 and D6, export D12, #20 step 5, the glossary, tour fixes |
+| v17.0-beta.5 | 2026-10-29 | #221 | Complex shared numbers (#10), the Recurrence step and Repeat × N (#6), shader-compile work for Windows (#72), touch rules (#30, touch half), tour lane (#34), ES-module preparation (#20) |
 
 ## v16.5: fixes, snapping and railing
 
@@ -115,7 +132,15 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
   quality suite, the perf suite's checks).
 - **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Windows
   laptop and Mac: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
-- **A release tag deploys the page:** the live page is deployed by CI on a release tag (`v*`,
-  `.github/workflows/pages.yml`), never committed.
+- **A merged wave is a release.** `v17.0-beta.N` is wave N; `v17.0` comes when #30 and #34 are done, then `v17.x`.
+  The steps, in order:
+  1. The wave's work is tracked on the board, issue #236 (who works on what, freezes, what is next).
+  2. The wave PR into `main` passes the full gate (CI and the GPU gate above).
+  3. It merges into `main`.
+  4. The live page is deployed by hand (Actions > Pages > Run workflow, or a pushed tag: `.github/workflows/pages.yml`);
+     it is never committed.
+  5. Alexander pushes the release tag (`git tag v17.0-beta.N && git push origin v17.0-beta.N`): the orchestrator's session
+     cannot, because its git proxy refuses tag pushes and the release API answers 403.
+  The Releases table above gets its row with the wave PR.
 
 Design notes for every round are in [notes/](notes/).

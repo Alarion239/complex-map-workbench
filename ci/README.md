@@ -54,6 +54,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A/A runs:** a paired job (quality, perf) chosen by a path outside the app (its runner, its scenes, `ci/quality.js`,
   `ci/perf_shard.js`) runs with `--force` when the app is unchanged, the same app on both sides, so the changed suite
   runs instead of reporting "nothing to compare" (the plan's outputs `quality_force`, `perf_force`).
+- **Which pages a quality run compared:** each side stamps the hash of the `test.html` its server served
+  (`app_sha1`, `app_sha1_source: served`; `checkout` only when the body could not be read), and the summary prints
+  both. Different builds show different hashes. The same hash on a run that was not forced warns: both servers served
+  one build, so the comparison compared nothing (#254).
+- **Settle times on GPU laptops:** on a real D3D11 laptop (Iris Xe) the same scene's settle time swings from about
+  1.4 s to 93 s, depending on which shader programs the driver is still compiling (#72, #238). A scene that does not
+  settle within `run_quality.js --timeout-ms` (30 s) fails, and the second render on both sides usually clears it as
+  noise. A runner that times out often can raise the limit with `CMW_QUALITY_TIMEOUT_MS` (suggested: 120000 on the GPU
+  laptops), which `ci/quality.js` passes on; the hosted runners and the Mac keep 30 s.
 - **The summary** of the plan job shows the tier, each changed path with the row that matched and what it selected,
   the jobs that run, and what was skipped. The **Gate** job passes when every job the plan chose passed and the rest
   were skipped.
@@ -80,10 +89,36 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
 | **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build; their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
-| **GLSL** (Windows in 11 parts, macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run |
+| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
+
+### GLSL tiers
+
+Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
+hours there; macOS takes minutes. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a chain moves
+no other):
+
+- **core**: every hand-written chain (catalog defaults, natural paths, regressions, errors, d/dz, the special
+  functions, series, recurrences, repeats, ...) and a fixed eighth of each random family; on the `adv` page its
+  chains and the `keys` section.
+- **deep**: the rest of the random families, the `adv` page's `direct` and `compile` sections, and the chains in
+  `SLOW` (the slowest on Windows).
+
+| run | Windows | macOS |
+|---|---|---|
+| a pull request (also a wave PR into `main`, and the whole gate) | core | all |
+| a push to `main`, the nightly GPU gate, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
+| a pull request with the label `glsl-deep` | all | all |
+
+The GPU gate's Windows laptop runs the same tiers. **A release tag** needs a green run of every chain (`all`) on the
+commit's `main`, on both systems: the push to `main` or the nightly run, or one by hand.
+
+`ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
+minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's
+timeout. The Gate (`gate.yml`) runs on GitHub's machines only and never waits for one of ours; the GPU gate's pull
+request and by-hand runs replace the one before them on the same branch.
 
 ### Paired gates
 
@@ -228,6 +263,7 @@ Settings (environment variables):
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
 | `CMW_GLSL_CACHE` | a folder kept between runs for `ci/glsl.js`'s Chrome profile, with the GPU program cache on: a shader program compiled before (same source) is not compiled again. The GPU gate sets it on its machines ([RUNNERS.md](RUNNERS.md)); delete the folder to start cold |
+| `CMW_GLSL_STALL_MIN` | minutes without CPU in the browser after which `ci/glsl.js` closes it and reports the page as stalled (default: never; the GPU gate sets 20) |
 | `CMW_GLSL_PROGRESS_S` | seconds between `ci/glsl.js`'s progress lines while a page runs (default 60): the minutes so far, and how busy the GPU process and the page were |
 | `CMW_SPEED_SCALE` | scales the construction tests' absolute speed limits (set on the development Mac); CI uses 3 |
 | `CMW_PORT`, `CMW_BASE` | the server some browser suites open (`ci/browser.js` sets both to its own) |

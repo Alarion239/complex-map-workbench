@@ -19,15 +19,29 @@ def parts(f, src=SRC):
     return sorted(d.glob('[0-9][0-9]-*.js'))
 
 
-def source(f, src=SRC):
-    """The text of src/<f>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line."""
+# an ES module's import and export { } lines (issue #20, phase 4), as test/src_text.js's stripEsm finds them: a test page
+# that inlines src/ files as one classic script drops them (its files' top-level names are then globals, as before)
+IMPORT_RE = re.compile(r'''^import\s*(?:[\w$*{][^;'"]*?\bfrom\s*)?(['"])[^'"\n]+\1[ \t]*;?[ \t]*\r?\n?''', re.M)
+EXPORT_RE = re.compile(r'''^export\s*\{[^}]*\}[ \t]*(?:from\s*['"][^'"\n]+['"][ \t]*)?;?[ \t]*\r?\n?''', re.M)
+
+
+def strip_esm(text):
+    """text without its line-start import lines and export { } lines; nothing else changes."""
+    return EXPORT_RE.sub('', IMPORT_RE.sub('', text))
+
+
+def source(f, src=SRC, esm=None):
+    """The text of src/<f>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line;
+    esm='strip' drops its import and export lines (strip_esm), for a page that inlines it as a classic script."""
     p = parts(f, src)
     if p is None:
-        return (pathlib.Path(src) / f).read_text(encoding='utf-8')
-    wrap = (pathlib.Path(src) / f.removesuffix('.js') / 'wrap.js').read_text(encoding='utf-8')
-    m = PARTS_RE.search(wrap)
-    assert m, f'{f}: wrap.js has no // @parts line'
-    return wrap[:m.start()] + ''.join(q.read_text(encoding='utf-8') for q in p) + wrap[m.end():]
+        text = (pathlib.Path(src) / f).read_text(encoding='utf-8')
+    else:
+        wrap = (pathlib.Path(src) / f.removesuffix('.js') / 'wrap.js').read_text(encoding='utf-8')
+        m = PARTS_RE.search(wrap)
+        assert m, f'{f}: wrap.js has no // @parts line'
+        text = wrap[:m.start()] + ''.join(q.read_text(encoding='utf-8') for q in p) + wrap[m.end():]
+    return strip_esm(text) if esm == 'strip' else text
 
 
 def src_texts(src=SRC):
