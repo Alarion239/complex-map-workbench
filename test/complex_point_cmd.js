@@ -169,6 +169,33 @@ const ea2 = s.params.find((x) => x.name === 'a'), ep = s.shapes.find((x) => x.ki
 ok('Play moves a about the origin, its point with it', Math.abs(Math.hypot(ea2.value, ea2.im) - Math.hypot(0.5, 0.3)) < 1e-6 && (Math.abs(ea2.value - 0.5) > 0.05 || Math.abs(ea2.im - 0.3) > 0.05) && Math.abs(ep.p[0] - ea2.value) < 1e-9 && Math.abs(ep.p[1] - ea2.im) < 1e-9, { ea2, p: ep.p });
 await ev(`document.querySelector('.prm-row[data-name="a"] .prm-play').click()`);
 await settle(500);
+// 7. on the Sphere view a number's point drags the number too (gmove: pressed unselected; ghandle: selected), and nothing
+// attaches on the drop
+const gOff = async () => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left, r.top]; })()`);
+const gAt = async (re, im) => { const o = await gOff(), q = await ev(`__cmwGlobeXY('L', ${re}, ${im})`); return q ? [o[0] + q[0], o[1] + q[1]] : null; };
+await load(NS + 'g', { shapes: [{ id: 's2', kind: 'circle', c: [0, 0], r: 0.5, ci: 0, visible: true }, { id: 'sp', kind: 'point', p: [0.4, 0.3], bind: { p: 'a' }, ci: 1, visible: true }], steps: [], params: [{ name: 'a', value: 0.4, im: 0.3, min: -2, max: 2, step: 0.01 }], srcView: { cx: 0, cy: 0, s: 110 }, v5: true, v6: true });
+await settle(800);
+await ev('__cmwSetView("L", "sphere"); 1');
+await settle(1500);
+const g0 = await gAt(0.4, 0.3), g1 = await gAt(-0.3, 0.5);
+ok('the globe shows the point', !!g0 && !!g1, [g0, g1]);
+if (g0 && g1) {
+  const hg = (await P()).hi;
+  await drag(g0[0], g0[1], g1[0], g1[1], 10, 16);
+  await settle(800);
+  s = await P();
+  const ga = s.params.find((x) => x.name === 'a'), gp = s.shapes.find((x) => x.id === 'sp');
+  ok('on the globe an unselected point drags the number', Math.abs(ga.value + 0.3) < 0.1 && Math.abs(ga.im - 0.5) < 0.1, ga);
+  ok('the point stays on the number, bound', Math.abs(gp.p[0] - ga.value) < 1e-9 && Math.abs(gp.p[1] - ga.im) < 1e-9 && gp.bind && gp.bind.p === 'a' && !gp.def && !gp.at, gp);
+  ok('and it is one undo step', s.hi === hg + 1, { hi: s.hi, was: hg });
+  // the point is selected now: its handle drags the number, and a drop on the circle attaches nothing
+  const g2 = await gAt(ga.value, ga.im), g3 = await gAt(0.5 * Math.SQRT1_2, 0.5 * Math.SQRT1_2);
+  await drag(g2[0], g2[1], g3[0], g3[1], 10, 16);
+  await settle(800);
+  s = await P();
+  const gb = s.params.find((x) => x.name === 'a'), gq = s.shapes.find((x) => x.id === 'sp');
+  ok('on the globe a selected point (a handle) drags the number, and a drop on the circle attaches nothing', Math.hypot(gb.value - 0.5 * Math.SQRT1_2, gb.im - 0.5 * Math.SQRT1_2) < 0.15 && !gq.def && !gq.at && gq.bind && gq.bind.p === 'a' && Math.abs(gq.p[0] - gb.value) < 1e-9, { gb, gq });
+}
 await grab();
 ok('no exceptions', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };
