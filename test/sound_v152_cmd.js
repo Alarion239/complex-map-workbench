@@ -233,7 +233,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
   // sound". Three rounds of 1.5 s are counted apart: at most MAXHELD notes in each, where 15 and 30 px play none)
   {
     const MAXHELD = 4;
-    const q = R.touchLaps.r6_from5.7 = await lap(6, 5.7, 48, 3);
+    const q = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 3);
     ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 11 && q.notes + q.merged <= 12, q);
     ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°), so at most ${MAXHELD} notes in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
   }
