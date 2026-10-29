@@ -3110,5 +3110,7 @@
  "The Julia set of z² + i": "L'insieme di Julia di z² + i",
  "Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.": "Prova: sull'ultima scheda ⋯ → Ripeti, f₁–f₂, poi N = 3: l'immagine è la curva |u₅| = 2, tre livelli più in fuori.",
  "The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.": "L'insieme di Julia pieno di z² + i è una dendrite: un albero senza punti interni, quindi non si può disegnare come regione. È disegnato dalla curva del tempo di fuga |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), che lo racchiude. La mappa porta questa curva al livello successivo, |u₇| = 2.",
- "Times: a whole number, or a number’s name to run its slider": "Volte: un numero intero, o il nome di un numero per guidarle con il suo cursore"
+ "Times: a whole number, or a number’s name to run its slider": "Volte: un numero intero, o il nome di un numero per guidarle con il suo cursore",
+ "n is the index of a series: pick another letter": "n è l’indice di una serie: scegli un’altra lettera",
+ "{x} is the variable of a recurrence in the chain: pick another letter": "{x} è la variabile di una ricorrenza nella catena: scegli un’altra lettera"
 }

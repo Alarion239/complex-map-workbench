@@ -709,6 +709,8 @@
       const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
       input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
       if (num) input.dataset.num = '1';
+      // ([#240] the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
+      if (q.bound) input.dataset.bound = q.bound.join(',');
       input.addEventListener('input', () => {
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
         if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(st, q.key, raw());

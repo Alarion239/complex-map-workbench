@@ -386,11 +386,13 @@ const Expr = (() => {
 
   // the names in a text, as written: [{pos, len, name}] (a list or a formula that does not parse yet: the names before
   // the first error; ';' lists read like ',' lists)
-  function nameSpans(src) {
+  // (opts.bound: the letters the field binds, a series' n, a recurrence's u: never names, as parse(src, {bound}))
+  function nameSpans(src, opts) {
     if (!NAMES) return [];
     const saved = NAMED;
     NAMED = { unknown: [], spans: [] };
-    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ }
+    EXTRA_BOUND = (opts && opts.bound) || [];
+    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ } finally { EXTRA_BOUND = []; }
     const out = NAMED.spans;
     NAMED = saved;
     return out;

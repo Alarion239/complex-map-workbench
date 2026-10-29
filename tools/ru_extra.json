@@ -317,5 +317,7 @@
  "The Julia set of z² + i": "Множество Жюлиа для z² + i",
  "Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.": "Попробуйте: на последней карточке ⋯ → Повторить, f₁–f₂, затем N = 3: образ — кривая |u₅| = 2, на три уровня дальше.",
  "The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.": "Заполненное множество Жюлиа для z² + i — дендрит: дерево без внутренних точек, поэтому его нельзя нарисовать как область. Оно показано кривой времени ухода |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), которая его окружает. Отображение переводит эту кривую на следующий уровень, |u₇| = 2.",
- "Times: a whole number, or a number’s name to run its slider": "Сколько раз: целое число или имя числа, чтобы его ползунок задавал N"
+ "Times: a whole number, or a number’s name to run its slider": "Сколько раз: целое число или имя числа, чтобы его ползунок задавал N",
+ "n is the index of a series: pick another letter": "n — индекс ряда: выберите другую букву",
+ "{x} is the variable of a recurrence in the chain: pick another letter": "%{x} — переменная рекуррентности в цепочке: выберите другую букву"
 }
