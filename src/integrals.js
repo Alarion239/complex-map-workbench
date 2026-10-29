@@ -578,9 +578,11 @@ const Integrals = (() => {
   }
   // what the GL draws: cauchyPlot, with, when the formula holds, the polygon's edges simplified to a quarter of a pixel
   // at this zoom (kept per half octave; at most 2048 edges, the texture row) and what to show
+  let forceQuad = false;   // (tests: draw the quadrature's nodes where the formula holds, to compare the two)
+  const setCauchyQuad = (v) => { forceQuad = !!v; };
   function cauchyDraw(scale) {
     const cp = cauchyPlot();
-    if (!cp || !cp.plan || !cp.plan.ok) return cp;
+    if (!cp || !cp.plan || !cp.plan.ok || forceQuad) return cp;
     const b = scale > 0 ? Math.round(2 * Math.log2(scale)) : 0;
     let e = cp.edgesAt.get(b);
     if (!e) {
@@ -605,5 +607,5 @@ const Integrals = (() => {
     A = api;
     ({ C, ICONS, SND, V, armOutside, cauchyCache, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
   }
-  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, plotF };
+  return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();

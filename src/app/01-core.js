@@ -245,6 +245,9 @@
       // Plain whatever the style (an old landscape's default 'phase' material, kept without rewriting dc; cleared
       // when a style is picked)
       view: Views.blank(), v6: true, wKey: false, landPlain: false,
+      // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
+      // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
+      cauchyShow: 'both', cauchyPlus: false,
       // exact images (SPEC 10.1): mapped areas drawn per pixel through the inverse of the chain where it has one; an
       // internal switch (no visible option), kept in saved state
       exactImages: true,
@@ -607,6 +610,8 @@
     st.v6 = true;
     st.wKey = !!st.wKey;
     st.landPlain = !!st.landPlain;
+    st.cauchyShow = st.cauchyShow === 'in' || st.cauchyShow === 'out' ? st.cauchyShow : 'both';
+    st.cauchyPlus = !!st.cauchyPlus;
     delete st.deriv;
     st.sheets = !!st.sheets;
     st.exactImages = st.exactImages !== false;
