@@ -257,9 +257,9 @@
     cardRefs.length = 0;
     // region card (stage 0)
     // (v15: the region card selects the region; a double-click shows the whole chain)
-    const c0 = h('div', { class: 'card region-card' + (S.focus === 0 ? ' focus' : ''), 'data-k': 0, tabindex: 0, role: 'option', 'aria-label': $t('Region'),
+    const c0 = h('div', { class: 'card region-card' + (S.focus === 0 ? ' focus' : ''), 'data-k': 0, tabindex: 0, role: 'option', 'aria-label': $t('Shapes'),
       onclick: () => cardClick(0), ondblclick: () => setFocus(0), onkeydown: (e) => chainKey(e, 0) },
-    h('div', { class: 'card-head' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: Inspector.regionIcon() }), h('span', { class: 'nm' }, $t('Region'))),
+    h('div', { class: 'card-head' }, h('span', { class: 'idx', html: '<i>z</i>' }), h('span', { class: 'ty', html: Inspector.regionIcon() }), h('span', { class: 'nm' }, $t('Shapes'))),
     h('div', { class: 'thumb' }, h('canvas'), h('span', { class: 'thumb-var', html: '<i>z</i>' })),
     h('div', { class: 'note' }), h('div', { class: 'swatches' }));
     host.append(c0);

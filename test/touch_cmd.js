@@ -205,7 +205,7 @@ await section('A', async () => {
   // v16.5 UX48 wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const a5 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   const a5base = ((d && d.rings && d.rings.length) ? 'Pick the touching point on the unit circle, or a ring for a tangent' : 'Pick the touching point on the unit circle') + ' · 2 of 2 · Touching';
-  ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · ⌫ undo pick · Esc' || (a5.text === a5base && a5.lines === 1)), [d, a5]);
+  ok('A5 P first: z₁ is P (off C); the chip asks for the touching point', d && d.picks.length === 1 && d.picks[0].role === 'P' && !!a5 && (a5.text === a5base + ' · ⌫ undo pick · Esc' || (a5.text === a5base.replace(/ · Touching$/, '') + ' · ⌫ undo pick · Esc' && a5.lines === 1) || (a5.text === a5base && a5.lines === 1)), [d, a5]);
   await click(t0[0] + 2, t0[1] + 2); await settle(400);
   st = await ST();
   const K2 = last(st);
@@ -470,8 +470,9 @@ await section('C', async () => {
   info.ruRows = { K: info.ruRow, L: await rowD(L.id), M: await rowD(M.id) };
   const N = ' ';
   const ub = `⌫${N}— отменить выбор · Esc`;   // (v16.5 UX48: what to pick, the count, then how to back up)
-  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it, as A5 accepts)
-  const ruChip = (got, base, tail) => got === `${base} · ${tail}` || got === base;
+  // (v16.5: a chip drops its keyboard tail when it would wrap and fits one line without it, as A5 accepts; #35: it
+  // first drops the tool's name, which the pane head's chip shows, and keeps the tail when that fits)
+  const ruChip = (got, base, tail) => got === `${base} · ${tail}` || got === base || got === `${base.slice(0, base.lastIndexOf(' · '))} · ${tail}`;
   ok('C RU chips', ruChip(info.ruChips[0], 'Выберите прямую или окружность · Касание', esc) && ruChip(info.ruChips[1], 'Выберите точку касания (на кривой: единичная окружность) или точку вне её · 1 из 2 · Касание', ub) && ruChip(info.ruChips[2], 'Выберите точку вне кривой (единичная окружность) или штриховую касательную · 2 из 2 · Касание', ub) && ruChip(info.ruChips[3], 'Выберите точку касания (на кривой: единичная окружность) или кольцо для касательной · 2 из 2 · Касание', ub), info.ruChips);
   ok('C RU ring chips: привязка: касательная в точке z₀ / касательная из z₂', info.ruHint === 'привязка: касательная в точке z₀' && info.ruRing === 'привязка: касательная из z₂', [info.ruHint, info.ruRing]);
   ok('C RU rows', info.ruRows.K === `через z₁, касается кривой: единичная окружность; точка касания${N}— z₀` && /^касательная к кривой: единичная окружность в точке z., через z₂$/.test(info.ruRows.L) && info.ruRows.M === 'Прямая 1 ∩ единичная окружность, точка касания', info.ruRows);   // ([v16.5 rail] P = 2 lies on the real axis, a fixed shape now; rail-4: fixed shapes have names, not numbers: the tangent is Line 1)

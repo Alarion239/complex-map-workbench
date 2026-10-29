@@ -415,7 +415,9 @@ await section('C', async () => {
   // v16.4.1: with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
   // keeps the whole text on two lines, not cut, as v16.4 showed it)
   const ruChip = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`);
-  ok('C RU chip before the curve (one line without «Esc — отмена» when that fits; with the Whole | Inside icons it does not, so the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
+  // (#35: a chip that would wrap drops the tool's name first, which the pane head's chip shows, and keeps «Esc — отмена»
+  // when that fits one line; else, as before, without «Esc — отмена» on one line, or the whole text on two)
+  ok('C RU chip before the curve (one line without the tool\'s name, else without «Esc — отмена», when that fits; with the Whole | Inside icons the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Esc — отмена' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
   const u = await W(Math.cos(0.9), Math.sin(0.9));
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
@@ -1025,12 +1027,12 @@ await section('J', async () => {
   await tile('perp');
   const cp = await W(Math.cos(2.2), Math.sin(2.2));
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cp[0], y: cp[1], id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(300);
-  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await hits('#draftChipL .cm-sb') };
+  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await ev(`[...document.querySelectorAll('.ph-ctseg > .ph-cb')].map((b) => { const q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2; const at = (dy) => { const e = document.elementFromPoint(x, y + dy); return !!e && e.closest('.ph-cb') === b; }; return { h: Math.round(q.height), up: at(-18), down: at(18) }; })`) };   // (D3: on a phone the three choices are in the context bar's second row; the chip drops its copy)
   await shot('seg-fix-p390-chip');
   await key('Escape'); await settle(200);
   await tile('circle3');
   info.jPhone.c3 = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), hits: await hits('#draftChipL .cm-sb') };
-  ok('J7 phone: the Orthogonal chip\'s buttons take taps 18 px above and below their centre (40 px tall), same look (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h <= 24) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
+  ok('J7 phone: the Orthogonal choices (in the context bar) take taps 18 px above and below their centre, 44 px tall; the 3-point chip keeps its 40 px buttons (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h >= 44) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
   // list break), keeps it before "in the z-plane"; Russian keeps it before «и»
