@@ -34,7 +34,7 @@ const SHARDS = [
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js'] },                    // 287 + 113 + 75
   { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },   // 226 + 176 + 47 + 31 + 52
   { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'mode_chips_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
-  { id: 'exact', suites: ['p5_accept_cmd.js'] },                                                            // 543
+  { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
   { id: 'ux165-2', suites: ['ux165_phone_cmd.js', 'ux165_plane_cmd.js', 'ux165_merge_cmd.js', 'ux165_fix_cmd.js'] },   // 149 + 108 + 70 + 63 (it threw)
