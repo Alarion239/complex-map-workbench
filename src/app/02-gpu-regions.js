@@ -853,8 +853,16 @@
     let sing = null, sk = 'scan|' + chainSig[top];
     if (plan.ok) {
       try { sing = Inverse.singular(plan, clipWin, ['undef', 'branch', 'pole'], 16); } catch (e) { sing = []; }
-      sk = sing.map((e) => e.kind[0] + Math.round(e.z.re / q) + ',' + Math.round(e.z.im / q)).join(';');
+    } else {
+      // ([issue #276] a last step with no plan that names all of its singular points (ζ), after injective steps with
+      // one: those points pulled back, so the lines need no jump scan, which evaluated the chain up to 2048 times per
+      // curve on every pan or zoom; anything else still scans)
+      const b = built[top - 1], st = S.steps[top - 1];
+      if (b && !b.error && st && st.on !== false && typeof b.sing === 'function') {
+        try { sing = Inverse.singularAfter(invPlan(0, top - 1), clipWin, b.sing, 16); } catch (e) { sing = null; }
+      }
     }
+    if (sing) sk = sing.map((e) => e.kind[0] + Math.round(e.z.re / q) + ',' + Math.round(e.z.im / q)).join(';');
     const struct = ks.map((k) => k + ':' + S.steps.slice(0, k).map((st) => (st.on === false ? '-' : st.type)).join(',')).join('/');
     return { Fs: ks.map((k) => stageF(k)), sing, key: struct + '|' + sk };
   }
