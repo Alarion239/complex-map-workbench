@@ -228,7 +228,9 @@
     if (s.kind === 'point' && s.label) return exLabel(s.label);
     // (an example's named curve: the melody's spiral, notes/sea-song)
     if (s.kind === 'curve' && s.nameKey === 'spiral') return $t('Spiral');
-    if (s.kind === 'curve' && s.nameKey === 'circle') return $t('Circle');
+    // (the circle's own kind label, Region.KINDS: a translation call for the word here would be make_ru_table's first
+    // call site of it, nearest the tool button's entry, whose hyphenated Russian would then name every circle)
+    if (s.kind === 'curve' && s.nameKey === 'circle') return kindLabel('circle');
     const nk = nameKind(s);
     return $t('{kind} {n}', { kind: kindLabel(nk), n: counts[nk] });
   }
