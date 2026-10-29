@@ -3069,5 +3069,6 @@
  "Tip: Display changes the plane you opened it from; open it from the other plane for that plane's own options.": "Suggerimento: «Aspetto» cambia il piano da cui l'hai aperto; apri «Aspetto» dall'altro piano per le sue opzioni.",
  "Tip: Show alone pictures one step by itself in X and Y; a step's ⋯ menu has Replace with the inverse and Bypass this step.": "Suggerimento: «Mostra da solo» mostra un passo da solo in X e Y; il menu ⋯ del passo ha «Sostituisci con l'inversa» e «Escludi questo passo».",
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
- "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso."
+ "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso.",
+ "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})"
 }

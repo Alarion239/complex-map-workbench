@@ -276,5 +276,6 @@
  "Tip: Display changes the plane you opened it from; open it from the other plane for that plane's own options.": "Совет: «Оформление» меняет ту плоскость, из которой вы его открыли; у другой плоскости свои параметры — откройте его из неё.",
  "Tip: Show alone pictures one step by itself in X and Y; a step's ⋯ menu has Replace with the inverse and Bypass this step.": "Совет: «Показать отдельно» показывает один шаг сам по себе в X и Y; в меню ⋯ шага есть «Заменить обратной» и «Отключить шаг».",
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе",
- "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз."
+ "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
+ "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})"
 }
