@@ -129,6 +129,28 @@ for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [
   ok(`${tag}: after Phase, X → Y, Landscape, X → Y the unit circle's check is still in the page and works`, await ev(`(() => { const u = document.getElementById('unitChk'); return !!u && document.body.contains(u); })()`), await ev(`(document.getElementById('unitBox') || {}).parentElement?.id || null`));
 }
 
+// ---- a touch screen at desktop layout (a tablet at 1024 px): a long-press on an icon toggle or a style glyph shows its
+// name, and the release does not toggle or pick it (#261 review)
+{
+  await fresh(1024, 768, false, '');
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  await settle(300);
+  const desk = await ev(`!document.documentElement.classList.contains('ph')`);
+  for (const [sel, re, read] of [['#outlineChk', /Outlines/, `document.getElementById('outlineChk').checked`], ['#dcSeg button[data-v="grid"]', /Pulled-back grid/, `__cmwState().dc`]]) {
+    const p = await ev(`(() => { const e = document.querySelector('${sel}'); const l = (e.closest('label') || e).getBoundingClientRect(); return l.width ? [l.left + l.width / 2, l.top + l.height / 2] : null; })()`);
+    if (!desk || !p) { ok(`touch at 1024: ${sel} in X's head`, false, { desk, p }); continue; }
+    const before = await ev(read);
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p[0], y: p[1], id: 1 }] });
+    await sleep(750);
+    const tip = await ev(`(() => { const t = document.getElementById('tip'); return t && t.getClientRects().length && getComputedStyle(t).visibility !== 'hidden' && getComputedStyle(t).opacity !== '0' ? t.textContent : null; })()`);
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settle(400);
+    ok(`touch at 1024: a long-press on ${sel} shows its name`, re.test(tip || ''), tip);
+    ok(`touch at 1024: and its release changes nothing`, (await ev(read)) === before, [before, await ev(read)]);
+  }
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
+}
+
 // ---- phone: the Display sheet
 for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
   await fresh(w, 780, true, lang);

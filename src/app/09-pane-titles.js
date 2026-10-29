@@ -303,7 +303,14 @@
     // again: the cache key below holds its width, so an unchanged head costs nothing)
     if (inHead && !headRO.has(f.parentElement) && typeof ResizeObserver === 'function') {
       headRO.add(f.parentElement);
-      new ResizeObserver(() => { if (f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side); }).observe(f.parentElement);
+      // (only a change of a pixel or more: a sub-pixel settle cannot ping-pong with the layout it starts)
+      let lastW = -1;
+      new ResizeObserver((es) => {
+        const w = es[0] ? es[0].contentRect.width : 0;
+        if (Math.abs(w - lastW) < 1) return;
+        lastW = w;
+        if (f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
+      }).observe(f.parentElement);
     }
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     const unit = inHead ? unitKid(side) : null, isNote = (e) => e.classList.contains('foot-note');
