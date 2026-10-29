@@ -64,8 +64,10 @@ await ev('__cmwCauchyOpt("in", false)'); await settle();
 const a4 = await pic();
 await ev('__cmwCauchyOpt("out", false)'); await settle();
 const a5 = await pic();
-ok('A Inside only: the outside is grey, the inside is not', isGrey(a4.at(outP[0], outP[1])) && !isGrey(a4.at(inP[0], inP[1])), [a4.at(outP[0], outP[1]), a4.at(inP[0], inP[1])]);
-ok('A Outside only: the inside is grey, the outside is not', isGrey(a5.at(inP[0], inP[1])) && !isGrey(a5.at(outP[0], outP[1])), [a5.at(inP[0], inP[1]), a5.at(outP[0], outP[1])]);
+// (the neutral grey is the colour of the outside in the Inside-only picture; a half is "shown" when it is clearly not that grey: f₊ = z is pale near the real axis)
+const GREY = a4.at(outP[0], outP[1]);
+ok('A Inside only: the outside is the neutral grey, the inside is not', isGrey(GREY) && dist(a4.at(inP[0], inP[1]), GREY) > 25, [GREY, a4.at(inP[0], inP[1])]);
+ok('A Outside only: the inside is grey (under the selected curve tint), the outside is not', isGrey(a5.at(inP[0], inP[1])) && dist(a5.at(outP[0], outP[1]), GREY) > 25, [a5.at(inP[0], inP[1]), a5.at(outP[0], outP[1])]);
 ok('A Both = the two halves', dist(a3.at(outP[0], outP[1]), a5.at(outP[0], outP[1])) < 3 && dist(a3.at(inP[0], inP[1]), a4.at(inP[0], inP[1])) < 3, null);
 ok('A the integral and f₋ outside differ (the sign: a half turn of the phase)', dist(a1.at(outP[0], outP[1]), a3.at(outP[0], outP[1])) > 30, [a1.at(outP[0], outP[1]), a3.at(outP[0], outP[1])]);
 
