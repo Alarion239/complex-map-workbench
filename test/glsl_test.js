@@ -8,7 +8,8 @@
   };
   const t0 = performance.now();
   const qs = new URLSearchParams(location.search);
-  const PARTS = +qs.get('parts') || 1, PART = +qs.get('part') || 0, FILTER = qs.get('filter') || '';
+  // (?tier=, ?parts=, ?part=: test/glsl_tiers.js, by the chain's name)
+  const FILTER = qs.get('filter') || '';
   const C = CX.C;
   const TOL = 2e-3;
   const TS = [0, 0.01, 0.37, 0.5, 0.73, 0.999, 1];
@@ -300,7 +301,8 @@
     add('repeat exp mul x2 d/dz', [S('mul', { c: '0.4' }), Rp(S('exp'), 2, 2), S('deriv')]);
     add('repeat with a bypassed step', [S('sin'), S('pown', { n: 3 }, false), Rp(S('mul', { c: '0.7+0.2i' }), 3, 3)]);
   }
-  const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
+  const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
+  Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
 
   // ---------- sample points (float32-exact) ----------
   const f32 = Math.fround;
@@ -958,7 +960,9 @@ void main() {
   } catch (e) { R.errors.push('vertex shader: ' + e.message); }
 
   for (const ch of selected) {
+    const tc = performance.now();
     try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 3000)}`); }
+    R.chainMs[ch.name] = Math.round(performance.now() - tc);
   }
   R.ms = Math.round(performance.now() - t0);
   R.points = P;

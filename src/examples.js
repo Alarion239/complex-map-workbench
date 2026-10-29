@@ -32,6 +32,28 @@ const Examples = (() => {
   const exOk = (ex) => ex.steps.every((st) => Funcs.DEFS[st.type]);
   // a first visit opens a worked example, not the empty canvas listed first
   const firstExample = () => Math.max(0, EX.findIndex((e) => e.shapes.length && e.steps.length));
+  // An example's Try line closes when the user does what it asks: ex.tryDone lists the actions, each a group of
+  // alternatives {on: the tour's event, test(e): which of them counts}, and every group must happen. Only the line's own
+  // action closes it (a line about something else stays), and another example, its X or Show me ends the watch.
+  let exTry = null;
+  function exTryStop() { if (exTry) { for (const off of exTry.offs) off(); exTry = null; } }
+  function exTryWatch(ex) {
+    if (!Array.isArray(ex.tryDone) || !ex.tryDone.length || typeof A.tourOn !== 'function') return;
+    const mine = { offs: [], left: ex.tryDone.map(() => true), t0: performance.now() };
+    exTry = mine;
+    ex.tryDone.forEach((group, gi) => {
+      for (const g of group) {
+        mine.offs.push(A.tourOn(g.on, (e) => {
+          // (what the example's own opening sets going is not the user's doing)
+          if (exTry !== mine || performance.now() - mine.t0 < 250 || (g.test && !g.test(e || {}))) return;
+          mine.left[gi] = false;
+          if (mine.left.some(Boolean)) return;
+          exTryStop();
+          if (Tour.laneId && Tour.laneId() === 'example' && Tour.laneHide) Tour.laneHide('example');
+        }));
+      }
+    });
+  }
   function loadExample(i, spec, opt) {
     phHold();
     const ex = spec || EX[i];
@@ -40,6 +62,7 @@ const Examples = (() => {
     sndStopPlay(false);
     // (v16.5 UX74) an example's Try line goes with the example
     if (Tour.laneHide) Tour.laneHide('example');
+    exTryStop();
     // (a tour scene, spec, leaves the Examples label and currentExample alone)
     if (!spec) A.currentExample = i;
     const xl = document.querySelector('#examplesBtn .exlabel');
@@ -130,8 +153,9 @@ const Examples = (() => {
     // (issue #34, D7) every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && ex.try && Tour.lane && !laned) {
-      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: ex.try, drop: 'title', onClose: () => {},
-        acts: [{ label: $t('Show me'), primary: true, run: () => { if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: ex.tour || 'basics' }); } }] });
+      Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: ex.try, drop: 'title', onClose: exTryStop,
+        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: ex.tour || 'basics' }); } }] });
+      exTryWatch(ex);
     }
     // the line integral the example is about, once the planes have their size
     if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
