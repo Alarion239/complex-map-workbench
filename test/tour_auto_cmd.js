@@ -119,11 +119,15 @@ const fi = await center('#secFormula input, #secFormula textarea, #secFormula [c
 if (fi) {
   await click(fi[0], fi[1]); await settle(100);
   await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
-  await type('|z-1|<2'); await key('Enter'); t0 = Date.now(); await settle(150);
+  // (the countdown runs from the step's done, which follows Enter by the formula's compile: the advance is measured from
+  // the moment done shows, and that latency is reported)
+  await type('|z-1|<2'); await key('Enter'); t0 = Date.now();
+  const dl = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 4000, 15);
+  const tDone = Date.now();
   const ff = await lit();
   check('formula: done by the formula field (via formula)', ff && ff.done, ff && ff.countdown);
-  at = await advancedAt('basics/formula', t0);
-  check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after Enter', near(at, CDMS, 250), [at, await ev('document.activeElement && document.activeElement.id')]);
+  at = await advancedAt('basics/formula', tDone);
+  check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done', near(at, CDMS, 250), [at, 'done ' + dl + ' ms after Enter', await ev('document.activeElement && document.activeElement.id')]);
   await go('basics', 6);
   await click(fi[0], fi[1]); await settle(100);
   await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
