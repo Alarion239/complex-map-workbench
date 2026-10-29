@@ -98,6 +98,9 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
   }
+  // (issue #72) the programs a card's Landscape links: its heights, surface and floor (the user's function each) and the
+  // normals' pass
+  const LAND_CARD = ['landTF', 'land', 'floor', 'landNrm'];
   function cardLand(pane, k) {
     pane.begin(TH.plane);
     backdrop(pane);
@@ -146,9 +149,14 @@
     pane.resize(...thumbDims(pane.canvas));
     const card = pane.canvas.closest('.card');
     const kind = k === 0 ? 'xy' : cardKind();
+    // (issue #72) without parallel compile every link is synchronous, seconds each on software GL (a pan over "Sheets of
+    // the logarithm" froze for a minute while the cards linked the principal branch beside the pane's All sheets), so a
+    // Landscape card never starts one: it shows its Phase picture until the pane has linked those programs. The pane's
+    // Landscape redraws the cards (frame), and the sig then asks for the relief
+    const landStand = kind === 'land' && GLR.ok && GLR.parallelCompile === false && !GLR.linked(LAND_CARD, stageMap(k));
     const t = kind === 'def' ? cardT(k) : 0;
     // what the picture depends on, per kind (the view, the camera, the time, the selection that shows step k + 1's cuts)
-    const vk = kind === 'phase' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${S.dc}|${S.sectors || 12}|${S.dcGrid}|${S.outline}`
+    const vk = kind === 'phase' || landStand ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${S.dc}|${S.sectors || 12}|${S.dcGrid}|${S.outline}`
       : kind === 'land' ? `${S.srcView.cx},${S.srcView.cy},${S.srcView.s}|${paneL.w}x${paneL.h}|${cam.yaw.toFixed(4)},${cam.pitch.toFixed(4)},${(cam.dist / CAM3.dist).toFixed(4)},${cam.tx},${cam.ty}|${S.height}|${S.lscale || 1}|${landMaterial()}|${S.dc}|${S.unitLevel}`
       : kind === 'def' ? `t${t.toFixed(4)}|${S.homAll}` : `${selOf() === k + 1 ? 'cuts' : ''}`;
     // (with exact images: whether the inverse program is ready, so a thumbnail drawn forward before it was is redrawn)
@@ -168,7 +176,7 @@
     let waiting = false;
     if (kind === 'phase' || kind === 'land') {
       if (!GLR.ok) { pane.begin(TH.plane); return; }
-      if (kind === 'phase') cardPhase(pane, k); else cardLand(pane, k);
+      if (kind === 'phase' || landStand) cardPhase(pane, k); else cardLand(pane, k);
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
     } else if (kind === 'def') {
