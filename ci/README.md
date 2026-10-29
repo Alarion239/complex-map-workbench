@@ -54,6 +54,15 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A/A runs:** a paired job (quality, perf) chosen by a path outside the app (its runner, its scenes, `ci/quality.js`,
   `ci/perf_shard.js`) runs with `--force` when the app is unchanged, the same app on both sides, so the changed suite
   runs instead of reporting "nothing to compare" (the plan's outputs `quality_force`, `perf_force`).
+- **Which pages a quality run compared:** each side stamps the hash of the `test.html` its server served
+  (`app_sha1`, `app_sha1_source: served`; `checkout` only when the body could not be read), and the summary prints
+  both. Different builds show different hashes. The same hash on a run that was not forced warns: both servers served
+  one build, so the comparison compared nothing (#254).
+- **Settle times on GPU laptops:** on a real D3D11 laptop (Iris Xe) the same scene's settle time swings from about
+  1.4 s to 93 s, depending on which shader programs the driver is still compiling (#72, #238). A scene that does not
+  settle within `run_quality.js --timeout-ms` (30 s) fails, and the second render on both sides usually clears it as
+  noise. A runner that times out often can raise the limit with `CMW_QUALITY_TIMEOUT_MS` (suggested: 120000 on the GPU
+  laptops), which `ci/quality.js` passes on; the hosted runners and the Mac keep 30 s.
 - **The summary** of the plan job shows the tier, each changed path with the row that matched and what it selected,
   the jobs that run, and what was skipped. The **Gate** job passes when every job the plan chose passed and the rest
   were skipped.
