@@ -193,7 +193,13 @@ const flush = () => new Promise((r) => setImmediate(r));
     e.fire('keydown', { key: 'Escape' });
     check('v15 default: Esc is not an activation', e.ctxs.length === 0);
     e.fire('pointerdown');
-    check('v15 default: the first click creates the context', e.ctxs.length === 1 && e.ctx().state === 'running');
+    // (#271: just after the click's own frame, not inside its handler; a cue asked for meanwhile waits for it)
+    check('v15 default: the first click creates no context inside its handler', e.ctxs.length === 0);
+    e.made.length = 0;
+    check('#271: a cue asked for in that click is accepted', e.Sound.play('morphStart', {}) === true && e.Sound.play('morphStart', { force: true }) === true && e.made.length === 0);
+    e.advance(20);
+    check('v15 default: the first click creates the context, one frame later', e.ctxs.length === 1 && e.ctx().state === 'running');
+    check('#271: the queued cue sounds once, on the new clock', e.made.join() === 'morphStart', e.made.join());
     check('v15 default: nothing stored until the user chooses', !e.store.has('cmw-sound'));
   }
   // v15.2 the deformation scrub (palette B, notes/sound/v2/DESIGN.md §3 with board-fixes.md): the texture follows the
@@ -248,8 +254,27 @@ const flush = () => new Promise((r) => setImmediate(r));
     check('remembered on: a hover schedules nothing', e.Sound.play('toggleOn', {}) === false && e.ctxs.length === 0);
     e.fire('keydown', { key: 'Escape' });
     check('remembered on: Esc is not an activation', e.ctxs.length === 0);
-    e.fire('pointerdown');
+    e.fire('pointerdown'); e.advance(20);
     check('remembered on: the first click creates it', e.ctxs.length === 1 && e.ctx().state === 'running');
+  }
+  // #271: what the deferred start keeps. A caller other than play() creates the context at once, as before; a hush
+  // drops the queue; once a context exists (old iOS: not running after the deferred start), a gesture resumes it
+  // synchronously
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown');
+    check('#271: a count-bearing bell in the click creates the context at once', e.Sound.turn({ tier: 'events' }) !== false && e.ctxs.length === 1);
+    e.advance(300);
+    check('#271: and the deferred start adds none', e.ctxs.length === 1);
+  }
+  {
+    const e = makeEnv({ search: '' });
+    e.fire('pointerdown'); e.made.length = 0;
+    e.Sound.play('stepAdd', {}); e.Sound.hush(); e.advance(300);
+    check('#271: a hush before the deferred start drops the queued cue', e.ctxs.length === 1 && e.made.length === 0, e.made.join());
+    e.ctx().suspend();
+    e.fire('pointerdown');
+    check('#271: with a context, a gesture resumes it inside the handler', e.ctx().state === 'running' && e.ctxs.length === 1);
   }
   // the lsk namespace: a ?ns= page keeps its own setting
   {

@@ -1331,12 +1331,16 @@ registerProcessor('cmw-limit', Limit);`;
   // activation ~5 s, WebKit carries it through timers ~1 s). One-shots asked for meanwhile wait in pendQ (one per
   // catalog entry, with its intended start) and sound against the new clock. Safety net (old iOS): once a context
   // exists, or a deferred start made none, a gesture calls ensure() synchronously, as before.
-  let pendT = 0, syncNext = false;
+  /** @type {{ raf: number, to: any, late: any } | null} */
+  let pendT = null;
+  let syncNext = false;
   const pendQ = new Map();
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 16);
+  const unraf = typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : clearTimeout;
   function ensureNow() {
-    if (pendT) { cancelAnimationFrame(pendT.raf); clearTimeout(pendT.to); clearTimeout(pendT.late); pendT = 0; }
-    const ok = ensure();
-    if (!ctx) syncNext = true;
+    if (pendT) { unraf(pendT.raf); clearTimeout(pendT.to); clearTimeout(pendT.late); pendT = null; }
+    const tried = !!AC && P.on && !hidden && mayStart(), ok = ensure();
+    if (tried && !ctx) syncNext = true;
     if (!ok) pendQ.clear(); else flushPend();
     return ok;
   }
@@ -1344,18 +1348,20 @@ registerProcessor('cmw-limit', Limit);`;
     if (pendT) return;
     const run = () => { if (pendT) ensureNow(); };
     pendT = { raf: 0, to: 0, late: 0 };
-    pendT.raf = requestAnimationFrame(() => { pendT.to = setTimeout(run, 0); });
+    const p = pendT;
+    p.raf = raf(() => { p.to = setTimeout(run, 0); });
     // (no frame comes, e.g. a throttled page: at most 250 ms later)
-    pendT.late = setTimeout(run, 250);
+    p.late = setTimeout(run, 250);
   }
-  // the queued one-shots, once the clock runs (a statechange calls this again); a cue that could not start within 0.5 s
-  // of its request is dropped: a late cue would no longer belong to its gesture
+  // the queued one-shots, once the clock runs (a statechange calls this again). The click's frame comes first: on a
+  // first frame that links shaders (the Deformation's) the start cue sounds with that frame's paint, not at the click.
+  // A cue that could not start within 1.5 s of its request is dropped: it would no longer belong to its gesture
   function flushPend() {
     if (!pendQ.size || pendT) return;
     if (!ctx) { pendQ.clear(); return; }
     const now = performance.now() / 1000, run = ctx.state === 'running';
     for (const [name, q] of [...pendQ]) {
-      if (now - q.asked > 0.5) { pendQ.delete(name); continue; }
+      if (now - q.asked > 1.5) { pendQ.delete(name); continue; }
       if (!run && !q.o.grace) continue;
       pendQ.delete(name);
       play(name, Object.assign({}, q.o, { at: Math.max(0, q.due - now) }));
