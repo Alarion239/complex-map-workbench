@@ -81,7 +81,9 @@ await tap('#pipeline .add-card', 500);
 for (const c of 'sin') await key(c);
 await settle(300); await key('Enter'); await sleep(1300);
 ok('UX34 phone: no tip after an add (the focus came back to +)', !(await tipText()), await tipText());
-// phone: a long-press on a tool shows its tip, and it goes when the finger lifts
+// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (#246: the add was made from the chain
+// sheet, a modal layer over the tool row: it is closed first)
+await ev('Phone.close(true); 1');
 await sleep(800);
 const tc = await center('#secDraw .tool[data-tool="point"]');
 await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: tc[0], y: tc[1], id: 1 }] }); await sleep(700);
@@ -120,18 +122,24 @@ const st = () => ev(`({ url: location.href, sheet: Phone.sheet(), pop: !!documen
 const layers = [
   ['the ⋯ sheet', async () => { await tap('#hdrMoreBtn', 500); }, (s) => s.sheet === 'more'],
   ['More tools', async () => { await tap('#toolMore > summary', 500); }, (s) => s.sheet === 'tools'],
-  ['the function list', async () => { await tap('#pipeline .add-card', 500); }, (s) => s.pop],
+  // (#246: the function list opens from the chain sheet: the first Back closes the list, the second the sheet)
+  ['the function list', async () => { await tap('#pipeline .add-card', 500); }, (s) => s.pop, 'chain'],
   ['the Export dialog', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Export figure/.test(b.textContent)).click()`); await settle(1200); }, (s) => s.modal],
   ['the guide', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /^\s*Guide\s*$/.test(b.textContent)).click()`); await settle(800); }, (s) => s.modal],
   ['the tour\'s chapter menu', async () => { await ev(`Phone.open('more')`); await settle(400); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Guided tour/.test(b.textContent)).click()`); await settle(700); }, (s) => s.pop],
   // (issue #13: a plane's menu is an object's, here the line Im z = 0.8 of the first scene; held empty plane opens nothing)
   ['a plane\'s menu', async () => { const p = await ev(`__cmwPlaneMenu().w2s('L', 1.5, 0.8)`); await hold(p[0], p[1], 700); }, (s) => s.pop],
 ];
-for (const [name, openIt, isOpen] of layers) {
+for (const [name, openIt, isOpen, under] of layers) {
   await openIt();
   const a = await st();
   ok(`UX12 ${name} opens`, isOpen(a), a);
   await goBack();
+  if (under) {
+    const u = await st();
+    ok(`UX12 Back closes ${name} and leaves the ${under} sheet under it`, /test\.html/.test(u.url) && u.sheet === under && !u.pop && !u.modal, u);
+    await goBack();
+  }
   const b = await st();
   ok(`UX12 Back closes ${name} and stays in the app`, /test\.html/.test(b.url) && !b.sheet && !b.pop && !b.modal, b);
 }
@@ -158,6 +166,7 @@ await grab();
 
 // ---------------- UX68: a rotation keeps the open sheet and the field ----------------
 await withState('rot', 412, 915, true, { shapes: [], steps: STEPS2 });
+await tap('.ph-csteps', 600);   // (#246: the cards are the chain sheet's rows)
 const mob = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 await touch(mob[0], mob[1]); await settle(700);
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[1]; i.focus(); i.setSelectionRange(1, 1); })()`); await sleep(400);
@@ -204,6 +213,7 @@ ok('UX46 the strip goes with the keyboard', await ev(`document.querySelector('.p
 await ev('document.activeElement.blur()');
 // the Editor (split: X and Y above it): a coefficient with a short keyboard is lifted by a scroll, the planes stay
 await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2 });
+await tap('.ph-csteps', 600);   // (#246: the cards are the chain sheet's rows)
 const mobK = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 await touch(mobK[0], mobK[1]); await settle(700);
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[3]; i.focus(); })()`); await sleep(300);

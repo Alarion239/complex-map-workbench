@@ -81,7 +81,8 @@ const audit = (scope) => ev(`(() => {
   }
   return { total, small: small.slice(0, 20), n: small.length };
 })()`);
-const panes = () => ev(`(() => { const r = (id) => { const e = document.getElementById(id); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), b: Math.round(b.bottom) }; }; const sh = document.querySelector('.ph-sheet'); return { L: r('paneL'), R: r('paneR'), sheetTop: sh && !sh.hidden ? Math.round(sh.getBoundingClientRect().top) : null, chain: r('pipeline') }; })()`);
+// (#246: the chain bar is .pipe-wrap; #pipeline is the chain sheet's list)
+const panes = () => ev(`(() => { const r = (id) => { const e = id[0] === '.' ? document.querySelector(id) : document.getElementById(id); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), b: Math.round(b.bottom) }; }; const sh = document.querySelector('.ph-sheet'); return { L: r('paneL'), R: r('paneR'), sheetTop: sh && !sh.hidden ? Math.round(sh.getBoundingClientRect().top) : null, chain: r('.pipe-wrap') }; })()`);
 const closeSheet = async () => { await ev('Phone.close(true)'); await settle(250); };
 const loadChain = async (ns, extra) => { await load(ns, Object.assign({ shapes: SHAPES, steps: CHAIN3, srcView: { cx: 0, cy: 0, s: 52 } }, extra || {})); await settle(600); };
 

@@ -31,7 +31,7 @@ const glide = (d) => ev(`__cmwGlide(${d || 0})`);
 const bar = () => ev(`(() => {
   const wrap = document.querySelector('.pipe-wrap'); if (!wrap) return null;
   const vis = (e) => e.getClientRects().length > 0 && e.getBoundingClientRect().width > 0;
-  const ctl = [...wrap.querySelectorAll('.ph-crow > button, :scope > #morphBtn')].filter(vis).map((e) => { const r = e.getBoundingClientRect(); return { c: e.className.split(' ').pop() || e.id, l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height, cut: [...e.querySelectorAll('span')].some((s) => s.scrollWidth > s.clientWidth + 1 && getComputedStyle(s).textOverflow !== 'ellipsis') }; });
+  const ctl = [...wrap.querySelectorAll('.ph-crow > button, :scope > #morphBtn')].filter(vis).map((e) => { const r = e.getBoundingClientRect(); return { c: e.id || e.className.split(' ').pop(), l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height, cut: [...e.querySelectorAll('span')].some((s) => s.scrollWidth > s.clientWidth + 1 && getComputedStyle(s).textOverflow !== 'ellipsis') }; });
   const over = [];
   for (let i = 0; i < ctl.length; i++) for (let j = i + 1; j < ctl.length; j++) { const a = ctl[i], b = ctl[j]; if (a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5) over.push([a.c, b.c]); }
   const W = innerWidth, H = innerHeight;
@@ -81,8 +81,13 @@ await ev(`document.querySelector('.ph-cprev').dispatchEvent(new PointerEvent('po
 let g = await ev(`(() => { document.querySelector('.ph-cprev').click(); return __cmwGlide(); })()`);
 ok('(c) ‹ opens the deformation paused at its end and aims at the step before', g && g.open && !g.playing && g.max === 3 && g.target === 2, g);
 // samples of T while it glides (each 40 ms): it moves at once, monotonically, settles on 2
-const sample = (ms) => ev(`new Promise((res) => { const out = [], t0 = performance.now(); const f = () => { const s = __cmwGlide(); out.push([Math.round(performance.now() - t0), s.T, s.moving]); if (performance.now() - t0 < ${ms}) setTimeout(f, 40); else res(out); }; f(); })`);
+const sample = async (ms) => {
+  const out = [], t0 = Date.now();
+  while (Date.now() - t0 < ms) { const s = await glide(); out.push([Date.now() - t0, s.T, s.moving]); await sleep(40); }
+  return out;
+};
 let S1 = await sample(4000);
+if (!Array.isArray(S1)) { ok('(c) T can be sampled while it glides', false, S1); return { pass: false, fails }; }
 const firstMove = S1.find((s) => s[1] < 3 - 1e-3);
 ok('(c) T moves within 400 ms of the press', firstMove && firstMove[0] <= 400, S1.slice(0, 8));
 ok('(c) and only towards the target', S1.every((s, i) => !i || s[1] <= S1[i - 1][1] + 1e-9), S1.map((s) => +s[1].toFixed(3)));
@@ -127,7 +132,7 @@ await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: geo.x, y: geo.
 for (let i = 1; i <= 6; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: geo.x, y: geo.y + (geo.y2 - geo.y) * i / 6, button: 'left', buttons: 1 }); await sleep(30); }
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: geo.x, y: geo.y2, button: 'left', buttons: 0, clickCount: 1 });
 await settle(700);
-const types = await ev(`__cmwState().steps ? __cmwState().steps.map((s) => s.type) : [...document.querySelectorAll('#pipeline .card[data-k] .nm')].map((e) => e.textContent)`);
+const types = await ev(`__cmwState().steps ? __cmwState().steps.map((s) => s.type) : [...document.querySelectorAll('#pipeline .card[data-k]:not(.region-card) .nm')].map((e) => e.textContent)`);
 ok('(d) f₁ dragged below f₂ swaps them', Array.isArray(types) && /bius/i.test(String(types[0])) && /exp/i.test(String(types[1])), types);
 await ev('Phone.close(true); 1'); await settle(300);
 

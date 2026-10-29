@@ -254,7 +254,9 @@ const SPOT = String.raw`(() => {
   const CTL = {
     'basics/x': () => selTool(), 'basics/preimages': () => 'none', 'basics/draw': () => tool('disc'),
     'basics/shapes': () => (innerWidth < 640 ? 'none' : selTool()), 'basics/formula': () => 'none',
-    'basics/chain': () => q1('#pipeline .card[data-k="1"]'), 'basics/add': () => q1('#addStepBtn'),
+    // (#246: on a phone the card and the Add tile are rows of the chain sheet; while it is closed, the step lights the
+    // chain bar's "N steps ▾" that opens it)
+    'basics/chain': () => q1('#pipeline .card[data-k="1"]') || q1('.ph-csteps'), 'basics/add': () => q1('#addStepBtn') || q1('.ph-csteps'),
     'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)'),
     'views/patterns': () => q1('#patternSeg .pat[data-pat="stretch"]'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
