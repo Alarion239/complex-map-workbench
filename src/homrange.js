@@ -169,13 +169,14 @@
   // other way turns x round from where it is, with no jump in x or in its speed. x never passes its target (it stops
   // there), never leaves 0…max, and settles on it exactly. omega (1/s) sets the pace: at the default 6.5 one step takes
   // about 1.4 s to settle, most of it in the first 0.6 s, and 20 steps still settle within 2 s.
-  // glider({ omega }) -> { set(x), to(target, max), nudge(d, max), step(dt) -> moving, x, v, target, moving() }
+  // glider({ omega }) -> { set(x), to(target, max), nudge(d, max), step(dt) -> moving, x, v, target, moving(), since }
+  // (since: the glide's own time from the last press to now, or to its settling: the frames' dt, each at most 100 ms)
   function glider(opt = {}) {
     const W = opt.omega || 6.5, EPS = 1e-3;
-    const g = { x: 0, v: 0, target: 0, max: 0 };
+    const g = { x: 0, v: 0, target: 0, max: 0, since: 0 };
     // x at once, at rest (the scrubber, a new range, the deformation opened at its end)
     g.set = (x) => { g.x = x; g.v = 0; g.target = x; return g; };
-    g.to = (target, max) => { if (max != null) g.max = max; g.target = Math.max(0, Math.min(g.max, target)); return g; };
+    g.to = (target, max) => { if (max != null) g.max = max; g.target = Math.max(0, Math.min(g.max, target)); g.since = 0; return g; };
     // one step on from the target (or, at rest between two steps, to the next whole step that way: from 1.4, › is 2 and
     // ‹ is 1)
     g.nudge = (d, max) => {
@@ -187,6 +188,7 @@
     g.step = (dt) => {
       if (!g.moving()) return false;
       dt = Math.max(0, Math.min(0.1, dt));
+      g.since += dt;
       // (two half steps: the spring is stiff for a 100 ms frame)
       for (let i = 0; i < 2; i++) {
         const h = dt / 2, d = g.target - g.x, before = Math.sign(d);

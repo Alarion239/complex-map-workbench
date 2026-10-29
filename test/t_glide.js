@@ -37,6 +37,7 @@ const settleT = (fr) => { let last = 0; for (const f of fr) if (f.moving) last =
   const fr = run([[0, 1]]);
   check('(a) one step settles exactly on 1', fr[fr.length - 1].x === 1, fr[fr.length - 1]);
   check('(a) within 2 s', settleT(fr) <= 2, settleT(fr));
+  { const g = HR.glider().set(0); g.max = 5; g.nudge(1); while (g.step(1 / 60)); check('(a) since: its own time, about the settling time', Math.abs(g.since - settleT(fr)) < 0.05 && g.since <= 2, g.since); }
   check('(a) never backwards', fr.every((f) => f.dx >= -1e-12), '');
   check('(a) never past 1', fr.every((f) => f.x <= 1), Math.max(...fr.map((f) => f.x)));
   check('(a) it moves at once (x > 0.01 after 100 ms)', fr.find((f) => f.t >= 0.1).x > 0.01, fr.find((f) => f.t >= 0.1));
