@@ -244,7 +244,9 @@
         // strokes. Today's samples are drawn only when the refinement does not fit (the settle job then swaps it in).
         // r.polys keeps today's samples whatever is drawn: labels, chevrons, fits and hit tests read them (SPEC 9.1:
         // every other caller as today); r.lpolys holds the drawn ones (createLines order, dash arcs).
-        const ref = refineNow(s, r, lkey, origin);
+        // ([#299 review] a quick curve of a ray or an equipotential, c moving: not refined at every frame; the full trace
+        // that lands at rest is, as the settle job refines the rest)
+        const ref = Region.dhStamp(s) === 'q' ? null : refineNow(s, r, lkey, origin);
         const lp = ref ? ref.polys : polys;
         GLR.destroy(r.lineRes);
         r.lineRes = lp.length && GLR.ok ? GLR.createLines(lp, origin) : null;
