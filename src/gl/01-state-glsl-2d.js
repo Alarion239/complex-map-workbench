@@ -54,11 +54,31 @@ precision highp sampler2D;
   const POST_OF = `
 vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
 `;
+  // (issue #72) modes 1-3 of a chain without d/dz (every chain but those, hasStages): one walk of the chain, k = 1..n, each step through one call of
+  // chainAt (or chainStep): FXC inlines every call, and the bodies below as chainRange + chainHom + postOf carried a
+  // copy of every step per call (6 to 8 per program, 17 with paths built of others). The same steps in the same order:
+  // mode 1 (base, hi) in full, hi along its path at t (none at t <= 0), then the post (b, post] in full (hi <= b
+  // whenever there is a post); mode 3 (base, a] in full, (a, b] along their paths, the post; mode 2 the stages a and
+  // b, each from base (homrange.js's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
+  // LIB), so the walk stays a loop.
+  const WALK = (n, how) => `vec2 z = s;
+  for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
+    int how = ${how};
+    z = chainAt(k, z, uT, how);
+  }
+  return z;`;
+  const POST = '(uPost > uB && k > uB && k <= uPost) ? 1 : 0';
   const MAP_PLAIN = [
-    'return chainRange(s, uA, uB);',
-    'vec2 z = chainRange(s, uBase, uHi - 1); return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));',
-    'vec2 z0 = chainRange(s, uBase, uA); vec2 z1 = chainRange(z0, uA, uB); return mix(z0, z1, uT);',
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+    () => 'return chainRange(s, uA, uB);',
+    (n) => WALK(n, `k <= uBase ? 0 : k < uHi ? 1 : k == uHi ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
+    (n) => `vec2 z = s, z0 = s, z1 = s;
+  for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
+    if (k > uBase && k <= max(uA, uB)) z = chainStep(k, z);
+    if (k == uA) z0 = z;
+    if (k == uB) z1 = z;
+  }
+  return mix(z0, z1, uT);`,
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
   ];
   const MAP_STAGE = [
     'return chainRange(s, uA, uB);',
@@ -77,7 +97,10 @@ bool derivIn(int a, int b) {
   return false;
 }
 `;
-  const hasStages = (info) => !!info && /\bchainStage\b/.test(info.source || '') && /\bchainIsDeriv\b/.test(info.source || '');
+  // (MAP_STAGE for a chain with a d/dz step only: every chain has chainStage and chainIsDeriv, which without one are
+  // chainRange and false, and there MAP_STAGE's bodies are MAP_PLAIN's)
+  const hasStages = (info) => !!info && /\bchainStage\b/.test(info.source || '') && /\bchainIsDeriv\b/.test(info.source || '')
+    && !/bool chainIsDeriv\(int k\) \{\s*return false;/.test(info.source || '');
   const hasSheets = (info) => !!info && /\bchainSheetRange\b/.test(info.source || '');
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
@@ -87,7 +110,7 @@ bool derivIn(int a, int b) {
 const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
 ${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
 vec2 mapPoint(vec2 s) {
-  ${(st ? MAP_STAGE : MAP_PLAIN)[mode]}
+  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
