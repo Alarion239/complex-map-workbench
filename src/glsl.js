@@ -1530,6 +1530,19 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
     for (const { P, k } of maps) src += `  if (i == ${k}) return ${P}_h(z, t);\n`;
     for (const k of dks) src += `  if (i == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
+    // (issue #72) chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
+    // map and path written once. The map modes 1-3 (gl.js MAP) walk the chain in one loop through it: ANGLE's
+    // Direct3D 11 back end hands the code to FXC, which inlines every call, so chainRange, chainHom and postOf each
+    // carried a copy of every step (6 to 8, and more, per deformation program). A path with the t = 1 shortcut is
+    // the map at t = 1 (exactly), so in full it is the path at 1 and the map is not written again; a straight-line
+    // path (no shortcut: z (1 - t) + f(z) t is not f(z) where z is infinite) calls the map itself.
+    src += 'vec2 chainAt(int k, vec2 z, float t, int how) {\n  if (how == 0) return z;\n';
+    for (const { P, k, plan } of maps) {
+      src += plan.h.startsWith('if (t == 0.0)') ? `  if (k == ${k}) return how == 1 ? ${P}_f(z) : ${P}_h(z, t);\n`
+        : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
+    }
+    for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
+    src += '  return z;\n}\n';
     // all at once (mode 3): every step's homotopy at the same t, H_t = h_{b,t} o ... o h_{a+1,t}, through chainHom (so
     // the step functions are not inlined a second time; a d/dz gives NaN there, an off or failed step the identity)
     src += `vec2 chainHomAll(vec2 z, int a, int b, float t) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, t);\n  }\n  return z;\n}\n`;
