@@ -236,15 +236,21 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   .ftile { flex-basis: 72px; width: 72px; margin-left: 6px; }
   .ftile .lamp { font-size: 11px; }
 }
-/* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1440 in
-   English, 1600 in Russian); Examples keeps its word */
+/* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1280 in
+   English, 1440 in Russian: the app's name left the bar and gave its room to the words); Examples keeps its word */
 @media (min-width: 1024px) and (max-width: 1439px) {
-  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
-  .top .cmd-field .cmd-text { display: none; }
   /* ([v16.5 check app-1] the icon and its shortcut are never cut, "Ctrl K" included: the open example's name after
      Examples gives way instead, ending in an ellipsis) */
   #examplesBtn { flex-shrink: 1; min-width: 0; }
   #examplesBtn > .mlabel, #examplesBtn > .ic-slot { flex-shrink: 0; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
+  .top .cmd-field .cmd-text { display: none; }
+}
+@media (min-width: 1280px) and (max-width: 1439px) {
+  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
+  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
 }
 /* ([v16.5 check app-2] app.js hdrFit: where the search's words would be cut, its short label, else its icon and
    shortcut alone) */
@@ -252,10 +258,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root:not(.ph) .top.cmd-short #cmdBtn .ct-s { display: inline; }
 :root:not(.ph) .top.cmd-cut .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
 :root:not(.ph) .top.cmd-cut .cmd-field .cmd-text { display: none; }
-@media (min-width: 1440px) and (max-width: 1599px) {
-  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; }
-  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
-}
 .pane.under-insp .legend-chip:not(.calc-chip) { right: calc(8px + var(--insp-w, 288px)); margin-right: 0; }
 /* (v16.5 UX20, restores "nothing covers the work uninvited") the plane's key and its display options in the pane head
    (app.js placeKeys): the key a short chip (glyph and words) that unfolds under the head while pointed at, focused or

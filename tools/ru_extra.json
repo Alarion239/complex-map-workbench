@@ -296,6 +296,8 @@
  "The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.": "Отображение (z − a)/(1 − āz) переводит единичный круг в себя и точку a в 0. Число a комплексное: его точка на плоскости и есть число, поэтому перетаскивание точки меняет отображение.",
  "Play: {x} circles the origin": "Воспроизвести: %{x} обходит начало координат",
  "Add as a complex number": "Добавить как комплексное число",
+ "Tour options": "Параметры обучения",
+ "Next step in {n} s.": "Следующий шаг через %{n} с.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Перетаскивание вращает сферу и сдвигает фигуры; пробел вращает; ∞ — северный полюс",
  "Phase style: {name}": "Стиль фазы: %{name}",
  "Styles belong to the flat Phase view": "Стили относятся к плоскому виду «Фаза»",

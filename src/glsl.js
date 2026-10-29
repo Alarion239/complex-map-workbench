@@ -778,8 +778,8 @@ ${inner.map((x) => '  ' + x).join('\n')}
 
 
   // ---- [issue #4] Γ, ψ, ζ and ζ′ in float32, after CX.lgamma, CX.digamma, CX.zeta, CX.zetaDeriv: put in front of a
-  // chain's (or a region formula's) source only when it calls them, so no other program compiles them (SPECIAL_RE)
-  const SPECIAL_LIB = `
+  // chain's (or a region formula's) source only when it calls them, so no other program compiles them (specialLib)
+  const GAMMA_LIB = `
 // sin(πz) and sin(πs/2) with the real part reduced by the period first (float32 keeps the phase)
 vec2 cx_pimod(vec2 z) { return vec2(CX_PI * (z.x - 2.0 * floor(0.5 * z.x)), CX_PI * z.y); }
 vec2 cx_halfpimod(vec2 s) { return vec2(CX_HALF_PI * (s.x - 4.0 * floor(0.25 * s.x)), CX_HALF_PI * s.y); }
@@ -803,11 +803,13 @@ vec2 cx_lgamma1(vec2 z) {
   ser += cdiv(vec2(-0.000005395239384953, 0.0), z + vec2(6.0, 0.0));
   return clog(cdiv(ser * 2.5066282746310005, z), CX_PI, 0.0) - tmp;
 }
-// log Γ(z): the reflection log π − log sin(πz) − log Γ(1 − z) for Re z < 1/2; a pole: Re = +inf
+// log Γ(z): the reflection log π − log sin(πz) − log Γ(1 − z) for Re z < 1/2; a pole: Re = +inf. (issue #72) One call
+// of cx_lgamma1, its argument chosen first: FXC (Direct3D 11) inlines every call, and the Lanczos body was there twice
 vec2 cx_lgamma(vec2 z) {
-  if (z.x >= 0.5) return cx_lgamma1(z);
-  if (z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf(), 0.0);
-  return vec2(1.1447298858494002, 0.0) - cx_logsin(cx_pimod(z)) - cx_lgamma1(vec2(1.0, 0.0) - z);
+  bool refl = z.x < 0.5;
+  if (refl && z.y == 0.0 && z.x == floor(z.x)) return vec2(cx_inf(), 0.0);
+  vec2 L = cx_lgamma1(refl ? vec2(1.0, 0.0) - z : z);
+  return refl ? vec2(1.1447298858494002, 0.0) - cx_logsin(cx_pimod(z)) - L : L;
 }
 // Γ(z): exp(log Γ); beyond float32 the point at infinity (cx_isinf)
 vec2 cx_gamma(vec2 z) {
@@ -830,6 +832,9 @@ vec2 cx_digamma(vec2 z) {
   vec2 ser = cmul(w2, vec2(1.0 / 12.0, 0.0) + cmul(w2, vec2(-1.0 / 120.0, 0.0) + cmul(w2, vec2(1.0 / 252.0, 0.0) + cmul(w2, vec2(-1.0 / 240.0, 0.0)))));
   return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
 }
+`;
+  // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
+  const ZETA_LIB = `
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
 const float CX_EMC[6] = float[6](0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10);
@@ -867,37 +872,42 @@ vec2 cx_zetaEMd(vec2 s) {
   }
   return sum + cmul(bt, Nms);
 }
-// ζ(s): Euler–Maclaurin for Re s >= 0; the functional equation 2^s π^{s-1} sin(πs/2) Γ(1 − s) ζ(1 − s), in log form
+// ζ(s): Euler–Maclaurin for Re s >= 0; the functional equation 2^s π^{s-1} sin(πs/2) Γ(1 − s) ζ(1 − s), in log form.
+// (issue #72) cx_zetaEM, its 200-term loop and all, is called once (at s or at 1 − s)
 vec2 cx_zeta(vec2 s) {
   if (!cfin(s) || abs(s.y) > CX_ZETA_TMAX) return vec2(cx_nan());
-  if (s.x >= 0.0) return cx_zetaEM(s);
-  if (s.y == 0.0 && s.x == 2.0 * floor(0.5 * s.x)) return vec2(0.0);
+  bool fe = s.x < 0.0;
+  if (fe && s.y == 0.0 && s.x == 2.0 * floor(0.5 * s.x)) return vec2(0.0);
   vec2 one = vec2(1.0, 0.0) - s;
+  vec2 Z = cx_zetaEM(fe ? one : s);
+  if (!fe) return Z;
   vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(cx_halfpimod(s)) + cx_lgamma1(one);
   if (L.x > 88.7) return vec2(cx_inf());
-  return cmul(cexp(L), cx_zetaEM(one));
+  return cmul(cexp(L), Z);
 }
 // ζ′(s): for Re s < 0, from ζ = χ ζ(1 − s): χ (L′ ζ(1 − s) − ζ′(1 − s)), near the real axis without the log form
 vec2 cx_zetad(vec2 s) {
   if (!cfin(s) || abs(s.y) > CX_ZETA_TMAX) return vec2(cx_nan());
-  if (s.x >= 0.0) return cx_zetaEMd(s);
-  vec2 one = vec2(1.0, 0.0) - s, z1 = cx_zetaEM(one), z1d = cx_zetaEMd(one);
+  // (issue #72: cx_zetaEMd and cx_lgamma1 called once each)
+  vec2 one = vec2(1.0, 0.0) - s, z1d = cx_zetaEMd(s.x >= 0.0 ? s : one);
+  if (s.x >= 0.0) return z1d;
+  vec2 z1 = cx_zetaEM(one), lg1 = cx_lgamma1(one);
   vec2 base = vec2(0.6931471805599453 + 1.1447298858494002, 0.0) - cx_digamma(one);
   vec2 hs = cx_halfpimod(s);
   if (abs(s.y) < 1.0) {
-    vec2 A = cexp(s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_lgamma1(one));
+    vec2 A = cexp(s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + lg1);
     vec2 sn = csin(hs), cs = ccos(hs);
     return cmul(A, cmul(cmul(sn, base), z1) + CX_HALF_PI * cmul(cs, z1) - cmul(sn, z1d));
   }
-  vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(hs) + cx_lgamma1(one);
+  vec2 L = s * 0.6931471805599453 + (s - vec2(1.0, 0.0)) * 1.1447298858494002 + cx_logsin(hs) + lg1;
   if (L.x > 88.7) return vec2(cx_inf());
   vec2 Ld = base + CX_HALF_PI * cinv(ctan(hs));
   return cmul(cexp(L), cmul(Ld, z1) - z1d);
 }
 `;
   // [issue #5] the series' helpers: w^e for an integer e held as a float (binary powers, at most 31 squarings; |e| past
-  // 2^31 only for |w| <= 1, where it is 0, or 1 on the circle), n! and the binomial coefficient
-  const SERIES_LIB = `
+  // 2^31 only for |w| <= 1, where it is 0, or 1 on the circle)
+  const IPOWI_LIB = `
 vec2 cx_ipowi(vec2 w, float e) {
   if (e == 0.0) return vec2(1.0, 0.0);
   if (e == 1.0) return w;
@@ -912,11 +922,29 @@ vec2 cx_ipowi(vec2 w, float e) {
   }
   return e < 0.0 ? cinv(r) : r;
 }
-vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
-vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_lgamma(b + vec2(1.0, 0.0)) - cx_lgamma(a - b + vec2(1.0, 0.0))); }
 `;
-  const SPECIAL_RE = /\bcx_(gamma|lgamma|digamma|zeta|zetad|ipowi|fact|binom)\(/;
-  const withSpecial = (src) => (SPECIAL_RE.test(src) ? SPECIAL_LIB + SERIES_LIB + src : src);
+  // n! and the binomial coefficient (they need Γ's part)
+  const FACT_LIB = `
+vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
+// (issue #72: the three log Γ through one call site)
+vec2 cx_binom(vec2 a, vec2 b) {
+  vec2 acc = vec2(0.0);
+  for (int i = 0; i < max(3, uNoUnroll); i++) {
+    vec2 L = cx_lgamma((i == 0 ? a : i == 1 ? b : a - b) + vec2(1.0, 0.0));
+    acc = i == 0 ? L : acc - L;
+    if (i == 2) break;
+  }
+  return cexp(acc);
+}
+`;
+  // (issue #72) the parts a source calls and those they need, in order: Γ no longer brings ζ
+  // along, nor w^e (a series) Γ and ζ
+  const specialLib = (src) => {
+    const zeta = /\bcx_zetad?\(/.test(src), fact = /\bcx_(fact|binom)\(/.test(src);
+    const gamma = zeta || fact || /\bcx_(gamma|lgamma|digamma)\(/.test(src);
+    return (gamma ? GAMMA_LIB : '') + (zeta ? ZETA_LIB : '') + (/\bcx_ipowi\(/.test(src) ? IPOWI_LIB : '') + (fact ? FACT_LIB : '');
+  };
+  const withSpecial = (src) => specialLib(src) + src;
 
   // ---- natural paths (Funcs: ZOOM, joukHom, ratPath, genericZoomNat): h bodies in z and t, mirroring the CPU ----
   // nat: the built step's descriptor {kind, fn | n | dp, dq}; returns {h, write(put, b)} or null (no GPU path: the
@@ -1828,7 +1856,7 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
     }
 
     // (Γ, ψ, ζ, ζ′: their library only in a chain that calls them, also from the sheet code)
-    if (SPECIAL_RE.test(src) || SPECIAL_RE.test(sh)) src = SPECIAL_LIB + SERIES_LIB + src;
+    src = specialLib(src + sh) + src;
     let cache = null;
     function values() {
       if (cache) return cache;
