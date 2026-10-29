@@ -192,7 +192,7 @@
  "Write the coefficients a_n as a formula in n": "Запишите коэффициенты a_n формулой от n",
  "The coefficients a_n must not depend on z": "Коэффициенты a_n не должны зависеть от z",
  "The coefficient a_n is undefined at n = {n}": "Коэффициент a_n не определён при n = %{n}",
- "This Dirichlet series converges too slowly to sum: a_n is not a periodic sequence times a power of n": "Этот ряд Дирихле сходится слишком медленно, чтобы его просуммировать: a_n — не периодическая последовательность, умноженная на степень n",
+ "This Dirichlet series converges too slowly to sum: a_n is not a periodic sequence times a power of n": "Этот ряд Дирихле сходится слишком медленно, чтобы его просуммировать: a_n — не периодическая последовательность, умноженная на степень n",
  "\\ \\text{(estimated from the coefficients)}": "\\ \\text{(оценка по коэффициентам)}",
  "A series takes most values many times, so it has no single inverse; {note}": "Ряд принимает большинство значений много раз, поэтому однозначной обратной нет; %{note}",
  "A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges": "Степенной ряд, ряд Лорана или Дирихле по коэффициентам aₙ; рисуется там, где сходится",
