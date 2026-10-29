@@ -3028,7 +3028,7 @@
  "Insert at the end": "Inserisci alla fine",
  "Draw panel": "Pannello Disegna",
  "3-pt circle": "Per 3 punti",
- "\u22a5 circle": "Ortogo\u00adnale",
+ "⊥ circle": "Ortogo­nale",
  "field-short\u0004Add function": "Cerca",
  "field\u0004Add function": "Aggiungi funzione",
  "rail\u0004Draw": "Disegna",
@@ -3053,5 +3053,7 @@
  "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "In questo menu, «Tour guidato» avvia il tour per capitoli; «Guida» apre la guida completa.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Costruzioni: cerchio per 3 punti, intersezione, punto medio, asse, ortogonale, tangente, iperbolica",
  "Add this shape": "Aggiungi questa figura",
- "Add shape": "Aggiungi figura"
+ "Add shape": "Aggiungi figura",
+ "Tip: Display changes the plane you opened it from; open it from the other plane for that plane's own options.": "Suggerimento: «Aspetto» cambia il piano da cui l'hai aperto; apri «Aspetto» dall'altro piano per le sue opzioni.",
+ "Tip: Show alone pictures one step by itself in X and Y; a step's ⋯ menu has Replace with the inverse and Bypass this step.": "Suggerimento: «Mostra da solo» mostra un passo da solo in X e Y; il menu ⋯ del passo ha «Sostituisci con l'inversa» e «Escludi questo passo»."
 }
