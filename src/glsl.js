@@ -701,11 +701,12 @@ ${inner.map((x) => '  ' + x).join('\n')}
             // 0.45 s, cpowr or cx_powg alone 0.6 to 2.2 s, so the cost is the three branches together. cx_ipow32 keeps
             // its constant-bound loop: the same rounds with the test at the end of the loop took 0.9 to 2.1 s.)
             const a = g(n.a);
+            // (classified at cut 0, written at the step's cut th: the same value, a constant is principal whatever the cut)
             const v = constOf(n.b, 0);
             if (v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096) {
               // cx_ipow32's rounds written out for this n: the same cmul calls in the same order, so the same values
               baked.push(['i', v.re]);
-              if (v.re === 0) return 'vec2(1.0, 0.0)';
+              if (v.re === 0) return 'vec2(1.0, 0.0)';   // (z^0 = 1 at ∞ and NaN too, as Expr.compile gives)
               let m = Math.abs(v.re), b = v.re < 0 ? tv(`cinv(${a})`) : a, r = 'vec2(1.0, 0.0)';
               for (;;) {
                 if (m & 1) r = tv(`cmul(${r}, ${b})`);
@@ -1422,7 +1423,8 @@ vec2 cx_binom(vec2 a, vec2 b) { return cexp(cx_lgamma(a + vec2(1.0, 0.0)) - cx_l
     const RECIP = { cot: 'ctan', sec: 'ccos', csc: 'csin', coth: 'ctanh' };
     // (an exponent with a shared number, z^{a}: a branch node whatever a is, its value and sheet count read when the
     // uniforms are filled; an integer a is one sheet, a digit of radix 1 that takes nothing from c, and cpow on any
-    // sheet is z^a. So the code, and the key (astSig, pairBaked), do not depend on a)
+    // sheet is z^a. So the code, and the key (astSig, pairBaked), do not depend on a. The price: an integer a goes
+    // through cpow (exp and log, about 1e-4 relative at large |z|) where a typed integer takes cipow, in the sheet view only)
     const paramPow = (b) => {
       const vOf = () => constOf(b), intOf = (v) => v.im === 0 && Number.isInteger(v.re) && Math.abs(v.re) <= 4096;
       return { kind: 'powc', get v() { return vOf(); }, get n() { const v = vOf(); return intOf(v) ? 1 : Funcs.sheetCount(v); } };
