@@ -5,7 +5,8 @@
 // tables' file:line references and the hand-written ones still point where they did):
 //   - the CommonJS line `if (typeof module !== 'undefined') module.exports = X;` (or its `&& module.exports` form) goes;
 //   - the three UMD headers (constr.js, homrange.js, palette.js: `(function (root, factory) { ... root.X = M ... })(…,
-//     function () {`) become `const X = (function (factory) { … })(function () {`, the same number of lines;
+//     function () {`) become `const X = (function (factory) { … })(function () {`, the same number of lines, which
+//     still set window.X in the browser (the published page's global, as before);
 //   - one module block goes at the end: `import { A, B } from './a.js';` for every name of another file the file uses
 //     (scope analysis: a reference no declaration of the file resolves), then `export { … };` for the names other files
 //     use, with `X as 'module.exports'` when the file exported X to node (so require() in the tests still returns X);
@@ -121,9 +122,11 @@ function rewrite(f, p, order) {
   if (p.cjs) text = text.replace(p.cjs.re, '');
   if (p.umdName) {
     text = text.replace(UMD, (all, e1, mid, e3) => {
-      // the same number of lines: the header's middle lines become one return and comments
+      // the same number of lines: the header's middle lines become the factory's call, the page's global (the classic
+      // script set root.X, the window, in the browser: the published page keeps it), the return, and comments
       const n = mid.split(/\r?\n/).length - 1;
-      const body = [`  return factory();`, ...Array.from({ length: Math.max(0, n - 1) }, () => `  // (ES module: the factory's value is the module's export, ${p.umdName})`)];
+      if (n < 2) throw new Error(`${f}: a UMD header of ${n} line(s) between its first and last`);
+      const body = [`  const M = factory(); if (typeof window !== 'undefined') window.${p.umdName} = M;`, `  return M;`, ...Array.from({ length: n - 2 }, () => `  // (ES module: the factory's value is the module's export, ${p.umdName})`)];
       return `const ${p.umdName} = (function (factory) {${e1}${body.join(e1)}${e1}})(function () {${e3}`;
     });
   }

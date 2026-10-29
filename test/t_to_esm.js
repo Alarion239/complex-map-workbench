@@ -41,6 +41,7 @@ for (const p of files(path.join(ROOT, 'src'))) {
   // (the UMD header's lines change in place, nothing else does)
   const umd = /(?:^|\n)\(function \(root, factory\) \{/.test(a.join('\n'));
   ok(`${rel}: the lines above the module block are the file's own (${diff.length} changed${umd ? ', its UMD header' : ''})`, body.length === orig.length - (orig[orig.length - 1] === '' && body[body.length - 1] !== '' ? 1 : 0) || body.length === orig.length, { body: body.length, orig: orig.length });
+  if (umd) { const X = (/root\)?\.([A-Za-z_$][\w$]*) = M;/.exec(a.join('\n')) || [])[1]; ok(`${rel}: its header still sets window.${X} in the browser (the published page's global)`, body.some((l) => l.includes(`if (typeof window !== 'undefined') window.${X} = M;`)), body.slice(0, 30).filter((l) => /factory|window/.test(l))); }
   ok(`${rel}: only the UMD header changes in place`, umd ? diff.length > 0 && diff.length <= 5 && diff[diff.length - 1] - diff[0] < 5 : diff.length === 0, diff.slice(0, 5));
 }
 // every module of the build parses as a module (the joined text of a split file)
