@@ -130,5 +130,25 @@ check('stepOps: no inverse enumerator', !Inverse.stepOps(g).ok && !Inverse.stepO
   check('\\zeta(z) recognized as the ζ step', !!r2 && r2.steps.length === 1 && r2.steps[0].type === 'zeta', JSON.stringify(r2 && r2.steps));
 }
 
+// [issue #277] ζ and ζ′ with their Euler–Maclaurin sums from the multiplicative k^{−s} table: against 30-digit values
+// (mpmath 1.4.1), to the error the double sum already had (about 3e-14 for |Im s| < 10, 1e-12 for |Im s| < 1000, relative
+// to 1 + |ζ|), on both sides of Re s = 0 and at the first zero
+{
+  const ZD = [
+    [2, 0, 1.6449340668482264, 0.0, -0.9375482543158438, 0.0],
+    [0.5, 14.134725141734695, -1.0483650805588237e-16, 6.585259277605158e-16, 0.7832965118670311, 0.12469982974817058],
+    [0.3, 7.5, 1.1355037440048248, 0.43920591302766054, -0.029304776509644925, -0.2461065311519459],
+    [1.5, -40, 0.8769085364699138, 0.2577122734439876, 0.04389919617361452, -0.3050318713744837],
+    [0.8, 300, 0.9650434173419983, -0.07397036410234557, 0.8779487567765294, -1.0930298758549815],
+    [2.2, -999.5, 0.9687252784080783, 0.11820164149850415, 0.03457329153862778, -0.03546001739870509],
+    [-3.5, 25, -144.82352766897517, -208.36842631554603, 164.51733162422843, 318.23402282234736],
+  ];
+  const e = (v, w) => CX.abs(CX.sub(v, w)) / (1 + CX.abs(w));
+  for (const [x, y, zr, zi, dr, di] of ZD) {
+    const s = C(x, y), tol = Math.abs(y) < 10 ? 1e-13 : Math.abs(y) < 100 ? 1e-12 : 4e-12;
+    check(`ζ(${x}${y < 0 ? '' : '+'}${y}i) and ζ′ against 30 digits`, e(CX.zeta(s), C(zr, zi)) <= tol && e(CX.zetaDeriv(s), C(dr, di)) <= tol, [e(CX.zeta(s), C(zr, zi)), e(CX.zetaDeriv(s), C(dr, di))]);
+  }
+}
+
 console.log(`t_special: ${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);

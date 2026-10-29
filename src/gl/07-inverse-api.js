@@ -206,7 +206,7 @@
     }
     if (e.state === 'ready') return { state: 'ready', P: e };
     if (e.state === 'error') return { state: 'error', reason: e.error };
-    return { state: 'pending', reason: 'compiling' };
+    return { state: 'pending', reason: 'compiling', id };
   }
   // a ready inverse program of the current chain, view kind and formula bundle for another B class (never starts a
   // compile): a larger B first (exact for any alpha), else the largest smaller one (its front B sheets exact, the rest
@@ -338,7 +338,7 @@
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -425,7 +425,7 @@
       if (alt) { pr = { state: 'ready', P: alt.P }; B = alt.B; invAltUsed = true; }
       else if (pr.state === 'ready') pr = { state: 'pending', cold: true };
     }
-    if (pr.state === 'pending') { framePending = true; return 'pending'; }
+    if (pr.state === 'pending') { framePending = true; standIn(pr.id); return 'pending'; }
     if (pr.state !== 'ready') return 'error';
     const P = pr.P, inv = cur.info.inverse;
     P.warm = true;
@@ -779,7 +779,7 @@
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartLand, profile, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -815,14 +815,16 @@
     // globe passes drawn with a scissor (globeScissorOf) and their scissored device px (tests)
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
     // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program)
-    _src: { REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    _src: { warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra) => invSources(cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
     createMesh, createSkip, setSkip, createLines, destroy, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
-    // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows)
-    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed }; },
+    // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
+    // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
+    // and that program has not landed yet
+    frameStatus() { return { error: frameErr, pending: framePending, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
     // (issue #72) false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
@@ -834,6 +836,12 @@
     get pendingLinks() { let n = 0; for (const e of progs.values()) if (e.state === 'pending') n++; return n; },
     // the programs compiling, as {id, key} (key: the chain structure key, 'static' for the others)
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key }); return out; },
+    // (issue #72, I) ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
+    // hold on its links
+    bareMs, holdLinks,
+    // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
+    // waits for the final picture (the quality harness's settle, onReady's redraw) still waits
+    markPending() { framePending = true; },
     // drops every cached map evaluation (e.g. to measure the uncached cost)
     clearCaches() { for (const r of live) freeCache(r); },
     get cacheBytes() { return cacheBytes; },

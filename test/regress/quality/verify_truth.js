@@ -74,6 +74,8 @@ const FWD = {
   jouk_custom: (x, y) => { const d = x * x + y * y; return [(x + x / d) / 2, (y - y / d) / 2]; },
   // the zeros-and-poles step with zeros +-1 and pole 0: (z^2 - 1)/z = z - 1/z
   zp_disc: (x, y) => { const d = x * x + y * y; return [x - x / d, y + y / d]; },
+  // Repeat x 3 of [z^2, + c], c = -0.3 + 0.2i (#229)
+  quad3_disc: (x, y) => { let u = x, v = y; for (let k = 0; k < 3; k++) { const t = u * u - v * v - 0.3; v = 2 * u * v + 0.2; u = t; } return [u, v]; },
 };
 function fatanh(x, y) {
   // (1 + z)/(1 - z) = ((1 + x) + iy)((1 - x) + iy) / |1 - z|^2 = (1 - x^2 - y^2 + 2iy) / ((1 - x)^2 + y^2)
@@ -116,6 +118,8 @@ const SAMPLERS = {
   // |F'| = |2z| |e^{z^2}| <= 2 (|3+3i| + 0.3) e^{2 |3+3i| 0.3 + 0.09} on the disc
   ez2_disc: (put, s) => grid(put, 3, 3, 0.3, STEP_PX / (s * 2 * (Math.hypot(3, 3) + 0.3) * Math.exp(2 * Math.hypot(3, 3) * 0.3 + 0.09))),
   healed_cut: (put, s) => grid(put, -1, 0, 0.6, STEP_PX / s),
+  // |F'| = 8 |z| |u_1| |u_2| <= 8 * 1.03 * 1.42 * 2.37 < 28 on the disc (|z| <= |0.2 + 0.1i| + 0.8)
+  quad3_disc: (put, s) => grid(put, 0.2, 0.1, 0.8, STEP_PX / (s * 28)),
 };
 SAMPLERS.e1z_custom = SAMPLERS.e1z_disc;
 // artanh: z = tanh u over a grid of u (the parametrisation only places the samples: each is mapped with the forward
@@ -174,7 +178,7 @@ const RAND_BOX = {
   zi_H: [-5, 5, 1e-3, 5], expH: [-4, 3, 1e-3, 20], e1z_disc: [-1, 1, -1, 1], e1z_custom: [-1, 1, -1, 1],
   exp_far_disc: [-1, 1, 59, 61], ez2_disc: [2.7, 3.3, 2.7, 3.3], healed_cut: [-1.6, -0.4, -0.6, 0.6],
   atanh_D: [-1, 1, -1, 1], atan_D: [-1, 1, -1, 1], cube_far_deep: [2.5, 3.5, 2.5, 3.5],
-  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2],
+  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2], quad3_disc: [-0.6, 1, -0.7, 0.9],
 };
 
 
@@ -213,6 +217,12 @@ MEMBERS.jouk_custom = (w) => {
 MEMBERS.zp_disc = (w) => {
   const [a, b] = csq(w.re * w.re - w.im * w.im + 4, 2 * w.re * w.im);
   return [{ re: (w.re + a) / 2, im: (w.im + b) / 2 }, { re: (w.re - a) / 2, im: (w.im - b) / 2 }].filter((z) => Math.hypot(z.re, z.im - 1.2) < 0.8);
+};
+// (z^2 + c)^{-3} of w: the 8 branches of the three square roots, kept in the disc |z - (0.2 + 0.1i)| < 0.8
+MEMBERS.quad3_disc = (w) => {
+  let zs = [[w.re, w.im]];
+  for (let k = 0; k < 3; k++) zs = zs.flatMap(([a, b]) => { const [x, y] = csq(a + 0.3, b - 0.2); return [[x, y], [-x, -y]]; });
+  return zs.filter(([x, y]) => Math.hypot(x - 0.2, y - 0.1) < 0.8).map(([x, y]) => ({ re: x, im: y }));
 };
 // the w-plane scenes: the member is carried as u = w, as their truth does (the self-test paints a mask there)
 MEMBERS.atanh_D = (w) => (Math.abs(w.im) < PI / 4 ? [{ re: w.re, im: w.im }] : []);
@@ -278,12 +288,12 @@ function appMap(sc) {
   global.CX = global.CX || require(path.join(ROOT, 'src/cx.js'));
   global.Expr = global.Expr || require(path.join(ROOT, 'src/parse.js'));
   const Funcs = global.Funcs || (global.Funcs = require(path.join(ROOT, 'src/funcs.js')));
-  const fs = sc.steps.map((st) => {
-    const b = Funcs.build({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true });
-    if (b.error || typeof b.f !== 'function') throw new Error(`${sc.name}: step ${st.type} does not build: ${b.error}`);
-    return b.f;
-  });
-  return (x, y) => { let z = { re: x, im: y }; for (const f of fs) z = f(z); return [z.re, z.im]; };
+  // (a step's Repeat × N as the app runs it: Funcs.applyRepeats, quad3_disc's [z², + c] three times)
+  const steps = sc.steps.map((st) => Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
+  const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
+  built.forEach((b, i) => { if (b.error || typeof b.f !== 'function') throw new Error(`${sc.name}: step ${steps[i].type} does not build: ${b.error}`); });
+  const F = Funcs.stageFunctions(steps, built)[steps.length];
+  return (x, y) => { const z = F({ re: x, im: y }); return [z.re, z.im]; };
 }
 
 // a tiny seeded PRNG (mulberry32), so every run checks the same points

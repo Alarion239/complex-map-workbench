@@ -138,6 +138,9 @@
  "Only $f_2$ changed; Undo brings the old one back.": "Изменился только $f_2$; отмена вернёт прежний.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, orthogonal, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
  "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
+ "Compiling…": "Компиляция…",
+ "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
+ "Written in short; the field below holds the formula in full.": "Записано кратко; поле ниже содержит формулу целиком.",
  "Print settings": "Параметры печати",
  "Saved to Downloads: {filename}": "Сохранено в «Загрузки»: %{filename}",
  "Remove vertex": "Удалить вершину",
@@ -271,6 +274,8 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Тяните, чтобы вращать, коснитесь фигуры, чтобы выбрать её; два пальца тоже вращают; ∞ на северном полюсе",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
+ "Preparing the page": "Подготовка страницы",
+ "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
  "the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$": "гомотопия, выполняющая по очереди %{n} шагов повтора, каждый на равной части $0\\le t\\le 1$",
  "Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}": "У повторённых шагов нет одного обратного шага; точный рендерер обращает их копию за копией, когда может; %{note}",
@@ -293,6 +298,11 @@
  "The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.": "Отображение (z − a)/(1 − āz) переводит единичный круг в себя и точку a в 0. Число a комплексное: его точка на плоскости и есть число, поэтому перетаскивание точки меняет отображение.",
  "Play: {x} circles the origin": "Воспроизвести: %{x} обходит начало координат",
  "Add as a complex number": "Добавить как комплексное число",
+ "<span>In the plane {w}</span>": "<span>В плоскости %{w}</span>",
+ "<b>Shapes in a step's plane.</b> With a step shown alone, <i>X</i> is its input plane, <i>w</i><sub><i>k</i>−1</sub>. The drawing tools draw there too: the shape belongs to that plane, and every later plane and card shows its image; the <i>z</i>-plane and the planes before it do not show it. The Shapes list groups the shapes by plane. Constructions are drawn in the <i>z</i>-plane.": "<b>Фигуры в плоскости шага.</b> Когда шаг показан отдельно, <i>X</i> — его входная плоскость, <i>w</i><sub><i>k</i>−1</sub>. Инструменты рисуют и там: фигура принадлежит этой плоскости, а все следующие плоскости и карточки показывают её образ; плоскость <i>z</i> и плоскости до неё её не показывают. Список фигур группирует их по плоскостям. Построения выполняются в плоскости <i>z</i>.",
+ "On the globe, shapes are drawn in the z-plane: choose Plane to draw in this plane, or Show F.": "На сфере фигуры рисуются в плоскости z: выберите «Плоскость», чтобы рисовать в этой плоскости, или «Показать F».",
+ "Tour options": "Параметры обучения",
+ "Next step in {n} s.": "Следующий шаг через %{n} с.",
  "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Перетаскивание вращает сферу и сдвигает фигуры; пробел вращает; ∞ — северный полюс",
  "Phase style: {name}": "Стиль фазы: %{name}",
  "Styles belong to the flat Phase view": "Стили относятся к плоскому виду «Фаза»",
@@ -316,5 +326,6 @@
  "The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.": "Заполненное множество Жюлиа для z² + i — дендрит: дерево без внутренних точек, поэтому его нельзя нарисовать как область. Оно показано кривой времени ухода |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), которая его окружает. Отображение переводит эту кривую на следующий уровень, |u₇| = 2.",
  "Times: a whole number, or a number’s name to run its slider": "Сколько раз: целое число или имя числа, чтобы его ползунок задавал N",
  "n is the index of a series: pick another letter": "n — индекс ряда: выберите другую букву",
- "{x} is the variable of a recurrence in the chain: pick another letter": "%{x} — переменная рекуррентности в цепочке: выберите другую букву"
+ "{x} is the variable of a recurrence in the chain: pick another letter": "%{x} — переменная рекуррентности в цепочке: выберите другую букву",
+ "Pattern: {name}": "Узор: %{name}"
 }

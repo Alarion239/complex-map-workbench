@@ -251,7 +251,8 @@
   // is ready (P2 review gate: holding it back added 200-300 ms to every example load)
   function interacting() {
     const now = performance.now();
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin());
+    // ([#241] a number's slider held: its frames come further apart than 150 ms when the chain is costly)
+    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
   // a camera still turning after its drag was let go (its momentum) moves too: those frames were drawn as rest frames,
   // each at a new distance, and All sheets at the Max mesh rebuilt their refinement in every one (r3 review speed-1)
@@ -401,21 +402,52 @@
     lines.forEach((t, i) => ctx.fillText(t, pane.w / 2, y0 + 7 + 9 + i * 18));
     ctx.restore();
   }
-  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6), and (issue #72) that the
-  // GPU is still preparing the frame's programs when it has waited for them over 1.5 s (a cold link on Direct3D 11
-  // takes seconds, or minutes; the browser's program cache keeps them for later visits)
+  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6); that the picture is not
+  // the new one yet while a program of it compiles (frameStatus().compiling: an earlier version, the deformation's
+  // start or nothing stands in; on Direct3D 11 a cold program takes 0.5 to 3 s). That note waits 300 ms, so a quick
+  // link shows none, and goes when the program lands (onReady draws the pane again). (issue #72) A frame that has
+  // waited for its programs over 1.5 s says instead that the GPU is still preparing them (a cold link on Direct3D 11
+  // takes seconds, or minutes; the browser's program cache keeps them for later visits).
+  const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
   function glStatusNote(pane) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
-    if (!st || !st.pending) { gpuWait.delete(pane); return; }
-    const now = performance.now();
+    const now = performance.now(), role = pane === paneL ? 'L' : 'R';
+    if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
+    if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
-    if (!gpuWait.has(pane)) { gpuWait.set(pane, now); setTimeout(() => requestRender(pane === paneL ? 'L' : 'R'), 1600); return; }
-    const n = GLR.pendingLinks || 0;
-    if (n && now - gpuWait.get(pane) > 1500) paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n }));
+    // (and one at 300 ms: a chain with no earlier version is drawn from a SphereMesh once its link has waited 250 ms,
+    // whether or not the frame counts as compiling)
+    else if (!gpuWait.has(pane)) { gpuWait.set(pane, now); for (const ms of [300, 1600]) setTimeout(() => requestRender(role), ms); }
+    else {
+      const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
+      if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
+    }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); return; }
+    const t0 = compileT.get(pane);
+    if (t0 === undefined) {
+      compileT.set(pane, now);
+      setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
+    } else if (now - t0 >= 300) compileNote(pane);
+  }
+  // the compiling note: small and quiet, in the pane's lower left corner
+  function compileNote(pane) {
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const text = $t('Compiling…');
+    const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
+    ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
+    ctx.fillStyle = TH.muted;
+    ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
+    ctx.restore();
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes)}
@@ -430,7 +462,8 @@
     if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
-      recs = GLR.packShapes(list).recs;
+      // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
+      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
       if (!sideDraw) lastRecs = recs;
       if (live && guard) {
         const info = GLR.inverseInfo;
@@ -473,6 +506,7 @@
       preIds = new Set();
       for (const s of list) {
         if (kindType(s) !== 'area') continue;
+        if (shapeStage(s)) { if (preIds.size) break; continue; }
         const p = pathOf(s, map, role, 'flat', { recs, budget: live });
         if (p.path !== 'inverse') { if (preIds.size) break; continue; }
         const box = invBox(p.e, p.plan, s, live);
@@ -517,6 +551,19 @@
       const ink = shapeInk(s);
       let alpha = S.alpha;
       alpha *= dimK(s);
+      // [#253] a shape of an intermediate plane: its own map (none: not drawn in this plane), its mesh drawn forward
+      const sm = shapeMap(s, map);
+      if (!sm) continue;
+      if (sm !== map) {
+        if (preIds && preIds.size && !preDone) { GLR.compositeHalf(); preDone = true; }
+        if (r.meshRes) {
+          GLR.drawRegion(r.meshRes, {
+            map: sm, view: pane.view, dpr: pane.dpr, L: opt.L || MESH_L, color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB,
+            alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), skip: null, stretch, fade: null, sync, cacheKey: cache ? `${r.meshKey}|${mapKeyOf(sm)}` : null,
+          });
+        }
+        continue;
+      }
       // drawn in the half-resolution pre-pass: its layer is upsampled here, at the run's first shape
       if (preIds && preIds.has(s.id)) {
         if (!preDone) { GLR.compositeHalf(); preDone = true; }
@@ -567,7 +614,11 @@
       // SPEC 8: a published SphereMesh valid for this view replaces the GPU draw and its fix-ups; while a rebuild runs
       // the old one is drawn inside its guard box, the GPU image around it (exports: the meshes prepareExport built)
       const smd = (live || offRender) && role ? smFor(s, r, role, 'flat', map, pane, 0, live && lp !== 'pending') : null;
-      if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) { if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map)); continue; }   // (n 0: nothing of it shows)
+      if (smd && smd.e && (!smd.e.data.n || smRes(smd.e))) {
+        if (smd.e.data.n) GLR.drawPreMapped(smd.e.res, smLook(s, pane, alpha, map));   // (n 0: nothing of it shows)
+        if (smd.why === 'linking' && GLR.markPending) GLR.markPending();
+        continue;
+      }
       let smOld = null, smOut = null;
       if (smd && smd.old && smRes(smd.old)) {
         const sc = GLR.scissorOf(smd.old.guardBox, pane.view, pane.dpr, 0);
@@ -616,20 +667,22 @@
     for (const s of hideStrokes || artMode ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
+      const sm = shapeMap(s, map);
+      if (!sm) continue;
       // the strokes that go with the fill drawn (a hold's own strokes while it stands in for the current mesh)
-      const r = role && r0.hold && kindType(s) === 'area' ? linesOf(r0, pairFor(s, r0, role).p) : r0;
+      const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
       const ink = shapeInk(s);
       const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const area = kindType(s) === 'area';
       let w = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
       let cw = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-      if (!opt.thin && s.id === selected && opt.domain) { w += 0.75; cw += 0.75; }
+      if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { w += 0.75; cw += 0.75; }
       if (!opt.thin && s.id === hoverShape) { w += 0.5; cw += 0.5; }
-      const st = { map, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, width: w * pane.dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(map)}` : null };
+      const st = { map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, width: w * pane.dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null };
       if (cw) st.casing = { color: halo, alpha: TH.haloA, width: cw * pane.dpr };
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
-      if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = arcOf(r, arcF(), arcKey); }
+      if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
     }
     if (GLR.flushHalf) GLR.flushHalf();

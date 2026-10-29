@@ -4,8 +4,8 @@
 // without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
 // (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
 if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof /** @type {any} */ (globalThis).$t !== 'function') {
-  if (typeof require === 'function') require('./i18n.js');
-  else {
+  // (an ES module: node's tests get this English fallback; the page runs i18n.js before the bundle)
+  {
     const fill = (s, p) => {
       if (!p) return s;
       const tex = /[$\\]/.test(s);
@@ -267,10 +267,12 @@ const CX = (() => {
   function zetaEM(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    const ms = neg(s);
-    let sum = ZERO;
-    for (let k = 1; k < N; k++) sum = add(sum, exp(scale(ms, Math.log(k))));
-    const lnN = Math.log(N), Nms = exp(scale(ms, lnN));   // N^{−s}
+    // ([issue #277] k^{−s} from the multiplicative table, one exp per prime: about half the cost, to rounding)
+    const { re, im } = powTable(s, N);
+    let sr = 0, si = 0;
+    for (let k = 1; k < N; k++) { sr += re[k]; si += im[k]; }
+    let sum = C(sr, si);
+    const Nms = C(re[N], im[N]);   // N^{−s}
     sum = add(sum, scale(Nms, 0.5));
     sum = add(sum, div(scale(Nms, N), sub(s, ONE)));
     // the Bernoulli terms: P_j = s(s+1)…(s+2j−2), N^{−s−2j+1}
@@ -287,10 +289,12 @@ const CX = (() => {
   function zetaEMd(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    const ms = neg(s);
-    let sum = ZERO;
-    for (let k = 2; k < N; k++) { const lk = Math.log(k); sum = sub(sum, scale(exp(scale(ms, lk)), lk)); }
-    const lnN = Math.log(N), Nms = exp(scale(ms, lnN)), s1 = sub(s, ONE);
+    // (k^{−s} from the multiplicative table, as zetaEM)
+    const { re, im } = powTable(s, N);
+    let sr = 0, si = 0;
+    for (let k = 2; k < N; k++) { const lk = Math.log(k); sr -= re[k] * lk; si -= im[k] * lk; }
+    let sum = C(sr, si);
+    const lnN = Math.log(N), Nms = C(re[N], im[N]), s1 = sub(s, ONE);
     sum = sub(sum, scale(Nms, 0.5 * lnN));
     // d/ds N^{1−s}/(s − 1) = −N^{1−s} (log N/(s − 1) + 1/(s − 1)²)
     const r = inv(s1);
@@ -698,4 +702,4 @@ const CX = (() => {
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
-if (typeof module !== 'undefined') module.exports = CX;
+export { CX, CX as 'module.exports' };

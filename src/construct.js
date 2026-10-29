@@ -97,6 +97,22 @@ const Construct = (() => {
     }
     return Constr.pieceDist(pc, z);
   }
+  // Whether two pieces lie on each other around z (a curve drawn exactly on a display curve, e.g. a path along |z| = 1),
+  // so that a "crossing" meetNear reports there is none. The points of pa 6 px off z along it (found by projecting the
+  // four probes z +- 6 px onto pa; a probe that lands near z says nothing) must lie within 0.5 px of pb. A real crossing
+  // leaves them 6 px * sin(angle) apart: only one under about 5 degrees counts as coincident. sc: px per world unit.
+  function coincideAt(pa, pb, z, sc) {
+    const e = 6 / sc, tol = 0.5 / sc;
+    let n = 0;
+    for (const [dx, dy] of [[e, 0], [-e, 0], [0, e], [0, -e]]) {
+      let pr = null;
+      try { pr = Constr.projectPiece(pa, [z[0] + dx, z[1] + dy]); } catch (err) { pr = null; }
+      if (!pr || !isXY(pr.z) || Math.hypot(pr.z[0] - z[0], pr.z[1] - z[1]) < e / 2) continue;
+      if (pieceDist(pb, pr.z) > tol) return false;
+      n++;
+    }
+    return n >= 2;
+  }
   // the three defining points of a circle3 (for the glider parameter; one may be ∞), as CORE's pts3Of [math-12]; a
   // perpendicular circle's M(R) map at P
   function pts3Of(s, plane) {
@@ -501,7 +517,7 @@ const Construct = (() => {
         if (a.s === b.s || (a.dsp && b.dsp) || (bg(a) && bg(b))) continue;
         let m = null;
         try { m = Constr.meetNear(a.pc, b.pc, Z, box); } catch (e) { m = null; }
-        if (!m || !isXY(m.z)) continue;
+        if (!m || !isXY(m.z) || coincideAt(a.pc, b.pc, m.z, sc)) continue;   // (two curves on each other do not cross)
         const d = dpx(m.z), t = { cls: 'cross', ref: { meet: [nref(a), nref(b)], index: m.index, seed: m.seed }, z: m.z.slice() };
         if (a.dsp || b.dsp) { if (d < bdD) { bdD = d; bestD = t; if (a.disp || b.disp) t.disp = true; } }
         else if (d < bd) { bd = d; best = t; }
@@ -571,7 +587,7 @@ const Construct = (() => {
       if (q === pc) continue;
       let m = null;
       try { m = Constr.meetNear(pc, q, tg.z, box); } catch (e) { m = null; }
-      if (!m || !isXY(m.z)) continue;
+      if (!m || !isXY(m.z) || coincideAt(pc, q, m.z, sc)) continue;
       let pr = null;
       try { pr = Constr.projectPiece(pc, m.z, p3); } catch (e) { pr = null; }
       if (pr && Number.isFinite(pr.t)) add(pr.t, null, m.z);
@@ -2904,4 +2920,9 @@ const Construct = (() => {
     setSeg: g(setSeg), setBetween: g(setBetween),
   };
 })();
-if (typeof module !== 'undefined') module.exports = Construct;
+import { CX } from './cx.js';
+import { Region } from './region.js';
+import { Constr } from './constr.js';
+import { PlaneMenu } from './planemenu.js';
+import { Params } from './params.js';
+export { Construct, Construct as 'module.exports' };

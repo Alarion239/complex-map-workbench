@@ -10,7 +10,7 @@
 // --advisory (GitHub's machines, whose timings swing both ways by more than any tolerance): a timing or memory metric
 // that got worse is reported (the summary, a warning annotation each) and does not fail the job; a check that fails, a
 // value that is missing or null (a timeout) and an error of the suite still do.
-//   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--advisory] [--settle-timeout MS] [--force] [--no-build]
+//   node ci/perf_shard.js --shard ID --ref <commit> [--reps N] [--confirm N] [--tol-scale S] [--advisory] [--table] [--settle-timeout MS] [--force] [--no-build]
 // Exit 0 pass (or advisory warnings only), 1 regression, 2 setup problem (a unit that stalls, a build that fails).
 const fs = require('fs');
 const path = require('path');
@@ -26,6 +26,9 @@ const REPS = opt('--reps', '3');
 const CONFIRM = Number(opt('--confirm', '2'));
 const SCALE = opt('--tol-scale', '1');
 const ADVISORY = argv.includes('--advisory');
+// --table (the GPU gate): the log lists every metric, reference -> this change and its verdict (compare_perf.py --table),
+// for the first attempt and for the medians of a confirmation: a reader of the job log needs no artifact
+const TABLE = argv.includes('--table');
 // what --advisory only reports: measured timings and memory (checks and missing values still fail)
 const MEASURED = new Set(['frame_ms', 'cpu_ms', 'latency_ms', 'jank_ms', 'settle_ms', 'oneshot_ms', 'throughput', 'mem_bytes', 'limit']);
 const PERF = path.join(ROOT, 'test', 'regress', 'perf');
@@ -51,16 +54,17 @@ async function main() {
     const rc = run(process.execPath, [path.join(PERF, 'run.js'), '--ab', R.dist, '--out', f(`cur-${k}.json`), '--ab-out', f(`ref-${k}.json`), '--only', only, ...common, ...(flip ? ['--ab-flip'] : [])]);
     if (rc !== 0) throw new Error(rc === 4 ? 'a unit stalled (run.js exit 4): see the log' : `run.js exited ${rc}`);
   };
-  const compare = (b, c, json, fu) => {
+  const compare = (b, c, json, fu, table) => {
     const a = [CMP, '--baseline', b, '--results', c, '--json', json, '--paired', '--tol-scale', SCALE];
     if (fu) a.push('--failing-units', fu);
+    if (table && TABLE) a.push('--table');
     const rc = run(PY, a);
     if (rc >= 2) throw new Error(`compare_perf.py exited ${rc}`);
     return JSON.parse(fs.readFileSync(json, 'utf8'));
   };
   console.log(`shard ${shard.id}: ${shard.re}; reference ${R.sha.slice(0, 12)} (${ref})`);
   paired(shard.re, 1);
-  let v = compare(f('ref-1.json'), f('cur-1.json'), f('compare-1.json'), f('failing-units.txt'));
+  let v = compare(f('ref-1.json'), f('cur-1.json'), f('compare-1.json'), f('failing-units.txt'), true);
   let confirmed = false, attempts = null;
   if (v.failed && CONFIRM > 0) {
     // ('*': a metric of no unit, suite.no_errors: a page exception, never noise)
@@ -73,7 +77,7 @@ async function main() {
       for (const side of ['cur', 'ref']) {
         if (run(PY, [path.join(PERF, 'merge_runs.py'), '--checks', 'majority', ...ks.map((k) => f(`${side}-${k}.json`)), '-o', f(`${side}.json`)]) !== 0) throw new Error('merge_runs.py failed');
       }
-      v = compare(f('ref.json'), f('cur.json'), f('compare.json'));
+      v = compare(f('ref.json'), f('cur.json'), f('compare.json'), null, true);
       // each attempt against its own reference (attempt 1: compare-1.json)
       const per = [JSON.parse(fs.readFileSync(f('compare-1.json'), 'utf8')), ...ks.slice(1).map((k) => compare(f(`ref-${k}.json`), f(`cur-${k}.json`), f(`compare-${k}.json`)))];
       attempts = ks.length;
@@ -106,6 +110,14 @@ async function main() {
   if (noise.length) lines.push(`<details><summary>${noise.length} failed once, not confirmed (noise)</summary>\n\n${noise.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (both.length) lines.push(`<details><summary>${both.length} fail on the reference too (this machine; not this change's)</summary>\n\n${both.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
   if (improved.length) lines.push(`<details><summary>${improved.length} improved</summary>\n\n${improved.slice(0, 60).map((r) => `- \`${r.metric}\` ${esc(r.text)}`).join('\n')}\n</details>`, '');
+  // [#292] new units: not in the reference's results, or the reference could not run them (it lacks the feature)
+  const fresh = new Map();
+  for (const r of v.rows) {
+    if (r.status !== 'NEW') continue;
+    const u = r.unit_id || r.metric.split('.')[0], e = fresh.get(u) || { n: 0, why: r.ref_unsupported || null };
+    e.n++; fresh.set(u, e);
+  }
+  if (fresh.size) lines.push(`<details><summary>${fresh.size} new unit(s), reported and not compared</summary>\n\n${[...fresh].slice(0, 60).map(([u, e]) => `- \`${u}\` (${e.n} metric(s)): ${esc(e.why ? `the reference cannot run it: ${e.why}` : 'not in the reference')}`).join('\n')}\n</details>`, '');
   if (v.warnings && v.warnings.length) lines.push(...v.warnings.map((w) => `> ${esc(w)}`), '');
   summary(lines.join('\n'));
   for (const r of warned.slice(0, 10)) console.log(`::warning title=Perf ${shard.id} (advisory)::${r.metric}: ${r.text}`);
