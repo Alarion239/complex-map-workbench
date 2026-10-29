@@ -258,20 +258,26 @@ html:not(.ph) .ph-only { display: none !important; }
 /* full height (review design-1): the chain bar rides on the sheet's top edge, under the header; the sheet starts below it */
 :root.ph-full .ph-sheet:not([data-k="more"]) { top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px) + var(--ph-chain)); }
 :root.ph.ph-full.ph-split:not(.ph-land) .pipe-wrap { transform: translateY(calc(-1 * var(--ph-hp, 0px))); }
-.ph-sh { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px 4px 0 16px; border-bottom: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
-.ph-sh > .grow { flex: 1 1 auto; }
+.ph-sh { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 4px; min-height: 52px; padding: 4px 4px 0 16px; border-bottom: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
+.ph-sh > .grow { display: none; }
 .ph-grab { position: absolute; left: 28%; right: 28%; top: 0; height: 44px; padding: 0; margin: 0; background: transparent; border: 0; cursor: grab; }
 .ph-grab::before { content: ""; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; translate: -50% 0; border-radius: 2px; background: var(--line-strong); }
-.ph-st { position: relative; font: 600 15px/20px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.ph-st { position: relative; flex: 1 1 auto; font: 600 15px/18px var(--f-ui); color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: break-word; pointer-events: none; }
 .ph-x { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
 .ph-x svg { width: 18px; height: 18px; }
 /* v16.5 UX24: Undo in the sheet's head, left of × */
 .ph-hundo { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: var(--r-2); color: var(--ink-2); }
 .ph-hundo svg { width: 18px; height: 18px; }
 .ph-hundo:disabled { opacity: 0.4; }
-/* (the keys keep their size; the title gives way, with an ellipsis: Russian at 360 px squeezed the Snap pill) */
+/* (the keys keep their size and the title gives way: it wraps to a second line before it is cut, so Russian's "Другие
+   инструменты" reads whole at 360 px beside the Snap pill; the pill's padding is the room the word needs) */
 .ph-sh > .ph-pill, .ph-sh > .ph-hundo, .ph-sh > .ph-x { flex-shrink: 0; }
 .ph-sh > .ph-st { min-width: 0; flex-shrink: 1; }
+.ph-sh > .ph-pill { padding: 0 10px; }
+/* (the Tools sheet's Snap pill sits where the grabber's bar is drawn: its controls start below the bar, and the grabber's tap area
+   is the strip above them, since a tap anywhere on the head already resizes the sheet) */
+.ph-sheet[data-k="tools"] .ph-sh { padding-top: 10px; min-height: 58px; }
+.ph-sheet[data-k="tools"] .ph-grab { height: 10px; pointer-events: none; }
 .ph-mark { display: none; }
 .ph-sheet[data-k="more"] .ph-mark:not([hidden]) { display: block; position: relative; width: 24px; height: 24px; border: 1.5px solid var(--ink); border-radius: 5px; background: repeating-linear-gradient(90deg, transparent 0 5px, color-mix(in srgb, var(--accent) 40%, transparent) 5px 6px); }
 .ph-pill { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 22px; background: var(--surface); color: var(--ink-2); font: 600 13px/1 var(--f-ui); }
@@ -298,6 +304,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sb details.psec > .psec-body { padding: 4px 4px 8px; }
 :root.ph .ph-sb #propsPanel { display: block !important; position: static; width: auto; height: auto; max-height: none; padding: 0; margin: 0; border: 0; box-shadow: none; background: none; overflow: visible; }
 :root.ph .ph-sb #propsPanel.temp { position: static; }
+/* (the laptop panel's full-height floor is not wanted in a sheet's body: the Tip sits under the content, not at the bottom edge) */
+:root.ph .ph-sb #propsPanel { min-height: 0; }
 /* every control at least 44 × 44 (DESIGN.md 4), fields 44 px tall with 16 px text */
 :root.ph .ph-sheet :is(button, select, summary, [role="radio"], [role="button"], [role="switch"]):not(.ph-grab) { min-height: 44px; min-width: 44px; }
 :root.ph .ph-sheet input:not([type="checkbox"], [type="radio"], [type="range"]), :root.ph .ph-sheet textarea { min-height: 44px; font-size: 16px; }
@@ -408,6 +416,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet #propsPanel .ihead .icon-btn { width: 44px; height: 44px; }
 /* design-12: Numbers shows Parameters alone, under the sheet's own head */
 .ph-sheet.nums #propsPanel > .insp-sel { display: none !important; }
+/* (the Numbers sheet's title is the sheet's head: the section's own heading would say it twice, and its 240 px floor from the
+   laptop's panel pushed the Tip below the fold) */
+.ph-sheet.nums #propsPanel .insp-params .prm > h2 { display: none; }
+:root.ph .ph-sb #propsPanel > .insp-params, :root.ph .ph-sb #propsPanel .insp-params .prm { min-height: 0; }
+:root.ph .ph-sb #propsPanel > .insp-params { flex: 0 0 auto; }
 /* design-8: the zero and pole rows' Argand and Remove buttons at 44 px */
 :root.ph .ph-sheet #propsPanel .pf.zp-item .pair > .inp { padding-right: 92px; }
 :root.ph .ph-sheet #propsPanel .pf.zp-item .icon-btn.argand { right: 46px; width: 44px; height: 44px; }
@@ -416,6 +429,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* design-11, russian-12: with a sheet open the two small planes keep their title chips only, Y's chip names w alone */
 :root.ph.ph-split:not(.ph-land) :is(.ph-col, .viewstack, .legend-chip) { display: none !important; }
 :root.ph.ph-split:not(.ph-land) .chip.readout { max-width: calc(100% - 16px); }
+/* (the legend chip is hidden there, so its 72 px are not kept: Russian's "w 2 / дел." was cut by a pixel in the right plane) */
+:root.ph.ph-split:not(.ph-land) .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 16px); }
 :root.ph.ph-split:not(.ph-land) #rightReadout::before { content: "w"; }
 /* russian-2 on the phone: syllable breaks with a hyphen */
 :root.ph[data-lang="ru"] #pipeline .card .nm { hyphens: auto; -webkit-hyphens: auto; overflow-wrap: normal; }

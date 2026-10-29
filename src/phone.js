@@ -164,7 +164,9 @@ const Phone = (() => {
 
   // ---------------- mode ----------------
   function sync() {
-    const p = matchMedia(MQP).matches, l = !p && matchMedia(MQL).matches;
+    // (a landscape phone is landscape whatever its width: 667 to 740 px wide ones, below 768, took the portrait layout, with
+    // 184 px of a 360 px height for the plane)
+    const l = matchMedia(MQL).matches, p = !l && matchMedia(MQP).matches;
     const want = p || l;
     if (want === on && l === land) return;
     // (a rotation: the panes are synced first, so a landscape layout's side-by-side panes get their inset back in
