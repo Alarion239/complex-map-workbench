@@ -43,7 +43,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: gpu-gate-${{ github.event.pull_request.number || github.ref }}
+  # (the nightly run in a group of its own: one that waits for a machine never holds the next push to main behind it,
+  # as run 83 held 113 on 2026-10-28, #169)
+  group: gpu-gate-${{ github.event_name == 'schedule' && 'nightly' || github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -111,7 +113,12 @@ jobs:
       matrix:
         machine: ${{ fromJSON(needs.plan.outputs.machines) }}
     runs-on: [self-hosted, '${{ matrix.machine }}', gpu]
-    timeout-minutes: 90
+    # Windows compiles shaders with Direct3D 11's compiler (FXC) on the CPU, about 95 % of a page's time there: cold,
+    # the glsl page takes hours a side on the laptop (1/64 of it: 103-148 s; a single program of 1/8 took 12 min),
+    # against 7 minutes for every page on the Mac. The shader cache (CMW_GLSL_CACHE) loads a program compiled once in
+    # milliseconds, so only new shader code compiles; a run that times out keeps what it compiled, and the next one
+    # goes further (#169)
+    timeout-minutes: ${{ matrix.machine == 'Windows' && 240 || 90 }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -124,6 +131,9 @@ jobs:
       # 304 values there, in 10 chains near removable singularities, as every release since v14 did, so it is paired only)
       # (only the pages whose shader code or tests changed; all of them nightly and with force)
       - run: node ci/glsl.js --ref ${{ needs.plan.outputs.reference }} ${{ matrix.machine == 'macOS' && '--absolute glsl,inverse' || '' }} ${{ env.FORCE }}
+        env:
+          # (the machine's own folder, kept between jobs: Chrome's profile with its GPU program cache)
+          CMW_GLSL_CACHE: ${{ runner.tool_cache }}/cmw-glsl-cache
 
   quality:
     name: Quality (${{ matrix.machine }} GPU)
