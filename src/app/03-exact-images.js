@@ -404,10 +404,12 @@
   // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6), and (issue #72) that the
   // GPU is still preparing the frame's programs when it has waited for them over 1.5 s (a cold link on Direct3D 11
   // takes seconds, or minutes; the browser's program cache keeps them for later visits)
-  const gpuWait = new Map();   // pane -> when its frames began waiting for programs
+  const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
   function glStatusNote(pane) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
+    if (pane !== paneL && pane !== paneR) return;
     if (!st || !st.pending) { gpuWait.delete(pane); return; }
     const now = performance.now();
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
