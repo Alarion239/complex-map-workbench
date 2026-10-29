@@ -681,7 +681,6 @@
  "Drag from the vertex; edit the angles in the shape list.": "Trascina dal vertice; modifica gli angoli nell'elenco delle figure.",
  "Drag its zeros and poles in the input plane": "Trascina i suoi zeri e poli nel piano di partenza",
  "Drag the bracket's left end past $f_1$.": "Trascina l'estremo sinistro della parentesi oltre $f_1$.",
- "Drag the line $\\operatorname{Im} z=0.8$ up or down.": "Trascina la retta $\\operatorname{Im} z=0{,}8$ verso l'alto o verso il basso.",
  "Drag the point, or use the arrow keys. Hold Shift for fine steps.": "Trascina il punto o usa i tasti freccia. Tieni premuto Shift per spostamenti fini.",
  "Drag the red cut.": "Trascina il taglio rosso.",
  "Drag the seam in the input plane": "Trascina il taglio nel piano di partenza",
@@ -3068,5 +3067,7 @@
  "Continue": "Continua",
  "Continue, or close the line.": "Continua o chiudi la riga.",
  "Tip: Display changes the plane you opened it from; open it from the other plane for that plane's own options.": "Suggerimento: «Aspetto» cambia il piano da cui l'hai aperto; apri «Aspetto» dall'altro piano per le sue opzioni.",
- "Tip: Show alone pictures one step by itself in X and Y; a step's ⋯ menu has Replace with the inverse and Bypass this step.": "Suggerimento: «Mostra da solo» mostra un passo da solo in X e Y; il menu ⋯ del passo ha «Sostituisci con l'inversa» e «Escludi questo passo»."
+ "Tip: Show alone pictures one step by itself in X and Y; a step's ⋯ menu has Replace with the inverse and Bypass this step.": "Suggerimento: «Mostra da solo» mostra un passo da solo in X e Y; il menu ⋯ del passo ha «Sostituisci con l'inversa» e «Escludi questo passo».",
+ "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
+ "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso."
 }
