@@ -97,6 +97,21 @@ for (const e of ['a', '2a', 'a+1']) {
   P.set('a', 0.5);
   ok(g2.key === g.key, `sin(z)^{${e}}: key independent of a`);
 }
+// (d) a complex shared number (wave 5, issue #10) in the exponent, in the picture's code and the sheet code: the key
+// and the source do not change with its value, the value is in the uniforms fill() writes, and the sheet view has the
+// node as a window (n 0: a complex exponent has infinitely many branches)
+P.add('c', { value: 0.5 });
+for (const e of ['z^{c}+1', '\\sin(z)^{c}+z', '(z^2+1)^{c}\\cdot z']) {
+  const r = [{ re: 0.5, im: 0.3 }, { re: -1.25, im: 2 }].map((v) => {
+    P.set('c', v);
+    const s = st(e), g = GLChain.build([s], [Funcs.build(s)]), f = Array.from(g.fill(new Float32Array(g.slots * 4)));
+    return { key: g.key, source: g.source, put: f.some((x, i) => Math.abs(x - v.re) < 1e-6 && Math.abs(f[i + 1] - v.im) < 1e-6), sheets: g.sheets.steps.map((x) => x.n).join() };
+  });
+  ok(r[0].key === r[1].key && r[0].source === r[1].source, `${e}: key and source independent of a complex c`);
+  ok(r[0].put && r[1].put, `${e}: c's value in the uniforms`);
+  ok(r[0].sheets === '0' && r[1].sheets === '0', `${e}: the sheet view's node is a window (${r[0].sheets})`);
+}
+P.remove('c');
 // the kinds follow the exponents in order (two formulas with one key have one program)
 {
   const g = gen('\\sin(z)^{3}+\\cos(z)^{1/2}+\\tan(z)^{i}');
