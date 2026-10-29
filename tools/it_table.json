@@ -2794,6 +2794,8 @@
  "Try: press Listen, or right-click the circle and choose Listen along.": "Prova: premi «Ascolta», oppure fai clic destro sulla circonferenza e scegli «Ascolta lungo la curva».",
  "Compiling…": "Compilazione…",
  "The formula is long; the field below holds it in full.": "La formula è lunga; il campo qui sotto la contiene per intero.",
+ "in short": "in breve",
+ "Written in short; the field of the step itself holds the formula in full.": "Scritta in breve; il campo del passo stesso contiene la formula per intero.",
  "Written in short; the field below holds the formula in full.": "Scritta in breve; il campo qui sotto contiene la formula per intero.",
  "Print settings": "Impostazioni di stampa",
  "Saved to Downloads: {filename}": "Salvato in Download: {filename}",

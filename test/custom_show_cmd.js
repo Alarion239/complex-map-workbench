@@ -29,6 +29,11 @@ async function select(k) {
   await ev(`(() => { const c = ${k === 'F' ? `document.querySelector('#pipeline .ftile')` : `document.querySelector('#pipeline .card[data-k="${k}"]')`}; if (c) c.click(); return !!c; })()`);
   await settle(1200);
 }
+// the "in short" marks: on F's line (.iform > .shortmark) and on the split offer's rows (.so-row .shortmark)
+const marks = () => ev(`(() => { const p = document.getElementById('propsPanel'); const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
+  const f = p.querySelector('.iform > .shortmark'), r = [...p.querySelectorAll('.split-offer .so-row .shortmark')];
+  const o = (e) => e && { text: e.textContent, tip: e.getAttribute('data-tip'), desc: e.getAttribute('aria-description') };
+  return { f: vis(f) ? o(f) : null, rows: r.map(o), lastRow: r.length ? r[0].closest('.so-row') === [...p.querySelectorAll('.split-offer .so-row')].pop() : null }; })()`);
 const look = () => ev(`(() => { const p = document.getElementById('propsPanel'); if (!p) return null; const vis = (e) => !!e && !e.hidden && e.getClientRects().length > 0;
   const well = p.querySelector('.iform .ftex:not(.long)'), lg = p.querySelector('.iform .ftex.long'), fx = p.querySelector('input[data-pkey="expr"]'), note = p.querySelector('.inote');
   const rows = [...p.querySelectorAll('.split-offer .so-tex')].map((t) => ({ n: (t.dataset.tex || '').length, tex: (t.dataset.tex || '').slice(0, 40), over: t.scrollWidth > t.clientWidth + 1, fs: t.style.fontSize }));
@@ -54,6 +59,9 @@ await select('F');
 L = await look();
 ok('none: F says the expanded formula is long', L && L.long && /expanded/.test(L.long), L);
 ok('none: F\'s line for the step reads w₂ = f₂(w₁)', L && L.lines.some((t) => /w_\{2\}=f_\{2\}\(w_\{1\}\)/.test(t)), L && L.lines);
+ok('none: no mark on F\'s line', (await marks()).f === null);
+await select(2);
+ok('none: no mark on the offer\'s rows', (await marks()).rows.length === 0);
 
 // 2. a display form
 await open('cshow2', [MOB, { type: 'custom', params: { expr: LONGF, cut: 180, show: SHOW, showOf: fnv(LONGF) }, on: true }]);
@@ -71,6 +79,21 @@ await select('F');
 L = await look();
 const fw = await ev(`(() => { const e = document.querySelector('#propsPanel .iform .ftex:not(.long)'); return e && !e.hidden ? e.dataset.tex : null; })()`);
 ok('show: F is written with the display form', fw && fw.includes('\\prod_{j=1}^{30}'), fw);
+let M = await marks();
+ok('show: F\'s line carries the mark, with the full-formula explanation', M.f && M.f.text === 'in short' && /in full/.test(M.f.tip) && M.f.desc === M.f.tip, M);
+await select(2);
+M = await marks();
+ok('show: the offer\'s last row carries the mark, once', M.rows.length === 1 && M.lastRow === true && /in full/.test(M.rows[0].tip), M);
+for (const [lang, word] of [['ru', 'кратко'], ['it', 'in breve']]) {
+  await ev(`I18N.setPref('${lang}'), 1`); await settle(1200);
+  const m = await marks();
+  ok(`show: the mark reads in ${lang}`, m.rows.length === 1 && m.rows[0].text === word && m.rows[0].tip !== 'Written in short; the field of the step itself holds the formula in full.', m);
+  await select('F');
+  const mf = await marks();
+  ok(`show: F's mark reads in ${lang}`, mf.f && mf.f.text === word, mf);
+  await select(2);
+}
+await ev(`I18N.setPref('en'), 1`); await settle(1200);
 
 // 3. the formula edited: the key is stale
 await select(2);
@@ -78,6 +101,10 @@ await ev(`(() => { const f = document.querySelector('#propsPanel input[data-pkey
 await settle(1200);
 L = await look();
 ok('edited: the display form is gone', L && L.long && L.well === null && !/Written in short/.test(L.note), L);
+ok('edited: no mark on the offer\'s rows', (await marks()).rows.length === 0);
+await select('F');
+ok('edited: no mark on F\'s line', (await marks()).f === null);
+await select(2);
 ok('edited: the step keeps its display text (Undo can use it)', (await ev(`__cmwP().steps[1].params.show`)) === SHOW);
 await key('z', 2); await settle(1200);
 L = await look();

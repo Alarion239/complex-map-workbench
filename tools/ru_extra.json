@@ -141,6 +141,8 @@
  "On a focused plane: the next shape (⇧ Tab: the previous)": "На выбранной плоскости: следующая фигура (⇧ Tab: предыдущая)",
  "Compiling…": "Компиляция…",
  "The formula is long; the field below holds it in full.": "Формула длинная; поле ниже содержит её целиком.",
+ "in short": "кратко",
+ "Written in short; the field of the step itself holds the formula in full.": "Записано кратко; поле самого шага содержит формулу целиком.",
  "Written in short; the field below holds the formula in full.": "Записано кратко; поле ниже содержит формулу целиком.",
  "Print settings": "Параметры печати",
  "Saved to Downloads: {filename}": "Сохранено в «Загрузки»: %{filename}",

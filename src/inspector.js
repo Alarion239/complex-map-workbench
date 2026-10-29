@@ -236,7 +236,7 @@ const Inspector = (() => {
           // characters or more cannot fit, so that is decided before anything is typeset
           const subst = () => { const sub = A.Funcs.splitSubRows(sp, v, A.wvar(k)); if (!sub) return false; ol.classList.add('subst'); fillRows(ol, sub, null); fitRows(ol); return true; };
           const tooLong = rv.rows.some((r) => r.tex.length >= LONG) || (rv.eq || '').length >= LONG;
-          if (!(tooLong && subst())) { fillRows(ol, rv.rows, rv.eq); fitRows(ol, subst); }
+          if (!(tooLong && subst())) { fillRows(ol, rv.rows, rv.eq, rv !== rv0); fitRows(ol, subst); }
         } else if (sp.steps[0].type === 'mobius') {
           // a fraction: the simple moves it is made of, read only (z ↦ z − 1 ↦ 1/(z − 1) ↦ 3/(z − 1) ↦ 3/(z − 1) + 2:
           // review steps-5)
@@ -269,13 +269,21 @@ const Inspector = (() => {
       go();
     }
     // the rows of the derivation: ↦, the formula and the step's name in three grid columns (the ↦ never wraps alone)
-    function fillRows(ol, rows, eq) {
+    // the quiet mark on a line written with a step's display form: "in short", the full-formula explanation in its tooltip
+    // and its accessible description (the step's own card says the same in its note)
+    function shortMark() {
+      const tip = $t('Written in short; the field of the step itself holds the formula in full.');
+      return h('span', { class: 'shortmark', 'data-tip': tip, 'aria-description': tip, tabindex: '0' }, $t('in short'));
+    }
+    function fillRows(ol, rows, eq, showMark) {
       ol.innerHTML = '';
       const sub = ol.classList.contains('subst');
       rows.forEach((r, i) => {
         const last = i === rows.length - 1;
         const t = h('span', { class: 'so-tex' });
         const li = h('li', { class: 'so-row' }, h('span', { class: 'so-map', 'aria-hidden': 'true' }, i && !sub ? '↦' : ''), t, h('span', { class: 'so-name' }, i || sub ? r.name : ''));
+        // (the last row ends with the step's display form, not the typed formula: says so)
+        if (last && eq && !sub && showMark) li.lastChild.append(shortMark());
         ol.append(li);
         TeX.set(t, rowTex(last && eq ? `${r.tex}=${eq}` : r.tex));
       });
@@ -432,7 +440,9 @@ const Inspector = (() => {
         else { const t = h('span'); chain.push([k, t]); li.append(t); }
         wl.append(li);
       });
-      const form = h('div', { class: 'iform' }, ftex, flong, wl.childElementCount ? wl : null);
+      const smark = shortMark();
+      smark.hidden = true;
+      const form = h('div', { class: 'iform' }, ftex, smark, flong, wl.childElementCount ? wl : null);
       const warn = h('div', { class: 'ierr', role: 'status' });
       const lamps = {};
       const glist = h('div', { class: 'iglist' });
@@ -477,7 +487,7 @@ const Inspector = (() => {
         h('p', null, $t('Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.')),
         h('p', null, $t('The list is sound but not complete. For example, log followed by exp returns z, yet neither step is rational, so "rational" is not claimed.')));
       const root = h('div', { class: 'insp-F' }, head, form, warn, glist, none, not, dom, steps, how);
-      return { kind: 'F', root, ftex, flong, chain, warn, lamps, none, not, domEls, domLbl, rows, act };
+      return { kind: 'F', root, ftex, flong, smark, chain, warn, lamps, none, not, domEls, domLbl, rows, act };
     }
     function fillF(E) {
       const act = A.activeSteps(), built = A.built(), S = A.S();
@@ -488,6 +498,9 @@ const Inspector = (() => {
       for (const k of act) arg = shownTex(built[k - 1], arg);
       const long = arg.s.length >= LONG;
       E.flong.hidden = !long; E.ftex.hidden = long;
+      // (F's line says so when a step it is composed of is written in its display form)
+      const sm = !long && act.some((k) => built[k - 1].show);
+      if (E.smark.hidden !== !sm) E.smark.hidden = !sm;
       // (review design-4: an expanded F wider than the well is written in terms of the last w, as the mockup does,
       // with the w list under it; then smaller, never cut)
       const last = act.length > 1 && E.chain.length ? act[act.length - 1] : 0;
