@@ -236,14 +236,17 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 #shareBtn { order: 11; }
 #settingsBtn { order: 13; }
 .top .hw, .top .hc { display: none; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hw { display: inline; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc svg { width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn):not([hidden]) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hw { display: inline; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hc svg { width: 12px; height: 12px; }
 :root:not(.ph) .top :is(#themeBtn, #toggleLeft, #toggleRight) { display: none; }
 /* (hdrFit: where the header has no room for Share's word, e.g. Russian at 1280 and 1366 px, Share is its icon alone) */
 :root:not(.ph) .top.share-icon #shareBtn { width: 28px; padding: 0; justify-content: center; }
 :root:not(.ph) .top.share-icon #shareBtn :is(.hw, .hc) { display: none; }
+/* (the Phase style gives its word way first, then Share does) */
+:root:not(.ph) .top.sty-icon #styleBtn { width: 28px; padding: 0; justify-content: center; }
+:root:not(.ph) .top.sty-icon #styleBtn :is(.hw, .hc) { display: none; }
 :root.ph .top :is(#shareBtn, #settingsBtn) { display: none !important; }
 .pop.opts-pop.set-pop { width: 320px; align-items: stretch; white-space: normal; max-height: calc(100vh - 64px); overflow-y: auto; }
 .set-pop > .seg { align-self: flex-start; }
@@ -260,7 +263,12 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
    the speaker in the bar while sound is on (one tap silences it) */
 #soundBtn, #soundMore { order: 12; }
 /* Phase colors (issue 8): the button shows the palette's key as a small disc; its menu, a preview of each palette */
-#palBtn { order: 12; }
+#palBtn, #styleBtn { order: 12; }
+.top #styleBtn[hidden], :root.ph .top #styleBtn { display: none !important; }
+#styleBtn[aria-disabled="true"] { opacity: 0.55; }
+.sty-ic svg, .sty-prev svg { display: block; width: 16px; height: 16px; }
+.mi-ic:has(.sty-prev) { width: 22px; height: 22px; flex-basis: 22px; }
+.mi-ic .sty-prev svg { width: 20px; height: 20px; }
 .pcol-ic { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, conic-gradient(from 90deg, #F58C7E, #F089AC, #DB8FD6, #B99BF5, #8EAAFD, #53B8F7, #1CC3D8, #27C8AF, #6EC580, #A5B953, #CFA93E, #EA9853, #F58C7E)); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .mi-ic:has(.pcol-prev) { width: 22px; height: 22px; flex-basis: 22px; }
 .mi-ic .pcol-prev { display: block; width: 22px; height: 22px; border-radius: 50%; }
@@ -2132,6 +2140,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
       <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
+      <!-- Phase style (issue #81): the Phase view's style, beside the palette; app.js shows it while X is the Phase view and opens its menu -->
+      <button class="icon-btn" id="styleBtn" hidden title="Phase style" aria-label="Phase style" aria-haspopup="menu"><span class="ic-slot sty-ic" aria-hidden="true"></span><span class="hw"></span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>

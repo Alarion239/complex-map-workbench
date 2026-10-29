@@ -1,7 +1,7 @@
 // Unit checks of ci/impact.js, the tier and the jobs of the Gate a change can affect (ci/README.md, CI tiers): each
 // tier, the same-build short-circuit, the label/event override, and the fallback for a path the map does not know.
 //   node test/t_impact.js
-const { select, rowOf, globRe, MAP, AREAS, GLSL_JOBS } = require('../ci/impact.js');
+const { select, rowOf, globRe, MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS } = require('../ci/impact.js');
 const { SHARDS, suitesOf } = require('../ci/browser_shards.js');
 let n = 0, fails = 0;
 const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name, info === undefined ? '' : JSON.stringify(info)); } };
@@ -17,7 +17,10 @@ ok('glob: a dot is a dot', !globRe('build.py').test('buildxpy'));
 // every area names real shards, every row's effect is known
 const ids = new Set(SHARDS.map((s) => s.id));
 ok('every area names shards of ci/browser_shards.js', Object.values(AREAS).flat().every((id) => ids.has(id)), Object.values(AREAS).flat().filter((id) => !ids.has(id)));
-ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.every((j) => ['glsl', 'adv', 'inverse'].includes(j.page)) && GLSL_JOBS.length === 14);
+ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.concat(GLSL_CORE_JOBS).every((j) => ['glsl', 'adv', 'inverse'].includes(j.page)) && GLSL_JOBS.length === 14 && GLSL_CORE_JOBS.length === 9);
+// (GLSL tiers: Windows runs the core tier unless --glsl-deep, macOS every chain always)
+ok('the core jobs: Windows core (glsl in quarters, adv, inverse), macOS all', GLSL_CORE_JOBS.every((j) => j.tier === (j.os === 'macos-latest' ? 'all' : 'core')) && GLSL_CORE_JOBS.filter((j) => j.page === 'glsl' && j.os === 'windows-latest').map((j) => j.part).join() === '1/4,2/4,3/4,4/4');
+ok('the deep jobs: every chain everywhere', GLSL_JOBS.every((j) => j.tier === 'all'));
 ok('every row has an effect', MAP.every(([g, e]) => typeof g === 'string' && e && Object.keys(e).length));
 
 // T0
@@ -50,21 +53,23 @@ for (const f of ['ci/browser.js', '.github/workflows/gate.yml', 'test/cdp_kit/cd
 
 // T2
 const cx = select(['src/cx.js']);
-ok('T2: src/cx.js -> GLSL, quality on Linux, perf, the core shards', cx.tier === 'T2' && cx.glsl.length === 14 && same(cx.quality, ['ubuntu-latest']) && cx.perf && same(cx.browser, [...AREAS.core, 'smoke']), cx);
+ok('T2: src/cx.js -> GLSL (core on Windows), quality on Linux, perf, the core shards', cx.tier === 'T2' && cx.glsl.length === 9 && cx.glsl.some((j) => j.tier === 'core') && same(cx.quality, ['ubuntu-latest']) && cx.perf && same(cx.browser, [...AREAS.core, 'smoke']), cx);
 const sph = select(['src/sphere.js']);
 ok('T2: src/sphere.js is no GLSL page\'s input: no GLSL', sph.tier === 'T2' && !sph.glsl.length && sph.perf, sph.glsl);
 const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
-ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 3 && !p.browser.length && !p.quality.length; })());
+ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
+ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
 ok('a paired job chosen by its runner is forced (A/A); one chosen by the app is not', (() => { const a = select(['test/regress/perf/run.js']), b = select(['ci/quality.js', 'README.md']), c = select(['src/cx.js']), d = select(['src/cx.js', 'test/regress/perf/scenes.js']); return a.forcePerf && !a.forceQuality && b.forceQuality && !b.forcePerf && !c.forcePerf && !c.forceQuality && d.forcePerf && !d.forceQuality; })());
 ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_shards.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
 
 // T3
-for (const f of ['src/app/wrap.js', 'src/gl/wrap.js', 'src/app/01-core.js', 'build.py', 'tools/src_parts.py']) {
+for (const f of ['src/app/wrap.js', 'src/gl/wrap.js', 'src/app/01-core.js', 'build.py', 'tools/src_parts.py', 'tools/bundle.mjs']) {
   const p = select([f]);
-  ok(`T3: ${f}`, p.tier === 'T3' && p.full && same(p.browser, ALL) && p.glsl.length === 14 && p.quality.length === 3 && p.perf, p.tier);
+  ok(`T3: ${f}`, p.tier === 'T3' && p.full && same(p.browser, ALL) && p.glsl.length === 9 && p.quality.length === 3 && p.perf, p.tier);
 }
+ok('T3 with --glsl-deep (a push to main, the nightly): every GLSL chain', select(['build.py'], { full: 'push', glslDeep: 'push' }).glsl.length === 14);
 const unk = select(['LICENSE', 'README.md']);
 ok('T3: a path no row knows (fail safe)', unk.tier === 'T3' && unk.unknown && same(unk.browser, ALL) && unk.quality.length === 3, unk.why);
 ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && select(['src/app/19-new-part.js']).tier === 'T3');

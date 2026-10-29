@@ -1403,6 +1403,10 @@ for (const scene of ['default', 'logUHP', 'chain4']) {
 }
 unit('phase.default', 'Phase mode: pan left and right planes', () => modeUnit('phase.default', 'default', 'color', 'pan'));
 unit('landscape.default', 'Landscape: orbit', () => modeUnit('landscape.default', 'default', '3d', 'orbit'));
+// iteration (#6): the default N of the Mandelbrot example in Phase (its pan L is the X -> Y view: the sphere mesh of
+// the escape-test region on the CPU). (No Landscape unit: on a software renderer one orbit of it outlasts the unit's
+// 180 s, which would end the shard's run; landscape.default takes 120 s there)
+unit('phase.mandel', 'Phase mode, the Mandelbrot example (u_12, escape test of 64): pan left and right planes', () => modeUnit('phase.mandel', 'mandel', 'color', 'pan'));
 unit('sphere.default', 'Sphere (regions): orbit', () => modeUnit('sphere.default', 'default', 'sphere', 'orbit'));
 unit('sphere.logUHP', 'Sphere (regions), unbounded region: orbit', () => modeUnit('sphere.logUHP', 'logUHP', 'sphere', 'orbit'));
 unit('examples', `load each of the ${N_EXAMPLES} examples: first frame, settle, memory`, examplesUnit);

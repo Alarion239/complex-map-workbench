@@ -52,7 +52,7 @@ const durAt = (s) => Math.min(30, Math.max(1, 4 * Math.PI * s / 250));
 // the circle on screen: every point inside the plane; the stored points inside the style bar's box
 const inView = () => ev(`(() => {
   const cv = document.querySelector('canvas.overlay[aria-keyshortcuts], .plot > canvas.overlay'); const r = cv.getBoundingClientRect();
-  const bar = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Plain' || b.textContent.trim() === 'Фаза' || b.dataset.dc === 'phase');
+  const bar = [...document.querySelectorAll('.seg button')].find((b) => b.textContent.trim() === 'Plain' || b.textContent.trim() === 'Фаза' || b.dataset.dc === 'phase');
   const br = bar && bar.getClientRects().length ? bar.parentElement.getBoundingClientRect() : null;
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
   for (const p of SEASONG.pts) { const [x, y] = __cmwW2S('L', p[0], p[1]); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
