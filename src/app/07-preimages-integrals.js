@@ -18,7 +18,9 @@
   const IDENT = { mode: 0, a: 0, b: 0 };
   // target shapes as GLR.drawPreimage takes them (polygon and freehand vertices at most 256 in all)
   function preimageTargets(areasOnly) {
-    const list = (S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area'));
+    return pullTargets((S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area')));
+  }
+  function pullTargets(list) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
     const keep = nv > 256 ? 256 / nv : 1;
@@ -49,6 +51,19 @@
     } catch (e) { console.error('drawPreimage', e); }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return true;
+  }
+  // ([#253] full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
+  // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
+  // per plane s. A point's preimages are not drawn (they are roots, not a picture)
+  function stagePullbacks(pane, j) {
+    const by = new Map();
+    for (const s of S.shapes) {
+      const st = shapeStage(s);
+      if (s.visible === false || st <= j || kindType(s) === 'point') continue;
+      if (!by.has(st)) by.set(st, []);
+      by.get(st).push(s);
+    }
+    for (const [st, list] of by) drawPullback(pane, { mode: 0, a: j, b: st }, pullTargets(list));
   }
   // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
   function strokeTargets(pane) {

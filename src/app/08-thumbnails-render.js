@@ -181,7 +181,7 @@
       fitPane(pane, k, [], undefined, fitMs > FIT_LIVE_MS);
       pane.begin(TH.plane);
       if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
-      if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
+      if (GLR.ok) { drawScene(pane, stageMap(k), null, { thin: true, L: 2 }); stagePullbacks(pane, k); }
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
       waiting = !!(glst && glst.pending);
       drawPoints(pane, stageF(k), { thin: true, k });

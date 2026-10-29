@@ -124,6 +124,7 @@
     const F = stageF(k);
     if (k > 0) noteStageWin(k, pane.box());
     if (GLR.ok) drawScene(pane, stageMap(k), 'L', { domain: k === 0, plane: k }); else noGL(pane);
+    if (GLR.ok) stagePullbacks(pane, k);
     // the w-plane targets pulled back by the focused map, in every view
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false));
     drawChevrons(pane, F, k);

@@ -46,7 +46,7 @@ ok('the disc drawn in w₁ is a shape of stage 1', !!drawn && drawn.kind === 'di
 ok('Y (w₂) shows its image', (await picture('canvasR')) !== r0, null);
 info.list = await ev(`[...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent)`);
 ok('the Shapes list puts it under its plane', info.list.some((t) => /plane w/.test(t) || /w₁/.test(t)), info.list);
-// ---- the whole chain: Y (w₃) shows it, X (the z-plane) does not
+// ---- the whole chain: Y (w₃) shows its image, X (the z-plane) its preimage
 await ev(`document.getElementById('undoBtn').click()`); await settle(900);
 ok('one Undo takes it away', (await shapes()).length === 1, await shapes());
 const focusAfterUndo = await focusOf();
@@ -58,8 +58,24 @@ const zWith = await picture('canvasL'), yWith = await picture('canvasR');
 await ev(`document.getElementById('undoBtn').click()`); await settle(900);
 await ev(`__cmwSet('focus', 0)`); await settle(900);
 const zWithout = await picture('canvasL'), yWithout = await picture('canvasR');
-ok('the z-plane does not show a shape of w₁', zWith === zWithout, [zWith, zWithout]);
+ok('the z-plane shows the preimage of a shape of w₁', zWith !== zWithout, [zWith, zWithout]);
 ok('the whole chain\'s Y (w₃) shows its image', yWith !== yWithout, [yWith, yWithout]);
+
+// ---- where the preimage is: a disc |w₁ − 1| < 0.5 under w₁ = z² is two lobes about z = ±1 in the z-plane, none at 0;
+// a line Re w₂ = 2 in w₂ = w₁ + 1 is the hyperbola x² − y² = 1 (through z = ±1)
+const pixel = (re, im) => ev(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), p = __cmwPlaneMenu().w2s('L', ${re}, ${im}), k = c.width / r.width;
+  return [...c.getContext('2d').getImageData(Math.round((p[0] - r.left) * k), Math.round((p[1] - r.top) * k), 1, 1).data].slice(0, 3); })()`);
+const probe = async () => ({ p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), hy: await pixel(Math.SQRT2, 1) });
+const two = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }];
+await openApp({ focus: 0, srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [] });
+const bare = await probe();
+await openApp({ focus: 0, srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [{ id: 's2', kind: 'disc', c: [1, 0], r: 0.5, ci: 1, visible: true, stage: 1 }, { id: 's3', kind: 'line', a: [2, -1], b: [2, 1], ci: 2, visible: true, stage: 2 }] });
+const pulled = await probe();
+const same = (a, b) => a.every((x, i) => Math.abs(x - b[i]) <= 3);
+info.pixels = { bare, pulled };
+ok('the disc of w₁ is pulled back to z = 1 and z = −1', !same(pulled.p1, bare.p1) && !same(pulled.m1, bare.m1), info.pixels);
+ok('… and not to z = 0.35i (w₁ = −0.12, outside it)', same(pulled.o, bare.o), info.pixels);
+ok('the line of w₂ is pulled back through two steps, onto the hyperbola x² − y² = 1', !same(pulled.hy, bare.hy), info.pixels);
 
 // ---- the steps change: the shape follows its plane; a saved stage loads
 await openApp(Object.assign({ focus: 2 }, base, { shapes: base.shapes.concat([{ id: 's2', kind: 'disc', c: [0.3, 0.2], r: 0.1, ci: 1, visible: true, stage: 1 }]) }));
