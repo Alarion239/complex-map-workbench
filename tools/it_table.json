@@ -2917,5 +2917,9 @@
  "The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.": "La mappa (z − a)/(1 − āz) porta il disco unitario in sé e sposta il punto a in 0. Il numero a è complesso: il suo punto sul piano è il numero, quindi trascinare il punto cambia la mappa.",
  "Play: {x} circles the origin": "Riproduci: {x} gira intorno all'origine",
  "Add as a complex number": "Aggiungi come numero complesso",
- "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Trascina per ruotare, trascina una figura per spostarla; Space ruota; ∞ è al polo nord"
+ "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Trascina per ruotare, trascina una figura per spostarla; Space ruota; ∞ è al polo nord",
+ "Phase style: {name}": "Stile della fase: {name}",
+ "Styles belong to the flat Phase view": "Gli stili appartengono alla vista Fase piana",
+ "Switch to Phase": "Passa a Fase",
+ "Style: {name}": "Stile: {name}"
 }
