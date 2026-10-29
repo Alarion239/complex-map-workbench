@@ -336,6 +336,7 @@
     lastPress = null;
     const [x, y] = evXY(pane, e);
     ptrTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
+    altHeld = !!e.altKey;
     Construct.pointer(e);   // (v16: touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
     const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y);
@@ -424,14 +425,15 @@
       requestRender(ov);
       return true;
     }
-    // (touch, a drawing tool: a press on the shape just drawn moves it, or reshapes it by a handle; a press elsewhere draws)
-    if (ptrTouch && tool !== 'select' && tool !== 'point' && justDrawn && selected === justDrawn) {
+    // (a drawing tool: a press on the shape just drawn moves it, or reshapes it by a handle; a press elsewhere draws, and
+    // so does Alt, on a laptop, where it also places without snapping)
+    if (!altHeld && tool !== 'select' && tool !== 'point' && justDrawn && selected === justDrawn) {
       const js = list.find((q) => q.id === justDrawn);
       if (js) {
         const jk = handleAt(pane, js, x, y);
         if (jk) { drag = { mode: 'handle', shape: js, key: jk, target }; return true; }
         let onBody = false;
-        try { onBody = !!Region.hitTest(js, z, 18 / pane.view.s, win); } catch (e) { onBody = false; }
+        try { onBody = !!Region.hitTest(js, z, (ptrTouch ? 18 : 8) / pane.view.s, win); } catch (e) { onBody = false; }
         if (onBody) { drag = { mode: 'move', shape: js, z0: z, moved: false, target }; requestRender(ov); return true; }
       }
     }
@@ -741,13 +743,14 @@
       gSnapMark = null;
       return;
     }
-    // (touch, a drawing tool: a press on the shape just drawn, on its handle or on it, moves or reshapes it; elsewhere draws)
-    if (ptrTouch && justDrawn && selected === justDrawn) {
+    // (a drawing tool: a press on the shape just drawn, on its handle or on it, moves or reshapes it; elsewhere draws, and so
+    // does Alt)
+    if (!altHeld && justDrawn && selected === justDrawn) {
       const js = list.find((q) => q.id === justDrawn);
       if (js) {
         for (const [key, P] of globeHandles(js, gc)) {
           const q = gScreen(gc, P);
-          if (q && Math.hypot(q[0] - x, q[1] - y) <= 18) { drag = { mode: 'ghandle', shape: js, key, target, side, x, y }; return; }
+          if (q && Math.hypot(q[0] - x, q[1] - y) <= (ptrTouch ? 18 : 10)) { drag = { mode: 'ghandle', shape: js, key, target, side, x, y }; return; }
         }
         if (globeCurveHit(gc, js, x, y, 10) || GL3.globeInside(js, g.P)) { drag = { mode: 'gmove', shape: js, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(js)), moved: false, target, side, x, y }; requestRender('O' + side); return; }
       }

@@ -3054,5 +3054,6 @@
  "Add this shape": "Aggiungi questa figura",
  "Add shape": "Aggiungi figura",
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
- "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso."
+ "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso.",
+ "Drag to turn, a shape to move it; Space turns; ∞ is at the north pole": "Trascina per ruotare, trascina una figura per spostarla; Space ruota; ∞ è al polo nord"
 }
