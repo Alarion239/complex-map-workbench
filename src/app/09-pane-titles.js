@@ -211,7 +211,7 @@
   function globeHint(side) {
     const TURN = $t('Drag to turn; ∞ is at the north pole');
     if (!globeEdit(side) || tool === 'formula' || GLOBE_OFF.has(tool)) return TURN;
-    if (tool === 'select') return touchUI() ? $t('Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole') : $t('Drag to turn, a shape to move it; ∞ is at the north pole');
+    if (tool === 'select') return touchUI() ? $t('Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole') : $t('Drag to turn, a shape to move it; Space turns; ∞ is at the north pole');
     const lab = ((TOOLS.find((t) => t[0] === tool) || [])[1] || '').toLowerCase();
     const tg = side === 'R' ? $t('target ') : '';
     // (v16.5 UX17: on a touch screen a tap places, and two fingers turn)

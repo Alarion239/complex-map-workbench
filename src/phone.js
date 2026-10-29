@@ -80,7 +80,7 @@ const Phone = (() => {
     // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
-    els.style = h('button', { class: 'ph-row ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
     els.body.display.append(els.style, els.viewOpts, els.regionsH, els.regions);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
@@ -410,9 +410,9 @@ const Phone = (() => {
         : btn('', '⌫ ' + $t('Undo pick'), () => A.ctxAct('undopick'), st.undo ? {} : { disabled: true });
       const x = btn('ico', '×', () => A.ctxAct('xcancel'), { 'aria-label': $t('Cancel') });
       if (st.seg) {
-        // (the orthogonal circle: Whole, Inside or Outside, in words, on a second row)
+        // (the orthogonal circle: Whole, Inside, Outside or Between, in words, on a second row)
         const sg = h('div', { class: 'ph-ctseg', role: 'radiogroup', 'aria-label': $t('Whole or inside') });
-        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')]]) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
+        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')], ['between', $tx('side', 'Between')]].filter(([v]) => !st.segs || st.segs.includes(v))) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
         kids = [text(st.text), undo, x, sg];
       } else kids = [text(st.text), undo, x];
     } else if (st && st.kind === 'listen') {
