@@ -21,7 +21,8 @@ const plugin = {
     b.onResolve({ filter: /^\.\/[^/]+\.js$/ }, (a) => (parts(a.path.slice(2), SRC) ? { path: path.join(SRC, a.path.slice(2)) } : undefined));
     b.onLoad({ filter: /[\\/]src[\\/][^\\/]+\.js$/ }, (a) => {
       const f = path.basename(a.path);
-      let text = parts(f, SRC) ? source(f, SRC) : fs.readFileSync(a.path, 'utf8');
+      // (LF line ends: a Windows checkout has CRLF, which Python's text mode used to hide, and HOOK expects \n)
+      let text = (parts(f, SRC) ? source(f, SRC) : fs.readFileSync(a.path, 'utf8')).replace(/\r\n/g, '\n');
       if (f === 'expose.js' && mode === 'pub') return { contents: '', loader: 'js' };   // the test page's globals only
       if (mode === 'pub') text = text.replace(HOOK, '\n');
       return { contents: text, loader: 'js' };
