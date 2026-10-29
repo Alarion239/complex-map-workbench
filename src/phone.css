@@ -16,7 +16,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #app {
   position: fixed; inset: 0;
   display: grid; grid-template-rows: var(--ph-head) minmax(0, 1fr); height: 100dvh; min-height: 0; overflow: hidden;
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) calc(var(--ph-row) + var(--ph-safe-b)) env(safe-area-inset-left, 0px);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) calc(var(--ph-row) + var(--ph-ctx) + var(--ph-safe-b)) env(safe-area-inset-left, 0px);
 }
 
 /* a non-modal sheet open: the stage is the planes and the chain bar above it */
@@ -315,6 +315,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* More (⋯) rows */
 .ph-row, .ph-srow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: 400 15px/20px var(--f-ui); text-align: left; }
 .ph-row:active { background: var(--well); }
+.ph-row[hidden], .ph-srow[hidden] { display: none; }
+.ph-search { box-sizing: border-box; width: 100%; height: 44px; margin: 0 0 4px; padding: 0 12px; background: var(--well); border: 1px solid var(--line); border-radius: var(--r-2); color: var(--ink); font: 400 15px/20px var(--f-ui); }
 .ph-row .ph-ic, .ph-srow .ph-ic { flex: 0 0 20px; display: grid; place-items: center; color: var(--ink-2); }
 .ph-row .ph-ic svg, .ph-srow .ph-ic svg { width: 18px; height: 18px; }
 .ph-rl { flex: 1 1 auto; min-width: 0; }
@@ -343,7 +345,6 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { height: auto; min-height: 44px; padding-top: 0; padding-bottom: 0; white-space: normal; }
 :root.ph #toastHost .toast .toast-act, :root.ph #toastHost[data-placed] .toast .toast-act { min-width: 44px; height: 44px; }
 :root.ph #toastHost .toast .toast-x { width: 44px; height: 44px; margin-left: -8px; }
-:root.ph #toastHost { bottom: calc(var(--ph-row) + var(--ph-chain) + var(--ph-safe-b) + 12px); }
 :root.ph .snd-pop { z-index: 46; }
 
 /* ---------- landscape phone: header 44; X | Y side by side; one 52 px row with the cards and the tools; the
@@ -467,6 +468,46 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-keys[hidden] { display: none; }
 .ph-keys > button { flex: 1 0 auto; min-width: 44px; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink); font: 500 16px/1 var(--f-ui); }
 .ph-keys > button:active { background: var(--well); }
+/* D6: the Tools sheet's tabs (Draw, Construct, Shapes N) and the More key's shape count */
+.ph-tabs { display: flex; gap: 2px; padding: 2px; margin: 0 0 8px; background: var(--well); border-radius: var(--r-2); }
+.ph-tabs > button { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 6px; background: none; border: 0; border-radius: var(--r-1); color: var(--ink-2); font: 500 14px/1 var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-tabs > button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-1); }
+.ph-tiles[hidden], .ph-tabpane[hidden] { display: none; }
+:root.ph #secDraw > .tool-more > summary { position: relative; }
+.ph-badge { position: absolute; top: 2px; right: calc(50% - 26px); min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: 600 10px/16px var(--f-ui); text-align: center; pointer-events: none; }
+.ph-badge[hidden] { display: none; }
+/* D3: the context bar above the tool row; the planes give up its height from the bottom */
+:root.ph { --ph-ctx: 0px; }
+:root.ph.ph-ctx-on, :root.ph.ph-toast-on { --ph-ctx: 56px; }
+.ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
+.ph-ctx[hidden] { display: none; }
+:root.ph.ph-land .ph-ctx { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+.ph-ct { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+.ph-ctn { font: 600 14px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-cts { font: 400 12.5px/16px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-cb { flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); color: var(--ink); font: 600 14px/1 var(--f-ui); }
+.ph-cb.prim { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.ph-cb.ico { padding: 0; display: grid; place-items: center; }
+.ph-cb:disabled { opacity: 0.45; }
+.ph-cb svg { width: 18px; height: 18px; }
 /* UX40: the long press, taught inside the More tools sheet (a tip line under the tiles) */
 .ph-tip { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 8px; margin: 8px 4px 4px; padding: 0; font: 400 13px/18px var(--f-ui); color: var(--muted); text-wrap: pretty; }
 .ph-tip-ic { flex: 0 0 16px; display: grid; place-items: center; margin-top: 1px; color: var(--accent-text, var(--accent)); }
+/* a construction's sentence ("Pick a point or an empty spot · 1 of 3") may take two lines */
+.ph-ctx[data-k="construct"] .ph-ctn { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 13px; line-height: 17px; }
+/* the orthogonal circle's bar: its sentence, ⌫ and × over Whole | Inside | Outside */
+:root.ph.ph-ctx-tall { --ph-ctx: 104px; }
+.ph-ctx.tall { height: 104px; flex-wrap: wrap; align-content: center; row-gap: 4px; }
+.ph-ctx.tall > .ph-ct { flex: 1 1 0; min-height: 44px; }
+.ph-ctseg { flex: 1 0 100%; min-width: 0; display: flex; gap: 4px; }
+.ph-ctseg > .ph-cb { flex: 1 1 0; min-width: 0; padding: 0 4px; }
+/* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
+:root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
+/* the phone's messages (a toast with its Undo) take the context bar's row over the tool row, which the planes give up
+   while one shows: a message covers no part of a plane */
+:root.ph #toastHost { left: 0; right: 0; translate: none; width: auto; max-width: none; align-items: stretch; gap: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); }
+:root.ph.ph-land #toastHost { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { box-sizing: border-box; height: 56px; min-height: 56px; border: 0; border-top: 2px solid var(--accent); border-radius: 0; box-shadow: none; background: var(--panel); padding: 0 8px 0 12px; }
+:root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }
+
+.ph-ctx.under { visibility: hidden; }

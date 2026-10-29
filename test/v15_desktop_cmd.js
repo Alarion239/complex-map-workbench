@@ -259,7 +259,7 @@ for (const [w, hgt] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024]]) {
   if (w === 1440 || w === 768) { await shot(`v15d-ru-${w}-light`); shots.push(`v15d-ru-${w}-light`); }
 }
 const ru = await ev(`(() => ({ names: [...document.querySelectorAll('#pipeline .card .nm')].map((n) => n.textContent.replace(/\\s+/g, ' ')), adds: [...document.querySelectorAll('#propsPanel .zp-add')].map((b) => b.textContent.replace(/\\d+$/, '')), sw: [...document.querySelectorAll('#chainMode button')].map((b) => b.textContent), tile: document.querySelector('#pipeline .ftile').innerText.replace(/\\s+/g, ' ').trim() }))()`);
-ok('Russian: card names, Нуль / Полюс, Картинки | Названия, the F tile', ru.names.join('|') === 'Область|Экспонента|Дробно-линейная|Нули и полюсы' && ru.adds.join('|') === 'Нуль|Полюс' && ru.sw.join('|') === 'Картинки|Названия' && /Аналитична/.test(ru.tile), ru);   // (review russian-3, russian-1)
+ok('Russian: card names, Нуль / Полюс, Картинки | Названия, the F tile', ru.names.join('|') === 'Фигуры|Экспонента|Дробно-линейная|Нули и полюсы' && ru.adds.join('|') === 'Нуль|Полюс' && ru.sw.join('|') === 'Картинки|Названия' && /Аналитична/.test(ru.tile), ru);   // (review russian-3, russian-1)
 info.missing = await ev(`typeof I18N.missing === 'function' ? I18N.missing().filter((k) => /Inspector|Pictures|Names|Add zero|Add pole|alone|whole map|Not implied|Editor|card/.test(k)).slice(0, 20) : null`);
 ok('Russian: no lookup misses in the new strings', !info.missing || info.missing.length === 0, info.missing);
 await view(1440, 900, false);
