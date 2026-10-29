@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Compare perf-suite results (test/regress/perf/run.js) with the stored baseline.
 
-    python3 test/regress/compare_perf.py [--baseline FILE] [--results FILE] [--all] [--json FILE] [--paired] [--tol-scale S]
+    python3 test/regress/compare_perf.py [--baseline FILE] [--results FILE] [--all] [--table] [--json FILE] [--paired] [--tol-scale S]
 
 Every metric carries a `kind`; the kind decides the tolerance (see TOL below and test/regress/README.md).
 A metric fails when it is worse than its tolerance allows, is missing from a full run, or became null (a timeout).
 A metric is reported as IMPROVED when it is better than the baseline by more than the same tolerance band.
 A metric that is not in the baseline (a unit added after the baseline was recorded) is reported as NEW with its value
-and is not compared until a baseline that contains it is recorded; the ABSOLUTE kinds are judged anyway, NEW or not:
+and is not compared until a baseline that contains it is recorded; so is a metric whose reference could not run its unit
+('ref_unsupported' on the baseline's metric, run.js --ab: the reference build lacks the feature the unit measures, e.g.
+a formula it cannot parse, so it measured an empty scene). The ABSOLUTE kinds are judged anyway, NEW or not:
 a 'check' must be true, and a 'limit' must hold. Kind 'limit' is absolute: the value must stay at or below the
 metric's own 'limit' (SPEC 4.7 gates: the SwiftShader ratio <= 3, inverse compile + first draw <= 250 ms); a null
 value passes only when nothing was there to measure (no inverse program before P2); a metric that says a value was
@@ -154,6 +156,15 @@ def _limit_text(m, unit):
 
 def judge(name, base, new, partial, opt_in_skipped=(), paired=False, scale=1.0):
     """-> (status, text) with status in FAIL, BOTH (paired), IMPROVED, PASS, INFO, NEW, SKIP"""
+    # [#292] the reference could not run this unit (it lacks the feature): nothing to compare against
+    why = base.get('ref_unsupported') if base else None
+    if why and new is not None:
+        unit = new.get('unit', '')
+        ab = _absolute(new)
+        if ab and ab[0] == 'FAIL':
+            return 'FAIL', f"NEW (the reference cannot run this unit: {why}), absolute: {ab[1]} [{new.get('kind')}]"
+        lt = _limit_text(new, unit) if new.get('kind') == 'limit' else None
+        return 'NEW', f"the reference cannot run this unit ({why}): {lt or fmt(new.get('value'), unit)} [{new.get('kind', 'info')}]"
     if base is None:
         if new is None:
             return 'NEW', 'not in the baseline'
@@ -251,7 +262,7 @@ def _accepted():
         return {}
 
 
-def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0):
+def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0, table=False):
     out = out or sys.stdout
     bm, rm = baseline.get('metrics', {}), results.get('metrics', {})
     rmeta, bmeta = results.get('meta', {}), baseline.get('meta', {})
@@ -268,7 +279,10 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
                 text = text + f"; accepted exception (max {acc[name]['max']}, {acc[name].get('date', '')}): {acc[name].get('reason', '')}"
         rows.append({'metric': name, 'status': status, 'text': text, 'kind': (bm.get(name) or rm.get(name) or {}).get('kind'),
                      'base': (bm.get(name) or {}).get('value'), 'new': (rm.get(name) or {}).get('value'),
-                     'name': (bm.get(name) or rm.get(name) or {}).get('name')})
+                     'name': (bm.get(name) or rm.get(name) or {}).get('name'),
+                     'unit_id': (rm.get(name) or bm.get(name) or {}).get('unit_id'),
+                     'unit': (bm.get(name) or rm.get(name) or {}).get('unit', ''),
+                     'ref_unsupported': (bm.get(name) or {}).get('ref_unsupported')})
     counts = {}
     for r in rows:
         counts[r['status']] = counts.get(r['status'], 0) + 1
@@ -305,13 +319,25 @@ def compare(baseline, results, show_all=False, out=None, paired=False, scale=1.0
         nm = f"  [{r['name']}]" if r.get('name') else ''
         p(f"  {r['status']:<8} {r['metric']:<{width}}  {r['text']}{nm}")
     if not show_all:
-        per = {}
+        per, why = {}, {}
         for r in rows:
             if r['status'] == 'NEW':
-                u = (rm.get(r['metric']) or {}).get('unit_id') or r['metric'].split('.')[0]
+                u = r.get('unit_id') or r['metric'].split('.')[0]
                 per[u] = per.get(u, 0) + 1
+                if r.get('ref_unsupported'):
+                    why[u] = r['ref_unsupported']
         for u in sorted(per):
-            p(f"  {'NEW':<8} {u}: {per[u]} metric(s) not in the baseline yet (reported, not gated; --all lists them)")
+            what = f'the reference cannot run this unit ({why[u]})' if u in why else 'not in the baseline yet'
+            p(f"  {'NEW':<8} {u}: {per[u]} metric(s) {what} (reported, not gated; --all lists them)")
+    if table:
+        # --table: every metric, one line each, reference -> this change and its verdict (the GPU gate's job log: an
+        # agent reads the log, not the artifact)
+        tw = max([len(r['metric']) for r in rows] + [10])
+        p(f"  {'TABLE':<8} {'metric':<{tw}}  reference -> this change")
+        for r in sorted(rows, key=lambda r: r['metric']):
+            b = '-' if r['metric'] not in bm else fmt(r['base'], r['unit'])
+            n = '-' if r['metric'] not in rm else fmt(r['new'], r['unit'])
+            p(f"  {r['status']:<8} {r['metric']:<{tw}}  {b} -> {n}")
     p('PERF  ' + ', '.join(f'{k}: {counts[k]}' for k in sorted(counts, key=lambda k: order.get(k, 9))) +
       ('  ->  FAIL' if counts.get('FAIL') else '  ->  PASS'))
     return {'counts': counts, 'rows': rows, 'warnings': warn, 'failed': counts.get('FAIL', 0)}
@@ -325,6 +351,7 @@ def main(argv=None):
     ap.add_argument('--json', help='write the comparison as JSON to this file')
     ap.add_argument('--paired', action='store_true', help='the baseline is the reference measured in the same run on the same machine (CI): checks and limits that fail there too are BOTH, not FAIL')
     ap.add_argument('--tol-scale', type=float, default=1.0, metavar='S', help="widen the timing and GPU-memory kinds' allowance over the base S-fold (noisy machines)")
+    ap.add_argument('--table', action='store_true', help='also print every metric, one line each: reference -> this change and its verdict')
     ap.add_argument('--failing-units', metavar='FILE', help='write the ids of the units with failing metrics to FILE (one per line; used by perf/run.sh to re-run them)')
     a = ap.parse_args(argv)
     for f in (a.baseline, a.results):
@@ -335,7 +362,7 @@ def main(argv=None):
         baseline = json.load(fh)
     with open(a.results) as fh:
         results = json.load(fh)
-    rep = compare(baseline, results, show_all=a.all, paired=a.paired, scale=a.tol_scale)
+    rep = compare(baseline, results, show_all=a.all, paired=a.paired, scale=a.tol_scale, table=a.table)
     if a.failing_units:
         units = set()
         for r in rep['rows']:

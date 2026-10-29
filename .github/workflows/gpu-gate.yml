@@ -251,7 +251,8 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: node ci/gpu_probe.js --require-hardware
-      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} ${{ env.FORCE }}
+      # (--table: every metric's reference -> this change in the job log, which agents can read; the artifact they cannot)
+      - run: node ci/perf_shard.js --shard ${{ matrix.shard }} --ref ${{ needs.plan.outputs.reference }} --table ${{ env.FORCE }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
