@@ -1199,7 +1199,8 @@
     const p = pathOf(s, stageMap(rightStage()), 'R', 'flat');
     return p.e ? invBox(p.e, p.plan, s) : null;
   };
-  window.__cmwExample = (i) => loadExample(i);
+  // (-> whether example i is now the current one: false past the last example)
+  window.__cmwExample = (i) => { loadExample(i); return currentExample === i; };
   // v15 (test/v15_desktop_cmd.js): the cards' kind and pictures (each card's view, size and whether it is final), the
   // selection, the temporary Inspector; __cmwCardsNow() draws the cards at once (no wait for a quiet moment)
   window.__cmwCards = () => ({ kind: cardKind(), sel: selOf(), focus: S.focus, temp: tempInsp, cards: [...thumbs].map(([k, p]) => { const c = p.canvas.closest('.card'); return { k, sig: p.sig || null, view: Object.assign({}, p.view), w: p.w, h: p.h, dpr: p.dpr, stale: !!(c && c.classList.contains('stale')), t: kindOfT(k) }; }), main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
