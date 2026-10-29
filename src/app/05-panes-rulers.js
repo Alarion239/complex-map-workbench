@@ -19,25 +19,33 @@
     return b;
   }
   // CPU samples of what a stage shows, restricted to the part that comes from the visible z-window
-  function stageSamples(F, xs, ys) {
+  // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
+  function stageSamples(F0, xs, ys, k, few) { const it = stageSampler(F0, xs, ys, k, few); while (!it.next().done) { /* the samples go to xs, ys */ } }
+  // the same, a step at a time: it yields every 16 samples ([#243] a costly fit runs in slices, fitRightSliced); few:
+  // an eighth of the samples (a chain card's picture of a costly chain)
+  function* stageSampler(F0, xs, ys, k, few) {
+    const per = few ? 8 : 1;
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
-    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } };
+    let got = 0;
+    const push = (w) => { if (CX.isFin(w) && Math.abs(w.re) < 1e9 && Math.abs(w.im) < 1e9) { xs.push(w.re); ys.push(w.im); } return ++got % 16 === 0; };
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
       // ([v16.5 fix user-3] the curves and points of a construction, and the unit circle or an axis made a shape, are
       // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
-      if (t === 'point') { push(F(C(s.p[0], s.p[1]))); continue; }
+      const F = shapeF(s, F0, k);
+      if (!F) continue;
+      if (t === 'point') { if (push(F(C(s.p[0], s.p[1])))) yield; continue; }
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
-        const stride = Math.max(1, Math.floor(nv / 2500));
+        const stride = Math.max(1, Math.floor(nv * per / 2500));
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
-          push(F(C(x, y)));
+          if (push(F(C(x, y)))) yield;
         }
       }
       // (a traced curve formula, like a formula area, counts by its part in the meshing window: its tails run out to
@@ -45,15 +53,15 @@
       let unbounded = s.kind === 'line' || s.kind === 'ray' || s.kind === 'fcurve';
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
-        const n = p.length / 2, stride = Math.max(1, Math.floor(n / 400));
-        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if (!unbounded || inCore(x, y)) push(F(C(x, y))); }
+        const n = p.length / 2, stride = Math.max(1, Math.floor(n * per / 400));
+        for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
       }
     }
   }
-  function fitPane(pane, k, extraKs = [], F) {
+  function fitPane(pane, k, extraKs = [], F, few) {
     const xs = [], ys = [];
-    stageSamples(F || stageF(k), xs, ys);
-    for (const k2 of extraKs) stageSamples(stageF(k2), xs, ys);
+    stageSamples(F || stageF(k), xs, ys, k, few);
+    for (const k2 of extraKs) stageSamples(stageF(k2), xs, ys, k2);
     const b = robustBox(xs, ys);
     if (b) pane.fitBox(b, 0.07);
     else pane.fitBox({ x0: -2, x1: 2, y0: -2, y1: 2 });
@@ -114,12 +122,13 @@
     paper(pane);
     const k = leftStage();
     const F = stageF(k);
-    if (GLR.ok) drawScene(pane, stageMap(k), 'L', { domain: k === 0 }); else noGL(pane);
+    if (k > 0) noteStageWin(k, pane.box());
+    if (GLR.ok) drawScene(pane, stageMap(k), 'L', { domain: k === 0, plane: k }); else noGL(pane);
     // the w-plane targets pulled back by the focused map, in every view
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false));
-    drawChevrons(pane, F);
+    drawChevrons(pane, F, k);
     cutHandlesL = drawCuts(pane, k, true, false);
-    drawPoints(pane, F, { primes: k, domain: k === 0 });
+    drawPoints(pane, F, { primes: k, domain: k === 0, k, editK: k });
     if (hasTargets()) { updateRoots(); drawRoots(pane); }
     drawRulers(paneL, 'L');
     // overlays are drawn once per frame, after both planes (frame)
@@ -152,7 +161,7 @@
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
-      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('Shapes are drawn in the z-plane; choose Show F to draw.');
+      else if (drawing && lGlobe() && leftStage() > 0) msg = $t('On the globe, shapes are drawn in the z-plane: choose Plane to draw in this plane, or Show F.');
       // (v16.5 UX71) listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
       if (!msg) { msg = listenChipMsg(); if (msg) act = { stop: true }; }
@@ -223,6 +232,8 @@
       drawCutHandles(paneL, cutHandlesL);
       drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
+      // ([#253] a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
+      else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
@@ -461,13 +472,15 @@
     GLR.drawColorPlot({ map: hv ? hv.map : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(pane), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz });
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv;
     if (S.outline && !artMode) {
-      const map = stageMap(leftStage());
+      const map0 = stageMap(leftStage());
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point') continue;
+        const map = shapeMap(s, map0);
+        if (!map) continue;
         const r = shapeGPU(s);
         if (!r.lineRes) continue;
         // open sets dashed (spec 6.8)
-        const dash = r.open ? { dash: [5, 3.5], arc: arcOf(r, stageF(leftStage()), mapKeyOf(map)) } : null;
+        const dash = r.open ? { dash: [5, 3.5], arc: arcOf(r, cpuMap(map), mapKeyOf(map)) } : null;
         GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr }, cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
       }
     }
@@ -494,7 +507,7 @@
     const k = leftStage();
     if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
     const handles = drawCuts(pane, k, true, false);
-    drawPoints(pane, stageF(k), { primes: k, domain: k === 0 });
+    drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     drawRulers(pane, pane === paneL ? 'L' : 'R');
     return handles;
@@ -671,11 +684,13 @@
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
-    const omap = stageMap(leftStage()), omk = mapKeyOf(omap);
+    const omap0 = stageMap(leftStage());
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
+      const omap = shapeMap(s, omap0);
+      if (!omap) continue;
       const r = shapeGPU(s);
-      if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${omk}` });
+      if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
     }
     const info = GLR.drawLandscape({
       map: hv ? hv.map : focusMap(), box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
@@ -983,13 +998,13 @@
       const m0 = normalizeMap(map);
       if ((m0.mode || 0) === 0 && invPlan(m0.a || 0, m0.b || 0).ok) {
         cmFormAnchor('X');
-        recs = GLR.packShapes(S.shapes.filter((s) => s.visible !== false)).recs;
+        recs = GLR.packShapes(S.shapes.filter((s) => s.visible !== false && !shapeStage(s))).recs;
         if (!sideDraw) lastRecs = recs;
         if (live) prepDeferred = false;
       }
     }
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;   // ([#253] the globes: the z-plane's shapes, flat planes first)
       const r = shapeGPU(s);
       const ink = shapeInk(s);
       const pf = imageMode && kindType(s) === 'area' && !hom ? pairFor(s, r, role) : { p: r, fx: null };   // fix-ups refine the static map
@@ -1038,7 +1053,7 @@
       // (v16: with a bracket, H_0(∂X) = Q o P(∂X) through H0Map, SPEC 5.3)
       const base = S.focus > 0 ? S.focus - 1 : 0, bm = hom.range && hom.H0Map ? hom.H0Map : stageMap(base), bk = mapKeyOf(bm);
       for (const s of S.shapes) {
-        if (s.visible === false || kindType(s) === 'point') continue;
+        if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
         const r = shapeGPU(s), rl = linesOf(r, r);
         if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
       }
@@ -1068,7 +1083,7 @@
     let pi = 0;
     const labels = [];
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) !== 'point') continue;
+      if (s.visible === false || kindType(s) !== 'point' || shapeStage(s)) continue;
       const idx = pi++;
       const w = Fp(C(s.p[0], s.p[1]));
       const p = CX.isFin(w) ? lift(w.re, w.im) : [0, 0, 1];

@@ -1,5 +1,9 @@
 # Hear the function: four options to choose from by ear
 
+> **Superseded in part (2026-10-28, v16.5).** Hear the function is now the marimba notes and the Glide, decided by
+> the user ("i want to hear the function, not actively just make music fit the math"): see README.md's decision of
+> 2026-10-28, perfwin/sound/polish/FINAL.md and perfwin/sound/impl/SOUND-PLAN.md. Option 2 (the phase harp), built in v15.2, is superseded by it; option 4 (curves sing) stays.
+
 You said the sound is "not the same" and asked whether each point should sound, or a curve or the function as a
 whole. This folder answers with research, four options, and one page where you can hear all of them on the same
 gestures: [`options.html`](options.html). Nobody here has listened to it. Everything below is measured or reasoned from

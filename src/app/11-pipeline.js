@@ -661,7 +661,9 @@
     co: ['aₖ', $t('Coefficients aₙ, …, a₀, highest degree first')], p: ['p', $t('Numerator coefficients, highest degree first')], q: ['q', $t('Denominator coefficients, highest degree first')] };
   function paramField(st, k, q, pre = 'p') {
     const val = st.params[q.key] ?? q.def;
-    const upd = (v) => { st.params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
+    // (the step now in the chain: an Undo while the field is being typed in replaces the steps and keeps the field)
+    const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
+    const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
     let input, extra = null, before = null;
     const id = `${pre}${k}_${q.key}`;
     if (q.type === 'choice') {
@@ -711,12 +713,20 @@
       if (num) input.dataset.num = '1';
       // ([#240] the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
       if (q.bound) input.dataset.bound = q.bound.join(',');
+      // ([#243] a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
+      // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
+      // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
+      let due = 0;
+      const apply = () => { if (due) { clearTimeout(due); due = 0; } upd(raw()); };
       input.addEventListener('input', () => {
         if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
-        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(st, q.key, raw());
-        upd(raw());
+        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
+        const cost = chainCost();
+        if (q.type !== 'seq' && cost <= 8) { apply(); return; }
+        clearTimeout(due);
+        due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
       });
-      input.addEventListener('change', () => { if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
+      input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
       if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     }
     input.dataset.pkey = q.key;

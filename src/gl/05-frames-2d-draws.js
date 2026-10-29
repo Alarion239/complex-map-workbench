@@ -59,7 +59,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+      frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
     gl.viewport(0, 0, pw, ph);
@@ -76,7 +76,7 @@
     if (preActive) { preActive = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
     if (halfOpen && halfOpen.pre) halfOpen = null;
     fw = w; fh = h; vpX = x; vpY = y;
-    frameErr = ''; framePending = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameCompiling = false; invAltUsed = false; invFrame++;
     gl.viewport(x, y, w, h);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, w, h);
@@ -273,11 +273,13 @@
     fadeUniforms(P, st.fade);
   }
   // tfEntry's answer while the current chain's transform-feedback program is still compiling (and no earlier one is
-  // ready): the draw then uses whichever direct program is already ready, without starting another compile
+  // ready): the draw then uses whichever direct program is already ready, without starting another compile. One of an
+  // earlier version (or none) is a stand-in: the frame is pending until the transform-feedback program tf lands.
   const PENDING = {};
-  function readyProg(name, map) {
+  function readyProg(name, map, tf) {
     const P = getProg(name, cur, false, map);
     if (P || sideMode) return P;
+    if (tf) { framePending = true; standIn(progId(tf, cur, map)); }
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
   }
@@ -336,7 +338,7 @@
       const pend = e === PENDING;
       if (pend) e = null;
       const name = ident ? 'region0' : (sph ? 'regionS' : 'region') + (e ? 'C' : '');
-      let P = pend ? readyProg(name, st.map) : program(name, st.map);
+      let P = pend ? readyProg(name, st.map, 'tfRegion') : program(name, st.map);
       if (!P && !ident && !e && (e = stand(res, true, L, st.map, pend ? 'tfRegion' : name))) P = program(sph ? 'regionSC' : 'regionC');
       if (!P) return;
       use(P, st.map);
@@ -379,7 +381,7 @@
       const pend = e === PENDING;
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
-      let P = pend ? readyProg(nameOf(), st.map) : program(nameOf(), st.map);
+      let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
       if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);

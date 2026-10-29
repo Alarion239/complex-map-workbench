@@ -1361,6 +1361,29 @@ const Inverse = (() => {
     }
     return out;
   }
+  // [issue #276] Inverse.singularAfter(plan, win, sing, cap): the singular points of a chain whose last step has no plan
+  // (ζ takes each value infinitely often) but names all of its own, finitely many, sing(ub, ref, cap) -> [{z, kind}] in
+  // its input plane (ub: the box of expandBox(win, 3) there, null when unbounded; ref: the image of win's centre). plan
+  // is that of the steps before it (ok; it may have no ops) and injective, so the points pulled back are finitely many
+  // too and the set is complete along a line's whole reach, as the lines' jump scan would find it. Its points and the
+  // step's, pulled back to the z-plane, as singular() gives them; null otherwise (the lines then scan)
+  function singularAfter(plan, win, sing, cap = 16) {
+    if (!plan || !plan.ok || !plan.injective) return null;
+    const ops = plan.ops, zb = expandBox(win, 3), bt = new Map();
+    const cz = C((win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2);
+    const { refs, out: ref } = ops.length ? refsOf(plan, win) : { refs: [], out: cz };
+    const out = ops.length ? singular(plan, win, ['undef', 'branch', 'pole'], cap) : [];
+    const own = sing(boxThrough(ops, ops.length, zb), ref, cap);
+    if (!own) return null;
+    const by = new Map();
+    for (const e of own) { if (!by.has(e.kind)) by.set(e.kind, []); by.get(e.kind).push(e.z); }
+    for (const [kind, src] of by) {
+      const pts = (ops.length ? pullBack(ops, refs, ops.length, src, zb, cap, bt) : dedupe(src)).filter((z) => z && isFin(z));
+      pts.sort((a, b) => (boxDist(win, a) - boxDist(win, b)) || (abs(sub(a, cz)) - abs(sub(b, cz))));
+      for (const z of pts.slice(0, cap)) out.push({ z, kind });
+    }
+    return out;
+  }
   // the accumulation set P (3.7): the finite pulled-back undef points, at most 4, nearest win first
   const accumulation = (plan, win) => singular(plan, win, ['undef'], 4).map((e) => e.z);
 
@@ -2470,7 +2493,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, inverseKey, prepare, enumerate, sheetKey, front, singular, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, inverseKey, prepare, enumerate, sheetKey, front, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

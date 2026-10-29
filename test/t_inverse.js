@@ -989,5 +989,37 @@ section('(k) homotopy end points');
   check('d/dz is excluded from normalisation', !Inverse.homExact({ type: 'deriv' }) && Inverse.homExact({ type: 'exp' }));
 }
 
+// [issue #276] a last step with no plan that names all of its singular points, finitely many (ζ: its pole 1), after
+// injective steps with one: Inverse.singularAfter pulls them back to the z-plane, and the lines break where their jump
+// scan would, along their whole reach. Anything else keeps the scan (Γ's poles run along a line's reach; a periodic
+// prefix has infinitely many preimages)
+section('singularAfter (ζ after an injective plan)');
+{
+  const pts = (out) => out.map((e) => cs(e.z) + ':' + e.kind).join(' ');
+  // 2z + 1, then ζ: its pole 1 at z = 0; the whole chain has no plan
+  let q = planOf([{ type: 'affine', params: { a: '2', b: '1' } }, { type: 'zeta' }], 0, 1);
+  check('2z + 1 then ζ: the whole chain has no plan, the steps before ζ have one, injective', !Inverse.planChain(q.steps, q.built, 0, 2).ok && q.plan.ok && q.plan.injective);
+  let s = Inverse.singularAfter(q.plan, WIN0, q.built[1].sing, 16);
+  check('… ζ\'s pole pulled back to z = 0', s && s.length === 1 && s[0].kind === 'pole' && CX.abs(s[0].z) < 1e-12, pts(s || []));
+  // the lines through it, refined with these points and with the scan, along their whole reach: the same pieces, broken
+  // at the same places
+  const F = (z) => q.built[1].f(q.built[0].f(z));
+  const brk = (ps) => ps.slice(0, -1).map((p) => cs(C(p[p.length - 2], p[p.length - 1]))).join(' ');
+  for (const sh of [{ kind: 'line', a: [-3, 0], b: [3, 0] }, { kind: 'line', a: [0, -3], b: [0, 3] }, { kind: 'circle', c: [0, 0], r: 0.5 }]) {
+    const cv = Region.curvesOf(sh, WIN0, { reach: 'sphere' });
+    const run = (sg) => Region.Lines.refine(cv, [F], sg, { win: WIN0, origin: [0, 0], maxInsert: 8192, maxEval: 2048 });
+    const a = run(null), b = run(s);
+    check(`… a ${sh.kind} refined with them breaks where the scan breaks it (${a.length} pieces)`, a.length === b.length && a.length >= 1, `${a.length} vs ${b.length}: ${brk(a)} / ${brk(b)}`);
+  }
+  // ζ alone (no steps before it)
+  q = planOf([{ type: 'zeta' }], 0, 0);
+  s = Inverse.singularAfter(q.plan, WIN0, q.built[0].sing, 16);
+  check('ζ alone: its pole at 1', s && s.length === 1 && CX.abs(CX.sub(s[0].z, C(1, 0))) < 1e-15, pts(s || []));
+  // e^z, then ζ: infinitely many preimages of 1 (a periodic prefix): no set, the lines scan
+  q = planOf([{ type: 'exp' }, { type: 'zeta' }], 0, 1);
+  check('e^z then ζ: not injective, so null (the lines scan)', q.plan.ok && !q.plan.injective && Inverse.singularAfter(q.plan, WIN0, q.built[1].sing, 16) === null);
+  check('Γ names no set (its poles run along a line\'s reach): it keeps the scan', Funcs.build(St('gamma')).sing === undefined);
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;

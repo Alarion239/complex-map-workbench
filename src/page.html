@@ -334,6 +334,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-chk small { display: block; font: 400 11.5px/15px var(--f-ui); color: var(--muted); }
 .snd-chk small i { font-family: var(--f-math); }
 .snd-chk.sub { padding: 0 0 6px 24px; }
+.snd-chk input:disabled + span { opacity: .55; }
+.snd-chk:has(input:disabled) { cursor: default; }
+.snd-fine.snd-sub { margin: -2px 0 6px 48px; }
 .snd-offnote { margin: 4px 0 2px; font: var(--t-label); color: var(--ink-2); }
 .snd-fine { margin: 6px 0 0; font: 400 11px/15px var(--f-ui); color: var(--muted); }
 .snd-fine.mono { font: var(--t-micro); }
@@ -2295,7 +2298,12 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   <label class="snd-row snd-main"><span>Sound</span><input type="checkbox" class="snd-switch" id="sndOn" role="switch"></label>
   <!-- (v16.5 UX70) Hear the function first, with one line; it stays off by default. The music theory is under "How it sounds" -->
   <label class="snd-chk snd-hear"><input type="checkbox" id="sndSo"><span><b>Hear the function</b><small><span class="snd-fine-ptr">Notes as you move the pointer over X: round a zero they rise, round a pole they fall.</span><span class="snd-fine-touch">Notes as you drag over X: round a zero they rise, round a pole they fall.</span></small></span></label>
-  <details class="snd-more"><summary>How it sounds</summary><p class="snd-fine"><span data-i18n="html">Silent while you rest; a plucked note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B): a loop round a zero plays a rising scale, round a pole a falling one, and the low Ds count its turns. A closed loop sings its winding number as one note. Cuts, zeros and poles, contours</span></p></details>
+  <div class="snd-mode" role="radiogroup" aria-label="Hear the function as">
+    <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndNotes" value="notes" checked><span><b>Notes</b><small>A marimba note at each colour line</small></span></label>
+    <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndGlide" aria-describedby="sndGlideNo" value="glide"><span><b>Glide</b><small>One continuous voice whose pitch is the colour, while F changes</small></span></label>
+    <p class="snd-fine snd-sub" id="sndGlideNo" hidden>Glide needs a browser with AudioWorklet.</p>
+  </div>
+  <details class="snd-more"><summary>How it sounds</summary><p class="snd-fine"><span data-i18n="html">Silent while you rest. Each time arg <i>F</i> crosses one of the picture's colour lines, a marimba note sounds: red is D, and each line round the Phase key is the next step of a circular scale (a semitone with 12 sectors), so a loop round a zero climbs and round a pole falls. Louder where |<i>F</i>| is larger; while the colour holds, the note sounds again at each band edge of |<i>F</i>|. A branch cut cracks, then plays the colours on either side; glass pings mark a zero, felt thumps a pole. Click a still point (on touch, hold it) to hear it. A closed loop sings its winding number as one note.</span></p></details>
   <label class="snd-row"><span>Volume</span><input type="range" id="sndVol" min="0" max="100" step="1" aria-describedby="sndVolOut"><output id="sndVolOut">70 %</output></label>
   <fieldset class="snd-tiers"><legend>What you hear</legend>
     <p class="snd-offnote" id="sndOffNote">Sound is off: these take effect when it is on.</p>
@@ -2305,7 +2313,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
   <!-- (v16.5 UX88) no keyboard help on a touch screen; the engine line under Diagnostics -->
-  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>

@@ -20,7 +20,7 @@ const Tour = (() => {
   // (api.has(feature) === false: a step falls back to the next scene of its list, or is left out). `look` is the
   // display the copy assumes; the tour applies it with api.setLook right after api.loadScene, so a user's own pattern,
   // opacity or Landscape height never makes the copy false (restore() brings the user's look back).
-  // (v16.4: phaseKey, Y's Phase key; sectors, the phase sectors of Tiles: 12 lines 30° apart, the harp's strings)
+  // (v16.4: phaseKey, Y's Phase key; sectors, the phase sectors of Tiles: 12 lines 30° apart, Hear the function's notes)
   const LOOK = { pattern: 'checker', alpha: null, height: 'log', sheets: false, phaseStyle: 'enhanced', paths: true, allAtOnce: false, phaseKey: false, sectors: 12 };
   const look = (o) => Object.assign({}, LOOK, o || {});
   const SCENES = {
@@ -95,15 +95,15 @@ const Tour = (() => {
       steps: [{ type: 'recip', params: {} }],
     },
     // v16.4 (notes/tour-r3/SPEC.md 4.2): the Grieg example itself, asked from the app at load time (app: its
-    // api.sceneSpec name; the fields here are placeholders), and the phase harp of F = (z − 1)/(z + 1), whose lines of
+    // api.sceneSpec name; the fields here are placeholders), and the phase lines of F = (z − 1)/(z + 1) (Hear the function's notes; the ids harp and harpLoop are kept), whose lines of
     // constant arg F are arcs from the pole −1 to the zero 1, with a circle once round the zero
     song: { name: 'In the Hall of the Mountain King', app: 'song', needs: 'song', look: look({ phaseStyle: 'phase' }), view: { cx: 0, cy: 0, s: 60 }, shapes: [], steps: [] },
     harp: {
-      name: 'Phase harp', needs: 'zp', view: { cx: 0, cy: 0, s: 110 }, fit: { x0: -2, x1: 2, y0: -1.2, y1: 1.2 }, look: look({ phaseStyle: 'enhanced', sectors: 12 }),
+      name: 'Phase lines', needs: 'zp', view: { cx: 0, cy: 0, s: 110 }, fit: { x0: -2, x1: 2, y0: -1.2, y1: 1.2 }, look: look({ phaseStyle: 'enhanced', sectors: 12 }),
       shapes: [], steps: [{ type: 'zp', params: { a: '1', zeros: '1', poles: '-1' } }],
     },
     harpLoop: {
-      name: 'Phase harp', needs: 'zp', view: { cx: 0, cy: 0, s: 110 }, fit: { x0: -2, x1: 2, y0: -1.2, y1: 1.2 }, look: look({ phaseStyle: 'enhanced', sectors: 12 }),
+      name: 'Phase lines', needs: 'zp', view: { cx: 0, cy: 0, s: 110 }, fit: { x0: -2, x1: 2, y0: -1.2, y1: 1.2 }, look: look({ phaseStyle: 'enhanced', sectors: 12 }),
       shapes: [{ kind: 'circle', c: [1, 0], r: 0.6 }], steps: [{ type: 'zp', params: { a: '1', zeros: '1', poles: '-1' } }],
     },
   };
@@ -122,7 +122,8 @@ const Tour = (() => {
   // step with no task, with tryWide or with try.after); try.then, the result line once the task is done; try.after, an
   // earlier step of the chapter whose task must have been done in this run for this one to show; act: 'listen' (the
   // strip's Listen button) or 'sound' (Turn on sound, while the sound is not ready); hear: the step turns Hear the
-  // function on (the user's setting comes back); captions: [[seconds, text]] shown while the step's piece plays.
+  // function on (the user's setting comes back); captions: [[seconds, text]] shown while the step's piece plays
+  // (capFrac: [[fraction of the playback, text]], for a Listen along whose duration is the curve's length at the zoom).
   // A task step moves on by itself CD_MS (1.5 s) after it is done (SPEC 2); try.advance (a door) after 0.7 s.
   // (r3 review: try.off, the task while the sound is off, on a step whose act button turns it on; try.hint { on, test,
   // text, touch }, a line shown in place of the task when that event says the attempt went wrong)
@@ -336,25 +337,29 @@ const Tour = (() => {
     {
       // v16.4 (notes/tour-r3/SPEC.md 4): hear, then how, then a closed curve; the sound settings step moved in from
       // Palette and keys. No step plays on arrival: music starts only from the strip's Listen
-      id: 'sound', title: 'Sound', time: '1½ min', rev: 1, scene: 'song', needs: 'sound',
+      id: 'sound', title: 'Sound', time: '1½ min', rev: 2, scene: 'song', needs: 'sound',
       steps: [
         { id: 'song', anchor: 'panes', needs: 'song', act: 'listen', title: 'Grieg on a curve', before: [['deform', false], ['view', 'phase'], ['surface', 'L', 'plane'], ['tool', 'select']],
-          body: 'Grieg\'s theme as one curve: the spiral in X under $F(z)=z^{-2+24i}$. Listen along walks it at an even pace and plays $\\arg F$ as pitch, on the piece\'s own strings. Each turn is $0.77$ of the one before, so the theme comes $1.3$ times as fast.',
-          try: { text: 'Press ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || (!!e.piece && (!!e.full || e.heard >= 9)), then: 'Every note was $\\arg F$ crossing one of the piece\'s strings.' },
-          // (the score's drum ticks are at 0.45, 8.90, 15.40 and 20.40 s of its 22.97 s: test/fixtures/seasong_score.json)
-          captions: [[0, 'Each note is a phase line crossed: $\\arg F$ is the pitch.'], [8.9, 'The cut: a drum. The next turn is smaller, so faster.'], [15.4, 'Each turn is $0.77$ of the last: $1.3$ times as fast.'], [20.4, 'The ending is ours: three rolled B-minor chords.']] },
-        { id: 'strings', anchor: 'panes', needs: 'zp', hear: true, act: 'sound', title: 'Phase lines are strings', before: [['scene', 'harp'], ['view', 'phase'], ['tool', 'select']],
-          body: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are strings a semitone apart, with D where $F>0$. Hear the function plucks five, D, E, F♯, A and B, as the pointer crosses them. Anticlockwise round a zero the scale rises; round a pole it falls.',
-          touch: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are strings a semitone apart, with D where $F>0$. Hear the function plucks five, D, E, F♯, A and B, as your finger crosses them. Anticlockwise round a zero the scale rises; round a pole it falls.',
-          try: { text: 'Circle the zero $1$, then the pole $-1$.', touch: 'Hold near $1$, slide round it, then round $-1$.', on: 'harp-turn', test: harpUpDown, then: 'A scale up and a scale down: one turn of $\\arg F$ each.' } },
+          body: 'Grieg\'s theme played by a function: along the unit circle $\\arg F$ climbs in steps, one for each note. Listen along walks the circle at an even pace and plays each colour line $\\arg F$ crosses; the branch cut before each downbeat is the drum.',
+          try: { text: 'Press ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || ((!!e.piece || !!e.fn) && (!!e.full || e.heard >= Math.min(9, 0.45 * (e.dur || 20)))), then: 'Every note was $\\arg F$ crossing one of its colour lines.' },
+          // (v16.5, Hear the function: Listen along plays the function, so the captions are fractions of its duration
+          // (capFrac), which is the path's length at 250 px/s and so the zoom's: the cuts, each statement's downbeat, at
+          // 0.004, 0.283, 0.503 and 0.782 of the two laps (test/t_seasong.js's path), each 82 ms before its downbeat;
+          // |F| is constant: each step is a pair of branch points)
+          capFrac: true,
+          captions: [[0, 'Each note is a phase line crossed: $\\arg F$ is the pitch.'], [0.2, 'Each step is two branch points, one each side of the circle.'], [0.29, 'The crack is the branch cut. The theme again, faster.'], [0.51, 'The second lap is the same circle: the same notes.']] },
+        { id: 'strings', anchor: 'panes', needs: 'zp', hear: true, act: 'sound', title: 'Phase lines are notes', before: [['scene', 'harp'], ['view', 'phase'], ['tool', 'select']],
+          body: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line the pointer crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.',
+          touch: 'The portrait\'s lines, every $30^\\circ$ of $\\arg F$, are notes a semitone apart, with D where $F>0$. Hear the function plays each line your finger crosses as a marimba note. Anticlockwise round a zero the scale rises; round a pole it falls.',
+          try: { text: 'Circle the zero $1$, then the pole $-1$.', touch: 'Hold near $1$, slide round it, then round $-1$.', on: 'hear-turn', test: harpUpDown, then: 'A scale up and a scale down: one turn of $\\arg F$ each.' } },
         { id: 'loop', anchor: 'panes', needs: 'zp', act: 'listen', title: 'A loop sings its number', before: [['scene', 'harpLoop'], ['view', 'phase'], ['tool', 'select']],
-          body: 'Listen along a closed curve plucks the same strings, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.',
+          body: 'Listen along a closed curve plays the same notes, then sings one note: its winding number $W$, the zeros minus the poles inside. This circle goes once round the zero $1$, so $W=1$, sung as F♯.',
           try: { text: 'Press ▶ to listen.', touch: 'Tap ▶ to listen.', off: 'Press ▶ to turn sound on and listen.', on: 'listen-ended', test: (e) => !e || (!!e.closed && e.W === 1 && !!e.full), then: '$W=1$: one turn of $\\arg F$, sung as F♯.' } },
         { id: 'settings', anchor: ['soundBtn', 'soundBar', 'moreBtn'], needs: 'sound', title: 'Sound settings',
           lead: 'Turn sound, or Hear the function, on or off here.',
-          body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: a harp plucks each phase line of $\\arg F$, and a loop sings its number.',
-          narrow: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. To hear the function, turn it on there: a harp plucks each phase line of $\\arg F$, and a loop sings its number.',
-          touch: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. To hear the function, turn it on here: a harp plucks each phase line of $\\arg F$, and a loop sings its number.' },
+          body: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here or with {Shift}{M}. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.',
+          narrow: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off in this menu. To hear the function, turn it on there: each colour line that $\\arg F$ crosses plays a note.',
+          touch: 'Sound is on by default: quiet cues confirm what you do, and a closed loop plays its winding number. Turn it off here. To hear the function, turn it on here: each colour line that $\\arg F$ crosses plays a note.' },
       ],
     },
     {
@@ -387,7 +392,8 @@ const Tour = (() => {
       ],
     },
   ];
-  // the Phase lines are strings task: a lap up and a lap down (a low D counted each way), whichever point gave which
+  // the Phase lines task: a lap up and a lap down (red's line, D, crossed each way: the event hear-turn), whichever
+  // point gave which
   function harpUpDown(e, m) {
     if (!e) return true;
     m = m || {};
@@ -1829,11 +1835,14 @@ const Tour = (() => {
   function startCaptions(r, e) {
     stopCaptions(r);
     const step = r.step;
-    if (!step || !step.captions || !(e && e.piece)) return;
+    // (the step's piece: the composition, or the function's own Listen along; capFrac scales by its duration)
+    if (!step || !step.captions || !(e && (e.piece || e.fn))) return;
+    const k = step.capFrac ? (Number.isFinite(e.dur) && e.dur > 0 ? e.dur : 0) : 1;
+    if (!(k > 0)) return;
     const t0 = performance.now();
     r.capT = [];
     for (const [sec, text] of step.captions) {
-      const at = Math.max(0, sec * 1000 - (performance.now() - t0));
+      const at = Math.max(0, sec * k * 1000 - (performance.now() - t0));
       r.capT.push(setTimeout(() => { if (run !== r || r.step !== step) return; r.caption = text; paintLead(r); r.ui.live.textContent = plainCopy($t(text), modKey()); }, at));
     }
   }

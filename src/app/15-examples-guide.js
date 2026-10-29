@@ -76,12 +76,17 @@
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
-    // a melody on a curve (notes/sea-song): Edvard Grieg's theme (1875, public domain) in our own adaptation for the
-    // phase harp, one curve spiralling into 0 under SEASONG.tex (src/seasong.js, made by tools/melody_curve.js). Listen along
-    // plays it with its own tempo and dynamics (the shape's listen: sndListenOf); fit: the box kept in view
+    // a melody played by a function (notes/sea-song/FUNCTION.md): F = H(u(z)), src/seasong.js made by
+    // tools/mk_function.js. H is a theme wheel: 25 Apollonius pairs of branch points, one just inside |u| = 1 and one
+    // just outside, one pair a melodic step; on |u| = 1, |H| is constant and arg H a staircase on Grieg's theme (the
+    // downbeat is u^s's branch cut, 82 ms ahead), so the sound's fixed map plays it: each colour line crossed is a
+    // note, the cut is the crack. u = ((z - a)/(1 - az))^2, a disk automorphism squared: twice round a lap, faster
+    // near z = a. No score and no special rule: the curve is two laps of the unit circle (song: the example's curve,
+    // sndIsSong), played by Listen along at 250 px/s (19.1 s at view.s 380: four statements, 5.35 then 4.20 s a lap).
+    // sectors: the Phase key's n (12, a line a semitone); fit: the box kept in view
     {
-      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
-      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
+      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle\'s menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, and the branch cut just before every downbeat is the drum.'),
+      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, song: true, nameKey: 'circle' }], steps: SEASONG.steps, sectors: SEASONG.sectors, song: true, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
     },
     // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
@@ -1062,7 +1067,7 @@
       EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
-      setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
+      setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
       tourOn: (ev, f) => tourApi.on(ev, f),

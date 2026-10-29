@@ -149,13 +149,15 @@
     const ctx = pane.ctx;
     let pi = 0;
     const labels = [];
-    if (!opt.thin) labelCurves(pane, F, opt.list || S.shapes);   // labels keep off these curves
-    for (const s of opt.list || S.shapes) {
+    // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
+    const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
+    if (!opt.thin) labelCurves(pane, F, list.filter((s) => !shapeStage(s)));   // labels keep off these curves
+    for (const s of list) {
       if (s.visible === false || kindType(s) !== 'point') continue;
       const mk = Construct.pointMark(s);   // (v16: 'helper' | 'ring' | null)
       const idx = mk === 'helper' ? -1 : pi++;
       if (s._atInf) continue;
-      const w = F(C(s.p[0], s.p[1]));
+      const w = (opt.list ? F : shapeF(s, F, opt.k))(C(s.p[0], s.p[1]));
       if (!CX.isFin(w)) continue;
       const [x, y] = pane.w2s(w);
       if (x < -20 || y < -20 || x > pane.w + 20 || y > pane.h + 20) continue;
@@ -166,7 +168,7 @@
         const rr = mk === 'helper' ? (opt.thin ? 2 : 2.75) : (opt.thin ? 2.4 : 3.5);
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
         ctx.strokeStyle = ink.edge; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
-        if (!opt.thin && s.id === selected && opt.domain) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
+        if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
         if (!opt.thin && mk !== 'helper') labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, opt.primes || 0), word: !!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
         continue;
       }
@@ -174,7 +176,7 @@
       ctx.strokeStyle = TH.halo;
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, opt.thin ? 2.6 : 4, 0, TAU); ctx.stroke(); ctx.fill();
-      if (!opt.thin && s.id === selected && opt.domain) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
+      if (!opt.thin && s.id === selected && (opt.domain || (opt.editK > 0 && shapeStage(s) === opt.editK))) { ctx.strokeStyle = ink.edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 8, 0, TAU); ctx.stroke(); }
       if (!opt.thin) labels.push({ x, y, text: opt.target ? targetLabel(s, idx) : pointLabel(s, idx, opt.primes || 0), word:!!(s.label && (I18N.lang === 'en' ? /\s|[A-Za-z]{3,}/ : /\s|\p{L}{3,}/u).test(s.label)) });
     }
     if (labels.length) placeLabels(ctx, pane, labels);
@@ -321,12 +323,14 @@
     ctx.restore();
   }
   // orientation chevrons: at mid-length of open curves and at angle 0 of closed boundaries
-  function drawChevrons(pane, F) {
+  function drawChevrons(pane, F0, k) {
     if (artMode) return;
     if (!S.chev) return;
     const ctx = pane.ctx;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || s.kind === 'cgrid' || s.kind === 'pgrid') continue;
+      const F = shapeF(s, F0, k);   // ([#253] a later plane's shape: its image, from its own plane)
+      if (!F) continue;
       const r = gpu.get(s.id);
       if (!r || !r.polys) continue;
       ctx.strokeStyle = shapeInk(s).edge; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';

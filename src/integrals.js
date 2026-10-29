@@ -337,7 +337,7 @@ const Integrals = (() => {
     }
     return true;
   }
-  // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?}]. The curve
+  // the line integral item of one curve near pane pixel (x, y), and its Listen along: [{label, run, listen?, piece?}]. The curve
   // is the shape prefer (the one under the pointer) when it passes there, else the nearest (issue #13: one integral,
   // not one per curve in reach)
   function integralItems(pane, side, x, y, cx, cy, prefer) {
@@ -346,8 +346,15 @@ const Integrals = (() => {
     const near = [all.find((n) => n.s.id === prefer) || all[0]];
     const names = shapeNames();
     // (v16.5 V03: the label, its variable and its closed-curve test are intLabel's, shared with the palette)
+    /** @type {{ label: string, run: () => any, listen?: boolean, piece?: boolean }[]} */
     const items = near.map(({ s }) => ({ label: intLabel(s, names), run: () => openIntegralPop(s.id, cx, cy) }));
-    if (SND) for (const { s } of near) if ((A.sndP.on && A.sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play ? sndStopPlay(true) : sndListenAsk(s)) });
+    if (SND) {
+      for (const { s } of near) {
+        if ((A.sndP.on && A.sndP.events) || sndListenOf(s)) items.push({ listen: true, label: snd.play || snd.prep ? $t('Stop listening') : $t('Listen along {name}', { name: names.get(s.id) || Region.KINDS[s.kind].label }), run: () => (snd.play || snd.prep ? sndStopPlay(true) : sndListenAsk(s)) });
+        // (a composed curve, once Listen along plays the function: its score has its own item)
+        if (SND.along && !snd.play && sndListenOf(s)) items.push({ piece: true, label: $t('Play the composition (Grieg, arranged on this curve)'), run: () => sndListenAsk(s, true) });
+      }
+    }
     return items;
   }
   // TEMP-DEBUG-HOOK

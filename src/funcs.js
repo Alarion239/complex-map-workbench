@@ -1451,6 +1451,9 @@ const Funcs = (() => {
         tex: (a) => ({ s: `\\zeta${paren(a.s)}`, p: 3 }),
         props: props({ analytic: true }),
         poles: [C(1, 0)], domain: (v) => `${v}\\neq 1`,
+        // ([issue #276] all of its singular points, finitely many, for the lines of a chain with no inverse plan. Γ has
+        // none such: its poles 0, −1, −2, … run along a line's whole reach, which only the scan follows)
+        sing: () => [{ z: C(1, 0), kind: 'pole' }],
         inverseNote: $t('ζ takes each value infinitely often, so it has no single inverse; {note}', { note: NOTE_PRE }),
       };
     },
@@ -2377,6 +2380,33 @@ const Funcs = (() => {
     };
   }
   // Evaluate raw params and build. Returns built object or {error}.
+  // A formula step's display form (params.show, TeX written in z): a short readable form the Inspector shows in place of
+  // the expanded formula, for display only (the map, the field's text, the copied LaTeX and the export keep the formula).
+  // It holds while the formula is the one it was written for: params.showOf = showKey(params.expr), FNV-1a (32 bits,
+  // 8 hex digits) of the formula's text as UTF-16 code units, trimmed; an edited formula drops it, and Undo brings it back.
+  function showKey(expr) {
+    const s = String(expr == null ? '' : expr).trim();
+    let x = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 0x01000193) >>> 0;
+    return x.toString(16).padStart(8, '0');
+  }
+  // the display form in the step's own input (a = {s, p} as tex takes): each letter z outside control words and outside
+  // \text-like groups becomes the input, in brackets unless it is an atom; the result counts as a sum (p 0)
+  function showIn(tex, a) {
+    const v = !a || a.s === 'z' ? 'z' : a.p >= 4 ? `{${a.s}}` : `\\left(${a.s}\\right)`;
+    const s = v === 'z' ? tex : tex.replace(/\\(?:text|textit|textbf|mathrm|operatorname|mbox)\s*\{[^{}]*\}|\\[a-zA-Z]+|z/g, (m) => (m === 'z' ? v : m));
+    return { s, p: 0 };
+  }
+  // (a link or a scene carries params.show as it was written, and MathJax typesets it as soon as it opens: a display
+  // form that links, styles, names DOM nodes, loads extensions, defines macros or writes MathML is refused, and the
+  // formula itself is shown)
+  const SHOW_BAD = /\\(?:href|url|style|class|cssId|data|html|require|unicode|newcommand|renewcommand|newenvironment|renewenvironment|def|let|edef|gdef|mmlToken|tag|label|ref|eqref|begingroup|endgroup)(?![a-zA-Z])/;
+  function withShow(b, p) {
+    const t = p && typeof p.show === 'string' ? p.show.trim() : '';
+    if (!t || !b || b.error || p.showOf !== showKey(p.expr) || SHOW_BAD.test(t)) return b;
+    b.show = (a) => showIn(t, a);
+    return b;
+  }
   function build(step) {
     const d = DEFS[step.type];
     if (!d) return { error: $t('Unknown function {f}', { f: step.type }) };
@@ -2398,7 +2428,8 @@ const Funcs = (() => {
           default: v[q.key] = raw;
         }
       }
-      return finish(d, v);
+      const b = finish(d, v);
+      return d.id === 'custom' ? withShow(b, step.params) : b;
     } catch (e) {
       return { error: e.message, def: d };
     }
@@ -2551,6 +2582,21 @@ const Funcs = (() => {
   function applyRepeats(steps, built) {
     if (!steps.some((st) => st && st.repeat)) return built;
     return built.map((b, i) => (repeatOk(steps, i + 1) ? repeatBuilt(steps, built, i + 1) : b));
+  }
+
+  // ---------------- [#253] a shape's plane follows its step ----------------
+  // A shape of plane k (the output of step k, k >= 1) belongs to the plane after that step: after the chain is edited
+  // (old -> cur, the step objects), its plane is after the same step, wherever it went; when that step is gone (removed,
+  // replaced, split into several), the plane before the first later step still in the chain (a removed step's input, a
+  // replaced step's output, after the last of a split's steps), or the end of the chain. -> the new stage (0: z)
+  function stageFollow(old, cur, k) {
+    if (!(k >= 1)) return 0;
+    const after = old[k - 1];
+    if (!after) return Math.min(k, cur.length);
+    const i = cur.indexOf(after);
+    if (i >= 0) return i + 1;
+    for (let p = k; p < old.length; p++) { const q = cur.indexOf(old[p]); if (q >= 0) return q; }
+    return cur.length;
   }
 
   // ---------------- stage functions (CPU) ----------------
@@ -2972,8 +3018,8 @@ const Funcs = (() => {
   }
 
   return {
-    DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
+    DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
+    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();
