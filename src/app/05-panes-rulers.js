@@ -938,7 +938,7 @@
   function globeResult(role, s, res, live, fwd) {
     if (live && res === 'pending' && fwd) noteStandIn(role, s.id, fwd.map((f) => [f.res, f.st && f.st.cacheKey]));
     if (live) notePath(role, s.id, res === 'drawn' ? 'inverse' : res === 'pending' ? 'pending' : 'forward');
-    if (res === 'pending') { if (live) invWaiting.add(role); else thumbNotFinal = true; }
+    if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
     else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
     if (res === 'error' && GLR.inverseStatus(S.alpha, 'globe') === 'error') {
       const k = (GLR.inverseInfo || {}).key || '';
