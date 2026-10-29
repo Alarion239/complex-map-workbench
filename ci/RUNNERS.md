@@ -224,6 +224,8 @@ idle page: stuck).
 
 ## Troubleshooting
 
+Any other Mac runner problem: open an issue with the label `mac-runner`; Alexander's local agent on the Mac picks it up.
+
 | symptom | fix |
 |---|---|
 | Jobs stay *Queued* | The machine is asleep, logged out, or its runner is not started (section 3 step 4, section 4 step 4). *Settings → Actions → Runners* shows *Offline*. |
