@@ -300,6 +300,10 @@
     add('repeat mobius x4', [S('affine', { a: '0.5', b: '0' }), Rp(S('mobius', { a: '1', b: '0.3', c: '-0.3', d: '1' }), 4, 1)]);
     add('repeat exp mul x2 d/dz', [S('mul', { c: '0.4' }), Rp(S('exp'), 2, 2), S('deriv')]);
     add('repeat with a bypassed step', [S('sin'), S('pown', { n: 3 }, false), Rp(S('mul', { c: '0.7+0.2i' }), 3, 3)]);
+    // (the block's steps once, in a loop whose trip count N − 1 is a uniform: Newton's map for z³ − 1 twenty times, and
+    // a block of two steps N = 2, one loop pass)
+    add('repeat newton x20', [Rp(S('custom', { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }), 20, 1)]);
+    add('repeat sin affine x2', [S('sin'), Rp(S('affine', { a: '0.8+0.3i', b: '0.1' }), 2, 2)]);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });

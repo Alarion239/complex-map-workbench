@@ -70,8 +70,10 @@
   }
   // ---------------- [issue #6] Repeat × N: a bracket under the cards of each block, with its N ----------------
   // step.repeat = {n, len} on a block's last step (Funcs.applyRepeats). The line runs under the block's cards; its
-  // chip holds N (1 … Funcs.REPEAT_MAX: typed, or the arrow keys) and a button that ends the repeat.
-  const repeatBlocks = () => S.steps.map((st, i) => { const rp = Funcs.repeatOk(S.steps, i + 1); return rp ? { a: i + 2 - rp.len, b: i + 1, n: rp.n } : null; }).filter(Boolean);
+  // chip holds N (1 … Funcs.REPEAT_MAX: typed, or the arrow keys), or the name of a shared number whose value, rounded,
+  // is N (repeat.by: its slider or Play runs the passes; the GPU keeps one program, N a uniform), and a button that
+  // ends the repeat.
+  const repeatBlocks = () => S.steps.map((st, i) => { const rp = Funcs.repeatOk(S.steps, i + 1); return rp ? { a: i + 2 - rp.len, b: i + 1, n: rp.n, by: rp.by || null } : null; }).filter(Boolean);
   function setRepeat(k, rp) {
     const st = S.steps[k - 1];
     if (!st) return;
@@ -88,18 +90,35 @@
     blocks.forEach((r, i) => {
       let L = els[i];
       if (!L) {
-        const inp = h('input', { class: 'rep-n', type: 'number', min: '1', max: String(Funcs.REPEAT_MAX), step: '1', inputmode: 'numeric' });
-        // (N applies once typing settles, so 12 compiles one program, not N = 1 then N = 12; at once on change)
+        const inp = h('input', { class: 'rep-n', type: 'text', inputmode: 'text', autocomplete: 'off', spellcheck: 'false', 'data-tip': $t('Times: a whole number, or a number’s name to run its slider') });
+        // (N applies once typing settles, so 12 builds the chain once, not for N = 1 then N = 12; at once on change)
         let settle = 0;
+        const show = (st) => { inp.value = st.repeat.by ? Params.display(st.repeat.by) : String(st.repeat.n); };
         const apply = () => {
           clearTimeout(settle);
-          const v = Math.round(Number(inp.value)), k = +L.dataset.k, st = S.steps[k - 1];
-          if (!st || !st.repeat || !Number.isFinite(v) || v < 1 || v > Funcs.REPEAT_MAX || v === st.repeat.n) return;
-          st.repeat = { n: v, len: st.repeat.len };
+          const t = inp.value.trim(), k = +L.dataset.k, st = S.steps[k - 1];
+          if (!st || !st.repeat) return;
+          const ns = /^\d+$/.test(t) ? [] : Params.namesIn(t), v = Number(t);
+          let rp = null;
+          if (ns.length === 1 && Params.get(ns[0]) !== undefined) { if (st.repeat.by !== ns[0]) rp = { n: st.repeat.n, len: st.repeat.len, by: ns[0] }; }
+          else if (/^\d+$/.test(t) && v >= 1 && v <= Funcs.REPEAT_MAX && (v !== st.repeat.n || st.repeat.by)) rp = { n: v, len: st.repeat.len };
+          if (!rp) return;
+          st.repeat = rp;
           chainChanged(false);
         };
         inp.addEventListener('input', () => { clearTimeout(settle); settle = setTimeout(apply, 400); });
-        inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) inp.value = String(st.repeat.n); commit(); });
+        inp.addEventListener('change', () => { apply(); const k = +L.dataset.k, st = S.steps[k - 1]; if (st && st.repeat) show(st); commit(); });
+        // (the arrow keys step a typed N, as a number field does)
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+          const k = +L.dataset.k, st = S.steps[k - 1];
+          if (!st || !st.repeat || st.repeat.by) return;
+          e.preventDefault();
+          const v = Math.min(Funcs.REPEAT_MAX, Math.max(1, st.repeat.n + (e.key === 'ArrowUp' ? 1 : -1)));
+          if (v === st.repeat.n) return;
+          st.repeat = { n: v, len: st.repeat.len };
+          show(st); chainChanged(false); commit();
+        });
         const off = h('button', { class: 'rep-off', type: 'button', 'aria-label': $t('End the repeat'), 'data-tip': $t('End the repeat'), onclick: (e) => { e.stopPropagation(); setRepeat(+L.dataset.k, null); } }, '×');
         L = h('div', { class: 'rep-bracket' }, h('div', { class: 'rep-line', 'aria-hidden': 'true' }),
           h('div', { class: 'rep-chip' }, h('span', { class: 'rep-x', 'aria-hidden': 'true' }, '×'), inp, off));
@@ -108,7 +127,7 @@
       }
       L.dataset.k = String(r.b);
       const inp = /** @type {HTMLInputElement} */ (L.querySelector('.rep-n'));
-      if (document.activeElement !== inp) inp.value = String(r.n);
+      if (document.activeElement !== inp) inp.value = r.by ? Params.display(r.by) : String(r.n);
       inp.setAttribute('aria-label', r.a === r.b ? $t('Repeat f{k}: times', { k: sub(r.b) }) : $t('Repeat f{a}–f{b}: times', { a: sub(r.a), b: sub(r.b) }));
       const ca = /** @type {HTMLElement} */ (host.querySelector(`.card[data-k="${r.a}"]`)), cb = /** @type {HTMLElement} */ (host.querySelector(`.card[data-k="${r.b}"]`));
       if (!ca || !cb) { L.hidden = true; return; }
