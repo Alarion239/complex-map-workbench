@@ -577,3 +577,9 @@ const Integrals = (() => {
   }
   return { init, curvePieces, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, plotF };
 })();
+import { $, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Calc } from './calc.js';
+import { Region } from './region.js';
+import { Curves } from './curves.js';
+export { Integrals };

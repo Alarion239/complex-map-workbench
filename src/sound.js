@@ -1954,3 +1954,4 @@ registerProcessor('cmw-limit', Limit);`;
 // the sound popover (page.html #sndPop) sits outside #app, which the app's walker translates: in another interface
 // language its static strings are translated here, once, at load (src/i18n.js; English: nothing runs)
 if (typeof document !== 'undefined' && typeof I18N !== 'undefined' && I18N.lang !== 'en') { const pop = document.getElementById('sndPop'); if (pop) I18N.applyStatic(pop); }
+export { HT_LIB, SND_LIB, Sound };

@@ -613,3 +613,6 @@ const Inspector = (() => {
   }
   return { create, typeIcon, regionIcon, STRONG };
 })();
+import { Construct } from './construct.js';
+import { Params } from './params.js';
+export { Inspector };

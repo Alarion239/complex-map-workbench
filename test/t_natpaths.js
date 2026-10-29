@@ -7,6 +7,10 @@
 global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 const F = require('../src/funcs.js');
+const Recognize = require('../src/recognize.js');
+// a build with Recognize declining (its guard refusing a reading): the formula's own path, the page's fallback. Only on
+// a formula's first build: a reading is cached by the formula
+const noRec = (f) => { const chain = Recognize.chain; Recognize.chain = () => null; try { return f(); } finally { Recognize.chain = chain; } };
 const { C } = CX;
 let checks = 0, failed = 0;
 const check = (name, cond, got) => { checks++; if (!cond) { failed++; console.log('FAIL', name, got === undefined ? '' : JSON.stringify(got)); } };
@@ -22,7 +26,7 @@ const STEPS = TYPES.map((t) => [t, S(t)]).concat([
   ['poly z^3 - z', S('poly')], ['poly (z-1)(z-2)(z+3i)', S('poly', { co: '1, -3+3i, 2-9i, 6i' })],
   ['rational default', S('rational')], ['rational (z-2)/(z-1)', S('rational', { p: '1, -2', q: '1, -1' })], ['rational (z-1)/(z-2)', S('rational', { p: '1, -1', q: '1, -2' })],
   ['rational 1/(z^2+1)', S('rational', { p: '1', q: '1, 0, 1' })], ['custom cos z', S('custom', { expr: '\\cos z' })], ['custom rational', S('custom', { expr: '\\frac{z^2-1}{z^2+1}' })],
-  ['custom e^z', S('custom', { expr: 'e^{z}' })], ['custom log z cut 90', S('custom', { expr: '\\log z', cut: 90 })], ['custom z^{-7}', S('custom', { expr: 'z^{-7}' })],
+  ['custom e^z', S('custom', { expr: 'e^{z}' })], ['custom log z cut 90', S('custom', { expr: '\\log z', cut: 90 })], ['custom z^{-7}, Recognize declining', noRec(() => S('custom', { expr: 'z^{-7}' }))],
 ]);
 
 // (a) the ends, exact; (b) continuity at the ends (t = 1e-7, 1 - 1e-7) and at the first frames (t = 4e-6);
@@ -102,9 +106,10 @@ check('poly z^3 - z: H_0.5\'(0) != 0', CX.abs(dH(S('poly').hom(0.5), C(0, 0))) >
 // (z - 1)(z - 3): one critical point, p + (2 - p)/t, never a double zero at a generic t
 const P13 = S('poly', { co: '1, -4, 3' });
 check('poly (z-1)(z-3): H_t\' vanishes only at p + (2 - p)/t', [0.268, 0.5, 0.8].every((t) => { const c = CX.add(P13.natData.p, CX.scale(CX.sub(C(2, 0), P13.natData.p), 1 / t)); return CX.abs(dH(P13.hom(t), c)) < 1e-5 && CX.abs(dH(P13.hom(t), C(0.2679, 0))) > 1e-3; }));
+// (a custom z^n is Recognize's catalog step z^n: a chain of that one step)
 for (const [name, b] of [['poly 1, 0, 0', S('poly', { co: '1, 0, 0' })], ['custom z^2', S('custom', { expr: 'z^2' })], ['custom z^3', S('custom', { expr: 'z^{3}' })]]) {
   const n = name.endsWith('3') ? 3 : 2, pw = S('pown', { n });
-  check(`${name}: the power path of z^${n}`, b.nat && b.nat.kind === 'pow' && pts.every((z) => rel(b.hom(0.4)(z), pw.hom(0.4)(z)) < 1e-12), b.nat);
+  check(`${name}: the power path of z^${n}`, b.nat && b.nat.kind === (name.startsWith('custom') ? 'chain' : 'pow') && pts.every((z) => rel(b.hom(0.4)(z), pw.hom(0.4)(z)) < 1e-12), b.nat);
 }
 const Pc = S('poly', { co: '2, -4, 2' });
 check('poly 2(z-1)^2: the power path about 1', Pc.nat.kind === 'pow' && rel(Pc.hom(0.5)(C(3, 1)), CX.add(C(0.5, 0), CX.mul(C(Math.SQRT2, 0), CX.pow(C(2, 1), C(1.5, 0), Math.PI, 0)))) < 1e-12);
@@ -131,16 +136,24 @@ check('all at once: H_0 = id, H_1 = F', pts.every((z) => CX.abs(CX.sub(allAt(0)(
 // (i) the same map deforms the same way however it was entered (degree 1: the Moebius group; c J: the Joukowski
 // path; z^n: the power path), and any analytic formula gets a natural path
 const same = (b1, b2, ts = [0.3, 0.6]) => ts.every((t) => pts.every((z) => { const u = b1.hom(t)(z), v = b2.hom(t)(z); return !CX.isFin(v) || CX.abs(v) > 1e6 || rel(u, v) < 1e-9; }));
-check('custom 1/z = the recip step', S('custom', { expr: '\\frac{1}{z}' }).nat.kind === 'mob' && same(S('custom', { expr: '\\frac{1}{z}' }), S('recip')));
+check('custom 1/z = the recip step', S('custom', { expr: '\\frac{1}{z}' }).nat.kind === 'chain' && same(S('custom', { expr: '\\frac{1}{z}' }), S('recip')));
 check('rational (z-1)/(z-2) = the Moebius step', same(S('rational', { p: '1, -1', q: '1, -2' }), S('mobius', { a: '1', b: '-1', c: '1', d: '-2' })));
 check('custom (z+1/z)/2 = the Joukowski step', same(S('custom', { expr: '\\frac{1}{2}\\left(z+\\frac{1}{z}\\right)' }), S('joukowski')));
 const R2 = S('rational');
 check('default rational (z^2+1)/z = 2J: the Joukowski path times 2^t, conjugation-symmetric outside the disk (the disk branch puts the cut on the lower semicircle)', R2.nat.kind === 'jouk' && [0.3, 0.5].every((t) => conjSym(R2, t, pts.slice(0, 30).filter((z) => CX.abs(z) > 1.05))) && rel(R2.hom(0.5)(C(2, 1)), CX.scale(JD.hom(0.5)(C(2, 1)), Math.SQRT2)) < 1e-12);
-for (const e of ['e^{2z}', '\\sin(2z)', '2\\sin z', '\\cos z+1', '\\sqrt{z}', 'z^{1/2}', '\\sin(2z)+z', 'z\\,e^{z}']) {
+// (Recognize writes the first ones as catalog steps, e^{2z} as 2z then exp: the chain of their paths; the others keep
+// the generic zoom)
+for (const e of ['e^{2z}', '\\sin(2z)', '2\\sin z', '\\cos z+1', '\\sqrt{z}', 'z^{1/2}']) {
+  const b = S('custom', { expr: e });
+  check(`custom ${e}: the chain of its catalog steps, conjugation-symmetric for a real map`, b.nat && b.nat.kind === 'chain' && conjSym(b, 0.5, pts.slice(0, 20).filter((z) => Math.abs(z.im) > 0.05)), b.nat);
+}
+for (const e of ['\\sin(2z)+z', 'z\\,e^{z}']) {
   const b = S('custom', { expr: e });
   check(`custom ${e}: a natural path (the generic zoom), real centre for a real map`, b.nat && b.nat.kind === 'gzoom' && b.natData.p.im === 0 && conjSym(b, 0.5, pts.slice(0, 20).filter((z) => Math.abs(z.im) > 0.05)), b.nat);
 }
-check('custom sqrt z: zoom about 1 (its cut flies in from -infinity)', S('custom', { expr: '\\sqrt{z}' }).natData.p.re === 1);
+check('custom sqrt z = the square root step', same(S('custom', { expr: '\\sqrt{z}' }), S('root', { n: 2 })));
+// (1/z^7: z^{-7} itself was built above with Recognize declining)
+check('custom 1/z^7 = the power step z^{-7}', same(S('custom', { expr: '\\frac{1}{z^{7}}' }), S('pown', { n: -7 }), [1e-7, 4e-6, 0.3, 0.6, 1 - 1e-7]));
 const zp = F.zerosPolesNat(C(1, 0), [C(2, 0)], [C(1, 0)], (z) => CX.div(CX.sub(z, C(2, 0)), CX.sub(z, C(1, 0))));
 check('zeros and poles of degree 1: the Moebius path of the rational step', zp.nat.kind === 'mob' && same(zp, S('rational', { p: '1, -2', q: '1, -1' })));
 // (j) captions: every catalog step names its path; the fallback says it is a straight line and why
@@ -155,8 +168,10 @@ check('a constant: the straight line, said so', !cst.nat && /straight-line/.test
 const odd = S('custom', { expr: '\\overline{z}+z' });
 check('a formula that is not analytic: the straight line, said so', !odd.nat && /not analytic/.test(odd.homTex('z').tex), odd.homTex && odd.homTex('z').tex);
 // an analytic formula with no usable zoom centre (genericZoomNat null: |f'| < 10⁻⁶ everywhere) is analytic: the caption says why, not "not analytic"
-const nop = S('custom', { expr: '10^{-8}\\sin(z)' });
+// (Recognize declining: the page writes it as sin then a Möbius map, the chain of their paths, below)
+const nop = noRec(() => S('custom', { expr: '10^{-8}\\sin(z)' }));
 check('an analytic formula with no zoom centre: the straight line, said why', !nop.nat && /no usable point to zoom about/.test(nop.homTex('z').tex) && !/not analytic/.test(nop.homTex('z').tex), nop.homTex && nop.homTex('z').tex);
+check('10^{-9} sin z on the page: the chain of sin and the Möbius map', (S('custom', { expr: '10^{-9}\\sin z' }).nat || {}).kind === 'chain');
 // all at once (finding: one letter, two meanings): the caption names f_k and p_k when asked
 const rt = S('rational', { p: '1, 0, -1', q: '1, 0, 1' }).homTex('u', { f: 'f_{2}', p: 'p_{2}' }).tex, ct = S('cosh').homTex('u', { p: 'p_{1}' }).tex;
 check('captions take the names f_k, p_k', /zoom/.test(rt) && !/[^_]f\(|[(+]p[)+-]/.test(rt.replace(/f_\{2\}/g, 'F').replace(/p_\{2\}/g, 'P')) && /p_\{1\}=/.test(ct), { rt, ct });
