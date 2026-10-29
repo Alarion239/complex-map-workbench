@@ -13,6 +13,10 @@ const GLChain = (() => {
   // Internal helpers are prefixed cx_ to stay out of the includer's namespace.
   const LIB = `
 const float CX_PI = 3.141592653589793;
+// [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
+// loop a loop. ANGLE's Direct3D 11 back end hands the code to FXC, which unrolls a loop of constant trip count (its
+// body copied N times; its link time grows much faster than the code). highp: declared alike in both stages.
+uniform highp int uNoUnroll;
 const float CX_TAU = 6.283185307179586;
 const float CX_HALF_PI = 1.5707963267948966;
 float cx_inf() { return uintBitsToFloat(0x7f800000u); }
@@ -122,7 +126,7 @@ vec2 cpow(vec2 z, vec2 w, float theta, float k) {
 vec2 cx_ipow32(vec2 z, bool neg, highp int m) {
   vec2 r = vec2(1.0, 0.0);
   vec2 b = neg ? cinv(z) : z;
-  for (int j = 0; j < 32; j++) {
+  for (int j = 0; j < max(32, uNoUnroll); j++) {
     if (j > 0 && m <= 0) break;
     if ((m & 1) == 1) r = cmul(r, b);
     b = cmul(b, b);
@@ -719,7 +723,7 @@ vec2 cx_digamma(vec2 z) {
     acc = -CX_PI * cinv(ctan(cx_pimod(z)));
     z = vec2(1.0, 0.0) - z;
   }
-  for (int i = 0; i < 12; i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
+  for (int i = 0; i < max(12, uNoUnroll); i++) { if (cx_abs(z) >= 10.0) break; acc -= cinv(z); z += vec2(1.0, 0.0); }
   vec2 w2 = cinv(cmul(z, z));
   vec2 ser = cmul(w2, vec2(1.0 / 12.0, 0.0) + cmul(w2, vec2(-1.0 / 120.0, 0.0) + cmul(w2, vec2(1.0 / 252.0, 0.0) + cmul(w2, vec2(-1.0 / 240.0, 0.0)))));
   return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
@@ -732,7 +736,7 @@ vec2 cx_zetaEM(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 1; k < 200; k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
+  for (int k = 1; k < max(200, uNoUnroll); k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN);
   sum += 0.5 * Nms + cdiv(Nms * fN, s - vec2(1.0, 0.0));
@@ -748,7 +752,7 @@ vec2 cx_zetaEMd(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 2; k < 200; k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
+  for (int k = 2; k < max(200, uNoUnroll); k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN), r = cinv(s - vec2(1.0, 0.0));
   sum -= 0.5 * lnN * Nms + cmul(Nms * fN, r * lnN + cmul(r, r));
@@ -798,7 +802,7 @@ vec2 cx_ipowi(vec2 w, float e) {
   float n = abs(e);
   vec2 r = vec2(1.0, 0.0), b = w;
   if (n > 2147483647.0) { float a = cx_abs(w); r = a < 1.0 ? vec2(0.0) : a == 1.0 ? vec2(1.0, 0.0) : vec2(cx_inf()); return r; }
-  for (int i = 0; i < 31; i++) {
+  for (int i = 0; i < max(31, uNoUnroll); i++) {
     if (mod(n, 2.0) == 1.0) r = cmul(r, b);
     n = floor(0.5 * n);
     if (n == 0.0) break;
