@@ -359,6 +359,9 @@
         if (next + more > avail) break;
         used = next;
       }
+      // (in the head the first control, the Phase style or the Landscape's height, always stays: one click is the point
+      // of the row; a head short of room cuts the title down first, fitTitle)
+      if (inHead && n === 0 && kids.length && !isNote(kids[0])) n = 1;
     }
     ft.w = pane.w; ft.phone = phone;
     if (n === ft.n && !force) return;
