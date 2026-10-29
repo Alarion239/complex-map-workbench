@@ -2475,8 +2475,13 @@ const Funcs = (() => {
   // last step is built as the block's tail: f_k, then the block n − 1 times more, so the chain's stages before k are
   // the first pass and w_k is after the last. It is drawn, deformed (copy by copy, each step on its own part of t),
   // inverted and continued onto sheets as the steps it runs, as a recognized formula is (b.rec); its guarantees are
-  // those of the composition; d/dz after it uses the circle formula. At most REPEAT_MAX passes and REPEAT_STEPS steps.
+  // those of the composition; d/dz after it uses the circle formula. At most REPEAT_MAX passes, and REPEAT_STEPS steps
+  // weighed by the code they write into the GPU's program (the whole tail is one program: a heavy step many times is
+  // minutes of compiling on Windows): a catalog step 1, Γ and ζ 16, a formula by the size of its tree.
   const REPEAT_MAX = 64, REPEAT_STEPS = 256;
+  const astSize = (n) => (n && typeof n === 'object' && n.t ? 1 + ['a', 'b', 'n', 'lo', 'hi'].reduce((s, k) => s + astSize(n[k]), 0) : 0);
+  const stepWeight = (b) => (b.rec ? b.rec.built.reduce((s, x) => s + stepWeight(x), 0) : b.def && (b.def.id === 'gamma' || b.def.id === 'zeta') ? 16
+    : b.ast ? Math.max(1, Math.ceil(astSize(b.ast) / 8)) : 1);
   function repeatOk(steps, k) {
     const rp = steps[k - 1] && steps[k - 1].repeat;
     return !!rp && Number.isInteger(rp.n) && rp.n >= 1 && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= k ? rp : null;
@@ -2491,7 +2496,8 @@ const Funcs = (() => {
       if (b.op === 'deriv' || st.type === 'deriv') return { error: $t('Repeat × N cannot hold a d/dz step'), def: base.def };
       block.push(b);
     }
-    if (block.length * rp.n > REPEAT_STEPS) return { error: $t('Repeat × N: at most {max} steps in all', { max: REPEAT_STEPS }), def: base.def };
+    const w = block.reduce((s, b) => s + stepWeight(b), 0);
+    if (w * rp.n > REPEAT_STEPS) return { error: $t('Repeat × N: this block is too heavy to draw {n} times; at most N = {max}', { n: rp.n, max: Math.max(1, Math.floor(REPEAT_STEPS / w)) }), def: base.def };
     const seq = [base];
     for (let r = 1; r < rp.n; r++) seq.push(...block);
     const fs = seq.map((b) => b.f), homs = seq.map((b) => b.hom || linHom(b.f)), m = seq.length;

@@ -646,7 +646,8 @@
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
-    S.steps[k - 1] = { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false };
+    // ([issue #6] the same function written another way: a repeat it ends stays)
+    setStepAt(k - 1, Object.assign({ type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     zpSel = null;
     chainChanged(true);
     setFocus(k);

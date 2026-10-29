@@ -58,7 +58,10 @@ check('no derivative formula for the repeat itself, in words', /numerically/.tes
 const E1 = chain([S('exp'), S('deriv'), Rp(S('sin'), 2, 3)]).built[2];
 check('a d/dz inside the block is refused', !!E1.error && /d\/dz/.test(E1.error), JSON.stringify(E1.error));
 const E2 = chain([S('exp'), S('sin'), S('cos'), S('tan'), S('sinh'), Rp(S('cosh'), 64, 6)]).built[5];
-check('more than 256 steps in all is refused', !!E2.error && /256/.test(E2.error), JSON.stringify(E2.error));
+check('more than 256 steps in all is refused, naming the largest N', !!E2.error && /at most N = 42/.test(E2.error), JSON.stringify(E2.error));
+const E3 = chain([Rp(S('zeta'), 20, 1)]).built[0];
+check('a heavy step weighs more: ζ twenty times is refused, at most N = 16', !!E3.error && /at most N = 16/.test(E3.error), JSON.stringify(E3.error));
+check('ζ sixteen times is drawn', !chain([Rp(S('zeta'), 16, 1)]).built[0].error);
 check('repeatOk: a len past the chain\'s start is no repeat', Funcs.repeatOk([Rp(S('exp'), 2, 3)], 1) === null);
 
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);

@@ -69,7 +69,10 @@ const rules = {
   'no-control-regex': 'off',     // control characters are used on purpose as markers (i18n.js, tour.js, app.js)
   'no-shadow': 'warn',
   'prefer-const': 'warn',
+  // size budget (issue #20): max-lines is the aim (the warnings list the files still over it); max-lines-per-function
+  // sits at today's largest function, so only growth past it is flagged. Both only go down: never raise them.
   'max-lines': ['warn', { max: 1500, skipBlankLines: true, skipComments: true }],
+  'max-lines-per-function': ['warn', { max: 2367, skipBlankLines: true, skipComments: true }],   // src/constr.js; IIFEs (the closures) are not counted
 };
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and

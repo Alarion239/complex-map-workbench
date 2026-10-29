@@ -1597,7 +1597,7 @@ const Construct = (() => {
   // narrow pane or touch), then Esc; the chip wraps to two lines rather than cut the counter
   // (v16.3 review user-7: the English tile is «Orthogonal», one line, as the Russian «Ортогональная»; «perpendicular»
   // stays the bisector's sense)
-  const toolShort = (id) => ({ circle3: $t('3 points'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Bisector'), perp: $t('Orthogonal'), touch: $t('Touching'), hyper: $t('Hyperbolic') }[id] || id);
+  const toolShort = (id) => ({ circle3: $t('3-pt circle'), meet: $t('Intersect'), midpoint: $t('Midpoint'), bisector: $t('Bisector'), perp: $t('Perpendicular'), touch: $t('Touching'), hyper: $t('Hyperbolic') }[id] || id);
   // [v16.3 review user-12] the chip's touch form (no "Esc cancels", a ×) from its first frame when the tool was chosen
   // by touch, or on a coarse pointer before any pointer event over a plane
   let lastPressTouch = null;
@@ -1607,7 +1607,9 @@ const Construct = (() => {
   // [v16.5 UX48] what to pick next, in one plain sentence, then the count, the tool, and on a keyboard how to back up
   // ("⌫ undo pick · Esc" once the draft has picks of its own, else "Esc cancels"); a finger has × and Undo instead
   // (noEsc: without that keyboard tail, for a chip that would wrap with it and fits one line without it [v16.3.1])
-  function chipText(narrow, noEsc) {
+  // (noName: without the tool's name, which the pane head's chip already gives: a chip that wraps drops it before its
+  // keyboard tail [#35: «3-pt circle» is longer than the retired «3 points», and at 1366 x 768 the tail went])
+  function chipText(narrow, noEsc, noName) {
     const tool = A.tool();
     if (!isCTool(tool)) return '';
     // (the tile's soft hyphen never reaches the chip: it would break the chip's line there [v16.3 review user-8])
@@ -1632,7 +1634,7 @@ const Construct = (() => {
       cnt = of(n, m);
     }
     lastCnt = cnt.replace(/^ · /, '');
-    return what + cnt + ' · ' + tn + tail;
+    return what + cnt + (noName ? '' : ' · ' + tn) + tail;
   }
   // the head's chip for the tool in use (the sentence stays on the plane): its name and how far the picks have got
   let lastCnt = '';
@@ -1760,7 +1762,11 @@ const Construct = (() => {
         if (noEsc !== txt) {
           const lines = () => { const lh = parseFloat(getComputedStyle(ct).lineHeight) || 16; return ct.scrollHeight / lh; };
           const n = lines(), most = el.classList.contains('cm-low') ? 3 : 2;   // (the lines the place allows [check app-5])
-          if (n > 1.5) { fillT(noEsc); if (lines() > 1.5 && n < most + 0.5) fillT(txt); }
+          if (n > 1.5) {
+            // (#35: first without the tool's name, which the head's chip shows: the keyboard tail stays when that fits)
+            fillT(chipText(narrow, false, true));
+            if (lines() > 1.5) { fillT(noEsc); if (lines() > 1.5 && n < most + 0.5) fillT(txt); }
+          }
         }
         // [v16.5 UX52] a refused pick, here for 2 s; [UX48] the how-to
         if (pickWarnMsg) box.append(A.h('span', { class: 'cm-warn', role: 'status' }, pickWarnMsg));
@@ -2663,11 +2669,11 @@ const Construct = (() => {
   };
   function toolRows() {
     return [
-      ['circle3', $t('Circle through 3 points'), 'E', $t('Pick three points: points on the page, crossings, or empty spots. The circle and its disc follow them.'), 'construct', $t('3 points')],
+      ['circle3', $t('Circle through 3 points'), 'E', $t('Pick three points: points on the page, crossings, or empty spots. The circle and its disc follow them.'), 'construct', $t('3-pt circle')],
       ['meet', $t('Intersect'), 'I', $t('Click a crossing of two curves, or one curve and then another.'), 'construct', $t('Intersect')],
       ['midpoint', $t('Midpoint'), 'U', $t('Pick two points, or a segment.'), 'construct', $t('Midpoint')],
       ['bisector', $t('Perpendicular bisector'), 'Q', $t('Pick two points, or a segment: the line of the points equally far from both.'), 'construct', $t('Bisector')],
-      ['perp', $t('Perpendicular circle'), 'W', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('Orthogonal')],
+      ['perp', $t('Perpendicular circle'), 'W', $t('Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.'), 'construct', $t('⊥ circle')],
       ['touch', $t('Touching circle'), 'J', $t('Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent or press Tangent line for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.'), 'construct', $t('Touching')],
       ['hyper', $t('Hyperbolic line'), 'Y', $t('Pick the boundary (a line or a circle), then two points on one side of it: the hyperbolic line through them, the arc of the circle at right angles to the boundary. The boundary stays picked for the next one.'), 'construct', $t('Hyperbolic')],
     ];
@@ -2844,7 +2850,7 @@ const Construct = (() => {
     init(a) { api = a; },
     on, ui, toolRows, toolChip: () => toolChip(), ICON, buildGrid, CTOOLS, isTool: isCTool,
     vertexPick: g(vertexPick, null), bindVertices: g(bindVertices), globeClick: g(globeClick, false), boundUnder: g(boundUnder, null), snapAt: g(snapAt, null), drawStart: g(drawStart, null), drawMove: g(drawMove, null), drawEnd: g(drawEnd), pointDown: g(pointDown, false),
-    handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), cancelDrag: g(cancelDrag, false), globeSlide: g(globeSlide, null), globePoint: g(globePoint, false), touchNow: () => touchNow(), altNow: () => !!A && altNow(), samePick, click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false), drafting: g(drafting, false), undoPick: g(undoPick, null), undoPickable: g(undoPickable, false),
+    handleMove: g(handleMove, null), handleUp: g(handleUp), moveUp: g(moveUp), moveDrag: g(moveDrag, false), cancelDrag: g(cancelDrag, false), globeSlide: g(globeSlide, null), globePoint: g(globePoint, false), touchNow: () => touchNow(), altNow: () => !!A && altNow(), samePick, click: g(click, false), toolDown: g(toolDown, false), cancel: g(cancel, false), back: g(back, false), drafting: g(drafting, false), undoPick: g(undoPick, null), undoPickable: g(undoPickable, false), hint: g(() => chipText(true, true), ''),
     hover: g(hover), finalPick: g(finalPick, false), pointer, leave: g(leave), drawOverlay: g(drawOverlay), syncChip: g(syncChip), chipSide: g(chipSide, null), toolChanged: g(toolChanged), deleteMessage: g(deleteMessage, null), zpOffNote: g(zpOffNote, ''),
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
     fixedName: (s) => (A ? fixedName(s) : null), defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),
