@@ -7,9 +7,11 @@
 //   behaviour: both test pages in one Chrome, the same scenes: every shader source the app hands WebGL (a set: the
 //     programs of the default scene, each example, and the Phase and Landscape views of a few), the audio worklet's
 //     source (Blobs of JavaScript the page makes), each scene's picture (a screenshot of the window, pixel for pixel,
-//     LIMIT the share of pixels that may differ), the page's exceptions, and the globals: in the test page the same
-//     names, in the published page no name the reference lacks.
-//   node ci/equiv.js --ref <commit> [--no-build] [--examples N] [--limit 0.001] [--views 1,4,7]
+//     LIMIT the share of pixels that may differ, 0.01 % by default), the page's exceptions, and the globals: in the
+//     test page the same names; in the published page no name the reference lacks, and every name the reference's
+//     page sets on window (not the names its classic script declared, which the bundle keeps in its scope). The
+//     published page runs scenes of its own through its UI (the default scene, two examples, sound on).
+//   node ci/equiv.js --ref <commit> [--no-build] [--examples N] [--limit 0.0001] [--views 1,4,7]
 // Exit 0 equivalent, 1 not, 2 setup problem. The summary lists each check.
 const fs = require('fs');
 const path = require('path');
@@ -22,8 +24,9 @@ const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
 const REF = opt('--ref', 'origin/main');
 const N_EX = Number(opt('--examples', '14'));
-const LIMIT = Number(opt('--limit', '0.001'));
+const LIMIT = Number(opt('--limit', '0.0001'));
 const VIEWS = opt('--views', '1,4,7').split(',').map(Number);
+const PUB_EXAMPLES = [1, 4];   // the published page's examples, by their place in the menu (it has no __cmwExample)
 
 // a page split at its app script: the largest <script> without attributes
 function splitPage(html) {
@@ -102,7 +105,6 @@ const GLOBALS0 = new Set();   // the names of an empty page: left out of the com
 
 // the reference script's top-level names: a classic script's top-level const and let are globals that are not properties
 // of window, so the globals compared are window's own properties and these names, wherever typeof finds them
-let TOP = [];
 function topNames(script) {
   const acorn = require(path.join(ROOT, 'node_modules', 'acorn'));
   const out = new Set();
@@ -113,7 +115,7 @@ function topNames(script) {
   return [...out];
 }
 
-async function probe(base, page, scenes) {
+async function probe(base, page, scenes, top) {
   const B = await launch({ width: 1280, height: 800, dpr: 1 });
   try {
     await B.nav('about:blank');
@@ -121,21 +123,29 @@ async function probe(base, page, scenes) {
     await B.addInit(INIT);
     await B.nav(base + page); await sleep(6000);
     const own = (await B.ev('Object.getOwnPropertyNames(window)')).filter((n) => !GLOBALS0.has(n) && !/^__eq/.test(n));
-    const lex = await B.ev(`${JSON.stringify(TOP)}.filter((n) => { try { return typeof (0, eval)(n) !== 'undefined'; } catch (e) { return false; } })`);
-    const out = { shots: [], globals: [...new Set([...own, ...lex])].sort() };
+    // (a name is there when evaluating it throws no ReferenceError: a top-level `let x;` is there, undefined)
+    const lex = await B.ev(`${JSON.stringify(top)}.filter((n) => { try { (0, eval)(n); return true; } catch (e) { return !(e instanceof ReferenceError); } })`);
+    const out = { shots: [], own: own.sort(), globals: [...new Set([...own, ...lex])].sort() };
     for (const [name, js] of scenes) {
       if (js) { try { await B.ev(js); } catch (e) { out.shots.push([name, null, String(e.message).slice(0, 200)]); continue; } }
       await sleep(1500);
       // (a picture of a moment: a deformation an example plays is stopped at t = 0.5, and the shader compiles land)
       await B.ev(`(() => { try { const m = __cmwState().morph; if (m && m.open) __cmwMorph({ playing: false, T: 0.5 }); } catch (e) { /* a page without the hooks */ } return 1; })()`);
       for (let k = 0; k < 40 && await B.ev('typeof GLR !== "undefined" && GLR.compiling === true'); k++) await sleep(250);
+      // (and the chain's cards drawn: a card draws in a quiet moment, so one page can be a moment behind the other)
+      for (let k = 0; k < 40 && await B.ev(`(() => { try { return __cmwCards().cards.some((c) => !c.sig || c.stale); } catch (e) { return false; } })()`); k++) await sleep(250);
       await sleep(1500);
+      // (a toast's moment differs with the page's speed: none in the picture)
+      await B.ev(`document.querySelectorAll('.toast').forEach((t) => t.remove()); 1`);
+      await B.ev('document.fonts.ready.then(() => 1)');   // (the text in its own font on both sides)
+      await sleep(200);
       out.shots.push([name, await B.shot(), null]);
     }
     if (scenes.length) {
       // sound on (a click first: the page's first gesture starts its audio), so the audio worklet's source is made
       await B.mouse('mousePressed', 640, 12, { button: 'left', clickCount: 1 }); await B.mouse('mouseReleased', 640, 12, { button: 'left', clickCount: 1 }); await sleep(300);
-      try { await B.ev(`Sound.set({ on: true, vol: 0.2, ui: false, events: true, sonify: false }, { quiet: true }); 1`); } catch (e) { /* the page without Sound */ }
+      // (the test page's Sound; the published bundle has no such global, so its sound button)
+      try { await B.ev(`typeof Sound !== 'undefined' ? (Sound.set({ on: true, vol: 0.2, ui: false, events: true, sonify: false }, { quiet: true }), 1) : (document.getElementById('soundBtn').click(), 1)`); } catch (e) { /* the page without sound */ }
       await sleep(2000);
     }
     out.shaders = [...await B.ev('[...window.__eqShaders]')].sort();
@@ -153,14 +163,25 @@ function pixels(a, b) {
   return n / (A.w * A.h);
 }
 
+// each scene's picture, the reference's against this checkout's
+function pictures(pre, scenes, a, b) {
+  for (let k = 0; k < scenes.length; k++) {
+    const [name, pa, ea] = a.shots[k], [, pb, eb] = b.shots[k];
+    if (ea || eb) { check(`${pre}${name}: the scene`, false, ea || eb); continue; }
+    const d = pixels(pa, pb);
+    if (d > LIMIT && process.env.EQUIV_SHOTS) { const f = `${pre}${name}`.replace(/\W+/g, '_'); fs.mkdirSync(process.env.EQUIV_SHOTS, { recursive: true }); fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `${f}-ref.png`), pa); fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `${f}-cur.png`), pb); }
+    check(`${pre}${name}: the picture`, d <= LIMIT, `${(d * 100).toFixed(4)} % of pixels differ (at most ${(LIMIT * 100).toFixed(4)} %)`);
+  }
+}
+
 async function behaviour(refDist, curDist) {
   const scenes = [['default scene', null]];
   for (let i = 0; i < N_EX; i++) scenes.push([`example ${i}`, `__cmwExample(${i}); 1`]);
   for (const i of VIEWS) for (const v of ['phase', 'land']) scenes.push([`example ${i}, ${v}`, `__cmwExample(${i}); __cmwSetMain('${v}'); 1`]);
-  TOP = topNames(splitPage(fs.readFileSync(path.join(refDist, 'test.html'), 'utf8')).script);
+  const top = topNames(splitPage(fs.readFileSync(path.join(refDist, 'test.html'), 'utf8')).script);
   const [sa, sb] = [await serve(refDist), await serve(curDist)];
   try {
-    const a = await probe(sa.base, 'test.html', scenes), b = await probe(sb.base, 'test.html', scenes);
+    const a = await probe(sa.base, 'test.html', scenes, top), b = await probe(sb.base, 'test.html', scenes, top);
     check('test page: the same globals', JSON.stringify(a.globals) === JSON.stringify(b.globals), `${a.globals.length} names` + diffNames(a.globals, b.globals));
     check('test page: no exception', b.errors.length === 0, b.errors.slice(0, 3).join(' | '));
     check('every shader source, the same set', JSON.stringify(a.shaders) === JSON.stringify(b.shaders), `${a.shaders.length} sources` + (a.shaders.length === b.shaders.length ? '' : ` against ${b.shaders.length}`));
@@ -170,17 +191,22 @@ async function behaviour(refDist, curDist) {
       const same = a.blobs.every((t, i) => t === b.blobs[i]);
       check('the audio worklet and other JavaScript Blobs, the same program', !why, `${a.blobs.length} blobs` + (why ? `: ${why}` : same ? ', the same text' : ', the same program up to the renaming of its own names'));
     }
-    for (let k = 0; k < scenes.length; k++) {
-      const [name, pa, ea] = a.shots[k], [, pb, eb] = b.shots[k];
-      if (ea || eb) { check(`${name}: the scene`, false, ea || eb); continue; }
-      const d = pixels(pa, pb);
-      if (d > LIMIT && process.env.EQUIV_SHOTS) { fs.mkdirSync(process.env.EQUIV_SHOTS, { recursive: true }); fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `${name.replace(/\W+/g, '_')}-ref.png`), pa); fs.writeFileSync(path.join(process.env.EQUIV_SHOTS, `${name.replace(/\W+/g, '_')}-cur.png`), pb); }
-      check(`${name}: the picture`, d <= LIMIT, `${(d * 100).toFixed(3)} % of pixels differ (at most ${(LIMIT * 100).toFixed(3)} %)`);
-    }
-    const pa = await probe(sa.base, 'complex-map-workbench.html', []), pb = await probe(sb.base, 'complex-map-workbench.html', []);
+    pictures('', scenes, a, b);
+    // the published page: what only the bundle could break (a lookup on window, eval or new Function, the hooks'
+    // removal) shows in its own scenes, through its UI (it has no test hooks): the default scene, two examples from the
+    // menu, sound on
+    const pubTop = topNames(splitPage(fs.readFileSync(path.join(refDist, 'complex-map-workbench.html'), 'utf8')).script);
+    const pubScenes = [['default scene', null], ...PUB_EXAMPLES.map((i) => [`example ${i}`, `new Promise((r) => { document.getElementById('examplesBtn').click(); setTimeout(() => { const it = [...document.querySelectorAll('.ex-item')].filter((x) => !x.hidden)[${i}]; if (it) it.click(); r(it ? 1 : 0); }, 400); })`])];
+    const pa = await probe(sa.base, 'complex-map-workbench.html', pubScenes, pubTop), pb = await probe(sb.base, 'complex-map-workbench.html', pubScenes, pubTop);
     const extra = pb.globals.filter((n) => !pa.globals.includes(n));
     check('published page: no global the reference lacks', extra.length === 0, extra.slice(0, 10).join(', '));
+    // (a name the reference's script declared at its top is a global only because the script was classic; the bundle
+    // keeps it in its scope. Any other name, one the page sets on window, must stay)
+    const lost = pa.own.filter((n) => !pb.own.includes(n) && !pubTop.includes(n));
+    check('published page: every global the page sets on window is still there', lost.length === 0, lost.length ? lost.slice(0, 10).join(', ') : `${pa.own.filter((n) => !pubTop.includes(n)).length} names`);
     check('published page: no exception', pb.errors.length === 0, pb.errors.slice(0, 3).join(' | '));
+    check('published page: the audio worklet and other JavaScript Blobs, the same program', pa.blobs.length === pb.blobs.length && pa.blobs.every((t, i) => t === pb.blobs[i] || !sameProgram(t, pb.blobs[i])), `${pa.blobs.length} blobs against ${pb.blobs.length}`);
+    pictures('published page, ', pubScenes, pa, pb);
   } finally { sa.server.close(); sb.server.close(); }
 }
 const diffNames = (a, b) => { const x = a.filter((n) => !b.includes(n)), y = b.filter((n) => !a.includes(n)); return (x.length ? `; only in the reference: ${x.slice(0, 8).join(', ')}` : '') + (y.length ? `; only here: ${y.slice(0, 8).join(', ')}` : ''); };
