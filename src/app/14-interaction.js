@@ -98,13 +98,15 @@
   };
   window.addEventListener('keydown', (e) => {
     if ((e.code === 'Space' || e.key === ' ') && !typing(e.target)) { spaceHeld = true; if (eatSpace(e)) spaceEaten = true; }
-    if (e.key === 'Alt') altHeld = true;
+    if (e.key === 'Alt') altHeld = altKeyDown = true;
   }, true);
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space' || e.key === ' ') { spaceHeld = false; if (spaceEaten) { e.preventDefault(); e.stopPropagation(); spaceEaten = false; } }
-    if (e.key === 'Alt') altHeld = false;
+    if (e.key === 'Alt') altHeld = altKeyDown = false;
   }, true);
-  window.addEventListener('blur', () => { spaceHeld = false; altHeld = false; });
+  window.addEventListener('blur', () => { spaceHeld = false; altHeld = altKeyDown = false; });
+  // (a press takes Alt from its own event; when it ends, Alt is what the keyboard says again, so a hover afterwards snaps)
+  for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, () => { altHeld = altKeyDown; });
   function setupPane(pane, side) {
     const cv = pane.ocanvas;
     // a right click: the plane menu of the object there (a right-button pan that moved opens nothing; a touch opens it
@@ -525,7 +527,7 @@
   // the globe's graticule draws the net of the active tool (the polar net with Select)
   const ROUND_TOOLS = new Set(['select', 'point', 'circle', 'disc', 'formula', 'annulus', 'sector', 'pgrid']);
   const globeNet = () => (ROUND_TOOLS.has(tool) ? 'polar' : 'cart');
-  let spaceHeld = false, altHeld = false;
+  let spaceHeld = false, altHeld = false, altKeyDown = false;
   // per side: the last press on an editable globe turned it (a double-click then resets the camera); the last point
   // placed on a globe ({id, t})
   const gTurnPress = { L: false, R: false };
