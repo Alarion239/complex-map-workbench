@@ -20,5 +20,6 @@ check('no option: the text as it was', source('app.js', {}) === app && source('a
 check('strip on a file with neither is the same text', source('app.js', { esm: 'strip' }) === app && source('cx.js', { esm: 'strip' }) === source('cx.js'));
 check('a dir as the second argument still works', source('cx.js', require('path').join(__dirname, '../src')) === source('cx.js'));
 check('dir and options together', source('cx.js', require('path').join(__dirname, '../src'), { esm: 'strip' }) === source('cx.js'));
+{ let read = 0; source('cx.js', undefined, { get esm() { read++; return 'strip'; } }); check('options after an undefined dir are read (source(f, undefined, { esm }))', read === 1 && source('cx.js', undefined, { esm: 'strip' }) === source('cx.js')); }
 console.log(bad ? `${bad} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

@@ -37,7 +37,8 @@ function stripEsm(text) {
 //   source(file, { esm: 'strip' })    without the import lines and export { } lines of a module file (a script's text, for
 //                                     vm and new Function); also source(file, dir, { esm: 'strip' })
 function source(file, a, b) {
-  const dir = typeof a === 'string' ? a : SRC, opt = (typeof a === 'string' ? b : a) || {};
+  // (the options are b when it is an object, whatever a is: source(f, undefined, { esm: 'strip' }) too)
+  const dir = typeof a === 'string' ? a : SRC, opt = (b && typeof b === 'object' ? b : a && typeof a === 'object' ? a : null) || {};
   const text = joined(file, dir);
   return opt.esm === 'strip' ? stripEsm(text) : text;
 }
