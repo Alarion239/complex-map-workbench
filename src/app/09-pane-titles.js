@@ -191,8 +191,8 @@
     return h('label', { class: 'check ic-tg', 'data-tip': label }, inp, h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: icon }), h('span', { class: 'tg-l' }, label));
   }
   const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Pulled-back grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
-  // (#247) the Phase style as one row: each style its glyph (STYLE_SVG), the chosen one its word too (the pane head), or
-  // every word under its glyph (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here, its
+  // (#247) the Phase style as one row: each style its glyph (STYLE_SVG), alone in the pane head (option 1: the name its
+  // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here, its
   // whole name the tooltip, the accessible name and the header menu's item
   function styleSeg() {
     const el = seg('dcSeg', S.dc, DC_STYLES.map(([v, name, tip]) => [v, [h('span', { class: 'sty-g', 'aria-hidden': 'true', html: STYLE_SVG[v] }), h('span', { class: 'sty-n' }, v === 'grid' ? $t('Grid') : name)], tip]), (v) => pickPhaseStyle(v), $t('Phase style'));
