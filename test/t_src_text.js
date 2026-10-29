@@ -14,12 +14,19 @@ eq('the export lines go', stripEsm('const a = 1, b = 2;\nexport { a, b };\n'), '
 eq('a multi-line export goes', stripEsm('const a = 1;\nexport {\n  a,\n};\n'), 'const a = 1;\n');
 eq('an indented export (inside a template) stays', stripEsm('const t = `\n  export { a };\n`;\n'), 'const t = `\n  export { a };\n`;\n');
 eq('CRLF lines too', stripEsm("import a from './a.js';\r\nconst z = a;\r\nexport { z };\r\n"), 'const z = a;\r\n');
-// the joined files and the signatures
+// the joined files and the signatures. (A file with neither imports nor exports is a fixture of its own, not one of
+// src/: after phase 4 of #20 every file of src/ has its module block)
+const fs = require('fs'), os = require('os'), path = require('path');
+const FIX = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-src-text-'));
+const PLAIN = "'use strict';\n// a file with no import and no export\nconst a = 1;\nfunction f() { return a; }\n";
+fs.writeFileSync(path.join(FIX, 'plain.js'), PLAIN);
 const app = source('app.js');
 check('no option: the text as it was', source('app.js', {}) === app && source('app.js', undefined) === app);
-check('strip on a file with neither is the same text', source('app.js', { esm: 'strip' }) === app && source('cx.js', { esm: 'strip' }) === source('cx.js'));
-check('a dir as the second argument still works', source('cx.js', require('path').join(__dirname, '../src')) === source('cx.js'));
-check('dir and options together', source('cx.js', require('path').join(__dirname, '../src'), { esm: 'strip' }) === source('cx.js'));
-{ let read = 0; source('cx.js', undefined, { get esm() { read++; return 'strip'; } }); check('options after an undefined dir are read (source(f, undefined, { esm }))', read === 1 && source('cx.js', undefined, { esm: 'strip' }) === source('cx.js')); }
+check('strip on a file with neither is the same text', source('plain.js', FIX, { esm: 'strip' }) === PLAIN && stripEsm(PLAIN) === PLAIN);
+check('strip on a joined file is the joined text, stripped', source('app.js', { esm: 'strip' }) === stripEsm(app));
+check('a dir as the second argument still works', source('plain.js', FIX) === PLAIN && source('cx.js', path.join(__dirname, '../src')) === source('cx.js'));
+check('dir and options together', source('plain.js', FIX, { esm: 'strip' }) === PLAIN && source('cx.js', path.join(__dirname, '../src'), { esm: 'strip' }) === stripEsm(source('cx.js')));
+{ let read = 0; source('cx.js', undefined, { get esm() { read++; return 'strip'; } }); check('options after an undefined dir are read (source(f, undefined, { esm }))', read === 1 && source('cx.js', undefined, { esm: 'strip' }) === stripEsm(source('cx.js'))); }
+fs.rmSync(FIX, { recursive: true, force: true });
 console.log(bad ? `${bad} of ${n} checks FAILED` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);
