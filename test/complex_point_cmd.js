@@ -97,6 +97,40 @@ s = await P();
 ok('undo puts the number back', s.params[0].value === 1 && s.params[0].im === 1, s.params);
 ok('the row shows it as text again', (await ev(`document.querySelector('.prm-row[data-name="a"] .prm-val').value`)).replace('−', '-') === '1+i', null);
 
+// 4b. an unselected point drags the number too (a press on its body), and a drop on a curve attaches nothing
+const cp = await w2s('L', 0.5, 0);   // a click on the circle selects it: the point is not selected now
+await click(cp[0], cp[1]);
+await settle(400);
+ok('the circle is selected, not the point', await ev(`__cmwPlaneMenu().selected()`) === 's2', await ev(`__cmwPlaneMenu().selected()`));
+const h2 = (await P()).hi;
+p = await w2s('L', 1, 1);
+const q2 = await w2s('L', -0.5, 0.75);
+await drag(p[0], p[1], q2[0], q2[1], 8, 16);
+await settle(600);
+s = await P();
+const a2 = s.params.find((x) => x.name === 'a'), pt3 = s.shapes.find((x) => x.kind === 'point');
+ok('an unselected point drags the number', Math.abs(a2.value + 0.5) < 0.05 && Math.abs(a2.im - 0.75) < 0.05, a2);
+ok('the point stays on the number, bound', Math.abs(pt3.p[0] - a2.value) < 1e-9 && Math.abs(pt3.p[1] - a2.im) < 1e-9 && pt3.bind && pt3.bind.p === 'a', pt3);
+ok('and the drag is one undo step', s.hi === h2 + 1, { hi: s.hi, was: h2 });
+// a drop on the circle (a curve): the point stays free, bound to the number
+const onC = await w2s('L', 0.5 * Math.SQRT1_2, 0.5 * Math.SQRT1_2), from = await w2s('L', a2.value, a2.im);
+await drag(from[0], from[1], onC[0], onC[1], 8, 16);
+await settle(600);
+s = await P();
+const a3 = s.params.find((x) => x.name === 'a'), pt4 = s.shapes.find((x) => x.kind === 'point');
+ok('a drop on a curve attaches nothing: no def, no at, still bound to a', !pt4.def && !pt4.at && pt4.bind && pt4.bind.p === 'a', pt4);
+ok('the number is where the point was dropped', Math.hypot(a3.value - 0.5 * Math.SQRT1_2, a3.im - 0.5 * Math.SQRT1_2) < 0.1 && Math.abs(pt4.p[0] - a3.value) < 1e-9, { a3, p: pt4.p });
+// a drop on another point (the circle's centre is no point: add none); the same through the selected point (a handle)
+const from2 = await w2s('L', a3.value, a3.im), onC2 = await w2s('L', -0.35, 0.35);
+await drag(from2[0], from2[1], onC2[0], onC2[1], 8, 16);
+await settle(500);
+s = await P();
+const pt5 = s.shapes.find((x) => x.kind === 'point');
+ok('a selected point (a handle) drop attaches nothing either', !pt5.def && !pt5.at && pt5.bind && pt5.bind.p === 'a', pt5);
+await undo(); await undo(); await undo();
+s = await P();
+ok('undo steps back to the number 1 + i', s.params[0].value === 1 && s.params[0].im === 1, s.params);
+
 // 5. a real number has no badge and no Show as a point
 await load(NS + 'r', { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: 'a', c: '0', d: '1' }, on: true }], params: [{ name: 'a', value: 0.5, min: -2, max: 2, step: 0.01 }], srcView: { cx: 0, cy: 0, s: 110 }, v5: true, v6: true });
 await settle(1000);

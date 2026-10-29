@@ -49,6 +49,22 @@
       pane.setView(V.right); pane.zoomAt(x, y, f); rightAuto = false; requestRender('R');
     }
   }
+  // a point bound to a free number (bind.p is exactly its name) moves the number when it is dragged, as a handle or by its
+  // body: the point follows through the number's change. The drop attaches nothing (no rail, no binding): the point is
+  // the number's, and only the grid snaps it. True when the number took the move.
+  function numberPointDrag(drag, pane, z) {
+    const s = drag.shape;
+    if (!s || s.kind !== 'point' || (drag.mode === 'handle' && drag.key !== 'p')) return false;
+    const bn = boundNumber(s, 'p'), pr = bn && Params.list().find((q) => q.name === bn);
+    if (!pr || pr.expr) return false;
+    if (drag.mode === 'move' && !drag.moved && Math.hypot(z.re - drag.z0.re, z.im - drag.z0.im) * pane.view.s < 3) return true;
+    if (!drag.bnOff) drag.bnOff = drag.mode === 'move' ? [s.p[0] - drag.z0.re, s.p[1] - drag.z0.im] : [0, 0];
+    pane.setView(leftView());
+    const zn = snapZ(pane, C(z.re + drag.bnOff[0], z.im + drag.bnOff[1]));
+    drag.boundNum = bn; drag.moved = true;
+    Params.set(bn, { re: zn.re, im: zn.im }, { live: true });
+    return true;
+  }
   // Space held turns a globe in every tool, Alt suspends snapping on it (P3b, panels.md 9.5); a field being typed in
   // keeps its Space
   const typing = (t) => !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
@@ -1042,17 +1058,11 @@
         else requestRender('OL');
         return;
       }
+      // a point bound to a free number, pressed selected (a handle) or not (its body): the number moves
+      if ((drag.mode === 'handle' || drag.mode === 'move') && !drag.target && numberPointDrag(drag, pane, z)) return;
       if (drag.mode === 'handle') {
         const cmZ = Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y);   // (v16: onto a point, binds at the release)
         pane.setView(drag.target ? V.right : leftView());
-        // a point bound to a free number moves the number (the point follows through the number's change)
-        const bn = !drag.target && drag.shape.kind === 'point' ? boundNumber(drag.shape, drag.key) : '';
-        if (bn && !Params.list().find((p) => p.name === bn).expr) {
-          const zn = cmZ || snapZ(pane, z);
-          drag.boundNum = bn; drag.moved = true;
-          Params.set(bn, { re: zn.re, im: zn.im }, { live: true });
-          return;
-        }
         Region.setHandle(drag.shape, drag.key, cmZ || snapZ(pane, z));
         drag.moved = true;
         if (drag.target) targetsChanged(false); else shapesChanged(false);
@@ -1330,7 +1340,7 @@
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
     if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
-    if (d.mode === 'handle') Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
+    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
