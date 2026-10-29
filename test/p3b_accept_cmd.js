@@ -32,6 +32,9 @@ const inHP = (s, x, y) => { const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1]; re
 ok('the half-plane holds the cap centre 1.2i', hp && hp.a && inHP(hp, 0, 1.2), hp);
 
 // 2. a Disc centred on ∞ (the centre snaps to ∞): the complement of a disc around 0
+// (D9: with a drawing tool a press on the shape just drawn moves it; N lies on the half-plane just drawn, so it is deselected first, as a user
+// does by clicking elsewhere)
+await ev('__cmwSelect(null); 1'); await settle(200);
 const p1 = await at('L', 0.3, 2.5);
 await drag(R.inf[0] + 2, R.inf[1] - 1, p1[0], p1[1], 12, 16); await settle();
 let S2 = await shapes();
