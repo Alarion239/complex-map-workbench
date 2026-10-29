@@ -46,6 +46,10 @@ for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]
   ok(`${tag} Phase: the head neither overflows nor cuts a control`, !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
   ok(`${tag} Phase: the title shows`, hd.title && hd.title.shown, hd.title);
   let sr = await styleRow();
+  if (!sr) {   // (not in the head at all: what the head holds, the view and the window, then the next size)
+    ok(`${tag} Phase: the style row shows`, false, { hd, view: (await st()).view, dc: (await st()).dc, inner: await ev('[innerWidth, innerHeight, devicePixelRatio]'), seg: await ev(`(() => { const e = document.getElementById('dcSeg'); return e ? { parent: e.parentElement && (e.parentElement.id || e.parentElement.className), inPop: !!e.closest('.pop') } : null; })()`) });
+    continue;
+  }
   ok(`${tag} Phase: the six styles are a row in X's head, each a glyph with a name; the chosen one shows its word, the others not`,
     sr && sr.inHead && sr.n === 6 && sr.btns.every((b) => b.glyph && b.name && b.tip) && sr.btns.filter((b) => b.word).length === 1 && sr.btns.find((b) => b.word).on, sr);
   ok(`${tag} Phase: Pulled-back grid keeps its whole name for screen readers`, sr && /Pulled-back grid|Обратн|сетк/i.test(sr.btns.find((b) => b.v === 'grid').name), sr && sr.btns.find((b) => b.v === 'grid'));
