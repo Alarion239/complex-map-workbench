@@ -25,14 +25,19 @@ async function run(name, steps) {
   return { err, ready, click: Math.round(r.click), readyMs: Math.round(at - r.t0), tasks: lt.length, largest: Math.round(Math.max(0, ...lt.map(([, d]) => d))), blocked: Math.round(lt.reduce((a, [, d]) => a + d, 0)) };
 }
 await view(1440, 900, false);
-const zeta = await run('zeta', series('1'));
-const poly = await run('poly', [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }]);
+// (each scene twice; the better run counts, so a busy shared runner does not decide it)
+const best = (a, b) => ({ ...(a.readyMs <= b.readyMs ? a : b), click: Math.min(a.click, b.click), blocked: Math.min(a.blocked, b.blocked), ready: a.ready && b.ready, err: a.err || b.err });
+const twice = async (name, steps) => best(await run(name, steps), await run(name + '2', steps));
+const zeta = await twice('zeta', series('1'));
+const poly = await twice('poly', [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }]);
 const eta = await run('eta', series('(-1)^{n+1}'));
 ok('ζ as a Dirichlet series builds and its deformation chooses its paths', zeta.err === '' && zeta.ready, zeta);
 ok('z² + 1 builds and its deformation chooses its paths', poly.err === '' && poly.ready, poly);
 ok('η, (−1)^{n+1} as a Dirichlet series, builds and deforms (#242)', eta.err === '' && eta.ready, eta);
-// (timing: reported, not gated in CI, ci/browser_suites.js)
-ok('the Deformation click on ζ takes at most 50 ms more than on z² + 1', zeta.click <= poly.click + 50, { zeta, poly });
-ok('the X → Y selection on ζ is ready within 3 times that of z² + 1 and 1 s', zeta.readyMs <= 3 * poly.readyMs + 1000, { zeta, poly });
-ok('the X → Y selection on ζ blocks the main thread at most 1 s more than z² + 1', zeta.blocked <= poly.blocked + 1000, { zeta, poly });
+// gated, generous (before #257 the selection took ~40 times as long and the click ~3 s)
+ok('the X → Y selection on ζ is ready within 5 times that of z² + 1', zeta.readyMs <= 5 * poly.readyMs, { zeta, poly });
+ok('the Deformation click on ζ takes at most 100 ms more than on z² + 1', zeta.click <= poly.click + 100, { zeta, poly });
+// tighter: reported, not gated (ci/browser_suites.js TIMING)
+ok('timing: the Deformation click on ζ within 50 ms of z² + 1', zeta.click <= poly.click + 50, { zeta, poly });
+ok('timing: the X → Y selection on ζ within 3 times z² + 1 and 1 s, at most 1 s more blocked', zeta.readyMs <= 3 * poly.readyMs + 1000 && zeta.blocked <= poly.blocked + 1000, { zeta, poly });
 return { pass: fails.length === 0, fails, zeta, poly, eta };
