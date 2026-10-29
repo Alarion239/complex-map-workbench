@@ -8,6 +8,10 @@ are opened), waits for jobs labelled for it, runs them in a folder on the machin
 
 This guide sets up both machines, once. Allow about 20 minutes per machine.
 
+A friend's or relative's computer can join too: [FAMILY_RUNNER.md](FAMILY_RUNNER.md) is this procedure written for
+the AI assistant on that computer (it registers with the label `family-gpu`, so it takes no gate job until you add
+`gpu` to it in *Settings → Actions → Runners*).
+
 What you end up with:
 
 | machine | runner name | labels (the gate picks a machine by these) |
