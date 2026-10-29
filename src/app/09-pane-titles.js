@@ -303,17 +303,20 @@
     if (!f || !pane || (!ft.kids.length && !inHead)) return;
     if (inHead && f.hidden) f.hidden = false;
     // (a head whose width changes on its own, the panels or the fonts settling after the first layout, lays its row out
-    // again: the cache key below holds its width, so an unchanged head costs nothing)
+    // again, and so does one whose key chip fills in after it (the Phase key at 1280 px left the title shortened): the
+    // cache key below holds both widths, so an unchanged head costs nothing)
     if (inHead && !headRO.has(f.parentElement) && typeof ResizeObserver === 'function') {
       headRO.add(f.parentElement);
       // (only a change of a pixel or more: a sub-pixel settle cannot ping-pong with the layout it starts)
-      let lastW = -1;
-      new ResizeObserver((es) => {
-        const w = es[0] ? es[0].contentRect.width : 0;
-        if (Math.abs(w - lastW) < 1) return;
-        lastW = w;
-        if (f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
-      }).observe(f.parentElement);
+      const lastW = new Map();
+      const ro = new ResizeObserver((es) => {
+        let moved = false;
+        for (const e of es) { const w = e.contentRect.width; if (!(Math.abs(w - (lastW.has(e.target) ? lastW.get(e.target) : -1)) < 1)) { lastW.set(e.target, w); moved = true; } }
+        if (moved && f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
+      });
+      ro.observe(f.parentElement);
+      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
+      if (leg) ro.observe(leg);
     }
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
     // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
@@ -323,14 +326,17 @@
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
     // (in the head: its width and the title's whole width, which the room for the controls depends on, are part of the key)
-    let headW = 0, titleW = 0;
+    // (and its role's whole width, "phase of F(z) = …", which fitTitle shortens when the room runs out)
+    let headW = 0, titleW = 0, roleW = 0, legW = 0;
     if (inHead) {
-      const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pt = t && t.querySelector('.ptitle');
+      const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pt = t && t.querySelector('.ptitle'), pr = t && t.querySelector('.prole');
+      const leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
       if (t) { t.classList.remove('terse', 'short', 'notag'); f.parentElement.parentElement.classList.remove('tiny'); }   // (fitTitle fits it after)
-      headW = f.parentElement.clientWidth; titleW = pt ? pt.scrollWidth : 0;
+      headW = f.parentElement.clientWidth; titleW = pt ? pt.scrollWidth : 0; roleW = pr ? pr.scrollWidth + 8 : 0;
+      legW = leg && leg.parentNode === f.parentElement ? Math.round(leg.getBoundingClientRect().width) : 0;
     }
-    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.nk === kids.length) { if (inHead) fitTitle(side); return; }
-    ft.head = inHead; ft.headW = headW; ft.titleW = titleW;
+    if (!force && ft.w === pane.w && ft.phone === phone && ft.head === inHead && ft.headW === headW && ft.titleW === titleW && ft.roleW === roleW && ft.legW === legW && ft.nk === kids.length) { if (inHead) fitTitle(side); return; }
+    ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
     const pat = inHead && S.view.main === 'xy' ? patternBtn(side) : null;
@@ -361,7 +367,10 @@
           room -= c.getBoundingClientRect().width + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
         }
         room -= Math.max(0, shown - 1) * (parseFloat(hs.columnGap) || 0) + 2;   // (the gaps, the strip's own margin)
-        avail = room - Math.min(180, titleW + 12) - (pat ? 34 + gap : 0) - 4;
+        // (the Phase head, its style row first, keeps its whole title, its role too: the toggles go behind ⋯, the unit
+        // circle first, before the title gives up letters; #247 option 1. The row itself always stays, below)
+        const whole = kids.length > 0 && kids[0].id === 'dcSeg';
+        avail = room - (whole ? titleW + roleW + 12 : Math.min(180, titleW + 12)) - (pat ? 34 + gap : 0) - 4;
       } else avail = pane.w - 60;
       let used = pad;
       for (n = 0; n < kids.length; n++) {

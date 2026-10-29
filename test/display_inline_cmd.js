@@ -44,8 +44,19 @@ const diag = () => ev(`(() => { const hd = document.querySelector('#paneL .pane-
 const ctl = (id) => ev(`(() => { const i = document.getElementById('${id}'); if (!i) return null; const l = i.closest('label') || i, r = l.getBoundingClientRect(); const lab = l.querySelector(':scope > .tg-l') || l.querySelector(':scope > span:not(.tg-ic)'); return { vis: r.width > 0 && l.getClientRects().length > 0, inHead: !!l.closest('.pane-head'), inPop: !!l.closest('.pop'), w: r.width, h: r.height, name: (lab ? lab.textContent : '').trim(), checked: i.checked, tip: l.dataset ? l.dataset.tip : null }; })()`);
 const clickId = (id) => ev(`(() => { const i = document.getElementById('${id}'); if (!i) return null; i.click(); return i.checked; })()`);
 
+// ---- laptop, English, the app's own first scene at 1280 px: the Phase title whole (option 1's promise). (Where the
+// Phase key chip renders, it fills in after the head's first layout, and the strip laid out without it left the title
+// shortened; this daemon's chip is empty, so here the check guards the room, the chip's case is checked by hand)
+{
+  await view(1280, 800, false, false);
+  await send('Page.navigate', { url: `${U}?ns=dinlfirst${Date.now() % 1000000}` }); await sleep(3000);
+  await ev(`__cmwSetMain('phase'); 1`); await settle(1500);
+  const hd = await head('L');
+  ok(`1280 en first scene, Phase: the title is whole (the toggles give way first) and the head does not overflow`, hd && !hd.__exc && hd.title && hd.title.shown && !/\b(short|terse|notag)\b/.test(hd.title.cls) && !hd.over && !hd.outside.length, hd);
+}
+
 // ---- laptop, English, the Phase view
-for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]) {
+for (const [w, h, lang] of [[1440, 900, ''], [1280, 800, ''], [1100, 800, ''], [1366, 800, 'ru']]) {
   await fresh(w, h, false, lang);
   const tag = `${w} ${lang || 'en'}`;
   // (at 1440 px in English the whole row is inline beside a whole title; narrower or in Russian, and with wider fonts, a
@@ -57,6 +68,8 @@ for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]
   ok(`${tag} Phase: no Display button, no pop-up open`, !hd.disp && (await pops()) === 0, hd);
   ok(`${tag} Phase: the head neither overflows nor cuts a control`, !hd.over && !hd.outside.length && !hd.kids.some((k) => k.cut), hd);
   if (strict) ok(`${tag} Phase: the title shows`, hd.title && hd.title.shown, hd.title);
+  // (option 1's promise: the Phase title whole, role included, down to 1280 px in English; the toggles go behind ⋯ first)
+  ok(`${tag} Phase: the title is whole (not shortened: the toggles give way first)`, hd.title && hd.title.shown && !/\b(short|terse|notag)\b/.test(hd.title.cls), hd.title);
   let sr = await styleRow();
   if (!sr) {   // (not in the head at all: what the head holds, the view and the window, then the next size)
     ok(`${tag} Phase: the style row shows`, false, { d: await diag(), hd, view: (await st()).view, dc: (await st()).dc, inner: await ev('[innerWidth, innerHeight, devicePixelRatio]'), seg: await ev(`(() => { const e = document.getElementById('dcSeg'); return e ? { parent: e.parentElement && (e.parentElement.id || e.parentElement.className), inPop: !!e.closest('.pop') } : null; })()`) });
