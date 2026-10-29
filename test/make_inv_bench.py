@@ -12,7 +12,7 @@ root = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from tools.src_parts import source  # noqa: E402  (gl.js is joined from src/gl/, as build.py does)
 src = root / 'src'
-parts = [source(f, src) for f in ['cx.js', 'parse.js', 'funcs.js', 'inverse.js', 'calc.js', 'glsl.js', 'region.js', 'palette.js', 'gl.js']]
+parts = [source(f, src, esm='strip') for f in ['cx.js', 'parse.js', 'funcs.js', 'inverse.js', 'calc.js', 'glsl.js', 'region.js', 'palette.js', 'gl.js']]
 parts.append((root / 'test' / 'inv_bench.js').read_text())
 js = '\n'.join(parts).replace('</script', '<\\/script')
 html = f"""<!doctype html>

@@ -72,6 +72,8 @@ Columns: English · Russian · source or reason · note.
 | unit circle | единичная окружность | standard | |
 | line | прямая | standard | **Not** «линия». |
 | segment | отрезок | | |
+| hyperbolic line | гиперболическая прямая | The arc (or diameter) of a circle perpendicular to the boundary C, in the domain inside C (or outside it). Rows and captions say «hyperbolic line», never «segment», for the whole arc. Italian: retta iperbolica. | Perpendicular circle, Inside C only (issue #70 notes). |
+| hyperbolic segment | гиперболический отрезок | The part of a hyperbolic line between two points of the plane, with no tails: both ends are inside C. The chip, the Inspector and the ⋯ menu call the choice «Между» (Between). Italian: segmento iperbolico, «Tra». | Between z₀ and z₁ (issue #70). |
 | ray | луч | | |
 | arc | дуга | | |
 | curve | кривая | | |
