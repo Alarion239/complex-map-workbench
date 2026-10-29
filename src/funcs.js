@@ -2377,6 +2377,33 @@ const Funcs = (() => {
     };
   }
   // Evaluate raw params and build. Returns built object or {error}.
+  // A formula step's display form (params.show, TeX written in z): a short readable form the Inspector shows in place of
+  // the expanded formula, for display only (the map, the field's text, the copied LaTeX and the export keep the formula).
+  // It holds while the formula is the one it was written for: params.showOf = showKey(params.expr), FNV-1a (32 bits,
+  // 8 hex digits) of the formula's text as UTF-16 code units, trimmed; an edited formula drops it, and Undo brings it back.
+  function showKey(expr) {
+    const s = String(expr == null ? '' : expr).trim();
+    let x = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 0x01000193) >>> 0;
+    return x.toString(16).padStart(8, '0');
+  }
+  // the display form in the step's own input (a = {s, p} as tex takes): each letter z outside control words and outside
+  // \text-like groups becomes the input, in brackets unless it is an atom; the result counts as a sum (p 0)
+  function showIn(tex, a) {
+    const v = !a || a.s === 'z' ? 'z' : a.p >= 4 ? `{${a.s}}` : `\\left(${a.s}\\right)`;
+    const s = v === 'z' ? tex : tex.replace(/\\(?:text|textit|textbf|mathrm|operatorname|mbox)\s*\{[^{}]*\}|\\[a-zA-Z]+|z/g, (m) => (m === 'z' ? v : m));
+    return { s, p: 0 };
+  }
+  // (a link or a scene carries params.show as it was written, and MathJax typesets it as soon as it opens: a display
+  // form that links, styles, names DOM nodes, loads extensions, defines macros or writes MathML is refused, and the
+  // formula itself is shown)
+  const SHOW_BAD = /\\(?:href|url|style|class|cssId|data|html|require|unicode|newcommand|renewcommand|newenvironment|renewenvironment|def|let|edef|gdef|mmlToken|tag|label|ref|eqref|begingroup|endgroup)(?![a-zA-Z])/;
+  function withShow(b, p) {
+    const t = p && typeof p.show === 'string' ? p.show.trim() : '';
+    if (!t || !b || b.error || p.showOf !== showKey(p.expr) || SHOW_BAD.test(t)) return b;
+    b.show = (a) => showIn(t, a);
+    return b;
+  }
   function build(step) {
     const d = DEFS[step.type];
     if (!d) return { error: $t('Unknown function {f}', { f: step.type }) };
@@ -2398,7 +2425,8 @@ const Funcs = (() => {
           default: v[q.key] = raw;
         }
       }
-      return finish(d, v);
+      const b = finish(d, v);
+      return d.id === 'custom' ? withShow(b, step.params) : b;
     } catch (e) {
       return { error: e.message, def: d };
     }
@@ -2972,7 +3000,7 @@ const Funcs = (() => {
   }
 
   return {
-    DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
+    DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
     REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };

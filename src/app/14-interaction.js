@@ -184,6 +184,8 @@
           if (PM()) { ring = { id: ev.pointerId, x: x0, y: y0, slid: false, cancelled }; PM().ringFull(); }
           drag = { mode: 'probe' };
           onMove(pane, side, ev);
+          // (Hear the function: the long press that engages the probe plays the pressed point, spec 3.9)
+          sndQueryClick(pane, side, x0, y0);
         }, PM() ? 450 : 500) };
       }
     });
@@ -1398,7 +1400,10 @@
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
     if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') { globeUp(pane, d.side || side, d); return; }
-    if (d.mode === 'probe') { sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    if (d.mode === 'probe') { sndLift(); sndHoverOff(); probe = null; rHover = null; setHoverW(null); setReadouts(null); requestRender('OL', 'OR', is3D() ? 'R' : null); return; }
+    // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
+    // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
+    if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
     if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }

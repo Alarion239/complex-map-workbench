@@ -401,21 +401,49 @@
     lines.forEach((t, i) => ctx.fillText(t, pane.w / 2, y0 + 7 + 9 + i * 18));
     ctx.restore();
   }
-  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6), and (issue #72) that the
-  // GPU is still preparing the frame's programs when it has waited for them over 1.5 s (a cold link on Direct3D 11
-  // takes seconds, or minutes; the browser's program cache keeps them for later visits)
+  // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6); that the picture is not
+  // the new one yet while a program of it compiles (frameStatus().compiling: an earlier version, the deformation's
+  // start or nothing stands in; on Direct3D 11 a cold program takes 0.5 to 3 s). That note waits 300 ms, so a quick
+  // link shows none, and goes when the program lands (onReady draws the pane again). (issue #72) A frame that has
+  // waited for its programs over 1.5 s says instead that the GPU is still preparing them (a cold link on Direct3D 11
+  // takes seconds, or minutes; the browser's program cache keeps them for later visits).
+  const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
   function glStatusNote(pane) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
-    if (!st || !st.pending) { gpuWait.delete(pane); return; }
-    const now = performance.now();
+    const now = performance.now(), role = pane === paneL ? 'L' : 'R';
+    if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
-    if (!gpuWait.has(pane)) { gpuWait.set(pane, now); setTimeout(() => requestRender(pane === paneL ? 'L' : 'R'), 1600); return; }
-    const n = GLR.pendingLinks || 0;
-    if (n && now - gpuWait.get(pane) > 1500) paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n }));
+    else if (!gpuWait.has(pane)) { gpuWait.set(pane, now); setTimeout(() => requestRender(role), 1600); }
+    else {
+      const n = GLR.pendingLinks || 0;
+      if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
+    }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); return; }
+    const t0 = compileT.get(pane);
+    if (t0 === undefined) {
+      compileT.set(pane, now);
+      setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
+    } else if (now - t0 >= 300) compileNote(pane);
+  }
+  // the compiling note: small and quiet, in the pane's lower left corner
+  function compileNote(pane) {
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const text = $t('Compiling…');
+    const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
+    ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
+    ctx.fillStyle = TH.muted;
+    ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
+    ctx.restore();
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes)}

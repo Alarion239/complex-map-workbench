@@ -119,6 +119,9 @@ This option still answers only "what is arg F here".
 
 ## 3. Option 2: the phase harp (notes where colour changes)
 
+> **Superseded (2026-10-28, v16.5)** by the marimba notes: every one of the n drawn colour lines is a note (not five
+> strings), loudness from |F| by a fixed law (not the turning rate), no D accent, no lap closure. notes/sound/README.md.
+
 **Idea.** Every line of the phase portrait you cross is a plucked note. The note is the line's pitch class, on the
 D-major pentatonic scale. Between crossings the harp is silent. Model-based sonification works the same way: the
 object sounds only when you excite it, and that is what makes it less tiring (Handbook ch. 16). Desmos marks crossings
