@@ -203,6 +203,10 @@ for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
     const c = await ctl(id);
     ok(`${tag}: ${id} is a row of the sheet with its word, ≥ 44 px tall`, c && c.vis && !c.inHead && c.h >= 44 && c.name.length > 2, c);
   }
+  // (the mesh stops stay inside their group: in Russian their laptop stagger, two rows of 44 px targets, ran under the tip)
+  const mesh = await ev(`(() => { const g = document.getElementById('meshGroup'); if (!g || !g.getClientRects().length) return null; const gb = g.getBoundingClientRect().bottom;
+    return [...g.querySelectorAll('#meshPresets > button')].map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent, over: Math.round(r.bottom - gb), h: Math.round(r.height) }; }); })()`);
+  ok(`${tag}: the mesh quality's five stops stay inside their group, each ≥ 44 px tall`, mesh && mesh.length === 5 && mesh.every((b) => b.over <= 1 && b.h >= 44), mesh);
   await ev(`Phone.close(true)`); await settle(400);
   // the Landscape: the chip says where the styles live
   await ev(`__cmwSetMain('land'); 1`); await settle(800);

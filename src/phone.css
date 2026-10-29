@@ -309,6 +309,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .seg > button.on { background: var(--seg-on, var(--surface)); color: var(--ink); box-shadow: var(--shadow-1); }
 :root.ph .ph-sheet .icon-btn { width: 44px; height: 44px; }
 :root.ph .ph-sheet .fader-stops > button { min-width: 44px; }
+/* (#247) the Russian mesh stops are staggered on two rows for the laptop's narrow left panel (page.html, v15); in a
+   phone's sheet, 44 px tall, the second row ran 28 px under the tip below it. The sheet has room for the five on one
+   row (≈ 250 px of labels in 336 px at 360 px), as in English */
+:root.ph[data-lang="ru"] .ph-sheet #meshPresets { display: flex; min-height: 44px; }
+:root.ph[data-lang="ru"] .ph-sheet #meshPresets > button { position: relative; top: auto; left: auto; right: auto; translate: none; padding-top: 6px; }
+:root.ph[data-lang="ru"] .ph-sheet #meshPresets > button::before { top: 0; }
+:root.ph[data-lang="ru"] .ph-sheet #meshPresets > button:is(:nth-child(2), :nth-child(3), :nth-child(4))::before { left: 50%; }
 :root.ph .ph-vopts { display: flex; flex-direction: column; gap: 8px; padding: 4px; }
 :root.ph .ph-vopts > * { position: static; max-width: 100%; }
 :root.ph .ph-vopts .seg { overflow-x: auto; }
