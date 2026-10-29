@@ -243,6 +243,7 @@ node ci/glsl.js                                    # GLSL conformance in headles
 node ci/quality.js --ref origin/main               # image quality, paired against main (--shard 1/3 for a part)
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
+node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard
