@@ -74,6 +74,8 @@ const FWD = {
   jouk_custom: (x, y) => { const d = x * x + y * y; return [(x + x / d) / 2, (y - y / d) / 2]; },
   // the zeros-and-poles step with zeros +-1 and pole 0: (z^2 - 1)/z = z - 1/z
   zp_disc: (x, y) => { const d = x * x + y * y; return [x - x / d, y + y / d]; },
+  // Repeat x 3 of [z^2, + c], c = -0.3 + 0.2i (#229)
+  quad3_disc: (x, y) => { let u = x, v = y; for (let k = 0; k < 3; k++) { const t = u * u - v * v - 0.3; v = 2 * u * v + 0.2; u = t; } return [u, v]; },
   // the Douady–Hubbard map Φ_M (#260) by the Böttcher product Φ_M(c) = c ∏_{k≥1} (1 + c/u_k²)^{1/2^k} (u_1 = c,
   // u_{k+1} = u_k² + c), each factor on its principal branch: valid where every |c/u_k²| < 1, which this disc's orbits
   // reach after a few steps; the first factors are taken by the continuation of the whole product along the segment
@@ -156,6 +158,8 @@ const SAMPLERS = {
   // |F'| = |2z| |e^{z^2}| <= 2 (|3+3i| + 0.3) e^{2 |3+3i| 0.3 + 0.09} on the disc
   ez2_disc: (put, s) => grid(put, 3, 3, 0.3, STEP_PX / (s * 2 * (Math.hypot(3, 3) + 0.3) * Math.exp(2 * Math.hypot(3, 3) * 0.3 + 0.09))),
   healed_cut: (put, s) => grid(put, -1, 0, 0.6, STEP_PX / s),
+  // |F'| = 8 |z| |u_1| |u_2| <= 8 * 1.03 * 1.42 * 2.37 < 28 on the disc (|z| <= |0.2 + 0.1i| + 0.8)
+  quad3_disc: (put, s) => grid(put, 0.2, 0.1, 0.8, STEP_PX / (s * 28)),
   // |Φ_M'| < 2.17 on the disc (sampled at 20000 points: 2.16)
   dh_disc: (put, s) => grid(put, 0.6, 0.9, 0.3, STEP_PX / (s * 2.5)),
 };
@@ -216,7 +220,7 @@ const RAND_BOX = {
   zi_H: [-5, 5, 1e-3, 5], expH: [-4, 3, 1e-3, 20], e1z_disc: [-1, 1, -1, 1], e1z_custom: [-1, 1, -1, 1],
   exp_far_disc: [-1, 1, 59, 61], ez2_disc: [2.7, 3.3, 2.7, 3.3], healed_cut: [-1.6, -0.4, -0.6, 0.6],
   atanh_D: [-1, 1, -1, 1], atan_D: [-1, 1, -1, 1], cube_far_deep: [2.5, 3.5, 2.5, 3.5],
-  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2], dh_disc: [0.3, 0.9, 0.6, 1.2],
+  rat9: [-1.5, 1.5, -1.5, 1.5], jouk_custom: [-4, 4, -4, 4], zp_disc: [-0.8, 0.8, 0.4, 2], quad3_disc: [-0.6, 1, -0.7, 0.9], dh_disc: [0.3, 0.9, 0.6, 1.2],
 };
 
 
@@ -256,6 +260,12 @@ MEMBERS.zp_disc = (w) => {
   const [a, b] = csq(w.re * w.re - w.im * w.im + 4, 2 * w.re * w.im);
   return [{ re: (w.re + a) / 2, im: (w.im + b) / 2 }, { re: (w.re - a) / 2, im: (w.im - b) / 2 }].filter((z) => Math.hypot(z.re, z.im - 1.2) < 0.8);
 };
+// (z^2 + c)^{-3} of w: the 8 branches of the three square roots, kept in the disc |z - (0.2 + 0.1i)| < 0.8
+MEMBERS.quad3_disc = (w) => {
+  let zs = [[w.re, w.im]];
+  for (let k = 0; k < 3; k++) zs = zs.flatMap(([a, b]) => { const [x, y] = csq(a + 0.3, b - 0.2); return [[x, y], [-x, -y]]; });
+  return zs.filter(([x, y]) => Math.hypot(x - 0.2, y - 0.1) < 0.8).map(([x, y]) => ({ re: x, im: y }));
+};
 // Φ_M is one-to-one: the member is the z in the disc with fdh(z) = w, by Newton (the derivative by differences), from
 // the last member found when it was for a w within 0.01, else along the segment from Φ_M(0.6 + 0.9i) to w in 16 steps;
 // none outside the box of fdh of the disc's circle (widened by 0.02), and none unless fdh(z) = w to 1e-10
@@ -274,17 +284,20 @@ function dhSolve(z, w) {
   }
   return z;
 }
+// (the check evaluates fdh afresh, along its whole path from far out: a branch followed from the previous point can be
+// wrong near M, where a factor turns by more than half its period within 0.01, and Newton then finds a z on it)
+const fdhFresh = (x, y) => { DH_LAST.x = NaN; return fdh(x, y); };
 MEMBERS.dh_disc = (w) => {
   if (w.re < DHM_BOX[0] || w.re > DHM_BOX[1] || w.im < DHM_BOX[2] || w.im > DHM_BOX[3]) return [];
-  let z;
-  if (DHM_LAST.w && Math.hypot(w.re - DHM_LAST.w.re, w.im - DHM_LAST.w.im) < 0.01) z = dhSolve(DHM_LAST.z, w);
-  else {
-    const [u0, v0] = fdh(0.6, 0.9);
-    z = { re: 0.6, im: 0.9 };
+  const ok = (z) => { const f = fdhFresh(z.re, z.im); return Math.hypot(f[0] - w.re, f[1] - w.im) <= 1e-10 * Math.hypot(w.re, w.im); };
+  const fromCentre = () => {
+    const [u0, v0] = fdhFresh(0.6, 0.9);
+    let z = { re: 0.6, im: 0.9 };
     for (let j = 1; j <= 16; j++) z = dhSolve(z, { re: u0 + (w.re - u0) * j / 16, im: v0 + (w.im - v0) * j / 16 });
-  }
-  const f = fdh(z.re, z.im);
-  if (!(Math.hypot(f[0] - w.re, f[1] - w.im) <= 1e-10 * Math.hypot(w.re, w.im))) return [];
+    return z;
+  };
+  let z = DHM_LAST.w && Math.hypot(w.re - DHM_LAST.w.re, w.im - DHM_LAST.w.im) < 0.01 ? dhSolve(DHM_LAST.z, w) : fromCentre();
+  if (!ok(z)) { z = fromCentre(); if (!ok(z)) return []; }
   DHM_LAST.w = { re: w.re, im: w.im }; DHM_LAST.z = z;
   return Math.hypot(z.re - 0.6, z.im - 0.9) < 0.3 ? [z] : [];
 };
@@ -352,12 +365,12 @@ function appMap(sc) {
   global.CX = global.CX || require(path.join(ROOT, 'src/cx.js'));
   global.Expr = global.Expr || require(path.join(ROOT, 'src/parse.js'));
   const Funcs = global.Funcs || (global.Funcs = require(path.join(ROOT, 'src/funcs.js')));
-  const fs = sc.steps.map((st) => {
-    const b = Funcs.build({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true });
-    if (b.error || typeof b.f !== 'function') throw new Error(`${sc.name}: step ${st.type} does not build: ${b.error}`);
-    return b.f;
-  });
-  return (x, y) => { let z = { re: x, im: y }; for (const f of fs) z = f(z); return [z.re, z.im]; };
+  // (a step's Repeat × N as the app runs it: Funcs.applyRepeats, quad3_disc's [z², + c] three times)
+  const steps = sc.steps.map((st) => Object.assign({ type: st.type, params: Object.assign(Funcs.defaults(st.type), st.params), on: true }, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
+  const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
+  built.forEach((b, i) => { if (b.error || typeof b.f !== 'function') throw new Error(`${sc.name}: step ${steps[i].type} does not build: ${b.error}`); });
+  const F = Funcs.stageFunctions(steps, built)[steps.length];
+  return (x, y) => { const z = F({ re: x, im: y }); return [z.re, z.im]; };
 }
 
 // a tiny seeded PRNG (mulberry32), so every run checks the same points
