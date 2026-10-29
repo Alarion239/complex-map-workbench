@@ -328,5 +328,6 @@
  "Times: a whole number, or a number’s name to run its slider": "Сколько раз: целое число или имя числа, чтобы его ползунок задавал N",
  "n is the index of a series: pick another letter": "n — индекс ряда: выберите другую букву",
  "{x} is the variable of a recurrence in the chain: pick another letter": "%{x} — переменная рекуррентности в цепочке: выберите другую букву",
- "Pattern: {name}": "Узор: %{name}"
+ "Pattern: {name}": "Узор: %{name}",
+ "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Известное ограничение: в нескольких пикселях от нуля arg <i>F</i> меняется так быстро, что дрожащий палец может пересечь цветовую линию и сыграть ноту."
 }
