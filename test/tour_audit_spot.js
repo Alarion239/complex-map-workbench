@@ -255,7 +255,7 @@ const SPOT = String.raw`(() => {
     'basics/x': () => selTool(), 'basics/preimages': () => 'none', 'basics/draw': () => tool('disc'),
     'basics/shapes': () => (innerWidth < 640 ? 'none' : selTool()), 'basics/formula': () => 'none',
     'basics/chain': () => q1('#pipeline .card[data-k="1"]'), 'basics/add': () => q1('#addStepBtn'),
-    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)'),
+    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
     'views/patterns': () => q1('#patternSeg .pat[data-pat="stretch"]'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
     'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
