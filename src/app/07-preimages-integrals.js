@@ -509,7 +509,7 @@
   // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
   const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
   // TEMP-DEBUG-HOOK (removed before publishing)
-  window.__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more })), hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
+  /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more })), hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
   // TEMP-DEBUG-HOOK
 
   // the shapes' names as their rows show them ("Circle 1")
