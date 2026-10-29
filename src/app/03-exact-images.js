@@ -459,7 +459,8 @@
     if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
-      recs = GLR.packShapes(list).recs;
+      // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
+      recs = GLR.packShapes(list.filter((x) => !shapeStage(x))).recs;
       if (!sideDraw) lastRecs = recs;
       if (live && guard) {
         const info = GLR.inverseInfo;
@@ -502,6 +503,7 @@
       preIds = new Set();
       for (const s of list) {
         if (kindType(s) !== 'area') continue;
+        if (shapeStage(s)) { if (preIds.size) break; continue; }
         const p = pathOf(s, map, role, 'flat', { recs, budget: live });
         if (p.path !== 'inverse') { if (preIds.size) break; continue; }
         const box = invBox(p.e, p.plan, s, live);
@@ -546,6 +548,19 @@
       const ink = shapeInk(s);
       let alpha = S.alpha;
       alpha *= dimK(s);
+      // [#253] a shape of an intermediate plane: its own map (none: not drawn in this plane), its mesh drawn forward
+      const sm = shapeMap(s, map);
+      if (!sm) continue;
+      if (sm !== map) {
+        if (preIds && preIds.size && !preDone) { GLR.compositeHalf(); preDone = true; }
+        if (r.meshRes) {
+          GLR.drawRegion(r.meshRes, {
+            map: sm, view: pane.view, dpr: pane.dpr, L: opt.L || MESH_L, color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB,
+            alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), skip: null, stretch, fade: null, sync, cacheKey: cache ? `${r.meshKey}|${mapKeyOf(sm)}` : null,
+          });
+        }
+        continue;
+      }
       // drawn in the half-resolution pre-pass: its layer is upsampled here, at the run's first shape
       if (preIds && preIds.has(s.id)) {
         if (!preDone) { GLR.compositeHalf(); preDone = true; }
@@ -645,20 +660,22 @@
     for (const s of hideStrokes || artMode ? [] : list) {
       if (kindType(s) === 'point') continue;
       const r0 = shapeGPU(s);
+      const sm = shapeMap(s, map);
+      if (!sm) continue;
       // the strokes that go with the fill drawn (a hold's own strokes while it stands in for the current mesh)
-      const r = role && r0.hold && kindType(s) === 'area' ? linesOf(r0, pairFor(s, r0, role).p) : r0;
+      const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
       const ink = shapeInk(s);
       const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const area = kindType(s) === 'area';
       let w = opt.thin ? 1 : grid ? 1 : area ? 1.5 : 2;
       let cw = opt.thin ? 0 : grid ? 2.5 : area ? 3.5 : 4;
-      if (!opt.thin && s.id === selected && opt.domain) { w += 0.75; cw += 0.75; }
+      if (!opt.thin && s.id === selected && (opt.domain || (opt.plane > 0 && shapeStage(s) === opt.plane))) { w += 0.75; cw += 0.75; }
       if (!opt.thin && s.id === hoverShape) { w += 0.5; cw += 0.5; }
-      const st = { map, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, width: w * pane.dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(map)}` : null };
+      const st = { map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, width: w * pane.dpr, color: GLR.hexRGB(ink.edge), alpha: grid ? 0.8 : 1, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null };
       if (cw) st.casing = { color: halo, alpha: TH.haloA, width: cw * pane.dpr };
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
-      if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = arcOf(r, arcF(), arcKey); }
+      if (area && r.open && !opt.thin) { st.dash = [5, 3.5]; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
     }
     if (GLR.flushHalf) GLR.flushHalf();
