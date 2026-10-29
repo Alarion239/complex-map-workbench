@@ -200,12 +200,12 @@ const Tour = (() => {
         { id: 'sphere', anchor: ['surfaceL', 'sphereKey'], also: ['panes'], title: 'The Riemann sphere', before: [['view', 'phase'], ['surface', 'L', 'sphere'], ['tool', 'select']],
           body: 'Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.',
           try: { text: 'Drag the sphere to turn it.', on: 'view-moved', test: orbit, ctl: ['panes'], then: '$\\infty$ is the north pole; here $F(\\infty)=1$.' } },
-        // (v16.5 UX20: on a desktop Y's options are behind the Display options button in its pane head, which is lit;
-        // on a phone, Y is the large plane and its options are in the Display sheet)
+        // (v16.5 UX20; #247: on a desktop Phase key is a toggle in Y's pane head, lit, or behind the head's ⋯ button when
+        // the head has no room for it; on a phone, Y is the large plane and its options are in the Display sheet)
         { id: 'key', anchor: ['phaseKey', 'rightOpts'], also: ['paneR'], title: 'Phase key', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { phaseKey: false }], ['plane', 'R'], ['panel', 'sheet', 'display']],
           touch: 'Phase key, in the Display sheet of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
           body: 'Phase key, among the options of Y, paints the phase colours of $w$ itself under the images, so a colour of the Phase portrait reads off as a value of $w=F(z)$.',
-          try: { text: 'In Display options, turn on Phase key.', touch: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
+          try: { text: 'Turn on Phase key.', on: 'phase-key', test: (e) => !e || e.on === true, ctl: ['phaseKey'], then: 'Each colour now reads as a value of $w$.' } },
         { id: 'patterns', anchor: 'patterns', also: ['paneR'], title: 'Patterns', before: [['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['look', { pattern: 'checker' }], ['panel', 'left', 'display']],
           body: 'The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F\'(z)|$: blue shrinks, amber grows.',
           try: { text: 'Choose Stretch.', on: 'pattern-changed', test: (e) => !e || e.id == null || e.id === 'stretch', ctl: ['patStretch'], then: 'Blue shrinks, amber grows: $|F\'|$ at each point.' } },
@@ -292,7 +292,7 @@ const Tour = (() => {
         { id: 'targets', anchor: 'paneR', also: ['paneL'], title: 'Targets and preimages', before: [['deform', false], ['view', 'xy'], ['surface', 'L', 'plane'], ['surface', 'R', 'plane'], ['plane', 'R']],
           lead: 'The target $0$ marks the three cube roots of unity.',
           body: 'Shapes drawn in Y are targets in $w$, and X shades their preimages. The target point $0$ marks the roots of $F(z)=z^3-1$ with their multiplicity, here the three cube roots of unity; the circle $|w|=0.6$ pulls back to three loops around them.' },
-        // (v16.5 UX20: on a desktop the style control is behind X's Display options button in its pane head, lit then)
+        // (v16.5 UX20; #247: on a desktop the style control is in X's pane head, or behind its ⋯ button, lit then)
         { id: 'cauchy', anchor: ['phaseStyle', 'leftOpts', 'panes'], also: ['panes'], title: 'Cauchy integral', before: [['view', 'phase'], ['surface', 'L', 'plane'], ['look', { phaseStyle: 'cauchy' }]],
           lead: 'Cauchy\'s integral is $F$ inside $\\gamma$ and $0$ outside.',
           body: 'The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. With several closed curves, the selected one is used.' },
@@ -419,10 +419,10 @@ const Tour = (() => {
     formula: '#secFormula', shapes: '#secShapes',
     // (D3: the phone's context bar, while a construction tool is in hand: its Undo pick)
     ctxUndo: () => vis1('.ph-ctx[data-k="construct"] .ph-cb'),
-    // ([v17 D4] on the laptop the regions' display is behind Y's Display ▾ in the pane head: the open popover's patterns,
-    // or the button; on a phone the Display sheet's section)
-    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.disp-pop') || document.querySelector('#rightFoot .opts-btn')),
-    patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.disp-pop #patternSeg') || document.querySelector('#rightFoot .opts-btn')),
+    // ([v17 D4; #247] on the laptop the regions' display is behind Y's pattern button in the pane head: the open popover's
+    // patterns, or the button; on a phone the Display sheet's section)
+    display: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#regionsBox') : document.querySelector('.pat-pop') || document.querySelector('#rightFoot .pat-btn')),
+    patterns: () => (document.documentElement.classList.contains('ph') ? document.querySelector('#patternSeg') : document.querySelector('.pat-pop #patternSeg') || document.querySelector('#rightFoot .pat-btn')),
     chain: '.pipe-wrap', addStep: '#addStepBtn', panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
@@ -443,11 +443,11 @@ const Tour = (() => {
     // the Phase style control of the Phase view's options (Tiles, Plain, …, Cauchy)
     phaseStyle: '#dcSeg',
     phaseKey: () => { const c = document.querySelector('#wKeyChkR'); return c ? c.closest('label') || c : null; },
-    // Y's Display options button, where the Phase key goes when Y's options strip has no room for it
-    rightOpts: '#rightFoot .opts-btn',
-    // (v16.5 UX20) X's Display options button, in its pane head on a desktop (the Phase style, Landscape's options);
-    // INTEGRATION.md: the fallback of phaseStyle
-    leftOpts: '#leftFoot .opts-btn',
+    // Y's Display options button (#247: the head's ⋯), where the Phase key goes when Y's head has no room for it
+    rightOpts: '#rightFoot .opts-btn:not(.pat-btn)',
+    // (v16.5 UX20) X's Display options button (#247: the head's ⋯, when the Phase style or Landscape's options do not fit
+    // the head); INTEGRATION.md: the fallback of phaseStyle
+    leftOpts: '#leftFoot .opts-btn:not(.pat-btn)',
     // v15: the Inspector's Selection (the selected step's editor), its Parameters (shared numbers), the F tile that
     // closes the chain; on a phone, the Sphere key in the plane's right column
     // (v15.1) the selected step's Show alone button (v16.5 UX85: no longer a lens) in the Inspector's head: in a phone's sheet

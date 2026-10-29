@@ -3097,5 +3097,6 @@
  "Phase style: {name}": "Stile della fase: {name}",
  "Styles belong to the flat Phase view": "Gli stili appartengono alla vista Fase piana",
  "Switch to Phase": "Passa a Fase",
- "Style: {name}": "Stile: {name}"
+ "Style: {name}": "Stile: {name}",
+ "Pattern: {name}": "Motivo: {name}"
 }

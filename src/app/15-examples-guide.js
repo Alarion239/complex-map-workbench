@@ -366,7 +366,12 @@
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
-    for (const sw of document.querySelectorAll('.disp-btn .disp-sw')) drawPatternSwatch(sw, S.pattern);   // ([v17 D5] the Display buttons')
+    // ([v17 D5; #247] the pane heads' pattern buttons: their swatch and name)
+    for (const pb of document.querySelectorAll('.pat-btn')) {
+      const sw = pb.querySelector('.disp-sw'), p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+      if (sw) drawPatternSwatch(sw, S.pattern);
+      pb.setAttribute('aria-label', name); pb.setAttribute('data-tip', name);
+    }
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;

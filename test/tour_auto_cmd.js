@@ -74,8 +74,9 @@ at = await advancedAt('views/switch', t0);
 check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
 // Phase key: a check; an input at +2 s does not restart the countdown
 await go('views', 4);
-// (v16.5 UX20: on a desktop Y's options are behind its Display options button in the pane head: it is opened first)
-const ob = await center('#rightFoot .opts-btn');
+// (v16.5 UX20; #247: on a desktop the check is a toggle in Y's pane head; when the head has no room it is behind the
+// head's ⋯ button, which is opened first)
+const ob = (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
 if (ob) { await click(ob[0], ob[1]); await sleep(400); }
 const kc = await center('#wKeyChkR');
 check('key: the Phase key check is there', !!kc, kc);
@@ -89,7 +90,7 @@ if (kc) {
   check('key: a wheel at +2 s changes nothing: 3 s after the event', near(at, 3000, 200), at);
 }
 // (v16.5: the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
-await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
+await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
 try {
 // a hold: the palette left open 6 s (Palette and keys: its task is done when it opens)
 await go('keys', 0);

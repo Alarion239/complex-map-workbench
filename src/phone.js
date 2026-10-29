@@ -77,10 +77,12 @@ const Phone = (() => {
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
     els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
-    // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu
+    // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
+    // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
+    // Landscape, where it says where the styles live; the sheet has no "This view" title)
     els.style = h('button', { class: 'ph-row ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
-    els.body.display.append(els.style, h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
+    els.body.display.append(els.style, els.viewOpts, els.regionsH, els.regions);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain bar: Numbers first
@@ -650,8 +652,8 @@ const Phone = (() => {
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
   function paintStyle() {
     const st = A.styleState();
-    els.style.hidden = !st.show;
-    if (!st.show) return;
+    els.style.hidden = !st.show || !st.land;
+    if (els.style.hidden) return;
     els.style.querySelector('.ph-ic').innerHTML = st.svg;
     els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
     els.style.setAttribute('aria-disabled', String(st.land));
@@ -662,7 +664,6 @@ const Phone = (() => {
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
     homeDisplay();
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
-    els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg;
     // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the

@@ -131,11 +131,11 @@ await ev('Tour.next()'); await settle(1200); await ev('Tour.next()'); await sett
 g = await ev(`({ id: Tour.current().id, holes: (document.querySelector('.tour-shade').getAttribute('d').match(/M/g) || []).length - 1, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10 })`);
 check('Sphere: one lit panel (and the strip\'s window) and a ring on its surface control', g.id === 'sphere' && g.holes === 2 && g.mark, g);
 await snap('tour-sphere-dark');
-// the Phase key: Y is lit, and (v16.5 UX20: Y's options are behind its Display options button in the pane head) the
-// button has a ring of its own; opened, the Phase key check is in its popover
+// the Phase key: Y is lit, and (v16.5 UX20; #247: the check is a toggle in Y's pane head, or behind the head's ⋯ button)
+// the check, or that button, has a ring of its own
 await ev('Tour.next()'); await settle(1600);
-g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn'); const a = L && L.anchor, b = (k && k.getClientRects().length ? k.closest('label') : ob).getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!(ob && ob.closest('.pane-head')), y: document.querySelector('#tourBody').textContent }; })()`);
-check('Phase key: Y lit, its Display options button (pane head) ringed, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
+g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), k = document.querySelector('#wKeyChkR'); const ob = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); const a = L && L.anchor, el = k && k.getClientRects().length ? k.closest('label') : ob, b = el.getBoundingClientRect(); return { id: c && c.id, mark: (document.querySelector('.tour-mark').getAttribute('d') || '').length > 10, anchorIsKey: !!(a && b && Math.abs(a.l - b.left) < 1 && Math.abs(a.t - b.top) < 1), inHead: !!el.closest('.pane-head'), y: document.querySelector('#tourBody').textContent }; })()`);
+check('Phase key: Y lit, its toggle (or the head\'s ⋯) ringed in the pane head, the copy names it', g.id === 'key' && g.mark && g.anchorIsKey && g.inHead && /Phase key/.test(g.y), g);
 await snap('tour-phasekey-dark');
 // patterns: Choose Stretch
 await ev('Tour.next()'); await settle(1600);
@@ -174,15 +174,14 @@ await ev(`Tour.next()`); await settle(1600);
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
 check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
 check('Targets: the copy names X and Y and the multiplicity', /X shades their preimages/.test(await ev(`document.querySelector('#tourBody').textContent`)) && /multiplicity/.test(await ev(`document.querySelector('#tourBody').textContent`)));
-// the Cauchy phase style: Phase view, the style control lit whole (v16.5 UX20: on a desktop it is behind X's Display
-// options button in the pane head, which is lit; the control and its note are read in the button's popover), the
-// integral over the scene's unit circle
+// the Cauchy phase style: Phase view, the style control lit whole (#247: on a desktop it is a row in X's pane head; its
+// note, a sentence, is behind the head's ⋯ button, read in its popover), the integral over the scene's unit circle
 await ev(`Tour.next()`); await settle(1800);
-const litOpts = await ev(`(() => { const L = Tour.lit(), a = L && L.anchor, b = document.querySelector('#leftFoot .opts-btn'), r = b && b.getBoundingClientRect(); return !!(a && r && b.closest('.pane-head') && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1); })()`);
-await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
+const litOpts = await ev(`(() => { const L = Tour.lit(), a = L && L.anchor, b = document.querySelector('#dcSeg'), r = b && b.getBoundingClientRect(); return !!(a && r && b.closest('.pane-head') && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1); })()`);
+await ev(`document.querySelector('#leftFoot .opts-btn:not(.pat-btn)').click()`); await settle(500);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('.opts-pop .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: ${litOpts}, on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);
 check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, the integral over the unit circle', g.c && g.c.id === 'cauchy' && g.scene === 'roots' && g.main === 'phase' && g.dc === 'cauchy' && g.lit && g.on === 'Cauchy' && /inside, 0 outside/.test(g.note || '') && !/Select a closed curve/.test(g.note || ''), g);
-await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(300);
+await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(300);
 await snap('tour-cauchy-light');
 // (v15: Zeros and poles moved to the chapter Editing the chain, step 3; v15.2: step 4, after A formula in steps)
 await ev(`Tour.start({ chapter: 'edit', step: 3 })`); await settle(1800);

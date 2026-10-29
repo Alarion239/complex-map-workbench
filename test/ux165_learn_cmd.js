@@ -88,9 +88,11 @@ check('UX20: the key unfolds under the head only while pointed at (invited)', g.
 await shot('ux165-ux20-key-hover');
 await move(300, 300); await settle(300);
 check('UX20: and folds again', await ev(`getComputedStyle(document.querySelector('#rightLegend > canvas')).display === 'none'`));
-await ev(`document.querySelector('#rightFoot .opts-btn').click()`); await settle(400);
-g = await ev(`(() => { const p = document.querySelector('.opts-pop'); if (!p) return null; const b = p.getBoundingClientRect(), h = document.querySelector('#paneR .pane-head').getBoundingClientRect(); return { phaseKey: !!p.querySelector('#wKeyChkR'), under: b.top >= h.bottom - 1 }; })()`);
-check('UX20: Display options in the head opens View outline and Phase key under it', g && g.phaseKey && g.under, g);
+// (#247: View outline and Phase key are toggles in Y's head, or behind its ⋯ when the head has no room; never over the plot)
+const inlineKey = await ev(`(() => { const k = document.getElementById('wKeyChkR'), l = k && k.closest('label'); return !!(l && l.getClientRects().length && l.closest('#paneR .pane-head')); })()`);
+if (!inlineKey) { await ev(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)').click()`); await settle(400); }
+g = await ev(`(() => { const k = document.getElementById('wKeyChkR'), f = document.getElementById('fovChk'), l = k && k.closest('label'), p = document.querySelector('.opts-pop'), hd = document.querySelector('#paneR .pane-head').getBoundingClientRect(); if (!l) return null; const b = (p || l).getBoundingClientRect(); return { phaseKey: l.getClientRects().length > 0, fov: !!f, inHead: !!l.closest('.pane-head'), under: !p || b.top >= hd.bottom - 1, titles: p ? p.querySelectorAll('.opts-h').length : 0 }; })()`);
+check('UX20/#247: View outline and Phase key in Y\'s head, or in its ⋯ pop-up under it, with no title', g && g.phaseKey && g.fov && (g.inHead || g.under) && g.titles === 0, g);
 await key('Escape'); await settle(200);
 for (const v of ['phase', 'land']) {
   await ev(`__cmwSetMain('${v}')`); await settle(2200);

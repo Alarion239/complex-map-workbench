@@ -304,5 +304,6 @@
  "Phase style: {name}": "Стиль фазы: %{name}",
  "Styles belong to the flat Phase view": "Стили относятся к плоскому виду «Фаза»",
  "Switch to Phase": "Перейти к фазе",
- "Style: {name}": "Стиль: %{name}"
+ "Style: {name}": "Стиль: %{name}",
+ "Pattern: {name}": "Узор: %{name}"
 }

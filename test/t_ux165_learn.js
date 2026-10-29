@@ -42,7 +42,8 @@ ok('UX77: Details adds to the lead (it no longer repeats it)', !w.body.includes(
 ok('UX77: Details starts folded on every size', /whyOpen = rec\.why != null \? rec\.why : false/.test(SRC) && !/vpSize\(\)\.w >= 1280 && vpSize\(\)\.h >= 800/.test(SRC));
 ok('UX77: the toggle is called Details', /\$t\('Details'\)/.test(SRC) && !/\$t\('Why'\)/.test(SRC));
 const key = step('views', 'key');
-ok('UX20: the Phase key step lights the Display options button when the check is behind it', key.anchor[1] === 'rightOpts' && /Display options/.test(key.try.text) && key.try.touch === 'Turn on Phase key.', key.try);
+// (#247: the check is a toggle in Y's head, so the task names the check alone; the head's ⋯ is lit when it is behind it)
+ok('UX20: the Phase key step lights the head\'s ⋯ button when the check is behind it', key.anchor[1] === 'rightOpts' && key.try.text === 'Turn on Phase key.', key.try);
 ok('UX20: the step\'s task text keeps the strip\'s length', plain(key.try.text).length <= 60, key.try.text);
 
 // ---- Russian (UX78, UX93 and every string of this piece)
