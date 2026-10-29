@@ -251,8 +251,21 @@ void main() {
   // random stream of its own (the v15 cases stay the same cases); the GPU packs it at the window's centre, as the app does
   let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
   R.gWalk = { cases: 0 };
+  // (test/glsl_tiers.js: the whole page, tier all, walks every chain on one random stream, as it always did; a tier or a
+  // part walks the chains it keeps, each on a stream seeded by its name, so a chain's cases do not depend on which
+  // other chains run; the clip test after the walk then starts from the page's seed)
+  const legacy = GLSLTiers.LEGACY || (GLSLTiers.TIER === 'all' && GLSLTiers.PARTS === 1), seed0 = opts.seed || 20261019;
+  let prevCh = null, prevT = 0;
+  Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
   for (const ch of chains.slice(0, opts.maxCases || Infinity)) {
     if (gSaved !== null) { seed = gSaved; gSaved = null; }
+    if (!legacy) {
+      if (!GLSLTiers.keep('inverse', ch.name, 0)) continue;
+      seed = (seed0 ^ GLSLTiers.hashName(ch.name)) | 0;
+    }
+    // (a chain's time: from its start to the next one's, the walk having continue at every level)
+    if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
+    prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
     if (RA && seedRat === null) seedRat = seed;
@@ -357,7 +370,9 @@ void main() {
       }
     }
   }
+  if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
   if (seedRat !== null) seed = seedRat;
+  if (!legacy) seed = seed0;
   if (gSaved !== null) { seed = gSaved; gSaved = null; }
   if (GLR.setFormAnchor) GLR.setFormAnchor(null);
   // ---- saturation anchors (SPEC 13.12, P2 review): artanh / arctan of shapes through +-1 / +-i, far out in the strip

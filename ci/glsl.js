@@ -4,7 +4,8 @@
 //   dist/glsl-test.html          test/glsl_test.js      (window.__glslTest)
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
-//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--filter TEXT] [--ref <commit> [--absolute [PAGES]] [--force]]
+//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--tier core|deep|all] [--sections LIST] [--filter TEXT]
+//                   [--ref <commit> [--absolute [PAGES]] [--force]]
 // With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
 // reference's is not run (nothing to compare) unless --force.
 // Without --ref, every page must pass outright (the rules of the command files, test/glsl_inverse_cmd.js): what the
@@ -43,6 +44,11 @@ const [pi, pn] = (arg('--part') || '1/1').split('/').map(Number);
 // the whole page took 34-61 min): CI runs `direct,keys,compile` once and `main` in parts
 const sections = arg('--sections');
 const filter = arg('--filter');
+// --tier core|deep|all (default all): test/glsl_tiers.js. The parts go by the chains' names (hash), so a new chain moves
+// no other one. A reference that predates the tiers (no test/glsl_tiers.js) runs its old way, the parts by index and
+// every chain, and so does this change then (?legacy=1): both sides run the same chains
+const tier = ['core', 'deep', 'all'].includes(arg('--tier')) ? arg('--tier') : 'all';
+let legacy = false;
 const TIMEOUT = 240 * 60 * 1000;   // (the job's own timeout is the real limit)
 // a line every CMW_GLSL_PROGRESS_S seconds (default 60) while a page runs. The glsl and adv pages run in one
 // synchronous task, so the page cannot say how far it is; the browser can say how busy its processes were since the
@@ -119,13 +125,13 @@ async function runPage(base, p, side) {
   let r = null, ok = false, note = '';
   try {
     if (p.id === 'inverse') {
-      await B.nav(base + p.page);
+      await B.nav(base + p.page + (legacy ? '?legacy=1' : tier !== 'all' ? `?tier=${tier}` : ''));
       await B.ev(`(() => { window.__ci = undefined; Promise.resolve().then(() => __invTestRun({})).then((v) => { window.__ci = JSON.stringify(v); }, (e) => { window.__ci = JSON.stringify({ errors: [String(e && e.stack || e)] }); }); return 1; })()`);
       r = JSON.parse(await waitFor(B, 'window.__ci', TIMEOUT));
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
       note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
     } else {
-      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
+      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
       r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
@@ -187,6 +193,8 @@ async function main() {
   buildPages(ROOT, pages);
   const R = ref ? buildReference(ref) : null;
   if (R) buildPages(R.dir, pages);
+  legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
+  if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
   const srv = await serve(path.join(ROOT, 'dist'));
   const rsrv = R ? await serve(path.join(R.dir, 'dist')) : null;
   const rows = [], details = [];
@@ -199,7 +207,7 @@ async function main() {
       const pass = (!absolute(p) || cur.ok) && !why.length && !(cur.r && cur.r.setup);
       if (!pass) failed++;
       renderer = renderer || (cur.r && cur.r.renderer);
-      const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${filter && p.id === 'glsl' ? ` filter ${filter}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
+      const label = `\`${p.page}\`${legacy || tier === 'all' ? '' : ` ${tier}`}${sections && p.id === 'adv' ? ` ${sections}` : ''}${filter && p.id === 'glsl' ? ` filter ${filter}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
       const s = (cur.ms / 1000).toFixed(0);
       console.log(`${pass ? 'pass' : 'FAIL'} ${p.page}${timeNote(cur)}: ${cur.note}${rf ? ` | reference${timeNote(rf)}: ${rf.note}` : ''}`);
       if (why.length) console.log('  worse than the reference:\n    ' + why.join('\n    '));
