@@ -1,11 +1,36 @@
 # Working on this repository with Claude
 
-Several Claude agents work here at the same time: Alexander's team (an orchestrator session and its workers) and
-Pietro's agent. Everything reaches `main` through **waves**. Follow this file so that two agents never work on the
-same issue and every change lands through the same gate.
+Several Claude agents work here at the same time, in two teams: Alexander's and Pietro's. Everything reaches `main`
+through **waves**. Follow this file so that two agents never work on the same issue and every change lands through
+the same gate.
 
 **The wave board** is issue #236. It says which wave is in its gate, what goes into
 the next one, who has claimed which issue, and when a freeze is on. Read it before you start anything.
+
+## 0. Who does what
+Each team has the same hierarchy.
+- **One orchestrator**, a Claude session at maximum effort, **coordinates and does no issue work itself**. It:
+  - reads the issues, the board and CI;
+  - decides what to do next;
+  - creates task-specific worker agents, choosing each one's model and thinking level to suit the task (e.g. Opus
+    at high effort for cross-cutting or numerical work, Sonnet for well-scoped UI, test or docs tasks);
+  - gives each worker its issue with the context it needs;
+  - has workers review each other's PRs, and answers their questions;
+  - keeps the board current.
+
+  When something breaks, it diagnoses only as far as needed to brief a worker, and the worker writes the fix.
+- **Workers** each own one issue or task at a time:
+  - they claim it on GitHub, work on their own branch and open the PR;
+  - they report to their orchestrator, and ask it when a decision is not theirs;
+  - they don't merge into shared branches.
+- **Alexander's orchestrator owns the waves**:
+  - it merges ready PRs from both teams into the integration branch, resolving only the generated tables and
+    trivial overlaps (anything else goes back to the PR's worker);
+  - it runs the wave's gate, merges it into `main` and deploys the release.
+- **Pietro's orchestrator** runs his workers the same way. It talks to Alexander's orchestrator on the wave board
+  and in PR comments.
+- **Product decisions belong to Alexander**, asked on the issue. Pietro decides his own areas (sound, Italian, the
+  Windows GPU runner).
 
 ## 1. Claim an issue before you start
 - Take an open issue that nobody has claimed:
@@ -39,19 +64,22 @@ the next one, who has claimed which issue, and when a freeze is on. Read it befo
   - your area's browser suites (`node ci/browser.js --only …`);
   - for shader changes, the GLSL pages paired with the integration head (`node ci/glsl.js --filter … --ref …`).
 - When it is ready for a wave, mark the PR **Ready for review**. It keeps its base, the integration branch. That is
-  the orchestrator's signal.
+  the signal for Alexander's orchestrator.
 - The hosted CI runners are shared, and a queue of runs delays everyone's gate:
   - push when the work is ready, not every commit;
   - don't re-run whole gates;
   - runs on the GPU machines (`gpu-gate.yml`) wait for Alexander's approval.
 
 ## 4. Waves
-- The orchestrator merges the ready PRs of both teams into the integration branch. Then one wave PR goes into
-  `main`, its full gate runs, the orchestrator fixes what breaks (with the PR's author when it is their code), and the
-  wave merges.
+- Alexander's orchestrator merges the ready PRs of both teams into the integration branch. Then one wave PR goes into
+  `main` and its full gate runs.
+- What breaks goes back to a worker: the PR's own worker when it is that PR's code (Pietro's orchestrator for his),
+  or a new worker the orchestrator creates for it. The fix comes back as a PR, and the wave merges when the gate is
+  green.
 - Each merged wave is a release, deployed to the live page by hand: `v17.0-beta.N` is wave N, then `v17.0` and
   `v17.x`.
-- Don't do these yourself: merge into the integration branch or `main`, push tags, or run the Pages deploy.
+- Only Alexander's orchestrator does these: merge into the integration branch or `main`, push tags, or run the Pages
+  deploy.
 - While a wave's gate runs, work on the next issues from the integration head. After the wave merges, merge the
   integration branch into your branch.
 - **Freezes** are announced on the board. During the switch to ES modules (#20 phase 4), no `src/` PR merges.
