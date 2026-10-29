@@ -1,10 +1,10 @@
 # Roadmap
 
-**Live now:** v17.0-beta.5 (waves 1–5, 29 October 2026): the redesign so far, complex shared numbers, iteration, series
-and the first shader-compile work for Windows.
+**Live now:** v17.0-beta.7 (waves 1–7, 29 October 2026): the redesign so far, complex shared numbers, iteration, fast
+Dirichlet series, the ES-module build and the first shader-compile work for Windows.
 
 **Next:** v17.0, when the touch rules (#30) and the guided tour rework (#34) are done; until then each merged wave is a
-beta (v17.0-beta.6, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
+beta (v17.0-beta.8, …). After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
 every function on laptops and Android phones: [plan/ux-audit/REPORT.md](plan/ux-audit/REPORT.md) (106 problems, 17
 of them serious, each with its fix; step counts for 43 common tasks; mockups of every option).
 
@@ -14,7 +14,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.5 is live; v17.0 waits for #30 and #34 |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.7 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | planned |
 
 ## Releases
@@ -31,6 +31,10 @@ Each merged wave is a release. Dates are the day the wave PR merged into `main` 
 | v17.0-beta.3 | 2026-10-28 | #150 | Modules and state functions, Settings and the header, D1 and D10, polygons, overlapping shapes, walls, the tour and guide |
 | v17.0-beta.4 | 2026-10-29 | #182 | Series functions, phone D3 and D6, export D12, #20 step 5, the glossary, tour fixes |
 | v17.0-beta.5 | 2026-10-29 | #221 | Complex shared numbers (#10), the Recurrence step and Repeat × N (#6), shader-compile work for Windows (#72), touch rules (#30, touch half), tour lane (#34), ES-module preparation (#20) |
+| v17.0-beta.6 | 2026-10-29 | #268 (3eb5fb3) | Iteration complete (#6: `iter()`, Mandelbrot, Julia and Newton examples, Repeat × N on one GPU loop), shared numbers in a series' a_n and a recurrence's rule, Dirichlet series correct and about 100× cheaper (#242), Between z₀ and z₁ (#70), Alt and Space on a laptop (#30), the Phase style one click away (#81), one chain walk per shader program (#72 C) |
+| v17.0-beta.7 | 2026-10-29 | #304 (e6830d9) | The ES-module switch (#20 phase 4), Hear the function (#234), ζ about 3× cheaper, series edits and number drags without the lag (#243), shapes in a step's plane, forward (#253), a start-up progress bar (#245), Display options without a pop-up (#247), no wordmark in the top bar, a faster tour (#250), Windows GLSL in ten jobs (#169) |
+
+The tag for each release is pushed by Alexander, so a row can exist before its tag does.
 
 ## v16.5: fixes, snapping and railing
 
