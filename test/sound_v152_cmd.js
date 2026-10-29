@@ -11,6 +11,9 @@ const loadHere = async (ns, st) => {
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
+  // (and the app's hooks are there: under a loaded software renderer the page can take longer than the 2.2 s, and a
+  // hook read before it (__cmwSound, __cmwW2S) answers an exception, not a value)
+  for (let i = 0; i < 40 && !(await ev(`typeof __cmwSound === 'function' && typeof __cmwW2S === 'function' && document.readyState === 'complete'`)); i++) await sleep(250);
 };
 // (v16.5: the engine's Sound.hear.state().counts run since load; __hearCount() reads them as __hearCount() did, since
 // its last call: up and down the red line's crossings (line k ≡ 0 mod n, the low D), notes the notes played, merged
@@ -197,9 +200,9 @@ await ev(`Sound.set({ sonify: true }); 1`);
     for (let i = 1; i <= n; i++) { await T('touchMove', [P(a0 + 2 * Math.PI * i / n)]); await sleep(16); }
     // (touchmoves reach the page at its next frame, merged: where frames are slow the lap's last ones are still queued)
     await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-    // (v16.5: a slow finger's crossing sounds once confirmed, 80 ms with no turn back of its way (sndHold): the lap's
-    // last lines are read after that latency, with the finger still)
-    await sleep(120);
+    // (v16.5: a slow finger's crossing sounds once confirmed, Sound.HT.HT.confirmMs after it (sndHold): the lap's last
+    // lines are read after that latency and a margin, with the finger still)
+    await sleep((await ev('Sound.HT.HT.confirmMs')) + 40);
     const h = await ev('__hearCount()');
     const [x0, y0] = P(a0);
     for (let k = 0; k < 90; k++) { const t = k / 60; await T('touchMove', [[x0 + 1.5 * Math.sin(2 * Math.PI * 9 * t), y0 + 1.5 * Math.sin(2 * Math.PI * 8.3 * t + 1)]]); await sleep(16); }

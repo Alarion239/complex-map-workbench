@@ -605,9 +605,9 @@ const SoundHooks = (() => {
   // px band leaves the stroke's last lines pending for the tremor to complete; a 3 px anchor leaves up to 3 px unfed).
   // What tells them apart is the finger's way: a stroke goes somewhere, a tremor circles where it is. So while the probe
   // is slow (under 150 px/s over its last 50 ms: a tremor, ±1.5 px at 9 Hz, makes 30 px/s at most) a step that crosses
-  // a line (arg F's or a band edge of |F|) is held, the stream not fed, until it is confirmed: 80 ms on, the finger has
-  // gone at least 2 px since the crossing, and straight (its net way at least 0.7 of its path; a timer looks again when
-  // no event comes). A tremor's crossing never is; a stroke that stops before it is owes it to the lift, which sounds
+  // a line (arg F's or a band edge of |F|) is held, the stream not fed, until it is confirmed: HT.confirmMs (80 ms)
+  // on, the finger has gone at least 2 px since the crossing, and straight (its net way at least 0.7 of its path; a
+  // timer looks again when no event comes). A tremor's crossing never is; a stroke that stops before it is owes it to the lift, which sounds
   // what is owed by the side of each line alone (sndLift). A fast probe's crossings sound at once, as before.
   // Touch only. Returns true when the step is held (the caller feeds nothing and keeps its state)
   function sndHold(t0, phi1, ln1, z, vs, n, args) {
@@ -622,7 +622,7 @@ const SoundHooks = (() => {
     const cross = Math.floor(snd.phi * n) !== Math.floor(phi1 * n) || Math.floor(ln0 * n / TAU) !== Math.floor(ln1 * n / TAU);
     const sp = p && t0 > p.t ? Math.hypot(z.re - p.z.re, z.im - p.z.im) * vs * 1000 / (t0 - p.t) : Infinity;
     if (!cross || sp > 150) { snd.hold = null; return false; }
-    const h = snd.hold || (snd.hold = { t: t0 }), wait = 80 - (t0 - h.t);
+    const h = snd.hold || (snd.hold = { t: t0 }), wait = SND.HT.HT.confirmMs - (t0 - h.t);
     if (wait <= 0) {
       // the finger's way since the crossing: net and path
       const fh = snd.fh ? snd.fh.h : [];

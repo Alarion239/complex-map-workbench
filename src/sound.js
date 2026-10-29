@@ -454,6 +454,8 @@ function HT_LIB() {
     PAN: 0.3, PAN_MAX: 0.4, short: 0.15, t60: 0.45, t60Exp: -0.6, vel: 0.6, softA: 2.6, softB: 1.2,
     wet: fz({ note: 0.16, crack: 0.04, glide: 0.14, query: 0.12 }), crackHz: 3100, active: 0.9,
     pathless: fz({ dphi: 0.25 }), GL4, LV,
+    // a slow finger's crossing waits this long (ms) to be confirmed (the hooks' sndHold; a provisional rule, #266)
+    confirmMs: 80,
   });
   // the loudness law dbV3 (dB against |F| = 1): −8 dB at zeros, +4 dB at poles, 1.91 dB per neper at |F| = 1
   const law = (ln) => (!Number.isFinite(ln) ? (ln > 0 ? 4 : -8) : ln < 0 ? 8 * Math.tanh(ln / (8 / (12 / TAU))) : 4 * Math.tanh(ln / (4 / (12 / TAU))));
