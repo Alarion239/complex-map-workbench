@@ -20,6 +20,8 @@ const Construct = (() => {
   const events = [];
   const TAU = 2 * Math.PI;
   // ([v16.5 UX55] the seventh: Hyperbolic line, the Perpendicular circle with only its arc on the points' side of C)
+  // the segment choice of the tool: the Perpendicular circle's four (Whole | Inside | Outside | Between), the Hyperbolic line's two
+  const effSeg = (tool) => (tool === 'hyper' ? hyperMode : segMode);
   const CTOOLS = ['circle3', 'meet', 'midpoint', 'bisector', 'perp', 'touch', 'hyper'];
   // (perp: P and Q are the picks; its curve is draftC.curve1, as Intersect's first curve: notes/orthogonal-circle/SPEC.md 4;
   // touch: T and P, either order, on the curve draftC.curve1: notes/orthogonal-circle/TANGENT-SPEC.md 4)
@@ -34,6 +36,7 @@ const Construct = (() => {
   let ring = null;         // the current snap: {side, z, ref, cls, chip, touch, warn}
   let draftC = null;       // a construction tool's picks: {tool, side, picks: [{ref, z, make}], curve1, hover}
   let fillMode = 'in';     // Curve | Region for Circle through 3 points (the session's choice; Region by default)
+  let hyperMode = 'in';    // [issue #70] the Hyperbolic line tool: Inside (the whole line) | Between (the segment between the two points)
   let segMode = 'whole';   // [v16.4 segments] Whole | Inside | Outside ([v16.5 UX55]) for the Perpendicular circle (the session's choice; never saved)
   let pickWarnMsg = null, pickWarnT = 0, lastToast = null, howOpen = false;   // [v16.5 UX52] a pick's refusal, shown in the chip for 2 s; [UX48] the how-to unfolded
   let lastEv = null;       // the last pointer event over a plane (touch, Alt)
@@ -93,6 +96,22 @@ const Construct = (() => {
       return Math.min(e(pc.a0), e(pc.a0 + pc.span));
     }
     return Constr.pieceDist(pc, z);
+  }
+  // Whether two pieces lie on each other around z (a curve drawn exactly on a display curve, e.g. a path along |z| = 1),
+  // so that a "crossing" meetNear reports there is none. The points of pa 6 px off z along it (found by projecting the
+  // four probes z +- 6 px onto pa; a probe that lands near z says nothing) must lie within 0.5 px of pb. A real crossing
+  // leaves them 6 px * sin(angle) apart: only one under about 5 degrees counts as coincident. sc: px per world unit.
+  function coincideAt(pa, pb, z, sc) {
+    const e = 6 / sc, tol = 0.5 / sc;
+    let n = 0;
+    for (const [dx, dy] of [[e, 0], [-e, 0], [0, e], [0, -e]]) {
+      let pr = null;
+      try { pr = Constr.projectPiece(pa, [z[0] + dx, z[1] + dy]); } catch (err) { pr = null; }
+      if (!pr || !isXY(pr.z) || Math.hypot(pr.z[0] - z[0], pr.z[1] - z[1]) < e / 2) continue;
+      if (pieceDist(pb, pr.z) > tol) return false;
+      n++;
+    }
+    return n >= 2;
   }
   // the three defining points of a circle3 (for the glider parameter; one may be ∞), as CORE's pts3Of [math-12]; a
   // perpendicular circle's M(R) map at P
@@ -262,6 +281,8 @@ const Construct = (() => {
       case 'nomeet': return $t('The curves do not meet here');
       case 'coincideCurves': return $t('The curves coincide here, so their crossings are not defined');
       case 'lineInf': return $t('A line needs two finite points');
+      // ([issue #70] Between z0 and z1: the points are on different sides of the curve)
+      case 'betweenSides': return $t('The points are on different sides of the curve, so there is no segment between them');
       // (the perpendicular circle: Q is P's mirror image in the curve; the curve is not a line or a circle)
       case 'pencil': return $t('The points are symmetric in the curve: every circle through both is perpendicular to it');
       case 'notCircle': return a.x ? $t('{x} is not a line or a circle', { x: nameById(a.x) }) : $t('An argument is undefined');
@@ -336,6 +357,11 @@ const Construct = (() => {
       case 'bisector': return $t('bisector of {a}, {b}', { a: refName(d.args[0]), b: refName(d.args[1]) });
       case 'perp': {
         const p = { a: N(1), b: N(2), c: cName(d.args[0]) };
+        // [issue #70] Between z0 and z1: the hyperbolic segment from P to Q, in C's inside or outside (the side of the arc's middle)
+        if (d.between === 1 && d.fill !== 'in' && s._seg) {
+          const w = betweenWord(s);
+          return w === 'in' ? $t('hyperbolic segment from {a} to {b}, inside {c}', p) : w === 'out' ? $t('hyperbolic segment from {a} to {b}, outside {c}', p) : $t('hyperbolic segment from {a} to {b}, on one side of {c}', p);
+        }
         // [v16.4 segments] a perpendicular circle inside its curve only; [v16.5 UX55] one sentence in the row and the Inspector
         if (d.seg && d.fill !== 'in') {
           const si = segInfo(s), w = si && si.word;
@@ -491,7 +517,7 @@ const Construct = (() => {
         if (a.s === b.s || (a.dsp && b.dsp) || (bg(a) && bg(b))) continue;
         let m = null;
         try { m = Constr.meetNear(a.pc, b.pc, Z, box); } catch (e) { m = null; }
-        if (!m || !isXY(m.z)) continue;
+        if (!m || !isXY(m.z) || coincideAt(a.pc, b.pc, m.z, sc)) continue;   // (two curves on each other do not cross)
         const d = dpx(m.z), t = { cls: 'cross', ref: { meet: [nref(a), nref(b)], index: m.index, seed: m.seed }, z: m.z.slice() };
         if (a.dsp || b.dsp) { if (d < bdD) { bdD = d; bestD = t; if (a.disp || b.disp) t.disp = true; } }
         else if (d < bd) { bd = d; best = t; }
@@ -561,7 +587,7 @@ const Construct = (() => {
       if (q === pc) continue;
       let m = null;
       try { m = Constr.meetNear(pc, q, tg.z, box); } catch (e) { m = null; }
-      if (!m || !isXY(m.z)) continue;
+      if (!m || !isXY(m.z) || coincideAt(pc, q, m.z, sc)) continue;
       let pr = null;
       try { pr = Constr.projectPiece(pc, m.z, p3); } catch (e) { pr = null; }
       if (pr && Number.isFinite(pr.t)) add(pr.t, null, m.z);
@@ -1456,9 +1482,10 @@ const Construct = (() => {
       // [v16.4 segments] the chip on Inside: the arc on the side SPEC 2.2 chooses, named as an Arc
       // ([v16.5 UX55] the Hyperbolic line tool is always Inside; Outside is the other side; the result is a Hyperbolic line)
       let seg = 0;
-      const sm = tool === 'hyper' ? 'in' : segMode;
-      if (sm !== 'whole') { try { seg = Constr.segSideOf(pre[0] || find(cref.s), pc, P[0], P[1]); } catch (e) { seg = 0; } if (sm === 'out') seg = -seg; }
-      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: Object.assign({ op: 'perp', args: [cref].concat(refs), fill: 'none', nk: seg ? 'hyper' : g && g.kind === 'line' ? 'line' : 'circle' }, seg ? { seg } : {}) }), target);
+      const sm = effSeg(tool);
+      // ([issue #70] Between z0 and z1: def.between, the segment from the first point to the second; no side to choose)
+      if (sm !== 'whole' && sm !== 'between') { try { seg = Constr.segSideOf(pre[0] || find(cref.s), pc, P[0], P[1]); } catch (e) { seg = 0; } if (sm === 'out') seg = -seg; }
+      s = A.newShape(g ? g.kind : 'circle', Object.assign(base, { def: Object.assign({ op: 'perp', args: [cref].concat(refs), fill: 'none', nk: seg || sm === 'between' ? 'hyper' : g && g.kind === 'line' ? 'line' : 'circle' }, seg ? { seg } : {}, sm === 'between' ? { between: 1 } : {}) }), target);
       if (pre.length) s.ci = A.nextCi(target, 1);
       next = { tool, side, picks: [], curve1: { cls: 'curve', ref: cref, z: c1.z }, hover: null, keptC: true };
     } else if (tool === 'midpoint') {
@@ -1696,7 +1723,7 @@ const Construct = (() => {
       // also covers the Orthogonal chip's 8 px bucket that the Whole | Inside fit was rebuilt on [v16.4]. [v16.5 check
       // app-5] the chip's place too: at the plane's foot it is narrower, and the rule must measure it there)
       const tan = tool === 'touch' && tangentReady(side);
-      const sig = `${txt}|${tool}|${fillMode}|${segMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${tan}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
+      const sig = `${txt}|${tool}|${fillMode}|${segMode}|${hyperMode}|${I18N.lang}|${chipTouch()}|${narrow}|${pw}|${kept}|${tan}|${pickWarnMsg || ''}|${howOpen}|${el.classList.contains('cm-low')}`;
       if (box.dataset.sig !== sig) {
         box.dataset.sig = sig;
         box.innerHTML = '';
@@ -1730,14 +1757,14 @@ const Construct = (() => {
           box.append(seg);
         }
         let segBox = null;
-        const mkSeg = (icons) => {
+        const mkSeg = (icons, only) => {
           // [v16.4 segments] Whole | Inside: words, or two icons (the orthogonal arc whole or inside only) on touch and when
           // the words do not fit the chip's free width (review user-4: measured below, after the text)
           const seg = A.h('span', { class: 'cm-seg' + (icons ? ' cm-icons' : '') + (chipTouch() ? ' cm-touch' : ''), role: 'group', 'aria-label': $t('Whole or inside') });
-          for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')]]) {
+          for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')], ['between', $tx('side', 'Between')]].filter(([v]) => !only || only.includes(v))) {
             // ([v16.5 UX55] the same three choices as the Inspector's: Outside is the other side of the curve)
-            const tip = v === 'in' ? $t("Inside: only the arc inside the curve (for a line, on the first point's side)") : v === 'out' ? $t("Outside: only the arc outside the curve (for a line, on the other side from the first point)") : $t('Whole: the whole circle');
-            const b = A.h('button', { type: 'button', class: 'cm-sb' + (segMode === v ? ' on' : ''), 'aria-pressed': String(segMode === v), 'aria-label': lab, title: tip, onclick: (e) => { e.stopPropagation(); segMode = v; A.requestRender('OL', 'OR'); } });
+            const tip = v === 'in' ? $t("Inside: only the arc inside the curve (for a line, on the first point's side)") : v === 'out' ? $t("Outside: only the arc outside the curve (for a line, on the other side from the first point)") : v === 'between' ? $t('Between: only the hyperbolic segment from the first point to the second, with no tails') : $t('Whole: the whole circle');
+            const b = A.h('button', { type: 'button', class: 'cm-sb' + (effSeg(tool) === v ? ' on' : ''), 'aria-pressed': String(effSeg(tool) === v), 'aria-label': lab, title: tip, onclick: (e) => { e.stopPropagation(); if (tool === 'hyper') hyperMode = v; else segMode = v; A.requestRender('OL', 'OR'); } });
             if (icons) b.innerHTML = SEG_ICON[v]; else b.textContent = lab;
             seg.append(b);
           }
@@ -1745,6 +1772,8 @@ const Construct = (() => {
         };
         // ([v16.5 UX51] words on touch too: the chip takes two lines rather than drop them)
         if (tool === 'perp') box.append(segBox = mkSeg(false));
+        // ([issue #70] the Hyperbolic line tool: the whole line, or the segment between the two points)
+        else if (tool === 'hyper') box.append(segBox = mkSeg(false, ['in', 'between']));
         // the touching circle after T on a circle: the tangent at T in one click (or Enter)
         if (tan) box.append(A.h('span', { class: 'cm-seg cm-tan' + (chipTouch() ? ' cm-touch' : '') }, A.h('button', { type: 'button', class: 'cm-sb', title: $t('The tangent at {a} (Enter)', { a: pickName(draftC.picks[0], side) }), onclick: (e) => { e.stopPropagation(); tangentNow(); } }, $t('Tangent line'))));
         if (chipTouch()) box.append(A.h('button', { type: 'button', class: 'cm-x', 'aria-label': $t('Cancel'), html: '×', onclick: (e) => { e.stopPropagation(); cancel(); A.setTool('select'); } }));
@@ -1985,8 +2014,8 @@ const Construct = (() => {
       try { r = Constr.perpForm(ppc.G, P[0], hv, ppc); } catch (e) { r = null; }   // (the piece: the decimal rules, as the made K [v16.3 review math-3, math-4])
       if (r && r.G) {
         // [v16.4 segments] Inside: the arc the click will make, from the same sampler
-        const q = segMode === 'in' ? previewSeg(d, ppc, r.G, P[0], hv) : null;
-        if (q) strokeSeg(pane, ctx, q); else if (segMode !== 'in') strokeForm(pane, ctx, r.G);
+        const q = effSeg(d.tool) === 'in' || effSeg(d.tool) === 'between' ? previewSeg(d, ppc, r.G, P[0], hv) : null;
+        if (q) strokeSeg(pane, ctx, q); else if (effSeg(d.tool) !== 'in' && effSeg(d.tool) !== 'between') strokeForm(pane, ctx, r.G);
       }
     } else if (hv && d.tool === 'circle3' && P.length === 2) {
       let G = null;
@@ -2106,7 +2135,8 @@ const Construct = (() => {
   function previewSeg(d, pc, G, P, Q) {
     try {
       const C = d.curve1.ref ? find(d.curve1.ref.s) : d.curve1.make, Gc = Constr.gcOf(C, pc);
-      const q = Gc ? Constr.segOf(G, pc.G, Gc, Constr.segSideOf(C, pc, P, Q), P, Q, false) : null;
+      // ([issue #70] Between: the segment from P to Q, as drawn; undefined across C, so the preview shows the whole circle then)
+      const q = !Gc ? null : effSeg(d.tool) === 'between' ? Constr.betweenOf(G, pc.G, P, Q, false) : Constr.segOf(G, pc.G, Gc, Constr.segSideOf(C, pc, P, Q), P, Q, false);
       return q && !q.undef ? q : null;
     } catch (e) { return null; }
   }
@@ -2286,6 +2316,9 @@ const Construct = (() => {
       const dw = info && (info.sides.find((x) => x[1] === info.dflt) || [])[0];
       if (info && !s.def.seg) add.push({ label: info.line ? $t('One side of {c} only', { c: cName(s.def.args[0]) }) : dw === 'out' ? $t('Outside {c} only', { c: cName(s.def.args[0]) }) : $t('Inside {c} only', { c: cName(s.def.args[0]) }), run: () => setSeg(s, info.dflt) });
       if (info && s.def.seg) add.push({ label: $t('Other side'), run: () => setSeg(s, -s.def.seg) }, { label: $t('Whole circle'), run: () => setSeg(s, 0) });
+      // ([issue #70] Between z0 and z1: the segment from the first point to the second; Whole circle undoes it)
+      if (info && s.def.between !== 1) add.push({ label: $t('Between {a} and {b} only', { a: refName(s.def.args[1]), b: refName(s.def.args[2]) }), run: () => setBetween(s, true) });
+      if (info && s.def.between === 1) add.push({ label: $t('Whole circle'), run: () => setSeg(s, 0) });
     }
     if (s.def && s.def.op === 'meet' && s.def.index !== 'finite' && !s.def.seed && !touchMeet(s)) add.push({ label: $t('Other point'), run: () => api.cm.setDef(s.id, { index: s.def.index === 1 ? 0 : 1 }) });
     if (s.helper) add.push({ label: $t('Show as point'), run: () => { delete s.helper; delete s.owner; A.shapesChanged(true); A.commit(); } });
@@ -2313,6 +2346,11 @@ const Construct = (() => {
     try { Constr.setSeg(S(), s.id, v, env()); } catch (e) { if (v) s.def.seg = v; else delete s.def.seg; }
     api.cm.setDef(s.id, {});
   }
+  // [issue #70] Between z0 and z1: on (true) or off, its gliders kept on the drawn curve (Constr.setBetween), one undo step
+  function setBetween(s, on) {
+    try { Constr.setBetween(S(), s.id, on, env()); } catch (e) { if (on) { s.def.between = 1; delete s.def.seg; } else delete s.def.between; }
+    api.cm.setDef(s.id, {});
+  }
   // the sides of a perpendicular circle's curve and their words (Constr.segSides), or null
   function segInfo(s) { try { return Constr.segSides(S(), s.id, env()); } catch (e) { return null; } }
   // [v16.4 review math-7, user-6] P and Q both finite and strictly on the drawn side of C (not on C, not past it): only
@@ -2327,12 +2365,24 @@ const Construct = (() => {
       return isXY(z) && !Constr.onCarrier(info.Gc, z, null) && info.seg * Constr.fOf(info.Gc, z) < 0;
     });
   }
+  // the word of the side of C that a Between segment lies on (its middle's side): 'in', 'out', 'above', …, or null
+  function betweenWord(s) {
+    try {
+      const info = segInfo(s), pc = piecesOf(s)[0], z = info && pc && pc.seg ? Constr.glide(pc, 0.5) : null;
+      if (!z || !isXY(z)) return null;
+      const f = Constr.fOf(info.Gc, z);
+      const sd = info.sides.find((x) => x[1] * f < 0);
+      return sd ? sd[0] : null;
+    } catch (e) { return null; }
+  }
   const sideLabel = (w) => ({ in: $tx('side', 'Inside'), out: $tx('side', 'Outside'), above: $tx('side', 'Above'), below: $tx('side', 'Below'), left: $tx('side', 'Left'), right: $tx('side', 'Right') }[w] || w);
   // (the chip's icons: a thin circle and the arc orthogonal to it (centre (8, 18), radius 8: 10^2 = 6^2 + 8^2), whole, or
   // inside only, its ends (3.2, 11.6) and (12.8, 11.6) on both curves)
   const SEG_ICON = {
     whole: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="8" cy="8" r="6" stroke-width="1" stroke-opacity=".45"/><path d="M0.254 16A8 8 0 0 1 15.746 16" stroke-width="1.4"/></svg>',
     in: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="8" cy="8" r="6" stroke-width="1" stroke-opacity=".45"/><path d="M3.2 11.6A8 8 0 0 1 12.8 11.6" stroke-width="1.4"/></svg>',
+    // ([issue #70] Between: the arc between two points of it, the two points marked)
+    between: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="8" cy="8" r="6" stroke-width="1" stroke-opacity=".45"/><path d="M5.2 10.5A8 8 0 0 1 10.8 10.5" stroke-width="1.4"/><circle cx="5.2" cy="10.5" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.8" cy="10.5" r="1.1" fill="currentColor" stroke="none"/></svg>',
     // ([v16.5 UX55] Outside: the two ends of the same arc, outside the circle)
     out: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"><circle cx="8" cy="8" r="6" stroke-width="1" stroke-opacity=".45"/><path d="M0.254 16A8 8 0 0 1 3.2 11.6M12.8 11.6A8 8 0 0 1 15.746 16" stroke-width="1.4"/></svg>',
   };
@@ -2456,8 +2506,9 @@ const Construct = (() => {
       // [v16.4 segments] Whole | Inside | Outside (a line: Above | Below, or Left | Right): the side drawn now is on
       const info = s.def.op === 'perp' && s.def.fill !== 'in' ? segInfo(s) : null;
       if (info) {
-        const now = s.def.seg === 1 || s.def.seg === -1 ? s.def.seg : 0, sg = h('div', { class: 'seg cm-iseg cm-iside', role: 'group', 'aria-label': $t('Whole or inside') });
-        for (const [v, lab] of [[0, $tx('side', 'Whole')]].concat(info.sides.map(([w, v]) => [v, sideLabel(w)]))) sg.append(h('button', { type: 'button', class: now === v ? 'on' : '', 'aria-pressed': String(now === v), onclick: () => setSeg(s, v) }, lab));
+        const now = s.def.between === 1 ? 'between' : s.def.seg === 1 || s.def.seg === -1 ? s.def.seg : 0, sg = h('div', { class: 'seg cm-iseg cm-iside', role: 'group', 'aria-label': $t('Whole or inside') });
+        // ([issue #70] Between z0 and z1 is the last choice: the segment from the first point to the second)
+        for (const [v, lab] of [[0, $tx('side', 'Whole')]].concat(info.sides.map(([w, v]) => [v, sideLabel(w)]), [['between', $tx('side', 'Between')]])) sg.append(h('button', { type: 'button', class: now === v ? 'on' : '', 'aria-pressed': String(now === v), onclick: () => (v === 'between' ? setBetween(s, true) : setSeg(s, v)) }, lab));
         fields.append(h('div', { class: 'cm-ibreak' }), sg);
       }
       if (s.def.fill === 'in') fields.append(h('label', { class: 'cm-icheck' }, h('input', { type: 'checkbox', checked: s.complement ? true : null, onchange: () => api.cm.setDef(s.id, { flip: !s.def.flip }) }), $t('Use complement')));
@@ -2634,6 +2685,8 @@ const Construct = (() => {
           return { src: 'the hyperbolic line in the domain {r} on {k}', params: { r: { m: r }, k }, close: true };
         }
       }
+      // ([issue #70] Between z0 and z1: the hyperbolic segment, as the caption says the figure's curve)
+      if (d.between === 1 && d.fill !== 'in' && s._seg) return { src: 'the hyperbolic segment from {a} to {b}', params: { a: p.a, b: p.b } };
       if (d.fill !== 'in') return s.kind === 'line' ? { src: 'the line through {a} and {b} perpendicular to {c}', params: p } : { src: 'the circle through {a} and {b} perpendicular to {c}', params: p };
       if (s.kind === 'halfplane') { const [i, j] = hpOrder(s); return { src: 'the half-plane to the left of the line from {a} to {b}', params: { a: P(i), b: P(j) } }; }
       if (s.complement) return { src: 'the outside of the circle through {a} and {b} perpendicular to {c}', params: p };
@@ -2646,7 +2699,7 @@ const Construct = (() => {
     $t('the half-plane to the right of the line from {a} to {b}'), $t('the line through {a} and {b}'), $t('the segment from {a} to {b}'), $t('the ray from {a} through {b}'),
     $t('the outside of the circle through {a}, {b} and {c}'), $t('the disc bounded by the circle through {a}, {b} and {c}'), $t('the intersection {x} of {c1} and {c2}'),
     $t('the midpoint {x} of {a} and {b}'), $t('the point {x} on {c}'), $t('the perpendicular bisector of {a} and {b}'),
-    $t('the circle through {a} and {b} perpendicular to {c}'), $t('the line through {a} and {b} perpendicular to {c}'),
+    $t('the circle through {a} and {b} perpendicular to {c}'), $t('the line through {a} and {b} perpendicular to {c}'), $t('the hyperbolic segment from {a} to {b}'),
     $t('the disc bounded by the circle through {a} and {b} perpendicular to {c}'), $t('the outside of the circle through {a} and {b} perpendicular to {c}'),
     $t('the circle through {b} touching {c} at {a}'), $t('the line through {b} touching {c} at {a}'), $t('the disc bounded by the circle through {b} touching {c} at {a}'),
     $t('the outside of the circle through {b} touching {c} at {a}'), $t('the tangent to {c} at {a}'), $t('the tangent to {c} through {p}'),
@@ -2862,8 +2915,14 @@ const Construct = (() => {
     get api() { return api; },
     get events() { return events.slice(); },
     get fill() { return fillMode; }, set fill(v) { fillMode = v === 'none' ? 'none' : 'in'; },
-    get seg() { return segMode; }, set seg(v) { segMode = v === 'in' || v === 'out' ? v : 'whole'; },
-    setSeg: g(setSeg),
+    get hyper() { return hyperMode; }, set hyper(v) { hyperMode = v === 'between' ? 'between' : 'in'; },
+    get seg() { return segMode; }, set seg(v) { segMode = v === 'in' || v === 'out' || v === 'between' ? v : 'whole'; },
+    setSeg: g(setSeg), setBetween: g(setBetween),
   };
 })();
-if (typeof module !== 'undefined') module.exports = Construct;
+import { CX } from './cx.js';
+import { Region } from './region.js';
+import { Constr } from './constr.js';
+import { PlaneMenu } from './planemenu.js';
+import { Params } from './params.js';
+export { Construct, Construct as 'module.exports' };

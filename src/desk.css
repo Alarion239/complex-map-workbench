@@ -236,15 +236,21 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
   .ftile { flex-basis: 72px; width: 72px; margin-left: 6px; }
   .ftile .lamp { font-size: 11px; }
 }
-/* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1440 in
-   English, 1600 in Russian); Examples keeps its word */
+/* the header (DESIGN.md 4, design-22): the search is an icon with its shortcut where its text does not fit (1280 in
+   English, 1440 in Russian: the app's name left the bar and gave its room to the words); Examples keeps its word */
 @media (min-width: 1024px) and (max-width: 1439px) {
-  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
-  .top .cmd-field .cmd-text { display: none; }
   /* ([v16.5 check app-1] the icon and its shortcut are never cut, "Ctrl K" included: the open example's name after
      Examples gives way instead, ending in an ellipsis) */
   #examplesBtn { flex-shrink: 1; min-width: 0; }
   #examplesBtn > .mlabel, #examplesBtn > .ic-slot { flex-shrink: 0; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
+  .top .cmd-field .cmd-text { display: none; }
+}
+@media (min-width: 1280px) and (max-width: 1439px) {
+  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
+  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
 }
 /* ([v16.5 check app-2] app.js hdrFit: where the search's words would be cut, its short label, else its icon and
    shortcut alone) */
@@ -252,10 +258,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root:not(.ph) .top.cmd-short #cmdBtn .ct-s { display: inline; }
 :root:not(.ph) .top.cmd-cut .cmd-field { flex: 0 0 auto; width: auto; min-width: max-content; }
 :root:not(.ph) .top.cmd-cut .cmd-field .cmd-text { display: none; }
-@media (min-width: 1440px) and (max-width: 1599px) {
-  :root[data-lang="ru"] .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; }
-  :root[data-lang="ru"] .top .cmd-field .cmd-text { display: none; }
-}
 .pane.under-insp .legend-chip:not(.calc-chip) { right: calc(8px + var(--insp-w, 288px)); margin-right: 0; }
 /* (v16.5 UX20, restores "nothing covers the work uninvited") the plane's key and its display options in the pane head
    (app.js placeKeys): the key a short chip (glyph and words) that unfolds under the head while pointed at, focused or
@@ -275,7 +277,31 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
 .pane-head > .options { position: static; display: inline-flex; flex: 0 0 auto; min-height: 0; max-width: none; padding: 0; margin-left: 2px; background: none; border: 0; box-shadow: none; }
-.pane-head > .options > :not(.opts-btn) { display: none; }
+/* (#247) the head's own controls, compact and on one row: the style's glyphs (the chosen one with its word), n, and the
+   checks with an icon as icon toggles (the word their tooltip and accessible name); what does not fit is behind ⋯ */
+.pane-head > .options { align-items: center; gap: 4px; }
+.pane-head > .options > .seg.sty-seg > button { gap: 5px; padding: 0 5px; }
+.pane-head > .options > .seg.sty-seg > button:not(.on) .sty-n { display: none; }
+.pane-head > .options > .seg.sty-seg > button.on { padding: 0 8px 0 6px; }
+.pane-head > .options.sty-compact > .seg.sty-seg > button .sty-n { display: none; }
+.pane-head > .options.sty-compact > .seg.sty-seg > button.on { padding: 0 5px; }
+.seg.sty-seg > button { display: inline-flex; align-items: center; gap: 5px; }
+.sty-seg .sty-g svg { display: block; width: 15px; height: 15px; }
+.pane-head > .options > .scrub { height: 26px; padding: 0 0 0 6px; border: 1px solid var(--line); border-radius: var(--r-2, 6px); }
+.pane-head > .options > .scrub select.sel { height: 24px; border: 0; background-color: transparent; }
+.pane-head > .options label.check.ic-tg { position: relative; display: inline-grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0;
+  border: 1px solid transparent; border-radius: var(--r-2, 6px); color: var(--ink-2); cursor: pointer; }
+.pane-head > .options label.check.ic-tg:hover { background: var(--well); color: var(--ink); }
+.pane-head > .options label.check.ic-tg:has(input:checked) { background: var(--seg-on); border-color: var(--line-strong); color: var(--accent); }
+.pane-head > .options label.check.ic-tg:has(input:focus-visible) { outline: 2px solid var(--focus, var(--accent)); outline-offset: 1px; }
+.pane-head > .options label.check.ic-tg > input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.pane-head > .options label.check.ic-tg > .tg-l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pane-head > .options > .field-col { display: inline-flex; flex-direction: row; gap: 0; }
+.tg-ic { display: none; }
+.pane-head > .options .ic-tg > .tg-ic { display: grid; place-items: center; pointer-events: none; }
+.pane-head > .options .ic-tg > .tg-ic svg { width: 16px; height: 16px; }
+.pane-head > .options .ic-tg > .tg-ic .pcol-ic { width: 14px; height: 14px; }
+.pane-head > .options > .opts-btn:not(.pat-btn) { width: 26px; height: 26px; }
 .pane.under-insp .pane-head > .legend-chip, .pane.under-insp .pane-head > .options { margin-right: 0; right: auto; }
 /* (the temporary Inspector over the plane's right part: the head's chips and button stay left of it) */
 .pane.under-insp > .pane-head { padding-right: calc(var(--insp-w, 288px) + 6px); }
@@ -380,6 +406,9 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .split-offer .so-name { padding-left: 14px; font: 400 12px/16px var(--f-ui); color: var(--ink-2); white-space: nowrap; text-align: right; }
 .split-offer .so-rows.subst .so-map { display: none; }
 .split-offer .so-rows.subst .so-row { grid-template-columns: minmax(0, 1fr) auto; }
+.split-offer .so-row.stack .so-tex { grid-column: 2 / -1; }
+.split-offer .so-row.stack .so-name { grid-column: 2 / -1; padding-left: 0; text-align: left; }
+.split-offer .so-rows.subst .so-row.stack .so-tex, .split-offer .so-rows.subst .so-row.stack .so-name { grid-column: 1 / -1; }
 .split-offer .so-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-2); background: var(--surface); color: var(--ink); font: 600 13px/16px var(--f-ui); cursor: pointer; text-align: center; }
 .split-offer .so-btn:hover { border-color: var(--ink-2); }
 .split-offer .so-btn:active { background: var(--well); }
@@ -409,6 +438,15 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* v16: the deformation's bracket over the chain (notes/deform-range/SPEC.md 6.2): a line in the chain bar's top padding
    from connector a to connector b + 1, built from borders in whole CSS px; its ends are sliders over their connectors */
 #pipeline { position: relative; }
+/* [issue #6] Repeat × N: a line under a block's cards, its chip on the last card's lower edge */
+.rep-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; }
+.rep-bracket[hidden] { display: none; }
+.rep-line { position: absolute; height: 5px; box-sizing: border-box; border: 1.5px solid var(--accent); border-top: 0; border-radius: 0 0 3px 3px; pointer-events: none; }
+.rep-chip { position: absolute; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 1px; height: 18px; padding: 0 2px 0 6px; border-radius: 9px; background: var(--surface); border: 1px solid var(--accent); font: 600 11px/16px var(--f-ui); color: var(--accent); white-space: nowrap; }
+.rep-chip .rep-n { width: 3.2ch; border: 0; padding: 0; background: transparent; font: inherit; color: var(--ink); text-align: center; -moz-appearance: textfield; appearance: textfield; }
+.rep-chip .rep-n::-webkit-inner-spin-button, .rep-chip .rep-n::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.rep-chip .rep-off { border: 0; background: transparent; color: var(--ink-2); font: 500 12px/16px var(--f-ui); width: 16px; height: 16px; padding: 0; border-radius: 8px; cursor: pointer; }
+.rep-chip .rep-off:hover, .rep-chip .rep-off:focus-visible { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
 .chain-bracket { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; animation: br-in 120ms var(--ease-out); }
 .chain-bracket[hidden] { display: none; }
 @keyframes br-in { from { opacity: 0; } to { opacity: 1; } }
@@ -513,21 +551,19 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 @media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
 /* Italian too (issue #61): the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
 @media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* [v17 D4, D5] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4, #82): this view's options and the unit circle,
-   and in the X → Y view the regions' display (page.html #regionsHome), with the pattern's swatch on the button */
-.pane-head .disp-btn { height: 26px; padding: 0 6px 0 9px; gap: 2px; font: 500 12.5px/1 var(--f-ui); white-space: nowrap; }
-.pane-head .disp-btn .disp-caret { display: inline-flex; width: 14px; height: 14px; }
-.pane-head .disp-btn .disp-sw { width: 18px; height: 14px; margin-right: 4px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
-.pane-head .disp-btn.tight .disp-sw { display: none; }
-.pane-head .disp-btn .disp-caret svg { width: 14px; height: 14px; }
-.pane-head .disp-btn .disp-i { display: none; width: 15px; height: 15px; }
-.pane-head .disp-btn .disp-i svg { width: 15px; height: 15px; }
-.pane-head .disp-btn.tight { width: 26px; padding: 0; justify-content: center; }
-.pane-head .disp-btn.tight .disp-l, .pane-head .disp-btn.tight .disp-caret { display: none; }
-.pane-head .disp-btn.tight .disp-i { display: inline-flex; }
-.disp-pop { width: 300px; max-height: calc(100vh - 120px); overflow-y: auto; }
-.disp-pop .opts-h { font: 600 12px/16px var(--f-ui); color: var(--ink-2); margin: 2px 0 4px; }
-.disp-pop .opts-h.opts-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+/* [v17 D4, D5; #247] in the X → Y view each pane head's pattern button: the pattern's swatch, its pop-up the regions'
+   display (page.html #regionsHome) */
+.pane-head .pat-btn { height: 26px; padding: 0 3px 0 5px; gap: 2px; }
+.pane-head .pat-btn .disp-caret { display: inline-flex; width: 12px; height: 12px; }
+.pane-head .pat-btn .disp-caret svg { width: 12px; height: 12px; }
+.pane-head .pat-btn .disp-sw { width: 18px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+.pane-head .pat-btn.tight { padding: 0 4px; }
+.pane-head .pat-btn.tight .disp-caret { display: none; }
+.pane-head .pat-btn[aria-expanded="true"], .pane-head > .options > .opts-btn[aria-expanded="true"] { background: var(--well); color: var(--ink); }
+.disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
+.disp-pop.pat-pop { width: 300px; }
+/* (the ⋯ pop-up shows the words: each style's under its glyph, each toggle's beside its check) */
+.disp-pop .ic-tg > .tg-ic { display: none; }
 .disp-pop > .psec-body { padding: 0; }
 /* [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4): its path and ‹ Back to f₂, the shape's
    head, its fields one per line at the panel's width, Used by, Duplicate and Delete */

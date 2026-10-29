@@ -1,5 +1,9 @@
 # Sound: as built (both stages)
 
+> **Superseded in part (2026-10-28, v16.5).** Hear the function is now the marimba notes and the Glide, decided by
+> the user ("i want to hear the function, not actively just make music fit the math"): see README.md's decision of
+> 2026-10-28, perfwin/sound/polish/FINAL.md and perfwin/sound/impl/SOUND-PLAN.md. The sonification described here (the tone, later the harp) is retired; the engine, tiers and catalog stay.
+
 Built in `work/xs` from the verified prototype (`prototype.html`, revision 3) and `DESIGN.md` §2, §4 and §7.
 Not merged into the main tree. The merge base is `notes/gate-morph-zp-r1/src`.
 

@@ -2,10 +2,10 @@
 // ESLint (notes: issue #20, phase 1). Report-only for now: CI shows the counts, nothing fails on them yet.
 //   npm run lint                    every file below
 //   npx eslint src/view.js          one file (src/app/*.js: the parts of app.js)
-// The app's files are plain scripts that build.py joins into one <script>, so a file sees the globals the other
-// files declare at their top level (const CX = ..., class Pane, and the UMD modules' root.HomRange = M, also written
-// (root).HomRange = M with a JSDoc cast). They are read from src/ here, so the list never goes stale; each file gets
-// the others' names, not its own.
+// The app's files are ES modules (issue #20, phase 4): each imports what it uses from the others and exports its
+// top-level names, and tools/bundle.mjs bundles them from src/main.js. Two files stay classic scripts before the
+// bundle, src/i18n.js and src/cyr.js: their I18N, $t, $tx, $tn and CYR are the modules' only globals (with MathJax,
+// which the page loads). The unit tests put the modules on node's global, so they see every top-level name of src/.
 //
 // app.js and gl.js are kept as ordered parts (issue #20, phase 2; test/src_text.js): src/<name>/wrap.js holds the
 // closure's first and last lines, and the parts src/<name>/NN-*.js its body, which build.py joins in order. A part is
@@ -22,13 +22,15 @@ const { Linter } = require('eslint');
 const { SPLIT, PARTS_RE, parts, source } = require('./test/src_text');
 
 const SRC = path.join(__dirname, 'src');
+const CLASSIC = ['i18n.js', 'cyr.js'];   // classic scripts before the bundle; every other file of src/ is a module
+const parseAny = (text) => { try { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'module' }).body; } catch (e) { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body; } };
 const own = {};
 for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
   const text = fs.readFileSync(path.join(SRC, f), 'utf8');
   const names = new Set();
   let body = [];
   try {
-    body = espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body;
+    body = parseAny(text);
   } catch (e) {
     // a file that does not parse: ESLint reports the syntax error itself, the other files are still linted
   }
@@ -43,17 +45,17 @@ for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
 for (const f of SPLIT) {
   const text = source(f);
   const names = new Set();
-  for (const n of espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body) {
+  for (const n of parseAny(text)) {
     if (n.type === 'VariableDeclaration') for (const d of n.declarations) { if (d.id.type === 'Identifier') names.add(d.id.name); }
   }
   own[f] = { names, text };
 }
-// a file's own top-level names that another file uses are its exports, not unused variables
-const exported = (file) => [...own[file].names].filter((k) =>
-  Object.entries(own).some(([f, o]) => f !== file && new RegExp(`(^|[^\\w$.])${k.replace(/\$/g, '\\$')}\\b`).test(o.text)));
-const unusedRule = (file) => {
-  const names = exported(file);
-  return ['error', { args: 'none', caughtErrors: 'none', ...(names.length && { varsIgnorePattern: `^(${names.map((k) => k.replace(/\$/g, '\\$')).join('|')})$` }) }];
+// the globals a module sees: the classic scripts' names, and MathJax
+const classicGlobals = () => {
+  // (require: a node fallback a few files keep, `typeof require === 'function'`, dead in a module)
+  const out = { MathJax: 'readonly', require: 'readonly' };
+  for (const f of CLASSIC) if (own[f]) for (const k of own[f].names) out[k] = 'readonly';
+  return out;
 };
 const appGlobals = (file) => {
   const out = {};
@@ -110,7 +112,7 @@ const closure = {
       out.push(m);
     }
     // the file-size budget is the part's own
-    const size = sizeLinter.verify(at.text, { languageOptions: { sourceType: 'script', parserOptions: { ecmaFeatures: { globalReturn: true } } }, rules: { 'max-lines': rules['max-lines'] } });
+    const size = sizeLinter.verify(at.text, { languageOptions: { sourceType: 'module' }, rules: { 'max-lines': rules['max-lines'] } });
     return out.concat(size.filter((msg) => msg.ruleId === 'max-lines'));
   },
 };
@@ -121,33 +123,26 @@ module.exports = [
   { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'src/cyr.js', 'test/**', '!test/', '!test/t_*.js'] },
   js.configs.recommended,
   { rules },
-  // the app: browser scripts, one per file, joined by build.py
-  ...Object.keys(own).map((f) => ({
-    files: [`src/${f}`],
-    languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'script',
-      globals: {
-        ...globals.browser,
-        ...appGlobals(f),
-        module: 'readonly',     // the UMD modules export to node when module is defined (their unit tests)
-        require: 'readonly',
-        MathJax: 'readonly',    // loaded from the CDN by the page (build.py)
-      },
-    },
-    rules: { 'no-unused-vars': unusedRule(f) },
-  })),
-  // the split files: wrap.js like a file of its own, and each part as the joined file (the closure processor)
+  // the app: ES modules, one per file (an export is a use), bundled by tools/bundle.mjs
+  { files: ['src/*.js'], ignores: CLASSIC.map((f) => `src/${f}`), languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
+  // the classic scripts before the bundle (src/cyr.js is generated and not linted)
+  { files: ['src/i18n.js'], languageOptions: { ecmaVersion: 'latest', sourceType: 'script', globals: { ...globals.browser, module: 'readonly', require: 'readonly' } } },
+  // the split files: wrap.js (the closure's first and last lines, and the module block) like a module of its own, and
+  // each part as the joined file (the closure processor)
   ...SPLIT.flatMap((f) => {
-    const languageOptions = { ecmaVersion: 'latest', sourceType: 'script', globals: { ...globals.browser, ...appGlobals(f), module: 'readonly', require: 'readonly', MathJax: 'readonly' } };
+    const languageOptions = { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } };
     const dir = `src/${f.replace(/\.js$/, '')}`;
+    // (wrap.js's imports are used by the parts: the parts, linted as the joined file, report an import nothing uses)
+    const imported = [...fs.readFileSync(path.join(__dirname, dir, 'wrap.js'), 'utf8').matchAll(/^import \{ ([^}]+) \} from/gm)].flatMap((m) => m[1].split(',').map((k) => k.trim().split(/\s+as\s+/).pop()));
     return [
-      { files: [`${dir}/wrap.js`], languageOptions, rules: { 'no-unused-vars': unusedRule(f) } },
-      { files: [`${dir}/[0-9][0-9]-*.js`], processor: closure, languageOptions, rules: { 'no-unused-vars': unusedRule(f) } },
+      { files: [`${dir}/wrap.js`], languageOptions, ...(imported.length && { rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: `^(${imported.map((k) => k.replace(/\$/g, '\\$')).join('|')})$` }] } }) },
+      { files: [`${dir}/[0-9][0-9]-*.js`], processor: closure, languageOptions },
     ];
   }),
-  // the template of src/cyr.js (tools/make_cyr_module.py): a browser script like the files it becomes
-  { files: ['tools/cyr_template.js'], languageOptions: { sourceType: 'script', globals: { ...globals.browser, ...appGlobals('cyr.js'), module: 'readonly' } }, rules: { 'no-unused-vars': unusedRule('cyr.js') } },
+  // the template of src/cyr.js (tools/make_cyr_module.py): a classic browser script like the file it becomes
+  { files: ['tools/cyr_template.js'], languageOptions: { sourceType: 'script', globals: { ...globals.browser, module: 'readonly' } } },
+  // the bundler: a node ES module
+  { files: ['tools/**/*.mjs'], languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node } },
   // CI, tools and the unit tests: node scripts (the tests also put the app's modules on global)
   {
     files: ['ci/**/*.js', 'tools/**/*.js', 'test/t_*.js', 'eslint.config.js'],

@@ -6,7 +6,7 @@ const path = require('path');
 const I18N = require('../src/i18n.js');
 const XL = path.resolve(__dirname, '../src');
 // the shipped table is one JSON string in a JS call: I18N.define('ru', "...")
-const RU_JS = fs.readFileSync(path.join(XL, 'i18n_ru.js'), 'utf8');
+const RU_JS = require('./src_text').source('i18n_ru.js', { esm: 'strip' });
 const RU_ALL = JSON.parse(new Function('let j; const I18N = { define: (l, s) => { j = s; } };' + RU_JS + '; return j;')());
 new Function('I18N', RU_JS)(I18N);
 // the entries the structural checks cover: the sample of phase 1 (proto/ru.json) as shipped, and every key a call
@@ -116,7 +116,7 @@ for (const [k, v] of Object.entries(RU)) {
       // Phase colours (issue 8): Fredrik Johansson's library, whose color functions the palettes are
       'Arb',
       // (issue #5) the dilogarithm's name, Li₂
-      'Li']);
+      'Li', 'iter']);
     const rest = f.replace(MATH, ' ').replace(/<(i|var|sub|sup|kbd)>.*?<\/\1>/g, ' ').replace(/<[^>]*>/g, ' ').replace(PH, ' ').replace(/\\[A-Za-z]+(\{[^}]*\})?/g, ' ');
     // a LaTeX comment's package options, arguments and font files are code
     const rest2 = latexComment ? rest.replace(/\[[^\]]*\]/g, ' ').replace(/\{[^}]*\}/g, ' ').replace(/[\w-]+\.otf/g, ' ') : rest;
@@ -128,9 +128,9 @@ for (const [k, v] of Object.entries(RU)) {
 // every string of the static page has a translation (what the walker will look up)
 const page = fs.readFileSync(path.join(XL, 'page.html'), 'utf8');
 let body = page.slice(page.indexOf('<div id="app">')).replace(/<!--[\s\S]*?-->/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '');
-body = body.replace(/<h1 class="wordmark" data-i18n="no">[\s\S]*?<\/h1>/, '');
-// phase 2b adds the two markers to page.html (DESIGN.md 2); until then the wordmark and the inline-math label are skipped
-if (!/data-i18n="no"/.test(page)) body = body.replace(/<h1 class="wordmark"[^>]*>[\s\S]*?<\/h1>/, '');
+body = body.replace(/<h1 class="sr-only" data-i18n="no">[\s\S]*?<\/h1>/, '');   // (the app's name, the page's hidden heading)
+// phase 2b adds the two markers to page.html (DESIGN.md 2); until then the heading and the inline-math label are skipped
+if (!/data-i18n="no"/.test(page)) body = body.replace(/<h1 class="sr-only"[^>]*>[\s\S]*?<\/h1>/, '');
 if (!/data-i18n="html"/.test(page)) body = body.replace(/Key in the <i>w<\/i>-plane/g, '');
 const keys = new Set();
 body = body.replace(/<span data-i18n="html">([\s\S]*?)<\/span>/g, (m, inner) => { keys.add(inner.trim()); return ''; });
@@ -372,7 +372,7 @@ eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
   vm.createContext(ctx);
   const NAMES = { cx: 'CX', parse: 'Expr', region: 'Region' };
   for (const f of ['i18n', 'i18n_ru', 'cx', 'parse', 'region']) {
-    vm.runInContext(fs.readFileSync(path.join(XL, f + '.js'), 'utf8') + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
+    vm.runInContext(require('./src_text').stripEsm(fs.readFileSync(path.join(XL, f + '.js'), 'utf8')) + (NAMES[f] ? `\n;globalThis.${NAMES[f]} = ${NAMES[f]};` : ''), ctx, { filename: f + '.js' });
     if (f === 'i18n_ru') vm.runInContext("I18N._setLang('ru')", ctx);
   }
   const a = [-0.5, 0.25], b = [1, 1.25], c = [0.5, 0.25];

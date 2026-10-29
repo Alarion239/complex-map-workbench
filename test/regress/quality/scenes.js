@@ -389,6 +389,25 @@ BASE.zp_disc = {
     srcSdf: (z) => ZPD.r - Math.hypot(z.re - ZPD.c[0], z.im - ZPD.c[1]),
   },
 };
+// Repeat × N (#6): z^2 + c three times (the block [z^2, + c] under Repeat, N = 3) of a disc around the critical point
+// 0, so the map folds it onto itself. Truth: every branch of the three square roots, w -> +-sqrt(w - c), 8 candidates.
+const Q3 = { c: [0.2, 0.1], r: 0.8 }, Q3C = C(-0.3, 0.2);
+BASE.quad3_disc = {
+  shapes: [{ kind: 'disc', c: Q3.c, r: Q3.r }],
+  steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.3+0.2i' }, repeat: { n: 3, len: 2 } }],
+  srcView: { cx: 0.2, cy: 0.1, s: 150 },
+  truth: {
+    desc: 'some branch of (z^2 + c)^{-3} of w in the disc',
+    pre: (w) => {
+      let zs = [w];
+      for (let k = 0; k < 3; k++) zs = zs.flatMap((u) => { const s = csqrt(sub(u, Q3C)); return [s, C(-s.re, -s.im)]; });
+      return zs;
+    },
+    region: (z) => Math.hypot(z.re - Q3.c[0], z.im - Q3.c[1]) < Q3.r,
+    dF: (z) => { let u = z, d = 1; for (let k = 0; k < 3; k++) { d *= 2 * abs(u); u = add(mul(u, u), Q3C); } return d; },
+    srcSdf: (z) => Q3.r - Math.hypot(z.re - Q3.c[0], z.im - Q3.c[1]),
+  },
+};
 const scene = (base, name, group, rightView, note, variants) => Object.assign({ name, base, group, rightView, note }, BASE[base], variants ? { variants } : {});
 const LOGH_VIEW = { cx: -0.18, cy: PI / 2, s: 97 };   // the app's auto-fit of this scene (rounded)
 
@@ -439,6 +458,8 @@ const SCENES = [
   scene('jouk_custom', 'jouk_custom', 'rational', { cx: 0, cy: 0, s: 117 }, 'the Joukowski airfoil as the custom formula (z + 1/z)/2: the same image as the catalog step', ['mask', 'pattern']),
   // the zeros-and-poles step: (z^2 - 1)/z by its zeros +-1 and pole 0 (RAT2, two sheets over a fold)
   scene('zp_disc', 'zp_disc', 'rational', { cx: 0, cy: 2.19, s: 250 }, 'zeros-and-poles step, zeros +-1 and pole 0: (z^2-1)/z of the disc |z - 1.2i| < 0.8 (folded onto itself)', ['mask', 'pattern']),
+  // Repeat × N (#6): a block of steps run three times, the inverse renderer's ops three times over (8 branches)
+  scene('quad3_disc', 'quad3_disc', 'rational', { cx: 0.25, cy: 0.5, s: 80 }, 'Repeat x 3 of [z^2, + (-0.3+0.2i)] of the disc |z - (0.2+0.1i)| < 0.8 (contains 0): degree 8, folded', ['mask', 'pattern']),
 ];
 
 // display settings shared by every scene: no coordinate net, unit circle, view outline or region outline; alpha 1
@@ -476,7 +497,7 @@ function cellOf(sc) {
 // the saved app state of a scene variant (written to localStorage before the app opens)
 function stateOf(sc, variant) {
   const shapes = sc.shapes.map((s, i) => Object.assign({ id: 's' + (i + 1), ci: 0, visible: true }, JSON.parse(JSON.stringify(s))));
-  const steps = sc.steps.map((st) => ({ type: st.type, params: Object.assign({}, st.params), on: true }));
+  const steps = sc.steps.map((st) => Object.assign({ type: st.type, params: Object.assign({}, st.params), on: true }, st.repeat ? { repeat: Object.assign({}, st.repeat) } : {}));
   return Object.assign({ v3: true, v4: true, v5: true, nextId: 50, targets: [] }, DISPLAY, {
     pattern: VARIANTS[variant], shapes, steps, srcView: Object.assign({}, sc.srcView), clipWin: boxOf(sc.srcView),
     rightView: sc.rightView ? Object.assign({}, sc.rightView) : null,

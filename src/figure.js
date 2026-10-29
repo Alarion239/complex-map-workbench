@@ -33,6 +33,12 @@ const Figure = (() => {
   XD.begin = (name, lang = 'en') => { XD.name = name; XD.lang = lang; XD.ns = 'cmw' + hash(name + ':' + Date.now()); XD.glyphs = new Map(); XD.boxes = []; uid = 0; };
   XD.begin('figure');
   XD.ready = () => !!(window.MathJax && typeof window.MathJax.tex2svg === 'function');
+  // true once MathJax can typeset (it loads after the page); false when alive() says the caller has gone, or after ms
+  XD.whenReady = (ms = 20000, alive = () => true) => new Promise((resolve) => {
+    const t0 = Date.now();
+    const tick = () => { if (XD.ready()) resolve(true); else if (!alive() || Date.now() - t0 > ms) resolve(false); else setTimeout(tick, 100); };
+    tick();
+  });
 
   // ---------- typography ----------
   // TeX -> {inner (markup in glyph units), glyphs [[key, d]], w, a, d (pt)}; MathJax's viewBox gives exact metrics
@@ -2405,7 +2411,11 @@ const Figure = (() => {
   // captionTex, name, view, Wtex, ...} or null when cancelled
   async function build(opts) {
     if (!A) throw new Error('Figure is not attached');
-    if (!XD.ready()) throw new Error('MathJax is still loading');
+    // (an export or a rebuild that comes before MathJax is ready waits for it; null when the caller has gone, an error after the timeout)
+    if (!XD.ready() && !(await XD.whenReady(20000, (opts && opts.alive) || undefined))) {
+      if (opts && opts.alive && !opts.alive()) return null;
+      throw new Error('MathJax did not load in time');
+    }
     const o = Object.assign(defaults(), opts || {});
     const P = Object.assign({}, PRESET[o.for] || PRESET.article);
     const size = sizeOf(o), Wtex = size.pt, W = XD.bp(Wtex);
@@ -3097,7 +3107,8 @@ const Figure = (() => {
   function makePreview(cv, ui) {
     const g = cv.getContext('2d', { alpha: false });
     let run = null, raf = 0, clock = 0, pos0 = 0;
-    const P = { playing: false, i: 0, shown: false, drawn: -1 };
+    // (first: the frame drawn first in this run, -1 until one is)
+    const P = { playing: false, i: 0, shown: false, drawn: -1, first: -1 };
     const tkey = (t) => t.toFixed(9);
     // the next slot for a frame's render: just after the screen's frame (so a render of 5-15 ms fits before the next
     // one). A hidden page draws nothing: the fill waits until the page is shown again (review vp-7)
@@ -3153,7 +3164,7 @@ const Figure = (() => {
       g.globalAlpha = 1; g.drawImage(bs[0], 0, 0, cv.width, cv.height);
       if (bs.length > 1) { g.globalAlpha = e.k; g.drawImage(bs[1], 0, 0, cv.width, cv.height); g.globalAlpha = 1; }
       pvStats.draws++; P.drawn = i;
-      if (!P.shown) { P.shown = true; ui.shown(true); }
+      if (!P.shown) { P.shown = true; P.first = i; ui.shown(true); }
       return true;
     }
     const show = (i) => { P.i = i; P.drawn = -1; if (run) ahead(run, i); draw(i); ui.tick(i); };
@@ -3161,6 +3172,9 @@ const Figure = (() => {
       raf = 0;
       const q = run;
       if (!q || !P.playing) return;
+      // (time does not run before the first picture is shown: on a slow machine the poster's frame is still rendering, and the
+      // preview must open on it, not on a frame the clock has since passed)
+      if (!P.shown) { pos0 = P.i; clock = now; }
       const i = Math.max(0, Math.floor(pos0 + (now - clock) * q.fps / 1000)) % q.times.length;
       if (i !== P.i) { P.i = i; ui.tick(i); }
       ahead(q, i);
@@ -3213,7 +3227,7 @@ const Figure = (() => {
         mime: 'image/webp', ready: 0, pw, ph, dead: false, id: ++pvStats.runs, lazy: !!o.lazy, order: [], full: [], urgent: [], qpos: 0, wake: null, unhide: null, cssW: o.cssW,
       };
       pvStats.live++;
-      P.i = at; P.drawn = -1; P.shown = false;
+      P.i = at; P.drawn = -1; P.shown = false; P.first = -1;
       if (o.keep) { g.drawImage(o.keep, 0, 0, pw, ph); P.shown = true; } else ui.shown(false);
       ui.size(pw, ph, plan.W, plan.H, raw); ui.tick(at); ui.fill(0, U.length);
       // the order: the frame in view, both ends, then every 16th, 8th, ... frame (lazy: the frame in view only)
@@ -3295,7 +3309,7 @@ const Figure = (() => {
     return {
       start, stop, play, pause, seek, draw, resize,
       toggle: () => (P.playing ? pause() : play()),
-      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
+      state: () => ({ playing: P.playing, i: P.i, n: run ? run.times.length : 0, ready: run ? run.ready : 0, total: run ? run.U.length : 0, pw: run ? run.pw : 0, ph: run ? run.ph : 0, shown: P.shown, first: P.first, fps: run ? run.fps : 0, id: run ? run.id : 0, raw: run ? run.raw : null, lazy: run ? run.lazy : false, hot: run ? run.hot.size : 0, bytes: run ? run.bytes : 0, mime: run && !run.raw ? run.mime : null }),
       // (tests) the picture the preview shows at timeline index i, once its own frames are kept, as PNG data
       frame: async (i) => {
         const q = run;
@@ -3803,6 +3817,9 @@ const Figure = (() => {
     const rebuild = async () => {
       const my = ++token;
       st.building = true; scroll.classList.add('busy'); wait.hidden = false;
+      wait.textContent = XD.ready() ? $t('Typesetting…') : $t('Preparing formulas…');
+      // (once MathJax is in, the line says what the build is doing now)
+      if (!XD.ready()) XD.whenReady(20000, () => my === token && !closed).then((on) => { if (on && my === token && !wait.hidden) wait.textContent = $t('Typesetting…'); });
       try {
         const f = await build(opts({ draft: true, alive: () => my === token && !closed }));
         if (my !== token || !f) return;
@@ -3820,7 +3837,8 @@ const Figure = (() => {
         facts.append(h('b', null, dims), $t(' · labels {x}/{x2} pt, as in {tsz} pt text · {choice} · {choice2}', { x: I18 ? I18.num(T[0]) : T[0], x2: I18 ? I18.num(T[1]) : T[1], tsz, choice: f.ink === 'bw' ? $t('gray only') : $t('print color'), choice2: f.for === 'homework' ? $t('stays under its problem ([H])') : f.star ? $t('figure* across both columns') : $t('floats [tbp]') }));
         if (f.info && f.info.hiddenZP) facts.append(h('div', { class: 'xf-warn' }, $t('Most zeros and poles are on the far side of the sphere in these frames: turn the globe so they face you, then export again.')));
       } catch (e) {
-        console.error(e);
+        // (MathJax that never came is a known condition the message below reports, not an error of the page)
+        (/MathJax/.test(String(e && e.message)) ? console.warn : console.error)(e);
         if (my === token) { wait.hidden = false; wait.textContent = /MathJax/.test(String(e && e.message)) ? $t('The typesetter is still loading; try again in a moment.') : $t('The figure could not be made.'); }
         return;
       } finally { if (my === token) { st.building = false; scroll.classList.remove('busy'); } }
@@ -3955,7 +3973,18 @@ const Figure = (() => {
   // the share sheet takes files here (a phone's browser); a laptop keeps Save
   const canShareFiles = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && matchMedia('(pointer: coarse)').matches;
   // the export menu's Copy figure again / Save figure again: the last destination, with the remembered settings
+  // (MathJax may still be loading: build waits for it up to 20 s with no dialog to show it, so the menu item says so, and a
+  // second press while it waits is ignored)
+  let againBusy = false;
   async function again(what) {
+    if (againBusy) return false;
+    againBusy = true;
+    try {
+      if (!XD.ready()) A.toast($t('Preparing formulas…'));
+      return await againRun(what);
+    } finally { againBusy = false; }
+  }
+  async function againRun(what) {
     const set = loadSet();
     // (after a video: Save opens the dialog on Video, with its progress and Cancel, while the deformation is on; else,
     // and for Copy, the last figure is made again; export review r3, video-3)
@@ -3985,3 +4014,9 @@ const Figure = (() => {
     geom: { senseAt, chevronAt, fitBox },
   };
 })();
+import { CX } from './cx.js';
+import { Calc } from './calc.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+import { Construct } from './construct.js';
+export { Figure };

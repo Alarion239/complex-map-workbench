@@ -4,6 +4,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
+const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
@@ -33,9 +34,11 @@ const section = (name) => console.log(`--- ${name}`);
 // (a) round trips: soundness, completeness, decomposition for every catalog type and the custom formulas
 // =================================================================================================
 section('(a) round trips');
+// a build with Recognize declining every formula (its guard refusing a reading), when on
+const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; Recognize.chain = () => null; try { return f(); } finally { Recognize.chain = chain; } };
 {
   const cases = [];
-  const add = (type, params) => cases.push({ type, params });
+  const add = (type, params, norec) => cases.push({ type, params, norec });
   for (let i = 0; i < 3; i++) {
     add('mul', { c: cs(rc()) }); add('add', { c: cs(rc()) }); add('affine', { a: cs(rc()), b: cs(rc()) });
     add('mobius', { a: cs(rc()), b: cs(rc()), c: cs(rc()), d: cs(rc()) });
@@ -65,12 +68,15 @@ section('(a) round trips');
     ['\\frac{z^2-1}{z^2+1}', 180], ['(z+1/z)/2', 180], ['z^2+2z', 180], ['\\frac{(z-1)(z-2i)}{z-0.5}', 180], ['\\log\\frac{z-1}{z+1}', 90], ['\\sqrt{z^2-1}', 180],
     ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180]];
   for (const [e, cut] of CUSTOM) add('custom', { expr: e, cut });
+  // (the page rewrites the formulas it recognises first, 2^z as e^{z log 2}: the formula's own decomposition, EXPC for
+  // c^z, is the fallback when Recognize declines a formula, as here)
+  add('custom', { expr: '3^{z}', cut: 180 }, true);
   const shape = { kind: 'disc', c: [0, 0], r: 3 };
   const inel = [];
   let fails = 0, total = 0;
   const kinds = new Set();
   for (const cse of cases) {
-    const st = St(cse.type, cse.params), b = Funcs.build(st);
+    const st = St(cse.type, cse.params), b = noRec(cse.norec, () => Funcs.build(st));
     if (b.error) { check(`build ${cse.type} ${JSON.stringify(cse.params)}`, false, b.error); continue; }
     const plan = Inverse.planChain([st], [b]);
     if (!plan.ok) { inel.push(`${cse.type} ${JSON.stringify(cse.params)}: ${plan.reason}`); continue; }
@@ -105,8 +111,8 @@ section('(a) round trips');
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
   // (d/dz, Γ and ζ are ineligible by rule: below)
-  const byRule = new Set(['deriv', 'gamma', 'zeta', 'series']);
-  check('every catalog type except d/dz, Γ, ζ and a series is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
+  const byRule = new Set(['deriv', 'gamma', 'zeta', 'series', 'recurrence']);
+  check('every catalog type except d/dz, Γ, ζ, a series and a recurrence is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
     ['poly', { co: '1, 0, -1, 0' }, 'polynomial of degree 3'], ['rational', { p: '1, 0, 0, 1', q: '1, 0' }, 'rational map of degree 3'],
@@ -118,6 +124,8 @@ section('(a) round trips');
     ['gamma', {}, 'no inverse enumerator'], ['zeta', {}, 'no inverse enumerator'], ['custom', { expr: '\\Gamma(z)+1' }, 'infinitely often'],
     // (issue #5) a series: the sphere-mesh fallback too
     ['series', { kind: 'power', an: '\\frac{1}{n!}', c: '0' }, ''], ['custom', { expr: '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}' }, ''],
+    // (issue #6) a recurrence: the sphere-mesh fallback (Repeat × N unrolls its steps)
+    ['recurrence', { u0: 'z', g: 'u^2+z', N: 2, cut: 180 }, 'no inverse enumerator'],
   ];
   for (const [type, params, why] of INELIGIBLE) {
     const st = St(type, params), b = Funcs.build(st);
@@ -130,9 +138,11 @@ section('(a) round trips');
   // the custom-formula recognizer of the chain (customOps) decomposes the formulas the app accepts
   const cust = (e) => Inverse.stepOps(Funcs.build(St('custom', { expr: e, cut: 180 })));
   check('custom cot = TAN then MOB', cust('\\cot z').ok && cust('\\cot z').ops.map((o) => o.kind).join() === 'TAN,MOB');
-  check('custom 2^z = EXPC', cust('2^{z}').ops.map((o) => o.kind).join() === 'EXPC');
+  // (Recognize writes 2^z as e^{z log 2}, and 3 - 2/(z+i) as one Möbius map; declined, c^z is EXPC)
+  check('custom 2^z = AFF then EXP', cust('2^{z}').ops.map((o) => o.kind).join() === 'AFF,EXP');
+  check('custom 5^z, Recognize declining = EXPC', noRec(true, () => cust('5^{z}')).ops.map((o) => o.kind).join() === 'EXPC');
   check('custom e^{z^2} = IPOW then EXP', cust('e^{z^2}').ops.map((o) => o.kind).join() === 'IPOW,EXP');
-  check('custom 3 - 2/(z+i) = AFF, MOB, AFF', cust('3-\\frac{2}{z+i}').ops.map((o) => o.kind).join() === 'AFF,MOB,AFF');
+  check('custom 3 - 2/(z+i) = MOB', cust('3-\\frac{2}{z+i}').ops.map((o) => o.kind).join() === 'MOB');
   // stage ranges: off and failed steps are the identity, (a, b] selects the ops
   {
     const { steps, built } = planOf([{ type: 'exp' }, { type: 'mobius' }, { type: 'deriv' }, { type: 'sin' }]);
@@ -985,6 +995,38 @@ section('(k) homotopy end points');
   console.log(`homotopy end points exact: ${passes.join(' ')}; excluded: ${fails.join(' ') || 'none'}`);
   check('HOM_EXACT lists only verified types', [...Inverse.HOM_EXACT].every((t) => passes.includes(t)), [...Inverse.HOM_EXACT].filter((t) => !passes.includes(t)).join(' '));
   check('d/dz is excluded from normalisation', !Inverse.homExact({ type: 'deriv' }) && Inverse.homExact({ type: 'exp' }));
+}
+
+// [issue #276] a last step with no plan that names all of its singular points, finitely many (ζ: its pole 1), after
+// injective steps with one: Inverse.singularAfter pulls them back to the z-plane, and the lines break where their jump
+// scan would, along their whole reach. Anything else keeps the scan (Γ's poles run along a line's reach; a periodic
+// prefix has infinitely many preimages)
+section('singularAfter (ζ after an injective plan)');
+{
+  const pts = (out) => out.map((e) => cs(e.z) + ':' + e.kind).join(' ');
+  // 2z + 1, then ζ: its pole 1 at z = 0; the whole chain has no plan
+  let q = planOf([{ type: 'affine', params: { a: '2', b: '1' } }, { type: 'zeta' }], 0, 1);
+  check('2z + 1 then ζ: the whole chain has no plan, the steps before ζ have one, injective', !Inverse.planChain(q.steps, q.built, 0, 2).ok && q.plan.ok && q.plan.injective);
+  let s = Inverse.singularAfter(q.plan, WIN0, q.built[1].sing, 16);
+  check('… ζ\'s pole pulled back to z = 0', s && s.length === 1 && s[0].kind === 'pole' && CX.abs(s[0].z) < 1e-12, pts(s || []));
+  // the lines through it, refined with these points and with the scan, along their whole reach: the same pieces, broken
+  // at the same places
+  const F = (z) => q.built[1].f(q.built[0].f(z));
+  const brk = (ps) => ps.slice(0, -1).map((p) => cs(C(p[p.length - 2], p[p.length - 1]))).join(' ');
+  for (const sh of [{ kind: 'line', a: [-3, 0], b: [3, 0] }, { kind: 'line', a: [0, -3], b: [0, 3] }, { kind: 'circle', c: [0, 0], r: 0.5 }]) {
+    const cv = Region.curvesOf(sh, WIN0, { reach: 'sphere' });
+    const run = (sg) => Region.Lines.refine(cv, [F], sg, { win: WIN0, origin: [0, 0], maxInsert: 8192, maxEval: 2048 });
+    const a = run(null), b = run(s);
+    check(`… a ${sh.kind} refined with them breaks where the scan breaks it (${a.length} pieces)`, a.length === b.length && a.length >= 1, `${a.length} vs ${b.length}: ${brk(a)} / ${brk(b)}`);
+  }
+  // ζ alone (no steps before it)
+  q = planOf([{ type: 'zeta' }], 0, 0);
+  s = Inverse.singularAfter(q.plan, WIN0, q.built[0].sing, 16);
+  check('ζ alone: its pole at 1', s && s.length === 1 && CX.abs(CX.sub(s[0].z, C(1, 0))) < 1e-15, pts(s || []));
+  // e^z, then ζ: infinitely many preimages of 1 (a periodic prefix): no set, the lines scan
+  q = planOf([{ type: 'exp' }, { type: 'zeta' }], 0, 1);
+  check('e^z then ζ: not injective, so null (the lines scan)', q.plan.ok && !q.plan.injective && Inverse.singularAfter(q.plan, WIN0, q.built[1].sing, 16) === null);
+  check('Γ names no set (its poles run along a line\'s reach): it keeps the scan', Funcs.build(St('gamma')).sing === undefined);
 }
 
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);

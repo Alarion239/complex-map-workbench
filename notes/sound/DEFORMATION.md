@@ -206,3 +206,25 @@ items the verification left open are closed in the next section):
   20.7 ms, one 21 ms frame of work). Part of the run had the machine loaded (other headless Chromes): Chrome dropped to
   30 fps for every page, sound off included. `sound_cmd.js` and the fps check were repeated at 60 fps; the click
   recordings were not (their "60 Hz" pages ran at 30 fps; the 240 Hz pages run on their own timer).
+
+## v16.5: what plays under H_t (Hear the function, 2026-10-28)
+
+The harp and the tone are retired; under a still probe the function sounds by exactly the same map as under a moving
+one (perfwin/sound/spec/HEAR-THE-FUNCTION-SPEC.md 3.14). The glue (`sndHearAt` in src/app.js) tells the engine
+(`Sound.hear`) what each change of F is:
+
+- the transport plays or is scrubbed: `soundFunctionChanged('t')`, tracked exactly in (z, t) by `Sound.pathStep`;
+  a parameter moving along a path: `{at}`, tracked the same way. An exact step is `hear.step` with `src: 'fn'`.
+- a `jump` on such a path is a branch cut (`hear.cut`: the crack and the two colours either side) unless |ln|F|| ≥ 700
+  at either end or `Calc.throughZPAlong` finds a zero or pole on the path itself (then a silent seat).
+- a swap (F ↔ H_t, t running back) or a change with no path (a typed value: `hear.pathless`) re-seats, as declared.
+- no rope: the point does not move. No velocity floor: the level is |F| whatever caused the change.
+
+| Sound | Cause | Rule |
+|---|---|---|
+| H_t's notes, repeats, cracks, order cues, the Glide | F | spec 3.2–3.10 |
+| `morphStart`, `morphEnd` | a play started; t reached 1 (Mathematical events) | not F; declared; unchanged |
+| The scrub texture and its landmarks (`SND.scrub`) | the speed and position of the drag on t | not F: silent while Hear the function is on and a probe rests on a plane (its wood strikes would sound like F's notes); the motion bed already stops then |
+| The live loop note (curves sing) | the loop's winding under H_t | the singer, unchanged |
+
+Listen along stops when t changes while it plays (it plays one function, sampled before it starts).

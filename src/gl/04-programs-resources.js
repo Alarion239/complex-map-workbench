@@ -6,9 +6,41 @@
     gl.compileShader(s);
     return s;
   }
+  // ?glprof (issue #72): every program's link timed, for slow shader compilers (ANGLE's Direct3D 11 runs FXC at link
+  // time). A record per link: the program (name, its chain version's key, map mode, inverse or not, source sizes), when
+  // it started, and when it was done: KHR_parallel_shader_compile's COMPLETION_STATUS seen by a 5 ms poll, or the
+  // return of a link read that waited (no extension, tests, exports). GLR.profile() returns them; ci/glprof.js reads them.
+  const PROF = (() => { try { return new URLSearchParams(location.search).has('glprof'); } catch (err) { return false; } })();
+  const profRecs = [];
+  let profT = 0;
+  function profStart(e, vsSrc, fsSrc) {
+    if (!PROF) return;
+    e.prof = { name: e.name, key: String(e.key).slice(0, 40), mode: e.mode || 0, inv: !!e.inv, vs: vsSrc.length, fs: fsSrc.length,
+      t0: performance.now(), ms: null, by: '' };
+    profRecs.push(e.prof);
+    if (pcExt && !profT) profT = setTimeout(profPoll, 5);
+  }
+  function profPoll() {
+    profT = 0;
+    let open = false;
+    for (const r of profRecs) {
+      if (r.ms !== null) continue;
+      const e = r.e || [...progs.values()].find((q) => q.prof === r);
+      if (!e || !e.p) { r.ms = -1; r.by = 'dropped'; continue; }
+      r.e = e;
+      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR)) { r.ms = performance.now() - r.t0; r.by = 'parallel'; } else open = true;
+    }
+    if (open) profT = setTimeout(profPoll, 5);
+  }
+  // a link read that waited (finishLink, finishInv): the program was done when it returned
+  function profWaited(e) {
+    if (PROF && e.prof && e.prof.ms === null) { e.prof.ms = performance.now() - e.prof.t0; e.prof.by = 'waited'; }
+  }
+  const profile = () => profRecs.map(({ e, ...r }) => r);
   // Starts compiling and linking. Nothing here waits for the driver: with KHR_parallel_shader_compile the work
   // runs in the background until finishLink reads the result.
   function startLink(e, vsSrc, fsSrc, tf) {
+    profStart(e, vsSrc, fsSrc);
     const p = gl.createProgram();
     e.vs = shader(gl.VERTEX_SHADER, vsSrc); e.fs = shader(gl.FRAGMENT_SHADER, fsSrc);
     gl.attachShader(p, e.vs); gl.attachShader(p, e.fs);
@@ -19,7 +51,9 @@
   // Reads the link status (blocks until the driver is done) and the uniform locations.
   function finishLink(e) {
     const p = e.p;
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    const linked = gl.getProgramParameter(p, gl.LINK_STATUS);
+    profWaited(e);
+    if (!linked) {
       const log = (!gl.getShaderParameter(e.vs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.vs))
         || (!gl.getShaderParameter(e.fs, gl.COMPILE_STATUS) && gl.getShaderInfoLog(e.fs)) || gl.getProgramInfoLog(p) || 'link failed';
       gl.deleteShader(e.vs); gl.deleteShader(e.fs); gl.deleteProgram(p);
@@ -184,7 +218,7 @@ float wabs(vec2 w) {
     let e = progs.get(id);
     if (!e) {
       if (!start) return null;
-      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain) };
+      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain), born: performance.now() };
       progs.set(id, e);
       e.rt = d.tf === 'rt' && rtOK;
       try { const [vs, fs] = sources(name, ch, mode); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
@@ -198,7 +232,8 @@ float wabs(vec2 w) {
       // either: a synchronous link held the main thread 0.3-1.8 s per program on Direct3D 11 (Iris Xe), ~4 s before
       // the first frame, while the background links run in parallel (1.3 s for all seven). syncDepth (tests) and
       // syncFwd (figure and video exports) wait.
-      if (!pcExt || syncDepth > 0 || syncFwd > 0) finishLink(e);
+      if (heldOf(e)) { /* (tests: holdLinks) */ }
+      else if (!pcExt || syncDepth > 0 || syncFwd > 0) finishLink(e);
       else if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (!d.chain || (groupDone(e) && canFinish(e)))) { finishLink(e); if (d.chain) finishGroup(e); }
       else schedulePoll();
     }
@@ -233,19 +268,42 @@ float wabs(vec2 w) {
   // last deformation mode asked for here)
   let aheadMode = 1;
   const EDGE_PROGS = ['landEdgeS', 'landEdgeH', 'landEdge2'];
+  // (the programs prestartModes starts, started or not: each chain program the views draw for the current chain, in
+  // each of these map modes)
+  function modesPlan(modes) {
+    const out = [];
+    if (sideMode || !cur.info) return out;
+    for (const e of [...progs.values()]) {
+      if (!e.chain || e.inv || e.side || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
+      for (const m of modes) {
+        const mm = modeOf({ mode: m });
+        if (mm) out.push({ name: e.name, mode: mm, id: progId(e.name, cur, { mode: mm }) });
+      }
+    }
+    return out;
+  }
   function prestartModes(modes) {
     const dm = modes.map((m) => modeOf({ mode: m })).find((m) => m === 1 || m === 3);
     if (dm) aheadMode = dm;
     if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
     let n = 0;
-    for (const e of [...progs.values()]) {
-      if (!e.chain || e.inv || e.side || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
-      for (const m of modes) {
-        const mm = modeOf({ mode: m });
-        if (!mm || progs.has(progId(e.name, cur, { mode: mm }))) continue;
-        getProg(e.name, cur, true, { mode: mm });
-        n++;
-      }
+    for (const q of modesPlan(modes)) {
+      if (progs.has(q.id)) continue;
+      getProg(q.name, cur, true, { mode: q.mode });
+      n++;
+    }
+    return n;
+  }
+  // (issue #72) the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
+  // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
+  // -> the number started
+  function prestartLand() {
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    let n = prestart(LAND_STATIC);
+    for (const name of LAND_CHAIN) {
+      if (progs.has(progId(name, cur, { mode: 0 }))) continue;
+      getProg(name, cur, true, { mode: 0 });
+      n++;
     }
     return n;
   }
@@ -253,6 +311,79 @@ float wabs(vec2 w) {
   // started at init and after a context restore: that frame needs them anyway, and their links overlap the app's
   // start-up instead of each other
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark'];
+  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
+  // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
+  const GLOBE_PROGS = ['sphere', 'regionSC', 'lineSC', 'disc', 'mark'];
+  const LAND_STATIC = ['landNrm'];
+  const LAND_CHAIN = ['landTF', 'land'];
+  // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
+  // they have started: the lists above and the current chain's, so the total is known before the work is
+  function warmIds(group, modes) {
+    if (group === '2d') return PRESTART_2D.map((n) => n + '|static');
+    if (group === 'globe') return GLOBE_PROGS.map((n) => n + '|static');
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return group === 'land' ? LAND_STATIC.map((n) => n + '|static') : [];
+    if (group === 'modes') return modesPlan(modes || []).map((q) => q.id);
+    if (group === 'land') return LAND_STATIC.map((n) => n + '|static').concat(LAND_CHAIN.map((n) => progId(n, cur, { mode: 0 })));
+    return [];
+  }
+  // How far the programs have come: {done, total, pending, groups}. The ids of each group count once each (a program in
+  // two groups counts in the first); done: linked (or failed: nothing more will come of it). Programs outside the
+  // lists that are compiling now (the exact images' inverse program, the chain's first-frame programs) are counted in
+  // total and pending, not in done, so the bar is full only when nothing is left. stateOf(id) is 'pending', 'ready',
+  // 'error' or undefined (not started); it reads the programs' own state, which the poll keeps current from
+  // COMPLETION_STATUS_KHR: a pending program is never asked for its link status here
+  function warmCount(groups, stateOf, extraPending) {
+    const seen = new Set(), out = { done: 0, total: 0, pending: 0, groups: {} };
+    for (const [g, ids] of groups) {
+      const r = { done: 0, total: 0 };
+      for (const id of ids) {
+        if (seen.has(id)) continue;
+        seen.add(id); r.total++;
+        const st = stateOf(id);
+        if (st === 'ready' || st === 'error') r.done++; else if (st === 'pending') out.pending++;
+      }
+      out.groups[g] = r; out.done += r.done; out.total += r.total;
+    }
+    for (const id of extraPending || []) if (!seen.has(id)) { seen.add(id); out.total++; out.pending++; }
+    return out;
+  }
+  // (known: the chain's own programs are listed: before its first frame only the static lists are, and the total is
+  // still to grow)
+  function warmStatus(modes) {
+    if (!ok || lost || !pcExt) return { done: 0, total: 0, pending: 0, groups: {}, known: true };
+    const groups = ['2d', 'modes', 'globe', 'land'].map((g) => [g, warmIds(g, modes)]);
+    const extra = [];
+    for (const e of progs.values()) if (e.state === 'pending' && !e.side) extra.push(e.id);
+    const r = warmCount(groups, (id) => { const e = progs.get(id); return e && e.state; }, extra);
+    r.known = groups[1][1].length > 0;
+    return r;
+  }
+  // The bar's rule, one step (a pure function of the counts and the clock, so it can be tested without a page):
+  // s: the state it returned last (null at the start), st: {done, total, unknown}, now: ms, o: {delay, hold}.
+  // -> {t0, frac, visible, indet, doneAt, working}. The bar shows only when work is still pending `delay` ms after it began (a
+  // warm program cache lands everything before that, and nothing flickers), never goes back (the total may grow as the
+  // chain's programs are listed: the fraction holds until the work catches up), is indeterminate while the total is
+  // unknown, and hides `hold` ms after the work is done. A later piece of work starts a new round.
+  function warmBarStep(s, st, now, o) {
+    const delay = o && o.delay != null ? o.delay : 300, hold = o && o.hold != null ? o.hold : 400;
+    s = s ? Object.assign({}, s) : { t0: now, frac: 0, visible: false, indet: false, doneAt: -1, working: false };
+    const work = st.total > st.done || !!st.unknown;
+    if (st.total > 0) s.frac = Math.max(s.frac, Math.min(1, st.done / st.total));
+    s.indet = !!st.unknown && work;
+    if (work) {
+      if (!s.working) { s.working = true; s.t0 = now; }   // (when this piece of work began)
+      s.doneAt = -1;
+      if (!s.visible && now - s.t0 >= delay) s.visible = true;
+    } else {
+      s.working = false;
+      if (s.visible) {
+        if (s.doneAt < 0) s.doneAt = now;
+        s.frac = 1;
+        if (now - s.doneAt >= hold) { s.visible = false; s.frac = 0; s.doneAt = -1; }
+      } else s.frac = 0;
+    }
+    return s;
+  }
   // A chain program whose background compile has landed is taken into use at most one per FRESH_MS while an earlier
   // version stands in (always for side chains): ANGLE completes a program's Metal side when it is first drawn, and
   // several of those in one frame held the GPU process, and so every frame on the page, for 100-250 ms (spec 8.7).
@@ -308,12 +439,41 @@ float wabs(vec2 w) {
     if (!gl || lost) return;
     let main = false, sided = false, waiting = false;
     for (const e of progs.values()) {
-      if (e.state !== 'pending') continue;
+      if (e.state !== 'pending' || heldOf(e)) continue;
       if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || !e.chain || (groupDone(e) && canFinish(e)))) { (e.inv ? finishInv : finishLink)(e); if (e.chain) finishGroup(e); if (e.side) sided = true; else main = true; } else if (e.state === 'pending') waiting = true;
     }
     if (waiting) schedulePoll();
     // which draws can now redraw: main (the current chain and its history), side (side chains)
     if ((main || sided) && api.onReady) api.onReady({ main, side: sided });
+  }
+  // (issue #72, I) How long the current chain's area draws (region, or tfRegion for the cached path; the deformation's
+  // start for a mode still compiling) have had nothing to draw: their own programs still linking and no earlier chain
+  // version ready to stand in. 0 as soon as a draw would find a program (one ready, or a link complete, so the frame
+  // that leaves the app's stand-in draws the GPU picture: no blank frame between), when none was asked for yet, or
+  // after a failed compile (reported, never covered up). The same program table as pendingLinks and pending().
+  const AREA_PROGS = ['region', 'tfRegion'];
+  function drawable(e) {
+    if (!e) return false;
+    if (e.state === 'ready') return true;
+    if (e.state !== 'pending' || heldOf(e)) return false;
+    return !pcExt || syncDepth > 0 || syncFwd > 0 || (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (!e.chain || groupDone(e)));
+  }
+  function bareMs(map) {
+    if (!ok || lost || sideMode || !cur.info) return 0;
+    const maps = modeOf(map) ? [map, startOf(map)] : [map];
+    const own = maps.flatMap((m) => AREA_PROGS.map((n) => progs.get(progId(n, cur, m)))).filter(Boolean);
+    if (!own.length || own.some((e) => e.state === 'error' || drawable(e))) return 0;
+    for (const h of hist) for (const n of AREA_PROGS) { const q = progs.get(progId(n, h, map)); if (q && q.state === 'ready') return 0; }
+    return performance.now() - Math.min(...own.map((e) => e.born || performance.now()));
+  }
+  // (tests) holdLinks(true): the current chain's forward programs stay linking (COMPLETION_STATUS held false, and no
+  // synchronous link) until holdLinks(false), on any back end: SwiftShader and lavapipe link synchronously. ?glhold
+  // starts with it on (a cold load: no earlier version of the chain)
+  let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
+  function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
+  function holdLinks(on) {
+    held = !!on;
+    if (!held && api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
   // whose program is ready draws instead (use() maps the map spec onto that version), so a frame never waits for a
@@ -324,9 +484,10 @@ float wabs(vec2 w) {
     if (P) return P;
     const e = progs.get(progId(name, cur, map));
     if (e && e.state === 'error') { frameErr = friendly(e.error); return null; }
-    if (!DEFS[name].chain) { if (e && e.state === 'pending') framePending = true; return null; }
+    if (!DEFS[name].chain) { if (e && e.state === 'pending') { framePending = true; standIn(e.id); } return null; }
     if (!cur.info) return null;
     framePending = true;
+    if (e && e.state === 'pending') standIn(e.id);
     if (sideMode) return null;   // a side chain draws only with its own programs
     for (const h of hist) { const Q = getProg(name, h, false, map); if (Q) return Q; }
     return modeOf(map) ? getProg(name, cur, false, startOf(map)) : null;
