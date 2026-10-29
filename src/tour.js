@@ -167,7 +167,7 @@ const Tour = (() => {
           // (v16.5 UX17: a phone's words for the places and gestures, here and below)
           touch: 'Type a set and tap Add, such as $|z-1|<2$ or $0<\\operatorname{Im} z<\\pi$. An equation like $|z|=1$ adds a curve, and a formula in $w$ adds a target.',
           try: { text: 'Type $|z+1|<1$ and press Add.', touch: 'Type $|z+1|<1$ and tap Add.', on: 'shape-added', test: (e) => !e || e.via === 'formula', then: 'A set from a formula is a shape like any other.' } },
-        { id: 'chain', anchor: 'chain', title: 'The function chain', before: [['focus', 0]],
+        { id: 'chain', anchor: 'chain', also: ['panes'], title: 'The function chain', before: [['focus', 0]],
           // (v15: a click selects a step for the Inspector; a double-click, or the lens in the Inspector, shows it alone)
           body: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to select it, and the Inspector edits it. Double-click it to see that step alone: X and Y become its input and output.',
           touch: 'The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.',
@@ -281,7 +281,7 @@ const Tour = (() => {
           body: 'With two or more steps, choose All at once: every step deforms at the same $t$, so $H_t=H^{(2)}_t\\circ H^{(1)}_t$ with $0\\le t\\le 1$.',
           try: { text: 'Choose All at once.', on: 'order-changed', test: (e) => !e || e.all === true, ctl: ['allAtOnce'], then: 'Both steps now deform at the same $t$.' } },
         // (v16, notes/deform-range/SPEC.md 10.2: the bracket; on a phone the chain bar, where it is drawn)
-        { id: 'range', anchor: 'bracketL', title: 'Part of the chain', before: [['deform', true], ['look', { allAtOnce: false }], ['range', null]],
+        { id: 'range', anchor: 'bracketL', also: ['panes'], title: 'Part of the chain', before: [['deform', true], ['look', { allAtOnce: false }], ['range', null]],
           body: 'The bracket over the cards marks the steps that deform. Steps before it act first, in full; steps after it, last. Bracket $f_2$ alone and the Möbius map deforms the half-plane $f_1(X)$: $H_t=G_t\\circ f_1$.',
           try: { text: "Drag the bracket's left end past $f_1$.", touch: "In $f_2$'s ⋯ menu, choose Deformation, then Only $f_2$, inside $F$.", on: 'deformation-range', test: (e) => !e || e.a === 2, work: ['card2Menu'], then: 'Only the Möbius map deforms; $f_1$ acts first, in full.' } },
       ],
