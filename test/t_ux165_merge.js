@@ -37,7 +37,8 @@ ok('a card\'s ⋯ shows Alt ← / Alt → (none on touch)', /label: \$t\('Move l
 ok('menu keys (⌘D, ⌘], ⌘[) are empty on a touch screen (phone UX17)', /const modK = \(k\) => \(touchUI\(\) \? '' :/.test(APP));
 
 // ---- chain UX71 wording + learn UX71 Stop
-ok('X\'s chip: "choose Show F to draw" (chain) with the listening Stop (learn)', APP.includes("choose Show F to draw.')") && /if \(!msg\) \{ msg = listenChipMsg\(\); if \(msg\) act = \{ stop: true \}; \}/.test(APP) && !APP.includes('choose Whole chain to draw'));
+// (#253: a step's plane on the globe says Plane draws in it, or Show F)
+ok('X\'s chip: "choose Plane to draw in this plane, or Show F" (chain) with the listening Stop (learn)', APP.includes("choose Plane to draw in this plane, or Show F.')") && /if \(!msg\) \{ msg = listenChipMsg\(\); if \(msg\) act = \{ stop: true \}; \}/.test(APP) && !APP.includes('choose Whole chain to draw'));
 
 // ---- chain UX25 + learn UX74 in the Examples list
 const og = fnBody(APP, 'openGallery');
