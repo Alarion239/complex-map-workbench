@@ -1,7 +1,8 @@
 'use strict';
 // Adversarial GPU-vs-CPU conformance test for GLChain (independent of test/glsl_test.js).
 // Runs synchronously on load; results in window.__glslTest.
-// URL options: ?parts=N&part=i, ?filter=substr, ?only=direct|keys|compile|main (comma list; default all)
+// URL options: ?parts=N&part=i and ?tier=core|deep|all (test/glsl_tiers.js, by the chain's name), ?filter=substr,
+// ?only=direct|keys|compile|main (comma list; default all; the core tier keeps keys and main)
 (function () {
   const R = window.__glslTest = {
     done: false, total: 0, compared: 0, skippedDisc: 0, skippedNonFinite: 0, chains: 0, programs: 0,
@@ -10,8 +11,8 @@
   };
   const t0 = performance.now();
   const qs = new URLSearchParams(location.search);
-  const PARTS = +qs.get('parts') || 1, PART = +qs.get('part') || 0, FILTER = qs.get('filter') || '';
-  const ONLY = (qs.get('only') || 'direct,keys,compile,main').split(',');
+  const FILTER = qs.get('filter') || '';
+  const ONLY = (qs.get('only') || 'direct,keys,compile,main').split(',').filter(GLSLTiers.section);
   const C = CX.C;
   const f32 = Math.fround;
   const TOL = 2e-3;
@@ -129,7 +130,8 @@
   ];
   TWELVE.forEach((steps, i) => add(`twelve#${i}`, steps));
 
-  const selected = chains.filter((c, i) => i % PARTS === PART && (!FILTER || c.name.includes(FILTER)));
+  const selected = chains.filter((c, i) => GLSLTiers.keep('adv', c.name, i) && (!FILTER || c.name.includes(FILTER)));
+  Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
 
   // ---------------- sample points (float32-exact) ----------------
   const ptsRaw = [];
@@ -485,7 +487,9 @@ void main() {
 
   if (ONLY.includes('main')) {
     for (const ch of selected) {
+      const tc = performance.now();
       try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 1500)}`); }
+      R.chainMs[ch.name] = Math.round(performance.now() - tc);
     }
   }
   R.ms = Math.round(performance.now() - t0);

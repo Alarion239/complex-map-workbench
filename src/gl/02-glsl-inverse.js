@@ -130,7 +130,7 @@ vec3 ixKindLevel(vec2 z) {
     float dm = 1e38;
     vec2 qn = z;
     vec2 b = ixRec(s + n - 1).xy;
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 64 * uIxOne; i++) {
       if (i >= n) break;
       vec2 a = ixRec(s + i).xy;
       if ((a.y > z.y) != (b.y > z.y) && z.x < (b.x - a.x) * (z.y - a.y) / (b.y - a.y) + a.x) inside = !inside;

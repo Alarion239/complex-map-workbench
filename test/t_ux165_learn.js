@@ -15,7 +15,7 @@ for (const k of ['lane', 'laneHide', 'laneId']) ok(`Tour.${k} is a function`, ty
 ok('no DOM: Tour.lane shows nothing', Tour.lane({ id: 'x', title: 't' }) === false);
 ok('no DOM: no lane line', Tour.laneId() === null);
 ok('no DOM: Tour.laneHide is safe', (() => { try { Tour.laneHide('x'); return true; } catch (e) { return false; } })());
-const SRC = fs.readFileSync(path.join(__dirname, '../src/tour.js'), 'utf8');
+const SRC = require('./src_text').source('tour.js', { esm: 'strip' });
 ok('the first-run suggestion is a lane line, not the old card', /laneShow\(\{ id: 'suggest'/.test(SRC) && !/class: 'tour-suggest'/.test(SRC));
 ok('the lane reserves its room as the strip does (--tour-h, --ph-tour)', /--tour-h', \(LANE_H \+ SLOT_GAP\)/.test(SRC) && /--ph-tour', \(mode === 'port' \? 56/.test(SRC));
 ok('UX21: the line\'s words are never cut: laneFit drops the optional part (the invitation\'s description) before cutting', /function laneFit\(\)/.test(SRC) && /drop: 'body'/.test(SRC) && /\.tour-lane\[data-mode="desk"\]:not\(\.two\) \.tl-text/.test(SRC));
@@ -53,7 +53,7 @@ ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (wave 1 merge: V165_HERE is one set holding every piece's table, this one among them)
 ok('make_ru_table.py reads the table after every v16.4 one', /V165_HERE = \{[^}]*'v165-ux-learn\.json'[^}]*\}/.test(MK) && MK.indexOf("glob('v165-*.json')") > MK.lastIndexOf("glob('v164-*.json')"));
-const TABLE = (() => { const s = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
+const TABLE = (() => { const s = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
 const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;
 // (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the release's paragraph, whose
 // Russian comes from v164-help.json)
