@@ -207,6 +207,17 @@
         }
       } else if (c.kind === 'seg') {
         [x0, y0] = pane.w2s(c.a); [x1, y1] = pane.w2s(c.b);
+      } else if (c.kind === 'circle' || c.kind === 'vline') {
+        // [issue #5] a series' region of convergence: dashed, in the cut ink, over its halo
+        ctx.setLineDash([6, 4]);
+        for (const [style, w, a] of [[TH.halo, thin ? 2.5 : 3.5, TH.haloA], [TH.cut, thin ? 1.25 : 1.75, 1]]) {
+          ctx.strokeStyle = style; ctx.lineWidth = w; ctx.globalAlpha = a;
+          ctx.beginPath();
+          if (c.kind === 'circle') { const [cx, cy] = pane.w2s(c.c), [ex] = pane.w2s(CX.add(c.c, C(c.r, 0))); ctx.arc(cx, cy, Math.abs(ex - cx), 0, TAU); } else { const bx = pane.box(), [px0, py0] = pane.w2s(C(c.x, bx.y0)), [px1, py1] = pane.w2s(C(c.x, bx.y1)); ctx.moveTo(px0, py0); ctx.lineTo(px1, py1); }
+          ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.globalAlpha = 1;
+        continue;
       } else continue;
       ctx.strokeStyle = TH.halo; ctx.globalAlpha = TH.haloA; ctx.lineWidth = thin ? 2.5 : 3.5;
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
@@ -635,7 +646,7 @@
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
-    S.steps[k - 1] = { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false };
+    setStepAt(k - 1, { type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false });
     zpSel = null;
     chainChanged(true);
     setFocus(k);

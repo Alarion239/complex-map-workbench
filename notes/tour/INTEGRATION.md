@@ -509,6 +509,7 @@ shows the chosen tool).
 | `splitBtn` | `#propsPanel .insp-step .split-offer:not([hidden]) .so-btn` | A formula in steps: Split into n steps (the offer is unfolded for the tour's stop without saving the fold) |
 | `card1` | `#pipeline .card[data-k="1"]` | The function chain: double-click (tap) f₁ |
 | `card2Menu` | the card f₂, whose ⋯ shows on it; on a phone, once a tap on it opens the Editor sheet, f₂'s ⋯ there | Part of the chain, on a touch screen (`try.work`) |
+| `ctxUndo` | `.ph-ctx[data-k="construct"]`'s first button, Undo pick (the phone's context bar) | Circle through three points, on a touch screen (`try.work`) |
 | `paramSlider` | the first `#propsPanel .prm-row input[type="range"]` | Shared numbers: drag the slider of a |
 | `tSlider` | `#morphRange` | Play and scrub: drag t |
 | `playBtn` | `#morphPlay` | Play and scrub: Play |

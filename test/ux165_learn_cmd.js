@@ -110,11 +110,12 @@ grab();
 // ---------------------------------------------------------------- V01 (phone): the target's note
 await phone(412, 860);
 await fresh('ux165c'); await settle(2200);
-await ev(`(() => { const L = document.querySelector('#paneL'); window.__pulse = 0; new MutationObserver(() => { if (L.classList.contains('ph-pulse')) window.__pulse++; }).observe(L, { attributes: true, attributeFilter: ['class'] }); return 1; })()`);
+// (a pulse is the class going on: a record that only rewrites the pane's classes, as a resize does, is not one)
+await ev(`(() => { const L = document.querySelector('#paneL'); window.__olds = []; new MutationObserver((ms) => { for (const m of ms) window.__olds.push(m.oldValue || ''); }).observe(L, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); return 1; })()`);
 await tapSel('.pane.ph-inset .ph-swap'); await settle(600);
 await tapSel('#secDraw [data-tool="disc"]'); await settle(300);
 await tdrag(200, 330, 250, 380); await settle(1200);
-g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#calcChip') || {}).hidden, pulse: window.__pulse, targets: __cmwState().targets })`);
+g = await ev(`({ ro: __qa.txt('#rightReadout'), calc: (document.querySelector('#calcChip') || {}).hidden, pulse: (() => { const v = window.__olds.concat(document.querySelector('#paneL').className); let n = 0; for (let i = 0; i + 1 < v.length; i++) if (!/ph-pulse/.test(v[i]) && /ph-pulse/.test(v[i + 1])) n++; return n; })(), targets: __cmwState().targets })`);
 check('V01 phone: after a target, Y\'s chip says "Shaded in X (the inset)", no note over Y, and the inset pulsed once', g.targets === 1 && /Shaded in X \(the inset\)/.test(g.ro) && g.calc === true && g.pulse === 1, g);
 await shot('ux165-v01-phone');
 // laptop: the note is in Y's pane head
@@ -165,7 +166,8 @@ await phone(412, 860);
 await fresh('ux165f'); await settle(2200);
 await ev(`document.querySelector('#clearChain').click()`); await settle(500);
 g = await ev(`(() => { const r = (e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: r(document.querySelector('#toastHost .toast')), inset: r(document.querySelector('.pane.ph-inset')), fit: r(document.querySelector('.pane:not(.ph-inset) .viewstack')), col: r(document.querySelector('.pane:not(.ph-inset) .ph-col')), chain: r(document.querySelector('.pipe-wrap')) }; })()`);
-check('UX80 phone: the message sits above the chain bar, clear of the inset, Fit and the key column', g.t && !meet(g.t, g.inset) && !meet(g.t, g.fit) && !meet(g.t, g.col) && g.t.b <= g.chain.t, g);
+// (#66: a phone's message takes the row over the tool row, under the chain bar, and the planes give that row up: it covers none of them)
+check('UX80 phone: the message sits in its own row under the chain bar, clear of the inset, Fit and the key column', g.t && !meet(g.t, g.inset) && !meet(g.t, g.fit) && !meet(g.t, g.col) && g.t.t >= g.chain.b - 1 && g.t.b - g.t.t >= 44, g);
 await shot('ux165-ux80-phone');
 grab();
 
@@ -194,7 +196,8 @@ check('UX93: the tour is «Обучение», the welcome title «Добро п
 g = await ev(`[...document.querySelectorAll('#secDraw > .tools > .tool')].filter((b) => b.getClientRects().length).map((b) => { const sp = b.querySelector(':scope > span'), a = getComputedStyle(sp, '::after').content, shown = sp.dataset.phl ? a.replace(/^"|"$/g, '') : sp.textContent; return { t: b.dataset.tool, shown, h: Math.round(sp.getBoundingClientRect().height), soft: /\u00ad|-$/.test(shown) }; })`);
 check('UX93 Russian phone tool row: one line each, Polygon «Многоуг.» (no «Много-угольник»)', g.length === 4 && g.every((x) => x.h <= 13 && !x.soft) && (g.find((x) => x.t === 'polygon') || {}).shown === 'Многоуг.', g);
 await tapSel('#secDraw .tool-more > summary'); await settle(800);
-g = await ev(`[...document.querySelectorAll('.ph-tile')].filter((t) => t.getClientRects().length).map((t) => { const l = t.querySelector('.ph-tl'); return { t: l.textContent, fits: l.scrollWidth <= t.clientWidth + 0.5, soft: /\\u00ad/.test(l.textContent), words: l.textContent.split(' ').every((w) => true), lines: Math.round(l.getBoundingClientRect().height / 12) }; })`);
+const readTiles = () => ev(`[...document.querySelectorAll('.ph-tile')].filter((t) => t.getClientRects().length).map((t) => { const l = t.querySelector('.ph-tl'); return { t: l.textContent, fits: l.scrollWidth <= t.clientWidth + 0.5, soft: /\\u00ad/.test(l.textContent), words: l.textContent.split(' ').every((w) => true), lines: Math.round(l.getBoundingClientRect().height / 12) }; })`);
+g = await readTiles(); await ev(`Phone.tab('construct')`); await settle(300); g.push(...(await readTiles()));   // (the Draw tab, then the Construct tab)
 check('UX93 Russian phone tiles: no hyphenated tool name, every name fits its tile', g.length > 10 && g.every((x) => x.fits && !x.soft) && g.filter((x) => x.lines > 1).every((x) => / /.test(x.t)), g.filter((x) => !x.fits || x.soft || (x.lines > 1 && !/ /.test(x.t))));
 await shot('ux165-ux93-ru-tiles');
 await ev(`Tour.start({ chapter: 'basics', step: 0 })`); await settle(1500);
@@ -268,6 +271,7 @@ await fresh('ux165s2'); await settle(2000);
 check('UX88 phone: the sound settings show no keyboard help on touch', await ev(`getComputedStyle(document.querySelector('.snd-keys')).display === 'none'`));
 // UX72 phone: More, then the curve's row in Shapes (real taps): its editor has Listen along, a 44 px button
 await tapSel('#toolMore'); await settle(600);
+await ev(`Phone.tab('shapes')`); await settle(300);   // (the Shapes tab of the Tools sheet)
 await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-name'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
 await tapSel('#shapeList .shape[data-id="s2"] .shape-name'); await settle(500);
 await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-edit [data-act="listen-along"]'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);

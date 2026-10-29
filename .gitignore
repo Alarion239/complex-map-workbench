@@ -13,7 +13,7 @@ test/regress/export/out/
 test/regress/tmp/
 *.bak*
 .DS_Store
-node_modules/
+node_modules
 
 # LaTeX build artefacts and run logs in notes
 notes/**/*.log

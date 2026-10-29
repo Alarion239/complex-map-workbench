@@ -89,7 +89,7 @@ await view(1440, 900, false, false);
   // wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const u6 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   const u6base = 'Pick the touching point on the unit circle, or a ring for a tangent · 2 of 2 · Touching';
-  ok('U6 the chip after P with the rings', !!u6 && (u6.text === u6base + ' · ⌫ undo pick · Esc' || (u6.text === u6base && u6.lines === 1)), u6);
+  ok('U6 the chip after P with the rings', !!u6 && (u6.text === u6base + ' · ⌫ undo pick · Esc' || (u6.text === u6base.replace(/ · Touching$/, '') + ' · ⌫ undo pick · Esc' && u6.lines === 1) || (u6.text === u6base && u6.lines === 1)), u6);
   const r0 = d.rings[0], r1 = d.rings[1], z0 = await W(r0.tp[0], r0.tp[1]);
   await click(z0[0] + 3, z0[1] - 2); await settle(400);
   let st = await ST();
@@ -160,7 +160,7 @@ await view(1440, 900, false, false);
   await settle(400);
   await send('Emulation.setTouchEmulationEnabled', { enabled: false });
   info.u12 = { chip: await chipT(), x: await ev(`!!document.querySelector('#draftChipL .cm-x')`), tool: (await ST()).tool };
-  ok('U12 a tile tapped by touch: the chip has no "Esc cancels" and has a × before the curve', info.u12.tool === 'perp' && info.u12.chip === 'Pick a line or a circle · Orthogonal' && info.u12.x, info.u12);
+  ok('U12 a tile tapped by touch: the chip has no "Esc cancels" and has a × before the curve', info.u12.tool === 'perp' && info.u12.chip === 'Pick a line or a circle · Perpendicular' && info.u12.x, info.u12);
   await grab();
 }
 

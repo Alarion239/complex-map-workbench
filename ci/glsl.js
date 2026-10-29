@@ -4,7 +4,7 @@
 //   dist/glsl-test.html          test/glsl_test.js      (window.__glslTest)
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
-//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--ref <commit> [--absolute [PAGES]] [--force]]
+//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--sections LIST] [--filter TEXT] [--ref <commit> [--absolute [PAGES]] [--force]]
 // With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
 // reference's is not run (nothing to compare) unless --force.
 // Without --ref, every page must pass outright (the rules of the command files, test/glsl_inverse_cmd.js): what the
@@ -15,7 +15,8 @@
 // --absolute with --ref: both; --absolute glsl,inverse: both for those pages, paired only for the others (the
 // self-hosted Mac: adv fails 304 values there, in 10 chains near removable singularities, as every release since v14
 // and the reference do). --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse page
-// runs whole (its chains come from one seeded sequence). Exit 0 pass, 1 a failure, 2 setup problem.
+// runs whole (its chains come from one seeded sequence). --filter TEXT: only the glsl page's chains whose name holds
+// TEXT (?filter=; to time a few chains' shaders on one platform). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
@@ -41,6 +42,7 @@ const [pi, pn] = (arg('--part') || '1/1').split('/').map(Number);
 // chains; the others run whole, so in parts they would run once per part (on Windows' software renderer a part of
 // the whole page took 34-61 min): CI runs `direct,keys,compile` once and `main` in parts
 const sections = arg('--sections');
+const filter = arg('--filter');
 const TIMEOUT = 240 * 60 * 1000;   // (the job's own timeout is the real limit)
 // a line every CMW_GLSL_PROGRESS_S seconds (default 60) while a page runs. The glsl and adv pages run in one
 // synchronous task, so the page cannot say how far it is; the browser can say how busy its processes were since the
@@ -123,7 +125,7 @@ async function runPage(base, p, side) {
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
       note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
     } else {
-      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : [])];
+      const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
       r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
@@ -197,7 +199,7 @@ async function main() {
       const pass = (!absolute(p) || cur.ok) && !why.length && !(cur.r && cur.r.setup);
       if (!pass) failed++;
       renderer = renderer || (cur.r && cur.r.renderer);
-      const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
+      const label = `\`${p.page}\`${sections && p.id === 'adv' ? ` ${sections}` : ''}${filter && p.id === 'glsl' ? ` filter ${filter}` : ''}${pn > 1 && p.id !== 'inverse' ? ` part ${pi}/${pn}` : ''}`;
       const s = (cur.ms / 1000).toFixed(0);
       console.log(`${pass ? 'pass' : 'FAIL'} ${p.page}${timeNote(cur)}: ${cur.note}${rf ? ` | reference${timeNote(rf)}: ${rf.note}` : ''}`);
       if (why.length) console.log('  worse than the reference:\n    ' + why.join('\n    '));

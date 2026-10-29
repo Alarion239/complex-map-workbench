@@ -110,10 +110,11 @@ await section('A', async () => {
   ok('A1 the Construct grid has seven tiles, Perpendicular circle fifth (v16.3: Touching circle; v16.5 UX55: Hyperbolic line last)', tiles === 'circle3,meet,midpoint,bisector,perp,touch,hyper', tiles);
   info.tile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { tip: b.dataset.tip, desc: b.dataset.desc, label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, btn: b.getBoundingClientRect().height, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('A1 tooltip: Perpendicular circle + its description', info.tile.tip === 'Perpendicular circle  W' && /^Pick a line or a circle, then two points/.test(info.tile.desc), info.tile);
-  ok('A1 the tile label «Orthogonal» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === 'Orthogonal' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
+  // (#35: the tool is the Perpendicular circle; its tile, too narrow for the word, reads ⊥ circle)
+  ok('A1 the tile label «⊥ circle» fits on one line, inside the tile (v16.3 review user-7)', info.tile.label === '⊥ circle' && info.tile.sw <= info.tile.w + 1 && info.tile.h <= info.tile.lh + 1 && info.tile.bottom <= 0, info.tile);
   await tool('perp');
   // (the left pane is 427 px wide at 1440, under 560: the chip names the tool by its tile text)
-  ok('A1 the chip before the curve', (await chipT()) === 'Pick a line or a circle · Orthogonal · Esc cancels', await chipT());
+  ok('A1 the chip before the curve', (await chipT()) === 'Pick a line or a circle · Perpendicular · Esc cancels', await chipT());
   // refusals before any curve is picked: empty space and a freehand curve give the toast, the draft stays; Esc
   const nA = (await ST()).list.length;
   const em = await W(-0.5, -1.2);
@@ -414,7 +415,9 @@ await section('C', async () => {
   // v16.4.1: with v16.4's Whole | Inside icons the text without «Esc — отмена» does not fit one line either, so the rule
   // keeps the whole text on two lines, not cut, as v16.4 showed it)
   const ruChip = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); const s = document.querySelector('#draftChipL .cm-seg'); return { text: t.textContent.replace(/\\u00a0/g, ' '), lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size, cut: t.scrollHeight > t.clientHeight + 1, icons: !!s && s.classList.contains('cm-icons') }; })()`);
-  ok('C RU chip before the curve (one line without «Esc — отмена» when that fits; with the Whole | Inside icons it does not, so the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
+  // (#35: a chip that would wrap drops the tool's name first, which the pane head's chip shows, and keeps «Esc — отмена»
+  // when that fits one line; else, as before, without «Esc — отмена» on one line, or the whole text on two)
+  ok('C RU chip before the curve (one line without the tool\'s name, else without «Esc — отмена», when that fits; with the Whole | Inside icons the whole text on two lines, not cut)', !!ruChip && !ruChip.cut && ((ruChip.text === 'Выберите прямую или окружность · Esc — отмена' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная' && ruChip.lines === 1) || (ruChip.text === 'Выберите прямую или окружность · Ортогональная · Esc — отмена' && ruChip.lines === 2 && ruChip.icons)), ruChip);
   const u = await W(Math.cos(0.9), Math.sin(0.9));
   await move(u[0] + 3, u[1] - 2); await settle(120);
   ok('C RU ring chip: привязка: единичная окружность', ((await CI()).ring || {}).chip === 'привязка: единичная окружность', (await CI()).ring);
@@ -487,8 +490,9 @@ await section('D', async () => {
   await load(NS + 'ph', SP); await settle(1200);
   const more = await center('#toolMore > summary');
   await touch(more[0], more[1]); await settle(500);
-  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles > *')].map((e) => e.tagName === 'H3' ? '#' + e.textContent : e.dataset.tool)`);
-  ok('D phone: More has the Construct heading and six tiles', (info.phTiles || []).join().includes('#Construct,circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
+  await ev(`Phone.tab('construct')`); await settle(200);   // (the Construct tools are on their own tab of the Tools sheet)
+  info.phTiles = await ev(`[...document.querySelectorAll('.ph-tiles[data-tab="construct"] > .ph-tile')].map((e) => e.dataset.tool)`);
+  ok('D phone: More has the Construct tab with its six tiles', (info.phTiles || []).join().includes('circle3,meet,midpoint,bisector,perp,touch'), info.phTiles);
   info.phTile = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="perp"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent.replace(/\\u00ad/g, '-'), sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh, tw: t.getBoundingClientRect().width }; })()`);
   ok('D phone: the tile label fits on two lines at most', info.phTile && info.phTile.sw <= info.phTile.w + 1 && info.phTile.h <= 2 * info.phTile.lh + 1, info.phTile);
   await shot('perp-p390-more');
@@ -502,7 +506,7 @@ await section('D', async () => {
   ok('D phone: a tap 8 px off the circle picks it', d && d.curve1 && d.curve1.s === 'pc', d);
   info.phChip = await ev(`(document.querySelector('#draftChipL .cm-chip') || {}).textContent`);
   // (v16.5 fix user-6: "Pick a point (on Circle 1 or anywhere)"; pc is the scene's only circle)
-  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Orthogonal/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
+  ok('D phone chip: the tile text, no Esc, a ×', /^Pick a point \(on Circle 1 or anywhere\) · 1 of 2 · Perpendicular/.test(info.phChip || '') && !/Esc/.test(info.phChip) && !!(await ev(`document.querySelector('#draftChipL .cm-x')`)), info.phChip);
   const pp = await W(0.4, 0.3);
   await touch(pp[0] + 12, pp[1] - 9); await settle(200);
   d = (await CI()).draft;
@@ -521,6 +525,7 @@ await section('D', async () => {
   await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
+  await ev(`Phone.tab('construct')`); await settle(200);
   info.phTileRu = await ev(`(() => { const t = document.querySelector('.ph-tiles .ph-tile[data-tool="perp"]'); const s = t && (t.querySelector('.ph-tl') || t.querySelector('span')); if (!s) return null; const lh = parseFloat(getComputedStyle(s).lineHeight) || 12; return { text: s.textContent.replace(/\\u00ad/g, '-'), sw: s.scrollWidth, w: s.clientWidth, h: s.getBoundingClientRect().height, lh }; })()`);
   // (v16.5 UX93: a phone tile shows a whole short form on one line, never a hyphenated word)
   ok('D phone RU: the tile reads «Ортогон.», whole, on one line', info.phTileRu && info.phTileRu.text === 'Ортогон.' && info.phTileRu.sw <= info.phTileRu.w + 1 && info.phTileRu.h <= info.phTileRu.lh + 1, info.phTileRu);
@@ -1018,16 +1023,16 @@ await section('J', async () => {
   const hits = (sel) => ev(`(() => { return [...document.querySelectorAll(${JSON.stringify(sel)})].map((b) => { const q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2; const at = (dy) => { const e = document.elementFromPoint(x, y + dy); return !!e && e.closest('.cm-sb') === b; }; return { h: Math.round(q.height), up: at(-18), down: at(18) }; }); })()`);
   const ctr = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   const tch = async (x, y) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-  const tile = async (t) => { const mo = await ctr('#toolMore > summary'); if (mo) { await tch(mo[0], mo[1]); await settle(500); } const tp = await ctr(`.ph-tiles .ph-tile[data-tool="${t}"]`); if (tp) { await tch(tp[0], tp[1]); await settle(600); } };
+  const tile = async (t) => { const mo = await ctr('#toolMore > summary'); if (mo) { await tch(mo[0], mo[1]); await settle(500); await ev(`Phone.tab(Phone.tabOf('${t}'))`); await settle(200); } const tp = await ctr(`.ph-tiles .ph-tile[data-tool="${t}"]`); if (tp) { await tch(tp[0], tp[1]); await settle(600); } };
   await tile('perp');
   const cp = await W(Math.cos(2.2), Math.sin(2.2));
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: cp[0], y: cp[1], id: 1 }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await settle(300);
-  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await hits('#draftChipL .cm-sb') };
+  info.jPhone = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), perp: await ev(`[...document.querySelectorAll('.ph-ctseg > .ph-cb')].map((b) => { const q = b.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2; const at = (dy) => { const e = document.elementFromPoint(x, y + dy); return !!e && e.closest('.ph-cb') === b; }; return { h: Math.round(q.height), up: at(-18), down: at(18) }; })`) };   // (D3: on a phone the three choices are in the context bar's second row; the chip drops its copy)
   await shot('seg-fix-p390-chip');
   await key('Escape'); await settle(200);
   await tile('circle3');
   info.jPhone.c3 = { tool: await ev('__cmwCI({shapes:true}).tool'), cls: await ev(`(document.querySelector('#draftChipL .cm-seg') || {}).className`), hits: await hits('#draftChipL .cm-sb') };
-  ok('J7 phone: the Orthogonal chip\'s buttons take taps 18 px above and below their centre (40 px tall), same look (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h <= 24) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
+  ok('J7 phone: the Orthogonal choices (in the context bar) take taps 18 px above and below their centre, 44 px tall; the 3-point chip keeps its 40 px buttons (user-5)', /cm-touch/.test(info.jPhone.cls || '') && info.jPhone.perp.length === 3 && info.jPhone.perp.every((b) => b.up && b.down && b.h >= 44) && /cm-touch/.test(info.jPhone.c3.cls || '') && info.jPhone.c3.hits.every((b) => b.up && b.down), info.jPhone);
   await view(1440, 900, false, false); await settle(300);
   // J8 (review-verify verify-1) a meet of two hyperbolic lines, English drops the closing comma before "and" (it read as a
   // list break), keeps it before "in the z-plane"; Russian keeps it before «и»
