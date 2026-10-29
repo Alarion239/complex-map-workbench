@@ -34,10 +34,12 @@ const eta = await run('eta', series('(-1)^{n+1}'));
 ok('ζ as a Dirichlet series builds and its deformation chooses its paths', zeta.err === '' && zeta.ready, zeta);
 ok('z² + 1 builds and its deformation chooses its paths', poly.err === '' && poly.ready, poly);
 ok('η, (−1)^{n+1} as a Dirichlet series, builds and deforms (#242)', eta.err === '' && eta.ready, eta);
-// gated, generous (before #257 the selection took ~40 times as long and the click ~3 s)
-ok('the X → Y selection on ζ is ready within 5 times that of z² + 1', zeta.readyMs <= 5 * poly.readyMs, { zeta, poly });
+// gated, generous: before #257 the selection on ζ was not ready within the minute (the check above) and the click took
+// ~3 s. (GitHub's lavapipe runner takes ~16 times z² + 1's selection on ζ, this machine's SwiftShader ~2 times)
+ok('the X → Y selection on ζ is ready within 30 times that of z² + 1 and 2 s', zeta.readyMs <= 30 * poly.readyMs + 2000, { zeta, poly });
 ok('the Deformation click on ζ takes at most 100 ms more than on z² + 1', zeta.click <= poly.click + 100, { zeta, poly });
 // tighter: reported, not gated (ci/browser_suites.js TIMING)
+ok('timing: the X → Y selection on ζ within 5 times that of z² + 1', zeta.readyMs <= 5 * poly.readyMs, { zeta, poly });
 ok('timing: the Deformation click on ζ within 50 ms of z² + 1', zeta.click <= poly.click + 50, { zeta, poly });
 ok('timing: the X → Y selection on ζ within 3 times z² + 1 and 1 s, at most 1 s more blocked', zeta.readyMs <= 3 * poly.readyMs + 1000 && zeta.blocked <= poly.blocked + 1000, { zeta, poly });
 return { pass: fails.length === 0, fails, zeta, poly, eta };
