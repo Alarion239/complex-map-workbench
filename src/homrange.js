@@ -163,5 +163,44 @@
     }
     return { resolve, normal, write, range, state, cpuMap, homF, H0, lastDeriv, stops, leftStage, allAtOnce };
   }
-  return { make };
+  // ---- the step glide (#246): the chain position x (the deformation's T, x = k the plane after k steps) follows an
+  // integer target, which ‹ › move one step each. Not a tween: a critically damped spring, so a press never waits for
+  // the last one to end, several quick presses go faster (the speed grows with the steps still to go), and a press the
+  // other way turns x round from where it is, with no jump in x or in its speed. x never passes its target (it stops
+  // there), never leaves 0…max, and settles on it exactly. omega (1/s) sets the pace: at the default 6.5 one step takes
+  // about 1.4 s to settle, most of it in the first 0.6 s, and 20 steps still settle within 2 s.
+  // glider({ omega }) -> { set(x), to(target, max), nudge(d, max), step(dt) -> moving, x, v, target, moving() }
+  function glider(opt = {}) {
+    const W = opt.omega || 6.5, EPS = 1e-3;
+    const g = { x: 0, v: 0, target: 0, max: 0 };
+    // x at once, at rest (the scrubber, a new range, the deformation opened at its end)
+    g.set = (x) => { g.x = x; g.v = 0; g.target = x; return g; };
+    g.to = (target, max) => { if (max != null) g.max = max; g.target = Math.max(0, Math.min(g.max, target)); return g; };
+    // one step on from the target (or, at rest between two steps, to the next whole step that way: from 1.4, › is 2 and
+    // ‹ is 1)
+    g.nudge = (d, max) => {
+      if (max != null) g.max = max;
+      const base = g.moving() ? g.target : d > 0 ? Math.floor(g.x + 1e-6) : Math.ceil(g.x - 1e-6);
+      return g.to(base + (d > 0 ? 1 : -1), g.max);
+    };
+    g.moving = () => g.x !== g.target || g.v !== 0;
+    g.step = (dt) => {
+      if (!g.moving()) return false;
+      dt = Math.max(0, Math.min(0.1, dt));
+      // (two half steps: the spring is stiff for a 100 ms frame)
+      for (let i = 0; i < 2; i++) {
+        const h = dt / 2, d = g.target - g.x, before = Math.sign(d);
+        g.v += (W * W * d - 2 * W * g.v) * h;
+        g.x += g.v * h;
+        const after = Math.sign(g.target - g.x);
+        // (it stops at its target, never past it: no swing back over a plane the user already left)
+        if (before !== 0 && after !== before) { g.x = g.target; g.v = 0; }
+        if (g.x < 0 || g.x > g.max) { g.x = Math.max(0, Math.min(g.max, g.x)); g.v = 0; }
+      }
+      if (Math.abs(g.target - g.x) < EPS && Math.abs(g.v) < 0.05) { g.x = g.target; g.v = 0; }
+      return g.moving();
+    };
+    return g;
+  }
+  return { make, glider };
 });

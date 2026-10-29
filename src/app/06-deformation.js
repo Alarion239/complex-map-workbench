@@ -336,7 +336,7 @@
   function pathMarksTex(...args) { return MP.pathMarksTex(...args); }
   function morphCaption(...args) { return MP.morphCaption(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
-  function syncTransport(...args) { return MP.syncTransport(...args); }
+  function syncTransport(...args) { const r = MP.syncTransport(...args); phoneChain(); return r; }
   function morphReadout(...args) { return MP.morphReadout(...args); }
   function setText(...args) { return MP.setText(...args); }
   function watchFader(...args) { return MP.watchFader(...args); }
