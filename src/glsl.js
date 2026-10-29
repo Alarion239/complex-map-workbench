@@ -1935,6 +1935,13 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec2 q = P.x > 0.0 ? w : cinv(w);
   float r = pow(cx_abs(q), P.z), th = (carg(q) + CX_TAU * float(b)) * P.z;
   vec2 u = r * vec2(cos(th), sin(th));
+  // one Newton step for u^n = q, u += (q / u^(n-1) - u) / n (products only): pow is exp2(log2(x) y) on the GPU, good
+  // to about 1e-4, and that moved the image's edge by 1e-4 |w| (400 px for z^3 at |w| = 98, s = 3e4: issue #72, the
+  // quality scene cube_far_deep); the step squares the error, to float32's own
+  vec2 un = vec2(1.0, 0.0);
+  for (int i = 1; i < max(16, uNoUnroll); i++) { if (float(i) >= P.y) break; un = cmul(un, u); }
+  vec2 u1 = u + (cdiv(q, un) - u) / P.y;
+  if (ixFin(u1)) u = u1;
   return ixApply(L, u, cdiv(u, P.x * w), ${NOR});
 }
 `;
