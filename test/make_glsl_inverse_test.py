@@ -17,6 +17,7 @@ src = root / 'src'
 parts = [source(f, src) for f in ['cx.js', 'parse.js', 'funcs.js', 'inverse.js', 'calc.js', 'glsl.js', 'region.js', 'constr.js', 'palette.js', 'gl.js']]   # (constr.js: v16's exact-form rows, review regress-3)
 fx = {k: (root / 'test' / 'fixtures' / f'region_fs_{k}.glsl').read_text() for k in ['flat', 'sphere']}
 parts.append('window.__REGION_FS_FIXTURES = ' + json.dumps(fx) + ';')
+parts.append((root / 'test' / 'glsl_tiers.js').read_text())   # (the tiers and parts: before the page's own test)
 parts.append((root / 'test' / 'glsl_inverse_test.js').read_text())
 js = '\n'.join(parts).replace('</script', '<\\/script')
 html = f"""<!doctype html>
