@@ -833,6 +833,7 @@ const Calc = (() => {
     }
     // zerosPoles can miss a pole that lies close to a zero (their turns cancel in a cell): a finer grid finds it, so the
     // check below, which notices the miss, is tried again on a finer one before the plan gives up
+    /** @type {any} */
     let last = { ok: false, why: 'unverified' };
     for (const grid of opts.grids || [32, 64, 128, 256]) {
       last = planWith(F, loops, { x0, x1, y0, y1, W, H, scale }, grid, opts);

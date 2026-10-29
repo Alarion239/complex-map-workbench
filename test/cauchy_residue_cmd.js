@@ -69,6 +69,30 @@ ok('A Outside only: the inside is grey, the outside is not', isGrey(a5.at(inP[0]
 ok('A Both = the two halves', dist(a3.at(outP[0], outP[1]), a5.at(outP[0], outP[1])) < 3 && dist(a3.at(inP[0], inP[1]), a4.at(inP[0], inP[1])) < 3, null);
 ok('A the integral and f₋ outside differ (the sign: a half turn of the phase)', dist(a1.at(outP[0], outP[1]), a3.at(outP[0], outP[1])) > 30, [a1.at(outP[0], outP[1]), a3.at(outP[0], outP[1])]);
 
+// ---- A2: the control and the words (the note is behind the ⋯ of the pane head: opened to read it)
+const optsText = () => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); const p = document.querySelector('.opts-pop'); const t = p ? p.textContent : ''; const seg = document.getElementById('cauchySeg') || (p && p.querySelector('#cauchySeg')); const o = { text: t, seg: seg ? [...seg.children].map((x) => x.textContent.trim() + (x.classList.contains('on') ? '*' : '')) : null, segId: !!seg }; if (p) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return o; })()`);
+const A2 = await optsText();
+info.A2 = A2;
+ok('A2 with a pole inside the curve there is a Both | Inside | Outside choice, Both on', A2.seg && A2.seg.join() === 'Both*,Inside,Outside', A2);
+ok('A2 the note says f₊ inside and f₋ outside', /f₊ inside, f₋ outside/.test(A2.text.replace(/\s+/g, ' ')), A2.text);
+await settle(400);
+await ev(`(() => { const seg = document.getElementById('cauchySeg'); const b = seg ? seg.querySelector('[data-v="in"]') : null; if (b) b.click(); return !!b; })()`);
+await settle(800);
+const inCap = await ev(`Export.figCapParts().cauchy`);
+ok('A2 clicking Inside sets the part shown; the caption data follows', inCap && inCap.kind === 'split' && inCap.show === 'in' && inCap.poles === 1, inCap);
+await ev('__cmwCauchyOpt("both", false)'); await settle(400);
+await open(CIRCLE, custom('z^{2}'));
+const A3 = await optsText();
+ok('A2 with no pole inside there is no choice and the old note ("F inside, 0 outside")', !A3.segId && /inside, 0 outside/.test(A3.text), A3);
+ok('A2 (and the caption data says plain)', (await ev(`Export.figCapParts().cauchy`)).kind === 'plain', null);
+await open(CIRCLE, custom('\\exp\\left(\\frac{1}{z}\\right)'));
+const A4 = await optsText();
+ok('A2 e^(1/z): the note says it is computed numerically, no choice', !A4.segId && /computed numerically/.test(A4.text), A4);
+ok('A2 (and the caption data says numeric)', (await ev(`Export.figCapParts().cauchy`)).kind === 'numeric', null);
+await open(CIRCLE, custom('\\frac{1}{z-1}'));
+const A5 = await optsText();
+ok('A2 a pole on the curve: the note says the integral is not defined', /not defined/.test(A5.text), A5);
+
 // ---- B: a hand-drawn curve
 await open(CURVE, []);
 cz = await ev('__cmwCauchy()');

@@ -582,6 +582,7 @@ const Integrals = (() => {
   const setCauchyQuad = (v) => { forceQuad = !!v; };
   function cauchyDraw(scale) {
     const cp = cauchyPlot();
+    if (cp && cp.plan && cp.plan.why === 'onCurve') return Object.assign({}, cp, { nodes: new Float32Array(0), n: 0 });   // (not defined: F plain, with a note)
     if (!cp || !cp.plan || !cp.plan.ok || forceQuad) return cp;
     const b = scale > 0 ? Math.round(2 * Math.log2(scale)) : 0;
     let e = cp.edgesAt.get(b);

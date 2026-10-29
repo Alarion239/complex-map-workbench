@@ -789,8 +789,15 @@
       const land = lLand();
       if (!land) f.append(styleSeg());
       if (S.dc === 'cauchy' && lColor()) {
-        const cp = cauchyPlot(), Fh = fnHtml();
-        f.append(h('span', { class: 'foot-note', html: cp ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name }) : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') }));
+        const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
+        // (#235: with poles inside the curve, which halves show; the words say what the picture is)
+        if (kind === 'split') f.append(seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')));
+        const noteHtml = !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+          : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
+          : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
+          : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
+          : $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh, name: cp.name });
+        f.append(h('span', { class: 'foot-note', html: noteHtml }));
       }
       // (#247: n, the sectors per turn, only for the styles it changes: Tiles, Contours, Cauchy's Tiles, the relief's)
       if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) f.append(h('div', { class: 'scrub', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel', String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));

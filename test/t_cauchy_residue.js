@@ -74,7 +74,7 @@ agree('1/(z² + 1), radius 0.5 (no pole inside)', (z) => CX.div(C(1, 0), CX.add(
 agree('1/z around 3 (the pole outside)', inv, circle(C(3, 0), 0.5, 64), []);
 agree('exp z (entire)', (z) => CX.exp(z), circle(C(0.3, 0.2), 1.4, 64), []);
 {
-  const pl = agree('1/z, clockwise', inv, circle(C(0, 0), 1, 64).reverse(), [[0, 0, 1, -1]]);
+  agree('1/z, clockwise', inv, circle(C(0, 0), 1, 64).reverse(), [[0, 0, 1, -1]]);
   const p2 = Calc.cauchyPlan(inv, [...circle(C(0, 0), 1, 64), ...circle(C(0, 0), 1, 64)]);
   check('1/z, traversed twice: n = 2', p2.ok && p2.poles.length === 1 && p2.poles[0].n === 2, p2.why);
   check('(inside the curve traversed twice Φ = 2 (F − PP) = 0 for 1/z, since F = PP)', p2.ok && CX.abs(Calc.cauchyValue(inv, p2, C(0.5, 0))) < 1e-12);
