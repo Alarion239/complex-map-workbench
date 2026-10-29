@@ -19,6 +19,8 @@ async function openApp(st) {
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image', focus: 0, srcView: { cx: 0, cy: 0, s: 120 } }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  // (a loaded machine: the page answers once its hooks and the chain are up)
+  for (let i = 0; i < 60 && !(await ev(`typeof __cmwPre === 'function' && typeof __cmwP === 'function' && !!document.querySelector('#pipeline .card')`)); i++) await sleep(250);
   await settle(1500);
 }
 const pre = async () => ev(`__cmwPre('L')`);

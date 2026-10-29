@@ -17,6 +17,8 @@ async function openApp(st) {
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image' }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  // (a loaded machine: the page answers once its hooks and the chain are up)
+  for (let i = 0; i < 60 && !(await ev(`typeof __cmwPre === 'function' && typeof __cmwP === 'function' && !!document.querySelector('#pipeline .card')`)); i++) await sleep(250);
   await settle(800);
 }
 // a hash of a pane's canvas pixels (a screenshot of it)
@@ -67,7 +69,7 @@ const same = (a, b) => Array.isArray(a) && Array.isArray(b) && a.every((x, i) =>
 const px = (a) => Array.isArray(a) && a.length === 3;
 const pixel = (re, im) => ev(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), p = __cmwPlaneMenu().w2s('L', ${re}, ${im}), k = c.width / r.width;
   return [...c.getContext('2d').getImageData(Math.round((p[0] - r.left) * k), Math.round((p[1] - r.top) * k), 1, 1).data].slice(0, 3); })()`);
-const probe = async () => { for (let i = 0; i < 20; i++) { const q = { p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), hy: await pixel(Math.SQRT2, 1) }; if (Object.values(q).every(px)) return q; await sleep(300); } return {}; };
+const probe = async () => { for (let i = 0; i < 40; i++) { const q = { p1: await pixel(1, 0), m1: await pixel(-1, 0), o: await pixel(0, 0.35), hy: await pixel(Math.SQRT2, 1) }; if (Object.values(q).every(px)) return q; await sleep(300); } return {}; };
 const two = [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }];
 await openApp({ focus: 0, srcView: { cx: 0, cy: 0, s: 120 }, steps: two, shapes: [] });
 const bare = await probe();

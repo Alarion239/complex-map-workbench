@@ -181,9 +181,13 @@
       fitPane(pane, k, [], undefined, fitMs > FIT_LIVE_MS);
       pane.begin(TH.plane);
       if (!GLR.ok || !GLR.drawGrid) Axes.draw(pane, Object.assign({}, TH, { label: 'rgba(0,0,0,0)' }), { unitCircle: false, labels: false });
-      if (GLR.ok) { drawScene(pane, stageMap(k), null, { thin: true, L: 2 }); stagePullbacks(pane, k); }
+      // ([#253] the scene's pending is read before the preimage passes begin their own frame, and both count: a card
+      // whose picture or preimages are still linking is drawn with a stand-in, never cached as final)
+      let prePending = false;
+      if (GLR.ok) drawScene(pane, stageMap(k), null, { thin: true, L: 2 });
       const glst = GLR.frameStatus ? GLR.frameStatus() : null;
-      waiting = !!(glst && glst.pending);
+      if (GLR.ok) prePending = stagePullbacks(pane, k);
+      waiting = !!(glst && glst.pending) || prePending;
       drawPoints(pane, stageF(k), { thin: true, k });
       // (step k + 1's cuts show on card k only while step k + 1 is selected: a card never shows a later step's marks)
       if (selOf() === k + 1) drawCuts(pane, k, false, true);
