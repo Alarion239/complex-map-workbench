@@ -82,6 +82,7 @@ const TIMING = {
     t(/^dark theme: a video and a filmstrip flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^video in a hidden page: made at a pace close to a visible one/, (d) => d && d.hv && d.vv && d.hv.frames === d.vv.frames)],
   'deform_nat_cmd.js': [t(/: 60 fps while playing \(p95 under 20 ms\)$/)],
+  'deform_dirichlet_cmd.js': [t(/^the Deformation click on ζ takes at most/), t(/^the X → Y selection on ζ /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
