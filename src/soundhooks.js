@@ -271,7 +271,7 @@ const SoundHooks = (() => {
     // ends it all. The rope lets go
     const H = sndHear();
     if (H) { if (release) { const hs = H.state(); if (hs.stroke || H.active() || hs.glide.env > 1e-4) H.end(); } else H.gap(sndNow()); }
-    snd.rope = null; snd.still = null;
+    snd.rope = null; snd.hold = null; clearTimeout(snd.holdT);
     snd.last = null; snd.near = 0; snd.rest = null; snd.run = null;
   }
   // the hover paths of onMove: z under the pointer (x: its CSS px in its pane); src 'pointer' | 'loop' | 'key' |
@@ -293,16 +293,15 @@ const SoundHooks = (() => {
     // the hand only once it is ρ px away, then ρ px behind it (ρ 3 px, 5 px for touch), so a resting hand's tremor
     // moves nothing. It feeds only the stream; the readouts, the order cues and the query keep the hand's own z
     let zr = z, xr = x;
+    // (a finger's way over its last 300 ms, for sndHold)
+    if (snd.ptype === 'touch') {
+      const now = performance.now(), fh = snd.fh && snd.fh.src === src ? snd.fh.h : [];
+      fh.push({ t: now, x, y });
+      while (fh.length > 2 && fh[0].t < now - 300) fh.shift();
+      snd.fh = { src, h: fh };
+    }
     snd.hand = src !== 'key' ? { x, y, z, src } : null;
     if (sndHear() && src !== 'key') {
-      // a held finger (a minimal guard, #266 for its design): its moves within 3 px of where the stream was last fed
-      // feed nothing, so a tremor taut against the rope near a zero, where arg F turns fast, plays no note (the harp's
-      // D-only zone did this); the lift still feeds the finger's last point (sndLift)
-      if (snd.ptype === 'touch') {
-        const a = snd.still;
-        if (a && a.src === src && Math.hypot(x - a.x, y - a.y) <= 3) return;
-        snd.still = { x, y, src };
-      }
       const rho = snd.ptype === 'touch' ? 5 : 3;
       let rp = snd.rope;
       if (!rp || rp.src !== src) rp = snd.rope = { x, y, src };
@@ -323,6 +322,7 @@ const SoundHooks = (() => {
     const h = snd.hand, rp = snd.rope;
     if (!h || !rp || rp.src !== h.src || (rp.x === h.x && rp.y === h.y) || !sndHear()) return;
     snd.rope = { x: h.x, y: h.y, src: h.src };
+    snd.hold = null; clearTimeout(snd.holdT);
     snd.lifting = true;
     try { sndHover(h.z, h.x, h.src, false, h.z); } finally { snd.lifting = false; }
   }
@@ -543,6 +543,7 @@ const SoundHooks = (() => {
       // over budget: nothing fires, and the next event starts afresh (a declared limit)
       if (!r.exact && r.why === 'budget') { snd.last = null; snd.run = null; return; }
       phi1 = snd.phi + r.d / TAU;
+      if (r.exact && !gen && !dT && !paths && !fn && hs === 'hand' && sndHold(t0, phi1, Math.log(Math.hypot(g.re, g.im)), z, vs, n, [z, px, src, fn, zh])) return;
       if (gen) act = swap ? 'seat' : 'pathless';
       else if (r.exact) act = 'step';
       else if (r.why === 'jump') {
@@ -596,6 +597,45 @@ const SoundHooks = (() => {
     // a key step that crosses no line and no band edge plays the point itself, so every step answers (spec 3.15)
     if (src === 'key' && !fn && act === 'step' && res && (res.arg || 0) + (res.mod || 0) === 0) sndQueryAt(zh, px, 'key');
     if (merged) requestRender('OR');
+  }
+  // A slow finger's crossings wait to be confirmed (a provisional rule, #266 for its design). The probe trails a finger
+  // by the 5 px rope, so when the finger stops, the lines between the two are owed, and a tremor taut against the rope
+  // pulls the probe across them (near a zero, where arg F turns fast, 1.5 px is 14°): to the probe a tremor's crossing
+  // is a slow stroke's. Measured, guards on the motion alone leak at the stop (a time window still sees the stroke; a
+  // px band leaves the stroke's last lines pending for the tremor to complete; a 3 px anchor leaves up to 3 px unfed).
+  // What tells them apart is the finger's way: a stroke goes somewhere, a tremor circles where it is. So while the probe
+  // is slow (under 150 px/s over its last 50 ms: a tremor, ±1.5 px at 9 Hz, makes 30 px/s at most) a step that crosses
+  // a line (arg F's or a band edge of |F|) is held, the stream not fed, until it is confirmed: 80 ms on, the finger has
+  // gone at least 2 px since the crossing, and straight (its net way at least 0.7 of its path; a timer looks again when
+  // no event comes). A tremor's crossing never is; a stroke that stops before it is owes it to the lift, which sounds
+  // what is owed by the side of each line alone (sndLift). A fast probe's crossings sound at once, as before.
+  // Touch only. Returns true when the step is held (the caller feeds nothing and keeps its state)
+  function sndHold(t0, phi1, ln1, z, vs, n, args) {
+    if (snd.ptype !== 'touch' || snd.lifting) return false;
+    // (the probe's speed over its last 50 ms: one event can carry a whole 1.5 px pull)
+    const pz = snd.pz || (snd.pz = []);
+    pz.push({ z, t: t0 });
+    while (pz.length > 1 && pz[1].t <= t0 - 50) pz.shift();
+    const p = pz.length > 1 ? pz[0] : null;
+    clearTimeout(snd.holdT);
+    const ln0 = snd.g ? Math.log(Math.hypot(snd.g.re, snd.g.im)) : ln1;
+    const cross = Math.floor(snd.phi * n) !== Math.floor(phi1 * n) || Math.floor(ln0 * n / TAU) !== Math.floor(ln1 * n / TAU);
+    const sp = p && t0 > p.t ? Math.hypot(z.re - p.z.re, z.im - p.z.im) * vs * 1000 / (t0 - p.t) : Infinity;
+    if (!cross || sp > 150) { snd.hold = null; return false; }
+    const h = snd.hold || (snd.hold = { t: t0 }), wait = 80 - (t0 - h.t);
+    if (wait <= 0) {
+      // the finger's way since the crossing: net and path
+      const fh = snd.fh ? snd.fh.h : [];
+      let i = fh.length - 1;
+      while (i > 0 && fh[i - 1].t >= h.t - 1) i--;
+      let path = 0;
+      for (let j = i + 1; j < fh.length; j++) path += Math.hypot(fh[j].x - fh[j - 1].x, fh[j].y - fh[j - 1].y);
+      const a = fh[i], b = fh[fh.length - 1], net = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
+      if (net >= 2 && net >= 0.7 * path) { snd.hold = null; return false; }
+      return true;
+    }
+    snd.holdT = setTimeout(() => { if (snd.hold && A.sndP.on) sndHover(...args); }, wait + 2);
+    return true;
   }
   // the query (spec 3.9): one note for the hand's point, at once, the stream's state unchanged. Exactly on a zero or a
   // pole, |F| = 0 or ∞ (the engine plays −8 dB or +4 dB at the probe's pitch class). With the engine's stream only

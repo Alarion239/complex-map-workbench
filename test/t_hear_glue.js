@@ -58,7 +58,7 @@ function glue(o = {}) {
     end: () => { calls.push(['end']); }, active: () => false,
   };
   const ctx = {
-    CX, Calc, C, TAU, Math, Number, Array, console, performance: { now: () => ctx.clock },
+    CX, Calc, C, TAU, Math, Number, Array, console, performance: { now: () => ctx.clock }, setTimeout: () => 0, clearTimeout: () => {},
     // (the glue's clock, ms; far ahead of the process's own performance.now(), which Calc.argStep reads for the 3 ms
     // deadline the glue gives it: on a loaded machine the test reaches √z's cut more than a second in, and a clock of
     // 1000 made that deadline already past)
@@ -84,7 +84,7 @@ function glue(o = {}) {
     A: { get S() { return ctx.S; }, get sndP() { return ctx.sndP; }, get paneL() { return ctx.paneL; }, get paneR() { return ctx.paneR; }, get chainSig() { return ctx.chainSig; } },
   };
   vm.createContext(ctx);
-  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText('sndBridge'), fnText('sndHearAt'), fnText('sndQueryAt'), fnText('sndSampleAt'), fnText('sndSampler'), fnText('sndMove'),
+  const code = [constText('sndClamp'), constText('sndOk'), constText('sndZP'), 'const sndHear = () => SND.hear;', fnText('sndBridge'), fnText('sndHearAt'), fnText('sndHold'), fnText('sndQueryAt'), fnText('sndSampleAt'), fnText('sndSampler'), fnText('sndMove'),
     'globalThis.G = { sndHearAt, sndSampleAt, sndSampler, sndMove, sndQueryAt, sndOk };'].join('\n');
   vm.runInContext(code, ctx);
   // sndHover → sndHearAt (as the hooks' sndHover does once the engine has Sound.hear)
