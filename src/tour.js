@@ -434,7 +434,8 @@ const Tour = (() => {
     chain: '.pipe-wrap', addStep: () => inChainSheet('#addStepBtn'), panes: '#panes', paneL: '#paneL', paneR: '#paneR',
     surfaceL: '#leftTabs', surfaceR: '#rightTabs', transport: '.tdock:not([hidden])', paths: '#pathsBtn', allAtOnce: '#homOrderSel',
     // (v16: the deformation's bracket, its left end; on a phone, where it is drawn only, the chain bar)
-    bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : document.querySelector('#pipeline'); },
+    // (#246: on a phone the chain is the chain sheet's; while it is closed, its "N steps ▾" in the chain bar)
+    bracketL: () => { const e = document.querySelector('#chainBracket:not([hidden]) .br-end.l'); return e && !document.documentElement.classList.contains('ph') ? e : inChainSheet('#pipeline'); },
     // (v15: the right panel is the Inspector; F's formula, guarantees and domain show there with the F tile selected,
     // which the app's api.anchor does for these names)
     rightPanel: '#rightPanel', composite: '#propsPanel .insp-F .iform', guarantees: '#propsPanel .insp-F .iglist',
