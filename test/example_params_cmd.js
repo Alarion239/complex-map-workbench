@@ -28,7 +28,20 @@ await settle(1200);
 await ev(`__cmwExample(${iSum})`); await settle(800);
 n = await nums();
 ok('the example\'s N stands in for the user\'s', n.length === 2 && n.some((p) => p.name === 'N' && p.ex && p.value === 8), n);
+// a reload (the saved state, as a link or a scene opens it) with the example open: the user's N is kept in the state, not in memory
+const fig = await ev(`__cmwP().figure`);
+await load('exparams' + Date.now(), fig); await settle(1200);
+n = await nums();
+ok('after a reload the example\'s N still stands in for the user\'s', n.length === 2 && n.some((p) => p.name === 'N' && p.ex && p.value === 8), n);
 await ev(`__cmwExample(1)`); await settle(800);
 n = await nums();
 ok('the user\'s N comes back with its value, and a stays', n.length === 2 && n.some((p) => p.name === 'N' && !p.ex && p.value === 3) && n.some((p) => p.name === 'a' && p.value === 1.5), n);
+const back = await ev(`__cmwP().params.find((p) => p.name === 'N')`);
+ok('the user\'s N comes back with its own range and step', back && back.min === 1 && back.max === 9 && back.step === 1 && !back.ex, back);
+// the example opened again and its N edited: the user's N is still kept
+await ev(`__cmwExample(${iSum})`); await settle(800);
+await ev(`Params.set('N', 12)`); await settle(300);
+await ev(`__cmwExample(1)`); await settle(800);
+n = await nums();
+ok('editing the example\'s N does not lose the user\'s N', n.some((p) => p.name === 'N' && !p.ex && p.value === 3), n);
 return { pass: fails.length === 0, fails };

@@ -13,7 +13,6 @@ const Examples = (() => {
     setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
-  const exShadow = new Map();
   function exFitBarPx() {
     if (document.documentElement.classList.contains('ph')) return 0;   // (:root.ph hides the bar on the plane)
     // (v16.5 UX20: on a desktop the bar is in the pane head, above the plane, so only the bottom margin is kept: the
@@ -53,13 +52,18 @@ const Examples = (() => {
       const ps = [];
       for (const q of A.S.params) {
         if (!q.ex || mine.some((p) => p.name === q.name)) { ps.push(q); continue; }
-        const back = exShadow.get(q.name);
+        // (the user's number it stood in for is kept in the state, on its own entry: q.ex.was, so a reload, a link or a scene
+        // that opens with the example does not lose it)
+        const back = q.ex && q.ex.was ? Params.sanitize([q.ex.was])[0] : null;
         if (back) ps.push(back);
-        exShadow.delete(q.name);
       }
       for (const p of mine) {
         const c = Object.assign(JSON.parse(JSON.stringify(p)), { ex: true }), j = ps.findIndex((q) => q.name === p.name);
-        if (j >= 0) { if (!ps[j].ex) exShadow.set(p.name, ps[j]); ps[j] = c; } else ps.push(c);
+        if (j >= 0) {
+          const was = ps[j].ex ? ps[j].ex.was : JSON.parse(JSON.stringify(ps[j]));
+          if (was) c.ex = { was };
+          ps[j] = c;
+        } else ps.push(c);
       }
       if (mine.length || ps.length !== A.S.params.length || ps.some((q, i) => q !== A.S.params[i])) setParams(ps);
     }

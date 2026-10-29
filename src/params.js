@@ -297,7 +297,10 @@ const Params = (() => {
       const p = { name: c, value: v, min: Math.min(min, v), max: Math.max(max, v), step: isNum(q.step) && q.step > 0 ? q.step : 0.01 };
       if (typeof q.expr === 'string' && q.expr.trim()) p.expr = q.expr.trim().slice(0, 500);
       if (q.play === 'bounce' || q.play === 'loop') p.play = q.play;
-      if (q.ex === true) p.ex = true;   // an example's own number: the next example takes it away (examples.js)
+      // an example's own number: the next example takes it away (examples.js); ex.was is the user's number of that name it
+      // stands in for, which comes back then
+      if (q.ex === true) p.ex = true;
+      else if (q.ex && typeof q.ex === 'object') { const w = q.ex.was && typeof q.ex.was === 'object' ? sanitize([Object.assign({}, q.ex.was, { ex: undefined })])[0] : null; p.ex = w ? { was: w } : true; }
       out.push(p);
     }
     return out;
