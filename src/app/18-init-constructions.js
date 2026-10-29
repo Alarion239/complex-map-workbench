@@ -346,16 +346,33 @@
   function paramsRestored() { zpParsed.clear(); Params.render(); }
   // a number changed (a slider, play, a field, undo): the steps and the shapes that use it follow; a drag or play
   // frame is motion (motion-quality frames; the renderer's rest pass follows when it stops)
+  // ([#241] a slider of a number a costly chain uses (its last change took over 8 ms: a series re-planned) is applied
+  // once a frame, at its latest value, the names of the frame's events together; a change at rest applies at once)
+  const liveQ = { names: null, raf: 0 };
   function onParamChange(ev) {
+    if (ev.live) { const t = performance.now(); lastInputT = t; motionInT = t; }
+    if (liveQ.raf) {
+      cancelAnimationFrame(liveQ.raf); liveQ.raf = 0;
+      const was = liveQ.names; liveQ.names = null;
+      ev = Object.assign({}, ev, { names: [...new Set([...was, ...(ev.names || [])])] });
+    }
+    const big = !!(ev.removed || ev.renamed || ev.inlined);
+    if (ev.live && !ev.play && !big && chainCost() > 8 && S.steps.some((st) => stepUses(st, new Set(ev.names || [])))) {
+      liveQ.names = ev.names || [];
+      liveQ.raf = requestAnimationFrame(() => { const nm = liveQ.names; liveQ.raf = 0; liveQ.names = null; paramChanged({ names: nm, live: true }); });
+      return;
+    }
+    paramChanged(ev);
+  }
+  function paramChanged(ev) {
     const names = new Set(ev.names || []);
     const big = !!(ev.removed || ev.renamed || ev.inlined);
-    if (ev.live) { const t = performance.now(); lastInputT = t; motionInT = t; }
     zpParsed.clear();
     const steps = big || S.steps.some((st) => stepUses(st, names));
     let sh = false, tg = false;
     for (const x of S.shapes) if (applyBinds(x, big ? null : names)) sh = true;
     for (const x of S.targets) if (applyBinds(x, big ? null : names)) tg = true;
-    if (steps) chainChanged(big);
+    if (steps) chainChanged(big, { live: ev.live && !ev.play });
     // the tone under a still pointer follows the new function (a slider, Play, a field, undo): the pathless form, the
     // nearest turn (notes/sound/DEFORMATION.md, "The hook for v15"); however often it is called, the tone is
     // re-evaluated once a frame at most (its requestAnimationFrame), together with chainChanged's own report

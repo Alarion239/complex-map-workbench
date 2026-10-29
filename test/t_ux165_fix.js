@@ -70,7 +70,7 @@ ok(/\$t\('Pick a point \(on \{c\} or anywhere\)', \{ c: curve1Name\(\) \}\)/.tes
 // ---- app.js, params.js
 ok(/function syncUnused\(\)/.test(PRM) && /syncUnused,/.test(PRM) && (APP.match(/Params\.syncUnused\(\)/g) || []).length >= 2, 'user-1: "Not used yet" follows the chain and the selected step');
 ok(/\.prm-list \{ flex: 0 1 auto;/.test(PRM), 'user-5: + Number sits under the list, not at the section\'s foot');
-ok(/S\.shapes\.filter\(\(s\) => kindType\(s\) === 'area'\)\.map/.test(fnBody(APP, 'patternCell')) && /if \(\(s\.def \|\| s\.fixed\) && t !== 'area'\) continue;/.test(fnBody(APP, 'stageSamples')), 'user-3: a construction curve refits neither the cell nor Y');
+ok(/S\.shapes\.filter\(\(s\) => kindType\(s\) === 'area'\)\.map/.test(fnBody(APP, 'patternCell')) && /if \(\(s\.def \|\| s\.fixed\) && t !== 'area'\) continue;/.test(fnBody(APP.replace(/function\* /g, 'function '), 'stageSampler')), 'user-3: a construction curve refits neither the cell nor Y');
 ok(/probeTeachUntil > now/.test(APP) && /sessionStorage\.getItem\('cmw-probe-taught'\)/.test(APP) && /\.chip\.readout:has\(> \.rteach\) \{ height: auto; white-space: normal;/.test(PAGE), 'regress-4, user-4: the hold-and-slide line once a session for 8 s, whole');
 ok(/function morphReadout\(short\)/.test(APP) && /padStart\(3, '\\u2007'\)/.test(APP) && /lab\.dataset\.short = '1'/.test(APP), 'regress-1: a short readout when the row is tight, a padded percentage');
 ok(/new ResizeObserver\(\(\) => \{ if \(!q && th\.firstElementChild\)/.test(APP), 'regress-2: a toast is placed again when the layout under it changes');
