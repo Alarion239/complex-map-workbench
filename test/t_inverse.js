@@ -4,6 +4,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
+const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
@@ -33,9 +34,11 @@ const section = (name) => console.log(`--- ${name}`);
 // (a) round trips: soundness, completeness, decomposition for every catalog type and the custom formulas
 // =================================================================================================
 section('(a) round trips');
+// a build with Recognize declining every formula (its guard refusing a reading), when on
+const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; Recognize.chain = () => null; try { return f(); } finally { Recognize.chain = chain; } };
 {
   const cases = [];
-  const add = (type, params) => cases.push({ type, params });
+  const add = (type, params, norec) => cases.push({ type, params, norec });
   for (let i = 0; i < 3; i++) {
     add('mul', { c: cs(rc()) }); add('add', { c: cs(rc()) }); add('affine', { a: cs(rc()), b: cs(rc()) });
     add('mobius', { a: cs(rc()), b: cs(rc()), c: cs(rc()), d: cs(rc()) });
@@ -65,12 +68,15 @@ section('(a) round trips');
     ['\\frac{z^2-1}{z^2+1}', 180], ['(z+1/z)/2', 180], ['z^2+2z', 180], ['\\frac{(z-1)(z-2i)}{z-0.5}', 180], ['\\log\\frac{z-1}{z+1}', 90], ['\\sqrt{z^2-1}', 180],
     ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180]];
   for (const [e, cut] of CUSTOM) add('custom', { expr: e, cut });
+  // (the page rewrites the formulas it recognises first, 2^z as e^{z log 2}: the formula's own decomposition, EXPC for
+  // c^z, is the fallback when Recognize declines a formula, as here)
+  add('custom', { expr: '3^{z}', cut: 180 }, true);
   const shape = { kind: 'disc', c: [0, 0], r: 3 };
   const inel = [];
   let fails = 0, total = 0;
   const kinds = new Set();
   for (const cse of cases) {
-    const st = St(cse.type, cse.params), b = Funcs.build(st);
+    const st = St(cse.type, cse.params), b = noRec(cse.norec, () => Funcs.build(st));
     if (b.error) { check(`build ${cse.type} ${JSON.stringify(cse.params)}`, false, b.error); continue; }
     const plan = Inverse.planChain([st], [b]);
     if (!plan.ok) { inel.push(`${cse.type} ${JSON.stringify(cse.params)}: ${plan.reason}`); continue; }
@@ -134,9 +140,11 @@ section('(a) round trips');
   // the custom-formula recognizer of the chain (customOps) decomposes the formulas the app accepts
   const cust = (e) => Inverse.stepOps(Funcs.build(St('custom', { expr: e, cut: 180 })));
   check('custom cot = TAN then MOB', cust('\\cot z').ok && cust('\\cot z').ops.map((o) => o.kind).join() === 'TAN,MOB');
-  check('custom 2^z = EXPC', cust('2^{z}').ops.map((o) => o.kind).join() === 'EXPC');
+  // (Recognize writes 2^z as e^{z log 2}, and 3 - 2/(z+i) as one Möbius map; declined, c^z is EXPC)
+  check('custom 2^z = AFF then EXP', cust('2^{z}').ops.map((o) => o.kind).join() === 'AFF,EXP');
+  check('custom 5^z, Recognize declining = EXPC', noRec(true, () => cust('5^{z}')).ops.map((o) => o.kind).join() === 'EXPC');
   check('custom e^{z^2} = IPOW then EXP', cust('e^{z^2}').ops.map((o) => o.kind).join() === 'IPOW,EXP');
-  check('custom 3 - 2/(z+i) = AFF, MOB, AFF', cust('3-\\frac{2}{z+i}').ops.map((o) => o.kind).join() === 'AFF,MOB,AFF');
+  check('custom 3 - 2/(z+i) = MOB', cust('3-\\frac{2}{z+i}').ops.map((o) => o.kind).join() === 'MOB');
   // stage ranges: off and failed steps are the identity, (a, b] selects the ops
   {
     const { steps, built } = planOf([{ type: 'exp' }, { type: 'mobius' }, { type: 'deriv' }, { type: 'sin' }]);

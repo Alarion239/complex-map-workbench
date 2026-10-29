@@ -932,3 +932,12 @@ const Export = (() => {
   }
   return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();
+import { TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Funcs } from './funcs.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+import { Axes, Pane } from './view.js';
+import { Figure } from './figure.js';
+import { Construct } from './construct.js';
+export { Export };

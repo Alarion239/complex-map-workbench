@@ -2449,4 +2449,8 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 
   return { LIB, build, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
 })();
-if (typeof module !== 'undefined') module.exports = GLChain;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Funcs } from './funcs.js';
+import { Inverse } from './inverse.js';
+export { GLChain, GLChain as 'module.exports' };

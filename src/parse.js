@@ -2016,4 +2016,5 @@ const Expr = (() => {
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
   return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();
-if (typeof module !== 'undefined') module.exports = Expr;
+import { CX } from './cx.js';
+export { Expr, Expr as 'module.exports' };

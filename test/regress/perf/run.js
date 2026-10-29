@@ -137,7 +137,38 @@ async function openApp(state) {
   const st = await B.ev('__cmwState()');
   const exc = B.logs().filter((l) => l.t === 'EXC');
   if (exc.length) RES.errors.push({ where: 'open ' + ns, exc: exc.slice(0, 3) });
-  return { ns, loadMs: Date.now() - t0, mathjax: mj, settled: !s.timeout, state: st };
+  const health = Object.assign({ exc: exc.map((l) => String(l.m).slice(0, 160)), settled: !s.timeout }, await sceneHealth());
+  if (OPENED) OPENED.push(health);
+  return { ns, loadMs: Date.now() - t0, mathjax: mj, settled: !s.timeout, state: st, health };
+}
+// [#292] what a scene built and drew once it settled: the steps' errors (one per step, '' for none) and the shapes that
+// have geometry (a mesh or lines). A paired run compares the two sides' (refCannot): a reference that fails where the
+// current build succeeds lacks the feature the unit measures (a formula its parser cannot read draws nothing)
+let OPENED = null;   // the scenes the running unit opened on the running side
+async function sceneHealth() {
+  return B.ev(`(() => {
+    try {
+      const p = typeof __cmwP === 'function' ? __cmwP() : null;
+      const info = typeof __cmwInfo === 'function' ? __cmwInfo() : [];
+      return { stepErrors: p && Array.isArray(p.errors) ? p.errors.map((e) => (e ? String(e).slice(0, 160) : '')) : [], drawn: info.filter((q) => (q.tris || 0) + (q.segs || 0) > 0).map((q) => q.id) };
+    } catch (e) { return { stepErrors: [], drawn: [], hookError: String(e) }; }
+  })()`).catch((e) => ({ stepErrors: [], drawn: [], hookError: String(e) }));
+}
+// why the reference cannot run a unit that the current build runs, or null: per scene opened (in order), a step that
+// errs only on the reference, a shape that draws only on the current build (both settled: a mesh still being built is
+// not a shape that cannot draw), or an exception only the reference threw; or the unit itself failed only on the
+// reference
+function refCannot(ref, cur, refErr, curErr) {
+  if (refErr && !curErr) return `the unit failed on the reference: ${String(refErr).split('\n')[0].slice(0, 160)}`;
+  for (let i = 0; i < Math.min(ref.length, cur.length); i++) {
+    const a = ref[i], b = cur[i];
+    const k = a.stepErrors.findIndex((e, j) => e && !b.stepErrors[j]);
+    if (k >= 0) return `step f${k + 1} does not build there: ${a.stepErrors[k]}`;
+    const gone = a.settled && b.settled ? b.drawn.filter((id) => !a.drawn.includes(id)) : [];
+    if (gone.length) return `shape ${gone.join(', ')} draws nothing there`;
+    if (a.exc.length && !b.exc.length) return `the scene throws there: ${a.exc[0]}`;
+  }
+  return null;
 }
 
 async function paneRect(side) {
@@ -1568,6 +1599,7 @@ async function main() {
       log(`WARNING: machine busy (1-min load ${load} > ${LOAD_MAX}) before ${u.id}: its timings are not trustworthy`);
       RES.meta.busyUnits.push({ unit: u.id, load });
     }
+    const scenes = new Map(), failed = new Map();
     const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
     for (const [res, base, tag, br] of sides) {
       RES = res; BASE = base; B = br;
@@ -1576,7 +1608,9 @@ async function main() {
       CURRENT_UNIT = u.id;
       let timer = null;
       const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`unit timed out after ${UNIT_TIMEOUT_S} s (machine stalled?)`)), UNIT_TIMEOUT_S * 1000); });
+      OPENED = []; scenes.set(res, OPENED);
       try { await Promise.race([u.fn(), timeout]); } catch (e) {
+        failed.set(res, String(e && e.message || e));
         RES.errors.push({ where: u.id, error: String(e && e.stack || e) });
         log('ERROR in', u.id + tag, e && e.stack || e);
         if (/timed out after/.test(String(e))) {
@@ -1594,7 +1628,18 @@ async function main() {
       RES.meta.units[u.id] = Math.round((Date.now() - tu) / 100) / 10;
       if (RES_A) await park(br);
     }
+    OPENED = null;
     RES = RES_B; BASE = BASE_B; B = B_B;
+    // [#292] a unit the reference cannot run (it lacks the feature the unit measures): its reference metrics say so, and
+    // compare_perf.py reports the unit's metrics as NEW instead of comparing them with an empty scene's
+    if (RES_A) {
+      const why = refCannot(scenes.get(RES_A) || [], scenes.get(RES_B) || [], failed.get(RES_A), failed.get(RES_B));
+      if (why) {
+        log(`${u.id}: the reference cannot run it (${why}): NEW, not compared`);
+        (RES_A.meta.refUnsupported || (RES_A.meta.refUnsupported = {}))[u.id] = why;
+        for (const m of Object.values(RES_A.metrics)) if (m.unit_id === u.id) m.ref_unsupported = why;
+      }
+    }
   }
   CURRENT_UNIT = null;
   for (const [b, res] of [[B_B, RES_B], [B_A, RES_A]]) {
