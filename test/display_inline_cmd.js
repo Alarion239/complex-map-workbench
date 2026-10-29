@@ -34,6 +34,10 @@ const styleRow = () => ev(`(() => {
   const s = document.getElementById('dcSeg'); if (!s || !s.getClientRects().length) return null;
   return { inHead: !!s.closest('.pane-head'), n: s.children.length, btns: [...s.children].map((b) => { const nm = b.querySelector('.sty-n'), r = b.getBoundingClientRect(); return { v: b.dataset.v, on: b.getAttribute('aria-checked') === 'true', name: b.getAttribute('aria-label'), word: !!nm && nm.getClientRects().length > 0, glyph: !!b.querySelector('.sty-g svg'), tip: b.dataset.tip, w: r.width, h: r.height }; }) };
 })()`);
+// (what X's head holds when a check finds the style row missing: its items and widths, the strip's children, the row)
+const diag = () => ev(`(() => { const hd = document.querySelector('#paneL .pane-head'), f = document.getElementById('leftFoot'), s = document.getElementById('dcSeg');
+  return { headW: hd.clientWidth, head: [...hd.children].map((c) => [c.id || c.className.slice(0, 16), Math.round(c.getBoundingClientRect().width)]), foot: f ? [...f.children].map((c) => [c.id || c.className.slice(0, 16), Math.round(c.getBoundingClientRect().width)]) : null,
+    seg: s ? { connected: s.isConnected, rects: s.getClientRects().length, parent: s.parentElement && (s.parentElement.id || s.parentElement.className), disp: getComputedStyle(s).display, w: s.getBoundingClientRect().width } : null, pops: document.querySelectorAll('#popHost .pop').length, ph: document.documentElement.className }; })()`);
 const ctl = (id) => ev(`(() => { const i = document.getElementById('${id}'); if (!i) return null; const l = i.closest('label') || i, r = l.getBoundingClientRect(); const lab = l.querySelector(':scope > .tg-l') || l.querySelector(':scope > span:not(.tg-ic)'); return { vis: r.width > 0 && l.getClientRects().length > 0, inHead: !!l.closest('.pane-head'), inPop: !!l.closest('.pop'), w: r.width, h: r.height, name: (lab ? lab.textContent : '').trim(), checked: i.checked, tip: l.dataset ? l.dataset.tip : null }; })()`);
 const clickId = (id) => ev(`(() => { const i = document.getElementById('${id}'); if (!i) return null; i.click(); return i.checked; })()`);
 
@@ -47,7 +51,7 @@ for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]
   ok(`${tag} Phase: the title shows`, hd.title && hd.title.shown, hd.title);
   let sr = await styleRow();
   if (!sr) {   // (not in the head at all: what the head holds, the view and the window, then the next size)
-    ok(`${tag} Phase: the style row shows`, false, { hd, view: (await st()).view, dc: (await st()).dc, inner: await ev('[innerWidth, innerHeight, devicePixelRatio]'), seg: await ev(`(() => { const e = document.getElementById('dcSeg'); return e ? { parent: e.parentElement && (e.parentElement.id || e.parentElement.className), inPop: !!e.closest('.pop') } : null; })()`) });
+    ok(`${tag} Phase: the style row shows`, false, { d: await diag(), hd, view: (await st()).view, dc: (await st()).dc, inner: await ev('[innerWidth, innerHeight, devicePixelRatio]'), seg: await ev(`(() => { const e = document.getElementById('dcSeg'); return e ? { parent: e.parentElement && (e.parentElement.id || e.parentElement.className), inPop: !!e.closest('.pop') } : null; })()`) });
     continue;
   }
   ok(`${tag} Phase: the six styles are a row in X's head, each a glyph with a name; the chosen one shows its word, the others not`,
@@ -56,7 +60,8 @@ for (const [w, h, lang] of [[1440, 900, ''], [1100, 800, ''], [1366, 800, 'ru']]
   // one click picks a style, and nothing opens
   await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').click()`); await settle(500);
   sr = await styleRow();
-  ok(`${tag} Phase: one click on Contours sets it, with no pop-up`, (await st()).dc === 'modulus' && (await pops()) === 0 && sr.btns.find((b) => b.v === 'modulus').on && sr.btns.find((b) => b.v === 'modulus').word, [(await st()).dc, sr]);
+  ok(`${tag} Phase: one click on Contours sets it, with no pop-up`, !!sr && (await st()).dc === 'modulus' && (await pops()) === 0 && sr.btns.find((b) => b.v === 'modulus').on && sr.btns.find((b) => b.v === 'modulus').word, [(await st()).dc, sr || await diag()]);
+  if (!sr) continue;
   const sb = await ev(`(document.querySelector('#styleBtn .hw') || {}).textContent`);
   ok(`${tag} Phase: the header's style button follows`, sb && sb === (await ev(`document.querySelector('#dcSeg button[data-v="modulus"]').getAttribute('aria-label')`)), sb);
   // n only for the styles it changes
