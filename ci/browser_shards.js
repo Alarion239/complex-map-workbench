@@ -33,7 +33,7 @@ const SHARDS = [
   { id: 'phone-swap-3', suites: ['phone_swap_cmd.js#swap', 'phone_swap_cmd.js#review', 'phone_swap_cmd.js#urlbar', 'phone_swap_cmd.js#tablet', 'phone_landscape_cmd.js', 'phone_sheets_cmd.js'] },   // 227 + 256 + 197 + 39
   { id: 'formulas', suites: ['split_cmd.js', 'fix152_cmd.js', 'v15_planemenu_cmd.js', 'warm_bar_cmd.js'] },     // 287 + 113 + 75 + 70
   { id: 'images', suites: ['curves_cmd.js', 'p3_accept_cmd.js', 'p3bfix_cmd.js', 'p3b_accept_cmd.js', 'morphfig_cmd.js'] },   // 226 + 176 + 47 + 31 + 52
-  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'mode_chips_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js', 'display_inline_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
+  { id: 'views', suites: ['mv_views_cmd.js', 'p3_review_cmd.js', 'v15_desktop_cmd.js', 'kbd_nav_cmd.js', 'poly_verts_cmd.js', 'mode_chips_cmd.js', 'chip_clamp_cmd.js', 'v15_params_cmd.js', 'zp_cmd.js', 'zpfix_cmd.js', 'display_inline_cmd.js', 'land_cards_cmd.js'] },   // 201 + 83 + 96 + 60 + 57 + 26
   { id: 'exact', suites: ['p5_accept_cmd.js', 'link_standin_cmd.js'] },                                   // 543 + 24
   // (v16.5's suites, the seventh run's times)
   { id: 'ux165-1', suites: ['ux165_learn_cmd.js', 'ux165_rail_cmd.js', 'ux165_chain_cmd.js', 'd1_replace_cmd.js'] },            // 210 + 172 + 116
