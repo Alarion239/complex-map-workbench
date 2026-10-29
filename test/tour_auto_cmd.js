@@ -21,6 +21,26 @@ const go = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter
 const until = async (expr, max = 8000, dt = 40) => { const t0 = Date.now(); while (Date.now() - t0 < max) { if (await ev(expr)) return Date.now() - t0; await sleep(dt); } return null; };
 // waits for the step to change from id; returns ms since t0
 const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max) { if ((await cur()) !== id) return Date.now() - t0; await sleep(25); } return null; };
+// the moment the step shows done, polled from t0, and what the countdown then has left. The countdown runs from the step's
+// done, which an action that compiles a formula or rebuilds the chain can precede by that work's time (a spike blocks the page,
+// and the poll with it): the advance is measured from the poll and expected as the countdown's own `left`, which never exceeds CD_MS.
+// A blocked main thread also fires the countdown's timer late, by up to the blocked time: the page's long tasks (PerformanceObserver,
+// buffered) are summed over the wait, so the advance may be late by what was blocked and never early
+const ltInstall = () => ev(`(() => { if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } } return !!window.__lt; })()`);
+const doneAt = async (t0, max = 6000) => { await ltInstall(); while (Date.now() - t0 < max) { const L = await ev('(() => { const l = Tour.lit(); return l && l.done ? { left: l.countdown && l.countdown.left, p: performance.now() } : null; })()'); if (L) return { t: Date.now(), p: L.p, left: L.left, after: Date.now() - t0 }; await sleep(15); } return null; };
+const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
+// the advance from a doneAt: the countdown's timer is due `left` ms after the poll. It fires at the end of any long task that covers
+// that moment (a blocked main thread runs it late, never early), and the advance's own work (a chapter change) is a long task that
+// starts at the due moment and shows when it ends. The advance must come between the due time and that end, within the poll's
+// tolerance. Time is the page's clock, read in the poll that sees the advance. The page's blocked ms (long tasks) are reported
+const advanceFrom = async (id, d, tol) => {
+  let r = null;
+  for (const t1 = Date.now() + 9000; Date.now() < t1;) { r = await ev(`(() => { const c = Tour.current(); return { id: c ? c.chapter + '/' + c.id : null, p: performance.now() }; })()`); if (r.id !== id) break; await sleep(25); }
+  const p1 = r ? r.p : 0;
+  const lt = d ? await ev(`(() => { const T = (window.__lt || []).slice().sort((x, y) => x[0] - y[0]); let f = ${d.p} + ${d.left}; for (const [a, b] of T) if (a <= f + 30 && f < b) f = b; return { exp: f - ${d.p}, blocked: T.reduce((s, [a, b]) => s + Math.max(0, Math.min(b, ${p1}) - Math.max(a, ${d.p})), 0) }; })()`) : { exp: 0, blocked: 0 };
+  const exp = Math.round(lt.exp), blocked = Math.round(lt.blocked), at = d ? Math.round(p1 - d.p) : null;
+  return { at, exp, blocked, ok: leftOk(d) && at != null && at >= d.left - tol && at <= exp + tol };
+};
 const stays = async (id, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if ((await cur()) !== id) return false; await sleep(200); } return true; };
 // (a phone page polls slowly under software rendering: the phone checks allow the poll's own latency)
 const near = (v, want, tol) => v != null && Math.abs(v - want) <= tol;
@@ -76,8 +96,9 @@ at = await advancedAt('views/switch', t0);
 check('door (Three views): 700 ± 100 ms after the event', near(at, 700, 100), at);
 // Phase key: a check; an input at +2 s does not restart the countdown
 await go('views', 4);
-// (v16.5 UX20: on a desktop Y's options are behind its Display options button in the pane head: it is opened first)
-const ob = await center('#rightFoot .opts-btn');
+// (v16.5 UX20; #247: on a desktop the check is a toggle in Y's pane head; when the head has no room it is behind the
+// head's ⋯ button, which is opened first)
+const ob = (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
 if (ob) { await click(ob[0], ob[1]); await sleep(400); }
 const kc = await center('#wKeyChkR');
 check('key: the Phase key check is there', !!kc, kc);
@@ -91,7 +112,7 @@ if (kc) {
   check('key: a wheel at +1 s changes nothing: CD_MS after the event', near(at, CDMS, 300), at);
 }
 // (v16.5: the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
-await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
+await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
 try {
 // a hold: the palette left open 6 s (Palette and keys: its task is done when it opens)
 await go('keys', 0);
@@ -120,14 +141,17 @@ if (fi) {
   await click(fi[0], fi[1]); await settle(100);
   await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
   // (the countdown runs from the step's done, which follows Enter by the formula's compile: the advance is measured from
-  // the moment done shows, and that latency is reported)
+  // the moment done shows, and the countdown may fire late only as far as the page was blocked)
   await type('|z-1|<2'); await key('Enter'); t0 = Date.now();
-  const dl = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 4000, 15);
-  const tDone = Date.now();
+  const dD = await doneAt(t0);
   const ff = await lit();
   check('formula: done by the formula field (via formula)', ff && ff.done, ff && ff.countdown);
-  at = await advancedAt('basics/formula', tDone);
-  check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done', near(at, CDMS, 250), [at, 'done ' + dl + ' ms after Enter', await ev('document.activeElement && document.activeElement.id')]);
+  // (a main-thread spike across the countdown's due moment, as a formula's program link makes on a software GPU: 400 ms from
+  // 100 ms before it is due, so the timer fires about 300 ms late)
+  await ev(`setTimeout(() => { const t0 = performance.now(); while (performance.now() - t0 < 400); }, Math.max(0, ${dD ? dD.p + dD.left : 1000} - 100 - performance.now())); 1`);
+  const aD = await advanceFrom('basics/formula', dD, 250);
+  check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done, late only as far as the page was blocked', aD.ok, [aD, dD, await ev('document.activeElement && document.activeElement.id')]);
+  check('formula: the long-task record sees the 400 ms spike and the advance followed it', aD.blocked >= 350 && aD.at >= dD.left + 200, aD);
   await go('basics', 6);
   await click(fi[0], fi[1]); await settle(100);
   await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
@@ -188,10 +212,11 @@ try {
 await go('views', 5);
 const st = await center('#patternSeg .pat[data-pat="stretch"]');
 await click(st[0], st[1]); t0 = Date.now();
+const dP = await doneAt(t0);
 await sleep(200);
 check('Patterns (a chapter\'s end): tick and result', /Blue shrinks/.test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', await lit());
-at = await advancedAt('views/patterns', t0);
-check('Patterns: moves on CD_MS after, into Editing the chain', near(at, CDMS, 250) && (await cur()) === 'edit/cards', [at, await cur()]);
+const aP = await advanceFrom('views/patterns', dP, 250);
+check('Patterns: moves on CD_MS after, into Editing the chain (late only as far as the page was blocked)', aP.ok && (await cur()) === 'edit/cards', [aP, dP, await cur()]);
 // (r3 review user-1) once a task is done the spotlight steps aside: the shade fades and lets presses through
 await go('basics', 1);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(400);
@@ -412,13 +437,15 @@ await go('basics', 7);
 const c1 = await center('#pipeline .card[data-k="1"]');
 await tap(c1[0], c1[1]); await settle(1000);
 const ln = await center('#propsPanel .insp-step .ihead .alone-btn');
-await tap(ln[0], ln[1]); t0 = Date.now(); await sleep(400);
+await tap(ln[0], ln[1]); t0 = Date.now();
+const dC = await doneAt(t0);
+await sleep(400);
 const ch = await lit();
 check('phone chain: the lens ticks it and nothing holds the countdown (the sheet is part of the step)', ch.done && ch.countdown.state === 'running' && !ch.countdown.held.length, ch.countdown);
 const xb = await ev(`(() => { const e = [...document.querySelectorAll('.ph-sheet:not([hidden]) .ph-x, .ph-sheet:not([hidden]) [aria-label="Close"]')].find((x) => x.getClientRects().length); if (!e) return null; const b = e.getBoundingClientRect(); const h = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { hit: !!h && (h === e || e.contains(h)) }; })()`);
 check('phone chain: the sheet\'s close button can be pressed (no shade over it)', !xb || xb.hit, xb);
-at = await advancedAt('basics/chain', t0);
-check('phone chain: moves on CD_MS after the lens', near(at, CDMS, 600), at);
+const aC = await advanceFrom('basics/chain', dC, 600);
+check('phone chain: moves on CD_MS after the lens (late only as far as the page was blocked)', aC.ok, [aC, dC]);
 // user-2: Sets from formulas asks its task on a phone too, and moves on
 await go('basics', 6);
 const fl = await ev(`document.querySelector('#tourLead').textContent`);
@@ -430,8 +457,9 @@ if (pf) {
   const add = await ev(`(() => { const e = [...document.querySelectorAll('#secFormula button')].find((x) => x.getClientRects().length && /Add/.test(x.textContent)); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
   if (add) await tap(add[0], add[1]); else await key('Enter');
   t0 = Date.now();
-  at = await advancedAt('basics/formula', t0);
-  check('phone formula: Add ticks it and it moves on CD_MS after', near(at, CDMS, 600), [at, await lit()]);
+  const dF = await doneAt(t0);
+  const aF = await advanceFrom('basics/formula', dF, 600);
+  check('phone formula: Add ticks it and it moves on CD_MS after it is done (late only as far as the page was blocked)', aF.ok, [aF, dF, await lit()]);
 } else check('phone formula: the field is there', false);
 // user-9: a hold shorter than the ring pans Y: the line says why
 await go('basics', 3);

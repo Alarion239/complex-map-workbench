@@ -27,7 +27,7 @@ const Inverse = (() => {
   const B_DEFAULT = 8;         // compositing buffer (4.2)
   const CLIP_PAD = 1.5;        // px: anti-aliasing margin of the shape clips of member lines and rays (a candidate within
                                // 1 px of the shape can still cover: facing rule, 4.2)
-  const RG = () => (typeof Region !== 'undefined' ? Region : (typeof require === 'function' ? require('./region.js') : null));
+  const RG = () => (typeof Region !== 'undefined' ? Region : null);
   const sgn = (x) => (x < 0 ? -1 : 1);
   const cx = (re, im) => ({ re, im });
 
@@ -2506,4 +2506,8 @@ const Inverse = (() => {
     _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2 },
   };
 })();
-if (typeof module !== 'undefined') module.exports = Inverse;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Region } from './region.js';
+import { GLR } from './gl.js';
+export { Inverse, Inverse as 'module.exports' };

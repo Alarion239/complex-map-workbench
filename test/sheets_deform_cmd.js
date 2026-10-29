@@ -112,8 +112,8 @@ await setView(1440, 900, false, false);
   await ev('__cmwMorph({ open: true, playing: false, range: { a: 1, b: 1 } })'); await settle(800);
   await ev('__cmwMorph({ T: 0.5 })'); await settle(800);
   const s = await ls();
-  // (v16.5 UX20: on a desktop the pane's options, All sheets among them, are in its Display options popover)
-  const opts = (open) => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && (b.getAttribute('aria-expanded') === 'true') !== ${open}) b.click(); return 1; })()`);
+  // (v16.5 UX20; #247: on a desktop the pane's options, All sheets among them, are in its head or behind its ⋯ button)
+  const opts = (open) => ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && (b.getAttribute('aria-expanded') === 'true') !== ${open}) b.click(); return 1; })()`);
   await opts(true); await settle(300);
   const tip = await ev(`(() => { const c = document.getElementById('sheetsChk'); const l = c && c.closest('label'); return l ? l.dataset.tip || '' : null; })()`);
   const lab = await ev(`(() => { const c = document.getElementById('sheetsChk'); const l = c && c.closest('label'); return l ? [l.textContent, l.classList.contains('sheets-one')] : null; })()`);

@@ -269,4 +269,5 @@ const Views = (() => {
   }
   return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, LEGACY, MAIN, SURF_L, SURF_R };
 })();
-if (typeof module !== 'undefined' && module.exports) module.exports = { Views };
+import { CX } from './cx.js';
+export { Axes, Pane, Views };

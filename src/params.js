@@ -748,4 +748,6 @@ const Params = (() => {
   };
 })();
 Params.install();
-if (typeof module !== 'undefined') module.exports = Params;
+import { h } from './util.js';
+import { Expr } from './parse.js';
+export { Params, Params as 'module.exports' };

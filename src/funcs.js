@@ -3023,4 +3023,7 @@ const Funcs = (() => {
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();
-if (typeof module !== 'undefined') module.exports = Funcs;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Recognize } from './recognize.js';
+export { Funcs, Funcs as 'module.exports' };

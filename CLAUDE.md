@@ -47,6 +47,8 @@ Each team has the same hierarchy.
   and in PR comments.
 - **Product decisions belong to Alexander**, asked on the issue. Pietro decides his own areas (sound, Italian, the
   Windows GPU runner).
+- **The Mac GPU runner (`mac-gpu`)** is Alexander's: report a problem with it in an issue labelled `mac-runner`, which
+  Alexander's local agent on the Mac picks up.
 
 ## 1. Claim an issue before you start
 - Take an open issue that nobody has claimed:

@@ -1,7 +1,8 @@
 // The Phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away (issue #81): a button in the
 // header beside the palette's disc while X is the flat Phase view, with a menu of the styles; in the Landscape it is dimmed
 // and says where the styles live; on a phone the Display sheet's first row is a "Style: Tiles" chip with the same menu. The
-// Display options keep their own control, which follows. A command file for a CDP daemon (test/cdp_kit README).
+// pane head's own style row (#247: inline, no Display pop-up) follows, and on a phone the Display sheet starts with that
+// row; the chip shows there in the Landscape only. A command file for a CDP daemon (test/cdp_kit README).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [];
@@ -33,11 +34,9 @@ ok('its menu lists the six styles, Tiles checked', items.length === 6 && items[0
 await pickItem('/Contours/');
 b = await btn();
 ok('picking Contours sets the style and the button follows', (await dc()) === 'modulus' && b.label === 'Contours', [await dc(), b]);
-await ev(`document.querySelector('.disp-btn').click()`); await settle(500);
-ok('the Display options\' own control follows', await ev(`(document.querySelector('#dcSeg button.on') || {}).dataset && document.querySelector('#dcSeg button.on').dataset.v === 'modulus'`), await ev(`(document.querySelector('#dcSeg button.on') || {}).textContent`));
+ok('the pane head\'s own style row follows, with no pop-up to open (#247)', !(await ev(`!!document.querySelector('.disp-btn')`)) && await ev(`(document.querySelector('#dcSeg button.on') || {}).dataset && document.querySelector('#dcSeg button.on').dataset.v === 'modulus'`), await ev(`(document.querySelector('#dcSeg button.on') || {}).textContent`));
 await ev(`document.querySelector('#dcSeg button[data-v="grid"]').click()`); await settle(500);
 ok('and a pick there moves the button', (await btn()).label === 'Pulled-back grid', await btn());
-await key('Escape'); await settle(200);
 ok('the header has no overflow with it', !(await btn()).over, await btn());
 // the Landscape: dimmed, says where the styles live, and switches
 await ev(`__cmwSetMain('land'); 1`); await settle(700);
@@ -60,19 +59,27 @@ b = await btn();
 ok('Russian: the button names the style', b && b.vis && /Тасс|Плитк|Мозаик/.test(b.label || '') || (b && b.vis && !!b.label), b);
 ok('Russian: no overflow', b && !b.over, b);
 
-// ---- phone: the Display sheet's first row
+// ---- phone: the Display sheet's first row (#247: the styles' own row of glyphs in the flat Phase view, one tap each; the
+// chip, with its menu, in the Landscape, where it says where the styles live)
 for (const [w, lang] of [[360, ''], [390, ''], [360, 'ru'], [390, 'ru']]) {
   await fresh(w, 780, true, lang);
   await ev(`__cmwSetMain('phase'); 1`); await settle(600);
   await ev(`Phone.open('display')`); await settle(900);
-  const c = await ev(`(() => { const e = document.querySelector('.ph-style'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(), s = e.closest('.ph-sheet, .ph-sb').getBoundingClientRect(), t = e.querySelector('.ph-rl'); return { text: t.textContent, l: r.left, rr: r.right, sl: s.left, sr: s.right, h: r.height, cut: t.scrollWidth > t.clientWidth + 1 }; })()`);
-  ok(`phone ${w} ${lang || 'en'}: the Display sheet's first row is the style chip, whole and inside the sheet`, c && /(Style|Стиль): /.test(c.text) && c.l >= c.sl - 1 && c.rr <= c.sr + 1 && c.h >= 44 && !c.cut, c);
+  const c = await ev(`(() => { const e = document.getElementById('dcSeg'); if (!e || !e.getClientRects().length) return null; const v = e.closest('.ph-vopts'), r = e.getBoundingClientRect(), s = e.closest('.ph-sheet, .ph-sb').getBoundingClientRect(), ch = document.querySelector('.ph-style'); return { first: !!v && v.firstElementChild === e && [...v.parentElement.children].filter((x) => x.getClientRects().length)[0] === v, l: r.left, rr: r.right, sl: s.left, sr: s.right, minH: Math.min(...[...e.children].map((b) => b.getBoundingClientRect().height)), chip: !!ch && ch.getClientRects().length > 0 }; })()`);
+  ok(`phone ${w} ${lang || 'en'}: the Display sheet's first row is the style row, whole and inside the sheet, no chip beside it`, c && c.first && c.l >= c.sl - 1 && c.rr <= c.sr + 1 && c.minH >= 44 && !c.chip, c);
+  await ev(`document.querySelector('#dcSeg button[data-v="classic"]').click()`); await settle(500);
+  ok(`phone ${w} ${lang || 'en'}: one tap sets the style`, (await dc()) === 'classic', await dc());
+  await ev(`Phone.close(true)`); await settle(300);
+  await ev(`__cmwSetMain('land'); 1`); await settle(700);
+  await ev(`Phone.open('display')`); await settle(800);
+  const k = await ev(`(() => { const e = document.querySelector('.ph-style'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(), t = e.querySelector('.ph-rl'); return { text: t.textContent, h: r.height, dis: e.getAttribute('aria-disabled'), cut: t.scrollWidth > t.clientWidth + 1 }; })()`);
+  ok(`phone ${w} ${lang || 'en'}: in the Landscape the style chip shows, dimmed, whole`, k && /(Style|Стиль): /.test(k.text) && k.h >= 44 && k.dis === 'true' && !k.cut, k);
   await ev(`document.querySelector('.ph-style').click()`); await settle(500);
   items = await menuItems();
-  ok(`phone ${w} ${lang || 'en'}: a tap opens the six styles`, items.length === 6, items);
-  await ev(`[...document.querySelectorAll('#popHost .pop.menu .mi')][2].click()`); await settle(500);
-  const t2 = await ev(`document.querySelector('.ph-style .ph-rl').textContent`);
-  ok(`phone ${w} ${lang || 'en'}: the pick sets the style and the chip follows`, (await dc()) === 'classic' && t2 !== c.text, [await dc(), t2]);
+  ok(`phone ${w} ${lang || 'en'}: its menu says where the styles live and switches`, items.length === 2 && /Switch to Phase|Перейти/.test(items[1].t), items);
+  await pickItem('/Switch to Phase|Перейти/');
+  ok(`phone ${w} ${lang || 'en'}: Switch to Phase goes to the flat Phase view`, (await ev('__cmwState().view.main')) === 'phase', await ev('__cmwState().view.main'));
+  await ev(`Phone.close(true)`); await settle(300);
 }
 await view(1440, 900, false, false);
 return { pass: fails.length === 0, fails };

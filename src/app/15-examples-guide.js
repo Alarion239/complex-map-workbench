@@ -398,7 +398,12 @@
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
-    for (const sw of document.querySelectorAll('.disp-btn .disp-sw')) drawPatternSwatch(sw, S.pattern);   // ([v17 D5] the Display buttons')
+    // ([v17 D5; #247] the pane heads' pattern buttons: their swatch and name)
+    for (const pb of document.querySelectorAll('.pat-btn')) {
+      const sw = pb.querySelector('.disp-sw'), p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+      if (sw) drawPatternSwatch(sw, S.pattern);
+      pb.setAttribute('aria-label', name); pb.setAttribute('data-tip', name);
+    }
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
@@ -761,7 +766,9 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip]';
+    // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
+    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip]';
     // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)

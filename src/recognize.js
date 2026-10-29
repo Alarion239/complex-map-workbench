@@ -617,4 +617,7 @@ const Recognize = (() => {
   }
   return { chain, ratChain, key, generic, hasParam, DEG };
 })();
-if (typeof module !== 'undefined') module.exports = Recognize;
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Inverse } from './inverse.js';
+export { Recognize, Recognize as 'module.exports' };

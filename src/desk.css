@@ -277,7 +277,31 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
 .pane-head > .options { position: static; display: inline-flex; flex: 0 0 auto; min-height: 0; max-width: none; padding: 0; margin-left: 2px; background: none; border: 0; box-shadow: none; }
-.pane-head > .options > :not(.opts-btn) { display: none; }
+/* (#247) the head's own controls, compact and on one row: the style's glyphs (the chosen one with its word), n, and the
+   checks with an icon as icon toggles (the word their tooltip and accessible name); what does not fit is behind ⋯ */
+.pane-head > .options { align-items: center; gap: 4px; }
+.pane-head > .options > .seg.sty-seg > button { gap: 5px; padding: 0 5px; }
+.pane-head > .options > .seg.sty-seg > button:not(.on) .sty-n { display: none; }
+.pane-head > .options > .seg.sty-seg > button.on { padding: 0 8px 0 6px; }
+.pane-head > .options.sty-compact > .seg.sty-seg > button .sty-n { display: none; }
+.pane-head > .options.sty-compact > .seg.sty-seg > button.on { padding: 0 5px; }
+.seg.sty-seg > button { display: inline-flex; align-items: center; gap: 5px; }
+.sty-seg .sty-g svg { display: block; width: 15px; height: 15px; }
+.pane-head > .options > .scrub { height: 26px; padding: 0 0 0 6px; border: 1px solid var(--line); border-radius: var(--r-2, 6px); }
+.pane-head > .options > .scrub select.sel { height: 24px; border: 0; background-color: transparent; }
+.pane-head > .options label.check.ic-tg { position: relative; display: inline-grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0;
+  border: 1px solid transparent; border-radius: var(--r-2, 6px); color: var(--ink-2); cursor: pointer; }
+.pane-head > .options label.check.ic-tg:hover { background: var(--well); color: var(--ink); }
+.pane-head > .options label.check.ic-tg:has(input:checked) { background: var(--seg-on); border-color: var(--line-strong); color: var(--accent); }
+.pane-head > .options label.check.ic-tg:has(input:focus-visible) { outline: 2px solid var(--focus, var(--accent)); outline-offset: 1px; }
+.pane-head > .options label.check.ic-tg > input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.pane-head > .options label.check.ic-tg > .tg-l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pane-head > .options > .field-col { display: inline-flex; flex-direction: row; gap: 0; }
+.tg-ic { display: none; }
+.pane-head > .options .ic-tg > .tg-ic { display: grid; place-items: center; pointer-events: none; }
+.pane-head > .options .ic-tg > .tg-ic svg { width: 16px; height: 16px; }
+.pane-head > .options .ic-tg > .tg-ic .pcol-ic { width: 14px; height: 14px; }
+.pane-head > .options > .opts-btn:not(.pat-btn) { width: 26px; height: 26px; }
 .pane.under-insp .pane-head > .legend-chip, .pane.under-insp .pane-head > .options { margin-right: 0; right: auto; }
 /* (the temporary Inspector over the plane's right part: the head's chips and button stay left of it) */
 .pane.under-insp > .pane-head { padding-right: calc(var(--insp-w, 288px) + 6px); }
@@ -527,21 +551,19 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 @media (min-width: 1024px) and (max-width: 1439px) { :root[data-lang="ru"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
 /* Italian too (issue #61): the example's name ("Dalla striscia al disco") is clipped in the bar at 1440 px, so it is hidden up to 1599 */
 @media (min-width: 1024px) and (max-width: 1599px) { :root[data-lang="it"]:not(.ph) .top #examplesBtn > .exlabel { display: none; } }
-/* [v17 D4, D5] each pane head's Display ▾ (plan/ux-audit/REPORT.md D4, #82): this view's options and the unit circle,
-   and in the X → Y view the regions' display (page.html #regionsHome), with the pattern's swatch on the button */
-.pane-head .disp-btn { height: 26px; padding: 0 6px 0 9px; gap: 2px; font: 500 12.5px/1 var(--f-ui); white-space: nowrap; }
-.pane-head .disp-btn .disp-caret { display: inline-flex; width: 14px; height: 14px; }
-.pane-head .disp-btn .disp-sw { width: 18px; height: 14px; margin-right: 4px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
-.pane-head .disp-btn.tight .disp-sw { display: none; }
-.pane-head .disp-btn .disp-caret svg { width: 14px; height: 14px; }
-.pane-head .disp-btn .disp-i { display: none; width: 15px; height: 15px; }
-.pane-head .disp-btn .disp-i svg { width: 15px; height: 15px; }
-.pane-head .disp-btn.tight { width: 26px; padding: 0; justify-content: center; }
-.pane-head .disp-btn.tight .disp-l, .pane-head .disp-btn.tight .disp-caret { display: none; }
-.pane-head .disp-btn.tight .disp-i { display: inline-flex; }
-.disp-pop { width: 300px; max-height: calc(100vh - 120px); overflow-y: auto; }
-.disp-pop .opts-h { font: 600 12px/16px var(--f-ui); color: var(--ink-2); margin: 2px 0 4px; }
-.disp-pop .opts-h.opts-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+/* [v17 D4, D5; #247] in the X → Y view each pane head's pattern button: the pattern's swatch, its pop-up the regions'
+   display (page.html #regionsHome) */
+.pane-head .pat-btn { height: 26px; padding: 0 3px 0 5px; gap: 2px; }
+.pane-head .pat-btn .disp-caret { display: inline-flex; width: 12px; height: 12px; }
+.pane-head .pat-btn .disp-caret svg { width: 12px; height: 12px; }
+.pane-head .pat-btn .disp-sw { width: 18px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
+.pane-head .pat-btn.tight { padding: 0 4px; }
+.pane-head .pat-btn.tight .disp-caret { display: none; }
+.pane-head .pat-btn[aria-expanded="true"], .pane-head > .options > .opts-btn[aria-expanded="true"] { background: var(--well); color: var(--ink); }
+.disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
+.disp-pop.pat-pop { width: 300px; }
+/* (the ⋯ pop-up shows the words: each style's under its glyph, each toggle's beside its check) */
+.disp-pop .ic-tg > .tg-ic { display: none; }
 .disp-pop > .psec-body { padding: 0; }
 /* [v17 D4] the Inspector edits the selected shape (plan/ux-audit/REPORT.md D4): its path and ‹ Back to f₂, the shape's
    head, its fields one per line at the panel's width, Used by, Duplicate and Delete */

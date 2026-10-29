@@ -42,7 +42,8 @@ ok('UX77: Details adds to the lead (it no longer repeats it)', !w.body.includes(
 ok('#250: no Details control: its words, its aria-label and its rec.why are gone', !/\$t\('Details'\)/.test(SRC) && !/rec\.why/.test(SRC));
 ok('#250: Move on by itself is a small switch in a laptop\'s row, and the phone\'s sheet keeps it', /ts-autob/.test(SRC) && /ts-auto/.test(SRC));
 const key = step('views', 'key');
-ok('UX20: the Phase key step lights the Display options button when the check is behind it', key.anchor[1] === 'rightOpts' && /Display options/.test(key.try.text) && key.try.touch === 'Turn on Phase key.', key.try);
+// (#247: the check is a toggle in Y's head, so the task names the check alone; the head's ⋯ is lit when it is behind it)
+ok('UX20: the Phase key step lights the head\'s ⋯ button when the check is behind it', key.anchor[1] === 'rightOpts' && key.try.text === 'Turn on Phase key.', key.try);
 ok('UX20: the step\'s task text keeps the strip\'s length', plain(key.try.text).length <= 60, key.try.text);
 
 // ---- Russian (UX78, UX93 and every string of this piece)
