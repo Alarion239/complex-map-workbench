@@ -1,5 +1,9 @@
 # Sound for Complex Map Workbench: investigation, design, prototype (revision 3)
 
+> **Superseded in part (2026-10-28, v16.5).** Hear the function is now the marimba notes and the Glide, decided by
+> the user ("i want to hear the function, not actively just make music fit the math"): see README.md's decision of
+> 2026-10-28, perfwin/sound/polish/FINAL.md and perfwin/sound/impl/SOUND-PLAN.md. The tiers, the catalog, the engine and the click-free synthesis below stand; §2.5's mappings (the tone, the harp, the Height voice) do not.
+
 The user asked (2026-10-22): "I am curious whether it is possible some sound effects? Togglable. Of course. Can you
 investigate this?"
 
@@ -270,6 +274,12 @@ the new cue marks. Undo and redo stay silent.
 
 ### 2.5 Sonification: hearing the function
 
+> **v16.5:** what follows is the 2026-10-23 design. Today a note sounds at each colour line arg F crosses (pitch class
+> 12k/n semitones above D), its loudness is |F| by a fixed law, the held note repeats at band edges of |F|, a branch cut
+> cracks, zeros and poles ping and thump by order, and Glide is one continuous voice whose pitch class is arg F. The
+> probe follows the hand through a rope (3 px, 5 px on touch); a click, a long press or Q plays a still point; the
+> Height voice and its contour ticks are retired. The guide's Sound section is the legend.
+
 **The merged deformation plane (X → Y with the Deformation open; 2026-10-23).** The point p under the pointer is read as
 a point of X, where the paths t → H_t(z) start. The tone is H_t(p), the head of the path from p (the same tone as the
 Phase view at p). While it sounds, that path and the probe's cross at its head are drawn. A zero ping means H_t(p) = 0:
@@ -333,6 +343,11 @@ menu. It plays *F* along the curve, with the probe dot on the curve in X and on 
 announces the winding number.
 
 ### 2.6 Accessibility
+
+> **v16.5:** added since: Q plays the keyboard probe's point (and a key step that crosses no line plays it too); a
+> Z jump plays the point it lands on; the Glide rings down in 0.2 s after a key step, under the 450 ms position
+> speech; a branch cut is said ("Branch cut: F jumps by a factor …", at most once per 1.5 s, not during Listen along);
+> the mode change is said; Listen along says its speed when the curve is too long or short for 250 px/s.
 
 - **Never required.** Every cue has a visual counterpart that exists already. The error cue accompanies the toast's
   announcement and never replaces it.

@@ -2,7 +2,7 @@
   const EX = [
     { name: $t('Empty canvas'), tex: '', blurb: $t('No shapes and no functions: start from scratch.'), view: { cx: 0, cy: 0, s: 90 }, shapes: [], steps: [] },
     {
-      name: $t('Strip to disk'), try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
+      name: $t('Strip to disk'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }, { on: 'shape-added', test: (e) => e.plane === 'z' }]], try: $t('Try: drag a corner of the strip, or draw a disc in X, and watch Y.'), tour: 'basics', tex: 'w=\\frac{e^{z}-1}{e^{z}+1}', blurb: $t('exp opens the strip |Im z| < π/2 onto a half-plane; a Möbius map folds it into the disk.'), view: { cx: 0, cy: 0, s: 52 },
       shapes: [
         { kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' },
         { kind: 'line', a: [0, 0.8], b: [1, 0.8] },
@@ -11,12 +11,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: $t('Quarter plane squared'), try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: $t('Joukowski airfoil'), try: $t('Try: drag the circle through 1, then press Deformation.'), tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -25,17 +25,17 @@
       steps: [{ type: 'joukowski', params: {} }],
     },
     {
-      name: $t('Logarithm of an annulus'), try: $t('Try: drag the red cut and watch the seam move.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('The annulus becomes a rectangle. Drag the red cut to move the seam.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Logarithm of an annulus'), tryDone: [[{ on: 'cut-moved' }]], try: $t('Try: drag the red cut and watch the seam move.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('The annulus becomes a rectangle. Drag the red cut to move the seam.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }, { kind: 'circle', c: [0, 0], r: 1 }, { kind: 'segment', a: [0.5, 0.5], b: [1.5, 1.5] }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Disk automorphism'), try: $t('Try: press Deformation: the disk turns into itself.'), tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
       steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
     },
     {
-      name: $t('Sine of a half-strip'), try: $t('Try: switch to Phase and look for the zeros of sin z.'), tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
+      name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
       shapes: [{ kind: 'formula', expr: '|\\Re z|<\\frac{\\pi}{2}, \\Im z>0' }, { kind: 'cgrid', a: [-1.5, 0], b: [1.5, 2.4], n: 6 }],
       steps: [{ type: 'sin', params: {} }],
     },
@@ -45,7 +45,7 @@
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Cayley, then cube'), try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
@@ -55,37 +55,42 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), try: $t('Try: drag the target 0 in Y and see its preimages in X.'), tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
       shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
       targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: $t('A residue by integration'), try: $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
       steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
     },
     {
-      name: $t('The derivative in the chain'), try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
+      name: $t('The derivative in the chain'), tryDone: [[{ on: 'step-focused' }]], try: $t('Try: move the d/dz card along the chain and watch the picture change.'), tour: 'branches', tex: 'w=\\frac{d}{dz}\\left(z^{3}-3z\\right)', blurb: $t('A d/dz step differentiates the chain so far: the critical points ±1 of z³ − 3z are the zeros of its derivative.'), view: { cx: 0, cy: 0, s: 80 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1.6 }, { kind: 'pgrid', c: [0, 0], r: 1.6, nc: 4, nr: 16 }],
       targets: [{ kind: 'point', p: [0, 0] }],
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), try: $t('Try: turn All sheets on and off in the Landscape.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
-    // a melody on a curve (notes/sea-song): Edvard Grieg's theme (1875, public domain) in our own adaptation for the
-    // phase harp, one curve spiralling into 0 under SEASONG.tex (src/seasong.js, made by tools/melody_curve.js). Listen along
-    // plays it with its own tempo and dynamics (the shape's listen: sndListenOf); fit: the box kept in view
+    // a melody played by a function (notes/sea-song/FUNCTION.md): F = H(u(z)), src/seasong.js made by
+    // tools/mk_function.js. H is a theme wheel: 25 Apollonius pairs of branch points, one just inside |u| = 1 and one
+    // just outside, one pair a melodic step; on |u| = 1, |H| is constant and arg H a staircase on Grieg's theme (the
+    // downbeat is u^s's branch cut, 82 ms ahead), so the sound's fixed map plays it: each colour line crossed is a
+    // note, the cut is the crack. u = ((z - a)/(1 - az))^2, a disk automorphism squared: twice round a lap, faster
+    // near z = a. No score and no special rule: the curve is two laps of the unit circle (song: the example's curve,
+    // sndIsSong), played by Listen along at 250 px/s (19.1 s at view.s 380: four statements, 5.35 then 4.20 s a lap).
+    // sectors: the Phase key's n (12, a line a semitone); fit: the box kept in view
     {
-      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875). Choose Listen along in the spiral\'s menu (right-click, or hold on touch): the theme speeds up and grows louder as the curve winds in, and the branch cut is the drum.'),
-      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, listen: SEASONG.listen, nameKey: 'spiral' }], steps: SEASONG.steps, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
+      name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle\'s menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, and the branch cut just before every downbeat is the drum.'),
+      view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, song: true, nameKey: 'circle' }], steps: SEASONG.steps, sectors: SEASONG.sectors, song: true, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
     },
     // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
-      name: $t('Zeros of the zeta function'), try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
+      name: $t('Zeros of the zeta function'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'land' }]], try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
       shapes: [
         { kind: 'formula', expr: '0<\\Re z<1' },
         { kind: 'line', a: [0.5, 0], b: [0.5, 1] },
@@ -101,7 +106,7 @@
     // [issue #5] series: the partial sums of e^z (N on a slider), a natural boundary, Li₂ from the Series step, ζ as a
     // Dirichlet series
     {
-      name: $t('Partial sums of the exponential'), try: $t('Try: drag N under Numbers: the zeros of the partial sum move out as N grows.'), tex: 'w=\\sum_{n=0}^{N}\\frac{z^n}{n!}', blurb: $t('The phase portrait of the partial sum 1 + z + z²/2! + … + zᴺ/N! of the series of eᶻ. Its N zeros lie near a curve that grows with N (Szegő’s curve), and inside it the colours are those of eᶻ.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Partial sums of the exponential'), tryDone: [[{ on: 'number-changed' }]], try: $t('Try: drag N under Numbers: the zeros of the partial sum move out as N grows.'), tex: 'w=\\sum_{n=0}^{N}\\frac{z^n}{n!}', blurb: $t('The phase portrait of the partial sum 1 + z + z²/2! + … + zᴺ/N! of the series of eᶻ. Its N zeros lie near a curve that grows with N (Szegő’s curve), and inside it the colours are those of eᶻ.'), view: { cx: 0, cy: 0, s: 60 },
       params: [{ name: 'N', value: 8, min: 1, max: 30, step: 1 }],
       shapes: [{ kind: 'rect', a: [-4, -4], b: [4, 4] }],
       steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{N} \\frac{z^n}{n!}', cut: 180 } }], rightMode: 'color',
@@ -112,7 +117,7 @@
       steps: [{ type: 'custom', params: { expr: '\\sum_{n=0}^{\\infty} z^{2^n}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('The dilogarithm from its series'), try: $t('Try: drag the disc past the dashed circle: outside it the series has no value.'), tex: 'w=\\sum_{n=1}^{\\infty}\\frac{z^n}{n^2}', blurb: $t('Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.'), view: { cx: 0, cy: 0, s: 140 },
+      name: $t('The dilogarithm from its series'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the disc past the dashed circle: outside it the series has no value.'), tex: 'w=\\sum_{n=1}^{\\infty}\\frac{z^n}{n^2}', blurb: $t('Li₂(z) = Σ zⁿ/n², a Series step with aₙ = 1/n². The dashed circle is its circle of convergence, |z| = 1, estimated from the coefficients; the image of the disc is drawn only where the series converges.'), view: { cx: 0, cy: 0, s: 140 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 0.9 }],
       steps: [{ type: 'series', params: { kind: 'power', an: '\\frac{1}{n^2}', c: '0' } }],
     },
@@ -120,6 +125,40 @@
       name: $t('Zeta as a Dirichlet series'), try: $t('Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.'), tex: 'w=\\sum_{n=1}^{\\infty} n^{-z}', blurb: $t('Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.'), view: { cx: 3, cy: 0, s: 60 },
       shapes: [{ kind: 'rect', a: [1.5, -6], b: [5, 6] }],
       steps: [{ type: 'series', params: { kind: 'dirichlet', an: '1', c: '0' } }], rightMode: 'color',
+    },
+    // [issue #10] a complex number as a point: a Möbius map of the disc that moves a to 0
+    {
+      name: $t('A disc map moved by a point'), try: $t('Try: drag the point a, or press Play beside a under Numbers: it circles the origin.'), tex: 'w=\\frac{z-a}{1-\\bar{a}z}', blurb: $t('The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.'), view: { cx: 0, cy: 0, s: 150 },
+      params: [{ name: 'a', value: 0.5, im: 0.3, min: -1, max: 1, step: 0.01 }],
+      shapes: [{ kind: 'disc', c: [0, 0], r: 0.85 }, { kind: 'point', p: [0.5, 0.3], bind: { p: 'a' } }],
+      steps: [{ type: 'custom', params: { expr: '\\frac{z-a}{1-\\overline{a}\\,z}', cut: 180 } }], rightMode: 'color',
+    },
+    // [issue #6] iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
+    // and Newton's method for z³ − 1 as a Recurrence step
+    {
+      name: $t('The Mandelbrot set'), try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2+z, u, 0, 64)|\\le 2' }],
+      steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 } }], rightMode: 'color',
+    },
+    {
+      name: $t('A Julia set that its map keeps'), try: $t('Try: on the card ⋯ → Repeat, then raise N: the image stays the same set.'), tex: 'w=z^2-0.75', blurb: $t('The filled Julia set K of z² − 0.75: the points whose orbits under z ↦ z² − 0.75 stay bounded. The map takes K onto itself, two to one, so the image in Y is K again.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.75, u, z, 64)|\\le 2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.75' } }],
+    },
+    {
+      name: $t('Douady’s rabbit'), try: $t('Try: on the card ⋯ → Repeat, N = 3: each ear goes round the three and comes back to itself.'), tex: 'w=z^2+c,\\ c\\approx-0.123+0.745i', blurb: $t('The filled Julia set of z² + c for c ≈ −0.123 + 0.745i, where the critical orbit has period 3: three ears meet at every pinch point, and the map turns them round, one to the next. The map keeps the set.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'formula', expr: '|\\operatorname{iter}(u^2-0.1226+0.7449i, u, z, 96)|\\le 2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '-0.1226+0.7449i' } }],
+    },
+    {
+      name: $t('Newton’s method for z³ − 1'), try: $t('Try: lower N in the bracket under the card to 1, 2, 3 and watch the basins form.'), tex: 'w=N_f^{\\circ 20}(z),\\ N_f(z)=z-\\frac{z^3-1}{3z^2}', blurb: $t('Newton’s map for z³ − 1, repeated twenty times (Repeat × N): Newton’s method from each starting point z. Almost every z ends at one of the three cube roots of 1, and the phase portrait colours the plane by where it ends: three basins, whose common boundary is a fractal (a Julia set).'), view: { cx: 0, cy: 0, s: 140 },
+      shapes: [{ kind: 'rect', a: [-2, -2], b: [2, 2] }],
+      steps: [{ type: 'custom', params: { expr: 'z-\\frac{z^3-1}{3z^2}', cut: 180 }, repeat: { n: 20, len: 1 } }], rightMode: 'color',
+    },
+    {
+      name: $t('The Julia set of z² + i'), try: $t('Try: on the last card ⋯ → Repeat, f₁–f₂, then N = 3: the image is the curve |u₅| = 2, three levels out.'), tex: 'w=z^2+i', blurb: $t('The filled Julia set of z² + i is a dendrite: a tree with no interior, so it cannot be drawn as a region. It is drawn by the escape-time curve |u₈| = 2 (u₀ = z, uₖ₊₁ = uₖ² + i), which encloses it. The map takes this curve to the next level out, |u₇| = 2.'), view: { cx: 0, cy: 0, s: 150 },
+      shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
+      steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
     },
   ];
   // an example's box that must be in view (ex.fit: a phone's narrow plane, or X → Y's half): its view's scale at most,
@@ -206,6 +245,50 @@
     b.setAttribute('data-tip', $t('Phase colours: {name}', { name })); b.setAttribute('aria-label', $t('Phase colours: {name}', { name })); b.removeAttribute('title');
     const pl = b.querySelector('.plabel'); if (pl) pl.textContent = name;
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
+  }
+  // ---------------- the Phase style button (issue #81) ----------------
+  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
+  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  const STYLE_SVG = {
+    enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
+    phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
+    classic: '<svg viewBox="0 0 16 16" aria-hidden="true"><defs><radialGradient id="stySg"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient></defs><circle cx="8" cy="8" r="6.5" fill="url(#stySg)" stroke="currentColor" stroke-width="1" stroke-opacity=".5"/></svg>',
+    modulus: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="6.3"/><circle cx="8" cy="8" r="3.8"/><circle cx="8" cy="8" r="1.4"/></svg>',
+    grid: '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2 4.5c4 1.5 8-1.5 12 0M2 8c4 1.5 8-1.5 12 0M2 11.5c4 1.5 8-1.5 12 0M4.5 2c-1.5 4 1.5 8 0 12M8 2c-1.5 4 1.5 8 0 12M11.5 2c-1.5 4 1.5 8 0 12"/></svg>',
+    cauchy: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="#53B8F7" fill-opacity=".35" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg>',
+  };
+  const styleName = () => (DC_STYLES.find((p) => p[0] === S.dc) || DC_STYLES[0])[1];
+  // the style picked, from the header button, the phone's chip or the Display options (their control follows)
+  function pickPhaseStyle(v) {
+    setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
+    const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
+    syncStyleBtn();
+  }
+  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
+  function styleItems(done) {
+    if (lLand()) {
+      return Object.assign([{ label: $t('Styles belong to the flat Phase view'), disabled: true }, 'sep', { label: $t('Switch to Phase'), run: () => { setMain('phase'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+    }
+    const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
+    return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
+  }
+  let styleKey = '';
+  function syncStyleBtn() {
+    const b = $('styleBtn');
+    if (!b) return;
+    const st = styleState(), key = `${st.show}|${st.land}|${st.id}`;
+    if (key === styleKey) return;
+    styleKey = key;
+    b.hidden = !st.show;
+    if (!st.show) return;
+    const text = st.land ? $t('Styles belong to the flat Phase view') : $t('Phase style: {name}', { name: st.name });
+    b.setAttribute('aria-disabled', String(st.land));
+    b.setAttribute('data-tip', text); b.setAttribute('aria-label', text); b.removeAttribute('title');
+    const ic = b.querySelector('.sty-ic'); if (ic) ic.innerHTML = STYLE_SVG[st.id] || '';
+    const hw = b.querySelector('.hw'); if (hw) hw.textContent = st.name;
+    if (typeof hdrFitSoon === 'function') hdrFitSoon();
   }
   function viewBox(v) {
     const w = paneL ? paneL.w : 500, hh = paneL ? paneL.h : 500;
@@ -315,7 +398,12 @@
       pat.append(b);
       drawPatternSwatch(cv, v);
     }
-    for (const sw of document.querySelectorAll('.disp-btn .disp-sw')) drawPatternSwatch(sw, S.pattern);   // ([v17 D5] the Display buttons')
+    // ([v17 D5; #247] the pane heads' pattern buttons: their swatch and name)
+    for (const pb of document.querySelectorAll('.pat-btn')) {
+      const sw = pb.querySelector('.disp-sw'), p = PATTERNS.find((x) => x[0] === S.pattern) || PATTERNS[0], name = $t('Pattern: {name}', { name: p[1] });
+      if (sw) drawPatternSwatch(sw, S.pattern);
+      pb.setAttribute('aria-label', name); pb.setAttribute('data-tip', name);
+    }
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
@@ -466,7 +554,7 @@
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
   // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere). Not at start-up:
   // compiles there compete with the first scene's own (example settle times)
-  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(['sphere', 'regionSC', 'lineSC', 'disc', 'mark']); } catch (e) { /* the frame links them */ } }
+  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS); } catch (e) { /* the frame links them */ } }
   // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
   function setView(side, surf) {
     if (side === 'L' && lLand()) return;
@@ -678,7 +766,9 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip]';
+    // (#247: also the pane heads' icon toggles, style glyphs, pattern and ⋯ buttons, named only by their tips)
+    const LP_SEL = '.tool[data-tip], .pat[data-tip], #viewSwitch [data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip]';
     // (v16.3.1: lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
@@ -979,9 +1069,10 @@
       EX, TeX, applyLayout, armOutside, blankState, buildPipeline, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
       focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
-      setFocus, setSel, setState, snd, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
+      setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
+      tourOn: (ev, f) => tourApi.on(ev, f),
       get S() { return S; },
       get TH() { return TH; },
       get clipWin() { return clipWin; }, set clipWin(v) { clipWin = v; },

@@ -72,6 +72,8 @@ const Expr = (() => {
   // cannot read the whole run (xi stays x i, chi stays ch i). Without the hook (node tests) nothing changes.
   let NAMES = null, NAMED = null;
   const setNames = (h) => { NAMES = h || null; };
+  // a shared number's value by its name (Repeat × N's N bound to a number), or undefined
+  const nameValue = (name) => (NAMES ? NAMES.get(name) : undefined);
   const GREEK = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', zeta: 'ζ', eta: 'η', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Lambda: 'Λ', Xi: 'Ξ', Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
   const GREEK_TEX = Object.assign({ varepsilon: 'ε', varphi: 'φ', varrho: 'ρ', varsigma: 'σ' }, GREEK);
   const GREEK_WORD = Object.assign({}, GREEK);
@@ -95,7 +97,9 @@ const Expr = (() => {
     const v = NAMES.get(name);
     if (v === undefined && !NAMED.unknown.includes(name)) NAMED.unknown.push(name);
     NAMED.spans.push({ pos, len, name });
-    return { t: 'num', v: v === undefined ? 0 : v, s: '', pos, param: name };
+    // the hook gives a real number or {re, im}: a complex shared number reads as that complex constant
+    const re = v === undefined ? 0 : typeof v === 'object' ? v.re : v;
+    return { t: 'num', v: re, vi: v && typeof v === 'object' ? v.im || 0 : 0, s: '', pos, param: name };
   }
   // the base tokenizer reads the whole run of letters (functions and z w x y r i e)
   function baseRun(run, ru) {
@@ -151,18 +155,20 @@ const Expr = (() => {
   // the text finds the indices first, and the tokenizer reads those letters as the index everywhere (Expr.parse then
   // refuses one used outside its sum), so a formula without a sum reads exactly as before.
   let BOUND = new Set();
+  // [issue #6] letters bound by the caller (parse(src, {bound: ['u']}): the rule of a recurrence in its u)
+  let EXTRA_BOUND = [];
   const SUM_CMD = { sum: 'sum', prod: 'prod', 'Σ': 'sum', '∑': 'sum', '∏': 'prod' };
   function scanIdx(src) {
     const out = new Set();
     for (const m of src.matchAll(/(?:\\sum|\\prod|[Σ∑∏])\s*(?:\\(?:no)?limits\s*)?(?:\^\s*(?:\{[^{}]*\}|\\[A-Za-z]+|\S)\s*)?_\s*\{?\s*([A-Za-z])(?![A-Za-z])/g)) if (!LETTERS[m[1]]) out.add(m[1]);
-    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod)\s*\(/g)) {
+    for (const m of src.matchAll(/(^|[^A-Za-z\\])(?:sum|prod|iter)\s*\(|\\(?:operatorname|mathrm)\s*\{\s*iter\s*\}\s*(?:\\left\s*)?\(/g)) {
       let d = 0, j = (m.index || 0) + m[0].length;
       for (; j < src.length; j++) {
         const c = src[j];
         if ('([{'.includes(c)) d++;
         else if (')]}'.includes(c)) { if (!d) break; d--; } else if (c === ',' && !d) break;
       }
-      const mm = /^,\s*([A-Za-z])\s*,/.exec(src.slice(j));
+      const mm = /^,(?:\s|\\[ ,;:!])*([A-Za-z])(?:\s|\\[ ,;:!])*,/.exec(src.slice(j));
       if (mm && !LETTERS[mm[1]]) out.add(mm[1]);
     }
     return out;
@@ -200,7 +206,7 @@ const Expr = (() => {
   // rel: region formulas (parse with allowRel), where '=' (also '==' and the full-width '＝') is an equation; elsewhere
   // '=' stays an unexpected character
   function tokenize(src, rel = false, ru = true, nested = false) {
-    if (!nested) BOUND = scanIdx(src);
+    if (!nested) { BOUND = scanIdx(src); for (const v of EXTRA_BOUND) BOUND.add(v); }
     const toks = [];
     let i = 0;
     const n = src.length;
@@ -249,6 +255,9 @@ const Expr = (() => {
         // ψ as \operatorname{\psi}(z) (a bare \psi stays a name)
         const op = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*\\psi\s*\}/.exec(src.slice(i + m[0].length));
         if (op && callsAt(src, i + m[0].length + op[0].length)) { toks.push({ t: 'func', v: 'digamma', pos: i }); i += m[0].length + op[0].length; continue; }
+        // ([issue #6] \operatorname{iter}(…), as toTex writes a recurrence inside a formula)
+        const opi = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*iter\s*\}/.exec(src.slice(i + m[0].length));
+        if (opi && callsAt(src, i + m[0].length + opi[0].length)) { toks.push({ t: 'iterfn', pos: i }); i += m[0].length + opi[0].length; continue; }
         const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
         if (!spec && NAMES && GREEK_TEX[name]) {
           const sb = subAt(src, i + m[0].length);
@@ -302,8 +311,9 @@ const Expr = (() => {
         const rest = src.slice(i);
         // [issue #5] sum( prod( binom( (only so, a call), inf as a sum's limit, and a sum's index (not where a name of
         // the plain language starts: n in "not")
-        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom)(?=\s*\()/.exec(rest);
-        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom' }[fw[1]], pos: i }); i += fw[1].length; continue; }
+        // ([issue #6] and iter( : a recurrence, iter(g, u, u₀, N))
+        const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom|iter)(?=\s*\()/.exec(rest);
+        if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom', iter: 'iterfn' }[fw[1]], pos: i }); i += fw[1].length; continue; }
         const iw = BOUND.size && !/[A-Za-z]/.test(src[i - 1] || '') && /^inf(?:inity)?(?![A-Za-z])/.exec(rest);
         if (iw) { toks.push(INF_T(i)); i += iw[0].length; continue; }
         if (BOUND.has(ch) && !PLAIN_NAMES.some((nm) => rest.startsWith(nm))) { toks.push({ t: 'idx', v: ch, pos: i }); i++; continue; }
@@ -376,11 +386,13 @@ const Expr = (() => {
 
   // the names in a text, as written: [{pos, len, name}] (a list or a formula that does not parse yet: the names before
   // the first error; ';' lists read like ',' lists)
-  function nameSpans(src) {
+  // (opts.bound: the letters the field binds, a series' n, a recurrence's u: never names, as parse(src, {bound}))
+  function nameSpans(src, opts) {
     if (!NAMES) return [];
     const saved = NAMED;
     NAMED = { unknown: [], spans: [] };
-    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ }
+    EXTRA_BOUND = (opts && opts.bound) || [];
+    try { tokenize(latinize(String(src)).replace(/;/g, ','), true, true); } catch (e) { /* the names before the error */ } finally { EXTRA_BOUND = []; }
     const out = NAMED.spans;
     NAMED = saved;
     return out;
@@ -400,10 +412,12 @@ const Expr = (() => {
     return e.message.includes(hint) ? e : new ParseError(e.message.replace(/[.\s]+$/, '') + '. ' + hint, e.pos);
   }
   function parseOnce(src, opts, ru = true) {
-    const { allowRel = false } = opts || {};
+    const { allowRel = false, bound = [] } = opts || {};
     if (!src || !src.trim()) throw new ParseError($t('Empty expression'), 0);
+    EXTRA_BOUND = bound;
     if (NAMES) { src = latinize(String(src)); NAMED = { unknown: [], spans: [] }; }
-    const toks = tokenize(src, allowRel, ru);
+    let toks;
+    try { toks = tokenize(src, allowRel, ru); } finally { EXTRA_BOUND = []; }
     let p = 0, absDepth = 0, digitComma = false, limDepth = 0;
     const peek = () => toks[p];
     const next = () => toks[p++];
@@ -413,7 +427,7 @@ const Expr = (() => {
       if (!isOp(tk, v)) throw new ParseError($t("Expected '{x}'", { x: v }), tk.pos);
     };
     const startsPrimary = (tk) => {
-      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom'].includes(tk.t)) return true;
+      if (['num', 'var', 'const', 'func', 'frac', 'sqrt', 'conj', 'idx', 'sum', 'sumfn', 'prodfn', 'binom', 'iterfn'].includes(tk.t)) return true;
       if (tk.t === 'op' && (tk.v === '(' || tk.v === '{' || tk.v === '[')) return true;
       if (tk.t === 'op' && tk.v === '|' && absDepth === 0) return true;
       return false;
@@ -529,7 +543,7 @@ const Expr = (() => {
     function parsePrimary() {
       const tk = next();
       switch (tk.t) {
-        case 'num': return tk.param ? { t: 'num', v: C(tk.v, 0), param: tk.param } : { t: 'num', v: C(tk.v, 0), lit: tk.s };
+        case 'num': return tk.param ? { t: 'num', v: C(tk.v, tk.vi || 0), param: tk.param } : { t: 'num', v: C(tk.v, 0), lit: tk.s };
         case 'const':
           if (tk.v === 'inf') {
             if (!limDepth) throw new ParseError($t('∞ can only be a limit of a sum'), tk.pos);
@@ -561,6 +575,21 @@ const Expr = (() => {
           limDepth--;
           expect(')');
           return { t: 'sum', op: tk.t === 'sumfn' ? 'sum' : 'prod', v: ix.v, lo, hi, a };
+        }
+        // [issue #6] iter(g, u, u₀, N): u₀, then u ↦ g(u, z) N times (Expr.iterate): the Mandelbrot set is
+        // |iter(u^2+z, u, 0, 64)| ≤ 2, a filled Julia set |iter(u^2+c, u, z, 64)| ≤ 2
+        case 'iterfn': {
+          expect('(');
+          const g = parseAdd();
+          expect(',');
+          const ix = next();
+          if (ix.t !== 'idx') throw new ParseError($t('Expected the letter of the recurrence, such as u'), ix.pos);
+          expect(',');
+          const u0 = parseAdd();
+          expect(',');
+          const N = parseAdd();
+          expect(')');
+          return iterate(u0, g, N, ix.v);
         }
         case 'binom': {
           if (isOp(peek(), '(')) { next(); const a = parseAdd(); expect(','); const b = parseAdd(); expect(')'); return { t: 'binom', a, b }; }
@@ -622,7 +651,7 @@ const Expr = (() => {
       }
     }
     const ast = parseOr();
-    if (BOUND.size) checkIdx(ast, []);
+    if (BOUND.size) checkIdx(ast, bound);
     if (peek().t !== 'eof') throw new ParseError(commaHint(src, peek().pos) || $t("Unexpected '{x}'", { x: peek().v ?? peek().src ?? peek().t }), peek().pos);
     // Russian only (verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
     // and 5<|z|) is kept, but a caller that passes opts.notes gets a warning to show under its field
@@ -641,7 +670,7 @@ const Expr = (() => {
   // [issue #5] every index inside a sum that binds it; the limits of a sum may use the indices of the sums around it
   function checkIdx(n, scope) {
     if (n.t === 'idx' && !scope.includes(n.v)) throw new ParseError($t('{x} is the index of a sum: use it inside the sum', { x: n.v }), 0);
-    if (n.t === 'sum') { checkIdx(n.lo, scope); checkIdx(n.hi, scope); checkIdx(n.a, scope.concat(n.v)); return; }
+    if (n.t === 'sum' || n.t === 'iter') { checkIdx(n.lo, scope); checkIdx(n.hi, scope); checkIdx(n.a, scope.concat(n.v)); return; }
     for (const k of ['a', 'b', 'n']) if (n[k]) checkIdx(n[k], scope);
   }
   const INV_FN = { sin: 'asin', cos: 'acos', tan: 'atan', sinh: 'asinh', cosh: 'acosh', tanh: 'atanh' };
@@ -660,7 +689,7 @@ const Expr = (() => {
       case 'num': return false;
       case 'var': return true;
       case 'idx': return !bound || !bound.includes(n.v);
-      case 'sum': return depends(n.lo, bound) || depends(n.hi, bound) || depends(n.a, (bound || []).concat(n.v));
+      case 'sum': case 'iter': return depends(n.lo, bound) || depends(n.hi, bound) || depends(n.a, (bound || []).concat(n.v));
       default: return ['a', 'b', 'n'].some((k) => n[k] && depends(n[k], bound));
     }
   }
@@ -668,7 +697,7 @@ const Expr = (() => {
   const hasT = (n, t) => n.t === t || kids(n).some((x) => hasT(x, t));
   function usesVars(n, set = new Set()) {
     if (n.t === 'var') set.add(n.n);
-    for (const k of ['a', 'b', 'n']) if (n[k]) usesVars(n[k], set);
+    for (const x of kids(n)) usesVars(x, set);
     return set;
   }
   function hasBool(n) {
@@ -685,6 +714,9 @@ const Expr = (() => {
     arg: (a) => C(Math.atan2(a.im, a.re), 0),
     gamma: CX.gamma, zeta: CX.zeta, digamma: CX.digamma, zetad: CX.zetaDeriv, fact: CX.fact,
   };
+  // [issue #6] a recurrence: at most ITER_CAP steps (the GPU's loop), ∞ past ITER_ESC. The GPU's limit is 1e18 (float32
+  // squares |u| in cx_abs), so between 1e18 and 1e150 the CPU keeps a value the GPU reads as ∞: both far off any picture
+  const ITER_CAP = 256, ITER_ESC = 1e150;
   // [issue #5] the plans of the sums compiled so far (seriesInfo reads them)
   const PLANS = new WeakMap();
   function compile(ast, { theta = Math.PI } = {}) {
@@ -727,8 +759,10 @@ const Expr = (() => {
           }
           if (!depends(n.a)) {
             const base = A(C(0, 0));
-            // [issue #5] an exponent made of a sum's index (2^n, (−1)^n): exact at the integers
-            if (!usesZ(n.b)) return (z) => { const b = B(z); return b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1100 ? CX.ipow(base, b.re) : CX.exp(CX.mul(b, CX.log(base))); };
+            // [issue #5] an exponent made of a sum's index (2^n, (−1)^n): exact at the integers; a negative one as (1/base)^|n|,
+            // which underflows to 0 where base^|n| overflows (2^{−1030}, not 1/∞ = NaN), as the GPU's cx_ipow32
+            const ib = CX.inv(base);
+            if (!usesZ(n.b)) return (z) => { const b = B(z); return b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1100 ? (b.re < 0 ? CX.ipow(ib, -b.re) : CX.ipow(base, b.re)) : CX.exp(CX.mul(b, CX.log(base))); };
             if (base.re === Math.E && base.im === 0) return (z) => CX.exp(B(z));
             const L = CX.log(base); // principal log of a constant base: 2^{z} = e^{z \ln 2} for every cut
             return (z) => CX.exp(CX.mul(B(z), L));
@@ -751,6 +785,7 @@ const Expr = (() => {
         }
         case 'binom': { const A = build(n.a), B = build(n.b); return (z) => CX.binom(A(z), B(z)); }
         case 'sum': return buildSum(n);
+        case 'iter': return buildIter(n);
         case 'call': {
           const A = build(n.a);
           if (n.f === 'log') return (z) => CX.log(A(z), theta);
@@ -767,6 +802,27 @@ const Expr = (() => {
       const cell = { v: C(0, 0) };
       scope.push({ v, cell });
       try { const f = build(node); return (k) => { cell.v = C(k, 0); return f(C(0, 0)); }; } finally { scope.pop(); }
+    }
+    // [issue #6] u_0 = lo, u_{k+1} = a(u_k, z), the value u_hi; ∞ once |u_k| passes ITER_ESC (an orbit that escapes),
+    // NaN unless N is a whole number from 0 to ITER_CAP
+    function buildIter(n) {
+      const U0 = build(n.lo), NN = build(n.hi);
+      const cell = { v: C(0, 0) };
+      scope.push({ v: n.v, cell });
+      let G;
+      try { G = build(n.a); } finally { scope.pop(); }
+      return (z) => {
+        const nv = NN(z), N = nv.re;
+        if (!(nv.im === 0 && Number.isInteger(N) && N >= 0 && N <= ITER_CAP)) return C(NaN, NaN);
+        let u = U0(z);
+        for (let k = 0; k < N; k++) {
+          const m = CX.abs(u);
+          if (!(m <= ITER_ESC)) return Number.isNaN(m) ? C(NaN, NaN) : CX.INF;
+          cell.v = u;
+          u = G(z);
+        }
+        return u;
+      };
     }
     function buildSum(n) {
       const LO = build(n.lo), HI = build(n.hi);
@@ -896,10 +952,13 @@ const Expr = (() => {
     else if (zn.t === 'pow' && !usesZ(zn.b) && (c = centreOf(zn.a))) E = f.e > 0 ? zn.b : { t: 'neg', a: zn.b };
     if (!c) return null;
     const eOf = ofIdx(E, n.v);
+    // (the first n whose coefficient is undefined: the Series step's message)
+    let bad = null;
     const side = (k0, dk) => {
       const a = [], e = [];
       for (let j = 0, k = k0; j < SER_CAP && (dk > 0 ? k <= hi : k >= lo); j++, k += dk) {
         const ev = eOf(k), av = aOf(k);
+        if (bad == null && !CX.isFin(av)) bad = k;
         if (ev.im !== 0 || !Number.isFinite(ev.re) || Math.abs(ev.re - Math.round(ev.re)) > 1e-9) return null;
         a.push(av); e.push(Math.round(ev.re));
       }
@@ -947,7 +1006,7 @@ const Expr = (() => {
     };
     const kind = lo === -Infinity && hi === Infinity ? 'laurent' : 'power';
     return {
-      kind, c, R, r, up, down,
+      kind, c, R, r, up, down, bad,
       at: (z) => {
         const w = CX.sub(z, c);
         let S = C(0, 0), A = 0;
@@ -961,41 +1020,40 @@ const Expr = (() => {
       },
     };
   }
-  // Σ a(n) n^{−z} from n = lo: absolutely convergent for Re z > σ (σ = 1 + the growth order of a(n), from the tail);
-  // up to DIR_CAP terms, and for coefficients constant along the tail the rest as the integral (K + ½)^{1−z}/(z − 1)
-  // (the midpoint rule: the error is below |z(z + 1)| K^{−Re z − 2}/24). Re z ≤ σ: NaN
+  // Σ a(n) n^{−z} from n = lo. Coefficients of the form b_{n mod q} n^p from some n on (CX.dirichletForm: 1, 1/n², (−1)^n,
+  // i^n, the characters) are summed by Euler–Maclaurin per residue (CX.dirichletEM): exact to rounding, about 15q to
+  // (|Im z| + 15)q terms, where the series converges: Re z > σ = p + 1, or σ = p when the b_r add up to 0 (η converges
+  // for Re z > 0). Any other coefficients: absolutely convergent for Re z > σ (σ = 1 + the growth order of a(n), estimated
+  // from the tail; `est`), summed until the rest, at most G k^{σ−Re z}/(Re z − σ) (G the largest |a_j| j^{1−σ} past k),
+  // is below SER_TOL of the sum, kept after DIR_CAP terms only when it is below 1e-4 of it. Re z ≤ σ: NaN. A coefficient
+  // undefined among the first DIR_CAP: NaN everywhere, and `bad` is that n
   const DIR_CAP = 4096;
   function dirichletPlan(lo, aOf) {
-    const a = [], L = [];
-    for (let k = lo; k < lo + DIR_CAP; k++) { a.push(aOf(k)); L.push(Math.log(k)); }
-    if (!a.every(CX.isFin)) return null;
+    const a = [];
+    for (let k = lo; k < lo + DIR_CAP; k++) a.push(aOf(k));
+    const nan = () => C(NaN, NaN), ib = a.findIndex((x) => !CX.isFin(x));
+    if (ib >= 0) return { kind: 'dirichlet', sigma: NaN, bad: lo + ib, at: nan };
+    const F = CX.dirichletForm(lo, a);
+    if (F) {
+      const sigma = F.b.every(CX.isZero) ? -Infinity : F.p + (CX.isZero(F.B) ? 0 : 1);
+      return {
+        kind: 'dirichlet', sigma, form: F,
+        at: (z) => {
+          if (!(z.re > sigma + 1e-12) || !(Math.abs(z.im) <= CX.ZETA_MAX)) return nan();
+          const r = CX.dirichletEM(F, z);
+          return cancelled(r.A, r.S) ? nan() : r.S;
+        },
+      };
+    }
     const ord = [];
-    a.forEach((x, j) => { if (!CX.isZero(x) && j + lo > 1) ord.push(Math.log(CX.abs(x)) / L[j]); });
+    a.forEach((x, j) => { if (!CX.isZero(x) && j + lo > 1) ord.push(Math.log(CX.abs(x)) / Math.log(j + lo)); });
     const q = Math.floor(ord.length / 4);
-    const sigma = ord.length >= 16 ? 1 + Math.max(...ord.slice(3 * q)) : 1;
-    const tail = a.slice(-64), aT = tail[tail.length - 1];
-    const flat = tail.every((x) => CX.abs(CX.sub(x, aT)) <= 1e-14 * CX.abs(aT));
-    const K = lo + DIR_CAP - 1;
+    const sigma = ord.length >= 16 ? 1 + Math.max(...ord.slice(3 * q)) : 1, sum = CX.dirichletPartial(lo, a, sigma, SER_TOL, 1e-4);
     return {
-      kind: 'dirichlet', sigma, a, L, flat, aT, K,
+      kind: 'dirichlet', sigma, est: true, a, lo,
       at: (z) => {
-        if (!(z.re > sigma + 1e-12)) return C(NaN, NaN);
-        let S = C(0, 0), A = 0;
-        const win = [];
-        for (let j = 0; j < a.length; j++) {
-          if (CX.isZero(a[j])) continue;
-          const t = CX.mul(a[j], CX.exp(CX.scale(z, -L[j])));
-          S = CX.add(S, t);
-          A += CX.abs(t);
-          win.push(CX.abs(t));
-          if (win.length > SER_WIN) win.shift();
-          if (j >= 8 && Math.max(...win) <= SER_TOL * CX.abs(S)) return cancelled(A, S) ? C(NaN, NaN) : S;
-        }
-        if (cancelled(A, S)) return C(NaN, NaN);
-        if (flat) return CX.add(S, CX.mul(aT, CX.div(CX.exp(CX.scale(CX.sub(CX.ONE, z), Math.log(K + 0.5))), CX.sub(z, CX.ONE))));
-        // the rest is at most max|a| K^{1−σ'}/(σ' − 1), σ' = Re z − (σ − 1): kept when it is small against the sum
-        const sp = z.re - (sigma - 1), amax = Math.max(...tail.map((x) => CX.abs(x)));
-        return amax * Math.pow(K, 1 - sp) / (sp - 1) <= 1e-4 * CX.abs(S) ? S : C(NaN, NaN);
+        const r = z.re > sigma + 1e-12 ? sum(z) : null;
+        return !r || cancelled(r.A, r.S) ? nan() : r.S;
       },
     };
   }
@@ -1006,7 +1064,7 @@ const Expr = (() => {
     try { compile(ast); } catch (e) { return []; }
     const out = [];
     const walk = (n) => {
-      if (n.t === 'sum' && PLANS.has(n)) { const p = PLANS.get(n); out.push({ kind: p.kind, c: p.c, R: p.R, r: p.r, sigma: p.sigma }); }
+      if (n.t === 'sum' && PLANS.has(n)) { const p = PLANS.get(n); out.push({ kind: p.kind, c: p.c, R: p.R, r: p.r, sigma: p.sigma, est: !!p.est, bad: p.bad == null ? null : p.bad }); }
       for (const k of ['a', 'b', 'n', 'lo', 'hi']) if (n[k]) walk(n[k]);
     };
     walk(ast);
@@ -1014,6 +1072,28 @@ const Expr = (() => {
   }
 
   // Region formulas compile to a real "level" function, positive inside.
+  // the first shared number that is complex and sits where a real is read: a comparison's side, outside Re, Im, |.| and
+  // arg (Re z < a with a = 0.5 + 0.3i would draw Re z < 0.5 and say nothing); '' when there is none. Literals such as i
+  // keep the real part, as they always did.
+  function complexParamAsReal(n) {
+    if (!n || typeof n !== 'object') return '';
+    if (n.t === 'num') return n.param != null && n.v.im !== 0 ? n.param : '';
+    if (n.t === 'call' && (n.f === 're' || n.f === 'im' || n.f === 'arg' || n.f === 'abs')) return '';
+    for (const k of kids(n)) { const r = complexParamAsReal(k); if (r) return r; }
+    return '';
+  }
+  // throws the hint for a complex shared number read as a real in a comparison of ast
+  function checkRealSides(ast) {
+    (function walk(n) {
+      if (!n || typeof n !== 'object') return;
+      if (n.t === 'cmp') {
+        const nm = complexParamAsReal(n.a) || complexParamAsReal(n.b);
+        if (nm) { const d = NAMES && NAMES.display ? NAMES.display(nm) : nm; throw new ParseError($t('{x} is complex: use Re {x}, Im {x} or |{x}|', { x: d }), 0); }
+        return;
+      }
+      for (const k of ['a', 'b']) if (n[k]) walk(n[k]);
+    })(ast);
+  }
   function compileLevel(ast) {
     if (!hasBool(ast)) throw new ParseError($t('A region needs a comparison, e.g. |z| < 1'), 0);
     const san = (v) => (Number.isNaN(v) ? -Infinity : v);
@@ -1021,6 +1101,7 @@ const Expr = (() => {
       switch (n.t) {
         case 'cmp': {
           if (n.op === '=') throw new ParseError(CURVE_NOT_AREA, 0);
+          checkRealSides(n);
           const A = compile(n.a), B = compile(n.b);
           if (n.op === '<' || n.op === '<=') return (z) => san(B(z).re - A(z).re);
           return (z) => san(A(z).re - B(z).re);
@@ -1193,7 +1274,10 @@ const Expr = (() => {
     function go(n) {
       switch (n.t) {
         case 'cmp': {
-          if (n.op !== '=') return AREA;
+          if (n.op !== '=') {
+            try { checkRealSides(n); } catch (e) { throw new Fail(e.message); }
+            return AREA;
+          }
           const k = equationKind(n);
           if (k.err || k.msg) throw new Fail(k.err ? REL_MSG[k.err] : k.msg);
           return { pieces: [k.dir ? { eq: n, restrict: null, real: k.real, dir: k.dir } : { eq: n, restrict: null, real: k.real }] };
@@ -1246,12 +1330,32 @@ const Expr = (() => {
   // [issue #5] a sum or product with constant limits and at most UNROLL terms, written out (its index replaced by each
   // value): so a finite sum of powers is a polynomial to classify and polyExpand. Anything else stays as it is.
   const UNROLL = 4096;
+  // (k a number, or a tree: the index replaced by it)
   function subst(n, v, k) {
-    if (n.t === 'idx') return n.v === v ? { t: 'num', v: C(k, 0), lit: String(k) } : n;
-    if (n.t === 'sum' && n.v === v) return Object.assign({}, n, { lo: subst(n.lo, v, k), hi: subst(n.hi, v, k) });
+    if (n.t === 'idx') return n.v === v ? (typeof k === 'number' ? { t: 'num', v: C(k, 0), lit: String(k) } : k) : n;
+    if ((n.t === 'sum' || n.t === 'iter') && n.v === v) return Object.assign({}, n, { lo: subst(n.lo, v, k), hi: subst(n.hi, v, k) });
     const o = Object.assign({}, n);
     for (const key of ['a', 'b', 'n', 'lo', 'hi']) if (n[key] && typeof n[key] === 'object' && n[key].t) o[key] = subst(n[key], v, k);
     return o;
+  }
+  const size = (n) => 1 + kids(n).reduce((s, x) => s + size(x), 0);
+  const countIdx = (n, v) => (n.t === 'idx' ? (n.v === v ? 1 : 0) : (n.t === 'sum' || n.t === 'iter') && n.v === v ? countIdx(n.lo, v) + countIdx(n.hi, v) : kids(n).reduce((s, x) => s + countIdx(x, v), 0));
+  // [issue #6] a recurrence with a constant N written out as u_N (u replaced by u_{k−1} in the rule, N times) while the
+  // tree stays below UNROLL_NODES nodes: so u² + z from u_0 = z is a polynomial of degree 2^N for classify and
+  // polyExpand, and its derivative is that of the polynomial
+  const UNROLL_NODES = 20000;
+  function unrollIter(n) {
+    let N;
+    try { const v = compile(n.hi)(C(0, 0)); N = v.im === 0 ? v.re : NaN; } catch (e) { return n; }
+    if (!(Number.isInteger(N) && N >= 0 && N <= ITER_CAP)) return n;
+    const g = unroll(n.a), c = countIdx(g, n.v), sg = size(g) - c;
+    let r = unroll(n.lo), sr = size(r);
+    for (let k = 0; k < N; k++) {
+      sr = sg + c * sr;
+      if (sr > UNROLL_NODES) return n;
+      r = subst(g, n.v, r);
+    }
+    return r;
   }
   function unroll(n) {
     if (n.t === 'sum' && !depends(n.lo) && !depends(n.hi)) {
@@ -1264,14 +1368,15 @@ const Expr = (() => {
       }
       return n;
     }
-    if (!hasT(n, 'sum')) return n;
+    if (n.t === 'iter' && !depends(n.hi)) { const r = unrollIter(n); if (r !== n) return r; }
+    if (!hasT(n, 'sum') && !hasT(n, 'iter')) return n;
     const o = Object.assign({}, n);
-    for (const key of ['a', 'b', 'n']) if (n[key] && typeof n[key] === 'object' && n[key].t) o[key] = unroll(n[key]);
+    for (const key of n.t === 'iter' ? ['lo', 'a'] : ['a', 'b', 'n']) if (n[key] && typeof n[key] === 'object' && n[key].t) o[key] = unroll(n[key]);
     return o;
   }
   // Structural classification of a function expression, used for guaranteed properties.
   function classify(ast) {
-    if (hasT(ast, 'sum')) ast = unroll(ast);
+    if (hasT(ast, 'sum') || hasT(ast, 'iter')) ast = unroll(ast);
     const K = (o) => Object.assign({ dep: true, analytic: false, entire: false, rational: false, poly: false, deg: 0, branch: false }, o);
     const CONST = K({ dep: false, analytic: true, entire: true, rational: true, poly: true, deg: 0 });
     // a constant subexpression that is not a finite number (1/0, log 0, ...) makes nothing guaranteed
@@ -1330,6 +1435,12 @@ const Expr = (() => {
           const p = PLANS.get(n);
           return K({ analytic: !!p && !usesZ(n.lo) && !usesZ(n.hi) });
         }
+        // [issue #6] a recurrence too long to write out: u_N is analytic (entire) when u_0 and the rule are, in u and z
+        case 'iter': {
+          if (depends(n.hi)) return K({});
+          const a = go(n.lo), b = go(subst(n.a, n.v, { t: 'var', n: 'z' }));
+          return K({ analytic: a.analytic && b.analytic, entire: a.entire && b.entire, branch: a.branch || b.branch });
+        }
         case 'call': {
           const a = go(n.a);
           if (['exp', 'sin', 'cos', 'sinh', 'cosh'].includes(n.f)) return K({ analytic: a.analytic, entire: a.entire, branch: a.branch });
@@ -1341,7 +1452,10 @@ const Expr = (() => {
       }
       return K({});
     }
-    return go(ast);
+    const r = go(ast);
+    // (a recurrence written out can be a polynomial of a degree far past what is expanded: it is not taken for one)
+    if (r.poly && r.deg > 4096) Object.assign(r, { poly: false, rational: false, deg: 0 });
+    return r;
   }
 
   // ---------- exact polynomial expansion ----------
@@ -1351,7 +1465,7 @@ const Expr = (() => {
   // nonzero one. When every constant is a Gaussian integer and every m stays below 2^53 the arithmetic is exact
   // (exact: true) and c[k] = 0 means exactly 0. Throws a RangeError above maxDeg or on overflow.
   function polyExpand(ast, maxDeg = 4096) {
-    if (hasT(ast, 'sum')) ast = unroll(ast);
+    if (hasT(ast, 'sum') || hasT(ast, 'iter')) ast = unroll(ast);
     const BIG = 2 ** 53;
     const isGI = (v) => Number.isInteger(v.re) && Number.isInteger(v.im) && Math.abs(v.re) < BIG && Math.abs(v.im) < BIG;
     const konst = (v, exact) => {
@@ -1523,7 +1637,7 @@ const Expr = (() => {
     if (a.t === 'var') return a.n === b.n;
     if (a.t === 'idx') return a.v === b.v;
     if (a.f !== b.f || a.op !== b.op) return false;
-    if (a.t === 'sum' && (a.v !== b.v || !sameAst(a.lo, b.lo) || !sameAst(a.hi, b.hi))) return false;
+    if ((a.t === 'sum' || a.t === 'iter') && (a.v !== b.v || !sameAst(a.lo, b.lo) || !sameAst(a.hi, b.hi))) return false;
     return ['a', 'b', 'n'].every((k) => (a[k] ? sameAst(a[k], b[k]) : !b[k]));
   }
   // bottom-up: constant folding (when the result prints short) and the 0 / 1 / sign rules; constants move to
@@ -1598,6 +1712,7 @@ const Expr = (() => {
       case 'root': r = N.root(S(n.n), S(n.a)); break;
       case 'call': r = N.call(n.f, S(n.a)); break;
       case 'sum': r = Object.assign({}, n, { a: S(n.a) }); break;
+      case 'iter': r = Object.assign({}, n, { lo: S(n.lo), a: S(n.a) }); break;
       default: return n;
     }
     if (!depends(r) && !hasBool(r)) {
@@ -1626,6 +1741,8 @@ const Expr = (() => {
           if (usesZ(n.lo) || usesZ(n.hi)) throw new Error($t('The limits of a sum must not depend on z'));
           if (n.op === 'prod') { const u = unroll(n); if (u !== n) return D(u); throw new Error($t('A product of infinitely many factors cannot be differentiated here')); }
           return Object.assign({}, n, { a: D(n.a) });
+        // [issue #6] a recurrence: the derivative of the formula it writes out (unroll), when that is short enough
+        case 'iter': { const u = unroll(n); if (u.t !== 'iter' && size(u) <= 2000) return D(u); throw new Error($t('This recurrence has too many steps to be differentiated here')); }
         case 'binom': throw new Error($t('No derivative known for {f}', { f: 'binom' }));
         case 'var':
           if (n.n === 'z') return ONE();
@@ -1844,6 +1961,13 @@ const Expr = (() => {
         // [issue #5] the sum takes the factors after it, so it is wrapped as a factor (p 0); −∞ … ∞ is n ∈ ℤ
         case 'idx': return { s: n.v, p: 4 };
         case 'binom': return { s: `\\binom{${go(n.a).s}}{${go(n.b).s}}`, p: 4 };
+        // [issue #6] u_N, with u_0 and the rule in u_k (the whole formula); inside a formula iter(g, u, u_0, N), as typed
+        case 'iter': {
+          const v = n.v, N = go(n.hi).s;
+          if (n !== ast) return { s: `\\operatorname{iter}\\left(${go(n.a).s},\\ ${v},\\ ${go(n.lo).s},\\ ${N}\\right)`, p: 4 };
+          const g = go(subst(n.a, v, { t: 'idx', v: `${v}_k` })).s;
+          return { s: `${v}_{${N}},\\ ${v}_0=${go(n.lo).s},\\ ${v}_{k+1}=${g}`, p: -1 };
+        }
         case 'sum': {
           const cmd = n.op === 'prod' ? '\\prod' : '\\sum', b = go(n.a), body = b.p <= 0 ? paren(b.s) : b.s;
           const isInf = (x, sg) => (x.t === 'num' && x.name === 'inf' && Math.sign(x.v.re) === sg) || (sg < 0 && x.t === 'neg' && isInf(x.a, 1));
@@ -1887,6 +2011,10 @@ const Expr = (() => {
     return q;
   }
   const hasSeries = (n) => hasT(n, 'sum');
-  return { parse, typed, compile, compileLevel, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameTex, nameSpans, GREEK };
+  const hasIter = (n) => hasT(n, 'iter');
+  // [issue #6] the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
+  const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();
-if (typeof module !== 'undefined') module.exports = Expr;
+import { CX } from './cx.js';
+export { Expr, Expr as 'module.exports' };

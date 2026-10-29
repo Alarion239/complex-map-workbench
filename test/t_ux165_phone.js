@@ -8,7 +8,7 @@ const { Tour } = require('../src/tour.js');
 const T = Tour._t;
 let fails = 0, n = 0;
 const ok = (name, cond, info) => { n++; if (!cond) { fails++; console.log('FAIL', name, info !== undefined ? JSON.stringify(info) : ''); } };
-const RU = (() => { let tab = {}; const src = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
+const RU = (() => { let tab = {}; const src = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const I18N = { define: (l, x) => { tab = JSON.parse(x); } }; (new Function('I18N', src))(I18N); return tab; })();
 
 const C = T.CHAPTERS;
 const keysAt = C.findIndex((c) => c.id === 'keys');

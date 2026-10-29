@@ -4,7 +4,7 @@
 //   node ci/gpu_probe.js [--require-hardware] [--fallback]
 // --require-hardware (the self-hosted GPU runners): exit 1 when Chrome renders in software (SwiftShader, WARP, the
 //   Microsoft Basic Render Driver, llvmpipe) or has no WebGL2: the runner was started where Chrome cannot reach the GPU
-//   (ci/RUNNERS.md, "Check the GPU").
+//   (ci/RUNNERS.md, "Check the GPU"); and on a Mac when the job runs under Rosetta, whose timings are not the machine's.
 // --fallback (GitHub's machines): when the platform's backend (Metal, Direct3D 11) gives no WebGL2 in that virtual
 //   machine, try SwiftShader and, when it works, set CMW_ANGLE=swiftshader for the job's later steps.
 const os = require('os');
@@ -42,21 +42,22 @@ async function probe() {
   }
   const software = !info.webgl2 || SOFTWARE.test(`${info.renderer} ${info.vendor}`);
   const machine = `${os.platform()} ${os.arch()} · ${(os.cpus()[0] || {}).model} · ${os.cpus().length} cores`;
-  // an Intel build on Apple silicon (the x64 runner package, or an x64 Node): translated by Rosetta, so timings are not
-  // the machine's (ci/RUNNERS.md, "Replacing an x64 runner with the arm64 build")
+  // an Intel build on Apple silicon (the x64 runner package, whose setup-node fetches an x64 Node): translated by
+  // Rosetta, Chrome included, so timings are not the machine's (ci/RUNNERS.md, "Replacing an x64 runner with the arm64
+  // build"; #62)
+  let rosetta = false;
   if (os.platform() === 'darwin') {
-    let translated = '';
-    try { translated = require('child_process').execFileSync('sysctl', ['-n', 'sysctl.proc_translated'], { encoding: 'utf8' }).trim(); } catch (e) { /* not on Apple silicon */ }
-    if (translated === '1') {
-      console.log('::warning title=Rosetta::this job runs under Rosetta (an x64 runner or Node on Apple silicon): install the arm64 runner (ci/RUNNERS.md)');
-      summary('**Rosetta:** this job runs as an x64 process on Apple silicon; its timings are not the machine\'s (ci/RUNNERS.md).\n');
-    }
+    try { rosetta = require('child_process').execFileSync('sysctl', ['-n', 'sysctl.proc_translated'], { encoding: 'utf8' }).trim() === '1'; } catch (e) { /* not on Apple silicon */ }
+    if (rosetta) summary('**Rosetta:** this job runs as an x64 process on Apple silicon; its timings are not the machine\'s (ci/RUNNERS.md).\n');
   }
-  console.log(JSON.stringify(Object.assign({ software, machine }, info), null, 1));
+  console.log(JSON.stringify(Object.assign({ software, rosetta, machine }, info), null, 1));
   summary(`**WebGL2:** ${info.webgl2 ? esc(info.renderer) : 'none'}${software ? ' (software rendering)' : ''} · parallel compile ${info.parallelCompile ? 'yes' : 'no'}  \n${esc(machine)} · \`${esc(info.flags)}\`\n`);
   if (!info.webgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); process.exit(1); }
   if (process.argv.includes('--require-hardware') && software) {
     console.error('::error title=No GPU::Chrome renders in software on this runner. Start the runner in a logged-in desktop session (ci/RUNNERS.md, "Check the GPU").');
     process.exit(1);
   }
+  const rosettaMsg = 'title=Rosetta::this job runs under Rosetta (the x64 runner package on Apple silicon): install the arm64 runner (ci/RUNNERS.md, "Replacing an x64 runner with the arm64 build")';
+  if (rosetta && process.argv.includes('--require-hardware')) { console.error(`::error ${rosettaMsg}`); process.exit(1); }
+  if (rosetta) console.log(`::warning ${rosettaMsg}`);
 })().catch((e) => { console.error(e); process.exit(2); });

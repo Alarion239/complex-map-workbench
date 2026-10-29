@@ -83,7 +83,6 @@
   --t-readout: 400 11.5px/16px var(--f-mono);
   --t-math-s: italic 500 13px/18px var(--f-math);
   --t-math: italic 500 15px/20px var(--f-math);
-  --t-wordmark: semi-expanded 640 14.5px/20px var(--f-ui);
   --t-title: 600 19px/24px var(--f-ui);
   /* spacing, radii, control heights */
   --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px; --s-9: 32px;
@@ -215,7 +214,6 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top { display: flex; align-items: center; gap: 8px; height: 44px; min-width: 0; reading-flow: flex-visual; }
 .top > * { flex: 0 0 auto; }
 .top .mark { order: 1; display: block; width: 22px; height: 22px; }
-.wordmark { order: 2; font: var(--t-wordmark); color: var(--ink); white-space: nowrap; margin-left: 2px; }
 .hdiv { order: 3; width: 1px; height: 20px; background: var(--line-strong); margin: 0 2px; }
 #examplesBtn { order: 4; }
 /* a full bar (a long example name at 1024px ran it past the edge): the search field gives way first, down to its own
@@ -236,14 +234,17 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 #shareBtn { order: 11; }
 #settingsBtn { order: 13; }
 .top .hw, .top .hc { display: none; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hw { display: inline; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
-:root:not(.ph) .top :is(#exportBtn, #shareBtn) .hc svg { width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn):not([hidden]) { display: inline-flex; align-items: center; gap: 4px; width: auto; padding: 0 5px 0 7px; font: var(--t-label); white-space: nowrap; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hw { display: inline; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hc { display: inline-flex; width: 12px; height: 12px; }
+:root:not(.ph) .top :is(#exportBtn, #shareBtn, #styleBtn) .hc svg { width: 12px; height: 12px; }
 :root:not(.ph) .top :is(#themeBtn, #toggleLeft, #toggleRight) { display: none; }
 /* (hdrFit: where the header has no room for Share's word, e.g. Russian at 1280 and 1366 px, Share is its icon alone) */
 :root:not(.ph) .top.share-icon #shareBtn { width: 28px; padding: 0; justify-content: center; }
 :root:not(.ph) .top.share-icon #shareBtn :is(.hw, .hc) { display: none; }
+/* (the Phase style gives its word way first, then Share does) */
+:root:not(.ph) .top.sty-icon #styleBtn { width: 28px; padding: 0; justify-content: center; }
+:root:not(.ph) .top.sty-icon #styleBtn :is(.hw, .hc) { display: none; }
 :root.ph .top :is(#shareBtn, #settingsBtn) { display: none !important; }
 .pop.opts-pop.set-pop { width: 320px; align-items: stretch; white-space: normal; max-height: calc(100vh - 64px); overflow-y: auto; }
 .set-pop > .seg { align-self: flex-start; }
@@ -260,7 +261,12 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
    the speaker in the bar while sound is on (one tap silences it) */
 #soundBtn, #soundMore { order: 12; }
 /* Phase colors (issue 8): the button shows the palette's key as a small disc; its menu, a preview of each palette */
-#palBtn { order: 12; }
+#palBtn, #styleBtn { order: 12; }
+.top #styleBtn[hidden], :root.ph .top #styleBtn { display: none !important; }
+#styleBtn[aria-disabled="true"] { opacity: 0.55; }
+.sty-ic svg, .sty-prev svg { display: block; width: 16px; height: 16px; }
+.mi-ic:has(.sty-prev) { width: 22px; height: 22px; flex-basis: 22px; }
+.mi-ic .sty-prev svg { width: 20px; height: 20px; }
 .pcol-ic { display: block; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, conic-gradient(from 90deg, #F58C7E, #F089AC, #DB8FD6, #B99BF5, #8EAAFD, #53B8F7, #1CC3D8, #27C8AF, #6EC580, #A5B953, #CFA93E, #EA9853, #F58C7E)); box-shadow: inset 0 0 0 1px var(--line-strong); }
 .mi-ic:has(.pcol-prev) { width: 22px; height: 22px; flex-basis: 22px; }
 .mi-ic .pcol-prev { display: block; width: 22px; height: 22px; border-radius: 50%; }
@@ -295,15 +301,14 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .top .snd-caret .ic-slot svg { width: 11px; height: 11px; }
 .snd-ic, .snd-ic svg { display: block; width: 16px; height: 16px; }
 .top > .snd-ph { display: none; }
-/* room for it on tablets: below 1340 px the speaker drops its label (as the view switch and Deformation do below
-   1280); from 768 to 1023 the wordmark hides (the bar overflowed there before, by 44 px at 900), and (v15.1, frame f6
+/* room for it on tablets: below 1100 px the speaker drops its label (as the view switch and Deformation do below
+   1280; the app's name left the bar, which gave the label back down to 1100); from 768 to 1023 (v15.1, frame f6
    of notes/ui-redesign-2/desktop, verify-6) the search is its icon alone, named by its aria-label and tooltip, and a
    long example name gives way first, ending in an ellipsis, as from 1024 */
-@media (min-width: 768px) and (max-width: 1339px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
+@media (min-width: 768px) and (max-width: 1099px) { .top .snd-btn .slbl { display: none; } .top .snd-btn { padding: 0 6px; } }
 @media (min-width: 768px) and (max-width: 1023px) {
   :root:not(.ph) .top .cmd-field { flex: 0 0 auto; width: auto; min-width: 0; padding: 0 8px; }
   :root:not(.ph) .top .cmd-field .cmd-text, .top .cmd-field .kbd { display: none; }
-  .top > .wordmark { display: none; }
   #examplesBtn { flex-shrink: 1; min-width: 0; }
 }
 .snd-pop {
@@ -329,6 +334,9 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-chk small { display: block; font: 400 11.5px/15px var(--f-ui); color: var(--muted); }
 .snd-chk small i { font-family: var(--f-math); }
 .snd-chk.sub { padding: 0 0 6px 24px; }
+.snd-chk input:disabled + span { opacity: .55; }
+.snd-chk:has(input:disabled) { cursor: default; }
+.snd-fine.snd-sub { margin: -2px 0 6px 48px; }
 .snd-offnote { margin: 4px 0 2px; font: var(--t-label); color: var(--ink-2); }
 .snd-fine { margin: 6px 0 0; font: 400 11px/15px var(--f-ui); color: var(--muted); }
 .snd-fine.mono { font: var(--t-micro); }
@@ -345,6 +353,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 @media (max-width: 1279px) {
   .top > .vsw > button > span, .top > .defbtn > span { display: none; }
   .top > .vsw > button { padding: 0 8px; }
+  .top > .vsw > button::after { display: none; }
   .top > .defbtn { padding: 0 8px; }
 }
 .hdr-menu { display: contents; }
@@ -481,12 +490,15 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 @container pane (max-width: 519px) {
   .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
   .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
+  .seg.modes:not(#leftTabs, #rightTabs) > button::after { display: none; }
 }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
 .pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
+.pane.narrow .seg.modes:not(#leftTabs, #rightTabs) > button::after { display: none; }
 /* [v16.5 UX37] "Plane | Sphere" in words at every width (the pane title shortens first, app.js fitTitle); a narrow pane
    drops the icons, never the words */
 .pane.narrow :is(#leftTabs, #rightTabs) > button > svg { display: none; }
+.pane.narrow :is(#leftTabs, #rightTabs) > button::after { display: none; }
 .pane.narrow :is(#leftTabs, #rightTabs) > button { padding: 0 8px; }
 :is(#leftTabs, #rightTabs) > button { min-height: 28px; }
 /* the right title stays beside the icon-only modes while it fits (app.js fitRightTitle): first the role text
@@ -738,6 +750,13 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .hairline { position: absolute; z-index: 11; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; }
 .hairline::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--accent); animation: hairline 900ms var(--ease-inout) infinite; }
 @keyframes hairline { from { transform: translateX(-100%); } to { transform: translateX(334%); } }
+/* the start-up bar (issue #245): 3 px at the very top, over the page and out of the layout; it takes no input. The fill
+   is a transform, so a step of the count moves no layout. Unknown total: the sweep of the hairline, still when motion
+   is reduced. */
+#warmBar { position: fixed; z-index: 2000; left: 0; right: 0; top: 0; height: 3px; overflow: hidden; pointer-events: none; }
+#warmBar[hidden] { display: none; }
+#warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
+#warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
@@ -1040,6 +1059,9 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   transition: color var(--t-fast) var(--ease-out);
 }
 .seg > button:hover { color: var(--ink); }
+/* the view tabs (Plane | Sphere, X → Y | Phase | Landscape): the word is centred in its tile, the icon hangs to its left and
+   an empty slot of the icon's width on the right balances it; where the icon or the word is hidden the slot goes too */
+.seg.modes > button::after { content: ""; flex: 0 0 14px; }
 .seg > button.on, .seg > button[aria-checked="true"] { color: var(--ink); background: var(--seg-on); border-color: var(--line-strong); }
 .seg[style*="--seg-w"] > button.on, .seg[style*="--seg-w"] > button[aria-checked="true"] { background: transparent; border-color: transparent; }
 .seg[style*="--seg-w: 0px"] > button.on, .seg[style*="--seg-w: 0px"] > button[aria-checked="true"] { background: var(--seg-on); border-color: var(--line-strong); }
@@ -1435,7 +1457,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 @media (pointer: coarse) { .mi { height: 36px; } }
 /* examples menu */
 .pop.menu.examples { width: min(400px, calc(100vw - 24px)); max-height: min(560px, calc(100svh - 64px)); }
-.ex-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 52px; flex: 0 0 auto; padding: 0 8px; border-radius: var(--r-2); text-align: left; }
+.ex-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; flex: 0 0 auto; padding: 4px 8px; border-radius: var(--r-2); text-align: left; }
 .ex-item:hover, .ex-item:focus-visible, .ex-item.sel { background: var(--well); outline: none; }
 .ex-thumb { display: block; flex: 0 0 48px; width: 48px; height: 32px; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--plane); }
 .ex-text { display: flex; flex-direction: column; min-width: 0; }
@@ -1443,7 +1465,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .ex-nl { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
 .ex-snd { flex: none; font: 500 13px/18px var(--f-ui); color: var(--ink); }
 .ex-item.on .ex-snd, .ex-item[aria-current="true"] .ex-snd { color: var(--accent); }
-.ex-blurb { font: 400 11.5px/16px var(--f-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* (#34, UX41) a description of up to two lines: one line cut it mid-sentence ("Drag the red cut to move t…") */
+.ex-blurb { font: 400 11.5px/16px var(--f-ui); color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; }
 .ex-item.on .ex-name, .ex-item[aria-current="true"] .ex-name { color: var(--accent); }
 
 /* swatch presets (8 squares plus Custom color) and compact-card parameter popover */
@@ -1717,7 +1740,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   .layout.hide-left > .panel.left > .rail, .layout.hide-right > .panel.right > .rail { display: flex; }
   .layout.hide-left > .panel.left, .layout.hide-right > .panel.right { scrollbar-width: none; }
 }
-@media (max-width: 899px) { .wordmark { display: none; } }
 
 /* 1024 to 1279: the left panel docks at 240px; the right panel keeps a 36px rail column, and showing it
    (the hide-right state that the header toggle, the rail chevron and ] flip) opens it as a 288px drawer. */
@@ -1801,11 +1823,9 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   }
   /* header: mark, "Map Workbench", Undo, Redo, and a more menu */
   .top { position: sticky; top: 0; z-index: 15; gap: 4px; background: var(--bg); margin: 0 -4px; padding: 0 4px; }
-  .wordmark { display: block; font-size: 14px; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* the view switch and the Deformation toggle share the bar (merged-views review): the words give way first, so
      the more menu always fits; below 430 px the mark stands alone */
-  .top > .wordmark { flex: 0 1 auto; }
-  .wm-pre, .hdiv, .top > .spacer { display: none; }
+  .hdiv, .top > .spacer { display: none; }
   .top > .vsw > button { padding: 0 7px; }
   .top > .defbtn { padding: 0 7px; }
   .hdr-more { display: inline-grid !important; }
@@ -1979,6 +1999,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   *, *::before, *::after { transition-duration: 0ms !important; scroll-behavior: auto !important; }
   .led.busy { animation: none; opacity: 1; }
   .hairline::before { animation: none; width: 100%; opacity: 0.6; }
+  #warmBar.indet > i { animation: none; width: 100%; opacity: 0.6; }
   .pop, .toast, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
   .layout.drawer-right > .panel.right, .layout.drawer-left > .panel.left { animation: fade-in 80ms linear !important; }
   .lamp.flash { animation: none; }
@@ -1986,7 +2007,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 }
 /* narrow phones (merged-views review: the more menu fell off the bar at 390 px and below): the mark alone */
 @media (max-width: 429px) {
-  .top > .wordmark { display: none; }
   .top > .mark { margin-right: auto; }
 }
 /* i18n (notes/i18n/DESIGN.md 4), Russian only: Archivo and B612 Mono have no Cyrillic. I18N.applyPage() sets
@@ -2015,8 +2035,6 @@ table.keys th { font: var(--t-label); color: var(--muted); }
    a phone) */
 :root[data-lang="ru"] .lampname { white-space: normal; text-overflow: clip; }
 :root[data-lang="ru"] .tools > .tool:not(.rail-tool) > span { font-size: 11px; }
-/* the wordmark is the app's name, not interface text: it keeps Archivo in Russian too */
-:root[data-lang="ru"] .wordmark { font-family: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif; }
 /* «полярные» is 1.4 px wider than a 52 px swatch caption and was hyphenated to «поляр-…» */
 :root[data-lang="ru"] .pat > span { letter-spacing: -0.02em; }
 /* CSS-generated text: the empty formula preview's word */
@@ -2095,6 +2113,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
+<div id="warmBar" role="progressbar" aria-label="Preparing the page" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><i></i></div>
 <div id="app">
   <header class="top" id="top">
     <svg viewBox="0 0 28 28" width="22" height="22" aria-hidden="true" class="mark">
@@ -2106,7 +2125,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       </g>
       <circle cx="14" cy="14" r="1.4" fill="var(--ink)"/>
     </svg>
-    <h1 class="wordmark" data-i18n="no"><span class="wm-pre">Complex </span>Map Workbench</h1>
+    <h1 class="sr-only" data-i18n="no">Complex Map Workbench</h1>
     <span class="hdiv" aria-hidden="true"></span>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
     <button class="icon-btn" id="redoBtn" title="Redo  ⇧⌘Z" aria-label="Redo"><span class="ic-slot" data-icon="redo"></span></button>
@@ -2128,6 +2147,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
       <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
+      <!-- Phase style (issue #81): the Phase view's style, beside the palette; app.js shows it while X is the Phase view and opens its menu -->
+      <button class="icon-btn" id="styleBtn" hidden title="Phase style" aria-label="Phase style" aria-haspopup="menu"><span class="ic-slot sty-ic" aria-hidden="true"></span><span class="hw"></span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default from v15 (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
@@ -2286,7 +2307,12 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   <label class="snd-row snd-main"><span>Sound</span><input type="checkbox" class="snd-switch" id="sndOn" role="switch"></label>
   <!-- (v16.5 UX70) Hear the function first, with one line; it stays off by default. The music theory is under "How it sounds" -->
   <label class="snd-chk snd-hear"><input type="checkbox" id="sndSo"><span><b>Hear the function</b><small><span class="snd-fine-ptr">Notes as you move the pointer over X: round a zero they rise, round a pole they fall.</span><span class="snd-fine-touch">Notes as you drag over X: round a zero they rise, round a pole they fall.</span></small></span></label>
-  <details class="snd-more"><summary>How it sounds</summary><p class="snd-fine"><span data-i18n="html">Silent while you rest; a plucked note each time arg <i>F</i> crosses one of five phase lines (D, E, F♯, A, B): a loop round a zero plays a rising scale, round a pole a falling one, and the low Ds count its turns. A closed loop sings its winding number as one note. Cuts, zeros and poles, contours</span></p></details>
+  <div class="snd-mode" role="radiogroup" aria-label="Hear the function as">
+    <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndNotes" value="notes" checked><span><b>Notes</b><small>A marimba note at each colour line</small></span></label>
+    <label class="snd-chk sub"><input type="radio" name="sndMode" id="sndGlide" aria-describedby="sndGlideNo" value="glide"><span><b>Glide</b><small>One continuous voice whose pitch is the colour, while F changes</small></span></label>
+    <p class="snd-fine snd-sub" id="sndGlideNo" hidden>Glide needs a browser with AudioWorklet.</p>
+  </div>
+  <details class="snd-more"><summary>How it sounds</summary><p class="snd-fine"><span data-i18n="html">Silent while you rest. Each time arg <i>F</i> crosses one of the picture's colour lines, a marimba note sounds: red is D, and each line round the Phase key is the next step of a circular scale (a semitone with 12 sectors), so a loop round a zero climbs and round a pole falls. Louder where |<i>F</i>| is larger; while the colour holds, the note sounds again at each band edge of |<i>F</i>|. A branch cut cracks, then plays the colours on either side; glass pings mark a zero, felt thumps a pole. Click a still point (on touch, hold it) to hear it. A closed loop sings its winding number as one note.</span></p></details>
   <label class="snd-row"><span>Volume</span><input type="range" id="sndVol" min="0" max="100" step="1" aria-describedby="sndVolOut"><output id="sndVolOut">70 %</output></label>
   <fieldset class="snd-tiers"><legend>What you hear</legend>
     <p class="snd-offnote" id="sndOffNote">Sound is off: these take effect when it is on.</p>
@@ -2296,7 +2322,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
   <!-- (v16.5 UX88) no keyboard help on a touch screen; the engine line under Diagnostics -->
-  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>

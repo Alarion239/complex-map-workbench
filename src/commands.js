@@ -13,7 +13,7 @@ const Commands = (() => {
     integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
     morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
     replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme,
-    setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle,
+    setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
     stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox;
   const FN_INFO = {
     mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
@@ -37,6 +37,7 @@ const Commands = (() => {
     gamma: [$t('Meromorphic; poles at 0, −1, −2, …; Γ(n + 1) = n!'), $t('gamma Γ factorial euler special function')],
     zeta: [$t('Meromorphic; a pole at 1; its nontrivial zeros lie on the critical strip'), $t('zeta ζ riemann critical strip primes special function')],
     series: [$t('A power, Laurent or Dirichlet series from its coefficients aₙ; drawn where it converges'), $t('series sum power series taylor laurent dirichlet coefficients sigma Σ')],
+    recurrence: [$t('z ↦ u_N, from u₀ by the rule u ↦ g(u, z) N times: Mandelbrot and Julia iterations, Newton’s method'), $t('recurrence iterate iteration orbit mandelbrot julia newton fixed point sequence u_n')],
     conj: [$t('Reflection in the real axis; not analytic'), $t('conjugate reflection bar conj')],
     poly: [$t('Coefficients from the highest degree down'), 'polynomial'],
     rational: [$t('Quotient of two polynomials'), $t('rational p/q')],
@@ -259,6 +260,7 @@ const Commands = (() => {
         ...(A.S.focus > 0 ? [[$t('Show F'), () => setFocus(0), '', $t('show f, whole chain, all steps, back, alone'), 1]] : []),
         [$t('Sound on/off'), () => soundToggle(), '⇧M'],
         [$t('Hear the function on/off'), () => soundHear(), ''],
+        ...(typeof Sound !== 'undefined' && Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
         ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
         ...Construct.paletteActs(),   // (v16: the four tools; Make free, Use complement)
@@ -311,7 +313,7 @@ const Commands = (() => {
   // (v16.5 UX16) parse with one more number, name = 1, as if it were already added (the palette's row and preview)
   function withNewName(name, fn) {
     if (typeof Expr.setNames !== 'function') return fn();
-    Expr.setNames({ get: (n) => (n === name ? 1 : Params.get(n)), display: Params.display });
+    Expr.setNames({ get: (n) => (n === name ? 1 : Params.read(n)), display: Params.display });
     try { return fn(); } finally { Params.install(); }
   }
   // (v16.5 UX23) the repairs of a formula that does not parse, each offered only when the repaired text reads as a step
@@ -710,7 +712,22 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels, setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, toggleTransport, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();
+import { $, TAU, h } from './util.js';
+import { CX } from './cx.js';
+import { Expr } from './parse.js';
+import { Funcs } from './funcs.js';
+import { Region } from './region.js';
+import { Curves } from './curves.js';
+import { Palette } from './palette.js';
+import { Axes, Pane } from './view.js';
+import { Figure } from './figure.js';
+import { Sound } from './sound.js';
+import { Tour } from './tour.js';
+import { Inspector } from './inspector.js';
+import { Construct } from './construct.js';
+import { Params } from './params.js';
+export { Commands };

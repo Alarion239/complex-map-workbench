@@ -77,7 +77,14 @@ const Phone = (() => {
     els.viewOpts = h('div', { class: 'ph-vopts' });
     els.regions = h('div', { class: 'ph-regions' });
     els.regionsH = h('h3', { class: 'ph-h' }, $t('Shapes'));
-    els.body.display.append(h('h3', { class: 'ph-h' }, $t('This view')), els.viewOpts, els.regionsH, els.regions);
+    // (issue #81) the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
+    // (#247: in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
+    // Landscape, where it says where the styles live; the sheet has no "This view" title)
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+      h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
+    els.body.display.append(els.style, els.viewOpts, els.regionsH, els.regions);
+    els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
+    els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain bar: Numbers first
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
     // the context bar: above the tool row, only while something is selected or under way (D3)
@@ -150,6 +157,9 @@ const Phone = (() => {
   const TOUR = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 5.4v5.2L10.6 8z" fill="currentColor"/></svg>';
   const OPEN = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 4.5v8h11v-6H8L6.5 4.5z"/></svg>';
   const HOLD = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5" /></svg>';
+  const INFO = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.7"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>';
+  // a tip taught where people look: a line with its small icon, at the end of a sheet's content (never on the plane)
+  const tip = (icon, text) => h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: icon }), h('span', null, text));
   const SWAP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/></svg>';
 
   // ---------------- mode ----------------
@@ -198,6 +208,7 @@ const Phone = (() => {
     // the Inspector's host goes into the Editor, the region sections into More tools and Display; the Deformation
     // toggle closes the chain bar; Numbers opens it
     park($('propsPanel'), els.body.edit);
+    els.body.edit.append(els.editTip);
     park($('secShapes'), els.shapesPane);
     park($('secFormula'), els.shapesPane);
     const wrap = document.querySelector('.pipe-wrap');
@@ -399,9 +410,9 @@ const Phone = (() => {
         : btn('', '⌫ ' + $t('Undo pick'), () => A.ctxAct('undopick'), st.undo ? {} : { disabled: true });
       const x = btn('ico', '×', () => A.ctxAct('xcancel'), { 'aria-label': $t('Cancel') });
       if (st.seg) {
-        // (the orthogonal circle: Whole, Inside or Outside, in words, on a second row)
+        // (the orthogonal circle: Whole, Inside, Outside or Between, in words, on a second row)
         const sg = h('div', { class: 'ph-ctseg', role: 'radiogroup', 'aria-label': $t('Whole or inside') });
-        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')]]) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
+        for (const [v, lab] of [['whole', $tx('side', 'Whole')], ['in', $tx('side', 'Inside')], ['out', $tx('side', 'Outside')], ['between', $tx('side', 'Between')]].filter(([v]) => !st.segs || st.segs.includes(v))) sg.append(h('button', { type: 'button', role: 'radio', class: 'ph-cb' + (st.seg === v ? ' prim' : ''), 'aria-checked': String(st.seg === v), onclick: () => A.ctxAct('seg', v) }, lab));
         kids = [text(st.text), undo, x, sg];
       } else kids = [text(st.text), undo, x];
     } else if (st && st.kind === 'listen') {
@@ -449,7 +460,7 @@ const Phone = (() => {
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     // v16.5 UX40: the long press, taught where people look (never on the plane)
-    ct.push(h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: HOLD }), h('span', null, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.'))));
+    ct.push(tip(HOLD, $t('Tip: hold a finger on a shape until the ring fills: its menu hides or deletes it and gives its line integral.')));
     els.tiles.replaceChildren(...tiles);
     els.ctiles.replaceChildren(...ct);
     setTab(toolTab);
@@ -639,18 +650,27 @@ const Phone = (() => {
   const TITLES = () => ({ edit: $t('Editor'), tools: $t('More tools'), display: $t('Display'), more: $t('Menu') });
 
   // Display: this view's options (the ones the plane's sliders button held), then the regions' display
+  function paintStyle() {
+    const st = A.styleState();
+    els.style.hidden = !st.show || !st.land;
+    if (els.style.hidden) return;
+    els.style.querySelector('.ph-ic').innerHTML = st.svg;
+    els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
+    els.style.setAttribute('aria-disabled', String(st.land));
+  }
   function fillDisplay(side) {
     els.dispSide = side;
+    paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.xyView() ? $('regionsBox') : null;
     homeDisplay();
     els.viewOpts.replaceChildren(...kids, ...(unit ? [unit] : []));
-    els.viewOpts.previousElementSibling.hidden = !els.viewOpts.childElementCount;
     if (reg) els.regions.append(reg);
     els.regionsH.hidden = !reg;
     // ([v17 D5, #82] mesh quality, the laptop's Settings', stays at the end of this sheet on a phone, where it was: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     if (mesh) els.body.display.append(mesh);
+    els.body.display.append(els.dispTip);
   }
   function homeDisplay() {
     const home = $('regionsHome');
@@ -869,3 +889,6 @@ const Phone = (() => {
     // TEMP-DEBUG-HOOK
   };
 })();
+import { $, h } from './util.js';
+import { Params } from './params.js';
+export { Phone };

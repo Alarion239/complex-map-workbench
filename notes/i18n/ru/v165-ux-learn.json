@@ -141,9 +141,9 @@
   "note": "UX90, UX77: the welcome's Details."
  },
  "try.key.desk": {
-  "en": "In Display options, turn on Phase key.",
-  "ru": "В «Настройках вида» отметьте «Шкала фазы».",
-  "note": "UX20: Y's options are behind its Display options button on a desktop."
+  "en": "Turn on Phase key.",
+  "ru": "Отметьте «Шкала фазы».",
+  "note": "UX20; #247: on a desktop the check is a toggle in Y's pane head (or behind the head's ⋯), so the task is the touch one, v164-tour.json try.key."
  },
  "key.cell": {
   "en": "cell {x}",

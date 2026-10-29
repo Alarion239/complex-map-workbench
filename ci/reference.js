@@ -8,22 +8,34 @@ const { ROOT, PY, run } = require('./lib');
 
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
 
+// the worktree's node_modules is a link (a junction on Windows) to the checkout's: removed as the link before the worktree
+// is, so that no git or Node that follows links can ever empty the checkout's node_modules
+function dropLink(dir) {
+  const l = path.join(dir, 'node_modules');
+  try {
+    if (!fs.lstatSync(l).isSymbolicLink()) return;
+    try { fs.unlinkSync(l); } catch (e) { fs.rmdirSync(l); }
+  } catch (e) { /* no link */ }
+}
 // -> { sha, dir, dist } with dir/dist/test.html built
 function buildReference(ref) {
   const sha = git('rev-parse', '--verify', `${ref}^{commit}`);
   const dir = path.join(ROOT, '.ci', `ref-${sha.slice(0, 12)}`);
   const dist = path.join(dir, 'dist');
   if (fs.existsSync(path.join(dist, 'test.html'))) return { sha, dir, dist };
-  if (fs.existsSync(dir)) { try { git('worktree', 'remove', '--force', dir); } catch (e) { fs.rmSync(dir, { recursive: true, force: true }); } }
+  if (fs.existsSync(dir)) { dropLink(dir); try { git('worktree', 'remove', '--force', dir); } catch (e) { fs.rmSync(dir, { recursive: true, force: true }); } }
   git('worktree', 'prune');
   git('worktree', 'add', '--detach', dir, sha);
+  // (the build may run the bundler, which the worktree finds in the checkout's node_modules: npm ci has run there)
+  const nm = path.join(ROOT, 'node_modules');
+  if (fs.existsSync(nm)) fs.symlinkSync(nm, path.join(dir, 'node_modules'), 'junction');
   if (run(PY, ['build.py'], { cwd: dir }) !== 0) throw new Error(`the reference ${sha} did not build`);
   return { sha, dir, dist };
 }
 
-// true when the app (src/, build.py and its tools/src_parts.py; or the given paths) is the same at ref as in the
-// checkout: a paired gate then has nothing to compare
-function sameApp(ref, paths = ['src', 'build.py', 'tools/src_parts.py']) {
+// true when the app (src/, build.py, its tools/src_parts.py and tools/bundle.mjs; or the given paths) is the same at ref as
+// in the checkout: a paired gate then has nothing to compare
+function sameApp(ref, paths = ['src', 'build.py', 'tools/src_parts.py', 'tools/bundle.mjs']) {
   try { execFileSync('git', ['diff', '--quiet', ref, '--', ...paths], { cwd: ROOT }); return true; } catch (e) { return false; }
 }
 

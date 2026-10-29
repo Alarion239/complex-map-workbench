@@ -4,8 +4,8 @@
 // without it gets them here: require('./i18n.js'), or, in a vm context without require, this English-only stub
 // (the same placeholder rule as i18n.js; English is the identity, notes/i18n/DESIGN.md 1).
 if (typeof I18N === 'undefined' && typeof globalThis !== 'undefined' && typeof /** @type {any} */ (globalThis).$t !== 'function') {
-  if (typeof require === 'function') require('./i18n.js');
-  else {
+  // (an ES module: node's tests get this English fallback; the page runs i18n.js before the bundle)
+  {
     const fill = (s, p) => {
       if (!p) return s;
       const tex = /[$\\]/.test(s);
@@ -267,10 +267,12 @@ const CX = (() => {
   function zetaEM(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    const ms = neg(s);
-    let sum = ZERO;
-    for (let k = 1; k < N; k++) sum = add(sum, exp(scale(ms, Math.log(k))));
-    const lnN = Math.log(N), Nms = exp(scale(ms, lnN));   // N^{−s}
+    // ([issue #277] k^{−s} from the multiplicative table, one exp per prime: about half the cost, to rounding)
+    const { re, im } = powTable(s, N);
+    let sr = 0, si = 0;
+    for (let k = 1; k < N; k++) { sr += re[k]; si += im[k]; }
+    let sum = C(sr, si);
+    const Nms = C(re[N], im[N]);   // N^{−s}
     sum = add(sum, scale(Nms, 0.5));
     sum = add(sum, div(scale(Nms, N), sub(s, ONE)));
     // the Bernoulli terms: P_j = s(s+1)…(s+2j−2), N^{−s−2j+1}
@@ -287,10 +289,12 @@ const CX = (() => {
   function zetaEMd(s) {
     if (s.re === 1 && s.im === 0) return INF;
     const N = Math.ceil(Math.abs(s.im)) + 15;
-    const ms = neg(s);
-    let sum = ZERO;
-    for (let k = 2; k < N; k++) { const lk = Math.log(k); sum = sub(sum, scale(exp(scale(ms, lk)), lk)); }
-    const lnN = Math.log(N), Nms = exp(scale(ms, lnN)), s1 = sub(s, ONE);
+    // (k^{−s} from the multiplicative table, as zetaEM)
+    const { re, im } = powTable(s, N);
+    let sr = 0, si = 0;
+    for (let k = 2; k < N; k++) { const lk = Math.log(k); sr -= re[k] * lk; si -= im[k] * lk; }
+    let sum = C(sr, si);
+    const lnN = Math.log(N), Nms = C(re[N], im[N]), s1 = sub(s, ONE);
     sum = sub(sum, scale(Nms, 0.5 * lnN));
     // d/ds N^{1−s}/(s − 1) = −N^{1−s} (log N/(s − 1) + 1/(s − 1)²)
     const r = inv(s1);
@@ -329,6 +333,138 @@ const CX = (() => {
     const one = sub(ONE, s);
     const L = add(add(add(scale(s, Math.LN2), scale(sub(s, ONE), LOG_PI)), logSin(scale(s, Math.PI / 2))), lgamma(one));
     return mul(exp(L), zetaEM(one));
+  }
+  // ---- Dirichlet series Σ a_k k^{−s} (issues #242, #244) ----
+  // k^{−w} for k = 1 … K: completely multiplicative, so one exp per prime and a product for the others (the smallest
+  // prime factor table grows on demand). A few ulps from the direct exp at most. The table is shared: valid until the
+  // next call
+  /** @type {{ n: number, p: Int32Array }} */
+  const SPF = { n: 0, p: new Int32Array(0) };
+  function spf(K) {
+    if (SPF.n < K) {
+      const n = Math.max(K, 2 * SPF.n, 4096), p = new Int32Array(n + 1);
+      for (let i = 2; i <= n; i++) if (!p[i]) for (let j = i; j <= n; j += i) if (!p[j]) p[j] = i;
+      SPF.n = n; SPF.p = p;
+    }
+    return SPF.p;
+  }
+  let PT = { re: new Float64Array(0), im: new Float64Array(0) };
+  /** @param {{re: number, im: number}} w @param {number} K */
+  function powTable(w, K) {
+    if (PT.re.length <= K) PT = { re: new Float64Array(2 * K + 2), im: new Float64Array(2 * K + 2) };
+    const P = spf(K), re = PT.re, im = PT.im;
+    re[1] = 1; im[1] = 0;
+    for (let k = 2; k <= K; k++) {
+      const p = P[k];
+      if (p === k) { const L = Math.log(k), m = Math.exp(-w.re * L), t = -w.im * L; re[k] = m * Math.cos(t); im[k] = m * Math.sin(t); } else {
+        const j = k / p;
+        re[k] = re[p] * re[j] - im[p] * im[j]; im[k] = re[p] * im[j] + im[p] * re[j];
+      }
+    }
+    return PT;
+  }
+  // the form of the coefficients a (a_k for k = lo, lo + 1, …): from some K0 on, a_k = b_{(k − K0) mod q} k^p, with a period
+  // q ≤ DIR_Q and a real power p (1, 1/n², (−1)^n, i^n, n² cos(πn/2) and the characters), checked to 1e-11 over the
+  // second half of a at least, and at most DIR_HEAD other terms before K0. {q, p, b, B, K0, lo, head} (head: a_k k^{−p}
+  // for k < K0; B = Σ b_r, exactly 0 when it vanishes to rounding: the series then converges for Re s > p, else for
+  // Re s > p + 1), or null
+  const DIR_Q = 24, DIR_HEAD = 64;
+  function dirichletForm(lo, a) {
+    const n = a.length, jE = n - 1;
+    if (n < 64) return null;
+    const make = (q, p, b, jH) => {
+      let B = ZERO, m = 0;
+      for (const x of b) { B = add(B, x); m += abs(x); }
+      if (abs(B) <= 1e-12 * m) B = ZERO;
+      return { q, p, b, B, K0: lo + jH, lo, head: a.slice(0, jH).map((x, i) => scale(x, Math.pow(lo + i, -p))) };
+    };
+    // (coefficients that end in zeros: a Dirichlet polynomial)
+    let last = jE;
+    while (last >= 0 && isZero(a[last])) last--;
+    if (last < n / 2) return last < DIR_HEAD ? make(1, 0, [ZERO], last + 1) : null;
+    for (let q = 1; q <= DIR_Q; q++) {
+      // p from two terms of one residue: the largest in the last period and the one about half the terms before it
+      let j1 = jE;
+      for (let j = jE - 1; j > jE - q; j--) if (abs(a[j]) > abs(a[j1])) j1 = j;
+      const j0 = j1 - q * Math.floor(n / 2 / q);
+      let p = Math.log(abs(a[j1]) / abs(a[j0])) / Math.log((lo + j1) / (lo + j0));
+      if (!Number.isFinite(p)) continue;
+      if (Math.abs(p - Math.round(2 * p) / 2) < 1e-9) p = Math.round(2 * p) / 2;
+      // b by the residue of the index j = k − lo (K0 − lo is a multiple of q)
+      const b = [];
+      let bm = 0;
+      for (let j = jE - q + 1; j <= jE; j++) { b[j % q] = scale(a[j], Math.pow(lo + j, -p)); bm = Math.max(bm, abs(b[j % q])); }
+      // (to 1e-11 of the term, or 1e-12 of the sequence's size there: sin(πn/2) is 1e-13, not 0, at large even n)
+      const near = (x, k) => { const kp = Math.pow(k, p), y = scale(b[(k - lo) % q], kp); return Math.hypot(x.re - y.re, x.im - y.im) <= 1e-11 * Math.max(abs(x), abs(y)) + 1e-12 * bm * kp; };
+      let j = jE;
+      while (j >= 0 && near(a[j], lo + j)) j--;
+      const jH = Math.ceil((j + 1) / q) * q;
+      // (b again from the first period kept: the formula's values are most exact at small n, as (−1)^n, an exp past n = 1100)
+      if (jH <= DIR_HEAD && jH <= n / 2) return make(q, p, b.map((x, r) => scale(a[jH + r], Math.pow(lo + jH + r, -p))), jH);
+    }
+    return null;
+  }
+  // (e^u − 1)/u, accurate near u = 0
+  function expm1Over(u) {
+    if (u.re === 0 && u.im === 0) return ONE;
+    const em = Math.expm1(u.re), h = Math.sin(u.im / 2);
+    return div(C(em * Math.cos(u.im) - 2 * h * h, (em + 1) * Math.sin(u.im)), u);
+  }
+  // Σ_{k ≥ lo} a_k k^{−s} for coefficients of that form, where it converges (Re w > 1, or > 0 when B = 0; w = s − p):
+  // {S, A} (A: the sum of the sizes of what was added, for the cancellation test). Per residue r, Σ_{m ≥ N} (X_r + qm)^{−w}
+  // by Euler–Maclaurin in m, as zetaEM: X^{−w} (X/(q(w − 1)) + ½ + Σ_{j≤M} B₂ⱼ/(2j)! P_j (q/X)^{2j−1}), X = K0 + r + qN,
+  // P_j = w(w+1)…(w+2j−2), N = |Im w| + 15. The poles X_r^{1−w}/(q(w − 1)) are summed as
+  // X_0^{1−w} (B/(w − 1) − Σ b_r d_r (e^{(1−w)d_r} − 1)/((1−w)d_r))/q, d_r = log(X_r/X_0), so they cancel exactly when
+  // B = 0 (η, characters): no 0/0 at w = 1
+  function dirichletEM(F, s) {
+    const w = sub(s, C(F.p, 0)), q = F.q, b = F.b, K0 = F.K0, nb = b.every(isZero);
+    const N = Math.ceil(Math.abs(w.im)) + 15, X0 = K0 + q * N, K = nb ? K0 : X0 + q - 1;
+    const { re, im } = powTable(w, K);
+    let Sr = 0, Si = 0, A = 0;
+    F.head.forEach((h, i) => { const k = F.lo + i, tr = h.re * re[k] - h.im * im[k], ti = h.re * im[k] + h.im * re[k]; Sr += tr; Si += ti; A += Math.hypot(tr, ti); });
+    if (nb) return { S: C(Sr, Si), A };
+    for (let k = K0, r = 0; k < X0; k++, r = r + 1 === q ? 0 : r + 1) {
+      const x = b[r], tr = x.re * re[k] - x.im * im[k], ti = x.re * im[k] + x.im * re[k];
+      Sr += tr; Si += ti; A += Math.hypot(tr, ti);
+    }
+    // P_j, then per residue the bracket ½ + Σ c_j P_j h^{2j−1} (h = q/X) by Horner in h²
+    const P = [w];
+    for (let j = 1; j < EM_C.length; j++) P.push(mul(P[j - 1], mul(add(w, C(2 * j - 1, 0)), add(w, C(2 * j, 0)))));
+    const w1 = sub(w, ONE), u0 = neg(w1);
+    let pole = isZero(F.B) ? ZERO : div(F.B, w1);
+    for (let r = 0; r < q; r++) {
+      if (isZero(b[r])) continue;
+      const X = X0 + r, h = q / X, h2 = h * h;
+      let br = ZERO;
+      for (let j = EM_C.length - 1; j >= 0; j--) br = add(scale(br, h2), scale(P[j], EM_C[j]));
+      br = add(scale(br, h), C(0.5, 0));
+      const t = mul(b[r], mul(C(re[X], im[X]), br));
+      Sr += t.re; Si += t.im; A += abs(t);
+      if (r) { const d = Math.log1p(r / X0); pole = sub(pole, scale(mul(b[r], expm1Over(scale(u0, d))), d)); }
+    }
+    pole = scale(mul(pole, C(re[X0], im[X0])), X0 / q);
+    return { S: C(Sr + pole.re, Si + pole.im), A: A + abs(pole) };
+  }
+  // Σ a_k k^{−s} over the coefficients a (from k = lo) for coefficients of no such form, absolutely convergent for
+  // Re s > σ: s ↦ {S, A} summed until the rest, at most G k^{σ−Re s}/(Re s − σ) with G the largest |a_j| j^{1−σ} past
+  // k (past a: that of its last 64), is below tol of the sum; null when it is still above end of it after all of a
+  function dirichletPartial(lo, a, sigma, tol, end) {
+    const n = a.length, K = lo + n - 1, G = new Float64Array(n + 1);
+    G[n] = Math.max(...a.slice(-64).map((x, j) => abs(x) * Math.pow(K - 63 + j, 1 - sigma)));
+    for (let j = n - 1; j >= 0; j--) G[j] = Math.max(G[j + 1], abs(a[j]) * Math.pow(lo + j, 1 - sigma));
+    return (s) => {
+      const { re, im } = powTable(s, K), sp = s.re - sigma;
+      let Sr = 0, Si = 0, A = 0;
+      for (let j = 0; j < n; j++) {
+        const x = a[j], k = lo + j;
+        if (x.re === 0 && x.im === 0) continue;
+        const tr = x.re * re[k] - x.im * im[k], ti = x.re * im[k] + x.im * re[k];
+        Sr += tr; Si += ti; A += Math.hypot(tr, ti);
+        if (j >= 8 && (j & 7) === 0 && G[j + 1] * Math.pow(k, -sp) / sp <= tol * Math.hypot(Sr, Si)) break;
+        if (j === n - 1 && !(G[n] * Math.pow(k, -sp) / sp <= end * Math.hypot(Sr, Si))) return null;
+      }
+      return { S: C(Sr, Si), A };
+    };
   }
   // Möbius matrices [a,b,c,d] and the one-parameter path A^t (A normalised to SL2).
   // The same map scaled by a power of two (exact), so that its largest entry has magnitude about 1.
@@ -562,8 +698,8 @@ const CX = (() => {
   return {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
-    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX,
+    exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX, dirichletForm, dirichletEM, dirichletPartial, powTable, DIR_Q, DIR_HEAD,
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
-if (typeof module !== 'undefined') module.exports = CX;
+export { CX, CX as 'module.exports' };

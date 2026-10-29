@@ -160,6 +160,15 @@ const SphereMesh = (() => {
     const shape = cfg.shape;
     const Lfun = Region.levelOf(shape);
     const distLike = shape.kind !== 'formula';
+    // a region whose formula iterates (iter(...): an escape test such as the Mandelbrot set's) costs up to N steps per
+    // level evaluation, and its fractal boundary crosses many leaves: the boundary is found by fewer halvings of a
+    // leaf's edge (2^-18 of a leaf of at most P_SRC px near the boundary: far below a pixel) instead of to the double's
+    // last bits. Other regions are unchanged
+    const iterL = shape.kind === 'formula' && /\\operatorname\{iter\}|\biter\s*\(/.test(shape.expr || '');
+    const HALV = iterL ? 18 : 40, HALV_BND = iterL ? 14 : 30;
+    // and its level evaluations count in the work budget (each as LEVW map evaluations: an escape test of about 64
+    // steps against a map of a few), so its mesh ends on the budget instead of the time cap (10 s on a desktop)
+    const LEVW = iterL ? 8 : 0;
     const left = cfg.left;
     const view = cfg.view;
     const flat = view.kind === 'flat';
@@ -801,7 +810,7 @@ const SphereMesh = (() => {
       let c = eclip.get(k);
       if (c !== undefined) return c;
       let a = [PX[p], PY[p], PZ[p]], b = [PX[q], PY[q], PZ[q]];
-      for (let it = 0; it < 40; it++) {
+      for (let it = 0; it < HALV; it++) {
         const x = a[0] + b[0], y = a[1] + b[1], z = a[2] + b[2], n = Math.hypot(x, y, z), m = [x / n, y / n, z / n];
         if (levAt(zOf3(m[0], m[1], m[2])) > 0) a = m; else b = m;
       }
@@ -1104,7 +1113,7 @@ const SphereMesh = (() => {
       const sIn = levAt(zm) > 0;
       const k = ins.findIndex((x) => x !== sIn);
       let pa = m, pb = [PX[v[k]], PY[v[k]], PZ[v[k]]];
-      for (let it = 0; it < 30; it++) {
+      for (let it = 0; it < HALV_BND; it++) {
         const x = pa[0] + pb[0], y = pa[1] + pb[1], z = pa[2] + pb[2], n = Math.hypot(x, y, z), q = [x / n, y / n, z / n];
         if ((levAt(zOf3(q[0], q[1], q[2])) > 0) === sIn) pa = q; else pb = q;
       }
@@ -1183,7 +1192,7 @@ const SphereMesh = (() => {
         }
         processT(t);
         if (nt > MAXNODES) { budgetHit = true; budgetWhy = 'nodes'; break; }
-        if (nEval + 12 * (SW ? SW.stepProbes : 0) > MAXWORK) { budgetHit = true; budgetWhy = 'work'; break; }
+        if (nEval + 12 * (SW ? SW.stepProbes : 0) + LEVW * nLev > MAXWORK) { budgetHit = true; budgetWhy = 'work'; break; }
         {
           const el = now() - t0;
           if (msUsed + el > BUDGET_MS) { budgetHit = true; budgetWhy = 'time'; break; }
@@ -1324,7 +1333,7 @@ const SphereMesh = (() => {
       return s;
     }
     function stats() {
-      return { nodes: nt, verts: nv, evals: nEval, probes: nProbe, stepProbes: SW ? SW.stepProbes : 0, work: nEval + 12 * (SW ? SW.stepProbes : 0), levels: nLev, K, ms: msUsed, budgetHit, budgetWhy, done: finished, counts, leaves: leafStates() };
+      return { nodes: nt, verts: nv, evals: nEval, probes: nProbe, stepProbes: SW ? SW.stepProbes : 0, work: nEval + 12 * (SW ? SW.stepProbes : 0) + LEVW * nLev, levels: nLev, K, ms: msUsed, budgetHit, budgetWhy, done: finished, counts, leaves: leafStates() };
     }
     // CPU bytes held: the refinement structures until disposed, then the published arrays
     function bytes() {
@@ -1359,4 +1368,6 @@ const SphereMesh = (() => {
   const APP = { maxWork: 250000, maxNodes: 300000, guard: 2, workOf: (K) => Math.max(250000, 85000 * K) };
   return { create, kOf, KCAP, APP, lift, liftConj, stagewise, atInfOf, probeStep, FIN, INF, UNDEF, FINAL, PAT_POLAR, PAT_CART };
 })();
-if (typeof module !== 'undefined') module.exports = SphereMesh;
+import { CX } from './cx.js';
+import { Region } from './region.js';
+export { SphereMesh, SphereMesh as 'module.exports' };

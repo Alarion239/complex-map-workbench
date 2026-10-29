@@ -15,7 +15,7 @@ for (const k of ['lane', 'laneHide', 'laneId']) ok(`Tour.${k} is a function`, ty
 ok('no DOM: Tour.lane shows nothing', Tour.lane({ id: 'x', title: 't' }) === false);
 ok('no DOM: no lane line', Tour.laneId() === null);
 ok('no DOM: Tour.laneHide is safe', (() => { try { Tour.laneHide('x'); return true; } catch (e) { return false; } })());
-const SRC = fs.readFileSync(path.join(__dirname, '../src/tour.js'), 'utf8');
+const SRC = require('./src_text').source('tour.js', { esm: 'strip' });
 ok('the first-run suggestion is a lane line, not the old card', /laneShow\(\{ id: 'suggest'/.test(SRC) && !/class: 'tour-suggest'/.test(SRC));
 ok('the lane reserves its room as the strip does (--tour-h, --ph-tour)', /--tour-h', \(LANE_H \+ SLOT_GAP\)/.test(SRC) && /--ph-tour', \(mode === 'port' \? 56/.test(SRC));
 ok('UX21: the line\'s words are never cut: laneFit drops the optional part (the invitation\'s description) before cutting', /function laneFit\(\)/.test(SRC) && /drop: 'body'/.test(SRC) && /\.tour-lane\[data-mode="desk"\]:not\(\.two\) \.tl-text/.test(SRC));
@@ -39,10 +39,11 @@ const plain = (s) => T.plainCopy(s, 'Ctrl');
 ok('UX90: the welcome lead says what is cleared', w.lead === 'Practice freely: what you draw here is cleared at the end.', w.lead);
 ok('UX90: the lead keeps the strip\'s rule (one sentence, at most 60, a full stop)', plain(w.lead).length <= 60 && /\.$/.test(w.lead));
 ok('UX77: Details adds to the lead (it no longer repeats it)', !w.body.includes(w.lead) && /your own work comes back exactly as it was/.test(w.body), w.body);
-ok('UX77: Details starts folded on every size', /whyOpen = rec\.why != null \? rec\.why : false/.test(SRC) && !/vpSize\(\)\.w >= 1280 && vpSize\(\)\.h >= 800/.test(SRC));
-ok('UX77: the toggle is called Details', /\$t\('Details'\)/.test(SRC) && !/\$t\('Why'\)/.test(SRC));
+ok('#250: no Details control: its words, its aria-label and its rec.why are gone', !/\$t\('Details'\)/.test(SRC) && !/rec\.why/.test(SRC));
+ok('#250: Move on by itself is a small switch in a laptop\'s row, and the phone\'s sheet keeps it', /ts-autob/.test(SRC) && /ts-auto/.test(SRC));
 const key = step('views', 'key');
-ok('UX20: the Phase key step lights the Display options button when the check is behind it', key.anchor[1] === 'rightOpts' && /Display options/.test(key.try.text) && key.try.touch === 'Turn on Phase key.', key.try);
+// (#247: the check is a toggle in Y's head, so the task names the check alone; the head's ⋯ is lit when it is behind it)
+ok('UX20: the Phase key step lights the head\'s ⋯ button when the check is behind it', key.anchor[1] === 'rightOpts' && key.try.text === 'Turn on Phase key.', key.try);
 ok('UX20: the step\'s task text keeps the strip\'s length', plain(key.try.text).length <= 60, key.try.text);
 
 // ---- Russian (UX78, UX93 and every string of this piece)
@@ -53,7 +54,7 @@ ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (wave 1 merge: V165_HERE is one set holding every piece's table, this one among them)
 ok('make_ru_table.py reads the table after every v16.4 one', /V165_HERE = \{[^}]*'v165-ux-learn\.json'[^}]*\}/.test(MK) && MK.indexOf("glob('v165-*.json')") > MK.lastIndexOf("glob('v164-*.json')"));
-const TABLE = (() => { const s = fs.readFileSync(path.join(__dirname, '../src/i18n_ru.js'), 'utf8'); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
+const TABLE = (() => { const s = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
 const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;
 // (the old Help "Deformation" paragraph has no stopgap Russian any more: the app calls the release's paragraph, whose
 // Russian comes from v164-help.json)

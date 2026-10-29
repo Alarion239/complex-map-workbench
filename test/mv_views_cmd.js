@@ -39,13 +39,13 @@ ok('Phase is full width', Lp.wL > 2 * split, { wL: Lp.wL, split });
 const chrome = await ev(`({ paneR: getComputedStyle(document.getElementById('paneR')).display, gutter: getComputedStyle(document.getElementById('gutterCol')).display, leftSolo: document.getElementById('leftSolo').hidden, title: document.getElementById('leftTitle').textContent })`);
 ok('Phase: no second pane, no gutter, no expand button', chrome.paneR === 'none' && chrome.gutter === 'none' && chrome.leftSolo === true, chrome);
 ok('Phase title', /z-plane\s*phase of F/.test(chrome.title), chrome.title);
-// (v16.5 UX20: on a desktop the plane's option bar left the picture: its controls are in the Display options popover
-// of the pane head; a real click opens it, and it is closed again after the checks)
-const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .opts-btn'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
-const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
-const closeOpts = async () => { await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200); };
+// (v16.5 UX20: on a desktop the plane's option bar left the picture: #247: its controls are in the pane head, those that
+// do not fit behind the head's ⋯ button; a real click opens that, and it is closed again after the checks)
+const optsXY = () => ev(`(() => { const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+const openOpts = async () => { const b = await optsXY(); if (b && (await ev(`document.querySelector('#leftFoot .opts-btn:not(.pat-btn)').getAttribute('aria-expanded')`)) !== 'true') { await click(b[0], b[1]); await settle(300); } return !!b; };
+const closeOpts = async () => { await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(200); };
 await openOpts();
-ok('Phase strip (v16.5 UX20: in Display options): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
+ok('Phase strip (#247: in the pane head): the style control shows', !!(await rect('dcSeg')), await rect('dcSeg'));
 await closeOpts();
 ok('Phase legend, no Key switch there (review: it acted on a hidden pane)', await ev(`!document.getElementById('leftLegend').hidden && document.getElementById('wKeyRow').hidden`), null);
 await key('3'); await settle(900);

@@ -7,11 +7,11 @@
 // HomRange.make(env): env = { n, stepFn(k), isDeriv(k), stepActive(k), stageF(k), rangeF(a, b), built, C, uidOf?(k) }
 // (n and built may be values or functions: the app passes getters, so one instance follows the live chain)
 // -> { resolve(S), range(S), state(S, T, rel, base), cpuMap(map), homF(k, t), H0(S, rel), lastDeriv(), allowed(S) }
-(function (root, factory) {
-  const M = factory();
-  if (typeof module === 'object' && module.exports) module.exports = M;
-  else /** @type {any} */ (root).HomRange = M;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+const HomRange = (function (factory) {
+  const M = factory(); if (typeof window !== 'undefined') window.HomRange = M;
+  return M;
+  // (ES module: the factory's value is the module's export, HomRange)
+})(function () {
   function make(env) {
     const C = env.C;
     const N = () => (typeof env.n === 'function' ? env.n() : env.n);
@@ -165,3 +165,4 @@
   }
   return { make };
 });
+export { HomRange, HomRange as 'module.exports' };
