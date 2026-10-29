@@ -245,19 +245,29 @@ float wabs(vec2 w) {
   // last deformation mode asked for here)
   let aheadMode = 1;
   const EDGE_PROGS = ['landEdgeS', 'landEdgeH', 'landEdge2'];
+  // (the programs prestartModes starts, started or not: each chain program the views draw for the current chain, in
+  // each of these map modes)
+  function modesPlan(modes) {
+    const out = [];
+    if (sideMode || !cur.info) return out;
+    for (const e of [...progs.values()]) {
+      if (!e.chain || e.inv || e.side || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
+      for (const m of modes) {
+        const mm = modeOf({ mode: m });
+        if (mm) out.push({ name: e.name, mode: mm, id: progId(e.name, cur, { mode: mm }) });
+      }
+    }
+    return out;
+  }
   function prestartModes(modes) {
     const dm = modes.map((m) => modeOf({ mode: m })).find((m) => m === 1 || m === 3);
     if (dm) aheadMode = dm;
     if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
     let n = 0;
-    for (const e of [...progs.values()]) {
-      if (!e.chain || e.inv || e.side || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
-      for (const m of modes) {
-        const mm = modeOf({ mode: m });
-        if (!mm || progs.has(progId(e.name, cur, { mode: mm }))) continue;
-        getProg(e.name, cur, true, { mode: mm });
-        n++;
-      }
+    for (const q of modesPlan(modes)) {
+      if (progs.has(q.id)) continue;
+      getProg(q.name, cur, true, { mode: q.mode });
+      n++;
     }
     return n;
   }
@@ -266,8 +276,8 @@ float wabs(vec2 w) {
   // -> the number started
   function prestartLand() {
     if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
-    let n = prestart(['landNrm']);
-    for (const name of ['landTF', 'land']) {
+    let n = prestart(LAND_STATIC);
+    for (const name of LAND_CHAIN) {
       if (progs.has(progId(name, cur, { mode: 0 }))) continue;
       getProg(name, cur, true, { mode: 0 });
       n++;
@@ -278,6 +288,79 @@ float wabs(vec2 w) {
   // started at init and after a context restore: that frame needs them anyway, and their links overlap the app's
   // start-up instead of each other
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark'];
+  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
+  // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
+  const GLOBE_PROGS = ['sphere', 'regionSC', 'lineSC', 'disc', 'mark'];
+  const LAND_STATIC = ['landNrm'];
+  const LAND_CHAIN = ['landTF', 'land'];
+  // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
+  // they have started: the lists above and the current chain's, so the total is known before the work is
+  function warmIds(group, modes) {
+    if (group === '2d') return PRESTART_2D.map((n) => n + '|static');
+    if (group === 'globe') return GLOBE_PROGS.map((n) => n + '|static');
+    if (!ok || lost || !pcExt || sideMode || !cur.info) return group === 'land' ? LAND_STATIC.map((n) => n + '|static') : [];
+    if (group === 'modes') return modesPlan(modes || []).map((q) => q.id);
+    if (group === 'land') return LAND_STATIC.map((n) => n + '|static').concat(LAND_CHAIN.map((n) => progId(n, cur, { mode: 0 })));
+    return [];
+  }
+  // How far the programs have come: {done, total, pending, groups}. The ids of each group count once each (a program in
+  // two groups counts in the first); done: linked (or failed: nothing more will come of it). Programs outside the
+  // lists that are compiling now (the exact images' inverse program, the chain's first-frame programs) are counted in
+  // total and pending, not in done, so the bar is full only when nothing is left. stateOf(id) is 'pending', 'ready',
+  // 'error' or undefined (not started); it reads the programs' own state, which the poll keeps current from
+  // COMPLETION_STATUS_KHR: a pending program is never asked for its link status here
+  function warmCount(groups, stateOf, extraPending) {
+    const seen = new Set(), out = { done: 0, total: 0, pending: 0, groups: {} };
+    for (const [g, ids] of groups) {
+      const r = { done: 0, total: 0 };
+      for (const id of ids) {
+        if (seen.has(id)) continue;
+        seen.add(id); r.total++;
+        const st = stateOf(id);
+        if (st === 'ready' || st === 'error') r.done++; else if (st === 'pending') out.pending++;
+      }
+      out.groups[g] = r; out.done += r.done; out.total += r.total;
+    }
+    for (const id of extraPending || []) if (!seen.has(id)) { seen.add(id); out.total++; out.pending++; }
+    return out;
+  }
+  // (known: the chain's own programs are listed: before its first frame only the static lists are, and the total is
+  // still to grow)
+  function warmStatus(modes) {
+    if (!ok || lost || !pcExt) return { done: 0, total: 0, pending: 0, groups: {}, known: true };
+    const groups = ['2d', 'modes', 'globe', 'land'].map((g) => [g, warmIds(g, modes)]);
+    const extra = [];
+    for (const e of progs.values()) if (e.state === 'pending' && !e.side) extra.push(e.id);
+    const r = warmCount(groups, (id) => { const e = progs.get(id); return e && e.state; }, extra);
+    r.known = groups[1][1].length > 0;
+    return r;
+  }
+  // The bar's rule, one step (a pure function of the counts and the clock, so it can be tested without a page):
+  // s: the state it returned last (null at the start), st: {done, total, unknown}, now: ms, o: {delay, hold}.
+  // -> {t0, frac, visible, indet, doneAt, working}. The bar shows only when work is still pending `delay` ms after it began (a
+  // warm program cache lands everything before that, and nothing flickers), never goes back (the total may grow as the
+  // chain's programs are listed: the fraction holds until the work catches up), is indeterminate while the total is
+  // unknown, and hides `hold` ms after the work is done. A later piece of work starts a new round.
+  function warmBarStep(s, st, now, o) {
+    const delay = o && o.delay != null ? o.delay : 300, hold = o && o.hold != null ? o.hold : 400;
+    s = s ? Object.assign({}, s) : { t0: now, frac: 0, visible: false, indet: false, doneAt: -1, working: false };
+    const work = st.total > st.done || !!st.unknown;
+    if (st.total > 0) s.frac = Math.max(s.frac, Math.min(1, st.done / st.total));
+    s.indet = !!st.unknown && work;
+    if (work) {
+      if (!s.working) { s.working = true; s.t0 = now; }   // (when this piece of work began)
+      s.doneAt = -1;
+      if (!s.visible && now - s.t0 >= delay) s.visible = true;
+    } else {
+      s.working = false;
+      if (s.visible) {
+        if (s.doneAt < 0) s.doneAt = now;
+        s.frac = 1;
+        if (now - s.doneAt >= hold) { s.visible = false; s.frac = 0; s.doneAt = -1; }
+      } else s.frac = 0;
+    }
+    return s;
+  }
   // A chain program whose background compile has landed is taken into use at most one per FRESH_MS while an earlier
   // version stands in (always for side chains): ANGLE completes a program's Metal side when it is first drawn, and
   // several of those in one frame held the GPU process, and so every frame on the page, for 100-250 ms (spec 8.7).

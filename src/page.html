@@ -738,6 +738,13 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .hairline { position: absolute; z-index: 11; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; }
 .hairline::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: var(--accent); animation: hairline 900ms var(--ease-inout) infinite; }
 @keyframes hairline { from { transform: translateX(-100%); } to { transform: translateX(334%); } }
+/* the start-up bar (issue #245): 3 px at the very top, over the page and out of the layout; it takes no input. The fill
+   is a transform, so a step of the count moves no layout. Unknown total: the sweep of the hairline, still when motion
+   is reduced. */
+#warmBar { position: fixed; z-index: 2000; left: 0; right: 0; top: 0; height: 3px; overflow: hidden; pointer-events: none; }
+#warmBar[hidden] { display: none; }
+#warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
+#warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
@@ -1980,6 +1987,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   *, *::before, *::after { transition-duration: 0ms !important; scroll-behavior: auto !important; }
   .led.busy { animation: none; opacity: 1; }
   .hairline::before { animation: none; width: 100%; opacity: 0.6; }
+  #warmBar.indet > i { animation: none; width: 100%; opacity: 0.6; }
   .pop, .toast, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
   .layout.drawer-right > .panel.right, .layout.drawer-left > .panel.left { animation: fade-in 80ms linear !important; }
   .lamp.flash { animation: none; }
@@ -2096,6 +2104,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 :root[data-lang="it"] #xfSize .xf-dim { display: none; }
 </style>
 
+<div id="warmBar" role="progressbar" aria-label="Preparing the page" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><i></i></div>
 <div id="app">
   <header class="top" id="top">
     <svg viewBox="0 0 28 28" width="22" height="22" aria-hidden="true" class="mark">

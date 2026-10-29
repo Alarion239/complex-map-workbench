@@ -411,10 +411,11 @@
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     if (!st || !st.pending) { gpuWait.delete(pane); return; }
+    warmKick();   // (the start-up bar counts the same programs)
     const now = performance.now();
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
     if (!gpuWait.has(pane)) { gpuWait.set(pane, now); setTimeout(() => requestRender(pane === paneL ? 'L' : 'R'), 1600); return; }
-    const n = GLR.pendingLinks || 0;
+    const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
     if (n && now - gpuWait.get(pane) > 1500) paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n }));
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.

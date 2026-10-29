@@ -473,7 +473,7 @@
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
   // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere). Not at start-up:
   // compiles there compete with the first scene's own (example settle times)
-  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(['sphere', 'regionSC', 'lineSC', 'disc', 'mark']); } catch (e) { /* the frame links them */ } }
+  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS); } catch (e) { /* the frame links them */ } }
   // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
   function setView(side, surf) {
     if (side === 'L' && lLand()) return;

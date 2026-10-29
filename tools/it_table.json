@@ -3072,6 +3072,8 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})",
+ "Preparing the page": "Preparazione della pagina",
+ "Preparing {done} of {total} shaders, first time only": "Shader preparati: {done} di {total} (solo la prima volta)",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",
  "the homotopy that runs the %{n} steps of the repeat in turn, each on an equal part of $0\\le t\\le 1$": "l'omotopia che esegue in successione i %{n} passi della ripetizione, ciascuno su una parte uguale di $0\\le t\\le 1$",
  "Repeated steps have no single inverse step; the exact renderer inverts them copy by copy when it can; {note}": "I passi ripetuti non hanno un unico passo inverso; il renderer esatto li inverte copia per copia quando può; {note}",

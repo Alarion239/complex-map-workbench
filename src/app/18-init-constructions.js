@@ -532,17 +532,22 @@
     const warmNext = () => {
       try {
         if (!GLR.ok || !GLR.prestartModes || warmI >= WARM.length) return;
-        if (GLR.compiling || (warmI && performance.now() - lastInputT < 1000)) { modesT = setTimeout(warmNext, 400); return; }
+        // (no group starts while the user is active: the first after 300 ms of quiet, the later ones after a second)
+        if (GLR.compiling || performance.now() - lastInputT < (warmI ? 1000 : 300)) { modesT = setTimeout(warmNext, 400); warmKick(); return; }
         WARM[warmI++]();
         modesT = setTimeout(warmNext, 400);
+        warmKick();
       } catch (e) { /* the views start them */ }
     };
+    // (the bar reads which group the driver is in: 'modes', 'globe', 'land', then 'done')
+    warmDriver = { finished: () => warmI >= WARM.length, phase: () => (warmI >= WARM.length ? (GLR.compiling ? 'land' : 'done') : ['modes', 'globe', 'land'][Math.max(0, warmI - 1)]) };
     const prestartModesIdle = () => { clearTimeout(modesT); warmI = 0; modesT = setTimeout(warmNext, 400); };
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
       // (thumbnails too: one drawn forward before an inverse program landed is redrawn; the others hit their cache)
       if (!w || w.main) { requestRender('L', 'R'); requestRender('T'); prestartModesIdle(); }
+      warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme
@@ -550,6 +555,7 @@
     readTheme();
     paneL = new Pane($('canvasL'), $('overlayL'));
     paneR = new Pane($('canvasR'), $('overlayR'));
+    warmKick();
     const loaded = load();
     setState(loaded || blankState());
     if (!Array.isArray(S.params)) setParams([]);
